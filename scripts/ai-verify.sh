@@ -227,16 +227,32 @@ fi
 
 DEVKITPRO="${DEVKITPRO:-/opt/devkitpro}"
 PPC_GCC="$DEVKITPRO/devkitPPC/bin/powerpc-eabi-gcc"
+export XASH_GAMECUBE_OGC_STACK="${XASH_GAMECUBE_OGC_STACK:-auto}"
 
 echo
 echo "== build probe: GameCube toolchain =="
-if [[ ! -x "$PPC_GCC" || ! -d "$DEVKITPRO/libogc" ]]; then
-	echo "verify: devkitPPC/libogc not found under $DEVKITPRO" >&2
+if [[ ! -x "$PPC_GCC" ]]; then
+	echo "verify: devkitPPC not found under $DEVKITPRO" >&2
 	echo "Set DEVKITPRO or use SKIP_GAMECUBE_BUILD=1 for harness-only checks." >&2
 	exit 1
 fi
+
+STACK_JSON="$(mktemp)"
+if ! python3 scripts/waifulib/gamecube_ogc_stack.py >"$STACK_JSON"; then
+	echo "verify: failed to resolve GameCube OGC stack" >&2
+	exit 1
+fi
+if ! python3 -c 'import json,sys; d=json.load(open(sys.argv[1])); raise SystemExit(0 if d.get("available") else 1)' "$STACK_JSON"; then
+	echo "verify: libogc2 (preferred for Swiss) or classic libogc not found under $DEVKITPRO" >&2
+	echo "Install: sudo (dkp-)pacman -S libogc2 libogc2-libdvm" >&2
+	echo "Or set XASH_GAMECUBE_OGC_STACK=libogc with classic libogc." >&2
+	echo "Set DEVKITPRO or use SKIP_GAMECUBE_BUILD=1 for harness-only checks." >&2
+	cat "$STACK_JSON" >&2
+	exit 1
+fi
 echo "compiler: $PPC_GCC"
-echo "libogc: $DEVKITPRO/libogc"
+python3 -c 'import json,sys; d=json.load(open(sys.argv[1])); print("ogc_stack: %s" % d.get("stack")); print("ogc_root: %s" % d.get("root")); print("fat: %s" % d.get("fat_provider"))' "$STACK_JSON"
+rm -f "$STACK_JSON"
 
 export DEVKITPRO
 export PATH="$DEVKITPRO/devkitPPC/bin:$DEVKITPRO/tools/bin:$PATH"

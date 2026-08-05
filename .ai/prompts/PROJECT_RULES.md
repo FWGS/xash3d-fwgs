@@ -1,7 +1,7 @@
 # Xash3D GameCube Port Rules
 
 Goal: make Xash3D progressively boot and run on Nintendo GameCube using
-devkitPPC and libogc.
+devkitPPC and libogc2 (Swiss-first) or classic libogc.
 
 ## Hard constraints
 
@@ -27,7 +27,7 @@ devkitPPC and libogc.
 - Desktop OpenGL and dynamic libraries are unavailable.
 - Main memory is 24 MiB; ARAM is 16 MiB and is not ordinary heap memory.
 - Prefer bounded or static allocation where practical.
-- Use libogc facilities for SD/FAT, timing, controller, video, and networking.
+- Use libogc2/libogc facilities for SD/FAT (prefer libdvm), timing, controller, video, and networking.
 
 ## Milestone order
 

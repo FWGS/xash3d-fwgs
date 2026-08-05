@@ -378,6 +378,62 @@ class GameCubeHostTests(unittest.TestCase):
 		self.assertTrue(ok)
 		self.assertIn("passed", note)
 
+	def test_ogc_stack_prefers_libogc2_for_swiss(self) -> None:
+		stack = load_script("ogc_stack", "scripts/waifulib/gamecube_ogc_stack.py")
+		with tempfile.TemporaryDirectory() as tmpdir:
+			dkp = Path(tmpdir)
+			ogc2 = dkp / "libogc2" / "gamecube"
+			(ogc2 / "include").mkdir(parents=True)
+			(ogc2 / "lib").mkdir(parents=True)
+			(ogc2 / "lib" / "libogc.a").write_bytes(b"ogc")
+			(ogc2 / "lib" / "libfat.a").write_bytes(b"fat")
+			(ogc2 / "lib" / "libdvm.a").write_bytes(b"dvm")
+			info = stack.resolve_ogc_stack(str(dkp), environ={"XASH_GAMECUBE_OGC_STACK": "auto"})
+			self.assertTrue(info["available"])
+			self.assertEqual(info["stack"], "libogc2")
+			self.assertEqual(info["fat_provider"], "libdvm")
+			self.assertIn("-DXASH_GAMECUBE_LIBOGC2=1", info["cflags_defines"])
+			self.assertIn("-DXASH_GAMECUBE_LIBDVM=1", info["cflags_defines"])
+			self.assertIn("-mogc", info["linkflags"])
+			self.assertIn("-L%s" % (ogc2 / "lib"), info["linkflags"])
+			flags = stack.engine_extra_ldflags(info)
+			self.assertIn("-lfat", flags)
+			self.assertNotIn("-ldvm", flags)
+			self.assertIn("-lasnd", flags)
+			self.assertIn("-liso9660", flags)
+
+	def test_ogc_stack_falls_back_to_classic_libogc(self) -> None:
+		stack = load_script("ogc_stack_classic", "scripts/waifulib/gamecube_ogc_stack.py")
+		with tempfile.TemporaryDirectory() as tmpdir:
+			dkp = Path(tmpdir)
+			classic = dkp / "libogc"
+			(classic / "include").mkdir(parents=True)
+			(classic / "lib" / "cube").mkdir(parents=True)
+			(classic / "share").mkdir(parents=True)
+			(classic / "lib" / "cube" / "libogc.a").write_bytes(b"ogc")
+			(classic / "lib" / "cube" / "libfat.a").write_bytes(b"fat")
+			(classic / "share" / "ogc.specs").write_text("SPEC\n", encoding="utf-8")
+			info = stack.resolve_ogc_stack(str(dkp), environ={"XASH_GAMECUBE_OGC_STACK": "auto"})
+			self.assertTrue(info["available"])
+			self.assertEqual(info["stack"], "libogc")
+			self.assertEqual(info["fat_provider"], "libfat")
+			self.assertTrue(any(flag.startswith("-specs=") for flag in info["linkflags"]))
+
+	def test_ogc_stack_swiss_contract_in_tree(self) -> None:
+		sys_gc = (ROOT / "engine/platform/gamecube/sys_gamecube.c").read_text(encoding="utf-8")
+		build = (ROOT / "scripts/build-gamecube.sh").read_text(encoding="utf-8")
+		verify = (ROOT / "scripts/ai-verify.sh").read_text(encoding="utf-8")
+		readme = (ROOT / "README.md").read_text(encoding="utf-8")
+		docs = (ROOT / "docs/GAMECUBE_BUILDING_GAMECUBE.md").read_text(encoding="utf-8")
+		xcompile = (ROOT / "scripts/waifulib/xcompile.py").read_text(encoding="utf-8")
+		self.assertIn("OGC stack=libogc2", sys_gc)
+		self.assertIn("XASH_GAMECUBE_OGC_STACK", build)
+		self.assertIn("gamecube_ogc_stack.py", verify)
+		self.assertIn("libogc2", readme)
+		self.assertIn("libdvm", docs)
+		self.assertIn("resolve_ogc_stack", xcompile)
+		self.assertIn("loader=swiss", build)
+
 
 if __name__ == "__main__":
 	unittest.main()

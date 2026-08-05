@@ -2,7 +2,8 @@
 
 ## Current status
 
-The repository has a devkitPPC/libogc Waf target, GameCube platform sources,
+The repository has a Swiss-first Waf target (devkitPPC / libogc2 + libdvm,
+classic libogc fallback), GameCube platform sources,
 GX renderer sources, static client/server stubs, and an end-to-end build script
 at `scripts/build-gamecube.sh`. A PowerPC ELF and `OUT/bin/boot.dol` have been
 produced locally. That proves a link and conversion step completed; it does not
@@ -1330,7 +1331,8 @@ claiming the port is release-complete.
 
 ### Setup and build requirements
 
-- Toolchain: devkitPPC/libogc through `scripts/gamecube-env.sh`.
+- Toolchain: Swiss-first libogc2/libdvm (classic libogc fallback) through
+  `scripts/gamecube-env.sh` and `scripts/waifulib/gamecube_ogc_stack.py`.
 - Engine build: `scripts/build-gamecube.sh`.
 - HLSDK integration: `scripts/hlsdk-gamecube-apply-patch.py` followed by
   `scripts/hlsdk-gamecube-build.sh` when rebuilding the external ignored
@@ -3648,3 +3650,18 @@ manual hardware validation with all artifacts generated and documented.
 - PASS requires CHANGELEVEL_READY/G68 ready, G100 landmark restore, memory + frame telemetry, and bounded MEM growth.
 - Host proof: `python3 -m unittest tests.test_gamecube_host.GameCubeHostTests.test_g509_changelevel_soak_dry_run tests.test_gamecube_host.GameCubeHostTests.test_g509_soak_parser_accepts_changelevel_ready`
 - Next blocker: real Dolphin G509 soak iterations and G508 runtime marker.
+
+## Swiss / libogc2 stack modernization (2026-08-05)
+
+- Prefer Extrems **libogc2** + **libdvm** for Swiss hardware launches; classic
+  libogc remains an explicit fallback via `XASH_GAMECUBE_OGC_STACK`.
+- Resolver: `scripts/waifulib/gamecube_ogc_stack.py` (used by Waf, HLSDK patch,
+  `scripts/build-gamecube.sh`, `scripts/ai-verify.sh`).
+- Platform bootstrap reports `OGC stack=libogc2 fat=libdvm (Swiss)` when built
+  against that stack; ASND audio kept (libansnd later).
+- Docs: `docs/GAMECUBE_BUILDING_GAMECUBE.md` rewritten for the Swiss path.
+- Host proof:
+  `python3 -m unittest tests.test_gamecube_host.GameCubeHostTests.test_ogc_stack_prefers_libogc2_for_swiss tests.test_gamecube_host.GameCubeHostTests.test_ogc_stack_falls_back_to_classic_libogc tests.test_gamecube_host.GameCubeHostTests.test_ogc_stack_swiss_contract_in_tree`
+- Operator install: `sudo (dkp-)pacman -S libogc2` and choose `libogc2-libdvm`.
+- Next blocker: rebuild engine/HLSDK on a machine with libogc2 installed; then
+  re-run Dolphin G508/G509 probes with the Swiss-linked DOL.

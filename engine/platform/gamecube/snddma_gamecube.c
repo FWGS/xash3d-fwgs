@@ -1,6 +1,7 @@
 /*
 snddma_gamecube.c - GameCube sound DMA backend
 Uses libogc ASND streaming at 48 kHz with a silent null fallback.
+Compatible with Extrems libogc2 (Swiss stack); libansnd remains a future option.
 The engine mixer writes native PowerPC big-endian stereo 16-bit samples.
 */
 #include "common.h"

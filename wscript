@@ -282,12 +282,21 @@ def configure(conf):
 			conf.fatal('GameCube pure Flipper build forbids --enable-soft')
 		if conf.options.GL or conf.options.NANOGL or conf.options.GLWES or conf.options.GL4ES or conf.options.GLES3COMPAT:
 			conf.fatal('GameCube pure Flipper build forbids GL/GLES renderers')
-		# Require libogc headers/libs from DEVKITPRO.
-		dkp = os.environ.get('DEVKITPRO', '/opt/devkitpro')
-		ogc_inc = os.path.join(dkp, 'libogc', 'include')
-		ogc_lib = os.path.join(dkp, 'libogc', 'lib', 'cube')
-		if not os.path.isdir(ogc_inc) or not os.path.isfile(os.path.join(ogc_lib, 'libogc.a')):
-			conf.fatal('GameCube requires libogc under DEVKITPRO (%s); missing include or libogc.a' % dkp)
+		# Require Swiss-first OGC stack (libogc2 preferred, classic libogc fallback).
+		_waifulib = os.path.join(conf.path.abspath(), 'scripts', 'waifulib')
+		if _waifulib not in sys.path:
+			sys.path.insert(0, _waifulib)
+		try:
+			from gamecube_ogc_stack import resolve_ogc_stack, format_summary
+		except ImportError:
+			from waflib.extras.gamecube_ogc_stack import resolve_ogc_stack, format_summary
+		ogc = resolve_ogc_stack()
+		if not ogc.get('available'):
+			conf.fatal(ogc.get('error') or 'GameCube OGC stack missing under DEVKITPRO')
+		conf.env.GAMECUBE_OGC_STACK = ogc['stack']
+		conf.env.GAMECUBE_OGC_ROOT = ogc['root']
+		conf.env.GAMECUBE_FAT_PROVIDER = ogc['fat_provider']
+		Logs.info('GameCube OGC stack: %s' % format_summary(ogc))
 		Logs.info('GameCube pure Flipper GX renderer enabled (soft/GL disabled)')
 
 	# psvita needs -fPIC set manually and static builds are incompatible with -fPIC

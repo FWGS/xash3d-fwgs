@@ -5,6 +5,7 @@
 from waflib import Logs, TaskGen, Utils, Errors
 from waflib.extras import pthread
 import os
+import sys
 from copy import copy
 
 top = '.'
@@ -242,7 +243,16 @@ def build(bld):
 		ref_gx_node = bld.path.parent.find_node('ref/gx')
 		if ref_gx_node is None:
 			raise Errors.WafError('GameCube Flipper build requires ref/gx sources')
-		bld.env.LDFLAGS += ['-lstdc++', '-liso9660', '-lasnd', '-logc', '-lm', '-lfat', '-Wl,--allow-multiple-definition']
+		_waifulib = os.path.join(bld.path.parent.abspath(), 'scripts', 'waifulib')
+		if _waifulib not in sys.path:
+			sys.path.insert(0, _waifulib)
+		try:
+			from gamecube_ogc_stack import resolve_ogc_stack, engine_extra_ldflags, format_summary
+		except ImportError:
+			from waflib.extras.gamecube_ogc_stack import resolve_ogc_stack, engine_extra_ldflags, format_summary
+		ogc = resolve_ogc_stack()
+		Logs.info('GameCube engine link stack: %s' % format_summary(ogc))
+		bld.env.LDFLAGS += engine_extra_ldflags(ogc)
 		if has_hlsdk_server:
 			Logs.info('Using GameCube HLSDK server archive from %s' % hlsdk_dest)
 			bld.env.STLIBPATH_HLSDK_GAMECUBE = [

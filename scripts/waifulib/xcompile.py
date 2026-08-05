@@ -426,6 +426,8 @@ class NintendoGameCube:
 	dkp_dir  = None
 	ppc_dir  = None
 	libogc   = None
+	stack    = None
+	ogc_info = None
 
 	def __init__( self, ctx ):
 		self.ctx = ctx
@@ -443,9 +445,19 @@ class NintendoGameCube:
 		if not os.path.exists( self.ppc_dir ):
 			ctx.fatal( 'devkitPPC not found in `%s`. Install devkitPPC!' % self.ppc_dir )
 
-		self.libogc = os.path.join( self.dkp_dir, 'libogc' )
-		if not os.path.exists( self.libogc ):
-			ctx.fatal( 'libogc not found in `%s`. Install libogc!' % self.libogc )
+		# Swiss-first: prefer Extrems libogc2 + libdvm, fall back to classic libogc.
+		try:
+			from waflib.extras.gamecube_ogc_stack import resolve_ogc_stack, format_summary
+		except ImportError:
+			from gamecube_ogc_stack import resolve_ogc_stack, format_summary
+
+		self.ogc_info = resolve_ogc_stack( self.dkp_dir )
+		if not self.ogc_info.get( 'available' ):
+			ctx.fatal( self.ogc_info.get( 'error' ) or 'GameCube OGC stack not found' )
+
+		self.stack = self.ogc_info['stack']
+		self.libogc = self.ogc_info['root']
+		Logs.info( 'GameCube OGC stack: %s' % format_summary( self.ogc_info ))
 
 	def gen_toolchain_prefix( self ):
 		return 'powerpc-eabi-'
@@ -466,7 +478,8 @@ class NintendoGameCube:
 		cflags = []
 		cflags += ['-DGEKKO', '-D__GAMECUBE__', '-mogc', '-mcpu=750', '-meabi', '-mhard-float']
 		cflags += ['-ffunction-sections', '-fdata-sections']
-		cflags += ['-I%s/include' % self.libogc]
+		cflags += ['-I%s' % self.ogc_info['include']]
+		cflags += list( self.ogc_info.get( 'cflags_defines' ) or [] )
 		if cxx:
 			cflags += ['-std=gnu++17', '-D_GNU_SOURCE']
 		else:
@@ -474,10 +487,10 @@ class NintendoGameCube:
 		return cflags
 
 	def linkflags( self ):
-		return ['-specs=%s/share/ogc.specs' % self.libogc, '-L%s/lib/cube' % self.libogc]
+		return list( self.ogc_info.get( 'linkflags' ) or [] )
 
 	def ldflags( self ):
-		return ['-logc', '-lm', '-lfat']
+		return list( self.ogc_info.get( 'ldflags' ) or ['-logc', '-lm', '-lfat'] )
 
 class NintendoSwitch:
 	ctx          = None # waf context

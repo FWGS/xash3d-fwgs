@@ -2,10 +2,11 @@
 
 ## Current Milestone
 
-**Dolphin gameplay gate** - the current build boots in Dolphin, loads the
-smoke map, presents the world, and completes the scripted attack/jump/use
-gameplay path. The next release-facing gaps are retail menu/video/audio
-evidence, save/config round trips, changelevel continuity, and soak coverage.
+**Swiss stack modernization** - the build defaults to Extrems **libogc2** +
+**libdvm** for Swiss hardware launches, with classic libogc as fallback.
+Gameplay smoke in Dolphin remains the day-to-day gate; retail menu/video/audio
+evidence, save/config round trips, changelevel continuity, and soak coverage
+are still open release gaps.
 
 ## Current Automated State
 
@@ -27,9 +28,10 @@ evidence, save/config round trips, changelevel continuity, and soak coverage.
 | `OUT/bin/xash` | 33,230,496 bytes | PowerPC ELF |
 
 **Build Notes**:
-- Engine builds successfully.
+- Engine builds successfully against Swiss-first libogc2 (or classic libogc).
 - DOL generation is now structurally valid for Dolphin boot.
 - No current build error blocks runtime work.
+- Stack resolver: `python3 scripts/waifulib/gamecube_ogc_stack.py`
 
 ## Dolphin Status
 
@@ -85,8 +87,9 @@ probe; then update this status from fresh evidence.
 
 ### Latest reproducible evidence — 2026-08-02
 
-- Build: `scripts/build-gamecube.sh` completes with devkitPPC/libogc and emits
-  a valid DOL (`OUT/bin/boot.dol`, about 4.6 MiB).
+- Build: `scripts/build-gamecube.sh` completes with Swiss-first
+  libogc2/libdvm (or classic libogc fallback) and emits a valid DOL
+  (`OUT/bin/boot.dol`, about 4.6 MiB).
 - Static HLSDK registration: fixed/confirmed in the rebuilt artifact;
   Dolphin reports `COM_LoadLibrary server (registered)`.
 - Probe: `DOLPHIN_TIMEOUT=60 scripts/dolphin-boot-probe.sh`.

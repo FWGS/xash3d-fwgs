@@ -985,11 +985,15 @@ def collect_overnight_preflight_checks(
 
 	devkit = Path(os.environ.get("DEVKITPRO", "/opt/devkitpro"))
 	ppc_gcc = devkit / "devkitPPC/bin/powerpc-eabi-gcc"
-	if ppc_gcc.is_file() and (devkit / "libogc").is_dir():
-		add("GameCube toolchain", "pass", f"{ppc_gcc}")
+	ogc2 = (devkit / "libogc2" / "gamecube").is_dir()
+	ogc1 = (devkit / "libogc").is_dir()
+	if ppc_gcc.is_file() and (ogc2 or ogc1):
+		stack = "libogc2" if ogc2 else "libogc"
+		add("GameCube toolchain", "pass", f"{ppc_gcc} ({stack})")
 	else:
 		add("GameCube toolchain", "fail",
-			f"devkitPPC/libogc not found under {devkit}; verified commits will fail to build.")
+			f"devkitPPC + libogc2/libogc not found under {devkit}; "
+			"install libogc2 for Swiss or classic libogc.")
 
 	valve = repo / "Half-Life/valve"
 	if valve.is_dir():

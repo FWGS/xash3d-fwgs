@@ -1,7 +1,7 @@
 # GameCube Local Mission
 
 Mission: finish a clean-room, native GameCube Xash3D/Half-Life 1 port using
-devkitPPC/libogc, local evidence, and small source patches.
+devkitPPC/libogc2 (Swiss) or classic libogc, local evidence, and small source patches.
 
 Qwable-5 and the Aider GUI are the local porting cockpit. They should work in
 this repeatable loop:
@@ -70,7 +70,7 @@ The ideal local agent cycle is:
 ### Build System & Configuration
 - [ ] Verify wscript GameCube build configuration uses real HLSDK archives
 - [ ] Ensure XASH_GAMECUBE_REQUIRE_HLSDK=0 is not set unintentionally
-- [ ] Verify DEVKITPRO/libogc paths are correctly configured
+- [ ] Verify DEVKITPRO libogc2 (preferred) or libogc paths are correctly configured
 - [ ] Confirm ref_gx is built as sibling static lib target
 - [ ] Verify all required libraries (fat, snd, ogc, m, iso9660) are linked
 - [ ] Ensure proper symbol renaming for HLSDK archives (gamecube_hlsdk_* prefixes)
@@ -95,7 +95,7 @@ The ideal local agent cycle is:
 ### Documentation & Roadmap
 - [ ] Update GameCube roadmap with verified module implementations
 - [ ] Document stub-to-real migration status
-- [ ] Record build configuration requirements (DEVKITPRO, libogc, HLSDK)
+- [ ] Record build configuration requirements (DEVKITPRO, libogc2/libdvm or libogc, HLSDK)
 - [ ] Document known limitations and workarounds
 - [ ] Add build verification steps to CI/CD pipeline
 - [ ] Create release checklist for GameCube builds

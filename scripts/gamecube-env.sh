@@ -1,6 +1,13 @@
 #!/usr/bin/env bash
 # Shared non-secret automation defaults for the GameCube port.
 
+# Swiss-first OGC stack (Extrems libogc2 + libdvm). Override with libogc for
+# classic stock packages. Values: auto|libogc2|libogc
+: "${XASH_GAMECUBE_OGC_STACK:=auto}"
+export XASH_GAMECUBE_OGC_STACK
+: "${DEVKITPRO:=/opt/devkitpro}"
+export DEVKITPRO
+
 gamecube_export_dolphin_env() {
 	local flatpak_id="${DOLPHIN_FLATPAK_ID:-org.DolphinEmu.dolphin-emu}"
 	local root="${XASH3D_GC_ROOT:-$(git rev-parse --show-toplevel 2>/dev/null || pwd)}"

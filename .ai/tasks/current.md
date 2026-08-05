@@ -1,11 +1,17 @@
-G509 changelevel soak gate is wired for the GameCube port.
+Swiss/libogc2 stack modernization is in progress for the GameCube port.
 
-Run:
+Preferred build stack:
+- Extrems **libogc2** under `$DEVKITPRO/libogc2/gamecube`
+- **libdvm** as the FAT provider (`fatInitDefault` API unchanged)
+- Swiss as the hardware loader path
+
+Override: `XASH_GAMECUBE_OGC_STACK=libogc2|libogc|auto`
+
+Verify stack:
 ```sh
-scripts/gamecube-g509-soak.sh
-# or dry-run without Dolphin:
-scripts/gamecube-g509-soak.sh --dry-run
+python3 scripts/waifulib/gamecube_ogc_stack.py
+scripts/build-gamecube.sh
 ```
 
-Default route: `c0a0:c0a0a` (2 iterations). Still need real Dolphin evidence
-and the outstanding G508 config round-trip probe marker.
+Outstanding runtime gates (unchanged): G508 config round-trip Dolphin
+evidence and G509 changelevel soak on a machine with the toolchain + Dolphin.

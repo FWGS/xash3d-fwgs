@@ -148,6 +148,17 @@ void GCube_EarlyInit( void )
 #if XASH_GAMECUBE
 	/* Probe scripts match this marker as the guest bootstrap heartbeat. */
 	SYS_Report( "Xash3D GameCube: bootstrap\n" );
+#if defined(XASH_GAMECUBE_LIBOGC2) && XASH_GAMECUBE_LIBOGC2
+#if defined(XASH_GAMECUBE_LIBDVM) && XASH_GAMECUBE_LIBDVM
+	SYS_Report( "Xash3D GameCube: OGC stack=libogc2 fat=libdvm (Swiss)\n" );
+#else
+	SYS_Report( "Xash3D GameCube: OGC stack=libogc2 fat=libfat (Swiss)\n" );
+#endif
+#elif defined(XASH_GAMECUBE_LIBOGC) && XASH_GAMECUBE_LIBOGC
+	SYS_Report( "Xash3D GameCube: OGC stack=libogc fat=libfat\n" );
+#else
+	SYS_Report( "Xash3D GameCube: OGC stack=legacy\n" );
+#endif
 	GC_ReportBootPhase( GC_BOOT_EARLY );
 #endif
 }
@@ -301,6 +312,14 @@ void GCube_Init( void )
 	gc_fat_mounted = fatInitDefault();
 	if( !gc_fat_mounted )
 		Con_Reportf( S_WARN "SD card init failed\n" );
+	else
+	{
+#if defined(XASH_GAMECUBE_LIBDVM) && XASH_GAMECUBE_LIBDVM
+		Con_Reportf( "Xash3D GameCube: FAT mount ready (libdvm)\n" );
+#else
+		Con_Reportf( "Xash3D GameCube: FAT mount ready\n" );
+#endif
+	}
 
 	if( !GCube_MountDisc() )
 		Con_Reportf( S_WARN "Xash3D GameCube: DVD mount failed (skipping mount)\n" );

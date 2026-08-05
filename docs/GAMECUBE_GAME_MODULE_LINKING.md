@@ -160,9 +160,9 @@ powerpc-gekko-elf2dol xash.elf boot.dol
 
 - **Math Library**: libm
 - **Standard Library**: libc
-- **Graphics Library**: libogc (GX)
-- **Audio Library**: libogc (DSP)
-- **File System**: libfat
+- **Graphics Library**: libogc2 GX (Swiss) / classic libogc GX fallback
+- **Audio Library**: libogc ASND (`-lasnd`; libansnd optional later)
+- **File System**: libdvm FAT provider (`-lfat` API) preferred; classic libfat fallback
 
 ### Game Dependencies
 
