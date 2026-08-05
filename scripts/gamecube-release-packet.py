@@ -121,7 +121,11 @@ def main() -> int:
     map_ok = "MAP_COMPAT_PROBE: PASS" in map_path.read_text(encoding="utf-8", errors="replace") if map_path.is_file() else False
     memory_ok = memory_path.is_file() and bool(json.loads(memory_path.read_text(encoding="utf-8")).get("runtime", {}).get("samples"))
     audio_text = read_logs(audio_path)
-    audio_ok = "audio submitted nonzero PCM" in runtime or "audio submitted nonzero PCM" in audio_text
+    audio_ok = (
+        "audio submitted nonzero PCM" in runtime
+        or "audio submitted nonzero PCM" in gameplay
+        or "audio submitted nonzero PCM" in audio_text
+    )
     soak_data = json.loads(soak_path.read_text(encoding="utf-8")) if soak_path.is_file() and soak_path.suffix == ".json" else {}
     soak_ok = bool(soak_data.get("ok"))
 
@@ -133,14 +137,17 @@ def main() -> int:
         "audio": {"status": "PASS" if audio_ok else "UNVERIFIED", "source": str(args.audio_report)},
         "soak": {"status": "PASS" if soak_ok else "FAIL", "source": str(args.soak_report)},
     }
-    unsupported = [
-        "Player gameplay: SV_GCPrimeDirectMapPlayer hangs inside pfnClientPutInServer.",
-        "Nonzero mixed PCM/audio voice playback is not observed in Dolphin.",
+    unsupported = []
+    if not gameplay_ok:
+        unsupported.append("Player gameplay remains incomplete: " + "; ".join(gameplay_failures))
+    if not audio_ok:
+        unsupported.append("Nonzero mixed PCM/audio voice playback is not observed in Dolphin.")
+    unsupported.extend([
         "Writable config/save round-trip is unverified; current Dolphin run is read-only.",
         "Changelevel and inventory continuity are unverified.",
         "Full campaign smoke route is unverified; only the listed map compatibility set is covered.",
         "Real GameCube hardware, analog video, audible output, and persistent SD behavior are unverified.",
-    ]
+    ])
     manifest = {"commit": subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=root, text=True).strip(), "artifacts": records}
     (output / "artifact-manifest.json").write_text(json.dumps(manifest, indent=2) + "\n", encoding="utf-8")
     (output / "validation.json").write_text(json.dumps({"artifacts": artifact_failures, "evidence": evidence}, indent=2) + "\n", encoding="utf-8")
