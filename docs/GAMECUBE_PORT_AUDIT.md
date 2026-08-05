@@ -2,74 +2,51 @@
 
 ## Current Status
 
-**Last Audit**: 2026-07-25
-**Port Status**: G38 manual validation required
+**Last Audit**: 2026-08-05 (host-side Swiss stack refresh)
+**Port Status**: Dolphin gameplay smoke proven; Swiss/libogc2 stack wired;
+hardware release still manual (G38 / G510).
 
 ## Audit Results
 
-### Completed Automatic Goals (G83-G121)
-- ✅ World rendering with PVS
-- ✅ Entity think system
-- ✅ Player movement and collision
-- ✅ Trigger events
-- ✅ Changelevel functionality
-- ✅ Landmark continuity
-- ✅ Viewmodel rendering
-- ✅ Inventory system
-- ✅ Player edict management
-- ✅ PVS LRU cache
-- ✅ Native PMove
-- ✅ HUD updates
-- ✅ Client prediction
-- ✅ Audio system (null backend)
-- ✅ Weapon grant system
-- ✅ PrimaryAttack event
-- ✅ EV_FireGlock event
+### Completed Automatic Goals (G83-G121+)
+- World rendering with PVS / Flipper GX path
+- Entity think, player movement, triggers, changelevel, landmarks
+- Viewmodel / inventory / HUD / client prediction
+- ASND audio path (nonzero PCM proven on Dolphin probes; audible HW pending)
+- Weapon grant / PrimaryAttack / EV_FireGlock paths
 
-### Manual Validation Required (G38, G40, G66, G70, G71)
-- ❌ Physical GameCube hardware test
-- ❌ Campaign completion audit
-- ❌ Real hardware release sign-off
-- ❌ Audio/video evidence on target displays
-- ❌ Persistent save/config storage
+### Host-side Swiss stack (2026-08-05)
+- libogc2 + libdvm preferred; classic libogc fallback
+- Multi-volume FAT: `sd:` / `carda:` / `cardb:`
+- G508 config round-trip probe + G509 changelevel soak gates wired (Dolphin evidence pending)
 
-## Build Artifacts
-
-| Artifact | Size | Format | SHA256 |
-|----------|------|--------|--------|
-| boot.dol | 5,822,880 bytes | PowerPC DOL | 85bbac2c... |
-| xash | 33,122,656 bytes | PowerPC ELF | b725111d... |
+### Manual Validation Required (G38, G40, G66, G70, G71, G510)
+- Physical GameCube / Swiss hardware test
+- Campaign completion audit
+- Real hardware release sign-off
+- Audio/video evidence on target displays
+- Persistent save/config on physical media
 
 ## Known Limitations
 
-1. **Rendering**: No visible pixels confirmed on physical hardware
-2. **Audio**: Null backend in use, libogc DSP/AI path not implemented
-3. **Storage**: Read-only disc filesystem, no writable storage path
-4. **Save/Load**: Not implemented for GameCube
+1. **Hardware**: No physical GameCube release sign-off yet
+2. **Audio**: ASND path exists; target-display audible evidence still open
+3. **Storage**: Writable FAT volumes implemented (SD2SP2 / SD Gecko); Dolphin disc-only boots use `gcprobe:` for G508
+4. **Save/Load**: Engine paths exist; physical SD fault cases unverified
 5. **Campaign**: Full Half-Life 1 campaign not tested on hardware
 
 ## Next Steps
 
-1. Physical GameCube hardware validation (G38)
-2. Campaign completion audit (G40)
-3. Audio implementation (libogc DSP/AI)
-4. Writable storage implementation
-5. Save/load functionality
-6. Real hardware release sign-off (G66)
-7. Audio/video evidence capture (G70)
-8. Persistent save/config storage (G71)
+1. Rebuild with libogc2/libdvm on an operator machine
+2. Swiss boot + Dolphin G508/G509 evidence
+3. Physical hardware checklist (G510)
+4. Campaign / soak archives from one build
 
-## Hardware Requirements
+## Supported build
 
-- GameCube console (any region)
-- SD Gecko or Memory Card for storage
-- SD card (FAT16/FAT32)
-- GameCube controller
-- Video cable (RGB or composite)
-- Power supply
-
-## Legal Requirements
-
-- User must provide own Half-Life 1 assets
-- No proprietary assets included in port
-- Compliance with GameCube Homebrew Compliance profile required
+```sh
+scripts/build-gamecube.sh
+# or
+python3 scripts/waifulib/gamecube_ogc_stack.py
+SKIP_GAMECUBE_BUILD=1 scripts/ai-verify.sh
+```

@@ -454,6 +454,151 @@ class GameCubeHostTests(unittest.TestCase):
 		self.assertIn("SD2SP2", matrix)
 		self.assertIn("STUBHAXX", launcher)
 
+	def test_swiss_fat_volume_prefers_valve_on_carda(self) -> None:
+		storage = load_script("gc_storage", "scripts/waifulib/gamecube_storage.py")
+		chosen = storage.select_fat_volume(
+			["sd:/", "carda:/"],
+			has_valve=["carda:/"],
+		)
+		self.assertEqual(chosen, "carda:/")
+		chosen_sd = storage.select_fat_volume(["sd:/", "carda:/"], has_valve=[])
+		self.assertEqual(chosen_sd, "sd:/")
+
+	def test_writable_layout_paths_for_sd_and_carda(self) -> None:
+		storage = load_script("gc_storage_layout", "scripts/waifulib/gamecube_storage.py")
+		sd_paths = storage.writable_layout_paths("sd:/")
+		carda_paths = storage.writable_layout_paths("carda:")
+		self.assertIn("sd:/xash3d/valve/save", sd_paths)
+		self.assertIn("carda:/xash3d/valve/save", carda_paths)
+
+	def test_asset_manager_strips_carda_prefix(self) -> None:
+		storage = load_script("gc_storage_strip", "scripts/waifulib/gamecube_storage.py")
+		self.assertEqual(storage.strip_device_prefix("carda:/xash3d/valve"), "xash3d/valve")
+		self.assertEqual(storage.strip_device_prefix("sd:/xash3d/valve"), "xash3d/valve")
+		self.assertEqual(storage.strip_device_prefix("gcdisc:/xash3d/valve"), "xash3d/valve")
+
+	def test_probe_classifies_fat_preferred_volume_carda(self) -> None:
+		storage = load_script("gc_storage_parse", "scripts/waifulib/gamecube_storage.py")
+		text = (
+			"Xash3D GameCube: FAT volume ready sd:/\n"
+			"Xash3D GameCube: FAT volume ready carda:/\n"
+			"Xash3D GameCube: FAT preferred volume carda:/ (count=2)\n"
+		)
+		fat = storage.parse_fat_volume_status(text)
+		self.assertTrue(fat["ok"])
+		self.assertEqual(fat["preferred"], "carda:/")
+		self.assertEqual(fat["volumes"], ["sd:/", "carda:/"])
+
+	def test_probe_classifies_g508_config_roundtrip(self) -> None:
+		storage = load_script("gc_storage_g508", "scripts/waifulib/gamecube_storage.py")
+		text = "Xash3D GameCube: G508 config round trip ready route=gcprobe\n"
+		g508 = storage.parse_g508_status(text)
+		self.assertTrue(g508["ready"])
+		self.assertEqual(g508["route"], "gcprobe")
+
+	def test_release_packet_requires_g508_and_g509_changelevel_soak(self) -> None:
+		packet = load_script("release_packet", "scripts/gamecube-release-packet.py")
+		cont = packet.evaluate_persist_and_changelevel(
+			"G508 config round trip ready route=sd\nCHANGELEVEL_READY: ok\n",
+			"G68 changelevel ready from=c0a0 to=c0a0a\n",
+		)
+		self.assertTrue(cont["persist_ok"])
+		self.assertTrue(cont["changelevel_ok"])
+		self.assertFalse(packet.evaluate_persist_and_changelevel("MAP_READY", "")["persist_ok"])
+		self.assertTrue(packet.evaluate_soak({
+			"ok": True,
+			"mode": "changelevel",
+			"require_changelevel": True,
+			"changelevel_route": "c0a0:c0a0a",
+		}))
+		self.assertFalse(packet.evaluate_soak({
+			"ok": True,
+			"mode": "map",
+			"require_changelevel": True,
+		}))
+
+	def test_release_packet_dry_run_with_fixtures(self) -> None:
+		packet = load_script("release_packet_dry", "scripts/gamecube-release-packet.py")
+		with tempfile.TemporaryDirectory() as tmpdir:
+			tmp = Path(tmpdir)
+			runtime = tmp / "runtime.log"
+			gameplay = tmp / "gameplay.log"
+			# Minimal markers to satisfy gameplay gate + runtime + continuity.
+			runtime.write_text(
+				"Xash3D GameCube: map loaded c0a0\n"
+				"sampled_nonblack=1\n"
+				"frame time=1.00ms\n"
+				"G508 config round trip ready route=gcprobe\n"
+				"CHANGELEVEL_READY: Destination map ready\n"
+				"audio submitted nonzero PCM\n",
+				encoding="utf-8",
+			)
+			gameplay.write_text(
+				"NEWGAME_READY\n"
+				"G45 controller ready port=0 type=standard\n"
+				"G45 action attack\n"
+				"G45 action jump\n"
+				"G45 action use\n"
+				"MAP_READY: c0a0\n"
+				"sampled_nonblack=1\n",
+				encoding="utf-8",
+			)
+			(tmp / "map.txt").write_text("MAP_COMPAT_PROBE: PASS\n", encoding="utf-8")
+			(tmp / "memory.json").write_text(
+				json.dumps({"runtime": {"samples": [{"map": "c0a0"}]}}),
+				encoding="utf-8",
+			)
+			(tmp / "audio.log").write_text("audio submitted nonzero PCM\n", encoding="utf-8")
+			(tmp / "soak.json").write_text(json.dumps({
+				"ok": True,
+				"mode": "changelevel",
+				"require_changelevel": True,
+				"changelevel_route": "c0a0:c0a0a",
+			}), encoding="utf-8")
+			out = tmp / "packet"
+			argv = [
+				"gamecube-release-packet.py",
+				"--repo", str(ROOT),
+				"--output", str(out),
+				"--runtime-log", str(runtime),
+				"--gameplay-log", str(gameplay),
+				"--map-report", str(tmp / "map.txt"),
+				"--memory-report", str(tmp / "memory.json"),
+				"--audio-report", str(tmp / "audio.log"),
+				"--soak-report", str(tmp / "soak.json"),
+				"--dry-run",
+			]
+			with patch.object(sys, "argv", argv):
+				code = packet.main()
+			self.assertTrue((out / "validation.json").is_file())
+			validation = json.loads((out / "validation.json").read_text(encoding="utf-8"))
+			self.assertTrue(validation["dry_run"])
+			self.assertTrue(validation["persist_ok"])
+			self.assertTrue(validation["changelevel_ok"])
+			self.assertIn(code, (0, 1))
+
+	def test_build_docs_prefer_waf_libogc2_not_gekko_cmake(self) -> None:
+		linking = (ROOT / "docs/GAMECUBE_GAME_MODULE_LINKING.md").read_text(encoding="utf-8")
+		building = (ROOT / "docs/GAMECUBE_BUILDING_GAMECUBE.md").read_text(encoding="utf-8")
+		audit = (ROOT / "docs/GAMECUBE_PORT_AUDIT.md").read_text(encoding="utf-8")
+		verify = (ROOT / "scripts/ai-verify.sh").read_text(encoding="utf-8")
+		self.assertIn("Deprecated", linking)
+		self.assertIn("scripts/build-gamecube.sh", linking)
+		self.assertIn("libogc2", building)
+		self.assertNotIn("Null backend in use", audit)
+		self.assertIn("unittest discover", verify)
+
+	def test_hardware_layout_info_prints_carda(self) -> None:
+		import subprocess
+		result = subprocess.run(
+			["bash", str(ROOT / "scripts/gamecube-hardware-layout-info.sh"), "--route", "carda"],
+			cwd=ROOT,
+			text=True,
+			capture_output=True,
+			check=True,
+		)
+		self.assertIn("carda:/xash3d/valve", result.stdout)
+
 
 if __name__ == "__main__":
 	unittest.main()

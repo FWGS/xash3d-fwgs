@@ -3680,3 +3680,15 @@ manual hardware validation with all artifacts generated and documented.
 - Hardware matrix / handoff checklist updated for SD2SP2 + SD Gecko layouts.
 - Next blocker: rebuild with libogc2/libdvm and confirm `FAT volume ready` /
   preferred-volume markers on Swiss hardware or Dolphin SD profiles.
+
+## Host Swiss contracts without toolchain (2026-08-05)
+
+- Added `scripts/waifulib/gamecube_storage.py` (volume preference, layout paths,
+  FAT/G508 log parsers) and taught staging/layout scripts to use carda:/cardb:.
+- `SKIP_GAMECUBE_BUILD=1 scripts/ai-verify.sh` now runs `unittest discover`.
+- `scripts/dolphin-probe-analyze.py` emits `STORAGE_STATUS` / `G508_STATUS`.
+- `scripts/gamecube-release-packet.py --dry-run` evaluates evidence fixtures
+  without ELF/DOL/ISO artifacts; persist/changelevel surfaced in validation.json.
+- Quarantined gekko/CMake examples in linking docs; refreshed port audit.
+- Host proof:
+  `python3 -m unittest tests.test_gamecube_host.GameCubeHostTests.test_swiss_fat_volume_prefers_valve_on_carda tests.test_gamecube_host.GameCubeHostTests.test_release_packet_dry_run_with_fixtures tests.test_gamecube_host.GameCubeHostTests.test_build_docs_prefer_waf_libogc2_not_gekko_cmake`

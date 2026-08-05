@@ -220,8 +220,11 @@ fi
 
 if [[ "${SKIP_GAMECUBE_BUILD:-0}" == "1" ]]; then
 	echo
+	echo "== host unit tests (harness-only) =="
+	python3 -m unittest discover -s tests -p 'test_*.py' -v
+	echo
 	echo "== GameCube build skipped by SKIP_GAMECUBE_BUILD =="
-	printf 'verify: OK (build skipped)\n'
+	printf 'verify: OK (build skipped; host tests passed)\n'
 	exit 0
 fi
 

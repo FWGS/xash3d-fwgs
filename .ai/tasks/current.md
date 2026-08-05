@@ -1,12 +1,11 @@
-Swiss/libogc2 runtime progress: multi-volume FAT + return-to-loader.
+Host-only Swiss contracts (no toolchain required).
 
-libdvm volumes probed (in order):
-- `sd:` SD2SP2
-- `carda:` / `cardb:` SD Gecko
+- `scripts/waifulib/gamecube_storage.py` — volume preference + layout + log parsers
+- `SKIP_GAMECUBE_BUILD=1 scripts/ai-verify.sh` runs host unit tests
+- Probe analyzer emits `STORAGE_STATUS` / `G508_STATUS`
+- Release packet supports `--dry-run` evidence fixtures
 
-Markers:
-- `FAT volume ready sd:/|carda:/|cardb:/`
-- `FAT preferred volume …`
-- quit → Swiss via libogc2 `STUBHAXX` exit stub
-
-Rebuild on a libogc2 machine, then Swiss/Dolphin validation.
+```sh
+SKIP_GAMECUBE_BUILD=1 scripts/ai-verify.sh
+scripts/gamecube-hardware-layout-info.sh --route sdgecko
+```

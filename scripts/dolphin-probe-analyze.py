@@ -12,6 +12,18 @@ from datetime import datetime, timezone
 from pathlib import Path
 from statistics import mean
 
+_WAIFULIB = Path(__file__).resolve().parent / "waifulib"
+if str(_WAIFULIB) not in sys.path:
+	sys.path.insert(0, str(_WAIFULIB))
+try:
+	from gamecube_storage import parse_fat_volume_status, parse_g508_status
+except ImportError:
+	def parse_fat_volume_status(text: str) -> dict:
+		return {"volumes": [], "preferred": None, "ok": False}
+
+	def parse_g508_status(text: str) -> dict:
+		return {"ready": False, "route": None}
+
 FRAME_TIME_RE = re.compile(r"frame time=([\d.]+)ms")
 GCMAP_RENDER_TIME_RE = re.compile(r"gcmap render time=([\d.]+)ms")
 MAP_LOADED_RE = re.compile(r"Xash3D GameCube: map loaded (\S+)")
@@ -400,6 +412,16 @@ def main() -> int:
 	print(f"G45_ACTION_STATUS: {action_status}")
 	print(f"G45_ACTION_SUMMARY: {action_note}")
 	print(f"VISUAL_STATUS: {visual}")
+
+	fat = parse_fat_volume_status(text)
+	g508 = parse_g508_status(text)
+	fat_vols = ",".join(fat.get("volumes") or []) or "none"
+	fat_pref = fat.get("preferred") or "none"
+	print(f"STORAGE_STATUS: {'PASS' if fat.get('ok') else 'NONE'} preferred={fat_pref} volumes={fat_vols}")
+	g508_label = "PASS" if g508.get("ready") else (
+		"FAIL" if g508.get("write_failed") or g508.get("read_failed") else "UNSEEN"
+	)
+	print(f"G508_STATUS: {g508_label} route={g508.get('route') or 'none'}")
 
 	probe_status = args.probe_status.lower()
 	if guest_error and probe_status in {"map_ready", "map_loaded_no_input", "engine_ready"}:

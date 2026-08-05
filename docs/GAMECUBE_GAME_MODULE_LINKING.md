@@ -1,5 +1,11 @@
 # GameCube Game Module Linking
 
+> **Deprecated build examples below.** The supported build path is Waf +
+> `scripts/build-gamecube.sh` with Swiss-first **libogc2** / **libdvm**
+> (see `docs/GAMECUBE_BUILDING_GAMECUBE.md`). Do not use `powerpc-gekko-gcc`
+> or `cmake/toolchains/powerpc-gekko.cmake` — those toolchains are not part of
+> this repository.
+
 This document describes the game module linking system for Xash3D on GameCube.
 
 ## Overview
