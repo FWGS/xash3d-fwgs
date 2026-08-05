@@ -1051,6 +1051,11 @@ qboolean FS_Rename( const char *oldname, const char *newname )
 	if( FS_CheckNastyPath( oldname ) || FS_CheckNastyPath( newname ))
 		return false;
 
+#if XASH_GAMECUBE
+	if( GC_ProbeSaveRename( oldname, newname ))
+		return true;
+#endif
+
 	// fix up slashes
 	Q_strncpy( oldname2, oldname, sizeof( oldname2 ));
 	Q_strncpy( newname2, newname, sizeof( newname2 ));
@@ -1100,6 +1105,11 @@ qboolean GAME_EXPORT FS_Delete( const char *path )
 	// a1ba: disallow path traversal
 	if( FS_CheckNastyPath( path ))
 		return false;
+
+#if XASH_GAMECUBE
+	if( GC_ProbeSaveDelete( path ))
+		return true;
+#endif
 
 	if( !fs_writepath )
 		return false;

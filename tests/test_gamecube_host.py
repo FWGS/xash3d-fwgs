@@ -303,6 +303,29 @@ class GameCubeHostTests(unittest.TestCase):
 			self.assertEqual(report["runtime"]["texture_lightmap_audio_cache"], "UNAVAILABLE without tagged telemetry")
 			json.dumps(report)
 
+	def test_g508_config_roundtrip_probe_contract(self) -> None:
+		probe = (ROOT / "filesystem/probe_save_gc.c").read_text(encoding="utf-8")
+		header = (ROOT / "filesystem/probe_save_gc.h").read_text(encoding="utf-8")
+		sys_gc = (ROOT / "engine/platform/gamecube/sys_gamecube.c").read_text(encoding="utf-8")
+		vid = (ROOT / "engine/platform/gamecube/vid_gamecube.c").read_text(encoding="utf-8")
+		io = (ROOT / "filesystem/io.c").read_text(encoding="utf-8")
+		disc = (ROOT / "scripts/build-gamecube-disc.py").read_text(encoding="utf-8")
+		boot = (ROOT / "scripts/dolphin-boot-probe.sh").read_text(encoding="utf-8")
+		packet = (ROOT / "scripts/gamecube-release-packet.py").read_text(encoding="utf-8")
+
+		self.assertIn("-gcconfigroundtrip", probe)
+		self.assertIn("GC_ProbeSaveRename", header)
+		self.assertIn("GC_ProbeSaveDelete", header)
+		self.assertIn("GC_ProbeSaveRename", io)
+		self.assertIn("GC_ProbeSaveDelete", io)
+		self.assertIn("configroundtrip", sys_gc)
+		self.assertIn("G508 config round trip ready", vid)
+		self.assertIn("--probe-configroundtrip", disc)
+		self.assertIn("DOLPHIN_G508", boot)
+		self.assertIn("G508 config round trip ready", packet)
+		self.assertIn("persist_ok", packet)
+		self.assertIn("changelevel_ok", packet)
+
 
 if __name__ == "__main__":
 	unittest.main()

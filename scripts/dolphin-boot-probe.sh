@@ -255,6 +255,9 @@ else
 			if [[ "${DOLPHIN_G94:-0}" == "1" ]]; then
 				BUILD_ARGS+=(--probe-newsaveload)
 			fi
+			if [[ "${DOLPHIN_G508:-0}" == "1" ]]; then
+				BUILD_ARGS+=(--probe-configroundtrip)
+			fi
 			if [[ "${DOLPHIN_FULLPHYSICS:-0}" == "1" ]]; then
 				BUILD_ARGS+=(--probe-fullphysics)
 				echo "==> Native full server/physics probe"
@@ -269,6 +272,10 @@ else
 		if [[ "${DOLPHIN_G94:-0}" == "1" ]]; then
 			BUILD_ARGS+=(--probe-newsaveload)
 			echo "==> Staging G94 save/load override on smoke map"
+		fi
+		if [[ "${DOLPHIN_G508:-0}" == "1" ]]; then
+			BUILD_ARGS+=(--probe-configroundtrip)
+			echo "==> Staging G508 config round-trip override on smoke map"
 		fi
 		if (( DOLPHIN_NEWGAME )) && [[ "${DOLPHIN_FULLPHYSICS:-0}" == "1" ]]; then
 			BUILD_ARGS+=(--probe-fullphysics)
@@ -492,6 +499,13 @@ if (( DOLPHIN_NEWGAME )); then
 		FRAME_SAMPLE_SEC="${DOLPHIN_FRAME_SAMPLE_SEC:-30}"
 		echo "==> Waiting for G94 round trip present before sampling exit"
 	fi
+	if [[ "${DOLPHIN_G508:-0}" == "1" ]]; then
+		GUEST_ARGS+=("-gcconfigroundtrip")
+		echo "==> G508 config round-trip probe (-gcconfigroundtrip, gcprobe or SD)"
+		G508_DONE_MARKER="Xash3D GameCube: G508 config round trip ready"
+		FRAME_SAMPLE_SEC="${DOLPHIN_FRAME_SAMPLE_SEC:-${FRAME_SAMPLE_SEC:-30}}"
+		echo "==> Waiting for G508 config round trip ready before sampling exit"
+	fi
 fi
 append_guest_args() {
 	local -n _cmd="$1"
@@ -642,6 +656,11 @@ if [[ -n "$DOLPHIN_CHANGELEVEL" ]] \
 	probe_guest_error && probe_fail_guest guest_failure "GUEST_FAILURE: Changelevel reached its destination, followed by a guest error."
 	if [[ -n "${G94_DONE_MARKER:-}" ]] && ! probe_log_has "$G94_DONE_MARKER"; then
 		echo "CHANGELEVEL_PARTIAL_READY: Destination and landmark restore markers were present, but G94 did not complete."
+		echo "Logs: $LOG_DIR"
+		finalize_probe changelevel_partial_ready 4
+	fi
+	if [[ -n "${G508_DONE_MARKER:-}" ]] && ! probe_log_has "$G508_DONE_MARKER"; then
+		echo "CHANGELEVEL_PARTIAL_READY: Destination and landmark restore markers were present, but G508 config round trip did not complete."
 		echo "Logs: $LOG_DIR"
 		finalize_probe changelevel_partial_ready 4
 	fi

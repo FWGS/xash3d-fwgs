@@ -5178,6 +5178,11 @@ readiness matrix. They are ordered by dependency, not by cosmetic importance.
 - Test first-run creation, reload, missing/corrupt data, and read-only media
   behavior; include changelevel continuity.
 - Acceptance: G497 has a save/config result and a documented storage layout.
+- Progress 2026-08-05: Dolphin-designated `gcprobe:` bank now supports
+  `config.cfg` atomic write/read via `-gcconfigroundtrip` / `DOLPHIN_G508=1`.
+  Release packet drops the writable-route limitation when
+  `G508 config round trip ready` (or G94 save present) appears in probe logs.
+  Still open: fresh Dolphin runtime evidence and physical SD fault cases.
 
 ### G509 [ ] Run campaign and soak gates from one build
 
@@ -5208,6 +5213,6 @@ readiness matrix. They are ordered by dependency, not by cosmetic importance.
 | Input/gameplay | G493–G494/G506 | controller and action markers | partial New Game proof |
 | Renderer/HUD | G495/G507 | nonblack frame, GX markers, timing | partial; no new polish queue |
 | Audio | G496/G507 | nonzero mixer/audio evidence | partial SFX proof |
-| Changelevel/save | G497/G508 | persistence and continuity reports | incomplete |
+| Changelevel/save | G497/G508 | persistence and continuity reports | changelevel proven; G508 config probe wired, Dolphin evidence pending |
 | Soak/release | G498–G499/G509 | strict soak and same-build archive | incomplete |
 | Hardware | G500/G510 | operator checklist and hardware matrix | manual pending |

@@ -76,6 +76,9 @@ probe_newgame_progress_ready() {
 	if [[ -n "${G94_DONE_MARKER:-}" ]] && ! probe_log_has "$G94_DONE_MARKER"; then
 		return 1
 	fi
+	if [[ -n "${G508_DONE_MARKER:-}" ]] && ! probe_log_has "$G508_DONE_MARKER"; then
+		return 1
+	fi
 	probe_log_has "Xash3D GameCube: post-G36 sustained world present" \
 		&& probe_log_has "Xash3D GameCube: newgame sustained frames=32" \
 		&& probe_log_has "Xash3D GameCube: probe gameplay input ready" \
@@ -119,6 +122,11 @@ probe_wait_flatpak() {
 			if probe_guest_error; then DOLPHIN_EXIT=3; break; fi
 			# G94: do not stop until post-load world present is observed.
 			if [[ -n "${G94_DONE_MARKER:-}" ]] && ! probe_log_has "$G94_DONE_MARKER"; then
+				sleep 2
+				continue
+			fi
+			# G508: wait for config write/read markers on the designated route.
+			if [[ -n "${G508_DONE_MARKER:-}" ]] && ! probe_log_has "$G508_DONE_MARKER"; then
 				sleep 2
 				continue
 			fi
@@ -452,6 +460,10 @@ probe_wait_native() {
 			(( map_ready_at == 0 )) && map_ready_at=$(date +%s)
 			if probe_guest_error; then DOLPHIN_EXIT=3; break; fi
 			if [[ -n "${G94_DONE_MARKER:-}" ]] && ! probe_log_has "$G94_DONE_MARKER"; then
+				sleep 2
+				continue
+			fi
+			if [[ -n "${G508_DONE_MARKER:-}" ]] && ! probe_log_has "$G508_DONE_MARKER"; then
 				sleep 2
 				continue
 			fi

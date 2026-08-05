@@ -142,9 +142,23 @@ def main() -> int:
         unsupported.append("Player gameplay remains incomplete: " + "; ".join(gameplay_failures))
     if not audio_ok:
         unsupported.append("Nonzero mixed PCM/audio voice playback is not observed in Dolphin.")
+    persist_text = "\n".join((runtime, gameplay, audio_text))
+    persist_ok = (
+        "G508 config round trip ready" in persist_text
+        or "G94 round trip present" in persist_text
+    )
+    changelevel_ok = (
+        "CHANGELEVEL_READY" in persist_text
+        or "G68 changelevel ready" in persist_text
+        or "G100 landmark restore" in persist_text
+    )
+    if not persist_ok:
+        unsupported.append(
+            "Writable config/save round-trip is unverified; current Dolphin run is read-only."
+        )
+    if not changelevel_ok:
+        unsupported.append("Changelevel and inventory continuity are unverified.")
     unsupported.extend([
-        "Writable config/save round-trip is unverified; current Dolphin run is read-only.",
-        "Changelevel and inventory continuity are unverified.",
         "Full campaign smoke route is unverified; only the listed map compatibility set is covered.",
         "Real GameCube hardware, analog video, audible output, and persistent SD behavior are unverified.",
     ])

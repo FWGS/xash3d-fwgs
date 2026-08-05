@@ -33,6 +33,7 @@ Platform layer ported from Division-Zero-GX/xash3d-wii.
 static qboolean gc_fat_mounted;
 static qboolean gc_dvd_mounted;
 static qboolean gc_newsaveload_configured;
+static qboolean gc_configroundtrip_configured;
 static DISC_INTERFACE gc_dvd_io;
 
 static bool GCube_DVDReadSectors( sec_t sector, sec_t count, void *buffer );
@@ -191,10 +192,11 @@ qboolean GCube_GetWritablePath( char *buf, size_t buflen )
 		return true;
 	}
 
-	/* G94: disc-only Dolphin probes use a RAM save bank under this prefix.
-	 * Prefer the disc-override flag: ISO boots rebuild argv and may not see
-	 * Dolphin -- guest args. This path is save-only — never chdir/root here. */
-	if( gc_newsaveload_configured || Sys_CheckParm( "-gcnewsaveload" ))
+	/* G94/G508: disc-only Dolphin probes use a RAM save/config bank under this
+	 * prefix. Prefer the disc-override flag: ISO boots rebuild argv and may not
+	 * see Dolphin -- guest args. This path is probe-only — never chdir/root here. */
+	if( gc_newsaveload_configured || gc_configroundtrip_configured
+		|| Sys_CheckParm( "-gcnewsaveload" ) || Sys_CheckParm( "-gcconfigroundtrip" ))
 	{
 		Q_strncpy( buf, "gcprobe:/" GC_DATA_PATH, buflen );
 		return true;
@@ -411,6 +413,7 @@ static void GCube_LoadDiscBootOverrides( void )
 	gc_newgame_configured = false;
 	gc_menu_newgame_configured = false;
 	gc_newsaveload_configured = false;
+	gc_configroundtrip_configured = false;
 	gc_phase_test_configured = false;
 	gc_changelevel_configured = false;
 	gc_landmark_configured = false;
@@ -497,6 +500,17 @@ static void GCube_LoadDiscBootOverrides( void )
 			{
 				gc_newsaveload_configured = true;
 				SYS_Report( "Xash3D GameCube: disc boot override newsaveload\n" );
+				continue;
+			}
+		}
+
+		if( !Q_strnicmp( cursor, "configroundtrip", 15 ))
+		{
+			char ch = cursor[15];
+			if( ch == '\0' || ch == '\r' || ch == '\n' || ch == ' ' || ch == '\t' )
+			{
+				gc_configroundtrip_configured = true;
+				SYS_Report( "Xash3D GameCube: disc boot override configroundtrip\n" );
 				continue;
 			}
 		}
@@ -667,6 +681,8 @@ int GCube_GetArgv( int in_argc, char **in_argv, char ***out_argv )
 	}
 	if( gc_newsaveload_configured )
 		gc_argv[fake_argc++] = "-gcnewsaveload";
+	if( gc_configroundtrip_configured )
+		gc_argv[fake_argc++] = "-gcconfigroundtrip";
 	if( gc_leanpvs_configured )
 		gc_argv[fake_argc++] = "-gcleanpvs";
 	if( gc_fullphysics_configured )

@@ -291,6 +291,8 @@ fs_offset_t GC_ProbeSaveRead( file_t *file, void *buffer, size_t buffersize );
 void GC_ProbeSaveClose( file_t *file );
 fs_offset_t GC_ProbeSaveSeek( file_t *file, fs_offset_t offset, int whence );
 void GC_ProbeSaveInitOpens( void );
+qboolean GC_ProbeSaveRename( const char *oldname, const char *newname );
+qboolean GC_ProbeSaveDelete( const char *path );
 #endif
 
 #ifdef __cplusplus

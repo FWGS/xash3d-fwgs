@@ -10927,6 +10927,55 @@ qboolean GC_PrepareNewGameWorldPresent( void )
 		if( !Sys_CheckParm( "-gcnewsaveload" ))
 			GC_PlayNewGameGameplaySound();
 
+		/* G508: Dolphin-designated writable config round trip (gcprobe RAM bank
+		 * or real SD). Uses Host_WriteConfig's .new/.bak dance when the client
+		 * DLL is loaded; otherwise writes a lean marker config.cfg. */
+		if( Sys_CheckParm( "-gcconfigroundtrip" ))
+		{
+			static qboolean gc_config_rt_queued;
+			const char *route;
+			file_t *cfg;
+			char sample[128];
+			int n;
+
+			if( !gc_config_rt_queued )
+			{
+				gc_config_rt_queued = true;
+				route = GCube_HasPersistentWritableStorage() ? "sd" : "gcprobe";
+				SYS_Report( "Xash3D GameCube: G508 config round trip begin route=%s\n", route );
+				if( clgame.hInstance && !Sys_CheckParm( "-nowriteconfig" ))
+					Host_WriteConfig();
+				else
+				{
+					cfg = FS_Open( "config.cfg", "w", false );
+					if( cfg )
+					{
+						FS_Printf( cfg, "// G508 GameCube config roundtrip\n" );
+						FS_Printf( cfg, "sensitivity \"3\"\n" );
+						FS_Close( cfg );
+					}
+				}
+				if( !FS_FileExists( "config.cfg", false ))
+					SYS_Report( "Xash3D GameCube: G508 config write failed route=%s\n", route );
+				else
+				{
+					SYS_Report( "Xash3D GameCube: G508 config write ready route=%s\n", route );
+					cfg = FS_Open( "config.cfg", "r", false );
+					n = cfg ? (int)FS_Read( cfg, sample, sizeof( sample ) - 1 ) : 0;
+					if( cfg )
+						FS_Close( cfg );
+					if( n > 0 )
+					{
+						sample[n] = '\0';
+						SYS_Report( "Xash3D GameCube: G508 config read ready bytes=%d route=%s\n", n, route );
+						SYS_Report( "Xash3D GameCube: G508 config round trip ready route=%s\n", route );
+					}
+					else
+						SYS_Report( "Xash3D GameCube: G508 config read failed route=%s\n", route );
+				}
+			}
+		}
+
 		/* G94: same-boot save→load before G92 changelevel (needs -gcnewsaveload).
 		 * Probe RAM bank satisfies GCube_HasWritableStorage without SD. */
 		if( Sys_CheckParm( "-gcnewsaveload" ))

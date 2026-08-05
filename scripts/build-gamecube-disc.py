@@ -1357,6 +1357,7 @@ def write_smoke_overrides(
 	*,
 	newgame: bool = False,
 	newsaveload: bool = False,
+	configroundtrip: bool = False,
 	world_render: bool = False,
 	phasetest: str | None = None,
 	changelevel: str | None = None,
@@ -1372,6 +1373,8 @@ def write_smoke_overrides(
 		lines.append("newgame")
 	if newsaveload:
 		lines.append("newsaveload")
+	if configroundtrip:
+		lines.append("configroundtrip")
 	if changelevel:
 		# G68: enable New Game PVS/present/changelevel path on the smoke map.
 		lines.append("newgame")
@@ -1398,6 +1401,7 @@ def write_smoke_overrides(
 def write_probe_newgame_override(
 	output: Path,
 	newsaveload: bool = False,
+	configroundtrip: bool = False,
 	phasetest: str | None = None,
 	changelevel: str | None = None,
 	landmark: str | None = None,
@@ -1412,6 +1416,8 @@ def write_probe_newgame_override(
 	lines.append("newgame")
 	if newsaveload:
 		lines.append("newsaveload")
+	if configroundtrip:
+		lines.append("configroundtrip")
 	if phasetest:
 		lines.append(f"phasetest {phasetest}")
 	if leanpvs:
@@ -1735,6 +1741,7 @@ def stage_smoke_data(
 	*,
 	newgame: bool = False,
 	newsaveload: bool = False,
+	configroundtrip: bool = False,
 	world_render: bool = False,
 	phasetest: str | None = None,
 	changelevel: str | None = None,
@@ -1768,6 +1775,7 @@ def stage_smoke_data(
 		smoke_map,
 		newgame=newgame,
 		newsaveload=newsaveload,
+		configroundtrip=configroundtrip,
 		world_render=world_render,
 		phasetest=phasetest,
 		changelevel=changelevel,
@@ -2106,6 +2114,11 @@ def main() -> None:
 		help="with --probe-newgame, also stage newsaveload for G94 RAM save/load probes",
 	)
 	parser.add_argument(
+		"--probe-configroundtrip",
+		action="store_true",
+		help="stage configroundtrip for G508 Dolphin-designated config write/read probes",
+	)
+	parser.add_argument(
 		"--probe-phasetest",
 		metavar="PHASE",
 		help="stage gamecube.cfg phasetest <PHASE> for G82 intentional boot-phase fault smoke",
@@ -2159,6 +2172,8 @@ def main() -> None:
 		parser.error("--smoke-map and --intro-avi are mutually exclusive")
 	if args.probe_newsaveload and not (args.probe_newgame or args.smoke_map):
 		parser.error("--probe-newsaveload requires --probe-newgame or --smoke-map")
+	if args.probe_configroundtrip and not (args.probe_newgame or args.smoke_map):
+		parser.error("--probe-configroundtrip requires --probe-newgame or --smoke-map")
 	if args.world_render and not args.smoke_map:
 		parser.error("--world-render requires --smoke-map")
 	if args.probe_phasetest:
@@ -2184,8 +2199,9 @@ def main() -> None:
 				args.data,
 				Path(temp) / "valve",
 				args.smoke_map,
-				newgame=args.probe_fullphysics or args.probe_newsaveload,
+				newgame=args.probe_fullphysics or args.probe_newsaveload or args.probe_configroundtrip,
 				newsaveload=args.probe_newsaveload,
+				configroundtrip=args.probe_configroundtrip,
 				world_render=args.world_render,
 				phasetest=args.probe_phasetest,
 				changelevel=args.probe_changelevel,
@@ -2255,6 +2271,7 @@ def main() -> None:
 				write_probe_newgame_override(
 					staged_data,
 					newsaveload=args.probe_newsaveload,
+					configroundtrip=args.probe_configroundtrip,
 					phasetest=args.probe_phasetest,
 					changelevel=args.probe_changelevel,
 					landmark=args.probe_landmark,

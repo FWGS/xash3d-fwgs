@@ -3631,3 +3631,12 @@ The following goals remain manual and require physical hardware:
 
 Automation has completed all automatic goals (G83-G121). The port is ready for
 manual hardware validation with all artifacts generated and documented.
+
+## G508 config round-trip probe (2026-08-05)
+
+- Wired Dolphin-designated writable config round trips via `-gcconfigroundtrip`.
+- `gcprobe:` RAM bank now supports `config.cfg` `.new`/`.bak` rename/delete for `Host_WriteConfig`.
+- Probe: `DOLPHIN_NEWGAME=1 DOLPHIN_G508=1 scripts/dolphin-boot-probe.sh`
+- Evidence marker: `G508 config round trip ready route=gcprobe|sd`
+- Host test: `tests/test_gamecube_host.py::test_g508_config_roundtrip_probe_contract`
+- Next blocker: fresh Dolphin runtime evidence for that marker; physical SD faults remain hardware-only.

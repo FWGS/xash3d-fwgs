@@ -185,13 +185,12 @@ probe; then update this status from fresh evidence.
 
 ## Next Task
 
-**Close release-facing storage and audiovisual gates**
+**Prove G508 writable config round trips on the Dolphin-designated route**
 
-1. Keep the validated Dolphin changelevel path as a regression gate.
-2. Run retail menu → intro video → menu → New Game with final audiovisual
-   capture and explicit frame/audio timing evidence.
-3. Exercise writable config/save round trips in the Dolphin-designated storage
-   route; retain the physical SD/memory-card fault cases as hardware-only.
+1. Rebuild with the G508 probe bank (config.cfg .new/.bak rename + delete).
+2. Run `DOLPHIN_NEWGAME=1 DOLPHIN_G508=1 scripts/dolphin-boot-probe.sh` (optionally
+   also `DOLPHIN_G94=1`) and archive the `G508 config round trip ready` marker.
+3. Keep physical SD/memory-card fault cases as hardware-only under G38/G66/G71.
 4. Expand soak coverage beyond repeated `c0a0` boots to a representative
    changelevel sequence once the release packet consumes the new gate.
 5. Do not reopen the resolved FI/GameInfo or delta.lst investigation unless a
@@ -250,3 +249,17 @@ behavior remains explicitly unverified until hardware testing.
 - `gamecube-video-playback-gate.py` passed complete pacing, audio sync,
   nonzero PCM, and no-fatal checks. Retail probes now default to Dolphin JIT
   plus CPU threading; frame dumping remains opt-in for timing validation.
+
+### G508 config round-trip probe wired — 2026-08-05
+
+- Extended the Dolphin-designated `gcprobe:` RAM bank to host `config.cfg`
+  (`.new`/`.bak`) write/read/rename/delete so `Host_WriteConfig` can round-trip
+  without real SD Gecko hardware.
+- Added `-gcconfigroundtrip` / disc `configroundtrip` override, Dolphin probe
+  flag `DOLPHIN_G508=1`, and release-packet evidence gating for
+  `G508 config round trip ready`.
+- Real SD (`sd:/xash3d`) remains the persistent route; physical SD fault cases
+  stay hardware-only.
+- Host contract covered by `tests/test_gamecube_host.py::test_g508_config_roundtrip_probe_contract`.
+- Runtime acceptance still requires a fresh Dolphin probe emitting
+  `G508 config round trip ready route=gcprobe|sd`.
