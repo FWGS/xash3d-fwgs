@@ -240,11 +240,16 @@ class GameCubeHostTests(unittest.TestCase):
 			"Xash3D GameCube: G120 attack usercmd buttons=1",
 			"Xash3D GameCube: G121 PlaybackEvent deliver index=1 name=events/glock.sc",
 			"Xash3D GameCube: world interaction use done classname=func_button",
+			"Xash3D GameCube: G105 viewmodel draw",
+			"Xash3D GameCube: G161 soft dump viewmodel ready",
+			"Xash3D GameCube: G177 soft dump HUD composite",
 			"Xash3D GameCube: gcmap smoke frames ready",
 			"frame time=10ms\nframe time=11ms\nframe time=12ms",
 		))
 		self.assertEqual(gate.check(base)[0], True)
 		self.assertEqual(gate.check(base.replace("gcmap smoke frames ready", ""))[0], False)
+		self.assertEqual(gate.check(base.replace("G177 soft dump HUD composite", ""))[0], False)
+		self.assertEqual(gate.check(base.replace("G105 viewmodel draw", ""))[0], False)
 
 	def test_release_packet_validates_dol_elf_and_iso(self) -> None:
 		packet = load_script("release_packet", "scripts/gamecube-release-packet.py")
@@ -525,6 +530,41 @@ class GameCubeHostTests(unittest.TestCase):
 			"mode": "map",
 			"require_changelevel": True,
 		}))
+		self.assertFalse(packet.evaluate_soak({
+			"ok": True,
+			"mode": "changelevel",
+			"require_changelevel": True,
+			"require_ladder": True,
+			"changelevel_route": "c0a0:c0a0a",
+		}))
+		self.assertTrue(packet.evaluate_soak({
+			"ok": True,
+			"mode": "changelevel",
+			"require_changelevel": True,
+			"require_ladder": True,
+			"changelevel_route": "c0a0:c0a0a",
+			"results": [{"ladder_ok": True}, {"ladder_ok": True}],
+		}))
+		self.assertFalse(packet.evaluate_soak({
+			"ok": True,
+			"mode": "changelevel",
+			"require_changelevel": True,
+			"require_ladder": True,
+			"changelevel_route": "c0a0:c0a0a",
+			"results": [{"ladder_ok": True}, {"ladder_ok": False}],
+		}))
+		with tempfile.TemporaryDirectory() as tmpdir:
+			stub = Path(tmpdir) / "mem-stub.json"
+			stub.write_text(json.dumps({"runtime": {"samples": [{}]}}), encoding="utf-8")
+			self.assertFalse(packet.evaluate_memory_report(stub)[0])
+			good = Path(tmpdir) / "mem-good.json"
+			good.write_text(json.dumps({
+				"runtime": {
+					"samples": [{"hwm_bytes": 5 * 1024 * 1024, "stage": "mem1"}],
+					"mem1_high_water_bytes": 5 * 1024 * 1024,
+				}
+			}), encoding="utf-8")
+			self.assertTrue(packet.evaluate_memory_report(good)[0])
 
 	def test_release_packet_dry_run_with_fixtures(self) -> None:
 		packet = load_script("release_packet_dry", "scripts/gamecube-release-packet.py")
@@ -554,7 +594,12 @@ class GameCubeHostTests(unittest.TestCase):
 			)
 			(tmp / "map.txt").write_text("MAP_COMPAT_PROBE: PASS\n", encoding="utf-8")
 			(tmp / "memory.json").write_text(
-				json.dumps({"runtime": {"samples": [{"map": "c0a0"}]}}),
+				json.dumps({
+					"runtime": {
+						"samples": [{"hwm_bytes": 5242880, "stage": "bsp", "map": "c0a0"}],
+						"mem1_high_water_bytes": 5242880,
+					}
+				}),
 				encoding="utf-8",
 			)
 			(tmp / "audio.log").write_text("audio submitted nonzero PCM\n", encoding="utf-8")
@@ -562,7 +607,9 @@ class GameCubeHostTests(unittest.TestCase):
 				"ok": True,
 				"mode": "changelevel",
 				"require_changelevel": True,
+				"require_ladder": True,
 				"changelevel_route": "c0a0:c0a0a",
+				"results": [{"ladder_ok": True}, {"ladder_ok": True}],
 			}), encoding="utf-8")
 			out = tmp / "packet"
 			argv = [
@@ -775,6 +822,18 @@ class GameCubeHostTests(unittest.TestCase):
 			self.assertEqual(data["hypothesis"], "host-only ladder dry-run")
 			self.assertEqual(data["decision"], "pending")
 			self.assertTrue(data["dry_run"])
+
+	def test_probe_script_under_ai_verify_size_guard(self) -> None:
+		probe = ROOT / "scripts/dolphin-boot-probe.sh"
+		common = ROOT / "scripts/dolphin-probe-common.sh"
+		self.assertTrue(probe.is_file())
+		self.assertTrue(common.is_file())
+		self.assertIn("probe_classify_results", probe.read_text(encoding="utf-8"))
+		self.assertIn("probe_classify_results()", common.read_text(encoding="utf-8"))
+		lines = len(probe.read_text(encoding="utf-8").splitlines())
+		bytes_ = probe.stat().st_size
+		self.assertLessEqual(lines, 700, f"probe has {lines} lines")
+		self.assertLessEqual(bytes_, 30720, f"probe is {bytes_} bytes")
 
 	def test_probe_save_config_names(self) -> None:
 		probe = load_script("probe_save", "scripts/waifulib/gamecube_probe_save.py")

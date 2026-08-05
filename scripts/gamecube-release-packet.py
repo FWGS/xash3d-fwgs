@@ -126,7 +126,36 @@ def evaluate_soak(soak_data: dict) -> bool:
         soak_ok = soak_data.get("mode") == "changelevel" and bool(soak_data.get("changelevel_route"))
     elif soak_ok and soak_data.get("mode") == "changelevel":
         soak_ok = bool(soak_data.get("changelevel_route"))
+    if soak_ok and soak_data.get("require_ladder"):
+        results = soak_data.get("results") or []
+        if results:
+            soak_ok = all(bool(item.get("ladder_ok")) for item in results)
+        elif "ladder_ok" in soak_data:
+            soak_ok = bool(soak_data.get("ladder_ok"))
+        else:
+            # G509 reports must carry ladder evidence when require_ladder is set.
+            soak_ok = False
     return soak_ok
+
+
+def evaluate_memory_report(memory_path: Path) -> tuple[bool, dict]:
+    """PASS only when MEM1/high-water samples exist; empty stubs stay PARTIAL."""
+    if not memory_path.is_file():
+        return False, {}
+    try:
+        data = json.loads(memory_path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return False, {}
+    runtime = data.get("runtime") or {}
+    samples = runtime.get("samples") or []
+    mem1 = runtime.get("mem1_high_water_bytes")
+    has_hwm = isinstance(mem1, int) and mem1 > 0
+    if not has_hwm:
+        for row in samples:
+            if isinstance(row, dict) and isinstance(row.get("hwm_bytes"), int) and row["hwm_bytes"] > 0:
+                has_hwm = True
+                break
+    return has_hwm and bool(samples), data
 
 
 def main() -> int:
@@ -170,7 +199,8 @@ def main() -> int:
         and "FATAL ERROR" not in runtime
     )
     map_ok = "MAP_COMPAT_PROBE: PASS" in map_path.read_text(encoding="utf-8", errors="replace") if map_path.is_file() else False
-    memory_ok = memory_path.is_file() and bool(json.loads(memory_path.read_text(encoding="utf-8")).get("runtime", {}).get("samples"))
+    memory_ok, memory_data = evaluate_memory_report(memory_path)
+    mem1_bytes = (memory_data.get("runtime") or {}).get("mem1_high_water_bytes") if memory_data else None
     audio_text = read_logs(audio_path)
     audio_ok = (
         "audio submitted nonzero PCM" in runtime
@@ -192,7 +222,11 @@ def main() -> int:
         "runtime": {"status": "PASS" if runtime_ok else "FAIL", "source": str(args.runtime_log)},
         "map": {"status": "PASS" if map_ok else "FAIL", "source": str(args.map_report)},
         "gameplay": {"status": "PASS" if gameplay_ok else "FAIL", "source": str(args.gameplay_log), "failures": gameplay_failures},
-        "memory": {"status": "PASS" if memory_ok else "PARTIAL", "source": str(args.memory_report)},
+        "memory": {
+            "status": "PASS" if memory_ok else "PARTIAL",
+            "source": str(args.memory_report),
+            "mem1_high_water_bytes": mem1_bytes,
+        },
         "audio": {"status": "PASS" if audio_ok else "UNVERIFIED", "source": str(args.audio_report)},
         "soak": {"status": "PASS" if soak_ok else "FAIL", "source": str(args.soak_report)},
         "ladder": {
@@ -237,6 +271,7 @@ def main() -> int:
             "changelevel_ok": changelevel_ok,
             "ladder_ok": ladder_ok,
             "ladder_first_missing": ladder_report.get("first_missing"),
+            "mem1_high_water_bytes": mem1_bytes,
             "dry_run": bool(args.dry_run),
         }, indent=2) + "\n",
         encoding="utf-8",

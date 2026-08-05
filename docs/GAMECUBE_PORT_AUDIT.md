@@ -2,9 +2,10 @@
 
 ## Current Status
 
-**Last Audit**: 2026-08-05 (host-side Swiss stack refresh)
+**Last Audit**: 2026-08-05 (host gate blockers)
 **Port Status**: Dolphin gameplay smoke proven; Swiss/libogc2 stack wired;
-hardware release still manual (G38 / G510).
+host verify/gates fail-closed on G504/G506/G509; hardware release still
+manual (G38 / G510).
 
 ## Audit Results
 
@@ -18,7 +19,10 @@ hardware release still manual (G38 / G510).
 ### Host-side Swiss stack (2026-08-05)
 - libogc2 + libdvm preferred; classic libogc fallback
 - Multi-volume FAT: `sd:` / `carda:` / `cardb:`
+- G504 ladder wired into analyze / release / G509 soak
+- G506 HUD/viewmodel markers required by gameplay gate
 - G508 config round-trip probe + G509 changelevel soak gates wired (Dolphin evidence pending)
+- `dolphin-boot-probe.sh` under ai-verify size guard via shared classify helper
 
 ### Manual Validation Required (G38, G40, G66, G70, G71, G510)
 - Physical GameCube / Swiss hardware test
@@ -38,7 +42,7 @@ hardware release still manual (G38 / G510).
 ## Next Steps
 
 1. Rebuild with libogc2/libdvm on an operator machine
-2. Swiss boot + Dolphin G508/G509 evidence
+2. Swiss boot + Dolphin G508/G509 evidence (full ladder + presentation markers)
 3. Physical hardware checklist (G510)
 4. Campaign / soak archives from one build
 

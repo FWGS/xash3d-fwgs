@@ -3718,3 +3718,18 @@ manual hardware validation with all artifacts generated and documented.
   prints Swiss volume prefixes (`sd:/` / `carda:/` / `cardb:/`).
 - Host proof:
   `python3 -m unittest discover -s tests -p 'test_gamecube_host.py'`
+
+## Host gate blockers closed (2026-08-05)
+
+- Extracted `probe_classify_results` into `scripts/dolphin-probe-common.sh` so
+  `dolphin-boot-probe.sh` is under the ai-verify size guard (≤700 lines /
+  ≤30720 bytes).
+- G506: gameplay gate requires ordered `G105` / `G161` / `G177` presentation
+  markers; analyze emits `G506_STATUS`.
+- Release packet honors soak `require_ladder` + iteration `ladder_ok`, and
+  treats memory as PASS only with real MEM1/high-water samples.
+- `SKIP_GAMECUBE_BUILD=1 scripts/ai-verify.sh` syntax-gates Swiss/host scripts
+  and skips the aider install check when aider is absent.
+- Host proof:
+  `python3 -m unittest discover -s tests -p 'test_gamecube_host.py'`
+  `SKIP_GAMECUBE_BUILD=1 scripts/ai-verify.sh`

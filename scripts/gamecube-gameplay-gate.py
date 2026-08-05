@@ -31,6 +31,13 @@ REQUIRED_POST_ACTION = (
     "Xash3D GameCube: native axis usercmd ready",
 )
 
+# G506 presentation evidence: viewmodel draw, soft-dump viewmodel, HUD composite.
+REQUIRED_PRESENTATION = (
+    "Xash3D GameCube: G105 viewmodel draw",
+    "Xash3D GameCube: G161 soft dump viewmodel ready",
+    "Xash3D GameCube: G177 soft dump HUD composite",
+)
+
 
 def read_logs(log_dir: Path) -> str:
     parts = []
@@ -60,6 +67,7 @@ def check(text: str) -> tuple[bool, list[str]]:
     failures.extend(f"missing or out of order: {m}" for m in ordered_markers(text, REQUIRED_BEFORE_ACTIONS))
     failures.extend(f"missing or out of order: {m}" for m in ordered_markers(text, REQUIRED_ACTIONS))
     failures.extend(f"missing or out of order: {m}" for m in ordered_markers(text, REQUIRED_POST_ACTION))
+    failures.extend(f"missing or out of order: {m}" for m in ordered_markers(text, REQUIRED_PRESENTATION))
 
     # These markers are emitted only after the server/client path processed the
     # action; input injection alone cannot satisfy them.
@@ -91,7 +99,10 @@ def main() -> int:
     ok, failures = check(read_logs(args.log_dir.resolve()))
     if ok:
         print("GAMEPLAY_GATE: PASS")
-        print("GAMEPLAY_EVIDENCE: movement/look,jump,attack/weapon,use/entity,post-action-stable-frame")
+        print(
+            "GAMEPLAY_EVIDENCE: movement/look,jump,attack/weapon,use/entity,"
+            "viewmodel/HUD,post-action-stable-frame"
+        )
         return 0
     print("GAMEPLAY_GATE: FAIL")
     for failure in failures:

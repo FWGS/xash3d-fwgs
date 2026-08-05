@@ -73,6 +73,11 @@ PROBE_ACTION_MARKERS = (
 	"Xash3D GameCube: probe gameplay action jump",
 	"Xash3D GameCube: probe gameplay action use",
 )
+PRESENTATION_MARKERS = (
+	"Xash3D GameCube: G105 viewmodel draw",
+	"Xash3D GameCube: G161 soft dump viewmodel ready",
+	"Xash3D GameCube: G177 soft dump HUD composite",
+)
 MENU_ACTION_MARKERS = (
 	"Xash3D GameCube: probe menu action down",
 	"Xash3D GameCube: probe menu action confirm",
@@ -229,6 +234,17 @@ def probe_action_status(text: str) -> tuple[str, str]:
 			summary += "," + ",".join(menu_destinations)
 		return "WEAK", summary
 	return "WAIT", "none"
+
+
+def presentation_status(text: str) -> tuple[str, str]:
+	"""G506 HUD/viewmodel presentation markers."""
+	seen = [marker for marker in PRESENTATION_MARKERS if marker in text]
+	if len(seen) == len(PRESENTATION_MARKERS):
+		return "PASS", "G105,G161,G177"
+	if seen:
+		short = ",".join(m.rsplit(": ", 1)[-1] for m in seen)
+		return "WEAK", short
+	return "UNSEEN", "none"
 
 
 def visual_status(text: str) -> str:
@@ -393,6 +409,7 @@ def main() -> int:
 	)
 	g45_status, g45_note = classify_g45(text, map_loaded, input_active, guest_error)
 	action_status, action_note = probe_action_status(text)
+	presentation_label, presentation_note = presentation_status(text)
 	steady = [value for value in frame_times if value > 0.0] or frame_times
 	avg = mean(steady) if steady else 0.0
 	p95 = percentile(steady, 95.0) if steady else 0.0
@@ -428,6 +445,8 @@ def main() -> int:
 	)
 	print(f"G45_ACTION_STATUS: {action_status}")
 	print(f"G45_ACTION_SUMMARY: {action_note}")
+	print(f"G506_STATUS: {presentation_label}")
+	print(f"G506_SUMMARY: {presentation_note}")
 	print(f"VISUAL_STATUS: {visual}")
 
 	fat = parse_fat_volume_status(text)
