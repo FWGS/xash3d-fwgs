@@ -660,6 +660,14 @@ void Mod_ReleaseBrushSourceBuffer( void *buf )
 {
 	if( !buf )
 		return;
+	/* The BSP loader calls this while it is about to re-arm the same arena as
+	 * scratch.  Drop the borrow without discarding the arena; the old-world
+	 * destructor performs the subsequent discard explicitly. */
+	if( GC_IsMapLoadBuffer( buf ))
+	{
+		GC_ReleaseMapLoadBuffer( buf );
+		return;
+	}
 	Mod_FreeLoadBuffer( buf );
 	GC_DiscardMapLoadBuffer();
 }
@@ -697,7 +705,13 @@ void Mod_FreeModel( model_t *mod )
 			Mod_GameCubeFreeMallocSurfaces( mod );
 		if( mod->type == mod_brush && mod->cache.data )
 		{
-			Mod_FreeLoadBuffer( mod->cache.data );
+			/* The world BSP may have retained the map-load arena as renderer
+			 * scratch.  This path is model teardown (unlike the staging helper),
+			 * so clear that ownership before returning the arena. */
+			if( Mod_GCIsRetainedBspScratch( mod->cache.data ))
+				Mod_GCClearRetainedBspScratch();
+			Mod_ReleaseBrushSourceBuffer( mod->cache.data );
+			GC_DiscardMapLoadBuffer();
 			mod->cache.data = NULL;
 		}
 		/* Mesh-only New Game studios keep cache on malloc (mempool == 0).
@@ -1173,6 +1187,15 @@ static void Mod_PurgeStudioCache( void )
 #endif
 	// release previois map
 	Mod_FreeModel( mod_known );	// world is stuck on slot #0 always
+#if XASH_GAMECUBE
+	/* The world source may be retained as BSP scratch without being present in
+	 * cache.data on every load route.  At this point the old model is fully
+	 * detached, so force the arena ownership transition before the next map's
+	 * FS_LoadFile attempt. */
+	Mod_GCClearRetainedBspScratch();
+	GC_DiscardMapLoadBuffer();
+	Con_Reportf( "Xash3D GameCube: changelevel old world map-load arena released\n" );
+#endif
 
 	// we should release all the world submodels
 	// and clear studio sequences
@@ -1192,6 +1215,12 @@ static void Mod_PurgeStudioCache( void )
 
 	Mem_EmptyPool( com_studiocache );
 	Mod_ClearStudioCache();
+}
+
+/* Purge the old world before a caller reserves the next BSP buffer. */
+void Mod_PurgeForMapLoad( void )
+{
+	Mod_PurgeStudioCache();
 }
 
 /*

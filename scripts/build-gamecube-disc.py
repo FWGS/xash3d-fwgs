@@ -1356,6 +1356,7 @@ def write_smoke_overrides(
 	smoke_map: str,
 	*,
 	newgame: bool = False,
+	newsaveload: bool = False,
 	world_render: bool = False,
 	phasetest: str | None = None,
 	changelevel: str | None = None,
@@ -1369,6 +1370,8 @@ def write_smoke_overrides(
 	lines = [f"map {Path(smoke_map).stem}"]
 	if newgame:
 		lines.append("newgame")
+	if newsaveload:
+		lines.append("newsaveload")
 	if changelevel:
 		# G68: enable New Game PVS/present/changelevel path on the smoke map.
 		lines.append("newgame")
@@ -1731,6 +1734,7 @@ def stage_smoke_data(
 	smoke_map: str,
 	*,
 	newgame: bool = False,
+	newsaveload: bool = False,
 	world_render: bool = False,
 	phasetest: str | None = None,
 	changelevel: str | None = None,
@@ -1743,10 +1747,18 @@ def stage_smoke_data(
 	map_source = source / map_relative
 	if not map_source.is_file():
 		raise FileNotFoundError(f"smoke map does not exist: {map_source}")
+	destination_map_relative = None
+	if changelevel:
+		destination_map_name = changelevel if changelevel.endswith(".bsp") else f"{changelevel}.bsp"
+		destination_map_relative = f"maps/{destination_map_name}"
+		if not (source / destination_map_relative).is_file():
+			raise FileNotFoundError(f"changelevel destination map does not exist: {source / destination_map_relative}")
 
 	output.mkdir(parents=True, exist_ok=True)
 	for relative in SMOKE_CONFIG_FILES:
 		copy_if_present(source, output, relative)
+	if destination_map_relative:
+		copy_if_present(source, output, destination_map_relative)
 	for relative in MENU_RESOURCE_ASSETS:
 		copy_if_present(source, output, relative)
 	for relative in MENU_RESOURCE_DIRS:
@@ -1755,6 +1767,7 @@ def stage_smoke_data(
 		output,
 		smoke_map,
 		newgame=newgame,
+		newsaveload=newsaveload,
 		world_render=world_render,
 		phasetest=phasetest,
 		changelevel=changelevel,
@@ -2139,8 +2152,8 @@ def main() -> None:
 			
 	if args.smoke_map and args.intro_avi:
 		parser.error("--smoke-map and --intro-avi are mutually exclusive")
-	if args.probe_newsaveload and not args.probe_newgame:
-		parser.error("--probe-newsaveload requires --probe-newgame")
+	if args.probe_newsaveload and not (args.probe_newgame or args.smoke_map):
+		parser.error("--probe-newsaveload requires --probe-newgame or --smoke-map")
 	if args.world_render and not args.smoke_map:
 		parser.error("--world-render requires --smoke-map")
 	if args.probe_phasetest:
@@ -2166,7 +2179,8 @@ def main() -> None:
 				args.data,
 				Path(temp) / "valve",
 				args.smoke_map,
-				newgame=args.probe_fullphysics,
+				newgame=args.probe_fullphysics or args.probe_newsaveload,
+				newsaveload=args.probe_newsaveload,
 				world_render=args.world_render,
 				phasetest=args.probe_phasetest,
 				changelevel=args.probe_changelevel,

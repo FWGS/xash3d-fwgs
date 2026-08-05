@@ -1305,6 +1305,14 @@ qboolean SV_SpawnServer( const char *mapname, const char *startspot, qboolean ba
 	Con_Reportf( "Xash3D GameCube: pre-spawn video trim begin\n" );
 	GC_TrimVideoMemoryForMapLoad();
 	Con_Reportf( "Xash3D GameCube: pre-spawn video trim ready\n" );
+	Mod_PurgeForMapLoad();
+	Con_Reportf( "Xash3D GameCube: pre-spawn old world purged\n" );
+	/* Changelevel enters through SV_InitGame rather than the host gcmap
+	 * bootstrap path.  Reserve the destination-sized contiguous BSP buffer
+	 * here, after the old world has been purged, so FS_LoadFile does not fall
+	 * back to a fragmented MEM1 allocation. */
+	GC_PrepareMapLoadBufferForMap( sv.name );
+	Con_Reportf( "Xash3D GameCube: pre-spawn map buffer prepared for %s\n", sv.name );
 	Con_Reportf( "Xash3D GameCube: pre-spawn memory trim\n" );
 #endif
 #if XASH_GAMECUBE

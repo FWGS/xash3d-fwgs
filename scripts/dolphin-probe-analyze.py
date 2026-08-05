@@ -237,6 +237,10 @@ def classify_probe_failure(
 		return "RETAIL_MENU_READY", "Retail menu reached readiness markers."
 	if probe_status == "newgame_ready":
 		return "NEWGAME_READY", "Sustained world presentation and scripted gameplay actions reached readiness."
+	if probe_status == "changelevel_ready":
+		return "CHANGELEVEL_READY", "Destination map, landmark restore, and continuity markers reached readiness."
+	if probe_status == "changelevel_partial_ready":
+		return "CHANGELEVEL_PARTIAL_READY", "Destination and landmark markers passed, but a required continuity marker was incomplete."
 	if guest_error:
 		return "GUEST_RUNTIME_ERROR", "Guest runtime error markers were observed."
 	if not guest_seen:

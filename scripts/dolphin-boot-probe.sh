@@ -237,6 +237,10 @@ else
 		fi
 	elif [[ -n "$SMOKE_MAP" ]]; then
 		BUILD_ARGS+=(--smoke-map "$SMOKE_MAP")
+		if [[ "${DOLPHIN_G94:-0}" == "1" ]]; then
+			BUILD_ARGS+=(--probe-newsaveload)
+			echo "==> Staging G94 save/load override on smoke map"
+		fi
 		if (( DOLPHIN_NEWGAME )) && [[ "${DOLPHIN_FULLPHYSICS:-0}" == "1" ]]; then
 			BUILD_ARGS+=(--probe-fullphysics)
 			echo "==> Native full server/physics probe on smoke map"
@@ -455,9 +459,9 @@ if (( DOLPHIN_NEWGAME )); then
 		GUEST_ARGS+=("-gcnewsaveload")
 		echo "==> G94 save/load probe (-gcnewsaveload, RAM bank if no SD)"
 		# Keep sampling until post-load world present (not just G36 arming).
-		G94_DONE_MARKER="Xash3D GameCube: G94 load restore present"
+		G94_DONE_MARKER="Xash3D GameCube: G94 round trip present"
 		FRAME_SAMPLE_SEC="${DOLPHIN_FRAME_SAMPLE_SEC:-30}"
-		echo "==> Waiting for G94 load restore present before sampling exit"
+		echo "==> Waiting for G94 round trip present before sampling exit"
 	fi
 fi
 append_guest_args() {
@@ -600,6 +604,22 @@ if (( RETAIL_MENU_READY )) && [[ "$DOLPHIN_RETAIL" == "1" ]] && (( ! DOLPHIN_NEW
 		probe_report_g45
 		echo "Logs: $LOG_DIR"
 		finalize_probe retail_ready 0
+fi
+
+if [[ -n "$DOLPHIN_CHANGELEVEL" ]] \
+	&& probe_log_has "$G68_DONE_MARKER" \
+	&& probe_log_has "Xash3D GameCube: MAP_READY ${DOLPHIN_CHANGELEVEL}" \
+	&& probe_log_has "Xash3D GameCube: G100 landmark restore"; then
+	probe_guest_error && probe_fail_guest guest_failure "GUEST_FAILURE: Changelevel reached its destination, followed by a guest error."
+	if [[ -n "${G94_DONE_MARKER:-}" ]] && ! probe_log_has "$G94_DONE_MARKER"; then
+		echo "CHANGELEVEL_PARTIAL_READY: Destination and landmark restore markers were present, but G94 did not complete."
+		echo "Logs: $LOG_DIR"
+		finalize_probe changelevel_partial_ready 4
+	fi
+	echo "CHANGELEVEL_READY: Destination map, landmark state, and required runtime continuity markers passed."
+	probe_report_g45
+	echo "Logs: $LOG_DIR"
+	finalize_probe changelevel_ready 0
 fi
 
 if (( MAP_FOUND )) && (( INPUT_FOUND )) && (( !DOLPHIN_NEWGAME || ( PLAY_READY_FOUND && FRAME_ARMED_FOUND ) || NEWGAME_PROGRESS_FOUND )); then

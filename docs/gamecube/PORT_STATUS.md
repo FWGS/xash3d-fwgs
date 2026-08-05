@@ -185,16 +185,17 @@ probe; then update this status from fresh evidence.
 
 ## Next Task
 
-**Isolate the FI.GameInfo/GI handoff before SV_InitGame**
+**Close release-facing storage and audiovisual gates**
 
-1. Identify where `FI.GameInfo` is assigned before `SV_Init`.
-2. Add one bounded diagnostic for its pointer and safe scalar state.
-3. Validate the pointer against the generated ELF/DOL memory sections and
-   rerun the reduced probe.
-4. Only after this boundary passes, return to the independent `delta.lst`
-   `FS_FileExists`/`FS_LoadFile` diagnostic.
-5. Keep physical-hardware handoff docs intact, but do not treat them as the
-   next blocking milestone while Dolphin runtime is still failing.
+1. Keep the validated Dolphin changelevel path as a regression gate.
+2. Run retail menu → intro video → menu → New Game with final audiovisual
+   capture and explicit frame/audio timing evidence.
+3. Exercise writable config/save round trips in the Dolphin-designated storage
+   route; retain the physical SD/memory-card fault cases as hardware-only.
+4. Expand soak coverage beyond repeated `c0a0` boots to a representative
+   changelevel sequence once the release packet consumes the new gate.
+5. Do not reopen the resolved FI/GameInfo or delta.lst investigation unless a
+   new runtime probe regresses those markers.
 
 ## External Blockers
 
@@ -205,4 +206,36 @@ it is not the reason the automation should stop today.
 
 ## Last Updated
 
-2026-07-29
+2026-08-04
+
+### Changelevel continuity validated — 2026-08-04
+
+- Probe bundle: `.ai/logs/dolphin-probe-20260804-161727/`.
+- Cause of the changelevel OOM: the SV map path prepared the destination BSP
+  before purging the old world, and the map-load borrow remained marked in use.
+- Fix: release the borrow during BSP staging, purge the old world before the
+  destination reservation, and discard the old arena only at model teardown.
+  `SV_InitGame` now reserves the destination-sized contiguous BSP buffer after
+  that purge.
+- Runtime result: `CHANGELEVEL_READY`; `G68 changelevel ready` and
+  `MAP_READY c0a0a` passed through Dolphin with no guest fatal or filesystem
+  allocation failure.
+- Continuity result: `G100 landmark restore` preserved health `77`, armor `50`,
+  weapons `0x6`, ammo `99/88`, and origin; `G94 round trip present` also passed.
+- Build and host validation: GameCube DOL/ISO rebuilt; `20` host tests passed.
+
+### Short soak validated — 2026-08-04
+
+- Report: `.ai/logs/dolphin-soak-20260804-continue/report.json`.
+- Two real Dolphin `c0a0` iterations passed with no guest fatal and stable map
+  readiness. MEM1 high-water was identical at `3,953,131` bytes in both runs.
+- Frame telemetry was present in both runs: 31 samples, average `1.06 ms`,
+  p95 `0.69 ms`, maximum `12.31/12.46 ms`.
+- This is a short regression soak, not release-duration hardware soak evidence.
+
+### Save policy preflight validated — 2026-08-04
+
+- Report: `.ai/logs/save-compliance-20260804-continue/report.json`.
+- Automated metadata, CRC, atomic commit, confirmation, and destructive-write
+  checks all pass. Physical storage interruption/full-card/removal/corruption
+  behavior remains explicitly unverified until hardware testing.

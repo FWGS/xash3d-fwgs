@@ -71,6 +71,11 @@ probe_fail_guest() {
 # scripted gameplay actions. This is intentionally stricter than map-loaded.
 probe_newgame_progress_ready() {
 	(( DOLPHIN_NEWGAME )) || return 1
+	# Specialized probes must reach their own terminal marker before the
+	# generic gameplay shortcut can stop Dolphin (notably G94 save/load).
+	if [[ -n "${G94_DONE_MARKER:-}" ]] && ! probe_log_has "$G94_DONE_MARKER"; then
+		return 1
+	fi
 	probe_log_has "Xash3D GameCube: post-G36 sustained world present" \
 		&& probe_log_has "Xash3D GameCube: newgame sustained frames=32" \
 		&& probe_log_has "Xash3D GameCube: probe gameplay input ready" \
