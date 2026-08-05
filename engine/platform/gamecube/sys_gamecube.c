@@ -28,10 +28,27 @@ Platform layer ported from Division-Zero-GX/xash3d-wii.
 
 #define GC_DATA_PATH "xash3d"
 #define GC_DVD_DEVICE "gcdisc"
+
+/*
+ * libdvm (Swiss / libogc2) mounts GameCube storage as:
+ *   sd:     Serial Port 2 (SD2SP2)
+ *   carda:  Memory Slot A / SP1 (SD Gecko)
+ *   cardb:  Memory Slot B
+ * Classic libfat typically only exposes sd:. Probe all known prefixes.
+ */
+static const char *const gc_fat_volume_roots[] =
+{
+	"sd:/",
+	"carda:/",
+	"cardb:/",
+};
+
 #define GC_DEFAULT_SMOKE_MAP "c0a0e"
 
 static qboolean gc_fat_mounted;
 static qboolean gc_dvd_mounted;
+static char gc_fat_write_root[16]; /* e.g. "sd:/" — preferred writable volume */
+static char gc_fat_base_root[16];  /* volume used for game data root */
 static qboolean gc_newsaveload_configured;
 static qboolean gc_configroundtrip_configured;
 static DISC_INTERFACE gc_dvd_io;
@@ -182,6 +199,78 @@ static qboolean GCube_PathAccessible( const char *path )
 	return true;
 }
 
+/*
+ * Prefer a volume that already has xash3d/valve; otherwise first mounted root.
+ * Order matches Swiss/libdvm: SD2SP2 (sd), SD Gecko A (carda), Slot B (cardb).
+ */
+static qboolean GCube_SelectFatVolume( char *out_root, size_t out_len )
+{
+	size_t i;
+	char candidate[MAX_SYSPATH];
+
+	if( out_root && out_len )
+		out_root[0] = '\0';
+
+	for( i = 0; i < sizeof( gc_fat_volume_roots ) / sizeof( gc_fat_volume_roots[0] ); i++ )
+	{
+		const char *root = gc_fat_volume_roots[i];
+		if( !GCube_PathAccessible( root ))
+			continue;
+		Q_snprintf( candidate, sizeof( candidate ), "%s%s/valve", root, GC_DATA_PATH );
+		if( GCube_PathAccessible( candidate ))
+		{
+			Q_strncpy( out_root, root, out_len );
+			return true;
+		}
+	}
+
+	for( i = 0; i < sizeof( gc_fat_volume_roots ) / sizeof( gc_fat_volume_roots[0] ); i++ )
+	{
+		const char *root = gc_fat_volume_roots[i];
+		if( !GCube_PathAccessible( root ))
+			continue;
+		Q_strncpy( out_root, root, out_len );
+		return true;
+	}
+
+	return false;
+}
+
+static void GCube_ProbeFatVolumes( void )
+{
+	size_t i;
+	int mounted = 0;
+
+	gc_fat_write_root[0] = '\0';
+	gc_fat_base_root[0] = '\0';
+
+	for( i = 0; i < sizeof( gc_fat_volume_roots ) / sizeof( gc_fat_volume_roots[0] ); i++ )
+	{
+		const char *root = gc_fat_volume_roots[i];
+		if( !GCube_PathAccessible( root ))
+			continue;
+		mounted++;
+		SYS_Report( "Xash3D GameCube: FAT volume ready %s\n", root );
+		Con_Reportf( "Xash3D GameCube: FAT volume ready %s\n", root );
+	}
+
+	if( !GCube_SelectFatVolume( gc_fat_write_root, sizeof( gc_fat_write_root )))
+	{
+		SYS_Report( "Xash3D GameCube: FAT init ok but no sd:/carda:/cardb: root accessible\n" );
+		return;
+	}
+
+	Q_strncpy( gc_fat_base_root, gc_fat_write_root, sizeof( gc_fat_base_root ));
+	SYS_Report( "Xash3D GameCube: FAT preferred volume %s (count=%d)\n",
+		gc_fat_write_root, mounted );
+}
+
+static qboolean GCube_FatRootReady( void )
+{
+	return gc_fat_mounted && gc_fat_write_root[0] != '\0'
+		&& GCube_PathAccessible( gc_fat_write_root );
+}
+
 qboolean GCube_GetDiscPath( char *buf, size_t buflen )
 {
 	const char *path = GC_DVD_DEVICE ":/" GC_DATA_PATH;
@@ -197,9 +286,9 @@ qboolean GCube_GetDiscPath( char *buf, size_t buflen )
 
 qboolean GCube_GetWritablePath( char *buf, size_t buflen )
 {
-	if( gc_fat_mounted && GCube_PathAccessible( "sd:/" ))
+	if( GCube_FatRootReady() )
 	{
-		Q_strncpy( buf, "sd:/" GC_DATA_PATH, buflen );
+		Q_snprintf( buf, buflen, "%s%s", gc_fat_write_root, GC_DATA_PATH );
 		return true;
 	}
 
@@ -225,9 +314,10 @@ qboolean GCube_HasWritableStorage( void )
 
 qboolean GCube_HasPersistentWritableStorage( void )
 {
-	/* Real SD only. G94 gcprobe: counts as writable for save/load cmds but
-	 * must not trigger mkdir/fopen/config playlist writes on a fake device. */
-	return gc_fat_mounted && GCube_PathAccessible( "sd:/" );
+	/* Real FAT volume only (SD2SP2 sd:, SD Gecko carda:/cardb:). G94 gcprobe:
+	 * counts as writable for save/load cmds but must not trigger mkdir/fopen
+	 * config playlist writes on a fake device. */
+	return GCube_FatRootReady();
 }
 
 static qboolean GCube_IsProbeSavePath( const char *path )
@@ -247,7 +337,8 @@ static void GCube_MkdirIgnoreExists( const char *path )
 /*
  * G32: GameCube Save/Load Policy
  *
- * Storage: SD Card via `fat:` interface (sd:/xash3d/valve/save).
+ * Storage: Swiss/libdvm FAT volumes — prefer sd: (SD2SP2), then carda:/cardb:
+ *          (SD Gecko). Layout: <vol>/xash3d/valve/save.
  * Size Bounds: Half-Life saves are typically <128KB. We report available
  *             space at init to bound expectations. Engine save logic
  *             relies on FS_Open/Write failure returns for disk-full errors.
@@ -259,12 +350,13 @@ static void GCube_MkdirIgnoreExists( const char *path )
 static void GCube_LogStorageStatus( void )
 {
 #if XASH_GAMECUBE
-	if( !gc_fat_mounted )
+	if( !GCube_FatRootReady() )
 	{
 		Con_Reportf( "Xash3D GameCube: SD storage not mounted (disc-only mode)\n" );
 		return;
 	}
 
+	Con_Reportf( "Xash3D GameCube: persistent storage volume %s\n", gc_fat_write_root );
 	/* Dynamic free-space query is omitted to maintain build compatibility. */
 #endif
 }
@@ -310,15 +402,20 @@ void GCube_Init( void )
 	NET_Config( false, false );
 
 	gc_fat_mounted = fatInitDefault();
+	gc_fat_write_root[0] = '\0';
+	gc_fat_base_root[0] = '\0';
 	if( !gc_fat_mounted )
 		Con_Reportf( S_WARN "SD card init failed\n" );
 	else
 	{
+		GCube_ProbeFatVolumes();
 #if defined(XASH_GAMECUBE_LIBDVM) && XASH_GAMECUBE_LIBDVM
-		Con_Reportf( "Xash3D GameCube: FAT mount ready (libdvm)\n" );
+		Con_Reportf( "Xash3D GameCube: FAT mount ready (libdvm Swiss volumes)\n" );
 #else
 		Con_Reportf( "Xash3D GameCube: FAT mount ready\n" );
 #endif
+		if( !GCube_FatRootReady() )
+			Con_Reportf( S_WARN "FAT init succeeded but no accessible volume root\n" );
 	}
 
 	if( !GCube_MountDisc() )
@@ -373,31 +470,35 @@ void GCube_Init( void )
 qboolean GCube_GetBasePath( char *buf, size_t buflen )
 {
 #if XASH_GAMECUBE
-	/* Prefer real SD; never use the G94 probe RAM bank as the game root. */
-	if( gc_fat_mounted && GCube_PathAccessible( "sd:/" ))
+	/* Prefer real FAT volume; never use the G94 probe RAM bank as the game root. */
+	if( GCube_FatRootReady() )
 	{
-		Q_strncpy( buf, "sd:/" GC_DATA_PATH, buflen );
+		const char *root = gc_fat_base_root[0] ? gc_fat_base_root : gc_fat_write_root;
+		Q_snprintf( buf, buflen, "%s%s", root, GC_DATA_PATH );
 		return true;
 	}
 	if( GCube_GetDiscPath( buf, buflen ))
 		return true;
 
 	{
-		static const char *paths[] =
-		{
-			"sd:/",
-			GC_DVD_DEVICE ":/",
-		};
 		size_t i;
 
-		for( i = 0; i < ARRAYSIZE( paths ); i++ )
+		for( i = 0; i < sizeof( gc_fat_volume_roots ) / sizeof( gc_fat_volume_roots[0] ); i++ )
 		{
-			if( !GCube_PathAccessible( paths[i] ) ) {
-				Con_Reportf( S_WARN "GameCube storage: path %s inaccessible or unmounted\n", paths[i] );
+			if( !GCube_PathAccessible( gc_fat_volume_roots[i] ))
+			{
+				Con_Reportf( S_WARN "GameCube storage: path %s inaccessible or unmounted\n",
+					gc_fat_volume_roots[i] );
 				continue;
 			}
 
-			Q_strncpy( buf, paths[i], buflen );
+			Q_strncpy( buf, gc_fat_volume_roots[i], buflen );
+			return true;
+		}
+
+		if( GCube_PathAccessible( GC_DVD_DEVICE ":/" ))
+		{
+			Q_strncpy( buf, GC_DVD_DEVICE ":/", buflen );
 			return true;
 		}
 	}
@@ -668,11 +769,18 @@ int GCube_GetArgv( int in_argc, char **in_argv, char ***out_argv )
 {
 	int fake_argc = 0;
 
+	/* Swiss / wiiload / libogc2 often pass the DOL path as argv[0] with argc>=1.
+	 * Prefer real guest argv whenever the loader supplied more than a bare path. */
 	if( in_argc > 1 )
 	{
+		SYS_Report( "Xash3D GameCube: using loader argv argc=%d argv0=%s\n",
+			in_argc, ( in_argv && in_argv[0] ) ? in_argv[0] : "(null)" );
 		*out_argv = in_argv;
 		return in_argc;
 	}
+
+	if( in_argc == 1 && in_argv && in_argv[0] && in_argv[0][0] )
+		SYS_Report( "Xash3D GameCube: loader argv0=%s (building disc overrides)\n", in_argv[0] );
 
 	GCube_LoadDiscBootOverrides();
 
@@ -734,14 +842,43 @@ int GCube_GetArgv( int in_argc, char **in_argv, char ***out_argv )
 void GCube_Shutdown( void )
 {
 #if XASH_GAMECUBE
+	size_t i;
+
 	/* G29: Shutdown networking layer. */
 	NET_Shutdown();
 
 	if( gc_dvd_mounted )
 		ISO9660_Unmount( GC_DVD_DEVICE );
+
+	/* libdvm may have mounted sd + carda + cardb (+ dvd/ram). Unmount each.
+	 * Classic libfat ignores unknown names. Prefer fatDeinit when available. */
 	if( gc_fat_mounted )
-		fatUnmount( "sd" );
+	{
+#if defined(XASH_GAMECUBE_LIBDVM) && XASH_GAMECUBE_LIBDVM
+		fatDeinit();
+#else
+		for( i = 0; i < sizeof( gc_fat_volume_roots ) / sizeof( gc_fat_volume_roots[0] ); i++ )
+		{
+			char name[16];
+			const char *root = gc_fat_volume_roots[i];
+			size_t n = 0;
+
+			while( root[n] && root[n] != ':' && n + 1 < sizeof( name ))
+			{
+				name[n] = root[n];
+				n++;
+			}
+			name[n] = '\0';
+			if( name[0] )
+				fatUnmount( name );
+		}
+#endif
+		SYS_Report( "Xash3D GameCube: FAT shutdown (return to Swiss loader via exit stub)\n" );
+	}
+
 	gc_dvd_mounted = false;
 	gc_fat_mounted = false;
+	gc_fat_write_root[0] = '\0';
+	gc_fat_base_root[0] = '\0';
 #endif
 }

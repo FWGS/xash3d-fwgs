@@ -434,6 +434,26 @@ class GameCubeHostTests(unittest.TestCase):
 		self.assertIn("resolve_ogc_stack", xcompile)
 		self.assertIn("loader=swiss", build)
 
+	def test_swiss_libdvm_volume_probe_contract(self) -> None:
+		sys_gc = (ROOT / "engine/platform/gamecube/sys_gamecube.c").read_text(encoding="utf-8")
+		storage_h = (ROOT / "engine/platform/gamecube/storage_gamecube.h").read_text(encoding="utf-8")
+		handoff = (ROOT / "scripts/gamecube-hardware-handoff.sh").read_text(encoding="utf-8")
+		matrix = (ROOT / "docs/GAMECUBE_HARDWARE_MATRIX.md").read_text(encoding="utf-8")
+		launcher = (ROOT / "engine/common/launcher.c").read_text(encoding="utf-8")
+
+		self.assertIn("carda:/", sys_gc)
+		self.assertIn("cardb:/", sys_gc)
+		self.assertIn("GCube_ProbeFatVolumes", sys_gc)
+		self.assertIn("FAT preferred volume", sys_gc)
+		self.assertIn("fatDeinit", sys_gc)
+		self.assertIn("using loader argv", sys_gc)
+		self.assertIn("return to Swiss loader", sys_gc)
+		self.assertIn("carda:/", storage_h)
+		self.assertIn("SD2SP2", handoff)
+		self.assertIn("carda:/xash3d/valve/", handoff)
+		self.assertIn("SD2SP2", matrix)
+		self.assertIn("STUBHAXX", launcher)
+
 
 if __name__ == "__main__":
 	unittest.main()

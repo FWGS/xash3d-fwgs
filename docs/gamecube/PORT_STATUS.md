@@ -2,11 +2,12 @@
 
 ## Current Milestone
 
-**Swiss stack modernization** - the build defaults to Extrems **libogc2** +
-**libdvm** for Swiss hardware launches, with classic libogc as fallback.
-Gameplay smoke in Dolphin remains the day-to-day gate; retail menu/video/audio
-evidence, save/config round trips, changelevel continuity, and soak coverage
-are still open release gaps.
+**Swiss stack modernization** - build defaults to Extrems **libogc2** +
+**libdvm**. Runtime now probes Swiss FAT volumes (`sd:` SD2SP2, `carda:`/
+`cardb:` SD Gecko) and returns to Swiss via the libogc2 exit stub. Gameplay
+smoke in Dolphin remains the day-to-day gate; retail menu/video/audio evidence,
+save/config round trips, changelevel continuity, and soak coverage are still
+open release gaps.
 
 ## Current Automated State
 

@@ -114,19 +114,24 @@ cat >"$CHECKLIST" <<EOF
 
 ## SD / Loader Layout
 
-Recommended writable SD layout:
+Preferred loader: **Swiss** with a DOL built against **libogc2** + **libdvm**.
+Writable volumes probed in order: \`sd:\` (SD2SP2), \`carda:\` / \`cardb:\`
+(SD Gecko). Place assets on the volume you use:
 
 \`\`\`text
-sd:/apps/xash3d-gc/boot.dol
-sd:/xash3d/valve/
+sd:/apps/xash3d-gc/boot.dol          # or Swiss browser path
+sd:/xash3d/valve/                    # SD2SP2
 sd:/xash3d/valve/save/
-sd:/xash3d/valve/logs/
-sd:/xash3d/valve/screenshots/
+# — or —
+carda:/xash3d/valve/                 # SD Gecko in Slot A
+carda:/xash3d/valve/save/
 \`\`\`
 
-Copy your legally owned Half-Life \`valve\` assets to \`sd:/xash3d/valve/\`.
+Copy your legally owned Half-Life \`valve\` assets to \`<vol>:/xash3d/valve/\`.
 Do not copy Nintendo SDK files, BIOS/IPL dumps, proprietary Nintendo docs, or
 copyrighted game assets into Git or public release archives.
+
+On quit, libogc2 returns to Swiss when the loader stub (\`STUBHAXX\`) is present.
 
 ## Minimum G38 Test
 

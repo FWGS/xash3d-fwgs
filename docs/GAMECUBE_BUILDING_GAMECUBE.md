@@ -90,9 +90,14 @@ Configure knobs used by the script:
 ## Running on hardware (Swiss)
 
 1. Copy `OUT/bin/boot.dol` to SD/USB media Swiss can browse.
-2. Place Half-Life data at `sd:/xash3d/valve/` (or boot a disc image Swiss can launch).
-3. Launch the DOL from Swiss. libogc2 enables better accessory / return-to-loader
-   behavior than stock libogc alone.
+2. Place Half-Life data on a libdvm volume Swiss/libogc2 can mount:
+   - `sd:/xash3d/valve/` — SD2SP2 (Serial Port 2)
+   - `carda:/xash3d/valve/` or `cardb:/xash3d/valve/` — SD Gecko
+3. Launch the DOL from Swiss. Quit returns to Swiss via the libogc2 exit stub
+   when present.
+4. Boot markers: `OGC stack=libogc2 fat=libdvm (Swiss)`,
+   `FAT volume ready sd:/` (or `carda:/` / `cardb:/`),
+   `FAT preferred volume …`.
 
 Dolphin remains the day-to-day probe host; Swiss is the retail/hardware path.
 

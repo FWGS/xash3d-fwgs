@@ -41,13 +41,22 @@ int main( int argc, char **argv )
 #elif XASH_GAMECUBE
 	GCube_EarlyInit();
 	szArgc = GCube_GetArgv( argc, argv, &szArgv );
-#elif XASH_IOS
+#else
+#if XASH_IOS
 	IOS_LaunchDialog();
 	szArgc = IOS_GetArgs( &szArgv );
 #else
 	szArgc = argc;
 	szArgv = argv;
-#endif // XASH_PSVITA
-	return Host_Main( szArgc, szArgv, XASH_GAMEDIR, 0, Sys_ChangeGame );
+#endif
+#endif
+	{
+		int rc = Host_Main( szArgc, szArgv, XASH_GAMEDIR, 0, Sys_ChangeGame );
+#if XASH_GAMECUBE
+		/* Returning from main invokes libogc2 __syscall_exit, which returns to
+		 * Swiss when the STUBHAXX loader stub is present at 0x80001800. */
+#endif
+		return rc;
+	}
 }
 #endif // XASH_ENABLE_MAIN

@@ -3665,3 +3665,18 @@ manual hardware validation with all artifacts generated and documented.
 - Operator install: `sudo (dkp-)pacman -S libogc2` and choose `libogc2-libdvm`.
 - Next blocker: rebuild engine/HLSDK on a machine with libogc2 installed; then
   re-run Dolphin G508/G509 probes with the Swiss-linked DOL.
+
+## Swiss libdvm multi-volume storage (2026-08-05)
+
+- Writable/base path probing now covers libdvm mounts: `sd:` (SD2SP2),
+  `carda:` / `cardb:` (SD Gecko), preferring a volume that already has
+  `xash3d/valve`.
+- Shutdown uses `fatDeinit()` on libdvm builds so all volumes unmount cleanly
+  before the Swiss return-to-loader exit stub.
+- Loader argv from Swiss is logged; `exit` returns to Swiss when `STUBHAXX` is
+  present (libogc2 `__syscall_exit`).
+- Host proof:
+  `python3 -m unittest tests.test_gamecube_host.GameCubeHostTests.test_swiss_libdvm_volume_probe_contract`
+- Hardware matrix / handoff checklist updated for SD2SP2 + SD Gecko layouts.
+- Next blocker: rebuild with libogc2/libdvm and confirm `FAT volume ready` /
+  preferred-volume markers on Swiss hardware or Dolphin SD profiles.

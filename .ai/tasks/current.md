@@ -1,17 +1,12 @@
-Swiss/libogc2 stack modernization is in progress for the GameCube port.
+Swiss/libogc2 runtime progress: multi-volume FAT + return-to-loader.
 
-Preferred build stack:
-- Extrems **libogc2** under `$DEVKITPRO/libogc2/gamecube`
-- **libdvm** as the FAT provider (`fatInitDefault` API unchanged)
-- Swiss as the hardware loader path
+libdvm volumes probed (in order):
+- `sd:` SD2SP2
+- `carda:` / `cardb:` SD Gecko
 
-Override: `XASH_GAMECUBE_OGC_STACK=libogc2|libogc|auto`
+Markers:
+- `FAT volume ready sd:/|carda:/|cardb:/`
+- `FAT preferred volume …`
+- quit → Swiss via libogc2 `STUBHAXX` exit stub
 
-Verify stack:
-```sh
-python3 scripts/waifulib/gamecube_ogc_stack.py
-scripts/build-gamecube.sh
-```
-
-Outstanding runtime gates (unchanged): G508 config round-trip Dolphin
-evidence and G509 changelevel soak on a machine with the toolchain + Dolphin.
+Rebuild on a libogc2 machine, then Swiss/Dolphin validation.
