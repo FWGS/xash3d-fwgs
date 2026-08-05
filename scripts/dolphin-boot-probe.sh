@@ -120,14 +120,32 @@ DOLPHIN_MMU="${DOLPHIN_MMU:-True}"
 mkdir -p "$USER_DIR/Config"
 
 DUMP_FRAMES=0
-if [[ "$DOLPHIN_RETAIL" == "1" || "${DOLPHIN_DUMP_FRAMES:-0}" == "1" ]]; then
+
+# Retail screenshot capture is useful for visual evidence but changes Dolphin
+# host throughput substantially.  Keep the historical retail default while
+# allowing an explicit zero for timing/audio validation.
+if [[ "${DOLPHIN_DUMP_FRAMES:-}" == "0" ]]; then
+	DUMP_FRAMES=0
+elif [[ "$DOLPHIN_RETAIL" == "1" || "${DOLPHIN_DUMP_FRAMES:-0}" == "1" ]]; then
 	DUMP_FRAMES=1
+fi
+
+# Retail timing evidence must use Dolphin's JIT and CPU thread unless a
+# caller explicitly selects another profile.  Smoke-map probes retain their
+# conservative deterministic defaults; retail capture otherwise measures the
+# emulator's logging/render throughput instead of the guest's pacing.
+if [[ "$DOLPHIN_RETAIL" == "1" ]]; then
+	DOLPHIN_CPU_CORE="${DOLPHIN_CPU_CORE:-1}"
+	DOLPHIN_CPU_THREAD="${DOLPHIN_CPU_THREAD:-True}"
+else
+	DOLPHIN_CPU_CORE="${DOLPHIN_CPU_CORE:-0}"
+	DOLPHIN_CPU_THREAD="${DOLPHIN_CPU_THREAD:-False}"
 fi
 
 cat > "$USER_DIR/Config/Dolphin.ini" <<EOF
 [Core]
-CPUCore = 0
-CPUThread = False
+CPUCore = ${DOLPHIN_CPU_CORE}
+CPUThread = ${DOLPHIN_CPU_THREAD}
 DSPHLE = True
 FastDiscSpeed = True
 MMU = ${DOLPHIN_MMU}

@@ -238,4 +238,15 @@ it is not the reason the automation should stop today.
 - Report: `.ai/logs/save-compliance-20260804-continue/report.json`.
 - Automated metadata, CRC, atomic commit, confirmation, and destructive-write
   checks all pass. Physical storage interruption/full-card/removal/corruption
-  behavior remains explicitly unverified until hardware testing.
+behavior remains explicitly unverified until hardware testing.
+
+### Retail intro/menu timing validated — 2026-08-04
+
+- Fresh current-DOL ISO: `.ai/logs/retail-continue/xash3d-gc.iso`.
+- Dolphin probe: `.ai/logs/dolphin-probe-20260804-195138/`.
+- Retail probe passed intro GCVID frame 150/150 at guest elapsed `10.00 s`,
+  synchronized native 48 kHz audio with nonzero PCM, interactive menu
+  readiness, and menu down/confirm/back actions.
+- `gamecube-video-playback-gate.py` passed complete pacing, audio sync,
+  nonzero PCM, and no-fatal checks. Retail probes now default to Dolphin JIT
+  plus CPU threading; frame dumping remains opt-in for timing validation.
