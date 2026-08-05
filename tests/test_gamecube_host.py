@@ -343,11 +343,14 @@ class GameCubeHostTests(unittest.TestCase):
 			self.assertEqual(report["mode"], "changelevel")
 			self.assertEqual(report["changelevel_route"], "c0a0:c0a0a")
 			self.assertTrue(report["require_changelevel"])
+			self.assertTrue(report["require_ladder"])
 			self.assertEqual(len(report["results"]), 2)
 			self.assertEqual(report["results"][0]["changelevel_to"], "c0a0a")
 			self.assertTrue(report["results"][0]["landmark_restore"])
+			self.assertTrue(report["results"][0]["ladder_ok"])
 			summary = (log_dir / "summary.md").read_text(encoding="utf-8")
 			self.assertIn("Changelevel route: `c0a0:c0a0a`", summary)
+			self.assertIn("Require G504 ladder: 1", summary)
 
 	def test_g509_soak_parser_accepts_changelevel_ready(self) -> None:
 		soak = load_script("soak_parse", "scripts/gamecube-soak-probe.py")
@@ -374,9 +377,15 @@ class GameCubeHostTests(unittest.TestCase):
 		self.assertTrue(item.landmark_restore)
 		self.assertEqual(item.hwm_bytes, 5 * 1024 * 1024)
 		self.assertEqual(item.frame_samples, 12)
+		self.assertFalse(item.ladder_ok)
 		ok, note = soak.classify([item, item], 256 * 1024, require_changelevel=True)
 		self.assertTrue(ok)
 		self.assertIn("passed", note)
+		bad, bad_note = soak.classify(
+			[item, item], 256 * 1024, require_changelevel=True, require_ladder=True
+		)
+		self.assertFalse(bad)
+		self.assertIn("G504", bad_note)
 
 	def test_ogc_stack_prefers_libogc2_for_swiss(self) -> None:
 		stack = load_script("ogc_stack", "scripts/waifulib/gamecube_ogc_stack.py")
@@ -575,7 +584,108 @@ class GameCubeHostTests(unittest.TestCase):
 			self.assertTrue(validation["dry_run"])
 			self.assertTrue(validation["persist_ok"])
 			self.assertTrue(validation["changelevel_ok"])
+			self.assertIn("ladder_ok", validation)
+			self.assertFalse(validation["ladder_ok"])
+			self.assertTrue((out / "ladder.json").is_file())
+			self.assertEqual(validation["evidence"]["ladder"]["status"], "FAIL")
 			self.assertIn(code, (0, 1))
+
+	def test_probe_analyze_emits_ladder_status(self) -> None:
+		analyze = load_script("probe_analyze", "scripts/dolphin-probe-analyze.py")
+		with tempfile.TemporaryDirectory() as tmpdir:
+			log_dir = Path(tmpdir)
+			(log_dir / "stderr.log").write_text(
+				"Xash3D GameCube: bootstrap\n"
+				"Xash3D GameCube: engine subsystems ready\n"
+				"FAT volume ready sd:/\n"
+				"FAT preferred volume sd:/\n"
+				"G201 delta reinit ready\n"
+				"COM_LoadLibrary server (registered)\n"
+				"find found 'maps/c0a0.bsp'\n"
+				"Xash3D GameCube: map loaded c0a0\n"
+				"Xash3D GameCube: G45 controller ready port=0 type=standard\n"
+				"Xash3D GameCube: input polling active\n"
+				"sampled_nonblack=1\n"
+				"frame time=1.00ms\n",
+				encoding="utf-8",
+			)
+			import io
+			from contextlib import redirect_stdout
+
+			buf = io.StringIO()
+			with patch.object(sys, "argv", [
+				"dolphin-probe-analyze.py",
+				"--repo", str(ROOT),
+				"--log-dir", str(log_dir),
+				"--smoke-map", "c0a0",
+			]), redirect_stdout(buf):
+				code = analyze.main()
+			self.assertEqual(code, 0)
+			out = buf.getvalue()
+			self.assertIn("LADDER_STATUS: PASS", out)
+			self.assertIn("STORAGE_STATUS: PASS", out)
+			ladder = json.loads((log_dir / "ladder.json").read_text(encoding="utf-8"))
+			self.assertTrue(ladder["ok"])
+
+	def test_memory_evidence_parses_soak_mem1_formats(self) -> None:
+		memory = load_script("memory_soak", "scripts/gamecube-memory-evidence.py")
+		with tempfile.TemporaryDirectory() as tmpdir:
+			root = Path(tmpdir)
+			(root / "OUT/bin").mkdir(parents=True)
+			(root / "OUT/bin/boot.dol").write_bytes(b"\0" * 0x100)
+			(root / ".ai/logs/soak").mkdir(parents=True)
+			(root / ".ai/logs/soak/stderr.log").write_text(
+				"mem stage=changelevel total=4.00 Mb hwm=5.00 Mb\n"
+				"MEM1 high-water was identical at 5,242,880 bytes\n"
+				"MEM1 peak=6.00 Mb\n",
+				encoding="utf-8",
+			)
+			report = memory.generate(root, [])
+			self.assertEqual(report["runtime"]["mem1_high_water_bytes"], 6 * 1024 * 1024)
+			self.assertGreaterEqual(len(report["runtime"]["samples"]), 2)
+
+	def test_stage_sd_assets_route_carda(self) -> None:
+		import subprocess
+
+		result = subprocess.run(
+			["bash", str(ROOT / "scripts/stage-sd-assets.sh"), "--help"],
+			cwd=ROOT,
+			text=True,
+			capture_output=True,
+			check=False,
+		)
+		self.assertEqual(result.returncode, 0)
+		self.assertIn("carda", result.stdout)
+		self.assertIn("sdgecko", result.stdout)
+		with tempfile.TemporaryDirectory() as tmpdir:
+			src = Path(tmpdir) / "hl"
+			dst = Path(tmpdir) / "sd"
+			src.mkdir()
+			dst.mkdir()
+			(src / "gameinfo.txt").write_text("gameinfo\n", encoding="utf-8")
+			(src / "maps").mkdir()
+			(src / "maps" / "c0a0.bsp").write_bytes(b"BSP")
+			env = dict(**{k: v for k, v in __import__("os").environ.items()})
+			env["STAGE_SD_NONINTERACTIVE"] = "1"
+			staged = subprocess.run(
+				[
+					"bash",
+					str(ROOT / "scripts/stage-sd-assets.sh"),
+					str(src),
+					str(dst),
+					"--route",
+					"carda",
+				],
+				cwd=ROOT,
+				text=True,
+				capture_output=True,
+				env=env,
+				check=False,
+			)
+			self.assertEqual(staged.returncode, 0, staged.stderr + staged.stdout)
+			self.assertIn("carda:/xash3d/valve/", staged.stdout)
+			self.assertTrue((dst / "xash3d/valve/gameinfo.txt").is_file())
+			self.assertTrue((dst / "apps/xash3d-gc").is_dir())
 
 	def test_build_docs_prefer_waf_libogc2_not_gekko_cmake(self) -> None:
 		linking = (ROOT / "docs/GAMECUBE_GAME_MODULE_LINKING.md").read_text(encoding="utf-8")

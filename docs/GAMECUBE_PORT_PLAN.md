@@ -3703,3 +3703,18 @@ manual hardware validation with all artifacts generated and documented.
   rules + config.cfg `.new`/`.bak` bank simulator.
 - Host proof:
   `python3 -m unittest tests.test_gamecube_host.GameCubeHostTests.test_runtime_ladder_stops_at_first_missing_gate tests.test_gamecube_host.GameCubeHostTests.test_experiment_manifest_records_tier_and_ogc_stack tests.test_gamecube_host.GameCubeHostTests.test_probe_save_rejects_non_gcprobe_paths`
+
+## G504 ladder wired into live host gates (2026-08-05)
+
+- `scripts/dolphin-probe-analyze.py` emits `LADDER_STATUS` and writes
+  `ladder.json` beside probe logs.
+- `scripts/gamecube-release-packet.py` fail-closes on incomplete G504 ladder
+  (`evidence.ladder`, `validation.json` `ladder_ok`, packet `ladder.json`).
+- G509 soak (`--g509` / `--require-ladder`) fails iterations that miss ladder
+  gates; dry-run synthetic iterations mark ladder as passed.
+- `scripts/gamecube-memory-evidence.py` parses soak-style MEM1 high-water lines
+  and looser `mem stage=… hwm=` telemetry without requiring `delta`/`map`.
+- `scripts/stage-sd-assets.sh` accepts `--route sd|carda|cardb|sdgecko` and
+  prints Swiss volume prefixes (`sd:/` / `carda:/` / `cardb:/`).
+- Host proof:
+  `python3 -m unittest discover -s tests -p 'test_gamecube_host.py'`

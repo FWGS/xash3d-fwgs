@@ -23,6 +23,22 @@ def load_gate(root: Path):
     return module
 
 
+def load_ladder(root: Path):
+    import sys
+
+    path = root / "scripts/gamecube-runtime-ladder.py"
+    name = "gamecube_runtime_ladder"
+    if name in sys.modules:
+        return sys.modules[name]
+    spec = importlib.util.spec_from_file_location(name, path)
+    if spec is None or spec.loader is None:
+        raise RuntimeError(f"cannot load {path}")
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[name] = module
+    spec.loader.exec_module(module)
+    return module
+
+
 def sha256(path: Path) -> str:
     digest = hashlib.sha256()
     with path.open("rb") as handle:
@@ -167,6 +183,11 @@ def main() -> int:
     persist_ok = continuity["persist_ok"]
     changelevel_ok = continuity["changelevel_ok"]
 
+    ladder_mod = load_ladder(root)
+    ladder_report = ladder_mod.evaluate_ladder("\n".join((runtime, gameplay, audio_text)))
+    ladder_ok = bool(ladder_report.get("ok"))
+    (output / "ladder.json").write_text(json.dumps(ladder_report, indent=2) + "\n", encoding="utf-8")
+
     evidence = {
         "runtime": {"status": "PASS" if runtime_ok else "FAIL", "source": str(args.runtime_log)},
         "map": {"status": "PASS" if map_ok else "FAIL", "source": str(args.map_report)},
@@ -174,10 +195,20 @@ def main() -> int:
         "memory": {"status": "PASS" if memory_ok else "PARTIAL", "source": str(args.memory_report)},
         "audio": {"status": "PASS" if audio_ok else "UNVERIFIED", "source": str(args.audio_report)},
         "soak": {"status": "PASS" if soak_ok else "FAIL", "source": str(args.soak_report)},
+        "ladder": {
+            "status": "PASS" if ladder_ok else "FAIL",
+            "first_missing": ladder_report.get("first_missing"),
+            "passed_count": ladder_report.get("passed_count"),
+            "gate_count": ladder_report.get("gate_count"),
+        },
         "persist": {"status": "PASS" if persist_ok else "FAIL"},
         "changelevel": {"status": "PASS" if changelevel_ok else "FAIL"},
     }
     unsupported = []
+    if not ladder_ok:
+        unsupported.append(
+            f"G504 runtime ladder incomplete; first missing gate: {ladder_report.get('first_missing')}"
+        )
     if not gameplay_ok:
         unsupported.append("Player gameplay remains incomplete: " + "; ".join(gameplay_failures))
     if not audio_ok:
@@ -204,6 +235,8 @@ def main() -> int:
             "evidence": evidence,
             "persist_ok": persist_ok,
             "changelevel_ok": changelevel_ok,
+            "ladder_ok": ladder_ok,
+            "ladder_first_missing": ladder_report.get("first_missing"),
             "dry_run": bool(args.dry_run),
         }, indent=2) + "\n",
         encoding="utf-8",
@@ -214,16 +247,17 @@ def main() -> int:
             copy_evidence(source_path, output / "evidence" / name)
 
     # Dry-run judges evidence/continuity only; artifact structural checks are skipped.
-    # Non-dry-run: require core PASS areas + persist/changelevel; memory may be PARTIAL,
-    # audio may be UNVERIFIED without blocking the historic core set.
+    # Non-dry-run: require core PASS areas + persist/changelevel + G504 ladder;
+    # memory may be PARTIAL, audio may be UNVERIFIED without blocking the historic core set.
+    required_evidence = ("runtime", "map", "gameplay", "soak", "ladder")
     if args.dry_run:
         complete = all(
-            evidence[k]["status"] == "PASS" for k in ("runtime", "map", "gameplay", "soak")
+            evidence[k]["status"] == "PASS" for k in required_evidence
         ) and persist_ok and changelevel_ok
     else:
         complete = (
             not artifact_failures
-            and all(evidence[k]["status"] == "PASS" for k in ("runtime", "map", "gameplay", "soak"))
+            and all(evidence[k]["status"] == "PASS" for k in required_evidence)
             and persist_ok
             and changelevel_ok
         )

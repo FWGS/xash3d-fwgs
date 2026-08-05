@@ -57,8 +57,26 @@ class Iteration:
 	frame_p95_ms: float | None
 	frame_max_ms: float | None
 	landmark_restore: bool
+	ladder_ok: bool
+	ladder_first_missing: str | None
 	log_dir: str
 	note: str
+
+
+def load_evaluate_ladder():
+	import importlib.util
+
+	path = Path(__file__).resolve().parent / "gamecube-runtime-ladder.py"
+	name = "gamecube_runtime_ladder"
+	if name in sys.modules:
+		return sys.modules[name].evaluate_ladder
+	spec = importlib.util.spec_from_file_location(name, path)
+	if spec is None or spec.loader is None:
+		raise RuntimeError(f"cannot load {path}")
+	module = importlib.util.module_from_spec(spec)
+	sys.modules[name] = module
+	spec.loader.exec_module(module)
+	return module.evaluate_ladder
 
 
 def parse_size(value: str, unit: str | None) -> int:
@@ -189,6 +207,9 @@ def parse_iteration(
 
 	hwm_bytes, memory_stage = extract_memory(text)
 	frame_samples, frame_avg, frame_p95, frame_max = extract_frames(text)
+	ladder = load_evaluate_ladder()(text)
+	ladder_ok = bool(ladder.get("ok"))
+	ladder_first_missing = ladder.get("first_missing")
 
 	return Iteration(
 		iteration=index,
@@ -205,6 +226,8 @@ def parse_iteration(
 		frame_p95_ms=frame_p95,
 		frame_max_ms=frame_max,
 		landmark_restore=landmark,
+		ladder_ok=ladder_ok,
+		ladder_first_missing=ladder_first_missing,
 		log_dir=log_dir or "N/A",
 		note=note,
 	)
@@ -227,12 +250,20 @@ def synthetic_iteration(index: int, map_name: str, *, mode: str, changelevel_to:
 		frame_p95_ms=0.0,
 		frame_max_ms=0.0,
 		landmark_restore=(mode == "changelevel"),
+		ladder_ok=True,
+		ladder_first_missing=None,
 		log_dir="N/A",
 		note="dry run validates soak reporting without launching Dolphin",
 	)
 
 
-def classify(iterations: list[Iteration], tolerance_bytes: int, *, require_changelevel: bool) -> tuple[bool, str]:
+def classify(
+	iterations: list[Iteration],
+	tolerance_bytes: int,
+	*,
+	require_changelevel: bool,
+	require_ladder: bool = False,
+) -> tuple[bool, str]:
 	failures = [item for item in iterations if item.status == "FAIL"]
 	if failures:
 		return False, f"{len(failures)} iteration(s) failed"
@@ -253,6 +284,15 @@ def classify(iterations: list[Iteration], tolerance_bytes: int, *, require_chang
 		no_landmark = [item for item in routes if not item.landmark_restore]
 		if no_landmark:
 			return False, f"{len(no_landmark)} changelevel iteration(s) lack G100 landmark restore"
+
+	if require_ladder:
+		incomplete = [item for item in iterations if not item.ladder_ok]
+		if incomplete:
+			first = incomplete[0].ladder_first_missing or "unknown"
+			return False, (
+				f"{len(incomplete)} iteration(s) fail G504 runtime ladder "
+				f"(first_missing={first})"
+			)
 
 	values = [item.hwm_bytes or 0 for item in iterations]
 	growth = values[-1] - values[0] if len(values) > 1 else 0
@@ -283,6 +323,7 @@ def write_reports(
 		"strict": args.strict,
 		"dry_run": args.dry_run,
 		"require_changelevel": args.require_changelevel,
+		"require_ladder": args.require_ladder,
 		"memory_growth_tolerance_bytes": args.memory_growth_tolerance_bytes,
 		"results": [asdict(item) for item in iterations],
 	}
@@ -291,7 +332,8 @@ def write_reports(
 	with (log_dir / "results.tsv").open("w", encoding="utf-8") as out:
 		out.write(
 			"iteration\tmode\tmap\tto\tstatus\texit_code\telapsed_sec\thwm_bytes\tmemory_stage\t"
-			"frame_samples\tframe_avg_ms\tframe_p95_ms\tframe_max_ms\tlandmark\tlog_dir\tnote\n"
+			"frame_samples\tframe_avg_ms\tframe_p95_ms\tframe_max_ms\tlandmark\tladder_ok\t"
+			"ladder_first_missing\tlog_dir\tnote\n"
 		)
 		for item in iterations:
 			out.write(
@@ -302,7 +344,8 @@ def write_reports(
 				f"{item.frame_avg_ms if item.frame_avg_ms is not None else 'N/A'}\t"
 				f"{item.frame_p95_ms if item.frame_p95_ms is not None else 'N/A'}\t"
 				f"{item.frame_max_ms if item.frame_max_ms is not None else 'N/A'}\t"
-				f"{int(item.landmark_restore)}\t{item.log_dir}\t{item.note}\n"
+				f"{int(item.landmark_restore)}\t{int(item.ladder_ok)}\t"
+				f"{item.ladder_first_missing or '-'}\t{item.log_dir}\t{item.note}\n"
 			)
 
 	with (log_dir / "summary.md").open("w", encoding="utf-8") as out:
@@ -319,16 +362,18 @@ def write_reports(
 		out.write(f"- Timeout per probe: {args.timeout}s\n")
 		out.write(f"- Strict release mode: {int(args.strict)}\n")
 		out.write(f"- Require changelevel: {int(args.require_changelevel)}\n")
+		out.write(f"- Require G504 ladder: {int(args.require_ladder)}\n")
 		out.write(f"- Dry run: {int(args.dry_run)}\n")
 		out.write(f"- Memory growth tolerance: {args.memory_growth_tolerance_bytes} bytes\n\n")
-		out.write("| Iteration | Mode | Map | To | Status | HWM | Frames | Landmark | Note |\n")
-		out.write("|---:|---|---|---|---|---:|---:|---|---|\n")
+		out.write("| Iteration | Mode | Map | To | Status | HWM | Frames | Landmark | Ladder | Note |\n")
+		out.write("|---:|---|---|---|---|---:|---:|---|---|---|\n")
 		for item in iterations:
 			hwm = item.hwm_bytes if item.hwm_bytes is not None else "N/A"
+			ladder = "yes" if item.ladder_ok else f"no:{item.ladder_first_missing or '?'}"
 			out.write(
 				f"| {item.iteration} | {item.mode} | {item.map_name} | {item.changelevel_to or '-'} | "
 				f"{item.status} | {hwm} | {item.frame_samples} | "
-				f"{'yes' if item.landmark_restore else 'no'} | {item.note} |\n"
+				f"{'yes' if item.landmark_restore else 'no'} | {ladder} | {item.note} |\n"
 			)
 
 
@@ -352,6 +397,11 @@ def main(argv: list[str] | None = None) -> int:
 	parser.add_argument("--strict", action="store_true")
 	parser.add_argument("--dry-run", action="store_true")
 	parser.add_argument("--require-changelevel", action="store_true")
+	parser.add_argument(
+		"--require-ladder",
+		action="store_true",
+		help="Fail soak when any iteration misses a G504 runtime ladder gate",
+	)
 	parser.add_argument("--min-strict-seconds", type=int, default=30 * 60)
 	parser.add_argument("--memory-growth-tolerance-bytes", type=int, default=256 * 1024)
 	args = parser.parse_args(argv)
@@ -360,6 +410,7 @@ def main(argv: list[str] | None = None) -> int:
 		if not args.changelevel_route:
 			args.changelevel_route = DEFAULT_CHANGELEVEL_ROUTE
 		args.require_changelevel = True
+		args.require_ladder = True
 		# Keep a short G509 default map list aligned with the route source.
 		source, _dest = parse_route(args.changelevel_route)
 		args.maps = [source]
@@ -429,6 +480,7 @@ def main(argv: list[str] | None = None) -> int:
 		results,
 		args.memory_growth_tolerance_bytes,
 		require_changelevel=args.require_changelevel,
+		require_ladder=args.require_ladder,
 	)
 	if args.strict and elapsed_total < args.min_strict_seconds:
 		ok = False

@@ -24,6 +24,23 @@ except ImportError:
 	def parse_g508_status(text: str) -> dict:
 		return {"ready": False, "route": None}
 
+
+def load_evaluate_ladder():
+	"""Load G504 evaluate_ladder from scripts/gamecube-runtime-ladder.py."""
+	import importlib.util
+
+	path = Path(__file__).resolve().parent / "gamecube-runtime-ladder.py"
+	name = "gamecube_runtime_ladder"
+	if name in sys.modules:
+		return sys.modules[name].evaluate_ladder
+	spec = importlib.util.spec_from_file_location(name, path)
+	if spec is None or spec.loader is None:
+		raise RuntimeError(f"cannot load {path}")
+	module = importlib.util.module_from_spec(spec)
+	sys.modules[name] = module
+	spec.loader.exec_module(module)
+	return module.evaluate_ladder
+
 FRAME_TIME_RE = re.compile(r"frame time=([\d.]+)ms")
 GCMAP_RENDER_TIME_RE = re.compile(r"gcmap render time=([\d.]+)ms")
 MAP_LOADED_RE = re.compile(r"Xash3D GameCube: map loaded (\S+)")
@@ -422,6 +439,22 @@ def main() -> int:
 		"FAIL" if g508.get("write_failed") or g508.get("read_failed") else "UNSEEN"
 	)
 	print(f"G508_STATUS: {g508_label} route={g508.get('route') or 'none'}")
+
+	ladder = load_evaluate_ladder()(text)
+	ladder["source"] = str(log_dir)
+	ladder_path = log_dir / "ladder.json"
+	try:
+		ladder_path.write_text(json.dumps(ladder, indent=2) + "\n", encoding="utf-8")
+	except OSError:
+		pass
+	if ladder.get("ok"):
+		ladder_label = "PASS"
+	else:
+		ladder_label = f"FAIL first_missing={ladder.get('first_missing')}"
+	print(
+		f"LADDER_STATUS: {ladder_label} "
+		f"passed={ladder.get('passed_count', 0)}/{ladder.get('gate_count', 0)}"
+	)
 
 	probe_status = args.probe_status.lower()
 	if guest_error and probe_status in {"map_ready", "map_loaded_no_input", "engine_ready"}:

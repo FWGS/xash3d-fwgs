@@ -12,8 +12,19 @@ from pathlib import Path
 SIZE_RE = re.compile(r"(?P<value>[0-9.]+)\s*(?P<unit>bytes|Kb|KiB|Mb|MiB|Gb|GiB)", re.I)
 MEM_RE = re.compile(
     r"mem stage=(?P<stage>\S+)\s+total=(?P<total>[0-9.]+(?:\s*(?:bytes|Kb|KiB|Mb|MiB|Gb|GiB))?)\s+"
-    r"delta=(?P<delta>[0-9.]+(?:\s*(?:bytes|Kb|KiB|Mb|MiB|Gb|GiB))?)\s+"
-    r"hwm=(?P<hwm>[0-9.]+(?:\s*(?:bytes|Kb|KiB|Mb|MiB|Gb|GiB))?)\s+map=(?P<map>\S+)", re.I)
+    r"(?:delta=(?P<delta>[0-9.]+(?:\s*(?:bytes|Kb|KiB|Mb|MiB|Gb|GiB))?)\s+)?"
+    r"hwm=(?P<hwm>[0-9.]+(?:\s*(?:bytes|Kb|KiB|Mb|MiB|Gb|GiB)?))"
+    r"(?:\s+map=(?P<map>\S+))?", re.I)
+# Soak / OSReport MEM1 high-water lines (G69/G509).
+MEM1_RE = re.compile(
+    r"(?:MEM1|mem1)[^\n]*?(?:hwm|high[-_ ]?water|peak)[=:\s]+(?P<hwm>[0-9.]+)\s*"
+    r"(?P<unit>bytes|Kb|Mb|Gb|KiB|MiB)?",
+    re.I,
+)
+MEM1_IDENTICAL_RE = re.compile(
+    r"MEM1 high-water(?: was)?(?: identical at)?\s*`?(?P<n>[0-9,]+)`?\s*bytes",
+    re.I,
+)
 PRESSURE_RE = re.compile(
     r"map-load pressure stage=(?P<stage>\S+)\s+peak=(?P<peak>[^ ]+)\s+"
     r"delta=(?P<delta>[^ ]+)\s+base=(?P<base>[^ ]+)", re.I)
@@ -26,12 +37,22 @@ FAIL_RE = re.compile(
 def parse_size(value: str) -> int | None:
     match = SIZE_RE.fullmatch(value.strip())
     if not match:
-        return None
+        # Bare number → treat as bytes when callers pass "5242880".
+        try:
+            return int(float(value.strip().replace(",", "")))
+        except ValueError:
+            return None
     scale = {
         "bytes": 1, "kb": 1024, "kib": 1024, "mb": 1024**2,
         "mib": 1024**2, "gb": 1024**3, "gib": 1024**3,
     }
     return int(float(match.group("value")) * scale[match.group("unit").lower()])
+
+
+def parse_size_parts(value: str, unit: str | None) -> int | None:
+    if unit:
+        return parse_size(f"{value} {unit}")
+    return parse_size(value)
 
 
 def read_text(path: Path) -> str:
@@ -88,9 +109,39 @@ def generate(root: Path, log_paths: list[Path]) -> dict[str, object]:
     samples = []
     for match in MEM_RE.finditer(log_text):
         row = match.groupdict()
-        row["total_bytes"] = parse_size(row["total"])
-        row["hwm_bytes"] = parse_size(row["hwm"])
+        row["total_bytes"] = parse_size(row["total"]) if row.get("total") else None
+        row["hwm_bytes"] = parse_size(row["hwm"]) if row.get("hwm") else None
+        if row.get("delta"):
+            row["delta_bytes"] = parse_size(row["delta"])
+        if not row.get("map"):
+            row["map"] = "(none)"
         samples.append(row)
+    for match in MEM1_RE.finditer(log_text):
+        hwm = parse_size_parts(match.group("hwm"), match.group("unit"))
+        if hwm is None:
+            continue
+        samples.append({
+            "stage": "mem1",
+            "total": None,
+            "delta": None,
+            "hwm": str(hwm),
+            "map": "(none)",
+            "total_bytes": None,
+            "hwm_bytes": hwm,
+            "source": "mem1_line",
+        })
+    for match in MEM1_IDENTICAL_RE.finditer(log_text):
+        hwm = int(match.group("n").replace(",", ""))
+        samples.append({
+            "stage": "mem1",
+            "total": None,
+            "delta": None,
+            "hwm": str(hwm),
+            "map": "(none)",
+            "total_bytes": None,
+            "hwm_bytes": hwm,
+            "source": "mem1_identical",
+        })
     pressure = []
     for match in PRESSURE_RE.finditer(log_text):
         row = match.groupdict()
