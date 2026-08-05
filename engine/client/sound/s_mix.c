@@ -364,7 +364,7 @@ static int S_MixNormalChannelsToRoombuffer( portable_samplepair_t *dst, int end 
 			{
 				if( ch->inauduble_free_time == 0.0f )
 					ch->inauduble_free_time = host.realtime + MAX_CHANNEL_INAUDIBLE_TIME;
-				else if( ch->inauduble_free_time > host.realtime )
+				else if( host.realtime > ch->inauduble_free_time )
 					S_FreeChannel( ch );
 			}
 
