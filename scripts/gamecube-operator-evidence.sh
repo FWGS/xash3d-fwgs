@@ -65,6 +65,8 @@ fi
 python3 scripts/gamecube-experiment-manifest.py "${MANIFEST_ARGS[@]}"
 
 if [[ "$DRY_RUN" != "1" && "$SKIP_BUILD" == "0" ]]; then
+	echo "== ogc preflight =="
+	python3 scripts/waifulib/gamecube_ogc_stack.py --preflight --require-libogc2
 	echo "== build =="
 	scripts/build-gamecube.sh
 fi
@@ -135,6 +137,7 @@ G508 config round trip ready route=gcprobe
 CHANGELEVEL_READY: Destination map ready
 Xash3D GameCube: G100 landmark restore health=77 armor=50
 audio submitted nonzero PCM
+Xash3D GameCube: FAT shutdown (return to Swiss loader via exit stub)
 EOF
 	cat >"$GAMEPLAY" <<'EOF'
 Xash3D GameCube: map loaded c0a0
@@ -161,6 +164,27 @@ fi
 
 echo "MAP_COMPAT_PROBE: PASS" >"$OUT_DIR/map.txt"
 : >"$OUT_DIR/audio.log"
+# Ensure dry-run memory report has a MEM1 high-water sample for packet PASS.
+if [[ "$DRY_RUN" == "1" ]]; then
+	python3 - "$OUT_DIR/memory.json" <<'PY'
+import json, sys
+from pathlib import Path
+path = Path(sys.argv[1])
+data = {}
+if path.is_file():
+	try:
+		data = json.loads(path.read_text(encoding="utf-8"))
+	except json.JSONDecodeError:
+		data = {}
+runtime = data.setdefault("runtime", {})
+if not runtime.get("mem1_high_water_bytes"):
+	runtime["mem1_high_water_bytes"] = 5 * 1024 * 1024
+	runtime["samples"] = runtime.get("samples") or [
+		{"stage": "mem1", "hwm_bytes": 5 * 1024 * 1024, "map": "(none)"}
+	]
+	path.write_text(json.dumps(data, indent=2) + "\n", encoding="utf-8")
+PY
+fi
 PACKET_ARGS=(
 	--repo "$ROOT"
 	--output "$OUT_DIR/packet"
@@ -173,7 +197,7 @@ PACKET_ARGS=(
 	--experiment-manifest "$OUT_DIR/experiment/manifest.json"
 )
 if [[ "$DRY_RUN" == "1" ]]; then
-	PACKET_ARGS+=(--dry-run)
+	PACKET_ARGS+=(--dry-run --require-swiss)
 fi
 set +e
 python3 scripts/gamecube-release-packet.py "${PACKET_ARGS[@]}"

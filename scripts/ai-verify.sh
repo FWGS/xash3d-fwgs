@@ -90,6 +90,8 @@ python3 -c 'compile(open("scripts/waifulib/gamecube_probe_save.py", encoding="ut
 python3 -c 'compile(open("scripts/waifulib/gamecube_ogc_stack.py", encoding="utf-8").read(), "scripts/waifulib/gamecube_ogc_stack.py", "exec")'
 python3 -c 'compile(open("scripts/gamecube-worst-case-report.py", encoding="utf-8").read(), "scripts/gamecube-worst-case-report.py", "exec")'
 python3 -c 'compile(open("scripts/gamecube-runtime-regression-gate.py", encoding="utf-8").read(), "scripts/gamecube-runtime-regression-gate.py", "exec")'
+python3 -c 'compile(open("scripts/gamecube-hardware-matrix-compliance.py", encoding="utf-8").read(), "scripts/gamecube-hardware-matrix-compliance.py", "exec")'
+python3 -c 'compile(open("scripts/gamecube-hardware-boot-check.py", encoding="utf-8").read(), "scripts/gamecube-hardware-boot-check.py", "exec")'
 python3 -c 'compile(open("scripts/hlsdk-gamecube-apply-patch.py", encoding="utf-8").read(), "scripts/hlsdk-gamecube-apply-patch.py", "exec")'
 python3 -c 'compile(open("scripts/generate-hlsdk-gamecube-exports.py", encoding="utf-8").read(), "scripts/generate-hlsdk-gamecube-exports.py", "exec")'
 

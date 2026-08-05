@@ -218,5 +218,47 @@ def engine_extra_ldflags(info: Optional[Dict[str, Any]] = None) -> List[str]:
 
 
 if __name__ == "__main__":
+	import argparse
 	import json
-	print(json.dumps(resolve_ogc_stack(), indent=2, sort_keys=True))
+	import sys
+
+	parser = argparse.ArgumentParser(description="Resolve GameCube OGC stack (Swiss libogc2 preferred)")
+	parser.add_argument(
+		"--preflight",
+		action="store_true",
+		help="Exit non-zero when no usable OGC stack is available",
+	)
+	parser.add_argument(
+		"--require-libogc2",
+		action="store_true",
+		help="Require Swiss libogc2 (+ libdvm preferred); fail classic-only installs",
+	)
+	parser.add_argument("--json", action="store_true", help="Force JSON output (default)")
+	args = parser.parse_args()
+
+	info = resolve_ogc_stack()
+	print(json.dumps(info, indent=2, sort_keys=True))
+
+	if args.preflight or args.require_libogc2:
+		available = bool(info.get("available"))
+		stack = info.get("stack")
+		if not available:
+			print(
+				"ogc-preflight: FAIL — no libogc2/libogc under DEVKITPRO. "
+				"Install: sudo (dkp-)pacman -S libogc2 libogc2-libdvm",
+				file=sys.stderr,
+			)
+			raise SystemExit(1)
+		if args.require_libogc2 and stack != "libogc2":
+			print(
+				f"ogc-preflight: FAIL — require libogc2 for Swiss, got {stack!r}. "
+				"Install: sudo (dkp-)pacman -S libogc2 libogc2-libdvm "
+				"or set XASH_GAMECUBE_OGC_STACK=libogc2",
+				file=sys.stderr,
+			)
+			raise SystemExit(1)
+		print(
+			f"ogc-preflight: OK stack={stack} fat={info.get('fat_provider')}",
+			file=sys.stderr,
+		)
+		raise SystemExit(0)

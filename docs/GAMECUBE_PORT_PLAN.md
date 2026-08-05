@@ -3747,3 +3747,18 @@ manual hardware validation with all artifacts generated and documented.
 - Host proof:
   `python3 -m unittest discover -s tests -p 'test_gamecube_host.py'`
   `SKIP_GAMECUBE_BUILD=1 scripts/ai-verify.sh`
+
+## RC/release Swiss path + G508 fault mirrors (2026-08-05)
+
+- `gamecube-rc-check.sh` defaults to G509 soak (`--g509 --require-ladder`) and
+  G508 boot/frame probes (`DOLPHIN_NEWGAME=1 DOLPHIN_G508=1`).
+- Runtime regression gate accepts Swiss FAT (`sd:`/`carda:`/`cardb:`) and
+  requires G504 ladder (+ G506 when present).
+- Release packet records storage/loader/presentation JSON; `--require-swiss`
+  fail-closes without FAT + return-to-loader.
+- G508 host fault mirrors (`write_fail`/`read_fail`/`missing`) in
+  `gamecube_probe_save.py`; matrix compliance requires Swiss volume wording;
+  `gamecube_ogc_stack.py --preflight --require-libogc2` for operators.
+- Host proof:
+  `python3 -m unittest discover -s tests -p 'test_gamecube_host.py'`
+  `SKIP_GAMECUBE_BUILD=1 scripts/ai-verify.sh`

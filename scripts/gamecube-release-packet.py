@@ -39,6 +39,41 @@ def load_ladder(root: Path):
     return module
 
 
+def load_storage(root: Path):
+    import sys
+
+    path = root / "scripts/waifulib/gamecube_storage.py"
+    name = "gamecube_storage"
+    if name in sys.modules:
+        return sys.modules[name]
+    spec = importlib.util.spec_from_file_location(name, path)
+    if spec is None or spec.loader is None:
+        raise RuntimeError(f"cannot load {path}")
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[name] = module
+    spec.loader.exec_module(module)
+    return module
+
+
+def evaluate_presentation(text: str) -> dict:
+    markers = (
+        "Xash3D GameCube: G105 viewmodel draw",
+        "Xash3D GameCube: G161 soft dump viewmodel ready",
+        "Xash3D GameCube: G177 soft dump HUD composite",
+    )
+    missing = []
+    position = 0
+    matched = []
+    for marker in markers:
+        found = text.find(marker, position)
+        if found < 0:
+            missing.append(marker)
+        else:
+            matched.append(marker)
+            position = found + len(marker)
+    return {"ok": not missing, "matched": matched, "missing": missing}
+
+
 def sha256(path: Path) -> str:
     digest = hashlib.sha256()
     with path.open("rb") as handle:
@@ -174,6 +209,11 @@ def main() -> int:
         help="Optional G501 manifest.json to copy into the packet.",
     )
     parser.add_argument(
+        "--require-swiss",
+        action="store_true",
+        help="Fail-close unless Swiss FAT volume + return-to-loader markers are present.",
+    )
+    parser.add_argument(
         "--dry-run",
         action="store_true",
         help="Skip ELF/DOL/ISO artifact validation; evaluate evidence fixtures only.",
@@ -219,9 +259,27 @@ def main() -> int:
     changelevel_ok = continuity["changelevel_ok"]
 
     ladder_mod = load_ladder(root)
-    ladder_report = ladder_mod.evaluate_ladder("\n".join((runtime, gameplay, audio_text)))
+    combined = "\n".join((runtime, gameplay, audio_text))
+    ladder_report = ladder_mod.evaluate_ladder(combined)
     ladder_ok = bool(ladder_report.get("ok"))
     (output / "ladder.json").write_text(json.dumps(ladder_report, indent=2) + "\n", encoding="utf-8")
+
+    storage_mod = load_storage(root)
+    storage_report = storage_mod.parse_fat_volume_status(combined)
+    loader_report = storage_mod.parse_loader_status(combined)
+    presentation_report = evaluate_presentation(combined)
+    (output / "storage.json").write_text(json.dumps(storage_report, indent=2) + "\n", encoding="utf-8")
+    (output / "loader.json").write_text(json.dumps(loader_report, indent=2) + "\n", encoding="utf-8")
+    (output / "presentation.json").write_text(
+        json.dumps(presentation_report, indent=2) + "\n", encoding="utf-8"
+    )
+    storage_ok = bool(storage_report.get("ok"))
+    loader_ok = bool(loader_report.get("swiss_return"))
+    presentation_ok = bool(presentation_report.get("ok"))
+    # Disc-only packets may omit Swiss return; require-swiss forces both.
+    swiss_ok = storage_ok and (loader_ok if args.require_swiss else True)
+    if args.require_swiss and not loader_ok:
+        swiss_ok = False
 
     experiment_manifest_path = None
     if args.experiment_manifest:
@@ -271,6 +329,19 @@ def main() -> int:
             "passed_count": ladder_report.get("passed_count"),
             "gate_count": ladder_report.get("gate_count"),
         },
+        "storage": {
+            "status": "PASS" if storage_ok else "FAIL",
+            "preferred": storage_report.get("preferred"),
+            "volumes": storage_report.get("volumes"),
+        },
+        "loader": {
+            "status": "PASS" if loader_ok else ("PARTIAL" if loader_report.get("fat_shutdown") else "UNSEEN"),
+            "swiss_return": loader_ok,
+        },
+        "presentation": {
+            "status": "PASS" if presentation_ok else "FAIL",
+            "missing": presentation_report.get("missing"),
+        },
         "persist": {"status": "PASS" if persist_ok else "FAIL"},
         "changelevel": {"status": "PASS" if changelevel_ok else "FAIL"},
     }
@@ -278,6 +349,14 @@ def main() -> int:
     if not ladder_ok:
         unsupported.append(
             f"G504 runtime ladder incomplete; first missing gate: {ladder_report.get('first_missing')}"
+        )
+    if not storage_ok:
+        unsupported.append("Swiss/libdvm FAT volume markers are missing from runtime evidence.")
+    if args.require_swiss and not loader_ok:
+        unsupported.append("Swiss return-to-loader / FAT shutdown marker is missing.")
+    if not presentation_ok:
+        unsupported.append(
+            "G506 presentation incomplete: " + ", ".join(presentation_report.get("missing") or [])
         )
     if not gameplay_ok:
         unsupported.append("Player gameplay remains incomplete: " + "; ".join(gameplay_failures))
@@ -297,6 +376,7 @@ def main() -> int:
         "commit": subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=root, text=True).strip(),
         "artifacts": records,
         "dry_run": bool(args.dry_run),
+        "require_swiss": bool(args.require_swiss),
     }
     (output / "artifact-manifest.json").write_text(json.dumps(manifest, indent=2) + "\n", encoding="utf-8")
     (output / "validation.json").write_text(
@@ -307,9 +387,14 @@ def main() -> int:
             "changelevel_ok": changelevel_ok,
             "ladder_ok": ladder_ok,
             "ladder_first_missing": ladder_report.get("first_missing"),
+            "storage_ok": storage_ok,
+            "loader_ok": loader_ok,
+            "presentation_ok": presentation_ok,
+            "swiss_ok": swiss_ok,
             "mem1_high_water_bytes": mem1_bytes,
             "experiment_manifest": str(experiment_manifest_path) if experiment_manifest_path else None,
             "dry_run": bool(args.dry_run),
+            "require_swiss": bool(args.require_swiss),
         }, indent=2) + "\n",
         encoding="utf-8",
     )
@@ -321,17 +406,19 @@ def main() -> int:
     # Dry-run judges evidence/continuity only; artifact structural checks are skipped.
     # Non-dry-run: require core PASS areas + persist/changelevel + G504 ladder;
     # memory may be PARTIAL, audio may be UNVERIFIED without blocking the historic core set.
+    # Presentation/storage are informational unless --require-swiss (then storage+loader required).
     required_evidence = ("runtime", "map", "gameplay", "soak", "ladder")
     if args.dry_run:
         complete = all(
             evidence[k]["status"] == "PASS" for k in required_evidence
-        ) and persist_ok and changelevel_ok
+        ) and persist_ok and changelevel_ok and (swiss_ok if args.require_swiss else True)
     else:
         complete = (
             not artifact_failures
             and all(evidence[k]["status"] == "PASS" for k in required_evidence)
             and persist_ok
             and changelevel_ok
+            and (swiss_ok if args.require_swiss else True)
         )
     packet_status = "COMPLETE / RELEASE-READY" if complete else "INCOMPLETE / NOT RELEASE-READY"
     lines = ["# Dolphin Release Packet", "", f"- Generated: {datetime.now(timezone.utc).isoformat()}", f"- Commit: `{manifest['commit']}`", f"- Packet status: **{packet_status}**", f"- Dry-run: `{bool(args.dry_run)}`", "", "## Evidence", "", "| Area | Status |", "|---|---|"]
