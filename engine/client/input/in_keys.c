@@ -722,6 +722,7 @@ void GAME_EXPORT Key_Event( int key, int down )
 				keys[key].gamedown = false;
 				keys[key].repeats = 0;
 			}
+			VGui_KeyEvent( key, down ); // resolves issue #1923
 			return; // handled in client.dll
 		}
 	}
