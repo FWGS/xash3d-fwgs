@@ -185,14 +185,14 @@ probe; then update this status from fresh evidence.
 
 ## Next Task
 
-**Prove G508 writable config round trips on the Dolphin-designated route**
+**Run G509 changelevel soak and finish G508 Dolphin evidence**
 
-1. Rebuild with the G508 probe bank (config.cfg .new/.bak rename + delete).
-2. Run `DOLPHIN_NEWGAME=1 DOLPHIN_G508=1 scripts/dolphin-boot-probe.sh` (optionally
-   also `DOLPHIN_G94=1`) and archive the `G508 config round trip ready` marker.
-3. Keep physical SD/memory-card fault cases as hardware-only under G38/G66/G71.
-4. Expand soak coverage beyond repeated `c0a0` boots to a representative
-   changelevel sequence once the release packet consumes the new gate.
+1. Rebuild and run `DOLPHIN_NEWGAME=1 DOLPHIN_G508=1 scripts/dolphin-boot-probe.sh`
+   (optionally also `DOLPHIN_G94=1`); archive `G508 config round trip ready`.
+2. Run the G509 changelevel soak gate:
+   `scripts/gamecube-g509-soak.sh` (default route `c0a0:c0a0a`, 2 iterations).
+3. Feed the soak `report.json` into `scripts/gamecube-release-packet.py`.
+4. Keep physical SD/memory-card fault cases as hardware-only under G38/G66/G71.
 5. Do not reopen the resolved FI/GameInfo or delta.lst investigation unless a
    new runtime probe regresses those markers.
 
@@ -263,3 +263,18 @@ behavior remains explicitly unverified until hardware testing.
 - Host contract covered by `tests/test_gamecube_host.py::test_g508_config_roundtrip_probe_contract`.
 - Runtime acceptance still requires a fresh Dolphin probe emitting
   `G508 config round trip ready route=gcprobe|sd`.
+
+### G509 changelevel soak gate wired — 2026-08-05
+
+- Expanded `scripts/gamecube-soak-probe.py` with `--g509` /
+  `--changelevel-route FROM:TO` so soak iterations exercise continuity, not
+  only repeated single-map boots.
+- Default route is the proven early tram hop `c0a0:c0a0a`; PASS requires
+  `CHANGELEVEL_READY` / G68 ready plus G100 landmark restore, memory, and frame
+  telemetry with bounded MEM growth.
+- Wrapper: `scripts/gamecube-g509-soak.sh`.
+- Host proof: dry-run + parser unit tests in `tests/test_gamecube_host.py`.
+- Release packet treats changelevel-mode soak reports as the preferred soak
+  evidence when `require_changelevel` is set.
+- Still open: real Dolphin G509 soak iterations (no toolchain/Dolphin in this
+  cloud environment).

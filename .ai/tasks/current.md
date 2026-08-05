@@ -1,13 +1,11 @@
-G508 writable config/save round-trip probe is wired for the Dolphin-designated
-storage route (`gcprobe:` RAM bank or real `sd:/xash3d`).
+G509 changelevel soak gate is wired for the GameCube port.
 
-Next operator/runtime step:
+Run:
 ```sh
-DOLPHIN_NEWGAME=1 DOLPHIN_G508=1 DOLPHIN_G94=1 scripts/dolphin-boot-probe.sh
+scripts/gamecube-g509-soak.sh
+# or dry-run without Dolphin:
+scripts/gamecube-g509-soak.sh --dry-run
 ```
 
-Expect guest markers:
-- `G508 config round trip ready route=gcprobe` (or `route=sd`)
-- optional `G94 round trip present` when `DOLPHIN_G94=1`
-
-Physical SD/memory-card fault cases remain G38/G66/G71 hardware-only.
+Default route: `c0a0:c0a0a` (2 iterations). Still need real Dolphin evidence
+and the outstanding G508 config round-trip probe marker.

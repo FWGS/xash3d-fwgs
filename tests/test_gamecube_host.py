@@ -326,6 +326,58 @@ class GameCubeHostTests(unittest.TestCase):
 		self.assertIn("persist_ok", packet)
 		self.assertIn("changelevel_ok", packet)
 
+	def test_g509_changelevel_soak_dry_run(self) -> None:
+		soak = load_script("soak_probe", "scripts/gamecube-soak-probe.py")
+		with tempfile.TemporaryDirectory() as tmpdir:
+			log_dir = Path(tmpdir) / "soak"
+			code = soak.main([
+				"--repo", str(ROOT),
+				"--g509",
+				"--dry-run",
+				"--iterations", "2",
+				"--log-dir", str(log_dir),
+			])
+			self.assertEqual(code, 0)
+			report = json.loads((log_dir / "report.json").read_text(encoding="utf-8"))
+			self.assertTrue(report["ok"])
+			self.assertEqual(report["mode"], "changelevel")
+			self.assertEqual(report["changelevel_route"], "c0a0:c0a0a")
+			self.assertTrue(report["require_changelevel"])
+			self.assertEqual(len(report["results"]), 2)
+			self.assertEqual(report["results"][0]["changelevel_to"], "c0a0a")
+			self.assertTrue(report["results"][0]["landmark_restore"])
+			summary = (log_dir / "summary.md").read_text(encoding="utf-8")
+			self.assertIn("Changelevel route: `c0a0:c0a0a`", summary)
+
+	def test_g509_soak_parser_accepts_changelevel_ready(self) -> None:
+		soak = load_script("soak_parse", "scripts/gamecube-soak-probe.py")
+		output = (
+			"CHANGELEVEL_READY: Destination map, landmark state, and required runtime continuity markers passed.\n"
+			"Xash3D GameCube: G68 changelevel ready from=c0a0 to=c0a0a\n"
+			"Xash3D GameCube: MAP_READY c0a0a\n"
+			"Xash3D GameCube: G100 landmark restore health=77 armor=50\n"
+			"mem stage=changelevel total=4.00 Mb hwm=5.00 Mb\n"
+			"FRAME_BUDGET_STATS: samples=12 avg=1.00ms p95=1.10ms max=2.00ms\n"
+			"Logs: .ai/logs/example\n"
+		)
+		item = soak.parse_iteration(
+			ROOT,
+			1,
+			"c0a0",
+			mode="changelevel",
+			changelevel_to="c0a0a",
+			exit_code=0,
+			elapsed=1.5,
+			output=output,
+		)
+		self.assertEqual(item.status, "PASS")
+		self.assertTrue(item.landmark_restore)
+		self.assertEqual(item.hwm_bytes, 5 * 1024 * 1024)
+		self.assertEqual(item.frame_samples, 12)
+		ok, note = soak.classify([item, item], 256 * 1024, require_changelevel=True)
+		self.assertTrue(ok)
+		self.assertIn("passed", note)
+
 
 if __name__ == "__main__":
 	unittest.main()

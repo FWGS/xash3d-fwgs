@@ -3640,3 +3640,11 @@ manual hardware validation with all artifacts generated and documented.
 - Evidence marker: `G508 config round trip ready route=gcprobe|sd`
 - Host test: `tests/test_gamecube_host.py::test_g508_config_roundtrip_probe_contract`
 - Next blocker: fresh Dolphin runtime evidence for that marker; physical SD faults remain hardware-only.
+
+## G509 changelevel soak gate (2026-08-05)
+
+- Expanded `scripts/gamecube-soak-probe.py` with `--g509` / `--changelevel-route FROM:TO`.
+- Wrapper: `scripts/gamecube-g509-soak.sh` (default `c0a0:c0a0a`).
+- PASS requires CHANGELEVEL_READY/G68 ready, G100 landmark restore, memory + frame telemetry, and bounded MEM growth.
+- Host proof: `python3 -m unittest tests.test_gamecube_host.GameCubeHostTests.test_g509_changelevel_soak_dry_run tests.test_gamecube_host.GameCubeHostTests.test_g509_soak_parser_accepts_changelevel_ready`
+- Next blocker: real Dolphin G509 soak iterations and G508 runtime marker.

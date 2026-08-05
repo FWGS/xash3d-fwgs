@@ -2,18 +2,18 @@ Auto-port task for Xash3D GameCube
 =================================
 
 Current goal:
-G508: Prove writable config/save round trips on the Dolphin-designated route
+G509: Expand soak coverage to a representative changelevel route
 
-**IN PROGRESS (G508 source wiring)**:
-- Extended gcprobe RAM bank for config.cfg (.new/.bak) write/read/rename/delete
-- Added `-gcconfigroundtrip` guest flag and disc `configroundtrip` override
-- Wired `DOLPHIN_G508=1` into dolphin-boot-probe / disc staging
-- Release packet now derives persist/changelevel limitations from probe evidence
-- Host contract test: `test_g508_config_roundtrip_probe_contract`
+**IN PROGRESS (G509 soak gate)**:
+- Extended gamecube-soak-probe.py with --g509 / --changelevel-route FROM:TO
+- Default continuity route: c0a0 → c0a0a with G68/G100 requirements
+- Wrapper: scripts/gamecube-g509-soak.sh
+- Release packet prefers changelevel-mode soak reports
+- Host dry-run + parser tests added
 
 Next acceptance step:
-- Run `DOLPHIN_NEWGAME=1 DOLPHIN_G508=1 scripts/dolphin-boot-probe.sh`
-- Archive `G508 config round trip ready route=gcprobe|sd`
+- Run `scripts/gamecube-g509-soak.sh` against a real Dolphin build
+- Archive report.json beside the same-build G508 probe evidence
 - Keep physical SD fault cases hardware-only
 
 Rules:

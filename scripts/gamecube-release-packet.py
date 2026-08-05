@@ -128,6 +128,11 @@ def main() -> int:
     )
     soak_data = json.loads(soak_path.read_text(encoding="utf-8")) if soak_path.is_file() and soak_path.suffix == ".json" else {}
     soak_ok = bool(soak_data.get("ok"))
+    # G509: prefer changelevel-mode soak reports when present.
+    if soak_ok and soak_data.get("require_changelevel"):
+        soak_ok = soak_data.get("mode") == "changelevel" and bool(soak_data.get("changelevel_route"))
+    elif soak_ok and soak_data.get("mode") == "changelevel":
+        soak_ok = bool(soak_data.get("changelevel_route"))
 
     evidence = {
         "runtime": {"status": "PASS" if runtime_ok else "FAIL", "source": str(args.runtime_log)},

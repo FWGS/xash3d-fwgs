@@ -5191,6 +5191,10 @@ readiness matrix. They are ordered by dependency, not by cosmetic importance.
   state, and audio accumulation.
 - Compare per-map memory/frame/audio telemetry and require no guest fatal.
 - Acceptance: G498 passes strict soak and G499 archives the same-build reports.
+- Progress 2026-08-05: `scripts/gamecube-soak-probe.py --g509` and
+  `scripts/gamecube-g509-soak.sh` implement the bounded `c0a0:c0a0a` continuity
+  soak with landmark/memory/frame gates. Host dry-run passes. Real Dolphin
+  iterations remain pending.
 
 ### G510 [MANUAL] Execute the hardware release checklist
 
@@ -5214,5 +5218,5 @@ readiness matrix. They are ordered by dependency, not by cosmetic importance.
 | Renderer/HUD | G495/G507 | nonblack frame, GX markers, timing | partial; no new polish queue |
 | Audio | G496/G507 | nonzero mixer/audio evidence | partial SFX proof |
 | Changelevel/save | G497/G508 | persistence and continuity reports | changelevel proven; G508 config probe wired, Dolphin evidence pending |
-| Soak/release | G498–G499/G509 | strict soak and same-build archive | incomplete |
+| Soak/release | G498–G499/G509 | strict soak and same-build archive | G509 changelevel soak gate wired; Dolphin iterations pending |
 | Hardware | G500/G510 | operator checklist and hardware matrix | manual pending |
