@@ -170,11 +170,13 @@ def main(argv: Optional[list[str]] = None) -> int:
 	path = out_dir / "manifest.json"
 	path.write_text(json.dumps(manifest, indent=2) + "\n", encoding="utf-8")
 
-	# Convenience pointer for automation.
-	latest = root / ".ai" / "state" / "experiment-latest.json"
+	# Convenience pointer for automation (avoid colliding with ai-run-until-done
+	# experiment *result* state at experiment-latest.json).
+	latest = root / ".ai" / "state" / "g501-experiment-latest.json"
 	if not args.dry_run:
 		latest.parent.mkdir(parents=True, exist_ok=True)
 		latest.write_text(json.dumps({
+			"schema": "xash3d-gc-experiment-manifest-pointer/v1",
 			"manifest": str(path.relative_to(root)) if path.is_relative_to(root) else str(path),
 			"stamp": manifest["stamp"],
 			"hypothesis": manifest["hypothesis"],

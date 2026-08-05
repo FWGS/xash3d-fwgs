@@ -302,6 +302,46 @@ def classify(
 	return True, "soak evidence passed memory/frame telemetry checks"
 
 
+def write_experiment_manifest(
+	root: Path,
+	log_dir: Path,
+	*,
+	hypothesis: str,
+	dry_run: bool,
+	changelevel_route: str,
+) -> Path | None:
+	"""Attach a G501 experiment manifest beside soak reports."""
+	import importlib.util
+
+	path = Path(__file__).resolve().parent / "gamecube-experiment-manifest.py"
+	spec = importlib.util.spec_from_file_location("gamecube_experiment_manifest", path)
+	if spec is None or spec.loader is None:
+		return None
+	module = importlib.util.module_from_spec(spec)
+	sys.modules.setdefault("gamecube_experiment_manifest", module)
+	spec.loader.exec_module(module)
+	ladder_json = log_dir / "ladder.json"
+	# Prefer iteration ladder summary when present.
+	if not ladder_json.is_file():
+		ladder_json = None
+	argv = [
+		"--repo", str(root),
+		"--hypothesis", hypothesis,
+		"--target-file", "scripts/gamecube-soak-probe.py",
+		"--decision", "pending",
+		"--output-dir", str(log_dir / "experiment"),
+	]
+	if dry_run:
+		argv.append("--dry-run")
+	if changelevel_route:
+		argv.extend(["--target-file", f"changelevel:{changelevel_route}"])
+	if ladder_json is not None:
+		argv.extend(["--ladder-json", str(ladder_json)])
+	code = module.main(argv)
+	manifest_path = log_dir / "experiment" / "manifest.json"
+	return manifest_path if code == 0 and manifest_path.is_file() else None
+
+
 def write_reports(
 	log_dir: Path,
 	iterations: list[Iteration],
@@ -309,6 +349,8 @@ def write_reports(
 	classification: str,
 	elapsed_total: float,
 	args: argparse.Namespace,
+	*,
+	root: Path | None = None,
 ) -> None:
 	report = {
 		"generated": datetime.now(timezone.utc).isoformat(),
@@ -328,6 +370,20 @@ def write_reports(
 		"results": [asdict(item) for item in iterations],
 	}
 	(log_dir / "report.json").write_text(json.dumps(report, indent=2) + "\n", encoding="utf-8")
+
+	# Compact ladder summary for G501 attachment.
+	ladder_summary = {
+		"ok": all(item.ladder_ok for item in iterations) if iterations else False,
+		"iterations": [
+			{
+				"iteration": item.iteration,
+				"ladder_ok": item.ladder_ok,
+				"ladder_first_missing": item.ladder_first_missing,
+			}
+			for item in iterations
+		],
+	}
+	(log_dir / "ladder.json").write_text(json.dumps(ladder_summary, indent=2) + "\n", encoding="utf-8")
 
 	with (log_dir / "results.tsv").open("w", encoding="utf-8") as out:
 		out.write(
@@ -375,6 +431,25 @@ def write_reports(
 				f"{item.status} | {hwm} | {item.frame_samples} | "
 				f"{'yes' if item.landmark_restore else 'no'} | {ladder} | {item.note} |\n"
 			)
+
+	if root is not None:
+		mode = "changelevel" if args.changelevel_route else "map"
+		hypothesis = (
+			f"G509 soak {mode} route={args.changelevel_route or ','.join(args.maps)} "
+			f"ok={int(ok)} ({classification})"
+		)
+		manifest_path = write_experiment_manifest(
+			root,
+			log_dir,
+			hypothesis=hypothesis,
+			dry_run=bool(args.dry_run),
+			changelevel_route=args.changelevel_route or "",
+		)
+		if manifest_path is not None:
+			report["experiment_manifest"] = str(manifest_path)
+			(log_dir / "report.json").write_text(json.dumps(report, indent=2) + "\n", encoding="utf-8")
+			with (log_dir / "summary.md").open("a", encoding="utf-8") as out:
+				out.write(f"\n- G501 experiment manifest: `{manifest_path}`\n")
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -487,7 +562,7 @@ def main(argv: list[str] | None = None) -> int:
 		classification = (
 			f"strict soak elapsed {elapsed_total:.1f}s below required {args.min_strict_seconds}s"
 		)
-	write_reports(log_dir, results, ok, classification, elapsed_total, args)
+	write_reports(log_dir, results, ok, classification, elapsed_total, args, root=root)
 	print(log_dir / "summary.md")
 	return 0 if ok else 1
 

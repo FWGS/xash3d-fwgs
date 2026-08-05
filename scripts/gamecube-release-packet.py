@@ -169,6 +169,11 @@ def main() -> int:
     parser.add_argument("--audio-report", type=Path, required=True)
     parser.add_argument("--soak-report", type=Path, required=True)
     parser.add_argument(
+        "--experiment-manifest",
+        type=Path,
+        help="Optional G501 manifest.json to copy into the packet.",
+    )
+    parser.add_argument(
         "--dry-run",
         action="store_true",
         help="Skip ELF/DOL/ISO artifact validation; evaluate evidence fixtures only.",
@@ -217,6 +222,37 @@ def main() -> int:
     ladder_report = ladder_mod.evaluate_ladder("\n".join((runtime, gameplay, audio_text)))
     ladder_ok = bool(ladder_report.get("ok"))
     (output / "ladder.json").write_text(json.dumps(ladder_report, indent=2) + "\n", encoding="utf-8")
+
+    experiment_manifest_path = None
+    if args.experiment_manifest:
+        src = args.experiment_manifest if args.experiment_manifest.is_absolute() else root / args.experiment_manifest
+        if src.is_file():
+            experiment_manifest_path = output / "experiment-manifest.json"
+            shutil.copy2(src, experiment_manifest_path)
+    if experiment_manifest_path is None:
+        # Synthesize a G501 pointer from current evidence when none was provided.
+        import importlib.util as _ilu
+        manifest_script = root / "scripts/gamecube-experiment-manifest.py"
+        spec = _ilu.spec_from_file_location("g501_manifest", manifest_script)
+        if spec is not None and spec.loader is not None:
+            mod = _ilu.module_from_spec(spec)
+            sys_modules = __import__("sys").modules
+            sys_modules.setdefault("g501_manifest", mod)
+            spec.loader.exec_module(mod)
+            argv = [
+                "--repo", str(root),
+                "--hypothesis", f"release packet dry_run={int(bool(args.dry_run))} ladder_ok={int(ladder_ok)}",
+                "--target-file", "scripts/gamecube-release-packet.py",
+                "--decision", "pending" if not (ladder_ok and soak_ok and persist_ok) else "keep",
+                "--output-dir", str(output / "experiment"),
+                "--ladder-json", str(output / "ladder.json"),
+            ]
+            if args.dry_run:
+                argv.append("--dry-run")
+            if mod.main(argv) == 0 and (output / "experiment" / "manifest.json").is_file():
+                experiment_manifest_path = output / "experiment" / "manifest.json"
+                shutil.copy2(experiment_manifest_path, output / "experiment-manifest.json")
+                experiment_manifest_path = output / "experiment-manifest.json"
 
     evidence = {
         "runtime": {"status": "PASS" if runtime_ok else "FAIL", "source": str(args.runtime_log)},
@@ -272,6 +308,7 @@ def main() -> int:
             "ladder_ok": ladder_ok,
             "ladder_first_missing": ladder_report.get("first_missing"),
             "mem1_high_water_bytes": mem1_bytes,
+            "experiment_manifest": str(experiment_manifest_path) if experiment_manifest_path else None,
             "dry_run": bool(args.dry_run),
         }, indent=2) + "\n",
         encoding="utf-8",

@@ -3733,3 +3733,17 @@ manual hardware validation with all artifacts generated and documented.
 - Host proof:
   `python3 -m unittest discover -s tests -p 'test_gamecube_host.py'`
   `SKIP_GAMECUBE_BUILD=1 scripts/ai-verify.sh`
+
+## G56 Swiss routes + G501/G504/G506 operator wiring (2026-08-05)
+
+- G56 `gamecube-hardware-boot-check.py` accepts `carda`/`cardb`/`sdgecko` and
+  requires Swiss volume prefixes in the hardware boot checklist.
+- G504 ladder adds `entity_spawn` between BSP open and map loaded (10 gates).
+- Analyze writes `presentation.json`, ordered G506 checks, and `LOADER_STATUS`
+  for Swiss FAT shutdown / return-to-loader.
+- G501 pointer moved to `.ai/state/g501-experiment-latest.json` (no collision
+  with `ai-run-until-done` experiment results); soak/release attach manifests.
+- Operator one-shot: `scripts/gamecube-operator-evidence.sh --dry-run`.
+- Host proof:
+  `python3 -m unittest discover -s tests -p 'test_gamecube_host.py'`
+  `SKIP_GAMECUBE_BUILD=1 scripts/ai-verify.sh`

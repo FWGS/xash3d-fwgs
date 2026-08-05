@@ -60,7 +60,7 @@ def main() -> int:
 
 	layout_results = {
 		route: run(root, ["bash", str(layout_path.relative_to(root)), "--route", route])
-		for route in ("all", "sd", "disc", "memcard")
+		for route in ("all", "sd", "carda", "cardb", "sdgecko", "disc", "memcard")
 	}
 
 	checks: list[Check] = []
@@ -81,8 +81,9 @@ def main() -> int:
 		"route coverage",
 		"PASS" if contains_all(checklist, (
 			"SD Gecko", "SD2SP2", "Disc Image", "Memory Card", "Wii in GameCube mode",
+			"sd:/", "carda:/", "cardb:/",
 		)) else "FAIL",
-		"checklist covers SD, disc, memory-card-assisted, and Wii GC-mode routes",
+		"checklist covers Swiss sd:/carda:/cardb: plus disc/memcard/Wii GC-mode routes",
 	))
 	checks.append(Check(
 		"failure triage",
@@ -99,14 +100,30 @@ def main() -> int:
 	))
 	checks.append(Check(
 		"layout script route parser",
-		"PASS" if contains_all(layout, ("--route", "sd|disc|memcard|all", "unknown route")) else "FAIL",
-		"script supports --route all/sd/disc/memcard and rejects unknown routes",
+		"PASS" if contains_all(layout, (
+			"--route",
+			"sd|sd2sp2|sdgecko|carda|cardb|disc|memcard|all",
+			"unknown route",
+		)) else "FAIL",
+		"script supports --route all/sd/carda/cardb/sdgecko/disc/memcard and rejects unknown routes",
 	))
 	for route, result in layout_results.items():
+		detail = f"exit={result.returncode}"
+		ok = result.returncode == 0 and result.stdout.strip()
+		if ok and route in {"sd", "carda", "cardb", "sdgecko"}:
+			needles = {
+				"sd": "sd:/",
+				"carda": "carda:/",
+				"cardb": "cardb:/",
+				"sdgecko": "carda:/",
+			}
+			needle = needles[route]
+			ok = needle in result.stdout
+			detail += f" needle={needle}"
 		checks.append(Check(
 			f"layout output {route}",
-			"PASS" if result.returncode == 0 and result.stdout.strip() else "FAIL",
-			f"exit={result.returncode}",
+			"PASS" if ok else "FAIL",
+			detail,
 		))
 	checks.append(Check(
 		"docs and ledger sync",

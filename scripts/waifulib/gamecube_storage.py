@@ -139,6 +139,20 @@ def parse_g508_status(text: str) -> dict:
 	}
 
 
+def parse_loader_status(text: str) -> dict:
+	"""Parse Swiss return-to-loader / FAT shutdown markers."""
+	body = text or ""
+	fat_shutdown = "FAT shutdown (return to Swiss loader via exit stub)" in body
+	swiss_return = fat_shutdown or (
+		"return to Swiss loader" in body and "exit stub" in body
+	)
+	return {
+		"fat_shutdown": fat_shutdown,
+		"swiss_return": swiss_return,
+		"stubhaxx_mentioned": "STUBHAXX" in body,
+	}
+
+
 def format_layout_help(volume_root: str = "sd:/") -> str:
 	root = normalize_volume_root(volume_root) or "sd:/"
 	paths = writable_layout_paths(root)
@@ -175,6 +189,7 @@ if __name__ == "__main__":
 		print(json.dumps({
 			"fat": parse_fat_volume_status(text),
 			"g508": parse_g508_status(text),
+			"loader": parse_loader_status(text),
 		}, indent=2))
 	elif args.select is not None:
 		print(select_fat_volume(args.select, has_valve=args.has_valve) or "")

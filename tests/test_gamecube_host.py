@@ -649,9 +649,14 @@ class GameCubeHostTests(unittest.TestCase):
 				"G201 delta reinit ready\n"
 				"COM_LoadLibrary server (registered)\n"
 				"find found 'maps/c0a0.bsp'\n"
+				"Xash3D GameCube: entity lump spawn ready\n"
 				"Xash3D GameCube: map loaded c0a0\n"
 				"Xash3D GameCube: G45 controller ready port=0 type=standard\n"
 				"Xash3D GameCube: input polling active\n"
+				"Xash3D GameCube: G105 viewmodel draw\n"
+				"Xash3D GameCube: G161 soft dump viewmodel ready\n"
+				"Xash3D GameCube: G177 soft dump HUD composite\n"
+				"Xash3D GameCube: FAT shutdown (return to Swiss loader via exit stub)\n"
 				"sampled_nonblack=1\n"
 				"frame time=1.00ms\n",
 				encoding="utf-8",
@@ -671,8 +676,12 @@ class GameCubeHostTests(unittest.TestCase):
 			out = buf.getvalue()
 			self.assertIn("LADDER_STATUS: PASS", out)
 			self.assertIn("STORAGE_STATUS: PASS", out)
+			self.assertIn("G506_STATUS: PASS", out)
+			self.assertIn("LOADER_STATUS: PASS", out)
 			ladder = json.loads((log_dir / "ladder.json").read_text(encoding="utf-8"))
 			self.assertTrue(ladder["ok"])
+			presentation = json.loads((log_dir / "presentation.json").read_text(encoding="utf-8"))
+			self.assertTrue(presentation["ok"])
 
 	def test_memory_evidence_parses_soak_mem1_formats(self) -> None:
 		memory = load_script("memory_soak", "scripts/gamecube-memory-evidence.py")
@@ -772,6 +781,7 @@ class GameCubeHostTests(unittest.TestCase):
 			"Xash3D GameCube: G201 delta reinit ready\n"
 			"COM_LoadLibrary server (registered)\n"
 			"find found 'maps/c0a0.bsp'\n"
+			"Xash3D GameCube: entity lump spawn ready\n"
 			"Xash3D GameCube: map loaded c0a0\n"
 			"Xash3D GameCube: G45 controller ready port=0 type=standard\n"
 			"sampled_nonblack=1\n"
@@ -779,11 +789,21 @@ class GameCubeHostTests(unittest.TestCase):
 		full = ladder.evaluate_ladder(complete)
 		self.assertTrue(full["ok"])
 		self.assertIsNone(full["first_missing"])
+		self.assertIn("entity_spawn", full["passed"])
 
 		# Explicit delta failure must stop even if other text mentions delta.
 		failed = partial + "Delta_InitFields: couldn't load file delta.lst\n"
 		bad = ladder.evaluate_ladder(failed)
 		self.assertEqual(bad["first_missing"], "delta_load")
+
+		# Map loaded without entity spawn stops at entity_spawn.
+		no_spawn = partial + (
+			"Xash3D GameCube: G201 delta reinit ready\n"
+			"COM_LoadLibrary server (registered)\n"
+			"find found 'maps/c0a0.bsp'\n"
+			"Xash3D GameCube: map loaded c0a0\n"
+		)
+		self.assertEqual(ladder.evaluate_ladder(no_spawn)["first_missing"], "entity_spawn")
 
 	def test_runtime_ladder_cli_fixture(self) -> None:
 		ladder = load_script("runtime_ladder_cli", "scripts/gamecube-runtime-ladder.py")
@@ -819,6 +839,7 @@ class GameCubeHostTests(unittest.TestCase):
 			self.assertIn("value", data["tier"])
 			self.assertIn("ogc_stack", data)
 			self.assertIn("stack", data["ogc_stack"])
+			self.assertIn("g501-experiment-latest.json", (ROOT / "scripts/gamecube-experiment-manifest.py").read_text(encoding="utf-8"))
 			self.assertEqual(data["hypothesis"], "host-only ladder dry-run")
 			self.assertEqual(data["decision"], "pending")
 			self.assertTrue(data["dry_run"])
@@ -834,6 +855,75 @@ class GameCubeHostTests(unittest.TestCase):
 		bytes_ = probe.stat().st_size
 		self.assertLessEqual(lines, 700, f"probe has {lines} lines")
 		self.assertLessEqual(bytes_, 30720, f"probe is {bytes_} bytes")
+
+	def test_hardware_boot_check_accepts_swiss_routes(self) -> None:
+		boot = load_script("hardware_boot_check", "scripts/gamecube-hardware-boot-check.py")
+		with tempfile.TemporaryDirectory() as tmpdir:
+			log_dir = Path(tmpdir) / "g56"
+			with patch.object(sys, "argv", [
+				"gamecube-hardware-boot-check.py",
+				"--repo", str(ROOT),
+				"--log-dir", str(log_dir),
+			]):
+				code = boot.main()
+			self.assertEqual(code, 0)
+			report = json.loads((log_dir / "report.json").read_text(encoding="utf-8"))
+			self.assertTrue(report["ok"])
+			names = {c["name"]: c["status"] for c in report["checks"]}
+			self.assertEqual(names["layout script route parser"], "PASS")
+			self.assertEqual(names["layout output carda"], "PASS")
+			self.assertEqual(names["layout output cardb"], "PASS")
+
+	def test_loader_status_parses_swiss_exit(self) -> None:
+		storage = load_script("storage_loader", "scripts/waifulib/gamecube_storage.py")
+		status = storage.parse_loader_status(
+			"Xash3D GameCube: FAT shutdown (return to Swiss loader via exit stub)\n"
+		)
+		self.assertTrue(status["swiss_return"])
+		self.assertTrue(status["fat_shutdown"])
+		self.assertFalse(storage.parse_loader_status("bootstrap")["swiss_return"])
+
+	def test_g509_attaches_experiment_manifest(self) -> None:
+		soak = load_script("soak_manifest", "scripts/gamecube-soak-probe.py")
+		with tempfile.TemporaryDirectory() as tmpdir:
+			log_dir = Path(tmpdir) / "soak"
+			code = soak.main([
+				"--repo", str(ROOT),
+				"--g509",
+				"--dry-run",
+				"--iterations", "1",
+				"--log-dir", str(log_dir),
+			])
+			self.assertEqual(code, 0)
+			self.assertTrue((log_dir / "experiment" / "manifest.json").is_file())
+			self.assertTrue((log_dir / "ladder.json").is_file())
+			report = json.loads((log_dir / "report.json").read_text(encoding="utf-8"))
+			self.assertIn("experiment_manifest", report)
+
+	def test_operator_evidence_dry_run(self) -> None:
+		import subprocess
+
+		with tempfile.TemporaryDirectory() as tmpdir:
+			out = Path(tmpdir) / "evidence"
+			result = subprocess.run(
+				[
+					"bash",
+					str(ROOT / "scripts/gamecube-operator-evidence.sh"),
+					"--dry-run",
+					"--output", str(out),
+					"--hypothesis", "host dry-run evidence",
+				],
+				cwd=ROOT,
+				text=True,
+				capture_output=True,
+				check=False,
+			)
+			self.assertIn("OPERATOR_EVIDENCE:", result.stdout)
+			self.assertTrue((out / "experiment" / "manifest.json").is_file())
+			self.assertTrue((out / "soak" / "report.json").is_file())
+			self.assertTrue((out / "memory.json").is_file())
+			self.assertTrue((out / "packet" / "validation.json").is_file())
+			self.assertIn(result.returncode, (0, 1), result.stderr + result.stdout)
 
 	def test_probe_save_config_names(self) -> None:
 		probe = load_script("probe_save", "scripts/waifulib/gamecube_probe_save.py")

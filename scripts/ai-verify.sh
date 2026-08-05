@@ -38,7 +38,8 @@ for shell_script in \
 	scripts/stage-sd-assets.sh \
 	scripts/gamecube-g509-soak.sh \
 	scripts/gamecube-hardware-layout-info.sh \
-	scripts/gamecube-release-packet.sh
+	scripts/gamecube-release-packet.sh \
+	scripts/gamecube-operator-evidence.sh
 do
 	bash -n "$shell_script"
 done

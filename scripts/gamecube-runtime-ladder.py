@@ -80,6 +80,14 @@ DEFAULT_GATES: tuple[LadderGate, ...] = (
 		),
 	),
 	LadderGate(
+		"entity_spawn",
+		"Entity lump spawn ready",
+		(
+			"Xash3D GameCube: entity lump spawn ready",
+			"entity lump spawn ready",
+		),
+	),
+	LadderGate(
 		"map_loaded",
 		"Map loaded / MAP_READY",
 		(
