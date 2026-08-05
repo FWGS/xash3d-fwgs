@@ -2096,6 +2096,11 @@ def main() -> None:
 		help="stage valve/gamecube.cfg with a newgame override for automated retail probes",
 	)
 	parser.add_argument(
+		"--probe-menu-newgame",
+		action="store_true",
+		help="stage a retail menu boot that presses the built-in New Game item",
+	)
+	parser.add_argument(
 		"--probe-newsaveload",
 		action="store_true",
 		help="with --probe-newgame, also stage newsaveload for G94 RAM save/load probes",
@@ -2258,6 +2263,8 @@ def main() -> None:
 					leanpvs=args.probe_leanpvs,
 					fullphysics=args.probe_fullphysics,
 				)
+			elif args.probe_menu_newgame:
+				(staged_data / "gamecube.cfg").write_text("menunewgame\n", encoding="ascii")
 			elif args.probe_phasetest:
 				write_probe_phasetest_override(staged_data, args.probe_phasetest)
 

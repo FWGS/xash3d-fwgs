@@ -2004,6 +2004,7 @@ static void SV_GCStepIntroTrain( void )
 	static edict_t *train;
 	static edict_t *path;
 	static int log_n;
+	static int ride_log_n;
 	static qboolean inited;
 	static double ride_arm_time;
 	static qboolean ride_started;
@@ -2122,6 +2123,7 @@ static void SV_GCStepIntroTrain( void )
 	}
 	VectorAdd( train->v.origin, train->v.mins, train->v.absmin );
 	VectorAdd( train->v.origin, train->v.maxs, train->v.absmax );
+	SV_LinkEdict( train, false );
 
 	/* Keep the local player riding with the tram (intro eye). */
 	{
@@ -2134,8 +2136,25 @@ static void SV_GCStepIntroTrain( void )
 			player->v.origin[0] = train->v.origin[0] - 119.0f;
 			player->v.origin[1] = train->v.origin[1] - 32.0f;
 			player->v.origin[2] = train->v.origin[2] + 89.0f;
-			VectorCopy( player->v.origin, player->v.absmin );
-			VectorCopy( player->v.origin, player->v.absmax );
+			/* The baked Flipper tram is also the authoritative ride floor.
+			 * Keep the normal player hull linked around that floor; merely
+			 * moving the origin leaves the server believing the player is in
+			 * free fall and the next bounded physics tick drops through it. */
+			VectorAdd( player->v.origin, player->v.mins, player->v.absmin );
+			VectorAdd( player->v.origin, player->v.maxs, player->v.absmax );
+			VectorClear( player->v.velocity );
+			SetBits( player->v.flags, FL_ONGROUND );
+			player->v.groundentity = train;
+			SV_LinkEdict( player, true );
+			if( ride_log_n < 4 )
+			{
+				Con_Reportf( "Xash3D GameCube: G278 player ride train=%d origin=(%.0f,%.0f,%.0f) hull=(%.0f,%.0f,%.0f)/(%.0f,%.0f,%.0f) onground=%d\n",
+					NUM_FOR_EDICT( train ), player->v.origin[0], player->v.origin[1], player->v.origin[2],
+					player->v.absmin[0], player->v.absmin[1], player->v.absmin[2],
+					player->v.absmax[0], player->v.absmax[1], player->v.absmax[2],
+					FBitSet( player->v.flags, FL_ONGROUND ) ? 1 : 0 );
+				ride_log_n++;
+			}
 		}
 	}
 

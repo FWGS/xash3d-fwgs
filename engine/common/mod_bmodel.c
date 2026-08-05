@@ -5420,30 +5420,17 @@ static void Mod_GCReleaseBspSourceBuffer( model_t *mod, dbspmodel_t *bmod, byte 
 		size_t node_bytes = 0;
 		size_t clip_bytes = 0;
 		size_t carve_total = 0;
+		qboolean clip_carved = false;
 
 		if( bmod->numnodes > 0 && Mod_GCPointerInBuffer( bmod->nodes, mod_base, bufferlen ))
 			node_bytes = bmod->numnodes * node_esize;
 		if( bmod->numclipnodes > 0 && Mod_GCPointerInBuffer( bmod->clipnodes, mod_base, bufferlen ))
 			clip_bytes = bmod->numclipnodes * clip_esize;
 
-		/* Renderer restore rebuilds lookup tables over the static map-load arena.
-		 * Collision clipnodes must outlive that reuse; pin the compact lump now. */
-		if( clip_bytes )
-		{
-			clip_stash = malloc( clip_bytes );
-			if( !clip_stash )
-			{
-				Host_Error( "Xash3D GameCube: unable to pin collision clipnodes (%s)\n",
-					Q_memprint( clip_bytes ));
-				return;
-			}
-			memcpy( clip_stash, bmod->clipnodes, clip_bytes );
-			Con_Reportf( "Xash3D GameCube: pinned clipnodes outside BSP scratch %s\n",
-				Q_memprint( clip_bytes ));
-		}
-
 		if( node_bytes )
 			carve_total += ALIGN( node_bytes, 32 );
+		if( clip_bytes )
+			carve_total += ALIGN( clip_bytes, 32 );
 
 		if( carve_total > 0 && carve_total < bufferlen )
 		{
@@ -5458,7 +5445,34 @@ static void Mod_GCReleaseBspSourceBuffer( model_t *mod, dbspmodel_t *bmod, byte 
 				Con_Reportf( "Xash3D GameCube: carved nodes into BSP scratch high %s\n",
 					Q_memprint( node_bytes ));
 			}
+			if( clip_bytes )
+			{
+				const size_t carve = ALIGN( clip_bytes, 32 );
+				clip_stash = carve_ptr;
+				memmove( clip_stash, bmod->clipnodes, clip_bytes );
+				clip_carved = true;
+				carve_ptr += carve;
+				Con_Reportf( "Xash3D GameCube: carved clipnodes into BSP scratch high %s\n",
+					Q_memprint( clip_bytes ));
+			}
 			gc_bsp_scratch_carve_high = carve_total;
+		}
+
+		/* Renderer restore rebuilds lookup tables over the static map-load arena.
+		 * Collision clipnodes must outlive that reuse; prefer the reserved scratch
+		 * carve so a low MEM1 heap cannot turn a valid map into a fatal error. */
+		if( clip_bytes && !clip_carved )
+		{
+			clip_stash = malloc( clip_bytes );
+			if( !clip_stash )
+			{
+				Host_Error( "Xash3D GameCube: unable to pin collision clipnodes (%s)\n",
+					Q_memprint( clip_bytes ));
+				return;
+			}
+			memcpy( clip_stash, bmod->clipnodes, clip_bytes );
+			Con_Reportf( "Xash3D GameCube: pinned clipnodes outside BSP scratch %s\n",
+				Q_memprint( clip_bytes ));
 		}
 
 		memset( &gc_bsp_deferred, 0, sizeof( gc_bsp_deferred ));

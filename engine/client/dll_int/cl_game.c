@@ -45,7 +45,10 @@ GNU General Public License for more details.
 /* One contiguous allocation prevents the weapon HUD list cache from
  * fragmenting the small GameCube client heap.  384 entries covers the stock
  * weapon set plus the HUD lists without changing the public cache contract. */
-#define GC_SPRITE_LIST_POOL_ENTRIES 384
+/* Retail New Game has measured 216 entries across the weapon/HUD lists. Keep
+ * room for normal additions without reserving a 58 KiB contiguous MEM1 block
+ * after map load, where that reservation can starve client initialization. */
+#define GC_SPRITE_LIST_POOL_ENTRIES 256
 static client_sprite_t *gc_sprite_list_pool;
 static int gc_sprite_list_pool_used;
 
@@ -4517,12 +4520,15 @@ qboolean CL_LoadProgs( const char *name )
 	cls.mempool = Mem_AllocPool( "Client Static Pool" );
 	clgame.mempool = Mem_AllocPool( "Client Edicts Zone" );
 	#if XASH_GAMECUBE
-	gc_sprite_list_pool = Mem_Calloc( cls.mempool,
+	gc_sprite_list_pool = Mem_TryCalloc( cls.mempool,
 		sizeof( client_sprite_t ) * GC_SPRITE_LIST_POOL_ENTRIES );
 	gc_sprite_list_pool_used = 0;
-	Con_Reportf( "Xash3D GameCube: client sprite list pool entries=%d bytes=%u\n",
-		GC_SPRITE_LIST_POOL_ENTRIES,
-		(unsigned)( sizeof( client_sprite_t ) * GC_SPRITE_LIST_POOL_ENTRIES ));
+	if( gc_sprite_list_pool )
+		Con_Reportf( "Xash3D GameCube: client sprite list pool entries=%d bytes=%u\n",
+			GC_SPRITE_LIST_POOL_ENTRIES,
+			(unsigned)( sizeof( client_sprite_t ) * GC_SPRITE_LIST_POOL_ENTRIES ));
+	else
+		Con_Reportf( S_WARN "Xash3D GameCube: client sprite list pool unavailable; using per-list allocations\n" );
 	#endif
 	clgame.entities = NULL;
 

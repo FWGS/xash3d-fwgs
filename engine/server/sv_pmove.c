@@ -593,6 +593,35 @@ static void SV_SetupPMove( playermove_t *pmove, sv_client_t *cl, usercmd_t *ucmd
 
 	SV_AddLinksToPmove( sv_areanodes, absmin, absmax );
 	SV_AddLaddersToPmove( sv_areanodes, absmin, absmax );
+
+#if XASH_GAMECUBE
+	/* The bounded intro-tram pusher can sit just outside the area-node query
+	 * at the eye-height spawn. Add it explicitly or PMove falls through the
+	 * visible car while the static BSP floor remains far below it. */
+	if( Sys_CheckParm( "-gcnewgame" ) && !Sys_CheckParm( "-gcchangelevel" ))
+	{
+		edict_t *tram = SV_GCFindIntroTrain();
+		if( tram )
+		{
+			qboolean present = false;
+			for( int i = 1; i < svgame.pmove->numphysent; i++ )
+			{
+				if( svgame.pmove->physents[i].info == NUM_FOR_EDICT( tram ))
+				{
+					present = true;
+					break;
+				}
+			}
+			if( !present && svgame.pmove->numphysent < MAX_PHYSENTS )
+			{
+				physent_t *pe = &svgame.pmove->physents[svgame.pmove->numphysent++];
+				if( SV_CopyEdictToPhysEnt( pe, tram ))
+					Con_Reportf( "Xash3D GameCube: PMove tram physent added edict=%d\n",
+						NUM_FOR_EDICT( tram ));
+			}
+		}
+	}
+#endif
 }
 
 static void SV_FinishPMove( playermove_t *pmove, sv_client_t *cl )

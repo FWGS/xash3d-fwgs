@@ -393,6 +393,7 @@ static char gc_changelevel_map[MAX_QPATH];
 static char gc_landmark_name[MAX_QPATH];
 static qboolean gc_smoke_map_configured;
 static qboolean gc_newgame_configured;
+static qboolean gc_menu_newgame_configured;
 static qboolean gc_phase_test_configured;
 static qboolean gc_changelevel_configured;
 static qboolean gc_landmark_configured;
@@ -408,6 +409,7 @@ static void GCube_LoadDiscBootOverrides( void )
 
 	gc_smoke_map_configured = false;
 	gc_newgame_configured = false;
+	gc_menu_newgame_configured = false;
 	gc_newsaveload_configured = false;
 	gc_phase_test_configured = false;
 	gc_changelevel_configured = false;
@@ -450,6 +452,17 @@ static void GCube_LoadDiscBootOverrides( void )
 			{
 				gc_newgame_configured = true;
 				SYS_Report( "Xash3D GameCube: disc boot override newgame\n" );
+				continue;
+			}
+		}
+
+		if( !Q_strnicmp( cursor, "menunewgame", 11 ))
+		{
+			char ch = cursor[11];
+			if( ch == '\0' || ch == '\r' || ch == '\n' || ch == ' ' || ch == '\t' )
+			{
+				gc_menu_newgame_configured = true;
+				SYS_Report( "Xash3D GameCube: disc boot override menunewgame\n" );
 				continue;
 			}
 		}
@@ -639,6 +652,8 @@ int GCube_GetArgv( int in_argc, char **in_argv, char ***out_argv )
 	gc_argv[fake_argc++] = "valve";
 	if( gc_newgame_configured )
 		gc_argv[fake_argc++] = "-gcnewgame";
+	if( gc_menu_newgame_configured )
+		gc_argv[fake_argc++] = "-gcmenuplaystart";
 	if( gc_worldrender_configured )
 		gc_argv[fake_argc++] = "-gcworldrender";
 	if( gc_smoke_map_configured )

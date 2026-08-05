@@ -41,6 +41,28 @@ static void SV_ExecuteClientCommand( sv_client_t *cl, const char *s );
 static client_frame_t gc_singleplayer_frames[SINGLEPLAYER_BACKUP];
 static int SV_GetFragmentSize( void *pcl, fragsize_t mode );
 
+edict_t *SV_GCFindIntroTrain( void )
+{
+	int i;
+
+	if( !svgame.edicts || !sv.model_precache )
+		return NULL;
+
+	for( i = svs.maxclients + 1; i < svgame.numEntities; i++ )
+	{
+		edict_t *ent = SV_EdictNum( i );
+		const char *model;
+
+		if( !SV_IsValidEdict( ent ) || ent->v.modelindex <= 0
+			|| ent->v.modelindex >= MAX_MODELS )
+			continue;
+		model = sv.model_precache[ent->v.modelindex];
+		if( model && !Q_strcmp( model, "*12" ))
+			return ent;
+	}
+	return NULL;
+}
+
 qboolean SV_IsStaticClientFrames( const client_frame_t *frames )
 {
 	return frames == gc_singleplayer_frames;
@@ -57,7 +79,8 @@ qboolean SV_GCPrimeDirectMapPlayer( void )
 	sv_client_t	*cl;
 	edict_t		*ent;
 
-	if( !Sys_CheckParm( "-gcnewgame" ) || !svs.clients || svs.maxclients != 1 )
+	if( !( Sys_CheckParm( "-gcnewgame" ) || Sys_CheckParm( "-gcmenuplaystart" ))
+		|| !svs.clients || svs.maxclients != 1 )
 		return false;
 
 	cl = &svs.clients[0];
@@ -88,7 +111,7 @@ qboolean SV_GCPrimeDirectMapPlayer( void )
 
 	/* The direct map route has already performed the spawn half of local
 	 * sign-on above. Complete its normal begin transition for native physics. */
-	if( Sys_CheckParm( "-gcfullphysics" ))
+	if( Sys_CheckParm( "-gcfullphysics" ) || Sys_CheckParm( "-gcmenuplaystart" ))
 	{
 		netadr_t loopback = { .type = NA_LOOPBACK };
 
@@ -1616,9 +1639,26 @@ static void SV_PutClientInServer( sv_client_t *cl )
 				ent->pvPrivateData, ent->v.modelindex );
 		if( Sys_CheckParm( "-gcnewgame" ) && FBitSet( ent->v.flags, FL_CLIENT ))
 		{
-			int dropped = pfnDropToFloor( ent );
-			Con_Reportf( "Xash3D GameCube: gameplay spawn grounding result=%d origin=(%.0f,%.0f,%.0f)\n",
-				dropped, ent->v.origin[0], ent->v.origin[1], ent->v.origin[2] );
+			edict_t *tram = SV_GCFindIntroTrain();
+
+			/* The c0a0 player starts inside the moving intro train. Dropping
+			 * against the static BSP floor sends him through the car before the
+			 * train-follow path can run. Bind the player to *12 instead; normal
+			 * floor probing remains the fallback for maps without the train. */
+			if( tram && !Sys_CheckParm( "-gcchangelevel" ))
+			{
+				SetBits( ent->v.flags, FL_ONGROUND );
+				ent->v.groundentity = tram;
+				SV_LinkEdict( ent, false );
+				Con_Reportf( "Xash3D GameCube: gameplay spawn grounding tram edict=%d origin=(%.0f,%.0f,%.0f)\n",
+					NUM_FOR_EDICT( tram ), ent->v.origin[0], ent->v.origin[1], ent->v.origin[2] );
+			}
+			else
+			{
+				int dropped = pfnDropToFloor( ent );
+				Con_Reportf( "Xash3D GameCube: gameplay spawn grounding result=%d origin=(%.0f,%.0f,%.0f)\n",
+					dropped, ent->v.origin[0], ent->v.origin[1], ent->v.origin[2] );
+			}
 		}
 		/* G119: put-in rebuilds CBasePlayer; re-grant queued landmark inventory. */
 		if( Sys_CheckParm( "-gcnewgame" ) && Sys_CheckParm( "-gcchangelevel" ))

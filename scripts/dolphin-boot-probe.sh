@@ -69,6 +69,13 @@ if (( DOLPHIN_NEWGAME )); then
 	fi
 	DOLPHIN_SKIP_INTRO=1
 fi
+if [[ "${DOLPHIN_MENU_NEWGAME:-0}" == "1" ]]; then
+	GUEST_ARGS+=("-gcmenuplaystart")
+	SMOKE_MAP="${DOLPHIN_SMOKE_MAP:-c0a0}"
+	MAP_MARKER="Xash3D GameCube: map loaded ${SMOKE_MAP}"
+	PLAY_READY_MARKER="Xash3D GameCube: play start ready ${SMOKE_MAP}"
+	echo "==> Fallback-menu New Game probe (expect map ${SMOKE_MAP})"
+fi
 # G440-G470: Default to smoke-map mode for bounded testing. Retail mode
 # builds full discs (~500MB) that timeout on GameCube boot. Use smoke-map
 # unless explicitly configured for retail testing.
@@ -252,6 +259,10 @@ else
 				BUILD_ARGS+=(--probe-fullphysics)
 				echo "==> Native full server/physics probe"
 			fi
+		fi
+		if [[ "${DOLPHIN_MENU_NEWGAME:-0}" == "1" ]]; then
+			BUILD_ARGS+=(--probe-menu-newgame)
+			echo "==> Staging fallback-menu New Game override"
 		fi
 	elif [[ -n "$SMOKE_MAP" ]]; then
 		BUILD_ARGS+=(--smoke-map "$SMOKE_MAP")

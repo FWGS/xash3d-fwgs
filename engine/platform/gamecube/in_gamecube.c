@@ -416,7 +416,8 @@ static void GC_HandleConnectionChange( int port, u32 type, qboolean connected )
 qboolean GC_ShouldUseProbeInputFallback( void )
 {
 	/* Automated Dolphin probes do not receive real SI pad packets. */
-	if( Sys_CheckParm( "-gcmap" ) || Sys_CheckParm( "-gcfullphysics" ))
+	if( Sys_CheckParm( "-gcmap" ) || Sys_CheckParm( "-gcfullphysics" )
+		|| Sys_CheckParm( "-gcmenuplaystart" ))
 		return true;
 	/* Disc-only / G94 probe boots match the headless Dolphin profile. */
 	if( !GCube_HasPersistentWritableStorage( ))
@@ -548,6 +549,31 @@ static u16 GC_ProbeSyntheticHeldButtons( void )
 		default:
 			return 0;
 		}
+	}
+
+	/* Exercise the actual fallback-menu New Game command.  The normal menu
+	 * starts on New Game, so confirm it directly and leave the menu instead of
+	 * navigating to Load/Options and backing out. */
+	if( Sys_CheckParm( "-gcmenuplaystart" ))
+	{
+		if( !gc_probe_action_logged )
+		{
+			gc_probe_action_logged = true;
+			gc_probe_action_stage = 1;
+			gc_probe_action_time = host.realtime;
+			gc_probe_action_frame = host.framecount;
+			gc_probe_action_diag_time = host.realtime;
+			Con_Reportf( "Xash3D GameCube: probe menu New Game begin selection=0\n" );
+			Con_Reportf( "Xash3D GameCube: probe menu New Game confirm\n" );
+			return PAD_BUTTON_B;
+		}
+		if( gc_probe_action_stage == 1
+			&& GC_ProbeMenuStageReady( GC_PROBE_MENU_STEP_DELAY, GC_PROBE_MENU_STEP_FRAMES ))
+		{
+			gc_probe_action_stage = 7;
+			Con_Reportf( "Xash3D GameCube: probe menu New Game release\n" );
+		}
+		return 0;
 	}
 
 	if( cls.key_dest == key_console )

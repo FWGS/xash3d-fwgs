@@ -748,7 +748,8 @@ void SV_ActivateServer( int runPhysics )
 	Con_Reportf( "Xash3D GameCube: map loaded %s\n", sv.name );
 	GC_ReportBootPhase( GC_BOOT_MAP );
 	GC_MemSample( "map active" );
-	if( Sys_CheckParm( "-gcnewgame" ) && !SV_GCPrimeDirectMapPlayer() )
+	if(( Sys_CheckParm( "-gcnewgame" ) || Sys_CheckParm( "-gcmenuplaystart" ))
+		&& !SV_GCPrimeDirectMapPlayer() )
 		Con_Reportf( S_WARN "Xash3D GameCube: direct-map player unavailable map=%s\n", sv.name );
 	/* Pure Flipper prepare runs from SCR / changelevel re-prepare once the
 	 * map-spawn MEM1 cliff has passed — do not Prepare immediately here. */
