@@ -722,8 +722,12 @@ void GAME_EXPORT Key_Event( int key, int down )
 				keys[key].gamedown = false;
 				keys[key].repeats = 0;
 			}
-			VGui_KeyEvent( key, down ); // resolves issue #1923
-			return; // handled in client.dll
+
+			// deliver keys regardless of whether the client.dll handled them or not
+			// reproduces GoldSrc behavior, where keys are passed even if the client.dll claims to have handled them
+			// this is needed for Cry of fear's Computer interface input, for more context, see https://github.com/FWGS/xash3d-fwgs/issues/1923
+			VGui_KeyEvent( key, down );
+			return;
 		}
 	}
 
