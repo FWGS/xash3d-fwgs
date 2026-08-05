@@ -3692,3 +3692,14 @@ manual hardware validation with all artifacts generated and documented.
 - Quarantined gekko/CMake examples in linking docs; refreshed port audit.
 - Host proof:
   `python3 -m unittest tests.test_gamecube_host.GameCubeHostTests.test_swiss_fat_volume_prefers_valve_on_carda tests.test_gamecube_host.GameCubeHostTests.test_release_packet_dry_run_with_fixtures tests.test_gamecube_host.GameCubeHostTests.test_build_docs_prefer_waf_libogc2_not_gekko_cmake`
+
+## G501/G504/G508 host contracts (2026-08-05)
+
+- `scripts/gamecube-runtime-ladder.py` — ordered boot gates; stop at first miss;
+  JSON for run manifests.
+- `scripts/gamecube-experiment-manifest.py` — G501 baseline (branch/commit/tier/
+  OGC stack/hypothesis/decision); `--dry-run` writes under `/tmp`.
+- `scripts/waifulib/gamecube_probe_save.py` — host mirror of G508 path/name
+  rules + config.cfg `.new`/`.bak` bank simulator.
+- Host proof:
+  `python3 -m unittest tests.test_gamecube_host.GameCubeHostTests.test_runtime_ladder_stops_at_first_missing_gate tests.test_gamecube_host.GameCubeHostTests.test_experiment_manifest_records_tier_and_ogc_stack tests.test_gamecube_host.GameCubeHostTests.test_probe_save_rejects_non_gcprobe_paths`

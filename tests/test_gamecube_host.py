@@ -599,6 +599,93 @@ class GameCubeHostTests(unittest.TestCase):
 		)
 		self.assertIn("carda:/xash3d/valve", result.stdout)
 
+	def test_runtime_ladder_stops_at_first_missing_gate(self) -> None:
+		ladder = load_script("runtime_ladder", "scripts/gamecube-runtime-ladder.py")
+		partial = (
+			"Xash3D GameCube: bootstrap\n"
+			"Xash3D GameCube: engine subsystems ready\n"
+			"Xash3D GameCube: DVD mount ready\n"
+		)
+		report = ladder.evaluate_ladder(partial)
+		self.assertFalse(report["ok"])
+		self.assertEqual(report["first_missing"], "delta_load")
+		self.assertEqual(report["passed"], ["bootstrap", "engine_init", "filesystem_init"])
+
+		complete = partial + (
+			"Xash3D GameCube: G201 delta reinit ready\n"
+			"COM_LoadLibrary server (registered)\n"
+			"find found 'maps/c0a0.bsp'\n"
+			"Xash3D GameCube: map loaded c0a0\n"
+			"Xash3D GameCube: G45 controller ready port=0 type=standard\n"
+			"sampled_nonblack=1\n"
+		)
+		full = ladder.evaluate_ladder(complete)
+		self.assertTrue(full["ok"])
+		self.assertIsNone(full["first_missing"])
+
+		# Explicit delta failure must stop even if other text mentions delta.
+		failed = partial + "Delta_InitFields: couldn't load file delta.lst\n"
+		bad = ladder.evaluate_ladder(failed)
+		self.assertEqual(bad["first_missing"], "delta_load")
+
+	def test_runtime_ladder_cli_fixture(self) -> None:
+		ladder = load_script("runtime_ladder_cli", "scripts/gamecube-runtime-ladder.py")
+		with tempfile.TemporaryDirectory() as tmpdir:
+			log = Path(tmpdir) / "partial.log"
+			out = Path(tmpdir) / "ladder.json"
+			log.write_text(
+				"Xash3D GameCube: bootstrap\n"
+				"Xash3D GameCube: engine subsystems ready\n",
+				encoding="utf-8",
+			)
+			code = ladder.main(["--fixture", str(log), "--json", str(out)])
+			self.assertEqual(code, 1)
+			report = json.loads(out.read_text(encoding="utf-8"))
+			self.assertEqual(report["first_missing"], "filesystem_init")
+
+	def test_experiment_manifest_records_tier_and_ogc_stack(self) -> None:
+		manifest_mod = load_script("experiment_manifest", "scripts/gamecube-experiment-manifest.py")
+		with tempfile.TemporaryDirectory() as tmpdir:
+			out = Path(tmpdir) / "exp"
+			code = manifest_mod.main([
+				"--repo", str(ROOT),
+				"--hypothesis", "host-only ladder dry-run",
+				"--target-file", "scripts/gamecube-runtime-ladder.py",
+				"--decision", "pending",
+				"--output-dir", str(out),
+				"--dry-run",
+			])
+			self.assertEqual(code, 0)
+			data = json.loads((out / "manifest.json").read_text(encoding="utf-8"))
+			self.assertEqual(data["schema"], "xash3d-gc-experiment-manifest/v1")
+			self.assertIn("tier", data)
+			self.assertIn("value", data["tier"])
+			self.assertIn("ogc_stack", data)
+			self.assertIn("stack", data["ogc_stack"])
+			self.assertEqual(data["hypothesis"], "host-only ladder dry-run")
+			self.assertEqual(data["decision"], "pending")
+			self.assertTrue(data["dry_run"])
+
+	def test_probe_save_config_names(self) -> None:
+		probe = load_script("probe_save", "scripts/waifulib/gamecube_probe_save.py")
+		self.assertTrue(probe.probe_save_is_config_name("config.cfg"))
+		self.assertTrue(probe.probe_save_is_config_name("config.cfg.new"))
+		self.assertTrue(probe.probe_save_is_config_name("vfs.cfg.bak"))
+		self.assertFalse(probe.probe_save_is_config_name("auto0.sav"))
+		self.assertEqual(probe.probe_save_basename("gcprobe:/xash3d/valve/config.cfg"), "config.cfg")
+
+	def test_probe_save_rejects_non_gcprobe_paths(self) -> None:
+		probe = load_script("probe_save_paths", "scripts/waifulib/gamecube_probe_save.py")
+		self.assertTrue(probe.probe_save_path_match("gcprobe:/xash3d/config.cfg", enabled=True))
+		self.assertTrue(probe.probe_save_path_match("save/quick.sav", enabled=True))
+		self.assertTrue(probe.probe_save_path_match("config.cfg.new", enabled=True))
+		self.assertFalse(probe.probe_save_path_match("valve/maps/c0a0.bsp", enabled=True))
+		self.assertTrue(probe.probe_save_rejects_non_gcprobe_paths("valve/maps/c0a0.bsp"))
+		bank = probe.ProbeSaveBank()
+		self.assertTrue(bank.config_roundtrip(b"unbindall\nhost_framerate \"0\"\n"))
+		self.assertEqual(bank.read("config.cfg"), b"unbindall\nhost_framerate \"0\"\n")
+		self.assertNotIn("config.cfg.new", bank.files)
+
 
 if __name__ == "__main__":
 	unittest.main()
