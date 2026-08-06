@@ -156,13 +156,13 @@ void *Mod_AliasExtradata( model_t *mod );
 void *Mod_StudioExtradata( model_t *mod );
 model_t *Mod_FindName( const char *name, qboolean trackCRC );
 model_t *Mod_ForName( const char *name, qboolean crash, qboolean trackCRC );
+void Mod_PurgeForMapLoad( void );
 qboolean Mod_ValidateCRC( const char *name, uint32_t crc );
 void Mod_NeedCRC( const char *name, qboolean needCRC );
 void Mod_FreeUnused( void );
 void Mod_GcmapMarkPrecacheFreeable( void );
 void Mod_LoadDetailTextures( model_t *mod );
 #if XASH_GAMECUBE
-poolhandle_t Mod_GameCubeSharedModelStubPool( void );
 poolhandle_t Mod_GameCubeSharedStudioPool( void );
 void Mod_GCLoadNewGameStudios( void );
 void Mod_GCTryDeferredStudios( void ); /* G287: post-present MDL promote */
@@ -177,6 +177,7 @@ qboolean Mod_GCWorldSurfacesScratchRetained( model_t *mod ); /* G283: scratch re
 /* G92: retained BSP scratch is not a Mem_ block — skip Mem_Free on changelevel. */
 qboolean Mod_GCIsRetainedBspScratch( const void *buf );
 void Mod_GCClearRetainedBspScratch( void );
+qboolean Mod_GCIsStudioBssCache( const void *ptr );
 #endif
 
 //
@@ -203,11 +204,7 @@ void Mod_PrintWorldStats_f( void );
 // mod_studio.c
 //
 void Mod_LoadStudioModel( model_t *mod, void *buffer, size_t buffersize, qboolean *loaded );
-#if XASH_GAMECUBE
-void Mod_LoadStudioGcmapStub( model_t *mod, qboolean *loaded );
-void Mod_LoadSpriteGcmapStub( model_t *mod, qboolean *loaded );
-qboolean Mod_GCIsSpriteStub( const model_t *mod );
-#endif
+
 void Mod_InitStudioAPI( void );
 void Mod_InitStudioHull( void );
 void Mod_ResetStudioAPI( void );

@@ -1,0 +1,41 @@
+{
+  "classification": "runtime:map_timeout_after_engine_ready",
+  "focus_files": [
+    "engine/platform/gamecube/dll_gamecube.c",
+    "engine/server/sv_init.c",
+    "engine/common/model.c",
+    "engine/common/filesystem_engine.c",
+    "engine/platform/gamecube/sys_gamecube.c"
+  ],
+  "g36_status": "FAIL",
+  "generated_at": "2026-07-30T01:28:27+00:00",
+  "harness_latest_excerpt": "# Dolphin Harness Latest - Goal: G36 - Status: map_timeout - Visual: unknown - Audio: unknown - Screenshot: none - Analysis: FAIL - Logs: .ai/logs/dolphin-probe-20260728-225124 - Next action: Re-run scripts/dolphin-boot-probe.sh after renderer or memory fixes. ## Model Analysis Probe status=map_timeout. map load marker missing. G45=PASS (port=1 type=probe-synthetic). G45_ACTION=WAIT (none). Captured 0 frame timing sample(s).",
+  "latest_probe_analysis": "Probe status=map_timeout. map load marker missing. G45=PASS (port=1 type=probe-synthetic). G45_ACTION=WAIT (none). Captured 0 frame timing sample(s).",
+  "latest_probe_log_dir": ".ai/logs/dolphin-probe-20260728-225124",
+  "latest_probe_timestamp": "2026-07-29T05:54:28+00:00",
+  "latest_screenshot": {
+    "candidate": ".ai/screenshots/gc-main-menu.png",
+    "comparison": ".ai/screenshots/gc-main-menu-vs-retail.png",
+    "metrics": {
+      "changed_pixels": 10270,
+      "changed_ratio": 0.033431,
+      "height": 480,
+      "max_diff": 255,
+      "mean_abs_diff": 5.507,
+      "width": 640
+    },
+    "milestone": "retail_main_menu",
+    "reference": ".ai/screenshots/retail-main-menu-reference.png",
+    "verdict": "drift"
+  },
+  "next_actions": [
+    "Inspect the latest probe bundle and confirm the last boot phase and missing runtime marker.",
+    "Trace the path from engine readiness to `Xash3D GameCube: map loaded <smoke_map>`.",
+    "Prefer a narrow fix in game-module registration, map-load, or runtime asset lookup before broader renderer work.",
+    "Re-run the bounded Dolphin boot probe after the patch.",
+    "Use screenshot baseline `retail_main_menu` as a regression gate while fixing the runtime-visible issue."
+  ],
+  "probe_status": "map_timeout",
+  "suggested_next_action": "Re-run scripts/dolphin-boot-probe.sh after renderer or memory fixes.",
+  "visual_status": "unknown"
+}

@@ -1,8 +1,9 @@
 {
-  "pid": 472064,
-  "timestamp": "2026-07-11T21:38:33.702985+00:00",
-  "state": "running",
+  "pid": 2412048,
+  "timestamp": "2026-08-04T20:09:14.185794+00:00",
+  "state": "cycle-complete",
   "cycle": 1,
   "kind": "goal",
-  "label": "G68 Complete full Half-Life campaign map and transition audit"
+  "label": "G491 Restore runtime map readiness",
+  "exit_code": 1
 }

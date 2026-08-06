@@ -31,6 +31,7 @@ unsigned R_GcmapShadeDumpFromDepth( unsigned short *dst, int dst_w, int dst_h, i
 unsigned R_GcmapPosterizeDumpFromDepth( unsigned short *dst, int dst_w, int dst_h, int dst_stride );
 qboolean GC_PrepareNewGameWorldPresent( void );
 void R_GcmapTrimForMapLoad( void );
+int GC_GetNewGameCapFaceVerts( int slot, float out[][3], int maxverts );
 void Mod_GCClearRetainedBspScratch( void );
 #endif
 #include <stdlib.h>
@@ -5273,6 +5274,8 @@ static void GC_PresentBufferViaGX( void )
 			GX_SetCopyFilter( rmode->aa, rmode->sample_pattern, GX_TRUE, rmode->vfilter );
 		GX_SetDispCopyGamma( GX_GM_1_0 );
 
+		/* libogc guOrtho takes (top, bottom, left, right). The software
+		 * buffer is presented across the full EFB. */
 		guOrtho( proj, 0.0f, fb_h, 0.0f, fb_w, 0.0f, 1.0f );
 		GX_LoadProjectionMtx( proj, GX_ORTHOGRAPHIC );
 		guMtxIdentity( modelview );
@@ -5534,11 +5537,14 @@ static void GC_PresentBuffer( void )
 		return;
 
 	gc_present_count++;
-	GC_TryDeferredLeanSky();
-	GC_TryDeferredHudSheets();
-	GC_TryDeferredStudios();
-	GC_TryDeferredEfxProof();
-	GC_TryDeferredDecalProof();
+	if( cls.state != ca_cinematic )
+	{
+		GC_TryDeferredLeanSky();
+		GC_TryDeferredHudSheets();
+		GC_TryDeferredStudios();
+		GC_TryDeferredEfxProof();
+		GC_TryDeferredDecalProof();
+	}
 
 	/* G151: Flipper already holds world geometry — CopyDisp only (no soft blit).
 	 * G191: never steal soft DumpFrames latch presents onto a cleared EFB.
@@ -5551,9 +5557,15 @@ static void GC_PresentBuffer( void )
 		f32 fb_h = (f32)rmode->efbHeight;
 		static int g194_flipper_swap_skip;
 		static qboolean g197_logged;
+		/* Cinematic content is a 320x240 texture, but GX already maps its
+		 * destination quad into the full EFB. Copying only a 320x240 source
+		 * rectangle here crops that quad before VI scaling, yielding the
+		 * observed half-width/double-height image. Present the full EFB for
+		 * cinematics just like the normal Flipper path. */
 		u16 copy_w_u = rmode->fbWidth;
 		u16 copy_h_u = rmode->efbHeight;
 		u16 xfb_h_u = rmode->xfbHeight;
+		u16 copy_dst_w_u = copy_w_u;
 
 		gc_gx_present_pipe_ready = false; /* next soft present rebuilds ortho */
 
@@ -5591,7 +5603,7 @@ static void GC_PresentBuffer( void )
 				GX_SetViewport( 0.0f, 0.0f, fb_w, fb_h, 0.0f, 1.0f );
 				GX_SetScissor( 0, 0, (u32)fb_w, (u32)fb_h );
 				GX_SetDispCopySrc( 0, 0, copy_w_u, copy_h_u );
-				GX_SetDispCopyDst( copy_w_u, xfb_h_u );
+				GX_SetDispCopyDst( copy_dst_w_u, xfb_h_u );
 				GX_SetDispCopyYScale((f32)xfb_h_u / (f32)copy_h_u );
 				/* Hardware CRT (480i): keep VI vfilter. Progressive: lean copy. */
 				if( interlaced )
@@ -7287,24 +7299,8 @@ static qboolean gc_g177_logged;
 static void GC_SoftDumpCompositeHUD( void )
 {
 	qboolean saved_prepped;
-	int i;
-	int real_sheets = 0;
 
 	if( !gc.buffer || gc.width <= 0 || gc.height <= 0 )
-		return;
-
-	for( i = 0; i < MAX_CLIENT_SPRITES; i++ )
-	{
-		model_t *mod = &clgame.sprites[i];
-
-		if( mod->needload == NL_UNREFERENCED )
-			continue;
-		if( mod->type != mod_sprite )
-			continue;
-		if( !Mod_GCIsSpriteStub( mod ))
-			real_sheets++;
-	}
-	if( real_sheets < 1 )
 		return;
 
 	saved_prepped = cl.video_prepped;
@@ -7321,8 +7317,7 @@ static void GC_SoftDumpCompositeHUD( void )
 	if( !gc_g177_logged )
 	{
 		gc_g177_logged = true;
-		Con_Reportf( "Xash3D GameCube: G177 soft dump HUD composite sheets=%d\n",
-			real_sheets );
+		Con_Reportf( "Xash3D GameCube: G177 soft dump HUD composite\n" );
 	}
 }
 
@@ -10550,7 +10545,16 @@ qboolean GC_PrepareNewGameWorldPresent( void )
 	/* Prefer real low-res world frames here: the Dolphin probe often exits as
 	 * soon as G36 evidence is scored, before the next Host_Frame can run SCR.
 	 * Fall back to lean green fills if the world path is not ready yet. */
-	if( !GC_RenderNewGameWorldFrames( 4 ))
+	if( Sys_CheckParm( "-gcfullphysics" ))
+	{
+		static qboolean gc_gameplay_present_skip_logged;
+		if( !gc_gameplay_present_skip_logged )
+		{
+			gc_gameplay_present_skip_logged = true;
+			Con_Reportf( "Xash3D GameCube: gameplay probe post-G36 render skipped\n" );
+		}
+	}
+	else if( !GC_RenderNewGameWorldFrames( 4 ))
 	{
 		int i;
 
@@ -10561,7 +10565,7 @@ qboolean GC_PrepareNewGameWorldPresent( void )
 			GC_PresentBudgetProbeFrame();
 		}
 	}
-	else
+	else if( !Sys_CheckParm( "-gcfullphysics" ))
 	{
 		int i;
 
@@ -10909,6 +10913,55 @@ qboolean GC_PrepareNewGameWorldPresent( void )
 		 * the lean save blob is written. G91 still covered on non-G94 New Game. */
 		if( !Sys_CheckParm( "-gcnewsaveload" ))
 			GC_PlayNewGameGameplaySound();
+
+		/* G508: Dolphin-designated writable config round trip (gcprobe RAM bank
+		 * or real SD). Uses Host_WriteConfig's .new/.bak dance when the client
+		 * DLL is loaded; otherwise writes a lean marker config.cfg. */
+		if( Sys_CheckParm( "-gcconfigroundtrip" ))
+		{
+			static qboolean gc_config_rt_queued;
+			const char *route;
+			file_t *cfg;
+			char sample[128];
+			int n;
+
+			if( !gc_config_rt_queued )
+			{
+				gc_config_rt_queued = true;
+				route = GCube_HasPersistentWritableStorage() ? "sd" : "gcprobe";
+				SYS_Report( "Xash3D GameCube: G508 config round trip begin route=%s\n", route );
+				if( clgame.hInstance && !Sys_CheckParm( "-nowriteconfig" ))
+					Host_WriteConfig();
+				else
+				{
+					cfg = FS_Open( "config.cfg", "w", false );
+					if( cfg )
+					{
+						FS_Printf( cfg, "// G508 GameCube config roundtrip\n" );
+						FS_Printf( cfg, "sensitivity \"3\"\n" );
+						FS_Close( cfg );
+					}
+				}
+				if( !FS_FileExists( "config.cfg", false ))
+					SYS_Report( "Xash3D GameCube: G508 config write failed route=%s\n", route );
+				else
+				{
+					SYS_Report( "Xash3D GameCube: G508 config write ready route=%s\n", route );
+					cfg = FS_Open( "config.cfg", "r", false );
+					n = cfg ? (int)FS_Read( cfg, sample, sizeof( sample ) - 1 ) : 0;
+					if( cfg )
+						FS_Close( cfg );
+					if( n > 0 )
+					{
+						sample[n] = '\0';
+						SYS_Report( "Xash3D GameCube: G508 config read ready bytes=%d route=%s\n", n, route );
+						SYS_Report( "Xash3D GameCube: G508 config round trip ready route=%s\n", route );
+					}
+					else
+						SYS_Report( "Xash3D GameCube: G508 config read failed route=%s\n", route );
+				}
+			}
+		}
 
 		/* G94: same-boot save→load before G92 changelevel (needs -gcnewsaveload).
 		 * Probe RAM bank satisfies GCube_HasWritableStorage without SD. */

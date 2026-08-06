@@ -18,7 +18,8 @@ This release package **does not contain**:
 
 ### Included Software
 - **Xash3D Engine:** BSD 3-Clause License.
-- **devkitPPC/libogc:** GPL v2.
+- **devkitPPC / libogc2 (preferred) / libogc:** toolchain and platform libs (GPL v2 / project licenses as packaged).
+- **libdvm:** preferred FAT provider for the Swiss/libogc2 stack.
 - **Third-Party Libraries:** See `THIRD-PARTY-NOTICES.txt` in the root of the extracted source or release archive.
 
 ### Distribution

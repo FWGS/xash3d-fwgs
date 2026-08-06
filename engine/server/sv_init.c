@@ -748,7 +748,8 @@ void SV_ActivateServer( int runPhysics )
 	Con_Reportf( "Xash3D GameCube: map loaded %s\n", sv.name );
 	GC_ReportBootPhase( GC_BOOT_MAP );
 	GC_MemSample( "map active" );
-	if( Sys_CheckParm( "-gcnewgame" ) && !SV_GCPrimeDirectMapPlayer() )
+	if(( Sys_CheckParm( "-gcnewgame" ) || Sys_CheckParm( "-gcmenuplaystart" ))
+		&& !SV_GCPrimeDirectMapPlayer() )
 		Con_Reportf( S_WARN "Xash3D GameCube: direct-map player unavailable map=%s\n", sv.name );
 	/* Pure Flipper prepare runs from SCR / changelevel re-prepare once the
 	 * map-spawn MEM1 cliff has passed — do not Prepare immediately here. */
@@ -816,6 +817,14 @@ void SV_ActivateServer( int runPhysics )
 
 	if( sv.ignored_world_decals )
 		Con_Printf( S_WARN "%i static decals was rejected due buffer overflow\n", sv.ignored_world_decals );
+
+#if XASH_GAMECUBE
+	if( GC_MapLoadMemoryOpt() )
+	{
+		Con_Reportf( "Xash3D GameCube: MAP_READY %s\n", sv.name );
+		GC_ReportBootPhase( GC_BOOT_MAP );
+	}
+#endif
 }
 
 /*
@@ -889,15 +898,23 @@ qboolean SV_InitGame( qboolean silent )
 {
 	string dllpath;
 
+	Con_Reportf( "Xash3D GameCube: SV_InitGame entry\n" );
 	if( svgame.hInstance )
 		return true;
 
 	// first initialize?
+	Con_Reportf( "Xash3D GameCube: SV_InitGame reset error begin\n" );
 	COM_ResetLibraryError();
+	Con_Reportf( "Xash3D GameCube: SV_InitGame reset error done\n" );
 
+	Con_Reportf( "Xash3D GameCube: server library path begin\n" );
 	COM_GetCommonLibraryPath( LIBRARY_SERVER, dllpath, sizeof( dllpath ));
+	Con_Reportf( "Xash3D GameCube: server library path=%s\n", dllpath );
 
-	if( !SV_LoadProgs( dllpath ))
+	Con_Reportf( "Xash3D GameCube: SV_LoadProgs call begin\n" );
+	qboolean sv_progs_ok = SV_LoadProgs( dllpath );
+	Con_Reportf( "Xash3D GameCube: SV_LoadProgs call return=%d\n", sv_progs_ok );
+	if( !sv_progs_ok )
 	{
 		if( !silent )
 			Sys_Warn( "can't initialize %s: %s\n", dllpath, COM_GetLibraryError( ));
@@ -1108,20 +1125,61 @@ qboolean SV_SpawnServer( const char *mapname, const char *startspot, qboolean ba
 		return false;
 
 #if XASH_GAMECUBE
+	extern void FS_FindFile_f( const char *filename );
+
+	/* Temporary G201 evidence: FS_FileExists and FS_LoadFile use separate
+	 * filesystem paths. Keep both observations before Delta_Init so a missing
+	 * disc/search-path asset cannot be mistaken for a delta encoder failure. */
+	{
+		fs_offset_t delta_size = 0, valve_delta_size = 0;
+		byte *delta_data, *valve_delta_data;
+		const char *delta_disk, *valve_delta_disk;
+		qboolean delta_exists, valve_delta_exists;
+
+		delta_exists = FS_FileExists( "delta.lst", false );
+		valve_delta_exists = FS_FileExists( "valve/delta.lst", false );
+		delta_disk = FS_GetDiskPath( "delta.lst", false );
+		valve_delta_disk = FS_GetDiskPath( "valve/delta.lst", false );
+		delta_data = FS_LoadFile( "delta.lst", &delta_size, false );
+		valve_delta_data = FS_LoadFile( "valve/delta.lst", &valve_delta_size, false );
+		Con_Reportf( "Xash3D GameCube: G201 delta diagnostic exists=%d load=%d size=%lld disk=%s valve_exists=%d valve_load=%d valve_size=%lld valve_disk=%s\n",
+			delta_exists, delta_data != NULL, (long long)delta_size,
+			delta_disk ? delta_disk : "(none)", valve_delta_exists,
+			valve_delta_data != NULL, (long long)valve_delta_size,
+			valve_delta_disk ? valve_delta_disk : "(none)" );
+		FS_Path_f();
+		FS_FindFile_f( "delta.lst" );
+		FS_FindFile_f( "valve/delta.lst" );
+		if( delta_data ) Mem_Free( delta_data );
+		if( valve_delta_data ) Mem_Free( valve_delta_data );
+	}
+
 	/* G201: spawn-time Delta_Init re-parses delta.lst; under tight MEM1 that
 	 * second FS_LoadFile can stall forever after a layout shift. Progs already
-	 * initialized delta — skip reinit on New Game (also -gcnodeltareinit). */
+	 * initialized delta — skip reinit on New Game (also -gcnodeltareinit).
+	 * Also skip if delta.lst is missing — local maps don't require deltas. */
 	if( Sys_CheckParm( "-gcnodeltareinit" ) || Sys_CheckParm( "-gcnewgame" ))
 	{
 		Con_Reportf( "Xash3D GameCube: G201 delta reinit skipped (newgame)\n" );
 	}
 	else
-#endif
 	{
 		Con_Reportf( "Xash3D GameCube: G201 delta reinit begin\n" );
-		Delta_Init(); // re-initialize delta
-		Con_Reportf( "Xash3D GameCube: G201 delta reinit ready\n" );
+		if( FS_FileExists( "delta.lst", false ) || FS_FileExists( "valve/delta.lst", false ))
+		{
+			Delta_Init(); // re-initialize delta
+			Con_Reportf( "Xash3D GameCube: G201 delta reinit ready\n" );
+		}
+		else
+		{
+			Con_Reportf( S_WARN "Xash3D GameCube: G201 delta reinit skipped (delta.lst not found)\n" );
+		}
 	}
+#else
+	// delta.lst is required on non-GameCube platforms
+	Delta_Init(); // re-initialize delta
+	Con_Reportf( "Xash3D GameCube: G201 delta reinit ready\n" );
+#endif
 
 	// unlock sv_cheats in local game
 	ClearBits( sv_cheats.flags, FCVAR_READ_ONLY );
@@ -1248,6 +1306,14 @@ qboolean SV_SpawnServer( const char *mapname, const char *startspot, qboolean ba
 	Con_Reportf( "Xash3D GameCube: pre-spawn video trim begin\n" );
 	GC_TrimVideoMemoryForMapLoad();
 	Con_Reportf( "Xash3D GameCube: pre-spawn video trim ready\n" );
+	Mod_PurgeForMapLoad();
+	Con_Reportf( "Xash3D GameCube: pre-spawn old world purged\n" );
+	/* Changelevel enters through SV_InitGame rather than the host gcmap
+	 * bootstrap path.  Reserve the destination-sized contiguous BSP buffer
+	 * here, after the old world has been purged, so FS_LoadFile does not fall
+	 * back to a fragmented MEM1 allocation. */
+	GC_PrepareMapLoadBufferForMap( sv.name );
+	Con_Reportf( "Xash3D GameCube: pre-spawn map buffer prepared for %s\n", sv.name );
 	Con_Reportf( "Xash3D GameCube: pre-spawn memory trim\n" );
 #endif
 #if XASH_GAMECUBE

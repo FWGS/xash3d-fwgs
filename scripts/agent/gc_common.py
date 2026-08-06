@@ -127,6 +127,25 @@ class SupervisorLock:
             return True
 
         self.path.parent.mkdir(parents=True, exist_ok=True)
+        
+        # Check for stale lock (process no longer exists)
+        if self.path.exists():
+            try:
+                content = self.path.read_text(encoding="utf-8").strip()
+                if content:
+                    pid = int(content)
+                    # Check if process exists
+                    try:
+                        os.kill(pid, 0)
+                        # Process exists, lock is valid
+                        return False
+                    except ProcessLookupError:
+                        # Process doesn't exist, remove stale lock
+                        self.path.unlink(missing_ok=True)
+            except (ValueError, OSError):
+                # Invalid content or other error, remove stale lock
+                self.path.unlink(missing_ok=True)
+        
         self._file = self.path.open("w", encoding="utf-8")
         try:
             fcntl.flock(self._file.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
@@ -257,12 +276,12 @@ def commit_changes(message: str) -> bool:
     if sync_script.is_file():
         run(["bash", str(sync_script), "--no-parent-commit"])
 
-    changed = git_changed_files()
+    changed = [path for path in git_changed_files() if not path.startswith(".ai/")]
     if not changed:
         print("No changes to commit.")
         return False
 
-    run(["git", "add", "-A"])
+    run(["git", "add", "--", *changed])
     code, _ = run(["git", "commit", "-m", message])
     return code == 0
 
@@ -291,7 +310,7 @@ def ensure_agent_imports() -> None:
         sys.path.insert(0, str(script_dir))
 
 
-PORT_AUTOMATION_TIERS = ("map_loaded", "map_ready", "runtime_gate")
+PORT_AUTOMATION_TIERS = ("map_loaded", "map_ready", "runtime_gate", "dolphin_release")
 TIER_STATE_PATH = REPO / ".ai/state/gc-port-automation-tier.json"
 
 

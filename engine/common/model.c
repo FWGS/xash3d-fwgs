@@ -32,7 +32,6 @@ poolhandle_t      com_studiocache;		// cache for submodels
 #include "gamecube/mem_gamecube.h"
 void FS_ClearFindMissCache( void );
 qboolean GC_IsNewGameWorldReady( void );
-static poolhandle_t gc_gcmap_stubpool;
 
 /* New Game only: a few real MDLs (NPCs/viewweapons) instead of empty stubs.
  * Mesh-only (no studio texel upload) — skins bind white under quality 0. */
@@ -162,8 +161,6 @@ static qboolean Mod_GCAllowRealStudioLoad( const char *name, size_t filesize )
 	qboolean is_view = false;
 
 	/* Retail Flipper + New Game probe — allowlisted meshes only. */
-	if( !Sys_CheckParm( "-gcnewgame" ) && !GC_IsNewGameWorldReady() )
-		return false;
 	if( !Mod_GCStudioNameAllowed( name, &is_view ))
 		return false;
 	if( is_view )
@@ -255,6 +252,8 @@ static byte *Mod_GCLoadStudioFile( const char *model_path, fs_offset_t *length, 
 				/* Bump already advanced — leave hole (rare short read). */
 				Con_Reportf( "Xash3D GameCube: G289 studio BSS short '%s' read=%li want=%li\n",
 					mirror, (long)total, (long)flen );
+				/* Rewind bump to avoid corrupting BSS arena. */
+				gc_studio_bss_bump = ( gc_studio_bss_bump + 31u ) & ~31u;
 			}
 			else
 			{
@@ -317,11 +316,18 @@ static qboolean Mod_GCPromoteStudioPath( const char *path )
 
 	/* G156: reuse resident mesh — never re-read 130KB from disc under MEM1. */
 	mod = Mod_FindName( path, false );
+	if( !mod )
+		return false;
 	if( Mod_GCStudioAlreadyResident( mod ))
 	{
 		Mod_GCStudioNameAllowed( path, &is_view );
 		if( is_view )
 			Mod_GCPinViewModel( mod );
+		return true;
+	}
+	else if( Mod_GCIsPinnedViewModel( mod ))
+	{
+		/* Already pinned - nothing to do */
 		return true;
 	}
 
@@ -363,9 +369,15 @@ static qboolean Mod_GCPromoteStudioPath( const char *path )
 		return true;
 	}
 
+	/* G287/G289: ensure we have a valid cache buffer before proceeding */
+	if( !buf )
+	{
+		Con_Reportf( "Xash3D GameCube: deferred studio skip '%s' null buffer\n", path );
+		return false;
+	}
+
 	mod->cache.data = NULL;
-	if( mod->mempool == gc_gcmap_stubpool )
-		mod->mempool = 0;
+	mod->mempool = 0;
 	mod->needload = NL_PRESENT;
 	mod->type = mod_studio;
 
@@ -391,7 +403,6 @@ static qboolean Mod_GCPromoteStudioPath( const char *path )
 	}
 
 	Con_Reportf( S_WARN "Xash3D GameCube: deferred studio promote failed '%s'\n", path );
-	Mod_LoadStudioGcmapStub( mod, &loaded );
 	return false;
 }
 
@@ -423,6 +434,81 @@ qboolean Mod_GCEnsureLandmarkViewModel( const char *model_path )
 
 /*
 =============
+Mod_GCTryDeferredStudios
+
+Attempt to load deferred studios after map prep when memory is available.
+=============
+*/
+void Mod_GCTryDeferredStudios( void )
+{
+	/* Try to load additional deferred studios if budget allows. */
+	static const char *promote[] = {
+		"models/v_9mmhandgun.mdl",
+		"models/v_9mmar.mdl",
+		"models/v_shotgun.mdl",
+		"models/v_357.mdl",
+		"models/headcrab.mdl",
+		"models/zombie.mdl",
+		NULL
+	};
+	int i;
+
+	if( !Sys_CheckParm( "-gcnewgame" ) && !GC_IsNewGameWorldReady() )
+		return;
+
+	FS_ClearFindMissCache();
+	Image_GCPurgeDecodeScratch();
+	/* G105: the direct new-game gameplay route needs a real first-person
+	 * mesh before the presentation probe can bind cl.viewent.  Crowbar is
+	 * deliberately promoted first because it is the guaranteed starter
+	 * weapon and is included in the compact gc_studio allowlist. */
+	if( Sys_CheckParm( "-gcfullphysics" ))
+	{
+		if( Mod_GCEnsureLandmarkViewModel( "models/v_crowbar.mdl" ))
+			Con_Reportf( "Xash3D GameCube: G105 landmark viewmodel ready models/v_crowbar.mdl\n" );
+		else
+			Con_Reportf( S_WARN "Xash3D GameCube: G105 landmark viewmodel unavailable models/v_crowbar.mdl\n" );
+	}
+
+	for( i = 0; promote[i]; i++ )
+		Mod_GCPromoteStudioPath( promote[i] );
+
+	Con_Reportf( "Xash3D GameCube: deferred studios try npc=%d view=%d budget=%s\n",
+		gc_real_studio_npc, gc_real_studio_view, Q_memprint( gc_real_studio_bytes ));
+}
+
+/*
+=============
+Mod_GCLoadStartupStudios
+
+Load minimal studios needed for initial map (e.g., player viewweapon).
+Runs before map load to avoid late allocation stalls.
+=============
+*/
+void Mod_GCLoadStartupStudios( void )
+{
+	static const char *promote[] = {
+		"models/v_crowbar.mdl",
+		"models/v_9mmhandgun.mdl",
+		NULL
+	};
+	int i;
+
+	if( !Sys_CheckParm( "-gcnewgame" ) && !GC_IsNewGameWorldReady() )
+		return;
+
+	FS_ClearFindMissCache();
+	Image_GCPurgeDecodeScratch();
+
+	for( i = 0; promote[i]; i++ )
+		Mod_GCPromoteStudioPath( promote[i] );
+
+	Con_Reportf( "Xash3D GameCube: startup studios loaded npc=%d view=%d budget=%s\n",
+		gc_real_studio_npc, gc_real_studio_view, Q_memprint( gc_real_studio_bytes ));
+}
+
+/*
+=============
 Mod_GCLoadNewGameStudios
 
 Prepare-time attempt (often tip-starved). Prefer Mod_GCTryDeferredStudios after
@@ -449,56 +535,15 @@ void Mod_GCLoadNewGameStudios( void )
 		gc_real_studio_npc, gc_real_studio_view, Q_memprint( gc_real_studio_bytes ));
 }
 
-/*
-=============
-Mod_GCTryDeferredStudios
-
-G287: retry allowlisted MDLs after Flipper presents so malloc can serve the
-~47 KiB crowbar mirror (prepare-time tip returns NULL even for 7 KiB).
-=============
-*/
-void Mod_GCTryDeferredStudios( void )
-{
-	if( gc_real_studio_view >= 2 )
-		return;
-	if( gc_deferred_studio_attempts >= 4 )
-		return;
-	if( !GC_IsNewGameWorldReady() )
-		return;
-
-	gc_deferred_studio_attempts++;
-	Con_Reportf( "Xash3D GameCube: G289 deferred studio try=%d view=%d npc=%d bump=%s\n",
-		gc_deferred_studio_attempts, gc_real_studio_view, gc_real_studio_npc,
-		Q_memprint( gc_studio_bss_bump ));
-	FS_ClearFindMissCache();
-	Image_GCPurgeDecodeScratch();
-
-	if( gc_real_studio_view <= 0 )
-		Mod_GCPromoteStudioPath( "models/v_crowbar.mdl" );
-	/* G289: lean handgun (~60 KiB) shares the 80 KiB BSS bump with crowbar. */
-	if( gc_real_studio_view < 2 )
-		Mod_GCPromoteStudioPath( "models/v_9mmhandgun.mdl" );
-	if( gc_real_studio_npc <= 0 )
-		Mod_GCPromoteStudioPath( "models/roach.mdl" );
-
-	Con_Reportf( "Xash3D GameCube: G289 studio after try npc=%d view=%d budget=%s bump=%s\n",
-		gc_real_studio_npc, gc_real_studio_view, Q_memprint( gc_real_studio_bytes ),
-		Q_memprint( gc_studio_bss_bump ));
-}
 
 static qboolean Mod_GCMapVerboseModelLoad( const char *name )
 {
-	if( !GC_MapLoadMemoryOpt())
-		return false;
-	if( !name )
-		return false;
-
-	/* High-traffic campaign chapters precache hundreds of weapon/item stubs.
-	 * Keep OSReport readable and avoid probe slowdowns by logging only the
-	 * world BSP and unusual failure paths, not every successful stub load. */
-	if( !Q_strnicmp( name, "maps/", 5 ))
-		return true;
 	return false;
+}
+
+void Mod_PrintWorldStats_f( void )
+{
+	Con_Printf( "worldmodel %s: loaded\n", mod_known->name );
 }
 #endif
 CVAR_DEFINE( mod_studiocache, "r_studiocache", "1", FCVAR_ARCHIVE, "enables studio cache for speedup tracing hitboxes" );
@@ -610,6 +655,8 @@ static void Mod_FreeLoadBuffer( void *buf )
 	if( !buf )
 		return;
 	/* Map-load staging / retained BSP scratch are never Mem_ pool blocks. */
+	if( GC_IsMapLoadBuffer( buf ) || R_GCIsMapLoadStaticArena( buf ))
+		return;
 	if( GC_ReleaseMapLoadBuffer( buf ))
 		return;
 	if( Mod_GCIsRetainedBspScratch( buf ))
@@ -617,13 +664,21 @@ static void Mod_FreeLoadBuffer( void *buf )
 		Mod_GCClearRetainedBspScratch();
 		return;
 	}
-	if( GC_IsMapLoadBuffer( buf ) || R_GCIsMapLoadStaticArena( buf ))
-		return;
-	Mem_Free( buf );
+	free( buf );
 }
 
 void Mod_ReleaseBrushSourceBuffer( void *buf )
 {
+	if( !buf )
+		return;
+	/* The BSP loader calls this while it is about to re-arm the same arena as
+	 * scratch.  Drop the borrow without discarding the arena; the old-world
+	 * destructor performs the subsequent discard explicitly. */
+	if( GC_IsMapLoadBuffer( buf ))
+	{
+		GC_ReleaseMapLoadBuffer( buf );
+		return;
+	}
 	Mod_FreeLoadBuffer( buf );
 	GC_DiscardMapLoadBuffer();
 }
@@ -661,7 +716,13 @@ void Mod_FreeModel( model_t *mod )
 			Mod_GameCubeFreeMallocSurfaces( mod );
 		if( mod->type == mod_brush && mod->cache.data )
 		{
-			Mod_FreeLoadBuffer( mod->cache.data );
+			/* The world BSP may have retained the map-load arena as renderer
+			 * scratch.  This path is model teardown (unlike the staging helper),
+			 * so clear that ownership before returning the arena. */
+			if( Mod_GCIsRetainedBspScratch( mod->cache.data ))
+				Mod_GCClearRetainedBspScratch();
+			Mod_ReleaseBrushSourceBuffer( mod->cache.data );
+			GC_DiscardMapLoadBuffer();
 			mod->cache.data = NULL;
 		}
 		/* Mesh-only New Game studios keep cache on malloc (mempool == 0).
@@ -687,7 +748,6 @@ void Mod_FreeModel( model_t *mod )
 		}
 #endif
 #if XASH_GAMECUBE
-		if( mod->mempool != gc_gcmap_stubpool )
 			Mem_FreePool( &mod->mempool );
 #else
 		Mem_FreePool( &mod->mempool );
@@ -724,9 +784,8 @@ Mod_Init
 void Mod_Init( void )
 {
 	com_studiocache = Mem_AllocPool( "Studio Cache" );
-#if XASH_GAMECUBE
-	gc_gcmap_stubpool = Mem_AllocPool( "GCMap Model Stub Pool" );
-#endif
+	if( !com_studiocache )
+		return;
 	Cvar_RegisterVariable( &mod_studiocache );
 	Cvar_RegisterVariable( &r_wadtextures );
 	Cvar_RegisterVariable( &r_showhull );
@@ -757,8 +816,6 @@ void Mod_FreeAll( void )
 	for( int i = 0; i < mod_numknown; i++ )
 		Mod_FreeModel( &mod_known[i] );
 #if XASH_GAMECUBE
-	if( gc_gcmap_stubpool )
-		Mem_EmptyPool( gc_gcmap_stubpool );
 	gc_real_studio_npc = 0;
 	gc_real_studio_view = 0;
 	gc_real_studio_bytes = 0;
@@ -790,17 +847,7 @@ void Mod_Shutdown( void )
 {
 	Mod_FreeAll();
 	Mem_FreePool( &com_studiocache );
-#if XASH_GAMECUBE
-	Mem_FreePool( &gc_gcmap_stubpool );
-#endif
 }
-
-#if XASH_GAMECUBE
-poolhandle_t Mod_GameCubeSharedModelStubPool( void )
-{
-	return gc_gcmap_stubpool;
-}
-#endif
 
 /*
 ===============================================================================
@@ -912,39 +959,14 @@ static model_t *Mod_LoadModel( model_t *mod, qboolean crash )
 #endif
 
 #if XASH_GAMECUBE
-	if( GC_MapLoadMemoryOpt())
+	if( GC_MapLoadMemoryOpt() && !world.loading )
 	{
 		const char *ext = COM_FileExtension( tempname );
 
-		if( ext && !Q_stricmp( ext, "mdl" ))
+		if( ext && ( !Q_stricmp( ext, "mdl" ) || !Q_stricmp( ext, "spr" )) )
 		{
 			/* Real meshes are promoted after map prep in Mod_GCLoadNewGameStudios. */
-			mod->needload = NL_PRESENT;
-			Mod_LoadStudioGcmapStub( mod, &loaded );
-			if( !loaded )
-			{
-				if( crash ) Host_Error( "Could not load model %s\n", tempname );
-				else Con_Printf( S_ERROR "Could not load model %s\n", tempname );
-				return NULL;
-			}
-
-			if( world.loading )
-				SetBits( mod->flags, MODEL_WORLD );
-
-			return mod;
-		}
-
-		if( ext && !Q_stricmp( ext, "spr" ))
-		{
-			mod->needload = NL_PRESENT;
-			Mod_LoadSpriteGcmapStub( mod, &loaded );
-			if( !loaded )
-			{
-				if( crash ) Host_Error( "Could not load model %s\n", tempname );
-				else Con_Printf( S_ERROR "Could not load model %s\n", tempname );
-				return NULL;
-			}
-
+			mod->needload = NL_NEEDS_LOADED;
 			return mod;
 		}
 	}
@@ -991,7 +1013,29 @@ static model_t *Mod_LoadModel( model_t *mod, qboolean crash )
 	}
 	if( !buf )
 #endif
+	{
+		// Check file exists before attempting to load
+		if( !FS_FileExists( loadname, false ))
+		{
+#if XASH_GAMECUBE
+			if( GC_MapLoadMemoryOpt() && ( !Q_strncmp( loadname, "maps", 4 ) || !Q_strncmp( loadname, "models", 6 )))
+			{
+				fs_offset_t filesize = FS_FileSize( loadname, false );
+
+				Con_Reportf( "Xash3D GameCube: model file missing mod='%s' path='%s' size=%li\n",
+					mod->name, loadname, (long)filesize );
+			}
+#endif
+			memset( mod, 0, sizeof( model_t ));
+
+			if( crash ) Host_Error( "Could not load model %s from disk\n", loadname );
+			else Con_Printf( S_ERROR "Could not load model %s from disk\n", loadname );
+
+			return NULL;
+		}
+
 		buf = FS_LoadFile( loadname, &length, false );
+	}
 
 	if( !buf || length < sizeof( uint ))
 	{
@@ -1104,12 +1148,18 @@ static model_t *Mod_LoadModel( model_t *mod, qboolean crash )
 		}
 	}
 #if XASH_GAMECUBE
-		if( mod->type != mod_brush || mod->cache.data != buf )
+	if( mod->type != mod_brush || mod->cache.data != buf )
+#endif
+	{
+#if XASH_GAMECUBE
+		/* Don't free map load buffer - it's managed by GC system */
+		if( !GC_IsMapLoadBuffer( buf ) && !R_GCIsMapLoadStaticArena( buf ))
 #endif
 			Mod_FreeLoadBuffer( buf );
-
-		return mod;
 	}
+
+	return mod;
+}
 
 /*
 ==================
@@ -1141,8 +1191,22 @@ static void Mod_PurgeStudioCache( void )
 #if !XASH_DEDICATED
 	Mod_ReleaseHullPolygons();
 #endif
+#if XASH_GAMECUBE
+	/* G156: unpin viewmodels before freeing to avoid dangling references. */
+	gc_pinned_viewmodel_count = 0;
+	memset( gc_pinned_viewmodels, 0, sizeof( gc_pinned_viewmodels ));
+#endif
 	// release previois map
 	Mod_FreeModel( mod_known );	// world is stuck on slot #0 always
+#if XASH_GAMECUBE
+	/* The world source may be retained as BSP scratch without being present in
+	 * cache.data on every load route.  At this point the old model is fully
+	 * detached, so force the arena ownership transition before the next map's
+	 * FS_LoadFile attempt. */
+	Mod_GCClearRetainedBspScratch();
+	GC_DiscardMapLoadBuffer();
+	Con_Reportf( "Xash3D GameCube: changelevel old world map-load arena released\n" );
+#endif
 
 	// we should release all the world submodels
 	// and clear studio sequences
@@ -1164,6 +1228,12 @@ static void Mod_PurgeStudioCache( void )
 	Mod_ClearStudioCache();
 }
 
+/* Purge the old world before a caller reserves the next BSP buffer. */
+void Mod_PurgeForMapLoad( void )
+{
+	Mod_PurgeStudioCache();
+}
+
 /*
 ==================
 Mod_LoadWorld
@@ -1183,8 +1253,9 @@ model_t *Mod_LoadWorld( const char *name, qboolean preload )
 	// load the newmap
 	world.loading = true;
 	model_t *pworld = Mod_FindName( name, false );
+	if( preload ) Mod_LoadModel( pworld, true );
 #if XASH_GAMECUBE
-	if( GC_MapLoadMemoryOpt())
+	if( GC_MapLoadMemoryOpt() )
 	{
 		fs_offset_t filesize = FS_FileSize( name, false );
 		qboolean exists = FS_FileExists( name, false );
@@ -1193,7 +1264,6 @@ model_t *Mod_LoadWorld( const char *name, qboolean preload )
 			name, pworld ? pworld->name : "(null)", exists, (long)filesize, preload );
 	}
 #endif
-	if( preload ) Mod_LoadModel( pworld, true );
 	world.loading = false;
 
 	ASSERT( pworld == mod_known );
@@ -1255,9 +1325,6 @@ void Mod_GcmapMarkPrecacheFreeable( void )
 	Mod_ClearStudioCache();
 	Mod_FreeUnused();
 	Con_Reportf( "Xash3D GameCube: gcmap released %d precache models for world render\n", marked );
-#if XASH_GAMECUBE
-	GC_MemSample( "post-precache free" );
-#endif
 }
 #endif
 

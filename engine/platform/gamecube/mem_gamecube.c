@@ -90,17 +90,17 @@ void GC_MemBudgetWarn( const char *stage )
 	
 	if( total >= GC_MEMORY_CRITICAL_95_PERCENT )
 	{
-		Con_Reportf( S_ERROR "Xash3D GameCube: mem CRITICAL %s%% budget used (%s/%s) at %s\n",
+		Con_Reportf( S_ERROR "Xash3D GameCube: mem CRITICAL %d%% budget used (%s/%s) at %s\n",
 			used_percent, Q_memprint( total ), Q_memprint( GC_MEMORY_BUDGET_BYTES ), stage );
 	}
 	else if( total >= GC_MEMORY_WARNING_90_PERCENT )
 	{
-		Con_Reportf( S_WARN "Xash3D GameCube: mem WARNING %s%% budget used (%s/%s) at %s\n",
+		Con_Reportf( S_WARN "Xash3D GameCube: mem WARNING %d%% budget used (%s/%s) at %s\n",
 			used_percent, Q_memprint( total ), Q_memprint( GC_MEMORY_BUDGET_BYTES ), stage );
 	}
 	else if( total >= GC_MEMORY_WARNING_80_PERCENT )
 	{
-		Con_Reportf( "Xash3D GameCube: mem INFO %s%% budget used (%s/%s) at %s\n",
+		Con_Reportf( "Xash3D GameCube: mem INFO %d%% budget used (%s/%s) at %s\n",
 			used_percent, Q_memprint( total ), Q_memprint( GC_MEMORY_BUDGET_BYTES ), stage );
 	}
 }
@@ -350,3 +350,4 @@ qboolean GC_MapLoadMemoryOpt( void )
 		|| ( Sys_CheckParm( "-gcnewgame" ) != 0 && gc_newgame_bootstrap_memopt );
 }
 #endif
+

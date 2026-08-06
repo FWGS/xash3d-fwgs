@@ -43,6 +43,10 @@ fs_globals_t *FI;
 static pfnCreateInterface_t fs_pfnCreateInterface;
 static HINSTANCE fs_hInstance;
 
+// Forward declarations for GameCube smoke boot mode functions
+qboolean FS_SmokeBootMode( void );
+void FS_SetSmokeBootMode( qboolean mode );
+
 search_t *FS_Search( const char *pattern, int caseinsensitive, int gamedironly )
 {
 	return g_fsapi.Search( pattern, caseinsensitive, gamedironly );
@@ -93,9 +97,18 @@ static uint32_t FS_MountFlags( void )
 	uint32_t flags = 0;
 
 	// FIXME: VFS shouldn't care about this, allow engine to mount gamedirs
+#if XASH_GAMECUBE
+	// GameCube: mount addon by default to ensure delta.lst and other assets are available
+	flags |= FS_MOUNT_ADDON;
+#endif
 	if( fs_mount_lv.value ) SetBits( flags, FS_MOUNT_LV );
 	if( fs_mount_hd.value ) SetBits( flags, FS_MOUNT_HD );
+	// Always mount addon on GameCube to ensure delta.lst is available
+#if !XASH_GAMECUBE
 	if( fs_mount_addon.value ) SetBits( flags, FS_MOUNT_ADDON );
+#else
+	flags |= FS_MOUNT_ADDON;
+#endif
 	if( fs_mount_l10n.value ) SetBits( flags, FS_MOUNT_L10N );
 
 	return flags;
@@ -109,6 +122,7 @@ void FS_Rescan_f( void )
 static void FS_LoadVFSConfig( const char *gamedir )
 {
 	string parm;
+	qboolean vfs_done = false;
 
 	if( Host_IsDedicated( ))
 		return;
@@ -116,25 +130,57 @@ static void FS_LoadVFSConfig( const char *gamedir )
 #if XASH_GAMECUBE
 	if( !GCube_HasPersistentWritableStorage( ))
 	{
-		Con_Reportf( "%s: no writable storage, skipping vfs.cfg load\n", __func__ );
-		return;
+		Con_Reportf( "%s: no writable storage, loading vfs.cfg from disc\n", __func__ );
+		// On GameCube with no persistent storage, mount addon from disc
+		if( !FS_FileExists( "vfs.cfg", true ) )
+		{
+			Con_Reportf( "%s: vfs.cfg not found on disc, mounting addon fallback\n", __func__ );
+			Cvar_DirectSet( &fs_mount_addon, "1" );
+			/* GameCube FS_MountFlags already includes the addon on the read-only
+			 * disc route. A rescan here re-enters VFS setup and can hang before
+			 * engine readiness; continue with the paths already mounted. */
+			Con_Reportf( "Xash3D GameCube: vfs fallback using existing addon paths\n" );
+			vfs_done = true;
+		}
+		else
+		{
+			Cbuf_AddTextf( "exec %s/vfs.cfg\n", gamedir );
+			Cbuf_Execute();
+			Cvar_DirectSet( &fs_mount_addon, "1" );
+			// Ensure addon is mounted by triggering a rescan
+			FS_Rescan_f();
+			vfs_done = true;
+		}
 	}
 #endif
 
-	Cbuf_AddTextf( "exec %s/vfs.cfg\n", gamedir );
-	Cbuf_Execute();
-
-	if( Sys_GetParmFromCmdLine( "-language", parm ))
+	if( !FS_FileExists( "vfs.cfg", true ))
 	{
-		Cvar_DirectSet( &ui_language, parm );
-		Cvar_DirectSet( &fs_mount_l10n, "1" );
+		if( !vfs_done )
+		{
+			Con_Reportf( "%s: vfs.cfg not found, skipping\n", __func__ );
+			return;
+		}
+		// GameCube no-writable-storage already handled; continue initialization
 	}
 
-	ClearBits( fs_mount_hd.flags, FCVAR_CHANGED );
-	ClearBits( fs_mount_lv.flags, FCVAR_CHANGED );
-	ClearBits( fs_mount_l10n.flags, FCVAR_CHANGED );
-	ClearBits( fs_mount_addon.flags, FCVAR_CHANGED );
-	ClearBits( ui_language.flags, FCVAR_CHANGED );
+	if( !vfs_done )
+	{
+		Cbuf_AddTextf( "exec %s/vfs.cfg\n", gamedir );
+		Cbuf_Execute();
+
+		if( Sys_GetParmFromCmdLine( "-language", parm ))
+		{
+			Cvar_DirectSet( &ui_language, parm );
+			Cvar_DirectSet( &fs_mount_l10n, "1" );
+		}
+
+		ClearBits( fs_mount_hd.flags, FCVAR_CHANGED );
+		ClearBits( fs_mount_lv.flags, FCVAR_CHANGED );
+		ClearBits( fs_mount_l10n.flags, FCVAR_CHANGED );
+		ClearBits( fs_mount_addon.flags, FCVAR_CHANGED );
+		ClearBits( ui_language.flags, FCVAR_CHANGED );
+	}
 }
 
 void FS_SaveVFSConfig( void )
@@ -182,8 +228,9 @@ void FS_SaveVFSConfig( void )
 void FS_LoadGameInfo( void )
 {
 	FS_LoadVFSConfig( g_fsapi.Gamedir( ));
-
+	Con_Reportf( "Xash3D GameCube: filesystem gameinfo load begin\n" );
 	g_fsapi.LoadGameInfo( FS_MountFlags(), ui_language.string );
+	Con_Reportf( "Xash3D GameCube: filesystem gameinfo load ready info=%p\n", (void *)( FI ? FI->GameInfo : NULL ));
 }
 
 static void FS_ClearPaths_f( void )
@@ -209,6 +256,19 @@ static void FS_FindFile_f_( void )
 static void FS_MakeGameInfo_f( void )
 {
 	g_fsapi.MakeGameInfo();
+}
+
+// GameCube smoke boot mode
+static qboolean s_smoke_boot_mode = false;
+
+qboolean FS_SmokeBootMode( void )
+{
+	return s_smoke_boot_mode;
+}
+
+void FS_SetSmokeBootMode( qboolean mode )
+{
+	s_smoke_boot_mode = mode;
 }
 
 static const fs_interface_t fs_memfuncs =
@@ -400,6 +460,7 @@ static qboolean FS_DetermineReadOnlyRootDirectory( char *out, size_t size )
 FS_Init
 ================
 */
+
 void FS_Init( void )
 {
 	string gamedir;
@@ -442,17 +503,22 @@ void FS_Init( void )
 		return;
 	}
 
-	Cmd_AddRestrictedCommand( "fs_rescan", FS_Rescan_f, "rescan filesystem search pathes" );
-	Cmd_AddRestrictedCommand( "fs_path", FS_Path_f_, "show filesystem search pathes" );
-	Cmd_AddRestrictedCommand( "fs_find", FS_FindFile_f_, "find file across search pathes and show all occurences" );
-	Cmd_AddRestrictedCommand( "fs_clearpaths", FS_ClearPaths_f, "clear filesystem search pathes" );
-	Cmd_AddRestrictedCommand( "fs_make_gameinfo", FS_MakeGameInfo_f, "create gameinfo.txt for current running game" );
-
+	// Register CVARs before FS_LoadGameInfo to avoid "already defined" errors
+	// when FS_LoadVFSConfig tries to set these CVARs
 	Cvar_RegisterVariable( &fs_mount_hd );
 	Cvar_RegisterVariable( &fs_mount_lv );
 	Cvar_RegisterVariable( &fs_mount_addon );
 	Cvar_RegisterVariable( &fs_mount_l10n );
 	Cvar_RegisterVariable( &ui_language );
+
+	// Load gameinfo.txt to ensure delta.lst and other game assets are available
+	FS_LoadGameInfo();
+
+	Cmd_AddRestrictedCommand( "fs_rescan", FS_Rescan_f, "rescan filesystem search pathes" );
+	Cmd_AddRestrictedCommand( "fs_path", FS_Path_f_, "show filesystem search pathes" );
+	Cmd_AddRestrictedCommand( "fs_find", FS_FindFile_f_, "find file across search pathes and show all occurences" );
+	Cmd_AddRestrictedCommand( "fs_clearpaths", FS_ClearPaths_f, "clear filesystem search pathes" );
+	Cmd_AddRestrictedCommand( "fs_make_gameinfo", FS_MakeGameInfo_f, "create gameinfo.txt for current running game" );
 
 	if( !Sys_GetParmFromCmdLine( "-dll", host.gamedll ))
 		host.gamedll[0] = 0;
@@ -466,8 +532,11 @@ void FS_Init( void )
 #if XASH_GAMECUBE
 	/* Keep disc-only smoke searchpaths unless real SD is mounted.
 	 * G94 gcprobe: is save-only and must not disable smoke layout. */
-	FS_SetSmokeBootMode( Sys_CheckParm( "-gcmap" )
-		|| !GCube_HasPersistentWritableStorage() );
+	{
+		qboolean smoke_mode = Sys_CheckParm( "-gcmap" ) || !GCube_HasPersistentWritableStorage();
+		FS_SetSmokeBootMode( smoke_mode );
+		Con_Reportf( "Xash3D GameCube: smoke boot mode=%d (gcmap=%d, storage=%d)\n", smoke_mode, Sys_CheckParm( "-gcmap" ), !GCube_HasPersistentWritableStorage() );
+	}
 #endif
 }
 

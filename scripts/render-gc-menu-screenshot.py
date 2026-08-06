@@ -50,7 +50,7 @@ def retail_reference(source: Path) -> "Image.Image":
 def gc_menu_preview(source: Path, output_root: Path) -> "Image.Image":
 	disc = import_disc_builder()
 
-	Image, ImageDraw, _ = load_pil()
+	Image, ImageDraw, ImageFont = load_pil()
 	disc.stage_gc_menu_assets(source, output_root)
 	bg_path = output_root / "resource" / "gc_menu" / "background.tga"
 	logo_path = output_root / "resource" / "gc_menu" / "logo.tga"
@@ -69,19 +69,18 @@ def gc_menu_preview(source: Path, output_root: Path) -> "Image.Image":
 	menu_items = (
 		("New game", "Start a new single player game."),
 		("Load game", "Load a previously saved game."),
-		("Find servers", "Search for online multiplayer servers."),
-		("Create server", "Host an online multiplayer server for others to join."),
 		("Options", "Change game settings, configure controls."),
-		("Quit", "Quit playing Half-Life."),
 	)
 	menu_x, menu_desc_x = 57, 192
 	menu_y, row_h = 270, 42
+	label_font = disc._gc_menu_font(source, ImageFont, 18, medium=True)
+	desc_font = disc._gc_menu_font(source, ImageFont, 12)
 	for index, (label, desc) in enumerate(menu_items):
 		y = menu_y + index * row_h
 		label_color = (255, 207, 24, 255) if index == 0 else (230, 184, 16, 255)
 		desc_color = (110, 110, 110, 255)
-		draw.text((menu_x, y), label, fill=label_color)
-		draw.text((menu_desc_x, y + 2), desc, fill=desc_color)
+		draw.text((menu_x, y), label, font=label_font, fill=label_color)
+		draw.text((menu_desc_x, y + 3), desc, font=desc_font, fill=desc_color)
 	return canvas
 
 
@@ -103,7 +102,8 @@ def main() -> int:
 	out_dir = args.out_dir.resolve()
 	out_dir.mkdir(parents=True, exist_ok=True)
 
-	retail = retail_reference(source).resize((640, 480), load_pil()[0].Resampling.LANCZOS)
+	disc = import_disc_builder()
+	retail = disc._gc_menu_fit_aspect(retail_reference(source), (640, 480))
 	retail_path = out_dir / "retail-main-menu-reference.png"
 	retail.save(retail_path)
 

@@ -17,8 +17,9 @@ from pathlib import Path
 
 # Critical assets required for basic engine boot and map loading
 CRITICAL_ASSETS = (
-    "liblist.gam",
-    "gfx.wad",
+	"liblist.gam",
+	"delta.lst",
+	"gfx.wad",
     "gfx/palette.lmp",
     "gfx/conback.lmp",
     "gfx/colormap.lmp",
@@ -54,7 +55,7 @@ DISC_MAGIC = 0xC2339F3D
 APPLOADER_ADDRESS = 0x81200000
 APPLOADER_HEADER_OFFSET = 0x2440
 APPLOADER_DATA_OFFSET = APPLOADER_HEADER_OFFSET + 0x20
-BOOTSTRAP_EXCLUDED_EXTENSIONS = {".avi", ".gcvid", ".mdl", ".pak", ".pk3", ".wad", ".wav"}
+BOOTSTRAP_EXCLUDED_EXTENSIONS = {".avi", ".gcvid", ".gcpcm", ".mdl", ".pak", ".pk3", ".wad", ".wav"}
 GCVID_MAGIC = b"GCV2"
 GCVID_HEADER_SIZE = 28
 # Half-res static-hold companions — matches runtime intro decode/upload scale
@@ -74,6 +75,10 @@ GCVID_LOGO_HEIGHT = 48
 GCVID_LOGO_FPS_NUM = 24
 GCVID_LOGO_FPS_DEN = 1
 GCVID_LOGO_STILL_FRAME_INDEX = 80
+GCPCM_MAGIC = b"GCPA"
+GCPCM_RATE = 48000
+GCPCM_CHANNELS = 2
+GCPCM_WIDTH = 2
 
 
 def align(value: int, boundary: int) -> int:
@@ -125,8 +130,8 @@ def flatten(node: Node, parent_index: int, entries: list[Node]) -> None:
 
 
 def encode_names(entries: list[Node]) -> bytes:
-	names = bytearray(b"\0")
-	for entry in entries[1:]:
+	names = bytearray()
+	for entry in entries:
 		encoded = entry.name.encode("utf-8")
 		if b"\0" in encoded:
 			raise ValueError(f"invalid filename: {entry.name!r}")
@@ -628,6 +633,25 @@ def _gc_menu_preserve_retail_tone(image):
 	return rgb.convert("RGBA")
 
 
+def _gc_menu_fit_aspect(image, size):
+	"""Crop wide retail layouts before fitting the fixed 4:3 GC menu canvas."""
+	target_w, target_h = size
+	src_w, src_h = image.size
+	if not src_w or not src_h or not target_w or not target_h:
+		return image.resize(size)
+	src_aspect = src_w / float(src_h)
+	target_aspect = target_w / float(target_h)
+	if src_aspect > target_aspect:
+		crop_w = max(1, int(round(src_h * target_aspect)))
+		left = (src_w - crop_w) // 2
+		image = image.crop((left, 0, left + crop_w, src_h))
+	elif src_aspect < target_aspect:
+		crop_h = max(1, int(round(src_w / target_aspect)))
+		top = (src_h - crop_h) // 2
+		image = image.crop((0, top, src_w, top + crop_h))
+	return image.resize(size)
+
+
 def _gc_menu_synthetic_background(size: tuple[int, int]):
 	"""Fallback when retail tiles are missing or pure black placeholders."""
 	from PIL import Image
@@ -650,10 +674,23 @@ def _gc_menu_synthetic_background(size: tuple[int, int]):
 	return image
 
 
+def _gc_menu_font(source: Path, image_font, size: int, medium: bool = False):
+	"""Use the shipped UI font so baked text is reproducible on every host."""
+	font_name = "FiraSans-Medium.ttf" if medium else "FiraSans-Regular.ttf"
+	candidates = (
+		source.parent / "platform" / "resource" / "linux_fonts" / font_name,
+		Path(__file__).resolve().parents[1] / "fonts" / "GameCube.ttf",
+	)
+	for path in candidates:
+		if path.is_file():
+			return image_font.truetype(str(path), size)
+	return image_font.load_default()
+
+
 def stage_gc_menu_assets(source: Path, output: Path) -> bool:
 	"""Bake a single MEM1-friendly retail menu background and title logo."""
 	try:
-		from PIL import Image
+		from PIL import Image, ImageDraw, ImageFont
 	except ImportError:
 		print("Warning: Pillow not installed; skipping GameCube menu background bake.", file=sys.stderr)
 		return False
@@ -685,10 +722,11 @@ def stage_gc_menu_assets(source: Path, output: Path) -> bool:
 	menu_dir = output / "resource" / "gc_menu"
 	menu_dir.mkdir(parents=True, exist_ok=True)
 
-	# 128x96 keeps the transient RGBA decode buffer under 50 KiB for MEM1 menu boot.
+	# Keep the baked menu at the native 4:3 logical aspect. The GX HUD upload
+	# path retains the tiled 128x96 dimensions directly.
 	if best is not None and best_ratio >= 0.02:
 		background = _gc_menu_preserve_retail_tone(
-			best.resize((128, 96), Image.Resampling.LANCZOS))
+			_gc_menu_fit_aspect(best, (128, 96)))
 		source_note = best_label
 	else:
 		background = _gc_menu_synthetic_background((128, 96))
@@ -710,6 +748,34 @@ def stage_gc_menu_assets(source: Path, output: Path) -> bool:
 	if logo is not None:
 		logo.thumbnail((256, 32), Image.Resampling.LANCZOS)
 		logo.save(menu_dir / "logo.tga", format="TGA")
+
+	# Bake the complete retail menu composition into one opaque GX texture.
+	# This keeps the menu independent of the low-memory fallback font and the
+	# separate RGB5A3 logo alpha path, both of which are unreliable during the
+	# read-only retail bootstrap.
+	composite = background.resize((640, 480), Image.Resampling.LANCZOS)
+	if logo is not None:
+		logo_draw = logo.resize((int(640 * 0.74), max(1, int(logo.height * (640 * 0.74 / logo.width)))), Image.Resampling.LANCZOS)
+		composite.alpha_composite(logo_draw, (int((640 - logo_draw.width) / 2), int(480 * 0.08)))
+	draw = ImageDraw.Draw(composite)
+	label_font = _gc_menu_font(source, ImageFont, 18, medium=True)
+	desc_font = _gc_menu_font(source, ImageFont, 12)
+	menu_items = (
+		("New game", "Start a new single player game."),
+		("Load game", "Load a previously saved game."),
+		("Options", "Change game settings, configure controls."),
+	)
+	for index, (label, desc) in enumerate(menu_items):
+		y = 270 + index * 42
+		draw.text((57, y), label, font=label_font, fill=(255, 207, 24, 255) if index == 0 else (230, 184, 16, 255))
+		draw.text((192, y + 3), desc, font=desc_font, fill=(110, 110, 110, 255))
+	# Nine GX-sized tiles preserve 384x288 working resolution while keeping
+	# every texture within the 128x96 tile limit and the bounded HUD pool.
+	composite = composite.resize((384, 288), Image.Resampling.LANCZOS).convert("RGBA")
+	for row in range(3):
+		for col in range(3):
+			composite.crop((col * 128, row * 96, (col + 1) * 128, (row + 1) * 96)).save(
+				menu_dir / f"menu_{row * 3 + col}.tga", format="TGA")
 
 	print(f"GameCube menu assets: baked {background_path.relative_to(output)} from {source_note}")
 	return True
@@ -1289,16 +1355,26 @@ def write_smoke_overrides(
 	output: Path,
 	smoke_map: str,
 	*,
+	newgame: bool = False,
+	newsaveload: bool = False,
+	configroundtrip: bool = False,
 	world_render: bool = False,
 	phasetest: str | None = None,
 	changelevel: str | None = None,
 	landmark: str | None = None,
 	leanpvs: bool = False,
+	fullphysics: bool = False,
 ) -> None:
 	(output / "valve.rc").write_text("stuffcmds\n", encoding="ascii")
 	(output / "config.cfg").write_text("\n", encoding="ascii")
 	(output / "autoexec.cfg").write_text("\n", encoding="ascii")
 	lines = [f"map {Path(smoke_map).stem}"]
+	if newgame:
+		lines.append("newgame")
+	if newsaveload:
+		lines.append("newsaveload")
+	if configroundtrip:
+		lines.append("configroundtrip")
 	if changelevel:
 		# G68: enable New Game PVS/present/changelevel path on the smoke map.
 		lines.append("newgame")
@@ -1308,6 +1384,8 @@ def write_smoke_overrides(
 		lines.append(f"phasetest {phasetest}")
 	if leanpvs:
 		lines.append("leanpvs")
+	if fullphysics:
+		lines.append("fullphysics")
 	if changelevel and landmark:
 		lines.append(f"changelevel {Path(changelevel).stem} {landmark}")
 	elif changelevel:
@@ -1323,6 +1401,7 @@ def write_smoke_overrides(
 def write_probe_newgame_override(
 	output: Path,
 	newsaveload: bool = False,
+	configroundtrip: bool = False,
 	phasetest: str | None = None,
 	changelevel: str | None = None,
 	landmark: str | None = None,
@@ -1337,6 +1416,8 @@ def write_probe_newgame_override(
 	lines.append("newgame")
 	if newsaveload:
 		lines.append("newsaveload")
+	if configroundtrip:
+		lines.append("configroundtrip")
 	if phasetest:
 		lines.append(f"phasetest {phasetest}")
 	if leanpvs:
@@ -1462,6 +1543,10 @@ def create_retail_boot_overlays(
 			gcvid_output = media / gcvid_name
 			build_gcvid_companion(source_movie, gcvid_output, rgb565=True)
 			overlays.append((f"media/{gcvid_name}", gcvid_output))
+			gcpcm_name = Path(relative).with_suffix(".gcpcm").name
+			gcpcm_output = media / gcpcm_name
+			if build_gcpcm_companion(source_movie, gcpcm_output):
+				overlays.append((f"media/{gcpcm_name}", gcpcm_output))
 
 	return tuple(overlays)
 
@@ -1520,20 +1605,50 @@ def build_gcvid_companion(
 		for i in range(actual_frames)
 	]
 	still_frame_index = min(still_frame_index, actual_frames - 1)
-	still_frame = frames[still_frame_index]
 	offsets: list[int] = []
 	packets = bytearray()
-	offsets.extend(0 for _ in range(actual_frames))
-	packets.append(GCVID_KEYFRAME)
-	if rgb565:
-		for pixel in range(0, len(still_frame), 4):
-			b = still_frame[pixel + 0]
-			g = still_frame[pixel + 1]
-			r = still_frame[pixel + 2]
+	previous: bytes | None = None
+	tiles_x = width // tile_size if tile_size else 0
+	tiles_y = height // tile_size if tile_size else 0
+
+	def convert_frame(frame: bytes) -> bytes:
+		if not rgb565:
+			return frame
+		converted = bytearray(width * height * 2)
+		for pixel in range(0, len(frame), 4):
+			b = frame[pixel + 0]
+			g = frame[pixel + 1]
+			r = frame[pixel + 2]
 			rgb565_pixel = ((r >> 3) << 11) | ((g >> 2) << 5) | (b >> 3)
-			packets.extend(struct.pack("<H", rgb565_pixel))
-	else:
-		packets.extend(still_frame)
+			converted[pixel // 2:pixel // 2 + 2] = struct.pack("<H", rgb565_pixel)
+		return bytes(converted)
+
+	def tile_bytes(frame: bytes, tile_x: int, tile_y: int) -> bytes:
+		tile = bytearray()
+		for row in range(tile_size):
+			start = ((tile_y * tile_size + row) * width + tile_x * tile_size) * 2
+			tile.extend(frame[start:start + tile_size * 2])
+		return bytes(tile)
+
+	for frame_index, source_frame in enumerate(frames):
+		current = convert_frame(source_frame)
+		offsets.append(len(packets))
+		if frame_index == 0 or not tile_size:
+			packets.append(GCVID_KEYFRAME)
+			packets.extend(current)
+		else:
+			changed: list[tuple[int, bytes]] = []
+			for tile_y in range(tiles_y):
+				for tile_x in range(tiles_x):
+					tile = tile_bytes(current, tile_x, tile_y)
+					if tile != tile_bytes(previous, tile_x, tile_y):
+						changed.append((tile_y * tiles_x + tile_x, tile))
+			packets.append(GCVID_DELTAFRAME)
+			packets.extend(struct.pack("<H", len(changed)))
+			for tile_index, tile in changed:
+				packets.extend(struct.pack("<H", tile_index))
+				packets.extend(tile)
+		previous = current
 
 	header = bytearray()
 	header.extend(GCVID_MAGIC)
@@ -1542,7 +1657,7 @@ def build_gcvid_companion(
 	header.extend(struct.pack("<I", fps_num))
 	header.extend(struct.pack("<I", fps_den))
 	header.extend(struct.pack("<I", actual_frames))
-	flags = tile_size | GCVID_FLAG_STATIC_HOLD
+	flags = tile_size
 	if not rgb565:
 		flags |= GCVID_FLAG_BGRA32
 	header.extend(struct.pack("<I", flags))
@@ -1552,10 +1667,44 @@ def build_gcvid_companion(
 	output_movie.parent.mkdir(parents=True, exist_ok=True)
 	output_movie.write_bytes(bytes(header) + bytes(packets))
 	print(
-		f"Built static-hold GCVID {output_movie.name} from frame {still_frame_index} "
+		f"Built delta GCVID {output_movie.name} "
 		f"({width}x{height}, duration {actual_frames} frames, "
 		f"{'rgb565' if rgb565 else 'bgra32'})"
 	)
+
+
+def build_gcpcm_companion(source_movie: Path, output_audio: Path) -> bool:
+	"""Convert movie audio to the GameCube mixer format: 48 kHz stereo s16le."""
+	ffmpeg = shutil.which("ffmpeg")
+	if ffmpeg is None:
+		raise FileNotFoundError("ffmpeg is required to build .gcpcm intro companions")
+	raw_audio = subprocess.run(
+		[
+			ffmpeg, "-v", "error", "-i", str(source_movie), "-map", "0:a:0",
+			"-ar", str(GCPCM_RATE), "-ac", str(GCPCM_CHANNELS),
+			"-f", "s16le", "-acodec", "pcm_s16le", "-",
+		], capture_output=True,
+	)
+	if raw_audio.returncode != 0 and b"matches no streams" in raw_audio.stderr:
+		print(f"Skipped native GCPCM {output_audio.name}: source has no audio stream")
+		return False
+	if raw_audio.returncode != 0:
+		raise subprocess.CalledProcessError(raw_audio.returncode, raw_audio.args, raw_audio.stdout, raw_audio.stderr)
+	if not raw_audio.stdout or len(raw_audio.stdout) % (GCPCM_CHANNELS * GCPCM_WIDTH):
+		raise ValueError(f"ffmpeg produced invalid PCM audio for {source_movie}")
+	# The runtime passes this buffer directly to the native-endian mixer and
+	# ASND's VOICE_STEREO_16BIT_BE path. Keep the metadata little-endian, but
+	# store each signed-16 PCM sample in GameCube big-endian byte order.
+	pcm = bytearray(raw_audio.stdout)
+	for offset in range(0, len(pcm), GCPCM_WIDTH):
+		pcm[offset], pcm[offset + 1] = pcm[offset + 1], pcm[offset]
+	header = GCPCM_MAGIC + struct.pack(
+		"<IHHI", GCPCM_RATE, GCPCM_CHANNELS, GCPCM_WIDTH, len(pcm)
+	)
+	output_audio.parent.mkdir(parents=True, exist_ok=True)
+	output_audio.write_bytes(header + pcm)
+	print(f"Built native GCPCM {output_audio.name} ({len(pcm)} PCM bytes, 48 kHz stereo s16be/GameCube-native)")
+	return True
 
 
 def build_intro_gcvid_companions(output: Path) -> None:
@@ -1565,6 +1714,8 @@ def build_intro_gcvid_companions(output: Path) -> None:
 			continue
 		gcvid = source_movie.with_suffix(".gcvid")
 		build_gcvid_companion(source_movie, gcvid, rgb565=True)
+		gcpcm = source_movie.with_suffix(".gcpcm")
+		build_gcpcm_companion(source_movie, gcpcm)
 	build_logo_gcvid_companion(output, output)
 
 
@@ -1588,21 +1739,33 @@ def stage_smoke_data(
 	output: Path,
 	smoke_map: str,
 	*,
+	newgame: bool = False,
+	newsaveload: bool = False,
+	configroundtrip: bool = False,
 	world_render: bool = False,
 	phasetest: str | None = None,
 	changelevel: str | None = None,
 	landmark: str | None = None,
 	leanpvs: bool = False,
+	fullphysics: bool = False,
 ) -> Path:
 	map_name = smoke_map if smoke_map.endswith(".bsp") else f"{smoke_map}.bsp"
 	map_relative = f"maps/{map_name}"
 	map_source = source / map_relative
 	if not map_source.is_file():
 		raise FileNotFoundError(f"smoke map does not exist: {map_source}")
+	destination_map_relative = None
+	if changelevel:
+		destination_map_name = changelevel if changelevel.endswith(".bsp") else f"{changelevel}.bsp"
+		destination_map_relative = f"maps/{destination_map_name}"
+		if not (source / destination_map_relative).is_file():
+			raise FileNotFoundError(f"changelevel destination map does not exist: {source / destination_map_relative}")
 
 	output.mkdir(parents=True, exist_ok=True)
 	for relative in SMOKE_CONFIG_FILES:
 		copy_if_present(source, output, relative)
+	if destination_map_relative:
+		copy_if_present(source, output, destination_map_relative)
 	for relative in MENU_RESOURCE_ASSETS:
 		copy_if_present(source, output, relative)
 	for relative in MENU_RESOURCE_DIRS:
@@ -1610,11 +1773,15 @@ def stage_smoke_data(
 	write_smoke_overrides(
 		output,
 		smoke_map,
+		newgame=newgame,
+		newsaveload=newsaveload,
+		configroundtrip=configroundtrip,
 		world_render=world_render,
 		phasetest=phasetest,
 		changelevel=changelevel,
 		landmark=landmark,
 		leanpvs=leanpvs,
+		fullphysics=fullphysics,
 	)
 	for relative in smoke_hud_resources(source):
 		copy_if_present(source, output, relative)
@@ -1696,7 +1863,19 @@ def build_disc(
 	dol_offset = align(iso9660_size, 0x800)
 	# The boot process requires an FST, while game data is deliberately exposed
 	# through ISO9660 so libc and filesystem_stdio can use normal POSIX calls.
-	fst = struct.pack(">III", 0x01000000, 0, 1) + b"\0"
+	# Build FST from staged data tree
+	root = Node("xash3d")
+	add_tree(root, data)
+	entries: list[Node] = []
+	flatten(root, 0, entries)
+	names = encode_names(entries)
+	# Assign disc offsets for files (after ISO9660 data)
+	file_offset = align(DISC_HEADER_SIZE + dol_size, 0x800)
+	for entry in entries:
+		if not entry.is_dir:
+			entry.disc_offset = file_offset
+			file_offset += align(entry.source.stat().st_size, 0x20)
+	fst = build_fst(entries, names)
 	fst_offset = align(dol_offset + dol_size, 0x20)
 	fst_size = len(fst)
 	next_offset = align(fst_offset + fst_size, 0x800)
@@ -1717,9 +1896,10 @@ def build_disc(
 	struct.pack_into(">I", header, 0x430, 0x8000)
 	struct.pack_into(">I", header, 0x434, iso9660_size - 0x8000)
 	struct.pack_into(">I", header, 0x458, 1)  # NTSC region in BI2
-	header[APPLOADER_HEADER_OFFSET:APPLOADER_HEADER_OFFSET + 11] = b"2026/06/20\0"
-	struct.pack_into(">I", header, APPLOADER_HEADER_OFFSET + 0x10, APPLOADER_ADDRESS)
-	struct.pack_into(">I", header, APPLOADER_HEADER_OFFSET + 0x14, len(apploader))
+	# Apploader header at disc offset 0x2440 (BI2 header area)
+	# Entry point and length are written at 0x2450 and 0x2454
+	struct.pack_into(">I", header, 0x2450, APPLOADER_ADDRESS)
+	struct.pack_into(">I", header, 0x2454, len(apploader))
 	header[APPLOADER_DATA_OFFSET:APPLOADER_DATA_OFFSET + len(apploader)] = apploader
 	if len(header) != DISC_HEADER_SIZE:
 		raise AssertionError(
@@ -1924,9 +2104,19 @@ def main() -> None:
 		help="stage valve/gamecube.cfg with a newgame override for automated retail probes",
 	)
 	parser.add_argument(
+		"--probe-menu-newgame",
+		action="store_true",
+		help="stage a retail menu boot that presses the built-in New Game item",
+	)
+	parser.add_argument(
 		"--probe-newsaveload",
 		action="store_true",
 		help="with --probe-newgame, also stage newsaveload for G94 RAM save/load probes",
+	)
+	parser.add_argument(
+		"--probe-configroundtrip",
+		action="store_true",
+		help="stage configroundtrip for G508 Dolphin-designated config write/read probes",
 	)
 	parser.add_argument(
 		"--probe-phasetest",
@@ -1969,13 +2159,21 @@ def main() -> None:
 	for path in (args.dol, args.data):
 		if not path.exists():
 			parser.error(f"required path does not exist: {path}")
+	# Never package a stale DOL when a newer GameCube ELF is present.  This is
+	# especially important for runtime probes: a clean host build must be the
+	# artifact that Dolphin actually boots.
+	elf_candidate = Path("build/engine/xash")
+	if elf_candidate.is_file() and args.dol.is_file() and elf_candidate.stat().st_mtime > args.dol.stat().st_mtime:
+		parser.error(
+			f"stale DOL: {args.dol} predates {elf_candidate}; run scripts/build-gamecube.sh first"
+		)
 			
 	if args.smoke_map and args.intro_avi:
 		parser.error("--smoke-map and --intro-avi are mutually exclusive")
-	if args.smoke_map and args.probe_newgame:
-		parser.error("--smoke-map and --probe-newgame are mutually exclusive")
-	if args.probe_newsaveload and not args.probe_newgame:
-		parser.error("--probe-newsaveload requires --probe-newgame")
+	if args.probe_newsaveload and not (args.probe_newgame or args.smoke_map):
+		parser.error("--probe-newsaveload requires --probe-newgame or --smoke-map")
+	if args.probe_configroundtrip and not (args.probe_newgame or args.smoke_map):
+		parser.error("--probe-configroundtrip requires --probe-newgame or --smoke-map")
 	if args.world_render and not args.smoke_map:
 		parser.error("--world-render requires --smoke-map")
 	if args.probe_phasetest:
@@ -2001,11 +2199,15 @@ def main() -> None:
 				args.data,
 				Path(temp) / "valve",
 				args.smoke_map,
+				newgame=args.probe_fullphysics or args.probe_newsaveload or args.probe_configroundtrip,
+				newsaveload=args.probe_newsaveload,
+				configroundtrip=args.probe_configroundtrip,
 				world_render=args.world_render,
 				phasetest=args.probe_phasetest,
 				changelevel=args.probe_changelevel,
 				landmark=args.probe_landmark,
 				leanpvs=args.probe_leanpvs,
+				fullphysics=args.probe_fullphysics,
 			)
 			validation_errors = validate_smoke_assets(smoke_data, args.smoke_map)
 			if validation_errors:
@@ -2069,6 +2271,7 @@ def main() -> None:
 				write_probe_newgame_override(
 					staged_data,
 					newsaveload=args.probe_newsaveload,
+					configroundtrip=args.probe_configroundtrip,
 					phasetest=args.probe_phasetest,
 					changelevel=args.probe_changelevel,
 					landmark=args.probe_landmark,
@@ -2077,6 +2280,8 @@ def main() -> None:
 					leanpvs=args.probe_leanpvs,
 					fullphysics=args.probe_fullphysics,
 				)
+			elif args.probe_menu_newgame:
+				(staged_data / "gamecube.cfg").write_text("menunewgame\n", encoding="ascii")
 			elif args.probe_phasetest:
 				write_probe_phasetest_override(staged_data, args.probe_phasetest)
 

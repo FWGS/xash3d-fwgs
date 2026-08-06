@@ -1,6 +1,7 @@
 /*
 snddma_gamecube.c - GameCube sound DMA backend
 Uses libogc ASND streaming at 48 kHz with a silent null fallback.
+Compatible with Extrems libogc2 (Swiss stack); libansnd remains a future option.
 The engine mixer writes native PowerPC big-endian stereo 16-bit samples.
 */
 #include "common.h"
@@ -28,9 +29,26 @@ static volatile int gc_audio_last_peak;
 static volatile int gc_audio_max_peak;
 static qboolean gc_audio_reported_nonzero;
 static unsigned int gc_audio_submit_polls;
+static unsigned int gc_audio_callbacks;
+static unsigned int gc_audio_add_failures;
 static u32 gc_audio_counter_base;
 static qboolean gc_audio_counter_valid;
 static int16_t gc_audio_chunk[2][GC_AUDIO_CHUNK_SAMPLES * 2] __attribute__((aligned( 32 )));
+
+void S_GCGetAudioTelemetry( unsigned int *chunks, unsigned int *nonzero_chunks,
+	unsigned int *sample_counter_delta, unsigned int *callbacks,
+	unsigned int *add_failures )
+{
+	if( chunks ) *chunks = gc_audio_chunks_submitted;
+	if( nonzero_chunks ) *nonzero_chunks = gc_audio_nonzero_chunks;
+	if( callbacks ) *callbacks = gc_audio_callbacks;
+	if( add_failures ) *add_failures = gc_audio_add_failures;
+	if( sample_counter_delta )
+	{
+		u32 counter = ASND_GetSampleCounter();
+		*sample_counter_delta = gc_audio_counter_valid ? counter - gc_audio_counter_base : 0;
+	}
+}
 
 static qboolean GCube_NullAudioInit( void );
 
@@ -123,6 +141,8 @@ static void GC_AudioCopyChunk( int16_t *dest, int bytes )
 static void GC_AudioVoiceCallback( s32 voice )
 {
 	int chunk;
+	int old_samplepos;
+	s32 status;
 
 	(void)voice;
 
@@ -130,9 +150,20 @@ static void GC_AudioVoiceCallback( s32 voice )
 		return;
 
 	chunk = gc_audio_play_chunk ^ 1;
+	gc_audio_callbacks++;
+	old_samplepos = snd.samplepos;
 	GC_AudioCopyChunk( gc_audio_chunk[chunk], GC_AUDIO_CHUNK_BYTES );
 	DCFlushRange( gc_audio_chunk[chunk], GC_AUDIO_CHUNK_BYTES );
-	ASND_AddVoice( GC_AUDIO_VOICE, gc_audio_chunk[chunk], GC_AUDIO_CHUNK_BYTES );
+	status = ASND_AddVoice( GC_AUDIO_VOICE, gc_audio_chunk[chunk], GC_AUDIO_CHUNK_BYTES );
+	if( status != SND_OK )
+	{
+		gc_audio_add_failures++;
+		/* The DMA cursor describes accepted audio, not an attempted append.
+		 * Restore it so a transient SND_BUSY/SND_INVALID does not drop one
+		 * whole 1024-frame block or expose stale ring data on the retry. */
+		snd.samplepos = old_samplepos;
+		return;
+	}
 	gc_audio_play_chunk = chunk;
 }
 
@@ -214,6 +245,8 @@ static qboolean GCube_RealAudioInit( void )
 	gc_audio_max_peak = 0;
 	gc_audio_reported_nonzero = false;
 	gc_audio_submit_polls = 0;
+	gc_audio_callbacks = 0;
+	gc_audio_add_failures = 0;
 	gc_audio_counter_base = 0;
 	gc_audio_counter_valid = false;
 	snd.initialized = true;
@@ -239,6 +272,8 @@ static qboolean GCube_NullAudioInit( void )
 	gc_audio_max_peak = 0;
 	gc_audio_reported_nonzero = false;
 	gc_audio_submit_polls = 0;
+	gc_audio_callbacks = 0;
+	gc_audio_add_failures = 0;
 	gc_audio_counter_base = 0;
 	gc_audio_counter_valid = false;
 	gc_audio_buffer_malloced = false;

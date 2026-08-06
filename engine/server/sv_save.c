@@ -3568,15 +3568,17 @@ int GAME_EXPORT SV_GetSaveComment( const char *savename, char *comment )
 		pFieldName = pTokenList[*(short *)pData];
 		pData += sizeof( short );
 
-		size = Q_min( nFieldSize, MAX_STRING );
+		size = Q_min( nFieldSize, MAX_STRING - 1 );
 
 		if( !Q_stricmp( pFieldName, "comment" ))
 		{
 			Q_strncpy( description, pData, size );
+			description[size] = '\0';
 		}
 		else if( !Q_stricmp( pFieldName, "mapName" ))
 		{
 			Q_strncpy( mapName, pData, size );
+			mapName[size] = '\0';
 		}
 
 		// move to start of next field.

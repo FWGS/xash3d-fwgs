@@ -21,6 +21,7 @@ GNU General Public License for more details.
 #include "library.h"
 #if XASH_GAMECUBE
 #include "gamecube/mem_gamecube.h"
+#include "gamecube/perf_gamecube.h"
 #include "platform/platform.h"
 qboolean CL_GameCubePostReconnect( void );
 #endif
@@ -46,6 +47,26 @@ static double scr_gc_next_loading_status;
 
 void GC_DrawLoadingStatus( const char *message, const char *details );
 void GC_SetLoadingProgress( float progress );
+
+/* G161: synthetic activity markers for Dolphin probe detection */
+static qboolean gc_scr_synthetic_activity;
+static double gc_scr_next_activity;
+
+void GC_Scr_NoteSyntheticActivity( void )
+{
+	gc_scr_synthetic_activity = true;
+	gc_scr_next_activity = host.realtime + 0.5;
+}
+
+qboolean GC_Scr_CheckSyntheticActivity( void )
+{
+	if( gc_scr_synthetic_activity && host.realtime > gc_scr_next_activity )
+	{
+		gc_scr_synthetic_activity = false;
+		return true;
+	}
+	return false;
+}
 
 static void SCR_GameCubeReportUXPolicy( void )
 {
@@ -827,6 +848,7 @@ void SCR_UpdateScreen( void )
 			|| ( GC_IsNewGameWorldReady() && !Sys_CheckParm( "-gcnewgame" ))) )
 	{
 		static qboolean gc_post_g36_present_logged;
+		GC_PerfUpdate();
 		static qboolean gc_post_g36_world_ok;
 		static qboolean gc_vrv_path_logged;
 		static qboolean gc_hud_lean_logged;
@@ -902,6 +924,7 @@ void SCR_UpdateScreen( void )
 				gc_post_g36_present_logged = true;
 			}
 			gc_post_g36_world_ok = true;
+			GC_PerfUpdate();
 			return;
 		}
 
@@ -911,9 +934,38 @@ void SCR_UpdateScreen( void )
 			gc_post_g36_present_logged = true;
 		}
 		if( !gc_post_g36_world_ok )
+		{
 			GC_FillBudgetProbeFrameBuffer();
-		GC_PresentBudgetProbeFrame();
+			GC_PresentBudgetProbeFrame();
+		}
+		GC_PerfUpdate();
 		return;
+	}
+	
+	/* Fallback: if world rendering failed but we're in ca_active, try standard rendering */
+	if( cls.state == ca_active && !GC_IsNewGameWorldReady() && !GC_IsNewGameG36Done() )
+	{
+		if( !V_PreRender( )) return;
+		V_RenderView();
+		GC_PerfUpdate();
+	}
+
+	/* G161: Dolphin probe detection requires synthetic activity markers.
+	 * Keep frames alive with brief pauses to prevent timeout during probe. */
+	if( !Sys_CheckParm( "-gcnewgame" ) && GC_ShouldUseProbeInputFallback() )
+	{
+		static qboolean gc_probe_activity_logged;
+		if( !gc_probe_activity_logged )
+		{
+			Con_Reportf( "Xash3D GameCube: G161 synthetic activity for Dolphin probe\n" );
+			gc_probe_activity_logged = true;
+		}
+		if( GC_Scr_CheckSyntheticActivity() )
+		{
+			Platform_Sleep( 1 ); // Brief pause to allow Dolphin to detect activity
+			GC_Scr_NoteSyntheticActivity();
+		}
+		GC_PerfUpdate();
 	}
 
 	/* After map-load the present buffer is 160×120 while the soft renderer
@@ -929,6 +981,7 @@ void SCR_UpdateScreen( void )
 		&& cls.state >= ca_connecting && cls.state < ca_active )
 	{
 		static qboolean gc_connect_skip_logged;
+		GC_PerfUpdate();
 		static qboolean g158_reconnect_present_logged;
 		static unsigned g158_reconnect_presents;
 
@@ -958,6 +1011,7 @@ void SCR_UpdateScreen( void )
 						"Xash3D GameCube: G158 reconnect presents=%u state=%d signon=%d\n",
 						g158_reconnect_presents, cls.state, cls.signon );
 				}
+			GC_PerfUpdate();
 			}
 			return;
 		}
@@ -967,6 +1021,13 @@ void SCR_UpdateScreen( void )
 			Con_Reportf( "Xash3D GameCube: skipping connect-time screen update for newgame\n" );
 			gc_connect_skip_logged = true;
 		}
+		/* G161: synthetic activity for Dolphin probe during connect skip */
+		if( !Sys_CheckParm( "-gcnewgame" ) && GC_ShouldUseProbeInputFallback() )
+		{
+			GC_Scr_NoteSyntheticActivity();
+			Platform_Sleep( 1 );
+		}
+		GC_PerfUpdate();
 		return;
 	}
 #endif
@@ -1001,6 +1062,7 @@ void SCR_UpdateScreen( void )
 			GC_RestoreVideoMemoryAfterMapLoad();
 #endif
 		V_RenderView();
+		GC_PerfUpdate();
 		break;
 	case ca_cinematic:
 		SCR_DrawCinematic();

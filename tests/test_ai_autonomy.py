@@ -14,11 +14,120 @@ def load_script_module(name: str, path: Path):
 	module = importlib.util.module_from_spec(spec)
 	assert spec is not None and spec.loader is not None
 	sys.modules[name] = module
-	spec.loader.exec_module(module)
+	agent_dir = str(path.parent)
+	if agent_dir not in sys.path:
+		sys.path.insert(0, agent_dir)
+	try:
+		spec.loader.exec_module(module)
+	finally:
+		if sys.path and sys.path[0] == agent_dir:
+			sys.path.pop(0)
 	return module
 
 
 class AiAutonomyTests(unittest.TestCase):
+	def test_runtime_recovery_commit_subject_is_short_and_deterministic(self) -> None:
+		module = load_script_module(
+			"gc_run_until_done_subject",
+			Path(__file__).resolve().parents[1] / "scripts/agent/gc_run_until_done.py",
+		)
+		subject = module.commit_subject({
+			"failure_kind": "runtime_or_unknown",
+			"failed_phase": "runtime_regression",
+			"patch_targets": ["engine/client/cl_scrn.c"],
+		})
+		self.assertLessEqual(len(subject), 72)
+		self.assertRegex(subject, r"^(fix|feat|build|chore|ci|docs|style|refactor|perf|test): [A-Za-z0-9]")
+
+	def test_runtime_gate_refreshes_canonical_smoke_map_after_compatibility_probe(self) -> None:
+		module = load_script_module(
+			"gc_port_supervisor_runtime_probe",
+			Path(__file__).resolve().parents[1] / "scripts/agent/gc_port_supervisor.py",
+		)
+		phases = module.phases_for_tier("runtime_gate")
+		names = [phase["name"] for phase in phases]
+		self.assertLess(names.index("map_compat_probe"), names.index("runtime_probe"))
+		self.assertLess(names.index("runtime_probe"), names.index("runtime_regression"))
+		probe = phases[names.index("runtime_probe")]
+		self.assertIn("DOLPHIN_SMOKE_MAP=c0a0e", probe["cmd"])
+		self.assertIn("MAP_READY:", probe["success"])
+
+	def test_missing_waf_object_is_not_sent_to_model(self) -> None:
+		module = load_script_module(
+			"gc_run_until_done_transient_build",
+			Path(__file__).resolve().parents[1] / "scripts/agent/gc_run_until_done.py",
+		)
+		self.assertTrue(module.is_transient_build_failure({
+			"failed_phase": "build_engine",
+			"error_context": "Build failed -> missing file: build/ref/common/ref_math.c.1.o",
+		}))
+		self.assertFalse(module.is_transient_build_failure({
+			"failed_phase": "runtime_regression",
+			"error_context": "missing file: c0a0e map loaded",
+		}))
+
+	def test_dolphin_release_tier_adds_soak_after_runtime_gate(self) -> None:
+		module = load_script_module(
+			"gc_port_supervisor_dolphin_release",
+			Path(__file__).resolve().parents[1] / "scripts/agent/gc_port_supervisor.py",
+		)
+		names = [phase["name"] for phase in module.phases_for_tier("dolphin_release")]
+		self.assertLess(names.index("runtime_regression"), names.index("gameplay_probe"))
+		self.assertLess(names.index("gameplay_probe"), names.index("dolphin_release_soak"))
+		self.assertLess(names.index("dolphin_release_soak"), names.index("release_packet"))
+		self.assertEqual(names[-1], "release_packet")
+
+	def test_gameplay_phase_requires_guest_gate(self) -> None:
+		module = load_script_module(
+			"gc_port_supervisor_gameplay",
+			Path(__file__).resolve().parents[1] / "scripts/agent/gc_port_supervisor.py",
+		)
+		phase = next(p for p in module.phases_for_tier("dolphin_release") if p["name"] == "gameplay_probe")
+		self.assertEqual(phase["success"], ["GAMEPLAY_GATE: PASS"])
+		self.assertEqual(phase["timeout"], 600)
+
+	def test_release_packet_phase_is_fail_closed(self) -> None:
+		module = load_script_module(
+			"gc_port_supervisor_release_packet",
+			Path(__file__).resolve().parents[1] / "scripts/agent/gc_port_supervisor.py",
+		)
+		phase = next(p for p in module.phases_for_tier("dolphin_release") if p["name"] == "release_packet")
+		self.assertEqual(phase["success"], ["RELEASE_PACKET: COMPLETE"])
+		self.assertEqual(module.success_for_phase(phase, 0, "RELEASE_PACKET: INCOMPLETE"), False)
+
+	def test_release_evidence_failures_continue_to_packet(self) -> None:
+		module = load_script_module(
+			"gc_port_supervisor_release_continuation",
+			Path(__file__).resolve().parents[1] / "scripts/agent/gc_port_supervisor.py",
+		)
+		names = [phase["name"] for phase in module.phases_for_tier("dolphin_release")]
+		self.assertLess(names.index("gameplay_probe"), names.index("release_packet"))
+		self.assertLess(names.index("dolphin_release_soak"), names.index("release_packet"))
+
+	def test_incomplete_release_packet_is_not_a_patch_target(self) -> None:
+		module = load_script_module(
+			"gc_port_supervisor_release_evidence",
+			Path(__file__).resolve().parents[1] / "scripts/agent/gc_port_supervisor.py",
+		)
+		self.assertEqual(module.classify_failure("RELEASE_PACKET: INCOMPLETE"), "release_evidence")
+		self.assertEqual(module.default_patch_targets("release_packet", "release_evidence"), [])
+
+	def test_early_dolphin_boot_hang_is_not_sent_to_model(self) -> None:
+		module = load_script_module(
+			"gc_run_until_done_transient_dolphin",
+			Path(__file__).resolve().parents[1] / "scripts/agent/gc_run_until_done.py",
+		)
+		self.assertTrue(module.is_transient_dolphin_boot_failure({
+			"failed_phase": "runtime_probe",
+			"exit_code": 137,
+			"error_context": "INCONCLUSIVE_EXIT: Dolphin exited 0; BOOT_NO_ENGINE_READY after DVD mount begin",
+		}))
+		self.assertFalse(module.is_transient_dolphin_boot_failure({
+			"failed_phase": "runtime_probe",
+			"exit_code": 1,
+			"error_context": "GUEST_RUNTIME_ERROR: fatal message=out of memory",
+		}))
+
 	def test_auto_discovery_prefers_recent_blocker(self) -> None:
 		with tempfile.TemporaryDirectory() as tmpdir:
 			root = Path(tmpdir)

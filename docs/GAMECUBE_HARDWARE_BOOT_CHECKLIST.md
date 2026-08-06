@@ -21,28 +21,48 @@ scripts/gamecube-reproducibility-check.py
 - [ ] Keep local Half-Life assets outside Git. Copy legally owned assets only to
   test media.
 
-## Route A: SD Gecko or SD2SP2
+## Route A: SD Gecko or SD2SP2 (Swiss / libdvm)
 
-Loader: Swiss or equivalent homebrew loader.
+Loader: Swiss (libogc2 DOL) or equivalent homebrew loader.
 
-Required media layout:
+Swiss/libdvm volume prefixes:
+
+| Hardware | Volume | Staging helper |
+|---|---|---|
+| SD2SP2 | `sd:/` | `scripts/stage-sd-assets.sh … --route sd` |
+| SD Gecko Slot A | `carda:/` | `scripts/stage-sd-assets.sh … --route carda` |
+| SD Gecko Slot B | `cardb:/` | `scripts/stage-sd-assets.sh … --route cardb` |
+
+Required media layout (host mount paths map 1:1 under the volume prefix):
 
 ```text
-/boot.dol
-/xash3d/valve/liblist.gam
-/xash3d/valve/gfx.wad
-/xash3d/valve/maps/c0a0e.bsp
-/xash3d/valve/models/
-/xash3d/valve/sprites/
-/xash3d/valve/sound/
+sd:/apps/xash3d-gc/boot.dol          # or carda:/ / cardb:/
+sd:/xash3d/valve/liblist.gam
+sd:/xash3d/valve/gfx.wad
+sd:/xash3d/valve/maps/c0a0e.bsp
+sd:/xash3d/valve/models/
+sd:/xash3d/valve/sprites/
+sd:/xash3d/valve/sound/
+sd:/xash3d/valve/save/
+sd:/xash3d/valve/logs/
+sd:/xash3d/valve/screenshots/
+```
+
+Print exact paths for a route:
+
+```sh
+scripts/gamecube-hardware-layout-info.sh --route sd
+scripts/gamecube-hardware-layout-info.sh --route carda
 ```
 
 Notes:
 
-- `boot.dol` comes from `OUT/bin/boot.dol`.
+- `boot.dol` comes from `OUT/bin/boot.dol` → `{volume}apps/xash3d-gc/boot.dol`.
 - `xash3d/valve/` contains legally owned Half-Life assets staged for testing.
-- SD is the preferred writable route for configs and saves.
+- Prefer a volume that already has `xash3d/valve`; the DOL probes `sd:` then
+  `carda:` then `cardb:`.
 - `gcdisc:/xash3d` is read-only and should not be used for generated state.
+- Quit returns to Swiss via the libogc2 exit stub when `STUBHAXX` is present.
 
 ## Route B: Disc Image
 

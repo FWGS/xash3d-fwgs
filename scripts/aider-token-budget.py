@@ -18,7 +18,7 @@ from pathlib import Path
 
 DEFAULT_API_BASE = "http://127.0.0.1:8072/v1"
 DEFAULT_MODEL = "qwen-local"
-DEFAULT_MAX_CONTEXT = 200000
+DEFAULT_MAX_CONTEXT = 32768
 METADATA_PATH = Path(".ai/aider-model-metadata.json")
 DEFAULT_SYSTEM_OVERHEAD_TOKENS = 6144
 LOW_VRAM_SYSTEM_OVERHEAD_TOKENS = 4096
@@ -28,7 +28,10 @@ BYTES_PER_TOKEN = 3.5
 def fetch_max_context(api_base: str, model: str) -> int:
 	"""Return max_model_len from the OpenAI-compatible /v1/models endpoint."""
 	url = f"{api_base.rstrip('/')}/models"
-	req = urllib.request.Request(url, headers={"Accept": "application/json"})
+	headers = {"Accept": "application/json"}
+	if os.environ.get("OPENAI_API_KEY"):
+		headers["Authorization"] = f"Bearer {os.environ['OPENAI_API_KEY']}"
+	req = urllib.request.Request(url, headers=headers)
 	with urllib.request.urlopen(req, timeout=5) as resp:
 		payload = json.load(resp)
 	for item in payload.get("data", []):
@@ -120,12 +123,14 @@ def compute_budgets(max_context: int, attempt: int) -> dict[str, int]:
 	editable_tiers = context_tiers
 	if low_vram and source_first:
 		# Overnight must not force 40k editables into a 32k window — that OOMs
-		# the 7B worker. Cap around medium platform files (mem/vid).
+		# the 7B worker. Keep the cap below the full context budget while
+		# allowing the actual runtime blocker files (model.c/sv_init.c) to be
+		# edited instead of silently dropping them.
 		editable_tiers = (
-			min(20000, max(8000, context_tiers[0])),
-			min(16000, max(6000, context_tiers[1])),
-			min(12000, max(5000, context_tiers[2])),
-			min(10000, max(4000, context_tiers[3])),
+			min(36000, max(16000, context_tiers[0] * 3)),
+			min(30000, max(12000, context_tiers[1] * 3)),
+			min(22000, max(8000, context_tiers[2] * 3)),
+			min(16000, max(6000, context_tiers[3] * 3)),
 		)
 	elif low_vram:
 		# Non-overnight discovery may still need one medium frame source file.
@@ -189,7 +194,11 @@ def main() -> int:
 
 	budgets = compute_budgets(max_context, args.attempt)
 	if args.sync_metadata:
-		sync_metadata(max_context, budgets["AIDER_MODEL_MAX_OUTPUT"], model_key)
+		sync_metadata(
+			budgets["AIDER_MODEL_MAX_CONTEXT"],
+			budgets["AIDER_MODEL_MAX_OUTPUT"],
+			model_key,
+		)
 	emit_shell(budgets)
 	return 0
 

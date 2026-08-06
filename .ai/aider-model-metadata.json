@@ -2,10 +2,15 @@
   "openai/qwen-local": {
     "max_tokens": 32768,
     "max_input_tokens": 32768,
-    "max_output_tokens": 2048,
+    "max_output_tokens": 1024,
     "input_cost_per_token": 0.0,
     "output_cost_per_token": 0.0,
     "litellm_provider": "openai",
     "mode": "chat"
+  },
+  "openai/qwen3-coder-next": {
+    "max_tokens": 32768,
+    "max_input_tokens": 32768,
+    "max_output_tokens": 1024
   }
 }

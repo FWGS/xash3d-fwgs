@@ -38,8 +38,10 @@ static qboolean gc_menu_builtin_fallback;
 static qboolean gc_menu_vidinit_pending;
 static qboolean gc_menu_use_baked_retail;
 static qboolean gc_menu_reported_retail_ready;
+static qboolean gc_menu_reported_button_ready;
 static int gc_menu_selection;
 static int gc_menu_logo;
+static int gc_menu_composite[9];
 static int gc_menu_icons;
 static int gc_menu_icons_focus;
 static int gc_menu_logo_blur[4];
@@ -53,6 +55,10 @@ typedef struct gc_menu_bg_piece_s
 	int y;
 	int w;
 	int h;
+	float s0;
+	float t0;
+	float s1;
+	float t1;
 } gc_menu_bg_piece_t;
 static gc_menu_bg_piece_t gc_menu_background[GC_MENU_MAX_BG_PIECES];
 static int gc_menu_background_count;
@@ -127,6 +133,10 @@ static void UI_GCLoadFallbackMenuLayout( void )
 		if( !pfile )
 			break;
 		piece->y = Q_atoi( token );
+		piece->s0 = 0.0f;
+		piece->t0 = 0.0f;
+		piece->s1 = 1.0f;
+		piece->t1 = 1.0f;
 
 		piece_count++;
 	}
@@ -148,6 +158,13 @@ static void UI_GCLoadFallbackMenuTextures( void )
 		return;
 
 	gc_menu_logo = ref.dllFuncs.GL_LoadTexture( "resource/gc_menu/logo.tga", NULL, 0, TF_IMAGE|TF_NOMIPMAP|TF_CLAMP );
+	for( int i = 0; i < ARRAYSIZE( gc_menu_composite ); i++ )
+	{
+		char name[64];
+		Q_snprintf( name, sizeof( name ), "resource/gc_menu/menu_%d.tga", i );
+		gc_menu_composite[i] = ref.dllFuncs.GL_LoadTexture( name, NULL, 0,
+			TF_IMAGE|TF_NOMIPMAP|TF_CLAMP );
+	}
 	if( gc_menu_logo <= 0 )
 		gc_menu_logo = ref.dllFuncs.GL_LoadTexture( "resource/logo_game.tga", NULL, 0, TF_IMAGE|TF_NOMIPMAP|TF_CLAMP );
 	gc_menu_logo_blur[0] = ref.dllFuncs.GL_LoadTexture( "resource/logo_big_blurred_0.tga", NULL, 0, TF_IMAGE|TF_NOMIPMAP|TF_CLAMP );
@@ -178,7 +195,11 @@ static void UI_GCLoadFallbackMenuTextures( void )
 			piece->x = 0;
 			piece->y = 0;
 			piece->w = baked_w;
-			piece->h = baked_h;
+			piece->h = gc_menu_background_height;
+			piece->s0 = 0.0f;
+			piece->t0 = 0.0f;
+			piece->s1 = 1.0f;
+			piece->t1 = 1.0f;
 		}
 	}
 
@@ -208,6 +229,10 @@ static void UI_GCLoadFallbackMenuTextures( void )
 				piece->y = ( row == 0 ) ? 0 : ( row == 1 ) ? 256 : 512;
 				piece->w = source_widths[col];
 				piece->h = source_heights[row];
+				piece->s0 = 0.0f;
+				piece->t0 = 0.0f;
+				piece->s1 = 1.0f;
+				piece->t1 = 1.0f;
 			}
 		}
 	}
@@ -248,7 +273,8 @@ static void UI_GCDrawFallbackMenuBackground( void )
 		else
 			ref.dllFuncs.Color4ub( 150, 150, 150, 255 );
 		ref.dllFuncs.R_DrawStretchPic( piece->x * scale_x, piece->y * scale_y,
-			piece->w * scale_x, piece->h * scale_y, 0, 0, 1, 1, piece->texnum );
+			piece->w * scale_x, piece->h * scale_y, piece->s0, piece->t0,
+			piece->s1, piece->t1, piece->texnum );
 	}
 
 	if( !gc_menu_use_baked_retail )
@@ -292,6 +318,43 @@ static void UI_GCDrawFallbackMenu( void )
 		(int)ARRAYSIZE( gc_menu_items ) - 1 )];
 
 	UI_GCLoadFallbackMenuTextures();
+	if( gc_menu_composite[0] > 0 && gc_menu_composite[1] > 0
+		&& gc_menu_composite[2] > 0 && gc_menu_composite[3] > 0
+		&& gc_menu_composite[4] > 0 && gc_menu_composite[5] > 0
+		&& gc_menu_composite[6] > 0 && gc_menu_composite[7] > 0
+		&& gc_menu_composite[8] > 0 )
+	{
+		ref.dllFuncs.GL_SetRenderMode( kRenderNormal );
+		ref.dllFuncs.Color4ub( 255, 255, 255, 255 );
+		for( int i = 0; i < ARRAYSIZE( gc_menu_composite ); i++ )
+		{
+			int col = i % 3;
+			int row = i / 3;
+			int x = col * refState.width / 3;
+			int y = row * refState.height / 3;
+			int x1 = ( col + 1 ) * refState.width / 3;
+			int y1 = ( row + 1 ) * refState.height / 3;
+			ref.dllFuncs.R_DrawStretchPic( x, y, x1 - x, y1 - y,
+				0, 0, 1, 1, gc_menu_composite[i] );
+		}
+		/* Keep navigation visible over the baked text. The command and
+		 * selection state remain live even though the artwork is composited. */
+		UI_GCDrawMenuMarker( ( 26 * refState.width ) / 640,
+			( 252 * refState.height ) / 480
+				+ gc_menu_selection * ( 34 * refState.height ) / 480, true );
+		if( !gc_menu_reported_retail_ready )
+		{
+			Con_Reportf( "Xash3D GameCube: retail menu steam background ready\n" );
+			gc_menu_reported_retail_ready = true;
+		}
+		if( !gc_menu_reported_button_ready )
+		{
+			Cvar_SetValue( "gc_menu_ready", 1.0f );
+			Con_Reportf( "Xash3D GameCube: retail menu button text ready\n" );
+			gc_menu_reported_button_ready = true;
+		}
+		return;
+	}
 	UI_GCDrawFallbackMenuBackground();
 
 	if( gc_menu_use_baked_retail && !gc_menu_reported_retail_ready )

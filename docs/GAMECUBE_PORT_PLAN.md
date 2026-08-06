@@ -2,7 +2,8 @@
 
 ## Current status
 
-The repository has a devkitPPC/libogc Waf target, GameCube platform sources,
+The repository has a Swiss-first Waf target (devkitPPC / libogc2 + libdvm,
+classic libogc fallback), GameCube platform sources,
 GX renderer sources, static client/server stubs, and an end-to-end build script
 at `scripts/build-gamecube.sh`. A PowerPC ELF and `OUT/bin/boot.dol` have been
 produced locally. That proves a link and conversion step completed; it does not
@@ -1330,7 +1331,8 @@ claiming the port is release-complete.
 
 ### Setup and build requirements
 
-- Toolchain: devkitPPC/libogc through `scripts/gamecube-env.sh`.
+- Toolchain: Swiss-first libogc2/libdvm (classic libogc fallback) through
+  `scripts/gamecube-env.sh` and `scripts/waifulib/gamecube_ogc_stack.py`.
 - Engine build: `scripts/build-gamecube.sh`.
 - HLSDK integration: `scripts/hlsdk-gamecube-apply-patch.py` followed by
   `scripts/hlsdk-gamecube-build.sh` when rebuilding the external ignored
@@ -3631,3 +3633,132 @@ The following goals remain manual and require physical hardware:
 
 Automation has completed all automatic goals (G83-G121). The port is ready for
 manual hardware validation with all artifacts generated and documented.
+
+## G508 config round-trip probe (2026-08-05)
+
+- Wired Dolphin-designated writable config round trips via `-gcconfigroundtrip`.
+- `gcprobe:` RAM bank now supports `config.cfg` `.new`/`.bak` rename/delete for `Host_WriteConfig`.
+- Probe: `DOLPHIN_NEWGAME=1 DOLPHIN_G508=1 scripts/dolphin-boot-probe.sh`
+- Evidence marker: `G508 config round trip ready route=gcprobe|sd`
+- Host test: `tests/test_gamecube_host.py::test_g508_config_roundtrip_probe_contract`
+- Next blocker: fresh Dolphin runtime evidence for that marker; physical SD faults remain hardware-only.
+
+## G509 changelevel soak gate (2026-08-05)
+
+- Expanded `scripts/gamecube-soak-probe.py` with `--g509` / `--changelevel-route FROM:TO`.
+- Wrapper: `scripts/gamecube-g509-soak.sh` (default `c0a0:c0a0a`).
+- PASS requires CHANGELEVEL_READY/G68 ready, G100 landmark restore, memory + frame telemetry, and bounded MEM growth.
+- Host proof: `python3 -m unittest tests.test_gamecube_host.GameCubeHostTests.test_g509_changelevel_soak_dry_run tests.test_gamecube_host.GameCubeHostTests.test_g509_soak_parser_accepts_changelevel_ready`
+- Next blocker: real Dolphin G509 soak iterations and G508 runtime marker.
+
+## Swiss / libogc2 stack modernization (2026-08-05)
+
+- Prefer Extrems **libogc2** + **libdvm** for Swiss hardware launches; classic
+  libogc remains an explicit fallback via `XASH_GAMECUBE_OGC_STACK`.
+- Resolver: `scripts/waifulib/gamecube_ogc_stack.py` (used by Waf, HLSDK patch,
+  `scripts/build-gamecube.sh`, `scripts/ai-verify.sh`).
+- Platform bootstrap reports `OGC stack=libogc2 fat=libdvm (Swiss)` when built
+  against that stack; ASND audio kept (libansnd later).
+- Docs: `docs/GAMECUBE_BUILDING_GAMECUBE.md` rewritten for the Swiss path.
+- Host proof:
+  `python3 -m unittest tests.test_gamecube_host.GameCubeHostTests.test_ogc_stack_prefers_libogc2_for_swiss tests.test_gamecube_host.GameCubeHostTests.test_ogc_stack_falls_back_to_classic_libogc tests.test_gamecube_host.GameCubeHostTests.test_ogc_stack_swiss_contract_in_tree`
+- Operator install: `sudo (dkp-)pacman -S libogc2` and choose `libogc2-libdvm`.
+- Next blocker: rebuild engine/HLSDK on a machine with libogc2 installed; then
+  re-run Dolphin G508/G509 probes with the Swiss-linked DOL.
+
+## Swiss libdvm multi-volume storage (2026-08-05)
+
+- Writable/base path probing now covers libdvm mounts: `sd:` (SD2SP2),
+  `carda:` / `cardb:` (SD Gecko), preferring a volume that already has
+  `xash3d/valve`.
+- Shutdown uses `fatDeinit()` on libdvm builds so all volumes unmount cleanly
+  before the Swiss return-to-loader exit stub.
+- Loader argv from Swiss is logged; `exit` returns to Swiss when `STUBHAXX` is
+  present (libogc2 `__syscall_exit`).
+- Host proof:
+  `python3 -m unittest tests.test_gamecube_host.GameCubeHostTests.test_swiss_libdvm_volume_probe_contract`
+- Hardware matrix / handoff checklist updated for SD2SP2 + SD Gecko layouts.
+- Next blocker: rebuild with libogc2/libdvm and confirm `FAT volume ready` /
+  preferred-volume markers on Swiss hardware or Dolphin SD profiles.
+
+## Host Swiss contracts without toolchain (2026-08-05)
+
+- Added `scripts/waifulib/gamecube_storage.py` (volume preference, layout paths,
+  FAT/G508 log parsers) and taught staging/layout scripts to use carda:/cardb:.
+- `SKIP_GAMECUBE_BUILD=1 scripts/ai-verify.sh` now runs `unittest discover`.
+- `scripts/dolphin-probe-analyze.py` emits `STORAGE_STATUS` / `G508_STATUS`.
+- `scripts/gamecube-release-packet.py --dry-run` evaluates evidence fixtures
+  without ELF/DOL/ISO artifacts; persist/changelevel surfaced in validation.json.
+- Quarantined gekko/CMake examples in linking docs; refreshed port audit.
+- Host proof:
+  `python3 -m unittest tests.test_gamecube_host.GameCubeHostTests.test_swiss_fat_volume_prefers_valve_on_carda tests.test_gamecube_host.GameCubeHostTests.test_release_packet_dry_run_with_fixtures tests.test_gamecube_host.GameCubeHostTests.test_build_docs_prefer_waf_libogc2_not_gekko_cmake`
+
+## G501/G504/G508 host contracts (2026-08-05)
+
+- `scripts/gamecube-runtime-ladder.py` — ordered boot gates; stop at first miss;
+  JSON for run manifests.
+- `scripts/gamecube-experiment-manifest.py` — G501 baseline (branch/commit/tier/
+  OGC stack/hypothesis/decision); `--dry-run` writes under `/tmp`.
+- `scripts/waifulib/gamecube_probe_save.py` — host mirror of G508 path/name
+  rules + config.cfg `.new`/`.bak` bank simulator.
+- Host proof:
+  `python3 -m unittest tests.test_gamecube_host.GameCubeHostTests.test_runtime_ladder_stops_at_first_missing_gate tests.test_gamecube_host.GameCubeHostTests.test_experiment_manifest_records_tier_and_ogc_stack tests.test_gamecube_host.GameCubeHostTests.test_probe_save_rejects_non_gcprobe_paths`
+
+## G504 ladder wired into live host gates (2026-08-05)
+
+- `scripts/dolphin-probe-analyze.py` emits `LADDER_STATUS` and writes
+  `ladder.json` beside probe logs.
+- `scripts/gamecube-release-packet.py` fail-closes on incomplete G504 ladder
+  (`evidence.ladder`, `validation.json` `ladder_ok`, packet `ladder.json`).
+- G509 soak (`--g509` / `--require-ladder`) fails iterations that miss ladder
+  gates; dry-run synthetic iterations mark ladder as passed.
+- `scripts/gamecube-memory-evidence.py` parses soak-style MEM1 high-water lines
+  and looser `mem stage=… hwm=` telemetry without requiring `delta`/`map`.
+- `scripts/stage-sd-assets.sh` accepts `--route sd|carda|cardb|sdgecko` and
+  prints Swiss volume prefixes (`sd:/` / `carda:/` / `cardb:/`).
+- Host proof:
+  `python3 -m unittest discover -s tests -p 'test_gamecube_host.py'`
+
+## Host gate blockers closed (2026-08-05)
+
+- Extracted `probe_classify_results` into `scripts/dolphin-probe-common.sh` so
+  `dolphin-boot-probe.sh` is under the ai-verify size guard (≤700 lines /
+  ≤30720 bytes).
+- G506: gameplay gate requires ordered `G105` / `G161` / `G177` presentation
+  markers; analyze emits `G506_STATUS`.
+- Release packet honors soak `require_ladder` + iteration `ladder_ok`, and
+  treats memory as PASS only with real MEM1/high-water samples.
+- `SKIP_GAMECUBE_BUILD=1 scripts/ai-verify.sh` syntax-gates Swiss/host scripts
+  and skips the aider install check when aider is absent.
+- Host proof:
+  `python3 -m unittest discover -s tests -p 'test_gamecube_host.py'`
+  `SKIP_GAMECUBE_BUILD=1 scripts/ai-verify.sh`
+
+## G56 Swiss routes + G501/G504/G506 operator wiring (2026-08-05)
+
+- G56 `gamecube-hardware-boot-check.py` accepts `carda`/`cardb`/`sdgecko` and
+  requires Swiss volume prefixes in the hardware boot checklist.
+- G504 ladder adds `entity_spawn` between BSP open and map loaded (10 gates).
+- Analyze writes `presentation.json`, ordered G506 checks, and `LOADER_STATUS`
+  for Swiss FAT shutdown / return-to-loader.
+- G501 pointer moved to `.ai/state/g501-experiment-latest.json` (no collision
+  with `ai-run-until-done` experiment results); soak/release attach manifests.
+- Operator one-shot: `scripts/gamecube-operator-evidence.sh --dry-run`.
+- Host proof:
+  `python3 -m unittest discover -s tests -p 'test_gamecube_host.py'`
+  `SKIP_GAMECUBE_BUILD=1 scripts/ai-verify.sh`
+
+## RC/release Swiss path + G508 fault mirrors (2026-08-05)
+
+- `gamecube-rc-check.sh` defaults to G509 soak (`--g509 --require-ladder`) and
+  G508 boot/frame probes (`DOLPHIN_NEWGAME=1 DOLPHIN_G508=1`).
+- Runtime regression gate accepts Swiss FAT (`sd:`/`carda:`/`cardb:`) and
+  requires G504 ladder (+ G506 when present).
+- Release packet records storage/loader/presentation JSON; `--require-swiss`
+  fail-closes without FAT + return-to-loader.
+- G508 host fault mirrors (`write_fail`/`read_fail`/`missing`) in
+  `gamecube_probe_save.py`; matrix compliance requires Swiss volume wording;
+  `gamecube_ogc_stack.py --preflight --require-libogc2` for operators.
+- Host proof:
+  `python3 -m unittest discover -s tests -p 'test_gamecube_host.py'`
+  `SKIP_GAMECUBE_BUILD=1 scripts/ai-verify.sh`

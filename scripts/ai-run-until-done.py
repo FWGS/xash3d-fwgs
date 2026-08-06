@@ -31,8 +31,9 @@ DISCOVERY_RETRY_RESULTS = {
 	19: "no_edit",
 	20: "runtime_probe",
 	21: "runtime_probe",
+	24: "runtime_probe",
 }
-DISCOVERY_FAST_RETRY_STATUSES = {1, 10, 15, 16, 18, 19, 20, 21}
+DISCOVERY_FAST_RETRY_STATUSES = {1, 10, 15, 16, 18, 20, 21, 24}
 AUTOMATION_DISCOVERY_RESULTS = {"no_edit", "model_budget", "review_reject"}
 STUCK_DISCOVERY_RESULTS = {"no_edit", "model_budget"}
 RUNTIME_DISCOVERY_RESULTS = {
@@ -43,6 +44,18 @@ RUNTIME_DISCOVERY_RESULTS = {
 	"asset_lookup",
 }
 HEARTBEAT_PATH = Path(".ai/state/autoport-heartbeat.json")
+NO_WORK_STATE_PATH = Path(".ai/state/automation-no-work.pid")
+EXPERIMENT_STATE_PATH = Path(".ai/state/experiment-latest.json")
+HYPOTHESIS_STATE_PATH = Path(".ai/state/discovery-hypotheses.json")
+LIVE_CONFIG_PATH = Path(".ai/config/automation-live.json")
+PROGRESS_MARKERS = (
+	("bootstrap", "bootstrap"),
+	("engine_ready", "engine subsystems ready"),
+	("map_loaded", "map loaded"),
+	("input_active", "input polling active"),
+	("controller_ready", "G45=PASS"),
+	("visual_ready", "nonblack"),
+)
 
 
 def stuck_discovery_threshold() -> int:
@@ -154,6 +167,33 @@ def model_ready(api_base: str) -> bool:
 		return False
 
 
+def load_live_config(root: Path) -> dict[str, object]:
+	path = root / LIVE_CONFIG_PATH
+	if not path.is_file():
+		return {}
+	try:
+		payload = json.loads(path.read_text(encoding="utf-8"))
+	except (OSError, json.JSONDecodeError):
+		return {}
+	return payload if isinstance(payload, dict) else {}
+
+
+def apply_live_config(root: Path, args: argparse.Namespace) -> dict[str, object]:
+	config = load_live_config(root)
+	mode = config.get("discovery_mode")
+	if mode in {"off", "after-goals", "prefer", "only"}:
+		args.discovery_mode = str(mode)
+	for key in (
+		"AI_DISCOVERY_STUCK_THRESHOLD", "AI_DISCOVERY_STUCK_BACKOFF",
+		"AI_RUNTIME_PROBE_TIMEOUT", "AIDER_MODEL_TIMEOUT_SEC",
+		"AI_MAX_PATCH_FILES", "AI_MAX_PATCH_LINES", "AI_MAX_PATCH_DELETED_LINES",
+		"AI_STRICT_RUNTIME_PROGRESS",
+	):
+		if key in config and isinstance(config[key], (int, float, str)):
+			os.environ[key] = str(config[key])
+	return config
+
+
 def read_goals(root: Path) -> list[dict[str, object]]:
 	result = subprocess.run(["scripts/ai-goal-loop.py", "--repo", str(root), "--status-json"],
 		cwd=root, text=True, capture_output=True, check=False)
@@ -164,7 +204,8 @@ def read_goals(root: Path) -> list[dict[str, object]]:
 
 def next_automatic_goal(root: Path) -> str | None:
 	for goal in read_goals(root):
-		if not goal["complete"] and not goal["manual"] and not goal["blocked"]:
+		if (not goal["complete"] and not goal["manual"]
+				and not goal["skipped"] and not goal["blocked"]):
 			return f"{goal['goal_id']} {goal['title']}"
 	return None
 
@@ -244,6 +285,7 @@ def record_discovery_feedback(root: Path, item: dict[str, object], status: int,
 		"result": result,
 		"intent": intent,
 		"observation": observation,
+		"context": item.get("context", []),
 		"repeat_count": repeat_count,
 		"timestamp": datetime.now(timezone.utc).isoformat(),
 	}
@@ -252,6 +294,78 @@ def record_discovery_feedback(root: Path, item: dict[str, object], status: int,
 
 def clear_discovery_feedback(root: Path) -> None:
 	(root / DISCOVERY_STATE_PATH).unlink(missing_ok=True)
+
+
+def read_text(path: Path) -> str:
+	try:
+		return path.read_text(encoding="utf-8", errors="replace") if path.is_file() else ""
+	except OSError:
+		return ""
+
+
+def experiment_progress(text: str) -> dict[str, object]:
+	lower = text.lower()
+	completed = [name for name, marker in PROGRESS_MARKERS if marker in lower]
+	return {"score": len(completed), "markers": completed}
+
+
+def write_experiment_result(root: Path, item: dict[str, object], before: str, after: str,
+	decision: str = "pending", reason: str = "", baseline: str = "",
+	candidate: str = "") -> None:
+	payload = {
+		"item_id": item.get("item_id"),
+		"timestamp": datetime.now(timezone.utc).isoformat(),
+		"before": experiment_progress(before),
+		"after": experiment_progress(after),
+		"decision": decision,
+		"reason": reason,
+		"baseline_commit": baseline,
+		"candidate_commit": candidate,
+	}
+	path = root / EXPERIMENT_STATE_PATH
+	path.parent.mkdir(parents=True, exist_ok=True)
+	path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
+	if decision.startswith("discard"):
+		hypothesis_path = root / HYPOTHESIS_STATE_PATH
+		hypotheses: list[dict[str, object]] = []
+		try:
+			loaded = json.loads(hypothesis_path.read_text(encoding="utf-8"))
+			if isinstance(loaded, list):
+				hypotheses = [entry for entry in loaded if isinstance(entry, dict)]
+		except (OSError, json.JSONDecodeError):
+			pass
+		hypotheses.append({
+			"key": item.get("hypothesis_key"),
+			"item_id": item.get("item_id"),
+			"failure_class": item.get("failure_class"),
+			"decision": decision,
+			"reason": reason,
+			"candidate_commit": candidate,
+			"timestamp": payload["timestamp"],
+		})
+		hypothesis_path.parent.mkdir(parents=True, exist_ok=True)
+		hypothesis_path.write_text(json.dumps(hypotheses[-200:], indent=2) + "\n",
+			encoding="utf-8")
+
+
+def discard_to_baseline(root: Path, baseline: str) -> bool:
+	current = subprocess.run(["git", "rev-parse", "HEAD"], cwd=root,
+		text=True, capture_output=True, check=False).stdout.strip()
+	if not current or current == baseline:
+		return True
+	ancestor = subprocess.run(["git", "merge-base", "--is-ancestor", baseline, current],
+		cwd=root, check=False)
+	if ancestor.returncode != 0:
+		return False
+	result = subprocess.run(["git", "reset", "--hard", baseline], cwd=root,
+		text=True, capture_output=True, check=False)
+	if result.returncode != 0:
+		print(f"run-until-done: failed to discard runtime patch: {result.stderr.strip()}",
+			file=sys.stderr, flush=True)
+		return False
+	print(f"run-until-done: discarded no-progress runtime patch; restored {baseline[:12]}",
+		file=sys.stderr, flush=True)
+	return True
 
 
 def is_runtime_discovery_item(item: dict[str, object]) -> bool:
@@ -327,6 +441,9 @@ def run_discovery_pass(root: Path, item: dict[str, object]) -> int:
 		return 1
 	context = [str(path) for path in item.get("context", []) if isinstance(path, str)]
 	read_context = [f"read:{path}" for path in item.get("read_context", []) if isinstance(path, str)]
+	before_probe = read_text(root / HARNESS_STATE_PATH)
+	baseline = subprocess.run(["git", "rev-parse", "HEAD"], cwd=root,
+		text=True, capture_output=True, check=False).stdout.strip()
 	if is_runtime_discovery_item(item) and context:
 		task += (
 			"\nRuntime child-process constraint:\n"
@@ -348,6 +465,9 @@ def run_discovery_pass(root: Path, item: dict[str, object]) -> int:
 		env.setdefault("AI_VERIFY_REQUIRE_DOC_UPDATE", "0")
 		env.setdefault("AI_REVIEW_ALLOW_SOURCE_ONLY_DISCOVERY", "1")
 		if is_runtime_discovery_item(item):
+			if "delta.lst" in task.lower():
+				env["AI_REQUIRED_EDIT_PATHS"] = "engine/server/sv_init.c:engine/common/delta.c"
+				env["AI_DISCOVERY_EVIDENCE_TOKENS"] = "Delta_InitFields,delta.lst"
 			env.setdefault("AI_FORBIDDEN_EDIT_PATHS", "engine/platform/gamecube/sys_gamecube.c,re_agent,mathweb,main.py,hello.py")
 			env.setdefault("AIDER_PRESERVE_CONTEXT_ORDER", "1")
 			env.setdefault("AIDER_CONFIG_PROMPT_SLACK_TOKENS", "1024")
@@ -364,6 +484,7 @@ def run_discovery_pass(root: Path, item: dict[str, object]) -> int:
 				18: "Keep the next pass runtime-focused with reduced context pressure.",
 				19: "Restore at least one editable file to the discovery pass before retrying.",
 				21: "Discard the forbidden startup-file edit and retry on the loaded runtime file.",
+				24: "Align the patch with the runtime error path and retry the bounded source pass.",
 			}.get(status, "Inspect the failed discovery pass before retrying.")
 			observation = f"Discovery pass `{item.get('item_id')}` exited {status} before an accepted patch."
 			record_discovery_feedback(root, item, status, result, intent, observation)
@@ -382,6 +503,31 @@ def run_discovery_pass(root: Path, item: dict[str, object]) -> int:
 		if is_runtime_discovery_item(item):
 			probe_status = refresh_runtime_probe(root, env)
 			gate_status = runtime_regression_gate(root, env)
+			after_probe = read_text(root / HARNESS_STATE_PATH)
+			candidate = subprocess.run(["git", "rev-parse", "HEAD"], cwd=root,
+				text=True, capture_output=True, check=False).stdout.strip()
+			before_score = int(experiment_progress(before_probe)["score"])
+			after_score = int(experiment_progress(after_probe)["score"])
+			if os.environ.get("AI_STRICT_RUNTIME_PROGRESS", "1").lower() not in {"0", "false", "no"} and after_score <= before_score:
+				reason = f"readiness score did not advance ({before_score} -> {after_score})"
+				if not baseline or not discard_to_baseline(root, baseline):
+					write_experiment_result(root, item, before_probe, after_probe,
+						"discard_restore_failed", reason, baseline, candidate)
+					record_discovery_feedback(
+						root, item, 21, "runtime_probe",
+						"Stop automation and inspect the failed baseline restore before retrying.",
+						"Runtime progress was absent, but the generated patch could not be safely discarded.",
+					)
+					return 21
+				write_experiment_result(root, item, before_probe, after_probe,
+					"discard_no_runtime_progress", reason, baseline, candidate)
+				record_discovery_feedback(
+					root, item, 20, "runtime_probe",
+					"Discarded the patch because the readiness score did not advance.",
+					f"Runtime experiment made no progress ({before_score} -> {after_score}); patch reverted.")
+				return 20
+			write_experiment_result(root, item, before_probe, after_probe, "keep",
+				f"readiness score advanced ({before_score} -> {after_score})", baseline, candidate)
 			if probe_status != 0 or gate_status != 0:
 				record_discovery_feedback(
 					root,
@@ -431,11 +577,23 @@ def main() -> int:
 	cycles = count(1) if args.max_cycles == 0 else range(1, args.max_cycles + 1)
 	write_heartbeat(root, state="starting", discovery_mode=args.discovery_mode)
 	for cycle in cycles:
+		live = apply_live_config(root, args)
+		try:
+			sleep_sec = max(1, int(live.get("sleep_sec", args.sleep)))
+		except (TypeError, ValueError):
+			sleep_sec = args.sleep
+		api_base = str(live.get("openai_api_base") or os.environ.get(
+			"OPENAI_API_BASE", "http://127.0.0.1:8072/v1"))
+		if live.get("pause") is True:
+			write_heartbeat(root, state="paused", cycle=cycle,
+				discovery_mode=args.discovery_mode)
+			time.sleep(sleep_sec)
+			continue
 		if not model_ready(api_base):
-			print(f"run-until-done: model API is not reachable at {api_base}; retrying after {args.sleep}s",
+			print(f"run-until-done: model API is not reachable at {api_base}; retrying after {sleep_sec}s",
 				file=sys.stderr, flush=True)
 			write_heartbeat(root, state="waiting-for-model", cycle=cycle, api_base=api_base)
-			time.sleep(args.sleep)
+			time.sleep(sleep_sec)
 			continue
 		work_item = next_work_item(root, args.discovery_mode)
 		if work_item is None:
@@ -443,6 +601,7 @@ def main() -> int:
 				print("run-until-done: all automatic goals are complete or blocked")
 			else:
 				print("run-until-done: no automatic goals or discovered work items remain")
+			(root / NO_WORK_STATE_PATH).write_text(f"{os.getpid()}\n", encoding="utf-8")
 			write_heartbeat(root, state="exhausted", cycle=cycle)
 			return 0
 		cycle_limit = "unlimited" if args.max_cycles == 0 else str(args.max_cycles)
@@ -486,7 +645,7 @@ def main() -> int:
 			print(f"run-until-done: child exit {status}; retrying immediately with refreshed discovery state",
 				file=sys.stderr, flush=True)
 			continue
-		print(f"run-until-done: child exit {status}; continuing after {args.sleep}s",
+		print(f"run-until-done: child exit {status}; continuing after {sleep_sec}s",
 			file=sys.stderr, flush=True)
 		# SIGKILL/OOM (-9/137/22): cool down so the next pass does not instantly
 		# re-OOM the local 7B worker on GPU1.
@@ -501,7 +660,7 @@ def main() -> int:
 				exit_code=status, backoff_sec=backoff)
 			time.sleep(backoff)
 		else:
-			time.sleep(args.sleep)
+			time.sleep(sleep_sec)
 		continue
 
 	if args.max_cycles > 0:

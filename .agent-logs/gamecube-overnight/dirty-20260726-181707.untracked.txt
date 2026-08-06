@@ -1,0 +1,3 @@
+.agent-logs/gamecube-overnight/dirty-20260726-181707.patch
+.agent-logs/gamecube-overnight/dirty-20260726-181707.untracked.txt
+.agent-logs/gamecube-overnight/prelaunch-20260726-181707.patch

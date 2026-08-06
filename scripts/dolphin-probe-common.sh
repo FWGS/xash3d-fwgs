@@ -3,12 +3,14 @@
 
 probe_log_has() {
 	local needle="$1"
-	grep -aqsF "$needle" "$LOG_DIR/stderr.log" "$LOG_DIR/stdout.log" 2>/dev/null
+	grep -aqsF "$needle" "$LOG_DIR/stderr.log" "$LOG_DIR/stdout.log" \
+		"$LOG_DIR"/dolphin-user/Logs/*.log 2>/dev/null
 }
 
 probe_guest_error() {
 	grep -aEiq 'Host_Error|Sys_Error|Xash Error|_Mem_Alloc: out of memory|fatal error|guest.*(crash|abort)|Invalid read from|MMU fault|Program attempting to read|trashed (small )?header sentinel' \
-		"$LOG_DIR/stderr.log" "$LOG_DIR/stdout.log" 2>/dev/null
+		"$LOG_DIR/stderr.log" "$LOG_DIR/stdout.log" \
+		"$LOG_DIR"/dolphin-user/Logs/*.log 2>/dev/null
 }
 
 probe_retail_menu_seen() {
@@ -63,6 +65,28 @@ probe_fail_guest() {
 	finalize_probe "$status" 3
 }
 
+# -gcnewgame can take the direct client path and therefore does not emit the
+# legacy server-side play-start/frame-arm pair.  Require independent runtime
+# evidence instead: a sustained presented world, gameplay input, and all three
+# scripted gameplay actions. This is intentionally stricter than map-loaded.
+probe_newgame_progress_ready() {
+	(( DOLPHIN_NEWGAME )) || return 1
+	# Specialized probes must reach their own terminal marker before the
+	# generic gameplay shortcut can stop Dolphin (notably G94 save/load).
+	if [[ -n "${G94_DONE_MARKER:-}" ]] && ! probe_log_has "$G94_DONE_MARKER"; then
+		return 1
+	fi
+	if [[ -n "${G508_DONE_MARKER:-}" ]] && ! probe_log_has "$G508_DONE_MARKER"; then
+		return 1
+	fi
+	probe_log_has "Xash3D GameCube: post-G36 sustained world present" \
+		&& probe_log_has "Xash3D GameCube: newgame sustained frames=32" \
+		&& probe_log_has "Xash3D GameCube: probe gameplay input ready" \
+		&& probe_log_has "Xash3D GameCube: probe gameplay action attack" \
+		&& probe_log_has "Xash3D GameCube: probe gameplay action jump" \
+		&& probe_log_has "Xash3D GameCube: probe gameplay action use"
+}
+
 probe_wait_flatpak() {
 	flatpak kill "${DOLPHIN_FLATPAK_ID:-org.DolphinEmu.dolphin-emu}" >/dev/null 2>&1 || true
 	trap cleanup_flatpak_dolphin EXIT
@@ -76,6 +100,10 @@ probe_wait_flatpak() {
 			DOLPHIN_EXIT=0; break
 		fi
 		if probe_log_has "$MAP_MARKER" && probe_log_has "$INPUT_MARKER"; then
+			if probe_newgame_progress_ready; then
+				if probe_guest_error; then DOLPHIN_EXIT=3; break; fi
+				DOLPHIN_EXIT=0; break
+			fi
 			if (( DOLPHIN_NEWGAME )); then
 				# Landmark Flipper/G16x markers prove play progressed past
 				# "play start ready" / frame-budget arm (often omitted on -gcnewgame).
@@ -94,6 +122,11 @@ probe_wait_flatpak() {
 			if probe_guest_error; then DOLPHIN_EXIT=3; break; fi
 			# G94: do not stop until post-load world present is observed.
 			if [[ -n "${G94_DONE_MARKER:-}" ]] && ! probe_log_has "$G94_DONE_MARKER"; then
+				sleep 2
+				continue
+			fi
+			# G508: wait for config write/read markers on the designated route.
+			if [[ -n "${G508_DONE_MARKER:-}" ]] && ! probe_log_has "$G508_DONE_MARKER"; then
 				sleep 2
 				continue
 			fi
@@ -406,6 +439,10 @@ probe_wait_native() {
 			DOLPHIN_EXIT=0; break
 		fi
 		if probe_log_has "$MAP_MARKER" && probe_log_has "$INPUT_MARKER"; then
+			if probe_newgame_progress_ready; then
+				if probe_guest_error; then DOLPHIN_EXIT=3; break; fi
+				DOLPHIN_EXIT=0; break
+			fi
 			if (( DOLPHIN_NEWGAME )); then
 				# Landmark Flipper/G16x markers prove play progressed past
 				# "play start ready" / frame-budget arm (often omitted on -gcnewgame).
@@ -423,6 +460,10 @@ probe_wait_native() {
 			(( map_ready_at == 0 )) && map_ready_at=$(date +%s)
 			if probe_guest_error; then DOLPHIN_EXIT=3; break; fi
 			if [[ -n "${G94_DONE_MARKER:-}" ]] && ! probe_log_has "$G94_DONE_MARKER"; then
+				sleep 2
+				continue
+			fi
+			if [[ -n "${G508_DONE_MARKER:-}" ]] && ! probe_log_has "$G508_DONE_MARKER"; then
 				sleep 2
 				continue
 			fi
@@ -691,4 +732,180 @@ probe_wait_native() {
 		kill -KILL "$DOLPHIN_WRAPPER_PID" 2>/dev/null || true
 		wait "$DOLPHIN_WRAPPER_PID" >/dev/null 2>&1 || true
 	fi
+}
+
+# Classify Dolphin exit status from probe logs and finalize.
+probe_classify_results() {
+if (( GC_FATAL_TEST )) && probe_log_has "$G37_FATAL_MARKER" && probe_log_has "$GUEST_MARKER"; then
+	echo "G37_VERIFIED: Intentional fatal error triggered and breadcrumb reported."
+	echo "Logs: $LOG_DIR"
+	finalize_probe g37_verified 0
+fi
+
+if [[ -n "$GC_PHASE_TEST" ]] && [[ -n "$G82_FAULT_MARKER" ]] \
+	&& probe_log_has "$G82_FAULT_MARKER" \
+	&& probe_log_has "boot phase=${GC_PHASE_TEST}" \
+	&& grep -aqsE "boot=${GC_PHASE_TEST}([[:space:]]|$)" "${LOG_FILES[@]}"; then
+	echo "G82_VERIFIED: last_successful_phase=${GC_PHASE_TEST} fault_at=${GC_PHASE_TEST}"
+	echo "Logs: $LOG_DIR"
+	finalize_probe g82_verified 0
+fi
+
+if [[ -n "$GC_PHASE_TEST" ]]; then
+	echo "G82_FAIL: expected intentional phase fault at ${GC_PHASE_TEST} with boot breadcrumb."
+	echo "Logs: $LOG_DIR"
+	finalize_probe g82_fail 3
+fi
+
+RETAIL_MENU_SEEN=0
+RETAIL_MENU_READY=0
+if probe_retail_menu_seen; then
+	RETAIL_MENU_SEEN=1
+fi
+if probe_retail_menu_ready; then
+	RETAIL_MENU_READY=1
+fi
+
+if (( RETAIL_MENU_READY )) && [[ "$DOLPHIN_RETAIL" == "1" ]] && (( ! DOLPHIN_NEWGAME )); then
+		probe_guest_error && probe_fail_guest guest_failure "GUEST_FAILURE: Retail boot reached menu, followed by a guest error."
+		if probe_log_has "$INTRO_MARKER"; then
+			echo "RETAIL_READY: Half-Life retail boot played intro AVI and reached the interactive menu on GameCube."
+	else
+		echo "RETAIL_READY: Half-Life retail boot reached the interactive menu on GameCube (intro AVI marker not seen)."
+	fi
+		probe_report_g45
+		echo "Logs: $LOG_DIR"
+		finalize_probe retail_ready 0
+fi
+
+if [[ -n "$DOLPHIN_CHANGELEVEL" ]] \
+	&& probe_log_has "$G68_DONE_MARKER" \
+	&& probe_log_has "Xash3D GameCube: MAP_READY ${DOLPHIN_CHANGELEVEL}" \
+	&& probe_log_has "Xash3D GameCube: G100 landmark restore"; then
+	probe_guest_error && probe_fail_guest guest_failure "GUEST_FAILURE: Changelevel reached its destination, followed by a guest error."
+	if [[ -n "${G94_DONE_MARKER:-}" ]] && ! probe_log_has "$G94_DONE_MARKER"; then
+		echo "CHANGELEVEL_PARTIAL_READY: Destination and landmark restore markers were present, but G94 did not complete."
+		echo "Logs: $LOG_DIR"
+		finalize_probe changelevel_partial_ready 4
+	fi
+	if [[ -n "${G508_DONE_MARKER:-}" ]] && ! probe_log_has "$G508_DONE_MARKER"; then
+		echo "CHANGELEVEL_PARTIAL_READY: Destination and landmark restore markers were present, but G508 config round trip did not complete."
+		echo "Logs: $LOG_DIR"
+		finalize_probe changelevel_partial_ready 4
+	fi
+	echo "CHANGELEVEL_READY: Destination map, landmark state, and required runtime continuity markers passed."
+	probe_report_g45
+	echo "Logs: $LOG_DIR"
+	finalize_probe changelevel_ready 0
+fi
+
+if (( MAP_FOUND )) && (( INPUT_FOUND )) && (( !DOLPHIN_NEWGAME || ( PLAY_READY_FOUND && FRAME_ARMED_FOUND ) || NEWGAME_PROGRESS_FOUND )); then
+	probe_guest_error && probe_fail_guest guest_failure "GUEST_FAILURE: Map load was observed, followed by a guest error."
+	if (( NEWGAME_PROGRESS_FOUND )) && (( !PLAY_READY_FOUND || !FRAME_ARMED_FOUND )); then
+		echo "NEWGAME_READY: Sustained world, gameplay input, and attack/jump/use actions were observed on ${SMOKE_MAP}."
+	else
+		echo "MAP_READY: Xash3D loaded ${SMOKE_MAP} on GameCube with interactive input."
+	fi
+	probe_report_g45
+	echo "Logs: $LOG_DIR"
+	if (( NEWGAME_PROGRESS_FOUND )); then
+		finalize_probe newgame_ready 0
+	else
+		finalize_probe map_ready 0
+	fi
+fi
+
+if (( DOLPHIN_NEWGAME )) && (( MAP_FOUND )) && (( INPUT_FOUND )) && (( PLAY_READY_FOUND )) && (( !FRAME_ARMED_FOUND )); then
+	probe_guest_error && probe_fail_guest guest_failure "GUEST_FAILURE: New Game reached play-start, followed by a guest error before frame-budget arming."
+	echo "NEWGAME_PARTIAL_READY: Map ${SMOKE_MAP} loaded and play-start completed, but post-map frame-budget arming was not observed."
+	echo "Logs: $LOG_DIR"
+	finalize_probe newgame_partial_ready 4
+fi
+
+if (( DOLPHIN_NEWGAME )) && (( MAP_FOUND )) && (( INPUT_FOUND )) \
+	&& (( !PLAY_READY_FOUND || !FRAME_ARMED_FOUND )); then
+	probe_guest_error && probe_fail_guest guest_failure "GUEST_FAILURE: Map and input were ready, but New Game did not reach play-start/frame-budget arming."
+	echo "NEWGAME_PARTIAL_READY: Map ${SMOKE_MAP} loaded and input became active, but post-map play-start/frame-budget markers were incomplete."
+	echo "Logs: $LOG_DIR"
+	finalize_probe newgame_partial_ready 4
+fi
+
+if (( MAP_FOUND )) && ! (( INPUT_FOUND )); then
+	probe_guest_error && probe_fail_guest guest_failure "GUEST_FAILURE: Map load was observed, followed by a guest error."
+	echo "MAP_LOADED_NO_INPUT: Map ${SMOKE_MAP} loaded but input polling marker was not found."
+	echo "Logs: $LOG_DIR"
+	finalize_probe map_loaded_no_input 0
+fi
+
+if (( READY_FOUND )) && [[ -z "$SMOKE_MAP" ]] && [[ "$DOLPHIN_RETAIL" != "1" ]]; then
+	probe_guest_error && probe_fail_guest guest_failure "GUEST_FAILURE: Engine readiness was observed, followed by a guest error."
+	echo "ENGINE_READY: Xash3D initialized its GameCube subsystems."
+	echo "Logs: $LOG_DIR"
+	finalize_probe engine_ready 0
+fi
+
+if (( READY_FOUND )) && (( GUEST_FOUND )) && (( DOLPHIN_NEWGAME )) && ! (( MAP_FOUND )); then
+	probe_guest_error && probe_fail_guest guest_failure "GUEST_FAILURE: New Game bootstrap reached engine readiness, followed by a guest error before map load."
+	echo "NEWGAME_EARLY_EXIT: Engine readiness was observed, but New Game exited before ${SMOKE_MAP:-the map} loaded."
+	grep -ahF 'OSREPORT' "${LOG_FILES[@]}" | tail -1 | sed 's/^/Last guest log: /'
+	echo "Logs: $LOG_DIR"
+	finalize_probe newgame_early_exit 4
+fi
+
+if (( RETAIL_MENU_SEEN )) && [[ "${DOLPHIN_REQUIRE_MENU_ACTIONS:-0}" == "1" ]] && ! (( RETAIL_MENU_READY )); then
+	echo "RETAIL_MENU_WAIT: retail menu reached readiness markers, but synthetic menu actions did not complete."
+	echo "Logs: $LOG_DIR"
+	finalize_probe retail_menu_wait 4
+fi
+
+if (( GUEST_FOUND )) && probe_guest_error && (( ! GC_FATAL_TEST )) && [[ -z "$GC_PHASE_TEST" ]]; then
+	probe_fail_guest guest_failure "GUEST_FAILURE: Bootstrap was followed by a guest-engine error."
+fi
+
+if grep -aEiq 'Unknown instruction|Invalid read from|IntCPU:|apploader.*(fail|error)' "${LOG_FILES[@]}"; then
+	probe_fail_guest boot_failure "BOOT_FAILURE: Dolphin reached the disc but the guest image failed before bootstrap."
+fi
+
+if (( DOLPHIN_EXIT == 124 || DOLPHIN_EXIT == 137 )); then
+	if [[ -n "$SMOKE_MAP" ]] && (( READY_FOUND )); then
+		echo "MAP_TIMEOUT: Engine readiness was observed, but ${SMOKE_MAP} did not load within ${TIMEOUT_SEC}s."
+	elif (( GUEST_FOUND )); then
+		echo "GUEST_TIMEOUT: Bootstrap was observed, but engine readiness was not reached within ${TIMEOUT_SEC}s."
+	else
+		echo "INCONCLUSIVE_TIMEOUT: No guest bootstrap within ${TIMEOUT_SEC}s."
+	fi
+	grep -ahF 'OSREPORT' "${LOG_FILES[@]}" | tail -1 | sed 's/^/Last guest log: /'
+	echo "Logs: $LOG_DIR"
+	finalize_probe map_timeout 4
+fi
+
+if (( DOLPHIN_EXIT != 0 )); then
+	if (( GUEST_FOUND )) && (( ! GC_FATAL_TEST )); then
+		probe_fail_guest guest_failure "GUEST_FAILURE: Dolphin exited $DOLPHIN_EXIT after guest bootstrap."
+	fi
+	if (( ! GUEST_FOUND )); then
+		probe_fail_guest host_failure "HOST_FAILURE: Dolphin exited $DOLPHIN_EXIT before guest bootstrap."
+	fi
+fi
+
+# Landmark G16x New Game often skips play-start / frame-armed; MAP+INPUT is enough
+# once the wait loop has already observed Flipper/soft-dump done markers.
+if (( MAP_FOUND )) && (( INPUT_FOUND )) && (( DOLPHIN_NEWGAME )); then
+	probe_guest_error && probe_fail_guest guest_failure "GUEST_FAILURE: Map load was observed, followed by a guest error."
+	echo "MAP_READY: Xash3D loaded ${SMOKE_MAP} on GameCube with interactive input."
+	probe_report_g45
+	echo "Logs: $LOG_DIR"
+	finalize_probe map_ready 0
+fi
+
+if (( ! MAP_FOUND )) && (( ! READY_FOUND )) && (( ! GUEST_FOUND )); then
+	echo "INCONCLUSIVE_EXIT: Dolphin exited $DOLPHIN_EXIT without reaching engine readiness."
+	(( GUEST_FOUND )) && grep -ahF 'OSREPORT' "${LOG_FILES[@]}" | tail -1 | sed 's/^/Last guest log: /'
+	echo "Logs: $LOG_DIR"
+	finalize_probe inconclusive_exit 4
+fi
+
+echo "INCONCLUSIVE_EXIT: Dolphin exited $DOLPHIN_EXIT without a classified probe status."
+echo "Logs: $LOG_DIR"
+finalize_probe inconclusive_exit 4
 }

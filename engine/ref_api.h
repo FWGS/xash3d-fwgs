@@ -621,6 +621,8 @@ typedef struct ref_interface_s
 	void	(*R_OverrideTextureSourceSize)( unsigned int texnum, unsigned int srcWidth, unsigned int srcHeight ); // used to override decal size for texture replacement
 
 	void		(*GL_UpdateTexture)( int texnum, int cols, int rows, int width, int height, const byte *buffer, pixformat_t fmt );
+	void		(*GL_UpdateCinematicTexture)( int texnum, int width, int height, const byte *buffer,
+			const uint16_t *dirty_tiles, uint dirty_count, qboolean full_upload );
 
 	// glState related calls (used by engine directly)
 	void		(*GL_Bind)( int tmu, unsigned int texnum );
@@ -657,6 +659,7 @@ typedef struct ref_interface_s
 } ref_interface_t;
 
 typedef int (*REFAPI)( int version, ref_interface_t *pFunctionTable, ref_api_t* engfuncs, ref_globals_t *pGlobals );
+int EXPORT GetRefAPI( int version, ref_interface_t *funcs, ref_api_t *engfuncs, ref_globals_t *globals );
 #define GET_REF_API "GetRefAPI"
 
 #ifdef REF_DLL

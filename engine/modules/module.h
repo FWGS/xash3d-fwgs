@@ -101,4 +101,9 @@ void Module_Report(void);
 int Module_RegisterStub(const char *name, module_type_t type, const char *version, const char *description);
 int Module_CreateStub(const char *name, module_type_t type, const char *version, const char *description, void *exports);
 
+// Stub inventory functions (stub_inventory.c)
+qboolean Stub_Inventory_Init(void);
+void Stub_Inventory_Shutdown(void);
+void Stub_Inventory_Report(void);
+
 #endif /* MODULE_H */

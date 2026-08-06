@@ -24,6 +24,7 @@ for shell_script in \
 	scripts/build-gamecube.sh \
 	scripts/xash3d-gc-aider-gui.sh \
 	scripts/dolphin-boot-probe.sh \
+	scripts/dolphin-probe-common.sh \
 	scripts/dolphin-probe-lock.sh \
 	scripts/hlsdk-gamecube-probe.sh \
 	scripts/hlsdk-gamecube-build.sh \
@@ -33,7 +34,12 @@ for shell_script in \
 	scripts/gamecube-env.sh \
 	scripts/gc-port-loop.sh \
 	scripts/gamecube-submodule-sync.sh \
-	scripts/ai-commit-gui-wip.sh
+	scripts/ai-commit-gui-wip.sh \
+	scripts/stage-sd-assets.sh \
+	scripts/gamecube-g509-soak.sh \
+	scripts/gamecube-hardware-layout-info.sh \
+	scripts/gamecube-release-packet.sh \
+	scripts/gamecube-operator-evidence.sh
 do
 	bash -n "$shell_script"
 done
@@ -74,8 +80,18 @@ python3 -c 'compile(open("scripts/gamecube-homebrew-compliance-check.py", encodi
 python3 -c 'compile(open("scripts/gamecube-quality-profile-check.py", encoding="utf-8").read(), "scripts/gamecube-quality-profile-check.py", "exec")'
 python3 -c 'compile(open("scripts/gamecube-goal-ledger-check.py", encoding="utf-8").read(), "scripts/gamecube-goal-ledger-check.py", "exec")'
 python3 -c 'compile(open("scripts/gamecube-soak-probe.py", encoding="utf-8").read(), "scripts/gamecube-soak-probe.py", "exec")'
+python3 -c 'compile(open("scripts/gamecube-runtime-ladder.py", encoding="utf-8").read(), "scripts/gamecube-runtime-ladder.py", "exec")'
+python3 -c 'compile(open("scripts/gamecube-experiment-manifest.py", encoding="utf-8").read(), "scripts/gamecube-experiment-manifest.py", "exec")'
+python3 -c 'compile(open("scripts/gamecube-release-packet.py", encoding="utf-8").read(), "scripts/gamecube-release-packet.py", "exec")'
+python3 -c 'compile(open("scripts/gamecube-gameplay-gate.py", encoding="utf-8").read(), "scripts/gamecube-gameplay-gate.py", "exec")'
+python3 -c 'compile(open("scripts/gamecube-memory-evidence.py", encoding="utf-8").read(), "scripts/gamecube-memory-evidence.py", "exec")'
+python3 -c 'compile(open("scripts/waifulib/gamecube_storage.py", encoding="utf-8").read(), "scripts/waifulib/gamecube_storage.py", "exec")'
+python3 -c 'compile(open("scripts/waifulib/gamecube_probe_save.py", encoding="utf-8").read(), "scripts/waifulib/gamecube_probe_save.py", "exec")'
+python3 -c 'compile(open("scripts/waifulib/gamecube_ogc_stack.py", encoding="utf-8").read(), "scripts/waifulib/gamecube_ogc_stack.py", "exec")'
 python3 -c 'compile(open("scripts/gamecube-worst-case-report.py", encoding="utf-8").read(), "scripts/gamecube-worst-case-report.py", "exec")'
 python3 -c 'compile(open("scripts/gamecube-runtime-regression-gate.py", encoding="utf-8").read(), "scripts/gamecube-runtime-regression-gate.py", "exec")'
+python3 -c 'compile(open("scripts/gamecube-hardware-matrix-compliance.py", encoding="utf-8").read(), "scripts/gamecube-hardware-matrix-compliance.py", "exec")'
+python3 -c 'compile(open("scripts/gamecube-hardware-boot-check.py", encoding="utf-8").read(), "scripts/gamecube-hardware-boot-check.py", "exec")'
 python3 -c 'compile(open("scripts/hlsdk-gamecube-apply-patch.py", encoding="utf-8").read(), "scripts/hlsdk-gamecube-apply-patch.py", "exec")'
 python3 -c 'compile(open("scripts/generate-hlsdk-gamecube-exports.py", encoding="utf-8").read(), "scripts/generate-hlsdk-gamecube-exports.py", "exec")'
 
@@ -111,7 +127,12 @@ if python3 - <<'PY'
 from pathlib import Path
 text = Path("engine/platform/gamecube/sys_gamecube.c").read_text(encoding="utf-8")
 start = text.index("double Platform_DoubleTime")
-end = text.index("void *Platform_GetNativeObject", start)
+end_marker = "void *Platform_GetNativeObject"
+if end_marker in text[start:]:
+	end = text.index(end_marker, start)
+else:
+	# The GameCube backend may omit the optional native-object hook.
+	end = text.index("void Platform_MouseMove", start)
 body = text[start:end]
 raise SystemExit(0 if "/ clock" in body and "PPC_TIMER_CLOCK" in body else 1)
 PY
@@ -124,6 +145,8 @@ fi
 
 if command -v aider >/dev/null 2>&1; then
 	aider --config .aider.conf.yml --help >/dev/null
+elif [[ "${SKIP_GAMECUBE_BUILD:-0}" == "1" ]]; then
+	echo "verify: aider not installed; skipping aider check under SKIP_GAMECUBE_BUILD=1"
 else
 	echo "verify: aider is not installed" >&2
 	exit 1
@@ -215,23 +238,42 @@ fi
 
 if [[ "${SKIP_GAMECUBE_BUILD:-0}" == "1" ]]; then
 	echo
+	echo "== host unit tests (GameCube harness-only) =="
+	python3 -m unittest discover -s tests -p 'test_gamecube_host.py' -v
+	echo
 	echo "== GameCube build skipped by SKIP_GAMECUBE_BUILD =="
-	printf 'verify: OK (build skipped)\n'
+	printf 'verify: OK (build skipped; host tests passed)\n'
 	exit 0
 fi
 
 DEVKITPRO="${DEVKITPRO:-/opt/devkitpro}"
 PPC_GCC="$DEVKITPRO/devkitPPC/bin/powerpc-eabi-gcc"
+export XASH_GAMECUBE_OGC_STACK="${XASH_GAMECUBE_OGC_STACK:-auto}"
 
 echo
 echo "== build probe: GameCube toolchain =="
-if [[ ! -x "$PPC_GCC" || ! -d "$DEVKITPRO/libogc" ]]; then
-	echo "verify: devkitPPC/libogc not found under $DEVKITPRO" >&2
+if [[ ! -x "$PPC_GCC" ]]; then
+	echo "verify: devkitPPC not found under $DEVKITPRO" >&2
 	echo "Set DEVKITPRO or use SKIP_GAMECUBE_BUILD=1 for harness-only checks." >&2
 	exit 1
 fi
+
+STACK_JSON="$(mktemp)"
+if ! python3 scripts/waifulib/gamecube_ogc_stack.py >"$STACK_JSON"; then
+	echo "verify: failed to resolve GameCube OGC stack" >&2
+	exit 1
+fi
+if ! python3 -c 'import json,sys; d=json.load(open(sys.argv[1])); raise SystemExit(0 if d.get("available") else 1)' "$STACK_JSON"; then
+	echo "verify: libogc2 (preferred for Swiss) or classic libogc not found under $DEVKITPRO" >&2
+	echo "Install: sudo (dkp-)pacman -S libogc2 libogc2-libdvm" >&2
+	echo "Or set XASH_GAMECUBE_OGC_STACK=libogc with classic libogc." >&2
+	echo "Set DEVKITPRO or use SKIP_GAMECUBE_BUILD=1 for harness-only checks." >&2
+	cat "$STACK_JSON" >&2
+	exit 1
+fi
 echo "compiler: $PPC_GCC"
-echo "libogc: $DEVKITPRO/libogc"
+python3 -c 'import json,sys; d=json.load(open(sys.argv[1])); print("ogc_stack: %s" % d.get("stack")); print("ogc_root: %s" % d.get("root")); print("fat: %s" % d.get("fat_provider"))' "$STACK_JSON"
+rm -f "$STACK_JSON"
 
 export DEVKITPRO
 export PATH="$DEVKITPRO/devkitPPC/bin:$DEVKITPRO/tools/bin:$PATH"

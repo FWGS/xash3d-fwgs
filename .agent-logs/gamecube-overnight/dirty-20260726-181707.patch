@@ -1,0 +1,8 @@
+diff --git a/.ai/gc-port-loop.lock b/.ai/gc-port-loop.lock
+deleted file mode 100644
+index 2afa6ed6a0..0000000000
+--- a/.ai/gc-port-loop.lock
++++ /dev/null
+@@ -1 +0,0 @@
+-1348901
+\ No newline at end of file

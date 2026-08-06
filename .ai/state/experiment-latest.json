@@ -1,0 +1,16 @@
+{
+  "item_id": "discovery:no_edit",
+  "timestamp": "2026-08-02T20:10:27.197295+00:00",
+  "before": {
+    "score": 1,
+    "markers": [
+      "bootstrap"
+    ]
+  },
+  "after": {
+    "score": 1,
+    "markers": [
+      "bootstrap"
+    ]
+  }
+}

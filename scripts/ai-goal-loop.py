@@ -36,7 +36,8 @@ except ImportError:  # pragma: no cover - non-Unix fallback
 	fcntl = None
 
 GOAL_RE = re.compile(r"^##\s+(G\d+)\s+\[( |~|x|X|MANUAL|SKIP)\]\s+(.+)$")
-DOLPHIN_PROBE_GOALS = frozenset({"G14", "G19", "G21", "G34", "G35"})
+DOLPHIN_PROBE_GOALS = frozenset({"G14", "G19", "G21", "G34", "G35",
+	"G491", "G492", "G493", "G494", "G495", "G496", "G497", "G498", "G499"})
 PROBE_AUTO_COMPLETE = {
 	"G19": "MAP_READY:",
 	"G35": "MAP_READY:",
@@ -309,6 +310,27 @@ GOAL_CONTEXT = {
 		"docs/GAMECUBE_PORT_PLAN.md",
 		".ai/goals/GAMECUBE_PORT_GOALS.md",
 		"scripts/gamecube-rc-check.sh"),
+	"G491": ("engine/server/sv_init.c", "engine/common/delta.c",
+		"engine/common/filesystem_engine.c", "scripts/dolphin-boot-probe.sh"),
+	"G492": ("engine/platform/gamecube/mem_gamecube.c", "engine/common/zone.c",
+		"engine/common/mod_studio.c", "scripts/gamecube-worst-case-report.py"),
+	"G493": ("engine/platform/gamecube/in_gamecube.c", "engine/client/input/input.c",
+		"scripts/gamecube-controller-compliance.py", "scripts/dolphin-boot-probe.sh"),
+	"G494": ("engine/server/sv_phys.c", "engine/client/cl_main.c",
+		"engine/platform/gamecube/in_gamecube.c", "scripts/dolphin-probe-analyze.py"),
+	"G495": ("engine/platform/gamecube/vid_gamecube.c", "ref/gx/r_main.c",
+		"ref/gx/r_surf.c", "scripts/dolphin-vision-test.py"),
+	"G496": ("engine/platform/gamecube/snddma_gamecube.c", "engine/client/sound/s_load.c",
+		"engine/client/sound/s_main.c", "scripts/gamecube-audio-compliance.py"),
+	"G497": ("scripts/gamecube-map-compat-probe.sh", "scripts/gamecube-campaign-audit.sh",
+		"engine/server/sv_init.c", "engine/common/host.c"),
+	"G498": ("scripts/gamecube-soak-probe.py", "engine/common/zone.c",
+		"engine/platform/gamecube/mem_gamecube.c", "scripts/dolphin-boot-probe.sh"),
+	"G499": ("scripts/build-gamecube.sh", "scripts/build-gamecube-disc.py",
+		"scripts/gamecube-rc-check.sh", "scripts/ai-verify.sh",
+		"docs/GAMECUBE_RELEASE_MANIFEST.md"),
+	"G500": ("docs/GAMECUBE_HARDWARE_VALIDATION.md", "docs/GAMECUBE_HARDWARE_MATRIX.md",
+		"docs/GAMECUBE_HARDWARE_BOOT_CHECKLIST.md", "OUT/bin/gamecube-handoff.txt"),
 }
 GOAL_REQUIRED_CONTEXT = {
 	"G24": ("ref/gx/r_context.c", "ref/gx/r_main.c", "ref/gx/r_surf.c",
@@ -657,6 +679,16 @@ GOAL_COMMIT_SUBJECT = {
 	"G75": "test: sign off native Half-Life completion",
 	"G76": "docs: freeze GameCube release candidate notes",
 	"G77": "test: prove GameCube evidence parity",
+	"G491": "fix: restore GameCube runtime map readiness",
+	"G492": "perf: enforce GameCube memory budgets",
+	"G493": "test: prove GameCube controller readiness",
+	"G494": "test: prove GameCube gameplay smoke",
+	"G495": "test: prove GameCube visual output",
+	"G496": "test: prove GameCube audio output",
+	"G497": "test: prove GameCube campaign continuity",
+	"G498": "test: prove GameCube soak stability",
+	"G499": "test: sign off GameCube reproducible release",
+	"G500": "test: validate physical GameCube hardware handoff",
 }
 RECOVERABLE_EXIT_CODES = {
 	10: "Aider made no edit",

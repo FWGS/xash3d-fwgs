@@ -116,7 +116,20 @@ drop_ephemeral_discovery_state() {
 dirty_status_without_ephemeral_state() {
 	drop_ephemeral_discovery_state
 	cleanup_forbidden_dirty_paths
-	git status --porcelain
+	local status path excluded excluded_path
+	while IFS= read -r status; do
+		[[ -n "$status" ]] || continue
+		path="${status:3}"
+		excluded=0
+		IFS=':' read -r -a _excluded_paths <<< "${AI_DIRTY_COMMIT_EXCLUDE:-}"
+		for excluded_path in "${_excluded_paths[@]}"; do
+			if [[ "$path" == "$excluded_path" ]]; then
+				excluded=1
+				break
+			fi
+		done
+		(( excluded )) || echo "$status"
+	done < <(git status --porcelain)
 }
 
 if gamecube_gui_wip_dirty && [[ "${AI_SKIP_DIRTY_CHECKPOINT:-0}" != "1" ]]; then
@@ -164,11 +177,90 @@ if [[ -z "$AIDER_CONFIG" ]]; then
 fi
 TEMP_MODEL_SETTINGS=()
 BUDGETED_CONTEXT_ACTIVE=0
+TMP_AIDER_INPUT_HISTORY=""
+TMP_AIDER_CHAT_HISTORY=""
+TMP_AIDER_LLM_HISTORY=""
+TMP_AIDER_MESSAGE_FILE=""
+HIDDEN_AIDER_FILES=()
 
 cleanup_temp_settings() {
+	local item src backup
+	for item in "${HIDDEN_AIDER_FILES[@]:-}"; do
+		src="${item%%:*}"
+		backup="${item#*:}"
+		if [[ -n "$src" && -n "$backup" && -e "$backup" ]]; then
+			mv -f "$backup" "$src"
+		fi
+	done
 	rm -f "${TEMP_MODEL_SETTINGS[@]}"
 }
 trap cleanup_temp_settings EXIT
+
+TMP_AIDER_INPUT_HISTORY="$(mktemp .ai/logs/aider-input-history-XXXXXX)"
+TMP_AIDER_CHAT_HISTORY="$(mktemp .ai/logs/aider-chat-history-XXXXXX.md)"
+TMP_AIDER_LLM_HISTORY="$(mktemp .ai/logs/aider-llm-history-XXXXXX.log)"
+TMP_AIDER_MESSAGE_FILE="$(mktemp .ai/logs/aider-message-XXXXXX.md)"
+TEMP_MODEL_SETTINGS+=(
+	"$TMP_AIDER_INPUT_HISTORY"
+	"$TMP_AIDER_CHAT_HISTORY"
+	"$TMP_AIDER_LLM_HISTORY"
+	"$TMP_AIDER_MESSAGE_FILE"
+)
+
+# Keep unattended passes isolated from repo-local aider history files, which can
+# become enormous and poison context estimation for otherwise tiny edit chats.
+: > "$TMP_AIDER_INPUT_HISTORY"
+: > "$TMP_AIDER_CHAT_HISTORY"
+: > "$TMP_AIDER_LLM_HISTORY"
+
+hide_repo_aider_history() {
+	local path backup
+	for path in .aider.chat.history.md .aider.input.history; do
+		[[ -e "$path" ]] || continue
+		backup="$(mktemp ".ai/logs/${path##*/}.hidden-XXXXXX")"
+		rm -f "$backup"
+		mv "$path" "$backup"
+		HIDDEN_AIDER_FILES+=("$path:$backup")
+	done
+}
+
+hide_repo_aider_history
+
+sanitize_task_message() {
+	python3 - "$TASK_FILE" "$TMP_AIDER_MESSAGE_FILE" "${CONTEXT_FILES[@]}" "${READ_CONTEXT_FILES[@]}" <<'PY'
+from pathlib import Path
+import re
+import sys
+
+src = Path(sys.argv[1])
+dst = Path(sys.argv[2])
+allowed = {item.replace("\\", "/") for item in sys.argv[3:]}
+text = src.read_text(encoding="utf-8", errors="replace")
+
+pattern = re.compile(r'(?<![\w./-])([A-Za-z0-9_.-]+(?:/[A-Za-z0-9_.-]+)+\.(?:c|cc|cpp|cxx|h|hh|hpp|py|sh))(?![\w./-])')
+
+def repl(match: re.Match[str]) -> str:
+	path = match.group(1).replace("\\", "/")
+	if path in allowed:
+		return path
+	return "[non-editable source file]"
+
+basename_pattern = re.compile(r'(?<![\w./-])([A-Za-z0-9_.-]+\.(?:c|cc|cpp|cxx|h|hh|hpp|py|sh))(?![\w./-])')
+allowed_basenames = {Path(path).name for path in allowed}
+
+def repl_basename(match: re.Match[str]) -> str:
+	name = match.group(1)
+	if name in allowed_basenames:
+		return name
+	return "[non-editable source file]"
+
+text = pattern.sub(repl, text)
+text = basename_pattern.sub(repl_basename, text)
+dst.write_text(text, encoding="utf-8")
+PY
+}
+
+sanitize_task_message
 
 cleanup_stale_git_lock() {
 	local min_age="${1:-30}"
@@ -497,6 +589,7 @@ run_aider_with_recovery() {
 		set +e
 		timeout --signal=TERM --kill-after=30 "$AIDER_MODEL_TIMEOUT_SEC" aider \
 			--config "$AIDER_CONFIG" \
+			--model "openai/${AIDER_SERVED_MODEL:-qwen-local}" \
 			--no-browser \
 			--no-gui \
 			--no-detect-urls \
@@ -507,6 +600,9 @@ run_aider_with_recovery() {
 			--no-auto-lint \
 			--no-auto-test \
 			--max-chat-history-tokens "${AIDER_MAX_CHAT_HISTORY_TOKENS:-2048}" \
+			--input-history-file "$TMP_AIDER_INPUT_HISTORY" \
+			--chat-history-file "$TMP_AIDER_CHAT_HISTORY" \
+			--llm-history-file "$TMP_AIDER_LLM_HISTORY" \
 			"${settings_args[@]}" \
 			"${context_args[@]}" \
 			"$@" \
@@ -542,7 +638,7 @@ if command -v python3 >/dev/null 2>&1 && [[ -f scripts/aider-token-budget.py ]];
 	python3 scripts/aider-token-budget.py --sync-metadata --quiet >/dev/null 2>&1 || true
 fi
 load_token_budget "${AIDER_BUDGET_ATTEMPT:-1}"
-run_aider_with_recovery "Aider" --message-file "$TASK_FILE"
+run_aider_with_recovery "Aider" --message-file "$TMP_AIDER_MESSAGE_FILE"
 AIDER_STATUS="$?"
 set -e
 
@@ -670,6 +766,81 @@ unstage_out_of_scope_edits() {
 	done < <(git diff --cached --name-only)
 }
 
+patch_safety_guard() {
+	local changed_files added deleted path
+	local max_files="${AI_MAX_PATCH_FILES:-8}"
+	local max_lines="${AI_MAX_PATCH_LINES:-240}"
+	local max_deleted="${AI_MAX_PATCH_DELETED_LINES:-160}"
+	changed_files="$(git diff --cached --name-only | sed '/^$/d' | wc -l)"
+	if (( changed_files > max_files )); then
+		echo "ai-aider-pass: patch changes ${changed_files} files (maximum ${max_files})" >&2
+		return 23
+	fi
+	added=0
+	deleted=0
+	while IFS=$'\t' read -r path_added path_deleted path; do
+		[[ -n "${path:-}" ]] || continue
+		[[ "$path_added" == "-" ]] || added=$((added + path_added))
+		[[ "$path_deleted" == "-" ]] || deleted=$((deleted + path_deleted))
+		if [[ "$path_deleted" != "-" && "$path_deleted" -gt "$max_deleted" ]]; then
+			echo "ai-aider-pass: destructive rewrite in $path (${path_deleted} deleted lines)" >&2
+			return 23
+		fi
+	done < <(git diff --cached --numstat)
+	if (( added + deleted > max_lines )); then
+		echo "ai-aider-pass: patch changes ${added}+${deleted} lines (maximum ${max_lines})" >&2
+		return 23
+	fi
+}
+
+semantic_patch_guard() {
+	local diff required path token
+	diff="$(git diff --cached --unified=0)"
+	if grep -Fq 'Q_strncpy( mod->name, mod->name' <<<"$diff"; then
+		echo "ai-aider-pass: rejecting no-op model-name copy" >&2
+		return 24
+	fi
+	if [[ -n "${AI_REQUIRED_EDIT_PATHS:-}" ]]; then
+		local matched=0
+		local required_paths=()
+		IFS=: read -r -a required_paths <<< "${AI_REQUIRED_EDIT_PATHS}"
+		for path in "${required_paths[@]}"; do
+			[[ -n "$path" ]] || continue
+			if git diff --cached --name-only | grep -Fxq "$path"; then
+				matched=1
+				break
+			fi
+		done
+		if (( ! matched )); then
+			echo "ai-aider-pass: evidence requires an edit in: ${AI_REQUIRED_EDIT_PATHS}" >&2
+			return 24
+		fi
+	fi
+	if [[ -n "${AI_DISCOVERY_EVIDENCE_TOKENS:-}" ]]; then
+		local token_match=0
+		while IFS= read -r token; do
+			[[ -n "$token" ]] || continue
+			if grep -Fqi -- "$token" <<<"$diff"; then
+				token_match=1
+				break
+			fi
+		done < <(tr ',' '\n' <<< "${AI_DISCOVERY_EVIDENCE_TOKENS}")
+		if (( ! token_match )); then
+			echo "ai-aider-pass: patch does not reference runtime evidence: ${AI_DISCOVERY_EVIDENCE_TOKENS}" >&2
+			return 24
+		fi
+	fi
+	if [[ -n "${AI_FORBIDDEN_PATCH_TOKENS:-}" ]]; then
+		while IFS= read -r token; do
+			[[ -n "$token" ]] || continue
+			if grep -Fqi -- "+${token}" <<< "$diff"; then
+				echo "ai-aider-pass: patch cannot manufacture acceptance evidence: ${token}" >&2
+				return 24
+			fi
+		done < <(tr ',' '\n' <<< "${AI_FORBIDDEN_PATCH_TOKENS}")
+	fi
+}
+
 stage_and_validate_patch() {
 	cleanup_stale_git_lock
 	git add -A
@@ -687,6 +858,12 @@ stage_and_validate_patch() {
 	fi
 	if ! reject_out_of_scope_edits; then
 		return 16
+	fi
+	if ! patch_safety_guard; then
+		return 23
+	fi
+	if ! semantic_patch_guard; then
+		return 24
 	fi
 }
 

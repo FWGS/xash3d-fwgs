@@ -104,6 +104,9 @@ void S_InitSounds( void );
 void S_AllowNextGameplaySoundLoad( void );
 void S_DisallowGameplaySoundLoad( void );
 size_t S_GCGameplaySfxBudgetUsed( void );
+void S_GCGetAudioTelemetry( unsigned int *chunks, unsigned int *nonzero_chunks,
+	unsigned int *sample_counter_delta, unsigned int *callbacks,
+	unsigned int *add_failures );
 #endif
 
 // s_dsp.c

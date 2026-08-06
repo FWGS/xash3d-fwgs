@@ -34,9 +34,12 @@ static string fs_language;
 static qboolean fs_ext_path = false; // attempt to read\write from ./ or ../ pathes
 
 #if XASH_GAMECUBE
-#define GC_FIND_MISS_CACHE 128
+#define GC_FIND_MISS_CACHE 256
+#define GC_FIND_HIT_CACHE 64
 static char fs_gc_miss_cache[GC_FIND_MISS_CACHE][MAX_QPATH];
+static char fs_gc_hit_cache[GC_FIND_HIT_CACHE][MAX_QPATH];
 static int fs_gc_miss_count;
+static int fs_gc_hit_count;
 static qboolean fs_gc_smoke_boot;
 
 void FS_SetSmokeBootMode( qboolean enable )
@@ -47,6 +50,11 @@ void FS_SetSmokeBootMode( qboolean enable )
 void FS_ClearFindMissCache( void )
 {
 	fs_gc_miss_count = 0;
+}
+
+void FS_ClearFindHitCache( void )
+{
+	fs_gc_hit_count = 0;
 }
 
 static qboolean FS_FindMissCached( const char *name )
@@ -60,6 +68,28 @@ static qboolean FS_FindMissCached( const char *name )
 	}
 
 	return false;
+}
+
+static qboolean FS_FindHitCached( const char *name )
+{
+	int i;
+
+	for( i = 0; i < fs_gc_hit_count; i++ )
+	{
+		if( !Q_stricmp( fs_gc_hit_cache[i], name ))
+			return true;
+	}
+
+	return false;
+}
+
+static void FS_AddToHitCache( const char *name )
+{
+	if( fs_gc_hit_count >= GC_FIND_HIT_CACHE )
+		return;
+
+	Q_strncpy( fs_gc_hit_cache[fs_gc_hit_count], name, MAX_QPATH );
+	fs_gc_hit_count++;
 }
 
 static void FS_RememberFindMiss( const char *name )
@@ -285,6 +315,12 @@ FS_ClearSearchPath
 void FS_ClearSearchPath( void )
 {
 	searchpath_t *cur, **prev = &fs_searchpaths;
+
+#if XASH_GAMECUBE
+	/* Search results are invalid whenever the mounted path set changes. */
+	FS_ClearFindMissCache();
+	FS_ClearFindHitCache();
+#endif
 
 	while( true )
 	{
@@ -1011,6 +1047,10 @@ searchpath_t *FS_FindFile( const char *name, int *index, char *fixedname, size_t
 #if XASH_GAMECUBE
 		if( FS_ShouldSkipSearchpath( search, name ))
 			continue;
+
+		/* A prior successful lookup is not a failure result. The cache stores
+		 * names only, not the searchpath/index needed to load the file, so keep
+		 * searching instead of turning FileExists into a later load failure. */
 #endif
 
 		pack_ind = search->pfnFindFile( search, name, fixedname, len );
@@ -1020,6 +1060,7 @@ searchpath_t *FS_FindFile( const char *name, int *index, char *fixedname, size_t
 			if( !Q_strncmp( name, "maps/", 5 ) || !Q_strncmp( name, "models/", 7 ))
 				Con_Reportf( "Xash3D GameCube: find found '%s' as '%s' in %s index=%d\n",
 					name, fixedname ? fixedname : "", search->filename, pack_ind );
+					FS_AddToHitCache( name );
 #endif
 			if( index )
 				*index = pack_ind;
@@ -1106,6 +1147,7 @@ searchpath_t *FS_FindFile( const char *name, int *index, char *fixedname, size_t
 	if( !Q_strncmp( name, "maps/", 5 ) || !Q_strncmp( name, "models/", 7 ))
 		Con_Reportf( "Xash3D GameCube: find missed '%s'\n", name );
 	FS_RememberFindMiss( name );
+	FS_AddToHitCache( name );
 #endif
 	return NULL;
 }

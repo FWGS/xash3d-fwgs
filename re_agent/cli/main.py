@@ -7,7 +7,7 @@ import argparse
 from re_agent import __version__
 
 
-def runtime_probe() -> argparse.ArgumentParser:
+def build_parser() -> argparse.ArgumentParser:
 	parser = argparse.ArgumentParser(prog="re-agent", description="Autonomous reverse engineering agent")
 	parser.add_argument("--version", action="version", version=f"%(prog)s {__version__}")
 	parser.add_argument("--config", default="re-agent.yaml", help="Config file path")
@@ -24,6 +24,12 @@ def runtime_probe() -> argparse.ArgumentParser:
 	reverse_parser.add_argument("--max-rounds", type=int, default=None, help="Max review rounds per function")
 	reverse_parser.add_argument("--dry-run", action="store_true", help="Show plan without executing")
 	reverse_parser.add_argument("--skip-parity", action="store_true", help="Skip parity check after PASS")
+
+	analyze_parser = sub.add_parser("analyze", help="Analyze a suspicious binary function without editing source")
+	analyze_parser.add_argument("--address", required=True, help="Function address, for example 0x6F86A0")
+	analyze_parser.add_argument("--output", help="JSON investigation report path")
+	analyze_parser.add_argument("--validate", action="store_true", help="Run build and Dolphin validation")
+	analyze_parser.add_argument("--validation-timeout", type=int, default=180, help="Timeout per validation phase in seconds")
 
 	parity_parser = sub.add_parser("parity", help="Run parity checks on hooked functions")
 	parity_parser.add_argument("--address", action="append", help="Specific address (repeatable)")
@@ -52,6 +58,9 @@ def main(argv: list[str] | None = None) -> int:
 	if args.command == "reverse":
 		from re_agent.cli.cmd_reverse import cmd_reverse
 		return cmd_reverse(args)
+	if args.command == "analyze":
+		from re_agent.cli.cmd_analyze import cmd_analyze
+		return cmd_analyze(args)
 	if args.command == "parity":
 		from re_agent.cli.cmd_parity import cmd_parity
 		return cmd_parity(args)

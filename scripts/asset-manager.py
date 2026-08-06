@@ -31,6 +31,31 @@ import subprocess
 from pathlib import Path
 from typing import Optional, List, Dict
 
+_WAIFULIB = Path(__file__).resolve().parent / "waifulib"
+if str(_WAIFULIB) not in sys.path:
+	sys.path.insert(0, str(_WAIFULIB))
+try:
+	from gamecube_storage import (  # type: ignore
+		FAT_VOLUME_ROOTS,
+		format_layout_help,
+		strip_device_prefix,
+		writable_layout_paths,
+	)
+except ImportError:
+	FAT_VOLUME_ROOTS = ("sd:/", "carda:/", "cardb:/")
+
+	def strip_device_prefix(path: str) -> str:
+		for prefix in ("sd:/", "carda:/", "cardb:/", "gcdisc:/", "gcprobe:/"):
+			if path.startswith(prefix):
+				return path[len(prefix):]
+		return path
+
+	def format_layout_help(volume_root: str = "sd:/") -> str:
+		return f"layout under {volume_root}xash3d/valve/"
+
+	def writable_layout_paths(volume_root: str):
+		return [f"{volume_root}xash3d/valve"]
+
 
 def print_usage():
     """Print usage information."""
@@ -58,11 +83,13 @@ def discover_asset_roots() -> List[Dict[str, str]]:
             'priority': 2
         })
     
-    # Check common default locations
+    # Check common default locations (Swiss libdvm volumes + disc)
     default_locations = [
         '/media/user/SDCARD/xash3d/valve',
         '/mnt/sdcard/xash3d/valve',
         'sd:/xash3d/valve',
+        'carda:/xash3d/valve',
+        'cardb:/xash3d/valve',
         'gcdisc:/xash3d/valve',
     ]
     
@@ -85,8 +112,8 @@ def find_valid_asset_root() -> Optional[str]:
     
     for root in roots:
         path = root['path']
-        # Remove sd:/ or gcdisc:/ prefix for local checking
-        local_path = path.replace('sd:/', '').replace('gcdisc:/', '')
+        # Remove Swiss device prefixes for local filesystem checking
+        local_path = strip_device_prefix(path)
         
         if os.path.exists(local_path):
             print(f"Found valid asset root: {path} (type: {root['type']})")
@@ -257,17 +284,14 @@ def stage_assets(source_dir: Path, sd_card_path: Path) -> bool:
         print(f"Target: {sd_card_path}")
         print(f"Assets copied to: {sd_card_path}/xash3d/valve/")
         print("")
-        print("SD card layout:")
-        print("  sd:/apps/xash3d-gc/boot.dol")
-        print("  sd:/xash3d/valve/")
-        print("  sd:/xash3d/valve/save/")
-        print("  sd:/xash3d/valve/logs/")
-        print("  sd:/xash3d/valve/screenshots/")
+        print("SD / Swiss FAT layout (sd: SD2SP2; also carda:/cardb: for SD Gecko):")
+        for line in format_layout_help("sd:/").splitlines():
+            print(f"  {line}" if not line.startswith("==") else line)
         print("")
-        print("To deploy to GameCube:")
-        print("  1. Copy boot.dol to sd:/apps/xash3d-gc/boot.dol")
-        print("  2. Insert SD card into GameCube")
-        print("  3. Boot through Swiss loader or similar")
+        print("To deploy to GameCube via Swiss:")
+        print("  1. Copy boot.dol onto media Swiss can browse")
+        print("  2. Place valve assets under sd:/xash3d/valve/ (or carda:/ / cardb:/)")
+        print("  3. Launch boot.dol from Swiss")
         print("")
         print("Asset staging complete!")
         return True

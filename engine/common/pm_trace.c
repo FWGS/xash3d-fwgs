@@ -25,6 +25,9 @@ GNU General Public License for more details.
 
 static mplane_t	pm_boxplanes[6];
 static hull_t pm_boxhull;
+#if XASH_GAMECUBE
+static int gc_pm_trace_depth;
+#endif
 
 // default hullmins
 static const vec3_t pm_hullmins[MAX_MAP_HULLS] =
@@ -110,6 +113,8 @@ PM_HullPointContents
 */
 int GAME_EXPORT PM_HullPointContents( hull_t *hull, int num, const vec3_t p )
 {
+	int steps = 0;
+
 	if( !hull || !hull->planes )	// fantom bmodels?
 		return CONTENTS_NONE;
 
@@ -117,6 +122,13 @@ int GAME_EXPORT PM_HullPointContents( hull_t *hull, int num, const vec3_t p )
 	{
 		while( num >= 0 )
 		{
+			if( num < hull->firstclipnode || num > hull->lastclipnode
+				|| ++steps > hull->lastclipnode - hull->firstclipnode + 1 )
+			{
+				Con_Reportf( S_WARN "PM_HullPointContents: invalid hull path node=%d range=%d..%d\n",
+					num, hull->firstclipnode, hull->lastclipnode );
+				return CONTENTS_SOLID;
+			}
 			mplane_t *plane = &hull->planes[hull->clipnodes32[num].planenum];
 			num = hull->clipnodes32[num].children[PlaneDiff( p, plane ) < 0];
 		}
@@ -125,6 +137,13 @@ int GAME_EXPORT PM_HullPointContents( hull_t *hull, int num, const vec3_t p )
 	{
 		while( num >= 0 )
 		{
+			if( num < hull->firstclipnode || num > hull->lastclipnode
+				|| ++steps > hull->lastclipnode - hull->firstclipnode + 1 )
+			{
+				Con_Reportf( S_WARN "PM_HullPointContents: invalid hull path node=%d range=%d..%d\n",
+					num, hull->firstclipnode, hull->lastclipnode );
+				return CONTENTS_SOLID;
+			}
 			mplane_t *plane = &hull->planes[hull->clipnodes16[num].planenum];
 			num = hull->clipnodes16[num].children[PlaneDiff( p, plane ) < 0];
 		}
@@ -198,8 +217,27 @@ qboolean PM_RecursiveHullCheck( hull_t *hull, int num, float p1f, float p2f, vec
 	float		t1, t2;
 	float		frac, midf;
 	int		side;
+	int		steps = 0;
 	vec3_t		mid;
+#if XASH_GAMECUBE
+	if( ++gc_pm_trace_depth > 2048 )
+	{
+		Con_Reportf( S_WARN "PM_RecursiveHullCheck: excessive recursion at node %d (range %d..%d)\n",
+			num, hull ? hull->firstclipnode : -1, hull ? hull->lastclipnode : -1 );
+		gc_pm_trace_depth--;
+		return false;
+	}
+#endif
 loc0:
+	if( ++steps > hull->lastclipnode - hull->firstclipnode + 1 )
+	{
+		Con_Reportf( S_WARN "PM_RecursiveHullCheck: cyclic hull path at node %d (range %d..%d)\n",
+			num, hull->firstclipnode, hull->lastclipnode );
+		#if XASH_GAMECUBE
+		gc_pm_trace_depth--;
+		#endif
+		return false;
+	}
 	// check for empty
 	if( num < 0 )
 	{
@@ -211,6 +249,9 @@ loc0:
 			else trace->inwater = true;
 		}
 		else trace->startsolid = true;
+		#if XASH_GAMECUBE
+		gc_pm_trace_depth--;
+		#endif
 		return true; // empty
 	}
 
@@ -219,6 +260,9 @@ loc0:
 		// empty hull?
 		trace->allsolid = false;
 		trace->inopen = true;
+		#if XASH_GAMECUBE
+		gc_pm_trace_depth--;
+		#endif
 		return true;
 	}
 
@@ -268,13 +312,22 @@ loc0:
 
 	// move up to the node
 	if( !PM_RecursiveHullCheck( hull, children[side], p1f, midf, p1, mid, trace ))
+	{
+		#if XASH_GAMECUBE
+		gc_pm_trace_depth--;
+		#endif
 		return false;
+	}
 
 	// this recursion can not be optimized because mid would need to be duplicated on a stack
 	if( PM_HullPointContents( hull, children[side^1], mid ) != CONTENTS_SOLID )
 	{
 		// go past the node
-		return PM_RecursiveHullCheck( hull, children[side^1], midf, p2f, mid, p2, trace );
+		qboolean result = PM_RecursiveHullCheck( hull, children[side^1], midf, p2f, mid, p2, trace );
+		#if XASH_GAMECUBE
+		gc_pm_trace_depth--;
+		#endif
+		return result;
 	}
 
 	// never got out of the solid area
@@ -303,6 +356,9 @@ loc0:
 			trace->fraction = midf;
 			VectorCopy( mid, trace->endpos );
 			Con_Reportf( S_WARN "trace backed up past 0.0\n" );
+			#if XASH_GAMECUBE
+			gc_pm_trace_depth--;
+			#endif
 			return false;
 		}
 
@@ -313,12 +369,18 @@ loc0:
 	trace->fraction = midf;
 	VectorCopy( mid, trace->endpos );
 
+	#if XASH_GAMECUBE
+	gc_pm_trace_depth--;
+	#endif
 	return false;
 }
 
 pmtrace_t PM_PlayerTraceExt( playermove_t *pmove, vec3_t start, vec3_t end, int flags, int numents, physent_t *ents, int ignore_pe, pfnIgnore pmFilter )
 {
 	pmtrace_t trace_total;
+#if XASH_GAMECUBE
+	gc_pm_trace_depth = 0;
+#endif
 
 	memset( &trace_total, 0, sizeof( trace_total ));
 	VectorCopy( end, trace_total.endpos );

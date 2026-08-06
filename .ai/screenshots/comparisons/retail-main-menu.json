@@ -1,0 +1,22 @@
+{
+  "timestamp_utc": "2026-07-30T00:58:09.569976+00:00",
+  "milestone": "retail_main_menu",
+  "label": "Retail main menu",
+  "reference": ".ai/screenshots/retail-main-menu-reference.png",
+  "candidate": ".ai/screenshots/gc-main-menu.png",
+  "comparison": ".ai/screenshots/gc-main-menu-vs-retail.png",
+  "verdict": "drift",
+  "metrics": {
+    "mean_abs_diff": 5.507,
+    "max_diff": 255,
+    "changed_pixels": 10270,
+    "changed_ratio": 0.033431,
+    "width": 640,
+    "height": 480
+  },
+  "notes": [
+    "Menu background composition should broadly match retail layout.",
+    "Button stack should be readable and vertically aligned.",
+    "Use this as a UI/layout baseline, not a world-rendering gate."
+  ]
+}

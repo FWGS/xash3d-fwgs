@@ -416,6 +416,9 @@ void R_GXStudioEmitTriC(
 	float x2, float y2, float z2, float u2, float v2, unsigned c2 );
 int R_GXDrawBrushModel( cl_entity_t *e );
 int R_GXDrawTramBaked( const float *origin, const float *angles );
+void R_GXHoldEfbForDump( int frames );
+void R_GXStudioTexCoord( float u, float v );
+int GC_GetNewGameCapFaceVerts( int slot, float out[][3], int maxverts );
 #endif
 
 typedef struct image_s
@@ -470,6 +473,8 @@ void GL_Bind( int tmu, unsigned int texnum );
 //
 void R_Set2DMode( qboolean enable );
 void GL_UpdateTexture( int texnum, int cols, int rows, int width, int height, const byte *buffer, pixformat_t fmt );
+void GL_UpdateCinematicTexture( int texnum, int width, int height, const byte *buffer,
+	const uint16_t *dirty_tiles, uint dirty_count, qboolean full_upload );
 
 // gl_image.c
 //
@@ -654,6 +659,7 @@ void _TriColor4ub( byte r, byte g, byte b, byte a );
 void TriFog( float flFogColor[3], float flStart, float flEnd, int bOn );
 void TriGetMatrix( const int pname, float *matrix );
 void TriFogParams( float flDensity, int iFogSkybox );
+unsigned R_GXGetTriColorRGBA( void );
 
 
 
@@ -1203,6 +1209,9 @@ qboolean R_GcmapBindStaticScreenBuffers( int logical_w, int logical_h );
 #if XASH_GAMECUBE
 unsigned R_GcmapShadeDumpFromDepth( unsigned short *dst, int dst_w, int dst_h, int dst_stride );
 unsigned R_GcmapPosterizeDumpFromDepth( unsigned short *dst, int dst_w, int dst_h, int dst_stride );
+void R_GcmapTrimForMapLoad( void );
+void R_GcmapRestoreAfterMapLoad( void );
+void R_GcmapMarkMapLoadComplete( void );
 #endif
 void *R_GCBorrowMapLoadStaticArena( size_t size, size_t *capacity );
 qboolean R_GCReleaseMapLoadStaticArena( void *ptr );
@@ -1214,6 +1223,11 @@ void R_EnsureDrawBuffer( void );
 #if XASH_GAMECUBE
 void R_SetPendingCinematicBGRA( int width, int height, const byte *bgra );
 #endif
+void R_GCRebuildBlendMaps( void );
+qboolean R_GcmapEnsureWorldRenderScratch( void );
+espan_t *R_GcmapProbeSpanBase( int *maxspans );
+void R_GcmapTrimScreenBuffers( void );
+void R_GcReportFaceEmit( void );
 qboolean R_SetDisplayTransform( ref_screen_rotation_t rotate, int offset_x, int offset_y, float scale_x, float scale_y );
 
 //

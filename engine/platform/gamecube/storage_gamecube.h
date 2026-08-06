@@ -1,6 +1,8 @@
 /*
-storage_gamecube.h - GameCube read-only disc vs writable SD routing
-Copyright (C) 2026 xash3d-gc contributors
+storage_gamecube.h - GameCube read-only disc vs writable FAT routing
+
+Writable volumes (Swiss / libdvm): sd: (SD2SP2), carda:/cardb: (SD Gecko).
+Disc content: gcdisc: ISO9660. Probe-only: gcprobe: RAM bank.
 */
 #ifndef STORAGE_GAMECUBE_H
 #define STORAGE_GAMECUBE_H

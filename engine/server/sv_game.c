@@ -300,13 +300,20 @@ void GAME_EXPORT SV_SetModel( edict_t *ent, const char *modelname )
 
 	/* G100/G102 lean weapon grant: studio Mod_ForName after changelevel hangs
 	 * under MEM1. Bind empty hull without precache scans / MakeString. */
-	if( ( gc_lean_weapon_grant_active || Sys_CheckParm( "-gcchangelevel" ))
+	if( ( gc_lean_weapon_grant_active || Sys_CheckParm( "-gcchangelevel" )
+		|| ( Sys_CheckParm( "-gcmenuplaystart" ) && !Sys_CheckParm( "-gcfullphysics" )))
 		&& ( !Q_strnicmp( name, "models/w_", 9 )
 			|| !Q_strnicmp( name, "models/v_", 9 )
 			|| !Q_strnicmp( name, "models/p_", 9 )))
 	{
-		ent->v.modelindex = 1;
+		/* Do not use world model index 1 as a placeholder. The post-spawn
+		 * link/full-pack path treats that as a brush model and can loop after
+		 * the low-memory New Game player prime. Keep the weapon entity real but
+		 * model-less until a later render-safe reload. */
+		ent->v.modelindex = 0;
 		ent->v.model = 0;
+		ent->v.solid = SOLID_NOT;
+		ent->v.movetype = MOVETYPE_NONE;
 		VectorClear( ent->v.mins );
 		VectorClear( ent->v.maxs );
 		VectorClear( ent->v.size );
@@ -2012,7 +2019,13 @@ int GAME_EXPORT pfnDropToFloor( edict_t *e )
 
 	monsterClip = FBitSet( e->v.flags, FL_MONSTERCLIP ) ? true : false;
 	vec3_t end = Vec3( e->v.origin );
-	end[2] -= 256.0f;
+	/* Some GameCube smoke maps place info_player_start above a long shaft.
+	 * The stock 256-unit probe misses the actual floor, leaving the player
+	 * to fall into a death state before the first gameplay input. */
+	float drop_distance = 256.0f;
+	if( Sys_CheckParm( "-gcnewgame" ) && FBitSet( e->v.flags, FL_CLIENT ))
+		drop_distance = 1024.0f;
+	end[2] -= drop_distance;
 
 	trace = SV_Move( e->v.origin, e->v.mins, e->v.maxs, end, MOVE_NORMAL, e, monsterClip );
 
@@ -3473,7 +3486,7 @@ string_t GAME_EXPORT SV_AllocString( const char *szValue )
 		}
 
 		//MsgDev( D_NOTE, "SV_AllocString: %ld %s\n", str64.plast - svgame.globals->pStringBase, processed_string );
-		Q_strncpy( str64.plast, processed_string, len );
+		Q_strncpy( str64.plast, processed_string, str64.maxstringarray - (str64.plast - str64.poldstringbase) );
 		str64.totalalloc += len;
 
 		dupe_string = str64.plast;

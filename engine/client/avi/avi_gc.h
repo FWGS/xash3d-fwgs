@@ -7,6 +7,8 @@ Copyright (C) 2026 Xash3D GameCube port contributors
 
 #include "avi_cinepak.h"
 
+#define AVI_GC_MAX_TILES 1200
+
 typedef struct avi_frame_index_s
 {
 	fs_offset_t	offset;
@@ -17,6 +19,7 @@ struct movie_state_s
 {
 	file_t			*file;
 	file_t			*audio_file;
+	file_t			*native_audio_file;
 	byte			*frame;
 	byte			*upload_frame;
 	byte			*chunk;
@@ -36,6 +39,9 @@ struct movie_state_s
 	uint			audio_width;
 	uint			audio_channels;
 	uint			audio_bytes_submitted;
+	uint			native_audio_data_size;
+	uint			native_audio_offset;
+	uint			native_audio_reported_second;
 	uint			audio_chunk_size;
 	uint			audio_chunk_offset;
 	qboolean		audio_reported;
@@ -62,6 +68,9 @@ struct movie_state_s
 	qboolean		frame_on_gpu;
 	qboolean		ui_logo;
 	uint			debug_think_calls;
+	uint16_t		raw_dirty_tiles[AVI_GC_MAX_TILES];
+	uint			raw_dirty_count;
+	qboolean		raw_full_upload;
 };
 
 #endif // AVI_GC_H

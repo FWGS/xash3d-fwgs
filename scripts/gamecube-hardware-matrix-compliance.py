@@ -63,6 +63,11 @@ def main() -> int:
 		"matrix tracks storage, memory-card, controller, and disconnect variants",
 	))
 	checks.append(Check(
+		"Swiss libdvm volumes",
+		"PASS" if contains_all(matrix, ("carda:/", "cardb:/", "libogc2", "libdvm", "sd:/xash3d")) else "FAIL",
+		"matrix documents Swiss sd:/carda:/cardb: volumes with libogc2/libdvm",
+	))
+	checks.append(Check(
 		"Dolphin boundary",
 		"PASS" if contains_all(matrix, ("Dolphin", "Diagnostic", "not accepted as final hardware proof", "Dolphin evidence is diagnostic only")) else "FAIL",
 		"matrix keeps emulator evidence separate from real hardware release claims",

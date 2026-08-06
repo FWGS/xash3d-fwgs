@@ -216,13 +216,19 @@ dolphin_boot_gate() {
 	local log_path="$LOG_DIR/dolphin-boot-probe.log"
 	local attempt_log
 	local attempt
+	local probe_env=(DOLPHIN_TIMEOUT="$BOOT_TIMEOUT")
 	echo
 	echo "== Dolphin boot probe =="
 	: >"$log_path"
+	# RC_G508=1 (default) enables New Game + config round-trip for Swiss evidence.
+	if [[ "${RC_G508:-1}" == "1" ]]; then
+		probe_env+=(DOLPHIN_NEWGAME=1 DOLPHIN_G508=1)
+		echo "G508: DOLPHIN_NEWGAME=1 DOLPHIN_G508=1" | tee -a "$log_path"
+	fi
 	for attempt in $(seq 1 "$DOLPHIN_RETRIES"); do
 		attempt_log="$LOG_DIR/dolphin-boot-probe-attempt-${attempt}.log"
 		echo "Attempt $attempt/$DOLPHIN_RETRIES" | tee -a "$log_path"
-		if DOLPHIN_TIMEOUT="$BOOT_TIMEOUT" scripts/dolphin-boot-probe.sh >"$attempt_log" 2>&1; then
+		if env "${probe_env[@]}" scripts/dolphin-boot-probe.sh >"$attempt_log" 2>&1; then
 			cat "$attempt_log" >>"$log_path"
 			log_status "Dolphin boot probe" "PASS" "$log_path" "boot probe reached acceptance on attempt $attempt"
 			tail -80 "$log_path"
@@ -241,13 +247,17 @@ frame_budget_gate() {
 	local log_path="$LOG_DIR/frame-budget-probe.log"
 	local attempt_log
 	local attempt
+	local probe_env=(DOLPHIN_TIMEOUT="$BOOT_TIMEOUT")
 	echo
 	echo "== frame-budget probe =="
 	: >"$log_path"
+	if [[ "${RC_G508:-1}" == "1" ]]; then
+		probe_env+=(DOLPHIN_NEWGAME=1 DOLPHIN_G508=1)
+	fi
 	for attempt in $(seq 1 "$DOLPHIN_RETRIES"); do
 		attempt_log="$LOG_DIR/frame-budget-probe-attempt-${attempt}.log"
 		echo "Attempt $attempt/$DOLPHIN_RETRIES" | tee -a "$log_path"
-		if DOLPHIN_TIMEOUT="$BOOT_TIMEOUT" scripts/dolphin-boot-probe.sh >"$attempt_log" 2>&1; then
+		if env "${probe_env[@]}" scripts/dolphin-boot-probe.sh >"$attempt_log" 2>&1; then
 			cat "$attempt_log" >>"$log_path"
 			if grep -Eq "G36_STATUS: (PASS|WEAK)|FRAME_BUDGET_STATS: samples=[1-9]" "$attempt_log"; then
 				log_status "frame-budget probe" "PASS" "$log_path" "frame-budget telemetry present on attempt $attempt"
@@ -305,18 +315,41 @@ soak_gate() {
 		--log-dir "$LOG_DIR/soak-probe"
 		--iterations "${RC_SOAK_ITERATIONS:-2}"
 		--timeout "${RC_SOAK_TIMEOUT:-$BOOT_TIMEOUT}"
-		--maps $MAP_LIST
 	)
 	echo
 	echo "== sustained soak/leak regression =="
+	# RC_G509=1 (default) runs changelevel continuity + G504 ladder soak.
+	if [[ "${RC_G509:-1}" == "1" ]]; then
+		args+=(--g509 --require-ladder --require-changelevel)
+		args+=(--changelevel-route "${RC_G509_ROUTE:-c0a0:c0a0a}")
+		echo "G509: changelevel soak + require-ladder" | tee -a "$log_path"
+	else
+		args+=(--maps $MAP_LIST)
+	fi
 	if [[ "${RC_SOAK_DRY_RUN:-1}" == "1" ]]; then
 		args+=(--dry-run)
 	fi
 	if [[ "${RC_SOAK_STRICT:-0}" == "1" ]]; then
 		args+=(--strict)
 	fi
+	: >"$log_path"
 	if "${args[@]}" >"$log_path" 2>&1; then
-		log_status "sustained soak/leak regression" "PASS" "$log_path" "G69 soak/leak evidence gate passed"
+		log_status "sustained soak/leak regression" "PASS" "$log_path" "G509/G69 soak evidence gate passed"
+		# Attach G501 experiment pointer beside RC soak output.
+		manifest_args=(
+			--repo "$ROOT"
+			--hypothesis "RC soak G509=${RC_G509:-1} dry_run=${RC_SOAK_DRY_RUN:-1}"
+			--target-file scripts/gamecube-rc-check.sh
+			--decision pending
+			--output-dir "$LOG_DIR/soak-probe/experiment"
+		)
+		if [[ -f "$LOG_DIR/soak-probe/ladder.json" ]]; then
+			manifest_args+=(--ladder-json "$LOG_DIR/soak-probe/ladder.json")
+		fi
+		if [[ "${RC_SOAK_DRY_RUN:-1}" == "1" ]]; then
+			manifest_args+=(--dry-run)
+		fi
+		python3 scripts/gamecube-experiment-manifest.py "${manifest_args[@]}" >>"$log_path" 2>&1 || true
 		cat "$log_path"
 		return 0
 	fi

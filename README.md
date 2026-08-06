@@ -143,12 +143,17 @@ To build you should clone [SDL](https://github.com/libsdl-org/SDL) from `SDL2` b
 ### GameCube
 
 This fork includes a GameCube auto-porting pipeline built around the scripts in
-[`scripts/`](scripts/).
+[`scripts/`](scripts/). The preferred hardware loader path is **Swiss**, built
+against Extrems' **libogc2** with **libdvm** for FAT/SD (Swiss-compatible
+accessory stack). Classic stock `libogc` remains a fallback.
 
-1. Install `devkitPro` with `devkitPPC` and `libogc`, and make sure `python3`
-   is available.
+1. Install `devkitPro` with `devkitPPC`, then install the Swiss stack:
+   `sudo (dkp-)pacman -S libogc2` and choose `libogc2-libdvm` when prompted for
+   a `libogc2-libfat` provider. Ensure `python3` is available.
+   Override with `XASH_GAMECUBE_OGC_STACK=libogc` only if you must use classic
+   `$DEVKITPRO/libogc`.
 2. Provide legal Half-Life assets at `Half-Life/valve` if you want ISO builds,
-   or copy assets to `sd:/xash3d/valve/` for direct `boot.dol` testing.
+   or copy assets to `sd:/xash3d/valve/` for direct `boot.dol` testing via Swiss.
 3. Start the automation from the repo root with:
    `scripts/gamecube-autoport.sh`
 

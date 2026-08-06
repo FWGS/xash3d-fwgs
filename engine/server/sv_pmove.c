@@ -22,6 +22,9 @@ GNU General Public License for more details.
 
 static qboolean has_update = false;
 static void SV_GetTrueOrigin( sv_client_t *cl, int edictnum, vec3_t origin );
+#if XASH_GAMECUBE
+static qboolean gc_probe_jump_logged;
+#endif
 
 void SV_ClipPMoveToEntity( physent_t *pe, const vec3_t start, vec3_t mins, vec3_t maxs, const vec3_t end, pmtrace_t *tr )
 {
@@ -590,6 +593,35 @@ static void SV_SetupPMove( playermove_t *pmove, sv_client_t *cl, usercmd_t *ucmd
 
 	SV_AddLinksToPmove( sv_areanodes, absmin, absmax );
 	SV_AddLaddersToPmove( sv_areanodes, absmin, absmax );
+
+#if XASH_GAMECUBE
+	/* The bounded intro-tram pusher can sit just outside the area-node query
+	 * at the eye-height spawn. Add it explicitly or PMove falls through the
+	 * visible car while the static BSP floor remains far below it. */
+	if( Sys_CheckParm( "-gcnewgame" ) && !Sys_CheckParm( "-gcchangelevel" ))
+	{
+		edict_t *tram = SV_GCFindIntroTrain();
+		if( tram )
+		{
+			qboolean present = false;
+			for( int i = 1; i < svgame.pmove->numphysent; i++ )
+			{
+				if( svgame.pmove->physents[i].info == NUM_FOR_EDICT( tram ))
+				{
+					present = true;
+					break;
+				}
+			}
+			if( !present && svgame.pmove->numphysent < MAX_PHYSENTS )
+			{
+				physent_t *pe = &svgame.pmove->physents[svgame.pmove->numphysent++];
+				if( SV_CopyEdictToPhysEnt( pe, tram ))
+					Con_Reportf( "Xash3D GameCube: PMove tram physent added edict=%d\n",
+						NUM_FOR_EDICT( tram ));
+			}
+		}
+	}
+#endif
 }
 
 static void SV_FinishPMove( playermove_t *pmove, sv_client_t *cl )
@@ -1011,6 +1043,14 @@ void SV_RunCmd( sv_client_t *cl, usercmd_t *ucmd, int random_seed )
 	// copy results back to client
 	SV_FinishPMove( svgame.pmove, cl );
 #if XASH_GAMECUBE
+	if( Sys_CheckParm( "-gcnewgame" ) && Sys_CheckParm( "-gcfullphysics" )
+		&& ( ucmd->buttons & IN_JUMP ) && !gc_probe_jump_logged )
+	{
+		gc_probe_jump_logged = true;
+		Con_Reportf( "Xash3D GameCube: probe jump PMove ready velocity=(%.1f,%.1f,%.1f) flags=0x%x\n",
+			clent->v.velocity[0], clent->v.velocity[1], clent->v.velocity[2],
+			(unsigned)clent->v.flags );
+	}
 	if( gc_fullphysics_trace )
 	{
 		Con_Reportf( "Xash3D GameCube: native usercmd PM_Move ready origin=(%.0f,%.0f,%.0f) velocity=(%.0f,%.0f,%.0f)\n",

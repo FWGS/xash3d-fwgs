@@ -1,8 +1,11 @@
 #!/usr/bin/env bash
 # Build Xash3D FWGS for Nintendo GameCube (requires devkitPro)
+# Swiss-first stack: prefers libogc2 + libdvm under $DEVKITPRO.
 set -e
 
 export DEVKITPRO="${DEVKITPRO:-/opt/devkitpro}"
+# auto|libogc2|libogc — Swiss / Extrems libogc2 is the default preference.
+export XASH_GAMECUBE_OGC_STACK="${XASH_GAMECUBE_OGC_STACK:-auto}"
 
 ROOT="$(git rev-parse --show-toplevel)"
 HLSDK_DIR="${HLSDK_PORTABLE_DIR:-$ROOT/3rdparty/hlsdk-portable}"
@@ -11,6 +14,13 @@ HLSDK_GAMEDIR="${HLSDK_GAMECUBE_GAMEDIR:-valve}"
 HLSDK_SERVER_ARCHIVE="$HLSDK_DESTDIR/$HLSDK_GAMEDIR/dlls/libhl_gamecube_ppc.a"
 HLSDK_EXPORTS="$HLSDK_DESTDIR/$HLSDK_GAMEDIR/dlls/gamecube_server_entity_exports.inc"
 NM="${DEVKITPRO:-/opt/devkitpro}/devkitPPC/bin/powerpc-eabi-nm"
+
+if command -v python3 >/dev/null 2>&1; then
+	python3 "$ROOT/scripts/waifulib/gamecube_ogc_stack.py" > /tmp/gamecube-ogc-stack.json
+	echo "GameCube OGC stack resolution:"
+	python3 -c 'import json; d=json.load(open("/tmp/gamecube-ogc-stack.json")); print(" ", d.get("stack"), d.get("root"), "fat="+str(d.get("fat_provider"))); raise SystemExit(0 if d.get("available") else 1)' \
+		|| { echo "error: GameCube OGC stack not available under $DEVKITPRO (install libogc2 for Swiss)" >&2; exit 1; }
+fi
 
 if [ -s "$HLSDK_SERVER_ARCHIVE" ] && [ -d "$HLSDK_DIR/dlls" ] && [ -x "$NM" ]; then
 	python3 "$ROOT/scripts/generate-hlsdk-gamecube-exports.py" \
@@ -56,6 +66,10 @@ fi
 	echo "host=$(uname -n 2>/dev/null || echo unknown)"
 	echo "renderer=REF_GX"
 	echo "policy=retail-flipper"
+	echo "loader=swiss"
+	if [[ -f /tmp/gamecube-ogc-stack.json ]]; then
+		python3 -c 'import json; d=json.load(open("/tmp/gamecube-ogc-stack.json")); print("ogc_stack=%s" % d.get("stack")); print("ogc_root=%s" % d.get("root")); print("fat_provider=%s" % d.get("fat_provider"))'
+	fi
 	echo "elf=OUT/bin/xash"
 	echo "dol=OUT/bin/boot.dol"
 	if [ -f OUT/bin/xash ]; then

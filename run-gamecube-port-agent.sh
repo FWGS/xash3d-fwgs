@@ -5,11 +5,11 @@ set -Eeuo pipefail
 #
 # Usage:
 #   chmod +x run-gamecube-port-agent.sh
-#   ./run-gamecube-port-agent.sh ~/Desktop/xash3d
+#   ./run-gamecube-port-agent.sh ~/Desktop/xash3d-gc
 #
 # Optional environment variables:
-#   HOURS=12                         Maximum wall-clock runtime; 0 = no deadline
-#   MAX_PASSES=100                   Maximum Continue passes; 0 = unlimited
+#   HOURS=24                         Maximum wall-clock runtime; 0 = no deadline
+#   MAX_PASSES=200                   Maximum Continue passes; 0 = unlimited
 #   CONTINUE_BIN=cn                  Continue CLI executable
 #   AUTO_FLAG=--auto                 Continue automatic tool approval flag
 #   MODEL_PROMPT_FILE=.continue/gamecube-port-task.md
@@ -22,15 +22,15 @@ set -Eeuo pipefail
 #
 # Recommended:
 #   tmux new-session -d -s xash3d-gamecube \
-#     "cd ~/Desktop/xash3d && HOURS=24 ./run-gamecube-port-agent.sh ."
+#     "cd ~/Desktop/xash3d-gc && HOURS=24 ./run-gamecube-port-agent.sh ."
 #
 # This supervisor does not modify or include copyrighted Half-Life assets.
 
 REPO="${1:-$PWD}"
 REPO="$(realpath "$REPO")"
 
-HOURS="${HOURS:-12}"
-MAX_PASSES="${MAX_PASSES:-100}"
+HOURS="${HOURS:-24}"
+MAX_PASSES="${MAX_PASSES:-200}"
 CONTINUE_BIN="${CONTINUE_BIN:-cn}"
 AUTO_FLAG="${AUTO_FLAG:---auto}"
 MODEL_PROMPT_FILE="${MODEL_PROMPT_FILE:-.continue/gamecube-port-task.md}"
@@ -38,6 +38,7 @@ STATUS_FILE="${STATUS_FILE:-docs/gamecube/PORT_STATUS.md}"
 STALL_LIMIT="${STALL_LIMIT:-3}"
 PASS_PAUSE_SECONDS="${PASS_PAUSE_SECONDS:-15}"
 FAILURE_PAUSE_SECONDS="${FAILURE_PAUSE_SECONDS:-45}"
+PASS_OUTPUT_STALL_SECONDS="${PASS_OUTPUT_STALL_SECONDS:-1800}"
 CREATE_BRANCH="${CREATE_BRANCH:-0}"
 COMMIT_DIRTY_BASELINE="${COMMIT_DIRTY_BASELINE:-0}"
 
@@ -48,8 +49,31 @@ PASS_COUNTER_FILE="$STATE_DIR/pass-counter"
 LAST_FINGERPRINT_FILE="$STATE_DIR/last-fingerprint"
 STALL_COUNTER_FILE="$STATE_DIR/stall-counter"
 SUMMARY_FILE="$STATE_DIR/last-pass-summary.txt"
+WORKING_MEMORY_FILE="$STATE_DIR/working-memory.md"
+PASS_CONTEXT_FILE="$STATE_DIR/pass-context.md"
+RECURSIVE_TASK_FILE="$STATE_DIR/recursive-task.md"
+SUPERVISOR_PID_FILE="$STATE_DIR/supervisor.pid"
+CURRENT_PASS_PID_FILE="$STATE_DIR/current-pass.pid"
+CURRENT_PASS_LOG_FILE="$STATE_DIR/current-pass-log.txt"
+RELOAD_REQUEST_FILE="$STATE_DIR/reload-requested"
 PROMPT_PATH="$REPO/$MODEL_PROMPT_FILE"
 STATUS_PATH="$REPO/$STATUS_FILE"
+GOALS_PATH="$REPO/.ai/goals/GAMECUBE_PORT_GOALS.md"
+PLAN_PATH="$REPO/docs/GAMECUBE_PORT_PLAN.md"
+SCREENSHOT_BASELINES_PATH="$REPO/.ai/screenshots/baselines.json"
+HARNESS_INCIDENT_PATH="$REPO/.ai/state/gamecube-harness-incident.json"
+RECURSIVE_GOALS_PATH="$REPO/.ai/state/gamecube-recursive-goals.json"
+GENERATED_STATE_PATHS=(
+    ".ai/state/gamecube-harness-incident.json"
+    ".ai/state/gamecube-recursive-goals.json"
+    ".continue/gamecube-agent/recursive-task.md"
+    ".continue/gamecube-agent/pass-context.md"
+    ".continue/gamecube-agent/working-memory.md"
+    ".continue/gamecube-agent/last-pass-summary.txt"
+    ".continue/gamecube-agent/pass-counter"
+    ".continue/gamecube-agent/stall-counter"
+    ".continue/gamecube-agent/last-fingerprint"
+)
 
 mkdir -p "$LOG_DIR" "$STATE_DIR" "$(dirname "$PROMPT_PATH")"
 
@@ -70,6 +94,100 @@ is_nonnegative_integer() {
     [[ "$1" =~ ^[0-9]+$ ]]
 }
 
+git_status_filtered() {
+    local line path generated
+    while IFS= read -r line; do
+        [[ -n "$line" ]] || continue
+        path="${line:3}"
+        if [[ "$path" == *" -> "* ]]; then
+            path="${path##* -> }"
+        fi
+        generated=0
+        for candidate in "${GENERATED_STATE_PATHS[@]}"; do
+            if [[ "$path" == "$candidate" ]]; then
+                generated=1
+                break
+            fi
+        done
+        (( generated == 1 )) && continue
+        printf '%s\n' "$line"
+    done < <(git status --porcelain=v1)
+}
+
+git_diff_stat_filtered() {
+    local args=(diff --stat)
+    local candidate
+    for candidate in "${GENERATED_STATE_PATHS[@]}"; do
+        args+=(-- ":(exclude)$candidate")
+    done
+    git "${args[@]}"
+}
+
+git_diff_cached_stat_filtered() {
+    local args=(diff --cached --stat)
+    local candidate
+    for candidate in "${GENERATED_STATE_PATHS[@]}"; do
+        args+=(-- ":(exclude)$candidate")
+    done
+    git "${args[@]}"
+}
+
+RELOAD_REQUESTED=0
+CURRENT_SUPERVISED_PID=""
+CURRENT_PASS_LOG=""
+
+write_supervisor_state() {
+    printf '%s\n' "$$" >"$SUPERVISOR_PID_FILE"
+    if [[ -n "$CURRENT_SUPERVISED_PID" ]]; then
+        printf '%s\n' "$CURRENT_SUPERVISED_PID" >"$CURRENT_PASS_PID_FILE"
+    else
+        : >"$CURRENT_PASS_PID_FILE"
+    fi
+    if [[ -n "$CURRENT_PASS_LOG" ]]; then
+        printf '%s\n' "$CURRENT_PASS_LOG" >"$CURRENT_PASS_LOG_FILE"
+    else
+        : >"$CURRENT_PASS_LOG_FILE"
+    fi
+}
+
+clear_current_pass_state() {
+    CURRENT_SUPERVISED_PID=""
+    CURRENT_PASS_LOG=""
+    write_supervisor_state
+}
+
+request_reload() {
+    RELOAD_REQUESTED=1
+    : >"$RELOAD_REQUEST_FILE"
+    log "Reload requested; current pass will be interrupted so the next pass reloads prompt/scripts."
+    if [[ -n "$CURRENT_SUPERVISED_PID" ]]; then
+        kill -TERM "$CURRENT_SUPERVISED_PID" 2>/dev/null || true
+    fi
+}
+
+trap 'request_reload' HUP USR1
+
+await_pass_exit() {
+    local supervised_pid="$1"
+    local wait_status="$2"
+    local poll_count=0
+
+    while kill -0 "$supervised_pid" 2>/dev/null; do
+        if (( poll_count == 0 )); then
+            log "Waiting for pass pid $supervised_pid to exit cleanly before clearing state."
+        fi
+        sleep 1
+        poll_count=$((poll_count + 1))
+        if (( poll_count >= 30 )); then
+            log "Pass pid $supervised_pid is still alive after reload/interrupt wait; sending KILL."
+            kill -KILL "$supervised_pid" 2>/dev/null || true
+            break
+        fi
+    done
+
+    return "$wait_status"
+}
+
 require_command git
 require_command "$CONTINUE_BIN"
 require_command flock
@@ -82,6 +200,7 @@ is_nonnegative_integer "$MAX_PASSES" || die "MAX_PASSES must be a non-negative i
 is_nonnegative_integer "$STALL_LIMIT" || die "STALL_LIMIT must be a non-negative integer."
 is_nonnegative_integer "$PASS_PAUSE_SECONDS" || die "PASS_PAUSE_SECONDS must be a non-negative integer."
 is_nonnegative_integer "$FAILURE_PAUSE_SECONDS" || die "FAILURE_PAUSE_SECONDS must be a non-negative integer."
+is_nonnegative_integer "$PASS_OUTPUT_STALL_SECONDS" || die "PASS_OUTPUT_STALL_SECONDS must be a non-negative integer."
 
 [[ -d "$REPO/.git" ]] || die "Not a Git repository: $REPO"
 
@@ -90,6 +209,7 @@ cd "$REPO"
 # Prevent two supervisors from editing the same checkout.
 exec 9>"$LOCK_FILE"
 flock -n 9 || die "Another GameCube supervisor is already running for this checkout."
+write_supervisor_state
 
 if [[ ! -f "$PROMPT_PATH" ]]; then
     cat >"$PROMPT_PATH" <<'PROMPT'
@@ -281,7 +401,7 @@ if [[ "${CREATE_BRANCH:-0}" == "1" ]]; then
 
     if [[ "$current_branch" != "master" ]]; then
         if git show-ref --verify --quiet refs/heads/master; then
-            if [[ -n "$(git status --porcelain)" ]]; then
+            if [[ -n "$(git_status_filtered)" ]]; then
                 die "Working tree has changes; cannot safely switch to master."
             fi
             git switch master
@@ -291,7 +411,7 @@ if [[ "${CREATE_BRANCH:-0}" == "1" ]]; then
     fi
 fi
 
-if [[ -n "$(git status --porcelain)" ]]; then
+if [[ -n "$(git_status_filtered)" ]]; then
     if [[ "$COMMIT_DIRTY_BASELINE" == "1" ]]; then
         git add -A
         git commit -m "chore(gamecube): checkpoint before autonomous porting" || true
@@ -316,21 +436,285 @@ is_nonnegative_integer "$pass" || pass=0
 is_nonnegative_integer "$stall_count" || stall_count=0
 
 repository_fingerprint() {
+    local fingerprint_paths=()
+    local path
+    for path in \
+        docs/gamecube \
+        engine/platform/gamecube \
+        engine/render/gx \
+        engine/audio/gamecube \
+        engine/input/gamecube \
+        cmake/toolchains \
+        scripts/gamecube
+    do
+        [[ -d "$path" ]] && fingerprint_paths+=("$path")
+    done
+
     {
         git rev-parse HEAD
-        git status --porcelain=v1
-        git diff --stat
-        git diff --cached --stat
+        git_status_filtered
+        git_diff_stat_filtered
+        git_diff_cached_stat_filtered
         if [[ -f "$STATUS_PATH" ]]; then
             sha256sum "$STATUS_PATH"
         else
             printf 'missing-status-file\n'
         fi
-        find docs/gamecube engine/platform/gamecube engine/render/gx \
-             engine/audio/gamecube engine/input/gamecube \
-             cmake/toolchains scripts/gamecube \
-             -type f -printf '%p %s %T@\n' 2>/dev/null | sort
+        if (( ${#fingerprint_paths[@]} )); then
+            find "${fingerprint_paths[@]}" -type f -printf '%p %s %T@\n' 2>/dev/null | sort
+        fi
     } | sha256sum | awk '{print $1}'
+}
+
+update_working_memory() {
+    local logfile="$1"
+    local marker="$2"
+    local status="$3"
+    local task_line blocker_line next_line verify_line files_line
+
+    task_line="$(
+        grep -E '^(task|current task|milestone worked)[[:space:]]*[:=-]' "$logfile" \
+        | tail -n 1 | sed 's/^[[:space:]]*//' || true
+    )"
+    files_line="$(
+        grep -E '^(files changed|changed files)[[:space:]]*[:=-]' "$logfile" \
+        | tail -n 1 | sed 's/^[[:space:]]*//' || true
+    )"
+    verify_line="$(
+        grep -E '^(verification|builds/tests run|tests run)[[:space:]]*[:=-]' "$logfile" \
+        | tail -n 1 | sed 's/^[[:space:]]*//' || true
+    )"
+    blocker_line="$(
+        grep -E '^(blocker|unresolved failures)[[:space:]]*[:=-]' "$logfile" \
+        | tail -n 1 | sed 's/^[[:space:]]*//' || true
+    )"
+    next_line="$(
+        grep -E '^(next task|exact next milestone)[[:space:]]*[:=-]' "$logfile" \
+        | tail -n 1 | sed 's/^[[:space:]]*//' || true
+    )"
+
+    {
+        printf '# GameCube Agent Working Memory\n\n'
+        printf '- Updated: %s\n' "$(date '+%Y-%m-%d %H:%M:%S %Z')"
+        printf '- Branch: %s\n' "$(git branch --show-current)"
+        printf '- HEAD: %s\n' "$(git rev-parse --short HEAD)"
+        printf '- Pass: %s\n' "$pass"
+        printf '- Exit status: %s\n' "$status"
+        printf '- Result marker: %s\n' "${marker:-missing}"
+        [[ -n "$task_line" ]] && printf '- %s\n' "$task_line"
+        [[ -n "$files_line" ]] && printf '- %s\n' "$files_line"
+        [[ -n "$verify_line" ]] && printf '- %s\n' "$verify_line"
+        [[ -n "$blocker_line" ]] && printf '- %s\n' "$blocker_line"
+        [[ -n "$next_line" ]] && printf '- %s\n' "$next_line"
+        printf '- Log: %s\n' "$logfile"
+    } >"$WORKING_MEMORY_FILE"
+}
+
+update_pass_context() {
+    python3 - "$PASS_CONTEXT_FILE" "$WORKING_MEMORY_FILE" "$STATUS_PATH" "$GOALS_PATH" "$PLAN_PATH" "$SCREENSHOT_BASELINES_PATH" "$HARNESS_INCIDENT_PATH" "$RECURSIVE_GOALS_PATH" "$RECURSIVE_TASK_FILE" <<'PY'
+from pathlib import Path
+import json
+import re
+import sys
+
+out_path = Path(sys.argv[1])
+memory_path = Path(sys.argv[2])
+status_path = Path(sys.argv[3])
+goals_path = Path(sys.argv[4])
+plan_path = Path(sys.argv[5])
+baselines_path = Path(sys.argv[6])
+harness_incident_path = Path(sys.argv[7])
+recursive_goals_path = Path(sys.argv[8])
+recursive_task_path = Path(sys.argv[9])
+
+def read(path: Path) -> str:
+    if not path.is_file():
+        return ""
+    return path.read_text(encoding="utf-8", errors="replace")
+
+def section(text: str, heading: str, limit: int = 80) -> list[str]:
+    lines = text.splitlines()
+    start = None
+    for i, line in enumerate(lines):
+        if line.strip() == heading:
+            start = i
+            break
+    if start is None:
+        return []
+    collected = [lines[start]]
+    for line in lines[start + 1:]:
+        if line.startswith("## ") and line.strip() != heading:
+            break
+        collected.append(line)
+        if len(collected) >= limit:
+            break
+    return collected
+
+def grep_lines(text: str, pattern: str, limit: int = 20) -> list[str]:
+    rx = re.compile(pattern)
+    out = []
+    for line in text.splitlines():
+        if rx.search(line):
+            out.append(line)
+            if len(out) >= limit:
+                break
+    return out
+
+memory = read(memory_path).strip()
+status = read(status_path)
+goals = read(goals_path)
+plan = read(plan_path)
+baselines = read(baselines_path)
+harness_incident = read(harness_incident_path)
+recursive_goals = read(recursive_goals_path)
+recursive_task = read(recursive_task_path).strip()
+
+parts: list[str] = ["# GameCube Pass Context", ""]
+
+if memory:
+    parts += ["## Working memory", memory, ""]
+
+if recursive_task:
+    parts += ["## Recursive task", recursive_task, ""]
+
+if status:
+    parts += ["## Port status excerpt"]
+    parts += status.splitlines()[:80]
+    parts += [""]
+
+goal_focus = section(goals, "## Current focus (2026-07-18)", limit=120)
+if goal_focus:
+    parts += goal_focus + [""]
+
+immediate_queue = grep_lines(goals, r"Immediate source queue|^\d+\.\s+\*\*G|^### G47[1-9]:|^### G480:", limit=80)
+if immediate_queue:
+    parts += ["## Queue excerpts"] + immediate_queue + [""]
+
+plan_lines = grep_lines(
+    plan,
+    r"Current automatic goal arc:|Endgame / release goals|Current focus|Immediate source queue|Next automatic goal|G47[1-9]|G480",
+    limit=40,
+)
+if plan_lines:
+    parts += ["## Plan hints"] + plan_lines + [""]
+
+if baselines:
+    try:
+        baseline_data = json.loads(baselines)
+        milestone_lines = []
+        for item in baseline_data.get("milestones", [])[:8]:
+            milestone_id = item.get("id", "")
+            label = item.get("label", "")
+            if milestone_id and label:
+                milestone_lines.append(f"- {milestone_id}: {label}")
+        if milestone_lines:
+            parts += ["## Screenshot baselines"] + milestone_lines + [""]
+    except Exception:
+        pass
+
+if harness_incident:
+    try:
+        incident = json.loads(harness_incident)
+        summary = []
+        for key in ("classification", "probe_status", "g36_status", "visual_status", "latest_probe_log_dir"):
+            value = incident.get(key, "")
+            if value:
+                summary.append(f"- {key}: {value}")
+        focus_files = incident.get("focus_files", [])
+        if isinstance(focus_files, list) and focus_files:
+            summary.append("- focus_files: " + ", ".join(str(item) for item in focus_files[:5]))
+        next_actions = incident.get("next_actions", [])
+        if isinstance(next_actions, list):
+            for item in next_actions[:4]:
+                summary.append(f"- action: {item}")
+        screenshot = incident.get("latest_screenshot", {})
+        if isinstance(screenshot, dict) and screenshot.get("milestone"):
+            summary.append(
+                f"- screenshot: {screenshot.get('milestone')} verdict={screenshot.get('verdict', 'unknown')}"
+            )
+        if summary:
+            parts += ["## Harness incident"] + summary + [""]
+    except Exception:
+        pass
+
+if recursive_goals:
+    try:
+        goal_state = json.loads(recursive_goals)
+        summary = []
+        root = goal_state.get("root_goal", {})
+        if isinstance(root, dict) and root.get("title"):
+            summary.append(f"- root: {root.get('title')} status={root.get('status', 'unknown')}")
+        if goal_state.get("active_child_id"):
+            summary.append(f"- active_child_id: {goal_state.get('active_child_id')}")
+        if goal_state.get("active_child_title"):
+            summary.append(f"- active_child: {goal_state.get('active_child_title')}")
+        children = goal_state.get("children", [])
+        if isinstance(children, list):
+            for child in children[:5]:
+                if isinstance(child, dict) and child.get("id"):
+                    summary.append(
+                        f"- child {child.get('id')}: {child.get('status', 'pending')} attempts={child.get('attempts', 0)}"
+                    )
+        if summary:
+            parts += ["## Recursive goal ledger"] + summary + [""]
+    except Exception:
+        pass
+
+parts += [
+    "## Context rules",
+    "- Use this file as the default startup context instead of loading large planning documents.",
+    "- If more detail is needed, grep targeted ranges from the durable source files.",
+    "- When a runtime-visible milestone has a stored screenshot baseline, prefer capturing and comparing that frame over making subjective visual claims.",
+    "- Do not treat this file as proof; verify against current repository state before claiming progress.",
+    "",
+]
+
+out_path.write_text("\n".join(parts).rstrip() + "\n", encoding="utf-8")
+PY
+}
+
+refresh_harness_incident() {
+    if [[ -f "$REPO/scripts/gamecube-harness-incident.py" ]]; then
+        python3 "$REPO/scripts/gamecube-harness-incident.py" --repo "$REPO" >/dev/null 2>&1 || true
+    fi
+}
+
+refresh_recursive_goals() {
+    if [[ -f "$REPO/scripts/gamecube-recursive-goals.py" ]]; then
+        python3 "$REPO/scripts/gamecube-recursive-goals.py" --repo "$REPO" >/dev/null 2>&1 || true
+    fi
+}
+
+clear_reload_request() {
+    RELOAD_REQUESTED=0
+    if [[ -e "$RELOAD_REQUEST_FILE" ]]; then
+        python3 - "$RELOAD_REQUEST_FILE" <<'PY'
+from pathlib import Path
+import sys
+p = Path(sys.argv[1])
+if p.exists():
+    p.unlink()
+PY
+    fi
+}
+
+finalize_recursive_goals() {
+    local result="$1"
+    local exit_status="$2"
+    local logfile="$3"
+    local repo_changed="${4:-0}"
+    local args=(
+        python3 "$REPO/scripts/gamecube-recursive-goals.py"
+        --repo "$REPO"
+        --finalize
+        --result "$result"
+        --exit-status "$exit_status"
+        --log "$logfile"
+    )
+    if [[ "$repo_changed" == "1" ]]; then
+        args+=(--repo-changed)
+    fi
+    "${args[@]}" >/dev/null 2>&1 || true
 }
 
 completion_from_repository() {
@@ -349,6 +733,44 @@ blocker_from_repository() {
       "$STATUS_PATH"
 }
 
+monitor_pass_output() {
+    local supervised_pid="$1"
+    local logfile="$2"
+    local idle_limit="$3"
+    local last_size last_change now size
+
+    (( idle_limit > 0 )) || return 0
+
+    if [[ -f "$logfile" ]]; then
+        last_size="$(wc -c <"$logfile" 2>/dev/null || printf '0')"
+    else
+        last_size=0
+    fi
+    last_change="$(date +%s)"
+
+    while kill -0 "$supervised_pid" 2>/dev/null; do
+        sleep 30
+        if [[ -f "$logfile" ]]; then
+            size="$(wc -c <"$logfile" 2>/dev/null || printf '0')"
+        else
+            size=0
+        fi
+        now="$(date +%s)"
+        if [[ "$size" != "$last_size" ]]; then
+            last_size="$size"
+            last_change="$now"
+            continue
+        fi
+        if (( now - last_change >= idle_limit )); then
+            log "Pass output stalled for $((idle_limit / 60)) minute(s); stopping pid $supervised_pid."
+            kill -TERM "$supervised_pid" 2>/dev/null || true
+            sleep 10
+            kill -KILL "$supervised_pid" 2>/dev/null || true
+            return 0
+        fi
+    done
+}
+
 log "Repository: $REPO"
 log "Branch: $(git branch --show-current)"
 log "Prompt: $PROMPT_PATH"
@@ -358,6 +780,9 @@ log "Maximum passes: $MAX_PASSES"
 log "Starting at pass: $((pass + 1))"
 
 while :; do
+    if [[ -e "$RELOAD_REQUEST_FILE" ]]; then
+        RELOAD_REQUESTED=1
+    fi
     now="$(date +%s)"
 
     if (( deadline_epoch > 0 && now >= deadline_epoch )); then
@@ -385,21 +810,45 @@ while :; do
 
     timestamp="$(date '+%Y%m%d-%H%M%S')"
     logfile="$LOG_DIR/pass-$(printf '%04d' "$pass")-$timestamp.log"
+    CURRENT_PASS_LOG="$logfile"
     before_fingerprint="$(repository_fingerprint)"
+    refresh_harness_incident
+    refresh_recursive_goals
+    update_pass_context
+    write_supervisor_state
 
     log "Starting pass $pass."
     log "Log: $logfile"
+    {
+        printf '[%s] pass=%s start\n' "$(date '+%Y-%m-%d %H:%M:%S')" "$pass"
+        printf '[%s] branch=%s\n' "$(date '+%Y-%m-%d %H:%M:%S')" "$(git branch --show-current)"
+        printf '[%s] head=%s\n' "$(date '+%Y-%m-%d %H:%M:%S')" "$(git rev-parse --short HEAD)"
+        printf '[%s] prompt=%s\n' "$(date '+%Y-%m-%d %H:%M:%S')" "$PROMPT_PATH"
+        printf '[%s] status=%s\n' "$(date '+%Y-%m-%d %H:%M:%S')" "$STATUS_PATH"
+    } >>"$logfile"
 
     # Give each individual Continue invocation a generous ceiling while keeping
-    # the outer supervisor in control. Six hours prevents a wedged pass from
-    # occupying the loop forever.
+    # the outer supervisor in control. Eight hours supports deeper bounded
+    # repair/build cycles while still terminating truly wedged passes.
     set +e
-    timeout --signal=INT --kill-after=60s 6h \
-        "$CONTINUE_BIN" \
-        -p "$(cat "$PROMPT_PATH")" \
-        "$AUTO_FLAG" \
-        2>&1 | tee "$logfile"
-    continue_status=${PIPESTATUS[0]}
+    (
+        timeout --signal=INT --kill-after=60s 8h \
+            "$CONTINUE_BIN" \
+            -p "$(cat "$PROMPT_PATH")" \
+            "$AUTO_FLAG"
+    ) 2>&1 | tee -a "$logfile" &
+    continue_pipe_pid=$!
+    CURRENT_SUPERVISED_PID="$continue_pipe_pid"
+    write_supervisor_state
+    monitor_pass_output "$continue_pipe_pid" "$logfile" "$PASS_OUTPUT_STALL_SECONDS" &
+    output_watchdog_pid=$!
+    wait "$continue_pipe_pid"
+    continue_status=$?
+    await_pass_exit "$continue_pipe_pid" "$continue_status"
+    continue_status=$?
+    kill "$output_watchdog_pid" 2>/dev/null || true
+    wait "$output_watchdog_pid" 2>/dev/null || true
+    clear_current_pass_state
     set -e
 
     after_fingerprint="$(repository_fingerprint)"
@@ -421,16 +870,19 @@ while :; do
         printf 'branch=%s\n' "$(git branch --show-current)"
         printf 'log=%s\n' "$logfile"
     } >"$SUMMARY_FILE"
+    update_working_memory "$logfile" "${result_marker:-missing}" "$continue_status"
 
     if [[ "$before_fingerprint" == "$after_fingerprint" ]]; then
         stall_count=$((stall_count + 1))
         printf '%s\n' "$stall_count" >"$STALL_COUNTER_FILE"
         log "Pass $pass made no detectable repository progress. Stall count: $stall_count/$STALL_LIMIT."
+        finalize_recursive_goals "${result_marker:-missing}" "$continue_status" "$logfile" "0"
     else
         stall_count=0
         printf '0\n' >"$STALL_COUNTER_FILE"
         printf '%s\n' "$after_fingerprint" >"$LAST_FINGERPRINT_FILE"
         log "Pass $pass changed repository state."
+        finalize_recursive_goals "${result_marker:-missing}" "$continue_status" "$logfile" "1"
     fi
 
     case "$result_marker" in
@@ -452,6 +904,12 @@ while :; do
             ;;
     esac
 
+    if (( RELOAD_REQUESTED == 1 )); then
+        log "Reload request acknowledged after pass $pass; continuing immediately with refreshed files."
+        clear_reload_request
+        continue
+    fi
+
     if (( STALL_LIMIT > 0 && stall_count >= STALL_LIMIT )); then
         log "Stopping after $stall_count consecutive no-progress passes."
         log "Review $SUMMARY_FILE and the latest logs before resuming."
@@ -468,6 +926,7 @@ while :; do
 done
 
 log "Supervisor stopped."
+clear_current_pass_state
 log "Final branch: $(git branch --show-current)"
 log "Final HEAD: $(git rev-parse --short HEAD)"
 log "Working tree:"

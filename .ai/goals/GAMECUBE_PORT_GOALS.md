@@ -6,9 +6,11 @@ goal complete only when its acceptance checks are demonstrated and recorded in
 lines. Real-hardware/operator-only work is tracked below as non-automation
 checkpoints, not as runnable goals.
 
-## Current focus (2026-07-18)
+## Current focus (2026-08-03)
 
-Automation tier: `landmark_changelevel` (see `.ai/state/gc-port-automation-tier.json`).
+Automation tier: `runtime_gate` (see `.ai/state/gc-port-automation-tier.json`).
+The release-critical queue is G491–G500 below. Renderer polish and historical
+micro-goals are reference material only and must not displace this ladder.
 
 **Proven on Dolphin New Game (`-gcnewgame`, map `c0a0`):**
 - `MAP_READY` + interactive input (`G45`)
@@ -176,7 +178,10 @@ Automation tier: `landmark_changelevel` (see `.ai/state/gc-port-automation-tier.
 - Restore: accidental `vid_gamecube.c` checkout recovered to G270 parity (DOL **6274144**, f19 MD5==G270, probe `20260722-232636`)
 
 **Immediate source queue (open automatic goals, in order):**
-1. **G38** — Native GameCube hardware validation (Swiss DOL+SD / ISO RO) — operator-only; handoff `.ai/logs/hardware-handoff-20260722-221451`
+1. Dolphin runtime gate — make the current GameCube build boot, reach engine
+   readiness, and load the smoke map in Dolphin using the standard bounded
+   probe harness; then keep extending runtime proof from boot to playable map
+   continuity without regressing the existing New Game route.
 2. Flipper GX residuals under tip ceiling (all `c0a0` entities now admitted as
    full controllers or lean static placeholders — **0 inhibited**; next promote
    placeholder studio meshes/behavior incrementally)
@@ -1075,7 +1080,11 @@ scripts/gamecube-map-compat-probe.sh
 - Completion rule: keep G38 manual/open until a completed real GameCube,
   Swiss, or compatible Wii/GameCube-mode hardware evidence entry is recorded in
   `docs/GAMECUBE_PORT_PLAN.md`. Dolphin-only evidence and generated handoff
-  packets are preparation, not completion.
+  packets are release-signoff preparation, not completion.
+- Automation policy update (2026-07-29): G38 is no longer the boundary for
+  autonomous work. Dolphin runtime bring-up, smoke-map load, and bounded
+  gameplay continuity remain required autonomous gates before the port is ready
+  for physical-hardware sign-off.
 
 ## G39 [x] Define minimum supported hardware and loader matrix
 
@@ -4501,3 +4510,720 @@ in `.ai/logs/dolphin-probe-*/stderr.log` or hardware captures.
 - Test complete memory system
 - Document memory management system
 - Create memory optimization guide
+
+### G440: Client rendering implementation
+
+- Implement actual client rendering with GX renderer
+- Add proper vertex and texture handling
+- Implement sprite rendering
+- Test rendering with various game assets
+- Document rendering architecture and configuration
+- Create rendering performance guide
+
+### G441: Server game logic implementation
+
+- Implement actual server game logic
+- Add entity spawning and behavior
+- Implement game state management
+- Test server with various game scenarios
+- Document server architecture and configuration
+- Create server performance guide
+
+### G442: Audio system implementation
+
+- Implement audio system for GameCube
+- Add libogc DSP/AI audio path
+- Implement sound loading and playback
+- Test audio with various sound effects
+- Document audio architecture and configuration
+- Create audio performance guide
+
+### G443: Input system implementation
+
+- Implement input system for GameCube
+- Add controller input handling
+- Implement mouse input (if supported)
+- Test input with various game scenarios
+- Document input architecture and configuration
+- Create input configuration guide
+
+### G444: Network implementation
+
+- Implement network functionality for GameCube
+- Add local loopback support
+- Implement multiplayer networking
+- Test network with various scenarios
+- Document network architecture and configuration
+- Create network configuration guide
+
+### G445: Save/load implementation
+
+- Implement save/load functionality for GameCube
+- Add save file management
+- Implement save slot system
+- Test save/load with various game states
+- Document save/load architecture and configuration
+- Create save/load usage guide
+
+### G446: HUD implementation
+
+- Implement HUD for GameCube
+- Add health/ammo display
+- Implement weapon selection
+- Test HUD with various game scenarios
+- Document HUD architecture and configuration
+- Create HUD customization guide
+
+### G447: Game menu implementation
+
+- Implement game menu for GameCube
+- Add New Game, Load Game, Options menus
+- Implement controller navigation
+- Test menu with various scenarios
+- Document menu architecture and configuration
+- Create menu customization guide
+
+### G448: Asset loading optimization
+
+- Optimize asset loading for GameCube
+- Add asset caching
+- Implement asset preloading
+- Test asset loading with various scenarios
+- Document asset loading architecture and configuration
+- Create asset loading guide
+
+### G449: Performance profiling
+
+- Implement performance profiling for GameCube
+- Add frame rate monitoring
+- Implement memory profiling
+- Test performance with various scenarios
+- Document performance profiling architecture and configuration
+- Create performance optimization guide
+
+### G450: Campaign map support
+
+- Implement campaign map support for GameCube
+- Add map progression support
+- Implement level transitions
+- Test campaign with various maps
+- Document campaign architecture and configuration
+- Create campaign testing guide
+
+### G451: Multi-map progression
+
+- Implement multi-map progression for GameCube
+- Add map chain support
+- Implement save state management
+- Test multi-map progression
+- Document multi-map architecture and configuration
+- Create multi-map guide
+
+### G452: Debug tools implementation
+
+- Implement debug tools for GameCube
+- Add console commands
+- Implement debug rendering
+- Test debug tools with various scenarios
+- Document debug tools architecture and configuration
+- Create debug tools guide
+
+### G453: Developer build support
+
+- Implement developer build support for GameCube
+- Add debug symbols
+- Implement developer console
+- Test developer build with various scenarios
+- Document developer build architecture and configuration
+- Create developer build guide
+
+### G454: Release build optimization
+
+- Optimize release build for GameCube
+- Add size optimization
+- Implement release-specific features
+- Test release build with various scenarios
+- Document release build architecture and configuration
+- Create release build guide
+
+### G455: Hardware validation
+
+- Validate GameCube port on physical hardware
+- Add hardware-specific optimizations
+- Test on various GameCube models
+- Document hardware compatibility
+- Create hardware testing guide
+
+### G456: Dolphin emulator testing
+
+- Test GameCube port with Dolphin emulator
+- Add emulator-specific optimizations
+- Test with various Dolphin versions
+- Document emulator compatibility
+- Create emulator testing guide
+
+### G457: Documentation completion
+
+- Complete documentation for GameCube port
+- Add user guide
+- Implement developer documentation
+- Test documentation with various scenarios
+- Document documentation architecture and configuration
+- Create documentation guide
+
+### G458: Release packaging
+
+- Package release for GameCube
+- Add installation instructions
+- Implement update system
+- Test release with various scenarios
+- Document release packaging architecture and configuration
+- Create release packaging guide
+
+### G459: Community support
+
+- Provide community support for GameCube port
+- Add community documentation
+- Implement community feedback system
+- Test community support with various scenarios
+- Document community support architecture and configuration
+- Create community support guide
+
+### G460: Long-term maintenance
+
+- Plan long-term maintenance for GameCube port
+- Add update strategy
+- Implement bug tracking
+- Test maintenance with various scenarios
+- Document maintenance architecture and configuration
+- Create maintenance guide
+
+### G461: Performance optimization
+
+- Optimize performance for GameCube
+- Add frame rate optimization
+- Implement memory optimization
+- Test performance with various scenarios
+- Document performance optimization architecture and configuration
+- Create performance optimization guide
+
+### G462: Visual quality improvement
+
+- Improve visual quality for GameCube
+- Add texture optimization
+- Implement lighting improvements
+- Test visual quality with various scenarios
+- Document visual quality architecture and configuration
+- Create visual quality guide
+
+### G463: Audio quality improvement
+
+- Improve audio quality for GameCube
+- Add audio optimization
+- Implement audio effects
+- Test audio quality with various scenarios
+- Document audio quality architecture and configuration
+- Create audio quality guide
+
+### G464: Input quality improvement
+
+- Improve input quality for GameCube
+- Add input optimization
+- Implement input smoothing
+- Test input quality with various scenarios
+- Document input quality architecture and configuration
+- Create input quality guide
+
+### G465: Stability improvement
+
+- Improve stability for GameCube
+- Add error handling
+- Implement crash recovery
+- Test stability with various scenarios
+- Document stability architecture and configuration
+- Create stability guide
+
+### G466: Compatibility improvement
+
+- Improve compatibility for GameCube
+- Add compatibility modes
+- Implement backward compatibility
+- Test compatibility with various scenarios
+- Document compatibility architecture and configuration
+- Create compatibility guide
+
+### G467: User experience improvement
+
+- Improve user experience for GameCube
+- Add UI improvements
+- Implement user feedback
+- Test user experience with various scenarios
+- Document user experience architecture and configuration
+- Create user experience guide
+
+### G468: Accessibility improvement
+
+- Improve accessibility for GameCube
+- Add accessibility options
+- Implement accessibility features
+- Test accessibility with various scenarios
+- Document accessibility architecture and configuration
+- Create accessibility guide
+
+### G469: Localization support
+
+- Implement localization support for GameCube
+- Add language options
+- Implement text localization
+- Test localization with various scenarios
+- Document localization architecture and configuration
+- Create localization guide
+
+### G470: Final validation
+
+- Validate GameCube port for release
+- Add final testing
+- Implement final documentation
+- Test final validation with various scenarios
+- Document final validation architecture and configuration
+- Create final validation guide
+
+### G471: Automation prompt and queue hygiene
+
+- Keep `.continue/gamecube-port-task.md`, the immediate queue, and durable
+  status documents aligned so the overnight runner chooses the same next task a
+  human would choose from repository evidence.
+- Remove stale automation assumptions that cause the runner to chase obsolete
+  branches, placeholder ranges, or hardware-only work.
+- Add a bounded verification check proving the runner can identify the first
+  live automatic queue item without loading broad historical context.
+
+### G472: Supervisor resilience and restartability
+
+- Harden the supervisor and watcher so they survive missing optional
+  directories, stale lock state, and quiet startup phases without silently
+  exiting.
+- Verify detached launch, foreground launch, and watcher attachment against the
+  same repository state and log layout.
+- Record the minimum durable state needed to resume after an interrupted pass.
+
+### G473: Lean working-memory handoff
+
+- Maintain a tiny, current, pass-to-pass memory surface that helps the runner
+  re-orient without bloating prompts or replaying long history.
+- Restrict memory to branch, HEAD, last task, last verification, blocker, next
+  task, and log reference.
+- Reject broad historical narration, whole-log copies, or memory files that
+  grow beyond a compact operator-readable summary.
+
+### G474: Warning-driven cleanup queue
+
+- Turn recurring compiler/linker/runtime warnings into explicit bounded queue
+  items with proof of reproduction and proof of resolution.
+- Prioritize warnings that affect correctness, determinism, memory pressure, or
+  automated verification before cosmetic or speculative cleanup.
+- Keep the queue narrow enough that each pass can resolve one warning or prove
+  why it is not yet actionable.
+
+### G475: Probe-proof gameplay continuity
+
+- Extend automated evidence beyond boot and map-ready into short, repeatable
+  gameplay-continuity checks that prove world interaction stays intact after the
+  latest source change.
+- Prefer checks tied to existing New Game proof routes, landmark transitions,
+  and bounded movement/input actions.
+- Fail this goal if the added proof depends on manual operator judgment or
+  broad one-off diagnostics.
+
+### G476: Asset/data path correctness
+
+- Keep repository code, legal asset roots, SD staging paths, and generated
+  cache locations unambiguous across scripts, docs, and automation prompts.
+- Verify that source-repo operations never assume the legal asset directory is
+  the automation repository, and vice versa.
+- Require path changes to update the smallest set of durable surfaces needed to
+  keep launches, probes, and staging commands coherent.
+
+### G477: Dolphin evidence packaging
+
+- Standardize which files under `.agent-logs`, `.ai`, and generated evidence
+  are the durable references for a completed pass versus ephemeral debugging.
+- Ensure each automated pass can point to one primary log and one concise
+  summary without searching broad log trees.
+- Reject packaging changes that increase prompt size or duplicate large logs in
+  durable state.
+
+### G478: Runtime-compatible placeholder retirement
+
+- Convert remaining placeholders, stubs, and reduced-runtime behavior into a
+  bounded retirement queue ordered by gameplay impact and proofability.
+- Prefer work that preserves the already-proven New Game path while restoring
+  real entities, menu flow, save/config behavior, or renderer/client fidelity.
+- Mark items complete only when the replacement is verified on the current
+  automated evidence route, not by source inspection alone.
+
+### G479: Regression-gate expansion
+
+- Add small build, verifier, or log-shape checks that specifically guard the
+  most expensive-to-rediscover regressions in automation, pathing, memory, and
+  boot/gameplay continuity.
+- Keep each gate cheap enough to run inside normal passes.
+- Do not add broad test suites that crowd out source work or duplicate existing
+  evidence routes.
+
+### G480: Autonomous release-readiness triage
+
+- Maintain a realistic autonomous definition of "still worth running
+  overnight" versus "needs manual operator validation or design choice."
+- When the immediate queue is exhausted, route the runner into the smallest
+  actionable release-readiness task instead of speculative broad refactors.
+- If no grounded autonomous task remains, require the runner to emit
+  `AGENT_RESULT: COMPLETE` with the exact manual blocker or handoff boundary.
+
+### G481: Placeholder entity promotion backlog
+
+- Maintain an explicit, evidence-backed backlog for remaining placeholder or
+  reduced-runtime entities still standing between the current New Game proof
+  path and fuller Half-Life map behavior.
+- Group promotions by shared risk surface such as scripted monsters, brush
+  entities, env effects, or client-visible props so one pass can restore one
+  bounded family safely.
+- Require each promotion step to record inhibited counts before/after, any new
+  allocations or static pools touched, and the exact Dolphin or verifier probe
+  proving the promoted entities did not regress map load or interaction.
+
+### G482: Save, config, and persistence correctness
+
+- Audit the GameCube path for persistence behavior that still differs from the
+  desktop engine in ways that could break save/load, config retention, binds,
+  cvars, or campaign continuity.
+- Prefer bounded fixes that preserve legal asset immutability while making
+  generated save/config/cache data land in deterministic GameCube-compatible
+  writable locations.
+- Accept this goal only when the chosen persistence surface is verified through
+  focused probes and documented with the exact writable path expectations.
+
+### G483: Filesystem and cache lifecycle hardening
+
+- Verify that staged assets, decoded caches, and transient runtime products can
+  be created, reused, invalidated, and recovered after missing-file or
+  version-skew scenarios without corrupting future boots.
+- Favor versioned, reproducible cache behavior over silent reuse of stale data,
+  especially for textures, audio, and converted render assets.
+- Add narrow checks that distinguish source assets, generated caches, and
+  deployment artifacts so cleanup and probes cannot delete or overwrite the
+  wrong class of data.
+
+### G484: Audio streaming and channel continuity
+
+- Extend the already-proven bounded SFX path toward longer-lived audio
+  behaviors such as looping ambient sounds, sentence playback, music/streaming,
+  and channel reuse under memory pressure.
+- Prefer fixes that preserve mixer determinism, bounded decode memory, and
+  audible continuity during movement, combat, and map transitions.
+- Record each new audio behavior with a concrete probe or log signature so the
+  runner can tell a real regression from a missing optional asset.
+
+### G485: Memory-budget enforcement and regression surfacing
+
+- Turn current MEM1/MEM2/ARAM assumptions into explicit, durable budget checks
+  around the highest-risk runtime surfaces: live world faces, lightmaps,
+  viewmodels, HUD sheets, particles, decals, and restored entities.
+- Make memory regressions easy to spot in normal passes by capturing the small
+  set of counters or log lines that actually predict tip-at-boot or
+  changelevel failures.
+- Reject changes that merely shift pressure elsewhere unless the new trade is
+  measured, documented, and improves gameplay continuity or fidelity.
+
+### G486: Changelevel and campaign continuity expansion
+
+- Grow automated proof beyond the current New Game landmark path into a
+  slightly broader set of short, repeatable chapter or changelevel continuity
+  checks that expose regressions in entity carryover, inventory, audio, or
+  renderer state.
+- Prefer scenarios that reuse existing probes and save instrumentation instead
+  of introducing long exploratory play sessions.
+- Mark progress only when the added route is both stable enough for automation
+  and useful for catching a real class of regressions.
+
+### G487: Menu, console, and front-end parity
+
+- Close the highest-impact gaps in menu, console, HUD, and front-end behavior
+  that still block a credible GameCube-native player flow before gameplay even
+  starts.
+- Prioritize issues that affect boot-to-menu, option changes, save/load menu
+  visibility, text readability, or controller-driven navigation rather than
+  cosmetic polish.
+- Verify fixes using bounded menu/front-end probes and lightweight evidence
+  that can run without requiring a full exploratory gameplay session.
+
+### G488: Renderer state and effect fidelity backlog
+
+- Maintain a bounded queue for remaining renderer fidelity gaps that matter to
+  actual Half-Life playability on Flipper GX, including translucent surfaces,
+  decals, particles, beams, dynamic effects, and state transitions between 2D
+  and 3D passes.
+- Favor work that removes clearly observable gameplay-facing mismatches while
+  preserving the stable world-present baseline already proven in Dolphin.
+- Require each fidelity step to identify the affected render path, the memory
+  or state trade involved, and the smallest repeatable visual proof.
+
+### G489: Toolchain and reproducible build hygiene
+
+- Keep the GameCube build, DOL output, and supporting scripts reproducible
+  enough that automation can tell a real behavior change from stale artifacts,
+  partial rebuild drift, or toolchain mismatch.
+- Prefer targeted fixes around relink correctness, stale-output detection,
+  symbol/report generation, and scripted staging rather than broad build-system
+  churn.
+- Record the exact build artifact paths, sizes, and identifying hashes needed
+  to compare runs across passes and operator handoff.
+
+### G490: Hardware handoff readiness
+
+- Continuously refine the operator-facing boundary for real GameCube hardware
+  validation so autonomous work leaves behind a crisp, low-friction handoff
+  instead of a pile of ambiguous logs.
+- Keep the handoff centered on bootable artifacts, required asset layout,
+  controller/storage expectations, and the minimum checklist needed to confirm
+  whether a hardware-only issue is real.
+- Treat this as a support goal for G38 rather than a replacement for hardware
+  proof, and avoid documentation churn that is not backed by a new automated or
+  operator-discovered fact.
+
+## Extended automatic queue
+
+1. **G471** — Automation prompt and queue hygiene
+2. **G472** — Supervisor resilience and restartability
+3. **G473** — Lean working-memory handoff
+4. **G474** — Warning-driven cleanup queue
+5. **G475** — Probe-proof gameplay continuity
+6. **G476** — Asset/data path correctness
+7. **G477** — Dolphin evidence packaging
+8. **G478** — Runtime-compatible placeholder retirement
+9. **G479** — Regression-gate expansion
+10. **G480** — Autonomous release-readiness triage
+11. **G481** — Placeholder entity promotion backlog
+12. **G482** — Save, config, and persistence correctness
+13. **G483** — Filesystem and cache lifecycle hardening
+14. **G484** — Audio streaming and channel continuity
+15. **G485** — Memory-budget enforcement and regression surfacing
+16. **G486** — Changelevel and campaign continuity expansion
+17. **G487** — Menu, console, and front-end parity
+18. **G488** — Renderer state and effect fidelity backlog
+19. **G489** — Toolchain and reproducible build hygiene
+20. **G490** — Hardware handoff readiness
+
+## Completion ladder for verified native gameplay
+
+These goals are intentionally separate from the historical milestone ledger
+above. They describe the current evidence required to call the port complete.
+They must be executed in order and may not be marked complete from stale
+historical notes.
+
+## G491 [ ] Restore runtime map readiness
+
+- Resolve the current guest-engine blocker, beginning with the fresh Dolphin
+  failure signature rather than assuming the previous map path works.
+- Acceptance requires a fresh `scripts/dolphin-boot-probe.sh` run with no guest
+  fatal error, `MAP_READY`/`map_ready`, `c0a0e` loaded, and direct-map-ready
+  evidence.
+- Record the exact probe log and artifact hash in the port plan.
+
+## G492 [ ] Prove memory-safe map and asset loading
+
+- Measure MEM1/MEM2/ARAM high-water marks through map load, model staging,
+  client precache, and first gameplay frame.
+- Remove the current allocation failure or fragmentation cliff without merely
+  hiding the fatal error or moving pressure to another subsystem.
+- Acceptance requires memory telemetry, no allocation-failure marker, and a
+  successful G491 runtime pass.
+
+## G493 [ ] Prove controller readiness and recovery
+
+- Verify controller discovery, neutral state, reconnect handling, port/type
+  changes, deadzones, and stuck-input cleanup.
+- Acceptance requires `G45_STATUS: PASS`, controller-ready evidence, and a
+  scripted reconnect or alternate-port result where the emulator supports it.
+
+## G494 [ ] Prove automated gameplay smoke
+
+- Drive a repeatable gameplay sequence: start/new game, move, look, jump/use,
+  attack, trigger an entity interaction, and return to a stable frame.
+- Acceptance requires gameplay action markers, no guest error, map-ready state,
+  stable input, and at least one post-action visual frame.
+
+## G495 [ ] Prove native visual output
+
+- Validate world geometry, HUD, sprites, models, lighting, transparency, and
+  the first active gameplay frame through the GX path.
+- Acceptance requires nonblack visual evidence, a saved frame or equivalent
+  render marker, and frame timing within the documented GameCube budget.
+
+## G496 [ ] Prove native audio output
+
+- Validate startup audio, one-shot weapon/effect audio, movement audio, channel
+  reuse, and audio behavior after a map transition.
+- Acceptance requires nonzero audio/mixer evidence with no allocation failure
+  and a fresh gameplay probe reference.
+
+## G497 [ ] Prove campaign and changelevel continuity
+
+- Run a bounded set of representative maps and at least one changelevel route.
+- Preserve inventory, player state, entities, models, audio, renderer state,
+  and writable-path behavior across the transition.
+- Acceptance requires the map-compatibility/campaign reports with no hard
+  failures and recorded memory/frame telemetry for each route.
+
+## G498 [ ] Prove sustained soak stability
+
+- Run repeated boot/map/gameplay iterations and a strict soak long enough to
+  expose leaks, allocator fragmentation, stale GX state, and audio/channel
+  accumulation.
+- Acceptance requires `scripts/gamecube-soak-probe.py --strict`, bounded memory
+  growth, no guest failures, and stable frame/audio evidence.
+
+## G499 [ ] Sign off a reproducible scripted release
+
+- Rebuild from a clean output, verify the DOL/ELF/ISO hashes and handoff
+  manifest, run the complete release-candidate gate, and archive all reports.
+- Acceptance requires `scripts/ai-verify.sh`, the GameCube RC gate, the runtime
+  gate, the gameplay smoke, and soak reports to pass from the same build.
+
+## G500 [MANUAL] Validate physical GameCube hardware handoff
+
+- Boot the release DOL/ISO on physical GameCube hardware with the documented
+  SD/DVD asset layout and controller configuration.
+- Execute boot, map load, controller, gameplay, visual, audio, changelevel,
+  and persistence checks using the hardware checklist.
+- This goal cannot be completed by Dolphin or the unattended AI. Completion
+  requires operator-recorded hardware evidence and must remain manual.
+
+## Supporting completion tasks
+
+These tasks support G491–G500 without creating another milestone history. Each
+task must produce a small artifact or marker that can be linked from the
+readiness matrix. They are ordered by dependency, not by cosmetic importance.
+
+### G501 [ ] Freeze and record the experiment baseline
+
+- Pause competing automation, record branch, parent commit, toolchain, model,
+  asset source, and active tier in one run manifest.
+- Require every candidate attempt to record its hypothesis, one or two target
+  files, build result, probe result, and keep/revert decision.
+- Acceptance: a clean worktree except harness state, a unique run manifest,
+  and no candidate commit accepted without post-patch runtime evidence.
+- Progress 2026-08-05: `scripts/gamecube-experiment-manifest.py` records
+  branch/commit/tier/OGC stack/hypothesis/decision (host-safe; toolchain may
+  report UNAVAILABLE). Attach ladder JSON / probe logs when present.
+
+### G502 [ ] Generate the measured memory report
+
+- Replace fixed budget diagrams with ELF/DOL section sizes, linker-map data,
+  MEM1/MEM2 high-water marks, per-map peaks, texture/lightmap/audio/cache
+  allocations, and the largest failed allocation with subsystem.
+- Emit `UNAVAILABLE` explicitly when telemetry is absent; never substitute an
+  estimate for a measurement.
+- Acceptance: one generated report is consumed by G492 and archived beside the
+  probe that produced it.
+
+### G503 [ ] Close the host-side regression surface
+
+- Keep tests for disc staging, `delta.lst`, search-path resolution,
+  `FS_FileExists` versus `FS_LoadFile`, DOL/BSS metadata, module registration,
+  marker classification, endian serialization, and memory-report generation.
+- Run these tests before any Dolphin attempt and classify unrelated baseline
+  failures without allowing them to become runtime evidence.
+- Acceptance: deterministic host test command and a zero-failure result for
+  the port harness tests.
+- Progress 2026-08-05: `SKIP_GAMECUBE_BUILD=1 scripts/ai-verify.sh` runs
+  `python3 -m unittest discover -s tests -p 'test_*.py'`.
+
+### G504 [ ] Enforce the reduced runtime ladder
+
+- Emit and parse explicit gates for engine init, filesystem init, delta load,
+  server registration, BSP open, delta tables, entity spawn, map loaded,
+  controller ready, and first stable frame.
+- Stop at the first missing gate and attach the exact log to the run manifest.
+- Acceptance: G491 and all later runtime goals consume the same structured
+  markers rather than broad success text.
+- Progress 2026-08-05: `scripts/gamecube-runtime-ladder.py` parses the ordered
+  gates and stops at `first_missing`; host fixtures cover partial/full/fail.
+
+### G505 [ ] Resolve ABI and module-boundary risks
+
+- Investigate only concrete evidence around `FI.GameInfo`, static client/server
+  registration, structure layout, calling convention, or a repeated guest
+  address. Use re_agent only when such a target exists.
+- Require the re_agent report fields `address`, `decompile`, `source_match`,
+  and `confidence`, followed by the normal build/DOL/disc/runtime gates.
+- Acceptance: the boundary has a fresh probe result and no speculative
+  decompilation-only patch is committed.
+
+### G506 [ ] Make gameplay smoke machine-verifiable
+
+- Extend the current map-ready probe with move/look, jump/use, attack,
+  entity interaction, HUD/viewmodel, and stable post-action frame markers.
+- Keep the route short enough for every candidate validation and preserve the
+  existing New Game regression markers.
+- Acceptance: G494 can distinguish map load from playable interaction without
+  screenshot-only judgment.
+
+### G507 [ ] Finish visual and audio release evidence
+
+- Add bounded checks for world geometry, HUD, studio models, lighting,
+  transparency, effects, startup audio, one-shot audio, movement audio, and
+  channel reuse.
+- Record frame timing, nonblack/frame evidence, mixer activity, and failures by
+  subsystem so memory regressions remain visible.
+- Acceptance: G495 and G496 each have a repeatable probe and archived evidence.
+
+### G508 [ ] Prove writable paths and persistence
+
+- Define deterministic GameCube locations for saves, config, binds, and cache
+  data without modifying legal source assets or disc contents.
+- Test first-run creation, reload, missing/corrupt data, and read-only media
+  behavior; include changelevel continuity.
+- Acceptance: G497 has a save/config result and a documented storage layout.
+- Progress 2026-08-05: Dolphin-designated `gcprobe:` bank now supports
+  `config.cfg` atomic write/read via `-gcconfigroundtrip` / `DOLPHIN_G508=1`.
+  Release packet drops the writable-route limitation when
+  `G508 config round trip ready` (or G94 save present) appears in probe logs.
+  Still open: fresh Dolphin runtime evidence and physical SD fault cases.
+
+### G509 [ ] Run campaign and soak gates from one build
+
+- Select a bounded representative map/changelevel route, then repeat boot,
+  load, gameplay, and shutdown enough to expose leaks, fragmentation, stale GX
+  state, and audio accumulation.
+- Compare per-map memory/frame/audio telemetry and require no guest fatal.
+- Acceptance: G498 passes strict soak and G499 archives the same-build reports.
+- Progress 2026-08-05: `scripts/gamecube-soak-probe.py --g509` and
+  `scripts/gamecube-g509-soak.sh` implement the bounded `c0a0:c0a0a` continuity
+  soak with landmark/memory/frame gates. Host dry-run passes. Real Dolphin
+  iterations remain pending.
+
+### G510 [MANUAL] Execute the hardware release checklist
+
+- Use the G500 handoff packet to test DOL/ISO boot, map load, controller,
+  gameplay, video, audio, changelevel, save/config, and recovery on physical
+  hardware.
+- Record hardware model, loader, media path, display mode, build hash, and
+  operator evidence for every failed or passed gate.
+- Acceptance: operator signs the hardware matrix; Dolphin evidence alone is
+  insufficient.
+
+## Readiness matrix
+
+| Area | Goal | Automated evidence | Current state |
+|---|---:|---|---|
+| Build/boot | G491 | clean build, valid DOL, disc, no guest fatal | active |
+| Filesystem/assets | G491–G492 | staging manifest, delta/load markers, map ladder | proven once; must remain regression-tested |
+| Memory | G492/G502 | generated section and high-water report | telemetry/reporting incomplete |
+| Modules/ABI | G491/G505 | registration markers and targeted reports | investigate only from fresh evidence |
+| Input/gameplay | G493–G494/G506 | controller and action markers | partial New Game proof |
+| Renderer/HUD | G495/G507 | nonblack frame, GX markers, timing | partial; no new polish queue |
+| Audio | G496/G507 | nonzero mixer/audio evidence | partial SFX proof |
+| Changelevel/save | G497/G508 | persistence and continuity reports | changelevel proven; G508 config probe wired, Dolphin evidence pending |
+| Soak/release | G498–G499/G509 | strict soak and same-build archive | G509 changelevel soak gate wired; Dolphin iterations pending |
+| Hardware | G500/G510 | operator checklist and hardware matrix | manual pending |

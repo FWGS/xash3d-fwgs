@@ -617,6 +617,17 @@ void V_PostRender( void )
 	ref.dllFuncs.R_Set2DMode( true );
 
 #if XASH_GAMECUBE
+	/* Startup cinematics already drew their complete frame.  Do not run the
+	 * general HUD/console/netgraph/debug overlay pipeline here: it adds work
+	 * after the video quad and can dominate Dolphin's frame interval. */
+	if( cls.state == ca_cinematic )
+	{
+		ref.dllFuncs.R_AllowFog( true );
+		Platform_SetTimer( 0.0f );
+		ref.dllFuncs.R_EndFrame();
+		return;
+	}
+
 	if( cls.state == ca_active && ( Sys_CheckParm( "-gcmap" ) || Sys_CheckParm( "-gcnewgame" )
 		|| GC_ShouldUseLightPresent() ))
 	{

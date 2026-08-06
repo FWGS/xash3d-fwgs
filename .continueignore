@@ -19,6 +19,7 @@
 OUT/
 build/
 .cache/
+.builds/
 
 # Git internals and unrelated generated files
 .git/
@@ -35,3 +36,18 @@ build/
 scripts/ai-goal-loop.py
 .ai/goals/GAMECUBE_PORT_GOALS.md
 docs/GAMECUBE_PORT_PLAN.md
+
+# Large repo areas that are not useful default context for the overnight agent.
+3rdparty/
+Half-Life/
+Documentation/
+android/
+re_agent/
+tests/
+elf-reports/
+*.csv
+*_symbols.txt
+module_linkage_report.txt
+module_linkage.csv
+build.log
+nohup.out

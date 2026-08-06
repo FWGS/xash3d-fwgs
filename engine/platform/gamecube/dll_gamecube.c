@@ -41,6 +41,46 @@ static dllexport_t gamecube_filesystem_exports[] =
 	{ NULL, NULL },
 };
 
+// Static linking support for GameCube
+#if XASH_GAMECUBE_HLSDK_STATIC
+// Server exports are provided by the statically linked HLSDK archive
+// We need to register them so COM_LoadLibrary can find them
+// Include the generated exports files from the HLSDK build
+#include "gamecube_server_exports.inc"
+
+// Register the statically linked server library
+static int setup_gamecube_server_exports( void )
+{
+	return dll_register( "server", lib_hl_gamecube_ppc_exports );
+}
+
+// Client exports are provided by the statically linked client archive
+#if defined(XASH_GAMECUBE_HLSDK_CLIENT_STATIC) && defined(XASH_GAMECUBE_HLSDK_CLIENT_EXPORTS)
+#include "gamecube_client_exports.inc"
+
+static int setup_gamecube_client_exports( void )
+{
+	return dll_register( "client", lib_client_gamecube_ppc_exports );
+}
+#else
+// When using static linking but without client exports, provide a stub
+static int setup_gamecube_client_exports( void )
+{
+	return 0;
+}
+#endif
+#else
+// Non-static linking: client is built into the main executable
+// We still need to register it so COM_LoadLibrary can find it
+// The exports are provided by the main executable's symbol table
+static int setup_gamecube_client_exports( void )
+{
+	// For non-static builds, the client is linked into the main executable
+	// and doesn't need to be registered separately
+	return 0;
+}
+#endif
+
 static int setup_gamecube_filesystem_exports( void )
 {
 	int ret = 0;
@@ -215,7 +255,15 @@ int setup_gamecube_dll_functions( void )
 
 	ret |= setup_gamecube_filesystem_exports();
 	ret |= setup_gamecube_ref_exports();
-#if !XASH_GAMECUBE_HLSDK_STATIC
+#if XASH_GAMECUBE_HLSDK_STATIC
+	// When using static linking, register the statically linked libraries
+	extern int setup_gamecube_server_exports( void );
+	ret |= setup_gamecube_server_exports();
+	#if defined(XASH_GAMECUBE_HLSDK_CLIENT_STATIC) && defined(XASH_GAMECUBE_HLSDK_CLIENT_EXPORTS)
+	extern int setup_gamecube_client_exports( void );
+	ret |= setup_gamecube_client_exports();
+	#endif
+#else
 	// Only call client exports when not using HLSDK client archive
 	extern int setup_gamecube_client_exports( void );
 	ret |= setup_gamecube_client_exports();

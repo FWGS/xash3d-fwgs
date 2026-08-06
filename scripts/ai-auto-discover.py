@@ -4,7 +4,9 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
+import os
 import re
 import subprocess
 from dataclasses import asdict, dataclass
@@ -21,6 +23,7 @@ COMMON_READ_CONTEXT = (
 	".ai/prompts/GAMECUBE_HOMEBREW_COMPLIANCE.md",
 )
 DISCOVERY_STATE_PATH = Path(".ai/state/discovery-supervisor.json")
+HYPOTHESIS_STATE_PATH = Path(".ai/state/discovery-hypotheses.json")
 AUTOMATION_FAILURES = {"no_edit", "model_budget", "review_reject"}
 RUNTIME_DIRTY_RE = re.compile(r"^(engine/|ref/|common/|filesystem/|public/|stub/)")
 
@@ -179,6 +182,7 @@ class WorkItem:
 	commit_body: str
 	source_goal_id: str | None = None
 	failure_class: str | None = None
+	hypothesis_key: str | None = None
 
 
 def parse_goals(path: Path) -> list[Goal]:
@@ -225,6 +229,45 @@ def load_discovery_state(root: Path) -> dict[str, object] | None:
 	return data if isinstance(data, dict) else None
 
 
+def load_hypotheses(root: Path) -> list[dict[str, object]]:
+	path = root / HYPOTHESIS_STATE_PATH
+	if not path.is_file():
+		return []
+	try:
+		data = json.loads(path.read_text(encoding="utf-8"))
+	except (OSError, json.JSONDecodeError):
+		return []
+	return [item for item in data if isinstance(item, dict)] if isinstance(data, list) else []
+
+
+def hypothesis_key(failure_class: str, context: list[str], hypothesis: str,
+		expected_marker: str) -> str:
+	value = "|".join((failure_class, ",".join(context), hypothesis, expected_marker))
+	return hashlib.sha256(value.encode("utf-8")).hexdigest()[:16]
+
+
+def hypothesis_rejected(root: Path, key: str) -> bool:
+	return sum(1 for item in load_hypotheses(root)
+		if item.get("key") == key and item.get("decision") in {
+			"discard_no_runtime_progress", "discard_runtime_regression", "semantic_reject"
+		}) >= 2
+
+
+def quarantined_paths(root: Path) -> set[str]:
+	state = load_discovery_state(root)
+	if not state:
+		return set()
+	try:
+		repeat_count = int(state.get("repeat_count") or 0)
+		threshold = max(1, int(os.environ.get("AI_DISCOVERY_STUCK_THRESHOLD", "3")))
+	except (TypeError, ValueError):
+		return set()
+	if repeat_count < threshold:
+		return set()
+	context = state.get("context")
+	return {str(path) for path in context if isinstance(path, str)} if isinstance(context, list) else set()
+
+
 def dirty_runtime_paths(root: Path) -> list[str]:
 	result = subprocess.run(
 		["git", "status", "--short"],
@@ -252,7 +295,7 @@ def normalize_discovery_state(root: Path, state: dict[str, object]) -> dict[str,
 	result = str(state.get("result") or "").strip()
 	repeat_count = int(state.get("repeat_count") or 1)
 	runtime_dirty = dirty_runtime_paths(root)
-	if result in {"model_budget", "review_reject"} and runtime_dirty:
+	if result in {"model_budget", "review_reject", "no_edit"} and runtime_dirty:
 		state = dict(state)
 		state["result"] = "runtime_probe"
 		state["intent"] = "Dirty engine or runtime files already exist; prefer a bounded runtime source pass over more automation repair."
@@ -263,7 +306,7 @@ def normalize_discovery_state(root: Path, state: dict[str, object]) -> dict[str,
 			". Return to a bounded runtime source patch instead of mixing more automation edits."
 		)
 		return state
-	if result in {"model_budget", "review_reject"} and (root / ".ai/state/dolphin-harness-latest.md").is_file():
+	if result in {"model_budget", "review_reject", "no_edit"} and (root / ".ai/state/dolphin-harness-latest.md").is_file():
 		state = dict(state)
 		state["result"] = "runtime_probe"
 		state["intent"] = "Automation recovery signal received; resume the smallest GameCube runtime source pass instead of editing the supervisor."
@@ -303,6 +346,76 @@ def latest_recent_step(memory: dict[str, object]) -> dict[str, object] | None:
 	return None
 
 
+def recent_harness_failure(root: Path) -> dict[str, object] | None:
+	"""Turn the latest bounded runtime result into discovery input.
+
+	The fixed goal ledger can be exhausted while the Dolphin harness still has
+	a current guest failure. Keep that evidence actionable instead of allowing
+	the overnight supervisor to treat an empty discovery list as success.
+	"""
+	path = root / ".ai/state/dolphin-harness-latest.md"
+	if not path.is_file():
+		return None
+	text = path.read_text(encoding="utf-8", errors="replace")
+	status_match = re.search(r"(?m)^- Status:\s*(.+)$", text)
+	if not status_match:
+		return None
+	status = status_match.group(1).strip().lower()
+	if status in {"pass", "ready", "complete", "ok"}:
+		return None
+	failure_map = {
+		"guest_failure": "runtime_probe",
+		"map_timeout": "runtime_probe",
+		"asset_lookup": "asset_lookup",
+		"memory_pressure": "memory_pressure",
+		"visual_runtime": "visual_runtime",
+		"audio_runtime": "audio_runtime",
+	}
+	result = failure_map.get(status, "runtime_probe")
+	observation = text.replace("\n", " ")
+	log_match = re.search(r"(?m)^- Logs:\s*(\S+)", text)
+	if log_match:
+		probe_log = root / log_match.group(1)
+		stderr = probe_log / "stderr.log"
+		if stderr.is_file():
+			lines = stderr.read_text(encoding="utf-8", errors="replace").splitlines()
+			evidence = [
+				line for line in lines
+				if any(token in line for token in (
+					"fatal message=", "Error:", "G201", "model file failed",
+					"direct map", "map loaded",
+				))
+			]
+			if evidence:
+				observation += " Probe evidence: " + " | ".join(evidence[-12:])
+	combined_lower = observation.lower()
+	if any(token in combined_lower for token in (
+		"out of memory", "mem1", "memory pressure", "memory failure", "malloc failed",
+		"allocation failed", "hwm=",
+	)):
+		result = "memory_pressure"
+		focus_paths = [
+			"engine/platform/gamecube/mem_gamecube.c",
+			"engine/common/zone.c",
+			"engine/common/mod_studio.c",
+			"engine/client/sound/s_load.c",
+		]
+	elif "delta_initfields" in combined_lower or "delta.lst" in combined_lower:
+		result = "runtime_probe"
+		focus_paths = ["engine/server/sv_init.c", "engine/common/delta.c"]
+	else:
+		focus_paths = []
+	return {
+		"result": result,
+		"intent": "Use the latest bounded Dolphin evidence to restore the runtime route.",
+		"observation": sanitize_for_prompt(
+			observation, limit=900
+		),
+		"phase": "dolphin-probe",
+		"focus_paths": focus_paths,
+	}
+
+
 def sanitize_for_prompt(text: str, *, limit: int) -> str:
 	text = text.replace("\x00", " ")
 	text = PATH_RE.sub(lambda match: match.group(0).replace(match.group(1), "[path]"), text)
@@ -339,6 +452,30 @@ def existing_paths(root: Path, paths: tuple[str, ...]) -> list[str]:
 	return [path for path in paths if (root / path).is_file()]
 
 
+def incident_focus_paths(root: Path) -> list[str]:
+	path = root / ".ai/state/gamecube-harness-incident.json"
+	if not path.is_file():
+		return []
+	try:
+		payload = json.loads(path.read_text(encoding="utf-8"))
+	except (OSError, json.JSONDecodeError):
+		return []
+	if not isinstance(payload, dict):
+		return []
+	focus = payload.get("focus_files")
+	if not isinstance(focus, list):
+		return []
+	paths = [str(item) for item in focus if isinstance(item, str) and (root / item).is_file()]
+	preferred = (
+		"engine/common/model.c",
+		"engine/server/sv_init.c",
+		"filesystem/filesystem.c",
+		"engine/platform/gamecube/dll_gamecube.c",
+		"engine/platform/gamecube/sys_gamecube.c",
+	)
+	return sorted(paths, key=lambda item: preferred.index(item) if item in preferred else len(preferred))
+
+
 def sort_paths_by_size(root: Path, paths: list[str]) -> list[str]:
 	return sorted(paths, key=lambda path: ((root / path).stat().st_size, path))
 
@@ -352,6 +489,33 @@ def runtime_port_status(root: Path) -> str:
 	return " ".join(parts)
 
 
+def experiment_contract(failure_class: str, evidence: str, context: list[str]) -> tuple[str, str]:
+	if "delta.lst" in evidence.lower():
+		return (
+			"Delta field initialization fails before the map can start; the selected server initialization path should restore the required delta table lookup.",
+			"Xash3D GameCube: map loaded or no Delta_InitFields failure",
+		)
+	if "map loaded" not in evidence.lower():
+		return (
+			"The first unresolved boundary is map startup; the selected source can affect the current map/runtime failure.",
+			"Xash3D GameCube: map loaded",
+		)
+	if "g45=pass" not in evidence.lower() and "controller ready" not in evidence.lower():
+		return (
+			"The map reaches startup but controller readiness is still missing; the selected source should affect input initialization or its ordering.",
+			"G45=PASS or G45 controller ready",
+		)
+	if "nonblack" not in evidence.lower():
+		return (
+			"The runtime reaches input but visual output is not confirmed; the selected source should affect the first visible frame.",
+			"nonblack sampled or world render ready",
+		)
+	return (
+		f"The latest `{failure_class}` evidence is a regression in the selected source path ({context[0] if context else 'no source target'}).",
+		"the same or a later readiness marker with no new guest error",
+	)
+
+
 def build_discovered_item(root: Path, goal: Goal | None, recent: dict[str, object]) -> WorkItem | None:
 	failure_class = str(recent.get("result") or "").strip() or "runtime_probe"
 	recipe = DISCOVERY_RECIPES.get(failure_class)
@@ -361,6 +525,39 @@ def build_discovered_item(root: Path, goal: Goal | None, recent: dict[str, objec
 	if recipe is None:
 		return None
 	context = existing_paths(root, tuple(str(path) for path in recipe["context"]))
+	evidence_hint = str(recent.get("observation") or "").lower()
+	evidence_specific_context = False
+	causal_paths = [str(path) for path in recent.get("focus_paths", [])
+		if isinstance(path, str)]
+	if causal_paths:
+		context = existing_paths(root, tuple(causal_paths))
+		evidence_specific_context = True
+	if not causal_paths and "delta.lst" in evidence_hint:
+		context = existing_paths(root, ("engine/server/sv_init.c", "engine/common/delta.c"))
+		evidence_specific_context = True
+	elif not causal_paths and "bsp" in evidence_hint and failure_class == "runtime_probe":
+		context = existing_paths(root, ("engine/common/filesystem_engine.c", "engine/common/model.c"))
+	quarantine = quarantined_paths(root)
+	if quarantine:
+		context = [path for path in context if path not in quarantine]
+	if failure_class == "runtime_probe" and not evidence_specific_context:
+		focused = incident_focus_paths(root)
+		if focused:
+			context = focused
+	# Keep generated/monolithic backends out of the bounded local-model edit
+	# context; otherwise discovery can only produce a guaranteed no-edit retry.
+	bounded_context = [path for path in context
+		if (root / path).stat().st_size <= 60000
+		and path != "engine/platform/gamecube/mem_gamecube.c"]
+	if bounded_context:
+		context = bounded_context
+	else:
+		context = existing_paths(root, (
+			"engine/common/model.c",
+			"engine/server/sv_init.c",
+			"engine/platform/gamecube/dll_gamecube.c",
+			"engine/platform/gamecube/sys_gamecube.c",
+		))
 	if failure_class in {"runtime_probe", "no_edit", "review_reject"} and context:
 		engine_or_ref = [path for path in context if path.startswith(("engine/", "ref/"))]
 		# Keep recipe order (source-first targets first). Sorting by size always
@@ -373,7 +570,7 @@ def build_discovered_item(root: Path, goal: Goal | None, recent: dict[str, objec
 	goal_label = f"{goal.goal_id} {goal.title}" if goal is not None else "the final GameCube port objective"
 	observation = sanitize_for_prompt(
 		str(recent.get("observation") or "").strip() or "No captured observation.",
-		limit=280,
+		limit=900 if failure_class == "runtime_probe" else 280,
 	)
 	intent = sanitize_for_prompt(
 		str(recent.get("intent") or "").strip() or "Use the freshest runtime evidence.",
@@ -387,6 +584,10 @@ def build_discovered_item(root: Path, goal: Goal | None, recent: dict[str, objec
 		"If the loaded editable file list above is not empty, choose from that list and do not claim that no editable files were provided.\n\n"
 	)
 	objective_guidance = ""
+	hypothesis, expected_marker = experiment_contract(failure_class, evidence_body, context)
+	key = hypothesis_key(failure_class, context, hypothesis, expected_marker)
+	if hypothesis_rejected(root, key):
+		return None
 	if failure_class in AUTOMATION_FAILURES:
 		evidence_heading = "Automation evidence"
 		evidence_body = (
@@ -410,7 +611,7 @@ def build_discovered_item(root: Path, goal: Goal | None, recent: dict[str, objec
 			"Runtime loop: use current probe evidence, make one source patch, do not change automation policy.\n\n"
 		)
 		editable_guidance = (
-			"Act only on editable files already loaded in chat.\n\n"
+			"Act only on editable files already in chat.\n\n"
 		)
 	task = f"""Advance the GameCube port with one bounded autonomous pass.
 
@@ -419,6 +620,11 @@ Blocker: {failure_class}
 Reason: {reason}
 Intent: {intent}
 Observation: {observation}
+
+Experiment contract:
+- Hypothesis: {hypothesis}
+- Expected evidence: {expected_marker}
+- Validation: run the existing Dolphin probe and compare the readiness markers before and after this patch.
 
 {evidence_heading}:
 {evidence_body}
@@ -451,11 +657,13 @@ Output rules:
 			"Reasoning source:",
 			f"- Latest autonomous observation: {observation[:240]}",
 			f"- Latest autonomous intent: {intent[:240]}",
+			f"- Experiment expected marker: {expected_marker}",
 			"",
 			"This commit came from the auto-discovery supervisor path rather than a fixed ledger step.",
 		)),
 		source_goal_id=goal.goal_id if goal is not None else None,
 		failure_class=failure_class,
+		hypothesis_key=key,
 	)
 
 
@@ -481,13 +689,38 @@ def discover_items(root: Path) -> list[WorkItem]:
 	items: list[WorkItem] = []
 	if goal is not None:
 		items.append(build_goal_item(goal))
-	recent = load_discovery_state(root) or latest_recent_step(load_memory(root))
-	if recent is not None:
+	candidates = [
+		load_discovery_state(root),
+		latest_recent_step(load_memory(root)),
+		recent_harness_failure(root),
+	]
+	for recent in candidates:
+		if recent is None:
+			continue
 		recent = normalize_discovery_state(root, recent)
-	if recent is not None:
 		discovered = build_discovered_item(root, goal, recent)
 		if discovered is not None:
 			items.append(discovered)
+			break
+	# Do not turn an unresolved runtime failure into an empty queue merely
+	# because one hypothesis was quarantined. Rotate to allocator/cache work.
+	if len(items) == (1 if goal is not None else 0):
+		failure = recent_harness_failure(root)
+		if failure is not None:
+			fallback = dict(failure)
+			fallback["result"] = "memory_pressure"
+			fallback["focus_paths"] = [
+				"engine/platform/gamecube/mem_gamecube.c",
+				"engine/common/zone.c",
+				"engine/common/mod_studio.c",
+			]
+			fallback["observation"] = (
+				str(failure.get("observation") or "") +
+				" Previous runtime hypotheses were quarantined; investigate allocator, cache, and MEM1 headroom paths."
+			)
+			discovered = build_discovered_item(root, goal, fallback)
+			if discovered is not None:
+				items.append(discovered)
 	return sorted(items, key=lambda item: (-item.priority, item.item_id))
 
 

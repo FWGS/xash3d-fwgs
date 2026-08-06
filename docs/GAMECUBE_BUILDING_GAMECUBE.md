@@ -1,293 +1,125 @@
-# Building for GameCube
+# Building for GameCube (Swiss / libogc2)
 
-This document describes the complete build process for creating GameCube-compatible binaries.
+This document describes the current Waf + Swiss-oriented build path for
+xash3d-gc. Prefer Extrems **libogc2** and **libdvm** so the DOL matches the
+Swiss loader / accessory stack used on real hardware.
 
 ## Prerequisites
 
-### Required Tools
-- **GCC for PowerPC**: Cross-compiler targeting PowerPC 750 (GC/Wii CPU)
-- **DevKitPro**: Development kit for Nintendo GameCube/Wii
-- **CMake**: Build system generator
-- **Python 3**: Build scripts and tools
-- **Wii Toolchain**: For DOL file generation
+- Linux or macOS (Windows via WSL2)
+- Python 3
+- [devkitPro](https://devkitpro.org/wiki/Getting_Started) with **devkitPPC**
+- **libogc2** (preferred) or classic **libogc**
+- Legal Half-Life assets for disc/ISO packaging (optional for bare DOL tests)
 
-### System Requirements
-- Linux or macOS (Windows with WSL2 recommended)
-- 8GB+ RAM (build memory intensive)
-- 20GB+ free disk space
-- Internet connection for dependencies
-
-## Build Environment Setup
-
-### 1. Install DevKitPPC
+## Install the Swiss stack
 
 ```bash
-# Clone DevKitPPC
-git clone https://github.com/devkitPro/installer.git
-cd installer
-./install.sh devkitPPC
+# Base toolchain
+sudo (dkp-)pacman -S --needed devkitPPC gamecube-tools
 
-# Add to PATH
+# Extrems libogc2 (Swiss interoperability)
+sudo (dkp-)pacman -S libogc2 libogc2-docs
+
+# When asked for a libogc2-libfat provider, prefer libogc2-libdvm.
+# See: https://github.com/extremscorner/libogc2
+```
+
+Expected layout after install:
+
+| Role | Path |
+|------|------|
+| Headers | `$DEVKITPRO/libogc2/gamecube/include` |
+| Libraries | `$DEVKITPRO/libogc2/gamecube/lib` (`libogc.a`, `libasnd.a`, `libiso9660.a`, `libfat.a` / `libdvm.a`) |
+| Make rules | `$DEVKITPRO/libogc2/gamecube_rules` |
+
+Classic fallback (not preferred for Swiss):
+
+| Role | Path |
+|------|------|
+| Headers | `$DEVKITPRO/libogc/include` |
+| Libraries | `$DEVKITPRO/libogc/lib/cube` |
+| Specs | `$DEVKITPRO/libogc/share/ogc.specs` |
+
+Environment:
+
+```bash
+export DEVKITPRO=/opt/devkitpro
 export DEVKITPPC=$DEVKITPRO/devkitPPC
-export PATH=$DEVKITPPC/bin:$PATH
+export PATH=$DEVKITPPC/bin:$DEVKITPRO/tools/bin:$PATH
+# auto (default) | libogc2 | libogc
+export XASH_GAMECUBE_OGC_STACK=auto
 ```
 
-### 2. Install Required Libraries
+Verify resolution without a full build:
 
 ```bash
-# libogc (GameCube OS)
-# libfat (FAT filesystem)
-# libsd (SD card support)
-# libwiisocket (Network)
-# libmikmod (Music)
-# libmodplug (Music)
-# freetype (Font rendering)
-# zlib (Compression)
-# png (PNG support)
-# jpeg (JPEG support)
+python3 scripts/waifulib/gamecube_ogc_stack.py
 ```
 
-### 3. Configure Build Environment
+## Build (Waf — current path)
+
+From the repo root:
 
 ```bash
-# Set environment variables
-export DEVKITPPC=/opt/devkitPro/devkitPPC
-export DEVKITPRO=/opt/devkitPro
-export PATH=$DEVKITPPC/bin:$PATH
+# HLSDK static archives first (required for Flipper production builds)
+scripts/hlsdk-gamecube-build.sh
 
-# Verify toolchain
-powerpc-gekko-gcc --version
-powerpc-gekko-ld --version
+# Engine + DOL (+ optional ISO if Half-Life/valve exists)
+scripts/build-gamecube.sh
 ```
 
-## Building Xash3D for GameCube
+Artifacts:
 
-### Method 1: Using CMake (Recommended)
+- `OUT/bin/xash` — PowerPC ELF
+- `OUT/bin/boot.dol` — GameCube DOL for Swiss / Dolphin
+- `OUT/bin/gamecube-handoff.txt` — stack + size metadata (`loader=swiss`, `ogc_stack=…`)
+- `OUT/xash3d-gc.iso` — disc image when assets are present
 
-```bash
-# Clone repository
-git clone https://github.com/salvadelfia/xash3d.git
-cd xash3d
-
-# Configure for GameCube
-mkdir build && cd build
-cmake -DCMAKE_TOOLCHAIN_FILE=../cmake/toolchains/powerpc-gekko.cmake \
-      -DGAMECUBE=ON \
-      -DCMAKE_BUILD_TYPE=Release \
-      ..
-
-# Build
-make -j$(nproc)
-```
-
-### Method 2: Using Waf (Legacy)
+Configure knobs used by the script:
 
 ```bash
-# Configure
-./waf configure --toolchain=powerpc-gekko --gamecube
-
-# Build
+./waf configure --gamecube \
+  -T release \
+  --disable-gl --disable-soft --enable-gx \
+  --low-memory-mode=2 \
+  --disable-werror
 ./waf build
 ```
 
-## Build Configuration Options
+## Running on hardware (Swiss)
 
-### Core Options
-- `GAMECUBE=ON`: Enable GameCube target
-- `GC_DEBUG=ON`: Enable debug symbols
-- `GC_OPTIMIZE=ON`: Enable optimizations (default)
-- `GC_SSE=OFF`: Disable SSE (not available on GC)
+1. Copy `OUT/bin/boot.dol` to SD/USB media Swiss can browse.
+2. Place Half-Life data on a libdvm volume Swiss/libogc2 can mount:
+   - `sd:/xash3d/valve/` — SD2SP2 (Serial Port 2)
+   - `carda:/xash3d/valve/` or `cardb:/xash3d/valve/` — SD Gecko
+3. Launch the DOL from Swiss. Quit returns to Swiss via the libogc2 exit stub
+   when present.
+4. Boot markers: `OGC stack=libogc2 fat=libdvm (Swiss)`,
+   `FAT volume ready sd:/` (or `carda:/` / `cardb:/`),
+   `FAT preferred volume …`.
 
-### Audio Options
-- `GC_AUDIO=ON`: Enable audio system
-- `GC_OGG=ON`: Enable OGG Vorbis support
-- `GC_MP3=OFF`: Disable MP3 (patent issues)
+Dolphin remains the day-to-day probe host; Swiss is the retail/hardware path.
 
-### Graphics Options
-- `GC_GX=ON`: Enable GX renderer (default)
-- `GC_GX_DEBUG=OFF`: Disable GX debug output
-- `GC_VSYNC=ON`: Enable vertical sync
+## Audio / storage notes
 
-### Memory Options
-- `GC_MEM_POOL=ON`: Enable memory pool allocator
-- `GC_MEM_DEBUG=OFF`: Disable memory debugging
-- `GC_MEM_SIZE=24`: Main RAM pool size (MB)
+| Subsystem | Current | Notes |
+|-----------|---------|-------|
+| Video | GX / Flipper | Unchanged |
+| Input | libogc `PAD_` | Unchanged |
+| Audio | ASND (`-lasnd`) | libansnd is a future optional DSP path |
+| FAT / SD | `fatInitDefault()` | libdvm provides the `-lfat` API on the Swiss stack |
+| Disc | libiso9660 | Unchanged |
 
-## Output Files
-
-### Primary Outputs
-- **xash**: ELF binary (debug symbols)
-- **xash.elf**: Raw ELF for loading via loader
-- **boot.dol**: GameCube executable (DOL format)
-
-### Secondary Outputs
-- **xash.map**: Linker map file
-- **xash.sym**: Symbol table
-- **xash.dbg**: Debug information
-
-## DOL File Generation
-
-### Using elf2dol
+## Force classic libogc
 
 ```bash
-# Convert ELF to DOL
-powerpc-gekko-elf2dol xash.elf boot.dol
-
-# Verify DOL
-powerpc-gekko-objdump -h boot.dol
+export XASH_GAMECUBE_OGC_STACK=libogc
+scripts/build-gamecube.sh
 ```
 
-### DOL Structure
-```
-DOL Header (0x100 bytes)
-- Text section offsets
-- Data section offsets
-- BSS section info
-- Entry point
-- Section sizes
-```
+## Outdated alternatives
 
-## Memory Layout
-
-### GameCube Memory Map
-```
-0x80000000 - 0x800000FF:  Exception vectors (256 bytes)
-0x80000100 - 0x8000013F:  Reset handler
-0x80000140 - 0x8000016F:  Machine check handler
-0x80000170 - 0x8000019F:  DSI handler
-0x800001A0 - 0x800001CF:  ISI handler
-0x800001D0 - 0x800001FF:  EAI handler
-
-0x80001000 - 0x801FFFFF:  Main application (20MB)
-0x80200000 - 0x803FFFFF:  Stack (2MB)
-0x80400000 - 0x807FFFFF:  Heap (4MB)
-0x80800000 - 0x80FFFFFF:  Texture cache (8MB)
-```
-
-### Xash3D Memory Allocation
-```
-Main Pool:     16MB  - Game data, entities, world
-Texture Cache: 4MB   - Textures, sprites
-Audio Buffer:  2MB   - Sound data
-Stack:         1MB   - Call stacks
-Heap:          1MB   - Dynamic allocation
-```
-
-## Debugging
-
-### Using Dolphin Emulator
-
-```bash
-# Launch with debug
-dolphin-emu -b -e boot.dol --gdb
-
-# Or with GDB
-powerpc-gekko-gdb xash.elf
-(gdb) target remote tcp:127.0.0.1:4444
-```
-
-### Using Swiss DOL Loader
-
-1. Copy `boot.dol` to SD card root
-2. Insert SD card into GameCube
-3. Launch Swiss
-4. Select `boot.dol` from SD card
-
-### Debug Output
-- **Console**: UART via GameCube debug port
-- **Network**: GDB stub over Ethernet
-- **Memory**: Debug memory viewer
-
-## Common Issues
-
-### Build Errors
-
-#### "undefined reference to _start"
-- Ensure proper linker script
-- Check entry point definition
-
-#### "section '...' will not fit in region '...'"
-- Reduce memory usage
-- Optimize data structures
-- Increase memory pool sizes
-
-#### "relocation truncated to fit"
-- Use -mrelocatable for large code
-- Split into multiple sections
-
-### Runtime Issues
-
-#### Crashes on startup
-- Check memory alignment
-- Verify stack size
-- Validate DOL header
-
-#### Audio issues
-- Check audio buffer sizes
-- Verify sample rate
-- Check DMA configuration
-
-#### Graphics issues
-- Verify texture dimensions (power of 2)
-- Check texture cache alignment
-- Validate GX setup
-
-## Optimization Tips
-
-### Code Optimization
-```bash
-# Compiler flags
--O3 -ffast-math -fomit-frame-pointer
--mcpu=750 -mhard-float -maltivec
-```
-
-### Memory Optimization
-- Use fixed-size data structures
-- Pre-allocate memory pools
-- Avoid dynamic allocation in hot paths
-
-### Texture Optimization
-- Use DXT compression
-- Mipmapping for distance
-- Power-of-2 dimensions
-
-## Testing Checklist
-
-- [ ] DOL loads without errors
-- [ ] Main menu displays
-- [ ] World renders correctly
-- [ ] Player movement works
-- [ ] Audio plays without artifacts
-- [ ] No memory leaks detected
-- [ ] Frame rate stable at 60 FPS
-- [ ] Save/load works correctly
-
-## Distribution
-
-### SD Card Structure
-```
-/ games/
-    xash3d/
-        boot.dol
-        config.cfg
-        /models/
-        /sound/
-        /materials/
-```
-
-### ISO Distribution
-```
-ISO Root
-- boot.dol (at correct offset)
-- system menu
-- GameCube files
-```
-
-## Next Steps
-
-After successful build:
-1. Test in Dolphin emulator
-2. Deploy to GameCube via Swiss
-3. Verify all features work
-4. Optimize performance
-5. Create release build
+Older drafts mentioned CMake toolchains, `powerpc-gekko-gcc`, and a grab-bag of
+Wii portlibs (`libmikmod`, `freetype`, etc.). Those are **not** the supported
+path for this repo. Use Waf + `scripts/build-gamecube.sh` as above.

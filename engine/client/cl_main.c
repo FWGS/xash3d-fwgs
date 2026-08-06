@@ -396,6 +396,7 @@ static void CL_CheckClientState( void )
 			Con_Reportf( "Xash3D GameCube: G159 live GX present ca_active gx=%d\n",
 				GC_UseGxWorldDraw() ? 1 : 0 );
 		}
+
 #endif
 
 		CL_UpdateLogo();

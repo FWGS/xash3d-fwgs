@@ -8,8 +8,8 @@ GameCube build verifier, and conservative Git guardrails.
 - Aider available on `PATH`.
 - The local OpenAI-compatible model server listening on port 8072.
 - `OPENAI_API_KEY` set in the shell, never committed to this repository.
-- devkitPPC and libogc installed under `DEVKITPRO` (default:
-  `/opt/devkitpro`).
+- devkitPPC and libogc2 (preferred for Swiss) or classic libogc installed under
+  `DEVKITPRO` (default: `/opt/devkitpro`). Prefer `libogc2-libdvm` for FAT.
 - A Git worktree that can be checkpointed. The runner commits dirty tracked
   work before each autonomous pass so unattended runs can keep moving.
 

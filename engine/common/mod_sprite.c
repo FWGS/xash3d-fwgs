@@ -187,51 +187,7 @@ static qboolean Mod_SwapSprite( void *buffer, size_t buffersize, int *out_versio
 	return true;
 }
 
-#if XASH_GAMECUBE
-static msprite_t gc_sprite_stub;
 
-void Mod_LoadSpriteGcmapStub( model_t *mod, qboolean *loaded )
-{
-	char poolname[MAX_VA_STRING];
-
-	if( loaded )
-		*loaded = false;
-
-	Q_snprintf( poolname, sizeof( poolname ), "^2%s^7", mod->name );
-	if( GC_MapLoadMemoryOpt())
-		mod->mempool = Mod_GameCubeSharedModelStubPool();
-	else
-		mod->mempool = Mem_AllocPool( poolname );
-	mod->type = mod_sprite;
-
-	if( gc_sprite_stub.numframes == 0 )
-	{
-		memset( &gc_sprite_stub, 0, sizeof( gc_sprite_stub ));
-		gc_sprite_stub.type = SPR_FWD_PARALLEL;
-		gc_sprite_stub.texFormat = SPR_ALPHTEST;
-		gc_sprite_stub.numframes = 1;
-		gc_sprite_stub.facecull = SPR_CULL_FRONT;
-		gc_sprite_stub.radius = 1.0f;
-	}
-
-	mod->cache.data = &gc_sprite_stub;
-	mod->numframes = 1;
-
-	mod->mins[0] = mod->mins[1] = -1.0f;
-	mod->maxs[0] = mod->maxs[1] = 1.0f;
-	mod->mins[2] = -1.0f;
-	mod->maxs[2] = 1.0f;
-
-	if( loaded )
-		*loaded = true;
-}
-
-qboolean Mod_GCIsSpriteStub( const model_t *mod )
-{
-	return ( mod != NULL && mod->type == mod_sprite
-		&& mod->cache.data == &gc_sprite_stub );
-}
-#endif
 
 /*
 ====================
@@ -257,14 +213,6 @@ void Mod_LoadSpriteModel( model_t *mod, void *buffer, size_t buffersize, qboolea
 	mod->type = mod_sprite;
 	char poolname[MAX_VA_STRING];
 	Q_snprintf( poolname, sizeof( poolname ), "^2%s^7", mod->name );
-#if XASH_GAMECUBE
-	/* G313: late lean HUD sprites arrive at the MEM1 tip after static generic
-	 * actors are admitted. Reuse the existing shared model pool; allocating a
-	 * per-sprite pool header can fail even when the 96-byte descriptor fits. */
-	if( GC_MapLoadMemoryOpt())
-		mod->mempool = Mod_GameCubeSharedModelStubPool();
-	else
-#endif
 	mod->mempool = Mem_AllocPool( poolname );
 
 	if( version == SPRITE_VERSION_Q1 || version == SPRITE_VERSION_32 )

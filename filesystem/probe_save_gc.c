@@ -1,11 +1,13 @@
 /*
-probe_save_gc.c - GameCube probe-only RAM save bank for G94 (-gcnewsaveload)
+probe_save_gc.c - GameCube probe-only RAM save/config bank (G94/G508)
 Copyright (C) 2026 xash3d-gc contributors
 
 When Dolphin boots without SD, GCube_HasWritableStorage is false and save is
 skipped. -gcnewsaveload enables a small in-memory file bank so the same
 SV_SaveGame / SV_LoadGame / G46 confirm path can round-trip on disc-only probes.
-Hardware/SD continues to use real fat:/sd: storage (G28/G71).
+-gcconfigroundtrip extends the same bank to config.cfg (.new/.bak) so Host_WriteConfig
+can prove a Dolphin-designated writable route without real SD Gecko hardware.
+Hardware/SD continues to use real fat:/sd: storage (G28/G71/G508).
 */
 #include "build.h"
 
@@ -22,7 +24,7 @@ extern int Sys_CheckParm( const char *parm );
 
 #define GC_PROBE_SAVE_FD      (-9001)
 #define GC_PROBE_SAVE_CAP     (160 * 1024)
-#define GC_PROBE_SAVE_FILES   8
+#define GC_PROBE_SAVE_FILES   12
 #define GC_PROBE_SAVE_NAMESZ  96
 
 typedef struct gc_probe_save_file_s
@@ -66,7 +68,8 @@ static qboolean GC_ProbeSaveEnsureBlob( void )
 
 static qboolean GC_ProbeSaveEnabled( void )
 {
-	return Sys_CheckParm( "-gcnewsaveload" ) != 0;
+	return Sys_CheckParm( "-gcnewsaveload" ) != 0
+		|| Sys_CheckParm( "-gcconfigroundtrip" ) != 0;
 }
 
 static const char *GC_ProbeSaveBasename( const char *path )
@@ -81,8 +84,21 @@ static const char *GC_ProbeSaveBasename( const char *path )
 	return slash ? slash + 1 : path;
 }
 
+static qboolean GC_ProbeSaveIsConfigName( const char *base )
+{
+	return base && ( !Q_stricmp( base, "config.cfg" )
+		|| !Q_stricmp( base, "config.cfg.new" )
+		|| !Q_stricmp( base, "config.cfg.bak" )
+		|| !Q_stricmp( base, "userconfig.cfg" )
+		|| !Q_stricmp( base, "vfs.cfg" )
+		|| !Q_stricmp( base, "vfs.cfg.new" )
+		|| !Q_stricmp( base, "vfs.cfg.bak" ));
+}
+
 static qboolean GC_ProbeSavePathMatch( const char *path )
 {
+	const char *base;
+
 	if( !GC_ProbeSaveEnabled() || !path )
 		return false;
 	/* Engine save paths are DEFAULT_SAVE_DIRECTORY "save/" under the write root. */
@@ -92,6 +108,13 @@ static qboolean GC_ProbeSavePathMatch( const char *path )
 		return true;
 	if( !Q_strnicmp( path, "gcprobe:", 8 ))
 		return true;
+	/* G508: Host_WriteConfig atomic .new/.bak dance on the probe bank. */
+	if( Sys_CheckParm( "-gcconfigroundtrip" ) || Sys_CheckParm( "-gcnewsaveload" ))
+	{
+		base = GC_ProbeSaveBasename( path );
+		if( GC_ProbeSaveIsConfigName( base ))
+			return true;
+	}
 	return false;
 }
 
@@ -224,7 +247,7 @@ file_t *GC_ProbeSaveOpen( const char *filepath, const char *mode )
 
 	if( !gc_probe_save_logged )
 	{
-		Con_Reportf( "Xash3D GameCube: G94 probe save bank ready (RAM, no SD)\n" );
+		Con_Reportf( "Xash3D GameCube: G94/G508 probe save bank ready (RAM, no SD)\n" );
 		gc_probe_save_logged = true;
 	}
 	Con_Reportf( "Xash3D GameCube: G94 probe save %s name=%s\n",
@@ -337,6 +360,66 @@ fs_offset_t GC_ProbeSaveSeek( file_t *file, fs_offset_t offset, int whence )
 	gc_probe_save_opens[oi].pos = pos;
 	file->position = pos;
 	return pos;
+}
+
+qboolean GC_ProbeSaveRename( const char *oldname, const char *newname )
+{
+	const char *oldbase;
+	const char *newbase;
+	int old_slot;
+	int new_slot;
+
+	if( !GC_ProbeSaveEnabled() )
+		return false;
+	if( !GC_ProbeSavePathMatch( oldname ) && !GC_ProbeSavePathMatch( newname ))
+		return false;
+
+	oldbase = GC_ProbeSaveBasename( oldname );
+	newbase = GC_ProbeSaveBasename( newname );
+	if( !oldbase || !oldbase[0] || !newbase || !newbase[0] )
+		return false;
+	if( !Q_stricmp( oldbase, newbase ))
+		return true;
+
+	old_slot = GC_ProbeSaveFindSlot( oldbase );
+	if( old_slot < 0 )
+		return false;
+
+	new_slot = GC_ProbeSaveFindSlot( newbase );
+	if( new_slot >= 0 && new_slot != old_slot )
+	{
+		gc_probe_save_files[new_slot].used = false;
+		gc_probe_save_files[new_slot].length = 0;
+		gc_probe_save_files[new_slot].name[0] = '\0';
+	}
+
+	Q_strncpy( gc_probe_save_files[old_slot].name, newbase,
+		sizeof( gc_probe_save_files[old_slot].name ));
+	Con_Reportf( "Xash3D GameCube: G508 probe rename %s -> %s\n", oldbase, newbase );
+	return true;
+}
+
+qboolean GC_ProbeSaveDelete( const char *path )
+{
+	const char *base;
+	int slot;
+
+	if( !GC_ProbeSaveEnabled() || !GC_ProbeSavePathMatch( path ))
+		return false;
+
+	base = GC_ProbeSaveBasename( path );
+	if( !base || !base[0] )
+		return false;
+
+	slot = GC_ProbeSaveFindSlot( base );
+	if( slot < 0 )
+		return true; /* ENOENT-equivalent success for Host_FinalizeConfig */
+
+	gc_probe_save_files[slot].used = false;
+	gc_probe_save_files[slot].length = 0;
+	gc_probe_save_files[slot].name[0] = '\0';
+	Con_Reportf( "Xash3D GameCube: G508 probe delete name=%s\n", base );
+	return true;
 }
 
 void GC_ProbeSaveInitOpens( void )

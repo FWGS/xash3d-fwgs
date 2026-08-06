@@ -57,6 +57,54 @@ RUNTIME_GATE_PHASE = {
     "success": ["runtime gate: OK"],
 }
 
+# Map compatibility ends on its last map, so its state file cannot be used as
+# the c0a0e input to the runtime gate. Refresh the canonical smoke map first.
+RUNTIME_PROBE_PHASE = {
+    "name": "runtime_probe",
+    "cmd": [
+        "env",
+        "DOLPHIN_SKIP_BUILD=1",
+        "DOLPHIN_SMOKE_MAP=c0a0e",
+        "scripts/dolphin-boot-probe.sh",
+        "OUT/xash3d-gc.iso",
+    ],
+    "timeout": 480,
+    "success": ["MAP_READY:", "G45_STATUS: PASS", "VISUAL_STATUS: nonblack"],
+}
+
+DOLPHIN_RELEASE_PHASE = {
+    "name": "dolphin_release_soak",
+    "cmd": [
+        "python3",
+        "scripts/gamecube-soak-probe.py",
+        "--log-dir",
+        ".ai/logs/dolphin-release-soak",
+        "--maps",
+        "c0a0e",
+        "c1a0",
+        "--iterations",
+        "2",
+        "--timeout",
+        "180",
+    ],
+    "timeout": 480,
+    "success": ["- Status: PASS"],
+}
+
+RELEASE_PACKET_PHASE = {
+    "name": "release_packet",
+    "cmd": ["bash", "scripts/gamecube-release-packet.sh"],
+    "timeout": 180,
+    "success": ["RELEASE_PACKET: COMPLETE"],
+}
+
+GAMEPLAY_PHASE = {
+    "name": "gameplay_probe",
+    "cmd": ["bash", "scripts/gamecube-gameplay-probe.sh"],
+    "timeout": 600,
+    "success": ["GAMEPLAY_GATE: PASS"],
+}
+
 
 def phases_for_tier(tier: str) -> list[dict]:
     phases = [dict(phase) for phase in PHASES_BASE]
@@ -75,7 +123,7 @@ def phases_for_tier(tier: str) -> list[dict]:
                 phase["success"] = ["MAP_COMPAT_PROBE: PASS"]
         return phases
 
-    if tier == "runtime_gate":
+    if tier in {"runtime_gate", "dolphin_release"}:
         for phase in phases:
             if phase["name"] == "map_compat_probe":
                 phase["cmd"] = [
@@ -84,7 +132,12 @@ def phases_for_tier(tier: str) -> list[dict]:
                     *phase["cmd"],
                 ]
                 phase["success"] = ["MAP_COMPAT_PROBE: PASS"]
+        phases.append(RUNTIME_PROBE_PHASE)
         phases.append(RUNTIME_GATE_PHASE)
+        if tier == "dolphin_release":
+            phases.append(GAMEPLAY_PHASE)
+            phases.append(DOLPHIN_RELEASE_PHASE)
+            phases.append(RELEASE_PACKET_PHASE)
         return phases
 
     return phases
@@ -104,7 +157,11 @@ PHASE_DEFAULT_TARGETS: dict[str, list[str]] = {
     "build_disc": ["scripts/build-gamecube-disc.py"],
     "dolphin_boot": ["engine/platform/gamecube/in_gamecube.c", "engine/client/cl_scrn.c"],
     "map_compat_probe": ["engine/platform/gamecube/in_gamecube.c", "engine/common/mod_bmodel.c"],
+    "runtime_probe": ["engine/common/host.c", "engine/server/sv_init.c", "engine/common/mod_bmodel.c"],
     "runtime_regression": ["engine/client/cl_scrn.c", "ref/gx/r_main.c"],
+    "dolphin_release_soak": ["scripts/gamecube-soak-probe.py"],
+    "gameplay_probe": ["engine/server/sv_pmove.c", "engine/server/sv_phys.c", "engine/platform/gamecube/in_gamecube.c"],
+    "release_packet": ["scripts/gamecube-release-packet.py", "scripts/gamecube-release-packet.sh"],
 }
 
 SCRIPT_EXCEPTION_TARGETS: dict[str, list[str]] = {
@@ -159,7 +216,7 @@ def run(cmd, timeout, phase):
     finally:
         text = "".join(output)
         log_path.write_text(text, encoding="utf-8")
-        if phase in {"dolphin_boot", "map_compat_probe", "runtime_regression"}:
+        if phase in {"dolphin_boot", "runtime_probe", "map_compat_probe", "runtime_regression", "gameplay_probe", "release_packet"}:
             kill_dolphin_stragglers()
 
     return proc.returncode if proc.returncode is not None else 124, text, str(log_path.relative_to(REPO))
@@ -275,10 +332,22 @@ def success_for_phase(phase, code, log):
     # Dolphin scripts may return nonzero if killed after useful evidence,
     # so success markers are authoritative.
     markers = phase["success"]
-    if phase["name"] == "dolphin_boot":
+    if phase["name"] in {"dolphin_boot", "runtime_probe", "gameplay_probe"}:
         # Require the full boot contract. Matching only G45/visual previously
         # let menu-stuck MAP_TIMEOUT runs advance into runtime_gate.
+        if phase["name"] == "gameplay_probe":
+            return code == 0 and all(marker in log for marker in markers)
+        if "NEWGAME_READY:" in log:
+            # Direct -gcnewgame uses the stronger gameplay readiness marker
+            # instead of the legacy MAP_READY marker. Keep the independent
+            # frame, controller, and visual gates mandatory.
+            required = ["NEWGAME_READY:", "G36_STATUS: PASS", "G45_STATUS: PASS", "VISUAL_STATUS: nonblack"]
+            return all(marker in log for marker in required)
         return all(marker in log for marker in markers)
+
+    if phase["name"] == "dolphin_release_soak":
+        summary = REPO / ".ai/logs/dolphin-release-soak/summary.md"
+        return code == 0 and summary.is_file() and "- Status: PASS" in summary.read_text(encoding="utf-8")
 
     if phase["name"] in {"map_compat_probe", "runtime_regression"}:
         return any(marker in log for marker in markers)
@@ -292,6 +361,8 @@ def success_for_phase(phase, code, log):
 def classify_failure(log):
     low = log.lower()
 
+    if "release_packet: incomplete" in low:
+        return "release_evidence"
     if "mem fail" in low or "_mem_alloc: out of memory" in low or "xash3d gamecube: fatal message=" in low:
         return "memory"
     if "guest_failure" in low or "map_loaded_no_input" in low or "map_ready_gap" in low:
@@ -369,6 +440,8 @@ def extract_patch_targets(log, failure_kind: str | None = None):
 
 
 def default_patch_targets(failed_phase: str | None, failure_kind: str | None) -> list[str]:
+    if failure_kind == "release_evidence":
+        return []
     if failure_kind == "script_exception" and failed_phase:
         return list(SCRIPT_EXCEPTION_TARGETS.get(failed_phase, []))
 
@@ -444,10 +517,32 @@ def main():
     ap.add_argument("--stop-after", choices=["build_engine", "build_disc", "dolphin_boot"])
     ap.add_argument(
         "--tier",
-        choices=["map_loaded", "map_ready", "runtime_gate"],
+        choices=["map_loaded", "map_ready", "runtime_gate", "dolphin_release"],
         help="automation acceptance tier (default: GC_PORT_SUPERVISOR_TIER or saved state)",
     )
     args = ap.parse_args()
+
+    # Ensure required directories exist (resilience to missing directories)
+    LOG_DIR.mkdir(parents=True, exist_ok=True)
+    STATE.parent.mkdir(parents=True, exist_ok=True)
+    TASK_OUT.parent.mkdir(parents=True, exist_ok=True)
+    
+    # Check for stale lock state (resilience to interrupted passes)
+    lock_path = REPO / ".ai/gc-port-loop.lock"
+    if lock_path.exists():
+        try:
+            content = lock_path.read_text(encoding="utf-8").strip()
+            if content:
+                pid = int(content)
+                try:
+                    os.kill(pid, 0)
+                except ProcessLookupError:
+                    # Stale lock - clean it up silently
+                    lock_path.unlink(missing_ok=True)
+                    print(f"Cleaned up stale lock file (pid {pid} not found)", flush=True)
+        except (ValueError, OSError):
+            # Invalid lock file - clean it up
+            lock_path.unlink(missing_ok=True)
 
     tier = args.tier or load_port_automation_tier()
     phases = phases_for_tier(tier)
@@ -462,6 +557,13 @@ def main():
         ok = success_for_phase(phase, code, log)
 
         if not ok:
+            # Gameplay and soak are evidence phases. Preserve their failure
+            # logs and continue to release_packet so an unattended run still
+            # emits a complete, fail-closed diagnosis. Build and runtime
+            # failures remain immediate stops.
+            if tier == "dolphin_release" and phase["name"] in {"gameplay_probe", "dolphin_release_soak"}:
+                print(f"Evidence phase {phase['name']} failed; continuing to release packet.", flush=True)
+                continue
             context = first_error_context(log)
             failure_kind = classify_failure(log)
             patch_targets = extract_patch_targets(log, failure_kind)
@@ -498,7 +600,7 @@ def main():
         "failed_phase": None,
         "failure_kind": None,
         "patch_targets": [],
-        "next_action": "advance_automation_tier" if tier != "runtime_gate" else "hardware_handoff",
+        "next_action": "hardware_handoff" if tier == "dolphin_release" else "advance_automation_tier",
         "artifacts": [
             "OUT/bin/boot.dol",
             "OUT/xash3d-gc.iso",

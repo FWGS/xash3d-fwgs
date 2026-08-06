@@ -42,6 +42,16 @@ GNU General Public License for more details.
 #include "platform/platform.h"
 #if XASH_GAMECUBE
 
+/* One contiguous allocation prevents the weapon HUD list cache from
+ * fragmenting the small GameCube client heap.  384 entries covers the stock
+ * weapon set plus the HUD lists without changing the public cache contract. */
+/* Retail New Game has measured 216 entries across the weapon/HUD lists. Keep
+ * room for normal additions without reserving a 58 KiB contiguous MEM1 block
+ * after map load, where that reservation can starve client initialization. */
+#define GC_SPRITE_LIST_POOL_ENTRIES 256
+static client_sprite_t *gc_sprite_list_pool;
+static int gc_sprite_list_pool_used;
+
 static void CL_GameCubeApplySmokeClientBudgets( void )
 {
 	gameinfo_t *mutable_gi;
@@ -1452,19 +1462,6 @@ static qboolean CL_LoadHudSprite( const char *szSpriteName, model_t *m_pSprite, 
 				m_pSprite->needload = NL_NEEDS_LOADED;
 				return true;
 			}
-			else if( GC_MapLoadMemoryOpt())
-			{
-				Mod_LoadSpriteGcmapStub( m_pSprite, &loaded );
-				if( loaded )
-				{
-					m_pSprite->needload = NL_PRESENT;
-					Con_Reportf( "Xash3D GameCube: HUD sprite stub %s\n", szSpriteName );
-					return true;
-				}
-
-				Mod_FreeModel( m_pSprite );
-				return false;
-			}
 			else
 			{
 				Con_Reportf( S_ERROR "Could not load HUD sprite %s\n", szSpriteName );
@@ -1517,19 +1514,6 @@ static qboolean CL_LoadHudSprite( const char *szSpriteName, model_t *m_pSprite, 
 			}
 			if( buf == NULL )
 			{
-				/* Exists on disc but alloc soft-failed. Stub under memopt so HUD continues. */
-				if( GC_MapLoadMemoryOpt())
-				{
-					Mod_LoadSpriteGcmapStub( m_pSprite, &loaded );
-					if( loaded )
-					{
-						m_pSprite->needload = NL_PRESENT;
-						Con_Reportf( "Xash3D GameCube: HUD sprite stub after soft-fail %s\n",
-							szSpriteName );
-						return true;
-					}
-					Mod_FreeModel( m_pSprite );
-				}
 				return false;
 			}
 
@@ -1722,7 +1706,7 @@ void CL_GCPreloadNewGameHudSprites( void )
 
 		if( handle > 0 && handle <= MAX_CLIENT_SPRITES )
 			mod = &clgame.sprites[handle - 1];
-		is_real = ( mod && !Mod_GCIsSpriteStub( mod ));
+		is_real = ( mod != NULL );
 		if( is_real )
 		{
 			real++;
@@ -1807,19 +1791,13 @@ void CL_GCPreloadNewGameHudSpritesLate( void )
 				&& !( !Q_stricmp( sheets[i], "sprites/320_train.spr" )
 					&& !Q_stricmp( mod->name, "sprites/gc_320_train.spr" )))
 				continue;
-			if( Mod_GCIsSpriteStub( mod ))
-			{
-				Mod_FreeModel( mod );
-				memset( mod, 0, sizeof( *mod ));
-				mod->needload = NL_UNREFERENCED;
-			}
 			break;
 		}
 
 		handle = pfnSPR_Load( sheets[i] );
 		mod = ( handle > 0 && handle <= MAX_CLIENT_SPRITES )
 			? &clgame.sprites[handle - 1] : NULL;
-		is_real = ( mod && !Mod_GCIsSpriteStub( mod ));
+		is_real = ( mod != NULL );
 		if( is_real )
 		{
 			real++;
@@ -2100,7 +2078,30 @@ static client_sprite_t *SPR_GetList( char *psz, int *piCount )
 	Q_strncpy( pEntry->szListName, psz, sizeof( pEntry->szListName ));
 
 	// name, res, pic, x, y, w, h
-	pEntry->pList = Mem_Calloc( cls.mempool, sizeof( client_sprite_t ) * numSprites );
+	#if XASH_GAMECUBE
+	Con_Reportf( "Xash3D GameCube: client sprite list alloc path=%s count=%d bytes=%u\n",
+		psz, numSprites, (unsigned)( sizeof( client_sprite_t ) * numSprites ));
+	#endif
+	#if XASH_GAMECUBE
+	/*
+	 * The retail client reparses weapon sprite lists throughout a map.  On
+	 * GameCube those small, long-lived allocations fragment the client pool
+	 * and eventually make a perfectly modest list fail even when the total
+	 * free space is sufficient.  Reserve one contiguous cache at DLL load and
+	 * carve lists from it instead.
+	 */
+	if( gc_sprite_list_pool && numSprites > 0 &&
+		gc_sprite_list_pool_used + numSprites <= GC_SPRITE_LIST_POOL_ENTRIES )
+	{
+		pEntry->pList = &gc_sprite_list_pool[gc_sprite_list_pool_used];
+		gc_sprite_list_pool_used += numSprites;
+		memset( pEntry->pList, 0, sizeof( client_sprite_t ) * numSprites );
+		Con_Reportf( "Xash3D GameCube: client sprite list pool offset=%d\n",
+			gc_sprite_list_pool_used - numSprites );
+	}
+	else
+	#endif
+		pEntry->pList = Mem_Calloc( cls.mempool, sizeof( client_sprite_t ) * numSprites );
 
 	for( index = 0; index < numSprites; index++ )
 	{
@@ -4433,6 +4434,8 @@ void CL_UnloadProgs( void )
 	COM_FreeLibrary( clgame.hInstance );
 	Mem_FreePool( &cls.mempool );
 	Mem_FreePool( &clgame.mempool );
+	gc_sprite_list_pool = NULL;
+	gc_sprite_list_pool_used = 0;
 	memset( &clgame, 0, sizeof( clgame ));
 }
 
@@ -4516,6 +4519,17 @@ qboolean CL_LoadProgs( const char *name )
 
 	cls.mempool = Mem_AllocPool( "Client Static Pool" );
 	clgame.mempool = Mem_AllocPool( "Client Edicts Zone" );
+	#if XASH_GAMECUBE
+	gc_sprite_list_pool = Mem_TryCalloc( cls.mempool,
+		sizeof( client_sprite_t ) * GC_SPRITE_LIST_POOL_ENTRIES );
+	gc_sprite_list_pool_used = 0;
+	if( gc_sprite_list_pool )
+		Con_Reportf( "Xash3D GameCube: client sprite list pool entries=%d bytes=%u\n",
+			GC_SPRITE_LIST_POOL_ENTRIES,
+			(unsigned)( sizeof( client_sprite_t ) * GC_SPRITE_LIST_POOL_ENTRIES ));
+	else
+		Con_Reportf( S_WARN "Xash3D GameCube: client sprite list pool unavailable; using per-list allocations\n" );
+	#endif
 	clgame.entities = NULL;
 
 	// a1ba: we need to check if client.dll has direct dependency on SDL2
