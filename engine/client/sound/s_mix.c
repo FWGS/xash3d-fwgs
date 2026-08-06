@@ -250,6 +250,9 @@ static int S_MixChannelToBuffer( portable_samplepair_t *pbuf, channel_t *chan, i
 				out_count = (int)floor(( available - 1 - sample_frac ) / rate );
 			else
 				out_count = (int)ceil(( available - sample_frac ) / rate );
+
+			if( out_count > num_samples )
+				out_count = num_samples;
 		}
 
 		// near a buffer boundary (e.g. just before a loop wrap) lerp may yield zero;
