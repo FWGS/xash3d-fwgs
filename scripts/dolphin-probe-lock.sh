@@ -18,7 +18,7 @@ if [[ -f "$ROOT/.ai/dolphin-probe.lock" ]]; then
 	lock_age=$(( $(date +%s) - $(stat -c %Y "$ROOT/.ai/dolphin-probe.lock" 2>/dev/null || echo 0) ))
 	(( lock_age > 300 )) && stale=true
 fi
-if ! pgrep -f "dolphin" >/dev/null 2>&1; then
+if ! pgrep -f '[d]olphin-emu|[D]olphinQt' >/dev/null 2>&1; then
 	stale=true
 fi
 if [[ "$stale" != true ]]; then

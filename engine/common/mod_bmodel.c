@@ -5936,6 +5936,28 @@ static void Mod_LoadClipnodes( model_t *mod, dbspmodel_t *bmod )
 			Mod_GCEnsureBspLump( mod, bmod, LUMP_CLIPNODES );
 		}
 
+		if( Sys_CheckParm( "-gcfullphysics" ))
+		{
+			mclipnode16_t *owned;
+			if( !bmod->clipnodes )
+				Host_Error( "%s: missing clipnodes for fullphysics %s\n", __func__, mod->name );
+			owned = (mclipnode16_t *)malloc( clip_sz );
+			if( !owned )
+				Host_Error( "%s: unable to own clipnodes for fullphysics (%s)\n",
+					__func__, Q_memprint( clip_sz ));
+			for( int i = 0; i < bmod->numclipnodes; i++ )
+			{
+				owned[i].planenum = bmod->clipnodes[i].planenum;
+				owned[i].children[0] = bmod->clipnodes[i].children[0];
+				owned[i].children[1] = bmod->clipnodes[i].children[1];
+			}
+			mod->clipnodes16 = owned;
+			gc_clipnodes_malloc_block = owned;
+			Con_Reportf( "Xash3D GameCube: fullphysics owned compact clipnodes %s\n",
+				Q_memprint( clip_sz ));
+			return;
+		}
+
 		if( bmod->clipnodes )
 		{
 			mod->clipnodes16 = (mclipnode16_t *)bmod->clipnodes;

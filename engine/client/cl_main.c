@@ -35,11 +35,13 @@ void GC_ArmPostMapFrameBudgetSamples( void );
 qboolean GC_IsNewGameG36Done( void );
 qboolean GC_IsNewGameWorldReady( void );
 qboolean GC_RenderNewGameWorldFrames( int count );
+void GC_PresentLandmarkViewModel( void );
 qboolean GC_UseGxWorldDraw( void );
 qboolean CL_GameCubeClientProgsReady( void );
 qboolean CL_GameCubeEnsureClientReady( void );
 static qboolean gc_g159_reconnect_active_pending;
 static qboolean gc_g158_reconnect_seen;
+static qboolean gc_fullphysics_viewmodel_presented;
 
 qboolean CL_GameCubePostReconnect( void )
 {
@@ -395,6 +397,17 @@ static void CL_CheckClientState( void )
 			}
 			Con_Reportf( "Xash3D GameCube: G159 live GX present ca_active gx=%d\n",
 				GC_UseGxWorldDraw() ? 1 : 0 );
+		}
+
+		/* G105/G161/G177: run the composite after sign-on has made the
+		 * client active, outside GC_PresentBuffer's deferred-loader callback.
+		 * The callback only promotes the compact starter mesh; this boundary
+		 * owns the actual viewmodel/HUD presents and cannot recurse into itself. */
+		if( Sys_CheckParm( "-gcfullphysics" ) && !gc_fullphysics_viewmodel_presented
+			&& GC_IsNewGameWorldReady() )
+		{
+			gc_fullphysics_viewmodel_presented = true;
+			GC_PresentLandmarkViewModel();
 		}
 #endif
 

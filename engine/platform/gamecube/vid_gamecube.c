@@ -7800,19 +7800,6 @@ static void GC_TryDeferredStudios( void )
 #if XASH_GAMECUBE
 	if( !gc_newgame_world_ready )
 		return;
-	/* Gameplay validation must return to Host_RunFrame after sign-on. The
-	 * optional six-model promotion can consume the whole MEM1 tip and starve
-	 * input polling; studio coverage has its own release-facing probe. */
-	if( Sys_CheckParm( "-gcfullphysics" ))
-	{
-		static qboolean gc_gameplay_studio_skip_logged;
-		if( !gc_gameplay_studio_skip_logged )
-		{
-			gc_gameplay_studio_skip_logged = true;
-			Con_Reportf( "Xash3D GameCube: gameplay probe deferred studios skipped\n" );
-		}
-		return;
-	}
 	/* G297: MDL promote mid-G36 sample window spikes present hitch. */
 	if( GC_IsFrameBudgetProbeActive() )
 		return;

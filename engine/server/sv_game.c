@@ -301,7 +301,7 @@ void GAME_EXPORT SV_SetModel( edict_t *ent, const char *modelname )
 	/* G100/G102 lean weapon grant: studio Mod_ForName after changelevel hangs
 	 * under MEM1. Bind empty hull without precache scans / MakeString. */
 	if( ( gc_lean_weapon_grant_active || Sys_CheckParm( "-gcchangelevel" )
-		|| Sys_CheckParm( "-gcnewgame" ) || Sys_CheckParm( "-gcmenuplaystart" ))
+		|| ( Sys_CheckParm( "-gcmenuplaystart" ) && !Sys_CheckParm( "-gcfullphysics" )))
 		&& ( !Q_strnicmp( name, "models/w_", 9 )
 			|| !Q_strnicmp( name, "models/v_", 9 )
 			|| !Q_strnicmp( name, "models/p_", 9 )))
