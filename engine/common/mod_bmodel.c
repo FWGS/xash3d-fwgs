@@ -5429,7 +5429,7 @@ static void Mod_GCReleaseBspSourceBuffer( model_t *mod, dbspmodel_t *bmod, byte 
 
 		if( node_bytes )
 			carve_total += ALIGN( node_bytes, 32 );
-		if( clip_bytes )
+		if( clip_bytes && !Sys_CheckParm( "-gcfullphysics" ))
 			carve_total += ALIGN( clip_bytes, 32 );
 
 		if( carve_total > 0 && carve_total < bufferlen )

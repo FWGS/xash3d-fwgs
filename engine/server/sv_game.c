@@ -312,6 +312,8 @@ void GAME_EXPORT SV_SetModel( edict_t *ent, const char *modelname )
 		 * model-less until a later render-safe reload. */
 		ent->v.modelindex = 0;
 		ent->v.model = 0;
+		ent->v.solid = SOLID_NOT;
+		ent->v.movetype = MOVETYPE_NONE;
 		VectorClear( ent->v.mins );
 		VectorClear( ent->v.maxs );
 		VectorClear( ent->v.size );

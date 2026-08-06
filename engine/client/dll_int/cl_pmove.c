@@ -670,6 +670,15 @@ static int GAME_EXPORT pfnTruePointContents( float *p )
 
 static pmtrace_t GAME_EXPORT pfnPlayerTrace( float *start, float *end, int traceFlags, int ignore_pe )
 {
+	#if XASH_GAMECUBE
+	static int gc_trace_log_count;
+	if( Sys_CheckParm( "-gcnewgame" ) && Sys_CheckParm( "-gcfullphysics" ) && gc_trace_log_count < 4 )
+	{
+		Con_Reportf( "Xash3D GameCube: client PM_PlayerTrace begin start=(%.1f,%.1f,%.1f) end=(%.1f,%.1f,%.1f) flags=0x%x\n",
+			start[0], start[1], start[2], end[0], end[1], end[2], traceFlags );
+		gc_trace_log_count++;
+	}
+	#endif
 	return PM_PlayerTraceExt( clgame.pmove, start, end, traceFlags, clgame.pmove->numphysent, clgame.pmove->physents, ignore_pe, NULL );
 }
 
@@ -933,6 +942,37 @@ static void CL_RunUsercmd( local_state_t *from, local_state_t *to, usercmd_t *u,
 	{
 		// setup playermove state
 		CL_SetupPMove( clgame.pmove, from, &cmd, runfuncs, *time );
+	#if XASH_GAMECUBE
+		if( Sys_CheckParm( "-gcnewgame" ) && Sys_CheckParm( "-gcfullphysics" )
+			&& gc_native_prediction_log == 0 )
+		{
+			model_t *pm_world = clgame.pmove->physents[0].model;
+			if( pm_world )
+			{
+				Con_Reportf( "Xash3D GameCube: client PMove world name=%s type=%d nodes=%d planes=%d hull0=(%d,%d,%p,%p) hull1=(%d,%d,%p,%p)\n",
+					pm_world->name, pm_world->type, pm_world->numnodes, pm_world->numplanes,
+					pm_world->hulls[0].firstclipnode, pm_world->hulls[0].lastclipnode,
+					(void *)pm_world->hulls[0].planes, (void *)pm_world->hulls[0].clipnodes16,
+					pm_world->hulls[1].firstclipnode, pm_world->hulls[1].lastclipnode,
+					(void *)pm_world->hulls[1].planes, (void *)pm_world->hulls[1].clipnodes16 );
+			}
+			else
+				Con_Reportf( "Xash3D GameCube: client PMove world is NULL\n" );
+			Con_Reportf( "Xash3D GameCube: client PMove setup origin=(%.1f,%.1f,%.1f) onground=%d physents=%d hull=%d movetype=%d flags=0x%x frame=%.6f time=%.3f step=%d left=%d fall=%.3f swim=%.3f waterjump=%.3f\n",
+				clgame.pmove->origin[0], clgame.pmove->origin[1], clgame.pmove->origin[2],
+				clgame.pmove->onground, clgame.pmove->numphysent, clgame.pmove->usehull,
+				clgame.pmove->movetype, (unsigned)clgame.pmove->flags, clgame.pmove->frametime,
+				clgame.pmove->time, clgame.pmove->flTimeStepSound, clgame.pmove->iStepLeft,
+				clgame.pmove->flFallVelocity, clgame.pmove->flSwimTime, clgame.pmove->waterjumptime );
+		}
+		if( Sys_CheckParm( "-gcnewgame" ) && Sys_CheckParm( "-gcfullphysics" )
+			&& clgame.pmove->onground >= clgame.pmove->numphysent )
+		{
+			Con_Reportf( "Xash3D GameCube: client PMove invalid ground index=%d physents=%d; clearing\n",
+				clgame.pmove->onground, clgame.pmove->numphysent );
+			clgame.pmove->onground = -1;
+		}
+	#endif
 
 		// motor!
 #if XASH_GAMECUBE
