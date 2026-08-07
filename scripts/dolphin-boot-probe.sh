@@ -269,6 +269,12 @@ else
 		fi
 	elif [[ -n "$SMOKE_MAP" ]]; then
 		BUILD_ARGS+=(--smoke-map "$SMOKE_MAP")
+		# Disc argv comes from valve/gamecube.cfg only — Dolphin -- guest args
+		# are ignored on ISO boot. Always bake --probe-newgame when requested.
+		if (( DOLPHIN_NEWGAME )); then
+			BUILD_ARGS+=(--probe-newgame)
+			echo "==> Staging New Game override on smoke map (-gcnewgame via gamecube.cfg)"
+		fi
 		if [[ "${DOLPHIN_G94:-0}" == "1" ]]; then
 			BUILD_ARGS+=(--probe-newsaveload)
 			echo "==> Staging G94 save/load override on smoke map"

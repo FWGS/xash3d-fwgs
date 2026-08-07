@@ -2208,7 +2208,15 @@ def main() -> None:
 				args.data,
 				Path(temp) / "valve",
 				args.smoke_map,
-				newgame=args.probe_fullphysics or args.probe_newsaveload or args.probe_configroundtrip,
+				# ISO boots rebuild argv from gamecube.cfg; Dolphin -- guest
+				# args never reach the DOL. Bake newgame whenever the probe
+				# asks for it (lean New Game or fullphysics/save/config).
+				newgame=(
+					args.probe_newgame
+					or args.probe_fullphysics
+					or args.probe_newsaveload
+					or args.probe_configroundtrip
+				),
 				newsaveload=args.probe_newsaveload,
 				configroundtrip=args.probe_configroundtrip,
 				world_render=args.world_render,

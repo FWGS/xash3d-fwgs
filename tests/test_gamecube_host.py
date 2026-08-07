@@ -113,6 +113,17 @@ class GameCubeHostTests(unittest.TestCase):
 			disc.write_smoke_overrides(out, "c0a0", fullphysics=True)
 			self.assertIn("fullphysics", (out / "gamecube.cfg").read_text(encoding="ascii"))
 
+	def test_smoke_newgame_override_bakes_without_fullphysics(self) -> None:
+		"""Lean -gcnewgame must reach the DOL via gamecube.cfg on smoke ISOs."""
+		disc = load_script("disc_lean_newgame", "scripts/build-gamecube-disc.py")
+		with tempfile.TemporaryDirectory() as tmpdir:
+			out = Path(tmpdir)
+			disc.write_smoke_overrides(out, "c0a0", newgame=True)
+			cfg = (out / "gamecube.cfg").read_text(encoding="ascii")
+			self.assertIn("newgame", cfg)
+			self.assertIn("map c0a0", cfg)
+			self.assertNotIn("fullphysics", cfg)
+
 	def test_filesystem_search_path_contract_checks_directories_and_order(self) -> None:
 		searchpath = (ROOT / "filesystem/searchpath.c").read_text(encoding="utf-8")
 		self.assertIn("FS_SysFolderExists( dir )", searchpath)

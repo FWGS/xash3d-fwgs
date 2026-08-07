@@ -22,6 +22,7 @@ int GC_GetNewGameViewCluster( void );
 qboolean GC_HasNewGameCachedVis( void );
 qboolean GC_ApplyNewGameCachedVis( int visframe );
 void GC_ApplyNewGameSurfVis( int surf_frame );
+void CL_EmitEntities( void );
 #endif
 // #include "beamdef.h"
 #include "entity_types.h"
@@ -1915,6 +1916,18 @@ void GAME_EXPORT R_RenderScene( void )
 #if XASH_GAMECUBE
 	if( tr.framecount <= 1 && gEngfuncs.Sys_CheckParm( "-gcnewgame" ))
 		gEngfuncs.Con_Reportf( "Xash3D GameCube: R_RenderScene after setupframe\n" );
+	/* Direct New Game presents bypass V_RenderView, whose normal path emits
+	 * packet/static entities before the renderer.  Without this step the
+	 * server can spawn NPCs successfully while GX sees an empty draw list. */
+	if( gEngfuncs.Sys_CheckParm( "-gcnewgame" ))
+	{
+		CL_EmitEntities();
+		if( tr.framecount <= 1 )
+			gEngfuncs.Con_Reportf( "Xash3D GameCube: G318 client entities emitted solid=%u trans=%u edge=%u\n",
+				tr.draw_list->num_solid_entities,
+				tr.draw_list->num_trans_entities,
+				tr.draw_list->num_edge_entities );
+	}
 #endif
 
 #if XASH_GAMECUBE

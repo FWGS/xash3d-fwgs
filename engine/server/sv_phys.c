@@ -2145,7 +2145,11 @@ static void SV_GCStepIntroTrain( void )
 			VectorClear( player->v.velocity );
 			SetBits( player->v.flags, FL_ONGROUND );
 			player->v.groundentity = train;
-			SV_LinkEdict( player, true );
+			/* Lean -gcnewgame (probe 20260807-013658): LinkEdict(..., true)
+			 * after the cabin teleport hung Host_Frame inside trigger Touch
+			 * before "G278 player ride" — area-link only here. Walk/relink
+			 * still uses touch=true for gameplay triggers. */
+			SV_LinkEdict( player, false );
 			if( ride_log_n < 4 )
 			{
 				Con_Reportf( "Xash3D GameCube: G278 player ride train=%d origin=(%.0f,%.0f,%.0f) hull=(%.0f,%.0f,%.0f)/(%.0f,%.0f,%.0f) onground=%d\n",

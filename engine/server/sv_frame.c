@@ -99,6 +99,7 @@ static void SV_AddEntitiesToPacket( edict_t *pViewEnt, edict_t *pClient, client_
 		qboolean	post_g36 = GC_IsNewGameG36Done();
 		int		brush_budget = post_g36 ? 6 : 64;
 		int		brush_added = 0;
+		int		studio_added = 0;
 		vec3_t		view_org;
 
 		VectorCopy( pViewEnt->v.origin, view_org );
@@ -131,23 +132,25 @@ static void SV_AddEntitiesToPacket( edict_t *pViewEnt, edict_t *pClient, client_
 				if( FBitSet( ent->v.effects, EF_NODRAW ))
 					continue;
 
-				/* G277: Flipper draws tram from server edict — no brush pack. */
-				if( post_g36 )
-					continue;
 				{
 					mod = SV_ModelHandle( ent->v.modelindex );
 					if( !mod )
 					{
-						if( ent->v.modelindex > 1
-							&& sv.model_precache[ent->v.modelindex][0]
-							&& Q_stristr( sv.model_precache[ent->v.modelindex], ".mdl" ))
+						/* G319: the lean post-G36 server may not retain a
+						 * server-side model handle, but the model precache still
+						 * supplies a valid client model index. Preserve studio
+						 * entities for snapshot delivery instead of dropping them. */
+						if( ent->v.modelindex <= 1
+							|| !sv.model_precache[ent->v.modelindex][0]
+							|| !Q_stristr( sv.model_precache[ent->v.modelindex], ".mdl" ))
 							continue;
-						continue;
+						studio_added++;
 					}
 					else if( mod->type == mod_studio )
 					{
 						if( mod->needload == NL_UNREFERENCED || !mod->name[0] )
 							continue;
+						studio_added++;
 					}
 					else if( mod->type != mod_brush )
 					{
@@ -155,6 +158,11 @@ static void SV_AddEntitiesToPacket( edict_t *pViewEnt, edict_t *pClient, client_
 					}
 					else
 					{
+						/* G277: Flipper draws the tram from its server edict;
+						 * do not spend the packet budget on brush movers after
+						 * the world is prepared. Studio NPCs remain networked. */
+						if( post_g36 )
+							continue;
 						if( brush_added >= brush_budget )
 							continue;
 						if( mod->nummodelsurfaces <= 0 )
@@ -198,6 +206,17 @@ static void SV_AddEntitiesToPacket( edict_t *pViewEnt, edict_t *pClient, client_
 			SETVISBIT( ents->sended, e );
 			ents->num_entities++;
 			c_fullsend++;
+		}
+		if( post_g36 )
+		{
+			static qboolean gc_g319_logged;
+
+			if( !gc_g319_logged )
+			{
+				gc_g319_logged = true;
+				Con_Reportf( "Xash3D GameCube: G319 server packet entities=%d studios=%d brushes=%d\n",
+					ents->num_entities, studio_added, brush_added );
+			}
 		}
 		return;
 	}

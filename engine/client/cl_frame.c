@@ -935,9 +935,21 @@ all the visible entities should pass this filter
 qboolean CL_AddVisibleEntity( cl_entity_t *ent, int entityType )
 {
 	qboolean draw_player = true;
+	#if XASH_GAMECUBE
+	static unsigned gc_g317_seen;
+	static unsigned gc_g317_rejected;
+	#endif
 
 	if( !ent || !ent->model )
 		return false;
+	#if XASH_GAMECUBE
+	if( Sys_CheckParm( "-gcnewgame" ) && gc_g317_seen < 16 )
+	{
+		Con_Reportf( "Xash3D GameCube: G317 client entity index=%d model=%s type=%d\n",
+			ent->index, ent->model->name, entityType );
+		gc_g317_seen++;
+	}
+	#endif
 
 	// don't add the player in firstperson mode
 	if( RP_LOCALCLIENT( ent ))
@@ -956,6 +968,14 @@ qboolean CL_AddVisibleEntity( cl_entity_t *ent, int entityType )
 	// check for adding this entity
 	if( !clgame.dllFuncs.pfnAddEntity( entityType, ent, ent->model->name ))
 	{
+		#if XASH_GAMECUBE
+		if( Sys_CheckParm( "-gcnewgame" ) && gc_g317_rejected < 8 )
+		{
+			Con_Reportf( "Xash3D GameCube: G317 client entity rejected index=%d model=%s\n",
+				ent->index, ent->model->name );
+			gc_g317_rejected++;
+		}
+		#endif
 		// local player was reject by game code, so ignore any effects
 		if( RP_LOCALCLIENT( ent ))
 			cl.local.apply_effects = false;

@@ -3762,3 +3762,35 @@ manual hardware validation with all artifacts generated and documented.
 - Host proof:
   `python3 -m unittest discover -s tests -p 'test_gamecube_host.py'`
   `SKIP_GAMECUBE_BUILD=1 scripts/ai-verify.sh`
+
+
+## Lean New Game probe argv + crowbar SetModel hang (2026-08-07)
+
+- Failure: `DOLPHIN_NEWGAME=1` smoke probes never baked `newgame` into
+  `valve/gamecube.cfg`, so ISO boot only got `-gcmap` (Dolphin `--` guest args
+  do not reach the DOL). Evidence: probe `20260807-012850` Program args lacked
+  `-gcnewgame`.
+- Fix: `scripts/dolphin-boot-probe.sh` passes `--probe-newgame` on smoke New
+  Game; `scripts/build-gamecube-disc.py` honors `--probe-newgame` for smoke
+  `gamecube.cfg`. Host test:
+  `test_smoke_newgame_override_bakes_without_fullphysics`.
+- Next failure after argv fix: probe `20260807-013250` reached
+  `ClientPutInServer` then hung at `SV_SetModel begin models/w_crowbar.mdl`
+  under lean `-gcnewgame` (no `-gcfullphysics`). Interpreter probe timed out
+  with no presents (G36 FAIL).
+- Fix: extend GameCube weapon stub in `SV_SetModel` to lean `-gcnewgame`
+  without `-gcfullphysics` (same MEM1 Mod_ForName hang class as G100/G102).
+- Probe `20260807-013658` (post-stub): Program args include `-gcnewgame`;
+  crowbar uses weapon stub; `MAP_READY c0a0`; budget flush + analyze
+  `G36_STATUS: PASS` / `G45_STATUS: PASS` / `LADDER_STATUS: PASS`;
+  `G506_STATUS: UNSEEN`. Guest then hung after `G278 ride` with no
+  `G278 player ride` / `SendClientDatagram` / `G281` (Dolphin SIGTERM).
+- Fix: lean tram cabin teleport in `SV_GCStepIntroTrain` now
+  `SV_LinkEdict(player, false)` so trigger Touch cannot stall Host_Frame.
+- Commands:
+  `python3 -m unittest …test_smoke_newgame_override_bakes_without_fullphysics`
+  `python3 scripts/dolphin-probe-analyze.py --log-dir .ai/logs/dolphin-probe-20260807-013658 --goal G36`
+  `DOLPHIN_NEWGAME=1 DOLPHIN_TIMEOUT=240 scripts/dolphin-boot-probe.sh`
+- Next blocker: re-prove lean New Game past `G278 ride` to `G281` /
+  `SendClientDatagram` and G506 presentation markers.
+
