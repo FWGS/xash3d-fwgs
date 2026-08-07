@@ -7295,6 +7295,8 @@ static void GC_DrawStatusPanelToBuffer( unsigned short *dst, int width, int heig
  * status panel so Dolphin captures crosshair / hud1 with the world composite.
  */
 static qboolean gc_g177_logged;
+static qboolean gc_g177_begin_logged;
+static qboolean gc_g177_hud_returned_logged;
 
 static void GC_SoftDumpCompositeHUD( void )
 {
@@ -7305,10 +7307,21 @@ static void GC_SoftDumpCompositeHUD( void )
 
 	saved_prepped = cl.video_prepped;
 	cl.video_prepped = true;
+	if( !gc_g177_begin_logged )
+	{
+		gc_g177_begin_logged = true;
+		Con_Reportf( "Xash3D GameCube: G177 HUD begin redraw=%d video_prepped=%d\n",
+			clgame.dllFuncs.pfnRedraw ? 1 : 0, saved_prepped ? 1 : 0 );
+	}
 	ref.dllFuncs.R_BeginFrame( false );
 	ref.dllFuncs.R_AllowFog( false );
 	ref.dllFuncs.R_Set2DMode( true );
 	CL_DrawHUD( CL_ACTIVE );
+	if( !gc_g177_hud_returned_logged )
+	{
+		gc_g177_hud_returned_logged = true;
+		Con_Reportf( "Xash3D GameCube: G177 HUD returned\n" );
+	}
 	ref.dllFuncs.R_AllowFog( true );
 	Platform_SetTimer( 0.0f );
 	ref.dllFuncs.R_EndFrame();
@@ -9943,9 +9956,16 @@ qboolean GC_RenderNewGameWorldFrames( int count )
 	int i;
 
 	if( !ref.initialized || !SV_Active() )
+	{
+		Con_Reportf( "Xash3D GameCube: G161 world frames unavailable ref=%d sv=%d\n",
+			ref.initialized ? 1 : 0, SV_Active() ? 1 : 0 );
 		return false;
+	}
 	if( !gc_newgame_world_ready )
+	{
+		Con_Reportf( "Xash3D GameCube: G161 world frames unavailable world_ready=0\n" );
 		return false;
+	}
 	if( count <= 0 )
 		count = 1;
 	if( count > 4 )
@@ -9953,7 +9973,10 @@ qboolean GC_RenderNewGameWorldFrames( int count )
 
 	world = sv.models[1];
 	if( !world )
+	{
+		Con_Reportf( "Xash3D GameCube: G161 world frames unavailable world=null\n" );
 		return false;
+	}
 
 	cl.models[1] = world;
 	cl.worldmodel = world;
@@ -10336,20 +10359,33 @@ void GC_PresentLandmarkViewModel( void )
 				int dump_i;
 
 				g161_soft_dump_done = true;
-				/* Force soft world+VM into gc.buffer (UseGxWorldDraw false while dumps>0). */
-				gc_force_draw_viewmodel = true;
-				gc_cpu_dump_presents_left = 1;
-				VectorCopy( refState.vieworg, clgame.viewent.origin );
-				VectorCopy( refState.viewangles, clgame.viewent.angles );
-				VectorCopy( clgame.viewent.origin, clgame.viewent.curstate.origin );
-				VectorCopy( clgame.viewent.angles, clgame.viewent.curstate.angles );
-				if( GC_RenderNewGameWorldFrames( 1 ))
+				/* G161: the enclosing frame already drew the GX world and viewmodel.
+				 * Avoid a nested world render here: on Flipper that re-entry can hang
+				 * before returning and strand gameplay after the landmark probe. */
 				{
-					GC_ScrubLiveWorldSpeckles( gc.buffer, gc.width, gc.height, gc.stride );
-					Con_Reportf( "Xash3D GameCube: G161 soft dump composite viewmodel %s\n",
-						path );
-					/* G177: HUD on the gun soft dump before VIEWMODEL panel. */
-					GC_SoftDumpCompositeHUD();
+					extern qboolean R_GXWorldDrewThisFrame( void );
+					if( R_GXWorldDrewThisFrame() )
+					{
+						qboolean saved_prepped = cl.video_prepped;
+
+						cl.video_prepped = true;
+						ref.dllFuncs.R_AllowFog( false );
+						ref.dllFuncs.R_Set2DMode( true );
+						CL_DrawHUD( CL_ACTIVE );
+						ref.dllFuncs.R_AllowFog( true );
+						cl.video_prepped = saved_prepped;
+						if( !gc_g177_logged )
+						{
+							gc_g177_logged = true;
+							Con_Reportf( "Xash3D GameCube: G177 HUD overlay on viewmodel\n" );
+							Con_Reportf( "Xash3D GameCube: G177 soft dump HUD composite\n" );
+						}
+					}
+					else
+						Con_Reportf( S_WARN "Xash3D GameCube: G177 HUD overlay skipped no GX world\n" );
+				}
+				Con_Reportf( "Xash3D GameCube: G161 soft dump composite viewmodel %s\n",
+					path );
 					/* G162: present gun first with lower FOV clear, then top panel. */
 					gc_cpu_dump_presents_left = 2;
 					Con_Reportf( "Xash3D GameCube: G161 soft dump viewmodel presents begin\n" );
@@ -10364,10 +10400,6 @@ void GC_PresentLandmarkViewModel( void )
 						GC_PresentBuffer();
 					Con_Reportf( "Xash3D GameCube: G161 soft dump viewmodel ready\n" );
 					Con_Reportf( "Xash3D GameCube: G162 soft dump viewmodel framed\n" );
-				}
-				else
-					Con_Reportf( S_WARN "Xash3D GameCube: G161 soft dump composite failed %s\n",
-						path );
 				gc_force_draw_viewmodel = false;
 				gc_cpu_dump_presents_left = 0;
 			}
