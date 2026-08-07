@@ -67,8 +67,18 @@ void GAME_EXPORT CL_DrawParticles( double frametime, particle_t *cl_active_parti
 	// Quality 1 (medium):           75% size, full brightness
 	// Quality 2 (high):             100% size, full brightness
 	// All particles are drawn but scaled down to avoid visual popping.
+	{
+		int guard = 0;
+
 	for( particle_t *p = cl_active_particles; p; p = p->next )
 	{
+		if( ++guard > 256 )
+		{
+			gEngfuncs.Con_Reportf( S_WARN "Xash3D GameCube: CL_DrawParticles cycle broken n=%d\n",
+				guard );
+			p->next = NULL;
+			break;
+		}
 		if(( p->type != pt_blob ) || ( p->unused == 255 ))
 		{
 			float size = partsize; // get initial size of particle
@@ -125,6 +135,7 @@ void GAME_EXPORT CL_DrawParticles( double frametime, particle_t *cl_active_parti
 		}
 
 		gEngfuncs.CL_ThinkParticle( frametime, p );
+	}
 	}
 	// pglDepthMask( GL_TRUE );
 }
@@ -187,9 +198,19 @@ void GAME_EXPORT CL_DrawTracers( double frametime, particle_t *cl_active_tracers
 	if( scale < 0.0f )
 		scale = 0.0f;
 
+	{
+		int guard = 0;
+
 	for( particle_t *p = cl_active_tracers; p; p = p->next )
 	{
 		float atten = ( p->die - gp_cl->time );
+		if( ++guard > 256 )
+		{
+			gEngfuncs.Con_Reportf( S_WARN "Xash3D GameCube: CL_DrawTracers cycle broken n=%d\n",
+				guard );
+			p->next = NULL;
+			break;
+		}
 		if( atten > 0.1f )
 			atten = 0.1f;
 
@@ -283,6 +304,7 @@ void GAME_EXPORT CL_DrawTracers( double frametime, particle_t *cl_active_tracers
 		{
 			p->vel[2] = gravity * 0.05;
 		}
+	}
 	}
 
 	// pglDepthMask( GL_TRUE );

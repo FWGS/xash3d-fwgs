@@ -110,8 +110,11 @@ qboolean SV_GCPrimeDirectMapPlayer( void )
 		ent->v.origin[0], ent->v.origin[1], ent->v.origin[2] );
 
 	/* The direct map route has already performed the spawn half of local
-	 * sign-on above. Complete its normal begin transition for native physics. */
-	if( Sys_CheckParm( "-gcfullphysics" ) || Sys_CheckParm( "-gcmenuplaystart" ))
+	 * sign-on above. Complete its normal begin transition so lean BoundedGC
+	 * snapshots see cs_spawned (probe 20260807-040541: state stayed 0/cs_free
+	 * when this block was fullphysics-only). */
+	if( Sys_CheckParm( "-gcnewgame" ) || Sys_CheckParm( "-gcfullphysics" )
+		|| Sys_CheckParm( "-gcmenuplaystart" ))
 	{
 		netadr_t loopback = { .type = NA_LOOPBACK };
 

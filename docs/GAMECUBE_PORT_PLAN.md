@@ -3856,6 +3856,25 @@ manual hardware validation with all artifacts generated and documented.
   re-hanging first present (player-only pack + warm gate); then lean player
   clip physics. Keep fullphysics New Game green.
 
+## Lean BoundedGC snapshots restored (2026-08-07)
+
+- Root causes for prior restore failure:
+  1. `CL_DrawEFX(trans)` hang risk → cycle guards + lean frame-1 EFX skip
+  2. Prepare present pump stalls Host_Frame before ServerFrame → prime
+     `Host_ServerFrame` ×16 before Flipper present pump
+  3. Lean `SV_GCPrimeDirectMapPlayer` never set `cs_spawned` (fullphysics-only)
+     → BoundedGC saw `state=0` / no datagrams (`20260807-040541`)
+- Fix: lean also gets loopback netchan + `cs_spawned`; player-only pack;
+  pre-present ServerFrame prime; particle walk guards.
+- Probe `20260807-041023`: `G319 … entities=1 lean_player_only=1`,
+  `SendClientDatagram ready bytes=57 post-G36`, `WriteEntities tick` ×4,
+  `G506_STATUS: PASS`, G36/G45/LADDER PASS.
+- Commands:
+  `DOLPHIN_NEWGAME=1 DOLPHIN_TIMEOUT=240 scripts/dolphin-boot-probe.sh`
+  → logs `.ai/logs/dolphin-probe-20260807-041023`
+- Next blocker: restore lean player clip / PreThink; pack studios into
+  snapshots carefully (keep lean_player_only until safe); G45 action markers.
+
 
 
 ## Pure Flipper New Game harness + G506 (2026-08-07)

@@ -732,14 +732,23 @@ void Host_Frame( double time )
 	 * While G36 light presents are armed, skip Host_ServerFrame — the first
 	 * post-spawn UpdateClientData (HUD init / target fires) otherwise stalls
 	 * before multi-sample evidence is collected.
-	 * After G36, run ServerFrame again with WriteEntities skipped (slim path). */
+	 * Once world_ready, run ServerFrame first so lean BoundedGC can warm even
+	 * if ClientFrame stalls in deferred studios (probe 20260807-034206). */
 	if( ( cls.state == ca_active || cls.signon == SIGNONS )
 		&& ( Sys_CheckParm( "-gcnewgame" ) || GC_MapLoadMemoryOpt() )
 		&& !Sys_CheckParm( "-gcfullphysics" ))
 	{
-		Host_ClientFrame ();
-		if( !GC_ShouldUseLightPresent() )
+		if( GC_IsNewGameWorldReady() )
+		{
 			Host_ServerFrame ();
+			Host_ClientFrame ();
+		}
+		else
+		{
+			Host_ClientFrame ();
+			if( !GC_ShouldUseLightPresent() )
+				Host_ServerFrame ();
+		}
 	}
 	else
 	{

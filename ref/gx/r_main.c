@@ -1036,9 +1036,18 @@ static void R_DrawEntitiesOnList( void )
 
 	if( !FBitSet( RI.rvp.flags, RF_ONLY_CLIENTDRAW ))
 	{
-		R_AllowFog( false );
-		gEngfuncs.CL_DrawEFX( tr.frametime, true );
-		R_AllowFog( true );
+#if XASH_GAMECUBE
+		/* Probe 20260807-030413: first Flipper present hung in CL_DrawEFX(trans).
+		 * Cycle guards cover list walks; still skip lean frame-1 particle pass. */
+		if( !( gEngfuncs.Sys_CheckParm( "-gcnewgame" )
+			&& !gEngfuncs.Sys_CheckParm( "-gcfullphysics" )
+			&& tr.framecount <= 1 ))
+#endif
+		{
+			R_AllowFog( false );
+			gEngfuncs.CL_DrawEFX( tr.frametime, true );
+			R_AllowFog( true );
+		}
 	}
 
 	GL_SetRenderMode( kRenderNormal );

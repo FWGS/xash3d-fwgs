@@ -1993,10 +1993,22 @@ Free particles that time has expired
 void R_FreeDeadParticles( particle_t **ppparticles )
 {
 	particle_t	*p, *kill;
+#if XASH_GAMECUBE
+	int		guard = 0;
+	const int	guard_max = 256;
+#endif
 
 	// kill all the ones hanging direcly off the base pointer
 	while( 1 )
 	{
+#if XASH_GAMECUBE
+		if( ++guard > guard_max )
+		{
+			Con_Reportf( S_WARN "Xash3D GameCube: R_FreeDeadParticles head cycle broken\n" );
+			*ppparticles = NULL;
+			return;
+		}
+#endif
 		kill = *ppparticles;
 		if( kill && kill->die < cl.time )
 		{
@@ -2014,6 +2026,14 @@ void R_FreeDeadParticles( particle_t **ppparticles )
 	// kill off all the others
 	for( p = *ppparticles; p; p = p->next )
 	{
+#if XASH_GAMECUBE
+		if( ++guard > guard_max * 2 )
+		{
+			Con_Reportf( S_WARN "Xash3D GameCube: R_FreeDeadParticles walk cycle broken\n" );
+			p->next = NULL;
+			break;
+		}
+#endif
 		while( 1 )
 		{
 			kill = p->next;

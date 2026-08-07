@@ -2,14 +2,12 @@
 
 ## Current Milestone
 
-**Playable Dolphin New Game (Pure Flipper)** — lean `-gcnewgame` (no
-`-gcfullphysics`) reaches Prepare + `G281` Flipper restream and clears Pure
-Flipper G506 on smoke `c0a0` (probes `20260807-025038` / `20260807-032158`:
-G36/G45/G506/LADDER PASS with G172 + lean HUD + G105 crowbar). Scaffolding
-still skips lean WriteEntities and player clip physics; a BoundedGC restore
-hung in first-present `CL_DrawEFX(trans)` (`20260807-030413`). Fullphysics New
-Game remains the richer regression path. Swiss/libogc2 physical soak and
-G508/G509 release evidence stay open.
+**Playable Dolphin New Game (Pure Flipper)** — lean `-gcnewgame` clears G506
+and now emits player-only BoundedGC snapshots (probe `20260807-041023`:
+G36/G45/G506/LADDER PASS + `WriteEntities tick` / `G319 entities=1
+lean_player_only=1`). Lean physics stays tram-only; player clip and studio
+snapshot packing are next. Fullphysics remains the richer regression path.
+Swiss/libogc2 physical soak and G508/G509 release evidence stay open.
 
 
 ## Current Automated State

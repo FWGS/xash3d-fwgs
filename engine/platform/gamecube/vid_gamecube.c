@@ -10592,6 +10592,18 @@ qboolean GC_PrepareNewGameWorldPresent( void )
 	GC_TryDeferredEfxProof();
 	GC_TryDeferredDecalProof();
 
+	/* Lean BoundedGC before Flipper present pump — GC_RenderNewGameWorldFrames
+	 * can stall Host_Frame after G281/G105 (probe 20260807-035407 never
+	 * reached post-G36 world present). */
+	if( Sys_CheckParm( "-gcnewgame" ) && !Sys_CheckParm( "-gcfullphysics" ))
+	{
+		int prime_i;
+
+		Con_Reportf( "Xash3D GameCube: pre-present lean ServerFrame prime\n" );
+		for( prime_i = 0; prime_i < 16; prime_i++ )
+			Host_ServerFrame();
+	}
+
 	/* Prefer real low-res world frames here: the Dolphin probe often exits as
 	 * soon as G36 evidence is scored, before the next Host_Frame can run SCR.
 	 * Fall back to lean green fills if the world path is not ready yet. */
@@ -11099,6 +11111,7 @@ qboolean GC_PrepareNewGameWorldPresent( void )
 			}
 		}
 	}
+
 	return true;
 #else
 	return false;

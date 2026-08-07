@@ -97,6 +97,9 @@ static void SV_AddEntitiesToPacket( edict_t *pViewEnt, edict_t *pClient, client_
 		int		e;
 		int		player_e = NUM_FOR_EDICT( pClient );
 		qboolean	post_g36 = GC_IsNewGameG36Done();
+		/* Lean post-G36: player-only pack (G87). Fullphysics keeps G319 studios. */
+		qboolean	lean_player_only = post_g36
+			&& !Sys_CheckParm( "-gcfullphysics" );
 		int		brush_budget = post_g36 ? 6 : 64;
 		int		brush_added = 0;
 		int		studio_added = 0;
@@ -127,6 +130,8 @@ static void SV_AddEntitiesToPacket( edict_t *pViewEnt, edict_t *pClient, client_
 			}
 			else
 			{
+				if( lean_player_only )
+					continue;
 				if( !ent->v.modelindex )
 					continue;
 				if( FBitSet( ent->v.effects, EF_NODRAW ))
@@ -136,10 +141,8 @@ static void SV_AddEntitiesToPacket( edict_t *pViewEnt, edict_t *pClient, client_
 					mod = SV_ModelHandle( ent->v.modelindex );
 					if( !mod )
 					{
-						/* G319: the lean post-G36 server may not retain a
-						 * server-side model handle, but the model precache still
-						 * supplies a valid client model index. Preserve studio
-						 * entities for snapshot delivery instead of dropping them. */
+						/* G319: fullphysics may lack a server-side model handle;
+						 * preserve studio ents via precache. */
 						if( ent->v.modelindex <= 1
 							|| !sv.model_precache[ent->v.modelindex][0]
 							|| !Q_stristr( sv.model_precache[ent->v.modelindex], ".mdl" ))
@@ -214,8 +217,9 @@ static void SV_AddEntitiesToPacket( edict_t *pViewEnt, edict_t *pClient, client_
 			if( !gc_g319_logged )
 			{
 				gc_g319_logged = true;
-				Con_Reportf( "Xash3D GameCube: G319 server packet entities=%d studios=%d brushes=%d\n",
-					ents->num_entities, studio_added, brush_added );
+				Con_Reportf( "Xash3D GameCube: G319 server packet entities=%d studios=%d brushes=%d lean_player_only=%d\n",
+					ents->num_entities, studio_added, brush_added,
+					lean_player_only ? 1 : 0 );
 			}
 		}
 		return;
@@ -1157,18 +1161,68 @@ G87: post-G36 New Game snapshots without the full SendClientMessages gate
 */
 void SV_SendClientMessagesBoundedGC( void )
 {
-	/* Lean New Game: Host_ServerFrame post-G36 hung inside WriteEntities /
-	 * SendClientDatagram (20260807-022225). Keep lean snapshots skipped so
-	 * Prepare + G281 + G506 can land (20260807-025038). Fullphysics uses the
-	 * normal server frame path. */
-	static int gc_bound_skip_log;
+	sv_client_t *cl;
+	int i;
+	static int gc_bound_warm;
+	static int gc_bound_dgram_log;
+	static int gc_bound_defer_log;
 
-	if( gc_bound_skip_log < 4 )
+	if( sv.state == ss_dead )
+		return;
+
+	/* Wait for Prepare + Flipper present warm-up. Early BoundedGC hung
+	 * Host_Frame (20260807-022225); restoring immediately after G281 hung
+	 * first present in CL_DrawEFX(trans) (20260807-030413). */
+	if( !GC_IsNewGameWorldReady() )
 	{
-		Con_Reportf( "Xash3D GameCube: post-G36 bounded WriteEntities skipped\n" );
-		gc_bound_skip_log++;
+		if( gc_bound_defer_log < 4 )
+		{
+			Con_Reportf( "Xash3D GameCube: post-G36 bounded WriteEntities deferred\n" );
+			gc_bound_defer_log++;
+		}
+		return;
 	}
-	(void)sv;
+
+	gc_bound_warm++;
+	if( gc_bound_warm < 2 )
+	{
+		if( gc_bound_defer_log < 4 )
+		{
+			Con_Reportf( "Xash3D GameCube: post-G36 bounded WriteEntities warming=%d\n",
+				gc_bound_warm );
+			gc_bound_defer_log++;
+		}
+		return;
+	}
+
+	for( i = 0, cl = svs.clients; i < svs.maxclients; i++, cl++ )
+	{
+		if( cl->state != cs_spawned || FBitSet( cl->flags, FCL_FAKECLIENT ))
+			continue;
+
+		cl->netchan.last_received = host.realtime;
+		cl->next_messagetime = host.realtime;
+		ClearBits( cl->flags, FCL_SEND_NET_MESSAGE );
+
+		sv.current_client = cl;
+		SV_SendClientDatagram( cl );
+		cl->next_messagetime = host.realtime + sv.frametime + cl->next_messageinterval;
+
+		if( gc_bound_dgram_log < 4 )
+		{
+			Con_Reportf( "Xash3D GameCube: post-G36 bounded WriteEntities tick\n" );
+			gc_bound_dgram_log++;
+		}
+	}
+
+	if( gc_bound_dgram_log == 0 && gc_bound_defer_log < 8 )
+	{
+		Con_Reportf( "Xash3D GameCube: post-G36 bounded WriteEntities no spawned client state=%d max=%d\n",
+			svs.clients ? svs.clients[0].state : -1, svs.maxclients );
+		gc_bound_defer_log++;
+	}
+
+	sv.current_client = NULL;
 }
 #endif
 

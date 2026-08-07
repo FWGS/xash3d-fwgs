@@ -2,27 +2,23 @@ Auto-port task for Xash3D GameCube
 =================================
 
 Current goal:
-Restore lean `-gcnewgame` client snapshots / WriteEntities without hang
+Restore lean `-gcnewgame` player clip / PreThink after tram-only warm
 
-**DONE (2026-08-07 lean New Game → G506 PASS)**:
-- Smoke ISO bakes `-gcnewgame` via `gamecube.cfg` (`--probe-newgame`)
-- Crowbar `SV_SetModel` weapon stub (no Mod_ForName hang)
-- Skip intro tram/player `LinkEdict` on lean ride teleport
-- Lean `SV_Physics` tram-only; skip hanging `SV_SendClientMessagesBoundedGC`
-- `Host_Frame` calls `GC_PrepareNewGameWorldPresent()` when G36 done and
-  `!world_ready` (fixes ServerFrame warm spin)
-- Lean crowbar `Mod_GCEnsureLandmarkViewModel` for G105 (not fullphysics-only)
-- Probe `20260807-025038` + reconfirm `20260807-032158`: `G281 cl=295`,
-  G105 crowbar ready, G36/G45/G506 PASS (`G172,lean-HUD,G105`), LADDER 10/10
-
-**Tried / rolled back**:
-- Restoring BoundedGC → first Flipper present hung in `CL_DrawEFX(trans)`
-  (`20260807-030413`); lean snapshots remain no-op for now
+**DONE (2026-08-07 lean G506 + BoundedGC snapshots)**:
+- Prepare kick, tram LinkEdict skip, tram-only physics, G105 crowbar
+- Probe `20260807-025038` / `032158`: G506 PASS
+- Lean BoundedGC restored (`20260807-041023`):
+  - particle cycle guards + lean frame-1 EFX(trans) skip
+  - pre-present `Host_ServerFrame` ×16 prime in Prepare
+  - lean `cs_spawned` + loopback netchan in `SV_GCPrimeDirectMapPlayer`
+  - player-only pack (`G319 entities=1 lean_player_only=1`)
+  - `WriteEntities tick` + `SendClientDatagram ready … post-G36`
+  - G36/G45/G506/LADDER still PASS
 
 Next acceptance step:
-- Reintroduce minimal lean snapshots without re-hanging first present
-- Restore lean player clip / PreThink after tram-only warm is stable
-- Keep fullphysics New Game regression green (`20260807-015023` class)
+- Restore lean player clip / PreThink without Host_Frame hang
+- Carefully admit studios into lean snapshots (drop lean_player_only)
+- Keep fullphysics New Game regression green
 
 Rules:
 - Make one bounded implementation or validation patch.
