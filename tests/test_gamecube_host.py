@@ -251,16 +251,16 @@ class GameCubeHostTests(unittest.TestCase):
 			"Xash3D GameCube: G120 attack usercmd buttons=1",
 			"Xash3D GameCube: G121 PlaybackEvent deliver index=1 name=events/glock.sc",
 			"Xash3D GameCube: world interaction use done classname=func_button",
-			"Xash3D GameCube: G105 viewmodel draw",
-			"Xash3D GameCube: G161 soft dump viewmodel ready",
-			"Xash3D GameCube: G177 soft dump HUD composite",
+			"Xash3D GameCube: G172 HUD sheets loaded",
+			"Xash3D GameCube: lean HUD sprites drawn",
+			"Xash3D GameCube: G105 landmark viewmodel ready",
 			"Xash3D GameCube: gcmap smoke frames ready",
 			"frame time=10ms\nframe time=11ms\nframe time=12ms",
 		))
 		self.assertEqual(gate.check(base)[0], True)
 		self.assertEqual(gate.check(base.replace("gcmap smoke frames ready", ""))[0], False)
-		self.assertEqual(gate.check(base.replace("G177 soft dump HUD composite", ""))[0], False)
-		self.assertEqual(gate.check(base.replace("G105 viewmodel draw", ""))[0], False)
+		self.assertEqual(gate.check(base.replace("lean HUD sprites drawn", ""))[0], False)
+		self.assertEqual(gate.check(base.replace("G105 landmark viewmodel ready", ""))[0], False)
 
 	def test_release_packet_validates_dol_elf_and_iso(self) -> None:
 		packet = load_script("release_packet", "scripts/gamecube-release-packet.py")
@@ -664,9 +664,9 @@ class GameCubeHostTests(unittest.TestCase):
 				"Xash3D GameCube: map loaded c0a0\n"
 				"Xash3D GameCube: G45 controller ready port=0 type=standard\n"
 				"Xash3D GameCube: input polling active\n"
-				"Xash3D GameCube: G105 viewmodel draw\n"
-				"Xash3D GameCube: G161 soft dump viewmodel ready\n"
-				"Xash3D GameCube: G177 soft dump HUD composite\n"
+				"Xash3D GameCube: G172 HUD sheets loaded\n"
+				"Xash3D GameCube: lean HUD sprites drawn\n"
+				"Xash3D GameCube: G105 landmark viewmodel ready\n"
 				"Xash3D GameCube: FAT shutdown (return to Swiss loader via exit stub)\n"
 				"sampled_nonblack=1\n"
 				"frame time=1.00ms\n",

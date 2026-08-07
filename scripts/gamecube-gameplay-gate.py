@@ -31,11 +31,11 @@ REQUIRED_POST_ACTION = (
     "Xash3D GameCube: native axis usercmd ready",
 )
 
-# G506 presentation evidence: viewmodel draw, soft-dump viewmodel, HUD composite.
+# G506 Pure Flipper presentation: HUD sheets, live lean HUD draw, landmark viewmodel.
 REQUIRED_PRESENTATION = (
-    "Xash3D GameCube: G105 viewmodel draw",
-    "Xash3D GameCube: G161 soft dump viewmodel ready",
-    "Xash3D GameCube: G177 soft dump HUD composite",
+    "Xash3D GameCube: G172 HUD sheets loaded",
+    "Xash3D GameCube: lean HUD sprites drawn",
+    "Xash3D GameCube: G105 landmark viewmodel ready",
 )
 
 

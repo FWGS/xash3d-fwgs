@@ -152,9 +152,9 @@ Xash3D GameCube: native axis usercmd ready delta=(1,0,0)
 Xash3D GameCube: G120 attack usercmd buttons=1
 Xash3D GameCube: G121 PlaybackEvent deliver index=1 name=events/glock.sc
 Xash3D GameCube: world interaction use done classname=func_button
-Xash3D GameCube: G105 viewmodel draw
-Xash3D GameCube: G161 soft dump viewmodel ready
-Xash3D GameCube: G177 soft dump HUD composite
+Xash3D GameCube: G172 HUD sheets loaded
+Xash3D GameCube: lean HUD sprites drawn
+Xash3D GameCube: G105 landmark viewmodel ready
 Xash3D GameCube: gcmap smoke frames ready
 frame time=10ms
 frame time=11ms

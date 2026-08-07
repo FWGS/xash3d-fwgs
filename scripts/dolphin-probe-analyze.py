@@ -77,9 +77,10 @@ PROBE_ACTION_MARKERS = (
 	"Xash3D GameCube: probe gameplay action use",
 )
 PRESENTATION_MARKERS = (
-	"Xash3D GameCube: G105 viewmodel draw",
-	"Xash3D GameCube: G161 soft dump viewmodel ready",
-	"Xash3D GameCube: G177 soft dump HUD composite",
+	# Pure Flipper (G198) retail path — soft DumpFrames G161/G177 are diagnostic-only.
+	"Xash3D GameCube: G172 HUD sheets loaded",
+	"Xash3D GameCube: lean HUD sprites drawn",
+	"Xash3D GameCube: G105 landmark viewmodel ready",
 )
 MENU_ACTION_MARKERS = (
 	"Xash3D GameCube: probe menu action down",
@@ -258,7 +259,7 @@ def presentation_status(text: str) -> tuple[str, str, dict]:
 		"required": list(PRESENTATION_MARKERS),
 	}
 	if not missing:
-		return "PASS", "G105,G161,G177", report
+		return "PASS", "G172,lean-HUD,G105", report
 	if matched:
 		short = ",".join(m.rsplit(": ", 1)[-1] for m in matched)
 		return "WEAK", f"{short}; missing={len(missing)}", report
