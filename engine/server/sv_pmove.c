@@ -713,7 +713,7 @@ static void SV_SetupMoveInterpolant( sv_client_t *cl )
 	if( sv_maxunlag.value != 0.0f )
 	{
 		if( sv_maxunlag.value < 0.0f )
-			Cvar_DirectSetValue( &sv_maxunlag, 0.0f );
+			Cvar_DirectSet( &sv_maxunlag, "0" );
 
 		latency = Q_min( latency, sv_maxunlag.value );
 	}
