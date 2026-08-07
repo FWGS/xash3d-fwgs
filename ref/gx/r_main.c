@@ -842,6 +842,25 @@ R_DrawEntitiesOnList
 */
 static void R_DrawEntitiesOnList( void )
 {
+	#if XASH_GAMECUBE
+	if( GC_UseGxWorldDraw() && gEngfuncs.Sys_CheckParm( "-gcnewgame" ))
+	{
+		static qboolean gc_g315_logged;
+		if( !gc_g315_logged )
+		{
+			gc_g315_logged = true;
+			gEngfuncs.Con_Reportf( "Xash3D GameCube: G315 GX entity list solid=%u trans=%u\n",
+				tr.draw_list->num_solid_entities, tr.draw_list->num_trans_entities );
+			for( int j = 0; j < tr.draw_list->num_solid_entities && j < 8; j++ )
+			{
+				cl_entity_t *e = tr.draw_list->solid_entities[j];
+				if( e && e->model )
+					gEngfuncs.Con_Reportf( "Xash3D GameCube: G315 solid model=%s type=%d\n",
+						e->model->name, e->model->type );
+			}
+		}
+	}
+	#endif
 	// extern int d_aflatcolor;
 	// d_aflatcolor = 0;
 	tr.blend = 1.0f;
@@ -1847,6 +1866,19 @@ void GAME_EXPORT R_RenderScene( void )
 {
 #if XASH_GAMECUBE
 	double gc_render_start = gEngfuncs.pfnTime();
+	if( gEngfuncs.Sys_CheckParm( "-gcnewgame" ))
+	{
+		static qboolean gc_g315_route_logged;
+
+		if( !gc_g315_route_logged )
+		{
+			gc_g315_route_logged = true;
+			gEngfuncs.Con_Reportf( "Xash3D GameCube: G315 render route gx=%d lowres=%d fullphysics=%d\n",
+				GC_UseGxWorldDraw() ? 1 : 0,
+				GC_UseLowResWorldProbe() ? 1 : 0,
+				gEngfuncs.Sys_CheckParm( "-gcfullphysics" ) ? 1 : 0 );
+		}
+	}
 #endif
 
 	if( !WORLDMODEL && FBitSet( RI.rvp.flags, RF_DRAW_WORLD ))
@@ -1944,16 +1976,10 @@ void GAME_EXPORT R_RenderScene( void )
 	if( GC_UseGxWorldDraw() )
 	{
 		gEngfuncs.CL_ExtraUpdate();
-		if( gEngfuncs.Sys_CheckParm( "-gcfullphysics" ))
-		{
-			static qboolean gameplay_entities_skipped;
-			if( !gameplay_entities_skipped )
-			{
-				gameplay_entities_skipped = true;
-				gEngfuncs.Con_Reportf( "Xash3D GameCube: gameplay probe GX entities skipped\n" );
-			}
-			return;
-		}
+		/* G315: full-physics probes must render the same world entities as
+		 * retail GX. The old early return hid the tram and every NPC while
+		 * leaving the physics route nominally green. R_DrawEntitiesOnList keeps
+		 * the existing low-memory caps and model-type filters. */
 		R_DrawEntitiesOnList();
 		return;
 	}

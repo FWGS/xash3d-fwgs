@@ -470,6 +470,8 @@ SMOKE_PRECACHE_MODELS = (
 	"models/v_9mmhandgun.mdl",
 	"models/v_crossbow.mdl",
 	"models/v_crowbar.mdl",
+	"models/headcrab.mdl",
+	"models/zombie.mdl",
 	"models/v_egon.mdl",
 	"models/v_gauss.mdl",
 	"models/v_grenade.mdl",
@@ -899,6 +901,9 @@ GC_STUDIO_MODELS = (
 	"models/w_crowbar.mdl",
 	# Small world NPC — gman (~76KB) OOMs libc malloc after crowbars on GC.
 	"models/roach.mdl",
+	# G315: deferred GX entity pass promotes these compact NPC meshes.
+	"models/headcrab.mdl",
+	"models/zombie.mdl",
 )
 
 # Direct-load HUD sheets for lean New Game Redraw (ISO9660 sprites/ lookups
@@ -1764,6 +1769,10 @@ def stage_smoke_data(
 	output.mkdir(parents=True, exist_ok=True)
 	for relative in SMOKE_CONFIG_FILES:
 		copy_if_present(source, output, relative)
+	# G296: keep gfx.wad on the smoke ISO so build_iso9660 can extract the
+	# retail CREDITSFONT into the tiny bootstrap font. .wad is excluded from
+	# the bootstrap archive, so this does not consume the runtime preload pool.
+	copy_if_present(source, output, "gfx.wad")
 	if destination_map_relative:
 		copy_if_present(source, output, destination_map_relative)
 	for relative in MENU_RESOURCE_ASSETS:

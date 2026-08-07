@@ -10386,21 +10386,20 @@ void GC_PresentLandmarkViewModel( void )
 				}
 				Con_Reportf( "Xash3D GameCube: G161 soft dump composite viewmodel %s\n",
 					path );
-					/* G162: present gun first with lower FOV clear, then top panel. */
-					gc_cpu_dump_presents_left = 2;
-					Con_Reportf( "Xash3D GameCube: G161 soft dump viewmodel presents begin\n" );
-					for( dump_i = 0; dump_i < 2; dump_i++ )
-						GC_PresentBuffer();
-					Q_snprintf( details, sizeof( details ), "MAP=%s",
-						sv.name[0] ? sv.name : "?" );
-					GC_DrawStatusPanelToBufferEx( gc.buffer, gc.width, gc.height, gc.stride,
-						"VIEWMODEL", details, true );
-					gc_cpu_dump_presents_left = 2;
-					for( dump_i = 0; dump_i < 2; dump_i++ )
-						GC_PresentBuffer();
-					Con_Reportf( "Xash3D GameCube: G161 soft dump viewmodel ready\n" );
-					Con_Reportf( "Xash3D GameCube: G162 soft dump viewmodel framed\n" );
-				gc_force_draw_viewmodel = false;
+				/* G162: present gun first with lower FOV clear, then top panel. */
+				gc_cpu_dump_presents_left = 2;
+				Con_Reportf( "Xash3D GameCube: G161 soft dump viewmodel presents begin\n" );
+				for( dump_i = 0; dump_i < 2; dump_i++ )
+					GC_PresentBuffer();
+				Q_snprintf( details, sizeof( details ), "MAP=%s",
+					sv.name[0] ? sv.name : "?" );
+				GC_DrawStatusPanelToBufferEx( gc.buffer, gc.width, gc.height, gc.stride,
+					"VIEWMODEL", details, true );
+				gc_cpu_dump_presents_left = 2;
+				for( dump_i = 0; dump_i < 2; dump_i++ )
+					GC_PresentBuffer();
+				Con_Reportf( "Xash3D GameCube: G161 soft dump viewmodel ready\n" );
+				Con_Reportf( "Xash3D GameCube: G162 soft dump viewmodel framed\n" );
 				gc_cpu_dump_presents_left = 0;
 			}
 			else
@@ -10529,6 +10528,11 @@ qboolean GC_PrepareNewGameWorldPresent( void )
 	/* G172: lean HUD after studios; FS pool soft-fails retry via sys-malloc. */
 	Image_GCPurgeDecodeScratch();
 	FS_ClearFindMissCache();
+	/* G296: the first SCR_VidInit can run before the disc search path is
+	 * mounted. Retry the already-staged intro-credit font now, immediately
+	 * before the HUD's first active draw, so map text matches the retail
+	 * Half-Life credits instead of falling back to the 5x7 status glyphs. */
+	SCR_LoadCreditsFont();
 	if( clgame.dllFuncs.pfnVidInit )
 	{
 		clgame.dllFuncs.pfnVidInit();
