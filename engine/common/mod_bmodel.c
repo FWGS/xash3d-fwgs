@@ -5936,26 +5936,38 @@ static void Mod_LoadClipnodes( model_t *mod, dbspmodel_t *bmod )
 			Mod_GCEnsureBspLump( mod, bmod, LUMP_CLIPNODES );
 		}
 
-		if( Sys_CheckParm( "-gcfullphysics" ))
+		/* Scratch aliases die when Flipper/surfaces rearm the BSP arena —
+		 * lean SV_Move then hangs in PM_RecursiveHullCheck (G109; probe
+		 * 20260807-060327 after FillUsercmd ready). Own a compact pin for
+		 * any New Game path, not only -gcfullphysics. */
+		if( Sys_CheckParm( "-gcfullphysics" ) || Sys_CheckParm( "-gcnewgame" ))
 		{
 			mclipnode16_t *owned;
 			if( !bmod->clipnodes )
-				Host_Error( "%s: missing clipnodes for fullphysics %s\n", __func__, mod->name );
+				Host_Error( "%s: missing clipnodes for newgame %s\n", __func__, mod->name );
 			owned = (mclipnode16_t *)malloc( clip_sz );
 			if( !owned )
-				Host_Error( "%s: unable to own clipnodes for fullphysics (%s)\n",
-					__func__, Q_memprint( clip_sz ));
-			for( int i = 0; i < bmod->numclipnodes; i++ )
 			{
-				owned[i].planenum = bmod->clipnodes[i].planenum;
-				owned[i].children[0] = bmod->clipnodes[i].children[0];
-				owned[i].children[1] = bmod->clipnodes[i].children[1];
+				if( Sys_CheckParm( "-gcfullphysics" ))
+					Host_Error( "%s: unable to own clipnodes for fullphysics (%s)\n",
+						__func__, Q_memprint( clip_sz ));
+				Con_Reportf( S_WARN "Xash3D GameCube: lean clipnodes pin failed (%s); scratch alias\n",
+					Q_memprint( clip_sz ));
 			}
-			mod->clipnodes16 = owned;
-			gc_clipnodes_malloc_block = owned;
-			Con_Reportf( "Xash3D GameCube: fullphysics owned compact clipnodes %s\n",
-				Q_memprint( clip_sz ));
-			return;
+			else
+			{
+				for( int i = 0; i < bmod->numclipnodes; i++ )
+				{
+					owned[i].planenum = bmod->clipnodes[i].planenum;
+					owned[i].children[0] = bmod->clipnodes[i].children[0];
+					owned[i].children[1] = bmod->clipnodes[i].children[1];
+				}
+				mod->clipnodes16 = owned;
+				gc_clipnodes_malloc_block = owned;
+				Con_Reportf( "Xash3D GameCube: owned compact clipnodes %s\n",
+					Q_memprint( clip_sz ));
+				return;
+			}
 		}
 
 		if( bmod->clipnodes )

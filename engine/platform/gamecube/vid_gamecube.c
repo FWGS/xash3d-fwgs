@@ -66,6 +66,7 @@ static int which_fb = 0;
 static GXRModeObj *rmode = NULL;
 static uint8_t gx_fifo[256 * 1024] __attribute__((aligned(32)));
 static unsigned int gc_present_count;
+static qboolean gc_lean_player_physics_armed;
 static unsigned int gc_blank_present_count;
 static unsigned int gc_budget_sample_count;
 static unsigned int gc_budget_warmup_left;
@@ -5225,6 +5226,7 @@ static void GC_PresentBufferViaGX( void );
 static void GC_TryDeferredLeanSky( void );
 static void GC_TryDeferredHudSheets( void );
 static void GC_TryDeferredStudios( void );
+static void GC_TryLeanPlayerPhysPrime( void );
 static void GC_TryDeferredEfxProof( void );
 static void GC_TryDeferredDecalProof( void );
 static void GC_ScrubLiveWorldSpeckles( unsigned short *dst, int width, int height, int stride );
@@ -5542,6 +5544,7 @@ static void GC_PresentBuffer( void )
 		GC_TryDeferredLeanSky();
 		GC_TryDeferredHudSheets();
 		GC_TryDeferredStudios();
+		GC_TryLeanPlayerPhysPrime();
 		GC_TryDeferredEfxProof();
 		GC_TryDeferredDecalProof();
 	}
@@ -6082,6 +6085,7 @@ void R_Free_Video( void )
 	GC_FreeLiveFaces();
 	GC_FreeTramFaces();
 	gc_newgame_world_ready = false;
+	gc_lean_player_physics_armed = false;
 	gc_lean_sky_attempts = 0;
 	gc_newgame_viewcluster = -1;
 	gc_newgame_g36_done = false;
@@ -7739,6 +7743,31 @@ qboolean GC_IsNewGameWorldReady( void )
 #endif
 }
 
+unsigned GC_GetNewGamePresentCount( void )
+{
+#if XASH_GAMECUBE
+	return gc_present_count;
+#else
+	return 0;
+#endif
+}
+
+void GC_ArmLeanPlayerPhysics( void )
+{
+#if XASH_GAMECUBE
+	gc_lean_player_physics_armed = true;
+#endif
+}
+
+qboolean GC_IsLeanPlayerPhysicsArmed( void )
+{
+#if XASH_GAMECUBE
+	return gc_lean_player_physics_armed;
+#else
+	return false;
+#endif
+}
+
 /*
 ===========
 GC_TryDeferredLeanSky
@@ -7821,6 +7850,39 @@ static void GC_TryDeferredStudios( void )
 		&& gc_present_count != 8 && gc_present_count != 20 && gc_present_count != 40 )
 		return;
 	Mod_GCTryDeferredStudios();
+#endif
+}
+
+/*
+===========
+GC_TryLeanPlayerPhysPrime
+
+After the first Flipper present, arm lean player clip/PreThink for the next
+top-level Host_ServerFrame. Do not nest ServerFrame inside PresentBuffer —
+SV_Move hung there (probe 20260807-054948 after FillUsercmd ready).
+===========
+*/
+static void GC_TryLeanPlayerPhysPrime( void )
+{
+#if XASH_GAMECUBE
+	static qboolean logged;
+
+	if( !gc_newgame_world_ready )
+		return;
+	if( Sys_CheckParm( "-gcfullphysics" ))
+		return;
+	if( !Sys_CheckParm( "-gcnewgame" ))
+		return;
+	if( gc_present_count < 1 )
+		return;
+
+	GC_ArmLeanPlayerPhysics();
+	if( !logged )
+	{
+		logged = true;
+		Con_Reportf( "Xash3D GameCube: present-path lean player physics armed presents=%u\n",
+			gc_present_count );
+	}
 #endif
 }
 
@@ -8966,6 +9028,7 @@ void GC_ResetNewGameWorldForChangelevel( void )
 	GC_FreeTramFaces();
 	GC_FreeNewGamePVSCache();
 	gc_newgame_world_ready = false;
+	gc_lean_player_physics_armed = false;
 	gc_lean_sky_attempts = 0;
 	gc_gx_world_live = false;
 	gc_gx_world_efb_ready = false;
@@ -10616,7 +10679,7 @@ qboolean GC_PrepareNewGameWorldPresent( void )
 			Con_Reportf( "Xash3D GameCube: gameplay probe post-G36 render skipped\n" );
 		}
 	}
-	else if( !GC_RenderNewGameWorldFrames( 4 ))
+	else if( !GC_RenderNewGameWorldFrames( 1 ))
 	{
 		int i;
 
@@ -10630,6 +10693,18 @@ qboolean GC_PrepareNewGameWorldPresent( void )
 	else if( !Sys_CheckParm( "-gcfullphysics" ))
 	{
 		int i;
+
+		/* One Flipper present arms lean player physics inside PresentBuffer.
+		 * Run ServerFrame primes HERE before more world frames — Render(4)
+		 * stalled after present=1 on deferred studios (probe 20260807-055426)
+		 * so the old post-Render(4) prime never ran. */
+		Con_Reportf( "Xash3D GameCube: post-present lean player ServerFrame prime presents=%u\n",
+			GC_GetNewGamePresentCount() );
+		for( i = 0; i < 8; i++ )
+			Host_ServerFrame();
+
+		/* Remaining first-pump frames (best-effort; may stall on studios). */
+		(void)GC_RenderNewGameWorldFrames( 3 );
 
 		/* G85/G90: pump V_RenderView-style presents BEFORE post-G36 server
 		 * ticks — Host_ServerFrame (move/snapshots) has been leaving the

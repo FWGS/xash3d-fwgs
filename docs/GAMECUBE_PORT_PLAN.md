@@ -3875,6 +3875,30 @@ manual hardware validation with all artifacts generated and documented.
 - Next blocker: restore lean player clip / PreThink; pack studios into
   snapshots carefully (keep lean_player_only until safe); G45 action markers.
 
+## Lean player clip + PreThink restored (2026-08-07)
+
+- Root causes for prior player-phys hang:
+  1. Nested `PresentBuffer` → `Host_ServerFrame` → `SV_Move` (probe
+     `20260807-054948`) — arm only on the present path; run primes after
+     the first Flipper present returns (not inside PresentBuffer).
+  2. `GC_RenderNewGameWorldFrames(4)` stalled on deferred studios before the
+     old post-Render(4) ServerFrame prime (`20260807-055426`) — interleave
+     Render(1) → ServerFrame ×8 → Render(3).
+  3. Lean aliased compact clipnodes from BSP scratch; Flipper/surface rearm
+     corrupted them → `SV_Move` hang after `FillUsercmd ready`
+     (`20260807-060327`). Own a 59 KiB pin for all `-gcnewgame` (G109).
+- Probe `20260807-060846` (clip only): `owned compact clipnodes 59.12 Kb`,
+  `player clip move fraction=1.000`, `clip proof fraction=0.121`,
+  `player move after` / `player relink … linked=1`, G506 PASS.
+- Probe `20260807-061405` (clip + PreThink): same clip evidence plus
+  `lean player PreThink begin` / `PreThink ready`; G36/G45/G506/LADDER PASS.
+- Commands:
+  `DOLPHIN_NEWGAME=1 DOLPHIN_TIMEOUT=240 scripts/dolphin-boot-probe.sh`
+  → logs `.ai/logs/dolphin-probe-20260807-060846` / `…-061405`
+- Next blocker: pack studios into lean snapshots (drop `lean_player_only`
+  carefully); bounded world thinks; clear post-clip Render stall on deferred
+  studios; G45 action markers.
+
 
 
 ## Pure Flipper New Game harness + G506 (2026-08-07)

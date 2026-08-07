@@ -2,22 +2,18 @@ Auto-port task for Xash3D GameCube
 =================================
 
 Current goal:
-Restore lean `-gcnewgame` player clip / PreThink after tram-only warm
+Pack studios into lean snapshots / bounded world thinks (after clip+PreThink)
 
-**DONE (2026-08-07 lean G506 + BoundedGC snapshots)**:
-- Prepare kick, tram LinkEdict skip, tram-only physics, G105 crowbar
-- Probe `20260807-025038` / `032158`: G506 PASS
-- Lean BoundedGC restored (`20260807-041023`):
-  - particle cycle guards + lean frame-1 EFX(trans) skip
-  - pre-present `Host_ServerFrame` ×16 prime in Prepare
-  - lean `cs_spawned` + loopback netchan in `SV_GCPrimeDirectMapPlayer`
-  - player-only pack (`G319 entities=1 lean_player_only=1`)
-  - `WriteEntities tick` + `SendClientDatagram ready … post-G36`
-  - G36/G45/G506/LADDER still PASS
+**DONE (2026-08-07 lean player clip + PreThink)**:
+- Owned compact clipnodes for all `-gcnewgame` (no scratch alias hang)
+- Present-path arm only; post-present ServerFrame after Render(1)
+- Probe `20260807-061405`: clip move / clip proof / PreThink ready + G506 PASS
+- Earlier: G506, BoundedGC player-only snapshots (`20260807-041023`)
 
 Next acceptance step:
-- Restore lean player clip / PreThink without Host_Frame hang
 - Carefully admit studios into lean snapshots (drop lean_player_only)
+- Bounded world thinks (still deferred)
+- Clear post-clip Render stall on deferred studios if it blocks Host_Frame
 - Keep fullphysics New Game regression green
 
 Rules:

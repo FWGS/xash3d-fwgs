@@ -160,6 +160,9 @@ void GC_PresentBudgetProbeFrame( void );
 qboolean GC_PrepareNewGameWorldPresent( void );
 qboolean GC_IsNewGameWorldReady( void );
 qboolean GC_IsNewGameG36Done( void );
+unsigned GC_GetNewGamePresentCount( void );
+void GC_ArmLeanPlayerPhysics( void );
+qboolean GC_IsLeanPlayerPhysicsArmed( void );
 /* Retail Flipper vs Dolphin/capture diagnostics (DumpFrames, probe argv). */
 qboolean GC_IsCaptureDiagnostics( void );
 /* 10% 4:3 safe-area inset for HUD / loading panels (homebrew compliance). */

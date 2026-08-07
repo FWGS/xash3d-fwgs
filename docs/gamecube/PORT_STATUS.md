@@ -3,11 +3,12 @@
 ## Current Milestone
 
 **Playable Dolphin New Game (Pure Flipper)** — lean `-gcnewgame` clears G506
-and now emits player-only BoundedGC snapshots (probe `20260807-041023`:
-G36/G45/G506/LADDER PASS + `WriteEntities tick` / `G319 entities=1
-lean_player_only=1`). Lean physics stays tram-only; player clip and studio
-snapshot packing are next. Fullphysics remains the richer regression path.
-Swiss/libogc2 physical soak and G508/G509 release evidence stay open.
+with player-only BoundedGC snapshots and post-present player clip/PreThink
+(probe `20260807-061405`: owned compact clipnodes, `player clip move` /
+`clip proof` / `PreThink ready`, G36/G45/G506/LADDER PASS). Studio packing
+beyond `lean_player_only` and bounded world thinks are next. Fullphysics
+remains the richer regression path. Swiss/libogc2 physical soak and
+G508/G509 release evidence stay open.
 
 
 ## Current Automated State

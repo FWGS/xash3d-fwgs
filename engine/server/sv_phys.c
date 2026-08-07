@@ -2186,12 +2186,20 @@ void SV_Physics( void )
 		&& gc_fullphysics_log < 2;
 
 	/* Post-G36 New Game (G84): pfnStartFrame + full entity walk stall Host_Frame
-	 * on c0a0. Lean path only steps the intro tram; player clip/world thinks
-	 * remain on -gcfullphysics until the lean Host_Frame hang is closed. */
+	 * on c0a0. Lean: tram-only warm, then player usercmd clip + PreThink.
+	 * World nextthink subset stays deferred (hung pre-Prepare; reintroduce later). */
 	if( Sys_CheckParm( "-gcnewgame" ) && GC_IsNewGameG36Done()
 		&& !Sys_CheckParm( "-gcfullphysics" ))
 	{
 		static int gc_lean_phys_warm;
+		static int gc_phys_move_log;
+		static int gc_phys_clip_log;
+		static int gc_phys_relink_log;
+		static int gc_phys_ground_log;
+		static qboolean gc_phys_clip_proof_done;
+		static qboolean gc_lean_player_phys_logged;
+		edict_t *player;
+		const int lean_player_after = 8;
 
 		svgame.globals->time = sv.time;
 		SV_RunLightStyles();
@@ -2199,12 +2207,189 @@ void SV_Physics( void )
 		SV_GCStepIntroTrain();
 		sv.framecount++;
 		gc_lean_phys_warm++;
-		/* Cap spam: probe 022225 spun warm into the 100k+ range. */
-		if( gc_lean_phys_warm <= 4 || gc_lean_phys_warm == 8
-			|| gc_lean_phys_warm == 16 || gc_lean_phys_warm == 32
-			|| ( gc_lean_phys_warm % 64 ) == 0 )
-			Con_Reportf( "Xash3D GameCube: SV_Physics lean phys warm=%d\n",
+
+		/* Prepare primes Host_ServerFrame before Flipper presents — player
+		 * clip/PreThink there hangs before G281 (probe 20260807-053529).
+		 * Stay tram-only until a Flipper present arms lean player physics
+		 * (nested PresentBuffer→ServerFrame→SV_Move also hung). */
+		if( gc_lean_phys_warm < lean_player_after
+			|| !GC_IsLeanPlayerPhysicsArmed() )
+		{
+			if( gc_lean_phys_warm <= 4 || gc_lean_phys_warm == 8
+				|| gc_lean_phys_warm == 16 )
+				Con_Reportf( "Xash3D GameCube: SV_Physics lean phys warm=%d presents=%u armed=%d\n",
+					gc_lean_phys_warm, GC_GetNewGamePresentCount(),
+					GC_IsLeanPlayerPhysicsArmed() ? 1 : 0 );
+			return;
+		}
+
+		if( !gc_lean_player_phys_logged )
+		{
+			gc_lean_player_phys_logged = true;
+			Con_Reportf( "Xash3D GameCube: SV_Physics lean player clip+PreThink begin warm=%d\n",
 				gc_lean_phys_warm );
+		}
+
+		player = ( svs.maxclients >= 1 ) ? SV_EdictNum( 1 ) : NULL;
+		if( player && SV_IsValidEdict( player ))
+		{
+			usercmd_t cmd;
+			vec3_t before_org, before_ang;
+			static int gc_lean_fill_log;
+
+			/* pfnThink(player) / PostThink / full SV_RunCmd hang on lean c0a0.
+			 * G86: usercmd look + hull-clipped walk, then PreThink only. */
+			VectorCopy( player->v.origin, before_org );
+			VectorCopy( player->v.v_angle, before_ang );
+
+			if( gc_lean_fill_log < 2 )
+			{
+				Con_Reportf( "Xash3D GameCube: lean player FillUsercmd begin\n" );
+				gc_lean_fill_log++;
+			}
+			if( GC_FillNewGameMoveUsercmd( &cmd, player->v.v_angle ))
+			{
+				float dt = cmd.msec * 0.001f;
+				vec3_t forward, right, up, desired;
+				trace_t move_trace;
+				qboolean moved = false;
+
+				if( gc_lean_fill_log < 4 )
+				{
+					Con_Reportf( "Xash3D GameCube: lean player FillUsercmd ready fwd=%.0f\n",
+						cmd.forwardmove );
+					gc_lean_fill_log++;
+				}
+
+				if( dt < 0.001f )
+					dt = 0.05f;
+
+				if( !player->v.fixangle )
+				{
+					VectorCopy( cmd.viewangles, player->v.v_angle );
+					VectorCopy( cmd.viewangles, player->v.angles );
+				}
+				player->v.button = cmd.buttons;
+				if( cmd.impulse )
+					player->v.impulse = cmd.impulse;
+
+				AngleVectors( player->v.v_angle, forward, right, up );
+				VectorMA( player->v.origin, cmd.forwardmove * dt, forward, desired );
+				VectorMA( desired, cmd.sidemove * dt, right, desired );
+				if( gc_phys_clip_log < 4 )
+					Con_Reportf( "Xash3D GameCube: player clip move begin\n" );
+				move_trace = SV_Move( player->v.origin, player->v.mins, player->v.maxs,
+					desired, MOVE_NORMAL, player, false );
+				if( !move_trace.allsolid && !move_trace.startsolid )
+				{
+					VectorCopy( move_trace.endpos, player->v.origin );
+					moved = move_trace.fraction > 0.0f;
+					if( moved )
+					{
+						SV_LinkEdict( player, true );
+						if( gc_phys_relink_log < 4 )
+						{
+							Con_Reportf( "Xash3D GameCube: player relink origin=(%.0f %.0f %.0f) linked=%d\n",
+								player->v.origin[0], player->v.origin[1], player->v.origin[2],
+								player->area.prev != NULL );
+							gc_phys_relink_log++;
+						}
+					}
+				}
+
+				{
+					vec3_t ground_end;
+					trace_t ground_trace;
+					qboolean onground;
+					float ground_dist;
+
+					VectorCopy( player->v.origin, ground_end );
+					ground_end[2] -= 64.0f;
+					ground_trace = SV_Move( player->v.origin, player->v.mins, player->v.maxs,
+						ground_end, MOVE_NORMAL, player, false );
+					ground_dist = ground_trace.fraction * 64.0f;
+					onground = player->v.velocity[2] <= 180.0f
+						&& !ground_trace.startsolid && !ground_trace.allsolid
+						&& ground_dist <= 18.0f && ground_trace.plane.normal[2] >= 0.7f;
+					if( onground )
+					{
+						VectorCopy( ground_trace.endpos, player->v.origin );
+						SetBits( player->v.flags, FL_ONGROUND );
+						player->v.groundentity = ground_trace.ent;
+						SV_LinkEdict( player, true );
+					}
+					else
+					{
+						ClearBits( player->v.flags, FL_ONGROUND );
+						player->v.groundentity = NULL;
+					}
+
+					if( gc_phys_ground_log < 4 )
+					{
+						Con_Reportf( "Xash3D GameCube: player ground dist=%.2f onground=%d\n",
+							ground_dist, onground );
+						gc_phys_ground_log++;
+					}
+				}
+
+				if( gc_phys_clip_log < 4 )
+				{
+					Con_Reportf( "Xash3D GameCube: player clip move fraction=%.3f\n",
+						move_trace.fraction );
+					gc_phys_clip_log++;
+				}
+
+				if( !gc_phys_clip_proof_done )
+				{
+					vec3_t proof_end;
+					trace_t proof_trace;
+
+					VectorMA( player->v.origin, 8192.0f, forward, proof_end );
+					proof_trace = SV_Move( player->v.origin, player->v.mins, player->v.maxs,
+						proof_end, MOVE_NORMAL, player, false );
+					Con_Reportf( "Xash3D GameCube: player clip proof fraction=%.3f end=(%.0f %.0f %.0f)\n",
+						proof_trace.fraction,
+						proof_trace.endpos[0], proof_trace.endpos[1], proof_trace.endpos[2] );
+					gc_phys_clip_proof_done = true;
+				}
+
+				if( gc_phys_move_log < 4 )
+				{
+					Con_Reportf( "Xash3D GameCube: player move after origin=(%.0f,%.0f,%.0f) angles=(%.1f,%.1f,%.1f) fwd=%.0f side=%.0f\n",
+						player->v.origin[0], player->v.origin[1], player->v.origin[2],
+						player->v.v_angle[0], player->v.v_angle[1], player->v.v_angle[2],
+						cmd.forwardmove, cmd.sidemove );
+					gc_phys_move_log++;
+				}
+
+				(void)before_org;
+				(void)before_ang;
+				(void)moved;
+			}
+			else if( gc_lean_fill_log < 6 )
+			{
+				Con_Reportf( "Xash3D GameCube: lean player FillUsercmd skip\n" );
+				gc_lean_fill_log++;
+			}
+
+			/* Clip is proven with owned compact clipnodes (probe 20260807-060846).
+			 * Re-enable PreThink on the same post-present primes (present>=1). */
+			{
+				static int gc_lean_prethink_log;
+				if( gc_lean_prethink_log < 2 )
+				{
+					Con_Reportf( "Xash3D GameCube: lean player PreThink begin\n" );
+					gc_lean_prethink_log++;
+				}
+				svgame.dllFuncs.pfnPlayerPreThink( player );
+				SV_TryNewGameWorldInteraction( player );
+				if( gc_lean_prethink_log < 4 )
+				{
+					Con_Reportf( "Xash3D GameCube: lean player PreThink ready\n" );
+					gc_lean_prethink_log++;
+				}
+			}
+		}
 		return;
 	}
 #endif
