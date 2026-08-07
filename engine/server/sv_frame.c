@@ -1157,36 +1157,18 @@ G87: post-G36 New Game snapshots without the full SendClientMessages gate
 */
 void SV_SendClientMessagesBoundedGC( void )
 {
-	sv_client_t *cl;
-	int i;
-	static int gc_bound_dgram_log;
+	/* Lean New Game: Host_ServerFrame post-G36 hung inside WriteEntities /
+	 * SendClientDatagram (20260807-022225). Keep lean snapshots skipped so
+	 * Prepare + G281 + G506 can land (20260807-025038). Fullphysics uses the
+	 * normal server frame path. */
+	static int gc_bound_skip_log;
 
-	if( sv.state == ss_dead )
-		return;
-
-	for( i = 0, cl = svs.clients; i < svs.maxclients; i++, cl++ )
+	if( gc_bound_skip_log < 4 )
 	{
-		if( cl->state != cs_spawned || FBitSet( cl->flags, FCL_FAKECLIENT ))
-			continue;
-
-		/* Keep failure-time choke from suppressing post-G36 snapshots while the
-		 * lean client path is not sending usercmds every frame. */
-		cl->netchan.last_received = host.realtime;
-		cl->next_messagetime = host.realtime;
-		ClearBits( cl->flags, FCL_SEND_NET_MESSAGE );
-
-		sv.current_client = cl;
-		SV_SendClientDatagram( cl );
-		cl->next_messagetime = host.realtime + sv.frametime + cl->next_messageinterval;
-
-		if( gc_bound_dgram_log < 4 )
-		{
-			Con_Reportf( "Xash3D GameCube: post-G36 bounded WriteEntities tick\n" );
-			gc_bound_dgram_log++;
-		}
+		Con_Reportf( "Xash3D GameCube: post-G36 bounded WriteEntities skipped\n" );
+		gc_bound_skip_log++;
 	}
-
-	sv.current_client = NULL;
+	(void)sv;
 }
 #endif
 

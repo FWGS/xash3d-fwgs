@@ -719,6 +719,13 @@ void Host_Frame( double time )
 	Host_ClientBegin (); // begin client
 	Host_GetCommands (); // dedicated in
 #if XASH_GAMECUBE
+	/* After lean smoke G36, world_ready may still be false while cls is not
+	 * yet ca_active/SIGNONS — the active-branch Prepare kick never runs and
+	 * ServerFrame spins alone (probe 20260807-023333, warm≈540k). Always
+	 * Prepare once G36 is done on lean -gcnewgame. */
+	if( Sys_CheckParm( "-gcnewgame" ) && !Sys_CheckParm( "-gcfullphysics" )
+		&& GC_IsNewGameG36Done() && !GC_IsNewGameWorldReady() )
+		GC_PrepareNewGameWorldPresent();
 	/* After New Game ca_active, keep presenting even if heavy server work stalls.
 	 * Use signon as well as cls.state: the connect frame still has ca_connected
 	 * when Host_Frame chooses its branch, then CheckClientState flips active.

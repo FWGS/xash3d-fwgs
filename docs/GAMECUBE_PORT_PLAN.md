@@ -3787,10 +3787,99 @@ manual hardware validation with all artifacts generated and documented.
   `G278 player ride` / `SendClientDatagram` / `G281` (Dolphin SIGTERM).
 - Fix: lean tram cabin teleport in `SV_GCStepIntroTrain` now
   `SV_LinkEdict(player, false)` so trigger Touch cannot stall Host_Frame.
+- Probe `20260807-015759` (LinkEdict player false): still hung after
+  `G278 ride` with no `G278 player ride` / `G281`. Suspect area-link of the
+  tram itself or work before the player cabin teleport.
+- Fix: skip `SV_LinkEdict` for intro tram/player teleport entirely; keep
+  absbounds + FL_ONGROUND; log `G278 ride begin step` / `G278 ride skip link`.
+- Probe `20260807-020509` (skip tram/player LinkEdict): `G278 ride begin`,
+  `G278 ride skip link train`, `G278 player ride`, `G278 tram=` then hung
+  before `bounded think` / `SendClientDatagram` / `G281` (timeout SIGTERM).
+- Fix: first lean post-G36 `SV_Physics` tick only steps the intro tram then
+  returns (`SV_Physics lean ride primed`); player clip/PreThink on later ticks.
+- Probe `20260807-020937` (one-tick prime): `lean ride primed` then a second
+  `G278 player ride`/`tram=` and hang before player-move / `SendClientDatagram`.
+- Fix: extend tram-only warm to 12 lean `SV_Physics` ticks (`lean phys warm=N`)
+  before player clip/PreThink/world thinks.
+- Probe `20260807-021639` (12 warm ticks): `lean phys warm=1..12` then hang
+  with no `SendClientDatagram` / `G281` — hang is after tram-only returns or
+  on first player-physics tick.
+- Fix: keep lean `SV_Physics` tram-only permanently (no player clip/world
+  thinks) to isolate whether snapshots/G281 can proceed without that path.
+- Probe `20260807-022225` (permanent tram-only): `lean phys warm` climbed to
+  ~395k with still no `SendClientDatagram` / `Host_ServerFrame post-G36 bounded
+  tick` / `post-G36 ticks ready` — hang is in `SV_SendClientMessagesBoundedGC`
+  (or its `SV_SendClientDatagram`/`WriteEntities` path), while physics keeps
+  being re-entered from the Host_Frame pump.
+- Fix: make lean `SV_SendClientMessagesBoundedGC` a no-op that logs
+  `post-G36 bounded WriteEntities skipped`; reduce warm log spam.
+- Probe `20260807-022759` (datagram skip): `WriteEntities skipped` +
+  `Host_ServerFrame post-G36 bounded tick` appear, but `lean phys warm` still
+  reaches ~390k with no `post-G36 ticks ready` / `G281` — smoke G36 leaves
+  `world_ready` false so Prepare never runs and Host_Frame only spins
+  ServerFrame.
+- Fix: when lean post-G36 and `!GC_IsNewGameWorldReady()`, call
+  `GC_PrepareNewGameWorldPresent()` from `Host_Frame` before ServerFrame.
+- Probe `20260807-023333` (Prepare kick only in ca_active branch): still no
+  `pure GX defer` / Prepare; ServerFrame spun warm≈540k — cls not yet active
+  so the kick never ran.
+- Fix: call `GC_PrepareNewGameWorldPresent()` for lean post-G36 before the
+  Host_Frame active/else branch when `!world_ready`.
+- Probe `20260807-023917` (Prepare before Host_Frame branch):
+  `pure GX defer lean skybox until after HUD` and `G281 cl=295 n=320 L=248 pin`
+  on lean `-gcnewgame` (no `-gcfullphysics`). Analyze: `G36_STATUS: PASS`,
+  `G45_STATUS: PASS`, `LADDER_STATUS: PASS`, `G506_STATUS: WEAK` (HUD sheets
+  seen; ordered G105/G161/G177 incomplete). No ServerFrame warm spin.
 - Commands:
   `python3 -m unittest …test_smoke_newgame_override_bakes_without_fullphysics`
-  `python3 scripts/dolphin-probe-analyze.py --log-dir .ai/logs/dolphin-probe-20260807-013658 --goal G36`
-  `DOLPHIN_NEWGAME=1 DOLPHIN_TIMEOUT=240 scripts/dolphin-boot-probe.sh`
-- Next blocker: re-prove lean New Game past `G278 ride` to `G281` /
-  `SendClientDatagram` and G506 presentation markers.
+  `DOLPHIN_NEWGAME=1 DOLPHIN_TIMEOUT=300 scripts/dolphin-boot-probe.sh`
+  → logs `.ai/logs/dolphin-probe-20260807-023917`
+## Lean G105 crowbar for G506 (2026-08-07)
+
+- Lean probe `20260807-023917`: G281 + G172 + lean HUD drawn, but G506 WEAK
+  missing `G105 landmark viewmodel ready`. Deferred studios under lean only
+  promoted `v_9mmhandgun`; crowbar Ensure was `-gcfullphysics`-only.
+- Fix: `Mod_GCTryDeferredStudios` runs crowbar `Mod_GCEnsureLandmarkViewModel`
+  for all `-gcnewgame` (lean and fullphysics).
+- Probe `20260807-025038` (lean `-gcnewgame`, no `-gcfullphysics`):
+  `G105 landmark viewmodel ready models/v_crowbar.mdl`, G156 pin crowbar +
+  handgun, `lean HUD sprites drawn`, `G281 cl=295`. Analyze:
+  `G36_STATUS: PASS`, `G45_STATUS: PASS`, `G506_STATUS: PASS`
+  (`G172,lean-HUD,G105`), `LADDER_STATUS: PASS passed=10/10`.
+- Reconfirm `20260807-032158`: same G506 PASS after reverting an attempted
+  BoundedGC restore (restore hung at `CL_DrawEFX(trans)` on first Flipper
+  present in `20260807-030413`; lean snapshots remain skipped).
+- Commands:
+  `DOLPHIN_NEWGAME=1 DOLPHIN_TIMEOUT=300 scripts/dolphin-boot-probe.sh`
+  → logs `.ai/logs/dolphin-probe-20260807-025038` / `…-032158`
+- Next blocker: restore minimal lean client snapshots / WriteEntities without
+  re-hanging first present (player-only pack + warm gate); then lean player
+  clip physics. Keep fullphysics New Game green.
+
+
+
+## Pure Flipper New Game harness + G506 (2026-08-07)
+
+- Smoke New Game probes now bake `newgame` into `valve/gamecube.cfg`
+  (`--probe-newgame` on smoke discs). Dolphin `--` guest args never reach ISO
+  boot; prior probes only ran `-gcmap` smoke frames.
+- Lean `-gcnewgame` PutInServer hung on `SV_SetModel(models/w_crowbar.mdl)`.
+  Extended the GameCube weapon stub to lean New Game without `-gcfullphysics`
+  (same MEM1 Mod_ForName hang class as G100/G102). Probe `20260807-013658`:
+  weapon stub → ClientPutInServer complete → MAP_READY → nonblack presents;
+  G36/G45 PASS.
+- Fullphysics New Game probe `20260807-015023`:
+  `DOLPHIN_NEWGAME=1 DOLPHIN_FULLPHYSICS=1 DOLPHIN_TIMEOUT=420 scripts/dolphin-boot-probe.sh`
+  → args `-gcnewgame -gcmap c0a0 -gcfullphysics`, PutInServer ready, G281 Flipper
+  restream, G172 HUD sheets, lean HUD sprites, G105 landmark viewmodel,
+  G318/G319 diagnostics (studios=0 / empty draw lists remain).
+- G506 host gates updated from soft-dump G161/G177 markers to Pure Flipper
+  evidence (`G172 HUD sheets loaded`, `lean HUD sprites drawn`,
+  `G105 landmark viewmodel ready`). Rescore of `20260807-015023`: G506=PASS.
+- Commands / proof:
+  `python3 -m pytest tests/test_gamecube_host.py -k 'gameplay_gate or probe_analyze or smoke_newgame' -q`
+  `python3 scripts/dolphin-probe-analyze.py --log-dir .ai/logs/dolphin-probe-20260807-015023 --probe-status newgame_ready`
+- Next blocker: pack studio/NPC entities into client snapshots (G319 studios=0,
+  G318 solid=0) and close G45 action markers; G508/G509 + real hardware remain
+  open.
 

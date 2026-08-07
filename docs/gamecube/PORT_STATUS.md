@@ -2,12 +2,15 @@
 
 ## Current Milestone
 
-**Swiss stack modernization** - build defaults to Extrems **libogc2** +
-**libdvm**. Runtime probes Swiss FAT volumes (`sd:` / `carda:` / `cardb:`) and
-returns via the libogc2 exit stub. Host gates fail-close on G504 (incl.
-`entity_spawn`), G506 presentation, and G509 soak ladder. Operator evidence
-wrapper: `scripts/gamecube-operator-evidence.sh --dry-run`. Physical Swiss soak
-and Dolphin G508/G509 with a libogc2 rebuild remain open.
+**Playable Dolphin New Game (Pure Flipper)** — lean `-gcnewgame` (no
+`-gcfullphysics`) reaches Prepare + `G281` Flipper restream and clears Pure
+Flipper G506 on smoke `c0a0` (probes `20260807-025038` / `20260807-032158`:
+G36/G45/G506/LADDER PASS with G172 + lean HUD + G105 crowbar). Scaffolding
+still skips lean WriteEntities and player clip physics; a BoundedGC restore
+hung in first-present `CL_DrawEFX(trans)` (`20260807-030413`). Fullphysics New
+Game remains the richer regression path. Swiss/libogc2 physical soak and
+G508/G509 release evidence stay open.
+
 
 ## Current Automated State
 

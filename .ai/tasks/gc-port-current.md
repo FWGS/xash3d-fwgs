@@ -2,19 +2,27 @@ Auto-port task for Xash3D GameCube
 =================================
 
 Current goal:
-G509: Expand soak coverage to a representative changelevel route
+Restore lean `-gcnewgame` client snapshots / WriteEntities without hang
 
-**IN PROGRESS (G509 soak gate)**:
-- Extended gamecube-soak-probe.py with --g509 / --changelevel-route FROM:TO
-- Default continuity route: c0a0 → c0a0a with G68/G100 requirements
-- Wrapper: scripts/gamecube-g509-soak.sh
-- Release packet prefers changelevel-mode soak reports
-- Host dry-run + parser tests added
+**DONE (2026-08-07 lean New Game → G506 PASS)**:
+- Smoke ISO bakes `-gcnewgame` via `gamecube.cfg` (`--probe-newgame`)
+- Crowbar `SV_SetModel` weapon stub (no Mod_ForName hang)
+- Skip intro tram/player `LinkEdict` on lean ride teleport
+- Lean `SV_Physics` tram-only; skip hanging `SV_SendClientMessagesBoundedGC`
+- `Host_Frame` calls `GC_PrepareNewGameWorldPresent()` when G36 done and
+  `!world_ready` (fixes ServerFrame warm spin)
+- Lean crowbar `Mod_GCEnsureLandmarkViewModel` for G105 (not fullphysics-only)
+- Probe `20260807-025038` + reconfirm `20260807-032158`: `G281 cl=295`,
+  G105 crowbar ready, G36/G45/G506 PASS (`G172,lean-HUD,G105`), LADDER 10/10
+
+**Tried / rolled back**:
+- Restoring BoundedGC → first Flipper present hung in `CL_DrawEFX(trans)`
+  (`20260807-030413`); lean snapshots remain no-op for now
 
 Next acceptance step:
-- Run `scripts/gamecube-g509-soak.sh` against a real Dolphin build
-- Archive report.json beside the same-build G508 probe evidence
-- Keep physical SD fault cases hardware-only
+- Reintroduce minimal lean snapshots without re-hanging first present
+- Restore lean player clip / PreThink after tram-only warm is stable
+- Keep fullphysics New Game regression green (`20260807-015023` class)
 
 Rules:
 - Make one bounded implementation or validation patch.

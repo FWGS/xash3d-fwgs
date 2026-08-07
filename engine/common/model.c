@@ -461,8 +461,10 @@ void Mod_GCTryDeferredStudios( void )
 	/* G105: the direct new-game gameplay route needs a real first-person
 	 * mesh before the presentation probe can bind cl.viewent.  Crowbar is
 	 * deliberately promoted first because it is the guaranteed starter
-	 * weapon and is included in the compact gc_studio allowlist. */
-	if( Sys_CheckParm( "-gcfullphysics" ))
+	 * weapon and is included in the compact gc_studio allowlist.
+	 * Lean -gcnewgame (probe 20260807-023917) previously skipped this under
+	 * a -gcfullphysics-only gate and only loaded v_9mmhandgun — G506 WEAK. */
+	if( Sys_CheckParm( "-gcnewgame" ))
 	{
 		if( Mod_GCEnsureLandmarkViewModel( "models/v_crowbar.mdl" ))
 			Con_Reportf( "Xash3D GameCube: G105 landmark viewmodel ready models/v_crowbar.mdl\n" );
