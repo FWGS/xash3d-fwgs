@@ -570,8 +570,20 @@ static u16 GC_ProbeSyntheticHeldButtons( void )
 		if( gc_probe_action_stage == 1
 			&& GC_ProbeMenuStageReady( GC_PROBE_MENU_STEP_DELAY, GC_PROBE_MENU_STEP_FRAMES ))
 		{
+			gc_probe_action_stage = 2;
+			Con_Reportf( "Xash3D GameCube: probe difficulty menu release\n" );
+			return 0;
+		}
+		if( gc_probe_action_stage == 2 )
+		{
+			gc_probe_action_stage = 3;
+			Con_Reportf( "Xash3D GameCube: probe difficulty menu confirm selection=1\n" );
+			return PAD_BUTTON_B;
+		}
+		if( gc_probe_action_stage == 3 )
+		{
 			gc_probe_action_stage = 7;
-			Con_Reportf( "Xash3D GameCube: probe menu New Game release\n" );
+			Con_Reportf( "Xash3D GameCube: probe difficulty menu final release\n" );
 		}
 		return 0;
 	}

@@ -40,6 +40,7 @@ static qboolean gc_menu_use_baked_retail;
 static qboolean gc_menu_reported_retail_ready;
 static qboolean gc_menu_reported_button_ready;
 static int gc_menu_selection;
+static int gc_menu_page;
 static int gc_menu_logo;
 static int gc_menu_composite[9];
 static int gc_menu_icons;
@@ -314,11 +315,12 @@ static void UI_GCDrawFallbackMenu( void )
 	int base_y = ( 252 * refState.height ) / 480;
 	int row_h = ( 34 * refState.height ) / 480;
 	qboolean commands_safe = UI_GCFallbackMenuCommandsSafe();
+	qboolean difficulty_menu = gc_menu_page != 0;
 	const gc_menu_item_t *selected_item = &gc_menu_items[bound( 0, gc_menu_selection,
 		(int)ARRAYSIZE( gc_menu_items ) - 1 )];
 
 	UI_GCLoadFallbackMenuTextures();
-	if( gc_menu_composite[0] > 0 && gc_menu_composite[1] > 0
+	if( !difficulty_menu && gc_menu_composite[0] > 0 && gc_menu_composite[1] > 0
 		&& gc_menu_composite[2] > 0 && gc_menu_composite[3] > 0
 		&& gc_menu_composite[4] > 0 && gc_menu_composite[5] > 0
 		&& gc_menu_composite[6] > 0 && gc_menu_composite[7] > 0
@@ -393,6 +395,8 @@ static void UI_GCDrawFallbackMenu( void )
 
 	for( int i = 0; i < (int)ARRAYSIZE( gc_menu_items ); i++ )
 	{
+		if( difficulty_menu )
+			break;
 		const gc_menu_item_t *item = &gc_menu_items[i];
 		qboolean selected = ( i == gc_menu_selection );
 		int y = base_y + i * row_h;
@@ -402,6 +406,32 @@ static void UI_GCDrawFallbackMenu( void )
 			selected ? ( commands_safe ? 255 : 196 ) : ( commands_safe ? 224 : 168 ),
 			selected ? ( commands_safe ? 214 : 176 ) : ( commands_safe ? 170 : 140 ),
 			selected ? ( commands_safe ? 48 : 64 ) : ( commands_safe ? 16 : 40 ), true );
+	}
+	if( difficulty_menu )
+	{
+		static const char *difficulty_names[] = { "Easy", "Medium", "Hard" };
+		static const char *difficulty_help[] = {
+			"Recommended for new players.",
+			"The standard Half-Life experience.",
+			"For experienced players."
+		};
+
+		UI_GCDrawMenuString( base_x, base_y - row_h, "DIFFICULTY",
+			commands_safe ? 255 : 196, commands_safe ? 214 : 176,
+			commands_safe ? 48 : 64, true );
+		for( int i = 0; i < 3; i++ )
+		{
+			qboolean selected = ( i == gc_menu_selection );
+			int y = base_y + i * row_h;
+			UI_GCDrawMenuMarker( icon_x, y, selected );
+			UI_GCDrawMenuString( base_x, y, difficulty_names[i],
+				selected ? ( commands_safe ? 255 : 196 ) : ( commands_safe ? 224 : 168 ),
+				selected ? ( commands_safe ? 214 : 176 ) : ( commands_safe ? 170 : 140 ),
+				selected ? ( commands_safe ? 48 : 64 ) : ( commands_safe ? 16 : 40 ), true );
+		}
+		UI_GCDrawMenuString( base_x, base_y + 3 * row_h + row_h,
+			difficulty_help[bound( 0, gc_menu_selection, 2 )], 112, 112, 112, false );
+		return;
 	}
 
 	UI_GCDrawMenuString( base_x, base_y + (int)ARRAYSIZE( gc_menu_items ) * row_h + row_h,
@@ -422,19 +452,35 @@ static void UI_GCActivateFallbackMenuItem( void )
 		return;
 	}
 
+	if( gc_menu_page != 0 )
+	{
+		Con_Reportf( "Xash3D GameCube: fallback difficulty selected skill=%d\n",
+			gc_menu_selection + 1 );
+		Cvar_SetValue( "skill", (float)( gc_menu_selection + 1 ));
+		Cbuf_AddText( "gc_playstart\n" );
+		Cbuf_Execute();
+		gc_menu_page = 0;
+		gc_menu_visible = false;
+		Key_SetKeyDest( key_game );
+		return;
+	}
+
 	const gc_menu_item_t *item = &gc_menu_items[bound( 0, gc_menu_selection,
 		(int)ARRAYSIZE( gc_menu_items ) - 1 )];
+
+	if( !Q_stricmp( item->command, "gc_playstart" ))
+	{
+		gc_menu_page = 1;
+		gc_menu_selection = 1;
+		Con_Reportf( "Xash3D GameCube: fallback difficulty menu ready\n" );
+		return;
+	}
 
 	if( !COM_StringEmpty( item->command ))
 	{
 		Cbuf_AddText( item->command );
 		Cbuf_AddText( "\n" );
 		Cbuf_Execute();
-		if( !Q_stricmp( item->command, "gc_playstart" ))
-		{
-			gc_menu_visible = false;
-			Key_SetKeyDest( key_game );
-		}
 	}
 }
 
@@ -445,6 +491,30 @@ qboolean UI_UsingBuiltInFallbackMenu( void )
 
 void UI_GameCubeLeaveMenuOnlyBootstrap( void )
 {
+	/* The fallback menu is only a bootstrap surface.  Its baked menu tiles
+	 * compete with the first map's MEM1 allocations if they remain resident. */
+	for( int i = 0; i < ARRAYSIZE( gc_menu_composite ); i++ )
+	{
+		if( gc_menu_composite[i] > 0 )
+			ref.dllFuncs.GL_FreeTexture( gc_menu_composite[i] );
+		gc_menu_composite[i] = 0;
+	}
+	if( gc_menu_logo > 0 )
+		ref.dllFuncs.GL_FreeTexture( gc_menu_logo );
+	gc_menu_logo = 0;
+	for( int i = 0; i < ARRAYSIZE( gc_menu_logo_blur ); i++ )
+	{
+		if( gc_menu_logo_blur[i] > 0 )
+			ref.dllFuncs.GL_FreeTexture( gc_menu_logo_blur[i] );
+		gc_menu_logo_blur[i] = 0;
+	}
+	for( int i = 0; i < gc_menu_background_count; i++ )
+	{
+		if( gc_menu_background[i].texnum > 0 )
+			ref.dllFuncs.GL_FreeTexture( gc_menu_background[i].texnum );
+		gc_menu_background[i].texnum = 0;
+	}
+	gc_menu_background_count = 0;
 	gc_menu_builtin_fallback = false;
 }
 #endif
@@ -522,12 +592,14 @@ void UI_KeyEvent( int key, qboolean down )
 		{
 		case K_UPARROW:
 		case K_DPAD_UP:
-			gc_menu_selection = ( gc_menu_selection + ARRAYSIZE( gc_menu_items ) - 1 ) %
-				ARRAYSIZE( gc_menu_items );
+			gc_menu_selection = ( gc_menu_selection +
+				( gc_menu_page ? 3 : ARRAYSIZE( gc_menu_items )) - 1 ) %
+				( gc_menu_page ? 3 : ARRAYSIZE( gc_menu_items ));
 			break;
 		case K_DOWNARROW:
 		case K_DPAD_DOWN:
-			gc_menu_selection = ( gc_menu_selection + 1 ) % ARRAYSIZE( gc_menu_items );
+			gc_menu_selection = ( gc_menu_selection + 1 ) %
+				( gc_menu_page ? 3 : ARRAYSIZE( gc_menu_items ));
 			break;
 		case K_ENTER:
 		case K_KP_ENTER:
@@ -539,6 +611,11 @@ void UI_KeyEvent( int key, qboolean down )
 		case K_BACK_BUTTON:
 			if( cls.state == ca_active )
 				UI_SetActiveMenu( false );
+			else if( gc_menu_page )
+			{
+				gc_menu_page = 0;
+				gc_menu_selection = 0;
+			}
 			else
 				gc_menu_selection = 0;
 			break;
