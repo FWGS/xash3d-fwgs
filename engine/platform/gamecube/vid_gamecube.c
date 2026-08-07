@@ -8738,17 +8738,27 @@ static size_t GC_CompressedPVSRowSize( const byte *in, size_t visbytes )
 {
 	size_t consumed = 0;
 	size_t produced = 0;
+	/* A valid BSP PVS row cannot consume more than two bytes per output
+	 * byte, plus a terminating run header.  The capture path can run after
+	 * scratch reuse on low-memory maps, so do not walk an invalid pointer
+	 * forever while building the lean cache. */
+	const size_t input_limit = visbytes > ( SIZE_MAX - 2 ) / 2
+		? SIZE_MAX : visbytes * 2 + 2;
 
 	if( !in )
 		return 0;
 	while( produced < visbytes )
 	{
+		if( consumed >= input_limit )
+			return 0;
 		byte value = in[consumed++];
 
 		if( value )
 			produced++;
 		else
 		{
+			if( consumed >= input_limit )
+				return 0;
 			byte run = in[consumed++];
 
 			if( !run )
@@ -8779,6 +8789,8 @@ static qboolean GC_CaptureLeanCompressedPVS( model_t *wmodel, int numclusters, s
 			|| gc_newgame_compressed_ofs[leaf->cluster] != -1 || !leaf->compressed_vis )
 			continue;
 		row_size = GC_CompressedPVSRowSize( leaf->compressed_vis, visbytes );
+		if( !row_size )
+			continue;
 		if( total > (size_t)INT_MAX || row_size > (size_t)INT_MAX - total )
 			return false;
 		gc_newgame_compressed_ofs[leaf->cluster] = (int)row_size;
