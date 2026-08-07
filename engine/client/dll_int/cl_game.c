@@ -429,6 +429,17 @@ static void SPR_DrawGeneric( int frame, float x, float y, float width, float hei
 	}
 
 	int texnum = R_GetSpriteTexture( clgame.ds.pSprite, frame );
+	if( texnum <= 0 || texnum >= ( XASH_LOW_MEMORY ? 1024 : 8192 ))
+	{
+		static int gc_invalid_hud_sprite_reports;
+		if( gc_invalid_hud_sprite_reports < 4 )
+		{
+			Con_Reportf( "Xash3D GameCube: skip invalid HUD sprite texture=%d frame=%d\n",
+				texnum, frame );
+			gc_invalid_hud_sprite_reports++;
+		}
+		return;
+	}
 
 	if( prc )
 	{

@@ -7798,8 +7798,6 @@ MDL malloc). Early present slots so short probes still reach view≥2.
 static void GC_TryDeferredStudios( void )
 {
 #if XASH_GAMECUBE
-	static qboolean gc_fullphysics_viewmodel_presented;
-
 	if( !gc_newgame_world_ready )
 		return;
 	/* G297: MDL promote mid-G36 sample window spikes present hitch. */
@@ -7810,13 +7808,6 @@ static void GC_TryDeferredStudios( void )
 		&& gc_present_count != 8 && gc_present_count != 20 && gc_present_count != 40 )
 		return;
 	Mod_GCTryDeferredStudios();
-	if( Sys_CheckParm( "-gcfullphysics" ) && !gc_fullphysics_viewmodel_presented )
-	{
-		/* The deferred pass has just made the starter viewmodel resident. */
-		gc_fullphysics_viewmodel_presented = true;
-		Cvar_Set( "r_drawviewmodel", "1" );
-		GC_PresentLandmarkViewModel();
-	}
 #endif
 }
 
@@ -10312,6 +10303,8 @@ void GC_PresentLandmarkViewModel( void )
 	if( GC_RenderNewGameWorldPassNoFrame( true ))
 	{
 		Con_Reportf( "Xash3D GameCube: G105 viewmodel draw %s\n", path );
+		Con_Reportf( "Xash3D GameCube: G161 eligibility buffer=%d size=%dx%d stride=%d gx=%d\n",
+			gc.buffer ? 1 : 0, gc.width, gc.height, gc.stride, gc_gx_world_live ? 1 : 0 );
 		/* G149: WORLD PRESENT dumps ran before Deploy — re-scrub and CPU-present
 		 * so Dolphin DumpFrames latch a frame that includes the gun.
 		 * G159: reconnect re-grant must not re-arm six dump presents (starves SCR).
