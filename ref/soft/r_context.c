@@ -177,7 +177,7 @@ static intptr_t GL_RefGetParm( int parm, int arg )
 	case PARM_REBUILD_GAMMA:
 		return 0;
 	case PARM_GL_CONTEXT_TYPE:
-		return 0; // glConfig.context;
+		return CONTEXT_TYPE_SOFTWARE;
 	case PARM_GLES_WRAPPER:
 		return 0; // glConfig.wrapper;
 	case PARM_STENCIL_ACTIVE:

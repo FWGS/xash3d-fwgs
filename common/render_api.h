@@ -116,7 +116,8 @@ typedef enum
 	CONTEXT_TYPE_GL = 0, // compatibility profile
 	CONTEXT_TYPE_GLES_1_X,
 	CONTEXT_TYPE_GLES_2_X,
-	CONTEXT_TYPE_GL_CORE
+	CONTEXT_TYPE_GL_CORE,
+	CONTEXT_TYPE_SOFTWARE, // not a context by itself, just software renderer
 } gl_context_type_t;
 
 typedef enum

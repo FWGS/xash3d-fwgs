@@ -226,6 +226,9 @@ static void CL_DrawBeams( int fTrans, BEAM *beams )
 
 static intptr_t RefGetParm( int parm, int arg )
 {
+	if( parm == PARM_GL_CONTEXT_TYPE )
+		return CONTEXT_TYPE_SOFTWARE;
+
 	return 0;
 }
 
