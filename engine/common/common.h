@@ -139,11 +139,13 @@ typedef enum instance_e
 
 #define FORCE_DRAW_VERSION_TIME 5.0 // draw version for 5 seconds
 
+#ifndef Assert
 #ifdef _DEBUG
 void DBG_AssertFunction( qboolean fExpr, const char* szExpr, const char* szFile, int szLine, const char* szMessage );
 #define Assert( f )		DBG_AssertFunction( f, #f, __FILE__, __LINE__, NULL )
 #else
 #define Assert( f )
+#endif
 #endif
 
 extern convar_t	gl_vsync;
@@ -745,6 +747,7 @@ qboolean CL_IsRecordDemo( void );
 qboolean CL_IsPlaybackDemo( void );
 qboolean UI_CreditsActive( void );
 void *UI_GetMenuFactory( void );
+struct ttf_funcs_s *TTF_GetFuncs( void );
 int CL_GetMaxClients( void );
 #else
 static inline qboolean CL_Initialized( void ) { return false; }
@@ -756,6 +759,7 @@ static inline qboolean CL_IsRecordDemo( void ) { return false; }
 static inline qboolean CL_IsPlaybackDemo( void ) { return false; }
 static inline qboolean UI_CreditsActive( void ) { return false; }
 static inline void *UI_GetMenuFactory( void ) { return NULL; }
+static inline struct ttf_funcs_s *TTF_GetFuncs( void ) { return NULL; }
 static inline int CL_GetMaxClients( void ) { return SV_GetMaxClients(); }
 #endif
 

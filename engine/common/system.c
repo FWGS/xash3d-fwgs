@@ -661,6 +661,9 @@ void *Sys_GetNativeObject( const char *obj )
 	if( !Q_strcmp( obj, "MenuFactory" ))
 		return UI_GetMenuFactory();
 
+	if( !Q_strcmp( obj, "TTFontFuncs" ) )
+		return TTF_GetFuncs();
+
 	void *ptr = FS_GetNativeObject( obj );
 
 	if( ptr )

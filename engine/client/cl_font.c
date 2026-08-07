@@ -173,6 +173,12 @@ void CL_FreeFont( cl_font_t *font )
 	if( !font || !font->valid )
 		return;
 
+	if( font->ttfont )
+	{
+		TTF_Destroy( font->ttfont );
+		font->ttfont = NULL;
+	}
+
 	ref.dllFuncs.GL_FreeTexture( font->hFontTexture );
 	memset( font, 0, sizeof( *font ));
 }
@@ -193,6 +199,53 @@ int CL_DrawCharacter( float x, float y, int number, const rgba_t color, cl_font_
 {
 	if( !font || !font->valid || y < -font->charHeight )
 		return 0;
+
+	if( UI_IsVisible() && FBitSet( flags, FONT_DRAW_HUD ) )
+		return 0;
+
+	// truetype dispatch
+	if( font->ttfont )
+	{
+		int r = 255, g = 255, b = 255, a = 255;
+		// adjust console font color to be more similar to bitmap
+		if( color )
+		{
+			if( font == Con_GetCurFont() )
+			{
+				r = (int)( color[0] * 0.80f );
+				g = (int)( color[1] * 0.75f );
+				b = (int)( color[2] * 0.95f );
+			}
+			else
+			{
+				r = color[0];
+				g = color[1];
+				b = color[2];
+			}
+			a = color[3];
+		}
+
+		if( number <= 32 )
+		{
+			if( number == ' ' )
+				return FBitSet( flags, FONT_DRAW_HUD ) ? (int)( TTF_GetCharWidth( font->ttfont, ' ' ) * clgame.scrInfo.iWidth / refState.width + 0.5f ) : TTF_GetCharWidth( font->ttfont, ' ' );
+			else if( number == '\t' )
+				return CL_CalcTabStop( font, x );
+			return 0;
+		}
+
+		if( !FBitSet( flags, FONT_DRAW_NORENDERMODE ) && font->rendermode )
+			CL_SetFontRendermode( font );
+
+		if( FBitSet( flags, FONT_DRAW_HUD ))
+		{
+			float fx = x, fy = y, fw = (float)TTF_GetCharWidth( font->ttfont, number ), fh = (float)TTF_GetHeight( font->ttfont );
+			SPR_AdjustSize( &fx, &fy, &fw, &fh );
+			TTF_DrawChar( font->ttfont, (int)fx, (int)fy, number, r, g, b, a );
+			return (int)( TTF_GetCharWidth( font->ttfont, number ) * clgame.scrInfo.iWidth / refState.width + 0.5f );
+		}
+		return TTF_DrawChar( font->ttfont, (int)x, (int)y, number, r, g, b, a );
+	}
 
 	// check if printable
 	if( number <= 32 )
@@ -246,6 +299,7 @@ int CL_DrawCharacter( float x, float y, int number, const rgba_t color, cl_font_
 int CL_DrawString( float x, float y, const char *s, const rgba_t color, cl_font_t *font, int flags )
 {
 	int draw_len = 0;
+	rgba_t curColor;
 
 	if( !font || !font->valid )
 		return 0;
@@ -256,7 +310,12 @@ int CL_DrawString( float x, float y, const char *s, const rgba_t color, cl_font_
 	if( !FBitSet( flags, FONT_DRAW_NORENDERMODE ))
 		CL_SetFontRendermode( font );
 
-	CL_SetFontColor( font, color );
+	if( color )
+		memcpy( curColor, color, sizeof( curColor ));
+	else
+		MakeRGBA( curColor, 255, 255, 255, 255 );
+
+	CL_SetFontColor( font, curColor );
 
 	SetBits( flags, FONT_DRAW_NOCOLOR | FONT_DRAW_NORENDERMODE );
 
@@ -273,11 +332,20 @@ int CL_DrawString( float x, float y, const char *s, const rgba_t color, cl_font_
 			if( !FBitSet( flags, FONT_DRAW_NOLF ))
 			{
 				draw_len = 0;
-				y += font->charHeight;
+				if( font->ttfont )
+					y += FBitSet( flags, FONT_DRAW_HUD ) ? (int)( TTF_GetHeight( font->ttfont ) * clgame.scrInfo.iHeight / refState.height + 0.5f ) : TTF_GetHeight( font->ttfont );
+				else
+					y += font->charHeight;
 			}
 
 			if( FBitSet( flags, FONT_DRAW_RESETCOLORONLF ))
-				 CL_SetFontColor( font, color );
+			{
+				if( color )
+					memcpy( curColor, color, sizeof( curColor ));
+				else
+					MakeRGBA( curColor, 255, 255, 255, 255 );
+				CL_SetFontColor( font, curColor );
+			}
 			continue;
 		}
 
@@ -285,14 +353,21 @@ int CL_DrawString( float x, float y, const char *s, const rgba_t color, cl_font_
 		{
 			// don't copy alpha
 			if( !FBitSet( flags, FONT_DRAW_FORCECOL ))
-				CL_SetFontColor( font, g_color_table[ColorIndex(*( s + 1 ))] );
+			{
+				const byte *ct = g_color_table[ColorIndex(*( s + 1 ))];
+				curColor[0] = ct[0];
+				curColor[1] = ct[1];
+				curColor[2] = ct[2];
+				// keep alpha from original color
+				CL_SetFontColor( font, curColor );
+			}
 
 			s += 2;
 			continue;
 		}
 
-		// skip setting rendermode, it was changed for this string already
-		draw_len += CL_DrawCharacter( x + draw_len, y, (byte)*s, NULL, font, flags );
+		// for truetype, pass curColor explicitly since GL state isn't used
+		draw_len += CL_DrawCharacter( x + draw_len, y, (byte)*s, font->ttfont ? curColor : NULL, font, flags );
 
 		s++;
 	}
@@ -315,6 +390,20 @@ int CL_DrawStringf( cl_font_t *font, float x, float y, const rgba_t color, int f
 void CL_DrawCharacterLen( cl_font_t *font, int number, int *width, int *height )
 {
 	if( !font || !font->valid ) return;
+
+	if( font->ttfont )
+	{
+		if( width )
+		{
+			if( number == '\t' )
+				*width = CL_CalcTabStop( font, 0 );
+			else
+				*width = TTF_GetCharWidth( font->ttfont, number );
+		}
+		if( height ) *height = TTF_GetHeight( font->ttfont );
+		return;
+	}
+
 	if( width )
 	{
 		if( number == '\t' )
@@ -332,7 +421,12 @@ void CL_DrawStringLen( cl_font_t *font, const char *s, int *width, int *height, 
 		return;
 
 	if( height )
-		*height = font->charHeight;
+	{
+		if( font->ttfont )
+			*height = FBitSet( flags, FONT_DRAW_HUD ) ? (int)( TTF_GetHeight( font->ttfont ) * clgame.scrInfo.iHeight / refState.height + 0.5f ) : TTF_GetHeight( font->ttfont );
+		else
+			*height = font->charHeight;
+	}
 
 	if( width )
 		*width = 0;
@@ -356,7 +450,12 @@ void CL_DrawStringLen( cl_font_t *font, const char *s, int *width, int *height, 
 			if( !FBitSet( flags, FONT_DRAW_NOLF ))
 			{
 				if( height )
-					*height += font->charHeight;
+				{
+					if( font->ttfont )
+						*height += FBitSet( flags, FONT_DRAW_HUD ) ? (int)( TTF_GetHeight( font->ttfont ) * clgame.scrInfo.iHeight / refState.height + 0.5f ) : TTF_GetHeight( font->ttfont );
+					else
+						*height += font->charHeight;
+				}
 			}
 			continue;
 		}
@@ -379,7 +478,10 @@ void CL_DrawStringLen( cl_font_t *font, const char *s, int *width, int *height, 
 
 		if( number )
 		{
-			draw_len += font->charWidths[number];
+			if( font->ttfont )
+				draw_len += FBitSet( flags, FONT_DRAW_HUD ) ? (int)( TTF_GetCharWidth( font->ttfont, number ) * clgame.scrInfo.iWidth / refState.width + 0.5f ) : TTF_GetCharWidth( font->ttfont, number );
+			else
+				draw_len += font->charWidths[number];
 
 			if( width )
 			{
