@@ -3176,12 +3176,24 @@ void R_DrawViewModel( void )
 	cl_entity_t *view = tr.viewent;
 #if XASH_GAMECUBE
 	qboolean gx_studio = false;
+	const qboolean lean_vm = gEngfuncs.Sys_CheckParm( "-gcnewgame" )
+		&& !gEngfuncs.Sys_CheckParm( "-gcfullphysics" )
+		&& view && view->model && view->model->type == mod_studio
+		&& view->model->cache.data
+		&& ( GC_UseLowResWorldProbe() || GC_UseGxWorldDraw() );
 #endif
 
 	R_GatherPlayerLight( view );
 
+#if XASH_GAMECUBE
+	/* Lean Flipper often leaves r_drawviewmodel at 0 (V_RenderView pump
+	 * skips the force-on). Landmark mesh is enough to arm the gun pass. */
+	if( r_drawviewmodel->value == 0 && !lean_vm )
+		return;
+#else
 	if( r_drawviewmodel->value == 0 )
 		return;
+#endif
 
 	if( ENGINE_GET_PARM( PARM_THIRDPERSON ))
 		return;
@@ -3189,9 +3201,9 @@ void R_DrawViewModel( void )
 	// ignore in thirdperson, camera view or client is died
 #if XASH_GAMECUBE
 	/* G149: New Game landmark Deploy presents before UpdateClientData has
-	 * health/viewentity; still draw when the viewmodel mesh is bound. */
-	if( !( gEngfuncs.Sys_CheckParm( "-gcnewgame" ) && GC_UseLowResWorldProbe()
-		&& view && view->model && view->model->type == mod_studio ))
+	 * health/viewentity; still draw when the viewmodel mesh is bound.
+	 * Lean Flipper (GX world) uses the same landmark bind path. */
+	if( !lean_vm )
 #endif
 	if( ENGINE_GET_PARM( PARM_LOCAL_HEALTH ) <= 0 || !CL_IsViewEntityLocalPlayer())
 		return;
@@ -3262,10 +3274,14 @@ void R_DrawViewModel( void )
 	}
 
 #if XASH_GAMECUBE
-	/* G155: Flipper viewmodel into EFB when GX world live is armed. */
+	/* G155: Flipper viewmodel into EFB when GX world live is armed.
+	 * Lean uses ForceBegin — plain Begin flapped off after world studio End. */
 	if( GC_UseGxWorldDraw() && RI.currententity->model->type == mod_studio )
 	{
-		R_GXStudioBegin( true );
+		if( lean_vm )
+			R_GXStudioForceBegin( true );
+		else
+			R_GXStudioBegin( true );
 		gx_studio = true;
 	}
 #endif

@@ -1099,14 +1099,38 @@ static void R_DrawEntitiesOnList( void )
 	if( !FBitSet( RI.rvp.flags, RF_ONLY_CLIENTDRAW ))
 	{
 #if XASH_GAMECUBE
-		if( !lean_ents )
+		if( lean_ents )
+		{
+			/* After a lean world studio draws this frame, restore landmark
+			 * viewmodel (G105/G156). Keep EFX/client tris off
+			 * (hang 20260807-163236). */
+			if( lean_studios > 0
+				&& tr.viewent && tr.viewent->model
+				&& tr.viewent->model->type == mod_studio
+				&& tr.viewent->model->cache.data )
+			{
+				static qboolean lean_vm_draw_logged;
+
+				R_DrawViewModel();
+				if( !lean_vm_draw_logged )
+				{
+					lean_vm_draw_logged = true;
+					gEngfuncs.Con_Reportf(
+						"Xash3D GameCube: lean DrawEntities viewmodel %s\n",
+						tr.viewent->model->name[0]
+							? tr.viewent->model->name : "?" );
+				}
+			}
+		}
+		else
 #endif
 		R_DrawViewModel();
 	}
 #if XASH_GAMECUBE
 	if( lean_ents && tr.framecount <= 4 )
-		gEngfuncs.Con_Reportf( "Xash3D GameCube: lean DrawEntities no-EFX f=%d brushes=%d studios=%d solid=%u\n",
-			tr.framecount, lean_brushes, lean_studios, tr.draw_list->num_solid_entities );
+		gEngfuncs.Con_Reportf( "Xash3D GameCube: lean DrawEntities no-EFX f=%d brushes=%d studios=%d solid=%u vm=%d\n",
+			tr.framecount, lean_brushes, lean_studios, tr.draw_list->num_solid_entities,
+			( tr.viewent && tr.viewent->model ) ? 1 : 0 );
 #endif
 	gEngfuncs.CL_ExtraUpdate();
 
@@ -2056,8 +2080,8 @@ void GAME_EXPORT R_RenderScene( void )
 		 * retail GX. The old early return hid the tram and every NPC while
 		 * leaving the physics route nominally green. R_DrawEntitiesOnList keeps
 		 * the existing low-memory caps and model-type filters. */
-		/* Lean DrawEntities: brush ents only; skip EFX/client tris/viewmodel
-		 * (solid=0 hang 20260807-163236) and studio meshes for now. */
+		/* Lean DrawEntities: brushes + one world studio + gated viewmodel;
+		 * skip EFX/client tris (solid=0 hang 20260807-163236). */
 		R_DrawEntitiesOnList();
 		return;
 	}

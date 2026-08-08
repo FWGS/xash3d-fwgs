@@ -2,19 +2,20 @@ Auto-port task for Xash3D GameCube
 =================================
 
 Current goal:
-Viewmodel or EFX carefully; bounded world thinks
+EFX carefully or bounded world thinks
 
-**DONE (2026-08-07 probe 20260807-220848)**:
-- Lean Flipper studio draw: `G155 GX studio tris=60 viewmodel=0`
-- Root cause of gx_tris=0: leftover `r_gx_effects_tri` made EmitTriC
-  count effects instead of studio — clear on Begin/ForceBegin; prefer
-  studio accounting while studio is armed
-- Direct mesh→GX path in `R_StudioDrawNormalMesh` for GX world draw
-- `NEWGAME_READY` + G45 actions + G506 PASS; EmitBrush studios=1
+**DONE (2026-08-08 probe 20260808-022209)**:
+- Lean Flipper viewmodel: `G155 GX studio tris=329 viewmodel=1`
+- Root cause of silent VM skip: `r_drawviewmodel` stayed 0 on lean
+  (V_RenderView pump skips force-on). Lean landmark mesh bypasses that
+  gate; ForceBegin for VM after world studio End.
+- EmitBrush rebinds G105 crowbar when studios admit
+- `NEWGAME_READY` + G45 actions + G506 PASS; G164/G167 also green
 
 Next acceptance step:
-- Re-enable viewmodel or EFX carefully
+- Re-enable EFX carefully (still skipped on lean path)
 - Bounded world thinks
+- Keep `lean_player_only` until proven otherwise
 
 Rules:
 - Make one bounded implementation or validation patch.

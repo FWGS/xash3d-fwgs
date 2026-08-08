@@ -3,11 +3,11 @@
 ## Current Milestone
 
 **Playable Dolphin New Game (Pure Flipper)** — lean `-gcnewgame` reaches
-`NEWGAME_READY` (probe `20260807-220848`): G506, G45 actions, `EmitBrush`
-6 brushes + `w_crowbar` Flipper studio (`G155 GX studio tris=60`). Keep
-`lean_player_only`. Viewmodel/EFX and bounded world thinks remain.
-Fullphysics stays the richer regression path. Swiss/libogc2 physical soak and
-G508/G509 stay open.
+`NEWGAME_READY` (probe `20260808-022209`): G506, G45 actions, `EmitBrush`
+6 brushes + `w_crowbar` world studio + landmark viewmodel
+(`G155 … viewmodel=1`, 329 tris). Keep `lean_player_only`. EFX and bounded
+world thinks remain. Fullphysics stays the richer regression path.
+Swiss/libogc2 physical soak and G508/G509 stay open.
 
 
 ## Current Automated State
@@ -39,12 +39,13 @@ G508/G509 stay open.
 
 **Status**: Gameplay smoke passing; release systems remain unverified
 
-Latest useful runtime evidence on **August 7, 2026**:
-- Gameplay probe: `.ai/logs/dolphin-probe-20260807-220848/`
+Latest useful runtime evidence on **August 8, 2026**:
+- Gameplay probe: `.ai/logs/dolphin-probe-20260808-022209/`
 - Result: `NEWGAME_READY`, exit code 0
-- Frame samples: 15; average 0.71 ms, p95 0.73 ms, max 0.73 ms
+- Frame samples: 15; average ~0.71 ms, p95 ~0.73 ms (G36 PASS)
 - G36: PASS; G45: PASS; G45 actions attack/jump/use: PASS; G506: PASS
-- Lean studio: `G155 GX studio tris=60 viewmodel=0`; mesh GX cmds=22
+- Lean studio: world `G155 … tris=60 viewmodel=0` then gun
+  `G155 … tris=329 viewmodel=1`; G164/G167 green; mesh GX cmds=22
 - Prior supervisor release-disc probe: `.ai/logs/dolphin-probe-20260804-143927/`
 - Smoke map (`c0a0e`): loaded; G36/G45/visual: PASS
 

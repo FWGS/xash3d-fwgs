@@ -4011,6 +4011,19 @@ manual hardware validation with all artifacts generated and documented.
   → logs `.ai/logs/dolphin-probe-20260807-220848`
 - Next blocker: viewmodel or EFX carefully; bounded world thinks.
 
+## Lean Flipper viewmodel G155 (2026-08-08)
+
+- Lean `R_DrawViewModel` was a no-op: `r_drawviewmodel` stayed 0 (V_RenderView
+  pump skips force-on). Landmark mesh + lean Flipper bypass that gate;
+  `ForceBegin(true)` after world studio End; EmitBrush rebinds G105 crowbar.
+- Probe `20260808-022209`: world `G155 … tris=60 viewmodel=0` then
+  `G155 GX studio tris=329 viewmodel=1`, G157/G164/G167, `NEWGAME_READY`,
+  G45/G506 PASS. EFX still skipped on lean path.
+- Commands:
+  `DOLPHIN_NEWGAME=1 DOLPHIN_TIMEOUT=180 scripts/dolphin-boot-probe.sh`
+  → logs `.ai/logs/dolphin-probe-20260808-022209`
+- Next blocker: EFX carefully or bounded world thinks.
+
 
 
 ## Pure Flipper New Game harness + G506 (2026-08-07)

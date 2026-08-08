@@ -1537,6 +1537,32 @@ void CL_GameCubeLeanEmitBrushEntities( void )
 					studios++;
 			}
 		}
+
+		/* Landmark viewmodel for Flipper G155 gun pass (G105 crowbar). */
+		if( studios > 0
+			&& ( !clgame.viewent.model
+				|| clgame.viewent.model->type != mod_studio
+				|| !clgame.viewent.model->cache.data ))
+		{
+			const char *vpath = Mod_GCLandmarkViewModelPath();
+			model_t *vm = NULL;
+
+			if( !vpath || !vpath[0] )
+				vpath = "models/v_crowbar.mdl";
+			if( Mod_GCEnsureLandmarkViewModel( vpath ))
+				vm = Mod_FindName( vpath, false );
+			if( vm && vm->type == mod_studio && vm->cache.data )
+			{
+				clgame.viewent.model = vm;
+				VectorCopy( view_org, clgame.viewent.origin );
+				VectorCopy( clgame.viewent.origin, clgame.viewent.curstate.origin );
+				clgame.viewent.curstate.animtime = (float)cl.time;
+				clgame.viewent.curstate.framerate = 1.0f;
+				clgame.viewent.curstate.sequence = 0;
+				clgame.viewent.curstate.rendermode = kRenderNormal;
+				Con_Reportf( "Xash3D GameCube: lean EmitBrush bind viewmodel %s\n", vpath );
+			}
+		}
 	}
 
 	if( log_n < 4 )
