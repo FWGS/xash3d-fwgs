@@ -3228,7 +3228,8 @@ static void R_ClearVBOState( qboolean drawlightmap, qboolean drawtextures )
 		// reset states
 		GL_Bind( XASH_TEXTURE1, tr.defaultTexture ); // force reset tmu in case we have only one lightmap
 		pglDisableClientState( GL_TEXTURE_COORD_ARRAY );
-		pglDisable( GL_TEXTURE_2D );
+		GL_CleanUpTextureUnits( 1 );
+
 		if( drawtextures )
 		{
 			GL_SelectTexture( XASH_TEXTURE0 );
