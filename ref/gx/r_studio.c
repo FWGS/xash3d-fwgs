@@ -1704,6 +1704,87 @@ generic path
 static void R_StudioDrawNormalMesh( short *ptricmds, vec3_t *pstudionorms, float s, float t )
 {
 	int   i;
+#if XASH_GAMECUBE
+	/* Direct Flipper emit — TriAPI GX gate dropped all lean world-studio
+	 * verts (probe 20260807-173754: hdr resident, gx_tris=0). */
+	if( GC_UseGxWorldDraw() )
+	{
+		static qboolean lean_mesh_gx_logged;
+		int cmds = 0;
+
+		if( !R_GXStudioIsActive() )
+			R_GXStudioForceBegin( false );
+
+		while(( i = *( ptricmds++ )))
+		{
+			qboolean fan = false;
+			float    xv[64], yv[64], zv[64], uv[64], vv[64];
+			unsigned cv[64];
+			int      nverts = 0;
+			int      v;
+
+			if( i < 0 )
+			{
+				fan = true;
+				i = -i;
+			}
+			cmds++;
+			for( ; i > 0 && nverts < 64; i--, ptricmds += 4 )
+			{
+				float *pos = g_studio.verts[ptricmds[0]];
+
+				R_StudioSetColorBegin( ptricmds, pstudionorms );
+				xv[nverts] = pos[0];
+				yv[nverts] = pos[1];
+				zv[nverts] = pos[2];
+				uv[nverts] = ptricmds[2] * s;
+				vv[nverts] = ptricmds[3] * t;
+				cv[nverts] = R_GXGetTriColorRGBA();
+				nverts++;
+			}
+			/* Drain any leftover verts if command was truncated by cap. */
+			for( ; i > 0; i--, ptricmds += 4 )
+				;
+
+			if( nverts < 3 )
+				continue;
+
+			if( fan )
+			{
+				for( v = 1; v + 1 < nverts; v++ )
+					R_GXStudioEmitTriC(
+						xv[0], yv[0], zv[0], uv[0], vv[0], cv[0],
+						xv[v], yv[v], zv[v], uv[v], vv[v], cv[v],
+						xv[v + 1], yv[v + 1], zv[v + 1], uv[v + 1], vv[v + 1], cv[v + 1] );
+			}
+			else
+			{
+				for( v = 0; v + 2 < nverts; v++ )
+				{
+					if( v & 1 )
+						R_GXStudioEmitTriC(
+							xv[v + 2], yv[v + 2], zv[v + 2], uv[v + 2], vv[v + 2], cv[v + 2],
+							xv[v + 1], yv[v + 1], zv[v + 1], uv[v + 1], vv[v + 1], cv[v + 1],
+							xv[v], yv[v], zv[v], uv[v], vv[v], cv[v] );
+					else
+						R_GXStudioEmitTriC(
+							xv[v], yv[v], zv[v], uv[v], vv[v], cv[v],
+							xv[v + 1], yv[v + 1], zv[v + 1], uv[v + 1], vv[v + 1], cv[v + 1],
+							xv[v + 2], yv[v + 2], zv[v + 2], uv[v + 2], vv[v + 2], cv[v + 2] );
+				}
+			}
+		}
+
+		if( !lean_mesh_gx_logged )
+		{
+			lean_mesh_gx_logged = true;
+			gEngfuncs.Con_Reportf(
+				"Xash3D GameCube: lean studio mesh GX cmds=%d tris=%d active=%d\n",
+				cmds, R_GXStudioLastTriCount(), R_GXStudioIsActive() ? 1 : 0 );
+		}
+		return;
+	}
+#endif
 
 	while(( i = *( ptricmds++ )))
 	{
@@ -2982,7 +3063,8 @@ void R_DrawStudioModel( cl_entity_t *e )
 
 	if( e && GC_UseGxWorldDraw() )
 	{
-		R_GXStudioBegin( false );
+		/* ForceBegin: plain Begin could no-op if the world-live gate flaps. */
+		R_GXStudioForceBegin( false );
 		gx_studio = true;
 	}
 #endif

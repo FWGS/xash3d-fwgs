@@ -3,10 +3,9 @@
 ## Current Milestone
 
 **Playable Dolphin New Game (Pure Flipper)** — lean `-gcnewgame` reaches
-`NEWGAME_READY` (probe `20260807-173754`): G506, G45 actions, `EmitBrush`
-6 brushes + 1 `w_crowbar` studio draw (no hang after mesh-only OOB fix).
-Flipper `gx_tris=0` still — TriAPI→GX studio pipe next. Keep
-`lean_player_only`. Bounded world thinks / viewmodel-EFX remain.
+`NEWGAME_READY` (probe `20260807-220848`): G506, G45 actions, `EmitBrush`
+6 brushes + `w_crowbar` Flipper studio (`G155 GX studio tris=60`). Keep
+`lean_player_only`. Viewmodel/EFX and bounded world thinks remain.
 Fullphysics stays the richer regression path. Swiss/libogc2 physical soak and
 G508/G509 stay open.
 
@@ -41,11 +40,11 @@ G508/G509 stay open.
 **Status**: Gameplay smoke passing; release systems remain unverified
 
 Latest useful runtime evidence on **August 7, 2026**:
-- Gameplay probe: `.ai/logs/dolphin-probe-20260807-173754/`
+- Gameplay probe: `.ai/logs/dolphin-probe-20260807-220848/`
 - Result: `NEWGAME_READY`, exit code 0
 - Frame samples: 15; average 0.71 ms, p95 0.73 ms, max 0.73 ms
 - G36: PASS; G45: PASS; G45 actions attack/jump/use: PASS; G506: PASS
-- Lean studio: `Flipper draw models/w_crowbar.mdl gx_tris=0` (hdr resident)
+- Lean studio: `G155 GX studio tris=60 viewmodel=0`; mesh GX cmds=22
 - Prior supervisor release-disc probe: `.ai/logs/dolphin-probe-20260804-143927/`
 - Smoke map (`c0a0e`): loaded; G36/G45/visual: PASS
 

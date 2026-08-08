@@ -3996,6 +3996,21 @@ manual hardware validation with all artifacts generated and documented.
 - Next blocker: TriAPI→GX studio emission for lean world studio (gx_tris>0 /
   G155); viewmodel/EFX; bounded world thinks.
 
+## Lean Flipper studio G155 (2026-08-07)
+
+- `gx_tris=0` with resident hdr / mesh cmds running was an accounting bug:
+  leftover `r_gx_effects_tri` from particle/sprite TriAPI made
+  `R_GXStudioEmitTriC` increment `effects_tris` instead of `studio_tris`.
+- Fix: clear `r_gx_effects_tri` in `R_GXStudioBegin` / `ForceBegin`; while
+  studio is armed, always count studio tris. Direct mesh→GX emit in
+  `R_StudioDrawNormalMesh` under `GC_UseGxWorldDraw`.
+- Probe `20260807-220848`: `lean studio mesh GX cmds=22 tris=60 active=1`,
+  `G155 GX studio tris=60 viewmodel=0`, `NEWGAME_READY`, G45/G506 PASS.
+- Commands:
+  `DOLPHIN_NEWGAME=1 DOLPHIN_TIMEOUT=180 scripts/dolphin-boot-probe.sh`
+  → logs `.ai/logs/dolphin-probe-20260807-220848`
+- Next blocker: viewmodel or EFX carefully; bounded world thinks.
+
 
 
 ## Pure Flipper New Game harness + G506 (2026-08-07)

@@ -2,23 +2,19 @@ Auto-port task for Xash3D GameCube
 =================================
 
 Current goal:
-Flipper TriAPI→GX studio tris (mesh path yields 0); bounded world thinks
+Viewmodel or EFX carefully; bounded world thinks
 
-**DONE (2026-08-07 probe 20260807-173754)**:
-- Root-caused prior studio hang: lean `w_crowbar` is mesh-only
-  (`numtextures=0`/`skinindex=0`); `R_StudioDrawPoints` OOB-indexed the
-  studiohdr as textures — fixed with mesh_only white-texture path
-- Lean `R_StudioDrawModelInternal`: engine path, `STUDIO_RENDER` only
-  (no client StudioDrawModel / STUDIO_EVENTS)
-- Draw no longer hangs; EmitBrush `studios=1`; hdr non-null
-  (`lean studio Flipper draw models/w_crowbar.mdl gx_tris=0 hdr=0x81745190`)
-- `NEWGAME_READY` + G45 actions + G506 PASS
-- Keep `lean_player_only`
+**DONE (2026-08-07 probe 20260807-220848)**:
+- Lean Flipper studio draw: `G155 GX studio tris=60 viewmodel=0`
+- Root cause of gx_tris=0: leftover `r_gx_effects_tri` made EmitTriC
+  count effects instead of studio — clear on Begin/ForceBegin; prefer
+  studio accounting while studio is armed
+- Direct mesh→GX path in `R_StudioDrawNormalMesh` for GX world draw
+- `NEWGAME_READY` + G45 actions + G506 PASS; EmitBrush studios=1
 
 Next acceptance step:
-- Why TriAPI→GX emits 0 tris for lean world studio despite active Begin
-  (G155 still unseen on this path)
-- Then viewmodel/EFX; bounded world thinks
+- Re-enable viewmodel or EFX carefully
+- Bounded world thinks
 
 Rules:
 - Make one bounded implementation or validation patch.

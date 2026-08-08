@@ -2723,6 +2723,10 @@ void R_GXStudioBegin( qboolean viewmodel )
 	if( !GC_UseGxWorldDraw() )
 		return;
 
+	/* Studio owns the TriAPI→GX pipe. A leftover effects_tri latch made
+	 * EmitTriC bump effects_tris instead of studio_tris (lean probe
+	 * 20260807-220623: mesh cmds=22 active=1 gx_tris=0). */
+	r_gx_effects_tri = false;
 	r_gx_studio_active = true;
 	r_gx_studio_viewmodel = viewmodel;
 	r_gx_studio_tris = 0;
@@ -2730,6 +2734,27 @@ void R_GXStudioBegin( qboolean viewmodel )
 	r_gx_studio_color = 0xFFFFFFFFu;
 	r_gx_studio_shade_mask = 0;
 	R_GXPrepareStudioState( viewmodel );
+}
+
+/*
+=============
+R_GXStudioForceBegin
+
+Like Begin, but skips the GC_UseGxWorldDraw gate. Lean New Game saw
+Begin/IsActive flaps that dropped every TriAPI vert (gx_tris=0).
+=============
+*/
+void R_GXStudioForceBegin( qboolean viewmodel )
+{
+	r_gx_effects_tri = false;
+	r_gx_studio_active = true;
+	r_gx_studio_viewmodel = viewmodel;
+	r_gx_studio_tris = 0;
+	r_gx_studio_bound_tex = 0;
+	r_gx_studio_color = 0xFFFFFFFFu;
+	r_gx_studio_shade_mask = 0;
+	if( GC_UseGxWorldDraw() )
+		R_GXPrepareStudioState( viewmodel );
 }
 
 void R_GXStudioEnd( void )
@@ -2886,10 +2911,12 @@ void R_GXStudioEmitTriC(
 	GX_Color1u32( c2 );
 	GX_TexCoord2f32( u2, v2 );
 	GX_End();
-	if( r_gx_effects_tri )
-		r_gx_effects_tris++;
-	else
+	/* Prefer studio accounting while studio is armed (effects latch may
+	 * still be set from an earlier particle/sprite TriBegin). */
+	if( r_gx_studio_active )
 		r_gx_studio_tris++;
+	else if( r_gx_effects_tri )
+		r_gx_effects_tris++;
 }
 
 void R_GXStudioEmitTri(
@@ -3384,6 +3411,7 @@ int R_GXDrawTramBaked( const float *origin, const float *angles )
 	(void)origin; (void)angles; return 0;
 }
 void R_GXStudioBegin( qboolean viewmodel ) { (void)viewmodel; }
+void R_GXStudioForceBegin( qboolean viewmodel ) { (void)viewmodel; }
 void R_GXStudioEnd( void ) {}
 int R_GXStudioEmitLeanMarker( const float origin[3] )
 {
