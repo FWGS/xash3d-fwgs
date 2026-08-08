@@ -114,11 +114,6 @@ static int GAME_EXPORT VGUI_GenerateTexture( void )
 
 static void GAME_EXPORT VGUI_UploadTexture( int id, const char *buffer, int width, int height )
 {
-	rgbdata_t r_image = { 0 };
-	char texName[32];
-	MD5Context_t ctx;
-	byte hash[16];
-
 	if( id <= 0 || id >= vgui.max_textures || width <= 0 || height <= 0 )
 	{
 		Con_DPrintf( S_ERROR "%s: bad texture %i. Ignored\n", __func__, id );
@@ -127,6 +122,9 @@ static void GAME_EXPORT VGUI_UploadTexture( int id, const char *buffer, int widt
 
 	// need to do this as some mods tend to upload same texture over and over
 	// exhausing engine-wide limit on textures and leaking vram
+	MD5Context_t ctx;
+	byte hash[16];
+
 	MD5Init( &ctx );
 	MD5Update( &ctx, buffer, width * height * 4 );
 	MD5Final( hash, &ctx );
@@ -145,14 +143,17 @@ static void GAME_EXPORT VGUI_UploadTexture( int id, const char *buffer, int widt
 		}
 	}
 
+	char texName[32];
 	Q_snprintf( texName, sizeof( texName ), "*vgui%i", id );
 
-	r_image.width = width;
-	r_image.height = height;
-	r_image.type = PF_RGBA_32;
-	r_image.size = width * height * 4;
-	r_image.flags = IMAGE_HAS_COLOR|IMAGE_HAS_ALPHA;
-	r_image.buffer = (byte*)buffer;
+	rgbdata_t r_image = {
+		.width = width,
+		.height = height,
+		.type = PF_RGBA_32,
+		.size = width * height * 4,
+		.flags = IMAGE_HAS_COLOR|IMAGE_HAS_ALPHA,
+		.buffer = (byte*)buffer,
+	};
 
 	vgui.textures[id].gl_texturenum = GL_LoadTextureInternal( texName, &r_image, TF_IMAGE );
 	memcpy( vgui.textures[id].hash, hash, sizeof( hash ));
@@ -316,7 +317,6 @@ static const vguiapi_t gEngfuncs =
 
 qboolean VGui_LoadProgs( HINSTANCE hInstance )
 {
-	void (*F)( vguiapi_t* );
 	qboolean client = hInstance != NULL;
 
 	vgui.dllFuncs = gEngfuncs;
@@ -348,7 +348,7 @@ qboolean VGui_LoadProgs( HINSTANCE hInstance )
 	}
 
 	// try legacy API first
-	F = COM_GetProcAddress( hInstance, client ? "InitVGUISupportAPI" : "InitAPI" );
+	void (*F)( vguiapi_t* ) = COM_GetProcAddress( hInstance, client ? "InitVGUISupportAPI" : "InitAPI" );
 
 	if( F )
 	{
