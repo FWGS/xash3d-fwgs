@@ -843,15 +843,23 @@ R_DrawEntitiesOnList
 */
 static void R_DrawEntitiesOnList( void )
 {
-	#if XASH_GAMECUBE
+#if XASH_GAMECUBE
+	const qboolean lean_ents = gEngfuncs.Sys_CheckParm( "-gcnewgame" )
+		&& !gEngfuncs.Sys_CheckParm( "-gcfullphysics" );
+	int lean_brushes = 0;
+	int lean_studios = 0;
+	const int lean_max_brushes = 6;
+	const int lean_max_studios = 1;
+
 	if( GC_UseGxWorldDraw() && gEngfuncs.Sys_CheckParm( "-gcnewgame" ))
 	{
 		static qboolean gc_g315_logged;
 		if( !gc_g315_logged )
 		{
 			gc_g315_logged = true;
-			gEngfuncs.Con_Reportf( "Xash3D GameCube: G315 GX entity list solid=%u trans=%u\n",
-				tr.draw_list->num_solid_entities, tr.draw_list->num_trans_entities );
+			gEngfuncs.Con_Reportf( "Xash3D GameCube: G315 GX entity list solid=%u trans=%u lean=%d\n",
+				tr.draw_list->num_solid_entities, tr.draw_list->num_trans_entities,
+				lean_ents ? 1 : 0 );
 			for( int j = 0; j < tr.draw_list->num_solid_entities && j < 8; j++ )
 			{
 				cl_entity_t *e = tr.draw_list->solid_entities[j];
@@ -861,7 +869,7 @@ static void R_DrawEntitiesOnList( void )
 			}
 		}
 	}
-	#endif
+#endif
 	// extern int d_aflatcolor;
 	// d_aflatcolor = 0;
 	tr.blend = 1.0f;
@@ -885,12 +893,32 @@ static void R_DrawEntitiesOnList( void )
 		switch( RI.currentmodel->type )
 		{
 		case mod_brush:
+#if XASH_GAMECUBE
+			/* Lean: brush ents only (tram/doors). Studios deferred — MEM1 /
+			 * TriAPI hangs on early frames (20260807-162747). */
+			if( lean_ents )
+			{
+				if( lean_brushes >= lean_max_brushes )
+					break;
+				lean_brushes++;
+			}
+#endif
 			R_DrawBrushModel( RI.currententity );
 			break;
 		case mod_alias:
 			// R_DrawAliasModel( RI.currententity );
 			break;
 		case mod_studio:
+#if XASH_GAMECUBE
+			/* Lean: one mesh-only world studio (EmitBrush w_crowbar). Textureless
+			 * draw is guarded in R_StudioDrawPoints; events/client path skipped. */
+			if( lean_ents )
+			{
+				if( lean_studios >= lean_max_studios )
+					break;
+				lean_studios++;
+			}
+#endif
 			R_SetUpWorldTransform();
 			R_DrawStudioModel( RI.currententity );
 			break;
@@ -922,11 +950,21 @@ static void R_DrawEntitiesOnList( void )
 
 	if( !FBitSet( RI.rvp.flags, RF_ONLY_CLIENTDRAW ))
 	{
+#if XASH_GAMECUBE
+		/* Probe 20260807-163236: solid=0 still hung — EFX/client triangles /
+		 * viewmodel, not the solid walk. Keep lean Flipper free of those. */
+		if( !lean_ents )
+#endif
 		gEngfuncs.CL_DrawEFX( tr.frametime, false );
 	}
 
 	if( FBitSet( RI.rvp.flags, RF_DRAW_WORLD ))
+	{
+#if XASH_GAMECUBE
+		if( !lean_ents )
+#endif
 		gEngfuncs.pfnDrawNormalTriangles();
+	}
 
 	d_pdrawspans = R_PolysetDrawSpans8_33;
 
@@ -1032,14 +1070,20 @@ static void R_DrawEntitiesOnList( void )
 #endif
 
 	if( FBitSet( RI.rvp.flags, RF_DRAW_WORLD ))
+	{
+#if XASH_GAMECUBE
+		if( !lean_ents )
+#endif
 		gEngfuncs.pfnDrawTransparentTriangles();
+	}
 
 	if( !FBitSet( RI.rvp.flags, RF_ONLY_CLIENTDRAW ))
 	{
 #if XASH_GAMECUBE
 		/* Probe 20260807-030413: first Flipper present hung in CL_DrawEFX(trans).
-		 * Cycle guards cover list walks; still skip lean frame-1 particle pass. */
-		if( !( gEngfuncs.Sys_CheckParm( "-gcnewgame" )
+		 * Lean skips all EFX (solid=0 hang 20260807-163236). */
+		if( !lean_ents
+			&& !( gEngfuncs.Sys_CheckParm( "-gcnewgame" )
 			&& !gEngfuncs.Sys_CheckParm( "-gcfullphysics" )
 			&& tr.framecount <= 1 ))
 #endif
@@ -1053,7 +1097,17 @@ static void R_DrawEntitiesOnList( void )
 	GL_SetRenderMode( kRenderNormal );
 	R_SetUpWorldTransform();
 	if( !FBitSet( RI.rvp.flags, RF_ONLY_CLIENTDRAW ))
+	{
+#if XASH_GAMECUBE
+		if( !lean_ents )
+#endif
 		R_DrawViewModel();
+	}
+#if XASH_GAMECUBE
+	if( lean_ents && tr.framecount <= 4 )
+		gEngfuncs.Con_Reportf( "Xash3D GameCube: lean DrawEntities no-EFX f=%d brushes=%d studios=%d solid=%u\n",
+			tr.framecount, lean_brushes, lean_studios, tr.draw_list->num_solid_entities );
+#endif
 	gEngfuncs.CL_ExtraUpdate();
 
 }
@@ -2002,6 +2056,8 @@ void GAME_EXPORT R_RenderScene( void )
 		 * retail GX. The old early return hid the tram and every NPC while
 		 * leaving the physics route nominally green. R_DrawEntitiesOnList keeps
 		 * the existing low-memory caps and model-type filters. */
+		/* Lean DrawEntities: brush ents only; skip EFX/client tris/viewmodel
+		 * (solid=0 hang 20260807-163236) and studio meshes for now. */
 		R_DrawEntitiesOnList();
 		return;
 	}
@@ -2111,7 +2167,12 @@ void GAME_EXPORT R_RenderFrame( const ref_viewpass_t *rvp )
 				return;
 		}
 
-		R_ClearScene();
+		/* Lean EmitBrush already cleared+filled the list; do not wipe it. */
+		if( !( gEngfuncs.Sys_CheckParm( "-gcnewgame" )
+			&& !gEngfuncs.Sys_CheckParm( "-gcfullphysics" )
+			&& GC_UseGxWorldDraw()
+			&& tr.draw_list && tr.draw_list->num_solid_entities > 0 ))
+			R_ClearScene();
 		R_SetupRefParams( rvp );
 		tr.fCustomRendering = false;
 		tr.realframecount++;

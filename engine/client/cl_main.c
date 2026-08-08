@@ -45,6 +45,51 @@ qboolean CL_GameCubePostReconnect( void )
 {
 	return gc_g158_reconnect_seen;
 }
+
+/*
+===========
+CL_GameCubeArmLeanPlayActive
+
+Direct-map lean New Game primes the server player (cs_spawned) but leaves
+cls.state at ca_disconnected (probe 20260807-165244: SCR sustain state=0
+signon=0/2). Promote to ca_active after Flipper Prepare so SCR emits
+post-G36 sustained markers and G45 synthetic actions can run.
+===========
+*/
+static void CL_GameCubeArmLeanPlayActive( void )
+{
+	static qboolean armed;
+
+	if( armed )
+		return;
+	if( !Sys_CheckParm( "-gcnewgame" ) || Sys_CheckParm( "-gcfullphysics" ))
+		return;
+	if( !GC_IsNewGameG36Done() || !GC_IsNewGameWorldReady() )
+		return;
+	if( !SV_Active() )
+		return;
+	if( cls.state == ca_active && cls.signon == SIGNONS )
+	{
+		armed = true;
+		return;
+	}
+
+	cls.state = ca_active;
+	cls.signon = SIGNONS;
+	cls.changelevel = false;
+	cls.changedemo = false;
+	cls.draw_changelevel = false;
+	if( cls.disable_screen )
+		cls.disable_screen = 0.0f;
+	cl.first_frame = true;
+	cl.video_prepped = true;
+	Key_SetKeyDest( key_game );
+	armed = true;
+	Con_Reportf( "Xash3D GameCube: lean play active armed state=%d signon=%d/%d\n",
+		cls.state, cls.signon, SIGNONS );
+	Con_Reportf( "Xash3D GameCube: play start ready %s\n",
+		clgame.mapname[0] ? clgame.mapname : "c0a0" );
+}
 #endif
 
 #define CL_CONNECTION_TIMEOUT 15.0f
@@ -3882,12 +3927,18 @@ void Host_ClientFrame( void )
 
 		VID_CheckChanges();
 		CL_ReadPackets();
+		/* Lean sustain used to return before CheckClientState, so reconnect
+		 * never promoted connected+SIGNONS → ca_active. Direct-map also stays
+		 * disconnected after server-only player prime — arm lean play active. */
+		CL_CheckClientState();
+		CL_GameCubeArmLeanPlayActive();
 		GC_UpdateNewGameIntroAudio();
 		SCR_UpdateScreen();
 		SND_UpdateSound();
-		if( gc_scr_sustain_log < 2 )
+		if( gc_scr_sustain_log < 4 )
 		{
-			Con_Reportf( "Xash3D GameCube: post-G36 SCR sustain ClientFrame (G278 snd)\n" );
+			Con_Reportf( "Xash3D GameCube: post-G36 SCR sustain ClientFrame (G278 snd) state=%d signon=%d/%d\n",
+				cls.state, cls.signon, SIGNONS );
 			gc_scr_sustain_log++;
 		}
 		return;

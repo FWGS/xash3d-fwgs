@@ -2,13 +2,13 @@
 
 ## Current Milestone
 
-**Playable Dolphin New Game (Pure Flipper)** — lean `-gcnewgame` clears G506
-with player-only BoundedGC snapshots and post-present player clip/PreThink
-(probe `20260807-061405`: owned compact clipnodes, `player clip move` /
-`clip proof` / `PreThink ready`, G36/G45/G506/LADDER PASS). Studio packing
-beyond `lean_player_only` and bounded world thinks are next. Fullphysics
-remains the richer regression path. Swiss/libogc2 physical soak and
-G508/G509 release evidence stay open.
+**Playable Dolphin New Game (Pure Flipper)** — lean `-gcnewgame` reaches
+`NEWGAME_READY` (probe `20260807-173754`): G506, G45 actions, `EmitBrush`
+6 brushes + 1 `w_crowbar` studio draw (no hang after mesh-only OOB fix).
+Flipper `gx_tris=0` still — TriAPI→GX studio pipe next. Keep
+`lean_player_only`. Bounded world thinks / viewmodel-EFX remain.
+Fullphysics stays the richer regression path. Swiss/libogc2 physical soak and
+G508/G509 stay open.
 
 
 ## Current Automated State
@@ -27,8 +27,8 @@ G508/G509 release evidence stay open.
 
 | Artifact | Size | Format |
 |----------|------|--------|
-| `OUT/bin/boot.dol` | 5,852,032 bytes | PowerPC DOL |
-| `OUT/bin/xash` | 33,230,496 bytes | PowerPC ELF |
+| `OUT/bin/boot.dol` | 5,874,272 bytes | PowerPC DOL |
+| `OUT/bin/xash` | 33,293,048 bytes | PowerPC ELF |
 
 **Build Notes**:
 - Engine builds successfully against Swiss-first libogc2 (or classic libogc).
@@ -40,12 +40,13 @@ G508/G509 release evidence stay open.
 
 **Status**: Gameplay smoke passing; release systems remain unverified
 
-Latest useful runtime evidence on **August 4, 2026**:
-- Gameplay probe: `.ai/logs/dolphin-probe-20260804-141721/`
+Latest useful runtime evidence on **August 7, 2026**:
+- Gameplay probe: `.ai/logs/dolphin-probe-20260807-173754/`
 - Result: `NEWGAME_READY`, exit code 0
 - Frame samples: 15; average 0.71 ms, p95 0.73 ms, max 0.73 ms
-- G36: PASS; G45: PASS; G45 actions attack/jump/use: PASS
-- Supervisor release-disc probe: `.ai/logs/dolphin-probe-20260804-143927/`
+- G36: PASS; G45: PASS; G45 actions attack/jump/use: PASS; G506: PASS
+- Lean studio: `Flipper draw models/w_crowbar.mdl gx_tris=0` (hdr resident)
+- Prior supervisor release-disc probe: `.ai/logs/dolphin-probe-20260804-143927/`
 - Smoke map (`c0a0e`): loaded; G36/G45/visual: PASS
 
 Interpretation:

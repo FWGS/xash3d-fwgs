@@ -404,6 +404,7 @@ void R_GXEffectsTriEnd( void );
 int R_GXStudioLastTriCount( void );
 void R_GXStudioBegin( qboolean viewmodel );
 void R_GXStudioEnd( void );
+int R_GXStudioEmitLeanMarker( const float origin[3] );
 void R_GXStudioBindTexnum( unsigned texnum );
 void R_GXStudioColor( unsigned light8 );
 void R_GXStudioEmitTri(

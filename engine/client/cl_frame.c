@@ -22,6 +22,11 @@ GNU General Public License for more details.
 #include "studio.h"
 #include "sound.h"
 #include "input.h"
+#if XASH_GAMECUBE
+#include "server.h"
+#include "mod_local.h"
+#include "platform/platform.h"
+#endif
 
 // #define STUDIO_INTERPOLATION_FIX
 
@@ -1308,6 +1313,242 @@ add visible entities to refresh list
 process frame interpolation etc
 ===============
 */
+#if XASH_GAMECUBE
+/*
+===============
+CL_GameCubeLeanEmitBrushEntities
+
+Direct-map lean has no client netchan/validsequence, so EmitEntities never
+fills the draw list (G315 solid=0). Pull nearby server brush edicts plus at
+most one already-resident world studio (not v_*) into the Flipper list.
+===============
+*/
+void CL_GameCubeLeanEmitBrushEntities( void )
+{
+	static int log_n;
+	static cl_entity_t lean_brush_ents[6];
+	static cl_entity_t lean_studio_ents[1];
+	edict_t *player;
+	vec3_t view_org;
+	int e, added = 0, studios = 0;
+	int scan_brush = 0, scan_far = 0, scan_nomod = 0, scan_nosurf = 0;
+	int scan_studio = 0, scan_studio_skip = 0;
+	const int budget = (int)( sizeof( lean_brush_ents ) / sizeof( lean_brush_ents[0] ));
+	const int studio_budget = (int)( sizeof( lean_studio_ents ) / sizeof( lean_studio_ents[0] ));
+	const float max_dist = 8000.0f;
+	const float studio_max_dist = 1200.0f;
+	int studio_pick = -1;
+	float studio_pick_dist = studio_max_dist + 1.0f;
+	qboolean studio_pick_pref = false;
+
+	if( !Sys_CheckParm( "-gcnewgame" ) || Sys_CheckParm( "-gcfullphysics" ))
+		return;
+	if( !SV_Active() || !GC_IsNewGameWorldReady() )
+		return;
+	if( cls.state != ca_active )
+		return;
+
+	ref.dllFuncs.R_ClearScene();
+
+	player = ( svs.maxclients >= 1 ) ? SV_EdictNum( 1 ) : NULL;
+	if( player && SV_IsValidEdict( player ) && !VectorIsNull( player->v.origin ))
+		VectorCopy( player->v.origin, view_org );
+	else
+		VectorCopy( refState.vieworg, view_org );
+
+	for( e = svs.maxclients + 1; e < svgame.numEntities && added < budget; e++ )
+	{
+		edict_t *ed = SV_EdictNum( e );
+		model_t *mod;
+		cl_entity_t *ent;
+		vec3_t delta, center;
+		float dist;
+
+		if( !SV_IsValidEdict( ed ))
+			continue;
+		if( !ed->v.modelindex )
+			continue;
+		if( FBitSet( ed->v.effects, EF_NODRAW ))
+			continue;
+
+		mod = SV_ModelHandle( ed->v.modelindex );
+		if( !mod || mod->type != mod_brush )
+		{
+			scan_nomod++;
+			continue;
+		}
+		scan_brush++;
+		/* Inline *submodels may report surfaces via firstmodelsurface. */
+		if( mod->nummodelsurfaces <= 0 && !( mod->name[0] == '*' ))
+		{
+			scan_nosurf++;
+			continue;
+		}
+
+		VectorSubtract( ed->v.origin, view_org, delta );
+		dist = VectorLength( delta );
+		if( dist > max_dist )
+		{
+			VectorAverage( ed->v.absmin, ed->v.absmax, center );
+			VectorSubtract( center, view_org, delta );
+			dist = VectorLength( delta );
+			if( dist > max_dist )
+			{
+				scan_far++;
+				continue;
+			}
+		}
+
+		if( ed->v.modelindex > 0 && ed->v.modelindex < MAX_MODELS )
+			cl.models[ed->v.modelindex] = mod;
+
+		/* Direct-map bootstrap keeps maxEntities=2 — do not use CL_EDICT_NUM.
+		 * Stable per-frame slots are enough for R_AddEntity → DrawEntities. */
+		ent = &lean_brush_ents[added];
+		memset( ent, 0, sizeof( *ent ));
+		ent->index = e;
+		ent->player = 0;
+		ent->model = mod;
+		VectorCopy( ed->v.origin, ent->origin );
+		VectorCopy( ed->v.angles, ent->angles );
+		VectorCopy( ed->v.origin, ent->curstate.origin );
+		VectorCopy( ed->v.angles, ent->curstate.angles );
+		VectorCopy( ed->v.mins, ent->curstate.mins );
+		VectorCopy( ed->v.maxs, ent->curstate.maxs );
+		ent->curstate.modelindex = ed->v.modelindex;
+		ent->curstate.solid = (int)ed->v.solid;
+		ent->curstate.movetype = (int)ed->v.movetype;
+		ent->curstate.rendermode = ed->v.rendermode;
+		ent->curstate.renderamt = (int)ed->v.renderamt;
+		ent->curstate.renderfx = ed->v.renderfx;
+		ent->curstate.effects = ed->v.effects;
+		ent->curstate.entityType = ENTITY_NORMAL;
+		ent->prevstate = ent->curstate;
+		VectorCopy( ent->origin, ent->latched.prevorigin );
+		VectorCopy( ent->angles, ent->latched.prevangles );
+
+		if( ref.dllFuncs.R_AddEntity( ent, ET_NORMAL ))
+			added++;
+	}
+
+	/* One already-resident world studio (prefer w_crowbar). No Mod_ForName. */
+	/* After G105 + lean w_crowbar promote (deferred at present=1). */
+	if( GC_GetNewGamePresentCount() >= 16 && studio_budget > 0 )
+	{
+		for( e = svs.maxclients + 1; e < svgame.numEntities; e++ )
+		{
+			edict_t *ed = SV_EdictNum( e );
+			model_t *mod;
+			vec3_t delta;
+			float dist;
+			qboolean pref;
+
+			if( !SV_IsValidEdict( ed ) || !ed->v.modelindex )
+				continue;
+			if( FBitSet( ed->v.effects, EF_NODRAW ))
+				continue;
+			mod = SV_ModelHandle( ed->v.modelindex );
+			if( !mod || mod->type != mod_studio )
+				continue;
+			scan_studio++;
+			if( mod->needload != NL_PRESENT || !mod->name[0] )
+			{
+				scan_studio_skip++;
+				continue;
+			}
+			/* Only world weapon drops (w_*). No v_*, NPCs, or player.mdl. */
+			if( !Q_stristr( mod->name, "w_" ) || Q_stristr( mod->name, "v_" ))
+			{
+				scan_studio_skip++;
+				continue;
+			}
+			VectorSubtract( ed->v.origin, view_org, delta );
+			dist = VectorLength( delta );
+			if( dist > studio_max_dist )
+			{
+				scan_studio_skip++;
+				continue;
+			}
+			pref = ( Q_stristr( mod->name, "w_crowbar" ) != NULL );
+			if( studio_pick < 0 || ( pref && !studio_pick_pref )
+				|| ( pref == studio_pick_pref && dist < studio_pick_dist ))
+			{
+				studio_pick = e;
+				studio_pick_dist = dist;
+				studio_pick_pref = pref;
+			}
+		}
+		if( studio_pick > 0 )
+		{
+			edict_t *ed = SV_EdictNum( studio_pick );
+			model_t *mod = SV_ModelHandle( ed->v.modelindex );
+			cl_entity_t *ent = &lean_studio_ents[0];
+
+			if( ed->v.modelindex > 0 && ed->v.modelindex < MAX_MODELS )
+				cl.models[ed->v.modelindex] = mod;
+			memset( ent, 0, sizeof( *ent ));
+			ent->index = studio_pick;
+			ent->model = mod;
+			VectorCopy( ed->v.origin, ent->origin );
+			VectorCopy( ed->v.angles, ent->angles );
+			VectorCopy( ed->v.origin, ent->curstate.origin );
+			VectorCopy( ed->v.angles, ent->curstate.angles );
+			VectorCopy( ed->v.mins, ent->curstate.mins );
+			VectorCopy( ed->v.maxs, ent->curstate.maxs );
+			ent->curstate.modelindex = ed->v.modelindex;
+			ent->curstate.solid = (int)ed->v.solid;
+			ent->curstate.movetype = (int)ed->v.movetype;
+			ent->curstate.sequence = ed->v.sequence;
+			ent->curstate.frame = ed->v.frame;
+			ent->curstate.rendermode = ed->v.rendermode;
+			ent->curstate.renderamt = (int)ed->v.renderamt;
+			ent->curstate.effects = ed->v.effects;
+			ent->curstate.entityType = ENTITY_NORMAL;
+			ent->prevstate = ent->curstate;
+			VectorCopy( ent->origin, ent->latched.prevorigin );
+			VectorCopy( ent->angles, ent->latched.prevangles );
+			if( ref.dllFuncs.R_AddEntity( ent, ET_NORMAL ))
+				studios++;
+		}
+		else
+		{
+			/* Prefer tiny lean w_crowbar stub — v_crowbar hung Flipper
+			 * (probe 20260807-171034: studios=1 then silence). */
+			model_t *mod = Mod_FindName( "models/w_crowbar.mdl", false );
+			cl_entity_t *ent = &lean_studio_ents[0];
+
+			if( mod && mod->type == mod_studio && mod->needload == NL_PRESENT
+				&& mod->cache.data )
+			{
+				memset( ent, 0, sizeof( *ent ));
+				ent->index = 0;
+				ent->model = mod;
+				VectorCopy( view_org, ent->origin );
+				ent->origin[0] += 48.0f;
+				ent->origin[2] += 16.0f;
+				VectorCopy( ent->origin, ent->curstate.origin );
+				ent->curstate.modelindex = 0;
+				ent->curstate.solid = SOLID_NOT;
+				ent->curstate.movetype = MOVETYPE_NONE;
+				ent->curstate.entityType = ENTITY_NORMAL;
+				ent->prevstate = ent->curstate;
+				VectorCopy( ent->origin, ent->latched.prevorigin );
+				if( ref.dllFuncs.R_AddEntity( ent, ET_NORMAL ))
+					studios++;
+			}
+		}
+	}
+
+	if( log_n < 4 )
+	{
+		Con_Reportf( "Xash3D GameCube: lean EmitBrush entities=%d studios=%d ents=%d brush=%d studio_seen=%d skip=%d view=(%.0f,%.0f,%.0f)\n",
+			added, studios, svgame.numEntities, scan_brush, scan_studio, scan_studio_skip,
+			view_org[0], view_org[1], view_org[2] );
+		log_n++;
+	}
+}
+#endif
+
 void CL_EmitEntities( void )
 {
 	if( cl.paused ) return; // don't waste time

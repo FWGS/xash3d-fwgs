@@ -981,6 +981,7 @@ void SCR_UpdateScreen( void )
 		&& cls.state >= ca_connecting && cls.state < ca_active )
 	{
 		static qboolean gc_connect_skip_logged;
+		static qboolean g158_post_g36_present_logged;
 		GC_PerfUpdate();
 		static qboolean g158_reconnect_present_logged;
 		static unsigned g158_reconnect_presents;
@@ -1011,7 +1012,14 @@ void SCR_UpdateScreen( void )
 						"Xash3D GameCube: G158 reconnect presents=%u state=%d signon=%d\n",
 						g158_reconnect_presents, cls.state, cls.signon );
 				}
-			GC_PerfUpdate();
+				/* Count reconnect Flipper toward NEWGAME_READY while signon
+				 * finishes — ca_active path emits the same marker. */
+				if( !g158_post_g36_present_logged )
+				{
+					Con_Reportf( "Xash3D GameCube: post-G36 sustained world present\n" );
+					g158_post_g36_present_logged = true;
+				}
+				GC_PerfUpdate();
 			}
 			return;
 		}

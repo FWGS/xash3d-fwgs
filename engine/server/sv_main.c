@@ -709,10 +709,13 @@ void Host_ServerFrame( void )
 		sv.time += sv.frametime;
 		/* G87: player-only snapshots after think (skips UpdateClientData). */
 		SV_SendClientMessagesBoundedGC();
-		if( gc_sf_bound_log < 4 )
+		if( gc_sf_bound_log < 4
+			|| ( GC_GetNewGamePresentCount() >= 20
+				&& ( gc_sf_bound_log < 12
+					|| ( gc_sf_bound_log & 7 ) == 0 )))
 		{
-			Con_Reportf( "Xash3D GameCube: Host_ServerFrame post-G36 bounded tick time=%.2f\n",
-				sv.time );
+			Con_Reportf( "Xash3D GameCube: Host_ServerFrame post-G36 bounded tick time=%.2f presents=%u\n",
+				sv.time, GC_GetNewGamePresentCount() );
 			gc_sf_bound_log++;
 		}
 		return;

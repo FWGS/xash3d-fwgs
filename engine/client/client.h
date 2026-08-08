@@ -1294,6 +1294,7 @@ qboolean UI_UsingBuiltInFallbackMenu( void );
 void UI_EnableBuiltInFallbackMenu( void );
 void UI_PreloadBuiltInFallbackMenuAssets( void );
 qboolean CL_GameCubePostReconnect( void );
+void CL_GameCubeLeanEmitBrushEntities( void );
 #endif
 
 #endif//CLIENT_H

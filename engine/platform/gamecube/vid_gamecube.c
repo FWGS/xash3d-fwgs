@@ -4364,27 +4364,43 @@ cap — not only the tram-start leaf. Recycle one outdoor surfbits slot in
 place when the ahead cluster is uncached (G218, no alloc).
 ===========
 */
+static float gc_ride_restream_last[3];
+static int gc_ride_restream_cd;
+static int gc_ride_restream_force;
+
+/* After lean player-phys primes the eye can move <128u (under the normal
+ * restream gate) and the next CapFaces stall (probe 20260807-161707). */
+static void GC_ForceLeanRideRestream( void )
+{
+	gc_ride_restream_last[0] = gc_ride_restream_last[1] = gc_ride_restream_last[2] = 0.0f;
+	gc_ride_restream_cd = 0;
+	gc_ride_restream_force = 1;
+}
+
 static void GC_MaybeRestreamRideMapFaces( const float *eye )
 {
-	static float last[3];
-	static int cd, nlog;
+	static int nlog;
 	float dx, dy, dz;
 	int cluster, slot, i;
 	model_t *wm;
 	const byte *bits;
 	vec3_t ahead;
+	qboolean forced;
 
 	if( !eye || !gc_g212_stream_locked )
 		return;
-	if( cd > 0 )
+	forced = ( gc_ride_restream_force != 0 );
+	if( !forced && gc_ride_restream_cd > 0 )
 	{
-		cd--;
+		gc_ride_restream_cd--;
 		return;
 	}
-	dx = eye[0] - last[0];
-	dy = eye[1] - last[1];
-	dz = eye[2] - last[2];
-	if( ( last[0] || last[1] || last[2] ) && ( dx * dx + dy * dy + dz * dz ) < 16384.0f )
+	dx = eye[0] - gc_ride_restream_last[0];
+	dy = eye[1] - gc_ride_restream_last[1];
+	dz = eye[2] - gc_ride_restream_last[2];
+	if( !forced
+		&& ( gc_ride_restream_last[0] || gc_ride_restream_last[1] || gc_ride_restream_last[2] )
+		&& ( dx * dx + dy * dy + dz * dz ) < 16384.0f )
 		return;
 
 	wm = sv.models[1];
@@ -4486,17 +4502,19 @@ static void GC_MaybeRestreamRideMapFaces( const float *eye )
 			GC_CaptureLiveFacesFromSurfbits( wm, bits, true );
 	}
 
-	last[0] = eye[0];
-	last[1] = eye[1];
-	last[2] = eye[2];
-	cd = 8;
+	gc_ride_restream_last[0] = eye[0];
+	gc_ride_restream_last[1] = eye[1];
+	gc_ride_restream_last[2] = eye[2];
+	gc_ride_restream_cd = 8;
+	gc_ride_restream_force = 0;
 	gc_cap_refresh_pending = false;
 	if( nlog < 12 )
 	{
-		Con_Reportf( "G281 cl=%d n=%d L=%d%s\n", cluster, gc_newgame_cap_face_count,
+		Con_Reportf( "G281 cl=%d n=%d L=%d%s%s\n", cluster, gc_newgame_cap_face_count,
 			gc_live_face_count,
 			Mod_GCWorldSurfacesScratchRetained( wm ) ? " pin" :
-			( Mod_GCWorldSurfacesPinned( wm ) ? " mpin" : "" ) );
+			( Mod_GCWorldSurfacesPinned( wm ) ? " mpin" : "" ),
+			forced ? " force" : "" );
 		nlog++;
 		/* Arm DumpFrames EFB hold after restream so late ride frames encode. */
 		if( nlog == 2 || nlog == 5 )
@@ -5547,6 +5565,11 @@ static void GC_PresentBuffer( void )
 		GC_TryLeanPlayerPhysPrime();
 		GC_TryDeferredEfxProof();
 		GC_TryDeferredDecalProof();
+		if( gc_present_count == 20 || gc_present_count == 24
+			|| gc_present_count == 25 || gc_present_count == 28
+			|| gc_present_count == 32 )
+			Con_Reportf( "Xash3D GameCube: present-path deferred hooks done presents=%u efb=%d\n",
+				gc_present_count, gc_gx_world_efb_ready ? 1 : 0 );
 	}
 
 	/* G151: Flipper already holds world geometry — CopyDisp only (no soft blit).
@@ -5556,6 +5579,10 @@ static void GC_PresentBuffer( void )
 	if( gc_gx_world_efb_ready && gc_cpu_dump_presents_left <= 0
 		&& !( GC_IsCaptureDiagnostics() && gc_g193_soft_lock ))
 	{
+		if( gc_present_count >= 20 && gc_present_count <= 40
+			&& ( gc_present_count <= 28 || ( gc_present_count & 3 ) == 0 ))
+			Con_Reportf( "Xash3D GameCube: present Flipper CopyDisp begin presents=%u\n",
+				gc_present_count );
 		f32 fb_w = (f32)rmode->fbWidth;
 		f32 fb_h = (f32)rmode->efbHeight;
 		static int g194_flipper_swap_skip;
@@ -5621,7 +5648,15 @@ static void GC_PresentBuffer( void )
 		}
 		/* One fence before CopyDisp; never clear EFB on retail Flipper copy
 		 * (DumpFrames follows EFB — GX_TRUE left solid sky after a good XFB). */
+		if( gc_present_count >= 20 && gc_present_count <= 40
+			&& ( gc_present_count <= 28 || ( gc_present_count & 3 ) == 0 ))
+			Con_Reportf( "Xash3D GameCube: present Flipper DrawDone begin presents=%u\n",
+				gc_present_count );
 		GX_DrawDone();
+		if( gc_present_count >= 20 && gc_present_count <= 40
+			&& ( gc_present_count <= 28 || ( gc_present_count & 3 ) == 0 ))
+			Con_Reportf( "Xash3D GameCube: present Flipper DrawDone end presents=%u\n",
+				gc_present_count );
 		GX_CopyDisp( xfb[which_fb], GX_FALSE );
 		GX_Flush();
 		gc_gx_world_efb_ready = false;
@@ -5662,6 +5697,10 @@ static void GC_PresentBuffer( void )
 			if( !budget_no_vsync )
 				VIDEO_WaitVSync();
 			which_fb ^= 1;
+			if( gc_present_count >= 20 && gc_present_count <= 40
+				&& ( gc_present_count <= 28 || ( gc_present_count & 3 ) == 0 ))
+				Con_Reportf( "Xash3D GameCube: present Flipper vsync done presents=%u\n",
+					gc_present_count );
 			if( !g297_cpu_logged && cpu_ms > 0.05 && Sys_CheckParm( "-gcnewgame" ))
 			{
 				g297_cpu_logged = true;
@@ -7845,8 +7884,15 @@ static void GC_TryDeferredStudios( void )
 	/* G297: MDL promote mid-G36 sample window spikes present hitch. */
 	if( GC_IsFrameBudgetProbeActive() )
 		return;
-	/* G294: early presents for short probes; keep post-G36 retries. */
-	if( gc_present_count != 1 && gc_present_count != 2 && gc_present_count != 4
+	/* Lean: present=1 only (G105). present=2/4 stalled Prepare; present=20
+	 * retried after SCR sustain and hung the present path
+	 * (probe 20260807-163705). */
+	if( Sys_CheckParm( "-gcnewgame" ) && !Sys_CheckParm( "-gcfullphysics" ))
+	{
+		if( gc_present_count != 1 )
+			return;
+	}
+	else if( gc_present_count != 1 && gc_present_count != 2 && gc_present_count != 4
 		&& gc_present_count != 8 && gc_present_count != 20 && gc_present_count != 40 )
 		return;
 	Mod_GCTryDeferredStudios();
@@ -10300,6 +10346,11 @@ qboolean GC_RenderNewGameWorldFrames( int count )
 		ref.dllFuncs.R_BeginFrame( false );
 		VectorCopy( rvp.vieworigin, refState.vieworg );
 		VectorCopy( rvp.viewangles, refState.viewangles );
+		/* Lean: fill brush draw list before GL_RenderFrame. That path clears
+		 * the scene for -gcnewgame unless lean GX keeps a non-empty list. */
+		if( Sys_CheckParm( "-gcnewgame" ) && !Sys_CheckParm( "-gcfullphysics" )
+			&& GC_UseGxWorldDraw() )
+			CL_GameCubeLeanEmitBrushEntities();
 		ref.dllFuncs.GL_RenderFrame( &rvp );
 		/* G182: SCR newgame presents skip V_PostRender — draw lean HUD onto
 		 * the Flipper EFB before CopyDisp (soft StretchPic would be discarded). */
@@ -10703,8 +10754,13 @@ qboolean GC_PrepareNewGameWorldPresent( void )
 		for( i = 0; i < 8; i++ )
 			Host_ServerFrame();
 
-		/* Remaining first-pump frames (best-effort; may stall on studios). */
-		(void)GC_RenderNewGameWorldFrames( 3 );
+		/* Player clip can move the eye <128u so G281 skips; CapFaces then
+		 * stalls on frame 2 (probe 20260807-161707). Force restream and do
+		 * one Flipper frame — not Render(3). */
+		GC_ForceLeanRideRestream();
+		Con_Reportf( "Xash3D GameCube: post-present lean restream+render arm\n" );
+		if( !GC_RenderNewGameWorldFrames( 1 ))
+			Con_Reportf( "Xash3D GameCube: post-present lean render deferred\n" );
 
 		/* G85/G90: pump V_RenderView-style presents BEFORE post-G36 server
 		 * ticks — Host_ServerFrame (move/snapshots) has been leaving the
@@ -10722,12 +10778,19 @@ qboolean GC_PrepareNewGameWorldPresent( void )
 				Con_Reportf( "Xash3D GameCube: V_RenderView path present\n" );
 			if( i == 1 )
 			{
-				char old_vm[16];
-				Q_snprintf( old_vm, sizeof( old_vm ), "%s", Cvar_VariableString( "r_drawviewmodel" ));
-				Cvar_Set( "r_drawviewmodel", "1" );
-				if( GC_RenderNewGameWorldFrames( 1 ))
-					Con_Reportf( "Xash3D GameCube: V_RenderView viewmodel draw\n" );
-				Cvar_Set( "r_drawviewmodel", old_vm );
+				/* Lean: viewmodel draw re-enters DrawEntities and hung
+				 * Prepare (probe 20260807-163236). Keep world-only. */
+				if( Sys_CheckParm( "-gcnewgame" ) && !Sys_CheckParm( "-gcfullphysics" ))
+					Con_Reportf( "Xash3D GameCube: V_RenderView viewmodel draw skipped lean\n" );
+				else
+				{
+					char old_vm[16];
+					Q_snprintf( old_vm, sizeof( old_vm ), "%s", Cvar_VariableString( "r_drawviewmodel" ));
+					Cvar_Set( "r_drawviewmodel", "1" );
+					if( GC_RenderNewGameWorldFrames( 1 ))
+						Con_Reportf( "Xash3D GameCube: V_RenderView viewmodel draw\n" );
+					Cvar_Set( "r_drawviewmodel", old_vm );
+				}
 			}
 			if( i == 2 && cls.signon == SIGNONS )
 			{

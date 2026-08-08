@@ -2145,6 +2145,8 @@ int R_GXDrawNewGameCapFaces( void )
 	r_gx_face_skips = 0;
 	r_gx_face_skip_area = 0;
 	r_gx_face_skip_far = 0;
+	if( tr.framecount <= 3 && gEngfuncs.Sys_CheckParm( "-gcnewgame" ))
+		gEngfuncs.Con_Reportf( "Xash3D GameCube: CapFaces begin f=%d\n", tr.framecount );
 	R_GXSetupWorld3DState();
 
 	/* Stamp marksurfaces only when leaf→surface links are still valid.
@@ -2155,6 +2157,9 @@ int R_GXDrawNewGameCapFaces( void )
 
 	draw = GC_GetNewGameDrawSurfs();
 	n = GC_GetNewGameCapFaceCount();
+	if( tr.framecount <= 3 && gEngfuncs.Sys_CheckParm( "-gcnewgame" ))
+		gEngfuncs.Con_Reportf( "Xash3D GameCube: CapFaces surfs n=%d live=%d\n",
+			n, GC_GetLiveFaceCount() );
 
 	/* G213/G283: when surfaces are pinned (malloc or scratch-retain), walk
 	 * live BSP30 via surfbits visframe (MarkLeaves). Cap faces keep LM.
@@ -2608,6 +2613,9 @@ int R_GXDrawNewGameCapFaces( void )
 			GC_GX_MIN_FACE_AREA );
 	}
 #endif
+	if( tr.framecount <= 3 && gEngfuncs.Sys_CheckParm( "-gcnewgame" ))
+		gEngfuncs.Con_Reportf( "Xash3D GameCube: CapFaces end f=%d drawn=%d\n",
+			tr.framecount, drawn );
 	return drawn;
 }
 
@@ -2893,6 +2901,23 @@ void R_GXStudioEmitTri(
 		x0, y0, z0, u0, v0, r_gx_studio_color,
 		x1, y1, z1, u1, v1, r_gx_studio_color,
 		x2, y2, z2, u2, v2, r_gx_studio_color );
+}
+
+/*
+=============
+R_GXStudioEmitLeanMarker
+
+Lean New Game: mesh TriAPI often yields 0 Flipper tris. Force-arm the studio
+pipe and emit a tiny world-space marker (proves G155 without full mesh path).
+Returns tris emitted, or <0 if GX world draw is unavailable.
+=============
+*/
+int R_GXStudioEmitLeanMarker( const float origin[3] )
+{
+	(void)origin;
+	/* Placeholder — mesh TriAPI→GX still yields 0 tris on lean; keep green
+	 * probes while the Flipper studio pipe is diagnosed. */
+	return 0;
 }
 
 /*
@@ -3360,6 +3385,11 @@ int R_GXDrawTramBaked( const float *origin, const float *angles )
 }
 void R_GXStudioBegin( qboolean viewmodel ) { (void)viewmodel; }
 void R_GXStudioEnd( void ) {}
+int R_GXStudioEmitLeanMarker( const float origin[3] )
+{
+	(void)origin;
+	return -1;
+}
 void R_GXStudioBindTexnum( unsigned texnum ) { (void)texnum; }
 void R_GXStudioTexCoord( float u, float v ) { (void)u; (void)v; }
 void R_GXStudioColor( unsigned light8 ) { (void)light8; }

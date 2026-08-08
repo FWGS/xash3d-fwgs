@@ -3899,6 +3899,103 @@ manual hardware validation with all artifacts generated and documented.
   carefully); bounded world thinks; clear post-clip Render stall on deferred
   studios; G45 action markers.
 
+## Lean studio pack attempts + deferred-studio trim (2026-08-07)
+
+- Dropping `lean_player_only` / inlined near-eye studio scans hung the first
+  post-present `WriteEntities` after PreThink (`20260807-155248`) or even the
+  first pre-present pack (`20260807-160254` / `160749`). Reverted; keep
+  player-only BoundedGC for now.
+- Post-clip Prepare stall was partly deferred-studio spam: present=2/4
+  re-promoted missing viewguns + headcrab/zombie zip OOMs. Lean now promotes
+  crowbar+handgun only and runs deferred studios at present=1 and 20 only.
+- Probe `20260807-161707`: G506 PASS + clip/PreThink; single
+  `deferred studios try npc=0 view=2`; reaches `R_RenderScene frame 2` /
+  `G132 surfbits` then stalls (no `post-G36 world present` yet).
+- Commands:
+  `DOLPHIN_NEWGAME=1 DOLPHIN_TIMEOUT=240 scripts/dolphin-boot-probe.sh`
+  → logs `.ai/logs/dolphin-probe-20260807-161707`
+- Next blocker: clear `R_RenderScene` frame-2 stall after player-phys primes;
+  then retry a tiny post-arm studio snapshot admit; bounded world thinks;
+  G45 action markers.
+
+## Lean post-clip Flipper pump unblocked (2026-08-07)
+
+- Frame-2 stall after player-phys primes (`20260807-161707`): eye moved <128u
+  so G281 skipped; CapFaces hung. Fix: `GC_ForceLeanRideRestream()` after
+  primes + one Flipper frame (not Render(3)).
+- CapFaces then OK (`f=2 drawn=249`) but `R_DrawEntitiesOnList` hung
+  (`20260807-162747`). Lean skips DrawEntities for `tr.framecount <= 16` and
+  skips the Prepare viewmodel pump.
+- Probe `20260807-163705`: `post-G36 world present`, `V_RenderView path
+  present`, `pure Flipper GX live`, `post-G36 ticks ready`,
+  `post-G36 SCR sustain ClientFrame`, G506 PASS. Stalls later around
+  present=20 deferred studios / post-Prepare SCR.
+
+## Lean NEWGAME_READY restored (2026-08-07)
+
+- Dropped lean deferred studios at present=20 (PresentBuffer hang).
+- Lean Flipper stays world-only: DrawEntities skipped (empty solid list still
+  hung in EFX/viewmodel at frame 4, `20260807-163236`).
+- Apparent SCR hang after present=24 was log silence while Flipper continued;
+  real gap was `cls.state=ca_disconnected` after direct-map server player prime
+  (`SCR sustain state=0 signon=0/2`, probe `20260807-165244`).
+- Fix: `CL_GameCubeArmLeanPlayActive()` in lean SCR sustain promotes
+  `ca_active`+SIGNONS after Prepare so SCR emits progress markers and G45
+  synthetic actions run. Also call `CL_CheckClientState()` on that path.
+- Probe `20260807-165720`: `NEWGAME_READY`; `lean play active armed`;
+  `post-G36 sustained world present`; `sustained frames=32`; G45
+  attack/jump/use PASS; G506 PASS.
+
+## Lean brush DrawEntities (2026-08-07)
+
+- Re-enabled lean `R_DrawEntitiesOnList`: brush ents only; skip EFX, client
+  triangles, viewmodel, and studios (solid=0 hang was EFX/viewmodel).
+- `CL_GameCubeLeanEmitBrushEntities` pulls up to 6 nearby server brush edicts
+  into Flipper each frame. Bootstrap `maxEntities=2` blocked `CL_EDICT_NUM` —
+  use a static 6-slot `cl_entity_t` pool + `R_AddEntity`.
+- `GL_RenderFrame` skips `R_ClearScene` when the lean list is already filled.
+- Probe `20260807-170738`: `NEWGAME_READY`; `lean EmitBrush entities=6`;
+  G45/G506 PASS.
+- Commands:
+  `DOLPHIN_NEWGAME=1 DOLPHIN_TIMEOUT=180 scripts/dolphin-boot-probe.sh`
+  → logs `.ai/logs/dolphin-probe-20260807-170738`
+- Next blocker: tiny studio snapshot admit; viewmodel/EFX; bounded world thinks.
+
+## Lean studio list-admit (draw deferred) (2026-08-07)
+
+- Extended `CL_GameCubeLeanEmitBrushEntities` to admit one already-resident
+  studio after present≥16. Prefer nearby `w_*`; else synthetic
+  `models/w_crowbar.mdl` offset from the player (promoted in lean deferred
+  studios; allowlisted + BSS-loaded).
+- Flipper `R_DrawStudioModel` hangs lean New Game on first draw
+  (`v_crowbar` probe `20260807-171034`, `w_crowbar` `20260807-171424`) —
+  DrawEntities list-admits only and logs
+  `lean studio list-admit models/w_crowbar.mdl (draw deferred)`.
+- Keep `lean_player_only` (no SV studio pack). EFX/viewmodel still skipped.
+- Probe `20260807-171753`: `NEWGAME_READY`; EmitBrush `entities=6 studios=1`;
+  G45 actions + G506 PASS; sustained frames≥32.
+- Commands:
+  `DOLPHIN_NEWGAME=1 DOLPHIN_TIMEOUT=180 scripts/dolphin-boot-probe.sh`
+  → logs `.ai/logs/dolphin-probe-20260807-171753`
+- Next blocker: safe Flipper studio draw for one lean mesh; viewmodel/EFX;
+  bounded world thinks.
+
+## Lean studio draw no-hang + gx_tris=0 (2026-08-07)
+
+- Hang root cause: mesh-only `w_crowbar` (`numtextures=0`/`skinindex=0`) made
+  `R_StudioDrawPoints` treat the studiohdr as `mstudiotexture_t*` (OOB).
+  Fixed with a GameCube mesh_only white-texture path + safer `R_StudioSetupSkin`.
+- Lean `R_StudioDrawModelInternal` uses engine `R_StudioDrawModel` with
+  `STUDIO_RENDER` only (skip client interface + `STUDIO_EVENTS`).
+- Probe `20260807-173754`: `NEWGAME_READY`; EmitBrush `studios=1`;
+  `lean studio Flipper draw models/w_crowbar.mdl gx_tris=0 hdr=0x81745190`;
+  G45 actions + G506 PASS. G155 still unseen on this path.
+- Commands:
+  `DOLPHIN_NEWGAME=1 DOLPHIN_TIMEOUT=180 scripts/dolphin-boot-probe.sh`
+  → logs `.ai/logs/dolphin-probe-20260807-173754`
+- Next blocker: TriAPI→GX studio emission for lean world studio (gx_tris>0 /
+  G155); viewmodel/EFX; bounded world thinks.
+
 
 
 ## Pure Flipper New Game harness + G506 (2026-08-07)

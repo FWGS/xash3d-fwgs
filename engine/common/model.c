@@ -125,6 +125,8 @@ static qboolean Mod_GCStudioNameAllowed( const char *name, qboolean *is_viewmode
 		"scientist", "barney", "gman", "player", "roach",
 		"headcrab", "houndeye", "zombie",
 		"scientist01", "scientist02", "scientist03",
+		/* Tiny lean world-weapon stub for Flipper studio draw admit. */
+		"w_crowbar",
 		NULL
 	};
 	static const char *views[] = {
@@ -442,7 +444,7 @@ Attempt to load deferred studios after map prep when memory is available.
 void Mod_GCTryDeferredStudios( void )
 {
 	/* Try to load additional deferred studios if budget allows. */
-	static const char *promote[] = {
+	static const char *promote_full[] = {
 		"models/v_9mmhandgun.mdl",
 		"models/v_9mmar.mdl",
 		"models/v_shotgun.mdl",
@@ -451,6 +453,14 @@ void Mod_GCTryDeferredStudios( void )
 		"models/zombie.mdl",
 		NULL
 	};
+	/* Lean: handgun only after crowbar. Skip missing viewguns + NPC zip
+	 * promotes that OOM/stall the post-present Render pump. */
+	static const char *promote_lean[] = {
+		"models/v_9mmhandgun.mdl",
+		"models/w_crowbar.mdl",
+		NULL
+	};
+	const char **promote;
 	int i;
 
 	if( !Sys_CheckParm( "-gcnewgame" ) && !GC_IsNewGameWorldReady() )
@@ -472,6 +482,8 @@ void Mod_GCTryDeferredStudios( void )
 			Con_Reportf( S_WARN "Xash3D GameCube: G105 landmark viewmodel unavailable models/v_crowbar.mdl\n" );
 	}
 
+	promote = ( Sys_CheckParm( "-gcnewgame" ) && !Sys_CheckParm( "-gcfullphysics" ))
+		? promote_lean : promote_full;
 	for( i = 0; promote[i]; i++ )
 		Mod_GCPromoteStudioPath( promote[i] );
 

@@ -1570,6 +1570,16 @@ static void R_StudioSetupSkin( studiohdr_t *ptexturehdr, int index )
 	if( ptexturehdr == NULL )
 		return;
 
+#if XASH_GAMECUBE
+	/* Lean w_crowbar stub: numtextures=0 / skinindex=0 — never index hdr. */
+	if( ptexturehdr->numtextures <= 0 || ptexturehdr->textureindex <= 0
+		|| index < 0 || index >= ptexturehdr->numtextures )
+	{
+		GL_Bind( XASH_TEXTURE0, tr.whiteTexture );
+		return;
+	}
+#endif
+
 	// NOTE: user may ignore to call StudioRemapColors and remap_info will be unavailable
 	if( m_fDoRemap )
 		ptexture = gEngfuncs.CL_GetRemapInfoForEntity( RI.currententity )->ptexture;
@@ -1868,6 +1878,7 @@ static void R_StudioDrawPoints( void )
 	int              i, j, k, m_skinnum;
 	float            shellscale = 0.0f;
 	qboolean         need_sort = false;
+	qboolean         mesh_only = false;
 	byte             *pvertbone;
 	byte             *pnormbone;
 	vec3_t           *pstudioverts;
@@ -1881,7 +1892,6 @@ static void R_StudioDrawPoints( void )
 		return;
 
 	m_skinnum = RI.currententity->curstate.skin;
-	ptexture = (mstudiotexture_t *)((byte *)m_pStudioHeader + m_pStudioHeader->textureindex );
 	pvertbone = ((byte *)m_pStudioHeader + m_pSubModel->vertinfoindex );
 	pnormbone = ((byte *)m_pStudioHeader + m_pSubModel->norminfoindex );
 
@@ -1889,8 +1899,20 @@ static void R_StudioDrawPoints( void )
 	pstudioverts = (vec3_t *)((byte *)m_pStudioHeader + m_pSubModel->vertindex );
 	pstudionorms = (vec3_t *)((byte *)m_pStudioHeader + m_pSubModel->normindex );
 
-	pskinref = (short *)((byte *)m_pStudioHeader + m_pStudioHeader->skinindex );
-	if( m_skinnum > 0 && m_skinnum < m_pStudioHeader->numskinfamilies )
+#if XASH_GAMECUBE
+	/* Mesh-only lean stubs (w_crowbar): textureindex/skinindex are 0. Treating
+	 * the studiohdr as mstudiotexture_t* OOB-reads and hung Flipper
+	 * (probe 20260807-171424). */
+	mesh_only = ( m_pStudioHeader->numtextures <= 0
+		|| m_pStudioHeader->numskinref <= 0
+		|| m_pStudioHeader->textureindex <= 0
+		|| m_pStudioHeader->skinindex <= 0 );
+#endif
+	ptexture = mesh_only ? NULL
+		: (mstudiotexture_t *)((byte *)m_pStudioHeader + m_pStudioHeader->textureindex );
+	pskinref = mesh_only ? NULL
+		: (short *)((byte *)m_pStudioHeader + m_pStudioHeader->skinindex );
+	if( !mesh_only && m_skinnum > 0 && m_skinnum < m_pStudioHeader->numskinfamilies )
 		pskinref += ( m_skinnum * m_pStudioHeader->numskinref );
 
 	if( FBitSet( m_pStudioHeader->flags, STUDIO_HAS_BONEWEIGHTS ) && m_pSubModel->blendvertinfoindex != 0 && m_pSubModel->blendnorminfoindex != 0 )
@@ -1932,7 +1954,10 @@ static void R_StudioDrawPoints( void )
 
 	for( j = k = 0; j < m_pSubModel->nummesh; j++ )
 	{
-		g_nFaceFlags = ptexture[pskinref[pmesh[j].skinref]].flags | g_nForceFaceFlags;
+		if( mesh_only )
+			g_nFaceFlags = g_nForceFaceFlags;
+		else
+			g_nFaceFlags = ptexture[pskinref[pmesh[j].skinref]].flags | g_nForceFaceFlags;
 
 		// fill in sortedmesh info
 		g_studio.meshes[j].flags = g_nFaceFlags;
@@ -1984,10 +2009,17 @@ static void R_StudioDrawPoints( void )
 		pmesh = g_studio.meshes[j].mesh;
 		ptricmds = (short *)((byte *)m_pStudioHeader + pmesh->triindex );
 
-		g_nFaceFlags = ptexture[pskinref[pmesh->skinref]].flags | g_nForceFaceFlags;
-
-		s = 1.0f / (float)ptexture[pskinref[pmesh->skinref]].width;
-		t = 1.0f / (float)ptexture[pskinref[pmesh->skinref]].height;
+		if( mesh_only )
+		{
+			g_nFaceFlags = g_nForceFaceFlags;
+			s = t = 1.0f / 64.0f;
+		}
+		else
+		{
+			g_nFaceFlags = ptexture[pskinref[pmesh->skinref]].flags | g_nForceFaceFlags;
+			s = 1.0f / (float)ptexture[pskinref[pmesh->skinref]].width;
+			t = 1.0f / (float)ptexture[pskinref[pmesh->skinref]].height;
+		}
 
 		if( FBitSet( g_nFaceFlags, STUDIO_NF_MASKED ))
 		{
@@ -2009,7 +2041,7 @@ static void R_StudioDrawPoints( void )
 			// else pglBlendFunc( GL_SRC_ALPHA, GL_ONE );
 		}
 
-		R_StudioSetupSkin( m_pStudioHeader, pskinref[pmesh->skinref] );
+		R_StudioSetupSkin( m_pStudioHeader, mesh_only ? 0 : pskinref[pmesh->skinref] );
 
 		{
 			if( FBitSet( g_nFaceFlags, STUDIO_NF_CHROME ))
@@ -2822,12 +2854,22 @@ static int R_StudioDrawModel( int flags )
 	{
 		// see if the bounding box lets us trivially reject, also sets
 		if( !R_StudioCheckBBox( ))
+		{
+#if XASH_GAMECUBE
+			/* Lean mesh-only hdr bb is often 0,0,0 — seq box can still cull
+			 * the synthetic EmitBrush crowbar. Keep drawing. */
+			if( !( gEngfuncs.Sys_CheckParm( "-gcnewgame" )
+				&& !gEngfuncs.Sys_CheckParm( "-gcfullphysics" )
+				&& m_pStudioHeader
+				&& m_pStudioHeader->numtextures <= 0 ))
+#endif
 			return 0;
+		}
 
 		r_stats.c_studio_models_drawn++;
 		g_studio.framecount++; // render data cache cookie
 
-		if( m_pStudioHeader->numbodyparts == 0 )
+		if( !m_pStudioHeader || m_pStudioHeader->numbodyparts == 0 )
 			return 1;
 	}
 
@@ -2880,6 +2922,22 @@ R_StudioDrawModelInternal
 */
 static void R_StudioDrawModelInternal( cl_entity_t *e, int flags )
 {
+#if XASH_GAMECUBE
+	/* Lean New Game: client StudioDrawModel + STUDIO_EVENTS hung Flipper on
+	 * the first world studio (probes 171034/171424). Engine path, render-only. */
+	if( gEngfuncs.Sys_CheckParm( "-gcnewgame" )
+		&& !gEngfuncs.Sys_CheckParm( "-gcfullphysics" ))
+	{
+		flags &= STUDIO_RENDER;
+		if( !flags || !e )
+			return;
+		if( e->player )
+			R_StudioDrawPlayer( flags, &e->curstate );
+		else
+			R_StudioDrawModel( flags );
+		return;
+	}
+#endif
 	if( !FBitSet( RI.rvp.flags, RF_DRAW_WORLD ))
 	{
 		if( e->player )
@@ -2919,6 +2977,8 @@ void R_DrawStudioModel( cl_entity_t *e )
 {
 #if XASH_GAMECUBE
 	qboolean gx_studio = false;
+	qboolean lean = gEngfuncs.Sys_CheckParm( "-gcnewgame" )
+		&& !gEngfuncs.Sys_CheckParm( "-gcfullphysics" );
 
 	if( e && GC_UseGxWorldDraw() )
 	{
@@ -2967,7 +3027,25 @@ void R_DrawStudioModel( cl_entity_t *e )
 	}
 #if XASH_GAMECUBE
 	if( gx_studio )
+	{
+		if( lean && e )
+		{
+			static qboolean lean_studio_draw_logged;
+			int tris = R_GXStudioLastTriCount();
+
+			if( !lean_studio_draw_logged )
+			{
+				lean_studio_draw_logged = true;
+				gEngfuncs.Con_Reportf(
+					"Xash3D GameCube: lean studio Flipper draw %s gx_tris=%d hdr=%p\n",
+					( e->model && e->model->name[0] ) ? e->model->name : "?",
+					tris,
+					e->model ? e->model->cache.data : NULL );
+			}
+		}
 		R_GXStudioEnd();
+	}
+	(void)lean;
 #endif
 }
 
