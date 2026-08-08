@@ -14,18 +14,13 @@ GNU General Public License for more details.
 */
 
 #include "platform/platform.h"
-#include <AvailabilityMacros.h>
 #include <CoreFoundation/CoreFoundation.h>
 #include <IOKit/IOKitLib.h>
 
-// kIOMasterPortDefault was renamed to kIOMainPortDefault in macOS 12 SDK
-#if MAC_OS_X_VERSION_MIN_REQUIRED < 120000
-#define kIOMainPortDefault kIOMasterPortDefault
-#endif
-
 static qboolean Apple_GetPlatformExpertProperty( CFStringRef key, char *out, size_t size )
 {
-	io_service_t service = IOServiceGetMatchingService( kIOMainPortDefault, IOServiceMatching( "IOPlatformExpertDevice" ));
+	// MACH_PORT_NULL means default main port, avoids referencing kIOMasterPortDefault/kIOMainPortDefault symbols that differ between macOS versions
+	io_service_t service = IOServiceGetMatchingService( MACH_PORT_NULL, IOServiceMatching( "IOPlatformExpertDevice" ));
 
 	if( !service )
 		return false;
