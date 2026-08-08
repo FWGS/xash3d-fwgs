@@ -312,6 +312,13 @@ qboolean Sound_LoadWAV( const char *name, const byte *buffer, fs_offset_t filesi
 		return Sound_LoadMPG( name, buffer + hdr_size, filesize - hdr_size );
 	}
 
+	if( FBitSet( sound.flags, SOUND_LOOPED ) && sound.loopstart >= sound.samples )
+	{
+		Con_DPrintf( S_WARN "%s: %s has bad loop start %u (%u samples total), disabling looping\n", __func__, name, sound.loopstart, sound.samples );
+		ClearBits( sound.flags, SOUND_LOOPED );
+		sound.loopstart = 0;
+	}
+
 	// Load the data
 	sound.size = sound.samples * sound.width * sound.channels;
 	sound.wav = Mem_Malloc( host.soundpool, sound.size );
