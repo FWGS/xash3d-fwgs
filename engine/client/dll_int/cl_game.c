@@ -1766,6 +1766,7 @@ void CL_GCPreloadNewGameHudSpritesLate( void )
 	static const char *const sheets[] = {
 		"sprites/320hud1.spr", /* G173: → lean gc_320hud1 */
 		"sprites/crosshairs.spr", /* G174/G290: before hud2/train */
+		"sprites/lgtning.spr", /* G320: env_beam texture */
 		"sprites/320_train.spr", /* G288: → lean gc_320_train */
 		"sprites/320hud2.spr", /* G288: → lean gc_320hud2 */
 	};

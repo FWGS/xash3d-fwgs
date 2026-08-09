@@ -698,6 +698,7 @@ void Host_ServerFrame( void )
 	if( Sys_CheckParm( "-gcnewgame" ) && GC_IsNewGameG36Done() && !gc_fullphysics )
 	{
 		static int gc_sf_bound_log;
+		static int gc_sf_phys_warm;
 
 		if( !svs.initialized )
 			return;
@@ -705,6 +706,18 @@ void Host_ServerFrame( void )
 			sv.frametime = host.frametime;
 		svgame.globals->frametime = sv.frametime;
 		svgame.globals->time = sv.time;
+		/* G320: c3a2 Host_ServerFrame hung in SV_Physics right after local
+		 * reconnect (20260809-005058). Warm a few time-only ticks so SCR can
+		 * reach beam seed (frame 16); c0a0 keeps full bounded physics. */
+		if( Q_stricmp( sv.name, "c0a0" ) && gc_sf_phys_warm < 24 )
+		{
+			gc_sf_phys_warm++;
+			sv.time += sv.frametime;
+			if( gc_sf_phys_warm <= 2 || ( gc_sf_phys_warm % 8 ) == 0 )
+				Con_Reportf( "Xash3D GameCube: G320 ServerFrame time-only warm=%d map=%s\n",
+					gc_sf_phys_warm, sv.name );
+			return;
+		}
 		SV_Physics();
 		sv.time += sv.frametime;
 		/* G87: player-only snapshots after think (skips UpdateClientData). */

@@ -1887,6 +1887,17 @@ static void SV_TryNewGameWorldInteraction( edict_t *player )
 		best_class, best_dist,
 		player->v.origin[0], player->v.origin[1], player->v.origin[2] );
 
+	/* G320: func_button Use hung Host_Frame on c3a2 (20260809-003742).
+	 * Keep c0a0 G88 proof; skip Use on other lean maps. */
+	if( Q_stricmp( sv.name, "c0a0" )
+		&& !Q_strnicmp( best_class, "func_", 5 ))
+	{
+		gc_interact_done = true;
+		Con_Reportf( "Xash3D GameCube: world interaction skip classname=%s map=%s\n",
+			best_class, sv.name[0] ? sv.name : "?" );
+		return;
+	}
+
 	/* Triggers respond to touch; buttons/doors to use. */
 	if( !Q_strnicmp( best_class, "trigger_", 8 ))
 	{

@@ -719,6 +719,17 @@ void Host_Frame( double time )
 	Host_ClientBegin (); // begin client
 	Host_GetCommands (); // dedicated in
 #if XASH_GAMECUBE
+	{
+		static qboolean gc_host_frame0_logged;
+
+		if( !gc_host_frame0_logged && Sys_CheckParm( "-gcnewgame" )
+			&& GC_IsNewGameWorldReady() )
+		{
+			gc_host_frame0_logged = true;
+			Con_Reportf( "Xash3D GameCube: G320 Host_Frame0 after cmds map=%s state=%d signon=%d\n",
+				sv.name[0] ? sv.name : "?", cls.state, cls.signon );
+		}
+	}
 	/* After lean smoke G36, world_ready may still be false while cls is not
 	 * yet ca_active/SIGNONS — the active-branch Prepare kick never runs and
 	 * ServerFrame spins alone (probe 20260807-023333, warm≈540k). Always
@@ -740,8 +751,22 @@ void Host_Frame( double time )
 	{
 		if( GC_IsNewGameWorldReady() )
 		{
+			static int gc_post_prep_crumbs;
+
+			if( gc_post_prep_crumbs < 2 )
+			{
+				Con_Reportf( "Xash3D GameCube: G320 post-prepare Host_Frame map=%s state=%d signon=%d step=%d\n",
+					sv.name[0] ? sv.name : "?", cls.state, cls.signon,
+					gc_post_prep_crumbs );
+			}
 			Host_ServerFrame ();
+			if( gc_post_prep_crumbs == 0 )
+				Con_Reportf( "Xash3D GameCube: G320 post-prepare ServerFrame ok\n" );
 			Host_ClientFrame ();
+			if( gc_post_prep_crumbs == 0 )
+				Con_Reportf( "Xash3D GameCube: G320 post-prepare ClientFrame ok\n" );
+			if( gc_post_prep_crumbs < 2 )
+				gc_post_prep_crumbs++;
 		}
 		else
 		{
@@ -752,8 +777,29 @@ void Host_Frame( double time )
 	}
 	else
 	{
-		Host_ServerFrame ();
-		Host_ClientFrame ();
+		static qboolean gc_else_frame_logged;
+
+		if( !gc_else_frame_logged && Sys_CheckParm( "-gcnewgame" ))
+		{
+			gc_else_frame_logged = true;
+			Con_Reportf( "Xash3D GameCube: G320 Host_Frame else map=%s state=%d signon=%d ready=%d\n",
+				sv.name[0] ? sv.name : "?", cls.state, cls.signon,
+				GC_IsNewGameWorldReady() ? 1 : 0 );
+		}
+		/* G320: after post-smoke Prepare on non-c0a0, cls is still
+		 * disconnected (c3a2 20260809-004840). ServerFrame in that state
+		 * hung Host_Frame; ClientFrame drives local reconnect first. */
+		if( Sys_CheckParm( "-gcnewgame" ) && !Sys_CheckParm( "-gcfullphysics" )
+			&& GC_IsNewGameWorldReady()
+			&& cls.state != ca_active && cls.signon != SIGNONS )
+		{
+			Host_ClientFrame ();
+		}
+		else
+		{
+			Host_ServerFrame ();
+			Host_ClientFrame ();
+		}
 	}
 #else
 	Host_ServerFrame (); // server frame
@@ -1583,6 +1629,17 @@ int EXPORT Host_Main( int argc, char **argv, const char *progname, int bChangeGa
 
 			Con_Reportf( "Xash3D GameCube: gcmap smoke frames ready\n" );
 			GC_MemSample( "frame render" );
+			/* G320: lean New Game Prepare before first ServerFrame. Budget
+			 * samples often never flush on non-c0a0 (g36_done stays false),
+			 * so Host_Frame skipped Prepare and ServerFrame hung
+			 * (c3a2 20260809-003411 after spserver skip). */
+			if( Sys_CheckParm( "-gcnewgame" ) && !Sys_CheckParm( "-gcfullphysics" )
+				&& !GC_IsNewGameWorldReady() )
+			{
+				Con_Reportf( "Xash3D GameCube: G320 post-smoke prepare map=%s\n",
+					sv.name[0] ? sv.name : "?" );
+				GC_PrepareNewGameWorldPresent();
+			}
 		}
 	#endif
 

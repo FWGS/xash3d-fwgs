@@ -4353,13 +4353,15 @@ manual hardware validation with all artifacts generated and documented.
   beam Decals, DamageThink.
 - Client lean beam budget 8; stage `sprites/lgtning.spr` on smoke discs;
   lean `CL_InitViewBeams` restored.
-- c0a0 Flipper proof (`20260809-002241`): HUD preload `lgtning.spr` → deferred
-  arm/alloc at SCR frame 16 → stash billboard + `gl_texturenum` → blit-time
-  `G320 beam blit emit tipsafe=1 tex=87` + NEWGAME_READY + G45_ACTION PASS.
-  TriAPI emit during `DrawEntities` stalled SCR after EFX; forever beams
-  during early SCR stalled `frames=16`.
-- Next: reactor-map proof (c3a2d still hangs post-spserver); gunshot decal;
-  PLAYBACK_EVENT.
+- c0a0 Flipper proof (`20260809-002542` / regression `20260809-005353`): HUD
+  `lgtning.spr` → deferred arm → blit-time TriAPI→GX `gpu=1 segs=8` +
+  NEWGAME_READY + G45_ACTION PASS.
+- c3a2 boot unblocked (`20260809-005246`): inline `spserver` (skip disc exec),
+  post-smoke Prepare, disconnect-safe Host_Frame, time-only ServerFrame warm.
+  Seeded GPU beam `blit emit tipsafe=1 gpu=1 segs=8 tex=10` + SCR frames=16.
+  Harness still PARTIAL (no G36 samples / visual). Map `env_beam` ents not yet
+  in CL_DrawBeams (temp seed only).
+- Next: map env_beam draw; G36 samples on non-tram maps; gunshot decal.
 
 ## Pure Flipper New Game harness + G506 (2026-08-07)
 

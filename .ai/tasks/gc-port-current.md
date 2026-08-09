@@ -2,20 +2,19 @@ Auto-port task for Xash3D GameCube
 =================================
 
 Current goal:
-Reactor-map beam proof (c3a2*); lean Decal; Swiss `--require-swiss`
+Map `env_beam` client draw on c3a2*; harness G36 samples; lean Decal; Swiss
 
-**DONE (G320 textured blit emit)**:
-- Deferred beam arm → alloc at SCR frame 16 → stash billboard verts + spr tex
-- Emit at `R_BlitScreen` via `R_GXEmitPendingLeanBeam` (EffectsTriBegin/End)
-- Do **not** TriAPI-emit beams during `DrawEntities` (stalls SCR)
-- HUD preload + bootstrap inject `sprites/lgtning.spr`; blit binds spr tex
-- Probe `20260809-002241`: armed/seeded `lgtning.spr`, blit `tipsafe=1 tex=87`
-  + NEWGAME_READY + G45_ACTION PASS
+**DONE (G320 reactor map boot + GPU beam)**:
+- Inline `spserver.cfg` (disc FS_LoadFile hung on c3a2*); post-smoke Prepare
+- Skip non-c0a0 `func_*` Use; ClientFrame-first while disconnected; time-only
+  ServerFrame warm after reconnect
+- Flipper `R_DrawSegs` blit emit on c3a2: probe `20260809-005246`
+  `gpu=1 segs=8 tex=10` + SCR frames=16 (harness still PARTIAL — no G36 samples)
+- c0a0 regression `20260809-005353`: NEWGAME_READY + G45_ACTION PASS
 
 **Next**:
-- Prove beams on c3a2d/c3a2b (map still hangs post-spserver on lean)
-- Lean-safe gunshot decal / PLAYBACK_EVENT
-- Swiss hardware `--require-swiss`
+- Admit/draw map `env_beam` ents (seeded temp beam only so far); c3a2d
+- Arm G36 samples on non-tram maps; lean Decal; Swiss
 
 Rules:
 - Force-relink after HLSDK archive changes.

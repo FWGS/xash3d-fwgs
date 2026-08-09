@@ -11333,6 +11333,10 @@ void GC_UpdateNewGameIntroAudio( void )
 		return;
 	if( cls.state != ca_active )
 		return;
+	/* G320: c0a0 tram VO only — opening media/c0a0_tr_*.wav on reactor
+	 * maps hung the first Host_Frame after Prepare (c3a2 20260809-004108). */
+	if( Q_stricmp( sv.name, "c0a0" ))
+		return;
 
 	if( !armed )
 	{

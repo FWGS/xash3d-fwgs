@@ -1364,6 +1364,23 @@ static void Cmd_Exec_f( void )
 	if( !Q_stricmp( "config.cfg", cfgpath ))
 		host.config_executed = true;
 
+#if XASH_GAMECUBE
+	/* G320: disc FS_LoadFile(spserver.cfg) hung after MAP_READY on lean
+	 * reactor maps (c3a2/c3a2d — 20260809-002911) while c0a0 survived.
+	 * Inline the tiny single-player defaults; skip the DVD read. */
+	if( !Q_stricmp( "spserver.cfg", cfgpath )
+		&& ( Sys_CheckParm( "-gcnewgame" ) || Sys_CheckParm( "-gcmap" )))
+	{
+		Con_Reportf( "Xash3D GameCube: G320 inline spserver (skip disc exec)\n" );
+		Cbuf_InsertText(
+			"pausable 1\n"
+			"sv_maxspeed 320\n"
+			"sv_allow_autoaim 1\n"
+			"sv_allow_shaders 1\n" );
+		return;
+	}
+#endif
+
 	Con_Printf( "execing " S_GREEN "%s" S_DEFAULT "\n", Cmd_Argv( 1 ));
 
 	Cmd_ExecScript( cfgpath );

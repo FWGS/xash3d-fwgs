@@ -349,5 +349,6 @@ behavior remains explicitly unverified until hardware testing.
   `TraceAttack td=0` (world) + ApplyMultiDamage, NEWGAME_READY + G45_ACTION
   PASS. `DecalGunshot` hung; TEXTURETYPE/BubbleTrail/PLAYBACK_EVENT deferred.
 - G320 beams: lean additive path + env_beam/env_laser admit (cap 8). c0a0
-  probe `20260809-002241`: HUD `lgtning.spr` + blit-time `tipsafe=1 tex=87`
-  + NEWGAME_READY + G45_ACTION PASS. c3a2d lean still hangs post-spserver.
+  `20260809-005353` NEWGAME_READY + G45_ACTION PASS. c3a2 `20260809-005246`:
+  boot past spserver + Flipper seeded beam `gpu=1 segs=8`; harness PARTIAL
+  (no G36 samples). Map env_beam client draw still open.

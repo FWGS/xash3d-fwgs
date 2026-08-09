@@ -919,6 +919,41 @@ BEAM * GAME_EXPORT R_BeamPoints( vec3_t start, vec3_t end, int modelIndex, float
 
 	R_BeamSetAttributes( pbeam, r, g, b, framerate, startFrame );
 
+#if XASH_GAMECUBE
+	/* Map env_beam TE_BEAMPOINTS: attach HUD lgtning so Flipper blit path can
+	 * stash R_DrawSegs without TriSpriteTexture mid-DrawEntities. */
+	if( life == 0 && Sys_CheckParm( "-gcnewgame" )
+		&& !Sys_CheckParm( "-gcfullphysics" ) && !pbeam->pFollowModel )
+	{
+		int si;
+
+		for( si = 0; si < MAX_CLIENT_SPRITES; si++ )
+		{
+			model_t *cand = &clgame.sprites[si];
+
+			if( !cand->cache.data || cand->numframes <= 0 || !cand->name[0] )
+				continue;
+			if( !Q_stristr( cand->name, "lgtning" ))
+				continue;
+			pbeam->pFollowModel = cand;
+			pbeam->frameCount = cand->numframes > 0 ? cand->numframes : 1;
+			pbeam->segments = pbeam->segments > 2 ? pbeam->segments : 8;
+			{
+				static qboolean map_te_follow_logged;
+
+				if( !map_te_follow_logged )
+				{
+					map_te_follow_logged = true;
+					Con_Reportf(
+						"Xash3D GameCube: G320 map TE beam follow spr=%s\n",
+						cand->name );
+				}
+			}
+			break;
+		}
+	}
+#endif
+
 	return pbeam;
 }
 
@@ -2401,7 +2436,8 @@ qboolean CL_GCTrySeedLeanBeamProof( void )
 	VectorCopy( start, pbeam->source );
 	VectorCopy( end, pbeam->target );
 	VectorSubtract( end, start, pbeam->delta );
-	pbeam->segments = 2;
+	/* GPU R_DrawSegs path: a few strip segments (amp=0 keeps noise off). */
+	pbeam->segments = 8;
 	pbeam->width = 8.0f;
 	pbeam->amplitude = 0.0f;
 	pbeam->pFollowModel = spr;
