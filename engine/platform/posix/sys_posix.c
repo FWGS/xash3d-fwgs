@@ -16,6 +16,7 @@ GNU General Public License for more details.
 #include <unistd.h> // fork
 #include <sys/types.h>
 #include <sys/stat.h>
+#include <sys/time.h>
 #include <fcntl.h>
 #include <errno.h>
 #include <signal.h>
@@ -109,8 +110,13 @@ double Platform_DoubleTime( void )
 	struct timespec ts;
 #if XASH_IRIX
 	clock_gettime( CLOCK_SGI_CYCLE, &ts );
-#else
+#elif defined( CLOCK_MONOTONIC )
 	clock_gettime( CLOCK_MONOTONIC, &ts );
+#else
+	struct timeval tv;
+	gettimeofday( &tv, NULL );
+	ts.tv_sec  = tv.tv_sec;
+	ts.tv_nsec = tv.tv_usec * 1000;
 #endif
 	return (double) ts.tv_sec + (double) ts.tv_nsec/1000000000.0;
 }
