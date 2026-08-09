@@ -951,8 +951,9 @@ static void R_DrawEntitiesOnList( void )
 	if( !FBitSet( RI.rvp.flags, RF_ONLY_CLIENTDRAW ))
 	{
 #if XASH_GAMECUBE
-		/* After lean world studio: solid-pass beams (cycle-guarded).
-		 * Client tris stay off (hang 20260807-163236). */
+		/* G320: lean solid EFX only when a world studio already drew this
+		 * frame — ungated solid+trans every frame regressed NEWGAME_READY
+		 * (20260808-224954). Tip-safe proof beam is additive (trans). */
 		if( lean_ents )
 		{
 			if( lean_studios > 0 )
@@ -1150,17 +1151,15 @@ static void R_DrawEntitiesOnList( void )
 #if XASH_GAMECUBE
 		if( lean_ents )
 		{
-			/* After a lean world studio draws this frame, restore landmark
-			 * viewmodel (G105/G156), then tip-safe trans EFX (G291).
-			 * Client tris stay off (hang 20260807-163236). */
+			static qboolean lean_vm_draw_logged;
+			static qboolean lean_efx_draw_logged;
+
+			/* Viewmodel still needs a live studio; additive beams (G320) do not. */
 			if( lean_studios > 0
 				&& tr.viewent && tr.viewent->model
 				&& tr.viewent->model->type == mod_studio
 				&& tr.viewent->model->cache.data )
 			{
-				static qboolean lean_vm_draw_logged;
-				static qboolean lean_efx_draw_logged;
-
 				R_DrawViewModel();
 				if( !lean_vm_draw_logged )
 				{
@@ -1170,6 +1169,11 @@ static void R_DrawEntitiesOnList( void )
 						tr.viewent->model->name[0]
 							? tr.viewent->model->name : "?" );
 				}
+			}
+			/* One tip-safe G320 pass after SCR is live; perpetual lean EFX
+			 * stalls the present pump. Studios still gate viewmodel above. */
+			if( tr.framecount == 16 || lean_studios > 0 )
+			{
 				R_AllowFog( false );
 				gEngfuncs.CL_DrawEFX( tr.frametime, true );
 				R_AllowFog( true );

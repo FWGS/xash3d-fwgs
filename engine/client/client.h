@@ -1116,7 +1116,8 @@ void CL_LoadClientSprites( void );
 void CL_ReadPointFile_f( void );
 void CL_DrawEFX( float time, qboolean fTrans );
 #if XASH_GAMECUBE
-void CL_GCSeedFlipperEfxProof( const float *org );
+qboolean CL_GCSeedFlipperEfxProof( const float *org );
+qboolean CL_GCTrySeedLeanBeamProof( void );
 #endif
 void CL_ThinkParticle( double frametime, particle_t *p );
 void CL_ReadLineFile_f( void );

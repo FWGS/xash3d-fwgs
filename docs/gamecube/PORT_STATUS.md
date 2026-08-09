@@ -348,6 +348,7 @@ behavior remains explicitly unverified until hardware testing.
 - Lean combat: probe `20260808-200847` — glock FireBullets +
   `TraceAttack td=0` (world) + ApplyMultiDamage, NEWGAME_READY + G45_ACTION
   PASS. `DecalGunshot` hung; TEXTURETYPE/BubbleTrail/PLAYBACK_EVENT deferred.
-- G320 beams: lean now draws additive `CL_DrawBeams` (trans); admits
-  env_beam/env_laser (cap 8). Reactor electricity + lasers share that path.
-  c0a0 still NEWGAME_READY (`20260808-2131*`); c3a2d lean still hangs later.
+- G320 beams: lean additive path + env_beam/env_laser admit (cap 8). c0a0
+  probe `20260808-230137`: deferred seed + `tipsafe=deferred` draw marker +
+  NEWGAME_READY + G45_ACTION PASS. Flipper TriAPI lightning emit still
+  stalls SCR (next). c3a2d lean still hangs post-spserver.

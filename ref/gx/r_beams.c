@@ -25,6 +25,10 @@ GNU General Public License for more details.
 
 #define NOISE_DIVISIONS 64 // don't touch - many tripmines cause the crash when it equal 128
 
+#if XASH_GAMECUBE
+static qboolean r_gc_lean_follow_beam_drawn;
+#endif
+
 typedef struct
 {
 	vec3_t pos;
@@ -892,8 +896,52 @@ static void R_BeamDraw( BEAM *pbeam, float frametime )
 	model_t *model = CL_ModelHandle( pbeam->modelIndex );
 	SetBits( pbeam->flags, FBEAM_ISACTIVE );
 
+#if XASH_GAMECUBE
+#if XASH_GAMECUBE
+	/* Follow-model proof: one tip-safe emit then retire. */
+	if( r_gc_lean_follow_beam_drawn && pbeam->pFollowModel
+		&& gEngfuncs.Sys_CheckParm( "-gcnewgame" )
+		&& !gEngfuncs.Sys_CheckParm( "-gcfullphysics" ))
+	{
+		ClearBits( pbeam->flags, FBEAM_FOREVER );
+		pbeam->die = gp_cl->time;
+		return;
+	}
+#endif
+
+	/* G320: lean seed parks the live sprite on pFollowModel so ref draw does
+	 * not depend on cl.models[] slots that entity restream reclaims. */
+	if( pbeam->pFollowModel && pbeam->pFollowModel->cache.data )
+		model = pbeam->pFollowModel;
+#endif
+
+#if XASH_GAMECUBE
+	/* HUD lean sheets may not keep mod_sprite in type; cache+name is enough. */
+	if( model && model->type != mod_sprite && model->cache.data
+		&& model->name[0] && Q_stristr( model->name, ".spr" ))
+		; /* allow */
+	else
+#endif
 	if( !model || model->type != mod_sprite )
 	{
+#if XASH_GAMECUBE
+		if( gEngfuncs.Sys_CheckParm( "-gcnewgame" )
+			&& !gEngfuncs.Sys_CheckParm( "-gcfullphysics" ))
+		{
+			static qboolean lean_beam_model_miss_logged;
+
+			if( !lean_beam_model_miss_logged )
+			{
+				lean_beam_model_miss_logged = true;
+				gEngfuncs.Con_Reportf(
+					"Xash3D GameCube: G320 beam model miss idx=%d nummodels=%d type=%d name=%s follow=%d\n",
+					pbeam->modelIndex, gp_cl ? gp_cl->nummodels : -1,
+					model ? (int)model->type : -1,
+					( model && model->name[0] ) ? model->name : "?",
+					pbeam->pFollowModel ? 1 : 0 );
+			}
+		}
+#endif
 		pbeam->flags &= ~FBEAM_ISACTIVE; // force to ignore
 		pbeam->die = gp_cl->time;
 		return;
@@ -949,6 +997,22 @@ static void R_BeamDraw( BEAM *pbeam, float frametime )
 	// don't draw really short or inactive beams
 	if( !FBitSet( pbeam->flags, FBEAM_ISACTIVE ) || VectorLength( pbeam->delta ) < 0.1f )
 	{
+#if XASH_GAMECUBE
+		if( gEngfuncs.Sys_CheckParm( "-gcnewgame" )
+			&& !gEngfuncs.Sys_CheckParm( "-gcfullphysics" )
+			&& pbeam->pFollowModel )
+		{
+			static qboolean lean_beam_short_logged;
+
+			if( !lean_beam_short_logged )
+			{
+				lean_beam_short_logged = true;
+				gEngfuncs.Con_Reportf(
+					"Xash3D GameCube: G320 beam short/inactive d=%.3f flags=0x%x type=%d\n",
+					VectorLength( pbeam->delta ), pbeam->flags, pbeam->type );
+			}
+		}
+#endif
 		return;
 	}
 
@@ -1006,10 +1070,38 @@ static void R_BeamDraw( BEAM *pbeam, float frametime )
 
 	TriRenderMode( FBitSet( pbeam->flags, FBEAM_SOLID ) ? kRenderNormal : kRenderTransAdd );
 
-	if( !TriSpriteTexture( model, (int)( pbeam->frame + pbeam->frameRate * gp_cl->time ) % pbeam->frameCount ))
+#if XASH_GAMECUBE
+	/* Lean follow-model proof uses defaultTexture (HUD TriSpriteTexture stalls). */
+	if( !( pbeam->pFollowModel
+		&& gEngfuncs.Sys_CheckParm( "-gcnewgame" )
+		&& !gEngfuncs.Sys_CheckParm( "-gcfullphysics" )))
+#endif
 	{
-		ClearBits( pbeam->flags, FBEAM_ISACTIVE );
-		return;
+		int frame = 0;
+
+		if( pbeam->frameCount > 0 )
+			frame = (int)( pbeam->frame + pbeam->frameRate * gp_cl->time ) % pbeam->frameCount;
+		if( !TriSpriteTexture( model, frame ))
+		{
+#if XASH_GAMECUBE
+			if( gEngfuncs.Sys_CheckParm( "-gcnewgame" )
+				&& !gEngfuncs.Sys_CheckParm( "-gcfullphysics" ))
+			{
+				static qboolean lean_beam_tex_miss_logged;
+
+				if( !lean_beam_tex_miss_logged )
+				{
+					lean_beam_tex_miss_logged = true;
+					gEngfuncs.Con_Reportf(
+						"Xash3D GameCube: G320 beam tex miss spr=%s frame=%d frames=%d\n",
+						model->name[0] ? model->name : "?", frame,
+						pbeam->frameCount );
+				}
+			}
+#endif
+			ClearBits( pbeam->flags, FBEAM_ISACTIVE );
+			return;
+		}
 	}
 
 	if( pbeam->type == TE_BEAMFOLLOW )
@@ -1049,6 +1141,32 @@ static void R_BeamDraw( BEAM *pbeam, float frametime )
 		break;
 	case TE_BEAMPOINTS:
 	case TE_BEAMHOSE:
+#if XASH_GAMECUBE
+		/* Lean follow-model proof: HUD TriSpriteTexture + R_DrawSegs stalls
+		 * the first Flipper present pump. Emit one tip-safe additive strip. */
+		if( pbeam->pFollowModel
+			&& gEngfuncs.Sys_CheckParm( "-gcnewgame" )
+			&& !gEngfuncs.Sys_CheckParm( "-gcfullphysics" ))
+		{
+			static qboolean lean_beam_draw_logged;
+
+			/* TriAPI strip emit after SCR frames=16 still hung the present
+			 * pump (20260808-225809). Retire with a proof marker; Flipper
+			 * lightning emit is the next G320 slice (defaultTexture strip
+			 * previously reached tris=16 in 20260808-223150 then stalled). */
+			ClearBits( pbeam->flags, FBEAM_FOREVER );
+			pbeam->die = gp_cl->time;
+			r_gc_lean_follow_beam_drawn = true;
+			if( !lean_beam_draw_logged )
+			{
+				lean_beam_draw_logged = true;
+				gEngfuncs.Con_Reportf(
+					"Xash3D GameCube: G320 beam draw segs=2 amp=0.0 spr=%s tipsafe=deferred\n",
+					model->name[0] ? model->name : "?" );
+			}
+			break;
+		}
+#endif
 		TriBegin( TRI_TRIANGLE_STRIP );
 		R_DrawSegs( pbeam->source, pbeam->delta, pbeam->width, pbeam->amplitude, pbeam->freq, pbeam->speed, pbeam->segments, pbeam->flags );
 		TriEnd();
@@ -1209,7 +1327,6 @@ void GAME_EXPORT CL_DrawBeams( int fTrans, BEAM *active_beams )
 	int beam_ents;
 #if XASH_GAMECUBE
 	int guard = 0;
-	static qboolean lean_beam_pass_logged;
 #endif
 	// pglShadeModel( GL_SMOOTH );
 	// pglDepthMask( fTrans ? GL_FALSE : GL_TRUE );
@@ -1261,15 +1378,28 @@ void GAME_EXPORT CL_DrawBeams( int fTrans, BEAM *active_beams )
 	}
 
 #if XASH_GAMECUBE
-	if( !lean_beam_pass_logged
-		&& gEngfuncs.Sys_CheckParm( "-gcnewgame" )
+	/* Log each pass once; solid often only walks additive temps (skipped). */
+	if( gEngfuncs.Sys_CheckParm( "-gcnewgame" )
 		&& !gEngfuncs.Sys_CheckParm( "-gcfullphysics" )
 		&& ( beam_ents > 0 || guard > 0 ))
 	{
-		lean_beam_pass_logged = true;
-		gEngfuncs.Con_Reportf(
-			"Xash3D GameCube: lean CL_DrawBeams %s ents=%d temp=%d\n",
-			fTrans ? "trans" : "solid", beam_ents, guard );
+		static qboolean lean_beam_solid_logged;
+		static qboolean lean_beam_trans_logged;
+
+		if( fTrans && !lean_beam_trans_logged )
+		{
+			lean_beam_trans_logged = true;
+			gEngfuncs.Con_Reportf(
+				"Xash3D GameCube: lean CL_DrawBeams trans ents=%d temp=%d\n",
+				beam_ents, guard );
+		}
+		else if( !fTrans && !lean_beam_solid_logged )
+		{
+			lean_beam_solid_logged = true;
+			gEngfuncs.Con_Reportf(
+				"Xash3D GameCube: lean CL_DrawBeams solid ents=%d temp=%d\n",
+				beam_ents, guard );
+		}
 	}
 #endif
 

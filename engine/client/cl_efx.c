@@ -2163,8 +2163,17 @@ static void CL_FreeDeadBeams( void )
 	}
 }
 
+#if XASH_GAMECUBE
+qboolean CL_GCTrySeedLeanBeamProof( void );
+#endif
+
 void CL_DrawEFX( float time, qboolean fTrans )
 {
+#if XASH_GAMECUBE
+	/* Allocate deferred G320 proof beam on the first lean trans pass. */
+	if( fTrans )
+		CL_GCTrySeedLeanBeamProof();
+#endif
 	CL_FreeDeadBeams();
 	/* G320: lean previously skipped trans beams — additive env_beam / env_laser
 	 * (reactor lightning, security lasers) never drew. Draw both passes. */
@@ -2173,6 +2182,14 @@ void CL_DrawEFX( float time, qboolean fTrans )
 
 	if( fTrans )
 	{
+#if XASH_GAMECUBE
+		/* Probe 20260807-030413 / 20260808-220618: lean Flipper hung in the
+		 * particle/tracer half of CL_DrawEFX(trans) from R_DrawEntities.
+		 * Beams alone are the G320 path; particles stay on their own Flipper
+		 * seed budget outside this call. */
+		if( Sys_CheckParm( "-gcnewgame" ) && !Sys_CheckParm( "-gcfullphysics" ))
+			return;
+#endif
 		R_FreeDeadParticles( &cl_active_particles );
 		if( cl_draw_particles.value )
 			ref.dllFuncs.CL_DrawParticles( time, cl_active_particles, PART_SIZE );
@@ -2191,13 +2208,22 @@ G291: reclaim lean pool + seed a few static particles so Flipper TriAPI EFX
 emits during Dolphin probe (tracers often exhaust the shared 48-slot pool).
 ================
 */
-void CL_GCSeedFlipperEfxProof( const float *org )
+static qboolean gc_beam_seeded;
+static model_t *gc_lean_beam_spr;
+static vec3_t gc_lean_beam_org;
+
+qboolean CL_GCTrySeedLeanBeamProof( void );
+
+qboolean CL_GCSeedFlipperEfxProof( const float *org )
 {
 	int i, n = 0;
+	static qboolean gc_particles_seeded;
 
 	if( !org )
-		return;
+		return gc_beam_seeded;
 
+	if( !gc_particles_seeded )
+	{
 	R_FreeDeadParticles( &cl_active_particles );
 	R_FreeDeadParticles( &cl_active_tracers );
 
@@ -2267,49 +2293,95 @@ void CL_GCSeedFlipperEfxProof( const float *org )
 		n++;
 	}
 	Con_Reportf( "Xash3D GameCube: G291 tip-safe particle seed n=%d\n", n );
+	gc_particles_seeded = true;
+	}
 
-	/* G320: forever noisy beam. Prefer HUD/client sprite already in
-	 * clgame.sprites (dot often NULL on lean); alias into cl.models. */
-	if( Sys_CheckParm( "-gcnewgame" ) && !Sys_CheckParm( "-gcfullphysics" ))
+	/* G320: arm deferred beam only — a live forever beam during SCR sustain
+	 * stalled frames=16 / G45 actions (20260808-225324). */
+	if( Sys_CheckParm( "-gcnewgame" ) && !Sys_CheckParm( "-gcfullphysics" )
+		&& !gc_beam_seeded )
 	{
-		static qboolean gc_beam_seeded;
-		int i, modelIndex;
-		vec3_t start, end;
-		BEAM *pbeam;
-		model_t *spr = cl_sprite_dot;
+		model_t *spr = NULL;
+		model_t *cand;
+		int scan_n = cl.nummodels;
 
-		/* Retry until beam pool is live (first G291 seed is often too early). */
-		if( !gc_beam_seeded )
+		if( scan_n < 2 )
+			scan_n = MAX_MODELS;
+		for( i = 1; i < scan_n && i < MAX_MODELS; i++ )
 		{
-			if( !spr )
+			cand = cl.models[i];
+			if( !cand || cand->type != mod_sprite || !cand->cache.data
+				|| cand->numframes <= 0 )
+				continue;
+			spr = cand;
+			if( Q_stristr( cand->name, "lgtning" )
+				|| Q_stristr( cand->name, "laserbeam" )
+				|| Q_stristr( cand->name, "flare" ))
+				break;
+		}
+		if( !spr )
+		{
+			for( i = 0; i < MAX_CLIENT_SPRITES; i++ )
 			{
-				for( i = 0; i < MAX_CLIENT_SPRITES; i++ )
-				{
-					if( clgame.sprites[i].name[0] )
-					{
-						spr = &clgame.sprites[i];
-						break;
-					}
-				}
-			}
-			if( spr && cl_free_beams )
-			{
-				modelIndex = MAX_MODELS - 2;
-				cl.models[modelIndex] = spr;
-				VectorCopy( org, start );
-				start[2] += 24.0f;
-				VectorSet( end, start[0] + 192.0f, start[1], start[2] + 48.0f );
-				pbeam = R_BeamPoints( start, end, modelIndex, 0.0f, 20.0f, 40.0f,
-					255.0f, 0.0f, 0, 0.0f, 0.35f, 0.55f, 1.0f );
-				if( pbeam )
-				{
-					SetBits( pbeam->flags, FBEAM_SINENOISE );
-					gc_beam_seeded = true;
-					Con_Reportf( "Xash3D GameCube: G320 beam seeded\n" );
-				}
+				cand = &clgame.sprites[i];
+				if( cand->type != mod_sprite || !cand->cache.data
+					|| cand->numframes <= 0 || !cand->name[0] )
+					continue;
+				spr = cand;
+				break;
 			}
 		}
+		if( spr )
+		{
+			gc_lean_beam_spr = spr;
+			VectorCopy( org, gc_lean_beam_org );
+			gc_lean_beam_org[2] += 24.0f;
+			gc_beam_seeded = true;
+			Con_Reportf( "Xash3D GameCube: G320 beam armed spr=%s (defer alloc)\n",
+				spr->name[0] ? spr->name : "?" );
+		}
 	}
+
+	return gc_beam_seeded;
+}
+
+qboolean CL_GCTrySeedLeanBeamProof( void )
+{
+	static qboolean allocated;
+	vec3_t start, end;
+	BEAM *pbeam;
+	model_t *spr;
+
+	if( allocated || !gc_beam_seeded || !gc_lean_beam_spr )
+		return allocated;
+	if( !Sys_CheckParm( "-gcnewgame" ) || Sys_CheckParm( "-gcfullphysics" ))
+		return false;
+	if( !cl_free_beams )
+		return false;
+
+	spr = gc_lean_beam_spr;
+	VectorCopy( gc_lean_beam_org, start );
+	VectorSet( end, start[0] + 128.0f, start[1], start[2] + 32.0f );
+	pbeam = R_BeamPoints( start, end, 1, 0.0f, 8.0f, 0.0f,
+		1.0f, 0.0f, 0, 0.0f, 0.35f, 0.55f, 1.0f );
+	if( !pbeam )
+		return false;
+
+	VectorCopy( start, pbeam->source );
+	VectorCopy( end, pbeam->target );
+	VectorSubtract( end, start, pbeam->delta );
+	pbeam->segments = 2;
+	pbeam->width = 8.0f;
+	pbeam->amplitude = 0.0f;
+	pbeam->pFollowModel = spr;
+	pbeam->type = TE_BEAMPOINTS;
+	pbeam->frameCount = spr->numframes > 0 ? spr->numframes : 1;
+	SetBits( pbeam->flags, FBEAM_FOREVER );
+	allocated = true;
+	Con_Reportf( "Xash3D GameCube: G320 beam seeded spr=%s frames=%d d=%.0f follow=1\n",
+		spr->name[0] ? spr->name : "?", spr->numframes,
+		VectorLength( pbeam->delta ) );
+	return true;
 }
 #endif
 

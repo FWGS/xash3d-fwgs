@@ -19,7 +19,7 @@ Ported from Division-Zero-GX/xash3d-wii with libogc GX output for GameCube.
 #include "gamecube/mem_gamecube.h"
 #include "cl_tent.h"
 
-void CL_GCSeedFlipperEfxProof( const float *org );
+qboolean CL_GCSeedFlipperEfxProof( const float *org );
 
 qboolean R_GcmapEnsureSurfaceCache( void );
 qboolean R_TryInitLowResSurfaceCache( void );
@@ -7959,19 +7959,18 @@ static void GC_TryDeferredEfxProof( void )
 {
 #if XASH_GAMECUBE
 	vec3_t org;
-	static qboolean seeded;
+	static qboolean beam_ready;
 
-	if( !gc_newgame_world_ready || seeded )
-		return;
-	/* Prepare (0) or early present backup — probe often SIGINT before 6. */
-	if( gc_present_count != 0 && gc_present_count != 2 )
+	if( !gc_newgame_world_ready || beam_ready )
 		return;
 	if( !Sys_CheckParm( "-gcnewgame" ))
 		return;
+	/* Retry every present until G320 has a textured sprite in nummodels. */
+	if( gc_present_count > 64 )
+		return;
 
 	VectorCopy( refState.vieworg, org );
-	CL_GCSeedFlipperEfxProof( org );
-	seeded = true;
+	beam_ready = CL_GCSeedFlipperEfxProof( org );
 #endif
 }
 
