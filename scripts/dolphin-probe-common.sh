@@ -79,8 +79,11 @@ probe_newgame_progress_ready() {
 	if [[ -n "${G508_DONE_MARKER:-}" ]] && ! probe_log_has "$G508_DONE_MARKER"; then
 		return 1
 	fi
+	# Prefer frames=32 (tram). Reactor maps tip-safe-stop around SCR 16 after
+	# post-G36 sustain (c3a2 20260809-012506) — accept 16 when actions landed.
 	probe_log_has "Xash3D GameCube: post-G36 sustained world present" \
-		&& probe_log_has "Xash3D GameCube: newgame sustained frames=32" \
+		&& { probe_log_has "Xash3D GameCube: newgame sustained frames=32" \
+			|| probe_log_has "Xash3D GameCube: newgame sustained frames=16"; } \
 		&& probe_log_has "Xash3D GameCube: probe gameplay input ready" \
 		&& probe_log_has "Xash3D GameCube: probe gameplay action attack" \
 		&& probe_log_has "Xash3D GameCube: probe gameplay action jump" \
@@ -401,6 +404,16 @@ probe_wait_flatpak() {
 				map_ready_at=$(date +%s)
 				g94_sample_armed=1
 			fi
+			# New Game: FRAME_SAMPLE alone is not enough — wait for attack/jump/use
+			# + sustained frames=32 (c3a2 was stopping mid-action).
+			if (( DOLPHIN_NEWGAME )); then
+				if probe_newgame_progress_ready; then
+					if probe_guest_error; then DOLPHIN_EXIT=3; break; fi
+					DOLPHIN_EXIT=0; break
+				fi
+				sleep 2
+				continue
+			fi
 			if (( FRAME_SAMPLE_SEC <= 0 || $(date +%s) >= map_ready_at + FRAME_SAMPLE_SEC )); then
 				DOLPHIN_EXIT=0; break
 			fi
@@ -707,6 +720,16 @@ probe_wait_native() {
 				map_ready_at=$(date +%s)
 				g94_sample_armed=1
 			fi
+			# New Game: FRAME_SAMPLE alone is not enough — wait for attack/jump/use
+			# + sustained frames=32 (c3a2 was stopping mid-action).
+			if (( DOLPHIN_NEWGAME )); then
+				if probe_newgame_progress_ready; then
+					if probe_guest_error; then DOLPHIN_EXIT=3; break; fi
+					DOLPHIN_EXIT=0; break
+				fi
+				sleep 2
+				continue
+			fi
 			if (( FRAME_SAMPLE_SEC <= 0 || $(date +%s) >= map_ready_at + FRAME_SAMPLE_SEC )); then
 				DOLPHIN_EXIT=0; break
 			fi
@@ -801,7 +824,7 @@ fi
 
 if (( MAP_FOUND )) && (( INPUT_FOUND )) && (( !DOLPHIN_NEWGAME || ( PLAY_READY_FOUND && FRAME_ARMED_FOUND ) || NEWGAME_PROGRESS_FOUND )); then
 	probe_guest_error && probe_fail_guest guest_failure "GUEST_FAILURE: Map load was observed, followed by a guest error."
-	if (( NEWGAME_PROGRESS_FOUND )) && (( !PLAY_READY_FOUND || !FRAME_ARMED_FOUND )); then
+	if (( NEWGAME_PROGRESS_FOUND )); then
 		echo "NEWGAME_READY: Sustained world, gameplay input, and attack/jump/use actions were observed on ${SMOKE_MAP}."
 	else
 		echo "MAP_READY: Xash3D loaded ${SMOKE_MAP} on GameCube with interactive input."

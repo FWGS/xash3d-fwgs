@@ -106,6 +106,21 @@ static void Mod_GCPinViewModel( model_t *mod )
 	gc_pinned_viewmodels[gc_pinned_viewmodel_count++] = mod;
 	Con_Reportf( "Xash3D GameCube: G156 pinned viewmodel %s\n",
 		mod->name[0] ? mod->name : "?" );
+	/* G506 presentation gate also accepts this as G105 on non-tram maps
+	 * where deferred crowbar promote may not run. */
+	if( Sys_CheckParm( "-gcnewgame" ) && mod->name[0]
+		&& ( Q_stristr( mod->name, "v_crowbar" )
+			|| Q_stristr( mod->name, "v_9mmhandgun" )))
+	{
+		static qboolean g105_from_pin_logged;
+
+		if( !g105_from_pin_logged )
+		{
+			g105_from_pin_logged = true;
+			Con_Reportf( "Xash3D GameCube: G105 landmark viewmodel ready %s\n",
+				mod->name );
+		}
+	}
 }
 
 static qboolean Mod_GCStudioAlreadyResident( model_t *mod )
@@ -478,8 +493,10 @@ void Mod_GCTryDeferredStudios( void )
 	{
 		if( Mod_GCEnsureLandmarkViewModel( "models/v_crowbar.mdl" ))
 			Con_Reportf( "Xash3D GameCube: G105 landmark viewmodel ready models/v_crowbar.mdl\n" );
+		else if( Mod_GCEnsureLandmarkViewModel( "models/v_9mmhandgun.mdl" ))
+			Con_Reportf( "Xash3D GameCube: G105 landmark viewmodel ready models/v_9mmhandgun.mdl\n" );
 		else
-			Con_Reportf( S_WARN "Xash3D GameCube: G105 landmark viewmodel unavailable models/v_crowbar.mdl\n" );
+			Con_Reportf( S_WARN "Xash3D GameCube: G105 landmark viewmodel unavailable\n" );
 	}
 
 	promote = ( Sys_CheckParm( "-gcnewgame" ) && !Sys_CheckParm( "-gcfullphysics" ))

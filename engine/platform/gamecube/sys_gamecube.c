@@ -416,6 +416,11 @@ static void GCube_WriteSwissEvidenceLog( qboolean shutting_down )
 
 	if( !shutting_down )
 	{
+#if defined(XASH_GAMECUBE_LIBDVM) && XASH_GAMECUBE_LIBDVM
+		fprintf( f, "Xash3D GameCube: OGC stack=libogc2 fat=libdvm (Swiss)\n" );
+#else
+		fprintf( f, "Xash3D GameCube: OGC stack=libogc fat=libfat\n" );
+#endif
 		for( i = 0; i < sizeof( gc_fat_volume_roots ) / sizeof( gc_fat_volume_roots[0] ); i++ )
 		{
 			const char *root = gc_fat_volume_roots[i];

@@ -10639,10 +10639,25 @@ qboolean GC_PrepareNewGameWorldPresent( void )
 	gc_newgame_world_ready = true;
 	gc_lean_sky_attempts = 0;
 	gc_newgame_g36_done = true;
-	/* G509: arm budget samples before the present pump on the changelevel
-	 * destination. Trailing Host_ServerFrame can hang (audiomm), so samples
-	 * must flush during CapFaces/Render — not after ticks ready. */
-	if( Sys_CheckParm( "-gcchangelevel" ))
+	/* Pure Flipper sets g36_done before ArmPostMapFrameBudgetSamples can run,
+	 * so the light-fill G36 window never opens. Arm Flipper-present samples
+	 * here for every -gcnewgame map (tram + reactor); otherwise harness stays
+	 * at samples=0 / MAP_LOADED_RENDER_UNKNOWN (c3a2 20260809-010537). */
+	if( Sys_CheckParm( "-gcnewgame" )
+		&& !Sys_CheckParm( "-gcfullphysics" )
+		&& !Sys_CheckParm( "-gcsoftworld" ))
+	{
+		gc_budget_sample_count = 0;
+		gc_budget_warmup_left = 0;
+		gc_worst_frame_ms = 0.0;
+		gc_last_present_time = 0.0;
+		gc_budget_probe_active = true;
+		SYS_Report( "Xash3D GameCube: frame budget samples armed after map ready (%dx%d probe=1)\n",
+			gc.width > 0 ? gc.width : 320, gc.height > 0 ? gc.height : 240 );
+	}
+	/* G509: changelevel without -gcnewgame still needs the same arm before
+	 * the present pump (trailing Host_ServerFrame can hang on audiomm). */
+	else if( Sys_CheckParm( "-gcchangelevel" ))
 	{
 		static qboolean gc_cl_budget_armed;
 		char dest[MAX_QPATH];

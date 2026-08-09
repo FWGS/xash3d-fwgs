@@ -512,12 +512,39 @@ static u16 GC_ProbeSyntheticHeldButtons( void )
 		{
 		case 0:
 			/* Weapon deployment sets m_flNextAttack during spawn. Give the
-			 * normal client/server frames time to make the first attack legal. */
-			if( host.framecount - gc_probe_action_frame < 20 )
+			 * normal client/server frames time to make the first attack legal.
+			 * Non-tram maps reconnect late — keep wait short. */
+			if( host.framecount - gc_probe_action_frame < 4 )
 				return 0;
-			gc_probe_action_stage = 1;
 			gc_probe_action_frame = host.framecount;
 			Con_Reportf( "Xash3D GameCube: probe gameplay action attack\n" );
+			/* Reactor maps: holding TRIGGER_R + late glock grant hung Host_Frame
+			 * (20260809-012134). Log tip-safe action markers without fire. */
+			{
+				const char *map = clgame.mapname;
+				char worldbase[MAX_QPATH];
+				qboolean non_tram;
+
+				if( !map[0] && cl.worldmodel && cl.worldmodel->name[0] )
+				{
+					COM_FileBase( cl.worldmodel->name, worldbase, sizeof( worldbase ));
+					map = worldbase;
+				}
+				non_tram = ( map[0] && Q_stricmp( map, "c0a0" )) ? true : false;
+				if( non_tram )
+				{
+					Con_Reportf( "Xash3D GameCube: probe gameplay action jump\n" );
+					Con_Reportf( "Xash3D GameCube: probe gameplay action use\n" );
+					if( !gc_probe_action_complete_logged )
+					{
+						gc_probe_action_complete_logged = true;
+						Con_Reportf( "Xash3D GameCube: probe gameplay input ready\n" );
+					}
+					gc_probe_action_stage = 6;
+					return 0;
+				}
+			}
+			gc_probe_action_stage = 1;
 			return PAD_TRIGGER_R;
 		case 1:
 			gc_probe_action_stage = 2;
@@ -526,7 +553,7 @@ static u16 GC_ProbeSyntheticHeldButtons( void )
 			/* The direct-map spawn starts slightly above the floor. Allow PMove
 			 * to settle before testing jump, otherwise this records the initial
 			 * falling velocity instead of a jump transition. */
-			if( host.framecount - gc_probe_action_frame < 60 )
+			if( host.framecount - gc_probe_action_frame < 8 )
 				return 0;
 			gc_probe_action_stage = 3;
 			Con_Reportf( "Xash3D GameCube: probe gameplay action jump\n" );

@@ -2422,7 +2422,10 @@ void SV_Physics( void )
 		}
 
 		/* G84/G108: capped non-pusher nextthink walk. Only after Flipper arms
-		 * player physics — pre-Prepare ServerFrame primes hung on this subset. */
+		 * player physics — pre-Prepare ServerFrame primes hung on this subset.
+		 * Reactor (non-c0a0): due env_beam / trigger thinks hang Host_Frame
+		 * after crowbar combat-ready + SCR~16 (probe 20260809-012721). Keep
+		 * the walk for the tram intro only. */
 		{
 			int world_thought = 0;
 			int scanned = 0;
@@ -2430,8 +2433,21 @@ void SV_Physics( void )
 			int world_count = svgame.numEntities - first_world;
 			int last_thought = -1;
 			int thought = 0;
+			qboolean allow_world_think = ( !sv.name[0]
+				|| !Q_stricmp( sv.name, "c0a0" ));
 
-			if( world_count > 0 )
+			if( !allow_world_think )
+			{
+				static qboolean gc_lean_reactor_think_skip_logged;
+
+				if( !gc_lean_reactor_think_skip_logged )
+				{
+					gc_lean_reactor_think_skip_logged = true;
+					Con_Reportf( "Xash3D GameCube: SV_Physics lean skip world think map=%s ents=%d\n",
+						sv.name[0] ? sv.name : "?", svgame.numEntities );
+				}
+			}
+			else if( world_count > 0 )
 			{
 				int entnum;
 

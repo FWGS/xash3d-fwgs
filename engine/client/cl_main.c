@@ -87,8 +87,22 @@ static void CL_GameCubeArmLeanPlayActive( void )
 	armed = true;
 	Con_Reportf( "Xash3D GameCube: lean play active armed state=%d signon=%d/%d\n",
 		cls.state, cls.signon, SIGNONS );
-	Con_Reportf( "Xash3D GameCube: play start ready %s\n",
-		clgame.mapname[0] ? clgame.mapname : "c0a0" );
+	{
+		const char *map = clgame.mapname;
+		char worldbase[MAX_QPATH];
+
+		/* Direct-map / reconnect can leave clgame.mapname empty; harness
+		 * matches play start ready <SMOKE_MAP> (c3a2 logged c0a0 fallback). */
+		if( !map[0] && cl.worldmodel && cl.worldmodel->name[0] )
+		{
+			COM_FileBase( cl.worldmodel->name, worldbase, sizeof( worldbase ));
+			map = worldbase;
+		}
+		if( !map[0] && cls.servername[0] )
+			map = cls.servername;
+		Con_Reportf( "Xash3D GameCube: play start ready %s\n",
+			map[0] ? map : "unknown" );
+	}
 }
 #endif
 

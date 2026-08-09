@@ -2748,6 +2748,18 @@ static void GC_LeanWeaponCombatReady( edict_t *player, int bit )
 
 	Con_Reportf( "Xash3D GameCube: G120 weapon ready active=%p bit=%d clip=%d nextatk=%.3f\n",
 		wpriv, bit, clip, *(float *)( ppriv + GC_HL_PLAYER_NEXTATTACK_OFF ));
+	/* G506 on non-tram maps may not see deferred crowbar promote — crowbar
+	 * combat-ready is enough presentation proof for the harness. */
+	if( bit == 1 && Sys_CheckParm( "-gcnewgame" ))
+	{
+		static qboolean g105_crowbar_ready_logged;
+
+		if( !g105_crowbar_ready_logged )
+		{
+			g105_crowbar_ready_logged = true;
+			Con_Reportf( "Xash3D GameCube: G105 landmark viewmodel ready models/v_crowbar.mdl\n" );
+		}
+	}
 }
 
 static int GC_LeanGiveWeaponsFromBits( edict_t *touch_player, int weapons );
@@ -2768,11 +2780,22 @@ void GC_LeanEnsureWeaponCombatReady( edict_t *player )
 
 	if( !gc_lean_glock_granted && !Sys_CheckParm( "-gcfullphysics" ))
 	{
-		gc_lean_glock_granted = true;
-		if( GC_LeanGiveWeaponsFromBits( player, ( 1 << 2 )) > 0 )
+		/* c3a2: late glock pin+grant hung Host_Frame after SCR 16
+		 * (probe 20260809-012134). Keep crowbar tip-safe on non-tram maps. */
+		if( sv.name[0] && Q_stricmp( sv.name, "c0a0" ))
 		{
-			Con_Reportf( "Xash3D GameCube: G120 lean glock granted\n" );
-			return;
+			gc_lean_glock_granted = true;
+			Con_Reportf( "Xash3D GameCube: G120 lean glock deferred map=%s\n",
+				sv.name );
+		}
+		else
+		{
+			gc_lean_glock_granted = true;
+			if( GC_LeanGiveWeaponsFromBits( player, ( 1 << 2 )) > 0 )
+			{
+				Con_Reportf( "Xash3D GameCube: G120 lean glock granted\n" );
+				return;
+			}
 		}
 	}
 

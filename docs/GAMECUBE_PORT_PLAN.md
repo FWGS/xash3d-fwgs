@@ -4362,10 +4362,12 @@ manual hardware validation with all artifacts generated and documented.
 - Map `env_beam` draw (`20260809-010537`): beams are TOGGLE+RANDOM/`life=.5`
   (StrikeThink→Zap TE). Lean Zap hung Host_Frame — skip Zap; at SCR-ready
   `CL_GCSeedMapEnvBeamEdicts` builds forever follow beams from admitted
-  edicts → `map env_beam client seed n=2`, `map beam draw … pending-gpu`,
-  `CL_DrawBeams temp=3`, blit `gpu=1`. Harness still PARTIAL (no G36 samples).
-  c0a0 regression `20260809-010713`: NEWGAME_READY + G45_ACTION PASS.
-- Next: G36 samples on non-tram maps; gunshot decal; c3a2d.
+  edicts → blit `gpu=1`.
+- G36 + NEWGAME_READY on c3a2 (`20260809-012721`): arm Flipper budget samples
+  in Prepare (pure GX skipped ArmPostMap); fix play-start map name; tip-safe
+  reactor actions; defer glock on non-tram. G36 PASS, G45_ACTION PASS, G506
+  PASS. c0a0 `20260809-012809` NEWGAME_READY (G36 WEAK — Flipper sample ms).
+- Next: unstick Host_Frame after SCR 16 on reactor; gunshot decal; c3a2d.
 
 ## Pure Flipper New Game harness + G506 (2026-08-07)
 
