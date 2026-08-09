@@ -153,6 +153,7 @@ gc_boot_phase_t GC_GetBootPhase( void );
 const char *GC_GetBootPhaseName( gc_boot_phase_t phase );
 qboolean GC_BootDrawAllowed( void );
 qboolean GC_IsFrameBudgetProbeActive( void );
+qboolean GC_IsG36SampleFaceCap( void );
 qboolean GC_ShouldUseLightPresent( void );
 void GC_NoteLightPresentFrame( void );
 void GC_FillBudgetProbeFrameBuffer( void );

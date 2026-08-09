@@ -103,9 +103,17 @@ DOLPHIN_WORLD_RENDER="${DOLPHIN_WORLD_RENDER:-0}"
 GC_FATAL_TEST="${GC_FATAL_TEST:-0}"
 GC_PHASE_TEST="${GC_PHASE_TEST:-}"
 DOLPHIN_CHANGELEVEL="${DOLPHIN_CHANGELEVEL:-}"
-# Default tram landmark for the proven G509 hop when unset.
-if [[ -z "${DOLPHIN_LANDMARK:-}" && -n "$DOLPHIN_CHANGELEVEL" && "$SMOKE_MAP" == "c0a0" && "$DOLPHIN_CHANGELEVEL" == "c0a0a" ]]; then
-	DOLPHIN_LANDMARK="c0a0toa"
+# Default landmarks for proven probe hops when unset.
+if [[ -z "${DOLPHIN_LANDMARK:-}" && -n "$DOLPHIN_CHANGELEVEL" ]]; then
+	case "${SMOKE_MAP}:${DOLPHIN_CHANGELEVEL}" in
+		c0a0:c0a0a) DOLPHIN_LANDMARK="c0a0toa" ;;
+		c3a2:c3a2a) DOLPHIN_LANDMARK="c3a2f" ;;
+		c3a2a:c3a2b) DOLPHIN_LANDMARK="c3a2_ab" ;;
+		c3a2b:c3a2c) DOLPHIN_LANDMARK="c3a2_bc" ;;
+		c3a2c:c3a2d) DOLPHIN_LANDMARK="c3a2_cd" ;;
+		c3a2c:c3a2f) DOLPHIN_LANDMARK="c3a2_cf" ;;
+		c3a2:c3a2e) DOLPHIN_LANDMARK="c3a2e" ;;
+	esac
 fi
 GUEST_MARKER="Xash3D GameCube: bootstrap"
 READY_MARKER="Xash3D GameCube: engine subsystems ready"

@@ -205,6 +205,26 @@ probe; then update this status from fresh evidence.
    libogc2+libdvm (needs `dkp-pacman` install with sudo).
 5. Keep physical SD/memory-card fault cases under G38/G66/G71.
 
+
+### Reactor Host_Frame + Lambda Core green — 2026-08-09
+
+- Host_Frame after SCR~16: skip lean world `SV_RunThink` on non-c0a0
+  (probe `20260809-013402`).
+- Lean combat tip-safe: `DecalGunshot` / `TEXTURETYPE_PlaySound` /
+  `UTIL_BubbleTrail` skip hung TE paths; crowbar `FireBulletsPlayer` proven
+  on c3a2 (`20260809-121134`) with SCR frames=32.
+- Probe attack hold: TRIGGER_R held 16 frames so lean FillUsercmd sees IN_ATTACK.
+- Lambda single-map NEWGAME_READY: c3a2, c3a2a–c3a2f, c3a2d (all G36/G45/G506).
+- Lambda changelevel c3a2→c3a2a landmark `c3a2f`: **CHANGELEVEL_READY**
+  (`20260809-123857`) — defer hop post-G36, source Prepare with `-gcchangelevel`,
+  skip non-c0a0 world interaction (trigger→breakable hung). Further hops
+  c3a2a→b→c→d/f also CHANGELEVEL_READY.
+- c0a0 G36 WEAK (~56ms) → PASS: tram-only face/live budget during armed
+  samples (`GC_IsG36SampleFaceCap`); sticky Prepare draw-cap removed (broke
+  c3a2 beams). Proof: c0a0 `20260809-130441` avg=12.75ms; c3a2
+  `20260809-130544` NEWGAME_READY + SCR32 + map beam blit gpu=1.
+- Swiss: evidence writer OGC stack line; fixture ingest COMPLETE (real SD still required).
+
 ## External Blockers
 
 None for the current autonomous milestone.
@@ -214,7 +234,7 @@ it is not the reason the automation should stop today.
 
 ## Last Updated
 
-2026-08-08
+2026-08-09
 
 ### Changelevel continuity validated — 2026-08-04
 
@@ -348,8 +368,8 @@ behavior remains explicitly unverified until hardware testing.
 - Lean combat: probe `20260808-200847` — glock FireBullets +
   `TraceAttack td=0` (world) + ApplyMultiDamage, NEWGAME_READY + G45_ACTION
   PASS. `DecalGunshot` hung; TEXTURETYPE/BubbleTrail/PLAYBACK_EVENT deferred.
-- G320 beams + G36 on reactor: c3a2 `20260809-012721` **NEWGAME_READY** —
-  Flipper budget samples armed in Prepare, map env_beam client seed→blit,
-  G36 PASS, G45_ACTION PASS, G506 PASS, visual nonblack. Zap TE still
-  skipped. c0a0 `20260809-012809` NEWGAME_READY + G45_ACTION PASS (G36 WEAK
-  on Flipper sample cost).
+- G320 beams + G36 on reactor: c3a2 `20260809-012721` / re-proof
+  `20260809-130544` **NEWGAME_READY** — Flipper budget samples, map env_beam
+  client seed→blit, G36 PASS, G45_ACTION PASS, G506 PASS. Zap TE still
+  skipped. c0a0 G36 WEAK fixed via tram-only sample face cap —
+  `20260809-130441` G36 PASS avg=12.75ms.

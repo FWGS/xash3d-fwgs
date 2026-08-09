@@ -1539,18 +1539,29 @@ int EXPORT Host_Main( int argc, char **argv, const char *progname, int bChangeGa
 							char dest[MAX_QPATH];
 							char landmark[MAX_QPATH];
 
-							/* G97–G100: distinctive inventory proves continuity across hop. */
+							/* G97–G100: distinctive inventory proves continuity across hop.
+							 * Tram (c0a0) keeps early COM_ChangeLevel. Reactor maps hang in
+							 * that early hop (c3a2→c3a2a, probe 20260809-122207) — defer to
+							 * post-G36 present (vid_gamecube). */
 							if( Sys_GetParmFromCmdLine( "-gcchangelevel", dest )
 								&& Q_stricmp( dest, sv.name ))
 							{
-								GC_LeanLandmarkProbePlantAmmo();
-								landmark[0] = '\0';
-								if( !Sys_GetParmFromCmdLine( "-gclandmark", landmark ))
+								if( sv.name[0] && Q_stricmp( sv.name, "c0a0" ))
+								{
+									Con_Reportf( "Xash3D GameCube: changelevel defer post-G36 map=%s from=%s\n",
+										dest, sv.name );
+								}
+								else
+								{
+									GC_LeanLandmarkProbePlantAmmo();
 									landmark[0] = '\0';
-								Con_Reportf( "Xash3D GameCube: changelevel begin map=%s from=%s landmark=%s\n",
-									dest, sv.name[0] ? sv.name : "?",
-									landmark[0] ? landmark : "(none)" );
-								COM_ChangeLevel( dest, landmark[0] ? landmark : NULL, false );
+									if( !Sys_GetParmFromCmdLine( "-gclandmark", landmark ))
+										landmark[0] = '\0';
+									Con_Reportf( "Xash3D GameCube: changelevel begin map=%s from=%s landmark=%s\n",
+										dest, sv.name[0] ? sv.name : "?",
+										landmark[0] ? landmark : "(none)" );
+									COM_ChangeLevel( dest, landmark[0] ? landmark : NULL, false );
+								}
 							}
 						}
 					}
@@ -1600,9 +1611,12 @@ int EXPORT Host_Main( int argc, char **argv, const char *progname, int bChangeGa
 #endif
 
 	#if XASH_GAMECUBE
-		/* G68 changelevel samples use -gcnewgame present path; skip smoke panel. */
+		/* Tram G68 early hops skip smoke (COM_ChangeLevel already ran). Reactor
+		 * hops defer post-G36 and still need Prepare on the source map. */
 		if( Sys_CheckParm( "-gcmap" ) && SV_Active()
-			&& !Sys_CheckParm( "-gcchangelevel" ))
+			&& ( !Sys_CheckParm( "-gcchangelevel" )
+				|| ( Sys_CheckParm( "-gcnewgame" ) && sv.name[0]
+					&& Q_stricmp( sv.name, "c0a0" )) ))
 		{
 			qboolean force_status_panel = Sys_CheckParm( "-gcstatuspanel" ) ? true : false;
 

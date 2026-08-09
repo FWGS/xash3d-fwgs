@@ -518,36 +518,18 @@ static u16 GC_ProbeSyntheticHeldButtons( void )
 				return 0;
 			gc_probe_action_frame = host.framecount;
 			Con_Reportf( "Xash3D GameCube: probe gameplay action attack\n" );
-			/* Reactor maps: holding TRIGGER_R + late glock grant hung Host_Frame
-			 * (20260809-012134). Log tip-safe action markers without fire. */
-			{
-				const char *map = clgame.mapname;
-				char worldbase[MAX_QPATH];
-				qboolean non_tram;
-
-				if( !map[0] && cl.worldmodel && cl.worldmodel->name[0] )
-				{
-					COM_FileBase( cl.worldmodel->name, worldbase, sizeof( worldbase ));
-					map = worldbase;
-				}
-				non_tram = ( map[0] && Q_stricmp( map, "c0a0" )) ? true : false;
-				if( non_tram )
-				{
-					Con_Reportf( "Xash3D GameCube: probe gameplay action jump\n" );
-					Con_Reportf( "Xash3D GameCube: probe gameplay action use\n" );
-					if( !gc_probe_action_complete_logged )
-					{
-						gc_probe_action_complete_logged = true;
-						Con_Reportf( "Xash3D GameCube: probe gameplay input ready\n" );
-					}
-					gc_probe_action_stage = 6;
-					return 0;
-				}
-			}
+			/* Reactor: real TRIGGER_R is tip-safe again after world-think skip +
+			 * lean DecalGunshot (20260809-013402). Hold across several polls so
+			 * lean FillUsercmd (armed after warm) sees IN_ATTACK — a one-frame
+			 * pulse was missed on c3a2 (probe 20260809-121001). */
 			gc_probe_action_stage = 1;
 			return PAD_TRIGGER_R;
 		case 1:
+			/* Keep TRIGGER_R held until lean phys can consume it. */
+			if( host.framecount - gc_probe_action_frame < 16 )
+				return PAD_TRIGGER_R;
 			gc_probe_action_stage = 2;
+			gc_probe_action_frame = host.framecount;
 			return 0;
 		case 2:
 			/* The direct-map spawn starts slightly above the floor. Allow PMove

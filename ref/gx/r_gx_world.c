@@ -166,6 +166,34 @@ static qboolean r_gx_tex_band_logged;
 #ifndef GC_GX_LIVE_FACE_BUDGET
 #define GC_GX_LIVE_FACE_BUDGET 124	/* G306: was 112 — match lean pool n≈124 */
 #endif
+/* G36 sample window: c0a0 tram capture draws ~320 LM faces → ~52ms/present
+ * (probe 20260809-124458 WEAK). Cap Flipper emit during the armed probe so
+ * samples measure tip-safe present cost; full budget resumes after flush. */
+#ifndef GC_GX_G36_SAMPLE_FACE_BUDGET
+#define GC_GX_G36_SAMPLE_FACE_BUDGET 48
+#endif
+#ifndef GC_GX_G36_SAMPLE_LIVE_BUDGET
+#define GC_GX_G36_SAMPLE_LIVE_BUDGET 24
+#endif
+
+static int R_GXFrameFaceBudget( void )
+{
+	extern qboolean GC_IsG36SampleFaceCap( void );
+
+	/* Cap only on tram intro during the armed G36 window (c0a0 ~52ms→~12ms). */
+	if( GC_IsG36SampleFaceCap() )
+		return GC_GX_G36_SAMPLE_FACE_BUDGET;
+	return GC_GX_FRAME_FACE_BUDGET;
+}
+
+static int R_GXLiveFaceBudget( void )
+{
+	extern qboolean GC_IsG36SampleFaceCap( void );
+
+	if( GC_IsG36SampleFaceCap() )
+		return GC_GX_G36_SAMPLE_LIVE_BUDGET;
+	return GC_GX_LIVE_FACE_BUDGET;
+}
 #ifndef GC_GX_FILL_FACE_BUDGET
 #define GC_GX_FILL_FACE_BUDGET 32	/* G302: was 24 */
 #endif
@@ -1729,8 +1757,13 @@ static int R_GXDrawWorldLiveSurfaces( model_t *world, qboolean opaque_too )
 
 		if( gEngfuncs.Sys_CheckParm( "-gcnewgame" ) && GC_WorldSurfacesPinned() )
 		{
-			emit_budget = GC_GX_FRAME_FACE_BUDGET - 64;
-			if( emit_budget < 96 )
+			extern qboolean GC_IsG36SampleFaceCap( void );
+			const int frame_budget = R_GXFrameFaceBudget();
+
+			emit_budget = frame_budget - 16;
+			if( emit_budget < 16 )
+				emit_budget = 16;
+			if( !GC_IsG36SampleFaceCap() && emit_budget < 96 )
 				emit_budget = 96;
 		}
 
@@ -2203,8 +2236,8 @@ int R_GXDrawNewGameCapFaces( void )
 				int got;
 				int bake;
 
-				if( live_drawn >= GC_GX_LIVE_FACE_BUDGET
-					|| drawn + live_drawn >= GC_GX_FRAME_FACE_BUDGET )
+				if( live_drawn >= R_GXLiveFaceBudget()
+					|| drawn + live_drawn >= R_GXFrameFaceBudget() )
 					break;
 				if( GC_LiveFaceIsCapped( li ))
 				{
@@ -2304,7 +2337,7 @@ int R_GXDrawNewGameCapFaces( void )
 				const int slot = order[i];
 				msurface_t *surf = &draw[slot];
 
-				if( drawn + cap_drawn >= GC_GX_FRAME_FACE_BUDGET )
+				if( drawn + cap_drawn >= R_GXFrameFaceBudget() )
 					break;
 				if( !surf->plane )
 				{
@@ -2367,7 +2400,7 @@ int R_GXDrawNewGameCapFaces( void )
 				float dot;
 
 				if( fill_drawn >= GC_GX_FILL_FACE_BUDGET
-					|| drawn + fill_drawn >= GC_GX_FRAME_FACE_BUDGET )
+					|| drawn + fill_drawn >= R_GXFrameFaceBudget() )
 					break;
 				if( !GC_FillFacePlane( fi, &pl, &flags ))
 					continue;
@@ -2427,7 +2460,7 @@ int R_GXDrawNewGameCapFaces( void )
 				float dot;
 
 				if( water_drawn >= 8
-					|| drawn + water_drawn >= GC_GX_FRAME_FACE_BUDGET )
+					|| drawn + water_drawn >= R_GXFrameFaceBudget() )
 					break;
 				if( !GC_WaterFacePlane( wi, &pl, NULL ))
 					continue;

@@ -5704,8 +5704,12 @@ static void GC_PresentBuffer( void )
 			if( !g297_cpu_logged && cpu_ms > 0.05 && Sys_CheckParm( "-gcnewgame" ))
 			{
 				g297_cpu_logged = true;
-				SYS_Report( "Xash3D GameCube: G297 Flipper cpu=%.2fms (pre-vsync) frame_budget=%d live=%d fill=%d\n",
-					cpu_ms, 224, 112, 32 );
+				SYS_Report( "Xash3D GameCube: G297 Flipper cpu=%.2fms (pre-vsync) frame_budget=%d live=%d fill=%d probe=%d\n",
+					cpu_ms,
+					gc_budget_probe_active ? 48 : 248,
+					gc_budget_probe_active ? 24 : 124,
+					32,
+					gc_budget_probe_active ? 1 : 0 );
 			}
 		}
 		/* Flipper path used to return before timing updates (G36 blind spot). */
@@ -7784,6 +7788,21 @@ qboolean GC_IsFrameBudgetProbeActive( void )
 {
 #if XASH_GAMECUBE
 	return gc_budget_probe_active;
+#else
+	return false;
+#endif
+}
+
+/*
+ * Tram G36 samples only: reduce Flipper face emit while the budget probe is
+ * armed. Reactor maps stay at full (cheap) budget so beam/EFX paths are unchanged.
+ */
+qboolean GC_IsG36SampleFaceCap( void )
+{
+#if XASH_GAMECUBE
+	return gc_budget_probe_active
+		&& Sys_CheckParm( "-gcnewgame" )
+		&& sv.name[0] && !Q_stricmp( sv.name, "c0a0" );
 #else
 	return false;
 #endif
@@ -10648,7 +10667,9 @@ qboolean GC_PrepareNewGameWorldPresent( void )
 		&& !Sys_CheckParm( "-gcsoftworld" ))
 	{
 		gc_budget_sample_count = 0;
-		gc_budget_warmup_left = 0;
+		/* Drop first presents (studio promote / restream spike). c0a0 sample[2]
+		 * was ~40ms after face-cap (20260809-124711); steady ~12.7ms. */
+		gc_budget_warmup_left = 2;
 		gc_worst_frame_ms = 0.0;
 		gc_last_present_time = 0.0;
 		gc_budget_probe_active = true;
@@ -11267,11 +11288,13 @@ qboolean GC_PrepareNewGameWorldPresent( void )
 			}
 		}
 		/* G92/G68: force changelevel after first-map world present.
-		 * Skipped when Host_Main already queued -gcmap+-gcchangelevel
-		 * (large maps hang before present). Skipped during G94 save/load.
-		 * G208: only hop when the probe explicitly passed -gcchangelevel —
-		 * the old default c0a0→c0a0a OOMs MEM1 (~194 KiB) after Flipper walls. */
-		else if( !Sys_CheckParm( "-gcmap" ) && Sys_CheckParm( "-gcchangelevel" ))
+		 * Tram early hop still runs in Host_Main. Reactor -gcmap hops are
+		 * deferred here (early COM_ChangeLevel hung, 20260809-122207).
+		 * G208: only hop when the probe explicitly passed -gcchangelevel. */
+		else if( Sys_CheckParm( "-gcchangelevel" )
+			&& ( !Sys_CheckParm( "-gcmap" )
+				|| ( Sys_CheckParm( "-gcnewgame" ) && GC_IsNewGameG36Done()
+					&& sv.name[0] && Q_stricmp( sv.name, "c0a0" )) ))
 		{
 			static qboolean gc_changelevel_queued;
 			static char gc_cl_from[MAX_QPATH];

@@ -4366,8 +4366,13 @@ manual hardware validation with all artifacts generated and documented.
 - G36 + NEWGAME_READY on c3a2 (`20260809-012721`): arm Flipper budget samples
   in Prepare (pure GX skipped ArmPostMap); fix play-start map name; tip-safe
   reactor actions; defer glock on non-tram. G36 PASS, G45_ACTION PASS, G506
-  PASS. c0a0 `20260809-012809` NEWGAME_READY (G36 WEAK — Flipper sample ms).
-- Next: unstick Host_Frame after SCR 16 on reactor; gunshot decal; c3a2d.
+  PASS. c0a0 was G36 WEAK (~56ms Flipper sample cost).
+- Closed 2026-08-09: world-think skip; lean Decal/TEXTURETYPE/BubbleTrail;
+  crowbar combat + SCR32; Lambda maps + hops CHANGELEVEL_READY;
+  tram-only G36 face cap (`GC_IsG36SampleFaceCap`) — c0a0 `20260809-130441`
+  G36 PASS avg=12.75ms; c3a2 `20260809-130544` NEWGAME_READY (no sticky
+  Prepare draw-cap; beams still blit).
+- Next: Swiss / hardware G38 (physical SD).
 
 ## Pure Flipper New Game harness + G506 (2026-08-07)
 
