@@ -116,6 +116,8 @@ void SDLash_Init( void )
 	SDL_SetHint( SDL_HINT_MOUSE_TOUCH_EVENTS, "0" );
 	SDL_SetHint( SDL_HINT_TOUCH_MOUSE_EVENTS, "0" );
 
+	SDL_SetHint( SDL_HINT_MOUSE_RELATIVE_SYSTEM_SCALE, "0" );
+
 	SDLash_InitCursors();
 }
 

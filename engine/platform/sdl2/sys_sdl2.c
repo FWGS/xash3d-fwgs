@@ -143,6 +143,10 @@ void SDLash_Init( void )
 #endif // SDL_HINT_MOUSE_TOUCH_EVENTS
 	SDL_SetHint( SDL_HINT_TOUCH_MOUSE_EVENTS, "0" );
 
+#ifdef SDL_HINT_MOUSE_RELATIVE_SCALING
+	SDL_SetHint( SDL_HINT_MOUSE_RELATIVE_SCALING, "0" );
+#endif // SDL_HINT_MOUSE_RELATIVE_SCALING
+
 	// NOTE: setting this hint makes no sense, as of course
 	// it doesn't make warps magically work in normal, non-relative mode
 	// there is pointer_warp_v1 extension but it's only implemented in SDL3
