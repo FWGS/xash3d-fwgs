@@ -912,6 +912,7 @@ qboolean GC_FillNewGameMoveUsercmd( usercmd_t *cmd, const float *cur_angles )
 	static qboolean gc_move_begin_logged;
 	int port;
 	float stick_x, stick_y, cstick_x, cstick_y;
+	u16 held = 0;
 
 	if( !cmd || !cur_angles )
 		return false;
@@ -923,23 +924,36 @@ qboolean GC_FillNewGameMoveUsercmd( usercmd_t *cmd, const float *cur_angles )
 	cmd->msec = 50;
 
 	port = ( gc_active_port >= 0 ) ? gc_active_port : GC_PAD_PREFERRED;
+	if( port >= 0 && port < PAD_CHANMAX )
+		held = gc_pad[port].button;
+	/* Lean phys reads pev->button from this cmd (no SV_RunCmd). Map pad. */
+	if( held & PAD_TRIGGER_R )
+		cmd->buttons |= IN_ATTACK;
+	if( held & PAD_BUTTON_Y )
+		cmd->buttons |= IN_JUMP;
+	if( held & PAD_BUTTON_A )
+		cmd->buttons |= IN_USE;
+	if( held & PAD_TRIGGER_L )
+		cmd->buttons |= IN_DUCK;
 
 	if( gc_probe_synthetic || !gc_connected )
 	{
 		/* Synthetic: walk forward and yaw for a few post-G36 ticks. */
-		if( gc_move_inject_frames >= 8 )
-			return false;
-
-		if( !gc_move_begin_logged )
+		if( gc_move_inject_frames < 8 )
 		{
-			gc_move_begin_logged = true;
-			Con_Reportf( "Xash3D GameCube: probe gameplay move/look begin\n" );
-		}
+			if( !gc_move_begin_logged )
+			{
+				gc_move_begin_logged = true;
+				Con_Reportf( "Xash3D GameCube: probe gameplay move/look begin\n" );
+			}
 
-		cmd->forwardmove = 200.0f;
-		cmd->viewangles[YAW] = anglemod( cur_angles[YAW] + 12.0f );
-		gc_move_inject_frames++;
-		return true;
+			cmd->forwardmove = 200.0f;
+			cmd->viewangles[YAW] = anglemod( cur_angles[YAW] + 12.0f );
+			gc_move_inject_frames++;
+			return true;
+		}
+		/* After walk inject, still deliver attack/jump/use for lean combat. */
+		return cmd->buttons != 0;
 	}
 
 	if( port < 0 || port >= PAD_CHANMAX )
@@ -950,7 +964,8 @@ qboolean GC_FillNewGameMoveUsercmd( usercmd_t *cmd, const float *cur_angles )
 	cstick_x = (float)GC_ApplyStickDeadzone( gc_pad[port].substickX ) / GC_STICK_RANGE;
 	cstick_y = (float)GC_ApplyStickDeadzone( -gc_pad[port].substickY ) / GC_STICK_RANGE;
 
-	if( stick_x == 0.0f && stick_y == 0.0f && cstick_x == 0.0f && cstick_y == 0.0f )
+	if( stick_x == 0.0f && stick_y == 0.0f && cstick_x == 0.0f && cstick_y == 0.0f
+		&& cmd->buttons == 0 )
 		return false;
 
 	cmd->forwardmove = stick_y * 200.0f;

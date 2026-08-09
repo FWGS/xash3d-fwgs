@@ -97,10 +97,16 @@ static void SV_AddEntitiesToPacket( edict_t *pViewEnt, edict_t *pClient, client_
 		int		e;
 		int		player_e = NUM_FOR_EDICT( pClient );
 		qboolean	post_g36 = GC_IsNewGameG36Done();
-		/* Lean post-G36: player-only pack (G87). Fullphysics keeps G319 studios. */
+		/* Lean post-G36: after Flipper arms, pack a few *submodel brushes
+		 * (tram/doors/buttons share *N models). Classname string compares
+		 * for door admit hung WriteEntities even when unused — keep this
+		 * path to precache[0]=='*' only. Fullphysics keeps G319 studios. */
 		qboolean	lean_player_only = post_g36
 			&& !Sys_CheckParm( "-gcfullphysics" );
+		qboolean	lean_brush_pack = lean_player_only
+			&& GC_IsLeanPlayerPhysicsArmed();
 		int		brush_budget = post_g36 ? 6 : 64;
+		int		lean_brush_budget = 2;
 		int		brush_added = 0;
 		int		studio_added = 0;
 		vec3_t		view_org;
@@ -128,10 +134,23 @@ static void SV_AddEntitiesToPacket( edict_t *pViewEnt, edict_t *pClient, client_
 				if( e != player_e )
 					continue; /* single-player: only the local client */
 			}
+			else if( lean_player_only )
+			{
+				const char *precache;
+
+				if( !lean_brush_pack || brush_added >= lean_brush_budget )
+					continue;
+				if( !ent->v.modelindex || FBitSet( ent->v.effects, EF_NODRAW ))
+					continue;
+				if( ent->v.modelindex <= 0 || ent->v.modelindex >= MAX_MODELS )
+					continue;
+				precache = sv.model_precache[ent->v.modelindex];
+				if( !precache || precache[0] != '*' )
+					continue;
+				brush_added++;
+			}
 			else
 			{
-				if( lean_player_only )
-					continue;
 				if( !ent->v.modelindex )
 					continue;
 				if( FBitSet( ent->v.effects, EF_NODRAW ))
@@ -141,8 +160,6 @@ static void SV_AddEntitiesToPacket( edict_t *pViewEnt, edict_t *pClient, client_
 					mod = SV_ModelHandle( ent->v.modelindex );
 					if( !mod )
 					{
-						/* G319: fullphysics may lack a server-side model handle;
-						 * preserve studio ents via precache. */
 						if( ent->v.modelindex <= 1
 							|| !sv.model_precache[ent->v.modelindex][0]
 							|| !Q_stristr( sv.model_precache[ent->v.modelindex], ".mdl" ))
@@ -161,9 +178,6 @@ static void SV_AddEntitiesToPacket( edict_t *pViewEnt, edict_t *pClient, client_
 					}
 					else
 					{
-						/* G277: Flipper draws the tram from its server edict;
-						 * do not spend the packet budget on brush movers after
-						 * the world is prepared. Studio NPCs remain networked. */
 						if( post_g36 )
 							continue;
 						if( brush_added >= brush_budget )
@@ -214,7 +228,8 @@ static void SV_AddEntitiesToPacket( edict_t *pViewEnt, edict_t *pClient, client_
 		{
 			static qboolean gc_g319_logged;
 
-			if( !gc_g319_logged )
+			if( !gc_g319_logged
+				&& ( !lean_player_only || lean_brush_pack ))
 			{
 				gc_g319_logged = true;
 				Con_Reportf( "Xash3D GameCube: G319 server packet entities=%d studios=%d brushes=%d lean_player_only=%d\n",

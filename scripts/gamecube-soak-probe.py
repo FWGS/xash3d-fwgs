@@ -39,6 +39,10 @@ LOG_RE = re.compile(r"^Logs:\s*(?P<path>.+)$", re.MULTILINE)
 
 # Default G509 continuity route: early tram hop already proven on Dolphin.
 DEFAULT_CHANGELEVEL_ROUTE = "c0a0:c0a0a"
+# Known landmark names for G97–G100 (soak sets DOLPHIN_LANDMARK when unset).
+DEFAULT_CHANGELEVEL_LANDMARKS = {
+	"c0a0:c0a0a": "c0a0toa",
+}
 
 
 @dataclass
@@ -531,6 +535,13 @@ def main(argv: list[str] | None = None) -> int:
 		if mode == "changelevel":
 			env["DOLPHIN_CHANGELEVEL"] = changelevel_to
 			env["DOLPHIN_NEWGAME"] = env.get("DOLPHIN_NEWGAME", "1")
+			route_key = f"{map_name}:{changelevel_to}"
+			if not env.get("DOLPHIN_LANDMARK"):
+				landmark = DEFAULT_CHANGELEVEL_LANDMARKS.get(route_key) or DEFAULT_CHANGELEVEL_LANDMARKS.get(
+					args.changelevel_route or ""
+				)
+				if landmark:
+					env["DOLPHIN_LANDMARK"] = landmark
 		command = ["scripts/dolphin-boot-probe.sh"]
 		before = time.monotonic()
 		proc = subprocess.run(command, cwd=root, env=env, text=True, capture_output=True, check=False)

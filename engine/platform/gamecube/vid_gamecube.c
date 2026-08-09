@@ -5994,8 +5994,12 @@ static void GC_PresentBuffer( void )
 		/* gcmap/gcworldrender probes intentionally pace presents while the real
 		 * renderer cost is reported inside R_RenderScene. Avoid flagging those
 		 * waits as slow frame bugs, but keep the warning for normal gameplay. */
+#if 0 /* DOL reclaim: slow-frame string (budget still tracked) */
 		if( elapsed_ms >= 33.0 )
 			SYS_Report( "Xash3D GameCube: G49 slow frame %.2fms worst=%.2fms\n", elapsed_ms, gc_worst_frame_ms );
+#else
+		(void)elapsed_ms;
+#endif
 		gc_last_present_time = now;
 	}
 	else
@@ -7468,6 +7472,12 @@ void GC_DrawLoadingStatus( const char *message, const char *details )
 
 void GC_RunGcmapSmokeFrames( const char *mapname, int count )
 {
+#ifndef XASH_GAMECUBE_ENABLE_GCMAP_PROBES
+	/* DOL reclaim: -gcmap smoke unused on lean -gcnewgame / Swiss path.
+	 * Rebuild with -DXASH_GAMECUBE_ENABLE_GCMAP_PROBES to restore. */
+	(void)mapname;
+	(void)count;
+#else
 #if XASH_GAMECUBE
 	char details[64];
 	int i;
@@ -7552,10 +7562,15 @@ void GC_RunGcmapSmokeFrames( const char *mapname, int count )
 	(void)mapname;
 	(void)count;
 #endif
+#endif /* XASH_GAMECUBE_ENABLE_GCMAP_PROBES */
 }
 
 qboolean GC_AttemptGcmapWorldRender( int count )
 {
+#ifndef XASH_GAMECUBE_ENABLE_GCMAP_PROBES
+	(void)count;
+	return false;
+#else
 #if XASH_GAMECUBE
 	ref_viewpass_t rvp;
 	model_t *world;
@@ -7682,6 +7697,7 @@ qboolean GC_AttemptGcmapWorldRender( int count )
 
 	(void)count;
 	return false;
+#endif /* XASH_GAMECUBE_ENABLE_GCMAP_PROBES */
 }
 
 /*
@@ -10544,13 +10560,17 @@ void GC_PresentLandmarkViewModel( void )
 static qboolean GC_WantSoftDumpLatch( void )
 {
 	/* Soft DumpFrames latch is Dolphin diagnostic only. Retail / native
-	 * Flipper boots enable live GX immediately after Prepare. */
+	 * Flipper boots enable live GX immediately after Prepare.
+	 * Do not arm solely for -gcchangelevel: G509 lean hops hang in the
+	 * post-G195 Host_ServerFrame pair (probe 20260808-063742) and never
+	 * reach post-G36 ticks / frame-budget arming. Use -gcdumpframes when
+	 * DumpFrames PNG evidence is explicitly required. */
 	if( Sys_CheckParm( "-gcsoftworld" ))
 		return false;
 	if( !GC_IsCaptureDiagnostics() )
 		return false;
-	return ( Sys_CheckParm( "-gcdumpframes" ) || Sys_CheckParm( "-gcdump" )
-		|| Sys_CheckParm( "-gcchangelevel" )) ? true : false;
+	return ( Sys_CheckParm( "-gcdumpframes" ) || Sys_CheckParm( "-gcdump" ))
+		? true : false;
 }
 
 qboolean GC_PrepareNewGameWorldPresent( void )
@@ -10620,6 +10640,28 @@ qboolean GC_PrepareNewGameWorldPresent( void )
 	gc_newgame_world_ready = true;
 	gc_lean_sky_attempts = 0;
 	gc_newgame_g36_done = true;
+	/* G509: arm budget samples before the present pump on the changelevel
+	 * destination. Trailing Host_ServerFrame can hang (audiomm), so samples
+	 * must flush during CapFaces/Render — not after ticks ready. */
+	if( Sys_CheckParm( "-gcchangelevel" ))
+	{
+		static qboolean gc_cl_budget_armed;
+		char dest[MAX_QPATH];
+
+		if( !gc_cl_budget_armed
+			&& Sys_GetParmFromCmdLine( "-gcchangelevel", dest )
+			&& dest[0] && !Q_stricmp( sv.name, dest ))
+		{
+			gc_cl_budget_armed = true;
+			gc_budget_sample_count = 0;
+			gc_budget_warmup_left = 0;
+			gc_worst_frame_ms = 0.0;
+			gc_last_present_time = 0.0;
+			gc_budget_probe_active = true;
+			SYS_Report( "Xash3D GameCube: frame budget samples armed after map ready (%dx%d probe=1)\n",
+				gc.width > 0 ? gc.width : 320, gc.height > 0 ? gc.height : 240 );
+		}
+	}
 	/* G300: BSS procedural sky needs no ImageLib heap — install at prepare so
 	 * Flipper outdoor backdrop is ready before present-log truncation. BMP
 	 * soft-fail still falls through to *gc_sky_proc. */
@@ -11105,8 +11147,22 @@ qboolean GC_PrepareNewGameWorldPresent( void )
 		}
 		} /* GC_WantSoftDumpLatch else */
 
-		for( i = 0; i < 2; i++ )
-			Host_ServerFrame();
+		/* Destination map already ran pre-present primes; a trailing pair can
+		 * hang in multi_manager/audiomm (soak iter flake 20260808-070538). */
+		{
+			char dest[MAX_QPATH];
+			qboolean skip_post_ticks = false;
+
+			if( Sys_CheckParm( "-gcchangelevel" )
+				&& Sys_GetParmFromCmdLine( "-gcchangelevel", dest )
+				&& dest[0] && !Q_stricmp( sv.name, dest ))
+				skip_post_ticks = true;
+			if( !skip_post_ticks )
+			{
+				for( i = 0; i < 2; i++ )
+					Host_ServerFrame();
+			}
+		}
 		Con_Reportf( "Xash3D GameCube: post-G36 ticks ready\n" );
 
 		/* G94: skip gameplay SFX — SoundLib alloc can fatal under MEM1 before
@@ -11115,8 +11171,9 @@ qboolean GC_PrepareNewGameWorldPresent( void )
 			GC_PlayNewGameGameplaySound();
 
 		/* G508: Dolphin-designated writable config round trip (gcprobe RAM bank
-		 * or real SD). Uses Host_WriteConfig's .new/.bak dance when the client
-		 * DLL is loaded; otherwise writes a lean marker config.cfg. */
+		 * or real SD). Persistent SD uses Host_WriteConfig; gcprobe uses a lean
+		 * marker write (full archive can OOM MEM1 late in New Game, and a failed
+		 * FS_FileExists falls through to a hanging DVD FS_FindFile). */
 		if( Sys_CheckParm( "-gcconfigroundtrip" ))
 		{
 			static qboolean gc_config_rt_queued;
@@ -11130,7 +11187,7 @@ qboolean GC_PrepareNewGameWorldPresent( void )
 				gc_config_rt_queued = true;
 				route = GCube_HasPersistentWritableStorage() ? "sd" : "gcprobe";
 				SYS_Report( "Xash3D GameCube: G508 config round trip begin route=%s\n", route );
-				if( clgame.hInstance && !Sys_CheckParm( "-nowriteconfig" ))
+				if( !Q_stricmp( route, "sd" ) && clgame.hInstance && !Sys_CheckParm( "-nowriteconfig" ))
 					Host_WriteConfig();
 				else
 				{
@@ -11142,23 +11199,19 @@ qboolean GC_PrepareNewGameWorldPresent( void )
 						FS_Close( cfg );
 					}
 				}
-				if( !FS_FileExists( "config.cfg", false ))
+				/* Read-back proves the bank; avoid FS_FileExists → DVD scan. */
+				cfg = FS_Open( "config.cfg", "r", false );
+				n = cfg ? (int)FS_Read( cfg, sample, sizeof( sample ) - 1 ) : 0;
+				if( cfg )
+					FS_Close( cfg );
+				if( n <= 0 )
 					SYS_Report( "Xash3D GameCube: G508 config write failed route=%s\n", route );
 				else
 				{
+					sample[n] = '\0';
 					SYS_Report( "Xash3D GameCube: G508 config write ready route=%s\n", route );
-					cfg = FS_Open( "config.cfg", "r", false );
-					n = cfg ? (int)FS_Read( cfg, sample, sizeof( sample ) - 1 ) : 0;
-					if( cfg )
-						FS_Close( cfg );
-					if( n > 0 )
-					{
-						sample[n] = '\0';
-						SYS_Report( "Xash3D GameCube: G508 config read ready bytes=%d route=%s\n", n, route );
-						SYS_Report( "Xash3D GameCube: G508 config round trip ready route=%s\n", route );
-					}
-					else
-						SYS_Report( "Xash3D GameCube: G508 config read failed route=%s\n", route );
+					SYS_Report( "Xash3D GameCube: G508 config read ready bytes=%d route=%s\n", n, route );
+					SYS_Report( "Xash3D GameCube: G508 config round trip ready route=%s\n", route );
 				}
 			}
 		}

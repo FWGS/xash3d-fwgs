@@ -377,7 +377,9 @@ qboolean V_PreRender( void )
 			double load_elapsed = host.realtime - cls.disable_screen;
 			if( load_elapsed >= 2.0 && !gc_loading_feedback_logged )
 			{
+#if 0 /* DOL reclaim */
 				Con_Reportf( "Xash3D GameCube: G49 loading feedback elapsed=%.2f threshold=2.0\n", load_elapsed );
+#endif
 				gc_loading_feedback_logged = true;
 			}
 			if( load_elapsed < 2.0 )

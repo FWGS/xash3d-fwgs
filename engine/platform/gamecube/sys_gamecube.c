@@ -366,6 +366,7 @@ void GCube_EnsureWritableLayout( void )
 	char base[MAX_SYSPATH];
 	char valve[MAX_SYSPATH];
 	char save[MAX_SYSPATH];
+	char logs[MAX_SYSPATH];
 
 	if( !GCube_GetWritablePath( base, sizeof( base )))
 		return;
@@ -382,12 +383,56 @@ void GCube_EnsureWritableLayout( void )
 	GCube_MkdirIgnoreExists( valve );
 	Q_snprintf( save, sizeof( save ), "%s/valve/save", base );
 	GCube_MkdirIgnoreExists( save );
+	Q_snprintf( logs, sizeof( logs ), "%s/valve/logs", base );
+	GCube_MkdirIgnoreExists( logs );
 
 	/* G32: Ensure standard Half-Life save slots directory exists.
 	 * The engine uses 'valve/save' for autosaves and 'valve/save/<mapname>'
 	 * for manual saves in some builds, but standard HL uses 'valve/save'
 	 * directly for .sav files. We ensure the base is ready. */
 
+}
+
+/*
+ * Mirror Swiss --require-swiss markers onto FAT so operators can copy
+ * xash3d/valve/logs/swiss-evidence.txt without a live OSReport capture.
+ * Disc-only Dolphin has no FAT root — this is a no-op there.
+ */
+static void GCube_WriteSwissEvidenceLog( qboolean shutting_down )
+{
+	char path[MAX_SYSPATH];
+	FILE *f;
+	size_t i;
+	int mounted = 0;
+
+	if( !GCube_FatRootReady() )
+		return;
+
+	Q_snprintf( path, sizeof( path ), "%s%s/valve/logs/swiss-evidence.txt",
+		gc_fat_write_root, GC_DATA_PATH );
+	f = fopen( path, shutting_down ? "a" : "w" );
+	if( !f )
+		return;
+
+	if( !shutting_down )
+	{
+		for( i = 0; i < sizeof( gc_fat_volume_roots ) / sizeof( gc_fat_volume_roots[0] ); i++ )
+		{
+			const char *root = gc_fat_volume_roots[i];
+			if( !GCube_PathAccessible( root ))
+				continue;
+			mounted++;
+			fprintf( f, "Xash3D GameCube: FAT volume ready %s\n", root );
+		}
+		fprintf( f, "Xash3D GameCube: FAT preferred volume %s (count=%d)\n",
+			gc_fat_write_root, mounted );
+	}
+	else
+	{
+		fprintf( f, "Xash3D GameCube: FAT shutdown (return to Swiss loader via exit stub)\n" );
+	}
+	fflush( f );
+	fclose( f );
 }
 
 void GCube_Init( void )
@@ -432,6 +477,7 @@ void GCube_Init( void )
 	if( GCube_GetWritablePath( writepath, sizeof( writepath )))
 	{
 		GCube_EnsureWritableLayout();
+		GCube_WriteSwissEvidenceLog( false );
 		Con_Reportf( "Xash3D GameCube: writable storage %s\n", writepath );
 	}
 
@@ -854,6 +900,8 @@ void GCube_Shutdown( void )
 	 * Classic libfat ignores unknown names. Prefer fatDeinit when available. */
 	if( gc_fat_mounted )
 	{
+		/* Persist shutdown marker before unmount so SD copy satisfies Swiss gate. */
+		GCube_WriteSwissEvidenceLog( true );
 #if defined(XASH_GAMECUBE_LIBDVM) && XASH_GAMECUBE_LIBDVM
 		fatDeinit();
 #else

@@ -1315,7 +1315,7 @@ int EXPORT Host_Main( int argc, char **argv, const char *progname, int bChangeGa
 	Cvar_RegisterVariable( &sv_background );
 	Cvar_RegisterVariable( &cl_background );
 
-#if XASH_GAMECUBE
+#if XASH_GAMECUBE && 0 /* DOL reclaim: G49 boot strings (budget still enforced) */
 	Con_Reportf( "Xash3D GameCube: G49 release target frame budget 16.67ms maxfps=%g capped=%g\n",
 		host_maxfps.value, bound( MIN_FPS, host_maxfps.value ? host_maxfps.value : 60.0, 60.0 ));
 	Con_Reportf( "Xash3D GameCube: G49 timing independence host.frametime = host.realtime - oldtime; bound( MIN_FRAMETIME, host.frametime, MAX_FRAMETIME )\n" );

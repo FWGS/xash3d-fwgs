@@ -103,6 +103,10 @@ DOLPHIN_WORLD_RENDER="${DOLPHIN_WORLD_RENDER:-0}"
 GC_FATAL_TEST="${GC_FATAL_TEST:-0}"
 GC_PHASE_TEST="${GC_PHASE_TEST:-}"
 DOLPHIN_CHANGELEVEL="${DOLPHIN_CHANGELEVEL:-}"
+# Default tram landmark for the proven G509 hop when unset.
+if [[ -z "${DOLPHIN_LANDMARK:-}" && -n "$DOLPHIN_CHANGELEVEL" && "$SMOKE_MAP" == "c0a0" && "$DOLPHIN_CHANGELEVEL" == "c0a0a" ]]; then
+	DOLPHIN_LANDMARK="c0a0toa"
+fi
 GUEST_MARKER="Xash3D GameCube: bootstrap"
 READY_MARKER="Xash3D GameCube: engine subsystems ready"
 RETAIL_MENU_MARKER="Xash3D GameCube: retail menu steam background ready"
@@ -326,6 +330,10 @@ if [[ -n "$GC_PHASE_TEST" ]]; then
 fi
 if [[ -n "$DOLPHIN_CHANGELEVEL" ]]; then
 	GUEST_ARGS+=("-gcchangelevel" "$DOLPHIN_CHANGELEVEL")
+	if [[ -n "${DOLPHIN_LANDMARK:-}" ]]; then
+		GUEST_ARGS+=("-gclandmark" "$DOLPHIN_LANDMARK")
+		echo "==> G100 landmark guest arg (-gclandmark ${DOLPHIN_LANDMARK})"
+	fi
 	G68_DONE_MARKER="Xash3D GameCube: G68 changelevel ready from=${SMOKE_MAP} to=${DOLPHIN_CHANGELEVEL}"
 	FRAME_SAMPLE_SEC="${DOLPHIN_FRAME_SAMPLE_SEC:-8}"
 	echo "==> Waiting for G68 changelevel ready ${SMOKE_MAP}→${DOLPHIN_CHANGELEVEL}"

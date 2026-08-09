@@ -5,9 +5,9 @@ Copyright (C) 2026 xash3d-gc contributors
 When Dolphin boots without SD, GCube_HasWritableStorage is false and save is
 skipped. -gcnewsaveload enables a small in-memory file bank so the same
 SV_SaveGame / SV_LoadGame / G46 confirm path can round-trip on disc-only probes.
--gcconfigroundtrip extends the same bank to config.cfg (.new/.bak) so Host_WriteConfig
-can prove a Dolphin-designated writable route without real SD Gecko hardware.
-Hardware/SD continues to use real fat:/sd: storage (G28/G71/G508).
+-gcconfigroundtrip extends the same bank to config.cfg (.new/.bak). Config-only
+probes use a 12KB static bank (no late MEM1 malloc); G94 save/load still mallocs
+160KB. Hardware/SD continues to use real fat:/sd: storage (G28/G71/G508).
 */
 #include "build.h"
 
@@ -23,7 +23,8 @@ Hardware/SD continues to use real fat:/sd: storage (G28/G71/G508).
 extern int Sys_CheckParm( const char *parm );
 
 #define GC_PROBE_SAVE_FD      (-9001)
-#define GC_PROBE_SAVE_CAP     (160 * 1024)
+#define GC_PROBE_SAVE_CAP     (160 * 1024) /* G94 save/load blobs */
+#define GC_PROBE_CONFIG_CAP   (12 * 1024)  /* G508 config-only (no malloc) */
 #define GC_PROBE_SAVE_FILES   12
 #define GC_PROBE_SAVE_NAMESZ  96
 
@@ -42,7 +43,9 @@ typedef struct gc_probe_save_open_s
 	qboolean writing;
 } gc_probe_save_open_t;
 
+static byte gc_probe_config_static[GC_PROBE_CONFIG_CAP];
 static byte *gc_probe_save_blob;
+static size_t gc_probe_save_cap;
 static size_t gc_probe_save_used;
 static gc_probe_save_file_t gc_probe_save_files[GC_PROBE_SAVE_FILES];
 static int gc_probe_save_nfiles;
@@ -51,10 +54,25 @@ static int gc_probe_save_nopens;
 static qboolean gc_probe_save_logged;
 static qboolean gc_probe_opens_inited;
 
+/* G508-only probes must not malloc(160KB) after New Game MEM1 is tight
+ * (probe 20260808-061142: alloc failed → FS_FileExists DVD scan hang). */
+static qboolean GC_ProbeSaveConfigOnly( void )
+{
+	return Sys_CheckParm( "-gcconfigroundtrip" ) != 0
+		&& Sys_CheckParm( "-gcnewsaveload" ) == 0;
+}
+
 static qboolean GC_ProbeSaveEnsureBlob( void )
 {
 	if( gc_probe_save_blob )
 		return true;
+	if( GC_ProbeSaveConfigOnly())
+	{
+		gc_probe_save_blob = gc_probe_config_static;
+		gc_probe_save_cap = GC_PROBE_CONFIG_CAP;
+		memset( gc_probe_config_static, 0, sizeof( gc_probe_config_static ));
+		return true;
+	}
 	gc_probe_save_blob = (byte *)malloc( GC_PROBE_SAVE_CAP );
 	if( !gc_probe_save_blob )
 	{
@@ -62,6 +80,7 @@ static qboolean GC_ProbeSaveEnsureBlob( void )
 			GC_PROBE_SAVE_CAP / 1024 );
 		return false;
 	}
+	gc_probe_save_cap = GC_PROBE_SAVE_CAP;
 	memset( gc_probe_save_blob, 0, GC_PROBE_SAVE_CAP );
 	return true;
 }
@@ -278,7 +297,7 @@ fs_offset_t GC_ProbeSaveWrite( file_t *file, const void *data, size_t datasize )
 		ent->offset = gc_probe_save_used;
 
 	end = ent->offset + (size_t)gc_probe_save_opens[oi].pos + datasize;
-	if( end > GC_PROBE_SAVE_CAP )
+	if( !gc_probe_save_cap || end > gc_probe_save_cap )
 	{
 		Con_Reportf( S_ERROR "Xash3D GameCube: G94 probe save bank full (%s)\n", ent->name );
 		return 0;

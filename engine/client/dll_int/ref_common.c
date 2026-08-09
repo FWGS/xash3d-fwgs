@@ -428,12 +428,14 @@ static const bpc_desc_t *pfnImage_GetPFDesc( int idx )
 
 static void pfnDrawNormalTriangles( void )
 {
-	clgame.dllFuncs.pfnDrawNormalTriangles();
+	if( clgame.dllFuncs.pfnDrawNormalTriangles )
+		clgame.dllFuncs.pfnDrawNormalTriangles();
 }
 
 static void pfnDrawTransparentTriangles( void )
 {
-	clgame.dllFuncs.pfnDrawTransparentTriangles();
+	if( clgame.dllFuncs.pfnDrawTransparentTriangles )
+		clgame.dllFuncs.pfnDrawTransparentTriangles();
 }
 
 static screenfade_t *pfnRefGetScreenFade( void )

@@ -2701,9 +2701,9 @@ static qboolean GC_LeanDeployWeapon( edict_t *player, edict_t *client_ed, int bi
 }
 
 /*
- * G120: after lean Deploy, clear deploy-gate timers and ensure m_pActiveItem +
- * clip so fullphysics ItemPostFrame can reach HLSDK PrimaryAttack. Does not
- * invent combat — only restores the post-Deploy ready state G104 skipped.
+ * G120: after lean Deploy / ClientPutInServer crowbar, clear deploy-gate
+ * timers and ensure m_pActiveItem + clip so ItemPostFrame can reach
+ * PrimaryAttack. Used on lean and fullphysics — does not invent combat.
  */
 static void GC_LeanWeaponCombatReady( edict_t *player, int bit )
 {
@@ -2713,7 +2713,7 @@ static void GC_LeanWeaponCombatReady( edict_t *player, int bit )
 	int	slot;
 	int	clip;
 
-	if( !player || !player->pvPrivateData || !Sys_CheckParm( "-gcfullphysics" ))
+	if( !player || !player->pvPrivateData || !Sys_CheckParm( "-gcnewgame" ))
 		return;
 
 	ppriv = (byte *)player->pvPrivateData;
@@ -2748,6 +2748,45 @@ static void GC_LeanWeaponCombatReady( edict_t *player, int bit )
 
 	Con_Reportf( "Xash3D GameCube: G120 weapon ready active=%p bit=%d clip=%d nextatk=%.3f\n",
 		wpriv, bit, clip, *(float *)( ppriv + GC_HL_PLAYER_NEXTATTACK_OFF ));
+}
+
+static int GC_LeanGiveWeaponsFromBits( edict_t *touch_player, int weapons );
+
+/*
+ * Lean newgame seeds crowbar in ClientPutInServer. Glock GiveNamedItem there
+ * hung (Precache shell.mdl without grant stubs) — grant glock once via G103.
+ */
+void GC_LeanEnsureWeaponCombatReady( edict_t *player )
+{
+	static qboolean	gc_lean_glock_granted;
+	byte	*ppriv;
+	byte	*wpriv;
+	int	bit;
+
+	if( !player || !player->pvPrivateData || !Sys_CheckParm( "-gcnewgame" ))
+		return;
+
+	if( !gc_lean_glock_granted && !Sys_CheckParm( "-gcfullphysics" ))
+	{
+		gc_lean_glock_granted = true;
+		if( GC_LeanGiveWeaponsFromBits( player, ( 1 << 2 )) > 0 )
+		{
+			Con_Reportf( "Xash3D GameCube: G120 lean glock granted\n" );
+			return;
+		}
+	}
+
+	ppriv = (byte *)player->pvPrivateData;
+	wpriv = *(byte **)( ppriv + GC_HL_PLAYER_ACTIVE_OFF );
+	if( !wpriv )
+	{
+		Con_Reportf( S_WARN "Xash3D GameCube: G120 weapon ready skipped (no active item)\n" );
+		return;
+	}
+	bit = *(int *)( wpriv + GC_HL_ITEM_ID_OFF );
+	if( bit <= 0 || bit > 15 )
+		bit = 1; /* crowbar */
+	GC_LeanWeaponCombatReady( player, bit );
 }
 
 /*
@@ -2815,11 +2854,15 @@ static int GC_LeanGiveWeaponsFromBits( edict_t *touch_player, int weapons )
 		SetBits( ent->v.spawnflags, GC_SF_NORESPAWN );
 		ClearBits( ent->v.flags, FL_KILLME );
 
+#if 0
 		Con_Reportf( "Xash3D GameCube: G103 give spawn begin classname=%s edict=%d\n",
 			classname, NUM_FOR_EDICT( ent ));
+#endif
 		spawn_ret = svgame.dllFuncs.pfnSpawn ? svgame.dllFuncs.pfnSpawn( ent ) : -1;
+#if 0
 		Con_Reportf( "Xash3D GameCube: G103 give spawn done classname=%s ret=%d\n",
 			classname, spawn_ret );
+#endif
 
 		if( spawn_ret == -1 || !SV_IsValidEdict( ent ) || ent->free || !ent->pvPrivateData )
 		{

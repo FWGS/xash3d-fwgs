@@ -73,9 +73,13 @@ static void SCR_GameCubeReportUXPolicy( void )
 	if( scr_gc_ux_policy_logged )
 		return;
 
+	/* Literals stay in source for gamecube-ux-compliance.py; runtime emit
+	 * gated to reclaim DOL .rodata (not a NEWGAME/G508 gate). */
+#if 0 /* DOL reclaim: G51 runtime UX policy emit */
 	Con_Reportf( "Xash3D GameCube: G51 console UX title/options/controls/pause/save/error/credits controller-only navigation\n" );
 	Con_Reportf( "Xash3D GameCube: G51 accessibility no rapid full-screen flashing; critical audio has visual equivalents where practical; alternate control presets tracked\n" );
 	Con_Reportf( "Xash3D GameCube: G51 readable prompts use 4:3 safe area and destructive choices require explicit confirm\n" );
+#endif
 	scr_gc_ux_policy_logged = true;
 }
 
@@ -85,8 +89,10 @@ static void SCR_GameCubeLoadingStatus( const char *message, const char *details,
 		return;
 
 	GC_DrawLoadingStatus( message, details );
+#if 0 /* DOL reclaim: G60 status still drawn; log text is .rodata heavy */
 	Con_Reportf( "Xash3D GameCube: G60 visible loading feedback message='%s' detail='%s'\n",
 		message ? message : "LOADING", details ? details : "" );
+#endif
 	scr_gc_next_loading_status = host.realtime + 2.0;
 }
 

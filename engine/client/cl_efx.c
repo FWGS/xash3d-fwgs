@@ -2124,9 +2124,24 @@ void CL_ReadPointFile_f( void )
 static void CL_FreeDeadBeams( void )
 {
 	BEAM *pBeam, *pNext, *pPrev = NULL;
+#if XASH_GAMECUBE
+	int guard = 0;
+#endif
 	// draw temporary entity beams
 	for( pBeam = cl_active_beams; pBeam; pBeam = pNext )
 	{
+#if XASH_GAMECUBE
+		if( ++guard > 64 )
+		{
+			Con_Reportf( S_WARN "Xash3D GameCube: CL_FreeDeadBeams cycle broken n=%d\n",
+				guard );
+			if( pPrev )
+				pPrev->next = NULL;
+			else
+				cl_active_beams = NULL;
+			break;
+		}
+#endif
 		// need to store the next one since we may delete this one
 		pNext = pBeam->next;
 
@@ -2151,6 +2166,8 @@ static void CL_FreeDeadBeams( void )
 void CL_DrawEFX( float time, qboolean fTrans )
 {
 	CL_FreeDeadBeams();
+	/* G320: lean previously skipped trans beams — additive env_beam / env_laser
+	 * (reactor lightning, security lasers) never drew. Draw both passes. */
 	if( cl_draw_beams.value )
 		ref.dllFuncs.CL_DrawBeams( fTrans, cl_active_beams );
 
@@ -2250,6 +2267,49 @@ void CL_GCSeedFlipperEfxProof( const float *org )
 		n++;
 	}
 	Con_Reportf( "Xash3D GameCube: G291 tip-safe particle seed n=%d\n", n );
+
+	/* G320: forever noisy beam. Prefer HUD/client sprite already in
+	 * clgame.sprites (dot often NULL on lean); alias into cl.models. */
+	if( Sys_CheckParm( "-gcnewgame" ) && !Sys_CheckParm( "-gcfullphysics" ))
+	{
+		static qboolean gc_beam_seeded;
+		int i, modelIndex;
+		vec3_t start, end;
+		BEAM *pbeam;
+		model_t *spr = cl_sprite_dot;
+
+		/* Retry until beam pool is live (first G291 seed is often too early). */
+		if( !gc_beam_seeded )
+		{
+			if( !spr )
+			{
+				for( i = 0; i < MAX_CLIENT_SPRITES; i++ )
+				{
+					if( clgame.sprites[i].name[0] )
+					{
+						spr = &clgame.sprites[i];
+						break;
+					}
+				}
+			}
+			if( spr && cl_free_beams )
+			{
+				modelIndex = MAX_MODELS - 2;
+				cl.models[modelIndex] = spr;
+				VectorCopy( org, start );
+				start[2] += 24.0f;
+				VectorSet( end, start[0] + 192.0f, start[1], start[2] + 48.0f );
+				pbeam = R_BeamPoints( start, end, modelIndex, 0.0f, 20.0f, 40.0f,
+					255.0f, 0.0f, 0, 0.0f, 0.35f, 0.55f, 1.0f );
+				if( pbeam )
+				{
+					SetBits( pbeam->flags, FBEAM_SINENOISE );
+					gc_beam_seeded = true;
+					Con_Reportf( "Xash3D GameCube: G320 beam seeded\n" );
+				}
+			}
+		}
+	}
 }
 #endif
 

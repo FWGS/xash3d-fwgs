@@ -1563,6 +1563,19 @@ void CL_GameCubeLeanEmitBrushEntities( void )
 				Con_Reportf( "Xash3D GameCube: lean EmitBrush bind viewmodel %s\n", vpath );
 			}
 		}
+
+		/* Early G291 seed (present 0/2) dies before studio admit (present≥16).
+		 * Reseed tip-safe particles once so lean EFX can emit. */
+		if( studios > 0 )
+		{
+			static qboolean lean_efx_reseeded;
+
+			if( !lean_efx_reseeded )
+			{
+				CL_GCSeedFlipperEfxProof( view_org );
+				lean_efx_reseeded = true;
+			}
+		}
 	}
 
 	if( log_n < 4 )

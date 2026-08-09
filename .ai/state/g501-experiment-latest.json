@@ -1,0 +1,9 @@
+{
+  "schema": "xash3d-gc-experiment-manifest-pointer/v1",
+  "manifest": ".ai/logs/operator-evidence-swiss-sdroot-wiring/experiment/manifest.json",
+  "stamp": "20260809-003727",
+  "hypothesis": "FIXTURE SD-root swiss-evidence.txt ingest (not hardware)",
+  "commit": "857d2877d0",
+  "tier": "complete",
+  "ogc_stack": "libogc"
+}

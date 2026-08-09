@@ -1206,12 +1206,23 @@ draw beam loop
 */
 void GAME_EXPORT CL_DrawBeams( int fTrans, BEAM *active_beams )
 {
+	int beam_ents;
+#if XASH_GAMECUBE
+	int guard = 0;
+	static qboolean lean_beam_pass_logged;
+#endif
 	// pglShadeModel( GL_SMOOTH );
 	// pglDepthMask( fTrans ? GL_FALSE : GL_TRUE );
 
+	beam_ents = tr.draw_list->num_beam_entities;
+#if XASH_GAMECUBE
+	if( beam_ents > 16 )
+		beam_ents = 16;
+#endif
+
 	// server beams don't allocate beam chains
 	// all params are stored in cl_entity_t
-	for( int i = 0; i < tr.draw_list->num_beam_entities; i++ )
+	for( int i = 0; i < beam_ents; i++ )
 	{
 		RI.currentbeam = tr.draw_list->beam_entities[i];
 		int flags = RI.currentbeam->curstate.rendermode & 0xF0;
@@ -1231,6 +1242,15 @@ void GAME_EXPORT CL_DrawBeams( int fTrans, BEAM *active_beams )
 	// draw temporary entity beams
 	for( BEAM *pBeam = active_beams; pBeam; pBeam = pBeam->next )
 	{
+#if XASH_GAMECUBE
+		if( ++guard > 64 )
+		{
+			gEngfuncs.Con_Reportf( S_WARN "Xash3D GameCube: CL_DrawBeams cycle broken n=%d\n",
+				guard );
+			pBeam->next = NULL;
+			break;
+		}
+#endif
 		if( fTrans && FBitSet( pBeam->flags, FBEAM_SOLID ))
 			continue;
 
@@ -1239,6 +1259,19 @@ void GAME_EXPORT CL_DrawBeams( int fTrans, BEAM *active_beams )
 
 		R_BeamDraw( pBeam, gp_cl->time - gp_cl->oldtime );
 	}
+
+#if XASH_GAMECUBE
+	if( !lean_beam_pass_logged
+		&& gEngfuncs.Sys_CheckParm( "-gcnewgame" )
+		&& !gEngfuncs.Sys_CheckParm( "-gcfullphysics" )
+		&& ( beam_ents > 0 || guard > 0 ))
+	{
+		lean_beam_pass_logged = true;
+		gEngfuncs.Con_Reportf(
+			"Xash3D GameCube: lean CL_DrawBeams %s ents=%d temp=%d\n",
+			fTrans ? "trans" : "solid", beam_ents, guard );
+	}
+#endif
 
 	// pglShadeModel( GL_FLAT );
 	// pglDepthMask( GL_TRUE );

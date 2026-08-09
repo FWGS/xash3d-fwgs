@@ -3,11 +3,11 @@
 ## Current Milestone
 
 **Playable Dolphin New Game (Pure Flipper)** — lean `-gcnewgame` reaches
-`NEWGAME_READY` (probe `20260808-022209`): G506, G45 actions, `EmitBrush`
-6 brushes + `w_crowbar` world studio + landmark viewmodel
-(`G155 … viewmodel=1`, 329 tris). Keep `lean_player_only`. EFX and bounded
-world thinks remain. Fullphysics stays the richer regression path.
-Swiss/libogc2 physical soak and G508/G509 stay open.
+`NEWGAME_READY` with G508 + G509 + lean audio PCM green and a disc-only Dolphin
+release packet **COMPLETE / RELEASE-READY**
+(`.ai/logs/operator-evidence-20260808-audio/`).
+Studios stay out of lean packets. Fullphysics stays the richer regression path.
+Swiss FAT/loader markers need real hardware (Dolphin has no SD EXI device).
 
 
 ## Current Automated State
@@ -40,12 +40,12 @@ Swiss/libogc2 physical soak and G508/G509 stay open.
 **Status**: Gameplay smoke passing; release systems remain unverified
 
 Latest useful runtime evidence on **August 8, 2026**:
-- Gameplay probe: `.ai/logs/dolphin-probe-20260808-022209/`
+- Gameplay probe: `.ai/logs/dolphin-probe-20260808-044632/`
 - Result: `NEWGAME_READY`, exit code 0
 - Frame samples: 15; average ~0.71 ms, p95 ~0.73 ms (G36 PASS)
 - G36: PASS; G45: PASS; G45 actions attack/jump/use: PASS; G506: PASS
-- Lean studio: world `G155 … tris=60 viewmodel=0` then gun
-  `G155 … tris=329 viewmodel=1`; G164/G167 green; mesh GX cmds=22
+- Lean Flipper: `G155 … viewmodel=1`, `G319 … brushes=1`,
+  `lean DrawEntities client tris solid` + `… trans`
 - Prior supervisor release-disc probe: `.ai/logs/dolphin-probe-20260804-143927/`
 - Smoke map (`c0a0e`): loaded; G36/G45/visual: PASS
 
@@ -192,16 +192,18 @@ probe; then update this status from fresh evidence.
 
 ## Next Task
 
-**Run G509 changelevel soak and finish G508 Dolphin evidence**
+**Swiss / hardware sign-off (G38) — blocked on physical SD**
 
-1. Rebuild and run `DOLPHIN_NEWGAME=1 DOLPHIN_G508=1 scripts/dolphin-boot-probe.sh`
-   (optionally also `DOLPHIN_G94=1`); archive `G508 config round trip ready`.
-2. Run the G509 changelevel soak gate:
-   `scripts/gamecube-g509-soak.sh` (default route `c0a0:c0a0a`, 2 iterations).
-3. Feed the soak `report.json` into `scripts/gamecube-release-packet.py`.
-4. Keep physical SD/memory-card fault cases as hardware-only under G38/G66/G71.
-5. Do not reopen the resolved FI/GameInfo or delta.lst investigation unless a
-   new runtime probe regresses those markers.
+1. Disc-only Dolphin packet COMPLETE:
+   `.ai/logs/operator-evidence-20260808-audio/packet`.
+2. `--require-swiss` is wired but FAIL-closes on disc-only evidence
+   (confirmed: `.ai/logs/operator-evidence-20260808-require-swiss-fail/`).
+   Dolphin upstream has no SD Gecko/SD2SP2 EXI device.
+3. Operator handoff: `.ai/logs/hardware-handoff-20260808-110924/`
+   (checklist lists required FAT / return-to-loader markers).
+4. Host currently builds classic libogc+libfat; Swiss preferred stack is
+   libogc2+libdvm (needs `dkp-pacman` install with sudo).
+5. Keep physical SD/memory-card fault cases under G38/G66/G71.
 
 ## External Blockers
 
@@ -212,7 +214,7 @@ it is not the reason the automation should stop today.
 
 ## Last Updated
 
-2026-08-04
+2026-08-08
 
 ### Changelevel continuity validated — 2026-08-04
 
@@ -268,8 +270,16 @@ behavior remains explicitly unverified until hardware testing.
 - Real SD (`sd:/xash3d`) remains the persistent route; physical SD fault cases
   stay hardware-only.
 - Host contract covered by `tests/test_gamecube_host.py::test_g508_config_roundtrip_probe_contract`.
-- Runtime acceptance still requires a fresh Dolphin probe emitting
-  `G508 config round trip ready route=gcprobe|sd`.
+
+### G508 Dolphin gcprobe evidence — 2026-08-08
+
+- Probe: `.ai/logs/dolphin-probe-20260808-062342/`
+  (`DOLPHIN_NEWGAME=1 DOLPHIN_G508=1 DOLPHIN_TIMEOUT=240`).
+- Result: `G508 config round trip ready route=gcprobe`, analyze
+  `G508_STATUS: PASS route=gcprobe`, plus `NEWGAME_READY` / G45 / G506 PASS.
+- Runtime fixes: static 12KB config-only probe bank; `FS_VPrintf`→`FS_Write`
+  for fake probe fds; lean marker write on gcprobe (avoid late Host_WriteConfig
+  OOM + `FS_FileExists` DVD hang).
 
 ### G509 changelevel soak gate wired — 2026-08-05
 
@@ -283,5 +293,61 @@ behavior remains explicitly unverified until hardware testing.
 - Host proof: dry-run + parser unit tests in `tests/test_gamecube_host.py`.
 - Release packet treats changelevel-mode soak reports as the preferred soak
   evidence when `require_changelevel` is set.
-- Still open: real Dolphin G509 soak iterations (no toolchain/Dolphin in this
-  cloud environment).
+
+### G509 Dolphin soak evidence — 2026-08-08
+
+- Report: `.ai/logs/soak-probe-20260808-141117/`
+  (`G509_ITERATIONS=2 G509_TIMEOUT=300 scripts/gamecube-g509-soak.sh`).
+- Result: Status PASS; both iters landmark+ladder+frames; MEM1 HWM stable
+  at 4026531 bytes; route `c0a0:c0a0a` / landmark `c0a0toa`.
+- Runtime fixes: default landmark wiring; no soft-dump latch on changelevel
+  alone; early dest frame-budget arm; skip hanging dest post-tick ServerFrames.
+
+### Dolphin release packet COMPLETE — 2026-08-08
+
+- Bundle: `.ai/logs/operator-evidence-20260808-g508-g509/`
+  (`scripts/gamecube-operator-evidence.sh --reuse-probe … --reuse-soak …`).
+- Packet: `RELEASE_PACKET: COMPLETE` / **COMPLETE / RELEASE-READY**
+  (disc-only; Swiss storage/loader open; audio was UNVERIFIED in this bundle).
+- Gameplay gate accepts lean Pure Flipper action evidence for packet PASS.
+
+### Lean audio PCM + audio-complete packet — 2026-08-08
+
+- Root cause: smoke ISO lacked shallow `media/*.wav` and
+  `sound/buttons/button10.wav`, so ASND stayed silent (`peak=0`).
+- Fix: `stage_smoke_data(..., newgame=True)` stages lean media VO + button10
+  (`scripts/build-gamecube-disc.py`).
+- Probe: `.ai/logs/dolphin-probe-20260808-110540/` → `NEWGAME_READY` plus
+  `audio submitted nonzero PCM chunks=1 peak=22644`; G278 atmosphere ready.
+- Packet: `.ai/logs/operator-evidence-20260808-audio/` →
+  **COMPLETE / RELEASE-READY** with evidence `audio: PASS` (disc-only;
+  Swiss storage/loader still open).
+
+### Swiss `--require-swiss` gate + hardware handoff — 2026-08-08
+
+- `scripts/gamecube-operator-evidence.sh --require-swiss` fail-closes unless
+  `FAT volume ready` + return-to-loader markers are in reused OSReport logs.
+- Disc-only confirmation FAIL:
+  `.ai/logs/operator-evidence-20260808-require-swiss-fail/` (expected).
+- Handoff: `.ai/logs/hardware-handoff-20260808-110924/` points operators at
+  the audio-complete Dolphin baseline and the Swiss marker checklist.
+- Blocker: physical Swiss + SD2SP2/SD Gecko (and preferably libogc2 rebuild).
+
+### Lean door brush admit — unblocked via `*` submodel pack — 2026-08-08
+
+- Classname door/button admit hung Dolphin `WriteEntities begin` when linked
+  (in-loop / noinline / separate TU / +64 B after reclaim).
+- Fix: replace tram classname/`*12` checks with smaller `precache[0]=='*'`
+  admit, budget 2 (DOL **5,878,432**, −448 B vs tram-only).
+- Probe `20260808-172805` → `NEWGAME_READY`, G319 `entities=3 brushes=2`,
+  world interaction `func_door` done, G45/G506 + gameplay PASS, PCM ok.
+- Swiss gate: DOL now writes `xash3d/valve/logs/swiss-evidence.txt` on FAT
+  (ready/preferred + shutdown). Ingest with
+  `gamecube-swiss-evidence.sh --log <sd-mount>` (fixture COMPLETE at
+  `.ai/logs/operator-evidence-swiss-sdroot-wiring/`). Real SD still required.
+- Lean combat: probe `20260808-200847` — glock FireBullets +
+  `TraceAttack td=0` (world) + ApplyMultiDamage, NEWGAME_READY + G45_ACTION
+  PASS. `DecalGunshot` hung; TEXTURETYPE/BubbleTrail/PLAYBACK_EVENT deferred.
+- G320 beams: lean now draws additive `CL_DrawBeams` (trans); admits
+  env_beam/env_laser (cap 8). Reactor electricity + lasers share that path.
+  c0a0 still NEWGAME_READY (`20260808-2131*`); c3a2d lean still hangs later.

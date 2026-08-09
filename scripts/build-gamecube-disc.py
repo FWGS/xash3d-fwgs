@@ -383,6 +383,7 @@ SMOKE_HUD_SPRITES = (
 	"sprites/iplayerdead.spr",
 	"sprites/iplayerred.spr",
 	"sprites/laserbeam.spr",
+	"sprites/lgtning.spr",  # G320: reactor electricity / env_beam texture
 	"sprites/muzzleflash1.spr",
 	"sprites/muzzleflash2.spr",
 	"sprites/muzzleflash3.spr",
@@ -1798,6 +1799,22 @@ def stage_smoke_data(
 		copy_if_present(source, output, relative)
 	for relative in SMOKE_SOUND_DIRS:
 		copy_tree_if_present(source, output, relative)
+	# G278/G91 lean New Game: shallow media/ VO + button10 SFX. Retail overlays
+	# already mirror these, but smoke ISOs previously only had deep sound/tride
+	# paths that FS_OpenStream("media/…") cannot see — lean probes stayed silent.
+	if newgame:
+		for dest_rel, src_rel in (
+			("media/c0a0_tr_gmorn.wav", "sound/tride/c0a0_tr_gmorn.wav"),
+			("media/c0a0_tr_time.wav", "sound/tride/c0a0_tr_time.wav"),
+			("media/ttrain1.wav", "sound/plats/ttrain1.wav"),
+			("sound/buttons/button10.wav", "sound/buttons/button10.wav"),
+		):
+			src = source / src_rel
+			if not src.is_file():
+				continue
+			dest = output / dest_rel
+			dest.parent.mkdir(parents=True, exist_ok=True)
+			shutil.copy2(src, dest)
 	for source_relative, alias_relative in SMOKE_CASE_ALIASES:
 		copy_alias_if_present(output, source_relative, alias_relative)
 	extract_wad_lump(source / "gfx.wad", output, "conchars", "gfx/conchars")

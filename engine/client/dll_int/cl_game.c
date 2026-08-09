@@ -58,7 +58,8 @@ static void CL_GameCubeApplySmokeClientBudgets( void )
 	/* Retail play keeps modest FX budgets so the world BSP (~2 MiB) and client
 	 * can coexist. Smoke probes stay even tighter. */
 	int particles = GC_MapLoadMemoryOpt() ? 16 : 256;
-	int beams = GC_MapLoadMemoryOpt() ? 4 : 16;
+	/* G320: lean beams=4 left no room for reactor lightning + lasers. */
+	int beams = GC_MapLoadMemoryOpt() ? 8 : 16;
 	int tents = GC_MapLoadMemoryOpt() ? 4 : 64;
 
 	/* G127: fullphysics combat needs more than the lean tracer pool;
@@ -4684,10 +4685,11 @@ qboolean CL_LoadProgs( const char *name )
 		if( GC_MapLoadMemoryOpt())
 		{
 			Con_Reportf( "Xash3D GameCube: titles init skipped for gcmap smoke route\n" );
-			/* G291: tip-safe particle pool (≤48 × ~56 B) so Flipper EFX TriAPI
-			 * can emit; beams/tents stay deferred under memopt. */
+			/* G291: tip-safe particle pool. G320: beam pool (budget 8) so
+			 * additive env_beam/env_laser / lightning can allocate; tents stay off. */
 			CL_InitParticles();
-			Con_Reportf( "Xash3D GameCube: transient client effects lean particles only\n" );
+			CL_InitViewBeams();
+			Con_Reportf( "Xash3D GameCube: transient client effects lean particles+beams\n" );
 		}
 		else
 #endif

@@ -517,7 +517,8 @@ int FS_VPrintf( file_t *file, const char *format, va_list ap )
 		buff_size *= 2;
 	}
 
-	len = write( file->handle, tempbuff, len );
+	/* Must use FS_Write — probe-bank handles are fake fds (G508/G94). */
+	len = (int)FS_Write( file, tempbuff, (size_t)len );
 	Mem_Free( tempbuff );
 
 	return len;

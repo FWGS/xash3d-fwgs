@@ -2292,6 +2292,25 @@ static void GAME_EXPORT pfnTraceLine( const float *v1, const float *v2, int fNoM
 {
 	trace_t	trace;
 
+#if XASH_GAMECUBE
+	/* Lean: point-sized ClipMove/SV_Move hung (G120). Hull world-only clip
+	 * matches working FillUsercmd aim; entity ClipToLinks still deferred. */
+	if( Sys_CheckParm( "-gcnewgame" ) && !Sys_CheckParm( "-gcfullphysics" ))
+	{
+		vec3_t mins, maxs;
+
+		mins[0] = mins[1] = -16.0f;
+		mins[2] = -36.0f;
+		maxs[0] = maxs[1] = 16.0f;
+		maxs[2] = 36.0f;
+		memset( &trace, 0, sizeof( trace ));
+		SV_ClipMoveToEntity( SV_EdictNum( 0 ), v1, mins, maxs, v2, &trace );
+		if( !SV_IsValidEdict( trace.ent ))
+			trace.ent = svgame.edicts;
+		SV_ConvertTrace( ptr, &trace );
+		return;
+	}
+#endif
 	trace = SV_Move( v1, vec3_origin, vec3_origin, v2, fNoMonsters, pentToSkip, false );
 	if( !SV_IsValidEdict( trace.ent ))
 		trace.ent = svgame.edicts;
@@ -5159,6 +5178,8 @@ static qboolean SV_GCMapParseEOF( const char *stage, int entity_index, const cha
 	return true;
 }
 
+static int	gc_lean_beam_admit;
+
 static qboolean SV_GCMapShouldInhibitClass( const char *classname )
 {
 	if( COM_StringEmpty( classname ))
@@ -5176,6 +5197,18 @@ static qboolean SV_GCMapShouldInhibitClass( const char *classname )
 	 * talk, heal, sound, or autonomous AI precache. */
 	if( Sys_CheckParm( "-gcnewgame" ))
 	{
+		/* G320: reactor lightning (env_beam) + security lasers. Cap admits —
+		 * c3a2d has 26 beams; uncapped hung Host_Frame. */
+		if( !Q_stricmp( classname, "env_beam" )
+			|| !Q_stricmp( classname, "env_laser" ))
+		{
+			if( Sys_CheckParm( "-gcfullphysics" ))
+				return false;
+			if( gc_lean_beam_admit >= 8 )
+				return true;
+			gc_lean_beam_admit++;
+			return false;
+		}
 		if(( !Q_strnicmp( classname, "monster_", 8 )
 			&& Q_stricmp( classname, "monster_generic" )
 			&& Q_stricmp( classname, "monster_sitting_scientist" )
@@ -5187,8 +5220,6 @@ static qboolean SV_GCMapShouldInhibitClass( const char *classname )
 		 || !Q_stricmp( classname, "world_items" )
 		 || !Q_strnicmp( classname, "cycler", 6 )
 		 || !Q_stricmp( classname, "env_sprite" )
-		 || !Q_stricmp( classname, "env_beam" )
-		 || !Q_stricmp( classname, "env_laser" )
 		 || !Q_stricmp( classname, "env_explosion" )
 		 || !Q_stricmp( classname, "infodecal" )
 		 || !Q_stricmp( classname, "speaker" ))
@@ -5527,6 +5558,9 @@ static void SV_LoadFromFile( const char *mapname, char *entities )
 	edict_t	*ent;
 
 	Assert( entities != NULL );
+#if XASH_GAMECUBE
+	gc_lean_beam_admit = 0;
+#endif
 
 	// user dll can override spawn entities function (Xash3D extension)
 	if( !svgame.physFuncs.SV_LoadEntities || !svgame.physFuncs.SV_LoadEntities( mapname, entities ))

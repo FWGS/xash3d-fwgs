@@ -951,9 +951,24 @@ static void R_DrawEntitiesOnList( void )
 	if( !FBitSet( RI.rvp.flags, RF_ONLY_CLIENTDRAW ))
 	{
 #if XASH_GAMECUBE
-		/* Probe 20260807-163236: solid=0 still hung — EFX/client triangles /
-		 * viewmodel, not the solid walk. Keep lean Flipper free of those. */
-		if( !lean_ents )
+		/* After lean world studio: solid-pass beams (cycle-guarded).
+		 * Client tris stay off (hang 20260807-163236). */
+		if( lean_ents )
+		{
+			if( lean_studios > 0 )
+			{
+				static qboolean lean_solid_efx_logged;
+
+				gEngfuncs.CL_DrawEFX( tr.frametime, false );
+				if( !lean_solid_efx_logged )
+				{
+					lean_solid_efx_logged = true;
+					gEngfuncs.Con_Reportf(
+						"Xash3D GameCube: lean DrawEntities EFX solid\n" );
+				}
+			}
+		}
+		else
 #endif
 		gEngfuncs.CL_DrawEFX( tr.frametime, false );
 	}
@@ -961,7 +976,24 @@ static void R_DrawEntitiesOnList( void )
 	if( FBitSet( RI.rvp.flags, RF_DRAW_WORLD ))
 	{
 #if XASH_GAMECUBE
-		if( !lean_ents )
+		/* After lean world studio: solid client tris (null-safe). Transparent
+		 * client tris stay off (hang 20260807-163236). */
+		if( lean_ents )
+		{
+			if( lean_studios > 0 )
+			{
+				static qboolean lean_client_tris_logged;
+
+				gEngfuncs.pfnDrawNormalTriangles();
+				if( !lean_client_tris_logged )
+				{
+					lean_client_tris_logged = true;
+					gEngfuncs.Con_Reportf(
+						"Xash3D GameCube: lean DrawEntities client tris solid\n" );
+				}
+			}
+		}
+		else
 #endif
 		gEngfuncs.pfnDrawNormalTriangles();
 	}
@@ -1072,7 +1104,23 @@ static void R_DrawEntitiesOnList( void )
 	if( FBitSet( RI.rvp.flags, RF_DRAW_WORLD ))
 	{
 #if XASH_GAMECUBE
-		if( !lean_ents )
+		/* After lean world studio: transparent client tris (null-safe). */
+		if( lean_ents )
+		{
+			if( lean_studios > 0 )
+			{
+				static qboolean lean_client_trans_logged;
+
+				gEngfuncs.pfnDrawTransparentTriangles();
+				if( !lean_client_trans_logged )
+				{
+					lean_client_trans_logged = true;
+					gEngfuncs.Con_Reportf(
+						"Xash3D GameCube: lean DrawEntities client tris trans\n" );
+				}
+			}
+		}
+		else
 #endif
 		gEngfuncs.pfnDrawTransparentTriangles();
 	}
@@ -1081,7 +1129,8 @@ static void R_DrawEntitiesOnList( void )
 	{
 #if XASH_GAMECUBE
 		/* Probe 20260807-030413: first Flipper present hung in CL_DrawEFX(trans).
-		 * Lean skips all EFX (solid=0 hang 20260807-163236). */
+		 * Lean runs gated EFX after viewmodel (below) so ForceBegin does not
+		 * clear the effects latch before G291 End. */
 		if( !lean_ents
 			&& !( gEngfuncs.Sys_CheckParm( "-gcnewgame" )
 			&& !gEngfuncs.Sys_CheckParm( "-gcfullphysics" )
@@ -1102,14 +1151,15 @@ static void R_DrawEntitiesOnList( void )
 		if( lean_ents )
 		{
 			/* After a lean world studio draws this frame, restore landmark
-			 * viewmodel (G105/G156). Keep EFX/client tris off
-			 * (hang 20260807-163236). */
+			 * viewmodel (G105/G156), then tip-safe trans EFX (G291).
+			 * Client tris stay off (hang 20260807-163236). */
 			if( lean_studios > 0
 				&& tr.viewent && tr.viewent->model
 				&& tr.viewent->model->type == mod_studio
 				&& tr.viewent->model->cache.data )
 			{
 				static qboolean lean_vm_draw_logged;
+				static qboolean lean_efx_draw_logged;
 
 				R_DrawViewModel();
 				if( !lean_vm_draw_logged )
@@ -1120,6 +1170,15 @@ static void R_DrawEntitiesOnList( void )
 						tr.viewent->model->name[0]
 							? tr.viewent->model->name : "?" );
 				}
+				R_AllowFog( false );
+				gEngfuncs.CL_DrawEFX( tr.frametime, true );
+				R_AllowFog( true );
+				if( !lean_efx_draw_logged )
+				{
+					lean_efx_draw_logged = true;
+					gEngfuncs.Con_Reportf(
+						"Xash3D GameCube: lean DrawEntities EFX trans\n" );
+				}
 			}
 		}
 		else
@@ -1128,7 +1187,7 @@ static void R_DrawEntitiesOnList( void )
 	}
 #if XASH_GAMECUBE
 	if( lean_ents && tr.framecount <= 4 )
-		gEngfuncs.Con_Reportf( "Xash3D GameCube: lean DrawEntities no-EFX f=%d brushes=%d studios=%d solid=%u vm=%d\n",
+		gEngfuncs.Con_Reportf( "Xash3D GameCube: lean DrawEntities f=%d brushes=%d studios=%d solid=%u vm=%d\n",
 			tr.framecount, lean_brushes, lean_studios, tr.draw_list->num_solid_entities,
 			( tr.viewent && tr.viewent->model ) ? 1 : 0 );
 #endif
@@ -1693,18 +1752,20 @@ static void R_EdgeDrawingGcmapProbe( void )
 		memset( vid.buffer, 0, (size_t)vid.width * (size_t)vid.height * sizeof( pixel_t ));
 
 	R_BeginEdgeFrame();
-#if XASH_GAMECUBE
+#if XASH_GAMECUBE && 0 /* DOL reclaim: early EdgeDrawing markers */
 	if( tr.framecount <= 1 && gEngfuncs.Sys_CheckParm( "-gcnewgame" ))
 		gEngfuncs.Con_Reportf( "Xash3D GameCube: R_EdgeDrawing after BeginEdgeFrame\n" );
 #endif
 	R_RenderWorld();
 #if XASH_GAMECUBE
+#if 0 /* DOL reclaim: G147 report + early EdgeDrawing markers */
 	{
 		extern void R_GcReportFaceEmit( void );
 		R_GcReportFaceEmit();
 	}
 	if( tr.framecount <= 1 && gEngfuncs.Sys_CheckParm( "-gcnewgame" ))
 		gEngfuncs.Con_Reportf( "Xash3D GameCube: R_EdgeDrawing after RenderWorld\n" );
+#endif
 #endif
 	/* Opaque brush entities (tram, doors, …) share the probe edge/span BSS.
 	 * Translucent brushes draw later via R_DrawBrushModelProbe.
@@ -2080,8 +2141,8 @@ void GAME_EXPORT R_RenderScene( void )
 		 * retail GX. The old early return hid the tram and every NPC while
 		 * leaving the physics route nominally green. R_DrawEntitiesOnList keeps
 		 * the existing low-memory caps and model-type filters. */
-		/* Lean DrawEntities: brushes + one world studio + gated viewmodel;
-		 * skip EFX/client tris (solid=0 hang 20260807-163236). */
+		/* Lean DrawEntities: brushes + studio + viewmodel + EFX + solid/trans
+		 * client tris (gated after world studio). */
 		R_DrawEntitiesOnList();
 		return;
 	}

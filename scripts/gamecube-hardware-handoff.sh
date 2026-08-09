@@ -133,6 +133,45 @@ copyrighted game assets into Git or public release archives.
 
 On quit, libogc2 returns to Swiss when the loader stub (\`STUBHAXX\`) is present.
 
+## Dolphin baseline (already green)
+
+Disc-only Dolphin release packet (G508 + G509 + lean audio PCM):
+\`.ai/logs/operator-evidence-20260808-audio/\` → **COMPLETE / RELEASE-READY**.
+
+Dolphin cannot satisfy \`--require-swiss\`: upstream has no SD Gecko / SD2SP2 EXI
+device, so \`fatInitDefault()\` stays disc-only. Capture Swiss markers on real
+hardware, then rebuild the packet:
+
+\`\`\`sh
+scripts/gamecube-operator-evidence.sh --require-swiss \\
+  --reuse-probe <hardware-osreport-dir> \\
+  --reuse-soak .ai/logs/soak-probe-20260808-141117 \\
+  --reuse-gameplay .ai/logs/operator-evidence-20260808-audio/merge-continuity
+\`\`\`
+
+## Swiss markers for \`--require-swiss\` PASS
+
+OSReport **or** the on-card log must include:
+
+1. \`FAT volume ready sd:/\` (or \`carda:/\` / \`cardb:/\`)
+2. \`FAT preferred volume …\`
+3. \`FAT shutdown (return to Swiss loader via exit stub)\` on quit (libogc2 +
+   \`STUBHAXX\`)
+
+Easiest capture (no USB Gecko / serial needed): after quit-to-Swiss, remount
+the SD and ingest:
+
+\`\`\`sh
+scripts/gamecube-swiss-evidence.sh --log /path/to/sd
+# reads <vol>/xash3d/valve/logs/swiss-evidence.txt written by the DOL
+\`\`\`
+
+Preferred stack: rebuild with libogc2 + libdvm
+(\`XASH_GAMECUBE_OGC_STACK=libogc2\`; this host may only have classic libogc).
+
+Lean release DOLs stub \`-gcmap\` smoke unless rebuilt with
+\`-DXASH_GAMECUBE_ENABLE_GCMAP_PROBES\` (saves several KiB for Swiss path).
+
 ## Minimum G38 Test
 
 Retail Flipper policy: no probe argv required. Expect OSReport markers
@@ -146,8 +185,10 @@ Retail Flipper policy: no probe argv required. Expect OSReport markers
 4. Confirm whether \`$SMOKE_MAP\` reaches map load, player view, and controller input.
 5. Record audio behavior: audible output, silence/null fallback, or hang.
 6. Record storage behavior: SD detected, no writable storage, config/save success, or diagnostic.
-7. Run at least five minutes if gameplay is reached.
-8. Fill \`$EVIDENCE\` and copy the completed entry into \`docs/GAMECUBE_PORT_PLAN.md\`.
+7. Confirm Swiss markers above; quit back to Swiss and capture FAT shutdown.
+8. Run at least five minutes if gameplay is reached.
+9. Fill \`$EVIDENCE\` and copy the completed entry into \`docs/GAMECUBE_PORT_PLAN.md\`.
+10. Reassemble packet with \`--require-swiss\` using the hardware log dir.
 
 ## Failure Labels
 
@@ -192,7 +233,10 @@ cat >"$SUMMARY" <<EOF
 - Evidence template: \`$EVIDENCE\`
 
 This handoff is repository-side preparation for G38. G38 remains manual until a
-completed real-hardware evidence entry is recorded in the port plan.
+completed real-hardware evidence entry is recorded in the port plan. Disc-only
+Dolphin automation is already RELEASE-READY
+(\`.ai/logs/operator-evidence-20260808-audio/\`); Swiss FAT / return-to-loader
+is the remaining hardware gate for \`--require-swiss\`.
 
 ## Artifacts
 

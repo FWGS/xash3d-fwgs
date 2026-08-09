@@ -187,6 +187,32 @@ class GameCubeHostTests(unittest.TestCase):
 		self.assertFalse(ok)
 		self.assertTrue(any("attack usercmd" in item for item in failures))
 
+	def test_gameplay_gate_accepts_lean_newgame_actions(self) -> None:
+		gate = load_script("gameplay_gate_lean", "scripts/gamecube-gameplay-gate.py")
+		lean = "\n".join((
+			"Xash3D GameCube: map loaded c0a0",
+			"Xash3D GameCube: entity lump spawn ready",
+			"Xash3D GameCube: G172 HUD sheets loaded",
+			"Xash3D GameCube: lean HUD sprites drawn",
+			"Xash3D GameCube: G105 landmark viewmodel ready",
+			"Xash3D GameCube: lean play active armed state=4 signon=2/2",
+			"Xash3D GameCube: post-G36 sustained world present",
+			"Xash3D GameCube: probe gameplay action attack",
+			"Xash3D GameCube: probe gameplay action jump",
+			"Xash3D GameCube: probe gameplay action use",
+			"Xash3D GameCube: probe gameplay input ready",
+			"Xash3D GameCube: world interaction use done classname=func_door",
+			# Presentation re-confirmed on the live path after actions.
+			"Xash3D GameCube: G172 HUD sheets loaded",
+			"Xash3D GameCube: lean HUD sprites drawn",
+			"Xash3D GameCube: G105 landmark viewmodel ready",
+			"sampled_nonblack=1",
+			"frame time=0.71ms",
+			"frame time=0.71ms",
+			"frame time=0.73ms",
+		))
+		self.assertTrue(gate.check(lean)[0])
+
 	def test_video_gate_requires_complete_paced_audio_video(self) -> None:
 		gate = load_script("video_playback_gate", "scripts/gamecube-video-playback-gate.py")
 		text = "\n".join((
@@ -935,6 +961,16 @@ class GameCubeHostTests(unittest.TestCase):
 			self.assertTrue((out / "memory.json").is_file())
 			self.assertTrue((out / "packet" / "validation.json").is_file())
 			self.assertIn(result.returncode, (0, 1), result.stderr + result.stdout)
+
+	def test_operator_evidence_require_swiss_flag(self) -> None:
+		script = (ROOT / "scripts/gamecube-operator-evidence.sh").read_text(encoding="utf-8")
+		self.assertIn("--require-swiss", script)
+		self.assertIn("REQUIRE_SWISS", script)
+		self.assertIn("Disc-only Dolphin probes cannot emit Swiss FAT markers", script)
+		handoff = (ROOT / "scripts/gamecube-hardware-handoff.sh").read_text(encoding="utf-8")
+		self.assertIn("--require-swiss", handoff)
+		self.assertIn("FAT volume ready", handoff)
+		self.assertIn("operator-evidence-20260808-audio", handoff)
 
 	def test_rc_check_wires_g509_and_g508(self) -> None:
 		rc = (ROOT / "scripts/gamecube-rc-check.sh").read_text(encoding="utf-8")

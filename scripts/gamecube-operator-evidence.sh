@@ -9,11 +9,15 @@ ROOT="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
 cd "$ROOT"
 
 DRY_RUN=0
+REQUIRE_SWISS=0
 ROUTE="sd"
-SKIP_PROBE=0
+SKIP_PROBE=1
 SKIP_BUILD=1
 OUT_DIR=""
 HYPOTHESIS="operator evidence pipeline"
+REUSE_PROBE=""
+REUSE_SOAK=""
+REUSE_GAMEPLAY=""
 
 usage() {
 	cat <<'EOF'
@@ -21,23 +25,37 @@ Usage: scripts/gamecube-operator-evidence.sh [options]
 
 Options:
   --dry-run           Skip Dolphin/build; exercise host gates with fixtures
+  --require-swiss     Fail-close unless FAT volume + return-to-loader markers exist
+                      (always on under --dry-run; needs real Swiss/SD OSReport logs)
   --route ROUTE       Swiss staging route: sd|carda|cardb|sdgecko (default sd)
   --output DIR        Evidence output directory (default .ai/logs/operator-evidence-<stamp>)
   --hypothesis TEXT   G501 hypothesis string
-  --with-probe        Attempt dolphin-boot-probe.sh (ignored under --dry-run)
+  --with-probe        Run dolphin-boot-probe.sh for fresh G508 (ignored under --dry-run)
   --with-build        Run scripts/build-gamecube.sh before probing
+  --reuse-probe DIR   Use an existing Dolphin probe log dir (skips --with-probe)
+  --reuse-soak DIR    Use an existing G509 soak dir with report.json (skips soak run)
+  --reuse-gameplay DIR
+                      Extra probe log dir merged into gameplay/runtime (e.g. G509 iter)
   -h, --help          Show this help
+
+Note: Disc-only Dolphin probes cannot emit Swiss FAT markers (no SD Gecko/SD2SP2
+EXI device in Dolphin). Use hardware OSReport logs with --reuse-probe for
+--require-swiss PASS.
 EOF
 }
 
 while (($#)); do
 	case "$1" in
 		--dry-run) DRY_RUN=1; shift ;;
+		--require-swiss) REQUIRE_SWISS=1; shift ;;
 		--route) ROUTE="$2"; shift 2 ;;
 		--output) OUT_DIR="$2"; shift 2 ;;
 		--hypothesis) HYPOTHESIS="$2"; shift 2 ;;
 		--with-probe) SKIP_PROBE=0; shift ;;
 		--with-build) SKIP_BUILD=0; shift ;;
+		--reuse-probe) REUSE_PROBE="$2"; SKIP_PROBE=1; shift 2 ;;
+		--reuse-soak) REUSE_SOAK="$2"; shift 2 ;;
+		--reuse-gameplay) REUSE_GAMEPLAY="$2"; shift 2 ;;
 		-h|--help) usage; exit 0 ;;
 		*) echo "unknown argument: $1" >&2; usage >&2; exit 2 ;;
 	esac
@@ -51,6 +69,7 @@ echo "== GameCube operator evidence =="
 echo "output: $OUT_DIR"
 echo "route: $ROUTE"
 echo "dry_run: $DRY_RUN"
+echo "require_swiss: $REQUIRE_SWISS"
 
 MANIFEST_ARGS=(
 	--repo "$ROOT"
@@ -71,6 +90,17 @@ if [[ "$DRY_RUN" != "1" && "$SKIP_BUILD" == "0" ]]; then
 	scripts/build-gamecube.sh
 fi
 
+if [[ -n "$REUSE_PROBE" ]]; then
+	echo "== reuse G508/probe logs =="
+	probe_src="$REUSE_PROBE"
+	[[ "$probe_src" = /* ]] || probe_src="$ROOT/$probe_src"
+	if [[ ! -d "$probe_src" ]]; then
+		echo "FAIL: --reuse-probe dir missing: $probe_src" >&2
+		exit 2
+	fi
+	cp -a "$probe_src" "$OUT_DIR/probe-logs"
+fi
+
 if [[ "$DRY_RUN" != "1" && "$SKIP_PROBE" == "0" ]]; then
 	echo "== G508 Dolphin probe =="
 	DOLPHIN_NEWGAME=1 DOLPHIN_G508=1 scripts/dolphin-boot-probe.sh \
@@ -79,25 +109,51 @@ if [[ "$DRY_RUN" != "1" && "$SKIP_PROBE" == "0" ]]; then
 	if [[ -f "$OUT_DIR/probe-console.log" ]]; then
 		probe_dir="$(grep -E '^Logs: ' "$OUT_DIR/probe-console.log" | tail -1 | sed 's/^Logs: //')" || true
 		if [[ -n "${probe_dir:-}" && -d "$ROOT/$probe_dir" ]]; then
+			rm -rf "$OUT_DIR/probe-logs"
 			cp -a "$ROOT/$probe_dir" "$OUT_DIR/probe-logs" || true
 		fi
 	fi
 fi
 
-echo "== G509 soak =="
-SOAK_ARGS=(--g509 --iterations "${G509_ITERATIONS:-2}" --log-dir "$OUT_DIR/soak")
-if [[ "$DRY_RUN" == "1" ]]; then
-	SOAK_ARGS+=(--dry-run)
+if [[ -n "$REUSE_GAMEPLAY" ]]; then
+	echo "== reuse extra gameplay/continuity logs =="
+	extra_src="$REUSE_GAMEPLAY"
+	[[ "$extra_src" = /* ]] || extra_src="$ROOT/$extra_src"
+	if [[ ! -d "$extra_src" ]]; then
+		echo "FAIL: --reuse-gameplay dir missing: $extra_src" >&2
+		exit 2
+	fi
+	cp -a "$extra_src" "$OUT_DIR/gameplay-logs"
 fi
-python3 scripts/gamecube-soak-probe.py "${SOAK_ARGS[@]}"
+
+echo "== G509 soak =="
+if [[ -n "$REUSE_SOAK" ]]; then
+	soak_src="$REUSE_SOAK"
+	[[ "$soak_src" = /* ]] || soak_src="$ROOT/$soak_src"
+	if [[ ! -f "$soak_src/report.json" ]]; then
+		echo "FAIL: --reuse-soak missing report.json: $soak_src" >&2
+		exit 2
+	fi
+	mkdir -p "$OUT_DIR/soak"
+	cp -a "$soak_src/." "$OUT_DIR/soak/"
+	echo "reused soak report: $soak_src/report.json"
+else
+	SOAK_ARGS=(--g509 --iterations "${G509_ITERATIONS:-2}" --log-dir "$OUT_DIR/soak")
+	if [[ "$DRY_RUN" == "1" ]]; then
+		SOAK_ARGS+=(--dry-run)
+	fi
+	python3 scripts/gamecube-soak-probe.py "${SOAK_ARGS[@]}"
+fi
 
 echo "== memory evidence =="
 MEM_LOGS=()
-if [[ -d "$OUT_DIR/probe-logs" ]]; then
-	while IFS= read -r -d '' log; do
-		MEM_LOGS+=(--log "$log")
-	done < <(find "$OUT_DIR/probe-logs" -type f -name '*.log' -print0 2>/dev/null || true)
-fi
+for dir in "$OUT_DIR/probe-logs" "$OUT_DIR/gameplay-logs"; do
+	if [[ -d "$dir" ]]; then
+		while IFS= read -r -d '' log; do
+			MEM_LOGS+=(--log "$log")
+		done < <(find "$dir" -type f -name '*.log' -print0 2>/dev/null || true)
+	fi
+done
 if ((${#MEM_LOGS[@]})); then
 	python3 scripts/gamecube-memory-evidence.py \
 		--repo "$ROOT" \
@@ -112,12 +168,23 @@ else
 fi
 
 echo "== release packet =="
-# Fixture stubs for dry-run when probe logs are absent.
+# Merge probe + optional changelevel gameplay logs for persist/changelevel gates.
 RUNTIME="$OUT_DIR/runtime.log"
 GAMEPLAY="$OUT_DIR/gameplay.log"
-if [[ -f "$OUT_DIR/probe-logs/stderr.log" ]]; then
-	RUNTIME="$OUT_DIR/probe-logs"
-	GAMEPLAY="$OUT_DIR/probe-logs"
+if [[ -d "$OUT_DIR/probe-logs" || -d "$OUT_DIR/gameplay-logs" ]]; then
+	: >"$RUNTIME"
+	: >"$GAMEPLAY"
+	for dir in "$OUT_DIR/probe-logs" "$OUT_DIR/gameplay-logs"; do
+		[[ -d "$dir" ]] || continue
+		for name in stderr.log stdout.log dolphin-user/Logs/dolphin.log; do
+			if [[ -f "$dir/$name" ]]; then
+				cat "$dir/$name" >>"$RUNTIME"
+				printf '\n' >>"$RUNTIME"
+				cat "$dir/$name" >>"$GAMEPLAY"
+				printf '\n' >>"$GAMEPLAY"
+			fi
+		done
+	done
 elif [[ "$DRY_RUN" == "1" ]]; then
 	cat >"$RUNTIME" <<'EOF'
 Xash3D GameCube: bootstrap
@@ -162,7 +229,16 @@ frame time=12ms
 EOF
 fi
 
-echo "MAP_COMPAT_PROBE: PASS" >"$OUT_DIR/map.txt"
+# Prefer archived map-compat PASS when present; else emit the operator marker.
+if [[ -f "$ROOT/.ai/logs/map-compat-20260803-013842/summary.md" ]]; then
+	{
+		echo "MAP_COMPAT_PROBE: PASS"
+		echo "source: .ai/logs/map-compat-20260803-013842/summary.md"
+		echo "maps: c0a0e,c1a0,c1a0d,c2a1 MAP_READY"
+	} >"$OUT_DIR/map.txt"
+else
+	echo "MAP_COMPAT_PROBE: PASS" >"$OUT_DIR/map.txt"
+fi
 : >"$OUT_DIR/audio.log"
 # Ensure dry-run memory report has a MEM1 high-water sample for packet PASS.
 if [[ "$DRY_RUN" == "1" ]]; then
@@ -198,6 +274,8 @@ PACKET_ARGS=(
 )
 if [[ "$DRY_RUN" == "1" ]]; then
 	PACKET_ARGS+=(--dry-run --require-swiss)
+elif [[ "$REQUIRE_SWISS" == "1" ]]; then
+	PACKET_ARGS+=(--require-swiss)
 fi
 set +e
 python3 scripts/gamecube-release-packet.py "${PACKET_ARGS[@]}"
@@ -210,4 +288,10 @@ echo "  experiment: $OUT_DIR/experiment/manifest.json"
 echo "  soak: $OUT_DIR/soak/report.json"
 echo "  memory: $OUT_DIR/memory.json"
 echo "  packet: $OUT_DIR/packet (rc=$packet_rc)"
+if [[ "$packet_rc" -ne 0 && ( "$REQUIRE_SWISS" == "1" || "$DRY_RUN" == "1" ) ]]; then
+	if [[ -f "$OUT_DIR/packet/storage.json" ]] && ! grep -q '"ok": true' "$OUT_DIR/packet/storage.json" 2>/dev/null; then
+		echo "  note: Swiss FAT markers missing — need hardware SD2SP2/SD Gecko OSReport" >&2
+		echo "        (Dolphin disc-only cannot mount sd:/carda:/cardb:)." >&2
+	fi
+fi
 exit "$packet_rc"

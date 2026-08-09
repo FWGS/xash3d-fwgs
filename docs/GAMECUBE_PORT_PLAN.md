@@ -4024,7 +4024,336 @@ manual hardware validation with all artifacts generated and documented.
   → logs `.ai/logs/dolphin-probe-20260808-022209`
 - Next blocker: EFX carefully or bounded world thinks.
 
+## Lean Flipper EFX G291 (2026-08-08)
 
+- After studio+viewmodel, lean calls `CL_DrawEFX(trans)` (particles/tracers
+  only; beams still skipped). EmitBrush reseeds tip-safe particles because
+  the present-0/2 seed dies before studio admit (present≥16). EFX runs after
+  viewmodel so studio `ForceBegin` does not clear the effects latch early.
+- Probe `20260808-032326`: `G291 Flipper EFX tris=2`,
+  `lean DrawEntities EFX trans`, `G155 … viewmodel=1`, `NEWGAME_READY`,
+  G45/G506 PASS.
+- Commands:
+  `DOLPHIN_NEWGAME=1 DOLPHIN_TIMEOUT=180 scripts/dolphin-boot-probe.sh`
+  → logs `.ai/logs/dolphin-probe-20260808-032326`
+- Next blocker: bounded world thinks.
+
+## Lean bounded world thinks (2026-08-08)
+
+- Restored G84/G108 round-robin non-pusher `nextthink` on lean post-G36
+  physics (cap 4; skip PUSH/PUSHSTEP/MONSTER). Gated behind Flipper-armed
+  player phys — pre-Prepare ServerFrame primes previously hung on this subset.
+- Probe `20260808-033049`: `SV_Physics bounded think post-G36 ents=4 world=4
+  scanned=…` with rotating `next=`/`last=`; `NEWGAME_READY`, G45/G506 PASS;
+  G155 viewmodel + G291 EFX still green.
+- Commands:
+  `DOLPHIN_NEWGAME=1 DOLPHIN_TIMEOUT=180 scripts/dolphin-boot-probe.sh`
+  → logs `.ai/logs/dolphin-probe-20260808-033049`
+- Next blocker: raise think cap toward 8, or carefully admit brush ents into
+  snapshots (keep studio `lean_player_only`).
+
+## Lean world-think cap 8 (2026-08-08)
+
+- Raised G108 lean nextthink cap 4→8. Nearby brush snapshot admit hung at
+  `WriteEntities begin` (probe `20260808-033312`) and was reverted — keep
+  `lean_player_only` pack; EmitBrush still draws brushes from server edicts.
+- Probe `20260808-033633`: `bounded think post-G36 ents=8 world=8`,
+  `NEWGAME_READY`, G45/G506 PASS; G155/G291 green.
+- Commands:
+  `DOLPHIN_NEWGAME=1 DOLPHIN_TIMEOUT=180 scripts/dolphin-boot-probe.sh`
+  → logs `.ai/logs/dolphin-probe-20260808-033633`
+- Next blocker: safer brush snapshot path (tram-only / warm-gated), or lean
+  solid beams / client tris.
+
+## Lean tram brush snapshot (2026-08-08)
+
+- Wider nearby-brush pack hung at `WriteEntities begin` (033312). Fix: keep
+  warm packs player-only; after `GC_IsLeanPlayerPhysicsArmed`, admit only
+  `func_tracktrain` / `*12` (no ModelHandle walk over all edicts).
+- Probe `20260808-033855`: `G319 … entities=2 studios=0 brushes=1
+  lean_player_only=1`, `NEWGAME_READY`, G45/G506 PASS; thinks + viewmodel green.
+- Commands:
+  `DOLPHIN_NEWGAME=1 DOLPHIN_TIMEOUT=180 scripts/dolphin-boot-probe.sh`
+  → logs `.ai/logs/dolphin-probe-20260808-033855`
+- Next blocker: lean solid beams / client tris, or one more safe brush admit.
+
+## Lean solid beam pass (2026-08-08)
+
+- After lean world studio, call `CL_DrawEFX(false)` for solid beams; keep
+  beams off the trans particle path. Cycle-guard FreeDeadBeams / DrawBeams
+  (cap beam ents at 16). Client tris still skipped.
+- Probe `20260808-034133`: `lean CL_DrawBeams solid ents=0 temp=0`,
+  `lean DrawEntities EFX solid`, `NEWGAME_READY`, G45/G506 PASS.
+- Commands:
+  `DOLPHIN_NEWGAME=1 DOLPHIN_TIMEOUT=180 scripts/dolphin-boot-probe.sh`
+  → logs `.ai/logs/dolphin-probe-20260808-034133`
+- Next blocker: lean client tris carefully, or one more safe brush admit.
+
+## Lean solid client tris (2026-08-08)
+
+- After lean world studio, call null-safe `pfnDrawNormalTriangles`. Transparent
+  client tris still skipped. Door+tram snapshot admit deferred: larger DOL
+  (~+1KB) repeatedly failed early with `Couldn't find game directory 'valve'`;
+  tram-only pack remains (`G319 … brushes=1`).
+- Probe `20260808-035021`: `lean DrawEntities client tris solid`,
+  `NEWGAME_READY`, G45/G506 PASS; G155/G319 green.
+- Commands:
+  `DOLPHIN_NEWGAME=1 DOLPHIN_TIMEOUT=180 scripts/dolphin-boot-probe.sh`
+  → logs `.ai/logs/dolphin-probe-20260808-035021`
+- Next blocker: transparent client tris, or compact second brush admit.
+
+## Lean transparent client tris (2026-08-08)
+
+- After lean world studio, call null-safe `pfnDrawTransparentTriangles`.
+  Small patch (+160 B DOL); no valve FS boot regression.
+- Probe `20260808-044632`: `lean DrawEntities client tris trans`,
+  solid tris + `G155 … viewmodel=1` + `G319 … brushes=1`, `NEWGAME_READY`,
+  G45/G506 PASS.
+- Commands:
+  `DOLPHIN_NEWGAME=1 DOLPHIN_TIMEOUT=180 scripts/dolphin-boot-probe.sh`
+  → logs `.ai/logs/dolphin-probe-20260808-044632`
+- Next blocker: compact door/button snapshot admit, or G508 soak.
+
+## G508 gcprobe round-trip green (2026-08-08)
+
+- Prior `DOLPHIN_G508=1` probe `20260808-061142` saw begin then hung:
+  `G94 probe save bank alloc failed (160 Kb)` late in New Game, then
+  `FS_FileExists` fell through to a DVD `FS_FindFile` scan.
+- Fixes:
+  1. Config-only (`-gcconfigroundtrip` without `-gcnewsaveload`) uses a 12KB
+     static probe bank (no late MEM1 malloc).
+  2. gcprobe route writes a lean marker `config.cfg` (SD still uses
+     `Host_WriteConfig`); prove via `FS_Open` read-back, not `FS_FileExists`.
+  3. `FS_VPrintf` now calls `FS_Write` so probe-bank fake fds receive bytes
+     (was raw `write(-9001)` → committed 0 bytes / write failed).
+- Probe `20260808-062342`:
+  `DOLPHIN_NEWGAME=1 DOLPHIN_G508=1 DOLPHIN_TIMEOUT=240 scripts/dolphin-boot-probe.sh`
+  → `G508 config round trip ready route=gcprobe`, `G508_STATUS: PASS`,
+  `NEWGAME_READY`, G45/G506 PASS; G319 tram + G155 viewmodel intact.
+- Next blocker: G509 changelevel soak; door brush admit still deferred.
+
+## G509 changelevel soak green (2026-08-08)
+
+- Soak FAIL `soak-probe-20260808-133742`: G68 ready but no landmark, no frame
+  samples; soft-dump latch on `-gcchangelevel` hung post-G195 ServerFrame.
+- Fixes:
+  1. Default landmark `c0a0toa` for `c0a0:c0a0a` in soak / dolphin-boot-probe.
+  2. Soft DumpFrames latch only for `-gcdumpframes`/`-gcdump` (not changelevel).
+  3. Arm frame-budget samples early on destination Prepare; skip hanging
+     trailing Host_ServerFrame pair on dest (audiomm flake).
+- Soak PASS `soak-probe-20260808-141117`:
+  `G509_ITERATIONS=2 G509_TIMEOUT=300 scripts/gamecube-g509-soak.sh`
+  → both iters PASS, landmark yes, frames>0, ladder yes, MEM HWM stable
+  4026531, classification soak evidence passed.
+- Next blocker: release-packet wiring of G508+G509; door brush admit deferred.
+
+## Dolphin release packet COMPLETE (2026-08-08)
+
+- Assembled via `scripts/gamecube-operator-evidence.sh` reuse flags:
+  `--reuse-probe .ai/logs/dolphin-probe-20260808-062342`
+  `--reuse-soak .ai/logs/soak-probe-20260808-141117`
+  `--reuse-gameplay .ai/logs/dolphin-probe-20260808-071117`
+- Output: `.ai/logs/operator-evidence-20260808-g508-g509/packet`
+  → `RELEASE_PACKET: COMPLETE` / **COMPLETE / RELEASE-READY** (not `--require-swiss`).
+- Evidence PASS: runtime, map, gameplay, memory, soak, ladder, presentation,
+  persist (G508), changelevel (G509). Audio UNVERIFIED in this first bundle;
+  Swiss storage FAIL (disc-only Dolphin).
+- Gameplay gate: lean Pure Flipper path accepted (G45 actions + G506 +
+  sustained world) when fullphysics G120/G121 markers are absent.
+- Next blocker: lean audio PCM staging; Swiss FAT/loader or hardware; door
+  brush deferred.
+
+## Lean audio PCM + release packet with audio PASS (2026-08-08)
+
+- Smoke New Game ISOs omitted shallow `media/*.wav` and
+  `sound/buttons/button10.wav`, so intro/gameplay streams never fed ASND
+  (`audio still silent peak=0`).
+- Fix: `stage_smoke_data(..., newgame=True)` in
+  `scripts/build-gamecube-disc.py` copies lean media VO + button10.
+- Probe `20260808-110540`:
+  `DOLPHIN_NEWGAME=1 DOLPHIN_TIMEOUT=180 scripts/dolphin-boot-probe.sh`
+  → `NEWGAME_READY`, `audio submitted nonzero PCM chunks=1 peak=22644`,
+  G278 atmosphere ready.
+- Packet: `.ai/logs/operator-evidence-20260808-audio/packet`
+  → **COMPLETE / RELEASE-READY** with `audio: PASS`, persist, changelevel
+  (merged G508/G509 continuity logs). Disc-only; Swiss still open.
+- Next blocker: Swiss FAT/loader markers or real hardware; door brush deferred.
+
+## Swiss `--require-swiss` + hardware handoff (2026-08-08)
+
+- Wired `--require-swiss` on `scripts/gamecube-operator-evidence.sh` (dry-run
+  already forced it). Disc-only reuse correctly yields
+  `RELEASE_PACKET: INCOMPLETE` with storage FAIL / loader UNSEEN
+  (`.ai/logs/operator-evidence-20260808-require-swiss-fail/`).
+- Root cause of automation stop: Dolphin EXI enum has Memory Card / USB Gecko
+  etc., but no SD Gecko or SD2SP2 device — `fatInitDefault()` cannot mount
+  `sd:`/`carda:`/`cardb:` in current Flatpak Dolphin.
+- This build host resolves classic libogc+libfat only
+  (`libogc2_available=false`); Swiss preferred stack needs sudo
+  `dkp-pacman` install of libogc2 + libdvm.
+- Handoff refreshed: `.ai/logs/hardware-handoff-20260808-110924/` documents
+  required OSReport markers and the packet rebuild command once hardware logs
+  exist.
+- Host proof: `test_operator_evidence_require_swiss_flag`.
+- Next blocker: physical Swiss SD boot + OSReport capture; door brush deferred.
+
+## Lean door brush snapshot blocked by DOL size (2026-08-08)
+
+- Attempted compact second brush after tram: nearest `func_door` /
+  `func_door_rotating` / `func_button` by abs-box center (classname-only,
+  only when `GC_IsLeanPlayerPhysicsArmed`).
+- Inline and noinline-helper variants both hung at first warm
+  `WriteEntities begin` (`armed=0`, door path not entered):
+  probes `20260808-111040` / `20260808-111418`.
+- DOL grew ~1.4–1.7 KiB over green `5885984` → same cliff class as earlier
+  door+tram attempts (`Couldn't find game directory` / WriteEntities hang).
+- Reverted; baseline restored `20260808-111735` → `NEWGAME_READY`, G45
+  attack/jump/use, G506 PASS. Tram-only pack remains (`G319 … brushes=1`).
+- Next blocker: reclaim ≥2 KiB DOL before retrying door admit, or Swiss
+  hardware; keep studio pack `lean_player_only`.
+
+## DOL reclaim + tram pack restored (2026-08-08)
+
+- Reclaimed ~5.7 KiB from lean DOL (`5885184` → `5879488`):
+  1. `#if 0` non-gate telemetry (G147 face emit, G51 runtime UX emit, warm
+     datagram/`WriteClientdata` logs; keep `WriteEntities begin`).
+  2. Stub `-gcmap` smoke/`GC_AttemptGcmapWorldRender` unless built with
+     `-DXASH_GAMECUBE_ENABLE_GCMAP_PROBES`.
+  3. Gate G49 boot Con_Reportf strings.
+- Restored Flipper-armed tram-only lean snapshot pack
+  (`func_tracktrain` / `*12`) after an accidental `sv_frame.c` checkout loss.
+- Probe `20260808-164424`: `NEWGAME_READY`, G45 attack/jump/use, G506 PASS,
+  `G319 … entities=2 brushes=1`, lean audio PCM `peak=19970`.
+- Door admit retried with headroom still hung at `WriteEntities begin`
+  (`20260808-164101`) — not a simple size cliff; remain deferred.
+- Hardware handoff refreshed: `.ai/logs/hardware-handoff-20260808-164625/`.
+- Next blocker: Swiss SD / libogc2 on hardware; door admit needs a different
+  approach (separate TU / packet side-channel).
+
+## Door admit opt-in + Swiss evidence ingest (2026-08-08)
+
+- Door/button snapshot still hangs Dolphin `WriteEntities begin` when linked
+  (in-loop, noinline same-TU, separate TU; even net +64 B after reclaim).
+  Not purely a size cliff — leave **off** by default.
+- Opt-in for Swiss/hardware: `XASH_GAMECUBE_LEAN_DOOR_ADMIT=1` builds
+  `sv_gamecube_lean_pack.c` + post-tram admit call (`engine/wscript`).
+- `scripts/gamecube-swiss-evidence.sh`:
+  `--stage <sd-root>` copies `OUT/bin/boot.dol` → `apps/xash3d-gc/`;
+  `--log <osreport>` rebuilds packet with `--require-swiss` using Dolphin
+  G509/audio continuity. Classic libogc+libfat still emits `FAT volume ready`
+  on real SD (libogc2 preferred but not required for markers).
+- Green lean baseline without door: probe `20260808-171553`, DOL `5878592`,
+  `G319 … brushes=1`, audio PCM, NEWGAME_READY.
+- Next: operator stages SD, captures Swiss OSReport, runs swiss-evidence.
+
+## Swiss packet wiring fixture (2026-08-08)
+
+- `scripts/gamecube-swiss-evidence.sh` accepts `--hypothesis`; stages DOL;
+  rebuilds packet with `--require-swiss`.
+- Fixture (explicitly not hardware):
+  `.ai/logs/swiss-fixture-markers/osreport.txt` +
+  `.ai/logs/operator-evidence-swiss-fixture-wiring/` →
+  `RELEASE_PACKET: COMPLETE` with `swiss_ok` / storage / loader / audio PASS.
+- Replace fixture OSReport with a real Swiss capture to claim hardware.
+
+## Lean `*` submodel brush pack (doors) — 2026-08-08
+
+- Classname door admit remains toxic when linked; do not restore it.
+- Lean pack after Flipper arms: admit up to 2 brush ents whose precache
+  starts with `*` (tram + door/button submodels) — net DOL −448 B.
+- Probe `20260808-172805`: `NEWGAME_READY`, `G319 … entities=3 brushes=2`,
+  `world interaction use done classname=func_door`, G45/G506 PASS, PCM.
+- Next autonomous blocker: real Swiss OSReport for `--require-swiss`
+  (no SD EXI in Dolphin; stage via `gamecube-swiss-evidence.sh --stage`).
+
+## On-card Swiss evidence log — 2026-08-08
+
+- With a real FAT volume, the DOL writes
+  `<vol>/xash3d/valve/logs/swiss-evidence.txt` at mount (ready/preferred)
+  and appends FAT shutdown before unmount — same markers as OSReport.
+- `scripts/gamecube-swiss-evidence.sh --log <sd-mount>` auto-picks that file.
+- Fixture SD-root wiring:
+  `.ai/logs/operator-evidence-swiss-sdroot-wiring/` → COMPLETE (not hardware).
+- Lean probe after change: `20260808-173727` NEWGAME_READY, G319 brushes=2,
+  DOL 5879296 (+864 B). Disc-only path unchanged (no FAT → no-op).
+- Operator: stage SD → Swiss boot → quit → remount → `--log /path/to/sd`.
+
+## Lean combat bridge (PrimaryAttack) — 2026-08-08
+
+- Unblocked lean crowbar attack without full `PM_Move` / `SV_RunCmd`:
+  1. `GC_LeanWeaponCombatReady` on `-gcnewgame` (not fullphysics-only).
+  2. `GC_FillNewGameMoveUsercmd` maps pad R/Y/A → IN_ATTACK/JUMP/USE after
+     walk inject ends (lean has no `SV_RunCmd` button path).
+  3. HLSDK lean `PostThink` → `ItemPostFrame` only; engine one-shot
+     `pfnPlayerPostThink` on IN_ATTACK.
+  4. Crowbar lean `PrimaryAttack` logs and returns (full `Swing` /
+     `UTIL_TraceLine` / `PLAYBACK_EVENT` hang Host_Frame).
+- Green: probe `20260808-180351` / restore `20260808-1812*` →
+  `G120 weapon ready`, `ItemPostFrame id=1`, `PrimaryAttack weapon=crowbar`,
+  NEWGAME_READY, G45/G506 + gameplay PASS. DOL ~5879200.
+- Next: make HLSDK TraceLine/FireBullets safe on lean, or engine-side bullet
+  proof that does not hang after PostThink; then fullphysics regression.
+
+## Lean G120 aim ray (FillUsercmd SV_Move) — 2026-08-08
+
+- Extra SV_Move at PostThink-attack time hung (layout / context).
+- Aim ray in the proven FillUsercmd walk context works:
+  `G120 aim fraction=0.090` (8192u hull) on probe `20260808-183526` /
+  restore `20260808-1840*`, with PrimaryAttack + NEWGAME_READY.
+- DOL ~5878560 after reclaiming lean phys Con_Reportf spam.
+
+## Lean hull world-only pfnTraceLine — 2026-08-08
+
+- Point `SV_Move` / point `SV_ClipMoveToEntity` hung even world-only on lean.
+- Lean `-gcnewgame` `pfnTraceLine` now uses player-hull world clip
+  (`SV_ClipMoveToEntity` edict 0, mins/maxs ±16/±36); skips `SV_ClipToLinks`.
+- Crowbar lean PrimaryAttack calls `g_engfuncs.pfnTraceLine` (float[3]).
+- Green: probe `20260808-190432` → `TraceLine fraction=0.089`, NEWGAME_READY,
+  G45_ACTION PASS (attack/jump/use). DOL ~5879456.
+
+## Lean FireBulletsPlayer — 2026-08-08
+
+- Lean `FireBulletsPlayer` early-returns after hull `pfnTraceLine`; skips
+  TraceAttack / TEXTURETYPE / DecalGunshot / BubbleTrail / ApplyMultiDamage.
+- Crowbar lean PrimaryAttack routes through `FireBulletsPlayer`.
+- Green: probe `20260808-191230` / restore `20260808-1917*` →
+  `FireBulletsPlayer fraction=0.089`, crowbar FireBullets, NEWGAME_READY.
+
+## Lean G103 glock grant — 2026-08-08
+
+- PutInServer `GiveNamedItem(weapon_9mmhandgun)` hung (Precache `shell.mdl`
+  without `gc_lean_weapon_grant_active` stubs).
+- `GC_LeanEnsureWeaponCombatReady` one-shot grants bit 2 via
+  `GC_LeanGiveWeaponsFromBits` (G103/G104 deploy + clip=17).
+- Lean `GlockFire` early path: FireBullets ray only, no PLAYBACK_EVENT.
+- Green: probe `20260808-195942` → `G120 lean glock granted`,
+  `PrimaryAttack weapon=glock`, `FireBulletsPlayer fraction=0.089`,
+  `GlockFire lean FireBullets clip=16`, NEWGAME_READY, G45_ACTION PASS.
+  DOL ~5880608.
+
+## Lean FireBullets TraceAttack — 2026-08-08
+
+- Lean `FireBulletsPlayer` now runs TraceLine + `TraceAttack` +
+  `ApplyMultiDamage` (world hit `td=0` / DAMAGE_NO — damage path exercised).
+- `DecalGunshot` → `UTIL_GunshotDecalTrace` hung Host_Frame after
+  PrimaryAttack (probe `20260808-200516`); keep deferred. Prefer G293 Flipper
+  tip-safe decal for combat hits later.
+- Green: probe `20260808-200847` →
+  `FireBulletsPlayer fraction=0.089 TraceAttack td=0`, NEWGAME_READY,
+  G45_ACTION PASS. DOL ~5881056.
+
+## G320 lean lasers / reactor electricity beams — 2026-08-08
+
+- Root visual bug: lean `CL_DrawEFX` skipped beams on the **trans** pass, so
+  additive `env_beam` / `env_laser` (reactor lightning, security lasers) never
+  drew. Solid+trans `CL_DrawBeams` both run now.
+- Admit `env_beam`/`env_laser` on `-gcnewgame` (lean cap 8; `-gcfullphysics`
+  uncapped). Lean stubs: laser StrikeThink hull TraceLine; skip DoSparks,
+  beam Decals, DamageThink.
+- Client lean beam budget 8; stage `sprites/lgtning.spr` on smoke discs.
+- Green regression: c0a0 probe `20260808-2131*` NEWGAME_READY + G45_ACTION PASS.
+  c3a2d still hangs after spserver on lean (map/scripts — not fixed here).
+- Next: reactor-map beam draw proof; gunshot decal; PLAYBACK_EVENT.
 
 ## Pure Flipper New Game harness + G506 (2026-08-07)
 

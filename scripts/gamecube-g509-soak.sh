@@ -11,6 +11,10 @@ cd "$ROOT"
 ITERATIONS="${G509_ITERATIONS:-2}"
 TIMEOUT="${G509_TIMEOUT:-${SOAK_TIMEOUT:-180}}"
 ROUTE="${G509_CHANGELEVEL_ROUTE:-c0a0:c0a0a}"
+# Default tram landmark for c0a0→c0a0a when caller does not set one.
+if [[ -z "${DOLPHIN_LANDMARK:-}" && "$ROUTE" == "c0a0:c0a0a" ]]; then
+	export DOLPHIN_LANDMARK="c0a0toa"
+fi
 EXTRA_ARGS=()
 
 while (($#)); do
