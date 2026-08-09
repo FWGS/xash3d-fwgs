@@ -348,7 +348,8 @@ behavior remains explicitly unverified until hardware testing.
 - Lean combat: probe `20260808-200847` — glock FireBullets +
   `TraceAttack td=0` (world) + ApplyMultiDamage, NEWGAME_READY + G45_ACTION
   PASS. `DecalGunshot` hung; TEXTURETYPE/BubbleTrail/PLAYBACK_EVENT deferred.
-- G320 beams: lean additive path + env_beam/env_laser admit (cap 8). c0a0
-  `20260809-005353` NEWGAME_READY + G45_ACTION PASS. c3a2 `20260809-005246`:
-  boot past spserver + Flipper seeded beam `gpu=1 segs=8`; harness PARTIAL
-  (no G36 samples). Map env_beam client draw still open.
+- G320 beams: lean additive path + env_beam/env_laser admit (cap 8). Map
+  env_beam → client edict seed → Flipper blit on c3a2 `20260809-010537`
+  (`client seed n=2`, `temp=3`, `gpu=1`); Zap TE still skipped (hangs).
+  c0a0 `20260809-010713` NEWGAME_READY + G45_ACTION PASS. Harness PARTIAL
+  on c3a2 (no G36 samples).

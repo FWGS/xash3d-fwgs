@@ -8,6 +8,7 @@
 #include "pm_local.h"
 #if XASH_GAMECUBE
 #include "gamecube/mem_gamecube.h"
+#include "server.h"
 #endif
 #define PART_SIZE	Q_max( 0.5f, cl_draw_particles.value )
 
@@ -2391,6 +2392,54 @@ qboolean CL_GCSeedFlipperEfxProof( const float *org )
 	return gc_beam_seeded;
 }
 
+static int CL_GCSeedMapEnvBeamEdicts( model_t *spr )
+{
+	int e, n = 0;
+
+	if( !spr || !svs.initialized || sv.state < ss_active )
+		return 0;
+
+	for( e = svs.maxclients + 1; e < svgame.numEntities && n < 4; e++ )
+	{
+		edict_t *ed = SV_EdictNum( e );
+		const char *classname;
+		vec3_t start, end;
+		BEAM *pbeam;
+
+		if( !SV_IsValidEdict( ed ))
+			continue;
+		classname = SV_GetString( ed->v.classname );
+		if( !classname || ( Q_stricmp( classname, "env_beam" )
+			&& Q_stricmp( classname, "env_laser" )))
+			continue;
+		if( !cl_free_beams )
+			break;
+
+		VectorCopy( ed->v.origin, start );
+		VectorSet( end, start[0] + 96.0f, start[1], start[2] + 48.0f );
+		pbeam = R_BeamPoints( start, end, 1, 0.0f, 8.0f, 0.65f,
+			0.6f, 0.0f, 0, 0.0f, 0.77f, 0.95f, 0.66f );
+		if( !pbeam )
+			break;
+
+		VectorCopy( start, pbeam->source );
+		VectorCopy( end, pbeam->target );
+		VectorSubtract( end, start, pbeam->delta );
+		pbeam->segments = 8;
+		pbeam->width = 8.0f;
+		pbeam->amplitude = 0.65f; /* distinguishes map beams from amp=0 seed */
+		pbeam->pFollowModel = spr;
+		pbeam->type = TE_BEAMPOINTS;
+		pbeam->frameCount = spr->numframes > 0 ? spr->numframes : 1;
+		SetBits( pbeam->flags, FBEAM_FOREVER );
+		n++;
+	}
+
+	if( n > 0 )
+		Con_Reportf( "Xash3D GameCube: G320 map env_beam client seed n=%d\n", n );
+	return n;
+}
+
 qboolean CL_GCTrySeedLeanBeamProof( void )
 {
 	static qboolean allocated;
@@ -2448,6 +2497,8 @@ qboolean CL_GCTrySeedLeanBeamProof( void )
 	Con_Reportf( "Xash3D GameCube: G320 beam seeded spr=%s frames=%d d=%.0f follow=1\n",
 		spr->name[0] ? spr->name : "?", spr->numframes,
 		VectorLength( pbeam->delta ) );
+	/* Map env_beam edicts → forever follow beams for Flipper blit (no Zap TE). */
+	CL_GCSeedMapEnvBeamEdicts( spr );
 	return true;
 }
 #endif

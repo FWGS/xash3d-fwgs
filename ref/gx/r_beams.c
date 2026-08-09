@@ -1179,14 +1179,15 @@ static void R_BeamDraw( BEAM *pbeam, float frametime )
 			{
 				lean_beam_draw_logged = true;
 				gEngfuncs.Con_Reportf(
-					"Xash3D GameCube: G320 beam draw segs=%d amp=%.1f spr=%s tex=%d tipsafe=pending-gpu\n",
+					"Xash3D GameCube: G320 %sbeam draw segs=%d amp=%.1f spr=%s tex=%d tipsafe=pending-gpu\n",
+					r_gc_pending_beam_amp >= 0.5f ? "map " : "",
 					r_gc_pending_beam_segments, r_gc_pending_beam_amp,
 					model->name[0] ? model->name : "?",
 					r_gc_pending_beam_texnum );
 			}
 			else if( r_gc_pending_beam_amp >= 0.5f )
 			{
-				/* Map env_beam Zap uses NoiseAmplitude~65 → amp~0.65; seed amp=0. */
+				/* Map env_beam client seed uses amp=0.65; proof seed amp=0. */
 				static qboolean lean_map_beam_draw_logged;
 
 				if( !lean_map_beam_draw_logged )
