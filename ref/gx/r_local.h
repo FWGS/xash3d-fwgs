@@ -401,6 +401,7 @@ qboolean R_GXStudioIsActive( void );
 qboolean R_GXTriApiIsActive( void );
 void R_GXEffectsTriBegin( void );
 void R_GXEffectsTriEnd( void );
+void R_GXEmitPendingLeanBeam( void );
 int R_GXStudioLastTriCount( void );
 void R_GXStudioBegin( qboolean viewmodel );
 void R_GXStudioForceBegin( qboolean viewmodel );

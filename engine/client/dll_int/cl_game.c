@@ -1693,6 +1693,7 @@ void CL_GCPreloadNewGameHudSprites( void )
 	static const char *const sheets[] = {
 		"sprites/320hud1.spr", /* → lean gc_320hud1 (~5 KiB @ 64×64) */
 		"sprites/crosshairs.spr", /* → lean gc_crosshairs (G290: before hud2/train) */
+		"sprites/lgtning.spr", /* G320: env_beam / reactor electricity (~7 KiB) */
 		"sprites/320_train.spr", /* → lean gc_320_train (G288) */
 		"sprites/320hud2.spr", /* → lean gc_320hud2 (G288) */
 	};

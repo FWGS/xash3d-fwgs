@@ -807,6 +807,7 @@ void R_BlitScreen( void )
 
 		if( GC_UseGxRenderer() )
 		{
+			R_GXEmitPendingLeanBeam();
 			R_GXEffectsTriEnd();
 			R_GXClearWorldDrewFlag();
 			gEngfuncs.SW_UnlockBuffer();

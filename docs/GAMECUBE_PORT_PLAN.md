@@ -4353,13 +4353,13 @@ manual hardware validation with all artifacts generated and documented.
   beam Decals, DamageThink.
 - Client lean beam budget 8; stage `sprites/lgtning.spr` on smoke discs;
   lean `CL_InitViewBeams` restored.
-- c0a0 Flipper proof (`20260808-230137`): deferred beam arm → alloc at SCR
-  frame 16 → `G320 beam draw … tipsafe=deferred` + EFX trans + NEWGAME_READY
-  + G45_ACTION PASS. Live forever beams during early SCR stall frames=16;
-  HUD `TriSpriteTexture`/`R_DrawSegs` and tip-safe TriAPI strips stall the
-  present pump (one earlier run reached Flipper EFX tris=16 then hung).
-- Next: Flipper lightning emit that does not stall SCR; reactor-map proof
-  (c3a2d still hangs post-spserver); gunshot decal; PLAYBACK_EVENT.
+- c0a0 Flipper proof (`20260809-002241`): HUD preload `lgtning.spr` → deferred
+  arm/alloc at SCR frame 16 → stash billboard + `gl_texturenum` → blit-time
+  `G320 beam blit emit tipsafe=1 tex=87` + NEWGAME_READY + G45_ACTION PASS.
+  TriAPI emit during `DrawEntities` stalled SCR after EFX; forever beams
+  during early SCR stalled `frames=16`.
+- Next: reactor-map proof (c3a2d still hangs post-spserver); gunshot decal;
+  PLAYBACK_EVENT.
 
 ## Pure Flipper New Game harness + G506 (2026-08-07)
 

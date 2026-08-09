@@ -27,6 +27,20 @@ GNU General Public License for more details.
 
 #if XASH_GAMECUBE
 static qboolean r_gc_lean_follow_beam_drawn;
+static qboolean r_gc_pending_beam_valid;
+static vec3_t r_gc_pending_beam_source;
+static vec3_t r_gc_pending_beam_delta;
+static float r_gc_pending_beam_width;
+static float r_gc_pending_beam_amp;
+static float r_gc_pending_beam_freq;
+static float r_gc_pending_beam_speed;
+static int r_gc_pending_beam_segments;
+static int r_gc_pending_beam_flags;
+static float r_gc_pending_beam_r;
+static float r_gc_pending_beam_g;
+static float r_gc_pending_beam_b;
+static float r_gc_pending_beam_a;
+static int r_gc_pending_beam_texnum;
 #endif
 
 typedef struct
@@ -1142,18 +1156,47 @@ static void R_BeamDraw( BEAM *pbeam, float frametime )
 	case TE_BEAMPOINTS:
 	case TE_BEAMHOSE:
 #if XASH_GAMECUBE
-		/* Lean follow-model proof: HUD TriSpriteTexture + R_DrawSegs stalls
-		 * the first Flipper present pump. Emit one tip-safe additive strip. */
+		/* Lean follow-model proof: stash a billboard quad for blit-time emit.
+		 * TriAPI during DrawEntities stalled SCR after EFX (20260809-001055). */
 		if( pbeam->pFollowModel
 			&& gEngfuncs.Sys_CheckParm( "-gcnewgame" )
 			&& !gEngfuncs.Sys_CheckParm( "-gcfullphysics" ))
 		{
 			static qboolean lean_beam_draw_logged;
+			vec3_t right, up, p0, p1, p2, p3;
+			float half = pbeam->width > 1.0f ? pbeam->width * 0.5f : 4.0f;
+			float br = pbeam->brightness > 1.0f ? 1.0f : pbeam->brightness;
+			unsigned cr, cg, cb;
 
-			/* TriAPI strip emit after SCR frames=16 still hung the present
-			 * pump (20260808-225809). Retire with a proof marker; Flipper
-			 * lightning emit is the next G320 slice (defaultTexture strip
-			 * previously reached tris=16 in 20260808-223150 then stalled). */
+			VectorScale( RI.cull_vright, half, right );
+			VectorScale( RI.cull_vup, half * 0.25f, up );
+			VectorAdd( pbeam->source, right, p0 );
+			VectorAdd( p0, up, p0 );
+			VectorSubtract( pbeam->source, right, p1 );
+			VectorAdd( p1, up, p1 );
+			VectorAdd( pbeam->target, right, p2 );
+			VectorSubtract( p2, up, p2 );
+			VectorSubtract( pbeam->target, right, p3 );
+			VectorSubtract( p3, up, p3 );
+
+			VectorCopy( p0, r_gc_pending_beam_pts[0] );
+			VectorCopy( p1, r_gc_pending_beam_pts[1] );
+			VectorCopy( p3, r_gc_pending_beam_pts[2] );
+			VectorCopy( p2, r_gc_pending_beam_pts[3] );
+			cr = (unsigned)bound( 0, (int)( pbeam->r * br * 255.0f ), 255 );
+			cg = (unsigned)bound( 0, (int)( pbeam->g * br * 255.0f ), 255 );
+			cb = (unsigned)bound( 0, (int)( pbeam->b * br * 255.0f ), 255 );
+			r_gc_pending_beam_color = ( cr << 24 ) | ( cg << 16 ) | ( cb << 8 ) | 0xFFu;
+			{
+				const mspriteframe_t *fr;
+
+				fr = gEngfuncs.R_GetSpriteFrame( pbeam->pFollowModel,
+					(int)pbeam->frame, 0.0f );
+				r_gc_pending_beam_texnum = ( fr && fr->gl_texturenum > 0 )
+					? fr->gl_texturenum : 0;
+			}
+			r_gc_pending_beam_valid = true;
+
 			ClearBits( pbeam->flags, FBEAM_FOREVER );
 			pbeam->die = gp_cl->time;
 			r_gc_lean_follow_beam_drawn = true;
@@ -1161,8 +1204,9 @@ static void R_BeamDraw( BEAM *pbeam, float frametime )
 			{
 				lean_beam_draw_logged = true;
 				gEngfuncs.Con_Reportf(
-					"Xash3D GameCube: G320 beam draw segs=2 amp=0.0 spr=%s tipsafe=deferred\n",
-					model->name[0] ? model->name : "?" );
+					"Xash3D GameCube: G320 beam draw segs=2 amp=0.0 spr=%s tex=%d tipsafe=pending\n",
+					model->name[0] ? model->name : "?",
+					r_gc_pending_beam_texnum );
 			}
 			break;
 		}
@@ -1406,3 +1450,53 @@ void GAME_EXPORT CL_DrawBeams( int fTrans, BEAM *active_beams )
 	// pglShadeModel( GL_FLAT );
 	// pglDepthMask( GL_TRUE );
 }
+
+#if XASH_GAMECUBE
+/*
+==============
+R_GXEmitPendingLeanBeam
+
+G320: emit the stashed tip-safe beam at blit time (after HUD), so DrawEntities
+never opens the effects TriAPI pipe mid-frame.
+==============
+*/
+void R_GXEmitPendingLeanBeam( void )
+{
+	float ( *p )[3];
+	unsigned c;
+	static qboolean logged;
+
+	if( !r_gc_pending_beam_valid || !GC_UseGxWorldDraw() )
+		return;
+
+	r_gc_pending_beam_valid = false;
+	p = r_gc_pending_beam_pts;
+	c = r_gc_pending_beam_color;
+	vid.rendermode = kRenderTransAdd;
+	R_GXEffectsTriBegin();
+	if( r_gc_pending_beam_texnum > 0 )
+		R_GXStudioBindTexnum( (unsigned)r_gc_pending_beam_texnum );
+	else if( tr.particleTexture )
+		R_GXStudioBindTexnum( (unsigned)tr.particleTexture );
+	else if( tr.defaultTexture )
+		R_GXStudioBindTexnum( (unsigned)tr.defaultTexture );
+	/* Two tris: p0-p1-p2 and p0-p2-p3 (pending pts are p0,p1,p3,p2). */
+	R_GXStudioEmitTriC(
+		p[0][0], p[0][1], p[0][2], 0.0f, 0.0f, c,
+		p[1][0], p[1][1], p[1][2], 1.0f, 0.0f, c,
+		p[2][0], p[2][1], p[2][2], 1.0f, 1.0f, c );
+	R_GXStudioEmitTriC(
+		p[0][0], p[0][1], p[0][2], 0.0f, 0.0f, c,
+		p[2][0], p[2][1], p[2][2], 1.0f, 1.0f, c,
+		p[3][0], p[3][1], p[3][2], 0.0f, 1.0f, c );
+	R_GXEffectsTriEnd();
+	vid.rendermode = kRenderNormal;
+	if( !logged )
+	{
+		logged = true;
+		gEngfuncs.Con_Reportf(
+			"Xash3D GameCube: G320 beam blit emit tipsafe=1 tex=%d\n",
+			r_gc_pending_beam_texnum );
+	}
+}
+#endif

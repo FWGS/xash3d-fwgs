@@ -918,6 +918,8 @@ GC_HUD_SPRITES = (
 	("sprites/320hud1.spr", "sprites/gc_320hud1.spr"),
 	# G174: lean 64×64 downsample of 128×128 crosshairs (~17 KiB → ~5 KiB).
 	("sprites/crosshairs.spr", "sprites/gc_crosshairs.spr"),
+	# G320: reactor electricity / env_beam (~7 KiB retail; tip-safe as-is).
+	"sprites/lgtning.spr",
 )
 
 # Lean skybox BMPs for New Game RGB565 fills. Use gc_desert* names so retail

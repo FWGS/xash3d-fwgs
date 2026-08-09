@@ -2321,15 +2321,26 @@ qboolean CL_GCSeedFlipperEfxProof( const float *org )
 		}
 		if( !spr )
 		{
+			model_t *fallback = NULL;
+
 			for( i = 0; i < MAX_CLIENT_SPRITES; i++ )
 			{
 				cand = &clgame.sprites[i];
 				if( cand->type != mod_sprite || !cand->cache.data
 					|| cand->numframes <= 0 || !cand->name[0] )
 					continue;
-				spr = cand;
-				break;
+				if( Q_stristr( cand->name, "lgtning" )
+					|| Q_stristr( cand->name, "laserbeam" )
+					|| Q_stristr( cand->name, "flare" ))
+				{
+					spr = cand;
+					break;
+				}
+				if( !fallback )
+					fallback = cand;
 			}
+			if( !spr )
+				spr = fallback;
 		}
 		if( spr )
 		{
@@ -2360,6 +2371,26 @@ qboolean CL_GCTrySeedLeanBeamProof( void )
 		return false;
 
 	spr = gc_lean_beam_spr;
+	/* Prefer preloaded HUD lgtning if arm grabbed a HUD sheet fallback. */
+	if( !Q_stristr( spr->name, "lgtning" ))
+	{
+		int si;
+
+		for( si = 0; si < MAX_CLIENT_SPRITES; si++ )
+		{
+			model_t *cand = &clgame.sprites[si];
+
+			if( cand->type != mod_sprite || !cand->cache.data
+				|| cand->numframes <= 0 || !cand->name[0] )
+				continue;
+			if( Q_stristr( cand->name, "lgtning" ))
+			{
+				spr = cand;
+				gc_lean_beam_spr = cand;
+				break;
+			}
+		}
+	}
 	VectorCopy( gc_lean_beam_org, start );
 	VectorSet( end, start[0] + 128.0f, start[1], start[2] + 32.0f );
 	pbeam = R_BeamPoints( start, end, 1, 0.0f, 8.0f, 0.0f,
