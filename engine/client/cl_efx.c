@@ -920,9 +920,9 @@ BEAM * GAME_EXPORT R_BeamPoints( vec3_t start, vec3_t end, int modelIndex, float
 	R_BeamSetAttributes( pbeam, r, g, b, framerate, startFrame );
 
 #if XASH_GAMECUBE
-	/* Map env_beam TE_BEAMPOINTS: attach HUD lgtning so Flipper blit path can
-	 * stash R_DrawSegs without TriSpriteTexture mid-DrawEntities. */
-	if( life == 0 && Sys_CheckParm( "-gcnewgame" )
+	/* Forever TE_BEAMPOINTS (map env_beam Zap): attach HUD lgtning so Flipper
+	 * blit can stash R_DrawSegs. Seed uses modelIndex=1; map uses precache idx. */
+	if( life == 0 && modelIndex > 1 && Sys_CheckParm( "-gcnewgame" )
 		&& !Sys_CheckParm( "-gcfullphysics" ) && !pbeam->pFollowModel )
 	{
 		int si;
@@ -945,8 +945,8 @@ BEAM * GAME_EXPORT R_BeamPoints( vec3_t start, vec3_t end, int modelIndex, float
 				{
 					map_te_follow_logged = true;
 					Con_Reportf(
-						"Xash3D GameCube: G320 map TE beam follow spr=%s\n",
-						cand->name );
+						"Xash3D GameCube: G320 map TE beam follow spr=%s idx=%d\n",
+						cand->name, modelIndex );
 				}
 			}
 			break;

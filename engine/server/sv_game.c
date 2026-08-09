@@ -5207,6 +5207,8 @@ static qboolean SV_GCMapShouldInhibitClass( const char *classname )
 			if( gc_lean_beam_admit >= 8 )
 				return true;
 			gc_lean_beam_admit++;
+			Con_Reportf( "Xash3D GameCube: G320 admit %s n=%d\n",
+				classname, gc_lean_beam_admit );
 			return false;
 		}
 		if(( !Q_strnicmp( classname, "monster_", 8 )
