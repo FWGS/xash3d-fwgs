@@ -474,12 +474,25 @@ Common function for engine joystick movement
 #define R (1U << 3)	// Right
 #define T (1U << 4)	// Forward stop
 #define S (1U << 5)	// Side stop
+
+static qboolean IN_IsSpeedKeyDown( void )
+{
+    return Key_IsCommandDown( "+speed" ) || Touch_IsCommandDown( "+speed" );
+}
+
 static void IN_JoyAppendMove( usercmd_t *cmd, float forwardmove, float sidemove )
 {
 	static uint moveflags = T | S;
+	float movespeedscale = 1.0f;
 
-	if( forwardmove ) cmd->forwardmove  = forwardmove * cl_forwardspeed.value;
-	if( sidemove ) cmd->sidemove  = sidemove * cl_sidespeed.value;
+	if( IN_IsSpeedKeyDown() )
+	{
+		convar_t *cl_movespeedkey = Cvar_FindVar( "cl_movespeedkey" );
+		movespeedscale = cl_movespeedkey ? cl_movespeedkey->value : 0.3f;
+	}
+
+	if( forwardmove ) cmd->forwardmove  = forwardmove * cl_forwardspeed.value * movespeedscale;
+	if( sidemove ) cmd->sidemove  = sidemove * cl_sidespeed.value * movespeedscale;
 
 	if( forwardmove )
 	{
@@ -619,8 +632,18 @@ static void IN_Commands( void )
 	if( clgame.dllFuncs.pfnLookEvent )
 	{
 		float forward = 0, side = 0, pitch = 0, yaw = 0;
+		float movespeedscale = 1.0f;
 
 		IN_CollectInput( &forward, &side, &pitch, &yaw, in_mouseinitialized && !m_ignore.value );
+
+		if( IN_IsSpeedKeyDown() )
+		{
+			convar_t *cl_movespeedkey = Cvar_FindVar( "cl_movespeedkey" );
+			movespeedscale = cl_movespeedkey ? cl_movespeedkey->value : 0.3f;
+		}
+
+		forward *= movespeedscale;
+		side 	*= movespeedscale;
 
 		if( cls.key_dest == key_game )
 		{

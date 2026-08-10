@@ -2159,6 +2159,28 @@ void Touch_GetMove( float *forward, float *side, float *pitch, float *yaw )
 	touch.yaw = touch.pitch = 0;
 }
 
+qboolean Touch_IsCommandDown( const char *cmd )
+{
+	touch_button_t *button;
+
+	if( !touch_enable.value )
+		return false;
+
+	if( !cmd )
+		return false;
+
+	for( button = touch.list_user.first; button; button = button->next )
+	{
+		if( button->finger < 0 )
+			continue;
+
+		if( !Q_stricmp( button->command, cmd ))
+			return true;
+	}
+
+	return false;
+}
+
 void Touch_KeyEvent( int key, int down )
 {
 	static float lx, ly;

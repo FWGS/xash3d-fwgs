@@ -49,6 +49,9 @@ uint IN_CollectInputDevices( void );
 void IN_LockInputDevices( qboolean lock );
 void IN_EngineAppendMove( float frametime, usercmd_t *cmd, qboolean active );
 
+qboolean Key_IsCommandDown( const char *cmd );
+qboolean Touch_IsCommandDown( const char *cmd );
+
 void IN_SetRelativeMouseMode( qboolean set );
 void IN_SetMouseGrab( qboolean set );
 

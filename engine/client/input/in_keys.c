@@ -286,6 +286,31 @@ const char *Key_GetBinding( int keynum )
 
 /*
 ===================
+Key_IsCommandDown
+===================
+*/
+qboolean Key_IsCommandDown( const char *cmd )
+{
+    if( !cmd )
+        return false;
+
+    for( int i = 0; i < ARRAYSIZE( keys ); i++ )
+    {
+        if( !keys[i].down )
+            continue;
+
+        if( !keys[i].binding )
+            continue;
+
+        if( !Q_stricmp( keys[i].binding, cmd ))
+            return true;
+    }
+
+    return false;
+}
+
+/*
+===================
 Key_GetKey
 ===================
 */
