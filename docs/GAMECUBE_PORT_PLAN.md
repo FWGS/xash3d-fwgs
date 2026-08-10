@@ -4495,3 +4495,28 @@ manual hardware validation with all artifacts generated and documented.
   `DOLPHIN_NEWGAME=1 DOLPHIN_SMOKE_MAP=c1a1a DOLPHIN_CHANGELEVEL=c1a1f scripts/dolphin-boot-probe.sh`
 - Next: hops from `c1a1f`.
 
+## Unforeseen Consequences mid-chain (2026-08-10)
+
+- Proven: `c1a1f→c1a1b` `.ai/logs/dolphin-probe-20260810-044126`
+- Proven: `c1a1b→c1a1c` `.ai/logs/dolphin-probe-20260810-044242`
+- Proven: `c1a1c→c1a1d` `.ai/logs/dolphin-probe-20260810-044610` (landmark `c1a1c/d`)
+- **G337**: disc `gamecube.cfg` landmark parser allows `/` in targetnames;
+  previously `changelevel c1a1d c1a1c/d` was rejected wholesale.
+- Next: `c1a1c→c1a2` (landmark `a1a2`) — UC → Office Complex.
+
+## Unforeseen → Office Complex c1a1c→c1a2 (2026-08-10)
+
+- Proven: `c1a1c→c1a2` CHANGELEVEL_READY `.ai/logs/dolphin-probe-20260810-044727`
+  (landmark `a1a2`; ladder 10/10; G45 actions PASS; G36 WEAK avg≈50ms)
+- Command:
+  `DOLPHIN_NEWGAME=1 DOLPHIN_SMOKE_MAP=c1a1c DOLPHIN_CHANGELEVEL=c1a2 scripts/dolphin-boot-probe.sh`
+- Next: `c1a2→c1a2a` (landmark `one`).
+
+## Office Complex c1a2→c1a2a (2026-08-10)
+
+- Proven: `c1a2→c1a2a` CHANGELEVEL_READY `.ai/logs/dolphin-probe-20260810-044850`
+  (landmark `one`; ladder 10/10; G45 actions PASS; G36 WEAK avg≈50ms)
+- Command:
+  `DOLPHIN_NEWGAME=1 DOLPHIN_SMOKE_MAP=c1a2 DOLPHIN_CHANGELEVEL=c1a2a scripts/dolphin-boot-probe.sh`
+- Next: hops from `c1a2a`.
+

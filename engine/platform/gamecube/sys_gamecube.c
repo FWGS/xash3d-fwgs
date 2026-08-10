@@ -737,8 +737,10 @@ static void GCube_LoadDiscBootOverrides( void )
 			{
 				mapname[--len] = '\0';
 			}
-			if( len > 0 && len < sizeof( gc_changelevel_map )
-				&& !strchr( mapname, '/' ) && !strchr( mapname, '\\' ))
+			/* G337: split map/landmark before path checks. HL landmarks may
+			 * contain '/' (e.g. c1a1c/d); rejecting the whole line dropped
+			 * -gcchangelevel entirely (probe 20260810-044429 NEWGAME_READY). */
+			if( len > 0 && len < sizeof( gc_changelevel_map ) + sizeof( gc_landmark_name ))
 			{
 				/* Optional: changelevel <map> <landmark> */
 				{
@@ -751,8 +753,9 @@ static void GCube_LoadDiscBootOverrides( void )
 						while( *sp == ' ' || *sp == '\t' )
 							sp++;
 						len = strlen( mapname );
+						/* Landmark targetnames may include '/'; block '\\' only. */
 						if( *sp && strlen( sp ) < sizeof( gc_landmark_name )
-							&& !strchr( sp, '/' ) && !strchr( sp, '\\' ))
+							&& !strchr( sp, '\\' ))
 						{
 							Q_strncpy( gc_landmark_name, sp, sizeof( gc_landmark_name ));
 							gc_landmark_configured = true;
@@ -761,7 +764,8 @@ static void GCube_LoadDiscBootOverrides( void )
 						}
 					}
 				}
-				if( len > 0 && len < sizeof( gc_changelevel_map ))
+				if( len > 0 && len < sizeof( gc_changelevel_map )
+					&& !strchr( mapname, '/' ) && !strchr( mapname, '\\' ))
 				{
 					Q_strncpy( gc_changelevel_map, mapname, sizeof( gc_changelevel_map ));
 					gc_changelevel_configured = true;
@@ -782,8 +786,9 @@ static void GCube_LoadDiscBootOverrides( void )
 			{
 				mapname[--len] = '\0';
 			}
+			/* G337: allow '/' in landmark targetnames (c1a1c/d). */
 			if( len > 0 && len < sizeof( gc_landmark_name )
-				&& !strchr( mapname, '/' ) && !strchr( mapname, '\\' ))
+				&& !strchr( mapname, '\\' ))
 			{
 				Q_strncpy( gc_landmark_name, mapname, sizeof( gc_landmark_name ));
 				gc_landmark_configured = true;

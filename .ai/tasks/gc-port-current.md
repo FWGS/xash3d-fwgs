@@ -2,21 +2,20 @@ Auto-port task for Xash3D GameCube
 =================================
 
 Current goal:
-Unforeseen Consequences continuity (c1a1f → …)
+Office Complex continuity (c1a2a → …)
 
 **DONE (2026-08-10)**:
-- Continuity chain proven through UC:
-  - c1a0b→c1a0c `.ai/logs/dolphin-probe-20260810-042242`
-  - c1a0c→c1a1 `.ai/logs/dolphin-probe-20260810-043022`
-  - c1a1→c1a1a `.ai/logs/dolphin-probe-20260810-043140`
-  - **c1a1a→c1a1f** `.ai/logs/dolphin-probe-20260810-043258`
-    landmark `c1a1atof`; ladder 10/10; G45 actions PASS; G36/G506 WEAK
-- Earlier same day: tram→AM through c1a0a→c1a0b
-- G321–G336 lean MEM / HUD / Flipper present / entity-tail gates
-- G335 denser list covers c1a0e + c1a1–c1a4
+- Through UC into Office Complex:
+  - c1a1f→c1a1b `.ai/logs/dolphin-probe-20260810-044126`
+  - c1a1b→c1a1c `.ai/logs/dolphin-probe-20260810-044242`
+  - c1a1c→c1a1d `.ai/logs/dolphin-probe-20260810-044610` (**G337** slash landmark)
+  - c1a1c→c1a2 `.ai/logs/dolphin-probe-20260810-044727`
+  - **c1a2→c1a2a** `.ai/logs/dolphin-probe-20260810-044850`
+    landmark `one`; ladder 10/10; G45 actions PASS; G36 WEAK (~50ms)
+- G337: disc cfg allows `/` in landmark targetnames
 
 **NEXT**:
-- Prove next hop from c1a1f
+- Prove next hop from c1a2a
 - Tighten G36 frame budget / restore fuller entity spawn when MEM allows
 
 Rules:
