@@ -816,8 +816,6 @@ char *_copystring( poolhandle_t mempool, const char *s, const char *filename, in
 
 	size_t size = Q_strlen( s ) + 1;
 	char *b = _Mem_Alloc( mempool, size, false, filename, fileline );
-	if( !b )
-		return NULL;
 	Q_strncpy( b, s, size );
 
 	return b;

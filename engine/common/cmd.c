@@ -672,22 +672,7 @@ int Cmd_AddCommandEx( const char *cmd_name, xcommand_t function, const char *cmd
 	// use a small malloc to avoid zone fragmentation
 	desc_len = Q_strlen( cmd_desc ) + 1;
 	cmd = Mem_Malloc( cmd_pool, sizeof( cmd_t ) + desc_len );
-#if XASH_GAMECUBE
-	if( !cmd )
-	{
-		Con_Reportf( "Xash3D GameCube: G324 Cmd_AddCommandEx OOM name=%s\n", cmd_name );
-		return 0;
-	}
-#endif
 	cmd->name = copystringpool( cmd_pool, cmd_name );
-#if XASH_GAMECUBE
-	if( !cmd->name )
-	{
-		Mem_Free( cmd );
-		Con_Reportf( "Xash3D GameCube: G324 Cmd_AddCommandEx name OOM name=%s\n", cmd_name );
-		return 0;
-	}
-#endif
 	Q_strncpy( cmd->desc, cmd_desc, desc_len );
 	cmd->function = function;
 	cmd->flags = iFlags;
