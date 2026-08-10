@@ -1509,6 +1509,16 @@ int EXPORT Host_Main( int argc, char **argv, const char *progname, int bChangeGa
 				GC_DrawLoadingStatus( "DIRECT MAP LOAD", gcmap );
 				if( Sys_CheckParm( "-gcnewgame" ))
 					GC_BeginMapLoadMemoryOpt();
+				/* G326: bring client up before BSP while MEM1 still has
+				 * headroom; Trim will keep it across New Game map load. */
+				if( Sys_CheckParm( "-gcnewgame" ))
+				{
+					Con_Reportf( "Xash3D GameCube: G326 pre-map client ensure begin\n" );
+					if( !CL_GameCubeEnsureClientReady() )
+						Con_Reportf( "Xash3D GameCube: G326 pre-map client ensure failed\n" );
+					else
+						Con_Reportf( "Xash3D GameCube: G326 pre-map client ensure ready\n" );
+				}
 				GC_TrimClientSubsystemsForMapLoad();
 				Mod_FreeUnused();
 				R_GcmapTrimForMapLoad();
