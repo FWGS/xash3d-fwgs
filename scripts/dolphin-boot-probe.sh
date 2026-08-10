@@ -107,12 +107,22 @@ DOLPHIN_CHANGELEVEL="${DOLPHIN_CHANGELEVEL:-}"
 if [[ -z "${DOLPHIN_LANDMARK:-}" && -n "$DOLPHIN_CHANGELEVEL" ]]; then
 	case "${SMOKE_MAP}:${DOLPHIN_CHANGELEVEL}" in
 		c0a0:c0a0a) DOLPHIN_LANDMARK="c0a0toa" ;;
+		c0a0a:c0a0b) DOLPHIN_LANDMARK="c0a0tob" ;;
+		c0a0b:c0a0c) DOLPHIN_LANDMARK="c0a0btoc" ;;
+		c0a0c:c0a0d) DOLPHIN_LANDMARK="c0a0ctod" ;;
+		c0a0d:c0a0e) DOLPHIN_LANDMARK="c0a0dtoe" ;;
+		c0a0e:c1a0) DOLPHIN_LANDMARK="c0a0toc1a0" ;;
+		c3a1:c3a1a) DOLPHIN_LANDMARK="a1a1a" ;;
+		c3a1a:c3a1b) DOLPHIN_LANDMARK="a1a2" ;;
 		c3a2:c3a2a) DOLPHIN_LANDMARK="c3a2f" ;;
 		c3a2a:c3a2b) DOLPHIN_LANDMARK="c3a2_ab" ;;
 		c3a2b:c3a2c) DOLPHIN_LANDMARK="c3a2_bc" ;;
 		c3a2c:c3a2d) DOLPHIN_LANDMARK="c3a2_cd" ;;
 		c3a2c:c3a2f) DOLPHIN_LANDMARK="c3a2_cf" ;;
 		c3a2:c3a2e) DOLPHIN_LANDMARK="c3a2e" ;;
+		c3a2d:c4a1) DOLPHIN_LANDMARK="c3a2_c4a1" ;;
+		c4a1:c4a2) DOLPHIN_LANDMARK="c4a2" ;;
+		c4a2:c4a2a) DOLPHIN_LANDMARK="c4a2_0a" ;;
 	esac
 fi
 GUEST_MARKER="Xash3D GameCube: bootstrap"

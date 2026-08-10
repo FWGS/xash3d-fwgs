@@ -192,19 +192,33 @@ probe; then update this status from fresh evidence.
 
 ## Next Task
 
-**Swiss / hardware sign-off (G38) — blocked on physical SD**
+**Campaign continuity (Dolphin) — past c0a0d / deeper Xen past c4a2**
 
-1. Disc-only Dolphin packet COMPLETE:
-   `.ai/logs/operator-evidence-20260808-audio/packet`.
-2. `--require-swiss` is wired but FAIL-closes on disc-only evidence
-   (confirmed: `.ai/logs/operator-evidence-20260808-require-swiss-fail/`).
-   Dolphin upstream has no SD Gecko/SD2SP2 EXI device.
-3. Operator handoff: `.ai/logs/hardware-handoff-20260808-110924/`
-   (checklist lists required FAT / return-to-loader markers).
-4. Host currently builds classic libogc+libfat; Swiss preferred stack is
-   libogc2+libdvm (needs `dkp-pacman` install with sudo).
-5. Keep physical SD/memory-card fault cases under G38/G66/G71.
+1. Optional: tram hops c0a0d→c0a0e→c1a0; Xen past c4a2 (e.g. c4a2→c4a2a).
+2. Swiss / hardware G38 remains deferred (physical SD; Dolphin has no SD EXI).
 
+
+### Tram + Xen hops past c0a0b / c4a1 — 2026-08-09
+
+- Landmark defaults added in `scripts/dolphin-boot-probe.sh` for
+  c0a0b→c0a0c (`c0a0btoc`), c0a0c→d (`c0a0ctod`), c0a0d→e, c0a0e→c1a0,
+  c4a1→c4a2 (`c4a2`), c4a2→c4a2a (`c4a2_0a`).
+- **CHANGELEVEL_READY** c0a0b→c0a0c `20260809-205421` (G36/G45/G506 PASS).
+- **CHANGELEVEL_READY** c4a1→c4a2 `20260809-205526` (G36/G45/G506 PASS).
+- **CHANGELEVEL_READY** c0a0c→c0a0d `20260809-205629` (G36/G45/G506 PASS).
+- No tip-safe lean engine fix required for these hops.
+
+### Xen NEWGAME + c0a0a→c0a0b OOM closed — 2026-08-09
+
+- c4a1 hang after G292 (`20260809-131438`): CapFaces fell through to
+  `R_GXDrawWorldLiveSurfaces` on scratch-retain frames after the one-shot
+  G283 log (live=0 Xen). Tip-safe: scratch-retain stays LM-caps + water +
+  G292 only. **NEWGAME_READY** `20260809-184328` (G291 EFX + play-start).
+- c0a0a→c0a0b OOM at `Mod_LoadPlanes` 308 Kb: SWAP/zone + malloc exhausted
+  after Prepare; planes now prefer system malloc, else unused map-load arena
+  tail (not BSP-image carve). **CHANGELEVEL_READY** `20260809-184625`
+  (`world planes using map-load arena tail 308.05 Kb`).
+- Regression: c0a0 G36 PASS `20260809-184736` avg=12.75ms.
 
 ### Reactor Host_Frame + Lambda Core green — 2026-08-09
 
@@ -223,6 +237,14 @@ probe; then update this status from fresh evidence.
   samples (`GC_IsG36SampleFaceCap`); sticky Prepare draw-cap removed (broke
   c3a2 beams). Proof: c0a0 `20260809-130441` avg=12.75ms; c3a2
   `20260809-130544` NEWGAME_READY + SCR32 + map beam blit gpu=1.
+- Campaign hops beyond Lambda: tip-safe `PM_RecursiveHullCheck` bad-node
+  (was Host_Error on c0a0a). **CHANGELEVEL_READY** c0a0→c0a0a
+  `20260809-131124`; c3a1 NEWGAME + c3a1→c3a1a `20260809-131232` /
+  `20260809-131328`. Landmark defaults added for a1a1a / c0a0tob /
+  c3a2_c4a1. Xen c4a1 NEWGAME_READY `20260809-184328`; c0a0a→c0a0b
+  CHANGELEVEL_READY `20260809-184625`. Further: c0a0b→c0a0c
+  `20260809-205421`, c0a0c→c0a0d `20260809-205629`, c4a1→c4a2
+  `20260809-205526` (landmark defaults extended).
 - Swiss: evidence writer OGC stack line; fixture ingest COMPLETE (real SD still required).
 
 ## External Blockers

@@ -4372,7 +4372,13 @@ manual hardware validation with all artifacts generated and documented.
   tram-only G36 face cap (`GC_IsG36SampleFaceCap`) — c0a0 `20260809-130441`
   G36 PASS avg=12.75ms; c3a2 `20260809-130544` NEWGAME_READY (no sticky
   Prepare draw-cap; beams still blit).
-- Next: Swiss / hardware G38 (physical SD).
+- Campaign beyond Lambda (2026-08-09): tip-safe PM bad-node; c0a0→c0a0a and
+  c3a1→c3a1a CHANGELEVEL_READY; c3a1 NEWGAME_READY. c4a1 Xen NEWGAME_READY
+  `20260809-184328` (scratch-retain no live edge-walk); c0a0a→c0a0b
+  CHANGELEVEL_READY `20260809-184625` (planes malloc / arena-tail). Further
+  hops CHANGELEVEL_READY: c0a0b→c0a0c `20260809-205421`, c0a0c→c0a0d
+  `20260809-205629`, c4a1→c4a2 `20260809-205526` (probe landmark defaults).
+  Swiss/G38 still physical-SD deferred.
 
 ## Pure Flipper New Game harness + G506 (2026-08-07)
 

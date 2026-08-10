@@ -51,6 +51,8 @@ static void *gc_surfaces_malloc_block;
 static void *gc_texinfo_malloc_block;
 static void *gc_nodes_malloc_block;
 static void *gc_clipnodes_malloc_block;
+static void *gc_planes_malloc_block;
+static qboolean gc_planes_arena_tail;
 static qboolean gc_retain_bsp_source_buffer;
 /* G283: world msurface_t settled in retained BSP scratch (busy-protected). */
 static qboolean gc_world_msurface_retained;
@@ -3013,9 +3015,48 @@ Mod_LoadPlanes
 static void Mod_LoadPlanes( model_t *mod, const dbspmodel_t *bmod )
 {
 	mplane_t	*out;
-
 	dplane_t	*in = bmod->planes;
-	mod->planes = out = Mem_Malloc( mod->mempool, bmod->numplanes * sizeof( *out ));
+	size_t		plane_bytes = bmod->numplanes * sizeof( *out );
+
+#if XASH_GAMECUBE
+	/*
+	 * Changelevel after a full Prepare (c0a0a→c0a0b, probe 20260809-131759 /
+	 * 20260809-184420) exhausts both SWAP/zone and system malloc for a 308 Kb
+	 * plane table. Prefer system malloc; if that fails, place planes in the
+	 * unused tail of the static map-load arena (capacity 3.5 Mb, BSP image is
+	 * often ~1.5 Mb). Never carve into the retained BSP image itself.
+	 */
+	out = NULL;
+	gc_planes_arena_tail = false;
+	if( GC_MapLoadMemoryOpt() && bmod->isworld && bmod->numplanes > 0 )
+	{
+		out = (mplane_t *)malloc( plane_bytes );
+		if( out )
+		{
+			gc_planes_malloc_block = out;
+			Con_Reportf( "Xash3D GameCube: world planes using malloc %s\n",
+				Q_memprint( plane_bytes ));
+		}
+		else if( gc_bsp_scratch_base && GC_IsMapLoadBuffer( gc_bsp_scratch_base ))
+		{
+			size_t after = gc_bsp_scratch_size + gc_bsp_scratch_carve_high;
+
+			out = (mplane_t *)GC_MapLoadBufferTailAlloc( after, plane_bytes );
+			if( out )
+			{
+				gc_planes_arena_tail = true;
+				Con_Reportf( "Xash3D GameCube: world planes using map-load arena tail %s (after %s)\n",
+					Q_memprint( plane_bytes ), Q_memprint( after ));
+			}
+		}
+	}
+	if( !out )
+#endif
+	{
+		out = Mem_Malloc( mod->mempool, plane_bytes );
+	}
+
+	mod->planes = out;
 	mod->numplanes = bmod->numplanes;
 
 	for( int i = 0; i < bmod->numplanes; i++, in++, out++ )
@@ -4040,7 +4081,7 @@ static void Mod_LoadSurfaces( model_t *mod, dbspmodel_t *bmod )
 	 * proven safe on hardware/Dolphin. */
 	if( use_bsp_surface_scratch && gc_retain_bsp_source_buffer && gc_bsp_scratch_base && gc_bsp_scratch_size )
 	{
-		gc_bsp_busy_range_t busy[4];
+		gc_bsp_busy_range_t busy[6];
 		size_t busy_count = 0;
 
 		if( bmod->version == QBSP2_VERSION )
@@ -4058,6 +4099,22 @@ static void Mod_LoadSurfaces( model_t *mod, dbspmodel_t *bmod )
 			const byte *p = (const byte *)bmod->surfaces;
 			busy[busy_count].start = p - gc_bsp_scratch_base;
 			busy[busy_count].end = busy[busy_count].start + bmod->numsurfaces * sizeof( dface_t );
+			busy_count++;
+		}
+		if( mod->planes && Mod_GCPointerInBuffer( mod->planes, gc_bsp_scratch_base, gc_bsp_scratch_size ))
+		{
+			const byte *p = (const byte *)mod->planes;
+			busy[busy_count].start = p - gc_bsp_scratch_base;
+			busy[busy_count].end = busy[busy_count].start
+				+ mod->numplanes * sizeof( mplane_t );
+			busy_count++;
+		}
+		if( mod->texinfo && Mod_GCPointerInBuffer( mod->texinfo, gc_bsp_scratch_base, gc_bsp_scratch_size ))
+		{
+			const byte *p = (const byte *)mod->texinfo;
+			busy[busy_count].start = p - gc_bsp_scratch_base;
+			busy[busy_count].end = busy[busy_count].start
+				+ mod->numtexinfo * sizeof( mtexinfo_t );
 			busy_count++;
 		}
 
@@ -4879,6 +4936,20 @@ void Mod_GameCubeFreeMallocSurfaces( model_t *mod )
 {
 	gc_world_msurface_retained = false;
 
+	if( gc_planes_malloc_block )
+	{
+		if( mod && mod->planes == (mplane_t *)gc_planes_malloc_block )
+			mod->planes = NULL;
+		free( gc_planes_malloc_block );
+		gc_planes_malloc_block = NULL;
+	}
+	if( gc_planes_arena_tail )
+	{
+		if( mod )
+			mod->planes = NULL;
+		gc_planes_arena_tail = false;
+	}
+
 	if( gc_marksurfaces_malloc_block )
 	{
 		if( mod && mod->marksurfaces == (msurface_t **)gc_marksurfaces_malloc_block )
@@ -4931,10 +5002,16 @@ free_clipnodes:
 
 	if( mod )
 	{
+		int h;
+
 		if( mod->clipnodes16 == (mclipnode16_t *)gc_clipnodes_malloc_block )
 			mod->clipnodes16 = NULL;
-		if( mod->hulls[1].clipnodes16 == (mclipnode16_t *)gc_clipnodes_malloc_block )
-			mod->hulls[1].clipnodes16 = NULL;
+		/* Submodels alias hull 1–3 clipnode arrays — clear all, not only [1]. */
+		for( h = 0; h < 4; h++ )
+		{
+			if( mod->hulls[h].clipnodes16 == (mclipnode16_t *)gc_clipnodes_malloc_block )
+				mod->hulls[h].clipnodes16 = NULL;
+		}
 	}
 
 	free( gc_clipnodes_malloc_block );
@@ -5025,6 +5102,16 @@ static size_t Mod_GCCollectWorldScratchBusy( model_t *mod, dbspmodel_t *bmod, gc
 		busy[busy_count].start = p - gc_bsp_scratch_base;
 		busy[busy_count].end = busy[busy_count].start
 			+ (size_t)mod->numsurfaces * ( sizeof( msurface_t ) + sizeof( mextrasurf_t ));
+		busy_count++;
+	}
+
+	if( mod && mod->planes && Mod_GCPointerInBuffer( mod->planes, gc_bsp_scratch_base, gc_bsp_scratch_size )
+		&& busy_count < busy_cap )
+	{
+		const byte *p = (const byte *)mod->planes;
+		busy[busy_count].start = p - gc_bsp_scratch_base;
+		busy[busy_count].end = busy[busy_count].start
+			+ (size_t)mod->numplanes * sizeof( mplane_t );
 		busy_count++;
 	}
 
@@ -5956,14 +6043,29 @@ static void Mod_LoadClipnodes( model_t *mod, dbspmodel_t *bmod )
 			}
 			else
 			{
+				int h;
+
 				for( int i = 0; i < bmod->numclipnodes; i++ )
 				{
+					int c0, c1;
+
 					owned[i].planenum = bmod->clipnodes[i].planenum;
-					owned[i].children[0] = bmod->clipnodes[i].children[0];
-					owned[i].children[1] = bmod->clipnodes[i].children[1];
+					/* Same aguirRe ushort→signed remap as the heap path —
+					 * naive short copy left OOR children (bad node 14384 on
+					 * c0a0a after changelevel). */
+					c0 = (unsigned short)bmod->clipnodes[i].children[0];
+					c1 = (unsigned short)bmod->clipnodes[i].children[1];
+					if( c0 >= bmod->numclipnodes )
+						c0 -= 65536;
+					if( c1 >= bmod->numclipnodes )
+						c1 -= 65536;
+					owned[i].children[0] = (short)c0;
+					owned[i].children[1] = (short)c1;
 				}
 				mod->clipnodes16 = owned;
 				gc_clipnodes_malloc_block = owned;
+				for( h = 1; h < 4; h++ )
+					mod->hulls[h].clipnodes16 = owned;
 				Con_Reportf( "Xash3D GameCube: owned compact clipnodes %s\n",
 					Q_memprint( clip_sz ));
 				return;

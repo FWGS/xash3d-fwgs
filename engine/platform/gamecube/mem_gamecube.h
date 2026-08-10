@@ -52,6 +52,8 @@ void *GC_BorrowMapLoadBuffer( size_t size );
 qboolean GC_ReleaseMapLoadBuffer( void *ptr );
 void GC_DiscardMapLoadBuffer( void );
 qboolean GC_IsMapLoadBuffer( const void *ptr );
+/* Unused bytes after a borrowed BSP image inside the static map-load arena. */
+void *GC_MapLoadBufferTailAlloc( size_t after_offset, size_t need );
 
 /* True during -gcmap smoke loads and retail New Game (gc_playstart) map loads. */
 void GC_BeginMapLoadMemoryOpt( void );
@@ -86,6 +88,12 @@ static inline void *GC_BorrowMapLoadBuffer( size_t size ) { (void)size; return N
 static inline qboolean GC_ReleaseMapLoadBuffer( void *ptr ) { (void)ptr; return false; }
 static inline void GC_DiscardMapLoadBuffer( void ) { }
 static inline qboolean GC_IsMapLoadBuffer( const void *ptr ) { (void)ptr; return false; }
+static inline void *GC_MapLoadBufferTailAlloc( size_t after_offset, size_t need )
+{
+	(void)after_offset;
+	(void)need;
+	return NULL;
+}
 static inline void GC_BeginMapLoadMemoryOpt( void ) { }
 static inline void GC_EndMapLoadMemoryOpt( void ) { }
 static inline void GC_ClearMapLoadMemoryOpt( void ) { }

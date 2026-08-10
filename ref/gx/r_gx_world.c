@@ -2299,11 +2299,18 @@ int R_GXDrawNewGameCapFaces( void )
 				(void)skip_back; (void)skip_noverts; (void)emit_fail;
 			}
 		}
-		else if( GC_WorldSurfacesScratchRetained() && !g213_logged )
+		else if( GC_WorldSurfacesScratchRetained() )
 		{
-			g213_logged = true;
-			gEngfuncs.Con_Reportf(
-				"Xash3D GameCube: G283 scratch retain-pin (stamp+LM-caps; lean empty)\n" );
+			/* Tip-safe: never fall through to live edge-walk of retained
+			 * scratch after the one-shot G283 log. Xen c4a1 (live=0, water
+			 * bake) hung post-G292 on that path (probe 20260809-131438) —
+			 * LM-caps + G286 water + G292 only. */
+			if( !g213_logged )
+			{
+				g213_logged = true;
+				gEngfuncs.Con_Reportf(
+					"Xash3D GameCube: G283 scratch retain-pin (stamp+LM-caps; lean empty)\n" );
+			}
 		}
 		else if( GC_WorldSurfacesLive() )
 		{
@@ -2495,6 +2502,15 @@ int R_GXDrawNewGameCapFaces( void )
 			extern qboolean GC_IsFrameBudgetProbeActive( void );
 			if( !GC_IsFrameBudgetProbeActive() )
 				drawn += R_GXEmitWorldDecals( world );
+		}
+		{
+			static qboolean g292_cap_tail_logged;
+			if( !g292_cap_tail_logged && gEngfuncs.Sys_CheckParm( "-gcnewgame" ))
+			{
+				g292_cap_tail_logged = true;
+				gEngfuncs.Con_Reportf(
+					"Xash3D GameCube: CapFaces post-G292 continue drawn=%d\n", drawn );
+			}
 		}
 	}
 	else if( draw && n > 0 )

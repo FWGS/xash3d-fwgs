@@ -300,6 +300,24 @@ qboolean GC_IsMapLoadBuffer( const void *ptr )
 	return ptr != NULL && ptr == gc_mapload_buf;
 }
 
+void *GC_MapLoadBufferTailAlloc( size_t after_offset, size_t need )
+{
+	size_t off;
+
+	if( !gc_mapload_buf || !gc_mapload_buf_in_use || need == 0 )
+		return NULL;
+
+	off = ( after_offset + 31u ) & ~31u;
+	if( off < after_offset )
+		return NULL;
+	if( off + need < off )
+		return NULL;
+	if( off + need > gc_mapload_buf_size )
+		return NULL;
+
+	return gc_mapload_buf + off;
+}
+
 void GC_DiscardMapLoadBuffer( void )
 {
 	if( gc_mapload_buf_in_use )

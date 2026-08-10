@@ -267,7 +267,27 @@ loc0:
 	}
 
 	if( num < hull->firstclipnode || num > hull->lastclipnode )
+	{
+#if XASH_GAMECUBE
+		/* Lean changelevel can transiently see stale/scratch hull children
+		 * (c0a0→c0a0a Host_Error 14384 after SCR16, probe 20260809-130901).
+		 * Match the cyclic/recursion tip-safe path — do not kill the server. */
+		{
+			static int gc_bad_node_logged;
+
+			if( gc_bad_node_logged < 4 )
+			{
+				Con_Reportf( S_WARN "PM_RecursiveHullCheck: bad node number %i (range %d..%d)\n",
+					num, hull->firstclipnode, hull->lastclipnode );
+				gc_bad_node_logged++;
+			}
+		}
+		gc_pm_trace_depth--;
+		return false;
+#else
 		Host_Error( "%s: bad node number %i\n", __func__, num );
+#endif
+	}
 
 	// find the point distances
 	if( world.version == QBSP2_VERSION )
