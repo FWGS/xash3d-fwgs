@@ -5179,6 +5179,10 @@ static qboolean SV_GCMapParseEOF( const char *stage, int entity_index, const cha
 }
 
 static int	gc_lean_beam_admit;
+static int	gc_lean_scripted_admit;
+static int	gc_lean_scientist_admit;
+static int	gc_lean_sitting_scientist_admit;
+static int	gc_lean_barney_admit;
 
 static qboolean SV_GCMapShouldInhibitClass( const char *classname )
 {
@@ -5209,6 +5213,50 @@ static qboolean SV_GCMapShouldInhibitClass( const char *classname )
 			gc_lean_beam_admit++;
 			Con_Reportf( "Xash3D GameCube: G320 admit %s n=%d\n",
 				classname, gc_lean_beam_admit );
+			return false;
+		}
+		/* c1a0 has 47 scripted_sequence entities; uncapped private blocks
+		 * exhaust MEM1 before later Barneys/scientists spawn (probe
+		 * 20260809-231912: malloc failed size=816 monster_barney). */
+		if( !Q_stricmp( classname, "scripted_sequence" )
+			|| !Q_stricmp( classname, "aiscripted_sequence" )
+			|| !Q_stricmp( classname, "scripted_sentence" ))
+		{
+			if( Sys_CheckParm( "-gcfullphysics" ))
+				return false;
+			if( gc_lean_scripted_admit >= 12 )
+				return true;
+			gc_lean_scripted_admit++;
+			if( gc_lean_scripted_admit <= 3 || ( gc_lean_scripted_admit & 7 ) == 0 )
+				Con_Reportf( "Xash3D GameCube: G321 admit %s n=%d\n",
+					classname, gc_lean_scripted_admit );
+			return false;
+		}
+		if( !Q_stricmp( classname, "monster_scientist" ))
+		{
+			if( Sys_CheckParm( "-gcfullphysics" ))
+				return false;
+			if( gc_lean_scientist_admit >= 4 )
+				return true;
+			gc_lean_scientist_admit++;
+			return false;
+		}
+		if( !Q_stricmp( classname, "monster_sitting_scientist" ))
+		{
+			if( Sys_CheckParm( "-gcfullphysics" ))
+				return false;
+			if( gc_lean_sitting_scientist_admit >= 2 )
+				return true;
+			gc_lean_sitting_scientist_admit++;
+			return false;
+		}
+		if( !Q_stricmp( classname, "monster_barney" ))
+		{
+			if( Sys_CheckParm( "-gcfullphysics" ))
+				return false;
+			if( gc_lean_barney_admit >= 2 )
+				return true;
+			gc_lean_barney_admit++;
 			return false;
 		}
 		if(( !Q_strnicmp( classname, "monster_", 8 )
@@ -5562,6 +5610,10 @@ static void SV_LoadFromFile( const char *mapname, char *entities )
 	Assert( entities != NULL );
 #if XASH_GAMECUBE
 	gc_lean_beam_admit = 0;
+	gc_lean_scripted_admit = 0;
+	gc_lean_scientist_admit = 0;
+	gc_lean_sitting_scientist_admit = 0;
+	gc_lean_barney_admit = 0;
 #endif
 
 	// user dll can override spawn entities function (Xash3D extension)

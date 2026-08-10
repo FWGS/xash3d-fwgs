@@ -4405,3 +4405,29 @@ manual hardware validation with all artifacts generated and documented.
   G318 solid=0) and close G45 action markers; G508/G509 + real hardware remain
   open.
 
+
+
+## Campaign tram exit + c1a0 MEM1 caps (2026-08-10)
+
+- Proven hops (lean `-gcnewgame`, no fullphysics):
+  - `c0a0d→c0a0e` CHANGELEVEL_READY `.ai/logs/dolphin-probe-20260809-231158`
+  - `c0a0e→c1a0` CHANGELEVEL_READY `.ai/logs/dolphin-probe-20260809-231716`
+    (G45 actions PASS, G506 PASS; G36 WEAK avg≈19ms)
+- `c1a0→c1a0d` first attempt `20260809-231912` failed:
+  `ent private data malloc failed size=816 edict=61 classname=monster_barney`
+  during source-map spawn (47 scripted_sequence on c1a0).
+- G321: lean New Game admit caps in `SV_GCMapShouldInhibitClass` —
+  scripted_sequence/aiscripted_sequence/scripted_sentence ≤12,
+  monster_scientist ≤4, monster_sitting_scientist ≤2, monster_barney ≤2
+  (fullphysics uncapped). Probe `20260809-232253` reached `MAP_READY c1a0`
+  with `G321 admit scripted_sequence` + inhibited=69.
+- Next failure: `G320 post-smoke prepare` hung inside `GC_CaptureNewGamePVS`
+  (`20260809-233017`: Capture begin leafs=741, no point-in-leaf). Breadcrumbs
+  G322 + skip-client-eye for PointInLeaf under test.
+- Commands:
+  `DOLPHIN_NEWGAME=1 DOLPHIN_SMOKE_MAP=c0a0d DOLPHIN_CHANGELEVEL=c0a0e scripts/dolphin-boot-probe.sh`
+  `DOLPHIN_NEWGAME=1 DOLPHIN_SMOKE_MAP=c0a0e DOLPHIN_CHANGELEVEL=c1a0 scripts/dolphin-boot-probe.sh`
+  `DOLPHIN_NEWGAME=1 DOLPHIN_SMOKE_MAP=c1a0 DOLPHIN_CHANGELEVEL=c1a0d scripts/dolphin-boot-probe.sh`
+- Next blocker: finish CaptureNewGamePVS on c1a0 so deferred changelevel to
+  c1a0d can run post-G36.
+

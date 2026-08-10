@@ -76,6 +76,7 @@ static qboolean gc_newgame_g36_done; /* sticky: never re-arm probe after first f
 static int gc_lean_sky_attempts; /* G285 deferred textured backdrop tries */
 static int gc_newgame_viewcluster = -1;
 static qboolean gc_newgame_pvs_ready;
+static qboolean gc_newgame_capture_novis; /* attempted Capture with no visdata */
 static byte *gc_newgame_vis; /* active row pointer into pvs table */
 static byte *gc_newgame_nodebits; /* active row pointer into node table */
 static byte *gc_newgame_pvs_table; /* [numclusters][visbytes] or lean slots */
@@ -9081,6 +9082,7 @@ static void GC_FreeNewGamePVSCache( void )
 	memset( gc_newgame_lean_age, 0, sizeof( gc_newgame_lean_age ));
 	gc_newgame_lean_clock = 0;
 	gc_newgame_pvs_ready = false;
+	gc_newgame_capture_novis = false;
 	gc_newgame_pvs_follow_proved = false;
 }
 
@@ -9108,6 +9110,8 @@ void GC_ResetNewGameWorldForChangelevel( void )
 	GC_FreeTramFaces();
 	GC_FreeNewGamePVSCache();
 	gc_newgame_world_ready = false;
+	gc_newgame_pvs_ready = false;
+	gc_newgame_capture_novis = false;
 	gc_lean_player_physics_armed = false;
 	gc_lean_sky_attempts = 0;
 	gc_gx_world_live = false;
@@ -9344,6 +9348,13 @@ void GC_CaptureNewGamePVSFromModel( model_t *wmodel )
 		return;
 	if( gc_newgame_pvs_ready )
 		return;
+	/* c1a0 20260809-233017: first Capture skipped FatPVS (vis=0), prepare
+	 * re-entered and hung before point-in-leaf. Do not retry without vis. */
+	if( gc_newgame_capture_novis )
+	{
+		Con_Reportf( "Xash3D GameCube: CaptureNewGamePVS skip reentry (no visdata)\n" );
+		return;
+	}
 	if( !wmodel )
 		wmodel = sv.models[1];
 
@@ -9351,6 +9362,9 @@ void GC_CaptureNewGamePVSFromModel( model_t *wmodel )
 	gc_newgame_vis_leafs = 0;
 	gc_newgame_vis_nodes = 0;
 
+	Con_Reportf( "Xash3D GameCube: CaptureNewGamePVS begin leafs=%d surfs=%d\n",
+		wmodel && wmodel->leafs ? wmodel->numleafs : -1,
+		wmodel ? wmodel->numsurfaces : -1 );
 	GC_FlipperTrace( "Xash3D GameCube: CaptureNewGamePVS begin\n" );
 
 	if( !wmodel || !wmodel->nodes || !wmodel->leafs )
@@ -9361,23 +9375,17 @@ void GC_CaptureNewGamePVSFromModel( model_t *wmodel )
 
 	/* G277: *12 faces baked just after submodels (before lighting scratch). */
 
+	/* Always use world AABB center for capture eye. Post-PutInServer client
+	 * origins hung PointInLeaf on c1a0 prepare (20260809-233017); non-client
+	 * edict walks are also unsafe after scratch remap. */
 	VectorAverage( wmodel->mins, wmodel->maxs, vieworigin );
 	vieworigin[2] += 64.0f;
-	if( svgame.edicts )
-	{
-		for( i = 1; i < svgame.numEntities; i++ )
-		{
-			edict_t *ent = &svgame.edicts[i];
-
-			if( ent->free || VectorIsNull( ent->v.origin ))
-				continue;
-			VectorCopy( ent->v.origin, vieworigin );
-			vieworigin[2] += 48.0f;
-			break;
-		}
-	}
+	Con_Reportf( "Xash3D GameCube: CaptureNewGamePVS eye=(%.0f,%.0f,%.0f)\n",
+		vieworigin[0], vieworigin[1], vieworigin[2] );
 
 	viewleaf = Mod_PointInLeaf( vieworigin, wmodel->nodes, wmodel );
+	Con_Reportf( "Xash3D GameCube: CaptureNewGamePVS point-in-leaf cl=%d\n",
+		viewleaf ? viewleaf->cluster : -1 );
 	gc_newgame_viewcluster = viewleaf ? viewleaf->cluster : -1;
 	/* Reject clearly corrupted leaf walks (scratch reuse / bad nodes). */
 	if( viewleaf && ( viewleaf->contents >= 0
@@ -9418,6 +9426,7 @@ void GC_CaptureNewGamePVSFromModel( model_t *wmodel )
 	{
 		SYS_Report( "Xash3D GameCube: Capture FatPVS skipped vis=%d\n",
 			wmodel->visdata ? 1 : 0 );
+		gc_newgame_capture_novis = true;
 		return;
 	}
 
@@ -9446,6 +9455,8 @@ void GC_CaptureNewGamePVSFromModel( model_t *wmodel )
 		int valid_clusters = 0;
 
 		GC_FreeNewGamePVSCache();
+		Con_Reportf( "Xash3D GameCube: CaptureNewGamePVS cache cleared clusters~=%d\n",
+			numclusters );
 
 		/* G213: reserve lean live-face pool after PVS-cache free, before FatPVS.
 		 * G283/G298: scratch retain skips lean HERE so FatPVS gets MEM1; lean

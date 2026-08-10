@@ -339,6 +339,18 @@ void *_Mem_Alloc( poolhandle_t poolptr, size_t size, qboolean clear, const char 
 				Q_memprint( size ), filename, fileline );
 			return NULL;
 		}
+		/* c1a0 cold New Game: InitInput AddCommand/RegisterVariable can tip
+		 * the small cmd/cvar pools after MAP_READY (probe 20260809-235010
+		 * died at InitInput begin → Host_Shutdown). Soft-fail so HUD can
+		 * continue with a lean command set instead of Sys_Error. */
+		if( pool && ( !Q_stricmp( pool->name, "Console Commands" )
+			|| !Q_stricmp( pool->name, "Console Variables" ))
+			&& ( Sys_CheckParm( "-gcnewgame" ) || Sys_CheckParm( "-gcmap" )))
+		{
+			Con_Reportf( "Xash3D GameCube: G324 soft-fail %s alloc size=%s at %s:%i\n",
+				pool->name, Q_memprint( size ), filename, fileline );
+			return NULL;
+		}
 #endif
 		Sys_Error( "%s: out of memory (alloc size %s at %s:%i)\n", __func__, Q_memprint( size ), filename, fileline );
 		return NULL;

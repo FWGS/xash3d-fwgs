@@ -1652,7 +1652,13 @@ int EXPORT Host_Main( int argc, char **argv, const char *progname, int bChangeGa
 			{
 				Con_Reportf( "Xash3D GameCube: G320 post-smoke prepare map=%s\n",
 					sv.name[0] ? sv.name : "?" );
+				/* c1a0 20260809-232253: prepare hung with no further logs after
+				 * this line. Breadcrumb the Capture entry so the next probe
+				 * can name the stall. */
+				Con_Reportf( "Xash3D GameCube: G322 prepare capture begin\n" );
 				GC_PrepareNewGameWorldPresent();
+				Con_Reportf( "Xash3D GameCube: G322 prepare capture ready map=%s\n",
+					sv.name[0] ? sv.name : "?" );
 			}
 		}
 	#endif

@@ -51,6 +51,7 @@ static void *gc_surfaces_malloc_block;
 static void *gc_texinfo_malloc_block;
 static void *gc_nodes_malloc_block;
 static void *gc_clipnodes_malloc_block;
+static void *gc_visdata_malloc_block;
 static void *gc_planes_malloc_block;
 static qboolean gc_planes_arena_tail;
 static qboolean gc_retain_bsp_source_buffer;
@@ -4997,25 +4998,33 @@ free_nodes:
 	gc_nodes_malloc_block = NULL;
 
 free_clipnodes:
-	if( !gc_clipnodes_malloc_block )
-		return;
-
-	if( mod )
+	if( gc_clipnodes_malloc_block )
 	{
-		int h;
-
-		if( mod->clipnodes16 == (mclipnode16_t *)gc_clipnodes_malloc_block )
-			mod->clipnodes16 = NULL;
-		/* Submodels alias hull 1–3 clipnode arrays — clear all, not only [1]. */
-		for( h = 0; h < 4; h++ )
+		if( mod )
 		{
-			if( mod->hulls[h].clipnodes16 == (mclipnode16_t *)gc_clipnodes_malloc_block )
-				mod->hulls[h].clipnodes16 = NULL;
+			int h;
+
+			if( mod->clipnodes16 == (mclipnode16_t *)gc_clipnodes_malloc_block )
+				mod->clipnodes16 = NULL;
+			/* Submodels alias hull 1–3 clipnode arrays — clear all, not only [1]. */
+			for( h = 0; h < 4; h++ )
+			{
+				if( mod->hulls[h].clipnodes16 == (mclipnode16_t *)gc_clipnodes_malloc_block )
+					mod->hulls[h].clipnodes16 = NULL;
+			}
 		}
+
+		free( gc_clipnodes_malloc_block );
+		gc_clipnodes_malloc_block = NULL;
 	}
 
-	free( gc_clipnodes_malloc_block );
-	gc_clipnodes_malloc_block = NULL;
+	if( gc_visdata_malloc_block )
+	{
+		if( mod && mod->visdata == (byte *)gc_visdata_malloc_block )
+			mod->visdata = NULL;
+		free( gc_visdata_malloc_block );
+		gc_visdata_malloc_block = NULL;
+	}
 }
 
 static void Mod_GCRestoreDeferredMarkfaces( dbspmodel_t *bmod )
@@ -6012,8 +6021,17 @@ static void Mod_LoadClipnodes( model_t *mod, dbspmodel_t *bmod )
 		{
 			Con_Reportf( S_WARN "Xash3D GameCube: dropping retained visdata to reload clipnodes\n" );
 			/* Fall back to full-vis leaf marking for this map session. */
-			Mem_Free( mod->visdata );
-			mod->visdata = NULL;
+			if( gc_visdata_malloc_block && mod->visdata == (byte *)gc_visdata_malloc_block )
+			{
+				free( gc_visdata_malloc_block );
+				gc_visdata_malloc_block = NULL;
+				mod->visdata = NULL;
+			}
+			else
+			{
+				Mem_Free( mod->visdata );
+				mod->visdata = NULL;
+			}
 			/* Clear leaf compressed_vis pointers that referenced the freed block. */
 			if( mod->leafs )
 			{
@@ -6675,6 +6693,32 @@ static qboolean Mod_LoadBmodelLumps( model_t *mod, byte *mod_base, size_t buffer
 	Mod_GCFreeGcmapPreSurfaceLumps( bmod );
 	Mod_GCReleaseGcmapPreSurfaceStaging( mod, bmod, mod_base, bufferlen );
 	GC_MemSample( "pre-surfaces" );
+	/* c1a0 cold New Game: first TryMalloc for visdata fails under tip; after
+	 * pre-surface scratch reclaim, retry so Capture/FatPVS can run (G323). */
+	if( !mod->visdata && bmod->isworld
+		&& ( Sys_CheckParm( "-gcnewgame" ) || Sys_CheckParm( "-gcworldrender" )))
+	{
+		Mod_GCEnsureBspLump( mod, bmod, LUMP_VISIBILITY );
+		if( bmod->visdata && bmod->visdatasize > 0 )
+		{
+			mod->visdata = Mem_TryMalloc( mod->mempool, bmod->visdatasize );
+			if( !mod->visdata && gc_visdata_malloc_block == NULL )
+			{
+				gc_visdata_malloc_block = malloc( bmod->visdatasize );
+				mod->visdata = (byte *)gc_visdata_malloc_block;
+			}
+			if( mod->visdata )
+			{
+				memcpy( mod->visdata, bmod->visdata, bmod->visdatasize );
+				Con_Reportf( "Xash3D GameCube: G323 world visdata retry retained (%s)\n",
+					Q_memprint( bmod->visdatasize ));
+			}
+			else
+				Con_Reportf( "Xash3D GameCube: G323 visdata retry still OOM (%s)\n",
+					Q_memprint( bmod->visdatasize ));
+			Mod_GCFreeBspPin( (void **)&bmod->visdata );
+		}
+	}
 	Mod_GCEnsureBspLump( mod, bmod, LUMP_FACES );
 	Con_Reportf( "Xash3D GameCube: bmodel surfaces begin\n" );
 #endif

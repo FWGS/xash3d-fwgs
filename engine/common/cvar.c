@@ -456,10 +456,29 @@ convar_t *Cvar_Get( const char *name, const char *value, uint32_t flags, const c
 
 	// allocate a new cvar
 	var = Mem_Malloc( cvar_pool, sizeof( *var ));
+#if XASH_GAMECUBE
+	if( !var )
+	{
+		Con_Reportf( "Xash3D GameCube: G324 Cvar_Get OOM name=%s\n", name );
+		return NULL;
+	}
+#endif
 	var->name = copystringpool( cvar_pool, name );
 	var->string = copystringpool( cvar_pool, value );
 	var->def_string = copystringpool( cvar_pool, value );
 	var->desc = copystringpool( cvar_pool, var_desc );
+#if XASH_GAMECUBE
+	if( !var->name || !var->string || !var->def_string || !var->desc )
+	{
+		if( var->name ) Mem_Free( var->name );
+		if( var->string ) Mem_Free( var->string );
+		if( var->def_string ) Mem_Free( var->def_string );
+		if( var->desc ) Mem_Free( var->desc );
+		Mem_Free( var );
+		Con_Reportf( "Xash3D GameCube: G324 Cvar_Get string OOM name=%s\n", name );
+		return NULL;
+	}
+#endif
 	var->value = Q_atof( var->string );
 	var->flags = flags|FCVAR_ALLOCATED;
 
