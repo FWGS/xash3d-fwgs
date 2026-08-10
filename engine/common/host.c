@@ -1513,6 +1513,26 @@ int EXPORT Host_Main( int argc, char **argv, const char *progname, int bChangeGa
 				 * headroom; Trim will keep it across New Game map load. */
 				if( Sys_CheckParm( "-gcnewgame" ))
 				{
+					/* G336: denser AM cold New Game stalls mid full HUD_Init after
+					 * StatusIcon (probe 20260810-035405/040141) before MOTD hook.
+					 * Force lean HUD for those maps before G326 ensure; c1a0d and
+					 * earlier tram hops keep quality=1. */
+					if( !Q_stricmp( gcmap, "c1a0a" )
+						|| !Q_stricmp( gcmap, "c1a0b" )
+						|| !Q_stricmp( gcmap, "c1a0c" )
+						|| !Q_strnicmp( gcmap, "c1a1", 4 )
+						|| !Q_strnicmp( gcmap, "c1a2", 4 )
+						|| !Q_strnicmp( gcmap, "c1a3", 4 )
+						|| !Q_strnicmp( gcmap, "c1a4", 4 )
+						|| !Q_strnicmp( gcmap, "c2a", 3 )
+						|| !Q_strnicmp( gcmap, "c3a", 3 )
+						|| !Q_strnicmp( gcmap, "c4a", 3 )
+						|| !Q_strnicmp( gcmap, "c5a", 3 ))
+					{
+						Cvar_Set( "gc_quality", "0" );
+						Con_Reportf( "Xash3D GameCube: G336 lean HUD for denser map %s\n",
+							gcmap );
+					}
 					Con_Reportf( "Xash3D GameCube: G326 pre-map client ensure begin\n" );
 					if( !CL_GameCubeEnsureClientReady() )
 						Con_Reportf( "Xash3D GameCube: G326 pre-map client ensure failed\n" );

@@ -4447,3 +4447,18 @@ manual hardware validation with all artifacts generated and documented.
   `DOLPHIN_NEWGAME=1 DOLPHIN_SMOKE_MAP=c1a0 DOLPHIN_CHANGELEVEL=c1a0d scripts/dolphin-boot-probe.sh`
 - Next: `c1a0d→c1a0a` (landmark `c1a0dtoa`).
 
+## Anomalous Materials c1a0d→c1a0a→c1a0b (2026-08-10)
+
+- Proven: `c1a0d→c1a0a` CHANGELEVEL_READY `.ai/logs/dolphin-probe-20260810-035123`
+  (landmark `c1a0dtoa`; G45 actions PASS; ladder 10/10; G36 WEAK)
+- Proven: `c1a0a→c1a0b` CHANGELEVEL_READY `.ai/logs/dolphin-probe-20260810-040544`
+  (landmark `c1a0atob`; G45 actions PASS; ladder 10/10; G36 WEAK avg≈64ms)
+- Cold New Game into denser AM additionally needed:
+  - G334 tail essentials-only after edict 128 (keep landmark/changelevel/start)
+  - G335 skip Flipper present pump on denser AM → deferred G68 hop
+  - G336 lean HUD before G326 ensure on denser maps; HUDLIST static pool;
+    skip MOTD/Scoreboard/Menu tail (HUD_Init hung after StatusIcon on c1a0a)
+- Command:
+  `DOLPHIN_NEWGAME=1 DOLPHIN_SMOKE_MAP=c1a0a DOLPHIN_CHANGELEVEL=c1a0b scripts/dolphin-boot-probe.sh`
+- Next: `c1a0b→c1a0c` (landmark `c1a0btoc`).
+

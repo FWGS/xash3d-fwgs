@@ -5696,16 +5696,14 @@ static void SV_LoadFromFile( const char *mapname, char *entities )
 			else ent = SV_AllocEdict();
 
 #if XASH_GAMECUBE
-			/* G334: cold New Game into denser AM maps tips MEM1 mid-spawn
-			 * with G326 keep-client (c1a0d dies after progress=128;
-			 * without keep-client dies @192/@256). Landmark c1a0dtoa is ents 3–4. */
-			if( Sys_CheckParm( "-gcnewgame" ) && entity_index >= 128 )
-			{
-				Con_Reportf( "Xash3D GameCube: G334 truncate entity spawn at %d\n",
+			/* G334: after index 128, only keep continuity essentials.
+			 * Hard truncate dropped c1a0a→c1a0b landmark/changelevel at 169–170
+			 * (and late info_player_start). Parse the tail but free the rest. */
+			const qboolean gc_tail_essentials = Sys_CheckParm( "-gcnewgame" )
+				&& entity_index >= 128;
+			if( gc_tail_essentials && ( entity_index == 128 ))
+				Con_Reportf( "Xash3D GameCube: G334 tail essentials-only from %d\n",
 					entity_index );
-				SV_FreeEdict( ent );
-				break;
-			}
 			if( SV_GCMapSmokeRoute() && ( entity_index & 31 ) == 0 )
 				Con_Reportf( "Xash3D GameCube: entity spawn progress=%d\n", entity_index );
 #endif
@@ -5721,6 +5719,21 @@ static void SV_LoadFromFile( const char *mapname, char *entities )
 			}
 
 #if XASH_GAMECUBE
+			if( gc_tail_essentials )
+			{
+				const char *spawn_class = SV_ClassName( ent );
+
+				if( Q_stricmp( spawn_class, "info_landmark" )
+					&& Q_stricmp( spawn_class, "trigger_changelevel" )
+					&& Q_stricmp( spawn_class, "info_player_start" ))
+				{
+					SV_FreeEdict( ent );
+					inhibited++;
+					continue;
+				}
+				Con_Reportf( "Xash3D GameCube: G334 tail keep %s edict=%d\n",
+					spawn_class, NUM_FOR_EDICT( ent ));
+			}
 			if( SV_GCMapSmokeRoute() )
 			{
 				const char *spawn_class = SV_ClassName( ent );

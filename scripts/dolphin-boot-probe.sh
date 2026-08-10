@@ -115,6 +115,8 @@ if [[ -z "${DOLPHIN_LANDMARK:-}" && -n "$DOLPHIN_CHANGELEVEL" ]]; then
 		c1a0:c1a0d) DOLPHIN_LANDMARK="c1a0toc1a0d" ;;
 		c1a0d:c1a0a) DOLPHIN_LANDMARK="c1a0dtoa" ;;
 		c1a0a:c1a0b) DOLPHIN_LANDMARK="c1a0atob" ;;
+		c1a0b:c1a0c) DOLPHIN_LANDMARK="c1a0btoc" ;;
+		c1a0b:c1a0e) DOLPHIN_LANDMARK="c1a0btoe" ;;
 		c3a1:c3a1a) DOLPHIN_LANDMARK="a1a1a" ;;
 		c3a1a:c3a1b) DOLPHIN_LANDMARK="a1a2" ;;
 		c3a2:c3a2a) DOLPHIN_LANDMARK="c3a2f" ;;
