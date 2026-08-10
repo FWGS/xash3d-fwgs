@@ -10821,6 +10821,13 @@ qboolean GC_PrepareNewGameWorldPresent( void )
 	/* Prefer real low-res world frames here: the Dolphin probe often exits as
 	 * soon as G36 evidence is scored, before the next Host_Frame can run SCR.
 	 * Fall back to lean green fills if the world path is not ready yet. */
+	{
+	const qboolean denser_am_early = Sys_CheckParm( "-gcnewgame" )
+		&& ( !Q_stricmp( sv.name, "c1a0d" )
+			|| !Q_stricmp( sv.name, "c1a0a" )
+			|| !Q_stricmp( sv.name, "c1a0b" )
+			|| !Q_stricmp( sv.name, "c1a0c" ));
+
 	if( Sys_CheckParm( "-gcfullphysics" ))
 	{
 		static qboolean gc_gameplay_present_skip_logged;
@@ -10828,6 +10835,46 @@ qboolean GC_PrepareNewGameWorldPresent( void )
 		{
 			gc_gameplay_present_skip_logged = true;
 			Con_Reportf( "Xash3D GameCube: gameplay probe post-G36 render skipped\n" );
+		}
+	}
+	else if( denser_am_early )
+	{
+		int i;
+
+		/* G335: first Flipper world frame already tips/hangs the present path
+		 * on denser AM cold boots (c1a0d 20260810-034042 stuck after CapFaces
+		 * drawn=0). Light-fill probe frames, then fall through to G68 hop. */
+		Con_Reportf( "Xash3D GameCube: G335 skip Flipper present pump map=%s\n",
+			sv.name );
+		for( i = 0; i < 4; i++ )
+		{
+			GC_FillBudgetProbeFrameBuffer();
+			GC_PresentBudgetProbeFrame();
+		}
+		for( i = 0; i < 2; i++ )
+			Host_ServerFrame();
+		Con_Reportf( "Xash3D GameCube: post-G36 world present\n" );
+		/* denser_am_early skips the !fullphysics branch that owns G68;
+		 * fire the hop here so Prepare still reaches changelevel. */
+		if( Sys_CheckParm( "-gcchangelevel" ) && GC_IsNewGameG36Done() )
+		{
+			static qboolean gc_g335_cl_queued;
+			char dest[MAX_QPATH];
+			char landmark[MAX_QPATH];
+
+			if( !gc_g335_cl_queued
+				&& Sys_GetParmFromCmdLine( "-gcchangelevel", dest )
+				&& dest[0] && Q_stricmp( sv.name, dest ))
+			{
+				gc_g335_cl_queued = true;
+				landmark[0] = '\0';
+				Sys_GetParmFromCmdLine( "-gclandmark", landmark );
+				if( landmark[0] )
+					GC_LeanLandmarkProbePlantAmmo();
+				SYS_Report( "Xash3D GameCube: changelevel begin map=%s from=%s landmark=%s\n",
+					dest, sv.name, landmark[0] ? landmark : "(none)" );
+				COM_ChangeLevel( dest, landmark[0] ? landmark : NULL, false );
+			}
 		}
 	}
 	else if( !GC_RenderNewGameWorldFrames( 1 ))
@@ -10844,6 +10891,16 @@ qboolean GC_PrepareNewGameWorldPresent( void )
 	else if( !Sys_CheckParm( "-gcfullphysics" ))
 	{
 		int i;
+		qboolean denser_am;
+
+		/* G335: denser AM cold New Game hangs after presents=1 in the
+		 * post-present pump (c1a0d probe 20260810-034042 never reached
+		 * post-G36 / changelevel begin). Landmark is already spawned;
+		 * skip straight to the deferred G68 hop. */
+		denser_am = ( !Q_stricmp( sv.name, "c1a0d" )
+			|| !Q_stricmp( sv.name, "c1a0a" )
+			|| !Q_stricmp( sv.name, "c1a0b" )
+			|| !Q_stricmp( sv.name, "c1a0c" ));
 
 		/* One Flipper present arms lean player physics inside PresentBuffer.
 		 * Run ServerFrame primes HERE before more world frames — Render(4)
@@ -10851,6 +10908,15 @@ qboolean GC_PrepareNewGameWorldPresent( void )
 		 * so the old post-Render(4) prime never ran. */
 		Con_Reportf( "Xash3D GameCube: post-present lean player ServerFrame prime presents=%u\n",
 			GC_GetNewGamePresentCount() );
+		if( denser_am )
+		{
+			Con_Reportf( "Xash3D GameCube: G335 skip post-present pump map=%s → changelevel\n",
+				sv.name );
+			for( i = 0; i < 2; i++ )
+				Host_ServerFrame();
+		}
+		else
+		{
 		for( i = 0; i < 8; i++ )
 			Host_ServerFrame();
 
@@ -10904,6 +10970,7 @@ qboolean GC_PrepareNewGameWorldPresent( void )
 				ref.dllFuncs.R_EndFrame();
 			}
 		}
+		} /* !denser_am */
 
 		/* G128/G134 soft DumpFrames latch is Dolphin-only. Retail Flipper
 		 * enables live GX immediately after the world pump. */
@@ -11362,6 +11429,8 @@ qboolean GC_PrepareNewGameWorldPresent( void )
 			}
 		}
 	}
+
+	} /* denser_am_early scope */
 
 	return true;
 #else
