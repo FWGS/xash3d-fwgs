@@ -339,6 +339,15 @@ void *_Mem_Alloc( poolhandle_t poolptr, size_t size, qboolean clear, const char 
 				Q_memprint( size ), filename, fileline );
 			return NULL;
 		}
+		/* G331: GX texture alpha/mips under tip — r_image.c already
+		 * disables alpha / reduces mips on NULL. Fatal here aborted
+		 * c1a0d cold New Game after G330 BSS tip (probe 20260810-025713). */
+		if( pool && !Q_stricmp( pool->name, "ref_gx zone" ))
+		{
+			Con_Reportf( "Xash3D GameCube: soft-fail ref_gx zone alloc size=%s at %s:%i\n",
+				Q_memprint( size ), filename, fileline );
+			return NULL;
+		}
 #endif
 		Sys_Error( "%s: out of memory (alloc size %s at %s:%i)\n", __func__, Q_memprint( size ), filename, fileline );
 		return NULL;

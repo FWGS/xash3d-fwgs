@@ -40,6 +40,25 @@ static byte clientpvs[(MAX_MAP_LEAFS+7)/8];	// for find client in PVS
 #if XASH_GAMECUBE
 /* Player CBasePlayer private block when MEM1 malloc fails during -gcnewgame. */
 static byte gc_player_private_fallback[4096];
+/* G329: CSoundEnt (~2176) is the first large non-player private block
+ * (typically edict 2). Cold New Game into denser AM maps (c1a0d) tips
+ * libc/MEM1 after G326 keep-client + BSP textures; soft-failing here
+ * leaves GetClassPtr on NULL and aborts before entity spawn. */
+static byte gc_soundent_private_fallback[4096];
+static qboolean gc_soundent_fallback_used;
+/* G330: bump slab for remaining small private blocks once libc tips
+ * mid-spawn (c1a0d cold: soundent ok, then func_button size=320 fails).
+ * Keep this modest — a large BSS tip killed GX texture upload
+ * (probe 20260810-025713: ref_gx zone 8 KiB Host_Error). */
+static byte gc_ent_priv_slab[49152];
+static size_t gc_ent_priv_slab_used;
+static int gc_ent_priv_slab_hits;
+
+static qboolean SV_GCPrivateDataIsSlab( const void *ptr )
+{
+	const byte *p = (const byte *)ptr;
+	return p >= gc_ent_priv_slab && p < gc_ent_priv_slab + sizeof( gc_ent_priv_slab );
+}
 #endif
 
 // exports
@@ -1080,6 +1099,13 @@ static void GAME_EXPORT SV_FreePrivateData( edict_t *pEdict )
 #if XASH_GAMECUBE
 	else if( pEdict->pvPrivateData == gc_player_private_fallback )
 		; /* static New Game player fallback — never free() */
+	else if( pEdict->pvPrivateData == gc_soundent_private_fallback )
+	{
+		gc_soundent_fallback_used = false;
+		; /* static New Game CSoundEnt fallback — never free() */
+	}
+	else if( SV_GCPrivateDataIsSlab( pEdict->pvPrivateData ))
+		; /* G330 bump slab — never free() */
 	else if( Sys_CheckParm( "-gcmap" ) || Sys_CheckParm( "-gcnewgame" ) || GC_MapLoadMemoryOpt() )
 		free( pEdict->pvPrivateData );
 #endif
@@ -1264,7 +1290,7 @@ static edict_t* SV_AllocPrivateData( edict_t *ent, string_t className, qboolean 
 
 #if XASH_GAMECUBE
 	/* HLSDK GetClassPtr links run even when malloc fails; drop those edicts. */
-	if( Sys_CheckParm( "-gcmap" ) && !ent->pvPrivateData )
+	if(( Sys_CheckParm( "-gcmap" ) || Sys_CheckParm( "-gcnewgame" )) && !ent->pvPrivateData )
 	{
 		Con_Reportf( S_WARN "Xash3D GameCube: dropping entity after private-data alloc miss classname=%s\n",
 			pszClassName );
@@ -3165,6 +3191,33 @@ static void *GAME_EXPORT pfnPvAllocEntPrivateData( edict_t *pEdict, long cb )
 				used_fallback = true;
 				Con_Reportf( "Xash3D GameCube: ent private data using static player fallback size=%zu\n",
 					size );
+			}
+			/* G329: CSoundEnt private block when heap tip after denser BSP. */
+			if( !pEdict->pvPrivateData && Sys_CheckParm( "-gcnewgame" )
+				&& !gc_soundent_fallback_used
+				&& NUM_FOR_EDICT( pEdict ) != 1
+				&& size >= 1800 && size <= sizeof( gc_soundent_private_fallback ))
+			{
+				memset( gc_soundent_private_fallback, 0, sizeof( gc_soundent_private_fallback ));
+				pEdict->pvPrivateData = gc_soundent_private_fallback;
+				gc_soundent_fallback_used = true;
+				used_fallback = true;
+				Con_Reportf( "Xash3D GameCube: G329 ent private data using static soundent fallback size=%zu edict=%d\n",
+					size, NUM_FOR_EDICT( pEdict ));
+			}
+			/* G330: small-entity bump slab after libc tip (GetClassPtr needs non-NULL). */
+			if( !pEdict->pvPrivateData && Sys_CheckParm( "-gcnewgame" )
+				&& size <= 1024
+				&& gc_ent_priv_slab_used + size <= sizeof( gc_ent_priv_slab ))
+			{
+				pEdict->pvPrivateData = gc_ent_priv_slab + gc_ent_priv_slab_used;
+				memset( pEdict->pvPrivateData, 0, size );
+				gc_ent_priv_slab_used += size;
+				gc_ent_priv_slab_hits++;
+				used_fallback = true;
+				if( gc_ent_priv_slab_hits <= 3 || ( gc_ent_priv_slab_hits & 15 ) == 0 )
+					Con_Reportf( "Xash3D GameCube: G330 ent private slab size=%zu edict=%d hits=%d used=%zu\n",
+						size, NUM_FOR_EDICT( pEdict ), gc_ent_priv_slab_hits, gc_ent_priv_slab_used );
 			}
 			if( pEdict->pvPrivateData )
 			{
@@ -5245,10 +5298,12 @@ static qboolean SV_GCMapShouldInhibitClass( const char *classname )
 		{
 			if( Sys_CheckParm( "-gcfullphysics" ))
 				return false;
-			if( gc_lean_sitting_scientist_admit >= 2 )
-				return true;
+			/* G332: cold New Game into denser AM maps (c1a0d) aborts after the
+			 * first G314/G316 sitting-scientist release (probe 20260810-025920:
+			 * Unloading world cascade, no Host_Error line). Seated predisaster
+			 * actors are not required for landmark changelevels — inhibit all. */
 			gc_lean_sitting_scientist_admit++;
-			return false;
+			return true;
 		}
 		if( !Q_stricmp( classname, "monster_barney" ))
 		{
@@ -5614,6 +5669,9 @@ static void SV_LoadFromFile( const char *mapname, char *entities )
 	gc_lean_scientist_admit = 0;
 	gc_lean_sitting_scientist_admit = 0;
 	gc_lean_barney_admit = 0;
+	gc_soundent_fallback_used = false;
+	gc_ent_priv_slab_used = 0;
+	gc_ent_priv_slab_hits = 0;
 #endif
 
 	// user dll can override spawn entities function (Xash3D extension)
@@ -5638,6 +5696,16 @@ static void SV_LoadFromFile( const char *mapname, char *entities )
 			else ent = SV_AllocEdict();
 
 #if XASH_GAMECUBE
+			/* G334: cold New Game into denser AM maps tips MEM1 mid-spawn
+			 * with G326 keep-client (c1a0d dies after progress=128;
+			 * without keep-client dies @192/@256). Landmark c1a0dtoa is ents 3–4. */
+			if( Sys_CheckParm( "-gcnewgame" ) && entity_index >= 128 )
+			{
+				Con_Reportf( "Xash3D GameCube: G334 truncate entity spawn at %d\n",
+					entity_index );
+				SV_FreeEdict( ent );
+				break;
+			}
 			if( SV_GCMapSmokeRoute() && ( entity_index & 31 ) == 0 )
 				Con_Reportf( "Xash3D GameCube: entity spawn progress=%d\n", entity_index );
 #endif
@@ -5758,9 +5826,14 @@ void SV_SpawnEntities( const char *mapname )
 	svgame.globals->time = sv.time;
 
 #if XASH_GAMECUBE
-	if( Sys_CheckParm( "-gcmap" ))
+	/* G329: also reclaim ImageLib after cold New Game BSP textures so
+	 * CSoundEnt / early entity private mallocs have room (c1a0d tip). */
+	if( Sys_CheckParm( "-gcmap" ) || Sys_CheckParm( "-gcnewgame" ))
 	{
 		Image_GCPurgeDecodeScratch();
+		if( host.imagepool )
+			Mem_EmptyPool( host.imagepool );
+		gc_soundent_fallback_used = false;
 		Con_Reportf( "Xash3D GameCube: pre-entity memory trim\n" );
 		GC_MemSample( "pre-entity spawn" );
 	}

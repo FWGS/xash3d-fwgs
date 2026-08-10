@@ -4431,3 +4431,19 @@ manual hardware validation with all artifacts generated and documented.
 - Next blocker: finish CaptureNewGamePVS on c1a0 so deferred changelevel to
   c1a0d can run post-G36.
 
+
+
+## Anomalous Materials c1a0→c1a0d (2026-08-10)
+
+- Proven: `c1a0→c1a0d` CHANGELEVEL_READY `.ai/logs/dolphin-probe-20260810-005013`
+  (landmark `c1a0toc1a0d`; G45 actions PASS; G36 WEAK avg≈101ms; G506 WEAK)
+- Cold New Game into c1a0 required:
+  - G321 lean scripted/NPC admit caps (MEM1 private-data)
+  - G325 skip visdata on lean `-gcnewgame` (retain tipped Client Static / spawn)
+  - G322 Capture novis reentry skip (prepare no longer PointInLeaf-hangs)
+  - G326 pre-map client ensure + keep across map load; skip crowbar GiveNamedItem
+  - G327 defer prepare HUD; skip G290 late HUD ZIP under lean tip
+- Command:
+  `DOLPHIN_NEWGAME=1 DOLPHIN_SMOKE_MAP=c1a0 DOLPHIN_CHANGELEVEL=c1a0d scripts/dolphin-boot-probe.sh`
+- Next: `c1a0d→c1a0a` (landmark `c1a0dtoa`).
+

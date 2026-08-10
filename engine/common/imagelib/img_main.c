@@ -637,7 +637,16 @@ rgbdata_t *FS_CopyImage( const rgbdata_t *in )
 		return NULL;
 
 	rgbdata_t *out = Mem_Malloc( host.imagepool, sizeof( *out ));
+#if XASH_GAMECUBE
+	/* Soft-fail ImageLib under tip (zone.c G285) can return NULL; memcpy
+	 * into a null buffer hung c1a0d cold New Game texture load
+	 * (probe 20260810-005148 after Unable to find poster14.mip). */
+	if( !out )
+		return NULL;
+#endif
 	*out = *in;
+	out->palette = NULL;
+	out->buffer = NULL;
 
 	switch( in->type )
 	{
@@ -652,12 +661,28 @@ rgbdata_t *FS_CopyImage( const rgbdata_t *in )
 	if( palSize )
 	{
 		out->palette = Mem_Malloc( host.imagepool, palSize );
+#if XASH_GAMECUBE
+		if( !out->palette )
+		{
+			Mem_Free( out );
+			return NULL;
+		}
+#endif
 		memcpy( out->palette, in->palette, palSize );
 	}
 
 	if( in->size )
 	{
 		out->buffer = Mem_Malloc( host.imagepool, in->size );
+#if XASH_GAMECUBE
+		if( !out->buffer )
+		{
+			if( out->palette )
+				Mem_Free( out->palette );
+			Mem_Free( out );
+			return NULL;
+		}
+#endif
 		memcpy( out->buffer, in->buffer, in->size );
 	}
 

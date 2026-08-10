@@ -6669,6 +6669,15 @@ static qboolean Mod_LoadBmodelLumps( model_t *mod, byte *mod_base, size_t buffer
 	Mod_LoadTextures( mod, bmod );
 #if XASH_GAMECUBE
 	Con_Reportf( "Xash3D GameCube: bmodel textures ready\n" );
+	/* Transient WAD/MIP decode scratch is unused after GX upload; reclaim
+	 * before surfaces/entities so cold New Game denser maps (c1a0d) can
+	 * still malloc CSoundEnt after G326 keep-client (G328/G329). */
+	if( GC_MapLoadMemoryOpt() && bmod->isworld )
+	{
+		Image_GCPurgeDecodeScratch();
+		if( host.imagepool )
+			Mem_EmptyPool( host.imagepool );
+	}
 	Con_Reportf( "Xash3D GameCube: bmodel visibility begin\n" );
 #endif
 	Mod_LoadVisibility( mod, bmod );

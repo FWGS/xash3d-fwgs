@@ -109,9 +109,11 @@ void GC_TrimClientSubsystemsForMapLoad( void )
 		UI_UnloadProgs();
 		Con_Reportf( "Xash3D GameCube: menu unloaded for map load\n" );
 	}
-	/* G326: c1a0 cold New Game tips MEM1 after BSP+entities; deferred
-	 * InitInput then Sys_Errors (001125/001651). Keep an already-ready
-	 * client across lean New Game map load instead of unload+reinit. */
+	/* G326: c1a0 / denser AM cold New Game tips MEM1 after BSP+entities when
+	 * the client is unloaded then re-inited (probe 20260810-033206: AllocPool
+	 * OOM at cl_game.c after G333 unload). Keep an already-ready client across
+	 * lean New Game map load; G334 truncates the entity tail so spawn still
+	 * fits beside the kept client. */
 	if( Sys_CheckParm( "-gcnewgame" ) && CL_GameCubeClientProgsReady() )
 		Con_Reportf( "Xash3D GameCube: G326 keep client across newgame map load\n" );
 	else

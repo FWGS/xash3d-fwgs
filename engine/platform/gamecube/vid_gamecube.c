@@ -7896,6 +7896,11 @@ static void GC_TryDeferredHudSheets( void )
 #if XASH_GAMECUBE
 	if( !gc_newgame_world_ready )
 		return;
+	/* c1a0 tip (20260810-004224): G290 late HUD ZIP loads soft-fail then
+	 * stall the present pump before G68 deferred changelevel. Lean New Game
+	 * already deferred prepare HUD (G327); skip late sheets too. */
+	if( Sys_CheckParm( "-gcnewgame" ) && !Sys_CheckParm( "-gcfullphysics" ))
+		return;
 	if( gc_present_count != 6 && gc_present_count != 12 )
 		return;
 	Con_Reportf( "Xash3D GameCube: G290 deferred HUD sheets present=%u\n",
@@ -10739,20 +10744,27 @@ qboolean GC_PrepareNewGameWorldPresent( void )
 	gc_cpu_dump_presents_left = 0;
 	Cvar_Set( "gc_hud_probe_skip", "0" );
 
-	/* G172: lean HUD after studios; FS pool soft-fails retry via sys-malloc. */
+	/* G172: lean HUD after studios; FS pool soft-fails retry via sys-malloc.
+	 * c1a0 + G326 client-keep tips FS at prepare (20260810-003405: soft-fail
+	 * 2 KiB then hang in credits/HUD). Defer HUD bring-up until post-present. */
+	Con_Reportf( "Xash3D GameCube: G327 prepare HUD begin\n" );
 	Image_GCPurgeDecodeScratch();
 	FS_ClearFindMissCache();
-	/* G296: the first SCR_VidInit can run before the disc search path is
-	 * mounted. Retry the already-staged intro-credit font now, immediately
-	 * before the HUD's first active draw, so map text matches the retail
-	 * Half-Life credits instead of falling back to the 5x7 status glyphs. */
-	SCR_LoadCreditsFont();
-	if( clgame.dllFuncs.pfnVidInit )
+	if( Sys_CheckParm( "-gcnewgame" ) && !Sys_CheckParm( "-gcfullphysics" ))
 	{
-		clgame.dllFuncs.pfnVidInit();
-		Con_Reportf( "Xash3D GameCube: newgame lean HUD VidInit after world present\n" );
+		Con_Reportf( "Xash3D GameCube: G327 defer lean HUD VidInit/sprites until post-present\n" );
 	}
-	CL_GCPreloadNewGameHudSprites();
+	else
+	{
+		SCR_LoadCreditsFont();
+		if( clgame.dllFuncs.pfnVidInit )
+		{
+			clgame.dllFuncs.pfnVidInit();
+			Con_Reportf( "Xash3D GameCube: newgame lean HUD VidInit after world present\n" );
+		}
+		CL_GCPreloadNewGameHudSprites();
+	}
+	Con_Reportf( "Xash3D GameCube: G327 prepare HUD ready\n" );
 
 	/* G285: lean sky BMP decode is deferred to GC_TryDeferredLeanSky after a
 	 * few presents (ImageLib soft-fails under tip). Outdoor EFB clear covers
