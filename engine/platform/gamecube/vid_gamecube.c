@@ -10486,6 +10486,21 @@ void GC_PresentLandmarkViewModel( void )
 	if( !path || !path[0] || !gc_newgame_world_ready )
 		return;
 
+	/* G338: denser Blast Pit+ maps hang in soft-dump PresentBuffer / R_EndFrame
+	 * during ActivateServer (c1a4b→c1a4i 20260810-053503/054406 never reached
+	 * MAP_READY despite G68+G100). GrantWeapons already logged G105 ready. */
+	if( Sys_CheckParm( "-gcnewgame" ) && sv.name[0]
+		&& ( !Q_strnicmp( sv.name, "c1a4", 4 )
+			|| !Q_strnicmp( sv.name, "c2a", 3 )
+			|| !Q_strnicmp( sv.name, "c3a", 3 )
+			|| !Q_strnicmp( sv.name, "c4a", 3 )
+			|| !Q_strnicmp( sv.name, "c5a", 3 )) )
+	{
+		Con_Reportf( "Xash3D GameCube: G338 skip viewmodel present map=%s\n",
+			sv.name );
+		return;
+	}
+
 	vm = Mod_FindName( path, false );
 	if( !vm || vm->type != mod_studio || !vm->cache.data )
 	{
@@ -10809,13 +10824,29 @@ qboolean GC_PrepareNewGameWorldPresent( void )
 	/* Lean BoundedGC before Flipper present pump — GC_RenderNewGameWorldFrames
 	 * can stall Host_Frame after G281/G105 (probe 20260807-035407 never
 	 * reached post-G36 world present). */
-	if( Sys_CheckParm( "-gcnewgame" ) && !Sys_CheckParm( "-gcfullphysics" ))
+	/* G339: on G68 dest maps, ServerFrame + G278 train ride hangs when G334
+	 * stripped path_corner/track targets (c2a5x→c2a5a 20260810-122456 stuck
+	 * after "probe gameplay move/look begin", never MAP_READY). Skip primes. */
 	{
-		int prime_i;
+		char gc_cl_dest[MAX_QPATH];
+		const qboolean on_cl_dest = Sys_CheckParm( "-gcchangelevel" )
+			&& Sys_GetParmFromCmdLine( "-gcchangelevel", gc_cl_dest )
+			&& gc_cl_dest[0] && !Q_stricmp( sv.name, gc_cl_dest );
 
-		Con_Reportf( "Xash3D GameCube: pre-present lean ServerFrame prime\n" );
-		for( prime_i = 0; prime_i < 16; prime_i++ )
-			Host_ServerFrame();
+		if( Sys_CheckParm( "-gcnewgame" ) && !Sys_CheckParm( "-gcfullphysics" )
+			&& !on_cl_dest )
+		{
+			int prime_i;
+
+			Con_Reportf( "Xash3D GameCube: pre-present lean ServerFrame prime\n" );
+			for( prime_i = 0; prime_i < 16; prime_i++ )
+				Host_ServerFrame();
+		}
+		else if( on_cl_dest )
+		{
+			Con_Reportf( "Xash3D GameCube: G339 skip ServerFrame prime on changelevel dest map=%s\n",
+				sv.name );
+		}
 	}
 
 	/* Prefer real low-res world frames here: the Dolphin probe often exits as
@@ -10831,7 +10862,9 @@ qboolean GC_PrepareNewGameWorldPresent( void )
 			|| !Q_strnicmp( sv.name, "c1a1", 4 )
 			|| !Q_strnicmp( sv.name, "c1a2", 4 )
 			|| !Q_strnicmp( sv.name, "c1a3", 4 )
-			|| !Q_strnicmp( sv.name, "c1a4", 4 ));
+			|| !Q_strnicmp( sv.name, "c1a4", 4 )
+			|| !Q_strnicmp( sv.name, "c2a", 3 )
+			|| !Q_strnicmp( sv.name, "c3a", 3 ));
 
 	if( Sys_CheckParm( "-gcfullphysics" ))
 	{
@@ -10856,8 +10889,24 @@ qboolean GC_PrepareNewGameWorldPresent( void )
 			GC_FillBudgetProbeFrameBuffer();
 			GC_PresentBudgetProbeFrame();
 		}
-		for( i = 0; i < 2; i++ )
-			Host_ServerFrame();
+		/* G339: dest-map ServerFrame hangs on G278 ride (see prime skip above). */
+		{
+			char gc_cl_dest[MAX_QPATH];
+			const qboolean on_cl_dest = Sys_CheckParm( "-gcchangelevel" )
+				&& Sys_GetParmFromCmdLine( "-gcchangelevel", gc_cl_dest )
+				&& gc_cl_dest[0] && !Q_stricmp( sv.name, gc_cl_dest );
+
+			if( !on_cl_dest )
+			{
+				for( i = 0; i < 2; i++ )
+					Host_ServerFrame();
+			}
+			else
+			{
+				Con_Reportf( "Xash3D GameCube: G339 skip post-G335 ServerFrame map=%s\n",
+					sv.name );
+			}
+		}
 		Con_Reportf( "Xash3D GameCube: post-G36 world present\n" );
 		/* denser_am_early skips the !fullphysics branch that owns G68;
 		 * fire the hop here so Prepare still reaches changelevel. */
@@ -10910,7 +10959,9 @@ qboolean GC_PrepareNewGameWorldPresent( void )
 			|| !Q_strnicmp( sv.name, "c1a1", 4 )
 			|| !Q_strnicmp( sv.name, "c1a2", 4 )
 			|| !Q_strnicmp( sv.name, "c1a3", 4 )
-			|| !Q_strnicmp( sv.name, "c1a4", 4 ));
+			|| !Q_strnicmp( sv.name, "c1a4", 4 )
+			|| !Q_strnicmp( sv.name, "c2a", 3 )
+			|| !Q_strnicmp( sv.name, "c3a", 3 ));
 
 		/* One Flipper present arms lean player physics inside PresentBuffer.
 		 * Run ServerFrame primes HERE before more world frames — Render(4)

@@ -4520,3 +4520,38 @@ manual hardware validation with all artifacts generated and documented.
   `DOLPHIN_NEWGAME=1 DOLPHIN_SMOKE_MAP=c1a2 DOLPHIN_CHANGELEVEL=c1a2a scripts/dolphin-boot-probe.sh`
 - Next: hops from `c1a2a`.
 
+## Office Complex + We've Got Hostiles (2026-08-10)
+
+- Proven Office:
+  - `c1a2a→c1a2b` `.ai/logs/dolphin-probe-20260810-045029` (landmark `ab`)
+  - `c1a2b→c1a2c` `.ai/logs/dolphin-probe-20260810-045745` (landmark `vents`)
+  - `c1a2b→c1a3` `.ai/logs/dolphin-probe-20260810-045916` (landmark `c1a2_to_c1a3`)
+- Proven We've Got Hostiles:
+  - `c1a3→c1a3d` `.ai/logs/dolphin-probe-20260810-050050` (`lm_c1a3_0d`)
+  - `c1a3d→c1a3a` `.ai/logs/dolphin-probe-20260810-050319` (`lm_c1a3_da`)
+  - `c1a3a→c1a3b` `.ai/logs/dolphin-probe-20260810-051027` (`lm_c1a3_ab`)
+  - `c1a3b→c1a3c` `.ai/logs/dolphin-probe-20260810-051736` (`lm_c1a3_bc`)
+- Next: `c1a3→c1a4` (landmark `c1a3toc1a4`) — Blast Pit.
+
+## We've Got Hostiles → Blast Pit c1a3→c1a4 (2026-08-10)
+
+- Proven: `c1a3→c1a4` CHANGELEVEL_READY `.ai/logs/dolphin-probe-20260810-051850`
+  (landmark `c1a3toc1a4`; ladder 10/10; G45 PASS; G36 WEAK avg≈67ms)
+- Command:
+  `DOLPHIN_NEWGAME=1 DOLPHIN_SMOKE_MAP=c1a3 DOLPHIN_CHANGELEVEL=c1a4 scripts/dolphin-boot-probe.sh`
+- Next: `c1a4→c1a4k` (landmark `c1a4toc1a4k`).
+
+## Blast Pit → Power Up (2026-08-10)
+
+- Proven:
+  - `c1a4→c1a4k` `.ai/logs/dolphin-probe-20260810-052618`
+  - `c1a4k→c1a4b` `.ai/logs/dolphin-probe-20260810-052752`
+  - `c1a4b→c1a4i` `.ai/logs/dolphin-probe-20260810-054852` (landmark `c1a4btoi1`)
+  - `c1a4i→c1a4g` `.ai/logs/dolphin-probe-20260810-055210`
+  - `c1a4g→c1a4j` `.ai/logs/dolphin-probe-20260810-055313`
+  - `c1a4j→c2a1` `.ai/logs/dolphin-probe-20260810-055623` (landmark `c1a4-c2a1`)
+- **G338**: skip `GC_PresentLandmarkViewModel` soft-dump path on denser
+  Blast Pit+ maps — hung in `PresentBuffer`/`R_EndFrame` before `MAP_READY`
+  despite G68+G100 (probe 20260810-053503).
+- Next: Power Up hops from `c2a1` (`c2a1→c2a2` landmark `c2a1-c2a2`).
+
