@@ -10826,7 +10826,12 @@ qboolean GC_PrepareNewGameWorldPresent( void )
 		&& ( !Q_stricmp( sv.name, "c1a0d" )
 			|| !Q_stricmp( sv.name, "c1a0a" )
 			|| !Q_stricmp( sv.name, "c1a0b" )
-			|| !Q_stricmp( sv.name, "c1a0c" ));
+			|| !Q_stricmp( sv.name, "c1a0c" )
+			|| !Q_stricmp( sv.name, "c1a0e" )
+			|| !Q_strnicmp( sv.name, "c1a1", 4 )
+			|| !Q_strnicmp( sv.name, "c1a2", 4 )
+			|| !Q_strnicmp( sv.name, "c1a3", 4 )
+			|| !Q_strnicmp( sv.name, "c1a4", 4 ));
 
 	if( Sys_CheckParm( "-gcfullphysics" ))
 	{
@@ -10900,7 +10905,12 @@ qboolean GC_PrepareNewGameWorldPresent( void )
 		denser_am = ( !Q_stricmp( sv.name, "c1a0d" )
 			|| !Q_stricmp( sv.name, "c1a0a" )
 			|| !Q_stricmp( sv.name, "c1a0b" )
-			|| !Q_stricmp( sv.name, "c1a0c" ));
+			|| !Q_stricmp( sv.name, "c1a0c" )
+			|| !Q_stricmp( sv.name, "c1a0e" )
+			|| !Q_strnicmp( sv.name, "c1a1", 4 )
+			|| !Q_strnicmp( sv.name, "c1a2", 4 )
+			|| !Q_strnicmp( sv.name, "c1a3", 4 )
+			|| !Q_strnicmp( sv.name, "c1a4", 4 ));
 
 		/* One Flipper present arms lean player physics inside PresentBuffer.
 		 * Run ServerFrame primes HERE before more world frames — Render(4)

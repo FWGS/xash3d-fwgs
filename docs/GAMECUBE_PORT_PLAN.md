@@ -4462,3 +4462,36 @@ manual hardware validation with all artifacts generated and documented.
   `DOLPHIN_NEWGAME=1 DOLPHIN_SMOKE_MAP=c1a0a DOLPHIN_CHANGELEVEL=c1a0b scripts/dolphin-boot-probe.sh`
 - Next: `c1a0b→c1a0c` (landmark `c1a0btoc`).
 
+## Anomalous Materials c1a0b→c1a0c (2026-08-10)
+
+- Proven: `c1a0b→c1a0c` CHANGELEVEL_READY `.ai/logs/dolphin-probe-20260810-042242`
+  (landmark `c1a0btoc`; ladder 10/10; G45 PASS; G45 actions WAIT; G36 WEAK avg≈67ms)
+- Command:
+  `DOLPHIN_NEWGAME=1 DOLPHIN_SMOKE_MAP=c1a0b DOLPHIN_CHANGELEVEL=c1a0c scripts/dolphin-boot-probe.sh`
+- Next: `c1a0c→c1a1` (landmark `c1a0catoc1a1`) — AM chapter exit.
+
+## Anomalous Materials exit c1a0c→c1a1 (2026-08-10)
+
+- Proven: `c1a0c→c1a1` CHANGELEVEL_READY `.ai/logs/dolphin-probe-20260810-043022`
+  (landmark `c1a0catoc1a1`; ladder 10/10; G45 actions PASS; G36 WEAK avg≈64ms)
+- G335 denser Flipper-present skip extended through `c1a1`–`c1a4` (+ `c1a0e`)
+- Command:
+  `DOLPHIN_NEWGAME=1 DOLPHIN_SMOKE_MAP=c1a0c DOLPHIN_CHANGELEVEL=c1a1 scripts/dolphin-boot-probe.sh`
+- Next: Unforeseen Consequences hops from `c1a1`.
+
+## Unforeseen Consequences c1a1→c1a1a (2026-08-10)
+
+- Proven: `c1a1→c1a1a` CHANGELEVEL_READY `.ai/logs/dolphin-probe-20260810-043140`
+  (landmark `c1a1`; ladder 10/10; G45 actions PASS; G36 WEAK avg≈64ms)
+- Command:
+  `DOLPHIN_NEWGAME=1 DOLPHIN_SMOKE_MAP=c1a1 DOLPHIN_CHANGELEVEL=c1a1a scripts/dolphin-boot-probe.sh`
+- Next: hops from `c1a1a`.
+
+## Unforeseen Consequences c1a1a→c1a1f (2026-08-10)
+
+- Proven: `c1a1a→c1a1f` CHANGELEVEL_READY `.ai/logs/dolphin-probe-20260810-043258`
+  (landmark `c1a1atof`; ladder 10/10; G45 actions PASS; G36 WEAK avg≈64ms)
+- Command:
+  `DOLPHIN_NEWGAME=1 DOLPHIN_SMOKE_MAP=c1a1a DOLPHIN_CHANGELEVEL=c1a1f scripts/dolphin-boot-probe.sh`
+- Next: hops from `c1a1f`.
+
