@@ -1359,6 +1359,17 @@ def extract_wad_lump(wad_path: Path, output: Path, lump_name: str, relative: str
 			return
 
 
+def stage_probe_tas(output: Path, tas_name: str, *, scripts_root: Path | None = None) -> None:
+	"""Copy scripts/tas/<name>.tas → valve/tas/<name>.tas on the staged disc root."""
+	root = scripts_root or Path(__file__).resolve().parent
+	src = root / "tas" / f"{tas_name}.tas"
+	if not src.is_file():
+		raise FileNotFoundError(f"TAS script does not exist: {src}")
+	dest_dir = output / "tas"
+	dest_dir.mkdir(parents=True, exist_ok=True)
+	shutil.copy2(src, dest_dir / f"{tas_name}.tas")
+
+
 def write_smoke_overrides(
 	output: Path,
 	smoke_map: str,
@@ -1372,6 +1383,7 @@ def write_smoke_overrides(
 	landmark: str | None = None,
 	leanpvs: bool = False,
 	fullphysics: bool = False,
+	tas: str | None = None,
 ) -> None:
 	(output / "valve.rc").write_text("stuffcmds\n", encoding="ascii")
 	(output / "config.cfg").write_text("\n", encoding="ascii")
@@ -1394,6 +1406,8 @@ def write_smoke_overrides(
 		lines.append("leanpvs")
 	if fullphysics:
 		lines.append("fullphysics")
+	if tas:
+		lines.append(f"tas {tas}")
 	if changelevel and landmark:
 		lines.append(f"changelevel {Path(changelevel).stem} {landmark}")
 	elif changelevel:
@@ -1416,6 +1430,7 @@ def write_probe_newgame_override(
 	smoke_map: str | None = None,
 	leanpvs: bool = False,
 	fullphysics: bool = False,
+	tas: str | None = None,
 ) -> None:
 	lines = []
 	# G68/G100: bake map so -gcmap+newgame early changelevel path can plant inventory.
@@ -1432,6 +1447,8 @@ def write_probe_newgame_override(
 		lines.append("leanpvs")
 	if fullphysics:
 		lines.append("fullphysics")
+	if tas:
+		lines.append(f"tas {tas}")
 	if changelevel and landmark:
 		lines.append(f"changelevel {Path(changelevel).stem} {landmark}")
 	elif changelevel:
@@ -1756,6 +1773,7 @@ def stage_smoke_data(
 	landmark: str | None = None,
 	leanpvs: bool = False,
 	fullphysics: bool = False,
+	tas: str | None = None,
 ) -> Path:
 	map_name = smoke_map if smoke_map.endswith(".bsp") else f"{smoke_map}.bsp"
 	map_relative = f"maps/{map_name}"
@@ -1794,7 +1812,10 @@ def stage_smoke_data(
 		landmark=landmark,
 		leanpvs=leanpvs,
 		fullphysics=fullphysics,
+		tas=tas,
 	)
+	if tas:
+		stage_probe_tas(output, tas)
 	for relative in smoke_hud_resources(source):
 		copy_if_present(source, output, relative)
 	for relative in SMOKE_PRECACHE_MODELS:
@@ -2172,6 +2193,11 @@ def main() -> None:
 		help="with --probe-newgame, bypass bounded server substitutes and run normal Xash3D physics",
 	)
 	parser.add_argument(
+		"--probe-tas",
+		metavar="NAME",
+		help="stage valve/tas/<NAME>.tas and gamecube.cfg tas <NAME> for pad TAS replay probes",
+	)
+	parser.add_argument(
 		"--skip-startup-vids",
 		action="store_true",
 		help="overlay an empty media/StartupVids.txt for faster retail menu boot validation",
@@ -2210,6 +2236,14 @@ def main() -> None:
 		if phase not in valid:
 			parser.error(f"--probe-phasetest must be one of: {', '.join(sorted(valid))}")
 		args.probe_phasetest = phase
+	if args.probe_tas:
+		tas_name = args.probe_tas.strip()
+		if not tas_name or any(c in tas_name for c in "/\\."):
+			parser.error("--probe-tas name must be a simple token (no path or extension)")
+		tas_src = script_dir / "tas" / f"{tas_name}.tas"
+		if not tas_src.is_file():
+			parser.error(f"--probe-tas script missing: {tas_src}")
+		args.probe_tas = tas_name
 
 	# Full retail builds validate source, then stage a normalized copy for the ISO.
 	if not args.smoke_map and not args.intro_avi:
@@ -2244,6 +2278,7 @@ def main() -> None:
 				landmark=args.probe_landmark,
 				leanpvs=args.probe_leanpvs,
 				fullphysics=args.probe_fullphysics,
+				tas=args.probe_tas,
 			)
 			validation_errors = validate_smoke_assets(smoke_data, args.smoke_map)
 			if validation_errors:
@@ -2315,7 +2350,10 @@ def main() -> None:
 					smoke_map="c0a0" if args.probe_changelevel else None,
 					leanpvs=args.probe_leanpvs,
 					fullphysics=args.probe_fullphysics,
+					tas=args.probe_tas,
 				)
+				if args.probe_tas:
+					stage_probe_tas(staged_data, args.probe_tas, scripts_root=script_dir)
 			elif args.probe_menu_newgame:
 				(staged_data / "gamecube.cfg").write_text("menunewgame\n", encoding="ascii")
 			elif args.probe_phasetest:

@@ -1,0 +1,16 @@
+# GameCube pad TAS (replay-only probe script)
+# Format per line: frames buttons stickX stickY cstickX cstickY
+#   frames  — hold count while ca_active + SIGNONS
+#   buttons — A B X Y Z L R START DUP DDOWN DLEFT DRIGHT joined with +, or -
+#   sticks  — signed -128..127 (PADStatus stick space)
+#
+# Mirrors the hardcoded -gcnewgame attack → jump → use sequence in
+# GC_ProbeSyntheticHeldButtons (warmup, R hold, settle, Y, release, A).
+
+4 - 0 0 0 0
+16 R 0 0 0 0
+8 - 0 0 0 0
+1 Y 0 0 0 0
+1 - 0 0 0 0
+1 A 0 0 0 0
+1 - 0 0 0 0

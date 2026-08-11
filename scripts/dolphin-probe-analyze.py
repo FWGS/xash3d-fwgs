@@ -217,6 +217,21 @@ def classify_g45(
 	return "FAIL", "controller readiness markers missing"
 
 
+def tas_status(text: str) -> tuple[str, str]:
+	"""Pad TAS replay markers (optional; UNSEEN when not requested)."""
+	begin = "Xash3D GameCube: probe tas begin name="
+	complete = "Xash3D GameCube: probe tas complete name="
+	if complete in text:
+		idx = text.find(complete) + len(complete)
+		name = text[idx:].split(None, 1)[0] if idx < len(text) else "?"
+		return "PASS", f"complete={name}"
+	if begin in text:
+		idx = text.find(begin) + len(begin)
+		name = text[idx:].split(None, 1)[0] if idx < len(text) else "?"
+		return "WEAK", f"begun={name}; incomplete"
+	return "UNSEEN", "none"
+
+
 def probe_action_status(text: str) -> tuple[str, str]:
 	gameplay_seen = [marker.rsplit(" ", 1)[1] for marker in PROBE_ACTION_MARKERS if marker in text]
 	menu_seen = [marker.rsplit(" ", 1)[1] for marker in MENU_ACTION_MARKERS if marker in text]
@@ -428,6 +443,7 @@ def main() -> int:
 	)
 	g45_status, g45_note = classify_g45(text, map_loaded, input_active, guest_error)
 	action_status, action_note = probe_action_status(text)
+	tas_label, tas_note = tas_status(text)
 	presentation_label, presentation_note, presentation_report = presentation_status(text)
 	steady = [value for value in frame_times if value > 0.0] or frame_times
 	avg = mean(steady) if steady else 0.0
@@ -464,6 +480,8 @@ def main() -> int:
 	)
 	print(f"G45_ACTION_STATUS: {action_status}")
 	print(f"G45_ACTION_SUMMARY: {action_note}")
+	print(f"TAS_STATUS: {tas_label}")
+	print(f"TAS_SUMMARY: {tas_note}")
 	print(f"G506_STATUS: {presentation_label}")
 	print(f"G506_SUMMARY: {presentation_note}")
 	print(f"VISUAL_STATUS: {visual}")

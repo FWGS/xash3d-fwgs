@@ -18,6 +18,7 @@ Ported from Division-Zero-GX/xash3d-wii with libogc GX output for GameCube.
 #include "sound.h"
 #include "gamecube/mem_gamecube.h"
 #include "cl_tent.h"
+#include "platform/gamecube/tas_gamecube.h"
 
 qboolean CL_GCSeedFlipperEfxProof( const float *org );
 
@@ -73,6 +74,9 @@ static unsigned int gc_budget_warmup_left;
 static unsigned int gc_light_present_left;
 static qboolean gc_newgame_world_ready;
 static qboolean gc_newgame_g36_done; /* sticky: never re-arm probe after first flush */
+static qboolean gc_tas_deferred_cl_pending;
+static char gc_tas_deferred_cl_dest[MAX_QPATH];
+static char gc_tas_deferred_cl_landmark[MAX_QPATH];
 static int gc_lean_sky_attempts; /* G285 deferred textured backdrop tries */
 static int gc_newgame_viewcluster = -1;
 static qboolean gc_newgame_pvs_ready;
@@ -8189,6 +8193,31 @@ qboolean GC_IsNewGameG36Done( void )
 #endif
 }
 
+void GC_TryDeferredTasChangelevel( void )
+{
+#if XASH_GAMECUBE
+	if( !gc_tas_deferred_cl_pending || !gc_tas_deferred_cl_dest[0] )
+		return;
+	if( !GC_TasComplete() )
+		return;
+	if( !Q_stricmp( sv.name, gc_tas_deferred_cl_dest ))
+	{
+		gc_tas_deferred_cl_pending = false;
+		return;
+	}
+
+	gc_tas_deferred_cl_pending = false;
+	SYS_Report( "Xash3D GameCube: changelevel begin map=%s from=%s landmark=%s\n",
+		gc_tas_deferred_cl_dest, sv.name,
+		gc_tas_deferred_cl_landmark[0] ? gc_tas_deferred_cl_landmark : "(none)" );
+	COM_ChangeLevel( gc_tas_deferred_cl_dest,
+		gc_tas_deferred_cl_landmark[0] ? gc_tas_deferred_cl_landmark : NULL,
+		false );
+#else
+	(void)0;
+#endif
+}
+
 /*
 =============
 GC_GXDrawIntroTrain
@@ -10930,9 +10959,24 @@ qboolean GC_PrepareNewGameWorldPresent( void )
 				Sys_GetParmFromCmdLine( "-gclandmark", landmark );
 				if( landmark[0] )
 					GC_LeanLandmarkProbePlantAmmo();
-				SYS_Report( "Xash3D GameCube: changelevel begin map=%s from=%s landmark=%s\n",
-					dest, sv.name, landmark[0] ? landmark : "(none)" );
-				COM_ChangeLevel( dest, landmark[0] ? landmark : NULL, false );
+				/* -gctas: finish pad script on the source map before hopping —
+				 * denser dests often stall Host_Frame mid-TAS after G339
+				 * (c4a1→c4a2 20260810-180508 incomplete after frame 2/7). */
+				if( Sys_CheckParm( "-gctas" ))
+				{
+					Q_strncpy( gc_tas_deferred_cl_dest, dest, sizeof( gc_tas_deferred_cl_dest ));
+					Q_strncpy( gc_tas_deferred_cl_landmark, landmark,
+						sizeof( gc_tas_deferred_cl_landmark ));
+					gc_tas_deferred_cl_pending = true;
+					Con_Reportf( "Xash3D GameCube: TAS defer changelevel to=%s until complete\n",
+						dest );
+				}
+				else
+				{
+					SYS_Report( "Xash3D GameCube: changelevel begin map=%s from=%s landmark=%s\n",
+						dest, sv.name, landmark[0] ? landmark : "(none)" );
+					COM_ChangeLevel( dest, landmark[0] ? landmark : NULL, false );
+				}
 			}
 		}
 	}

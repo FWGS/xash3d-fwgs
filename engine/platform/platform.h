@@ -241,6 +241,8 @@ void GC_NewGameNotifyLandmarkReposition( void );
 qboolean GC_FillNewGameMoveUsercmd( usercmd_t *cmd, const float *cur_angles );
 void GC_ArmPostMapFrameBudgetSamples( void );
 void GC_RestoreVideoMemoryAfterMapLoad( void );
+/* When -gctas defers G335 changelevel, fire hop after probe tas complete. */
+void GC_TryDeferredTasChangelevel( void );
 #endif
 
 #if XASH_LINUX

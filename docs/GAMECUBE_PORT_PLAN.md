@@ -4558,5 +4558,9 @@ manual hardware validation with all artifacts generated and documented.
 - **G340**: extend G335 denser Flipper-present skip through `c4a`/`c5a`
   (unblocked `c4a2a→c4a2b` 20260810-144050).
 - Campaign `CHANGELEVEL_READY` proven through **Nihilanth** (`c4a3→c5a1`
-  `.ai/logs/dolphin-probe-20260810-145021`). Next: G36 budget / fuller spawn.
+  `.ai/logs/dolphin-probe-20260810-145021`).
+- **TAS replay**: pad script at `scripts/tas/<name>.tas`, bake via
+  `gamecube.cfg` `tas <name>` / `-gctas`, play through synthetic pad path.
+  Probe: `DOLPHIN_TAS=<name>` waits for `probe tas complete`. Seed script
+  `gameplay-smoke.tas` mirrors hardcoded attack/jump/use. Next: G36 budget.
 

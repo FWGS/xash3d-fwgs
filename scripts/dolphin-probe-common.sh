@@ -79,6 +79,9 @@ probe_newgame_progress_ready() {
 	if [[ -n "${G508_DONE_MARKER:-}" ]] && ! probe_log_has "$G508_DONE_MARKER"; then
 		return 1
 	fi
+	if [[ -n "${TAS_DONE_MARKER:-}" ]] && ! probe_log_has "$TAS_DONE_MARKER"; then
+		return 1
+	fi
 	# Prefer frames=32 (tram). Reactor maps tip-safe-stop around SCR 16 after
 	# post-G36 sustain (c3a2 20260809-012506) — accept 16 when actions landed.
 	probe_log_has "Xash3D GameCube: post-G36 sustained world present" \
@@ -130,6 +133,10 @@ probe_wait_flatpak() {
 			fi
 			# G508: wait for config write/read markers on the designated route.
 			if [[ -n "${G508_DONE_MARKER:-}" ]] && ! probe_log_has "$G508_DONE_MARKER"; then
+				sleep 2
+				continue
+			fi
+			if [[ -n "${TAS_DONE_MARKER:-}" ]] && ! probe_log_has "$TAS_DONE_MARKER"; then
 				sleep 2
 				continue
 			fi
@@ -480,6 +487,10 @@ probe_wait_native() {
 				sleep 2
 				continue
 			fi
+			if [[ -n "${TAS_DONE_MARKER:-}" ]] && ! probe_log_has "$TAS_DONE_MARKER"; then
+				sleep 2
+				continue
+			fi
 			if [[ -n "${G68_DONE_MARKER:-}" ]] && ! probe_log_has "$G68_DONE_MARKER"; then
 				sleep 2
 				continue
@@ -813,6 +824,11 @@ if [[ -n "$DOLPHIN_CHANGELEVEL" ]] \
 	fi
 	if [[ -n "${G508_DONE_MARKER:-}" ]] && ! probe_log_has "$G508_DONE_MARKER"; then
 		echo "CHANGELEVEL_PARTIAL_READY: Destination and landmark restore markers were present, but G508 config round trip did not complete."
+		echo "Logs: $LOG_DIR"
+		finalize_probe changelevel_partial_ready 4
+	fi
+	if [[ -n "${TAS_DONE_MARKER:-}" ]] && ! probe_log_has "$TAS_DONE_MARKER"; then
+		echo "CHANGELEVEL_PARTIAL_READY: Destination and landmark restore markers were present, but TAS replay did not complete."
 		echo "Logs: $LOG_DIR"
 		finalize_probe changelevel_partial_ready 4
 	fi

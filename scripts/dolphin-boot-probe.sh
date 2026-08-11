@@ -103,6 +103,7 @@ DOLPHIN_WORLD_RENDER="${DOLPHIN_WORLD_RENDER:-0}"
 GC_FATAL_TEST="${GC_FATAL_TEST:-0}"
 GC_PHASE_TEST="${GC_PHASE_TEST:-}"
 DOLPHIN_CHANGELEVEL="${DOLPHIN_CHANGELEVEL:-}"
+DOLPHIN_TAS="${DOLPHIN_TAS:-}"
 # Default landmarks for proven probe hops when unset.
 if [[ -z "${DOLPHIN_LANDMARK:-}" && -n "$DOLPHIN_CHANGELEVEL" ]]; then
 	case "${SMOKE_MAP}:${DOLPHIN_CHANGELEVEL}" in
@@ -410,6 +411,10 @@ else
 			echo "==> G101 lean-N PVS probe (leanpvs in gamecube.cfg)"
 		fi
 	fi
+	if [[ -n "$DOLPHIN_TAS" ]]; then
+		BUILD_ARGS+=(--probe-tas "$DOLPHIN_TAS")
+		echo "==> TAS replay probe (tas ${DOLPHIN_TAS})"
+	fi
 	if ! python3 scripts/build-gamecube-disc.py "${BUILD_ARGS[@]}"; then
 		echo "FAIL: Disc build failed."
 		exit 1
@@ -425,6 +430,11 @@ fi
 if [[ -n "$GC_PHASE_TEST" ]]; then
 	GUEST_ARGS+=("-gc_phase_test" "$GC_PHASE_TEST")
 	echo "==> Waiting for G82 intentional phase fault at ${GC_PHASE_TEST}"
+fi
+if [[ -n "$DOLPHIN_TAS" ]]; then
+	GUEST_ARGS+=("-gctas" "$DOLPHIN_TAS")
+	TAS_DONE_MARKER="Xash3D GameCube: probe tas complete name=${DOLPHIN_TAS}"
+	echo "==> Waiting for TAS complete (${DOLPHIN_TAS})"
 fi
 if [[ -n "$DOLPHIN_CHANGELEVEL" ]]; then
 	GUEST_ARGS+=("-gcchangelevel" "$DOLPHIN_CHANGELEVEL")

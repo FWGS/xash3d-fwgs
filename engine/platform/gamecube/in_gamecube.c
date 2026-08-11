@@ -44,6 +44,7 @@ Connectivity Safety:
 #if XASH_GAMECUBE && XASH_INPUT == INPUT_GAMECUBE
 #include <ogc/pad.h>
 #include <ogc/si.h>
+#include "platform/gamecube/tas_gamecube.h"
 
 #define GC_PAD_PREFERRED 0
 #define GC_STICK_RANGE   72.0f
@@ -496,8 +497,35 @@ static u16 GC_ProbeSyntheticHeldButtons( void )
 			gc_probe_action_complete_logged = false;
 			gc_probe_native_move_frames = 0;
 			gc_probe_native_move_logged = false;
+			GC_TasResetPlayback();
 			GC_UpdateButtons( 0 );
 			return 0;
+		}
+
+		/* Replay-only TAS (-gctas): replace the hardcoded attack/jump/use burst. */
+		if( Sys_CheckParm( "-gctas" ))
+		{
+			if( GC_TasTryLoad() || GC_TasComplete() )
+			{
+				unsigned short tas_held;
+
+				if( !gc_probe_action_logged )
+				{
+					gc_probe_action_logged = true;
+					Con_Reportf( "Xash3D GameCube: probe gameplay input begin\n" );
+				}
+				/* Poll even when complete so "probe tas complete" logs once. */
+				tas_held = GC_TasPollButtons();
+				if( GC_TasComplete() )
+				{
+					if( !gc_probe_action_complete_logged )
+						gc_probe_action_complete_logged = true;
+					/* Fire G335 hop deferred until the source-map script finished. */
+					GC_TryDeferredTasChangelevel();
+				}
+				return tas_held;
+			}
+			/* Missing/invalid script: fall through to hardcoded sequence. */
 		}
 
 		if( !gc_probe_action_logged )
@@ -697,9 +725,29 @@ static u16 GC_ProbeSyntheticHeldButtons( void )
 static void GC_UpdateProbeSyntheticAxes( void )
 {
 	short forward = 0;
+	short side = 0;
 	short yaw = 0;
+	short pitch = 0;
+	signed char stick_x = 0, stick_y = 0, cstick_x = 0, cstick_y = 0;
 
-	if( Sys_CheckParm( "-gcnewgame" ) && Sys_CheckParm( "-gcfullphysics" )
+	if( GC_TasActive() || GC_TasComplete() )
+	{
+		GC_TasGetSticks( &stick_x, &stick_y, &cstick_x, &cstick_y );
+		gc_pad[GC_PAD_PREFERRED].stickX = stick_x;
+		gc_pad[GC_PAD_PREFERRED].stickY = stick_y;
+		gc_pad[GC_PAD_PREFERRED].substickX = cstick_x;
+		gc_pad[GC_PAD_PREFERRED].substickY = cstick_y;
+		side = GC_StickToShort( stick_x );
+		forward = GC_StickToShort( -stick_y );
+		yaw = GC_StickToShort( cstick_x );
+		pitch = GC_StickToShort( -cstick_y );
+		if( ( side || forward || yaw || pitch ) && gc_probe_native_move_frames == 0 )
+		{
+			gc_probe_native_move_frames = 1;
+			Con_Reportf( "Xash3D GameCube: probe native move/look begin\n" );
+		}
+	}
+	else if( Sys_CheckParm( "-gcnewgame" ) && Sys_CheckParm( "-gcfullphysics" )
 		&& cls.state == ca_active && cls.signon == SIGNONS
 		&& gc_probe_action_stage >= 6 && gc_probe_native_move_frames < 32 )
 	{
@@ -716,8 +764,10 @@ static void GC_UpdateProbeSyntheticAxes( void )
 		Con_Reportf( "Xash3D GameCube: probe native move/look ready\n" );
 	}
 
+	GC_UpdateAxis( JOY_AXIS_SIDE, side, &prev_side );
 	GC_UpdateAxis( JOY_AXIS_FWD, forward, &prev_fwd );
 	GC_UpdateAxis( JOY_AXIS_YAW, yaw, &prev_yaw );
+	GC_UpdateAxis( JOY_AXIS_PITCH, pitch, &prev_pitch );
 }
 
 void Platform_RunEvents( void )
@@ -947,6 +997,29 @@ qboolean GC_FillNewGameMoveUsercmd( usercmd_t *cmd, const float *cur_angles )
 
 	if( gc_probe_synthetic || !gc_connected )
 	{
+		/* TAS sticks drive lean usercmds when a script is active. */
+		if( GC_TasActive() )
+		{
+			signed char stick_x = 0, stick_y = 0, cstick_x = 0, cstick_y = 0;
+			float sx, sy, cx, cy;
+
+			GC_TasGetSticks( &stick_x, &stick_y, &cstick_x, &cstick_y );
+			sx = (float)GC_ApplyStickDeadzone( stick_x ) / GC_STICK_RANGE;
+			sy = (float)GC_ApplyStickDeadzone( -stick_y ) / GC_STICK_RANGE;
+			cx = (float)GC_ApplyStickDeadzone( cstick_x ) / GC_STICK_RANGE;
+			cy = (float)GC_ApplyStickDeadzone( -cstick_y ) / GC_STICK_RANGE;
+			if( !gc_move_begin_logged && ( sx || sy || cx || cy || cmd->buttons ))
+			{
+				gc_move_begin_logged = true;
+				Con_Reportf( "Xash3D GameCube: probe gameplay move/look begin\n" );
+			}
+			cmd->forwardmove = sy * 200.0f;
+			cmd->sidemove = sx * 200.0f;
+			cmd->viewangles[YAW] = anglemod( cur_angles[YAW] - cx * 8.0f );
+			cmd->viewangles[PITCH] = bound( -89.0f, cur_angles[PITCH] + cy * 6.0f, 89.0f );
+			return cmd->buttons != 0 || sx != 0.0f || sy != 0.0f || cx != 0.0f || cy != 0.0f;
+		}
+
 		/* Synthetic: walk forward and yaw for a few post-G36 ticks. */
 		if( gc_move_inject_frames < 8 )
 		{

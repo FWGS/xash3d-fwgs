@@ -559,11 +559,12 @@ qboolean GCube_GetBasePath( char *buf, size_t buflen )
 	return false;
 }
 
-static char *gc_argv[32];
+static char *gc_argv[36];
 static char gc_smoke_map[MAX_QPATH];
 static char gc_phase_test[32];
 static char gc_changelevel_map[MAX_QPATH];
 static char gc_landmark_name[MAX_QPATH];
+static char gc_tas_name[32];
 static qboolean gc_smoke_map_configured;
 static qboolean gc_newgame_configured;
 static qboolean gc_menu_newgame_configured;
@@ -573,6 +574,7 @@ static qboolean gc_landmark_configured;
 static qboolean gc_leanpvs_configured;
 static qboolean gc_fullphysics_configured;
 static qboolean gc_worldrender_configured;
+static qboolean gc_tas_configured;
 
 static void GCube_LoadDiscBootOverrides( void )
 {
@@ -591,9 +593,11 @@ static void GCube_LoadDiscBootOverrides( void )
 	gc_leanpvs_configured = false;
 	gc_fullphysics_configured = false;
 	gc_worldrender_configured = false;
+	gc_tas_configured = false;
 	gc_phase_test[0] = '\0';
 	gc_changelevel_map[0] = '\0';
 	gc_landmark_name[0] = '\0';
+	gc_tas_name[0] = '\0';
 
 	if( !GCube_MountDisc() )
 		return;
@@ -723,6 +727,26 @@ static void GCube_LoadDiscBootOverrides( void )
 				Q_strncpy( gc_phase_test, phase, sizeof( gc_phase_test ));
 				gc_phase_test_configured = true;
 				SYS_Report( "Xash3D GameCube: disc boot override phasetest %s\n", gc_phase_test );
+			}
+			continue;
+		}
+
+		if( !Q_strnicmp( cursor, "tas", 3 ) && ( cursor[3] == ' ' || cursor[3] == '\t' ))
+		{
+			phase = cursor + 3;
+			while( *phase == ' ' || *phase == '\t' )
+				phase++;
+			len = strlen( phase );
+			while( len > 0 && ( phase[len - 1] == '\r' || phase[len - 1] == '\n' ))
+			{
+				phase[--len] = '\0';
+			}
+			if( len > 0 && len < sizeof( gc_tas_name )
+				&& !strchr( phase, '/' ) && !strchr( phase, '\\' ) && !strchr( phase, '.' ))
+			{
+				Q_strncpy( gc_tas_name, phase, sizeof( gc_tas_name ));
+				gc_tas_configured = true;
+				SYS_Report( "Xash3D GameCube: disc boot override tas %s\n", gc_tas_name );
 			}
 			continue;
 		}
@@ -884,6 +908,11 @@ int GCube_GetArgv( int in_argc, char **in_argv, char ***out_argv )
 	{
 		gc_argv[fake_argc++] = "-gclandmark";
 		gc_argv[fake_argc++] = gc_landmark_name;
+	}
+	if( gc_tas_configured )
+	{
+		gc_argv[fake_argc++] = "-gctas";
+		gc_argv[fake_argc++] = gc_tas_name;
 	}
 	gc_argv[fake_argc++] = "-width";
 	/* Tip-safe soft/internal FB. Flipper EFB/XFB stay native 640×480 via VI. */
