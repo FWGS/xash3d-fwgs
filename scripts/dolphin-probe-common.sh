@@ -814,7 +814,7 @@ fi
 
 if [[ -n "$DOLPHIN_CHANGELEVEL" ]] \
 	&& probe_log_has "$G68_DONE_MARKER" \
-	&& probe_log_has "Xash3D GameCube: MAP_READY ${DOLPHIN_CHANGELEVEL}" \
+	&& probe_log_has "Xash3D GameCube: MAP_READY ${DOLPHIN_CHANGELEVEL2:-$DOLPHIN_CHANGELEVEL}" \
 	&& probe_log_has "Xash3D GameCube: G100 landmark restore"; then
 	probe_guest_error && probe_fail_guest guest_failure "GUEST_FAILURE: Changelevel reached its destination, followed by a guest error."
 	if [[ -n "${G94_DONE_MARKER:-}" ]] && ! probe_log_has "$G94_DONE_MARKER"; then

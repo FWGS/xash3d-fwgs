@@ -450,6 +450,20 @@ int GC_GetLiveFaceCount( void )
 	return gc_live_face_count;
 }
 
+/* G358: CapFaces begin/end only log for tr.framecount<=3 across dual-hop.
+ * Always stash last drawn so the denser dest sample can report drawn=. */
+static int gc_last_capfaces_drawn;
+
+void GC_NoteCapFacesDrawn( int drawn )
+{
+	gc_last_capfaces_drawn = drawn;
+}
+
+int GC_LastCapFacesDrawn( void )
+{
+	return gc_last_capfaces_drawn;
+}
+
 qboolean GC_LiveFaceIsCapped( int index )
 {
 	if( index < 0 || index >= gc_live_face_count || !gc_live_faces )
@@ -8219,9 +8233,15 @@ qboolean GC_IsNewGameG36Done( void )
 #endif
 }
 
+#if XASH_GAMECUBE
+static void GC_ProbeTryDeferredChangelevel2( void );
+#endif
+
 void GC_TryDeferredTasChangelevel( void )
 {
 #if XASH_GAMECUBE
+	GC_ProbeTryDeferredChangelevel2();
+
 	if( !gc_tas_deferred_cl_pending || !gc_tas_deferred_cl_dest[0] )
 		return;
 	if( !GC_TasComplete() )
@@ -8243,6 +8263,8 @@ void GC_TryDeferredTasChangelevel( void )
 
 #if XASH_GAMECUBE
 /* G356: second probe hop after G68 lands on -gcchangelevel dest. */
+static qboolean gc_g356_cl2_pending;
+
 static qboolean GC_IsProbeChangelevelDest( void )
 {
 	char dest[MAX_QPATH];
@@ -8262,12 +8284,11 @@ static qboolean GC_IsProbeChangelevelDest( void )
 
 static void GC_ProbeMaybeQueueChangelevel2( void )
 {
-	static qboolean gc_g356_cl2_queued;
+	static qboolean gc_g356_cl2_armed;
 	char dest1[MAX_QPATH];
 	char dest2[MAX_QPATH];
-	char landmark[MAX_QPATH];
 
-	if( gc_g356_cl2_queued || !Sys_CheckParm( "-gcchangelevel2" ))
+	if( gc_g356_cl2_armed || gc_g356_cl2_pending || !Sys_CheckParm( "-gcchangelevel2" ))
 		return;
 	if( !Sys_GetParmFromCmdLine( "-gcchangelevel", dest1 )
 		|| !Sys_GetParmFromCmdLine( "-gcchangelevel2", dest2 )
@@ -8276,7 +8297,37 @@ static void GC_ProbeMaybeQueueChangelevel2( void )
 	if( Q_stricmp( sv.name, dest1 ) || !Q_stricmp( sv.name, dest2 ))
 		return;
 
-	gc_g356_cl2_queued = true;
+	/* Defer COM_ChangeLevel until after ActivateServer/MAP_READY — nesting
+	 * hop2 inside G95 Prepare during c1a0 activation hung the guest
+	 * (probe 20260811-010848: begin logged, no MAP_READY c1a0d). */
+	gc_g356_cl2_armed = true;
+	gc_g356_cl2_pending = true;
+	SYS_Report( "Xash3D GameCube: G356 changelevel2 armed map=%s from=%s\n",
+		dest2, sv.name );
+}
+
+static void GC_ProbeTryDeferredChangelevel2( void )
+{
+	char dest1[MAX_QPATH];
+	char dest2[MAX_QPATH];
+	char landmark[MAX_QPATH];
+
+	if( !gc_g356_cl2_pending )
+		return;
+	if( !Sys_GetParmFromCmdLine( "-gcchangelevel", dest1 )
+		|| !Sys_GetParmFromCmdLine( "-gcchangelevel2", dest2 )
+		|| !dest1[0] || !dest2[0] )
+	{
+		gc_g356_cl2_pending = false;
+		return;
+	}
+	if( Q_stricmp( sv.name, dest1 ))
+		return;
+	/* G95 Prepare runs before Host_SetServerState(ss_active); wait for it. */
+	if( sv.state != ss_active || !GC_IsNewGameWorldReady() )
+		return;
+
+	gc_g356_cl2_pending = false;
 	landmark[0] = '\0';
 	Sys_GetParmFromCmdLine( "-gclandmark2", landmark );
 	if( landmark[0] )
@@ -11013,6 +11064,13 @@ qboolean GC_PrepareNewGameWorldPresent( void )
 			char dest[MAX_QPATH];
 			char landmark[MAX_QPATH];
 
+			/* G357: hop1 may finish via Flipper/G68 without setting
+			 * gc_g335_cl_queued. denser_am on -gcchangelevel2 then sees
+			 * sv.name != hop1 dest and reverse-hops (c1a0d→c1a0,
+			 * 20260811-011750). Treat any probe changelevel dest as done. */
+			if( GC_IsProbeChangelevelDest() )
+				gc_g335_cl_queued = true;
+
 			if( !gc_g335_cl_queued
 				&& Sys_GetParmFromCmdLine( "-gcchangelevel", dest )
 				&& dest[0] && Q_stricmp( sv.name, dest ))
@@ -11043,6 +11101,19 @@ qboolean GC_PrepareNewGameWorldPresent( void )
 			}
 			else
 				GC_ProbeMaybeQueueChangelevel2();
+		}
+		/* G357/G358: denser G335 skips Flipper CapFaces; G105 often takes G159
+		 * (Flipper already live from prior hop). One bounded Flipper sample
+		 * restores CapFaces; report live+drawn (begin/end gated by framecount).
+		 * Cold denser NEWGAME is not a probe dest — G335 skip remains. */
+		if( GC_IsProbeChangelevelDest() )
+		{
+			if( GC_RenderNewGameWorldFrames( 1 ))
+				Con_Reportf( "Xash3D GameCube: G358 CapFaces sample ok map=%s live=%d drawn=%d\n",
+					sv.name, GC_GetLiveFaceCount(), GC_LastCapFacesDrawn() );
+			else
+				Con_Reportf( "Xash3D GameCube: G358 CapFaces sample deferred map=%s\n",
+					sv.name );
 		}
 	}
 	else if( !GC_RenderNewGameWorldFrames( 1 ))

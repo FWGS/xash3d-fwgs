@@ -559,11 +559,13 @@ qboolean GCube_GetBasePath( char *buf, size_t buflen )
 	return false;
 }
 
-static char *gc_argv[36];
+static char *gc_argv[40];
 static char gc_smoke_map[MAX_QPATH];
 static char gc_phase_test[32];
 static char gc_changelevel_map[MAX_QPATH];
 static char gc_landmark_name[MAX_QPATH];
+static char gc_changelevel2_map[MAX_QPATH];
+static char gc_landmark2_name[MAX_QPATH];
 static char gc_tas_name[32];
 static qboolean gc_smoke_map_configured;
 static qboolean gc_newgame_configured;
@@ -571,6 +573,8 @@ static qboolean gc_menu_newgame_configured;
 static qboolean gc_phase_test_configured;
 static qboolean gc_changelevel_configured;
 static qboolean gc_landmark_configured;
+static qboolean gc_changelevel2_configured;
+static qboolean gc_landmark2_configured;
 static qboolean gc_leanpvs_configured;
 static qboolean gc_fullphysics_configured;
 static qboolean gc_worldrender_configured;
@@ -591,6 +595,8 @@ static void GCube_LoadDiscBootOverrides( void )
 	gc_phase_test_configured = false;
 	gc_changelevel_configured = false;
 	gc_landmark_configured = false;
+	gc_changelevel2_configured = false;
+	gc_landmark2_configured = false;
 	gc_leanpvs_configured = false;
 	gc_fullphysics_configured = false;
 	gc_worldrender_configured = false;
@@ -599,6 +605,8 @@ static void GCube_LoadDiscBootOverrides( void )
 	gc_phase_test[0] = '\0';
 	gc_changelevel_map[0] = '\0';
 	gc_landmark_name[0] = '\0';
+	gc_changelevel2_map[0] = '\0';
+	gc_landmark2_name[0] = '\0';
 	gc_tas_name[0] = '\0';
 
 	if( !GCube_MountDisc() )
@@ -765,6 +773,49 @@ static void GCube_LoadDiscBootOverrides( void )
 			}
 		}
 
+		/* G356: parse changelevel2 before changelevel (prefix overlap). */
+		if( !Q_strnicmp( cursor, "changelevel2", 12 ) && ( cursor[12] == ' ' || cursor[12] == '\t' ))
+		{
+			mapname = cursor + 12;
+			while( *mapname == ' ' || *mapname == '\t' )
+				mapname++;
+			len = strlen( mapname );
+			while( len > 0 && ( mapname[len - 1] == '\r' || mapname[len - 1] == '\n' ))
+			{
+				mapname[--len] = '\0';
+			}
+			if( len > 0 && len < sizeof( gc_changelevel2_map ) + sizeof( gc_landmark2_name ))
+			{
+				char *sp = strchr( mapname, ' ' );
+				if( !sp )
+					sp = strchr( mapname, '\t' );
+				if( sp )
+				{
+					*sp++ = '\0';
+					while( *sp == ' ' || *sp == '\t' )
+						sp++;
+					len = strlen( mapname );
+					if( *sp && strlen( sp ) < sizeof( gc_landmark2_name )
+						&& !strchr( sp, '\\' ))
+					{
+						Q_strncpy( gc_landmark2_name, sp, sizeof( gc_landmark2_name ));
+						gc_landmark2_configured = true;
+						SYS_Report( "Xash3D GameCube: disc boot override landmark2 %s\n",
+							gc_landmark2_name );
+					}
+				}
+				if( len > 0 && len < sizeof( gc_changelevel2_map )
+					&& !strchr( mapname, '/' ) && !strchr( mapname, '\\' ))
+				{
+					Q_strncpy( gc_changelevel2_map, mapname, sizeof( gc_changelevel2_map ));
+					gc_changelevel2_configured = true;
+					SYS_Report( "Xash3D GameCube: disc boot override changelevel2 %s\n",
+						gc_changelevel2_map );
+				}
+			}
+			continue;
+		}
+
 		if( !Q_strnicmp( cursor, "changelevel", 11 ) && ( cursor[11] == ' ' || cursor[11] == '\t' ))
 		{
 			mapname = cursor + 11;
@@ -810,6 +861,27 @@ static void GCube_LoadDiscBootOverrides( void )
 					SYS_Report( "Xash3D GameCube: disc boot override changelevel %s\n",
 						gc_changelevel_map );
 				}
+			}
+			continue;
+		}
+
+		if( !Q_strnicmp( cursor, "landmark2", 9 ) && ( cursor[9] == ' ' || cursor[9] == '\t' ))
+		{
+			mapname = cursor + 9;
+			while( *mapname == ' ' || *mapname == '\t' )
+				mapname++;
+			len = strlen( mapname );
+			while( len > 0 && ( mapname[len - 1] == '\r' || mapname[len - 1] == '\n' ))
+			{
+				mapname[--len] = '\0';
+			}
+			if( len > 0 && len < sizeof( gc_landmark2_name )
+				&& !strchr( mapname, '\\' ))
+			{
+				Q_strncpy( gc_landmark2_name, mapname, sizeof( gc_landmark2_name ));
+				gc_landmark2_configured = true;
+				SYS_Report( "Xash3D GameCube: disc boot override landmark2 %s\n",
+					gc_landmark2_name );
 			}
 			continue;
 		}
@@ -922,6 +994,16 @@ int GCube_GetArgv( int in_argc, char **in_argv, char ***out_argv )
 	{
 		gc_argv[fake_argc++] = "-gclandmark";
 		gc_argv[fake_argc++] = gc_landmark_name;
+	}
+	if( gc_changelevel2_configured )
+	{
+		gc_argv[fake_argc++] = "-gcchangelevel2";
+		gc_argv[fake_argc++] = gc_changelevel2_map;
+	}
+	if( gc_landmark2_configured )
+	{
+		gc_argv[fake_argc++] = "-gclandmark2";
+		gc_argv[fake_argc++] = gc_landmark2_name;
 	}
 	if( gc_tas_configured )
 	{

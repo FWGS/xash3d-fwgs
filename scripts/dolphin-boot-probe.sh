@@ -419,6 +419,14 @@ else
 			BUILD_ARGS+=(--probe-landmark "$DOLPHIN_LANDMARK")
 			echo "==> G97–G100 landmark probe (${DOLPHIN_LANDMARK})"
 		fi
+		if [[ -n "$DOLPHIN_CHANGELEVEL2" ]]; then
+			BUILD_ARGS+=(--probe-changelevel2 "$DOLPHIN_CHANGELEVEL2")
+			echo "==> G356 changelevel2 probe (to ${DOLPHIN_CHANGELEVEL2})"
+			if [[ -n "${DOLPHIN_LANDMARK2:-}" ]]; then
+				BUILD_ARGS+=(--probe-landmark2 "$DOLPHIN_LANDMARK2")
+				echo "==> G356 landmark2 probe (${DOLPHIN_LANDMARK2})"
+			fi
+		fi
 		if [[ "${DOLPHIN_G101:-0}" == "1" ]]; then
 			BUILD_ARGS+=(--probe-leanpvs)
 			echo "==> G101 lean-N PVS probe (leanpvs in gamecube.cfg)"
@@ -598,7 +606,11 @@ if (( DOLPHIN_NEWGAME )); then
 	echo "==> New Game probe mode (expect map ${SMOKE_MAP})"
 	echo "==> Waiting for G281 Flipper map restream (GPU faces follow tram)"
 	if [[ -n "$DOLPHIN_CHANGELEVEL" ]]; then
-		G68_DONE_MARKER="Xash3D GameCube: G68 changelevel ready from=${SMOKE_MAP} to=${DOLPHIN_CHANGELEVEL}"
+		if [[ -n "$DOLPHIN_CHANGELEVEL2" ]]; then
+			G68_DONE_MARKER="Xash3D GameCube: G68 changelevel ready from=${DOLPHIN_CHANGELEVEL} to=${DOLPHIN_CHANGELEVEL2}"
+		else
+			G68_DONE_MARKER="Xash3D GameCube: G68 changelevel ready from=${SMOKE_MAP} to=${DOLPHIN_CHANGELEVEL}"
+		fi
 		# G161 soft DumpFrames gun, then G159 sustained Flipper after reconnect.
 		G158_DONE_MARKER="Xash3D GameCube: G158 live GX present reconnect"
 		G159_DONE_MARKER="Xash3D GameCube: G159 live GX present ca_active"

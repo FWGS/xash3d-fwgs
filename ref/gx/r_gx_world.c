@@ -51,6 +51,7 @@ extern qboolean GC_WorldSurfacesLive( void );
 extern qboolean GC_WorldSurfacesPinned( void );
 extern qboolean GC_WorldSurfacesScratchRetained( void );
 extern int GC_GetLiveFaceCount( void );
+extern void GC_NoteCapFacesDrawn( int drawn );
 extern qboolean GC_FillLiveDrawSurf( int index, msurface_t *out, mtexinfo_t *tex_out );
 extern qboolean GC_LiveFaceIsCapped( int index );
 extern int GC_GetLiveFaceVerts( int index, float out[][3], int maxverts );
@@ -2705,6 +2706,8 @@ int R_GXDrawNewGameCapFaces( void )
 				drawn, R_GXLiveFaceBudget(), R_GXFrameFaceBudget() );
 		}
 	}
+	/* G358: always stash drawn for dual-hop denser sample (framecount>3). */
+	GC_NoteCapFacesDrawn( drawn );
 	return drawn;
 }
 

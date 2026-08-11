@@ -502,6 +502,9 @@ static u16 GC_ProbeSyntheticHeldButtons( void )
 			return 0;
 		}
 
+		/* G356: fire deferred hop2 once dest1 is ss_active (no TAS required). */
+		GC_TryDeferredTasChangelevel();
+
 		/* Replay-only TAS (-gctas): replace the hardcoded attack/jump/use burst. */
 		if( Sys_CheckParm( "-gctas" ))
 		{

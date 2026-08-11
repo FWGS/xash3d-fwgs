@@ -4611,5 +4611,16 @@ manual hardware validation with all artifacts generated and documented.
   live=75, HWM≈2.89 Mb. (`.ai/logs/dolphin-probe-g354-c1a0d-vis`).
 - **G355**: G334 128→192 on changelevel `c1a0d` — ents **84→113**, CapFaces
   242, HWM flat. (`.ai/logs/dolphin-probe-g355-c1a0d`).
-- Next: campaign `c1a0→c1a0d` dual-hop; DumpFrames stills.
+- **G356**: campaign dual-hop `c0a0e→c1a0→c1a0d` via disc `changelevel2` +
+  deferred hop2 after MAP_READY — CHANGELEVEL_READY; vis retained on both
+  dests; Capture live=248/`c1a0`, 75/`c1a0d`. (`.ai/logs/dolphin-probe-g356-dual-c1a0d`).
+- **G357**: denser G335 no longer reverse-hops past hop1 onto `-gcchangelevel2`
+  dest; bounded Flipper CapFaces sample on denser probe dests —
+  `G357 CapFaces sample ok map=c1a0d live=75`, CHANGELEVEL_READY.
+  (`.ai/logs/dolphin-probe-g357-dual-c1a0d`). CapFaces `drawn=` begin/end still
+  gated by `tr.framecount<=3` across hops.
+- **G358**: stash CapFaces drawn via `GC_NoteCapFacesDrawn` so denser dual-hop
+  sample reports `drawn=` — `G358 CapFaces sample ok map=c1a0d live=75 drawn=280`.
+  (`.ai/logs/dolphin-probe-g358-dual-c1a0d`).
+- Next: textured DumpFrames stills; optional live pool raise on `c1a0d`.
 
