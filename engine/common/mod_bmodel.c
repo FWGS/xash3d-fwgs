@@ -6151,21 +6151,40 @@ static void Mod_LoadVisibility( model_t *mod, dbspmodel_t *bmod )
 
 #if XASH_GAMECUBE
 	/* Smoke (-gcmap) and lean New Game drop visdata to save MEM1. Retaining
-	 * ~25 KiB on c1a0 tips Client Static Pool / entity spawn (000135/000256).
-	 * Capture uses full-vis fallback via G322 novis reentry skip. Keep vis
-	 * only for -gcworldrender (without lean newgame) or -gcfullphysics. */
-	if( GC_MapLoadMemoryOpt() && mod->type == mod_brush && bmod->isworld
-	    && !Sys_CheckParm( "-gcfullphysics" )
-	    && ( Sys_CheckParm( "-gcnewgame" ) || !Sys_CheckParm( "-gcworldrender" )))
+	 * ~25 KiB on denser maps tips Client Static Pool / entity spawn
+	 * (c1a0 000135/000256). Capture then uses full-vis fallback (G322).
+	 * Keep vis only for -gcworldrender (without lean newgame), -gcfullphysics,
+	 * or G341 allowlisted tram maps where CapFaces needs real PVS for G36. */
 	{
-		if( Sys_CheckParm( "-gcnewgame" ))
-			Con_Reportf( "Xash3D GameCube: G325 skipping world visdata for lean newgame (%s)\n",
-				Q_memprint( bmod->visdatasize ));
-		else
-			Con_Reportf( "Xash3D GameCube: skipping world visdata for gcmap full-vis fallback (%s)\n",
-				Q_memprint( bmod->visdatasize ));
-		Mod_GCFreeBspPin( (void **)&bmod->visdata );
-		return;
+		char mapbase[MAX_QPATH];
+		qboolean g341_retain = false;
+
+		if( mod->name && mod->name[0] )
+		{
+			COM_FileBase( mod->name, mapbase, sizeof( mapbase ));
+			/* G341/G344: tram chain (c0a0*) — denser AM+ stay on G325. */
+			if( !Q_strnicmp( mapbase, "c0a0", 4 ))
+				g341_retain = true;
+		}
+
+		if( GC_MapLoadMemoryOpt() && mod->type == mod_brush && bmod->isworld
+		    && !Sys_CheckParm( "-gcfullphysics" )
+		    && !g341_retain
+		    && ( Sys_CheckParm( "-gcnewgame" ) || !Sys_CheckParm( "-gcworldrender" )))
+		{
+			if( Sys_CheckParm( "-gcnewgame" ))
+				Con_Reportf( "Xash3D GameCube: G325 skipping world visdata for lean newgame (%s)\n",
+					Q_memprint( bmod->visdatasize ));
+			else
+				Con_Reportf( "Xash3D GameCube: skipping world visdata for gcmap full-vis fallback (%s)\n",
+					Q_memprint( bmod->visdatasize ));
+			Mod_GCFreeBspPin( (void **)&bmod->visdata );
+			return;
+		}
+
+		if( g341_retain && Sys_CheckParm( "-gcnewgame" ))
+			Con_Reportf( "Xash3D GameCube: G341 world visdata retained map=%s (%s)\n",
+				mapbase, Q_memprint( bmod->visdatasize ));
 	}
 
 	/* Optional: renderer can fall back to full-vis leaf marking. */

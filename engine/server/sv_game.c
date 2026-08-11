@@ -5679,6 +5679,24 @@ static void SV_LoadFromFile( const char *mapname, char *entities )
 	{
 		int inhibited = 0;
 		int entity_index = 0;
+#if XASH_GAMECUBE
+		/* G334: after index N, only keep continuity essentials.
+		 * Hard truncate dropped c1a0a→c1a0b landmark/changelevel at 169–170
+		 * (and late info_player_start). Parse the tail but free the rest.
+		 * G343/G344: tram chain (c0a0*) has MEM/G36 headroom after G341 —
+		 * disable essentials-only there (N = INT_MAX) for full spawn. */
+		int gc_tail_essentials_from = 128;
+		{
+			char mapbase[MAX_QPATH];
+
+			if( mapname && mapname[0] )
+			{
+				COM_FileBase( mapname, mapbase, sizeof( mapbase ));
+				if( !Q_strnicmp( mapbase, "c0a0", 4 ))
+					gc_tail_essentials_from = 0x7fffffff; /* G343/G344 full spawn */
+			}
+		}
+#endif
 
 		// parse ents
 		while(( entities = COM_ParseFile( entities, token, sizeof( token ))) != NULL )
@@ -5696,12 +5714,13 @@ static void SV_LoadFromFile( const char *mapname, char *entities )
 			else ent = SV_AllocEdict();
 
 #if XASH_GAMECUBE
-			/* G334: after index 128, only keep continuity essentials.
-			 * Hard truncate dropped c1a0a→c1a0b landmark/changelevel at 169–170
-			 * (and late info_player_start). Parse the tail but free the rest. */
 			const qboolean gc_tail_essentials = Sys_CheckParm( "-gcnewgame" )
-				&& entity_index >= 128;
-			if( gc_tail_essentials && ( entity_index == 128 ))
+				&& entity_index >= gc_tail_essentials_from;
+			if( entity_index == 0 && Sys_CheckParm( "-gcnewgame" )
+				&& gc_tail_essentials_from == 0x7fffffff )
+				Con_Reportf( "Xash3D GameCube: G343 G334 disabled (full spawn) map=%s\n",
+					mapname && mapname[0] ? mapname : "?" );
+			if( gc_tail_essentials && ( entity_index == gc_tail_essentials_from ))
 				Con_Reportf( "Xash3D GameCube: G334 tail essentials-only from %d\n",
 					entity_index );
 			if( SV_GCMapSmokeRoute() && ( entity_index & 31 ) == 0 )

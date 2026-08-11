@@ -1951,13 +1951,20 @@ advance origin along path_track in SV_GCStepIntroTrain (visual ride).
 void SV_GCPlaceNewGameTrackTrains( void )
 {
 	static qboolean done;
+	static char done_map[MAX_QPATH];
 	int e, found = 0;
 	int first_world;
 
-	if( done || !Sys_CheckParm( "-gcnewgame" ))
+	if( !Sys_CheckParm( "-gcnewgame" ))
+		return;
+	/* G345: re-place after changelevel — static done previously stuck across
+	 * maps so dest trains never snapped (c0a0b→c0a0c hung on stale G278). */
+	if( done && Q_stricmp( done_map, sv.name ))
+		done = false;
+	if( done )
 		return;
 	done = true;
-
+	Q_strncpy( done_map, sv.name, sizeof( done_map ));
 	first_world = svs.maxclients + 1;
 	for( e = first_world; e < svgame.numEntities; e++ )
 	{
@@ -2019,6 +2026,7 @@ static void SV_GCStepIntroTrain( void )
 	static qboolean inited;
 	static double ride_arm_time;
 	static qboolean ride_started;
+	static char ride_map[MAX_QPATH];
 	int first_world = svs.maxclients + 1;
 	vec3_t delta, dest;
 	float dist, step, yaw;
@@ -2026,6 +2034,22 @@ static void SV_GCStepIntroTrain( void )
 
 	if( !Sys_CheckParm( "-gcnewgame" ))
 		return;
+
+	/* G345: reset ride state on map change — stale train/path edicts from the
+	 * source map teleported the player off the landmark restore and hung
+	 * probe gameplay after "move/look begin" (c0a0b→c0a0c 20260810-194749). */
+	if( inited && Q_stricmp( ride_map, sv.name ))
+	{
+		train = NULL;
+		path = NULL;
+		log_n = 0;
+		ride_log_n = 0;
+		inited = false;
+		ride_arm_time = 0.0;
+		ride_started = false;
+		Con_Reportf( "Xash3D GameCube: G345 G278 ride reset map=%s\n",
+			sv.name[0] ? sv.name : "?" );
+	}
 
 	if( !inited || !path || !SV_IsValidEdict( path ))
 	{
@@ -2064,6 +2088,7 @@ static void SV_GCStepIntroTrain( void )
 			break;
 		}
 		inited = true;
+		Q_strncpy( ride_map, sv.name, sizeof( ride_map ));
 		if( ride_arm_time == 0.0 )
 			ride_arm_time = host.realtime;
 	}

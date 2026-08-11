@@ -280,10 +280,15 @@ def build_iso9660(
 			children = data.rglob("*") if bootstrap_recursive else data.iterdir()
 			for child in sorted(children):
 				suffix = child.suffix.lower()
+				# G346: smoke changelevel dests like c1a0.bsp are ~2.5 MiB. The
+				# old 2 MiB cap left them FST-only; when directory find flaps to
+				# pk3-only (c0a0e→c1a0 20260810-195734/195827) Host_Error misses
+				# the map. Allow BSPs up to 4 MiB in the bootstrap archive.
+				size_cap = 4 * 1024 * 1024 if suffix == ".bsp" else 2 * 1024 * 1024
 				if (
 					child.is_file()
 					and suffix not in BOOTSTRAP_EXCLUDED_EXTENSIONS
-					and child.stat().st_size <= 2 * 1024 * 1024
+					and child.stat().st_size <= size_cap
 				):
 					compress_type = (
 						zipfile.ZIP_STORED

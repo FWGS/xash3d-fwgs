@@ -4562,5 +4562,26 @@ manual hardware validation with all artifacts generated and documented.
 - **TAS replay**: pad script at `scripts/tas/<name>.tas`, bake via
   `gamecube.cfg` `tas <name>` / `-gctas`, play through synthetic pad path.
   Probe: `DOLPHIN_TAS=<name>` waits for `probe tas complete`. Seed script
-  `gameplay-smoke.tas` mirrors hardcoded attack/jump/use. Next: G36 budget.
+  `gameplay-smoke.tas` mirrors hardcoded attack/jump/use.
+- **G341**: retain world visdata on `c0a0` only (G325 still drops denser maps).
+  CapFaces `drawn=48`, G36 PASS avg≈11.44ms, MEM HWM≈3.73 Mb
+  (`.ai/logs/dolphin-probe-20260810-185720`).
+- **G342**: raise G334 essentials-only 128→192 on `c0a0` — restored
+  `path_track`; G36 PASS / MEM flat (`.ai/logs/dolphin-probe-20260810-185909`).
+- **G343**: disable G334 on tram maps for full spawn (`.ai/logs/dolphin-probe-20260810-190042`).
+- **G344**: extend G341+G343 to tram chain `c0a0*`:
+  - `c0a0→c0a0a` CHANGELEVEL_READY G36 PASS avg≈15.99ms
+    (`.ai/logs/dolphin-probe-20260810-190209`)
+  - `c0a0a→c0a0b` CHANGELEVEL_READY G36 PASS
+    (`.ai/logs/dolphin-probe-20260810-190318`)
+  - `c0a0b→c0a0c` failed MAP_LOADED_RENDER_UNKNOWN until **G345**
+- **G345**: reset G277/G278 static train/path state on map change —
+  stale ride after changelevel yanked player off landmark restore
+  (`c0a0b→c0a0c` `.ai/logs/dolphin-probe-20260810-195608` PASS).
+- Tram exit `c0a0e→c1a0` CHANGELEVEL_READY under G344 source + lean dest
+  (`.ai/logs/dolphin-probe-20260810-195353`, G36 WEAK).
+- **G346**: raise bootstrap pk3 BSP size cap 2→4 MiB — `c1a0.bsp` (~2.5 MiB)
+  was FST-only and Host_Error'd when directory find flapped to pk3-only
+  (`.ai/logs/dolphin-probe-20260810-200046` PASS after fix).
+- Next: carefully raise G334 on early AM if MEM allows; dig directory-find flap.
 
