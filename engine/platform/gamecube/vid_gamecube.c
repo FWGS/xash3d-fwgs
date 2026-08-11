@@ -3350,9 +3350,16 @@ static void GC_CaptureFillFacesFromSurfbits( model_t *wmodel, const byte *surfbi
 		return;
 	/* G283/G298: under scratch retain keep fill off — heap fill tipped
 	 * Mem_AllocPool (cl_game) after lean BSS bake. Caps + lean BSS only.
-	 * G348: tram chain (c0a0*) keeps fill — lean-only left blue void (G347). */
+	 * G348: tram chain (c0a0*) keeps fill — lean-only left blue void (G347).
+	 * G351–G353: early AM with retained vis; c1a0 only when changelevel
+	 * (startspot) so cold NEWGAME stays lean. c1a0d stays fill-off. */
 	if( Mod_GCWorldSurfacesScratchRetained( wmodel )
-		&& !( sv.name[0] && !Q_strnicmp( sv.name, "c0a0", 4 )))
+		&& !( sv.name[0] && ( !Q_strnicmp( sv.name, "c0a0", 4 )
+			|| ( !Q_stricmp( sv.name, "c1a0" ) && sv.startspot[0] )
+			|| !Q_stricmp( sv.name, "c1a0a" )
+			|| !Q_stricmp( sv.name, "c1a0b" )
+			|| !Q_stricmp( sv.name, "c1a0c" )
+			|| !Q_stricmp( sv.name, "c1a0e" ))))
 		return;
 	/* Live pool first — fill is optional overflow. */
 	if( !gc_live_faces || gc_live_face_capacity <= 0 )

@@ -4591,6 +4591,19 @@ manual hardware validation with all artifacts generated and documented.
   96/48, scratch-retain fill on `c0a0*`, dark tunnel clear. Evidence
   `.ai/logs/dolphin-probe-g348-markers`: CapFaces post-G36 `drawn=281`,
   `G231 fill=24/192`, G36 PASS avg≈17.21ms.
-- Next: carefully raise G334 on early AM if MEM allows; dig directory-find flap;
-  restore textured DumpFrames for G348 stills (host XFB black this session).
+- **G349**: raise G334 essentials-only 128→192 on `c1a0` only (G325 vis drop
+  kept). `c0a0e→c1a0` CHANGELEVEL_READY, `ents=99` (was 68), MEM HWM≈3.38 Mb
+  (`.ai/logs/dolphin-probe-g349-c1a0` / `20260810-235606`).
+- **G350**: extend G334@192 to `c1a0a`/`c1a0b`/`c1a0c`/`c1a0e` (`c1a0d` stays
+  128). `c1a0a→c1a0b` CHANGELEVEL_READY with tail landmark/changelevel keep
+  (`.ai/logs/dolphin-probe-g350-c1a0ab` / `20260810-235827`).
+- **G351**: retain visdata on early AM (`c1a0a/b/c/e`) so CapFaces can Capture —
+  `drawn=1→281` on `c1a0b` without cutting ents; MEM +~40 KiB. Tram G36 still
+  PASS. (`.ai/logs/dolphin-probe-g351-c1a0ab`).
+- **G352**: cold `c1a0` stays G325 (retain TryMalloc failed @ HWM≈4.7 Mb);
+  tram `c0a0e→c1a0` CHANGELEVEL_READY with G334@192; `c1a0a→c1a0b` CapFaces
+  281 unchanged. (`.ai/logs/dolphin-probe-g352-tram-c1a0`, `…-g352-c1a0ab`).
+- **G353**: retain `c1a0` vis only on changelevel (`sv.startspot` set) so tram
+  entry gets CapFaces without tipping cold NEWGAME.
+- Next: validate G353; multi-hop to `c1a0d`; DumpFrames stills.
 

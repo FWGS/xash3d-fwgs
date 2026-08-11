@@ -5684,7 +5684,9 @@ static void SV_LoadFromFile( const char *mapname, char *entities )
 		 * Hard truncate dropped c1a0a→c1a0b landmark/changelevel at 169–170
 		 * (and late info_player_start). Parse the tail but free the rest.
 		 * G343/G344: tram chain (c0a0*) has MEM/G36 headroom after G341 —
-		 * disable essentials-only there (N = INT_MAX) for full spawn. */
+		 * disable essentials-only there (N = INT_MAX) for full spawn.
+		 * G349/G350: early AM (c1a0, c1a0a/b/c/e) raises 128→192; keep G325
+		 * vis drop. Denser c1a0d stays at 128. */
 		int gc_tail_essentials_from = 128;
 		{
 			char mapbase[MAX_QPATH];
@@ -5694,6 +5696,12 @@ static void SV_LoadFromFile( const char *mapname, char *entities )
 				COM_FileBase( mapname, mapbase, sizeof( mapbase ));
 				if( !Q_strnicmp( mapbase, "c0a0", 4 ))
 					gc_tail_essentials_from = 0x7fffffff; /* G343/G344 full spawn */
+				else if( !Q_stricmp( mapbase, "c1a0" )
+					|| !Q_stricmp( mapbase, "c1a0a" )
+					|| !Q_stricmp( mapbase, "c1a0b" )
+					|| !Q_stricmp( mapbase, "c1a0c" )
+					|| !Q_stricmp( mapbase, "c1a0e" ))
+					gc_tail_essentials_from = 192; /* G349/G350 */
 			}
 		}
 #endif

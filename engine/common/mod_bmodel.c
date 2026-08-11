@@ -6153,8 +6153,11 @@ static void Mod_LoadVisibility( model_t *mod, dbspmodel_t *bmod )
 	/* Smoke (-gcmap) and lean New Game drop visdata to save MEM1. Retaining
 	 * ~25 KiB on denser maps tips Client Static Pool / entity spawn
 	 * (c1a0 000135/000256). Capture then uses full-vis fallback (G322).
-	 * Keep vis only for -gcworldrender (without lean newgame), -gcfullphysics,
-	 * or G341 allowlisted tram maps where CapFaces needs real PVS for G36. */
+	 * Keep vis for -gcworldrender (without lean newgame), -gcfullphysics,
+	 * G341 tram maps, or G351 early-AM rooms where CapFaces needs real PVS.
+	 * G352: cold `c1a0` stays dropped — retain TryMalloc failed at HWM≈4.7 Mb
+	 * (probe 20260811-002812). G353: retain `c1a0` only on changelevel
+	 * (sv.startspot set; tram entry HWM≈3.38 Mb has headroom). */
 	{
 		char mapbase[MAX_QPATH];
 		qboolean g341_retain = false;
@@ -6162,8 +6165,17 @@ static void Mod_LoadVisibility( model_t *mod, dbspmodel_t *bmod )
 		if( mod->name && mod->name[0] )
 		{
 			COM_FileBase( mod->name, mapbase, sizeof( mapbase ));
-			/* G341/G344: tram chain (c0a0*) — denser AM+ stay on G325. */
+			/* G341/G344: tram chain (c0a0*). */
 			if( !Q_strnicmp( mapbase, "c0a0", 4 ))
+				g341_retain = true;
+			/* G351/G352: early AM rooms with G334@192 — denser c1a0d stays lean. */
+			else if( !Q_stricmp( mapbase, "c1a0a" )
+				|| !Q_stricmp( mapbase, "c1a0b" )
+				|| !Q_stricmp( mapbase, "c1a0c" )
+				|| !Q_stricmp( mapbase, "c1a0e" ))
+				g341_retain = true;
+			/* G353: c1a0 via changelevel only (cold NEWGAME keeps G325). */
+			else if( !Q_stricmp( mapbase, "c1a0" ) && sv.startspot[0] )
 				g341_retain = true;
 		}
 
@@ -6181,10 +6193,6 @@ static void Mod_LoadVisibility( model_t *mod, dbspmodel_t *bmod )
 			Mod_GCFreeBspPin( (void **)&bmod->visdata );
 			return;
 		}
-
-		if( g341_retain && Sys_CheckParm( "-gcnewgame" ))
-			Con_Reportf( "Xash3D GameCube: G341 world visdata retained map=%s (%s)\n",
-				mapbase, Q_memprint( bmod->visdatasize ));
 	}
 
 	/* Optional: renderer can fall back to full-vis leaf marking. */
@@ -6195,6 +6203,20 @@ static void Mod_LoadVisibility( model_t *mod, dbspmodel_t *bmod )
 			Q_memprint( bmod->visdatasize ));
 		Mod_GCFreeBspPin( (void **)&bmod->visdata );
 		return;
+	}
+	if( Sys_CheckParm( "-gcnewgame" ) && mod->name && mod->name[0] )
+	{
+		char mapbase[MAX_QPATH];
+
+		COM_FileBase( mod->name, mapbase, sizeof( mapbase ));
+		if( !Q_strnicmp( mapbase, "c0a0", 4 )
+			|| !Q_stricmp( mapbase, "c1a0" )
+			|| !Q_stricmp( mapbase, "c1a0a" )
+			|| !Q_stricmp( mapbase, "c1a0b" )
+			|| !Q_stricmp( mapbase, "c1a0c" )
+			|| !Q_stricmp( mapbase, "c1a0e" ))
+			Con_Reportf( "Xash3D GameCube: G341/G351/G353 world visdata retained map=%s (%s)\n",
+				mapbase, Q_memprint( bmod->visdatasize ));
 	}
 	Con_Reportf( "Xash3D GameCube: world visdata retained (%s)\n", Q_memprint( bmod->visdatasize ));
 #else
