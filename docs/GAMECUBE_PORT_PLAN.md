@@ -4626,5 +4626,18 @@ manual hardware validation with all artifacts generated and documented.
   denser/dest), DumpFrames via OpenGL (`DisableCopyToVRAM=True`); Null dumps
   were all-black. Stills uniq≈218 (`framedump_31–33`).
   (`.ai/logs/dolphin-probe-g359-dumpframes-c0a0e`).
-- Next: denser-dest DumpFrames; optional live pool raise on `c1a0d`.
+- **G360**: denser `c1a0a→c1a0d` Flipper EFB DumpFrames (no soft latch) —
+  `DisableCopyToVRAM=False` + OpenGL; `G360 Flipper EFB dump presents` after
+  CapFaces; late stills uniq≈139, CHANGELEVEL_READY.
+  (`.ai/logs/dolphin-probe-g360-c1a0d-dumpframes`).
+- **G361**: denser changelevel lean live may steal near-eye LM-caps
+  (`GC_WantLiveCapOverlap` / CapFaces skip live-owned caps) — `c1a0d` Capture
+  live **75→248**, CapFaces sample `drawn=214`, CHANGELEVEL_READY.
+  (`.ai/logs/dolphin-probe-g361-c1a0d-live`).
+- **G362**: denser DumpFrames CapFaces world — always CapFaces before Present,
+  skip soft overwrite during EFB hold, G196 wall-aim despite G212 on denser dest.
+  CapFaces `drawn=250`, late stills uniq≈53k (lab+hallway).
+  (`.ai/logs/dolphin-probe-g362-c1a0d-dumpframes`).
+- Next: optional CapFaces begin/end once-per-map; dual-hop DumpFrames;
+  denser CapFaces floor/void seam fill.
 

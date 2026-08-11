@@ -30,11 +30,30 @@ Match retail visuals without cutting fill/spawn.
     (Null TGAs all-black)
   - Probe: NEWGAME_READY `c0a0e`; G191 soft dump; stills `framedump_31–33` uniq≈218
   - Evidence: `.ai/logs/dolphin-probe-g359-dumpframes-c0a0e`
+- **G360**: denser dest DumpFrames stills (`c1a0a→c1a0d`)
+  - Flipper EFB path: `DisableCopyToVRAM=False` on changelevel dumps; OpenGL
+  - Post-CapFaces `G360 Flipper EFB dump presents` (hold + re-present)
+  - Probe: CHANGELEVEL_READY; CapFaces `drawn=241/242`; late stills were HUD/grey
+    (not CapFaces world — fixed in G362)
+  - Evidence: `.ai/logs/dolphin-probe-g360-c1a0d-dumpframes`
+- **G361**: raise CapFaces lean live on denser changelevel dests
+  - `GC_WantLiveCapOverlap`: lean live may steal near-eye LM-caps (EDGE/TEX);
+    CapFaces skips those caps on emit; room-scale denser OR probes
+  - Probe `c1a0a→c1a0d`: Capture live **75→248**; CapFaces sample `drawn=214`;
+    Flipper lean `drawn=128` (was 47); CHANGELEVEL_READY; ents=113
+  - Evidence: `.ai/logs/dolphin-probe-g361-c1a0d-live`
+- **G362**: denser DumpFrames show CapFaces world (not HUD/sky)
+  - Always CapFaces-render before dump Present (no soft RGB565 overwrite)
+  - Skip soft present while EFB dump-hold armed
+  - G196 wall-aim on denser dest despite G212 lock (no tram-start eye)
+  - Probe: CHANGELEVEL_READY; CapFaces `live=248 drawn=250`; late stills
+    uniq≈53k (lab+hallway); samples `.ai/screenshots/g362-dumpframes/`
+  - Evidence: `.ai/logs/dolphin-probe-g362-c1a0d-dumpframes`
 
 **NEXT**:
-- DumpFrames stills on denser changelevel dest (`c1a0d`) without soft-latch hang
-- Optional: raise CapFaces live pool on `c1a0d` (Capture n=75 vs budget 192)
 - Optional: CapFaces begin/end once-per-map (not only drawn stash)
+- Optional: dual-hop DumpFrames (I/O-heavy; tip-safe single hop proven)
+- Optional: close denser CapFaces floor/void seams (fill/vis)
 
 Rules:
 - Force-relink after HLSDK archive changes.

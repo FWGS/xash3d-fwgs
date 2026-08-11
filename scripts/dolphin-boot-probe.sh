@@ -292,19 +292,27 @@ EOF
 	# SkipDuplicateXFBs helps when XFB cache hits; with DisableCopyToVRAM the
 	# local Dolphin patch always misses (G192), so guest stamps soft latch XFBs
 	# and rate-limits non-latch SetNextFramebuffer to cut early dump spam.
-	cat > "$USER_DIR/Config/GFX.ini" <<'EOF'
+	# G360: denser changelevel dests skip soft latch — Flipper EFB dumps need
+	# DisableCopyToVRAM=False (OpenGL). Soft-latch source maps keep True (G359).
+	if [[ -n "${DOLPHIN_CHANGELEVEL:-}" ]]; then
+		DUMP_COPY_TO_VRAM=False
+		DUMP_COPY_NOTE="Flipper EFB (changelevel denser dest)"
+	else
+		DUMP_COPY_TO_VRAM=True
+		DUMP_COPY_NOTE="soft-latch XFB RAM decode"
+	fi
+	cat > "$USER_DIR/Config/GFX.ini" <<EOF
 [Settings]
 DumpFramesAsImages = True
 PNGCompressionLevel = 1
 [Hacks]
 XFBToTextureEnable = False
-# G359: soft-latch DumpFrames need DisableCopyToVRAM=True (local Dolphin XFB
-# RAM re-decode, G192). False was tried for Flipper EFB (G347) but Null+soft
-# latch dumps went all-black (probe 20260811-024012).
-DisableCopyToVRAM = True
+# G360: ${DUMP_COPY_NOTE}
+DisableCopyToVRAM = ${DUMP_COPY_TO_VRAM}
 SkipDuplicateXFBs = False
 ImmediateXFBEnable = False
 EOF
+	echo "==> DumpFrames GFX DisableCopyToVRAM=${DUMP_COPY_TO_VRAM} (${DUMP_COPY_NOTE})"
 fi
 
 cat > "$USER_DIR/Config/Logger.ini" <<'EOF'

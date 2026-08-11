@@ -243,6 +243,10 @@ typedef struct
 #define GC_FlipperTrace(...) SYS_Report( __VA_ARGS__ )
 #endif
 #define GC_LIVE_MAX_FACES 248 /* G262: quiet Capture reclaim → tip-safe 248 (256 hangs) */
+/* G363: CapFaces live emit budget (must match GC_GX_LIVE_FACE_BUDGET in r_gx_world).
+ * Pool may hold 248; only the top-scored emit window is EDGE/TEX — overflow must
+ * remain eligible for LM-cap / fill or denser floors become void seams. */
+#define GC_LIVE_EMIT_BUDGET 192
 /* G298/G299: after FatPVS, heap is fragmented — BSS lean under tip.
  * 96 tipped NEWGAME_EARLY; 48 passed; G299 raises 48→64 (no extra ents).
  * G310: 64→48 reclaim ~2 KiB BSS into denser tram (heap live still →124). */
@@ -250,6 +254,8 @@ typedef struct
 static qboolean GC_CapFaceAlready( int firstedge, int numedges );
 static qboolean GC_DumpEyeInFrontOfBestWall( float *eye, float *out_angles );
 static qboolean GC_DumpEyeAtTramStart( float *eye, float *out_angles );
+static qboolean GC_IsDenserAmMapName( const char *name );
+static qboolean GC_IsProbeChangelevelDest( void );
 static void GC_FlushPendingCapFaceRefresh( void );
 static byte *GC_LookupSurfbitsCache( int cluster );
 static void GC_DecompressPVS( byte *out, const byte *in, size_t visbytes );
@@ -2857,6 +2863,43 @@ static qboolean GC_LiveFaceAlready( int firstedge, int numedges )
 	return false;
 }
 
+/* G363: index of EDGE/TEX live face within the Flipper emit window, else -1.
+ * Pool holds up to GC_LIVE_MAX_FACES; CapFaces only emits the top budget. */
+static int GC_LiveFaceEmitIndex( int firstedge, int numedges )
+{
+	int j;
+	int emit_n;
+
+	if( !gc_live_faces || gc_live_face_count <= 0 )
+		return -1;
+	emit_n = gc_live_face_count;
+	if( emit_n > GC_LIVE_EMIT_BUDGET )
+		emit_n = GC_LIVE_EMIT_BUDGET;
+	for( j = 0; j < emit_n; j++ )
+	{
+		byte b;
+
+		if( gc_live_faces[j].firstedge != firstedge
+			|| gc_live_faces[j].numedges != numedges )
+			continue;
+		b = gc_live_faces[j].bake_src;
+		if( b == GC_CAP_BAKE_EDGE || b == GC_CAP_BAKE_TEX )
+			return j;
+		return -1; /* plane-only — CapFaces skips at emit */
+	}
+	return -1;
+}
+
+/* G361/G363: CapFaces LM emit skips slots lean EDGE/TEX will actually draw.
+ * Do not claim live[192..] — those never emit and must keep LM (floor voids). */
+qboolean GC_CapFaceIsLive( int slot )
+{
+	if( slot < 0 || slot >= gc_newgame_cap_face_count || !gc_live_faces )
+		return false;
+	return GC_LiveFaceEmitIndex( gc_newgame_draw_surfs[slot].firstedge,
+		gc_newgame_draw_surfs[slot].numedges ) >= 0;
+}
+
 static qboolean GC_InstallLiveCand( const gc_refresh_cand_t *cand, int score )
 {
 	gc_live_cand_t *dst;
@@ -2995,7 +3038,8 @@ static void GC_MergeRefreshCandsIntoLiveFaces( void )
 			qboolean is_wall;
 			int score;
 
-			if( GC_CapFaceAlready( cand->firstedge, cand->numedges ))
+			if( !GC_WantLiveCapOverlap()
+				&& GC_CapFaceAlready( cand->firstedge, cand->numedges ))
 			{
 				skipped_cap++;
 				continue;
@@ -3093,7 +3137,10 @@ static void GC_CaptureLiveFacesFromSurfbits( model_t *wmodel, const byte *surfbi
 		area = (int)src->extents[0] * (int)src->extents[1];
 		if( area <= 0 )
 			continue;
-		if( GC_CapFaceAlready( src->firstedge, src->numedges ))
+		/* G361: denser changelevel dests may steal near-eye LM-caps into lean
+		 * live (EDGE/TEX); CapFaces skips those caps on emit. */
+		if( !GC_WantLiveCapOverlap()
+			&& GC_CapFaceAlready( src->firstedge, src->numedges ))
 			continue; /* complementary to LM-cap (PVS leftovers) */
 		if( GC_LiveFaceAlready( src->firstedge, src->numedges ))
 			continue;
@@ -3277,24 +3324,12 @@ static void GC_AramFillInsert( const gc_fill_face_t *face )
 	gc_aram_fill_count++;
 }
 
-/* True if live pool already emits this face (EDGE/TEX). Plane-only live
- * slots are wasted at emit — fill may reclaim them. */
+/* True if live pool already emits this face (EDGE/TEX) inside the Flipper
+ * emit window. Plane-only or live[192..] overflow may be reclaimed by LM/fill.
+ * G363: was any-pool membership — denser floors in the overflow dead zone. */
 static qboolean GC_LiveFaceEmitsGeom( int firstedge, int numedges )
 {
-	int j;
-
-	if( !gc_live_faces )
-		return false;
-	for( j = 0; j < gc_live_face_count; j++ )
-	{
-		if( gc_live_faces[j].firstedge == firstedge
-			&& gc_live_faces[j].numedges == numedges )
-		{
-			byte b = gc_live_faces[j].bake_src;
-			return ( b == GC_CAP_BAKE_EDGE || b == GC_CAP_BAKE_TEX );
-		}
-	}
-	return false;
+	return GC_LiveFaceEmitIndex( firstedge, numedges ) >= 0;
 }
 
 /* Score a provisional fill cand (verts already baked into trial). */
@@ -4253,6 +4288,61 @@ static void GC_CaptureLiveFacesForDumpClusters( model_t *wmodel )
 		}
 		if( or_hits > 0 )
 			GC_CaptureLiveFacesFromSurfbits( wmodel, ubuf, true );
+		/* G361: denser changelevel — room-scale OR probes (tram table is
+		 * along-track; landmark rooms need lateral/vertical coverage). */
+		if( GC_WantLiveCapOverlap()
+			&& gc_newgame_surfbytes > 0 && gc_newgame_surfbytes <= 1024
+			&& gc_newgame_visbytes > 0 && gc_newgame_visbytes <= 512 )
+		{
+			static const short	denser_od[12][3] = {
+				{ 0, 256, 0 }, { 0, -256, 0 }, { 0, 512, 0 }, { 0, -512, 0 },
+				{ 256, 256, 0 }, { 256, -256, 0 }, { -256, 256, 0 }, { -256, -256, 0 },
+				{ 0, 0, 256 }, { 0, 0, -128 }, { 384, 384, 64 }, { 384, -384, 64 }
+			};
+			byte	tbuf2[1024], vis2[512];
+			int	dpi, denser_hits = 0;
+
+			for( dpi = 0; dpi < 12; dpi++ )
+			{
+				mleaf_t *pl;
+				int cl, li, b, hit = 0;
+				float fd = (float)denser_od[dpi][0], sd = (float)denser_od[dpi][1],
+					ud = (float)denser_od[dpi][2];
+
+				probe[0] = eye[0] + f[0] * fd + rx * sd;
+				probe[1] = eye[1] + f[1] * fd + ry * sd;
+				probe[2] = eye[2] + f[2] * fd + ud;
+				pl = Mod_PointInLeaf( probe, wmodel->nodes, wmodel );
+				cl = ( pl && pl->cluster >= 0 ) ? pl->cluster : -1;
+				if( cl < 0 || cl >= 1024 || ( seen[cl >> 3] & ( 1 << ( cl & 7 ))))
+					continue;
+				seen[cl >> 3] |= (byte)( 1 << ( cl & 7 ));
+				for( li = 1; li < wmodel->numleafs; li++ )
+				{
+					if( wmodel->leafs[li].cluster != cl || !wmodel->leafs[li].compressed_vis )
+						continue;
+					GC_DecompressPVS( vis2, wmodel->leafs[li].compressed_vis,
+						(size_t)gc_newgame_visbytes );
+					GC_BuildSurfbitsForVisRow( wmodel, vis2, tbuf2 );
+					for( b = 0; b < gc_newgame_surfbytes; b++ )
+					{
+						if( tbuf2[b] & ~ubuf[b] )
+							hit = 1;
+						ubuf[b] |= tbuf2[b];
+					}
+					break;
+				}
+				if( hit )
+					denser_hits++;
+			}
+			if( denser_hits > 0 )
+			{
+				GC_CaptureLiveFacesFromSurfbits( wmodel, ubuf, true );
+				or_hits += denser_hits;
+			}
+			Con_Reportf( "Xash3D GameCube: G361 denser OR hits=%d live=%d\n",
+				denser_hits, gc_live_face_count );
+		}
 		GC_FlipperTrace( "Xash3D GameCube: G234 or=%d f=%d a=%d\n",
 			or_hits, gc_fill_face_count, gc_aram_fill_count );
 	}
@@ -5611,6 +5701,24 @@ static void GC_PresentBuffer( void )
 	 * G191: never steal soft DumpFrames latch presents onto a cleared EFB.
 	 * G193 soft_lock: never CopyDisp Flipper over soft XFB while DumpFrames lag
 	 * (capture diagnostics only — retail never soft-locks). */
+	{
+		extern int R_GXEfbDumpHoldLeft( void );
+
+		/* G362: denser CapFaces dump hold — do not soft RGB565 over Flipper EFB. */
+		if( !gc_gx_world_efb_ready && R_GXEfbDumpHoldLeft() > 0
+			&& GC_IsCaptureDiagnostics()
+			&& ( Sys_CheckParm( "-gcdumpframes" ) || Sys_CheckParm( "-gcdump" )))
+		{
+			static int g362_soft_skip_logged;
+
+			if( !g362_soft_skip_logged )
+			{
+				g362_soft_skip_logged = 1;
+				Con_Reportf( "Xash3D GameCube: G362 skip soft present during EFB dump hold\n" );
+			}
+			return;
+		}
+	}
 	if( gc_gx_world_efb_ready && gc_cpu_dump_presents_left <= 0
 		&& !( GC_IsCaptureDiagnostics() && gc_g193_soft_lock ))
 	{
@@ -10375,24 +10483,34 @@ qboolean GC_RenderNewGameWorldFrames( int count )
 	}
 	/* G196: Flipper DumpFrames wall-aim — landmark eye often faces sky.
 	 * G281: once G212 lock + ride eye owns the camera, do not re-arm dump-look
-	 * (DumpEyeAtTramStart froze DumpFrames on tram-start voids). */
-	if( gc_g196_flipper_dump_aim_left > 0 && gc_gx_world_live
-		&& gc_cpu_dump_presents_left <= 0
-		&& !( gc_g212_stream_locked && Sys_CheckParm( "-gcnewgame" )))
+	 * (DumpEyeAtTramStart froze DumpFrames on tram-start voids).
+	 * G362: denser changelevel DumpFrames still need wall-aim despite G212 —
+	 * without it CapFaces drawn>0 but EFB dumps are sky-only / grey. */
 	{
-		static qboolean g196_aim_logged;
+		const qboolean denser_dump_aim = GC_IsProbeChangelevelDest()
+			&& GC_IsDenserAmMapName( sv.name )
+			&& ( Sys_CheckParm( "-gcdumpframes" ) || Sys_CheckParm( "-gcdump" ));
 
-		gc_dump_look_into_map = true;
-		if( !g196_aim_logged )
+		if( gc_g196_flipper_dump_aim_left > 0 && gc_gx_world_live
+			&& gc_cpu_dump_presents_left <= 0
+			&& ( denser_dump_aim
+				|| !( gc_g212_stream_locked && Sys_CheckParm( "-gcnewgame" ))))
 		{
-			g196_aim_logged = true;
-			SYS_Report( "Xash3D GameCube: G196 Flipper dump wall-aim begin n=%d\n",
-				gc_g196_flipper_dump_aim_left );
+			static qboolean g196_aim_logged;
+
+			gc_dump_look_into_map = true;
+			if( !g196_aim_logged )
+			{
+				g196_aim_logged = true;
+				SYS_Report( "Xash3D GameCube: G196 Flipper dump wall-aim begin n=%d\n",
+					gc_g196_flipper_dump_aim_left );
+			}
+			(void)g196_aim_logged;
 		}
-		(void)g196_aim_logged;
+		else if( gc_g212_stream_locked && Sys_CheckParm( "-gcnewgame" )
+			&& !denser_dump_aim )
+			gc_dump_look_into_map = false;
 	}
-	else if( gc_g212_stream_locked && Sys_CheckParm( "-gcnewgame" ))
-		gc_dump_look_into_map = false;
 
 	/* G189/G190: far landmark hops — prefer outdoor wall faces first, then look
 	 * into the largest wall instead of aiming across the map into empty sky.
@@ -10406,10 +10524,12 @@ qboolean GC_RenderNewGameWorldFrames( int count )
 
 		/* PreferIndoor every frame after UpdatePVS — PVS follow undoes indoor
 		 * cluster. After G212 near-eye lock, keep the streamed face set.
-		 * G227: New Game dumps use tram-start eye instead of indoor wall-aim. */
+		 * G227: New Game dumps use tram-start eye instead of indoor wall-aim.
+		 * G362: denser AM never uses tram-start eye (wrong map). */
 		if( !gc_g212_stream_locked )
 		{
 			if( Sys_CheckParm( "-gcnewgame" )
+				&& !GC_IsDenserAmMapName( sv.name )
 				&& GC_DumpEyeAtTramStart( center, rvp.viewangles ))
 				GC_UpdateNewGamePVSForOrigin( center );
 			else
@@ -10427,6 +10547,7 @@ qboolean GC_RenderNewGameWorldFrames( int count )
 		}
 
 		if( ( Sys_CheckParm( "-gcnewgame" )
+				&& !GC_IsDenserAmMapName( sv.name )
 				&& GC_DumpEyeAtTramStart( center, rvp.viewangles ))
 			|| GC_DumpEyeInFrontOfBestWall( center, rvp.viewangles ))
 		{
@@ -10773,6 +10894,20 @@ static qboolean GC_IsDenserAmMapName( const char *name )
 		|| !Q_strnicmp( name, "c3a", 3 )
 		|| !Q_strnicmp( name, "c4a", 3 )
 		|| !Q_strnicmp( name, "c5a", 3 ) );
+}
+
+/* G361: denser changelevel dests — lean live may hold CapFaceAlready faces so
+ * EDGE/TEX uses the 192 live budget; CapFaces skips those LM-caps on emit.
+ * Cold denser NEWGAME stays complementary (startspot empty). */
+qboolean GC_WantLiveCapOverlap( void )
+{
+	if( !Sys_CheckParm( "-gcnewgame" ) || !sv.name[0] )
+		return false;
+	if( !GC_IsDenserAmMapName( sv.name ))
+		return false;
+	if( sv.startspot[0] )
+		return true;
+	return GC_IsProbeChangelevelDest();
 }
 
 static qboolean GC_WantSoftDumpLatch( void )
@@ -11143,11 +11278,26 @@ qboolean GC_PrepareNewGameWorldPresent( void )
 					extern void R_GXHoldEfbForDump( int frames );
 					int dump_i;
 
-					R_GXHoldEfbForDump( 8 );
-					for( dump_i = 0; dump_i < 4; dump_i++ )
+					/* G360/G362: denser dests never soft-latch — keep Flipper live
+					 * and hold EFB across ViSwaps so OpenGL DumpFrames sample
+					 * CapFaces (Null stills stay black).
+					 * G362: always CapFaces-render before Present. G360 alternated
+					 * Present-only frames; with efb_ready cleared after CopyDisp
+					 * those fell through to soft RGB565 (grey + HUD sprites) and
+					 * overwrote CapFaces EFB — late stills matched across G360/G361.
+					 * Also arm G196 wall-aim: landmark eye faces sky on denser dests. */
+					GC_EnableGxWorldLive();
+					gc_g196_flipper_dump_aim_left = 16;
+					gc_dump_look_into_map = true;
+					R_GXHoldEfbForDump( 24 );
+					for( dump_i = 0; dump_i < 12; dump_i++ )
+					{
+						if( !GC_RenderNewGameWorldFrames( 1 ))
+							break;
 						GC_PresentBuffer();
-					Con_Reportf( "Xash3D GameCube: G359 Flipper EFB dump presents map=%s\n",
-						sv.name );
+					}
+					Con_Reportf( "Xash3D GameCube: G362 Flipper EFB dump presents map=%s drawn=%d\n",
+						sv.name, GC_LastCapFacesDrawn() );
 				}
 			}
 			else

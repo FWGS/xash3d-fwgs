@@ -54,6 +54,8 @@ extern int GC_GetLiveFaceCount( void );
 extern void GC_NoteCapFacesDrawn( int drawn );
 extern qboolean GC_FillLiveDrawSurf( int index, msurface_t *out, mtexinfo_t *tex_out );
 extern qboolean GC_LiveFaceIsCapped( int index );
+extern qboolean GC_WantLiveCapOverlap( void ); /* G361 */
+extern qboolean GC_CapFaceIsLive( int slot ); /* G361 */
 extern int GC_GetLiveFaceVerts( int index, float out[][3], int maxverts );
 extern int GC_GetLiveFaceBakeSrc( int index );
 extern int GC_GetFillFaceCount( void );
@@ -141,6 +143,12 @@ void R_GXHoldEfbForDump( int frames )
 {
 	if( frames > r_gx_efb_dump_hold )
 		r_gx_efb_dump_hold = frames;
+}
+
+/* G362: PresentBuffer must not soft-blit over CapFaces while dump-hold is armed. */
+int R_GXEfbDumpHoldLeft( void )
+{
+	return r_gx_efb_dump_hold;
 }
 static int r_gx_cap_generation = -1;
 static int r_gx_lm_inits;
@@ -2249,7 +2257,8 @@ int R_GXDrawNewGameCapFaces( void )
 				if( live_drawn >= R_GXLiveFaceBudget()
 					|| drawn + live_drawn >= R_GXFrameFaceBudget() )
 					break;
-				if( GC_LiveFaceIsCapped( li ))
+				/* G361: denser changelevel prefers live EDGE/TEX over LM-cap. */
+				if( GC_LiveFaceIsCapped( li ) && !GC_WantLiveCapOverlap() )
 				{
 					skipped_cap++;
 					continue;
@@ -2340,13 +2349,21 @@ int R_GXDrawNewGameCapFaces( void )
 			int backface_skips = 0;
 			int emit_fails = 0;
 			int cap_drawn = 0;
-			/* G348: leave FRAME room for flat-fill plugs after LM. */
+			/* G348/G363: leave FRAME room for flat-fill plugs after LM.
+			 * Reserve the actual fill count (capped), not the full FILL budget —
+			 * denser G361 fill_n=4 was starving ~48 LM slots and keeping floor voids. */
 			const int fill_n = GC_GetFillFaceCount();
-			const int fill_reserve = ( fill_n > 0 )
-				? (( GC_GX_FILL_FACE_BUDGET < R_GXFrameFaceBudget() / 4 )
+			int fill_reserve = 0;
+
+			if( fill_n > 0 )
+			{
+				const int fill_cap = ( GC_GX_FILL_FACE_BUDGET < R_GXFrameFaceBudget() / 4 )
 					? GC_GX_FILL_FACE_BUDGET
-					: ( R_GXFrameFaceBudget() / 4 ))
-				: 0;
+					: ( R_GXFrameFaceBudget() / 4 );
+
+				fill_reserve = ( fill_n < fill_cap ) ? fill_n : fill_cap;
+			}
+			{
 			const int cap_limit = R_GXFrameFaceBudget() - fill_reserve;
 
 			if( n > (int)( sizeof( order ) / sizeof( order[0] )))
@@ -2364,6 +2381,9 @@ int R_GXDrawNewGameCapFaces( void )
 
 				if( drawn + cap_drawn >= cap_limit )
 					break;
+				/* G361: live already emitted this face as EDGE/TEX. */
+				if( GC_WantLiveCapOverlap() && GC_CapFaceIsLive( slot ))
+					continue;
 				if( !surf->plane )
 				{
 					emit_fails++;
@@ -2409,6 +2429,7 @@ int R_GXDrawNewGameCapFaces( void )
 			drawn += cap_drawn;
 			(void)backface_skips;
 			(void)emit_fails;
+			} /* cap_limit scope */
 		}
 		/* G222/G225/G231: flat-fill AFTER LM so PASSCLR only wins empty Z. */
 		{
