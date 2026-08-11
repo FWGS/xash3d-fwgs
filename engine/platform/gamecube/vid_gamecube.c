@@ -5719,7 +5719,7 @@ static void GC_PresentBuffer( void )
 				g297_cpu_logged = true;
 				SYS_Report( "Xash3D GameCube: G297 Flipper cpu=%.2fms (pre-vsync) frame_budget=%d live=%d fill=%d probe=%d\n",
 					cpu_ms,
-					gc_budget_probe_active ? 144 : 280,
+					gc_budget_probe_active ? 96 : 280,
 					gc_budget_probe_active ? 48 : 192,
 					48,
 					gc_budget_probe_active ? 1 : 0 );

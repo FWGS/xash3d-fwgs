@@ -172,9 +172,9 @@ static qboolean r_gx_tex_band_logged;
 /* G36 sample window: c0a0 tram capture draws ~320 LM faces → ~52ms/present
  * (probe 20260809-124458 WEAK). Cap Flipper emit during the armed probe so
  * samples measure tip-safe present cost; full budget resumes after flush.
- * G348: 48/24→96/48 — Flipper cpu was ~12.7ms at 48 (G347); retail match. */
+ * G348: 48/24→96/48 (Flipper ~20ms). Keep sample below full retail emit. */
 #ifndef GC_GX_G36_SAMPLE_FACE_BUDGET
-#define GC_GX_G36_SAMPLE_FACE_BUDGET 144	/* G348b: 96+48 leave room for fill after live+caps */
+#define GC_GX_G36_SAMPLE_FACE_BUDGET 96
 #endif
 #ifndef GC_GX_G36_SAMPLE_LIVE_BUDGET
 #define GC_GX_G36_SAMPLE_LIVE_BUDGET 48
@@ -2339,6 +2339,14 @@ int R_GXDrawNewGameCapFaces( void )
 			int backface_skips = 0;
 			int emit_fails = 0;
 			int cap_drawn = 0;
+			/* G348: leave FRAME room for flat-fill plugs after LM. */
+			const int fill_n = GC_GetFillFaceCount();
+			const int fill_reserve = ( fill_n > 0 )
+				? (( GC_GX_FILL_FACE_BUDGET < R_GXFrameFaceBudget() / 4 )
+					? GC_GX_FILL_FACE_BUDGET
+					: ( R_GXFrameFaceBudget() / 4 ))
+				: 0;
+			const int cap_limit = R_GXFrameFaceBudget() - fill_reserve;
 
 			if( n > (int)( sizeof( order ) / sizeof( order[0] )))
 				n = (int)( sizeof( order ) / sizeof( order[0] ));
@@ -2353,7 +2361,7 @@ int R_GXDrawNewGameCapFaces( void )
 				const int slot = order[i];
 				msurface_t *surf = &draw[slot];
 
-				if( drawn + cap_drawn >= R_GXFrameFaceBudget() )
+				if( drawn + cap_drawn >= cap_limit )
 					break;
 				if( !surf->plane )
 				{
@@ -2683,6 +2691,20 @@ int R_GXDrawNewGameCapFaces( void )
 	if( tr.framecount <= 3 && gEngfuncs.Sys_CheckParm( "-gcnewgame" ))
 		gEngfuncs.Con_Reportf( "Xash3D GameCube: CapFaces end f=%d drawn=%d\n",
 			tr.framecount, drawn );
+	/* G348: one post-sample CapFaces line (full retail budget after G36 flush). */
+	else if( gEngfuncs.Sys_CheckParm( "-gcnewgame" ) && drawn > 0 )
+	{
+		static qboolean g348_post_logged;
+		extern qboolean GC_IsG36SampleFaceCap( void );
+
+		if( !g348_post_logged && !GC_IsG36SampleFaceCap() )
+		{
+			g348_post_logged = true;
+			gEngfuncs.Con_Reportf(
+				"Xash3D GameCube: CapFaces post-G36 retail drawn=%d live_budget=%d frame_budget=%d\n",
+				drawn, R_GXLiveFaceBudget(), R_GXFrameFaceBudget() );
+		}
+	}
 	return drawn;
 }
 

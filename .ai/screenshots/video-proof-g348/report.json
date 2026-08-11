@@ -1,0 +1,29 @@
+{
+  "gate": "G348",
+  "goal": "Improve Flipper draw fill toward retail tram match",
+  "probe_markers": ".ai/logs/dolphin-probe-g348-markers",
+  "probe_raw": ".ai/logs/dolphin-probe-20260810-234715",
+  "gates": {
+    "NEWGAME_READY": true,
+    "TAS_STATUS": "PASS",
+    "G36_STATUS": "PASS",
+    "G36_avg_ms": 17.21,
+    "VISUAL_STATUS": "nonblack",
+    "CapFaces_sample_drawn": 96,
+    "CapFaces_post_G36_retail_drawn": 281,
+    "live_budget_post": 192,
+    "frame_budget_post": 280,
+    "fill_capture": 64,
+    "fill_drawn_sample": 24,
+    "clear_rgb": [42, 46, 50]
+  },
+  "vs_g347": {
+    "CapFaces_drawn": "48 → sample 96 / post-G36 281",
+    "fill": "0 → capture 64, emit 24",
+    "clear": "sky blue → dark tunnel gray"
+  },
+  "notes": [
+    "Host DumpFrames TGA dumps were all-black in G348 runs; rely on OSReport CapFaces counts + G347 video set for stills.",
+    "Post-G36 full budget is the retail-match path; G36 sample stays capped for tip-safe timing."
+  ]
+}

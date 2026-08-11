@@ -34,7 +34,8 @@
       "notes": [
         "Structural match: monorail track, hazard-stripe tunnel segment, industrial concrete.",
         "Exact pixel match not required (clear-color / EFB dump path differ).",
-        "Videos: c0a0-tram-reference.mp4, c0a0-tram-gameplay.mp4, c0a0-tram-reference-vs-live.mp4"
+        "Videos: c0a0-tram-reference.mp4, c0a0-tram-gameplay.mp4, c0a0-tram-reference-vs-live.mp4",
+        "G348: CapFaces post-G36 drawn=281 + fill=24 (report video-proof-g348/report.json); stills still from G347 until DumpFrames restored."
       ]
     }
   ]

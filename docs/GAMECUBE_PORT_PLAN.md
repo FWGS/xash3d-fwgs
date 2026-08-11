@@ -4587,6 +4587,10 @@ manual hardware validation with all artifacts generated and documented.
   DumpFrames EFB (`DisableCopyToVRAM=False`), TAS+NEWGAME_READY, CapFaces
   drawn=48, G278 tram. Artifacts:
   `.ai/screenshots/video-proof-g347/c0a0-tram-reference-vs-live.mp4`.
+- **G348**: Flipper retail fill on tram — live/frame budgets 192/280, sample
+  96/48, scratch-retain fill on `c0a0*`, dark tunnel clear. Evidence
+  `.ai/logs/dolphin-probe-g348-markers`: CapFaces post-G36 `drawn=281`,
+  `G231 fill=24/192`, G36 PASS avg≈17.21ms.
 - Next: carefully raise G334 on early AM if MEM allows; dig directory-find flap;
-  improve Flipper fill vs blue void.
+  restore textured DumpFrames for G348 stills (host XFB black this session).
 
