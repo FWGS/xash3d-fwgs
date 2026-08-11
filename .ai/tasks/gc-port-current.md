@@ -2,28 +2,30 @@ Auto-port task for Xash3D GameCube
 =================================
 
 Current goal:
-Xen continuity (c4a1 → …)
+Campaign changelevel continuity complete through Nihilanth (c5a1).
+Next focus: restore playability gates (G36 budget / fuller entity spawn).
 
 **DONE (2026-08-10)**:
-- Through Lambda Core exit to Xen:
-  - Surface Tension complete (c2a5→…→c3a1; **G339** unblocked c2a5x→c2a5a)
-  - Forget About Freeman:
-    - c3a1→c3a1a `.ai/logs/dolphin-probe-20260810-124013`
-    - c3a1a→c3a1b `.ai/logs/dolphin-probe-20260810-124323`
-    - c3a1b→c3a2e `.ai/logs/dolphin-probe-20260810-124422`
-  - Lambda Core:
-    - c3a2e→c3a2 `.ai/logs/dolphin-probe-20260810-124520`
-    - c3a2→c3a2a `.ai/logs/dolphin-probe-20260810-124620`
-    - c3a2a→c3a2b `.ai/logs/dolphin-probe-20260810-124929`
-    - c3a2b→c3a2c `.ai/logs/dolphin-probe-20260810-125239`
-    - c3a2c→c3a2d `.ai/logs/dolphin-probe-20260810-125408`
-    - **c3a2d→c4a1** `.ai/logs/dolphin-probe-20260810-125509`
-- **G339**: skip ServerFrame primes on changelevel dest maps
-  (unblocked MAP_READY on c2a5a; G278 train hang)
+- Xen + Gonarch + Interloper + Nihilanth changelevel chain:
+  - c4a1→c4a2 `.ai/logs/dolphin-probe-20260810-143428`
+  - c4a2→c4a2a `.ai/logs/dolphin-probe-20260810-143543`
+  - c4a2a→c4a2b `.ai/logs/dolphin-probe-20260810-144050` (**G340**)
+  - c4a2b→c4a1a `.ai/logs/dolphin-probe-20260810-144143`
+  - c4a1a→c4a1b `.ai/logs/dolphin-probe-20260810-144239`
+  - c4a1b→c4a1c `.ai/logs/dolphin-probe-20260810-144336`
+  - c4a1c→c4a1d `.ai/logs/dolphin-probe-20260810-144431`
+  - c4a1d→c4a1e `.ai/logs/dolphin-probe-20260810-144741`
+  - c4a1e→c4a1f `.ai/logs/dolphin-probe-20260810-144835`
+  - c4a1f→c4a3 `.ai/logs/dolphin-probe-20260810-144926`
+  - **c4a3→c5a1** `.ai/logs/dolphin-probe-20260810-145021`
+- **G340**: denser Flipper-present skip (G335) extended through c4a/c5a
+  (unblocked c4a2a→c4a2b MAP_READY; prior hang after probe gameplay)
+
+**Prior same day**: Apprehension→…→Lambda→Xen start; G339 dest ServerFrame skip.
 
 **NEXT**:
-- Prove Xen c4a1→… through Interloper / Nihilanth / Endgame
 - Tighten G36 frame budget / restore fuller entity spawn when MEM allows
+- Optional: c5a1 endgame / outro markers (no further changelevel hop)
 
 Rules:
 - Force-relink after HLSDK archive changes.

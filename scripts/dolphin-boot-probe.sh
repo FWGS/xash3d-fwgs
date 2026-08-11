@@ -190,17 +190,19 @@ if [[ -z "${DOLPHIN_LANDMARK:-}" && -n "$DOLPHIN_CHANGELEVEL" ]]; then
 		c3a2b:c3a2c) DOLPHIN_LANDMARK="c3a2_bc" ;;
 		c3a2c:c3a2d) DOLPHIN_LANDMARK="c3a2_cd" ;;
 		c3a2d:c4a1) DOLPHIN_LANDMARK="c3a2_c4a1" ;;
-		c3a1:c3a1a) DOLPHIN_LANDMARK="a1a1a" ;;
-		c3a1a:c3a1b) DOLPHIN_LANDMARK="a1a2" ;;
-		c3a2:c3a2a) DOLPHIN_LANDMARK="c3a2f" ;;
-		c3a2a:c3a2b) DOLPHIN_LANDMARK="c3a2_ab" ;;
-		c3a2b:c3a2c) DOLPHIN_LANDMARK="c3a2_bc" ;;
-		c3a2c:c3a2d) DOLPHIN_LANDMARK="c3a2_cd" ;;
 		c3a2c:c3a2f) DOLPHIN_LANDMARK="c3a2_cf" ;;
 		c3a2:c3a2e) DOLPHIN_LANDMARK="c3a2e" ;;
-		c3a2d:c4a1) DOLPHIN_LANDMARK="c3a2_c4a1" ;;
 		c4a1:c4a2) DOLPHIN_LANDMARK="c4a2" ;;
 		c4a2:c4a2a) DOLPHIN_LANDMARK="c4a2_0a" ;;
+		c4a2a:c4a2b) DOLPHIN_LANDMARK="c4a2_ab" ;;
+		c4a2b:c4a1a) DOLPHIN_LANDMARK="c4a1a" ;;
+		c4a1a:c4a1b) DOLPHIN_LANDMARK="c4a1b" ;;
+		c4a1b:c4a1c) DOLPHIN_LANDMARK="c4a1c" ;;
+		c4a1c:c4a1d) DOLPHIN_LANDMARK="c4a1d" ;;
+		c4a1d:c4a1e) DOLPHIN_LANDMARK="c4a1e" ;;
+		c4a1e:c4a1f) DOLPHIN_LANDMARK="c4a1f" ;;
+		c4a1f:c4a3) DOLPHIN_LANDMARK="c4a3" ;;
+		c4a3:c5a1) DOLPHIN_LANDMARK="c4a3toc5a1" ;;
 	esac
 fi
 GUEST_MARKER="Xash3D GameCube: bootstrap"

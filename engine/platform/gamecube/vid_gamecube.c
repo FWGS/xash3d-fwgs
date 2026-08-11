@@ -10853,6 +10853,9 @@ qboolean GC_PrepareNewGameWorldPresent( void )
 	 * soon as G36 evidence is scored, before the next Host_Frame can run SCR.
 	 * Fall back to lean green fills if the world path is not ready yet. */
 	{
+	/* G340: denser Flipper-present skip through Xen/Nihilanth (c4a/c5a).
+	 * c4a2a→c4a2b 20260810-143648 hung in post-present ServerFrame after
+	 * "probe gameplay move/look begin" — G336/G338 already covered c4a/c5a. */
 	const qboolean denser_am_early = Sys_CheckParm( "-gcnewgame" )
 		&& ( !Q_stricmp( sv.name, "c1a0d" )
 			|| !Q_stricmp( sv.name, "c1a0a" )
@@ -10864,7 +10867,9 @@ qboolean GC_PrepareNewGameWorldPresent( void )
 			|| !Q_strnicmp( sv.name, "c1a3", 4 )
 			|| !Q_strnicmp( sv.name, "c1a4", 4 )
 			|| !Q_strnicmp( sv.name, "c2a", 3 )
-			|| !Q_strnicmp( sv.name, "c3a", 3 ));
+			|| !Q_strnicmp( sv.name, "c3a", 3 )
+			|| !Q_strnicmp( sv.name, "c4a", 3 )
+			|| !Q_strnicmp( sv.name, "c5a", 3 ));
 
 	if( Sys_CheckParm( "-gcfullphysics" ))
 	{
@@ -10961,7 +10966,9 @@ qboolean GC_PrepareNewGameWorldPresent( void )
 			|| !Q_strnicmp( sv.name, "c1a3", 4 )
 			|| !Q_strnicmp( sv.name, "c1a4", 4 )
 			|| !Q_strnicmp( sv.name, "c2a", 3 )
-			|| !Q_strnicmp( sv.name, "c3a", 3 ));
+			|| !Q_strnicmp( sv.name, "c3a", 3 )
+			|| !Q_strnicmp( sv.name, "c4a", 3 )
+			|| !Q_strnicmp( sv.name, "c5a", 3 ));
 
 		/* One Flipper present arms lean player physics inside PresentBuffer.
 		 * Run ServerFrame primes HERE before more world frames — Render(4)

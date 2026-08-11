@@ -4553,5 +4553,10 @@ manual hardware validation with all artifacts generated and documented.
 - **G338**: skip `GC_PresentLandmarkViewModel` soft-dump path on denser
   Blast Pit+ maps — hung in `PresentBuffer`/`R_EndFrame` before `MAP_READY`
   despite G68+G100 (probe 20260810-053503).
-- Next: Power Up hops from `c2a1` (`c2a1→c2a2` landmark `c2a1-c2a2`).
+- **G339**: skip ServerFrame primes on changelevel dest maps (G278 train hang
+  after G334 stripped path ents; unblocked `c2a5x→c2a5a`).
+- **G340**: extend G335 denser Flipper-present skip through `c4a`/`c5a`
+  (unblocked `c4a2a→c4a2b` 20260810-144050).
+- Campaign `CHANGELEVEL_READY` proven through **Nihilanth** (`c4a3→c5a1`
+  `.ai/logs/dolphin-probe-20260810-145021`). Next: G36 budget / fuller spawn.
 
