@@ -4638,6 +4638,10 @@ manual hardware validation with all artifacts generated and documented.
   skip soft overwrite during EFB hold, G196 wall-aim despite G212 on denser dest.
   CapFaces `drawn=250`, late stills uniq≈53k (lab+hallway).
   (`.ai/logs/dolphin-probe-g362-c1a0d-dumpframes`).
+- **G363**: denser floor/void seams — CapFaceIsLive only claims emit window
+  (192); fill reserve=`fill_n`; denser floors stay LM-owned; CapFaces
+  `drawn=280`, fill 0→11, center floorish 0.8%→12.3%.
+  (`.ai/logs/dolphin-probe-g363-c1a0d-seams`).
 - Next: optional CapFaces begin/end once-per-map; dual-hop DumpFrames;
-  denser CapFaces floor/void seam fill.
+  remaining denser portal/vis seam.
 

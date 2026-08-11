@@ -8,52 +8,28 @@ Match retail visuals without cutting fill/spawn.
 **DONE (2026-08-10/11)**:
 - Campaign `CHANGELEVEL_READY` through Nihilanth (`c4a3→c5a1`)
 - **G341–G355**: tram/AM vis + denser `c1a0d` tip-safe hop
-- **G356**: campaign dual-hop harness `c0a0e→c1a0→c1a0d`
-  - Disc `changelevel2` / `-gcchangelevel2` argv
-  - Deferred hop2 until after `MAP_READY` (nested G95 Prepare hung)
-  - Probe: G68 `c0a0e→c1a0` then `c1a0→c1a0d`; CHANGELEVEL_READY
-  - Evidence: `.ai/logs/dolphin-probe-g356-dual-c1a0d`
-- **G357**: dual-hop CapFaces on final denser dest
-  - Block denser G335 reverse-hop when already on probe changelevel dest
-    (`GC_IsProbeChangelevelDest` → mark `gc_g335_cl_queued`)
-  - Bounded Flipper CapFaces sample after G335 on denser dests
-  - Probe: CHANGELEVEL_READY; no `c1a0d→c1a0` reverse; `G357 CapFaces sample ok
-    map=c1a0d live=75`
-  - Evidence: `.ai/logs/dolphin-probe-g357-dual-c1a0d`
-- **G358**: report CapFaces `drawn=` on dual-hop denser dest
-  - `GC_NoteCapFacesDrawn` / `GC_LastCapFacesDrawn` (framecount>3 suppresses begin/end)
-  - Probe: `G358 CapFaces sample ok map=c1a0d live=75 drawn=280`, CHANGELEVEL_READY
-  - Evidence: `.ai/logs/dolphin-probe-g358-dual-c1a0d`
-- **G359**: restore textured DumpFrames stills (tram source)
-  - Soft latch on non-denser source only; skip denser AM + probe changelevel dests
-  - DumpFrames host: `DisableCopyToVRAM=True`; default video **OpenGL** when dumping
-    (Null TGAs all-black)
-  - Probe: NEWGAME_READY `c0a0e`; G191 soft dump; stills `framedump_31–33` uniq≈218
-  - Evidence: `.ai/logs/dolphin-probe-g359-dumpframes-c0a0e`
-- **G360**: denser dest DumpFrames stills (`c1a0a→c1a0d`)
-  - Flipper EFB path: `DisableCopyToVRAM=False` on changelevel dumps; OpenGL
-  - Post-CapFaces `G360 Flipper EFB dump presents` (hold + re-present)
-  - Probe: CHANGELEVEL_READY; CapFaces `drawn=241/242`; late stills were HUD/grey
-    (not CapFaces world — fixed in G362)
-  - Evidence: `.ai/logs/dolphin-probe-g360-c1a0d-dumpframes`
-- **G361**: raise CapFaces lean live on denser changelevel dests
-  - `GC_WantLiveCapOverlap`: lean live may steal near-eye LM-caps (EDGE/TEX);
-    CapFaces skips those caps on emit; room-scale denser OR probes
-  - Probe `c1a0a→c1a0d`: Capture live **75→248**; CapFaces sample `drawn=214`;
-    Flipper lean `drawn=128` (was 47); CHANGELEVEL_READY; ents=113
+- **G356–G358**: dual-hop harness + CapFaces sample/`drawn=` on denser dest
+- **G359–G360**: DumpFrames tram soft latch + denser Flipper EFB path
+- **G361**: denser live steal LM-caps → Capture live **75→248**
   - Evidence: `.ai/logs/dolphin-probe-g361-c1a0d-live`
 - **G362**: denser DumpFrames show CapFaces world (not HUD/sky)
-  - Always CapFaces-render before dump Present (no soft RGB565 overwrite)
-  - Skip soft present while EFB dump-hold armed
-  - G196 wall-aim on denser dest despite G212 lock (no tram-start eye)
-  - Probe: CHANGELEVEL_READY; CapFaces `live=248 drawn=250`; late stills
-    uniq≈53k (lab+hallway); samples `.ai/screenshots/g362-dumpframes/`
+  - Wall-aim despite G212; always CapFaces before dump Present
+  - Probe: CapFaces `drawn=250`; late stills uniq≈53k
   - Evidence: `.ai/logs/dolphin-probe-g362-c1a0d-dumpframes`
+- **G363**: denser CapFaces floor/void seam reduction
+  - `GC_CapFaceIsLive` / `LiveFaceEmitsGeom` only claim live emit window (192)
+  - Fill reserve = actual `fill_n` (was starving ~48 LM slots)
+  - Denser floors/ceilings stay LM-cap owned (no live overflow dead zone)
+  - Floor LiveViewScore half-boost under overlap
+  - Probe: CapFaces `drawn=280` (full budget); fill **0→11**; center
+    floorish **0.8%→12.3%**; uniq_center **15k→25k**; CHANGELEVEL_READY
+  - Evidence: `.ai/logs/dolphin-probe-g363-c1a0d-seams`
+  - Stills: `.ai/screenshots/g363-dumpframes/`
 
 **NEXT**:
 - Optional: CapFaces begin/end once-per-map (not only drawn stash)
 - Optional: dual-hop DumpFrames (I/O-heavy; tip-safe single hop proven)
-- Optional: close denser CapFaces floor/void seams (fill/vis)
+- Optional: remaining denser vertical portal/vis seam (center slice)
 
 Rules:
 - Force-relink after HLSDK archive changes.

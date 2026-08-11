@@ -1705,7 +1705,14 @@ static int GC_LiveViewScore( const gc_live_cand_t *c )
 	if( is_wall )
 		score += ( c->area >> 1 );
 	else if( fabs( c->plane.normal[2] ) > 0.7f )
-		score += ( c->area >> 2 ); /* floors still get a little */
+	{
+		/* G363: denser changelevel floors were ranked into live[192..] dead
+		 * zone (void seams). Match wall half-boost under live/cap overlap. */
+		if( GC_WantLiveCapOverlap() )
+			score += ( c->area >> 1 );
+		else
+			score += ( c->area >> 2 ); /* floors still get a little */
+	}
 	/* Prefer real EDGE/TEX geometry over eye-centered plane quads. */
 	if( c->bake_src == GC_CAP_BAKE_EDGE )
 		score += 80000;
@@ -3138,10 +3145,16 @@ static void GC_CaptureLiveFacesFromSurfbits( model_t *wmodel, const byte *surfbi
 		if( area <= 0 )
 			continue;
 		/* G361: denser changelevel dests may steal near-eye LM-caps into lean
-		 * live (EDGE/TEX); CapFaces skips those caps on emit. */
-		if( !GC_WantLiveCapOverlap()
-			&& GC_CapFaceAlready( src->firstedge, src->numedges ))
-			continue; /* complementary to LM-cap (PVS leftovers) */
+		 * live (EDGE/TEX); CapFaces skips those caps on emit.
+		 * G363: do not steal floors/ceilings — they ranked into live[192..] and
+		 * became void seams; walls keep the EDGE/TEX steal. */
+		if( GC_CapFaceAlready( src->firstedge, src->numedges ))
+		{
+			if( !GC_WantLiveCapOverlap() )
+				continue; /* complementary to LM-cap (PVS leftovers) */
+			if( src->plane && fabs( src->plane->normal[2] ) > 0.55f )
+				continue; /* denser floors/ceilings stay LM-cap owned */
+		}
 		if( GC_LiveFaceAlready( src->firstedge, src->numedges ))
 			continue;
 		is_wall = ( fabs( src->plane->normal[2] ) < 0.55f ); /* G234: match LiveViewScore */
@@ -4507,6 +4520,7 @@ static void GC_MaybeRestreamRideMapFaces( const float *eye )
 	static int nlog;
 	float dx, dy, dz;
 	int cluster, slot, i;
+	int portal_neigh = -1;
 	model_t *wm;
 	const byte *bits;
 	vec3_t ahead;
@@ -4532,10 +4546,13 @@ static void GC_MaybeRestreamRideMapFaces( const float *eye )
 	if( !wm )
 		return;
 
-	/* Walk look-ahead along −X until cluster changes (c0a0 cl 117 is large). */
+	/* Walk look-ahead until cluster changes.
+	 * Tram: −X (c0a0 cl 117 is large). G364 denser dest: dump forward —
+	 * G281 −X ranked the wrong room and left a vis-portal seam. */
 	VectorCopy( eye, ahead );
 	cluster = GC_SelectClusterForOrigin( eye );
 	{
+		const qboolean denser_portal = GC_WantLiveCapOverlap();
 		const float looks[4] = { 384.0f, 768.0f, 1152.0f, 1536.0f };
 		int base = cluster;
 
@@ -4543,12 +4560,26 @@ static void GC_MaybeRestreamRideMapFaces( const float *eye )
 		{
 			int c;
 
-			ahead[0] = eye[0] - looks[i];
-			ahead[1] = eye[1];
-			ahead[2] = eye[2];
+			if( denser_portal && !VectorIsNull( gc_newgame_capture_forward ))
+			{
+				const float *f = gc_newgame_capture_forward;
+				const float d = looks[i] * 0.5f; /* 192/384/576/768 — room scale */
+
+				ahead[0] = eye[0] + f[0] * d;
+				ahead[1] = eye[1] + f[1] * d;
+				ahead[2] = eye[2] + f[2] * d;
+			}
+			else
+			{
+				ahead[0] = eye[0] - looks[i];
+				ahead[1] = eye[1];
+				ahead[2] = eye[2];
+			}
 			c = GC_SelectClusterForOrigin( ahead );
 			if( c >= 0 && ( base < 0 || c != base ))
 			{
+				if( denser_portal )
+					portal_neigh = c;
 				cluster = c;
 				break;
 			}
@@ -4602,11 +4633,43 @@ static void GC_MaybeRestreamRideMapFaces( const float *eye )
 	if( slot < 0 )
 		return;
 
-	/* Rank faces toward look-ahead (tunnel reading), not cabin origin. */
-	VectorCopy( ahead, gc_newgame_capture_origin );
-	gc_newgame_capture_forward[0] = -1.0f;
-	gc_newgame_capture_forward[1] = 0.0f;
-	gc_newgame_capture_forward[2] = 0.0f;
+	/* G364: denser vis-portal — OR neighbor-cluster surfbits into the active
+	 * row so CapFaces cover both sides of a lab|hallway seam. */
+	if( portal_neigh >= 0 && portal_neigh != cluster
+		&& gc_newgame_surf_cache && gc_newgame_surfbytes > 0
+		&& gc_newgame_surfbytes <= 1024 && gc_newgame_visbytes > 0
+		&& gc_newgame_visbytes <= 512 )
+	{
+		byte vis[512], tbuf[1024];
+		int li, b;
+		byte *row = gc_newgame_surf_cache
+			+ (size_t)slot * (size_t)gc_newgame_surfbytes;
+
+		for( li = 1; li < wm->numleafs; li++ )
+		{
+			if( wm->leafs[li].cluster != portal_neigh || !wm->leafs[li].compressed_vis )
+				continue;
+			GC_DecompressPVS( vis, wm->leafs[li].compressed_vis,
+				(size_t)gc_newgame_visbytes );
+			GC_BuildSurfbitsForVisRow( wm, vis, tbuf );
+			for( b = 0; b < gc_newgame_surfbytes; b++ )
+				row[b] |= tbuf[b];
+			GC_BuildRefreshCandsFromSurfbits( wm, row, slot );
+			break;
+		}
+	}
+
+	/* Rank faces toward look-ahead (tunnel reading), not cabin origin.
+	 * G364 denser: keep dump-eye origin/forward — tram −X smashed wall-aim. */
+	if( GC_WantLiveCapOverlap() )
+		VectorCopy( eye, gc_newgame_capture_origin );
+	else
+	{
+		VectorCopy( ahead, gc_newgame_capture_origin );
+		gc_newgame_capture_forward[0] = -1.0f;
+		gc_newgame_capture_forward[1] = 0.0f;
+		gc_newgame_capture_forward[2] = 0.0f;
+	}
 	if( cluster != gc_newgame_viewcluster
 		&& GC_LookupSurfbitsCacheSlot( cluster ) >= 0 )
 		(void)GC_SetActiveNewGameCluster( cluster, false );
@@ -4615,15 +4678,16 @@ static void GC_MaybeRestreamRideMapFaces( const float *eye )
 	 * Host_Frame under MEM1 during present. */
 	gc_refresh_loaded_slot = -1;
 	GC_RefreshCapFacesFromCands( slot );
-	bits = GC_LookupSurfbitsCache( gc_newgame_viewcluster );
-	if( !bits )
-		bits = GC_LookupSurfbitsCache( cluster );
+	bits = gc_newgame_surf_cache
+		+ (size_t)slot * (size_t)gc_newgame_surfbytes;
 	if( bits )
 	{
 		/* G283: MarkLeaves stamps ride-cluster surfbits onto live msurface_t. */
 		gc_newgame_surfbits = bits;
-		/* Lean only when surfaces are unpinned (dangling scratch without retain). */
-		if( !Mod_GCWorldSurfacesPinned( wm ))
+		/* Lean only when surfaces are unpinned (dangling scratch without retain).
+		 * G364: denser scratch-retain still appends portal-OR leftovers. */
+		if( !Mod_GCWorldSurfacesPinned( wm )
+			|| ( GC_WantLiveCapOverlap() && Mod_GCWorldSurfacesScratchRetained( wm )))
 			GC_CaptureLiveFacesFromSurfbits( wm, bits, true );
 	}
 
@@ -4640,6 +4704,9 @@ static void GC_MaybeRestreamRideMapFaces( const float *eye )
 			Mod_GCWorldSurfacesScratchRetained( wm ) ? " pin" :
 			( Mod_GCWorldSurfacesPinned( wm ) ? " mpin" : "" ),
 			forced ? " force" : "" );
+		if( portal_neigh >= 0 )
+			Con_Reportf( "Xash3D GameCube: G364 denser portal OR cl=%d neigh=%d n=%d L=%d\n",
+				cluster, portal_neigh, gc_newgame_cap_face_count, gc_live_face_count );
 		nlog++;
 		/* Arm DumpFrames EFB hold after restream so late ride frames encode. */
 		if( nlog == 2 || nlog == 5 )
@@ -10339,7 +10406,8 @@ qboolean GC_RenderNewGameWorldPassNoFrame( qboolean draw_viewmodel )
 	/* G279: locked tram stream follows the parented ride eye (not the fixed
 	 * trainstop dump pose). G233 pinned DumpEyeAtTramStart and left the
 	 * camera stranded as *12 rolled away — exterior tram-in-tunnel shots. */
-	if( gc_g212_stream_locked && Sys_CheckParm( "-gcnewgame" ))
+	if( gc_g212_stream_locked && Sys_CheckParm( "-gcnewgame" )
+		&& !GC_WantLiveCapOverlap() )
 	{
 		(void)GC_NewGameRideEye( center, rvp.viewangles );
 		GC_MaybeRestreamRideMapFaces( center );
@@ -10454,8 +10522,10 @@ qboolean GC_RenderNewGameWorldFrames( int count )
 			}
 		}
 	}
-	/* G279: follow parented ride eye under stream lock (was fixed DumpEye). */
-	if( gc_g212_stream_locked && Sys_CheckParm( "-gcnewgame" ))
+	/* G279: follow parented ride eye under stream lock (was fixed DumpEye).
+	 * G364: denser dest skips tram −X restream; dump wall-aim restreams after. */
+	if( gc_g212_stream_locked && Sys_CheckParm( "-gcnewgame" )
+		&& !GC_WantLiveCapOverlap() )
 	{
 		(void)GC_NewGameRideEye( center, rvp.viewangles );
 		GC_MaybeRestreamRideMapFaces( center );
@@ -10558,6 +10628,13 @@ qboolean GC_RenderNewGameWorldFrames( int count )
 				GC_FlushPendingCapFaceRefresh();
 				GC_MergeRefreshCandsIntoLiveFaces();
 				gc_g212_stream_locked = true;
+			}
+			/* G364: restream LM-cap/live toward dump eye + portal neighbor.
+			 * Early G281 −X restream is skipped on denser dests. */
+			if( GC_WantLiveCapOverlap() )
+			{
+				GC_ForceLeanRideRestream();
+				GC_MaybeRestreamRideMapFaces( center );
 			}
 		}
 		else
