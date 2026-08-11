@@ -298,10 +298,10 @@ DumpFramesAsImages = True
 PNGCompressionLevel = 1
 [Hacks]
 XFBToTextureEnable = False
-# G347: Flipper EFB DumpFrames need CopyToVRAM. DisableCopyToVRAM=True was for
-# soft-latch YUYV decode but produced all-black framedumps on the live GX path
-# (probe 20260810-204052). EFB dump with CopyToVRAM gave 250 textured tram frames.
-DisableCopyToVRAM = False
+# G359: soft-latch DumpFrames need DisableCopyToVRAM=True (local Dolphin XFB
+# RAM re-decode, G192). False was tried for Flipper EFB (G347) but Null+soft
+# latch dumps went all-black (probe 20260811-024012).
+DisableCopyToVRAM = True
 SkipDuplicateXFBs = False
 ImmediateXFBEnable = False
 EOF
@@ -438,7 +438,7 @@ else
 	fi
 	if [[ "${DOLPHIN_DUMP_FRAMES:-0}" == "1" ]]; then
 		BUILD_ARGS+=(--probe-dumpframes)
-		echo "==> Soft DumpFrames probe (dumpframes → -gcdumpframes)"
+		echo "==> DumpFrames probe (dumpframes → -gcdumpframes; Flipper EFB on changelevel)"
 	fi
 	if ! python3 scripts/build-gamecube-disc.py "${BUILD_ARGS[@]}"; then
 		echo "FAIL: Disc build failed."
@@ -475,11 +475,20 @@ if [[ -n "$DOLPHIN_CHANGELEVEL" ]]; then
 		fi
 		# Wait for the final hop (campaign dual-hop).
 		G68_DONE_MARKER="Xash3D GameCube: G68 changelevel ready from=${DOLPHIN_CHANGELEVEL} to=${DOLPHIN_CHANGELEVEL2}"
-		FRAME_SAMPLE_SEC="${DOLPHIN_FRAME_SAMPLE_SEC:-12}"
+		# G359: DumpFrames needs extra post-MAP_READY window for EFB stills.
+		if [[ "${DOLPHIN_DUMP_FRAMES:-0}" == "1" ]]; then
+			FRAME_SAMPLE_SEC="${DOLPHIN_FRAME_SAMPLE_SEC:-20}"
+		else
+			FRAME_SAMPLE_SEC="${DOLPHIN_FRAME_SAMPLE_SEC:-12}"
+		fi
 		echo "==> Waiting for G356 dual-hop G68 ${DOLPHIN_CHANGELEVEL}→${DOLPHIN_CHANGELEVEL2}"
 	else
 		G68_DONE_MARKER="Xash3D GameCube: G68 changelevel ready from=${SMOKE_MAP} to=${DOLPHIN_CHANGELEVEL}"
-		FRAME_SAMPLE_SEC="${DOLPHIN_FRAME_SAMPLE_SEC:-8}"
+		if [[ "${DOLPHIN_DUMP_FRAMES:-0}" == "1" ]]; then
+			FRAME_SAMPLE_SEC="${DOLPHIN_FRAME_SAMPLE_SEC:-16}"
+		else
+			FRAME_SAMPLE_SEC="${DOLPHIN_FRAME_SAMPLE_SEC:-8}"
+		fi
 		echo "==> Waiting for G68 changelevel ready ${SMOKE_MAP}→${DOLPHIN_CHANGELEVEL}"
 	fi
 	if [[ "${DOLPHIN_G95:-0}" == "1" ]]; then
@@ -685,6 +694,12 @@ if [[ "$DOLPHIN_RETAIL" == "1" ]]; then
 		DOLPHIN_BATCH_MODE=0
 		TIMEOUT_SEC="${DOLPHIN_TIMEOUT:-120}"
 	fi
+fi
+# G359: Null DumpFrames TGAs are all-black after soft latch (20260811-024012/225).
+# OpenGL samples G191 soft EFB stills (framedump uniq≈218 on c0a0e).
+if (( DUMP_FRAMES )) && [[ -z "${DOLPHIN_VIDEO:-}" ]]; then
+	DOLPHIN_VIDEO_BACKEND=OpenGL
+	echo "==> G359 DumpFrames video backend OpenGL (Null stills were black)"
 fi
 DOLPHIN_MODE_ARGS=()
 if (( DOLPHIN_BATCH_MODE )); then

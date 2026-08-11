@@ -24,9 +24,15 @@ Match retail visuals without cutting fill/spawn.
   - `GC_NoteCapFacesDrawn` / `GC_LastCapFacesDrawn` (framecount>3 suppresses begin/end)
   - Probe: `G358 CapFaces sample ok map=c1a0d live=75 drawn=280`, CHANGELEVEL_READY
   - Evidence: `.ai/logs/dolphin-probe-g358-dual-c1a0d`
+- **G359**: restore textured DumpFrames stills (tram source)
+  - Soft latch on non-denser source only; skip denser AM + probe changelevel dests
+  - DumpFrames host: `DisableCopyToVRAM=True`; default video **OpenGL** when dumping
+    (Null TGAs all-black)
+  - Probe: NEWGAME_READY `c0a0e`; G191 soft dump; stills `framedump_31–33` uniq≈218
+  - Evidence: `.ai/logs/dolphin-probe-g359-dumpframes-c0a0e`
 
 **NEXT**:
-- Restore textured DumpFrames for stills
+- DumpFrames stills on denser changelevel dest (`c1a0d`) without soft-latch hang
 - Optional: raise CapFaces live pool on `c1a0d` (Capture n=75 vs budget 192)
 - Optional: CapFaces begin/end once-per-map (not only drawn stash)
 

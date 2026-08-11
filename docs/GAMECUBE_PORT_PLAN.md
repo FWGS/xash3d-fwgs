@@ -4622,5 +4622,9 @@ manual hardware validation with all artifacts generated and documented.
 - **G358**: stash CapFaces drawn via `GC_NoteCapFacesDrawn` so denser dual-hop
   sample reports `drawn=` — `G358 CapFaces sample ok map=c1a0d live=75 drawn=280`.
   (`.ai/logs/dolphin-probe-g358-dual-c1a0d`).
-- Next: textured DumpFrames stills; optional live pool raise on `c1a0d`.
+- **G359**: textured DumpFrames stills on tram source — G191 soft latch (not on
+  denser/dest), DumpFrames via OpenGL (`DisableCopyToVRAM=True`); Null dumps
+  were all-black. Stills uniq≈218 (`framedump_31–33`).
+  (`.ai/logs/dolphin-probe-g359-dumpframes-c0a0e`).
+- Next: denser-dest DumpFrames; optional live pool raise on `c1a0d`.
 

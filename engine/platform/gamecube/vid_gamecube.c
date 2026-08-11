@@ -10755,6 +10755,26 @@ void GC_PresentLandmarkViewModel( void )
 #endif
 }
 
+static qboolean GC_IsDenserAmMapName( const char *name )
+{
+	if( !name || !name[0] )
+		return false;
+	/* Match denser_am_early Prepare skip set (G335/G340). */
+	return ( !Q_stricmp( name, "c1a0d" )
+		|| !Q_stricmp( name, "c1a0a" )
+		|| !Q_stricmp( name, "c1a0b" )
+		|| !Q_stricmp( name, "c1a0c" )
+		|| !Q_stricmp( name, "c1a0e" )
+		|| !Q_strnicmp( name, "c1a1", 4 )
+		|| !Q_strnicmp( name, "c1a2", 4 )
+		|| !Q_strnicmp( name, "c1a3", 4 )
+		|| !Q_strnicmp( name, "c1a4", 4 )
+		|| !Q_strnicmp( name, "c2a", 3 )
+		|| !Q_strnicmp( name, "c3a", 3 )
+		|| !Q_strnicmp( name, "c4a", 3 )
+		|| !Q_strnicmp( name, "c5a", 3 ) );
+}
+
 static qboolean GC_WantSoftDumpLatch( void )
 {
 	/* Soft DumpFrames latch is Dolphin diagnostic only. Retail / native
@@ -10767,8 +10787,14 @@ static qboolean GC_WantSoftDumpLatch( void )
 		return false;
 	if( !GC_IsCaptureDiagnostics() )
 		return false;
-	return ( Sys_CheckParm( "-gcdumpframes" ) || Sys_CheckParm( "-gcdump" ))
-		? true : false;
+	if( !( Sys_CheckParm( "-gcdumpframes" ) || Sys_CheckParm( "-gcdump" )))
+		return false;
+	/* G359: G347 textured stills need G191 soft latch on the source map.
+	 * Skip on denser AM (G335/G338 hang) and on probe changelevel dests
+	 * (post-hop Soft latch hung G509). Source tram still gets DumpFrames. */
+	if( GC_IsDenserAmMapName( sv.name ) || GC_IsProbeChangelevelDest() )
+		return false;
+	return true;
 }
 
 qboolean GC_PrepareNewGameWorldPresent( void )
@@ -11102,15 +11128,28 @@ qboolean GC_PrepareNewGameWorldPresent( void )
 			else
 				GC_ProbeMaybeQueueChangelevel2();
 		}
-		/* G357/G358: denser G335 skips Flipper CapFaces; G105 often takes G159
-		 * (Flipper already live from prior hop). One bounded Flipper sample
-		 * restores CapFaces; report live+drawn (begin/end gated by framecount).
-		 * Cold denser NEWGAME is not a probe dest — G335 skip remains. */
+		/* G357/G358/G359: denser G335 skips Flipper CapFaces; G105 often takes
+		 * G159 (Flipper already live). One bounded Flipper sample restores
+		 * CapFaces; with -gcdumpframes hold EFB + present so DumpFrames stills
+		 * latch textured CapFaces (soft latch stays off on changelevel). */
 		if( GC_IsProbeChangelevelDest() )
 		{
 			if( GC_RenderNewGameWorldFrames( 1 ))
+			{
 				Con_Reportf( "Xash3D GameCube: G358 CapFaces sample ok map=%s live=%d drawn=%d\n",
 					sv.name, GC_GetLiveFaceCount(), GC_LastCapFacesDrawn() );
+				if( Sys_CheckParm( "-gcdumpframes" ) || Sys_CheckParm( "-gcdump" ))
+				{
+					extern void R_GXHoldEfbForDump( int frames );
+					int dump_i;
+
+					R_GXHoldEfbForDump( 8 );
+					for( dump_i = 0; dump_i < 4; dump_i++ )
+						GC_PresentBuffer();
+					Con_Reportf( "Xash3D GameCube: G359 Flipper EFB dump presents map=%s\n",
+						sv.name );
+				}
+			}
 			else
 				Con_Reportf( "Xash3D GameCube: G358 CapFaces sample deferred map=%s\n",
 					sv.name );
