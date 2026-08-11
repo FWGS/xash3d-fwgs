@@ -3349,15 +3349,23 @@ static void GC_CaptureFillFacesFromSurfbits( model_t *wmodel, const byte *surfbi
 	if( !wmodel || !surfbits || !wmodel->surfaces )
 		return;
 	/* G283/G298: under scratch retain keep fill off — heap fill tipped
-	 * Mem_AllocPool (cl_game) after lean BSS bake. Caps + lean BSS only. */
-	if( Mod_GCWorldSurfacesScratchRetained( wmodel ))
+	 * Mem_AllocPool (cl_game) after lean BSS bake. Caps + lean BSS only.
+	 * G348: tram chain (c0a0*) keeps fill — lean-only left blue void (G347). */
+	if( Mod_GCWorldSurfacesScratchRetained( wmodel )
+		&& !( sv.name[0] && !Q_strnicmp( sv.name, "c0a0", 4 )))
 		return;
 	/* Live pool first — fill is optional overflow. */
 	if( !gc_live_faces || gc_live_face_capacity <= 0 )
 		return;
 	if( !gc_fill_faces || gc_fill_face_capacity <= 0 )
 	{
-		if( !GC_AllocFillFacePool( GC_FILL_MAX_FACES ))
+		/* G348: tram scratch-retain uses a leaner fill pool (heap tipped at 160). */
+		int want = GC_FILL_MAX_FACES;
+
+		if( Mod_GCWorldSurfacesScratchRetained( wmodel )
+			&& sv.name[0] && !Q_strnicmp( sv.name, "c0a0", 4 ))
+			want = 64;
+		if( !GC_AllocFillFacePool( want ))
 			return;
 	}
 	max_faces = gc_fill_face_capacity;
@@ -5711,9 +5719,9 @@ static void GC_PresentBuffer( void )
 				g297_cpu_logged = true;
 				SYS_Report( "Xash3D GameCube: G297 Flipper cpu=%.2fms (pre-vsync) frame_budget=%d live=%d fill=%d probe=%d\n",
 					cpu_ms,
-					gc_budget_probe_active ? 48 : 248,
-					gc_budget_probe_active ? 24 : 124,
-					32,
+					gc_budget_probe_active ? 144 : 280,
+					gc_budget_probe_active ? 48 : 192,
+					48,
 					gc_budget_probe_active ? 1 : 0 );
 			}
 		}
@@ -7808,6 +7816,16 @@ qboolean GC_IsG36SampleFaceCap( void )
 	return gc_budget_probe_active
 		&& Sys_CheckParm( "-gcnewgame" )
 		&& sv.name[0] && !Q_stricmp( sv.name, "c0a0" );
+#else
+	return false;
+#endif
+}
+
+/* G348: tram intro chain — dark clear + scratch-retain fill (G341/G344 maps). */
+qboolean GC_IsTramIntroMap( void )
+{
+#if XASH_GAMECUBE
+	return sv.name[0] && !Q_strnicmp( sv.name, "c0a0", 4 );
 #else
 	return false;
 #endif

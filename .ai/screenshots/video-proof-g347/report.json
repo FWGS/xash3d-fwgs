@@ -1,0 +1,68 @@
+{
+  "probe_live": ".ai/logs/dolphin-probe-g347-efbdump",
+  "probe_gates": ".ai/logs/dolphin-probe-20260810-204052",
+  "gates": {
+    "NEWGAME_READY": true,
+    "TAS_STATUS": "PASS",
+    "VISUAL_STATUS": "nonblack",
+    "CapFaces_drawn": 48,
+    "G341_visdata": true,
+    "G343_full_spawn": true,
+    "G278_tram_ride": true,
+    "DumpFrames_EFB": "DisableCopyToVRAM=False"
+  },
+  "framedump_count": 251,
+  "textured_frame_count": 250,
+  "video_live": ".ai/screenshots/video-proof-g347/c0a0-tram-gameplay.mp4",
+  "video_reference": ".ai/screenshots/video-proof-g347/c0a0-tram-reference.mp4",
+  "vs_reference": [
+    {
+      "reference": "stage-04dx-g281-ride-framedump_60.png",
+      "live": "framedump_30.png",
+      "mean_abs_diff": 28.658,
+      "changed_ratio": 0.623479,
+      "verdict": "mismatch",
+      "comparison": ".ai/screenshots/video-proof-g347/comparisons/vs-stage-04dx-g281-ride-framedump_60.png"
+    },
+    {
+      "reference": "stage-04dx-g281-ride-framedump_100.png",
+      "live": "framedump_30.png",
+      "mean_abs_diff": 29.699,
+      "changed_ratio": 0.660742,
+      "verdict": "mismatch",
+      "comparison": ".ai/screenshots/video-proof-g347/comparisons/vs-stage-04dx-g281-ride-framedump_100.png"
+    },
+    {
+      "reference": "stage-04dx-g281-ride-framedump_150.png",
+      "live": "framedump_107.png",
+      "mean_abs_diff": 31.209,
+      "changed_ratio": 0.696301,
+      "verdict": "mismatch",
+      "comparison": ".ai/screenshots/video-proof-g347/comparisons/vs-stage-04dx-g281-ride-framedump_150.png"
+    },
+    {
+      "reference": "stage-04dx-g281-ride-mid.png",
+      "live": "framedump_30.png",
+      "mean_abs_diff": 26.112,
+      "changed_ratio": 0.573707,
+      "verdict": "mismatch",
+      "comparison": ".ai/screenshots/video-proof-g347/comparisons/vs-stage-04dx-g281-ride-mid.png"
+    },
+    {
+      "reference": "stage-04eb-g282-live-framedump_60.png",
+      "live": "framedump_30.png",
+      "mean_abs_diff": 38.735,
+      "changed_ratio": 0.82737,
+      "verdict": "mismatch",
+      "comparison": ".ai/screenshots/video-proof-g347/comparisons/vs-stage-04eb-g282-live-framedump_60.png"
+    },
+    {
+      "reference": "stage-04-world-present.png",
+      "live": "framedump_2.png",
+      "mean_abs_diff": 40.294,
+      "changed_ratio": 0.983381,
+      "verdict": "mismatch",
+      "comparison": ".ai/screenshots/video-proof-g347/comparisons/vs-stage-04-world-present.png"
+    }
+  ]
+}

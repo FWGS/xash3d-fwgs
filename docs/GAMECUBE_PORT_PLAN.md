@@ -4583,5 +4583,10 @@ manual hardware validation with all artifacts generated and documented.
 - **G346**: raise bootstrap pk3 BSP size cap 2→4 MiB — `c1a0.bsp` (~2.5 MiB)
   was FST-only and Host_Error'd when directory find flapped to pk3-only
   (`.ai/logs/dolphin-probe-20260810-200046` PASS after fix).
-- Next: carefully raise G334 on early AM if MEM allows; dig directory-find flap.
+- **G347**: video proof of `c0a0` tram gameplay vs demo-stage reference —
+  DumpFrames EFB (`DisableCopyToVRAM=False`), TAS+NEWGAME_READY, CapFaces
+  drawn=48, G278 tram. Artifacts:
+  `.ai/screenshots/video-proof-g347/c0a0-tram-reference-vs-live.mp4`.
+- Next: carefully raise G334 on early AM if MEM allows; dig directory-find flap;
+  improve Flipper fill vs blue void.
 

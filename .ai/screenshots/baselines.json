@@ -24,6 +24,18 @@
         "Tracks world-rendering progress relative to the stored demo-stage reference.",
         "Useful for regression detection even when an exact retail PC pose is unavailable."
       ]
+    },
+    {
+      "id": "tram_ride_c0a0",
+      "label": "c0a0 tram ride gameplay (video proof)",
+      "reference": ".ai/screenshots/demo-stages/stage-04dx-g281-ride-framedump_60.png",
+      "candidate": ".ai/screenshots/video-proof-g347/c0a0-live-mid.png",
+      "comparison": ".ai/screenshots/video-proof-g347/comparisons/reference-vs-live-tram.png",
+      "notes": [
+        "Structural match: monorail track, hazard-stripe tunnel segment, industrial concrete.",
+        "Exact pixel match not required (clear-color / EFB dump path differ).",
+        "Videos: c0a0-tram-reference.mp4, c0a0-tram-gameplay.mp4, c0a0-tram-reference-vs-live.mp4"
+      ]
     }
   ]
 }

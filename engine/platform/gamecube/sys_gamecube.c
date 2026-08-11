@@ -575,6 +575,7 @@ static qboolean gc_leanpvs_configured;
 static qboolean gc_fullphysics_configured;
 static qboolean gc_worldrender_configured;
 static qboolean gc_tas_configured;
+static qboolean gc_dumpframes_configured;
 
 static void GCube_LoadDiscBootOverrides( void )
 {
@@ -594,6 +595,7 @@ static void GCube_LoadDiscBootOverrides( void )
 	gc_fullphysics_configured = false;
 	gc_worldrender_configured = false;
 	gc_tas_configured = false;
+	gc_dumpframes_configured = false;
 	gc_phase_test[0] = '\0';
 	gc_changelevel_map[0] = '\0';
 	gc_landmark_name[0] = '\0';
@@ -749,6 +751,18 @@ static void GCube_LoadDiscBootOverrides( void )
 				SYS_Report( "Xash3D GameCube: disc boot override tas %s\n", gc_tas_name );
 			}
 			continue;
+		}
+
+		/* G347: soft DumpFrames latch for Dolphin PNG evidence. */
+		if( !Q_strnicmp( cursor, "dumpframes", 10 ))
+		{
+			char ch = cursor[10];
+			if( ch == '\0' || ch == '\r' || ch == '\n' || ch == ' ' || ch == '\t' )
+			{
+				gc_dumpframes_configured = true;
+				SYS_Report( "Xash3D GameCube: disc boot override dumpframes\n" );
+				continue;
+			}
 		}
 
 		if( !Q_strnicmp( cursor, "changelevel", 11 ) && ( cursor[11] == ' ' || cursor[11] == '\t' ))
@@ -914,6 +928,8 @@ int GCube_GetArgv( int in_argc, char **in_argv, char ***out_argv )
 		gc_argv[fake_argc++] = "-gctas";
 		gc_argv[fake_argc++] = gc_tas_name;
 	}
+	if( gc_dumpframes_configured )
+		gc_argv[fake_argc++] = "-gcdumpframes";
 	gc_argv[fake_argc++] = "-width";
 	/* Tip-safe soft/internal FB. Flipper EFB/XFB stay native 640×480 via VI. */
 	gc_argv[fake_argc++] = "320";

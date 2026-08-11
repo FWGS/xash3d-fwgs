@@ -288,8 +288,11 @@ DumpFramesAsImages = True
 PNGCompressionLevel = 1
 [Hacks]
 XFBToTextureEnable = False
-DisableCopyToVRAM = True
-SkipDuplicateXFBs = True
+# G347: Flipper EFB DumpFrames need CopyToVRAM. DisableCopyToVRAM=True was for
+# soft-latch YUYV decode but produced all-black framedumps on the live GX path
+# (probe 20260810-204052). EFB dump with CopyToVRAM gave 250 textured tram frames.
+DisableCopyToVRAM = False
+SkipDuplicateXFBs = False
 ImmediateXFBEnable = False
 EOF
 fi
@@ -414,6 +417,10 @@ else
 	if [[ -n "$DOLPHIN_TAS" ]]; then
 		BUILD_ARGS+=(--probe-tas "$DOLPHIN_TAS")
 		echo "==> TAS replay probe (tas ${DOLPHIN_TAS})"
+	fi
+	if [[ "${DOLPHIN_DUMP_FRAMES:-0}" == "1" ]]; then
+		BUILD_ARGS+=(--probe-dumpframes)
+		echo "==> Soft DumpFrames probe (dumpframes → -gcdumpframes)"
 	fi
 	if ! python3 scripts/build-gamecube-disc.py "${BUILD_ARGS[@]}"; then
 		echo "FAIL: Disc build failed."

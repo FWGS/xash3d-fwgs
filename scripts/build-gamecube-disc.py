@@ -1389,6 +1389,7 @@ def write_smoke_overrides(
 	leanpvs: bool = False,
 	fullphysics: bool = False,
 	tas: str | None = None,
+	dumpframes: bool = False,
 ) -> None:
 	(output / "valve.rc").write_text("stuffcmds\n", encoding="ascii")
 	(output / "config.cfg").write_text("\n", encoding="ascii")
@@ -1413,6 +1414,8 @@ def write_smoke_overrides(
 		lines.append("fullphysics")
 	if tas:
 		lines.append(f"tas {tas}")
+	if dumpframes:
+		lines.append("dumpframes")
 	if changelevel and landmark:
 		lines.append(f"changelevel {Path(changelevel).stem} {landmark}")
 	elif changelevel:
@@ -1436,6 +1439,7 @@ def write_probe_newgame_override(
 	leanpvs: bool = False,
 	fullphysics: bool = False,
 	tas: str | None = None,
+	dumpframes: bool = False,
 ) -> None:
 	lines = []
 	# G68/G100: bake map so -gcmap+newgame early changelevel path can plant inventory.
@@ -1454,6 +1458,8 @@ def write_probe_newgame_override(
 		lines.append("fullphysics")
 	if tas:
 		lines.append(f"tas {tas}")
+	if dumpframes:
+		lines.append("dumpframes")
 	if changelevel and landmark:
 		lines.append(f"changelevel {Path(changelevel).stem} {landmark}")
 	elif changelevel:
@@ -1779,6 +1785,7 @@ def stage_smoke_data(
 	leanpvs: bool = False,
 	fullphysics: bool = False,
 	tas: str | None = None,
+	dumpframes: bool = False,
 ) -> Path:
 	map_name = smoke_map if smoke_map.endswith(".bsp") else f"{smoke_map}.bsp"
 	map_relative = f"maps/{map_name}"
@@ -1818,6 +1825,7 @@ def stage_smoke_data(
 		leanpvs=leanpvs,
 		fullphysics=fullphysics,
 		tas=tas,
+		dumpframes=dumpframes,
 	)
 	if tas:
 		stage_probe_tas(output, tas)
@@ -2203,6 +2211,11 @@ def main() -> None:
 		help="stage valve/tas/<NAME>.tas and gamecube.cfg tas <NAME> for pad TAS replay probes",
 	)
 	parser.add_argument(
+		"--probe-dumpframes",
+		action="store_true",
+		help="stage gamecube.cfg dumpframes (-gcdumpframes) for soft DumpFrames PNG evidence",
+	)
+	parser.add_argument(
 		"--skip-startup-vids",
 		action="store_true",
 		help="overlay an empty media/StartupVids.txt for faster retail menu boot validation",
@@ -2284,6 +2297,7 @@ def main() -> None:
 				leanpvs=args.probe_leanpvs,
 				fullphysics=args.probe_fullphysics,
 				tas=args.probe_tas,
+				dumpframes=args.probe_dumpframes,
 			)
 			validation_errors = validate_smoke_assets(smoke_data, args.smoke_map)
 			if validation_errors:
@@ -2356,6 +2370,7 @@ def main() -> None:
 					leanpvs=args.probe_leanpvs,
 					fullphysics=args.probe_fullphysics,
 					tas=args.probe_tas,
+					dumpframes=args.probe_dumpframes,
 				)
 				if args.probe_tas:
 					stage_probe_tas(staged_data, args.probe_tas, scripts_root=script_dir)

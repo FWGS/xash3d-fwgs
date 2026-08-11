@@ -16,6 +16,8 @@ G186: skip tiny / far-small Flipper faces before ST/LM emit (fill lean).
 G297: tighter face budgets + skip EFX/decals during G36 sample window.
 G298: lean live+fill after Capture under G283 scratch retain (baked verts).
 G302: raise Flipper live emit 80→112 — lean pool holds ~124, work ~1ms.
+G348: raise Flipper emit + tram fill under scratch retain; dark tunnel clear
+  (G347 DumpFrames still blue-void at live=248/drawn=48 sample cap).
 G187: HUD holes punch near-black ink (crosshair sheet non-255 dark texels).
 G201: guFrustum projection for GX_PERSPECTIVE (Xash GL proj was invisible).
 G202: Flipper diffuse REPLACE (no LM crush on eye-centered quads).
@@ -158,22 +160,24 @@ static qboolean r_gx_tex_band_logged;
 #ifndef GC_GX_FAR_MIN_AREA
 #define GC_GX_FAR_MIN_AREA 4096	/* keep medium walls when far */
 #endif
-/* G280/G282/G297/G302: Flipper per-frame emit. Caps + live PVS pool share FRAME.
- * G297 cut for headroom; unmasked G36 ~1ms so G302 restores live toward pool size. */
+/* G280/G282/G297/G302/G348: Flipper per-frame emit. Caps + live PVS pool share FRAME.
+ * G297 cut for headroom; unmasked G36 ~1ms so G302 restores live toward pool size.
+ * G348: live 124→192 + frame 248→280 — G347 late DumpFrames still void at 124. */
 #ifndef GC_GX_FRAME_FACE_BUDGET
-#define GC_GX_FRAME_FACE_BUDGET 248	/* G306: was 224 — room for live 124 + caps */
+#define GC_GX_FRAME_FACE_BUDGET 280	/* G348: was 248 — live 192 + caps/fill */
 #endif
 #ifndef GC_GX_LIVE_FACE_BUDGET
-#define GC_GX_LIVE_FACE_BUDGET 124	/* G306: was 112 — match lean pool n≈124 */
+#define GC_GX_LIVE_FACE_BUDGET 192	/* G348: was 124 — draw more of lean pool 248 */
 #endif
 /* G36 sample window: c0a0 tram capture draws ~320 LM faces → ~52ms/present
  * (probe 20260809-124458 WEAK). Cap Flipper emit during the armed probe so
- * samples measure tip-safe present cost; full budget resumes after flush. */
+ * samples measure tip-safe present cost; full budget resumes after flush.
+ * G348: 48/24→96/48 — Flipper cpu was ~12.7ms at 48 (G347); retail match. */
 #ifndef GC_GX_G36_SAMPLE_FACE_BUDGET
-#define GC_GX_G36_SAMPLE_FACE_BUDGET 48
+#define GC_GX_G36_SAMPLE_FACE_BUDGET 144	/* G348b: 96+48 leave room for fill after live+caps */
 #endif
 #ifndef GC_GX_G36_SAMPLE_LIVE_BUDGET
-#define GC_GX_G36_SAMPLE_LIVE_BUDGET 24
+#define GC_GX_G36_SAMPLE_LIVE_BUDGET 48
 #endif
 
 static int R_GXFrameFaceBudget( void )
@@ -195,7 +199,7 @@ static int R_GXLiveFaceBudget( void )
 	return GC_GX_LIVE_FACE_BUDGET;
 }
 #ifndef GC_GX_FILL_FACE_BUDGET
-#define GC_GX_FILL_FACE_BUDGET 32	/* G302: was 24 */
+#define GC_GX_FILL_FACE_BUDGET 48	/* G348: was 32 — tram fill plugs after G347 */
 #endif
 static int r_gx_face_skips;
 static int r_gx_face_skip_area;
@@ -1025,9 +1029,14 @@ static void R_GXClearEfbSky( GXRModeObj *rmode )
 	const f32 fb_h = (f32)rmode->efbHeight;
 	/* G221/G285: Flipper outdoor clear (desert sky). Indoor hole fill used to
 	 * force concrete gray whenever GX world was live — outdoor tram looked wrong
-	 * on hardware. Textured backdrop draws when lean sides are resident. */
-	const u32 sky = 0x5A8CD2FFu;
+	 * on hardware. Textured backdrop draws when lean sides are resident.
+	 * G348: tram tunnel (c0a0*) uses dark concrete — sky blue void fought retail. */
+	u32 sky = 0x5A8CD2FFu;
 	GXColor copy_clear;
+	extern qboolean GC_IsTramIntroMap( void );
+
+	if( GC_IsTramIntroMap())
+		sky = 0x2A2E32FFu;
 
 	copy_clear.r = (u8)(( sky >> 24 ) & 0xff );
 	copy_clear.g = (u8)(( sky >> 16 ) & 0xff );
@@ -2437,12 +2446,21 @@ int R_GXDrawNewGameCapFaces( void )
 					fill_fail++;
 			}
 			drawn += fill_drawn;
-			if( !g222_logged && fill_n > 0 )
+			/* G348: sample-window first pass can exhaust FRAME before fill;
+			 * keep logging until a non-zero fill emit is observed. */
+			if( fill_n > 0 )
 			{
-				g222_logged = true;
-				gEngfuncs.Con_Reportf(
-					"Xash3D GameCube: G231 fill=%d/%d after LM\n",
-					fill_drawn, fill_n );
+				static qboolean g231_ok_logged;
+
+				if( !g222_logged || ( fill_drawn > 0 && !g231_ok_logged ))
+				{
+					gEngfuncs.Con_Reportf(
+						"Xash3D GameCube: G231 fill=%d/%d after LM\n",
+						fill_drawn, fill_n );
+					g222_logged = true;
+					if( fill_drawn > 0 )
+						g231_ok_logged = true;
+				}
 				(void)fill_back;
 				(void)fill_fail;
 			}
