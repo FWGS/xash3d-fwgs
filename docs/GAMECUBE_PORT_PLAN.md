@@ -4603,7 +4603,13 @@ manual hardware validation with all artifacts generated and documented.
 - **G352**: cold `c1a0` stays G325 (retain TryMalloc failed @ HWM≈4.7 Mb);
   tram `c0a0e→c1a0` CHANGELEVEL_READY with G334@192; `c1a0a→c1a0b` CapFaces
   281 unchanged. (`.ai/logs/dolphin-probe-g352-tram-c1a0`, `…-g352-c1a0ab`).
-- **G353**: retain `c1a0` vis only on changelevel (`sv.startspot` set) so tram
-  entry gets CapFaces without tipping cold NEWGAME.
-- Next: validate G353; multi-hop to `c1a0d`; DumpFrames stills.
+- **G353**: retain `c1a0` vis only on changelevel (`sv.startspot` set) —
+  tram `c0a0e→c1a0` Capture lean live **n=248** (was skip/live=0); cold
+  NEWGAME `c1a0` still G325. (`.ai/logs/dolphin-probe-g353-tram-c1a0`,
+  `…-g353-cold-c1a0`).
+- **G354**: same for `c1a0d` — tip-safe `c1a0a→c1a0d` CapFaces **1→242**,
+  live=75, HWM≈2.89 Mb. (`.ai/logs/dolphin-probe-g354-c1a0d-vis`).
+- **G355**: G334 128→192 on changelevel `c1a0d` — ents **84→113**, CapFaces
+  242, HWM flat. (`.ai/logs/dolphin-probe-g355-c1a0d`).
+- Next: campaign `c1a0→c1a0d` dual-hop; DumpFrames stills.
 

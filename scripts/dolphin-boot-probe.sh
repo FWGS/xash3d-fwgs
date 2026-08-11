@@ -103,6 +103,7 @@ DOLPHIN_WORLD_RENDER="${DOLPHIN_WORLD_RENDER:-0}"
 GC_FATAL_TEST="${GC_FATAL_TEST:-0}"
 GC_PHASE_TEST="${GC_PHASE_TEST:-}"
 DOLPHIN_CHANGELEVEL="${DOLPHIN_CHANGELEVEL:-}"
+DOLPHIN_CHANGELEVEL2="${DOLPHIN_CHANGELEVEL2:-}"
 DOLPHIN_TAS="${DOLPHIN_TAS:-}"
 # Default landmarks for proven probe hops when unset.
 if [[ -z "${DOLPHIN_LANDMARK:-}" && -n "$DOLPHIN_CHANGELEVEL" ]]; then
@@ -115,6 +116,7 @@ if [[ -z "${DOLPHIN_LANDMARK:-}" && -n "$DOLPHIN_CHANGELEVEL" ]]; then
 		c0a0e:c1a0) DOLPHIN_LANDMARK="c0a0toc1a0" ;;
 		c1a0:c1a0d) DOLPHIN_LANDMARK="c1a0toc1a0d" ;;
 		c1a0d:c1a0a) DOLPHIN_LANDMARK="c1a0dtoa" ;;
+		c1a0a:c1a0d) DOLPHIN_LANDMARK="c1a0dtoa" ;;
 		c1a0a:c1a0b) DOLPHIN_LANDMARK="c1a0atob" ;;
 		c1a0b:c1a0c) DOLPHIN_LANDMARK="c1a0btoc" ;;
 		c1a0b:c1a0e) DOLPHIN_LANDMARK="c1a0btoe" ;;
@@ -204,6 +206,14 @@ if [[ -z "${DOLPHIN_LANDMARK:-}" && -n "$DOLPHIN_CHANGELEVEL" ]]; then
 		c4a1e:c4a1f) DOLPHIN_LANDMARK="c4a1f" ;;
 		c4a1f:c4a3) DOLPHIN_LANDMARK="c4a3" ;;
 		c4a3:c5a1) DOLPHIN_LANDMARK="c4a3toc5a1" ;;
+	esac
+fi
+# G356: default landmark for hop2 when unset.
+if [[ -z "${DOLPHIN_LANDMARK2:-}" && -n "$DOLPHIN_CHANGELEVEL" && -n "$DOLPHIN_CHANGELEVEL2" ]]; then
+	case "${DOLPHIN_CHANGELEVEL}:${DOLPHIN_CHANGELEVEL2}" in
+		c1a0:c1a0d) DOLPHIN_LANDMARK2="c1a0toc1a0d" ;;
+		c1a0d:c1a0a) DOLPHIN_LANDMARK2="c1a0dtoa" ;;
+		c1a0a:c1a0b) DOLPHIN_LANDMARK2="c1a0atob" ;;
 	esac
 fi
 GUEST_MARKER="Xash3D GameCube: bootstrap"
@@ -449,30 +459,42 @@ if [[ -n "$DOLPHIN_CHANGELEVEL" ]]; then
 		GUEST_ARGS+=("-gclandmark" "$DOLPHIN_LANDMARK")
 		echo "==> G100 landmark guest arg (-gclandmark ${DOLPHIN_LANDMARK})"
 	fi
-	G68_DONE_MARKER="Xash3D GameCube: G68 changelevel ready from=${SMOKE_MAP} to=${DOLPHIN_CHANGELEVEL}"
-	FRAME_SAMPLE_SEC="${DOLPHIN_FRAME_SAMPLE_SEC:-8}"
-	echo "==> Waiting for G68 changelevel ready ${SMOKE_MAP}→${DOLPHIN_CHANGELEVEL}"
-	if [[ "${DOLPHIN_G95:-0}" == "1" ]]; then
-		G95_DONE_MARKER="Xash3D GameCube: newgame low-res world present map=${DOLPHIN_CHANGELEVEL}"
+	if [[ -n "$DOLPHIN_CHANGELEVEL2" ]]; then
+		GUEST_ARGS+=("-gcchangelevel2" "$DOLPHIN_CHANGELEVEL2")
+		if [[ -n "${DOLPHIN_LANDMARK2:-}" ]]; then
+			GUEST_ARGS+=("-gclandmark2" "$DOLPHIN_LANDMARK2")
+			echo "==> G356 landmark2 guest arg (-gclandmark2 ${DOLPHIN_LANDMARK2})"
+		fi
+		# Wait for the final hop (campaign dual-hop).
+		G68_DONE_MARKER="Xash3D GameCube: G68 changelevel ready from=${DOLPHIN_CHANGELEVEL} to=${DOLPHIN_CHANGELEVEL2}"
 		FRAME_SAMPLE_SEC="${DOLPHIN_FRAME_SAMPLE_SEC:-12}"
-		echo "==> Waiting for G95 world present on ${DOLPHIN_CHANGELEVEL}"
+		echo "==> Waiting for G356 dual-hop G68 ${DOLPHIN_CHANGELEVEL}→${DOLPHIN_CHANGELEVEL2}"
+	else
+		G68_DONE_MARKER="Xash3D GameCube: G68 changelevel ready from=${SMOKE_MAP} to=${DOLPHIN_CHANGELEVEL}"
+		FRAME_SAMPLE_SEC="${DOLPHIN_FRAME_SAMPLE_SEC:-8}"
+		echo "==> Waiting for G68 changelevel ready ${SMOKE_MAP}→${DOLPHIN_CHANGELEVEL}"
+	fi
+	if [[ "${DOLPHIN_G95:-0}" == "1" ]]; then
+		G95_DONE_MARKER="Xash3D GameCube: newgame low-res world present map=${DOLPHIN_CHANGELEVEL2:-$DOLPHIN_CHANGELEVEL}"
+		FRAME_SAMPLE_SEC="${DOLPHIN_FRAME_SAMPLE_SEC:-12}"
+		echo "==> Waiting for G95 world present on ${DOLPHIN_CHANGELEVEL2:-$DOLPHIN_CHANGELEVEL}"
 	fi
 	if [[ "${DOLPHIN_G96:-0}" == "1" || "${DOLPHIN_G101:-0}" == "1" ]]; then
-		G96_DONE_MARKER="Xash3D GameCube: Capture FatPVS lean map=${DOLPHIN_CHANGELEVEL}"
+		G96_DONE_MARKER="Xash3D GameCube: Capture FatPVS lean map=${DOLPHIN_CHANGELEVEL2:-$DOLPHIN_CHANGELEVEL}"
 		# G101 forces lean-N; do not accept full multi-cluster as success.
 		if [[ "${DOLPHIN_G101:-0}" == "1" ]]; then
 			G96_ALT_MARKER=""
 		else
-			G96_ALT_MARKER="Xash3D GameCube: Capture FatPVS map=${DOLPHIN_CHANGELEVEL}"
+			G96_ALT_MARKER="Xash3D GameCube: Capture FatPVS map=${DOLPHIN_CHANGELEVEL2:-$DOLPHIN_CHANGELEVEL}"
 		fi
 		FRAME_SAMPLE_SEC="${DOLPHIN_FRAME_SAMPLE_SEC:-12}"
-		echo "==> Waiting for G96 lean/full FatPVS capture on ${DOLPHIN_CHANGELEVEL}"
+		echo "==> Waiting for G96 lean/full FatPVS capture on ${DOLPHIN_CHANGELEVEL2:-$DOLPHIN_CHANGELEVEL}"
 	fi
 	if [[ "${DOLPHIN_G101:-0}" == "1" ]]; then
 		G101_DONE_MARKER="Xash3D GameCube: PVS lean follow ready"
 		G101_ALT_MARKER=""
 		FRAME_SAMPLE_SEC="${DOLPHIN_FRAME_SAMPLE_SEC:-12}"
-		echo "==> Waiting for G101 lean-N PVS follow on ${DOLPHIN_CHANGELEVEL}"
+		echo "==> Waiting for G101 lean-N PVS follow on ${DOLPHIN_CHANGELEVEL2:-$DOLPHIN_CHANGELEVEL}"
 	fi
 	if [[ "${DOLPHIN_G97:-0}" == "1" || "${DOLPHIN_G98:-0}" == "1" || "${DOLPHIN_G99:-0}" == "1" || "${DOLPHIN_G100:-0}" == "1" || "${DOLPHIN_G102:-0}" == "1" || "${DOLPHIN_G103:-0}" == "1" || "${DOLPHIN_G104:-0}" == "1" || "${DOLPHIN_G105:-0}" == "1" ]]; then
 		G97_DONE_MARKER="Xash3D GameCube: G97 landmark restore health=77"

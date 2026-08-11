@@ -5685,8 +5685,9 @@ static void SV_LoadFromFile( const char *mapname, char *entities )
 		 * (and late info_player_start). Parse the tail but free the rest.
 		 * G343/G344: tram chain (c0a0*) has MEM/G36 headroom after G341 —
 		 * disable essentials-only there (N = INT_MAX) for full spawn.
-		 * G349/G350: early AM (c1a0, c1a0a/b/c/e) raises 128→192; keep G325
-		 * vis drop. Denser c1a0d stays at 128. */
+		 * G349/G350: early AM (c1a0, c1a0a/b/c/e) raises 128→192.
+		 * G355: denser c1a0d raises 128→192 on changelevel only
+		 * (sv.startspot; tip-safe hop HWM≈2.9 Mb). Cold NEWGAME stays 128. */
 		int gc_tail_essentials_from = 128;
 		{
 			char mapbase[MAX_QPATH];
@@ -5702,6 +5703,8 @@ static void SV_LoadFromFile( const char *mapname, char *entities )
 					|| !Q_stricmp( mapbase, "c1a0c" )
 					|| !Q_stricmp( mapbase, "c1a0e" ))
 					gc_tail_essentials_from = 192; /* G349/G350 */
+				else if( !Q_stricmp( mapbase, "c1a0d" ) && sv.startspot[0] )
+					gc_tail_essentials_from = 192; /* G355 */
 			}
 		}
 #endif

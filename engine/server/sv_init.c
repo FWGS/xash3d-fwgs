@@ -753,7 +753,7 @@ void SV_ActivateServer( int runPhysics )
 		Con_Reportf( S_WARN "Xash3D GameCube: direct-map player unavailable map=%s\n", sv.name );
 	/* Pure Flipper prepare runs from SCR / changelevel re-prepare once the
 	 * map-spawn MEM1 cliff has passed — do not Prepare immediately here. */
-	/* G68: second map after a probe changelevel. */
+	/* G68: second (or third) map after a probe changelevel. */
 	if( Sys_CheckParm( "-gcchangelevel" ))
 	{
 		static char gc_cl_prev[MAX_QPATH];
@@ -763,6 +763,15 @@ void SV_ActivateServer( int runPhysics )
 		if( gc_cl_prev[0] && Sys_GetParmFromCmdLine( "-gcchangelevel", dest )
 			&& !Q_stricmp( dest, sv.name ))
 		{
+			second_map = true;
+			Con_Reportf( "Xash3D GameCube: G68 changelevel ready from=%s to=%s\n",
+				gc_cl_prev, sv.name );
+		}
+		else if( gc_cl_prev[0] && Sys_CheckParm( "-gcchangelevel2" )
+			&& Sys_GetParmFromCmdLine( "-gcchangelevel2", dest )
+			&& !Q_stricmp( dest, sv.name ))
+		{
+			/* G356: hop2 destination. */
 			second_map = true;
 			Con_Reportf( "Xash3D GameCube: G68 changelevel ready from=%s to=%s\n",
 				gc_cl_prev, sv.name );

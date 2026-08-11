@@ -3351,11 +3351,12 @@ static void GC_CaptureFillFacesFromSurfbits( model_t *wmodel, const byte *surfbi
 	/* G283/G298: under scratch retain keep fill off — heap fill tipped
 	 * Mem_AllocPool (cl_game) after lean BSS bake. Caps + lean BSS only.
 	 * G348: tram chain (c0a0*) keeps fill — lean-only left blue void (G347).
-	 * G351–G353: early AM with retained vis; c1a0 only when changelevel
-	 * (startspot) so cold NEWGAME stays lean. c1a0d stays fill-off. */
+	 * G351–G354: early AM with retained vis; denser c1a0/c1a0d only when
+	 * changelevel (startspot) so cold NEWGAME stays lean. */
 	if( Mod_GCWorldSurfacesScratchRetained( wmodel )
 		&& !( sv.name[0] && ( !Q_strnicmp( sv.name, "c0a0", 4 )
 			|| ( !Q_stricmp( sv.name, "c1a0" ) && sv.startspot[0] )
+			|| ( !Q_stricmp( sv.name, "c1a0d" ) && sv.startspot[0] )
 			|| !Q_stricmp( sv.name, "c1a0a" )
 			|| !Q_stricmp( sv.name, "c1a0b" )
 			|| !Q_stricmp( sv.name, "c1a0c" )
@@ -8236,12 +8237,55 @@ void GC_TryDeferredTasChangelevel( void )
 		gc_tas_deferred_cl_dest, sv.name,
 		gc_tas_deferred_cl_landmark[0] ? gc_tas_deferred_cl_landmark : "(none)" );
 	COM_ChangeLevel( gc_tas_deferred_cl_dest,
-		gc_tas_deferred_cl_landmark[0] ? gc_tas_deferred_cl_landmark : NULL,
-		false );
-#else
-	(void)0;
+		gc_tas_deferred_cl_landmark[0] ? gc_tas_deferred_cl_landmark : NULL, false );
 #endif
 }
+
+#if XASH_GAMECUBE
+/* G356: second probe hop after G68 lands on -gcchangelevel dest. */
+static qboolean GC_IsProbeChangelevelDest( void )
+{
+	char dest[MAX_QPATH];
+
+	if( !sv.name[0] )
+		return false;
+	if( Sys_CheckParm( "-gcchangelevel" )
+		&& Sys_GetParmFromCmdLine( "-gcchangelevel", dest )
+		&& dest[0] && !Q_stricmp( sv.name, dest ))
+		return true;
+	if( Sys_CheckParm( "-gcchangelevel2" )
+		&& Sys_GetParmFromCmdLine( "-gcchangelevel2", dest )
+		&& dest[0] && !Q_stricmp( sv.name, dest ))
+		return true;
+	return false;
+}
+
+static void GC_ProbeMaybeQueueChangelevel2( void )
+{
+	static qboolean gc_g356_cl2_queued;
+	char dest1[MAX_QPATH];
+	char dest2[MAX_QPATH];
+	char landmark[MAX_QPATH];
+
+	if( gc_g356_cl2_queued || !Sys_CheckParm( "-gcchangelevel2" ))
+		return;
+	if( !Sys_GetParmFromCmdLine( "-gcchangelevel", dest1 )
+		|| !Sys_GetParmFromCmdLine( "-gcchangelevel2", dest2 )
+		|| !dest1[0] || !dest2[0] )
+		return;
+	if( Q_stricmp( sv.name, dest1 ) || !Q_stricmp( sv.name, dest2 ))
+		return;
+
+	gc_g356_cl2_queued = true;
+	landmark[0] = '\0';
+	Sys_GetParmFromCmdLine( "-gclandmark2", landmark );
+	if( landmark[0] )
+		GC_LeanLandmarkProbePlantAmmo();
+	SYS_Report( "Xash3D GameCube: G356 changelevel2 begin map=%s from=%s landmark=%s\n",
+		dest2, sv.name, landmark[0] ? landmark : "(none)" );
+	COM_ChangeLevel( dest2, landmark[0] ? landmark : NULL, false );
+}
+#endif
 
 /*
 =============
@@ -10882,10 +10926,7 @@ qboolean GC_PrepareNewGameWorldPresent( void )
 	 * stripped path_corner/track targets (c2a5x→c2a5a 20260810-122456 stuck
 	 * after "probe gameplay move/look begin", never MAP_READY). Skip primes. */
 	{
-		char gc_cl_dest[MAX_QPATH];
-		const qboolean on_cl_dest = Sys_CheckParm( "-gcchangelevel" )
-			&& Sys_GetParmFromCmdLine( "-gcchangelevel", gc_cl_dest )
-			&& gc_cl_dest[0] && !Q_stricmp( sv.name, gc_cl_dest );
+		const qboolean on_cl_dest = GC_IsProbeChangelevelDest();
 
 		if( Sys_CheckParm( "-gcnewgame" ) && !Sys_CheckParm( "-gcfullphysics" )
 			&& !on_cl_dest )
@@ -10950,10 +10991,7 @@ qboolean GC_PrepareNewGameWorldPresent( void )
 		}
 		/* G339: dest-map ServerFrame hangs on G278 ride (see prime skip above). */
 		{
-			char gc_cl_dest[MAX_QPATH];
-			const qboolean on_cl_dest = Sys_CheckParm( "-gcchangelevel" )
-				&& Sys_GetParmFromCmdLine( "-gcchangelevel", gc_cl_dest )
-				&& gc_cl_dest[0] && !Q_stricmp( sv.name, gc_cl_dest );
+			const qboolean on_cl_dest = GC_IsProbeChangelevelDest();
 
 			if( !on_cl_dest )
 			{
@@ -11003,6 +11041,8 @@ qboolean GC_PrepareNewGameWorldPresent( void )
 					COM_ChangeLevel( dest, landmark[0] ? landmark : NULL, false );
 				}
 			}
+			else
+				GC_ProbeMaybeQueueChangelevel2();
 		}
 	}
 	else if( !GC_RenderNewGameWorldFrames( 1 ))
@@ -11554,6 +11594,7 @@ qboolean GC_PrepareNewGameWorldPresent( void )
 					SYS_Report( "Xash3D GameCube: G68 changelevel ready from=%s to=%s\n",
 						gc_cl_from[0] ? gc_cl_from : "?", sv.name );
 				}
+				GC_ProbeMaybeQueueChangelevel2();
 			}
 		}
 		else if( Sys_CheckParm( "-gcnewgame" ) && !Sys_CheckParm( "-gcchangelevel" ))
