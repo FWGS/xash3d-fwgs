@@ -8109,15 +8109,29 @@ qboolean GC_IsFrameBudgetProbeActive( void )
 }
 
 /*
- * Tram G36 samples only: reduce Flipper face emit while the budget probe is
- * armed. Reactor maps stay at full (cheap) budget so beam/EFX paths are unchanged.
+ * Tram/denser G36 samples only: reduce Flipper face emit while the budget
+ * probe is armed. Reactor maps stay at full (cheap) budget so beam/EFX paths
+ * are unchanged.
+ * G374: tip-safe denser (c1a0d / early AM changelevel) also sample-cap —
+ * without this, denser CapFaces kept retail 192/280 during G36 and avg≈61ms.
  */
 qboolean GC_IsG36SampleFaceCap( void )
 {
 #if XASH_GAMECUBE
-	return gc_budget_probe_active
-		&& Sys_CheckParm( "-gcnewgame" )
-		&& sv.name[0] && !Q_stricmp( sv.name, "c0a0" );
+	if( !gc_budget_probe_active || !Sys_CheckParm( "-gcnewgame" ) || !sv.name[0] )
+		return false;
+	if( !Q_stricmp( sv.name, "c0a0" ))
+		return true;
+	/* G374: denser tip-safe hop samples (changelevel dest). */
+	if( sv.startspot[0]
+		&& ( !Q_stricmp( sv.name, "c1a0d" )
+			|| !Q_stricmp( sv.name, "c1a0" )
+			|| !Q_stricmp( sv.name, "c1a0a" )
+			|| !Q_stricmp( sv.name, "c1a0b" )
+			|| !Q_stricmp( sv.name, "c1a0c" )
+			|| !Q_stricmp( sv.name, "c1a0e" )))
+		return true;
+	return false;
 #else
 	return false;
 #endif
@@ -8249,12 +8263,12 @@ static void GC_TryDeferredStudios( void )
 	/* G297: MDL promote mid-G36 sample window spikes present hitch. */
 	if( GC_IsFrameBudgetProbeActive() )
 		return;
-	/* Lean: present=1 only (G105). present=2/4 stalled Prepare; present=20
-	 * retried after SCR sustain and hung the present path
-	 * (probe 20260807-163705). */
+	/* Lean: present=1 for view/crowbar (G105). present=32/40 for NPC meshes
+	 * (G371) after CapFaces/presents coalesce freelist. */
 	if( Sys_CheckParm( "-gcnewgame" ) && !Sys_CheckParm( "-gcfullphysics" ))
 	{
-		if( gc_present_count != 1 )
+		if( gc_present_count != 1 && gc_present_count != 32
+			&& gc_present_count != 40 )
 			return;
 	}
 	else if( gc_present_count != 1 && gc_present_count != 2 && gc_present_count != 4
@@ -11266,15 +11280,35 @@ qboolean GC_PrepareNewGameWorldPresent( void )
 		&& !Sys_CheckParm( "-gcfullphysics" )
 		&& !Sys_CheckParm( "-gcsoftworld" ))
 	{
-		gc_budget_sample_count = 0;
-		/* Drop first presents (studio promote / restream spike). c0a0 sample[2]
-		 * was ~40ms after face-cap (20260809-124711); steady ~12.7ms. */
-		gc_budget_warmup_left = 2;
-		gc_worst_frame_ms = 0.0;
-		gc_last_present_time = 0.0;
-		gc_budget_probe_active = true;
-		SYS_Report( "Xash3D GameCube: frame budget samples armed after map ready (%dx%d probe=1)\n",
-			gc.width > 0 ? gc.width : 320, gc.height > 0 ? gc.height : 240 );
+		qboolean arm_g36 = true;
+		char dest[MAX_QPATH];
+		char dest2[MAX_QPATH];
+
+		/* G374: with an explicit changelevel hop, only sample the final dest.
+		 * Source-map CapFaces spikes (c1a0a ≈92ms) were poisoning harness avg
+		 * alongside denser dest samples. */
+		if( Sys_CheckParm( "-gcchangelevel2" )
+			&& Sys_GetParmFromCmdLine( "-gcchangelevel2", dest2 )
+			&& dest2[0] )
+			arm_g36 = !Q_stricmp( sv.name, dest2 );
+		else if( Sys_CheckParm( "-gcchangelevel" )
+			&& Sys_GetParmFromCmdLine( "-gcchangelevel", dest )
+			&& dest[0] )
+			arm_g36 = !Q_stricmp( sv.name, dest );
+
+		if( arm_g36 )
+		{
+			gc_budget_sample_count = 0;
+			/* Drop first presents (studio promote / restream spike). c0a0 sample[2]
+			 * was ~40ms after face-cap (20260809-124711); steady ~12.7ms.
+			 * G374 denser tip-safe: CapFaces settle needs ~4 presents. */
+			gc_budget_warmup_left = ( sv.name[0] && !Q_stricmp( sv.name, "c1a0d" )) ? 4 : 2;
+			gc_worst_frame_ms = 0.0;
+			gc_last_present_time = 0.0;
+			gc_budget_probe_active = true;
+			SYS_Report( "Xash3D GameCube: frame budget samples armed after map ready (%dx%d probe=1)\n",
+				gc.width > 0 ? gc.width : 320, gc.height > 0 ? gc.height : 240 );
+		}
 	}
 	/* G509: changelevel without -gcnewgame still needs the same arm before
 	 * the present pump (trailing Host_ServerFrame can hang on audiomm). */

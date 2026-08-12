@@ -32,12 +32,13 @@ poolhandle_t      com_studiocache;		// cache for submodels
 #include "gamecube/mem_gamecube.h"
 void FS_ClearFindMissCache( void );
 qboolean GC_IsNewGameWorldReady( void );
+unsigned GC_GetNewGamePresentCount( void );
 
 /* New Game only: a few real MDLs (NPCs/viewweapons) instead of empty stubs.
  * Mesh-only (no studio texel upload) — skins bind white under quality 0. */
 #define GC_REAL_STUDIO_MAX_NPC    4
 #define GC_REAL_STUDIO_MAX_VIEW   3
-#define GC_REAL_STUDIO_MAX_BYTES  (400 * 1024)
+#define GC_REAL_STUDIO_MAX_BYTES  (640 * 1024) /* G371: view + scientist + barney */
 
 static int    gc_real_studio_npc;
 static int    gc_real_studio_view;
@@ -451,6 +452,44 @@ qboolean Mod_GCEnsureLandmarkViewModel( const char *model_path )
 
 /*
 =============
+Mod_GCRebindPromotedStudios
+
+G371: after deferred NPC promote, point sv.models[] slots at the resident
+mesh. SV_SetModel during spawn often left NULL/stub handles, so EmitBrush
+saw studio_seen=0 despite real studio loaded.
+=============
+*/
+void Mod_GCRebindPromotedStudios( void )
+{
+	int i;
+	int rebound = 0;
+
+	if( !SV_Active() )
+		return;
+	for( i = 1; i < MAX_MODELS && sv.model_precache[i][0]; i++ )
+	{
+		const char *name = sv.model_precache[i];
+		model_t *mod;
+		qboolean is_view = false;
+
+		if( !name || Q_strnicmp( name, "models/", 7 ) || !Q_stristr( name, ".mdl" ))
+			continue;
+		if( !Mod_GCStudioNameAllowed( name, &is_view ))
+			continue;
+		mod = Mod_FindName( name, false );
+		if( !Mod_GCStudioAlreadyResident( mod ))
+			continue;
+		if( sv.models[i] == mod )
+			continue;
+		sv.models[i] = mod;
+		rebound++;
+	}
+	if( rebound > 0 )
+		Con_Reportf( "Xash3D GameCube: G371 rebound promoted studios slots=%d\n", rebound );
+}
+
+/*
+=============
 Mod_GCTryDeferredStudios
 
 Attempt to load deferred studios after map prep when memory is available.
@@ -468,15 +507,23 @@ void Mod_GCTryDeferredStudios( void )
 		"models/zombie.mdl",
 		NULL
 	};
-	/* Lean: handgun only after crowbar. Skip missing viewguns + NPC zip
-	 * promotes that OOM/stall the post-present Render pump. */
+	/* Lean: handgun + crowbar at present=1. NPCs at later presents (G371)
+	 * once Flipper MEM has coalesced — scientist/barney SetModel alone left
+	 * stubs (studio_seen=0). */
 	static const char *promote_lean[] = {
 		"models/v_9mmhandgun.mdl",
 		"models/w_crowbar.mdl",
 		NULL
 	};
+	static const char *promote_lean_npc[] = {
+		"models/scientist.mdl",
+		"models/barney.mdl",
+		"models/headcrab.mdl",
+		NULL
+	};
 	const char **promote;
 	int i;
+	unsigned presents;
 
 	if( !Sys_CheckParm( "-gcnewgame" ) && !GC_IsNewGameWorldReady() )
 		return;
@@ -499,6 +546,21 @@ void Mod_GCTryDeferredStudios( void )
 			Con_Reportf( S_WARN "Xash3D GameCube: G105 landmark viewmodel unavailable\n" );
 	}
 
+	presents = GC_GetNewGamePresentCount();
+	if( Sys_CheckParm( "-gcnewgame" ) && !Sys_CheckParm( "-gcfullphysics" )
+		&& presents >= 24 )
+	{
+		/* G371: post-present NPC meshes — denser AM scientists/barneys. */
+		promote = promote_lean_npc;
+		for( i = 0; promote[i]; i++ )
+			Mod_GCPromoteStudioPath( promote[i] );
+		Con_Reportf( "Xash3D GameCube: G371 deferred NPC studios try npc=%d view=%d budget=%s presents=%u\n",
+			gc_real_studio_npc, gc_real_studio_view, Q_memprint( gc_real_studio_bytes ),
+			presents );
+		Mod_GCRebindPromotedStudios();
+		return;
+	}
+
 	promote = ( Sys_CheckParm( "-gcnewgame" ) && !Sys_CheckParm( "-gcfullphysics" ))
 		? promote_lean : promote_full;
 	for( i = 0; promote[i]; i++ )
@@ -506,6 +568,7 @@ void Mod_GCTryDeferredStudios( void )
 
 	Con_Reportf( "Xash3D GameCube: deferred studios try npc=%d view=%d budget=%s\n",
 		gc_real_studio_npc, gc_real_studio_view, Q_memprint( gc_real_studio_bytes ));
+	Mod_GCRebindPromotedStudios();
 }
 
 /*

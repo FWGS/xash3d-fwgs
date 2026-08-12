@@ -63,10 +63,34 @@ Match retail visuals without cutting fill/spawn.
     (console room + hallway around bulkhead)
   - Evidence: `.ai/logs/dolphin-probe-g370-tram-dumpframes`
   - Stills: `.ai/screenshots/g370-dumpframes/`
+- **G371**: lean NPC studios on denser AM
+  - Promote scientist/barney/headcrab at present≥24; studio budget 400→640 KiB
+  - Rebind `sv.models[]` after promote; EmitBrush admits NPC meshes
+  - Disc smoke/gc_studio stage scientist+barney+roach
+  - Tip-safe `c1a0a→c1a0d`: CHANGELEVEL_READY; real studio loaded ×3 NPC;
+    EmitBrush `studios=3 studio_seen=3`; Flipper draw `scientist.mdl gx_tris=740`
+  - Evidence: `.ai/logs/dolphin-probe-g371-npc-studios`
+- **G372**: denser tip-safe `c1a0d` full G334 spawn (disable essentials-only)
+  - `G343 G334 disabled (full spawn) map=c1a0d`; inhibited **55→45**;
+    EmitBrush ents **154→164**; HWM flat ≈2.90 Mb; G371 studios still draw
+  - Evidence: `.ai/logs/dolphin-probe-g372-c1a0d-fullspawn`
+- **G373**: denser tip-safe lean admit — scripted **12→20**, scientists **4→6**
+  - inhibited **45→40**; ents **164→169**; G321 admit n=16; HWM≈2.90 Mb
+  - Evidence: `.ai/logs/dolphin-probe-g373-c1a0d-admit`
+- **G374**: denser G36 sample hygiene
+  - Extend `GC_IsG36SampleFaceCap` to tip-safe AM dests (CapFaces sample
+    drawn **249→89**, then retail 250)
+  - Arm G36 only on final `-gcchangelevel` dest (not source c1a0a)
+  - Denser warmup **2→4** presents
+  - Tip-safe: G36 avg **≈61ms→38ms** (still WEAK vs 16.67; steady sample
+    frames ≈8–37ms); CHANGELEVEL_READY; studios still draw
+  - Evidence: `.ai/logs/dolphin-probe-g374-g36-denser`
 
 **NEXT**:
+- Real denser CapFaces cost after sample flush (~33ms retail) — biggest FPS gap
+- Optional: more denser admit (scripted 31 total; sitting scientists still blocked)
 - Optional: dump yaw / eye pick where denser dump stills show edge cyan/sky seams
-- Optional: tighten G36 frame budget / restore fuller entity spawn when MEM allows
+- Optional: G506 HUD sheets (missing=1)
 
 Rules:
 - Force-relink after HLSDK archive changes.

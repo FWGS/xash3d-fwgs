@@ -4669,5 +4669,19 @@ manual hardware validation with all artifacts generated and documented.
   CapFaces drawn=280; late stills uniq≈52k center_void≈0.6% (console+hallway).
   (`.ai/logs/dolphin-probe-g370-tram-dumpframes`,
   `.ai/screenshots/g370-dumpframes/`).
-- Next: optional dump-eye FOV on cyan/sky edge seams; G36 budget / fuller spawn.
+- **G371**: denser lean NPC studios — promote scientist/barney/headcrab after
+  present≥24 (budget 640 KiB); rebind `sv.models[]`; EmitBrush NPC admit;
+  stage MDLs on disc. Tip-safe `c1a0a→c1a0d`: EmitBrush `studios=3`,
+  Flipper `scientist.mdl gx_tris=740`, CHANGELEVEL_READY.
+  (`.ai/logs/dolphin-probe-g371-npc-studios`).
+- **G372**: denser tip-safe `c1a0d` disables G334 essentials-only (full spawn) —
+  inhibited 55→45, ents 154→164, HWM≈2.90 Mb, studios still draw.
+  (`.ai/logs/dolphin-probe-g372-c1a0d-fullspawn`).
+- **G373**: denser tip-safe lean admit caps — scripted 12→20, scientists 4→6;
+  inhibited 45→40, ents 164→169, HWM≈2.90 Mb.
+  (`.ai/logs/dolphin-probe-g373-c1a0d-admit`).
+- **G374**: denser G36 sample face-cap + dest-only arm + denser warmup 4 —
+  sample CapFaces drawn 89 (retail 250 after flush); tip-safe G36 avg
+  ≈61→38ms (still WEAK). (`.ai/logs/dolphin-probe-g374-g36-denser`).
+- Next: denser retail CapFaces CPU (~33ms steady); optional admit/dump/G506.
 

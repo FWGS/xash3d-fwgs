@@ -478,6 +478,10 @@ SMOKE_PRECACHE_MODELS = (
 	"models/v_crowbar.mdl",
 	"models/headcrab.mdl",
 	"models/zombie.mdl",
+	# G371: denser AM static NPCs (scientist/barney) for Flipper studio emit.
+	"models/scientist.mdl",
+	"models/barney.mdl",
+	"models/roach.mdl",
 	"models/v_egon.mdl",
 	"models/v_gauss.mdl",
 	"models/v_grenade.mdl",
@@ -907,9 +911,11 @@ GC_STUDIO_MODELS = (
 	"models/w_crowbar.mdl",
 	# Small world NPC — gman (~76KB) OOMs libc malloc after crowbars on GC.
 	"models/roach.mdl",
-	# G315: deferred GX entity pass promotes these compact NPC meshes.
+	# G315/G371: deferred GX entity pass promotes these NPC meshes.
 	"models/headcrab.mdl",
 	"models/zombie.mdl",
+	"models/scientist.mdl",
+	"models/barney.mdl",
 )
 
 # Direct-load HUD sheets for lean New Game Redraw (ISO9660 sprites/ lookups

@@ -5274,14 +5274,20 @@ static qboolean SV_GCMapShouldInhibitClass( const char *classname )
 		}
 		/* c1a0 has 47 scripted_sequence entities; uncapped private blocks
 		 * exhaust MEM1 before later Barneys/scientists spawn (probe
-		 * 20260809-231912: malloc failed size=816 monster_barney). */
+		 * 20260809-231912: malloc failed size=816 monster_barney).
+		 * G373: tip-safe denser (c1a0d changelevel) raises 12→20 after G372
+		 * full spawn — HWM stayed ≈2.90 Mb with inhibited 55→45. */
 		if( !Q_stricmp( classname, "scripted_sequence" )
 			|| !Q_stricmp( classname, "aiscripted_sequence" )
 			|| !Q_stricmp( classname, "scripted_sentence" ))
 		{
+			int scripted_cap = 12;
+
 			if( Sys_CheckParm( "-gcfullphysics" ))
 				return false;
-			if( gc_lean_scripted_admit >= 12 )
+			if( sv.startspot[0] && !Q_stricmp( sv.name, "c1a0d" ))
+				scripted_cap = 20; /* G373 */
+			if( gc_lean_scripted_admit >= scripted_cap )
 				return true;
 			gc_lean_scripted_admit++;
 			if( gc_lean_scripted_admit <= 3 || ( gc_lean_scripted_admit & 7 ) == 0 )
@@ -5291,9 +5297,14 @@ static qboolean SV_GCMapShouldInhibitClass( const char *classname )
 		}
 		if( !Q_stricmp( classname, "monster_scientist" ))
 		{
+			int scientist_cap = 4;
+
 			if( Sys_CheckParm( "-gcfullphysics" ))
 				return false;
-			if( gc_lean_scientist_admit >= 4 )
+			/* G373: c1a0d has 6 walking scientists; admit all on tip-safe hop. */
+			if( sv.startspot[0] && !Q_stricmp( sv.name, "c1a0d" ))
+				scientist_cap = 6;
+			if( gc_lean_scientist_admit >= scientist_cap )
 				return true;
 			gc_lean_scientist_admit++;
 			return false;
@@ -5691,7 +5702,10 @@ static void SV_LoadFromFile( const char *mapname, char *entities )
 		 * disable essentials-only there (N = INT_MAX) for full spawn.
 		 * G349/G350: early AM (c1a0, c1a0a/b/c/e) raises 128→192.
 		 * G355: denser c1a0d raises 128→192 on changelevel only
-		 * (sv.startspot; tip-safe hop HWM≈2.9 Mb). Cold NEWGAME stays 128. */
+		 * (sv.startspot; tip-safe hop HWM≈2.9 Mb). Cold NEWGAME stays 128.
+		 * G371: early AM + denser tip-safe raise 192→256.
+		 * G372: denser tip-safe c1a0d full spawn (map≈268 ents; G334@256 only
+		 * cut scripted_sequence/ambient tail — NPCs already <256). */
 		int gc_tail_essentials_from = 128;
 		{
 			char mapbase[MAX_QPATH];
@@ -5701,14 +5715,14 @@ static void SV_LoadFromFile( const char *mapname, char *entities )
 				COM_FileBase( mapname, mapbase, sizeof( mapbase ));
 				if( !Q_strnicmp( mapbase, "c0a0", 4 ))
 					gc_tail_essentials_from = 0x7fffffff; /* G343/G344 full spawn */
+				else if( !Q_stricmp( mapbase, "c1a0d" ) && sv.startspot[0] )
+					gc_tail_essentials_from = 0x7fffffff; /* G372 denser full spawn */
 				else if( !Q_stricmp( mapbase, "c1a0" )
 					|| !Q_stricmp( mapbase, "c1a0a" )
 					|| !Q_stricmp( mapbase, "c1a0b" )
 					|| !Q_stricmp( mapbase, "c1a0c" )
 					|| !Q_stricmp( mapbase, "c1a0e" ))
-					gc_tail_essentials_from = 192; /* G349/G350 */
-				else if( !Q_stricmp( mapbase, "c1a0d" ) && sv.startspot[0] )
-					gc_tail_essentials_from = 192; /* G355 */
+					gc_tail_essentials_from = 256; /* G371: raise 192→256 after G369 */
 			}
 		}
 #endif

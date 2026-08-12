@@ -1327,7 +1327,7 @@ void CL_GameCubeLeanEmitBrushEntities( void )
 {
 	static int log_n;
 	static cl_entity_t lean_brush_ents[6];
-	static cl_entity_t lean_studio_ents[1];
+	static cl_entity_t lean_studio_ents[4]; /* G371: NPC + weapon world studios */
 	edict_t *player;
 	vec3_t view_org;
 	int e, added = 0, studios = 0;
@@ -1336,10 +1336,7 @@ void CL_GameCubeLeanEmitBrushEntities( void )
 	const int budget = (int)( sizeof( lean_brush_ents ) / sizeof( lean_brush_ents[0] ));
 	const int studio_budget = (int)( sizeof( lean_studio_ents ) / sizeof( lean_studio_ents[0] ));
 	const float max_dist = 8000.0f;
-	const float studio_max_dist = 1200.0f;
-	int studio_pick = -1;
-	float studio_pick_dist = studio_max_dist + 1.0f;
-	qboolean studio_pick_pref = false;
+	const float studio_max_dist = 1600.0f; /* G371: denser AM NPC near dump/landmark eye */
 
 	if( !Sys_CheckParm( "-gcnewgame" ) || Sys_CheckParm( "-gcfullphysics" ))
 		return;
@@ -1431,17 +1428,24 @@ void CL_GameCubeLeanEmitBrushEntities( void )
 			added++;
 	}
 
-	/* One already-resident world studio (prefer w_crowbar). No Mod_ForName. */
-	/* After G105 + lean w_crowbar promote (deferred at present=1). */
+	/* Already-resident world studios (w_* weapons + allowlisted NPCs).
+	 * No Mod_ForName — G371 promotes scientist/barney after present≥24. */
 	if( GC_GetNewGamePresentCount() >= 16 && studio_budget > 0 )
 	{
+		int studio_slots = 0;
+		int picks[4];
+		float pick_dists[4];
+		int n_picks = 0;
+		int slot;
+
 		for( e = svs.maxclients + 1; e < svgame.numEntities; e++ )
 		{
 			edict_t *ed = SV_EdictNum( e );
 			model_t *mod;
 			vec3_t delta;
 			float dist;
-			qboolean pref;
+			qboolean allow;
+			int slot;
 
 			if( !SV_IsValidEdict( ed ) || !ed->v.modelindex )
 				continue;
@@ -1451,13 +1455,22 @@ void CL_GameCubeLeanEmitBrushEntities( void )
 			if( !mod || mod->type != mod_studio )
 				continue;
 			scan_studio++;
-			if( mod->needload != NL_PRESENT || !mod->name[0] )
+			if( mod->needload != NL_PRESENT || !mod->name[0] || !mod->cache.data )
 			{
 				scan_studio_skip++;
 				continue;
 			}
-			/* Only world weapon drops (w_*). No v_*, NPCs, or player.mdl. */
-			if( !Q_stristr( mod->name, "w_" ) || Q_stristr( mod->name, "v_" ))
+			/* Weapons + lean NPCs. Skip v_* / player. */
+			allow = false;
+			if( Q_stristr( mod->name, "w_" ) && !Q_stristr( mod->name, "v_" ))
+				allow = true;
+			else if( Q_stristr( mod->name, "scientist" )
+				|| Q_stristr( mod->name, "barney" )
+				|| Q_stristr( mod->name, "headcrab" )
+				|| Q_stristr( mod->name, "zombie" )
+				|| Q_stristr( mod->name, "roach" ))
+				allow = true;
+			if( !allow || Q_stristr( mod->name, "player.mdl" ))
 			{
 				scan_studio_skip++;
 				continue;
@@ -1469,25 +1482,40 @@ void CL_GameCubeLeanEmitBrushEntities( void )
 				scan_studio_skip++;
 				continue;
 			}
-			pref = ( Q_stristr( mod->name, "w_crowbar" ) != NULL );
-			if( studio_pick < 0 || ( pref && !studio_pick_pref )
-				|| ( pref == studio_pick_pref && dist < studio_pick_dist ))
+			/* Insert into nearest-N picks. */
+			if( n_picks < studio_budget )
 			{
-				studio_pick = e;
-				studio_pick_dist = dist;
-				studio_pick_pref = pref;
+				picks[n_picks] = e;
+				pick_dists[n_picks] = dist;
+				n_picks++;
+			}
+			else
+			{
+				int worst = 0;
+				for( slot = 1; slot < n_picks; slot++ )
+				{
+					if( pick_dists[slot] > pick_dists[worst] )
+						worst = slot;
+				}
+				if( dist < pick_dists[worst] )
+				{
+					picks[worst] = e;
+					pick_dists[worst] = dist;
+				}
 			}
 		}
-		if( studio_pick > 0 )
+		for( slot = 0; slot < n_picks && studio_slots < studio_budget; slot++ )
 		{
-			edict_t *ed = SV_EdictNum( studio_pick );
+			edict_t *ed = SV_EdictNum( picks[slot] );
 			model_t *mod = SV_ModelHandle( ed->v.modelindex );
-			cl_entity_t *ent = &lean_studio_ents[0];
+			cl_entity_t *ent = &lean_studio_ents[studio_slots];
 
+			if( !mod )
+				continue;
 			if( ed->v.modelindex > 0 && ed->v.modelindex < MAX_MODELS )
 				cl.models[ed->v.modelindex] = mod;
 			memset( ent, 0, sizeof( *ent ));
-			ent->index = studio_pick;
+			ent->index = picks[slot];
 			ent->model = mod;
 			VectorCopy( ed->v.origin, ent->origin );
 			VectorCopy( ed->v.angles, ent->angles );
@@ -1508,9 +1536,12 @@ void CL_GameCubeLeanEmitBrushEntities( void )
 			VectorCopy( ent->origin, ent->latched.prevorigin );
 			VectorCopy( ent->angles, ent->latched.prevangles );
 			if( ref.dllFuncs.R_AddEntity( ent, ET_NORMAL ))
+			{
 				studios++;
+				studio_slots++;
+			}
 		}
-		else
+		if( studios == 0 )
 		{
 			/* Prefer tiny lean w_crowbar stub — v_crowbar hung Flipper
 			 * (probe 20260807-171034: studios=1 then silence). */
@@ -1578,7 +1609,7 @@ void CL_GameCubeLeanEmitBrushEntities( void )
 		}
 	}
 
-	if( log_n < 4 )
+	if( log_n < 4 || ( studios > 0 && log_n < 8 ))
 	{
 		Con_Reportf( "Xash3D GameCube: lean EmitBrush entities=%d studios=%d ents=%d brush=%d studio_seen=%d skip=%d view=(%.0f,%.0f,%.0f)\n",
 			added, studios, svgame.numEntities, scan_brush, scan_studio, scan_studio_skip,
