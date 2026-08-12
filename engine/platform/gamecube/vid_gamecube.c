@@ -5426,6 +5426,10 @@ static qboolean gc_g193_soft_lock; /* G193: keep soft in XFB — DumpFrames enco
 /* G196: after Flipper resume, force G189/G190 wall-aim for N SCR frames so
  * DumpFrames capture walls (landmark player eye often faces open sky). */
 static int gc_g196_flipper_dump_aim_left;
+/* G376: denser DumpFrames — look at first lean NPC instead of only wall-aim. */
+static qboolean gc_g376_npc_aim_valid;
+static vec3_t gc_g376_npc_origin;
+static vec3_t gc_g376_npc_eye;
 /* G193: dedicated linear soft snap (tiled staging is overwritten by GX swizzle).
  * Heap after clipnodes pin — 150 KiB BSS here starved the 59 KiB pin. */
 static u16 *gc_g193_soft_snap;
@@ -10634,6 +10638,55 @@ qboolean GC_RenderNewGameWorldPassNoFrame( qboolean draw_viewmodel )
  * Bypasses V_RenderView / Host_ServerFrame (both stall on this path) and
  * reuses the same GL_RenderFrame probe used by -gcworldrender / -gcmap.
  */
+static qboolean GC_G376AimDumpAtLeanNpc( void )
+{
+	edict_t *ed;
+	int i;
+	vec3_t to_npc;
+	float len;
+
+	gc_g376_npc_aim_valid = false;
+	if( !svgame.edicts || svgame.numEntities <= 1 )
+		return false;
+
+	for( i = 1; i < svgame.numEntities; i++ )
+	{
+		const char *mod = NULL;
+		int mi;
+
+		ed = SV_EdictNum( i );
+		if( !ed || ed->free )
+			continue;
+		mi = ed->v.modelindex;
+		if( mi > 0 && mi < MAX_MODELS && sv.model_precache[mi][0] )
+			mod = sv.model_precache[mi];
+		if( !mod || !mod[0] )
+			continue;
+		if( !Q_stristr( mod, "scientist" ) && !Q_stristr( mod, "barney" ))
+			continue;
+
+		VectorCopy( ed->v.origin, gc_g376_npc_origin );
+		gc_g376_npc_eye[0] = gc_g376_npc_origin[0] + 96.0f;
+		gc_g376_npc_eye[1] = gc_g376_npc_origin[1];
+		gc_g376_npc_eye[2] = gc_g376_npc_origin[2] + 40.0f;
+		VectorSubtract( gc_g376_npc_origin, gc_g376_npc_eye, to_npc );
+		len = VectorLength( to_npc );
+		if( len < 32.0f )
+		{
+			gc_g376_npc_eye[0] = gc_g376_npc_origin[0];
+			gc_g376_npc_eye[1] = gc_g376_npc_origin[1] + 96.0f;
+			gc_g376_npc_eye[2] = gc_g376_npc_origin[2] + 40.0f;
+		}
+		gc_g376_npc_aim_valid = true;
+		Con_Reportf( "Xash3D GameCube: G376 dump aim NPC %s org=(%.0f,%.0f,%.0f) eye=(%.0f,%.0f,%.0f)\n",
+			mod,
+			gc_g376_npc_origin[0], gc_g376_npc_origin[1], gc_g376_npc_origin[2],
+			gc_g376_npc_eye[0], gc_g376_npc_eye[1], gc_g376_npc_eye[2] );
+		return true;
+	}
+	return false;
+}
+
 qboolean GC_RenderNewGameWorldFrames( int count )
 {
 #if XASH_GAMECUBE
@@ -10713,6 +10766,21 @@ qboolean GC_RenderNewGameWorldFrames( int count )
 				break;
 			}
 		}
+	}
+	/* G376: denser DumpFrames — optional NPC look (disabled while wall-aim
+	 * owns CapFaces fill; enable after restream-to-NPC-eye is wired). */
+	if( 0 && gc_g376_npc_aim_valid )
+	{
+		vec3_t look;
+
+		VectorCopy( gc_g376_npc_eye, center );
+		VectorSubtract( gc_g376_npc_origin, center, look );
+		VectorAngles( look, rvp.viewangles );
+		rvp.viewangles[2] = 0.0f;
+		if( rvp.viewangles[0] > 15.0f )
+			rvp.viewangles[0] = 15.0f;
+		if( rvp.viewangles[0] < -25.0f )
+			rvp.viewangles[0] = -25.0f;
 	}
 	/* G279: follow parented ride eye under stream lock (was fixed DumpEye).
 	 * G364: denser dest skips tram −X restream; dump wall-aim restreams after. */
@@ -11612,16 +11680,57 @@ qboolean GC_PrepareNewGameWorldPresent( void )
 					 * Present-only frames; with efb_ready cleared after CopyDisp
 					 * those fell through to soft RGB565 (grey + HUD sprites) and
 					 * overwrote CapFaces EFB — late stills matched across G360/G361.
-					 * Also arm G196 wall-aim: landmark eye faces sky on denser dests. */
-					GC_EnableGxWorldLive();
-					gc_g196_flipper_dump_aim_left = 16;
-					gc_dump_look_into_map = true;
-					R_GXHoldEfbForDump( 24 );
-					for( dump_i = 0; dump_i < 12; dump_i++ )
+					 * Also arm G196 wall-aim: landmark eye faces sky on denser dests.
+					 * G375: promote NPC studios before hold — dump presents are
+					 * often <24 so G371 deferred gate never ran.
+					 * End G36 sample face-cap first so DumpFrames get retail
+					 * CapFaces (was drawn=96 under sample; retail ≈250). */
+					if( gc_budget_probe_active )
 					{
-						if( !GC_RenderNewGameWorldFrames( 1 ))
-							break;
-						GC_PresentBuffer();
+						unsigned int fi;
+
+						/* Flush any samples collected so DumpFrames probes keep
+						 * G36 evidence (ending probe early previously → samples=0). */
+						for( fi = 0; fi < gc_budget_sample_count; fi++ )
+						{
+							SYS_Report( "Xash3D GameCube: present frame=%u sampled_nonblack=%u frame time=%.2fms\n",
+								fi + 1, gc_budget_sample_nonblack[fi], gc_budget_sample_ms[fi] );
+						}
+						if( gc_budget_sample_count > 0 )
+							SYS_Report( "Xash3D GameCube: budget sample flush count=%u worst=%.2fms\n",
+								gc_budget_sample_count, gc_worst_frame_ms );
+						gc_budget_probe_active = false;
+						gc_newgame_g36_done = true;
+						Con_Reportf( "Xash3D GameCube: G375 end G36 sample before DumpFrames\n" );
+					}
+					Mod_GCPromoteLeanNpcStudios();
+					GC_EnableGxWorldLive();
+					(void)GC_G376AimDumpAtLeanNpc();
+					gc_g196_flipper_dump_aim_left = 16;
+					/* Keep wall-aim CapFaces fill; NPC eye alone left dump stills
+					 * near-empty (uniq≈9). Rest-pose + skins still draw under
+					 * wall-aim when the NPC is in view. */
+					gc_dump_look_into_map = true;
+					/* G376: one CapFaces+studio emit, then Present-only under
+					 * hold. Re-emitting studios each dump frame without an EFB
+					 * clear stacked white tris (smear); clearing every frame
+					 * wiped CapFaces before DumpFrames sampled (sky-only).
+					 * Keep viewmodel off so NPC Flipper evidence is not buried
+					 * under lean white v_9mmhandgun. */
+					{
+						char old_vm[16];
+
+						Q_snprintf( old_vm, sizeof( old_vm ), "%s",
+							Cvar_VariableString( "r_drawviewmodel" ));
+						Cvar_Set( "r_drawviewmodel", "0" );
+						gc_force_draw_viewmodel = false;
+						R_GXHoldEfbForDump( 24 );
+						if( GC_RenderNewGameWorldFrames( 1 ))
+						{
+							for( dump_i = 0; dump_i < 12; dump_i++ )
+								GC_PresentBuffer();
+						}
+						Cvar_Set( "r_drawviewmodel", old_vm );
 					}
 					Con_Reportf( "Xash3D GameCube: G362 Flipper EFB dump presents map=%s drawn=%d\n",
 						sv.name, GC_LastCapFacesDrawn() );

@@ -866,6 +866,30 @@ static void R_StudioSetupBones( cl_entity_t *e )
 
 	f = R_StudioEstimateFrame( e, pseqdesc, g_studio.time );
 
+#if XASH_GAMECUBE
+	/* G376: lean EmitBrush NPCs often carry scripted seq/animtime that pull
+	 * anim values off-range → exploded Flipper meshes. Force group-0 idle
+	 * frame 0 for tip-safe draws so bind-pose geometry is recognizable. */
+	if( gEngfuncs.Sys_CheckParm( "-gcnewgame" )
+		&& !gEngfuncs.Sys_CheckParm( "-gcfullphysics" )
+		&& e && e->model && e->model->name[0]
+		&& ( Q_stristr( e->model->name, "scientist" )
+			|| Q_stristr( e->model->name, "barney" )
+			|| Q_stristr( e->model->name, "headcrab" )
+			|| Q_stristr( e->model->name, "zombie" )))
+	{
+		if( e->curstate.sequence < 0 || e->curstate.sequence >= 41
+			|| pseqdesc->seqgroup != 0 )
+		{
+			e->curstate.sequence = 13;
+			pseqdesc = (mstudioseqdesc_t *)((byte *)m_pStudioHeader + m_pStudioHeader->seqindex )
+				+ e->curstate.sequence;
+		}
+		f = 0.0f;
+		e->latched.sequencetime = 0.0f;
+	}
+#endif
+
 	panim = gEngfuncs.R_StudioGetAnim( m_pStudioHeader, RI.currentmodel, pseqdesc );
 	R_StudioCalcRotations( e, pos, q, pseqdesc, panim, f );
 
@@ -992,6 +1016,52 @@ static void R_StudioSetupBones( cl_entity_t *e )
 			Matrix3x4_ConcatTransforms( g_studio.lighttransform[i], g_studio.lighttransform[pbones[i].parent], bonematrix );
 		}
 	}
+#if XASH_GAMECUBE
+	/* G376: tip-safe lean — rebuild hierarchy from bone rest values (ignore
+	 * anim) so Flipper gets a coherent bind pose. Scripted seq/animtime was
+	 * exploding limbs; bone-collapse to entity matrix crumpled coat into
+	 * giant white planes. */
+	if( gEngfuncs.Sys_CheckParm( "-gcnewgame" )
+		&& !gEngfuncs.Sys_CheckParm( "-gcfullphysics" )
+		&& e && e->model && e->model->name[0]
+		&& ( Q_stristr( e->model->name, "scientist" )
+			|| Q_stristr( e->model->name, "barney" )
+			|| Q_stristr( e->model->name, "headcrab" )
+			|| Q_stristr( e->model->name, "zombie" )))
+	{
+		static qboolean rest_pose_logged;
+		vec3_t rest_pos;
+		vec4_t rest_q;
+
+		for( i = 0; i < m_pStudioHeader->numbones; i++ )
+		{
+			AngleQuaternion( &pbones[i].value[3], rest_q, true );
+			rest_pos[0] = pbones[i].value[0];
+			rest_pos[1] = pbones[i].value[1];
+			rest_pos[2] = pbones[i].value[2];
+			Matrix3x4_FromOriginQuat( bonematrix, rest_q, rest_pos );
+			if( pbones[i].parent == -1 )
+			{
+				Matrix3x4_ConcatTransforms( g_studio.bonestransform[i], g_studio.rotationmatrix, bonematrix );
+				Matrix3x4_Copy( g_studio.lighttransform[i], g_studio.bonestransform[i] );
+			}
+			else
+			{
+				Matrix3x4_ConcatTransforms( g_studio.bonestransform[i],
+					g_studio.bonestransform[pbones[i].parent], bonematrix );
+				Matrix3x4_Copy( g_studio.lighttransform[i], g_studio.bonestransform[i] );
+			}
+		}
+		if( !rest_pose_logged )
+		{
+			rest_pose_logged = true;
+			gEngfuncs.Con_Reportf(
+				"Xash3D GameCube: G376 lean studio rest-pose %s bones=%d org=(%.0f,%.0f,%.0f)\n",
+				e->model->name, m_pStudioHeader->numbones,
+				e->origin[0], e->origin[1], e->origin[2] );
+		}
+	}
+#endif
 }
 
 /*
@@ -1564,6 +1634,9 @@ static void R_StudioSetupSkin( studiohdr_t *ptexturehdr, int index )
 	if( FBitSet( g_nForceFaceFlags, STUDIO_NF_CHROME ))
 	{
 		GL_Bind( XASH_TEXTURE0, tr.whiteTexture );
+#if XASH_GAMECUBE
+		R_GXStudioBindTexnum( (unsigned)tr.whiteTexture );
+#endif
 		return;
 	}
 
@@ -1576,6 +1649,7 @@ static void R_StudioSetupSkin( studiohdr_t *ptexturehdr, int index )
 		|| index < 0 || index >= ptexturehdr->numtextures )
 	{
 		GL_Bind( XASH_TEXTURE0, tr.whiteTexture );
+		R_GXStudioBindTexnum( (unsigned)tr.whiteTexture );
 		return;
 	}
 #endif
@@ -1587,13 +1661,26 @@ static void R_StudioSetupSkin( studiohdr_t *ptexturehdr, int index )
 		ptexture = (mstudiotexture_t *)((byte *)ptexturehdr + ptexturehdr->textureindex );        // fallback
 
 	if( r_lightmap->value && !r_fullbright->value )
+	{
 		GL_Bind( XASH_TEXTURE0, tr.whiteTexture );
 #if XASH_GAMECUBE
+		R_GXStudioBindTexnum( (unsigned)tr.whiteTexture );
+#endif
+	}
+#if XASH_GAMECUBE
 	else if( !ptexture[index].index )
+	{
 		GL_Bind( XASH_TEXTURE0, tr.whiteTexture ); /* New Game mesh-only studios */
+		R_GXStudioBindTexnum( (unsigned)tr.whiteTexture );
+	}
 #endif
 	else
+	{
 		GL_Bind( XASH_TEXTURE0, ptexture[index].index );
+#if XASH_GAMECUBE
+		R_GXStudioBindTexnum( (unsigned)ptexture[index].index );
+#endif
+	}
 }
 
 /*
@@ -1714,6 +1801,8 @@ static void R_StudioDrawNormalMesh( short *ptricmds, vec3_t *pstudionorms, float
 
 		if( !R_GXStudioIsActive() )
 			R_GXStudioForceBegin( false );
+		/* G376: ForceBegin cleared bound_tex — rebind SetupSkin's texture. */
+		R_GXStudioRebindPending();
 
 		while(( i = *( ptricmds++ )))
 		{

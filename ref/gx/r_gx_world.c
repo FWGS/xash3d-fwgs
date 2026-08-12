@@ -229,6 +229,7 @@ static int r_gx_studio_world_tris_acc;
 static int r_gx_studio_vm_tris_acc;
 static u32 r_gx_studio_color = 0xFFFFFFFF;
 static unsigned r_gx_studio_bound_tex;
+static unsigned r_gx_studio_pending_tex; /* G376: SetupSkin before ForceBegin */
 static unsigned r_gx_studio_shade_mask; /* G164: luminance buckets seen this pass */
 static qboolean r_gx_studio_gouraud_logged;
 static qboolean r_gx_studio_zrange_logged; /* G167 */
@@ -1148,7 +1149,10 @@ static void R_GXSetupWorld3DState( void )
 		/* G221: -gcnewgame re-arms hold every Flipper present, so clear is
 		 * almost never reached after load. Soft CopyDisp may have left
 		 * outdoor SetCopyClear in EFB — force one indoor clear when world
-		 * draw first becomes live. */
+		 * draw first becomes live.
+		 * G376: do NOT clear every dump-hold frame (wipes CapFaces before
+		 * Dolphin samples → sky-only stills). Studio smear is avoided by
+		 * rendering CapFaces+studios once, then Present-only under hold. */
 		if( GC_UseGxWorldDraw() && !r_gx_g221_world_clear_done )
 		{
 			R_GXClearEfbSky( rmode );
@@ -2809,12 +2813,14 @@ static void R_GXPrepareStudioState( qboolean viewmodel )
 		GX_SetColorUpdate( GX_TRUE );
 	}
 
-	/* Drop world lightmap stage; studio is TEX0 MODULATE only. */
+	/* Drop world lightmap stage; studio is TEX0 only.
+	 * G376: REPLACE so soft skins are visible even when vertex shade is
+	 * near-white (MODULATE hid bind issues as a solid white mesh). */
 	GX_SetNumTexGens( 1 );
 	GX_SetNumTevStages( 1 );
 	GX_SetTexCoordGen( GX_TEXCOORD0, GX_TG_MTX2x4, GX_TG_TEX0, GX_IDENTITY );
 	GX_SetTevOrder( GX_TEVSTAGE0, GX_TEXCOORD0, GX_TEXMAP0, GX_COLOR0A0 );
-	GX_SetTevOp( GX_TEVSTAGE0, GX_MODULATE );
+	GX_SetTevOp( GX_TEVSTAGE0, GX_REPLACE );
 	GX_SetNumChans( 1 );
 	GX_SetChanCtrl( GX_COLOR0A0, GX_DISABLE, GX_SRC_REG, GX_SRC_VTX,
 		GX_LIGHTNULL, GX_DF_NONE, GX_AF_NONE );
@@ -2997,11 +3003,57 @@ void R_GXStudioEnd( void )
 void R_GXStudioBindTexnum( unsigned texnum )
 {
 	if( !r_gx_studio_active && !r_gx_effects_tri )
+	{
+		/* G376: SetupSkin runs before ForceBegin — remember for rebind. */
+		r_gx_studio_pending_tex = texnum;
 		return;
+	}
 	if( texnum == r_gx_studio_bound_tex && texnum != 0 )
 		return;
 	if( R_GXBindTexnum( texnum, false ))
+	{
+		static qboolean bind_ok_logged;
+
 		r_gx_studio_bound_tex = texnum;
+		r_gx_studio_pending_tex = texnum;
+		if( !bind_ok_logged && texnum != (unsigned)tr.whiteTexture
+			&& texnum != (unsigned)tr.defaultTexture )
+		{
+			image_t *img = R_GetTexture( texnum );
+
+			bind_ok_logged = true;
+			gEngfuncs.Con_Reportf(
+				"Xash3D GameCube: G376 studio GX bind ok tex=%u name=%s %dx%d\n",
+				texnum,
+				( img && img->name[0] ) ? img->name : "?",
+				img ? img->width : 0,
+				img ? img->height : 0 );
+		}
+	}
+	else
+	{
+		static qboolean bind_fail_logged;
+
+		if( !bind_fail_logged )
+		{
+			image_t *img = R_GetTexture( texnum );
+
+			bind_fail_logged = true;
+			gEngfuncs.Con_Reportf(
+				"Xash3D GameCube: G376 studio GX bind fail tex=%u name=%s px=%p %dx%d\n",
+				texnum,
+				( img && img->name[0] ) ? img->name : "?",
+				img ? (void *)img->pixels[0] : NULL,
+				img ? img->width : 0,
+				img ? img->height : 0 );
+		}
+	}
+}
+
+void R_GXStudioRebindPending( void )
+{
+	if( r_gx_studio_pending_tex != 0 )
+		R_GXStudioBindTexnum( r_gx_studio_pending_tex );
 }
 
 void R_GXStudioTexCoord( float u, float v )
@@ -3563,6 +3615,7 @@ int R_GXDrawTramBaked( const float *origin, const float *angles )
 void R_GXStudioBegin( qboolean viewmodel ) { (void)viewmodel; }
 void R_GXStudioForceBegin( qboolean viewmodel ) { (void)viewmodel; }
 void R_GXStudioEnd( void ) {}
+void R_GXStudioRebindPending( void ) {}
 int R_GXStudioEmitLeanMarker( const float origin[3] )
 {
 	(void)origin;

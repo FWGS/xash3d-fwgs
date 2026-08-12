@@ -960,6 +960,30 @@ const char *Mod_StudioTexName( const char *modname )
 	return texname;
 }
 
+#if XASH_GAMECUBE
+/*
+=============
+Mod_GCLoadStudioTexFile
+
+GoldSrc ships skins as models/foxt.mdl (lowercase t). Mod_StudioTexName uses
+T.mdl — try both so lean mesh-only promote can upload Flipper skins (G376).
+=============
+*/
+static void *Mod_GCLoadStudioTexFile( const char *modname, fs_offset_t *size_out )
+{
+	void *buf;
+	string	texname;
+
+	buf = FS_LoadFile( Mod_StudioTexName( modname ), size_out, false );
+	if( buf )
+		return buf;
+	Q_strncpy( texname, modname, sizeof( texname ));
+	COM_StripExtension( texname );
+	Q_strncat( texname, "t.mdl", sizeof( texname ));
+	return FS_LoadFile( texname, size_out, false );
+}
+#endif
+
 /*
 ================
 Mod_StudioBodyVariations
@@ -1243,7 +1267,11 @@ void Mod_LoadStudioModel( model_t *mod, void *buffer, size_t buffersize, qboolea
 		void *buffer2;
 		fs_offset_t size2_len;
 
+#if XASH_GAMECUBE
+		buffer2 = Mod_GCLoadStudioTexFile( mod->name, &size2_len );
+#else
 		buffer2 = FS_LoadFile( Mod_StudioTexName( mod->name ), &size2_len, false );
+#endif
 		thdr = R_StudioLoadHeader( mod, buffer2, size2_len );
 
 		if( thdr != NULL )
@@ -1289,9 +1317,14 @@ void Mod_LoadStudioModel( model_t *mod, void *buffer, size_t buffersize, qboolea
 		{
 			/* Upload soft skins from the file buffer first, then malloc only the
 			 * mesh+texhdr slice — avoids file+full-cache peak (crowbar ~46KB
-			 * failed calloc while the promote buffer was still live). */
+			 * failed calloc while the promote buffer was still live).
+			 * G376: GoldSrc NPCs keep skins in *t.mdl (numtextures=0 on base).
+			 * Merge tex headers + upload Flipper skins like the retail path. */
 			size_t mesh = cache_length;
 			studiohdr_t *src = (studiohdr_t *)buffer;
+			void *tex_buf = NULL;
+			fs_offset_t tex_len = 0;
+			studiohdr_t *thdr = NULL;
 
 			if( src->length > 0 && (size_t)src->length < mesh )
 				mesh = (size_t)src->length;
@@ -1306,6 +1339,53 @@ void Mod_LoadStudioModel( model_t *mod, void *buffer, size_t buffersize, qboolea
 			{
 				ref.dllFuncs.Mod_StudioLoadTextures( mod, src );
 				mesh = (size_t)src->texturedataindex;
+			}
+			else if( !skip_studio_textures && !Host_IsDedicated( )
+				&& src->numtextures == 0 )
+			{
+				tex_buf = Mod_GCLoadStudioTexFile( mod->name, &tex_len );
+				thdr = R_StudioLoadHeader( mod, tex_buf, tex_len );
+				if( thdr && thdr->numtextures > 0 && thdr->textureindex > 0 )
+				{
+					size_t size1 = thdr->numtextures * sizeof( mstudiotexture_t );
+					size_t size2 = thdr->numskinfamilies * thdr->numskinref * sizeof( short );
+					size_t merged = mesh + size1 + size2;
+
+					ref.dllFuncs.Mod_StudioLoadTextures( mod, thdr );
+					mod->cache.data = calloc( 1, merged );
+					if( mod->cache.data )
+					{
+						byte *in, *out;
+
+						memcpy( mod->cache.data, buffer, mesh );
+						phdr = (studiohdr_t *)mod->cache.data;
+						phdr->length = (int)mesh;
+						phdr->numskinfamilies = thdr->numskinfamilies;
+						phdr->numtextures = thdr->numtextures;
+						phdr->numskinref = thdr->numskinref;
+						phdr->textureindex = (int)mesh;
+						phdr->skinindex = phdr->textureindex + (int)size1;
+						in = (byte *)thdr + thdr->textureindex;
+						out = (byte *)phdr + phdr->textureindex;
+						memcpy( out, in, size1 + size2 );
+						phdr->length = (int)merged;
+						Con_Reportf( "Xash3D GameCube: G376 studio T.mdl skins '%s' n=%d kept=%s\n",
+							mod->name, phdr->numtextures, Q_memprint( merged ));
+						if( tex_buf )
+							Mem_Free( tex_buf );
+						tex_buf = NULL;
+						thdr = NULL;
+						goto gc_mesh_only_done;
+					}
+					Con_Reportf( S_WARN "Xash3D GameCube: G376 T.mdl merge malloc failed '%s' (%s)\n",
+						mod->name, Q_memprint( merged ));
+				}
+				if( tex_buf )
+				{
+					Mem_Free( tex_buf );
+					tex_buf = NULL;
+				}
+				thdr = NULL;
 			}
 #endif
 			mod->cache.data = calloc( 1, mesh );
@@ -1336,6 +1416,7 @@ void Mod_LoadStudioModel( model_t *mod, void *buffer, size_t buffersize, qboolea
 			else
 				Con_Reportf( "Xash3D GameCube: lean studio cache '%s' %s\n",
 					mod->name, Q_memprint( mesh ));
+gc_mesh_only_done: ;
 		}
 		else
 #endif

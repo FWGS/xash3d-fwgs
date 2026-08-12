@@ -85,12 +85,38 @@ Match retail visuals without cutting fill/spawn.
   - Tip-safe: G36 avg **≈61ms→38ms** (still WEAK vs 16.67; steady sample
     frames ≈8–37ms); CHANGELEVEL_READY; studios still draw
   - Evidence: `.ai/logs/dolphin-probe-g374-g36-denser`
+- **G375**: DumpFrames video evidence — denser NPC studios on CapFaces world
+  - Force `Mod_GCPromoteLeanNpcStudios` before G362 EFB dump (present often <24)
+  - End G36 sample face-cap before dump so CapFaces use retail budget
+  - Tip-safe DumpFrames `c1a0a→c1a0d`: CHANGELEVEL_READY; G375 dump NPC
+    `npc=4`; EmitBrush `studios=4`; Flipper `scientist.mdl gx_tris=740`;
+    CapFaces dump **drawn=281**; late stills uniq≈103k center_void≈0.1%
+  - Stills show console/hallway + white NPC studio meshes (untextured /
+    transform glitch — next studio polish)
+  - Evidence: `.ai/logs/dolphin-probe-g375-npc-dumpframes`
+  - Stills: `.ai/screenshots/g375-dumpframes/`
+  - Video: `.ai/screenshots/video-proof-g375/c1a0d-npc-studios-dumpframes.mp4`
+- **G376** (in progress): NPC T.mdl skins + DumpFrames hygiene + rest-pose
+  - T.mdl merge + soft skins: scientist **31/31**, barney **26/26**, headcrab **5/5**
+  - Disc stages `scientistt`/`barneyt`/`headcrabt`/`zombiet`
+  - Flipper: `R_GXStudioRebindPending` after ForceBegin; **GX bind ok**
+    `#models/scientist/Sci3(Back2).mdl 48x41` (coat is ~75% whiteish)
+  - DumpFrames: one CapFaces+studio emit then Present-only under EFB hold
+    (re-emit smeared; clear-every-frame wiped CapFaces → sky)
+  - Lean NPC SetupBones: force group-0 idle frame 0 + **rest-pose** from
+    `bone.value` hierarchy (scripted anim was exploding limbs)
+  - Studio TEV REPLACE so skins aren't washed by near-white vertex shade
+  - CapFaces dump **drawn=281**; `gx_tris=711`; CHANGELEVEL_READY
+  - Stills still show non-humanoid white coat planes — bone/view aim polish next
+  - Evidence: `.ai/logs/dolphin-probe-g376-npc-rest-pose`
+  - Stills: `.ai/screenshots/g376h-rest-pose/`
+  - Video: `.ai/screenshots/video-proof-g376h/c1a0d-npc-rest-pose.mp4`
 
 **NEXT**:
-- Real denser CapFaces cost after sample flush (~33ms retail) — biggest FPS gap
-- Optional: more denser admit (scripted 31 total; sitting scientists still blocked)
-- Optional: dump yaw / eye pick where denser dump stills show edge cyan/sky seams
-- Optional: G506 HUD sheets (missing=1)
+- Studio Flipper: aim dump eye at NPC; verify bone hierarchy vs anim path;
+  get recognizable scientist silhouette (skins already bind)
+- Real denser CapFaces CPU after sample flush (~33ms retail)
+- Optional: G506 HUD sheets (missing=1); dump cyan edge seams
 
 Rules:
 - Force-relink after HLSDK archive changes.

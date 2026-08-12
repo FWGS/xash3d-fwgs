@@ -490,6 +490,36 @@ void Mod_GCRebindPromotedStudios( void )
 
 /*
 =============
+Mod_GCPromoteLeanNpcStudios
+
+G375: DumpFrames often holds EFB before present≥24 (G371 gate). Force the
+lean NPC mesh promote so denser stills can capture scientists/barneys.
+=============
+*/
+void Mod_GCPromoteLeanNpcStudios( void )
+{
+	static const char *promote_lean_npc[] = {
+		"models/scientist.mdl",
+		"models/barney.mdl",
+		"models/headcrab.mdl",
+		NULL
+	};
+	int i;
+
+	if( !Sys_CheckParm( "-gcnewgame" ) && !GC_IsNewGameWorldReady() )
+		return;
+
+	FS_ClearFindMissCache();
+	Image_GCPurgeDecodeScratch();
+	for( i = 0; promote_lean_npc[i]; i++ )
+		Mod_GCPromoteStudioPath( promote_lean_npc[i] );
+	Con_Reportf( "Xash3D GameCube: G375 dump NPC studios try npc=%d view=%d budget=%s\n",
+		gc_real_studio_npc, gc_real_studio_view, Q_memprint( gc_real_studio_bytes ));
+	Mod_GCRebindPromotedStudios();
+}
+
+/*
+=============
 Mod_GCTryDeferredStudios
 
 Attempt to load deferred studios after map prep when memory is available.

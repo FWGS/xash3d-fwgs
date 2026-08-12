@@ -482,6 +482,11 @@ SMOKE_PRECACHE_MODELS = (
 	"models/scientist.mdl",
 	"models/barney.mdl",
 	"models/roach.mdl",
+	# G376: *t.mdl skins (base MDLs have numtextures=0).
+	"models/scientistt.mdl",
+	"models/barneyt.mdl",
+	"models/headcrabt.mdl",
+	"models/zombiet.mdl",
 	"models/v_egon.mdl",
 	"models/v_gauss.mdl",
 	"models/v_grenade.mdl",
@@ -916,6 +921,12 @@ GC_STUDIO_MODELS = (
 	"models/zombie.mdl",
 	"models/scientist.mdl",
 	"models/barney.mdl",
+	# G376: external GoldSrc skins (*t.mdl) for Flipper NPC texturing.
+	"models/scientistt.mdl",
+	"models/barneyt.mdl",
+	"models/headcrabt.mdl",
+	"models/zombiet.mdl",
+	"models/roach.mdl",
 )
 
 # Direct-load HUD sheets for lean New Game Redraw (ISO9660 sprites/ lookups

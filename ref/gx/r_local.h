@@ -408,6 +408,7 @@ void R_GXStudioForceBegin( qboolean viewmodel );
 void R_GXStudioEnd( void );
 int R_GXStudioEmitLeanMarker( const float origin[3] );
 void R_GXStudioBindTexnum( unsigned texnum );
+void R_GXStudioRebindPending( void ); /* G376: after ForceBegin */
 void R_GXStudioColor( unsigned light8 );
 void R_GXStudioEmitTri(
 	float x0, float y0, float z0, float u0, float v0,

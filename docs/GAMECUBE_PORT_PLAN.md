@@ -4683,5 +4683,13 @@ manual hardware validation with all artifacts generated and documented.
 - **G374**: denser G36 sample face-cap + dest-only arm + denser warmup 4 —
   sample CapFaces drawn 89 (retail 250 after flush); tip-safe G36 avg
   ≈61→38ms (still WEAK). (`.ai/logs/dolphin-probe-g374-g36-denser`).
-- Next: denser retail CapFaces CPU (~33ms steady); optional admit/dump/G506.
+- **G375**: DumpFrames NPC studios on denser CapFaces — promote NPCs before
+  EFB dump; end G36 sample so dump uses retail CapFaces. Tip-safe
+  `c1a0a→c1a0d`: EmitBrush studios=4, Flipper scientist gx_tris=740,
+  CapFaces drawn=281, late stills uniq≈103k. Video:
+  `.ai/screenshots/video-proof-g375/c1a0d-npc-studios-dumpframes.mp4`
+  (`.ai/logs/dolphin-probe-g375-npc-dumpframes`,
+  `.ai/screenshots/g375-dumpframes/`).
+- Next: Flipper studio texture/transform polish (white exploded NPCs);
+  denser CapFaces CPU; optional G506/dump seams.
 

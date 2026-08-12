@@ -1528,13 +1528,35 @@ void CL_GameCubeLeanEmitBrushEntities( void )
 			ent->curstate.movetype = (int)ed->v.movetype;
 			ent->curstate.sequence = ed->v.sequence;
 			ent->curstate.frame = ed->v.frame;
+			ent->curstate.body = ed->v.body;
+			ent->curstate.skin = ed->v.skin;
+			ent->curstate.scale = ed->v.scale > 0.0f ? ed->v.scale : 1.0f;
+			ent->curstate.framerate = ed->v.framerate != 0.0f ? ed->v.framerate : 1.0f;
+			ent->curstate.animtime = ed->v.animtime > 0.0f ? ed->v.animtime : (float)cl.time;
 			ent->curstate.rendermode = ed->v.rendermode;
 			ent->curstate.renderamt = (int)ed->v.renderamt;
 			ent->curstate.effects = ed->v.effects;
 			ent->curstate.entityType = ENTITY_NORMAL;
+			/* G376: tip-safe lean draw — seqgroups 1+ need scientist0N.mdl;
+			 * keep group-0 idles (0..40) so GetAnim stays in-base.
+			 * Zero pitch/roll + default body/skin for rest-pose Flipper proof. */
+			if(( Q_stristr( mod->name, "scientist" ) || Q_stristr( mod->name, "barney" ))
+				&& ( ent->curstate.sequence < 0 || ent->curstate.sequence >= 41 ))
+				ent->curstate.sequence = 13; /* idle1 */
+			if( Q_stristr( mod->name, "scientist" )
+				|| Q_stristr( mod->name, "barney" )
+				|| Q_stristr( mod->name, "headcrab" ))
+			{
+				ent->angles[0] = 0.0f;
+				ent->angles[2] = 0.0f;
+				VectorCopy( ent->angles, ent->curstate.angles );
+				ent->curstate.body = 0;
+				ent->curstate.skin = 0;
+			}
 			ent->prevstate = ent->curstate;
 			VectorCopy( ent->origin, ent->latched.prevorigin );
 			VectorCopy( ent->angles, ent->latched.prevangles );
+			ent->latched.prevanimtime = ent->curstate.animtime;
 			if( ref.dllFuncs.R_AddEntity( ent, ET_NORMAL ))
 			{
 				studios++;

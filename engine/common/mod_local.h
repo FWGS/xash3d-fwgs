@@ -167,6 +167,7 @@ poolhandle_t Mod_GameCubeSharedStudioPool( void );
 void Mod_GCLoadNewGameStudios( void );
 void Mod_GCTryDeferredStudios( void ); /* G287: post-present MDL promote */
 void Mod_GCRebindPromotedStudios( void ); /* G371: rebind sv.models after promote */
+void Mod_GCPromoteLeanNpcStudios( void ); /* G375: force NPC promote before DumpFrames */
 /* G105: promote one allowlisted viewmodel after landmark Deploy (or no-op if live). */
 qboolean Mod_GCEnsureLandmarkViewModel( const char *model_path );
 const char *Mod_GCLandmarkViewModelPath( void );
