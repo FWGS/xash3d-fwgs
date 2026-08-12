@@ -5,7 +5,7 @@ Current goal:
 Tighten G36 frame budget / restore fuller entity spawn when MEM allows.
 Match retail visuals without cutting fill/spawn.
 
-**DONE (2026-08-10/11)**:
+**DONE (2026-08-10/11/12)**:
 - Campaign `CHANGELEVEL_READY` through Nihilanth (`c4a3→c5a1`)
 - **G341–G355**: tram/AM vis + denser `c1a0d` tip-safe hop
 - **G356–G358**: dual-hop harness + CapFaces sample/`drawn=` on denser dest
@@ -39,10 +39,34 @@ Match retail visuals without cutting fill/spawn.
     drawn=280 (old gate would skip both hops)
   - Tip-safe DumpFrames `c1a0a→c1a0d` still CHANGELEVEL_READY, drawn=280
   - Evidence: `.ai/logs/dolphin-probe-g367-capfaces-map`
+- **G368**: dual-hop DumpFrames — dump only on final `-gcchangelevel2` dest;
+  skip soft latch when hop2 set; hop1 takes G335 short path under DumpFrames;
+  skip lean EFX during EFB dump hold
+  - Tip-safe denser `c1a0a→c1a0b→c1a0c`: G368 defer on hop1; CapFaces
+    `drawn=280` on c1a0c; `G362 Flipper EFB dump presents`; CHANGELEVEL_READY;
+    late stills uniq≈12.8k center_void=0%
+  - Evidence: `.ai/logs/dolphin-probe-g368-dual-dumpframes`
+  - Stills: `.ai/screenshots/g368-dumpframes/`
+- **G369**: lean FatPVS + post-spawn CapFaces so tram BSP finishes entity spawn
+  - Skip packed all-cluster nodebits; lean-first under `-gcnewgame`
+  - Defer CapFaces / leafboxes / surf-cache until after entity lump
+  - Prefer static CSoundEnt (2176) before libc malloc at HWM tip
+  - Cold `c0a0e` NEWGAME_READY; tip-safe `c1a0a→c1a0d` CHANGELEVEL_READY;
+    tram dual-hop `c0a0e→c1a0→c1a0d` CHANGELEVEL_READY, CapFaces drawn=280
+  - Evidence: `.ai/logs/dolphin-probe-g369-c0a0e-spawn`,
+    `.ai/logs/dolphin-probe-g369-tipsafe-c1a0a-c1a0d`,
+    `.ai/logs/dolphin-probe-g369-tram-dual`
+- **G370**: tram DumpFrames dual-hop re-validated after G369
+  - `c0a0e→c1a0→c1a0d` + `DOLPHIN_DUMP_FRAMES=1`: CHANGELEVEL_READY
+  - G368 defer on c1a0; G362 Flipper EFB dump on c1a0d; CapFaces drawn=280
+  - G365 dump-eye hull-walk; late stills uniq≈52k, center_void≈0.6%
+    (console room + hallway around bulkhead)
+  - Evidence: `.ai/logs/dolphin-probe-g370-tram-dumpframes`
+  - Stills: `.ai/screenshots/g370-dumpframes/`
 
 **NEXT**:
-- Optional: dual-hop DumpFrames (I/O-heavy; tip-safe single hop proven)
-- Optional: dump yaw off the aimed wall (G366 +32 looked into void; uniq 61k→24k; reverted)
+- Optional: dump yaw / eye pick where denser dump stills show edge cyan/sky seams
+- Optional: tighten G36 frame budget / restore fuller entity spawn when MEM allows
 
 Rules:
 - Force-relink after HLSDK archive changes.

@@ -5105,6 +5105,8 @@ typedef struct
 } gc_newgame_leafbox_t;
 static gc_newgame_leafbox_t *gc_newgame_leafboxes;
 static int gc_newgame_nleafboxes;
+/* G369: CapFaces/surf-cache bake deferred until after entity spawn. */
+static qboolean gc_capfaces_bake_deferred;
 
 /* G365: dump origin must hit a cached visleaf AABB.
  * Live PointInLeaf is unreliable after BSP scratch reuse (G89). */
@@ -9082,10 +9084,10 @@ static qboolean GC_SetActiveNewGameCluster( int cluster, qboolean log_change )
 			return true;
 		}
 
-		/* G107: materialize an uncached row into the least-recently-used slot. */
+		/* G107/G369: materialize an uncached row into the LRU slot.
+		 * Build nodebits from compressed PVS (no packed all-cluster table). */
 		if( cluster >= 0 && cluster < gc_newgame_numclusters
 			&& gc_newgame_compressed_pvs && gc_newgame_compressed_ofs
-			&& gc_newgame_packed_nodebits
 			&& gc_newgame_compressed_ofs[cluster] >= 0 )
 		{
 			model_t *wmodel = sv.models[1];
@@ -9123,9 +9125,16 @@ static qboolean GC_SetActiveNewGameCluster( int cluster, qboolean log_change )
 			GC_DecompressPVS( gc_newgame_vis,
 				gc_newgame_compressed_pvs + gc_newgame_compressed_ofs[cluster],
 				(size_t)gc_newgame_visbytes );
-			memcpy( gc_newgame_nodebits,
-				gc_newgame_packed_nodebits + (size_t)cluster * (size_t)gc_newgame_nodebytes,
-				(size_t)gc_newgame_nodebytes );
+			if( gc_newgame_packed_nodebits
+				&& (size_t)cluster * (size_t)gc_newgame_nodebytes
+					+ (size_t)gc_newgame_nodebytes <= gc_newgame_packed_nodebits_size )
+			{
+				memcpy( gc_newgame_nodebits,
+					gc_newgame_packed_nodebits + (size_t)cluster * (size_t)gc_newgame_nodebytes,
+					(size_t)gc_newgame_nodebytes );
+			}
+			else
+				GC_BuildNodebitsForVisRow( wmodel, gc_newgame_vis, gc_newgame_nodebits );
 			/* G160: rebuild marksurface bits — memset alone left Flipper faces stale. */
 			if( gc_newgame_surfbits )
 				GC_BuildSurfbitsForVisRow( wmodel, gc_newgame_vis, gc_newgame_surfbits );
@@ -9408,36 +9417,116 @@ static qboolean GC_CaptureLeanCompressedPVS( model_t *wmodel, int numclusters, s
 
 static qboolean GC_CaptureLeanNodebits( model_t *wmodel, int numclusters )
 {
-	byte *vis_scratch = gc_newgame_pvs_table;
-	byte *node_scratch = gc_newgame_node_table;
-	int cluster;
-
-	if( !gc_newgame_compressed_pvs || !gc_newgame_compressed_ofs
-		|| !vis_scratch || !node_scratch || gc_newgame_nodebytes <= 0 )
-		return false;
-	gc_newgame_packed_nodebits_size = (size_t)numclusters * (size_t)gc_newgame_nodebytes;
-	gc_newgame_packed_nodebits = (byte *)malloc( gc_newgame_packed_nodebits_size );
-	if( !gc_newgame_packed_nodebits )
+	/*
+	 * G369: do not pack nodebits for every cluster (numclusters×nodebytes —
+	 * hundreds of KiB + full decompress pass). LRU materialize builds the
+	 * active slot's node row from compressed PVS on demand.
+	 */
+	(void)wmodel;
+	(void)numclusters;
+	if( gc_newgame_packed_nodebits )
 	{
-		gc_newgame_packed_nodebits_size = 0;
-		return false;
+		free( gc_newgame_packed_nodebits );
+		gc_newgame_packed_nodebits = NULL;
 	}
-	memset( gc_newgame_packed_nodebits, 0, gc_newgame_packed_nodebits_size );
-
-	for( cluster = 0; cluster < numclusters; cluster++ )
-	{
-		if( gc_newgame_compressed_ofs[cluster] < 0 )
-			continue;
-		GC_DecompressPVS( vis_scratch,
-			gc_newgame_compressed_pvs + gc_newgame_compressed_ofs[cluster],
-			(size_t)gc_newgame_visbytes );
-		GC_BuildNodebitsForVisRow( wmodel, vis_scratch, node_scratch );
-		memcpy( gc_newgame_packed_nodebits + (size_t)cluster * (size_t)gc_newgame_nodebytes,
-			node_scratch, (size_t)gc_newgame_nodebytes );
-	}
-	GC_FlipperTrace( "Xash3D GameCube: Capture FatPVS lean LRU nodebits=%u\n",
-		(unsigned)gc_newgame_packed_nodebits_size );
+	gc_newgame_packed_nodebits_size = 0;
+	GC_FlipperTrace( "Xash3D GameCube: G369 Capture FatPVS lean skip packed nodebits\n" );
 	return true;
+}
+
+void GC_ReclaimFatPVSBeforeEntitySpawn( void )
+{
+	/* Drop Capture-time extras that are rebuilt post-spawn (G369). Keep lean
+	 * PVS/node tables + compressed rows for LRU follow. */
+	if( gc_newgame_leafboxes )
+	{
+		free( gc_newgame_leafboxes );
+		gc_newgame_leafboxes = NULL;
+		gc_newgame_nleafboxes = 0;
+	}
+	if( gc_newgame_surf_cache )
+	{
+		free( gc_newgame_surf_cache );
+		gc_newgame_surf_cache = NULL;
+	}
+	gc_newgame_surf_cache_slots = 0;
+	memset( gc_refresh_ncands, 0, sizeof( gc_refresh_ncands ));
+	Con_Reportf( "Xash3D GameCube: G369 reclaim FatPVS extras before entity spawn\n" );
+}
+
+void GC_BakeDeferredNewGameCapFaces( void )
+{
+	model_t *wmodel;
+	int i;
+	int slot;
+
+	if( !gc_capfaces_bake_deferred )
+		return;
+	gc_capfaces_bake_deferred = false;
+
+	wmodel = sv.models[1];
+#if !XASH_DEDICATED
+	if( !wmodel )
+		wmodel = cl.worldmodel;
+#endif
+	if( !wmodel || !wmodel->surfaces || !gc_newgame_pvs_ready )
+	{
+		Con_Reportf( "Xash3D GameCube: G369 CapFaces bake skipped (no world/PVS)\n" );
+		return;
+	}
+
+	/* Leaf AABBs for dump-eye / origin follow (optional under tip). */
+	if( !gc_newgame_leafboxes && wmodel->numleafs > 1 )
+	{
+		int nbox = wmodel->numleafs - 1;
+
+		gc_newgame_leafboxes = (gc_newgame_leafbox_t *)calloc( (size_t)nbox,
+			sizeof( gc_newgame_leafbox_t ));
+		if( gc_newgame_leafboxes )
+		{
+			gc_newgame_nleafboxes = nbox;
+			for( i = 1; i < wmodel->numleafs; i++ )
+			{
+				mleaf_t *leaf = &wmodel->leafs[i];
+				gc_newgame_leafbox_t *box = &gc_newgame_leafboxes[i - 1];
+
+				VectorCopy( leaf->minmaxs, box->mins );
+				VectorCopy( leaf->minmaxs + 3, box->maxs );
+				box->cluster = leaf->cluster;
+			}
+			Con_Reportf( "Xash3D GameCube: G369 post-spawn leafboxes ready n=%d\n", nbox );
+		}
+		else
+			Con_Reportf( "Xash3D GameCube: G369 post-spawn leafboxes skipped (MEM)\n" );
+	}
+
+	if( gc_newgame_pvs_lean && gc_newgame_pvs_table && gc_newgame_visbytes > 0 )
+	{
+		for( slot = 0; slot < gc_newgame_lean_slots; slot++ )
+		{
+			byte *row = gc_newgame_pvs_table + (size_t)slot * (size_t)gc_newgame_visbytes;
+
+			GC_StoreSurfbitsCache( wmodel, gc_newgame_lean_clusters[slot], row );
+		}
+	}
+
+	if( !gc_newgame_surfbits && gc_newgame_surf_table && gc_newgame_surfbytes > 0
+		&& gc_newgame_lean_slots > 0 )
+	{
+		gc_newgame_surfbits = gc_newgame_surf_table;
+	}
+	if( !gc_newgame_surfbits )
+		gc_newgame_surfbits = GC_LookupSurfbitsCache( gc_newgame_viewcluster );
+
+	if( gc_newgame_surfbits )
+	{
+		GC_CaptureDrawFacesFromSurfbits( wmodel, gc_newgame_surfbits );
+		GC_CaptureLiveFacesForDumpClusters( wmodel );
+		Con_Reportf( "Xash3D GameCube: G369 post-spawn CapFaces n=%d live=%d fill=%d\n",
+			gc_newgame_cap_face_count, gc_live_face_count, gc_fill_face_count );
+	}
+	else
+		Con_Reportf( "Xash3D GameCube: G369 post-spawn CapFaces skipped (no surfbits)\n" );
 }
 
 static void GC_FreeNewGamePVSCache( void )
@@ -9468,6 +9557,7 @@ static void GC_FreeNewGamePVSCache( void )
 	memset( gc_refresh_ncands, 0, sizeof( gc_refresh_ncands ));
 	gc_g165_eye_cluster = -1;
 	gc_g171_logged = false;
+	gc_capfaces_bake_deferred = false;
 	if( gc_newgame_cluster_valid )
 	{
 		free( gc_newgame_cluster_valid );
@@ -9925,7 +10015,7 @@ void GC_CaptureNewGamePVSFromModel( model_t *wmodel )
 		}
 		else
 		{
-			GC_FlipperTrace( "Xash3D GameCube: Capture FatPVS lean-first clusters=%d\n",
+			Con_Reportf( "Xash3D GameCube: G369 Capture FatPVS lean-first clusters=%d\n",
 				numclusters );
 		}
 
@@ -9937,11 +10027,12 @@ void GC_CaptureNewGamePVSFromModel( model_t *wmodel )
 			int lean_cluster = gc_newgame_viewcluster;
 			int lean_slots = 0;
 			int slot;
+			qboolean lean_first = ( Sys_CheckParm( "-gcleanpvs" ) || Sys_CheckParm( "-gcnewgame" ));
 
-			/* G96/G101: capture a small multi-room lean cache while BSP leafs
-			 * are still valid. Full multi-row tables OOM after changelevel. */
-			SYS_Report( "Xash3D GameCube: Capture FatPVS multi-cluster alloc failed clusters=%d\n",
-				numclusters );
+			/* G96/G101/G369: compact lean cache while BSP leafs are valid. */
+			if( !lean_first )
+				SYS_Report( "Xash3D GameCube: Capture FatPVS multi-cluster alloc failed clusters=%d\n",
+					numclusters );
 			GC_FreeNewGamePVSCache();
 
 			if( lean_cluster < 0 )
@@ -9986,16 +10077,13 @@ void GC_CaptureNewGamePVSFromModel( model_t *wmodel )
 			Image_GCPurgeDecodeScratch();
 			gc_newgame_pvs_table = (byte *)calloc( (size_t)GC_LEAN_PVS_SLOTS, visbytes );
 			gc_newgame_node_table = (byte *)calloc( (size_t)GC_LEAN_PVS_SLOTS, nodebytes );
-			gc_newgame_surf_table = ( gc_newgame_surfbytes > 0 )
-				? (byte *)calloc( (size_t)GC_LEAN_PVS_SLOTS, (size_t)gc_newgame_surfbytes )
-				: NULL;
 			gc_newgame_cluster_valid = (byte *)calloc( (size_t)GC_LEAN_PVS_SLOTS, 1 );
-			/* Leafboxes are optional for Flipper face bake — skip if freelist is tight. */
-			gc_newgame_leafboxes = gc_newgame_nleafboxes > 0
-				? (gc_newgame_leafbox_t *)calloc( (size_t)gc_newgame_nleafboxes, sizeof( gc_newgame_leafbox_t ))
-				: NULL;
-			if( !gc_newgame_leafboxes )
-				gc_newgame_nleafboxes = 0;
+			/* G369: defer leafboxes + surf_table until after spawn — packed
+			 * nodebits already skipped. Leaf AABBs are rebuilt post-spawn if MEM
+			 * allows; origin follow falls back to viewcluster without them. */
+			gc_newgame_surf_table = NULL;
+			gc_newgame_leafboxes = NULL;
+			gc_newgame_nleafboxes = 0;
 			if( !gc_newgame_pvs_table || !gc_newgame_node_table || !gc_newgame_cluster_valid )
 			{
 				SYS_Report( "Xash3D GameCube: Capture FatPVS lean alloc failed\n" );
@@ -10006,19 +10094,6 @@ void GC_CaptureNewGamePVSFromModel( model_t *wmodel )
 				return;
 			}
 
-			/* Leaf AABBs enable origin follow among cached clusters. */
-			if( gc_newgame_leafboxes )
-			{
-				for( i = 1; i < wmodel->numleafs; i++ )
-				{
-					mleaf_t *leaf = &wmodel->leafs[i];
-					gc_newgame_leafbox_t *box = &gc_newgame_leafboxes[i - 1];
-
-					VectorCopy( leaf->minmaxs, box->mins );
-					VectorCopy( leaf->minmaxs + 3, box->maxs );
-					box->cluster = leaf->cluster;
-				}
-			}
 			if( !GC_CaptureLeanCompressedPVS( wmodel, numclusters, visbytes )
 				|| !GC_CaptureLeanNodebits( wmodel, numclusters ))
 			{
@@ -10040,6 +10115,15 @@ void GC_CaptureNewGamePVSFromModel( model_t *wmodel )
 				}
 				gc_newgame_compressed_size = 0;
 				gc_newgame_packed_nodebits_size = 0;
+			}
+
+			/* G369: lean surfbits after compressed PVS (~1–4 KiB) — needed for CapFaces. */
+			if( gc_newgame_surfbytes > 0 && !gc_newgame_surf_table )
+			{
+				gc_newgame_surf_table = (byte *)calloc( (size_t)GC_LEAN_PVS_SLOTS,
+					(size_t)gc_newgame_surfbytes );
+				if( !gc_newgame_surf_table )
+					Con_Reportf( "Xash3D GameCube: G369 lean surf_table deferred\n" );
 			}
 
 			/* Slot 0: spawn cluster. */
@@ -10193,19 +10277,10 @@ void GC_CaptureNewGamePVSFromModel( model_t *wmodel )
 			GC_FlipperTrace( "Xash3D GameCube: Capture lean map=%s cl=%d slots=%d L=%d N=%d\n",
 				sv.name[0] ? sv.name : "?",
 				lean_cluster, lean_slots, gc_newgame_vis_leafs, gc_newgame_vis_nodes );
-			/* G190: build refresh cands for lean slots (G165 skips lean). */
-			for( slot = 0; slot < lean_slots; slot++ )
-			{
-				byte *row = gc_newgame_pvs_table + (size_t)slot * visbytes;
-
-				GC_StoreSurfbitsCache( wmodel, gc_newgame_lean_clusters[slot], row );
-			}
-			if( gc_newgame_surfbits )
-			{
-				/* Caps first; G215 live pool from dump-cluster overflow at predicted eye. */
-				GC_CaptureDrawFacesFromSurfbits( wmodel, gc_newgame_surfbits );
-				GC_CaptureLiveFacesForDumpClusters( wmodel );
-			}
+			/* G369: defer CapFaces + leafboxes + surf-cache until after entity
+			 * spawn. Capture-time bake tips tram c0a0e at CSoundEnt (HWM≈3.37 Mb). */
+			gc_capfaces_bake_deferred = true;
+			Con_Reportf( "Xash3D GameCube: G369 defer CapFaces/leafboxes until post-spawn\n" );
 			if( lean_slots > 1 )
 			{
 				GC_FlipperTrace( "Xash3D GameCube: Capture FatPVS lean-N map=%s slots=%d c0=%d c1=%d\n",

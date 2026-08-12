@@ -216,6 +216,9 @@ const unsigned short *GC_GetNewGameCapLightmapAtlas( int *w, int *h ); /* G180 *
 void GC_GetNewGameCapLightmapAtlasUV( int slot, float s, float t, float *out_s, float *out_t );
 void GC_CaptureNewGamePVS( void ); /* G83: PointInLeaf+FatPVS before scratch reuse */
 void GC_CaptureNewGamePVSFromModel( model_t *wmodel );
+/* G369: free Capture-time FatPVS extras before CSoundEnt; bake CapFaces after spawn. */
+void GC_ReclaimFatPVSBeforeEntitySpawn( void );
+void GC_BakeDeferredNewGameCapFaces( void );
 qboolean GC_UpdateNewGamePVSForOrigin( const float *org ); /* G89: select cluster row by AABB */
 /* G90: one world GL_RenderFrame without R_Begin/EndFrame (V_Pre/Post own the frame). */
 qboolean GC_RenderNewGameWorldPassNoFrame( qboolean draw_viewmodel );

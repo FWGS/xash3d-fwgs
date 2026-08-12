@@ -4652,6 +4652,22 @@ manual hardware validation with all artifacts generated and documented.
 - **G367**: CapFaces begin/end once-per-map (`map=` + first draw per bsp),
   not `tr.framecount<=3`. Dual-hop logs c1a0 f=12 / c1a0d f=24 drawn=280.
   (`.ai/logs/dolphin-probe-g367-capfaces-map`).
-- Next: optional dual-hop DumpFrames; dump yaw off the aimed wall
-  (G366 +32 void regression; reverted).
+- **G368**: dual-hop DumpFrames — final-dest-only Flipper EFB dump; skip soft
+  latch with `-gcchangelevel2`; hop1 G335 short path; skip EFX under dump hold.
+  Tip-safe `c1a0a→c1a0b→c1a0c` CHANGELEVEL_READY, CapFaces drawn=280,
+  dump presents on c1a0c. (`.ai/logs/dolphin-probe-g368-dual-dumpframes`).
+- **G369**: lean FatPVS + post-spawn CapFaces — skip packed all-cluster
+  nodebits; defer CapFaces/leafboxes/surf-cache until after entity lump;
+  prefer static CSoundEnt before libc malloc. Restores tram BSP spawn:
+  cold `c0a0e` NEWGAME_READY; `c0a0e→c1a0→c1a0d` CHANGELEVEL_READY with
+  CapFaces drawn=280 on c1a0d. Evidence:
+  `.ai/logs/dolphin-probe-g369-c0a0e-spawn`,
+  `.ai/logs/dolphin-probe-g369-tipsafe-c1a0a-c1a0d`,
+  `.ai/logs/dolphin-probe-g369-tram-dual`.
+- **G370**: tram DumpFrames dual-hop after G369 — `c0a0e→c1a0→c1a0d` +
+  DumpFrames CHANGELEVEL_READY; G368 defer; G362 EFB dump on c1a0d;
+  CapFaces drawn=280; late stills uniq≈52k center_void≈0.6% (console+hallway).
+  (`.ai/logs/dolphin-probe-g370-tram-dumpframes`,
+  `.ai/screenshots/g370-dumpframes/`).
+- Next: optional dump-eye FOV on cyan/sky edge seams; G36 budget / fuller spawn.
 

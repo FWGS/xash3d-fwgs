@@ -25,6 +25,7 @@ GNU General Public License for more details.
 #include "ref_common.h" // decals
 #if XASH_GAMECUBE
 #include "imagelib.h"
+#include "platform.h"
 #include "gamecube/mem_gamecube.h"
 #include "gamecube/dll_gamecube.h"
 void CL_GCRelinkEventHooks( void );
@@ -3178,7 +3179,23 @@ static void *GAME_EXPORT pfnPvAllocEntPrivateData( edict_t *pEdict, long cb )
 		{
 			qboolean used_fallback = false;
 
-			pEdict->pvPrivateData = malloc( size );
+			/* G369: prefer static CSoundEnt before libc malloc — tram c0a0e at
+			 * HWM≈3.37 Mb hangs after a successful 2176-byte heap alloc
+			 * (probe 20260812-005503). BSS avoids the tip freelist. */
+			if( !pEdict->pvPrivateData && Sys_CheckParm( "-gcnewgame" )
+				&& !gc_soundent_fallback_used
+				&& NUM_FOR_EDICT( pEdict ) != 1
+				&& size >= 1800 && size <= sizeof( gc_soundent_private_fallback ))
+			{
+				memset( gc_soundent_private_fallback, 0, sizeof( gc_soundent_private_fallback ));
+				pEdict->pvPrivateData = gc_soundent_private_fallback;
+				gc_soundent_fallback_used = true;
+				used_fallback = true;
+				Con_Reportf( "Xash3D GameCube: G369 ent private data using static soundent fallback size=%zu edict=%d\n",
+					size, NUM_FOR_EDICT( pEdict ));
+			}
+			if( !pEdict->pvPrivateData )
+				pEdict->pvPrivateData = malloc( size );
 			if( !pEdict->pvPrivateData )
 				pEdict->pvPrivateData = Mem_TryCalloc( svgame.mempool, size );
 			/* Player spawn must not return NULL — GetClassPtr crashes. Keep a
@@ -3191,19 +3208,6 @@ static void *GAME_EXPORT pfnPvAllocEntPrivateData( edict_t *pEdict, long cb )
 				used_fallback = true;
 				Con_Reportf( "Xash3D GameCube: ent private data using static player fallback size=%zu\n",
 					size );
-			}
-			/* G329: CSoundEnt private block when heap tip after denser BSP. */
-			if( !pEdict->pvPrivateData && Sys_CheckParm( "-gcnewgame" )
-				&& !gc_soundent_fallback_used
-				&& NUM_FOR_EDICT( pEdict ) != 1
-				&& size >= 1800 && size <= sizeof( gc_soundent_private_fallback ))
-			{
-				memset( gc_soundent_private_fallback, 0, sizeof( gc_soundent_private_fallback ));
-				pEdict->pvPrivateData = gc_soundent_private_fallback;
-				gc_soundent_fallback_used = true;
-				used_fallback = true;
-				Con_Reportf( "Xash3D GameCube: G329 ent private data using static soundent fallback size=%zu edict=%d\n",
-					size, NUM_FOR_EDICT( pEdict ));
 			}
 			/* G330: small-entity bump slab after libc tip (GetClassPtr needs non-NULL). */
 			if( !pEdict->pvPrivateData && Sys_CheckParm( "-gcnewgame" )
@@ -5869,13 +5873,14 @@ void SV_SpawnEntities( const char *mapname )
 	svgame.globals->time = sv.time;
 
 #if XASH_GAMECUBE
-	/* G329: also reclaim ImageLib after cold New Game BSP textures so
-	 * CSoundEnt / early entity private mallocs have room (c1a0d tip). */
+	/* G329/G369: reclaim ImageLib + Capture-time FatPVS extras before
+	 * CSoundEnt so tram/denser BSP can finish entity spawn. */
 	if( Sys_CheckParm( "-gcmap" ) || Sys_CheckParm( "-gcnewgame" ))
 	{
 		Image_GCPurgeDecodeScratch();
 		if( host.imagepool )
 			Mem_EmptyPool( host.imagepool );
+		GC_ReclaimFatPVSBeforeEntitySpawn();
 		gc_soundent_fallback_used = false;
 		Con_Reportf( "Xash3D GameCube: pre-entity memory trim\n" );
 		GC_MemSample( "pre-entity spawn" );
@@ -5890,7 +5895,10 @@ void SV_SpawnEntities( const char *mapname )
 #if XASH_GAMECUBE
 	Con_Reportf( "Xash3D GameCube: entity lump spawn ready\n" );
 	if( Sys_CheckParm( "-gcnewgame" ))
+	{
 		SV_GCPlaceNewGameTrackTrains();
+		GC_BakeDeferredNewGameCapFaces();
+	}
 	if( Sys_CheckParm( "-gcmap" ))
 		GC_MemSample( "entity spawn" );
 #endif
