@@ -4642,6 +4642,16 @@ manual hardware validation with all artifacts generated and documented.
   (192); fill reserve=`fill_n`; denser floors stay LM-owned; CapFaces
   `drawn=280`, fill 0→11, center floorish 0.8%→12.3%.
   (`.ai/logs/dolphin-probe-g363-c1a0d-seams`).
-- Next: optional CapFaces begin/end once-per-map; dual-hop DumpFrames;
-  remaining denser portal/vis seam.
+- **G364**: denser portal seam — skip G281 tram −X on dest; OR neighbor
+  cluster; in-room dump-eye 128+24. Center void **22.5%→0.1%**.
+  (`.ai/logs/dolphin-probe-g364-c1a0d-portal`).
+- **G365**: denser dump FOV — hull-walk stand 128→192 on room-side normal
+  (leaf AABB, no PointInLeaf); no lateral offset. CapFaces `drawn=280`,
+  uniq 54k→61k, center_void 7.8%→1.7%; console+hallway around bulkhead.
+  (`.ai/logs/dolphin-probe-g365-c1a0d-fov`).
+- **G367**: CapFaces begin/end once-per-map (`map=` + first draw per bsp),
+  not `tr.framecount<=3`. Dual-hop logs c1a0 f=12 / c1a0d f=24 drawn=280.
+  (`.ai/logs/dolphin-probe-g367-capfaces-map`).
+- Next: optional dual-hop DumpFrames; dump yaw off the aimed wall
+  (G366 +32 void regression; reverted).
 

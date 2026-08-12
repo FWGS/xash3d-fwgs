@@ -252,6 +252,7 @@ typedef struct
  * G310: 64→48 reclaim ~2 KiB BSS into denser tram (heap live still →124). */
 #define GC_LIVE_BSS_FACES 48
 static qboolean GC_CapFaceAlready( int firstedge, int numedges );
+static qboolean GC_DumpOriginInHull( const float *p );
 static qboolean GC_DumpEyeInFrontOfBestWall( float *eye, float *out_angles );
 static qboolean GC_DumpEyeAtTramStart( float *eye, float *out_angles );
 static qboolean GC_IsDenserAmMapName( const char *name );
@@ -456,8 +457,7 @@ int GC_GetLiveFaceCount( void )
 	return gc_live_face_count;
 }
 
-/* G358: CapFaces begin/end only log for tr.framecount<=3 across dual-hop.
- * Always stash last drawn so the denser dest sample can report drawn=. */
+/* G358/G367: CapFaces begin/end log once per map; always stash drawn= for samples. */
 static int gc_last_capfaces_drawn;
 
 void GC_NoteCapFacesDrawn( int drawn )
@@ -4579,14 +4579,42 @@ static void GC_MaybeRestreamRideMapFaces( const float *eye )
 			if( c >= 0 && ( base < 0 || c != base ))
 			{
 				if( denser_portal )
+				{
+					/* Keep eye cluster as primary; OR neighbor in (do not
+					 * replace cluster — that skipped the merge: neigh==cl). */
 					portal_neigh = c;
+					break;
+				}
 				cluster = c;
 				break;
 			}
-			if( i == 3 && c >= 0 )
+			if( !denser_portal && i == 3 && c >= 0 )
 			{
 				/* Furthest sample — still use it for ranking even if same cl. */
 				cluster = c;
+			}
+		}
+		/* G364: dump forward may stay in one visleaf — try world axes. */
+		if( denser_portal && portal_neigh < 0 && base >= 0 )
+		{
+			static const short	ax[8][3] = {
+				{ 256, 0, 0 }, { -256, 0, 0 }, { 0, 256, 0 }, { 0, -256, 0 },
+				{ 512, 0, 0 }, { -512, 0, 0 }, { 0, 512, 0 }, { 0, -512, 0 }
+			};
+
+			for( i = 0; i < 8; i++ )
+			{
+				int c;
+
+				ahead[0] = eye[0] + (float)ax[i][0];
+				ahead[1] = eye[1] + (float)ax[i][1];
+				ahead[2] = eye[2];
+				c = GC_SelectClusterForOrigin( ahead );
+				if( c >= 0 && c != base )
+				{
+					portal_neigh = c;
+					break;
+				}
 			}
 		}
 	}
@@ -4792,10 +4820,58 @@ static qboolean GC_DumpEyeInFrontOfBestWall( float *eye, float *out_angles )
 		return false;
 	f = &gc_newgame_cap_faces[best];
 	GC_CapFaceCentroid( best, point );
-	/* Closer indoor standoff — outdoor 320 left DumpFrames sky-heavy. */
-	eye[0] = point[0] + f->plane.normal[0] * 224.0f;
-	eye[1] = point[1] + f->plane.normal[1] * 224.0f;
-	eye[2] = point[2] + f->plane.normal[2] * 224.0f + 40.0f;
+	/* Closer indoor standoff — outdoor 320 left DumpFrames sky-heavy.
+	 * G364: denser dest 224+72 put the dump eye outside the hull.
+	 * G365: denser dest — no lateral offset, hull-walk along the room-side
+	 * normal from the G364 128u stand. Flip the normal if +N misses AABBs. */
+	{
+		const qboolean denser = GC_WantLiveCapOverlap();
+		float stand = denser ? 128.0f : 224.0f;
+		const float side = denser ? 0.0f : 72.0f;
+		float nx = f->plane.normal[0];
+		float ny = f->plane.normal[1];
+		float nz = f->plane.normal[2];
+
+	eye[0] = point[0] + nx * stand;
+	eye[1] = point[1] + ny * stand;
+	eye[2] = point[2] + nz * stand + 40.0f;
+	if( denser )
+	{
+		vec3_t	probe;
+		float	s;
+		int	flipped = 0;
+
+		if( !GC_DumpOriginInHull( eye ))
+		{
+			nx = -nx;
+			ny = -ny;
+			nz = -nz;
+			flipped = 1;
+			eye[0] = point[0] + nx * stand;
+			eye[1] = point[1] + ny * stand;
+			eye[2] = point[2] + nz * stand + 40.0f;
+		}
+		for( s = 144.0f; s <= 192.0f; s += 16.0f )
+		{
+			probe[0] = point[0] + nx * s;
+			probe[1] = point[1] + ny * s;
+			probe[2] = point[2] + nz * s + 40.0f;
+			if( !GC_DumpOriginInHull( probe ))
+				break;
+			VectorCopy( probe, eye );
+			stand = s;
+		}
+		{
+			static qboolean logged;
+
+			if( !logged )
+			{
+				logged = true;
+				Con_Reportf( "Xash3D GameCube: G365 denser dump eye hull-walk stand=%.0f area=%d hull=%d flip=%d\n",
+					stand, best_area, GC_DumpOriginInHull( eye ) ? 1 : 0, flipped );
+			}
+		}
+	}
 	{
 		vec3_t	right, up_ref;
 		float	front;
@@ -4814,17 +4890,21 @@ static qboolean GC_DumpEyeInFrontOfBestWall( float *eye, float *out_angles )
 		}
 		CrossProduct( f->plane.normal, up_ref, right );
 		VectorNormalize( right );
-		eye[0] += right[0] * 72.0f;
-		eye[1] += right[1] * 72.0f;
-		eye[2] += right[2] * 72.0f;
-		front = DotProduct( eye, f->plane.normal ) - f->plane.dist;
-		if( front < 48.0f )
+		eye[0] += right[0] * side;
+		eye[1] += right[1] * side;
+		eye[2] += right[2] * side;
+		if( !denser )
 		{
-			float push = 48.0f - front + 48.0f;
-			eye[0] += f->plane.normal[0] * push;
-			eye[1] += f->plane.normal[1] * push;
-			eye[2] += f->plane.normal[2] * push;
+			front = DotProduct( eye, f->plane.normal ) - f->plane.dist;
+			if( front < 48.0f )
+			{
+				float push = 48.0f - front + 48.0f;
+				eye[0] += f->plane.normal[0] * push;
+				eye[1] += f->plane.normal[1] * push;
+				eye[2] += f->plane.normal[2] * push;
+			}
 		}
+	}
 	}
 	VectorSubtract( point, eye, point );
 	VectorAngles( point, out_angles );
@@ -5025,6 +5105,29 @@ typedef struct
 } gc_newgame_leafbox_t;
 static gc_newgame_leafbox_t *gc_newgame_leafboxes;
 static int gc_newgame_nleafboxes;
+
+/* G365: dump origin must hit a cached visleaf AABB.
+ * Live PointInLeaf is unreliable after BSP scratch reuse (G89). */
+static qboolean GC_DumpOriginInHull( const float *p )
+{
+	int	i;
+
+	if( !p || !gc_newgame_leafboxes || gc_newgame_nleafboxes <= 0 )
+		return false;
+	for( i = 0; i < gc_newgame_nleafboxes; i++ )
+	{
+		const gc_newgame_leafbox_t *box = &gc_newgame_leafboxes[i];
+
+		if( box->cluster < 0 )
+			continue;
+		if( p[0] < box->mins[0] || p[0] > box->maxs[0]
+			|| p[1] < box->mins[1] || p[1] > box->maxs[1]
+			|| p[2] < box->mins[2] || p[2] > box->maxs[2] )
+			continue;
+		return true;
+	}
+	return false;
+}
 static qboolean gc_newgame_pvs_follow_proved;
 static qboolean gc_gx_present_logged;
 /* G128/G191: remaining soft DumpFrames latch presents. After Flipper EFB
@@ -11001,6 +11104,10 @@ static qboolean GC_WantSoftDumpLatch( void )
 		return false;
 	if( !( Sys_CheckParm( "-gcdumpframes" ) || Sys_CheckParm( "-gcdump" )))
 		return false;
+	/* G368: dual-hop DumpFrames — tram soft latch + Flipper-EFB GFX hangs
+	 * hop1 CapFaces pump before changelevel2 arms (20260811-223648). */
+	if( Sys_CheckParm( "-gcchangelevel2" ))
+		return false;
 	/* G359: G347 textured stills need G191 soft latch on the source map.
 	 * Skip on denser AM (G335/G338 hang) and on probe changelevel dests
 	 * (post-hop Soft latch hung G509). Source tram still gets DumpFrames. */
@@ -11253,7 +11360,13 @@ qboolean GC_PrepareNewGameWorldPresent( void )
 			|| !Q_strnicmp( sv.name, "c2a", 3 )
 			|| !Q_strnicmp( sv.name, "c3a", 3 )
 			|| !Q_strnicmp( sv.name, "c4a", 3 )
-			|| !Q_strnicmp( sv.name, "c5a", 3 ));
+			|| !Q_strnicmp( sv.name, "c5a", 3 )
+			/* G368: dual-hop DumpFrames — hop1 (e.g. c1a0) is not denser_am
+			 * but the Flipper present pump hangs under DumpFrames I/O before
+			 * changelevel2 arms. Take the G335 short path on intermediate hops. */
+			|| ( Sys_CheckParm( "-gcchangelevel2" )
+				&& ( Sys_CheckParm( "-gcdumpframes" ) || Sys_CheckParm( "-gcdump" ))
+				&& GC_IsProbeChangelevelDest() ));
 
 	if( Sys_CheckParm( "-gcfullphysics" ))
 	{
@@ -11352,6 +11465,34 @@ qboolean GC_PrepareNewGameWorldPresent( void )
 					sv.name, GC_GetLiveFaceCount(), GC_LastCapFacesDrawn() );
 				if( Sys_CheckParm( "-gcdumpframes" ) || Sys_CheckParm( "-gcdump" ))
 				{
+					qboolean dump_here = true;
+
+					/* G368: dual-hop — only Flipper-EFB dump on the final
+					 * -gcchangelevel2 dest. Hop1 dump spam I/O-starves hop2
+					 * and mixes tram/AM stills into the DumpFrames queue. */
+					if( Sys_CheckParm( "-gcchangelevel2" ))
+					{
+						char dest2[MAX_QPATH];
+
+						dest2[0] = '\0';
+						Sys_GetParmFromCmdLine( "-gcchangelevel2", dest2 );
+						if( !dest2[0] || Q_stricmp( sv.name, dest2 ))
+						{
+							dump_here = false;
+							{
+								static qboolean skip_logged;
+
+								if( !skip_logged )
+								{
+									skip_logged = true;
+									Con_Reportf( "Xash3D GameCube: G368 Flipper EFB dump defer map=%s (final=%s)\n",
+										sv.name, dest2[0] ? dest2 : "?" );
+								}
+							}
+						}
+					}
+					if( dump_here )
+					{
 					extern void R_GXHoldEfbForDump( int frames );
 					int dump_i;
 
@@ -11375,6 +11516,7 @@ qboolean GC_PrepareNewGameWorldPresent( void )
 					}
 					Con_Reportf( "Xash3D GameCube: G362 Flipper EFB dump presents map=%s drawn=%d\n",
 						sv.name, GC_LastCapFacesDrawn() );
+					}
 				}
 			}
 			else

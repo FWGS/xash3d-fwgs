@@ -956,7 +956,9 @@ static void R_DrawEntitiesOnList( void )
 		 * (20260808-224954). Tip-safe proof beam is additive (trans). */
 		if( lean_ents )
 		{
-			if( lean_studios > 0 )
+			extern int R_GXEfbDumpHoldLeft( void );
+
+			if( lean_studios > 0 && R_GXEfbDumpHoldLeft() <= 0 )
 			{
 				static qboolean lean_solid_efx_logged;
 
@@ -1171,8 +1173,13 @@ static void R_DrawEntitiesOnList( void )
 				}
 			}
 			/* One tip-safe G320 pass after SCR is live; perpetual lean EFX
-			 * stalls the present pump. Studios still gate viewmodel above. */
-			if( tr.framecount == 16 || lean_studios > 0 )
+			 * stalls the present pump. Studios still gate viewmodel above.
+			 * G368: skip during Flipper EFB dump hold — dual-hop DumpFrames
+			 * hung in CL_DrawBeams mid-present (20260811-224709). */
+			{
+			extern int R_GXEfbDumpHoldLeft( void );
+			if( ( tr.framecount == 16 || lean_studios > 0 )
+				&& R_GXEfbDumpHoldLeft() <= 0 )
 			{
 				R_AllowFog( false );
 				gEngfuncs.CL_DrawEFX( tr.frametime, true );
@@ -1183,6 +1190,7 @@ static void R_DrawEntitiesOnList( void )
 					gEngfuncs.Con_Reportf(
 						"Xash3D GameCube: lean DrawEntities EFX trans\n" );
 				}
+			}
 			}
 		}
 		else

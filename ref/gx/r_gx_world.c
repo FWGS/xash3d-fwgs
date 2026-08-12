@@ -151,6 +151,10 @@ int R_GXEfbDumpHoldLeft( void )
 	return r_gx_efb_dump_hold;
 }
 static int r_gx_cap_generation = -1;
+/* G367: CapFaces begin/end once per map (not tr.framecount<=3). Dual-hop
+ * denser dests often enter CapFaces after frame 3 and skipped the markers. */
+static char r_gx_capfaces_begin_map[64];
+static char r_gx_capfaces_end_map[64];
 static int r_gx_lm_inits;
 static int r_gx_lm_loads;
 static int r_gx_lm_reuses;
@@ -2148,6 +2152,9 @@ int R_GXDrawNewGameCapFaces( void )
 	int n, i, drawn = 0;
 	int gen;
 	int order[320];
+	const char *map_name = "";
+	qboolean log_begin = false;
+	qboolean log_end = false;
 
 	if( !GC_UseGxWorldDraw() )
 		return 0;
@@ -2158,6 +2165,23 @@ int R_GXDrawNewGameCapFaces( void )
 	world = WORLDMODEL;
 	if( !world )
 		return 0;
+
+	map_name = world->name ? world->name : "";
+	if( !map_name[0] )
+		map_name = "?";
+	/* Prefer maps/foo.bsp → foo for probe markers. */
+	{
+		const char *slash = Q_strrchr( map_name, '/' );
+		const char *base = slash ? slash + 1 : map_name;
+		static char short_map[64];
+		size_t len;
+
+		Q_strncpy( short_map, base, sizeof( short_map ));
+		len = Q_strlen( short_map );
+		if( len > 4 && !Q_stricmp( short_map + len - 4, ".bsp" ))
+			short_map[len - 4] = '\0';
+		map_name = short_map;
+	}
 
 	if( r_gx_tex_world != world )
 	{
@@ -2170,6 +2194,12 @@ int R_GXDrawNewGameCapFaces( void )
 		r_gx_lm_atlas_logged = false;
 		r_gx_tex_band_logged = false;
 		r_gx_face_cull_logged = false;
+	}
+
+	if( gEngfuncs.Sys_CheckParm( "-gcnewgame" ))
+	{
+		log_begin = Q_stricmp( r_gx_capfaces_begin_map, map_name ) != 0;
+		log_end = Q_stricmp( r_gx_capfaces_end_map, map_name ) != 0;
 	}
 
 	gen = GC_GetNewGameCapGeneration();
@@ -2196,8 +2226,12 @@ int R_GXDrawNewGameCapFaces( void )
 	r_gx_face_skips = 0;
 	r_gx_face_skip_area = 0;
 	r_gx_face_skip_far = 0;
-	if( tr.framecount <= 3 && gEngfuncs.Sys_CheckParm( "-gcnewgame" ))
-		gEngfuncs.Con_Reportf( "Xash3D GameCube: CapFaces begin f=%d\n", tr.framecount );
+	if( log_begin )
+	{
+		Q_strncpy( r_gx_capfaces_begin_map, map_name, sizeof( r_gx_capfaces_begin_map ));
+		gEngfuncs.Con_Reportf( "Xash3D GameCube: CapFaces begin map=%s f=%d\n",
+			map_name, tr.framecount );
+	}
 	R_GXSetupWorld3DState();
 
 	/* Stamp marksurfaces only when leaf→surface links are still valid.
@@ -2208,7 +2242,7 @@ int R_GXDrawNewGameCapFaces( void )
 
 	draw = GC_GetNewGameDrawSurfs();
 	n = GC_GetNewGameCapFaceCount();
-	if( tr.framecount <= 3 && gEngfuncs.Sys_CheckParm( "-gcnewgame" ))
+	if( log_begin )
 		gEngfuncs.Con_Reportf( "Xash3D GameCube: CapFaces surfs n=%d live=%d\n",
 			n, GC_GetLiveFaceCount() );
 
@@ -2710,9 +2744,12 @@ int R_GXDrawNewGameCapFaces( void )
 			GC_GX_MIN_FACE_AREA );
 	}
 #endif
-	if( tr.framecount <= 3 && gEngfuncs.Sys_CheckParm( "-gcnewgame" ))
-		gEngfuncs.Con_Reportf( "Xash3D GameCube: CapFaces end f=%d drawn=%d\n",
-			tr.framecount, drawn );
+	if( log_end )
+	{
+		Q_strncpy( r_gx_capfaces_end_map, map_name, sizeof( r_gx_capfaces_end_map ));
+		gEngfuncs.Con_Reportf( "Xash3D GameCube: CapFaces end map=%s f=%d drawn=%d\n",
+			map_name, tr.framecount, drawn );
+	}
 	/* G348: one post-sample CapFaces line (full retail budget after G36 flush). */
 	else if( gEngfuncs.Sys_CheckParm( "-gcnewgame" ) && drawn > 0 )
 	{

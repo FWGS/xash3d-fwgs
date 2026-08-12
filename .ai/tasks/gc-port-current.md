@@ -18,18 +18,31 @@ Match retail visuals without cutting fill/spawn.
   - Evidence: `.ai/logs/dolphin-probe-g362-c1a0d-dumpframes`
 - **G363**: denser CapFaces floor/void seam reduction
   - `GC_CapFaceIsLive` / `LiveFaceEmitsGeom` only claim live emit window (192)
-  - Fill reserve = actual `fill_n` (was starving ~48 LM slots)
-  - Denser floors/ceilings stay LM-cap owned (no live overflow dead zone)
-  - Floor LiveViewScore half-boost under overlap
-  - Probe: CapFaces `drawn=280` (full budget); fill **0→11**; center
-    floorish **0.8%→12.3%**; uniq_center **15k→25k**; CHANGELEVEL_READY
+  - Fill reserve = actual `fill_n`; denser floors stay LM-owned
+  - Probe: CapFaces `drawn=280`; fill **0→11**; CHANGELEVEL_READY
   - Evidence: `.ai/logs/dolphin-probe-g363-c1a0d-seams`
-  - Stills: `.ai/screenshots/g363-dumpframes/`
+- **G364**: denser portal/vis center seam
+  - Skip G281 tram −X restream on denser dest; restream along dump forward
+  - OR portal-neighbor cluster into cap/live (`cl=0 neigh=77`)
+  - In-room dump-eye standoff 224+72 → 128+24 (was outside hull)
+  - Probe: center_void **22.5%→0.1%**; grey **18.8%→0.8%**; CapFaces `drawn=280`
+  - Evidence: `.ai/logs/dolphin-probe-g364-c1a0d-portal`
+  - Stills: `.ai/screenshots/g364-dumpframes/`
+- **G365**: denser dump-eye FOV — hull-walk along room-side wall normal
+  (AABB visleaf, not live PointInLeaf); no lateral offset; stand **128→192**
+  - Probe: hull=1 flip=0 area=33840; CapFaces `drawn=280`; uniq **54k→61k**;
+    center_void **7.8%→1.7%**; stills show console room + hallway around bulkhead
+  - Evidence: `.ai/logs/dolphin-probe-g365-c1a0d-fov`
+  - Stills: `.ai/screenshots/g365-dumpframes/`
+- **G367**: CapFaces begin/end once-per-map (not `tr.framecount<=3`)
+  - Dual-hop `c0a0e→c1a0→c1a0d`: begin/end on **c1a0 f=12**, **c1a0d f=24**
+    drawn=280 (old gate would skip both hops)
+  - Tip-safe DumpFrames `c1a0a→c1a0d` still CHANGELEVEL_READY, drawn=280
+  - Evidence: `.ai/logs/dolphin-probe-g367-capfaces-map`
 
 **NEXT**:
-- Optional: CapFaces begin/end once-per-map (not only drawn stash)
 - Optional: dual-hop DumpFrames (I/O-heavy; tip-safe single hop proven)
-- Optional: remaining denser vertical portal/vis seam (center slice)
+- Optional: dump yaw off the aimed wall (G366 +32 looked into void; uniq 61k→24k; reverted)
 
 Rules:
 - Force-relink after HLSDK archive changes.
