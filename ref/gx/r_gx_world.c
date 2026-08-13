@@ -2864,14 +2864,24 @@ static void R_GXPrepareStudioState( qboolean viewmodel )
 	GX_LoadProjectionMtx( proj, GX_PERSPECTIVE );
 	R_GXBuildWorldModelview( mv );
 	GX_LoadPosMtxImm( mv, GX_PNMTX0 );
+	GX_SetCurrentMtx( GX_PNMTX0 );
 
+	/* Drain world FIFO before changing vtx layout. CapFaces LIT faces use
+	 * POS+CLR+TEX0+TEX1; a 3-attr studio stream left the XF consuming
+	 * lightmap STs as positions → giant white planes (G376 CPU/emit bbox
+	 * was a compact 27×13×60u scientist 845u from the dump eye). */
+	GX_Flush();
 	GX_ClearVtxDesc();
 	GX_SetVtxDesc( GX_VA_POS, GX_DIRECT );
 	GX_SetVtxDesc( GX_VA_CLR0, GX_DIRECT );
 	GX_SetVtxDesc( GX_VA_TEX0, GX_DIRECT );
+	GX_SetVtxDesc( GX_VA_TEX1, GX_DIRECT );
 	GX_SetVtxAttrFmt( GX_VTXFMT0, GX_VA_POS, GX_POS_XYZ, GX_F32, 0 );
 	GX_SetVtxAttrFmt( GX_VTXFMT0, GX_VA_CLR0, GX_CLR_RGBA, GX_RGBA8, 0 );
 	GX_SetVtxAttrFmt( GX_VTXFMT0, GX_VA_TEX0, GX_TEX_ST, GX_F32, 0 );
+	GX_SetVtxAttrFmt( GX_VTXFMT0, GX_VA_TEX1, GX_TEX_ST, GX_F32, 0 );
+	GX_InvVtxCache();
+	r_gx_face_mode = GC_GX_FACE_MODE_NONE;
 }
 
 void R_GXStudioBegin( qboolean viewmodel )
@@ -3106,12 +3116,15 @@ void R_GXStudioEmitTriC(
 	GX_Position3f32( x0, y0, z0 );
 	GX_Color1u32( c0 );
 	GX_TexCoord2f32( u0, v0 );
+	GX_TexCoord2f32( 0.0f, 0.0f );
 	GX_Position3f32( x1, y1, z1 );
 	GX_Color1u32( c1 );
 	GX_TexCoord2f32( u1, v1 );
+	GX_TexCoord2f32( 0.0f, 0.0f );
 	GX_Position3f32( x2, y2, z2 );
 	GX_Color1u32( c2 );
 	GX_TexCoord2f32( u2, v2 );
+	GX_TexCoord2f32( 0.0f, 0.0f );
 	GX_End();
 	/* Prefer studio accounting while studio is armed (effects latch may
 	 * still be set from an earlier particle/sprite TriBegin). */

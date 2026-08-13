@@ -1155,12 +1155,15 @@ static void R_DrawEntitiesOnList( void )
 		{
 			static qboolean lean_vm_draw_logged;
 			static qboolean lean_efx_draw_logged;
+			extern int R_GXEfbDumpHoldLeft( void );
 
 			/* Viewmodel still needs a live studio; additive beams (G320) do not. */
 			if( lean_studios > 0
 				&& tr.viewent && tr.viewent->model
 				&& tr.viewent->model->type == mod_studio
-				&& tr.viewent->model->cache.data )
+				&& tr.viewent->model->cache.data
+				&& !( r_drawviewmodel && r_drawviewmodel->value == 0
+					&& R_GXEfbDumpHoldLeft() > 0 ))
 			{
 				R_DrawViewModel();
 				if( !lean_vm_draw_logged )
@@ -1176,8 +1179,6 @@ static void R_DrawEntitiesOnList( void )
 			 * stalls the present pump. Studios still gate viewmodel above.
 			 * G368: skip during Flipper EFB dump hold — dual-hop DumpFrames
 			 * hung in CL_DrawBeams mid-present (20260811-224709). */
-			{
-			extern int R_GXEfbDumpHoldLeft( void );
 			if( ( tr.framecount == 16 || lean_studios > 0 )
 				&& R_GXEfbDumpHoldLeft() <= 0 )
 			{
@@ -1190,7 +1191,6 @@ static void R_DrawEntitiesOnList( void )
 					gEngfuncs.Con_Reportf(
 						"Xash3D GameCube: lean DrawEntities EFX trans\n" );
 				}
-			}
 			}
 		}
 		else

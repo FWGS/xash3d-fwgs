@@ -10638,21 +10638,41 @@ qboolean GC_RenderNewGameWorldPassNoFrame( qboolean draw_viewmodel )
  * Bypasses V_RenderView / Host_ServerFrame (both stall on this path) and
  * reuses the same GL_RenderFrame probe used by -gcworldrender / -gcmap.
  */
-static qboolean GC_G376AimDumpAtLeanNpc( void )
+static qboolean GC_G376AimDumpAtLeanNpc( const float *ref_org )
 {
 	edict_t *ed;
-	int i;
-	vec3_t to_npc;
-	float len;
+	edict_t *player;
+	int i, best_i;
+	float best_dist;
+	vec3_t ref, probe;
+	const char *best_mod;
+	static const float dirs[8][2] = {
+		{ 1.0f, 0.0f }, { -1.0f, 0.0f }, { 0.0f, 1.0f }, { 0.0f, -1.0f },
+		{ 0.7071f, 0.7071f }, { -0.7071f, 0.7071f },
+		{ 0.7071f, -0.7071f }, { -0.7071f, -0.7071f }
+	};
 
 	gc_g376_npc_aim_valid = false;
 	if( !svgame.edicts || svgame.numEntities <= 1 )
 		return false;
 
+	player = ( svs.maxclients >= 1 ) ? SV_EdictNum( 1 ) : NULL;
+	if( ref_org && ( ref_org[0] || ref_org[1] || ref_org[2] ))
+		VectorCopy( ref_org, ref );
+	else if( player && !player->free && !VectorIsNull( player->v.origin ))
+		VectorCopy( player->v.origin, ref );
+	else
+		VectorCopy( gc_newgame_capture_origin, ref );
+
+	best_i = -1;
+	best_dist = 1e12f;
+	best_mod = NULL;
 	for( i = 1; i < svgame.numEntities; i++ )
 	{
 		const char *mod = NULL;
 		int mi;
+		vec3_t delta;
+		float dist;
 
 		ed = SV_EdictNum( i );
 		if( !ed || ed->free )
@@ -10664,27 +10684,54 @@ static qboolean GC_G376AimDumpAtLeanNpc( void )
 			continue;
 		if( !Q_stristr( mod, "scientist" ) && !Q_stristr( mod, "barney" ))
 			continue;
-
-		VectorCopy( ed->v.origin, gc_g376_npc_origin );
-		gc_g376_npc_eye[0] = gc_g376_npc_origin[0] + 96.0f;
-		gc_g376_npc_eye[1] = gc_g376_npc_origin[1];
-		gc_g376_npc_eye[2] = gc_g376_npc_origin[2] + 40.0f;
-		VectorSubtract( gc_g376_npc_origin, gc_g376_npc_eye, to_npc );
-		len = VectorLength( to_npc );
-		if( len < 32.0f )
+		if( VectorIsNull( ed->v.origin ))
+			continue;
+		VectorSubtract( ed->v.origin, ref, delta );
+		dist = DotProduct( delta, delta );
+		if( dist < best_dist )
 		{
-			gc_g376_npc_eye[0] = gc_g376_npc_origin[0];
-			gc_g376_npc_eye[1] = gc_g376_npc_origin[1] + 96.0f;
-			gc_g376_npc_eye[2] = gc_g376_npc_origin[2] + 40.0f;
+			best_dist = dist;
+			best_i = i;
+			best_mod = mod;
 		}
-		gc_g376_npc_aim_valid = true;
-		Con_Reportf( "Xash3D GameCube: G376 dump aim NPC %s org=(%.0f,%.0f,%.0f) eye=(%.0f,%.0f,%.0f)\n",
-			mod,
-			gc_g376_npc_origin[0], gc_g376_npc_origin[1], gc_g376_npc_origin[2],
-			gc_g376_npc_eye[0], gc_g376_npc_eye[1], gc_g376_npc_eye[2] );
-		return true;
 	}
-	return false;
+	if( best_i < 0 )
+		return false;
+
+	ed = SV_EdictNum( best_i );
+	VectorCopy( ed->v.origin, gc_g376_npc_origin );
+	gc_g376_npc_eye[0] = gc_g376_npc_origin[0] + 128.0f;
+	gc_g376_npc_eye[1] = gc_g376_npc_origin[1];
+	gc_g376_npc_eye[2] = gc_g376_npc_origin[2] + 36.0f;
+	for( i = 0; i < 8; i++ )
+	{
+		probe[0] = gc_g376_npc_origin[0] + dirs[i][0] * 128.0f;
+		probe[1] = gc_g376_npc_origin[1] + dirs[i][1] * 128.0f;
+		probe[2] = gc_g376_npc_origin[2] + 36.0f;
+		if( GC_DumpOriginInHull( probe ))
+		{
+			VectorCopy( probe, gc_g376_npc_eye );
+			break;
+		}
+	}
+	gc_g376_npc_aim_valid = true;
+	{
+		static qboolean aim_logged;
+		vec3_t d;
+
+		VectorSubtract( gc_g376_npc_origin, ref, d );
+		if( !aim_logged )
+		{
+			aim_logged = true;
+			Con_Reportf( "Xash3D GameCube: G376 dump aim NPC %s org=(%.0f,%.0f,%.0f) eye=(%.0f,%.0f,%.0f) hull=%d dist=%.0f\n",
+				best_mod ? best_mod : "?",
+				gc_g376_npc_origin[0], gc_g376_npc_origin[1], gc_g376_npc_origin[2],
+				gc_g376_npc_eye[0], gc_g376_npc_eye[1], gc_g376_npc_eye[2],
+				GC_DumpOriginInHull( gc_g376_npc_eye ) ? 1 : 0,
+				VectorLength( d ));
+		}
+	}
+	return true;
 }
 
 qboolean GC_RenderNewGameWorldFrames( int count )
@@ -10766,21 +10813,6 @@ qboolean GC_RenderNewGameWorldFrames( int count )
 				break;
 			}
 		}
-	}
-	/* G376: denser DumpFrames — optional NPC look (disabled while wall-aim
-	 * owns CapFaces fill; enable after restream-to-NPC-eye is wired). */
-	if( 0 && gc_g376_npc_aim_valid )
-	{
-		vec3_t look;
-
-		VectorCopy( gc_g376_npc_eye, center );
-		VectorSubtract( gc_g376_npc_origin, center, look );
-		VectorAngles( look, rvp.viewangles );
-		rvp.viewangles[2] = 0.0f;
-		if( rvp.viewangles[0] > 15.0f )
-			rvp.viewangles[0] = 15.0f;
-		if( rvp.viewangles[0] < -25.0f )
-			rvp.viewangles[0] = -25.0f;
 	}
 	/* G279: follow parented ride eye under stream lock (was fixed DumpEye).
 	 * G364: denser dest skips tram −X restream; dump wall-aim restreams after. */
@@ -10960,6 +10992,49 @@ qboolean GC_RenderNewGameWorldFrames( int count )
 
 			SYS_Report( "Xash3D GameCube: G189 outdoor dump cl=%d lf=%d aim=%.0f\n",
 				gc_newgame_viewcluster, leaves, look_len );
+		}
+	}
+	/* G376: keep G212 locked. Stand off ~128u from the nearest scientist
+	 * so rest-pose is a humanoid. Do not restream CapFaces here — mid-frame
+	 * surfbits/SetActive hung Host_Frame (probe 20260812-061959). */
+	if( gc_dump_look_into_map
+		&& ( Sys_CheckParm( "-gcdumpframes" ) || Sys_CheckParm( "-gcdump" ))
+		&& GC_G376AimDumpAtLeanNpc( center ))
+	{
+		vec3_t look, away;
+		float dist;
+
+		VectorSubtract( gc_g376_npc_origin, center, look );
+		dist = VectorLength( look );
+		if( dist < 1600.0f )
+		{
+			if( dist >= 96.0f && GC_DumpOriginInHull( gc_g376_npc_eye ))
+				VectorCopy( gc_g376_npc_eye, center );
+			else if( dist < 96.0f )
+			{
+				if( dist > 8.0f )
+				{
+					away[0] = ( center[0] - gc_g376_npc_origin[0] ) / dist;
+					away[1] = ( center[1] - gc_g376_npc_origin[1] ) / dist;
+				}
+				else
+				{
+					away[0] = 1.0f;
+					away[1] = 0.0f;
+				}
+				center[0] = gc_g376_npc_origin[0] + away[0] * 140.0f;
+				center[1] = gc_g376_npc_origin[1] + away[1] * 140.0f;
+				center[2] = gc_g376_npc_origin[2] + 36.0f;
+				if( !GC_DumpOriginInHull( center ))
+					VectorCopy( gc_g376_npc_eye, center );
+			}
+			VectorSubtract( gc_g376_npc_origin, center, look );
+			VectorAngles( look, rvp.viewangles );
+			rvp.viewangles[2] = 0.0f;
+			if( rvp.viewangles[0] > 12.0f )
+				rvp.viewangles[0] = 12.0f;
+			if( rvp.viewangles[0] < -20.0f )
+				rvp.viewangles[0] = -20.0f;
 		}
 	}
 	VectorCopy( center, rvp.vieworigin );
@@ -11705,12 +11780,10 @@ qboolean GC_PrepareNewGameWorldPresent( void )
 					}
 					Mod_GCPromoteLeanNpcStudios();
 					GC_EnableGxWorldLive();
-					(void)GC_G376AimDumpAtLeanNpc();
 					gc_g196_flipper_dump_aim_left = 16;
-					/* Keep wall-aim CapFaces fill; NPC eye alone left dump stills
-					 * near-empty (uniq≈9). Rest-pose + skins still draw under
-					 * wall-aim when the NPC is in view. */
 					gc_dump_look_into_map = true;
+					/* NPC framing happens after wall-aim places the eye
+					 * (same streamed cluster — unlocking G212 hung). */
 					/* G376: one CapFaces+studio emit, then Present-only under
 					 * hold. Re-emitting studios each dump frame without an EFB
 					 * clear stacked white tris (smear); clearing every frame

@@ -1804,6 +1804,16 @@ static void R_StudioDrawNormalMesh( short *ptricmds, vec3_t *pstudionorms, float
 		/* G376: ForceBegin cleared bound_tex — rebind SetupSkin's texture. */
 		R_GXStudioRebindPending();
 
+		{
+			static qboolean emit_bbox_logged;
+			float emn[3], emx[3];
+			int emit_n = 0, oob = 0, max_idx = -1, nverts_lim;
+			int first_idx = -1;
+
+			emn[0] = emn[1] = emn[2] = 1e9f;
+			emx[0] = emx[1] = emx[2] = -1e9f;
+			nverts_lim = m_pSubModel ? m_pSubModel->numverts : 0;
+
 		while(( i = *( ptricmds++ )))
 		{
 			qboolean fan = false;
@@ -1820,7 +1830,19 @@ static void R_StudioDrawNormalMesh( short *ptricmds, vec3_t *pstudionorms, float
 			cmds++;
 			for( ; i > 0 && nverts < 64; i--, ptricmds += 4 )
 			{
-				float *pos = g_studio.verts[ptricmds[0]];
+				int idx = ptricmds[0];
+				float *pos;
+
+				if( idx > max_idx )
+					max_idx = idx;
+				if( first_idx < 0 )
+					first_idx = idx;
+				if( idx < 0 || idx >= nverts_lim )
+				{
+					oob++;
+					continue;
+				}
+				pos = g_studio.verts[idx];
 
 				R_StudioSetColorBegin( ptricmds, pstudionorms );
 				xv[nverts] = pos[0];
@@ -1829,6 +1851,13 @@ static void R_StudioDrawNormalMesh( short *ptricmds, vec3_t *pstudionorms, float
 				uv[nverts] = ptricmds[2] * s;
 				vv[nverts] = ptricmds[3] * t;
 				cv[nverts] = R_GXGetTriColorRGBA();
+				if( pos[0] < emn[0] ) emn[0] = pos[0];
+				if( pos[1] < emn[1] ) emn[1] = pos[1];
+				if( pos[2] < emn[2] ) emn[2] = pos[2];
+				if( pos[0] > emx[0] ) emx[0] = pos[0];
+				if( pos[1] > emx[1] ) emx[1] = pos[1];
+				if( pos[2] > emx[2] ) emx[2] = pos[2];
+				emit_n++;
 				nverts++;
 			}
 			/* Drain any leftover verts if command was truncated by cap. */
@@ -1862,6 +1891,17 @@ static void R_StudioDrawNormalMesh( short *ptricmds, vec3_t *pstudionorms, float
 							xv[v + 2], yv[v + 2], zv[v + 2], uv[v + 2], vv[v + 2], cv[v + 2] );
 				}
 			}
+		}
+
+		if( !emit_bbox_logged && emit_n > 0 )
+		{
+			emit_bbox_logged = true;
+			gEngfuncs.Con_Reportf(
+				"Xash3D GameCube: G376 studio emit %s n=%d oob=%d maxidx=%d first=%d bbox=(%.0f,%.0f,%.0f)-(%.0f,%.0f,%.0f)\n",
+				( RI.currentmodel && RI.currentmodel->name[0] ) ? RI.currentmodel->name : "?",
+				emit_n, oob, max_idx, first_idx,
+				emn[0], emn[1], emn[2], emx[0], emx[1], emx[2] );
+		}
 		}
 
 		if( !lean_mesh_gx_logged )
@@ -2111,6 +2151,39 @@ static void R_StudioDrawPoints( void )
 			Matrix3x4_VectorTransform( g_studio.bonestransform[pvertbone[i]], pstudioverts[i], g_studio.verts[i] );
 			R_LightStrength( pvertbone[i], pstudioverts[i], g_studio.lightpos[i] );
 		}
+#if XASH_GAMECUBE
+		if( gEngfuncs.Sys_CheckParm( "-gcnewgame" ) && m_pSubModel->numverts > 0 )
+		{
+			static qboolean bbox_logged;
+			float mn[3], mx[3];
+			int b0 = pvertbone[0];
+
+			VectorCopy( g_studio.verts[0], mn );
+			VectorCopy( g_studio.verts[0], mx );
+			for( i = 1; i < m_pSubModel->numverts; i++ )
+			{
+				int a;
+				for( a = 0; a < 3; a++ )
+				{
+					if( g_studio.verts[i][a] < mn[a] ) mn[a] = g_studio.verts[i][a];
+					if( g_studio.verts[i][a] > mx[a] ) mx[a] = g_studio.verts[i][a];
+				}
+			}
+			if( !bbox_logged )
+			{
+				bbox_logged = true;
+				gEngfuncs.Con_Reportf(
+					"Xash3D GameCube: G376 studio verts %s n=%d raw0=(%.1f,%.1f,%.1f) bone0=%d xf0=(%.0f,%.0f,%.0f) bbox=(%.0f,%.0f,%.0f)-(%.0f,%.0f,%.0f) ent=(%.0f,%.0f,%.0f)\n",
+					( RI.currentmodel && RI.currentmodel->name[0] ) ? RI.currentmodel->name : "?",
+					m_pSubModel->numverts,
+					pstudioverts[0][0], pstudioverts[0][1], pstudioverts[0][2],
+					b0,
+					g_studio.verts[0][0], g_studio.verts[0][1], g_studio.verts[0][2],
+					mn[0], mn[1], mn[2], mx[0], mx[1], mx[2],
+					RI.currententity->origin[0], RI.currententity->origin[1], RI.currententity->origin[2] );
+			}
+		}
+#endif
 	}
 
 	// generate shared normals for properly scaling glowing shell
@@ -3276,7 +3349,25 @@ void R_DrawViewModel( void )
 
 #if XASH_GAMECUBE
 	/* Lean Flipper often leaves r_drawviewmodel at 0 (V_RenderView pump
-	 * skips the force-on). Landmark mesh is enough to arm the gun pass. */
+	 * skips the force-on). Landmark mesh is enough to arm the gun pass.
+	 * G376: DumpFrames explicitly forces the cvar off so NPC rest-pose
+	 * isn't buried under a close-up white v_9mmhandgun / v_crowbar. */
+	{
+		extern int R_GXEfbDumpHoldLeft( void );
+
+		if( r_drawviewmodel->value == 0 && R_GXEfbDumpHoldLeft() > 0 )
+		{
+			static qboolean dump_vm_skip_logged;
+
+			if( !dump_vm_skip_logged )
+			{
+				dump_vm_skip_logged = true;
+				gEngfuncs.Con_Reportf(
+					"Xash3D GameCube: G376 skip viewmodel during DumpFrames hold\n" );
+			}
+			return;
+		}
+	}
 	if( r_drawviewmodel->value == 0 && !lean_vm )
 		return;
 #else

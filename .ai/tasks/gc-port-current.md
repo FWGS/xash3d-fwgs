@@ -96,25 +96,30 @@ Match retail visuals without cutting fill/spawn.
   - Evidence: `.ai/logs/dolphin-probe-g375-npc-dumpframes`
   - Stills: `.ai/screenshots/g375-dumpframes/`
   - Video: `.ai/screenshots/video-proof-g375/c1a0d-npc-studios-dumpframes.mp4`
-- **G376** (in progress): NPC T.mdl skins + DumpFrames hygiene + rest-pose
+- **G376**: NPC T.mdl skins + rest-pose + DumpFrames humanoid proof
   - T.mdl merge + soft skins: scientist **31/31**, barney **26/26**, headcrab **5/5**
   - Disc stages `scientistt`/`barneyt`/`headcrabt`/`zombiet`
   - Flipper: `R_GXStudioRebindPending` after ForceBegin; **GX bind ok**
-    `#models/scientist/Sci3(Back2).mdl 48x41` (coat is ~75% whiteish)
+    `#models/scientist/Sci3(Back2).mdl 48x41`
+  - CPU/emit bbox compact ~27×13×60u at entity origin (not exploded verts)
+  - Hallway-filling white planes were the **lean viewmodel** (`lean_vm`
+    ignored `r_drawviewmodel 0`); skip VM during EFB dump hold
   - DumpFrames: one CapFaces+studio emit then Present-only under EFB hold
-    (re-emit smeared; clear-every-frame wiped CapFaces → sky)
-  - Lean NPC SetupBones: force group-0 idle frame 0 + **rest-pose** from
-    `bone.value` hierarchy (scripted anim was exploding limbs)
-  - Studio TEV REPLACE so skins aren't washed by near-white vertex shade
-  - CapFaces dump **drawn=281**; `gx_tris=711`; CHANGELEVEL_READY
-  - Stills still show non-humanoid white coat planes — bone/view aim polish next
-  - Evidence: `.ai/logs/dolphin-probe-g376-npc-rest-pose`
-  - Stills: `.ai/screenshots/g376h-rest-pose/`
-  - Video: `.ai/screenshots/video-proof-g376h/c1a0d-npc-rest-pose.mp4`
+  - Lean NPC SetupBones: group-0 idle frame 0 + **rest-pose** from `bone.value`
+  - Studio TEV REPLACE; GX studio stream matches world LIT (POS+CLR+TEX0+TEX1)
+  - Standoff dump eye at hull-valid 128u (`-1712,528,-220`) without unlocking
+    G212 (PreferOutdoor restream hung). World PVS stays wall-aim → grey void
+    + NPC. Scientist is a textured humanoid (face, glasses, coat, shoes)
+  - CapFaces dump **drawn=281**; `gx_tris=740`; CHANGELEVEL_READY
+  - Evidence: `.ai/logs/dolphin-probe-20260812-060912`
+  - Stills: `.ai/screenshots/g376p-standoff/` (viewmodel-off hallway:
+    `.ai/screenshots/g376o-novm/`)
+  - In-room CapFaces+NPC: mid-frame surfbits restream hung Host_Frame
+    (probe 20260812-061959 after dump aim). G212 stays locked; world at
+    standoff remains grey void. Do not PreferOutdoor-unlock.
 
 **NEXT**:
-- Studio Flipper: aim dump eye at NPC; verify bone hierarchy vs anim path;
-  get recognizable scientist silhouette (skins already bind)
+- Optional: bake NPC-room CapFaces at prepare time (not mid-dump-frame)
 - Real denser CapFaces CPU after sample flush (~33ms retail)
 - Optional: G506 HUD sheets (missing=1); dump cyan edge seams
 
