@@ -7191,6 +7191,17 @@ static void GC_FatalDrawWrapped( unsigned short *dst, int x, int y, const char *
 	}
 }
 
+static unsigned short GC_RGB8To565( int r, int g, int b )
+{
+	if( r < 0 ) r = 0;
+	if( g < 0 ) g = 0;
+	if( b < 0 ) b = 0;
+	if( r > 255 ) r = 255;
+	if( g > 255 ) g = 255;
+	if( b > 255 ) b = 255;
+	return (unsigned short)((( r >> 3 ) << 11 ) | (( g >> 2 ) << 5 ) | ( b >> 3 ));
+}
+
 #if XASH_GAMECUBE
 /* HL1-themed loading plaque (baked at disc build). Keep tiny for MEM1. */
 #define GC_LOADING_BG_W		160
@@ -7211,17 +7222,6 @@ void GC_SetLoadingProgress( float progress )
 float GC_GetLoadingProgress( void )
 {
 	return gc_loading_progress;
-}
-
-static unsigned short GC_RGB8To565( int r, int g, int b )
-{
-	if( r < 0 ) r = 0;
-	if( g < 0 ) g = 0;
-	if( b < 0 ) b = 0;
-	if( r > 255 ) r = 255;
-	if( g > 255 ) g = 255;
-	if( b > 255 ) b = 255;
-	return (unsigned short)((( r >> 3 ) << 11 ) | (( g >> 2 ) << 5 ) | ( b >> 3 ));
 }
 
 static qboolean GC_LoadLoadingBackground( void )
@@ -7319,39 +7319,6 @@ static void GC_BlitLoadingBackground( unsigned short *dst, int width, int height
 
 		for( col = 0; col < width; col++ )
 			rowdst[col] = src_row[( col * GC_LOADING_BG_W ) / width];
-	}
-}
-
-static void GC_DrawProgressBar( unsigned short *dst, int width, int height, int stride,
-	int bar_x, int bar_y, int bar_w, int bar_h, float progress )
-{
-	int row, col;
-	int fill_w;
-	unsigned short border = GC_RGB8To565( 200, 140, 40 );   /* HL gold */
-	unsigned short track = GC_RGB8To565( 28, 24, 20 );
-	unsigned short fill = GC_RGB8To565( 230, 120, 20 );     /* HL orange */
-
-	if( bar_w < 8 || bar_h < 4 )
-		return;
-	if( progress < 0.0f )
-		progress = 0.0f;
-	if( progress > 1.0f )
-		progress = 1.0f;
-	fill_w = (int)( ( bar_w - 2 ) * progress + 0.5f );
-
-	for( row = bar_y; row < bar_y + bar_h && row < height; row++ )
-	{
-		unsigned short *rowdst = dst + row * stride;
-		for( col = bar_x; col < bar_x + bar_w && col < width; col++ )
-		{
-			int local = col - bar_x;
-			if( row == bar_y || row == bar_y + bar_h - 1 || local == 0 || local == bar_w - 1 )
-				rowdst[col] = border;
-			else if( local - 1 < fill_w )
-				rowdst[col] = fill;
-			else
-				rowdst[col] = track;
-		}
 	}
 }
 
@@ -7931,24 +7898,186 @@ static void GC_PosterizeDumpWorldBuffer( unsigned short *dst, int width, int hei
 }
 #endif
 
+/*
+ * Classic Half-Life VGUI2 palette for the GameCube loading plaque.
+ * Values are 8-bit sRGB; packed to RGB565 via GC_RGB8To565 at draw time.
+ */
+enum
+{
+	GC_VGUI_BG_R = 72,  GC_VGUI_BG_G = 83,  GC_VGUI_BG_B = 66,
+	GC_VGUI_HEADER_R = 62, GC_VGUI_HEADER_G = 72, GC_VGUI_HEADER_B = 57,
+	GC_VGUI_BORDER_DARK_R = 26, GC_VGUI_BORDER_DARK_G = 30, GC_VGUI_BORDER_DARK_B = 25,
+	GC_VGUI_SHADOW_R = 45, GC_VGUI_SHADOW_G = 51, GC_VGUI_SHADOW_B = 41,
+	GC_VGUI_HIGHLIGHT_R = 132, GC_VGUI_HIGHLIGHT_G = 141, GC_VGUI_HIGHLIGHT_B = 124,
+	GC_VGUI_TEXT_R = 225, GC_VGUI_TEXT_G = 225, GC_VGUI_TEXT_B = 216,
+	GC_VGUI_TRACK_R = 38, GC_VGUI_TRACK_G = 43, GC_VGUI_TRACK_B = 35,
+	GC_VGUI_PROGRESS_R = 202, GC_VGUI_PROGRESS_G = 153, GC_VGUI_PROGRESS_B = 42
+};
+
+static void GC_FillRect565( unsigned short *dst, int width, int height, int stride,
+	int x, int y, int w, int h, unsigned short color )
+{
+	int row, col;
+	int x1, y1;
+
+	if( !dst || w <= 0 || h <= 0 )
+		return;
+	if( x < 0 )
+	{
+		w += x;
+		x = 0;
+	}
+	if( y < 0 )
+	{
+		h += y;
+		y = 0;
+	}
+	x1 = x + w;
+	y1 = y + h;
+	if( x1 > width )
+		x1 = width;
+	if( y1 > height )
+		y1 = height;
+	for( row = y; row < y1; row++ )
+	{
+		unsigned short *rowdst = dst + row * stride;
+		for( col = x; col < x1; col++ )
+			rowdst[col] = color;
+	}
+}
+
+/* Outset VGUI2 frame: dark outer border, light top/left, shadow bottom/right. */
+static void GC_DrawVguiBevelPanel( unsigned short *dst, int width, int height, int stride,
+	int x, int y, int w, int h, int header_h )
+{
+	unsigned short bg = GC_RGB8To565( GC_VGUI_BG_R, GC_VGUI_BG_G, GC_VGUI_BG_B );
+	unsigned short header = GC_RGB8To565( GC_VGUI_HEADER_R, GC_VGUI_HEADER_G, GC_VGUI_HEADER_B );
+	unsigned short border = GC_RGB8To565( GC_VGUI_BORDER_DARK_R, GC_VGUI_BORDER_DARK_G, GC_VGUI_BORDER_DARK_B );
+	unsigned short shadow = GC_RGB8To565( GC_VGUI_SHADOW_R, GC_VGUI_SHADOW_G, GC_VGUI_SHADOW_B );
+	unsigned short highlight = GC_RGB8To565( GC_VGUI_HIGHLIGHT_R, GC_VGUI_HIGHLIGHT_G, GC_VGUI_HIGHLIGHT_B );
+	int col;
+	int hy;
+
+	if( !dst || w < 8 || h < 8 )
+		return;
+	if( header_h < 4 )
+		header_h = 4;
+	if( header_h > h - 4 )
+		header_h = h - 4;
+
+	GC_FillRect565( dst, width, height, stride, x, y, w, header_h, header );
+	GC_FillRect565( dst, width, height, stride, x, y + header_h, w, h - header_h, bg );
+
+	/* Outer charcoal border (square corners). */
+	GC_FillRect565( dst, width, height, stride, x, y, w, 1, border );
+	GC_FillRect565( dst, width, height, stride, x, y + h - 1, w, 1, border );
+	GC_FillRect565( dst, width, height, stride, x, y, 1, h, border );
+	GC_FillRect565( dst, width, height, stride, x + w - 1, y, 1, h, border );
+
+	/* 1px outset bevel inside the outer border. */
+	GC_FillRect565( dst, width, height, stride, x + 1, y + 1, w - 2, 1, highlight );
+	GC_FillRect565( dst, width, height, stride, x + 1, y + 1, 1, h - 2, highlight );
+	GC_FillRect565( dst, width, height, stride, x + 1, y + h - 2, w - 2, 1, shadow );
+	GC_FillRect565( dst, width, height, stride, x + w - 2, y + 1, 1, h - 2, shadow );
+
+	/* Header separator (slightly recessed). */
+	hy = y + header_h - 1;
+	if( hy > y + 1 && hy < y + h - 2 )
+	{
+		for( col = x + 2; col < x + w - 2 && col < width; col++ )
+		{
+			if( hy >= 0 && hy < height )
+				dst[hy * stride + col] = shadow;
+		}
+	}
+}
+
+/* Recessed VGUI2 progress track with muted amber fill. */
+static void GC_DrawProgressBar( unsigned short *dst, int width, int height, int stride,
+	int bar_x, int bar_y, int bar_w, int bar_h, float progress )
+{
+	int fill_w;
+	int inner_x, inner_y, inner_w, inner_h;
+	unsigned short track = GC_RGB8To565( GC_VGUI_TRACK_R, GC_VGUI_TRACK_G, GC_VGUI_TRACK_B );
+	unsigned short fill = GC_RGB8To565( GC_VGUI_PROGRESS_R, GC_VGUI_PROGRESS_G, GC_VGUI_PROGRESS_B );
+	unsigned short border = GC_RGB8To565( GC_VGUI_BORDER_DARK_R, GC_VGUI_BORDER_DARK_G, GC_VGUI_BORDER_DARK_B );
+	unsigned short highlight = GC_RGB8To565( GC_VGUI_HIGHLIGHT_R, GC_VGUI_HIGHLIGHT_G, GC_VGUI_HIGHLIGHT_B );
+	unsigned short shadow = GC_RGB8To565( GC_VGUI_SHADOW_R, GC_VGUI_SHADOW_G, GC_VGUI_SHADOW_B );
+
+	if( bar_w < 8 || bar_h < 4 )
+		return;
+	if( progress < 0.0f )
+		progress = 0.0f;
+	if( progress > 1.0f )
+		progress = 1.0f;
+
+	GC_FillRect565( dst, width, height, stride, bar_x, bar_y, bar_w, bar_h, track );
+
+	/* Inset bevel: dark top/left, light bottom/right. */
+	GC_FillRect565( dst, width, height, stride, bar_x, bar_y, bar_w, 1, border );
+	GC_FillRect565( dst, width, height, stride, bar_x, bar_y, 1, bar_h, border );
+	GC_FillRect565( dst, width, height, stride, bar_x, bar_y + bar_h - 1, bar_w, 1, highlight );
+	GC_FillRect565( dst, width, height, stride, bar_x + bar_w - 1, bar_y, 1, bar_h, highlight );
+	if( bar_w > 2 && bar_h > 2 )
+	{
+		GC_FillRect565( dst, width, height, stride, bar_x + 1, bar_y + 1, bar_w - 2, 1, shadow );
+		GC_FillRect565( dst, width, height, stride, bar_x + 1, bar_y + 1, 1, bar_h - 2, shadow );
+	}
+
+	inner_x = bar_x + 2;
+	inner_y = bar_y + 2;
+	inner_w = bar_w - 4;
+	inner_h = bar_h - 4;
+	if( inner_w < 1 || inner_h < 1 )
+		return;
+	fill_w = (int)( inner_w * progress + 0.5f );
+	if( fill_w > inner_w )
+		fill_w = inner_w;
+	if( fill_w > 0 )
+		GC_FillRect565( dst, width, height, stride, inner_x, inner_y, fill_w, inner_h, fill );
+}
+
+/* Prefer the trailing portion of long paths so the map name stays readable. */
+static const char *GC_StatusFitText( const char *text, int max_chars )
+{
+	int len;
+
+	if( !text || !text[0] )
+		return "";
+	if( max_chars < 1 )
+		return "";
+	len = (int)Q_strlen( text );
+	if( len <= max_chars )
+		return text;
+	return text + ( len - max_chars );
+}
+
 static void GC_DrawStatusPanelToBufferEx( unsigned short *dst, int width, int height, int stride,
 	const char *message, const char *details, qboolean top_aligned )
 {
-	int row;
-	int col;
 	int panel_x;
 	int panel_y;
 	int panel_w;
 	int panel_h;
 	int text_scale;
 	int line_scale;
+	int pad;
+	int header_h;
+	int text_x;
+	int title_y;
+	int msg_y;
+	int det_y;
+	int max_chars;
 	int bar_x, bar_y, bar_w, bar_h;
-	unsigned short border = 0xFB40; /* HL amber border */
-	unsigned short fill = 0x10A2;   /* dark brown-black panel */
+	unsigned short text = GC_RGB8To565( GC_VGUI_TEXT_R, GC_VGUI_TEXT_G, GC_VGUI_TEXT_B );
+	const char *detail_line;
 
 	panel_x = width * GC_VIDEO_SAFE_AREA_PERCENT / 100;
 	panel_w = width - panel_x * 2;
-	panel_h = height * 110 / 480;
+	/* Slightly taller than the old plaque so the VGUI2 header + bevel fit. */
+	panel_h = height * 128 / 480;
+	if( panel_h < 72 )
+		panel_h = 72;
 	if( top_aligned )
 		panel_y = height * GC_VIDEO_SAFE_AREA_PERCENT / 100;
 	else
@@ -7959,32 +8088,38 @@ static void GC_DrawStatusPanelToBufferEx( unsigned short *dst, int width, int he
 	}
 	text_scale = height >= 240 ? 2 : 1;
 	line_scale = height >= 240 ? 2 : 1;
+	pad = height >= 240 ? 10 : 6;
+	header_h = pad + 7 * text_scale + ( pad / 2 );
+	if( header_h > panel_h / 3 )
+		header_h = panel_h / 3;
 
-	for( row = panel_y; row < panel_y + panel_h && row < height; row++ )
-	{
-		unsigned short *rowdst = dst + row * stride;
-		for( col = panel_x; col < panel_x + panel_w && col < width; col++ )
-		{
-			if( row == panel_y || row == panel_y + panel_h - 1 ||
-				col == panel_x || col == panel_x + panel_w - 1 )
-				rowdst[col] = border;
-			else
-				rowdst[col] = fill;
-		}
-	}
+	GC_DrawVguiBevelPanel( dst, width, height, stride, panel_x, panel_y, panel_w, panel_h, header_h );
 
-	GC_StatusDrawLine( dst, stride, width, height, panel_x + width * 18 / 640,
-		panel_y + height * 10 / 480, "HALF-LIFE", 0xFE60, text_scale, 24 );
-	GC_StatusDrawLine( dst, stride, width, height, panel_x + width * 18 / 640,
-		panel_y + height * 34 / 480, message ? message : "PLEASE WAIT", 0xFFE0, text_scale, 34 );
-	GC_StatusDrawLine( dst, stride, width, height, panel_x + width * 18 / 640,
-		panel_y + height * 56 / 480, details ? details : "LOADING", 0xC618, line_scale, 72 );
+	text_x = panel_x + pad + 2;
+	title_y = panel_y + ( header_h - 7 * text_scale ) / 2;
+	if( title_y < panel_y + 2 )
+		title_y = panel_y + 2;
+	msg_y = panel_y + header_h + pad;
+	det_y = msg_y + 7 * text_scale + ( pad / 2 );
+	max_chars = ( panel_w - 2 * pad - 4 ) / ( 6 * line_scale );
+	if( max_chars < 8 )
+		max_chars = 8;
+
+	GC_StatusDrawLine( dst, stride, width, height, text_x, title_y,
+		"HALF-LIFE", text, text_scale, 24 );
+	GC_StatusDrawLine( dst, stride, width, height, text_x, msg_y,
+		message ? message : "PLEASE WAIT", text, text_scale, max_chars );
+	detail_line = GC_StatusFitText( details ? details : "LOADING", max_chars );
+	GC_StatusDrawLine( dst, stride, width, height, text_x, det_y,
+		detail_line, text, line_scale, max_chars );
 
 #if XASH_GAMECUBE
-	bar_x = panel_x + width * 18 / 640;
-	bar_w = panel_w - width * 36 / 640;
-	bar_h = height >= 240 ? 10 : 6;
-	bar_y = panel_y + panel_h - bar_h - height * 10 / 480;
+	bar_x = panel_x + pad + 2;
+	bar_w = panel_w - 2 * pad - 4;
+	bar_h = height >= 240 ? 12 : 6;
+	bar_y = panel_y + panel_h - bar_h - pad;
+	if( bar_y < det_y + 7 * line_scale + 2 )
+		bar_y = det_y + 7 * line_scale + 2;
 	GC_DrawProgressBar( dst, width, height, stride, bar_x, bar_y, bar_w, bar_h, gc_loading_progress );
 #else
 	(void)bar_x; (void)bar_y; (void)bar_w; (void)bar_h;
