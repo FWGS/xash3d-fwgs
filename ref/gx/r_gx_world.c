@@ -1734,44 +1734,58 @@ static int R_GXEmitFace( const msurface_t *surf, model_t *world, int slot )
 		else
 			r_gx_state_reuses++;
 
-		/* Constant-Z eye-space pad (G200 path). Mixed-Z world/eye tris line. */
+		/* Constant-Z eye pad (G200). Mixed-Z lines. Thin strip at the
+		 * projected NPC/far edge so the scientist stays visible. */
 		if( surf->firstedge < 0 && nverts == 4 )
 		{
+			vec3_t fwd, right, upv;
+			const float *org = RI.rvp.vieworigin;
+			float e[4][3], bb[4][3];
 			Mtx ident, mv;
+			const float zbb = -100.0f;
+			float x0, x1, y0, y1, ymax;
+			int vi;
 			static qboolean g380_eye_logged;
 
+			AngleVectors( RI.rvp.viewangles, fwd, right, upv );
+			for( vi = 0; vi < 4; vi++ )
+			{
+				float rx = pts[vi][0] - org[0];
+				float ry = pts[vi][1] - org[1];
+				float rz = pts[vi][2] - org[2];
+				float ez;
+
+				e[vi][0] = right[0] * rx + right[1] * ry + right[2] * rz;
+				e[vi][1] = upv[0] * rx + upv[1] * ry + upv[2] * rz;
+				e[vi][2] = -( fwd[0] * rx + fwd[1] * ry + fwd[2] * rz );
+				ez = e[vi][2];
+				if( ez > -8.0f )
+					ez = -8.0f;
+				bb[vi][0] = e[vi][0] * ( zbb / ez );
+				bb[vi][1] = e[vi][1] * ( zbb / ez );
+				bb[vi][2] = zbb;
+				if( bb[vi][0] > 70.0f ) bb[vi][0] = 70.0f;
+				if( bb[vi][0] < -70.0f ) bb[vi][0] = -70.0f;
+				if( bb[vi][1] > 52.0f ) bb[vi][1] = 52.0f;
+				if( bb[vi][1] < -52.0f ) bb[vi][1] = -52.0f;
+			}
+			x0 = x1 = bb[0][0];
+			ymax = bb[0][1];
+			for( vi = 1; vi < 4; vi++ )
+			{
+				if( bb[vi][0] < x0 ) x0 = bb[vi][0];
+				if( bb[vi][0] > x1 ) x1 = bb[vi][0];
+				if( bb[vi][1] > ymax ) ymax = bb[vi][1];
+			}
+			/* Thin band at the far/NPC edge of the projected pad. */
+			y1 = ymax;
+			y0 = ymax - 14.0f;
 			if( !g380_eye_logged )
 			{
-				vec3_t fwd, right, upv;
-				const float *org = RI.rvp.vieworigin;
-				float e0[3], e2[3];
-				int k;
-
-				AngleVectors( RI.rvp.viewangles, fwd, right, upv );
-				for( k = 0; k < 3; k++ )
-				{
-					float r0 = pts[0][k] - org[k];
-					float r2 = pts[2][k] - org[k];
-					(void)r0; (void)r2;
-				}
-				{
-					float rx = pts[0][0] - org[0];
-					float ry = pts[0][1] - org[1];
-					float rz = pts[0][2] - org[2];
-					e0[0] = right[0] * rx + right[1] * ry + right[2] * rz;
-					e0[1] = upv[0] * rx + upv[1] * ry + upv[2] * rz;
-					e0[2] = -( fwd[0] * rx + fwd[1] * ry + fwd[2] * rz );
-					rx = pts[2][0] - org[0];
-					ry = pts[2][1] - org[1];
-					rz = pts[2][2] - org[2];
-					e2[0] = right[0] * rx + right[1] * ry + right[2] * rz;
-					e2[1] = upv[0] * rx + upv[1] * ry + upv[2] * rz;
-					e2[2] = -( fwd[0] * rx + fwd[1] * ry + fwd[2] * rz );
-				}
 				g380_eye_logged = true;
 				gEngfuncs.Con_Reportf(
-					"Xash3D GameCube: G380 eye p0=(%.0f,%.0f,%.0f) p2=(%.0f,%.0f,%.0f)\n",
-					e0[0], e0[1], e0[2], e2[0], e2[1], e2[2] );
+					"Xash3D GameCube: G380 eye p0=(%.0f,%.0f,%.0f) pad y=%.0f..%.0f x=%.0f..%.0f\n",
+					e[0][0], e[0][1], e[0][2], y0, y1, x0, x1 );
 			}
 			{
 				GXRModeObj *rmode = (GXRModeObj *)GC_GetGxVideoMode();
@@ -1787,19 +1801,18 @@ static int R_GXEmitFace( const msurface_t *surf, model_t *world, int slot )
 			GX_LoadPosMtxImm( ident, GX_PNMTX0 );
 			GX_InvVtxCache();
 			GX_SetZMode( GX_TRUE, GX_ALWAYS, GX_TRUE );
-			/* NPC-pad screen band (eye p0 y≈5 / p2 y≈64 → zbb y≈7..38). */
 			GX_Begin( GX_TRIANGLES, GX_VTXFMT0, 6 );
-			GX_Position3f32( -70.0f, 4.0f, -100.0f );
+			GX_Position3f32( x0, y0, zbb );
 			GX_Color1u32( color );
-			GX_Position3f32( 70.0f, 4.0f, -100.0f );
+			GX_Position3f32( x1, y0, zbb );
 			GX_Color1u32( color );
-			GX_Position3f32( 70.0f, 48.0f, -100.0f );
+			GX_Position3f32( x1, y1, zbb );
 			GX_Color1u32( color );
-			GX_Position3f32( -70.0f, 4.0f, -100.0f );
+			GX_Position3f32( x0, y0, zbb );
 			GX_Color1u32( color );
-			GX_Position3f32( 70.0f, 48.0f, -100.0f );
+			GX_Position3f32( x1, y1, zbb );
 			GX_Color1u32( color );
-			GX_Position3f32( -70.0f, 48.0f, -100.0f );
+			GX_Position3f32( x0, y1, zbb );
 			GX_Color1u32( color );
 			GX_End();
 			GX_SetZMode( GX_TRUE, GX_LEQUAL, GX_TRUE );
@@ -2989,7 +3002,12 @@ static void R_GXPrepareStudioState( qboolean viewmodel )
 		if( rmode )
 			GX_SetViewport( 0.0f, 0.0f, (f32)rmode->fbWidth, (f32)rmode->efbHeight,
 				0.0f, 1.0f );
-		GX_SetZMode( GX_TRUE, GX_LEQUAL, GX_TRUE );
+		/* G380: during DumpFrames NPC pad writes Z ALWAYS; lean NPC must
+		 * still composite (hold is armed after render — use skip-VM latch). */
+		if( R_GXDumpSkipViewmodelActive())
+			GX_SetZMode( GX_TRUE, GX_ALWAYS, GX_TRUE );
+		else
+			GX_SetZMode( GX_TRUE, GX_LEQUAL, GX_TRUE );
 	}
 	GX_SetBlendMode( GX_BM_NONE, GX_BL_ONE, GX_BL_ZERO, GX_LO_NOOP );
 

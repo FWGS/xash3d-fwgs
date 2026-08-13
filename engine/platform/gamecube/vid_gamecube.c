@@ -11273,8 +11273,8 @@ qboolean GC_RenderNewGameWorldFrames( int count )
 					rvp.viewangles[0] = 40.0f;
 				if( rvp.viewangles[0] < -12.0f )
 					rvp.viewangles[0] = -12.0f;
-				/* Quake pitch: + looks down (forward[2] = -sin(pitch)). */
-				rvp.viewangles[0] = 32.0f;
+				/* Quake pitch: + looks down. 20 shows more NPC than 32. */
+				rvp.viewangles[0] = 20.0f;
 				gc_g376_npc_dump_active = true;
 				VectorCopy( center, gc_newgame_capture_origin );
 				AngleVectors( rvp.viewangles, gc_newgame_capture_forward,
