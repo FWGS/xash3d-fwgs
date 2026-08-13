@@ -421,6 +421,10 @@ void R_GXStudioEmitTriC(
 int R_GXDrawBrushModel( cl_entity_t *e );
 int R_GXDrawTramBaked( const float *origin, const float *angles );
 void R_GXHoldEfbForDump( int frames );
+void R_GXBeginDumpAnimFrame( void );
+void R_GXDumpSkipViewmodel( int on );
+int R_GXDumpSkipViewmodelActive( void );
+int R_GXEfbDumpHoldLeft( void );
 void R_GXStudioTexCoord( float u, float v );
 int GC_GetNewGameCapFaceVerts( int slot, float out[][3], int maxverts );
 #endif

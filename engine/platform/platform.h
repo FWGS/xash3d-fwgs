@@ -197,6 +197,9 @@ int GC_GetLiveFaceCount( void );
 qboolean GC_LiveFaceIsCapped( int index ); /* G214 */
 qboolean GC_WantLiveCapOverlap( void ); /* G361: denser changelevel — live may steal LM-caps */
 qboolean GC_CapFaceIsLive( int slot ); /* G361/G363: skip LM when live emit window owns face */
+qboolean GC_G378DumpSkipFarPoint( const float *p ); /* G378: NPC dump far-slab skip */
+qboolean GC_G378DumpSkipFarVerts( const float pts[][3], int nverts ); /* G379: AABB */
+qboolean GC_G378DumpSkipFarCapSlot( int slot ); /* G379: AABB or ST-on-face */
 int GC_GetLiveFaceVerts( int index, float out[][3], int maxverts ); /* G216 */
 int GC_GetLiveFaceBakeSrc( int index ); /* G219: 1=edge 2=plane 3=tex 0=none */
 int GC_GetFillFaceCount( void ); /* G222/G225: MEM1 + ARAM flat-fill beyond 320+192 */

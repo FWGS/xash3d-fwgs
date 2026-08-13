@@ -124,9 +124,64 @@ Match retail visuals without cutting fill/spawn.
     brushes (far industrial slabs still rank over nearby hallway).
   - Evidence: `.ai/logs/dolphin-probe-20260812-225922`
   - Stills: `.ai/screenshots/g376w-hallway-npc/`
+- **G377**: group-0 studio animation (lean NPCs)
+  - SetupBones uses `R_StudioEstimateFrame` + `CalcRotations` (no rest-pose
+    stomp). Seqgroup 1+ / OOB remap to an in-base `idle*` (GetAnim stays in
+    the .mdl). Skip latched seq crossfade into seqgroup 1+.
+  - Bone AABB >220u → rest-pose fallback that frame (explode guard)
+  - EmitBrush: do not snap `animtime` to `cl.time` when edict animtime is 0
+    (that froze `dfdt` at 0)
+  - DumpFrames: clear+CapFaces+studio each step, +0.20s, hold+2 Present
+  - Probe `20260812-232325`: CHANGELEVEL_READY; scientist seq=0 `'walk'`
+    f=9→15/17 fps=20 loop; `gx_tris=740`; CapFaces **drawn=277**; compact
+    bbox ~32×17×60u; no explode fallback. Dump TGA **15 unique** hashes;
+    stills 25 vs 34 differ **7.8%** pixels (pose change)
+  - Evidence: `.ai/logs/dolphin-probe-20260812-232325`
+  - Stills: `.ai/screenshots/g377-anim/`
+- **G378**: dump-eye centroid rank (drop far slabs)
+  - Cap keep-score + live rerank use baked centroid vs NPC dump eye
+    (plane dist treated coplanar industrial walls as near)
+  - Skip Flipper emit if centroid >768u (`GC_G378DumpSkipFarPoint`)
+  - G212 stays locked — re-score already-baked slots after dump aim
+  - Probe `20260812-232949`: CHANGELEVEL_READY; rank n=284 **near=102
+    far=182** mind=271 maxd=1467 eye=(-1712,528,-220); dump CapFaces
+    **drawn=98** (was 277 far-slab fill); `gx_tris=740`; walk f advances
+  - Stills: hallway strip (blue-lit baseboard) + walking scientist, not
+    distant industrial slabs
+  - Evidence: `.ai/logs/dolphin-probe-20260812-232949`
+  - Stills: `.ai/screenshots/g378-hallway/`
+- **G379**: dump-eye AABB + ST keep (hallway floor)
+  - Skip/rank use face AABB-to-eye, not centroid (large floors pass under
+    the NPC but have a far centroid)
+  - Also keep a CapFace if the dump eye projects into its ST/lightmap bounds
+  - Probe `20260813-071312`: CHANGELEVEL_READY; AABB rank n=284 **near=122
+    far=162 horiz=65** mind=237 maxd=1448; dump CapFaces **drawn=113**
+    (G378 was near=102 drawn=98); `gx_tris=740`
+  - Stills: hallway strip + walking scientist; floor underfoot still thin
+    (horiz kept in the 284 but not filling the view — likely not the NPC
+    room slab, or 5-vert bake AABB)
+  - Evidence: `.ai/logs/dolphin-probe-20260813-071312`
+  - Stills: `.ai/screenshots/g379-hallway/`
+- **G380**: NPC-room floor into CapFaces (G212 stays locked)
+  - ST-boost at restream cand + keep-score; `prefer_walls` does not punch
+    ST floors during NPC dump; reset restream/rank statics per map
+  - Walking `wm->surfaces` / OR NPC-cluster surfbits hung Host_Frame
+    (scratch msurface_t). Inject a 4-vert floor quad under the NPC instead
+  - Probe `20260813-075444`: CHANGELEVEL_READY; floor quad slot=284 **n=285
+    near=123 far=162 horiz=66 mind=60**; dump CapFaces **drawn=114**;
+    `gx_tris=740`. Quad AABB is at the dump eye (mind 237→60)
+  - World-space mixed-Z floor tris collapsed to a 1px cyan edge (GX T&L /
+    guFrustum W). Quake pitch **+32** looks down (`forward[2]=-sin`); −32
+    was look-up. CPU eye `p0=(-28,-18,-35) p2=(140,64,-167)` is a real
+    quad — identity+`guPerspective` constant-Z (G200 path) fills
+  - Probe `20260813-090719`: CHANGELEVEL_READY; rank n=285 **near=123
+    horiz=66 mind=39**; dump CapFaces **drawn=115**; `gx_tris=740`;
+    stills ~124k cyan PASSCLR pixels (lower FOV) + hallway strip + walk
+  - Evidence: `.ai/logs/dolphin-probe-20260813-090719`
+  - Stills: `.ai/screenshots/g380-hallway/`
 
 **NEXT**:
-- Rank CapFaces by dump-eye distance under NPC restream (drop far slabs)
+- Mixed-Z world floor (tessellate in eye space / match world Z to studio)
 - Real denser CapFaces CPU after sample flush (~33ms retail)
 - Optional: G506 HUD sheets (missing=1); dump cyan edge seams
 

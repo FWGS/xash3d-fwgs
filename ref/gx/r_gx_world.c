@@ -56,6 +56,9 @@ extern qboolean GC_FillLiveDrawSurf( int index, msurface_t *out, mtexinfo_t *tex
 extern qboolean GC_LiveFaceIsCapped( int index );
 extern qboolean GC_WantLiveCapOverlap( void ); /* G361 */
 extern qboolean GC_CapFaceIsLive( int slot ); /* G361 */
+extern qboolean GC_G378DumpSkipFarPoint( const float *p );
+extern qboolean GC_G378DumpSkipFarVerts( const float pts[][3], int nverts );
+extern qboolean GC_G378DumpSkipFarCapSlot( int slot );
 extern int GC_GetLiveFaceVerts( int index, float out[][3], int maxverts );
 extern int GC_GetLiveFaceBakeSrc( int index );
 extern int GC_GetFillFaceCount( void );
@@ -136,6 +139,7 @@ static qboolean r_gx_lm_atlas_valid;
 static int r_gx_lm_atlas_gen = -1;
 static qboolean r_gx_lm_atlas_bound;
 static int r_gx_efb_dump_hold; /* G200: keep Flipper EFB for DumpFramesAsImages */
+static qboolean r_gx_g221_world_clear_done;
 
 /* Dolphin DumpFramesAsImages samples EFB asynchronously — clearing at the
  * start of the next world pass left solid sky dumps despite drawn=179. */
@@ -149,6 +153,25 @@ void R_GXHoldEfbForDump( int frames )
 int R_GXEfbDumpHoldLeft( void )
 {
 	return r_gx_efb_dump_hold;
+}
+
+static int r_gx_dump_skip_viewmodel;
+
+void R_GXDumpSkipViewmodel( int on )
+{
+	r_gx_dump_skip_viewmodel = on ? 1 : 0;
+}
+
+int R_GXDumpSkipViewmodelActive( void )
+{
+	return r_gx_dump_skip_viewmodel;
+}
+
+/* G377: allow one clear+CapFaces+studio redraw so DumpFrames can show idle. */
+void R_GXBeginDumpAnimFrame( void )
+{
+	r_gx_efb_dump_hold = 0;
+	r_gx_g221_world_clear_done = false;
 }
 static int r_gx_cap_generation = -1;
 /* G367: CapFaces begin/end once per map (not tr.framecount<=3). Dual-hop
@@ -468,6 +491,8 @@ static u32 R_GXFaceColor( const msurface_t *surf )
 
 	if( surf->texinfo && surf->texinfo->texture && surf->texinfo->texture->name[0] )
 		name = surf->texinfo->texture->name;
+	else if( surf->firstedge < 0 && surf->extents[0] == 256 && surf->extents[1] == 256 )
+		return 0x18F0E0FFu; /* G380: cyan PASSCLR floor under dump NPC */
 	else
 		name = "flat";
 
@@ -915,7 +940,6 @@ static void R_GXOrderFacesByTexBands( const msurface_t *draw, int n, int *order 
 }
 
 static qboolean r_gx_g221_logged;
-static qboolean r_gx_g221_world_clear_done;
 static qboolean r_gx_sky_backdrop_logged;
 
 static qboolean R_GXHasSkyboxSide( void )
@@ -1472,6 +1496,22 @@ static int R_GXEmitFace( const msurface_t *surf, model_t *world, int slot )
 	if( nverts < 3 )
 		return 0;
 
+	/* G380: synthetic dump floor (firstedge -1) — don't depend on winding. */
+	if( surf->firstedge < 0 )
+	{
+		static qboolean g380_emit_logged;
+
+		GX_SetCullMode( GX_CULL_NONE );
+		if( !g380_emit_logged )
+		{
+			g380_emit_logged = true;
+			gEngfuncs.Con_Reportf(
+				"Xash3D GameCube: G380 emit n=%d p0=(%.0f,%.0f,%.0f) p2=(%.0f,%.0f,%.0f)\n",
+				nverts, pts[0][0], pts[0][1], pts[0][2],
+				pts[2][0], pts[2][1], pts[2][2] );
+		}
+	}
+
 	color = 0xFFFFFFFFu;
 	if( surf->texinfo && surf->texinfo->texture )
 	{
@@ -1694,17 +1734,88 @@ static int R_GXEmitFace( const msurface_t *surf, model_t *world, int slot )
 		else
 			r_gx_state_reuses++;
 
-		GX_Begin( GX_TRIANGLES, GX_VTXFMT0, (u16)(( nverts - 2 ) * 3 ));
-		for( i = 1; i < nverts - 1; i++ )
+		/* GX T&L collapsed the world-space floor to a 1px edge. CPU T&L
+		 * into eye space + identity mtx (same path as G200 magenta). */
+		if( surf->firstedge < 0 && nverts == 4 )
 		{
-			GX_Position3f32( pts[0][0], pts[0][1], pts[0][2] );
+			vec3_t fwd, right, upv;
+			const float *org = RI.rvp.vieworigin;
+			float e[4][3];
+			Mtx ident, mv;
+			int vi;
+			static qboolean g380_eye_logged;
+
+			AngleVectors( RI.rvp.viewangles, fwd, right, upv );
+			for( vi = 0; vi < 4; vi++ )
+			{
+				float rx = pts[vi][0] - org[0];
+				float ry = pts[vi][1] - org[1];
+				float rz = pts[vi][2] - org[2];
+
+				e[vi][0] = right[0] * rx + right[1] * ry + right[2] * rz;
+				e[vi][1] = upv[0] * rx + upv[1] * ry + upv[2] * rz;
+				e[vi][2] = -( fwd[0] * rx + fwd[1] * ry + fwd[2] * rz );
+			}
+			if( !g380_eye_logged )
+			{
+				g380_eye_logged = true;
+				gEngfuncs.Con_Reportf(
+					"Xash3D GameCube: G380 eye p0=(%.0f,%.0f,%.0f) p2=(%.0f,%.0f,%.0f)\n",
+					e[0][0], e[0][1], e[0][2], e[2][0], e[2][1], e[2][2] );
+			}
+			{
+				GXRModeObj *rmode = (GXRModeObj *)GC_GetGxVideoMode();
+				Mtx44 persp;
+				f32 aspect = 1.333f;
+
+				if( rmode )
+					aspect = (f32)rmode->fbWidth / Q_max( 1.0f, (f32)rmode->efbHeight );
+				guPerspective( persp, 60.0f, aspect, 1.0f, 4096.0f );
+				GX_LoadProjectionMtx( persp, GX_PERSPECTIVE );
+			}
+			guMtxIdentity( ident );
+			GX_LoadPosMtxImm( ident, GX_PNMTX0 );
+			GX_InvVtxCache();
+			GX_SetZMode( GX_TRUE, GX_LEQUAL, GX_TRUE );
+			/* Constant-Z eye-space (G200 path). Mixed-Z world tris lined. */
+			GX_Begin( GX_TRIANGLES, GX_VTXFMT0, 6 );
+			GX_Position3f32( -90.0f, -80.0f, -100.0f );
 			GX_Color1u32( color );
-			GX_Position3f32( pts[i][0], pts[i][1], pts[i][2] );
+			GX_Position3f32( 90.0f, -80.0f, -100.0f );
 			GX_Color1u32( color );
-			GX_Position3f32( pts[i + 1][0], pts[i + 1][1], pts[i + 1][2] );
+			GX_Position3f32( 90.0f, -6.0f, -100.0f );
 			GX_Color1u32( color );
+			GX_Position3f32( -90.0f, -80.0f, -100.0f );
+			GX_Color1u32( color );
+			GX_Position3f32( 90.0f, -6.0f, -100.0f );
+			GX_Color1u32( color );
+			GX_Position3f32( -90.0f, -6.0f, -100.0f );
+			GX_Color1u32( color );
+			GX_End();
+			GX_SetZMode( GX_TRUE, GX_LEQUAL, GX_TRUE );
+			{
+				Mtx44 proj;
+
+				R_GXBuildWorldProjection( proj );
+				GX_LoadProjectionMtx( proj, GX_PERSPECTIVE );
+			}
+			R_GXBuildWorldModelview( mv );
+			GX_LoadPosMtxImm( mv, GX_PNMTX0 );
 		}
-		GX_End();
+		else
+		{
+			GX_Begin( GX_TRIANGLES, GX_VTXFMT0, (u16)(( nverts - 2 ) * 3 ));
+			for( i = 1; i < nverts - 1; i++ )
+			{
+				GX_Position3f32( pts[0][0], pts[0][1], pts[0][2] );
+				GX_Color1u32( color );
+				GX_Position3f32( pts[i][0], pts[i][1], pts[i][2] );
+				GX_Color1u32( color );
+				GX_Position3f32( pts[i + 1][0], pts[i + 1][1], pts[i + 1][2] );
+				GX_Color1u32( color );
+			}
+			GX_End();
+		}
 		r_gx_flat_draws++;
 	}
 
@@ -1714,6 +1825,8 @@ static int R_GXEmitFace( const msurface_t *surf, model_t *world, int slot )
 		GX_SetBlendMode( GX_BM_NONE, GX_BL_ONE, GX_BL_ZERO, GX_LO_NOOP );
 		GX_SetZMode( GX_TRUE, GX_LEQUAL, GX_TRUE );
 	}
+	if( surf->firstedge < 0 )
+		GX_SetCullMode( GX_CULL_BACK );
 	return 1;
 }
 
@@ -2331,6 +2444,8 @@ int R_GXDrawNewGameCapFaces( void )
 					skip_noverts++;
 					continue;
 				}
+				if( GC_G378DumpSkipFarVerts( pts, nv ))
+					continue;
 				/* G228: no live frustum cull — tram side walls were skipped. */
 				got = R_GXEmitFaceVerts( &surf, world, pts, nv );
 				if( got <= 0 )
@@ -2427,6 +2542,9 @@ int R_GXDrawNewGameCapFaces( void )
 					emit_fails++;
 					continue;
 				}
+				/* G380: synthetic NPC floor (firstedge -1) skips CPU backface. */
+				if( surf->firstedge >= 0 )
+				{
 				dot = DotProduct( tr.modelorg, surf->plane->normal ) - surf->plane->dist;
 				if( surf->flags & SURF_PLANEBACK )
 				{
@@ -2441,6 +2559,7 @@ int R_GXDrawNewGameCapFaces( void )
 					backface_skips++;
 					continue;
 				}
+				}
 				area = (int)surf->extents[0] * (int)surf->extents[1];
 				if( area > 0 && area < GC_GX_MIN_FACE_AREA )
 				{
@@ -2448,6 +2567,8 @@ int R_GXDrawNewGameCapFaces( void )
 					r_gx_face_skip_area++;
 					continue;
 				}
+				if( GC_G378DumpSkipFarCapSlot( slot ))
+					continue;
 				/* G281: skip far-small cull on New Game — tunnel walls along
 				 * the look path were dropped while dump eye was distant. */
 				if( !gEngfuncs.Sys_CheckParm( "-gcnewgame" )
@@ -2508,12 +2629,27 @@ int R_GXDrawNewGameCapFaces( void )
 					fill_fail++;
 					continue;
 				}
+				if( GC_G378DumpSkipFarVerts( pts, nv ))
+					continue;
 				if( R_GXEmitFlatFillVerts( pts, nv, 0x687068FFu ) > 0 )
 					fill_drawn++;
 				else
 					fill_fail++;
 			}
 			drawn += fill_drawn;
+			/* G380: re-emit synthetic NPC floor after fill — LEQUAL fill at
+			 * the same Z painted over the PASSCLR quad. */
+			{
+				int s;
+
+				for( s = 0; s < n; s++ )
+				{
+					if( !draw || draw[s].firstedge >= 0 )
+						continue;
+					if( R_GXEmitFace( &draw[s], world, s ) > 0 )
+						drawn++;
+				}
+			}
 			/* G348: sample-window first pass can exhaust FRAME before fill;
 			 * keep logging until a non-zero fill emit is observed. */
 			if( fill_n > 0 )

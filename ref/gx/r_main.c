@@ -1163,7 +1163,7 @@ static void R_DrawEntitiesOnList( void )
 				&& tr.viewent->model->type == mod_studio
 				&& tr.viewent->model->cache.data
 				&& !( r_drawviewmodel && r_drawviewmodel->value == 0
-					&& R_GXEfbDumpHoldLeft() > 0 ))
+					&& ( R_GXEfbDumpHoldLeft() > 0 || R_GXDumpSkipViewmodelActive())))
 			{
 				R_DrawViewModel();
 				if( !lean_vm_draw_logged )

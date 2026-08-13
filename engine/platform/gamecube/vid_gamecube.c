@@ -38,6 +38,7 @@ void Mod_GCClearRetainedBspScratch( void );
 #include <stdlib.h>
 #include <malloc.h>
 #include <string.h>
+#include <math.h>
 
 #if XASH_GAMECUBE
 #include <ogc/gx.h>
@@ -204,6 +205,8 @@ static qboolean gc_g180_logged;
 static qboolean gc_g212_logged;
 static qboolean gc_g212_stream_locked; /* hold near-eye set; stop cluster refresh thrash */
 static qboolean gc_g376_npc_dump_active; /* dump eye is NPC standoff — skip cl0 portal-OR */
+static vec3_t gc_g376_npc_origin;
+static vec3_t gc_g376_npc_eye;
 static vec3_t gc_newgame_capture_origin; /* G132/G201e: bake + dump camera eye */
 static vec3_t gc_newgame_capture_forward; /* G217: dump look for live frustum rank */
 /* G213: compact PVS faces on heap (full msurface promote is 662 KiB OOM).
@@ -267,6 +270,11 @@ static int GC_RefreshCandWallCount( int cache_slot );
 static void GC_CaptureFillFacesFromSurfbits( model_t *wmodel, const byte *surfbits, qboolean append );
 static void GC_CaptureWaterFacesFromSurfbits( model_t *wmodel, const byte *surfbits );
 static void GC_BuildRefreshCandsFromSurfbits( model_t *wmodel, const byte *surfbits, int cache_slot );
+static void GC_CapFaceCentroid( int slot, vec3_t out );
+static void GC_RerankCapFacesNearDumpEye( void );
+static float GC_G378AabbDist2( const float *p, const float *mins, const float *maxs );
+static qboolean GC_G380NpcRoomHoriz( const mplane_t *pl, const mtexinfo_t *tx,
+	const short mins[2], const short extents[2], qboolean has_tex );
 void GC_CaptureIntroTrainFaces( model_t *wmodel ); /* G277: also called from mod_bmodel */
 static int GC_BakeCapVertsFromModel( model_t *wmodel, int firstedge, int numedges,
 	signed short out[][3], int maxverts );
@@ -395,6 +403,46 @@ static int GC_CapNearEyeScore( const mplane_t *pl, int area, qboolean is_wall )
 	return score;
 }
 
+#define GC_G378_FAR_DUMP 768.0f
+
+static float GC_G378AabbDist2( const float *p, const float *mins, const float *maxs )
+{
+	float dx, dy, dz;
+
+	dx = ( p[0] < mins[0] ) ? ( mins[0] - p[0] ) : (( p[0] > maxs[0] ) ? ( p[0] - maxs[0] ) : 0.0f );
+	dy = ( p[1] < mins[1] ) ? ( mins[1] - p[1] ) : (( p[1] > maxs[1] ) ? ( p[1] - maxs[1] ) : 0.0f );
+	dz = ( p[2] < mins[2] ) ? ( mins[2] - p[2] ) : (( p[2] > maxs[2] ) ? ( p[2] - maxs[2] ) : 0.0f );
+	return dx * dx + dy * dy + dz * dz;
+}
+
+static float GC_CapFaceAabbDist( int slot )
+{
+	int v, nv;
+	float mins[3], maxs[3], d2;
+
+	nv = gc_cap_nverts[slot];
+	if( nv < 3 || VectorIsNull( gc_newgame_capture_origin ))
+		return 0.0f;
+	mins[0] = maxs[0] = (float)gc_cap_pts_s16[slot][0][0];
+	mins[1] = maxs[1] = (float)gc_cap_pts_s16[slot][0][1];
+	mins[2] = maxs[2] = (float)gc_cap_pts_s16[slot][0][2];
+	for( v = 1; v < nv && v < GC_CAP_MAX_VERTS; v++ )
+	{
+		float x = (float)gc_cap_pts_s16[slot][v][0];
+		float y = (float)gc_cap_pts_s16[slot][v][1];
+		float z = (float)gc_cap_pts_s16[slot][v][2];
+
+		if( x < mins[0] ) mins[0] = x;
+		if( y < mins[1] ) mins[1] = y;
+		if( z < mins[2] ) mins[2] = z;
+		if( x > maxs[0] ) maxs[0] = x;
+		if( y > maxs[1] ) maxs[1] = y;
+		if( z > maxs[2] ) maxs[2] = z;
+	}
+	d2 = GC_G378AabbDist2( gc_newgame_capture_origin, mins, maxs );
+	return ( d2 > 1.0f ) ? sqrtf( d2 ) : 0.0f;
+}
+
 static int GC_CapSlotKeepScore( int slot )
 {
 	const gc_cap_face_t *f;
@@ -410,6 +458,28 @@ static int GC_CapSlotKeepScore( int slot )
 	score = GC_CapNearEyeScore( &f->plane, area, wall );
 	if( !gc_newgame_cap_lm_real[slot] )
 		score -= 1;
+	/* G379: AABB-to-eye (not centroid). Large hallway floors have a far
+	 * centroid but pass under the dump eye — centroid skip left grey void. */
+	if( !VectorIsNull( gc_newgame_capture_origin ) && gc_cap_nverts[slot] >= 3 )
+	{
+		float dist = GC_CapFaceAabbDist( slot );
+
+		if( dist < 1.0f )
+			dist = 1.0f;
+		if( dist < 192.0f )
+			score += 350000;
+		else if( dist < 384.0f )
+			score += 200000;
+		else if( dist < 640.0f )
+			score += 80000;
+		else if( dist > 1024.0f )
+			score /= 5;
+		else if( dist > 768.0f )
+			score /= 2;
+	}
+	if( GC_G380NpcRoomHoriz( &f->plane, &f->texinfo, f->texturemins, f->extents,
+		f->texinfo.texture != NULL ))
+		score += 500000;
 	return score;
 }
 
@@ -2858,6 +2928,165 @@ static void GC_RerankLiveFacesNearEye( void )
 		gc_live_face_count, gc_live_face_scores[0] );
 }
 
+/* G379: skip if the face AABB (not centroid) is far from the NPC dump eye. */
+qboolean GC_G378DumpSkipFarVerts( const float pts[][3], int nverts )
+{
+	int i;
+	float mins[3], maxs[3], lim2;
+
+	if( !gc_g376_npc_dump_active || !pts || nverts < 1
+		|| VectorIsNull( gc_newgame_capture_origin ))
+		return false;
+	mins[0] = maxs[0] = pts[0][0];
+	mins[1] = maxs[1] = pts[0][1];
+	mins[2] = maxs[2] = pts[0][2];
+	for( i = 1; i < nverts; i++ )
+	{
+		if( pts[i][0] < mins[0] ) mins[0] = pts[i][0];
+		if( pts[i][1] < mins[1] ) mins[1] = pts[i][1];
+		if( pts[i][2] < mins[2] ) mins[2] = pts[i][2];
+		if( pts[i][0] > maxs[0] ) maxs[0] = pts[i][0];
+		if( pts[i][1] > maxs[1] ) maxs[1] = pts[i][1];
+		if( pts[i][2] > maxs[2] ) maxs[2] = pts[i][2];
+	}
+	lim2 = GC_G378_FAR_DUMP * GC_G378_FAR_DUMP;
+	return GC_G378AabbDist2( gc_newgame_capture_origin, mins, maxs ) > lim2;
+}
+
+qboolean GC_G378DumpSkipFarPoint( const float *p )
+{
+	float pts[1][3];
+
+	if( !p )
+		return false;
+	pts[0][0] = p[0];
+	pts[0][1] = p[1];
+	pts[0][2] = p[2];
+	return GC_G378DumpSkipFarVerts( pts, 1 );
+}
+
+/* Eye/NPC projected onto the face plane lands in ST/lightmap bounds. */
+static qboolean GC_G378OriginOnPlaneST( const float *org, const mplane_t *pl,
+	const float vecs[2][4], const short mins[2], const short extents[2],
+	float slack, float plane_max )
+{
+	vec3_t p, n;
+	float d, s, t;
+
+	if( !org || !pl || VectorIsNull( org ))
+		return false;
+	VectorCopy( pl->normal, n );
+	d = DotProduct( org, n ) - pl->dist;
+	if( fabs( d ) > plane_max )
+		return false;
+	p[0] = org[0] - n[0] * d;
+	p[1] = org[1] - n[1] * d;
+	p[2] = org[2] - n[2] * d;
+	s = p[0] * vecs[0][0] + p[1] * vecs[0][1] + p[2] * vecs[0][2] + vecs[0][3];
+	t = p[0] * vecs[1][0] + p[1] * vecs[1][1] + p[2] * vecs[1][2] + vecs[1][3];
+	if( s < (float)mins[0] - slack )
+		return false;
+	if( t < (float)mins[1] - slack )
+		return false;
+	if( s > (float)mins[0] + (float)extents[0] + slack )
+		return false;
+	if( t > (float)mins[1] + (float)extents[1] + slack )
+		return false;
+	return true;
+}
+
+static qboolean GC_G378DumpEyeOnFaceST( int slot )
+{
+	const gc_cap_face_t *f;
+
+	if( slot < 0 || slot >= gc_newgame_cap_face_count )
+		return false;
+	f = &gc_newgame_cap_faces[slot];
+	return GC_G378OriginOnPlaneST( gc_newgame_capture_origin, &f->plane,
+		f->texinfo.vecs, f->texturemins, f->extents, 64.0f, GC_G378_FAR_DUMP );
+}
+
+/* G380: floor/ceiling the dump eye or NPC origin stands on. */
+static qboolean GC_G380NpcRoomHoriz( const mplane_t *pl, const mtexinfo_t *tx,
+	const short mins[2], const short extents[2], qboolean has_tex )
+{
+	if( !gc_g376_npc_dump_active || !pl || !has_tex || !tx )
+		return false;
+	if( fabs( pl->normal[2] ) < 0.55f )
+		return false;
+	/* Slack 384u so adjacent hallway floor strips around the NPC match;
+	 * plane_max 160u keeps ceiling and dump-eye (z+36) without grabbing
+	 * another storey. */
+	if( GC_G378OriginOnPlaneST( gc_newgame_capture_origin, pl, tx->vecs, mins, extents,
+		384.0f, 160.0f ))
+		return true;
+	if( GC_G378OriginOnPlaneST( gc_g376_npc_origin, pl, tx->vecs, mins, extents,
+		384.0f, 160.0f ))
+		return true;
+	return false;
+}
+
+qboolean GC_G378DumpSkipFarCapSlot( int slot )
+{
+	float pts[32][3];
+	int nv;
+
+	if( !gc_g376_npc_dump_active )
+		return false;
+	nv = GC_GetNewGameCapFaceVerts( slot, pts, 32 );
+	if( nv >= 3 && !GC_G378DumpSkipFarVerts( pts, nv ))
+		return false;
+	{
+		const gc_cap_face_t *f = &gc_newgame_cap_faces[slot];
+
+		if( GC_G380NpcRoomHoriz( &f->plane, &f->texinfo, f->texturemins, f->extents,
+			f->texinfo.texture != NULL ))
+			return false;
+	}
+	return true;
+}
+
+static void GC_RerankCapFacesNearDumpEye( void )
+{
+	int i, near_n = 0, far_n = 0, horiz = 0;
+	float mind = 1e9f, maxd = 0.0f;
+
+	if( gc_newgame_cap_face_count <= 1 || VectorIsNull( gc_newgame_capture_origin ))
+		return;
+	for( i = 0; i < gc_newgame_cap_face_count; i++ )
+	{
+		float dist = GC_CapFaceAabbDist( i );
+		qboolean floorish = ( fabs( gc_newgame_cap_faces[i].plane.normal[2] ) > 0.55f );
+		qboolean keep = ( dist <= GC_G378_FAR_DUMP )
+			|| GC_G380NpcRoomHoriz( &gc_newgame_cap_faces[i].plane,
+				&gc_newgame_cap_faces[i].texinfo,
+				gc_newgame_cap_faces[i].texturemins,
+				gc_newgame_cap_faces[i].extents,
+				gc_newgame_cap_faces[i].texinfo.texture != NULL );
+
+		gc_newgame_cap_areas[i] = GC_CapSlotKeepScore( i );
+		if( keep && floorish && dist > 384.0f )
+			gc_newgame_cap_areas[i] += 200000; /* hallway floor under dump eye */
+		if( dist < mind )
+			mind = dist;
+		if( dist > maxd )
+			maxd = dist;
+		if( keep )
+		{
+			near_n++;
+			if( floorish )
+				horiz++;
+		}
+		else
+			far_n++;
+	}
+	GC_SortCapFacesByAreaDesc();
+	Con_Reportf( "Xash3D GameCube: G380 dump-eye AABB rank n=%d near=%d far=%d horiz=%d mind=%.0f maxd=%.0f eye=(%.0f,%.0f,%.0f)\n",
+		gc_newgame_cap_face_count, near_n, far_n, horiz, mind, maxd,
+		gc_newgame_capture_origin[0], gc_newgame_capture_origin[1],
+		gc_newgame_capture_origin[2] );
+}
+
 static qboolean GC_LiveFaceAlready( int firstedge, int numedges )
 {
 	int j;
@@ -3745,6 +3974,9 @@ static void GC_BuildRefreshCandsFromSurfbits( model_t *wmodel, const byte *surfb
 		score = GC_CapNearEyeScore( src->plane, area, is_wall );
 		if( prefer_walls && is_wall )
 			score += area;
+		if( src->texinfo && GC_G380NpcRoomHoriz( src->plane, src->texinfo,
+			src->texturemins, src->extents, true ))
+			score += 500000;
 
 		if( ncand < GC_CAP_REFRESH_NEW_MAX )
 		{
@@ -3775,6 +4007,10 @@ static void GC_BuildRefreshCandsFromSurfbits( model_t *wmodel, const byte *surfb
 			fabs( gc_refresh_cands[0].plane.normal[2] ) < 0.35f );
 		if( prefer_walls && fabs( gc_refresh_cands[0].plane.normal[2] ) < 0.35f )
 			min_score += gc_refresh_cands[0].area;
+		if( gc_refresh_cands[0].has_tex
+			&& GC_G380NpcRoomHoriz( &gc_refresh_cands[0].plane, &gc_refresh_cands[0].texinfo,
+				gc_refresh_cands[0].texturemins, gc_refresh_cands[0].extents, true ))
+			min_score += 500000;
 		for( k = 1; k < GC_CAP_REFRESH_NEW_MAX; k++ )
 		{
 			int ks = GC_CapNearEyeScore( &gc_refresh_cands[k].plane,
@@ -3783,6 +4019,10 @@ static void GC_BuildRefreshCandsFromSurfbits( model_t *wmodel, const byte *surfb
 
 			if( prefer_walls && fabs( gc_refresh_cands[k].plane.normal[2] ) < 0.35f )
 				ks += gc_refresh_cands[k].area;
+			if( gc_refresh_cands[k].has_tex
+				&& GC_G380NpcRoomHoriz( &gc_refresh_cands[k].plane, &gc_refresh_cands[k].texinfo,
+					gc_refresh_cands[k].texturemins, gc_refresh_cands[k].extents, true ))
+				ks += 500000;
 			if( ks < min_score )
 			{
 				min_score = ks;
@@ -3833,6 +4073,7 @@ static void GC_RefreshCapFacesFromCands( int cache_slot )
 	int mid_new = 0;
 	int wall_boost = 0;
 	int wall_new = 0;
+	int floor_st = 0;
 	int prev_count = gc_newgame_cap_face_count;
 	int ncand;
 	int leaves;
@@ -3883,6 +4124,11 @@ static void GC_RefreshCapFacesFromCands( int cache_slot )
 		cand_score = GC_CapNearEyeScore( &cand->plane, cand->area, cand_wall );
 		if( prefer_walls && cand_wall )
 			cand_score += ( cand->area >> 1 );
+		if( cand->has_tex && GC_G380NpcRoomHoriz( &cand->plane, &cand->texinfo,
+			cand->texturemins, cand->extents, true ))
+		{
+			cand_score += 500000;
+		}
 
 		if( gc_newgame_cap_face_count < GC_MAX_CAP_FACES )
 			slot = gc_newgame_cap_face_count;
@@ -3890,13 +4136,15 @@ static void GC_RefreshCapFacesFromCands( int cache_slot )
 		{
 			min_i = 0;
 			min_score = GC_CapSlotKeepScore( 0 );
-			if( prefer_walls && fabs( gc_newgame_cap_faces[0].plane.normal[2] ) >= 0.55f )
+			if( prefer_walls && !gc_g376_npc_dump_active
+				&& fabs( gc_newgame_cap_faces[0].plane.normal[2] ) >= 0.55f )
 				min_score -= ( gc_newgame_cap_areas[0] >> 2 );
 			for( k = 1; k < GC_MAX_CAP_FACES; k++ )
 			{
 				int score = GC_CapSlotKeepScore( k );
 
-				if( prefer_walls && fabs( gc_newgame_cap_faces[k].plane.normal[2] ) >= 0.55f )
+				if( prefer_walls && !gc_g376_npc_dump_active
+					&& fabs( gc_newgame_cap_faces[k].plane.normal[2] ) >= 0.55f )
 					score -= ( gc_newgame_cap_areas[k] >> 2 );
 				if( score < min_score )
 				{
@@ -3908,11 +4156,20 @@ static void GC_RefreshCapFacesFromCands( int cache_slot )
 				int threshold = GC_CapSlotKeepScore( min_i );
 				int admit = cand_score;
 				qboolean victim_floor = ( fabs( gc_newgame_cap_faces[min_i].plane.normal[2] ) >= 0.55f );
+				qboolean cand_st = cand->has_tex && GC_G380NpcRoomHoriz( &cand->plane,
+					&cand->texinfo, cand->texturemins, cand->extents, true );
+				const gc_cap_face_t *vf = &gc_newgame_cap_faces[min_i];
+				qboolean victim_st = GC_G380NpcRoomHoriz( &vf->plane, &vf->texinfo,
+					vf->texturemins, vf->extents, vf->texinfo.texture != NULL );
 
-				if( prefer_walls && cand_wall && victim_floor )
+				/* G380: NPC-room floor punches a non-room victim. Do not let
+				 * locked prefer_walls evict that floor for another wall. */
+				if( gc_g376_npc_dump_active && cand_st && !victim_st )
+					admit = threshold + 1;
+				else if( prefer_walls && cand_wall && victim_floor && !gc_g376_npc_dump_active )
 					admit = threshold + 1;
 				/* G281: also punch far victims (tram-start walls left behind). */
-				else if( prefer_walls && cand_wall && threshold < 90000 )
+				else if( prefer_walls && cand_wall && threshold < 90000 && !gc_g376_npc_dump_active )
 					admit = threshold + 1;
 				if( admit <= threshold )
 					continue;
@@ -3927,6 +4184,9 @@ static void GC_RefreshCapFacesFromCands( int cache_slot )
 		mid_new++;
 		if( cand_wall )
 			wall_new++;
+		if( cand->has_tex && GC_G380NpcRoomHoriz( &cand->plane, &cand->texinfo,
+			cand->texturemins, cand->extents, true ))
+			floor_st++;
 	}
 	} /* prefer_walls */
 
@@ -3945,6 +4205,9 @@ static void GC_RefreshCapFacesFromCands( int cache_slot )
 	GC_FlipperTrace( "Xash3D GameCube: G163 refresh=%d prev=%d mid=%d lm=%d wb=%d cl=%d\n",
 		gc_newgame_cap_face_count, prev_count, mid_new, gc_newgame_cap_lm_faces,
 		wall_boost, gc_newgame_viewcluster );
+	if( gc_g376_npc_dump_active )
+		Con_Reportf( "Xash3D GameCube: G380 npc-room floor admit=%d mid=%d n=%d\n",
+			floor_st, mid_new, gc_newgame_cap_face_count );
 	/* G212: prove near-eye streaming replaced far faces after dump aim. */
 	if( !gc_g212_logged && mid_new > 0 && !VectorIsNull( gc_newgame_capture_origin ))
 	{
@@ -3979,6 +4242,86 @@ static void GC_RefreshCapFacesFromCands( int cache_slot )
 				mid_new, wall_new, ncand, leaves, gc_newgame_viewcluster );
 		}
 	}
+}
+
+/* G380: inject a floor quad under the NPC. Do not walk wm->surfaces
+ * (scratch msurface_t hung Host_Frame) and do not copy live cands
+ * (extra .text pushed InitDecals off MEM1). */
+static void GC_G380AdmitNpcRoomFloors( void )
+{
+	gc_cap_face_t *dst;
+	msurface_t *draw;
+	int slot;
+	const float *npc = gc_g376_npc_origin;
+	const float *eye = gc_newgame_capture_origin;
+	float z, x0, x1, y0n, y1n, y0f, y1f;
+
+	if( !gc_g376_npc_dump_active || VectorIsNull( npc ))
+		return;
+	z = npc[2] + 2.0f; /* sit above fill coplanar floors so LEQUAL keeps cyan */
+	/* Trapezoid: all verts in front of look (-X), near edge narrow enough
+	 * that NDC stays inside Flipper's guard band. A ±200u near edge sat at
+	 * NDC x≈±7 and the clipper dropped the triangles to a cyan line. */
+	if( !VectorIsNull( eye ))
+	{
+		x0 = eye[0] - 20.0f;
+		x1 = npc[0] - 48.0f;
+		y0n = eye[1] - 28.0f;
+		y1n = eye[1] + 28.0f;
+		y0f = npc[1] - 140.0f;
+		y1f = npc[1] + 140.0f;
+	}
+	else
+	{
+		x0 = npc[0] + 96.0f;
+		x1 = npc[0] - 48.0f;
+		y0n = npc[1] - 28.0f;
+		y1n = npc[1] + 28.0f;
+		y0f = npc[1] - 140.0f;
+		y1f = npc[1] + 140.0f;
+	}
+	if( gc_newgame_cap_face_count < GC_MAX_CAP_FACES )
+		slot = gc_newgame_cap_face_count;
+	else
+		slot = 0;
+	dst = &gc_newgame_cap_faces[slot];
+	memset( dst, 0, sizeof( *dst ));
+	/* firstedge must not be 0 — CapFaceIsLive would steal a live wall. */
+	dst->firstedge = -1;
+	dst->numedges = 4;
+	dst->flags = 0;
+	dst->extents[0] = 256;
+	dst->extents[1] = 256;
+	dst->plane.normal[2] = 1.0f;
+	dst->plane.dist = z;
+	gc_cap_nverts[slot] = 4;
+	gc_cap_bake_src[slot] = (byte)GC_CAP_BAKE_PLANE;
+	gc_cap_pts_s16[slot][0][0] = (short)x0;
+	gc_cap_pts_s16[slot][0][1] = (short)y0n;
+	gc_cap_pts_s16[slot][0][2] = (short)z;
+	gc_cap_pts_s16[slot][1][0] = (short)x1;
+	gc_cap_pts_s16[slot][1][1] = (short)y0f;
+	gc_cap_pts_s16[slot][1][2] = (short)z;
+	gc_cap_pts_s16[slot][2][0] = (short)x1;
+	gc_cap_pts_s16[slot][2][1] = (short)y1f;
+	gc_cap_pts_s16[slot][2][2] = (short)z;
+	gc_cap_pts_s16[slot][3][0] = (short)x0;
+	gc_cap_pts_s16[slot][3][1] = (short)y1n;
+	gc_cap_pts_s16[slot][3][2] = (short)z;
+	gc_newgame_cap_areas[slot] = 500000;
+	draw = &gc_newgame_draw_surfs[slot];
+	memset( draw, 0, sizeof( *draw ));
+	draw->firstedge = -1;
+	draw->numedges = 4;
+	draw->extents[0] = 256;
+	draw->extents[1] = 256;
+	draw->plane = &dst->plane;
+	draw->info = &dst->info;
+	dst->info.surf = draw;
+	if( slot == gc_newgame_cap_face_count )
+		gc_newgame_cap_face_count++;
+	Con_Reportf( "Xash3D GameCube: G380 npc-room floor quad slot=%d n=%d\n",
+		slot, gc_newgame_cap_face_count );
 }
 
 static int GC_RefreshCandWallCount( int cache_slot )
@@ -5436,8 +5779,6 @@ static qboolean gc_g193_soft_lock; /* G193: keep soft in XFB — DumpFrames enco
 static int gc_g196_flipper_dump_aim_left;
 /* G376: denser DumpFrames — look at first lean NPC instead of only wall-aim. */
 static qboolean gc_g376_npc_aim_valid;
-static vec3_t gc_g376_npc_origin;
-static vec3_t gc_g376_npc_eye;
 /* G193: dedicated linear soft snap (tiled staging is overwritten by GX swizzle).
  * Heap after clipnodes pin — 150 KiB BSS here starved the 59 KiB pin. */
 static u16 *gc_g193_soft_snap;
@@ -10940,10 +11281,12 @@ qboolean GC_RenderNewGameWorldFrames( int count )
 				VectorSubtract( gc_g376_npc_origin, center, npc_look );
 				VectorAngles( npc_look, rvp.viewangles );
 				rvp.viewangles[2] = 0.0f;
-				if( rvp.viewangles[0] > 12.0f )
-					rvp.viewangles[0] = 12.0f;
-				if( rvp.viewangles[0] < -20.0f )
-					rvp.viewangles[0] = -20.0f;
+				if( rvp.viewangles[0] > 40.0f )
+					rvp.viewangles[0] = 40.0f;
+				if( rvp.viewangles[0] < -12.0f )
+					rvp.viewangles[0] = -12.0f;
+				/* Quake pitch: + looks down (forward[2] = -sin(pitch)). */
+				rvp.viewangles[0] = 32.0f;
 				gc_g376_npc_dump_active = true;
 				VectorCopy( center, gc_newgame_capture_origin );
 				AngleVectors( rvp.viewangles, gc_newgame_capture_forward,
@@ -10973,13 +11316,41 @@ qboolean GC_RenderNewGameWorldFrames( int count )
 			if( GC_WantLiveCapOverlap() )
 			{
 				static qboolean npc_room_streamed;
+				static char npc_stream_map[32];
 
+				if( Q_stricmp( npc_stream_map, sv.name ))
+				{
+					npc_room_streamed = false;
+					Q_strncpy( npc_stream_map, sv.name, sizeof( npc_stream_map ));
+				}
 				if( !gc_g376_npc_dump_active || !npc_room_streamed )
 				{
 					GC_ForceLeanRideRestream();
 					GC_MaybeRestreamRideMapFaces( center );
 					if( gc_g376_npc_dump_active )
+					{
+						GC_G380AdmitNpcRoomFloors();
 						npc_room_streamed = true;
+					}
+				}
+			}
+			/* G379: G212 stays locked — re-score already-baked CapFaces/live
+			 * by dump-eye AABB so hallway floor/ceiling stay with the walls. */
+			if( gc_g376_npc_dump_active )
+			{
+				static qboolean npc_ranked;
+				static char npc_rank_map[32];
+
+				if( Q_stricmp( npc_rank_map, sv.name ))
+				{
+					npc_ranked = false;
+					Q_strncpy( npc_rank_map, sv.name, sizeof( npc_rank_map ));
+				}
+				if( !npc_ranked )
+				{
+					GC_RerankLiveFacesNearEye();
+					GC_RerankCapFacesNearDumpEye();
+					npc_ranked = true;
 				}
 			}
 		}
@@ -11798,25 +12169,33 @@ qboolean GC_PrepareNewGameWorldPresent( void )
 					gc_dump_look_into_map = true;
 					/* NPC framing happens after wall-aim places the eye
 					 * (same streamed cluster — unlocking G212 hung). */
-					/* G376: one CapFaces+studio emit, then Present-only under
-					 * hold. Re-emitting studios each dump frame without an EFB
-					 * clear stacked white tris (smear); clearing every frame
-					 * wiped CapFaces before DumpFrames sampled (sky-only).
-					 * Keep viewmodel off so NPC Flipper evidence is not buried
-					 * under lean white v_9mmhandgun. */
+					/* G377: clear+CapFaces+studio each dump step so group-0
+					 * idle advances across DumpFrames. Hold EFB across two
+					 * Presents so Dolphin can sample that pose (G376 smear
+					 * was re-emit without clear; sky-only was clear without
+					 * redraw). Viewmodel stays off for the whole dump. */
 					{
 						char old_vm[16];
+						extern void R_GXBeginDumpAnimFrame( void );
+						extern void R_GXDumpSkipViewmodel( int on );
 
 						Q_snprintf( old_vm, sizeof( old_vm ), "%s",
 							Cvar_VariableString( "r_drawviewmodel" ));
 						Cvar_Set( "r_drawviewmodel", "0" );
 						gc_force_draw_viewmodel = false;
-						R_GXHoldEfbForDump( 24 );
-						if( GC_RenderNewGameWorldFrames( 1 ))
+						R_GXDumpSkipViewmodel( 1 );
+						for( dump_i = 0; dump_i < 8; dump_i++ )
 						{
-							for( dump_i = 0; dump_i < 12; dump_i++ )
-								GC_PresentBuffer();
+							cl.oldtime = cl.time;
+							cl.time += 0.20;
+							R_GXBeginDumpAnimFrame();
+							if( !GC_RenderNewGameWorldFrames( 1 ))
+								break;
+							R_GXHoldEfbForDump( 4 );
+							GC_PresentBuffer();
+							GC_PresentBuffer();
 						}
+						R_GXDumpSkipViewmodel( 0 );
 						Cvar_Set( "r_drawviewmodel", old_vm );
 					}
 					Con_Reportf( "Xash3D GameCube: G362 Flipper EFB dump presents map=%s drawn=%d\n",

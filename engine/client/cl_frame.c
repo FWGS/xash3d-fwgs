@@ -1532,21 +1532,61 @@ void CL_GameCubeLeanEmitBrushEntities( void )
 			ent->curstate.skin = ed->v.skin;
 			ent->curstate.scale = ed->v.scale > 0.0f ? ed->v.scale : 1.0f;
 			ent->curstate.framerate = ed->v.framerate != 0.0f ? ed->v.framerate : 1.0f;
-			ent->curstate.animtime = ed->v.animtime > 0.0f ? ed->v.animtime : (float)cl.time;
+			/* G377: edict animtime is 0 under lean StrikeThink. Snapping to
+			 * cl.time every emit made EstimateFrame dfdt=0 (frozen pose). */
+			ent->curstate.animtime = ed->v.animtime > 0.0f ? ed->v.animtime : 0.0f;
 			ent->curstate.rendermode = ed->v.rendermode;
 			ent->curstate.renderamt = (int)ed->v.renderamt;
 			ent->curstate.effects = ed->v.effects;
 			ent->curstate.entityType = ENTITY_NORMAL;
-			/* G376: tip-safe lean draw — seqgroups 1+ need scientist0N.mdl;
-			 * keep group-0 idles (0..40) so GetAnim stays in-base.
-			 * Zero pitch/roll + default body/skin for rest-pose Flipper proof. */
-			if(( Q_stristr( mod->name, "scientist" ) || Q_stristr( mod->name, "barney" ))
-				&& ( ent->curstate.sequence < 0 || ent->curstate.sequence >= 41 ))
-				ent->curstate.sequence = 13; /* idle1 */
+			/* G377: keep in-base group-0 sequences so GetAnim never opens
+			 * scientist0N.mdl. Remap only seqgroup 1+ / OOB to a group-0 idle.
+			 * Center look blends; skip latched seq crossfade. */
 			if( Q_stristr( mod->name, "scientist" )
 				|| Q_stristr( mod->name, "barney" )
-				|| Q_stristr( mod->name, "headcrab" ))
+				|| Q_stristr( mod->name, "headcrab" )
+				|| Q_stristr( mod->name, "zombie" ))
 			{
+				studiohdr_t *hdr = (studiohdr_t *)mod->cache.data;
+				int seq = ent->curstate.sequence;
+				qboolean remap = ( seq < 0 );
+
+				if( hdr && hdr->numseq > 0 )
+				{
+					if( seq >= hdr->numseq )
+						remap = true;
+					else
+					{
+						mstudioseqdesc_t *sd = (mstudioseqdesc_t *)((byte *)hdr + hdr->seqindex ) + seq;
+						if( sd->seqgroup != 0 )
+							remap = true;
+					}
+					if( remap )
+					{
+						int i, idle = -1, any0 = -1;
+
+						for( i = 0; i < hdr->numseq; i++ )
+						{
+							mstudioseqdesc_t *sd = (mstudioseqdesc_t *)((byte *)hdr + hdr->seqindex ) + i;
+							if( sd->seqgroup != 0 )
+								continue;
+							if( any0 < 0 )
+								any0 = i;
+							if( idle < 0 && Q_stristr( sd->label, "idle" ))
+								idle = i;
+						}
+						ent->curstate.sequence = idle >= 0 ? idle : ( any0 >= 0 ? any0 : 0 );
+					}
+				}
+				else if( seq < 0 || seq >= 41 )
+					ent->curstate.sequence = 13;
+				ent->curstate.blending[0] = 127;
+				ent->curstate.blending[1] = 127;
+				ent->curstate.controller[0] = ed->v.controller[0];
+				ent->curstate.controller[1] = ed->v.controller[1];
+				ent->curstate.controller[2] = ed->v.controller[2];
+				ent->curstate.controller[3] = ed->v.controller[3];
+				ent->latched.sequencetime = 0.0f;
 				ent->angles[0] = 0.0f;
 				ent->angles[2] = 0.0f;
 				VectorCopy( ent->angles, ent->curstate.angles );

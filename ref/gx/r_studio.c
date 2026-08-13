@@ -836,6 +836,106 @@ static void R_StudioMergeBones( cl_entity_t *e, model_t *m_pSubModel )
 	}
 }
 
+#if XASH_GAMECUBE
+static qboolean R_GXIsLeanNpcModel( const char *name )
+{
+	if( !name || !name[0] )
+		return false;
+	return Q_stristr( name, "scientist" ) || Q_stristr( name, "barney" )
+		|| Q_stristr( name, "headcrab" ) || Q_stristr( name, "zombie" );
+}
+
+static qboolean R_GXLeanNpcAnimActive( const cl_entity_t *e )
+{
+	return gEngfuncs.Sys_CheckParm( "-gcnewgame" )
+		&& !gEngfuncs.Sys_CheckParm( "-gcfullphysics" )
+		&& e && e->model && R_GXIsLeanNpcModel( e->model->name );
+}
+
+static mstudioseqdesc_t *R_GXLeanClampGroup0Seq( cl_entity_t *e )
+{
+	mstudioseqdesc_t *seqs;
+	int i, seq, idle, any0;
+
+	seqs = (mstudioseqdesc_t *)((byte *)m_pStudioHeader + m_pStudioHeader->seqindex );
+	seq = e->curstate.sequence;
+	if( seq >= 0 && seq < m_pStudioHeader->numseq && seqs[seq].seqgroup == 0 )
+		return &seqs[seq];
+
+	idle = -1;
+	any0 = -1;
+	for( i = 0; i < m_pStudioHeader->numseq; i++ )
+	{
+		if( seqs[i].seqgroup != 0 )
+			continue;
+		if( any0 < 0 )
+			any0 = i;
+		if( idle < 0 && Q_stristr( seqs[i].label, "idle" ))
+			idle = i;
+	}
+	i = idle >= 0 ? idle : ( any0 >= 0 ? any0 : 0 );
+	if( i < 0 || i >= m_pStudioHeader->numseq )
+		i = 0;
+	e->curstate.sequence = i;
+	return &seqs[i];
+}
+
+static qboolean R_GXStudioBonePoseExploded( void )
+{
+	int i;
+	float rmin[3], rmax[3];
+
+	if( m_pStudioHeader->numbones <= 0 )
+		return false;
+	rmin[0] = rmin[1] = rmin[2] = 1e9f;
+	rmax[0] = rmax[1] = rmax[2] = -1e9f;
+	for( i = 0; i < m_pStudioHeader->numbones; i++ )
+	{
+		const float x = g_studio.bonestransform[i][0][3];
+		const float y = g_studio.bonestransform[i][1][3];
+		const float z = g_studio.bonestransform[i][2][3];
+
+		if( x < rmin[0] ) rmin[0] = x;
+		if( y < rmin[1] ) rmin[1] = y;
+		if( z < rmin[2] ) rmin[2] = z;
+		if( x > rmax[0] ) rmax[0] = x;
+		if( y > rmax[1] ) rmax[1] = y;
+		if( z > rmax[2] ) rmax[2] = z;
+	}
+	return ( rmax[0] - rmin[0] > 220.0f )
+		|| ( rmax[1] - rmin[1] > 220.0f )
+		|| ( rmax[2] - rmin[2] > 220.0f );
+}
+
+static void R_GXStudioRestPoseFallback( mstudiobone_t *pbones )
+{
+	int i;
+	vec3_t rest_pos;
+	vec4_t rest_q;
+	matrix3x4 bonematrix;
+
+	for( i = 0; i < m_pStudioHeader->numbones; i++ )
+	{
+		AngleQuaternion( &pbones[i].value[3], rest_q, true );
+		rest_pos[0] = pbones[i].value[0];
+		rest_pos[1] = pbones[i].value[1];
+		rest_pos[2] = pbones[i].value[2];
+		Matrix3x4_FromOriginQuat( bonematrix, rest_q, rest_pos );
+		if( pbones[i].parent == -1 )
+		{
+			Matrix3x4_ConcatTransforms( g_studio.bonestransform[i], g_studio.rotationmatrix, bonematrix );
+			Matrix3x4_Copy( g_studio.lighttransform[i], g_studio.bonestransform[i] );
+		}
+		else
+		{
+			Matrix3x4_ConcatTransforms( g_studio.bonestransform[i],
+				g_studio.bonestransform[pbones[i].parent], bonematrix );
+			Matrix3x4_Copy( g_studio.lighttransform[i], g_studio.bonestransform[i] );
+		}
+	}
+}
+#endif
+
 /*
 ====================
 StudioSetupBones
@@ -867,33 +967,44 @@ static void R_StudioSetupBones( cl_entity_t *e )
 	f = R_StudioEstimateFrame( e, pseqdesc, g_studio.time );
 
 #if XASH_GAMECUBE
-	/* G376: lean EmitBrush NPCs often carry scripted seq/animtime that pull
-	 * anim values off-range → exploded Flipper meshes. Force group-0 idle
-	 * frame 0 for tip-safe draws so bind-pose geometry is recognizable. */
-	if( gEngfuncs.Sys_CheckParm( "-gcnewgame" )
-		&& !gEngfuncs.Sys_CheckParm( "-gcfullphysics" )
-		&& e && e->model && e->model->name[0]
-		&& ( Q_stristr( e->model->name, "scientist" )
-			|| Q_stristr( e->model->name, "barney" )
-			|| Q_stristr( e->model->name, "headcrab" )
-			|| Q_stristr( e->model->name, "zombie" )))
+	/* G377: play group-0 sequences (idle/walk in-base). Seqgroup 1+ still
+	 * Host_Error on missing scientist0N.mdl — clamp those to a group-0 idle.
+	 * Do not force frame 0; EstimateFrame drives the pose. */
+	if( R_GXLeanNpcAnimActive( e ))
 	{
-		if( e->curstate.sequence < 0 || e->curstate.sequence >= 41
-			|| pseqdesc->seqgroup != 0 )
-		{
-			e->curstate.sequence = 13;
-			pseqdesc = (mstudioseqdesc_t *)((byte *)m_pStudioHeader + m_pStudioHeader->seqindex )
-				+ e->curstate.sequence;
-		}
-		f = 0.0f;
+		pseqdesc = R_GXLeanClampGroup0Seq( e );
+		f = R_StudioEstimateFrame( e, pseqdesc, g_studio.time );
 		e->latched.sequencetime = 0.0f;
+		{
+			static int anim_logs;
+
+			if( anim_logs < 16 )
+			{
+				anim_logs++;
+				gEngfuncs.Con_Reportf(
+					"Xash3D GameCube: G377 lean studio anim %s seq=%d '%s' f=%.2f/%d fps=%.1f loop=%d org=(%.0f,%.0f,%.0f)\n",
+					e->model->name, e->curstate.sequence, pseqdesc->label,
+					f, pseqdesc->numframes, pseqdesc->fps,
+					( pseqdesc->flags & STUDIO_LOOPING ) ? 1 : 0,
+					e->origin[0], e->origin[1], e->origin[2] );
+			}
+		}
+	}
+	else if( e->latched.prevsequence >= 0
+		&& e->latched.prevsequence < m_pStudioHeader->numseq )
+	{
+		mstudioseqdesc_t *pprev = (mstudioseqdesc_t *)((byte *)m_pStudioHeader + m_pStudioHeader->seqindex )
+			+ e->latched.prevsequence;
+
+		if( pprev->seqgroup != 0 )
+			e->latched.sequencetime = 0.0f;
 	}
 #endif
 
 	panim = gEngfuncs.R_StudioGetAnim( m_pStudioHeader, RI.currentmodel, pseqdesc );
 	R_StudioCalcRotations( e, pos, q, pseqdesc, panim, f );
 
-	if( pseqdesc->numblends > 1 )
+	if( pseqdesc->numblends > 1 && pseqdesc->numblends <= 16 )
 	{
 		float s;
 		float dadt;
@@ -1017,47 +1128,20 @@ static void R_StudioSetupBones( cl_entity_t *e )
 		}
 	}
 #if XASH_GAMECUBE
-	/* G376: tip-safe lean — rebuild hierarchy from bone rest values (ignore
-	 * anim) so Flipper gets a coherent bind pose. Scripted seq/animtime was
-	 * exploding limbs; bone-collapse to entity matrix crumpled coat into
-	 * giant white planes. */
-	if( gEngfuncs.Sys_CheckParm( "-gcnewgame" )
-		&& !gEngfuncs.Sys_CheckParm( "-gcfullphysics" )
-		&& e && e->model && e->model->name[0]
-		&& ( Q_stristr( e->model->name, "scientist" )
-			|| Q_stristr( e->model->name, "barney" )
-			|| Q_stristr( e->model->name, "headcrab" )
-			|| Q_stristr( e->model->name, "zombie" )))
+	/* G377: keep rest-pose only as an explode fallback. Group-0 CalcRotations
+	 * is the live pose (idle/walk). Bone AABB >220u means anim values went
+	 * off-range — restore bind pose for that frame. */
+	if( R_GXLeanNpcAnimActive( e ) && R_GXStudioBonePoseExploded())
 	{
-		static qboolean rest_pose_logged;
-		vec3_t rest_pos;
-		vec4_t rest_q;
+		static qboolean explode_logged;
 
-		for( i = 0; i < m_pStudioHeader->numbones; i++ )
+		R_GXStudioRestPoseFallback( pbones );
+		if( !explode_logged )
 		{
-			AngleQuaternion( &pbones[i].value[3], rest_q, true );
-			rest_pos[0] = pbones[i].value[0];
-			rest_pos[1] = pbones[i].value[1];
-			rest_pos[2] = pbones[i].value[2];
-			Matrix3x4_FromOriginQuat( bonematrix, rest_q, rest_pos );
-			if( pbones[i].parent == -1 )
-			{
-				Matrix3x4_ConcatTransforms( g_studio.bonestransform[i], g_studio.rotationmatrix, bonematrix );
-				Matrix3x4_Copy( g_studio.lighttransform[i], g_studio.bonestransform[i] );
-			}
-			else
-			{
-				Matrix3x4_ConcatTransforms( g_studio.bonestransform[i],
-					g_studio.bonestransform[pbones[i].parent], bonematrix );
-				Matrix3x4_Copy( g_studio.lighttransform[i], g_studio.bonestransform[i] );
-			}
-		}
-		if( !rest_pose_logged )
-		{
-			rest_pose_logged = true;
+			explode_logged = true;
 			gEngfuncs.Con_Reportf(
-				"Xash3D GameCube: G376 lean studio rest-pose %s bones=%d org=(%.0f,%.0f,%.0f)\n",
-				e->model->name, m_pStudioHeader->numbones,
+				"Xash3D GameCube: G377 lean studio anim explode fallback %s seq=%d f=%.2f org=(%.0f,%.0f,%.0f)\n",
+				e->model->name, e->curstate.sequence, f,
 				e->origin[0], e->origin[1], e->origin[2] );
 		}
 	}
@@ -3355,7 +3439,8 @@ void R_DrawViewModel( void )
 	{
 		extern int R_GXEfbDumpHoldLeft( void );
 
-		if( r_drawviewmodel->value == 0 && R_GXEfbDumpHoldLeft() > 0 )
+		if( r_drawviewmodel->value == 0
+			&& ( R_GXEfbDumpHoldLeft() > 0 || R_GXDumpSkipViewmodelActive()))
 		{
 			static qboolean dump_vm_skip_logged;
 
@@ -3363,7 +3448,7 @@ void R_DrawViewModel( void )
 			{
 				dump_vm_skip_logged = true;
 				gEngfuncs.Con_Reportf(
-					"Xash3D GameCube: G376 skip viewmodel during DumpFrames hold\n" );
+					"Xash3D GameCube: G377 skip viewmodel during DumpFrames\n" );
 			}
 			return;
 		}
