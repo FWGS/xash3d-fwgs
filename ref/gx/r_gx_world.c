@@ -1734,34 +1734,44 @@ static int R_GXEmitFace( const msurface_t *surf, model_t *world, int slot )
 		else
 			r_gx_state_reuses++;
 
-		/* GX T&L collapsed the world-space floor to a 1px edge. CPU T&L
-		 * into eye space + identity mtx (same path as G200 magenta). */
+		/* Constant-Z eye-space pad (G200 path). Mixed-Z world/eye tris line. */
 		if( surf->firstedge < 0 && nverts == 4 )
 		{
-			vec3_t fwd, right, upv;
-			const float *org = RI.rvp.vieworigin;
-			float e[4][3];
 			Mtx ident, mv;
-			int vi;
 			static qboolean g380_eye_logged;
 
-			AngleVectors( RI.rvp.viewangles, fwd, right, upv );
-			for( vi = 0; vi < 4; vi++ )
-			{
-				float rx = pts[vi][0] - org[0];
-				float ry = pts[vi][1] - org[1];
-				float rz = pts[vi][2] - org[2];
-
-				e[vi][0] = right[0] * rx + right[1] * ry + right[2] * rz;
-				e[vi][1] = upv[0] * rx + upv[1] * ry + upv[2] * rz;
-				e[vi][2] = -( fwd[0] * rx + fwd[1] * ry + fwd[2] * rz );
-			}
 			if( !g380_eye_logged )
 			{
+				vec3_t fwd, right, upv;
+				const float *org = RI.rvp.vieworigin;
+				float e0[3], e2[3];
+				int k;
+
+				AngleVectors( RI.rvp.viewangles, fwd, right, upv );
+				for( k = 0; k < 3; k++ )
+				{
+					float r0 = pts[0][k] - org[k];
+					float r2 = pts[2][k] - org[k];
+					(void)r0; (void)r2;
+				}
+				{
+					float rx = pts[0][0] - org[0];
+					float ry = pts[0][1] - org[1];
+					float rz = pts[0][2] - org[2];
+					e0[0] = right[0] * rx + right[1] * ry + right[2] * rz;
+					e0[1] = upv[0] * rx + upv[1] * ry + upv[2] * rz;
+					e0[2] = -( fwd[0] * rx + fwd[1] * ry + fwd[2] * rz );
+					rx = pts[2][0] - org[0];
+					ry = pts[2][1] - org[1];
+					rz = pts[2][2] - org[2];
+					e2[0] = right[0] * rx + right[1] * ry + right[2] * rz;
+					e2[1] = upv[0] * rx + upv[1] * ry + upv[2] * rz;
+					e2[2] = -( fwd[0] * rx + fwd[1] * ry + fwd[2] * rz );
+				}
 				g380_eye_logged = true;
 				gEngfuncs.Con_Reportf(
 					"Xash3D GameCube: G380 eye p0=(%.0f,%.0f,%.0f) p2=(%.0f,%.0f,%.0f)\n",
-					e[0][0], e[0][1], e[0][2], e[2][0], e[2][1], e[2][2] );
+					e0[0], e0[1], e0[2], e2[0], e2[1], e2[2] );
 			}
 			{
 				GXRModeObj *rmode = (GXRModeObj *)GC_GetGxVideoMode();
@@ -1776,20 +1786,20 @@ static int R_GXEmitFace( const msurface_t *surf, model_t *world, int slot )
 			guMtxIdentity( ident );
 			GX_LoadPosMtxImm( ident, GX_PNMTX0 );
 			GX_InvVtxCache();
-			GX_SetZMode( GX_TRUE, GX_LEQUAL, GX_TRUE );
-			/* Constant-Z eye-space (G200 path). Mixed-Z world tris lined. */
+			GX_SetZMode( GX_TRUE, GX_ALWAYS, GX_TRUE );
+			/* NPC-pad screen band (eye p0 y≈5 / p2 y≈64 → zbb y≈7..38). */
 			GX_Begin( GX_TRIANGLES, GX_VTXFMT0, 6 );
-			GX_Position3f32( -90.0f, -80.0f, -100.0f );
+			GX_Position3f32( -70.0f, 4.0f, -100.0f );
 			GX_Color1u32( color );
-			GX_Position3f32( 90.0f, -80.0f, -100.0f );
+			GX_Position3f32( 70.0f, 4.0f, -100.0f );
 			GX_Color1u32( color );
-			GX_Position3f32( 90.0f, -6.0f, -100.0f );
+			GX_Position3f32( 70.0f, 48.0f, -100.0f );
 			GX_Color1u32( color );
-			GX_Position3f32( -90.0f, -80.0f, -100.0f );
+			GX_Position3f32( -70.0f, 4.0f, -100.0f );
 			GX_Color1u32( color );
-			GX_Position3f32( 90.0f, -6.0f, -100.0f );
+			GX_Position3f32( 70.0f, 48.0f, -100.0f );
 			GX_Color1u32( color );
-			GX_Position3f32( -90.0f, -6.0f, -100.0f );
+			GX_Position3f32( -70.0f, 48.0f, -100.0f );
 			GX_Color1u32( color );
 			GX_End();
 			GX_SetZMode( GX_TRUE, GX_LEQUAL, GX_TRUE );

@@ -172,18 +172,21 @@ Match retail visuals without cutting fill/spawn.
     `gx_tris=740`. Quad AABB is at the dump eye (mind 237→60)
   - World-space mixed-Z floor tris collapsed to a 1px cyan edge (GX T&L /
     guFrustum W). Quake pitch **+32** looks down (`forward[2]=-sin`); −32
-    was look-up. CPU eye `p0=(-28,-18,-35) p2=(140,64,-167)` is a real
-    quad — identity+`guPerspective` constant-Z (G200 path) fills
-  - Probe `20260813-090719`: CHANGELEVEL_READY; rank n=285 **near=123
-    horiz=66 mind=39**; dump CapFaces **drawn=115**; `gx_tris=740`;
-    stills ~124k cyan PASSCLR pixels (lower FOV) + hallway strip + walk
-  - Evidence: `.ai/logs/dolphin-probe-20260813-090719`
+    was look-up. CPU eye `p0=(-40,5,-72) p2=(40,64,-167)` is a real quad —
+    Flipper only fills constant-Z (G200 `guPerspective`+identity)
+  - NDC-matched / full-FOV constant-Z pads stalled DumpFrames (timeout);
+    keep pad inside frustum. NPC screen band `y≈+4..+48` at z=-100
+  - Probe `20260813-152834`: CHANGELEVEL_READY; CapFaces **drawn=115**;
+    `gx_tris=740`; cyan ~116k px at still y=46–244 under scientist feet +
+    hallway strip below
+  - Evidence: `.ai/logs/dolphin-probe-20260813-152834`
   - Stills: `.ai/screenshots/g380-hallway/`
 
 **NEXT**:
-- Mixed-Z world floor (tessellate in eye space / match world Z to studio)
+- True mixed-Z floor (or textured slab) without constant-Z billboard
 - Real denser CapFaces CPU after sample flush (~33ms retail)
 - Optional: G506 HUD sheets (missing=1); dump cyan edge seams
+- DumpFrames probes: prefer `DOLPHIN_TIMEOUT=300` (180 cuts mid-dump)
 
 Rules:
 - Force-relink after HLSDK archive changes.

@@ -4259,27 +4259,15 @@ static void GC_G380AdmitNpcRoomFloors( void )
 	if( !gc_g376_npc_dump_active || VectorIsNull( npc ))
 		return;
 	z = npc[2] + 2.0f; /* sit above fill coplanar floors so LEQUAL keeps cyan */
-	/* Trapezoid: all verts in front of look (-X), near edge narrow enough
-	 * that NDC stays inside Flipper's guard band. A ±200u near edge sat at
-	 * NDC x≈±7 and the clipper dropped the triangles to a cyan line. */
-	if( !VectorIsNull( eye ))
-	{
-		x0 = eye[0] - 20.0f;
-		x1 = npc[0] - 48.0f;
-		y0n = eye[1] - 28.0f;
-		y1n = eye[1] + 28.0f;
-		y0f = npc[1] - 140.0f;
-		y1f = npc[1] + 140.0f;
-	}
-	else
-	{
-		x0 = npc[0] + 96.0f;
-		x1 = npc[0] - 48.0f;
-		y0n = npc[1] - 28.0f;
-		y1n = npc[1] + 28.0f;
-		y0f = npc[1] - 140.0f;
-		y1f = npc[1] + 140.0f;
-	}
+	/* Pad under the NPC only — full eye→NPC trapezoid covered the EFB and
+	 * stalled Dolphin DumpFrames. */
+	x0 = npc[0] + 64.0f;
+	x1 = npc[0] - 48.0f;
+	y0n = npc[1] - 40.0f;
+	y1n = npc[1] + 40.0f;
+	y0f = y0n;
+	y1f = y1n;
+	(void)eye;
 	if( gc_newgame_cap_face_count < GC_MAX_CAP_FACES )
 		slot = gc_newgame_cap_face_count;
 	else
