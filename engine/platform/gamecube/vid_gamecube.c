@@ -203,6 +203,7 @@ static qboolean gc_g176_logged;
 static qboolean gc_g180_logged;
 static qboolean gc_g212_logged;
 static qboolean gc_g212_stream_locked; /* hold near-eye set; stop cluster refresh thrash */
+static qboolean gc_g376_npc_dump_active; /* dump eye is NPC standoff — skip cl0 portal-OR */
 static vec3_t gc_newgame_capture_origin; /* G132/G201e: bake + dump camera eye */
 static vec3_t gc_newgame_capture_forward; /* G217: dump look for live frustum rank */
 /* G213: compact PVS faces on heap (full msurface promote is 662 KiB OOM).
@@ -4662,7 +4663,14 @@ static void GC_MaybeRestreamRideMapFaces( const float *eye )
 		return;
 
 	/* G364: denser vis-portal — OR neighbor-cluster surfbits into the active
-	 * row so CapFaces cover both sides of a lab|hallway seam. */
+	 * row so CapFaces cover both sides of a lab|hallway seam.
+	 * G376: NPC standoff restream hit neigh=0 (sky/void) and wiped indoor
+	 * faces. Skip outdoor-band / cluster-0 neighbors. */
+	if( gc_g376_npc_dump_active )
+		portal_neigh = -1;
+	else if( portal_neigh == 0 || ( portal_neigh >= 0
+		&& GC_VisLeafsForCluster( portal_neigh ) <= 48 ))
+		portal_neigh = -1;
 	if( portal_neigh >= 0 && portal_neigh != cluster
 		&& gc_newgame_surf_cache && gc_newgame_surfbytes > 0
 		&& gc_newgame_surfbytes <= 1024 && gc_newgame_visbytes > 0
@@ -10688,6 +10696,10 @@ static qboolean GC_G376AimDumpAtLeanNpc( const float *ref_org )
 			continue;
 		VectorSubtract( ed->v.origin, ref, delta );
 		dist = DotProduct( delta, delta );
+		/* Prefer scientist for DumpFrames proof (T.mdl skins + hallway).
+		 * Nearest-to-ref picked barney ~1200u from the textured scientist. */
+		if( Q_stristr( mod, "barney" ))
+			dist += 1.0e6f;
 		if( dist < best_dist )
 		{
 			best_dist = dist;
@@ -10908,13 +10920,46 @@ qboolean GC_RenderNewGameWorldFrames( int count )
 			GC_FlushPendingCapFaceRefresh();
 		}
 
-		if( ( Sys_CheckParm( "-gcnewgame" )
+		/* G376: pick NPC nearest the hallway wall-aim eye (not player origin —
+		 * that selected the courtyard scientist ~1200u away). Then restream
+		 * CapFaces once toward the NPC standoff (no cl0 portal-OR). */
+		gc_g376_npc_dump_active = false;
+		if( ( Sys_CheckParm( "-gcdumpframes" ) || Sys_CheckParm( "-gcdump" ))
+			&& GC_IsDenserAmMapName( sv.name ))
+		{
+			vec3_t npc_ref, dummy_ang;
+
+			VectorCopy( center, npc_ref );
+			(void)GC_DumpEyeInFrontOfBestWall( npc_ref, dummy_ang );
+			if( GC_G376AimDumpAtLeanNpc( npc_ref )
+				&& GC_DumpOriginInHull( gc_g376_npc_eye ))
+			{
+				vec3_t npc_look, npc_right, npc_up;
+
+				VectorCopy( gc_g376_npc_eye, center );
+				VectorSubtract( gc_g376_npc_origin, center, npc_look );
+				VectorAngles( npc_look, rvp.viewangles );
+				rvp.viewangles[2] = 0.0f;
+				if( rvp.viewangles[0] > 12.0f )
+					rvp.viewangles[0] = 12.0f;
+				if( rvp.viewangles[0] < -20.0f )
+					rvp.viewangles[0] = -20.0f;
+				gc_g376_npc_dump_active = true;
+				VectorCopy( center, gc_newgame_capture_origin );
+				AngleVectors( rvp.viewangles, gc_newgame_capture_forward,
+					npc_right, npc_up );
+			}
+		}
+
+		if( gc_g376_npc_dump_active
+			|| ( Sys_CheckParm( "-gcnewgame" )
 				&& !GC_IsDenserAmMapName( sv.name )
 				&& GC_DumpEyeAtTramStart( center, rvp.viewangles ))
-			|| GC_DumpEyeInFrontOfBestWall( center, rvp.viewangles ))
+			|| ( !gc_g376_npc_dump_active
+				&& GC_DumpEyeInFrontOfBestWall( center, rvp.viewangles )))
 		{
 			local_look = true;
-			look_len = 192.0f;
+			look_len = gc_g376_npc_dump_active ? 128.0f : 192.0f;
 			if( !gc_g212_stream_locked )
 			{
 				GC_FlushPendingCapFaceRefresh();
@@ -10922,11 +10967,20 @@ qboolean GC_RenderNewGameWorldFrames( int count )
 				gc_g212_stream_locked = true;
 			}
 			/* G364: restream LM-cap/live toward dump eye + portal neighbor.
-			 * Early G281 −X restream is skipped on denser dests. */
+			 * Early G281 −X restream is skipped on denser dests.
+			 * G376: NPC dump restreams once — repeating it every dump present
+			 * re-ranked far outdoor slabs over the hallway. */
 			if( GC_WantLiveCapOverlap() )
 			{
-				GC_ForceLeanRideRestream();
-				GC_MaybeRestreamRideMapFaces( center );
+				static qboolean npc_room_streamed;
+
+				if( !gc_g376_npc_dump_active || !npc_room_streamed )
+				{
+					GC_ForceLeanRideRestream();
+					GC_MaybeRestreamRideMapFaces( center );
+					if( gc_g376_npc_dump_active )
+						npc_room_streamed = true;
+				}
 			}
 		}
 		else
@@ -10994,49 +11048,9 @@ qboolean GC_RenderNewGameWorldFrames( int count )
 				gc_newgame_viewcluster, leaves, look_len );
 		}
 	}
-	/* G376: keep G212 locked. Stand off ~128u from the nearest scientist
-	 * so rest-pose is a humanoid. Do not restream CapFaces here — mid-frame
-	 * surfbits/SetActive hung Host_Frame (probe 20260812-061959). */
-	if( gc_dump_look_into_map
-		&& ( Sys_CheckParm( "-gcdumpframes" ) || Sys_CheckParm( "-gcdump" ))
-		&& GC_G376AimDumpAtLeanNpc( center ))
-	{
-		vec3_t look, away;
-		float dist;
-
-		VectorSubtract( gc_g376_npc_origin, center, look );
-		dist = VectorLength( look );
-		if( dist < 1600.0f )
-		{
-			if( dist >= 96.0f && GC_DumpOriginInHull( gc_g376_npc_eye ))
-				VectorCopy( gc_g376_npc_eye, center );
-			else if( dist < 96.0f )
-			{
-				if( dist > 8.0f )
-				{
-					away[0] = ( center[0] - gc_g376_npc_origin[0] ) / dist;
-					away[1] = ( center[1] - gc_g376_npc_origin[1] ) / dist;
-				}
-				else
-				{
-					away[0] = 1.0f;
-					away[1] = 0.0f;
-				}
-				center[0] = gc_g376_npc_origin[0] + away[0] * 140.0f;
-				center[1] = gc_g376_npc_origin[1] + away[1] * 140.0f;
-				center[2] = gc_g376_npc_origin[2] + 36.0f;
-				if( !GC_DumpOriginInHull( center ))
-					VectorCopy( gc_g376_npc_eye, center );
-			}
-			VectorSubtract( gc_g376_npc_origin, center, look );
-			VectorAngles( look, rvp.viewangles );
-			rvp.viewangles[2] = 0.0f;
-			if( rvp.viewangles[0] > 12.0f )
-				rvp.viewangles[0] = 12.0f;
-			if( rvp.viewangles[0] < -20.0f )
-				rvp.viewangles[0] = -20.0f;
-		}
-	}
+	/* G376: NPC dump eye is placed before G364 restream above. Do not
+	 * teleport after CapFaces bake — that looked away from the streamed
+	 * faces (grey void). Mid-frame surfbits rebuild hung Host_Frame. */
 	VectorCopy( center, rvp.vieworigin );
 	/* G89: select multi-cluster PVS for camera; prove two-cluster switch once.
 	 * G199: during Flipper wall-aim, densest-cluster prove rewrites outdoor caps

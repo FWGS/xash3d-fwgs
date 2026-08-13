@@ -115,11 +115,18 @@ Match retail visuals without cutting fill/spawn.
   - Stills: `.ai/screenshots/g376p-standoff/` (viewmodel-off hallway:
     `.ai/screenshots/g376o-novm/`)
   - In-room CapFaces+NPC: mid-frame surfbits restream hung Host_Frame
-    (probe 20260812-061959 after dump aim). G212 stays locked; world at
-    standoff remains grey void. Do not PreferOutdoor-unlock.
+    (probe 20260812-061959 after dump aim). G212 stays locked.
+  - Dump eye at NPC **before** G364 ride restream (hallway wall-aim as
+    picker only). Skip cluster-0 / outdoor portal-OR. Prefer scientist.
+    Probe `20260812-225922`: aim scientist org=(-1840,528,-256)
+    eye=(-1712,528,-220) cl=111; CapFaces **drawn=277**; gx_tris=740;
+    CHANGELEVEL_READY. Stills: textured humanoid scientist + some world
+    brushes (far industrial slabs still rank over nearby hallway).
+  - Evidence: `.ai/logs/dolphin-probe-20260812-225922`
+  - Stills: `.ai/screenshots/g376w-hallway-npc/`
 
 **NEXT**:
-- Optional: bake NPC-room CapFaces at prepare time (not mid-dump-frame)
+- Rank CapFaces by dump-eye distance under NPC restream (drop far slabs)
 - Real denser CapFaces CPU after sample flush (~33ms retail)
 - Optional: G506 HUD sheets (missing=1); dump cyan edge seams
 
