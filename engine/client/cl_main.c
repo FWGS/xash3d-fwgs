@@ -4203,6 +4203,9 @@ qboolean CL_GameCubeEnsureClientReady( void )
 	}
 
 	COM_GetCommonLibraryPath( LIBRARY_CLIENT, libpath, sizeof( libpath ));
+#if XASH_GAMECUBE
+	Image_GCPurgeDecodeScratch();
+#endif
 	if( !CL_LoadProgs( libpath ))
 	{
 		Con_Reportf( S_ERROR "Xash3D GameCube: deferred client init failed: %s\n", COM_GetLibraryError() );

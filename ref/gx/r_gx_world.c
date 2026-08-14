@@ -200,7 +200,7 @@ static qboolean r_gx_tex_band_logged;
  * G297 cut for headroom; unmasked G36 ~1ms so G302 restores live toward pool size.
  * G348: live 124→192 + frame 248→280 — G347 late DumpFrames still void at 124. */
 #ifndef GC_GX_FRAME_FACE_BUDGET
-#define GC_GX_FRAME_FACE_BUDGET 320	/* G381: was 280 — emit full CapFaces set for tram end */
+#define GC_GX_FRAME_FACE_BUDGET 384	/* G381: was 320 — CapFaces 320 + fill 64 */
 #endif
 #ifndef GC_GX_LIVE_FACE_BUDGET
 #define GC_GX_LIVE_FACE_BUDGET 192	/* G348: was 124 — draw more of lean pool 248 */
@@ -235,7 +235,7 @@ static int R_GXLiveFaceBudget( void )
 	return GC_GX_LIVE_FACE_BUDGET;
 }
 #ifndef GC_GX_FILL_FACE_BUDGET
-#define GC_GX_FILL_FACE_BUDGET 48	/* G348: was 32 — tram fill plugs after G347 */
+#define GC_GX_FILL_FACE_BUDGET 64	/* G381: was 48 — menu tram floor/tunnel plugs */
 #endif
 static int r_gx_face_skips;
 static int r_gx_face_skip_area;
@@ -493,6 +493,10 @@ static u32 R_GXFaceColor( const msurface_t *surf )
 		name = surf->texinfo->texture->name;
 	else if( surf->firstedge < 0 && surf->extents[0] == 256 && surf->extents[1] == 256 )
 		return 0x18F0E0FFu; /* G380: cyan PASSCLR floor under dump NPC */
+	else if( surf->firstedge < 0 && surf->extents[0] == 512 && surf->extents[1] == 384 )
+		return 0x3A3E42FFu; /* menu tram end-plug dark concrete */
+	else if( surf->firstedge < 0 && surf->extents[0] == 768 && surf->extents[1] == 384 )
+		return 0x2E3236FFu; /* menu tram floor-plug dark deck */
 	else
 		name = "flat";
 
@@ -1122,8 +1126,10 @@ static void R_GXClearEfbSky( GXRModeObj *rmode )
 	GX_Color1u32( sky );
 	GX_End();
 
-	/* Textured backdrop replaces flat clear when lean sky sides are resident. */
-	R_GXDrawSkyBackdrop( rmode );
+	/* Textured backdrop for outdoor clear only. Tram indoor (G285 dark clear)
+	 * must keep flat dark so tunnel-end holes don't flash lean-sky white. */
+	if( !GC_IsTramIntroMap())
+		R_GXDrawSkyBackdrop( rmode );
 }
 
 static void R_GXClearDepthPerspective( GXRModeObj *rmode )
@@ -1622,10 +1628,17 @@ static int R_GXEmitFace( const msurface_t *surf, model_t *world, int slot )
 			/* Stage0: diffuse REPLACE (ignore vertex color dimming). */
 			GX_SetTevOrder( GX_TEVSTAGE0, GX_TEXCOORD0, GX_TEXMAP0, GX_COLORNULL );
 			GX_SetTevOp( GX_TEVSTAGE0, GX_REPLACE );
-			/* Stage1: * LM with G219 overbright (×2) — G209 ×4 blew DumpFrames white. */
+			/* Stage1: * LM with G219 overbright (×2) — G209 ×4 blew DumpFrames white.
+			 * Menu tram: ×1 — ×2 blows light panels to solid white (frame 700). */
 			GX_SetTevOrder( GX_TEVSTAGE1, GX_TEXCOORD1, GX_TEXMAP1, GX_COLORNULL );
 			GX_SetTevColorIn( GX_TEVSTAGE1, GX_CC_ZERO, GX_CC_TEXC, GX_CC_CPREV, GX_CC_ZERO );
-			GX_SetTevColorOp( GX_TEVSTAGE1, GX_TEV_ADD, GX_TB_ZERO, GX_CS_SCALE_2, GX_TRUE, GX_TEVPREV );
+			{
+				u32 lm_scale = GX_CS_SCALE_2;
+
+				if( gEngfuncs.Sys_CheckParm( "-gcmenuplaystart" ))
+					lm_scale = GX_CS_SCALE_1;
+				GX_SetTevColorOp( GX_TEVSTAGE1, GX_TEV_ADD, GX_TB_ZERO, lm_scale, GX_TRUE, GX_TEVPREV );
+			}
 			GX_SetTevAlphaIn( GX_TEVSTAGE1, GX_CA_ZERO, GX_CA_ZERO, GX_CA_ZERO, GX_CA_APREV );
 			GX_SetTevAlphaOp( GX_TEVSTAGE1, GX_TEV_ADD, GX_TB_ZERO, GX_CS_SCALE_1, GX_TRUE, GX_TEVPREV );
 			GX_ClearVtxDesc();
@@ -1734,9 +1747,10 @@ static int R_GXEmitFace( const msurface_t *surf, model_t *world, int slot )
 		else
 			r_gx_state_reuses++;
 
-		/* Constant-Z eye pad (G200). Mixed-Z lines. Thin strip at the
-		 * projected NPC/far edge so the scientist stays visible. */
-		if( surf->firstedge < 0 && nverts == 4 )
+		/* Constant-Z eye pad (G200) — NPC dump floor only (256×256). Menu tram
+		 * end-plug (512×384) must draw the baked world-space quad instead. */
+		if( surf->firstedge < 0 && nverts == 4
+			&& surf->extents[0] == 256 && surf->extents[1] == 256 )
 		{
 			vec3_t fwd, right, upv;
 			const float *org = RI.rvp.vieworigin;
@@ -2672,6 +2686,18 @@ int R_GXDrawNewGameCapFaces( void )
 					fill_fail++;
 			}
 			drawn += fill_drawn;
+			if( gEngfuncs.Sys_CheckParm( "-gcmenuplaystart" ))
+			{
+				static qboolean menu_fill_logged;
+
+				if( !menu_fill_logged )
+				{
+					menu_fill_logged = true;
+					gEngfuncs.Con_Reportf(
+						"Xash3D GameCube: menu fill emit drawn=%d back=%d fail=%d of %d\n",
+						fill_drawn, fill_back, fill_fail, fill_n );
+				}
+			}
 			/* G380: re-emit synthetic NPC floor after fill — LEQUAL fill at
 			 * the same Z painted over the PASSCLR quad. */
 			{
