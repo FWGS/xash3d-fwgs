@@ -2336,7 +2336,7 @@ int R_GXDrawNewGameCapFaces( void )
 		r_gx_face_cull_logged = false;
 	}
 
-	if( gEngfuncs.Sys_CheckParm( "-gcnewgame" ))
+	if( GC_IsNewGameProbe() )
 	{
 		log_begin = Q_stricmp( r_gx_capfaces_begin_map, map_name ) != 0;
 		log_end = Q_stricmp( r_gx_capfaces_end_map, map_name ) != 0;
@@ -2375,9 +2375,9 @@ int R_GXDrawNewGameCapFaces( void )
 	R_GXSetupWorld3DState();
 
 	/* Stamp marksurfaces only when leaf→surface links are still valid.
-	 * After G132 scratch reuse on -gcnewgame, MarkLeaves already full-stamped
-	 * surf->visframe; walking dangling firstmarksurface hangs the guest. */
-	if( !( gEngfuncs.Sys_CheckParm( "-gcnewgame" ) && GC_UseLowResWorldProbe() ))
+	 * After G132 scratch reuse on New Game / menu New Game, MarkLeaves already
+	 * full-stamped surf->visframe; walking dangling firstmarksurface hangs. */
+	if( !( GC_IsNewGameProbe() && GC_UseLowResWorldProbe() ))
 		R_GXMarkVisibleSurfaces( world );
 
 	draw = GC_GetNewGameDrawSurfs();
@@ -2392,7 +2392,7 @@ int R_GXDrawNewGameCapFaces( void )
 	drawn = 0;
 	/* G282: emit LM-caps whenever New Game has them — do not require a live
 	 * pool (empty live used to fall through to sky-only and drop caps). */
-	if( GC_WorldSurfacesLive() || ( gEngfuncs.Sys_CheckParm( "-gcnewgame" ) && n > 0 ))
+	if( GC_WorldSurfacesLive() || ( GC_IsNewGameProbe() && n > 0 ))
 	{
 		static qboolean g213_logged;
 		int live_n = GC_GetLiveFaceCount();
@@ -2594,7 +2594,7 @@ int R_GXDrawNewGameCapFaces( void )
 					continue;
 				/* G281: skip far-small cull on New Game — tunnel walls along
 				 * the look path were dropped while dump eye was distant. */
-				if( !gEngfuncs.Sys_CheckParm( "-gcnewgame" )
+				if( !GC_IsNewGameProbe()
 					&& area > 0 && area < GC_GX_FAR_MIN_AREA
 					&& fabsf( dot ) > GC_GX_FAR_FACE_DIST )
 				{
@@ -2825,7 +2825,7 @@ int R_GXDrawNewGameCapFaces( void )
 				drawn, backface_skips, emit_fails, r_gx_face_skips, n );
 		}
 	}
-	else if( !( gEngfuncs.Sys_CheckParm( "-gcnewgame" ) && GC_UseLowResWorldProbe() ))
+	else if( !( GC_IsNewGameProbe() && GC_UseLowResWorldProbe() ))
 	{
 		/* Retail / non-scratch path: live BSP/PVS textured emit. */
 		drawn = R_GXDrawWorldLiveSurfaces( world, true );
@@ -2914,7 +2914,7 @@ int R_GXDrawNewGameCapFaces( void )
 			map_name, tr.framecount, drawn );
 	}
 	/* G348: one post-sample CapFaces line (full retail budget after G36 flush). */
-	else if( gEngfuncs.Sys_CheckParm( "-gcnewgame" ) && drawn > 0 )
+	else if( GC_IsNewGameProbe() && drawn > 0 )
 	{
 		static qboolean g348_post_logged;
 		extern qboolean GC_IsG36SampleFaceCap( void );

@@ -284,7 +284,14 @@ void R_SetupFrameQ( void )
 	if( FBitSet( RI.rvp.flags, RF_DRAW_WORLD ))
 	{
 #if XASH_GAMECUBE
-		if( gEngfuncs.Sys_CheckParm( "-gcnewgame" ) && GC_GetNewGameViewCluster() >= 0 )
+		/* Menu New Game: never walk live BSP nodes after playstart discard
+		 * (same hang class as CaptureNewGamePVS / R_FindViewLeaf). */
+		if( gEngfuncs.Sys_CheckParm( "-gcmenuplaystart" ))
+		{
+			RI.viewleaf = NULL;
+			r_viewcluster = GC_GetNewGameViewCluster();
+		}
+		else if( gEngfuncs.Sys_CheckParm( "-gcnewgame" ) && GC_GetNewGameViewCluster() >= 0 )
 		{
 			RI.viewleaf = NULL;
 			r_viewcluster = GC_GetNewGameViewCluster();

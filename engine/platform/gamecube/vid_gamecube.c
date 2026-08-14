@@ -273,6 +273,8 @@ static void GC_BuildRefreshCandsFromSurfbits( model_t *wmodel, const byte *surfb
 static void GC_CapFaceCentroid( int slot, vec3_t out );
 static void GC_RerankCapFacesNearDumpEye( void );
 static float GC_G378AabbDist2( const float *p, const float *mins, const float *maxs );
+static int GC_BakeOneSurfedgeVert( model_t *wmodel, int firstedge, int ei, int nedges,
+	signed short out[][3], int n );
 static qboolean GC_G380NpcRoomHoriz( const mplane_t *pl, const mtexinfo_t *tx,
 	const short mins[2], const short extents[2], qboolean has_tex );
 void GC_CaptureIntroTrainFaces( model_t *wmodel ); /* G277: also called from mod_bmodel */
@@ -403,6 +405,110 @@ static int GC_CapNearEyeScore( const mplane_t *pl, int area, qboolean is_wall )
 	return score;
 }
 
+/* Plane-dist alone keeps same-Z floors across the map. AABB-to-eye kills them. */
+static int GC_CapApplyAabbKeepBonus( int score, float aabb_dist )
+{
+	if( aabb_dist < 0.0f )
+		return score;
+	if( aabb_dist < 1.0f )
+		aabb_dist = 1.0f;
+	if( aabb_dist < 192.0f )
+		score += 350000;
+	else if( aabb_dist < 384.0f )
+		score += 200000;
+	else if( aabb_dist < 640.0f )
+		score += 80000;
+	else if( aabb_dist > 1280.0f )
+		score = ( score > 16 ) ? ( score / 16 ) : 0; /* reject far slabs */
+	else if( aabb_dist > 1024.0f )
+		score /= 8;
+	else if( aabb_dist > 768.0f )
+		score /= 2;
+	return score;
+}
+
+/* Cheap AABB distance from live msurface edges to capture eye (pre-bake). */
+static float GC_SurfAabbDistToCaptureOrigin( model_t *wmodel, const msurface_t *src )
+{
+	signed short	pt[1][3];
+	float		mins[3], maxs[3];
+	int		i, n = 0;
+	int		nedges;
+
+	if( !wmodel || !src || VectorIsNull( gc_newgame_capture_origin ))
+		return -1.0f;
+	if( !src->plane || src->numedges < 3 || src->numedges > 32 )
+		return -1.0f;
+	if( src->firstedge < 0
+		|| src->firstedge + src->numedges > wmodel->numsurfedges )
+		return -1.0f;
+	nedges = wmodel->numedges;
+	if( nedges <= 0 )
+		return -1.0f;
+	for( i = 0; i < src->numedges; i++ )
+	{
+		float	x, y, z;
+
+		if( !GC_BakeOneSurfedgeVert( wmodel, src->firstedge, i, nedges, pt, 0 ))
+			continue;
+		x = (float)pt[0][0];
+		y = (float)pt[0][1];
+		z = (float)pt[0][2];
+		if( n == 0 )
+		{
+			mins[0] = maxs[0] = x;
+			mins[1] = maxs[1] = y;
+			mins[2] = maxs[2] = z;
+		}
+		else
+		{
+			if( x < mins[0] ) mins[0] = x;
+			if( y < mins[1] ) mins[1] = y;
+			if( z < mins[2] ) mins[2] = z;
+			if( x > maxs[0] ) maxs[0] = x;
+			if( y > maxs[1] ) maxs[1] = y;
+			if( z > maxs[2] ) maxs[2] = z;
+		}
+		n++;
+	}
+	if( n < 3 )
+		return -1.0f;
+	{
+		float d2 = GC_G378AabbDist2( gc_newgame_capture_origin, mins, maxs );
+
+		return ( d2 > 1.0f ) ? sqrtf( d2 ) : 0.0f;
+	}
+}
+
+static int GC_CapNearEyeSurfScore( model_t *wmodel, const msurface_t *src, int area,
+	qboolean is_wall )
+{
+	int	score;
+	float	aabb;
+
+	if( !src || !src->plane )
+		return 0;
+	score = GC_CapNearEyeScore( src->plane, area, is_wall );
+	if( VectorIsNull( gc_newgame_capture_origin ) || !wmodel )
+		return score;
+	aabb = GC_SurfAabbDistToCaptureOrigin( wmodel, src );
+	score = GC_CapApplyAabbKeepBonus( score, aabb );
+	/* Menu tram NoPVS: prefer floors/ceilings that enclose the cabin, and
+	 * demote anything past ~896u so look-ahead walls fill the tunnel end. */
+	if( Sys_CheckParm( "-gcmenuplaystart" ) && aabb >= 0.0f )
+	{
+		qboolean floorish = ( fabs( src->plane->normal[2] ) > 0.55f );
+
+		if( floorish && aabb < 512.0f )
+			score += 280000;
+		else if( floorish && aabb < 768.0f )
+			score += 120000;
+		if( aabb > 896.0f )
+			score = ( score > 16 ) ? ( score / 16 ) : 0;
+	}
+	return score;
+}
+
 #define GC_G378_FAR_DUMP 768.0f
 
 static float GC_G378AabbDist2( const float *p, const float *mins, const float *maxs )
@@ -461,22 +567,7 @@ static int GC_CapSlotKeepScore( int slot )
 	/* G379: AABB-to-eye (not centroid). Large hallway floors have a far
 	 * centroid but pass under the dump eye — centroid skip left grey void. */
 	if( !VectorIsNull( gc_newgame_capture_origin ) && gc_cap_nverts[slot] >= 3 )
-	{
-		float dist = GC_CapFaceAabbDist( slot );
-
-		if( dist < 1.0f )
-			dist = 1.0f;
-		if( dist < 192.0f )
-			score += 350000;
-		else if( dist < 384.0f )
-			score += 200000;
-		else if( dist < 640.0f )
-			score += 80000;
-		else if( dist > 1024.0f )
-			score /= 5;
-		else if( dist > 768.0f )
-			score /= 2;
-	}
+		score = GC_CapApplyAabbKeepBonus( score, GC_CapFaceAabbDist( slot ));
 	if( GC_G380NpcRoomHoriz( &f->plane, &f->texinfo, f->texturemins, f->extents,
 		f->texinfo.texture != NULL ))
 		score += 500000;
@@ -2473,6 +2564,9 @@ static void GC_CaptureDrawFacesNoPVS( model_t *wmodel )
 		return; /* already baked this map */
 
 	bytes = (size_t)( wmodel->numsurfaces + 7 ) / 8;
+	/* FromSurfbits early-outs when surfbytes was never set (menu skips FatPVS). */
+	if( gc_newgame_surfbytes <= 0 )
+		gc_newgame_surfbytes = (int)bytes;
 	allbits = (byte *)malloc( bytes );
 	if( allbits )
 	{
@@ -2481,7 +2575,9 @@ static void GC_CaptureDrawFacesNoPVS( model_t *wmodel )
 		free( allbits );
 		GC_FlipperTrace( "Xash3D GameCube: G198 no-PVS face bake count=%d (Flipper cap)\n",
 			gc_newgame_cap_face_count );
-		return;
+		if( gc_newgame_cap_face_count > 0 )
+			return;
+		/* Fall through to inline top-K if surfbits path captured nothing. */
 	}
 
 	/* Even malloc for surfbits failed — capture top faces inline. */
@@ -2504,8 +2600,7 @@ static void GC_CaptureDrawFacesNoPVS( model_t *wmodel )
 		if( area <= 0 )
 			continue;
 		is_wall = ( fabs( src->plane->normal[2] ) < 0.35f );
-		if( is_wall )
-			area += ( area >> 1 );
+		area = GC_CapNearEyeSurfScore( wmodel, src, area, is_wall );
 
 		if( gc_newgame_cap_face_count < area_slots )
 		{
@@ -2683,7 +2778,8 @@ static void GC_CaptureDrawFacesFromSurfbits( model_t *wmodel, const byte *surfbi
 		is_wall = ( fabs( src->plane->normal[2] ) < 0.35f );
 		if( is_wall )
 			wall_boost++;
-		score = GC_CapNearEyeScore( src->plane, area, is_wall );
+		/* AABB-to-eye when capture origin is set (menu tram bake / restream). */
+		score = GC_CapNearEyeSurfScore( wmodel, src, area, is_wall );
 
 		if( gc_newgame_cap_face_count < area_slots )
 		{
@@ -4786,7 +4882,8 @@ static qboolean GC_NewGameRideEye( float *eye, float *out_angles )
 {
 	edict_t *player;
 
-	if( !eye || !out_angles || !Sys_CheckParm( "-gcnewgame" ))
+	if( !eye || !out_angles
+		|| !( Sys_CheckParm( "-gcnewgame" ) || Sys_CheckParm( "-gcmenuplaystart" )))
 		return false;
 	if( !svgame.edicts || svs.maxclients < 1 )
 		return GC_DumpEyeAtTramStart( eye, out_angles );
@@ -10048,6 +10145,7 @@ void GC_BakeMenuNewGameCapFacesNoPVS( void )
 {
 #if XASH_GAMECUBE
 	model_t *wmodel;
+	vec3_t eye, angles;
 
 	if( !Sys_CheckParm( "-gcmenuplaystart" ))
 		return;
@@ -10061,10 +10159,15 @@ void GC_BakeMenuNewGameCapFacesNoPVS( void )
 		return;
 	}
 
+	/* Rank NoPVS top-K toward tram-start eye — null origin picked map-wide
+	 * slabs and left sky bleed in DumpFrames (probe 20260813-195716). */
+	(void)GC_DumpEyeAtTramStart( eye, angles );
+
 	Image_GCPurgeDecodeScratch();
-	Con_Reportf( "Xash3D GameCube: menu CapFaces NoPVS bake begin surfs=%d\n",
-		wmodel->numsurfaces );
+	Con_Reportf( "Xash3D GameCube: menu CapFaces NoPVS bake begin surfs=%d eye=(%.0f,%.0f,%.0f)\n",
+		wmodel->numsurfaces, eye[0], eye[1], eye[2] );
 	GC_CaptureDrawFacesNoPVS( wmodel );
+	GC_RerankCapFacesNearDumpEye();
 	Con_Reportf( "Xash3D GameCube: menu CapFaces NoPVS bake done n=%d\n",
 		gc_newgame_cap_face_count );
 #else
@@ -11390,7 +11493,9 @@ qboolean GC_RenderNewGameWorldFrames( int count )
 		if( gc_g196_flipper_dump_aim_left > 0 && gc_gx_world_live
 			&& gc_cpu_dump_presents_left <= 0
 			&& ( denser_dump_aim
-				|| !( gc_g212_stream_locked && Sys_CheckParm( "-gcnewgame" ))))
+				|| !( gc_g212_stream_locked
+					&& ( Sys_CheckParm( "-gcnewgame" )
+						|| Sys_CheckParm( "-gcmenuplaystart" )))))
 		{
 			static qboolean g196_aim_logged;
 
@@ -11403,7 +11508,8 @@ qboolean GC_RenderNewGameWorldFrames( int count )
 			}
 			(void)g196_aim_logged;
 		}
-		else if( gc_g212_stream_locked && Sys_CheckParm( "-gcnewgame" )
+		else if( gc_g212_stream_locked
+			&& ( Sys_CheckParm( "-gcnewgame" ) || Sys_CheckParm( "-gcmenuplaystart" ))
 			&& !denser_dump_aim )
 			gc_dump_look_into_map = false;
 	}
@@ -11424,7 +11530,7 @@ qboolean GC_RenderNewGameWorldFrames( int count )
 		 * G362: denser AM never uses tram-start eye (wrong map). */
 		if( !gc_g212_stream_locked )
 		{
-			if( Sys_CheckParm( "-gcnewgame" )
+			if( ( Sys_CheckParm( "-gcnewgame" ) || Sys_CheckParm( "-gcmenuplaystart" ))
 				&& !GC_IsDenserAmMapName( sv.name )
 				&& GC_DumpEyeAtTramStart( center, rvp.viewangles ))
 				GC_UpdateNewGamePVSForOrigin( center );
@@ -11476,7 +11582,7 @@ qboolean GC_RenderNewGameWorldFrames( int count )
 		}
 
 		if( gc_g376_npc_dump_active
-			|| ( Sys_CheckParm( "-gcnewgame" )
+			|| ( ( Sys_CheckParm( "-gcnewgame" ) || Sys_CheckParm( "-gcmenuplaystart" ))
 				&& !GC_IsDenserAmMapName( sv.name )
 				&& GC_DumpEyeAtTramStart( center, rvp.viewangles ))
 			|| ( !gc_g376_npc_dump_active
@@ -11516,22 +11622,27 @@ qboolean GC_RenderNewGameWorldFrames( int count )
 				}
 			}
 			/* G379: G212 stays locked — re-score already-baked CapFaces/live
-			 * by dump-eye AABB so hallway floor/ceiling stay with the walls. */
-			if( gc_g376_npc_dump_active )
+			 * by dump-eye AABB so hallway floor/ceiling stay with the walls.
+			 * Tram/menu (no denser live overlap) also ranks once — NoPVS bake
+			 * may still hold a few far slabs after AABB selection. */
 			{
-				static qboolean npc_ranked;
-				static char npc_rank_map[32];
+				static qboolean dump_ranked;
+				static char dump_rank_map[32];
 
-				if( Q_stricmp( npc_rank_map, sv.name ))
+				if( Q_stricmp( dump_rank_map, sv.name ))
 				{
-					npc_ranked = false;
-					Q_strncpy( npc_rank_map, sv.name, sizeof( npc_rank_map ));
+					dump_ranked = false;
+					Q_strncpy( dump_rank_map, sv.name, sizeof( dump_rank_map ));
 				}
-				if( !npc_ranked )
+				if( !dump_ranked
+					&& ( gc_g376_npc_dump_active
+						|| Sys_CheckParm( "-gcmenuplaystart" )
+						|| Sys_CheckParm( "-gcnewgame" )))
 				{
-					GC_RerankLiveFacesNearEye();
+					if( gc_g376_npc_dump_active )
+						GC_RerankLiveFacesNearEye();
 					GC_RerankCapFacesNearDumpEye();
-					npc_ranked = true;
+					dump_ranked = true;
 				}
 			}
 		}
@@ -11706,8 +11817,8 @@ qboolean GC_RenderNewGameWorldFrames( int count )
 				/* G281: release dump-look so G279 ride eye reaches Flipper /
 				 * DumpFrames. G233 sticky tram-start froze late dumps. */
 				gc_dump_look_into_map = false;
-				/* G230: keep tram cap lock under -gcnewgame DumpFrames. */
-				if( !Sys_CheckParm( "-gcnewgame" ))
+				/* G230: keep tram cap lock under New Game DumpFrames. */
+				if( !Sys_CheckParm( "-gcnewgame" ) && !Sys_CheckParm( "-gcmenuplaystart" ))
 					gc_g212_stream_locked = false;
 				SYS_Report( "Xash3D GameCube: G281 ride eye\n" );
 			}
@@ -11901,6 +12012,11 @@ static qboolean GC_WantSoftDumpLatch( void )
 	if( !GC_IsCaptureDiagnostics() )
 		return false;
 	if( !( Sys_CheckParm( "-gcdumpframes" ) || Sys_CheckParm( "-gcdump" )))
+		return false;
+	/* Menu New Game: soft latch PresentBuffer hung after CapFaces
+	 * (probe 20260813-194144 at G191 begin / G156 bind). Flipper EFB
+	 * CapFaces already drew — DumpFrames samples live GX. */
+	if( Sys_CheckParm( "-gcmenuplaystart" ))
 		return false;
 	/* G368: dual-hop DumpFrames — tram soft latch + Flipper-EFB GFX hangs
 	 * hop1 CapFaces pump before changelevel2 arms (20260811-223648). */
@@ -12471,8 +12587,18 @@ qboolean GC_PrepareNewGameWorldPresent( void )
 		}
 		else
 		{
-		for( i = 0; i < 8; i++ )
-			Host_ServerFrame();
+		/* Menu New Game: even 2× ServerFrame hung after CapFaces (probe
+		 * 20260813-193243 never reached restream+render). Skip primes and
+		 * go straight to Flipper restream/present pump. */
+		if( Sys_CheckParm( "-gcmenuplaystart" ))
+		{
+			Con_Reportf( "Xash3D GameCube: menu post-present ServerFrame prime skipped\n" );
+		}
+		else
+		{
+			for( i = 0; i < 8; i++ )
+				Host_ServerFrame();
+		}
 
 		/* Player clip can move the eye <128u so G281 skips; CapFaces then
 		 * stalls on frame 2 (probe 20260807-161707). Force restream and do
@@ -12500,7 +12626,8 @@ qboolean GC_PrepareNewGameWorldPresent( void )
 			{
 				/* Lean: viewmodel draw re-enters DrawEntities and hung
 				 * Prepare (probe 20260807-163236). Keep world-only. */
-				if( Sys_CheckParm( "-gcnewgame" ) && !Sys_CheckParm( "-gcfullphysics" ))
+				if( ( Sys_CheckParm( "-gcnewgame" ) || Sys_CheckParm( "-gcmenuplaystart" ))
+					&& !Sys_CheckParm( "-gcfullphysics" ))
 					Con_Reportf( "Xash3D GameCube: V_RenderView viewmodel draw skipped lean\n" );
 				else
 				{
@@ -12532,6 +12659,10 @@ qboolean GC_PrepareNewGameWorldPresent( void )
 		{
 			GC_EnableGxWorldLive();
 			Con_Reportf( "Xash3D GameCube: pure Flipper GX live (no soft latch)\n" );
+			/* Menu New Game: RenderNewGameWorldPassNoFrame after CapFaces hung
+			 * (probe 20260813-194807 never reached smoke frame / sustained=16).
+			 * CapFaces already presented; return to Host_Frame SCR path. */
+			if( !Sys_CheckParm( "-gcmenuplaystart" ))
 			{
 				ref.dllFuncs.R_BeginFrame( false );
 				if( GC_RenderNewGameWorldPassNoFrame( true ))
@@ -12540,6 +12671,10 @@ qboolean GC_PrepareNewGameWorldPresent( void )
 					GC_PresentBuffer();
 				}
 				ref.dllFuncs.R_EndFrame();
+			}
+			else
+			{
+				Con_Reportf( "Xash3D GameCube: menu pure GX skip smoke frame\n" );
 			}
 		}
 		else
@@ -12827,7 +12962,8 @@ qboolean GC_PrepareNewGameWorldPresent( void )
 		} /* GC_WantSoftDumpLatch else */
 
 		/* Destination map already ran pre-present primes; a trailing pair can
-		 * hang in multi_manager/audiomm (soak iter flake 20260808-070538). */
+		 * hang in multi_manager/audiomm (soak iter flake 20260808-070538).
+		 * Menu New Game: same hang after pure GX skip (probe 20260813-195327). */
 		{
 			char dest[MAX_QPATH];
 			qboolean skip_post_ticks = false;
@@ -12836,11 +12972,15 @@ qboolean GC_PrepareNewGameWorldPresent( void )
 				&& Sys_GetParmFromCmdLine( "-gcchangelevel", dest )
 				&& dest[0] && !Q_stricmp( sv.name, dest ))
 				skip_post_ticks = true;
+			if( Sys_CheckParm( "-gcmenuplaystart" ) && !Sys_CheckParm( "-gcfullphysics" ))
+				skip_post_ticks = true;
 			if( !skip_post_ticks )
 			{
 				for( i = 0; i < 2; i++ )
 					Host_ServerFrame();
 			}
+			else if( Sys_CheckParm( "-gcmenuplaystart" ))
+				Con_Reportf( "Xash3D GameCube: menu post-G36 ticks skipped lean\n" );
 		}
 		Con_Reportf( "Xash3D GameCube: post-G36 ticks ready\n" );
 

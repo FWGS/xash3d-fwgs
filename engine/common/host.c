@@ -762,9 +762,20 @@ void Host_Frame( double time )
 					sv.name[0] ? sv.name : "?", cls.state, cls.signon,
 					gc_post_prep_crumbs );
 			}
-			Host_ServerFrame ();
-			if( gc_post_prep_crumbs == 0 )
-				Con_Reportf( "Xash3D GameCube: G320 post-prepare ServerFrame ok\n" );
+			/* Menu New Game: Host_ServerFrame after CapFaces hung the guest
+			 * (probe 20260813-193443 stopped at sustained frames=8). Keep
+			 * ClientFrame/SCR presents for Flipper DumpFrames; skip lean
+			 * server ticks until -gcfullphysics. */
+			if( !( Sys_CheckParm( "-gcmenuplaystart" ) && !Sys_CheckParm( "-gcfullphysics" )) )
+			{
+				Host_ServerFrame ();
+				if( gc_post_prep_crumbs == 0 )
+					Con_Reportf( "Xash3D GameCube: G320 post-prepare ServerFrame ok\n" );
+			}
+			else if( gc_post_prep_crumbs == 0 )
+			{
+				Con_Reportf( "Xash3D GameCube: G320 menu ServerFrame skipped lean\n" );
+			}
 			Host_ClientFrame ();
 			if( gc_post_prep_crumbs == 0 )
 				Con_Reportf( "Xash3D GameCube: G320 post-prepare ClientFrame ok\n" );

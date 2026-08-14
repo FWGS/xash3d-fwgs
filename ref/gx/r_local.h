@@ -386,6 +386,17 @@ static inline qboolean GC_UseLowResWorldProbe( void )
 #endif
 }
 
+/* Direct New Game (-gcnewgame) or menu New Game (-gcmenuplaystart). */
+static inline qboolean GC_IsNewGameProbe( void )
+{
+#if XASH_GAMECUBE
+	return ( gEngfuncs.Sys_CheckParm( "-gcnewgame" )
+		|| gEngfuncs.Sys_CheckParm( "-gcmenuplaystart" )) ? qtrue : qfalse;
+#else
+	return qfalse;
+#endif
+}
+
 #if XASH_GAMECUBE
 /* G151: Flipper GX world draw (defined in engine platform). */
 qboolean GC_UseGxWorldDraw( void );

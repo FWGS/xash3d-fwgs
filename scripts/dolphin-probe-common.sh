@@ -7,6 +7,17 @@ probe_log_has() {
 		"$LOG_DIR"/dolphin-user/Logs/*.log 2>/dev/null
 }
 
+# Wrapper PID can exit while the real emu keeps running (non-batch Qt fork).
+probe_dolphin_alive() {
+	if [[ -n "${DOLPHIN_WRAPPER_PID:-}" ]] && kill -0 "$DOLPHIN_WRAPPER_PID" 2>/dev/null; then
+		return 0
+	fi
+	if [[ -n "${USER_DIR:-}" ]] && pgrep -f "dolphin.*${USER_DIR}" >/dev/null 2>&1; then
+		return 0
+	fi
+	return 1
+}
+
 probe_guest_error() {
 	grep -aEiq 'Host_Error|Sys_Error|Xash Error|_Mem_Alloc: out of memory|fatal error|guest.*(crash|abort)|Invalid read from|MMU fault|Program attempting to read|trashed (small )?header sentinel' \
 		"$LOG_DIR/stderr.log" "$LOG_DIR/stdout.log" \
@@ -453,10 +464,13 @@ probe_wait_native() {
 	local deadline=$(( $(date +%s) + TIMEOUT_SEC ))
 	local map_ready_at=0 retail_ready_at=0 g94_sample_armed=0 g278_sample_armed=0
 	while (( $(date +%s) < deadline )); do
-		if ! kill -0 "$DOLPHIN_WRAPPER_PID" 2>/dev/null; then
-			wait "$DOLPHIN_WRAPPER_PID" >/dev/null 2>&1 || true
-			DOLPHIN_EXIT=$?
-			return
+		if ! probe_dolphin_alive; then
+			sleep 2
+			if ! probe_dolphin_alive; then
+				wait "$DOLPHIN_WRAPPER_PID" >/dev/null 2>&1 || true
+				DOLPHIN_EXIT=$?
+				return
+			fi
 		fi
 		if [[ -n "${G82_FAULT_MARKER:-}" ]] && probe_log_has "$G82_FAULT_MARKER"; then
 			DOLPHIN_EXIT=0; break
@@ -744,6 +758,15 @@ probe_wait_native() {
 				sleep 2
 				continue
 			fi
+			# Menu New Game: hold until CapFaces sustain evidence, then sample.
+			if [[ "${DOLPHIN_MENU_NEWGAME:-0}" == "1" ]]; then
+				if ! probe_log_has "Xash3D GameCube: newgame sustained frames=16" \
+					&& ! probe_log_has "Xash3D GameCube: newgame sustained frames=32" \
+					&& ! probe_log_has "Xash3D GameCube: post-G36 sustained world present"; then
+					sleep 2
+					continue
+				fi
+			fi
 			if (( FRAME_SAMPLE_SEC <= 0 || $(date +%s) >= map_ready_at + FRAME_SAMPLE_SEC )); then
 				DOLPHIN_EXIT=0; break
 			fi
@@ -763,10 +786,16 @@ probe_wait_native() {
 		fi
 		sleep 2
 	done
-	if kill -0 "$DOLPHIN_WRAPPER_PID" 2>/dev/null; then
-		kill -TERM "$DOLPHIN_WRAPPER_PID" 2>/dev/null || true
+	if probe_dolphin_alive; then
+		if [[ -n "${DOLPHIN_WRAPPER_PID:-}" ]] && kill -0 "$DOLPHIN_WRAPPER_PID" 2>/dev/null; then
+			kill -TERM "$DOLPHIN_WRAPPER_PID" 2>/dev/null || true
+		fi
+		pkill -TERM -f "dolphin.*${USER_DIR}" >/dev/null 2>&1 || true
 		sleep 1
-		kill -KILL "$DOLPHIN_WRAPPER_PID" 2>/dev/null || true
+		if [[ -n "${DOLPHIN_WRAPPER_PID:-}" ]] && kill -0 "$DOLPHIN_WRAPPER_PID" 2>/dev/null; then
+			kill -KILL "$DOLPHIN_WRAPPER_PID" 2>/dev/null || true
+		fi
+		pkill -KILL -f "dolphin.*${USER_DIR}" >/dev/null 2>&1 || true
 		wait "$DOLPHIN_WRAPPER_PID" >/dev/null 2>&1 || true
 	fi
 }

@@ -528,8 +528,16 @@ void R_FindViewLeaf( void )
 {
 	RI.oldviewleaf = RI.viewleaf;
 #if XASH_GAMECUBE
-	/* G83: BSP scratch is corrupt by first world present; use prepare-time cluster. */
+	/* G83: BSP scratch is corrupt by first world present; use prepare-time cluster.
+	 * Menu New Game skips FatPVS (MEM tip) so viewcluster stays -1 — still must
+	 * not walk live nodes after playstart discard (hang after CapFaces,
+	 * probe 20260813-191649). */
 	if( gEngfuncs.Sys_CheckParm( "-gcnewgame" ) && GC_GetNewGameViewCluster() >= 0 )
+	{
+		RI.viewleaf = NULL;
+		return;
+	}
+	if( gEngfuncs.Sys_CheckParm( "-gcmenuplaystart" ))
 	{
 		RI.viewleaf = NULL;
 		return;
@@ -574,19 +582,25 @@ static void R_SetupFrame( void )
 	qsort( tr.draw_list->trans_entities, tr.draw_list->num_trans_entities, sizeof( cl_entity_t * ), (void *)R_TransEntityCompare );
 #endif
 
-	if( tr.framecount <= 1 && gEngfuncs.Sys_CheckParm( "-gcnewgame" ))
+	if( tr.framecount <= 1
+		&& ( gEngfuncs.Sys_CheckParm( "-gcnewgame" )
+			|| gEngfuncs.Sys_CheckParm( "-gcmenuplaystart" )))
 		gEngfuncs.Con_Reportf( "Xash3D GameCube: R_SetupFrame after sort\n" );
 
 	// current viewleaf
 	if( FBitSet( RI.rvp.flags, RF_DRAW_WORLD ))
 	{
 #if XASH_GAMECUBE
-		if( tr.framecount <= 1 && gEngfuncs.Sys_CheckParm( "-gcnewgame" ))
+		if( tr.framecount <= 1
+			&& ( gEngfuncs.Sys_CheckParm( "-gcnewgame" )
+				|| gEngfuncs.Sys_CheckParm( "-gcmenuplaystart" )))
 			gEngfuncs.Con_Reportf( "Xash3D GameCube: PointInLeaf begin\n" );
 #endif
 		R_FindViewLeaf();
 #if XASH_GAMECUBE
-		if( gEngfuncs.Sys_CheckParm( "-gcnewgame" ) && tr.framecount <= 1 )
+		if( tr.framecount <= 1
+			&& ( gEngfuncs.Sys_CheckParm( "-gcnewgame" )
+				|| gEngfuncs.Sys_CheckParm( "-gcmenuplaystart" )))
 		{
 			gEngfuncs.Con_Reportf( "Xash3D GameCube: PointInLeaf cluster=%d contents=%d (prepare=%d)\n",
 				RI.viewleaf ? RI.viewleaf->cluster : GC_GetNewGameViewCluster(),
@@ -596,13 +610,17 @@ static void R_SetupFrame( void )
 #endif
 	}
 
-	if( tr.framecount <= 1 && gEngfuncs.Sys_CheckParm( "-gcnewgame" ))
+	if( tr.framecount <= 1
+		&& ( gEngfuncs.Sys_CheckParm( "-gcnewgame" )
+			|| gEngfuncs.Sys_CheckParm( "-gcmenuplaystart" )))
 		gEngfuncs.Con_Reportf( "Xash3D GameCube: R_SetupFrame after viewleaf\n" );
 
 	// setup twice until globals fully refactored
 	R_SetupFrameQ();
 
-	if( tr.framecount <= 1 && gEngfuncs.Sys_CheckParm( "-gcnewgame" ))
+	if( tr.framecount <= 1
+		&& ( gEngfuncs.Sys_CheckParm( "-gcnewgame" )
+			|| gEngfuncs.Sys_CheckParm( "-gcmenuplaystart" )))
 		gEngfuncs.Con_Reportf( "Xash3D GameCube: R_SetupFrame ready\n" );
 }
 
@@ -1701,10 +1719,16 @@ static void R_EdgeDrawingGcmapProbe( void )
 		extern int R_GXDrawBrushModel( cl_entity_t *e );
 		int bi, bn, bdrawn = 0;
 		static qboolean g235_logged;
+		int cap_drawn;
 
 		R_GXClearWorldDrewFlag();
 		VectorCopy( RI.rvp.vieworigin, tr.modelorg );
-		R_GXDrawNewGameCapFaces();
+		if( tr.framecount <= 1 )
+			gEngfuncs.Con_Reportf( "Xash3D GameCube: R_EdgeDrawing GX CapFaces begin\n" );
+		cap_drawn = R_GXDrawNewGameCapFaces();
+		if( tr.framecount <= 1 )
+			gEngfuncs.Con_Reportf( "Xash3D GameCube: R_EdgeDrawing GX CapFaces drawn=%d\n",
+				cap_drawn );
 		/* G235: opaque brush movers were skipped by this early return —
 		 * soft path called R_DrawBEntitiesOnList; Flipper never did. */
 		bn = (int)tr.draw_list->num_edge_entities;
@@ -1898,7 +1922,8 @@ static void R_MarkLeaves( void )
 	/* Low-res without visdata: mark every leaf. New Game with prepare-time
 	 * FatPVS cache applies that mark below (not full-vis). */
 	if( GC_UseLowResWorldProbe() && !( WORLDMODEL && WORLDMODEL->visdata )
-		&& !gEngfuncs.Sys_CheckParm( "-gcnewgame" ))
+		&& !gEngfuncs.Sys_CheckParm( "-gcnewgame" )
+		&& !gEngfuncs.Sys_CheckParm( "-gcmenuplaystart" ))
 	{
 		int i;
 
@@ -1925,7 +1950,9 @@ static void R_MarkLeaves( void )
 	}
 
 	/* G83: apply prepare-time FatPVS + parent marks — no live tree walks. */
-	if( gEngfuncs.Sys_CheckParm( "-gcnewgame" ) && GC_UseLowResWorldProbe()
+	if( ( gEngfuncs.Sys_CheckParm( "-gcnewgame" )
+			|| gEngfuncs.Sys_CheckParm( "-gcmenuplaystart" ))
+		&& GC_UseLowResWorldProbe()
 		&& GC_HasNewGameCachedVis() )
 	{
 		tr.visframecount++;
@@ -1943,8 +1970,12 @@ static void R_MarkLeaves( void )
 			gEngfuncs.Con_Reportf( "Xash3D GameCube: cached FatPVS apply failed; using full-vis\n" );
 	}
 
-	/* New Game fallback if prepare cache missing: full-vis (keeps pixels). */
-	if( GC_UseLowResWorldProbe() && gEngfuncs.Sys_CheckParm( "-gcnewgame" ))
+	/* New Game / menu fallback if prepare cache missing: full-vis (keeps pixels).
+	 * Menu must not fall into R_FatPVS — live nodes hang after discard
+	 * (probe 20260813-192054). */
+	if( GC_UseLowResWorldProbe()
+		&& ( gEngfuncs.Sys_CheckParm( "-gcnewgame" )
+			|| gEngfuncs.Sys_CheckParm( "-gcmenuplaystart" )))
 	{
 		int i;
 
@@ -2130,14 +2161,18 @@ void GAME_EXPORT R_RenderScene( void )
 
 	R_MarkLeaves();
 #if XASH_GAMECUBE
-	if( tr.framecount <= 1 && gEngfuncs.Sys_CheckParm( "-gcnewgame" ))
+	if( tr.framecount <= 1
+		&& ( gEngfuncs.Sys_CheckParm( "-gcnewgame" )
+			|| gEngfuncs.Sys_CheckParm( "-gcmenuplaystart" )))
 		gEngfuncs.Con_Reportf( "Xash3D GameCube: R_RenderScene after markleaves\n" );
 #endif
 	// R_PushDlights (r_worldmodel); ??
 	// R_DrawWorld();
 	R_EdgeDrawing();
 #if XASH_GAMECUBE
-	if( tr.framecount <= 1 && gEngfuncs.Sys_CheckParm( "-gcnewgame" ))
+	if( tr.framecount <= 1
+		&& ( gEngfuncs.Sys_CheckParm( "-gcnewgame" )
+			|| gEngfuncs.Sys_CheckParm( "-gcmenuplaystart" )))
 		gEngfuncs.Con_Reportf( "Xash3D GameCube: R_RenderScene after edges\n" );
 #endif
 #if XASH_GAMECUBE

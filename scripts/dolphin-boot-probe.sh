@@ -102,7 +102,10 @@ elif [[ "${DOLPHIN_MENU_NEWGAME:-0}" == "1" ]]; then
 	FRAME_SAMPLE_SEC="${DOLPHIN_FRAME_SAMPLE_SEC:-45}"
 	MAP_MARKER="Xash3D GameCube: map loaded ${SMOKE_MAP}"
 	PLAY_READY_MARKER="Xash3D GameCube: play start ready ${SMOKE_MAP}"
+	# Sample after CapFaces / world ready — G36 budget presents alone are green fills.
+	G278_DONE_MARKER="Xash3D GameCube: newgame world render ready"
 	echo "==> Menu New Game will sample ${FRAME_SAMPLE_SEC}s after map loaded"
+	echo "==> Waiting for newgame world render ready before post-CapFaces sample"
 else
 	SMOKE_MAP="${DOLPHIN_SMOKE_MAP:-c0a0e}"
 fi
@@ -726,8 +729,14 @@ if [[ "$DOLPHIN_RETAIL" == "1" ]]; then
 	fi
 fi
 # Real-time menu→New Game: show the Dolphin window so the dwell is visible.
+# DumpFrames/post-CapFaces sample needs a stable wrapper PID — batch mode
+# keeps probe_wait_native from exiting early when the GUI process forks.
 if [[ "${DOLPHIN_MENU_NEWGAME:-0}" == "1" ]]; then
-	DOLPHIN_BATCH_MODE=0
+	if [[ "${DOLPHIN_DUMP_FRAMES:-0}" == "1" ]]; then
+		DOLPHIN_BATCH_MODE=1
+	else
+		DOLPHIN_BATCH_MODE=0
+	fi
 fi
 # G359: Null DumpFrames TGAs are all-black after soft latch (20260811-024012/225).
 # OpenGL samples G191 soft EFB stills (framedump uniq≈218 on c0a0e).
