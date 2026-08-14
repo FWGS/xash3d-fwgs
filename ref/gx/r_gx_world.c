@@ -200,7 +200,7 @@ static qboolean r_gx_tex_band_logged;
  * G297 cut for headroom; unmasked G36 ~1ms so G302 restores live toward pool size.
  * G348: live 124→192 + frame 248→280 — G347 late DumpFrames still void at 124. */
 #ifndef GC_GX_FRAME_FACE_BUDGET
-#define GC_GX_FRAME_FACE_BUDGET 280	/* G348: was 248 — live 192 + caps/fill */
+#define GC_GX_FRAME_FACE_BUDGET 320	/* G381: was 280 — emit full CapFaces set for tram end */
 #endif
 #ifndef GC_GX_LIVE_FACE_BUDGET
 #define GC_GX_LIVE_FACE_BUDGET 192	/* G348: was 124 — draw more of lean pool 248 */
@@ -2609,6 +2609,18 @@ int R_GXDrawNewGameCapFaces( void )
 					cap_drawn += got;
 			}
 			drawn += cap_drawn;
+			if( gEngfuncs.Sys_CheckParm( "-gcmenuplaystart" ))
+			{
+				static qboolean menu_cap_filter_logged;
+
+				if( !menu_cap_filter_logged )
+				{
+					menu_cap_filter_logged = true;
+					gEngfuncs.Con_Reportf(
+						"Xash3D GameCube: menu CapFaces filter drawn=%d backface=%d emit_fail=%d cull=%d of %d\n",
+						cap_drawn, backface_skips, emit_fails, r_gx_face_skips, n );
+				}
+			}
 			(void)backface_skips;
 			(void)emit_fails;
 			} /* cap_limit scope */

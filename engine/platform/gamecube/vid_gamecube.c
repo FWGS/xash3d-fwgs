@@ -480,31 +480,94 @@ static float GC_SurfAabbDistToCaptureOrigin( model_t *wmodel, const msurface_t *
 	}
 }
 
+/* Tram looks yaw=180 (−X). along = how far ahead; lateral = |ΔY|+|ΔZ| from eye. */
+static qboolean GC_SurfCorridorMetrics( model_t *wmodel, const msurface_t *src,
+	float *out_along, float *out_lateral )
+{
+	signed short	pt[1][3];
+	float		cx = 0.0f, cy = 0.0f, cz = 0.0f;
+	int		i, n = 0;
+	int		nedges;
+
+	if( !wmodel || !src || VectorIsNull( gc_newgame_capture_origin ))
+		return false;
+	if( !src->plane || src->numedges < 3 || src->numedges > 32 )
+		return false;
+	if( src->firstedge < 0
+		|| src->firstedge + src->numedges > wmodel->numsurfedges )
+		return false;
+	nedges = wmodel->numedges;
+	if( nedges <= 0 )
+		return false;
+	for( i = 0; i < src->numedges; i++ )
+	{
+		if( !GC_BakeOneSurfedgeVert( wmodel, src->firstedge, i, nedges, pt, 0 ))
+			continue;
+		cx += (float)pt[0][0];
+		cy += (float)pt[0][1];
+		cz += (float)pt[0][2];
+		n++;
+	}
+	if( n < 3 )
+		return false;
+	cx /= (float)n;
+	cy /= (float)n;
+	cz /= (float)n;
+	if( out_along )
+		*out_along = gc_newgame_capture_origin[0] - cx; /* −X look */
+	if( out_lateral )
+		*out_lateral = fabsf( cy - gc_newgame_capture_origin[1] )
+			+ fabsf( cz - gc_newgame_capture_origin[2] );
+	return true;
+}
+
 static int GC_CapNearEyeSurfScore( model_t *wmodel, const msurface_t *src, int area,
 	qboolean is_wall )
 {
 	int	score;
 	float	aabb;
+	float	sided;
 
 	if( !src || !src->plane )
 		return 0;
 	score = GC_CapNearEyeScore( src->plane, area, is_wall );
 	if( VectorIsNull( gc_newgame_capture_origin ) || !wmodel )
 		return score;
+	/* Menu: reject faces the dump eye would backface-cull (probe
+	 * 20260813-234551: 108/320 CapFaces skipped → tunnel-end void). */
+	if( Sys_CheckParm( "-gcmenuplaystart" ))
+	{
+		sided = DotProduct( gc_newgame_capture_origin, src->plane->normal )
+			- src->plane->dist;
+		if( src->flags & SURF_PLANEBACK )
+		{
+			if( sided > -0.01f )
+				return area > 0 ? ( area / 32 ) : 0;
+		}
+		else if( sided < 0.01f )
+			return area > 0 ? ( area / 32 ) : 0;
+	}
 	aabb = GC_SurfAabbDistToCaptureOrigin( wmodel, src );
 	score = GC_CapApplyAabbKeepBonus( score, aabb );
-	/* Menu tram NoPVS: prefer floors/ceilings that enclose the cabin, and
-	 * demote anything past ~896u so look-ahead walls fill the tunnel end. */
+	/* Menu tram: prefer floors/ceilings that enclose the cabin, and boost
+	 * look-ahead corridor walls so the tunnel end stays in the 320 set. */
 	if( Sys_CheckParm( "-gcmenuplaystart" ) && aabb >= 0.0f )
 	{
 		qboolean floorish = ( fabs( src->plane->normal[2] ) > 0.55f );
+		float along = 0.0f, lateral = 0.0f;
 
 		if( floorish && aabb < 512.0f )
 			score += 280000;
 		else if( floorish && aabb < 768.0f )
 			score += 120000;
-		if( aabb > 896.0f )
-			score = ( score > 16 ) ? ( score / 16 ) : 0;
+		if( GC_SurfCorridorMetrics( wmodel, src, &along, &lateral )
+			&& along > 256.0f && along < 1536.0f && lateral < 320.0f )
+		{
+			/* Ahead down −X tram tunnel — beat CapApply far demotion. */
+			score += 220000 + (int)( along * 80.0f );
+			if( is_wall )
+				score += ( area >> 1 );
+		}
 	}
 	return score;
 }
@@ -2780,6 +2843,9 @@ static void GC_CaptureDrawFacesFromSurfbits( model_t *wmodel, const byte *surfbi
 			wall_boost++;
 		/* AABB-to-eye when capture origin is set (menu tram bake / restream). */
 		score = GC_CapNearEyeSurfScore( wmodel, src, area, is_wall );
+		/* Menu: skip eye-back faces entirely (score was crushed to area/32). */
+		if( Sys_CheckParm( "-gcmenuplaystart" ) && score <= ( area / 16 ) )
+			continue;
 
 		if( gc_newgame_cap_face_count < area_slots )
 		{
@@ -2826,11 +2892,23 @@ static void GC_CaptureDrawFacesFromSurfbits( model_t *wmodel, const byte *surfbi
 	for( i = 0; i < wmodel->numsurfaces && gc_newgame_cap_face_count < GC_MAX_CAP_FACES; i++ )
 	{
 		msurface_t *src;
+		int area;
+		qboolean is_wall;
 
 		if( !( surfbits[i >> 3] & ( 1 << ( i & 7 ))))
 			continue;
 		src = &wmodel->surfaces[i];
+		if( !src->plane || src->numedges < 3 || src->numedges > 32 )
+			continue;
+		if( src->flags & ( SURF_DRAWSKY | SURF_DRAWTURB | SURF_TRANSPARENT ))
+			continue;
 		if( GC_CapFaceAlready( src->firstedge, src->numedges ))
+			continue;
+		area = (int)src->extents[0] * (int)src->extents[1];
+		is_wall = ( fabs( src->plane->normal[2] ) < 0.35f );
+		if( Sys_CheckParm( "-gcmenuplaystart" )
+			&& GC_CapNearEyeSurfScore( wmodel, src, area > 0 ? area : 1, is_wall )
+				<= (( area > 0 ? area : 1 ) / 16 ))
 			continue;
 		if( !GC_CaptureOneDrawFaceAtEx( wmodel, i, gc_newgame_cap_face_count, true ))
 			continue;
@@ -10141,11 +10219,241 @@ void GC_BakeDeferredNewGameCapFaces( void )
 		Con_Reportf( "Xash3D GameCube: G369 post-spawn CapFaces skipped (no surfbits)\n" );
 }
 
+static int GC_LeafIndexForClusterVis( model_t *wmodel, int cluster )
+{
+	int li;
+
+	if( !wmodel || !wmodel->leafs || cluster < 0 )
+		return -1;
+	for( li = 1; li < wmodel->numleafs; li++ )
+	{
+		if( wmodel->leafs[li].cluster == cluster
+			&& wmodel->leafs[li].compressed_vis )
+			return li;
+	}
+	return -1;
+}
+
+/* Avoid leafbox calloc (MEM1 tip during entity spawn) — walk leaf AABBs. */
+static int GC_SelectClusterFromLeafAabbs( model_t *wmodel, const float *org )
+{
+	int	i;
+	int	best = -1;
+	float	best_vol = 1e30f;
+
+	if( !wmodel || !wmodel->leafs || !org )
+		return -1;
+	for( i = 1; i < wmodel->numleafs; i++ )
+	{
+		const mleaf_t *leaf = &wmodel->leafs[i];
+		const float *mins = leaf->minmaxs;
+		const float *maxs = leaf->minmaxs + 3;
+		float	vol;
+		vec3_t	size;
+
+		if( leaf->cluster < 0 || !leaf->compressed_vis )
+			continue;
+		if( org[0] < mins[0] || org[0] > maxs[0]
+			|| org[1] < mins[1] || org[1] > maxs[1]
+			|| org[2] < mins[2] || org[2] > maxs[2] )
+			continue;
+		VectorSubtract( maxs, mins, size );
+		vol = size[0] * size[1] * size[2];
+		if( vol <= 0.0f )
+			vol = 1.0f;
+		if( vol < best_vol )
+		{
+			best_vol = vol;
+			best = leaf->cluster;
+		}
+	}
+	return best;
+}
+
+/*
+ * Menu CapFaces cannot run full FatPVS (OOM / hang). While marksurfaces are
+ * still valid, decompress tram-eye + look-ahead PVS into one surfbits row and
+ * rank CapFaces from that — closes tunnel-end sky voids that NoPVS AABB left.
+ */
+static qboolean GC_BakeMenuTramLeanSurfbits( model_t *wmodel, const float *eye,
+	byte *out_bits )
+{
+	byte	vis[512];
+	int	cluster, li, b, stamped;
+	int	visbytes;
+
+	if( !wmodel || !eye || !out_bits || !wmodel->surfaces || !wmodel->leafs )
+		return false;
+
+	if( gc_newgame_surfbytes <= 0 )
+		gc_newgame_surfbytes = ( wmodel->numsurfaces + 7 ) / 8;
+	if( gc_newgame_surfbytes <= 0 || gc_newgame_surfbytes > 1024 )
+		return false;
+
+	visbytes = (int)world.visbytes;
+	if( visbytes <= 0 )
+		visbytes = ( wmodel->numleafs + 7 ) / 8;
+	if( visbytes <= 0 || visbytes > 512 )
+	{
+		Con_Reportf( "Xash3D GameCube: menu lean tram PVS skipped visbytes=%d\n",
+			visbytes );
+		return false;
+	}
+	gc_newgame_visbytes = visbytes;
+	gc_newgame_numleafs = wmodel->numleafs;
+	gc_newgame_numsurfaces = wmodel->numsurfaces;
+
+	cluster = GC_SelectClusterFromLeafAabbs( wmodel, eye );
+	if( cluster < 0 )
+	{
+		Con_Reportf( "Xash3D GameCube: menu lean tram PVS no cluster eye=(%.0f,%.0f,%.0f)\n",
+			eye[0], eye[1], eye[2] );
+		return false;
+	}
+	li = GC_LeafIndexForClusterVis( wmodel, cluster );
+	if( li < 0 )
+	{
+		Con_Reportf( "Xash3D GameCube: menu lean tram PVS no compressed_vis cl=%d\n",
+			cluster );
+		return false;
+	}
+
+	GC_DecompressPVS( vis, wmodel->leafs[li].compressed_vis, (size_t)visbytes );
+	GC_BuildSurfbitsForVisRow( wmodel, vis, out_bits );
+
+	stamped = 0;
+	for( b = 0; b < wmodel->numsurfaces; b++ )
+	{
+		if( out_bits[b >> 3] & ( 1 << ( b & 7 )))
+			stamped++;
+	}
+
+	/* Keep a single cache row so later refresh can reuse baked cands. */
+	if( !gc_newgame_surf_cache )
+	{
+		gc_newgame_surf_cache = (byte *)calloc( (size_t)GC_SURFBITS_CACHE_SLOTS,
+			(size_t)gc_newgame_surfbytes );
+		if( gc_newgame_surf_cache )
+			gc_newgame_surf_cache_slots = 0;
+	}
+	if( gc_newgame_surf_cache )
+	{
+		int slot = 0;
+
+		if( gc_newgame_surf_cache_slots < 1 )
+			gc_newgame_surf_cache_slots = 1;
+		memcpy( gc_newgame_surf_cache, out_bits, (size_t)gc_newgame_surfbytes );
+		gc_newgame_surf_cache_cluster[slot] = cluster;
+		gc_newgame_surfbits = gc_newgame_surf_cache;
+		gc_newgame_viewcluster = cluster;
+		GC_BuildRefreshCandsFromSurfbits( wmodel, out_bits, slot );
+	}
+
+	Con_Reportf( "Xash3D GameCube: menu lean tram PVS cl=%d stamped=%d cands=%d\n",
+		cluster, stamped, gc_refresh_ncands[0] );
+	return stamped > 0;
+}
+
+/*
+ * Reserve CapFaces slots for mid-tunnel connectors (384–1600u along −X).
+ * Near-eye top-K otherwise fills with cabin walls and leaves a white void.
+ */
+static int GC_AdmitMenuTunnelConnectors( model_t *wmodel, const byte *surfbits )
+{
+	int i, admitted = 0, cand = 0, already = 0, weak = 0;
+	const int want = 64;
+
+	if( !wmodel || !surfbits || !Sys_CheckParm( "-gcmenuplaystart" ))
+		return 0;
+	if( gc_newgame_cap_face_count <= 0 || gc_newgame_surfbytes <= 0 )
+		return 0;
+
+	for( i = 0; i < wmodel->numsurfaces && admitted < want; i++ )
+	{
+		msurface_t *src;
+		float along = 0.0f, lateral = 0.0f;
+		int area, score, min_i, min_score, k;
+		qboolean is_wall;
+		qboolean floorish;
+
+		if( !( surfbits[i >> 3] & ( 1 << ( i & 7 ))))
+			continue;
+		src = &wmodel->surfaces[i];
+		if( !src->plane || src->numedges < 3 || src->numedges > 32 )
+			continue;
+		if( src->flags & ( SURF_DRAWSKY | SURF_DRAWTURB | SURF_TRANSPARENT ))
+			continue;
+		if( !GC_SurfCorridorMetrics( wmodel, src, &along, &lateral ))
+			continue;
+		if( along < 384.0f || along > 1600.0f || lateral > 360.0f )
+			continue;
+		cand++;
+		{
+			float sided = DotProduct( gc_newgame_capture_origin, src->plane->normal )
+				- src->plane->dist;
+
+			if( src->flags & SURF_PLANEBACK )
+			{
+				if( sided > -0.01f )
+					continue;
+			}
+			else if( sided < 0.01f )
+				continue;
+		}
+		if( GC_CapFaceAlready( src->firstedge, src->numedges ))
+		{
+			already++;
+			continue;
+		}
+		area = (int)src->extents[0] * (int)src->extents[1];
+		if( area < 256 )
+			continue;
+		is_wall = ( fabs( src->plane->normal[2] ) < 0.55f );
+		floorish = ( fabs( src->plane->normal[2] ) > 0.55f );
+		score = GC_CapNearEyeSurfScore( wmodel, src, area, is_wall );
+		/* Floors under the look path are cheap to keep — bump admit score. */
+		if( floorish )
+			score += 180000;
+
+		min_i = 0;
+		min_score = GC_CapSlotKeepScore( 0 );
+		for( k = 1; k < gc_newgame_cap_face_count; k++ )
+		{
+			int ks = GC_CapSlotKeepScore( k );
+
+			if( ks < min_score )
+			{
+				min_score = ks;
+				min_i = k;
+			}
+		}
+		if( score <= min_score )
+		{
+			weak++;
+			continue;
+		}
+		if( !GC_CaptureOneDrawFaceAtEx( wmodel, i, min_i, true ))
+			continue;
+		gc_newgame_cap_areas[min_i] = score;
+		admitted++;
+	}
+	Con_Reportf( "Xash3D GameCube: menu tunnel connectors admitted=%d cand=%d already=%d weak=%d\n",
+		admitted, cand, already, weak );
+	if( admitted > 0 )
+	{
+		GC_SortCapFacesByAreaDesc();
+		gc_newgame_cap_generation++;
+	}
+	return admitted;
+}
+
 void GC_BakeMenuNewGameCapFacesNoPVS( void )
 {
 #if XASH_GAMECUBE
 	model_t *wmodel;
 	vec3_t eye, angles;
+	byte *bits = NULL;
+	qboolean lean_ok = false;
 
 	if( !Sys_CheckParm( "-gcmenuplaystart" ))
 		return;
@@ -10159,17 +10467,38 @@ void GC_BakeMenuNewGameCapFacesNoPVS( void )
 		return;
 	}
 
-	/* Rank NoPVS top-K toward tram-start eye — null origin picked map-wide
-	 * slabs and left sky bleed in DumpFrames (probe 20260813-195716). */
+	/* Rank toward tram-start eye — null origin picked map-wide slabs.
+	 * Lean tram PVS must run BEFORE decode-scratch purge — marksurfaces
+	 * are required to stamp surfbits (NoPVS walks surfaces only). */
 	(void)GC_DumpEyeAtTramStart( eye, angles );
 
-	Image_GCPurgeDecodeScratch();
-	Con_Reportf( "Xash3D GameCube: menu CapFaces NoPVS bake begin surfs=%d eye=(%.0f,%.0f,%.0f)\n",
-		wmodel->numsurfaces, eye[0], eye[1], eye[2] );
-	GC_CaptureDrawFacesNoPVS( wmodel );
+	if( gc_newgame_surfbytes <= 0 )
+		gc_newgame_surfbytes = ( wmodel->numsurfaces + 7 ) / 8;
+	if( gc_newgame_surfbytes > 0 && gc_newgame_surfbytes <= 1024 )
+		bits = (byte *)malloc( (size_t)gc_newgame_surfbytes );
+
+	if( bits && GC_BakeMenuTramLeanSurfbits( wmodel, eye, bits ))
+	{
+		lean_ok = true;
+		Image_GCPurgeDecodeScratch();
+		Con_Reportf( "Xash3D GameCube: menu CapFaces lean tram bake begin surfs=%d eye=(%.0f,%.0f,%.0f)\n",
+			wmodel->numsurfaces, eye[0], eye[1], eye[2] );
+		GC_CaptureDrawFacesFromSurfbits( wmodel, bits );
+		GC_AdmitMenuTunnelConnectors( wmodel, bits );
+	}
+	if( bits )
+		free( bits );
+
+	if( !lean_ok || gc_newgame_cap_face_count <= 0 )
+	{
+		Image_GCPurgeDecodeScratch();
+		Con_Reportf( "Xash3D GameCube: menu CapFaces NoPVS bake begin surfs=%d eye=(%.0f,%.0f,%.0f)\n",
+			wmodel->numsurfaces, eye[0], eye[1], eye[2] );
+		GC_CaptureDrawFacesNoPVS( wmodel );
+	}
 	GC_RerankCapFacesNearDumpEye();
-	Con_Reportf( "Xash3D GameCube: menu CapFaces NoPVS bake done n=%d\n",
-		gc_newgame_cap_face_count );
+	Con_Reportf( "Xash3D GameCube: menu CapFaces bake done n=%d lean=%d\n",
+		gc_newgame_cap_face_count, lean_ok ? 1 : 0 );
 #else
 	;
 #endif
