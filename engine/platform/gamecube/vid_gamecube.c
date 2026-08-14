@@ -339,6 +339,7 @@ typedef struct
 	byte		flags; /* GC_TRAM_FACE_* */
 	signed short	pts_s16[GC_TRAM_MAX_VERTS][3];
 	int		firstedge; /* match world msurface for LM bake */
+	int		texnum; /* diffuse gl_texturenum at bake (samples may die) */
 } gc_tram_face_t;
 static gc_tram_face_t gc_tram_faces[GC_TRAM_MAX_FACES];
 static int gc_tram_face_count;
@@ -879,7 +880,7 @@ void GC_CaptureIntroTrainFaces( model_t *wmodel )
 	if( tram->firstmodelsurface < 0
 		|| tram->firstmodelsurface + tram->nummodelsurfaces > wmodel->numsurfaces )
 		return;
-	VectorCopy( tram->origin, gc_tram_model_origin );
+	VectorClear( gc_tram_model_origin );
 
 	/* Pass 1: cabin / body (not strict forward windshield). */
 	for( i = 0; i < tram->nummodelsurfaces; i++ )
@@ -898,10 +899,14 @@ void GC_CaptureIntroTrainFaces( model_t *wmodel )
 			|| src->firstedge + src->numedges > wmodel->numsurfedges )
 			continue;
 		nx = src->plane->normal[0];
-		if( nx > 0.70f )
+		/* Skip both ±X windshield normals — c0a0 tram faces −X down the track. */
+		if( nx > 0.70f || nx < -0.70f )
 			continue;
 		area = (int)src->extents[0] * (int)src->extents[1];
 		if( area < 64 )
+			continue;
+		/* Huge sealed walls fill the cabin FOV as flat steel; keep frames/rails. */
+		if( area > 6144 )
 			continue;
 
 		memset( &trial, 0, sizeof( trial ));
@@ -911,9 +916,13 @@ void GC_CaptureIntroTrainFaces( model_t *wmodel )
 			continue;
 		trial.nverts = (byte)n;
 		trial.firstedge = src->firstedge;
-		score = area;
+		trial.texnum = 0;
+		if( src->texinfo && src->texinfo->texture )
+			trial.texnum = src->texinfo->texture->gl_texturenum;
+		/* Prefer smaller detail (railings) over broad panels. */
+		score = 200000 / ( area + 64 );
 		if( src->samples )
-			score += 10000;
+			score += 5000;
 
 		if( cabin_n < cabin_cap )
 		{
@@ -938,7 +947,7 @@ void GC_CaptureIntroTrainFaces( model_t *wmodel )
 		scores[min_i] = score;
 	}
 
-	/* Pass 2: windshield / nose exterior into reserved slots. */
+	/* Pass 2: windshield / nose / sealed walls into reserved exterior slots. */
 	ext_n = 0;
 	for( i = 0; i < tram->nummodelsurfaces; i++ )
 	{
@@ -948,6 +957,7 @@ void GC_CaptureIntroTrainFaces( model_t *wmodel )
 		int n, area, score, min_i, min_score, k, slot0;
 		float nx;
 		int ext_cap = GC_TRAM_MAX_FACES - cabin_n;
+		qboolean windshield;
 
 		if( ext_cap <= 0 )
 			break;
@@ -959,10 +969,12 @@ void GC_CaptureIntroTrainFaces( model_t *wmodel )
 			|| src->firstedge + src->numedges > wmodel->numsurfedges )
 			continue;
 		nx = src->plane->normal[0];
-		if( nx <= 0.70f )
-			continue;
 		area = (int)src->extents[0] * (int)src->extents[1];
 		if( area < 64 )
+			continue;
+		windshield = ( nx > 0.70f || nx < -0.70f );
+		/* Large sealed panels also skip while riding (same as windshield). */
+		if( !windshield && area <= 6144 )
 			continue;
 
 		memset( &trial, 0, sizeof( trial ));
@@ -973,6 +985,9 @@ void GC_CaptureIntroTrainFaces( model_t *wmodel )
 		trial.nverts = (byte)n;
 		trial.firstedge = src->firstedge;
 		trial.flags = GC_TRAM_FACE_EXTERIOR;
+		trial.texnum = 0;
+		if( src->texinfo && src->texinfo->texture )
+			trial.texnum = src->texinfo->texture->gl_texturenum;
 		score = area;
 		if( src->samples )
 			score += 10000;
@@ -1004,12 +1019,52 @@ void GC_CaptureIntroTrainFaces( model_t *wmodel )
 	gc_tram_face_count = cabin_n + ext_n;
 	exterior = ext_n;
 
+	/* Brush verts are map-absolute; *12 dmodel origin is often 0 (no origin brush).
+	 * Use baked AABB center so ent_origin + (v - center) keeps the car on the track
+	 * when Place snaps to path_track / player (HL sets absolute origins). */
 	if( gc_tram_face_count > 0 )
 	{
+		vec3_t mins, maxs;
+		int f, v, first = 1;
+
+		for( f = 0; f < gc_tram_face_count; f++ )
+		{
+			const gc_tram_face_t *face = &gc_tram_faces[f];
+			for( v = 0; v < face->nverts; v++ )
+			{
+				float x = (float)face->pts_s16[v][0];
+				float y = (float)face->pts_s16[v][1];
+				float z = (float)face->pts_s16[v][2];
+
+				if( first )
+				{
+					mins[0] = maxs[0] = x;
+					mins[1] = maxs[1] = y;
+					mins[2] = maxs[2] = z;
+					first = 0;
+				}
+				else
+				{
+					if( x < mins[0] ) mins[0] = x;
+					if( y < mins[1] ) mins[1] = y;
+					if( z < mins[2] ) mins[2] = z;
+					if( x > maxs[0] ) maxs[0] = x;
+					if( y > maxs[1] ) maxs[1] = y;
+					if( z > maxs[2] ) maxs[2] = z;
+				}
+			}
+		}
+		if( !first )
+		{
+			gc_tram_model_origin[0] = 0.5f * ( mins[0] + maxs[0] );
+			gc_tram_model_origin[1] = 0.5f * ( mins[1] + maxs[1] );
+			gc_tram_model_origin[2] = 0.5f * ( mins[2] + maxs[2] );
+		}
 		baked_ok = true;
-		Con_Reportf( "Xash3D GameCube: G310 tram bake n=%d max=%d cabin=%d ext=%d surfs=%d lean=%uB\n",
+		Con_Reportf( "Xash3D GameCube: G310 tram bake n=%d max=%d cabin=%d ext=%d surfs=%d lean=%uB org=(%.0f,%.0f,%.0f)\n",
 			gc_tram_face_count, GC_TRAM_MAX_FACES, cabin_n, exterior,
-			tram->nummodelsurfaces, (unsigned)sizeof( gc_tram_face_t ));
+			tram->nummodelsurfaces, (unsigned)sizeof( gc_tram_face_t ),
+			gc_tram_model_origin[0], gc_tram_model_origin[1], gc_tram_model_origin[2] );
 	}
 }
 
@@ -1160,20 +1215,31 @@ static void GC_BakeTramLightmaps( model_t *wmodel )
 		tile = GC_CapAtlasTile( GC_TRAM_LM_SLOT0 + fi );
 		if( !tile )
 			continue;
+		/* Diffuse survives after style-0 samples are scratched (menu CapFaces). */
+		if( best && best->texinfo && best->texinfo->texture
+			&& best->texinfo->texture->gl_texturenum > 0 )
+		{
+			if( !gc_tram_diffuse_texnum )
+				gc_tram_diffuse_texnum = best->texinfo->texture->gl_texturenum;
+			if( !gc_tram_faces[fi].texnum )
+				gc_tram_faces[fi].texnum = best->texinfo->texture->gl_texturenum;
+		}
+		else if( gc_tram_faces[fi].texnum > 0 && !gc_tram_diffuse_texnum )
+			gc_tram_diffuse_texnum = gc_tram_faces[fi].texnum;
+
 		if( best && best->samples
 			&& !( best->flags & ( SURF_DRAWSKY | SURF_DRAWTURB | SURF_TRANSPARENT )))
 		{
 			GC_BakeTramLightmapTile( best, tile );
 			baked++;
-			if( !gc_tram_diffuse_texnum && best->texinfo && best->texinfo->texture )
-				gc_tram_diffuse_texnum = best->texinfo->texture->gl_texturenum;
 		}
 		else
 			GC_BakeTramLightmapTile( NULL, tile );
 		DCFlushRange( tile, (u32)( GC_CAP_LM_DIM * GC_CAP_LM_DIM * sizeof( u16 )));
 	}
 
-	gc_tram_lm_ready = ( baked > 0 );
+	/* Diffuse-only still counts as ready — mid-grey LM tiles × REPLACE. */
+	gc_tram_lm_ready = ( baked > 0 || gc_tram_diffuse_texnum > 0 );
 	if( !gc_tram_lm_logged && gc_tram_face_count > 0 )
 	{
 		gc_tram_lm_logged = true;
@@ -1192,6 +1258,15 @@ int GC_GetTramFaceFlags( int index )
 	if( index < 0 || index >= gc_tram_face_count )
 		return 0;
 	return (int)gc_tram_faces[index].flags;
+}
+
+int GC_GetTramFaceTexnum( int index )
+{
+	if( index < 0 || index >= gc_tram_face_count )
+		return 0;
+	if( gc_tram_faces[index].texnum > 0 )
+		return gc_tram_faces[index].texnum;
+	return gc_tram_diffuse_texnum;
 }
 
 qboolean GC_TramCabinRide( void )

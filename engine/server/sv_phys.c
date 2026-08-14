@@ -2002,18 +2002,26 @@ void SV_GCPlaceNewGameTrackTrains( void )
 				break;
 			}
 		}
-		/* Menu fallback: *12 with no path yet — park at capture/player eye. */
+		/* Menu fallback: *12 with no path yet — park at capture/player eye.
+		 * Do not latch onto a null player origin (early Place → (0,0,-20)
+		 * left the car at world origin while CapFaces drew the tram tunnel). */
 		if( !path && Sys_CheckParm( "-gcmenuplaystart" ))
 		{
 			edict_t *player = ( svs.maxclients >= 1 ) ? SV_EdictNum( 1 ) : NULL;
+			qboolean player_ok = false;
 
-			if( player && SV_IsValidEdict( player ))
+			if( player && SV_IsValidEdict( player )
+				&& ( fabs( player->v.origin[0] ) > 64.0f
+					|| fabs( player->v.origin[1] ) > 64.0f
+					|| fabs( player->v.origin[2] ) > 64.0f ))
 			{
 				VectorCopy( player->v.origin, ent->v.origin );
 				ent->v.origin[2] -= 20.0f;
+				player_ok = true;
 			}
-			else
+			if( !player_ok )
 			{
+				/* c0a0 intro tram rest — matches CapFaces dump eye. */
 				ent->v.origin[0] = 2864.0f;
 				ent->v.origin[1] = 2804.0f;
 				ent->v.origin[2] = 500.0f;
@@ -2045,12 +2053,38 @@ void SV_GCPlaceNewGameTrackTrains( void )
 		VectorAdd( ent->v.origin, ent->v.maxs, ent->v.absmax );
 		found++;
 	}
-	/* Only latch done on success — menu called Place at lump-end with train=0
-	 * and permanently skipped later snaps (probe 20260814-005545). */
+	/* Only latch done on a real park — early menu Place with a null player
+	 * used to snap *12 to (0,0,-20) and permanently skip later eye parks. */
 	if( found > 0 )
 	{
-		done = true;
-		Q_strncpy( done_map, sv.name, sizeof( done_map ));
+		qboolean parked = false;
+		int e2;
+
+		for( e2 = first_world; e2 < svgame.numEntities; e2++ )
+		{
+			edict_t *t = SV_EdictNum( e2 );
+			const char *precache;
+
+			if( !t || !SV_IsValidEdict( t ))
+				continue;
+			if( t->v.modelindex <= 0 || t->v.modelindex >= MAX_MODELS )
+				continue;
+			precache = sv.model_precache[t->v.modelindex];
+			if( !precache || Q_strcmp( precache, "*12" ))
+				continue;
+			if( fabs( t->v.origin[0] ) > 64.0f
+				|| fabs( t->v.origin[1] ) > 64.0f
+				|| fabs( t->v.origin[2] ) > 64.0f )
+			{
+				parked = true;
+				break;
+			}
+		}
+		if( parked )
+		{
+			done = true;
+			Q_strncpy( done_map, sv.name, sizeof( done_map ));
+		}
 	}
 	Con_Reportf( "Xash3D GameCube: G277 train=%d (G278 path-follow)\n", found );
 }

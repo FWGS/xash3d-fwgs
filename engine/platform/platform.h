@@ -174,6 +174,7 @@ struct model_s *GC_GetWorldModel( void );
 int GC_GetTramFaceCount( void ); /* G277/G306: capture-baked *12 faces */
 int GC_GetTramFaceVerts( int index, float out[][3], int maxverts );
 int GC_GetTramFaceFlags( int index ); /* G306: GC_TRAM_FACE_EXTERIOR */
+int GC_GetTramFaceTexnum( int index ); /* diffuse at bake */
 qboolean GC_TramCabinRide( void ); /* G306: eye inside cabin — skip exterior */
 void GC_GetTramModelOrigin( float out[3] ); /* *12 submodel origin at bake */
 qboolean GC_TramLightmapReady( void );

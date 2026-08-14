@@ -70,6 +70,7 @@ extern qboolean GC_FillFacePlane( int index, mplane_t *out, int *out_flags );
 extern int GC_GetTramFaceCount( void );
 extern int GC_GetTramFaceVerts( int index, float out[][3], int maxverts );
 extern int GC_GetTramFaceFlags( int index );
+extern int GC_GetTramFaceTexnum( int index );
 extern void GC_GetTramModelOrigin( float out[3] );
 extern qboolean GC_TramCabinRide( void );
 #ifndef GC_TRAM_FACE_EXTERIOR
@@ -3542,7 +3543,6 @@ int R_GXDrawTramBaked( const float *origin, const float *angles )
 	qboolean cabin = GC_TramCabinRide();
 	const unsigned short *tram_lm = NULL;
 	int lm_w = 0, lm_h = 0;
-	int texnum;
 	vec3_t model_org;
 	static GXTexObj tram_lm_obj;
 	static const float corner_uv[4][2] = {
@@ -3556,7 +3556,7 @@ int R_GXDrawTramBaked( const float *origin, const float *angles )
 	if( n <= 0 )
 		return 0;
 
-	/* Brush verts are map-absolute at bake; place at entity origin relative to *12 origin. */
+	/* Brush verts are map-absolute at bake; place at entity origin relative to bake AABB center. */
 	GC_GetTramModelOrigin( model_org );
 
 	R_GXBuildWorldModelview( view );
@@ -3570,10 +3570,10 @@ int R_GXDrawTramBaked( const float *origin, const float *angles )
 	r_gx_flat_z_ignore = false;
 	r_gx_flat_z_write = true;
 
-	texnum = GC_GetTramDiffuseTexnum();
+	/* Mid-grey LM tiles are fine when style-0 samples were scratched — diffuse
+	 * REPLACE×LM still beats flat steel. */
 	tram_lm = GC_GetTramLightmapAtlas( &lm_w, &lm_h );
-	if( GC_TramLightmapReady() && tram_lm && lm_w >= 4 && lm_h >= 4
-		&& texnum > 0 && R_GXBindTexnum( (unsigned)texnum, false ))
+	if( GC_TramLightmapReady() && tram_lm && lm_w >= 4 && lm_h >= 4 )
 	{
 		GX_InitTexObj( &tram_lm_obj, (void *)tram_lm, (u16)lm_w, (u16)lm_h,
 			GX_TF_RGB565, GX_CLAMP, GX_CLAMP, GX_FALSE );
@@ -3590,13 +3590,19 @@ int R_GXDrawTramBaked( const float *origin, const float *angles )
 		int nv;
 		int v;
 		int flags = GC_GetTramFaceFlags( i );
+		int face_tex;
 
 		if( cabin && ( flags & GC_TRAM_FACE_EXTERIOR ))
+			continue;
+		/* While riding, only the first detail slots — bake ranks small rails
+		 * first; drawing all 200+ cabin panels seals the windshield FOV. */
+		if( cabin && i >= 48 )
 			continue;
 		nv = GC_GetTramFaceVerts( i, pts, 32 );
 		if( nv < 3 )
 			continue;
-		/* Map-absolute brush verts → entity frame (standard bmodel). */
+		/* Local bake verts → entity origin. Skip Place yaw: *12 verts are already
+		 * oriented for the track; yaw=180 put the rear bulkhead in the windshield. */
 		for( v = 0; v < nv; v++ )
 		{
 			pts[v][0] = origin[0] + ( pts[v][0] - model_org[0] );
@@ -3604,63 +3610,109 @@ int R_GXDrawTramBaked( const float *origin, const float *angles )
 			pts[v][2] = origin[2] + ( pts[v][2] - model_org[2] );
 		}
 
-		if( lit && nv == 4 && i < 192 ) /* G310: overflow faces are flat (no LM tile) */
+		face_tex = GC_GetTramFaceTexnum( i );
+		if( face_tex <= 0 )
+			face_tex = GC_GetTramDiffuseTexnum();
+
+		if( face_tex > 0 && nv == 4 && R_GXBindTexnum( (unsigned)face_tex, false ))
 		{
 			for( v = 0; v < 4; v++ )
 			{
 				sts[v][0] = corner_uv[v][0];
 				sts[v][1] = corner_uv[v][1];
-				GC_GetTramLightmapUV( i, corner_uv[v][0], corner_uv[v][1],
-					&lmst[v][0], &lmst[v][1] );
 			}
-			if( r_gx_face_mode != GC_GX_FACE_MODE_LIT )
+			if( lit && i < 192 )
 			{
-				GX_SetZMode( GX_TRUE, GX_LEQUAL, GX_TRUE );
-				GX_SetNumTexGens( 2 );
-				GX_SetTexCoordGen( GX_TEXCOORD0, GX_TG_MTX2x4, GX_TG_TEX0, GX_IDENTITY );
-				GX_SetTexCoordGen( GX_TEXCOORD1, GX_TG_MTX2x4, GX_TG_TEX1, GX_IDENTITY );
-				GX_SetNumTevStages( 2 );
-				GX_SetTevOrder( GX_TEVSTAGE0, GX_TEXCOORD0, GX_TEXMAP0, GX_COLORNULL );
-				GX_SetTevOp( GX_TEVSTAGE0, GX_REPLACE );
-				GX_SetTevOrder( GX_TEVSTAGE1, GX_TEXCOORD1, GX_TEXMAP1, GX_COLORNULL );
-				GX_SetTevColorIn( GX_TEVSTAGE1, GX_CC_ZERO, GX_CC_TEXC, GX_CC_CPREV, GX_CC_ZERO );
-				GX_SetTevColorOp( GX_TEVSTAGE1, GX_TEV_ADD, GX_TB_ZERO, GX_CS_SCALE_2, GX_TRUE, GX_TEVPREV );
-				GX_SetTevAlphaIn( GX_TEVSTAGE1, GX_CA_ZERO, GX_CA_ZERO, GX_CA_ZERO, GX_CA_APREV );
-				GX_SetTevAlphaOp( GX_TEVSTAGE1, GX_TEV_ADD, GX_TB_ZERO, GX_CS_SCALE_1, GX_TRUE, GX_TEVPREV );
-				GX_ClearVtxDesc();
-				GX_SetVtxDesc( GX_VA_POS, GX_DIRECT );
-				GX_SetVtxDesc( GX_VA_CLR0, GX_DIRECT );
-				GX_SetVtxDesc( GX_VA_TEX0, GX_DIRECT );
-				GX_SetVtxDesc( GX_VA_TEX1, GX_DIRECT );
-				GX_SetVtxAttrFmt( GX_VTXFMT0, GX_VA_TEX1, GX_TEX_ST, GX_F32, 0 );
-				r_gx_face_mode = GC_GX_FACE_MODE_LIT;
-				r_gx_state_sets++;
+				for( v = 0; v < 4; v++ )
+					GC_GetTramLightmapUV( i, corner_uv[v][0], corner_uv[v][1],
+						&lmst[v][0], &lmst[v][1] );
 			}
-			GX_Begin( GX_TRIANGLES, GX_VTXFMT0, 6 );
-			for( v = 1; v < 3; v++ )
+			if( lit && i < 192 )
 			{
-				GX_Position3f32( pts[0][0], pts[0][1], pts[0][2] );
-				GX_Color1u32( 0xFFFFFFFFu );
-				GX_TexCoord2f32( sts[0][0], sts[0][1] );
-				GX_TexCoord2f32( lmst[0][0], lmst[0][1] );
-				GX_Position3f32( pts[v][0], pts[v][1], pts[v][2] );
-				GX_Color1u32( 0xFFFFFFFFu );
-				GX_TexCoord2f32( sts[v][0], sts[v][1] );
-				GX_TexCoord2f32( lmst[v][0], lmst[v][1] );
-				GX_Position3f32( pts[v + 1][0], pts[v + 1][1], pts[v + 1][2] );
-				GX_Color1u32( 0xFFFFFFFFu );
-				GX_TexCoord2f32( sts[v + 1][0], sts[v + 1][1] );
-				GX_TexCoord2f32( lmst[v + 1][0], lmst[v + 1][1] );
+				if( r_gx_face_mode != GC_GX_FACE_MODE_LIT )
+				{
+					GX_SetZMode( GX_TRUE, GX_LEQUAL, GX_TRUE );
+					GX_SetNumTexGens( 2 );
+					GX_SetTexCoordGen( GX_TEXCOORD0, GX_TG_MTX2x4, GX_TG_TEX0, GX_IDENTITY );
+					GX_SetTexCoordGen( GX_TEXCOORD1, GX_TG_MTX2x4, GX_TG_TEX1, GX_IDENTITY );
+					GX_SetNumTevStages( 2 );
+					GX_SetTevOrder( GX_TEVSTAGE0, GX_TEXCOORD0, GX_TEXMAP0, GX_COLORNULL );
+					GX_SetTevOp( GX_TEVSTAGE0, GX_REPLACE );
+					GX_SetTevOrder( GX_TEVSTAGE1, GX_TEXCOORD1, GX_TEXMAP1, GX_COLORNULL );
+					GX_SetTevColorIn( GX_TEVSTAGE1, GX_CC_ZERO, GX_CC_TEXC, GX_CC_CPREV, GX_CC_ZERO );
+					GX_SetTevColorOp( GX_TEVSTAGE1, GX_TEV_ADD, GX_TB_ZERO, GX_CS_SCALE_2, GX_TRUE, GX_TEVPREV );
+					GX_SetTevAlphaIn( GX_TEVSTAGE1, GX_CA_ZERO, GX_CA_ZERO, GX_CA_ZERO, GX_CA_APREV );
+					GX_SetTevAlphaOp( GX_TEVSTAGE1, GX_TEV_ADD, GX_TB_ZERO, GX_CS_SCALE_1, GX_TRUE, GX_TEVPREV );
+					GX_ClearVtxDesc();
+					GX_SetVtxDesc( GX_VA_POS, GX_DIRECT );
+					GX_SetVtxDesc( GX_VA_CLR0, GX_DIRECT );
+					GX_SetVtxDesc( GX_VA_TEX0, GX_DIRECT );
+					GX_SetVtxDesc( GX_VA_TEX1, GX_DIRECT );
+					GX_SetVtxAttrFmt( GX_VTXFMT0, GX_VA_TEX1, GX_TEX_ST, GX_F32, 0 );
+					r_gx_face_mode = GC_GX_FACE_MODE_LIT;
+					r_gx_state_sets++;
+				}
+				GX_Begin( GX_TRIANGLES, GX_VTXFMT0, 6 );
+				for( v = 1; v < 3; v++ )
+				{
+					GX_Position3f32( pts[0][0], pts[0][1], pts[0][2] );
+					GX_Color1u32( 0xFFFFFFFFu );
+					GX_TexCoord2f32( sts[0][0], sts[0][1] );
+					GX_TexCoord2f32( lmst[0][0], lmst[0][1] );
+					GX_Position3f32( pts[v][0], pts[v][1], pts[v][2] );
+					GX_Color1u32( 0xFFFFFFFFu );
+					GX_TexCoord2f32( sts[v][0], sts[v][1] );
+					GX_TexCoord2f32( lmst[v][0], lmst[v][1] );
+					GX_Position3f32( pts[v + 1][0], pts[v + 1][1], pts[v + 1][2] );
+					GX_Color1u32( 0xFFFFFFFFu );
+					GX_TexCoord2f32( sts[v + 1][0], sts[v + 1][1] );
+					GX_TexCoord2f32( lmst[v + 1][0], lmst[v + 1][1] );
+				}
+				GX_End();
+				r_gx_tex_draws++;
+				r_gx_lm_draws++;
+				drawn++;
 			}
-			GX_End();
-			r_gx_tex_draws++;
-			r_gx_lm_draws++;
-			drawn++;
+			else
+			{
+				/* Diffuse REPLACE — no LM (or overflow face past atlas tiles). */
+				if( r_gx_face_mode != GC_GX_FACE_MODE_TEXTURED )
+				{
+					GX_SetZMode( GX_TRUE, GX_LEQUAL, GX_TRUE );
+					GX_SetNumTexGens( 1 );
+					GX_SetTexCoordGen( GX_TEXCOORD0, GX_TG_MTX2x4, GX_TG_TEX0, GX_IDENTITY );
+					GX_SetNumTevStages( 1 );
+					GX_SetTevOrder( GX_TEVSTAGE0, GX_TEXCOORD0, GX_TEXMAP0, GX_COLORNULL );
+					GX_SetTevOp( GX_TEVSTAGE0, GX_REPLACE );
+					GX_ClearVtxDesc();
+					GX_SetVtxDesc( GX_VA_POS, GX_DIRECT );
+					GX_SetVtxDesc( GX_VA_CLR0, GX_DIRECT );
+					GX_SetVtxDesc( GX_VA_TEX0, GX_DIRECT );
+					r_gx_face_mode = GC_GX_FACE_MODE_TEXTURED;
+					r_gx_state_sets++;
+				}
+				GX_Begin( GX_TRIANGLES, GX_VTXFMT0, 6 );
+				for( v = 1; v < 3; v++ )
+				{
+					GX_Position3f32( pts[0][0], pts[0][1], pts[0][2] );
+					GX_Color1u32( 0xFFFFFFFFu );
+					GX_TexCoord2f32( sts[0][0], sts[0][1] );
+					GX_Position3f32( pts[v][0], pts[v][1], pts[v][2] );
+					GX_Color1u32( 0xFFFFFFFFu );
+					GX_TexCoord2f32( sts[v][0], sts[v][1] );
+					GX_Position3f32( pts[v + 1][0], pts[v + 1][1], pts[v + 1][2] );
+					GX_Color1u32( 0xFFFFFFFFu );
+					GX_TexCoord2f32( sts[v + 1][0], sts[v + 1][1] );
+				}
+				GX_End();
+				r_gx_tex_draws++;
+				drawn++;
+			}
 		}
 		else
 		{
 			r_gx_face_mode = GC_GX_FACE_MODE_NONE;
-			if( R_GXEmitFlatFillVerts( pts, nv, 0xE07030FFu ) > 0 )
+			if( R_GXEmitFlatFillVerts( pts, nv, 0x68707AFFu ) > 0 )
 				drawn++;
 		}
 	}
@@ -3678,8 +3730,10 @@ int R_GXDrawTramBaked( const float *origin, const float *angles )
 		if( !g306_draw_logged )
 		{
 			g306_draw_logged = true;
-			gEngfuncs.Con_Reportf( "Xash3D GameCube: G310 tram draw n=%d/%d cabin=%d\n",
-				drawn, n, cabin ? 1 : 0 );
+			gEngfuncs.Con_Reportf( "Xash3D GameCube: G310 tram draw n=%d/%d cabin=%d org=(%.0f,%.0f,%.0f) mop=(%.0f,%.0f,%.0f)\n",
+				drawn, n, cabin ? 1 : 0,
+				origin[0], origin[1], origin[2],
+				model_org[0], model_org[1], model_org[2] );
 		}
 	}
 	return drawn;
