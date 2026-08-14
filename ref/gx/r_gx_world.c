@@ -495,8 +495,6 @@ static u32 R_GXFaceColor( const msurface_t *surf )
 		return 0x18F0E0FFu; /* G380: cyan PASSCLR floor under dump NPC */
 	else if( surf->firstedge < 0 && surf->extents[0] == 512 && surf->extents[1] == 384 )
 		return 0x3A3E42FFu; /* menu tram end-plug dark concrete */
-	else if( surf->firstedge < 0 && surf->extents[0] == 768 && surf->extents[1] == 384 )
-		return 0x2E3236FFu; /* menu tram floor-plug dark deck */
 	else
 		name = "flat";
 
@@ -1587,8 +1585,16 @@ static int R_GXEmitFace( const msurface_t *surf, model_t *world, int slot )
 	{
 		extern int GC_GetNewGameCapBakeSrc( int slot );
 		int bake = GC_GetNewGameCapBakeSrc( slot );
+		/* Plane-fallback quads are eye-centered — diffuse ST 0..1 stretches into
+		 * the right-rail garble blotch. Draw flat concrete instead (menu + retail). */
+		if( bake == 2 )
+		{
+			textured = false;
+			lit = false;
+			color = R_GXFaceColor( surf );
+		}
 		/* G203/G205: only force 0..1 ST on plane-fallback quads. */
-		if( bake != 1 && bake != 3 )
+		else if( bake != 1 && bake != 3 )
 		{
 			static const float plane_uv[4][2] = {
 				{ 0.0f, 0.0f }, { 1.0f, 0.0f }, { 1.0f, 1.0f }, { 0.0f, 1.0f }

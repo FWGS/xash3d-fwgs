@@ -2040,10 +2040,6 @@ static int GC_BakeCapVertsForSurf( model_t *wmodel, const msurface_t *src,
 	}
 	if( !src->plane )
 		return 0;
-	/* Menu CapFaces: eye-centered plane quads stretch diffuse REPLACE into the
-	 * right-rail garble blotch (probe 20260814-002129). Prefer miss over PLANE. */
-	if( Sys_CheckParm( "-gcmenuplaystart" ))
-		return 0;
 	n = GC_BakeCapVertsFromPlane( src->plane, src->extents[0], src->extents[1],
 		out, maxverts );
 	if( out_src && n >= 3 )
@@ -2373,9 +2369,6 @@ static qboolean GC_CaptureOneDrawFaceAt( model_t *wmodel, int surf_index, int sl
 	/* Best-effort bake — do not reject the face if edges are briefly unreadable. */
 	gc_cap_nverts[slot] = (byte)GC_BakeCapVertsForSurf( wmodel, src,
 		gc_cap_pts_s16[slot], GC_CAP_MAX_VERTS, &gc_cap_bake_src[slot] );
-	/* Menu: empty/PLANE-skipped slots waste the 320 Flipper budget. */
-	if( Sys_CheckParm( "-gcmenuplaystart" ) && gc_cap_nverts[slot] < 3 )
-		return false;
 	return true;
 }
 
@@ -2532,8 +2525,6 @@ static qboolean GC_CaptureOneDrawFaceGeomSafe( model_t *wmodel, int surf_index, 
 	gc_newgame_cap_areas[slot] = (int)src->extents[0] * (int)src->extents[1];
 	gc_cap_nverts[slot] = (byte)GC_BakeCapVertsForSurf( wmodel, src,
 		gc_cap_pts_s16[slot], GC_CAP_MAX_VERTS, &gc_cap_bake_src[slot] );
-	if( Sys_CheckParm( "-gcmenuplaystart" ) && gc_cap_nverts[slot] < 3 )
-		return false;
 	return true;
 }
 
@@ -3851,7 +3842,7 @@ static void GC_CaptureFillFacesFromSurfbits( model_t *wmodel, const byte *surfbi
 		int want = GC_FILL_MAX_FACES;
 
 		if( Sys_CheckParm( "-gcmenuplaystart" ))
-			want = 48; /* scores freed after bake; ARAM skipped — 48 fits AllocPool */
+			want = 32; /* tippy at 48 (probe 20260814-003244); scores freed after bake */
 		else if( Mod_GCWorldSurfacesScratchRetained( wmodel )
 			&& sv.name[0] && !Q_strnicmp( sv.name, "c0a0", 4 ))
 			want = 64;
@@ -3934,6 +3925,11 @@ static void GC_CaptureFillFacesFromSurfbits( model_t *wmodel, const byte *surfbi
 		is_wall = ( fabs( src->plane->normal[2] ) < 0.35f );
 		if( is_wall )
 			score += ( area >> 1 );
+		/* Menu: prefer corridor floors in the tiny fill pool (CapFaces top-K
+		 * is wall-heavy; floors admitted=0 when already present). */
+		else if( Sys_CheckParm( "-gcmenuplaystart" )
+			&& fabs( src->plane->normal[2] ) > 0.55f )
+			score += 300000;
 		score += 200000; /* front-side bonus */
 
 		if( gc_fill_face_count < max_faces )
@@ -10659,106 +10655,6 @@ static void GC_AdmitMenuTramEndPlug( void )
 		slot, x, gc_newgame_cap_face_count );
 }
 
-/*
- * Synthetic horizontal floor pads under/ahead of the cabin — covers near-rail
- * clear gaps when real floors fail EDGE/TEX bake or lose the top-K war.
- * extents 768×384 → dark concrete PASSCLR (distinct from end-plug 512×384).
- */
-static void GC_AdmitMenuTramFloorPlugs( void )
-{
-	const float *eye = gc_newgame_capture_origin;
-	int p;
-
-	if( !Sys_CheckParm( "-gcmenuplaystart" ) || VectorIsNull( eye ))
-		return;
-
-	for( p = 0; p < 2; p++ )
-	{
-		gc_cap_face_t *dst;
-		msurface_t *draw;
-		int slot, k, min_i = 0, min_score;
-		float z, x0, x1, y0, y1;
-
-		/* Two pads: under cabin, then further −X along the tunnel. */
-		z = eye[2] - 48.0f;
-		if( p == 0 )
-		{
-			x0 = eye[0] - 80.0f;
-			x1 = eye[0] + 120.0f;
-		}
-		else
-		{
-			x0 = eye[0] - 520.0f;
-			x1 = eye[0] - 80.0f;
-		}
-		y0 = eye[1] - 280.0f;
-		y1 = eye[1] + 280.0f;
-
-		if( gc_newgame_cap_face_count < GC_MAX_CAP_FACES )
-			slot = gc_newgame_cap_face_count;
-		else
-		{
-			min_score = GC_CapSlotKeepScore( 0 );
-			for( k = 1; k < gc_newgame_cap_face_count; k++ )
-			{
-				int ks = GC_CapSlotKeepScore( k );
-
-				if( fabs( gc_newgame_cap_faces[k].plane.normal[2] ) > 0.55f )
-					ks += 200000;
-				if( gc_newgame_cap_faces[k].firstedge < 0 )
-					ks += 2000000;
-				if( ks < min_score )
-				{
-					min_score = ks;
-					min_i = k;
-				}
-			}
-			slot = min_i;
-		}
-
-		dst = &gc_newgame_cap_faces[slot];
-		memset( dst, 0, sizeof( *dst ));
-		dst->firstedge = -1;
-		dst->numedges = 4;
-		dst->flags = 0;
-		dst->extents[0] = 768;
-		dst->extents[1] = 384;
-		dst->plane.normal[2] = 1.0f;
-		dst->plane.dist = z;
-		gc_cap_nverts[slot] = 4;
-		gc_cap_bake_src[slot] = (byte)GC_CAP_BAKE_PLANE;
-		/* CCW when viewed from above (+Z). */
-		gc_cap_pts_s16[slot][0][0] = (short)x0;
-		gc_cap_pts_s16[slot][0][1] = (short)y0;
-		gc_cap_pts_s16[slot][0][2] = (short)z;
-		gc_cap_pts_s16[slot][1][0] = (short)x1;
-		gc_cap_pts_s16[slot][1][1] = (short)y0;
-		gc_cap_pts_s16[slot][1][2] = (short)z;
-		gc_cap_pts_s16[slot][2][0] = (short)x1;
-		gc_cap_pts_s16[slot][2][1] = (short)y1;
-		gc_cap_pts_s16[slot][2][2] = (short)z;
-		gc_cap_pts_s16[slot][3][0] = (short)x0;
-		gc_cap_pts_s16[slot][3][1] = (short)y1;
-		gc_cap_pts_s16[slot][3][2] = (short)z;
-		gc_newgame_cap_areas[slot] = 500000;
-		gc_newgame_cap_lm_real[slot] = 0;
-
-		draw = &gc_newgame_draw_surfs[slot];
-		memset( draw, 0, sizeof( *draw ));
-		draw->firstedge = -1;
-		draw->numedges = 4;
-		draw->extents[0] = 768;
-		draw->extents[1] = 384;
-		draw->plane = &dst->plane;
-		draw->info = &dst->info;
-		dst->info.surf = draw;
-		if( slot == gc_newgame_cap_face_count )
-			gc_newgame_cap_face_count++;
-	}
-	Con_Reportf( "Xash3D GameCube: menu tram floor-plugs n=2 faces=%d\n",
-		gc_newgame_cap_face_count );
-}
-
 void GC_BakeMenuNewGameCapFacesNoPVS( void )
 {
 #if XASH_GAMECUBE
@@ -10799,7 +10695,6 @@ void GC_BakeMenuNewGameCapFacesNoPVS( void )
 		GC_AdmitMenuTunnelConnectors( wmodel, bits );
 		GC_AdmitMenuTramFloors( wmodel, bits );
 		GC_AdmitMenuTramEndPlug();
-		GC_AdmitMenuTramFloorPlugs();
 		GC_CaptureFillFacesFromSurfbits( wmodel, bits, false );
 		Con_Reportf( "Xash3D GameCube: menu CapFaces fill n=%d\n",
 			GC_GetFillFaceCount() );
@@ -10821,6 +10716,18 @@ void GC_BakeMenuNewGameCapFacesNoPVS( void )
 	{
 		free( gc_fill_face_scores );
 		gc_fill_face_scores = NULL;
+	}
+	/* Menu: also drop fill face heap before Client Static Pool — 32–48 faces
+	 * still race AllocPool under fragmentation (probe 20260814-003244). */
+	if( Sys_CheckParm( "-gcmenuplaystart" ) && gc_fill_faces )
+	{
+		Con_Reportf( "Xash3D GameCube: menu CapFaces fill dropped n=%d (AllocPool headroom)\n",
+			gc_fill_face_count );
+		free( gc_fill_faces );
+		gc_fill_faces = NULL;
+		gc_fill_face_capacity = 0;
+		gc_fill_face_count = 0;
+		gc_aram_fill_count = 0;
 	}
 	Image_GCPurgeDecodeScratch();
 	{
