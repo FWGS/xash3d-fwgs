@@ -722,7 +722,8 @@ void Host_Frame( double time )
 	{
 		static qboolean gc_host_frame0_logged;
 
-		if( !gc_host_frame0_logged && Sys_CheckParm( "-gcnewgame" )
+		if( !gc_host_frame0_logged
+			&& ( Sys_CheckParm( "-gcnewgame" ) || Sys_CheckParm( "-gcmenuplaystart" ))
 			&& GC_IsNewGameWorldReady() )
 		{
 			gc_host_frame0_logged = true;
@@ -733,8 +734,9 @@ void Host_Frame( double time )
 	/* After lean smoke G36, world_ready may still be false while cls is not
 	 * yet ca_active/SIGNONS — the active-branch Prepare kick never runs and
 	 * ServerFrame spins alone (probe 20260807-023333, warm≈540k). Always
-	 * Prepare once G36 is done on lean -gcnewgame. */
-	if( Sys_CheckParm( "-gcnewgame" ) && !Sys_CheckParm( "-gcfullphysics" )
+	 * Prepare once G36 is done on lean -gcnewgame / menu playstart. */
+	if( ( Sys_CheckParm( "-gcnewgame" ) || Sys_CheckParm( "-gcmenuplaystart" ))
+		&& !Sys_CheckParm( "-gcfullphysics" )
 		&& GC_IsNewGameG36Done() && !GC_IsNewGameWorldReady() )
 		GC_PrepareNewGameWorldPresent();
 	/* After New Game ca_active, keep presenting even if heavy server work stalls.
@@ -746,7 +748,8 @@ void Host_Frame( double time )
 	 * Once world_ready, run ServerFrame first so lean BoundedGC can warm even
 	 * if ClientFrame stalls in deferred studios (probe 20260807-034206). */
 	if( ( cls.state == ca_active || cls.signon == SIGNONS )
-		&& ( Sys_CheckParm( "-gcnewgame" ) || GC_MapLoadMemoryOpt() )
+		&& ( Sys_CheckParm( "-gcnewgame" ) || Sys_CheckParm( "-gcmenuplaystart" )
+			|| GC_MapLoadMemoryOpt() )
 		&& !Sys_CheckParm( "-gcfullphysics" ))
 	{
 		if( GC_IsNewGameWorldReady() )
@@ -779,7 +782,8 @@ void Host_Frame( double time )
 	{
 		static qboolean gc_else_frame_logged;
 
-		if( !gc_else_frame_logged && Sys_CheckParm( "-gcnewgame" ))
+		if( !gc_else_frame_logged
+			&& ( Sys_CheckParm( "-gcnewgame" ) || Sys_CheckParm( "-gcmenuplaystart" )))
 		{
 			gc_else_frame_logged = true;
 			Con_Reportf( "Xash3D GameCube: G320 Host_Frame else map=%s state=%d signon=%d ready=%d\n",
@@ -789,7 +793,8 @@ void Host_Frame( double time )
 		/* G320: after post-smoke Prepare on non-c0a0, cls is still
 		 * disconnected (c3a2 20260809-004840). ServerFrame in that state
 		 * hung Host_Frame; ClientFrame drives local reconnect first. */
-		if( Sys_CheckParm( "-gcnewgame" ) && !Sys_CheckParm( "-gcfullphysics" )
+		if( ( Sys_CheckParm( "-gcnewgame" ) || Sys_CheckParm( "-gcmenuplaystart" ))
+			&& !Sys_CheckParm( "-gcfullphysics" )
 			&& GC_IsNewGameWorldReady()
 			&& cls.state != ca_active && cls.signon != SIGNONS )
 		{

@@ -74,6 +74,9 @@ static void SV_GameCubePlayStart_f( void )
 		Cvar_Set( "gc_quality", "0" );
 		if( Sys_CheckParm( "-gcmap" ) && !Sys_CheckParm( "-gcnewgame" ))
 			GC_ArmPostMapFrameBudgetSamples();
+		/* Menu New Game: do not Arm here — CaptureNewGamePVS/PointInLeaf hangs
+		 * during play-start MEM1 (probe 20260813-180651). CL_CheckClientState
+		 * arms on ca_active for -gcmenuplaystart instead. */
 		GC_EndMapLoadMemoryOpt();
 	}
 	else

@@ -263,7 +263,8 @@ void GAME_EXPORT SV_SetModel( edict_t *ent, const char *modelname )
 	}
 
 #if XASH_GAMECUBE
-	if( Sys_CheckParm( "-gcnewgame" ) && modelname[0] != '*' )
+	if( ( Sys_CheckParm( "-gcnewgame" ) || Sys_CheckParm( "-gcmenuplaystart" ))
+		&& modelname[0] != '*' )
 		Con_Reportf( "Xash3D GameCube: SV_SetModel begin %s edict=%d\n",
 			modelname, NUM_FOR_EDICT( ent ));
 #endif
@@ -278,8 +279,10 @@ void GAME_EXPORT SV_SetModel( edict_t *ent, const char *modelname )
 	/* Player MDL rebind after precache free OOMs/crashes under New Game MEM1.
 	 * Keep a default player hull without studio reload or world relink.
 	 * Use the real precache slot (not world index 1) so entity frames do not
-	 * treat the client as a brush model; clear dangling stub pointers. */
-	if( Sys_CheckParm( "-gcnewgame" ) && !Q_stricmp( name, "models/player.mdl" ))
+	 * treat the client as a brush model; clear dangling stub pointers.
+	 * Menu New Game (-gcmenuplaystart) hits the same Mod_ForName hang. */
+	if( ( Sys_CheckParm( "-gcnewgame" ) || Sys_CheckParm( "-gcmenuplaystart" ))
+		&& !Q_stricmp( name, "models/player.mdl" ))
 	{
 		vec3_t mins = { -16.0f, -16.0f, -36.0f };
 		vec3_t maxs = { 16.0f, 16.0f, 36.0f };

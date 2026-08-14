@@ -829,7 +829,8 @@ void SCR_UpdateScreen( void )
 		gc_newgame_probe_rearm_logged = false;
 	}
 
-	if( cls.state == ca_active && Sys_CheckParm( "-gcnewgame" )
+	if( cls.state == ca_active
+		&& ( Sys_CheckParm( "-gcnewgame" ) || Sys_CheckParm( "-gcmenuplaystart" ))
 		&& !GC_IsNewGameWorldReady() && !GC_IsNewGameG36Done()
 		&& !GC_IsFrameBudgetProbeActive()
 		&& !GC_ShouldUseLightPresent() )

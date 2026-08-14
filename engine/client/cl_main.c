@@ -426,7 +426,8 @@ static void CL_CheckClientState( void )
 #if XASH_GAMECUBE
 		/* Arm G36 samples after the client is playable, not during connect
 		 * (spawnbaseline / resource parse dominates those present intervals). */
-		if( Sys_CheckParm( "-gcnewgame" ) || GC_MapLoadMemoryOpt() )
+		if( Sys_CheckParm( "-gcnewgame" ) || Sys_CheckParm( "-gcmenuplaystart" )
+			|| GC_MapLoadMemoryOpt() )
 		{
 			SCR_EndLoadingPlaque();
 			GC_ArmPostMapFrameBudgetSamples();

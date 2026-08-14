@@ -14,7 +14,10 @@ probe_guest_error() {
 }
 
 probe_retail_menu_seen() {
+	# Menu→New Game probes reach the interactive menu first, then load a map.
+	# Do not treat that menu as a terminal success — keep sampling for map_loaded.
 	[[ "${DOLPHIN_RETAIL:-0}" == "1" ]] && (( ! DOLPHIN_NEWGAME )) && \
+		[[ "${DOLPHIN_MENU_NEWGAME:-0}" != "1" ]] && \
 		( probe_log_has "$RETAIL_MENU_INTERACTIVE_MARKER" || probe_log_has "$RETAIL_MENU_MARKER" || \
 		probe_log_has "$RETAIL_MENU_BG_FALLBACK_MARKER" || probe_log_has "$RETAIL_MENU_READY_FALLBACK_MARKER" )
 }
@@ -110,9 +113,9 @@ probe_wait_flatpak() {
 				if probe_guest_error; then DOLPHIN_EXIT=3; break; fi
 				DOLPHIN_EXIT=0; break
 			fi
-			if (( DOLPHIN_NEWGAME )); then
-				# Landmark Flipper/G16x markers prove play progressed past
-				# "play start ready" / frame-budget arm (often omitted on -gcnewgame).
+			if (( DOLPHIN_NEWGAME )) || [[ "${DOLPHIN_MENU_NEWGAME:-0}" == "1" ]]; then
+				# Wait for play-start (and frame-budget arm when required) before
+				# the post-map sample window. Menu New Game uses the same gate.
 				if [[ -z "${G159_DONE_MARKER:-}" && -z "${G161_DONE_MARKER:-}" && -z "${G162_DONE_MARKER:-}" && -z "${G163_DONE_MARKER:-}" && -z "${G164_DONE_MARKER:-}" && -z "${G165_DONE_MARKER:-}" && -z "${G166_DONE_MARKER:-}" && -z "${G167_DONE_MARKER:-}" && -z "${G168_DONE_MARKER:-}" && -z "${G169_DONE_MARKER:-}" && -z "${G170_DONE_MARKER:-}" && -z "${G171_DONE_MARKER:-}" && -z "${G172_DONE_MARKER:-}" && -z "${G173_DONE_MARKER:-}" && -z "${G174_DONE_MARKER:-}" && -z "${G175_DONE_MARKER:-}" && -z "${G176_DONE_MARKER:-}" && -z "${G177_DONE_MARKER:-}" && -z "${G178_DONE_MARKER:-}" && -z "${G179_DONE_MARKER:-}" && -z "${G180_DONE_MARKER:-}" && -z "${G181_DONE_MARKER:-}" && -z "${G182_DONE_MARKER:-}" && -z "${G183_DONE_MARKER:-}" && -z "${G184_DONE_MARKER:-}" && -z "${G185_DONE_MARKER:-}" && -z "${G186_DONE_MARKER:-}" && -z "${G187_DONE_MARKER:-}" && -z "${G188_DONE_MARKER:-}" && -z "${G189_DONE_MARKER:-}" && -z "${G190_DONE_MARKER:-}" && -z "${G191_DONE_MARKER:-}" && -z "${G192_DONE_MARKER:-}" ]]; then
 					if ! probe_log_has "${PLAY_READY_MARKER:-Xash3D GameCube: play start ready}"; then
 						sleep 2
@@ -463,9 +466,9 @@ probe_wait_native() {
 				if probe_guest_error; then DOLPHIN_EXIT=3; break; fi
 				DOLPHIN_EXIT=0; break
 			fi
-			if (( DOLPHIN_NEWGAME )); then
-				# Landmark Flipper/G16x markers prove play progressed past
-				# "play start ready" / frame-budget arm (often omitted on -gcnewgame).
+			if (( DOLPHIN_NEWGAME )) || [[ "${DOLPHIN_MENU_NEWGAME:-0}" == "1" ]]; then
+				# Wait for play-start (and frame-budget arm when required) before
+				# the post-map sample window. Menu New Game uses the same gate.
 				if [[ -z "${G159_DONE_MARKER:-}" && -z "${G161_DONE_MARKER:-}" && -z "${G162_DONE_MARKER:-}" && -z "${G163_DONE_MARKER:-}" && -z "${G164_DONE_MARKER:-}" && -z "${G165_DONE_MARKER:-}" && -z "${G166_DONE_MARKER:-}" && -z "${G167_DONE_MARKER:-}" && -z "${G168_DONE_MARKER:-}" && -z "${G169_DONE_MARKER:-}" && -z "${G170_DONE_MARKER:-}" && -z "${G171_DONE_MARKER:-}" && -z "${G172_DONE_MARKER:-}" && -z "${G173_DONE_MARKER:-}" && -z "${G174_DONE_MARKER:-}" && -z "${G175_DONE_MARKER:-}" && -z "${G176_DONE_MARKER:-}" && -z "${G177_DONE_MARKER:-}" && -z "${G178_DONE_MARKER:-}" && -z "${G179_DONE_MARKER:-}" && -z "${G180_DONE_MARKER:-}" && -z "${G181_DONE_MARKER:-}" && -z "${G182_DONE_MARKER:-}" && -z "${G183_DONE_MARKER:-}" && -z "${G184_DONE_MARKER:-}" && -z "${G185_DONE_MARKER:-}" && -z "${G186_DONE_MARKER:-}" && -z "${G187_DONE_MARKER:-}" && -z "${G188_DONE_MARKER:-}" && -z "${G189_DONE_MARKER:-}" && -z "${G190_DONE_MARKER:-}" && -z "${G191_DONE_MARKER:-}" && -z "${G192_DONE_MARKER:-}" ]]; then
 					if ! probe_log_has "${PLAY_READY_MARKER:-Xash3D GameCube: play start ready}"; then
 						sleep 2
@@ -800,7 +803,8 @@ if probe_retail_menu_ready; then
 	RETAIL_MENU_READY=1
 fi
 
-if (( RETAIL_MENU_READY )) && [[ "$DOLPHIN_RETAIL" == "1" ]] && (( ! DOLPHIN_NEWGAME )); then
+if (( RETAIL_MENU_READY )) && [[ "$DOLPHIN_RETAIL" == "1" ]] && (( ! DOLPHIN_NEWGAME )) \
+	&& [[ "${DOLPHIN_MENU_NEWGAME:-0}" != "1" ]]; then
 		probe_guest_error && probe_fail_guest guest_failure "GUEST_FAILURE: Retail boot reached menu, followed by a guest error."
 		if probe_log_has "$INTRO_MARKER"; then
 			echo "RETAIL_READY: Half-Life retail boot played intro AVI and reached the interactive menu on GameCube."
@@ -810,6 +814,18 @@ if (( RETAIL_MENU_READY )) && [[ "$DOLPHIN_RETAIL" == "1" ]] && (( ! DOLPHIN_NEW
 		probe_report_g45
 		echo "Logs: $LOG_DIR"
 		finalize_probe retail_ready 0
+fi
+
+if [[ "${DOLPHIN_MENU_NEWGAME:-0}" == "1" ]] && (( MAP_FOUND )) && (( INPUT_FOUND )); then
+	probe_guest_error && probe_fail_guest guest_failure "GUEST_FAILURE: Menu New Game loaded the map, followed by a guest error."
+	if probe_log_has "$PLAY_READY_MARKER"; then
+		echo "MENU_NEWGAME_READY: Main menu New Game reached play start ready on ${SMOKE_MAP}."
+	else
+		echo "MENU_NEWGAME_READY: Main menu New Game reached map loaded ${SMOKE_MAP} (play start ready not seen)."
+	fi
+	probe_report_g45
+	echo "Logs: $LOG_DIR"
+	finalize_probe menu_newgame_ready 0
 fi
 
 if [[ -n "$DOLPHIN_CHANGELEVEL" ]] \

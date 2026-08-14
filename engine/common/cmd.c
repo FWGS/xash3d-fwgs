@@ -1367,9 +1367,12 @@ static void Cmd_Exec_f( void )
 #if XASH_GAMECUBE
 	/* G320: disc FS_LoadFile(spserver.cfg) hung after MAP_READY on lean
 	 * reactor maps (c3a2/c3a2d — 20260809-002911) while c0a0 survived.
-	 * Inline the tiny single-player defaults; skip the DVD read. */
+	 * Menu New Game (-gcmenuplaystart) hits the same DVD hang after play
+	 * start ready (probe 20260813-181324). Inline the tiny single-player
+	 * defaults; skip the DVD read. */
 	if( !Q_stricmp( "spserver.cfg", cfgpath )
-		&& ( Sys_CheckParm( "-gcnewgame" ) || Sys_CheckParm( "-gcmap" )))
+		&& ( Sys_CheckParm( "-gcnewgame" ) || Sys_CheckParm( "-gcmap" )
+			|| Sys_CheckParm( "-gcmenuplaystart" )))
 	{
 		Con_Reportf( "Xash3D GameCube: G320 inline spserver (skip disc exec)\n" );
 		Cbuf_InsertText(

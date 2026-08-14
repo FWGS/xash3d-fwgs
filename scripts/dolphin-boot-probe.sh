@@ -96,6 +96,13 @@ if (( DOLPHIN_NEWGAME )); then
 	FRAME_SAMPLE_SEC="${DOLPHIN_FRAME_SAMPLE_SEC:-40}"
 	# G280 playable target is 24–30 FPS (not 60).
 	export TARGET_FRAME_TIME="${TARGET_FRAME_TIME:-33.33}"
+elif [[ "${DOLPHIN_MENU_NEWGAME:-0}" == "1" ]]; then
+	# Keep menu New Game startmap; do not fall through to default c0a0e.
+	SMOKE_MAP="${DOLPHIN_SMOKE_MAP:-c0a0}"
+	FRAME_SAMPLE_SEC="${DOLPHIN_FRAME_SAMPLE_SEC:-45}"
+	MAP_MARKER="Xash3D GameCube: map loaded ${SMOKE_MAP}"
+	PLAY_READY_MARKER="Xash3D GameCube: play start ready ${SMOKE_MAP}"
+	echo "==> Menu New Game will sample ${FRAME_SAMPLE_SEC}s after map loaded"
 else
 	SMOKE_MAP="${DOLPHIN_SMOKE_MAP:-c0a0e}"
 fi
@@ -336,7 +343,11 @@ SKIP_ENGINE=0
 SKIP_DISC=0
 if [[ "${DOLPHIN_SKIP_BUILD:-0}" == "1" && -f "$PREBUILT_ISO" ]]; then
 	SKIP_ENGINE=1
-	if (( DOLPHIN_NEWGAME )) || [[ "${DOLPHIN_MENU_NEWGAME:-0}" == "1" ]]; then
+	if (( DOLPHIN_NEWGAME )); then
+		SKIP_DISC=0
+	elif [[ "${DOLPHIN_MENU_NEWGAME:-0}" == "1" && "${DOLPHIN_REUSE_ISO:-0}" == "1" ]]; then
+		SKIP_DISC=1
+	elif [[ "${DOLPHIN_MENU_NEWGAME:-0}" == "1" ]]; then
 		SKIP_DISC=0
 	elif [[ "$DOLPHIN_RETAIL" == "1" ]] || [[ "${DOLPHIN_REUSE_ISO:-0}" == "1" ]]; then
 		SKIP_DISC=1
@@ -365,7 +376,10 @@ else
 	echo "==> Building GameCube disc image..."
 	BUILD_ARGS=(--output "$ISO_PATH")
 	if [[ "$DOLPHIN_RETAIL" == "1" ]]; then
-		SMOKE_MAP=""
+		# Keep menu-newgame map marker name; retail disc staging does not need SMOKE_MAP.
+		if [[ "${DOLPHIN_MENU_NEWGAME:-0}" != "1" ]]; then
+			SMOKE_MAP=""
+		fi
 		BUILD_ARGS+=(--data Half-Life/valve)
 		echo "==> Retail disc mode (full valve assets, no smoke map)"
 		echo "WARNING: Full retail disc mode may timeout on GameCube boot. Use smoke-map mode for bounded testing."
@@ -462,6 +476,9 @@ fi
 DOLPHIN_CMD=()
 DOLPHIN_IS_FLATPAK=0
 GUEST_ARGS=()
+if [[ "${DOLPHIN_MENU_NEWGAME:-0}" == "1" ]]; then
+	GUEST_ARGS+=("-gcmenuplaystart")
+fi
 if (( GC_FATAL_TEST )); then
 	GUEST_ARGS+=("-gc_fatal_test" "1")
 fi

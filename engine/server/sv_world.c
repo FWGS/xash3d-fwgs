@@ -659,8 +659,10 @@ void GAME_EXPORT SV_LinkEdict( edict_t *ent, qboolean touch_triggers )
 	/* New Game player spawn can LinkEdict before leaf/node scratch is stable
 	 * enough for SV_FindTouchedLeafs (DSI after hull-only SetModel). Keep abs
 	 * box + areanode membership; skip PVS leaf walk for the client entity.
-	 * G102: same skip while granting weapons (FallInit SetOrigin). */
-	if( ( Sys_CheckParm( "-gcnewgame" ) && FBitSet( ent->v.flags, FL_CLIENT|FL_FAKECLIENT ))
+	 * G102: same skip while granting weapons (FallInit SetOrigin).
+	 * Menu New Game (-gcmenuplaystart) needs the same client leaf skip. */
+	if( ( ( Sys_CheckParm( "-gcnewgame" ) || Sys_CheckParm( "-gcmenuplaystart" ))
+		&& FBitSet( ent->v.flags, FL_CLIENT|FL_FAKECLIENT ))
 		|| gc_lean_weapon_grant_active )
 	{
 		gc_skip_leafs = true;
