@@ -2364,6 +2364,19 @@ def main() -> None:
 				for error in validation_errors:
 					print(f"  - {error}", file=sys.stderr)
 				sys.exit(1)
+			if args.probe_menu_newgame:
+				# Lean menu→New Game: keep smoke assets, but boot the fallback
+				# menu and press New Game instead of auto-executing `map`.
+				menu_lines = ["menunewgame"]
+				if args.probe_dumpframes:
+					menu_lines.append("dumpframes")
+				(smoke_data / "gamecube.cfg").write_text(
+					"\n".join(menu_lines) + "\n", encoding="ascii"
+				)
+				print(
+					f"Smoke menu New Game: overridden gamecube.cfg "
+					f"({', '.join(menu_lines)}) for map {args.smoke_map}"
+				)
 			build_disc(
 				args.dol,
 				smoke_data,
@@ -2436,7 +2449,12 @@ def main() -> None:
 				if args.probe_tas:
 					stage_probe_tas(staged_data, args.probe_tas, scripts_root=script_dir)
 			elif args.probe_menu_newgame:
-				(staged_data / "gamecube.cfg").write_text("menunewgame\n", encoding="ascii")
+				menu_lines = ["menunewgame"]
+				if args.probe_dumpframes:
+					menu_lines.append("dumpframes")
+				(staged_data / "gamecube.cfg").write_text(
+					"\n".join(menu_lines) + "\n", encoding="ascii"
+				)
 			elif args.probe_phasetest:
 				write_probe_phasetest_override(staged_data, args.probe_phasetest)
 

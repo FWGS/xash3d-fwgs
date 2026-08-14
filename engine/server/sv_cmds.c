@@ -35,6 +35,9 @@ static void SV_GameCubePlayStart_f( void )
 	const char *map = ( GI && !COM_StringEmpty( GI->startmap )) ? GI->startmap : "c0a0";
 
 	Con_Reportf( "Xash3D GameCube: play start begin %s\n", map );
+	/* Lean path before any texture/BSP work — retail menu boots quality=1 and
+	 * otherwise OOMs mid-upload on c0a0 (probe 20260813-165854). */
+	Cvar_Set( "gc_quality", "0" );
 	GC_SetLoadingProgress( 0.05f );
 	GC_DrawLoadingStatus( "NEW GAME", map );
 	GC_BeginMapLoadMemoryOpt();

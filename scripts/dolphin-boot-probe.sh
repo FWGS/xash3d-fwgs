@@ -336,7 +336,7 @@ SKIP_ENGINE=0
 SKIP_DISC=0
 if [[ "${DOLPHIN_SKIP_BUILD:-0}" == "1" && -f "$PREBUILT_ISO" ]]; then
 	SKIP_ENGINE=1
-	if (( DOLPHIN_NEWGAME )); then
+	if (( DOLPHIN_NEWGAME )) || [[ "${DOLPHIN_MENU_NEWGAME:-0}" == "1" ]]; then
 		SKIP_DISC=0
 	elif [[ "$DOLPHIN_RETAIL" == "1" ]] || [[ "${DOLPHIN_REUSE_ISO:-0}" == "1" ]]; then
 		SKIP_DISC=1
@@ -411,6 +411,10 @@ else
 		if (( DOLPHIN_NEWGAME )) && [[ "${DOLPHIN_FULLPHYSICS:-0}" == "1" ]]; then
 			BUILD_ARGS+=(--probe-fullphysics)
 			echo "==> Native full server/physics probe on smoke map"
+		fi
+		if [[ "${DOLPHIN_MENU_NEWGAME:-0}" == "1" ]]; then
+			BUILD_ARGS+=(--probe-menu-newgame)
+			echo "==> Staging fallback-menu New Game override"
 		fi
 		if (( DOLPHIN_WORLD_RENDER )); then
 			BUILD_ARGS+=(--world-render)
@@ -703,6 +707,10 @@ if [[ "$DOLPHIN_RETAIL" == "1" ]]; then
 		DOLPHIN_BATCH_MODE=0
 		TIMEOUT_SEC="${DOLPHIN_TIMEOUT:-120}"
 	fi
+fi
+# Real-time menu→New Game: show the Dolphin window so the dwell is visible.
+if [[ "${DOLPHIN_MENU_NEWGAME:-0}" == "1" ]]; then
+	DOLPHIN_BATCH_MODE=0
 fi
 # G359: Null DumpFrames TGAs are all-black after soft latch (20260811-024012/225).
 # OpenGL samples G191 soft EFB stills (framedump uniq≈218 on c0a0e).

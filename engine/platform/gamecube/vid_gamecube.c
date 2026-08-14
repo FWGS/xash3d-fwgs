@@ -8184,7 +8184,6 @@ static void GC_SoftDumpCompositeHUD( void )
 void GC_DrawLoadingStatus( const char *message, const char *details )
 {
 #if XASH_GAMECUBE
-	unsigned short *dst;
 	size_t xfb_size;
 
 	/* Host_Init direct-map path: decode the HL plaque once for later DumpFrames,
@@ -8240,15 +8239,33 @@ void GC_DrawLoadingStatus( const char *message, const char *details )
 		return;
 
 	{
+		/* Map-load path frees gc.buffer (MEM1). Never write RGB565 into the
+		 * YUYV XFB — that is what made the plaque look purple/magenta. Stage
+		 * in a small static RGB565 frame and CPU-convert to YUYV. */
+		static unsigned short gc_load_xfb_stage[320 * 240];
+		const int stage_w = 320;
+		const int stage_h = 240;
 		static int g194_xfb_loading_n;
+		unsigned int *xfb_dst;
+		int row_pairs;
 
-		dst = (unsigned short *)MEM_K1_TO_K0( xfb[which_fb] );
-		GC_BlitLoadingBackground( dst, rmode->fbWidth, rmode->xfbHeight, rmode->fbWidth );
-		GC_DrawStatusPanelToBuffer( dst, rmode->fbWidth, rmode->xfbHeight, rmode->fbWidth,
+		GC_BlitLoadingBackground( gc_load_xfb_stage, stage_w, stage_h, stage_w );
+		GC_DrawStatusPanelToBuffer( gc_load_xfb_stage, stage_w, stage_h, stage_w,
 			message, details );
 
-		xfb_size = rmode->fbWidth * rmode->xfbHeight * sizeof(unsigned short);
-		DCFlushRange( dst, (u32)xfb_size );
+		xfb_dst = (unsigned int *)MEM_K1_TO_K0( xfb[which_fb] );
+		row_pairs = rmode->fbWidth / 2;
+		if( row_pairs <= 0 )
+			return;
+
+		/* Force full BT.601 so DumpFrames keep VGUI green/amber, not luma-only. */
+		if( gc_cpu_dump_presents_left < 1 )
+			gc_cpu_dump_presents_left = 1;
+		GC_BlitSoftwareBufferScaled( gc_load_xfb_stage, stage_w, stage_h, stage_w,
+			xfb_dst, rmode->fbWidth, rmode->xfbHeight, row_pairs );
+
+		xfb_size = rmode->fbWidth * rmode->xfbHeight * sizeof( unsigned short );
+		DCFlushRange( MEM_K1_TO_K0( xfb[which_fb] ), (u32)xfb_size );
 		if( g194_xfb_loading_n < 2 || (( ++g194_xfb_loading_n ) & 7 ) == 0 )
 		{
 			if( g194_xfb_loading_n < 2 )

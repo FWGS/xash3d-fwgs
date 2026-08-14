@@ -433,6 +433,8 @@ qboolean GC_ShouldUseProbeInputFallback( void )
 #define GC_PROBE_MENU_STEP_DELAY  0.05
 #define GC_PROBE_MENU_START_FRAMES 2
 #define GC_PROBE_MENU_STEP_FRAMES  2
+/* Real-time menu→New Game: linger on the main menu before confirming. */
+#define GC_PROBE_MENU_NEWGAME_DWELL 3.0
 
 static qboolean GC_ProbeMenuStageReady( double delay, uint frames )
 {
@@ -591,19 +593,39 @@ static u16 GC_ProbeSyntheticHeldButtons( void )
 		}
 	}
 
-	/* Exercise the actual fallback-menu New Game command.  The normal menu
-	 * starts on New Game, so confirm it directly and leave the menu instead of
-	 * navigating to Load/Options and backing out. */
+	/* Exercise the actual fallback-menu New Game command.  Wait for the main
+	 * menu, dwell so DumpFrames/GUI can capture it, then confirm New Game
+	 * (selection 0) and the difficulty prompt instead of Load/Options. */
 	if( Sys_CheckParm( "-gcmenuplaystart" ))
 	{
+		if( Cvar_VariableValue( "gc_menu_ready" ) < 1.0f )
+		{
+			if( gc_probe_action_logged && host.realtime - gc_probe_action_diag_time >= 1.0 )
+			{
+				gc_probe_action_diag_time = host.realtime;
+				Con_Reportf( "Xash3D GameCube: probe menu New Game blocked ready=0 stage=%d realtime=%.2f\n",
+					gc_probe_action_stage, host.realtime );
+			}
+			return 0;
+		}
 		if( !gc_probe_action_logged )
 		{
 			gc_probe_action_logged = true;
-			gc_probe_action_stage = 1;
+			gc_probe_action_stage = 0;
 			gc_probe_action_time = host.realtime;
 			gc_probe_action_frame = host.framecount;
 			gc_probe_action_diag_time = host.realtime;
-			Con_Reportf( "Xash3D GameCube: probe menu New Game begin selection=0\n" );
+			Con_Reportf( "Xash3D GameCube: probe menu New Game dwell begin selection=0 delay=%.2f\n",
+				GC_PROBE_MENU_NEWGAME_DWELL );
+			return 0;
+		}
+		if( gc_probe_action_stage == 0 )
+		{
+			if( host.realtime - gc_probe_action_time < GC_PROBE_MENU_NEWGAME_DWELL )
+				return 0;
+			gc_probe_action_stage = 1;
+			gc_probe_action_time = host.realtime;
+			gc_probe_action_frame = host.framecount;
 			Con_Reportf( "Xash3D GameCube: probe menu New Game confirm\n" );
 			return PAD_BUTTON_B;
 		}
@@ -611,16 +633,22 @@ static u16 GC_ProbeSyntheticHeldButtons( void )
 			&& GC_ProbeMenuStageReady( GC_PROBE_MENU_STEP_DELAY, GC_PROBE_MENU_STEP_FRAMES ))
 		{
 			gc_probe_action_stage = 2;
+			gc_probe_action_time = host.realtime;
+			gc_probe_action_frame = host.framecount;
 			Con_Reportf( "Xash3D GameCube: probe difficulty menu release\n" );
 			return 0;
 		}
-		if( gc_probe_action_stage == 2 )
+		if( gc_probe_action_stage == 2
+			&& GC_ProbeMenuStageReady( GC_PROBE_MENU_STEP_DELAY, GC_PROBE_MENU_STEP_FRAMES ))
 		{
 			gc_probe_action_stage = 3;
+			gc_probe_action_time = host.realtime;
+			gc_probe_action_frame = host.framecount;
 			Con_Reportf( "Xash3D GameCube: probe difficulty menu confirm selection=1\n" );
 			return PAD_BUTTON_B;
 		}
-		if( gc_probe_action_stage == 3 )
+		if( gc_probe_action_stage == 3
+			&& GC_ProbeMenuStageReady( GC_PROBE_MENU_STEP_DELAY, GC_PROBE_MENU_STEP_FRAMES ))
 		{
 			gc_probe_action_stage = 7;
 			Con_Reportf( "Xash3D GameCube: probe difficulty menu final release\n" );
