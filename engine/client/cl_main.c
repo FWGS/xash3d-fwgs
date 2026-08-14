@@ -490,37 +490,32 @@ Validate interpolation cvars, calc interpolation window
 static void CL_ComputeClientInterpolationAmount( usercmd_t *cmd )
 {
 	const float epsilon = 0.001f; // to avoid float invalid comparision
-	float min_interp;
-	float max_interp = MAX_EX_INTERP;
-	float interpolation_time;
 
 	if( cl_updaterate.value < MIN_UPDATERATE )
 	{
-		Con_Printf( "cl_updaterate minimum is %f, resetting to default (20)\n", MIN_UPDATERATE );
+		Con_Printf( "cl_updaterate minimum is %g, resetting to default (%s)\n", MIN_UPDATERATE, cl_updaterate.def_string );
 		Cvar_Reset( "cl_updaterate" );
 	}
 
 	if( cl_updaterate.value > MAX_UPDATERATE )
 	{
-		Con_Printf( "cl_updaterate clamped at maximum (%f)\n", MAX_UPDATERATE );
-		Cvar_SetValue( "cl_updaterate", MAX_UPDATERATE );
+		Con_Printf( "cl_updaterate clamped at maximum (%g)\n", MAX_UPDATERATE );
+		Cvar_DirectSetValue( &cl_updaterate, MAX_UPDATERATE );
 	}
 
-	if( cls.spectator )
-		max_interp = 0.2f;
+	float min_interp = 1.0f / cl_updaterate.value;
+	float max_interp = cls.spectator ? 0.2f : MAX_EX_INTERP;
+	float interpolation_time = cl_interp.value;
 
-	min_interp = 1.0f / cl_updaterate.value;
-	interpolation_time = cl_interp.value * 1000.0;
-
-	if( (cl_interp.value + epsilon) < min_interp )
+	if(( cl_interp.value + epsilon ) < min_interp )
 	{
 		Con_Printf( "ex_interp forced up to %.1f msec\n", min_interp * 1000.f );
-		Cvar_SetValue( "ex_interp", min_interp );
+		Cvar_DirectSetValue( &cl_interp, min_interp );
 	}
-	else if( (cl_interp.value - epsilon) > max_interp )
+	else if(( cl_interp.value - epsilon ) > max_interp )
 	{
 		Con_Printf( "ex_interp forced down to %.1f msec\n", max_interp * 1000.f );
-		Cvar_SetValue( "ex_interp", max_interp );
+		Cvar_DirectSetValue( &cl_interp, max_interp );
 	}
 
 	interpolation_time = bound( min_interp, interpolation_time, max_interp );
