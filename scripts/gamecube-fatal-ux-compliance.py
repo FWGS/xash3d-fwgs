@@ -42,6 +42,7 @@ def main() -> int:
 	system_source = read(root / "engine/common/system.c")
 	video_source = read(root / "engine/platform/gamecube/vid_gamecube.c")
 	probe = read(root / "scripts/dolphin-boot-probe.sh")
+	probe += read(root / "scripts/dolphin-probe-common.sh")
 	plan = read(root / "docs/GAMECUBE_PORT_PLAN.md")
 	validation = read(root / "docs/GAMECUBE_HARDWARE_VALIDATION.md")
 	goals = read(root / ".ai/goals/GAMECUBE_PORT_GOALS.md")

@@ -348,6 +348,44 @@ static int gc_tram_diffuse_texnum;
 static qboolean gc_tram_lm_logged;
 static qboolean gc_tram_cabin_ride; /* G306: skip exterior while eye is in cabin */
 static vec3_t gc_tram_model_origin; /* *12 submodel origin at bake */
+/* Compact ST for ride detail only — full-face ST tipped Client Static Pool. */
+#define GC_TRAM_ST_MAX 64
+static signed char gc_tram_st[GC_TRAM_ST_MAX][GC_TRAM_MAX_VERTS][2];
+
+static void GC_BakeTramSlotST( int slot, const msurface_t *src, const gc_tram_face_t *face )
+{
+	const mtexinfo_t *ti;
+	float tw, th;
+	int i;
+
+	if( slot < 0 || slot >= GC_TRAM_ST_MAX || !src || !face || face->nverts < 3 )
+		return;
+	ti = src->texinfo;
+	if( !ti )
+		return;
+	tw = ( ti->texture && ti->texture->width > 0 ) ? (float)ti->texture->width : 64.0f;
+	th = ( ti->texture && ti->texture->height > 0 ) ? (float)ti->texture->height : 64.0f;
+	for( i = 0; i < face->nverts && i < GC_TRAM_MAX_VERTS; i++ )
+	{
+		vec3_t pos;
+		float s, t;
+		int si, ti_i;
+
+		pos[0] = (float)face->pts_s16[i][0];
+		pos[1] = (float)face->pts_s16[i][1];
+		pos[2] = (float)face->pts_s16[i][2];
+		s = ( DotProduct( pos, ti->vecs[0] ) + ti->vecs[0][3] ) / tw;
+		t = ( DotProduct( pos, ti->vecs[1] ) + ti->vecs[1][3] ) / th;
+		si = (int)( s * 32.0f );
+		ti_i = (int)( t * 32.0f );
+		if( si > 127 ) si = 127;
+		if( si < -128 ) si = -128;
+		if( ti_i > 127 ) ti_i = 127;
+		if( ti_i < -128 ) ti_i = -128;
+		gc_tram_st[slot][i][0] = (signed char)si;
+		gc_tram_st[slot][i][1] = (signed char)ti_i;
+	}
+}
 /* G286: tip-safe Flipper water — baked turb verts (no live-pool tip / no draw walk hang). */
 #define GC_WATER_MAX_FACES 8
 typedef struct
@@ -868,6 +906,7 @@ void GC_CaptureIntroTrainFaces( model_t *wmodel )
 	gc_tram_face_count = 0;
 	baked_ok = false;
 	memset( gc_tram_faces, 0, sizeof( gc_tram_faces ));
+	memset( gc_tram_st, 0, sizeof( gc_tram_st ));
 	memset( scores, 0, sizeof( scores ));
 	if( cabin_cap < 32 )
 		cabin_cap = 32;
@@ -928,6 +967,7 @@ void GC_CaptureIntroTrainFaces( model_t *wmodel )
 		{
 			gc_tram_faces[cabin_n] = trial;
 			scores[cabin_n] = score;
+			GC_BakeTramSlotST( cabin_n, src, &trial );
 			cabin_n++;
 			continue;
 		}
@@ -945,6 +985,7 @@ void GC_CaptureIntroTrainFaces( model_t *wmodel )
 			continue;
 		gc_tram_faces[min_i] = trial;
 		scores[min_i] = score;
+		GC_BakeTramSlotST( min_i, src, &trial );
 	}
 
 	/* Pass 2: windshield / nose / sealed walls into reserved exterior slots. */
@@ -997,6 +1038,7 @@ void GC_CaptureIntroTrainFaces( model_t *wmodel )
 		{
 			gc_tram_faces[slot0 + ext_n] = trial;
 			scores[slot0 + ext_n] = score;
+			GC_BakeTramSlotST( slot0 + ext_n, src, &trial );
 			ext_n++;
 			continue;
 		}
@@ -1014,6 +1056,7 @@ void GC_CaptureIntroTrainFaces( model_t *wmodel )
 			continue;
 		gc_tram_faces[slot0 + min_i] = trial;
 		scores[slot0 + min_i] = score;
+		GC_BakeTramSlotST( slot0 + min_i, src, &trial );
 	}
 
 	gc_tram_face_count = cabin_n + ext_n;
@@ -1238,8 +1281,8 @@ static void GC_BakeTramLightmaps( model_t *wmodel )
 		DCFlushRange( tile, (u32)( GC_CAP_LM_DIM * GC_CAP_LM_DIM * sizeof( u16 )));
 	}
 
-	/* Diffuse-only still counts as ready — mid-grey LM tiles × REPLACE. */
-	gc_tram_lm_ready = ( baked > 0 || gc_tram_diffuse_texnum > 0 );
+	/* Real style-0 samples only — mid-grey LM × SCALE_2 washed cabin white. */
+	gc_tram_lm_ready = ( baked > 0 );
 	if( !gc_tram_lm_logged && gc_tram_face_count > 0 )
 	{
 		gc_tram_lm_logged = true;
@@ -1267,6 +1310,30 @@ int GC_GetTramFaceTexnum( int index )
 	if( gc_tram_faces[index].texnum > 0 )
 		return gc_tram_faces[index].texnum;
 	return gc_tram_diffuse_texnum;
+}
+
+int GC_GetTramFaceST( int index, float out[][2], int maxverts )
+{
+	const gc_tram_face_t *src;
+	int n, i;
+
+	if( !out || maxverts < 3 || index < 0 || index >= gc_tram_face_count
+		|| index >= GC_TRAM_ST_MAX )
+		return 0;
+	src = &gc_tram_faces[index];
+	n = (int)src->nverts;
+	if( n < 3 )
+		return 0;
+	if( n > GC_TRAM_MAX_VERTS )
+		n = GC_TRAM_MAX_VERTS;
+	if( n > maxverts )
+		n = maxverts;
+	for( i = 0; i < n; i++ )
+	{
+		out[i][0] = (float)gc_tram_st[index][i][0] * ( 1.0f / 32.0f );
+		out[i][1] = (float)gc_tram_st[index][i][1] * ( 1.0f / 32.0f );
+	}
+	return n;
 }
 
 qboolean GC_TramCabinRide( void )
@@ -8886,13 +8953,13 @@ void GC_DrawFatalBreadcrumb( const char *message, const char *details )
 			rowdst[col] = 0xF81F; /* magenta RGB565 */
 	}
 	GC_StatusDrawLine( panel, panel_w, panel_w, panel_h,
-		4, 4, "XASH3D GC FATAL", 0xFFFF, 1, 24 );
+		4, 4, "XASH3D GAMECUBE FATAL", 0xFFFF, 1, 24 );
+	GC_FatalDrawWrapped( panel, 4, 20,
+		message ? message : "UNKNOWN ERROR", 0xFFE0, 1, 36, 2 );
+	GC_FatalDrawWrapped( panel, 4, 40,
+		details ? details : "NO DETAILS", 0xFFFF, 1, 36, 6 );
 	GC_StatusDrawLine( panel, panel_w, panel_w, panel_h,
-		4, 20, message ? message : "UNKNOWN ERROR", 0xFFE0, 1, 36 );
-	GC_StatusDrawLine( panel, panel_w, panel_w, panel_h,
-		4, 40, details ? details : "NO DETAILS", 0xFFFF, 1, 36 );
-	GC_StatusDrawLine( panel, panel_w, panel_w, panel_h,
-		4, panel_h - 14, "POWER CYCLE OR RESET", 0x07E0, 1, 28 );
+		4, panel_h - 14, "HALTED: POWER CYCLE OR RESET", 0x07E0, 1, 28 );
 
 	if( GC_CanPresentViaGX( panel_w, panel_h ))
 	{
@@ -10870,8 +10937,9 @@ void GC_BakeMenuNewGameCapFacesNoPVS( void )
 		 * CaptureIntroTrain at bmodel load to protect Client Static Pool). */
 		GC_CaptureIntroTrainFaces( wmodel );
 		GC_BakeTramLightmaps( wmodel );
-		Con_Reportf( "Xash3D GameCube: menu tram faces n=%d lm=%d\n",
-			GC_GetTramFaceCount(), GC_TramLightmapReady() ? 1 : 0 );
+		Con_Reportf( "Xash3D GameCube: menu tram faces n=%d lm=%d tex=%d\n",
+			GC_GetTramFaceCount(), GC_TramLightmapReady() ? 1 : 0,
+			GC_GetTramDiffuseTexnum() );
 	}
 	if( bits )
 		free( bits );

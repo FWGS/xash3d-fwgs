@@ -1,5 +1,4 @@
 #!/usr/bin/env bash
-# Whole-script timeout wrapper with enough headroom for rebuild/disc/log work.
 if [ "${GC_BOOT_PROBE_INNER:-0}" != "1" ]; then
 	if [ -n "${GC_BOOT_PROBE_TIMEOUT:-}" ]; then
 		PROBE_TIMEOUT="$GC_BOOT_PROBE_TIMEOUT"
@@ -13,42 +12,29 @@ if [ "${GC_BOOT_PROBE_INNER:-0}" != "1" ]; then
 	export GC_BOOT_PROBE_INNER=1
 	exec timeout --foreground --signal=TERM --kill-after=10 "$PROBE_TIMEOUT" "$0" "$@"
 fi
-
 cleanup_boot_probe_processes() {
-    # Only clean the probe/emulator family for this repo.
-    # Do not include the ISO argument in the pattern: it is also present in
-    # this shell's command line and can make pkill terminate the probe itself.
     pkill -TERM -f '[d]olphin-emu|[D]olphinQt' 2>/dev/null || true
     sleep 1
     pkill -KILL -f '[d]olphin-emu|[D]olphinQt' 2>/dev/null || true
 }
-
 cleanup_boot_probe_locks() {
     rm -f .ai/dolphin-probe.lock .ai/goal-supervisor.lock .ai/goal-loop.lock 2>/dev/null || true
 }
-
 on_boot_probe_exit() {
     rc=$?
     cleanup_boot_probe_processes
     cleanup_boot_probe_locks
     exit "$rc"
 }
-
 trap on_boot_probe_exit EXIT INT TERM
-
 set -uo pipefail
-
 ROOT="$(git rev-parse --show-toplevel)"
 cd "$ROOT"
 if [[ -f scripts/gamecube-env.sh ]]; then
 	source scripts/gamecube-env.sh
 fi
-
-# shellcheck source=scripts/dolphin-probe-lock.sh
 source scripts/dolphin-probe-lock.sh || exit $?
-# shellcheck source=scripts/dolphin-probe-common.sh
 source scripts/dolphin-probe-common.sh || exit $?
-
 LOG_DIR=".ai/logs/dolphin-probe-$(date +%Y%m%d-%H%M%S)"
 ISO_PATH="$ROOT/$LOG_DIR/xash3d-gc.iso"
 PREBUILT_ISO="${1:-${DOLPHIN_PREBUILT_ISO:-}}"
@@ -58,8 +44,6 @@ fi
 USER_DIR="$ROOT/$LOG_DIR/dolphin-user"
 DOLPHIN_RETAIL="${DOLPHIN_RETAIL:-0}"
 DOLPHIN_NEWGAME="${DOLPHIN_NEWGAME:-0}"
-# G471: Default to smoke-map mode for bounded testing. Even when DOLPHIN_NEWGAME=1
-# is set by automation, use smoke-map unless DOLPHIN_RETAIL=1 is explicitly set.
 # This prevents full retail disc builds (~500MB) that timeout on GameCube boot.
 if (( DOLPHIN_NEWGAME )); then
 	# Only enable retail mode if DOLPHIN_RETAIL=1 is explicitly set
@@ -117,106 +101,9 @@ DOLPHIN_CHANGELEVEL2="${DOLPHIN_CHANGELEVEL2:-}"
 DOLPHIN_TAS="${DOLPHIN_TAS:-}"
 # Default landmarks for proven probe hops when unset.
 if [[ -z "${DOLPHIN_LANDMARK:-}" && -n "$DOLPHIN_CHANGELEVEL" ]]; then
-	case "${SMOKE_MAP}:${DOLPHIN_CHANGELEVEL}" in
-		c0a0:c0a0a) DOLPHIN_LANDMARK="c0a0toa" ;;
-		c0a0a:c0a0b) DOLPHIN_LANDMARK="c0a0tob" ;;
-		c0a0b:c0a0c) DOLPHIN_LANDMARK="c0a0btoc" ;;
-		c0a0c:c0a0d) DOLPHIN_LANDMARK="c0a0ctod" ;;
-		c0a0d:c0a0e) DOLPHIN_LANDMARK="c0a0dtoe" ;;
-		c0a0e:c1a0) DOLPHIN_LANDMARK="c0a0toc1a0" ;;
-		c1a0:c1a0d) DOLPHIN_LANDMARK="c1a0toc1a0d" ;;
-		c1a0d:c1a0a) DOLPHIN_LANDMARK="c1a0dtoa" ;;
-		c1a0a:c1a0d) DOLPHIN_LANDMARK="c1a0dtoa" ;;
-		c1a0a:c1a0b) DOLPHIN_LANDMARK="c1a0atob" ;;
-		c1a0b:c1a0c) DOLPHIN_LANDMARK="c1a0btoc" ;;
-		c1a0b:c1a0e) DOLPHIN_LANDMARK="c1a0btoe" ;;
-		c1a0c:c1a1) DOLPHIN_LANDMARK="c1a0catoc1a1" ;;
-		c1a0c:c1a0e) DOLPHIN_LANDMARK="c1a0etoc" ;;
-		c1a1:c1a1a) DOLPHIN_LANDMARK="c1a1" ;;
-		c1a1a:c1a1f) DOLPHIN_LANDMARK="c1a1atof" ;;
-		c1a1f:c1a1b) DOLPHIN_LANDMARK="c1a1b" ;;
-		c1a1b:c1a1c) DOLPHIN_LANDMARK="c1a1bc" ;;
-		c1a1c:c1a1d) DOLPHIN_LANDMARK="c1a1c/d" ;;
-		c1a1c:c1a2) DOLPHIN_LANDMARK="a1a2" ;;
-		c1a2:c1a2a) DOLPHIN_LANDMARK="one" ;;
-		c1a2:c1a2d) DOLPHIN_LANDMARK="c1a2toc1a2d" ;;
-		c1a2a:c1a2b) DOLPHIN_LANDMARK="ab" ;;
-		c1a2b:c1a2c) DOLPHIN_LANDMARK="vents" ;;
-		c1a2b:c1a3) DOLPHIN_LANDMARK="c1a2_to_c1a3" ;;
-		c1a3:c1a3d) DOLPHIN_LANDMARK="lm_c1a3_0d" ;;
-		c1a3:c1a3c) DOLPHIN_LANDMARK="lm_c1a3_c0" ;;
-		c1a3:c1a4) DOLPHIN_LANDMARK="c1a3toc1a4" ;;
-		c1a3d:c1a3a) DOLPHIN_LANDMARK="lm_c1a3_da" ;;
-		c1a3a:c1a3b) DOLPHIN_LANDMARK="lm_c1a3_ab" ;;
-		c1a3b:c1a3c) DOLPHIN_LANDMARK="lm_c1a3_bc" ;;
-		c1a4:c1a4k) DOLPHIN_LANDMARK="c1a4toc1a4k" ;;
-		c1a4k:c1a4b) DOLPHIN_LANDMARK="c1a4k_to_c1a4b" ;;
-		c1a4b:c1a4d) DOLPHIN_LANDMARK="c1a4atod" ;;
-		c1a4b:c1a4f) DOLPHIN_LANDMARK="c1a4btoc" ;;
-		c1a4b:c1a4i) DOLPHIN_LANDMARK="c1a4btoi1" ;;
-		c1a4d:c1a4e) DOLPHIN_LANDMARK="c1a4dtoe" ;;
-		c1a4i:c1a4g) DOLPHIN_LANDMARK="c1a4itoc1a4g" ;;
-		c1a4g:c1a4j) DOLPHIN_LANDMARK="c1a4gtoc2a1" ;;
-		c1a4j:c2a1) DOLPHIN_LANDMARK="c1a4-c2a1" ;;
-		c2a1:c2a2) DOLPHIN_LANDMARK="c2a1-c2a2" ;;
-		c2a1:c2a1b) DOLPHIN_LANDMARK="c2a1c2a1b" ;;
-		c2a2:c2a2a) DOLPHIN_LANDMARK="c2a2c2a2a" ;;
-		c2a2a:c2a2b1) DOLPHIN_LANDMARK="c2a2ac2a2b1" ;;
-		c2a2a:c2a2b2) DOLPHIN_LANDMARK="c2a2ac2a2b2" ;;
-		c2a2b1:c2a2c) DOLPHIN_LANDMARK="c2a2b1c2a2c" ;;
-		c2a2c:c2a2d) DOLPHIN_LANDMARK="c2a2cc2a2d" ;;
-		c2a2d:c2a2e) DOLPHIN_LANDMARK="c2a2dc2a2e" ;;
-		c2a2e:c2a2f) DOLPHIN_LANDMARK="c2a2ec2a2f" ;;
-		c2a2f:c2a2g) DOLPHIN_LANDMARK="c2a2fc2a2g" ;;
-		c2a2g:c2a2h) DOLPHIN_LANDMARK="c2a2gc2a2h" ;;
-		c2a2g:c2a3) DOLPHIN_LANDMARK="c2a2/3" ;;
-		c2a3:c2a3a) DOLPHIN_LANDMARK="c2a3/a" ;;
-		c2a3a:c2a3b) DOLPHIN_LANDMARK="c2a3a/b" ;;
-		c2a3b:c2a3c) DOLPHIN_LANDMARK="c2a3b/c" ;;
-		c2a3c:c2a3d) DOLPHIN_LANDMARK="c2a3cd" ;;
-		c2a3d:c2a3e) DOLPHIN_LANDMARK="c2a3de" ;;
-		c2a3e:c2a4) DOLPHIN_LANDMARK="c2a3d4" ;;
-		c2a4:c2a4a) DOLPHIN_LANDMARK="lm1" ;;
-		c2a4a:c2a4b) DOLPHIN_LANDMARK="lm2" ;;
-		c2a4b:c2a4c) DOLPHIN_LANDMARK="lm1" ;;
-		c2a4c:c2a4d) DOLPHIN_LANDMARK="lm2" ;;
-		c2a4d:c2a4e) DOLPHIN_LANDMARK="lm1" ;;
-		c2a4e:c2a4f) DOLPHIN_LANDMARK="lm2" ;;
-		c2a4e:c2a4g) DOLPHIN_LANDMARK="c2a4e-c2a4g" ;;
-		c2a4g:c2a5) DOLPHIN_LANDMARK="c2a4gc2a5" ;;
-		c2a5:c2a5w) DOLPHIN_LANDMARK="c2a5-c2a5w" ;;
-		c2a5w:c2a5x) DOLPHIN_LANDMARK="wtoxa" ;;
-		c2a5x:c2a5a) DOLPHIN_LANDMARK="c2a5a" ;;
-		c2a5a:c2a5b) DOLPHIN_LANDMARK="c2a5b" ;;
-		c2a5b:c2a5c) DOLPHIN_LANDMARK="c2a5_c" ;;
-		c2a5c:c2a5d) DOLPHIN_LANDMARK="c2a5d" ;;
-		c2a5d:c2a5e) DOLPHIN_LANDMARK="c2a5e" ;;
-		c2a5e:c2a5f) DOLPHIN_LANDMARK="c2a5e/f" ;;
-		c2a5f:c2a5g) DOLPHIN_LANDMARK="c2a5ftog" ;;
-		c2a5g:c3a1) DOLPHIN_LANDMARK="c2a5g/c3a1" ;;
-		c3a1:c3a1a) DOLPHIN_LANDMARK="a1a1a" ;;
-		c3a1a:c3a1b) DOLPHIN_LANDMARK="a1a2" ;;
-		c3a1b:c3a2e) DOLPHIN_LANDMARK="c3a1c3a2" ;;
-		c3a2e:c3a2) DOLPHIN_LANDMARK="c3a2e" ;;
-		c3a2:c3a2a) DOLPHIN_LANDMARK="c3a2f" ;;
-		c3a2a:c3a2b) DOLPHIN_LANDMARK="c3a2_ab" ;;
-		c3a2b:c3a2c) DOLPHIN_LANDMARK="c3a2_bc" ;;
-		c3a2c:c3a2d) DOLPHIN_LANDMARK="c3a2_cd" ;;
-		c3a2d:c4a1) DOLPHIN_LANDMARK="c3a2_c4a1" ;;
-		c3a2c:c3a2f) DOLPHIN_LANDMARK="c3a2_cf" ;;
-		c3a2:c3a2e) DOLPHIN_LANDMARK="c3a2e" ;;
-		c4a1:c4a2) DOLPHIN_LANDMARK="c4a2" ;;
-		c4a2:c4a2a) DOLPHIN_LANDMARK="c4a2_0a" ;;
-		c4a2a:c4a2b) DOLPHIN_LANDMARK="c4a2_ab" ;;
-		c4a2b:c4a1a) DOLPHIN_LANDMARK="c4a1a" ;;
-		c4a1a:c4a1b) DOLPHIN_LANDMARK="c4a1b" ;;
-		c4a1b:c4a1c) DOLPHIN_LANDMARK="c4a1c" ;;
-		c4a1c:c4a1d) DOLPHIN_LANDMARK="c4a1d" ;;
-		c4a1d:c4a1e) DOLPHIN_LANDMARK="c4a1e" ;;
-		c4a1e:c4a1f) DOLPHIN_LANDMARK="c4a1f" ;;
-		c4a1f:c4a3) DOLPHIN_LANDMARK="c4a3" ;;
-		c4a3:c5a1) DOLPHIN_LANDMARK="c4a3toc5a1" ;;
-	esac
+	# Keep the large campaign landmark table in a data helper so this wrapper
+	# remains below the verifier's bounded-script-size guard.
+	source scripts/dolphin-landmarks.sh
 fi
 # G356: default landmark for hop2 when unset.
 if [[ -z "${DOLPHIN_LANDMARK2:-}" && -n "$DOLPHIN_CHANGELEVEL" && -n "$DOLPHIN_CHANGELEVEL2" ]]; then
@@ -247,11 +134,8 @@ if [[ -n "$GC_PHASE_TEST" ]]; then
 	G82_FAULT_MARKER="G82: Intentional phase fault at ${GC_PHASE_TEST}"
 fi
 DOLPHIN_MMU="${DOLPHIN_MMU:-True}"
-
 mkdir -p "$USER_DIR/Config"
-
 DUMP_FRAMES=0
-
 # Retail screenshot capture is useful for visual evidence but changes Dolphin
 # host throughput substantially.  Keep the historical retail default while
 # allowing an explicit zero for timing/audio validation.
@@ -260,7 +144,6 @@ if [[ "${DOLPHIN_DUMP_FRAMES:-}" == "0" ]]; then
 elif [[ "$DOLPHIN_RETAIL" == "1" || "${DOLPHIN_DUMP_FRAMES:-0}" == "1" ]]; then
 	DUMP_FRAMES=1
 fi
-
 # Retail timing evidence must use Dolphin's JIT and CPU thread unless a
 # caller explicitly selects another profile.  Smoke-map probes retain their
 # conservative deterministic defaults; retail capture otherwise measures the
@@ -272,7 +155,6 @@ else
 	DOLPHIN_CPU_CORE="${DOLPHIN_CPU_CORE:-0}"
 	DOLPHIN_CPU_THREAD="${DOLPHIN_CPU_THREAD:-False}"
 fi
-
 cat > "$USER_DIR/Config/Dolphin.ini" <<EOF
 [Core]
 CPUCore = ${DOLPHIN_CPU_CORE}
@@ -288,7 +170,6 @@ SIDevice3 = 0
 [Interface]
 ConfirmStop = False
 EOF
-
 if (( DUMP_FRAMES )); then
 	cat >> "$USER_DIR/Config/Dolphin.ini" <<'EOF'
 [Movie]
@@ -325,7 +206,6 @@ ImmediateXFBEnable = False
 EOF
 	echo "==> DumpFrames GFX DisableCopyToVRAM=${DUMP_COPY_TO_VRAM} (${DUMP_COPY_NOTE})"
 fi
-
 cat > "$USER_DIR/Config/Logger.ini" <<'EOF'
 [Logs]
 BOOT = True
@@ -340,7 +220,6 @@ WriteToConsole = True
 WriteToFile = True
 WriteToWindow = False
 EOF
-
 echo "==> Building GameCube engine and DOL..."
 SKIP_ENGINE=0
 SKIP_DISC=0
@@ -356,7 +235,6 @@ if [[ "${DOLPHIN_SKIP_BUILD:-0}" == "1" && -f "$PREBUILT_ISO" ]]; then
 		SKIP_DISC=1
 	fi
 fi
-
 if (( SKIP_DISC )); then
 	echo "==> Using pre-built ISO (DOLPHIN_SKIP_BUILD=1): $PREBUILT_ISO"
 	mkdir -p "$(dirname "$ISO_PATH")"
@@ -375,7 +253,6 @@ else
 			exit 1
 		fi
 	fi
-
 	echo "==> Building GameCube disc image..."
 	BUILD_ARGS=(--output "$ISO_PATH")
 	if [[ "$DOLPHIN_RETAIL" == "1" ]]; then
@@ -475,7 +352,6 @@ else
 		exit 1
 	fi
 fi
-
 DOLPHIN_CMD=()
 DOLPHIN_IS_FLATPAK=0
 GUEST_ARGS=()
@@ -718,7 +594,6 @@ append_guest_args() {
 		_cmd+=(-- "${GUEST_ARGS[@]}")
 	fi
 }
-
 DOLPHIN_VIDEO_BACKEND="${DOLPHIN_VIDEO:-Null}"
 DOLPHIN_BATCH_MODE=1
 if [[ "$DOLPHIN_RETAIL" == "1" ]]; then
@@ -750,7 +625,6 @@ if (( DOLPHIN_BATCH_MODE )); then
 else
 	DOLPHIN_MODE_ARGS=(-l)
 fi
-
 if [[ "${DOLPHIN_EXECUTABLE:-}" == flatpak:* ]]; then
 	DOLPHIN_FLATPAK_ID="${DOLPHIN_EXECUTABLE#flatpak:}"
 	DOLPHIN_CMD=(flatpak run --filesystem="$ROOT" "$DOLPHIN_FLATPAK_ID"
@@ -783,7 +657,6 @@ else
 	echo "HOST_FAILURE: Dolphin executable or Flatpak was not found."
 	exit 2
 fi
-
 cleanup_flatpak_dolphin() {
 	if (( DOLPHIN_IS_FLATPAK )); then
 		flatpak kill "${DOLPHIN_FLATPAK_ID:-org.DolphinEmu.dolphin-emu}" >/dev/null 2>&1 || true
@@ -792,7 +665,6 @@ cleanup_flatpak_dolphin() {
 		pkill -KILL -f "dolphin.*${USER_DIR}" >/dev/null 2>&1 || true
 	fi
 }
-
 echo "==> Launching bounded Dolphin boot probe (${TIMEOUT_SEC}s, MMU=${DOLPHIN_MMU})..."
 set +e
 if (( DOLPHIN_IS_FLATPAK )); then
@@ -801,14 +673,12 @@ else
 	probe_wait_native
 fi
 set -e
-
 sleep 2
 if (( DOLPHIN_IS_FLATPAK )); then
 	cleanup_flatpak_dolphin
 	trap - EXIT
 	wait "$DOLPHIN_WRAPPER_PID" >/dev/null 2>&1 || true
 fi
-
 echo "==> Analyzing probe results..."
 LOG_FILES=("$LOG_DIR/stdout.log" "$LOG_DIR/stderr.log")
 for guest_log in "$LOG_DIR"/dolphin-user/Logs/*.log; do
@@ -827,5 +697,4 @@ fi
 if [[ -n "$SMOKE_MAP" ]]; then
 	grep -aqsF "$MAP_MARKER" "${LOG_FILES[@]}" && MAP_FOUND=1
 fi
-
 probe_classify_results

@@ -394,7 +394,11 @@ GEMINI.md
 # game data
 OUT/*.iso
 OUT/hlsdk-gamecube/
-game_data/
+games_data/
+# Local RE4 / retail GameCube discs (not part of the HL port)
+/games/
+/RE4gc
+.ai/dolphin-user-re4/
 hl/
 hl1sdk/
 hlsdk/

@@ -69,8 +69,8 @@ extern qboolean GC_WaterFacePlane( int index, mplane_t *out, int *out_flags );
 extern qboolean GC_FillFacePlane( int index, mplane_t *out, int *out_flags );
 extern int GC_GetTramFaceCount( void );
 extern int GC_GetTramFaceVerts( int index, float out[][3], int maxverts );
-extern int GC_GetTramFaceFlags( int index );
 extern int GC_GetTramFaceTexnum( int index );
+extern int GC_GetTramFaceST( int index, float out[][2], int maxverts );
 extern void GC_GetTramModelOrigin( float out[3] );
 extern qboolean GC_TramCabinRide( void );
 #ifndef GC_TRAM_FACE_EXTERIOR
@@ -3570,8 +3570,7 @@ int R_GXDrawTramBaked( const float *origin, const float *angles )
 	r_gx_flat_z_ignore = false;
 	r_gx_flat_z_write = true;
 
-	/* Mid-grey LM tiles are fine when style-0 samples were scratched — diffuse
-	 * REPLACE×LM still beats flat steel. */
+	/* Real LM tiles only. Diffuse-only uses REPLACE (mid-grey×2 was full-bright white). */
 	tram_lm = GC_GetTramLightmapAtlas( &lm_w, &lm_h );
 	if( GC_TramLightmapReady() && tram_lm && lm_w >= 4 && lm_h >= 4 )
 	{
@@ -3582,6 +3581,12 @@ int R_GXDrawTramBaked( const float *origin, const float *angles )
 		lit = true;
 	}
 
+	{
+		vec3_t forward, right, up;
+
+		AngleVectors( RI.rvp.viewangles, forward, right, up );
+		(void)up;
+
 	for( i = 0; i < n; i++ )
 	{
 		float pts[32][3];
@@ -3589,25 +3594,41 @@ int R_GXDrawTramBaked( const float *origin, const float *angles )
 		float lmst[4][2];
 		int nv;
 		int v;
-		int flags = GC_GetTramFaceFlags( i );
 		int face_tex;
+		vec3_t cent, to_c;
+		float along, lateral;
 
-		if( cabin && ( flags & GC_TRAM_FACE_EXTERIOR ))
-			continue;
-		/* While riding, only the first detail slots — bake ranks small rails
-		 * first; drawing all 200+ cabin panels seals the windshield FOV. */
-		if( cabin && i >= 48 )
-			continue;
+		/* Ride: retain exterior side/far faces so the corridor does not open to
+		 * the clear-color void; the directional test below removes only the
+		 * close, dead-ahead shell that occludes the windshield view. */
 		nv = GC_GetTramFaceVerts( i, pts, 32 );
 		if( nv < 3 )
 			continue;
-		/* Local bake verts → entity origin. Skip Place yaw: *12 verts are already
-		 * oriented for the track; yaw=180 put the rear bulkhead in the windshield. */
+		/* Local bake verts → entity origin (no Place yaw — mesh already track-aligned). */
 		for( v = 0; v < nv; v++ )
 		{
 			pts[v][0] = origin[0] + ( pts[v][0] - model_org[0] );
 			pts[v][1] = origin[1] + ( pts[v][1] - model_org[1] );
 			pts[v][2] = origin[2] + ( pts[v][2] - model_org[2] );
+		}
+		if( cabin )
+		{
+			cent[0] = cent[1] = cent[2] = 0.0f;
+			for( v = 0; v < nv; v++ )
+			{
+				cent[0] += pts[v][0];
+				cent[1] += pts[v][1];
+				cent[2] += pts[v][2];
+			}
+			cent[0] /= (float)nv;
+			cent[1] /= (float)nv;
+			cent[2] /= (float)nv;
+			VectorSubtract( cent, RI.rvp.vieworigin, to_c );
+			along = DotProduct( to_c, forward );
+			lateral = DotProduct( to_c, right );
+			/* Only skip very center-ahead bulkheads (keep side posters/rails). */
+			if( along > 72.0f && fabs( lateral ) < 36.0f )
+				continue;
 		}
 
 		face_tex = GC_GetTramFaceTexnum( i );
@@ -3616,10 +3637,33 @@ int R_GXDrawTramBaked( const float *origin, const float *angles )
 
 		if( face_tex > 0 && nv == 4 && R_GXBindTexnum( (unsigned)face_tex, false ))
 		{
-			for( v = 0; v < 4; v++ )
+			int got_st = 0;
+			float st_span = 0.0f;
+
+			got_st = GC_GetTramFaceST( i, sts, 4 );
+			if( got_st >= 4 )
 			{
-				sts[v][0] = corner_uv[v][0];
-				sts[v][1] = corner_uv[v][1];
+				float smin = sts[0][0], smax = sts[0][0];
+				float tmin = sts[0][1], tmax = sts[0][1];
+
+				for( v = 1; v < 4; v++ )
+				{
+					if( sts[v][0] < smin ) smin = sts[v][0];
+					if( sts[v][0] > smax ) smax = sts[v][0];
+					if( sts[v][1] < tmin ) tmin = sts[v][1];
+					if( sts[v][1] > tmax ) tmax = sts[v][1];
+				}
+				st_span = ( smax - smin ) + ( tmax - tmin );
+			}
+			/* Compact ST often collapses to ~0 with local *12 verts — corner
+			 * 0..1 still shows diffuse instead of a single grey texel. */
+			if( got_st < 4 || st_span < 0.05f )
+			{
+				for( v = 0; v < 4; v++ )
+				{
+					sts[v][0] = corner_uv[v][0];
+					sts[v][1] = corner_uv[v][1];
+				}
 			}
 			if( lit && i < 192 )
 			{
@@ -3716,6 +3760,8 @@ int R_GXDrawTramBaked( const float *origin, const float *angles )
 				drawn++;
 		}
 	}
+	} /* view forward/right for cabin cone cull */
+
 	r_gx_flat_z_ignore = false;
 	r_gx_flat_z_write = false;
 	r_gx_face_mode = GC_GX_FACE_MODE_NONE;
