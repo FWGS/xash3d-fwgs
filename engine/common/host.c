@@ -792,13 +792,18 @@ void Host_Frame( double time )
 		}
 		/* G320: after post-smoke Prepare on non-c0a0, cls is still
 		 * disconnected (c3a2 20260809-004840). ServerFrame in that state
-		 * hung Host_Frame; ClientFrame drives local reconnect first. */
+		 * hung Host_Frame; ClientFrame drives local reconnect first.
+		 * Menu New Game after play-start ready hits the same hang when
+		 * ServerFrame runs first (probe 20260813-182532). */
 		if( ( Sys_CheckParm( "-gcnewgame" ) || Sys_CheckParm( "-gcmenuplaystart" ))
 			&& !Sys_CheckParm( "-gcfullphysics" )
-			&& GC_IsNewGameWorldReady()
-			&& cls.state != ca_active && cls.signon != SIGNONS )
+			&& ( GC_IsNewGameWorldReady()
+				|| cls.state != ca_active
+				|| cls.signon != SIGNONS ))
 		{
 			Host_ClientFrame ();
+			if( !GC_ShouldUseLightPresent() )
+				Host_ServerFrame ();
 		}
 		else
 		{

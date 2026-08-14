@@ -6785,7 +6785,10 @@ static qboolean Mod_LoadBmodelLumps( model_t *mod, byte *mod_base, size_t buffer
 	Mod_SetupSubmodels( mod, bmod );
 #if XASH_GAMECUBE
 	Con_Reportf( "Xash3D GameCube: bmodel submodels ready\n" );
-	/* G277: bake *12 before lighting scratch-stomps msurface_t. */
+	/* G277: bake *12 before lighting scratch-stomps msurface_t.
+	 * Menu New Game skips IntroTrain bake — menu assets already tip MEM1
+	 * (probe 20260813-185800 Client Static Pool OOM). PVS capture below
+	 * still runs so Arm on ca_active does not PointInLeaf-hang. */
 	if( isworld && Sys_CheckParm( "-gcnewgame" ))
 		GC_CaptureIntroTrainFaces( mod );
 	Con_Reportf( "Xash3D GameCube: bmodel lighting begin\n" );
@@ -6793,7 +6796,11 @@ static qboolean Mod_LoadBmodelLumps( model_t *mod, byte *mod_base, size_t buffer
 	Mod_LoadLighting( mod, bmod );
 #if XASH_GAMECUBE
 	Con_Reportf( "Xash3D GameCube: bmodel lighting ready\n" );
-	/* G154: capture FatPVS + faces AFTER lighting so samples bake into Flipper LM. */
+	/* G154: capture FatPVS + faces AFTER lighting so samples bake into Flipper LM.
+	 * Menu New Game (-gcmenuplaystart): do NOT capture here — lean FatPVS can
+	 * tip MEM1 before Client Static Pool (probe 20260813-190422). Arm/Prepare
+	 * already skip late Capture; CapFaces bake runs post-spawn when headroom
+	 * exists. */
 	if( isworld && Sys_CheckParm( "-gcnewgame" ))
 	{
 		worldmodel = mod;

@@ -379,7 +379,8 @@ static inline qboolean GC_UseLowResWorldProbe( void )
 {
 #if XASH_GAMECUBE
 	return ( gEngfuncs.Sys_CheckParm( "-gcworldrender" )
-		|| gEngfuncs.Sys_CheckParm( "-gcnewgame" )) ? qtrue : qfalse;
+		|| gEngfuncs.Sys_CheckParm( "-gcnewgame" )
+		|| gEngfuncs.Sys_CheckParm( "-gcmenuplaystart" )) ? qtrue : qfalse;
 #else
 	return qfalse;
 #endif

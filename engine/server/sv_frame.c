@@ -92,7 +92,8 @@ static void SV_AddEntitiesToPacket( edict_t *pViewEnt, edict_t *pClient, client_
 	 * After G36 (G87): was player-only (full brush walk stalled Host_Frame).
 	 * G277: still admit a small near-eye brush-mover budget so the c0a0 tram
 	 * (*submodel) reaches Flipper R_GXDrawBrushModel / edge_entities. */
-	if( Sys_CheckParm( "-gcnewgame" ) && from_client )
+	if( ( Sys_CheckParm( "-gcnewgame" ) || Sys_CheckParm( "-gcmenuplaystart" ))
+		&& from_client )
 	{
 		int		e;
 		int		player_e = NUM_FOR_EDICT( pClient );
@@ -720,12 +721,15 @@ static void SV_WriteClientdataToMessage( sv_client_t *cl, sizebuf_t *msg )
 	memset( &frame->clientdata, 0, sizeof( frame->clientdata ));
 
 #if XASH_GAMECUBE
-	gc_native_callbacks = Sys_CheckParm( "-gcnewgame" )
+	gc_native_callbacks = ( Sys_CheckParm( "-gcnewgame" )
+			|| Sys_CheckParm( "-gcmenuplaystart" ))
 		&& Sys_CheckParm( "-gcfullphysics" ) && GC_IsNewGameG36Done();
 
 	/* Post-G36: pfnUpdateClientData / GetWeaponData stall Host_Frame on c0a0.
-	 * Keep the minimal snapshot only for reduced bring-up modes (G87). */
-	if( Sys_CheckParm( "-gcnewgame" ) && GC_IsNewGameG36Done()
+	 * Keep the minimal snapshot only for reduced bring-up modes (G87).
+	 * Menu New Game (-gcmenuplaystart) needs the same pre-G36 minimal pack. */
+	if( ( Sys_CheckParm( "-gcnewgame" ) || Sys_CheckParm( "-gcmenuplaystart" ))
+		&& ( GC_IsNewGameG36Done() || Sys_CheckParm( "-gcmenuplaystart" ))
 		&& !Sys_CheckParm( "-gcfullphysics" ))
 	{
 		VectorCopy( clent->v.origin, frame->clientdata.origin );
@@ -777,7 +781,8 @@ static void SV_WriteClientdataToMessage( sv_client_t *cl, sizebuf_t *msg )
 	MSG_WriteClientData( msg, from_cd, to_cd, sv.time );
 
 #if XASH_GAMECUBE
-	if( !( Sys_CheckParm( "-gcnewgame" ) && GC_IsNewGameG36Done()
+	if( !( ( Sys_CheckParm( "-gcnewgame" ) || Sys_CheckParm( "-gcmenuplaystart" ))
+		&& ( GC_IsNewGameG36Done() || Sys_CheckParm( "-gcmenuplaystart" ))
 		&& !Sys_CheckParm( "-gcfullphysics" ))
 		&& FBitSet( cl->flags, FCL_LOCAL_WEAPONS ) && svgame.dllFuncs.pfnGetWeaponData( clent, frame->weapondata ))
 #else

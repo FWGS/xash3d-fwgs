@@ -1721,7 +1721,9 @@ static void SV_PutClientInServer( sv_client_t *cl )
 			else
 			{
 #if XASH_GAMECUBE
-				if( svs.maxclients == 1 && Sys_CheckParm( "-gcnewgame" )
+				if( svs.maxclients == 1
+					&& ( Sys_CheckParm( "-gcnewgame" )
+						|| Sys_CheckParm( "-gcmenuplaystart" ))
 					&& MSG_GetNumBytesWritten( &msg ) > 0
 					&& MSG_GetNumBytesWritten( &msg ) < NET_MAX_MESSAGE )
 				{
@@ -1930,7 +1932,8 @@ static qboolean SV_New_f( sv_client_t *cl )
 	memset( &cl->lastcmd, 0, sizeof( cl->lastcmd ));
 
 #if XASH_GAMECUBE
-	if( svs.maxclients == 1 && Sys_CheckParm( "-gcnewgame" )
+	if( svs.maxclients == 1
+		&& ( Sys_CheckParm( "-gcnewgame" ) || Sys_CheckParm( "-gcmenuplaystart" ))
 		&& MSG_GetNumBytesWritten( &msg ) > 0
 		&& MSG_GetNumBytesWritten( &msg ) < NET_MAX_MESSAGE )
 	{

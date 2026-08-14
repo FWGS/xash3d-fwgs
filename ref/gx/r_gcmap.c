@@ -153,7 +153,8 @@ void R_GcmapRestoreAfterMapLoad( void )
 		gEngfuncs.Con_Reportf( "Xash3D GameCube: renderer lookup tables rebuilt after map load\n" );
 	}
 
-	if( gEngfuncs.Sys_CheckParm( "-gcmap" ) || gEngfuncs.Sys_CheckParm( "-gcnewgame" ))
+	if( gEngfuncs.Sys_CheckParm( "-gcmap" ) || gEngfuncs.Sys_CheckParm( "-gcnewgame" )
+		|| gEngfuncs.Sys_CheckParm( "-gcmenuplaystart" ))
 	{
 		if( !R_TryInitGcmapSurfaceCache() )
 			gEngfuncs.Con_Reportf( "Xash3D GameCube: surface cache restore deferred after map load\n" );
@@ -184,7 +185,8 @@ qboolean R_GcmapEnsureSurfaceCache( void )
 
 qboolean R_GcmapPrepareWorldRender( void )
 {
-	if( !gEngfuncs.Sys_CheckParm( "-gcmap" ) && !gEngfuncs.Sys_CheckParm( "-gcnewgame" ))
+	if( !gEngfuncs.Sys_CheckParm( "-gcmap" ) && !gEngfuncs.Sys_CheckParm( "-gcnewgame" )
+		&& !gEngfuncs.Sys_CheckParm( "-gcmenuplaystart" ))
 		return false;
 
 	if( vid.buffer && d_pzbuffer && vid.width > 0 && vid.height > 0 )
@@ -223,7 +225,8 @@ qboolean R_GcmapAllocMinimalScreen( void )
 	size_t pixels;
 	qboolean use_static_screen = false;
 
-	if( !gEngfuncs.Sys_CheckParm( "-gcmap" ) && !gEngfuncs.Sys_CheckParm( "-gcnewgame" ))
+	if( !gEngfuncs.Sys_CheckParm( "-gcmap" ) && !gEngfuncs.Sys_CheckParm( "-gcnewgame" )
+		&& !gEngfuncs.Sys_CheckParm( "-gcmenuplaystart" ))
 		return false;
 
 	if( vid.buffer && d_pzbuffer && vid.width > 0 && vid.height > 0 )
@@ -256,9 +259,11 @@ qboolean R_GcmapAllocMinimalScreen( void )
 		h = 120;
 		use_static_screen = ( w <= GC_GCMAP_STATIC_MAX_W && h <= GC_GCMAP_STATIC_MAX_H ) ? true : false;
 	}
-	else if( gEngfuncs.Sys_CheckParm( "-gcnewgame" ))
+	else if( gEngfuncs.Sys_CheckParm( "-gcnewgame" )
+		|| gEngfuncs.Sys_CheckParm( "-gcmenuplaystart" ))
 	{
-		/* G93: default 320×240; -gcnewgame160 restores the G36-safe fallback. */
+		/* G93: default 320×240; -gcnewgame160 restores the G36-safe fallback.
+		 * Menu New Game (-gcmenuplaystart) uses the same static screen path. */
 		if( gEngfuncs.Sys_CheckParm( "-gcnewgame160" ))
 		{
 			w = 160;
@@ -275,7 +280,10 @@ qboolean R_GcmapAllocMinimalScreen( void )
 		w = 160;
 	if( h < 120 )
 		h = 120;
-	else if( !gEngfuncs.Sys_CheckParm( "-gcworldrender" ) && !gEngfuncs.Sys_CheckParm( "-gcnewgame" ) && h < 128 )
+	else if( !gEngfuncs.Sys_CheckParm( "-gcworldrender" )
+		&& !gEngfuncs.Sys_CheckParm( "-gcnewgame" )
+		&& !gEngfuncs.Sys_CheckParm( "-gcmenuplaystart" )
+		&& h < 128 )
 		h = 128;
 
 	if( use_static_screen )
@@ -291,7 +299,9 @@ qboolean R_GcmapAllocMinimalScreen( void )
 	vid.rowbytes = w;
 	pixels = (size_t)w * (size_t)h;
 
-	if( gEngfuncs.Sys_CheckParm( "-gcworldrender" ) || gEngfuncs.Sys_CheckParm( "-gcnewgame" ))
+	if( gEngfuncs.Sys_CheckParm( "-gcworldrender" )
+		|| gEngfuncs.Sys_CheckParm( "-gcnewgame" )
+		|| gEngfuncs.Sys_CheckParm( "-gcmenuplaystart" ))
 	{
 		gpGlobals->width = w;
 		gpGlobals->height = h;

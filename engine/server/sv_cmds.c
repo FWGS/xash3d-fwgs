@@ -29,6 +29,8 @@ void GC_TrimVideoMemoryForMapLoad( void );
 void GC_RestoreVideoMemoryAfterMapLoad( void );
 void GC_ArmPostMapFrameBudgetSamples( void );
 qboolean CL_GameCubeEnsureClientReady( void );
+void Image_GCPurgeDecodeScratch( void );
+void FS_ClearFindMissCache( void );
 
 static void SV_GameCubePlayStart_f( void )
 {
@@ -61,6 +63,13 @@ static void SV_GameCubePlayStart_f( void )
 		Con_Reportf( "Xash3D GameCube: play start mark precache freeable ready %s\n", map );
 		/* Keep the deferred client bring-up on the lean renderer/HUD path. */
 		Cvar_Set( "gc_quality", "0" );
+		/* Menu: purge decode scratch before client pool alloc — Capture + menu
+		 * tiles leave MEM1 too fragmented for Client Static Pool (185800). */
+		if( Sys_CheckParm( "-gcmenuplaystart" ))
+		{
+			Image_GCPurgeDecodeScratch();
+			FS_ClearFindMissCache();
+		}
 		Con_Reportf( "Xash3D GameCube: play start ensure client begin %s\n", map );
 		if( !CL_GameCubeEnsureClientReady() )
 		{

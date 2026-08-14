@@ -2159,9 +2159,12 @@ void GAME_EXPORT R_RenderScene( void )
 		return;
 	}
 	/* Software / low-res probe fallback — not retail Flipper. */
-	if( gEngfuncs.Sys_CheckParm( "-gcmap" ) || gEngfuncs.Sys_CheckParm( "-gcnewgame" ))
+	if( gEngfuncs.Sys_CheckParm( "-gcmap" ) || gEngfuncs.Sys_CheckParm( "-gcnewgame" )
+		|| gEngfuncs.Sys_CheckParm( "-gcmenuplaystart" ))
 	{
-		if( gEngfuncs.Sys_CheckParm( "-gcnewgame" ) && GC_UseLowResWorldProbe() )
+		if( ( gEngfuncs.Sys_CheckParm( "-gcnewgame" )
+				|| gEngfuncs.Sys_CheckParm( "-gcmenuplaystart" ))
+			&& GC_UseLowResWorldProbe() )
 			R_DrawStudioEntitiesLowRes();
 
 		/* OSReport during the timed window inflates Host_Frame; keep sparse. */
@@ -2248,14 +2251,17 @@ void GAME_EXPORT R_RenderFrame( const ref_viewpass_t *rvp )
 #if XASH_GAMECUBE
 	/* Direct world probe path: skip viewmodel events / client draw hooks that
 	 * are not populated for -gcmap smoke or post-G36 New Game presents. */
-	if( gEngfuncs.Sys_CheckParm( "-gcmap" ) || gEngfuncs.Sys_CheckParm( "-gcnewgame" ))
+	if( gEngfuncs.Sys_CheckParm( "-gcmap" ) || gEngfuncs.Sys_CheckParm( "-gcnewgame" )
+		|| gEngfuncs.Sys_CheckParm( "-gcmenuplaystart" ))
 	{
 		if( r_norefresh->value )
 			return;
 		if( gpGlobals->height > vid.height || gpGlobals->width > vid.width )
 		{
 			/* G129: sync lean New Game screens instead of silently skipping draw. */
-			if( gEngfuncs.Sys_CheckParm( "-gcnewgame" ) && vid.width > 0 && vid.height > 0 )
+			if( ( gEngfuncs.Sys_CheckParm( "-gcnewgame" )
+					|| gEngfuncs.Sys_CheckParm( "-gcmenuplaystart" ))
+				&& vid.width > 0 && vid.height > 0 )
 			{
 				gpGlobals->width = vid.width;
 				gpGlobals->height = vid.height;
@@ -2265,7 +2271,8 @@ void GAME_EXPORT R_RenderFrame( const ref_viewpass_t *rvp )
 		}
 
 		/* Lean EmitBrush already cleared+filled the list; do not wipe it. */
-		if( !( gEngfuncs.Sys_CheckParm( "-gcnewgame" )
+		if( !( ( gEngfuncs.Sys_CheckParm( "-gcnewgame" )
+				|| gEngfuncs.Sys_CheckParm( "-gcmenuplaystart" ))
 			&& !gEngfuncs.Sys_CheckParm( "-gcfullphysics" )
 			&& GC_UseGxWorldDraw()
 			&& tr.draw_list && tr.draw_list->num_solid_entities > 0 ))

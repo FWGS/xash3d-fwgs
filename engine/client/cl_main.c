@@ -559,8 +559,11 @@ void CL_SignonReply( connprotocol_t proto )
 		CL_ServerCommand( true, proto == PROTO_GOLDSRC ? "sendents" : "begin" );
 #if XASH_GAMECUBE
 		/* -dev 2 enables Mem_PrintStats here; GC map routes can have transient
-		 * heap noise during connect — don't abort signon on a stats sweep. */
-		if( Sys_CheckParm( "-gcmap" ) || Sys_CheckParm( "-gcnewgame" ) || GC_MapLoadMemoryOpt() )
+		 * heap noise during connect — don't abort signon on a stats sweep.
+		 * Menu New Game (-gcmenuplaystart) hits the same hang (probe
+		 * 20260813-183149 stalled after ucmd->begin). */
+		if( Sys_CheckParm( "-gcmap" ) || Sys_CheckParm( "-gcnewgame" )
+			|| Sys_CheckParm( "-gcmenuplaystart" ) || GC_MapLoadMemoryOpt() )
 			break;
 #endif
 		if( host_developer.value >= DEV_EXTENDED )

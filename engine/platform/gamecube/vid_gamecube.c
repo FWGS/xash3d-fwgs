@@ -6217,10 +6217,14 @@ static void GC_PresentBuffer( void )
 	{
 		extern int R_GXEfbDumpHoldLeft( void );
 
-		/* G362: denser CapFaces dump hold — do not soft RGB565 over Flipper EFB. */
+		/* G362: denser CapFaces dump hold — do not soft RGB565 over Flipper EFB.
+		 * Exception: G36 budget light presents must still blit — otherwise
+		 * DumpFrames hold makes PresentBuffer a no-op and samples stay 0
+		 * (menu New Game probe 20260813-184804). */
 		if( !gc_gx_world_efb_ready && R_GXEfbDumpHoldLeft() > 0
 			&& GC_IsCaptureDiagnostics()
-			&& ( Sys_CheckParm( "-gcdumpframes" ) || Sys_CheckParm( "-gcdump" )))
+			&& ( Sys_CheckParm( "-gcdumpframes" ) || Sys_CheckParm( "-gcdump" ))
+			&& !gc_budget_probe_active )
 		{
 			static int g362_soft_skip_logged;
 
@@ -6342,7 +6346,8 @@ static void GC_PresentBuffer( void )
 			static qboolean g297_cpu_logged;
 			double cpu_ms;
 			const qboolean budget_no_vsync = gc_budget_probe_active
-				&& Sys_CheckParm( "-gcnewgame" );
+				&& ( Sys_CheckParm( "-gcnewgame" )
+					|| Sys_CheckParm( "-gcmenuplaystart" ));
 
 			cpu_ms = gc_last_present_time > 0.0 ? ( Sys_FloatTime() - gc_last_present_time ) * 1000.0 : 0.0;
 			VIDEO_SetNextFramebuffer( xfb[which_fb] );
@@ -6384,7 +6389,8 @@ static void GC_PresentBuffer( void )
 				unsigned int i;
 
 				gc_budget_probe_active = false;
-				if( Sys_CheckParm( "-gcnewgame" ))
+				if( Sys_CheckParm( "-gcnewgame" )
+					|| Sys_CheckParm( "-gcmenuplaystart" ))
 					gc_newgame_g36_done = true;
 				for( i = 0; i < gc_budget_sample_count; i++ )
 				{
@@ -6614,7 +6620,8 @@ static void GC_PresentBuffer( void )
 			gc_budget_sample_ms[gc_budget_sample_count] = (float)elapsed_ms;
 			gc_budget_sample_nonblack[gc_budget_sample_count] = sampled_nonblack ? 1 : 0;
 			gc_budget_sample_count++;
-			if( Sys_CheckParm( "-gcnewgame" ))
+			if( Sys_CheckParm( "-gcnewgame" )
+				|| Sys_CheckParm( "-gcmenuplaystart" ))
 			{
 				SYS_Report( "Xash3D GameCube: present frame=%u sampled_nonblack=%u frame time=%.2fms\n",
 					gc_budget_sample_count, sampled_nonblack ? 1u : 0u, elapsed_ms );
@@ -6625,7 +6632,8 @@ static void GC_PresentBuffer( void )
 				unsigned int i;
 
 				gc_budget_probe_active = false;
-				if( Sys_CheckParm( "-gcnewgame" ))
+				if( Sys_CheckParm( "-gcnewgame" )
+					|| Sys_CheckParm( "-gcmenuplaystart" ))
 					gc_newgame_g36_done = true;
 				/* Emit after the timed window so analyzer still sees frame time=. */
 				for( i = 0; i < gc_budget_sample_count; i++ )
@@ -10036,6 +10044,34 @@ void GC_BakeDeferredNewGameCapFaces( void )
 		Con_Reportf( "Xash3D GameCube: G369 post-spawn CapFaces skipped (no surfbits)\n" );
 }
 
+void GC_BakeMenuNewGameCapFacesNoPVS( void )
+{
+#if XASH_GAMECUBE
+	model_t *wmodel;
+
+	if( !Sys_CheckParm( "-gcmenuplaystart" ))
+		return;
+	if( gc_newgame_cap_face_count > 0 )
+		return;
+
+	wmodel = sv.models[1];
+	if( !wmodel || !wmodel->surfaces || wmodel->numsurfaces <= 0 )
+	{
+		Con_Reportf( "Xash3D GameCube: menu CapFaces NoPVS skipped (no surfaces)\n" );
+		return;
+	}
+
+	Image_GCPurgeDecodeScratch();
+	Con_Reportf( "Xash3D GameCube: menu CapFaces NoPVS bake begin surfs=%d\n",
+		wmodel->numsurfaces );
+	GC_CaptureDrawFacesNoPVS( wmodel );
+	Con_Reportf( "Xash3D GameCube: menu CapFaces NoPVS bake done n=%d\n",
+		gc_newgame_cap_face_count );
+#else
+	;
+#endif
+}
+
 static void GC_FreeNewGamePVSCache( void )
 {
 	/* G213: do not free lean live-face pool here — lean PVS retries call this
@@ -10510,8 +10546,11 @@ void GC_CaptureNewGamePVSFromModel( model_t *wmodel )
 		gc_newgame_nleafboxes = wmodel->numleafs > 1 ? wmodel->numleafs - 1 : 0;
 
 		/* Prefer lean FatPVS on GameCube — full multi-row calloc for ~900
-		 * clusters OOMs / fragments MEM1 before face bake can run. */
-		if( !Sys_CheckParm( "-gcleanpvs" ) && !Sys_CheckParm( "-gcnewgame" ))
+		 * clusters OOMs / fragments MEM1 before face bake can run.
+		 * Menu New Game (-gcmenuplaystart) must lean-first too — full calloc
+		 * failed then lean LRU miss (probe 20260813-184804). */
+		if( !Sys_CheckParm( "-gcleanpvs" ) && !Sys_CheckParm( "-gcnewgame" )
+			&& !Sys_CheckParm( "-gcmenuplaystart" ))
 		{
 			gc_newgame_pvs_table = (byte *)calloc( (size_t)numclusters, visbytes );
 			gc_newgame_node_table = (byte *)calloc( (size_t)numclusters, nodebytes );
@@ -10534,7 +10573,9 @@ void GC_CaptureNewGamePVSFromModel( model_t *wmodel )
 			int lean_cluster = gc_newgame_viewcluster;
 			int lean_slots = 0;
 			int slot;
-			qboolean lean_first = ( Sys_CheckParm( "-gcleanpvs" ) || Sys_CheckParm( "-gcnewgame" ));
+			qboolean lean_first = ( Sys_CheckParm( "-gcleanpvs" )
+				|| Sys_CheckParm( "-gcnewgame" )
+				|| Sys_CheckParm( "-gcmenuplaystart" ));
 
 			/* G96/G101/G369: compact lean cache while BSP leafs are valid. */
 			if( !lean_first )
@@ -11886,8 +11927,13 @@ qboolean GC_PrepareNewGameWorldPresent( void )
 	/* Pure Flipper: prepare on every map load (menu New Game + changelevel),
 	 * not only the `-gcnewgame` probe route. */
 
-	/* Prefer Arm-time capture; retry here if map-ready ran before entities. */
-	GC_CaptureNewGamePVS();
+	/* Prefer Arm-time capture; retry here if map-ready ran before entities.
+	 * Menu: skip late Capture if bmodel-load miss — PointInLeaf hangs after
+	 * playstart discard (20260813-184132). */
+	if( !( Sys_CheckParm( "-gcmenuplaystart" ) && !GC_HasNewGameCachedVis() ))
+		GC_CaptureNewGamePVS();
+	else
+		Con_Reportf( "Xash3D GameCube: Prepare skip late CaptureNewGamePVS (menu)\n" );
 	/* G165: camera/restore cluster while marksurfaces + planes still valid. */
 	GC_CaptureG165RestoreCands();
 
@@ -11939,48 +11985,58 @@ qboolean GC_PrepareNewGameWorldPresent( void )
 	gc_budget_probe_active = false;
 	gc_newgame_world_ready = true;
 	gc_lean_sky_attempts = 0;
-	gc_newgame_g36_done = true;
-	/* Pure Flipper sets g36_done before ArmPostMapFrameBudgetSamples can run,
-	 * so the light-fill G36 window never opens. Arm Flipper-present samples
-	 * here for every -gcnewgame map (tram + reactor); otherwise harness stays
-	 * at samples=0 / MAP_LOADED_RENDER_UNKNOWN (c3a2 20260809-010537). */
-	if( Sys_CheckParm( "-gcnewgame" )
-		&& !Sys_CheckParm( "-gcfullphysics" )
-		&& !Sys_CheckParm( "-gcsoftworld" ))
+	/* Menu New Game often completes light-fill G36 before Prepare. Do not
+	 * re-arm here — that resets the harness sample window to samples=0
+	 * (probe 20260813-185532). Pure Flipper -gcnewgame still arms below
+	 * when light G36 never opened. */
 	{
-		qboolean arm_g36 = true;
-		char dest[MAX_QPATH];
-		char dest2[MAX_QPATH];
+		const qboolean already_g36 = gc_newgame_g36_done;
 
-		/* G374: with an explicit changelevel hop, only sample the final dest.
-		 * Source-map CapFaces spikes (c1a0a ≈92ms) were poisoning harness avg
-		 * alongside denser dest samples. */
-		if( Sys_CheckParm( "-gcchangelevel2" )
-			&& Sys_GetParmFromCmdLine( "-gcchangelevel2", dest2 )
-			&& dest2[0] )
-			arm_g36 = !Q_stricmp( sv.name, dest2 );
-		else if( Sys_CheckParm( "-gcchangelevel" )
-			&& Sys_GetParmFromCmdLine( "-gcchangelevel", dest )
-			&& dest[0] )
-			arm_g36 = !Q_stricmp( sv.name, dest );
-
-		if( arm_g36 )
+		gc_newgame_g36_done = true;
+		/* Pure Flipper sets g36_done before ArmPostMapFrameBudgetSamples can run,
+		 * so the light-fill G36 window never opens. Arm Flipper-present samples
+		 * here for every -gcnewgame map (tram + reactor); otherwise harness stays
+		 * at samples=0 / MAP_LOADED_RENDER_UNKNOWN (c3a2 20260809-010537). */
+		if( !already_g36
+			&& ( Sys_CheckParm( "-gcnewgame" ) || Sys_CheckParm( "-gcmenuplaystart" ))
+			&& !Sys_CheckParm( "-gcfullphysics" )
+			&& !Sys_CheckParm( "-gcsoftworld" ))
 		{
-			gc_budget_sample_count = 0;
-			/* Drop first presents (studio promote / restream spike). c0a0 sample[2]
-			 * was ~40ms after face-cap (20260809-124711); steady ~12.7ms.
-			 * G374 denser tip-safe: CapFaces settle needs ~4 presents. */
-			gc_budget_warmup_left = ( sv.name[0] && !Q_stricmp( sv.name, "c1a0d" )) ? 4 : 2;
-			gc_worst_frame_ms = 0.0;
-			gc_last_present_time = 0.0;
-			gc_budget_probe_active = true;
-			SYS_Report( "Xash3D GameCube: frame budget samples armed after map ready (%dx%d probe=1)\n",
-				gc.width > 0 ? gc.width : 320, gc.height > 0 ? gc.height : 240 );
+			qboolean arm_g36 = true;
+			char dest[MAX_QPATH];
+			char dest2[MAX_QPATH];
+
+			/* G374: with an explicit changelevel hop, only sample the final dest.
+			 * Source-map CapFaces spikes (c1a0a ≈92ms) were poisoning harness avg
+			 * alongside denser dest samples. */
+			if( Sys_CheckParm( "-gcchangelevel2" )
+				&& Sys_GetParmFromCmdLine( "-gcchangelevel2", dest2 )
+				&& dest2[0] )
+				arm_g36 = !Q_stricmp( sv.name, dest2 );
+			else if( Sys_CheckParm( "-gcchangelevel" )
+				&& Sys_GetParmFromCmdLine( "-gcchangelevel", dest )
+				&& dest[0] )
+				arm_g36 = !Q_stricmp( sv.name, dest );
+
+			if( arm_g36 )
+			{
+				gc_budget_sample_count = 0;
+				/* Drop first presents (studio promote / restream spike). c0a0 sample[2]
+				 * was ~40ms after face-cap (20260809-124711); steady ~12.7ms.
+				 * G374 denser tip-safe: CapFaces settle needs ~4 presents. */
+				gc_budget_warmup_left = ( sv.name[0] && !Q_stricmp( sv.name, "c1a0d" )) ? 4 : 2;
+				gc_worst_frame_ms = 0.0;
+				gc_last_present_time = 0.0;
+				gc_budget_probe_active = true;
+				SYS_Report( "Xash3D GameCube: frame budget samples armed after map ready (%dx%d probe=1)\n",
+					gc.width > 0 ? gc.width : 320, gc.height > 0 ? gc.height : 240 );
+			}
 		}
 	}
 	/* G509: changelevel without -gcnewgame still needs the same arm before
 	 * the present pump (trailing Host_ServerFrame can hang on audiomm). */
-	else if( Sys_CheckParm( "-gcchangelevel" ))
+	if( Sys_CheckParm( "-gcchangelevel" )
+		&& !gc_budget_probe_active )
 	{
 		static qboolean gc_cl_budget_armed;
 		char dest[MAX_QPATH];
@@ -12017,8 +12073,26 @@ qboolean GC_PrepareNewGameWorldPresent( void )
 	 * the first world frames never soft-raster. Soft DumpFrames latch (if
 	 * any) temporarily clears this via presents_left. */
 	GC_EnableGxWorldLive();
+	/* Menu CapFaces bake at entity-spawn (before discard). Prepare-time bake
+	 * is a no-op once surfaces are gone — keep only if spawn bake missed. */
+	if( Sys_CheckParm( "-gcmenuplaystart" ) && !GC_HasNewGameCachedVis()
+		&& gc_newgame_cap_face_count <= 0 )
+	{
+		model_t *wm = sv.models[1];
+
+		if( wm && wm->surfaces )
+		{
+			Image_GCPurgeDecodeScratch();
+			Con_Reportf( "Xash3D GameCube: menu CapFaces NoPVS prepare-fallback begin surfs=%d\n",
+				wm->numsurfaces );
+			GC_CaptureDrawFacesNoPVS( wm );
+			Con_Reportf( "Xash3D GameCube: menu CapFaces NoPVS prepare-fallback done n=%d\n",
+				gc_newgame_cap_face_count );
+		}
+	}
 	/* G199: Flipper wall-aim is Dolphin DumpFrames diagnostic only. */
-	if( GC_IsCaptureDiagnostics() && Sys_CheckParm( "-gcnewgame" ))
+	if( GC_IsCaptureDiagnostics()
+		&& ( Sys_CheckParm( "-gcnewgame" ) || Sys_CheckParm( "-gcmenuplaystart" )))
 	{
 		gc_g196_flipper_dump_aim_left = 64;
 		gc_dump_look_into_map = true;
@@ -13180,9 +13254,17 @@ void GC_ArmPostMapFrameBudgetSamples( void )
 	GC_ResetNewGameGameplaySoundState();
 
 	/* G83: capture PointInLeaf/FatPVS before G36 light presents reuse BSP scratch.
-	 * Retail Flipper needs this too — not only -gcnewgame probes. */
+	 * Retail Flipper needs this too — not only -gcnewgame probes.
+	 * Menu New Game: never run late Capture after playstart discard — PointInLeaf
+	 * hangs (20260813-180651 / 184132). Prefer bmodel-load capture; if missing,
+	 * skip rather than block Arm. */
 	if( !Sys_CheckParm( "-gcsoftworld" ))
-		GC_CaptureNewGamePVS();
+	{
+		if( Sys_CheckParm( "-gcmenuplaystart" ) && !GC_HasNewGameCachedVis() )
+			Con_Reportf( "Xash3D GameCube: Arm skip late CaptureNewGamePVS (menu)\n" );
+		else
+			GC_CaptureNewGamePVS();
+	}
 
 	/* Match smoke-probe present cost: half-res buffer, skip VSync, cheap samples. */
 	gc_present_count = 0;

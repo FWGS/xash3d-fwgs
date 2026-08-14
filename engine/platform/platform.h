@@ -222,6 +222,8 @@ void GC_CaptureNewGamePVSFromModel( model_t *wmodel );
 /* G369: free Capture-time FatPVS extras before CSoundEnt; bake CapFaces after spawn. */
 void GC_ReclaimFatPVSBeforeEntitySpawn( void );
 void GC_BakeDeferredNewGameCapFaces( void );
+/* Menu New Game: bake Flipper caps before playstart discards BSP surfaces. */
+void GC_BakeMenuNewGameCapFacesNoPVS( void );
 qboolean GC_UpdateNewGamePVSForOrigin( const float *org ); /* G89: select cluster row by AABB */
 /* G90: one world GL_RenderFrame without R_Begin/EndFrame (V_Pre/Post own the frame). */
 qboolean GC_RenderNewGameWorldPassNoFrame( qboolean draw_viewmodel );
