@@ -5916,11 +5916,12 @@ void SV_SpawnEntities( const char *mapname )
 		SV_GCPlaceNewGameTrackTrains();
 		GC_BakeDeferredNewGameCapFaces();
 	}
-	/* Menu: bake Flipper caps while BSP surfaces are still valid — playstart
-	 * discard runs next and leaves Prepare-time NoPVS bake at n=0
-	 * (probe 20260813-191240). */
+	/* Menu: place *12 then bake CapFaces + tram cabin while BSP edges live. */
 	if( Sys_CheckParm( "-gcmenuplaystart" ))
+	{
+		SV_GCPlaceNewGameTrackTrains();
 		GC_BakeMenuNewGameCapFacesNoPVS();
+	}
 	if( Sys_CheckParm( "-gcmap" ))
 		GC_MemSample( "entity spawn" );
 #endif

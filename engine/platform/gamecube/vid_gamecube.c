@@ -301,6 +301,9 @@ static qboolean gc_live_faces_bss_active;
 #define GC_FILL_MAX_FACES 160 /* G256: was 128 — more MEM1 fill for TR residual */
 #define GC_ARAM_FILL_MAX 128
 #define GC_ARAM_FACE_STRIDE 64 /* sizeof(gc_fill_face_t); DMA multiple of 32 */
+/* Menu CapFaces: BSS fill so edges stay live at bake AND heap AllocPool
+ * is not tipped (probe 20260814-003620). */
+#define GC_MENU_FILL_BSS 64 /* was 40 — more floor plugs beside tram rails */
 typedef struct
 {
 	byte		nverts;
@@ -316,6 +319,9 @@ static int *gc_fill_face_scores;
 static int gc_fill_face_capacity;
 static int gc_fill_face_count;
 static qboolean gc_g222_fill_logged;
+static gc_fill_face_t gc_menu_fill_bss[GC_MENU_FILL_BSS];
+static int gc_menu_fill_scores_bss[GC_MENU_FILL_BSS];
+static qboolean gc_menu_fill_bss_active;
 /*
  * G306–G310: *12 intro tram — bake ranked brush faces at capture.
  * G310: live BSS 64→48 unlocked lean×192 + live=124.
@@ -340,6 +346,7 @@ static qboolean gc_tram_lm_ready;
 static int gc_tram_diffuse_texnum;
 static qboolean gc_tram_lm_logged;
 static qboolean gc_tram_cabin_ride; /* G306: skip exterior while eye is in cabin */
+static vec3_t gc_tram_model_origin; /* *12 submodel origin at bake */
 /* G286: tip-safe Flipper water — baked turb verts (no live-pool tip / no draw walk hang). */
 #define GC_WATER_MAX_FACES 8
 typedef struct
@@ -872,6 +879,7 @@ void GC_CaptureIntroTrainFaces( model_t *wmodel )
 	if( tram->firstmodelsurface < 0
 		|| tram->firstmodelsurface + tram->nummodelsurfaces > wmodel->numsurfaces )
 		return;
+	VectorCopy( tram->origin, gc_tram_model_origin );
 
 	/* Pass 1: cabin / body (not strict forward windshield). */
 	for( i = 0; i < tram->nummodelsurfaces; i++ )
@@ -1189,6 +1197,13 @@ int GC_GetTramFaceFlags( int index )
 qboolean GC_TramCabinRide( void )
 {
 	return gc_tram_cabin_ride;
+}
+
+void GC_GetTramModelOrigin( float out[3] )
+{
+	if( !out )
+		return;
+	VectorCopy( gc_tram_model_origin, out );
 }
 
 int GC_GetWaterFaceCount( void )
@@ -2984,15 +2999,24 @@ static void GC_FreeLiveFaces( void )
 	gc_live_face_capacity = 0;
 	gc_live_face_count = 0;
 	gc_g213_live_logged = false;
-	if( gc_fill_faces )
+	if( gc_menu_fill_bss_active )
 	{
-		free( gc_fill_faces );
 		gc_fill_faces = NULL;
-	}
-	if( gc_fill_face_scores )
-	{
-		free( gc_fill_face_scores );
 		gc_fill_face_scores = NULL;
+		gc_menu_fill_bss_active = false;
+	}
+	else
+	{
+		if( gc_fill_faces )
+		{
+			free( gc_fill_faces );
+			gc_fill_faces = NULL;
+		}
+		if( gc_fill_face_scores )
+		{
+			free( gc_fill_face_scores );
+			gc_fill_face_scores = NULL;
+		}
 	}
 	gc_fill_face_capacity = 0;
 	gc_fill_face_count = 0;
@@ -3773,6 +3797,20 @@ static qboolean GC_AllocFillFacePool( int want )
 
 	if( gc_fill_faces && gc_fill_face_capacity > 0 )
 		return true;
+	/* Menu: BSS — no heap tip before Client Static Pool. */
+	if( Sys_CheckParm( "-gcmenuplaystart" ))
+	{
+		gc_fill_faces = gc_menu_fill_bss;
+		gc_fill_face_scores = gc_menu_fill_scores_bss;
+		gc_fill_face_capacity = GC_MENU_FILL_BSS;
+		gc_fill_face_count = 0;
+		gc_menu_fill_bss_active = true;
+		memset( gc_menu_fill_bss, 0, sizeof( gc_menu_fill_bss ));
+		memset( gc_menu_fill_scores_bss, 0, sizeof( gc_menu_fill_scores_bss ));
+		GC_FlipperTrace( "Xash3D GameCube: G222 menu fill BSS max=%d\n",
+			GC_MENU_FILL_BSS );
+		return true;
+	}
 	if( max_faces > GC_FILL_MAX_FACES )
 		max_faces = GC_FILL_MAX_FACES;
 	while( max_faces >= 32 )
@@ -3842,7 +3880,7 @@ static void GC_CaptureFillFacesFromSurfbits( model_t *wmodel, const byte *surfbi
 		int want = GC_FILL_MAX_FACES;
 
 		if( Sys_CheckParm( "-gcmenuplaystart" ))
-			want = 32; /* tippy at 48 (probe 20260814-003244); scores freed after bake */
+			want = GC_MENU_FILL_BSS; /* BSS pool — no heap tip */
 		else if( Mod_GCWorldSurfacesScratchRetained( wmodel )
 			&& sv.name[0] && !Q_strnicmp( sv.name, "c0a0", 4 ))
 			want = 64;
@@ -3885,10 +3923,25 @@ static void GC_CaptureFillFacesFromSurfbits( model_t *wmodel, const byte *surfbi
 			|| src->firstedge + src->numedges > wmodel->numsurfedges )
 			continue;
 		area = (int)src->extents[0] * (int)src->extents[1];
-		if( area < 256 ) /* G250: was 512 — admit smaller fill plugs for pipe/nook holes */
+		/* Menu: fill is floor/ramp plugs only — CapFaces already owns walls.
+		 * Wall-heavy fill left rail-side clear gaps (probe 20260814-004428). */
+		if( Sys_CheckParm( "-gcmenuplaystart" ))
+		{
+			if( fabs( src->plane->normal[2] ) < 0.50f )
+				continue;
+			if( area < 64 )
+				continue;
+		}
+		else if( area < 256 ) /* G250: was 512 — smaller plugs for pipe/nook holes */
 			continue;
 		if( GC_CapFaceAlready( src->firstedge, src->numedges ))
-			continue;
+		{
+			/* Menu: still allow floor fill plugs for CapFaces floors that
+			 * leave rail-side holes (flat fill under/beside track). */
+			if( !( Sys_CheckParm( "-gcmenuplaystart" )
+				&& fabs( src->plane->normal[2] ) >= 0.50f ))
+				continue;
+		}
 		if( GC_LiveFaceEmitsGeom( src->firstedge, src->numedges ))
 			continue;
 		if( GC_FillFaceAlready( src->firstedge, src->numedges ))
@@ -3909,8 +3962,17 @@ static void GC_CaptureFillFacesFromSurfbits( model_t *wmodel, const byte *surfbi
 
 		memset( &trial, 0, sizeof( trial ));
 		n = GC_BakeCapVertsForSurf( wmodel, src, trial.pts_s16, GC_CAP_MAX_VERTS, &bake_src );
-		if( n < 3 || ( bake_src != GC_CAP_BAKE_EDGE && bake_src != GC_CAP_BAKE_TEX ))
+		if( n < 3 )
 			continue;
+		/* Retail fill: EDGE/TEX only. Menu floors may need PLANE when edges
+		 * fail — still better than rail-side clear gaps. */
+		if( bake_src != GC_CAP_BAKE_EDGE && bake_src != GC_CAP_BAKE_TEX )
+		{
+			if( !( Sys_CheckParm( "-gcmenuplaystart" )
+				&& bake_src == GC_CAP_BAKE_PLANE
+				&& fabs( src->plane->normal[2] ) >= 0.50f ))
+				continue;
+		}
 		trial.nverts = (byte)n;
 		trial.flags = (byte)( src->flags & SURF_PLANEBACK );
 		trial.plane = *src->plane;
@@ -9344,20 +9406,45 @@ int GC_GXDrawIntroTrain( void )
 {
 #if XASH_GAMECUBE
 	extern int R_GXDrawTramBaked( const float *origin, const float *angles );
+	extern void SV_GCPlaceNewGameTrackTrains( void );
 	static int tram_e;
 	edict_t *ent;
 
-	if( !Sys_CheckParm( "-gcnewgame" ) || !gc_newgame_world_ready )
+	if( !Sys_CheckParm( "-gcnewgame" ) && !Sys_CheckParm( "-gcmenuplaystart" ))
+		return 0;
+	/* -gcnewgame waits for prepare world_ready; menu draws when CapFaces live. */
+	if( Sys_CheckParm( "-gcnewgame" ) && !gc_newgame_world_ready )
+		return 0;
+	if( Sys_CheckParm( "-gcmenuplaystart" ) && GC_GetNewGameCapFaceCount() <= 0 )
 		return 0;
 	if( GC_GetTramFaceCount() <= 0 )
 		return 0;
-	if( tram_e <= 0 )
+	/* Menu: Place may have run too early (train=0); retry until *12 snaps. */
+	if( Sys_CheckParm( "-gcmenuplaystart" ))
+		SV_GCPlaceNewGameTrackTrains();
+	/* Prefer the *12 nearest the player / dump eye (c0a0 has multiple trains). */
 	{
 		int e, first = svs.maxclients + 1;
+		edict_t *player = ( svs.maxclients >= 1 ) ? SV_EdictNum( 1 ) : NULL;
+		vec3_t eye;
+		float best_d2 = 1.0e30f;
+		int best_e = 0;
 
+		if( player && SV_IsValidEdict( player ))
+			VectorCopy( player->v.origin, eye );
+		else if( !VectorIsNull( gc_newgame_capture_origin ))
+			VectorCopy( gc_newgame_capture_origin, eye );
+		else
+		{
+			eye[0] = 2864.0f;
+			eye[1] = 2804.0f;
+			eye[2] = 542.0f;
+		}
 		for( e = first; e < svgame.numEntities; e++ )
 		{
 			const char *precache;
+			vec3_t delta;
+			float d2;
 
 			ent = SV_EdictNum( e );
 			if( !SV_IsValidEdict( ent ))
@@ -9367,9 +9454,15 @@ int GC_GXDrawIntroTrain( void )
 			precache = sv.model_precache[ent->v.modelindex];
 			if( !precache || Q_strcmp( precache, "*12" ))
 				continue;
-			tram_e = e;
-			break;
+			VectorSubtract( ent->v.origin, eye, delta );
+			d2 = DotProduct( delta, delta );
+			if( d2 < best_d2 )
+			{
+				best_d2 = d2;
+				best_e = e;
+			}
 		}
+		tram_e = best_e;
 		if( tram_e <= 0 )
 			return 0;
 	}
@@ -10696,8 +10789,14 @@ void GC_BakeMenuNewGameCapFacesNoPVS( void )
 		GC_AdmitMenuTramFloors( wmodel, bits );
 		GC_AdmitMenuTramEndPlug();
 		GC_CaptureFillFacesFromSurfbits( wmodel, bits, false );
-		Con_Reportf( "Xash3D GameCube: menu CapFaces fill n=%d\n",
+		Con_Reportf( "Xash3D GameCube: menu CapFaces fill n=%d (BSS)\n",
 			GC_GetFillFaceCount() );
+		/* G277: bake *12 cabin while edges/msurface still valid (menu skipped
+		 * CaptureIntroTrain at bmodel load to protect Client Static Pool). */
+		GC_CaptureIntroTrainFaces( wmodel );
+		GC_BakeTramLightmaps( wmodel );
+		Con_Reportf( "Xash3D GameCube: menu tram faces n=%d lm=%d\n",
+			GC_GetTramFaceCount(), GC_TramLightmapReady() ? 1 : 0 );
 	}
 	if( bits )
 		free( bits );
@@ -10710,25 +10809,6 @@ void GC_BakeMenuNewGameCapFacesNoPVS( void )
 		GC_CaptureDrawFacesNoPVS( wmodel );
 	}
 	GC_RerankCapFacesNearDumpEye();
-	/* Fill ranking scores are only needed during bake — free before deferred
-	 * client AllocPool (probe 20260814-001455 tipped at 96 bytes). */
-	if( gc_fill_face_scores )
-	{
-		free( gc_fill_face_scores );
-		gc_fill_face_scores = NULL;
-	}
-	/* Menu: also drop fill face heap before Client Static Pool — 32–48 faces
-	 * still race AllocPool under fragmentation (probe 20260814-003244). */
-	if( Sys_CheckParm( "-gcmenuplaystart" ) && gc_fill_faces )
-	{
-		Con_Reportf( "Xash3D GameCube: menu CapFaces fill dropped n=%d (AllocPool headroom)\n",
-			gc_fill_face_count );
-		free( gc_fill_faces );
-		gc_fill_faces = NULL;
-		gc_fill_face_capacity = 0;
-		gc_fill_face_count = 0;
-		gc_aram_fill_count = 0;
-	}
 	Image_GCPurgeDecodeScratch();
 	{
 		int i, edge = 0, plane = 0, tex = 0;

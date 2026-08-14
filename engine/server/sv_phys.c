@@ -1955,7 +1955,7 @@ void SV_GCPlaceNewGameTrackTrains( void )
 	int e, found = 0;
 	int first_world;
 
-	if( !Sys_CheckParm( "-gcnewgame" ))
+	if( !Sys_CheckParm( "-gcnewgame" ) && !Sys_CheckParm( "-gcmenuplaystart" ))
 		return;
 	/* G345: re-place after changelevel — static done previously stuck across
 	 * maps so dest trains never snapped (c0a0b→c0a0c hung on stale G278). */
@@ -1963,33 +1963,72 @@ void SV_GCPlaceNewGameTrackTrains( void )
 		done = false;
 	if( done )
 		return;
-	done = true;
-	Q_strncpy( done_map, sv.name, sizeof( done_map ));
 	first_world = svs.maxclients + 1;
 	for( e = first_world; e < svgame.numEntities; e++ )
 	{
 		edict_t *ent = SV_EdictNum( e );
 		edict_t *path = NULL;
 		const char *targ;
+		const char *precache;
 		int pe;
+		qboolean is_tram;
 
-		if( !SV_GCIsIntroTrackTrain( ent ))
+		is_tram = SV_GCIsIntroTrackTrain( ent );
+		/* Menu: classname/movetype may lag at entity-lump end — also match *12. */
+		if( !is_tram && Sys_CheckParm( "-gcmenuplaystart" )
+			&& ent && SV_IsValidEdict( ent )
+			&& ent->v.modelindex > 0 && ent->v.modelindex < MAX_MODELS )
+		{
+			precache = sv.model_precache[ent->v.modelindex];
+			if( precache && !Q_strcmp( precache, "*12" ))
+				is_tram = true;
+		}
+		if( !is_tram )
 			continue;
 		targ = SV_GetString( ent->v.target );
-		if( !targ || !targ[0] )
-			continue;
-		for( pe = first_world; pe < svgame.numEntities; pe++ )
+		if( targ && targ[0] )
 		{
-			edict_t *cand = SV_EdictNum( pe );
+			for( pe = first_world; pe < svgame.numEntities; pe++ )
+			{
+				edict_t *cand = SV_EdictNum( pe );
 
-			if( !SV_IsValidEdict( cand ))
-				continue;
-			if( Q_stricmp( SV_ClassName( cand ), "path_track" ))
-				continue;
-			if( Q_strcmp( SV_GetString( cand->v.targetname ), targ ))
-				continue;
-			path = cand;
-			break;
+				if( !SV_IsValidEdict( cand ))
+					continue;
+				if( Q_stricmp( SV_ClassName( cand ), "path_track" ))
+					continue;
+				if( Q_strcmp( SV_GetString( cand->v.targetname ), targ ))
+					continue;
+				path = cand;
+				break;
+			}
+		}
+		/* Menu fallback: *12 with no path yet — park at capture/player eye. */
+		if( !path && Sys_CheckParm( "-gcmenuplaystart" ))
+		{
+			edict_t *player = ( svs.maxclients >= 1 ) ? SV_EdictNum( 1 ) : NULL;
+
+			if( player && SV_IsValidEdict( player ))
+			{
+				VectorCopy( player->v.origin, ent->v.origin );
+				ent->v.origin[2] -= 20.0f;
+			}
+			else
+			{
+				ent->v.origin[0] = 2864.0f;
+				ent->v.origin[1] = 2804.0f;
+				ent->v.origin[2] = 500.0f;
+			}
+			ent->v.angles[YAW] = 180.0f;
+			ent->v.angles[PITCH] = 0.0f;
+			ent->v.angles[ROLL] = 0.0f;
+			ent->v.speed = 0.0f;
+			ent->v.nextthink = 0.0f;
+			VectorClear( ent->v.velocity );
+			VectorClear( ent->v.avelocity );
+			VectorAdd( ent->v.origin, ent->v.mins, ent->v.absmin );
+			VectorAdd( ent->v.origin, ent->v.maxs, ent->v.absmax );
+			found++;
+			continue;
 		}
 		if( !path )
 			continue;
@@ -2005,6 +2044,13 @@ void SV_GCPlaceNewGameTrackTrains( void )
 		VectorAdd( ent->v.origin, ent->v.mins, ent->v.absmin );
 		VectorAdd( ent->v.origin, ent->v.maxs, ent->v.absmax );
 		found++;
+	}
+	/* Only latch done on success — menu called Place at lump-end with train=0
+	 * and permanently skipped later snaps (probe 20260814-005545). */
+	if( found > 0 )
+	{
+		done = true;
+		Q_strncpy( done_map, sv.name, sizeof( done_map ));
 	}
 	Con_Reportf( "Xash3D GameCube: G277 train=%d (G278 path-follow)\n", found );
 }

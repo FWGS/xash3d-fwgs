@@ -54,6 +54,8 @@ static void SV_GameCubePlayStart_f( void )
 		SV_SpawnEntities( map );
 		SV_ActivateServer( true );
 		Con_Reportf( "Xash3D GameCube: play start post-activate %s\n", map );
+		if( Sys_CheckParm( "-gcmenuplaystart" ))
+			SV_GCPlaceNewGameTrackTrains();
 		/* World is resident; free BSP staging and unused stubs before client. */
 		Con_Reportf( "Xash3D GameCube: play start discard map buffer begin %s\n", map );
 		GC_DiscardMapLoadBuffer();

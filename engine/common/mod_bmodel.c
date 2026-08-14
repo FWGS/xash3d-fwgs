@@ -6786,9 +6786,8 @@ static qboolean Mod_LoadBmodelLumps( model_t *mod, byte *mod_base, size_t buffer
 #if XASH_GAMECUBE
 	Con_Reportf( "Xash3D GameCube: bmodel submodels ready\n" );
 	/* G277: bake *12 before lighting scratch-stomps msurface_t.
-	 * Menu New Game skips IntroTrain bake — menu assets already tip MEM1
-	 * (probe 20260813-185800 Client Static Pool OOM). PVS capture below
-	 * still runs so Arm on ca_active does not PointInLeaf-hang. */
+	 * Menu New Game skips IntroTrain here — CapFaces bake captures *12 after
+	 * spawn when Client Static Pool headroom exists (probe 20260813-185800). */
 	if( isworld && Sys_CheckParm( "-gcnewgame" ))
 		GC_CaptureIntroTrainFaces( mod );
 	Con_Reportf( "Xash3D GameCube: bmodel lighting begin\n" );

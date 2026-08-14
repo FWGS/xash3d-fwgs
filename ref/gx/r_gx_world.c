@@ -70,6 +70,7 @@ extern qboolean GC_FillFacePlane( int index, mplane_t *out, int *out_flags );
 extern int GC_GetTramFaceCount( void );
 extern int GC_GetTramFaceVerts( int index, float out[][3], int maxverts );
 extern int GC_GetTramFaceFlags( int index );
+extern void GC_GetTramModelOrigin( float out[3] );
 extern qboolean GC_TramCabinRide( void );
 #ifndef GC_TRAM_FACE_EXTERIOR
 #define GC_TRAM_FACE_EXTERIOR 0x01
@@ -3542,6 +3543,7 @@ int R_GXDrawTramBaked( const float *origin, const float *angles )
 	const unsigned short *tram_lm = NULL;
 	int lm_w = 0, lm_h = 0;
 	int texnum;
+	vec3_t model_org;
 	static GXTexObj tram_lm_obj;
 	static const float corner_uv[4][2] = {
 		{ 0.0f, 0.0f }, { 1.0f, 0.0f }, { 1.0f, 1.0f }, { 0.0f, 1.0f }
@@ -3553,6 +3555,9 @@ int R_GXDrawTramBaked( const float *origin, const float *angles )
 	n = GC_GetTramFaceCount();
 	if( n <= 0 )
 		return 0;
+
+	/* Brush verts are map-absolute at bake; place at entity origin relative to *12 origin. */
+	GC_GetTramModelOrigin( model_org );
 
 	R_GXBuildWorldModelview( view );
 	GX_LoadPosMtxImm( view, GX_PNMTX0 );
@@ -3591,11 +3596,12 @@ int R_GXDrawTramBaked( const float *origin, const float *angles )
 		nv = GC_GetTramFaceVerts( i, pts, 32 );
 		if( nv < 3 )
 			continue;
+		/* Map-absolute brush verts → entity frame (standard bmodel). */
 		for( v = 0; v < nv; v++ )
 		{
-			pts[v][0] = origin[0] - pts[v][0];
-			pts[v][1] = origin[1] - pts[v][1];
-			pts[v][2] = origin[2] + pts[v][2];
+			pts[v][0] = origin[0] + ( pts[v][0] - model_org[0] );
+			pts[v][1] = origin[1] + ( pts[v][1] - model_org[1] );
+			pts[v][2] = origin[2] + ( pts[v][2] - model_org[2] );
 		}
 
 		if( lit && nv == 4 && i < 192 ) /* G310: overflow faces are flat (no LM tile) */
