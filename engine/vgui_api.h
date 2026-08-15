@@ -15,7 +15,7 @@ GNU General Public License for more details.
 #ifndef VGUI_API_H
 #define VGUI_API_H
 
-#include "xash3d_types.h"
+#include <stddef.h>
 #include "key_modifiers.h"
 #include "cursor_type.h"
 
@@ -23,8 +23,8 @@ GNU General Public License for more details.
 
 typedef struct
 {
-	vec2_t	point;
-	vec2_t	coord;
+	float	point[2];
+	float	coord[2];
 } vpoint_t;
 
 // C-Style VGUI enums
@@ -161,7 +161,7 @@ enum VGUI_MouseAction
 
 typedef struct  vguiapi_s
 {
-	qboolean initialized;
+	int	initialized;
 	// called from vgui_support
 	void	(*DrawInit)( void );
 	void	(*DrawShutdown)( void );
@@ -169,18 +169,18 @@ typedef struct  vguiapi_s
 	void	(*SetupDrawingRect)( int *pColor );
 	void	(*SetupDrawingImage)( int *pColor );
 	void	(*BindTexture)( int id );
-	void	(*EnableTexture)( qboolean enable );
+	void	(*EnableTexture)( int enable );
 	void	(*Reserved0)( int id, int width, int height );
 	void	(*UploadTexture)( int id, const char *buffer, int width, int height );
-	void	(*Reserved1)( int id, int drawX, int drawY, const byte *rgba, int blockWidth, int blockHeight );
+	void	(*Reserved1)( int id, int drawX, int drawY, const unsigned char *rgba, int blockWidth, int blockHeight );
 	void	(*DrawQuad)( const vpoint_t *ul, const vpoint_t *lr );
 	void	(*GetTextureSizes)( int *width, int *height );
 	int		(*GenerateTexture)( void );
 	void	*(*EngineMalloc)( size_t size );
 	void	(*CursorSelect)( VGUI_DefaultCursor cursor );
-	byte		(*GetColor)( int i, int j );
-	qboolean	(*IsInGame)( void );
-	void	(*EnableTextInput)( qboolean enable, qboolean force );
+	unsigned char	(*GetColor)( int i, int j );
+	int		(*IsInGame)( void );
+	void	(*EnableTextInput)( int enable, int force );
 	void	(*GetCursorPos)( int *x, int *y );
 	int		(*ProcessUtfChar)( int ch );
 	int		(*GetClipboardText)( char *buffer, size_t bufferSize );
