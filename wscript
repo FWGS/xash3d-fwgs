@@ -72,10 +72,11 @@ class Subproject:
 		return True
 
 class RefDll:
-	def __init__(self, name, default, key = None):
+	def __init__(self, name, default, key = None, all_renderers = True):
 		self.name = name
 		self.default = default
 		self.dest = key if key else name.upper()
+		self.all_renderers = all_renderers
 
 	def register_option(self, opt):
 		kw = dict()
@@ -95,7 +96,7 @@ class RefDll:
 		opt.add_option(key, **kw)
 
 	def register_env(self, env, opts, force):
-		env[self.dest] = force or opts.__dict__[self.dest]
+		env[self.dest] = (force and self.all_renderers) or opts.__dict__[self.dest]
 
 	def register_define(self, conf):
 		conf.define_cond('XASH_REF_%s_ENABLED' % self.dest, conf.env[self.dest])
@@ -144,7 +145,7 @@ SUBDIRS = [
 ]
 
 REFDLLS = [
-	RefDll('soft', True),
+	RefDll('soft', False, all_renderers = False),
 	RefDll('gl', True),
 	RefDll('gles1', False, 'NANOGL'),
 	RefDll('gles2', False, 'GLWES'),
