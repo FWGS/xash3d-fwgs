@@ -727,7 +727,7 @@ static void R_BuildLightMap( const msurface_t *surf, byte *restrict dest, int st
 	const mextrasurf_t *info = surf->info;
 	const qboolean turb = FBitSet( surf->flags, SURF_DRAWTURB );
 	const qboolean linear_gamma = FBitSet( gp_host->features, ENGINE_LINEAR_GAMMA_SPACE );
-	const uint *restrict lightgammatable = tr.lightgammatable;
+	const uint16_t *restrict lightgammatable = tr.lightgammatable;
 
 	int lightscale;
 

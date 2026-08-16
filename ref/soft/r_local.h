@@ -250,9 +250,9 @@ typedef struct
 	lightstyle_t *lightstyles;
 	dlight_t     *elights;
 	byte         *texgammatable;
-	uint         *lightgammatable;
-	uint         *lineargammatable;
-	uint         *screengammatable;
+	uint16_t     *lightgammatable;
+	uint16_t     *lineargammatable;
+	uint16_t     *screengammatable;
 
 	uint         max_entities;
 } gl_globals_t;

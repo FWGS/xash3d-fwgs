@@ -23,9 +23,9 @@ GNU General Public License for more details.
 //-----------------------------------------------------------------------------
 static qboolean gamma_rebuilt;
 static byte	texgammatable[256];
-static uint	lightgammatable[1024];
-static uint	lineargammatable[1024];
-static uint	screengammatable[1024];
+static uint16_t lightgammatable[1024];
+static uint16_t lineargammatable[1024];
+static uint16_t screengammatable[1024];
 static CVAR_DEFINE( v_direct, "direct", "0.9", 0, "direct studio lighting" );
 static CVAR_DEFINE( v_texgamma, "texgamma", "2.0", 0, "texgamma amount" );
 static CVAR_DEFINE( v_lightgamma, "lightgamma", "2.5", 0, "lightgamma amount" );
