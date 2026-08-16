@@ -722,9 +722,13 @@ Combine and scale multiple lightmaps into the floating
 format in r_blocklights
 =================
 */
-static void R_BuildLightMap( const msurface_t *surf, byte *dest, int stride, qboolean dynamic )
+static void R_BuildLightMap( const msurface_t *surf, byte *restrict dest, int stride, qboolean dynamic )
 {
 	const mextrasurf_t *info = surf->info;
+	const qboolean turb = FBitSet( surf->flags, SURF_DRAWTURB );
+	const qboolean linear_gamma = FBitSet( gp_host->features, ENGINE_LINEAR_GAMMA_SPACE );
+	const uint *restrict lightgammatable = tr.lightgammatable;
+
 	int lightscale;
 
 	const int litwater_minlight = Mod_LightmappedWaterMinlight();
@@ -736,27 +740,50 @@ static void R_BuildLightMap( const msurface_t *surf, byte *dest, int stride, qbo
 
 	if( gl_overbright.value )
 		lightscale = ( R_HasEnabledVBO() && !r_vbo_overbrightmode.value) ? 171 : 256;
-	else lightscale = ( pow( 2.0f, 1.0f / v_lightgamma->value ) * 256 ) + 0.5;
+	else
+		lightscale = ( pow( 2.0f, 1.0f / v_lightgamma->value ) * 256 ) + 0.5;
 
-	memset( r_blocklights, 0, sizeof( uint ) * size * 3 );
+	int map;
+	qboolean init = false;
 
-	// add all the lightmaps
-	for( int map = 0; map < MAXLIGHTMAPS && surf->samples; map++ )
+	// init the lightmap
+	for( map = 0; map < MAXLIGHTMAPS && surf->samples; map++ )
 	{
-		const color24 *lm = &surf->samples[map * size];
-
 		if( surf->styles[map] >= 255 )
 			break;
 
 		uint scale = g_lightstylevalue[surf->styles[map]];
-
+		const color24 *lm = &surf->samples[map * size];
 		for( int i = 0; i < size; i++ )
 		{
-			r_blocklights[i * 3 + 0] += lm[i].r * scale;
-			r_blocklights[i * 3 + 1] += lm[i].g * scale;
-			r_blocklights[i * 3 + 2] += lm[i].b * scale;
+			r_blocklights[i * 3 + 0] = lm[i].r * scale;
+			r_blocklights[i * 3 + 1] = lm[i].g * scale;
+			r_blocklights[i * 3 + 2] = lm[i].b * scale;
+		}
+		init = true;
+		break;
+	}
+
+	if( init )
+	{
+		// add the remaining lightmaps
+		for( map++ ; map < MAXLIGHTMAPS; map++ )
+		{
+			if( surf->styles[map] >= 255 )
+				break;
+
+			uint scale = g_lightstylevalue[surf->styles[map]];
+			const color24 *lm = &surf->samples[map * size];
+			for( int i = 0; i < size; i++ )
+			{
+				r_blocklights[i * 3 + 0] += lm[i].r * scale;
+				r_blocklights[i * 3 + 1] += lm[i].g * scale;
+				r_blocklights[i * 3 + 2] += lm[i].b * scale;
+			}
 		}
 	}
+	else
+		memset( r_blocklights, 0, sizeof( uint ) * size * 3 );
 
 	// add all the dynamic lights
 	if( surf->dlightframe == tr.framecount && dynamic )
@@ -766,8 +793,8 @@ static void R_BuildLightMap( const msurface_t *surf, byte *dest, int stride, qbo
 	{
 		for( int s = 0; s < smax; s++ )
 		{
-			const uint *bl = &r_blocklights[(s + (t * smax)) * 3];
-			byte *dst = &dest[(t * stride) + (s * 4)];
+			const uint *restrict bl = &r_blocklights[(s + (t * smax)) * 3];
+			byte *restrict dst = &dest[(t * stride) + (s * 4)];
 
 			for( int i = 0; i < 3; i++ )
 			{
@@ -775,7 +802,7 @@ static void R_BuildLightMap( const msurface_t *surf, byte *dest, int stride, qbo
 
 				// amp up water lightmap to avoid too dark water
 				// when the it wasn't properly lit by the level designer
-				if( FBitSet( surf->flags, SURF_DRAWTURB ))
+				if( turb )
 				{
 					float ft = t * litwater_scale;
 					t = Q_max( Q_rint( ft ), litwater_minlight );
@@ -784,7 +811,10 @@ static void R_BuildLightMap( const msurface_t *surf, byte *dest, int stride, qbo
 				if( t > 1023 )
 					t = 1023;
 
-				dst[i] = LightToTexGamma( t ) >> 2;
+				if( linear_gamma )
+					dst[i] = t >> 2;
+				else
+					dst[i] = lightgammatable[t] >> 2;
 			}
 			dst[3] = 255;
 		}
