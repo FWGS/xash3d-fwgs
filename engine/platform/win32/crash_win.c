@@ -182,7 +182,7 @@ static void Sys_StackTrace( PEXCEPTION_POINTERS pInfo )
 		symbol->SizeOfStruct = sizeof( SYMBOL_INFO );
 		symbol->MaxNameLen = MAX_SYM_NAME;
 
-		len += Q_snprintf( message + len, sizeof( message ) - len, "%2d: %p",
+		len += Q_snprintf( message + len, sizeof( message ) - len, "%2zu: %p",
 			i, (void*)stackframe.AddrPC.Offset );
 		if( SymFromAddr( process, stackframe.AddrPC.Offset, &displacement, symbol ))
 		{

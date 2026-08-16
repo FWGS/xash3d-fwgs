@@ -144,6 +144,7 @@ void IN_MouseSavePos( void )
 		return;
 
 	Platform_GetMousePos( &in_lastvalidpos.x, &in_lastvalidpos.y );
+
 	in_mouse_savedpos = true;
 }
 

@@ -492,6 +492,12 @@ def configure(conf):
 			conf.check_cc(lib='m')
 		# otherwise LIB_M is defined by xcompile (as it might be libm_hard, depending on NDK configuration)
 	elif conf.env.DEST_OS == 'win32':
+		# MinGW defaults to msvcrt stdio, which lacks C99 conversions like %zu
+		# this also switches GCC format checking from ms_printf to gnu_printf
+		if conf.env.COMPILER_CC != 'msvc':
+			conf.env.append_unique('CFLAGS', '-D__USE_MINGW_ANSI_STDIO=1')
+			conf.env.append_unique('CXXFLAGS', '-D__USE_MINGW_ANSI_STDIO=1')
+
 		# Common Win32 libraries
 		# Don't check them more than once, to save time
 		# Usually, they are always available

@@ -570,7 +570,7 @@ const char *COM_NameForFunction( void *hInstance, void *function )
 	}
 
 	// couldn't find the function address to return name
-	Con_Printf( "Can't find address: %08lx\n", function );
+	Con_Printf( "Can't find address: %p\n", function );
 
 	return NULL;
 }
