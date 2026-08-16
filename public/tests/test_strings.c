@@ -51,6 +51,8 @@ static int Test_FixSlashes( void )
 	string s = "path\\with\\back\\slashes";
 	string s2 = "path/with/fwd/slashes";
 	string s3 = "path\\with/mixed\\slashes";
+	string s4 = "path//with///duplicate\\\\slashes";
+	string s5 = "\\\\server\\share\\path";
 
 	COM_FixSlashes( s );
 
@@ -66,6 +68,16 @@ static int Test_FixSlashes( void )
 
 	if( Q_strcmp( s3, "path/with/mixed/slashes" ))
 		return 3;
+
+	COM_FixSlashes( s4 );
+
+	if( Q_strcmp( s4, "path/with/duplicate/slashes" ))
+		return 4;
+
+	COM_FixSlashes( s5 );
+
+	if( Q_strcmp( s5, "//server/share/path" ))
+		return 5;
 
 	return 0;
 }
