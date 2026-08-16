@@ -339,7 +339,10 @@ typedef struct
 	byte		flags; /* GC_TRAM_FACE_* */
 	signed short	pts_s16[GC_TRAM_MAX_VERTS][3];
 	int		firstedge; /* match world msurface for LM bake */
+	int		surf_index; /* exact world surface captured from *12 */
 	int		texnum; /* diffuse gl_texturenum at bake (samples may die) */
+	byte		lm_valid;
+	u16		lm_tile[GC_CAP_LM_DIM * GC_CAP_LM_DIM];
 } gc_tram_face_t;
 static gc_tram_face_t gc_tram_faces[GC_TRAM_MAX_FACES];
 static int gc_tram_face_count;
@@ -351,6 +354,8 @@ static vec3_t gc_tram_model_origin; /* *12 submodel origin at bake */
 /* Compact ST for ride detail only — full-face ST tipped Client Static Pool. */
 #define GC_TRAM_ST_MAX 64
 static signed char gc_tram_st[GC_TRAM_ST_MAX][GC_TRAM_MAX_VERTS][2];
+
+static void GC_BakeTramLightmapTile( const msurface_t *src, u16 *dst );
 
 static void GC_BakeTramSlotST( int slot, const msurface_t *src, const gc_tram_face_t *face )
 {
@@ -955,7 +960,13 @@ void GC_CaptureIntroTrainFaces( model_t *wmodel )
 			continue;
 		trial.nverts = (byte)n;
 		trial.firstedge = src->firstedge;
+		trial.surf_index = tram->firstmodelsurface + i;
 		trial.texnum = 0;
+		if( src->samples )
+		{
+			GC_BakeTramLightmapTile( src, trial.lm_tile );
+			trial.lm_valid = 1;
+		}
 		if( src->texinfo && src->texinfo->texture )
 			trial.texnum = src->texinfo->texture->gl_texturenum;
 		/* Prefer smaller detail (railings) over broad panels. */
@@ -1025,8 +1036,14 @@ void GC_CaptureIntroTrainFaces( model_t *wmodel )
 			continue;
 		trial.nverts = (byte)n;
 		trial.firstedge = src->firstedge;
+		trial.surf_index = tram->firstmodelsurface + i;
 		trial.flags = GC_TRAM_FACE_EXTERIOR;
 		trial.texnum = 0;
+		if( src->samples )
+		{
+			GC_BakeTramLightmapTile( src, trial.lm_tile );
+			trial.lm_valid = 1;
+		}
 		if( src->texinfo && src->texinfo->texture )
 			trial.texnum = src->texinfo->texture->gl_texturenum;
 		score = area;
@@ -1112,6 +1129,49 @@ void GC_CaptureIntroTrainFaces( model_t *wmodel )
 }
 
 static u16 *GC_CapAtlasTile( int slot );
+extern int g_lightstylevalue[MAX_LIGHTSTYLES];
+
+/* Combine every valid BSP lightstyle before the compact Flipper grade. */
+static u16 GC_BakeLightmapPixel( const msurface_t *src, int sx, int sy,
+	int smax, int tmax )
+{
+	unsigned sum_r = 0, sum_g = 0, sum_b = 0;
+	int map;
+
+	if( !src || !src->samples || smax <= 0 || tmax <= 0
+		|| sx < 0 || sx >= smax || sy < 0 || sy >= tmax )
+		return 0xC618;
+
+	for( map = 0; map < MAXLIGHTMAPS && src->styles[map] != 255; map++ )
+	{
+		const int style = src->styles[map];
+		const color24 *c;
+		unsigned scale;
+
+		if( style < 0 || style >= MAX_LIGHTSTYLES )
+			continue;
+		scale = (unsigned)g_lightstylevalue[style];
+		c = &src->samples[(size_t)map * (size_t)smax * (size_t)tmax
+			+ (size_t)sy * (size_t)smax + (size_t)sx];
+		sum_r += (unsigned)c->r * scale;
+		sum_g += (unsigned)c->g * scale;
+		sum_b += (unsigned)c->b * scale;
+	}
+
+	{
+		unsigned r = (( sum_r + 128u ) >> 8 ) * 3u;
+		unsigned g = (( sum_g + 128u ) >> 8 ) * 3u;
+		unsigned b = (( sum_b + 128u ) >> 8 ) * 3u;
+
+		if( r < 128 ) r = 128;
+		if( g < 128 ) g = 128;
+		if( b < 128 ) b = 128;
+		if( r > 255 ) r = 255;
+		if( g > 255 ) g = 255;
+		if( b > 255 ) b = 255;
+		return (u16)((( r >> 3 ) << 11 ) | (( g >> 2 ) << 5 ) | ( b >> 3 ));
+	}
+}
 
 /*
 =============
@@ -1164,27 +1224,7 @@ static void GC_BakeTramLightmapTile( const msurface_t *src, u16 *dst )
 			u16 pix = mid;
 
 			if( lm && sx >= 0 && sy >= 0 && sx < smax && sy < tmax )
-			{
-				const color24 *c = &lm[sy * smax + sx];
-				/* Match cap LM boost (G209 ×3, floor 128). */
-				unsigned r = ((unsigned)c->r * 3u);
-				unsigned g = ((unsigned)c->g * 3u);
-				unsigned b = ((unsigned)c->b * 3u);
-
-				if( r < 128 )
-					r = 128;
-				if( g < 128 )
-					g = 128;
-				if( b < 128 )
-					b = 128;
-				if( r > 255 )
-					r = 255;
-				if( g > 255 )
-					g = 255;
-				if( b > 255 )
-					b = 255;
-				pix = (u16)((( r >> 3 ) << 11 ) | (( g >> 2 ) << 5 ) | ( b >> 3 ));
-			}
+				pix = GC_BakeLightmapPixel( src, sx, sy, smax, tmax );
 			linear[y * dw + x] = pix;
 		}
 	}
@@ -1243,15 +1283,22 @@ static void GC_BakeTramLightmaps( model_t *wmodel )
 			|| GC_TRAM_LM_SLOT0 + fi >= GC_LM_ATLAS_COLS * GC_LM_ATLAS_ROWS )
 			break;
 
-		/* G306: match by firstedge (was windshield-normal heuristic for 6 shells). */
-		for( si = 0; si < tram->nummodelsurfaces; si++ )
+		/* The capture keeps the exact surface index.  Re-matching by firstedge
+		 * can select the wrong duplicate edge record or miss after BSP compaction. */
+		if( face->surf_index >= 0 && face->surf_index < wmodel->numsurfaces )
+			best = &wmodel->surfaces[face->surf_index];
+		else
 		{
-			msurface_t *surf = &wmodel->surfaces[tram->firstmodelsurface + si];
+			/* Compatibility fallback for older in-memory captures. */
+			for( si = 0; si < tram->nummodelsurfaces; si++ )
+			{
+				msurface_t *surf = &wmodel->surfaces[tram->firstmodelsurface + si];
 
-			if( surf->firstedge != face->firstedge )
-				continue;
-			best = surf;
-			break;
+				if( surf->firstedge != face->firstedge )
+					continue;
+				best = surf;
+				break;
+			}
 		}
 
 		/* G277: reuse unused cap-atlas tiles (slots 320+) — no dedicated BSS. */
@@ -1277,7 +1324,39 @@ static void GC_BakeTramLightmaps( model_t *wmodel )
 			baked++;
 		}
 		else
-			GC_BakeTramLightmapTile( NULL, tile );
+		{
+			int ci;
+			qboolean copied = false;
+
+			/* Some embedded brush faces have no standalone samples pointer even
+			 * though the same BSP face was captured into the cap atlas. Reuse that
+			 * exact tile so the train and world cannot diverge in lightmap grade. */
+			for( ci = 0; ci < gc_newgame_cap_face_count; ci++ )
+			{
+				if( gc_newgame_draw_surfs[ci].firstedge != face->firstedge
+					|| !gc_newgame_cap_lm_real[ci] )
+					continue;
+				{
+					u16 *cap_tile = GC_CapAtlasTile( ci );
+					if( cap_tile )
+					{
+						memcpy( tile, cap_tile,
+							GC_CAP_LM_DIM * GC_CAP_LM_DIM * sizeof( u16 ));
+						baked++;
+						copied = true;
+					}
+				}
+				break;
+			}
+			if( !copied && face->lm_valid )
+			{
+				memcpy( tile, face->lm_tile, sizeof( face->lm_tile ));
+				baked++;
+				copied = true;
+			}
+			if( !copied )
+				GC_BakeTramLightmapTile( NULL, tile );
+		}
 		DCFlushRange( tile, (u32)( GC_CAP_LM_DIM * GC_CAP_LM_DIM * sizeof( u16 )));
 	}
 
@@ -2405,26 +2484,7 @@ static void GC_BakeCapLightmap( const msurface_t *src, int slot )
 			u16 pix = mid;
 
 			if( lm && sx >= 0 && sy >= 0 && sx < smax && sy < tmax )
-			{
-				const color24 *c = &lm[sy * smax + sx];
-				/* G209: stronger boost toward REPLACE brightness (~115 avg). */
-				unsigned r = ((unsigned)c->r * 3u);
-				unsigned g = ((unsigned)c->g * 3u);
-				unsigned b = ((unsigned)c->b * 3u);
-				if( r < 128 )
-					r = 128;
-				if( g < 128 )
-					g = 128;
-				if( b < 128 )
-					b = 128;
-				if( r > 255 )
-					r = 255;
-				if( g > 255 )
-					g = 255;
-				if( b > 255 )
-					b = 255;
-				pix = (u16)((( r >> 3 ) << 11 ) | (( g >> 2 ) << 5 ) | ( b >> 3 ));
-			}
+				pix = GC_BakeLightmapPixel( src, sx, sy, smax, tmax );
 			linear[y * dw + x] = pix;
 		}
 	}
@@ -6641,8 +6701,7 @@ static void GC_PresentBuffer( void )
 	if( gc_gx_world_efb_ready && gc_cpu_dump_presents_left <= 0
 		&& !( GC_IsCaptureDiagnostics() && gc_g193_soft_lock ))
 	{
-		if( gc_present_count >= 20 && gc_present_count <= 40
-			&& ( gc_present_count <= 28 || ( gc_present_count & 3 ) == 0 ))
+		if( gc_present_count == 20 || gc_present_count == 28 || gc_present_count == 36 )
 			Con_Reportf( "Xash3D GameCube: present Flipper CopyDisp begin presents=%u\n",
 				gc_present_count );
 		f32 fb_w = (f32)rmode->fbWidth;
@@ -6710,13 +6769,11 @@ static void GC_PresentBuffer( void )
 		}
 		/* One fence before CopyDisp; never clear EFB on retail Flipper copy
 		 * (DumpFrames follows EFB — GX_TRUE left solid sky after a good XFB). */
-		if( gc_present_count >= 20 && gc_present_count <= 40
-			&& ( gc_present_count <= 28 || ( gc_present_count & 3 ) == 0 ))
+		if( gc_present_count == 20 || gc_present_count == 28 || gc_present_count == 36 )
 			Con_Reportf( "Xash3D GameCube: present Flipper DrawDone begin presents=%u\n",
 				gc_present_count );
 		GX_DrawDone();
-		if( gc_present_count >= 20 && gc_present_count <= 40
-			&& ( gc_present_count <= 28 || ( gc_present_count & 3 ) == 0 ))
+		if( gc_present_count == 20 || gc_present_count == 28 || gc_present_count == 36 )
 			Con_Reportf( "Xash3D GameCube: present Flipper DrawDone end presents=%u\n",
 				gc_present_count );
 		GX_CopyDisp( xfb[which_fb], GX_FALSE );
@@ -6760,8 +6817,7 @@ static void GC_PresentBuffer( void )
 			if( !budget_no_vsync )
 				VIDEO_WaitVSync();
 			which_fb ^= 1;
-			if( gc_present_count >= 20 && gc_present_count <= 40
-				&& ( gc_present_count <= 28 || ( gc_present_count & 3 ) == 0 ))
+			if( gc_present_count == 20 || gc_present_count == 28 || gc_present_count == 36 )
 				Con_Reportf( "Xash3D GameCube: present Flipper vsync done presents=%u\n",
 					gc_present_count );
 			if( !g297_cpu_logged && cpu_ms > 0.05 && Sys_CheckParm( "-gcnewgame" ))
@@ -10005,6 +10061,11 @@ static qboolean GC_SetActiveNewGameCluster( int cluster, qboolean log_change )
 
 	if( !gc_newgame_pvs_table || !gc_newgame_node_table || !gc_newgame_cluster_valid )
 		return false;
+	/* The camera asks for its PVS on every lean render.  Once the selected
+	 * cluster is already active, its backing pointers and visibility rows are
+	 * unchanged; avoid re-aging the LRU and recounting visible rows. */
+	if( cluster == gc_newgame_viewcluster && gc_newgame_vis && gc_newgame_nodebits )
+		return true;
 
 	if( gc_newgame_pvs_lean )
 	{
@@ -12199,6 +12260,29 @@ qboolean GC_RenderNewGameWorldFrames( int count )
 	{
 		Con_Reportf( "Xash3D GameCube: G161 world frames unavailable world=null\n" );
 		return false;
+	}
+	/* Full-physics TAS reaches this bounded renderer without the normal client
+	 * view setup. Bind the already mirrored landmark mesh here, after the
+	 * renderer/world guards above, and allow the existing GX viewmodel pass to
+	 * submit it. Ordinary full-physics and lean routes remain unchanged. */
+	if( Sys_CheckParm( "-gctas" ) && Sys_CheckParm( "-gcfullphysics" ))
+	{
+		static qboolean gc_tas_viewmodel_armed;
+		const char *vm_path = Mod_GCLandmarkViewModelPath();
+
+		if( !gc_tas_viewmodel_armed && vm_path && vm_path[0]
+			&& Mod_GCEnsureLandmarkViewModel( vm_path ))
+		{
+			model_t *vm = Mod_FindName( vm_path, false );
+
+			if( vm && vm->type == mod_studio && vm->cache.data )
+			{
+				clgame.viewent.model = vm;
+				gc_force_draw_viewmodel = true;
+				gc_tas_viewmodel_armed = true;
+				Con_Reportf( "Xash3D GameCube: TAS viewmodel render armed %s\n", vm_path );
+			}
+		}
 	}
 
 	cl.models[1] = world;

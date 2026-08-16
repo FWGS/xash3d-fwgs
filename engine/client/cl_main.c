@@ -40,6 +40,7 @@ qboolean CL_GameCubeClientProgsReady( void );
 qboolean CL_GameCubeEnsureClientReady( void );
 static qboolean gc_g159_reconnect_active_pending;
 static qboolean gc_g158_reconnect_seen;
+static int CL_GetFragmentSize( void *unused, fragsize_t mode );
 
 qboolean CL_GameCubePostReconnect( void )
 {
@@ -59,6 +60,7 @@ post-G36 sustained markers and G45 synthetic actions can run.
 static void CL_GameCubeArmLeanPlayActive( void )
 {
 	static qboolean armed;
+	netadr_t loopback;
 
 	if( armed )
 		return;
@@ -68,6 +70,19 @@ static void CL_GameCubeArmLeanPlayActive( void )
 		return;
 	if( !SV_Active() )
 		return;
+	/* Direct-map New Game primes the server-side single-player client without
+	 * running the normal connectionless handshake.  The lean path below still
+	 * consumes the server's loopback snapshots, so give the client a matching
+	 * local channel before promoting ca_active.  Keep this scoped to an empty
+	 * channel: a real reconnect must retain its negotiated state. */
+	if( NET_NetadrType( &cls.netchan.remote_address ) == NA_UNDEFINED )
+	{
+		memset( &loopback, 0, sizeof( loopback ));
+		NET_NetadrSetType( &loopback, NA_LOOPBACK );
+		Netchan_Setup( NS_CLIENT, &cls.netchan, loopback, 0, NULL,
+			CL_GetFragmentSize, 0 );
+		Con_Reportf( "Xash3D GameCube: direct-map client loopback netchan primed\n" );
+	}
 	if( cls.state == ca_active && cls.signon == SIGNONS )
 	{
 		armed = true;
@@ -2991,6 +3006,31 @@ static void CL_ReadNetMessage( void )
 {
 	size_t	curSize;
 	void (*parsefn)( sizebuf_t *msg );
+
+#if XASH_GAMECUBE
+	/* Lean -gcnewgame deliberately skips the normal signon baseline and
+	 * renders the prepared world directly.  The server can still emit local
+	 * snapshot packets when the native move path is active, but those packets
+	 * have no matching client baseline and are not gameplay state for this
+	 * route. Drain them without delta parsing; otherwise the first packet is
+	 * interpreted as a full snapshot and stalls the bounded TAS probe on
+	 * invalid entity deltas. */
+	if( Sys_CheckParm( "-gcnewgame" ) && !Sys_CheckParm( "-gcfullphysics" )
+		&& cls.state == ca_active && cls.signon == SIGNONS
+		&& GC_IsNewGameG36Done() && GC_IsNewGameWorldReady() )
+	{
+		static qboolean gc_direct_map_packets_logged;
+		int drained = 0;
+		while( drained++ < 8 && CL_GetMessage( net_message_buffer, &curSize ))
+			;
+		if( !gc_direct_map_packets_logged )
+		{
+			gc_direct_map_packets_logged = true;
+			Con_Reportf( "Xash3D GameCube: direct-map snapshot parse bypass active\n" );
+		}
+		return;
+	}
+#endif
 
 	switch( cls.legacymode )
 	{

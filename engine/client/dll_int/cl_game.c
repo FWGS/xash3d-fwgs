@@ -1705,7 +1705,8 @@ void CL_GCPreloadNewGameHudSprites( void )
 	static qboolean g173_logged;
 	static qboolean g174_logged;
 
-	if( !Sys_CheckParm( "-gcnewgame" ) || !GC_MapLoadMemoryOpt())
+	if( !( Sys_CheckParm( "-gcnewgame" ) || Sys_CheckParm( "-gcmenuplaystart" ))
+		|| !GC_MapLoadMemoryOpt())
 		return;
 
 	Image_GCPurgeDecodeScratch();
@@ -1777,7 +1778,8 @@ void CL_GCPreloadNewGameHudSpritesLate( void )
 	static qboolean g173_late_logged;
 	static qboolean g174_late_logged;
 
-	if( !Sys_CheckParm( "-gcnewgame" ) || !GC_MapLoadMemoryOpt())
+	if( !( Sys_CheckParm( "-gcnewgame" ) || Sys_CheckParm( "-gcmenuplaystart" ))
+		|| !GC_MapLoadMemoryOpt())
 		return;
 
 	Image_GCPurgeDecodeScratch();

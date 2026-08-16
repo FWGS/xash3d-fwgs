@@ -213,6 +213,48 @@ class GameCubeHostTests(unittest.TestCase):
 		))
 		self.assertTrue(gate.check(lean)[0])
 
+	def test_retail_mirroring_gate_requires_bone_and_lightmap_evidence(self) -> None:
+		gate = load_script("retail_mirroring", "scripts/gamecube-retail-mirroring-gate.py")
+		retail = "\n".join((
+			"Xash3D GameCube: REF_GX static GetRefAPI retail Flipper policy=on soft=0 capture=1",
+			"Xash3D GameCube: quality profile stage=video-init gc_quality=1 name=release low_memory=1",
+			"Xash3D GameCube: retail Flipper policy capture=1 softworld=0",
+			"Xash3D GameCube: G45 controller ready port=1 type=probe-synthetic",
+			"Xash3D GameCube: audio backend ready (8192 samples, 48000 Hz, voice deferred)",
+			"Xash3D GameCube: MAP_READY c0a0",
+			"Xash3D GameCube: G172 HUD sheets loaded real=4 of 4",
+			"Xash3D GameCube: lean HUD sprites drawn pain=1",
+			"Xash3D GameCube: G105 landmark viewmodel ready models/v_crowbar.mdl",
+			"Xash3D GameCube: G164 studio gouraud shades=29 mask=0xfffffff8 viewmodel=1",
+			"Xash3D GameCube: G154 disc lightmap bind size=601.95 Kb (bake-only)",
+			"Xash3D GameCube: G180 lightmap atlas 128x64 faces=320 cols=32",
+			"Xash3D GameCube: G219 Flipper LM on EDGE/TEX (boost*3 + TEV*2)",
+			"Xash3D GameCube: audio submitted nonzero PCM chunks=1 peak=22644",
+		))
+		self.assertEqual(gate.check(retail), [])
+		self.assertTrue(any("G164" in item for item in gate.check(retail.replace("G164", "missing"))))
+		self.assertTrue(any("G219" in item for item in gate.check(retail.replace("G219", "missing"))))
+
+	def test_gx_animation_fallback_does_not_mutate_entity_sequence(self) -> None:
+		source = (ROOT / "ref/gx/r_studio.c").read_text(encoding="utf-8")
+		start = source.index("static mstudioseqdesc_t *R_GXLeanGroup0Seq")
+		end = source.index("static qboolean R_GXStudioBonePoseExploded", start)
+		fallback = source[start:end]
+		self.assertNotIn("e->curstate.sequence = i", fallback)
+		self.assertIn("renderer fallback", fallback)
+		self.assertIn("static mstudioseqdesc_t *R_GXLeanGroup0Seq", fallback)
+		self.assertIn("pseqdesc->seqgroup != 0", source)
+		self.assertIn("e->latched.prevsequence", source)
+
+	def test_newgame_sky_setup_skips_disk_probe(self) -> None:
+		source = (ROOT / "engine/client/dll_int/ref_common.c").read_text(encoding="utf-8")
+		start = source.index("void R_SetupSkyLeanGameCube")
+		end = source.index("#endif", start)
+		setup = source[start:end]
+		self.assertIn("!Sys_CheckParm( \"-gcnewgame\" )", setup)
+		self.assertIn("!Sys_CheckParm( \"-gcmenuplaystart\" )", setup)
+		self.assertIn("G300: tip-safe BSS sky", setup)
+
 	def test_video_gate_requires_complete_paced_audio_video(self) -> None:
 		gate = load_script("video_playback_gate", "scripts/gamecube-video-playback-gate.py")
 		text = "\n".join((
@@ -288,8 +330,15 @@ class GameCubeHostTests(unittest.TestCase):
 		self.assertEqual(gate.check(base.replace("lean HUD sprites drawn", ""))[0], False)
 		self.assertEqual(gate.check(base.replace("G105 landmark viewmodel ready", ""))[0], False)
 
+	def test_g172_marker_is_emitted_from_active_hud_draw_path(self) -> None:
+		source = (ROOT / "engine/client/cl_scrn.c").read_text(encoding="utf-8")
+		draw = source.index("CL_DrawHUD( CL_ACTIVE );")
+		marker = source.index("G172 HUD sheets loaded draw-verified lean=1", draw)
+		self.assertLess(marker, source.index("HUD lean draw", marker))
+
 	def test_release_packet_validates_dol_elf_and_iso(self) -> None:
 		packet = load_script("release_packet", "scripts/gamecube-release-packet.py")
+		self.assertTrue(hasattr(packet, "load_retail_gate"))
 		with tempfile.TemporaryDirectory() as tmpdir:
 			root = Path(tmpdir)
 			(root / "OUT/bin").mkdir(parents=True)
@@ -364,6 +413,7 @@ class GameCubeHostTests(unittest.TestCase):
 		self.assertIn("G508 config round trip ready", vid)
 		self.assertIn("--probe-configroundtrip", disc)
 		self.assertIn("DOLPHIN_G508", boot)
+		self.assertIn("DOLPHIN_TARGET_FRAME_TIME", boot)
 		self.assertIn("G508 config round trip ready", packet)
 		self.assertIn("persist_ok", packet)
 		self.assertIn("changelevel_ok", packet)
@@ -887,6 +937,8 @@ class GameCubeHostTests(unittest.TestCase):
 		self.assertTrue(probe.is_file())
 		self.assertTrue(common.is_file())
 		self.assertIn("probe_classify_results", probe.read_text(encoding="utf-8"))
+		self.assertIn("HOST_FAILURE: Dolphin Qt display backend unavailable", probe.read_text(encoding="utf-8"))
+		self.assertIn("no Dolphin guest log was created", probe.read_text(encoding="utf-8"))
 		self.assertIn("probe_classify_results()", common.read_text(encoding="utf-8"))
 		lines = len(probe.read_text(encoding="utf-8").splitlines())
 		bytes_ = probe.stat().st_size
@@ -980,6 +1032,9 @@ class GameCubeHostTests(unittest.TestCase):
 		self.assertIn("RC_G508", rc)
 		self.assertIn("DOLPHIN_G508=1", rc)
 		self.assertIn("gamecube-experiment-manifest.py", rc)
+		self.assertIn("retail_mirroring_gate", rc)
+		self.assertIn("RC_RETAIL_MIRRORING_LOG", rc)
+		self.assertIn("gamecube-retail-mirroring-gate.py", rc)
 
 	def test_runtime_regression_accepts_swiss_fat(self) -> None:
 		gate = load_script("runtime_regression", "scripts/gamecube-runtime-regression-gate.py")

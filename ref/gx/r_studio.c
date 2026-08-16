@@ -852,15 +852,14 @@ static qboolean R_GXLeanNpcAnimActive( const cl_entity_t *e )
 		&& e && e->model && R_GXIsLeanNpcModel( e->model->name );
 }
 
-static mstudioseqdesc_t *R_GXLeanClampGroup0Seq( cl_entity_t *e )
+static mstudioseqdesc_t *R_GXLeanGroup0Seq( int requested )
 {
 	mstudioseqdesc_t *seqs;
-	int i, seq, idle, any0;
+	int i, idle, any0;
 
 	seqs = (mstudioseqdesc_t *)((byte *)m_pStudioHeader + m_pStudioHeader->seqindex );
-	seq = e->curstate.sequence;
-	if( seq >= 0 && seq < m_pStudioHeader->numseq && seqs[seq].seqgroup == 0 )
-		return &seqs[seq];
+	if( requested >= 0 && requested < m_pStudioHeader->numseq && seqs[requested].seqgroup == 0 )
+		return &seqs[requested];
 
 	idle = -1;
 	any0 = -1;
@@ -876,8 +875,15 @@ static mstudioseqdesc_t *R_GXLeanClampGroup0Seq( cl_entity_t *e )
 	i = idle >= 0 ? idle : ( any0 >= 0 ? any0 : 0 );
 	if( i < 0 || i >= m_pStudioHeader->numseq )
 		i = 0;
-	e->curstate.sequence = i;
+	/* Keep the network/entity sequence untouched. The group-0 pose is only a
+	 * renderer fallback; mutating curstate here made the fallback persist into
+	 * gameplay and prevented later retail sequence changes from taking effect. */
 	return &seqs[i];
+}
+
+static mstudioseqdesc_t *R_GXLeanClampGroup0Seq( cl_entity_t *e )
+{
+	return R_GXLeanGroup0Seq( e ? e->curstate.sequence : -1 );
 }
 
 static qboolean R_GXStudioBonePoseExploded( void )
@@ -1041,6 +1047,8 @@ static void R_StudioSetupBones( cl_entity_t *e )
 		float         s;
 
 		pseqdesc = (mstudioseqdesc_t *)((byte *)m_pStudioHeader + m_pStudioHeader->seqindex ) + e->latched.prevsequence;
+		if( R_GXLeanNpcAnimActive( e ) && pseqdesc->seqgroup != 0 )
+			pseqdesc = R_GXLeanGroup0Seq( e->latched.prevsequence );
 		panim = gEngfuncs.R_StudioGetAnim( m_pStudioHeader, RI.currentmodel, pseqdesc );
 
 		// clip prevframe

@@ -1,9 +1,9 @@
 {
   "schema": "xash3d-gc-experiment-manifest-pointer/v1",
-  "manifest": ".ai/logs/operator-evidence-swiss-20260809-083450/experiment/manifest.json",
-  "stamp": "20260809-083450",
-  "hypothesis": "Swiss FAT + return-to-loader with Dolphin continuity",
-  "commit": "a3f695faa4",
+  "manifest": ".ai/logs/soak-probe-20260816-024237/experiment/manifest.json",
+  "stamp": "20260816-024544",
+  "hypothesis": "G509 soak changelevel route=c0a0:c0a0a ok=1 (soak evidence passed memory/frame telemetry checks)",
+  "commit": "e921cf1639",
   "tier": "complete",
   "ogc_stack": "libogc"
 }

@@ -44,11 +44,8 @@ fi
 USER_DIR="$ROOT/$LOG_DIR/dolphin-user"
 DOLPHIN_RETAIL="${DOLPHIN_RETAIL:-0}"
 DOLPHIN_NEWGAME="${DOLPHIN_NEWGAME:-0}"
-# This prevents full retail disc builds (~500MB) that timeout on GameCube boot.
 if (( DOLPHIN_NEWGAME )); then
-	# Only enable retail mode if DOLPHIN_RETAIL=1 is explicitly set
 	if [[ "$DOLPHIN_RETAIL" != "1" ]]; then
-		# Use smoke-map mode with newgame args, not full retail disc
 		DOLPHIN_RETAIL=0
 	fi
 	DOLPHIN_SKIP_INTRO=1
@@ -60,11 +57,6 @@ if [[ "${DOLPHIN_MENU_NEWGAME:-0}" == "1" ]]; then
 	PLAY_READY_MARKER="Xash3D GameCube: play start ready ${SMOKE_MAP}"
 	echo "==> Fallback-menu New Game probe (expect map ${SMOKE_MAP})"
 fi
-# G440-G470: Default to smoke-map mode for bounded testing. Retail mode
-# builds full discs (~500MB) that timeout on GameCube boot. Use smoke-map
-# unless explicitly configured for retail testing.
-# Note: DOLPHIN_RETAIL defaults to 0, which enables smoke-map mode.
-# When DOLPHIN_RETAIL=1, it builds a full retail disc (no smoke map).
 if [[ "$DOLPHIN_RETAIL" == "1" ]]; then
 	TIMEOUT_SEC="${DOLPHIN_TIMEOUT:-240}"
 else
@@ -76,10 +68,10 @@ FRAME_SAMPLE_SEC="${DOLPHIN_FRAME_SAMPLE_SEC:-8}"
 if (( DOLPHIN_NEWGAME )); then
 	# Use smoke-map mode even with DOLPHIN_NEWGAME=1 to avoid full retail disc
 	SMOKE_MAP="${DOLPHIN_SMOKE_MAP:-c0a0}"
-	# G278 intro + G280 Flipper FPS: need sustained sample after present marker.
-	FRAME_SAMPLE_SEC="${DOLPHIN_FRAME_SAMPLE_SEC:-40}"
-	# G280 playable target is 24–30 FPS (not 60).
-	export TARGET_FRAME_TIME="${TARGET_FRAME_TIME:-33.33}"
+		FRAME_SAMPLE_SEC="${DOLPHIN_FRAME_SAMPLE_SEC:-40}"
+	# G280 playable target is 24–30 FPS (not 60). gamecube-env.sh supplies the
+	# normal 16.67ms desktop target, so use a probe-specific override here.
+	export TARGET_FRAME_TIME="${DOLPHIN_TARGET_FRAME_TIME:-33.33}"
 elif [[ "${DOLPHIN_MENU_NEWGAME:-0}" == "1" ]]; then
 	# Keep menu New Game startmap; do not fall through to default c0a0e.
 	SMOKE_MAP="${DOLPHIN_SMOKE_MAP:-c0a0}"
@@ -696,5 +688,13 @@ if probe_newgame_progress_ready; then
 fi
 if [[ -n "$SMOKE_MAP" ]]; then
 	grep -aqsF "$MAP_MARKER" "${LOG_FILES[@]}" && MAP_FOUND=1
+fi
+if (( ! GUEST_FOUND )); then
+	if grep -aqE 'Could not load the Qt platform plugin|could not connect to display|xcb-cursor' \
+		"${LOG_FILES[@]}" 2>/dev/null; then
+		echo "HOST_FAILURE: Dolphin Qt display backend unavailable; set DISPLAY or use a working Dolphin headless build"
+	elif [[ ! -s "$LOG_DIR/dolphin-user/Logs/dolphin.log" ]]; then
+		echo "HOST_FAILURE: Dolphin exited before guest bootstrap; no Dolphin guest log was created"
+	fi
 fi
 probe_classify_results

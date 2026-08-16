@@ -23,6 +23,16 @@ def load_gate(root: Path):
     return module
 
 
+def load_retail_gate(root: Path):
+    path = root / "scripts/gamecube-retail-mirroring-gate.py"
+    spec = importlib.util.spec_from_file_location("retail_mirroring_gate", path)
+    if spec is None or spec.loader is None:
+        raise RuntimeError(f"cannot load {path}")
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
 def load_ladder(root: Path):
     import sys
 
@@ -268,10 +278,21 @@ def main() -> int:
     storage_report = storage_mod.parse_fat_volume_status(combined)
     loader_report = storage_mod.parse_loader_status(combined)
     presentation_report = evaluate_presentation(combined)
+    retail_gate = load_retail_gate(root)
+    retail_seen = "retail Flipper policy" in combined
+    retail_failures = retail_gate.check(combined) if retail_seen else []
+    retail_report = {
+        "status": "PASS" if retail_seen and not retail_failures else ("NOT_APPLICABLE" if not retail_seen else "FAIL"),
+        "matched": [] if not retail_seen else [marker for marker in retail_gate.REQUIRED if marker in combined],
+        "missing": retail_failures,
+    }
     (output / "storage.json").write_text(json.dumps(storage_report, indent=2) + "\n", encoding="utf-8")
     (output / "loader.json").write_text(json.dumps(loader_report, indent=2) + "\n", encoding="utf-8")
     (output / "presentation.json").write_text(
         json.dumps(presentation_report, indent=2) + "\n", encoding="utf-8"
+    )
+    (output / "retail-mirroring.json").write_text(
+        json.dumps(retail_report, indent=2) + "\n", encoding="utf-8"
     )
     storage_ok = bool(storage_report.get("ok"))
     loader_ok = bool(loader_report.get("swiss_return"))
@@ -342,6 +363,7 @@ def main() -> int:
             "status": "PASS" if presentation_ok else "FAIL",
             "missing": presentation_report.get("missing"),
         },
+        "retail_mirroring": retail_report,
         "persist": {"status": "PASS" if persist_ok else "FAIL"},
         "changelevel": {"status": "PASS" if changelevel_ok else "FAIL"},
     }
@@ -390,6 +412,7 @@ def main() -> int:
             "storage_ok": storage_ok,
             "loader_ok": loader_ok,
             "presentation_ok": presentation_ok,
+            "retail_mirroring_status": retail_report["status"],
             "swiss_ok": swiss_ok,
             "mem1_high_water_bytes": mem1_bytes,
             "experiment_manifest": str(experiment_manifest_path) if experiment_manifest_path else None,

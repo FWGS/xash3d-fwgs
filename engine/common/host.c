@@ -716,8 +716,14 @@ void Host_Frame( double time )
 		Con_DPrintf( "Time to first frame: %.3f seconds\n", t1 - host.starttime );
 
 	Host_InputFrame ();  // input frame
+	if( Sys_CheckParm( "-gctas" ) && host.framecount < 8 )
+		Con_Reportf( "Xash3D GameCube: post-input Host_Frame=%u\n", host.framecount );
 	Host_ClientBegin (); // begin client
+	if( Sys_CheckParm( "-gctas" ) && host.framecount < 8 )
+		Con_Reportf( "Xash3D GameCube: post-client-begin Host_Frame=%u\n", host.framecount );
 	Host_GetCommands (); // dedicated in
+	if( Sys_CheckParm( "-gctas" ) && host.framecount < 8 )
+		Con_Reportf( "Xash3D GameCube: post-commands Host_Frame=%u\n", host.framecount );
 #if XASH_GAMECUBE
 	{
 		static qboolean gc_host_frame0_logged;
@@ -755,6 +761,7 @@ void Host_Frame( double time )
 		if( GC_IsNewGameWorldReady() )
 		{
 			static int gc_post_prep_crumbs;
+			static qboolean gc_direct_map_server_tick;
 
 			if( gc_post_prep_crumbs < 2 )
 			{
@@ -766,7 +773,19 @@ void Host_Frame( double time )
 			 * (probe 20260813-193443 stopped at sustained frames=8). Keep
 			 * ClientFrame/SCR presents for Flipper DumpFrames; skip lean
 			 * server ticks until -gcfullphysics. */
-			if( !( Sys_CheckParm( "-gcmenuplaystart" ) && !Sys_CheckParm( "-gcfullphysics" )) )
+			if( Sys_CheckParm( "-gcnewgame" ) && !Sys_CheckParm( "-gcfullphysics" ))
+			{
+				/* The direct-map player already has its bounded native physics
+				 * bootstrap. Further full server ticks can re-enter heavy scripted
+				 * entity work and starve the GX/input frame loop. */
+				if( !gc_direct_map_server_tick )
+				{
+					Host_ServerFrame ();
+					gc_direct_map_server_tick = true;
+					Con_Reportf( "Xash3D GameCube: direct-map bounded server tick complete\n" );
+				}
+			}
+			else if( !( Sys_CheckParm( "-gcmenuplaystart" ) && !Sys_CheckParm( "-gcfullphysics" )) )
 			{
 				Host_ServerFrame ();
 				if( gc_post_prep_crumbs == 0 )

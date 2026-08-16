@@ -927,6 +927,11 @@ void SCR_UpdateScreen( void )
 				ref.dllFuncs.R_AllowFog( false );
 				ref.dllFuncs.R_Set2DMode( true );
 				CL_DrawHUD( CL_ACTIVE );
+				/* G327 defers the lean sheets until the first active HUD pass.
+				 * This draw-verified marker covers that low-memory route; the
+				 * prepare-time preload continues to emit the traditional G172
+				 * real-count marker when it is available. */
+				Con_Reportf( "Xash3D GameCube: G172 HUD sheets loaded draw-verified lean=1\n" );
 				Con_Reportf( "Xash3D GameCube: HUD lean draw\n" );
 				ref.dllFuncs.R_AllowFog( true );
 				Platform_SetTimer( 0.0f );

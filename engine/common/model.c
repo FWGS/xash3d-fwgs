@@ -34,6 +34,11 @@ void FS_ClearFindMissCache( void );
 qboolean GC_IsNewGameWorldReady( void );
 unsigned GC_GetNewGamePresentCount( void );
 
+static qboolean Mod_GCIsNewGameRoute( void )
+{
+	return Sys_CheckParm( "-gcnewgame" ) || Sys_CheckParm( "-gcmenuplaystart" );
+}
+
 /* New Game only: a few real MDLs (NPCs/viewweapons) instead of empty stubs.
  * Mesh-only (no studio texel upload) — skins bind white under quality 0. */
 #define GC_REAL_STUDIO_MAX_NPC    4
@@ -109,7 +114,7 @@ static void Mod_GCPinViewModel( model_t *mod )
 		mod->name[0] ? mod->name : "?" );
 	/* G506 presentation gate also accepts this as G105 on non-tram maps
 	 * where deferred crowbar promote may not run. */
-	if( Sys_CheckParm( "-gcnewgame" ) && mod->name[0]
+	if( Mod_GCIsNewGameRoute() && mod->name[0]
 		&& ( Q_stristr( mod->name, "v_crowbar" )
 			|| Q_stristr( mod->name, "v_9mmhandgun" )))
 	{
@@ -506,7 +511,7 @@ void Mod_GCPromoteLeanNpcStudios( void )
 	};
 	int i;
 
-	if( !Sys_CheckParm( "-gcnewgame" ) && !GC_IsNewGameWorldReady() )
+	if( !Mod_GCIsNewGameRoute() && !GC_IsNewGameWorldReady() )
 		return;
 
 	FS_ClearFindMissCache();
@@ -555,7 +560,7 @@ void Mod_GCTryDeferredStudios( void )
 	int i;
 	unsigned presents;
 
-	if( !Sys_CheckParm( "-gcnewgame" ) && !GC_IsNewGameWorldReady() )
+	if( !Mod_GCIsNewGameRoute() && !GC_IsNewGameWorldReady() )
 		return;
 
 	FS_ClearFindMissCache();
@@ -566,7 +571,7 @@ void Mod_GCTryDeferredStudios( void )
 	 * weapon and is included in the compact gc_studio allowlist.
 	 * Lean -gcnewgame (probe 20260807-023917) previously skipped this under
 	 * a -gcfullphysics-only gate and only loaded v_9mmhandgun — G506 WEAK. */
-	if( Sys_CheckParm( "-gcnewgame" ))
+	if( Mod_GCIsNewGameRoute() )
 	{
 		if( Mod_GCEnsureLandmarkViewModel( "models/v_crowbar.mdl" ))
 			Con_Reportf( "Xash3D GameCube: G105 landmark viewmodel ready models/v_crowbar.mdl\n" );
@@ -577,7 +582,7 @@ void Mod_GCTryDeferredStudios( void )
 	}
 
 	presents = GC_GetNewGamePresentCount();
-	if( Sys_CheckParm( "-gcnewgame" ) && !Sys_CheckParm( "-gcfullphysics" )
+	if( Mod_GCIsNewGameRoute() && !Sys_CheckParm( "-gcfullphysics" )
 		&& presents >= 24 )
 	{
 		/* G371: post-present NPC meshes — denser AM scientists/barneys. */
@@ -591,7 +596,7 @@ void Mod_GCTryDeferredStudios( void )
 		return;
 	}
 
-	promote = ( Sys_CheckParm( "-gcnewgame" ) && !Sys_CheckParm( "-gcfullphysics" ))
+	promote = ( Mod_GCIsNewGameRoute() && !Sys_CheckParm( "-gcfullphysics" ))
 		? promote_lean : promote_full;
 	for( i = 0; promote[i]; i++ )
 		Mod_GCPromoteStudioPath( promote[i] );
@@ -618,7 +623,7 @@ void Mod_GCLoadStartupStudios( void )
 	};
 	int i;
 
-	if( !Sys_CheckParm( "-gcnewgame" ) && !GC_IsNewGameWorldReady() )
+	if( !Mod_GCIsNewGameRoute() && !GC_IsNewGameWorldReady() )
 		return;
 
 	FS_ClearFindMissCache();

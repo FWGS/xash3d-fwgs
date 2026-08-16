@@ -1857,6 +1857,11 @@ def stage_smoke_data(
 		copy_if_present(source, output, relative)
 	for relative in MENU_RESOURCE_DIRS:
 		copy_tree_if_present(source, output, relative)
+	# The fallback GameCube menu consumes the baked gc_menu atlas/background,
+	# not only the original Steam menu resources. Smoke menu probes must stage
+	# the same derived assets as retail discs or New Game stalls on blank UI.
+	if not stage_gc_menu_assets(source, output):
+		print("Warning: GameCube smoke menu background bake failed.", file=sys.stderr)
 	write_smoke_overrides(
 		output,
 		smoke_map,

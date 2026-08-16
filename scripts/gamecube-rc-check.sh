@@ -57,6 +57,7 @@ Runs the native GameCube release-candidate evidence gate:
   25. local automation guidance check
   26. GoldSrc content format audit
   27. homebrew compliance check
+  28. retail Flipper mirroring evidence gate when a gameplay log is supplied
 
 Useful environment knobs:
   RC_LOG_DIR              Override output log directory.
@@ -71,6 +72,7 @@ Useful environment knobs:
   RC_WORST_CASE_STRICT=1  Fail on runtime blockers in the worst-case report.
   RC_BUILD_DISC=1         Build OUT/xash3d-gc.iso if legal assets are present.
   RC_STRICT_COMPLIANCE=1  Run strict compliance mode near release/hardware gates.
+  RC_RETAIL_MIRRORING_LOG  Gameplay/runtime log to validate with the retail gate.
 
 This command does not prove real hardware behavior. G38/G53/G66 must carry
 physical GameCube, Swiss, or compatible Wii/GameCube-mode evidence.
@@ -627,6 +629,33 @@ automation_guidance_gate() {
 	return "$rc"
 }
 
+retail_mirroring_gate() {
+	local log_path="$LOG_DIR/retail-mirroring.log"
+	local gameplay_log="${RC_RETAIL_MIRRORING_LOG:-}"
+	echo
+	echo "== retail Flipper mirroring evidence =="
+	if [[ -z "$gameplay_log" ]]; then
+		log_status "retail Flipper mirroring" "WARN" "$log_path" "no RC_RETAIL_MIRRORING_LOG supplied; runtime evidence remains pending"
+		echo "RETAIL_MIRRORING_GATE: NOT_APPLICABLE"
+		echo "RETAIL_MIRRORING_NOTE: set RC_RETAIL_MIRRORING_LOG to a gameplay log for the automatic gate" | tee "$log_path"
+		return 0
+	fi
+	if [[ ! -f "$gameplay_log" ]]; then
+		log_status "retail Flipper mirroring" "FAIL" "$log_path" "gameplay log not found: $gameplay_log"
+		echo "RETAIL_MIRRORING_GATE: FAIL"
+		return 1
+	fi
+	if python3 scripts/gamecube-retail-mirroring-gate.py --log "$gameplay_log" >"$log_path" 2>&1; then
+		log_status "retail Flipper mirroring" "PASS" "$log_path" "retail policy, bone animation, lightmap TEV, input, HUD, and audio evidence passed"
+		cat "$log_path"
+		return 0
+	fi
+	local rc=$?
+	log_status "retail Flipper mirroring" "FAIL" "$log_path" "exit $rc"
+	cat "$log_path" >&2
+	return "$rc"
+}
+
 compliance_gate() {
 	local log_path="$LOG_DIR/compliance.log"
 	echo
@@ -750,6 +779,7 @@ main() {
 	automation_guidance_gate || true
 	content_format_gate || true
 	compliance_gate || true
+	retail_mirroring_gate || true
 	write_summary
 	echo
 	echo "RC summary: $SUMMARY"

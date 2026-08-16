@@ -83,6 +83,7 @@ python3 -c 'compile(open("scripts/gamecube-soak-probe.py", encoding="utf-8").rea
 python3 -c 'compile(open("scripts/gamecube-runtime-ladder.py", encoding="utf-8").read(), "scripts/gamecube-runtime-ladder.py", "exec")'
 python3 -c 'compile(open("scripts/gamecube-experiment-manifest.py", encoding="utf-8").read(), "scripts/gamecube-experiment-manifest.py", "exec")'
 python3 -c 'compile(open("scripts/gamecube-release-packet.py", encoding="utf-8").read(), "scripts/gamecube-release-packet.py", "exec")'
+python3 -c 'compile(open("scripts/gamecube-retail-mirroring-gate.py", encoding="utf-8").read(), "scripts/gamecube-retail-mirroring-gate.py", "exec")'
 python3 -c 'compile(open("scripts/gamecube-gameplay-gate.py", encoding="utf-8").read(), "scripts/gamecube-gameplay-gate.py", "exec")'
 python3 -c 'compile(open("scripts/gamecube-memory-evidence.py", encoding="utf-8").read(), "scripts/gamecube-memory-evidence.py", "exec")'
 python3 -c 'compile(open("scripts/waifulib/gamecube_storage.py", encoding="utf-8").read(), "scripts/waifulib/gamecube_storage.py", "exec")'

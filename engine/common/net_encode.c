@@ -534,6 +534,19 @@ static qboolean Delta_AddField( delta_info_t *dt, const char *pName, int flags, 
 	delta_t *pField;
 	int i;
 
+	/* Runtime table updates can arrive before delta.lst is reparsed. Detach
+	 * built-in static fields before the Z_Realloc below so Delta_Shutdown never
+	 * tries to free a non-heap pointer. */
+	if( dt->pFields && !dt->fieldsDynamic )
+	{
+		delta_t *fields = (delta_t *)Z_Calloc( dt->maxFields * sizeof( delta_t ));
+
+		if( dt->numFields > 0 )
+			memcpy( fields, dt->pFields, dt->numFields * sizeof( delta_t ));
+		dt->pFields = fields;
+		dt->fieldsDynamic = true;
+	}
+
 	// check for coexisting field
 	for( i = 0, pField = dt->pFields; i < dt->numFields && pField; i++, pField++ )
 	{
@@ -800,6 +813,18 @@ static void Delta_ParseTable( char **delta_script, delta_info_t *dt, const char 
 {
 	string token;
 
+	// Built-in tables start in static storage. A second Delta_Init() reparses
+	// delta.lst during local/menu map startup; detach that table before the
+	// parser's Z_Realloc or Delta_Shutdown would treat static memory as heap.
+	if( dt->pFields && !dt->fieldsDynamic )
+	{
+		delta_t *fields = (delta_t *)Z_Calloc( dt->maxFields * sizeof( delta_t ));
+
+		if( dt->numFields > 0 )
+			memcpy( fields, dt->pFields, dt->numFields * sizeof( delta_t ));
+		dt->pFields = fields;
+		dt->fieldsDynamic = true;
+	}
 	// allocate the delta-structures
 	if( !dt->pFields )
 	{

@@ -2206,6 +2206,16 @@ qboolean CL_GCTrySeedLeanBeamProof( void );
 void CL_DrawEFX( float time, qboolean fTrans )
 {
 #if XASH_GAMECUBE
+	/* TAS replay is an input/physics proof path.  The deferred G320 beam is
+	 * diagnostic-only and its GX sprite bind can stall the bounded replay after
+	 * frame one, before the next scripted action is delivered. Keep ordinary
+	 * New Game EFX intact, but drain dead beams and skip the optional proof for
+	 * deterministic TAS progression. */
+	if( Sys_CheckParm( "-gctas" ))
+	{
+		CL_FreeDeadBeams();
+		return;
+	}
 	/* Allocate deferred G320 proof beam on the first lean trans pass. */
 	if( fTrans )
 		CL_GCTrySeedLeanBeamProof();

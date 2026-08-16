@@ -229,6 +229,19 @@ frame time=12ms
 EOF
 fi
 
+# Retail-mirroring evidence is meaningful only for runs that selected the
+# native retail Flipper policy. Keep smoke/menu-only packets explicit rather
+# than silently treating their absence as a retail pass.
+RETAIL_MIRRORING="$OUT_DIR/retail-mirroring.txt"
+if grep -aq 'retail Flipper policy' "$GAMEPLAY" 2>/dev/null; then
+	python3 scripts/gamecube-retail-mirroring-gate.py --log "$GAMEPLAY" \
+		| tee "$RETAIL_MIRRORING"
+else
+	echo "RETAIL_MIRRORING_GATE: NOT_APPLICABLE" | tee "$RETAIL_MIRRORING"
+	echo "RETAIL_MIRRORING_NOTE: native retail Flipper policy marker not present" \
+		| tee -a "$RETAIL_MIRRORING"
+fi
+
 # Prefer archived map-compat PASS when present; else emit the operator marker.
 if [[ -f "$ROOT/.ai/logs/map-compat-20260803-013842/summary.md" ]]; then
 	{

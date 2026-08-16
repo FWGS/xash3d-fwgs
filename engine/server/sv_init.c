@@ -753,6 +753,15 @@ void SV_ActivateServer( int runPhysics )
 		Con_Reportf( S_WARN "Xash3D GameCube: direct-map player unavailable map=%s\n", sv.name );
 	/* Pure Flipper prepare runs from SCR / changelevel re-prepare once the
 	 * map-spawn MEM1 cliff has passed — do not Prepare immediately here. */
+	/* The fallback menu route has no normal SCR transition to trigger that
+	 * deferred prepare. Start it after direct-map player prime, when entity
+	 * spawn and the menu CapFaces bake are complete. */
+	if( Sys_CheckParm( "-gcmenuplaystart" ) && !GC_IsNewGameWorldReady() )
+	{
+		Con_Reportf( "Xash3D GameCube: menu post-spawn prepare map=%s\n", sv.name );
+		if( !GC_PrepareNewGameWorldPresent() )
+			Con_Reportf( S_WARN "Xash3D GameCube: menu post-spawn prepare failed map=%s\n", sv.name );
+	}
 	/* G68: second (or third) map after a probe changelevel. */
 	if( Sys_CheckParm( "-gcchangelevel" ))
 	{

@@ -36,6 +36,12 @@ Not feature-parity: full brush-mover lighting remains soft/diagnostic.
 #include "r_local.h"
 
 #if XASH_GAMECUBE
+/* libogc also exposes COLOR_WHITE with its packed YUV value. This GX unit
+ * does not use Xash's 16-bit UI constant; avoid a macro redefinition warning
+ * and keep the libogc definition visible to its headers. */
+#ifdef COLOR_WHITE
+#undef COLOR_WHITE
+#endif
 #include <gccore.h>
 #include <ogc/gx.h>
 #include <malloc.h>
@@ -130,14 +136,23 @@ enum
 };
 static int r_gx_face_mode;
 static unsigned r_gx_bound_texnum;
+static u8 r_gx_bound_fmt;
+/* Synthetic safety faces are emitted double-sided, but must not disable
+ * Flipper back-face rejection for the ordinary BSP that follows them. */
+static qboolean r_gx_cull_none;
 static int r_gx_state_sets;
 static int r_gx_state_reuses;
 static int r_gx_tex_loads;
 static int r_gx_tex_reuses;
 static qboolean r_gx_state_cache_logged;
+/* Route flags are stable for a world pass; avoid Sys_CheckParm in every face. */
+static qboolean r_gx_newgame_route;
+static qboolean r_gx_menu_route;
 /* G179: lightmap atlas bind (G180) + lean texture invalidation. */
 static GXTexObj r_gx_lm_atlas_obj;
 static qboolean r_gx_lm_atlas_valid;
+static qboolean r_gx_lm_atlas_checked;
+static qboolean r_gx_lm_atlas_available;
 static int r_gx_lm_atlas_gen = -1;
 static qboolean r_gx_lm_atlas_bound;
 static int r_gx_efb_dump_hold; /* G200: keep Flipper EFB for DumpFramesAsImages */
@@ -393,6 +408,7 @@ void R_GXEffectsTriBegin( void )
 		r_gx_studio_bound_tex = 0;
 		r_gx_face_mode = GC_GX_FACE_MODE_NONE;
 		r_gx_bound_texnum = 0;
+		r_gx_bound_fmt = 0;
 		GC_MarkGxWorldEfbReady();
 	}
 }
@@ -687,10 +703,11 @@ static gc_gx_tex_t *R_GXBindTexnum( unsigned texnum, qboolean hud_bind )
 	if( img && !Q_strcmp( img->name, "*cintexture" ) && r_gx_cinematic_ready &&
 		r_gx_cinematic_tex.texnum == texnum )
 	{
-		if( r_gx_bound_texnum != texnum )
+		if( r_gx_bound_texnum != texnum || r_gx_bound_fmt != r_gx_cinematic_tex.fmt )
 		{
 			GX_LoadTexObj( &r_gx_cinematic_tex.obj, GX_TEXMAP0 );
 			r_gx_bound_texnum = texnum;
+			r_gx_bound_fmt = r_gx_cinematic_tex.fmt;
 			r_gx_tex_loads++;
 		}
 		else
@@ -708,10 +725,11 @@ static gc_gx_tex_t *R_GXBindTexnum( unsigned texnum, qboolean hud_bind )
 			r_gx_tex_lru[i] = ++r_gx_tex_clock;
 			if( hud_bind )
 				r_gx_tex[i].hud_pin = true;
-			if( r_gx_bound_texnum != texnum )
+			if( r_gx_bound_texnum != texnum || r_gx_bound_fmt != want_fmt )
 			{
 				GX_LoadTexObj( &r_gx_tex[i].obj, GX_TEXMAP0 );
 				r_gx_bound_texnum = texnum;
+				r_gx_bound_fmt = want_fmt;
 				r_gx_tex_loads++;
 			}
 			else
@@ -865,6 +883,7 @@ static gc_gx_tex_t *R_GXBindTexnum( unsigned texnum, qboolean hud_bind )
 	r_gx_tex_invalidates++;
 	GX_LoadTexObj( &t->obj, GX_TEXMAP0 );
 	r_gx_bound_texnum = texnum;
+	r_gx_bound_fmt = want_fmt;
 	r_gx_tex_loads++;
 	return t;
 }
@@ -1055,6 +1074,7 @@ static void R_GXDrawSkyBackdrop( GXRModeObj *rmode )
 
 	r_gx_face_mode = GC_GX_FACE_MODE_NONE;
 	r_gx_bound_texnum = 0;
+	r_gx_bound_fmt = 0;
 	if( !r_gx_sky_backdrop_logged )
 	{
 		r_gx_sky_backdrop_logged = true;
@@ -1172,6 +1192,8 @@ static void R_GXSetupWorld3DState( void )
 
 	if( !rmode )
 		return;
+	r_gx_newgame_route = gEngfuncs.Sys_CheckParm( "-gcnewgame" ) != 0;
+	r_gx_menu_route = gEngfuncs.Sys_CheckParm( "-gcmenuplaystart" ) != 0;
 
 	if( r_gx_efb_dump_hold > 0 )
 	{
@@ -1282,7 +1304,11 @@ static void R_GXSetupWorld3DState( void )
 	/* InvVtxCache only when vtx format changes — world format is stable. */
 	r_gx_face_mode = GC_GX_FACE_MODE_NONE;
 	r_gx_bound_texnum = 0;
+	r_gx_bound_fmt = 0;
+	r_gx_cull_none = false;
 	r_gx_lm_atlas_bound = false;
+	r_gx_lm_atlas_checked = false;
+	r_gx_lm_atlas_available = false;
 }
 
 static void R_GXFaceST( const msurface_t *surf, const float *pos, float *s, float *t )
@@ -1335,9 +1361,29 @@ static qboolean R_GXBindLightmapAtlas( void )
 	int w = 0, h = 0;
 	int gen;
 
+	if( r_gx_lm_atlas_checked )
+	{
+		if( !r_gx_lm_atlas_available )
+			return false;
+		if( !r_gx_lm_atlas_bound )
+		{
+			GX_LoadTexObj( &r_gx_lm_atlas_obj, GX_TEXMAP1 );
+			r_gx_lm_atlas_bound = true;
+			r_gx_lm_loads++;
+		}
+		else
+			r_gx_lm_reuses++;
+		return true;
+	}
+
 	atlas = GC_GetNewGameCapLightmapAtlas( &w, &h );
+	r_gx_lm_atlas_checked = true;
 	if( !atlas || w < 4 || h < 4 )
+	{
+		r_gx_lm_atlas_available = false;
 		return false;
+	}
+	r_gx_lm_atlas_available = true;
 
 	gen = GC_GetNewGameCapGeneration();
 	if( !r_gx_lm_atlas_valid || gen != r_gx_lm_atlas_gen )
@@ -1446,6 +1492,7 @@ static int R_GXEmitFace( const msurface_t *surf, model_t *world, int slot )
 	gc_gx_tex_t *gxt = NULL;
 	qboolean textured = false;
 	qboolean lit = false;
+	int bake_src = -1;
 
 	if( !surf || !world )
 		return 0;
@@ -1501,13 +1548,22 @@ static int R_GXEmitFace( const msurface_t *surf, model_t *world, int slot )
 
 	if( nverts < 3 )
 		return 0;
+	if( slot >= 0 && r_gx_newgame_route )
+	{
+		extern int GC_GetNewGameCapBakeSrc( int slot );
+		bake_src = GC_GetNewGameCapBakeSrc( slot );
+	}
 
 	/* G380: synthetic dump floor (firstedge -1) — don't depend on winding. */
 	if( surf->firstedge < 0 )
 	{
 		static qboolean g380_emit_logged;
 
-		GX_SetCullMode( GX_CULL_NONE );
+		if( !r_gx_cull_none )
+		{
+			GX_SetCullMode( GX_CULL_NONE );
+			r_gx_cull_none = true;
+		}
 		if( !g380_emit_logged )
 		{
 			g380_emit_logged = true;
@@ -1516,6 +1572,14 @@ static int R_GXEmitFace( const msurface_t *surf, model_t *world, int slot )
 				nverts, pts[0][0], pts[0][1], pts[0][2],
 				pts[2][0], pts[2][1], pts[2][2] );
 		}
+	}
+	else if( r_gx_cull_none )
+	{
+		/* Restore hardware rejection after a safety plug. Without this, every
+		 * later BSP face is rasterized from both sides, increasing overdraw and
+		 * making the synthetic-face ordering needlessly expensive. */
+		GX_SetCullMode( GX_CULL_BACK );
+		r_gx_cull_none = false;
 	}
 
 	color = 0xFFFFFFFFu;
@@ -1553,11 +1617,9 @@ static int R_GXEmitFace( const msurface_t *surf, model_t *world, int slot )
 			lit = ( slot >= 0 ) ? R_GXBindLightmapAtlas() : false;
 			/* G207: re-enable LM for EDGE/TEX (boosted bake + corner atlas UV).
 			 * Plane-fallback quads still REPLACE — LM ST meaningless there. */
-			if( lit && gEngfuncs.Sys_CheckParm( "-gcnewgame" ))
+			if( lit && r_gx_newgame_route )
 			{
-				extern int GC_GetNewGameCapBakeSrc( int slot );
-				int bake = GC_GetNewGameCapBakeSrc( slot );
-				if( bake != 1 && bake != 3 )
+				if( bake_src != 1 && bake_src != 3 )
 				{
 					static qboolean g202_logged;
 					lit = false;
@@ -1585,18 +1647,16 @@ static int R_GXEmitFace( const msurface_t *surf, model_t *world, int slot )
 		color = R_GXFaceColor( surf );
 	else if( slot >= 0 && nverts == 4 )
 	{
-		extern int GC_GetNewGameCapBakeSrc( int slot );
-		int bake = GC_GetNewGameCapBakeSrc( slot );
 		/* Plane-fallback quads are eye-centered — diffuse ST 0..1 stretches into
 		 * the right-rail garble blotch. Draw flat concrete instead (menu + retail). */
-		if( bake == 2 )
+		if( bake_src == 2 )
 		{
 			textured = false;
 			lit = false;
 			color = R_GXFaceColor( surf );
 		}
 		/* G203/G205: only force 0..1 ST on plane-fallback quads. */
-		else if( bake != 1 && bake != 3 )
+		else if( bake_src != 1 && bake_src != 3 )
 		{
 			static const float plane_uv[4][2] = {
 				{ 0.0f, 0.0f }, { 1.0f, 0.0f }, { 1.0f, 1.0f }, { 0.0f, 1.0f }
@@ -1607,7 +1667,7 @@ static int R_GXEmitFace( const msurface_t *surf, model_t *world, int slot )
 				sts[i][0] = plane_uv[i][0];
 				sts[i][1] = plane_uv[i][1];
 			}
-			if( !g203_logged && gEngfuncs.Sys_CheckParm( "-gcnewgame" ))
+			if( !g203_logged && r_gx_newgame_route )
 			{
 				g203_logged = true;
 				gEngfuncs.Con_Reportf( "Xash3D GameCube: G203 Flipper plane-quad ST 0..1\n" );
@@ -1643,7 +1703,7 @@ static int R_GXEmitFace( const msurface_t *surf, model_t *world, int slot )
 			{
 				u32 lm_scale = GX_CS_SCALE_2;
 
-				if( gEngfuncs.Sys_CheckParm( "-gcmenuplaystart" ))
+				if( r_gx_menu_route )
 					lm_scale = GX_CS_SCALE_1;
 				GX_SetTevColorOp( GX_TEVSTAGE1, GX_TEV_ADD, GX_TB_ZERO, lm_scale, GX_TRUE, GX_TEVPREV );
 			}
@@ -1927,19 +1987,25 @@ static int R_GXDrawWorldLiveSurfaces( model_t *world, qboolean opaque_too )
 	int opaque_drawn = 0;
 	int trans_drawn = 0;
 	int skip_vis = 0, skip_plane = 0, skip_back = 0, skip_area = 0, emit_zero = 0;
+	const qboolean newgame = gEngfuncs.Sys_CheckParm( "-gcnewgame" );
+	qboolean surfaces_live;
+	qboolean surfaces_pinned;
 	static qboolean live_logged;
 
 	if( !world || !world->surfaces || world->numsurfaces <= 0 )
 		return 0;
+
+	surfaces_live = GC_WorldSurfacesLive();
+	surfaces_pinned = GC_WorldSurfacesPinned();
 
 	/* Opaque pass — only when cap atlas is unavailable. */
 	if( opaque_too )
 	{
 		/* G212/G213: raise Flipper live BSP emit toward full PVS when pinned.
 		 * G283: on New Game leave LM-cap headroom under FRAME budget. */
-		int emit_budget = GC_WorldSurfacesLive() ? 2048 : 768;
+		int emit_budget = surfaces_live ? 2048 : 768;
 
-		if( gEngfuncs.Sys_CheckParm( "-gcnewgame" ) && GC_WorldSurfacesPinned() )
+		if( newgame && surfaces_pinned )
 		{
 			extern qboolean GC_IsG36SampleFaceCap( void );
 			const int frame_budget = R_GXFrameFaceBudget();
@@ -2011,7 +2077,7 @@ static int R_GXDrawWorldLiveSurfaces( model_t *world, qboolean opaque_too )
 					continue;
 				}
 				/* G283: match cap path — far-small cull dropped tunnel walls. */
-				if( !gEngfuncs.Sys_CheckParm( "-gcnewgame" )
+				if( !newgame
 					&& area > 0 && area < GC_GX_FAR_MIN_AREA
 					&& fabsf( dot ) > GC_GX_FAR_FACE_DIST )
 				{
@@ -2023,7 +2089,7 @@ static int R_GXDrawWorldLiveSurfaces( model_t *world, qboolean opaque_too )
 			/* G283: scratch texinfo* may dangle after lighting — emit flat
 			 * geom from mempool edges so Flipper never chases bad texture*. */
 			esurf = surf;
-			if( gEngfuncs.Sys_CheckParm( "-gcnewgame" ) && GC_WorldSurfacesPinned() )
+			if( newgame && surfaces_pinned )
 			{
 				tmp = *surf;
 				tmp.texinfo = NULL;
@@ -2045,7 +2111,7 @@ static int R_GXDrawWorldLiveSurfaces( model_t *world, qboolean opaque_too )
 	/* Translucent / water pass (no Z write) — live/pinned surfaces only.
 	 * G273: uncapped BSP walk after scratch reuse hung DumpFrames.
 	 * G285: hard budget + plane range checks (same as opaque). */
-	if( GC_WorldSurfacesLive() || GC_WorldSurfacesPinned() )
+	if( surfaces_live || surfaces_pinned )
 	{
 		const int water_budget = 12;
 		int water_left = water_budget;
@@ -2315,11 +2381,22 @@ int R_GXDrawNewGameCapFaces( void )
 	int gen;
 	int order[320];
 	const char *map_name = "";
+	qboolean newgame_probe;
+	qboolean menu_playstart;
+	qboolean want_live_overlap;
+	qboolean surfaces_live;
+	qboolean surfaces_pinned;
+	qboolean scratch_retained;
 	qboolean log_begin = false;
 	qboolean log_end = false;
 
 	if( !GC_UseGxWorldDraw() )
 		return 0;
+
+	/* These budgets are frame-stable.  Snapshot them once instead of calling
+	 * the probe/route helpers from each bounded face loop below. */
+	const int frame_budget = R_GXFrameFaceBudget();
+	const int live_budget = R_GXLiveFaceBudget();
 
 	/* Reserve HUD TEXMAP0 slabs before world uploads fill MEM1. */
 	R_GXReserveHudPool();
@@ -2327,6 +2404,15 @@ int R_GXDrawNewGameCapFaces( void )
 	world = WORLDMODEL;
 	if( !world )
 		return 0;
+
+	/* These command/probe modes are frame-stable; keep them out of the
+	 * bounded face loops below, where Flipper pays for every call. */
+	newgame_probe = GC_IsNewGameProbe();
+	menu_playstart = gEngfuncs.Sys_CheckParm( "-gcmenuplaystart" );
+	want_live_overlap = GC_WantLiveCapOverlap();
+	surfaces_live = GC_WorldSurfacesLive();
+	surfaces_pinned = GC_WorldSurfacesPinned();
+	scratch_retained = GC_WorldSurfacesScratchRetained();
 
 	map_name = world->name ? world->name : "";
 	if( !map_name[0] )
@@ -2358,7 +2444,7 @@ int R_GXDrawNewGameCapFaces( void )
 		r_gx_face_cull_logged = false;
 	}
 
-	if( GC_IsNewGameProbe() )
+	if( newgame_probe )
 	{
 		log_begin = Q_stricmp( r_gx_capfaces_begin_map, map_name ) != 0;
 		log_end = Q_stricmp( r_gx_capfaces_end_map, map_name ) != 0;
@@ -2371,6 +2457,8 @@ int R_GXDrawNewGameCapFaces( void )
 		r_gx_tex_invalidates++;
 		r_gx_lm_atlas_valid = false;
 		r_gx_lm_atlas_bound = false;
+		r_gx_lm_atlas_checked = false;
+		r_gx_lm_atlas_available = false;
 		r_gx_cap_generation = gen;
 	}
 
@@ -2399,7 +2487,7 @@ int R_GXDrawNewGameCapFaces( void )
 	/* Stamp marksurfaces only when leaf→surface links are still valid.
 	 * After G132 scratch reuse on New Game / menu New Game, MarkLeaves already
 	 * full-stamped surf->visframe; walking dangling firstmarksurface hangs. */
-	if( !( GC_IsNewGameProbe() && GC_UseLowResWorldProbe() ))
+	if( !( newgame_probe && GC_UseLowResWorldProbe() ))
 		R_GXMarkVisibleSurfaces( world );
 
 	draw = GC_GetNewGameDrawSurfs();
@@ -2414,14 +2502,14 @@ int R_GXDrawNewGameCapFaces( void )
 	drawn = 0;
 	/* G282: emit LM-caps whenever New Game has them — do not require a live
 	 * pool (empty live used to fall through to sky-only and drop caps). */
-	if( GC_WorldSurfacesLive() || ( GC_IsNewGameProbe() && n > 0 ))
+	if( surfaces_live || ( newgame_probe && n > 0 ))
 	{
 		static qboolean g213_logged;
 		int live_n = GC_GetLiveFaceCount();
 
 		/* G283: malloc-pinned → live BSP. Scratch retain: LM-caps + G298 lean
 		 * baked verts (no edge-walk of retained scratch after present reuse). */
-		if( GC_WorldSurfacesPinned() && !GC_WorldSurfacesScratchRetained() )
+		if( surfaces_pinned && !scratch_retained )
 		{
 			drawn = R_GXDrawWorldLiveSurfaces( world, true );
 			if( !g213_logged )
@@ -2450,11 +2538,11 @@ int R_GXDrawNewGameCapFaces( void )
 				int got;
 				int bake;
 
-				if( live_drawn >= R_GXLiveFaceBudget()
-					|| drawn + live_drawn >= R_GXFrameFaceBudget() )
+				if( live_drawn >= live_budget
+					|| drawn + live_drawn >= frame_budget )
 					break;
 				/* G361: denser changelevel prefers live EDGE/TEX over LM-cap. */
-				if( GC_LiveFaceIsCapped( li ) && !GC_WantLiveCapOverlap() )
+				if( GC_LiveFaceIsCapped( li ) && !want_live_overlap )
 				{
 					skipped_cap++;
 					continue;
@@ -2502,7 +2590,7 @@ int R_GXDrawNewGameCapFaces( void )
 			if( !g213_logged )
 			{
 				g213_logged = true;
-				if( GC_WorldSurfacesScratchRetained() )
+				if( scratch_retained )
 					gEngfuncs.Con_Reportf(
 						"Xash3D GameCube: G298 lean Flipper under scratch retain live=%d drawn=%d\n",
 						live_n, live_drawn );
@@ -2516,7 +2604,7 @@ int R_GXDrawNewGameCapFaces( void )
 				(void)skip_back; (void)skip_noverts; (void)emit_fail;
 			}
 		}
-		else if( GC_WorldSurfacesScratchRetained() )
+		else if( scratch_retained )
 		{
 			/* Tip-safe: never fall through to live edge-walk of retained
 			 * scratch after the one-shot G283 log. Xen c4a1 (live=0, water
@@ -2529,7 +2617,7 @@ int R_GXDrawNewGameCapFaces( void )
 					"Xash3D GameCube: G283 scratch retain-pin (stamp+LM-caps; lean empty)\n" );
 			}
 		}
-		else if( GC_WorldSurfacesLive() )
+		else if( surfaces_live )
 		{
 			drawn = R_GXDrawWorldLiveSurfaces( world, true );
 			if( !g213_logged && drawn > 0 )
@@ -2555,19 +2643,45 @@ int R_GXDrawNewGameCapFaces( void )
 
 			if( fill_n > 0 )
 			{
-				const int fill_cap = ( GC_GX_FILL_FACE_BUDGET < R_GXFrameFaceBudget() / 4 )
+				const int fill_cap = ( GC_GX_FILL_FACE_BUDGET < frame_budget / 4 )
 					? GC_GX_FILL_FACE_BUDGET
-					: ( R_GXFrameFaceBudget() / 4 );
+					: ( frame_budget / 4 );
 
 				fill_reserve = ( fill_n < fill_cap ) ? fill_n : fill_cap;
 			}
 			{
-			const int cap_limit = R_GXFrameFaceBudget() - fill_reserve;
+			const int cap_limit = frame_budget - fill_reserve;
+			int menu_plug_slot = -1;
+			qboolean menu_plug_drawn = false;
 
 			if( n > (int)( sizeof( order ) / sizeof( order[0] )))
 				n = (int)( sizeof( order ) / sizeof( order[0] ));
 
 			R_GXOrderFacesByTexBands( draw, n, order );
+			/* The menu tram end-plug is a safety surface, not an ordinary
+			 * ranked wall. Keep it inside the bounded sample window or the
+			 * forward view can still expose clear colour behind the cabin. */
+			if( menu_playstart )
+			{
+				int k;
+
+				for( k = 0; k < n; k++ )
+				{
+					if( draw[k].firstedge < 0
+						&& draw[k].extents[0] == 512
+						&& draw[k].extents[1] == 384 )
+					{
+						menu_plug_slot = k;
+						break;
+					}
+				}
+				if( menu_plug_slot >= 0 && drawn + cap_drawn < cap_limit
+					&& R_GXEmitFace( &draw[menu_plug_slot], world, menu_plug_slot ) > 0 )
+				{
+					cap_drawn++;
+					menu_plug_drawn = true;
+				}
+			}
 
 			for( i = 0; i < n; i++ )
 			{
@@ -2579,8 +2693,10 @@ int R_GXDrawNewGameCapFaces( void )
 
 				if( drawn + cap_drawn >= cap_limit )
 					break;
+				if( menu_plug_drawn && slot == menu_plug_slot )
+					continue;
 				/* G361: live already emitted this face as EDGE/TEX. */
-				if( GC_WantLiveCapOverlap() && GC_CapFaceIsLive( slot ))
+				if( want_live_overlap && GC_CapFaceIsLive( slot ))
 					continue;
 				if( !surf->plane )
 				{
@@ -2616,7 +2732,7 @@ int R_GXDrawNewGameCapFaces( void )
 					continue;
 				/* G281: skip far-small cull on New Game — tunnel walls along
 				 * the look path were dropped while dump eye was distant. */
-				if( !GC_IsNewGameProbe()
+				if( !newgame_probe
 					&& area > 0 && area < GC_GX_FAR_MIN_AREA
 					&& fabsf( dot ) > GC_GX_FAR_FACE_DIST )
 				{
@@ -2631,7 +2747,7 @@ int R_GXDrawNewGameCapFaces( void )
 					cap_drawn += got;
 			}
 			drawn += cap_drawn;
-			if( gEngfuncs.Sys_CheckParm( "-gcmenuplaystart" ))
+			if( menu_playstart )
 			{
 				static qboolean menu_cap_filter_logged;
 
@@ -2662,7 +2778,7 @@ int R_GXDrawNewGameCapFaces( void )
 				float dot;
 
 				if( fill_drawn >= GC_GX_FILL_FACE_BUDGET
-					|| drawn + fill_drawn >= R_GXFrameFaceBudget() )
+					|| drawn + fill_drawn >= frame_budget )
 					break;
 				if( !GC_FillFacePlane( fi, &pl, &flags ))
 					continue;
@@ -2694,7 +2810,7 @@ int R_GXDrawNewGameCapFaces( void )
 					fill_fail++;
 			}
 			drawn += fill_drawn;
-			if( gEngfuncs.Sys_CheckParm( "-gcmenuplaystart" ))
+			if( menu_playstart )
 			{
 				static qboolean menu_fill_logged;
 
@@ -2758,7 +2874,7 @@ int R_GXDrawNewGameCapFaces( void )
 				float dot;
 
 				if( water_drawn >= 8
-					|| drawn + water_drawn >= R_GXFrameFaceBudget() )
+					|| drawn + water_drawn >= frame_budget )
 					break;
 				if( !GC_WaterFacePlane( wi, &pl, NULL ))
 					continue;
@@ -2970,7 +3086,7 @@ int R_GXDrawNewGameCapFaces( void )
 			g348_post_logged = true;
 			gEngfuncs.Con_Reportf(
 				"Xash3D GameCube: CapFaces post-G36 retail drawn=%d live_budget=%d frame_budget=%d\n",
-				drawn, R_GXLiveFaceBudget(), R_GXFrameFaceBudget() );
+				drawn, live_budget, frame_budget );
 		}
 	}
 	/* G358: always stash drawn for dual-hop denser sample (framecount>3). */
@@ -3436,6 +3552,7 @@ static void R_GXPrepareHud2DState( void )
 
 	r_gx_face_mode = GC_GX_FACE_MODE_NONE;
 	r_gx_bound_texnum = 0;
+	r_gx_bound_fmt = 0;
 	r_gx_lm_atlas_bound = false;
 	r_gx_hud_2d_ready = true;
 }
@@ -3564,6 +3681,7 @@ int R_GXDrawTramBaked( const float *origin, const float *angles )
 
 	r_gx_face_mode = GC_GX_FACE_MODE_NONE;
 	r_gx_bound_texnum = 0;
+	r_gx_bound_fmt = 0;
 	r_gx_lm_atlas_bound = false;
 	GX_SetCullMode( GX_CULL_NONE );
 	/* Full mesh: normal Z. Exterior-only Z-ignore was for the 6-quad shell. */
@@ -3626,8 +3744,9 @@ int R_GXDrawTramBaked( const float *origin, const float *angles )
 			VectorSubtract( cent, RI.rvp.vieworigin, to_c );
 			along = DotProduct( to_c, forward );
 			lateral = DotProduct( to_c, right );
-			/* Only skip very center-ahead bulkheads (keep side posters/rails). */
-			if( along > 72.0f && fabs( lateral ) < 36.0f )
+			/* Only skip the nearly centered, close windshield bulkhead. A 36u
+			 * cone also removed the corridor side walls and exposed clear color. */
+			if( along > 72.0f && fabs( lateral ) < 12.0f )
 				continue;
 		}
 
@@ -3830,6 +3949,7 @@ int R_GXDrawBrushModel( cl_entity_t *e )
 
 	r_gx_face_mode = GC_GX_FACE_MODE_NONE;
 	r_gx_bound_texnum = 0;
+	r_gx_bound_fmt = 0;
 	r_gx_lm_atlas_bound = false;
 	/* G277: cabin interiors — HW backface would drop inner tram walls. */
 	GX_SetCullMode( GX_CULL_NONE );

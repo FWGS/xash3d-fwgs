@@ -313,7 +313,18 @@ extern gl_globals_t   tr;
 static inline int GC_GetVisualQuality( void )
 {
 #if XASH_GAMECUBE
-	int quality = (int)gEngfuncs.pfnGetCvarFloat( "gc_quality" );
+	static int cached_frame = -1;
+	static int cached_quality = 1;
+	int quality;
+
+	/* Quality is queried from several GX hot paths per frame.  Cvar lookup is
+	 * stable for the duration of a render, so avoid repeating that lookup while
+	 * retaining uncached behavior during renderer initialization (framecount 0).
+	 */
+	if( tr.framecount > 0 && cached_frame == tr.framecount )
+		return cached_quality;
+
+	quality = (int)gEngfuncs.pfnGetCvarFloat( "gc_quality" );
 
 	if( quality < 0 )
 		quality = 0;
@@ -323,6 +334,11 @@ static inline int GC_GetVisualQuality( void )
 	if( quality > 1 )
 		quality = 1;
 #endif
+	if( tr.framecount > 0 )
+	{
+		cached_frame = tr.framecount;
+		cached_quality = quality;
+	}
 	return quality;
 #else /* !XASH_GAMECUBE */
 	/* Non-GameCube targets always use standard quality */

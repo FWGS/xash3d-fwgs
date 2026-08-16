@@ -211,33 +211,39 @@ void R_SetupSkyLeanGameCube( const char *name )
 	FS_ClearFindMissCache();
 	ref.dllFuncs.R_SetupSky( NULL );
 
-	/* BMP only (8-bit). Never fall through to TGA. */
-	for( s = 0; s < (int)ARRAYSIZE( sides ); s++ )
+	/* BMP only (8-bit). Never fall through to TGA. The low-memory New Game
+	 * route goes straight to the BSS procedural side: probing absent files
+	 * here burns the same post-map heap/FS budget needed by the first GX
+	 * present and can stall before G327 HUD bring-up. */
+	if( !Sys_CheckParm( "-gcnewgame" ) && !Sys_CheckParm( "-gcmenuplaystart" ))
 	{
-		char sidename[MAX_VA_STRING];
-		int tex = 0;
+		for( s = 0; s < (int)ARRAYSIZE( sides ); s++ )
+		{
+			char sidename[MAX_VA_STRING];
+			int tex = 0;
 
-		if( use_gc_prefix )
-		{
-			Q_snprintf( sidename, sizeof( sidename ), "gfx/env/gc_desert%s.bmp", sides[s].suffix );
-			tex = ref.dllFuncs.GL_LoadTexture( sidename, NULL, 0, TF_CLAMP|TF_SKY|TF_NOMIPMAP );
-		}
-		if( !tex )
-		{
-			Q_snprintf( sidename, sizeof( sidename ), "%s%s.bmp", loadname, sides[s].suffix );
-			tex = ref.dllFuncs.GL_LoadTexture( sidename, NULL, 0, TF_CLAMP|TF_SKY|TF_NOMIPMAP );
-		}
-		if( tex )
-		{
-			skyboxTextures[sides[s].index] = tex;
-			if( loaded )
-				Q_strncat( loaded_list, ",", sizeof( loaded_list ));
-			Q_strncat( loaded_list, sides[s].suffix, sizeof( loaded_list ));
-			loaded++;
+			if( use_gc_prefix )
+			{
+				Q_snprintf( sidename, sizeof( sidename ), "gfx/env/gc_desert%s.bmp", sides[s].suffix );
+				tex = ref.dllFuncs.GL_LoadTexture( sidename, NULL, 0, TF_CLAMP|TF_SKY|TF_NOMIPMAP );
+			}
+			if( !tex )
+			{
+				Q_snprintf( sidename, sizeof( sidename ), "%s%s.bmp", loadname, sides[s].suffix );
+				tex = ref.dllFuncs.GL_LoadTexture( sidename, NULL, 0, TF_CLAMP|TF_SKY|TF_NOMIPMAP );
+			}
+			if( tex )
+			{
+				skyboxTextures[sides[s].index] = tex;
+				if( loaded )
+					Q_strncat( loaded_list, ",", sizeof( loaded_list ));
+				Q_strncat( loaded_list, sides[s].suffix, sizeof( loaded_list ));
+				loaded++;
+				Image_GCPurgeDecodeScratch();
+				break; /* one side is enough for Flipper outdoor backdrop */
+			}
 			Image_GCPurgeDecodeScratch();
-			break; /* one side is enough for Flipper outdoor backdrop */
 		}
-		Image_GCPurgeDecodeScratch();
 	}
 
 	/* G300: tip-safe BSS sky when ImageLib cannot decode desert BMPs. */
