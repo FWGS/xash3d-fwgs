@@ -380,7 +380,10 @@ static inline void COM_FixSlashes( char *pname )
 	while(( s = Q_strchr( s, '\\' )))
 		*s = '/';
 
-	for( i = 0, j = 0; pname[i]; i++ )
+	// a leading '//' is an UNC path prefix and must be preserved
+	i = j = ( pname[0] == '/' && pname[1] == '/' ) ? 2 : 0;
+
+	for( ; pname[i]; i++ )
 	{
 		if( pname[i] == '/' && pname[i+1] == '/' )
 			continue;
