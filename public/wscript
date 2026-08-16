@@ -105,7 +105,9 @@ def configure(conf):
 	# save some time on Windows, msvc is too slow
 	# these calls must be available with both msvc and mingw
 	if conf.env.DEST_OS == 'win32':
-		conf.export_define('HAVE_TGMATH_H', conf.simple_check(TGMATH_H_TEST, 'tgmath.h', use='M werror export'))
+		# on MinGW tgmath.h macros expand over the function declarations in intrin.h, which SDL_cpuinfo.h includes
+		if conf.env.COMPILER_CC == 'msvc':
+			conf.export_define('HAVE_TGMATH_H', conf.simple_check(TGMATH_H_TEST, 'tgmath.h', use='M werror export'))
 		conf.export_define('HAVE_STRNICMP')
 		conf.export_define('HAVE_STRICMP')
 	else:
