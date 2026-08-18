@@ -2699,7 +2699,7 @@ R_AdditionalPasses
 draw details when not enough tmus
 ===================
 */
-static void R_AdditionalPasses( vboarray_t *vbo, int indexlen, void *indexarray, texture_t *tex, qboolean resetvbo, size_t offset )
+static void R_AdditionalPasses( vboarray_t *vbo, int indexlen, void *indexarray, texture_t *tex, qboolean resetvbo, size_t offset, uint maxindex )
 {
 	if( !indexlen )
 		return;
@@ -2730,13 +2730,7 @@ static void R_AdditionalPasses( vboarray_t *vbo, int indexlen, void *indexarray,
 		pglScalef( glt->xscale, glt->yscale, 1 );
 
 		// draw
-#if !defined XASH_NANOGL || defined XASH_WES && XASH_EMSCRIPTEN // WebGL need to know array sizes
-		if( pglDrawRangeElements )
-			pglDrawRangeElements( GL_TRIANGLES, 0, vbo->array_len, indexlen, GL_VBOINDEX_TYPE, indexarray );
-		else
-#endif
-		pglDrawElements( GL_TRIANGLES, indexlen, GL_VBOINDEX_TYPE, indexarray );
-
+		GL_DrawRangeElements( GL_TRIANGLES, 0, maxindex, indexlen, GL_VBOINDEX_TYPE, indexarray );
 
 		// restore state
 		pglLoadIdentity();
@@ -2806,8 +2800,6 @@ static void R_DrawDlightedDecals( vboarray_t *vbo, msurface_t *newsurf, msurface
 			pglDrawArrays( GL_TRIANGLE_FAN, decali * DECAL_VERTS_MAX, vbos.decal_numverts[decali] );
 			decali++;
 		}
-		newsurf = surf;
-
 	}
 
 #if SPARSE_DECALS_UPLOAD
@@ -2833,16 +2825,16 @@ static void R_FlushDlights( vboarray_t *vbo, int min_index, int max_index, int d
 	{
 #ifndef MINIMIZE_UPLOAD
 		pglBindBufferARB( GL_ARRAY_BUFFER_ARB, vbos.dlight_vbo );
-		pglBufferDataARB( GL_ARRAY_BUFFER_ARB, sizeof( vec2_t )* (max_index - min_index), vbos.dlight_tc + min_index, GL_STREAM_DRAW_ARB );
+		pglBufferDataARB( GL_ARRAY_BUFFER_ARB, sizeof( vec2_t ) * ( max_index - min_index ), vbos.dlight_tc + min_index, GL_STREAM_DRAW_ARB );
 #endif
 		pglBindBufferARB( GL_ARRAY_BUFFER_ARB, vbo->glindex );
-		pglVertexPointer( 3, GL_FLOAT, sizeof( vbovertex_t ),  (void*)(min_index* sizeof( vbovertex_t ) + offsetof(vbovertex_t,pos)) );
+		pglVertexPointer( 3, GL_FLOAT, sizeof( vbovertex_t ), (void *)( min_index * sizeof( vbovertex_t ) + offsetof( vbovertex_t, pos )));
 		GL_SelectTexture( mtst.tmu_gl );
-		pglTexCoordPointer( 2, GL_FLOAT, sizeof( vbovertex_t ),  (void*)(min_index * sizeof( vbovertex_t ) + offsetof(vbovertex_t,gl_tc)) );
+		pglTexCoordPointer( 2, GL_FLOAT, sizeof( vbovertex_t ), (void *)( min_index * sizeof( vbovertex_t ) + offsetof( vbovertex_t, gl_tc )));
 		if( mtst.details_enabled && mtst.tmu_dt != -1 )
 		{
 			GL_SelectTexture( mtst.tmu_dt );
-			pglTexCoordPointer( 2, GL_FLOAT, sizeof( vbovertex_t ),  (void*)(min_index * sizeof( vbovertex_t ) + offsetof(vbovertex_t,gl_tc)) );
+			pglTexCoordPointer( 2, GL_FLOAT, sizeof( vbovertex_t ), (void *)( min_index * sizeof( vbovertex_t ) + offsetof( vbovertex_t, gl_tc )));
 		}
 
 	}
@@ -2852,12 +2844,9 @@ static void R_FlushDlights( vboarray_t *vbo, int min_index, int max_index, int d
 	pglTexImage2D( GL_TEXTURE_2D, 0, GL_RGBA, BLOCK_SIZE, BLOCK_SIZE, 0, GL_RGBA, GL_UNSIGNED_BYTE, 0 );
 #endif
 	LM_UploadDynamicBlock();
-#if !defined XASH_NANOGL || defined XASH_WES && XASH_EMSCRIPTEN // WebGL need to know array sizes
-	if( pglDrawRangeElements )
-		pglDrawRangeElements( GL_TRIANGLES, min_index, max_index, dlightindex, GL_VBOINDEX_TYPE, dlightarray );
-	else
-#endif
-	pglDrawElements( GL_TRIANGLES, dlightindex, GL_VBOINDEX_TYPE, dlightarray );
+
+	if( dlightindex )
+		GL_DrawRangeElements( GL_TRIANGLES, 0, max_index - min_index - 1, dlightindex, GL_VBOINDEX_TYPE, dlightarray );
 }
 
 static void R_AddSurfaceDecalsDlight( msurface_t *surf, int *pdecalcount )
@@ -2874,6 +2863,10 @@ static void R_AddSurfaceDecalsDlight( msurface_t *surf, int *pdecalcount )
 	{
 		int decalindex = pdecal - &gDecalPool[0];
 		int numVerts = vbos.decaldata->decals[decalindex].numVerts;
+
+		// R_DrawDlightedDecals skips these, keep both walks in sync
+		if( !pdecal->texture )
+			continue;
 
 		if( numVerts == -1 )
 		{
@@ -2987,7 +2980,7 @@ static void R_DrawVBODlights( vboarray_t *vbo, vbotexture_t *vbotex, texture_t *
 				// upload already generated block
 				R_FlushDlights( vbo, min_index, max_index, dlightindex, dlightarray );
 
-				R_AdditionalPasses( vbo, dlightindex, dlightarray, texture, true, min_index * sizeof( vbovertex_t ) );
+				R_AdditionalPasses( vbo, dlightindex, dlightarray, texture, true, min_index * sizeof( vbovertex_t ), max_index - min_index - 1 );
 #ifdef MINIMIZE_UPLOAD
 				// invalidate buffer to prevent blocking on SubData
 				if( vbos.dlight_vbo )
@@ -3003,6 +2996,7 @@ static void R_DrawVBODlights( vboarray_t *vbo, vbotexture_t *vbotex, texture_t *
 				// draw decals that lighted with this lightmap
 				if( decalcount )
 					R_DrawDlightedDecals( vbo, newsurf, surf, decalcount, texture );
+				newsurf = surf;
 				decalcount = 0;
 				R_SetupVBOArrayDlight( vbo, texture );
 
@@ -3053,7 +3047,7 @@ static void R_DrawVBODlights( vboarray_t *vbo, vbotexture_t *vbotex, texture_t *
 		if( dlightindex )
 		{
 			R_FlushDlights( vbo, min_index, max_index, dlightindex, dlightarray );
-			R_AdditionalPasses( vbo, dlightindex, dlightarray, texture, true, min_index * sizeof( vbovertex_t ) );
+			R_AdditionalPasses( vbo, dlightindex, dlightarray, texture, true, min_index * sizeof( vbovertex_t ), max_index - min_index - 1 );
 
 			// draw remaining decals
 			if( decalcount )
@@ -3090,12 +3084,7 @@ static void R_DrawLightmappedVBO( vboarray_t *vbo, vbotexture_t *vbotex, texture
 {
 	if( vbotex->curindex )
 	{
-#if !defined XASH_NANOGL || defined XASH_WES && XASH_EMSCRIPTEN // WebGL need to know array sizes
-		if( pglDrawRangeElements )
-			pglDrawRangeElements( GL_TRIANGLES, 0, vbo->array_len, vbotex->curindex, GL_VBOINDEX_TYPE, vbotex->indexarray );
-		else
-#endif
-		pglDrawElements( GL_TRIANGLES, vbotex->curindex, GL_VBOINDEX_TYPE, vbotex->indexarray );
+		GL_DrawRangeElements( GL_TRIANGLES, 0, vbo->array_len - 1, vbotex->curindex, GL_VBOINDEX_TYPE, vbotex->indexarray );
 
 		// draw debug lines
 		if( gl_wireframe.value && !skiplighting )
@@ -3105,12 +3094,7 @@ static void R_DrawLightmappedVBO( vboarray_t *vbo, vbotexture_t *vbotex, texture
 			GL_SelectTexture( XASH_TEXTURE0 );
 			pglDisable( GL_TEXTURE_2D );
 			pglDisable( GL_DEPTH_TEST );
-#if !defined XASH_NANOGL || defined XASH_WES && XASH_EMSCRIPTEN // WebGL need to know array sizes
-			if( pglDrawRangeElements )
-				pglDrawRangeElements( GL_LINES, 0, vbo->array_len, vbotex->curindex, GL_VBOINDEX_TYPE, vbotex->indexarray );
-			else
-#endif
-				pglDrawElements( GL_LINES, vbotex->curindex, GL_VBOINDEX_TYPE, vbotex->indexarray );
+			GL_DrawRangeElements( GL_LINES, 0, vbo->array_len - 1, vbotex->curindex, GL_VBOINDEX_TYPE, vbotex->indexarray );
 			pglEnable( GL_DEPTH_TEST );
 			pglEnable( GL_TEXTURE_2D );
 			GL_SelectTexture( XASH_TEXTURE1 );
@@ -3129,7 +3113,8 @@ static void R_DrawLightmappedVBO( vboarray_t *vbo, vbotexture_t *vbotex, texture
 
 	R_DrawVBODlights( vbo, vbotex, texture, lightmap );
 
-	R_AdditionalPasses( vbo, vbotex->curindex, vbotex->indexarray, texture, false, 0 );
+	R_AdditionalPasses( vbo, vbotex->curindex, vbotex->indexarray, texture, false, 0, vbo->array_len - 1 );
+
 	// prepare to next frame
 	vbotex->curindex = 0;
 }

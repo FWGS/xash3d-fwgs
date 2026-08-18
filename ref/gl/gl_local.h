@@ -285,6 +285,7 @@ void GL_SetRenderMode( int mode );
 void GL_EnableTextureUnit( int tmu, qboolean enable );
 void GL_TextureTarget( uint target );
 void GL_Cull( GLenum cull );
+void GL_DrawRangeElements( GLenum mode, GLuint start, GLuint end, GLsizei count, GLenum type, const GLvoid *indices );
 void GL_PushPolygonOffset( float factor, float units );
 void GL_PopPolygonOffset( void );
 void SCR_TimeRefresh_f( void );

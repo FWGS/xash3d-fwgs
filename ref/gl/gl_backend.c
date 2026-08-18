@@ -421,6 +421,16 @@ void GL_Cull( GLenum cull )
 	glState.faceCull = cull;
 }
 
+void GL_DrawRangeElements( GLenum mode, GLuint start, GLuint end, GLsizei count, GLenum type, const GLvoid *indices )
+{
+#if !defined( XASH_NANOGL )
+	if( pglDrawRangeElements )
+		pglDrawRangeElements( mode, start, end, count, type, indices );
+	else
+#endif
+		pglDrawElements( mode, count, type, indices );
+}
+
 void GL_SetRenderMode( int mode )
 {
 	pglTexEnvi( GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_MODULATE );
