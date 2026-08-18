@@ -1880,6 +1880,9 @@ static void R_StudioBuildArrayChromeMesh( short *ptricmds, vec3_t *pstudionorms,
 
 static void R_StudioDrawArrays( uint startverts, uint startelems )
 {
+	if( g_studio.numelems == startelems )
+		return;
+
 	pglEnableClientState( GL_VERTEX_ARRAY );
 	pglVertexPointer( 3, GL_FLOAT, 12, g_studio.arrayverts );
 
@@ -1892,13 +1895,7 @@ static void R_StudioDrawArrays( uint startverts, uint startelems )
 		pglColorPointer( 4, GL_UNSIGNED_BYTE, 0, g_studio.arraycolor );
 	}
 
-#if !defined XASH_NANOGL || defined XASH_WES && XASH_EMSCRIPTEN // WebGL need to know array sizes
-	if( pglDrawRangeElements )
-		pglDrawRangeElements( GL_TRIANGLES, startverts, g_studio.numverts,
-			g_studio.numelems - startelems, GL_UNSIGNED_SHORT, &g_studio.arrayelems[startelems] );
-	else
-#endif
-		pglDrawElements( GL_TRIANGLES, g_studio.numelems - startelems, GL_UNSIGNED_SHORT, &g_studio.arrayelems[startelems] );
+	GL_DrawRangeElements( GL_TRIANGLES, startverts, g_studio.numverts - 1, g_studio.numelems - startelems, GL_UNSIGNED_SHORT, &g_studio.arrayelems[startelems] );
 	pglDisableClientState( GL_VERTEX_ARRAY );
 	pglDisableClientState( GL_TEXTURE_COORD_ARRAY );
 	if( !( g_nForceFaceFlags & STUDIO_NF_CHROME ) )
@@ -1971,20 +1968,23 @@ static void R_StudioDrawPoints( void )
 	if( m_skinnum > 0 && m_skinnum < m_pStudioHeader->numskinfamilies )
 		pskinref += (m_skinnum * m_pStudioHeader->numskinref);
 
+	const int numverts = m_pSubModel->numverts;
+	const int numnorms = m_pSubModel->numnorms;
+
 	if( FBitSet( m_pStudioHeader->flags, STUDIO_HAS_BONEWEIGHTS ) && m_pSubModel->blendvertinfoindex != 0 && m_pSubModel->blendnorminfoindex != 0 )
 	{
 		mstudioboneweight_t	*pvertweight = (mstudioboneweight_t *)((byte *)m_pStudioHeader + m_pSubModel->blendvertinfoindex);
 		mstudioboneweight_t	*pnormweight = (mstudioboneweight_t *)((byte *)m_pStudioHeader + m_pSubModel->blendnorminfoindex);
 		matrix3x4		skinMat;
 
-		for( int i = 0; i < m_pSubModel->numverts; i++ )
+		for( int i = 0; i < numverts; i++ )
 		{
 			R_StudioComputeSkinMatrix( &pvertweight[i], skinMat );
 			Matrix3x4_VectorTransform( skinMat, pstudioverts[i], g_studio.verts[i] );
 			R_LightStrength( pvertbone[i], pstudioverts[i], g_studio.lightpos[i] );
 		}
 
-		for( int i = 0; i < m_pSubModel->numnorms; i++ )
+		for( int i = 0; i < numnorms; i++ )
 		{
 			R_StudioComputeSkinMatrix( &pnormweight[i], skinMat );
 			Matrix3x4_VectorRotate( skinMat, pstudionorms[i], g_studio.norms[i] );
@@ -1992,11 +1992,11 @@ static void R_StudioDrawPoints( void )
 	}
 	else
 	{
-		for( int i = 0; i < m_pSubModel->numverts; i++ )
-		{
+		for( int i = 0; i < numverts; i++ )
 			Matrix3x4_VectorTransform( g_studio.bonestransform[pvertbone[i]], pstudioverts[i], g_studio.verts[i] );
+
+		for( int i = 0; i < numverts; i++ )
 			R_LightStrength( pvertbone[i], pstudioverts[i], g_studio.lightpos[i] );
-		}
 	}
 
 	// generate shared normals for properly scaling glowing shell
