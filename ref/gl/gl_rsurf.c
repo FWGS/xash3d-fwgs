@@ -1924,6 +1924,8 @@ void R_DrawBrushModel( cl_entity_t *e )
 
 	int num_sorted = R_SortBrushModelSurfaces( e, clmodel, mins );
 
+	qboolean drawlightmap = R_HasLightmap();
+
 	// draw bmodels with a polyoffset to avoid flickering when they are too close to world
 	// R_DrawVBO and DrawDecalsBatch will restore polyoffset
 	if( gl_polyoffset_bmodels.value )
@@ -1932,11 +1934,11 @@ void R_DrawBrushModel( cl_entity_t *e )
 	// draw sorted translucent surfaces
 	for( int i = 0; i < num_sorted; i++ )
 	{
-		if( !allow_vbo || !R_AddSurfToVBO( gpGlobals->draw_surfaces[i].surf, true ))
+		if( !allow_vbo || !R_AddSurfToVBO( gpGlobals->draw_surfaces[i].surf, drawlightmap ))
 			R_RenderBrushPoly( gpGlobals->draw_surfaces[i].surf, gpGlobals->draw_surfaces[i].cull );
 	}
 
-	R_DrawVBO( R_HasLightmap(), true );
+	R_DrawVBO( drawlightmap, true );
 
 	if( e->curstate.rendermode == kRenderTransColor )
 		pglEnable( GL_TEXTURE_2D );
