@@ -396,6 +396,24 @@ void IN_MouseEvent( int key, int down )
 }
 
 /*
+===========
+IN_ClearMouseState
+
+mouse button releases are handled here to ensure that only actual mouse button clicks are released
+===========
+*/
+void IN_ClearMouseState( void )
+{
+	int i;
+
+	for( i = 0; i <= K_MOUSE5 - K_MOUSE1; i++ )
+	{
+		if( FBitSet( in_mstate, BIT( i ))) // is this an actual mouse button click?
+			IN_MouseEvent( i, false );
+	}
+}
+
+/*
 ==============
 IN_MWheelEvent
 

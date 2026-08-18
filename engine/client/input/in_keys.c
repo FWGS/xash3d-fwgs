@@ -902,15 +902,16 @@ void GAME_EXPORT Key_ClearStates( void )
 
 	for( int i = 0; i < ARRAYSIZE( keys ); i++ )
 	{
-		if( i >= K_MOUSE1 && i <= K_MOUSE5 )
-			IN_MouseEvent( i - K_MOUSE1, false );
-		else
-			Key_Event( i, false );
+		if( i < K_MOUSE1 || i > K_MOUSE5 )
+			Key_Event( i, false ); // checks internally whether a key has been pressed or not
 
 		keys[i].down = 0;
 		keys[i].repeats = 0;
 		keys[i].gamedown = 0;
 	}
+
+	// ensure that only actual mouse buttons are released
+	IN_ClearMouseState();
 
 	if( clgame.hInstance )
 		clgame.dllFuncs.IN_ClearStates();
