@@ -776,11 +776,8 @@ void GAME_EXPORT Key_Event( int key, int down )
 				Cvar_DirectSet( &r_showtextures, "0" );
 				return;
 			}
-			else if( host.mouse_visible && cls.state != ca_cinematic )
-			{
-				clgame.dllFuncs.pfnKey_Event( down, key, keys[key].binding );
-				return; // handled in client.dll
-			}
+			// Note: we don't offer the client key handling here since reaching this line proves the client already declined handling it.
+			// this prevents accidentally declining a key the client asked the engine to handle. For more context, see https://github.com/FWGS/xash3d-fwgs/issues/1943
 			break;
 		default:
 			break;
