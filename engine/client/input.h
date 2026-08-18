@@ -33,6 +33,7 @@ void IN_Init( void );
 void Host_InputFrame( void );
 void IN_Shutdown( void );
 void IN_MouseEvent( int key, int down );
+IN_ClearMouseState( void );
 void IN_MWheelEvent( int direction );
 void IN_ActivateMouse( void );
 void IN_DeactivateMouse( void );
