@@ -778,7 +778,10 @@ void GAME_EXPORT Key_Event( int key, int down )
 			}
 			// Note: we don't offer the client key handling here since reaching this line proves the client already declined handling it.
 			// this prevents accidentally declining a key the client asked the engine to handle. For more context, see https://github.com/FWGS/xash3d-fwgs/issues/1943
-			break;
+			
+			// call escape within the engine, since the client may not handle it (Natural Selection doesn't. See https://github.com/FWGS/xash3d-fwgs/issues/528)
+			Cbuf_AddText( "escape\n" );
+			return;
 		default:
 			break;
 		}
