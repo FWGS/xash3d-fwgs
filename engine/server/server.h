@@ -47,7 +47,8 @@ extern int SV_UPDATE_BACKUP;
 #define MAP_HAS_LANDMARK    BIT( 2 )
 #define MAP_INVALID_VERSION BIT( 3 )
 
-#define SV_SPAWN_TIME	0.1
+#define SV_SPAWN_TIME    0.1
+#define SV_SPAWN_TIME_MP 0.8
 
 // group flags
 #define GROUP_OP_AND	0

@@ -604,8 +604,17 @@ void SV_ActivateServer( int runPhysics )
 
 	if( runPhysics )
 	{
-		numFrames = (svs.maxclients <= 1) ? 2 : 8;
-		sv.frametime = SV_SPAWN_TIME;
+		// GoldSrc gives the world more time to prepare in multiplayer
+		if( svs.maxclients <= 1 )
+		{
+			numFrames = 2;
+			sv.frametime = SV_SPAWN_TIME;
+		}
+		else
+		{
+			numFrames = 16;
+			sv.frametime = SV_SPAWN_TIME_MP;
+		}
 	}
 	else
 	{
