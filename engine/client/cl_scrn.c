@@ -734,8 +734,9 @@ void SCR_LoadCreditsFont( void )
 	if( !success )
 		success = Con_LoadVariableWidthFont( "gfx/creditsfont.fnt", font, scale, &hud_fontrender, TF_FONT );
 
+	// it's a Quake font, we need to keep source texture for it
 	if( !success )
-		success = Con_LoadFixedWidthFont( "gfx/conchars", font, scale, &hud_fontrender, TF_FONT|TF_NEAREST );
+		success = Con_LoadFixedWidthFont( "gfx/conchars", font, scale, &hud_fontrender, TF_FONT|TF_NEAREST|TF_KEEP_SOURCE );
 
 	// copy font size for client.dll
 	if( success )

@@ -2252,28 +2252,19 @@ void Con_VidInit( void )
 
 	if( !con.background ) // last chance - quake conback image
 	{
-		qboolean		draw_to_console = false;
-		fs_offset_t		length = 0;
+		fs_offset_t length = 0;
 		const byte *buf;
 
-		// NOTE: only these games want to draw build number into console background
-		if( !Q_stricmp( FS_Gamedir(), "id1" ))
-			draw_to_console = true;
-
-		if( !Q_stricmp( FS_Gamedir(), "hipnotic" ))
-			draw_to_console = true;
-
-		if( !Q_stricmp( FS_Gamedir(), "rogue" ))
-			draw_to_console = true;
-
-		if( draw_to_console && con.curFont &&
-			( buf = ref.dllFuncs.R_GetTextureOriginalBuffer( con.curFont->hFontTexture )) != NULL )
+		// quake games always use fixed width fonts, hl games only use variable width
+		// and we want to store buildnumber only in quake
+		if( con.curFont && con.curFont->type == FONT_FIXED && ( buf = ref.dllFuncs.R_GetTextureOriginalBuffer( con.curFont->hFontTexture )) != NULL )
 		{
 			lmp_t	*cb = (lmp_t *)FS_LoadFile( "gfx/conback.lmp", &length, false );
-			char	ver[64];
 
+			// another sanity test, quake background is always 320x200
 			if( cb && cb->width == 320 && cb->height == 200 )
 			{
+				char ver[64];
 				int len = Q_snprintf( ver, 64, "%i", Q_buildnum( )); // can store only buildnum
 				byte *dest = (byte *)(cb + 1) + 320 * 186 + 320 - 11 - 8 * len;
 				int y = len;
