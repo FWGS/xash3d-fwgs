@@ -795,6 +795,7 @@ void CL_SetCheatState( qboolean multiplayer, qboolean allow_cheats );
 void CL_SendGoldSrcConnectPacket( netadr_t adr, int challenge, const void *ticket, size_t ticketlen );
 void CL_NotifyServerListResponse( void );
 qboolean CL_NetRequestSend( net_request_t *nr );
+void CL_Escape_f( void );
 
 //
 // cl_demo.c
