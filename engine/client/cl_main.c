@@ -3604,7 +3604,7 @@ CL_Escape_f
 Escape to menu from game
 =================
 */
-static void CL_Escape_f( void )
+void CL_Escape_f( void )
 {
 	if( cls.key_dest == key_menu )
 		return;
