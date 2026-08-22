@@ -34,6 +34,9 @@ static CVAR_DEFINE_AUTO( con_color, "240 180 24", FCVAR_ARCHIVE, "set a custom c
 static CVAR_DEFINE_AUTO( scr_drawversion, "1", FCVAR_ARCHIVE, "draw version in menu or screenshots, doesn't affect console" );
 static CVAR_DEFINE_AUTO( con_oldfont, "0", 0, "use legacy font from gfx.wad, might be missing or broken" );
 static CVAR_DEFINE_AUTO( con_showcompletion, "1", FCVAR_ARCHIVE, "perform simplified autocompletion while typing" );
+static CVAR_DEFINE_AUTO( con_truetype, "0", FCVAR_ARCHIVE|FCVAR_VIDRESTART, "use truetype font for console text if available" );
+static CVAR_DEFINE_AUTO( con_truetype_size, "18", FCVAR_ARCHIVE|FCVAR_VIDRESTART, "font height for console truetype text" );
+static CVAR_DEFINE_AUTO( con_truetype_name, "", FCVAR_ARCHIVE|FCVAR_VIDRESTART, "truetype font name for console text (empty = default)" );
 
 static int g_codepage = 0;
 
@@ -467,7 +470,7 @@ static void Con_CheckResize( void )
 {
 	int	charWidth = 8;
 
-	if( con.curFont && con.curFont->hFontTexture )
+	if( con.curFont && ( con.curFont->hFontTexture || con.curFont->ttfont ) )
 		charWidth = con.curFont->charWidths['O'] - 1;
 
 	int width = ( refState.width / charWidth ) - 2;
@@ -551,7 +554,25 @@ Con_LoadConsoleFont
 INTERNAL RESOURCE
 ================
 */
-static void Con_LoadConsoleFont( int fontNumber, cl_font_t *font )
+static int Con_GetActiveFontIndex( void )
+{
+	int fontSize;
+
+	if( con_fontnum.value >= 0 && con_fontnum.value <= CON_NUMFONTS - 1 )
+		fontSize = con_fontnum.value;
+	else if( refState.width <= 640 )
+		fontSize = 0;
+	else if( refState.width >= 1280 )
+		fontSize = 2;
+	else fontSize = 1;
+
+	if( fontSize > CON_NUMFONTS - 1 )
+		fontSize = CON_NUMFONTS - 1;
+
+	return fontSize;
+}
+
+static void Con_LoadConsoleFont( int fontNumber, cl_font_t *font, qboolean createTTF )
 {
 	qboolean success = false;
 	float scale = con_fontscale.value;
@@ -589,9 +610,47 @@ static void Con_LoadConsoleFont( int fontNumber, cl_font_t *font )
 	{
 		// quake fixed font as fallback
 		// keep source to print directly into conback image
-		if( !Con_LoadFixedWidthFont( "gfx/conchars", font, scale, &con_fontrender, TF_FONT|TF_NEAREST|TF_KEEP_SOURCE ))
-			Con_DPrintf( S_ERROR "failed to load console font\n" );
+		success = Con_LoadFixedWidthFont( "gfx/conchars", font, scale, &con_fontrender, TF_FONT|TF_NEAREST|TF_KEEP_SOURCE );
 	}
+
+	if( success )
+		Con_DPrintf( "Loaded console bitmap font %i (scale %.1f)\n", fontNumber, scale );
+
+	if( createTTF && con_truetype.value && con_truetype_size.value > 0 )
+	{
+		const char *fontName = COM_StringEmptyOrNULL( con_truetype_name.string ) ? DEFAULT_CONFONT : con_truetype_name.string;
+		int ttfSize = (int)( con_truetype_size.value * scale + 0.5f );
+		font->ttfont = TTF_Create( fontName, ttfSize, DEFAULT_WEIGHT, TTF_NEAREST, 1 );
+
+		if( !font->ttfont && fontName != DEFAULT_CONFONT )
+		{
+			Con_Printf( S_WARN "Failed to load console truetype font '%s', falling back to '%s'\n", fontName, DEFAULT_CONFONT );
+			font->ttfont = TTF_Create( DEFAULT_CONFONT, ttfSize, DEFAULT_WEIGHT, TTF_NEAREST, 1 );
+		}
+
+		if( font->ttfont )
+		{
+			int i;
+			Con_DPrintf( "Loaded console truetype font '%s' size %i\n", fontName, ttfSize );
+			font->charHeight = TTF_GetHeight( font->ttfont );
+			for( i = 0; i < ARRAYSIZE( font->charWidths ); i++ )
+				font->charWidths[i] = TTF_GetCharWidth( font->ttfont, i );
+			if( !success )
+			{
+				font->valid = true;
+				font->scale = scale ? scale : 1.0f;
+				font->rendermode = &con_fontrender;
+				font->type = FONT_VARIABLE;
+			}
+		}
+		else
+		{
+			Con_Printf( S_ERROR "Failed to load console truetype font '%s'\n", fontName );
+		}
+	}
+
+	if( !success && !font->ttfont )
+		Con_DPrintf( S_ERROR "failed to load console font\n" );
 }
 
 /*
@@ -601,22 +660,13 @@ Con_LoadConchars
 */
 static void Con_LoadConchars( void )
 {
-	// load all the console fonts
-	for( int i = 0; i < CON_NUMFONTS; i++ )
-		Con_LoadConsoleFont( i, con.chars + i );
+	int	i, fontSize;
 
-	// select properly fontsize
-	int fontSize;
-	if( con_fontnum.value >= 0 && con_fontnum.value <= CON_NUMFONTS - 1 )
-		fontSize = con_fontnum.value;
-	else if( refState.width <= 640 )
-		fontSize = 0;
-	else if( refState.width >= 1280 )
-		fontSize = 2;
-	else fontSize = 1;
+	fontSize = Con_GetActiveFontIndex();
 
-	if( fontSize > CON_NUMFONTS - 1 )
-		fontSize = CON_NUMFONTS - 1;
+	// load all the console fonts, but only create TTF atlas for the active slot
+	for( i = 0; i < CON_NUMFONTS; i++ )
+		Con_LoadConsoleFont( i, con.chars + i, i == fontSize );
 
 	// sets the current font
 	con.curFont = &con.chars[fontSize];
@@ -791,6 +841,9 @@ void Con_Init( void )
 	Cvar_RegisterVariable( &scr_drawversion );
 	Cvar_RegisterVariable( &con_oldfont );
 	Cvar_RegisterVariable( &con_showcompletion );
+	Cvar_RegisterVariable( &con_truetype );
+	Cvar_RegisterVariable( &con_truetype_size );
+	Cvar_RegisterVariable( &con_truetype_name );
 
 	// init the console buffer
 	con.bufsize = CON_TEXTSIZE;
@@ -1679,8 +1732,10 @@ static void Con_DrawInput( int lines )
 		return;
 
 	int y = lines - ( con.curFont->charHeight * 2 );
-	CL_DrawCharacter( con.curFont->charWidths[' '], y, ']', g_color_table[7], con.curFont, 0 );
-	int x = Field_DrawInputLine( con.curFont->charWidths[' ']*2, y, &con.input, 255, true );
+	int start_x = con.curFont->charWidths[' '];
+	int prompt_w = CL_DrawCharacter( start_x, y, ']', g_color_table[7], con.curFont, 0 );
+	int input_x = start_x + prompt_w + con.curFont->charWidths[' '];
+	int x = Field_DrawInputLine( input_x, y, &con.input, 255, true );
 
 	// HACKHACK: avoid rendering issues when scroll != 0
 	if( con_showcompletion.value && con.input.scroll == 0 )
@@ -1697,7 +1752,7 @@ static void Con_DrawInput( int lines )
 		if( Q_strlen(con.input_completion.buffer) > len && !Q_strncmp( con.input.buffer, con.input_completion.buffer, len ))
 		{
 			con.input_completion.scroll = len;
-			Field_DrawInputLine( con.curFont->charWidths[' ']*2 + x, y, &con.input_completion, 128, false );
+			Field_DrawInputLine( input_x + x, y, &con.input_completion, 128, false );
 		}
 	}
 }
@@ -2126,11 +2181,11 @@ void Con_RunConsole( void )
 			con.vislines = con.showlines;
 	}
 
-	if( FBitSet( con_charset.flags|con_fontscale.flags|con_fontnum.flags|cl_charset.flags|con_oldfont.flags, FCVAR_CHANGED ))
+	if( FBitSet( con_charset.flags|con_fontscale.flags|con_fontnum.flags|cl_charset.flags|con_oldfont.flags|con_truetype.flags|con_truetype_size.flags|con_truetype_name.flags, FCVAR_CHANGED ))
 	{
 		if( con_fontscale.value < 1.0f )
 			Cvar_DirectSet( &con_fontscale, "1" );
-		
+
 		// update codepage parameters
 		if( !Q_stricmp( con_charset.string, "cp1251" ))
 		{
@@ -2153,6 +2208,9 @@ void Con_RunConsole( void )
 		ClearBits( con_fontscale.flags, FCVAR_CHANGED );
 		ClearBits( cl_charset.flags,    FCVAR_CHANGED );
 		ClearBits( con_oldfont.flags,   FCVAR_CHANGED );
+		ClearBits( con_truetype.flags,  FCVAR_CHANGED );
+		ClearBits( con_truetype_size.flags, FCVAR_CHANGED );
+		ClearBits( con_truetype_name.flags, FCVAR_CHANGED );
 	}
 }
 
@@ -2266,7 +2324,7 @@ void Con_VidInit( void )
 		if( !Q_stricmp( FS_Gamedir(), "rogue" ))
 			draw_to_console = true;
 
-		if( draw_to_console && con.curFont &&
+		if( draw_to_console && con.curFont && con.curFont->hFontTexture &&
 			( buf = ref.dllFuncs.R_GetTextureOriginalBuffer( con.curFont->hFontTexture )) != NULL )
 		{
 			lmp_t	*cb = (lmp_t *)FS_LoadFile( "gfx/conback.lmp", &length, false );
