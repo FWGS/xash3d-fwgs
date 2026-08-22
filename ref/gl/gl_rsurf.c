@@ -2009,6 +2009,7 @@ typedef struct vbotexture_s
 {
 	vboindex_t *indexarray; // index array (generated instead of texture chains)
 	uint curindex; // counter for index array
+	uint firstindex; // first vertex owned in vboarray, surfaces of a node are contiguous
 	uint len; // maximum index array length
 	struct vbotexture_s *next; // if cannot fit into one array, allocate new one, as every array has own index space
 	msurface_t *dlightchain; // list of dlight surfaces
@@ -2228,6 +2229,9 @@ void R_GenerateVBO( void )
 					if( vbos.maxarraysplit_lm < k + 1 )
 						vbos.maxarraysplit_lm = k + 1;
 				}
+				if( !vbotex->len )
+					vbotex->firstindex = vbo->array_len;
+
 				vbos.surfdata[i].vbotexture = vbotex;
 				vbos.surfdata[i].startindex = vbo->array_len;
 				vbos.surfdata[i].texturenum = j;
@@ -2695,7 +2699,7 @@ R_AdditionalPasses
 draw details when not enough tmus
 ===================
 */
-static void R_AdditionalPasses( vboarray_t *vbo, int indexlen, void *indexarray, texture_t *tex, qboolean resetvbo, size_t offset, uint maxindex )
+static void R_AdditionalPasses( vboarray_t *vbo, int indexlen, void *indexarray, texture_t *tex, qboolean resetvbo, size_t offset, uint minindex, uint maxindex )
 {
 	if( !indexlen )
 		return;
@@ -2726,7 +2730,7 @@ static void R_AdditionalPasses( vboarray_t *vbo, int indexlen, void *indexarray,
 		pglScalef( glt->xscale, glt->yscale, 1 );
 
 		// draw
-		GL_DrawRangeElements( GL_TRIANGLES, 0, maxindex, indexlen, GL_VBOINDEX_TYPE, indexarray );
+		GL_DrawRangeElements( GL_TRIANGLES, minindex, maxindex, indexlen, GL_VBOINDEX_TYPE, indexarray );
 
 		// restore state
 		pglLoadIdentity();
@@ -2976,7 +2980,7 @@ static void R_DrawVBODlights( vboarray_t *vbo, vbotexture_t *vbotex, texture_t *
 				// upload already generated block
 				R_FlushDlights( vbo, min_index, max_index, dlightindex, dlightarray );
 
-				R_AdditionalPasses( vbo, dlightindex, dlightarray, texture, true, min_index * sizeof( vbovertex_t ), max_index - min_index - 1 );
+				R_AdditionalPasses( vbo, dlightindex, dlightarray, texture, true, min_index * sizeof( vbovertex_t ), 0, max_index - min_index - 1 );
 #ifdef MINIMIZE_UPLOAD
 				// invalidate buffer to prevent blocking on SubData
 				if( vbos.dlight_vbo )
@@ -3043,7 +3047,7 @@ static void R_DrawVBODlights( vboarray_t *vbo, vbotexture_t *vbotex, texture_t *
 		if( dlightindex )
 		{
 			R_FlushDlights( vbo, min_index, max_index, dlightindex, dlightarray );
-			R_AdditionalPasses( vbo, dlightindex, dlightarray, texture, true, min_index * sizeof( vbovertex_t ), max_index - min_index - 1 );
+			R_AdditionalPasses( vbo, dlightindex, dlightarray, texture, true, min_index * sizeof( vbovertex_t ), 0, max_index - min_index - 1 );
 
 			// draw remaining decals
 			if( decalcount )
@@ -3080,7 +3084,7 @@ static void R_DrawLightmappedVBO( vboarray_t *vbo, vbotexture_t *vbotex, texture
 {
 	if( vbotex->curindex )
 	{
-		GL_DrawRangeElements( GL_TRIANGLES, 0, vbo->array_len - 1, vbotex->curindex, GL_VBOINDEX_TYPE, vbotex->indexarray );
+		GL_DrawRangeElements( GL_TRIANGLES, vbotex->firstindex, vbotex->firstindex + vbotex->len - 1, vbotex->curindex, GL_VBOINDEX_TYPE, vbotex->indexarray );
 
 		// draw debug lines
 		if( gl_wireframe.value && !skiplighting )
@@ -3090,7 +3094,7 @@ static void R_DrawLightmappedVBO( vboarray_t *vbo, vbotexture_t *vbotex, texture
 			GL_SelectTexture( XASH_TEXTURE0 );
 			pglDisable( GL_TEXTURE_2D );
 			pglDisable( GL_DEPTH_TEST );
-			GL_DrawRangeElements( GL_LINES, 0, vbo->array_len - 1, vbotex->curindex, GL_VBOINDEX_TYPE, vbotex->indexarray );
+			GL_DrawRangeElements( GL_LINES, vbotex->firstindex, vbotex->firstindex + vbotex->len - 1, vbotex->curindex, GL_VBOINDEX_TYPE, vbotex->indexarray );
 			pglEnable( GL_DEPTH_TEST );
 			pglEnable( GL_TEXTURE_2D );
 			GL_SelectTexture( XASH_TEXTURE1 );
@@ -3109,7 +3113,7 @@ static void R_DrawLightmappedVBO( vboarray_t *vbo, vbotexture_t *vbotex, texture
 
 	R_DrawVBODlights( vbo, vbotex, texture, lightmap );
 
-	R_AdditionalPasses( vbo, vbotex->curindex, vbotex->indexarray, texture, false, 0, vbo->array_len - 1 );
+	R_AdditionalPasses( vbo, vbotex->curindex, vbotex->indexarray, texture, false, 0, vbotex->firstindex, vbotex->firstindex + vbotex->len - 1 );
 
 	// prepare to next frame
 	vbotex->curindex = 0;
