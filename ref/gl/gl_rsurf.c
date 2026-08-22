@@ -1429,8 +1429,6 @@ static void R_RenderDecalsForSurface( msurface_t *fa, int cull_type )
 
 static qboolean R_CheckLightMap( msurface_t *fa )
 {
-	int maps;
-
 	if( unlikely( !r_dynamic->value ))
 		return false;
 
@@ -1438,16 +1436,12 @@ static qboolean R_CheckLightMap( msurface_t *fa )
 		return true; // dlighted surfaces are always dynamic
 
 	// check for light styles
-	for( maps = 0; maps < MAXLIGHTMAPS && fa->styles[maps] != 255; maps++ )
+	for( int maps = 0; maps < MAXLIGHTMAPS && fa->styles[maps] != 255; maps++ )
 	{
-		if( g_lightstylevalue[fa->styles[maps]] == fa->cached_light[maps] )
-			continue;
-
 		const int style = fa->styles[maps];
 
-		// flickering light styles can go to dynamic chain
-		if( !( style >= 32 || style == 0 || style == 20 ))
-			return true;
+		if( g_lightstylevalue[style] == fa->cached_light[maps] )
+			continue;
 
 		byte temp[132*132*4];
 		mextrasurf_t *info = fa->info;
