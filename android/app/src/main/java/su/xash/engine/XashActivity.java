@@ -14,8 +14,8 @@ import android.view.WindowManager;
 
 import org.libsdl.app.SDLActivity;
 
-import su.xash.engine.util.AndroidBug5497Workaround;
 import su.xash.engine.util.CrashReports;
+import su.xash.engine.util.SoftKeyboardPan;
 
 import java.io.File;
 import java.util.Arrays;
@@ -36,7 +36,7 @@ public class XashActivity extends SDLActivity {
 			getWindow().getAttributes().layoutInDisplayCutoutMode = WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_SHORT_EDGES;
 		}
 
-		AndroidBug5497Workaround.assistActivity(this);
+		SoftKeyboardPan.assistActivity(this);
 	}
 
 	@Override
