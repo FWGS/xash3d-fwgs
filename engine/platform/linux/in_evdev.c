@@ -427,7 +427,7 @@ void IN_EvdevMove( float *yaw, float *pitch )
 
 #if XASH_INPUT == INPUT_EVDEV
 
-void Platform_EnableTextInput( qboolean enable )
+void Platform_EnableTextInput( qboolean enable, int x, int y, int w, int h )
 {
 	evdev.chars = enable;
 	evdev.shift = false;

@@ -299,10 +299,12 @@ static inline void Platform_MouseMove( float *x, float *y )
 }
 #endif
 
+// rect is the area where the text is edited, in render coordinates, so the platform
+// might keep it visible when it shows the on-screen keyboard over the game
 #if XASH_SDL >= 2 || XASH_PSVITA || XASH_DOS || XASH_USE_EVDEV
-void Platform_EnableTextInput( qboolean enable );
+void Platform_EnableTextInput( qboolean enable, int x, int y, int w, int h );
 #else
-static inline void Platform_EnableTextInput( qboolean enable ) { }
+static inline void Platform_EnableTextInput( qboolean enable, int x, int y, int w, int h ) { }
 #endif
 
 #if XASH_SDL >= 2
