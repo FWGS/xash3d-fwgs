@@ -338,6 +338,8 @@ IN_MouseMove
 */
 static void IN_MouseMove( void )
 {
+	static int oldx, oldy;
+
 	if( !in_mouseinitialized )
 		return;
 
@@ -351,6 +353,13 @@ static void IN_MouseMove( void )
 	// find mouse movement
 	int x, y;
 	Platform_GetMousePos( &x, &y );
+
+	// touchscreen moves the cursor on its own, don't drag it back to where the mouse is left
+	if( x == oldx && y == oldy )
+		return;
+
+	oldx = x;
+	oldy = y;
 
 	VGui_MouseMove( x, y );
 
