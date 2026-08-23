@@ -121,9 +121,26 @@ SDLash_EnableTextInput
 
 =============
 */
-void Platform_EnableTextInput( qboolean enable )
+void Platform_EnableTextInput( qboolean enable, int x, int y, int w, int h )
 {
-	enable ? SDL_StartTextInput() : SDL_StopTextInput();
+	if( !enable )
+	{
+		SDL_StopTextInput();
+		return;
+	}
+
+	float scale_x = refState.scale_x > 0.0f ? refState.scale_x : 1.0f;
+	float scale_y = refState.scale_y > 0.0f ? refState.scale_y : 1.0f;
+	SDL_Rect rect = {
+		.x = x / scale_x,
+		.y = y / scale_y,
+		.w = w / scale_x,
+		.h = h / scale_y,
+	};
+
+	// Android reads the rect when the on-screen keyboard is shown, so set it before starting
+	SDL_SetTextInputRect( &rect );
+	SDL_StartTextInput();
 }
 
 #endif // !XASH_PSVITA

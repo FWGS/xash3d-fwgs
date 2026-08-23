@@ -2089,6 +2089,72 @@ void Con_DrawVersion( void )
 
 /*
 ==================
+Con_DestHeight
+
+==================
+*/
+static int Con_DestHeight( void )
+{
+	if( !host.allow_console || cls.key_dest != key_console )
+		return 0; // none visible
+
+	if( cls.state < ca_active || cl.first_frame )
+		return refState.height;	// full screen
+
+	return refState.height >> 1;	// half screen
+}
+
+/*
+==================
+Con_GetInputRect
+
+Where the currently edited line is drawn, in render coordinates
+==================
+*/
+qboolean Con_GetInputRect( int *x, int *y, int *w, int *h )
+{
+	if( !con.curFont )
+		return false;
+
+	if( cls.key_dest == key_console )
+	{
+		int lines = Con_DestHeight();
+
+		if( lines <= 0 )
+			return false;
+
+		*x = con.curFont->charWidths[' '];
+		*y = lines - con.curFont->charHeight * 2;
+		*w = refState.width - *x;
+		*h = con.curFont->charHeight;
+		return true;
+	}
+
+	if( cls.key_dest == key_message )
+	{
+		*x = con.curFont->charWidths[' '];
+		*y = 0;
+
+		if( clgame.dllFuncs.pfnChatInputPosition )
+		{
+			clgame.dllFuncs.pfnChatInputPosition( x, y );
+			*h = con.curFont->charHeight;
+		}
+		else
+		{
+			// chat line is pushed down by the notify lines drawn above it
+			*h = con.curFont->charHeight * ( con.num_times + 1 );
+		}
+
+		*w = refState.width - *x;
+		return true;
+	}
+
+	return false;
+}
+
+/*
+==================
 Con_RunConsole
 
 Scroll it up or down
@@ -2098,18 +2164,7 @@ void Con_RunConsole( void )
 {
 	Con_SetColor( );
 
-	// decide on the destination height of the console
-	if( host.allow_console && cls.key_dest == key_console )
-	{
-#if XASH_MOBILE_PLATFORM
-		con.showlines = refState.height; // always full screen on mobile devices
-#else
-		if( cls.state < ca_active || cl.first_frame )
-			con.showlines = refState.height;	// full screen
-		else con.showlines = (refState.height >> 1);	// half screen
-#endif
-	}
-	else con.showlines = 0; // none visible
+	con.showlines = Con_DestHeight();
 
 	float lines_per_frame = fabs( scr_conspeed.value ) * host.realframetime;
 

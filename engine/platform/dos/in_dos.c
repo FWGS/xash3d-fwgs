@@ -78,7 +78,7 @@ void Platform_RunEvents( void )
 
 }
 
-void Platform_EnableTextInput( qboolean enable )
+void Platform_EnableTextInput( qboolean enable, int x, int y, int w, int h )
 {
 	keystate.chars = enable;
 }

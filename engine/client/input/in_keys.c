@@ -42,6 +42,12 @@ typedef struct keyname_s
 // if needed
 static enginekey_t keys[265];
 
+// where the menu or the client edits the text, in render coordinates
+static struct
+{
+	int x, y, w, h;
+} key_textinput_rect;
+
 static const keyname_t keynames[] =
 {
 { "TAB",            K_TAB,                 ""                },
@@ -838,6 +844,56 @@ void GAME_EXPORT Key_Event( int key, int down )
 
 /*
 ================
+Key_GetTextInputRect
+
+================
+*/
+static void Key_GetTextInputRect( int *x, int *y, int *w, int *h )
+{
+	if( Con_GetInputRect( x, y, w, h ))
+		return;
+
+	if( key_textinput_rect.w > 0 && key_textinput_rect.h > 0 )
+	{
+		*x = key_textinput_rect.x;
+		*y = key_textinput_rect.y;
+		*w = key_textinput_rect.w;
+		*h = key_textinput_rect.h;
+		return;
+	}
+
+	// nobody told us where the text is edited, keep the whole screen visible
+	*x = *y = 0;
+	*w = refState.width;
+	*h = refState.height;
+}
+
+/*
+================
+Key_SetTextInputRect
+
+================
+*/
+void Key_SetTextInputRect( int x, int y, int w, int h )
+{
+	if( key_textinput_rect.x == x && key_textinput_rect.y == y && key_textinput_rect.w == w && key_textinput_rect.h == h )
+		return;
+
+	key_textinput_rect.x = x;
+	key_textinput_rect.y = y;
+	key_textinput_rect.w = w;
+	key_textinput_rect.h = h;
+
+	// text is already edited somewhere else now, let the platform know immediately
+	if( host.textmode && !osk_enable.value )
+	{
+		Key_GetTextInputRect( &x, &y, &w, &h );
+		Platform_EnableTextInput( true, x, y, w, h );
+	}
+}
+
+/*
+================
 Key_EnableTextInput
 
 ================
@@ -849,10 +905,20 @@ void Key_EnableTextInput( qboolean enable, qboolean force )
 		OSK_EnableTextInput( enable, force );
 		return;
 	}
+
 	if( enable && ( !host.textmode || force ))
-		Platform_EnableTextInput( true );
+	{
+		int x, y, w, h;
+
+		Key_GetTextInputRect( &x, &y, &w, &h );
+		Platform_EnableTextInput( true, x, y, w, h );
+	}
 	else if( !enable && ( host.textmode || force ))
-		Platform_EnableTextInput( false );
+	{
+		// don't reuse this rect for whoever enables the text input next
+		memset( &key_textinput_rect, 0, sizeof( key_textinput_rect ));
+		Platform_EnableTextInput( false, 0, 0, 0, 0 );
+	}
 
 	host.textmode = enable;
 }
@@ -869,22 +935,22 @@ void GAME_EXPORT Key_SetKeyDest( int key_dest )
 	switch( key_dest )
 	{
 	case key_game:
-		Key_EnableTextInput( false, false );
 		cls.key_dest = key_game;
+		Key_EnableTextInput( false, false );
 		break;
 	case key_menu:
-		Key_EnableTextInput( false, false );
 		cls.key_dest = key_menu;
+		Key_EnableTextInput( false, false );
 		break;
 	case key_console:
+		cls.key_dest = key_console;
 #if !XASH_NSWITCH && !XASH_PSVITA // if we don't disable this, pops up the keyboard during load
 		Key_EnableTextInput( true, false );
 #endif
-		cls.key_dest = key_console;
 		break;
 	case key_message:
-		Key_EnableTextInput( true, false );
 		cls.key_dest = key_message;
+		Key_EnableTextInput( true, false );
 		break;
 	default:
 		Host_Error( "%s: wrong destination (%i)\n", __func__, key_dest );

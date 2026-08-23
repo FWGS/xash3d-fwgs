@@ -90,7 +90,7 @@ static void IME_Update( void )
 	}
 }
 
-void Platform_EnableTextInput( qboolean enable )
+void Platform_EnableTextInput( qboolean enable, int x, int y, int w, int h )
 {
 	if ( enable )
 	{
