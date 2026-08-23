@@ -560,9 +560,9 @@ void V_PostRender( void )
 		CL_DrawHUD( CL_CHANGELEVEL );
 		ref.dllFuncs.R_ShowTextures();
 		R_ShowTree();
-		Con_DrawConsole();
 		UI_UpdateMenu( host.realtime );
 		Con_DrawVersion();
+		Con_DrawConsole();
 		Con_DrawDebug(); // must be last
 		Touch_Draw();
 		OSK_Draw();

@@ -1930,7 +1930,12 @@ static void Con_DrawSolidConsole( int lines )
 	fraction = lines / (float)refState.height;
 	color[3] = Q_min( fraction * 2.0f, 1.0f ) * 255; // fadeout version number
 
+#if XASH_MOBILE_PLATFORM
+	// the top of the screen might be hidden by the on-screen keyboard panning
+	Con_DrawString( start, lines - charH, curbuild, color );
+#else
 	Con_DrawString( start, 0, curbuild, color );
+#endif
 
 	// draw the text
 	if( CON_LINES_COUNT > 0 )
