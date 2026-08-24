@@ -832,7 +832,12 @@ void SV_SendClientMessages( void )
 			continue;
 		}
 
-		if( !host_limitlocal.value && NET_IsLocalAddress( cl->netchan.remote_address ))
+		// the loopback client is exempted from the rate limiter to keep singleplayer
+		// as smooth as possible. on a listenserver that also hands the game library
+		// its per-snapshot entry points at frame rate, and mods that keep state in
+		// UpdateClientData/GetWeaponData drift because of it, so keep the exemption
+		// for singleplayer only
+		if( !host_limitlocal.value && svs.maxclients == 1 && NET_IsLocalAddress( cl->netchan.remote_address ))
 			SetBits( cl->flags, FCL_SEND_NET_MESSAGE );
 
 		if( cl->state == cs_spawned )
