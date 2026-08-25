@@ -921,7 +921,11 @@ static void CL_WritePacket( void )
 	// can send this command?
 	pcmd = &cl.commands[cls.netchan.outgoing_sequence & CL_UPDATE_MASK];
 
-	if( cl.maxclients == 1 || ( NET_IsLocalAddress( cls.netchan.remote_address ) && !host_limitlocal.value ) || ( host.realtime >= cls.nextcmdtime && Netchan_CanPacket( &cls.netchan, true )))
+	// the loopback connection used to be exempted from cl_cmdrate to keep singleplayer
+	// as responsive as possible, but the cl.maxclients == 1 term below already covers
+	// that. on a listenserver the exemption also applied to the host, sending the game
+	// library several times the command packets it expects
+	if( cl.maxclients == 1 || ( host.realtime >= cls.nextcmdtime && Netchan_CanPacket( &cls.netchan, true )))
 		pcmd->heldback = false;
 	else pcmd->heldback = true;
 
