@@ -2263,6 +2263,7 @@ static void Mod_LoadSubmodels( model_t *mod, dbspmodel_t *bmod )
 static int Mod_LoadEntities_splitstr_handler( char *prev, char *next, void *userdata )
 {
 	world_static_t *w = userdata;
+	string normalizedWadName;
 
 	*next = '\0';
 
@@ -2270,20 +2271,23 @@ static int Mod_LoadEntities_splitstr_handler( char *prev, char *next, void *user
 		return 0;
 
 	COM_FixSlashes( prev );
-	const char *wad = COM_FileWithoutPath( prev );
+	const char *rawWadName = COM_FileWithoutPath( prev );
 
-	if( Q_stricmp( COM_FileExtension( wad ), "wad" ))
+	Q_strncpy( normalizedWadName, rawWadName, sizeof( normalizedWadName ));
+	COM_DefaultExtension( normalizedWadName, ".wad", sizeof( normalizedWadName ));
+
+	if( Q_stricmp( COM_FileExtension( normalizedWadName ), "wad" ))
 		return 0;
 
 	// make sure that wad does really exists
-	if( FS_FileExists( wad, false ))
+	if( FS_FileExists( normalizedWadName, false ))
 	{
 		int num = w->wadcount++;
 
 		// FIXME: that's right, it goes into host.mempool!
 		w->wadlist = Mem_Realloc( host.mempool, w->wadlist, w->wadcount * sizeof( *w->wadlist ));
 
-		Q_strncpy( w->wadlist[num].name, wad, sizeof( w->wadlist[num].name ));
+		Q_strncpy( w->wadlist[num].name, normalizedWadName, sizeof( w->wadlist[num].name ));
 		w->wadlist[num].usage = 0;
 	}
 
