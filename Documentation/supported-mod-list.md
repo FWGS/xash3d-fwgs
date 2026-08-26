@@ -972,47 +972,51 @@ Server: https://github.com/rehlds/ReGameDLL_CS
 
 To run this mod on specific platforms you may be need to compile libraries from **cracklife** branch of [hlsdk-portable](https://github.com/FWGS/hlsdk-portable).
 
-17. **[Crack-Life: Campaign Mode](https://www.moddb.com/mods/crack-life/downloads/crack-life-campaign-mode)**
+17. **[Crack-Life Anniversary Campaign](https://www.moddb.com/mods/crack-life/downloads/crack-life-anniversary-campaign)**
+
+To run this mod on specific platforms you may be need to compile libraries from **CLAnniversary** branch of [hlsdk-portable](https://github.com/FWGS/hlsdk-portable).
+
+18. **[Crack-Life: Campaign Mode](https://www.moddb.com/mods/crack-life/downloads/crack-life-campaign-mode)**
 
 To run this mod on specific platforms you may be need to compile libraries from **clcampaign** branch of [hlsdk-portable](https://github.com/FWGS/hlsdk-portable).
 
-18. **[Deathmatch Classic](https://store.steampowered.com/app/40/Deathmatch_Classic/)**
+19. **[Deathmatch Classic](https://store.steampowered.com/app/40/Deathmatch_Classic/)**
 
 Steam version already supports x86 Linux.
 
 To run this mod on specific platforms you may be need to compile libraries from **dmc** branch of [hlsdk-portable](https://github.com/FWGS/hlsdk-portable).
 
-19. **[Delta Particles](https://www.moddb.com/mods/half-life-delta)**
+20. **[Delta Particles](https://www.moddb.com/mods/half-life-delta)**
 
 This mod already supports x86 Linux.
 
 To run this mod on specific platforms you may be need to compile libraries from **delta_particles** branch of [hlsdk-portable](https://github.com/FWGS/hlsdk-portable).
 
-20. **[Escape from the Darkness](https://www.moddb.com/mods/escape-from-the-darkness)**
+21. **[Escape from the Darkness](https://www.moddb.com/mods/escape-from-the-darkness)**
 
 To run this mod on specific platforms you may be need to compile libraries from **eftd** branch of [hlsdk-portable](https://github.com/FWGS/hlsdk-portable).
 
-21. **[Gang Wars](https://www.moddb.com/mods/gangwars)**
+22. **[Gang Wars](https://www.moddb.com/mods/gangwars)**
 
 This mod already supports x86 Linux.
 
 Support for other platforms may be available later.
 
-22. **[Half-Life: Blue Shift](https://store.steampowered.com/app/130/HalfLife_Blue_Shift/)**
+23. **[Half-Life: Blue Shift](https://store.steampowered.com/app/130/HalfLife_Blue_Shift/)**
 
 To run this mod on specific platforms you may be need to compile libraries from **bshift** branch of [hlsdk-portable](https://github.com/FWGS/hlsdk-portable).
 
-23. **[Half-Life: Decay](https://www.moddb.com/mods/half-life-decay)**
+24. **[Half-Life: Decay](https://www.moddb.com/mods/half-life-decay)**
 
 Currently, you can compile mod libraries for x86 Linux from **decay-pc** branch of [hlsdk-portable](https://github.com/FWGS/hlsdk-portable).
 
 Support for other platforms may be available later.
 
-24. **[Half-Life: Echoes](https://www.moddb.com/mods/half-life-echoes)**
+25. **[Half-Life: Echoes](https://www.moddb.com/mods/half-life-echoes)**
 
 To run this mod on specific platforms you may be need to compile libraries from **echoes** branch of [hlsdk-portable](https://github.com/FWGS/hlsdk-portable).
 
-25. [Half-Life: Featureful](https://freeslave.github.io/halflife-featureful/)
+26. [Half-Life: Featureful](https://freeslave.github.io/halflife-featureful/)
 
 *It's modding SDK*
 
@@ -1020,13 +1024,13 @@ This mod already supports x86 Linux.
 
 To run this mod on specific platforms you may be need to compile libraries from **featureful** branch of [halflife-featureful](https://github.com/FreeSlave/halflife-featureful).
 
-26. **[Half-Life: Field Intensity](https://www.moddb.com/mods/field-intensity)**
+27. **[Half-Life: Field Intensity](https://www.moddb.com/mods/field-intensity)**
 
 This mod already supports x86 Linux.
 
 To run this mod on specific platforms you may be need to compile libraries from **field_intensity_1.7** branch of [halflife-featureful](https://github.com/FreeSlave/halflife-featureful).
 
-27. **Half-Life: Gravgun** (unfinished) by *mittorn*, *a1batross* and *Solexid*
+28. **Half-Life: Gravgun** (unfinished) by *mittorn*, *a1batross* and *Solexid*
 
 *Support temporary abandoned*
 
@@ -1036,173 +1040,177 @@ Currently, MSVC is not supported, use MinGW if you need build for Windows.
 
 Mod files: [1](http://mittorn.fwgs.ru/coop-entpatches/), [2](http://mittorn.fwgs.ru/ggm/), [3](https://github.com/nillerusr/gravgun-extras).
 
-28. **[Half-Life: Induction 1.2](https://www.moddb.com/mods/half-life-induction)**
+29. **[Half-Life: Induction 1.2](https://www.moddb.com/mods/half-life-induction)**
 
 To run this mod on specific platforms you may be need to compile libraries from **induction_1.2** branch of [hlsdk-portable](https://github.com/FWGS/hlsdk-portable).
 
-29. **[Half-Life: Induction 1.4](https://www.moddb.com/mods/half-life-induction)**
+30. **[Half-Life: Induction 1.4](https://www.moddb.com/mods/half-life-induction)**
 
 This mod already supports x86 Linux.
 
 To run this mod on specific platforms you may be need to compile libraries from **induction** branch of [halflife-featureful](https://github.com/FreeSlave/halflife-featureful).
 
-30. **[Half-Life: Insecure](https://www.moddb.com/mods/half-life-insecure)**
+31. **[Half-Life: Insecure](https://www.moddb.com/mods/half-life-insecure)**
 
 To run this mod on specific platforms you may be need to compile libraries from **insecure** branch of [hlsdk-portable](https://github.com/FWGS/hlsdk-portable).
 
-31. **[Half-Life: Intense Force](https://www.moddb.com/downloads/intense-force)**
+32. **[Half-Life: Intense Force](https://www.moddb.com/downloads/intense-force)**
 
 This mod already supports x86 Linux.
 
 To run this mod on specific platforms you may be need to compile libraries from **intense_force** branch of [halflife-featureful](https://github.com/FreeSlave/halflife-featureful).
 
-32. **[Half-Life: Invasion](https://www.moddb.com/mods/half-life-invasion)**
+33. **[Half-Life: Invasion](https://www.moddb.com/mods/half-life-invasion)**
 
 This mod supports x86 Linux.
 
 Support for other platforms may be available later.
 
-33. **[Half-Life: Opposing Force](https://store.steampowered.com/app/50/HalfLife_Opposing_Force/)**
+34. **[Half-Life: Opposing Force](https://store.steampowered.com/app/50/HalfLife_Opposing_Force/)**
 
 Steam version already supports x86 Linux.
 
 To run this mod on specific platforms you may be need to compile libraries from **opfor** branch of [hlsdk-portable](https://github.com/FWGS/hlsdk-portable).
 
-34. **[Half-Life: Quest mod](https://csm.dev/threads/half-life-the-quest-mod-isxodniki.38030/)**
+35. **[Half-Life: Quest mod](https://csm.dev/threads/half-life-the-quest-mod-isxodniki.38030/)**
 
 To run this mod on specific platforms you may be need to compile libraries from **sci** branch of [hlsdk-portable](https://github.com/FWGS/hlsdk-portable).
 
-35. **[Half-Life: Sum](https://www.moddb.com/mods/half-life-sum)**
+36. **[Half-Life: Sum](https://www.moddb.com/mods/half-life-sum)**
 
 This mod already supports x86 Linux.
 
 To run this mod on specific platforms you may be need to compile libraries from **sum** branch of [halflife-featureful](https://github.com/FreeSlave/halflife-featureful).
 
-36. **[Half-Life: TopDown](https://www.moddb.com/mods/half-life-top-downs)**
+37. **[Half-Life: TopDown](https://www.moddb.com/mods/half-life-top-downs)**
 
 To run this mod on specific platforms you may be need to compile libraries from **topdown** branch of [hlsdk-portable](https://github.com/FWGS/hlsdk-portable).
 
-37. **[Half-Life: Urbicide](https://www.moddb.com/mods/half-life-urbicide)**
+38. **[Half-Life: Urbicide](https://www.moddb.com/mods/half-life-urbicide)**
 
 To run this mod on specific platforms you may be need to compile libraries from **hl_urbicide** branch of [hlsdk-portable](https://github.com/FWGS/hlsdk-portable).
 
-38. **[Half-Life: Visitors](https://www.moddb.com/mods/half-life-visitors)**
+39. **[Half-Life: Visitors](https://www.moddb.com/mods/half-life-visitors)**
 
 To run this mod on specific platforms you may be need to compile libraries from **visitors** branch of [hlsdk-portable](https://github.com/FWGS/hlsdk-portable).
 
-39. **[Half-Rats: Parasomnia](https://www.moddb.com/mods/half-rats-parasomnia/downloads/half-rats-parasomnia-v10b-steamlinux)**
+40. **[Half-Rats: Parasomnia](https://store.steampowered.com/app/638360/HalfRats_Parasomnia/)**
 
 This mod already supports x86 Linux.
 
 Support for other platforms may be available later.
 
-40. **[Half-Screwed: Death and Rebirth](https://www.moddb.com/mods/half-screwed)**
+41. **[Half-Rats: Redridge](https://www.moddb.com/mods/redridge)**
+
+This mod already supports x86 Linux
+
+42. **[Half-Screwed: Death and Rebirth](https://www.moddb.com/mods/half-screwed)**
 
 To run this mod on specific platforms you may be need to compile libraries from **half-screwed** branch of [hlsdk-portable](https://github.com/FWGS/hlsdk-portable).
 
-41. **[Half-Secret](https://www.moddb.com/mods/half-secret)**
+43. **[Half-Secret](https://www.moddb.com/mods/half-secret)**
 
 To run this mod on specific platforms you may be need to compile libraries from **half-secret** branch of [hlsdk-portable](https://github.com/FWGS/hlsdk-portable).
 
-42. **[Mortal Kombat](https://www.moddb.com/mods/hl-mortal-kombat)**
+44. **[Mortal Kombat](https://www.moddb.com/mods/hl-mortal-kombat)**
 
 This mod already supports Android and x86 Linux.
 
-43. **[Natural Selection](https://www.moddb.com/mods/natural-selection)**
+45. **[Natural Selection](https://www.moddb.com/mods/natural-selection)**
 
 This mod already supports x86 Linux.
 
 Support for other platforms may be available later.
 
-44. **[Night at the Office](https://www.moddb.com/mods/night-at-the-office)**
+46. **[Night at the Office](https://www.moddb.com/mods/night-at-the-office)**
 
 To run this mod on specific platforms you may be need to compile libraries from **noffice** branch of [hlsdk-portable](https://github.com/FWGS/hlsdk-portable).
 
-45. **[Paranoia](https://www.moddb.com/mods/paranoia)**
+47. **[Paranoia](https://www.moddb.com/mods/paranoia)**
 
 *Support temporary abandoned*
 
 [Source code](https://github.com/FWGS/paranoia_toolkit).
 
-46. **[Poke646](https://poke646.com/)**
+48. **[Poke646](https://poke646.com/)**
 
 To run this mod on specific platforms you may be need to compile libraries from **poke646** branch of [hlsdk-portable](https://github.com/FWGS/hlsdk-portable).
 
-47. **[Poke646: Vendetta](https://poke646.com/)**
+49. **[Poke646: Vendetta](https://poke646.com/)**
 
 To run this mod on specific platforms you may be need to compile libraries from **poke646_vendetta** branch of [hlsdk-portable](https://github.com/FWGS/hlsdk-portable).
 
-48. [PrimeXT](https://snmetamorph.github.io/PrimeXT/)
+50. [PrimeXT](https://snmetamorph.github.io/PrimeXT/)
 
 *It's modding SDK*
 
 [Source code](https://github.com/SNMetamorph/PrimeXT)
 
-49. **[Quake Remake](https://www.moddb.com/games/quake-remake)**
+51. **[Quake Remake](https://www.moddb.com/games/quake-remake)**
 
 *Support was fully abandoned due Quake Wrapper release.*
 
 [Actual source code](https://github.com/FWGS/quakeremake)
 
-50. **[Rebellion](https://www.moddb.com/mods/rebellion1)**
+52. **[Rebellion](https://www.moddb.com/mods/rebellion1)**
 
 To run this mod on specific platforms you may be need to compile libraries from **rebellion** branch of [hlsdk-portable](https://github.com/FWGS/hlsdk-portable).
 
-51. **[Residual Life](https://www.moddb.com/mods/hl-residual-life)**
+53. **[Residual Life](https://www.moddb.com/mods/hl-residual-life)**
 
 To run this mod on specific platforms you may be need to compile libraries from **residual_point** branch of [hlsdk-portable](https://github.com/FWGS/hlsdk-portable).
 
-52. **[Residual Point](https://www.moddb.com/mods/hl-residual-point)**
+54. **[Residual Point](https://www.moddb.com/mods/hl-residual-point)**
 
 To run this mod on specific platforms you may be need to compile libraries from **residual_point** branch of [hlsdk-portable](https://github.com/FWGS/hlsdk-portable).
 
-53. **[Ricochet](https://store.steampowered.com/app/60/Ricochet/)**
+55. **[Ricochet](https://store.steampowered.com/app/60/Ricochet/)**
 
 This mod already supports x86 Linux.
 
 Support for other platforms may be available later.
 
-54. [Sewer](https://www.moddb.com/games/half-life/addons/sewer-beta)
+56. [Sewer](https://www.moddb.com/games/half-life/addons/sewer-beta)
 
 To run this mod on specific platforms you may be need to compile libraries from **sewer_beta** branch of [hlsdk-portable](https://github.com/FWGS/hlsdk-portable).
 
-55. [Spirit of Half-Life 1.2](https://www.moddb.com/mods/spirit-of-half-life)
+57. [Spirit of Half-Life 1.2](https://www.moddb.com/mods/spirit-of-half-life)
 
 *It's modding SDK*
 
 To run this mod on specific platforms you may be need to compile libraries from **sohl1.2** branch of [hlsdk-portable](https://github.com/FWGS/hlsdk-portable).
 
-56. **[Swiss Cheese Halloween](https://www.moddb.com/mods/half-life-halloween-mod)**
+58. **[Swiss Cheese Halloween](https://www.moddb.com/mods/half-life-halloween-mod)**
 
 To run this mod on specific platforms you may be need to compile libraries from **halloween** branch of [hlsdk-portable](https://github.com/FWGS/hlsdk-portable).
 
-57. **[Team Fortress Classic](https://store.steampowered.com/app/20/Team_Fortress_Classic/)**
+59. **[Team Fortress Classic](https://store.steampowered.com/app/20/Team_Fortress_Classic/)**
 
 This mod already supports x86 Linux.
 
 Currently, only source code of [client part](https://github.com/Velaron/tf15-client) is available.
 
-58. **[The Gate](https://www.moddb.com/mods/the-gate)**
+60. **[The Gate](https://www.moddb.com/mods/the-gate)**
 
 To run this mod on specific platforms you may be need to compile libraries from **thegate** branch of [hlsdk-portable](https://github.com/FWGS/hlsdk-portable).
 
-59. **[The Last Bullet](https://www.moddb.com/mods/the-last-bullet-update)**
+61. **[The Last Bullet](https://www.moddb.com/mods/the-last-bullet-update)**
 
 To run this mod on specific platforms you may be need to compile libraries from **fwgs** branch of [The-Last-Bullet-Updated-Code](https://github.com/GT-Project-Cat/The-Last-Bullet-Updated-Code).
 
-60. **[They Hunger: Trilogy](https://www.moddb.com/mods/they-hunger)**
+62. **[They Hunger: Trilogy](https://www.moddb.com/mods/they-hunger)**
 
 To run this mod on specific platforms you may be need to compile libraries from **theyhunger** branch of [hlsdk-portable](https://github.com/FWGS/hlsdk-portable).
 
-61. **[ThreeWave CTF](https://www.moddb.com/games/deathmatch-classic/downloads/threewave-ctf)**
+63. **[ThreeWave CTF](https://www.moddb.com/games/deathmatch-classic/downloads/threewave-ctf)**
 
 To run this mod on specific platforms you may be need to compile libraries from **dmc** branch of [hlsdk-portable](https://github.com/FWGS/hlsdk-portable).
 
-62. **[Times of Troubles](https://www.moddb.com/mods/times-of-troubles)**
+64. **[Times of Troubles](https://www.moddb.com/mods/times-of-troubles)**
 
 To run this mod on specific platforms you may be need to compile libraries from **tot** branch of [hlsdk-portable](https://github.com/FWGS/hlsdk-portable).
 
-63. [XashXT](https://csm.dev/threads/xashxt-0-65-rev-4-release-stable.38319/)
+65. [XashXT](https://csm.dev/threads/xashxt-0-65-rev-4-release-stable.38319/)
 
 *It's modding SDK*
 
@@ -1210,23 +1218,29 @@ To run this mod on specific platforms you may be need to compile libraries from 
 
 [Source code](https://github.com/FWGS/XashXT-FWGS/)
 
-64. **[X-Half-Life DeathMatch](https://www.moddb.com/mods/xdm)**
+66. **[X-Half-Life DeathMatch](https://www.moddb.com/mods/xdm)**
 
 This mod already supports x86 Linux.
 
 Support for other platforms may be available later.
 
-65. **[Xen-Warrior](https://www.moddb.com/mods/xen-warrior)**
+67. **[Xen-Warrior](https://www.moddb.com/mods/xen-warrior)**
 
 To run this mod on specific platforms you may be need to compile libraries from **sohl1.2** branch of [hlsdk-portable](https://github.com/FWGS/hlsdk-portable).
 
 Don't forget to enable XENWARRIOR build option!!!
 
-66. **[Yet another PS2 Half-Life port](https://www.moddb.com/mods/yet-another-ps2-half-life-pc-port)**
+68. **[Yet another PS2 Half-Life port](https://www.moddb.com/mods/yet-another-ps2-half-life-pc-port)**
 
 To run this mod on specific platforms you may be need to compile libraries from **ps2hl** branch of [hlsdk-portable](https://github.com/FWGS/hlsdk-portable).
 
-67. [Zombie-X](https://www.moddb.com/mods/zombie-x-10-final)
+69. **[Zombie Panic!](https://store.steampowered.com/app/3825360/Zombie_Panic/)**
+
+This mod already supports x86 Linux.
+
+Support for other platforms may be available later.
+
+70. [Zombie-X](https://www.moddb.com/mods/zombie-x-10-final)
 
 To run this mod on specific platforms you may be need to compile libraries from **zombie-x** branch of [hlsdk-portable](https://github.com/FWGS/hlsdk-portable).
 
