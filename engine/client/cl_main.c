@@ -4000,9 +4000,7 @@ void CL_Shutdown( void )
 	SteamBroker_Shutdown();
 	cls.initialized = false;
 
-	// for client-side VGUI support we use other order
-	if( FI && FI->GameInfo && !FI->GameInfo->internal_vgui_support )
-		VGui_Shutdown();
+	VGui_Shutdown();
 
 	if( g_fsapi.Delete )
 		g_fsapi.Delete( "demoheader.tmp" ); // remove tmp file

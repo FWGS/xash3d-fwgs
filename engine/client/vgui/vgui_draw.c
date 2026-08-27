@@ -36,6 +36,7 @@ typedef struct vgui_static_s
 	qboolean initialized;
 	VGUI_DefaultCursor cursor;
 	vguiapi_t dllFuncs;
+	qboolean from_client; // vgui_support API is provided by the client library
 
 	vgui_reusable_texture_t *textures;
 	int texture_id;
@@ -282,6 +283,11 @@ qboolean VGui_IsActive( void )
 	return vgui.initialized;
 }
 
+qboolean VGui_IsProvidedByClientDll( void )
+{
+	return vgui.from_client;
+}
+
 void VGui_RegisterCvars( void )
 {
 	Cvar_RegisterVariable( &vgui_utf8 );
@@ -355,6 +361,7 @@ qboolean VGui_LoadProgs( HINSTANCE hInstance )
 		F( &vgui.dllFuncs );
 
 		vgui.initialized = vgui.dllFuncs.initialized = true;
+		vgui.from_client = client;
 		Con_Reportf( "%s: initialized legacy API in %s module\n", __func__, client ? "client" : "support" );
 
 		return true;
@@ -409,6 +416,7 @@ void VGui_Shutdown( void )
 	// drop pointers to now unloaded vgui_support
 	vgui.dllFuncs = gEngfuncs;
 	vgui.hInstance = NULL;
+	vgui.from_client = false;
 }
 
 

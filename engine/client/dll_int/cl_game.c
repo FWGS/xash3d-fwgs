@@ -3897,7 +3897,9 @@ void CL_UnloadProgs( void )
 	if( Q_stricmp( GI->gamefolder, "hlfx" ) || GI->version != 0.5f )
 		clgame.dllFuncs.pfnShutdown();
 
-	if( GI->internal_vgui_support )
+	// if vgui_support API was provided by the client library, it must be
+	// shut down before the library is unloaded, regardless of what gameinfo says
+	if( VGui_IsProvidedByClientDll( ))
 		VGui_Shutdown();
 
 	Cvar_DirectFullSet( &cl_background, "0", FCVAR_READ_ONLY );

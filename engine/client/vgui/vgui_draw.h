@@ -30,6 +30,7 @@ void VGui_MWheelEvent( int y );
 void VGui_KeyEvent( int key, int down );
 void VGui_MouseMove( int x, int y );
 qboolean VGui_IsActive( void );
+qboolean VGui_IsProvidedByClientDll( void );
 void *VGui_GetPanel( void );
 void VGui_ReportTextInput( const char *text );
 void VGui_UpdateInternalCursorState( VGUI_DefaultCursor cursorType );
