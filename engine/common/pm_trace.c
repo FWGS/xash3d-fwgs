@@ -260,7 +260,10 @@ loc0:
 	if( side ) frac = ( t1 + DIST_EPSILON ) / ( t1 - t2 );
 	else frac = ( t1 - DIST_EPSILON ) / ( t1 - t2 );
 
-	if( frac < 0.0f ) frac = 0.0f;
+	// inverted comparison also catches NaN (e.g. from a non-finite trace passed
+	// in by the game dll), which otherwise slips through both clamps and turns
+	// the backing-up loop below into an infinite loop, hanging the host
+	if( !( frac >= 0.0f )) frac = 0.0f;
 	if( frac > 1.0f ) frac = 1.0f;
 
 	midf = p1f + ( p2f - p1f ) * frac;
@@ -298,7 +301,8 @@ loc0:
 		// shouldn't really happen, but does occasionally
 		frac -= 0.1f;
 
-		if( frac < 0.0f )
+		// inverted comparison also catches NaN, see above
+		if( !( frac >= 0.0f ))
 		{
 			trace->fraction = midf;
 			VectorCopy( mid, trace->endpos );
