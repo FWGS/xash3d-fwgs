@@ -335,7 +335,7 @@ qboolean VGui_LoadProgs( HINSTANCE hInstance )
 
 		if( !Sys_GetParmFromCmdLine( "-vguiloader", vguiloader ))
 		{
-			Q_strncpy( vguiloader, OS_LIB_PREFIX "vgui_support." OS_LIB_EXT, sizeof( vguiloader ));
+			Q_strncpy( vguiloader, "vgui." OS_LIB_EXT, sizeof( vguiloader ));
 		}
 
 		hInstance = vgui.hInstance = COM_LoadLibrary( vguiloader, false, false );
