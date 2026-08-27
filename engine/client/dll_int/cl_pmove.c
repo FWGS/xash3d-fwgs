@@ -333,12 +333,12 @@ static void CL_CopyEntityToPhysEnt( physent_t *pe, entity_state_t *state, qboole
 
 	if( state->solid == SOLID_BBOX )
 	{
-		if( FBitSet( mod->flags, STUDIO_TRACE_HITBOX ))
+		if( mod != NULL && FBitSet( mod->flags, STUDIO_TRACE_HITBOX ))
 			pe->studiomodel = mod;
 	}
 	else
 	{
-		if( pe->solid != SOLID_BSP && ( mod != NULL ) && ( mod->type == mod_studio ))
+		if( state->solid != SOLID_BSP && ( mod != NULL ) && ( mod->type == mod_studio ))
 			pe->studiomodel = mod;
 		else pe->model = mod;
 	}
