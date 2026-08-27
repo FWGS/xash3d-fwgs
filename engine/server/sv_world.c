@@ -1075,8 +1075,9 @@ void SV_CustomClipMoveToEntity( edict_t *ent, const vec3_t start, vec3_t mins, v
 	}
 	else
 	{
-		// function is missed, so we didn't hit anything
-		trace->allsolid = false;
+		// no callbacks are provided, so the game doesn't know about SOLID_CUSTOM:
+		// clip against the entity bbox, like GoldSrc does for out-of-range solid values
+		SV_ClipMoveToEntity( ent, start, mins, maxs, end, trace );
 	}
 }
 

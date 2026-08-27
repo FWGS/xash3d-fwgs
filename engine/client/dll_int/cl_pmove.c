@@ -302,6 +302,11 @@ void CL_ClipPMoveToEntity( physent_t *pe, const vec3_t start, vec3_t mins, vec3_
 	}
 }
 
+qboolean CL_HasClipPMoveToEntity( void )
+{
+	return clgame.dllFuncs.pfnClipMoveToEntity != NULL;
+}
+
 static void CL_CopyEntityToPhysEnt( physent_t *pe, entity_state_t *state, qboolean visent )
 {
 	model_t	*mod = CL_ModelHandle( state->modelindex );
