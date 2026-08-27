@@ -10,9 +10,6 @@
 [submodule "ref_gl/gl4es"]
 	path = 3rdparty/gl4es/gl4es
 	url = https://github.com/ptitSeb/gl4es
-[submodule "vgui_support"]
-	path = 3rdparty/vgui_support
-	url = https://github.com/FWGS/vgui_support
 [submodule "opus"]
 	path = 3rdparty/opus/opus
 	url = https://github.com/xiph/opus
