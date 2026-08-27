@@ -128,9 +128,12 @@ SUBDIRS = [
 	Subproject('3rdparty/opusfile',     lambda x: x.env.CLIENT and not x.env.HAVE_SYSTEM_OPUSFILE),
 	Subproject('3rdparty/maintui',      lambda x: x.env.CLIENT and x.env.TUI),
 	Subproject('3rdparty/mainui',       lambda x: x.env.CLIENT and x.env.DEST_OS != 'android'),
-	Subproject('3rdparty/vgui_support', lambda x: x.env.CLIENT),
+
+	# engine is obligated to provide VGUI interface in 32-bit builds on Windows/Linux/Mac as shared library
+	# on platforms supported only by Xash3D FWGS, freevgui can be linked statically into client library
+	Subproject('3rdparty/freevgui',     lambda x: x.env.CLIENT and x.env.DEST_OS in ['win32', 'linux', 'darwin'] and x.env.DEST_CPU == 'x86'),
+
 	Subproject('3rdparty/MultiEmulator',lambda x: x.env.CLIENT),
-#	Subproject('3rdparty/freevgui',     lambda x: x.env.CLIENT),
 	Subproject('stub/client',           lambda x: x.env.CLIENT),
 	Subproject('game_launch',           lambda x: x.env.LAUNCHER),
 	Subproject('engine'), # keep latest for static linking
@@ -437,6 +440,7 @@ def configure(conf):
 	conf.env.ENABLE_UTILS  = conf.options.ENABLE_UTILS
 	conf.env.ENABLE_XAR    = conf.options.ENABLE_XAR
 	conf.env.ENABLE_FUZZER = conf.options.ENABLE_FUZZER
+	conf.env.FREEVGUI_XASH_SUPPORT = True
 
 	if not conf.options.DEDICATED:
 		conf.env.SERVER = conf.options.ENABLE_DEDICATED
