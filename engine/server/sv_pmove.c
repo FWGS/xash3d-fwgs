@@ -39,6 +39,11 @@ void SV_ClipPMoveToEntity( physent_t *pe, const vec3_t start, vec3_t mins, vec3_
 	}
 }
 
+qboolean SV_HasClipPMoveToEntity( void )
+{
+	return svgame.physFuncs.ClipPMoveToEntity != NULL;
+}
+
 static qboolean SV_CopyEdictToPhysEnt( physent_t *pe, edict_t *ed )
 {
 	model_t	*mod = SV_ModelHandle( ed->v.modelindex );

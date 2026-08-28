@@ -320,6 +320,27 @@ loc0:
 	return false;
 }
 
+/*
+==================
+PM_CustomClipAvailable
+
+SOLID_CUSTOM entities are traced by game dll callbacks. When the game
+doesn't provide them (a GoldSrc mod that happens to use solid == 5, which
+has no special meaning there), clip against the entity bbox like GoldSrc
+does for any non-bsp solid value.
+==================
+*/
+static qboolean PM_CustomClipAvailable( playermove_t *pmove )
+{
+	if( pmove->server || Host_IsLocalClient( ))
+		return SV_HasClipPMoveToEntity();
+#if !XASH_DEDICATED
+	return CL_HasClipPMoveToEntity();
+#else
+	return false;
+#endif
+}
+
 pmtrace_t PM_PlayerTraceExt( playermove_t *pmove, vec3_t start, vec3_t end, int flags, int numents, physent_t *ents, int ignore_pe, pfnIgnore pmFilter )
 {
 	pmtrace_t trace_total;
@@ -337,6 +358,7 @@ pmtrace_t PM_PlayerTraceExt( playermove_t *pmove, vec3_t start, vec3_t end, int 
 		vec3_t mins, maxs;
 		int hullcount;
 		qboolean rotated, transform_bbox;
+		qboolean custom_clip;
 		hull_t *hull = NULL;
 
 		if( i != 0 && ( flags & PM_WORLD_ONLY ))
@@ -364,14 +386,15 @@ pmtrace_t PM_PlayerTraceExt( playermove_t *pmove, vec3_t start, vec3_t end, int 
 			continue;
 
 		hullcount = 1;
+		custom_clip = pe->solid == SOLID_CUSTOM && PM_CustomClipAvailable( pmove );
 
-		if( pe->solid == SOLID_CUSTOM )
+		if( custom_clip )
 		{
 			VectorCopy( host.player_mins[pmove->usehull], mins );
 			VectorCopy( host.player_maxs[pmove->usehull], maxs );
 			VectorClear( offset );
 		}
-		else if( pe->model )
+		else if( pe->model && pe->solid != SOLID_CUSTOM )
 		{
 			hull = PM_HullForBsp( pe, pmove, offset );
 		}
@@ -458,7 +481,7 @@ pmtrace_t PM_PlayerTraceExt( playermove_t *pmove, vec3_t start, vec3_t end, int 
 			// g-cont. probably this never happens
 			trace_bbox.allsolid = false;
 		}
-		else if( pe->solid == SOLID_CUSTOM )
+		else if( custom_clip )
 		{
 			// run custom sweep callback
 			if( pmove->server || Host_IsLocalClient( ))
@@ -541,6 +564,7 @@ int PM_TestPlayerPosition( playermove_t *pmove, vec3_t pos, pmtrace_t *ptrace, p
 		vec3_t mins, maxs;
 		hull_t *hull = NULL;
 		int hullcount;
+		qboolean custom_clip;
 
 		// run custom user filter
 		if( pmFilter != NULL )
@@ -553,14 +577,15 @@ int PM_TestPlayerPosition( playermove_t *pmove, vec3_t pos, pmtrace_t *ptrace, p
 			continue;
 
 		hullcount = 1;
+		custom_clip = pe->solid == SOLID_CUSTOM && PM_CustomClipAvailable( pmove );
 
-		if( pe->solid == SOLID_CUSTOM )
+		if( custom_clip )
 		{
 			VectorCopy( host.player_mins[pmove->usehull], mins );
 			VectorCopy( host.player_maxs[pmove->usehull], maxs );
 			VectorClear( offset );
 		}
-		else if( pe->model )
+		else if( pe->model && pe->solid != SOLID_CUSTOM )
 		{
 			hull = PM_HullForBsp( pe, pmove, offset );
 		}
@@ -615,7 +640,7 @@ int PM_TestPlayerPosition( playermove_t *pmove, vec3_t pos, pmtrace_t *ptrace, p
 			VectorSubtract( pos, offset, pos_l );
 		}
 
-		if( pe->solid == SOLID_CUSTOM )
+		if( custom_clip )
 		{
 			pmtrace_t	trace;
 

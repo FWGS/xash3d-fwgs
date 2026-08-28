@@ -784,6 +784,8 @@ void CL_ProcessFile( qboolean successfully_received, const char *filename );
 int SV_GetSaveComment( const char *savename, char *comment );
 void SV_ClipPMoveToEntity( struct physent_s *pe, const vec3_t start, vec3_t mins, vec3_t maxs, const vec3_t end, struct pmtrace_s *tr );
 void CL_ClipPMoveToEntity( struct physent_s *pe, const vec3_t start, vec3_t mins, vec3_t maxs, const vec3_t end, struct pmtrace_s *tr );
+qboolean SV_HasClipPMoveToEntity( void );
+qboolean CL_HasClipPMoveToEntity( void );
 void SV_SysError( const char *error_string );
 void SV_ShutdownGame( void );
 void SV_ExecLoadLevel( void );
