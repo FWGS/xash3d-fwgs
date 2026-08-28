@@ -4745,13 +4745,27 @@ through them.
   NPC dump is active; G374 sample face-cap unchanged. Acceptance: G36 sample
   avoids O(n log n) rerank on steady gameplay frames; DumpFrames/G380 ranking
   preserved. Evidence: `.ai/logs/rc-check-20260827-191715/frame-budget-probe.log`.
-- [ ] **TODO-MEM-003 — Replace broad static arenas with measured sub-arenas.**
+- [x] **TODO-MEM-003 — Replace broad static arenas with measured sub-arenas.**
   Attribute the largest BSS consumers and reclaim temporary decode, BSP, HUD,
   and probe buffers at explicit lifecycle points. Acceptance: reduce BSS or
   peak MEM1 without changing the 10/10 smoke ladder. Optimization pass
   2026-08-16 found no safe cut: worst-case report is PASS with zero hard MEM1
   failures, and the current 900-edict GameCube cap is already the compatibility
   floor for the supported Half-Life route.
+  **Progress 2026-08-28:** symbol attribution from `OUT/bin/xash` identifies
+  `gc_gcmap_bootstrap_entities` (753 KiB), `gc_gcmap_static_viewbuffer` and
+  `gc_gcmap_static_zbuffer` (150 KiB each), `r_gx_tex_world_pool` (128 KiB),
+  and `gc_newgame_cap_faces` (≈62 KiB) as the largest relevant static regions.
+  The generated memory evidence report records MEM1 high-water
+  `4655677` bytes across 256 runtime samples with no failed allocation
+  and now parses 210 arena-tail telemetry samples
+  (`.ai/logs/memory-evidence-20260828-0035/summary.md`).
+  **Done 2026-08-28:** measured BSS cut — `GC_GX_TEX_WORLD_POOL` 4→3
+  (`r_gx_tex_world_pool` 128→96 KiB, −32 KiB). Early-XFB↔probe overlay was
+  attempted and reverted (BSS layout shift corrupted zip heap on tip-safe).
+  Tip-safe `c1a0a→c1a0d` CHANGELEVEL_READY + ladder 10/10 with
+  `MEM-003 world tex pool slots=3` (`.ai/logs/dolphin-probe-20260828-071959/`).
+  Larger arenas (bootstrap entities, soft view/Z, `vid`) remain for later passes.
 - [x] **TODO-MEM-004 — Add allocation-pressure telemetry by pool.** Emit a
   compact per-map summary for largest failed allocations, pool high-water,
   and contiguous-tail availability. Acceptance: one log line identifies the
@@ -4848,10 +4862,18 @@ through them.
   shows VGUI fatal panel via early XFB when `GCube_GetBasePath` or `chdir` fails;
   logs `boot fatal panel missing valve assets` and halts (no FS gfx.wad hang).
   Valid ISO/Dolphin tip-safe unchanged (`.ai/logs/dolphin-probe-20260827-212058/`).
-- [ ] **TODO-GX-022 — Textured underfoot pad (GX-017 deferred).** Reintroduce
+- [x] **TODO-GX-022 — Textured underfoot pad (GX-017 deferred).** Reintroduce
   REPLACE textured constant-Z NPC floor when DOL growth stays tip-safe (prior +2 KiB
   tipped searchpaths). Acceptance: DumpFrames `GX-017 textured underfoot pad` with
   borrowed hallway tex; no cyan; G36 PASS on tip-safe `c1a0a→c1a0d`.
+  **Progress 2026-08-28:** synthetic 256×256 pad now borrows a resident horizontal
+  world texture with local 0..1 UVs while preserving the established constant-Z
+  eye-space projection; no texture allocation or DOL/BSS growth was added. The
+  The initial New Game/DumpFrames harness stopped before pad rendering; the
+  corrected retained-map route now exercises the pad successfully.
+  **Done 2026-08-28:** fresh DumpFrames `c1a0a→c1a0d` probe logs
+  `GX-022 textured underfoot pad borrowed texture=gc022-hallway`, with G36 PASS,
+  nonblack visual sampling, and Ladder 10/10 (`.ai/logs/dolphin-probe-20260828-003013/`).
 - [x] **TODO-GX-023 — Post-lab CapFaces emit.** Campaign hops (Lambda/Xen) still log
   `low-res probe skips CapFaces` / `drawn=0`. Enable bounded CapFaces draw on denser
   maps without reintroducing G364 portal seams or G36 regression. Acceptance:
@@ -4860,32 +4882,109 @@ through them.
   `GC_UseGxWorldDraw()` with tram G36 sample still off; CAM-018 `c3a2→c3a2a` and
   `c4a1→c4a2` both `drawn=1`; tip-safe `c1a0a→c1a0d` CHANGELEVEL_READY + LADDER PASS
   (`.ai/logs/dolphin-probe-20260827-222402`, campaign `.ai/logs/campaign-visual-20260827-222509`).
-- [ ] **TODO-MEM-022 — Sub-arena carve validation (extends TODO-MEM-003).** Measure
+- [x] **TODO-MEM-022 — Sub-arena carve validation (extends TODO-MEM-003).** Measure
   largest static BSS/.text consumers; split one arena (CapFaces or studio staging)
   into pool-backed sub-alloc with telemetry. Acceptance: MEM1 HWM drops or headroom
   log shows ≥256 KiB contiguous tail before map load on c1a0d tip-safe route.
+  **Done 2026-08-27:** static map-load arena telemetry now reports exact byte
+  regions, and its tail allocator rejects overlapping sub-carves. Fresh c1a0→c1a0d
+  probe evidence records `capacity_bytes=3670016`, `size_bytes=2547712`, and
+  `remaining_bytes=1122304` before map load (>.256 MiB). Direct c1a0d probe
+  `.ai/logs/dolphin-probe-20260827-233015/stderr.log` records
+  `capacity_bytes=3670016`, `size_bytes=2727936`, `remaining_bytes=942080`,
+  followed by `map loaded c1a0d`.
+  A fresh memory-only c1a0a probe records capacity `3670016`, usage
+  `2445312`, and contiguous tail `1224704` bytes before `map loaded c1a0a`
+  (`.ai/logs/dolphin-probe-20260828-003737/`). The generated reducer reports
+  216 PASS/AVAILABLE arena samples and 0 overlap rejects.
 - [ ] **TODO-INTRO-024 — Retail intro/menu on hardware.** Replay G508/G509-equivalent
   on Swiss: GCVID intro timing, menu down/confirm, `-gcnewgame` not required.
   Acceptance: `gamecube-video-playback-gate.py` markers + hardware OSReport intro
   frame count; no infinite intro loop on composite video.
+  **Progress 2026-08-28:** intro/menu implementation is present and the playback
+  gate was reviewed; no local run currently contains the complete G508/G509 marker
+  set. Swiss replay and composite-video loop evidence remain outstanding.
 - [ ] **TODO-AUDIO-022 — Hardware PCM/SFX matrix (extends TODO-AUDIO-007).** Beyond
   Dolphin lean PCM: footstep, pl_gun1, tram ride, pause/resume on ASND with SD
   present. Acceptance: G48 compliance log on hardware; null-audio fallback still
   non-fatal when allocation fails.
+  **Progress 2026-08-28:** `scripts/gamecube-audio-compliance.py` passes fallback,
+  bounded-latency, double-buffer, wrap-safe-copy, clipping telemetry, deferred-map,
+  and shutdown checks (`.ai/logs/audio-compliance-20260828-070538/summary.md`).
+  Audible hardware matrix evidence remains outstanding.
 - [ ] **TODO-FS-022 — Storage route automation (extends TODO-FS-008).** Host-side
   matrix script for `sd:/`, `carda:/`, `cardb:/`, disc-only, and SD+disc hybrid;
   ingest `swiss-evidence.txt` per route. Acceptance: one command emits pass/fail
   table for G508 config round-trip where writable.
+  **Progress 2026-08-28:** added `scripts/gamecube-storage-route-matrix.sh`,
+  which emits a route table and consumes mounted-route or probe evidence. Missing
+  hardware routes are reported explicitly as `FAIL`; no Dolphin FAT route is
+  inferred as available. Evidence discovery now prefers the newest matching
+  `swiss-evidence.txt`/`stderr.log` so stale failed probes cannot mask newer data.
 - [ ] **TODO-SAVE-022 — Save interrupt harness (extends TODO-SAVE-010).** Dolphin
   gcprobe fault injection for `.new`/`.bak`; hardware checklist for power-loss and
   full-card on real SD. Acceptance: deterministic recovery after simulated rename
   failure; hardware doc filled for at least one writable route.
+  **Progress 2026-08-28:** automated G46 save compliance passes metadata integrity,
+  atomic sidecar rotation, confirmation, and destructive-write policy checks.
+  **Software done 2026-08-28:** `-gcsaveinterrupt` one-shot `*.new` rename fault in
+  the gcprobe bank; `Host_FinalizeConfig` retries then restores `.bak`; G508 path
+  exercises recovery markers; host harness
+  `scripts/gamecube-save-interrupt-harness.py` + hardware checklist in
+  `docs/GAMECUBE_HARDWARE_VALIDATION.md`. Physical interruption evidence still
+  outstanding.
 - [ ] **TODO-VIDEO-022 — Region/cable matrix (extends TODO-VIDEO-009).** Document and
   probe NTSC 480i vs progressive override; PAL-safe fb allocation smoke. Acceptance:
   first nonblack frame on each mode in Dolphin; hardware sign-off row in matrix.
+  **Progress 2026-08-28:** automated G44 video compliance passes preferred-mode,
+  480i-safe, safe-area, framebuffer, and matrix-policy checks.
+  **Software done 2026-08-28:** `-gcvideo ntsc|prog|pal` forces `TVNtsc480IntDf` /
+  `TVNtsc480Prog` / `TVPal528IntDf` with `VIDEO-022 mode=` markers; progressive
+  detection uses `VI_PROGRESSIVE`; Dolphin matrix
+  `scripts/gamecube-video-mode-matrix.sh` PASS for all three modes with nonblack
+  (`.ai/logs/video-mode-matrix-20260828-073920/`). Hardware CRT/PAL sign-off
+  checklist remains open in the matrix summary.
 - [ ] **TODO-RELEASE-022 — Swiss-required release packet.** After TODO-HW-012/022,
   run `gamecube-release-packet.py --require-swiss` with physical evidence attached.
+  **Progress 2026-08-28:** automated G52 release compliance passes manifest,
+  legal-exclusion, tracked-content, RC-gate, and documentation checks. The
+  Swiss-required packet and dated public archive remain hardware/release-bound.
   Acceptance: packet COMPLETE with hardware hash match and G77 artifact table row.
+- [ ] **TODO-EVIDENCE-025 — Evidence freshness gate.** Make compliance reducers
+  reject stale probe artifacts unless the build handoff hash/timestamp matches the
+  source tree under test. Acceptance: one command reports stale, mismatched, and
+  current evidence distinctly without silently selecting an older log.
+- [ ] **TODO-GX-025 — Texture-lifetime regression fixture.** Add a host fixture
+  covering trimmed world descriptors, resident texnum fallback, and synthetic
+  pad bind retry. Acceptance: the fixture proves no texture allocation and keeps
+  the GX-022 borrowed-texture marker path covered.
+- [ ] **TODO-RELEASE-025 — Release packet completeness preflight.** Add a local
+  verifier for required Swiss evidence, artifact hashes, and dated notice rows.
+  Acceptance: incomplete packets fail with named missing fields before archive
+  publication, while legal asset exclusions remain enforced.
+- [ ] **TODO-AUDIO-025 — Audible evidence capture manifest.** Define a dated,
+  route-tagged capture format for footstep, weapon, tram, menu, pause/resume, and
+  shutdown PCM cases. Acceptance: the audio compliance reducer can distinguish
+  audible, silent, clipped, and untested cases without relying on prose.
+- [ ] **TODO-FS-025 — Swiss route evidence schema.** Define a compact schema for
+  route, loader, volume, writable state, artifact hash, and G508 result, with
+  explicit read-only/disc semantics. Acceptance: the FS-022 matrix ingests one
+  schema-valid record per route and rejects ambiguous route claims.
+- [ ] **TODO-INTRO-025 — Intro/menu replay automation.** Add a deterministic
+  scripted replay for intro completion, menu-down, and confirm with frame-count
+  and loop-detection markers. Acceptance: the playback gate emits a complete
+  local report suitable for later Swiss comparison.
+- [ ] **TODO-INPUT-025 — Controller trace replay fixture.** Record and replay
+  normalized A/B/Start, stick, trigger, disconnect, and reconnect events through
+  the GameCube input adapter. Acceptance: host replay covers the documented
+  resilience transitions without timing-dependent sleeps.
+- [ ] **TODO-MEM-025 — MEM1 budget snapshot gate.** Emit a build- and map-tagged
+  snapshot of static BSS attribution, map-load tail, and runtime high-water.
+  Acceptance: CI flags regressions over the recorded MEM1 budget while allowing
+  explicitly annotated compatibility arenas.
+- [ ] **TODO-VIDEO-025 — Capture metadata sidecar.** Emit mode, framebuffer size,
+  progressive flag, renderer policy, and artifact hash beside each video proof.
+  Acceptance: video evidence can be matched unambiguously to the tested DOL.
 - [x] **TODO-DOC-023 — Refresh PORT_STATUS milestone.** Updated
   `docs/gamecube/PORT_STATUS.md` with 2026-08-27 closes, HW boot UX notes, and
   current artifact sizes; Last Updated 2026-08-27.

@@ -32,6 +32,9 @@ FAIL_RE = re.compile(
     r"mem FAIL subsystem=(?P<subsystem>\S+)\s+size=(?P<size>[0-9.]+(?:\s*(?:bytes|Kb|KiB|Mb|MiB|Gb|GiB))?)\s+"
     r"map=(?P<map>\S+)\s+at=(?P<at>\S+)\s+total=(?P<total>[0-9.]+(?:\s*(?:bytes|Kb|KiB|Mb|MiB|Gb|GiB))?)\s+"
     r"hwm=(?P<hwm>[0-9.]+(?:\s*(?:bytes|Kb|KiB|Mb|MiB|Gb|GiB))?)", re.I)
+ARENA_RE = re.compile(
+    r"mem arena tail=(?P<status>AVAILABLE|UNAVAILABLE|PASS|FAIL|OVERLAP)\s+"
+    r"(?P<fields>[^\n]+)", re.I)
 
 
 def parse_size(value: str) -> int | None:
@@ -155,6 +158,12 @@ def generate(root: Path, log_paths: list[Path]) -> dict[str, object]:
         row["total_bytes"] = parse_size(row["total"])
         row["hwm_bytes"] = parse_size(row["hwm"])
         failures.append(row)
+    arena_tail = []
+    for match in ARENA_RE.finditer(log_text):
+        row = {"status": match.group("status").upper()}
+        for key, value in re.findall(r"(\w+)=([0-9]+)", match.group("fields")):
+            row[key if key.endswith("_bytes") else f"{key}_bytes"] = int(value)
+        arena_tail.append(row)
     largest = max(failures, key=lambda row: row.get("size_bytes") or -1,
         default=None)
     per_map: dict[str, dict[str, object]] = {}
@@ -185,6 +194,7 @@ def generate(root: Path, log_paths: list[Path]) -> dict[str, object]:
         "runtime": {"mem1_high_water_bytes": mem1_peak,
             "mem2_high_water_bytes": "UNAVAILABLE",
             "samples": samples, "map_load_pressure": pressure,
+            "arena_tail": arena_tail,
             "per_map_peak": list(per_map.values()), "largest_failed_allocation": largest,
             "texture_lightmap_audio_cache": "UNAVAILABLE without tagged telemetry"},
         "interpretation": "measured fields only; unavailable fields are not estimates",
@@ -194,6 +204,10 @@ def generate(root: Path, log_paths: list[Path]) -> dict[str, object]:
 def markdown(report: dict[str, object]) -> str:
     artifacts = report["artifacts"]
     runtime = report["runtime"]
+    arena = runtime["arena_tail"]
+    arena_pass = sum(1 for row in arena if row.get("status") in ("PASS", "AVAILABLE"))
+    arena_overlap = sum(1 for row in arena if row.get("status") == "OVERLAP")
+    arena_remaining = max((row.get("remaining_bytes", 0) for row in arena), default=0)
     return "\n".join([
         "# Generated GameCube Memory Evidence", "",
         f"Schema: `{report['schema']}`", "",
@@ -207,6 +221,10 @@ def markdown(report: dict[str, object]) -> str:
         f"| MEM2 high-water | {runtime['mem2_high_water_bytes']} |",
         f"| Runtime samples | {len(runtime['samples'])} |",
         f"| Map-load pressure samples | {len(runtime['map_load_pressure'])} |",
+        f"| Arena-tail telemetry samples | {len(runtime['arena_tail'])} |",
+        f"| Arena-tail PASS/AVAILABLE | {arena_pass} |",
+        f"| Arena-tail OVERLAP rejects | {arena_overlap} |",
+        f"| Largest reported tail | {arena_remaining} bytes |",
         f"| Largest failed allocation | {runtime['largest_failed_allocation'] or 'UNAVAILABLE'} |",
         f"| Texture/lightmap/audio/cache | {runtime['texture_lightmap_audio_cache']} |",
         "", "This file is generated. Do not turn unavailable fields into estimates.", "",

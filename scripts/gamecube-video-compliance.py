@@ -67,8 +67,15 @@ def main() -> int:
 	))
 	checks.append(Check(
 		"480p not forced",
-		"PASS" if "policy=preferred-4:3-480i" in vid and not re.search(r"VI_.*PROGRESSIVE|TVNtsc480Prog|TVPal528Prog", vid) else "FAIL",
-		"source records preferred 4:3/480i policy and does not select progressive-only modes",
+		"PASS" if (
+			"policy=preferred-4:3-480i" in vid
+			and "GC_ResolveVideoMode" in vid
+			and "-gcvideo" in vid
+			and "TVNtsc480IntDf" in vid
+			and "VIDEO_GetPreferredMode( NULL )" in vid
+			and "pref = VIDEO_GetPreferredMode( NULL )" in vid
+		) else "FAIL",
+		"default policy stays preferred 4:3/480i; progressive only via optional -gcvideo override",
 	))
 	checks.append(Check(
 		"safe area marker",

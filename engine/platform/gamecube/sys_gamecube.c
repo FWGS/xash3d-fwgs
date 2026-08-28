@@ -56,6 +56,9 @@ static char gc_fat_write_root[16]; /* e.g. "sd:/" — preferred writable volume 
 static char gc_fat_base_root[16];  /* volume used for game data root */
 static qboolean gc_newsaveload_configured;
 static qboolean gc_configroundtrip_configured;
+static qboolean gc_saveinterrupt_configured;
+static qboolean gc_video_mode_configured;
+static char gc_video_mode[16];
 #if !defined(XASH_GAMECUBE_LIBOGC2) || !XASH_GAMECUBE_LIBOGC2
 static DISC_INTERFACE gc_dvd_io;
 #endif
@@ -657,6 +660,9 @@ static void GCube_LoadDiscBootOverrides( void )
 	gc_menu_newgame_configured = false;
 	gc_newsaveload_configured = false;
 	gc_configroundtrip_configured = false;
+	gc_saveinterrupt_configured = false;
+	gc_video_mode_configured = false;
+	gc_video_mode[0] = '\0';
 	gc_phase_test_configured = false;
 	gc_changelevel_configured = false;
 	gc_landmark_configured = false;
@@ -761,6 +767,37 @@ static void GCube_LoadDiscBootOverrides( void )
 			{
 				gc_configroundtrip_configured = true;
 				SYS_Report( "Xash3D GameCube: disc boot override configroundtrip\n" );
+				continue;
+			}
+		}
+
+		if( !Q_strnicmp( cursor, "saveinterrupt", 13 ))
+		{
+			char ch = cursor[13];
+			if( ch == '\0' || ch == '\r' || ch == '\n' || ch == ' ' || ch == '\t' )
+			{
+				gc_saveinterrupt_configured = true;
+				gc_configroundtrip_configured = true; /* interrupt path needs the bank */
+				SYS_Report( "Xash3D GameCube: disc boot override saveinterrupt\n" );
+				continue;
+			}
+		}
+
+		if( !Q_strnicmp( cursor, "video ", 6 ))
+		{
+			const char *arg = cursor + 6;
+			size_t n = 0;
+			while( arg[n] && arg[n] != '\r' && arg[n] != '\n' && arg[n] != ' ' && arg[n] != '\t'
+				&& n + 1 < sizeof( gc_video_mode ))
+			{
+				gc_video_mode[n] = arg[n];
+				n++;
+			}
+			gc_video_mode[n] = '\0';
+			if( gc_video_mode[0] )
+			{
+				gc_video_mode_configured = true;
+				SYS_Report( "Xash3D GameCube: disc boot override video %s\n", gc_video_mode );
 				continue;
 			}
 		}
@@ -1041,6 +1078,13 @@ int GCube_GetArgv( int in_argc, char **in_argv, char ***out_argv )
 		gc_argv[fake_argc++] = "-gcnewsaveload";
 	if( gc_configroundtrip_configured )
 		gc_argv[fake_argc++] = "-gcconfigroundtrip";
+	if( gc_saveinterrupt_configured )
+		gc_argv[fake_argc++] = "-gcsaveinterrupt";
+	if( gc_video_mode_configured )
+	{
+		gc_argv[fake_argc++] = "-gcvideo";
+		gc_argv[fake_argc++] = gc_video_mode;
+	}
 	if( gc_leanpvs_configured )
 		gc_argv[fake_argc++] = "-gcleanpvs";
 	if( gc_fullphysics_configured )

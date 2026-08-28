@@ -85,6 +85,9 @@ extern qboolean GC_TramCabinRide( void );
 #endif
 extern qboolean GC_TramLightmapReady( void );
 extern int GC_GetTramDiffuseTexnum( void );
+extern int GC_GetResidentWorldDiffuseTexnum( void );
+extern void GC_RecordResidentWorldDiffuseTexnum( int texnum );
+extern int GC_GetNewGameCapTextureNum( void );
 extern const unsigned short *GC_GetTramLightmapAtlas( int *w, int *h );
 extern void GC_GetTramLightmapUV( int face, float s, float t, float *out_s, float *out_t );
 extern msurface_t *GC_GetLiveDrawSurfs( void );
@@ -93,10 +96,12 @@ extern unsigned R_GXGetTriColorRGBA( void );
 #define GC_GX_TEX_SLOTS		32
 #define GC_GX_TEX_HUD_RESERVE	9	/* menu tiles plus live HUD sheets */
 #define GC_GX_TEX_MAX_DIM	128	/* HUD menu background needs the full 128x96 tile */
-/* G199: 4 BSS world tiles (~32 KiB) — 8 tipped clipnodes pin on c0a0. */
-#define GC_GX_TEX_WORLD_POOL	4
+/* MEM-003: 4→3 BSS world tiles (−32 KiB). World binds LRU within the pool;
+ * HUD/cinematic keep reserved storage. G199 noted 8 tipped clipnodes — keep ≥3. */
+#define GC_GX_TEX_WORLD_POOL	3
 static u16 r_gx_tex_world_pool[GC_GX_TEX_WORLD_POOL][GC_GX_TEX_MAX_DIM * GC_GX_TEX_MAX_DIM]
 	__attribute__((aligned( 32 )));
+static qboolean gc_mem003_world_pool_logged;
 #define GC_GX_CINEMATIC_WIDTH 320
 #define GC_GX_CINEMATIC_HEIGHT 240
 static u16 r_gx_cinematic_pool[GC_GX_CINEMATIC_WIDTH * GC_GX_CINEMATIC_HEIGHT]
@@ -700,6 +705,13 @@ static void R_GXTexCacheReset( void )
 	r_gx_cinematic_ready = false;
 	r_gx_tex_world = NULL;
 	r_gx_hud_pool_ready = false;
+	if( !gc_mem003_world_pool_logged )
+	{
+		gc_mem003_world_pool_logged = true;
+		gEngfuncs.Con_Reportf(
+			"Xash3D GameCube: MEM-003 world tex pool slots=%d bytes=%u\n",
+			GC_GX_TEX_WORLD_POOL, (unsigned)sizeof( r_gx_tex_world_pool ));
+	}
 }
 
 static gc_gx_tex_t *R_GXBindTexnum( unsigned texnum, qboolean hud_bind )
@@ -1495,6 +1507,9 @@ static int R_GXEmitFaceVerts( const msurface_t *surf, model_t *world,
 
 static int R_GXEmitFace( const msurface_t *surf, model_t *world, int slot )
 {
+	static texture_t pad_texture_cache;
+	static texture_t pad_numeric_texture;
+	static qboolean pad_texture_cache_valid;
 	mvertex_t *pverts;
 	vec3_t pts[32];
 	float sts[32][2];
@@ -1503,7 +1518,9 @@ static int R_GXEmitFace( const msurface_t *surf, model_t *world, int slot )
 	int i;
 	u32 color;
 	gc_gx_tex_t *gxt = NULL;
+	texture_t *face_texture = NULL;
 	qboolean textured = false;
+	qboolean pad_textured = false;
 	qboolean lit = false;
 	int bake_src = -1;
 
@@ -1596,17 +1613,161 @@ static int R_GXEmitFace( const msurface_t *surf, model_t *world, int slot )
 	}
 
 	color = 0xFFFFFFFFu;
-	if( surf->texinfo && surf->texinfo->texture )
+	if( surf->firstedge < 0 && surf->extents[0] == 256 && surf->extents[1] == 256 )
 	{
-		gxt = R_GXBindTexture( surf->texinfo->texture );
+		static qboolean gx022_attempt_logged;
+		if( !gx022_attempt_logged )
+		{
+			gx022_attempt_logged = true;
+			gEngfuncs.Con_Reportf( "Xash3D GameCube: GX-022 pad attempt extents=%d,%d surfaces=%d captex=%d resident=%d tram=%d bound=%u\n",
+				surf->extents[0], surf->extents[1], world->numsurfaces,
+				GC_GetNewGameCapTextureNum(), GC_GetResidentWorldDiffuseTexnum(),
+				GC_GetTramDiffuseTexnum(), r_gx_bound_texnum );
+		}
+	}
+	if( surf->texinfo && surf->texinfo->texture )
+		face_texture = surf->texinfo->texture;
+	if( !face_texture && surf->firstedge < 0 && surf->extents[0] == 256
+		&& surf->extents[1] == 256 )
+	{
+		int numeric_texnum = GC_GetNewGameCapTextureNum();
+		if( numeric_texnum <= 0 ) numeric_texnum = GC_GetResidentWorldDiffuseTexnum();
+		if( numeric_texnum <= 0 ) numeric_texnum = GC_GetTramDiffuseTexnum();
+		if( numeric_texnum <= 0 ) numeric_texnum = (int)r_gx_bound_texnum;
+		if( numeric_texnum > 0 )
+		{
+			memset( &pad_numeric_texture, 0, sizeof( pad_numeric_texture ));
+			pad_numeric_texture.gl_texturenum = numeric_texnum;
+			Q_strncpy( pad_numeric_texture.name, "gc022-hallway", sizeof( pad_numeric_texture.name ));
+			face_texture = &pad_numeric_texture;
+			gEngfuncs.Con_Reportf( "Xash3D GameCube: GX-022 textured underfoot pad borrowed texture=%s\n",
+				face_texture->name );
+		}
+	}
+	/* GX-022: synthetic NPC pad has no texinfo. Borrow a resident, visible
+	 * horizontal world texture so the pad is textured without allocating or
+	 * duplicating a texture object. */
+	if( !face_texture && surf->firstedge < 0 && surf->extents[0] == 256
+		&& surf->extents[1] == 256 )
+	{
+		for( i = 0; world->surfaces && i < world->numsurfaces; i++ )
+		{
+			msurface_t *candidate = &world->surfaces[i];
+			if( candidate->texinfo && candidate->texinfo->texture
+				&& candidate->texinfo->texture->gl_texturenum > 0
+				&& candidate->plane && candidate->plane->normal[2] > 0.7f
+				&& !( candidate->flags & SURF_DRAWSKY ))
+			{
+				face_texture = candidate->texinfo->texture;
+				break;
+			}
+		}
+		/* Retained/scratch-trimmed maps may no longer expose live planes. A
+		 * valid non-sky world texture is still a safe visual fallback. */
+		if( !face_texture )
+		{
+			for( i = 0; world->surfaces && i < world->numsurfaces; i++ )
+			{
+			msurface_t *candidate = &world->surfaces[i];
+			if( candidate->texinfo && candidate->texinfo->texture
+				&& candidate->texinfo->texture->gl_texturenum > 0
+				&& !( candidate->flags & SURF_DRAWSKY ))
+				{
+					face_texture = candidate->texinfo->texture;
+					break;
+				}
+			}
+		}
+		if( !face_texture )
+		{
+			int tram_texnum = GC_GetNewGameCapTextureNum();
+			static texture_t pad_texture;
+			if( world->texinfo )
+			{
+				for( i = 0; i < world->numtexinfo; i++ )
+				{
+					if( world->texinfo[i].texture
+						&& world->texinfo[i].texture->gl_texturenum > 0 )
+					{
+						face_texture = world->texinfo[i].texture;
+						break;
+					}
+				}
+			}
+			if( pad_texture_cache_valid && pad_texture_cache.gl_texturenum > 0 )
+				face_texture = &pad_texture_cache;
+			if( tram_texnum <= 0 )
+				tram_texnum = GC_GetResidentWorldDiffuseTexnum();
+			if( tram_texnum <= 0 )
+				tram_texnum = GC_GetTramDiffuseTexnum();
+			if( tram_texnum <= 0 && r_gx_bound_texnum > 0 )
+				tram_texnum = (int)r_gx_bound_texnum;
+			if( !face_texture && tram_texnum > 0 )
+			{
+				memset( &pad_texture, 0, sizeof( pad_texture ));
+				pad_texture.gl_texturenum = tram_texnum;
+				Q_strncpy( pad_texture.name, "gc022-hallway", sizeof( pad_texture.name ));
+				face_texture = &pad_texture;
+			}
+		}
+		if( face_texture )
+		{
+			static qboolean gx022_logged;
+			if( !gx022_logged )
+			{
+				gx022_logged = true;
+				gEngfuncs.Con_Reportf( "Xash3D GameCube: GX-022 textured underfoot pad borrowed texture=%s\n",
+					face_texture->name[0] ? face_texture->name : "?" );
+			}
+		}
+	}
+	if( face_texture )
+	{
+		if( surf->firstedge >= 0 && face_texture->gl_texturenum > 0 )
+			GC_RecordResidentWorldDiffuseTexnum( face_texture->gl_texturenum );
+		if( surf->firstedge >= 0 && !pad_texture_cache_valid )
+		{
+			pad_texture_cache = *face_texture;
+			pad_texture_cache_valid = true;
+		}
+		gxt = R_GXBindTexture( face_texture );
+		if( !gxt && surf->firstedge < 0 && surf->extents[0] == 256
+			&& surf->extents[1] == 256 )
+		{
+			static texture_t pad_retry_texture;
+			int retry_texnum = GC_GetNewGameCapTextureNum();
+			if( retry_texnum <= 0 ) retry_texnum = GC_GetResidentWorldDiffuseTexnum();
+			if( retry_texnum <= 0 ) retry_texnum = GC_GetTramDiffuseTexnum();
+			if( retry_texnum <= 0 ) retry_texnum = (int)r_gx_bound_texnum;
+			if( retry_texnum > 0 )
+			{
+				memset( &pad_retry_texture, 0, sizeof( pad_retry_texture ));
+				pad_retry_texture.gl_texturenum = retry_texnum;
+				Q_strncpy( pad_retry_texture.name, "gc022-hallway", sizeof( pad_retry_texture.name ));
+				face_texture = &pad_retry_texture;
+				gxt = R_GXBindTexture( face_texture );
+			}
+		}
 		if( gxt )
 		{
+			if( surf->firstedge >= 0 )
+				GC_RecordResidentWorldDiffuseTexnum( (int)gxt->texnum );
 			textured = true;
 			for( i = 0; i < nverts; i++ )
 			{
 				float ls, lt;
 
-				R_GXFaceST( surf, pts[i], &sts[i][0], &sts[i][1] );
+				if( !surf->texinfo && surf->firstedge < 0 && nverts == 4 )
+				{
+					static const float pad_uv[4][2] = {
+						{ 0.0f, 0.0f }, { 1.0f, 0.0f },
+						{ 1.0f, 1.0f }, { 0.0f, 1.0f }
+					};
+					sts[i][0] = pad_uv[i][0];
+					sts[i][1] = pad_uv[i][1];
+				}
+				else
+					R_GXFaceST( surf, pts[i], &sts[i][0], &sts[i][1] );
 				if( slot >= 0 )
 				{
 					/* G207: 4-vert TEX/EDGE quads match the downsampled 4×4
@@ -1655,6 +1816,14 @@ static int R_GXEmitFace( const msurface_t *surf, model_t *world, int slot )
 				}
 			}
 		}
+	}
+	if( gxt && !surf->texinfo && surf->firstedge < 0 && surf->extents[0] == 256
+		&& surf->extents[1] == 256 )
+	{
+		/* Keep the established eye-space constant-Z pad projection below while
+		 * switching only its TEV input to the borrowed resident texture. */
+		textured = false;
+		pad_textured = true;
 	}
 	if( !textured )
 		color = R_GXFaceColor( surf );
@@ -1817,6 +1986,15 @@ static int R_GXEmitFace( const msurface_t *surf, model_t *world, int slot )
 		}
 		else
 			r_gx_state_reuses++;
+		if( pad_textured )
+		{
+			GX_SetNumTexGens( 1 );
+			GX_SetNumTevStages( 1 );
+			GX_SetTexCoordGen( GX_TEXCOORD0, GX_TG_MTX2x4, GX_TG_TEX0, GX_IDENTITY );
+			GX_SetTevOrder( GX_TEVSTAGE0, GX_TEXCOORD0, GX_TEXMAP0, GX_COLORNULL );
+			GX_SetTevOp( GX_TEVSTAGE0, GX_REPLACE );
+			GX_SetVtxDesc( GX_VA_TEX0, GX_DIRECT );
+		}
 
 		/* Constant-Z eye pad (G200) — NPC dump floor only (256×256). Menu tram
 		 * end-plug (512×384) must draw the baked world-space quad instead. */
@@ -1889,16 +2067,22 @@ static int R_GXEmitFace( const msurface_t *surf, model_t *world, int slot )
 			GX_Begin( GX_TRIANGLES, GX_VTXFMT0, 6 );
 			GX_Position3f32( x0, y0, zbb );
 			GX_Color1u32( color );
+			if( pad_textured ) GX_TexCoord2f32( 0.0f, 0.0f );
 			GX_Position3f32( x1, y0, zbb );
 			GX_Color1u32( color );
+			if( pad_textured ) GX_TexCoord2f32( 1.0f, 0.0f );
 			GX_Position3f32( x1, y1, zbb );
 			GX_Color1u32( color );
+			if( pad_textured ) GX_TexCoord2f32( 1.0f, 1.0f );
 			GX_Position3f32( x0, y0, zbb );
 			GX_Color1u32( color );
+			if( pad_textured ) GX_TexCoord2f32( 0.0f, 0.0f );
 			GX_Position3f32( x1, y1, zbb );
 			GX_Color1u32( color );
+			if( pad_textured ) GX_TexCoord2f32( 1.0f, 1.0f );
 			GX_Position3f32( x0, y1, zbb );
 			GX_Color1u32( color );
+			if( pad_textured ) GX_TexCoord2f32( 0.0f, 1.0f );
 			GX_End();
 			GX_SetZMode( GX_TRUE, GX_LEQUAL, GX_TRUE );
 			{

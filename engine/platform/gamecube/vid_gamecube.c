@@ -348,6 +348,7 @@ static gc_tram_face_t gc_tram_faces[GC_TRAM_MAX_FACES];
 static int gc_tram_face_count;
 static qboolean gc_tram_lm_ready;
 static int gc_tram_diffuse_texnum;
+static int gc_recorded_world_texnum;
 static qboolean gc_tram_lm_logged;
 static qboolean gc_tram_cabin_ride; /* G306: skip exterior while eye is in cabin */
 static vec3_t gc_tram_model_origin; /* *12 submodel origin at bake */
@@ -1263,6 +1264,7 @@ static void GC_BakeTramLightmaps( model_t *wmodel )
 
 	gc_tram_lm_ready = false;
 	gc_tram_diffuse_texnum = 0;
+	gc_recorded_world_texnum = 0;
 	if( !wmodel || !wmodel->surfaces || gc_tram_face_count <= 0 )
 		return;
 
@@ -1498,6 +1500,41 @@ qboolean GC_TramLightmapReady( void )
 int GC_GetTramDiffuseTexnum( void )
 {
 	return gc_tram_diffuse_texnum;
+}
+
+int GC_GetResidentWorldDiffuseTexnum( void )
+{
+	int i;
+
+	if( !gc_live_faces )
+		return 0;
+	for( i = 0; i < gc_live_face_count; i++ )
+	{
+		if( gc_live_faces[i].has_tex && gc_live_faces[i].texture
+			&& gc_live_faces[i].texture->gl_texturenum > 0 )
+			return gc_live_faces[i].texture->gl_texturenum;
+	}
+	return gc_recorded_world_texnum;
+}
+
+void GC_RecordResidentWorldDiffuseTexnum( int texnum )
+{
+	if( texnum > 0 && !gc_recorded_world_texnum )
+		gc_recorded_world_texnum = texnum;
+}
+
+int GC_GetNewGameCapTextureNum( void )
+{
+	int i;
+
+	for( i = 0; i < gc_newgame_cap_face_count; i++ )
+	{
+		msurface_t *surf = &gc_newgame_draw_surfs[i];
+		if( surf->texinfo && surf->texinfo->texture
+			&& surf->texinfo->texture->gl_texturenum > 0 )
+			return surf->texinfo->texture->gl_texturenum;
+	}
+	return 0;
 }
 
 const unsigned short *GC_GetTramLightmapAtlas( int *w, int *h )
@@ -4719,6 +4756,20 @@ static void GC_G380AdmitNpcRoomFloors( void )
 
 	if( !gc_g376_npc_dump_active || VectorIsNull( npc ))
 		return;
+	if( !gc_tram_diffuse_texnum )
+	{
+		int ti;
+		for( ti = 0; ti < gc_newgame_cap_face_count; ti++ )
+		{
+			msurface_t *captured = &gc_newgame_draw_surfs[ti];
+			if( captured->texinfo && captured->texinfo->texture
+				&& captured->texinfo->texture->gl_texturenum > 0 )
+			{
+				gc_tram_diffuse_texnum = captured->texinfo->texture->gl_texturenum;
+				break;
+			}
+		}
+	}
 	z = npc[2] + 2.0f; /* sit above fill coplanar floors so LEQUAL keeps cyan */
 	/* Pad under the NPC only — full eye→NPC trapezoid covered the EFB and
 	 * stalled Dolphin DumpFrames. */
@@ -6105,27 +6156,87 @@ void GC_EarlyBootSplash( void )
 #endif
 }
 
+/*
+===========
+GC_ResolveVideoMode
+
+VIDEO-022: optional -gcvideo ntsc|prog|pal forces a named GXRModeObj so Dolphin
+region/cable probes do not depend on IPL preferred-mode alone. Default remains
+VIDEO_GetPreferredMode (policy=preferred-4:3-480i).
+===========
+*/
+static GXRModeObj *GC_ResolveVideoMode( const char **out_tag )
+{
+	char mode[16];
+	GXRModeObj *pref = VIDEO_GetPreferredMode( NULL );
+	const char *tag = "preferred";
+
+	if( Sys_GetParmFromCmdLine( "-gcvideo", mode ) && mode[0] )
+	{
+		if( !Q_stricmp( mode, "ntsc" ) || !Q_stricmp( mode, "ntsc480i" )
+			|| !Q_stricmp( mode, "480i" ))
+		{
+			tag = "ntsc480i";
+			pref = &TVNtsc480IntDf;
+		}
+		else if( !Q_stricmp( mode, "prog" ) || !Q_stricmp( mode, "ntsc480p" )
+			|| !Q_stricmp( mode, "480p" ))
+		{
+			tag = "ntsc480p";
+			pref = &TVNtsc480Prog;
+		}
+		else if( !Q_stricmp( mode, "pal" ) || !Q_stricmp( mode, "pal528i" ))
+		{
+			tag = "pal528i";
+			pref = &TVPal528IntDf;
+		}
+		else
+			SYS_Report( "Xash3D GameCube: unknown -gcvideo '%s'; using preferred\n", mode );
+	}
+
+	if( out_tag )
+		*out_tag = tag;
+	return pref;
+}
+
 static void GC_InitVideoHardware( void )
 {
 #if XASH_GAMECUBE
 	int safe_x, safe_y, safe_w, safe_h;
 	qboolean progressive;
+	const char *mode_tag = "preferred";
+	GXRModeObj *forced;
+	u16 want_xfb_h;
 
 	if( gc.initialized )
 		return;
 	gc_last_present_time = 0.0;
 	SYS_Report( "Xash3D GameCube: mem stage=video_init total=%.2f\n", 0.0 );
 	if( !rmode )
-	{
 		VIDEO_Init();
-		rmode = VIDEO_GetPreferredMode( NULL );
+	else
+		GC_FlipperTrace( "Xash3D GameCube: video init continuing after early splash\n" );
+
+	forced = GC_ResolveVideoMode( &mode_tag );
+	if( !forced )
+		return;
+	/* PAL XFB is taller than NTSC; rebuild if early splash allocated a smaller FB. */
+	want_xfb_h = forced->xfbHeight;
+	if( rmode != forced || !xfb[0] || !xfb[1]
+		|| ( rmode && rmode->xfbHeight < want_xfb_h ))
+	{
+		rmode = forced;
 		VIDEO_Configure( rmode );
+		xfb[0] = MEM_K0_TO_K1( SYS_AllocateFramebuffer( rmode ));
+		xfb[1] = MEM_K0_TO_K1( SYS_AllocateFramebuffer( rmode ));
 	}
 	else
 	{
-		GC_FlipperTrace( "Xash3D GameCube: video init continuing after early splash\n" );
+		rmode = forced;
+		VIDEO_Configure( rmode );
 	}
-	progressive = ( rmode->viTVMode & VI_NON_INTERLACE ) ? true : false;
+
+	progressive = (( rmode->viTVMode & 3 ) == VI_PROGRESSIVE ) ? true : false;
 	safe_x = ( rmode->fbWidth * GC_VIDEO_SAFE_AREA_PERCENT ) / 100;
 	safe_y = ( rmode->xfbHeight * GC_VIDEO_SAFE_AREA_PERCENT ) / 100;
 	safe_w = rmode->fbWidth - safe_x * 2;
@@ -6133,6 +6244,8 @@ static void GC_InitVideoHardware( void )
 	SYS_Report( "Xash3D GameCube: video mode fb=%dx%d efb=%dx%d vi=%dx%d tv=0x%08x progressive=%u policy=preferred-4:3-480i\n",
 		rmode->fbWidth, rmode->xfbHeight, rmode->fbWidth, rmode->efbHeight,
 		rmode->viWidth, rmode->viHeight, rmode->viTVMode, progressive ? 1u : 0u );
+	SYS_Report( "Xash3D GameCube: VIDEO-022 mode=%s progressive=%u xfb=%ux%u\n",
+		mode_tag, progressive ? 1u : 0u, (unsigned)rmode->fbWidth, (unsigned)rmode->xfbHeight );
 	SYS_Report( "Xash3D GameCube: video safe_area percent=%d rect=%d,%d,%d,%d min_readable=%dx%d\n",
 		GC_VIDEO_SAFE_AREA_PERCENT, safe_x, safe_y, safe_w, safe_h,
 		GC_VIDEO_MIN_READABLE_WIDTH, GC_VIDEO_MIN_READABLE_HEIGHT );
@@ -13992,7 +14105,27 @@ qboolean GC_PrepareNewGameWorldPresent( void )
 				gc_config_rt_queued = true;
 				route = GCube_HasPersistentWritableStorage() ? "sd" : "gcprobe";
 				SYS_Report( "Xash3D GameCube: G508 config round trip begin route=%s\n", route );
-				if( !Q_stricmp( route, "sd" ) && clgame.hInstance && !Sys_CheckParm( "-nowriteconfig" ))
+				if( Sys_CheckParm( "-gcsaveinterrupt" ))
+				{
+					/* SAVE-022: seed prior config, then exercise Host_FinalizeConfig
+					 * with one injected *.new rename fault and sidecar recovery. */
+					cfg = FS_Open( "config.cfg", "w", false );
+					if( cfg )
+					{
+						FS_Printf( cfg, "// SAVE-022 prior config\n" );
+						FS_Printf( cfg, "sensitivity \"2\"\n" );
+						FS_Close( cfg );
+					}
+					cfg = FS_Open( "config.cfg.new", "w", false );
+					if( cfg )
+					{
+						FS_Printf( cfg, "// SAVE-022 interrupt harness\n" );
+						FS_Printf( cfg, "sensitivity \"5\"\n" );
+						Host_FinalizeConfig( cfg, "config.cfg" );
+					}
+					SYS_Report( "Xash3D GameCube: SAVE-022 rename interrupt exercised route=%s\n", route );
+				}
+				else if( !Q_stricmp( route, "sd" ) && clgame.hInstance && !Sys_CheckParm( "-nowriteconfig" ))
 					Host_WriteConfig();
 				else
 				{
@@ -14016,6 +14149,10 @@ qboolean GC_PrepareNewGameWorldPresent( void )
 					sample[n] = '\0';
 					SYS_Report( "Xash3D GameCube: G508 config write ready route=%s\n", route );
 					SYS_Report( "Xash3D GameCube: G508 config read ready bytes=%d route=%s\n", n, route );
+					if( Sys_CheckParm( "-gcsaveinterrupt" )
+						&& ( Q_strstr( sample, "SAVE-022 interrupt harness" )
+							|| Q_strstr( sample, "SAVE-022 prior config" )))
+						SYS_Report( "Xash3D GameCube: SAVE-022 rename interrupt recovered route=%s\n", route );
 					SYS_Report( "Xash3D GameCube: G508 config round trip ready route=%s\n", route );
 				}
 			}

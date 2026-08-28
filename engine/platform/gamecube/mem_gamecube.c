@@ -24,6 +24,7 @@ static qboolean gc_mapload_pressure_active;
 /* Contiguous staging buffer for maps/*.bsp. Borrowed after menu/client trim. */
 static byte *gc_mapload_buf;
 static size_t gc_mapload_buf_size;
+static size_t gc_mapload_tail_highwater;
 static qboolean gc_mapload_buf_in_use;
 static int gc_mapload_memopt_depth;
 static qboolean gc_mapload_memopt_session; /* stays on after playstart until cleared */
@@ -261,6 +262,7 @@ void *GC_BorrowMapLoadBuffer( size_t size )
 		if( gc_mapload_buf )
 		{
 			gc_mapload_buf_size = static_capacity;
+			gc_mapload_tail_highwater = 0;
 			gc_mapload_buf_in_use = true;
 			return gc_mapload_buf;
 		}
@@ -280,9 +282,12 @@ void *GC_BorrowMapLoadBuffer( size_t size )
 			return NULL;
 		}
 		gc_mapload_buf_size = alloc_size;
+		gc_mapload_tail_highwater = 0;
 		Con_Reportf( "Xash3D GameCube: map-load buffer ready %s\n", Q_memprint( alloc_size ));
 	}
 
+	/* A released staging buffer starts a fresh sub-arena carve session. */
+	gc_mapload_tail_highwater = 0;
 	gc_mapload_buf_in_use = true;
 	return gc_mapload_buf;
 }
@@ -304,6 +309,7 @@ qboolean GC_IsMapLoadBuffer( const void *ptr )
 void *GC_MapLoadBufferTailAlloc( size_t after_offset, size_t need )
 {
 	size_t off;
+	size_t remaining;
 
 	if( !gc_mapload_buf || !gc_mapload_buf_in_use || need == 0 )
 		return NULL;
@@ -313,8 +319,25 @@ void *GC_MapLoadBufferTailAlloc( size_t after_offset, size_t need )
 		return NULL;
 	if( off + need < off )
 		return NULL;
-	if( off + need > gc_mapload_buf_size )
+	if( off < gc_mapload_tail_highwater )
+	{
+		Con_Reportf( "Xash3D GameCube: mem arena tail=OVERLAP after_bytes=%lu offset_bytes=%lu highwater_bytes=%lu\n",
+			(unsigned long)after_offset, (unsigned long)off,
+			(unsigned long)gc_mapload_tail_highwater );
 		return NULL;
+	}
+	if( off + need > gc_mapload_buf_size )
+	{
+		Con_Reportf( "Xash3D GameCube: mem arena tail=FAIL after_bytes=%lu need_bytes=%lu capacity_bytes=%lu\n",
+			(unsigned long)after_offset, (unsigned long)need, (unsigned long)gc_mapload_buf_size );
+		return NULL;
+	}
+
+	remaining = gc_mapload_buf_size - ( off + need );
+	gc_mapload_tail_highwater = off + need;
+	Con_Reportf( "Xash3D GameCube: mem arena tail=PASS after_bytes=%lu carve_bytes=%lu remaining_bytes=%lu capacity_bytes=%lu\n",
+		(unsigned long)after_offset, (unsigned long)need, (unsigned long)remaining,
+		(unsigned long)gc_mapload_buf_size );
 
 	return gc_mapload_buf + off;
 }

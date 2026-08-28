@@ -183,11 +183,11 @@ Match retail visuals without cutting fill/spawn.
 
 **NEXT** (see port plan TODO-HW-012 … wave 2 TODO-HW-022 … TODO-DOC-023):
 - TODO-HW-012 / TODO-HW-022: physical Swiss sign-off + boot UX retest
-- Software follow-ups: GX-022 textured pad, MEM-022 (GX-023 done)
-- Hardware matrix: INPUT-006, AUDIO-007/022, FS-008/022, VIDEO-009/022, SAVE-010/022
+- Software follow-ups: FS-022 matrix polish
+- Hardware matrix: INPUT-006, AUDIO-007/022, FS-008/022, VIDEO-009, SAVE-010
 - Release: TODO-RELEASE-022 after hardware evidence
-- Done this pass: GX-023 post-lab CapFaces (`drawn=1` on Lambda/Xen hops); BOOT-023;
-  HW boot fix; DOC-023 PORT_STATUS refresh
+- Done this pass: VIDEO-022 Dolphin NTSC/prog/PAL matrix; MEM-003 world tex pool
+  4→3; SAVE-022 rename interrupt; GX-023; GX-022; MEM-022; BOOT-023; DOC-023
 
 Rules:
 - Force-relink after HLSDK archive changes.

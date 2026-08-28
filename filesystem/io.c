@@ -1059,8 +1059,11 @@ qboolean FS_Rename( const char *oldname, const char *newname )
 		return false;
 
 #if XASH_GAMECUBE
-	if( GC_ProbeSaveRename( oldname, newname ))
-		return true;
+	/* Owned probe-bank paths must not fall through to host rename on failure
+	 * (SAVE-022 one-shot .new fault returns false while still owning the path). */
+	if( GC_ProbeSaveActive()
+		&& ( GC_ProbeSaveOwnsPath( oldname ) || GC_ProbeSaveOwnsPath( newname )))
+		return GC_ProbeSaveRename( oldname, newname );
 #endif
 
 	// fix up slashes

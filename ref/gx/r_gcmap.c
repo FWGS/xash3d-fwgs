@@ -14,6 +14,32 @@ static qboolean gc_static_map_arena_dirty;
 static short gc_gcmap_static_zbuffer[GC_GCMAP_STATIC_MAX_W * GC_GCMAP_STATIC_MAX_H];
 static pixel_t gc_gcmap_static_viewbuffer[GC_GCMAP_STATIC_MAX_W * GC_GCMAP_STATIC_MAX_H];
 
+static void R_GcmapReportStaticArenaTelemetry( void )
+{
+	const size_t colormap = sizeof( vid.colormap );
+	const size_t screen = sizeof( vid.screen );
+	const size_t screen32 = sizeof( vid.screen32 );
+	const size_t addmap = sizeof( vid.addmap );
+	const size_t modmap = sizeof( vid.modmap );
+	const size_t alphamap = sizeof( vid.alphamap );
+	const size_t pad = sizeof( vid.mapload_pad );
+	const size_t total = colormap + screen + screen32 + addmap + modmap + alphamap + pad;
+	size_t largest = colormap;
+	if( screen > largest ) largest = screen;
+	if( screen32 > largest ) largest = screen32;
+	if( addmap > largest ) largest = addmap;
+	if( modmap > largest ) largest = modmap;
+	if( alphamap > largest ) largest = alphamap;
+	if( pad > largest ) largest = pad;
+
+	gEngfuncs.Con_Reportf(
+		"Xash3D GameCube: mem arena=mapload bytes=%lu largest=%lu "
+		"colormap=%lu screen=%lu screen32=%lu addmap=%lu modmap=%lu alphamap=%lu pad=%lu\n",
+		(unsigned long)total, (unsigned long)largest, (unsigned long)colormap,
+		(unsigned long)screen, (unsigned long)screen32, (unsigned long)addmap,
+		(unsigned long)modmap, (unsigned long)alphamap, (unsigned long)pad );
+}
+
 void R_GcmapTrimScreenBuffers( void );
 void R_GcmapTrimSurfaceCache( void );
 qboolean R_TryInitGcmapSurfaceCache( void );
@@ -100,6 +126,8 @@ void *R_GCBorrowMapLoadStaticArena( size_t size, size_t *capacity )
 
 	if( capacity )
 		*capacity = arena_size;
+	if( gc_renderer_trimmed && !gc_static_map_arena_in_use )
+		R_GcmapReportStaticArenaTelemetry();
 	if( !gc_renderer_trimmed || gc_static_map_arena_in_use || size == 0 )
 		return NULL;
 	if( size > arena_size )
@@ -110,8 +138,14 @@ void *R_GCBorrowMapLoadStaticArena( size_t size, size_t *capacity )
 	}
 
 	gc_static_map_arena_in_use = true;
-	gEngfuncs.Con_Reportf( "Xash3D GameCube: map-load buffer using renderer static arena %s/%s\n",
-		Q_memprint( size ), Q_memprint( arena_size ));
+	gEngfuncs.Con_Reportf( "Xash3D GameCube: map-load buffer using renderer static arena size_bytes=%lu capacity_bytes=%lu\n",
+		(unsigned long)size, (unsigned long)arena_size );
+	if( arena_size > size )
+		gEngfuncs.Con_Reportf( "Xash3D GameCube: mem arena tail=AVAILABLE after_bytes=%lu remaining_bytes=%lu capacity_bytes=%lu\n",
+			(unsigned long)size, (unsigned long)( arena_size - size ), (unsigned long)arena_size );
+	else
+		gEngfuncs.Con_Reportf( "Xash3D GameCube: mem arena tail=UNAVAILABLE after_bytes=%lu remaining_bytes=0 capacity_bytes=%lu\n",
+			(unsigned long)size, (unsigned long)arena_size );
 	return base;
 }
 

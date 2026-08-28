@@ -1107,6 +1107,9 @@ void CL_InitEdicts( int maxclients )
 		clgame.entities = gc_gcmap_bootstrap_entities;
 		clgame.static_entities = NULL;
 		clgame.numStatics = 0;
+		Con_Reportf( "Xash3D GameCube: MEM-003 bootstrap arena bytes=%u entities=%d packet_bytes=%u\n",
+			(uint)sizeof( gc_gcmap_bootstrap_entities ), GC_GCMAP_STATIC_CLIENT_EDICTS,
+			(uint)sizeof( gc_gcmap_bootstrap_packet_entities ));
 		Con_Reportf( "Xash3D GameCube: client edicts using static gcmap bootstrap tables\n" );
 		goto init_remaps;
 	}

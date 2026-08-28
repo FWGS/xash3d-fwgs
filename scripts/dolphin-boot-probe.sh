@@ -159,6 +159,9 @@ SIDevice2 = 0
 SIDevice3 = 0
 [DSP]
 Volume = ${DOLPHIN_AUDIO_VOLUME}
+[Display]
+ProgressiveScan = $([[ "${DOLPHIN_VIDEO_MODE:-}" == "prog" ]] && echo True || echo False)
+PAL60 = $([[ "${DOLPHIN_VIDEO_MODE:-}" == "pal" ]] && echo True || echo False)
 [Interface]
 ConfirmStop = False
 EOF
@@ -266,9 +269,8 @@ else
 			if [[ "${DOLPHIN_G94:-0}" == "1" ]]; then
 				BUILD_ARGS+=(--probe-newsaveload)
 			fi
-			if [[ "${DOLPHIN_G508:-0}" == "1" ]]; then
-				BUILD_ARGS+=(--probe-configroundtrip)
-			fi
+			probe_append_config_roundtrip_build_args
+			probe_append_video_mode_build_args
 			if [[ "${DOLPHIN_FULLPHYSICS:-0}" == "1" ]]; then
 				BUILD_ARGS+=(--probe-fullphysics)
 				echo "==> Native full server/physics probe"
@@ -290,10 +292,8 @@ else
 			BUILD_ARGS+=(--probe-newsaveload)
 			echo "==> Staging G94 save/load override on smoke map"
 		fi
-		if [[ "${DOLPHIN_G508:-0}" == "1" ]]; then
-			BUILD_ARGS+=(--probe-configroundtrip)
-			echo "==> Staging G508 config round-trip override on smoke map"
-		fi
+		probe_append_config_roundtrip_build_args smoke
+		probe_append_video_mode_build_args
 		if (( DOLPHIN_NEWGAME )) && [[ "${DOLPHIN_FULLPHYSICS:-0}" == "1" ]]; then
 			BUILD_ARGS+=(--probe-fullphysics)
 			echo "==> Native full server/physics probe on smoke map"
@@ -572,13 +572,8 @@ if (( DOLPHIN_NEWGAME )); then
 		FRAME_SAMPLE_SEC="${DOLPHIN_FRAME_SAMPLE_SEC:-30}"
 		echo "==> Waiting for G94 round trip present before sampling exit"
 	fi
-	if [[ "${DOLPHIN_G508:-0}" == "1" ]]; then
-		GUEST_ARGS+=("-gcconfigroundtrip")
-		echo "==> G508 config round-trip probe (-gcconfigroundtrip, gcprobe or SD)"
-		G508_DONE_MARKER="Xash3D GameCube: G508 config round trip ready"
-		FRAME_SAMPLE_SEC="${DOLPHIN_FRAME_SAMPLE_SEC:-${FRAME_SAMPLE_SEC:-30}}"
-		echo "==> Waiting for G508 config round trip ready before sampling exit"
-	fi
+	probe_append_config_roundtrip_guest_args
+	probe_append_video_mode_guest_args
 fi
 append_guest_args() {
 	local -n _cmd="$1"

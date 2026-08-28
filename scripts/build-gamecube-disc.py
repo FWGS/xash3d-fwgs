@@ -1399,6 +1399,8 @@ def write_smoke_overrides(
 	newgame: bool = False,
 	newsaveload: bool = False,
 	configroundtrip: bool = False,
+	saveinterrupt: bool = False,
+	video_mode: str | None = None,
 	world_render: bool = False,
 	phasetest: str | None = None,
 	changelevel: str | None = None,
@@ -1420,6 +1422,10 @@ def write_smoke_overrides(
 		lines.append("newsaveload")
 	if configroundtrip:
 		lines.append("configroundtrip")
+	if saveinterrupt:
+		lines.append("saveinterrupt")
+	if video_mode:
+		lines.append(f"video {video_mode}")
 	if changelevel:
 		# G68: enable New Game PVS/present/changelevel path on the smoke map.
 		lines.append("newgame")
@@ -1457,6 +1463,8 @@ def write_probe_newgame_override(
 	output: Path,
 	newsaveload: bool = False,
 	configroundtrip: bool = False,
+	saveinterrupt: bool = False,
+	video_mode: str | None = None,
 	phasetest: str | None = None,
 	changelevel: str | None = None,
 	landmark: str | None = None,
@@ -1477,6 +1485,10 @@ def write_probe_newgame_override(
 		lines.append("newsaveload")
 	if configroundtrip:
 		lines.append("configroundtrip")
+	if saveinterrupt:
+		lines.append("saveinterrupt")
+	if video_mode:
+		lines.append(f"video {video_mode}")
 	if phasetest:
 		lines.append(f"phasetest {phasetest}")
 	if leanpvs:
@@ -1811,6 +1823,8 @@ def stage_smoke_data(
 	newgame: bool = False,
 	newsaveload: bool = False,
 	configroundtrip: bool = False,
+	saveinterrupt: bool = False,
+	video_mode: str | None = None,
 	world_render: bool = False,
 	phasetest: str | None = None,
 	changelevel: str | None = None,
@@ -1868,6 +1882,8 @@ def stage_smoke_data(
 		newgame=newgame,
 		newsaveload=newsaveload,
 		configroundtrip=configroundtrip,
+		saveinterrupt=saveinterrupt,
+		video_mode=video_mode,
 		world_render=world_render,
 		phasetest=phasetest,
 		changelevel=changelevel,
@@ -2233,6 +2249,17 @@ def main() -> None:
 		help="stage configroundtrip for G508 Dolphin-designated config write/read probes",
 	)
 	parser.add_argument(
+		"--probe-saveinterrupt",
+		action="store_true",
+		help="with configroundtrip, inject one *.new rename fault for SAVE-022 recovery",
+	)
+	parser.add_argument(
+		"--probe-video-mode",
+		metavar="MODE",
+		choices=("ntsc", "prog", "pal"),
+		help="stage gamecube.cfg video <MODE> for VIDEO-022 NTSC/PAL/progressive probes",
+	)
+	parser.add_argument(
 		"--probe-phasetest",
 		metavar="PHASE",
 		help="stage gamecube.cfg phasetest <PHASE> for G82 intentional boot-phase fault smoke",
@@ -2308,6 +2335,8 @@ def main() -> None:
 		parser.error("--probe-newsaveload requires --probe-newgame or --smoke-map")
 	if args.probe_configroundtrip and not (args.probe_newgame or args.smoke_map):
 		parser.error("--probe-configroundtrip requires --probe-newgame or --smoke-map")
+	if args.probe_saveinterrupt and not (args.probe_configroundtrip or args.probe_newgame or args.smoke_map):
+		parser.error("--probe-saveinterrupt requires --probe-configroundtrip (or New Game/smoke map staging)")
 	if args.world_render and not args.smoke_map:
 		parser.error("--world-render requires --smoke-map")
 	if args.probe_phasetest:
@@ -2349,9 +2378,12 @@ def main() -> None:
 					or args.probe_fullphysics
 					or args.probe_newsaveload
 					or args.probe_configroundtrip
+					or args.probe_saveinterrupt
 				),
 				newsaveload=args.probe_newsaveload,
-				configroundtrip=args.probe_configroundtrip,
+				configroundtrip=args.probe_configroundtrip or args.probe_saveinterrupt,
+				saveinterrupt=args.probe_saveinterrupt,
+				video_mode=args.probe_video_mode,
 				world_render=args.world_render,
 				phasetest=args.probe_phasetest,
 				changelevel=args.probe_changelevel,
@@ -2438,7 +2470,9 @@ def main() -> None:
 				write_probe_newgame_override(
 					staged_data,
 					newsaveload=args.probe_newsaveload,
-					configroundtrip=args.probe_configroundtrip,
+					configroundtrip=args.probe_configroundtrip or args.probe_saveinterrupt,
+					saveinterrupt=args.probe_saveinterrupt,
+					video_mode=args.probe_video_mode,
 					phasetest=args.probe_phasetest,
 					changelevel=args.probe_changelevel,
 					landmark=args.probe_landmark,

@@ -53,6 +53,7 @@ static gc_probe_save_open_t gc_probe_save_opens[4];
 static int gc_probe_save_nopens;
 static qboolean gc_probe_save_logged;
 static qboolean gc_probe_opens_inited;
+static qboolean gc_probe_rename_fault_fired;
 
 /* G508-only probes must not malloc(160KB) after New Game MEM1 is tight
  * (probe 20260808-061142: alloc failed → FS_FileExists DVD scan hang). */
@@ -193,6 +194,11 @@ static int GC_ProbeSaveOpenIndex( const file_t *file )
 qboolean GC_ProbeSaveActive( void )
 {
 	return GC_ProbeSaveEnabled();
+}
+
+qboolean GC_ProbeSaveOwnsPath( const char *path )
+{
+	return GC_ProbeSavePathMatch( path );
 }
 
 qboolean GC_ProbeSaveFileExists( const char *filename )
@@ -385,6 +391,7 @@ qboolean GC_ProbeSaveRename( const char *oldname, const char *newname )
 {
 	const char *oldbase;
 	const char *newbase;
+	size_t oldlen;
 	int old_slot;
 	int new_slot;
 
@@ -399,6 +406,22 @@ qboolean GC_ProbeSaveRename( const char *oldname, const char *newname )
 		return false;
 	if( !Q_stricmp( oldbase, newbase ))
 		return true;
+
+	/* SAVE-022: one-shot fault on *.new → final so Host_FinalizeConfig can
+	 * prove deterministic recovery from the surviving sidecar. */
+	oldlen = Q_strlen( oldbase );
+	if( Sys_CheckParm( "-gcsaveinterrupt" )
+		&& !gc_probe_rename_fault_fired
+		&& oldlen > 4
+		&& !Q_stricmp( oldbase + oldlen - 4, ".new" )
+		&& ( Q_strlen( newbase ) < 4
+			|| Q_stricmp( newbase + Q_strlen( newbase ) - 4, ".new" )) )
+	{
+		gc_probe_rename_fault_fired = true;
+		Con_Reportf( "Xash3D GameCube: SAVE-022 rename fault injected %s -> %s\n",
+			oldbase, newbase );
+		return false;
+	}
 
 	old_slot = GC_ProbeSaveFindSlot( oldbase );
 	if( old_slot < 0 )

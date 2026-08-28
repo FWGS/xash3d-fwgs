@@ -1380,7 +1380,31 @@ void Host_FinalizeConfig( file_t *f, const char *config )
 	FS_Close( f );
 	FS_Delete( backup );
 	FS_Rename( config, backup );
-	FS_Rename( newcfg, config );
+	/* SAVE-022: one-shot rename faults leave .new intact. Retry once, then
+	 * restore the previous .bak so config is never truncated away. */
+	if( !FS_Rename( newcfg, config ))
+	{
+		if( FS_Rename( newcfg, config ))
+		{
+#if XASH_GAMECUBE
+			Con_Reportf( "Xash3D GameCube: SAVE-022 recovered config from .new name=%s\n", config );
+#endif
+		}
+		else if( FS_Rename( backup, config ))
+		{
+#if XASH_GAMECUBE
+			Con_Reportf( "Xash3D GameCube: SAVE-022 restored config from .bak name=%s\n", config );
+#endif
+		}
+		else
+		{
+#if XASH_GAMECUBE
+			Con_Reportf( S_ERROR "Xash3D GameCube: SAVE-022 config finalize unrecovered name=%s\n", config );
+#else
+			Con_DPrintf( S_ERROR "Couldn't finalize %s.\n", config );
+#endif
+		}
+	}
 }
 
 

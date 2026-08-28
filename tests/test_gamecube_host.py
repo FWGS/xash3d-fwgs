@@ -336,6 +336,38 @@ class GameCubeHostTests(unittest.TestCase):
 		self.assertIn("R_GXUpdateRawCinematicTiles", gx)
 		self.assertIn("GX_InvalidateTexAll", gx)
 
+	def test_mem003_world_tex_pool_reduced(self) -> None:
+		gx = (ROOT / "ref/gx/r_gx_world.c").read_text(encoding="utf-8")
+		self.assertIn("#define GC_GX_TEX_WORLD_POOL\t3", gx)
+		self.assertIn("MEM-003 world tex pool", gx)
+		self.assertNotIn("#define GC_GX_TEX_WORLD_POOL\t4", gx)
+
+	def test_video022_mode_force_and_matrix(self) -> None:
+		vid = (ROOT / "engine/platform/gamecube/vid_gamecube.c").read_text(encoding="utf-8")
+		sys_gc = (ROOT / "engine/platform/gamecube/sys_gamecube.c").read_text(encoding="utf-8")
+		disc = (ROOT / "scripts/build-gamecube-disc.py").read_text(encoding="utf-8")
+		common = (ROOT / "scripts/dolphin-probe-common.sh").read_text(encoding="utf-8")
+		matrix = (ROOT / "scripts/gamecube-video-mode-matrix.sh").read_text(encoding="utf-8")
+		self.assertIn("GC_ResolveVideoMode", vid)
+		self.assertIn("VIDEO-022 mode=", vid)
+		self.assertIn("TVNtsc480IntDf", vid)
+		self.assertIn("TVNtsc480Prog", vid)
+		self.assertIn("TVPal528IntDf", vid)
+		self.assertIn("VI_PROGRESSIVE", vid)
+		self.assertIn("-gcvideo", sys_gc)
+		self.assertIn("disc boot override video", sys_gc)
+		self.assertIn("--probe-video-mode", disc)
+		self.assertIn("DOLPHIN_VIDEO_MODE", common)
+		self.assertIn("VIDEO022_VERIFY", matrix)
+
+	def test_gx022_pad_borrows_texture_without_new_allocation(self) -> None:
+		gx = (ROOT / "ref/gx/r_gx_world.c").read_text(encoding="utf-8")
+		self.assertIn("GX-022: synthetic NPC pad", gx)
+		self.assertIn("Keep the established eye-space constant-Z", gx)
+		self.assertIn("static const float pad_uv[4][2]", gx)
+		self.assertIn("face_texture = candidate->texinfo->texture", gx)
+		self.assertNotIn("malloc", gx[gx.index("GX-022: synthetic NPC pad"):gx.index("GX-022: synthetic NPC pad") + 1200])
+
 	def test_dolphin_harness_exposes_cpu_and_backend_experiments(self) -> None:
 		harness = load_script("dolphin_vision_config", "scripts/dolphin-vision-test.py")
 		with tempfile.TemporaryDirectory() as tmpdir, patch.dict(
@@ -462,17 +494,26 @@ class GameCubeHostTests(unittest.TestCase):
 		io = (ROOT / "filesystem/io.c").read_text(encoding="utf-8")
 		disc = (ROOT / "scripts/build-gamecube-disc.py").read_text(encoding="utf-8")
 		boot = (ROOT / "scripts/dolphin-boot-probe.sh").read_text(encoding="utf-8")
+		common = (ROOT / "scripts/dolphin-probe-common.sh").read_text(encoding="utf-8")
 		packet = (ROOT / "scripts/gamecube-release-packet.py").read_text(encoding="utf-8")
 
 		self.assertIn("-gcconfigroundtrip", probe)
+		self.assertIn("-gcsaveinterrupt", probe)
+		self.assertIn("GC_ProbeSaveOwnsPath", header)
 		self.assertIn("GC_ProbeSaveRename", header)
 		self.assertIn("GC_ProbeSaveDelete", header)
 		self.assertIn("GC_ProbeSaveRename", io)
+		self.assertIn("GC_ProbeSaveOwnsPath", io)
 		self.assertIn("GC_ProbeSaveDelete", io)
 		self.assertIn("configroundtrip", sys_gc)
+		self.assertIn("saveinterrupt", sys_gc)
 		self.assertIn("G508 config round trip ready", vid)
+		self.assertIn("SAVE-022 rename interrupt recovered", vid)
 		self.assertIn("--probe-configroundtrip", disc)
-		self.assertIn("DOLPHIN_G508", boot)
+		self.assertIn("--probe-saveinterrupt", disc)
+		self.assertIn("probe_append_config_roundtrip", boot)
+		self.assertIn("DOLPHIN_G508", common)
+		self.assertIn("DOLPHIN_SAVE_INTERRUPT", common)
 		self.assertIn("DOLPHIN_TARGET_FRAME_TIME", boot)
 		self.assertIn("G508 config round trip ready", packet)
 		self.assertIn("persist_ok", packet)
@@ -851,6 +892,25 @@ class GameCubeHostTests(unittest.TestCase):
 			self.assertEqual(report["runtime"]["mem1_high_water_bytes"], 6 * 1024 * 1024)
 			self.assertGreaterEqual(len(report["runtime"]["samples"]), 2)
 
+	def test_memory_evidence_parses_arena_tail_telemetry(self) -> None:
+		memory = load_script("memory_arena_tail", "scripts/gamecube-memory-evidence.py")
+		with tempfile.TemporaryDirectory() as tmpdir:
+			root = Path(tmpdir)
+			(root / "OUT/bin").mkdir(parents=True)
+			(root / "OUT/bin/boot.dol").write_bytes(b"\0" * 0x100)
+			log = root / "arena.log"
+			log.write_text(
+				"mem arena tail=PASS after_bytes=2727936 carve_bytes=4096 "
+				"remaining_bytes=937984 capacity_bytes=3670016\n"
+				"mem arena tail=OVERLAP after_bytes=2732032 offset_bytes=2727936 "
+				"highwater_bytes=2736128\n", encoding="utf-8")
+			report = memory.generate(root, [log])
+			arena = report["runtime"]["arena_tail"]
+			self.assertEqual(len(arena), 2)
+			self.assertEqual(arena[0]["status"], "PASS")
+			self.assertEqual(arena[0]["remaining_bytes"], 937984)
+			self.assertEqual(arena[1]["status"], "OVERLAP")
+
 	def test_stage_sd_assets_route_carda(self) -> None:
 		import subprocess
 
@@ -893,6 +953,25 @@ class GameCubeHostTests(unittest.TestCase):
 			self.assertIn("carda:/xash3d/valve/", staged.stdout)
 			self.assertTrue((dst / "xash3d/valve/gameinfo.txt").is_file())
 			self.assertTrue((dst / "apps/xash3d-gc").is_dir())
+
+	def test_storage_route_matrix_prefers_newest_matching_log(self) -> None:
+		import subprocess
+		with tempfile.TemporaryDirectory() as tmpdir:
+			root = Path(tmpdir)
+			old = root / "old"; new = root / "new"
+			old.mkdir(); new.mkdir()
+			(old / "stderr.log").write_text("sd:/ route=sd\n", encoding="utf-8")
+			(new / "stderr.log").write_text(
+				"sd:/ route=sd\nG508 config round trip ready route=sd\n",
+				encoding="utf-8")
+			os.utime(old / "stderr.log", (1, 1))
+			os.utime(new / "stderr.log", (2, 2))
+			result = subprocess.run(
+				["bash", str(ROOT / "scripts/gamecube-storage-route-matrix.sh")],
+				cwd=ROOT, env={**os.environ, "FS022_LOG_ROOT": str(root)},
+				text=True, capture_output=True, check=False)
+			self.assertEqual(result.returncode, 0)
+			self.assertIn("sd\t" + str(new / "stderr.log") + "\tPASS\tPASS", result.stdout)
 
 	def test_build_docs_prefer_waf_libogc2_not_gekko_cmake(self) -> None:
 		linking = (ROOT / "docs/GAMECUBE_GAME_MODULE_LINKING.md").read_text(encoding="utf-8")
@@ -1166,6 +1245,37 @@ class GameCubeHostTests(unittest.TestCase):
 		)
 		self.assertEqual(classified["kind"], "write_fail")
 		self.assertFalse(classified["ok"])
+
+	def test_save022_rename_interrupt_host_mirror(self) -> None:
+		probe = load_script("probe_save022", "scripts/waifulib/gamecube_probe_save.py")
+		result = probe.simulate_save022_rename_interrupt()
+		self.assertTrue(result["ok"])
+		self.assertTrue(result["fault_fired"])
+		self.assertEqual(result["recovered_from"], "new")
+		self.assertIn(b"SAVE-022 interrupt harness", result["config"])
+		source = (ROOT / "filesystem/probe_save_gc.c").read_text(encoding="utf-8")
+		host = (ROOT / "engine/common/con_utils.c").read_text(encoding="utf-8")
+		vid = (ROOT / "engine/platform/gamecube/vid_gamecube.c").read_text(encoding="utf-8")
+		self.assertIn("-gcsaveinterrupt", source)
+		self.assertIn("SAVE-022 rename fault injected", source)
+		self.assertIn("SAVE-022 recovered config from .new", host)
+		self.assertIn("SAVE-022 rename interrupt recovered", vid)
+
+	def test_save022_interrupt_harness_script(self) -> None:
+		harness = load_script("save022_harness", "scripts/gamecube-save-interrupt-harness.py")
+		with tempfile.TemporaryDirectory() as tmpdir:
+			log_dir = Path(tmpdir) / "save022"
+			with patch.object(sys, "argv", [
+				"gamecube-save-interrupt-harness.py",
+				"--repo", str(ROOT),
+				"--log-dir", str(log_dir),
+			]):
+				code = harness.main()
+			self.assertEqual(code, 0)
+			report = json.loads((log_dir / "report.json").read_text(encoding="utf-8"))
+			self.assertTrue(report["ok"])
+			self.assertTrue(report["host_simulation"]["fault_fired"])
+			self.assertIn("Power-loss", " ".join(report["hardware_checklist"]))
 
 	def test_ogc_stack_preflight_fails_without_toolchain(self) -> None:
 		stack = load_script("ogc_preflight", "scripts/waifulib/gamecube_ogc_stack.py")

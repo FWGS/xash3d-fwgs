@@ -117,6 +117,28 @@ removed-card, corrupt file, wrong slot, and incompatible version handling. If a
 route cannot safely simulate one of those conditions, record it as untested
 instead of treating the save path as release-complete.
 
+### SAVE-022 rename interrupt (Dolphin + hardware)
+
+Host/Dolphin preflight:
+
+```sh
+scripts/gamecube-save-interrupt-harness.py
+DOLPHIN_NEWGAME=1 DOLPHIN_SAVE_INTERRUPT=1 DOLPHIN_SMOKE_MAP=c0a0e scripts/dolphin-boot-probe.sh
+```
+
+Expect `SAVE-022 rename fault injected`, then `SAVE-022 recovered config from .new`
+(or restored from `.bak`) and `SAVE-022 rename interrupt recovered`.
+
+Hardware checklist (fill on a writable Swiss route):
+
+- [ ] Writable route mounted (`sd:/`, `carda:/`, or `cardb:/`)
+- [ ] Write `config.cfg` via Options / `Host_WriteConfig`
+- [ ] Confirm `.new` appears during the atomic commit
+- [ ] Interrupt (power loss or forced rename failure) after config→`.bak` and while `.new` exists
+- [ ] Reboot: `config.cfg` present and non-empty (recovered from `.new` or `.bak`)
+- [ ] Full-card write fails non-fatally; prior config remains intact
+- [ ] Dated evidence attached to the hardware matrix / Swiss evidence pack
+
 ## Audio Preflight
 
 Before recording physical or audible Dolphin audio results, run the automated

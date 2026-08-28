@@ -1,6 +1,53 @@
 # Shared helpers for dolphin-boot-probe.sh
 # shellcheck shell=bash
 
+# Append G508/SAVE-022 disc staging flags. BUILD_ARGS is a global array.
+probe_append_config_roundtrip_build_args() {
+	if [[ "${DOLPHIN_G508:-0}" != "1" && "${DOLPHIN_SAVE_INTERRUPT:-0}" != "1" ]]; then
+		return 0
+	fi
+	BUILD_ARGS+=(--probe-configroundtrip)
+	if [[ "${DOLPHIN_SAVE_INTERRUPT:-0}" == "1" ]]; then
+		BUILD_ARGS+=(--probe-saveinterrupt)
+		[[ "${1:-}" == "smoke" ]] && echo "==> Staging SAVE-022 rename interrupt override on smoke map"
+	fi
+	[[ "${1:-}" == "smoke" ]] && echo "==> Staging G508 config round-trip override on smoke map"
+	return 0
+}
+
+# VIDEO-022: bake -gcvideo mode into gamecube.cfg for ISO boots.
+probe_append_video_mode_build_args() {
+	local mode="${DOLPHIN_VIDEO_MODE:-}"
+	[[ -z "$mode" ]] && return 0
+	BUILD_ARGS+=(--probe-video-mode "$mode")
+	echo "==> Staging VIDEO-022 video mode override ($mode)"
+}
+
+# Append guest argv + done marker for G508/SAVE-022 under New Game probes.
+probe_append_config_roundtrip_guest_args() {
+	if [[ "${DOLPHIN_G508:-0}" != "1" && "${DOLPHIN_SAVE_INTERRUPT:-0}" != "1" ]]; then
+		return 0
+	fi
+	GUEST_ARGS+=("-gcconfigroundtrip")
+	G508_DONE_MARKER="Xash3D GameCube: G508 config round trip ready"
+	if [[ "${DOLPHIN_SAVE_INTERRUPT:-0}" == "1" ]]; then
+		GUEST_ARGS+=("-gcsaveinterrupt")
+		G508_DONE_MARKER="Xash3D GameCube: SAVE-022 rename interrupt recovered"
+		echo "==> SAVE-022 rename interrupt probe (-gcsaveinterrupt)"
+	else
+		echo "==> G508 config round-trip probe (-gcconfigroundtrip, gcprobe or SD)"
+	fi
+	FRAME_SAMPLE_SEC="${DOLPHIN_FRAME_SAMPLE_SEC:-${FRAME_SAMPLE_SEC:-30}}"
+	echo "==> Waiting for G508/SAVE-022 config marker before sampling exit"
+}
+
+probe_append_video_mode_guest_args() {
+	local mode="${DOLPHIN_VIDEO_MODE:-}"
+	[[ -z "$mode" ]] && return 0
+	GUEST_ARGS+=("-gcvideo" "$mode")
+	echo "==> VIDEO-022 guest video mode (-gcvideo $mode)"
+}
+
 probe_log_has() {
 	local needle="$1"
 	grep -aqsF "$needle" "$LOG_DIR/stderr.log" "$LOG_DIR/stdout.log" \

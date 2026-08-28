@@ -284,6 +284,7 @@ searchpath_t *FS_AddAndroidAssets_Fullpath( const char *path, int flags );
 //
 #if XASH_GAMECUBE
 qboolean GC_ProbeSaveActive( void );
+qboolean GC_ProbeSaveOwnsPath( const char *path );
 qboolean GC_ProbeSaveFileExists( const char *filename );
 file_t *GC_ProbeSaveOpen( const char *filepath, const char *mode );
 qboolean GC_ProbeSaveIsHandle( const file_t *file );

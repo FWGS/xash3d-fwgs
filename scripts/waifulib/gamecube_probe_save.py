@@ -182,20 +182,97 @@ def classify_g508_log(text: str) -> dict:
 class ProbeSaveBankFault(ProbeSaveBank):
 	"""Probe bank variants that model writable-storage failures."""
 
-	def __init__(self, *, readonly: bool = False, fail_write: bool = False):
+	def __init__(
+		self,
+		*,
+		readonly: bool = False,
+		fail_write: bool = False,
+		fail_new_rename: bool = False,
+	):
 		super().__init__()
 		self.readonly = readonly
 		self.fail_write = fail_write
+		self.fail_new_rename = fail_new_rename
+		self.rename_fault_fired = False
 
 	def write(self, name: str, data: bytes) -> None:
 		if self.readonly or self.fail_write:
 			raise OSError("G508 config write failed (host mirror)")
 		super().write(name, data)
 
+	def rename(self, old: str, new: str) -> bool:
+		old_b = probe_save_basename(old) or old
+		new_b = probe_save_basename(new) or new
+		if (
+			self.fail_new_rename
+			and not self.rename_fault_fired
+			and old_b.lower().endswith(".new")
+			and not new_b.lower().endswith(".new")
+		):
+			self.rename_fault_fired = True
+			return False
+		return super().rename(old, new)
+
 	def config_roundtrip(self, body: bytes = b"unbindall\n") -> bool:
 		if self.readonly or self.fail_write:
 			return False
 		return super().config_roundtrip(body)
+
+	def finalize_config_with_recovery(
+		self,
+		config: str = "config.cfg",
+		body: bytes = b"// SAVE-022 interrupt harness\n",
+	) -> dict:
+		"""Mirror Host_FinalizeConfig under a one-shot *.new rename fault."""
+		backup = f"{config}.bak"
+		newcfg = f"{config}.new"
+		self.write(newcfg, body)
+		if config in self.files:
+			self.delete(backup)
+			self.rename(config, backup)
+		ok = self.rename(newcfg, config)
+		recovered_from = None
+		if not ok:
+			if self.rename(newcfg, config):
+				recovered_from = "new"
+				ok = True
+			elif self.rename(backup, config):
+				recovered_from = "bak"
+				ok = True
+		return {
+			"ok": ok,
+			"recovered_from": recovered_from,
+			"config": self.read(config),
+			"fault_fired": self.rename_fault_fired,
+		}
+
+
+SAVE022_MARKERS = {
+	"fault": "SAVE-022 rename fault injected",
+	"recovered_new": "SAVE-022 recovered config from .new",
+	"restored_bak": "SAVE-022 restored config from .bak",
+	"exercised": "SAVE-022 rename interrupt exercised",
+	"recovered": "SAVE-022 rename interrupt recovered",
+}
+
+
+def simulate_save022_rename_interrupt(
+	prior: bytes = b"// SAVE-022 prior config\nsensitivity \"2\"\n",
+	incoming: bytes = b"// SAVE-022 interrupt harness\nsensitivity \"5\"\n",
+) -> dict:
+	"""Host acceptance for SAVE-022: fault once, recover readable config."""
+	bank = ProbeSaveBankFault(fail_new_rename=True)
+	bank.write("config.cfg", prior)
+	result = bank.finalize_config_with_recovery("config.cfg", incoming)
+	result["kind"] = "save022_rename_interrupt"
+	result["markers"] = [
+		SAVE022_MARKERS["fault"],
+		SAVE022_MARKERS["recovered_new"]
+		if result.get("recovered_from") == "new"
+		else SAVE022_MARKERS["restored_bak"],
+		SAVE022_MARKERS["recovered"],
+	]
+	return result
 
 
 if __name__ == "__main__":
@@ -210,4 +287,5 @@ if __name__ == "__main__":
 	print(json.dumps({
 		"paths": {path: probe_save_path_match(path, enabled=True) for path in samples},
 		"faults": {kind: simulate_g508_fault(kind) for kind in ("happy", "write_fail", "read_fail", "missing")},
+		"save022": simulate_save022_rename_interrupt(),
 	}, indent=2))

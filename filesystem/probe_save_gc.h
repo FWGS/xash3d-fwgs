@@ -16,6 +16,7 @@ fs_offset_t GC_ProbeSaveRead( file_t *file, void *buffer, size_t buffersize );
 void GC_ProbeSaveClose( file_t *file );
 fs_offset_t GC_ProbeSaveSeek( file_t *file, fs_offset_t offset, int whence );
 void GC_ProbeSaveInitOpens( void );
+qboolean GC_ProbeSaveOwnsPath( const char *path );
 qboolean GC_ProbeSaveRename( const char *oldname, const char *newname );
 qboolean GC_ProbeSaveDelete( const char *path );
 #else
@@ -29,6 +30,10 @@ static inline qboolean GC_ProbeSaveIsHandle( const file_t *file ) { (void)file; 
 static inline fs_offset_t GC_ProbeSaveWrite( file_t *file, const void *data, size_t datasize )
 {
 	(void)file; (void)data; (void)datasize; return 0;
+}
+static inline qboolean GC_ProbeSaveOwnsPath( const char *path )
+{
+	(void)path; return false;
 }
 static inline qboolean GC_ProbeSaveRename( const char *oldname, const char *newname )
 {
