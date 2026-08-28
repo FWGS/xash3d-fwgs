@@ -1090,6 +1090,7 @@ class GameCubeHostTests(unittest.TestCase):
 
 	def test_rc_check_wires_g509_and_g508(self) -> None:
 		rc = (ROOT / "scripts/gamecube-rc-check.sh").read_text(encoding="utf-8")
+		map_compat = (ROOT / "scripts/gamecube-map-compat-probe.sh").read_text(encoding="utf-8")
 		self.assertIn("RC_G509", rc)
 		self.assertIn("--g509", rc)
 		self.assertIn("--require-ladder", rc)
@@ -1098,7 +1099,14 @@ class GameCubeHostTests(unittest.TestCase):
 		self.assertIn("gamecube-experiment-manifest.py", rc)
 		self.assertIn("retail_mirroring_gate", rc)
 		self.assertIn("RC_RETAIL_MIRRORING_LOG", rc)
+		self.assertIn("RC_RETAIL_MIRRORING_LOG_DIR", rc)
 		self.assertIn("gamecube-retail-mirroring-gate.py", rc)
+		self.assertIn("map_compat_changelevel_from", map_compat)
+		self.assertIn("c0a0e", map_compat)
+		self.assertIn("DOLPHIN_CHANGELEVEL", map_compat)
+		npc_verify = (ROOT / "scripts/gamecube-npc-studio-verify.sh").read_text(encoding="utf-8")
+		self.assertIn("G376 studio GX bind ok", npc_verify)
+		self.assertIn("DOLPHIN_CHANGELEVEL2", npc_verify)
 
 	def test_runtime_regression_accepts_swiss_fat(self) -> None:
 		gate = load_script("runtime_regression", "scripts/gamecube-runtime-regression-gate.py")

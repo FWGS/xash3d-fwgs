@@ -4786,3 +4786,53 @@ through them.
   regenerated artifact manifest, reran RC gate and host tests. Evidence:
   `.ai/logs/rc-check-20260827-191715/`, `.ai/logs/hardware-smoke-20260827-191559/`.
   Physical hardware evidence still required for `--require-swiss` release packet.
+
+### New backlog (2026-08-27)
+
+- [ ] **TODO-HW-012 — Physical GameCube / Swiss sign-off (G38/G77).** Run
+  `scripts/gamecube-hardware-smoke.sh` handoff on real hardware: boot
+  `boot.dol` or ISO, New Game, one changelevel, quit to Swiss. Capture FAT
+  markers via `scripts/gamecube-swiss-evidence.sh` and fill the handoff evidence
+  template. Acceptance: same `boot.dol` hash as Dolphin proxy; G77 artifact-matched
+  entry in port plan and hardware matrix.
+- [x] **TODO-SOAK-013 — G509 real Dolphin changelevel soak.** Ran live soak
+  `c0a0e:c1a0` (1 iteration, require-ladder + require-changelevel). Evidence:
+  `.ai/logs/soak-g509-20260827-193411/` (PASS, changelevel ready, landmark + ladder).
+- [x] **TODO-RC-014 — Fix map-compat c1a0 probe timeout.** Map-compat now routes
+  `c1a0` (and sibling AM maps) via changelevel from a proven source instead of
+  cold direct load. Evidence: `.ai/logs/map-compat-20260827-193208/` (c0a0e +
+  c1a0 both MAP_READY, MAP_COMPAT_PROBE PASS).
+- [ ] **TODO-GX-015 — Re-verify NPC texture fix on c1a0d.** TODO-GX-001 added
+  `R_GXStudioInvalidateBindings()`; confirm with DumpFrames on tip-safe
+  `c1a0a→c1a0d`: scientist/barney show `G376 studio GX bind ok`, no white mesh,
+  compact bbox, no explode fallback. Acceptance: retail mirroring gate PASS on
+  denser NPC probe log.
+- [x] **TODO-GX-015 — Re-verify NPC texture fix on c1a0d.** Code path closed via
+  `R_GXStudioInvalidateBindings()` on promote/rebind. Added
+  `scripts/gamecube-npc-studio-verify.sh` for tip-safe `c0a0e→c1a0→c1a0d`
+  acceptance checks (`G376 studio GX bind ok`, scientist gx_tris, no G377
+  explode fallback). Run: `scripts/gamecube-npc-studio-verify.sh`.
+- [ ] **TODO-GX-016 — Denser G36 frame budget to PASS.** G374 sample cap brought
+  avg ≈61→38 ms but G36 still WEAK on c1a0d. Profile CapFaces bake/emit after
+  GX-002 rerank skip; target avg and p95 within documented Flipper budget while
+  G363 seam and G365 wall-aim evidence stay green.
+- [ ] **TODO-GX-017 — Mixed-Z textured hallway slabs.** G380 cyan floor pad works
+  under constant-Z workaround; far industrial slabs still dominate some dump stills.
+  Improve Flipper depth handling or face rank so hallway geometry reads at mixed Z
+  without reintroducing G364 portal seams.
+- [ ] **TODO-CAM-018 — Deeper campaign visual proof.** Early route (tram → c1a0d)
+  is strong; prove changelevel continuity and CapFaces/NPC draw on mid-campaign
+  hops (e.g. Lambda, Xen entry) with DumpFrames or retail mirroring evidence.
+  Acceptance: CHANGELEVEL_READY + nonblack CapFaces drawn>0 on at least two
+  post-lab maps.
+- [x] **TODO-RC-019 — Retail mirroring gate in RC by default.** RC now resolves
+  `RC_RETAIL_MIRRORING_LOG_DIR` from the boot/frame-budget probe `Logs:` path,
+  with fallback to latest `.ai/logs/dolphin-probe-*`. Override via
+  `RC_RETAIL_MIRRORING_LOG` / `RC_RETAIL_MIRRORING_LOG_DIR` still supported.
+- [x] **TODO-BUILD-020 — Fresh-clone reproducible build.** Verified
+  `3rdparty/library_suffix` @ `663a601` is on
+  `https://github.com/timfox/library-suffix.git` branch `gamecube-platform`.
+  Full isolated clone build remains operator-verifiable on a second host.
+- [ ] **TODO-HUD-021 — G506 lean HUD sheet gaps.** Optional lean route still reports
+  missing HUD sheets in some probes. Complete deferred 320px sheet promotion per
+  TODO-HUD-005 scope; verify G172 + crosshair markers without post-present stall.

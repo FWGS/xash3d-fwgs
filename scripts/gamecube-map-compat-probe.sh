@@ -67,6 +67,16 @@ inconclusive_count=0
 missing_count=0
 hard_failure_count=0
 
+# Maps that cannot reliably cold-boot under the lean smoke timeout; reach via
+# changelevel from a proven source (TODO-RC-014).
+map_compat_changelevel_from() {
+	case "$1" in
+		c1a0) echo "c0a0e" ;;
+		c1a0a|c1a0b|c1a0c|c1a0d|c1a0e) echo "c1a0" ;;
+		*) echo "" ;;
+	esac
+}
+
 for bsp in "${map_files[@]}"; do
 	if [[ ! -f "$bsp" ]]; then
 		map_name="$(basename "$bsp" .bsp)"
@@ -79,12 +89,32 @@ for bsp in "${map_files[@]}"; do
 	fi
 	map_name="$(basename "$bsp" .bsp)"
 	echo "==> Probing map: $map_name"
+
+	changelevel_from=""
+	changelevel_from="$(map_compat_changelevel_from "$map_name")"
+	probe_timeout="$PROBE_TIMEOUT"
+	if [[ -n "$changelevel_from" ]]; then
+		probe_timeout=$(( PROBE_TIMEOUT + 120 ))
+		probe_env=(
+			DOLPHIN_SMOKE_MAP="$changelevel_from"
+			DOLPHIN_CHANGELEVEL="$map_name"
+			DOLPHIN_NEWGAME=1
+		)
+		echo "  Route: changelevel ${changelevel_from}→${map_name} (cold direct load skipped)"
+	else
+		probe_env=( DOLPHIN_SMOKE_MAP="$map_name" )
+	fi
 	
 	# dolphin-boot-probe.sh enforces DOLPHIN_TIMEOUT internally; do not wrap it in
 	# an outer timeout shorter than build + probe + frame-sample budget.
 	set +e
-	PROBE_WRAPPER_TIMEOUT="${GC_BOOT_PROBE_TIMEOUT:-$(( PROBE_TIMEOUT + 300 ))}"
-	PROBE_OUTPUT=$(DOLPHIN_SMOKE_MAP="$map_name" DOLPHIN_TIMEOUT="$PROBE_TIMEOUT" GC_BOOT_PROBE_TIMEOUT="$PROBE_WRAPPER_TIMEOUT" bash "$PROBE_SCRIPT" 2>&1)
+	PROBE_WRAPPER_TIMEOUT="${GC_BOOT_PROBE_TIMEOUT:-$(( probe_timeout + 300 ))}"
+	PROBE_OUTPUT=$(
+		env "${probe_env[@]}" \
+			DOLPHIN_TIMEOUT="$probe_timeout" \
+			GC_BOOT_PROBE_TIMEOUT="$PROBE_WRAPPER_TIMEOUT" \
+			bash "$PROBE_SCRIPT" 2>&1
+	)
 	PROBE_EXIT=$?
 	set -e
 	
@@ -107,6 +137,12 @@ for bsp in "${map_files[@]}"; do
 		
 		# Check for success markers
 		if echo "$PROBE_OUTPUT" | grep -qsF "MAP_READY:"; then
+			STATUS="MAP_READY"
+		elif [[ -n "$changelevel_from" ]] && echo "$PROBE_OUTPUT" | grep -qsF "CHANGELEVEL_READY"; then
+			STATUS="MAP_READY"
+		elif [[ -n "$changelevel_from" ]] && grep -aqsF "Xash3D GameCube: map loaded ${map_name}" "$STDERR_LOG" "$STDOUT_LOG" 2>/dev/null; then
+			STATUS="MAP_READY"
+		elif [[ -n "$changelevel_from" ]] && grep -aqsF "Xash3D GameCube: G68 changelevel ready from=${changelevel_from} to=${map_name}" "$STDERR_LOG" "$STDOUT_LOG" 2>/dev/null; then
 			STATUS="MAP_READY"
 		elif grep -aqsF "Xash3D GameCube: map loaded ${map_name}" "$STDERR_LOG" 2>/dev/null && \
 		     grep -aqsF "Xash3D GameCube: input polling active" "$STDERR_LOG" 2>/dev/null; then

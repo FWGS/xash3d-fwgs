@@ -632,12 +632,48 @@ automation_guidance_gate() {
 retail_mirroring_gate() {
 	local log_path="$LOG_DIR/retail-mirroring.log"
 	local gameplay_log="${RC_RETAIL_MIRRORING_LOG:-}"
+	local probe_log_dir="${RC_RETAIL_MIRRORING_LOG_DIR:-}"
 	echo
 	echo "== retail Flipper mirroring evidence =="
+	if [[ -z "$probe_log_dir" && -z "$gameplay_log" ]]; then
+		local boot_log attempt
+		for boot_log in "$LOG_DIR/dolphin-boot-probe.log" "$LOG_DIR/frame-budget-probe.log"; do
+			if [[ -s "$boot_log" ]]; then
+				probe_log_dir="$(grep -E '^Logs: ' "$boot_log" | tail -n 1 | awk '{print $2}' || true)"
+				if [[ -n "$probe_log_dir" && -d "$probe_log_dir" ]]; then
+					break
+				fi
+			fi
+		done
+		if [[ -z "$probe_log_dir" || ! -d "$probe_log_dir" ]]; then
+			for attempt in "$LOG_DIR"/dolphin-boot-probe-attempt-*.log; do
+				[[ -f "$attempt" ]] || continue
+				probe_log_dir="$(grep -E '^Logs: ' "$attempt" | tail -n 1 | awk '{print $2}' || true)"
+				if [[ -n "$probe_log_dir" && -d "$probe_log_dir" ]]; then
+					break
+				fi
+			done
+		fi
+		if [[ -z "$probe_log_dir" || ! -d "$probe_log_dir" ]]; then
+			probe_log_dir="$(ls -td "$ROOT"/.ai/logs/dolphin-probe-* 2>/dev/null | head -n 1 || true)"
+		fi
+	fi
+	if [[ -n "$probe_log_dir" && -d "$probe_log_dir" ]]; then
+		echo "RC retail mirroring log-dir: $probe_log_dir" | tee "$log_path"
+		if python3 scripts/gamecube-retail-mirroring-gate.py --log-dir "$probe_log_dir" >>"$log_path" 2>&1; then
+			log_status "retail Flipper mirroring" "PASS" "$log_path" "retail policy from RC Dolphin boot probe ($probe_log_dir)"
+			cat "$log_path"
+			return 0
+		fi
+		local rc=$?
+		log_status "retail Flipper mirroring" "FAIL" "$log_path" "exit $rc (log-dir $probe_log_dir)"
+		cat "$log_path" >&2
+		return "$rc"
+	fi
 	if [[ -z "$gameplay_log" ]]; then
-		log_status "retail Flipper mirroring" "WARN" "$log_path" "no RC_RETAIL_MIRRORING_LOG supplied; runtime evidence remains pending"
+		log_status "retail Flipper mirroring" "WARN" "$log_path" "no Dolphin probe log-dir found in RC run"
 		echo "RETAIL_MIRRORING_GATE: NOT_APPLICABLE"
-		echo "RETAIL_MIRRORING_NOTE: set RC_RETAIL_MIRRORING_LOG to a gameplay log for the automatic gate" | tee "$log_path"
+		echo "RETAIL_MIRRORING_NOTE: set RC_RETAIL_MIRRORING_LOG or RC_RETAIL_MIRRORING_LOG_DIR" | tee -a "$log_path"
 		return 0
 	fi
 	if [[ ! -f "$gameplay_log" ]]; then
