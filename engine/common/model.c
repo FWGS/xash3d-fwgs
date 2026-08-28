@@ -32,6 +32,7 @@ poolhandle_t      com_studiocache;		// cache for submodels
 #include "gamecube/mem_gamecube.h"
 void FS_ClearFindMissCache( void );
 qboolean GC_IsNewGameWorldReady( void );
+void R_GXStudioInvalidateBindings( void );
 unsigned GC_GetNewGamePresentCount( void );
 
 static qboolean Mod_GCIsNewGameRoute( void )
@@ -422,6 +423,7 @@ static qboolean Mod_GCPromoteStudioPath( const char *path )
 		Mod_GCStudioNameAllowed( path, &is_view );
 		if( is_view )
 			Mod_GCPinViewModel( mod );
+		R_GXStudioInvalidateBindings();
 		return true;
 	}
 
@@ -490,7 +492,10 @@ void Mod_GCRebindPromotedStudios( void )
 		rebound++;
 	}
 	if( rebound > 0 )
+	{
+		R_GXStudioInvalidateBindings();
 		Con_Reportf( "Xash3D GameCube: G371 rebound promoted studios slots=%d\n", rebound );
+	}
 }
 
 /*

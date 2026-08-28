@@ -3379,6 +3379,21 @@ void R_GXStudioRebindPending( void )
 		R_GXStudioBindTexnum( r_gx_studio_pending_tex );
 }
 
+/*
+=============
+R_GXStudioInvalidateBindings
+
+Deferred NPC promote uploads new Flipper skins after the first studio draw
+may have bound whiteTexture. Clear bound/pending state so SetupSkin rebinds
+real indices on the next EmitTriC pass (TODO-GX-001).
+=============
+*/
+void R_GXStudioInvalidateBindings( void )
+{
+	r_gx_studio_bound_tex = 0;
+	r_gx_studio_pending_tex = 0;
+}
+
 void R_GXStudioTexCoord( float u, float v )
 {
 	(void)u;
@@ -4077,6 +4092,7 @@ void R_GXStudioBegin( qboolean viewmodel ) { (void)viewmodel; }
 void R_GXStudioForceBegin( qboolean viewmodel ) { (void)viewmodel; }
 void R_GXStudioEnd( void ) {}
 void R_GXStudioRebindPending( void ) {}
+void R_GXStudioInvalidateBindings( void ) {}
 int R_GXStudioEmitLeanMarker( const float origin[3] )
 {
 	(void)origin;

@@ -11026,7 +11026,11 @@ void GC_BakeMenuNewGameCapFacesNoPVS( void )
 			wmodel->numsurfaces, eye[0], eye[1], eye[2] );
 		GC_CaptureDrawFacesNoPVS( wmodel );
 	}
-	GC_RerankCapFacesNearDumpEye();
+	/* TODO-GX-002: dump-eye rerank is O(n log n) — skip during menu bake unless
+	 * DumpFrames/NPC dump needs far-slab culling (G36 sample uses lower emit cap). */
+	if( Sys_CheckParm( "-gcdumpframes" ) || Sys_CheckParm( "-gcdump" )
+		|| gc_g376_npc_dump_active )
+		GC_RerankCapFacesNearDumpEye();
 	Image_GCPurgeDecodeScratch();
 	{
 		int i, edge = 0, plane = 0, tex = 0;
@@ -12537,7 +12541,13 @@ qboolean GC_RenderNewGameWorldFrames( int count )
 				{
 					if( gc_g376_npc_dump_active )
 						GC_RerankLiveFacesNearEye();
-					GC_RerankCapFacesNearDumpEye();
+					/* TODO-GX-002: skip dump-eye rerank during G36 sample — emit cap
+					 * already lowered; rerank is only needed for DumpFrames paths. */
+					if( gc_g376_npc_dump_active
+						|| Sys_CheckParm( "-gcdumpframes" )
+						|| Sys_CheckParm( "-gcdump" )
+						|| !GC_IsG36SampleFaceCap() )
+						GC_RerankCapFacesNearDumpEye();
 					dump_ranked = true;
 				}
 			}
