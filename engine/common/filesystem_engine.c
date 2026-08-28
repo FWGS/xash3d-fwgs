@@ -147,8 +147,12 @@ static void FS_LoadVFSConfig( const char *gamedir )
 			Cbuf_AddTextf( "exec %s/vfs.cfg\n", gamedir );
 			Cbuf_Execute();
 			Cvar_DirectSet( &fs_mount_addon, "1" );
-			// Ensure addon is mounted by triggering a rescan
-			FS_Rescan_f();
+			/* Disc-only rescan re-enters VFS setup and hung before engine_init
+			 * on hardware (PORT_STATUS 2026-08). Writable SD may rescan. */
+			if( GCube_HasPersistentWritableStorage( ))
+				FS_Rescan_f();
+			else
+				Con_Reportf( "Xash3D GameCube: vfs disc-only skip rescan\n" );
 			vfs_done = true;
 		}
 	}

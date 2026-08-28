@@ -136,6 +136,7 @@ typedef enum
 
 void GCube_EarlyInit( void );
 void GC_EarlyBootSplash( void );
+void GC_DrawBootFatalPanel( const char *message, const char *details );
 void GCube_Init( void );
 void GCube_Shutdown( void );
 qboolean GCube_GetBasePath( char *buf, size_t buflen );
@@ -187,6 +188,7 @@ qboolean GC_UseGxWorldDraw( void );
 qboolean GC_UseGxRenderer( void );
 void GC_MarkGxWorldEfbReady( void );
 void GC_EnableGxWorldLive( void );
+qboolean GC_AllowFlipperCapFaces( void );
 void *GC_GetGxVideoMode( void );
 int GC_GetNewGameViewCluster( void ); /* G83: load/prepare-time PointInLeaf cluster, or -1 */
 qboolean GC_HasNewGameCachedVis( void ); /* G83: prepare-time FatPVS + parent mark ready */

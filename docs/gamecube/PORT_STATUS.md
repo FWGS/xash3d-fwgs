@@ -2,32 +2,28 @@
 
 ## Current Milestone
 
-**Playable Dolphin New Game (Pure Flipper)** — lean `-gcnewgame` reaches
-`NEWGAME_READY` with G508 + G509 + lean audio PCM green and a disc-only Dolphin
-release packet **COMPLETE / RELEASE-READY**
-(`.ai/logs/operator-evidence-20260808-audio/`).
-Studios stay out of lean packets. Fullphysics stays the richer regression path.
-Swiss FAT/loader markers need real hardware (Dolphin has no SD EXI device).
+**Dolphin tip-safe retail path green; hardware boot UX improved (2026-08-27).**
+Lean `-gcnewgame` `c1a0a→c1a0d` reaches CHANGELEVEL_READY with G36/G45/G506/LADDER
+PASS (avg ~16.9 ms). Campaign visual proof (Lambda/Xen), map-compat RC gate, G509
+soak, and NPC studio verify scripts are in place. **Physical Swiss sign-off**
+(TODO-HW-012/022) remains the release gap — Dolphin has no SD EXI device.
 
+## Current Automated State (2026-08-27)
 
-## Current Automated State
-
-- Early DOL boot regression was fixed on **July 29, 2026** by correcting
-  `scripts/elf-to-dol.py` so generated DOL headers carry the proper entry
-  point, section tables, and BSS metadata.
-- The latest direct New Game probe reaches `NEWGAME_READY` with sustained world
-  presentation and attack/jump/use actions.
-- The latest supervisor release-disc probe loads `c0a0e` with G36 and G45
-  passing and nonblack visual output.
-- The client sprite-list OOM was removed by a contiguous 384-entry cache;
-  all 15 weapon lists loaded in Dolphin without an allocation fatal.
+- **HW boot fix:** early blue splash, hardware loading plaque during init, SD-without-
+  `valve/`→disc fallback, disc-only vfs skip rescan, fatal boot panel on missing assets.
+- **GX-016/017:** denser G36 PASS; concrete underfoot pad + near-floor CapFaces rank.
+- **HUD-021/005:** G290 late HUD promote at present=24/48 (`real=5`).
+- **CAM-018:** Lambda `c3a2→c3a2a` + Xen `c4a1→c4a2` CHANGELEVEL_READY scripts.
+- **RC-019 / BUILD-020 / SOAK-013 / RC-014:** gate and reproducibility closes.
+- Tip-safe evidence: `.ai/logs/dolphin-probe-20260827-212058/` (post boot-fatal build).
 
 ## Build Status
 
 | Artifact | Size | Format |
 |----------|------|--------|
-| `OUT/bin/boot.dol` | 5,874,272 bytes | PowerPC DOL |
-| `OUT/bin/xash` | 33,293,048 bytes | PowerPC ELF |
+| `OUT/bin/boot.dol` | 6,032,352 bytes | PowerPC DOL |
+| `OUT/bin/xash` | 33,922,608 bytes | PowerPC ELF |
 
 **Build Notes**:
 - Engine builds successfully against Swiss-first libogc2 (or classic libogc).
@@ -57,12 +53,14 @@ Interpretation:
 
 ## Real-Hardware Status
 
-**Status**: Deferred sign-off, not the current autonomous blocker
+**Status**: Boot UX improved in software; operator retest required (TODO-HW-012/022)
 
+- **2026-08-27:** Fixed black-screen boot (early splash, loading plaque, asset path
+  validation, fatal panel when `valve/` missing). Rebuild `OUT/bin/boot.dol` before
+  retesting on Swiss/GameCube.
 - Physical GameCube / Swiss validation still matters for release confidence.
-- G38 remains a manual checkpoint for native hardware confirmation.
-- It is no longer the stopping condition for autonomous work while Dolphin
-  runtime validation is still failing.
+- G38/G77 remain manual checkpoints; use `scripts/gamecube-hardware-smoke.sh` +
+  `scripts/gamecube-swiss-evidence.sh`.
 
 ## Known Active Failure
 
@@ -256,7 +254,7 @@ it is not the reason the automation should stop today.
 
 ## Last Updated
 
-2026-08-09
+2026-08-27
 
 ### Changelevel continuity validated — 2026-08-04
 

@@ -4758,10 +4758,9 @@ through them.
   next actionable allocation failure on real hardware and Dolphin. Completed
   with top-three pool reporting; Dolphin evidence:
   `.ai/logs/dolphin-probe-20260815-231611/`.
-- [ ] **TODO-HUD-005 — Complete low-memory HUD promotion.** Make the deferred
-  HUD path load only the required 320px sheets first, then promote optional
-  sheets after the first stable frame. Acceptance: G172 HUD sheets, lean HUD
-  draw, and viewmodel markers pass without a post-present stall.
+- [x] **TODO-HUD-005 — Complete low-memory HUD promotion.** Lean prepare still
+  defers VidInit (G327). Optional 320 sheets promote via G290 at present=24/48
+  (was skipped on lean; early 6/12 stalled). See TODO-HUD-021 evidence.
 - [ ] **TODO-INPUT-006 — Validate controller resilience.** Test disconnect,
   reconnect, deadzone, trigger, WaveBird, and third-party controller paths.
   Acceptance: input polling remains live and the game returns to gameplay
@@ -4794,7 +4793,9 @@ through them.
   `boot.dol` or ISO, New Game, one changelevel, quit to Swiss. Capture FAT
   markers via `scripts/gamecube-swiss-evidence.sh` and fill the handoff evidence
   template. Acceptance: same `boot.dol` hash as Dolphin proxy; G77 artifact-matched
-  entry in port plan and hardware matrix.
+  entry in port plan and hardware matrix. **2026-08-27 HW boot fix:** early blue
+  splash, hardware loading plaque, SD-without-valve→disc fallback, disc-only vfs
+  skip rescan — retest after rebuilding `OUT/bin/boot.dol`.
 - [x] **TODO-SOAK-013 — G509 real Dolphin changelevel soak.** Ran live soak
   `c0a0e:c1a0` (1 iteration, require-ladder + require-changelevel). Evidence:
   `.ai/logs/soak-g509-20260827-193411/` (PASS, changelevel ready, landmark + ladder).
@@ -4802,11 +4803,6 @@ through them.
   `c1a0` (and sibling AM maps) via changelevel from a proven source instead of
   cold direct load. Evidence: `.ai/logs/map-compat-20260827-193208/` (c0a0e +
   c1a0 both MAP_READY, MAP_COMPAT_PROBE PASS).
-- [ ] **TODO-GX-015 — Re-verify NPC texture fix on c1a0d.** TODO-GX-001 added
-  `R_GXStudioInvalidateBindings()`; confirm with DumpFrames on tip-safe
-  `c1a0a→c1a0d`: scientist/barney show `G376 studio GX bind ok`, no white mesh,
-  compact bbox, no explode fallback. Acceptance: retail mirroring gate PASS on
-  denser NPC probe log.
 - [x] **TODO-GX-015 — Re-verify NPC texture fix on c1a0d.** Code path closed via
   `R_GXStudioInvalidateBindings()` on promote/rebind. Added
   `scripts/gamecube-npc-studio-verify.sh` for tip-safe `c0a0e→c1a0→c1a0d`
@@ -4817,10 +4813,12 @@ through them.
   window; c1a0d warmup 4→6. Tip-safe `c1a0a→c1a0d` evidence:
   `.ai/logs/dolphin-probe-20260827-195049/` — G36 avg **16.86ms** (was ~38ms WEAK),
   G36_STATUS PASS, CHANGELEVEL_READY.
-- [ ] **TODO-GX-017 — Mixed-Z textured hallway slabs.** G380 cyan floor pad works
-  under constant-Z workaround; far industrial slabs still dominate some dump stills.
-  Improve Flipper depth handling or face rank so hallway geometry reads at mixed Z
-  without reintroducing G364 portal seams.
+- [x] **TODO-GX-017 — Mixed-Z textured hallway slabs.** MEM1 tip-safe (DOL size-neutral):
+  concrete underfoot pad (was cyan), taller eye-space band (28 vs 14), CapFaces rank
+  prefers near hallway floors (`750k` horiz / `<=384` near boost). Full textured
+  REPLACE pad + texinfo borrow deferred — +2 KiB tipped early boot at searchpaths.
+  Tip-safe + DumpFrames: `.ai/logs/dolphin-probe-20260827-203243/`,
+  `.ai/logs/dolphin-probe-20260827-203350/` (`G380 npc-room floor quad`, cyanish=0).
 - [x] **TODO-CAM-018 — Deeper campaign visual proof.** `scripts/gamecube-campaign-visual-proof.sh`
   proves Lambda `c3a2→c3a2a` and Xen `c4a1→c4a2` CHANGELEVEL_READY with nonblack
   presents. CapFaces remain tip-safe-skipped (`drawn=0`) on these post-lab hops.
@@ -4834,6 +4832,60 @@ through them.
   `3rdparty/library_suffix` @ `663a601` is on
   `https://github.com/timfox/library-suffix.git` branch `gamecube-platform`.
   Full isolated clone build remains operator-verifiable on a second host.
-- [ ] **TODO-HUD-021 — G506 lean HUD sheet gaps.** Optional lean route still reports
-  missing HUD sheets in some probes. Complete deferred 320px sheet promotion per
-  TODO-HUD-005 scope; verify G172 + crosshair markers without post-present stall.
+- [x] **TODO-HUD-021 — G506 lean HUD sheet gaps.** Re-enabled G290 late promote at
+  present=24/48 (size −64 B vs tip cliff). Tip-safe `c1a0a→c1a0d`: G290 + late
+  preload `real=5`, G173 hud1, G174 crosshairs, G506 PASS, CHANGELEVEL_READY.
+  Evidence: `.ai/logs/dolphin-probe-20260827-204108/`.
+
+### New backlog (2026-08-27 wave 2)
+
+- [ ] **TODO-HW-022 — Hardware boot UX sign-off.** After HW boot fix (early splash,
+  loading plaque, SD-without-valve→disc, vfs skip rescan): on real hardware confirm
+  dark-blue frame within ~1s, loading text before menu/map, and `gcdisc:/xash3d` or
+  staged `sd:/xash3d/valve/` in OSReport. Acceptance: operator evidence matches
+  `.ai/logs/hardware-smoke-*/` handoff hash; no multi-minute black screen.
+- [x] **TODO-BOOT-023 — Boot failure diagnostics on missing assets.** `GC_DrawBootFatalPanel`
+  shows VGUI fatal panel via early XFB when `GCube_GetBasePath` or `chdir` fails;
+  logs `boot fatal panel missing valve assets` and halts (no FS gfx.wad hang).
+  Valid ISO/Dolphin tip-safe unchanged (`.ai/logs/dolphin-probe-20260827-212058/`).
+- [ ] **TODO-GX-022 — Textured underfoot pad (GX-017 deferred).** Reintroduce
+  REPLACE textured constant-Z NPC floor when DOL growth stays tip-safe (prior +2 KiB
+  tipped searchpaths). Acceptance: DumpFrames `GX-017 textured underfoot pad` with
+  borrowed hallway tex; no cyan; G36 PASS on tip-safe `c1a0a→c1a0d`.
+- [x] **TODO-GX-023 — Post-lab CapFaces emit.** Campaign hops (Lambda/Xen) still log
+  `low-res probe skips CapFaces` / `drawn=0`. Enable bounded CapFaces draw on denser
+  maps without reintroducing G364 portal seams or G36 regression. Acceptance:
+  `scripts/gamecube-campaign-visual-proof.sh` reports `drawn>0` on at least one hop.
+  **Done 2026-08-27:** `GC_AllowFlipperCapFaces()` gates `R_EdgeDrawing()` skip on
+  `GC_UseGxWorldDraw()` with tram G36 sample still off; CAM-018 `c3a2→c3a2a` and
+  `c4a1→c4a2` both `drawn=1`; tip-safe `c1a0a→c1a0d` CHANGELEVEL_READY + LADDER PASS
+  (`.ai/logs/dolphin-probe-20260827-222402`, campaign `.ai/logs/campaign-visual-20260827-222509`).
+- [ ] **TODO-MEM-022 — Sub-arena carve validation (extends TODO-MEM-003).** Measure
+  largest static BSS/.text consumers; split one arena (CapFaces or studio staging)
+  into pool-backed sub-alloc with telemetry. Acceptance: MEM1 HWM drops or headroom
+  log shows ≥256 KiB contiguous tail before map load on c1a0d tip-safe route.
+- [ ] **TODO-INTRO-024 — Retail intro/menu on hardware.** Replay G508/G509-equivalent
+  on Swiss: GCVID intro timing, menu down/confirm, `-gcnewgame` not required.
+  Acceptance: `gamecube-video-playback-gate.py` markers + hardware OSReport intro
+  frame count; no infinite intro loop on composite video.
+- [ ] **TODO-AUDIO-022 — Hardware PCM/SFX matrix (extends TODO-AUDIO-007).** Beyond
+  Dolphin lean PCM: footstep, pl_gun1, tram ride, pause/resume on ASND with SD
+  present. Acceptance: G48 compliance log on hardware; null-audio fallback still
+  non-fatal when allocation fails.
+- [ ] **TODO-FS-022 — Storage route automation (extends TODO-FS-008).** Host-side
+  matrix script for `sd:/`, `carda:/`, `cardb:/`, disc-only, and SD+disc hybrid;
+  ingest `swiss-evidence.txt` per route. Acceptance: one command emits pass/fail
+  table for G508 config round-trip where writable.
+- [ ] **TODO-SAVE-022 — Save interrupt harness (extends TODO-SAVE-010).** Dolphin
+  gcprobe fault injection for `.new`/`.bak`; hardware checklist for power-loss and
+  full-card on real SD. Acceptance: deterministic recovery after simulated rename
+  failure; hardware doc filled for at least one writable route.
+- [ ] **TODO-VIDEO-022 — Region/cable matrix (extends TODO-VIDEO-009).** Document and
+  probe NTSC 480i vs progressive override; PAL-safe fb allocation smoke. Acceptance:
+  first nonblack frame on each mode in Dolphin; hardware sign-off row in matrix.
+- [ ] **TODO-RELEASE-022 — Swiss-required release packet.** After TODO-HW-012/022,
+  run `gamecube-release-packet.py --require-swiss` with physical evidence attached.
+  Acceptance: packet COMPLETE with hardware hash match and G77 artifact table row.
+- [x] **TODO-DOC-023 — Refresh PORT_STATUS milestone.** Updated
+  `docs/gamecube/PORT_STATUS.md` with 2026-08-27 closes, HW boot UX notes, and
+  current artifact sizes; Last Updated 2026-08-27.

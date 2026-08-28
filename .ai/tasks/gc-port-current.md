@@ -181,12 +181,13 @@ Match retail visuals without cutting fill/spawn.
   - Evidence: `.ai/logs/dolphin-probe-20260813-163840`
   - Stills: `.ai/screenshots/g380-hallway/`
 
-**NEXT** (see port plan TODO-HW-012 … TODO-HUD-021):
-- TODO-HW-012: physical Swiss / GameCube sign-off (G38/G77)
-- TODO-GX-017: mixed-Z textured hallway slabs (G380 follow-up)
-- TODO-HUD-021 / TODO-HUD-005: lean HUD sheet promotion gaps
-- Remaining hardware: INPUT-006, AUDIO-007, FS-008, VIDEO-009, SAVE-010
-- Done this pass: GX-016 denser G36 PASS (avg 16.86ms); CAM-018 Lambda+Xen CHANGELEVEL_READY
+**NEXT** (see port plan TODO-HW-012 … wave 2 TODO-HW-022 … TODO-DOC-023):
+- TODO-HW-012 / TODO-HW-022: physical Swiss sign-off + boot UX retest
+- Software follow-ups: GX-022 textured pad, MEM-022 (GX-023 done)
+- Hardware matrix: INPUT-006, AUDIO-007/022, FS-008/022, VIDEO-009/022, SAVE-010/022
+- Release: TODO-RELEASE-022 after hardware evidence
+- Done this pass: GX-023 post-lab CapFaces (`drawn=1` on Lambda/Xen hops); BOOT-023;
+  HW boot fix; DOC-023 PORT_STATUS refresh
 
 Rules:
 - Force-relink after HLSDK archive changes.

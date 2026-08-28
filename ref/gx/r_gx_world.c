@@ -525,7 +525,7 @@ static u32 R_GXFaceColor( const msurface_t *surf )
 	if( surf->texinfo && surf->texinfo->texture && surf->texinfo->texture->name[0] )
 		name = surf->texinfo->texture->name;
 	else if( surf->firstedge < 0 && surf->extents[0] == 256 && surf->extents[1] == 256 )
-		return 0x18F0E0FFu; /* G380: cyan PASSCLR floor under dump NPC */
+		return 0x6A6864FFu; /* GX-017: concrete underfoot pad (was cyan) */
 	else if( surf->firstedge < 0 && surf->extents[0] == 512 && surf->extents[1] == 384 )
 		return 0x3A3E42FFu; /* menu tram end-plug dark concrete */
 	else
@@ -1864,7 +1864,7 @@ static int R_GXEmitFace( const msurface_t *surf, model_t *world, int slot )
 			}
 			/* Thin band at the far/NPC edge of the projected pad. */
 			y1 = ymax;
-			y0 = ymax - 14.0f;
+			y0 = ymax - 28.0f;
 			if( !g380_eye_logged )
 			{
 				g380_eye_logged = true;

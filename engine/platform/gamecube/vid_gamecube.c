@@ -684,7 +684,7 @@ static int GC_CapSlotKeepScore( int slot )
 		score = GC_CapApplyAabbKeepBonus( score, GC_CapFaceAabbDist( slot ));
 	if( GC_G380NpcRoomHoriz( &f->plane, &f->texinfo, f->texturemins, f->extents,
 		f->texinfo.texture != NULL ))
-		score += 500000;
+		score += 750000; /* GX-017: hallway floors beat far slabs */
 	return score;
 }
 
@@ -3465,8 +3465,8 @@ static void GC_RerankCapFacesNearDumpEye( void )
 				gc_newgame_cap_faces[i].texinfo.texture != NULL );
 
 		gc_newgame_cap_areas[i] = GC_CapSlotKeepScore( i );
-		if( keep && floorish && dist > 384.0f )
-			gc_newgame_cap_areas[i] += 200000; /* hallway floor under dump eye */
+		if( keep && floorish && dist <= 384.0f )
+			gc_newgame_cap_areas[i] += 300000; /* GX-017: near hallway floor */
 		if( dist < mind )
 			mind = dist;
 		if( dist > maxd )
@@ -7683,6 +7683,9 @@ static unsigned short GC_RGB8To565( int r, int g, int b )
 static unsigned short gc_loading_bg[GC_LOADING_BG_W * GC_LOADING_BG_H];
 static qboolean gc_loading_bg_ready;
 static float gc_loading_progress;
+#define GC_EARLY_XFB_STAGE_W	320
+#define GC_EARLY_XFB_STAGE_H	240
+static unsigned short gc_early_xfb_stage[GC_EARLY_XFB_STAGE_W * GC_EARLY_XFB_STAGE_H];
 
 void GC_SetLoadingProgress( float progress )
 {
@@ -8606,6 +8609,58 @@ static void GC_DrawStatusPanelToBuffer( unsigned short *dst, int width, int heig
 	GC_DrawStatusPanelToBufferEx( dst, width, height, stride, message, details, false );
 }
 
+void GC_DrawBootFatalPanel( const char *message, const char *details )
+{
+#if XASH_GAMECUBE
+	const int stage_w = GC_EARLY_XFB_STAGE_W;
+	const int stage_h = GC_EARLY_XFB_STAGE_H;
+	unsigned int *xfb_dst;
+	unsigned short fill;
+	int row, col;
+	int row_pairs;
+	size_t xfb_size;
+
+	GC_EarlyBootSplash();
+	if( !rmode || !xfb[0] )
+	{
+		Con_Reportf( "Xash3D GameCube: boot fatal %s (%s) no video\n",
+			message ? message : "?", details ? details : "?" );
+		for( ;; )
+			;
+	}
+
+	fill = GC_RGB8To565( 48, 16, 16 );
+	for( row = 0; row < stage_h; row++ )
+	{
+		unsigned short *rowdst = gc_early_xfb_stage + row * stage_w;
+		for( col = 0; col < stage_w; col++ )
+			rowdst[col] = fill;
+	}
+	gc_loading_progress = 0.0f;
+	GC_DrawStatusPanelToBufferEx( gc_early_xfb_stage, stage_w, stage_h, stage_w,
+		message ? message : "BOOT ERROR", details ? details : "MISSING ASSETS", true );
+
+	xfb_dst = (unsigned int *)MEM_K1_TO_K0( xfb[0] );
+	row_pairs = rmode->fbWidth / 2;
+	if( row_pairs <= 0 )
+		row_pairs = 1;
+	GC_BlitSoftwareBufferScaled( gc_early_xfb_stage, stage_w, stage_h, stage_w,
+		xfb_dst, rmode->fbWidth, rmode->xfbHeight, row_pairs );
+	xfb_size = (size_t)rmode->fbWidth * (size_t)rmode->xfbHeight * sizeof( unsigned short );
+	DCFlushRange( MEM_K1_TO_K0( xfb[0] ), (u32)xfb_size );
+	VIDEO_SetNextFramebuffer( xfb[0] );
+	VIDEO_SetBlack( false );
+	VIDEO_Flush();
+	VIDEO_WaitVSync();
+
+	Con_Reportf( "Xash3D GameCube: boot fatal panel missing valve assets\n" );
+	Con_Reportf( "Xash3D GameCube: boot fatal %s (%s)\n",
+		message ? message : "?", details ? details : "?" );
+	for( ;; )
+		VIDEO_WaitVSync();
+#endif
+}
+
 /*
  * G177: blit lean HUD sheets into the soft DumpFrames RGB565 buffer before the
  * status panel so Dolphin captures crosshair / hud1 with the world composite.
@@ -8660,16 +8715,24 @@ void GC_DrawLoadingStatus( const char *message, const char *details )
 #if XASH_GAMECUBE
 	size_t xfb_size;
 
-	/* Host_Init direct-map path: decode the HL plaque once for later DumpFrames,
-	 * but skip filling the boot 640×480 SW buffer / XFB. Under Dolphin interpreter
-	 * + DumpFrames that fill can stall past probe timeouts (plaque ready, then no
-	 * further OSReport). Post-init presents still blit+CPU-YUYV normally. */
+	/* Host_Init: Dolphin capture routes skip init presents (probe timeout).
+	 * Real hardware/Swiss retail boots show the loading plaque via early XFB
+	 * once CL_Init has created rmode/xfb — otherwise black for minutes. */
 	if( host.status == HOST_INIT )
 	{
 		(void)GC_LoadLoadingBackground();
-		Con_Reportf( "Xash3D GameCube: loading status %s (%s) init-skip-present\n",
-			message ? message : "?", details ? details : "" );
-		return;
+		if( GC_IsCaptureDiagnostics() )
+		{
+			Con_Reportf( "Xash3D GameCube: loading status %s (%s) init-skip-present\n",
+				message ? message : "?", details ? details : "" );
+			return;
+		}
+		if( !rmode || !xfb[which_fb] )
+		{
+			Con_Reportf( "Xash3D GameCube: loading status %s (%s) init-wait-video\n",
+				message ? message : "?", details ? details : "" );
+			return;
+		}
 	}
 
 	if( gc.buffer && gc.width > 0 && gc.height > 0 )
@@ -8716,15 +8779,14 @@ void GC_DrawLoadingStatus( const char *message, const char *details )
 		/* Map-load path frees gc.buffer (MEM1). Never write RGB565 into the
 		 * YUYV XFB — that is what made the plaque look purple/magenta. Stage
 		 * in a small static RGB565 frame and CPU-convert to YUYV. */
-		static unsigned short gc_load_xfb_stage[320 * 240];
-		const int stage_w = 320;
-		const int stage_h = 240;
+		const int stage_w = GC_EARLY_XFB_STAGE_W;
+		const int stage_h = GC_EARLY_XFB_STAGE_H;
 		static int g194_xfb_loading_n;
 		unsigned int *xfb_dst;
 		int row_pairs;
 
-		GC_BlitLoadingBackground( gc_load_xfb_stage, stage_w, stage_h, stage_w );
-		GC_DrawStatusPanelToBuffer( gc_load_xfb_stage, stage_w, stage_h, stage_w,
+		GC_BlitLoadingBackground( gc_early_xfb_stage, stage_w, stage_h, stage_w );
+		GC_DrawStatusPanelToBuffer( gc_early_xfb_stage, stage_w, stage_h, stage_w,
 			message, details );
 
 		xfb_dst = (unsigned int *)MEM_K1_TO_K0( xfb[which_fb] );
@@ -8735,7 +8797,7 @@ void GC_DrawLoadingStatus( const char *message, const char *details )
 		/* Force full BT.601 so DumpFrames keep VGUI green/amber, not luma-only. */
 		if( gc_cpu_dump_presents_left < 1 )
 			gc_cpu_dump_presents_left = 1;
-		GC_BlitSoftwareBufferScaled( gc_load_xfb_stage, stage_w, stage_h, stage_w,
+		GC_BlitSoftwareBufferScaled( gc_early_xfb_stage, stage_w, stage_h, stage_w,
 			xfb_dst, rmode->fbWidth, rmode->xfbHeight, row_pairs );
 
 		xfb_size = rmode->fbWidth * rmode->xfbHeight * sizeof( unsigned short );
@@ -9205,12 +9267,9 @@ static void GC_TryDeferredHudSheets( void )
 #if XASH_GAMECUBE
 	if( !gc_newgame_world_ready )
 		return;
-	/* c1a0 tip (20260810-004224): G290 late HUD ZIP loads soft-fail then
-	 * stall the present pump before G68 deferred changelevel. Lean New Game
-	 * already deferred prepare HUD (G327); skip late sheets too. */
-	if( Sys_CheckParm( "-gcnewgame" ) && !Sys_CheckParm( "-gcfullphysics" ))
-		return;
-	if( gc_present_count != 6 && gc_present_count != 12 )
+	/* HUD-021: promote optional 320 sheets after presents coalesce.
+	 * Early 6/12 stalled lean c1a0 (20260810-004224); lean no longer skips. */
+	if( gc_present_count != 24 && gc_present_count != 48 )
 		return;
 	Con_Reportf( "Xash3D GameCube: G290 deferred HUD sheets present=%u\n",
 		gc_present_count );
@@ -9484,6 +9543,21 @@ void GC_EnableGxWorldLive( void )
 	}
 	gc_gx_world_live = true;
 	Con_Reportf( "Xash3D GameCube: G151 GX world live enabled (Flipper EFB)\n" );
+#endif
+}
+
+qboolean GC_AllowFlipperCapFaces( void )
+{
+#if XASH_GAMECUBE
+	/* GX-023: low-res -gcnewgame skipped CapFaces for entire session; allow once
+	 * Flipper world is live. Tram G36 sample stays off (GX-016 denser caps). */
+	if( !GC_UseGxWorldDraw() )
+		return false;
+	if( GC_IsG36SampleFaceCap() && GC_IsTramIntroMap() )
+		return false;
+	return true;
+#else
+	return false;
 #endif
 }
 

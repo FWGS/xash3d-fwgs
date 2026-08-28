@@ -119,6 +119,7 @@ Record as much of this sequence as the loader/log setup allows:
 | Symptom | Likely cause | Action |
 | --- | --- | --- |
 | Black screen, no OSReport | Loader path, corrupt DOL, or video init failure | Verify `boot.dol` hash, try composite video, and test the same DOL in Dolphin for logs. |
+| Black for minutes, then nothing | No early XFB + slow DVD/SD init; or SD has `boot.dol` but no `xash3d/valve/` | Rebuild ISO with `scripts/build-gamecube-disc.py` **or** stage full `xash3d/valve/` on SD; expect dark-blue splash immediately, then loading plaque after engine init. |
 | Bootstrap then black screen | GX/XFB or renderer path failed | Check for diagnostic marker output and `vid_gamecube.c` logs. |
 | No input | Controller missing or unsupported state | Use Port 1, try an official wired controller, and check G45 controller logs. |
 | No audio | ASND init failed or null-audio route active | Check G48 audio compliance logs; audio failure should not block boot diagnostics. |

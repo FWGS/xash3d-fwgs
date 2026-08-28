@@ -195,7 +195,29 @@ void GCube_EarlyInit( void )
 	SYS_Report( "Xash3D GameCube: OGC stack=legacy\n" );
 #endif
 	GC_ReportBootPhase( GC_BOOT_EARLY );
+	/* G77/HW: show a frame before FAT/DVD/FS init — retail boots looked black
+	 * for minutes while Swiss or slow DVD I/O ran with no XFB output. */
+	GC_EarlyBootSplash();
 #endif
+}
+
+static qboolean GCube_HasValveAssets( const char *xashdir )
+{
+	char probe[MAX_SYSPATH];
+	struct stat st;
+
+	if( !xashdir || !xashdir[0] )
+		return false;
+
+	Q_snprintf( probe, sizeof( probe ), "%s/valve/gfx.wad", xashdir );
+	if( stat( probe, &st ) == 0 && S_ISREG( st.st_mode ))
+		return true;
+
+	Q_snprintf( probe, sizeof( probe ), "%s/valve/liblist.gam", xashdir );
+	if( stat( probe, &st ) == 0 && S_ISREG( st.st_mode ))
+		return true;
+
+	return false;
 }
 
 static qboolean GCube_PathAccessible( const char *path )
@@ -514,8 +536,9 @@ void GCube_Init( void )
 	{
 		SYS_Report( "Xash3D GameCube: no base path found (SD/DVD missing or empty). Cannot initialize game data path.\n" );
 		Con_Reportf( S_ERROR "Xash3D GameCube: FATAL: Cannot initialize game data path.\n" );
-		/* No data directory found. Game assets will not load. */
 		xashdir[0] = '\0';
+		GC_DrawBootFatalPanel( "MISSING GAME DATA",
+			"Need sd:/xash3d/valve or boot disc ISO" );
 	}
 
 	if( xashdir[0] && chdir( xashdir ) == 0 )
@@ -525,7 +548,8 @@ void GCube_Init( void )
 	}
 	else if( xashdir[0] )
 	{
-		Con_Reportf( S_ERROR "GameCube storage: failed to chdir to %s (errno %d: %s). Asset lookups will likely fail.\n", xashdir, errno, strerror( errno ) );
+		Con_Reportf( S_ERROR "GameCube storage: failed to chdir to %s (errno %d: %s). Asset lookups will likely fail.\n", xashdir, errno, strerror( errno ));
+		GC_DrawBootFatalPanel( "STORAGE ERROR", xashdir );
 	}
 
 	setup_gamecube_dll_functions();
@@ -539,15 +563,40 @@ void GCube_Init( void )
 qboolean GCube_GetBasePath( char *buf, size_t buflen )
 {
 #if XASH_GAMECUBE
-	/* Prefer real FAT volume; never use the G94 probe RAM bank as the game root. */
+	char candidate[MAX_SYSPATH];
+	qboolean fat_tried = false;
+
+	/* Prefer FAT only when valve/ is present — bare sd:/ with boot.dol but no
+	 * staged Half-Life assets hung for hours on missing gfx.wad lookups. */
 	if( GCube_FatRootReady() )
 	{
 		const char *root = gc_fat_base_root[0] ? gc_fat_base_root : gc_fat_write_root;
-		Q_snprintf( buf, buflen, "%s%s", root, GC_DATA_PATH );
-		return true;
+
+		fat_tried = true;
+		Q_snprintf( candidate, sizeof( candidate ), "%s%s", root, GC_DATA_PATH );
+		if( GCube_HasValveAssets( candidate ))
+		{
+			Q_strncpy( buf, candidate, buflen );
+			return true;
+		}
+		Con_Reportf( S_WARN "Xash3D GameCube: FAT %s has no valve/ (need gfx.wad + maps on SD or boot disc ISO)\n",
+			root );
 	}
-	if( GCube_GetDiscPath( buf, buflen ))
-		return true;
+
+	if( gc_dvd_mounted )
+	{
+		Q_snprintf( candidate, sizeof( candidate ), "%s:/%s", GC_DVD_DEVICE, GC_DATA_PATH );
+		if( GCube_PathAccessible( candidate ) && GCube_HasValveAssets( candidate ))
+		{
+			Q_strncpy( buf, candidate, buflen );
+			if( fat_tried )
+				Con_Reportf( "Xash3D GameCube: using disc game root %s (SD lacks valve/)\n", candidate );
+			return true;
+		}
+		if( fat_tried )
+			Con_Reportf( S_WARN "Xash3D GameCube: disc mounted but %s/valve/ missing or empty\n",
+				candidate );
+	}
 
 	{
 		size_t i;
@@ -561,14 +610,12 @@ qboolean GCube_GetBasePath( char *buf, size_t buflen )
 				continue;
 			}
 
-			Q_strncpy( buf, gc_fat_volume_roots[i], buflen );
-			return true;
-		}
-
-		if( GCube_PathAccessible( GC_DVD_DEVICE ":/" ))
-		{
-			Q_strncpy( buf, GC_DVD_DEVICE ":/", buflen );
-			return true;
+			Q_snprintf( candidate, sizeof( candidate ), "%s%s", gc_fat_volume_roots[i], GC_DATA_PATH );
+			if( GCube_HasValveAssets( candidate ))
+			{
+				Q_strncpy( buf, candidate, buflen );
+				return true;
+			}
 		}
 	}
 #endif

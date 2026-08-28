@@ -419,6 +419,7 @@ qboolean GC_UseGxWorldDraw( void );
 qboolean GC_UseGxRenderer( void );
 void GC_MarkGxWorldEfbReady( void );
 void GC_EnableGxWorldLive( void );
+qboolean GC_AllowFlipperCapFaces( void );
 void *GC_GetGxVideoMode( void );
 qboolean R_GXWorldDrewThisFrame( void );
 void R_GXClearWorldDrewFlag( void );

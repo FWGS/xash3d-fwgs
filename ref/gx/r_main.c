@@ -1725,9 +1725,9 @@ static void R_EdgeDrawingGcmapProbe( void )
 		VectorCopy( RI.rvp.vieworigin, tr.modelorg );
 		if( tr.framecount <= 1 )
 			gEngfuncs.Con_Reportf( "Xash3D GameCube: R_EdgeDrawing GX CapFaces begin\n" );
-		/* The 320x240 bring-up route already has a static world buffer. Avoid
-		 * the full BSP cap walk when MEM1 is exhausted before first present. */
-		if( GC_UseLowResWorldProbe() )
+		/* Pre-live low-res bring-up skips CapFaces (MEM1). Post-lab changelevel
+		 * dests draw once GX world is live (GX-023); tram G36 sample stays off. */
+		if( GC_UseLowResWorldProbe() && !GC_AllowFlipperCapFaces() )
 		{
 			static qboolean lowres_logged;
 			if( !lowres_logged )
