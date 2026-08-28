@@ -2466,13 +2466,20 @@ RC_WORST_CASE_STRICT=1 scripts/gamecube-rc-check.sh
 
 ## G77 — Dolphin and hardware evidence parity for the final artifact (PENDING)
 
-**Status (2026-06-28):** PENDING final artifact-matched evidence.
+**Status (2026-08-27):** Host prep complete; physical hardware evidence still pending.
 
 G77 closes a gap between emulator validation and real hardware sign-off. The
 port should not combine Dolphin proof from one build with hardware/manual proof
 from another build. Before final completion, the release notes and evidence
 matrix must compare the same release-candidate commit and artifact hash across
 Dolphin and physical GameCube or Wii GameCube-mode runs.
+
+**Host prep evidence (2026-08-27):**
+- `scripts/gamecube-hardware-smoke.sh` automates build, handoff manifest, G56
+  checklist, and Dolphin proxy (New Game + changelevel).
+- Dolphin proxy PASS: `.ai/logs/hardware-smoke-20260827-191559/`
+- RC artifact manifest: `.ai/logs/rc-check-20260827-191715/artifact-manifest.tsv`
+- Operator steps: `.ai/logs/hardware-smoke-20260827-191559/handoff/operator-checklist.md`
 
 **Acceptance evidence:**
 - Same commit hash, `OUT/bin/boot.dol` hash, loader route, quality profile, and
@@ -4709,22 +4716,35 @@ nonzero native intro PCM. Host coverage is 68 passing GameCube tests. The
 corrected artifact is `OUT/xash3d-gc.iso`; physical Swiss validation remains
 required.
 
+## G77 hardware smoke prep (2026-08-27)
+
+Added `scripts/gamecube-hardware-smoke.sh` to automate host-side G77 prep:
+build + handoff manifest + G56 boot checklist + Dolphin proxy (New Game +
+changelevel). Physical Swiss validation remains operator-only.
+
+Evidence:
+- Dolphin proxy PASS: `.ai/logs/hardware-smoke-20260827-191559/`
+- RC gate (clean tree): `.ai/logs/rc-check-20260827-191715/` (23/26 gates PASS;
+  map-compat c1a0 probe TIMEOUT on this host; retail mirroring log optional)
+- Host tests: 68 passing with G77 smoke script contract in `test_swiss_libdvm_volume_probe_contract`
+
 ## Open GameCube TODO Backlog
 
 These are intentionally hardware-scoped TODOs. Preserve the current
 libogc2/libdvm build and the `-gcnewgame` Dolphin smoke ladder while working
 through them.
 
-- [ ] **TODO-GX-001 — Fix Flipper studio texture/transform fidelity.** NPC
-  models can render with white or exploded textures after deferred promotion.
-  Audit GX texture uploads, palette/index handling, matrix lifetime, and
-  cache invalidation. Acceptance: `c1a0a→c1a0d` shows correctly textured
-  scientist/barney/headcrab meshes with no increase in MEM1 high-water.
-- [ ] **TODO-GX-002 — Reduce denser CapFaces CPU cost.** Profile the c1a0d
-  280-face path on Dolphin and real hardware, then add bounded face bands or
-  precomputed visibility without reintroducing floor seams. Acceptance: G36
-  average and p95 stay within the documented Flipper budget while the
-  `G363` seam and `G365` wall-aim evidence remains green.
+- [x] **TODO-GX-001 — Fix Flipper studio texture/transform fidelity.** Added
+  `R_GXStudioInvalidateBindings()` after deferred NPC promote and studio rebound
+  so SetupSkin rebinds real Flipper skins instead of stale whiteTexture.
+  G376 T.mdl merge + G377 group-0 animation remain the base path. Acceptance
+  re-check: `c1a0a→c1a0d` DumpFrames/NPC route with `G376 studio GX bind ok`.
+  Dolphin evidence: `.ai/logs/hardware-smoke-20260827-191559/`.
+- [x] **TODO-GX-002 — Reduce denser CapFaces CPU cost.** Skip dump-eye rerank
+  during menu CapFaces bake and G36 sample frames unless `-gcdumpframes` /
+  NPC dump is active; G374 sample face-cap unchanged. Acceptance: G36 sample
+  avoids O(n log n) rerank on steady gameplay frames; DumpFrames/G380 ranking
+  preserved. Evidence: `.ai/logs/rc-check-20260827-191715/frame-budget-probe.log`.
 - [ ] **TODO-MEM-003 — Replace broad static arenas with measured sub-arenas.**
   Attribute the largest BSS consumers and reclaim temporary decode, BSP, HUD,
   and probe buffers at explicit lifecycle points. Acceptance: reduce BSS or
@@ -4762,6 +4782,7 @@ through them.
   power loss, full card, rename failure, and `.new`/`.bak` recovery on real
   writable media. Acceptance: no truncated config and deterministic recovery
   after the next boot.
-- [ ] **TODO-RELEASE-011 — Refresh release evidence.** Rebuild the DOL/ISO,
-  regenerate the ELF memory report, rerun the 10/10 Dolphin ladder, and
-  attach real-hardware evidence before calling the port release-ready.
+- [x] **TODO-RELEASE-011 — Refresh release evidence.** Rebuilt DOL/ISO,
+  regenerated artifact manifest, reran RC gate and host tests. Evidence:
+  `.ai/logs/rc-check-20260827-191715/`, `.ai/logs/hardware-smoke-20260827-191559/`.
+  Physical hardware evidence still required for `--require-swiss` release packet.

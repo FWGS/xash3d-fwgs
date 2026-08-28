@@ -599,6 +599,7 @@ class GameCubeHostTests(unittest.TestCase):
 		sys_gc = (ROOT / "engine/platform/gamecube/sys_gamecube.c").read_text(encoding="utf-8")
 		storage_h = (ROOT / "engine/platform/gamecube/storage_gamecube.h").read_text(encoding="utf-8")
 		handoff = (ROOT / "scripts/gamecube-hardware-handoff.sh").read_text(encoding="utf-8")
+		smoke = (ROOT / "scripts/gamecube-hardware-smoke.sh").read_text(encoding="utf-8")
 		matrix = (ROOT / "docs/GAMECUBE_HARDWARE_MATRIX.md").read_text(encoding="utf-8")
 		launcher = (ROOT / "engine/common/launcher.c").read_text(encoding="utf-8")
 
@@ -612,6 +613,9 @@ class GameCubeHostTests(unittest.TestCase):
 		self.assertIn("carda:/", storage_h)
 		self.assertIn("SD2SP2", handoff)
 		self.assertIn("carda:/xash3d/valve/", handoff)
+		self.assertIn("G77 hardware smoke", smoke)
+		self.assertIn("Dolphin proxy", smoke)
+		self.assertIn("gamecube-hardware-handoff.sh", smoke)
 		self.assertIn("SD2SP2", matrix)
 		self.assertIn("STUBHAXX", launcher)
 
