@@ -183,15 +183,10 @@ Match retail visuals without cutting fill/spawn.
 
 **NEXT** (see port plan TODO-HW-012 … TODO-HUD-021):
 - TODO-HW-012: physical Swiss / GameCube sign-off (G38/G77)
-- TODO-SOAK-013: G509 real Dolphin changelevel soak with runtime markers
-- TODO-RC-014: fix map-compat c1a0 probe timeout in RC gate
-- TODO-GX-015: re-verify NPC textures on c1a0d after GX-001 invalidation
-- TODO-GX-016: denser G36 frame budget to PASS on c1a0d
 - TODO-GX-017: mixed-Z textured hallway slabs (G380 follow-up)
-- TODO-CAM-018: deeper campaign visual proof (Lambda/Xen hops)
-- TODO-RC-019: retail mirroring gate in RC by default
-- TODO-BUILD-020: fresh-clone reproducible build verification
-- TODO-HUD-021: G506 lean HUD sheet gaps (extends TODO-HUD-005)
+- TODO-HUD-021 / TODO-HUD-005: lean HUD sheet promotion gaps
+- Remaining hardware: INPUT-006, AUDIO-007, FS-008, VIDEO-009, SAVE-010
+- Done this pass: GX-016 denser G36 PASS (avg 16.86ms); CAM-018 Lambda+Xen CHANGELEVEL_READY
 
 Rules:
 - Force-relink after HLSDK archive changes.

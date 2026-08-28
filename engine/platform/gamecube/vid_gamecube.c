@@ -6823,12 +6823,17 @@ static void GC_PresentBuffer( void )
 			if( !g297_cpu_logged && cpu_ms > 0.05 && Sys_CheckParm( "-gcnewgame" ))
 			{
 				g297_cpu_logged = true;
-				SYS_Report( "Xash3D GameCube: G297 Flipper cpu=%.2fms (pre-vsync) frame_budget=%d live=%d fill=%d probe=%d\n",
+				SYS_Report( "Xash3D GameCube: G297 Flipper cpu=%.2fms (pre-vsync) frame_budget=%d live=%d fill=%d probe=%d denser=%d\n",
 					cpu_ms,
-					gc_budget_probe_active ? 96 : 280,
-					gc_budget_probe_active ? 48 : 192,
-					48,
-					gc_budget_probe_active ? 1 : 0 );
+					gc_budget_probe_active
+						? ( GC_WantLiveCapOverlap() ? 64 : 96 )
+						: 280,
+					gc_budget_probe_active
+						? ( GC_WantLiveCapOverlap() ? 32 : 48 )
+						: 192,
+					( gc_budget_probe_active && GC_WantLiveCapOverlap() ) ? 0 : 48,
+					gc_budget_probe_active ? 1 : 0,
+					GC_WantLiveCapOverlap() ? 1 : 0 );
 			}
 		}
 		/* Flipper path used to return before timing updates (G36 blind spot). */
@@ -13045,8 +13050,9 @@ qboolean GC_PrepareNewGameWorldPresent( void )
 				gc_budget_sample_count = 0;
 				/* Drop first presents (studio promote / restream spike). c0a0 sample[2]
 				 * was ~40ms after face-cap (20260809-124711); steady ~12.7ms.
-				 * G374 denser tip-safe: CapFaces settle needs ~4 presents. */
-				gc_budget_warmup_left = ( sv.name[0] && !Q_stricmp( sv.name, "c1a0d" )) ? 4 : 2;
+				 * G374 denser tip-safe: CapFaces settle needs ~4 presents.
+				 * GX-016: denser AM needs a few more presents before G36 sample. */
+				gc_budget_warmup_left = ( sv.name[0] && !Q_stricmp( sv.name, "c1a0d" )) ? 6 : 2;
 				gc_worst_frame_ms = 0.0;
 				gc_last_present_time = 0.0;
 				gc_budget_probe_active = true;

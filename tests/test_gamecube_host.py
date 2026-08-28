@@ -1107,6 +1107,13 @@ class GameCubeHostTests(unittest.TestCase):
 		npc_verify = (ROOT / "scripts/gamecube-npc-studio-verify.sh").read_text(encoding="utf-8")
 		self.assertIn("G376 studio GX bind ok", npc_verify)
 		self.assertIn("DOLPHIN_CHANGELEVEL2", npc_verify)
+		campaign = (ROOT / "scripts/gamecube-campaign-visual-proof.sh").read_text(encoding="utf-8")
+		self.assertIn("c3a2", campaign)
+		self.assertIn("c4a1", campaign)
+		self.assertIn("CAM018_VERIFY", campaign)
+		gx_world = (ROOT / "ref/gx/r_gx_world.c").read_text(encoding="utf-8")
+		self.assertIn("GC_GX_G36_DENSER_FACE_BUDGET", gx_world)
+		self.assertIn("GC_GX_G36_DENSER_LIVE_BUDGET", gx_world)
 
 	def test_runtime_regression_accepts_swiss_fat(self) -> None:
 		gate = load_script("runtime_regression", "scripts/gamecube-runtime-regression-gate.py")

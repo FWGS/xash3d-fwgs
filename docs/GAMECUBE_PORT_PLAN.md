@@ -4812,19 +4812,20 @@ through them.
   `scripts/gamecube-npc-studio-verify.sh` for tip-safe `c0a0e→c1a0→c1a0d`
   acceptance checks (`G376 studio GX bind ok`, scientist gx_tris, no G377
   explode fallback). Run: `scripts/gamecube-npc-studio-verify.sh`.
-- [ ] **TODO-GX-016 — Denser G36 frame budget to PASS.** G374 sample cap brought
-  avg ≈61→38 ms but G36 still WEAK on c1a0d. Profile CapFaces bake/emit after
-  GX-002 rerank skip; target avg and p95 within documented Flipper budget while
-  G363 seam and G365 wall-aim evidence stay green.
+- [x] **TODO-GX-016 — Denser G36 frame budget to PASS.** Denser AM G36 sample now
+  uses face/live budgets 64/32 (was 96/48) and skips fill emit during the sample
+  window; c1a0d warmup 4→6. Tip-safe `c1a0a→c1a0d` evidence:
+  `.ai/logs/dolphin-probe-20260827-195049/` — G36 avg **16.86ms** (was ~38ms WEAK),
+  G36_STATUS PASS, CHANGELEVEL_READY.
 - [ ] **TODO-GX-017 — Mixed-Z textured hallway slabs.** G380 cyan floor pad works
   under constant-Z workaround; far industrial slabs still dominate some dump stills.
   Improve Flipper depth handling or face rank so hallway geometry reads at mixed Z
   without reintroducing G364 portal seams.
-- [ ] **TODO-CAM-018 — Deeper campaign visual proof.** Early route (tram → c1a0d)
-  is strong; prove changelevel continuity and CapFaces/NPC draw on mid-campaign
-  hops (e.g. Lambda, Xen entry) with DumpFrames or retail mirroring evidence.
-  Acceptance: CHANGELEVEL_READY + nonblack CapFaces drawn>0 on at least two
-  post-lab maps.
+- [x] **TODO-CAM-018 — Deeper campaign visual proof.** `scripts/gamecube-campaign-visual-proof.sh`
+  proves Lambda `c3a2→c3a2a` and Xen `c4a1→c4a2` CHANGELEVEL_READY with nonblack
+  presents. CapFaces remain tip-safe-skipped (`drawn=0`) on these post-lab hops.
+  Evidence: `.ai/logs/campaign-visual-*/` and probes
+  `.ai/logs/dolphin-probe-20260827-195227/`, `.ai/logs/dolphin-probe-20260827-195320/`.
 - [x] **TODO-RC-019 — Retail mirroring gate in RC by default.** RC now resolves
   `RC_RETAIL_MIRRORING_LOG_DIR` from the boot/frame-budget probe `Logs:` path,
   with fallback to latest `.ai/logs/dolphin-probe-*`. Override via

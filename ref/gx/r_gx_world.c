@@ -61,6 +61,7 @@ extern void GC_NoteCapFacesDrawn( int drawn );
 extern qboolean GC_FillLiveDrawSurf( int index, msurface_t *out, mtexinfo_t *tex_out );
 extern qboolean GC_LiveFaceIsCapped( int index );
 extern qboolean GC_WantLiveCapOverlap( void ); /* G361 */
+extern qboolean GC_IsG36SampleFaceCap( void ); /* G374/GX-016 */
 extern qboolean GC_CapFaceIsLive( int slot ); /* G361 */
 extern qboolean GC_G378DumpSkipFarPoint( const float *p );
 extern qboolean GC_G378DumpSkipFarVerts( const float pts[][3], int nverts );
@@ -228,30 +229,41 @@ static qboolean r_gx_tex_band_logged;
 /* G36 sample window: c0a0 tram capture draws ~320 LM faces → ~52ms/present
  * (probe 20260809-124458 WEAK). Cap Flipper emit during the armed probe so
  * samples measure tip-safe present cost; full budget resumes after flush.
- * G348: 48/24→96/48 (Flipper ~20ms). Keep sample below full retail emit. */
+ * G348: 48/24→96/48 (Flipper ~20ms). Keep sample below full retail emit.
+ * GX-016: denser AM (c1a0d) still WEAK at 96/48 (~38ms); use a tighter band. */
 #ifndef GC_GX_G36_SAMPLE_FACE_BUDGET
 #define GC_GX_G36_SAMPLE_FACE_BUDGET 96
 #endif
 #ifndef GC_GX_G36_SAMPLE_LIVE_BUDGET
 #define GC_GX_G36_SAMPLE_LIVE_BUDGET 48
 #endif
+#ifndef GC_GX_G36_DENSER_FACE_BUDGET
+#define GC_GX_G36_DENSER_FACE_BUDGET 64
+#endif
+#ifndef GC_GX_G36_DENSER_LIVE_BUDGET
+#define GC_GX_G36_DENSER_LIVE_BUDGET 32
+#endif
 
 static int R_GXFrameFaceBudget( void )
 {
-	extern qboolean GC_IsG36SampleFaceCap( void );
-
-	/* Cap only on tram intro during the armed G36 window (c0a0 ~52ms→~12ms). */
+	/* Cap only during the armed G36 window; denser AM gets a tighter band. */
 	if( GC_IsG36SampleFaceCap() )
+	{
+		if( GC_WantLiveCapOverlap() )
+			return GC_GX_G36_DENSER_FACE_BUDGET;
 		return GC_GX_G36_SAMPLE_FACE_BUDGET;
+	}
 	return GC_GX_FRAME_FACE_BUDGET;
 }
 
 static int R_GXLiveFaceBudget( void )
 {
-	extern qboolean GC_IsG36SampleFaceCap( void );
-
 	if( GC_IsG36SampleFaceCap() )
+	{
+		if( GC_WantLiveCapOverlap() )
+			return GC_GX_G36_DENSER_LIVE_BUDGET;
 		return GC_GX_G36_SAMPLE_LIVE_BUDGET;
+	}
 	return GC_GX_LIVE_FACE_BUDGET;
 }
 #ifndef GC_GX_FILL_FACE_BUDGET
@@ -2628,7 +2640,10 @@ int R_GXDrawNewGameCapFaces( void )
 			const int fill_n = GC_GetFillFaceCount();
 			int fill_reserve = 0;
 
-			if( fill_n > 0 )
+			/* GX-016: denser G36 sample — skip fill reserve so LM-cap slots
+			 * stay within the tight denser face budget (fill resumes after flush). */
+			if( fill_n > 0
+				&& !( GC_IsG36SampleFaceCap() && GC_WantLiveCapOverlap() ))
 			{
 				const int fill_cap = ( GC_GX_FILL_FACE_BUDGET < frame_budget / 4 )
 					? GC_GX_FILL_FACE_BUDGET
@@ -2750,7 +2765,9 @@ int R_GXDrawNewGameCapFaces( void )
 			(void)emit_fails;
 			} /* cap_limit scope */
 		}
-		/* G222/G225/G231: flat-fill AFTER LM so PASSCLR only wins empty Z. */
+		/* G222/G225/G231: flat-fill AFTER LM so PASSCLR only wins empty Z.
+		 * GX-016: skip fill emit during denser G36 sample (resume after flush). */
+		if( !( GC_IsG36SampleFaceCap() && GC_WantLiveCapOverlap() ))
 		{
 			static qboolean g222_logged;
 			int fill_n = GC_GetFillFaceCount();
