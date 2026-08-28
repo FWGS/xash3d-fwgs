@@ -59,6 +59,8 @@ extern int Sys_CheckParm( const char *parm );
  * Two slots: gmorn plays while time VO is prefetched. */
 static file_t s_gc_intro_file[2];
 static qboolean s_gc_intro_file_busy[2];
+static file_t s_gc_bsp_file;
+static qboolean s_gc_bsp_file_busy;
 /* Kept for diagnostics; true while any intro static slot is busy. */
 qboolean g_gc_intro_file_busy;
 
@@ -77,6 +79,15 @@ void GC_IntroFileRelease( file_t *f )
 		}
 	}
 	g_gc_intro_file_busy = s_gc_intro_file_busy[0] || s_gc_intro_file_busy[1];
+}
+
+void GC_BspFileRelease( file_t *f )
+{
+	if( f == &s_gc_bsp_file )
+	{
+		s_gc_bsp_file_busy = false;
+		memset( f, 0, sizeof( *f ));
+	}
 }
 #endif
 
@@ -477,6 +488,14 @@ file_t *FS_SysOpen( const char *filepath, const char *mode )
 				break;
 			}
 		}
+		else if( !s_gc_bsp_file_busy && Q_stristr( filepath, "/maps/" ))
+		{
+			memset( &s_gc_bsp_file, 0, sizeof( s_gc_bsp_file ));
+			file = &s_gc_bsp_file;
+			s_gc_bsp_file_busy = true;
+			SetBits( file->flags, FILE_GC_BSP_STATIC );
+			Con_Reportf( "Xash3D GameCube: G278 FS_SysOpen BSP static fallback path=%s\n", filepath );
+		}
 	}
 #endif
 	if( !file )
@@ -516,6 +535,34 @@ FS_OpenHandle
 file_t *FS_OpenHandle( searchpath_t *searchpath, int handle, fs_offset_t offset, fs_offset_t len )
 {
 	file_t *file = (file_t *)Mem_Calloc( fs_mempool, sizeof( file_t ));
+
+#if XASH_GAMECUBE
+	/* ZIP/P filesystem subhandles are short-lived but still need a file_t.
+	 * During low-memory BSP startup the pool may be fragmented even when the
+	 * libc heap can satisfy this small allocation. */
+	if( !file && Sys_CheckParm( "-gcnewgame" ))
+	{
+		file = (file_t *)calloc( 1, sizeof( *file ));
+		if( file )
+		{
+			SetBits( file->flags, FILE_SYS_MALLOC );
+			Con_Reportf( "Xash3D GameCube: FS_OpenHandle malloc fallback offset=%lu len=%lu\n",
+				(unsigned long)offset, (unsigned long)len );
+		}
+		else if( !s_gc_bsp_file_busy )
+		{
+			memset( &s_gc_bsp_file, 0, sizeof( s_gc_bsp_file ));
+			file = &s_gc_bsp_file;
+			s_gc_bsp_file_busy = true;
+			SetBits( file->flags, FILE_GC_BSP_STATIC );
+			Con_Reportf( "Xash3D GameCube: G278 FS_OpenHandle BSP static fallback offset=%lu len=%lu\n",
+				(unsigned long)offset, (unsigned long)len );
+		}
+	}
+#endif
+
+	if( !file )
+		return NULL;
 
 #ifdef XASH_REDUCE_FD
 	file->backup_position = offset;

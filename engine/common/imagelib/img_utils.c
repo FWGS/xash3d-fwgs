@@ -1165,17 +1165,32 @@ byte *Image_ResampleInternal( const void *indata, int inwidth, int inheight, int
 	case PF_INDEXED_24:
 	case PF_INDEXED_32:
 		image.tempbuffer = (byte *)Mem_Realloc( host.imagepool, image.tempbuffer, outwidth * outheight );
+		if( !image.tempbuffer )
+		{
+			*resampled = false;
+			return NULL;
+		}
 		Image_Resample8Nolerp( indata, inwidth, inheight, image.tempbuffer, outwidth, outheight );
 		break;
 	case PF_RGB_24:
 	case PF_BGR_24:
 		image.tempbuffer = (byte *)Mem_Realloc( host.imagepool, image.tempbuffer, outwidth * outheight * 3 );
+		if( !image.tempbuffer )
+		{
+			*resampled = false;
+			return NULL;
+		}
 		if( quality ) Image_Resample24Lerp( indata, inwidth, inheight, image.tempbuffer, outwidth, outheight );
 		else Image_Resample24Nolerp( indata, inwidth, inheight, image.tempbuffer, outwidth, outheight );
 		break;
 	case PF_RGBA_32:
 	case PF_BGRA_32:
 		image.tempbuffer = (byte *)Mem_Realloc( host.imagepool, image.tempbuffer, outwidth * outheight * 4 );
+		if( !image.tempbuffer )
+		{
+			*resampled = false;
+			return NULL;
+		}
 		if( quality ) Image_Resample32Lerp( indata, inwidth, inheight, image.tempbuffer, outwidth, outheight );
 		else Image_Resample32Nolerp( indata, inwidth, inheight, image.tempbuffer, outwidth, outheight );
 		break;

@@ -104,6 +104,51 @@ typedef struct mempool_s
 static mempool_t *poolchain = NULL; // critical stuff
 static size_t poolcount = 0;
 
+#if XASH_GAMECUBE
+void GC_MemReportPoolPressure( const char *subsystem, size_t requested )
+{
+	static char last_subsystem[64];
+	static size_t last_total;
+	size_t total = Mem_TotalRealSize();
+	const char *name = subsystem ? subsystem : "unknown";
+	const mempool_t *top[3] = { NULL, NULL, NULL };
+	size_t i;
+
+	/* Repeated tiny entity-string failures can flood OSREPORT and become
+	 * measurable on a real console. Re-emit when pressure changes. */
+	if( !Q_stricmp( last_subsystem, name )
+		&& total >= last_total && total - last_total < 4096
+		&& last_total >= total && last_total - total < 4096 )
+		return;
+	Q_strncpy( last_subsystem, name, sizeof( last_subsystem ));
+	last_total = total;
+
+	for( i = 0; i < poolcount; i++ )
+	{
+		mempool_t *pool = &poolchain[i];
+		int slot;
+
+		for( slot = 0; slot < 3; slot++ )
+		{
+			if( !top[slot] || pool->realsize > top[slot]->realsize )
+			{
+				int shift;
+				for( shift = 2; shift > slot; shift-- )
+					top[shift] = top[shift - 1];
+				top[slot] = pool;
+				break;
+			}
+		}
+	}
+
+	Con_Reportf( "Xash3D GameCube: mem pools request=%s subsystem=%s top=%s:%s,%s:%s,%s:%s\n",
+		Q_memprint( requested ), subsystem ? subsystem : "unknown",
+		top[0] ? top[0]->name : "none", top[0] ? Q_memprint( top[0]->realsize ) : "0",
+		top[1] ? top[1]->name : "none", top[1] ? Q_memprint( top[1]->realsize ) : "0",
+		top[2] ? top[2]->name : "none", top[2] ? Q_memprint( top[2]->realsize ) : "0" );
+}
+#endif
+
 // a1ba: due to mempool being passed with the model through reused 32-bit field
 // which makes engine incompatible with 64-bit pointers I changed mempool type
 // from pointer to 32-bit handle, thankfully mempool structure is private
@@ -339,12 +384,26 @@ void *_Mem_Alloc( poolhandle_t poolptr, size_t size, qboolean clear, const char 
 				Q_memprint( size ), filename, fileline );
 			return NULL;
 		}
+		if( pool && !Q_stricmp( pool->name, "Server Strings" ))
+		{
+			Con_Reportf( "Xash3D GameCube: soft-fail server string alloc size=%s at %s:%i\n",
+				Q_memprint( size ), filename, fileline );
+			return NULL;
+		}
 		/* G331: GX texture alpha/mips under tip — r_image.c already
 		 * disables alpha / reduces mips on NULL. Fatal here aborted
 		 * c1a0d cold New Game after G330 BSS tip (probe 20260810-025713). */
 		if( pool && !Q_stricmp( pool->name, "ref_gx zone" ))
 		{
 			Con_Reportf( "Xash3D GameCube: soft-fail ref_gx zone alloc size=%s at %s:%i\n",
+				Q_memprint( size ), filename, fileline );
+			return NULL;
+		}
+		/* Entity key/value parsing has a bounded GameCube fallback slab. */
+		if( pool && !Q_stricmp( pool->name, "Zone Engine" )
+			&& filename && Q_stristr( filename, "sv_game.c" ))
+		{
+			Con_Reportf( "Xash3D GameCube: soft-fail entity string alloc size=%s at %s:%i\n",
 				Q_memprint( size ), filename, fileline );
 			return NULL;
 		}
@@ -486,6 +545,17 @@ void *_Mem_Realloc( poolhandle_t poolptr, void *data, size_t size, qboolean clea
 		if( mem == NULL )
 		{
 			Mem_ReportOOM( pool, size );
+#if XASH_GAMECUBE
+			/* Image resampling may need a transient contiguous block even after
+			 * the source image has been loaded.  Treat this like the alloc path:
+			 * a missing texture is recoverable during low-memory map startup. */
+			if( pool && !Q_stricmp( pool->name, "ImageLib Pool" ))
+			{
+				Con_Reportf( "Xash3D GameCube: soft-fail ImageLib realloc size=%s at %s:%i\n",
+					Q_memprint( size ), filename, fileline );
+				return NULL;
+			}
+#endif
 			Sys_Error( "%s: out of memory (alloc size %s at %s:%i)\n", __func__, Q_memprint( size ), filename, fileline );
 			return NULL;
 		}
@@ -530,6 +600,14 @@ void *_Mem_Realloc( poolhandle_t poolptr, void *data, size_t size, qboolean clea
 		if( mem == NULL )
 		{
 			Mem_ReportOOM( pool, size );
+#if XASH_GAMECUBE
+			if( pool && !Q_stricmp( pool->name, "ImageLib Pool" ))
+			{
+				Con_Reportf( "Xash3D GameCube: soft-fail ImageLib realloc size=%s at %s:%i\n",
+					Q_memprint( size ), filename, fileline );
+				return NULL;
+			}
+#endif
 			Sys_Error( "%s: out of memory (alloc size %s at %s:%i)\n", __func__, Q_memprint( size ), filename, fileline );
 			return NULL;
 		}

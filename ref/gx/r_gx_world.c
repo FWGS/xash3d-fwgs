@@ -203,15 +203,18 @@ static qboolean r_gx_sync_lean_logged;
 static qboolean r_gx_lm_atlas_logged;
 static qboolean r_gx_tex_band_logged;
 /* G186: Flipper world fill cull (extents dust + far-small). */
-/* G186/G199: lean cull — prior 3072/512/8192 left outdoor wall-aim at ~20 faces. */
+/* G186/G199/G383: keep the far band conservative, but do not make small
+ * distant walls pop out at the old 2048-unit cutoff. The emit budgets below
+ * remain hard limits, so this only improves coverage when unused face slots
+ * are available. */
 #ifndef GC_GX_MIN_FACE_AREA
 #define GC_GX_MIN_FACE_AREA 384	/* G297: was 256 — drop dust for 60Hz headroom */
 #endif
 #ifndef GC_GX_FAR_FACE_DIST
-#define GC_GX_FAR_FACE_DIST 2048.0f
+#define GC_GX_FAR_FACE_DIST 3072.0f
 #endif
 #ifndef GC_GX_FAR_MIN_AREA
-#define GC_GX_FAR_MIN_AREA 4096	/* keep medium walls when far */
+#define GC_GX_FAR_MIN_AREA 2048	/* preserve readable distant wall strips */
 #endif
 /* G280/G282/G297/G302/G348: Flipper per-frame emit. Caps + live PVS pool share FRAME.
  * G297 cut for headroom; unmasked G36 ~1ms so G302 restores live toward pool size.
@@ -1450,14 +1453,12 @@ static int R_GXEmitFlatFillVerts( float pts_in[][3], int nverts_in, u32 color )
 	else
 		r_gx_state_reuses++;
 
-	GX_Begin( GX_TRIANGLES, GX_VTXFMT0, (u16)(( nverts_in - 2 ) * 3 ));
-	for( i = 1; i < nverts_in - 1; i++ )
+	/* Convex BSP polygons can be emitted as a fan; avoid repeating the
+	 * anchor and edge vertices for every generated triangle. */
+	GX_Begin( GX_TRIANGLEFAN, GX_VTXFMT0, (u16)nverts_in );
+	for( i = 0; i < nverts_in; i++ )
 	{
-		GX_Position3f32( pts_in[0][0], pts_in[0][1], pts_in[0][2] );
-		GX_Color1u32( color );
 		GX_Position3f32( pts_in[i][0], pts_in[i][1], pts_in[i][2] );
-		GX_Color1u32( color );
-		GX_Position3f32( pts_in[i + 1][0], pts_in[i + 1][1], pts_in[i + 1][2] );
 		GX_Color1u32( color );
 	}
 	GX_End();
@@ -1721,21 +1722,16 @@ static int R_GXEmitFace( const msurface_t *surf, model_t *world, int slot )
 		else
 			r_gx_state_reuses++;
 
-		GX_Begin( GX_TRIANGLES, GX_VTXFMT0, (u16)(( nverts - 2 ) * 3 ));
-		for( i = 1; i < nverts - 1; i++ )
+		/* BSP faces are convex and already ordered around their perimeter.
+		 * A triangle fan sends each vertex once instead of repeating p0 and
+		 * the two edge vertices for every triangle. */
+		GX_Begin( GX_TRIANGLEFAN, GX_VTXFMT0, (u16)nverts );
+		for( i = 0; i < nverts; i++ )
 		{
-			GX_Position3f32( pts[0][0], pts[0][1], pts[0][2] );
-			GX_Color1u32( color );
-			GX_TexCoord2f32( sts[0][0], sts[0][1] );
-			GX_TexCoord2f32( lmst[0][0], lmst[0][1] );
 			GX_Position3f32( pts[i][0], pts[i][1], pts[i][2] );
 			GX_Color1u32( color );
 			GX_TexCoord2f32( sts[i][0], sts[i][1] );
 			GX_TexCoord2f32( lmst[i][0], lmst[i][1] );
-			GX_Position3f32( pts[i + 1][0], pts[i + 1][1], pts[i + 1][2] );
-			GX_Color1u32( color );
-			GX_TexCoord2f32( sts[i + 1][0], sts[i + 1][1] );
-			GX_TexCoord2f32( lmst[i + 1][0], lmst[i + 1][1] );
 		}
 		GX_End();
 		r_gx_tex_draws++;
@@ -1754,7 +1750,7 @@ static int R_GXEmitFace( const msurface_t *surf, model_t *world, int slot )
 				GX_SetTexCoordGen( GX_TEXCOORD0, GX_TG_MTX2x4, GX_TG_TEX0, GX_IDENTITY );
 				GX_SetTevOrder( GX_TEVSTAGE0, GX_TEXCOORD0, GX_TEXMAP0, GX_COLOR0A0 );
 				GX_SetTevOp( GX_TEVSTAGE0, GX_MODULATE );
-				GX_ClearVtxDesc();
+				GX_SetVtxDesc( GX_VA_TEX1, GX_NONE );
 				GX_SetVtxDesc( GX_VA_POS, GX_DIRECT );
 				GX_SetVtxDesc( GX_VA_CLR0, GX_DIRECT );
 				GX_SetVtxDesc( GX_VA_TEX0, GX_DIRECT );
@@ -1772,7 +1768,7 @@ static int R_GXEmitFace( const msurface_t *surf, model_t *world, int slot )
 			GX_SetTevOrder( GX_TEVSTAGE0, GX_TEXCOORD0, GX_TEXMAP0, GX_COLOR0A0 );
 			/* G202: REPLACE shows the diffuse sheet clearly. */
 			GX_SetTevOp( GX_TEVSTAGE0, GX_REPLACE );
-			GX_ClearVtxDesc();
+			GX_SetVtxDesc( GX_VA_TEX1, GX_NONE );
 			GX_SetVtxDesc( GX_VA_POS, GX_DIRECT );
 			GX_SetVtxDesc( GX_VA_CLR0, GX_DIRECT );
 			GX_SetVtxDesc( GX_VA_TEX0, GX_DIRECT );
@@ -1782,18 +1778,12 @@ static int R_GXEmitFace( const msurface_t *surf, model_t *world, int slot )
 		else
 			r_gx_state_reuses++;
 
-		GX_Begin( GX_TRIANGLES, GX_VTXFMT0, (u16)(( nverts - 2 ) * 3 ));
-		for( i = 1; i < nverts - 1; i++ )
+		GX_Begin( GX_TRIANGLEFAN, GX_VTXFMT0, (u16)nverts );
+		for( i = 0; i < nverts; i++ )
 		{
-			GX_Position3f32( pts[0][0], pts[0][1], pts[0][2] );
-			GX_Color1u32( color );
-			GX_TexCoord2f32( sts[0][0], sts[0][1] );
 			GX_Position3f32( pts[i][0], pts[i][1], pts[i][2] );
 			GX_Color1u32( color );
 			GX_TexCoord2f32( sts[i][0], sts[i][1] );
-			GX_Position3f32( pts[i + 1][0], pts[i + 1][1], pts[i + 1][2] );
-			GX_Color1u32( color );
-			GX_TexCoord2f32( sts[i + 1][0], sts[i + 1][1] );
 		}
 		GX_End();
 		r_gx_tex_draws++;
@@ -1806,7 +1796,8 @@ static int R_GXEmitFace( const msurface_t *surf, model_t *world, int slot )
 			GX_SetNumTevStages( 1 );
 			GX_SetTevOrder( GX_TEVSTAGE0, GX_TEXCOORDNULL, GX_TEXMAP_NULL, GX_COLOR0A0 );
 			GX_SetTevOp( GX_TEVSTAGE0, GX_PASSCLR );
-			GX_ClearVtxDesc();
+			GX_SetVtxDesc( GX_VA_TEX0, GX_NONE );
+			GX_SetVtxDesc( GX_VA_TEX1, GX_NONE );
 			GX_SetVtxDesc( GX_VA_POS, GX_DIRECT );
 			GX_SetVtxDesc( GX_VA_CLR0, GX_DIRECT );
 			r_gx_face_mode = GC_GX_FACE_MODE_FLAT;
@@ -1909,14 +1900,10 @@ static int R_GXEmitFace( const msurface_t *surf, model_t *world, int slot )
 		}
 		else
 		{
-			GX_Begin( GX_TRIANGLES, GX_VTXFMT0, (u16)(( nverts - 2 ) * 3 ));
-			for( i = 1; i < nverts - 1; i++ )
+			GX_Begin( GX_TRIANGLEFAN, GX_VTXFMT0, (u16)nverts );
+			for( i = 0; i < nverts; i++ )
 			{
-				GX_Position3f32( pts[0][0], pts[0][1], pts[0][2] );
-				GX_Color1u32( color );
 				GX_Position3f32( pts[i][0], pts[i][1], pts[i][2] );
-				GX_Color1u32( color );
-				GX_Position3f32( pts[i + 1][0], pts[i + 1][1], pts[i + 1][2] );
 				GX_Color1u32( color );
 			}
 			GX_End();
@@ -3471,6 +3458,46 @@ void R_GXStudioEmitTri(
 		x2, y2, z2, u2, v2, r_gx_studio_color );
 }
 
+void R_GXStudioEmitFanC( const gx_tri_vertex_t *verts, int count, qboolean strip )
+{
+	int i;
+
+	if( !verts || count < 3 || ( !r_gx_studio_active && !r_gx_effects_tri ))
+		return;
+	if( r_gx_studio_bound_tex == 0 )
+		R_GXStudioBindTexnum( (unsigned)tr.whiteTexture );
+	for( i = 0; i < count; i++ )
+	{
+		R_GXStudioNoteNdcVert( verts[i].x, verts[i].y, verts[i].z );
+		R_GXStudioNoteShade( verts[i].c );
+	}
+	GX_Begin( strip ? GX_TRIANGLESTRIP : GX_TRIANGLEFAN, GX_VTXFMT0, (u16)count );
+	for( i = 0; i < count; i++ )
+	{
+		GX_Position3f32( verts[i].x, verts[i].y, verts[i].z );
+		GX_Color1u32( verts[i].c );
+		GX_TexCoord2f32( verts[i].u, verts[i].v );
+		GX_TexCoord2f32( 0.0f, 0.0f );
+	}
+	GX_End();
+	if( r_gx_studio_active )
+		r_gx_studio_tris += count - 2;
+	else if( r_gx_effects_tri )
+		r_gx_effects_tris += count - 2;
+}
+
+void R_GXStudioEmitTrianglesC( const gx_tri_vertex_t *verts, int count )
+{
+	int i;
+	if( !verts || count < 3 || ( !r_gx_studio_active && !r_gx_effects_tri )) return;
+	if( r_gx_studio_bound_tex == 0 ) R_GXStudioBindTexnum( (unsigned)tr.whiteTexture );
+	for( i = 0; i < count; i++ ) { R_GXStudioNoteNdcVert( verts[i].x, verts[i].y, verts[i].z ); R_GXStudioNoteShade( verts[i].c ); }
+	GX_Begin( GX_TRIANGLES, GX_VTXFMT0, (u16)count );
+	for( i = 0; i < count; i++ ) { GX_Position3f32( verts[i].x, verts[i].y, verts[i].z ); GX_Color1u32( verts[i].c ); GX_TexCoord2f32( verts[i].u, verts[i].v ); GX_TexCoord2f32( 0.0f, 0.0f ); }
+	GX_End();
+	if( r_gx_studio_active ) r_gx_studio_tris += count / 3; else if( r_gx_effects_tri ) r_gx_effects_tris += count / 3;
+}
+
 /*
 =============
 R_GXStudioEmitLeanMarker
@@ -3806,7 +3833,8 @@ int R_GXDrawTramBaked( const float *origin, const float *angles )
 					GX_SetTevColorOp( GX_TEVSTAGE1, GX_TEV_ADD, GX_TB_ZERO, GX_CS_SCALE_2, GX_TRUE, GX_TEVPREV );
 					GX_SetTevAlphaIn( GX_TEVSTAGE1, GX_CA_ZERO, GX_CA_ZERO, GX_CA_ZERO, GX_CA_APREV );
 					GX_SetTevAlphaOp( GX_TEVSTAGE1, GX_TEV_ADD, GX_TB_ZERO, GX_CS_SCALE_1, GX_TRUE, GX_TEVPREV );
-					GX_ClearVtxDesc();
+					/* Tram faces alternate between lightmapped and diffuse runs;
+					 * invalidate only the descriptors that change. */
 					GX_SetVtxDesc( GX_VA_POS, GX_DIRECT );
 					GX_SetVtxDesc( GX_VA_CLR0, GX_DIRECT );
 					GX_SetVtxDesc( GX_VA_TEX0, GX_DIRECT );
@@ -3815,21 +3843,13 @@ int R_GXDrawTramBaked( const float *origin, const float *angles )
 					r_gx_face_mode = GC_GX_FACE_MODE_LIT;
 					r_gx_state_sets++;
 				}
-				GX_Begin( GX_TRIANGLES, GX_VTXFMT0, 6 );
-				for( v = 1; v < 3; v++ )
+				GX_Begin( GX_TRIANGLEFAN, GX_VTXFMT0, 4 );
+				for( v = 0; v < 4; v++ )
 				{
-					GX_Position3f32( pts[0][0], pts[0][1], pts[0][2] );
-					GX_Color1u32( 0xFFFFFFFFu );
-					GX_TexCoord2f32( sts[0][0], sts[0][1] );
-					GX_TexCoord2f32( lmst[0][0], lmst[0][1] );
 					GX_Position3f32( pts[v][0], pts[v][1], pts[v][2] );
 					GX_Color1u32( 0xFFFFFFFFu );
 					GX_TexCoord2f32( sts[v][0], sts[v][1] );
 					GX_TexCoord2f32( lmst[v][0], lmst[v][1] );
-					GX_Position3f32( pts[v + 1][0], pts[v + 1][1], pts[v + 1][2] );
-					GX_Color1u32( 0xFFFFFFFFu );
-					GX_TexCoord2f32( sts[v + 1][0], sts[v + 1][1] );
-					GX_TexCoord2f32( lmst[v + 1][0], lmst[v + 1][1] );
 				}
 				GX_End();
 				r_gx_tex_draws++;
@@ -3847,25 +3867,19 @@ int R_GXDrawTramBaked( const float *origin, const float *angles )
 					GX_SetNumTevStages( 1 );
 					GX_SetTevOrder( GX_TEVSTAGE0, GX_TEXCOORD0, GX_TEXMAP0, GX_COLORNULL );
 					GX_SetTevOp( GX_TEVSTAGE0, GX_REPLACE );
-					GX_ClearVtxDesc();
+					GX_SetVtxDesc( GX_VA_TEX1, GX_NONE );
 					GX_SetVtxDesc( GX_VA_POS, GX_DIRECT );
 					GX_SetVtxDesc( GX_VA_CLR0, GX_DIRECT );
 					GX_SetVtxDesc( GX_VA_TEX0, GX_DIRECT );
 					r_gx_face_mode = GC_GX_FACE_MODE_TEXTURED;
 					r_gx_state_sets++;
 				}
-				GX_Begin( GX_TRIANGLES, GX_VTXFMT0, 6 );
-				for( v = 1; v < 3; v++ )
+				GX_Begin( GX_TRIANGLEFAN, GX_VTXFMT0, 4 );
+				for( v = 0; v < 4; v++ )
 				{
-					GX_Position3f32( pts[0][0], pts[0][1], pts[0][2] );
-					GX_Color1u32( 0xFFFFFFFFu );
-					GX_TexCoord2f32( sts[0][0], sts[0][1] );
 					GX_Position3f32( pts[v][0], pts[v][1], pts[v][2] );
 					GX_Color1u32( 0xFFFFFFFFu );
 					GX_TexCoord2f32( sts[v][0], sts[v][1] );
-					GX_Position3f32( pts[v + 1][0], pts[v + 1][1], pts[v + 1][2] );
-					GX_Color1u32( 0xFFFFFFFFu );
-					GX_TexCoord2f32( sts[v + 1][0], sts[v + 1][1] );
 				}
 				GX_End();
 				r_gx_tex_draws++;
@@ -4088,6 +4102,14 @@ void R_GXStudioEmitTriC(
 	(void)x0; (void)y0; (void)z0; (void)u0; (void)v0; (void)c0;
 	(void)x1; (void)y1; (void)z1; (void)u1; (void)v1; (void)c1;
 	(void)x2; (void)y2; (void)z2; (void)u2; (void)v2; (void)c2;
+}
+void R_GXStudioEmitFanC( const gx_tri_vertex_t *verts, int count, qboolean strip )
+{
+	(void)verts; (void)count; (void)strip;
+}
+void R_GXStudioEmitTrianglesC( const gx_tri_vertex_t *verts, int count )
+{
+	(void)verts; (void)count;
 }
 
 #endif

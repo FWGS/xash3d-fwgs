@@ -16,6 +16,11 @@ Platform layer ported from Division-Zero-GX/xash3d-wii.
 #include <ogc/system.h>
 #include <ogc/dvd.h>
 #include <ogc/lwp_watchdog.h>
+#if defined(__has_include)
+# if __has_include(<ogc/timesupp.h>)
+#  include <ogc/timesupp.h>
+# endif
+#endif
 
 #include <fat.h>
 #include <iso9660.h>
@@ -51,9 +56,13 @@ static char gc_fat_write_root[16]; /* e.g. "sd:/" — preferred writable volume 
 static char gc_fat_base_root[16];  /* volume used for game data root */
 static qboolean gc_newsaveload_configured;
 static qboolean gc_configroundtrip_configured;
+#if !defined(XASH_GAMECUBE_LIBOGC2) || !XASH_GAMECUBE_LIBOGC2
 static DISC_INTERFACE gc_dvd_io;
+#endif
 
+#if !defined(XASH_GAMECUBE_LIBOGC2) || !XASH_GAMECUBE_LIBOGC2
 static bool GCube_DVDReadSectors( sec_t sector, sec_t count, void *buffer );
+#endif
 static qboolean GCube_MountDisc( void );
 static void GCube_LoadDiscBootOverrides( void );
 
@@ -64,10 +73,17 @@ static qboolean GCube_MountDisc( void )
 
 	SYS_Report( "Xash3D GameCube: DVD mount begin\n" );
 	DVD_Init();
+#if defined(XASH_GAMECUBE_LIBOGC2) && XASH_GAMECUBE_LIBOGC2
+	/* libogc2 exposes the DVD interface as a const-correct, pointer-aware
+	 * DISC_INTERFACE.  Its native implementation already handles the DMA
+	 * transfer safely, so do not copy or rewrite the callback table. */
+	if( !ISO9660_Mount( GC_DVD_DEVICE, (DISC_INTERFACE *)&__io_gcdvd ) )
+#else
 	gc_dvd_io = __io_gcdvd;
 	gc_dvd_io.readSectors = GCube_DVDReadSectors;
 
 	if( !ISO9660_Mount( GC_DVD_DEVICE, &gc_dvd_io ) )
+#endif
 	{
 		SYS_Report( "Xash3D GameCube: mounting DVD filesystem failed\n" );
 		gc_dvd_mounted = false;
@@ -79,6 +95,7 @@ static qboolean GCube_MountDisc( void )
 	return true;
 }
 
+#if !defined(XASH_GAMECUBE_LIBOGC2) || !XASH_GAMECUBE_LIBOGC2
 static bool GCube_DVDReadSectors( sec_t sector, sec_t count, void *buffer )
 {
 	u8 *output = buffer;
@@ -94,6 +111,7 @@ static bool GCube_DVDReadSectors( sec_t sector, sec_t count, void *buffer )
 	}
 	return true;
 }
+#endif
 #endif
 
 void Platform_ShellExecute( const char *path, const char *parms )
@@ -131,13 +149,13 @@ double Platform_DoubleTime( void )
 {
 #if XASH_GAMECUBE
 	static u64 start_ticks;
-	u64 now = SYS_Time();
+	u64 now = gettick();
 
 	if( start_ticks == 0 ) {
 		start_ticks = now;
 	}
 
-	double clock = (double)PPC_TIMER_CLOCK;
+	double clock = (double)(TB_TIMER_CLOCK * 1000);
 	if (clock <= 0.0) return 1.0;
 	else return (double)diff_ticks( start_ticks, now ) / clock;
 #else

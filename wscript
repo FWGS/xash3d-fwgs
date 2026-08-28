@@ -484,6 +484,8 @@ def configure(conf):
 
 	if conf.env.DEST_OS == 'gamecube':
 		conf.define('XASH_GAMECUBE', 1)
+		if os.environ.get('XASH_GAMECUBE_ENABLE_GCMAP_PROBES', '').lower() in ('1', 'yes', 'true', 'on'):
+			conf.define('XASH_GAMECUBE_ENABLE_GCMAP_PROBES', 1)
 		conf.check_cc(lib='m')
 	elif conf.env.DEST_OS == 'nswitch':
 		conf.check_cfg(package='solder', args='--cflags --libs', uselib_store='SOLDER')

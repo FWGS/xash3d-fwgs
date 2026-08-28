@@ -4693,3 +4693,75 @@ manual hardware validation with all artifacts generated and documented.
 - Next: Flipper studio texture/transform polish (white exploded NPCs);
   denser CapFaces CPU; optional G506/dump seams.
 
+## ISO apploader handoff fix (2026-08-17)
+
+The custom GameCube apploader previously published the FST address and size at
+`0x80000034`, `0x80000038`, and `0x8000003c`. The BS2 contract starts at
+`0x80000038`; the shifted values could leave a physical Swiss ISO boot at a
+black screen before the engine bootstrap marker. `scripts/gamecube-apploader.c`
+now writes the FST address at `0x80000038`, the size at `0x8000003c`, and the
+maximum size at `0x80000040`.
+
+Evidence: the rebuilt full ISO was launched directly in Dolphin with the Null
+video backend and reached `Xash3D GameCube: bootstrap`, DVD mount, engine
+subsystems ready, GX renderer initialization, intro GCVID frame 60/150, and
+nonzero native intro PCM. Host coverage is 68 passing GameCube tests. The
+corrected artifact is `OUT/xash3d-gc.iso`; physical Swiss validation remains
+required.
+
+## Open GameCube TODO Backlog
+
+These are intentionally hardware-scoped TODOs. Preserve the current
+libogc2/libdvm build and the `-gcnewgame` Dolphin smoke ladder while working
+through them.
+
+- [ ] **TODO-GX-001 — Fix Flipper studio texture/transform fidelity.** NPC
+  models can render with white or exploded textures after deferred promotion.
+  Audit GX texture uploads, palette/index handling, matrix lifetime, and
+  cache invalidation. Acceptance: `c1a0a→c1a0d` shows correctly textured
+  scientist/barney/headcrab meshes with no increase in MEM1 high-water.
+- [ ] **TODO-GX-002 — Reduce denser CapFaces CPU cost.** Profile the c1a0d
+  280-face path on Dolphin and real hardware, then add bounded face bands or
+  precomputed visibility without reintroducing floor seams. Acceptance: G36
+  average and p95 stay within the documented Flipper budget while the
+  `G363` seam and `G365` wall-aim evidence remains green.
+- [ ] **TODO-MEM-003 — Replace broad static arenas with measured sub-arenas.**
+  Attribute the largest BSS consumers and reclaim temporary decode, BSP, HUD,
+  and probe buffers at explicit lifecycle points. Acceptance: reduce BSS or
+  peak MEM1 without changing the 10/10 smoke ladder. Optimization pass
+  2026-08-16 found no safe cut: worst-case report is PASS with zero hard MEM1
+  failures, and the current 900-edict GameCube cap is already the compatibility
+  floor for the supported Half-Life route.
+- [x] **TODO-MEM-004 — Add allocation-pressure telemetry by pool.** Emit a
+  compact per-map summary for largest failed allocations, pool high-water,
+  and contiguous-tail availability. Acceptance: one log line identifies the
+  next actionable allocation failure on real hardware and Dolphin. Completed
+  with top-three pool reporting; Dolphin evidence:
+  `.ai/logs/dolphin-probe-20260815-231611/`.
+- [ ] **TODO-HUD-005 — Complete low-memory HUD promotion.** Make the deferred
+  HUD path load only the required 320px sheets first, then promote optional
+  sheets after the first stable frame. Acceptance: G172 HUD sheets, lean HUD
+  draw, and viewmodel markers pass without a post-present stall.
+- [ ] **TODO-INPUT-006 — Validate controller resilience.** Test disconnect,
+  reconnect, deadzone, trigger, WaveBird, and third-party controller paths.
+  Acceptance: input polling remains live and the game returns to gameplay
+  after reconnect without resetting the map or leaking MEM1.
+- [ ] **TODO-AUDIO-007 — Verify native audio on hardware.** Run the lean PCM,
+  SFX, voice, and pause/resume paths through ASND on a real GameCube. Keep
+  null-audio fallback for allocation or device failures. Acceptance: no
+  underrun/fatal and measurable nonzero PCM for the required audio fixtures.
+- [ ] **TODO-FS-008 — Complete Swiss storage matrix.** Validate libdvm on
+  SD2SP2, SD Gecko `carda:/`, and `cardb:/`, including read-only media,
+  missing directories, removal, and return-to-loader evidence. Acceptance:
+  config round-trip and evidence log pass on each supported route.
+- [ ] **TODO-VIDEO-009 — Validate NTSC/PAL video modes.** Exercise 480i and
+  PAL-safe startup, framebuffer allocation, aspect handling, and loader video
+  overrides. Acceptance: first nonblack frame and controller input pass for
+  each supported region without mode-specific allocations.
+- [ ] **TODO-SAVE-010 — Test interrupted save/config commits.** Exercise
+  power loss, full card, rename failure, and `.new`/`.bak` recovery on real
+  writable media. Acceptance: no truncated config and deterministic recovery
+  after the next boot.
+- [ ] **TODO-RELEASE-011 — Refresh release evidence.** Rebuild the DOL/ISO,
+  regenerate the ELF memory report, rerun the 10/10 Dolphin ladder, and
+  attach real-hardware evidence before calling the port release-ready.

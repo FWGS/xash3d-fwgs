@@ -446,6 +446,13 @@ void R_GXStudioEmitTriC(
 	float x0, float y0, float z0, float u0, float v0, unsigned c0,
 	float x1, float y1, float z1, float u1, float v1, unsigned c1,
 	float x2, float y2, float z2, float u2, float v2, unsigned c2 );
+typedef struct gx_tri_vertex_s
+{
+	float x, y, z, u, v;
+	unsigned c;
+} gx_tri_vertex_t;
+void R_GXStudioEmitFanC( const gx_tri_vertex_t *verts, int count, qboolean strip );
+void R_GXStudioEmitTrianglesC( const gx_tri_vertex_t *verts, int count );
 int R_GXDrawBrushModel( cl_entity_t *e );
 int R_GXDrawTramBaked( const float *origin, const float *angles );
 void R_GXHoldEfbForDump( int frames );
