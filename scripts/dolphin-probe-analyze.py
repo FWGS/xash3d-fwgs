@@ -12,6 +12,38 @@ from datetime import datetime, timezone
 from pathlib import Path
 from statistics import mean
 
+_WAIFULIB = Path(__file__).resolve().parent / "waifulib"
+if str(_WAIFULIB) not in sys.path:
+	sys.path.insert(0, str(_WAIFULIB))
+try:
+	from gamecube_storage import parse_fat_volume_status, parse_g508_status, parse_loader_status
+except ImportError:
+	def parse_fat_volume_status(text: str) -> dict:
+		return {"volumes": [], "preferred": None, "ok": False}
+
+	def parse_g508_status(text: str) -> dict:
+		return {"ready": False, "route": None}
+
+	def parse_loader_status(text: str) -> dict:
+		return {"swiss_return": False, "fat_shutdown": False}
+
+
+def load_evaluate_ladder():
+	"""Load G504 evaluate_ladder from scripts/gamecube-runtime-ladder.py."""
+	import importlib.util
+
+	path = Path(__file__).resolve().parent / "gamecube-runtime-ladder.py"
+	name = "gamecube_runtime_ladder"
+	if name in sys.modules:
+		return sys.modules[name].evaluate_ladder
+	spec = importlib.util.spec_from_file_location(name, path)
+	if spec is None or spec.loader is None:
+		raise RuntimeError(f"cannot load {path}")
+	module = importlib.util.module_from_spec(spec)
+	sys.modules[name] = module
+	spec.loader.exec_module(module)
+	return module.evaluate_ladder
+
 FRAME_TIME_RE = re.compile(r"frame time=([\d.]+)ms")
 GCMAP_RENDER_TIME_RE = re.compile(r"gcmap render time=([\d.]+)ms")
 MAP_LOADED_RE = re.compile(r"Xash3D GameCube: map loaded (\S+)")
@@ -43,6 +75,11 @@ PROBE_ACTION_MARKERS = (
 	"Xash3D GameCube: probe gameplay action attack",
 	"Xash3D GameCube: probe gameplay action jump",
 	"Xash3D GameCube: probe gameplay action use",
+)
+PRESENTATION_MARKERS = (
+	"Xash3D GameCube: G105 viewmodel draw",
+	"Xash3D GameCube: G161 soft dump viewmodel ready",
+	"Xash3D GameCube: G177 soft dump HUD composite",
 )
 MENU_ACTION_MARKERS = (
 	"Xash3D GameCube: probe menu action down",
@@ -200,6 +237,32 @@ def probe_action_status(text: str) -> tuple[str, str]:
 			summary += "," + ",".join(menu_destinations)
 		return "WEAK", summary
 	return "WAIT", "none"
+
+
+def presentation_status(text: str) -> tuple[str, str, dict]:
+	"""G506 HUD/viewmodel presentation markers (ordered, fail-closed)."""
+	missing: list[str] = []
+	position = 0
+	matched: list[str] = []
+	for marker in PRESENTATION_MARKERS:
+		found = text.find(marker, position)
+		if found < 0:
+			missing.append(marker)
+		else:
+			matched.append(marker)
+			position = found + len(marker)
+	report = {
+		"ok": not missing,
+		"matched": matched,
+		"missing": missing,
+		"required": list(PRESENTATION_MARKERS),
+	}
+	if not missing:
+		return "PASS", "G105,G161,G177", report
+	if matched:
+		short = ",".join(m.rsplit(": ", 1)[-1] for m in matched)
+		return "WEAK", f"{short}; missing={len(missing)}", report
+	return "UNSEEN", "none", report
 
 
 def visual_status(text: str) -> str:
@@ -364,6 +427,7 @@ def main() -> int:
 	)
 	g45_status, g45_note = classify_g45(text, map_loaded, input_active, guest_error)
 	action_status, action_note = probe_action_status(text)
+	presentation_label, presentation_note, presentation_report = presentation_status(text)
 	steady = [value for value in frame_times if value > 0.0] or frame_times
 	avg = mean(steady) if steady else 0.0
 	p95 = percentile(steady, 95.0) if steady else 0.0
@@ -399,7 +463,45 @@ def main() -> int:
 	)
 	print(f"G45_ACTION_STATUS: {action_status}")
 	print(f"G45_ACTION_SUMMARY: {action_note}")
+	print(f"G506_STATUS: {presentation_label}")
+	print(f"G506_SUMMARY: {presentation_note}")
 	print(f"VISUAL_STATUS: {visual}")
+
+	fat = parse_fat_volume_status(text)
+	g508 = parse_g508_status(text)
+	loader = parse_loader_status(text)
+	fat_vols = ",".join(fat.get("volumes") or []) or "none"
+	fat_pref = fat.get("preferred") or "none"
+	print(f"STORAGE_STATUS: {'PASS' if fat.get('ok') else 'NONE'} preferred={fat_pref} volumes={fat_vols}")
+	g508_label = "PASS" if g508.get("ready") else (
+		"FAIL" if g508.get("write_failed") or g508.get("read_failed") else "UNSEEN"
+	)
+	print(f"G508_STATUS: {g508_label} route={g508.get('route') or 'none'}")
+	loader_label = "PASS" if loader.get("swiss_return") else (
+		"PARTIAL" if loader.get("fat_shutdown") else "UNSEEN"
+	)
+	print(f"LOADER_STATUS: {loader_label}")
+
+	ladder = load_evaluate_ladder()(text)
+	ladder["source"] = str(log_dir)
+	ladder_path = log_dir / "ladder.json"
+	presentation_path = log_dir / "presentation.json"
+	try:
+		ladder_path.write_text(json.dumps(ladder, indent=2) + "\n", encoding="utf-8")
+		presentation_report["source"] = str(log_dir)
+		presentation_path.write_text(
+			json.dumps(presentation_report, indent=2) + "\n", encoding="utf-8"
+		)
+	except OSError:
+		pass
+	if ladder.get("ok"):
+		ladder_label = "PASS"
+	else:
+		ladder_label = f"FAIL first_missing={ladder.get('first_missing')}"
+	print(
+		f"LADDER_STATUS: {ladder_label} "
+		f"passed={ladder.get('passed_count', 0)}/{ladder.get('gate_count', 0)}"
+	)
 
 	probe_status = args.probe_status.lower()
 	if guest_error and probe_status in {"map_ready", "map_loaded_no_input", "engine_ready"}:
@@ -416,8 +518,10 @@ def main() -> int:
 	if args.update_state:
 		if harness_status == "retail_ready":
 			next_action = "Continue menu interaction or visual validation; G36 does not apply to retail menu boots."
-		elif g36_status == "PASS":
+		elif g36_status == "PASS" and presentation_label == "PASS":
 			next_action = "Continue G36 optimization with RC evidence and visual validation."
+		elif harness_status in {"map_ready", "newgame_ready"} and presentation_label != "PASS":
+			next_action = "Collect G105/G161/G177 viewmodel+HUD presentation markers for G506."
 		elif harness_status in {"map_ready", "newgame_ready"} and g36_status == "WEAK":
 			next_action = "Collect more frame samples or reduce steady-state CPU cost for G36."
 		elif guest_error:
@@ -428,6 +532,7 @@ def main() -> int:
 			f"Probe status={probe_status}. Failure={failure_label}. {g36_note}. "
 			f"G45={g45_status} ({g45_note}). "
 			f"G45_ACTION={action_status} ({action_note}). "
+			f"G506={presentation_label} ({presentation_note}). "
 			f"Captured {len(frame_times)} frame timing sample(s)."
 		)
 		write_harness_latest(

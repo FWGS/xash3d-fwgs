@@ -5113,6 +5113,9 @@ readiness matrix. They are ordered by dependency, not by cosmetic importance.
   files, build result, probe result, and keep/revert decision.
 - Acceptance: a clean worktree except harness state, a unique run manifest,
   and no candidate commit accepted without post-patch runtime evidence.
+- Progress 2026-08-05: `scripts/gamecube-experiment-manifest.py` records
+  branch/commit/tier/OGC stack/hypothesis/decision (host-safe; toolchain may
+  report UNAVAILABLE). Attach ladder JSON / probe logs when present.
 
 ### G502 [ ] Generate the measured memory report
 
@@ -5133,6 +5136,8 @@ readiness matrix. They are ordered by dependency, not by cosmetic importance.
   failures without allowing them to become runtime evidence.
 - Acceptance: deterministic host test command and a zero-failure result for
   the port harness tests.
+- Progress 2026-08-05: `SKIP_GAMECUBE_BUILD=1 scripts/ai-verify.sh` runs
+  `python3 -m unittest discover -s tests -p 'test_*.py'`.
 
 ### G504 [ ] Enforce the reduced runtime ladder
 
@@ -5142,6 +5147,8 @@ readiness matrix. They are ordered by dependency, not by cosmetic importance.
 - Stop at the first missing gate and attach the exact log to the run manifest.
 - Acceptance: G491 and all later runtime goals consume the same structured
   markers rather than broad success text.
+- Progress 2026-08-05: `scripts/gamecube-runtime-ladder.py` parses the ordered
+  gates and stops at `first_missing`; host fixtures cover partial/full/fail.
 
 ### G505 [ ] Resolve ABI and module-boundary risks
 

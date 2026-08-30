@@ -2,8 +2,8 @@
 """
 stage_sd_assets.py - Stage Half-Life assets to SD card for GameCube
 
-This script helps prepare assets for deployment to a GameCube SD card.
-It creates PK3 archives and validates asset structure.
+This script helps prepare assets for deployment to a GameCube SD card
+(or SD Gecko volume). It creates PK3 archives and validates asset structure.
 
 Usage:
     python3 stage_sd_assets.py <source_dir> <sd_card_path>
@@ -22,29 +22,35 @@ import sys
 import shutil
 from pathlib import Path
 
+_WAIFULIB = Path(__file__).resolve().parent / "waifulib"
+if str(_WAIFULIB) not in sys.path:
+	sys.path.insert(0, str(_WAIFULIB))
+try:
+	from gamecube_storage import format_layout_help
+except ImportError:
+	def format_layout_help(volume_root: str = "sd:/") -> str:
+		return f"{volume_root}xash3d/valve/"
+
 
 def print_usage():
-    """Print usage information."""
-    print("Usage: python3 stage_sd_assets.py <source_dir> <sd_card_path>")
-    print("")
-    print("Arguments:")
-    print("  source_dir    Path to Half-Life assets (e.g., /path/to/Half-Life)")
-    print("  sd_card_path  Path to SD card mount point (e.g., /media/user/SDCARD)")
-    print("")
-    print("Example:")
-    print("  python3 stage_sd_assets.py /home/tim/Desktop/xash3d-gc/Half-Life /media/user/SDCARD")
-    print("")
-    print("The script will:")
-    print("  1. Copy assets to sd:/xash3d/valve/")
-    print("  2. Create PK3 archives for efficient loading")
-    print("  3. Validate asset structure")
-    print("")
-    print("Required SD card layout:")
-    print("  sd:/apps/xash3d-gc/boot.dol")
-    print("  sd:/xash3d/valve/           (Half-Life assets)")
-    print("  sd:/xash3d/valve/save/      (for save games)")
-    print("  sd:/xash3d/valve/logs/      (for logs)")
-    print("  sd:/xash3d/valve/screenshots/ (for screenshots)")
+	"""Print usage information."""
+	print("Usage: python3 stage_sd_assets.py <source_dir> <sd_card_path>")
+	print("")
+	print("Arguments:")
+	print("  source_dir    Path to Half-Life assets (e.g., /path/to/Half-Life)")
+	print("  sd_card_path  Path to SD card mount point (e.g., /media/user/SDCARD)")
+	print("")
+	print("Example:")
+	print("  python3 stage_sd_assets.py /home/tim/Desktop/xash3d-gc/Half-Life /media/user/SDCARD")
+	print("")
+	print("The script will:")
+	print("  1. Copy assets to sd:/xash3d/valve/ (or carda:/ / cardb:/ on SD Gecko)")
+	print("  2. Create PK3 archives for efficient loading")
+	print("  3. Validate asset structure")
+	print("")
+	print(format_layout_help("sd:/"))
+	print("")
+	print("Also supported on Swiss/libdvm: carda:/ and cardb:/ (SD Gecko).")
 
 
 def create_pk3(source_dir: Path, output_dir: Path, dir_name: str) -> bool:
@@ -197,17 +203,14 @@ def stage_assets(source_dir: Path, sd_card_path: Path) -> bool:
     print(f"Target: {sd_card_path}")
     print(f"Assets copied to: {sd_card_path}/xash3d/valve/")
     print("")
-    print("SD card layout:")
-    print("  sd:/apps/xash3d-gc/boot.dol")
-    print("  sd:/xash3d/valve/")
-    print("  sd:/xash3d/valve/save/")
-    print("  sd:/xash3d/valve/logs/")
-    print("  sd:/xash3d/valve/screenshots/")
+    print("Swiss FAT layout (sd: SD2SP2; carda:/cardb: SD Gecko):")
+    for line in format_layout_help("sd:/").splitlines():
+        print(f"  {line}" if not line.startswith("==") else line)
     print("")
-    print("To deploy to GameCube:")
-    print("  1. Copy boot.dol to sd:/apps/xash3d-gc/boot.dol")
-    print("  2. Insert SD card into GameCube")
-    print("  3. Boot through Swiss loader or similar")
+    print("To deploy via Swiss:")
+    print("  1. Copy boot.dol onto media Swiss can browse")
+    print("  2. Place valve assets under sd:/xash3d/valve/ (or carda:/ / cardb:/)")
+    print("  3. Launch boot.dol from Swiss")
     print("")
     print("Asset staging complete!")
     

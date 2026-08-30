@@ -68,7 +68,7 @@ gamecube_export_dolphin_env
 : "${DOLPHIN_FRAME_SAMPLE_SEC:=8}"
 : "${DOLPHIN_HARNESS_GOAL:=G36}"
 : "${VLLM_USE_FLASHINFER_SAMPLER:=0}"
-: "${AI_DIRTY_COMMIT_EXCLUDE:=scripts/xash3d-gc-aider-gui.py:.ai/state/xash3d-gc-aider-gui-settings.json:.ai/state/autoport-heartbeat.json:.ai/state/autoport-runner.pid:.ai/state/autoport-watchdog.pid:.ai/state/experiment-latest.json:.ai/state/discovery-supervisor.json:.ai/state/discovery-hypotheses.json:.ai/state/automation-no-work.pid}"
+: "${AI_DIRTY_COMMIT_EXCLUDE:=scripts/xash3d-gc-aider-gui.py:.ai/state/xash3d-gc-aider-gui-settings.json:.ai/state/autoport-heartbeat.json:.ai/state/autoport-runner.pid:.ai/state/autoport-watchdog.pid:.ai/state/experiment-latest.json:.ai/state/g501-experiment-latest.json:.ai/state/discovery-supervisor.json:.ai/state/discovery-hypotheses.json:.ai/state/automation-no-work.pid}"
 : "${AI_GUI_COMMIT_PATHS:=scripts/xash3d-gc-aider-gui.py:scripts/xash3d-gc-aider-gui.sh}"
 : "${AI_GUI_COMMIT_SUBJECT:=chore: update GameCube porting GUI}"
 : "${AI_ENFORCE_EDITABLE_CONTEXT:=1}"

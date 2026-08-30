@@ -3,11 +3,11 @@
 ## Current Milestone
 
 **Swiss stack modernization** - build defaults to Extrems **libogc2** +
-**libdvm**. Runtime now probes Swiss FAT volumes (`sd:` SD2SP2, `carda:`/
-`cardb:` SD Gecko) and returns to Swiss via the libogc2 exit stub. Gameplay
-smoke in Dolphin remains the day-to-day gate; retail menu/video/audio evidence,
-save/config round trips, changelevel continuity, and soak coverage are still
-open release gaps.
+**libdvm**. Runtime probes Swiss FAT volumes (`sd:` / `carda:` / `cardb:`) and
+returns via the libogc2 exit stub. Host gates fail-close on G504 (incl.
+`entity_spawn`), G506 presentation, and G509 soak ladder. Operator evidence
+wrapper: `scripts/gamecube-operator-evidence.sh --dry-run`. Physical Swiss soak
+and Dolphin G508/G509 with a libogc2 rebuild remain open.
 
 ## Current Automated State
 

@@ -66,16 +66,76 @@ def main() -> int:
 	perf_samples = len(PERF_TELEMETRY_RE.findall(log_text))
 
 	failures: list[str] = []
-	require("state status is map_ready", "- Status: map_ready" in state, failures)
+	require("state status is map_ready", "- Status: map_ready" in state or
+		"- Status: newgame_ready" in state, failures)
 	require("G45 input passed", "G45=PASS" in state or "G45_STATUS: PASS" in combined, failures)
 	require("visual output is nonblack", "Visual: nonblack sampled" in state or
-		"VISUAL_STATUS: nonblack sampled" in combined, failures)
-	require("DVD mounted successfully", "Xash3D GameCube: DVD mount ready" in log_text, failures)
-	require("disc data path selected", "read-only fallback gcdisc:/xash3d" in log_text or
-		"GameCube data directory: gcdisc:/xash3d" in log_text, failures)
+		"VISUAL_STATUS: nonblack sampled" in combined or
+		"VISUAL_STATUS: world render nonblack" in combined, failures)
+
+	disc_ready = (
+		"Xash3D GameCube: DVD mount ready" in log_text
+		or "GameCube DVD filesystem mounted" in log_text
+	)
+	disc_data = (
+		"read-only fallback gcdisc:/xash3d" in log_text
+		or "GameCube data directory: gcdisc:/xash3d" in log_text
+	)
+	fat_ready = (
+		"FAT volume ready" in log_text
+		or "FAT preferred volume" in log_text
+		or "FAT mount ready" in log_text
+	)
+	swiss_volume = any(
+		token in log_text
+		for token in ("sd:/", "carda:/", "cardb:/")
+	)
+	require(
+		"media mount ready (DVD or Swiss FAT)",
+		disc_ready or fat_ready,
+		failures,
+	)
+	require(
+		"data path selected (gcdisc or Swiss FAT volume)",
+		disc_data or (fat_ready and swiss_volume),
+		failures,
+	)
+
+	# Prefer G504 ladder.json when analyze already ran.
+	ladder_path = log_dir / "ladder.json"
+	ladder_ok = False
+	if ladder_path.is_file():
+		try:
+			import json
+			ladder_ok = bool(json.loads(ladder_path.read_text(encoding="utf-8")).get("ok"))
+		except (OSError, ValueError):
+			ladder_ok = False
+	if "LADDER_STATUS: PASS" in combined:
+		ladder_ok = True
+	require("G504 runtime ladder passed", ladder_ok, failures)
+
+	presentation_path = log_dir / "presentation.json"
+	if presentation_path.is_file() or "G506_STATUS:" in combined:
+		presentation_ok = "G506_STATUS: PASS" in combined
+		if presentation_path.is_file():
+			try:
+				import json
+				presentation_ok = bool(
+					json.loads(presentation_path.read_text(encoding="utf-8")).get("ok")
+				) or presentation_ok
+			except (OSError, ValueError):
+				pass
+		require("G506 presentation markers passed", presentation_ok, failures)
+
 	require(f"{args.smoke_map} map loaded", f"Xash3D GameCube: map loaded {args.smoke_map}" in log_text or
 		f"MAP_READY: Xash3D loaded {args.smoke_map}" in combined, failures)
-	require("direct map reached ready marker", "Xash3D GameCube: direct map ready" in log_text, failures)
+	require(
+		"map reached ready marker",
+		"Xash3D GameCube: direct map ready" in log_text
+		or "Xash3D GameCube: MAP_READY" in log_text
+		or "MAP_READY:" in combined,
+		failures,
+	)
 	require("frame timing samples captured", "no frame timing samples captured" not in state and
 		re.search(r"frame time=([\d.]+)ms", log_text) is not None, failures)
 	require("memory telemetry captured", memory_samples > 0, failures)

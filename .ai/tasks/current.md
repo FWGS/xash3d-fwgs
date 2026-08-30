@@ -1,12 +1,10 @@
-Swiss/libogc2 runtime progress: multi-volume FAT + return-to-loader.
+Host-only G501/G504/G508 contracts (no toolchain).
 
-libdvm volumes probed (in order):
-- `sd:` SD2SP2
-- `carda:` / `cardb:` SD Gecko
+```sh
+python3 scripts/gamecube-runtime-ladder.py --fixture <probe-log-dir>
+python3 scripts/gamecube-experiment-manifest.py --hypothesis '...' --dry-run
+python3 -m unittest discover -s tests -p 'test_gamecube_host.py' -v
+```
 
-Markers:
-- `FAT volume ready sd:/|carda:/|cardb:/`
-- `FAT preferred volume …`
-- quit → Swiss via libogc2 `STUBHAXX` exit stub
-
-Rebuild on a libogc2 machine, then Swiss/Dolphin validation.
+Ladder stops at first missing gate. Manifest records tier + OGC stack.
+Probe-save path rules mirrored in `scripts/waifulib/gamecube_probe_save.py`.
