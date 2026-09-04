@@ -307,6 +307,15 @@ void Platform_EnableTextInput( qboolean enable, int x, int y, int w, int h );
 static inline void Platform_EnableTextInput( qboolean enable, int x, int y, int w, int h ) { }
 #endif
 
+// engine keynums are scancodes in SDL terminology
+// This asks the platform what character the user's keyboard layout puts on that physical key and returns it as an engine keynum,
+// or returns keynum unchanged when the layout produces nothing the engine has a keynum for
+#if XASH_SDL >= 2
+int Platform_TranslateKeyLayout( int keynum );
+#else
+static inline int Platform_TranslateKeyLayout( int keynum ) { return keynum; }
+#endif
+
 #if XASH_SDL >= 2
 int Platform_JoyInit( void ); // returns number of connected gamepads, negative if error
 void Platform_JoyShutdown( void );

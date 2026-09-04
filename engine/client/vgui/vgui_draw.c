@@ -56,6 +56,7 @@ static vgui_static_t vgui = {
 	false, -1
 };
 static CVAR_DEFINE_AUTO( vgui_utf8, "0", FCVAR_ARCHIVE, "enable utf-8 support for vgui text" );
+static CVAR_DEFINE_AUTO( vgui_key_layout, "1", FCVAR_ARCHIVE, "translate keys sent to vgui through the keyboard layout, like GoldSrc does, so text entries type what's on the keycap" );
 
 static void GAME_EXPORT VGUI_DrawInit( void )
 {
@@ -291,6 +292,7 @@ qboolean VGui_IsProvidedByClientDll( void )
 void VGui_RegisterCvars( void )
 {
 	Cvar_RegisterVariable( &vgui_utf8 );
+	Cvar_RegisterVariable( &vgui_key_layout );
 }
 
 static const vguiapi_t gEngfuncs =
@@ -583,6 +585,12 @@ void VGui_KeyEvent( int key, int down )
 
 	if( !vgui.dllFuncs.Key )
 		return;
+
+	// VGUI wants the character printed on the keycap, not the physical key position, so text entries work on non-QWERTY layouts
+	// in the future we might want to partially (at least we can control TextEntry and friends implementation now in freevgui)
+	// to handle this through SDL's text mode.
+	if( vgui_key_layout.value )
+		key = Platform_TranslateKeyLayout( key );
 
 	if(( code = VGUI_MapKey( key )) < 0 )
 		return;
