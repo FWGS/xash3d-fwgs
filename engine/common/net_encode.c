@@ -1418,7 +1418,7 @@ static void Delta_ReadField_( sizebuf_t *msg, delta_t *pField, void *to, double 
 	}
 	else if( pField->flags & DT_ANGLE )
 	{
-		flAngle = MSG_ReadBitAngle( msg, pField->bits );
+		flAngle = MSG_ReadUBitLong( msg, pField->bits ) * ( 360.0f / (float)( 1 << pField->bits ));
 		*(float *)((byte *)to + pField->offset ) = flAngle;
 	}
 	else if( pField->flags & DT_TIMEWINDOW_8 )
