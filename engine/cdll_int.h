@@ -113,6 +113,7 @@ typedef struct hud_player_info_s
 struct screenfade_s;
 struct tagPOINT;
 struct event_args_s;
+struct con_nprint_s;
 
 typedef struct cl_enginefuncs_s
 {
