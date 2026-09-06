@@ -44,6 +44,7 @@ typedef struct vgui_static_s
 	int bound_texture;
 	byte color[4];
 	qboolean enable_texture;
+	int paint_offset[2]; // in vgui coordinates, the renderer applies it to everything, including our own quads
 
 	HINSTANCE hInstance;
 
@@ -212,10 +213,10 @@ static void GAME_EXPORT VGUI_DrawQuad( const vpoint_t *ul, const vpoint_t *lr )
 	if( !ul || !lr )
 		return;
 
-	float x = ul->point[0];
-	float y = ul->point[1];
-	float w = lr->point[0] - x;
-	float h = lr->point[1] - y;
+	float x = ul->point[0] - vgui.paint_offset[0];
+	float y = ul->point[1] - vgui.paint_offset[1];
+	float w = lr->point[0] - ul->point[0];
+	float h = lr->point[1] - ul->point[1];
 
 	SPR_AdjustSize( &x, &y, &w, &h );
 
@@ -238,6 +239,16 @@ static void GAME_EXPORT VGUI_DrawQuad( const vpoint_t *ul, const vpoint_t *lr )
 static void GAME_EXPORT VGUI_EnableTexture( qboolean enable )
 {
 	vgui.enable_texture = enable;
+}
+
+static void GAME_EXPORT VGUI_SetPaintOffset( int x, int y )
+{
+	float fx = x, fy = y, fw = 0.0f, fh = 0.0f;
+
+	Vector2Set( vgui.paint_offset, x, y );
+
+	SPR_AdjustSize( &fx, &fy, &fw, &fh );
+	ref.dllFuncs.R_Set2DOffset( fx, fy );
 }
 
 static void GAME_EXPORT *VGUI_EngineMalloc( size_t size )
@@ -321,6 +332,15 @@ static const vguiapi_t gEngfuncs =
 	Platform_GetClipboardText,
 	Platform_SetClipboardText,
 	Platform_GetKeyModifiers,
+	NULL, // Startup
+	NULL, // Shutdown
+	NULL, // GetPanel
+	NULL, // Paint
+	NULL, // Mouse
+	NULL, // Key
+	NULL, // MouseMove
+	NULL, // TextInput
+	VGUI_SetPaintOffset,
 };
 
 qboolean VGui_LoadProgs( HINSTANCE hInstance )
@@ -617,6 +637,9 @@ void VGui_Paint( void )
 {
 	if( vgui.dllFuncs.Paint )
 		vgui.dllFuncs.Paint();
+
+	// don't trust the support library to leave it clean, everything drawn afterwards is in screen space
+	VGUI_SetPaintOffset( 0, 0 );
 }
 
 void VGui_UpdateInternalCursorState( VGUI_DefaultCursor cursorType )

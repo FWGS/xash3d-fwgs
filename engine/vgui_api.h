@@ -210,5 +210,8 @@ typedef struct  vguiapi_s
 	void	(*Key)( enum VGUI_KeyAction action, enum VGUI_KeyCode code );
 	void	(*MouseMove)( int x, int y );
 	void	(*TextInput)( const char *text );
+
+	// called from vgui_support, appended later so older support libraries keep working
+	void	(*SetPaintOffset)( int x, int y );	// translates 2D drawing for the everything that's not VGUI, used to simulate GoldSrc behavior which installs matrix in push/popMakeCurrent
 } vguiapi_t;
 #endif // VGUI_API_H
