@@ -291,10 +291,8 @@ def configure(conf):
 		conf.options.GL               = False
 		conf.options.LOW_MEMORY       = 1
 		enforce_pic = False
-	elif conf.env.DEST_OS == 'emscripten':
+	elif conf.env.MSVC_WINE:
 		conf.options.BUILD_BUNDLED_DEPS = True
-		conf.options.GLES3COMPAT      = True
-		conf.options.GL               = False
 
 	# psvita needs -fPIC set manually and static builds are incompatible with -fPIC
 	enforce_pic = conf.env.DEST_OS != 'psvita' and not conf.env.STATIC_LINKING
@@ -507,7 +505,11 @@ def configure(conf):
 		# Usually, they are always available
 		# but we need them in uselib
 		a = [ 'user32', 'shell32', 'gdi32', 'advapi32', 'dbghelp', 'psapi', 'ws2_32', 'bcrypt' ]
-		if conf.env.COMPILER_CC == 'msvc':
+		if conf.env.MSVC_WINE:
+			# no LIBPATH under msvc-wine, the wrapper resolves libraries itself
+			for i in a:
+				conf.env['LIB_' + i.upper()] = [i]
+		elif conf.env.COMPILER_CC == 'msvc':
 			for i in a:
 				conf.start_msg('Checking for MSVC library')
 				conf.check_lib_msvc(i)
