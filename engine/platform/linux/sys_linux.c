@@ -51,7 +51,7 @@ qboolean Platform_DebuggerPresent( void )
 		return 0;
 
 	char buf[4096];
-	ssize_t num_read = read( status_fd, buf, sizeof( buf ) );
+	ssize_t num_read = read( status_fd, buf, sizeof( buf ) - 1 );
 	close( status_fd );
 
 	if ( num_read > 0 )

@@ -165,6 +165,7 @@ void Sys_CloseLog( const char *finalmsg )
 	fputs( "================================================================================\n", s_ld.logfile );
 	fclose( s_ld.logfile );
 	s_ld.logfile = NULL;
+	s_ld.logfileno = -1;
 }
 
 static qboolean Sys_WriteEscapeSequenceForColorcode( int fd, int c )
