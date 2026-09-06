@@ -16,8 +16,21 @@ GNU General Public License for more details.
 #ifndef RENDER_API_H
 #define RENDER_API_H
 
-#include <stdint.h>
+#include <stdint.h> // intptr_t
+#include <stddef.h> // size_t
 #include "lightstyle.h"
+
+// this header only needs byte, vec3_t, qboolean and colorVec, all of which come
+// from const.h. don't pull in xash3d_types.h for them: it drags in build.h/port.h
+// and its link_t collides with the one in the HL SDK's const.h, which keeps mods
+// from including this header at all
+#ifndef ALLOC_CHECK
+	#if __GNUC__ >= 4 || defined( __clang__ )
+		#define ALLOC_CHECK( x ) __attribute__(( alloc_size( x )))
+	#else
+		#define ALLOC_CHECK( x )
+	#endif
+#endif // ALLOC_CHECK
 
 #define CL_RENDER_INTERFACE_VERSION	37	// Xash3D 1.0
 #define MAX_STUDIO_DECALS		4096	// + unused space of BSP decals
