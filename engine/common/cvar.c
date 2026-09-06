@@ -1062,7 +1062,7 @@ weren't declared in C code.
 */
 static void Cvar_Set_f( void )
 {
-	char	combined[MAX_CMD_TOKENS];
+	char	combined[MAX_STRING];
 	int	l = 0;
 
 	int c = Cmd_Argc();
@@ -1075,11 +1075,17 @@ static void Cvar_Set_f( void )
 
 	for( int i = 2; i < c; i++ )
 	{
-		int len = Q_strlen( Cmd_Argv(i) + 1 );
-		if( l + len >= MAX_CMD_TOKENS - 2 )
+		const char *arg = Cmd_Argv( i );
+
+		if( COM_StringEmpty( arg ))
+			continue;
+
+		int len = Q_strlen( arg ) + 1;
+		if( l + len >= sizeof( combined ))
 			break;
-		Q_strncat( combined, Cmd_Argv( i ), sizeof( combined ));
-		if( i != c-1 ) Q_strncat( combined, " ", sizeof( combined ));
+
+		Q_strncat( combined, arg, sizeof( combined ));
+		if( i != c - 1 ) Q_strncat( combined, " ", sizeof( combined ));
 		l += len;
 	}
 
