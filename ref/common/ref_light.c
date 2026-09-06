@@ -299,7 +299,7 @@ start:
 
 		const color24 *lm = surf->samples + Q_rint( dt ) * smax + Q_rint( ds );
 		const color24 *dm = NULL;
-		matrix3x4 tbn;
+		matrix3x4 tbn = { 0 };
 
 		if( surf->info->deluxemap )
 		{
