@@ -316,6 +316,7 @@ void R_ClearDecals( void );
 // gl_draw.c
 //
 void R_Set2DMode( qboolean enable );
+void R_Set2DOffset( float x, float y );
 void GL_UpdateTexture( int texnum, int cols, int rows, int width, int height, const byte *buffer, pixformat_t fmt );
 
 //
@@ -618,6 +619,7 @@ typedef struct
 
 	qboolean		stencilEnabled;
 	qboolean		in2DMode;
+	vec2_t		offset2D;
 
 	polyoffset_state_t polyoffset_state[2];
 	int num_polyoffsets;

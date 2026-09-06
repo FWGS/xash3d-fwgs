@@ -153,7 +153,7 @@ void GAME_EXPORT R_DrawStretchPic( float x, float y, float w, float h, float s1,
 		return;
 	if( w < 1.0f || h < 1.0f )
 		return;
-	R_DrawStretchPicImplementation( x, y, w, h, width * s1, height * t1, width * s2, height * t2, pic );
+	R_DrawStretchPicImplementation( x + vid.offset2d[0], y + vid.offset2d[1], w, h, width * s1, height * t1, width * s2, height * t2, pic );
 }
 
 void Draw_Fill( int x, int y, int w, int h )
@@ -236,4 +236,14 @@ void GAME_EXPORT R_Set2DMode( qboolean enable )
 		RI.currententity = NULL;
 		RI.currentmodel = NULL;
 	}
+}
+
+/*
+===============
+R_Set2DOffset
+===============
+*/
+void GAME_EXPORT R_Set2DOffset( float x, float y )
+{
+	Vector2Set( vid.offset2d, x, y );
 }

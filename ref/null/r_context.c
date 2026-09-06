@@ -131,6 +131,11 @@ static void R_SetupSky( int *skytextures )
 	;
 }
 
+static void R_Set2DOffset( float x, float y )
+{
+	;
+}
+
 static void R_DrawStretchPic( float x, float y, float w, float h, float s1, float t1, float s2, float t2, int texnum )
 {
 	;
@@ -357,6 +362,7 @@ static const ref_interface_t gReffuncs =
 	.R_SetupSky                 = R_SetupSky,
 
 	.R_Set2DMode      = R_SimpleStubBool,
+	.R_Set2DOffset    = R_Set2DOffset,
 	.R_DrawStretchPic = R_DrawStretchPic,
 	.FillRGBA         = FillRGBA,
 	.WorldToScreen    = WorldToScreen,

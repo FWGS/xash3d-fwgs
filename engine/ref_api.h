@@ -78,7 +78,9 @@ GNU General Public License for more details.
 //     <= 255 bytes, dropping per-allocation filename/fileline tracking.
 // 18. PARM_GET_{LIGHT,SCREEN,LINEAR}GAMMATABLE_PTR now point to uint16_t arrays instead of uint.
 //     Their entries never exceed 1023, so the narrowing is lossless.
-#define REF_API_VERSION 18
+// 19. Added R_Set2DOffset. Translates everything drawn in 2D mode, including TriAPI, by the given
+//     screen-space offset until it's changed again. Used to draw VGUI panels in their own coordinates.
+#define REF_API_VERSION 19
 
 #define TF_SKY		(TF_SKYSIDE|TF_NOMIPMAP|TF_ALLOW_NEAREST)
 #define TF_FONT		(TF_NOMIPMAP|TF_CLAMP|TF_ALLOW_NEAREST)
@@ -565,6 +567,7 @@ typedef struct ref_interface_s
 
 	// 2D
 	void (*R_Set2DMode)( qboolean enable );
+	void (*R_Set2DOffset)( float x, float y ); // in screen space, applies to every 2D draw including TriAPI
 	void (*R_DrawStretchPic)( float x, float y, float w, float h, float s1, float t1, float s2, float t2, int texnum );
 	void (*FillRGBA)( int rendermode, float x, float y, float w, float h, byte r, byte g, byte b, byte a ); // in screen space
 	int  (*WorldToScreen)( const vec3_t world, vec3_t screen );  // Returns 1 if it's z clipped

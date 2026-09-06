@@ -160,6 +160,7 @@ void R_Set2DMode( qboolean enable )
 		pglMatrixMode( GL_MODELVIEW );
 		matrix4x4 worldview_matrix;
 		Matrix4x4_LoadIdentity( worldview_matrix );
+		Matrix4x4_ConcatTranslate( worldview_matrix, glState.offset2D[0], glState.offset2D[1], 0.0f );
 		GL_LoadMatrix( worldview_matrix );
 
 		GL_Cull( GL_NONE );
@@ -197,4 +198,25 @@ void R_Set2DMode( qboolean enable )
 
 		GL_Cull( GL_FRONT );
 	}
+}
+
+/*
+===============
+R_Set2DOffset
+
+===============
+*/
+void R_Set2DOffset( float x, float y )
+{
+	Vector2Set( glState.offset2D, x, y );
+
+	if( !glState.in2DMode )
+		return;
+
+	matrix4x4 worldview_matrix;
+	Matrix4x4_LoadIdentity( worldview_matrix );
+	Matrix4x4_ConcatTranslate( worldview_matrix, x, y, 0.0f );
+
+	pglMatrixMode( GL_MODELVIEW );
+	GL_LoadMatrix( worldview_matrix );
 }

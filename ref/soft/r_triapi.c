@@ -220,6 +220,12 @@ TriVertex3f
 */
 void GAME_EXPORT TriVertex3f( float x, float y, float z )
 {
+	if( vid.is2d )
+	{
+		x += vid.offset2d[0];
+		y += vid.offset2d[1];
+	}
+
 	if( mode == TRI_TRIANGLES )
 	{
 		R_SetupFinalVert( &triv[vertcount], x, y, z, light << 8, s, t );

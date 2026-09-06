@@ -45,7 +45,7 @@ static void GAME_EXPORT CL_FillRGBA( int rendermode, float _x, float _y, float _
 {
 	vid.rendermode = rendermode;
 	_TriColor4ub( r, g, b, a );
-	Draw_Fill( _x, _y, _w, _h );
+	Draw_Fill( _x + vid.offset2d[0], _y + vid.offset2d[1], _w, _h );
 }
 
 static void Mod_BrushUnloadTextures( model_t *mod )
@@ -462,6 +462,7 @@ const ref_interface_t gReffuncs =
 	R_SetupSky,
 
 	R_Set2DMode,
+	R_Set2DOffset,
 	R_DrawStretchPic,
 	CL_FillRGBA,
 	R_WorldToScreen,
