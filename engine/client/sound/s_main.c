@@ -38,9 +38,9 @@ qboolean     snd_fade_sequence = false;
 // and good luck if you rely on shitty old msvc
 snd_globals_t snd =
 {
-	.channels         = (channel_t[MAX_CHANNELS]){},
+	.channels         = (channel_t[MAX_CHANNELS]){ 0 },
 	.max_channels     = MAX_CHANNELS,
-	.raw_channels     = (rawchan_t*[MAX_RAW_CHANNELS]){},
+	.raw_channels     = (rawchan_t*[MAX_RAW_CHANNELS]){ 0 },
 	.max_raw_channels = MAX_RAW_CHANNELS,
 };
 
