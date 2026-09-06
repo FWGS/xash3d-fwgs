@@ -2127,6 +2127,7 @@ static qboolean SV_Begin_f( sv_client_t *cl )
 	// now client is spawned
 	cl->state = cs_spawned;
 	cl->connecttime = host.realtime;
+	SetBits( cl->flags, FCL_HOLD_FIRST_DATAGRAM );
 
 	return true;
 }

@@ -805,6 +805,26 @@ static void SV_UpdateToReliableMessages( void )
 
 /*
 =======================
+SV_CanSendDatagram
+=======================
+*/
+static qboolean SV_CanSendDatagram( sv_client_t *cl )
+{
+	if( !FBitSet( cl->flags, FCL_HOLD_FIRST_DATAGRAM ))
+		return true;
+
+	// the game queues its HUD setup messages from the first pfnUpdateClientData call
+	// and the client starts drawing the HUD as soon as the first datagram arrives,
+	// so the first datagram has to carry the reliable stream along with it
+	if( cl->netchan.reliable_length || cl->netchan.fragbufs[FRAG_NORMAL_STREAM] || cl->netchan.waitlist[FRAG_NORMAL_STREAM] )
+		return false;
+
+	ClearBits( cl->flags, FCL_HOLD_FIRST_DATAGRAM );
+	return true;
+}
+
+/*
+=======================
 SV_SendClientMessages
 =======================
 */
@@ -885,7 +905,7 @@ void SV_SendClientMessages( void )
 			ClearBits( cl->flags, FCL_SEND_NET_MESSAGE );
 
 			// NOTE: we should send frame even if server is not simulated to prevent overflow
-			if( cl->state == cs_spawned )
+			if( cl->state == cs_spawned && SV_CanSendDatagram( cl ))
 				SV_SendClientDatagram( cl );
 			else Netchan_TransmitBits( &cl->netchan, 0, NULL ); // just update reliable
 		}

@@ -75,6 +75,7 @@ extern int SV_UPDATE_BACKUP;
 #define FCL_SEND_RESOURCES	BIT( 9 )
 #define FCL_FORCE_UNMODIFIED	BIT( 10 )
 #define FCL_EXPECT_RESOURCELIST	BIT( 11 )	// engine sent svc_resourcerequest, expect one clc_resourcelist in response
+#define FCL_HOLD_FIRST_DATAGRAM	BIT( 12 )	// don't send the first datagram until the reliable stream is idle
 
 typedef enum
 {
