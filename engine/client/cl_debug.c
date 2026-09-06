@@ -186,7 +186,7 @@ void CL_WriteMessageHistory( void )
 		thecmd++;
 	}
 
-	old = &cls_message_debug.oldcmd[thecmd];
+	old = &cls_message_debug.oldcmd[thecmd & MSG_MASK];
 	Con_Printf( S_RED "BAD: " S_DEFAULT "%i %04i %s\n", old->frame_number, old->starting_offset, CL_MsgInfo( old->command ));
 	CL_WriteErrorMessage( old->starting_offset, msg );
 	cls_message_debug.parsing = false;
