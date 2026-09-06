@@ -97,6 +97,8 @@ static void FS_FreeDirEntries( dir_t *dir )
 	{
 		for( int i = 0; i < dir->numentries; i++ )
 			FS_FreeDirEntries( &dir->entries[i] );
+
+		Mem_Free( dir->entries );
 		dir->entries = NULL;
 	}
 

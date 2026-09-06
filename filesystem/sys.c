@@ -462,6 +462,7 @@ file_t *FS_OpenHandle( searchpath_t *searchpath, int handle, fs_offset_t offset,
 
 	if( lseek( file->handle, offset, SEEK_SET ) == -1 )
 	{
+		close( file->handle );
 		Mem_Free( file );
 		return NULL;
 	}
