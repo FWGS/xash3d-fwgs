@@ -2442,15 +2442,14 @@ pfnIndexFromTrace
 */
 static int GAME_EXPORT pfnIndexFromTrace( struct pmtrace_s *pTrace )
 {
-#if 0 // Velaron: breaks compatibility with mods that call the function after CL_PopPMStates
-	if( pTrace->ent >= 0 && pTrace->ent < clgame.pmove->numphysent )
+	// Velaron: pTrace->ent < clgame.pmove->numphysent breaks compatibility with mods that call the function after CL_PopPMStates
+	if( pTrace->ent >= 0 && pTrace->ent < ARRAYSIZE( clgame.pmove->physents ))
 	{
 		// return cl.entities number
 		return clgame.pmove->physents[pTrace->ent].info;
 	}
+
 	return -1;
-#endif
-	return clgame.pmove->physents[pTrace->ent].info;
 }
 
 /*
