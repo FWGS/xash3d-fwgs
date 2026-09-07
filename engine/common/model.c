@@ -91,6 +91,10 @@ static void Mod_Modellist_f( void )
 static void Mod_UnloadRenderData( model_t *mod )
 {
 #if !XASH_DEDICATED
+	// loader failed before renderer got a chance to process this model
+	if( mod->type == mod_bad )
+		return;
+
 	switch( mod->type )
 	{
 	case mod_sprite:
