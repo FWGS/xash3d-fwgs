@@ -2039,10 +2039,12 @@ static void Mod_SetupHull( dbspmodel_t *bmod, model_t *mod, int headnode, int hu
 
 static qboolean Mod_LoadLitfile( model_t *mod, const char *ext, size_t expected_size, color24 **out, size_t *outsize )
 {
-	char        modelname[64], path[64];
+	char        basename[sizeof( mod->name )], path[sizeof( mod->name ) + 8];
 
-	COM_FileBase( mod->name, modelname, sizeof( modelname ));
-	Q_snprintf( path, sizeof( path ), "maps/%s.%s", modelname, ext );
+	// keep the directory part, so maps in subdirectories look up their lit files next to the bsp
+	Q_strncpy( basename, mod->name, sizeof( basename ));
+	COM_StripExtension( basename );
+	Q_snprintf( path, sizeof( path ), "%s.%s", basename, ext );
 
 	int iCompare;
 	if( !pfnCompareFileTime( path, mod->name, &iCompare ))
