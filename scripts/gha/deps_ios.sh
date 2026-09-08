@@ -10,4 +10,4 @@ sudo cp -vr Products/SDL2.xcframework/ios-arm64/SDL2.framework /Library/Framewor
 
 cd "$GITHUB_WORKSPACE" || exit 1
 
-git clone https://github.com/FWGS/hlsdk-portable hlsdk -b mobile_hacks --depth=1
+git clone --recursive https://github.com/FWGS/hlsdk-portable hlsdk -b mobile_hacks --depth=1
