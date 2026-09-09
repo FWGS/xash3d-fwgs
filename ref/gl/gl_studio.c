@@ -381,7 +381,7 @@ pfnGetPlayerState
 */
 static entity_state_t *R_StudioGetPlayerState( int index )
 {
-	if( !FBitSet( RI.rvp.flags, RF_DRAW_WORLD ))
+	if( !FBitSet( RI.rvp.flags, RF_DRAW_WORLD ) && RI.currententity )
 		return &RI.currententity->curstate;
 
 	return gEngfuncs.pfnGetPlayerState( index );
