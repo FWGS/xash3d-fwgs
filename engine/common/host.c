@@ -96,7 +96,8 @@ static const feature_message_t bugcomp_features[] =
 { BUGCOMP_PENTITYOFENTINDEX_FLAG, "pfnPEntityOfEntIndex bugfix revert", "peoei" },
 { BUGCOMP_MESSAGE_REWRITE_FACILITY_FLAG, "GoldSrc Message Rewrite Facility", "gsmrf" },
 { BUGCOMP_SPATIALIZE_SOUND_WITH_ATTN_NONE, "spatialize sounds with zero attenuation", "sp_attn_none" },
-{ BUGCOMP_GET_GAME_DIR_FULL_PATH, "Return full path in GET_GAME_DIR()", "get_game_dir_full" }
+{ BUGCOMP_GET_GAME_DIR_FULL_PATH, "Return full path in GET_GAME_DIR()", "get_game_dir_full" },
+{ BUGCOMP_SPAWNFLAG_NOT_DEATHMATCH, "Inhibit entities with \"Not in Deathmatch\" spawnflag", "sf_notdm" },
 };
 
 static const feature_message_t engine_features[] =

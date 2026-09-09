@@ -5082,6 +5082,13 @@ static void SV_LoadFromFile( const char *mapname, char *entities )
 			if( !SV_ParseEdict( &entities, ent ))
 				continue;
 
+			if( deathmatch.value && FBitSet( host.bugcomp, BUGCOMP_SPAWNFLAG_NOT_DEATHMATCH ) && FBitSet( ent->v.spawnflags, SF_NOT_DEATHMATCH ))
+			{
+				SV_FreeEdict( ent );
+				inhibited++;
+				continue;
+			}
+
 			if( svgame.dllFuncs.pfnSpawn( ent ) == -1 )
 			{
 				// game rejected the spawn
