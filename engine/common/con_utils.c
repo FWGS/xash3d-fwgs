@@ -417,7 +417,8 @@ static qboolean Cmd_GetConfigList( const char *s, char *completedname, int lengt
 	search_t *t = FS_Search( va( "%s*.cfg", s ), true, false );
 	if( !t ) return false;
 
-	COM_FileBase( t->filenames[0], matchbuf, sizeof( matchbuf ));
+	Q_strncpy( matchbuf, t->filenames[0], sizeof( matchbuf ));
+	COM_StripExtension( matchbuf );
 	if( completedname && length )
 		Q_strncpy( completedname, matchbuf, length );
 	if( t->numfilenames == 1 ) return true;
@@ -428,7 +429,8 @@ static qboolean Cmd_GetConfigList( const char *s, char *completedname, int lengt
 		if( Q_stricmp( COM_FileExtension( t->filenames[i] ), "cfg" ))
 			continue;
 
-		COM_FileBase( t->filenames[i], matchbuf, sizeof( matchbuf ));
+		Q_strncpy( matchbuf, t->filenames[i], sizeof( matchbuf ));
+		COM_StripExtension( matchbuf );
 		if( print_suggestions )
 			Con_Printf( "%16s\n", matchbuf );
 		numconfigs++;
