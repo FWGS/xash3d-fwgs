@@ -995,9 +995,6 @@ Normal keyboard characters, already shifted / capslocked / etc
 */
 void CL_CharEvent( int key )
 {
-	// the console key should never be used as a char
-	if( key == '`' || key == '~' ) return;
-
 	if( cls.key_dest == key_console && !Con_Visible( ))
 	{
 		if((char)key == '`' || (char)key == '?' )

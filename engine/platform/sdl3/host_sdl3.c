@@ -62,10 +62,15 @@ static void SDLash_KeyEvent( const SDL_KeyboardEvent *key )
 			return;
 		}
 
+		// the console key closes the console regardless of the layout, everywhere else it's a character
+		qboolean console_key = keynum == SDL_SCANCODE_GRAVE && cls.key_dest == key_console;
+
 		// ignore printable keys, they are coming through SDL_EVENT_TEXT_INPUT
-		if(( keynum >= SDL_SCANCODE_A && keynum <= SDL_SCANCODE_Z )
-			|| ( keynum >= SDL_SCANCODE_1 && keynum <= SDL_SCANCODE_0 )
-			|| ( keynum >= SDL_SCANCODE_KP_1 && keynum <= SDL_SCANCODE_KP_0 ))
+		// printable keys have keycode equal to their Unicode value, others have SDLK_SCANCODE_MASK set
+		if( !console_key && !FBitSet( key->key, SDLK_SCANCODE_MASK ) && !FBitSet( key->key, SDLK_EXTENDED_MASK ) && key->key >= 32 && key->key != 127 )
+			return;
+
+		if( keynum >= SDL_SCANCODE_KP_1 && keynum <= SDL_SCANCODE_KP_0 )
 			return;
 	}
 
