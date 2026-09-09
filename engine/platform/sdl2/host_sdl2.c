@@ -292,7 +292,7 @@ static void SDLash_EventHandler( SDL_Event *event )
 		break;
 
 	case SDL_QUIT:
-		Sys_Quit( "caught SDL_QUIT" );
+		CL_RequestQuit( "caught SDL_QUIT" );
 		break;
 	case SDL_MOUSEWHEEL:
 		IN_MWheelEvent( event->wheel.y );

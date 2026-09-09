@@ -256,7 +256,7 @@ static void SDLash_EventHandler( const SDL_Event *ev )
 	switch( ev->type )
 	{
 	case SDL_EVENT_QUIT:
-		Sys_Quit( "caught SDL_EVENT_QUIT" );
+		CL_RequestQuit( "caught SDL_EVENT_QUIT" );
 		break;
 	// TODO: use SDL_AddEventWatch
 	// case SDL_EVENT_TERMINATING:

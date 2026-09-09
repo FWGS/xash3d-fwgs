@@ -747,6 +747,7 @@ extern client_textmessage_t cl_textmessage[MAX_TEXTCHANNELS];
 // cl_cmds.c
 //
 void CL_Quit_f( void );
+void CL_RequestQuit( const char *reason );
 void CL_GenericShot_f( void );
 void CL_PlayCDTrack_f( void );
 void CL_LevelShot_f( void );

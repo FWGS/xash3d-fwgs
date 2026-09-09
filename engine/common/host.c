@@ -1155,7 +1155,7 @@ static void Host_FreeCommon( void )
 
 static void Sys_Quit_f( void )
 {
-	Sys_Quit( "command" );
+	Sys_Quit( Cmd_Argc() > 1 ? Cmd_Argv( 1 ) : "command" );
 }
 
 /*

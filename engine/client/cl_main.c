@@ -1116,7 +1116,27 @@ CL_Quit_f
 void CL_Quit_f( void )
 {
 	CL_Disconnect();
-	Sys_Quit( "command" );
+	Sys_Quit( Cmd_Argc() > 1 ? Cmd_Argv( 1 ) : "command" );
+}
+
+/*
+==================
+CL_RequestQuit
+
+Called when the OS asks the game to quit (window close button, Cmd+Q on macOS...)
+Show the quit confirmation dialog if the menu supports it, so the game can't be closed by an accidental key press, otherwise quit immediately
+==================
+*/
+void CL_RequestQuit( const char *reason )
+{
+	if( Cmd_Exists( "menu_quit" ))
+	{
+		Con_Reportf( "%s: quit requested (%s), passing to the menu\n", __func__, reason );
+		Cbuf_AddText( "menu_quit\n" );
+		return;
+	}
+
+	Sys_Quit( reason );
 }
 
 /*
