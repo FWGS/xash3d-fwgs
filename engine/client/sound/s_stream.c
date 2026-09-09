@@ -24,6 +24,8 @@ static struct
 	string    loopName; // may be empty
 	stream_t *stream;
 	int       source;   // may be game, menu, etc
+	double    fade_end; // when nonzero, the track is fading out and stops at this time
+	float     fade_time;
 } s_bgTrack;
 
 static struct
@@ -79,6 +81,9 @@ float S_GetMusicVolume( void )
 		scale = bound( 0.0f, musicfade.percent / 100.0f, 1.0f );
 		scale = 1.0f - scale;
 	}
+
+	if( s_bgTrack.fade_end != 0.0 )
+		scale *= bound( 0.0f, ( s_bgTrack.fade_end - host.realtime ) / s_bgTrack.fade_time, 1.0f );
 
 	return s_musicvolume.value * scale;
 }
@@ -144,6 +149,28 @@ void S_StopBackgroundTrack( void )
 
 /*
 =================
+S_FadeOutBackgroundTrack
+
+fade the music out during specified time, then stop it
+=================
+*/
+void S_FadeOutBackgroundTrack( float seconds )
+{
+	if( !s_bgTrack.stream )
+		return;
+
+	if( seconds <= 0.0f )
+	{
+		S_StopBackgroundTrack();
+		return;
+	}
+
+	s_bgTrack.fade_time = seconds;
+	s_bgTrack.fade_end = host.realtime + seconds;
+}
+
+/*
+=================
 S_StreamSetPause
 =================
 */
@@ -195,6 +222,12 @@ void S_StreamBackgroundTrack( void )
 
 	if( !snd.initialized || !s_bgTrack.stream || snd.streaming )
 		return;
+
+	if( s_bgTrack.fade_end != 0.0 && host.realtime >= s_bgTrack.fade_end )
+	{
+		S_StopBackgroundTrack();
+		return;
+	}
 
 	// don't bother playing anything if musicvolume is 0
 	if( !s_musicvolume.value || cl.paused || snd.stream_paused )

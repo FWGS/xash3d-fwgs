@@ -53,94 +53,157 @@ void CL_PlayVideo_f( void )
 }
 
 /*
+==============================================================================
+
+			CD AUDIO EMULATION
+
+==============================================================================
+*/
+static struct
+{
+	int      track;   // current track number, zero if not playing or playing a file
+	qboolean paused;
+	qboolean looped;
+	qboolean enabled;
+} cdaudio = { .enabled = true };
+
+static void CL_CDAudio_PlayTrack( int track, qboolean loop )
+{
+	track = bound( 1, track, MAX_CDTRACKS );
+
+	if( loop )
+	{
+		// a1ba: some maps contain cd track set in worldspawn
+		// forcibly stopping music on changelevel
+		//
+		// server notifies us about this in sv_client.c SV_PutClientInServer
+		// through "cd loop" command
+		//
+		// however, it could be set to a track that doesn't contain music data (in CD terms)
+		// so we catch it here and music will carry over changelevels
+		if( !COM_StringEmpty( clgame.cdtracks[track-1] ))
+			S_StartBackgroundTrack( clgame.cdtracks[track-1], clgame.cdtracks[track-1], 0, false );
+	}
+	else S_StartBackgroundTrack( clgame.cdtracks[track-1], NULL, 0, false );
+
+	cdaudio.track = track;
+	cdaudio.paused = false;
+	cdaudio.looped = loop;
+}
+
+static void CL_CDAudio_PlayFile( const char *name, qboolean loop )
+{
+	S_StartBackgroundTrack( name, loop ? name : NULL, 0, true );
+
+	cdaudio.track = 0;
+	cdaudio.paused = false;
+	cdaudio.looped = loop;
+}
+
+// original Xash3D accepts file names in place of track numbers
+static void CL_CDAudio_Play( const char *pszTrack, qboolean loop )
+{
+	if( Q_isdigit( pszTrack ))
+		CL_CDAudio_PlayTrack( Q_atoi( pszTrack ), loop );
+	else CL_CDAudio_PlayFile( pszTrack, loop );
+}
+
+static void CL_CDAudio_Stop( void )
+{
+	S_StopBackgroundTrack();
+
+	cdaudio.track = 0;
+	cdaudio.paused = false;
+	cdaudio.looped = false;
+}
+
+/*
 ===============
-CL_PlayCDTrack_f
+CL_CD_f
 
 Emulate audio-cd system
 ===============
 */
-void CL_PlayCDTrack_f( void )
+void CL_CD_f( void )
 {
-	static int	track = 0;
-	static qboolean	paused = false;
-	static qboolean	looped = false;
-	static qboolean	enabled = true;
-
 	if( Cmd_Argc() < 2 ) return;
-	const char	*command = Cmd_Argv( 1 );
-	const char	*pszTrack = Cmd_Argv( 2 );
+	const char *command = Cmd_Argv( 1 );
+	const char *pszTrack = Cmd_Argv( 2 );
 
-	if( !enabled && Q_stricmp( command, "on" ))
+	if( !Q_stricmp( command, "on" ))
+	{
+		cdaudio.enabled = true;
+		return;
+	}
+
+	if( !Q_stricmp( command, "reset" ))
+	{
+		cdaudio.enabled = true;
+		CL_CDAudio_Stop();
+		return;
+	}
+
+	if( !cdaudio.enabled )
 		return; // CD-player is disabled
 
-	if( !Q_stricmp( command, "play" ))
+	if( !Q_stricmp( command, "off" ))
 	{
-		if( Q_isdigit( pszTrack ))
-		{
-			track = bound( 1, Q_atoi( Cmd_Argv( 2 )), MAX_CDTRACKS );
-			S_StartBackgroundTrack( clgame.cdtracks[track-1], NULL, 0, false );
-		}
-		else S_StartBackgroundTrack( pszTrack, NULL, 0, true );
-		paused = false;
-		looped = false;
+		CL_CDAudio_Stop();
+		cdaudio.enabled = false;
 	}
-	else if( !Q_stricmp( command, "playfile" ))
+	else if( !Q_stricmp( command, "remap" ) || !Q_stricmp( command, "close" ))
 	{
-		S_StartBackgroundTrack( pszTrack, NULL, 0, true );
-		paused = false;
-		looped = false;
+		// no physical CD drive to remap tracks or close the tray
+	}
+	else if( !Q_stricmp( command, "eject" ))
+	{
+		CL_CDAudio_Stop();
+	}
+	else if( !Q_stricmp( command, "play" ))
+	{
+		CL_CDAudio_Play( pszTrack, false );
 	}
 	else if( !Q_stricmp( command, "loop" ))
 	{
-		if( Q_isdigit( pszTrack ))
-		{
-			track = bound( 1, Q_atoi( Cmd_Argv( 2 )), MAX_CDTRACKS );
-
-			// a1ba: some maps contain cd track set in worldspawn
-			// forcibly stopping music on changelevel
-			//
-			// server notifies us about this in sv_client.c SV_PutClientInServer
-			// through "cd loop" command
-			//
-			// however, it could be set to a track that doesn't contain music data (in CD terms)
-			// so we catch it here and music will carry over changelevels
-			if( !COM_StringEmpty( clgame.cdtracks[track-1] ))
-				S_StartBackgroundTrack( clgame.cdtracks[track-1], clgame.cdtracks[track-1], 0, false );
-		}
-		else S_StartBackgroundTrack( pszTrack, pszTrack, 0, true );
-		paused = false;
-		looped = true;
+		CL_CDAudio_Play( pszTrack, true );
+	}
+	else if( !Q_stricmp( command, "playfile" ))
+	{
+		CL_CDAudio_PlayFile( pszTrack, false );
 	}
 	else if( !Q_stricmp( command, "loopfile" ))
 	{
-		S_StartBackgroundTrack( pszTrack, pszTrack, 0, true );
-		paused = false;
-		looped = true;
+		CL_CDAudio_PlayFile( pszTrack, true );
+	}
+	else if( !Q_stricmp( command, "mp3track" ))
+	{
+		// zero-based track number, unlike "play" and "loop"
+		if( Cmd_Argc() > 2 )
+			CL_CDAudio_PlayTrack( Q_atoi( pszTrack ) + 1, false );
+	}
+	else if( !Q_stricmp( command, "stop" ))
+	{
+		CL_CDAudio_Stop();
+	}
+	else if( !Q_stricmp( command, "fadeout" ))
+	{
+		S_FadeOutBackgroundTrack( s_musicfadetime.value );
 	}
 	else if( !Q_stricmp( command, "pause" ))
 	{
 		S_StreamSetPause( true );
-		paused = true;
+		cdaudio.paused = true;
 	}
 	else if( !Q_stricmp( command, "resume" ))
 	{
 		S_StreamSetPause( false );
-		paused = false;
+		cdaudio.paused = false;
 	}
-	else if( !Q_stricmp( command, "stop" ))
+	else if( !Q_stricmp( command, "mp3info" ))
 	{
-		S_StopBackgroundTrack();
-		paused = false;
-		looped = false;
-		track = 0;
-	}
-	else if( !Q_stricmp( command, "on" ))
-	{
-		enabled = true;
-	}
-	else if( !Q_stricmp( command, "off" ))
-	{
-		enabled = false;
+		S_PrintBackgroundTrackState();
+		Con_Printf( "Current MP3 Track: %i\n", cdaudio.track );
+		Con_Printf( "Current MP3 Volume: %i\n", (int)( s_musicvolume.value * 127 ));
 	}
 	else if( !Q_stricmp( command, "info" ))
 	{
@@ -153,13 +216,51 @@ void CL_PlayCDTrack_f( void )
 		}
 
 		Con_Printf( "%u tracks\n", maxTrack );
-		if( track )
+		if( cdaudio.track )
 		{
-			if( paused ) Con_Printf( "Paused %s track %u\n", looped ? "looping" : "playing", track );
-			else Con_Printf( "Currently %s track %u\n", looped ? "looping" : "playing", track );
+			if( cdaudio.paused ) Con_Printf( "Paused %s track %u\n", cdaudio.looped ? "looping" : "playing", cdaudio.track );
+			else Con_Printf( "Currently %s track %u\n", cdaudio.looped ? "looping" : "playing", cdaudio.track );
 		}
 		Con_Printf( "Volume is %f\n", s_musicvolume.value );
-		return;
+	}
+	else Con_Printf( "%s: unknown command %s\n", Cmd_Argv( 0 ), command );
+}
+
+/*
+===============
+CL_MP3_f
+
+Play music files, shares the state with the audio-cd emulation
+===============
+*/
+void CL_MP3_f( void )
+{
+	if( Cmd_Argc() < 2 ) return;
+	const char *command = Cmd_Argv( 1 );
+	const char *pszTrack = Cmd_Argv( 2 );
+
+	if( !cdaudio.enabled )
+		return; // CD-player is disabled
+
+	if( !Q_stricmp( command, "play" ))
+	{
+		CL_CDAudio_Play( pszTrack, false );
+	}
+	else if( !Q_stricmp( command, "loop" ))
+	{
+		CL_CDAudio_Play( pszTrack, true );
+	}
+	else if( !Q_stricmp( command, "playfile" ))
+	{
+		CL_CDAudio_PlayFile( pszTrack, false );
+	}
+	else if( !Q_stricmp( command, "loopfile" ))
+	{
+		CL_CDAudio_PlayFile( pszTrack, true );
+	}
+	else if( !Q_stricmp( command, "stop" ))
+	{
+		CL_CDAudio_Stop();
 	}
 	else Con_Printf( "%s: unknown command %s\n", Cmd_Argv( 0 ), command );
 }

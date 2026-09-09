@@ -3771,9 +3771,9 @@ static void CL_InitLocal( void )
 	Cmd_AddRestrictedCommand( "localservers", CL_LocalServers_f, "collect info about local servers" );
 	Cmd_AddRestrictedCommand( "internetservers", CL_InternetServers_f, "collect info about internet servers" );
 	Cmd_AddRestrictedCommand( "ui_queryserver", CL_QueryServer_f, "query server info from console" );
-	Cmd_AddCommand ("cd", CL_PlayCDTrack_f, "Play cd-track (not real cd-player of course)" );
-	Cmd_AddCommand ("mp3", CL_PlayCDTrack_f, "Play mp3-track (based on virtual cd-player)" );
-	Cmd_AddCommand ("waveplaylen", CL_WavePlayLen_f, "Get approximate length of wave file");
+	Cmd_AddCommand( "cd", CL_CD_f, "Play cd-track (not real cd-player of course)" );
+	Cmd_AddCommand( "mp3", CL_MP3_f, "Play mp3-track (based on virtual cd-player)" );
+	Cmd_AddRestrictedCommand( "waveplaylen", CL_WavePlayLen_f, "Get approximate length of wave file" );
 
 	Cmd_AddRestrictedCommand ("setinfo", CL_SetInfo_f, "examine or change the userinfo string (alias of userinfo)" );
 	Cmd_AddRestrictedCommand ("userinfo", CL_SetInfo_f, "examine or change the userinfo string (alias of setinfo)" );
