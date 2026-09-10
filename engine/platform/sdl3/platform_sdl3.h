@@ -22,11 +22,19 @@ GNU General Public License for more details.
 #define Con_PrintSDLError( func ) \
 	Con_Printf( S_ERROR "%s: %s: %s\n", __func__, func, SDL_GetError( ));
 
+// window management
+void VID_SaveWindowSize( int width, int height );
+
 //
 // in_sdl3.c
 //
 void SDLash_InitCursors( void );
 void SDLash_FreeCursors( void );
+
+//
+// joy_sdl3.c
+//
+void SDLash_HandleGamepadEvent( const SDL_Event *ev );
 
 //
 // sensor_sdl3.c

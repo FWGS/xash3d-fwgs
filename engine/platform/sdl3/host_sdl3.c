@@ -48,6 +48,11 @@ static void SDLash_KeyEvent( const SDL_KeyboardEvent *key )
 {
 	int keynum = key->scancode;
 
+#if XASH_ANDROID
+	if( keynum == SDL_SCANCODE_VOLUMEUP || keynum == SDL_SCANCODE_VOLUMEDOWN )
+		host.force_draw_version_time = host.realtime + FORCE_DRAW_VERSION_TIME;
+#endif
+
 	if( SDL_TextInputActive( host.hWnd ) && key->down )
 	{
 		// this is how engine understands ctrl+c, ctrl+v and other hotkeys
@@ -253,6 +258,15 @@ static void SDLash_TouchEvent( const SDL_TouchFingerEvent *touch )
 
 static void SDLash_EventHandler( const SDL_Event *ev )
 {
+	if( ev->type >= SDL_EVENT_WINDOW_FIRST && ev->type <= SDL_EVENT_WINDOW_LAST )
+	{
+		if( ev->window.windowID != SDL_GetWindowID( host.hWnd ))
+			return;
+
+		if( host.status == HOST_SHUTDOWN || Host_IsDedicated( ))
+			return; // no need to activate
+	}
+
 	switch( ev->type )
 	{
 	case SDL_EVENT_QUIT:
@@ -268,16 +282,24 @@ static void SDLash_EventHandler( const SDL_Event *ev )
 		break;
 	case SDL_EVENT_WINDOW_MINIMIZED:
 		host.status = HOST_SLEEP;
+		Cvar_DirectSet( &vid_maximized, "0" );
 		break;
 	case SDL_EVENT_WINDOW_RESTORED:
 		host.status = HOST_FRAME;
 		host.force_draw_version_time = host.realtime + FORCE_DRAW_VERSION_TIME;
+		Cvar_DirectSet( &vid_maximized, "0" );
 		break;
 	case SDL_EVENT_WINDOW_FOCUS_GAINED:
 		SDLash_ActiveEvent( true );
 		break;
 	case SDL_EVENT_WINDOW_FOCUS_LOST:
 		SDLash_ActiveEvent( false );
+		break;
+	case SDL_EVENT_WINDOW_RESIZED:
+		VID_SaveWindowSize( ev->window.data1, ev->window.data2 );
+		break;
+	case SDL_EVENT_WINDOW_MAXIMIZED:
+		Cvar_DirectSet( &vid_maximized, "1" );
 		break;
 	case SDL_EVENT_KEY_DOWN:
 	case SDL_EVENT_KEY_UP:
@@ -306,7 +328,10 @@ static void SDLash_EventHandler( const SDL_Event *ev )
 	case SDL_EVENT_GAMEPAD_TOUCHPAD_MOTION:
 	case SDL_EVENT_GAMEPAD_TOUCHPAD_UP:
 	case SDL_EVENT_GAMEPAD_SENSOR_UPDATE:
-		// TODO:
+		SDLash_HandleGamepadEvent( ev );
+		break;
+	case SDL_EVENT_SENSOR_UPDATE:
+		SDLash_SensorUpdate( ev->sensor );
 		break;
 	case SDL_EVENT_FINGER_DOWN:
 	case SDL_EVENT_FINGER_UP:
@@ -324,7 +349,19 @@ void Platform_RunEvents( void )
 		SDLash_EventHandler( &ev );
 }
 
+/*
+========================
+Platform_PreCreateMove
+
+this should disable mouse look on client when m_ignore enabled
+TODO: kill mouse in win32 clients too
+========================
+*/
 void Platform_PreCreateMove( void )
 {
-	// TODO
+	if( m_ignore.value )
+	{
+		SDL_GetRelativeMouseState( NULL, NULL );
+		SDL_ShowCursor();
+	}
 }

@@ -24,6 +24,7 @@ so it can unlock and free the data block after it has been played.
 =======================================================================
 */
 static SDL_AudioStream *out_stream;
+static SDL_AudioStream *in_stream;
 static char sdl_backend_name[32];
 
 static void SDLash_OutputCallback( void *userdata, SDL_AudioStream *stream, int additional_amount, int len )
@@ -92,6 +93,7 @@ qboolean SNDDMA_Init( void )
 	SDL_SetHint( SDL_HINT_AUDIO_DRIVER, driver );
 #endif // XASH_WIN32
 
+	// reinitialize SDL with our driver just in case
 	if( SDL_WasInit( SDL_INIT_AUDIO ))
 		SDL_QuitSubSystem( SDL_INIT_AUDIO );
 
@@ -214,12 +216,52 @@ void SNDDMA_Activate( qboolean active )
 
 /*
 ===========
+SDLash_InputCallback
+===========
+*/
+static void SDLash_InputCallback( void *userdata, SDL_AudioStream *stream, int additional_amount, int total_amount )
+{
+	int size = Q_min( additional_amount, sizeof( voice.input_buffer ) - voice.input_buffer_pos );
+
+	// engine can't keep up, skip audio
+	if( !size )
+		return;
+
+	size = SDL_GetAudioStreamData( stream, voice.input_buffer + voice.input_buffer_pos, size );
+
+	if( size > 0 )
+		voice.input_buffer_pos += size;
+}
+
+/*
+===========
 VoiceCapture_Init
 ===========
 */
 qboolean VoiceCapture_Init( void )
 {
-	return false;
+	if( in_stream )
+	{
+		VoiceCapture_Shutdown();
+	}
+
+	const SDL_AudioSpec wanted = {
+		.freq = voice.samplerate,
+		.format = SDL_AUDIO_S16,
+		.channels = VOICE_PCM_CHANNELS,
+	};
+
+	in_stream = SDL_OpenAudioDeviceStream( SDL_AUDIO_DEVICE_DEFAULT_RECORDING, &wanted, SDLash_InputCallback, NULL );
+
+	if( !in_stream )
+	{
+		Con_Printf( "%s: error creating capture device (%s)\n", __func__, SDL_GetError() );
+		return false;
+	}
+
+	SDL_AudioDeviceID in_dev = SDL_GetAudioStreamDevice( in_stream );
+	Con_Printf( S_NOTE "%s: capture device creation success (%i: %s)\n", __func__, in_dev, SDL_GetAudioDeviceName( in_dev ));
+	return true;
 }
 
 /*
@@ -229,7 +271,15 @@ VoiceCapture_Activate
 */
 qboolean VoiceCapture_Activate( qboolean activate )
 {
-	return false;
+	if( !in_stream )
+		return false;
+
+	if( activate )
+		SDL_ResumeAudioStreamDevice( in_stream );
+	else
+		SDL_PauseAudioStreamDevice( in_stream );
+
+	return true;
 }
 
 /*
@@ -239,7 +289,13 @@ VoiceCapture_Lock
 */
 qboolean VoiceCapture_Lock( qboolean lock )
 {
-	return false;
+	if( !in_stream )
+		return false;
+
+	if( lock ) SDL_LockAudioStream( in_stream );
+	else SDL_UnlockAudioStream( in_stream );
+
+	return true;
 }
 
 /*
@@ -249,4 +305,9 @@ VoiceCapture_Shutdown
 */
 void VoiceCapture_Shutdown( void )
 {
+	if( !in_stream )
+		return;
+
+	SDL_DestroyAudioStream( in_stream );
+	in_stream = NULL;
 }
