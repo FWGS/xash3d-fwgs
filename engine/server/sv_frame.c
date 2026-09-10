@@ -978,6 +978,7 @@ void SV_InactivateClients( void )
 		}
 
 		COM_ClearCustomizationList( &cl->customdata, false );
+		ClearBits( cl->flags, FCL_SEND_RESOURCES );
 		memset( cl->physinfo, 0, sizeof( cl->physinfo ));
 
 		// NOTE: many mods sending messages that must be applied on a next level
