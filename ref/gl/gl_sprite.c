@@ -421,7 +421,23 @@ void R_DrawSpriteModel( cl_entity_t *e )
 		break;
 	case kRenderNormal:
 	default:
-		pglDisable( GL_BLEND );
+		// GoldSrc parity: in the normal render mode sprites draw according to
+		// their own texture format (Quake heritage) — additive sprites blend
+		// additively and indexalpha sprites alpha-blend
+		switch( psprite->texFormat )
+		{
+		case SPR_ADDITIVE:
+			pglEnable( GL_BLEND );
+			pglBlendFunc( GL_SRC_ALPHA, GL_ONE );
+			break;
+		case SPR_INDEXALPHA:
+			pglEnable( GL_BLEND );
+			pglBlendFunc( GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA );
+			break;
+		default:
+			pglDisable( GL_BLEND );
+			break;
+		}
 		break;
 	}
 
