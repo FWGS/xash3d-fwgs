@@ -2184,6 +2184,7 @@ static void GAME_EXPORT pfnCalcShake( void )
 			shake->time = 0;
 			shake->applied_angle = 0;
 			VectorClear( shake->applied_offset );
+			Mobile_StopVibration();
 		}
 
 		return;
@@ -2205,6 +2206,9 @@ static void GAME_EXPORT pfnCalcShake( void )
 	// get initial fraction and frequency values over the duration
 	float fraction = ((float)cl.time - shake->time ) / shake->duration;
 	float freq = fraction != 0.0f ? ( shake->frequency / fraction ) * shake->frequency : 0.0f;
+
+	// keep motors running slightly past the frame so they stop by themselves if the shake is never updated again
+	Mobile_ShakeVibrate( shake->amplitude * fraction * fraction, shake->frequency, 100.0f );
 
 	// quickly approach zero but apply time over sine wave
 	fraction *= fraction * sin( cl.time * freq );

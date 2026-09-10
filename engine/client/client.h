@@ -1206,6 +1206,8 @@ char **GAME_EXPORT CL_GetFilesList( const char *pattern, int *numFiles, int game
 //
 qboolean Mobile_Init( void );
 void Mobile_Shutdown( void );
+void Mobile_ShakeVibrate( float amplitude, float frequency, float time );
+void Mobile_StopVibration( void );
 
 //
 // cl_securedstub.c
