@@ -266,6 +266,8 @@ typedef struct
 	resource_t	resourcesneeded;
 	resource_t	resourcelist[MAX_RESOURCES];
 	int		num_resources;
+	int		num_sent_resources;
+	byte		sent_resources_hash[16];
 
 	short		sound_index[MAX_SOUNDS];
 	short		decal_index[MAX_DECALS];

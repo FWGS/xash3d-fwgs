@@ -292,6 +292,9 @@ static void CL_UpdateLogo( void )
 			Con_Printf( "Unable to create custom decal\n" );
 	}
 
+	if( cl.num_resources == cl.num_sent_resources && !memcmp( cl.sent_resources_hash, cl.resourcelist[0].rgucMD5_hash, sizeof( cl.sent_resources_hash )))
+		return;
+
 	CL_SendResourceList( cl.resourcelist, cl.num_resources );
 }
 

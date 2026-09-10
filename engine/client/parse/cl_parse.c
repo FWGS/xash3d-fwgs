@@ -705,6 +705,10 @@ void CL_SendResourceList( const resource_t *list, int count )
 
 	Netchan_CreateFragments( &cls.netchan, &sbuf );
 	Netchan_FragSend( &cls.netchan );
+
+	cl.num_sent_resources = count;
+	if( count > 0 )
+		memcpy( cl.sent_resources_hash, list[0].rgucMD5_hash, sizeof( cl.sent_resources_hash ));
 }
 
 static void CL_ParseResourceRequest( sizebuf_t *msg )
@@ -962,6 +966,7 @@ static void CL_ParseServerData( sizebuf_t *msg, connprotocol_t proto )
 	for( i = 0; i < MAX_CLIENTS; i++ )
 		COM_ClearCustomizationList( &cl.players[i].customdata, true );
 	CL_CreateCustomizationList();
+	cl.num_sent_resources = 0;
 
 	// request resources from server
 	if( proto == PROTO_GOLDSRC )
