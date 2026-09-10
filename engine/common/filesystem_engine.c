@@ -280,20 +280,29 @@ static qboolean FS_DetermineRootDirectory( char *out, size_t size )
 	Sys_Error( "couldn't find %s data directory", XASH_ENGINE_NAME );
 	return false;
 #elif ( XASH_SDL >= 2 ) && !XASH_NSWITCH // GetBasePath not impl'd in switch-sdl2
+	// SDL2 hands the base path over to us, SDL3 keeps ownership and frees it on quit
+	qboolean owned = XASH_SDL == 2;
+
 	path = SDL_GetBasePath();
 
 #if XASH_APPLE
 	if( path != NULL && Q_stristr( path, ".app" ))
 	{
-		SDL_free((void *)path );
+		if( owned )
+			SDL_free((void *)path );
+
+		// the pref path is ours to free in both versions
 		path = SDL_GetPrefPath( NULL, XASH_ENGINE_NAME );
+		owned = true;
 	}
 #endif
 
 	if( path != NULL )
 	{
 		Q_strncpy( out, path, size );
-		SDL_free((void *)path );
+
+		if( owned )
+			SDL_free((void *)path );
 		return true;
 	}
 
