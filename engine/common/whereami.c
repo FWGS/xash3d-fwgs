@@ -12,7 +12,7 @@
 extern "C" {
 #endif
 
-#if defined(__linux__) || defined(__CYGWIN__)
+#if defined(__linux__) || defined(__CYGWIN__) || defined(__HAIKU__)
 #undef _DEFAULT_SOURCE
 #define _DEFAULT_SOURCE
 #elif defined(__APPLE__)
@@ -175,7 +175,7 @@ int WAI_PREFIX(getModulePath)(char* out, int capacity, int* dirname_length)
   return length;
 }
 
-#elif defined(__linux__) || defined(__CYGWIN__) || defined(__sun) || defined(__serenity__) || defined(__gnu_hurd__) || defined(WAI_USE_PROC_SELF_EXE)
+#elif defined(__linux__) || defined(__CYGWIN__) || defined(__sun) || defined(__serenity__) || defined(__gnu_hurd__) || defined(WAI_USE_PROC_SELF_EXE) || defined(__HAIKU__)
 
 #include <stdio.h>
 #include <stdlib.h>
