@@ -148,8 +148,9 @@ static void Host_PrintUsage( const char *exename )
 	O("-minidumps         ", "enable writing minidumps when game is crashed")
 #endif
 	O("-rodir <path>      ", "set read-only base directory")
-	O("-bugcomp [opts]    ", "enable precise bug compatibility")
+	O("-bugcomp <opts>    ", "enable precise bug compatibility")
 	O("                   ", "will break games that don't require it")
+	O("                   ", "run with no argument to list the known flags")
 	O("                   ", "refer to engine documentation for more info")
 	O("-language <lang>   ", "mount localization game directory")
 	O("-disablehelp       ", "disable this message")
@@ -833,15 +834,11 @@ static uint32_t Host_CheckBugcomp( void )
 	if( !Sys_CheckParm( "-bugcomp" ))
 		return 0;
 
-	if( Sys_GetParmFromCmdLine( "-bugcomp", args ) && isalpha((byte)args[0] ))
-	{
-		Q_splitstr( args, '+', &flags, Host_CheckBugcomp_splitstr_handler );
-	}
-	else
-	{
-		// no argument specified -bugcomp just enables everything
-		flags = -1;
-	}
+	// without an argument -bugcomp only prints the list of known flags, see Host_InitCommon
+	if( !Sys_GetParmFromCmdLine( "-bugcomp", args ) || !isalpha((byte)args[0] ))
+		return 0;
+
+	Q_splitstr( args, '+', &flags, Host_CheckBugcomp_splitstr_handler );
 
 	Host_PrintFeatures( flags, "BUGCOMP", bugcomp_features, ARRAYSIZE( bugcomp_features ));
 
@@ -1019,8 +1016,11 @@ static void Host_InitCommon( int argc, char **argv, const char *progname, qboole
 		if( Sys_CheckParm( "-help" ) || Sys_CheckParm( "-h" ) || Sys_CheckParm( "--help" ))
 			Host_PrintUsage( exename );
 
-		if( Sys_GetParmFromCmdLine( "-bugcomp", arg ) && !Q_stricmp( arg, "help" ))
-			Host_PrintBugcompUsage( exename );
+		if( Sys_CheckParm( "-bugcomp" ))
+		{
+			if( !Sys_GetParmFromCmdLine( "-bugcomp", arg ) || !isalpha((byte)arg[0] ) || !Q_stricmp( arg, "help" ))
+				Host_PrintBugcompUsage( exename );
+		}
 	}
 
 	host.change_game = bChangeGame || Sys_CheckParm( "-changegame" );
