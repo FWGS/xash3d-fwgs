@@ -279,6 +279,9 @@ typedef enum bugcomp_e
 
 	// don't spawn entities with "Not in Deathmatch" spawnflag in deathmatch, like in GoldSrc
 	BUGCOMP_SPAWNFLAG_NOT_DEATHMATCH = BIT( 4 ),
+
+	// keep platform text input enabled during gameplay, for mods that read text events on their own
+	BUGCOMP_ALWAYS_ENABLE_TEXT_INPUT = BIT( 5 ),
 } bugcomp_t;
 
 typedef struct host_parm_s

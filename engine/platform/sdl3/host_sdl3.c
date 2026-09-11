@@ -53,7 +53,7 @@ static void SDLash_KeyEvent( const SDL_KeyboardEvent *key )
 		host.force_draw_version_time = host.realtime + FORCE_DRAW_VERSION_TIME;
 #endif
 
-	if( SDL_TextInputActive( host.hWnd ) && key->down )
+	if( host.textmode && key->down )
 	{
 		// this is how engine understands ctrl+c, ctrl+v and other hotkeys
 		if( cls.key_dest != key_game && FBitSet( SDL_GetModState( ), SDL_KMOD_CTRL ))
