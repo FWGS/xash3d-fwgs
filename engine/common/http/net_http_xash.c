@@ -124,13 +124,6 @@ static int HTTP_FileDecompress( httpfile_t *file );
 static httpserver_t *HTTP_ParseURL( const char *url_, qboolean full_path );
 static qboolean HTTP_FileRedirect( httpfile_t *file, const char *location );
 
-static const char *HTTP_DownloadPath( char *buf, size_t buflen, const char *path, qboolean incomplete )
-{
-	Q_snprintf( buf, buflen, "../%s" DEFAULT_DOWNLOADED_DIRECTORY_SUFFIX "/%s%s",
-		GI->gamefolder, path, incomplete ? ".incomplete" : "" );
-	return buf;
-}
-
 /*
 ==============
 HTTP_FreeFile
@@ -196,7 +189,7 @@ static void HTTP_FreeFile( httpfile_t *file, qboolean error )
 		return;
 	}
 
-	HTTP_DownloadPath( incname, sizeof( incname ), file->path, true );
+	COM_DownloadCachePath( incname, sizeof( incname ), file->path, true );
 
 	if( error )
 	{
@@ -242,7 +235,7 @@ static void HTTP_FreeFile( httpfile_t *file, qboolean error )
 		{
 			// Success, rename and process file
 			char name[MAX_SYSPATH];
-			HTTP_DownloadPath( name, sizeof( name ), file->path, false );
+			COM_DownloadCachePath( name, sizeof( name ), file->path, false );
 			FS_AllowDirectPaths( true );
 			FS_Rename( incname, name );
 			FS_AllowDirectPaths( false );
@@ -605,7 +598,7 @@ static int HTTP_FileDecompress( httpfile_t *file )
 	byte *data_in = Mem_Malloc( http_mempool, compressed_len + 1 );
 	byte *data_out = Mem_Malloc( http_mempool, decompressed_len + 1 );
 
-	HTTP_DownloadPath( name, sizeof( name ), file->path, false );
+	COM_DownloadCachePath( name, sizeof( name ), file->path, false );
 
 	z_stream decompress_stream =
 	{
@@ -762,9 +755,12 @@ static int HTTP_FileSaveReceivedData( httpfile_t *file, int pos, int length )
 				{
 					fs_offset_t filelen = FS_FileLength( file->file );
 
-					if( filelen != file->reported_size )
+					// the chunked terminator is what says the transfer is complete
+					// the size the server reported in the resource list is only good for catching a short file:
+					// it's sent as a signed 24-bit value (see SV_SendResource) so anything above 8 MiB arrives wrapped, and console downloads don't report a size at all
+					if( file->reported_size > 0 && filelen < file->reported_size )
 					{
-						Con_Printf( S_ERROR "downloaded file %s size doesn't match reported size. Got %ld bytes, expected %d bytes\n", file->path, (long)filelen, file->reported_size );
+						Con_Printf( S_ERROR "downloaded file %s is shorter than reported size. Got %ld bytes, expected %d bytes\n", file->path, (long)filelen, file->reported_size );
 						HTTP_FreeFile( file, true );
 					}
 					else
@@ -1018,7 +1014,7 @@ static int HTTP_FileProcessStream( httpfile_t *curfile )
 				{
 					char name[MAX_SYSPATH];
 
-					HTTP_DownloadPath( name, sizeof( name ), curfile->path, true );
+					COM_DownloadCachePath( name, sizeof( name ), curfile->path, true );
 
 					FS_AllowDirectPaths( true );
 					curfile->file = FS_Open( name, "wb+", true );

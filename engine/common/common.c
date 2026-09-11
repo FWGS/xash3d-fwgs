@@ -541,6 +541,20 @@ int GAME_EXPORT COM_FileSize( const char *filename )
 }
 
 /*
+=============
+COM_DownloadCachePath
+
+files received from the server go into a separate directory, which the game directory
+intentionally overrides, so a server can't replace the game's own files
+=============
+*/
+const char *COM_DownloadCachePath( char *buf, size_t size, const char *path, qboolean incomplete )
+{
+	Q_snprintf( buf, size, "../%s" DEFAULT_DOWNLOADED_DIRECTORY_SUFFIX "/%s%s", GI->gamefolder, path, incomplete ? ".incomplete" : "" );
+	return buf;
+}
+
+/*
 ==================
 COM_Nibble
 

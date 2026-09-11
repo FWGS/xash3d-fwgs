@@ -1252,19 +1252,11 @@ qboolean Netchan_CopyFileFragments( netchan_t *chan, sizebuf_t *msg )
 	if( filename[0] != '!' )
 	{
 		string write_path;
-		Q_snprintf( write_path, sizeof( write_path ), "../%s" DEFAULT_DOWNLOADED_DIRECTORY_SUFFIX "/%s", GI->gamefolder, filename );
+
+		// GoldSrc refuses to overwrite anything, but we keep the downloaded files in a separate directory and the game directory overrides anyway,
+		// so replacing a file we downloaded before is safe and is the only way to repair one
+		COM_DownloadCachePath( write_path, sizeof( write_path ), filename, false );
 		Q_strncpy( filename, write_path, sizeof( filename ));
-
-		FS_AllowDirectPaths( true );
-		qboolean exists = FS_FileExists( filename, false );
-		FS_AllowDirectPaths( false );
-
-		if( exists )
-		{
-			Con_Printf( S_ERROR "can't download %s, already exists\n", filename );
-			Netchan_FlushIncoming( chan, FRAG_FILE_STREAM );
-			return true;
-		}
 	}
 
 	// create file from buffers
