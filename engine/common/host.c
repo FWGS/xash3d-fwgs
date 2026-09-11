@@ -639,7 +639,8 @@ static qboolean Host_FilterTime( double time )
 
 	// NOTE: allow only in singleplayer while demos are not active
 	if( host_framerate.value > 0.0f && Host_IsSinglePlayerGame() && !CL_IsPlaybackDemo() && !CL_IsRecordDemo( ))
-		host.frametime = bound( MIN_FRAMETIME, host_framerate.value * scale, MAX_FRAMETIME );
+		// dont bound host framerate here, as it makes sped-up time progression significantly slower than Goldsrc. This is used in some mods like CoF to skip cinematics faster (for more context, see https://github.com/FWGS/xash3d-fwgs/issues/2706)
+		host.frametime = host_framerate.value * scale;
 	else
 		host.frametime = bound( MIN_FRAMETIME, host.frametime, MAX_FRAMETIME );
 
