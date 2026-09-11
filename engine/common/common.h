@@ -706,6 +706,7 @@ int CSCR_LoadDefaultCVars( const char *scriptfilename );
 // hpak.c
 //
 const char *COM_ResourceTypeFromIndex( int index );
+const char *COM_DownloadCachePath( char *buf, size_t size, const char *path, qboolean incomplete );
 void HPAK_Init( void );
 qboolean HPAK_GetDataPointer( const char *filename, struct resource_s *pRes, byte **buffer, int *size );
 qboolean HPAK_ResourceForHash( const char *filename, byte *hash, struct resource_s *pRes );
