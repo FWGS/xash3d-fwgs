@@ -97,6 +97,11 @@ GNU General Public License for more details.
 #define VID_MAPSHOT		3	// special case for overview layer
 #define VID_SNAPSHOT	4	// save screenshot into root dir and no gamma correction
 
+// r_showtextures_zoom limits, engine steps the cvar on +forward/+back
+#define SHOWTEXTURES_ZOOM_MIN	0.25f
+#define SHOWTEXTURES_ZOOM_MAX	4.0f
+#define SHOWTEXTURES_ZOOM_STEP	0.25f
+
 // model flags (stored in model_t->flags)
 #define MODEL_CONVEYOR		BIT( 0 )
 #define MODEL_HAS_ORIGIN		BIT( 1 )
@@ -682,6 +687,7 @@ typedef int (*REFAPI)( int version, ref_interface_t *pFunctionTable, ref_api_t* 
 	ENGINE_SHARED_CVAR_NAME( f, v_lightgamma, lightgamma ) \
 	ENGINE_SHARED_CVAR_NAME( f, v_direct, direct ) \
 	ENGINE_SHARED_CVAR( f, r_showtextures ) \
+	ENGINE_SHARED_CVAR( f, r_showtextures_zoom ) \
 	ENGINE_SHARED_CVAR( f, r_speeds ) \
 	ENGINE_SHARED_CVAR( f, r_fullbright ) \
 	ENGINE_SHARED_CVAR( f, r_norefresh ) \

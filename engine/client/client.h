@@ -718,6 +718,7 @@ extern convar_t hud_fontrender;
 extern convar_t	hud_scale;
 extern convar_t hud_scale_minimal_width;
 extern convar_t	r_showtextures;
+extern convar_t	r_showtextures_zoom;
 extern convar_t	cl_bmodelinterp;
 extern convar_t	cl_lw;		// local weapons
 extern convar_t	cl_charset;
