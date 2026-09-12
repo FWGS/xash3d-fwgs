@@ -2169,8 +2169,9 @@ void R_ShowTextures( void )
 	int charHeight;
 	gEngfuncs.Con_DrawStringLen( NULL, NULL, &charHeight );
 
-	int base_w = gpGlobals->width / w;
-	int base_h = gpGlobals->height / ( h + charHeight * 2 );
+	// per_page must never be zero, the empty page skip loop below would spin forever
+	int base_w = Q_max( 1, (int)( gpGlobals->width / w ));
+	int base_h = Q_max( 1, (int)( gpGlobals->height / ( h + charHeight * 2 )));
 	int per_page = base_w * base_h;
 	int start = per_page * ( r_showtextures->value - 1 ) + 1; // skip empty null texture
 
