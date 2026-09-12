@@ -13,9 +13,12 @@
  GNU General Public License for more details.
  */
 
-#include <Foundation/Foundation.h>
+#include "SDL_syswm.h"
+#import <AdSupport/AdSupport.h>
+#import <AppTrackingTransparency/AppTrackingTransparency.h>
 #import <UIKit/UIKit.h>
 #import <SDL2/SDL.h>
+#import <Security/Security.h>
 
 #define XASHLIB "@rpath/libxash.dylib"
 
@@ -59,10 +62,63 @@ void IOS_PrepareView( void )
 char *IOS_GetUDID( void )
 {
 	static char udid[256];
-	NSString *id = UIDevice.currentDevice.identifierForVendor.UUIDString;
-	strncpy( udid, [id UTF8String], 255 );
-	[id release];
 
+	if (@available( iOS 14, *))
+	{
+		if (ATTrackingManager.trackingAuthorizationStatus == ATTrackingManagerAuthorizationStatusAuthorized)
+		{
+			NSString *id = ASIdentifierManager.sharedManager.advertisingIdentifier.UUIDString;
+			strncpy( udid, id.UTF8String, sizeof(udid) - 1);
+			return udid;
+		}
+	}
+	else 
+	{
+		if (ASIdentifierManager.sharedManager.isAdvertisingTrackingEnabled)
+		{
+			NSString *id = ASIdentifierManager.sharedManager.advertisingIdentifier.UUIDString;
+			strncpy( udid, id.UTF8String, sizeof(udid) - 1);
+			return udid;
+		}
+	}
+
+
+	NSDictionary *getattrs = @{
+		(__bridge NSString *)kSecClass : (__bridge NSString *)kSecClassGenericPassword,
+		(__bridge NSString *)kSecAttrAccount: @"XashUUID",
+        (__bridge NSString *)kSecReturnData: @YES,
+	};
+
+	CFTypeRef result;
+	if (SecItemCopyMatching((__bridge CFDictionaryRef)getattrs, &result) == errSecSuccess)
+	{
+		NSData *data = (__bridge NSData *)result;
+		NSString *id = [[NSString alloc] initWithData:data encoding:NSUTF8StringEncoding];
+		strncpy( udid, [id UTF8String], sizeof(udid) - 1 );
+		CFRelease(result);
+		NSLog(@"UDID: %s", udid);
+		data = nil;
+		return udid;
+	}
+
+	NSString *id = NSUUID.UUID.UUIDString;
+	NSData *idBytes = [id dataUsingEncoding:NSUTF8StringEncoding];
+
+	NSDictionary *setattrs = @{
+		(__bridge NSString *)kSecClass : (__bridge NSString *)kSecClassGenericPassword,
+		(__bridge NSString *)kSecAttrAccount: @"XashUUID",
+        (__bridge NSString *)kSecValueData: idBytes,
+	};
+	
+	OSStatus retval = SecItemAdd((__bridge CFDictionaryRef)setattrs, nil);
+	if (retval != errSecSuccess)
+	{
+		NSLog(@"Xash: Failed to set UDID: SecItemAdd returned %d", retval);
+		return nil;
+	}
+	
+	strncpy( udid, id.UTF8String, sizeof(udid) - 1);
+	
 	return udid;
 }
 
