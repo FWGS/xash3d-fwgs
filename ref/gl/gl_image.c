@@ -2149,14 +2149,11 @@ void R_ShowTextures( void )
 
 	if( showHelp )
 	{
-		gEngfuncs.CL_CenterPrint( "use '<-' and '->' keys to change atlas page, ESC to quit", 0.25f );
+		gEngfuncs.CL_CenterPrint( "use '<-' and '->' keys to change atlas page, '^' and 'v' to zoom, ESC to quit", 0.25f );
 		showHelp = false;
 	}
 
 	pglClear( GL_COLOR_BUFFER_BIT );
-
-	float w = 200;
-	float h = 200;
 
 	float time = gp_cl->time * 0.5f;
 	time -= floor( time );
@@ -2168,6 +2165,13 @@ void R_ShowTextures( void )
 
 	int charHeight;
 	gEngfuncs.Con_DrawStringLen( NULL, NULL, &charHeight );
+
+	// keep a tile square and fitting on screen
+	float zoom = bound( SHOWTEXTURES_ZOOM_MIN, r_showtextures_zoom->value, SHOWTEXTURES_ZOOM_MAX );
+	float w = Q_min( 200.0f * zoom, gpGlobals->width );
+	float h = Q_min( 200.0f * zoom, Q_max( 1.0f, gpGlobals->height - charHeight * 2.0f ));
+
+	w = h = Q_max( 32.0f, Q_min( w, h ));
 
 	// per_page must never be zero, the empty page skip loop below would spin forever
 	int base_w = Q_max( 1, (int)( gpGlobals->width / w ));
