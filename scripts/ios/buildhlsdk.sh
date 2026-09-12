@@ -26,6 +26,8 @@ else
 fi
 cmake --build build --target install
 
+cd ../.. || exit 1
+
 if [ -d mod-build ]; then
     rm -rf mod-build/
 fi
