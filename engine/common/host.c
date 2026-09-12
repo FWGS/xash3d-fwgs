@@ -1179,6 +1179,9 @@ int EXPORT Host_Main( int argc, char **argv, const char *progname, int bChangeGa
 #if XASH_ANDROID
 	pChangeGame = NULL;
 #endif
+#if XASH_IOS
+	IOS_PrepareView();
+#endif
 
 	if( setjmp( return_from_main_buf ))
 		return error_on_exit;
