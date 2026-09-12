@@ -483,26 +483,22 @@ int CL_EstimateNeededResources( void )
 
 	for( resource_t *p = cl.resourcesneeded.pNext; p != &cl.resourcesneeded; p = p->pNext )
 	{
+		char filepath[MAX_QPATH];
+
 		switch( p->type )
 		{
 		case t_sound:
-			if( p->szFileName[0] != '*' && !FS_FileExists( va( DEFAULT_SOUNDPATH "%s", p->szFileName ), false ) )
-			{
-				SetBits( p->ucFlags, RES_WASMISSING );
-				nTotalSize += p->nDownloadSize;
-			}
-			break;
 		case t_model:
-			if( p->szFileName[0] != '*' && !FS_FileExists( p->szFileName, false ) )
-			{
-				SetBits( p->ucFlags, RES_WASMISSING );
-				nTotalSize += p->nDownloadSize;
-			}
-			break;
 		case t_skin:
 		case t_generic:
 		case t_eventscript:
-			if( !FS_FileExists( p->szFileName, false ) )
+			// inline models and sentences aren't real files
+			if( p->szFileName[0] == '*' )
+				break;
+
+			CL_ResourcePath( filepath, sizeof( filepath ), p );
+
+			if( !CL_HasResourceFile( p, filepath ))
 			{
 				SetBits( p->ucFlags, RES_WASMISSING );
 				nTotalSize += p->nDownloadSize;
