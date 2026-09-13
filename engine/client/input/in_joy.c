@@ -43,6 +43,27 @@ static struct joy_axis_s
 	short rawval; // value before deadzone zeroing, for debug display
 } joyaxis[MAX_AXES] = { 0 };
 
+enum
+{
+	JOY_TOUCHPAD_MODE_OFF = 0,
+	JOY_TOUCHPAD_MODE_LOOK,
+	JOY_TOUCHPAD_MODE_MOVE,
+};
+
+static const char *const joy_touchpad_mode_names[] = { "off", "look", "move" };
+
+// parsed out of the mode cvars, which also accept the names above
+static int joy_touchpad_mode[MAX_TOUCHPADS];
+
+static struct joy_touchpad_s
+{
+	qboolean down;
+	float x, y; // last absolute position, normalized to 0..1
+	float dx, dy; // motion accumulated since last frame
+	float filtered_dx, filtered_dy; // smoothed speed, look mode only
+	float pressure;
+} joy_touchpad[MAX_TOUCHPADS];
+
 static qboolean joy_initialized;
 
 static CVAR_DEFINE_AUTO( joy_pitch,   "100.0", FCVAR_ARCHIVE | FCVAR_FILTERABLE, "joystick pitch sensitivity" );
@@ -70,6 +91,19 @@ static CVAR_DEFINE_AUTO( joy_gyro_yaw_deadzone, "0.5", FCVAR_ARCHIVE | FCVAR_FIL
 static CVAR_DEFINE_AUTO( joy_gyro_roll_deadzone, "0.5", FCVAR_ARCHIVE | FCVAR_FILTERABLE, "gyroscope roll axis deadzone (deg/s)" );
 static CVAR_DEFINE_AUTO( joy_gyro_enable, "1", FCVAR_ARCHIVE | FCVAR_FILTERABLE, "enables aiming with gamepad gyroscope" );
 static CVAR_DEFINE_AUTO( joy_debug, "0", 0, "visualize gamepad axes and buttons" );
+static CVAR_DEFINE_AUTO( joy_have_touchpads, "0", FCVAR_READ_ONLY, "tells how many trackpads current active gamepad has" );
+static CVAR_DEFINE_AUTO( joy_touchpad_left_mode, "0", FCVAR_ARCHIVE | FCVAR_FILTERABLE, "left trackpad mode: off (0), look (1) or move (2)" );
+static CVAR_DEFINE_AUTO( joy_touchpad_right_mode, "0", FCVAR_ARCHIVE | FCVAR_FILTERABLE, "right trackpad mode: off (0), look (1) or move (2)" );
+static CVAR_DEFINE_AUTO( joy_touchpad_pitch, "160.0", FCVAR_ARCHIVE | FCVAR_FILTERABLE, "trackpad sensitivity for looking up and down, in degrees per full pad swipe" );
+static CVAR_DEFINE_AUTO( joy_touchpad_yaw, "300.0", FCVAR_ARCHIVE | FCVAR_FILTERABLE, "trackpad sensitivity for turning left and right, in degrees per full pad swipe" );
+static CVAR_DEFINE_AUTO( joy_touchpad_deadzone, "0.15", FCVAR_ARCHIVE | FCVAR_FILTERABLE, "trackpad deadzone around the center in move mode. Value from 0.0 to 1.0" );
+static CVAR_DEFINE_AUTO( joy_touchpad_filter, "0.02", FCVAR_ARCHIVE | FCVAR_FILTERABLE, "trackpad look smoothing, in seconds. Larger is smoother but laggier, 0 disables" );
+
+static convar_t *const joy_touchpad_mode_cvars[MAX_TOUCHPADS] =
+{
+	&joy_touchpad_left_mode,
+	&joy_touchpad_right_mode,
+};
 
 // stores the latest instantaneous gyroscope rotation rates (in rad/s) from platform input
 static vec3_t joy_gyro_speed;
@@ -91,9 +125,13 @@ qboolean Joy_IsActive( void )
 Joy_SetCapabilities
 ===========
 */
-void Joy_SetCapabilities( qboolean have_gyro )
+void Joy_SetCapabilities( qboolean have_gyro, int num_touchpads )
 {
 	Cvar_FullSet( joy_have_gyro.name, have_gyro ? "1" : "0", joy_have_gyro.flags );
+	Cvar_FullSet( joy_have_touchpads.name, va( "%d", num_touchpads ), joy_have_touchpads.flags );
+
+	// active device changed, whatever was touched on the old one is gone
+	memset( joy_touchpad, 0, sizeof( joy_touchpad ));
 }
 
 /*
@@ -303,6 +341,138 @@ void Joy_GyroEvent( vec3_t data )
 
 /*
 =============
+Joy_TouchpadEvent
+=============
+*/
+void Joy_TouchpadEvent( engineTouchpad_t pad, qboolean down, float x, float y, float pressure )
+{
+	struct joy_touchpad_s *tp;
+
+	if( pad >= MAX_TOUCHPADS )
+		return;
+
+	tp = &joy_touchpad[pad];
+
+	if( down )
+	{
+		// trackpads report absolute position, so motion is the difference between
+		// two samples of the same touch. A finger may be lifted and put back down
+		// anywhere on the pad, that jump must not be treated as motion
+		if( tp->down )
+		{
+			tp->dx += x - tp->x;
+			tp->dy += y - tp->y;
+		}
+
+		tp->x = x;
+		tp->y = y;
+	}
+
+	tp->pressure = pressure;
+	tp->down = down;
+}
+
+/*
+=============
+Joy_ParseTouchpadMode
+=============
+*/
+static int Joy_ParseTouchpadMode( const convar_t *cv )
+{
+	for( int i = 0; i < ARRAYSIZE( joy_touchpad_mode_names ); i++ )
+	{
+		if( !Q_stricmp( cv->string, joy_touchpad_mode_names[i] ))
+			return i;
+	}
+
+	if( Q_isdigit( cv->string ))
+		return bound( JOY_TOUCHPAD_MODE_OFF, Q_atoi( cv->string ), JOY_TOUCHPAD_MODE_MOVE );
+
+	Con_Printf( S_ERROR "%s: unknown trackpad mode \"%s\", expected off, look or move\n", cv->name, cv->string );
+	return JOY_TOUCHPAD_MODE_OFF;
+}
+
+/*
+=============
+Joy_TouchpadLook
+=============
+*/
+static void Joy_TouchpadLook( struct joy_touchpad_s *tp, float *dpitch, float *dyaw )
+{
+	float dx = tp->dx;
+	float dy = tp->dy;
+
+	// a1ba: SC2026 pads are noisy, so implement a simple filter
+	if( joy_touchpad_filter.value > 0.0f && host.realframetime > 0.0f )
+	{
+		float alpha = 1.0f - exp( -host.realframetime / joy_touchpad_filter.value );
+
+		tp->filtered_dx += ( dx / host.realframetime - tp->filtered_dx ) * alpha;
+		tp->filtered_dy += ( dy / host.realframetime - tp->filtered_dy ) * alpha;
+
+		dx = tp->filtered_dx * host.realframetime;
+		dy = tp->filtered_dy * host.realframetime;
+	}
+
+	*dyaw -= joy_touchpad_yaw.value * dx;
+	*dpitch += joy_touchpad_pitch.value * dy;
+}
+
+/*
+=============
+Joy_TouchpadMove
+=============
+*/
+static void Joy_TouchpadMove( float *fw, float *side, float *dpitch, float *dyaw )
+{
+	for( int i = 0; i < MAX_TOUCHPADS; i++ )
+	{
+		struct joy_touchpad_s *tp = &joy_touchpad[i];
+		convar_t *cv = joy_touchpad_mode_cvars[i];
+		int mode;
+
+		if( FBitSet( cv->flags, FCVAR_CHANGED ))
+		{
+			joy_touchpad_mode[i] = Joy_ParseTouchpadMode( cv );
+			ClearBits( cv->flags, FCVAR_CHANGED );
+		}
+
+		mode = Joy_IsActive( ) ? joy_touchpad_mode[i] : JOY_TOUCHPAD_MODE_OFF;
+
+		switch( mode )
+		{
+		case JOY_TOUCHPAD_MODE_LOOK:
+			Joy_TouchpadLook( tp, dpitch, dyaw );
+			break;
+		case JOY_TOUCHPAD_MODE_MOVE:
+			if( tp->down )
+			{
+				float px = ( tp->x - 0.5f ) * 2.0f;
+				float py = ( tp->y - 0.5f ) * 2.0f;
+
+				if( sqrt( px * px + py * py ) > joy_touchpad_deadzone.value )
+				{
+					*side += joy_side.value * px;
+					*fw -= joy_forward.value * py;
+				}
+			}
+			break;
+		}
+
+		if( mode != JOY_TOUCHPAD_MODE_LOOK )
+		{
+			tp->filtered_dx = 0.0f;
+			tp->filtered_dy = 0.0f;
+		}
+
+		// always drain, so a disabled or remapped pad can't apply stale motion later
+		tp->dx = 0.0f;
+		tp->dy = 0.0f;
+	}
+}
+
+/*
+=============
 Joy_FinalizeMove
 
 Append movement from axis. Called everyframe
@@ -310,6 +480,8 @@ Append movement from axis. Called everyframe
 */
 void Joy_FinalizeMove( float *fw, float *side, float *dpitch, float *dyaw )
 {
+	Joy_TouchpadMove( fw, side, dpitch, dyaw );
+
 	if( !Joy_IsActive( ))
 		return;
 
@@ -520,6 +692,47 @@ void Joy_DrawDebug( void )
 		}
 	}
 
+	// draw trackpads side by side, as a box with a crosshair on the touch point
+	static const char *const padnames[MAX_TOUCHPADS] = { "PAD L", "PAD R" };
+	const float pad_sz = 48;
+	int num_pads = Q_min( MAX_TOUCHPADS, (int)joy_have_touchpads.value );
+	float pad_x = x;
+
+	for( int i = 0; i < num_pads; i++ )
+	{
+		const struct joy_touchpad_s *tp = &joy_touchpad[i];
+		const char *label = va( "%s (%s)", padnames[i], joy_touchpad_mode_names[joy_touchpad_mode[i]] );
+		float pad_y = y + font->charHeight;
+		int label_w = 0;
+
+		CL_DrawString( pad_x, y, label, g_color_table[7], font, 0 );
+
+		ref.dllFuncs.FillRGBA( kRenderTransTexture, pad_x, pad_y, pad_sz, pad_sz, bar_backcolor[0], bar_backcolor[1], bar_backcolor[2], bar_backcolor[3] );
+
+		// move mode deadzone is radial, this is just its bounding box
+		float dz = bound( 0.0f, joy_touchpad_deadzone.value, 1.0f ) * pad_sz * 0.5f;
+		ref.dllFuncs.FillRGBA( kRenderTransTexture, pad_x + pad_sz * 0.5f - dz, pad_y + pad_sz * 0.5f - dz, dz * 2, dz * 2, 180, 40, 40, 120 );
+
+		ref.dllFuncs.FillRGBA( kRenderTransTexture, pad_x + pad_sz * 0.5f, pad_y, 1, pad_sz, 180, 180, 180, 220 );
+		ref.dllFuncs.FillRGBA( kRenderTransTexture, pad_x, pad_y + pad_sz * 0.5f, pad_sz, 1, 180, 180, 180, 220 );
+
+		if( tp->down )
+		{
+			float fx = pad_x + bound( 0.0f, tp->x, 1.0f ) * pad_sz;
+			float fy = pad_y + bound( 0.0f, tp->y, 1.0f ) * pad_sz;
+
+			ref.dllFuncs.FillRGBA( kRenderTransTexture, fx, pad_y, 1, pad_sz, bar_fillcolor[0], bar_fillcolor[1], bar_fillcolor[2], bar_fillcolor[3] );
+			ref.dllFuncs.FillRGBA( kRenderTransTexture, pad_x, fy, pad_sz, 1, bar_fillcolor[0], bar_fillcolor[1], bar_fillcolor[2], bar_fillcolor[3] );
+		}
+
+		// the label is wider than the box, keep the columns from overlapping
+		CL_DrawStringLen( font, label, &label_w, NULL, 0 );
+		pad_x += Q_max( pad_sz, label_w ) + 8;
+	}
+
+	if( num_pads > 0 )
+		y += font->charHeight + pad_sz + 2;
+
 	// draw buttons in a row
 	y += 4;
 	x = 8;
@@ -605,6 +818,17 @@ void Joy_Init( void )
 	Cvar_RegisterVariable( &joy_gyro_pitch_deadzone );
 	Cvar_RegisterVariable( &joy_gyro_yaw_deadzone );
 	Cvar_RegisterVariable( &joy_gyro_roll_deadzone );
+
+	Cvar_RegisterVariable( &joy_have_touchpads );
+	Cvar_RegisterVariable( &joy_touchpad_left_mode );
+	Cvar_RegisterVariable( &joy_touchpad_right_mode );
+	Cvar_RegisterVariable( &joy_touchpad_pitch );
+	Cvar_RegisterVariable( &joy_touchpad_yaw );
+	Cvar_RegisterVariable( &joy_touchpad_deadzone );
+	Cvar_RegisterVariable( &joy_touchpad_filter );
+
+	for( int i = 0; i < MAX_TOUCHPADS; i++ )
+		joy_touchpad_mode[i] = Joy_ParseTouchpadMode( joy_touchpad_mode_cvars[i] );
 
 	Cvar_RegisterVariable( &joy_debug );
 
