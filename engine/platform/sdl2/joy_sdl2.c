@@ -170,17 +170,19 @@ static void SDLash_SetActiveGameController( SDL_JoystickID id )
 	if( id < 0 )
 	{
 		g_current_gamepad = NULL;
-		Joy_SetCapabilities( false );
+		Joy_SetCapabilities( false, 0 );
 		Joy_SetCalibrationState( JOY_NOT_CALIBRATED );
 	}
 	else
 	{
 		qboolean have_gyro = false;
+		int num_touchpads = 0;
 
 		g_current_gamepad = SDL_GameControllerFromInstanceID( id );
 
 #if SDL_VERSION_ATLEAST( 2, 0, 14 )
 		have_gyro = SDL_GameControllerHasSensor( g_current_gamepad, SDL_SENSOR_GYRO );
+		num_touchpads = SDL_GameControllerGetNumTouchpads( g_current_gamepad );
 
 		if( have_gyro )
 		{
@@ -189,7 +191,7 @@ static void SDLash_SetActiveGameController( SDL_JoystickID id )
 		}
 #endif // SDL_VERSION_ATLEAST( 2, 0, 14 )
 
-		Joy_SetCapabilities( have_gyro );
+		Joy_SetCapabilities( have_gyro, num_touchpads );
 	}
 }
 
@@ -287,6 +289,20 @@ static void SDLash_GameControllerSensorUpdate( SDL_ControllerSensorEvent sensor 
 }
 #endif
 
+#if SDL_VERSION_ATLEAST( 2, 0, 14 )
+static void SDLash_GameControllerTouchpadEvent( const SDL_ControllerTouchpadEvent *tpad, qboolean down )
+{
+	// SDL orders touchpads the way the driver reports them, for two pad devices that's left first, then right.
+	// FIXME: DualShock 4 and DualSense track two fingers on their single pad but we only care about the first one
+	if( tpad->touchpad < 0 || tpad->touchpad >= MAX_TOUCHPADS || tpad->finger != 0 )
+		return;
+
+	SDLash_SetActiveGameController( tpad->which );
+
+	Joy_TouchpadEvent( tpad->touchpad, down, tpad->x, tpad->y, tpad->pressure );
+}
+#endif // SDL_VERSION_ATLEAST( 2, 0, 14 )
+
 void SDLash_HandleGameControllerEvent( SDL_Event *ev )
 {
 	int x;
@@ -315,6 +331,13 @@ void SDLash_HandleGameControllerEvent( SDL_Event *ev )
 #if SDL_VERSION_ATLEAST( 2, 0, 14 )
 	case SDL_CONTROLLERSENSORUPDATE:
 		SDLash_GameControllerSensorUpdate( ev->csensor );
+		break;
+	case SDL_CONTROLLERTOUCHPADDOWN:
+	case SDL_CONTROLLERTOUCHPADMOTION:
+		SDLash_GameControllerTouchpadEvent( &ev->ctouchpad, true );
+		break;
+	case SDL_CONTROLLERTOUCHPADUP:
+		SDLash_GameControllerTouchpadEvent( &ev->ctouchpad, false );
 		break;
 #endif
 	}
