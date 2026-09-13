@@ -160,7 +160,7 @@ static void SDLash_SetActiveGamepad( SDL_JoystickID id )
 	if( id == 0 )
 	{
 		g_current_gamepad = NULL;
-		Joy_SetCapabilities( false );
+		Joy_SetCapabilities( false, 0 );
 		Joy_SetCalibrationState( JOY_NOT_CALIBRATED );
 	}
 	else
@@ -177,7 +177,7 @@ static void SDLash_SetActiveGamepad( SDL_JoystickID id )
 			SDLash_RestartCalibration();
 		}
 
-		Joy_SetCapabilities( have_gyro );
+		Joy_SetCapabilities( have_gyro, SDL_GetNumGamepadTouchpads( g_current_gamepad ));
 	}
 }
 
@@ -265,6 +265,18 @@ static void SDLash_GamepadSensorUpdate( const SDL_GamepadSensorEvent *sensor )
 	Joy_GyroEvent( data );
 }
 
+static void SDLash_GamepadTouchpadEvent( const SDL_GamepadTouchpadEvent *tpad, qboolean down )
+{
+	// SDL orders touchpads the way the driver reports them, for two pad devices that's left first, then right
+	// FIXME: DualShock 4 and DualSense track two fingers on their single pad but we only care about the first one
+	if( tpad->touchpad < 0 || tpad->touchpad >= MAX_TOUCHPADS || tpad->finger != 0 )
+		return;
+
+	SDLash_SetActiveGamepad( tpad->which );
+
+	Joy_TouchpadEvent( tpad->touchpad, down, tpad->x, tpad->y, tpad->pressure );
+}
+
 void SDLash_HandleGamepadEvent( const SDL_Event *ev )
 {
 	int x;
@@ -292,6 +304,13 @@ void SDLash_HandleGamepadEvent( const SDL_Event *ev )
 		break;
 	case SDL_EVENT_GAMEPAD_SENSOR_UPDATE:
 		SDLash_GamepadSensorUpdate( &ev->gsensor );
+		break;
+	case SDL_EVENT_GAMEPAD_TOUCHPAD_DOWN:
+	case SDL_EVENT_GAMEPAD_TOUCHPAD_MOTION:
+		SDLash_GamepadTouchpadEvent( &ev->gtouchpad, true );
+		break;
+	case SDL_EVENT_GAMEPAD_TOUCHPAD_UP:
+		SDLash_GamepadTouchpadEvent( &ev->gtouchpad, false );
 		break;
 	}
 }
