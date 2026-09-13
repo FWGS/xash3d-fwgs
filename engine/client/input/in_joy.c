@@ -764,6 +764,19 @@ void Joy_DrawDebug( void )
 	}
 }
 
+/*
+=============
+Joy_UnbindAll_f
+=============
+*/
+static void Joy_UnbindAll_f( void )
+{
+	// all gamepad keys are contiguous, from the triggers through the last named button
+	// K_AUX31 and K_AUX32 are historically hardware volume control buttons
+	for( int key = K_JOY1; key <= K_AUX30; key++ )
+		Key_SetBinding( key, "" );
+}
+
 static void Joy_CalibrateGyro_f( void )
 {
 	if( !joy_have_gyro.value )
@@ -785,6 +798,7 @@ Main init procedure
 void Joy_Init( void )
 {
 	Cmd_AddRestrictedCommand( "joy_calibrate_gyro", Joy_CalibrateGyro_f, "calibrate gamepad gyroscope. You must to put gamepad on stationary surface" );
+	Cmd_AddRestrictedCommand( "joy_unbindall", Joy_UnbindAll_f, "removes all commands from all gamepad keys" );
 
 	Cvar_RegisterVariable( &joy_pitch );
 	Cvar_RegisterVariable( &joy_yaw );
