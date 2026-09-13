@@ -152,6 +152,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #define K_PADDLE3_BUTTON K_AUX23
 #define K_PADDLE4_BUTTON K_AUX24
 #define K_TOUCHPAD       K_AUX25
+#define K_MISC2_BUTTON   K_AUX26
 
 //
 // mouse buttons generate virtual keys

@@ -144,8 +144,8 @@ static const keyname_t keynames[] =
 { "PADDLE3",        K_PADDLE3_BUTTON,      ""                },
 { "PADDLE4",        K_PADDLE4_BUTTON,      ""                },
 { "TOUCHPAD",       K_TOUCHPAD,            ""                },
-{ "AUX26",          K_AUX26,               ""                }, // generic
-{ "AUX27",          K_AUX27,               ""                },
+{ "MISC2_BUTTON",   K_MISC2_BUTTON,        ""                },
+{ "AUX27",          K_AUX27,               ""                }, // generic
 { "AUX28",          K_AUX28,               ""                },
 { "AUX29",          K_AUX29,               ""                },
 { "AUX30",          K_AUX30,               ""                },

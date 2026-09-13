@@ -28,7 +28,10 @@ static const int g_button_mapping[] =
 	K_DPAD_UP, K_DPAD_DOWN, K_DPAD_LEFT, K_DPAD_RIGHT,
 	K_MISC_BUTTON,
 	K_PADDLE1_BUTTON, K_PADDLE2_BUTTON, K_PADDLE3_BUTTON, K_PADDLE4_BUTTON,
-	K_TOUCHPAD,
+	K_TOUCHPAD,     // left pad click on Steam Controller and Steam Deck
+	K_MISC2_BUTTON, // right pad click
+	// FIXME: I guess, K_MISC2_BUTTON stays there forever for compatibility
+	// but SDL 3.5+ moved right pad and other (like touchpad touch and grips) to new capsense API
 };
 
 // Swap axis to follow default axis binding:
