@@ -32,7 +32,6 @@ struct base_command_hashmap_s
 static base_command_hashmap_t *hashed_cmds[HASH_SIZE];
 static poolhandle_t basecmd_pool;
 
-#define BaseCmd_HashKey( x ) COM_HashKey( name, HASH_SIZE )
 
 /*
 ============
@@ -71,7 +70,7 @@ Get bucket which contain basecmd by given name
 */
 static base_command_hashmap_t *BaseCmd_GetBucket( const char *name )
 {
-	return hashed_cmds[ BaseCmd_HashKey( name ) ];
+	return hashed_cmds[ COM_HashKey( name, HASH_SIZE ) ];
 }
 
 /*
@@ -143,7 +142,7 @@ Add new typed base command to hashmap
 */
 void BaseCmd_Insert( base_command_type_e type, base_command_t *basecmd, const char *name )
 {
-	uint hash = BaseCmd_HashKey( name );
+	uint hash = COM_HashKey( name, HASH_SIZE );
 	size_t len = Q_strlen( name );
 	base_command_hashmap_t *elem = Mem_Malloc( basecmd_pool, sizeof( base_command_hashmap_t ) + len + 1 );
 
@@ -172,7 +171,7 @@ Remove base command from hashmap
 */
 void BaseCmd_Remove( base_command_type_e type, const char *name )
 {
-	uint hash = BaseCmd_HashKey( name );
+	uint hash = COM_HashKey( name, HASH_SIZE );
 	base_command_hashmap_t *i, *prev;
 
 	for( prev = NULL, i = hashed_cmds[hash]; i != NULL; prev = i, i = i->next )
