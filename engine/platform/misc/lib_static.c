@@ -53,6 +53,11 @@ void *COM_GetProcAddress( void *hInstance, const char *name )
 	return Lib_Find( hInstance, name );
 }
 
+void *COM_GetProcAddressFromDependency( void *hInstance, const char *depname, const char *name )
+{
+	return NULL;
+}
+
 void *COM_FunctionFromName( void *hInstance, const char *pName )
 {
 	return Lib_Find( hInstance, pName );

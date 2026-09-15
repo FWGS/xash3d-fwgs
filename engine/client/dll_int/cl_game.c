@@ -41,6 +41,15 @@ GNU General Public License for more details.
 #define MAX_LINELENGTH	80
 #define TEXT_MSGNAME	"TextMessage"
 
+// how SDL2 appears in dependency lists of Valve's game libraries
+#if XASH_WIN32
+#define CLIENT_SDL2_LIBRARY "SDL2.dll"
+#elif XASH_APPLE
+#define CLIENT_SDL2_LIBRARY "libSDL2-2.0.0.dylib"
+#else
+#define CLIENT_SDL2_LIBRARY "libSDL2-2.0.so.0"
+#endif
+
 static char cl_textbuffer[MAX_TEXTCHANNELS][2048];
 client_textmessage_t cl_textmessage[MAX_TEXTCHANNELS] =
 {
@@ -3979,6 +3988,35 @@ static void CL_InitStudioAPI( void )
 	ref.dllFuncs.R_StudioSetDrawInterface( pStudioDraw );
 }
 
+#if XASH_SDL == 3
+typedef struct
+{
+	uint8_t major;
+	uint8_t minor;
+	uint8_t patch;
+} sdl2_version_t;
+
+typedef void (*pfnSDL2_GetVersion_t)( sdl2_version_t *ver );
+
+// TODO: drop this once we ship an SDL2 shim that forwards into SDL3
+static void CL_CheckLoadedSDL2( const char *name )
+{
+	pfnSDL2_GetVersion_t pfnGetVersion = COM_GetProcAddressFromDependency( clgame.hInstance, CLIENT_SDL2_LIBRARY, "SDL_GetVersion" );
+	sdl2_version_t ver = { 0 };
+
+	if( !pfnGetVersion )
+		Sys_Error( "%s depends on " CLIENT_SDL2_LIBRARY " but the engine can't tell which SDL2 got loaded next to its SDL3.\nRun an SDL2 build of the engine to play this game.", name );
+
+	pfnGetVersion( &ver );
+
+	// sdl2-compat deliberately reports a patch level far above any real SDL2 release so applications can tell it apart
+	if( ver.patch < 50 )
+		Sys_Error( "%s loaded SDL2 %u.%u.%u next to the engine's SDL3, two SDL major versions can't share a process.\nRun an SDL2 build of the engine to play this game.", name, ver.major, ver.minor, ver.patch );
+
+	Con_Printf( S_WARN "%s runs through sdl2-compat %u.%u.%u. This setup is unsupported and prone to bugs, use an SDL2 build of the engine if something misbehaves.\n", name, ver.major, ver.minor, ver.patch );
+}
+#endif // XASH_SDL == 3
+
 qboolean CL_LoadProgs( const char *name )
 {
 	static playermove_t		gpMove;
@@ -3989,19 +4027,23 @@ qboolean CL_LoadProgs( const char *name )
 
 	if( clgame.hInstance ) CL_UnloadProgs();
 
+#if ( XASH_WIN32 && !XASH_64BIT ) || XASH_SDL == 3
+	const qboolean uses_sdl2 = COM_CheckLibraryDirectDependency( name, CLIENT_SDL2_LIBRARY, false );
+#endif
+
+	// a1ba: we need to check if client.dll has direct dependency on SDL2
+	// and if so, disable relative mouse mode
+#if XASH_WIN32 && !XASH_64BIT
+	clgame.client_dll_uses_sdl = uses_sdl2;
+	Con_Printf( S_NOTE "%s uses %s for mouse input\n", name, uses_sdl2 ? "SDL2" : "Windows API" );
+#endif
+
 	// initialize PlayerMove
 	clgame.pmove = &gpMove;
 
 	cls.mempool = Mem_AllocPool( "Client Static Pool" );
 	clgame.mempool = Mem_AllocPool( "Client Edicts Zone" );
 	clgame.entities = NULL;
-
-	// a1ba: we need to check if client.dll has direct dependency on SDL2
-	// and if so, disable relative mouse mode
-#if XASH_WIN32 && !XASH_64BIT
-	clgame.client_dll_uses_sdl = COM_CheckLibraryDirectDependency( name, OS_LIB_PREFIX "SDL2." OS_LIB_EXT, false );
-	Con_Printf( S_NOTE "%s uses %s for mouse input\n", name, clgame.client_dll_uses_sdl ? "SDL2" : "Windows API" );
-#endif
 
 	// NOTE: important stuff!
 	// vgui must startup BEFORE loading client.dll to avoid get error ERROR_NOACESS during LoadLibrary
@@ -4013,7 +4055,18 @@ qboolean CL_LoadProgs( const char *name )
 	clgame.hInstance = COM_LoadLibrary( name, false, false );
 
 	if( !clgame.hInstance )
+	{
+#if XASH_SDL == 3
+		if( uses_sdl2 )
+			COM_PushLibraryError( "The client library needs " CLIENT_SDL2_LIBRARY " which this SDL3 build of the engine doesn't ship. Install sdl2-compat or run an SDL2 build of the engine." );
+#endif
 		return false;
+	}
+
+#if XASH_SDL == 3
+	if( uses_sdl2 )
+		CL_CheckLoadedSDL2( name );
+#endif
 
 	// delayed vgui initialization for internal support
 	if( try_internal_vgui_support && VGui_LoadProgs( clgame.hInstance ))
