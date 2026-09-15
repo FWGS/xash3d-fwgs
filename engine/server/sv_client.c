@@ -245,11 +245,7 @@ Make sure connecting client is not spoofing
 */
 static int SV_CheckChallenge( netadr_t from, int challenge )
 {
-	if( SV_ValidateChallenge( from, challenge ))
-		return true;
-
-	SV_RejectConnection( from, "no challenge for your address\n" );
-	return false;
+	return SV_ValidateChallenge( from, challenge );
 }
 
 /*
@@ -328,31 +324,29 @@ static void SV_ConnectClient( netadr_t from )
 	uint64_t netchan_cookie = 0;
 
 	if( Cmd_Argc() < 5 )
-	{
-		SV_RejectConnection( from, "insufficient connection info\n" );
 		return;
-	}
 
+	// LAN servers restrict to class b IP addresses
+	if( !SV_CheckIPRestrictions( from ))
+		return;
+
+	s = Cmd_Argv( 2 );
+	if( !Q_isdigit( s[0] == '-' ? s + 1 : s ))
+		return;
+
+	challenge = Q_atoi( s ); // get challenge
+
+	// see if the challenge is valid (local clients don't need to challenge)
+	if( !SV_CheckChallenge( from, challenge ))
+		return;
+
+	// reply about protocol mismatch only after the challenge is validated
 	version = Q_atoi( Cmd_Argv( 1 ));
-
 	if( version != PROTOCOL_VERSION )
 	{
 		SV_RejectConnection( from, "unsupported protocol (%i should be %i)\n", version, PROTOCOL_VERSION );
 		return;
 	}
-
-	// LAN servers restrict to class b IP addresses
-	if( !SV_CheckIPRestrictions( from ))
-	{
-		SV_RejectConnection( from, "LAN servers are restricted to local clients (class C)\n" );
-		return;
-	}
-
-	challenge = Q_atoi( Cmd_Argv( 2 )); // get challenge
-
-	// see if the challenge is valid (local clients don't need to challenge)
-	if( !SV_CheckChallenge( from, challenge ))
-		return;
 
 	s = Cmd_Argv( 3 );
 	if( Q_strlen( s ) > sizeof( protinfo ) || !Info_IsValid( s ))
@@ -849,13 +843,6 @@ static void SV_TestBandWidth( netadr_t from )
 	const int version = Q_atoi( Cmd_Argv( 1 ));
 	const int packetsize = Q_atoi( Cmd_Argv( 2 ));
 
-	// don't waste time of protocol mismatched
-	if( version != PROTOCOL_VERSION )
-	{
-		SV_RejectConnection( from, "unsupported protocol (%i should be %i)\n", version, PROTOCOL_VERSION );
-		return;
-	}
-
 	// third argument is the challenge, if it's empty, it means this is an
 	// old client that do not have challenge and testbandwidth swapped
 	if( !Q_strlen( Cmd_Argv( 3 )))
@@ -867,6 +854,13 @@ static void SV_TestBandWidth( netadr_t from )
 	// require challenge for testpacket
 	if( !SV_CheckChallenge( from, Q_atoi( Cmd_Argv( 3 ))))
 		return;
+
+	// reply about protocol mismatch only after the challenge is validated
+	if( version != PROTOCOL_VERSION )
+	{
+		SV_RejectConnection( from, "unsupported protocol (%i should be %i)\n", version, PROTOCOL_VERSION );
+		return;
+	}
 
 	// quickly reject invalid packets
 	if( !sv_allow_testpacket.value || !svs.testpacket_buf || packetsize <= FRAGMENT_MIN_SIZE || packetsize > 1400 )
@@ -892,15 +886,9 @@ static void SV_TestBandWidth( netadr_t from )
 
 /*
 ================
-SV_Ack
-
+SV_QueryRateLimited
 ================
 */
-static void SV_Ack( netadr_t from )
-{
-	Con_Printf( "ping %s\n", NET_AdrToString( from ));
-}
-
 qboolean SV_QueryRateLimited( netadr_t from MAYBE_UNUSED )
 {
 #if !XASH_LOW_MEMORY // these targets don't host public servers, always allow
@@ -1086,11 +1074,6 @@ void SV_RemoteCommand( netadr_t from, sizebuf_t *msg )
 		SV_BeginRedirect( &host.rd, from, RD_PACKET, outputbuf, sizeof( outputbuf ) - 16, SV_FlushRedirect );
 		Cmd_ExecuteString( remaining );
 		SV_EndRedirect( &host.rd );
-	}
-	else
-	{
-		Con_Printf( S_ERROR "Bad rcon_password from %s\n", adr );
-		Log_Printf( "Bad Rcon from \"%s\"\n", adr );
 	}
 }
 
@@ -3254,7 +3237,7 @@ void SV_ConnectionlessPacket( netadr_t from, sizebuf_t *msg )
 	}
 	else if( !Q_strcmp( pcmd, A2A_ACK ) || !Q_strcmp( pcmd, A2A_GOLDSRC_ACK ))
 	{
-		SV_Ack( from );
+		// consume acks so they don't reach the game dll; they're replies to our pings
 	}
 	else
 	{
