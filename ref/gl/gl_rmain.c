@@ -868,6 +868,13 @@ static void R_DrawEntitiesOnList( void )
 
 	GL_CheckForErrors();
 
+#ifdef HACKS_RELATED_HLMODS
+	// Vampire Slayer leave GL_LINEAR fog with their own start/end after
+	// pfnDrawNormalTriangles; restore engine fog for the translucent
+	// entities and viewmodel drawn below.
+	R_DrawFog();
+#endif
+
 	// then draw translucent entities
 	for( int i = 0; i < tr.draw_list->num_trans_entities && !FBitSet( RI.rvp.flags, RF_ONLY_CLIENTDRAW ); i++ )
 	{
