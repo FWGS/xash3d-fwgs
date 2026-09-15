@@ -168,6 +168,8 @@ void R_Set2DMode( qboolean enable )
 		pglDepthMask( GL_FALSE );
 		pglDisable( GL_DEPTH_TEST );
 		pglEnable( GL_ALPHA_TEST );
+		// HUD and console must not be affected by fog
+		pglDisable( GL_FOG );
 		pglColor4f( 1.0f, 1.0f, 1.0f, 1.0f );
 
 		if( glConfig.max_multisamples > 1 && gl_msaa.value )
@@ -181,6 +183,9 @@ void R_Set2DMode( qboolean enable )
 	{
 		pglDepthMask( GL_TRUE );
 		pglEnable( GL_DEPTH_TEST );
+		// restore the scene fog that was disabled in 2D mode
+		if( gl_fog.value && ( RI.fogEnabled || RI.fogCustom ))
+			pglEnable( GL_FOG );
 		glState.in2DMode = false;
 
 		pglMatrixMode( GL_PROJECTION );
