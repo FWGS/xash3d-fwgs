@@ -901,6 +901,62 @@ static void SV_Ack( netadr_t from )
 	Con_Printf( "ping %s\n", NET_AdrToString( from ));
 }
 
+qboolean SV_QueryRateLimited( netadr_t from MAYBE_UNUSED )
+{
+#if !XASH_LOW_MEMORY // these targets don't host public servers, always allow
+	enum { CACHE_SIZE = 8192 };
+	static struct { uint32_t last; float tokens; } cache[CACHE_SIZE];
+
+	if( sv_query_rate_limit.value <= 0.0f )
+		return false;
+
+	byte key[16 + 8]; // max address bytes followed by salt
+	int len;
+
+	switch( NET_NetadrType( &from ))
+	{
+	case NA_IP:
+		memcpy( key, from.ip, 4 );
+		len = 4;
+		break;
+	case NA_IP6:
+		NET_NetadrToIP6Bytes( key, &from );
+		len = 16;
+		break;
+	default:
+		return false;
+	}
+
+	// salt the address so an attacker who knows a victim's IP can't compute
+	// which bucket they land in and target it
+	memcpy( key + len, svs.challenge_salt, 8 );
+
+	int slot = COM_HashKeyBytes( key, len + 8, CACHE_SIZE );
+
+	// millisecond tick; unsigned subtraction stays correct across the ~49 day wrap
+	uint32_t now = (uint32_t)(uint64_t)( host.realtime * 1000.0 );
+	uint32_t elapsed = now - cache[slot].last;
+
+	// the bucket is shared by every address hashing here, so it can't be evicted,
+	// only depleted, which bounds how much we amplify no matter how sources are spoofed
+	float tokens = cache[slot].tokens + elapsed * 0.001f * sv_query_rate_limit.value;
+	const float burst = 5.0f;
+
+	if( tokens > burst )
+		tokens = burst;
+	cache[slot].last = now;
+
+	if( tokens < 1.0f )
+	{
+		cache[slot].tokens = tokens;
+		return true;
+	}
+
+	cache[slot].tokens = tokens - 1.0f;
+#endif
+	return false;
+}
+
 /*
 ================
 SV_Info
@@ -915,6 +971,9 @@ static void SV_Info( netadr_t from, int protocolVersion )
 
 	// ignore in single player
 	if( svs.maxclients == 1 || !svs.initialized )
+		return;
+
+	if( SV_QueryRateLimited( from ))
 		return;
 
 	s[0] = '\0';
@@ -3651,3 +3710,56 @@ void SV_ExecuteClientMessage( sv_client_t *cl, sizebuf_t *msg )
 		}
 	}
  }
+
+#if XASH_ENGINE_TESTS
+
+#include "tests.h"
+
+void Test_RunQueryRateLimit( void )
+{
+	netadr_t victim = { .type = NA_IP, .ip4 = 0x01020304 };
+	float saved_rate = sv_query_rate_limit.value;
+	double saved_time = host.realtime;
+
+	// fixed salt and time so bucket placement and refill are deterministic
+	memset( svs.challenge_salt, 0, sizeof( svs.challenge_salt ));
+	host.realtime = 100000.0;
+
+	// disabled by cvar: nothing is ever throttled
+	sv_query_rate_limit.value = 0.0f;
+	for( int i = 0; i < 32; i++ )
+		TASSERT( SV_QueryRateLimited( victim ) == false );
+
+	// enabled: a fresh bucket lets a burst of 5 through, then throttles
+	sv_query_rate_limit.value = 1.0f;
+
+	int burst_allowed = 0;
+	for( int i = 0; i < 32; i++ )
+	{
+		if( !SV_QueryRateLimited( victim ))
+			burst_allowed++;
+	}
+	TASSERT_EQi( burst_allowed, 5 );
+
+	// a spoofed flood from other sources can only deplete buckets, never refill the
+	// victim's, so with no time elapsed the victim can't be evicted and stays throttled
+	for( int i = 0; i < 30000; i++ )
+		SV_QueryRateLimited(( netadr_t ){ .type = NA_IP, .ip4 = 0x10000000 + i });
+	TASSERT( SV_QueryRateLimited( victim ) == true );
+
+	// tokens refill with time: 3 seconds at 1/s lets exactly 3 more replies through
+	host.realtime += 3.0;
+
+	int refill_allowed = 0;
+	for( int i = 0; i < 32; i++ )
+	{
+		if( !SV_QueryRateLimited( victim ))
+			refill_allowed++;
+	}
+	TASSERT_EQi( refill_allowed, 3 );
+
+	sv_query_rate_limit.value = saved_rate;
+	host.realtime = saved_time;
+}
+
+#endif // XASH_ENGINE_TESTS

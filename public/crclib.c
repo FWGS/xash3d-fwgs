@@ -448,3 +448,18 @@ uint COM_HashKey( const char *string, uint hashSize )
 
 	return hashKey & ( hashSize - 1 );
 }
+
+/*
+=================
+COM_HashKeyBytes
+=================
+*/
+uint COM_HashKeyBytes( const byte *data, size_t len, uint hashSize )
+{
+	uint hashKey = 5381;
+
+	for( size_t i = 0; i < len; i++ )
+		hashKey = ( hashKey << 5 ) + hashKey + data[i];
+
+	return hashKey & ( hashSize - 1 );
+}

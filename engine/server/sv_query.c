@@ -27,6 +27,9 @@ static void SV_SourceQuery_Details( netadr_t from )
 	char answer[2048];
 	int bot_count, client_count;
 
+	if( SV_QueryRateLimited( from ))
+		return;
+
 	SV_GetPlayerCount( &client_count, &bot_count );
 	client_count += bot_count; // bots are counted as players in this reply
 

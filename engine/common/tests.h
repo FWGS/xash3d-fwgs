@@ -42,6 +42,7 @@ void Test_RunCvar( void );
 void Test_RunCon( void );
 void Test_RunVOX( void );
 void Test_RunIPFilter( void );
+void Test_RunQueryRateLimit( void );
 void Test_RunGamma( void );
 void Test_RunDelta( void );
 void Test_RunBuffer( void );
@@ -54,6 +55,7 @@ void Test_RunTitles( void );
 	Test_RunCmd(); \
 	Test_RunCvar(); \
 	Test_RunIPFilter(); \
+	Test_RunQueryRateLimit(); \
 	Test_RunBuffer(); \
 	Test_RunDelta(); \
 	Test_RunMunge();

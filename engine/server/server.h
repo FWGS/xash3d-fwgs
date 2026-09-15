@@ -456,6 +456,7 @@ extern convar_t		sv_allow_autoaim;
 extern convar_t		sv_aim;
 extern convar_t		sv_allow_testpacket;
 extern convar_t		sv_expose_player_list;
+extern convar_t		sv_query_rate_limit;
 
 //===========================================================
 //
@@ -472,6 +473,7 @@ int SV_GenericIndex( const char *name );
 void SV_InitOperatorCommands( void );
 void SV_KillOperatorCommands( void );
 void SV_RemoteCommand( netadr_t from, sizebuf_t *msg );
+qboolean SV_QueryRateLimited( netadr_t from );
 void SV_SendResource( resource_t *pResource, sizebuf_t *msg );
 void SV_AddToMaster( netadr_t from, sizebuf_t *msg );
 qboolean SV_ProcessUserAgent( netadr_t from, const char *useragent );
