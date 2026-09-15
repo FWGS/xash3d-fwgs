@@ -117,7 +117,8 @@ static void Sys_LoadEngine( void )
 
 	Host_Shutdown = (pfnShutdown)GetProcAddress( hEngine, "Host_Shutdown" );
 #elif XASH_POSIX
-	hEngine = dlopen( XASHLIB, RTLD_NOW );
+	// keep engine dependencies (SDL, etc.) out of the global scope so they never leak into game libraries
+	hEngine = dlopen( XASHLIB, RTLD_NOW | RTLD_LOCAL );
 	if( !hEngine )
 	{
 		Launch_Error( "Unable to load %s: %s", XASHLIB, dlerror( ));

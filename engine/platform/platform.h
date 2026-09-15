@@ -65,6 +65,16 @@ void IOS_LaunchDialog( void );
 #undef XASH_PLATFORM_HAVE_STATUS
 #endif
 
+// walks the direct dependency list of a game library image loaded from disk
+#if XASH_LIB == LIB_STATIC || XASH_ANDROID || XASH_IOS || XASH_PSVITA || XASH_NSWITCH
+static inline qboolean Platform_CheckLibraryDirectDependency( const byte *data, size_t size, const char *depname )
+{
+	return false;
+}
+#else
+qboolean Platform_CheckLibraryDirectDependency( const byte *data, size_t size, const char *depname );
+#endif
+
 #if XASH_POSIX
 void Posix_Daemonize( void );
 void Posix_SetupSigtermHandling( void );
