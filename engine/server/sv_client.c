@@ -73,28 +73,28 @@ challenge, they must give a valid IP address.
 static int SV_GetChallenge( netadr_t from, uint32_t time_window, qboolean *error )
 {
 	const netadrtype_t type = NET_NetadrType( &from );
-	MD5Context_t ctx;
-	byte digest[16];
+	byte data[2 + 16 + 4]; // purpose, address type, address, time window
+	int len = 2;
 
 	*error = false;
 
-	MD5Init( &ctx );
+	data[0] = 'C'; // separate challenge hashes from rate-limit bucket hashes
+	data[1] = type;
 
 	switch( type )
 	{
 	case NA_IP:
-		MD5Update( &ctx, from.ip, sizeof( from.ip ));
+		memcpy( data + len, from.ip, sizeof( from.ip ));
+		len += sizeof( from.ip );
 		break;
 	case NA_IPX:
-		MD5Update( &ctx, from.ipx, sizeof( from.ipx ));
+		memcpy( data + len, from.ipx, sizeof( from.ipx ));
+		len += sizeof( from.ipx );
 		break;
 	case NA_IP6:
-	{
-		byte ip6[16];
-		NET_NetadrToIP6Bytes( ip6, &from );
-		MD5Update( &ctx, ip6, sizeof( ip6 ));
+		NET_NetadrToIP6Bytes( data + len, &from );
+		len += 16;
 		break;
-	}
 	case NA_LOOPBACK:
 		return 0;
 	default:
@@ -102,11 +102,10 @@ static int SV_GetChallenge( netadr_t from, uint32_t time_window, qboolean *error
 		return 0;
 	}
 
-	MD5Update( &ctx, (byte *)svs.challenge_salt, sizeof( svs.challenge_salt ));
-	MD5Update( &ctx, (byte *)&time_window, sizeof( time_window ));
-	MD5Final( digest, &ctx );
+	for( int i = 0; i < 4; i++ )
+		data[len++] = time_window >> ( 8 * i );
 
-	return digest[0] | digest[1] << 8 | digest[2] << 16 | digest[3] << 24;
+	return (int32_t)SipHash24( data, len, (const byte *)svs.challenge_salt );
 }
 
 /*
@@ -898,28 +897,29 @@ qboolean SV_QueryRateLimited( netadr_t from MAYBE_UNUSED )
 	if( sv_query_rate_limit.value <= 0.0f )
 		return false;
 
-	byte key[16 + 8]; // max address bytes followed by salt
+	byte data[2 + 16]; // purpose, address type, address
+	const netadrtype_t type = NET_NetadrType( &from );
 	int len;
 
-	switch( NET_NetadrType( &from ))
+	data[0] = 'R';
+	data[1] = type;
+	switch( type )
 	{
 	case NA_IP:
-		memcpy( key, from.ip, 4 );
-		len = 4;
+		memcpy( data + 2, from.ip, 4 );
+		len = 2 + 4;
 		break;
 	case NA_IP6:
-		NET_NetadrToIP6Bytes( key, &from );
-		len = 16;
+		NET_NetadrToIP6Bytes( data + 2, &from );
+		len = 2 + 16;
 		break;
 	default:
 		return false;
 	}
 
-	// salt the address so an attacker who knows a victim's IP can't compute
-	// which bucket they land in and target it
-	memcpy( key + len, svs.challenge_salt, 8 );
-
-	int slot = COM_HashKeyBytes( key, len + 8, CACHE_SIZE );
+	// mix the secret salt with the address so collisions cannot be computed
+	// independently of the salt, as they can with an additive hash.
+	int slot = SipHash24( data, len, (const byte *)svs.challenge_salt ) & ( CACHE_SIZE - 1 );
 
 	// millisecond tick; unsigned subtraction stays correct across the ~49 day wrap
 	uint32_t now = (uint32_t)(uint64_t)( host.realtime * 1000.0 );
@@ -3698,13 +3698,60 @@ void SV_ExecuteClientMessage( sv_client_t *cl, sizebuf_t *msg )
 
 #include "tests.h"
 
+void Test_RunChallenge( void )
+{
+	uint32_t saved_salt[ARRAYSIZE( svs.challenge_salt )];
+	double saved_time = host.realtime;
+	qboolean error;
+	netadr_t addresses[] = {
+		{ .type = NA_IP, .ip = { 1, 2, 3, 40 } },
+		{ .type = NA_IPX, .ipx = { 1, 2, 3, 4, 5, 6, 7, 8, 9, 10 } },
+		{ .type = NA_IP6, .ip6_0 = { 0x20, 0x01 }, .ip6_1 = { 0x0d, 0xb8 } },
+	};
+
+	memcpy( saved_salt, svs.challenge_salt, sizeof( saved_salt ));
+	memset( svs.challenge_salt, 0, sizeof( svs.challenge_salt ));
+
+	for( int i = 0; i < ARRAYSIZE( addresses ); i++ )
+	{
+		host.realtime = 100 * CHALLENGE_WINDOW_SECONDS;
+		int challenge = SV_CreateChallenge( addresses[i], &error );
+		TASSERT( !error );
+		TASSERT( SV_ValidateChallenge( addresses[i], challenge ));
+		TASSERT( !SV_ValidateChallenge( addresses[( i + 1 ) % ARRAYSIZE( addresses )], challenge ));
+
+		// Challenges bind to the address, not its UDP port.
+		addresses[i].port = 12345;
+		TASSERT( SV_ValidateChallenge( addresses[i], challenge ));
+		svs.challenge_salt[0] ^= 1;
+		TASSERT( !SV_ValidateChallenge( addresses[i], challenge ));
+		svs.challenge_salt[0] ^= 1;
+
+		host.realtime += CHALLENGE_WINDOW_SECONDS;
+		TASSERT( SV_ValidateChallenge( addresses[i], challenge ));
+		host.realtime += CHALLENGE_WINDOW_SECONDS;
+		TASSERT( !SV_ValidateChallenge( addresses[i], challenge ));
+	}
+
+	TASSERT_EQi( SV_CreateChallenge(( netadr_t ){ .type = NA_LOOPBACK }, &error ), 0 );
+	TASSERT( !error );
+	SV_CreateChallenge(( netadr_t ){ .type = NA_UNDEFINED }, &error );
+	TASSERT( error );
+
+	memcpy( svs.challenge_salt, saved_salt, sizeof( saved_salt ));
+	host.realtime = saved_time;
+}
+
 void Test_RunQueryRateLimit( void )
 {
-	netadr_t victim = { .type = NA_IP, .ip4 = 0x01020304 };
+#if !XASH_LOW_MEMORY
+	netadr_t victim = { .type = NA_IP, .ip = { 1, 2, 3, 40 } };
 	float saved_rate = sv_query_rate_limit.value;
 	double saved_time = host.realtime;
+	uint32_t saved_salt[ARRAYSIZE( svs.challenge_salt )];
 
 	// fixed salt and time so bucket placement and refill are deterministic
+	memcpy( saved_salt, svs.challenge_salt, sizeof( saved_salt ));
 	memset( svs.challenge_salt, 0, sizeof( svs.challenge_salt ));
 	host.realtime = 100000.0;
 
@@ -3723,6 +3770,13 @@ void Test_RunQueryRateLimit( void )
 			burst_allowed++;
 	}
 	TASSERT_EQi( burst_allowed, 5 );
+
+	// these addresses collide under the old additive hash for every salt
+	// depleting one must not deplete the other with our fixed test salt
+	netadr_t collision = { .type = NA_IP, .ip = { 1, 2, 4, 7 } };
+	for( int i = 0; i < 5; i++ )
+		TASSERT( SV_QueryRateLimited( collision ) == false );
+	TASSERT( SV_QueryRateLimited( victim ) == true );
 
 	// a spoofed flood from other sources can only deplete buckets, never refill the
 	// victim's, so with no time elapsed the victim can't be evicted and stays throttled
@@ -3743,6 +3797,8 @@ void Test_RunQueryRateLimit( void )
 
 	sv_query_rate_limit.value = saved_rate;
 	host.realtime = saved_time;
+	memcpy( svs.challenge_salt, saved_salt, sizeof( saved_salt ));
+#endif // !XASH_LOW_MEMORY
 }
 
 #endif // XASH_ENGINE_TESTS

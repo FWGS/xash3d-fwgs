@@ -161,6 +161,7 @@ def build(bld):
 			'parsefile': 'tests/test_parsefile.c',
 			'atlas': 'tests/test_atlas.c',
 			'swapstruct': 'tests/test_swapstruct.c',
+			'siphash': 'tests/test_siphash.c',
 		}
 
 		for i in tests:

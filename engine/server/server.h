@@ -366,7 +366,7 @@ typedef struct
 	entity_state_t	*baselines;		// [GI->max_edicts]
 	entity_state_t	*static_entities;		// [MAX_STATIC_ENTITIES];
 
-	uint32_t  challenge_salt[16]; // pregenerated random numbers for generating challenged based on IP's MD5 address
+	uint32_t  challenge_salt[4]; // 128-bit SipHash key for address challenges and rate-limit buckets
 
 	sizebuf_t testpacket;         // pregenerataed testpacket, only needs CRC32 patching
 	byte      *testpacket_buf;    // check for NULL if testpacket is available
