@@ -7,16 +7,14 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
-		883FA4C4304F4E4F00B215C1 /* ZipArchive.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 883FA4BD304F4E3600B215C1 /* ZipArchive.framework */; };
-		883FA4C5304F4E4F00B215C1 /* ZipArchive.framework in Embed Frameworks */ = {isa = PBXBuildFile; fileRef = 883FA4BD304F4E3600B215C1 /* ZipArchive.framework */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
-		88C656DF305AF45100986226 /* libcrypto.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 88C656DD305AF45100986226 /* libcrypto.a */; };
-		88C656E0305AF45100986226 /* libssl.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 88C656DE305AF45100986226 /* libssl.a */; };
+		88C65891305B196700986226 /* ZipArchive.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 88C65875305B195800986226 /* ZipArchive.framework */; };
+		88C65892305B196700986226 /* ZipArchive.framework in Embed Frameworks */ = {isa = PBXBuildFile; fileRef = 88C65875305B195800986226 /* ZipArchive.framework */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
-		883FA4BC304F4E3600B215C1 /* PBXContainerItemProxy */ = {
+		88C65874305B195800986226 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
-			containerPortal = 883FA4B3304F4E3500B215C1 /* ZipArchive.xcodeproj */;
+			containerPortal = 88C6586A305B195700986226 /* ZipArchive.xcodeproj */;
 			proxyType = 2;
 			remoteGlobalIDString = B423AE1A1C0DF76A0004A2F1;
 			remoteInfo = "ZipArchive-iOS";
@@ -30,19 +28,9 @@
 			dstPath = "";
 			dstSubfolderSpec = 10;
 			files = (
-				883FA4C5304F4E4F00B215C1 /* ZipArchive.framework in Embed Frameworks */,
+				88C65892305B196700986226 /* ZipArchive.framework in Embed Frameworks */,
 			);
 			name = "Embed Frameworks";
-			runOnlyForDeploymentPostprocessing = 0;
-		};
-		88B6CD793044C41E002B8DD2 /* Embed Libraries */ = {
-			isa = PBXCopyFilesBuildPhase;
-			buildActionMask = 2147483647;
-			dstPath = "";
-			dstSubfolderSpec = 6;
-			files = (
-			);
-			name = "Embed Libraries";
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXCopyFilesBuildPhase section */
@@ -50,10 +38,8 @@
 /* Begin PBXFileReference section */
 		883FA41C304F4C6300B215C1 /* libiconv.tbd */ = {isa = PBXFileReference; lastKnownFileType = "sourcecode.text-based-dylib-definition"; name = libiconv.tbd; path = usr/lib/libiconv.tbd; sourceTree = SDKROOT; };
 		883FA41D304F4C7000B215C1 /* libz.tbd */ = {isa = PBXFileReference; lastKnownFileType = "sourcecode.text-based-dylib-definition"; name = libz.tbd; path = usr/lib/libz.tbd; sourceTree = SDKROOT; };
-		883FA4B3304F4E3500B215C1 /* ZipArchive.xcodeproj */ = {isa = PBXFileReference; lastKnownFileType = "wrapper.pb-project"; name = ZipArchive.xcodeproj; path = "/Users/yossefbaobaid/Downloads/SSZipArchive-master/ZipArchive.xcodeproj"; sourceTree = "<absolute>"; };
 		88997EE22FFEDE9100D500F1 /* Launcher.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Launcher.app; sourceTree = BUILT_PRODUCTS_DIR; };
-		88C656DD305AF45100986226 /* libcrypto.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; path = libcrypto.a; sourceTree = "<group>"; };
-		88C656DE305AF45100986226 /* libssl.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; path = libssl.a; sourceTree = "<group>"; };
+		88C6586A305B195700986226 /* ZipArchive.xcodeproj */ = {isa = PBXFileReference; lastKnownFileType = "wrapper.pb-project"; path = ZipArchive.xcodeproj; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
@@ -61,6 +47,7 @@
 			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
 			membershipExceptions = (
 				Info.plist,
+				SceneDelegate.m,
 				SDL2.framework,
 			);
 			target = 88997EE12FFEDE9100D500F1 /* Launcher */;
@@ -83,32 +70,19 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				883FA4C4304F4E4F00B215C1 /* ZipArchive.framework in Frameworks */,
-				88C656DF305AF45100986226 /* libcrypto.a in Frameworks */,
-				88C656E0305AF45100986226 /* libssl.a in Frameworks */,
+				88C65891305B196700986226 /* ZipArchive.framework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
-		883FA4B6304F4E3600B215C1 /* Products */ = {
-			isa = PBXGroup;
-			children = (
-				883FA4BD304F4E3600B215C1 /* ZipArchive.framework */,
-			);
-			name = Products;
-			sourceTree = "<group>";
-		};
 		88997ED92FFEDE9100D500F1 = {
 			isa = PBXGroup;
 			children = (
-				88C656DD305AF45100986226 /* libcrypto.a */,
-				88C656DE305AF45100986226 /* libssl.a */,
 				88997EE42FFEDE9100D500F1 /* Launcher */,
 				88B6C88A303B9180002B8DD2 /* Frameworks */,
 				88997EE32FFEDE9100D500F1 /* Products */,
-				883FA4B3304F4E3500B215C1 /* ZipArchive.xcodeproj */,
 			);
 			sourceTree = "<group>";
 		};
@@ -123,10 +97,27 @@
 		88B6C88A303B9180002B8DD2 /* Frameworks */ = {
 			isa = PBXGroup;
 			children = (
+				88C6586B305B195700986226 /* SSZipArchive-master */,
 				883FA41D304F4C7000B215C1 /* libz.tbd */,
 				883FA41C304F4C6300B215C1 /* libiconv.tbd */,
 			);
 			name = Frameworks;
+			sourceTree = "<group>";
+		};
+		88C6586B305B195700986226 /* SSZipArchive-master */ = {
+			isa = PBXGroup;
+			children = (
+				88C6586A305B195700986226 /* ZipArchive.xcodeproj */,
+			);
+			path = "SSZipArchive-master";
+			sourceTree = "<group>";
+		};
+		88C6586E305B195700986226 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				88C65875305B195800986226 /* ZipArchive.framework */,
+			);
+			name = Products;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -140,7 +131,6 @@
 				88997EDE2FFEDE9100D500F1 /* Sources */,
 				88997EDF2FFEDE9100D500F1 /* Frameworks */,
 				88997EE02FFEDE9100D500F1 /* Resources */,
-				88B6CD793044C41E002B8DD2 /* Embed Libraries */,
 				883FA468304F4CC800B215C1 /* Embed Frameworks */,
 				88C65753305B0F7900986226 /* ShellScript */,
 			);
@@ -187,8 +177,8 @@
 			projectDirPath = "";
 			projectReferences = (
 				{
-					ProductGroup = 883FA4B6304F4E3600B215C1 /* Products */;
-					ProjectRef = 883FA4B3304F4E3500B215C1 /* ZipArchive.xcodeproj */;
+					ProductGroup = 88C6586E305B195700986226 /* Products */;
+					ProjectRef = 88C6586A305B195700986226 /* ZipArchive.xcodeproj */;
 				},
 			);
 			projectRoot = "";
@@ -199,11 +189,11 @@
 /* End PBXProject section */
 
 /* Begin PBXReferenceProxy section */
-		883FA4BD304F4E3600B215C1 /* ZipArchive.framework */ = {
+		88C65875305B195800986226 /* ZipArchive.framework */ = {
 			isa = PBXReferenceProxy;
 			fileType = wrapper.framework;
 			path = ZipArchive.framework;
-			remoteRef = 883FA4BC304F4E3600B215C1 /* PBXContainerItemProxy */;
+			remoteRef = 88C65874305B195800986226 /* PBXContainerItemProxy */;
 			sourceTree = BUILT_PRODUCTS_DIR;
 		};
 /* End PBXReferenceProxy section */
@@ -235,7 +225,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "cd ..\n\n#customize engine build here\n./waf configure --ios --enable-bundled-deps -T release --sdl2=$(realpath \"SDL2.framework\") --enable-lto || exit 1\n\n./waf build install --destdir=$TARGET_BUILD_DIR/$UNLOCALIZED_RESOURCES_FOLDER_PATH\n\ncp -r SDL2.framework $TARGET_BUILD_DIR/$UNLOCALIZED_RESOURCES_FOLDER_PATH\n\n\n\ncodesign --force --verbose --sign \"${EXPANDED_CODE_SIGN_IDENTITY}\" $TARGET_BUILD_DIR/$UNLOCALIZED_RESOURCES_FOLDER_PATH/*.dylib\ncodesign --force --verbose --sign \"${EXPANDED_CODE_SIGN_IDENTITY}\" $TARGET_BUILD_DIR/$UNLOCALIZED_RESOURCES_FOLDER_PATH/SDL2.framework\n";
+			shellScript = "cd ..\n\n#customize engine build here\n./waf configure --ios --enable-bundled-deps -T release --sdl2=$(realpath \"SDL2.framework\") --enable-lto || exit 1\n\n./waf build install --destdir=$TARGET_BUILD_DIR/$UNLOCALIZED_RESOURCES_FOLDER_PATH\n\ncp -r SDL2.framework $TARGET_BUILD_DIR/$UNLOCALIZED_RESOURCES_FOLDER_PATH\n\n\nif [ $CODE_SIGNING_ALLOWED != \"NO\" ]; then\n\tcodesign --force --verbose --sign \"$EXPANDED_CODE_SIGN_IDENTITY\" $TARGET_BUILD_DIR/$UNLOCALIZED_RESOURCES_FOLDER_PATH/*.dylib\n\tcodesign --force --verbose --sign \"$EXPANDED_CODE_SIGN_IDENTITY\" $TARGET_BUILD_DIR/$UNLOCALIZED_RESOURCES_FOLDER_PATH/SDL2.framework\nfi\n";
 		};
 		88C65753305B0F7900986226 /* ShellScript */ = {
 			isa = PBXShellScriptBuildPhase;
@@ -252,7 +242,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "# Type a script or drag a script file from your workspace to insert its path.\n\ncd ..\n\nmkdir -p build/ios/Payload\ncp -r $TARGET_BUILD_DIR/$UNLOCALIZED_RESOURCES_FOLDER_PATH build/ios/Payload\nif [ -d \"build/ios/libs/\" ]; then\n\tcp -r \"build/ios/libs/\"* \"build/ios/Payload/$UNLOCALIZED_RESOURCES_FOLDER_PATH\"\nfi\n\nif [ -e build/xash3d.ipa ]; then\n\trm build/xash3d.ipa\nfi\n    \nzip -r build/xash3d.ipa build/ios/Payload\n";
+			shellScript = "# Type a script or drag a script file from your workspace to insert its path.\n\ncd ..\n\nmkdir -p build/ios/Payload\ncp -r $TARGET_BUILD_DIR/$UNLOCALIZED_RESOURCES_FOLDER_PATH build/ios/Payload\nif [ -d \"build/ios/libs/\" ]; then\n\tcp -r \"build/ios/libs/\"* \"build/ios/Payload/$PRODUCT_NAME.app\"\nfi\n\nif [ -e build/xash3d.ipa ]; then\n\trm build/xash3d.ipa\nfi\n\ncd build/ios\n    \nzip -r ../xash3d.ipa Payload\n\ncd ../..\n";
 		};
 /* End PBXShellScriptBuildPhase section */
 
@@ -312,6 +302,9 @@
 				PRODUCT_BUNDLE_IDENTIFIER = su.xash.engine;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				STRING_CATALOG_GENERATE_SYMBOLS = YES;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SUPPORTS_MACCATALYST = NO;
+				SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD = NO;
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				TARGETED_DEVICE_FAMILY = "1,2";
 				__DIAGNOSE_INVALID_DEPLOYMENT_TARGET_AS_ERROR = NO;
@@ -363,6 +356,9 @@
 				PRODUCT_BUNDLE_IDENTIFIER = su.xash.engine;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				STRING_CATALOG_GENERATE_SYMBOLS = YES;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SUPPORTS_MACCATALYST = NO;
+				SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD = NO;
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				TARGETED_DEVICE_FAMILY = "1,2";
 				__DIAGNOSE_INVALID_DEPLOYMENT_TARGET_AS_ERROR = NO;
