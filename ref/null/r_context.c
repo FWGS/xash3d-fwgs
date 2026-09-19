@@ -375,7 +375,7 @@ static const ref_interface_t gReffuncs =
 	.R_DecalShoot      = R_DecalShoot,
 	.R_DecalRemoveAll  = R_SimpleStubInt,
 	.R_CreateDecalList = R_CreateDecalList,
-	.R_ClearAllDecals  = R_SimpleStub,
+	.R_ClearAllDecals  = R_SimpleStubBool,
 
 	.R_StudioEstimateFrame = R_StudioEstimateFrame,
 	.R_StudioLerpMovement  = R_StudioLerpMovement,
