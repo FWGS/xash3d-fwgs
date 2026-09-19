@@ -307,6 +307,7 @@ qboolean R_InitRenderAPI( void )
 	gRenderAPI.GL_LoadTexture      = ref.dllFuncs.GL_LoadTexture;
 	gRenderAPI.GL_FreeTexture      = ref.dllFuncs.GL_FreeTexture;
 	gRenderAPI.GL_Bind             = ref.dllFuncs.GL_Bind;
+	gRenderAPI.R_ClearAllDecals    = ref.dllFuncs.R_ClearAllDecals;
 
 	ref.dllFuncs.R_FillRenderAPI( &gRenderAPI );
 

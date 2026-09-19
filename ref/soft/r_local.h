@@ -465,7 +465,7 @@ void R_DrawViewModel( void );
 void R_DecalShoot( int textureIndex, int entityIndex, int modelIndex, vec3_t pos, int flags, float scale );
 void R_DecalRemoveAll( int texture );
 int R_CreateDecalList( decallist_t *pList );
-void R_ClearAllDecals( void );
+void R_ClearAllDecals( qboolean includePermanent );
 byte *Mod_GetCurrentVis( void );
 void Mod_SetOrthoBounds( const float *mins, const float *maxs );
 void R_NewMap( void );
