@@ -4653,3 +4653,53 @@ int GAME_EXPORT Mod_SaveLump( const char *filename, const int lump, void *lumpda
 	FS_Close( f );
 	return LUMP_SAVE_OK;
 }
+
+#if XASH_ENGINE_TESTS
+#include "tests.h"
+
+static void Test_Mod_NameImpliesTextureIsAnimated( void )
+{
+	typedef struct { char name[64]; } test_texture_t;
+
+	test_texture_t valid[] =
+	{
+		{"+0"}, {"+9"}, {"-0"}, {"-9"},
+		{"+a"}, {"+A"}, {"+j"}, {"+J"},
+		{"-a"}, {"-A"}, {"-j"}, {"-J"},
+	};
+
+	for( int i = 0; i < (int)ARRAYSIZE( valid ); i++ )
+	{
+		TASSERT( Mod_NameImpliesTextureIsAnimated( (texture_t *)&valid[i] ));
+	}
+
+	test_texture_t invalid[] =
+	{
+		{"+k"}, {"+K"}, {"+z"}, {"+Z"},
+		{"-k"}, {"-K"}, {"-z"}, {"-Z"},
+		{"++"}, {"+-"}, {"-+"}, {"--"},
+		{"a0"}, {"0a"}, {""}, {"+"}, {"-"}, {" "}, {"+ "}, {"- "},
+	};
+
+	for( int i = 0; i < (int)ARRAYSIZE( invalid ); i++ )
+	{
+		TASSERT( !Mod_NameImpliesTextureIsAnimated( (texture_t *)&invalid[i] ));
+	}
+}
+
+static void Test_Mod_FrameIndexCalculation( void )
+{
+	TASSERT_EQi( Q_toupper( 'A' ) - 'A', 0 );
+	TASSERT_EQi( Q_toupper( 'a' ) - 'A', 0 );
+	TASSERT_EQi( Q_toupper( 'J' ) - 'A', 9 );
+	TASSERT_EQi( Q_toupper( 'j' ) - 'A', 9 );
+	TASSERT_EQi( Q_toupper( '0' ) - '0', 0 );
+	TASSERT_EQi( Q_toupper( '9' ) - '0', 9 );
+}
+
+void Test_RunModBmodel( void )
+{
+	TRUN( Test_Mod_NameImpliesTextureIsAnimated() );
+	TRUN( Test_Mod_FrameIndexCalculation() );
+}
+#endif
