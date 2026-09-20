@@ -710,7 +710,8 @@ static qboolean Mod_NameImpliesTextureIsAnimated( texture_t *tex )
 
 	// Name implies texture is animated - check second character is valid.
 	if( !( tex->name[1] >= '0' && tex->name[1] <= '9' ) &&
-		!( tex->name[1] >= 'a' && tex->name[1] <= 'j' ))
+		!( tex->name[1] >= 'a' && tex->name[1] <= 'j' ) &&
+		!( tex->name[1] >= 'A' && tex->name[1] <= 'J' ))
 	{
 		Con_Printf( S_ERROR "%s: animating texture \"%s\" has invalid name\n", __func__, tex->name );
 		return false;
@@ -3003,7 +3004,7 @@ static void Mod_SequenceAnimatedTexture( model_t *mod, int baseTextureIndex )
 	else
 	{
 		// This texture is an alternate animation frame.
-		int frameIndex = (int)baseTexture->name[1] - (int)'a';
+		int frameIndex = (int)Q_toupper( baseTexture->name[1] ) - (int)'A';
 
 		altanims[frameIndex] = baseTexture;
 		altmax = frameIndex + 1;
@@ -3036,7 +3037,7 @@ static void Mod_SequenceAnimatedTexture( model_t *mod, int baseTextureIndex )
 		else
 		{
 			// This texture is an alternate frame.
-			int frameIndex = (int)altTexture->name[1] - (int)'a';
+			int frameIndex = (int)Q_toupper( altTexture->name[1] ) - (int)'A';
 			altanims[frameIndex] = altTexture;
 
 			if( frameIndex >= altmax )
