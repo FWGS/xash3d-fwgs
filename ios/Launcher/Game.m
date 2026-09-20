@@ -330,8 +330,8 @@ LibDownloader *downloader;
 	
 	NSURL *searchURL = [NSURL fileURLWithPath:self.gameDir relativeToURL:libsURL];
 	//ideally the paths we get should be relative to game dir
-	NSDirectoryEnumerator *enumerator = [NSFileManager.defaultManager enumeratorAtURL:searchURL.absoluteURL includingPropertiesForKeys:@[NSURLIsDirectoryKey] options:NSDirectoryEnumerationSkipsHiddenFiles | NSDirectoryEnumerationProducesRelativePathURLs errorHandler:^BOOL(NSURL * _Nonnull url, NSError * _Nonnull error) {
-		NSLog(@"Failed to enumerate directory with error: %@", error.localizedDescription);
+	NSDirectoryEnumerator *enumerator = [NSFileManager.defaultManager enumeratorAtURL:searchURL includingPropertiesForKeys:@[NSURLIsDirectoryKey] options:NSDirectoryEnumerationSkipsHiddenFiles | NSDirectoryEnumerationProducesRelativePathURLs errorHandler:^BOOL(NSURL * _Nonnull url, NSError * _Nonnull error) {
+		[Alert displayErrorAlertWithMessage:[NSString stringWithFormat:@"Failed to enumerate directory with error: %@", error.localizedDescription]]
 		
 		return YES;
 	}];
