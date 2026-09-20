@@ -2589,7 +2589,7 @@ static qboolean Mod_LooksLikeWaterTexture( const char *name )
 
 	if( !Host_IsQuakeCompatible( ))
 	{
-		if( !Q_strncmp( name, "water", 5 ) || !Q_strnicmp( name, "laser", 5 ))
+		if( !Q_strnicmp( name, "water", 5 ) || !Q_strnicmp( name, "laser", 5 ))
 			return true;
 	}
 
