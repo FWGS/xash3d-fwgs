@@ -30,6 +30,10 @@ NSString *libraryDirectory;
 - (BOOL)application:(UIApplication *)application didFinishLaunchingWithOptions:(NSDictionary *)launchOptions {
 	// Override point for customization after application launch.
 	documentsDirctory = [NSFileManager.defaultManager URLsForDirectory:NSDocumentDirectory inDomains:NSUserDomainMask][0];
+	NSString *logsdir = [documentsDirctory.path stringByAppendingPathComponent:@"launcherlogs.log"];
+	[NSFileManager.defaultManager createFileAtPath:logsdir contents:nil attributes:nil];
+	//freopen([logsdir fileSystemRepresentation], "a+", stderr);
+	//freopen([logsdir fileSystemRepresentation], "a+", stdout);
 	
 	[NSFileManager.defaultManager createDirectoryAtPath:[documentsDirctory.path stringByAppendingPathComponent:@"Dummy folder"] withIntermediateDirectories:YES attributes:nil error:nil];
 	
