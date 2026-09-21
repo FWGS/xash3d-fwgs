@@ -560,8 +560,9 @@ class PSVita:
 		linkflags = ['-Wl,--hash-style=sysv', '-Wl,-q', '-Wl,-z,nocopyreloc', '-mtune=cortex-a9', '-mfpu=neon']
 		# enforce no-short-enums again
 		linkflags += ['-Wl,-no-enum-size-warning', '-fno-short-enums']
-		# try to avoid the "vita-elf-create: Cannot allocate 20084 bytes for SCE data at end of segment 0; segment 1 overlaps" error
-		linkflags += ['-Wl,-z,max-page-size=0x10000']
+		# vitasdk's ld script reserves __sce_headroom bytes after the RX segment for the SCE metadata that vita-elf-create appends there,
+		# otherwise "Cannot allocate N bytes for SCE data at end of segment 0; segment 1 overlaps" depends on the layout, see vitasdk/buildscripts#144
+		linkflags += ['-Wl,-z,max-page-size=0x10000', '-Wl,--defsym,__sce_headroom=0x10000']
 		return linkflags
 
 	def ldflags(self):
