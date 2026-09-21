@@ -656,8 +656,8 @@ void SV_RestartDecals( void )
 
 	numdecals = ref.dllFuncs.R_CreateDecalList( list );
 
-	// remove decals from map
-	ref.dllFuncs.R_ClearAllDecals();
+	// remove decals from map for clean demo recording state (keep permanent)
+	ref.dllFuncs.R_ClearAllDecals( false );
 
 	// write decals into reliable datagram
 	msg = SV_GetReliableDatagram();
@@ -666,6 +666,11 @@ void SV_RestartDecals( void )
 	for( int i = 0; i < numdecals; i++ )
 	{
 		decallist_t *entry = &list[i];
+
+		// skip permanent decals - they're map data sent via svc_bspdecal on map load
+		if( FBitSet( entry->flags, FDECAL_PERMANENT ))
+			continue;
+
 		int modelIndex = SV_PEntityOfEntIndex( entry->entityIndex, true )->v.modelindex;
 
 		// game override
