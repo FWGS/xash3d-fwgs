@@ -472,7 +472,16 @@ static void FS_ParseGenericGameInfo( gameinfo_t *GameInfo, const char *buf, cons
 	{
 		// just replace extension from dll to so/dylib
 		char gamedll[64];
-		Q_strncpy( gamedll, GameInfo->game_dll, sizeof( gamedll ));
+
+		if( found_linux )
+		{
+			Q_strncpy( gamedll, GameInfo->game_dll_linux, sizeof( gamedll ));
+		}
+		else
+		{
+			Q_strncpy( gamedll, GameInfo->game_dll, sizeof( gamedll ));
+		}
+
 		COM_StripExtension( gamedll );
 
 		if( !found_linux )
