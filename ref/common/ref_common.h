@@ -92,4 +92,12 @@ void R_UpdateSurfaceCachedLight( msurface_t *surf );
 //
 byte *GL_ResampleTexture( const byte *source, int in_w, int in_h, int out_w, int out_h, qboolean isNormalMap );
 
+//
+// ref_skybox.c
+//
+extern const int r_skyTexOrder[SKYBOX_MAX_SIDES];
+extern const int vec_to_st[SKYBOX_MAX_SIDES][3];
+int R_SkyboxAxisFromDir( const vec3_t dir );
+qboolean R_SkyboxProject( const vec3_t dir, int axis, float *s, float *t );
+
 #endif // REF_COMMON_H

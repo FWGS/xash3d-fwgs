@@ -815,6 +815,71 @@ static void D_CalcGradients( msurface_t *pface )
 
 /*
 ==============
+D_SkyboxSample
+
+Sample the loaded skybox cubemap for a world-space view direction.
+Face selection and st mapping are shared with ref_gl through
+R_SkyboxAxisFromDir/R_SkyboxProject (ref_skybox.c).
+==============
+*/
+static pixel_t D_SkyboxSample( const vec3_t dir )
+{
+	const int axis = R_SkyboxAxisFromDir( dir );
+	float s, t;
+
+	if( !R_SkyboxProject( dir, axis, &s, &t ))
+		return 0;
+
+	// ref_gl flips t because GL texcoords are bottom-up (MakeSkyVec);
+	// our pixel rows are top-down, so the same flip is needed here
+	s = ( s + 1.0f ) * 0.5f;
+	t = 1.0f - ( t + 1.0f ) * 0.5f;
+
+	s = bound( 0.0f, s, 1.0f );
+	t = bound( 0.0f, t, 1.0f );
+
+	const image_t *tex = R_GetTexture( tr.skyboxTextures[r_skyTexOrder[axis]] );
+	const int tx = Q_min((int)( s * tex->width ), tex->width - 1 );
+	const int ty = Q_min((int)( t * tex->height ), tex->height - 1 );
+
+	return tex->pixels[0][ty * tex->width + tx];
+}
+
+/*
+==============
+D_SkyboxFillSurface
+
+Fill sky spans by sampling the skybox as a cubemap: every sky pixel
+gets the texel its world-space view ray points at.
+==============
+*/
+static void D_SkyboxFillSurface( surf_t *surf )
+{
+	for( espan_t *span = surf->spans; span; span = span->pnext )
+	{
+		pixel_t *pdest = d_viewbuffer + r_screenwidth * span->v;
+		const int u2 = span->u + span->count - 1;
+		vec3_t  dir, dstep;
+
+		// sample at pixel centers, not corners
+		const float dy = ( ycenter - ( span->v + 0.5f )) * yscaleinv;
+		const float dx = (( span->u + 0.5f ) - xcenter ) * xscaleinv;
+
+		VectorCopy( RI.base_vpn, dir );
+		VectorMA( dir, dx, RI.base_vright, dir );
+		VectorMA( dir, dy, RI.base_vup, dir );
+		VectorScale( RI.base_vright, xscaleinv, dstep );
+
+		for( int u = span->u; u <= u2; u++ )
+		{
+			pdest[u] = D_SkyboxSample( dir );
+			VectorAdd( dir, dstep, dir );
+		}
+	}
+}
+
+/*
+==============
 D_BackgroundSurf
 
 The grey background filler seen when there is a hole in the map
@@ -822,13 +887,24 @@ The grey background filler seen when there is a hole in the map
 */
 static void D_BackgroundSurf( surf_t *s )
 {
+	qboolean have_skybox = true;
+
 // set up a gradient for the background surface that places it
 // effectively at infinity distance from the viewpoint
 	d_zistepu = 0;
 	d_zistepv = 0;
 	d_ziorigin = -0.9;
 
-	D_FlatFillSurface( s, (int)sw_clearcolor.value & 0xFFFF );
+	for( int i = 0; i < SKYBOX_MAX_SIDES; i++ )
+	{
+		if( !tr.skyboxTextures[i] )
+			have_skybox = false;
+	}
+
+	if( have_skybox )
+		D_SkyboxFillSurface( s );
+	else
+		D_FlatFillSurface( s, (int)sw_clearcolor.value & 0xFFFF );
 	D_DrawZSpans( s->spans );
 }
 
