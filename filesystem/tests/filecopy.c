@@ -198,6 +198,7 @@ int main( void )
 	if( !TestFileCopy())
 		return EXIT_FAILURE;
 
+	g_fs.ShutdownStdio();
 	FreeLibrary( g_hModule );
 
 	printf( "success\n" );
