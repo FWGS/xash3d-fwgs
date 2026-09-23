@@ -271,6 +271,55 @@ static const dllfunc_t bufferstoragefuncs[] =
 { GL_CALL( glBufferStorage ) },
 };
 
+static const dllfunc_t framebufferobjectfuncs[] =
+{
+{ GL_CALL( glIsRenderbuffer ) },
+{ GL_CALL( glBindRenderbuffer ) },
+{ GL_CALL( glDeleteRenderbuffers ) },
+{ GL_CALL( glGenRenderbuffers ) },
+{ GL_CALL( glRenderbufferStorage ) },
+{ GL_CALL( glGetRenderbufferParameteriv ) },
+{ GL_CALL( glIsFramebuffer ) },
+{ GL_CALL( glBindFramebuffer ) },
+{ GL_CALL( glDeleteFramebuffers ) },
+{ GL_CALL( glGenFramebuffers ) },
+{ GL_CALL( glCheckFramebufferStatus ) },
+{ GL_CALL( glFramebufferTexture2D ) },
+{ GL_CALL( glFramebufferRenderbuffer ) },
+{ GL_CALL( glGetFramebufferAttachmentParameteriv ) },
+};
+
+static const dllfunc_t framebufferblitfuncs[] =
+{
+{ GL_CALL( glBlitFramebuffer ) },
+};
+
+static const dllfunc_t framebuffermultisamplefuncs[] =
+{
+{ GL_CALL( glRenderbufferStorageMultisample ) },
+};
+
+// GL_ARB_framebuffer_object merges the three EXT extensions above
+static const dllfunc_t framebufferarbfuncs[] =
+{
+{ GL_CALL( glIsRenderbuffer ) },
+{ GL_CALL( glBindRenderbuffer ) },
+{ GL_CALL( glDeleteRenderbuffers ) },
+{ GL_CALL( glGenRenderbuffers ) },
+{ GL_CALL( glRenderbufferStorage ) },
+{ GL_CALL( glGetRenderbufferParameteriv ) },
+{ GL_CALL( glIsFramebuffer ) },
+{ GL_CALL( glBindFramebuffer ) },
+{ GL_CALL( glDeleteFramebuffers ) },
+{ GL_CALL( glGenFramebuffers ) },
+{ GL_CALL( glCheckFramebufferStatus ) },
+{ GL_CALL( glFramebufferTexture2D ) },
+{ GL_CALL( glFramebufferRenderbuffer ) },
+{ GL_CALL( glGetFramebufferAttachmentParameteriv ) },
+{ GL_CALL( glBlitFramebuffer ) },
+{ GL_CALL( glRenderbufferStorageMultisample ) },
+};
+
 static const dllfunc_t shaderobjectsfuncs[] MAYBE_UNUSED =
 {
 { GL_CALL( glDeleteObjectARB ) },
@@ -946,6 +995,17 @@ static void GL_InitExtensionsBigGL( void )
 	GL_CheckExtension( "GL_ARB_buffer_storage", bufferstoragefuncs, ARRAYSIZE( bufferstoragefuncs ), "gl_buffer_storage", GL_BUFFER_STORAGE_EXT, 4.4);
 	GL_CheckExtension( "GL_ARB_map_buffer_range", mapbufferrangefuncs, ARRAYSIZE( mapbufferrangefuncs ), "gl_map_buffer_range", GL_MAP_BUFFER_RANGE_EXT , 3.0);
 	GL_CheckExtension( "GL_ARB_draw_elements_base_vertex", drawrangeelementsbasevertexfuncs, ARRAYSIZE( drawrangeelementsbasevertexfuncs ), "gl_drawrangeelementsbasevertex", GL_DRAW_RANGE_ELEMENTS_BASE_VERTEX_EXT, 3.2 );
+	if( GL_CheckExtension( "GL_ARB_framebuffer_object", framebufferarbfuncs, ARRAYSIZE( framebufferarbfuncs ), "gl_framebuffer_object", GL_FRAMEBUFFER_OBJECT_EXT, 3.0 ))
+	{
+		GL_SetExtension( GL_FRAMEBUFFER_BLIT_EXT, true );
+		GL_SetExtension( GL_FRAMEBUFFER_MULTISAMPLE_EXT, true );
+	}
+	else
+	{
+		GL_CheckExtension( "GL_EXT_framebuffer_object", framebufferobjectfuncs, ARRAYSIZE( framebufferobjectfuncs ), "gl_framebuffer_object", GL_FRAMEBUFFER_OBJECT_EXT, 0 );
+		GL_CheckExtension( "GL_EXT_framebuffer_blit", framebufferblitfuncs, ARRAYSIZE( framebufferblitfuncs ), "gl_framebuffer_object", GL_FRAMEBUFFER_BLIT_EXT, 0 );
+		GL_CheckExtension( "GL_EXT_framebuffer_multisample", framebuffermultisamplefuncs, ARRAYSIZE( framebuffermultisamplefuncs ), "gl_framebuffer_object", GL_FRAMEBUFFER_MULTISAMPLE_EXT, 0 );
+	}
 #endif
 	if( GL_CheckExtension( "GL_ARB_shading_language_100", NULL, 0, NULL, GL_SHADER_GLSL100_EXT, 2.0 ))
 	{
