@@ -405,6 +405,12 @@ void V_RenderView( void )
 	do
 	{
 		clgame.dllFuncs.pfnCalcRefdef( &rp );
+
+		// client dll may replace viewmodel in pfnCalcRefdef, so set animtime again
+		// V_SetupViewModel did it only for the model known before this call
+		if( clgame.viewent.model && clgame.viewent.model->type == mod_studio )
+			clgame.viewent.curstate.animtime = cl.local.weaponstarttime;
+
 		V_GetRefParams( &rp, &rvp );
 		V_RefApplyOverview( &rvp );
 		V_ApplyRefUnderwater( &rvp );
