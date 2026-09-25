@@ -94,7 +94,7 @@ rserr_t   R_ChangeDisplaySettings( int width, int height, window_mode_t window_m
 
 	Con_Reportf( "%s: forced resolution to %dx%d)\n", __func__, width, height );
 
-	if( ref.dllFuncs.R_SetDisplayTransform( rotate, 0, 0, vid_scale->value, vid_scale->value ) )
+	if( ref.dllFuncs.R_SetDisplayTransform( rotate, 0, 0, 1.0f, 1.0f ) )
 	{
 		if( rotate & 1 )
 		{
@@ -103,9 +103,6 @@ rserr_t   R_ChangeDisplaySettings( int width, int height, window_mode_t window_m
 			render_w = render_h;
 			render_h = swap;
 		}
-
-		render_h /= vid_scale->value;
-		render_w /= vid_scale->value;
 	}
 	else
 	{
