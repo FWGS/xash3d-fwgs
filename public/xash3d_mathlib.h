@@ -376,7 +376,8 @@ static inline int IS_NAN( float x )
 
 static inline float anglemod( float a )
 {
-	a = (360.0f / 65536) * ((int)(a*(65536/360.0f)) & 65535);
+	// GoldSrc uses double here, so we do too
+	a = (360.0 / 65536) * ((int)(a*(65536/360.0)) & 65535);
 	return a;
 }
 
