@@ -122,9 +122,11 @@ static void V_SetRefParams( ref_params_t *fd )
 {
 	memset( fd, 0, sizeof( ref_params_t ));
 
-	// probably this is not needs
 	VectorCopy( refState.vieworg, fd->vieworg );
 	VectorCopy( refState.viewangles, fd->viewangles );
+
+	// Compute view vectors from angles each frame
+	AngleVectors( fd->viewangles, fd->forward, fd->right, fd->up );
 
 	fd->frametime = host.frametime;
 	fd->time = cl.time;
