@@ -1583,6 +1583,28 @@ static void Mod_LightMatrixFromTexMatrix( const mtexinfo_t *tx, float lmvecs[2][
 
 /*
 =================
+Mod_PointVecsProduct
+
+volatile forces rounding of every sum to double and result to float,
+same as compilers did it, otherwise x87 or FMA give different extents
+=================
+*/
+static float Mod_PointVecsProduct( const float *point, const float *vecs )
+{
+	volatile double val = 0.0;
+	volatile float res;
+
+	for( int i = 0; i < 3; i++ )
+		val += (double)point[i] * vecs[i];
+
+	val += vecs[3];
+	res = val;
+
+	return res;
+}
+
+/*
+=================
 Mod_CalcSurfaceExtents
 
 Fills in surf->texturemins[] and surf->extents[]
@@ -1626,14 +1648,22 @@ static void Mod_CalcSurfaceExtents( model_t *mod, msurface_t *surf, const dbspmo
 
 		for( int j = 0; j < 2; j++ )
 		{
+#if 0 // causes misaligned lightmap on ramp on cs_havana.bsp in either release i386 build or in -ffast-math build
 			val = DotProductPrecise( v->position, surf->texinfo->vecs[j] ) + surf->texinfo->vecs[j][3];
+#else
+			val = Mod_PointVecsProduct( v->position, surf->texinfo->vecs[j] );
+#endif
 			mins[j] = Q_min( val, mins[j] );
 			maxs[j] = Q_max( val, maxs[j] );
 		}
 
 		for( int j = 0; j < 2; j++ )
 		{
+#if 0 // same as above, therefore disabled
 			val = DotProductPrecise( v->position, info->lmvecs[j] ) + info->lmvecs[j][3];
+#else
+			val = Mod_PointVecsProduct( v->position, info->lmvecs[j] );
+#endif
 			lmmins[j] = Q_min( val, lmmins[j] );
 			lmmaxs[j] = Q_max( val, lmmaxs[j] );
 		}
