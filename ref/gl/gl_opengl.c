@@ -523,7 +523,8 @@ GL_CheckExtension
 */
 static qboolean GL_CheckExtension( const char *name, const dllfunc_t *funcs, size_t num_funcs, const char *cvarname, int r_ext, float minver )
 {
-	const float glver = (float)glConfig.version_major + glConfig.version_minor / 10.0f;
+	const int glver = glConfig.version_major * 10 + glConfig.version_minor;
+	const int iminver = Q_rint( minver * 10.0f );
 
 	gEngfuncs.Con_Reportf( "%s: %s ", __func__, name );
 	GL_SetExtension( r_ext, true );
@@ -546,7 +547,7 @@ static qboolean GL_CheckExtension( const char *name, const dllfunc_t *funcs, siz
 
 	const char *extensions_string = glConfig.extensions_string;
 
-	if(( name[2] == '_' || name[3] == '_' ) && !Q_strstr( extensions_string, name ) && ( glver < minver  || !minver || !glver ) )
+	if(( name[2] == '_' || name[3] == '_' ) && !Q_strstr( extensions_string, name ) && ( glver < iminver || !iminver || !glver ))
 	{
 		GL_SetExtension( r_ext, false );	// update render info
 		gEngfuncs.Con_Reportf( "- ^1failed\n" );
