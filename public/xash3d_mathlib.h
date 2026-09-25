@@ -86,8 +86,6 @@ CONSTANTS AND HELPER MACROS
 #endif
 #define Q_equal_e( a, b, e ) (((a) >= ((b) - (e))) && ((a) <= ((b) + (e))))
 #define Q_equal( a, b ) Q_equal_e( a, b, EQUAL_EPSILON )
-#define Q_floor( a )    ((float)(int)(a))
-#define Q_ceil( a )     ((float)(int)((a) + 1))
 #define Q_round( x, y ) (floor( x / y + 0.5f ) * y )
 #define Q_rint(x)       ((x) < 0.0f ? ((int)((x)-0.5f)) : ((int)((x)+0.5f)))
 #define ALIGN( x, a )   ((( x ) + (( size_t )( a ) - 1 )) & ~(( size_t )( a ) - 1 ))
@@ -184,7 +182,7 @@ typedef struct mstudioanim_s mstudioanim_t;
 float Q_rsqrt( float number );
 uint16_t FloatToHalf( float v );
 float HalfToFloat( uint16_t h );
-void RoundUpHullSize( vec3_t size );
+void RoundUpHullSize( vec3_t mins, vec3_t maxs );
 void VectorVectors( const vec3_t forward, vec3_t right, vec3_t up );
 void VectorAngles( const float *forward, float *angles );
 void VectorsAngles( const vec3_t forward, const vec3_t right, const vec3_t up, vec3_t angles );

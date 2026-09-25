@@ -18,8 +18,6 @@ GNU General Public License for more details.
 #include "xash3d_mathlib.h"
 #include "studio.h"
 
-#define HULL_PRECISION	4
-
 static const uint8_t hull_table[] = { 2, 4, 6, 8, 12, 16, 18, 24, 28, 32, 36, 40, 48, 54, 56, 60, 64, 72, 80, 112, 120, 128, 140, 176 };
 
 const int boxpnt[6][4] =
@@ -87,49 +85,64 @@ float HalfToFloat( uint16_t h )
 
 /*
 =================
-RoundUpHullSize
+RoundHullBound
 
-round the hullsize to nearest 'right' value
 =================
 */
-void RoundUpHullSize( vec3_t size )
+static float RoundHullBound( float bound, qboolean toward_positive )
 {
-	for( int i = 0; i < 3; i++)
+	qboolean negative = bound < 0.0f;
+	float value = fabs( bound );
+
+	if( value == 0.0f )
+		return 0.0f;
+
+	if( negative != toward_positive )
 	{
-		qboolean negative = false;
-		float value = size[i];
+		// magnitude grows, snap to the next table value
+		value = ceil( value );
 
-		if( value < 0.0f ) negative = true;
-		value = Q_ceil( fabs( value ));
-		float result = Q_ceil( size[i] );
-
-		// lookup hull table to find nearest supposed value
-		for( size_t j = 0; j < sizeof( hull_table ) / sizeof( hull_table[0] ); j++ )
+		for( size_t i = 0; i < ARRAYSIZE( hull_table ); i++ )
 		{
-			if( value > hull_table[j] )
-				continue;	// ceil only
-
-			if( negative )
+			if( value <= hull_table[i] )
 			{
-				result = ( value - hull_table[j] );
-				if( result <= HULL_PRECISION )
-				{
-					result = -hull_table[j];
-					break;
-				}
-			}
-			else
-			{
-				result = ( value - hull_table[j] );
-				if( result <= HULL_PRECISION )
-				{
-					result = hull_table[j];
-					break;
-				}
+				value = hull_table[i];
+				break;
 			}
 		}
+	}
+	else
+	{
+		// magnitude shrinks, snap to the previous table value
+		value = floor( value );
 
-		size[i] = result;
+		if( value <= hull_table[ARRAYSIZE( hull_table ) - 1] )
+		{
+			float snapped = 0.0f;
+
+			for( size_t i = 0; i < ARRAYSIZE( hull_table ) && hull_table[i] <= value; i++ )
+				snapped = hull_table[i];
+
+			value = snapped;
+		}
+	}
+
+	return negative ? -value : value;
+}
+
+/*
+=================
+RoundUpHullSize
+
+round the hullsize outwards to nearest 'right' value
+=================
+*/
+void RoundUpHullSize( vec3_t mins, vec3_t maxs )
+{
+	for( int i = 0; i < 3; i++ )
+	{
+		mins[i] = RoundHullBound( mins[i], false );
+		maxs[i] = RoundHullBound( maxs[i], true );
 	}
 }
 
