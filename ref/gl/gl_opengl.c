@@ -10,6 +10,7 @@ CVAR_DEFINE( gl_texture_anisotropy, "gl_anisotropy", "8", FCVAR_GLCONFIG, "textu
 CVAR_DEFINE_AUTO( gl_texture_lodbias, "0.0", FCVAR_GLCONFIG, "LOD bias for mipmapped textures (perfomance|quality)" );
 CVAR_DEFINE_AUTO( gl_texture_nearest, "0", FCVAR_GLCONFIG, "disable texture filter" );
 CVAR_DEFINE_AUTO( gl_lightmap_nearest, "0", FCVAR_GLCONFIG, "disable lightmap filter" );
+CVAR_DEFINE_AUTO( gl_fbo_nearest, "0", FCVAR_GLCONFIG, "disable filter when upscaling the scene rendered with r_scene_scale" );
 CVAR_DEFINE_AUTO( gl_keeptjunctions, "1", FCVAR_GLCONFIG, "removing tjuncs causes blinking pixels" );
 CVAR_DEFINE_AUTO( gl_check_errors, "1", FCVAR_GLCONFIG, "ignore video engine errors" );
 CVAR_DEFINE_AUTO( gl_polyoffset, "2", FCVAR_GLCONFIG, "polygon offset for decals" );
@@ -39,6 +40,7 @@ CVAR_DEFINE_AUTO( r_ripple, "0", FCVAR_GLCONFIG, "enable software-like water tex
 CVAR_DEFINE_AUTO( r_ripple_updatetime, "0.05", FCVAR_GLCONFIG, "how fast ripple simulation is" );
 CVAR_DEFINE_AUTO( r_ripple_spawntime, "0.1", FCVAR_GLCONFIG, "how fast new ripples spawn" );
 CVAR_DEFINE_AUTO( r_large_lightmaps, "0", FCVAR_GLCONFIG|FCVAR_LATCH, "enable larger lightmap atlas textures (might break custom renderer mods)" );
+CVAR_DEFINE_AUTO( r_scene_scale, "1.0", FCVAR_GLCONFIG, "render the 3D scene at this fraction of the window resolution (0.1 to 8.0), HUD is unaffected" );
 
 
 gl_globals_t	tr;
@@ -1219,10 +1221,12 @@ static void GL_InitCommands( void )
 	gEngfuncs.Cvar_RegisterVariable( &r_vbo_overbrightmode );
 	gEngfuncs.Cvar_RegisterVariable( &r_vbo_detail );
 	gEngfuncs.Cvar_RegisterVariable( &r_large_lightmaps );
+	gEngfuncs.Cvar_RegisterVariable( &r_scene_scale );
 
 	gEngfuncs.Cvar_RegisterVariable( &gl_extensions );
 	gEngfuncs.Cvar_RegisterVariable( &gl_texture_nearest );
 	gEngfuncs.Cvar_RegisterVariable( &gl_lightmap_nearest );
+	gEngfuncs.Cvar_RegisterVariable( &gl_fbo_nearest );
 	gEngfuncs.Cvar_RegisterVariable( &gl_check_errors );
 	gEngfuncs.Cvar_RegisterVariable( &gl_texture_anisotropy );
 	gEngfuncs.Cvar_RegisterVariable( &gl_texture_lodbias );
@@ -1356,6 +1360,7 @@ void R_Shutdown( void )
 		return;
 
 	GL_RemoveCommands();
+	GL_FreeRenderTargets();
 	R_ShutdownImages();
 #if !XASH_GLES && !XASH_GL_STATIC
 	GL2_ShimShutdown();

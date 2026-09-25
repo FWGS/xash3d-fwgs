@@ -175,6 +175,31 @@ typedef struct
 	uint		num_beam_entities;
 } draw_list_t;
 
+typedef enum
+{
+	RT_COLOR_TEXTURE = BIT( 0 ), // otherwise a color renderbuffer
+	RT_DEPTH         = BIT( 1 ), // depth, plus stencil when the context has it
+} rt_flags_t;
+
+typedef struct
+{
+	GLuint fbo;
+	GLuint color; // color renderbuffer, when not RT_COLOR_TEXTURE
+	GLuint depth;
+	int texnum;   // color texture, when RT_COLOR_TEXTURE
+	int width;
+	int height;
+	int samples;
+} gl_rendertarget_t;
+
+typedef struct
+{
+	gl_rendertarget_t msaa;   // 3D passes when multisampling, resolved into scene
+	gl_rendertarget_t scene;  // 3D passes, sized by r_scene_scale
+	gl_rendertarget_t screen; // 2D pass, sized like the window
+	qboolean failed;
+} gl_rendertargets_t;
+
 typedef struct
 {
 	int		defaultTexture;   	// use for bad textures
@@ -234,6 +259,8 @@ typedef struct
 	uint max_entities;
 
 	ref_screen_rotation_t rotation;
+
+	gl_rendertargets_t targets;
 } gl_globals_t;
 
 typedef struct
@@ -311,6 +338,17 @@ void DrawSingleDecal( decal_t *pDecal, msurface_t *fa );
 void R_EntityRemoveDecals( model_t *mod );
 void DrawDecalsBatch( void );
 void R_ClearDecals( void );
+
+//
+// gl_fbo.c
+//
+void GL_CheckRenderTargets( void );
+void GL_FreeRenderTargets( void );
+void GL_GetSceneTargetSize( int *width, int *height );
+void GL_BindSceneTarget( void );
+void GL_BindScreenTarget( void );
+void GL_BindWindowTarget( void );
+void GL_PresentScreenTarget( void );
 
 //
 // gl_draw.c
@@ -622,6 +660,7 @@ typedef struct
 
 	qboolean		stencilEnabled;
 	qboolean		in2DMode;
+	qboolean		sceneTargetDrawn;
 	vec2_t		offset2D;
 
 	polyoffset_state_t polyoffset_state[2];
@@ -703,6 +742,11 @@ static inline int GL_MaxTextureUnits( void )
 	return Q_min( glConfig.max_texture_units, MAX_TEXTURE_UNITS );
 }
 
+static inline qboolean GL_RenderTargetsActive( void )
+{
+	return tr.targets.screen.fbo != 0;
+}
+
 #define WORLDMODEL (tr.worldmodel)
 
 //
@@ -714,6 +758,7 @@ extern convar_t	gl_check_errors;
 extern convar_t	gl_texture_lodbias;
 extern convar_t	gl_texture_nearest;
 extern convar_t	gl_lightmap_nearest;
+extern convar_t	gl_fbo_nearest;
 extern convar_t	gl_keeptjunctions;
 extern convar_t	gl_round_down;
 extern convar_t	gl_wireframe;
@@ -748,6 +793,7 @@ extern convar_t r_ripple;
 extern convar_t r_ripple_updatetime;
 extern convar_t r_ripple_spawntime;
 extern convar_t r_large_lightmaps;
+extern convar_t r_scene_scale;
 
 //
 // engine shared convars
