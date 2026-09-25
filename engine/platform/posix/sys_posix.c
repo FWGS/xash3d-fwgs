@@ -107,6 +107,8 @@ void Posix_SetupSigtermHandling( void )
 #if XASH_TIMER == TIMER_POSIX
 double Platform_DoubleTime( void )
 {
+	static qboolean s_ClockInit;
+	static time_t s_ClockStart;
 	struct timespec ts;
 #if XASH_IRIX
 	clock_gettime( CLOCK_SGI_CYCLE, &ts );
@@ -118,7 +120,14 @@ double Platform_DoubleTime( void )
 	ts.tv_sec  = tv.tv_sec;
 	ts.tv_nsec = tv.tv_usec * 1000;
 #endif
-	return (double) ts.tv_sec + (double) ts.tv_nsec/1000000000.0;
+
+	if( !s_ClockInit )
+	{
+		s_ClockStart = ts.tv_sec;
+		s_ClockInit = true;
+	}
+
+	return (double)( ts.tv_sec - s_ClockStart ) + (double) ts.tv_nsec/1000000000.0;
 }
 
 void Platform_Sleep( int msec )
