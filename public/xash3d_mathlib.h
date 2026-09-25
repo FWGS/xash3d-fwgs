@@ -365,16 +365,12 @@ static inline float SwapFloat( float bf )
 	return UintAsFloat( li );
 }
 
-// isnan implementation is broken on IRIX as reported in https://github.com/FWGS/xash3d-fwgs/pull/1211
-#if defined( XASH_IRIX ) || !defined( isnan )
+// don't use isnan: it's broken on IRIX as reported in https://github.com/FWGS/xash3d-fwgs/pull/1211
+// and it's optimized out to false under -ffinite-math-only (-Ofast)
 static inline int IS_NAN( float x )
 {
-	int32_t i = FloatAsInt( x ); // only C
-	return ( i & ( 255 << 23 ) ) == ( 255 << 23 );
+	return ( FloatAsUint( x ) & 0x7fffffff ) > 0x7f800000;
 }
-#else
-#define IS_NAN isnan
-#endif
 #endif // __cplusplus
 
 
