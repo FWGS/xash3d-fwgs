@@ -363,6 +363,9 @@ static void IN_MouseMove( void )
 
 	VGui_MouseMove( x, y );
 
+	if( cls.key_dest == key_console )
+		Con_MouseMove( x, y );
+
 	// if the menu is visible, move the menu cursor
 	UI_MouseMove( x, y );
 }
@@ -396,6 +399,10 @@ void IN_MouseEvent( int key, int down )
 		// but by default it calls back to Key_Event anyway
 		if( in_mouseactive )
 			clgame.dllFuncs.IN_MouseEvent( in_mstate );
+	}
+	else if( cls.key_dest == key_console )
+	{
+		Con_MouseEvent( K_MOUSE1 + key, down );
 	}
 	else
 	{
