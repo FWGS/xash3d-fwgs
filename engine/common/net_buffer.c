@@ -428,11 +428,8 @@ void MSG_WriteBitAngle( sizebuf_t *sb, float fAngle, int numbits )
 	const uint shift = ( 1 << numbits );
 	const uint mask = shift - 1;
 
-	// clamp the angle before receiving
-	fAngle = fmod( fAngle, 360.0f );
-	if( fAngle < 0 ) fAngle += 360.0f;
-
-	int d = (int)(( fAngle * shift ) / 360.0f );
+	// GoldSrc truncates in double, then does integer division, so we do too
+	int64_t d = (int64_t)( shift * fmod( (double)fAngle, 360.0 )) / 360;
 	d &= mask;
 
 	MSG_WriteUBitLong( sb, (uint)d, numbits );
@@ -998,12 +995,54 @@ static void Test_Buffer_ExciseBits( void )
 	TASSERT_EQi( MSG_ReadUBitLong( &sb, 4 ), 0xa );
 }
 
+static void Test_Buffer_BitAngle( void )
+{
+	// expected values are produced by GoldSrc's MSG_WriteBitAngle
+	const struct
+	{
+		float angle;
+		int numbits;
+		uint result;
+	} test_data[] =
+	{
+		{ 0.0f, 16, 0 },
+		{ 90.0f, 16, 16384 },
+		{ 180.0f, 16, 32768 },
+		{ 359.99f, 16, 65534 },
+		{ 360.0f, 16, 0 },
+		{ 720.5f, 16, 91 },
+		{ 45.123f, 16, 8214 },
+		{ -1.0f, 16, 65354 },
+		{ -90.0f, 16, 49152 },
+		{ -0.001f, 16, 0 },
+		{ -179.99f, 16, 32770 },
+		{ -360.0f, 16, 0 },
+		{ -45.123f, 16, 57322 },
+		{ -720.5f, 16, 65445 },
+		{ -1.0f, 12, 4085 },
+		{ 100.7f, 12, 1145 },
+	};
+	sizebuf_t sb;
+	char testdata[0x100];
+
+	MSG_Init( &sb, __func__, testdata, sizeof( testdata ));
+
+	for( int i = 0; i < ARRAYSIZE( test_data ); i++ )
+		MSG_WriteBitAngle( &sb, test_data[i].angle, test_data[i].numbits );
+
+	MSG_SeekToBit( &sb, 0, SEEK_SET );
+
+	for( int i = 0; i < ARRAYSIZE( test_data ); i++ )
+		TASSERT_EQi( MSG_ReadUBitLong( &sb, test_data[i].numbits ), test_data[i].result );
+}
+
 void Test_RunBuffer( void )
 {
 	TRUN( Test_Buffer_BitByte( ));
 	TRUN( Test_Buffer_Write( ));
 	TRUN( Test_Buffer_Read( ));
 	TRUN( Test_Buffer_ExciseBits( ));
+	TRUN( Test_Buffer_BitAngle( ));
 }
 
 #endif // XASH_ENGINE_TESTS
