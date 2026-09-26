@@ -446,7 +446,7 @@ const char *COM_GetPlatformNeutralName( const char *in_name )
 
 qboolean COM_CheckLibraryDirectDependency( const char *name, const char *depname, qboolean directpath )
 {
-	dll_user_t *hInst = FS_FindLibrary( name, directpath );
+	dll_user_t *hInst = COM_FindLibrary( name, directpath );
 
 	if( !hInst )
 		return false;

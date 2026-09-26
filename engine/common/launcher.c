@@ -21,6 +21,10 @@ GNU General Public License for more details.
 #include <SDL.h>
 #endif
 
+#if XASH_OGC
+#include <dvm.h>
+#endif
+
 #ifndef XASH_GAMEDIR
 #define XASH_GAMEDIR "valve" // !!! Replace with your default (base) game directory !!!
 #endif

@@ -138,6 +138,7 @@ void DOS_Shutdown( void );
 #if XASH_OGC
 void OGC_Init( void );
 void OGC_Shutdown( void );
+qboolean OGC_GetBasePath( char *buf, const size_t buflen );
 #endif
 
 #if XASH_LINUX
