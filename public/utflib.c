@@ -235,3 +235,20 @@ uint32_t Q_UnicodeToCP1252( uint32_t uc )
 	// this is NOT valid way to convert Unicode codepoint back to CP1252!!!
 	return uc < 0xFF ? uc : '?';
 }
+
+uint32_t Q_CP1251ToUnicode( uint32_t cp )
+{
+	if( cp < 0x80 )
+		return cp;
+
+	if( cp >= 0xC0 )
+		return cp < 0xE0 ? cp + 0x410 - 0xC0 : cp + 0x430 - 0xE0;
+
+	return table_cp1251[cp - 0x80];
+}
+
+uint32_t Q_CP1252ToUnicode( uint32_t cp )
+{
+	// CP1252 matches Latin-1 for the range we care about
+	return cp;
+}
