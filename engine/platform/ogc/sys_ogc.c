@@ -25,6 +25,9 @@ GNU General Public License for more details.
 #include <SDL.h>
 #include <gccore.h>
 #include <ogcsys.h>
+#include <wiiuse/wpad.h>
+#include <wiikeyboard/keyboard.h>
+#include <ogc/usbmouse.h>
 
 #include <sys/types.h>
 #include <sys/socket.h>
@@ -44,14 +47,13 @@ void Platform_ShellExecute( const char *path, const char *parms )
 
 void OGC_Init( void )
 {
-	SYS_STDIO_Report(true);
-	WPAD_Init();
+	WPAD_Init( );
 
 	// Needs to be enabled to disable it
 	KEYBOARD_Init(NULL);
 	KEYBOARD_Deinit();
 
-	MOUSE_Init(NULL);
+	MOUSE_Init( );
 	printf( "%s\n", __func__ );
 }
 
@@ -74,6 +76,5 @@ qboolean OGC_GetBasePath( char *buf, const size_t buflen )
 			return true;
 		}
 	}
+	return false;
 }
-
-//const struct in6_addr in6addr_any = {{ 0 }};

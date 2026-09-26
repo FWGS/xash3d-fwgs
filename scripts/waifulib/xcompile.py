@@ -47,6 +47,8 @@ PSVITA_ENVVARS = ['VITASDK']
 
 PSP_ENVVARS = ['PSPDEV', 'PSPSDK', 'PSPTOOLCHAIN']
 
+OGC_ENVVARS = ['DEVKITPRO']
+
 class iOS:
 	ctx = None
 	sdkpath = None
@@ -430,7 +432,6 @@ class NintendoSwitch:
 
 	def __init__(self, ctx):
 		self.ctx = ctx
-
 		for i in NSWITCH_ENVVARS:
 			self.dkp_dir = os.getenv(i)
 			if self.dkp_dir != None:
@@ -626,6 +627,99 @@ class PSP:
 		stdlibs += ['-lpspuser', '-lpspkernel']
 		return stdlibs
 
+class NintendoWii:
+	ctx          = None # waf context
+	arch         = "ppc"
+	dkp_dir      = None
+	portlibs_dir = None
+	dkppc_dir    = None
+	libogc_dir   = None
+
+	def __init__(self, ctx):
+		self.ctx = ctx
+
+		for i in OGC_ENVVARS:
+			self.dkp_dir = os.getenv(i)
+			if self.dkp_dir != None:
+				break
+		else:
+			ctx.fatal('Set %s environment variable pointing to the DEVKITPRO home!' %
+				' or '.join(OGC_ENVVARS))
+
+		self.dkp_dir = os.path.abspath(self.dkp_dir)
+
+		self.dkppc_dir = os.path.join(self.dkp_dir, 'devkitPPC')
+		if not os.path.exists(self.dkppc_dir):
+			ctx.fatal('devkitPPC not found in `%s`. Install devkitPPC!' % self.dkppc_dir)
+
+		self.libogc_dir = os.path.join(self.dkp_dir, 'libogc')
+		if not os.path.exists(self.libogc_dir):
+			ctx.fatal('libogc not found in `%s`. Install libogc!' % self.libogc_dir)
+
+		self.portlibs_dir = os.path.join(self.dkp_dir, 'portlibs', 'wii')
+		if not os.path.exists(self.portlibs_dir):
+			ctx.fatal('No Wii libraries found in `%s`!' % self.portlibs_dir)
+
+	def gen_toolchain_prefix(self):
+		return 'powerpc-eabi-'
+
+	def gen_gcc_toolchain_path(self):
+		return os.path.join(self.dkppc_dir, 'bin', self.gen_toolchain_prefix())
+
+	def cc(self):
+		return self.gen_gcc_toolchain_path() + 'gcc'
+
+	def cxx(self):
+		return self.gen_gcc_toolchain_path() + 'g++'
+
+	def strip(self):
+		return self.gen_gcc_toolchain_path() + 'strip'
+
+	def strip(self):
+		return self.gen_gcc_toolchain_path() + 'strip'
+
+	def ld(self):
+		return self.gen_gcc_toolchain_path() + 'ld'
+
+	def objcopy(self):
+		return self.gen_gcc_toolchain_path() + 'objcopy'
+
+	def pkgconfig(self):
+		# It's the same as nswitch
+		return os.path.join(self.portlibs_dir, 'bin', self.gen_toolchain_prefix() + 'pkg-config')
+
+	def cflags(self, cxx = False):
+		cflags = []
+		cflags += ['-D__wii__', '-DGEKKO']
+		cflags += ['-mrvl', '-mcpu=750', '-meabi', '-mhard-float']
+		cflags += ['-ffunction-sections', '-fdata-sections']
+		#double check
+		cflags += ['-I%s/include' % self.libogc_dir]
+		cflags += ['-I%s/include' % self.portlibs_dir]
+		cflags += ['-I.']
+
+		# the game wants GNU extensions
+		if cxx:
+			cflags += ['-std=gnu++17', '-D_GNU_SOURCE']
+		else:
+			cflags += ['-std=gnu11', '-D_GNU_SOURCE']
+		return cflags
+
+	def linkflags(self):
+		linkflags = []
+		linkflags += ['-mrvl', '-mcpu=750', '-meabi', '-mhard-float']
+		linkflags += ['-L%s/powerpc-eabi/lib' % self.dkppc_dir]
+
+		# This is just for linking opengx and sdl2
+		linkflags += ['-L%s/lib' % self.portlibs_dir]
+		linkflags += ['-Wl,--gc-sections', '-fwhole-program', '-Wl,--build-id=none']
+
+		return linkflags
+
+	def stblibs(self):
+		stblibs = []
+		stblibs += ['-lwiiuse', '-lbte']
+
 def options(opt):
 	xc = opt.add_option_group('Cross compile options')
 	xc.add_option('--android', action='store', dest='ANDROID_OPTS', default=None,
@@ -644,6 +738,8 @@ def options(opt):
 		help='enable building for Emscripten')
 	xc.add_option('--psp', action='store', dest='PSP_OPTS', default=None,
 		help='enable building for PlayStation Portable, format: --psp=<module type>,<fw version>,<render type>, example: --psp=prx,660,HW')
+	xc.add_option('--wii', action='store_true', dest='WII', default = False,
+		help='enable building for Nintendo Wii [default: %(default)s]')
 	xc.add_option('--ios', action='store_true', dest='IOS', default=False, 
 		help='enable building for iOS [default: %(default)s]')
 	xc.add_option('--ios-simulator', action='store_true', dest='IOSSIM', default=False, 
@@ -804,11 +900,25 @@ def configure(conf):
 		conf.env.CXXFLAGS += ios.cflags()
 		conf.env.LINKFLAGS += ios.linkflags()
 		conf.env.IOS = 1
+	elif conf.options.WII:
+		conf.wii = wii = NintendoWii(conf)
+		conf.environ['CC'] = wii.cc()
+		conf.environ['CXX'] = wii.cxx()
+		conf.environ['STRIP'] = wii.strip()
+		conf.environ['LD'] = wii.ld()
+		conf.environ['OBJCOPY'] = wii.objcopy()
+		conf.env.PKGCONFIG = wii.pkgconfig()
+		conf.env.CFLAGS += wii.cflags()
+		conf.env.CXXFLAGS += wii.cflags(True)
+		conf.env.LINKFLAGS += wii.linkflags()
+		conf.env.HAVE_M = True
+		conf.env.LIB_M = ['m']
+		conf.env.DEST_OS = 'wii'
 
 	conf.env.MAGX = conf.options.MAGX
 	conf.env.MSVC_WINE = conf.options.MSVC_WINE
 	conf.env.SAILFISH = conf.options.SAILFISH
-	MACRO_TO_DESTOS = OrderedDict({ '__ANDROID__' : 'android', '__SWITCH__' : 'nswitch', '__vita__' : 'psvita', '__wasi__': 'wasi', '__EMSCRIPTEN__' : 'emscripten', '__psp__': 'psp' })
+	MACRO_TO_DESTOS = OrderedDict({ '__ANDROID__' : 'android', '__SWITCH__' : 'nswitch', '__vita__' : 'psvita', '__wasi__': 'wasi', '__EMSCRIPTEN__' : 'emscripten', '__psp__': 'psp', '__wii__' : 'wii' })
 	for k in c_config.MACRO_TO_DESTOS:
 		MACRO_TO_DESTOS[k] = c_config.MACRO_TO_DESTOS[k] # ordering is important
 	c_config.MACRO_TO_DESTOS  = MACRO_TO_DESTOS

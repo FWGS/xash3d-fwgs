@@ -88,7 +88,7 @@ def configure(conf):
 		conf.env.CFLAGS += ['-mllvm', '-wasm-enable-sjlj']
 	elif conf.env.DEST_OS == 'sunos':
 		conf.check_cc(lib='socket')
-	elif conf.env.DEST_OS == 'dos':
+	elif conf.env.DEST_OS == ['dos','wii']:
 		conf.options.STATIC = True
 
 	if conf.options.ENABLE_FUZZER:
@@ -128,6 +128,10 @@ def configure(conf):
 
 	if not conf.env.DEST_OS in ['win32', 'android']:
 		conf.check_pthreads(mode='c')
+
+	if conf.env.DEST_OS == 'wii':
+		# Still disable keyboard calls
+		conf.env.append_unique('CXXFLAGS', ['-Wl,--wrap=KEYBOARD_GetEvent'])
 	
 	for i in get_frameworks(conf.env):
 		conf.check(features='c cprogram', framework=i, uselib_store=i, msg='Checking for %s framework' % i)
@@ -164,13 +168,17 @@ def build(bld):
 	bld(name = 'engine_includes', export_includes = '. common common/imagelib', use = 'filesystem_includes')
 
 	libs = ['engine_includes', 'public', 'werror', 'backtrace_custom', 'library_suffix', 'build_vcs', 'mbedtls', 'yy_thunks']
-	includes = ['server', 'client', 'client/vgui', 'common/soundlib', 'platform']
+	includes = ['server', 'client', 'client/vgui', 'common/soundlib', 'platform', 'filesystem_includes']
 
 	# basic build: dedicated only
 	source = bld.path.ant_glob(['common/*.c', 'common/imagelib/*.c', 'common/soundlib/*.c', 'server/*.c', 'common/http/*.c'])
 
-	# include platform-specific sources, this shall not fail if directory doesn't exist
-	source += bld.path.ant_glob('platform/%s/*.c' % bld.env.DEST_OS)
+	# the wii and gamecube share the same toolchain
+	if bld.env.DEST_OS in ['wii', 'gamecube']:
+		source += bld.path.ant_glob('platform/ogc/*.c')
+	else:
+		# include platform-specific sources, this shall not fail if directory doesn't exist
+		source += bld.path.ant_glob('platform/%s/*.c' % bld.env.DEST_OS)
 
 	# Android _is_ Linux based, after all
 	if bld.env.DEST_OS == 'android':

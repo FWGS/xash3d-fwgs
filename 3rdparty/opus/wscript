@@ -63,7 +63,7 @@ def configure(conf):
 				conf.env.HAVE_NEON = True
 				conf.define('OPUS_ARM_MAY_HAVE_NEON_INTR', 1)
 				conf.define('OPUS_ARM_PRESUME_NEON', 1)
-	elif conf.env.DEST_CPU.startswith('x86'):
+	elif conf.env.DEST_CPU in ['x86', 'x86_64']:
 		if conf.check(header_name='xmmintrin.h', mandatory = False):
 			if conf.env.COMPILER_CC != 'msvc':
 				conf.env.CFLAGS += ['-msse']
@@ -119,7 +119,7 @@ def build(bld):
 		if bld.env.HAVE_NEON:
 			sources += bld.path.ant_glob(['opus/silk/arm/*.c', 'opus/celt/arm/*.c'])
 			includes += ['opus/silk/arm', 'opus/celt/arm']
-	elif bld.env.DEST_CPU.startswith('x86'):
+	elif bld.env.DEST_CPU in ['x86', 'x86_64']:
 		sources += ['opus/silk/x86/x86_silk_map.c',
 			'opus/celt/x86/pitch_sse.c',
 			'opus/celt/x86/pitch_sse2.c',

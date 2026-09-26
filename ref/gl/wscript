@@ -18,7 +18,10 @@ def options(opt):
 
 def configure(conf):
 	conf.env.GL_STATIC = conf.options.GL_STATIC
-	if conf.env.GL_STATIC:
+	if conf.env.GL_STATIC and conf.env.DEST_OS == 'wii':
+		# use the wrapper's name instead
+		conf.check(lib='opengx')
+	elif conf.env.GL_STATIC:
 		conf.check(lib='GL')
 
 	if conf.env.DEST_OS2 == 'android':
@@ -32,7 +35,7 @@ def build(bld):
 	else:
 		libs += [ 'public', 'M' ]
 
-	source = bld.path.ant_glob(['*.c', 'gl2_shim/*.c'])
+	source = bld.path.ant_glob(['*.c', 'gl2_shim/*.c'], excl='link_helper.cpp')
 	includes = '.'
 
 	targets = {
