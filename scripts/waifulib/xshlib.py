@@ -33,7 +33,7 @@ def build(bld):
 class objcopy_relocatable_lib(Task.Task):
 	"remove all exports except of lib_${NAME}_exports"
 	no_errcheck_out = True
-	run_str = '${OBJCOPY} -G lib_${NAME}_exports ${SRC[0].abspath()} ${TGT[0].abspath()}'
+	run_str = '${LD} -r -o ${TGT[0].abspath()} ${LD_RELOCATABLE_FLAGS} ${CCLNK_SRC_F}${SRC} ${STLIBPATH_ST:STLIBPATH} ${STLIB_ST:STLIB}'
 	def keyword(self):
 		return 'ObjCopy'
 
