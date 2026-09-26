@@ -36,12 +36,12 @@ def build(bld):
 	libs = [ 'filesystem_includes', 'sdk_includes', 'werror', 'yy_thunks' ]
 
 	# on PSVita do not link any libraries that are already in the main executable, but add the includes target
-	if bld.env.DEST_OS != 'psvita':
+	if bld.env.DEST_OS not in ['psvita', 'wii']:
 		libs += [ 'public', 'ANDROID', 'library_suffix', 'build_vcs' ]
 
 	bld.shlib(target = 'filesystem_stdio',
 		features = 'seq',
-		source = bld.path.ant_glob(['*.c', '*.cpp']),
+		source = bld.path.ant_glob(['*.c', '*.cpp'], excl='link_helper.cpp'),
 		use = libs,
 		install_path = bld.env.LIBDIR)
 
