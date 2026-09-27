@@ -181,6 +181,9 @@ typedef enum
 	RT_DEPTH         = BIT( 1 ), // depth, plus stencil when the context has it
 } rt_flags_t;
 
+// viewmodel is drawn into this fraction of the depth range so it never clips into walls
+#define VIEWMODEL_DEPTH_RANGE 0.3f
+
 typedef struct
 {
 	GLuint fbo;
