@@ -701,12 +701,17 @@ void GAME_EXPORT Cvar_DirectSet( convar_t *var, const char *value )
 	// lookup for registration
 	if( unlikely( CVAR_CHECK_SENTINEL( var ) || ( var->next == NULL && !FBitSet( var->flags, FCVAR_EXTENDED|FCVAR_ALLOCATED ))))
 	{
-		// need to registering cvar fisrt
-		Cvar_RegisterVariable( var );	// ok, register it
+		// a short cvar_t with next == NULL may still be registered: the last entry
+		// in the sorted list also has next == NULL, so resolve it by name first
+		if( Cvar_FindVar( var->name ) != var )
+		{
+			// need to registering cvar fisrt
+			Cvar_RegisterVariable( var );	// ok, register it
 
-		// lookup for registration again
-		if( var != Cvar_FindVar( var->name ))
-			return; // how this possible?
+			// lookup for registration again
+			if( var != Cvar_FindVar( var->name ))
+				return; // how this possible?
+		}
 	}
 
 	if( !Cvar_CanSet( var ))
