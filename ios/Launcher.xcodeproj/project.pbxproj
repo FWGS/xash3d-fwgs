@@ -225,7 +225,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "cd ..\n\n#customize engine build here\n./waf configure --ios --enable-bundled-deps -T release --sdl2=$(realpath \"SDL2.framework\") --enable-lto || exit 1\n\n./waf build install --destdir=$TARGET_BUILD_DIR/$UNLOCALIZED_RESOURCES_FOLDER_PATH\n\ncp -r SDL2.framework $TARGET_BUILD_DIR/$UNLOCALIZED_RESOURCES_FOLDER_PATH\n\n\nif [ $CODE_SIGNING_ALLOWED != \"NO\" ]; then\n\tcodesign --force --verbose --sign \"$EXPANDED_CODE_SIGN_IDENTITY\" $TARGET_BUILD_DIR/$UNLOCALIZED_RESOURCES_FOLDER_PATH/*.dylib\n\tcodesign --force --verbose --sign \"$EXPANDED_CODE_SIGN_IDENTITY\" $TARGET_BUILD_DIR/$UNLOCALIZED_RESOURCES_FOLDER_PATH/SDL2.framework\nfi\n";
+			shellScript = "cd ..\n\n#customize engine build here\n./waf configure --ios --enable-bundled-deps -T debug --sdl2=$(realpath \"SDL2.framework\") --enable-lto || exit 1\n\n./waf build install --destdir=$TARGET_BUILD_DIR/$UNLOCALIZED_RESOURCES_FOLDER_PATH\n\ncp -r SDL2.framework $TARGET_BUILD_DIR/$UNLOCALIZED_RESOURCES_FOLDER_PATH\n\n\nif [ $CODE_SIGNING_ALLOWED != \"NO\" ]; then\n\tcodesign --force --verbose --sign \"$EXPANDED_CODE_SIGN_IDENTITY\" $TARGET_BUILD_DIR/$UNLOCALIZED_RESOURCES_FOLDER_PATH/*.dylib\n\tcodesign --force --verbose --sign \"$EXPANDED_CODE_SIGN_IDENTITY\" $TARGET_BUILD_DIR/$UNLOCALIZED_RESOURCES_FOLDER_PATH/SDL2.framework\nfi\n";
 		};
 		88C65753305B0F7900986226 /* ShellScript */ = {
 			isa = PBXShellScriptBuildPhase;
@@ -242,7 +242,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "# Type a script or drag a script file from your workspace to insert its path.\n\ncd ..\n\nmkdir -p build/ios/Payload\ncp -r $TARGET_BUILD_DIR/$UNLOCALIZED_RESOURCES_FOLDER_PATH build/ios/Payload\nif [ -d \"build/ios/libs/\" ]; then\n\tcp -r \"build/ios/libs/\"* \"build/ios/Payload/$PRODUCT_NAME.app\"\nfi\n\nif [ -e build/xash3d.ipa ]; then\n\trm build/xash3d.ipa\nfi\n\ncd build/ios\n    \nzip -r ../xash3d.ipa Payload\n\ncd ../..\n";
+			shellScript = "# Type a script or drag a script file from your workspace to insert its path.\n\ncd ..\n\nmkdir -p build/ios/Payload\n\nif [ -d \"build/ios/libs/\" ]; then\n\tcp -r \"build/ios/libs/\"* \"$TARGET_BUILD_DIR/$UNLOCALIZED_RESOURCES_FOLDER_PATH\"\nfi\n\nif [ $CODE_SIGNING_ALLOWED != \"NO\" ]; then\n\tcodesign --force --verbose --sign \"$EXPANDED_CODE_SIGN_IDENTITY\" \"build/ios/libs/\"*/*/*.dylib\nfi\n\ncp -r $TARGET_BUILD_DIR/$UNLOCALIZED_RESOURCES_FOLDER_PATH build/ios/Payload\n\nif [ -e build/xash3d.ipa ]; then\n\trm build/xash3d.ipa\nfi\n\ncd build/ios\n    \nzip -r ../xash3d.ipa Payload\n\ncd ../..\n";
 		};
 /* End PBXShellScriptBuildPhase section */
 
