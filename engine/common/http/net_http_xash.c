@@ -211,16 +211,12 @@ Skip to next server/file
 static void HTTP_FreeFile( httpfile_t *file, qboolean error )
 {
 	char incname[MAX_SYSPATH + 64]; // plus ../{gamedir}_downloads/ plus .incomplete
-	qboolean was_open = false;
 
 	file->blocktime = 0;
 
 	// Allways close file and socket
 	if( file->file )
-	{
 		FS_Close( file->file );
-		was_open = true;
-	}
 
 	file->file = NULL;
 
@@ -271,7 +267,7 @@ static void HTTP_FreeFile( httpfile_t *file, qboolean error )
 	if( error )
 	{
 		// switch to next fastdl server if present
-		if( file->server && was_open )
+		if( file->server )
 		{
 			httpserver_t *next = file->server->next;
 
