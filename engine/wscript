@@ -58,6 +58,9 @@ def options(opt):
 	grp.add_option('--enable-ffmpeg-dlopen', action = 'store_true', dest = 'FFMPEG_DLOPEN', default = False,
 		help = 'load ffmpeg libraries in runtime [default: %(default)s]')
 
+	grp.add_option('--ffmpeg-dir', action = 'store', dest = 'FFMPEG_DIR', default = None,
+		help = 'ffmpeg installation prefix, use instead of pkg-config [default: %(default)s]')
+
 	opt.load('sdl2')
 
 def find_sdl(conf):
@@ -138,12 +141,19 @@ def configure(conf):
 		pkgconf_args = '--cflags' if conf.options.FFMPEG_DLOPEN else '--cflags --libs'
 		features = 'c' if conf.options.FFMPEG_DLOPEN else 'c cprogram'
 
+		ffmpeg_libs = [('swresample', 'SWRESAMPLE'), ('avformat', 'AVFORMAT'), ('avcodec', 'AVCODEC'), ('swscale', 'SWSCALE'), ('avutil', 'AVUTIL')]
+
 		# add ffmpeg libraries into single uselib package
-		conf.check_cfg(package='libswresample', uselib_store='SWRESAMPLE', args=pkgconf_args)
-		conf.check_cfg(package='libavformat', uselib_store='AVFORMAT', args=pkgconf_args)
-		conf.check_cfg(package='libavcodec', uselib_store='AVCODEC', args=pkgconf_args)
-		conf.check_cfg(package='libswscale', uselib_store='SWSCALE', args=pkgconf_args)
-		conf.check_cfg(package='libavutil', uselib_store='AVUTIL', args=pkgconf_args)
+		if conf.options.FFMPEG_DIR:
+			ffmpeg_dir = os.path.abspath(conf.options.FFMPEG_DIR)
+			for lib, uselib in ffmpeg_libs:
+				conf.env['INCLUDES_' + uselib] = [os.path.join(ffmpeg_dir, 'include')]
+				if not conf.options.FFMPEG_DLOPEN:
+					conf.env['LIBPATH_' + uselib] = [os.path.join(ffmpeg_dir, 'lib')]
+					conf.env['LIB_' + uselib] = [lib]
+		else:
+			for lib, uselib in ffmpeg_libs:
+				conf.check_cfg(package='lib' + lib, uselib_store=uselib, args=pkgconf_args)
 
 		# validate ffmpeg libs installation
 		conf.check(features=features, fragment=FFMPEG_CHECK_FRAGMENT, use='SWRESAMPLE AVCODEC AVFORMAT AVUTIL SWSCALE', msg='Checking for ffmpeg sanity')

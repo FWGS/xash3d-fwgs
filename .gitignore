@@ -360,6 +360,7 @@ cmake-build-*
 # some Android-specific build stuff
 3rdparty/SDL
 3rdparty/hlsdk-portable
+3rdparty/ffmpeg
 !scripts/build-ninja.py
 
 # slop
