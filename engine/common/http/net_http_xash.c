@@ -417,34 +417,9 @@ static int HTTP_FileCreateSocket( httpfile_t *file )
 	return 1;
 }
 
-static int HTTP_FileConnect( httpfile_t *file )
+static int HTTP_FilePrepareRequest( httpfile_t *file )
 {
 	string useragent;
-	int res = connect( file->socket, (struct sockaddr *)&file->addr, NET_SockAddrLen( &file->addr ));
-
-	if( res < 0 )
-	{
-		int err = WSAGetLastError();
-
-		switch( err )
-		{
-		case WSAEISCONN:
-			// we're connected, proceed
-			break;
-		case WSAEWOULDBLOCK:
-		case WSAEINPROGRESS:
-		case WSAEALREADY:
-			// add to the timeout
-			file->blocktime += host.frametime;
-			file->blockreason = "request send";
-			return 0;
-		default:
-			// error, exit
-			Con_Printf( S_ERROR "cannot connect to server: %s\n", NET_ErrorString( ));
-			HTTP_FreeFile( file, true );
-			return 0;
-		}
-	}
 
 	file->blocktime = 0;
 
@@ -497,6 +472,80 @@ static int HTTP_FileConnect( httpfile_t *file )
 	}
 	else file->pfn_process = HTTP_FileSendRequest;
 
+	return 1;
+}
+
+static int HTTP_FileWaitConnect( httpfile_t *file )
+{
+	fd_set writefds, exceptfds;
+	struct timeval tv = { 0 };
+
+	FD_ZERO( &writefds );
+	FD_ZERO( &exceptfds );
+	FD_SET( file->socket, &writefds );
+	FD_SET( file->socket, &exceptfds );
+
+#if XASH_WIN32
+	int res = select( 0, NULL, &writefds, &exceptfds, &tv );
+#else
+	int res = select( file->socket + 1, NULL, &writefds, &exceptfds, &tv );
+#endif
+
+	if( res < 0 )
+	{
+		Con_Printf( S_ERROR "%s: select() returned %s\n", __func__, NET_ErrorString( ));
+		HTTP_FreeFile( file, true );
+		return 0;
+	}
+
+	if( !FD_ISSET( file->socket, &writefds ) && !FD_ISSET( file->socket, &exceptfds ))
+	{
+		file->blocktime += host.frametime;
+		file->blockreason = "connecting";
+		return 0;
+	}
+
+	int err = 0;
+	socklen_t err_len = sizeof( err );
+
+	if( NET_IsSocketError( getsockopt( file->socket, SOL_SOCKET, SO_ERROR, (char *)&err, &err_len )))
+	{
+		Con_Printf( S_ERROR "%s: getsockopt() returned %s\n", __func__, NET_ErrorString( ));
+		HTTP_FreeFile( file, true );
+		return 0;
+	}
+
+	if( err != 0 )
+	{
+		Con_Printf( S_ERROR "cannot connect to server: error %d\n", err );
+		HTTP_FreeFile( file, true );
+		return 0;
+	}
+
+	file->pfn_process = HTTP_FilePrepareRequest;
+	return 1;
+}
+
+static int HTTP_FileConnect( httpfile_t *file )
+{
+	int res = connect( file->socket, (struct sockaddr *)&file->addr, NET_SockAddrLen( &file->addr ));
+
+	if( res < 0 )
+	{
+		int err = WSAGetLastError();
+
+		if( err != WSAEWOULDBLOCK && err != WSAEINPROGRESS )
+		{
+			Con_Printf( S_ERROR "cannot connect to server: %s\n", NET_ErrorString( ));
+			HTTP_FreeFile( file, true );
+			return 0;
+		}
+
+		file->pfn_process = HTTP_FileWaitConnect;
+		return 1;
+	}
+
+	file->pfn_process = HTTP_FilePrepareRequest;
 	return 1;
 }
 
