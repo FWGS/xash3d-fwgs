@@ -22,7 +22,6 @@ GNU General Public License for more details.
 
 static CVAR_DEFINE_AUTO( vid_mode, "0", FCVAR_RENDERINFO, "current video mode index (used only for storage)" );
 static CVAR_DEFINE_AUTO( vid_rotate, "0", FCVAR_RENDERINFO|FCVAR_VIDRESTART, "screen rotation (0-3)" );
-static CVAR_DEFINE_AUTO( vid_scale, "1.0", FCVAR_RENDERINFO|FCVAR_VIDRESTART, "pixel scale" );
 
 CVAR_DEFINE_AUTO( vid_maximized, "0", FCVAR_RENDERINFO, "window maximized state, read-only" );
 CVAR_DEFINE( vid_fullscreen, "fullscreen", DEFAULT_FULLSCREEN, FCVAR_RENDERINFO|FCVAR_VIDRESTART, "fullscreen state (0 windowed, 1 fullscreen, 2 borderless)" );
@@ -145,7 +144,7 @@ void VID_SetDisplayTransform( int *render_w, int *render_h )
 	if( rotate < REF_ROTATE_NONE || rotate > REF_ROTATE_CCW )
 		rotate = REF_ROTATE_NONE;
 
-	if( ref.dllFuncs.R_SetDisplayTransform( rotate, 0, 0, vid_scale.value, vid_scale.value ))
+	if( ref.dllFuncs.R_SetDisplayTransform( rotate, 0, 0, 1.0f, 1.0f ))
 	{
 		if( rotate & 1 )
 		{
@@ -154,9 +153,6 @@ void VID_SetDisplayTransform( int *render_w, int *render_h )
 			*render_w = *render_h;
 			*render_h = swap;
 		}
-
-		*render_h /= vid_scale.value;
-		*render_w /= vid_scale.value;
 
 		ref.rotation = rotate;
 	}
@@ -209,7 +205,6 @@ void VID_Init( void )
 
 	Cvar_RegisterVariable( &vid_mode );
 	Cvar_RegisterVariable( &vid_rotate );
-	Cvar_RegisterVariable( &vid_scale );
 	Cvar_RegisterVariable( &vid_fullscreen );
 	Cvar_RegisterVariable( &vid_maximized );
 	Cvar_RegisterVariable( &vid_width );

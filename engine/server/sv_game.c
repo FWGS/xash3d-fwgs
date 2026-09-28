@@ -3051,9 +3051,9 @@ static void SV_AllocStringPool( void )
 	{
 		str64.maxstringarray = Q_atoi( lenstr );
 		if( str64.maxstringarray < 1024 || str64.maxstringarray >= INT_MAX )
-			str64.maxstringarray = 65536 * Q_ceil( GI->max_edicts / 1024.0f );
+			str64.maxstringarray = 65536 * ceil( GI->max_edicts / 1024.0f );
 	}
-	else str64.maxstringarray = 65536 * Q_ceil( GI->max_edicts / 1024.0f );
+	else str64.maxstringarray = 65536 * ceil( GI->max_edicts / 1024.0f );
 	if( Sys_CheckParm( "-str64dup" ) )
 		str64.allowdup = true;
 

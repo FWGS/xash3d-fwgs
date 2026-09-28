@@ -476,7 +476,7 @@ static int CL_DriftInterpolationAmount( int goal )
 		cl.local.interp_amount += diff;
 	}
 
-	int	msec = cl.local.interp_amount * 1000.0f;
+	int	msec = Q_rint( cl.local.interp_amount * 1000.0f );
 	msec = bound( 0, msec, 100 );
 
 	return msec;
@@ -521,7 +521,7 @@ static void CL_ComputeClientInterpolationAmount( usercmd_t *cmd )
 	}
 
 	interpolation_time = bound( min_interp, interpolation_time, max_interp );
-	cmd->lerp_msec = CL_DriftInterpolationAmount( interpolation_time * 1000 );
+	cmd->lerp_msec = CL_DriftInterpolationAmount( Q_rint( interpolation_time * 1000.0f ));
 }
 
 /*

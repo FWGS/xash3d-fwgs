@@ -795,9 +795,9 @@ static void GL_BuildMipMap( byte *in, int srcWidth, int srcHeight, int srcDepth,
 					if( !VectorNormalizeLength( normal ))
 						VectorSet( normal, 0.5f, 0.5f, 1.0f );
 
-					out[0] = 128 + (byte)(127.0f * normal[0]);
-					out[1] = 128 + (byte)(127.0f * normal[1]);
-					out[2] = 128 + (byte)(127.0f * normal[2]);
+					out[0] = (byte)( 128 + (int)( 127.0f * normal[0] ));
+					out[1] = (byte)( 128 + (int)( 127.0f * normal[1] ));
+					out[2] = (byte)( 128 + (int)( 127.0f * normal[2] ));
 					out[3] = 255;
 				}
 			}

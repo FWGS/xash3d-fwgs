@@ -91,7 +91,7 @@ static const char *R_GetConfigName( void )
 	return NULL;
 }
 
-static qboolean R_SetDisplayTransform( ref_screen_rotation_t rotate, int x, int y, float scale_x, float scale_y )
+static qboolean R_SetDisplayTransform( ref_screen_rotation_t rotate, int x, int y, float unused1_default_at_1, float unused2_default_at_1 )
 {
 	return true;
 }

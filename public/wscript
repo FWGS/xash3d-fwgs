@@ -162,11 +162,12 @@ def build(bld):
 			'atlas': 'tests/test_atlas.c',
 			'swapstruct': 'tests/test_swapstruct.c',
 			'siphash': 'tests/test_siphash.c',
+			'hullsize': 'tests/test_hullsize.c',
 		}
 
 		for i in tests:
 			bld.program(features = 'test',
 				source = tests[i],
 				target = 'test_%s' % i,
-				use = 'public build_vcs',
+				use = 'public build_vcs M',
 				install_path = None)
