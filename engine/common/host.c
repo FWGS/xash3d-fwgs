@@ -1176,6 +1176,10 @@ int EXPORT Host_Main( int argc, char **argv, const char *progname, int bChangeGa
 	static double oldtime;
 	string exename;
 
+	#if defined(__ANDROID__)
+		pChangeGame = NULL;
+	#endif
+
 	if( setjmp( return_from_main_buf ))
 		return error_on_exit;
 
