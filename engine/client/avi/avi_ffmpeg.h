@@ -27,8 +27,8 @@ GNU General Public License for more details.
 #if XASH_FFMPEG_DLOPEN
 
 // using typeof gives more resilience to function declaration changes
-// but it's only available in GCC and standardized in C23
-#if defined(__GNUC__) || __STDC_VERSION__ >= 202311L
+// but it's not available on every compiler
+#if XASH_HAVE_TYPEOF
 
 #define SUPPORTED_AVU_VERSION_MAJOR LIBAVUTIL_VERSION_MAJOR
 #define SUPPORTED_AVF_VERSION_MAJOR LIBAVFORMAT_VERSION_MAJOR
@@ -37,7 +37,7 @@ GNU General Public License for more details.
 #define SUPPORTED_SWS_VERSION_MAJOR LIBSWSCALE_VERSION_MAJOR
 
 #define F( func ) \
-	typedef typeof( func ) func##_t; \
+	typedef XASH_TYPEOF( func ) func##_t; \
 	func##_t               *p##func
 
 // libavutil
@@ -90,7 +90,7 @@ F( sws_scale );
 
 #undef F
 
-#else // !defined(__GNUC__) && __STDC_VERSION__ < 202311L
+#else // !XASH_HAVE_TYPEOF
 
 // the following symbols were taken from ffmpeg public headers
 // on each major ffmpeg uprgade, they must be validated
@@ -171,7 +171,7 @@ void              (*psws_freeContext)( struct SwsContext *swsContext );
 struct SwsContext *(*psws_getContext)( int srcW, int srcH, enum AVPixelFormat srcFormat, int dstW, int dstH, enum AVPixelFormat dstFormat, int flags, SwsFilter *srcFilter, SwsFilter *dstFilter, const double *param );
 int               (*psws_scale)( struct SwsContext *c, const uint8_t *const srcSlice[], const int srcStride[], int srcSliceY, int srcSliceH, uint8_t *const dst[], const int dstStride[] );
 
-#endif // defined(__GNUC__) || __STDC_VERSION__ >= 202311L
+#endif // !XASH_HAVE_TYPEOF
 
 #else // !XASH_FFMPEG_DLOPEN
 

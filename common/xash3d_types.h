@@ -163,6 +163,13 @@ typedef int qboolean;
 	#define XASH_RESTRICT __restrict
 #endif
 
+// MSVC has __typeof__ in all C modes since 19.39, see https://learn.microsoft.com/en-us/cpp/c-language/typeof-c#requirements
+#if !defined( __cplusplus ) && __STDC_VERSION__ >= 202311L // not C++ and C23 or newer
+	#define XASH_TYPEOF typeof
+#elif __GNUC__ || __clang__ || ( !defined( __cplusplus ) && _MSC_VER >= 1939 ) // compiler-specific extensions
+	#define XASH_TYPEOF __typeof__
+#endif
+
 #if !defined( EXPORT )
 	#define EXPORT
 #endif // !defined( EXPORT )
@@ -222,6 +229,13 @@ typedef int qboolean;
 
 #if !defined( XASH_RESTRICT )
 	#define XASH_RESTRICT
+#endif
+
+#if defined( XASH_TYPEOF )
+	#define XASH_HAVE_TYPEOF 1
+#else
+	#define XASH_HAVE_TYPEOF 0
+	#define XASH_TYPEOF( x ) XASH_TYPEOF_is_not_supported_by_this_compiler
 #endif
 
 #if !defined( offsetof )
