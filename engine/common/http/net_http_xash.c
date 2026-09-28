@@ -23,11 +23,88 @@ GNU General Public License for more details.
 #include "miniz.h"
 
 /*
-=================================================
+HTTP client state machine
 
-HTTP downloader
+Every httpfile_t is driven by its pfn_process function pointer, HTTP_Run calls
+it each frame. Returning 1 runs the next state in the same frame, returning 0
+yields until the next frame. While waiting on the network, blocktime grows and
+the file fails once it exceeds http_timeout.
 
-=================================================
+Any state can fail with HTTP_FreeFile( file, true ). A disk download then moves
+to the next fastdl server and restarts from HTTP_FileQueue, an in-memory request
+or a download with no servers left goes to HTTP_FileFree.
+
+               HTTP_AddDownload / HTTP_GetToMemory
+                               |
+                               v
+               +-------------------------------+
+               | HTTP_FileQueue                |<----- error, next fastdl server
+               +-------------------------------+
+                               |
+                               v
+               +-------------------------------+
+               | HTTP_FileResolveNS            |<----------+
+               +-------------------------------+           |
+                               |                           |
+                               v                           |
+               +-------------------------------+           |
+               | HTTP_FileCreateSocket         |           |
+               +-------------------------------+           |
+                               |                           |
+                               v                           |
+               +-------------------------------+           |
+               | HTTP_FileConnect              |           |
+               +-------------------------------+           |
+                    |                     |                |
+                    | connected at once   | in progress    |
+                    |                     v                |
+                    |      +----------------------------+  |
+                    |      | HTTP_FileWaitConnect       |  |
+                    |      +----------------------------+  |
+                    |                     |                |
+                    v                     v                |
+               +-------------------------------+           |
+               | HTTP_FilePrepareRequest       |           |
+               +-------------------------------+           |
+                    |                     |                |
+                    | http://             | https://       |
+                    |                     v                |
+                    |      +----------------------------+  |
+                    |      | HTTP_FileTlsHandshake      |  |
+                    |      +----------------------------+  |
+                    |                     |                |
+                    v                     v                |
+               +-------------------------------+           |
+               | HTTP_FileSendRequest          |           |
+               +-------------------------------+           |
+                               |                           |
+                               v                           |
+               +-------------------------------+  redirect |
+               | HTTP_FileProcessStream        |-----------+
+               +-------------------------------+
+                    |                     |
+                    | compressed          | plain
+                    v                     |
+     +----------------------------+       |
+     | HTTP_FileDecompress        |       |
+     +----------------------------+       |
+                    |                     |
+                    v                     v
+               +-------------------------------+
+               | HTTP_FileFree                 |<----- done, failed or no servers left
+               +-------------------------------+
+                               |
+                               v
+                   unlinked by HTTP_AutoClean
+
+States that yield:
+  HTTP_FileResolveNS     another file is resolving, getaddrinfo is pending
+  HTTP_FileCreateSocket  http_maxconnections reached
+  HTTP_FileWaitConnect   select() reports the socket isn't connected yet
+  HTTP_FileTlsHandshake  TLS library wants more I/O
+  HTTP_FileSendRequest   request partially sent, send() would block
+  HTTP_FileProcessStream recv() would block
+  HTTP_FileFree          always, until HTTP_AutoClean removes the file
 */
 
 #define MAX_HTTP_BUFFER_SIZE (BIT( 16 ))
