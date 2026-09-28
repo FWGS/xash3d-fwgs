@@ -284,8 +284,19 @@ searchpath_t *FS_AddAndroidAssets_Fullpath( const char *path, int flags )
 	if( FBitSet( flags, FS_STATIC_PATH | FS_CUSTOM_PATH ))
 		return NULL;
 
-	if( FBitSet( flags, FS_GAMEDIR_PATH ) && Q_stricmp( GI->basedir, GI->gamefolder ))
+	if( FBitSet( flags, FS_GAMEDIR_PATH ))
+	{
+		string engine_pkg;
+		const char *launcher_pkg;
+
+		Q_strncpy( engine_pkg, Android_GetPackageName( true ), sizeof( engine_pkg ));
+		launcher_pkg = Android_GetPackageName( false );
+
+		if( !launcher_pkg || !Q_strcmp( launcher_pkg, engine_pkg ))
+			return NULL;
+
 		engine = false;
+	}
 
 	assets = FS_LoadAndroidAssets( engine );
 
