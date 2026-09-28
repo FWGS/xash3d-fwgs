@@ -15,6 +15,7 @@ GNU General Public License for more details.
 
 #include "gl_local.h"
 
+#if !XASH_GLES || !XASH_GL_STATIC
 static void GL_FreeRenderTarget( gl_rendertarget_t *target )
 {
 	if( target->fbo )
@@ -410,3 +411,5 @@ void GL_PresentScreenTarget( void )
 		GL_DrawTargetQuad( screen, screen->width, screen->height, GL_NEAREST );
 	}
 }
+
+#endif // !XASH_GLES || !XASH_GL_STATIC

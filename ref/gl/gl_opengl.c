@@ -302,7 +302,7 @@ static const dllfunc_t framebuffermultisamplefuncs[] =
 };
 
 // GL_ARB_framebuffer_object merges the three EXT extensions above
-static const dllfunc_t framebufferarbfuncs[] =
+static const dllfunc_t framebufferarbfuncs[] MAYBE_UNUSED =
 {
 { GL_CALL( glIsRenderbuffer ) },
 { GL_CALL( glBindRenderbuffer ) },
@@ -870,6 +870,28 @@ static void GL_InitExtensionsGLES( void )
 			break;
 		case GL_BUFFER_STORAGE_EXT:
 			GL_CheckExtension( "GL_EXT_buffer_storage", bufferstoragefuncs, ARRAYSIZE( bufferstoragefuncs ), "gl_buffer_storage", GL_BUFFER_STORAGE_EXT, 0);
+			break;
+		case GL_FRAMEBUFFER_OBJECT_EXT:
+			// render targets use RGBA8 and packed depth-stencil renderbuffers and NPOT textures, all core since ES 3.0
+			if( glConfig.version_major >= 3 || ( GL_Support( GL_ARB_TEXTURE_NPOT_EXT )
+				&& Q_strstr( glConfig.extensions_string, "GL_OES_rgb8_rgba8" )
+				&& Q_strstr( glConfig.extensions_string, "GL_OES_packed_depth_stencil" )))
+				GL_CheckExtension( "GL_OES_framebuffer_object", framebufferobjectfuncs, ARRAYSIZE( framebufferobjectfuncs ), "gl_framebuffer_object", extid, 2.0 );
+			else
+				GL_SetExtension( extid, false );
+			break;
+		case GL_FRAMEBUFFER_BLIT_EXT:
+			// ES 2.0 blit extensions use vendor suffixes that GL_CheckExtension doesn't look up
+			if( glConfig.version_major >= 3 && GL_Support( GL_FRAMEBUFFER_OBJECT_EXT ))
+				GL_CheckExtension( "framebuffer_blit", framebufferblitfuncs, ARRAYSIZE( framebufferblitfuncs ), "gl_framebuffer_object", extid, 3.0 );
+			else
+				GL_SetExtension( extid, false );
+			break;
+		case GL_FRAMEBUFFER_MULTISAMPLE_EXT:
+			if( glConfig.version_major >= 3 && GL_Support( GL_FRAMEBUFFER_OBJECT_EXT ))
+				GL_CheckExtension( "framebuffer_multisample", framebuffermultisamplefuncs, ARRAYSIZE( framebuffermultisamplefuncs ), "gl_framebuffer_object", extid, 3.0 );
+			else
+				GL_SetExtension( extid, false );
 			break;
 
 #endif
