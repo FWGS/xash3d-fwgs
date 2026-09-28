@@ -1464,6 +1464,9 @@ void Touch_Draw( void )
 	if( cls.key_dest != key_game && !touch_in_menu.value )
 		return;
 
+	if( cls.state == ca_cinematic )
+		return;
+
 	Touch_InitConfig();
 
 	ref.dllFuncs.GL_SetRenderMode( kRenderTransTexture );
@@ -2050,6 +2053,14 @@ int IN_TouchEvent( touchEventType type, int fingerID, float x, float y, float dx
 			dy = temp;
 	}
 
+
+	if( cls.key_dest == key_game && cls.state == ca_cinematic )
+	{
+		if( type == event_up )
+			CL_Escape_f();
+
+		return true;
+	}
 
 //	Con_Printf("%f %f\n", TO_SCRN_X(x), TO_SCRN_Y(y));
 	// simulate menu mouse click
