@@ -144,10 +144,12 @@ def build(bld):
 	# build it separately to slightly improve rebuild times
 	bld.stlib(source = 'build_vcs.c',
 		target = 'build_vcs',
+		features = 'format',
 		defines = ['XASH_BUILD_COMMIT=\"%s\"' % bld.env.GIT_VERSION, 'XASH_BUILD_BRANCH=\"%s\"' % bld.env.GIT_BRANCH, 'XASH_BUILD_COMMIT_DATE=\"%s\"' % bld.env.GIT_COMMIT_DATE])
 
 	bld.stlib(source = bld.path.ant_glob('*.c', excl='build_vcs.c'),
 		target = 'public',
+		features = 'format',
 		use = 'sdk_includes werror')
 
 	if bld.env.TESTS:
@@ -166,7 +168,7 @@ def build(bld):
 		}
 
 		for i in tests:
-			bld.program(features = 'test',
+			bld.program(features = 'test format',
 				source = tests[i],
 				target = 'test_%s' % i,
 				use = 'public build_vcs M',
