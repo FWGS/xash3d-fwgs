@@ -1176,7 +1176,7 @@ int EXPORT Host_Main( int argc, char **argv, const char *progname, int bChangeGa
 	static double oldtime;
 	string exename;
 
-	#if defined(__ANDROID__)
+	#if XASH_ANDROID
 		pChangeGame = NULL;
 	#endif
 
