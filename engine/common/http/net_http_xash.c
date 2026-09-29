@@ -20,7 +20,7 @@ GNU General Public License for more details.
 #include "xash3d_mathlib.h"
 #include "net_ws_private.h"
 #include "net_http_tls.h"
-#include "miniz.h"
+#include "zlib_wrapper.h"
 
 /*
 HTTP client state machine
