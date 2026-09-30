@@ -35,7 +35,8 @@ typedef struct vgui_static_s
 {
 	qboolean initialized;
 	VGUI_DefaultCursor cursor;
-	vguiapi_t dllFuncs;
+	vgui_support_interface_t dllFuncs;
+	legacy_vguiapi_t legacy; // only used with legacy API, support library keeps the pointer to it
 	qboolean from_client; // vgui_support API is provided by the client library
 
 	vgui_reusable_texture_t *textures;
@@ -306,7 +307,7 @@ void VGui_RegisterCvars( void )
 	Cvar_RegisterVariable( &vgui_key_layout );
 }
 
-static const vguiapi_t gEngfuncs =
+static const legacy_vguiapi_t gLegacyEngfuncs =
 {
 	false, // Not initialized yet
 	VGUI_DrawInit, // VGUI_DrawInit,
@@ -343,63 +344,144 @@ static const vguiapi_t gEngfuncs =
 	VGUI_SetPaintOffset,
 };
 
+static const vgui_support_api_t gEngfuncs =
+{
+	VGUI_DrawInit,
+	VGUI_DrawShutdown,
+	VGUI_SetupDrawingText,
+	VGUI_SetupDrawingRect,
+	VGUI_SetupDrawingText, // SetupDrawingImage, same as text
+	VGUI_BindTexture,
+	VGUI_EnableTexture,
+	VGUI_UploadTexture,
+	VGUI_DrawQuad,
+	VGUI_GetTextureSizes,
+	VGUI_GenerateTexture,
+	VGUI_EngineMalloc,
+	VGUI_CursorSelect,
+	VGUI_GetColor,
+	VGUI_IsInGame,
+	Key_EnableTextInput,
+	VGUI_GetMousePos,
+	VGUI_UtfProcessChar,
+	Platform_GetClipboardText,
+	Platform_SetClipboardText,
+	Platform_GetKeyModifiers,
+	VGUI_SetPaintOffset,
+	COM_LoadLibrary,
+	COM_FreeLibrary,
+	COM_GetProcAddress,
+};
+
+static HINSTANCE VGui_LoadSupportLibrary( void )
+{
+	string vguiloader, vguilib;
+	HINSTANCE hInstance;
+
+	// HACKHACK: try to load path from custom path
+	// to support having different versions of VGUI
+	if( Sys_GetParmFromCmdLine( "-vguilib", vguilib ) && !COM_LoadLibrary( vguilib, false, false ))
+	{
+		Con_Reportf( S_WARN "VGUI preloading failed. Default library will be used! Reason: %s", COM_GetLibraryError());
+	}
+
+	if( !Sys_GetParmFromCmdLine( "-vguiloader", vguiloader ))
+	{
+		Q_strncpy( vguiloader, "vgui." OS_LIB_EXT, sizeof( vguiloader ));
+	}
+
+	hInstance = COM_LoadLibrary( vguiloader, false, false );
+
+	if( !hInstance )
+		Con_Reportf( S_ERROR "Failed to load vgui_support library: %s\n", COM_GetLibraryError() );
+
+	return hInstance;
+}
+
+static qboolean VGui_ProbeNewAPI( HINSTANCE hInstance, qboolean client )
+{
+	VGUISUPPORTAPI F = COM_GetProcAddress( hInstance, GET_VGUI_SUPPORT_API );
+	int version;
+
+	if( !F )
+		return false;
+
+	// only fields present in negotiated version will be filled
+	memset( &vgui.dllFuncs, 0, sizeof( vgui.dllFuncs ));
+
+	version = F( VGUI_SUPPORT_API_VERSION, &vgui.dllFuncs, &gEngfuncs );
+
+	if( version <= 0 || version > VGUI_SUPPORT_API_VERSION )
+	{
+		Con_Reportf( S_ERROR "%s: %s module has incompatible VGUI support API version %d, expected %d or lower\n",
+			__func__, client ? "client" : "support", version, VGUI_SUPPORT_API_VERSION );
+		memset( &vgui.dllFuncs, 0, sizeof( vgui.dllFuncs ));
+		return false;
+	}
+
+	Con_Reportf( "%s: initialized API version %d in %s module\n", __func__, version, client ? "client" : "support" );
+	return true;
+}
+
+static qboolean VGui_ProbeLegacyAPI( HINSTANCE hInstance, qboolean client )
+{
+	LEGACY_VGUISUPPORTAPI F = COM_GetProcAddress( hInstance, client ? LEGACY_CLIENT_GET_VGUI_SUPPORT_API : LEGACY_GET_VGUI_SUPPORT_API );
+
+	if( !F )
+		return false;
+
+	vgui.legacy = gLegacyEngfuncs;
+	F( &vgui.legacy );
+	vgui.legacy.initialized = true;
+
+	// adapt legacy API to the new one
+	memset( &vgui.dllFuncs, 0, sizeof( vgui.dllFuncs ));
+	vgui.dllFuncs.Startup = vgui.legacy.Startup;
+	vgui.dllFuncs.Shutdown = vgui.legacy.Shutdown;
+	vgui.dllFuncs.GetPanel = vgui.legacy.GetPanel;
+	vgui.dllFuncs.Paint = vgui.legacy.Paint;
+	vgui.dllFuncs.Mouse = vgui.legacy.Mouse;
+	vgui.dllFuncs.Key = vgui.legacy.Key;
+	vgui.dllFuncs.MouseMove = vgui.legacy.MouseMove;
+	vgui.dllFuncs.TextInput = vgui.legacy.TextInput;
+
+	Con_Reportf( "%s: initialized legacy API in %s module\n", __func__, client ? "client" : "support" );
+	return true;
+}
+
 qboolean VGui_LoadProgs( HINSTANCE hInstance )
 {
 	qboolean client = hInstance != NULL;
 
-	vgui.dllFuncs = gEngfuncs;
-
 	// not loading interface from client.dll, load vgui_support.dll instead
 	if( !client )
 	{
-		string vguiloader, vguilib;
+		hInstance = vgui.hInstance = VGui_LoadSupportLibrary();
 
-		// HACKHACK: try to load path from custom path
-		// to support having different versions of VGUI
-		if( Sys_GetParmFromCmdLine( "-vguilib", vguilib ) && !COM_LoadLibrary( vguilib, false, false ))
-		{
-			Con_Reportf( S_WARN "VGUI preloading failed. Default library will be used! Reason: %s", COM_GetLibraryError());
-		}
-
-		if( !Sys_GetParmFromCmdLine( "-vguiloader", vguiloader ))
-		{
-			Q_strncpy( vguiloader, "vgui." OS_LIB_EXT, sizeof( vguiloader ));
-		}
-
-		hInstance = vgui.hInstance = COM_LoadLibrary( vguiloader, false, false );
-
-		if( !vgui.hInstance )
-		{
-			Con_Reportf( S_ERROR "Failed to load vgui_support library: %s\n", COM_GetLibraryError() );
+		if( !hInstance )
 			return false;
-		}
 	}
 
-	// try legacy API first
-	void (*F)( vguiapi_t* ) = COM_GetProcAddress( hInstance, client ? "InitVGUISupportAPI" : "InitAPI" );
-
-	if( F )
+	// try new API first, then legacy
+	if( !VGui_ProbeNewAPI( hInstance, client ) && !VGui_ProbeLegacyAPI( hInstance, client ))
 	{
-		F( &vgui.dllFuncs );
-
-		vgui.initialized = vgui.dllFuncs.initialized = true;
-		vgui.from_client = client;
-		Con_Reportf( "%s: initialized legacy API in %s module\n", __func__, client ? "client" : "support" );
-
-		return true;
+		Con_Reportf( S_ERROR "%s: Failed to find VGUI support API entry point in %s module\n", __func__, client ? "client" : "support" );
+		return false;
 	}
 
-	Con_Reportf( S_ERROR "%s: Failed to find VGUI support API entry point in %s module\n", __func__, client ? "client" : "support" );
-	return false;
+	vgui.initialized = true;
+	vgui.from_client = client;
+	return true;
 }
 
 /*
 ================
 VGui_Startup
 
+clientInstance is only passed once, after client library was loaded
 ================
 */
-void VGui_Startup( int width, int height )
+void VGui_Startup( HINSTANCE clientInstance, int width, int height )
 {
 	// vgui not initialized from both support and client modules, skip
 	if( !vgui.initialized )
@@ -414,11 +496,17 @@ void VGui_Startup( int width, int height )
 	else if( width <= 1280 ) width = 1280;
 	else if( width <= 1600 ) width = 1600;
 
-	if( vgui.dllFuncs.Startup )
-		vgui.dllFuncs.Startup( width, height );
+	if( clientInstance )
+	{
+		if( vgui.dllFuncs.ClientStartup )
+			vgui.dllFuncs.ClientStartup( clientInstance, width, height );
+	}
+	else
+	{
+		if( vgui.dllFuncs.Startup )
+			vgui.dllFuncs.Startup( width, height );
+	}
 }
-
-
 
 /*
 ================
@@ -436,7 +524,8 @@ void VGui_Shutdown( void )
 		COM_FreeLibrary( vgui.hInstance );
 
 	// drop pointers to now unloaded vgui_support
-	vgui.dllFuncs = gEngfuncs;
+	memset( &vgui.dllFuncs, 0, sizeof( vgui.dllFuncs ));
+	memset( &vgui.legacy, 0, sizeof( vgui.legacy ));
 	vgui.hInstance = NULL;
 	vgui.from_client = false;
 }
