@@ -122,6 +122,7 @@ SUBDIRS = [
 	Subproject('ref/soft',              lambda x: x.env.CLIENT and x.env.SOFT),
 	Subproject('ref/null',              lambda x: x.env.CLIENT and x.env.NULL),
 	Subproject('3rdparty/bzip2',        lambda x: x.env.CLIENT and not x.env.HAVE_SYSTEM_BZ2),
+	Subproject('3rdparty/mpg123',       lambda x: x.env.CLIENT and not x.env.HAVE_SYSTEM_MPG123),
 	Subproject('3rdparty/mbedtls'),
 	Subproject('3rdparty/opus',         lambda x: x.env.CLIENT and not x.env.HAVE_SYSTEM_OPUS),
 	Subproject('3rdparty/libogg',       lambda x: x.env.CLIENT and not x.env.HAVE_SYSTEM_OGG),
@@ -260,6 +261,10 @@ def check_system_opusfile(conf):
 int main(int argc, char **argv) { return opus_tagcompare(argv[0], argv[1]); }'''
 
 	return conf.check_cc(msg='Checking for libopusfile sanity', use='opusfile werror', fragment=frag, mandatory=False)
+
+def check_system_mpg123(conf):
+	# 1.32 introduced portable API with int64_t reader callbacks
+	return conf.check_cfg(package='libmpg123', uselib_store='mpg123', args=['libmpg123 >= 1.32', '--cflags', '--libs'], mandatory=False)
 
 def check_system_bzip2(conf):
 	frag='''#include <bzlib.h>
@@ -604,6 +609,7 @@ def configure(conf):
 	prefer_bundled_vorbis = conf.options.BUILD_BUNDLED_DEPS
 	prefer_bundled_opus = conf.options.BUILD_BUNDLED_DEPS
 	prefer_bundled_opusfile = conf.options.BUILD_BUNDLED_DEPS
+	prefer_bundled_mpg123 = conf.options.BUILD_BUNDLED_DEPS
 	prefer_bundled_bzip2 = conf.options.BUILD_BUNDLED_DEPS
 	# zlib is a part of platform API on Android
 	prefer_bundled_zlib = conf.options.BUILD_BUNDLED_DEPS and conf.env.DEST_OS != 'android'
@@ -618,6 +624,8 @@ def configure(conf):
 			conf.env.HAVE_SYSTEM_OPUS = check_system_opus(conf)
 		if not prefer_bundled_opusfile:
 			conf.env.HAVE_SYSTEM_OPUSFILE = check_system_opusfile(conf)
+		if not prefer_bundled_mpg123:
+			conf.env.HAVE_SYSTEM_MPG123 = check_system_mpg123(conf)
 		if not prefer_bundled_bzip2:
 			conf.env.HAVE_SYSTEM_BZ2 = check_system_bzip2(conf)
 
