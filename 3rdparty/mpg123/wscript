@@ -69,6 +69,9 @@ def gen_config_h(task):
 	if missing:
 		task.generator.bld.fatal('mpg123: %s not found in config.h.in' % ', '.join(sorted(missing)))
 
+	# same as upstream ports/cmake/src/config.cmake.h.in, MSVC doesn't have strcasecmp
+	out.append('#if XASH_WIN32\n#define strcasecmp _stricmp\n#define strncasecmp _strnicmp\n#endif\n')
+
 	task.outputs[0].write(''.join(out))
 
 def options(opt):
@@ -82,6 +85,7 @@ def build(bld):
 	bld(rule = gen_config_h,
 		source = 'mpg123/src/config.h.in',
 		target = 'config.h',
+		ext_out = ['.h'],
 		name = 'mpg123_config')
 
 	sources = [
