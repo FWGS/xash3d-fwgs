@@ -70,6 +70,7 @@ def build(bld):
 		bld.shlib(source = source,
 			target = k,
 			includes = includes,
+			features = 'format',
 			use = libs + v['libs'],
 			defines = v['defines'] + ['REF_DLL=1'],
 			install_path = bld.env.LIBDIR)

@@ -1,0 +1,116 @@
+#!/usr/bin/env python
+
+import re
+
+# values for src/config.h.in template, everything else stays undefined
+# tuple means value is defined only if build.h macro is set
+CONFIG_H = {
+	'PORTABLE_API': 1, # only int64_t based API, I/O is always done through the engine callbacks
+
+	'IEEE_FLOAT': 1,
+	'GAPLESS': 1,
+	'FRAME_INDEX': 1,
+	'INDEX_SIZE': 1000,
+	'USE_NEW_HUFFTABLE': 1,
+
+	# Layer III, 16-bit output at native rate only
+	'NO_LAYER1': 1,
+	'NO_LAYER2': 1,
+	'NO_8BIT': 1,
+	'NO_32BIT': 1,
+	'NO_REAL': 1,
+	'NO_SYNTH32': 1,
+	'NO_NTOM': 1,
+	'NO_DOWNSAMPLE': 1,
+	'NO_EQUALIZER': 1,
+	'NO_ICY': 1,
+	'NO_STRING': 1,
+	'NO_ID3V2': 1,
+	'NO_MOREINFO': 1,
+
+	# don't print anything to stderr
+	'NO_WARNING': 1,
+	'NO_ERRORMSG': 1,
+	'NO_ERETURN': 1,
+
+	'HAVE_STRERROR': 1,
+	'HAVE_SYS_TYPES_H': 1,
+	'HAVE_UNISTD_H': ('XASH_POSIX', 1),
+	'HAVE_STRTOK_R': ('XASH_POSIX', 1),
+	'HAVE_STRTOK_S': ('XASH_WIN32', 1),
+	'WORDS_BIGENDIAN': ('XASH_BIG_ENDIAN', 1),
+}
+
+UNDEF_RE = re.compile(r'^(\s*)#(\s*)undef\s+(\w+)\s*$')
+
+def gen_config_h(task):
+	used = set()
+	out = ['#include "build.h"\n']
+
+	for line in task.inputs[0].read().splitlines(True):
+		m = UNDEF_RE.match(line)
+		if not m:
+			out.append(line)
+			continue
+
+		indent, space, name = m.groups()
+		if name not in CONFIG_H:
+			out.append('%s/* #%sundef %s */\n' % (indent, space, name))
+			continue
+
+		used.add(name)
+		value = CONFIG_H[name]
+		if isinstance(value, tuple):
+			out.append('#if %s\n#define %s %s\n#endif\n' % (value[0], name, value[1]))
+		else:
+			out.append('%s#%sdefine %s %s\n' % (indent, space, name, value))
+
+	missing = set(CONFIG_H) - used
+	if missing:
+		task.generator.bld.fatal('mpg123: %s not found in config.h.in' % ', '.join(sorted(missing)))
+
+	# same as upstream ports/cmake/src/config.cmake.h.in, MSVC doesn't have strcasecmp
+	out.append('#if XASH_WIN32\n#define strcasecmp _stricmp\n#define strncasecmp _strnicmp\n#endif\n')
+
+	task.outputs[0].write(''.join(out))
+
+def options(opt):
+	pass
+
+def configure(conf):
+	if not conf.path.find_dir('mpg123/src/libmpg123'):
+		conf.fatal('Can\'t find mpg123 submodule. Run `git submodule update --init --recursive`.')
+
+def build(bld):
+	bld(rule = gen_config_h,
+		source = 'mpg123/src/config.h.in',
+		target = 'config.h',
+		ext_out = ['.h'],
+		name = 'mpg123_config')
+
+	sources = [
+		'mpg123/src/compat/compat_str.c',
+		'mpg123/src/libmpg123/dct64.c',
+		'mpg123/src/libmpg123/equalizer.c',
+		'mpg123/src/libmpg123/feature.c',
+		'mpg123/src/libmpg123/format.c',
+		'mpg123/src/libmpg123/frame.c',
+		'mpg123/src/libmpg123/id3.c',
+		'mpg123/src/libmpg123/index.c',
+		'mpg123/src/libmpg123/layer3.c',
+		'mpg123/src/libmpg123/libmpg123.c',
+		'mpg123/src/libmpg123/optimize.c',
+		'mpg123/src/libmpg123/parse.c',
+		'mpg123/src/libmpg123/readers.c',
+		'mpg123/src/libmpg123/synth.c',
+		'mpg123/src/libmpg123/tabinit.c',
+		'stub.c',
+	]
+
+	# generic C decoder only, no assembly
+	bld.stlib(source = sources,
+		target = 'mpg123',
+		use = 'mpg123_config library_suffix_includes',
+		defines = 'OPT_GENERIC REAL_IS_FLOAT',
+		includes = '. mpg123/src/include mpg123/src/libmpg123',
+		export_includes = 'mpg123/src/include')

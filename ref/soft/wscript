@@ -25,6 +25,7 @@ def build(bld):
 		target   = 'ref_soft',
 		includes = '.',
 		defines  = 'REF_DLL=1',
+		features = 'format',
 		use      = libs,
 		install_path = bld.env.LIBDIR
 	)
