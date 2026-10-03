@@ -206,28 +206,9 @@ typedef struct
 	int playtime; // stream size in milliseconds
 } wavinfo_t;
 
-#ifdef _MSC_VER // a1ba: MSVC6 don't have ssize_t
-typedef long mpg_ssize_t;
-#else
-typedef ssize_t mpg_ssize_t;
-#endif
-
-// custom stdio
-typedef mpg_ssize_t (*pfread)( void *handle, void *buf, size_t count );
-typedef fs_offset_t (*pfseek)( void *handle, fs_offset_t offset, int whence );
-
-typedef struct mpg_decoder_s
+static int MPG_Read( void *file, void *buf, size_t count, size_t *got )
 {
-	mpg123_handle *mh;
-	void *file;
-	pfread f_read;
-	pfseek f_seek;
-} mpg_decoder_t;
-
-static int MPG_Read( void *handle, void *buf, size_t count, size_t *got )
-{
-	mpg_decoder_t *mpg = handle;
-	mpg_ssize_t ret = mpg->f_read( mpg->file, buf, count );
+	fs_offset_t ret = g_fsapi.Read( file, buf, count );
 
 	if( ret < 0 )
 		return -1;
@@ -236,11 +217,9 @@ static int MPG_Read( void *handle, void *buf, size_t count, size_t *got )
 	return 0;
 }
 
-static int64_t MPG_Seek( void *handle, int64_t offset, int whence )
+static int64_t MPG_Seek( void *file, int64_t offset, int whence )
 {
-	mpg_decoder_t *mpg = handle;
-
-	return mpg->f_seek( mpg->file, offset, whence );
+	return g_fsapi.Seek( file, offset, whence ) == -1 ? -1 : g_fsapi.Tell( file );
 }
 
 static int MPG_GetFormat( mpg123_handle *mh, fs_offset_t streamsize, wavinfo_t *sc )
@@ -274,57 +253,52 @@ static int MPG_GetFormat( mpg123_handle *mh, fs_offset_t streamsize, wavinfo_t *
 	return 1;
 }
 
-static mpg_decoder_t *create_decoder( int *error )
+static mpg123_handle *create_decoder( int *error )
 {
-	mpg_decoder_t *mpg;
+	mpg123_handle *mh;
 	int ret;
 
 	if( error )
 		*error = 0;
 
-	mpg = Mem_Calloc( host.soundpool, sizeof( *mpg ));
-	mpg->mh = mpg123_new( NULL, &ret );
-
-	if( !mpg->mh )
-	{
-		Mem_Free( mpg );
+	mh = mpg123_new( NULL, &ret );
+	if( !mh )
 		return NULL;
-	}
 
-	ret = mpg123_param2( mpg->mh, MPG123_FLAGS, MPG123_FUZZY | MPG123_SEEKBUFFER | MPG123_GAPLESS | MPG123_QUIET, 0.0 );
+	ret = mpg123_param2( mh, MPG123_FLAGS, MPG123_FUZZY | MPG123_SEEKBUFFER | MPG123_GAPLESS | MPG123_QUIET, 0.0 );
 	if( ret != MPG123_OK && error )
 		*error = 1;
 
 	// let the seek index auto-grow and contain an entry for every frame
-	ret = mpg123_param2( mpg->mh, MPG123_INDEX_SIZE, -1, 0.0 );
+	ret = mpg123_param2( mh, MPG123_INDEX_SIZE, -1, 0.0 );
 	if( ret != MPG123_OK && error )
 		*error = 1;
 
-	return mpg;
+	return mh;
 }
 
-static int feed_mpeg_header( mpg_decoder_t *mpg, const byte *data, long bufsize, long streamsize, wavinfo_t *sc )
+static int feed_mpeg_header( mpg123_handle *mh, const byte *data, long bufsize, long streamsize, wavinfo_t *sc )
 {
 	size_t done;
 
-	if( !mpg || !sc )
+	if( !mh || !sc )
 		return 0;
 
-	if( mpg123_open_feed( mpg->mh ) != MPG123_OK )
+	if( mpg123_open_feed( mh ) != MPG123_OK )
 		return 0;
 
-	mpg123_set_filesize64( mpg->mh, streamsize );
+	mpg123_set_filesize64( mh, streamsize );
 
 	// feed input chunk and get first chunk of decoded audio.
-	if( mpg123_decode( mpg->mh, data, bufsize, NULL, 0, &done ) != MPG123_NEW_FORMAT )
+	if( mpg123_decode( mh, data, bufsize, NULL, 0, &done ) != MPG123_NEW_FORMAT )
 		return 0; // there were errors
 
-	return MPG_GetFormat( mpg->mh, streamsize, sc );
+	return MPG_GetFormat( mh, streamsize, sc );
 }
 
-static int feed_mpeg_stream( mpg_decoder_t *mpg, const byte *data, long bufsize, byte *outbuf, size_t *outsize )
+static int feed_mpeg_stream( mpg123_handle *mh, const byte *data, long bufsize, byte *outbuf, size_t *outsize )
 {
-	switch( mpg123_decode( mpg->mh, data, bufsize, outbuf, OUTBUF_SIZE, outsize ))
+	switch( mpg123_decode( mh, data, bufsize, outbuf, OUTBUF_SIZE, outsize ))
 	{
 	case MPG123_NEED_MORE:
 		return MP3_NEED_MORE;
@@ -335,27 +309,23 @@ static int feed_mpeg_stream( mpg_decoder_t *mpg, const byte *data, long bufsize,
 	}
 }
 
-static int open_mpeg_stream( mpg_decoder_t *mpg, void *file, pfread f_read, pfseek f_seek, wavinfo_t *sc )
+static int open_mpeg_stream( mpg123_handle *mh, file_t *file, wavinfo_t *sc )
 {
-	if( !mpg || !sc )
+	if( !mh || !sc )
 		return 0;
 
-	mpg->file = file;
-	mpg->f_read = f_read;
-	mpg->f_seek = f_seek;
-
-	if( mpg123_reader64( mpg->mh, MPG_Read, MPG_Seek, NULL ) != MPG123_OK )
+	if( mpg123_reader64( mh, MPG_Read, MPG_Seek, NULL ) != MPG123_OK )
 		return 0;
 
-	if( mpg123_open_handle64( mpg->mh, mpg ) != MPG123_OK )
+	if( mpg123_open_handle64( mh, file ) != MPG123_OK )
 		return 0;
 
-	return MPG_GetFormat( mpg->mh, -1, sc );
+	return MPG_GetFormat( mh, -1, sc );
 }
 
-static int read_mpeg_stream( mpg_decoder_t *mpg, byte *outbuf, size_t *outsize )
+static int read_mpeg_stream( mpg123_handle *mh, byte *outbuf, size_t *outsize )
 {
-	switch( mpg123_read( mpg->mh, outbuf, OUTBUF_SIZE, outsize ))
+	switch( mpg123_read( mh, outbuf, OUTBUF_SIZE, outsize ))
 	{
 	case MPG123_OK:
 		return MP3_OK;
@@ -364,36 +334,32 @@ static int read_mpeg_stream( mpg_decoder_t *mpg, byte *outbuf, size_t *outsize )
 	}
 }
 
-static int get_stream_pos( mpg_decoder_t *mpg )
+static int get_stream_pos( mpg123_handle *mh )
 {
-	return mpg123_tell64( mpg->mh );
+	return mpg123_tell64( mh );
 }
 
-static int set_stream_pos( mpg_decoder_t *mpg, int curpos )
+static int set_stream_pos( mpg123_handle *mh, int curpos )
 {
-	return mpg123_seek64( mpg->mh, curpos, SEEK_SET );
+	return mpg123_seek64( mh, curpos, SEEK_SET );
 }
 
-static void close_decoder( mpg_decoder_t *mpg )
+static void close_decoder( mpg123_handle *mh )
 {
-	if( !mpg )
-		return;
-
-	mpg123_delete( mpg->mh );
-	Mem_Free( mpg );
+	mpg123_delete( mh );
 }
 
-static const char *get_error( mpg_decoder_t *mpg )
+static const char *get_error( mpg123_handle *mh )
 {
-	if( !mpg )
+	if( !mh )
 		return mpg123_plain_strerror( MPG123_BAD_HANDLE );
 
-	return mpg123_strerror( mpg->mh );
+	return mpg123_strerror( mh );
 }
 
 qboolean Sound_LoadMPG( const char *name, const byte *buffer, fs_offset_t filesize )
 {
-	mpg_decoder_t *mpeg;
+	mpg123_handle *mpeg;
 	size_t	pos = 0;
 	size_t	bytesWrite = 0;
 	byte	out[OUTBUF_SIZE];
@@ -477,16 +443,6 @@ qboolean Sound_LoadMPG( const char *name, const byte *buffer, fs_offset_t filesi
 	return true;
 }
 
-static fs_offset_t FS_SeekMpg( void *file, fs_offset_t offset, int whence )
-{
-	return g_fsapi.Seek((file_t *)file, offset, whence ) == -1 ? -1 : g_fsapi.Tell((file_t *)file );
-}
-
-static mpg_ssize_t FS_ReadMpg( void *file, void *buf, size_t count )
-{
-	return g_fsapi.Read((file_t *)file, buf, count );
-}
-
 /*
 =================
 Stream_OpenMPG
@@ -495,7 +451,7 @@ Stream_OpenMPG
 stream_t *Stream_OpenMPG( const char *filename )
 {
 	stream_t	*stream;
-	mpg_decoder_t *mpeg;
+	mpg123_handle *mpeg;
 	file_t	*file;
 	int	ret;
 	wavinfo_t	sc;
@@ -520,7 +476,7 @@ stream_t *Stream_OpenMPG( const char *filename )
 	if( ret ) Con_DPrintf( S_ERROR "%s\n", get_error( mpeg ));
 
 	// trying to open stream and read header
-	if( !open_mpeg_stream( mpeg, file, FS_ReadMpg, FS_SeekMpg, &sc ))
+	if( !open_mpeg_stream( mpeg, file, &sc ))
 	{
 		Con_DPrintf( S_ERROR "%s: failed to load (%s): %s\n", __func__, filename, get_error( mpeg ));
 		close_decoder( mpeg );
@@ -551,7 +507,7 @@ int Stream_ReadMPG( stream_t *stream, int needBytes, void *buffer )
 {
 	// buffer handling
 	int	bytesWritten = 0;
-	mpg_decoder_t *mpg = stream->ptr;
+	mpg123_handle *mpg = stream->ptr;
 
 	while( 1 )
 	{
