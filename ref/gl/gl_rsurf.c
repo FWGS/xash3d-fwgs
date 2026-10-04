@@ -3437,11 +3437,16 @@ qboolean R_AddSurfToVBO( msurface_t *surf, qboolean buildlightmap )
 
 	if( surf->texinfo != NULL )
 	{
+		// mode 1 is only valid during lightmap generation, and mode 2 needs an
+		// extra texture unit for detail blending
+		qboolean vbo_detail_pass = ( r_vbo_detail.value == 1 && buildlightmap ) ||
+			( r_vbo_detail.value == 2 && glConfig.max_texture_units > 2 );
+
 		// fullbright textures are rare, no sense to build VBO for them
 		R_RenderFullbrightForSurface( surf, surf->texinfo->texture );
 
-		// draw details in regular way
-		if( r_vbo_detail.value )
+		// use the regular detail pass only when the selected VBO path cannot draw it
+		if( r_vbo_detail.value && !vbo_detail_pass )
 			R_RenderDetailsForSurface( surf, surf->texinfo->texture );
 	}
 
