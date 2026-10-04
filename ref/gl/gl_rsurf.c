@@ -1358,7 +1358,27 @@ static void R_RenderDetails( int passes )
 		{
 			msurface_t *fa = p->surf;
 			gl_texture_t *glt = R_GetTexture( fa->texinfo->texture->gl_texturenum ); // get texture scale
+
+			// Without VBOs, the detail pass already uses GL_EQUAL
+			// With VBOs enabled, this selects transparent surfaces for special handling
+			qboolean transparent = passes == 2 && FBitSet( fa->flags, SURF_TRANSPARENT );
+			qboolean polygonOffset = glState.num_polyoffsets > 0; // preserve polygon offset managed by an outer push/pop scope
+
+			if( transparent )
+			{
+				pglDepthFunc( GL_EQUAL );
+				if( !polygonOffset )
+					pglDisable( GL_POLYGON_OFFSET_FILL );
+			}
+
 			DrawGLPoly( fa->polys, glt->xscale, glt->yscale );
+
+			if( transparent )
+			{
+				pglDepthFunc( GL_LEQUAL );
+				if( !polygonOffset )
+					pglEnable( GL_POLYGON_OFFSET_FILL );
+			}
 		}
 
 		detail_surfaces[i] = NULL;
