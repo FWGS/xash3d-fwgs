@@ -1358,7 +1358,27 @@ static void R_RenderDetails( int passes )
 		{
 			msurface_t *fa = p->surf;
 			gl_texture_t *glt = R_GetTexture( fa->texinfo->texture->gl_texturenum ); // get texture scale
+
+			// Without VBOs, the detail pass already uses GL_EQUAL
+			// With VBOs enabled, this selects transparent surfaces for special handling
+			qboolean transparent = passes == 2 && FBitSet( fa->flags, SURF_TRANSPARENT );
+			qboolean polygonOffset = glState.num_polyoffsets > 0; // preserve polygon offset managed by an outer push/pop scope
+
+			if( transparent )
+			{
+				pglDepthFunc( GL_EQUAL );
+				if( !polygonOffset )
+					pglDisable( GL_POLYGON_OFFSET_FILL );
+			}
+
 			DrawGLPoly( fa->polys, glt->xscale, glt->yscale );
+
+			if( transparent )
+			{
+				pglDepthFunc( GL_LEQUAL );
+				if( !polygonOffset )
+					pglEnable( GL_POLYGON_OFFSET_FILL );
+			}
 		}
 
 		detail_surfaces[i] = NULL;
@@ -3417,11 +3437,16 @@ qboolean R_AddSurfToVBO( msurface_t *surf, qboolean buildlightmap )
 
 	if( surf->texinfo != NULL )
 	{
+		// mode 1 is only valid during lightmap generation, and mode 2 needs an
+		// extra texture unit for detail blending
+		qboolean vbo_detail_pass = ( r_vbo_detail.value == 1 && buildlightmap ) ||
+			( r_vbo_detail.value == 2 && glConfig.max_texture_units > 2 );
+
 		// fullbright textures are rare, no sense to build VBO for them
 		R_RenderFullbrightForSurface( surf, surf->texinfo->texture );
 
-		// draw details in regular way
-		if( r_vbo_detail.value )
+		// use the regular detail pass only when the selected VBO path cannot draw it
+		if( r_vbo_detail.value && !vbo_detail_pass )
 			R_RenderDetailsForSurface( surf, surf->texinfo->texture );
 	}
 
