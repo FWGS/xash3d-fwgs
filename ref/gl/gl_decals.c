@@ -138,6 +138,38 @@ static void R_GetDecalDimensions( int texture, int *width, int *height )
 	R_GetTextureParms( width, height, texture );
 }
 
+/*
+===============
+R_DecalFixMirroring
+
+Texture axes of a BSP surface can be mirrored relative to the side the
+player sees (e.g. world-aligned textures on half of the walls). A decal
+that follows these axes then shows up mirrored, which is unreadable for
+text and logos. If the (S x T) basis is left-handed w.r.t. the visible
+normal, flip one axis so that the decal is no longer mirrored.
+
+Which axis is flipped:
+- vertical surfaces: the one that is closer to horizontal in world space
+  (keeps "top" of the logo pointing up, also for 90-degree rotated textures)
+- horizontal surfaces (floor, ceiling): U, there is no world "up" reference
+===============
+*/
+static void R_DecalFixMirroring( const vec3_t normal, vec3_t s, vec3_t t )
+{
+	vec3_t cross;
+
+	CrossProduct( s, t, cross );
+
+	// non-mirrored mapping has S x T pointing into the surface
+	if( DotProduct( cross, normal ) <= 0.001f )
+		return;
+
+	if( fabsf( normal[2] ) < 0.7071f && fabsf( s[2] ) > fabsf( t[2] ))
+		VectorNegate( t, t );
+	else
+		VectorNegate( s, s );
+}
+
 //-----------------------------------------------------------------------------
 // compute the decal basis based on surface normal
 //-----------------------------------------------------------------------------
@@ -175,6 +207,10 @@ static void R_DecalComputeBasis( msurface_t *surf, int flags, vec3_t textureSpac
 #endif
 	VectorNormalize2( surf->texinfo->vecs[0], textureSpaceBasis[0] );
 	VectorNormalize2( surf->texinfo->vecs[1], textureSpaceBasis[1] );
+
+	// custom decals (player sprays) must stay readable on any surface
+	if( FBitSet( flags, FDECAL_CUSTOM ))
+		R_DecalFixMirroring( textureSpaceBasis[2], textureSpaceBasis[0], textureSpaceBasis[1] );
 }
 
 static void R_SetupDecalTextureSpaceBasis( decal_t *pDecal, msurface_t *surf, int texture, vec3_t textureSpaceBasis[3], float decalWorldScale[2] )
