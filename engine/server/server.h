@@ -103,6 +103,15 @@ typedef enum
 	us_complete,
 } cl_upload_t;
 
+typedef enum
+{
+	SV_RATELIMIT_QUERY = 0, // info, ping, players and rules replies
+	SV_RATELIMIT_CHALLENGE, // challenge requests and bandwidth tests
+	SV_RATELIMIT_CONNECT,   // connect requests that passed the challenge
+	SV_RATELIMIT_RCON,      // failed rcon attempts
+	SV_RATELIMIT_COUNT
+} sv_ratelimit_t;
+
 // instanced baselines container
 typedef struct
 {
@@ -473,7 +482,7 @@ int SV_GenericIndex( const char *name );
 void SV_InitOperatorCommands( void );
 void SV_KillOperatorCommands( void );
 void SV_RemoteCommand( netadr_t from, sizebuf_t *msg );
-qboolean SV_QueryRateLimited( netadr_t from );
+qboolean SV_RateLimited( netadr_t from, sv_ratelimit_t kind );
 void SV_SendResource( resource_t *pResource, sizebuf_t *msg );
 void SV_AddToMaster( netadr_t from, sizebuf_t *msg );
 qboolean SV_ProcessUserAgent( netadr_t from, const char *useragent );

@@ -27,7 +27,7 @@ static void SV_SourceQuery_Details( netadr_t from )
 	char answer[2048];
 	int bot_count, client_count;
 
-	if( SV_QueryRateLimited( from ))
+	if( SV_RateLimited( from, SV_RATELIMIT_QUERY ))
 		return;
 
 	SV_GetPlayerCount( &client_count, &bot_count );

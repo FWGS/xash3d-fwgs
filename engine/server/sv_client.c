@@ -885,16 +885,20 @@ static void SV_TestBandWidth( netadr_t from )
 
 /*
 ================
-SV_QueryRateLimited
+SV_CheckRateLimit
 ================
 */
-qboolean SV_QueryRateLimited( netadr_t from MAYBE_UNUSED )
+static qboolean SV_CheckRateLimit( netadr_t from MAYBE_UNUSED, sv_ratelimit_t kind MAYBE_UNUSED, qboolean take MAYBE_UNUSED )
 {
 #if !XASH_LOW_MEMORY // these targets don't host public servers, always allow
 	enum { CACHE_SIZE = 8192 };
-	static struct { uint32_t last; float tokens; } cache[CACHE_SIZE];
+	// a table per kind, so flooding with one kind of request can't deplete the others
+	static struct { uint32_t last; float tokens; } cache[SV_RATELIMIT_COUNT][CACHE_SIZE];
 
-	if( sv_query_rate_limit.value <= 0.0f )
+	// real clients never come close to 1 per second for anything but queries
+	const float rate = kind == SV_RATELIMIT_QUERY ? sv_query_rate_limit.value : 1.0f;
+
+	if( rate <= 0.0f )
 		return false;
 
 	byte data[2 + 16]; // purpose, address type, address
@@ -923,26 +927,36 @@ qboolean SV_QueryRateLimited( netadr_t from MAYBE_UNUSED )
 
 	// millisecond tick; unsigned subtraction stays correct across the ~49 day wrap
 	uint32_t now = (uint32_t)(uint64_t)( host.realtime * 1000.0 );
-	uint32_t elapsed = now - cache[slot].last;
+	uint32_t elapsed = now - cache[kind][slot].last;
 
 	// the bucket is shared by every address hashing here, so it can't be evicted,
 	// only depleted, which bounds how much we amplify no matter how sources are spoofed
-	float tokens = cache[slot].tokens + elapsed * 0.001f * sv_query_rate_limit.value;
+	float tokens = cache[kind][slot].tokens + elapsed * 0.001f * rate;
 	const float burst = 5.0f;
 
 	if( tokens > burst )
 		tokens = burst;
-	cache[slot].last = now;
+	cache[kind][slot].last = now;
 
 	if( tokens < 1.0f )
 	{
-		cache[slot].tokens = tokens;
+		cache[kind][slot].tokens = tokens;
 		return true;
 	}
 
-	cache[slot].tokens = tokens - 1.0f;
+	cache[kind][slot].tokens = take ? tokens - 1.0f : tokens;
 #endif
 	return false;
+}
+
+/*
+================
+SV_RateLimited
+================
+*/
+qboolean SV_RateLimited( netadr_t from, sv_ratelimit_t kind )
+{
+	return SV_CheckRateLimit( from, kind, true );
 }
 
 /*
@@ -961,7 +975,7 @@ static void SV_Info( netadr_t from, int protocolVersion )
 	if( svs.maxclients == 1 || !svs.initialized )
 		return;
 
-	if( SV_QueryRateLimited( from ))
+	if( SV_RateLimited( from, SV_RATELIMIT_QUERY ))
 		return;
 
 	s[0] = '\0';
@@ -3758,7 +3772,7 @@ void Test_RunQueryRateLimit( void )
 	// disabled by cvar: nothing is ever throttled
 	sv_query_rate_limit.value = 0.0f;
 	for( int i = 0; i < 32; i++ )
-		TASSERT( SV_QueryRateLimited( victim ) == false );
+		TASSERT( SV_RateLimited( victim, SV_RATELIMIT_QUERY ) == false );
 
 	// enabled: a fresh bucket lets a burst of 5 through, then throttles
 	sv_query_rate_limit.value = 1.0f;
@@ -3766,7 +3780,7 @@ void Test_RunQueryRateLimit( void )
 	int burst_allowed = 0;
 	for( int i = 0; i < 32; i++ )
 	{
-		if( !SV_QueryRateLimited( victim ))
+		if( !SV_RateLimited( victim, SV_RATELIMIT_QUERY ))
 			burst_allowed++;
 	}
 	TASSERT_EQi( burst_allowed, 5 );
@@ -3775,14 +3789,14 @@ void Test_RunQueryRateLimit( void )
 	// depleting one must not deplete the other with our fixed test salt
 	netadr_t collision = { .type = NA_IP, .ip = { 1, 2, 4, 7 } };
 	for( int i = 0; i < 5; i++ )
-		TASSERT( SV_QueryRateLimited( collision ) == false );
-	TASSERT( SV_QueryRateLimited( victim ) == true );
+		TASSERT( SV_RateLimited( collision, SV_RATELIMIT_QUERY ) == false );
+	TASSERT( SV_RateLimited( victim, SV_RATELIMIT_QUERY ) == true );
 
 	// a spoofed flood from other sources can only deplete buckets, never refill the
 	// victim's, so with no time elapsed the victim can't be evicted and stays throttled
 	for( int i = 0; i < 30000; i++ )
-		SV_QueryRateLimited(( netadr_t ){ .type = NA_IP, .ip4 = 0x10000000 + i });
-	TASSERT( SV_QueryRateLimited( victim ) == true );
+		SV_RateLimited(( netadr_t ){ .type = NA_IP, .ip4 = 0x10000000 + i }, SV_RATELIMIT_QUERY );
+	TASSERT( SV_RateLimited( victim, SV_RATELIMIT_QUERY ) == true );
 
 	// tokens refill with time: 3 seconds at 1/s lets exactly 3 more replies through
 	host.realtime += 3.0;
@@ -3790,10 +3804,28 @@ void Test_RunQueryRateLimit( void )
 	int refill_allowed = 0;
 	for( int i = 0; i < 32; i++ )
 	{
-		if( !SV_QueryRateLimited( victim ))
+		if( !SV_RateLimited( victim, SV_RATELIMIT_QUERY ))
 			refill_allowed++;
 	}
 	TASSERT_EQi( refill_allowed, 3 );
+
+	// other kinds have their own tables and aren't disabled by the query cvar
+	sv_query_rate_limit.value = 0.0f;
+
+	int connect_allowed = 0;
+	for( int i = 0; i < 32; i++ )
+	{
+		if( !SV_RateLimited( victim, SV_RATELIMIT_CONNECT ))
+			connect_allowed++;
+	}
+	TASSERT_EQi( connect_allowed, 5 );
+
+	// peeking doesn't take tokens, so only failed rcon attempts deplete the bucket
+	for( int i = 0; i < 32; i++ )
+		TASSERT( SV_CheckRateLimit( victim, SV_RATELIMIT_RCON, false ) == false );
+	for( int i = 0; i < 5; i++ )
+		TASSERT( SV_RateLimited( victim, SV_RATELIMIT_RCON ) == false );
+	TASSERT( SV_CheckRateLimit( victim, SV_RATELIMIT_RCON, false ) == true );
 
 	sv_query_rate_limit.value = saved_rate;
 	host.realtime = saved_time;
