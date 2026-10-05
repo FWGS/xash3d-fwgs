@@ -57,6 +57,7 @@ int IOS_GetArgs( char ***argv );
 const char *IOS_GetDocsDir( void );
 const char *IOS_GetExecDir( void );
 void IOS_LaunchDialog( void );
+#include "ios/touch_safearea.h"
 #endif // TARGET_OS_IOS
 
 #if XASH_WIN32 || XASH_LINUX

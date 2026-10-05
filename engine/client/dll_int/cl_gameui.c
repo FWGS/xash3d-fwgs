@@ -25,6 +25,37 @@ static void 	UI_UpdateUserinfo( void );
 
 gameui_static_t	gameui;
 
+static int ui_origin_x, ui_origin_y;
+
+// The menu DLL scales itself to these dimensions. Keep its coordinate origin
+// local to the safe rectangle and translate at the engine API boundary, so
+// existing menu DLLs need no new API and drawing, clipping and input agree.
+qboolean UI_UpdateViewport( void )
+{
+	int width = refState.width, height = refState.height;
+	ui_origin_x = ui_origin_y = 0;
+#if XASH_IOS
+	float left, top, right, bottom;
+	IOS_GetTouchInsets( host.hWnd, &left, &top, &right, &bottom );
+	// Round inward to avoid leaving a fractional renderer pixel in an inset.
+	ui_origin_x = (int)ceilf( width * left );
+	ui_origin_y = (int)ceilf( height * top );
+	width = Q_max( 1, width - ui_origin_x - (int)ceilf( width * right ));
+	height = Q_max( 1, height - ui_origin_y - (int)ceilf( height * bottom ));
+#endif
+	if( !gameui.globals )
+		return false;
+
+	qboolean changed = gameui.globals->scrWidth != width || gameui.globals->scrHeight != height;
+	gameui.globals->scrWidth = width;
+	gameui.globals->scrHeight = height;
+#if XASH_IOS
+	if( changed )
+		Con_DPrintf( "iOS menu viewport: %d %d %d %d\n", ui_origin_x, ui_origin_y, width, height );
+#endif
+	return changed;
+}
+
 static void UI_ToggleAllowConsole_f( void )
 {
 	host.allow_console = host.allow_console_init = true;
@@ -36,6 +67,10 @@ static void UI_ToggleAllowConsole_f( void )
 void UI_UpdateMenu( float realtime )
 {
 	if( !gameui.hInstance ) return;
+
+	// Insets can change without a resolution change, such as on rotation.
+	if( UI_UpdateViewport() )
+		gameui.dllFuncs.pfnVidInit();
 
 	// don't draw menu over console
 	if( cls.key_dest == key_console ) return;
@@ -73,7 +108,7 @@ void UI_KeyEvent( int key, qboolean down )
 void UI_MouseMove( int x, int y )
 {
 	if( !gameui.hInstance ) return;
-	gameui.dllFuncs.pfnMouseMove( x, y );
+	gameui.dllFuncs.pfnMouseMove( x - ui_origin_x, y - ui_origin_y );
 }
 
 void UI_SetActiveMenu( qboolean fActive )
@@ -106,12 +141,14 @@ void UI_GetCursorPos( int *pos_x, int *pos_y )
 {
 	if( !gameui.hInstance ) return;
 	gameui.dllFuncs.pfnGetCursorPos( pos_x, pos_y );
+	if( pos_x ) *pos_x += ui_origin_x;
+	if( pos_y ) *pos_y += ui_origin_y;
 }
 
 void UI_SetCursorPos( int pos_x, int pos_y )
 {
 	if( !gameui.hInstance ) return;
-	gameui.dllFuncs.pfnSetCursorPos( pos_x, pos_y );
+	gameui.dllFuncs.pfnSetCursorPos( pos_x - ui_origin_x, pos_y - ui_origin_y );
 }
 
 void UI_ShowCursor( qboolean show )
@@ -326,8 +363,8 @@ static void GAME_EXPORT UI_DrawLogo( const char *filename, float x, float y, flo
 
 	AVI_SetParm( cin_state,
 		AVI_RENDER_TEXNUM, 0,
-		AVI_RENDER_X, (int)x,
-		AVI_RENDER_Y, (int)y,
+		AVI_RENDER_X, (int)x + ui_origin_x,
+		AVI_RENDER_Y, (int)y + ui_origin_y,
 		AVI_RENDER_W, (int)width,
 		AVI_RENDER_H, (int)height,
 		AVI_PARM_LAST );
@@ -437,6 +474,8 @@ draw hudsprite routine
 */
 static void PIC_DrawGeneric( float x, float y, float width, float height, const wrect_t *prc )
 {
+	x += ui_origin_x;
+	y += ui_origin_y;
 	float	s1, s2, t1, t2;
 	int	w, h;
 
@@ -617,7 +656,7 @@ static void GAME_EXPORT pfnPIC_EnableScissor( int x, int y, int width, int heigh
 	width = bound( 0, width, gameui.globals->scrWidth - x );
 	height = bound( 0, height, gameui.globals->scrHeight - y );
 
-	CL_EnableScissor( &gameui.ds.scissor, x, y, width, height );
+	CL_EnableScissor( &gameui.ds.scissor, x + ui_origin_x, y + ui_origin_y, width, height );
 }
 
 /*
@@ -644,7 +683,7 @@ static void GAME_EXPORT pfnFillRGBA( int x, int y, int width, int height, int r,
 	b = bound( 0, b, 255 );
 	a = bound( 0, a, 255 );
 
-	ref.dllFuncs.FillRGBA( kRenderTransTexture, x, y, width, height, r, g, b, a );
+	ref.dllFuncs.FillRGBA( kRenderTransTexture, x + ui_origin_x, y + ui_origin_y, width, height, r, g, b, a );
 }
 
 /*
@@ -707,7 +746,7 @@ static void GAME_EXPORT pfnDrawCharacter( int ix, int iy, int iwidth, int iheigh
 	rgba_t	color;
 	float	row, col, size;
 	float	s1, t1, s2, t2;
-	float	x = ix, y = iy;
+	float	x = ix + ui_origin_x, y = iy + ui_origin_y;
 	float	width = iwidth;
 	float	height = iheight;
 
@@ -751,7 +790,7 @@ static int GAME_EXPORT UI_DrawConsoleString( int x, int y, const char *string )
 {
 	if( !string || !*string ) return 0; // silent ignore
 
-	int drawLen = Con_DrawString( x, y, string, gameui.ds.textColor );
+	int drawLen = Con_DrawString( x + ui_origin_x, y + ui_origin_y, string, gameui.ds.textColor );
 	MakeRGBA( gameui.ds.textColor, 255, 255, 255, 255 );
 
 	return (x + drawLen); // exclude color prexfixes
@@ -827,6 +866,8 @@ static void GAME_EXPORT pfnRenderScene( const ref_viewpass_t *rvp )
 		return;
 
 	copy = *rvp;
+	copy.viewport[0] += ui_origin_x;
+	copy.viewport[1] += ui_origin_y;
 
 	// don't allow special modes from menu
 	copy.flags = 0;
@@ -1239,6 +1280,12 @@ static void pfnEnableTextInput( int enable )
 
 static void pfnSetTextInputRect( int x, int y, int w, int h )
 {
+	if( w > 0 && h > 0 )
+	{
+		x += ui_origin_x;
+		y += ui_origin_y;
+	}
+	// Preserve the empty-rectangle sentinel for the default keyboard behavior.
 	Key_SetTextInputRect( x, y, w, h );
 }
 

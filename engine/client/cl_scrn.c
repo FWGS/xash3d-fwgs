@@ -880,11 +880,7 @@ void SCR_VidInit( void )
 	memset( &clgame.centerPrint, 0, sizeof( clgame.centerPrint ));
 
 	// update screen sizes for menu
-	if( gameui.globals )
-	{
-		gameui.globals->scrWidth = refState.width;
-		gameui.globals->scrHeight = refState.height;
-	}
+	UI_UpdateViewport();
 
 	// notify vgui about screen size change
 	if( clgame.hInstance )

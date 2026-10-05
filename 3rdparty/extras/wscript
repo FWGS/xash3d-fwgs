@@ -26,3 +26,12 @@ def build(bld):
 		files = srcdir.ant_glob('**/*', excl=['scripts/**', '.*']),
 		relative_to = srcdir,
 		install_path = install_path)
+
+	# Original iOS icons live in this repository, independently of xash-extras.
+	if bld.env.IOS:
+		iosdir = bld.path.find_dir('ios')
+		bld(features='zip',
+			name = 'ios-controls.pk3',
+			files = iosdir.ant_glob('touch_ios/*.png'),
+			relative_to = iosdir,
+			install_path = install_path)

@@ -147,3 +147,82 @@ Flags can be combined by adding their values ​​together. For example, `5 = 1
     
 ### Additional links
 * [Handy palette for selecting color in RGB format](https://www.rapidtables.com/web/color/RGB_Color.html)
+
+## iOS layout and safe areas
+
+The main game menu also lays out within the current UIKit safe area. Images,
+text, checkboxes, scroll clipping, model previews, and text input rectangles
+share the same offset, and menu taps use the inverse offset. This keeps menu
+items clear of the notch and home indicator in either landscape orientation.
+
+On iOS, touch controls and their editor use the SDL window's current UIKit safe
+area. This keeps buttons away from the notch, rounded screen edges and home
+indicator, including after rotating the phone. Rendering and touch hit detection
+use the same rectangle; menu and game-provided touch events retain screen
+coordinates. Profile coordinates remain normalized between 0 and 1.
+
+The iOS defaults include two visible analog sticks: movement on the lower left
+and look on the lower right. Each has a hollow outer ring and a solid thumb disc
+that follows your drag, stays inside the ring and returns to the centre when
+released. Movement speed increases with displacement. Holding the look stick
+away from the initial thumb position turns the camera continuously, using real
+elapsed time like a controller stick. Picking it up is neutral even if the thumb
+misses the ring centre. The sticks have a radial dead zone and clamp diagonal
+input to the circle; look uses a radial response curve for fine aiming.
+The look stick respects the menu's **Invert mouse** setting (`m_pitch` sign),
+as well as `touch_pitch`, `touch_yaw`, precision and the client's aim/zoom
+sensitivity. Its rate is added after mouse/swipe filtering so releasing it stops
+turning immediately. Legacy `_look` swipe handling is unchanged.
+
+Fire and alternate fire sit together above the right stick, with reload and use
+to their left; jump and crouch
+sit beside it. Weapon cycling sits above the movement stick. Menu, edit, weapon
+selection and other utility actions sit along the top. Primary fire is larger
+than secondary actions. Sticks use a 112-144 point diameter; other default
+buttons have targets of at least 44 UIKit points when the window is available.
+The circular action icons use white pictograms and dark translucent backgrounds.
+
+`touch_stick_deadzone` sets the neutral radius as a fraction of the stick radius
+(default `0.12`). `touch_lookjoy_speed` sets the base full-deflection look rate
+before client aim sensitivity (default `60`); with `touch_yaw 120`,
+`touch_pitch 90` and Half-Life's default `sensitivity 3`, this yields 180 degrees
+per second horizontally and 135 vertically. `touch_lookjoy_curve` sets the radial
+response exponent (default `2`, range `1`–`3`); `1` is linear. These settings are
+saved in the touch profile. Profiles saved before this tuning may contain the
+old base rate `180`; reduce it to `60`, or lower for high aim sensitivity.
+The single crouch button defaults to **Hold**. Open the gear/layout editor and
+tap **Crouch: Hold** or **Crouch: Toggle** to switch modes, then close and save.
+The console equivalent is `touch_crouch_toggle 0` (hold) or
+`touch_crouch_toggle 1` (toggle). Changing modes releases any active crouch.
+The preference is saved in the profile. Custom crouch buttons can bind `_crouch`;
+legacy `+duck` bindings retain their existing hold behavior.
+
+Custom profiles can bind `_movejoy` and `_lookjoy` to circular stick regions;
+the existing `_move`, `_joy` and `_look` controls remain available.
+
+![iOS default layout preview with safe-area boundaries](images/ios-touch-layout.png)
+
+In-game controls on an iPhone:
+
+![In-game iOS controls with movement and look sticks](images/ios-touch-ingame.png)
+
+Existing saved profiles are kept. To try the new arrangement, back up your
+current profile using `touch_exportconfig touch_profiles/backup.cfg`, then run
+`touch_removeall` followed by `touch_loaddefaults`. Adjust controls in the editor
+and run `touch_writeconfig` to save them. The new icons ship in `ios-controls.pk3`
+alongside `extras.pk3` in iOS builds; both archives must be installed.
+
+The icon sources are generated with `python3 scripts/ios/generate_touch_icons.py`.
+The generator uses only Python's standard library; no global packages are needed.
+
+The regression checks use an existing C compiler and Python's standard library:
+
+```
+python3 scripts/ios/test_touch_sticks.py
+python3 scripts/ios/test_menu_viewport.py
+```
+
+They compile the actual engine functions in small harnesses to check input
+timing, inversion, filtering, release behavior, crouch modes, viewport bounds
+and menu tap alignment. Device builds are still needed to verify UIKit insets
+and assess the controls by touch.

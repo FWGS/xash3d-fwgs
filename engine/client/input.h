@@ -78,6 +78,7 @@ static inline void Touch_WriteConfig( void ) { }
 static inline void Touch_Init( void ) { }
 static inline void Touch_Shutdown( void ) { }
 static inline void Touch_GetMove( float * forward, float *side, float *pitch, float *yaw ) { }
+static inline void Touch_GetLookStickMove( float *pitch, float *yaw ) { }
 static inline void Touch_ResetDefaultButtons( void ) { }
 static inline int IN_TouchEvent( touchEventType type, int fingerID, float x, float y, float dx, float dy ) { return 0; }
 static inline void Touch_KeyEvent( int key, int down ) { }
@@ -94,6 +95,7 @@ void Touch_WriteConfig( void );
 void Touch_Init( void );
 void Touch_Shutdown( void );
 void Touch_GetMove( float * forward, float *side, float *pitch, float *yaw );
+void Touch_GetLookStickMove( float *pitch, float *yaw );
 void Touch_ResetDefaultButtons( void );
 int IN_TouchEvent( touchEventType type, int fingerID, float x, float y, float dx, float dy );
 void Touch_KeyEvent( int key, int down );
