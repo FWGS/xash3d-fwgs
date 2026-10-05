@@ -149,11 +149,11 @@ Flags can be combined by adding their values ​​together. For example, `5 = 1
 * [Handy palette for selecting color in RGB format](https://www.rapidtables.com/web/color/RGB_Color.html)
 
 
-## Analog stick profile and safe areas
+## Analog movement, drag look and safe areas
 
 The optional **analog** and **analog_toggle** presets in `xash-extras` provide
-circular movement and look controls with shared icons. Select a preset in the
-menu's Touch options. Engine defaults and existing profiles remain available on
+an analog movement stick and an empty ring for drag-to-look, with shared icons.
+Select a preset in the menu's Touch options. Engine defaults and existing profiles remain available on
 all platforms. Both presets use a single crouch button: `analog` holds crouch,
 while `analog_toggle` toggles it through aliases. After loading either preset,
 `exec touch_sticks/crouch_hold.cfg` and `exec touch_sticks/crouch_toggle.cfg`
@@ -164,19 +164,18 @@ require coordinated crouch/jump presses. Toggle crouch is optional and changes
 that timing. Its button binds an `exec` command, so releasing the touch does not
 automatically issue `-duck`; the next press executes the opposite alias.
 
-A button with flag `2048` (`TOUCH_FL_STICK`) extends existing `_joy` movement or
-`_look` input with a visible thumb disc. Movement is proportional to displacement
-and clamps diagonals to the circle. Look is neutral at pickup and turns while
-held off-centre, using elapsed time rather than the simulation frame rate. There
-is no dead zone. Without the flag, `_joy` and `_look` retain their old behavior.
+The left stick controls movement continuously while held off-centre. The right
+ring uses Xash's existing `_look` drag input: moving the thumb rotates the camera,
+and holding the thumb still stops rotation. It has no stick thumb disc or
+continuous turning. The presets disable nonlinear swipe response and look
+filtering, so there is no smoothing tail. Drag sensitivity uses `touch_pitch`,
+`touch_yaw` and the client sensitivity; the sign of `touch_pitch` controls drag
+Y inversion. There is no continuous-turn look mode.
 
-The rate stick respects `m_pitch`'s sign (Invert mouse), `touch_pitch`, `touch_yaw`,
-precision and the client DLL's aim/zoom sensitivity. `touch_look_speed` defaults
-to 60 degrees/second before client sensitivity at full horizontal deflection;
-vertical speed also includes `touch_pitch / 120`. `touch_look_curve` defaults to 2
-(quadratic), with 1 for a linear response and a maximum of 3. A long frame is
-capped at 0.1 seconds to avoid a jump after a stall. Rate input enters after the
-mouse/swipe filter so release does not leave a smoothing tail.
+A `_joy` button with flag `2048` (`TOUCH_FL_STICK`) provides analog movement
+with a visible thumb disc and radial clamping, without a dead zone. `_look`
+retains its existing drag behavior; continuous-turn look and its curve/speed
+settings are not part of this change.
 
 Native profiles and their editor map coordinates into the drawable window's
 safe area. Outside touches are not clamped onto edge buttons; captured fingers
@@ -199,13 +198,13 @@ executable on PATH. This stages rendered assets under the build directory before
 packaging; it does not overwrite the source PNGs.
 
 Regression tests are registered in `engine/common/tests.h` under
-`XASH_ENGINE_TESTS`: touch clamping, small displacements, neutral pickup,
-frame-rate-independent look, inversion, release, legacy swipe input and window
+`XASH_ENGINE_TESTS`: movement clamping, small displacements, drag consumption, stationary-thumb
+behavior, drag inversion, release cleanup and window
 inset validation. Run a test-enabled engine with `-dev 2 -runtests`. Simulator
 interaction validates native safe-area reporting and menu hit targets; Android
 and SDL3 require their own runtime validation before claiming coverage.
 
-The earlier device screenshot shows the visual design; its saved profile predates
-the shared presets:
+Updated in-game device capture with analog movement on the left and the empty
+drag-look ring on the right:
 
-![Analog controls in game](images/ios-touch-ingame.png)
+![Analog movement and drag-look controls in game](images/ios-touch-ingame.png)

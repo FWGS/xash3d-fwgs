@@ -64,7 +64,6 @@ typedef struct touch_button_s
 	float fadeend;
 	float aspect;
 	float stick_x, stick_y; // transient thumb displacement inside the ring
-	float stick_start_x, stick_start_y; // neutral pickup point for look
 
 	// Double-linked list
 	struct touch_button_s *next;
@@ -98,8 +97,6 @@ static struct touch_s
 	touchState state;
 
 	int look_finger;
-	qboolean look_stick;
-	float look_side, look_forward;
 	int move_finger;
 	qboolean move_stick;
 	int wheel_finger;
@@ -168,8 +165,6 @@ static CVAR_DEFINE_AUTO( touch_highlight_b, "1.0", 0, "highlight b color" );
 static CVAR_DEFINE_AUTO( touch_highlight_a, "1.0", 0, "highlight alpha" );
 static CVAR_DEFINE_AUTO( touch_dpad_radius, "1.0", FCVAR_FILTERABLE, "dpad radius multiplier" );
 static CVAR_DEFINE_AUTO( touch_joy_radius, "1.0", FCVAR_FILTERABLE, "joy radius multiplier" );
-static CVAR_DEFINE_AUTO( touch_look_speed, "60", FCVAR_FILTERABLE, "analog look rate before game sensitivity, scaled by touch_yaw and touch_pitch" );
-static CVAR_DEFINE_AUTO( touch_look_curve, "2", FCVAR_FILTERABLE, "analog look radial response exponent (1 linear, 2 fine aiming, maximum 3)" );
 static CVAR_DEFINE_AUTO( touch_move_indicator, "0.0", FCVAR_FILTERABLE, "indicate move events (0 to disable)" );
 static CVAR_DEFINE_AUTO( touch_joy_texture, "touch_default/joy", FCVAR_FILTERABLE, "texture for move indicator");
 static CVAR_DEFINE( touch_emulate, "_touch_emulate", "0", FCVAR_PRIVILEGED, "emulate touch with mouse" );
@@ -319,8 +314,6 @@ static qboolean Touch_DumpConfig( const char *name, const char *profilename )
 	FS_Printf( f, "\n// how much slowdown when Precise Look button pressed\n" );
 	FS_Printf( f, "touch_precise_amount \"%g\"\n", touch_precise_amount.value );
 	FS_Printf( f, "\n// analog stick options\n" );
-	FS_Printf( f, "touch_look_speed \"%g\"\n", touch_look_speed.value );
-	FS_Printf( f, "touch_look_curve \"%g\"\n", touch_look_curve.value );
 	FS_Printf( f, "\n// enable/disable move indicator\n" );
 	FS_Printf( f, "touch_move_indicator \"%g\"\n", touch_move_indicator.value );
 
@@ -606,19 +599,13 @@ static void Touch_SetClientOnly_f( void )
 
 static void Touch_ReleaseStick( touch_button_t *button )
 {
-	if( !FBitSet( button->flags, TOUCH_FL_STICK ))
+	if( !FBitSet( button->flags, TOUCH_FL_STICK ) || button->type != touch_joy )
 		return;
 	if( button->type == touch_joy && button->finger == touch.move_finger )
 	{
 		touch.move_finger = -1;
 		touch.move_button = NULL;
 		touch.forward = touch.side = 0;
-	}
-	if( button->type == touch_look && button->finger == touch.look_finger )
-	{
-		touch.look_finger = -1;
-		touch.look_stick = false;
-		touch.look_side = touch.look_forward = 0;
 	}
 	button->finger = -1;
 	button->stick_x = button->stick_y = 0;
@@ -628,8 +615,7 @@ static void Touch_ResetSticks( void )
 {
 	for( touch_button_t *button = touch.list_user.first; button; button = button->next )
 		Touch_ReleaseStick( button );
-	touch.move_stick = touch.look_stick = false;
-	touch.look_side = touch.look_forward = 0;
+	touch.move_stick = false;
 }
 
 static void Touch_RemoveButtonFromList( touchbuttonlist_t *list, const char *name, qboolean privileged )
@@ -1228,8 +1214,6 @@ void Touch_Init( void )
 	Cvar_RegisterVariable( &touch_dpad_radius );
 	Cvar_RegisterVariable( &touch_joy_radius );
 	Cvar_RegisterVariable( &touch_move_indicator );
-	Cvar_RegisterVariable( &touch_look_speed );
-	Cvar_RegisterVariable( &touch_look_curve );
 	Cvar_RegisterVariable( &touch_joy_texture );
 
 	// input devices cvar
@@ -1432,8 +1416,8 @@ static void Touch_StickVector( touch_button_t *button, float x, float y, float *
 {
 	float half_width = Q_max( ( button->x2 - button->x1 ) * 0.5f, 0.0001f );
 	float half_height = Q_max( ( button->y2 - button->y1 ) * 0.5f, 0.0001f );
-	float center_x = button->type == touch_look ? button->stick_start_x : ( button->x1 + button->x2 ) * 0.5f;
-	float center_y = button->type == touch_look ? button->stick_start_y : ( button->y1 + button->y2 ) * 0.5f;
+	float center_x = ( button->x1 + button->x2 ) * 0.5f;
+	float center_y = ( button->y1 + button->y2 ) * 0.5f;
 	float sx = ( x - center_x ) / half_width;
 	float sy = ( y - center_y ) / half_height;
 	float length = sqrtf( sx * sx + sy * sy );
@@ -1452,19 +1436,11 @@ static void Touch_StickVector( touch_button_t *button, float x, float y, float *
 	*forward = -sy / length * amount;
 }
 
-static void Touch_StartLookStick( touch_button_t *button, float x, float y )
-{
-	// Picking up the stick is neutral, even when the thumb misses the centre.
-	button->stick_start_x = x;
-	button->stick_start_y = y;
-	Touch_StickVector( button, x, y, &touch.look_side, &touch.look_forward );
-}
-
 static void Touch_DrawStickThumb( const touch_button_t *button, byte *color )
 {
 	float width = button->x2 - button->x1, height = button->y2 - button->y1;
 	float sx = 0, sy = 0;
-	qboolean active = button->type == touch_joy ? button->finger == touch.move_finger : button->finger == touch.look_finger;
+	qboolean active = button->finger == touch.move_finger;
 	if( active && button->finger != -1 && touch.state == state_none )
 	{
 		sx = button->stick_x;
@@ -1531,7 +1507,7 @@ static void Touch_DrawButtons( touchbuttonlist_t *list )
 					ref.dllFuncs.GL_SetRenderMode( kRenderTransTexture );
 
 				Touch_DrawTexture( b->x1, b->y1, b->x2, b->y2, b->gl_texturenum, color );
-				if( FBitSet( b->flags, TOUCH_FL_STICK ) && ( b->type == touch_joy || b->type == touch_look ))
+				if( FBitSet( b->flags, TOUCH_FL_STICK ) && b->type == touch_joy)
 					Touch_DrawStickThumb( b, color );
 			}
 
@@ -1785,7 +1761,7 @@ static void Touch_Motion( int fingerID, float x, float y, float dx, float dy )
 		return;
 	}
 
-	// Circular sticks use displacement, including when held still between events.
+	// Movement sticks use displacement, including between motion events.
 	for( touch_button_t *b = touch.list_user.first; b; b = b->next )
 	{
 		if( b->finger != fingerID )
@@ -1795,11 +1771,7 @@ static void Touch_Motion( int fingerID, float x, float y, float dx, float dy )
 			Touch_StickVector( b, x, y, &touch.side, &touch.forward );
 			return;
 		}
-		if( FBitSet( b->flags, TOUCH_FL_STICK ) && b->type == touch_look && fingerID == touch.look_finger )
-		{
-			Touch_StickVector( b, x, y, &touch.look_side, &touch.look_forward );
-			return;
-		}
+
 	}
 
 	// walk
@@ -1903,14 +1875,14 @@ static qboolean Touch_ButtonPress( touchbuttonlist_t *list, touchEventType type,
 			if( x < button->x1 || x > button->x2 || y < button->y1 || y > button->y2 )
 				continue;
 
-			if( FBitSet( button->flags, TOUCH_FL_STICK ) && ( button->type == touch_joy || button->type == touch_look ))
+			if( FBitSet( button->flags, TOUCH_FL_STICK ) && button->type == touch_joy)
 			{
 				float rx = ( x - ( button->x1 + button->x2 ) * 0.5f ) / Q_max( ( button->x2 - button->x1 ) * 0.5f, 0.0001f );
 				float ry = ( y - ( button->y1 + button->y2 ) * 0.5f ) / Q_max( ( button->y2 - button->y1 ) * 0.5f, 0.0001f );
 				if( rx * rx + ry * ry > 1 )
 					continue;
 			}
-			if( FBitSet( button->flags, TOUCH_FL_STICK ) && button->finger != -1 )
+			if( FBitSet( button->flags, TOUCH_FL_STICK ) && button->type == touch_joy && button->finger != -1 )
 				continue;
 			button->finger = fingerID;
 
@@ -2049,10 +2021,6 @@ static qboolean Touch_ButtonPress( touchbuttonlist_t *list, touchEventType type,
 				}
 
 				touch.look_finger = fingerID;
-				touch.look_stick = FBitSet( button->flags, TOUCH_FL_STICK );
-				touch.look_side = touch.look_forward = 0;
-				if( touch.look_stick )
-					Touch_StartLookStick( button, x, y );
 			}
 		}
 		else if( type == event_up )
@@ -2111,8 +2079,6 @@ static qboolean Touch_ButtonPress( touchbuttonlist_t *list, touchEventType type,
 			else if( button->type == touch_look )
 			{
 				touch.look_finger = -1;
-				touch.look_stick = false;
-				touch.look_side = touch.look_forward = 0;
 			}
 		}
 	}
@@ -2354,30 +2320,6 @@ void Touch_GetMove( float *forward, float *side, float *pitch, float *yaw )
 	touch.yaw = touch.pitch = 0;
 }
 
-void Touch_GetLookStickMove( float *pitch, float *yaw )
-{
-	if( touch.look_finger != -1 && touch.look_stick && touch.state == state_none && cls.key_dest == key_game && ( touch_enable.value || touch.clientonly ))
-	{
-		float speed = Q_max( 0, touch_look_speed.value );
-		// Use wall time rather than host_framerate; cap a stall's first turn.
-		float time = bound( 0, host.realframetime, 0.1f );
-		float magnitude = sqrtf( touch.look_side * touch.look_side + touch.look_forward * touch.look_forward );
-		float curve = bound( 1, touch_look_curve.value, 3 );
-		float response = powf( bound( 0, magnitude, 1 ), curve - 1 );
-		// The menu uses m_pitch's sign for inversion. Its mouse-specific scale
-		// does not apply here; touch_pitch/touch_yaw supply touch sensitivity.
-		float invert = m_pitch.value < 0 ? -1 : 1;
-		if( touch.precision )
-			speed *= touch_precise_amount.value;
-		// Use the existing input accumulator exactly once. Half-Life's client
-		// applies aim/zoom sensitivity after receiving these angular deltas.
-		// 120 is the default touch_yaw reference; the default pitch of 90 gives
-		// a slower vertical rate while retaining existing profile adjustments.
-		*yaw -= touch.look_side * response * speed * time * touch_yaw.value / 120.0f;
-		*pitch -= touch.look_forward * response * speed * time * touch_pitch.value / 120.0f * invert;
-	}
-}
-
 void Touch_KeyEvent( int key, int down )
 {
 	static float lx, ly;
@@ -2468,10 +2410,8 @@ static void Test_TouchStick( void )
 	struct touch_s saved = touch;
 	touch_button_t button = { 0 };
 	float side, forward;
-	float old_pitch = m_pitch.value, old_speed = touch_look_speed.value;
-	float old_curve = touch_look_curve.value, old_yaw = touch_yaw.value;
-	float old_touch_pitch = touch_pitch.value, old_enable = touch_enable.value;
-	double old_time = host.realframetime;
+	float old_yaw = touch_yaw.value, old_touch_pitch = touch_pitch.value;
+	float old_nonlinear = touch_nonlinear_look.value, old_enable = touch_enable.value;
 	keydest_t old_dest = cls.key_dest;
 
 	button.type = touch_joy;
@@ -2492,61 +2432,42 @@ static void Test_TouchStick( void )
 	TASSERT( touch.move_finger == -1 && touch.move_button == NULL );
 	TASSERT( touch.forward == 0 && touch.side == 0 );
 
-	button.type = touch_look;
-	button.finger = 4;
-	Touch_StartLookStick( &button, 1.5f, 0.5f );
-	TASSERT( touch.look_side == 0 && touch.look_forward == 0 );
-	Touch_StickVector( &button, 1.5f, 0, &side, &forward );
-	TASSERT( side == 0 && forward == 0.5f );
-
+	// Drag look consumes motion once, even while the finger remains down.
 	touch.look_finger = 4;
-	touch.look_stick = true;
-	touch.look_side = 1;
-	touch.look_forward = 0;
 	touch.state = state_none;
 	touch.precision = false;
 	cls.key_dest = key_game;
 	touch_enable.value = 1;
-	touch_look_speed.value = 60;
-	touch_look_curve.value = 2;
 	touch_yaw.value = 120;
 	touch_pitch.value = 90;
-	m_pitch.value = 0.022f;
+	touch_nonlinear_look.value = 0;
+	float pitch = 0, yaw = 0;
 	for( int fps = 30; fps <= 120; fps *= 2 )
 	{
-		float total = 0;
-		host.realframetime = 1.0 / fps;
+		float total_pitch = 0, total_yaw = 0;
 		for( int frame = 0; frame < fps; frame++ )
 		{
-			float pitch = 0, yaw = 0;
-			Test_CollectTouchInput( &pitch, &yaw, true );
-			total += yaw;
+			Touch_Motion( 4, 1, 1, 1.0f / fps, 1.0f / fps );
+			pitch = yaw = 0;
+			Test_CollectTouchInput( &pitch, &yaw, false );
+			total_pitch += pitch;
+			total_yaw += yaw;
+			pitch = yaw = 0;
+			Test_CollectTouchInput( &pitch, &yaw, false );
+			TASSERT( pitch == 0 && yaw == 0 );
 		}
-		TASSERT( fabsf( total + 60 ) < 0.001f );
+		TASSERT( fabsf( total_pitch - 90 ) < 0.001f );
+		TASSERT( fabsf( total_yaw + 120 ) < 0.001f );
 	}
-	float pitch = 0, yaw = 0, inverted = 0;
-	touch.look_forward = 1;
-	host.realframetime = 1.0 / 60;
-	Touch_GetLookStickMove( &pitch, &yaw );
-	m_pitch.value = -0.022f;
-	yaw = 0;
-	Touch_GetLookStickMove( &inverted, &yaw );
-	TASSERT( pitch < 0 && inverted > 0 && fabsf( pitch + inverted ) < 0.0001f );
-	Touch_ReleaseStick( &button );
+	Touch_Motion( 4, 1, 1, 0, 0 );
 	pitch = yaw = 0;
-	Touch_GetLookStickMove( &pitch, &yaw );
+	Test_CollectTouchInput( &pitch, &yaw, false );
 	TASSERT( pitch == 0 && yaw == 0 );
-	Test_CollectTouchInput( &pitch, &yaw, true );
-	TASSERT( pitch == 0 && yaw == 0 );
-
-	// Legacy swipe deltas are consumed once and remain independent of rate input.
-	touch.pitch = 2;
-	touch.yaw = -3;
-	side = forward = pitch = yaw = 0;
-	Touch_GetMove( &forward, &side, &pitch, &yaw );
-	TASSERT( pitch == 2 && yaw == -3 );
-	Touch_GetMove( &forward, &side, &pitch, &yaw );
-	TASSERT( pitch == 2 && yaw == -3 );
+	// Legacy drag inversion is controlled by touch_pitch's sign.
+	touch_pitch.value = -90;
+	Touch_Motion( 4, 1, 1, 0, 0.01f );
+	Test_CollectTouchInput( &pitch, &yaw, false );
+	TASSERT( pitch < 0 );
 
 	// Save/reload retains the profile's original aspect even with nonzero insets.
 	int old_width = refState.width, old_height = refState.height;
@@ -2564,43 +2485,38 @@ static void Test_TouchStick( void )
 	// Releasing in the menu must not leave a captured button blocking pickup.
 	touch.initialized = true;
 	touch_enable.value = 1;
-	button.type = touch_look;
-	button.finger = touch.look_finger = 4;
-	touch.look_stick = true;
-	touch.look_side = 1;
+	button.type = touch_joy;
+	button.finger = touch.move_finger = 4;
 	touch.list_user.first = touch.list_user.last = &button;
 	cls.key_dest = key_menu;
 	pitch = yaw = side = forward = 0;
 	Touch_GetMove( &forward, &side, &pitch, &yaw );
-	TASSERT( button.finger == -1 && touch.look_finger == -1 );
+	TASSERT( button.finger == -1 && touch.move_finger == -1 );
 	cls.key_dest = key_game;
 	Touch_ButtonPress( &touch.list_user, event_down, 5, 1, 1 );
-	TASSERT( button.finger == 5 && touch.look_finger == 5 );
+	TASSERT( button.finger == 5 && touch.move_finger == 5 );
 	Touch_ButtonPress( &touch.list_user, event_up, 5, 1, 1 );
-	TASSERT( button.finger == -1 && touch.look_finger == -1 );
+	TASSERT( button.finger == -1 && touch.move_finger == -1 );
 
 	Cmd_AddCommand( "test_touch_setflags", Touch_SetFlags_f, "test touch flag transitions" );
-	Q_strncpy( button.name, "look", sizeof( button.name ));
+	Q_strncpy( button.name, "move", sizeof( button.name ));
 	for( int flags = 0; flags <= 1; flags++ )
 	{
 		button.flags = TOUCH_FL_STICK;
-		button.finger = touch.look_finger = 4;
-		touch.look_stick = true;
-		touch.look_side = 1;
-		Cmd_ExecuteString( va( "test_touch_setflags look %d", flags ));
+		button.finger = touch.move_finger = 4;
+		touch.move_button = &button;
+		touch.forward = 1;
+		Cmd_ExecuteString( va( "test_touch_setflags move %d", flags ));
 		TASSERT( button.flags == flags && button.finger == -1 );
-		TASSERT( touch.look_finger == -1 && !touch.look_stick && touch.look_side == 0 );
+		TASSERT( touch.move_finger == -1 && touch.move_button == NULL && touch.forward == 0 );
 	}
 	Cmd_RemoveCommand( "test_touch_setflags" );
 
 	touch = saved;
-	m_pitch.value = old_pitch;
-	touch_look_speed.value = old_speed;
-	touch_look_curve.value = old_curve;
 	touch_yaw.value = old_yaw;
 	touch_pitch.value = old_touch_pitch;
 	touch_enable.value = old_enable;
-	host.realframetime = old_time;
+	touch_nonlinear_look.value = old_nonlinear;
 	cls.key_dest = old_dest;
 }
 

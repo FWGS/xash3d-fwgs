@@ -600,9 +600,7 @@ static void IN_CollectInput( float *forward, float *side, float *pitch, float *y
 		inputstate.lastyaw   = *yaw;
 	}
 
-	// A held stick already supplies an angular rate. The mouse/swipe filter
-	// must not delay its response or keep it turning after thumb release.
-	Touch_GetLookStickMove( pitch, yaw );
+
 }
 
 #if XASH_ENGINE_TESTS && !XASH_NO_TOUCH
