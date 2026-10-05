@@ -842,6 +842,9 @@ static void SV_TestBandWidth( netadr_t from )
 	const int version = Q_atoi( Cmd_Argv( 1 ));
 	const int packetsize = Q_atoi( Cmd_Argv( 2 ));
 
+	if( SV_RateLimited( from, SV_RATELIMIT_CHALLENGE ))
+		return;
+
 	// third argument is the challenge, if it's empty, it means this is an
 	// old client that do not have challenge and testbandwidth swapped
 	if( !Q_strlen( Cmd_Argv( 3 )))
@@ -3231,7 +3234,8 @@ void SV_ConnectionlessPacket( netadr_t from, sizebuf_t *msg )
 	}
 	else if( !Q_strcmp( pcmd, C2S_GETCHALLENGE ))
 	{
-		SV_SendChallenge( from, !sv_allow_testpacket.value || !svs.testpacket_buf );
+		if( !SV_RateLimited( from, SV_RATELIMIT_CHALLENGE ))
+			SV_SendChallenge( from, !sv_allow_testpacket.value || !svs.testpacket_buf );
 	}
 	else if( !Q_strcmp( pcmd, C2S_CONNECT ))
 	{
@@ -3239,11 +3243,13 @@ void SV_ConnectionlessPacket( netadr_t from, sizebuf_t *msg )
 	}
 	else if( !Q_strcmp( pcmd, A2A_PING ))
 	{
-		Netchan_OutOfBandPrint( NS_SERVER, from, A2A_ACK );
+		if( !SV_RateLimited( from, SV_RATELIMIT_QUERY ))
+			Netchan_OutOfBandPrint( NS_SERVER, from, A2A_ACK );
 	}
 	else if( !Q_strcmp( pcmd, A2A_GOLDSRC_PING ))
 	{
-		Netchan_OutOfBandPrint( NS_SERVER, from, A2A_GOLDSRC_ACK );
+		if( !SV_RateLimited( from, SV_RATELIMIT_QUERY ))
+			Netchan_OutOfBandPrint( NS_SERVER, from, A2A_GOLDSRC_ACK );
 	}
 	else if( !Q_strcmp( pcmd, C2S_RCON ))
 	{

@@ -79,6 +79,9 @@ static void SV_SourceQuery_Rules( netadr_t from )
 	int pos;
 	uint cvar_count = 0;
 
+	if( SV_RateLimited( from, SV_RATELIMIT_QUERY ))
+		return;
+
 	MSG_Init( &buf, "TSourceEngineQueryRules", answer, sizeof( answer ));
 
 	MSG_WriteDword( &buf, 0xFFFFFFFFU );
@@ -130,6 +133,9 @@ static void SV_SourceQuery_Players( netadr_t from )
 
 	// respect players privacy
 	if( !sv_expose_player_list.value || SV_HavePassword( ))
+		return;
+
+	if( SV_RateLimited( from, SV_RATELIMIT_QUERY ))
 		return;
 
 	MSG_Init( &buf, "TSourceEngineQueryPlayers", answer, sizeof( answer ));
@@ -186,6 +192,9 @@ static qboolean SV_SourceQuery_CheckChallenge( netadr_t from, sizebuf_t *msg )
 
 	if( !MSG_CheckOverflow( msg ) && challenge != -1 && SV_ValidateChallenge( from, challenge ))
 		return true;
+
+	if( SV_RateLimited( from, SV_RATELIMIT_CHALLENGE ))
+		return false;
 
 	challenge = SV_CreateChallenge( from, &error );
 	if( error )
