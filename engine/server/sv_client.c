@@ -283,6 +283,29 @@ static sv_client_t *SV_FindEmptySlot( void )
 	return NULL;
 }
 
+/*
+================
+SV_CountConnectingClients
+================
+*/
+static int SV_CountConnectingClients( netadr_t from )
+{
+	int count = 0;
+
+	for( int i = 0; i < svs.maxclients; i++ )
+	{
+		const sv_client_t *cl = &svs.clients[i];
+
+		if( cl->state != cs_connected && cl->state != cs_spawning )
+			continue;
+
+		if( NET_CompareBaseAdr( from, cl->netchan.remote_address ))
+			count++;
+	}
+
+	return count;
+}
+
 static void SV_MaybeNotifyPlayerCountChange( const sv_client_t *cl, const char *address )
 {
 	int count = 0;
@@ -428,6 +451,12 @@ static void SV_ConnectClient( netadr_t from )
 	// the slot will be wiped clean.
 	if( !newcl )
 	{
+		if( sv_connect_max_per_ip.value > 0.0f && !NET_IsLocalAddress( from ) && SV_CountConnectingClients( from ) >= sv_connect_max_per_ip.value )
+		{
+			SV_RejectConnection( from, "too many connections from your address\n" );
+			return;
+		}
+
 		// connect the client if there are empty slots.
 		newcl = SV_FindEmptySlot();
 

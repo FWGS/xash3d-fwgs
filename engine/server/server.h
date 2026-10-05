@@ -466,6 +466,7 @@ extern convar_t		sv_aim;
 extern convar_t		sv_allow_testpacket;
 extern convar_t		sv_expose_player_list;
 extern convar_t		sv_query_rate_limit;
+extern convar_t sv_connect_max_per_ip;
 
 //===========================================================
 //

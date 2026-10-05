@@ -155,6 +155,7 @@ CVAR_DEFINE_AUTO( sv_log_outofband, "0", FCVAR_ARCHIVE, "log out of band message
 CVAR_DEFINE_AUTO( sv_allow_testpacket, "1", FCVAR_ARCHIVE, "allow generating and sending a big blob of data to test maximum packet size" );
 CVAR_DEFINE_AUTO( sv_expose_player_list, "1", FCVAR_ARCHIVE, "expose player list through packets that don't require connection" );
 CVAR_DEFINE_AUTO( sv_query_rate_limit, "1", FCVAR_ARCHIVE, "max info, ping, players and rules query replies per second per address bucket, 0 to disable" );
+CVAR_DEFINE_AUTO( sv_connect_max_per_ip, "3", FCVAR_ARCHIVE, "max clients from the same IP address that are still connecting, 0 to disable" );
 
 //============================================================================
 /*
@@ -998,6 +999,7 @@ void SV_Init( void )
 	Cvar_RegisterVariable( &sv_allow_testpacket );
 	Cvar_RegisterVariable( &sv_expose_player_list );
 	Cvar_RegisterVariable( &sv_query_rate_limit );
+	Cvar_RegisterVariable( &sv_connect_max_per_ip );
 
 	// when we in developer-mode automatically turn cheats on
 	if( host_developer.value ) Cvar_SetValue( "sv_cheats", 1.0f );
