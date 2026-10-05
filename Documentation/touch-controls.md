@@ -159,6 +159,10 @@ while `analog_toggle` toggles it through aliases. After loading either preset,
 `exec touch_sticks/crouch_hold.cfg` and `exec touch_sticks/crouch_toggle.cfg`
 switch the binding without engine-specific logic. Toggle bindings execute shared
 scripts that define their own aliases, so saved profiles also work after restart.
+The hold preset is recommended for duck jumps and the long-jump module, which
+require coordinated crouch/jump presses. Toggle crouch is optional and changes
+that timing. Its button binds an `exec` command, so releasing the touch does not
+automatically issue `-duck`; the next press executes the opposite alias.
 
 A button with flag `2048` (`TOUCH_FL_STICK`) extends existing `_joy` movement or
 `_look` input with a visible thumb disc. Movement is proportional to displacement

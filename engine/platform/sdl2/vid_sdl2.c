@@ -22,10 +22,6 @@ GNU General Public License for more details.
 // include it after because it breaks definitions in net_api.h wtf
 #include <SDL_syswm.h>
 
-#if XASH_IOS
-#include "ios/touch_safearea.h"
-#endif
-
 #if XASH_PSVITA
 #include <vrtld.h>
 #endif // XASH_PSVITA

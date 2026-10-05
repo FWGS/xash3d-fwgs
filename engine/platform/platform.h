@@ -57,6 +57,8 @@ int IOS_GetArgs( char ***argv );
 const char *IOS_GetDocsDir( void );
 const char *IOS_GetExecDir( void );
 void IOS_LaunchDialog( void );
+// Normalized safe-area insets; returns the window width in UIKit points.
+float IOS_GetTouchInsets( void *window, float *left, float *top, float *right, float *bottom );
 #endif // TARGET_OS_IOS
 
 #if XASH_WIN32 || XASH_LINUX

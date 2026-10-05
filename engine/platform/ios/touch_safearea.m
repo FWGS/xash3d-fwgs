@@ -15,7 +15,6 @@ GNU General Public License for more details.
 
 #import <UIKit/UIKit.h>
 #include "build.h"
-#include "touch_safearea.h"
 #if XASH_SDL == 3
 #include <SDL3/SDL.h>
 #elif XASH_SDL == 2
