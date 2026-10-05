@@ -148,81 +148,60 @@ Flags can be combined by adding their values ​​together. For example, `5 = 1
 ### Additional links
 * [Handy palette for selecting color in RGB format](https://www.rapidtables.com/web/color/RGB_Color.html)
 
-## iOS layout and safe areas
 
-The main game menu also lays out within the current UIKit safe area. Images,
-text, checkboxes, scroll clipping, model previews, and text input rectangles
-share the same offset, and menu taps use the inverse offset. This keeps menu
-items clear of the notch and home indicator in either landscape orientation.
+## Analog stick profile and safe areas
 
-On iOS, touch controls and their editor use the SDL window's current UIKit safe
-area. This keeps buttons away from the notch, rounded screen edges and home
-indicator, including after rotating the phone. Rendering and touch hit detection
-use the same rectangle; menu and game-provided touch events retain screen
-coordinates. Profile coordinates remain normalized between 0 and 1.
+The optional **analog** and **analog_toggle** presets in `xash-extras` provide
+circular movement and look controls with shared icons. Select a preset in the
+menu's Touch options. Engine defaults and existing profiles remain available on
+all platforms. Both presets use a single crouch button: `analog` holds crouch,
+while `analog_toggle` toggles it through aliases. After loading either preset,
+`exec touch_sticks/crouch_hold.cfg` and `exec touch_sticks/crouch_toggle.cfg`
+switch the binding without engine-specific logic. Toggle bindings execute shared
+scripts that define their own aliases, so saved profiles also work after restart.
 
-The iOS defaults include two visible analog sticks: movement on the lower left
-and look on the lower right. Each has a hollow outer ring and a solid thumb disc
-that follows your drag, stays inside the ring and returns to the centre when
-released. Movement speed increases with displacement. Holding the look stick
-away from the initial thumb position turns the camera continuously, using real
-elapsed time like a controller stick. Picking it up is neutral even if the thumb
-misses the ring centre. The sticks have a radial dead zone and clamp diagonal
-input to the circle; look uses a radial response curve for fine aiming.
-The look stick respects the menu's **Invert mouse** setting (`m_pitch` sign),
-as well as `touch_pitch`, `touch_yaw`, precision and the client's aim/zoom
-sensitivity. Its rate is added after mouse/swipe filtering so releasing it stops
-turning immediately. Legacy `_look` swipe handling is unchanged.
+A button with flag `2048` (`TOUCH_FL_STICK`) extends existing `_joy` movement or
+`_look` input with a visible thumb disc. Movement is proportional to displacement
+and clamps diagonals to the circle. Look is neutral at pickup and turns while
+held off-centre, using elapsed time rather than the simulation frame rate. There
+is no dead zone. Without the flag, `_joy` and `_look` retain their old behavior.
 
-Fire and alternate fire sit together above the right stick, with reload and use
-to their left; jump and crouch
-sit beside it. Weapon cycling sits above the movement stick. Menu, edit, weapon
-selection and other utility actions sit along the top. Primary fire is larger
-than secondary actions. Sticks use a 112-144 point diameter; other default
-buttons have targets of at least 44 UIKit points when the window is available.
-The circular action icons use white pictograms and dark translucent backgrounds.
+The rate stick respects `m_pitch`'s sign (Invert mouse), `touch_pitch`, `touch_yaw`,
+precision and the client DLL's aim/zoom sensitivity. `touch_look_speed` defaults
+to 60 degrees/second before client sensitivity at full horizontal deflection;
+vertical speed also includes `touch_pitch / 120`. `touch_look_curve` defaults to 2
+(quadratic), with 1 for a linear response and a maximum of 3. A long frame is
+capped at 0.1 seconds to avoid a jump after a stall. Rate input enters after the
+mouse/swipe filter so release does not leave a smoothing tail.
 
-`touch_stick_deadzone` sets the neutral radius as a fraction of the stick radius
-(default `0.12`). `touch_lookjoy_speed` sets the base full-deflection look rate
-before client aim sensitivity (default `60`); with `touch_yaw 120`,
-`touch_pitch 90` and Half-Life's default `sensitivity 3`, this yields 180 degrees
-per second horizontally and 135 vertically. `touch_lookjoy_curve` sets the radial
-response exponent (default `2`, range `1`–`3`); `1` is linear. These settings are
-saved in the touch profile. Profiles saved before this tuning may contain the
-old base rate `180`; reduce it to `60`, or lower for high aim sensitivity.
-The single crouch button defaults to **Hold**. Open the gear/layout editor and
-tap **Crouch: Hold** or **Crouch: Toggle** to switch modes, then close and save.
-The console equivalent is `touch_crouch_toggle 0` (hold) or
-`touch_crouch_toggle 1` (toggle). Changing modes releases any active crouch.
-The preference is saved in the profile. Custom crouch buttons can bind `_crouch`;
-legacy `+duck` bindings retain their existing hold behavior.
+Native profiles and their editor map coordinates into the drawable window's
+safe area. Outside touches are not clamped onto edge buttons; captured fingers
+still receive motion/release outside the rectangle. Game-provided touch callbacks
+keep their existing screen-coordinate contract. Saved profile aspect handling is
+retained, with safe-area scaling applied at rendering and native input boundaries.
 
-Custom profiles can bind `_movejoy` and `_lookjoy` to circular stick regions;
-the existing `_move`, `_joy` and `_look` controls remain available.
+SDL3 uses `SDL_GetWindowSafeArea`. SDL2 uses UIKit safe-area insets on iOS and an
+Android UI-thread snapshot of surface-relative window/cutout insets. Other
+backends return zero insets. Insets are normalized so high-density window units
+and renderer pixels do not get mixed. `mainui_cpp` reads the `WindowInsets` native
+object and sizes/positions its root menus inside the safe rectangle. Engine menu
+draw and input APIs continue using screen coordinates; older menu DLLs work as
+before but must adopt the native object to avoid cutouts.
 
-![iOS default layout preview with safe-area boundaries](images/ios-touch-layout.png)
+SVG sources and pre-rendered PNGs live in `xash-extras/touch_sticks`. Normal builds
+package the PNGs in `extras.pk3` on every platform without a new dependency. To
+regenerate them, configure Waf with `--render-touch-icons` and an existing resvg or Inkscape
+executable on PATH. This stages rendered assets under the build directory before
+packaging; it does not overwrite the source PNGs.
 
-In-game controls on an iPhone:
+Regression tests are registered in `engine/common/tests.h` under
+`XASH_ENGINE_TESTS`: touch clamping, small displacements, neutral pickup,
+frame-rate-independent look, inversion, release, legacy swipe input and window
+inset validation. Run a test-enabled engine with `-dev 2 -runtests`. Simulator
+interaction validates native safe-area reporting and menu hit targets; Android
+and SDL3 require their own runtime validation before claiming coverage.
 
-![In-game iOS controls with movement and look sticks](images/ios-touch-ingame.png)
+The earlier device screenshot shows the visual design; its saved profile predates
+the shared presets:
 
-Existing saved profiles are kept. To try the new arrangement, back up your
-current profile using `touch_exportconfig touch_profiles/backup.cfg`, then run
-`touch_removeall` followed by `touch_loaddefaults`. Adjust controls in the editor
-and run `touch_writeconfig` to save them. The new icons ship in `ios-controls.pk3`
-alongside `extras.pk3` in iOS builds; both archives must be installed.
-
-The icon sources are generated with `python3 scripts/ios/generate_touch_icons.py`.
-The generator uses only Python's standard library; no global packages are needed.
-
-The regression checks use an existing C compiler and Python's standard library:
-
-```
-python3 scripts/ios/test_touch_sticks.py
-python3 scripts/ios/test_menu_viewport.py
-```
-
-They compile the actual engine functions in small harnesses to check input
-timing, inversion, filtering, release behavior, crouch modes, viewport bounds
-and menu tap alignment. Device builds are still needed to verify UIKit insets
-and assess the controls by touch.
+![Analog controls in game](images/ios-touch-ingame.png)

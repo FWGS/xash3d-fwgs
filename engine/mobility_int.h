@@ -51,6 +51,9 @@ extern "C" {
 #define TOUCH_FL_STROKE			(1U << 8)
 #define TOUCH_FL_PRECISION		(1U << 9)
 
+// Opt-in circular thumb rendering; _look becomes a rate stick, _joy stays movement.
+#define TOUCH_FL_STICK			(1U << 11)
+
 // flags for COM_ParseFileSafe
 #define PFILE_IGNOREBRACKET (1<<0)
 #define PFILE_HANDLECOLON   (1<<1)

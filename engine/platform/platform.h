@@ -57,7 +57,6 @@ int IOS_GetArgs( char ***argv );
 const char *IOS_GetDocsDir( void );
 const char *IOS_GetExecDir( void );
 void IOS_LaunchDialog( void );
-#include "ios/touch_safearea.h"
 #endif // TARGET_OS_IOS
 
 #if XASH_WIN32 || XASH_LINUX
@@ -101,6 +100,7 @@ const char *Android_LoadID( void );
 void Android_SaveID( const char *id );
 void Android_Init( void );
 void *Android_GetNativeObject( const char *name );
+void Android_GetWindowInsets( float *left, float *top, float *right, float *bottom );
 int Android_GetKeyboardHeight( void );
 void Android_Shutdown( void );
 #endif
@@ -521,5 +521,15 @@ qboolean VoiceCapture_Lock( qboolean lock );
 	#define INLINE_RAISE(x) raise(x)
 	#define INLINE_NANOSLEEP1() sleep(1)
 #endif // generic
+
+// Fractions of the drawable window, ordered left, top, right, bottom.
+#if XASH_SDL >= 2
+void Platform_GetWindowInsets( float *left, float *top, float *right, float *bottom );
+#else
+static inline void Platform_GetWindowInsets( float *left, float *top, float *right, float *bottom )
+{
+	*left = *top = *right = *bottom = 0;
+}
+#endif
 
 #endif // PLATFORM_H

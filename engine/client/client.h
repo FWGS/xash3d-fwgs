@@ -1180,7 +1180,6 @@ void S_ExtraUpdate( void );
 void UI_UnloadProgs( void );
 qboolean UI_LoadProgs( void );
 void UI_UpdateMenu( float realtime );
-qboolean UI_UpdateViewport( void );
 void UI_KeyEvent( int key, qboolean down );
 void UI_MouseMove( int x, int y );
 void UI_SetActiveMenu( qboolean fActive );
