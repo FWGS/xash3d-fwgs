@@ -7,6 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		888810FE306DA9040029FADB /* OpenGLES.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 888810FD306DA9040029FADB /* OpenGLES.framework */; };
 		88C65891305B196700986226 /* ZipArchive.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 88C65875305B195800986226 /* ZipArchive.framework */; };
 		88C65892305B196700986226 /* ZipArchive.framework in Embed Frameworks */ = {isa = PBXBuildFile; fileRef = 88C65875305B195800986226 /* ZipArchive.framework */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
 /* End PBXBuildFile section */
@@ -38,6 +39,7 @@
 /* Begin PBXFileReference section */
 		883FA41C304F4C6300B215C1 /* libiconv.tbd */ = {isa = PBXFileReference; lastKnownFileType = "sourcecode.text-based-dylib-definition"; name = libiconv.tbd; path = usr/lib/libiconv.tbd; sourceTree = SDKROOT; };
 		883FA41D304F4C7000B215C1 /* libz.tbd */ = {isa = PBXFileReference; lastKnownFileType = "sourcecode.text-based-dylib-definition"; name = libz.tbd; path = usr/lib/libz.tbd; sourceTree = SDKROOT; };
+		888810FD306DA9040029FADB /* OpenGLES.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = OpenGLES.framework; path = System/Library/Frameworks/OpenGLES.framework; sourceTree = SDKROOT; };
 		88997EE22FFEDE9100D500F1 /* Launcher.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Launcher.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		88C6586A305B195700986226 /* ZipArchive.xcodeproj */ = {isa = PBXFileReference; lastKnownFileType = "wrapper.pb-project"; path = ZipArchive.xcodeproj; sourceTree = "<group>"; };
 /* End PBXFileReference section */
@@ -70,6 +72,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				888810FE306DA9040029FADB /* OpenGLES.framework in Frameworks */,
 				88C65891305B196700986226 /* ZipArchive.framework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -97,6 +100,7 @@
 		88B6C88A303B9180002B8DD2 /* Frameworks */ = {
 			isa = PBXGroup;
 			children = (
+				888810FD306DA9040029FADB /* OpenGLES.framework */,
 				88C6586B305B195700986226 /* SSZipArchive-master */,
 				883FA41D304F4C7000B215C1 /* libz.tbd */,
 				883FA41C304F4C6300B215C1 /* libiconv.tbd */,
@@ -225,7 +229,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "cd ..\n\n#customize engine build here\n./waf configure --ios --enable-bundled-deps -T debug --sdl2=$(realpath \"SDL2.framework\") --enable-lto || exit 1\n\n./waf build install --destdir=$TARGET_BUILD_DIR/$UNLOCALIZED_RESOURCES_FOLDER_PATH\n\ncp -r SDL2.framework $TARGET_BUILD_DIR/$UNLOCALIZED_RESOURCES_FOLDER_PATH\n\n\nif [ $CODE_SIGNING_ALLOWED != \"NO\" ]; then\n\tcodesign --force --verbose --sign \"$EXPANDED_CODE_SIGN_IDENTITY\" $TARGET_BUILD_DIR/$UNLOCALIZED_RESOURCES_FOLDER_PATH/*.dylib\n\tcodesign --force --verbose --sign \"$EXPANDED_CODE_SIGN_IDENTITY\" $TARGET_BUILD_DIR/$UNLOCALIZED_RESOURCES_FOLDER_PATH/SDL2.framework\nfi\n";
+			shellScript = "cd ..\n\n#customize engine build here\n./waf configure --ios --enable-bundled-deps -T debug --sdl2=$(realpath \"SDL2.framework\") || exit 1\n\n./waf build install --destdir=$TARGET_BUILD_DIR/$UNLOCALIZED_RESOURCES_FOLDER_PATH\n\ncp -r SDL2.framework $TARGET_BUILD_DIR/$UNLOCALIZED_RESOURCES_FOLDER_PATH\n\n\nif [ $CODE_SIGNING_ALLOWED != \"NO\" ]; then\n\tcodesign --force --verbose --sign \"$EXPANDED_CODE_SIGN_IDENTITY\" $TARGET_BUILD_DIR/$UNLOCALIZED_RESOURCES_FOLDER_PATH/*.dylib\n\tcodesign --force --verbose --sign \"$EXPANDED_CODE_SIGN_IDENTITY\" $TARGET_BUILD_DIR/$UNLOCALIZED_RESOURCES_FOLDER_PATH/SDL2.framework\nfi\n";
 		};
 		88C65753305B0F7900986226 /* ShellScript */ = {
 			isa = PBXShellScriptBuildPhase;
