@@ -330,7 +330,6 @@ static void SV_RemoveIPFilter( ipfilter_t *toremove, qboolean removeAll, qboolea
 			}
 
 			*back = f->next;
-			back = &f->next;
 
 			Mem_Free( f );
 
