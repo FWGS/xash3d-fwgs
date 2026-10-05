@@ -41,6 +41,7 @@ typedef struct {
 @property(nonatomic) UIImageView *thumbnailView;
 @property(nonatomic) UIToolbar *thumbnailToolbar;
 @property(nonatomic) UIImage *thumbnail;
+@property(nonatomic) BOOL bundled;
 
 - (instancetype)initWithURL:(NSURL*)url gameInfoPath:(NSString*)infoPat;
 

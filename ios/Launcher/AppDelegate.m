@@ -34,6 +34,7 @@ NSString *libraryDirectory;
 	[NSFileManager.defaultManager createFileAtPath:logsdir contents:nil attributes:nil];
 	//freopen([logsdir fileSystemRepresentation], "a+", stderr);
 	//freopen([logsdir fileSystemRepresentation], "a+", stdout);
+	NSLog(@"Max framerate: %ld", (long)UIScreen.mainScreen.maximumFramesPerSecond);
 	
 	[NSFileManager.defaultManager createDirectoryAtPath:[documentsDirctory.path stringByAppendingPathComponent:@"Dummy folder"] withIntermediateDirectories:YES attributes:nil error:nil];
 	
@@ -119,7 +120,7 @@ int (*Host_main)(int, char **, const char *, int, const char*);
 				
 	int ret = Host_main(argc, argv, DEFAULT_GAMEDIR, 0, "");
 	NSLog(@"Engine returned: %d", ret);
-	exit(0);
+	exit(ret);
 }
 
 
