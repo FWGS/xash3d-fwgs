@@ -188,7 +188,7 @@ object and sizes/positions its root menus inside the safe rectangle. Engine menu
 draw and input APIs continue using screen coordinates; older menu DLLs work as
 before but must adopt the native object to avoid cutouts.
 
-SVG sources and pre-rendered PNGs live in `xash-extras/touch_sticks`. Normal builds
+SVG sources and pre-rendered PNGs live in `xash-extras/gfx/touch`. Normal builds
 package the PNGs in `extras.pk3` on every platform without a new dependency. To
 regenerate them, configure Waf with `--render-touch-icons` and an existing resvg or Inkscape
 executable on PATH. This stages rendered assets under the build directory before

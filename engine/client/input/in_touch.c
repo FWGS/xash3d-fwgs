@@ -1474,7 +1474,7 @@ static void Touch_DrawStickThumb( const touch_button_t *button, byte *color )
 	float cx = ( button->x1 + button->x2 ) * 0.5f + sx * width * 0.27f;
 	float cy = ( button->y1 + button->y2 ) * 0.5f + sy * height * 0.27f;
 	if( touch.sticktexture == -1 )
-		touch.sticktexture = ref.dllFuncs.GL_LoadTexture( "touch_sticks/stick_thumb", NULL, 0, TF_IMAGE );
+		touch.sticktexture = ref.dllFuncs.GL_LoadTexture( "gfx/touch/stick_thumb", NULL, 0, TF_IMAGE );
 	Touch_DrawTexture( cx - width * 0.18f, cy - height * 0.18f,
 		cx + width * 0.18f, cy + height * 0.18f, touch.sticktexture, color );
 }
