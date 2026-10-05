@@ -244,10 +244,10 @@ LibDownloader *downloader;
 	for (NSString *lib in self.libList)
 	{
 		const char *cPath;
-		if (![lib isAbsolutePath])
-			cPath = [self.URL.path stringByAppendingPathComponent:lib].UTF8String;
+		if (self.bundled)
+			cPath = [[NSBundle.mainBundle.bundlePath stringByAppendingPathComponent:self.gameDir] stringByAppendingPathComponent:lib].UTF8String;
 		else
-			cPath = lib.UTF8String;
+			cPath = [self.URL.path stringByAppendingPathComponent:lib].UTF8String;
 		
 		void *tempHandle = dlopen(cPath, RTLD_LAZY);
 		if (!tempHandle)
@@ -257,6 +257,10 @@ LibDownloader *downloader;
 			
 			NSLog(@"Library %@ not loadable due to error: %s", lib, error);
 		}
+		else
+		{
+			dlclose(tempHandle);
+		}
 	}
 	
 	return retVal;
@@ -264,9 +268,7 @@ LibDownloader *downloader;
 
 -(IBAction)startGame {
 	//has to be called this way to avoid ui problems in engine (mainly when displaying SDL_ShowMessageBoxSimple)
-	[(AppDelegate*)UIApplication.sharedApplication.delegate performSelector:@selector(runEngine:)
-				   withObject:self
-				   afterDelay:0.0];
+	[(AppDelegate*)UIApplication.sharedApplication.delegate performSelector:@selector(runEngine:) withObject:self afterDelay:0.0];
 }
 
 -(void)initUnsupportedLibList {
@@ -317,58 +319,55 @@ LibDownloader *downloader;
 }
 
 -(void)initLibList {
-	NSURL *libsURL = [NSURL fileURLWithPath:[libraryDirectory stringByAppendingFormat:@"/%@-ios-arm64", self.gameDir]];
-	
-	if (![NSFileManager.defaultManager fileExistsAtPath:libsURL.path])
+	NSURL *libsURL;
+	NSString *bundledLibs = [NSBundle.mainBundle pathForResource:self.gameDir ofType:nil];
+	BOOL isdir;
+	if ([NSFileManager.defaultManager fileExistsAtPath:bundledLibs isDirectory:&isdir] && isdir)
 	{
-		if (![downloader fetchLibsForGame:self])
+		self.bundled = YES;
+		libsURL = [NSURL fileURLWithPath:[NSBundle.mainBundle bundlePath]]; //always priortize bundled libraries
+	}
+	else
+	{
+		libsURL = [NSURL fileURLWithPath:[libraryDirectory stringByAppendingFormat:@"/%@-ios-arm64", self.gameDir]];
+		if (![NSFileManager.defaultManager fileExistsAtPath:libsURL.path])
 		{
-			//try to guess with other logic
-			return [self initUnsupportedLibList];
+			if (![downloader fetchLibsForGame:self])
+			{
+				//try to guess with other logic
+				return [self initUnsupportedLibList];
+			}
 		}
 	}
 	
 	NSURL *searchURL = [NSURL fileURLWithPath:self.gameDir relativeToURL:libsURL];
-	//ideally the paths we get should be relative to game dir
-	NSDirectoryEnumerator *enumerator = [NSFileManager.defaultManager enumeratorAtURL:searchURL includingPropertiesForKeys:@[NSURLIsDirectoryKey] options:NSDirectoryEnumerationSkipsHiddenFiles | NSDirectoryEnumerationProducesRelativePathURLs errorHandler:^BOOL(NSURL * _Nonnull url, NSError * _Nonnull error) {
-		[Alert displayErrorAlertWithMessage:[NSString stringWithFormat:@"Failed to enumerate directory with error: %@", error.localizedDescription]]
-		
-		return YES;
-	}];
+	NSDirectoryEnumerator *enumerator = [NSFileManager.defaultManager enumeratorAtPath:searchURL.path];
 	NSMutableArray *list = [[NSMutableArray alloc] init];
 		
 
-	for (NSURL *url in enumerator)
+	for (NSString *path in enumerator)
 	{
-		NSNumber *isDir;
-		NSError *error;
-		[url getResourceValue:&isDir forKey:NSURLIsDirectoryKey error:&error];
-		
-		if ([isDir boolValue])
+		if (![path.pathExtension isEqualToString:@"dylib"])
 		{
 			continue;
 		}
 		
-		if (![url.pathExtension isEqualToString:@"dylib"])
-		{
-			continue;
-		}
+		[list addObject:path.stringByStandardizingPath];
 		
-		NSString *relativePath = [url.relativePath stringByStandardizingPath];
-		[list addObject:relativePath];
-		
-		if ([NSFileManager.defaultManager fileExistsAtPath:[self.URL.path stringByAppendingPathComponent:relativePath]])
-			[NSFileManager.defaultManager removeItemAtPath:[self.URL.path stringByAppendingPathComponent:relativePath] error:nil];
-		
+		if ([NSFileManager.defaultManager fileExistsAtPath:[self.URL.path stringByAppendingPathComponent:path]])
+			[NSFileManager.defaultManager removeItemAtPath:[self.URL.path stringByAppendingPathComponent:path] error:nil];
 		
 		NSError *copyerror;
-		[NSFileManager.defaultManager copyItemAtURL:url.absoluteURL toURL:[NSURL URLWithString:relativePath relativeToURL:self.URL] error:&copyerror];
+		if (!self.bundled)
+			[NSFileManager.defaultManager copyItemAtPath:[searchURL.path stringByAppendingPathComponent:path] toPath:[self.URL.path stringByAppendingPathComponent:path] error:&copyerror];
+		
 		if (copyerror)
 			NSLog(@"Failed to copy lib due to error: %@", copyerror.localizedDescription);
 	}
 	
 	NSError *deleteerror;
-	[NSFileManager.defaultManager removeItemAtURL:libsURL error:&deleteerror];
+	if (!self.bundled)
+		[NSFileManager.defaultManager removeItemAtURL:libsURL error:&deleteerror];
 	
 	if (deleteerror)
 		NSLog(@"Failed to delete file at path %@ due to error: %@", libsURL.path, deleteerror.localizedDescription);
