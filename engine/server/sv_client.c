@@ -339,6 +339,10 @@ static void SV_ConnectClient( netadr_t from )
 	if( !SV_CheckChallenge( from, challenge ))
 		return;
 
+	// challenge stays valid for a while, don't let it be replayed at line rate
+	if( SV_RateLimited( from, SV_RATELIMIT_CONNECT ))
+		return;
+
 	// reply about protocol mismatch only after the challenge is validated
 	version = Q_atoi( Cmd_Argv( 1 ));
 	if( version != PROTOCOL_VERSION )
