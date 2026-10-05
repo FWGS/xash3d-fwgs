@@ -653,7 +653,7 @@ static void SV_Status_f( void )
 		string os;
 		string arch;
 
-		if( !cl->state )
+		if( !cl->state || !cl->edict )
 			continue;
 
 		if( cl->state == cs_connected )
