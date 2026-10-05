@@ -1102,29 +1102,37 @@ void SV_RemoteCommand( netadr_t from, sizebuf_t *msg )
 	if( !rcon_enable.value || COM_StringEmpty( rcon_password.string ))
 		return;
 
+	// only failed attempts take tokens, so password guessing is throttled
+	// but an admin who knows the password isn't
+	if( SV_CheckRateLimit( from, SV_RATELIMIT_RCON, false ))
+		return;
+
+	if( !Rcon_Validate( ))
+	{
+		SV_RateLimited( from, SV_RATELIMIT_RCON );
+		return;
+	}
+
+	static char outputbuf[2048];
+	char remaining[1024];
+	char *p = remaining;
+
 	adr = NET_AdrToString( from );
 
-	if( Rcon_Validate( ))
+	Con_Printf( "Rcon from %s:\n%s\n", adr, MSG_GetData( msg ) + 4 );
+	Log_Printf( "Rcon: \"%s\" from \"%s\"\n", MSG_GetData( msg ) + 4, adr );
+
+	remaining[0] = 0;
+	for( int i = 2; i < Cmd_Argc(); i++ )
 	{
-		static char	outputbuf[2048];
-		char remaining[1024];
-		char *p = remaining;
-
-		Con_Printf( "Rcon from %s:\n%s\n", adr, MSG_GetData( msg ) + 4 );
-		Log_Printf( "Rcon: \"%s\" from \"%s\"\n", MSG_GetData( msg ) + 4, adr );
-
-		remaining[0] = 0;
-		for( int i = 2; i < Cmd_Argc(); i++ )
-		{
-			p += Q_strncpy( p, "\"", sizeof( remaining ) - ( p - remaining ));
-			p += Q_strncpy( p, Cmd_Argv( i ), sizeof( remaining ) - ( p - remaining ));
-			p += Q_strncpy( p, "\" ", sizeof( remaining ) - ( p - remaining ));
-		}
-
-		SV_BeginRedirect( &host.rd, from, RD_PACKET, outputbuf, sizeof( outputbuf ) - 16, SV_FlushRedirect );
-		Cmd_ExecuteString( remaining );
-		SV_EndRedirect( &host.rd );
+		p += Q_strncpy( p, "\"", sizeof( remaining ) - ( p - remaining ));
+		p += Q_strncpy( p, Cmd_Argv( i ), sizeof( remaining ) - ( p - remaining ));
+		p += Q_strncpy( p, "\" ", sizeof( remaining ) - ( p - remaining ));
 	}
+
+	SV_BeginRedirect( &host.rd, from, RD_PACKET, outputbuf, sizeof( outputbuf ) - 16, SV_FlushRedirect );
+	Cmd_ExecuteString( remaining );
+	SV_EndRedirect( &host.rd );
 }
 
 /*
