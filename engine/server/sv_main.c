@@ -1006,6 +1006,10 @@ void SV_Init( void )
 
 	MSG_Init( &net_message, "NetMessage", net_message_buffer, sizeof( net_message_buffer ));
 
+	// rcon is accepted even before the first map is loaded, don't leave the salt zeroed until then
+	for( int i = 0; i < ARRAYSIZE( svs.challenge_salt ); i++ )
+		svs.challenge_salt[i] = COM_RandomLong( 0, 0x7FFFFFFE );
+
 	Q_snprintf( versionString, sizeof( versionString ), XASH_ENGINE_NAME ": " XASH_VERSION "-%s(%s-%s),%i,%i",
 		g_buildcommit, Q_buildos(), Q_buildarch(), PROTOCOL_VERSION, Q_buildnum() );
 
