@@ -452,8 +452,8 @@ LibDownloader *downloader;
 
 - (UIToolbar*)getViewForToolbar {
 	//bar items
-	UIBarButtonItem *startbutton = [[UIBarButtonItem alloc] initWithImage:[UIImage systemImageNamed:@"play.fill"] style:UIBarButtonItemStylePlain target:self action:@selector(startGame)];
-	UIBarButtonItem *settingsbutton = [[UIBarButtonItem alloc] initWithImage:[UIImage systemImageNamed:@"gear"] style:UIBarButtonItemStylePlain target:self action:@selector(displaySettings)];
+	UIBarButtonItem *startbutton = [[UIBarButtonItem alloc] initWithImage:[UIImage imageNamed:@"play.fill"] style:UIBarButtonItemStylePlain target:self action:@selector(startGame)];
+	UIBarButtonItem *settingsbutton = [[UIBarButtonItem alloc] initWithImage:[UIImage imageNamed:@"gear"] style:UIBarButtonItemStylePlain target:self action:@selector(displaySettings)];
 	UIBarButtonItem *title = [[UIBarButtonItem alloc] initWithTitle:self.gameInfo->title style:UIBarButtonItemStylePlain target:nil action:nil];
 	title.customView.userInteractionEnabled = NO;
 	
