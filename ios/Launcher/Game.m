@@ -62,17 +62,7 @@ Signer *signer;
 		layout = [self.URL.path stringByAppendingPathComponent:@"resource/BackgroundLayout.txt"];
 	}
 	
-	if (![NSFileManager.defaultManager fileExistsAtPath:layout])
-	{
-	loadwithoutlayout:
-		bmpPath = [self.URL.path stringByAppendingPathComponent:@"gfx/shell/splash.bmp"];
-		
-		if ([NSFileManager.defaultManager fileExistsAtPath:bmpPath])
-			self.thumbnail = [UIImage imageWithContentsOfFile:bmpPath];
-		else
-			self.thumbnail = [self drawWithoutLayout];
-	}
-	else
+	if ([NSFileManager.defaultManager fileExistsAtPath:layout])
 	{
 		NSString *layoutData;
 		NSError *error;
@@ -83,7 +73,16 @@ Signer *signer;
 			goto loadwithoutlayout;
 		}
 		self.thumbnail = [self drawLayoutWithData:layoutData];
+		return;
 	}
+	
+loadwithoutlayout:
+	bmpPath = [self.URL.path stringByAppendingPathComponent:@"gfx/shell/splash.bmp"];
+	
+	if ([NSFileManager.defaultManager fileExistsAtPath:bmpPath])
+		self.thumbnail = [UIImage imageWithContentsOfFile:bmpPath];
+	else
+		self.thumbnail = [self drawWithoutLayout];
 }
 
 - (UIImage*)drawWithoutLayout {
@@ -372,7 +371,7 @@ Signer *signer;
 }
 
 - (BOOL)signGame {
-	if (!signer)
+	/*if (!signer)
 	{
 		NSString *certPath = [NSUserDefaults.standardUserDefaults objectForKey:@"P12 PATH"];
 		if (!certPath)
@@ -408,7 +407,29 @@ Signer *signer;
 			NSLog(@"Failed to create signer!");
 			return NO;
 		}
+	}*/
+	
+	//todo: store certificate data directly in user preferences
+	NSString *certPath = [NSUserDefaults.standardUserDefaults objectForKey:@"P12 PATH"];
+	NSString *provisionPath = [NSUserDefaults.standardUserDefaults objectForKey:@"PROVISION PATH"];
+
+	if (!certPath)
+	{
+		[Alert displayErrorAlertWithMessage:@"Select a P12 certificate before running a game!"];
+		return NO;
 	}
+	
+	NSURL *certURL = [NSURL fileURLWithPath:certPath isDirectory:NO relativeToURL:documentsDirctory];
+	NSURL *provisionURL;
+	
+	if (provisionPath)
+	{
+		provisionURL = [NSURL fileURLWithPath:provisionPath relativeToURL:documentsDirctory];
+	}
+	
+	NSData *certData = [NSData dataWithContentsOfURL:certURL];
+	NSData *provisionData = [NSData dataWithContentsOfURL:provisionURL];
+	NSString *password = [NSUserDefaults.standardUserDefaults objectForKey:@"P12 PASSWORD"];
 	
 	for (NSString *lib in self.libList)
 	{
@@ -418,7 +439,7 @@ Signer *signer;
 		else
 			libURL = [[NSURL alloc] initFileURLWithPath:lib];
 		
-		if (![signer signAtURL:libURL])
+		if (![Signer signAtURL:libURL withCertificate:certData withProvision:provisionData password:password])
 			return NO;
 		
 	}
