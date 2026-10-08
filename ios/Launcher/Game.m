@@ -24,7 +24,6 @@ GNU General Public License for more details.
 #import "Alert.h"
 
 Signer *signer;
-LibDownloader *downloader;
 
 @interface Game ()
 
@@ -43,9 +42,7 @@ LibDownloader *downloader;
 	memset((void*)self.gameInfo, 0, sizeof(t_gameinfo));
 	[self parsegameInfo];
 	[self initThumbnail];
-	if (!downloader)
-		downloader = [LibDownloader new];
-	
+
 	return self;
 }
 
@@ -299,15 +296,7 @@ LibDownloader *downloader;
 		}
 		
 		//check if the library is for ios
-		NSUInteger searchIndex;
-		if (file.lastPathComponent.length > @"_ios_arm64.dylib".length)
-		{
-			searchIndex = file.lastPathComponent.length - @"_ios_arm64.dylib".length;
-		}
-		else
-			continue;
-		
-		if (![[file.lastPathComponent substringFromIndex:searchIndex] isEqualToString:@"_ios_arm64.dylib"])
+		if (!strstr(file.lastPathComponent.UTF8String, "_ios_arm64.dylib"))
 		{
 			continue;
 		}
@@ -332,7 +321,7 @@ LibDownloader *downloader;
 		libsURL = [NSURL fileURLWithPath:[libraryDirectory stringByAppendingFormat:@"/%@-ios-arm64", self.gameDir]];
 		if (![NSFileManager.defaultManager fileExistsAtPath:libsURL.path])
 		{
-			if (![downloader fetchLibsForGame:self])
+			if (![LibDownloader fetchLibsForGame:self])
 			{
 				//try to guess with other logic
 				return [self initUnsupportedLibList];
