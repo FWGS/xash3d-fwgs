@@ -28,8 +28,9 @@ typedef struct {
 
 @property NSDictionary *manifest;
 
-- (BOOL)setEntry:(t_gameentry*)entry forGame:(Game *)game;
-- (BOOL)fetchLibsForGame:(Game *)game;
++ (NSDictionary*)fetchManifest;
++ (BOOL)setEntry:(t_gameentry*)entry forGame:(Game *)game;
++ (BOOL)fetchLibsForGame:(Game *)game;
 
 @end
 
