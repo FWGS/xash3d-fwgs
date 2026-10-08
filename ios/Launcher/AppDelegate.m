@@ -46,9 +46,9 @@ NSString *libraryDirectory;
 	self.gamesNavController = [[UINavigationController alloc] initWithRootViewController:self.gamesController];
 	self.settingsNavController = [[UINavigationController alloc] initWithRootViewController:self.settingsController];
 		
-	self.gamesController.tabBarItem = [[UITabBarItem alloc] initWithTitle:@"Games" image:[UIImage systemImageNamed:@"gamecontroller.fill"] tag:0];
+	self.gamesController.tabBarItem = [[UITabBarItem alloc] initWithTitle:@"Games" image:[UIImage imageNamed:@"gamecontroller.fill"] tag:0];
 	
-	self.settingsController.tabBarItem = [[UITabBarItem alloc] initWithTitle:@"Settings" image:[UIImage systemImageNamed:@"gear"] tag:1];
+	self.settingsController.tabBarItem = [[UITabBarItem alloc] initWithTitle:@"Settings" image:[UIImage imageNamed:@"gear"] tag:1];
 	
 	self.tabNavController = [[UITabBarController alloc] init];
 	[self.tabNavController setViewControllers:@[self.gamesNavController, self.settingsNavController] animated:YES];
