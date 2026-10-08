@@ -60,5 +60,9 @@
 	<string name="engine_update_permission_needed">Нужно разрешение</string>
 	<string name="engine_update_permission_message">Чтобы установить обновление, разрешите Xash3D FWGS устанавливать неизвестные приложения в настройках системы.</string>
 	<string name="engine_update_open_settings">Открыть настройки</string>
+	<string name="check_updates">Проверить обновления</string>
+	<string name="engine_update_checking">Проверка обновлений…</string>
+	<string name="engine_update_up_to_date">У вас уже последняя сборка.</string>
+	<string name="engine_update_check_failed">Не удалось проверить обновления. Проверьте подключение и попробуйте снова.</string>
 	<string name="engine_install_failed">Не удалось установить обновление: %1$s</string>
 </resources>

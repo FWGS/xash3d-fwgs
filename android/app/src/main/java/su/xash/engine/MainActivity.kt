@@ -5,6 +5,8 @@ import android.content.Context
 import android.content.Intent
 import android.os.Bundle
 import android.provider.Settings
+import android.view.LayoutInflater
+import android.widget.TextView
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.net.toUri
@@ -60,15 +62,60 @@ class MainActivity : AppCompatActivity() {
 
 		val updater = AppUpdater(this)
 		lifecycleScope.launch {
-			val info = updater.checkForUpdate()
+			val result = updater.checkForUpdate()
 			prefs.edit().putLong(KEY_LAST_CHECK, now).apply()
-			if (info == null)
+			if (result !is AppUpdater.UpdateCheck.Available)
 				return@launch
+			val info = result.info
 			if (prefs.getInt(KEY_DISMISSED_BUILDNUM, -1) >= info.buildNum)
 				return@launch
 			val changelog = updater.fetchChangelog(BuildConfig.GIT_HASH, info.tagName)
 			showEngineUpdateDialog(updater, info.buildNum, changelog, prefs)
 		}
+	}
+
+	// Manual check from Settings: bypasses the interval and "later" gates and
+	// always reports back, so the user gets feedback ("up to date" / failure).
+	fun checkForUpdatesManually() {
+		val view = LayoutInflater.from(this).inflate(R.layout.dialog_download_progress, null)
+		view.findViewById<TextView>(R.id.downloadStatus).text = getString(R.string.engine_update_checking)
+		val dialog = MaterialAlertDialogBuilder(this)
+			.setTitle(R.string.engine_update_checking)
+			.setView(view)
+			.setCancelable(true)
+			.setNegativeButton(android.R.string.cancel) { d, _ -> d.dismiss() }
+			.create()
+		dialog.show()
+
+		val updater = AppUpdater(this)
+		val job = lifecycleScope.launch {
+			val result = updater.checkForUpdate()
+			if (!dialog.isShowing)
+				return@launch
+			dialog.dismiss()
+			when (result) {
+				is AppUpdater.UpdateCheck.Available -> {
+					val prefs = getSharedPreferences(UPDATE_PREFS, Context.MODE_PRIVATE)
+					prefs.edit().putLong(KEY_LAST_CHECK, System.currentTimeMillis()).apply()
+					val changelog = updater.fetchChangelog(BuildConfig.GIT_HASH, result.info.tagName)
+					showEngineUpdateDialog(updater, result.info.buildNum, changelog, prefs)
+				}
+				is AppUpdater.UpdateCheck.UpToDate,
+				is AppUpdater.UpdateCheck.Disabled ->
+					MaterialAlertDialogBuilder(this)
+						.setTitle(R.string.check_updates)
+						.setMessage(R.string.engine_update_up_to_date)
+						.setPositiveButton(android.R.string.ok, null)
+						.show()
+				is AppUpdater.UpdateCheck.Failed ->
+					MaterialAlertDialogBuilder(this)
+						.setTitle(R.string.check_updates)
+						.setMessage(R.string.engine_update_check_failed)
+						.setPositiveButton(android.R.string.ok, null)
+						.show()
+			}
+		}
+		dialog.setOnDismissListener { job.cancel() }
 	}
 
 	private fun showEngineUpdateDialog(

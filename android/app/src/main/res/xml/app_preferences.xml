@@ -15,4 +15,8 @@
 	<Preference
 		app:key="crash_logs"
 		app:title="@string/crash_logs" />
+
+	<Preference
+		app:key="check_updates"
+		app:title="@string/check_updates" />
 </PreferenceScreen>

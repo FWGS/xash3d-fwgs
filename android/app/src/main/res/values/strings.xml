@@ -62,5 +62,9 @@
 	<string name="engine_update_permission_needed">Permission Required</string>
 	<string name="engine_update_permission_message">To install the update, allow Xash3D FWGS to install unknown apps in system settings.</string>
 	<string name="engine_update_open_settings">Open settings</string>
+	<string name="check_updates">Check for updates</string>
+	<string name="engine_update_checking">Checking for updates…</string>
+	<string name="engine_update_up_to_date">You\'re already on the latest build.</string>
+	<string name="engine_update_check_failed">Couldn\'t check for updates. Check your connection and try again.</string>
 	<string name="engine_install_failed">Update install failed: %1$s</string>
 </resources>
