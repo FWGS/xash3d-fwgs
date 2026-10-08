@@ -22,78 +22,83 @@ GNU General Public License for more details.
 NSString *const RELEASE_BASE_URL = @"https://github.com/FWGS/hlsdk-mega-build/releases/download/continuous";
 NSString *const MANIFEST_URL = @"/manifest.json";
 NSUInteger const MANIFEST_VERSION = 1;
+NSDictionary *manifest;
+
+NSString *sha256ForFile(NSString *filePath) {
+	unsigned char digest[CC_SHA256_DIGEST_LENGTH];
+	NSData *fileBytes = [NSData dataWithContentsOfFile:filePath];
+	
+	CC_SHA256(fileBytes.bytes, (uint)fileBytes.length, digest);
+	
+	NSMutableString *checksum = [[NSMutableString alloc] initWithCapacity:CC_SHA256_DIGEST_LENGTH];
+	for (int i = 0; i < CC_SHA256_DIGEST_LENGTH; i++)
+	{
+		[checksum appendFormat:@"%02x", digest[i]];
+	}
+	
+	return checksum;
+}
 
 @implementation LibDownloader
 
--(instancetype)init {
-	[self fetchManifest];
-
-	return [super init];
-}
-
--(void)fetchManifest {
-	if (self.manifest)
-		return;
-	
++ (NSDictionary*)fetchManifest {	
 	NSString *manifestPath = [libraryDirectory stringByAppendingPathComponent:@"manifest.plist"];
-	NSString * __block errormessage;
 	
 	NSURL *manifestURL = [NSURL URLWithString:[RELEASE_BASE_URL stringByAppendingString:MANIFEST_URL]];
+	NSDictionary * __block manifest;
 	NSURLSessionDataTask *task = [NSURLSession.sharedSession dataTaskWithURL:manifestURL completionHandler:^(NSData *data, NSURLResponse *response, NSError *error){
+		NSError *serializationerror = nil;
+		NSString *manifestver = nil;
+		NSHTTPURLResponse *httpResponse = (NSHTTPURLResponse*)response;
 		if (error)
 		{
-			errormessage = [NSString stringWithFormat:@"Request for manifest failed with error: %@", error.localizedDescription];
-			return;
+			[Alert displayErrorAlertWithMessage:[NSString stringWithFormat:@"Request for manifest failed with error: %@", error.localizedDescription]];
+			goto loadfromdisk;
 		}
 		
-		NSHTTPURLResponse *httpResponse = (NSHTTPURLResponse*)response;
 		if (httpResponse.statusCode < 200 || httpResponse.statusCode > 299 )
 		{
-			errormessage = [NSString stringWithFormat:@"Request for manifest returned with non-success code: %ld", httpResponse.statusCode];
-			return;
+			[Alert displayErrorAlertWithMessage:[NSString stringWithFormat:@"Request for manifest returned with non-success code: %ld", httpResponse.statusCode]];
+			goto loadfromdisk;
 		}
-		
-		NSError *serializationerror;
-		self.manifest = [NSJSONSerialization JSONObjectWithData:data options:0 error:&serializationerror];
+		manifest = [NSJSONSerialization JSONObjectWithData:data options:0 error:&serializationerror];
 		
 		if (serializationerror)
 		{
-			errormessage = [NSString stringWithFormat:@"Failed to create JSON object with error: %@", serializationerror.localizedDescription];
-			self.manifest = nil;
-			if ([NSFileManager.defaultManager fileExistsAtPath:manifestPath])
-			{
-				self.manifest = [NSDictionary dictionaryWithContentsOfFile:manifestPath];
-			}
-			return;
+			[Alert displayErrorAlertWithMessage:[NSString stringWithFormat:@"Failed to create JSON object with error: %@", serializationerror.localizedDescription]];
+			goto loadfromdisk;
 		}
 		
-		NSString *manifestver = [self.manifest valueForKey:@"version"];
+		manifestver = [manifest valueForKey:@"version"];
 		if ([manifestver integerValue] != MANIFEST_VERSION)
 		{
-			errormessage = [NSString stringWithFormat:@"Manifest has version %@ but expected %lu", manifestver, (unsigned long)MANIFEST_VERSION];
-			self.manifest = nil;
-			if ([NSFileManager.defaultManager fileExistsAtPath:manifestPath])
-			{
-				self.manifest = [NSDictionary dictionaryWithContentsOfFile:manifestPath];
-			}
-			return;
+			[Alert displayErrorAlertWithMessage:[NSString stringWithFormat:@"Manifest has version %@ but expected %lu", manifestver, (unsigned long)MANIFEST_VERSION]];
+			goto loadfromdisk;
 		}
 		
-		[self.manifest writeToFile:manifestPath atomically:NO];
+		[manifest writeToFile:manifestPath atomically:NO];
+		return;
+
+loadfromdisk:
+		manifest = nil;
+		if ([NSFileManager.defaultManager fileExistsAtPath:manifestPath])
+		{
+			manifest = [NSDictionary dictionaryWithContentsOfFile:manifestPath];
+		}
 	}];
 	
 	[task resume];
+
 	@autoreleasepool {
 		while (task.state != NSURLSessionTaskStateCompleted) {
 			[[NSRunLoop currentRunLoop] runMode:NSDefaultRunLoopMode beforeDate:[NSDate distantFuture]];
 		}
 	}
 	
-	if (errormessage)
-		[Alert displayErrorAlertWithMessage:errormessage];
+	return manifest;
 }
 
-- (BOOL)fetchLibsForGame:(Game *)game {
++ (BOOL)fetchLibsForGame:(Game *)game {
 	t_gameentry entry;
 	
 	if(![self setEntry:&entry forGame:game])
@@ -104,7 +109,7 @@ NSUInteger const MANIFEST_VERSION = 1;
 	
 	NSString *libszip = [libraryDirectory stringByAppendingPathComponent:entry.filename];
 	NSURL *libsdest = [NSURL fileURLWithPath:libszip.stringByDeletingPathExtension];
-	if (![NSFileManager.defaultManager fileExistsAtPath:libszip] || ![[self sha256ForFileAtPath:libszip] isEqualToString:entry.sha256] )
+	if (![NSFileManager.defaultManager fileExistsAtPath:libszip] || ![sha256ForFile(libszip) isEqualToString:entry.sha256] )
 	{
 		NSError *deleteerror;
 		[NSFileManager.defaultManager removeItemAtPath:libszip error:&deleteerror];
@@ -182,31 +187,17 @@ NSUInteger const MANIFEST_VERSION = 1;
 	}
 }
 
--(NSString*)sha256ForFileAtPath:(NSString *)filePath {
-	unsigned char digest[CC_SHA256_DIGEST_LENGTH];
-	NSData *fileBytes = [NSData dataWithContentsOfFile:filePath];
++ (BOOL)setEntry:(t_gameentry*)entry forGame:(Game *)game{
 	
-	CC_SHA256(fileBytes.bytes, (uint)fileBytes.length, digest);
-	
-	NSMutableString *checksum = [[NSMutableString alloc] initWithCapacity:CC_SHA256_DIGEST_LENGTH];
-	for (int i = 0; i < CC_SHA256_DIGEST_LENGTH; i++)
-	{
-		[checksum appendFormat:@"%02x", digest[i]];
-	}
-	
-	return checksum;
-}
-
--(BOOL)setEntry:(t_gameentry*)entry forGame:(Game *)game{
-	
-	if (!self.manifest)
+	manifest = [LibDownloader fetchManifest];
+	if (!manifest)
 	{
 		NSLog(@"No manifest!");
 		return NO;
 	}
 	
-	NSDictionary *mods = [self.manifest valueForKey:@"mods"];
-	entry->modKey = [mods valueForKey:game.URL.lastPathComponent];
+	NSDictionary *mods = [manifest valueForKey:@"mods"];
+	entry->modKey = [mods valueForKey:game.gameDir];
 	
 	if (!entry->modKey)
 	{
