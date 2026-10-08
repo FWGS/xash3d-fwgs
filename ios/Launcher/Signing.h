@@ -15,12 +15,7 @@ GNU General Public License for more details.
 
 @interface Signer : NSObject
 
-@property(nonnull, nonatomic) NSData *certData;
-@property(nonnull, nonatomic) NSData *provisionData;
-@property(nullable, nonatomic) NSString *password;
-
-- (nullable instancetype)initWithCert:(nonnull NSURL*)cert withProvision:(nullable NSURL*)provision password:(nullable NSString*)password;
-- (BOOL)signAtURL:(nonnull NSURL*)machoURL;
-- (BOOL)signAtPath:(nonnull NSString*)machoPath;
++ (BOOL)signAtURL:(nonnull NSURL*)machoURL withCertificate:(nonnull NSData*)certData withProvision:(nullable NSData*)provisionData password:(nullable NSString*)password;
++ (BOOL)signAtPath:(nonnull NSString*)machoPath withCertificate:(nonnull NSData*)certData withProvision:(nullable NSData*)provisionData password:(nullable NSString*)password;
 
 @end
