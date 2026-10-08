@@ -57,7 +57,11 @@ class MainActivity : AppCompatActivity() {
 	private fun checkForEngineUpdate() {
 		val prefs = getSharedPreferences(UPDATE_PREFS, Context.MODE_PRIVATE)
 		val now = System.currentTimeMillis()
-		if (now - prefs.getLong(KEY_LAST_CHECK, 0L) < CHECK_INTERVAL_MS)
+		val installedDays = BuildConfig.VERSION_CODE / 10000
+		// Once the pending update is 2 weeks newer than the installed build, nag on
+		// every launch: reuse the last known remote build to skip the interval gate.
+		val maxNag = prefs.getInt(KEY_REMOTE_BUILDNUM, -1) - installedDays >= MAX_NAG_STALENESS_DAYS
+		if (!maxNag && now - prefs.getLong(KEY_LAST_CHECK, 0L) < CHECK_INTERVAL_MS)
 			return
 
 		val updater = AppUpdater(this)
@@ -67,11 +71,39 @@ class MainActivity : AppCompatActivity() {
 			if (result !is AppUpdater.UpdateCheck.Available)
 				return@launch
 			val info = result.info
-			if (prefs.getInt(KEY_DISMISSED_BUILDNUM, -1) >= info.buildNum)
+			prefs.edit().putInt(KEY_REMOTE_BUILDNUM, info.buildNum).apply()
+
+			val staleness = info.buildNum - installedDays
+			val snoozed = prefs.getInt(KEY_DISMISSED_BUILDNUM, -1) >= info.buildNum &&
+				staleness < MAX_NAG_STALENESS_DAYS &&
+				now < prefs.getLong(KEY_DISMISS_UNTIL, 0L)
+			if (snoozed)
 				return@launch
+
 			val changelog = updater.fetchChangelog(BuildConfig.GIT_HASH, info.tagName)
 			showEngineUpdateDialog(updater, info.buildNum, changelog, prefs)
 		}
+	}
+
+	// Snooze shrinks the longer the user keeps skipping: 12h at first, linearly
+	// down to 0 after 2 days of skipping (then it nags at every check).
+	private fun snoozeFor(elapsedMs: Long): Long {
+		val factor = (1.0 - elapsedMs.toDouble() / DISMISS_ESCALATION_MS).coerceIn(0.0, 1.0)
+		return (DISMISS_SNOOZE_START_MS * factor).toLong()
+	}
+
+	private fun snoozeUpdate(prefs: android.content.SharedPreferences, remoteBuildNum: Int) {
+		val now = System.currentTimeMillis()
+		val prevBuild = prefs.getInt(KEY_DISMISSED_BUILDNUM, -1)
+		val prevFirst = prefs.getLong(KEY_FIRST_DISMISS_TIME, 0L)
+		// A newer build restarts the escalation clock; the same build keeps counting.
+		val firstDismiss = if (remoteBuildNum > prevBuild || prevFirst == 0L) now else prevFirst
+		val snooze = snoozeFor(now - firstDismiss)
+		prefs.edit()
+			.putInt(KEY_DISMISSED_BUILDNUM, remoteBuildNum)
+			.putLong(KEY_FIRST_DISMISS_TIME, firstDismiss)
+			.putLong(KEY_DISMISS_UNTIL, now + snooze)
+			.apply()
 	}
 
 	// Manual check from Settings: bypasses the interval and "later" gates and
@@ -151,7 +183,7 @@ class MainActivity : AppCompatActivity() {
 				showEngineDownloadDialog(updater)
 			}
 			.setNegativeButton(R.string.engine_update_later) { _, _ ->
-				prefs.edit().putInt(KEY_DISMISSED_BUILDNUM, remoteBuildNum).apply()
+				snoozeUpdate(prefs, remoteBuildNum)
 			}
 			.show()
 	}
@@ -235,6 +267,12 @@ class MainActivity : AppCompatActivity() {
 		private const val UPDATE_PREFS = "app_updater"
 		private const val KEY_LAST_CHECK = "last_check_ms"
 		private const val KEY_DISMISSED_BUILDNUM = "dismissed_buildnum"
-		private const val CHECK_INTERVAL_MS = 24 * 60 * 60 * 1000L
+		private const val KEY_DISMISS_UNTIL = "dismiss_until_ms"
+		private const val KEY_FIRST_DISMISS_TIME = "first_dismiss_ms"
+		private const val KEY_REMOTE_BUILDNUM = "remote_buildnum"
+		private const val CHECK_INTERVAL_MS = 6 * 60 * 60 * 1000L
+		private const val DISMISS_SNOOZE_START_MS = 12 * 60 * 60 * 1000L
+		private const val DISMISS_ESCALATION_MS = 2 * 24 * 60 * 60 * 1000L
+		private const val MAX_NAG_STALENESS_DAYS = 14
 	}
 }
