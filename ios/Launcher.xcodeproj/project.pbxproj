@@ -229,7 +229,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "cd ..\n\n#customize engine build here\n./waf configure --ios --enable-bundled-deps -T debug --sdl2=$(realpath \"SDL2.framework\") || exit 1\n\n./waf build install --destdir=$TARGET_BUILD_DIR/$UNLOCALIZED_RESOURCES_FOLDER_PATH\n\ncp -r SDL2.framework $TARGET_BUILD_DIR/$UNLOCALIZED_RESOURCES_FOLDER_PATH\n\n\nif [ $CODE_SIGNING_ALLOWED != \"NO\" ]; then\n\tcodesign --force --verbose --sign \"$EXPANDED_CODE_SIGN_IDENTITY\" $TARGET_BUILD_DIR/$UNLOCALIZED_RESOURCES_FOLDER_PATH/*.dylib\n\tcodesign --force --verbose --sign \"$EXPANDED_CODE_SIGN_IDENTITY\" $TARGET_BUILD_DIR/$UNLOCALIZED_RESOURCES_FOLDER_PATH/SDL2.framework\nfi\n";
+			shellScript = "cd ..\n\n#customize engine build here\n./waf configure --ios --enable-bundled-deps -T debug --use-sdl3 --sdl2=$(realpath \"SDL3.framework\") || exit 1\n\n./waf build install --destdir=$TARGET_BUILD_DIR/$UNLOCALIZED_RESOURCES_FOLDER_PATH\n\ncp -r SDL3.framework $TARGET_BUILD_DIR/$UNLOCALIZED_RESOURCES_FOLDER_PATH\n\n\nif [ $CODE_SIGNING_ALLOWED != \"NO\" ]; then\n\tcodesign --force --verbose --sign \"$EXPANDED_CODE_SIGN_IDENTITY\" $TARGET_BUILD_DIR/$UNLOCALIZED_RESOURCES_FOLDER_PATH/*.dylib\n\tcodesign --force --verbose --sign \"$EXPANDED_CODE_SIGN_IDENTITY\" $TARGET_BUILD_DIR/$UNLOCALIZED_RESOURCES_FOLDER_PATH/SDL2.framework\nfi\n";
 		};
 		88C65753305B0F7900986226 /* ShellScript */ = {
 			isa = PBXShellScriptBuildPhase;
