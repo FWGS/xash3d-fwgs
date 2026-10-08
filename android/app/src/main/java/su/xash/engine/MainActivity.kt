@@ -19,6 +19,7 @@ import kotlinx.coroutines.launch
 import su.xash.engine.databinding.ActivityMainBinding
 import su.xash.engine.model.AppUpdater
 import su.xash.engine.util.CrashReports
+import su.xash.engine.util.dialogContentView
 import su.xash.engine.util.monospaceTextView
 import su.xash.engine.util.showDownloadProgressDialog
 import java.io.File
@@ -76,30 +77,36 @@ class MainActivity : AppCompatActivity() {
 		changelog: List<AppUpdater.CommitInfo>?,
 		prefs: android.content.SharedPreferences,
 	) {
-		val builder = MaterialAlertDialogBuilder(this)
+		val changelogText = changelog?.takeIf { it.isNotEmpty() }?.let { commits ->
+			buildString {
+				append(getString(R.string.engine_update_changelog_header))
+				val shown = commits.take(CHANGELOG_MAX_LINES)
+				for (c in shown)
+					append("\n* ").append(c.subject)
+				val extra = commits.size - shown.size
+				if (extra > 0)
+					append("\n").append(getString(R.string.engine_update_changelog_more, extra))
+			}
+		}
+
+		MaterialAlertDialogBuilder(this)
 			.setTitle(R.string.engine_update_available)
-			.setMessage(getString(R.string.engine_update_message, remoteBuildNum))
+			// Message and changelog share one custom view: with both setMessage()
+			// and setView() the dialog layout stops prioritizing the buttons, and
+			// a long changelog pushes them off screen. As a single view the
+			// buttons are measured first and the changelog shrinks and scrolls.
+			.setView(dialogContentView(
+				this,
+				getString(R.string.engine_update_message, remoteBuildNum),
+				changelogText,
+			))
 			.setPositiveButton(R.string.engine_update_download) { _, _ ->
 				showEngineDownloadDialog(updater)
 			}
 			.setNegativeButton(R.string.engine_update_later) { _, _ ->
 				prefs.edit().putInt(KEY_DISMISSED_BUILDNUM, remoteBuildNum).apply()
 			}
-
-		if (!changelog.isNullOrEmpty()) {
-			val text = buildString {
-				append(getString(R.string.engine_update_changelog_header))
-				val shown = changelog.take(CHANGELOG_MAX_LINES)
-				for (c in shown)
-					append("\n• ").append(c.subject)
-				val extra = changelog.size - shown.size
-				if (extra > 0)
-					append("\n").append(getString(R.string.engine_update_changelog_more, extra))
-			}
-			builder.setView(monospaceTextView(this, text))
-		}
-
-		builder.show()
+			.show()
 	}
 
 	private fun showEngineDownloadDialog(updater: AppUpdater) {
