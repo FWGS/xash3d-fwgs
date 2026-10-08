@@ -4,7 +4,7 @@
 
 cd "$GITHUB_WORKSPACE" || die
 
-cp -vr /Library/Frameworks/SDL2.framework ./
+cp -vr /Library/Frameworks/SDL3.framework ./
 
 pushd hlsdk || die
 mkdir -p ../build/ios/libs || die
