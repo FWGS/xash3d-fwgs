@@ -7,6 +7,8 @@ Copyright (C) 2026 xash3d-gc contributors
 #if XASH_GAMECUBE
 #include "mem_gamecube.h"
 #include <stdlib.h>
+#include <malloc.h>
+#include <ogc/system.h>
 
 void *R_GCBorrowMapLoadStaticArena( size_t size, size_t *capacity );
 qboolean R_GCReleaseMapLoadStaticArena( void *ptr );
@@ -37,6 +39,21 @@ void GC_MemSetMap( const char *mapname )
 	else Q_strncpy( gc_mem_map, "(none)", sizeof( gc_mem_map ));
 }
 
+/* Zone pools only count Mem_Alloc traffic.  Direct malloc users (HLSDK DLLs,
+ * XFBs, BSP pins, sprite/HUD sys-malloc) share the same newlib heap, so report
+ * the real heap too: used/free inside the sbrk'd arena and what is still left
+ * between the arena top and MEM1 end. */
+static void GC_MemHeapStats( size_t *used, size_t *free_in_heap, size_t *unclaimed )
+{
+	struct mallinfo mi = mallinfo();
+	uintptr_t lo = (uintptr_t)SYS_GetArena1Lo();
+	uintptr_t hi = (uintptr_t)SYS_GetArena1Hi();
+
+	*used = (size_t)mi.uordblks;
+	*free_in_heap = (size_t)mi.fordblks;
+	*unclaimed = hi > lo ? (size_t)( hi - lo ) : 0;
+}
+
 void GC_MemSample( const char *stage )
 {
 	size_t total = Mem_TotalRealSize();
@@ -51,15 +68,25 @@ void GC_MemSample( const char *stage )
 	if( delta == 0 )
 		return;
 
-	Con_Reportf( "Xash3D GameCube: mem stage=%s total=%s delta=%s hwm=%s map=%s\n",
-		stage, Q_memprint( total ), Q_memprint( delta ), Q_memprint( gc_mem_hwm ), gc_mem_map );
+	{
+		size_t heap_used, heap_free, heap_unclaimed;
+
+		GC_MemHeapStats( &heap_used, &heap_free, &heap_unclaimed );
+		Con_Reportf( "Xash3D GameCube: mem stage=%s total=%s delta=%s hwm=%s map=%s heap_used=%s heap_free=%s unclaimed=%s\n",
+			stage, Q_memprint( total ), Q_memprint( delta ), Q_memprint( gc_mem_hwm ), gc_mem_map,
+			Q_memprint( heap_used ), Q_memprint( heap_free ), Q_memprint( heap_unclaimed ));
+	}
 }
 
 void GC_MemFail( const char *subsystem, size_t size, const char *file, int line )
 {
-	Con_Reportf( "Xash3D GameCube: mem FAIL subsystem=%s size=%s map=%s at=%s:%i total=%s hwm=%s\n",
+	size_t heap_used, heap_free, heap_unclaimed;
+
+	GC_MemHeapStats( &heap_used, &heap_free, &heap_unclaimed );
+	Con_Reportf( "Xash3D GameCube: mem FAIL subsystem=%s size=%s map=%s at=%s:%i total=%s hwm=%s heap_used=%s heap_free=%s unclaimed=%s\n",
 		subsystem ? subsystem : "unknown", Q_memprint( size ), gc_mem_map, file, line,
-		Q_memprint( Mem_TotalRealSize() ), Q_memprint( gc_mem_hwm ));
+		Q_memprint( Mem_TotalRealSize() ), Q_memprint( gc_mem_hwm ),
+		Q_memprint( heap_used ), Q_memprint( heap_free ), Q_memprint( heap_unclaimed ));
 	GC_MemReportPoolPressure( subsystem, size );
 }
 

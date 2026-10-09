@@ -25,7 +25,15 @@ GNU General Public License for more details.
 // than could actually be referenced during gameplay,
 // because we don't want to free anything until we are
 // sure we won't need it.
+#if XASH_LOW_MEMORY == 2
+// the reduced protocol caps sound precaches at MAX_SOUNDS (512); twice that
+// leaves room for client-side and ambient names. 8192 entries were 512 KiB of
+// MEM1 on GameCube for slots that are never filled. S_FindName returns NULL
+// when the table is full, which callers already treat as a missing sound.
+#define MAX_SFX      ( MAX_SOUNDS * 2 )
+#else
 #define MAX_SFX      8192
+#endif
 #define MAX_SFX_HASH (MAX_SFX/4)
 
 static int      s_numSfx = 0;

@@ -6035,6 +6035,14 @@ static void Mod_LoadClipnodes( model_t *mod, dbspmodel_t *bmod )
 			owned = (mclipnode16_t *)malloc( clip_sz );
 			if( !owned )
 			{
+				/* Image decode scratch is idle by the time clipnodes load;
+				 * release it and retry before giving up on the owned copy. */
+				Image_GCPurgeDecodeScratch();
+				owned = (mclipnode16_t *)malloc( clip_sz );
+			}
+			if( !owned )
+			{
+				GC_MemFail( "clipnodes", clip_sz, __FILE__, __LINE__ );
 				if( Sys_CheckParm( "-gcfullphysics" ))
 					Host_Error( "%s: unable to own clipnodes for fullphysics (%s)\n",
 						__func__, Q_memprint( clip_sz ));
