@@ -167,6 +167,7 @@ static CVAR_DEFINE_AUTO( touch_dpad_radius, "1.0", FCVAR_FILTERABLE, "dpad radiu
 static CVAR_DEFINE_AUTO( touch_joy_radius, "1.0", FCVAR_FILTERABLE, "joy radius multiplier" );
 static CVAR_DEFINE_AUTO( touch_move_indicator, "0.0", FCVAR_FILTERABLE, "indicate move events (0 to disable)" );
 static CVAR_DEFINE_AUTO( touch_joy_texture, "touch_default/joy", FCVAR_FILTERABLE, "texture for move indicator");
+static CVAR_DEFINE_AUTO( touch_stick_texture, "gfx/touch/stick_thumb", FCVAR_FILTERABLE, "texture for analog stick thumb" );
 static CVAR_DEFINE_AUTO( touch_safearea, "1", FCVAR_ARCHIVE | FCVAR_FILTERABLE, "keep touch controls inside the screen safe area, away from display cutouts" );
 static CVAR_DEFINE( touch_emulate, "_touch_emulate", "0", FCVAR_PRIVILEGED, "emulate touch with mouse" );
 
@@ -1215,6 +1216,7 @@ void Touch_Init( void )
 	Cvar_RegisterVariable( &touch_joy_radius );
 	Cvar_RegisterVariable( &touch_move_indicator );
 	Cvar_RegisterVariable( &touch_joy_texture );
+	Cvar_RegisterVariable( &touch_stick_texture );
 	Cvar_RegisterVariable( &touch_safearea );
 
 	// input devices cvar
@@ -1450,8 +1452,11 @@ static void Touch_DrawStickThumb( const touch_button_t *button, byte *color )
 	// The thumb is 36% of the ring diameter; keep its edge inside the ring.
 	float cx = ( button->x1 + button->x2 ) * 0.5f + sx * width * 0.27f;
 	float cy = ( button->y1 + button->y2 ) * 0.5f + sy * height * 0.27f;
-	if( touch.sticktexture == -1 )
-		touch.sticktexture = ref.dllFuncs.GL_LoadTexture( "gfx/touch/stick_thumb", NULL, 0, TF_IMAGE );
+	if( touch.sticktexture == -1 || FBitSet( touch_stick_texture.flags, FCVAR_CHANGED ))
+	{
+		ClearBits( touch_stick_texture.flags, FCVAR_CHANGED );
+		touch.sticktexture = ref.dllFuncs.GL_LoadTexture( touch_stick_texture.string, NULL, 0, TF_IMAGE );
+	}
 	Touch_DrawTexture( cx - width * 0.18f, cy - height * 0.18f,
 		cx + width * 0.18f, cy + height * 0.18f, touch.sticktexture, color );
 }
