@@ -48,6 +48,7 @@ void Mod_GCClearRetainedBspScratch( void );
 #include <ogc/system.h>
 #include <ogc/cache.h>
 #include <ogc/aram.h>
+#include <ogc/lwp_watchdog.h>
 #endif
 
 typedef struct gc_video_s
@@ -68,6 +69,54 @@ static int which_fb = 0;
 static GXRModeObj *rmode = NULL;
 static uint8_t gx_fifo[256 * 1024] __attribute__((aligned(32)));
 static unsigned int gc_present_count;
+
+/* GX_DrawDone sleeps until Flipper retires the draw-done token and has no
+ * timeout. New Game froze for minutes right after the first world
+ * CopyDisp with no further log, so wait on the token ourselves: on timeout,
+ * report the GP status, abort the frame and keep the host loop running. */
+#define GC_DRAWDONE_TIMEOUT_MS 2000
+static volatile int gc_drawdone_flag;
+static unsigned int gc_drawdone_timeouts;
+
+static void GC_DrawDoneCallback( void )
+{
+	gc_drawdone_flag = 1;
+}
+
+static qboolean GC_GXDrawDoneTimed( const char *where )
+{
+	static qboolean callback_installed;
+	u64 start;
+
+	if( !callback_installed )
+	{
+		GX_SetDrawDoneCallback( GC_DrawDoneCallback );
+		callback_installed = true;
+	}
+
+	gc_drawdone_flag = 0;
+	GX_SetDrawDone();
+	start = gettime();
+
+	while( !gc_drawdone_flag )
+	{
+		if( ticks_to_millisecs( diff_ticks( start, gettime())) > GC_DRAWDONE_TIMEOUT_MS )
+		{
+			u8 overhi = 0, underlo = 0, read_idle = 0, cmd_idle = 0, brkpt = 0;
+
+			GX_GetGPStatus( &overhi, &underlo, &read_idle, &cmd_idle, &brkpt );
+			gc_drawdone_timeouts++;
+			SYS_Report( "Xash3D GameCube: GX DrawDone timeout at=%s presents=%u count=%u "
+				"overhi=%u underlo=%u read_idle=%u cmd_idle=%u brkpt=%u\n",
+				where, gc_present_count, gc_drawdone_timeouts,
+				overhi, underlo, read_idle, cmd_idle, brkpt );
+			GX_AbortFrame();
+			return false;
+		}
+	}
+
+	return true;
+}
 static qboolean gc_lean_player_physics_armed;
 static unsigned int gc_blank_present_count;
 static unsigned int gc_budget_sample_count;
@@ -6555,7 +6604,7 @@ static void GC_PresentBufferViaGX( void )
 	GX_TexCoord2f32( 0.0f, 1.0f );
 	GX_End();
 
-	GX_DrawDone();
+	GC_GXDrawDoneTimed( "soft present" );
 	/* G191: keep soft RGB565 on EFB during dump latch — Dolphin DumpFramesAsImages
 	 * after changelevel tracks EFB; CopyDisp clear left flat sky in dumps. */
 	copy_clear = dump_latch ? GX_FALSE : GX_TRUE;
@@ -6885,13 +6934,25 @@ static void GC_PresentBuffer( void )
 		if( gc_present_count == 20 || gc_present_count == 28 || gc_present_count == 36 )
 			Con_Reportf( "Xash3D GameCube: present Flipper DrawDone begin presents=%u\n",
 				gc_present_count );
-		GX_DrawDone();
+		GC_GXDrawDoneTimed( "Flipper present" );
 		if( gc_present_count == 20 || gc_present_count == 28 || gc_present_count == 36 )
 			Con_Reportf( "Xash3D GameCube: present Flipper DrawDone end presents=%u\n",
 				gc_present_count );
 		GX_CopyDisp( xfb[which_fb], GX_FALSE );
 		GX_Flush();
 		gc_gx_world_efb_ready = false;
+		{
+			/* Pair with the first-frame entity trace: the first few world
+			 * presents mark that CopyDisp returned to the host loop. */
+			static int flipper_present_traced;
+
+			if( flipper_present_traced < 4 )
+			{
+				flipper_present_traced++;
+				SYS_Report( "Xash3D GameCube: Flipper present copied n=%d presents=%u\n",
+					flipper_present_traced, gc_present_count );
+			}
+		}
 
 		/* Capture-only: hold EFB for Dolphin DumpFramesAsImages. */
 		if( GC_IsCaptureDiagnostics()
