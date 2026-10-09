@@ -134,13 +134,13 @@ class MainActivity : AppCompatActivity() {
 				}
 				is AppUpdater.UpdateCheck.UpToDate,
 				is AppUpdater.UpdateCheck.Disabled ->
-					MaterialAlertDialogBuilder(this)
+					MaterialAlertDialogBuilder(this@MainActivity)
 						.setTitle(R.string.check_updates)
 						.setMessage(R.string.engine_update_up_to_date)
 						.setPositiveButton(android.R.string.ok, null)
 						.show()
 				is AppUpdater.UpdateCheck.Failed ->
-					MaterialAlertDialogBuilder(this)
+					MaterialAlertDialogBuilder(this@MainActivity)
 						.setTitle(R.string.check_updates)
 						.setMessage(R.string.engine_update_check_failed)
 						.setPositiveButton(android.R.string.ok, null)
