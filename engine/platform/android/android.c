@@ -34,6 +34,7 @@ struct jnimethods_s
 	jmethodID loadAndroidID;
 	jmethodID getAndroidID;
 	jmethodID saveAndroidID;
+	jmethodID getWindowInsets;
 } jni;
 
 void Android_Init( void )
@@ -47,6 +48,7 @@ void Android_Init( void )
 	jni.loadAndroidID = (*jni.env)->GetMethodID( jni.env, jni.actcls, "loadAndroidID", "()Ljava/lang/String;" );
 	jni.getAndroidID = (*jni.env)->GetMethodID( jni.env, jni.actcls, "getAndroidID", "()Ljava/lang/String;" );
 	jni.saveAndroidID = (*jni.env)->GetMethodID( jni.env, jni.actcls, "saveAndroidID", "(Ljava/lang/String;)V" );
+	jni.getWindowInsets = (*jni.env)->GetMethodID( jni.env, jni.actcls, "getWindowInsets", "()[F" );
 #endif // !XASH_SDL
 }
 
@@ -132,36 +134,14 @@ void Platform_ShellExecute( const char *path, const char *parms )
 #endif // XASH_SDL
 }
 
+/*
+========================
+Android_GetWindowInsets
+========================
+*/
 void Android_GetWindowInsets( float insets[4] )
 {
-	insets[0] = insets[1] = insets[2] = insets[3] = 0.0f;
-#if XASH_SDL == 2
-	JNIEnv *env = SDL_AndroidGetJNIEnv();
-	jobject activity = SDL_AndroidGetActivity();
-	jclass cls;
-	jmethodID method;
-	jfloatArray result;
-
-	if( !env || !activity )
-		return;
-	cls = (*env)->GetObjectClass( env, activity );
-	method = (*env)->GetMethodID( env, cls, "getWindowInsets", "()[F" );
-	// Older launchers may not implement this optional method.
-	if( (*env)->ExceptionCheck( env ))
-		(*env)->ExceptionClear( env );
-	if( method )
-	{
-		result = (*env)->CallObjectMethod( env, activity, method );
-		if( (*env)->ExceptionCheck( env ))
-			(*env)->ExceptionClear( env );
-		else if( result )
-		{
-			if( (*env)->GetArrayLength( env, result ) == 4 )
-				(*env)->GetFloatArrayRegion( env, result, 0, 4, insets );
-			(*env)->DeleteLocalRef( env, result );
-		}
-	}
-	(*env)->DeleteLocalRef( env, cls );
-	(*env)->DeleteLocalRef( env, activity );
-#endif
+	jfloatArray result = (*jni.env)->CallObjectMethod( jni.env, jni.activity, jni.getWindowInsets );
+	(*jni.env)->GetFloatArrayRegion( jni.env, result, 0, 4, insets );
+	(*jni.env)->DeleteLocalRef( jni.env, result );
 }

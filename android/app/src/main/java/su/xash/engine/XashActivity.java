@@ -13,7 +13,6 @@ import android.view.KeyEvent;
 import android.view.View;
 import android.view.WindowInsets;
 import android.view.DisplayCutout;
-import android.graphics.Insets;
 import android.view.WindowManager;
 
 import org.libsdl.app.SDLActivity;
@@ -42,7 +41,9 @@ public class XashActivity extends SDLActivity {
 		}
 
 		SoftKeyboardPan.assistActivity(this);
-		if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+
+		// mSurface is null if SDL failed to start and shows its error dialog
+		if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P && mSurface != null) {
 			mSurface.setOnApplyWindowInsetsListener((view, insets) -> {
 				updateWindowInsets(view, insets);
 				return insets;
@@ -59,27 +60,20 @@ public class XashActivity extends SDLActivity {
 	}
 
 	private void updateWindowInsets(View surface, WindowInsets insets) {
+		if (Build.VERSION.SDK_INT < Build.VERSION_CODES.P)
+			return;
+
 		if (insets == null || surface.getWidth() <= 0 || surface.getHeight() <= 0)
 			return;
+
+		// Only the display cutout: system bars are hidden in immersive mode and reporting them while they're swiped in would shift the whole layout.
 		int left = 0, top = 0, right = 0, bottom = 0;
-		if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-			Insets safe = insets.getInsets(WindowInsets.Type.systemBars() | WindowInsets.Type.displayCutout());
-			left = safe.left;
-			top = safe.top;
-			right = safe.right;
-			bottom = safe.bottom;
-		} else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
-			DisplayCutout cutout = insets.getDisplayCutout();
-			if (cutout != null) {
-				left = cutout.getSafeInsetLeft();
-				top = cutout.getSafeInsetTop();
-				right = cutout.getSafeInsetRight();
-				bottom = cutout.getSafeInsetBottom();
-			}
-			left = Math.max(left, insets.getSystemWindowInsetLeft());
-			top = Math.max(top, insets.getSystemWindowInsetTop());
-			right = Math.max(right, insets.getSystemWindowInsetRight());
-			bottom = Math.max(bottom, insets.getSystemWindowInsetBottom());
+		DisplayCutout cutout = insets.getDisplayCutout();
+		if (cutout != null) {
+			left = cutout.getSafeInsetLeft();
+			top = cutout.getSafeInsetTop();
+			right = cutout.getSafeInsetRight();
+			bottom = cutout.getSafeInsetBottom();
 		}
 		// Insets are relative to the window. Remove space already outside SDL's
 		// surface instead of applying it twice on launchers that fit system bars.
@@ -87,14 +81,12 @@ public class XashActivity extends SDLActivity {
 		int[] origin = new int[2];
 		surface.getLocationInWindow(origin);
 		float width = surface.getWidth(), height = surface.getHeight();
-		float[] safe = {
+		mWindowInsets = new float[] {
 			Math.max(0, left - origin[0]) / width,
 			Math.max(0, top - origin[1]) / height,
 			Math.max(0, origin[0] + width - decor.getWidth() + right) / width,
 			Math.max(0, origin[1] + height - decor.getHeight() + bottom) / height
 		};
-		if (safe[0] + safe[2] < 1 && safe[1] + safe[3] < 1)
-			mWindowInsets = safe;
 	}
 
 	@Override
