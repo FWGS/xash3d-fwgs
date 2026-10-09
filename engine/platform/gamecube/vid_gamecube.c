@@ -98,13 +98,13 @@ static qboolean GC_GXDrawDoneTimed( const char *where )
 
 	for( ;; )
 	{
-		if( GX_ReadDrawSync() == token )
+		if( GX_GetDrawSync() == token )
 			return true;
 
 		GX_GetGPStatus( &overhi, &underlo, &read_idle, &cmd_idle, &brkpt );
 		if( read_idle && cmd_idle )
 		{
-			if( GX_ReadDrawSync() == token )
+			if( GX_GetDrawSync() == token )
 				return true;
 			/* Idle for a few ms in a row with no token: stop waiting. */
 			if( !idle_start )
