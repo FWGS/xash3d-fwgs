@@ -1762,16 +1762,10 @@ static void Touch_Motion( int fingerID, float x, float y, float dx, float dy )
 	}
 
 	// Movement sticks use displacement, including between motion events.
-	for( touch_button_t *b = touch.list_user.first; b; b = b->next )
+	if( touch.move_stick && fingerID == touch.move_finger )
 	{
-		if( b->finger != fingerID )
-			continue;
-		if( FBitSet( b->flags, TOUCH_FL_STICK ) && b->type == touch_joy && fingerID == touch.move_finger )
-		{
-			Touch_StickVector( b, x, y, &touch.side, &touch.forward );
-			return;
-		}
-
+		Touch_StickVector( touch.move_button, x, y, &touch.side, &touch.forward );
+		return;
 	}
 
 	// walk
