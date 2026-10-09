@@ -94,6 +94,7 @@ static qboolean GC_GXDrawDoneTimed( const char *where )
 		callback_installed = true;
 	}
 
+	GC_WatchdogMark( where );
 	gc_drawdone_flag = 0;
 	GX_SetDrawDone();
 	start = gettime();
@@ -12927,6 +12928,7 @@ qboolean GC_RenderNewGameWorldFrames( int count )
 			&& GC_UseGxWorldDraw() )
 			CL_GameCubeLeanEmitBrushEntities();
 		ref.dllFuncs.GL_RenderFrame( &rvp );
+		GC_WatchdogMark( "newgame frame after GL_RenderFrame" );
 		if( trace )
 			Con_Reportf( "Xash3D GameCube: newgame frame %d after GL_RenderFrame\n", frame_trace );
 		/* G182: SCR newgame presents skip V_PostRender — draw lean HUD onto
@@ -12944,6 +12946,7 @@ qboolean GC_RenderNewGameWorldFrames( int count )
 				if( trace )
 					Con_Reportf( "Xash3D GameCube: newgame frame %d HUD begin\n", frame_trace );
 				CL_DrawHUD( CL_ACTIVE );
+				GC_WatchdogMark( "newgame frame HUD done" );
 				if( trace )
 					Con_Reportf( "Xash3D GameCube: newgame frame %d HUD done\n", frame_trace );
 				ref.dllFuncs.R_AllowFog( true );
@@ -12951,6 +12954,7 @@ qboolean GC_RenderNewGameWorldFrames( int count )
 			}
 		}
 		ref.dllFuncs.R_EndFrame();
+		GC_WatchdogMark( "newgame frame after R_EndFrame" );
 		if( trace )
 			Con_Reportf( "Xash3D GameCube: newgame frame %d after R_EndFrame\n", frame_trace );
 	}

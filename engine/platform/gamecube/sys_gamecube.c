@@ -559,6 +559,7 @@ void GCube_Init( void )
 
 	/* Initialize performance profiling */
 	GC_PerfInit();
+	GC_WatchdogInit();
 	GC_PerfCmd_Init();
 #endif
 }

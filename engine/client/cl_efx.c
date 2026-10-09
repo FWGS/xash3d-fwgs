@@ -33,6 +33,7 @@ static particle_t	*cl_active_particles;
 static particle_t	*cl_active_tracers;
 static particle_t	*cl_free_particles;
 static particle_t	*cl_particles = NULL;	// particle pool
+static int		cl_numparticles;	// entries allocated in cl_particles
 static vec3_t	cl_avelocities[NUMVERTEXNORMALS];
 static float	cl_lasttimewarn = 0.0f;
 
@@ -97,6 +98,7 @@ void CL_InitParticles( void )
 			Sys_CheckParm( "-gcfullphysics" ) ? 96 : 16 );
 #endif
 	cl_particles = Mem_Calloc( cls.mempool, sizeof( particle_t ) * max_particles );
+	cl_numparticles = max_particles;
 	CL_ClearParticles ();
 
 	// this is used for EF_BRIGHTFIELD
@@ -120,13 +122,13 @@ CL_ClearParticles
 */
 void CL_ClearParticles( void )
 {
-	int max_particles = GI->max_particles;
-#if XASH_GAMECUBE
-	if( Sys_CheckParm( "-gcmap" ) || GC_MapLoadMemoryOpt())
-		max_particles = Q_min( max_particles, 48 );
-#endif
+	// link exactly what CL_InitParticles allocated. On GameCube the pool size
+	// depends on the boot route; re-deriving it here (48, or the gameinfo
+	// limit once the map-load flag clears) can walk past the end of a smaller
+	// pool.
+	const int max_particles = cl_numparticles;
 
-	if( !cl_particles ) return;
+	if( !cl_particles || max_particles <= 0 ) return;
 
 	cl_free_particles = cl_particles;
 	cl_active_particles = NULL;
@@ -149,6 +151,7 @@ void CL_FreeParticles( void )
 	if( cl_particles )
 		Mem_Free( cl_particles );
 	cl_particles = NULL;
+	cl_numparticles = 0;
 }
 
 /*
@@ -2220,6 +2223,7 @@ void CL_DrawEFX( float time, qboolean fTrans )
 	if( fTrans )
 		CL_GCTrySeedLeanBeamProof();
 #endif
+	GC_WatchdogMark( fTrans ? "EFX trans beams" : "EFX solid beams" );
 	CL_FreeDeadBeams();
 	/* G320: lean previously skipped trans beams — additive env_beam / env_laser
 	 * (reactor lightning, security lasers) never drew. Draw both passes. */
@@ -2236,12 +2240,17 @@ void CL_DrawEFX( float time, qboolean fTrans )
 		if( Sys_CheckParm( "-gcnewgame" ) && !Sys_CheckParm( "-gcfullphysics" ))
 			return;
 #endif
+		GC_WatchdogMark( "EFX free dead particles" );
 		R_FreeDeadParticles( &cl_active_particles );
+		GC_WatchdogMark( "EFX draw particles" );
 		if( cl_draw_particles.value )
 			ref.dllFuncs.CL_DrawParticles( time, cl_active_particles, PART_SIZE );
+		GC_WatchdogMark( "EFX free dead tracers" );
 		R_FreeDeadParticles( &cl_active_tracers );
+		GC_WatchdogMark( "EFX draw tracers" );
 		if( cl_draw_tracers.value )
 			ref.dllFuncs.CL_DrawTracers( time, cl_active_tracers );
+		GC_WatchdogMark( "EFX trans done" );
 	}
 }
 
@@ -2297,13 +2306,11 @@ qboolean CL_GCSeedFlipperEfxProof( const float *org )
 			reclaimed++;
 		}
 
-		if( !cl_free_particles && cl_particles )
+		if( !cl_free_particles && cl_particles && cl_numparticles > 0 )
 		{
-			int max_particles = GI ? GI->max_particles : 48;
+			const int max_particles = cl_numparticles;
 			int pi;
 
-			if( max_particles < 4 )
-				max_particles = 4;
 			cl_active_particles = NULL;
 			cl_active_tracers = NULL;
 			cl_free_particles = cl_particles;

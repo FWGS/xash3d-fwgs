@@ -870,7 +870,10 @@ static qboolean R_GCTraceFirstEntityFrame( void )
 			|| gEngfuncs.Sys_CheckParm( "-gcmenuplaystart" ));
 }
 #define R_GC_ENTITY_TRACE( ... ) \
-	do { if( R_GCTraceFirstEntityFrame( )) gEngfuncs.Con_Reportf( __VA_ARGS__ ); } while( 0 )
+	do { \
+		GC_WatchdogMark( "DrawEntities" ); \
+		if( R_GCTraceFirstEntityFrame( )) gEngfuncs.Con_Reportf( __VA_ARGS__ ); \
+	} while( 0 )
 #else
 #define R_GC_ENTITY_TRACE( ... ) ((void)0)
 #endif

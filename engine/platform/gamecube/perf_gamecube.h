@@ -27,6 +27,11 @@ typedef struct {
     int fps_window_count;        /* Number of samples in window */
 } GC_PerfMetrics;
 
+/* Stall watchdog: GC_WatchdogMark records the current stage and progress;
+ * a periodic alarm reports the stage and GP status when progress stops. */
+void GC_WatchdogInit( void );
+void GC_WatchdogMark( const char *stage );
+
 /* Initialize performance metrics */
 void GC_PerfInit( void );
 

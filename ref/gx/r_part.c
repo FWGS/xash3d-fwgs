@@ -121,6 +121,9 @@ void GAME_EXPORT CL_DrawParticles( double frametime, particle_t *cl_active_parti
 			// TriBrightness( alpha / 255.0f );
 			_TriColor4f( brightness * alpha / 255 / 255 * color.r, brightness * alpha / 255 / 255 * color.g, brightness * alpha / 255 / 255 * color.b, 1.0f );
 
+#if XASH_GAMECUBE
+			GC_WatchdogMark( "particle quad" );
+#endif
 			TriBegin( TRI_QUADS );
 			TriTexCoord2f( 0.0f, 1.0f );
 			TriVertex3f( p->org[0] - right[0] + up[0], p->org[1] - right[1] + up[1], p->org[2] - right[2] + up[2] );
@@ -134,6 +137,9 @@ void GAME_EXPORT CL_DrawParticles( double frametime, particle_t *cl_active_parti
 			r_stats.c_particle_count++;
 		}
 
+#if XASH_GAMECUBE
+		GC_WatchdogMark( "particle think" );
+#endif
 		gEngfuncs.CL_ThinkParticle( frametime, p );
 	}
 	}

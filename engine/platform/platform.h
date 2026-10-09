@@ -186,6 +186,7 @@ void GC_GetTramLightmapUV( int face, float s, float t, float *out_s, float *out_
 /* G151: Flipper GX world draw (live); soft spans remain for DumpFrames. */
 qboolean GC_UseGxWorldDraw( void );
 qboolean GC_UseGxRenderer( void );
+void GC_WatchdogMark( const char *stage );
 void GC_MarkGxWorldEfbReady( void );
 void GC_EnableGxWorldLive( void );
 qboolean GC_AllowFlipperCapFaces( void );
