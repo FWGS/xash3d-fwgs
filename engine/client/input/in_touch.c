@@ -2151,6 +2151,9 @@ static int Touch_ControlsEvent( touchEventType type, int fingerID, float x, floa
 {
 	if( touch.state == state_edit_move )
 	{
+		// buttons are positioned in safe area units, unlike look and wheel
+		dx *= (float)refState.width / touch.view_width;
+		dy *= (float)refState.height / touch.view_height;
 		Touch_EditMove( type, fingerID, x, y, dx, dy );
 		return true;
 	}
@@ -2295,8 +2298,6 @@ int IN_TouchEvent( touchEventType type, int fingerID, float x, float y, float dx
 	// flowing so a finger released outside the safe rectangle cannot stick.
 	x = ( x * refState.width - touch.view_x ) / touch.view_width;
 	y = ( y * refState.height - touch.view_y ) / SCRN_HEIGHT( 1 );
-	dx *= (float)refState.width / touch.view_width;
-	dy *= (float)refState.height / touch.view_height;
 	return Touch_ControlsEvent( type, fingerID, x, y, dx, dy );
 }
 
