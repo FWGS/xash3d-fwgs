@@ -600,7 +600,6 @@ static void IN_CollectInput( float *forward, float *side, float *pitch, float *y
 		inputstate.lastyaw   = *yaw;
 	}
 
-
 }
 
 #if XASH_ENGINE_TESTS && !XASH_NO_TOUCH

@@ -313,7 +313,6 @@ static qboolean Touch_DumpConfig( const char *name, const char *profilename )
 	FS_Printf( f, "touch_joy_radius \"%g\"\n", touch_joy_radius.value );
 	FS_Printf( f, "\n// how much slowdown when Precise Look button pressed\n" );
 	FS_Printf( f, "touch_precise_amount \"%g\"\n", touch_precise_amount.value );
-	FS_Printf( f, "\n// analog stick options\n" );
 	FS_Printf( f, "\n// enable/disable move indicator\n" );
 	FS_Printf( f, "touch_move_indicator \"%g\"\n", touch_move_indicator.value );
 
@@ -595,7 +594,6 @@ static void Touch_SetClientOnly_f( void )
 
 	Touch_SetClientOnly( Q_atoi( Cmd_Argv( 1 )));
 }
-
 
 static void Touch_ReleaseStick( touch_button_t *button )
 {
