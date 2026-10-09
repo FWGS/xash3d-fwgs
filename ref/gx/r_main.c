@@ -2730,6 +2730,11 @@ qboolean GAME_EXPORT R_Init( void )
 	R_InitTurb();
 	GL_InitRandomTable();
 #if XASH_GAMECUBE
+	{
+		extern void R_GXReserveHudPoolEarly( void );
+
+		R_GXReserveHudPoolEarly();
+	}
 	gEngfuncs.Con_Reportf( "Xash3D GameCube: renderer init ready (quality=%d)\n", GC_GetVisualQuality() );
 #endif
 

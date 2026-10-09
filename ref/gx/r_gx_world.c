@@ -375,6 +375,12 @@ static void R_GXReserveHudPool( void )
 	r_gx_hud_pool_ready = true;
 }
 
+/* Called at the end of R_Init, while MEM1 still has room. */
+void R_GXReserveHudPoolEarly( void )
+{
+	R_GXReserveHudPool();
+}
+
 qboolean R_GXWorldDrewThisFrame( void )
 {
 	return r_gx_world_drew;
@@ -688,6 +694,20 @@ static void R_GXTexCacheReset( void )
 
 	for( i = 0; i < GC_GX_TEX_SLOTS; i++ )
 	{
+		/* Keep the reserved HUD slabs across map changes: re-allocating
+		 * them after the world load found MEM1 full (G184 slot=23..31). */
+		if( i >= GC_GX_TEX_HUD_SLOT0 && r_gx_tex[i].hud_pin && r_gx_tex[i].tiled )
+		{
+			u16 *keep = r_gx_tex[i].tiled;
+			size_t keep_bytes = r_gx_tex[i].alloc_bytes;
+
+			memset( &r_gx_tex[i], 0, sizeof( r_gx_tex[i] ));
+			r_gx_tex[i].tiled = keep;
+			r_gx_tex[i].alloc_bytes = keep_bytes;
+			r_gx_tex[i].hud_pin = true;
+			r_gx_tex_lru[i] = 0;
+			continue;
+		}
 		if( r_gx_tex[i].tiled && i >= GC_GX_TEX_WORLD_POOL )
 			free( r_gx_tex[i].tiled );
 		memset( &r_gx_tex[i], 0, sizeof( r_gx_tex[i] ));
