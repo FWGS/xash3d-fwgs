@@ -64,6 +64,7 @@ typedef struct touch_button_s
 	float fadeend;
 	float aspect;
 	float stick_x, stick_y; // transient thumb displacement inside the ring
+	qboolean latched; // TOUCH_FL_COMMAND_LATCH button sent +command
 
 	// Double-linked list
 	struct touch_button_s *next;
@@ -612,6 +613,25 @@ static void Touch_ReleaseStick( touch_button_t *button )
 	button->stick_x = button->stick_y = 0;
 }
 
+static void Touch_AddButtonCommand( const touch_button_t *button, const char *command )
+{
+	if( FBitSet( button->flags, TOUCH_FL_UNPRIVILEGED ))
+		Cbuf_AddFilteredText( command );
+	else Cbuf_AddText( command );
+}
+
+static void Touch_ReleaseLatch( touch_button_t *button )
+{
+	char command[256];
+
+	if( !button->latched )
+		return;
+
+	button->latched = false;
+	Q_snprintf( command, sizeof( command ), "-%s\n", &button->command[1] );
+	Touch_AddButtonCommand( button, command );
+}
+
 static void Touch_ResetSticks( void )
 {
 	for( touch_button_t *button = touch.list_user.first; button; button = button->next )
@@ -637,6 +657,7 @@ static void Touch_RemoveButtonFromList( touchbuttonlist_t *list, const char *nam
 			list->last = button->prev;
 
 		Touch_ReleaseStick( button );
+		Touch_ReleaseLatch( button );
 		Mem_Free( button );
 	}
 }
@@ -664,6 +685,7 @@ static void Touch_ClearList( touchbuttonlist_t *list )
 		touch_button_t *remove = list->first;
 		list->first = list->first->next;
 		Touch_ReleaseStick( remove );
+		Touch_ReleaseLatch( remove );
 		Mem_Free( remove );
 	}
 	list->first = list->last = NULL;
@@ -696,6 +718,7 @@ static void Touch_SetTexture( touchbuttonlist_t *list, const char *name, const c
 static void Touch_SetCommand( touch_button_t *button, const char *command )
 {
 	Touch_ReleaseStick( button );
+	Touch_ReleaseLatch( button );
 	Q_strncpy( button->command, command, sizeof( button->command ));
 
 	if( !Q_strcmp( command, "_look" ))
@@ -719,6 +742,7 @@ void Touch_HideButtons( const char *name, byte hide, qboolean privileged )
 		if( hide )
 		{
 			Touch_ReleaseStick( b );
+			Touch_ReleaseLatch( b );
 			SetBits( b->flags, TOUCH_FL_HIDE );
 		}
 		else
@@ -813,6 +837,8 @@ static void Touch_SetFlags_f( void )
 			// Cleanup must inspect the old mode before flags can remove it.
 			if( FBitSet( flags, TOUCH_FL_HIDE ) || FBitSet( flags ^ button->flags, TOUCH_FL_STICK ))
 				Touch_ReleaseStick( button );
+			if( FBitSet( flags, TOUCH_FL_HIDE ) || !FBitSet( flags, TOUCH_FL_COMMAND_LATCH ))
+				Touch_ReleaseLatch( button );
 			button->flags = flags;
 		}
 		else
@@ -1485,7 +1511,7 @@ static void Touch_DrawButtons( touchbuttonlist_t *list )
 				}
 			}
 
-			if( b->finger != -1 && !FBitSet( b->flags, TOUCH_FL_CLIENT ) )
+			if(( b->finger != -1 || b->latched ) && !FBitSet( b->flags, TOUCH_FL_CLIENT ))
 			{
 				color[0] = bound( 0, color[0] * touch_highlight_r.value, 255 );
 				color[1] = bound( 0, color[1] * touch_highlight_g.value, 255 );
@@ -1890,11 +1916,18 @@ static qboolean Touch_ButtonPress( touchbuttonlist_t *list, touchEventType type,
 			{
 				char command[256];
 
-				// command down: just execute command
-				Q_snprintf( command, sizeof( command ), "%s\n", button->command );
-				if( FBitSet( button->flags, TOUCH_FL_UNPRIVILEGED ))
-					Cbuf_AddFilteredText( command );
-				else Cbuf_AddText( command );
+				if( button->command[0] == '+' && FBitSet( button->flags, TOUCH_FL_COMMAND_LATCH ))
+				{
+					// latched command down: alternate between +command and -command
+					button->latched = !button->latched;
+					Q_snprintf( command, sizeof( command ), "%c%s\n", button->latched ? '+' : '-', &button->command[1] );
+				}
+				else
+				{
+					// command down: just execute command
+					Q_snprintf( command, sizeof( command ), "%s\n", button->command );
+				}
+				Touch_AddButtonCommand( button, command );
 
 				// increase precision
 				if( FBitSet( button->flags, TOUCH_FL_PRECISION ))
@@ -2034,14 +2067,13 @@ static qboolean Touch_ButtonPress( touchbuttonlist_t *list, touchEventType type,
 
 			if( button->type == touch_command )
 			{
-				if( button->command[0] == '+' )
+				// latched command stays down until the next press
+				if( button->command[0] == '+' && !FBitSet( button->flags, TOUCH_FL_COMMAND_LATCH ))
 				{
 					char command[256];
 
 					Q_snprintf( command, sizeof( command ), "-%s\n", &button->command[1] );
-					if( FBitSet( button->flags, TOUCH_FL_UNPRIVILEGED ))
-						Cbuf_AddFilteredText( command );
-					else Cbuf_AddText( command );
+					Touch_AddButtonCommand( button, command );
 				}
 
 				// disable precision mode
@@ -2521,9 +2553,66 @@ static void Test_TouchStick( void )
 	cls.key_dest = old_dest;
 }
 
+static int test_latch_down, test_latch_up;
+
+static void Test_LatchDown_f( void )
+{
+	test_latch_down++;
+}
+
+static void Test_LatchUp_f( void )
+{
+	test_latch_up++;
+}
+
+static void Test_TouchLatch( void )
+{
+	struct touch_s saved = touch;
+	touch_button_t button = { 0 };
+
+	Cmd_AddCommand( "+test_touch_latch", Test_LatchDown_f, "test touch latch" );
+	Cmd_AddCommand( "-test_touch_latch", Test_LatchUp_f, "test touch latch" );
+
+	button.type = touch_command;
+	button.flags = TOUCH_FL_COMMAND_LATCH;
+	button.finger = -1;
+	button.x2 = button.y2 = 2;
+	Q_strncpy( button.name, "latch", sizeof( button.name ));
+	Q_strncpy( button.command, "+test_touch_latch", sizeof( button.command ));
+	touch.list_user.first = touch.list_user.last = &button;
+	touch.state = state_none;
+	touch.clientonly = false;
+
+	// first press latches, release keeps it down
+	Touch_ButtonPress( &touch.list_user, event_down, 1, 1, 1 );
+	Touch_ButtonPress( &touch.list_user, event_up, 1, 1, 1 );
+	Cbuf_Execute();
+	TASSERT( button.latched );
+	TASSERT( test_latch_down == 1 && test_latch_up == 0 );
+
+	// second press releases
+	Touch_ButtonPress( &touch.list_user, event_down, 1, 1, 1 );
+	Touch_ButtonPress( &touch.list_user, event_up, 1, 1, 1 );
+	Cbuf_Execute();
+	TASSERT( !button.latched );
+	TASSERT( test_latch_down == 1 && test_latch_up == 1 );
+
+	// hiding a latched button releases it
+	Touch_ButtonPress( &touch.list_user, event_down, 1, 1, 1 );
+	Touch_HideButtons( "latch", true, true );
+	Cbuf_Execute();
+	TASSERT( !button.latched );
+	TASSERT( test_latch_down == 2 && test_latch_up == 2 );
+
+	Cmd_RemoveCommand( "+test_touch_latch" );
+	Cmd_RemoveCommand( "-test_touch_latch" );
+	touch = saved;
+}
+
 void Test_RunTouch( void )
 {
 	TRUN( Test_TouchStick() );
+	TRUN( Test_TouchLatch() );
 }
 #endif // XASH_ENGINE_TESTS
 
