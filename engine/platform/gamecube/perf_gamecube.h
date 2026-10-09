@@ -31,6 +31,7 @@ typedef struct {
  * a periodic alarm reports the stage and GP status when progress stops. */
 void GC_WatchdogInit( void );
 void GC_WatchdogMark( const char *stage );
+void GC_WatchdogStage( const char *stage );
 
 /* Initialize performance metrics */
 void GC_PerfInit( void );

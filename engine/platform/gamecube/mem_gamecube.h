@@ -73,6 +73,7 @@ size_t GC_EntityEstimateSize( void );
 
 /* Stall watchdog stage marker (perf_gamecube.c). */
 void GC_WatchdogMark( const char *stage );
+void GC_WatchdogStage( const char *stage );
 
 #else
 
@@ -118,5 +119,6 @@ static inline size_t GC_MapLoadPressureDelta( void ) { return 0; }
 /* Entity memory estimation (stubs) */
 static inline size_t GC_EntityEstimateSize( void ) { return 0; }
 static inline void GC_WatchdogMark( const char *stage ) { (void)stage; }
+static inline void GC_WatchdogStage( const char *stage ) { (void)stage; }
 
 #endif

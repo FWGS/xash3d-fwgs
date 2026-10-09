@@ -953,6 +953,24 @@ static void CL_DrawLoadingOrPaused( int tex )
 	ref.dllFuncs.R_DrawStretchPic( x, y, width, height, 0, 0, 1, 1, tex );
 }
 
+#if XASH_GAMECUBE
+/* Engine callbacks the client HUD makes during the first traced Redraw are
+ * logged (bounded) and each one names the watchdog stage, so a stall inside
+ * HUD_Redraw shows the last engine call the client made. */
+static int gc_hud_call_trace;
+#define GC_HUD_CALL( fmt, ... ) \
+	do { \
+		GC_WatchdogStage( __func__ ); \
+		if( gc_hud_call_trace > 0 ) \
+		{ \
+			gc_hud_call_trace--; \
+			Con_Reportf( "Xash3D GameCube: HUD call " fmt "\n", ##__VA_ARGS__ ); \
+		} \
+	} while( 0 )
+#else
+#define GC_HUD_CALL( fmt, ... ) ((void)0)
+#endif
+
 void CL_DrawHUD( int state )
 {
 	if( state == CL_ACTIVE && !cl.video_prepped )
@@ -983,7 +1001,15 @@ void CL_DrawHUD( int state )
 		CL_HUD_TRACE( "crosshair done" );
 		CL_DrawCenterPrint ();
 		CL_HUD_TRACE( "centerprint done" );
+#if XASH_GAMECUBE
+		if( trace )
+			gc_hud_call_trace = 200;
+		GC_WatchdogMark( "client HUD Redraw" );
+#endif
 		clgame.dllFuncs.pfnRedraw( cl.time, cl.intermission );
+#if XASH_GAMECUBE
+		gc_hud_call_trace = 0;
+#endif
 		CL_HUD_TRACE( "client Redraw done" );
 		if( cl.intermission ) CL_DrawScreenFade ();
 		break;
@@ -1960,6 +1986,7 @@ pfnSPR_Height
 */
 static int GAME_EXPORT pfnSPR_Height( HSPRITE hPic, int frame )
 {
+	GC_HUD_CALL( "SPR_Height pic=%d frame=%d", hPic, frame );
 	int	sprHeight = 0;
 
 	R_GetSpriteParms( NULL, &sprHeight, NULL, frame, CL_GetSpritePointer( hPic ));
@@ -1975,6 +2002,7 @@ pfnSPR_Width
 */
 static int GAME_EXPORT pfnSPR_Width( HSPRITE hPic, int frame )
 {
+	GC_HUD_CALL( "SPR_Width pic=%d frame=%d", hPic, frame );
 	int	sprWidth = 0;
 
 	R_GetSpriteParms( &sprWidth, NULL, NULL, frame, CL_GetSpritePointer( hPic ));
@@ -1990,6 +2018,7 @@ pfnSPR_Set
 */
 static void GAME_EXPORT pfnSPR_Set( HSPRITE hPic, int r, int g, int b )
 {
+	GC_HUD_CALL( "SPR_Set pic=%d", hPic );
 	const model_t *sprite = CL_GetSpritePointer( hPic );
 
 	// a1ba: do not alter the state if invalid HSPRITE was passed
@@ -2011,6 +2040,7 @@ pfnSPR_Draw
 */
 static void GAME_EXPORT pfnSPR_Draw( int frame, int x, int y, const wrect_t *prc )
 {
+	GC_HUD_CALL( "SPR_Draw frame=%d x=%d y=%d", frame, x, y );
 	ref.dllFuncs.GL_SetRenderMode( kRenderTransAlpha );
 	SPR_DrawGeneric( frame, x, y, -1, -1, prc );
 }
@@ -2023,6 +2053,7 @@ pfnSPR_DrawHoles
 */
 static void GAME_EXPORT pfnSPR_DrawHoles( int frame, int x, int y, const wrect_t *prc )
 {
+	GC_HUD_CALL( "SPR_DrawHoles frame=%d x=%d y=%d", frame, x, y );
 #if 1 // REFTODO
 	ref.dllFuncs.GL_SetRenderMode( kRenderTransColor );
 #else
@@ -2048,6 +2079,7 @@ pfnSPR_DrawAdditive
 */
 static void GAME_EXPORT pfnSPR_DrawAdditive( int frame, int x, int y, const wrect_t *prc )
 {
+	GC_HUD_CALL( "SPR_DrawAdditive frame=%d x=%d y=%d", frame, x, y );
 #if 1 // REFTODO
 	ref.dllFuncs.GL_SetRenderMode( kRenderTransAdd );
 #else
@@ -2186,6 +2218,7 @@ CL_FillRGBA
 */
 static void GAME_EXPORT CL_FillRGBA( int x, int y, int w, int h, int r, int g, int b, int a )
 {
+	GC_HUD_CALL( "FillRGBA x=%d y=%d w=%d h=%d", x, y, w, h );
 	float x_ = x, y_ = y, w_ = w, h_ = h;
 
 	r = bound( 0, r, 255 );
@@ -2512,6 +2545,7 @@ returns drawed chachter width (in real screen pixels)
 */
 static int GAME_EXPORT pfnDrawCharacter( int x, int y, int number, int r, int g, int b )
 {
+	GC_HUD_CALL( "DrawCharacter x=%d y=%d ch=%d", x, y, number );
 	rgba_t color = { r, g, b, 255 };
 	int flags = FONT_DRAW_HUD;
 
@@ -2530,6 +2564,7 @@ drawing string like a console string
 */
 int GAME_EXPORT pfnDrawConsoleString( int x, int y, char *string )
 {
+	GC_HUD_CALL( "DrawConsoleString x=%d y=%d", x, y );
 	cl_font_t *font = Con_GetFont( con_fontsize.value );
 	rgba_t color;
 	Vector4Copy( clgame.ds.textColor, color );
@@ -2563,6 +2598,7 @@ compute string length in screen pixels
 */
 void GAME_EXPORT pfnDrawConsoleStringLen( const char *pText, int *length, int *height )
 {
+	GC_HUD_CALL( "DrawConsoleStringLen" );
 	cl_font_t *font = Con_GetFont( con_fontsize.value );
 
 	if( height ) *height = font->charHeight;
@@ -3527,6 +3563,7 @@ pfnSPR_DrawGeneric
 */
 static void GAME_EXPORT pfnSPR_DrawGeneric( int frame, int x, int y, const wrect_t *prc, int blendsrc, int blenddst, int width, int height )
 {
+	GC_HUD_CALL( "SPR_DrawGeneric frame=%d x=%d y=%d", frame, x, y );
 #if 0 // REFTODO:
 	pglEnable( GL_BLEND );
 	pglBlendFunc( blendsrc, blenddst ); // g-cont. are params is valid?
@@ -3575,6 +3612,7 @@ pfnDrawString
 */
 static int GAME_EXPORT pfnDrawString( int x, int y, const char *str, int r, int g, int b )
 {
+	GC_HUD_CALL( "DrawString x=%d y=%d", x, y );
 	rgba_t color = { r, g, b, 255 };
 	int flags = FONT_DRAW_HUD | FONT_DRAW_NOLF;
 
@@ -3592,6 +3630,7 @@ pfnDrawStringReverse
 */
 static int GAME_EXPORT pfnDrawStringReverse( int x, int y, const char *str, int r, int g, int b )
 {
+	GC_HUD_CALL( "DrawStringReverse x=%d y=%d", x, y );
 	rgba_t color = { r, g, b, 255 };
 	int flags = FONT_DRAW_HUD | FONT_DRAW_NOLF;
 
@@ -3675,6 +3714,7 @@ pfnFillRGBABlend
 */
 static void GAME_EXPORT CL_FillRGBABlend( int x, int y, int w, int h, int r, int g, int b, int a )
 {
+	GC_HUD_CALL( "FillRGBABlend x=%d y=%d w=%d h=%d", x, y, w, h );
 	float x_ = x, y_ = y, w_ = w, h_ = h;
 
 	r = bound( 0, r, 255 );

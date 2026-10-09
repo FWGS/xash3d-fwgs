@@ -33,6 +33,13 @@ void GC_WatchdogMark( const char *stage )
 	gc_watchdog_progress++;
 }
 
+/* Name the current stage without counting it as progress: callbacks a
+ * stalled loop keeps calling must not hide the stall. */
+void GC_WatchdogStage( const char *stage )
+{
+	gc_watchdog_stage = stage;
+}
+
 static void GC_WatchdogTick( syswd_t alarm, void *arg )
 {
 	static unsigned last_progress;
