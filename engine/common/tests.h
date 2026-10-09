@@ -35,6 +35,7 @@ extern struct tests_stats_s tests_stats;
 	_TASSERT( Q_strcmp(( str1 ), ( str2 )), Msg( S_ERROR "assert failed at %s:%i, \"%s\" != \"%s\"\n", __FILE__, __LINE__, ( str1 ), ( str2 )))
 
 void Test_RunImagelib( void );
+void Test_RunPNG( void );
 void Test_RunLibCommon( void );
 void Test_RunCommon( void );
 void Test_RunCmd( void );
@@ -71,6 +72,7 @@ void Test_RunConfig( void );
 
 #define TEST_LIST_1 \
 	Test_RunImagelib(); \
+	Test_RunPNG(); \
 	Test_RunConfig();
 
 #define TEST_LIST_1_CLIENT \

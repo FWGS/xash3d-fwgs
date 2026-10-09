@@ -37,7 +37,7 @@ qboolean Image_LoadPNG( const char *name, const byte *buffer, fs_offset_t filesi
 	byte		*pixbuf, *raw, *prior, *idat_buf = NULL, *uncompressed_buffer = NULL;
 	byte		*pallete = NULL, *trns = NULL;
 	uint	 	chunk_len, trns_len = 0, plte_len = 0, crc32, crc32_check, oldsize = 0, newsize = 0;
-	uint		pixel_size, i, y, filter_type, chunk_sign, r_alpha, g_alpha, b_alpha;
+	uint		pixel_size, i, y, filter_type, chunk_sign, r_alpha, g_alpha, b_alpha, grey_scale;
 	qboolean 	has_iend_chunk = false;
 	z_stream 	stream = {0};
 	png_t		png_hdr;
@@ -87,12 +87,6 @@ qboolean Image_LoadPNG( const char *name, const byte *buffer, fs_offset_t filesi
 	if( !Image_ValidSize( name ))
 		return false;
 
-	if( png_hdr.ihdr_chunk.bitdepth != 8 )
-	{
-		Con_DPrintf( S_WARN "%s: Only 8-bit images is supported (%s)\n", __func__, name );
-		return false;
-	}
-
 	if( !( png_hdr.ihdr_chunk.colortype == PNG_CT_RGB
 	    || png_hdr.ihdr_chunk.colortype == PNG_CT_RGBA
 	    || png_hdr.ihdr_chunk.colortype == PNG_CT_GREY
@@ -101,6 +95,18 @@ qboolean Image_LoadPNG( const char *name, const byte *buffer, fs_offset_t filesi
 	{
 		Con_DPrintf( S_WARN "%s: Unknown color type %u (%s)\n", __func__, png_hdr.ihdr_chunk.colortype, name );
 		return false;
+	}
+
+	if( png_hdr.ihdr_chunk.bitdepth != 8 )
+	{
+		// 1, 2 and 4 bits per sample are only allowed for greyscale and indexed images
+		qboolean sub_byte = png_hdr.ihdr_chunk.bitdepth == 1 || png_hdr.ihdr_chunk.bitdepth == 2 || png_hdr.ihdr_chunk.bitdepth == 4;
+
+		if( !sub_byte || !( png_hdr.ihdr_chunk.colortype == PNG_CT_GREY || png_hdr.ihdr_chunk.colortype == PNG_CT_PALLETE ))
+		{
+			Con_DPrintf( S_WARN "%s: Unsupported bit depth %u for color type %u (%s)\n", __func__, png_hdr.ihdr_chunk.bitdepth, png_hdr.ihdr_chunk.colortype, name );
+			return false;
+		}
 	}
 
 	if( png_hdr.ihdr_chunk.compression > 0 )
@@ -275,7 +281,8 @@ qboolean Image_LoadPNG( const char *name, const byte *buffer, fs_offset_t filesi
 
 	image.depth = 1;
 
-	uint rowsize = pixel_size * image.width;
+	// sub-byte rows are padded to a whole byte, filters then work on bytes like 8-bit greyscale
+	uint rowsize = ( pixel_size * image.width * png_hdr.ihdr_chunk.bitdepth + 7 ) / 8;
 
 	uint uncompressed_size = image.height * ( rowsize + 1 ); // +1 for filter
 	uncompressed_buffer = Mem_Malloc( host.imagepool, uncompressed_size );
@@ -414,6 +421,28 @@ qboolean Image_LoadPNG( const char *name, const byte *buffer, fs_offset_t filesi
 		prior = pixbuf;
 	}
 
+	// unpack sub-byte samples so every pixel takes a whole byte, first pixel is in the high bits
+	if( png_hdr.ihdr_chunk.bitdepth < 8 )
+	{
+		const uint bitdepth = png_hdr.ihdr_chunk.bitdepth;
+		const uint mask = ( 1 << bitdepth ) - 1;
+		byte *unpacked = Mem_Malloc( host.imagepool, pixel_count );
+
+		for( y = 0; y < image.height; y++ )
+		{
+			const byte *row = uncompressed_buffer + y * rowsize;
+
+			for( i = 0; i < image.width; i++ )
+			{
+				uint bit = i * bitdepth;
+				unpacked[y * image.width + i] = ( row[bit >> 3] >> ( 8 - bitdepth - ( bit & 7 ))) & mask;
+			}
+		}
+
+		Mem_Free( uncompressed_buffer );
+		uncompressed_buffer = unpacked;
+	}
+
 	pixbuf = image.rgba;
 	raw = uncompressed_buffer;
 
@@ -445,11 +474,14 @@ qboolean Image_LoadPNG( const char *name, const byte *buffer, fs_offset_t filesi
 		if( trns )
 			r_alpha = trns[0] << 8 | trns[1];
 
+		// stretch sub-byte samples to the full range, transparency is checked against the original sample
+		grey_scale = 255 / (( 1 << png_hdr.ihdr_chunk.bitdepth ) - 1 );
+
 		for( y = 0; y < pixel_count; y++, raw += pixel_size )
 		{
-			*pixbuf++ = raw[0];
-			*pixbuf++ = raw[0];
-			*pixbuf++ = raw[0];
+			*pixbuf++ = raw[0] * grey_scale;
+			*pixbuf++ = raw[0] * grey_scale;
+			*pixbuf++ = raw[0] * grey_scale;
 
 			if( trns && r_alpha == raw[0] )
 				*pixbuf++ = 0;
@@ -688,3 +720,113 @@ qboolean Image_SavePNG( const char *name, rgbdata_t *pix )
 	Mem_Free( buffer );
 	return true;
 }
+
+#if XASH_ENGINE_TESTS
+#include "tests.h"
+
+// 5x5, 4-bit indexed
+static const byte png_pal4[] =
+{
+	0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0x00, 0x00, 0x00, 0x0d,
+	0x49, 0x48, 0x44, 0x52, 0x00, 0x00, 0x00, 0x05, 0x00, 0x00, 0x00, 0x05,
+	0x04, 0x03, 0x00, 0x00, 0x00, 0x7f, 0x41, 0x3b, 0xd6, 0x00, 0x00, 0x00,
+	0x30, 0x50, 0x4c, 0x54, 0x45, 0x00, 0xff, 0x00, 0x11, 0xee, 0x05, 0x22,
+	0xdd, 0x0a, 0x33, 0xcc, 0x0f, 0x44, 0xbb, 0x14, 0x55, 0xaa, 0x19, 0x66,
+	0x99, 0x1e, 0x77, 0x88, 0x23, 0x88, 0x77, 0x28, 0x99, 0x66, 0x2d, 0xaa,
+	0x55, 0x32, 0xbb, 0x44, 0x37, 0xcc, 0x33, 0x3c, 0xdd, 0x22, 0x41, 0xee,
+	0x11, 0x46, 0xff, 0x00, 0x4b, 0xb5, 0xdc, 0x7d, 0xe3, 0x00, 0x00, 0x00,
+	0x08, 0x74, 0x52, 0x4e, 0x53, 0x00, 0x1e, 0x3c, 0x5a, 0x78, 0x96, 0xb4,
+	0xd2, 0x3e, 0x7c, 0x31, 0xfb, 0x00, 0x00, 0x00, 0x1c, 0x49, 0x44, 0x41,
+	0x54, 0x78, 0xda, 0x63, 0x60, 0xce, 0x3c, 0xc0, 0x18, 0x91, 0x16, 0xc4,
+	0x14, 0xea, 0x1a, 0xc0, 0x3c, 0xe7, 0x5e, 0x08, 0x4b, 0x68, 0x5a, 0x00,
+	0x00, 0x3a, 0x05, 0x06, 0x0a, 0xae, 0x0c, 0x41, 0xad, 0x00, 0x00, 0x00,
+	0x00, 0x49, 0x45, 0x4e, 0x44, 0xae, 0x42, 0x60, 0x82,
+};
+
+// 7x5, 2-bit greyscale
+static const byte png_grey2[] =
+{
+	0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0x00, 0x00, 0x00, 0x0d,
+	0x49, 0x48, 0x44, 0x52, 0x00, 0x00, 0x00, 0x07, 0x00, 0x00, 0x00, 0x05,
+	0x02, 0x00, 0x00, 0x00, 0x00, 0xe6, 0x41, 0xb1, 0xa5, 0x00, 0x00, 0x00,
+	0x02, 0x74, 0x52, 0x4e, 0x53, 0x00, 0x01, 0x01, 0x94, 0xfd, 0xae, 0x00,
+	0x00, 0x00, 0x17, 0x49, 0x44, 0x41, 0x54, 0x78, 0xda, 0x63, 0xb0, 0xb4,
+	0x60, 0xf4, 0xfb, 0xc7, 0xe4, 0xea, 0xc2, 0x3c, 0x5b, 0x8b, 0x25, 0xf4,
+	0x3f, 0x00, 0x1c, 0xe3, 0x04, 0x6a, 0x3f, 0x9c, 0x16, 0x8d, 0x00, 0x00,
+	0x00, 0x00, 0x49, 0x45, 0x4e, 0x44, 0xae, 0x42, 0x60, 0x82,
+};
+
+// 11x5, 1-bit indexed
+static const byte png_pal1[] =
+{
+	0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0x00, 0x00, 0x00, 0x0d,
+	0x49, 0x48, 0x44, 0x52, 0x00, 0x00, 0x00, 0x0b, 0x00, 0x00, 0x00, 0x05,
+	0x01, 0x03, 0x00, 0x00, 0x00, 0xa9, 0x68, 0x84, 0x15, 0x00, 0x00, 0x00,
+	0x06, 0x50, 0x4c, 0x54, 0x45, 0x00, 0xff, 0x00, 0x11, 0xee, 0x05, 0xc2,
+	0x70, 0x9d, 0xe9, 0x00, 0x00, 0x00, 0x01, 0x74, 0x52, 0x4e, 0x53, 0x00,
+	0x40, 0xe6, 0xd8, 0x66, 0x00, 0x00, 0x00, 0x17, 0x49, 0x44, 0x41, 0x54,
+	0x78, 0xda, 0x63, 0x08, 0x75, 0x60, 0x5c, 0xf5, 0x8d, 0x69, 0xf5, 0x02,
+	0xe6, 0x06, 0x6d, 0x96, 0xd5, 0xaf, 0x01, 0x28, 0x40, 0x05, 0xcc, 0x40,
+	0x3e, 0x9f, 0x7d, 0x00, 0x00, 0x00, 0x00, 0x49, 0x45, 0x4e, 0x44, 0xae,
+	0x42, 0x60, 0x82,
+};
+
+static void Test_CheckSubBytePNG( const char *name, const byte *data, size_t size, uint width, uint height, uint bitdepth, qboolean indexed )
+{
+	const uint mask = ( 1 << bitdepth ) - 1;
+	rgbdata_t *load = FS_LoadImage( name, data, size );
+	uint mismatches = 0;
+
+	TASSERT( load != NULL );
+	if( !load )
+		return;
+
+	TASSERT( load->width == width );
+	TASSERT( load->height == height );
+	TASSERT( load->type == PF_RGBA_32 );
+	TASSERT( FBitSet( load->flags, IMAGE_HAS_ALPHA ));
+	TASSERT( load->size == width * height * 4 );
+
+	if( load->width == width && load->height == height && load->size == width * height * 4 )
+	{
+		for( uint y = 0; y < height; y++ )
+		{
+			for( uint x = 0; x < width; x++ )
+			{
+				uint v = ( 3 * x + 5 * y ) & mask;
+				byte expected[4];
+
+				if( indexed )
+				{
+					expected[0] = v * 17;
+					expected[1] = 255 - v * 17;
+					expected[2] = v * 5;
+					expected[3] = v < ( mask + 1 ) / 2 ? v * 30 : 255;
+				}
+				else
+				{
+					expected[0] = expected[1] = expected[2] = v * 255 / mask;
+					expected[3] = v == 1 ? 0 : 255;
+				}
+
+				if( memcmp( load->buffer + ( y * width + x ) * 4, expected, sizeof( expected )))
+					mismatches++;
+			}
+		}
+	}
+
+	TASSERT_EQi( mismatches, 0 );
+
+	FS_FreeImage( load );
+}
+
+void Test_RunPNG( void )
+{
+	Image_Setup();
+
+	Con_Printf( "Checking if we can read 1, 2 and 4-bit PNG images...\n" );
+	Test_CheckSubBytePNG( "#test_pal4.png", png_pal4, sizeof( png_pal4 ), 5, 5, 4, true );
+	Test_CheckSubBytePNG( "#test_grey2.png", png_grey2, sizeof( png_grey2 ), 7, 5, 2, false );
+	Test_CheckSubBytePNG( "#test_pal1.png", png_pal1, sizeof( png_pal1 ), 11, 5, 1, true );
+}
+#endif // XASH_ENGINE_TESTS
