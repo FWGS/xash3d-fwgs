@@ -669,7 +669,7 @@ Refresh cached window safe area insets, called once per frame
 */
 void Sys_UpdateWindowInsets( void )
 {
-	Platform_GetWindowInsets( host.window_insets );
+	Platform_GetWindowInsets( host.hWnd, host.window_insets );
 	Sys_ValidateWindowInsets( host.window_insets );
 }
 

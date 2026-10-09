@@ -525,12 +525,12 @@ qboolean VoiceCapture_Lock( qboolean lock );
 
 // safe area insets as fractions of the window size: left, top, right, bottom
 #if XASH_SDL == 3
-void Platform_GetWindowInsets( float insets[4] );
+void Platform_GetWindowInsets( void *window, float insets[4] );
 #else
-static inline void Platform_GetWindowInsets( float insets[4] )
+static inline void Platform_GetWindowInsets( void *window, float insets[4] )
 {
 #if XASH_IOS && XASH_SDL == 2
-	IOS_GetWindowInsets( host.hWnd, insets );
+	IOS_GetWindowInsets( window, insets );
 #elif XASH_ANDROID && XASH_SDL == 2
 	Android_GetWindowInsets( insets );
 #else
