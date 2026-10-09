@@ -15,17 +15,24 @@ Copyright (C) 2026 xash3d-gc contributors
 #include <time.h>
 #include <ogc/system.h>
 #include <ogc/gx.h>
+#include <ogc/lwp.h>
+#include <unistd.h>
 
 /* Stall watchdog. New Game froze for minutes with no log and no way to tell a
  * CPU spin from a CPU blocked on a full GX FIFO behind a stalled GPU. A
- * periodic alarm (decrementer interrupt, so it fires in both cases) reports
- * the last marked stage and the GP status once progress stops for 5 s. */
+ * high-priority thread wakes once a second (so it preempts a spinning main
+ * thread) and reports the last marked stage and the GP status once progress
+ * stops for 5 s. It runs as a thread, not an alarm callback: logging from
+ * interrupt context could deadlock against a main thread holding the
+ * newlib or EXI lock. It stays quiet until the first mark (host frames). */
 #define GC_WATCHDOG_STALL_SECONDS  5
 #define GC_WATCHDOG_REPORT_SECONDS 10
+#define GC_WATCHDOG_STACK_SIZE     8192
+#define GC_WATCHDOG_PRIORITY       100
 static volatile unsigned gc_watchdog_progress;
 static const char * volatile gc_watchdog_stage = "boot";
-static syswd_t gc_watchdog_alarm;
-static qboolean gc_watchdog_armed;
+static lwp_t gc_watchdog_thread = LWP_THREAD_NULL;
+static u8 gc_watchdog_stack[GC_WATCHDOG_STACK_SIZE] __attribute__(( aligned( 32 )));
 
 void GC_WatchdogMark( const char *stage )
 {
@@ -40,43 +47,47 @@ void GC_WatchdogStage( const char *stage )
 	gc_watchdog_stage = stage;
 }
 
-static void GC_WatchdogTick( syswd_t alarm, void *arg )
+static void *GC_WatchdogThread( void *arg )
 {
-	static unsigned last_progress;
-	static unsigned stalled_seconds;
-	u8 overhi = 0, underlo = 0, read_idle = 0, cmd_idle = 0, brkpt = 0;
+	unsigned last_progress = 0;
+	unsigned stalled_seconds = 0;
 
-	(void)alarm;
 	(void)arg;
 
-	if( gc_watchdog_progress != last_progress )
+	for( ;; )
 	{
-		last_progress = gc_watchdog_progress;
-		stalled_seconds = 0;
-		return;
+		u8 overhi = 0, underlo = 0, read_idle = 0, cmd_idle = 0, brkpt = 0;
+
+		usleep( 1000000 );
+
+		if( !gc_watchdog_progress || gc_watchdog_progress != last_progress )
+		{
+			last_progress = gc_watchdog_progress;
+			stalled_seconds = 0;
+			continue;
+		}
+
+		stalled_seconds++;
+		if( stalled_seconds < GC_WATCHDOG_STALL_SECONDS
+			|| ( stalled_seconds - GC_WATCHDOG_STALL_SECONDS ) % GC_WATCHDOG_REPORT_SECONDS )
+			continue;
+
+		GX_GetGPStatus( &overhi, &underlo, &read_idle, &cmd_idle, &brkpt );
+		SYS_Report( "Xash3D GameCube: watchdog stall %us stage=%s overhi=%u underlo=%u read_idle=%u cmd_idle=%u brkpt=%u\n",
+			stalled_seconds, gc_watchdog_stage ? gc_watchdog_stage : "?",
+			overhi, underlo, read_idle, cmd_idle, brkpt );
 	}
 
-	stalled_seconds++;
-	if( stalled_seconds < GC_WATCHDOG_STALL_SECONDS
-		|| ( stalled_seconds - GC_WATCHDOG_STALL_SECONDS ) % GC_WATCHDOG_REPORT_SECONDS )
-		return;
-
-	GX_GetGPStatus( &overhi, &underlo, &read_idle, &cmd_idle, &brkpt );
-	SYS_Report( "Xash3D GameCube: watchdog stall %us stage=%s overhi=%u underlo=%u read_idle=%u cmd_idle=%u brkpt=%u\n",
-		stalled_seconds, gc_watchdog_stage ? gc_watchdog_stage : "?",
-		overhi, underlo, read_idle, cmd_idle, brkpt );
+	return NULL;
 }
 
 void GC_WatchdogInit( void )
 {
-	struct timespec period = { 1, 0 };
-
-	if( gc_watchdog_armed )
+	if( gc_watchdog_thread != LWP_THREAD_NULL )
 		return;
-	if( SYS_CreateAlarm( &gc_watchdog_alarm ) != 0 )
-		return;
-	SYS_SetPeriodicAlarm( gc_watchdog_alarm, &period, &period, GC_WatchdogTick, NULL );
-	gc_watchdog_armed = true;
+	if( LWP_CreateThread( &gc_watchdog_thread, GC_WatchdogThread, NULL,
+		gc_watchdog_stack, sizeof( gc_watchdog_stack ), GC_WATCHDOG_PRIORITY ) < 0 )
+		gc_watchdog_thread = LWP_THREAD_NULL;
 }
 
 /* Global performance metrics */
