@@ -167,11 +167,13 @@ static CVAR_DEFINE_AUTO( touch_dpad_radius, "1.0", FCVAR_FILTERABLE, "dpad radiu
 static CVAR_DEFINE_AUTO( touch_joy_radius, "1.0", FCVAR_FILTERABLE, "joy radius multiplier" );
 static CVAR_DEFINE_AUTO( touch_move_indicator, "0.0", FCVAR_FILTERABLE, "indicate move events (0 to disable)" );
 static CVAR_DEFINE_AUTO( touch_joy_texture, "touch_default/joy", FCVAR_FILTERABLE, "texture for move indicator");
+static CVAR_DEFINE_AUTO( touch_safearea, "1", FCVAR_ARCHIVE | FCVAR_FILTERABLE, "keep touch controls inside the screen safe area, away from display cutouts" );
 static CVAR_DEFINE( touch_emulate, "_touch_emulate", "0", FCVAR_PRIVILEGED, "emulate touch with mouse" );
 
 static void Touch_UpdateViewport( void )
 {
-	const float *insets = host.window_insets;
+	const float none[4] = { 0 };
+	const float *insets = touch_safearea.value ? host.window_insets : none;
 
 	touch.view_x = refState.width * insets[0];
 	touch.view_y = refState.height * insets[1];
@@ -1213,6 +1215,7 @@ void Touch_Init( void )
 	Cvar_RegisterVariable( &touch_joy_radius );
 	Cvar_RegisterVariable( &touch_move_indicator );
 	Cvar_RegisterVariable( &touch_joy_texture );
+	Cvar_RegisterVariable( &touch_safearea );
 
 	// input devices cvar
 	Cvar_RegisterVariable( &touch_emulate );

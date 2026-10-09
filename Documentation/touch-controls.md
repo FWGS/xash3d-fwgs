@@ -4,7 +4,7 @@
 
 Thanks to mittorn, we have the ability to fully customize the controls in Xash3D. The new config allows you to not only add and change control buttons, but also create custom menus. There is also a built-in visual editor available, which simplifies the customization process without the need for manual file editing.
 
-On devices with display cutouts, buttons are laid out inside the screen's safe area.
+On devices with display cutouts, buttons are laid out inside the screen's safe area. Set `touch_safearea 0` to use the whole screen.
 
 ## Editor mode usage
 
