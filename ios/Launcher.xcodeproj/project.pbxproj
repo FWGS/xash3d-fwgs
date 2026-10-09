@@ -284,6 +284,7 @@
 					"\"$(SRCROOT)/../../Desktop/Sources/openssl/include\"",
 				);
 				INFOPLIST_FILE = Launcher/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = "Xash3D FWGS";
 				INFOPLIST_KEY_NSMicrophoneUsageDescription = "Microphone permissions are required for voice chat to work";
 				INFOPLIST_KEY_NSUserTrackingUsageDescription = "This permission allows the engine to generate the same XashID even after reinstallation or bundle id changes, XashID is used to uniquely identify your device when playing in multiplayer";
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
@@ -338,6 +339,7 @@
 					"\"$(SRCROOT)/../../Desktop/Sources/openssl/include\"",
 				);
 				INFOPLIST_FILE = Launcher/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = "Xash3D FWGS";
 				INFOPLIST_KEY_NSMicrophoneUsageDescription = "Microphone permissions are required for voice chat to work";
 				INFOPLIST_KEY_NSUserTrackingUsageDescription = "This permission allows the engine to generate the same XashID even after reinstallation or bundle id changes, XashID is used to uniquely identify your device when playing in multiplayer";
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
