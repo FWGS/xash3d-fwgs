@@ -72,51 +72,74 @@ static unsigned int gc_present_count;
 
 /* GX_DrawDone sleeps until Flipper retires the draw-done token and has no
  * timeout. New Game froze for minutes right after the first world
- * CopyDisp with no further log, so wait on the token ourselves: on timeout,
- * report the GP status, abort the frame and keep the host loop running. */
+ * CopyDisp with no further log, so wait ourselves, with a timeout.
+ *
+ * The first version waited on GX_SetDrawDoneCallback and never saw the
+ * callback fire in Dolphin, even with the GP idle, so every present cost
+ * the full timeout. Poll a draw-sync token instead (no interrupt needed),
+ * and treat a GP that reports both FIFO read and command processor idle as
+ * done. Only a GP that is still busy at the timeout is reported and the
+ * frame aborted. */
 #define GC_DRAWDONE_TIMEOUT_MS 2000
-static volatile int gc_drawdone_flag;
+#define GC_DRAWDONE_IDLE_MS 2
 static unsigned int gc_drawdone_timeouts;
-
-static void GC_DrawDoneCallback( void )
-{
-	gc_drawdone_flag = 1;
-}
 
 static qboolean GC_GXDrawDoneTimed( const char *where )
 {
-	static qboolean callback_installed;
-	u64 start;
-
-	if( !callback_installed )
-	{
-		GX_SetDrawDoneCallback( GC_DrawDoneCallback );
-		callback_installed = true;
-	}
+	static u16 token;
+	u64 start, idle_start = 0;
+	u8 overhi = 0, underlo = 0, read_idle = 0, cmd_idle = 0, brkpt = 0;
 
 	GC_WatchdogMark( where );
-	gc_drawdone_flag = 0;
-	GX_SetDrawDone();
+	token++;
+	GX_SetDrawSync( token );
+	GX_Flush();
 	start = gettime();
 
-	while( !gc_drawdone_flag )
+	for( ;; )
 	{
-		if( ticks_to_millisecs( diff_ticks( start, gettime())) > GC_DRAWDONE_TIMEOUT_MS )
-		{
-			u8 overhi = 0, underlo = 0, read_idle = 0, cmd_idle = 0, brkpt = 0;
+		if( GX_ReadDrawSync() == token )
+			return true;
 
-			GX_GetGPStatus( &overhi, &underlo, &read_idle, &cmd_idle, &brkpt );
-			gc_drawdone_timeouts++;
-			SYS_Report( "Xash3D GameCube: GX DrawDone timeout at=%s presents=%u count=%u "
-				"overhi=%u underlo=%u read_idle=%u cmd_idle=%u brkpt=%u\n",
-				where, gc_present_count, gc_drawdone_timeouts,
-				overhi, underlo, read_idle, cmd_idle, brkpt );
-			GX_AbortFrame();
-			return false;
+		GX_GetGPStatus( &overhi, &underlo, &read_idle, &cmd_idle, &brkpt );
+		if( read_idle && cmd_idle )
+		{
+			if( GX_ReadDrawSync() == token )
+				return true;
+			/* Idle for a few ms in a row with no token: stop waiting. */
+			if( !idle_start )
+				idle_start = gettime();
+			else if( ticks_to_millisecs( diff_ticks( idle_start, gettime())) >= GC_DRAWDONE_IDLE_MS )
+				break;
 		}
+		else idle_start = 0;
+
+		if( ticks_to_millisecs( diff_ticks( start, gettime())) > GC_DRAWDONE_TIMEOUT_MS )
+			break;
 	}
 
-	return true;
+	if( read_idle && cmd_idle )
+	{
+		static qboolean idle_logged;
+
+		/* Command stream fully drained but the token never showed up:
+		 * nothing left to wait for, so carry on without aborting. */
+		if( !idle_logged )
+		{
+			idle_logged = true;
+			SYS_Report( "Xash3D GameCube: GX draw sync token missing at=%s presents=%u; GP idle, continuing\n",
+				where, gc_present_count );
+		}
+		return true;
+	}
+
+	gc_drawdone_timeouts++;
+	SYS_Report( "Xash3D GameCube: GX DrawDone timeout at=%s presents=%u count=%u "
+		"overhi=%u underlo=%u read_idle=%u cmd_idle=%u brkpt=%u\n",
+		where, gc_present_count, gc_drawdone_timeouts,
+		overhi, underlo, read_idle, cmd_idle, brkpt );
+	GX_AbortFrame();
+	return false;
 }
 static qboolean gc_lean_player_physics_armed;
 static unsigned int gc_blank_present_count;
