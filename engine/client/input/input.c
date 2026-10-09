@@ -603,6 +603,8 @@ static void IN_CollectInput( float *forward, float *side, float *pitch, float *y
 }
 
 #if XASH_ENGINE_TESTS && !XASH_NO_TOUCH
+#include "tests.h"
+
 void Test_CollectTouchInput( float *pitch, float *yaw, qboolean filter )
 {
 	float forward = 0, side = 0, old_filter = look_filter.value;
