@@ -16,7 +16,7 @@ Only these objects are guaranteed to be available on all targets.
 |-------------|-----------|
 | `VFileSystem009` | Provides C++ interface to filesystem, binary-compatible with Valve's VFileSystem009. |
 | `XashFileSystemXXX` | Provides C interface to filesystem. This interface is unstable and not recommended for generic use, outside of engine internals. For more info about current version look into `filesystem.h`. |
-| `WindowInsets` | Returns a borrowed `const float[4]` snapshot: left, top, right, bottom fractions of the drawable window. Call again to refresh after resize/rotation. Unsupported backends return zeros; older engines may return NULL. Consumers must not modify the snapshot. |
+| `WindowInsets` | Returns read-only `const float[4]`: left, top, right and bottom safe area insets as fractions of the window size, updated every frame. Zeroes when unsupported. |
 | `MenuFactory` | Returns a `CreateInterface` function pointer (`pfnCreateInterface_t`) for the currently loaded menu library. |
 
 #### Android-specific objects
