@@ -210,6 +210,14 @@ static const uint16_t table_cp1251[64] = {
 	0x0451, 0x2116, 0x0454, 0x00BB, 0x0458, 0x0405, 0x0455, 0x0457
 };
 
+// CP1252 differs from Latin-1 only in the 0x80..0x9F range
+static const uint16_t table_cp1252[32] = {
+	0x20AC, 0x0081, 0x201A, 0x0192, 0x201E, 0x2026, 0x2020, 0x2021,
+	0x02C6, 0x2030, 0x0160, 0x2039, 0x0152, 0x008D, 0x017D, 0x008F,
+	0x0090, 0x2018, 0x2019, 0x201C, 0x201D, 0x2022, 0x2013, 0x2014,
+	0x02DC, 0x2122, 0x0161, 0x203A, 0x0153, 0x009D, 0x017E, 0x0178
+};
+
 uint32_t Q_UnicodeToCP1251( uint32_t uc )
 {
 	if( uc < 0x80 )
@@ -234,4 +242,24 @@ uint32_t Q_UnicodeToCP1252( uint32_t uc )
 {
 	// this is NOT valid way to convert Unicode codepoint back to CP1252!!!
 	return uc < 0xFF ? uc : '?';
+}
+
+uint32_t Q_CP1251ToUnicode( uint32_t cp )
+{
+	if( cp < 0x80 )
+		return cp;
+
+	if( cp >= 0xC0 )
+		return cp < 0xE0 ? cp + 0x410 - 0xC0 : cp + 0x430 - 0xE0;
+
+	return table_cp1251[cp - 0x80];
+}
+
+uint32_t Q_CP1252ToUnicode( uint32_t cp )
+{
+	if( cp >= 0x80 && cp <= 0x9F )
+		return table_cp1252[cp - 0x80];
+
+	// the rest matches Latin-1
+	return cp;
 }
