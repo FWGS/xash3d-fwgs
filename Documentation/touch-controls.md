@@ -109,6 +109,7 @@ Flags define the behavior of the button. Their values ​​are powers of two:
 | `TOUCH_FL_DRAW_ADDITIVE` | 128 | The button colors are added together in blend mode. |
 | `TOUCH_FL_STROKE` | 256 | Enables outline stroke around the button. |
 | `TOUCH_FL_STICK` | 2048 | Turns a `_joy` button into an analog stick with a visible thumb. |
+| `TOUCH_FL_COMMAND_LATCH` | 4096 | A `+command` button alternates between `+command` and `-command` on each press, e.g. for toggle crouch. |
 
 Flags can be combined by adding their values ​​together. For example, `5 = 1 + 4` is the combination of `TOUCH_FL_HIDE` and `TOUCH_FL_CLIENT` flags, which is a hidden client button.
 
