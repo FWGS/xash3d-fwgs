@@ -304,6 +304,7 @@ typedef struct host_parm_s
 
 	host_redirect_t rd; // remote console
 
+	float window_insets[4]; // snapshot exposed by the WindowInsets native object
 	void   *hWnd;          // main window
 
 	// command line parms

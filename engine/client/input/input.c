@@ -600,7 +600,22 @@ static void IN_CollectInput( float *forward, float *side, float *pitch, float *y
 		inputstate.lastyaw   = *yaw;
 	}
 
+
 }
+
+#if XASH_ENGINE_TESTS && !XASH_NO_TOUCH
+void Test_CollectTouchInput( float *pitch, float *yaw, qboolean filter )
+{
+	float forward = 0, side = 0, old_filter = look_filter.value;
+	struct inputstate_s saved = inputstate;
+
+	inputstate.lastpitch = inputstate.lastyaw = 0;
+	look_filter.value = filter;
+	IN_CollectInput( &forward, &side, pitch, yaw, false );
+	inputstate = saved;
+	look_filter.value = old_filter;
+}
+#endif
 
 /*
 ================

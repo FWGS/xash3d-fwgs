@@ -147,3 +147,64 @@ Flags can be combined by adding their values ​​together. For example, `5 = 1
     
 ### Additional links
 * [Handy palette for selecting color in RGB format](https://www.rapidtables.com/web/color/RGB_Color.html)
+
+
+## Analog movement, drag look and safe areas
+
+The optional **analog** and **analog_toggle** presets in `xash-extras` provide
+an analog movement stick and an empty ring for drag-to-look, with shared icons.
+Select a preset in the menu's Touch options. Engine defaults and existing profiles remain available on
+all platforms. Both presets use a single crouch button: `analog` holds crouch,
+while `analog_toggle` toggles it through aliases. After loading either preset,
+`exec touch_sticks/crouch_hold.cfg` and `exec touch_sticks/crouch_toggle.cfg`
+switch the binding without engine-specific logic. Toggle bindings execute shared
+scripts that define their own aliases, so saved profiles also work after restart.
+The hold preset is recommended for duck jumps and the long-jump module, which
+require coordinated crouch/jump presses. Toggle crouch is optional and changes
+that timing. Its button binds an `exec` command, so releasing the touch does not
+automatically issue `-duck`; the next press executes the opposite alias.
+
+The left stick controls movement continuously while held off-centre. The right
+ring uses Xash's existing `_look` drag input: moving the thumb rotates the camera,
+and holding the thumb still stops rotation. It has no stick thumb disc or
+continuous turning. The presets disable nonlinear swipe response and look
+filtering, so there is no smoothing tail. Drag sensitivity uses `touch_pitch`,
+`touch_yaw` and the client sensitivity; the sign of `touch_pitch` controls drag
+Y inversion. There is no continuous-turn look mode.
+
+A `_joy` button with flag `2048` (`TOUCH_FL_STICK`) provides analog movement
+with a visible thumb disc and radial clamping, without a dead zone. `_look`
+retains its existing drag behavior; continuous-turn look and its curve/speed
+settings are not part of this change.
+
+Native profiles and their editor map coordinates into the drawable window's
+safe area. Outside touches are not clamped onto edge buttons; captured fingers
+still receive motion/release outside the rectangle. Game-provided touch callbacks
+keep their existing screen-coordinate contract. Saved profile aspect handling is
+retained, with safe-area scaling applied at rendering and native input boundaries.
+
+SDL3 uses `SDL_GetWindowSafeArea`. SDL2 uses UIKit safe-area insets on iOS and an
+Android UI-thread snapshot of surface-relative window/cutout insets. Other
+backends return zero insets. Insets are normalized so high-density window units
+and renderer pixels do not get mixed. `mainui_cpp` reads the `WindowInsets` native
+object and sizes/positions its root menus inside the safe rectangle. Engine menu
+draw and input APIs continue using screen coordinates; older menu DLLs work as
+before but must adopt the native object to avoid cutouts.
+
+SVG sources and pre-rendered PNGs live in `xash-extras/gfx/touch`. Normal builds
+package the PNGs in `extras.pk3` on every platform without a new dependency. To
+regenerate them, configure Waf with `--render-touch-icons` and an existing resvg or Inkscape
+executable on PATH. This stages rendered assets under the build directory before
+packaging; it does not overwrite the source PNGs.
+
+Regression tests are registered in `engine/common/tests.h` under
+`XASH_ENGINE_TESTS`: movement clamping, small displacements, drag consumption, stationary-thumb
+behavior, drag inversion, release cleanup and window
+inset validation. Run a test-enabled engine with `-dev 2 -runtests`. Simulator
+interaction validates native safe-area reporting and menu hit targets; Android
+and SDL3 require their own runtime validation before claiming coverage.
+
+Updated in-game device capture with analog movement on the left and the empty
+drag-look ring on the right:
+
+![Analog movement and drag-look controls in game](images/ios-touch-ingame.jpg)

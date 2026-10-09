@@ -52,10 +52,18 @@ void Test_RunMunge( void );
 void Test_RunModBmodel( void );
 void Test_RunTitles( void );
 void Test_RunConfig( void );
+#if XASH_NO_TOUCH
+#define Test_RunTouch() ((void)0)
+#else
+void Test_RunTouch( void );
+void Test_CollectTouchInput( float *pitch, float *yaw, qboolean filter );
+#endif
+void Test_RunWindowInsets( void );
 
 #define TEST_LIST_0 \
 	Test_RunLibCommon(); \
 	Test_RunCommon(); \
+	Test_RunWindowInsets(); \
 	Test_RunCmd(); \
 	Test_RunCvar(); \
 	Test_RunIPFilter(); \
@@ -68,7 +76,8 @@ void Test_RunConfig( void );
 
 #define TEST_LIST_0_CLIENT \
 	Test_RunCon(); \
-	Test_RunGamma();
+	Test_RunGamma(); \
+	Test_RunTouch();
 
 #define TEST_LIST_1 \
 	Test_RunImagelib(); \

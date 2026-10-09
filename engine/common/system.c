@@ -653,10 +653,31 @@ Sys_GetNativeObject
 Get platform-specific native object
 ==================
 */
+static void Sys_ValidateWindowInsets( float *insets )
+{
+	for( int i = 0; i < 4; i++ )
+	{
+		if( IS_NAN( insets[i] ) || insets[i] < 0 || insets[i] >= 1 )
+		{
+			memset( insets, 0, sizeof( float ) * 4 );
+			return;
+		}
+	}
+	if( insets[0] + insets[2] >= 1 || insets[1] + insets[3] >= 1 )
+		memset( insets, 0, sizeof( float ) * 4 );
+}
+
 void *Sys_GetNativeObject( const char *obj )
 {
 	if( COM_StringEmptyOrNULL( obj ))
 		return NULL;
+
+	if( !Q_strcmp( obj, "WindowInsets" ))
+	{
+		Platform_GetWindowInsets( &host.window_insets[0], &host.window_insets[1], &host.window_insets[2], &host.window_insets[3] );
+		Sys_ValidateWindowInsets( host.window_insets );
+		return host.window_insets;
+	}
 
 	if( !Q_strcmp( obj, "MenuFactory" ))
 		return UI_GetMenuFactory();
@@ -673,3 +694,24 @@ void *Sys_GetNativeObject( const char *obj )
 
 	return ptr;
 }
+
+#if XASH_ENGINE_TESTS
+#include "tests.h"
+
+void Test_RunWindowInsets( void )
+{
+	float insets[4] = { 0.05f, 0, 0.05f, 0.02f };
+
+	Sys_ValidateWindowInsets( insets );
+	TASSERT( insets[0] == 0.05f && insets[3] == 0.02f );
+	insets[0] = -1;
+	Sys_ValidateWindowInsets( insets );
+	TASSERT( insets[0] == 0 && insets[3] == 0 );
+	insets[0] = insets[2] = 0.5f;
+	Sys_ValidateWindowInsets( insets );
+	TASSERT( insets[0] == 0 && insets[2] == 0 );
+	insets[1] = UintAsFloat( 0x7fc00000 );
+	Sys_ValidateWindowInsets( insets );
+	TASSERT( insets[1] == 0 );
+}
+#endif // XASH_ENGINE_TESTS

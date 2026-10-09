@@ -63,6 +63,7 @@ typedef struct touch_button_s
 	float fadespeed;
 	float fadeend;
 	float aspect;
+	float stick_x, stick_y; // transient thumb displacement inside the ring
 
 	// Double-linked list
 	struct touch_button_s *next;
@@ -97,6 +98,7 @@ static struct touch_s
 
 	int look_finger;
 	int move_finger;
+	qboolean move_stick;
 	int wheel_finger;
 
 	touch_button_t *move_button;
@@ -131,7 +133,9 @@ static struct touch_s
 	// textures
 	int whitetexture;
 	int joytexture; // touch indicator
+	int sticktexture; // solid analog-stick thumb
 	qboolean configchanged;
+	float view_x, view_y, view_width, view_height;
 	float actual_aspect_ratio; // maximum aspect ratio from launch, or aspect ratio when entering editor
 	float config_aspect_ratio; // aspect ratio set by command from config or after entering editor
 } touch;
@@ -165,16 +169,29 @@ static CVAR_DEFINE_AUTO( touch_move_indicator, "0.0", FCVAR_FILTERABLE, "indicat
 static CVAR_DEFINE_AUTO( touch_joy_texture, "touch_default/joy", FCVAR_FILTERABLE, "texture for move indicator");
 static CVAR_DEFINE( touch_emulate, "_touch_emulate", "0", FCVAR_PRIVILEGED, "emulate touch with mouse" );
 
-// code looks smaller with it
-#define TO_SCRN_Y(x) (refState.width * (x) * Touch_AspectRatio())
-#define TO_SCRN_X(x) (refState.width * (x))
+static void Touch_UpdateViewport( void )
+{
+	float left = 0, top = 0, right = 0, bottom = 0;
+	Platform_GetWindowInsets( &left, &top, &right, &bottom );
+	touch.view_x = refState.width * left;
+	touch.view_y = refState.height * top;
+	touch.view_width = Q_max( 1, refState.width * ( 1 - left - right ));
+	touch.view_height = Q_max( 1, refState.height * ( 1 - top - bottom ));
+}
+
+#define SCRN_WIDTH(x) (touch.view_width * (x))
+#define SCRN_HEIGHT(x) (touch.view_width * (x) * Touch_AspectRatio())
+#define TO_SCRN_X(x) (touch.view_x + SCRN_WIDTH(x))
+#define TO_SCRN_Y(x) (touch.view_y + SCRN_HEIGHT(x))
 
 static void IN_TouchCheckCoords( float *x1, float *y1, float *x2, float *y2  );
 static void IN_TouchEditClear( void );
 static void Touch_InitConfig( void );
+static void Touch_ResetSticks( void );
 
 void Touch_NotifyResize( void )
 {
+	Touch_UpdateViewport();
 	if( refState.width && refState.height && ( !touch.configchanged || !touch.actual_aspect_ratio ))
 	{
 		float aspect_ratio = (float)refState.height / refState.width;
@@ -183,7 +200,7 @@ void Touch_NotifyResize( void )
 	}
 }
 
-static inline float Touch_AspectRatio( void )
+static inline float Touch_ProfileAspectRatio( void )
 {
 	if( touch.config_aspect_ratio >= 0.25f )
 		return touch.config_aspect_ratio;
@@ -195,6 +212,15 @@ static inline float Touch_AspectRatio( void )
 		return (float)refState.height / refState.width;
 
 	return 9.0f / 16.0f;
+}
+
+static inline float Touch_AspectRatio( void )
+{
+	float ratio = Touch_ProfileAspectRatio();
+
+	if( refState.width > 0 && refState.height > 0 && touch.view_width > 0 )
+		ratio *= touch.view_height * refState.width / ( touch.view_width * refState.height );
+	return ratio;
 }
 
 static void Touch_ConfigAspectRatio_f( void )
@@ -287,6 +313,7 @@ static qboolean Touch_DumpConfig( const char *name, const char *profilename )
 	FS_Printf( f, "touch_joy_radius \"%g\"\n", touch_joy_radius.value );
 	FS_Printf( f, "\n// how much slowdown when Precise Look button pressed\n" );
 	FS_Printf( f, "touch_precise_amount \"%g\"\n", touch_precise_amount.value );
+	FS_Printf( f, "\n// analog stick options\n" );
 	FS_Printf( f, "\n// enable/disable move indicator\n" );
 	FS_Printf( f, "touch_move_indicator \"%g\"\n", touch_move_indicator.value );
 
@@ -294,7 +321,7 @@ static qboolean Touch_DumpConfig( const char *name, const char *profilename )
 	FS_Printf( f, "touch_setclientonly 0\n" );
 	FS_Printf( f, "\n// touch buttons\n" );
 	FS_Printf( f, "touch_removeall\n" );
-	FS_Printf( f, "touch_aspectratio %g\n", Touch_AspectRatio());
+	FS_Printf( f, "touch_aspectratio %g\n", Touch_ProfileAspectRatio());
 
 	for( const touch_button_t *button = touch.list_user.first; button; button = button->next )
 		Touch_ExportButtonToConfig( f, button, false );
@@ -516,6 +543,7 @@ static touch_button_t *Touch_FindFirst( touchbuttonlist_t *list, const char *nam
 
 static void Touch_DisableEdit_f( void )
 {
+	Touch_ResetSticks();
 	touch.state = state_none;
 	if( touch.edit )
 		touch.edit->finger = -1;
@@ -568,6 +596,28 @@ static void Touch_SetClientOnly_f( void )
 	Touch_SetClientOnly( Q_atoi( Cmd_Argv( 1 )));
 }
 
+
+static void Touch_ReleaseStick( touch_button_t *button )
+{
+	if( !FBitSet( button->flags, TOUCH_FL_STICK ) || button->type != touch_joy )
+		return;
+	if( button->type == touch_joy && button->finger == touch.move_finger )
+	{
+		touch.move_finger = -1;
+		touch.move_button = NULL;
+		touch.forward = touch.side = 0;
+	}
+	button->finger = -1;
+	button->stick_x = button->stick_y = 0;
+}
+
+static void Touch_ResetSticks( void )
+{
+	for( touch_button_t *button = touch.list_user.first; button; button = button->next )
+		Touch_ReleaseStick( button );
+	touch.move_stick = false;
+}
+
 static void Touch_RemoveButtonFromList( touchbuttonlist_t *list, const char *name, qboolean privileged )
 {
 	IN_TouchEditClear();
@@ -585,6 +635,7 @@ static void Touch_RemoveButtonFromList( touchbuttonlist_t *list, const char *nam
 		else
 			list->last = button->prev;
 
+		Touch_ReleaseStick( button );
 		Mem_Free( button );
 	}
 }
@@ -611,6 +662,7 @@ static void Touch_ClearList( touchbuttonlist_t *list )
 	{
 		touch_button_t *remove = list->first;
 		list->first = list->first->next;
+		Touch_ReleaseStick( remove );
 		Mem_Free( remove );
 	}
 	list->first = list->last = NULL;
@@ -642,6 +694,7 @@ static void Touch_SetTexture( touchbuttonlist_t *list, const char *name, const c
 
 static void Touch_SetCommand( touch_button_t *button, const char *command )
 {
+	Touch_ReleaseStick( button );
 	Q_strncpy( button->command, command, sizeof( button->command ));
 
 	if( !Q_strcmp( command, "_look" ))
@@ -663,7 +716,10 @@ void Touch_HideButtons( const char *name, byte hide, qboolean privileged )
 	for( touch_button_t *b = Touch_FindFirst( &touch.list_user, name, privileged ); b != NULL; b = Touch_FindNext( b->next, name, privileged ))
 	{
 		if( hide )
+		{
+			Touch_ReleaseStick( b );
 			SetBits( b->flags, TOUCH_FL_HIDE );
+		}
 		else
 			ClearBits( b->flags, TOUCH_FL_HIDE );
 	}
@@ -751,7 +807,13 @@ static void Touch_SetFlags_f( void )
 		touch_button_t *button = Touch_FindButtonNoPattern( &touch.list_user, Cmd_Argv( 1 ), privileged );
 
 		if( button )
-			button->flags = ( privileged ? 0 : TOUCH_FL_UNPRIVILEGED | TOUCH_FL_CLIENT ) | Q_atoi( Cmd_Argv( 2 ));
+		{
+			int flags = ( privileged ? 0 : TOUCH_FL_UNPRIVILEGED | TOUCH_FL_CLIENT ) | Q_atoi( Cmd_Argv( 2 ));
+			// Cleanup must inspect the old mode before flags can remove it.
+			if( FBitSet( flags, TOUCH_FL_HIDE ) || FBitSet( flags ^ button->flags, TOUCH_FL_STICK ))
+				Touch_ReleaseStick( button );
+			button->flags = flags;
+		}
 		else
 			Con_Printf( S_ERROR "no such button" );
 	}
@@ -972,6 +1034,7 @@ static void Touch_AddButton_f( void )
 
 static void Touch_EnableEdit_f( void )
 {
+	Touch_ResetSticks();
 	float current_ratio = (float)refState.height / refState.width;
 
 	if( touch.state == state_none )
@@ -1070,6 +1133,7 @@ void Touch_Init( void )
 	touch.precision = false;
 	MakeRGBA( touch.scolor, 255, 255, 255, 255 );
 	touch.swidth = 1;
+	touch.sticktexture = -1;
 	g_DefaultButtons = NULL;
 	g_DefaultButtonsLength = 0;
 
@@ -1220,7 +1284,7 @@ static void Touch_DrawTexture( float x1, float y1, float x2, float y2, int textu
 
 	ref.dllFuncs.Color4ub( color[0], color[1], color[2], color[3] );
 	ref.dllFuncs.R_DrawStretchPic( TO_SCRN_X( x1 ), TO_SCRN_Y( y1 ),
-		TO_SCRN_X( x2 - x1 ), TO_SCRN_Y( y2 - y1 ),
+		SCRN_WIDTH( x2 - x1 ), SCRN_HEIGHT( y2 - y1 ),
 		0, 0, 1, 1, texture );
 }
 
@@ -1305,7 +1369,7 @@ static float Touch_DrawCharacter( float x, float y, int number, float size )
 	float width = ( prc->right - prc->left ) / 1024.0f * size;
 	float height = ( prc->bottom - prc->top ) / 1024.0f * size;
 
-	ref.dllFuncs.R_DrawStretchPic( TO_SCRN_X( x ), TO_SCRN_Y( y ), TO_SCRN_X( width ), TO_SCRN_X( height ),
+	ref.dllFuncs.R_DrawStretchPic( TO_SCRN_X( x ), TO_SCRN_Y( y ), SCRN_WIDTH( width ), SCRN_WIDTH( height ),
 		s1, t1, s2, t2, cls.creditsFont.hFontTexture );
 
 	return width;
@@ -1346,6 +1410,49 @@ static float Touch_DrawText( float x1, float y1, float x2, float y2, const char 
 		x1 = x;
 	}
 	return x1;
+}
+
+static void Touch_StickVector( touch_button_t *button, float x, float y, float *side, float *forward )
+{
+	float half_width = Q_max( ( button->x2 - button->x1 ) * 0.5f, 0.0001f );
+	float half_height = Q_max( ( button->y2 - button->y1 ) * 0.5f, 0.0001f );
+	float center_x = ( button->x1 + button->x2 ) * 0.5f;
+	float center_y = ( button->y1 + button->y2 ) * 0.5f;
+	float sx = ( x - center_x ) / half_width;
+	float sy = ( y - center_y ) / half_height;
+	float length = sqrtf( sx * sx + sy * sy );
+
+	button->stick_x = length > 1 ? sx / length : sx;
+	button->stick_y = length > 1 ? sy / length : sy;
+	if( length == 0 )
+	{
+		*side = *forward = 0;
+		return;
+	}
+
+	// Clamp diagonals without discarding small thumb movements.
+	float amount = Q_min( length, 1 );
+	*side = sx / length * amount;
+	*forward = -sy / length * amount;
+}
+
+static void Touch_DrawStickThumb( const touch_button_t *button, byte *color )
+{
+	float width = button->x2 - button->x1, height = button->y2 - button->y1;
+	float sx = 0, sy = 0;
+	qboolean active = button->finger == touch.move_finger;
+	if( active && button->finger != -1 && touch.state == state_none )
+	{
+		sx = button->stick_x;
+		sy = button->stick_y;
+	}
+	// The thumb is 36% of the ring diameter; keep its edge inside the ring.
+	float cx = ( button->x1 + button->x2 ) * 0.5f + sx * width * 0.27f;
+	float cy = ( button->y1 + button->y2 ) * 0.5f + sy * height * 0.27f;
+	if( touch.sticktexture == -1 )
+		touch.sticktexture = ref.dllFuncs.GL_LoadTexture( "gfx/touch/stick_thumb", NULL, 0, TF_IMAGE );
+	Touch_DrawTexture( cx - width * 0.18f, cy - height * 0.18f,
+		cx + width * 0.18f, cy + height * 0.18f, touch.sticktexture, color );
 }
 
 static void Touch_DrawButtons( touchbuttonlist_t *list )
@@ -1400,6 +1507,8 @@ static void Touch_DrawButtons( touchbuttonlist_t *list )
 					ref.dllFuncs.GL_SetRenderMode( kRenderTransTexture );
 
 				Touch_DrawTexture( b->x1, b->y1, b->x2, b->y2, b->gl_texturenum, color );
+				if( FBitSet( b->flags, TOUCH_FL_STICK ) && b->type == touch_joy)
+					Touch_DrawStickThumb( b, color );
 			}
 
 			if( FBitSet( b->flags, TOUCH_FL_STROKE ))
@@ -1447,7 +1556,7 @@ static void Touch_DrawButtons( touchbuttonlist_t *list )
 
 			ref.dllFuncs.FillRGBA( kRenderTransTexture,
 				TO_SCRN_X( b->x1 ), TO_SCRN_Y( b->y1 ),
-				TO_SCRN_X( b->x2 - b->x1 ), TO_SCRN_Y( b->y2 - b->y1 ), color[0], color[1], color[2], color[3] );
+				SCRN_WIDTH( b->x2 - b->x1 ), SCRN_HEIGHT( b->y2 - b->y1 ), color[0], color[1], color[2], color[3] );
 
 			MakeRGBA( color, 255, 255, 127, 255 );
 			Con_DrawString( TO_SCRN_X( b->x1 ), TO_SCRN_Y( b->y1 ), b->name, color );
@@ -1467,6 +1576,7 @@ void Touch_Draw( void )
 	if( cls.state == ca_cinematic )
 		return;
 
+	Touch_UpdateViewport();
 	Touch_InitConfig();
 
 	ref.dllFuncs.GL_SetRenderMode( kRenderTransTexture );
@@ -1479,10 +1589,10 @@ void Touch_Draw( void )
 			ref.dllFuncs.FillRGBA( kRenderTransTexture, 0, 0, 1, 1, 0, 0, 0, 112 );
 
 		for( float x = 0.0f; x < 1.0f; x += GRID_X )
-			ref.dllFuncs.FillRGBA( kRenderTransTexture, TO_SCRN_X( x ), 0, 1, TO_SCRN_Y( 1 ), 0, 224, 224, 112 );
+			ref.dllFuncs.FillRGBA( kRenderTransTexture, TO_SCRN_X( x ), TO_SCRN_Y( 0 ), 1, SCRN_HEIGHT( 1 ), 0, 224, 224, 112 );
 
 		for( float x = 0.0f; x < 1.0f; x += GRID_Y )
-			ref.dllFuncs.FillRGBA( kRenderTransTexture, 0, TO_SCRN_Y( x ), TO_SCRN_X( 1 ), 1, 0, 224, 224, 112 );
+			ref.dllFuncs.FillRGBA( kRenderTransTexture, TO_SCRN_X( 0 ), TO_SCRN_Y( x ), SCRN_WIDTH( 1 ), 1, 0, 224, 224, 112 );
 	}
 
 	Touch_DrawButtons( &touch.list_user );
@@ -1494,10 +1604,10 @@ void Touch_Draw( void )
 			float x1 = touch.edit->x1, y1 = touch.edit->y1, x2 = touch.edit->x2, y2 = touch.edit->y2;
 			IN_TouchCheckCoords( &x1, &y1, &x2, &y2 );
 			ref.dllFuncs.FillRGBA( kRenderTransTexture, TO_SCRN_X( x1 ), TO_SCRN_Y( y1 ),
-				TO_SCRN_X( x2 - x1 ), TO_SCRN_Y( y2 - y1 ), 0, 255, 0, 32 );
+				SCRN_WIDTH( x2 - x1 ), SCRN_HEIGHT( y2 - y1 ), 0, 255, 0, 32 );
 		}
 
-		ref.dllFuncs.FillRGBA( kRenderTransTexture, 0, 0, TO_SCRN_X( GRID_X ), TO_SCRN_Y( GRID_Y ), 255, 255, 255, 64 );
+		ref.dllFuncs.FillRGBA( kRenderTransTexture, TO_SCRN_X( 0 ), TO_SCRN_Y( 0 ), SCRN_WIDTH( GRID_X ), SCRN_HEIGHT( GRID_Y ), 255, 255, 255, 64 );
 
 		if( touch.showeditbuttons )
 			Touch_DrawButtons( &touch.list_edit );
@@ -1510,15 +1620,15 @@ void Touch_Draw( void )
 			const touch_button_t *b = touch.selection;
 
 			ref.dllFuncs.FillRGBA( kRenderTransTexture, TO_SCRN_X( b->x1 ), TO_SCRN_Y( b->y1 ),
-				TO_SCRN_X( b->x2 - b->x1 ), TO_SCRN_Y( b->y2 - b->y1 ), 255, 0, 0, 64 );
+				SCRN_WIDTH( b->x2 - b->x1 ), SCRN_HEIGHT( b->y2 - b->y1 ), 255, 0, 0, 64 );
 
 			Q_snprintf( text, sizeof( text ), "Selection:\nName: %s\nTexture: %s\nCommand: %s", b->name, b->texture, b->command );
 
-			Con_DrawString( 0, TO_SCRN_Y( GRID_Y * 11 ), text, color );
+			Con_DrawString( TO_SCRN_X( 0 ), TO_SCRN_Y( GRID_Y * 11 ), text, color );
 		}
 	}
 
-	if( touch.move_finger != -1 && touch.move_button && touch_move_indicator.value > 0.0f )
+	if( touch.move_finger != -1 && touch.move_button && !touch.move_stick && touch_move_indicator.value > 0.0f )
 	{
 		float width, height;
 		float size = touch_move_indicator.value;
@@ -1545,15 +1655,15 @@ void Touch_Draw( void )
 		ref.dllFuncs.R_DrawStretchPic(
 			TO_SCRN_X( touch.move_start_x - GRID_X * size ),
 			TO_SCRN_Y( touch.move_start_y - GRID_Y * size ),
-			TO_SCRN_X( GRID_X * 2 * size ),
-			TO_SCRN_Y( GRID_Y * 2 * size ),
+			SCRN_WIDTH( GRID_X * 2 * size ),
+			SCRN_HEIGHT( GRID_Y * 2 * size ),
 			0, 0, 1, 1, touch.joytexture );
 		ref.dllFuncs.Color4ub( 255, 255, 255, 255 );
 		ref.dllFuncs.R_DrawStretchPic(
 			TO_SCRN_X( touch.move_start_x + touch.side * width - GRID_X * size ),
 			TO_SCRN_Y( touch.move_start_y - touch.forward * height - GRID_Y * size ),
-			TO_SCRN_X( GRID_X * 2 * size ),
-			TO_SCRN_Y( GRID_Y * 2 * size ),
+			SCRN_WIDTH( GRID_X * 2 * size ),
+			SCRN_HEIGHT( GRID_Y * 2 * size ),
 			0, 0, 1, 1, touch.joytexture );
 	}
 }
@@ -1649,6 +1759,19 @@ static void Touch_Motion( int fingerID, float x, float y, float dx, float dy )
 		}
 
 		return;
+	}
+
+	// Movement sticks use displacement, including between motion events.
+	for( touch_button_t *b = touch.list_user.first; b; b = b->next )
+	{
+		if( b->finger != fingerID )
+			continue;
+		if( FBitSet( b->flags, TOUCH_FL_STICK ) && b->type == touch_joy && fingerID == touch.move_finger )
+		{
+			Touch_StickVector( b, x, y, &touch.side, &touch.forward );
+			return;
+		}
+
 	}
 
 	// walk
@@ -1752,6 +1875,15 @@ static qboolean Touch_ButtonPress( touchbuttonlist_t *list, touchEventType type,
 			if( x < button->x1 || x > button->x2 || y < button->y1 || y > button->y2 )
 				continue;
 
+			if( FBitSet( button->flags, TOUCH_FL_STICK ) && button->type == touch_joy)
+			{
+				float rx = ( x - ( button->x1 + button->x2 ) * 0.5f ) / Q_max( ( button->x2 - button->x1 ) * 0.5f, 0.0001f );
+				float ry = ( y - ( button->y1 + button->y2 ) * 0.5f ) / Q_max( ( button->y2 - button->y1 ) * 0.5f, 0.0001f );
+				if( rx * rx + ry * ry > 1 )
+					continue;
+			}
+			if( FBitSet( button->flags, TOUCH_FL_STICK ) && button->type == touch_joy && button->finger != -1 )
+				continue;
 			button->finger = fingerID;
 
 			if( button->type == touch_command )
@@ -1819,7 +1951,7 @@ static qboolean Touch_ButtonPress( touchbuttonlist_t *list, touchEventType type,
 					// and same finger id. release all move triggers
 					for( touch_button_t *newbutton = list->first; newbutton; newbutton = newbutton->next )
 					{
-						if( newbutton->type == touch_move || newbutton->type == touch_look )
+						if( newbutton->type == touch_move || newbutton->type == touch_look || newbutton->type == touch_joy )
 							newbutton->finger = -1;
 					}
 
@@ -1829,9 +1961,12 @@ static qboolean Touch_ButtonPress( touchbuttonlist_t *list, touchEventType type,
 
 				// initialize move mode
 				touch.move_finger = fingerID;
+				touch.move_stick = FBitSet( button->flags, TOUCH_FL_STICK );
 				touch.move_button = button;
 
-				if( button->type == touch_move )
+				if( touch.move_stick )
+					Touch_StickVector( button, x, y, &touch.side, &touch.forward );
+				else if( button->type == touch_move )
 				{
 					// initial position is first touch
 					touch.move_start_x = x;
@@ -1877,7 +2012,7 @@ static qboolean Touch_ButtonPress( touchbuttonlist_t *list, touchEventType type,
 					// and same finger id. release all move triggers
 					for( touch_button_t *newbutton = list->first; newbutton; newbutton = newbutton->next )
 					{
-						if( newbutton->type == touch_move || newbutton->type == touch_look )
+						if( newbutton->type == touch_move || newbutton->type == touch_look || newbutton->type == touch_joy )
 							newbutton->finger = -1;
 					}
 
@@ -1897,7 +2032,6 @@ static qboolean Touch_ButtonPress( touchbuttonlist_t *list, touchEventType type,
 
 			button->finger = -1;
 
-			// handle +command, replace by -command
 			if( button->type == touch_command )
 			{
 				if( button->command[0] == '+' )
@@ -1943,7 +2077,9 @@ static qboolean Touch_ButtonPress( touchbuttonlist_t *list, touchEventType type,
 			}
 			// release look buttons
 			else if( button->type == touch_look )
+			{
 				touch.look_finger = -1;
+			}
 		}
 	}
 
@@ -2066,6 +2202,7 @@ int IN_TouchEvent( touchEventType type, int fingerID, float x, float y, float dx
 	// simulate menu mouse click
 	if( cls.key_dest != key_game && !touch_in_menu.value )
 	{
+		Touch_ResetSticks();
 		touch.move_finger = touch.resize_finger = touch.look_finger = touch.wheel_finger = -1;
 		// Hack for keyboard, hope it help
 		// a1ba: this is absolutely horrible
@@ -2153,18 +2290,31 @@ int IN_TouchEvent( touchEventType type, int fingerID, float x, float y, float dx
 	if( !touch.initialized || ( !touch_enable.value && !touch.clientonly ))
 		return false;
 
-	y *= (float)refState.height / refState.width / Touch_AspectRatio();
+	Touch_UpdateViewport();
+	float screen_y = y * (float)refState.height / refState.width / Touch_ProfileAspectRatio();
 
-	if( clgame.dllFuncs.pfnTouchEvent && clgame.dllFuncs.pfnTouchEvent( type, fingerID, x, y, dx, dy ) )
+	if( clgame.dllFuncs.pfnTouchEvent && clgame.dllFuncs.pfnTouchEvent( type, fingerID, x, screen_y, dx, dy ) )
 		return true;
 
+	// Do not clamp outside touches onto an edge button. Keep up/motion events
+	// flowing so a finger released outside the safe rectangle cannot stick.
+	x = ( x * refState.width - touch.view_x ) / touch.view_width;
+	y = ( y * refState.height - touch.view_y ) / SCRN_HEIGHT( 1 );
+	dx *= (float)refState.width / touch.view_width;
+	dy *= (float)refState.height / touch.view_height;
 	return Touch_ControlsEvent( type, fingerID, x, y, dx, dy );
 }
 
 void Touch_GetMove( float *forward, float *side, float *pitch, float *yaw )
 {
-	*forward += touch.forward;
-	*side += touch.side;
+	if( cls.key_dest != key_game || touch.state != state_none || ( !touch_enable.value && !touch.clientonly ))
+		Touch_ResetSticks();
+	if( cls.key_dest == key_game && touch.state == state_none &&
+		( touch_enable.value || touch.clientonly ) && ( !touch.move_stick || touch.move_finger != -1 ))
+	{
+		*forward += touch.forward;
+		*side += touch.side;
+	}
 	*pitch += touch.pitch;
 	*yaw += touch.yaw;
 	touch.yaw = touch.pitch = 0;
@@ -2251,5 +2401,129 @@ void Touch_Shutdown( void )
 	touch.initialized = false;
 	Mem_FreePool( &touch.mempool );
 }
+
+#if XASH_ENGINE_TESTS
+#include "tests.h"
+
+static void Test_TouchStick( void )
+{
+	struct touch_s saved = touch;
+	touch_button_t button = { 0 };
+	float side, forward;
+	float old_yaw = touch_yaw.value, old_touch_pitch = touch_pitch.value;
+	float old_nonlinear = touch_nonlinear_look.value, old_enable = touch_enable.value;
+	keydest_t old_dest = cls.key_dest;
+
+	button.type = touch_joy;
+	button.flags = TOUCH_FL_STICK;
+	button.finger = 3;
+	button.x2 = button.y2 = 2;
+	Touch_StickVector( &button, 1, 1, &side, &forward );
+	TASSERT( side == 0 && forward == 0 );
+	Touch_StickVector( &button, 1.01f, 1, &side, &forward );
+	TASSERT( side > 0 && side < 0.02f ); // no touchscreen dead zone
+	Touch_StickVector( &button, 3, -1, &side, &forward );
+	TASSERT( fabsf( side * side + forward * forward - 1 ) < 0.0001f );
+	touch.move_finger = 3;
+	touch.move_button = &button;
+	touch.forward = forward;
+	touch.side = side;
+	Touch_ReleaseStick( &button );
+	TASSERT( touch.move_finger == -1 && touch.move_button == NULL );
+	TASSERT( touch.forward == 0 && touch.side == 0 );
+
+	// Drag look consumes motion once, even while the finger remains down.
+	touch.look_finger = 4;
+	touch.state = state_none;
+	touch.precision = false;
+	cls.key_dest = key_game;
+	touch_enable.value = 1;
+	touch_yaw.value = 120;
+	touch_pitch.value = 90;
+	touch_nonlinear_look.value = 0;
+	float pitch = 0, yaw = 0;
+	for( int fps = 30; fps <= 120; fps *= 2 )
+	{
+		float total_pitch = 0, total_yaw = 0;
+		for( int frame = 0; frame < fps; frame++ )
+		{
+			Touch_Motion( 4, 1, 1, 1.0f / fps, 1.0f / fps );
+			pitch = yaw = 0;
+			Test_CollectTouchInput( &pitch, &yaw, false );
+			total_pitch += pitch;
+			total_yaw += yaw;
+			pitch = yaw = 0;
+			Test_CollectTouchInput( &pitch, &yaw, false );
+			TASSERT( pitch == 0 && yaw == 0 );
+		}
+		TASSERT( fabsf( total_pitch - 90 ) < 0.001f );
+		TASSERT( fabsf( total_yaw + 120 ) < 0.001f );
+	}
+	Touch_Motion( 4, 1, 1, 0, 0 );
+	pitch = yaw = 0;
+	Test_CollectTouchInput( &pitch, &yaw, false );
+	TASSERT( pitch == 0 && yaw == 0 );
+	// Legacy drag inversion is controlled by touch_pitch's sign.
+	touch_pitch.value = -90;
+	Touch_Motion( 4, 1, 1, 0, 0.01f );
+	Test_CollectTouchInput( &pitch, &yaw, false );
+	TASSERT( pitch < 0 );
+
+	// Save/reload retains the profile's original aspect even with nonzero insets.
+	int old_width = refState.width, old_height = refState.height;
+	refState.width = 1000;
+	refState.height = 500;
+	touch.config_aspect_ratio = 0.5f;
+	touch.view_width = 900;
+	touch.view_height = 480;
+	float aspect = Touch_AspectRatio();
+	touch.config_aspect_ratio = Touch_ProfileAspectRatio();
+	TASSERT( fabsf( Touch_AspectRatio() - aspect ) < 0.0001f );
+	refState.width = old_width;
+	refState.height = old_height;
+
+	// Releasing in the menu must not leave a captured button blocking pickup.
+	touch.initialized = true;
+	touch_enable.value = 1;
+	button.type = touch_joy;
+	button.finger = touch.move_finger = 4;
+	touch.list_user.first = touch.list_user.last = &button;
+	cls.key_dest = key_menu;
+	pitch = yaw = side = forward = 0;
+	Touch_GetMove( &forward, &side, &pitch, &yaw );
+	TASSERT( button.finger == -1 && touch.move_finger == -1 );
+	cls.key_dest = key_game;
+	Touch_ButtonPress( &touch.list_user, event_down, 5, 1, 1 );
+	TASSERT( button.finger == 5 && touch.move_finger == 5 );
+	Touch_ButtonPress( &touch.list_user, event_up, 5, 1, 1 );
+	TASSERT( button.finger == -1 && touch.move_finger == -1 );
+
+	Cmd_AddCommand( "test_touch_setflags", Touch_SetFlags_f, "test touch flag transitions" );
+	Q_strncpy( button.name, "move", sizeof( button.name ));
+	for( int flags = 0; flags <= 1; flags++ )
+	{
+		button.flags = TOUCH_FL_STICK;
+		button.finger = touch.move_finger = 4;
+		touch.move_button = &button;
+		touch.forward = 1;
+		Cmd_ExecuteString( va( "test_touch_setflags move %d", flags ));
+		TASSERT( button.flags == flags && button.finger == -1 );
+		TASSERT( touch.move_finger == -1 && touch.move_button == NULL && touch.forward == 0 );
+	}
+	Cmd_RemoveCommand( "test_touch_setflags" );
+
+	touch = saved;
+	touch_yaw.value = old_yaw;
+	touch_pitch.value = old_touch_pitch;
+	touch_enable.value = old_enable;
+	touch_nonlinear_look.value = old_nonlinear;
+	cls.key_dest = old_dest;
+}
+
+void Test_RunTouch( void )
+{
+	TRUN( Test_TouchStick() );
+}
+#endif // XASH_ENGINE_TESTS
 
 #endif // !XASH_NO_TOUCH

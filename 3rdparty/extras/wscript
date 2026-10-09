@@ -4,7 +4,7 @@
 import os
 
 def options(opt):
-	pass
+	opt.add_option('--render-touch-icons', action='store_true', default=False, help='Rebuild touch icon PNGs from SVG using resvg or Inkscape')
 
 def configure(conf):
 	if not conf.path.find_dir('xash-extras'):
@@ -12,6 +12,9 @@ def configure(conf):
 		return
 
 	conf.load('zip')
+	conf.env.RENDER_TOUCH_ICONS = conf.options.render_touch_icons
+	if conf.env.RENDER_TOUCH_ICONS:
+		conf.find_program(['resvg', 'inkscape'], var='TOUCH_ICON_RENDERER')
 
 def build(bld):
 	srcdir = bld.path.find_dir('xash-extras')
@@ -21,8 +24,36 @@ def build(bld):
 	else:
 		install_path = os.path.join(bld.env.SHAREDIR, bld.env.GAMEDIR)
 
+	files = srcdir.ant_glob('**/*', excl=['scripts/**', '.*', '**/*.svg'])
+	if bld.env.RENDER_TOUCH_ICONS:
+		# Stage every archive member under one root, with rendered PNGs replacing
+		# the committed fallbacks. Archive paths are identical in both modes.
+		archive_root = srcdir.get_bld()
+		staged = []
+		for node in files:
+			relpath = node.path_from(srcdir)
+			output = archive_root.make_node(relpath)
+			svg = srcdir.find_node(os.path.splitext(relpath)[0] + '.svg') if relpath.endswith('.png') else None
+			if svg:
+				if os.path.basename(bld.env.TOUCH_ICON_RENDERER[0]).startswith('resvg'):
+					rule = '${TOUCH_ICON_RENDERER} ${SRC} ${TGT}'
+				else:
+					rule = '${TOUCH_ICON_RENDERER} ${SRC} --export-type=png --export-filename=${TGT}'
+				bld(rule=rule, source=svg, target=output)
+			else:
+				bld(rule=copy_asset, source=node, target=output)
+			staged.append(output)
+		files = staged
+	else:
+		archive_root = srcdir
+
 	bld(features='zip',
 		name = 'extras.pk3',
-		files = srcdir.ant_glob('**/*', excl=['scripts/**', '.*']),
-		relative_to = srcdir,
+		files = files,
+		relative_to = archive_root,
 		install_path = install_path)
+
+def copy_asset(task):
+	import shutil
+	task.outputs[0].parent.mkdir()
+	shutil.copyfile(task.inputs[0].abspath(), task.outputs[0].abspath())

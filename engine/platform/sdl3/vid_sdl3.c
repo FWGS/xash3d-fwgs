@@ -1091,3 +1091,20 @@ rserr_t R_ChangeDisplaySettings( int width, int height, window_mode_t window_mod
 
 	return rserr_ok;
 }
+
+void Platform_GetWindowInsets( float *left, float *top, float *right, float *bottom )
+{
+	SDL_Rect safe;
+	int width, height;
+
+	*left = *top = *right = *bottom = 0;
+	if( !host.hWnd || !SDL_GetWindowSize( host.hWnd, &width, &height ) || width <= 0 || height <= 0 )
+		return;
+	if( !SDL_GetWindowSafeArea( host.hWnd, &safe ) || safe.w <= 0 || safe.h <= 0 )
+		return;
+
+	*left = (float)safe.x / width;
+	*top = (float)safe.y / height;
+	*right = (float)( width - safe.x - safe.w ) / width;
+	*bottom = (float)( height - safe.y - safe.h ) / height;
+}

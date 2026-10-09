@@ -131,3 +131,44 @@ void Platform_ShellExecute( const char *path, const char *parms )
 	SDL_OpenURL( path );
 #endif // XASH_SDL
 }
+
+void Android_GetWindowInsets( float *left, float *top, float *right, float *bottom )
+{
+	*left = *top = *right = *bottom = 0;
+#if XASH_SDL == 2
+	JNIEnv *env = SDL_AndroidGetJNIEnv();
+	jobject activity = SDL_AndroidGetActivity();
+	jclass cls;
+	jmethodID method;
+	jfloatArray result;
+	jfloat insets[4];
+
+	if( !env || !activity )
+		return;
+	cls = (*env)->GetObjectClass( env, activity );
+	method = (*env)->GetMethodID( env, cls, "getWindowInsets", "()[F" );
+	// Older launchers may not implement this optional method.
+	if( (*env)->ExceptionCheck( env ))
+		(*env)->ExceptionClear( env );
+	if( method )
+	{
+		result = (*env)->CallObjectMethod( env, activity, method );
+		if( (*env)->ExceptionCheck( env ))
+			(*env)->ExceptionClear( env );
+		else if( result )
+		{
+			if( (*env)->GetArrayLength( env, result ) == 4 )
+			{
+				(*env)->GetFloatArrayRegion( env, result, 0, 4, insets );
+				*left = insets[0];
+				*top = insets[1];
+				*right = insets[2];
+				*bottom = insets[3];
+			}
+			(*env)->DeleteLocalRef( env, result );
+		}
+	}
+	(*env)->DeleteLocalRef( env, cls );
+	(*env)->DeleteLocalRef( env, activity );
+#endif
+}
