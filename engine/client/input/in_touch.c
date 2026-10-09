@@ -171,12 +171,12 @@ static CVAR_DEFINE( touch_emulate, "_touch_emulate", "0", FCVAR_PRIVILEGED, "emu
 
 static void Touch_UpdateViewport( void )
 {
-	float left = 0, top = 0, right = 0, bottom = 0;
-	Platform_GetWindowInsets( &left, &top, &right, &bottom );
-	touch.view_x = refState.width * left;
-	touch.view_y = refState.height * top;
-	touch.view_width = Q_max( 1, refState.width * ( 1 - left - right ));
-	touch.view_height = Q_max( 1, refState.height * ( 1 - top - bottom ));
+	const float *insets = host.window_insets;
+
+	touch.view_x = refState.width * insets[0];
+	touch.view_y = refState.height * insets[1];
+	touch.view_width = Q_max( 1, refState.width * ( 1 - insets[0] - insets[2] ));
+	touch.view_height = Q_max( 1, refState.height * ( 1 - insets[1] - insets[3] ));
 }
 
 #define SCRN_WIDTH(x) (touch.view_width * (x))

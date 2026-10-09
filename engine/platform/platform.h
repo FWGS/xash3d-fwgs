@@ -57,8 +57,7 @@ int IOS_GetArgs( char ***argv );
 const char *IOS_GetDocsDir( void );
 const char *IOS_GetExecDir( void );
 void IOS_LaunchDialog( void );
-// Normalized safe-area insets; returns the window width in UIKit points.
-float IOS_GetTouchInsets( void *window, float *left, float *top, float *right, float *bottom );
+void IOS_GetWindowInsets( void *window, float insets[4] );
 #endif // TARGET_OS_IOS
 
 #if XASH_WIN32 || XASH_LINUX
@@ -102,7 +101,7 @@ const char *Android_LoadID( void );
 void Android_SaveID( const char *id );
 void Android_Init( void );
 void *Android_GetNativeObject( const char *name );
-void Android_GetWindowInsets( float *left, float *top, float *right, float *bottom );
+void Android_GetWindowInsets( float insets[4] );
 int Android_GetKeyboardHeight( void );
 void Android_Shutdown( void );
 #endif
@@ -524,13 +523,19 @@ qboolean VoiceCapture_Lock( qboolean lock );
 	#define INLINE_NANOSLEEP1() sleep(1)
 #endif // generic
 
-// Fractions of the drawable window, ordered left, top, right, bottom.
-#if XASH_SDL >= 2
-void Platform_GetWindowInsets( float *left, float *top, float *right, float *bottom );
+// safe area insets as fractions of the window size: left, top, right, bottom
+#if XASH_SDL == 3
+void Platform_GetWindowInsets( float insets[4] );
 #else
-static inline void Platform_GetWindowInsets( float *left, float *top, float *right, float *bottom )
+static inline void Platform_GetWindowInsets( float insets[4] )
 {
-	*left = *top = *right = *bottom = 0;
+#if XASH_IOS && XASH_SDL == 2
+	IOS_GetWindowInsets( host.hWnd, insets );
+#elif XASH_ANDROID && XASH_SDL == 2
+	Android_GetWindowInsets( insets );
+#else
+	insets[0] = insets[1] = insets[2] = insets[3] = 0.0f;
+#endif
 }
 #endif
 

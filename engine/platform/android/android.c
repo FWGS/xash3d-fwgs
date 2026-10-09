@@ -132,16 +132,15 @@ void Platform_ShellExecute( const char *path, const char *parms )
 #endif // XASH_SDL
 }
 
-void Android_GetWindowInsets( float *left, float *top, float *right, float *bottom )
+void Android_GetWindowInsets( float insets[4] )
 {
-	*left = *top = *right = *bottom = 0;
+	insets[0] = insets[1] = insets[2] = insets[3] = 0.0f;
 #if XASH_SDL == 2
 	JNIEnv *env = SDL_AndroidGetJNIEnv();
 	jobject activity = SDL_AndroidGetActivity();
 	jclass cls;
 	jmethodID method;
 	jfloatArray result;
-	jfloat insets[4];
 
 	if( !env || !activity )
 		return;
@@ -158,13 +157,7 @@ void Android_GetWindowInsets( float *left, float *top, float *right, float *bott
 		else if( result )
 		{
 			if( (*env)->GetArrayLength( env, result ) == 4 )
-			{
 				(*env)->GetFloatArrayRegion( env, result, 0, 4, insets );
-				*left = insets[0];
-				*top = insets[1];
-				*right = insets[2];
-				*bottom = insets[3];
-			}
 			(*env)->DeleteLocalRef( env, result );
 		}
 	}

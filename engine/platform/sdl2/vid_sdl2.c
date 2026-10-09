@@ -1221,15 +1221,3 @@ platform_orientation_t Platform_GetDisplayOrientation( void )
 
 	return ORIENTATION_UNKNOWN;
 }
-
-void Platform_GetWindowInsets( float *left, float *top, float *right, float *bottom )
-{
-	*left = *top = *right = *bottom = 0;
-	if( !host.hWnd )
-		return;
-#if XASH_IOS
-	IOS_GetTouchInsets( host.hWnd, left, top, right, bottom );
-#elif XASH_ANDROID
-	Android_GetWindowInsets( left, top, right, bottom );
-#endif
-}

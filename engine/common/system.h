@@ -69,6 +69,7 @@ void Sys_Print( const char *pMsg );
 void Sys_Quit( const char *reason ) NORETURN;
 qboolean Sys_CanRestart( void );
 qboolean Sys_NewInstance( const char *gamedir, const char *finalmsg );
+void Sys_UpdateWindowInsets( void );
 void *Sys_GetNativeObject( const char *obj );
 
 //
