@@ -1961,7 +1961,7 @@ static qboolean Touch_ButtonPress( touchbuttonlist_t *list, touchEventType type,
 
 				// initialize move mode
 				touch.move_finger = fingerID;
-				touch.move_stick = FBitSet( button->flags, TOUCH_FL_STICK );
+				touch.move_stick = FBitSet( button->flags, TOUCH_FL_STICK ) && button->type == touch_joy;
 				touch.move_button = button;
 
 				if( touch.move_stick )
