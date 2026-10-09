@@ -3,18 +3,64 @@
 
 import os
 
+# pngquant exit code when --skip-if-larger didn't write the output
+PNGQUANT_SKIPPED = 98
+
 def options(opt):
-	opt.add_option('--render-touch-icons', action='store_true', default=False, help='Rebuild touch icon PNGs from SVG using resvg or Inkscape')
+	pass
+
+def render_svgs(conf, srcdir):
+	tmpdir = conf.bldnode.make_node('extras_svg')
+	tmpdir.mkdir()
+	rendered = tmpdir.make_node('rendered.png')
+	quantized = tmpdir.make_node('quantized.png')
+
+	svgs = srcdir.ant_glob('**/*.svg', excl=['scripts/**'])
+	updated = 0
+
+	for svg in svgs:
+		conf.cmd_and_log(conf.env.RSVG_CONVERT + ['-o', rendered.abspath(), svg.abspath()])
+
+		ret = conf.exec_command(conf.env.PNGQUANT + ['--speed', '1', '--strip', '--skip-if-larger', '--force',
+			'--output', quantized.abspath(), '--', rendered.abspath()])
+		if ret == PNGQUANT_SKIPPED:
+			data = rendered.read('rb')
+		elif ret == 0:
+			data = quantized.read('rb')
+		else:
+			conf.fatal('pngquant failed on %s with code %d' % (rendered.abspath(), ret))
+
+		# only touch PNGs that actually changed
+		png = svg.parent.make_node(svg.name[:-4] + '.png')
+		if not png.exists() or png.read('rb') != data:
+			png.write(data, 'wb')
+			updated += 1
+
+	return len(svgs), updated
 
 def configure(conf):
-	if not conf.path.find_dir('xash-extras'):
+	srcdir = conf.path.find_dir('xash-extras')
+	if not srcdir:
 		conf.fatal('Can\'t find xash-extras submodule.')
 		return
 
 	conf.load('zip')
-	conf.env.RENDER_TOUCH_ICONS = conf.options.render_touch_icons
-	if conf.env.RENDER_TOUCH_ICONS:
-		conf.find_program(['resvg', 'inkscape'], var='TOUCH_ICON_RENDERER')
+
+	# re-render PNGs in xash-extras from their SVG sources, but only if both
+	# rsvg-convert and pngquant are available, otherwise use prerendered PNGs as is
+	if not conf.find_program('rsvg-convert', var='RSVG_CONVERT', mandatory=False):
+		return
+
+	if not conf.find_program('pngquant', mandatory=False):
+		return
+
+	conf.start_msg('Rendering SVGs in xash-extras')
+	try:
+		total, updated = render_svgs(conf, srcdir)
+	except Exception as e:
+		conf.end_msg('failed', color='RED')
+		conf.fatal('Can\'t render SVGs: %s' % e)
+	conf.end_msg('%d rendered, %d updated' % (total, updated))
 
 def build(bld):
 	srcdir = bld.path.find_dir('xash-extras')
@@ -24,36 +70,8 @@ def build(bld):
 	else:
 		install_path = os.path.join(bld.env.SHAREDIR, bld.env.GAMEDIR)
 
-	files = srcdir.ant_glob('**/*', excl=['scripts/**', '.*', '**/*.svg'])
-	if bld.env.RENDER_TOUCH_ICONS:
-		# Stage every archive member under one root, with rendered PNGs replacing
-		# the committed fallbacks. Archive paths are identical in both modes.
-		archive_root = srcdir.get_bld()
-		staged = []
-		for node in files:
-			relpath = node.path_from(srcdir)
-			output = archive_root.make_node(relpath)
-			svg = srcdir.find_node(os.path.splitext(relpath)[0] + '.svg') if relpath.endswith('.png') else None
-			if svg:
-				if os.path.basename(bld.env.TOUCH_ICON_RENDERER[0]).startswith('resvg'):
-					rule = '${TOUCH_ICON_RENDERER} ${SRC} ${TGT}'
-				else:
-					rule = '${TOUCH_ICON_RENDERER} ${SRC} --export-type=png --export-filename=${TGT}'
-				bld(rule=rule, source=svg, target=output)
-			else:
-				bld(rule=copy_asset, source=node, target=output)
-			staged.append(output)
-		files = staged
-	else:
-		archive_root = srcdir
-
 	bld(features='zip',
 		name = 'extras.pk3',
-		files = files,
-		relative_to = archive_root,
+		files = srcdir.ant_glob('**/*', excl=['scripts/**', '.*', '**/*.svg']),
+		relative_to = srcdir,
 		install_path = install_path)
-
-def copy_asset(task):
-	import shutil
-	task.outputs[0].parent.mkdir()
-	shutil.copyfile(task.inputs[0].abspath(), task.outputs[0].abspath())
