@@ -75,6 +75,15 @@ static void Posix_Redraw( void )
 	}
 }
 
+// called before engine prints, so the output doesn't collide with the input line
+void Posix_Con_PrePrint( void )
+{
+	if( !s_pc.raw || s_pc.textLen == 0 )
+		return;
+
+	Posix_Print( "\r\033[K" );
+}
+
 // called after engine prints to restore the input line
 void Posix_Con_Redraw( void )
 {
@@ -460,5 +469,6 @@ char *Posix_Input( void )
 	return NULL;
 }
 #else // !XASH_POSIX || !_POSIX_VERSION || XASH_MOBILE_PLATFORM || XASH_LOW_MEMORY
+void Posix_Con_PrePrint( void ) { }
 void Posix_Con_Redraw( void ) { }
 #endif // !XASH_POSIX || !_POSIX_VERSION || XASH_MOBILE_PLATFORM || XASH_LOW_MEMORY

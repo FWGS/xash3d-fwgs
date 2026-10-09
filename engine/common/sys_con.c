@@ -286,6 +286,9 @@ static void Sys_PrintStdout( const char *logtime, size_t logtime_len, const char
 #endif
 
 #if !XASH_MOBILE_PLATFORM && !XASH_WIN32 // Wcon does the job
+#if XASH_POSIX
+	Posix_Con_PrePrint();
+#endif
 	Sys_PrintLogfile( STDOUT_FILENO, NULL, 0, XASH_COLORIZE_CONSOLE ? msg : stripped, XASH_COLORIZE_CONSOLE );
 	Sys_FlushStdout();
 #if XASH_POSIX
