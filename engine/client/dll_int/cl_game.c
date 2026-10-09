@@ -961,14 +961,30 @@ void CL_DrawHUD( int state )
 	if( state == CL_ACTIVE && cl.paused )
 		state = CL_PAUSED;
 
+#if XASH_GAMECUBE
+	static int hud_trace;
+	const qboolean trace = state == CL_ACTIVE && hud_trace < 3;
+
+	if( trace )
+		hud_trace++;
+#define CL_HUD_TRACE( step ) \
+	do { if( trace ) Con_Reportf( "Xash3D GameCube: HUD %d %s\n", hud_trace, step ); } while( 0 )
+#else
+#define CL_HUD_TRACE( step ) ((void)0)
+#endif
+
 	switch( state )
 	{
 	case CL_ACTIVE:
 		if( !cl.intermission )
 			CL_DrawScreenFade ();
+		CL_HUD_TRACE( "fade done" );
 		CL_DrawCrosshair ();
+		CL_HUD_TRACE( "crosshair done" );
 		CL_DrawCenterPrint ();
+		CL_HUD_TRACE( "centerprint done" );
 		clgame.dllFuncs.pfnRedraw( cl.time, cl.intermission );
+		CL_HUD_TRACE( "client Redraw done" );
 		if( cl.intermission ) CL_DrawScreenFade ();
 		break;
 	case CL_PAUSED:
@@ -994,6 +1010,7 @@ void CL_DrawHUD( int state )
 		}
 		break;
 	}
+#undef CL_HUD_TRACE
 }
 
 static void CL_ClearUserMessage( char *pszName, int svc_num )

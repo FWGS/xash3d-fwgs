@@ -6942,11 +6942,11 @@ static void GC_PresentBuffer( void )
 		GX_Flush();
 		gc_gx_world_efb_ready = false;
 		{
-			/* Pair with the first-frame entity trace: the first few world
+			/* Pair with the first-frame entity trace: the first few in-game
 			 * presents mark that CopyDisp returned to the host loop. */
 			static int flipper_present_traced;
 
-			if( flipper_present_traced < 4 )
+			if( flipper_present_traced < 4 && cls.state == ca_active )
 			{
 				flipper_present_traced++;
 				SYS_Report( "Xash3D GameCube: Flipper present copied n=%d presents=%u\n",
@@ -12911,6 +12911,13 @@ qboolean GC_RenderNewGameWorldFrames( int count )
 	}
 	for( i = 0; i < count; ++i )
 	{
+		/* First world frames stall after R_DrawEntitiesOnList returns and
+		 * before any present; mark each step of the frame to find where. */
+		static int frame_trace;
+		const qboolean trace = frame_trace < 3;
+
+		if( trace )
+			frame_trace++;
 		ref.dllFuncs.R_BeginFrame( false );
 		VectorCopy( rvp.vieworigin, refState.vieworg );
 		VectorCopy( rvp.viewangles, refState.viewangles );
@@ -12920,6 +12927,8 @@ qboolean GC_RenderNewGameWorldFrames( int count )
 			&& GC_UseGxWorldDraw() )
 			CL_GameCubeLeanEmitBrushEntities();
 		ref.dllFuncs.GL_RenderFrame( &rvp );
+		if( trace )
+			Con_Reportf( "Xash3D GameCube: newgame frame %d after GL_RenderFrame\n", frame_trace );
 		/* G182: SCR newgame presents skip V_PostRender — draw lean HUD onto
 		 * the Flipper EFB before CopyDisp (soft StretchPic would be discarded). */
 		if( GC_UseGxWorldDraw() )
@@ -12932,12 +12941,18 @@ qboolean GC_RenderNewGameWorldFrames( int count )
 				cl.video_prepped = true;
 				ref.dllFuncs.R_AllowFog( false );
 				ref.dllFuncs.R_Set2DMode( true );
+				if( trace )
+					Con_Reportf( "Xash3D GameCube: newgame frame %d HUD begin\n", frame_trace );
 				CL_DrawHUD( CL_ACTIVE );
+				if( trace )
+					Con_Reportf( "Xash3D GameCube: newgame frame %d HUD done\n", frame_trace );
 				ref.dllFuncs.R_AllowFog( true );
 				cl.video_prepped = saved_prepped;
 			}
 		}
 		ref.dllFuncs.R_EndFrame();
+		if( trace )
+			Con_Reportf( "Xash3D GameCube: newgame frame %d after R_EndFrame\n", frame_trace );
 	}
 	Cvar_Set( "r_drawviewmodel", old_drawviewmodel );
 	{
