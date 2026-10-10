@@ -290,6 +290,14 @@ static int r_gx_studio_vm_tris_acc;
 static u32 r_gx_studio_color = 0xFFFFFFFF;
 static unsigned r_gx_studio_bound_tex;
 static unsigned r_gx_studio_pending_tex; /* G376: SetupSkin before ForceBegin */
+/* True while the GX vertex layout is the studio/TriAPI one
+ * (POS+CLR0+TEX0+TEX1, f32/RGBA8). Every other layout change in this file
+ * goes through GX_ClearVtxDesc, which clears it. The effects/studio latch
+ * stays open across world and brush draws, and a TriAPI emit against a
+ * stale layout desyncs the GP and hangs the CPU on a full FIFO (frame 1
+ * trans-EFX particle quad, full-physics route). */
+static qboolean r_gx_studio_layout;
+#define GX_ClearVtxDesc() ( r_gx_studio_layout = false, GX_ClearVtxDesc() )
 static unsigned r_gx_studio_shade_mask; /* G164: luminance buckets seen this pass */
 static qboolean r_gx_studio_gouraud_logged;
 static qboolean r_gx_studio_zrange_logged; /* G167 */
@@ -3416,6 +3424,48 @@ static void R_GXPrepareStudioState( qboolean viewmodel )
 	GX_SetVtxAttrFmt( GX_VTXFMT0, GX_VA_TEX1, GX_TEX_ST, GX_F32, 0 );
 	GX_InvVtxCache();
 	r_gx_face_mode = GC_GX_FACE_MODE_NONE;
+	r_gx_studio_layout = true;
+}
+
+/* Re-arm the studio/effects GX state when something else changed the
+ * vertex layout while the TriAPI latch stayed open. */
+static void R_GXEnsureTriApiLayout( void )
+{
+	static int relayout_logs;
+
+	if( r_gx_studio_layout )
+		return;
+	if( relayout_logs < 4 )
+	{
+		relayout_logs++;
+		gEngfuncs.Con_Reportf( "Xash3D GameCube: TriAPI relayout studio=%d effects=%d\n",
+			r_gx_studio_active, r_gx_effects_tri );
+	}
+	if( r_gx_studio_active )
+		R_GXPrepareStudioState( r_gx_studio_viewmodel );
+	else
+	{
+		R_GXPrepareStudioState( false );
+		GX_SetCullMode( GX_CULL_NONE );
+		GX_SetZMode( GX_TRUE, GX_LEQUAL, GX_FALSE );
+		if( vid.rendermode == kRenderTransAdd || vid.rendermode == kRenderGlow )
+			GX_SetBlendMode( GX_BM_BLEND, GX_BL_SRCALPHA, GX_BL_ONE, GX_LO_NOOP );
+		else if( vid.rendermode == kRenderTransTexture
+			|| vid.rendermode == kRenderTransAlpha
+			|| vid.rendermode == kRenderTransColor )
+			GX_SetBlendMode( GX_BM_BLEND, GX_BL_SRCALPHA, GX_BL_INVSRCALPHA, GX_LO_NOOP );
+	}
+	/* Other draws may have loaded TEXMAP0 too: rebind on the next emit. */
+	r_gx_studio_bound_tex = 0;
+	r_gx_bound_texnum = 0;
+	r_gx_bound_fmt = 0;
+	R_GXStudioRebindPending();
+}
+
+/* For layout changes made outside this file (the soft present path). */
+void R_GXInvalidateTriApiLayout( void )
+{
+	r_gx_studio_layout = false;
 }
 
 void R_GXStudioBegin( qboolean viewmodel )
@@ -3650,6 +3700,7 @@ void R_GXStudioEmitTriC(
 {
 	if( !r_gx_studio_active && !r_gx_effects_tri )
 		return;
+	R_GXEnsureTriApiLayout();
 
 	if( r_gx_studio_bound_tex == 0 )
 		R_GXStudioBindTexnum( (unsigned)tr.whiteTexture );
@@ -3700,6 +3751,7 @@ void R_GXStudioEmitFanC( const gx_tri_vertex_t *verts, int count, qboolean strip
 
 	if( !verts || count < 3 || ( !r_gx_studio_active && !r_gx_effects_tri ))
 		return;
+	R_GXEnsureTriApiLayout();
 	if( r_gx_studio_bound_tex == 0 )
 		R_GXStudioBindTexnum( (unsigned)tr.whiteTexture );
 	for( i = 0; i < count; i++ )
@@ -3726,6 +3778,7 @@ void R_GXStudioEmitTrianglesC( const gx_tri_vertex_t *verts, int count )
 {
 	int i;
 	if( !verts || count < 3 || ( !r_gx_studio_active && !r_gx_effects_tri )) return;
+	R_GXEnsureTriApiLayout();
 	if( r_gx_studio_bound_tex == 0 ) R_GXStudioBindTexnum( (unsigned)tr.whiteTexture );
 	for( i = 0; i < count; i++ ) { R_GXStudioNoteNdcVert( verts[i].x, verts[i].y, verts[i].z ); R_GXStudioNoteShade( verts[i].c ); }
 	GX_Begin( GX_TRIANGLES, GX_VTXFMT0, (u16)count );
@@ -4313,6 +4366,7 @@ void R_GXStudioBegin( qboolean viewmodel ) { (void)viewmodel; }
 void R_GXStudioForceBegin( qboolean viewmodel ) { (void)viewmodel; }
 void R_GXStudioEnd( void ) {}
 void R_GXStudioRebindPending( void ) {}
+void R_GXInvalidateTriApiLayout( void ) {}
 void R_GXStudioInvalidateBindings( void ) {}
 int R_GXStudioEmitLeanMarker( const float origin[3] )
 {

@@ -6602,6 +6602,11 @@ static void GC_PresentBufferViaGX( void )
 		guMtxIdentity( modelview );
 		GX_LoadPosMtxImm( modelview, GX_PNMTX0 );
 
+		{
+			extern void R_GXInvalidateTriApiLayout( void );
+
+			R_GXInvalidateTriApiLayout();
+		}
 		GX_ClearVtxDesc();
 		GX_SetVtxDesc( GX_VA_POS, GX_DIRECT );
 		GX_SetVtxDesc( GX_VA_CLR0, GX_DIRECT );
