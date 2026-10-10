@@ -991,6 +991,25 @@ void CL_DrawHUD( int state )
 #define CL_HUD_TRACE( step ) ((void)0)
 #endif
 
+	/* The menu route reached a live frame with no client progs loaded and
+	 * jumped to a NULL pfnRedraw (ISI at 0). Degrade to engine-only HUD. */
+	if(( state == CL_ACTIVE || state == CL_PAUSED ) && !clgame.dllFuncs.pfnRedraw )
+	{
+		static qboolean missing_logged;
+
+		if( !missing_logged )
+		{
+			missing_logged = true;
+			Con_Reportf( S_ERROR "%s: client HUD_Redraw missing (client progs not loaded, hInstance=%p)\n",
+				__func__, clgame.hInstance );
+		}
+		if( !cl.intermission )
+			CL_DrawScreenFade();
+		CL_DrawCrosshair();
+		CL_DrawCenterPrint();
+		return;
+	}
+
 	switch( state )
 	{
 	case CL_ACTIVE:
