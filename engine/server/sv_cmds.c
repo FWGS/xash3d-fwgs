@@ -80,6 +80,14 @@ static void SV_GameCubePlayStart_f( void )
 			return;
 		}
 		Con_Reportf( "Xash3D GameCube: play start ready %s\n", map );
+		/* SV_ActivateServer defers the menu route's world prepare until the
+		 * client progs are resident; run it now. */
+		if( Sys_CheckParm( "-gcmenuplaystart" ) && !GC_IsNewGameWorldReady() )
+		{
+			Con_Reportf( "Xash3D GameCube: menu post-client prepare map=%s\n", map );
+			if( !GC_PrepareNewGameWorldPresent() )
+				Con_Reportf( S_WARN "Xash3D GameCube: menu post-client prepare failed map=%s\n", map );
+		}
 		/* Keep quality 0 through client connect so R_NewMap stays on the
 		 * low-memory renderer path. Re-arm G36 presents after ca_active. */
 		Cvar_Set( "gc_quality", "0" );
