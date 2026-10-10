@@ -34,9 +34,15 @@ static const char * volatile gc_watchdog_stage = "boot";
 static lwp_t gc_watchdog_thread = LWP_THREAD_NULL;
 static u8 gc_watchdog_stack[GC_WATCHDOG_STACK_SIZE] __attribute__(( aligned( 32 )));
 
+static void GC_WatchdogStart( void );
+
 void GC_WatchdogMark( const char *stage )
 {
 	gc_watchdog_stage = stage;
+	/* Start the thread at the first mark (host frames), not during boot:
+	 * two boot runs hung silently in trivial steps after it was added. */
+	if( !gc_watchdog_progress )
+		GC_WatchdogStart();
 	gc_watchdog_progress++;
 }
 
@@ -81,10 +87,25 @@ static void *GC_WatchdogThread( void *arg )
 	return NULL;
 }
 
+static qboolean gc_watchdog_allowed;
+
 void GC_WatchdogInit( void )
 {
-	if( gc_watchdog_thread != LWP_THREAD_NULL )
+	/* Only arms the watchdog; the thread starts on the first mark. */
+	gc_watchdog_allowed = true;
+}
+
+static void GC_WatchdogStart( void )
+{
+	if( !gc_watchdog_allowed || gc_watchdog_thread != LWP_THREAD_NULL )
 		return;
+	gc_watchdog_allowed = false; /* one attempt */
+	/* -gcnowatchdog disables it for A/B runs. */
+	if( Sys_CheckParm( "-gcnowatchdog" ))
+	{
+		Con_Reportf( "Xash3D GameCube: watchdog disabled (-gcnowatchdog)\n" );
+		return;
+	}
 	if( LWP_CreateThread( &gc_watchdog_thread, GC_WatchdogThread, NULL,
 		gc_watchdog_stack, sizeof( gc_watchdog_stack ), GC_WATCHDOG_PRIORITY ) < 0 )
 		gc_watchdog_thread = LWP_THREAD_NULL;
