@@ -15,7 +15,6 @@ Platform layer ported from Division-Zero-GX/xash3d-wii.
 #if XASH_GAMECUBE
 #include <ogc/system.h>
 #include <ogc/dvd.h>
-#include <ogc/cache.h>
 #include <ogc/lwp_watchdog.h>
 #if defined(__has_include)
 # if __has_include(<ogc/timesupp.h>)
@@ -102,12 +101,6 @@ static qboolean GCube_MountDisc( void )
 #if !defined(XASH_GAMECUBE_LIBOGC2) || !XASH_GAMECUBE_LIBOGC2
 static bool GCube_DVDReadSectors( sec_t sector, sec_t count, void *buffer )
 {
-	/* DVD DMA needs a 32-byte aligned destination and the CPU must not see
-	 * stale cache lines over it. libiso9660's cache buffer alignment is not
-	 * guaranteed, and boot hung inside the vfs.cfg disc lookup only on
-	 * some builds (layout-sensitive), so always read through an aligned,
-	 * invalidated bounce sector. */
-	static u8 bounce[0x800] __attribute__(( aligned( 32 )));
 	u8 *output = buffer;
 	sec_t i;
 
@@ -116,11 +109,8 @@ static bool GCube_DVDReadSectors( sec_t sector, sec_t count, void *buffer )
 	 * __io_gcdvd can otherwise complete with a zero-filled DMA buffer. */
 	for( i = 0; i < count; i++ )
 	{
-		DCInvalidateRange( bounce, sizeof( bounce ));
-		if( !__io_gcdvd.readSectors( sector + i, 1, bounce ))
+		if( !__io_gcdvd.readSectors( sector + i, 1, output + i * 0x800 ))
 			return false;
-		DCInvalidateRange( bounce, sizeof( bounce ));
-		memcpy( output + i * 0x800, bounce, sizeof( bounce ));
 	}
 	return true;
 }
