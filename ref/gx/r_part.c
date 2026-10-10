@@ -21,6 +21,11 @@ GNU General Public License for more details.
 #include "pm_local.h"
 #include "studio.h"
 
+#if XASH_GAMECUBE
+/* Bounded per-particle trace for the first live EFX passes. */
+static int gc_part_trace = 48;
+#endif
+
 static float   gTracerSize[11] = { 1.5f, 0.5f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f };
 static color24 gTracerColors[] =
 {
@@ -123,6 +128,12 @@ void GAME_EXPORT CL_DrawParticles( double frametime, particle_t *cl_active_parti
 
 #if XASH_GAMECUBE
 			GC_WatchdogMark( "particle quad" );
+			if( gc_part_trace > 0 )
+			{
+				gc_part_trace--;
+				gEngfuncs.Con_Reportf( "Xash3D GameCube: EFX particle quad p=%p type=%d color=%d org=(%.0f,%.0f,%.0f)\n",
+					(void *)p, p->type, p->color, p->org[0], p->org[1], p->org[2] );
+			}
 #endif
 			TriBegin( TRI_QUADS );
 			TriTexCoord2f( 0.0f, 1.0f );
@@ -139,6 +150,12 @@ void GAME_EXPORT CL_DrawParticles( double frametime, particle_t *cl_active_parti
 
 #if XASH_GAMECUBE
 		GC_WatchdogMark( "particle think" );
+		if( gc_part_trace > 0 )
+		{
+			gc_part_trace--;
+			gEngfuncs.Con_Reportf( "Xash3D GameCube: EFX particle think p=%p type=%d next=%p\n",
+				(void *)p, p->type, (void *)p->next );
+		}
 #endif
 		gEngfuncs.CL_ThinkParticle( frametime, p );
 	}
@@ -190,7 +207,18 @@ void GAME_EXPORT CL_DrawTracers( double frametime, particle_t *cl_active_tracers
 	GL_SetRenderMode( kRenderTransAdd );
 
 	if( !TriSpriteTexture( gEngfuncs.GetDefaultSprite( REF_DOT_SPRITE ), 0 ))
+	{
+#if XASH_GAMECUBE
+		static qboolean dot_logged;
+
+		if( !dot_logged )
+		{
+			dot_logged = true;
+			gEngfuncs.Con_Reportf( "Xash3D GameCube: EFX tracers skipped, dot sprite unavailable\n" );
+		}
+#endif
 		return;
+	}
 
 	// pglEnable( GL_BLEND );
 	// pglBlendFunc( GL_SRC_ALPHA, GL_ONE );
@@ -219,6 +247,14 @@ void GAME_EXPORT CL_DrawTracers( double frametime, particle_t *cl_active_tracers
 		}
 		if( atten > 0.1f )
 			atten = 0.1f;
+#if XASH_GAMECUBE
+		if( gc_part_trace > 0 )
+		{
+			gc_part_trace--;
+			gEngfuncs.Con_Reportf( "Xash3D GameCube: EFX tracer p=%p type=%d color=%d next=%p\n",
+				(void *)p, p->type, p->color, (void *)p->next );
+		}
+#endif
 
 		VectorScale( p->vel, ( p->ramp * atten ), delta );
 		VectorAdd( p->org, delta, end );
@@ -245,7 +281,8 @@ void GAME_EXPORT CL_DrawTracers( double frametime, particle_t *cl_active_tracers
 			// Quality 0 (low-memory/smoke): 50% size
 			// Quality 1 (medium):           75% size
 			// Quality 2 (high):             100% size
-			float tracer_size = gTracerSize[p->type];
+			float tracer_size = ( p->type >= 0 && p->type < (int)ARRAYSIZE( gTracerSize ))
+				? gTracerSize[p->type] : 1.0f;
 			if( vis == 0 )
 				tracer_size *= 0.5f;
 			else if( vis == 1 )

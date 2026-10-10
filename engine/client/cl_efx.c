@@ -2240,17 +2240,34 @@ void CL_DrawEFX( float time, qboolean fTrans )
 		if( Sys_CheckParm( "-gcnewgame" ) && !Sys_CheckParm( "-gcfullphysics" ))
 			return;
 #endif
+#if XASH_GAMECUBE
+		/* Bounded trace of the first trans passes that have live particles
+		 * or tracers: frame 1 died here after a probe gunshot, silently. */
+		static int gc_efx_trace = 6;
+		qboolean efx_trace = gc_efx_trace > 0 && ( cl_active_particles || cl_active_tracers );
+#define GC_EFX_TRACE( msg ) do { if( efx_trace ) Con_Reportf( "Xash3D GameCube: EFX trace %s\n", msg ); } while( 0 )
+		if( efx_trace )
+			gc_efx_trace--;
+#else
+#define GC_EFX_TRACE( msg ) ((void)0)
+#endif
 		GC_WatchdogMark( "EFX free dead particles" );
+		GC_EFX_TRACE( "free dead particles" );
 		R_FreeDeadParticles( &cl_active_particles );
 		GC_WatchdogMark( "EFX draw particles" );
+		GC_EFX_TRACE( cl_active_particles ? "draw particles" : "no particles" );
 		if( cl_draw_particles.value )
 			ref.dllFuncs.CL_DrawParticles( time, cl_active_particles, PART_SIZE );
 		GC_WatchdogMark( "EFX free dead tracers" );
+		GC_EFX_TRACE( "free dead tracers" );
 		R_FreeDeadParticles( &cl_active_tracers );
 		GC_WatchdogMark( "EFX draw tracers" );
+		GC_EFX_TRACE( cl_active_tracers ? "draw tracers" : "no tracers" );
 		if( cl_draw_tracers.value )
 			ref.dllFuncs.CL_DrawTracers( time, cl_active_tracers );
 		GC_WatchdogMark( "EFX trans done" );
+		GC_EFX_TRACE( "trans done" );
+#undef GC_EFX_TRACE
 	}
 }
 
