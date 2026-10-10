@@ -138,3 +138,16 @@ def apply_static(main, *reloc):
 
 			for t in reloc:
 				self.source += [self.bld.get_tgen_by_name(t).objcopy_task.outputs[0]]
+
+				# Forward each relocatable module's own external uselib
+				existing_use = Utils.to_list(getattr(self, 'use', []))
+				for u in Utils.to_list(getattr(self.bld.get_tgen_by_name(t), 'use', [])):
+					if u in reloc or u in existing_use:
+						continue
+					existing_use.append(u)
+					# Include paths to the external libraries
+					for key in ('STLIB_', 'STLIBPATH_', 'LIB_', 'LIBPATH_'):
+						val = self.bld.get_tgen_by_name(t).env[key + u]
+						if val:
+							self.env.append_unique(key + u, val)
+				self.use = existing_use
