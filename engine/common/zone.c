@@ -769,6 +769,63 @@ void _Mem_Check( const char *filename, int fileline )
 	}
 }
 
+#if XASH_GAMECUBE
+/* Non-fatal walk of every pool's block chains: logs the first broken link
+ * or trashed sentinel with the given tag. Used at map-load checkpoints to
+ * find what corrupted a pool chain (menu route Mem_FreeBlockBig fatal). */
+qboolean GC_MemCheckChains( const char *tag )
+{
+	for( size_t i = 0; i < poolcount; i++ )
+	{
+		mempool_t *pool = &poolchain[i];
+		memheader_t *prev = NULL;
+		memheader_small_t *sprev = NULL;
+		int n = 0;
+
+		if( !pool->filename )
+			continue;
+
+		for( memheader_t *mem = pool->chain; mem; prev = mem, mem = mem->next, n++ )
+		{
+			if( mem->prev != prev || mem->sentinel1 != MEMHEADER_SENTINEL_BIG
+				|| *((const byte *)mem + sizeof( memheader_t ) + mem->size ) != MEMHEADER_SENTINEL2 )
+			{
+				Con_Reportf( S_ERROR "Xash3D GameCube: mem chain broken at=%s pool=\"%s\" block=%d mem=%p prev=%p expect_prev=%p s1=%08x alloc=%s:%i\n",
+					tag, pool->name, n, (void *)mem, (void *)mem->prev, (void *)prev,
+					(unsigned)mem->sentinel1,
+					mem->sentinel1 == MEMHEADER_SENTINEL_BIG ? Mem_CheckFilename( mem->filename ) : "?",
+					mem->sentinel1 == MEMHEADER_SENTINEL_BIG ? mem->fileline : 0 );
+				return false;
+			}
+			if( n > 1000000 )
+			{
+				Con_Reportf( S_ERROR "Xash3D GameCube: mem chain cycle at=%s pool=\"%s\"\n", tag, pool->name );
+				return false;
+			}
+		}
+
+		n = 0;
+		for( memheader_small_t *mem = pool->chain_small; mem; sprev = mem, mem = mem->next, n++ )
+		{
+			if( mem->prev != sprev || mem->sentinel1 != MEMHEADER_SENTINEL_SMALL
+				|| *((const byte *)mem + sizeof( memheader_small_t ) + mem->size ) != MEMHEADER_SENTINEL2 )
+			{
+				Con_Reportf( S_ERROR "Xash3D GameCube: mem small chain broken at=%s pool=\"%s\" block=%d mem=%p\n",
+					tag, pool->name, n, (void *)mem );
+				return false;
+			}
+			if( n > 1000000 )
+			{
+				Con_Reportf( S_ERROR "Xash3D GameCube: mem small chain cycle at=%s pool=\"%s\"\n", tag, pool->name );
+				return false;
+			}
+		}
+	}
+	Con_Reportf( "Xash3D GameCube: mem chains ok at=%s\n", tag );
+	return true;
+}
+#endif
+
 void Mem_PrintStats( void )
 {
 	size_t count = 0, size = 0, realsize = 0;

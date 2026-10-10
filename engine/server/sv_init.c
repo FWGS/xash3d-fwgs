@@ -1189,7 +1189,11 @@ qboolean SV_SpawnServer( const char *mapname, const char *startspot, qboolean ba
 	 * second FS_LoadFile can stall forever after a layout shift. Progs already
 	 * initialized delta — skip reinit on New Game (also -gcnodeltareinit).
 	 * Also skip if delta.lst is missing — local maps don't require deltas. */
-	if( Sys_CheckParm( "-gcnodeltareinit" ) || Sys_CheckParm( "-gcnewgame" ))
+	/* Menu New Game too: the reinit's tables came out unlinked from
+	 * host.mempool by the reconnect's Delta_Shutdown (Mem_FreeBlockBig
+	 * fatal at net_encode.c Delta_Shutdown). */
+	if( Sys_CheckParm( "-gcnodeltareinit" ) || Sys_CheckParm( "-gcnewgame" )
+		|| Sys_CheckParm( "-gcmenuplaystart" ))
 	{
 		Con_Reportf( "Xash3D GameCube: G201 delta reinit skipped (newgame)\n" );
 	}

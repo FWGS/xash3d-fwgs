@@ -49,20 +49,25 @@ static void SV_GameCubePlayStart_f( void )
 	R_GcmapTrimForMapLoad();
 	GC_TrimVideoMemoryForMapLoad();
 	GC_PrepareMapLoadBufferForMap( map );
+	GC_DeltaCheckTables( "play start pre-spawn" );
 	if( SV_SpawnServer( map, NULL, false ))
 	{
+		GC_DeltaCheckTables( "play start spawned" );
 		SV_SpawnEntities( map );
 		SV_ActivateServer( true );
 		Con_Reportf( "Xash3D GameCube: play start post-activate %s\n", map );
+		GC_DeltaCheckTables( "play start post-activate" );
 		if( Sys_CheckParm( "-gcmenuplaystart" ))
 			SV_GCPlaceNewGameTrackTrains();
 		/* World is resident; free BSP staging and unused stubs before client. */
 		Con_Reportf( "Xash3D GameCube: play start discard map buffer begin %s\n", map );
 		GC_DiscardMapLoadBuffer();
 		Con_Reportf( "Xash3D GameCube: play start discard map buffer ready %s\n", map );
+		GC_DeltaCheckTables( "play start discard" );
 		Con_Reportf( "Xash3D GameCube: play start mark precache freeable begin %s\n", map );
 		Mod_GcmapMarkPrecacheFreeable();
 		Con_Reportf( "Xash3D GameCube: play start mark precache freeable ready %s\n", map );
+		GC_DeltaCheckTables( "play start precache freeable" );
 		/* Keep the deferred client bring-up on the lean renderer/HUD path. */
 		Cvar_Set( "gc_quality", "0" );
 		/* Menu: purge decode scratch before client pool alloc — Capture + menu
@@ -80,6 +85,7 @@ static void SV_GameCubePlayStart_f( void )
 			return;
 		}
 		Con_Reportf( "Xash3D GameCube: play start ready %s\n", map );
+		GC_DeltaCheckTables( "play start client ready" );
 		/* SV_ActivateServer defers the menu route's world prepare until the
 		 * client progs are resident; run it now. */
 		if( Sys_CheckParm( "-gcmenuplaystart" ) && !GC_IsNewGameWorldReady() )
