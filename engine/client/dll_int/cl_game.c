@@ -953,6 +953,24 @@ static void CL_DrawLoadingOrPaused( int tex )
 	ref.dllFuncs.R_DrawStretchPic( x, y, width, height, 0, 0, 1, 1, tex );
 }
 
+#if XASH_GAMECUBE
+/* Engine callbacks the client HUD makes during the first traced Redraw are
+ * logged (bounded) and each one names the watchdog stage, so a stall inside
+ * HUD_Redraw shows the last engine call the client made. */
+static int gc_hud_call_trace;
+#define GC_HUD_CALL( fmt, ... ) \
+	do { \
+		GC_WatchdogStage( __func__ ); \
+		if( gc_hud_call_trace > 0 ) \
+		{ \
+			gc_hud_call_trace--; \
+			Con_Reportf( "Xash3D GameCube: HUD call " fmt "\n", ##__VA_ARGS__ ); \
+		} \
+	} while( 0 )
+#else
+#define GC_HUD_CALL( fmt, ... ) ((void)0)
+#endif
+
 void CL_DrawHUD( int state )
 {
 	if( state == CL_ACTIVE && !cl.video_prepped )
@@ -961,14 +979,57 @@ void CL_DrawHUD( int state )
 	if( state == CL_ACTIVE && cl.paused )
 		state = CL_PAUSED;
 
+#if XASH_GAMECUBE
+	static int hud_trace;
+	const qboolean trace = state == CL_ACTIVE && hud_trace < 3;
+
+	if( trace )
+		hud_trace++;
+#define CL_HUD_TRACE( step ) \
+	do { if( trace ) Con_Reportf( "Xash3D GameCube: HUD %d %s\n", hud_trace, step ); } while( 0 )
+#else
+#define CL_HUD_TRACE( step ) ((void)0)
+#endif
+
+	/* The menu route reached a live frame with no client progs loaded and
+	 * jumped to a NULL pfnRedraw (ISI at 0). Degrade to engine-only HUD. */
+	if(( state == CL_ACTIVE || state == CL_PAUSED ) && !clgame.dllFuncs.pfnRedraw )
+	{
+		static qboolean missing_logged;
+
+		if( !missing_logged )
+		{
+			missing_logged = true;
+			Con_Reportf( S_ERROR "%s: client HUD_Redraw missing (client progs not loaded, hInstance=%p)\n",
+				__func__, clgame.hInstance );
+		}
+		if( !cl.intermission )
+			CL_DrawScreenFade();
+		CL_DrawCrosshair();
+		CL_DrawCenterPrint();
+		return;
+	}
+
 	switch( state )
 	{
 	case CL_ACTIVE:
 		if( !cl.intermission )
 			CL_DrawScreenFade ();
+		CL_HUD_TRACE( "fade done" );
 		CL_DrawCrosshair ();
+		CL_HUD_TRACE( "crosshair done" );
 		CL_DrawCenterPrint ();
+		CL_HUD_TRACE( "centerprint done" );
+#if XASH_GAMECUBE
+		if( trace )
+			gc_hud_call_trace = 200;
+		GC_WatchdogMark( "client HUD Redraw" );
+#endif
 		clgame.dllFuncs.pfnRedraw( cl.time, cl.intermission );
+#if XASH_GAMECUBE
+		gc_hud_call_trace = 0;
+#endif
+		CL_HUD_TRACE( "client Redraw done" );
 		if( cl.intermission ) CL_DrawScreenFade ();
 		break;
 	case CL_PAUSED:
@@ -994,6 +1055,7 @@ void CL_DrawHUD( int state )
 		}
 		break;
 	}
+#undef CL_HUD_TRACE
 }
 
 static void CL_ClearUserMessage( char *pszName, int svc_num )
@@ -1860,7 +1922,11 @@ pfnSPR_LoadExt
 */
 HSPRITE pfnSPR_LoadExt( const char *szPicName, uint texFlags )
 {
-	model_t *spr = CL_LoadSpriteModel( szPicName, SPR_CLIENT, texFlags );
+	model_t *spr;
+
+	GC_HUD_CALL( "SPR_LoadExt begin %s", szPicName ? szPicName : "(null)" );
+	spr = CL_LoadSpriteModel( szPicName, SPR_CLIENT, texFlags );
+	GC_HUD_CALL( "SPR_LoadExt done %s ok=%d", szPicName ? szPicName : "(null)", spr != NULL );
 
 	if( spr == NULL )
 		return 0;
@@ -1878,7 +1944,11 @@ function exported for support GoldSrc Monitor utility
 HSPRITE EXPORT pfnSPR_Load( const char *szPicName );
 HSPRITE EXPORT pfnSPR_Load( const char *szPicName )
 {
-	model_t *spr = CL_LoadSpriteModel( szPicName, SPR_HUDSPRITE, 0 );
+	model_t *spr;
+
+	GC_HUD_CALL( "SPR_Load begin %s", szPicName ? szPicName : "(null)" );
+	spr = CL_LoadSpriteModel( szPicName, SPR_HUDSPRITE, 0 );
+	GC_HUD_CALL( "SPR_Load done %s ok=%d", szPicName ? szPicName : "(null)", spr != NULL );
 
 	if( spr == NULL )
 		return 0;
@@ -1943,6 +2013,7 @@ pfnSPR_Height
 */
 static int GAME_EXPORT pfnSPR_Height( HSPRITE hPic, int frame )
 {
+	GC_HUD_CALL( "SPR_Height pic=%d frame=%d", hPic, frame );
 	int	sprHeight = 0;
 
 	R_GetSpriteParms( NULL, &sprHeight, NULL, frame, CL_GetSpritePointer( hPic ));
@@ -1958,6 +2029,7 @@ pfnSPR_Width
 */
 static int GAME_EXPORT pfnSPR_Width( HSPRITE hPic, int frame )
 {
+	GC_HUD_CALL( "SPR_Width pic=%d frame=%d", hPic, frame );
 	int	sprWidth = 0;
 
 	R_GetSpriteParms( &sprWidth, NULL, NULL, frame, CL_GetSpritePointer( hPic ));
@@ -1973,6 +2045,7 @@ pfnSPR_Set
 */
 static void GAME_EXPORT pfnSPR_Set( HSPRITE hPic, int r, int g, int b )
 {
+	GC_HUD_CALL( "SPR_Set pic=%d", hPic );
 	const model_t *sprite = CL_GetSpritePointer( hPic );
 
 	// a1ba: do not alter the state if invalid HSPRITE was passed
@@ -1994,6 +2067,7 @@ pfnSPR_Draw
 */
 static void GAME_EXPORT pfnSPR_Draw( int frame, int x, int y, const wrect_t *prc )
 {
+	GC_HUD_CALL( "SPR_Draw frame=%d x=%d y=%d", frame, x, y );
 	ref.dllFuncs.GL_SetRenderMode( kRenderTransAlpha );
 	SPR_DrawGeneric( frame, x, y, -1, -1, prc );
 }
@@ -2006,6 +2080,7 @@ pfnSPR_DrawHoles
 */
 static void GAME_EXPORT pfnSPR_DrawHoles( int frame, int x, int y, const wrect_t *prc )
 {
+	GC_HUD_CALL( "SPR_DrawHoles frame=%d x=%d y=%d", frame, x, y );
 #if 1 // REFTODO
 	ref.dllFuncs.GL_SetRenderMode( kRenderTransColor );
 #else
@@ -2031,6 +2106,7 @@ pfnSPR_DrawAdditive
 */
 static void GAME_EXPORT pfnSPR_DrawAdditive( int frame, int x, int y, const wrect_t *prc )
 {
+	GC_HUD_CALL( "SPR_DrawAdditive frame=%d x=%d y=%d", frame, x, y );
 #if 1 // REFTODO
 	ref.dllFuncs.GL_SetRenderMode( kRenderTransAdd );
 #else
@@ -2056,6 +2132,7 @@ for parsing half-life scripts - hud.txt etc
 */
 static client_sprite_t *SPR_GetList( char *psz, int *piCount )
 {
+	GC_HUD_CALL( "SPR_GetList %s", psz ? psz : "(null)" );
 	cached_spritelist_t	*pEntry = &clgame.sprlist[0];
 	int		slot, index, numSprites = 0;
 	byte *afile;
@@ -2169,6 +2246,7 @@ CL_FillRGBA
 */
 static void GAME_EXPORT CL_FillRGBA( int x, int y, int w, int h, int r, int g, int b, int a )
 {
+	GC_HUD_CALL( "FillRGBA x=%d y=%d w=%d h=%d", x, y, w, h );
 	float x_ = x, y_ = y, w_ = w, h_ = h;
 
 	r = bound( 0, r, 255 );
@@ -2190,6 +2268,7 @@ get actual screen info
 */
 int GAME_EXPORT CL_GetScreenInfo( SCREENINFO *pscrinfo )
 {
+	GC_HUD_CALL( "GetScreenInfo" );
 	qboolean apply_scale_factor = false; // we don't want floating point inaccuracies
 	float scale_factor = hud_scale.value;
 
@@ -2465,6 +2544,7 @@ returns specified message from titles.txt
 */
 client_textmessage_t *CL_TextMessageGet( const char *pName )
 {
+	GC_HUD_CALL( "TextMessageGet %s", pName ? pName : "(null)" );
 	int	i;
 
 	// first check internal messages
@@ -2495,6 +2575,7 @@ returns drawed chachter width (in real screen pixels)
 */
 static int GAME_EXPORT pfnDrawCharacter( int x, int y, int number, int r, int g, int b )
 {
+	GC_HUD_CALL( "DrawCharacter x=%d y=%d ch=%d", x, y, number );
 	rgba_t color = { r, g, b, 255 };
 	int flags = FONT_DRAW_HUD;
 
@@ -2513,6 +2594,7 @@ drawing string like a console string
 */
 int GAME_EXPORT pfnDrawConsoleString( int x, int y, char *string )
 {
+	GC_HUD_CALL( "DrawConsoleString x=%d y=%d", x, y );
 	cl_font_t *font = Con_GetFont( con_fontsize.value );
 	rgba_t color;
 	Vector4Copy( clgame.ds.textColor, color );
@@ -2546,6 +2628,7 @@ compute string length in screen pixels
 */
 void GAME_EXPORT pfnDrawConsoleStringLen( const char *pText, int *length, int *height )
 {
+	GC_HUD_CALL( "DrawConsoleStringLen" );
 	cl_font_t *font = Con_GetFont( con_fontsize.value );
 
 	if( height ) *height = font->charHeight;
@@ -2724,6 +2807,7 @@ pfnGetClientTime
 */
 static float GAME_EXPORT pfnGetClientTime( void )
 {
+	GC_HUD_CALL( "GetClientTime" );
 	return cl.time;
 }
 
@@ -3223,6 +3307,7 @@ pfnGetLevelName
 */
 static const char *pfnGetLevelName( void )
 {
+	GC_HUD_CALL( "GetLevelName" );
 	static char	mapname[64];
 
 	// a1ba: don't return maps/.bsp if no map is loaded yet
@@ -3243,6 +3328,7 @@ pfnGetScreenFade
 */
 static void GAME_EXPORT pfnGetScreenFade( struct screenfade_s *fade )
 {
+	GC_HUD_CALL( "GetScreenFade" );
 	if( fade ) *fade = clgame.fade;
 }
 
@@ -3510,6 +3596,7 @@ pfnSPR_DrawGeneric
 */
 static void GAME_EXPORT pfnSPR_DrawGeneric( int frame, int x, int y, const wrect_t *prc, int blendsrc, int blenddst, int width, int height )
 {
+	GC_HUD_CALL( "SPR_DrawGeneric frame=%d x=%d y=%d", frame, x, y );
 #if 0 // REFTODO:
 	pglEnable( GL_BLEND );
 	pglBlendFunc( blendsrc, blenddst ); // g-cont. are params is valid?
@@ -3558,6 +3645,7 @@ pfnDrawString
 */
 static int GAME_EXPORT pfnDrawString( int x, int y, const char *str, int r, int g, int b )
 {
+	GC_HUD_CALL( "DrawString x=%d y=%d", x, y );
 	rgba_t color = { r, g, b, 255 };
 	int flags = FONT_DRAW_HUD | FONT_DRAW_NOLF;
 
@@ -3575,6 +3663,7 @@ pfnDrawStringReverse
 */
 static int GAME_EXPORT pfnDrawStringReverse( int x, int y, const char *str, int r, int g, int b )
 {
+	GC_HUD_CALL( "DrawStringReverse x=%d y=%d", x, y );
 	rgba_t color = { r, g, b, 255 };
 	int flags = FONT_DRAW_HUD | FONT_DRAW_NOLF;
 
@@ -3658,6 +3747,7 @@ pfnFillRGBABlend
 */
 static void GAME_EXPORT CL_FillRGBABlend( int x, int y, int w, int h, int r, int g, int b, int a )
 {
+	GC_HUD_CALL( "FillRGBABlend x=%d y=%d w=%d h=%d", x, y, w, h );
 	float x_ = x, y_ = y, w_ = w, h_ = h;
 
 	r = bound( 0, r, 255 );
@@ -4131,6 +4221,7 @@ static void GAME_EXPORT VGui_ViewportPaintBackground( int extents[4] )
 
 static cvar_t* GAME_EXPORT CL_CvarGetPointer( const char *szVarName )
 {
+	GC_HUD_CALL( "CvarGetPointer %s", szVarName ? szVarName : "(null)" );
 	cvar_t *result = (cvar_t *)Cvar_FindVar( szVarName );
 
 	if( !result )
@@ -4286,6 +4377,25 @@ static IVoiceTweak gVoiceApi =
 	Voice_GetControlFloat,
 };
 
+#if XASH_GAMECUBE
+static float GC_HudCvarValue( const char *name )
+{
+	GC_HUD_CALL( "CvarValue %s", name ? name : "(null)" );
+	return Cvar_VariableValue( name );
+}
+
+static const char *GC_HudCvarString( const char *name )
+{
+	GC_HUD_CALL( "CvarString %s", name ? name : "(null)" );
+	return Cvar_VariableString( name );
+}
+#define CL_HUD_CVAR_VALUE GC_HudCvarValue
+#define CL_HUD_CVAR_STRING GC_HudCvarString
+#else
+#define CL_HUD_CVAR_VALUE Cvar_VariableValue
+#define CL_HUD_CVAR_STRING Cvar_VariableString
+#endif
+
 // engine callbacks
 static cl_enginefunc_t gEngfuncs =
 {
@@ -4304,8 +4414,8 @@ static cl_enginefunc_t gEngfuncs =
 	CL_GetScreenInfo,
 	pfnSetCrosshair,
 	pfnCvar_RegisterClientVariable,
-	Cvar_VariableValue,
-	Cvar_VariableString,
+	CL_HUD_CVAR_VALUE,
+	CL_HUD_CVAR_STRING,
 	Cmd_AddClientCommand,
 	pfnHookUserMsg,
 	pfnServerCmd,

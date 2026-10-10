@@ -4224,8 +4224,18 @@ qboolean CL_GameCubeEnsureClientReady( void )
 {
 	string libpath;
 
-	if( clgame.hInstance )
+	if( clgame.hInstance && clgame.dllFuncs.pfnRedraw )
+	{
+		Con_Reportf( "Xash3D GameCube: deferred client init skipped, progs resident\n" );
 		return true;
+	}
+	if( clgame.hInstance )
+	{
+		/* Library handle without its exports: reload instead of letting the
+		 * first HUD frame call through a NULL pointer. */
+		Con_Reportf( S_WARN "Xash3D GameCube: client progs resident without exports, reloading\n" );
+		CL_UnloadProgs();
+	}
 
 	Con_Reportf( "Xash3D GameCube: deferred client init begin\n" );
 	GC_SetLoadingProgress( 0.90f );

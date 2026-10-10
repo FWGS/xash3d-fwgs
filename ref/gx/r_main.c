@@ -859,6 +859,25 @@ static void R_DrawStudioEntitiesLowRes( void )
 R_DrawEntitiesOnList
 =============
 */
+#if XASH_GAMECUBE
+/* First-frame trace for New Game routes: the menu New Game run goes silent
+ * after "R_RenderScene after edges", so mark each phase of the entity pass
+ * (and each solid entity) to find the stall. */
+static qboolean R_GCTraceFirstEntityFrame( void )
+{
+	return tr.framecount <= 1
+		&& ( gEngfuncs.Sys_CheckParm( "-gcnewgame" )
+			|| gEngfuncs.Sys_CheckParm( "-gcmenuplaystart" ));
+}
+#define R_GC_ENTITY_TRACE( ... ) \
+	do { \
+		GC_WatchdogMark( "DrawEntities" ); \
+		if( R_GCTraceFirstEntityFrame( )) gEngfuncs.Con_Reportf( __VA_ARGS__ ); \
+	} while( 0 )
+#else
+#define R_GC_ENTITY_TRACE( ... ) ((void)0)
+#endif
+
 static void R_DrawEntitiesOnList( void )
 {
 #if XASH_GAMECUBE
@@ -895,11 +914,16 @@ static void R_DrawEntitiesOnList( void )
 	// RI.currententity = CL_GetEntityByIndex(0);
 	d_pdrawspans = R_PolysetFillSpans8;
 	GL_SetRenderMode( kRenderNormal );
+	R_GC_ENTITY_TRACE( "Xash3D GameCube: DrawEntities begin solid=%u trans=%u\n",
+		tr.draw_list->num_solid_entities, tr.draw_list->num_trans_entities );
 	// first draw solid entities
 	for( int i = 0; i < tr.draw_list->num_solid_entities && !FBitSet( RI.rvp.flags, RF_ONLY_CLIENTDRAW ); i++ )
 	{
 		RI.currententity = tr.draw_list->solid_entities[i];
 		RI.currentmodel = RI.currententity->model;
+		R_GC_ENTITY_TRACE( "Xash3D GameCube: DrawEntities solid %d model=%s type=%d\n", i,
+			RI.currentmodel ? RI.currentmodel->name : "(none)",
+			RI.currentmodel ? RI.currentmodel->type : -1 );
 		// d_aflatcolor += 500;
 
 		if( !RI.currentmodel && RI.currententity->player && !FBitSet( RI.rvp.flags, RF_DRAW_WORLD ))
@@ -946,6 +970,7 @@ static void R_DrawEntitiesOnList( void )
 	}
 
 	R_SetUpWorldTransform();
+	R_GC_ENTITY_TRACE( "Xash3D GameCube: DrawEntities solid done\n" );
 	// draw sprites seperately, because of alpha blending
 	for( int i = 0; i < tr.draw_list->num_solid_entities && !FBitSet( RI.rvp.flags, RF_ONLY_CLIENTDRAW ); i++ )
 	{
@@ -966,6 +991,7 @@ static void R_DrawEntitiesOnList( void )
 		}
 	}
 
+	R_GC_ENTITY_TRACE( "Xash3D GameCube: DrawEntities sprites done\n" );
 	if( !FBitSet( RI.rvp.flags, RF_ONLY_CLIENTDRAW ))
 	{
 #if XASH_GAMECUBE
@@ -1020,6 +1046,7 @@ static void R_DrawEntitiesOnList( void )
 	}
 
 	d_pdrawspans = R_PolysetDrawSpans8_33;
+	R_GC_ENTITY_TRACE( "Xash3D GameCube: DrawEntities solid EFX and tris done\n" );
 
 #if XASH_GAMECUBE
 		/* G291: Flipper still draws translucent sprites under quality-0;
@@ -1122,6 +1149,7 @@ static void R_DrawEntitiesOnList( void )
 		}
 #endif
 
+	R_GC_ENTITY_TRACE( "Xash3D GameCube: DrawEntities translucent done\n" );
 	if( FBitSet( RI.rvp.flags, RF_DRAW_WORLD ))
 	{
 #if XASH_GAMECUBE
@@ -1164,6 +1192,7 @@ static void R_DrawEntitiesOnList( void )
 		}
 	}
 
+	R_GC_ENTITY_TRACE( "Xash3D GameCube: DrawEntities trans EFX done\n" );
 	GL_SetRenderMode( kRenderNormal );
 	R_SetUpWorldTransform();
 	if( !FBitSet( RI.rvp.flags, RF_ONLY_CLIENTDRAW ))
@@ -1215,6 +1244,7 @@ static void R_DrawEntitiesOnList( void )
 #endif
 		R_DrawViewModel();
 	}
+	R_GC_ENTITY_TRACE( "Xash3D GameCube: DrawEntities viewmodel done\n" );
 #if XASH_GAMECUBE
 	if( lean_ents && tr.framecount <= 4 )
 		gEngfuncs.Con_Reportf( "Xash3D GameCube: lean DrawEntities f=%d brushes=%d studios=%d solid=%u vm=%d\n",
@@ -2700,6 +2730,11 @@ qboolean GAME_EXPORT R_Init( void )
 	R_InitTurb();
 	GL_InitRandomTable();
 #if XASH_GAMECUBE
+	{
+		extern void R_GXReserveHudPoolEarly( void );
+
+		R_GXReserveHudPoolEarly();
+	}
 	gEngfuncs.Con_Reportf( "Xash3D GameCube: renderer init ready (quality=%d)\n", GC_GetVisualQuality() );
 #endif
 

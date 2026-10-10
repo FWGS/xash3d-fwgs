@@ -712,6 +712,7 @@ void Host_Frame( double time )
 
 	double t1 = Platform_DoubleTime();
 
+	GC_WatchdogMark( "host frame" );
 	if( host.framecount == 0 )
 		Con_DPrintf( "Time to first frame: %.3f seconds\n", t1 - host.starttime );
 

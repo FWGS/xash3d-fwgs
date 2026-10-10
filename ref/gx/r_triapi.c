@@ -16,6 +16,7 @@ GNU General Public License for more details.
 
 #include "r_local.h"
 #include "const.h"
+#include <math.h>
 
 static struct
 {
@@ -323,14 +324,17 @@ void GAME_EXPORT TriTexCoord2f( float u, float v )
 
 		gx_u = u;
 		gx_v = v;
-		while( uu < 0.0f )
-			uu += 1.0f;
-		while( vv < 0.0f )
-			vv += 1.0f;
-		while( uu > 1.0f )
-			uu -= 1.0f;
-		while( vv > 1.0f )
-			vv -= 1.0f;
+		/* Wrap into 0..1 in O(1). The old +=1/-=1 loops ran once per unit of
+		 * |u|, so large scrolled UVs stalled the frame for seconds and at
+		 * |u| >= 2^24 (where u + 1 == u) never finished. */
+		if( !isfinite( uu ))
+			uu = 0.0f;
+		if( !isfinite( vv ))
+			vv = 0.0f;
+		if( uu < 0.0f || uu > 1.0f )
+			uu -= floorf( uu );
+		if( vv < 0.0f || vv > 1.0f )
+			vv -= floorf( vv );
 		s = r_affinetridesc.skinwidth * bound( 0.01, uu, 0.99 );
 		t = r_affinetridesc.skinheight * bound( 0.01, vv, 0.99 );
 		return;
@@ -514,12 +518,14 @@ bind current texture
 */
 int TriSpriteTexture( model_t *pSpriteModel, int frame )
 {
+	mspriteframe_t *pframe;
 	int gl_texturenum;
 
 	if( !pSpriteModel || pSpriteModel->type != mod_sprite || !pSpriteModel->cache.data )
 		return 0;
 
-	if(( gl_texturenum = gEngfuncs.R_GetSpriteFrame( pSpriteModel, frame, 0.0f )->gl_texturenum ) == 0 )
+	pframe = gEngfuncs.R_GetSpriteFrame( pSpriteModel, frame, 0.0f );
+	if( !pframe || ( gl_texturenum = pframe->gl_texturenum ) == 0 )
 		return 0;
 
 	if( gl_texturenum <= 0 || gl_texturenum >= MAX_TEXTURES )

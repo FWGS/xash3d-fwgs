@@ -48,6 +48,7 @@ void Mod_GCClearRetainedBspScratch( void );
 #include <ogc/system.h>
 #include <ogc/cache.h>
 #include <ogc/aram.h>
+#include <ogc/lwp_watchdog.h>
 #endif
 
 typedef struct gc_video_s
@@ -64,10 +65,97 @@ typedef struct gc_video_s
 static gc_video_t gc;
 #if XASH_GAMECUBE
 static void *xfb[2] = { NULL, NULL };
+static u32 xfb_bytes[2];
+
+/* Allocate XFB i for mode, reusing the current one when it is big enough.
+ * The early splash's XFB used to be dropped here and leaked (~600 KB). */
+static void GC_AllocXFB( int i, GXRModeObj *mode )
+{
+	u32 need = VIDEO_GetFrameBufferSize( mode );
+
+	if( xfb[i] && xfb_bytes[i] >= need )
+		return;
+	if( xfb[i] )
+		free( MEM_K1_TO_K0( xfb[i] ));
+	xfb[i] = MEM_K0_TO_K1( SYS_AllocateFramebuffer( mode ));
+	xfb_bytes[i] = xfb[i] ? need : 0;
+}
 static int which_fb = 0;
 static GXRModeObj *rmode = NULL;
 static uint8_t gx_fifo[256 * 1024] __attribute__((aligned(32)));
 static unsigned int gc_present_count;
+
+/* GX_DrawDone sleeps until Flipper retires the draw-done token and has no
+ * timeout. New Game froze for minutes right after the first world
+ * CopyDisp with no further log, so wait ourselves, with a timeout.
+ *
+ * The first version waited on GX_SetDrawDoneCallback and never saw the
+ * callback fire in Dolphin, even with the GP idle, so every present cost
+ * the full timeout. Poll a draw-sync token instead (no interrupt needed),
+ * and treat a GP that reports both FIFO read and command processor idle as
+ * done. Only a GP that is still busy at the timeout is reported and the
+ * frame aborted. */
+#define GC_DRAWDONE_TIMEOUT_MS 2000
+#define GC_DRAWDONE_IDLE_MS 2
+static unsigned int gc_drawdone_timeouts;
+
+static qboolean GC_GXDrawDoneTimed( const char *where )
+{
+	static u16 token;
+	u64 start, idle_start = 0;
+	u8 overhi = 0, underlo = 0, read_idle = 0, cmd_idle = 0, brkpt = 0;
+
+	GC_WatchdogMark( where );
+	token++;
+	GX_SetDrawSync( token );
+	GX_Flush();
+	start = gettime();
+
+	for( ;; )
+	{
+		if( GX_GetDrawSync() == token )
+			return true;
+
+		GX_GetGPStatus( &overhi, &underlo, &read_idle, &cmd_idle, &brkpt );
+		if( read_idle && cmd_idle )
+		{
+			if( GX_GetDrawSync() == token )
+				return true;
+			/* Idle for a few ms in a row with no token: stop waiting. */
+			if( !idle_start )
+				idle_start = gettime();
+			else if( ticks_to_millisecs( diff_ticks( idle_start, gettime())) >= GC_DRAWDONE_IDLE_MS )
+				break;
+		}
+		else idle_start = 0;
+
+		if( ticks_to_millisecs( diff_ticks( start, gettime())) > GC_DRAWDONE_TIMEOUT_MS )
+			break;
+	}
+
+	if( read_idle && cmd_idle )
+	{
+		static qboolean idle_logged;
+
+		/* Command stream fully drained but the token never showed up:
+		 * nothing left to wait for, so carry on without aborting. */
+		if( !idle_logged )
+		{
+			idle_logged = true;
+			SYS_Report( "Xash3D GameCube: GX draw sync token missing at=%s presents=%u; GP idle, continuing\n",
+				where, gc_present_count );
+		}
+		return true;
+	}
+
+	gc_drawdone_timeouts++;
+	SYS_Report( "Xash3D GameCube: GX DrawDone timeout at=%s presents=%u count=%u "
+		"overhi=%u underlo=%u read_idle=%u cmd_idle=%u brkpt=%u\n",
+		where, gc_present_count, gc_drawdone_timeouts,
+		overhi, underlo, read_idle, cmd_idle, brkpt );
+	GX_AbortFrame();
+	return false;
+}
 static qboolean gc_lean_player_physics_armed;
 static unsigned int gc_blank_present_count;
 static unsigned int gc_budget_sample_count;
@@ -6141,7 +6229,7 @@ void GC_EarlyBootSplash( void )
 		return;
 
 	VIDEO_Configure( rmode );
-	xfb[0] = MEM_K0_TO_K1( SYS_AllocateFramebuffer( rmode ));
+	GC_AllocXFB( 0, rmode );
 	if( !xfb[0] )
 		return;
 
@@ -6227,8 +6315,8 @@ static void GC_InitVideoHardware( void )
 	{
 		rmode = forced;
 		VIDEO_Configure( rmode );
-		xfb[0] = MEM_K0_TO_K1( SYS_AllocateFramebuffer( rmode ));
-		xfb[1] = MEM_K0_TO_K1( SYS_AllocateFramebuffer( rmode ));
+		GC_AllocXFB( 0, rmode );
+		GC_AllocXFB( 1, rmode );
 	}
 	else
 	{
@@ -6251,9 +6339,9 @@ static void GC_InitVideoHardware( void )
 		GC_VIDEO_MIN_READABLE_WIDTH, GC_VIDEO_MIN_READABLE_HEIGHT );
 
 	if( !xfb[0] )
-		xfb[0] = MEM_K0_TO_K1( SYS_AllocateFramebuffer( rmode ));
+		GC_AllocXFB( 0, rmode );
 	if( !xfb[1] )
-		xfb[1] = MEM_K0_TO_K1( SYS_AllocateFramebuffer( rmode ));
+		GC_AllocXFB( 1, rmode );
 	VIDEO_SetNextFramebuffer( xfb[which_fb] );
 	VIDEO_SetBlack( false );
 	VIDEO_Flush();
@@ -6555,7 +6643,7 @@ static void GC_PresentBufferViaGX( void )
 	GX_TexCoord2f32( 0.0f, 1.0f );
 	GX_End();
 
-	GX_DrawDone();
+	GC_GXDrawDoneTimed( "soft present" );
 	/* G191: keep soft RGB565 on EFB during dump latch — Dolphin DumpFramesAsImages
 	 * after changelevel tracks EFB; CopyDisp clear left flat sky in dumps. */
 	copy_clear = dump_latch ? GX_FALSE : GX_TRUE;
@@ -6885,13 +6973,25 @@ static void GC_PresentBuffer( void )
 		if( gc_present_count == 20 || gc_present_count == 28 || gc_present_count == 36 )
 			Con_Reportf( "Xash3D GameCube: present Flipper DrawDone begin presents=%u\n",
 				gc_present_count );
-		GX_DrawDone();
+		GC_GXDrawDoneTimed( "Flipper present" );
 		if( gc_present_count == 20 || gc_present_count == 28 || gc_present_count == 36 )
 			Con_Reportf( "Xash3D GameCube: present Flipper DrawDone end presents=%u\n",
 				gc_present_count );
 		GX_CopyDisp( xfb[which_fb], GX_FALSE );
 		GX_Flush();
 		gc_gx_world_efb_ready = false;
+		{
+			/* Pair with the first-frame entity trace: the first few in-game
+			 * presents mark that CopyDisp returned to the host loop. */
+			static int flipper_present_traced;
+
+			if( flipper_present_traced < 4 && cls.state == ca_active )
+			{
+				flipper_present_traced++;
+				SYS_Report( "Xash3D GameCube: Flipper present copied n=%d presents=%u\n",
+					flipper_present_traced, gc_present_count );
+			}
+		}
 
 		/* Capture-only: hold EFB for Dolphin DumpFramesAsImages. */
 		if( GC_IsCaptureDiagnostics()
@@ -12850,6 +12950,13 @@ qboolean GC_RenderNewGameWorldFrames( int count )
 	}
 	for( i = 0; i < count; ++i )
 	{
+		/* First world frames stall after R_DrawEntitiesOnList returns and
+		 * before any present; mark each step of the frame to find where. */
+		static int frame_trace;
+		const qboolean trace = frame_trace < 3;
+
+		if( trace )
+			frame_trace++;
 		ref.dllFuncs.R_BeginFrame( false );
 		VectorCopy( rvp.vieworigin, refState.vieworg );
 		VectorCopy( rvp.viewangles, refState.viewangles );
@@ -12859,6 +12966,9 @@ qboolean GC_RenderNewGameWorldFrames( int count )
 			&& GC_UseGxWorldDraw() )
 			CL_GameCubeLeanEmitBrushEntities();
 		ref.dllFuncs.GL_RenderFrame( &rvp );
+		GC_WatchdogMark( "newgame frame after GL_RenderFrame" );
+		if( trace )
+			Con_Reportf( "Xash3D GameCube: newgame frame %d after GL_RenderFrame\n", frame_trace );
 		/* G182: SCR newgame presents skip V_PostRender — draw lean HUD onto
 		 * the Flipper EFB before CopyDisp (soft StretchPic would be discarded). */
 		if( GC_UseGxWorldDraw() )
@@ -12871,12 +12981,20 @@ qboolean GC_RenderNewGameWorldFrames( int count )
 				cl.video_prepped = true;
 				ref.dllFuncs.R_AllowFog( false );
 				ref.dllFuncs.R_Set2DMode( true );
+				if( trace )
+					Con_Reportf( "Xash3D GameCube: newgame frame %d HUD begin\n", frame_trace );
 				CL_DrawHUD( CL_ACTIVE );
+				GC_WatchdogMark( "newgame frame HUD done" );
+				if( trace )
+					Con_Reportf( "Xash3D GameCube: newgame frame %d HUD done\n", frame_trace );
 				ref.dllFuncs.R_AllowFog( true );
 				cl.video_prepped = saved_prepped;
 			}
 		}
 		ref.dllFuncs.R_EndFrame();
+		GC_WatchdogMark( "newgame frame after R_EndFrame" );
+		if( trace )
+			Con_Reportf( "Xash3D GameCube: newgame frame %d after R_EndFrame\n", frame_trace );
 	}
 	Cvar_Set( "r_drawviewmodel", old_drawviewmodel );
 	{

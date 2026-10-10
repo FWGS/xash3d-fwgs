@@ -24,6 +24,10 @@ GNU General Public License for more details.
 #include "pm_local.h"
 
 #if XASH_GAMECUBE
+qboolean CL_GameCubeClientProgsReady( void );
+#endif
+
+#if XASH_GAMECUBE
 void R_GcmapTrimForMapLoad( void );
 void R_GcmapRestoreAfterMapLoad( void );
 void R_GcmapMarkMapLoadComplete( void );
@@ -756,7 +760,16 @@ void SV_ActivateServer( int runPhysics )
 	/* The fallback menu route has no normal SCR transition to trigger that
 	 * deferred prepare. Start it after direct-map player prime, when entity
 	 * spawn and the menu CapFaces bake are complete. */
-	if( Sys_CheckParm( "-gcmenuplaystart" ) && !GC_IsNewGameWorldReady() )
+	/* The prepare renders a full client frame, so it needs the client
+	 * progs. The menu route brings them up after activation (gc_playstart
+	 * runs the prepare itself then); rendering here jumped to a NULL
+	 * HUD_Redraw. */
+	if( Sys_CheckParm( "-gcmenuplaystart" ) && !GC_IsNewGameWorldReady()
+		&& !CL_GameCubeClientProgsReady() )
+	{
+		Con_Reportf( "Xash3D GameCube: menu post-spawn prepare deferred until client ready map=%s\n", sv.name );
+	}
+	else if( Sys_CheckParm( "-gcmenuplaystart" ) && !GC_IsNewGameWorldReady() )
 	{
 		Con_Reportf( "Xash3D GameCube: menu post-spawn prepare map=%s\n", sv.name );
 		if( !GC_PrepareNewGameWorldPresent() )

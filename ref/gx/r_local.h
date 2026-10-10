@@ -416,6 +416,7 @@ static inline qboolean GC_IsNewGameProbe( void )
 #if XASH_GAMECUBE
 /* G151: Flipper GX world draw (defined in engine platform). */
 qboolean GC_UseGxWorldDraw( void );
+void GC_WatchdogMark( const char *stage );
 qboolean GC_UseGxRenderer( void );
 void GC_MarkGxWorldEfbReady( void );
 void GC_EnableGxWorldLive( void );
