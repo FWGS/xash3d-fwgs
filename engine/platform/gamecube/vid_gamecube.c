@@ -65,6 +65,21 @@ typedef struct gc_video_s
 static gc_video_t gc;
 #if XASH_GAMECUBE
 static void *xfb[2] = { NULL, NULL };
+static u32 xfb_bytes[2];
+
+/* Allocate XFB i for mode, reusing the current one when it is big enough.
+ * The early splash's XFB used to be dropped here and leaked (~600 KB). */
+static void GC_AllocXFB( int i, GXRModeObj *mode )
+{
+	u32 need = VIDEO_GetFrameBufferSize( mode );
+
+	if( xfb[i] && xfb_bytes[i] >= need )
+		return;
+	if( xfb[i] )
+		free( MEM_K1_TO_K0( xfb[i] ));
+	xfb[i] = MEM_K0_TO_K1( SYS_AllocateFramebuffer( mode ));
+	xfb_bytes[i] = xfb[i] ? need : 0;
+}
 static int which_fb = 0;
 static GXRModeObj *rmode = NULL;
 static uint8_t gx_fifo[256 * 1024] __attribute__((aligned(32)));
@@ -6214,7 +6229,7 @@ void GC_EarlyBootSplash( void )
 		return;
 
 	VIDEO_Configure( rmode );
-	xfb[0] = MEM_K0_TO_K1( SYS_AllocateFramebuffer( rmode ));
+	GC_AllocXFB( 0, rmode );
 	if( !xfb[0] )
 		return;
 
@@ -6300,8 +6315,8 @@ static void GC_InitVideoHardware( void )
 	{
 		rmode = forced;
 		VIDEO_Configure( rmode );
-		xfb[0] = MEM_K0_TO_K1( SYS_AllocateFramebuffer( rmode ));
-		xfb[1] = MEM_K0_TO_K1( SYS_AllocateFramebuffer( rmode ));
+		GC_AllocXFB( 0, rmode );
+		GC_AllocXFB( 1, rmode );
 	}
 	else
 	{
@@ -6324,9 +6339,9 @@ static void GC_InitVideoHardware( void )
 		GC_VIDEO_MIN_READABLE_WIDTH, GC_VIDEO_MIN_READABLE_HEIGHT );
 
 	if( !xfb[0] )
-		xfb[0] = MEM_K0_TO_K1( SYS_AllocateFramebuffer( rmode ));
+		GC_AllocXFB( 0, rmode );
 	if( !xfb[1] )
-		xfb[1] = MEM_K0_TO_K1( SYS_AllocateFramebuffer( rmode ));
+		GC_AllocXFB( 1, rmode );
 	VIDEO_SetNextFramebuffer( xfb[which_fb] );
 	VIDEO_SetBlack( false );
 	VIDEO_Flush();
