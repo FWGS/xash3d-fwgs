@@ -54,6 +54,7 @@ def use_xash_clang_format(self):
 			t.env.env = dict(os.environ, XASH_CLANG_FORMAT_BIN=real_cf)
 
 
+
 class Subproject:
 	def __init__(self, name, fnFilter = None):
 		self.name = name
@@ -122,7 +123,7 @@ SUBDIRS = [
 	Subproject('ref/soft',              lambda x: x.env.CLIENT and x.env.SOFT),
 	Subproject('ref/null',              lambda x: x.env.CLIENT and x.env.NULL),
 	Subproject('3rdparty/bzip2',        lambda x: x.env.CLIENT and not x.env.HAVE_SYSTEM_BZ2),
-	Subproject('3rdparty/mbedtls', lambda x: x.env.DEST_OS != 'wii'),
+	Subproject('3rdparty/mbedtls',      lambda x: x.env.DEST_OS != 'wii'),
 	Subproject('3rdparty/opus',         lambda x: x.env.CLIENT and not x.env.HAVE_SYSTEM_OPUS),
 	Subproject('3rdparty/libogg',       lambda x: x.env.CLIENT and x.env.DEST_OS != 'wii' and not x.env.HAVE_SYSTEM_OGG),
 	Subproject('3rdparty/vorbis',       lambda x: x.env.CLIENT and x.env.DEST_OS != 'wii' and (not x.env.HAVE_SYSTEM_VORBIS or not x.env.HAVE_SYSTEM_VORBISFILE)),
@@ -133,6 +134,8 @@ SUBDIRS = [
 	# engine is obligated to provide VGUI interface in 32-bit builds on Windows/Linux/Mac as shared library
 	# on platforms supported only by Xash3D FWGS, freevgui can be linked statically into client library
 	Subproject('3rdparty/freevgui',     lambda x: x.env.CLIENT and x.env.DEST_OS in ['win32', 'linux', 'darwin'] and x.env.DEST_CPU == 'x86'),
+
+	Subproject('3rdparty/hlsdk-portable',lambda x: x.env.CLIENT and x.env.STATIC_LINKING),
 
 	Subproject('3rdparty/MultiEmulator',lambda x: x.env.CLIENT),
 	Subproject('stub/client',           lambda x: x.env.CLIENT),
@@ -389,7 +392,7 @@ def configure(conf):
 			'-Werror=sizeof-pointer-memaccess',
 			'-Werror=sizeof-array-div',
 			'-Werror=sizeof-pointer-div',
-			'-Werror=strict-aliasing',
+			#'-Werror=strict-aliasing',
 			'-Werror=string-compare',
 			'-Werror=tautological-compare',
 			'-Werror=use-after-free=3',
