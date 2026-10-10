@@ -684,6 +684,9 @@ class NintendoWii:
 	def objcopy(self):
 		return self.gen_gcc_toolchain_path() + 'objcopy'
 
+	def nm(self):
+		return self.gen_gcc_toolchain_path() + 'nm'
+
 	def pkgconfig(self):
 		# It's the same as nswitch
 		return os.path.join(self.portlibs_dir, 'bin', self.gen_toolchain_prefix() + 'pkg-config')
@@ -693,9 +696,9 @@ class NintendoWii:
 		cflags += ['-D__wii__', '-DGEKKO']
 		cflags += ['-mrvl', '-mcpu=750', '-meabi', '-mhard-float']
 		cflags += ['-ffunction-sections', '-fdata-sections']
-		#double check
 		cflags += ['-I%s/include' % self.libogc_dir]
 		cflags += ['-I%s/include' % self.portlibs_dir]
+		cflags += ['-I%s/portlibs/ppc/include' % self.dkp_dir]
 		cflags += ['-I.']
 
 		# the game wants GNU extensions
@@ -708,8 +711,7 @@ class NintendoWii:
 	def linkflags(self):
 		linkflags = []
 		linkflags += ['-mrvl', '-mcpu=750', '-meabi', '-mhard-float']
-		linkflags += ['-L%s/powerpc-eabi/lib' % self.dkppc_dir]
-
+		linkflags += ['-L%s/portlibs/ppc/lib' % self.dkppc_dir]
 		# This is just for linking opengx and sdl2
 		linkflags += ['-L%s/lib' % self.portlibs_dir]
 		linkflags += ['-Wl,--gc-sections', '-fwhole-program', '-Wl,--build-id=none']
@@ -907,6 +909,7 @@ def configure(conf):
 		conf.environ['STRIP'] = wii.strip()
 		conf.environ['LD'] = wii.ld()
 		conf.environ['OBJCOPY'] = wii.objcopy()
+		conf.environ['NM'] = wii.nm()
 		conf.env.PKGCONFIG = wii.pkgconfig()
 		conf.env.CFLAGS += wii.cflags()
 		conf.env.CXXFLAGS += wii.cflags(True)
