@@ -298,6 +298,11 @@ static unsigned r_gx_studio_pending_tex; /* G376: SetupSkin before ForceBegin */
  * trans-EFX particle quad, full-physics route). */
 static qboolean r_gx_studio_layout;
 #define GX_ClearVtxDesc() ( r_gx_studio_layout = false, GX_ClearVtxDesc() )
+/* The world face path also toggles single attributes (TEX1 -> GX_NONE)
+ * without clearing, so any descriptor or format write counts. */
+#define GX_SetVtxDesc( attr, type ) ( r_gx_studio_layout = false, GX_SetVtxDesc( attr, type ))
+#define GX_SetVtxAttrFmt( fmt, attr, cnt, type, frac ) \
+	( r_gx_studio_layout = false, GX_SetVtxAttrFmt( fmt, attr, cnt, type, frac ))
 static unsigned r_gx_studio_shade_mask; /* G164: luminance buckets seen this pass */
 static qboolean r_gx_studio_gouraud_logged;
 static qboolean r_gx_studio_zrange_logged; /* G167 */
