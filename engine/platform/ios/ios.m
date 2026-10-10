@@ -1,5 +1,5 @@
 /*
- launchdialog.m - iOS lauch dialog
+ ios.m
  Copyright (C) 2016 mittorn
  
  This program is free software: you can redistribute it and/or modify
@@ -13,11 +13,18 @@
  GNU General Public License for more details.
  */
 
-#include "SDL_syswm.h"
+#include "xash3d_types.h"
 #import <AdSupport/AdSupport.h>
 #import <AppTrackingTransparency/AppTrackingTransparency.h>
 #import <UIKit/UIKit.h>
+#if XASH_SDL == 2
 #import <SDL2/SDL.h>
+#elif XASH_SDL == 3
+#include <SDL3/SDL.h>
+#include <SDL3/SDL_system.h>
+#define SDL_MAIN_HANDLED
+#include <SDL3/SDL_main.h>
+#endif
 #import <Security/Security.h>
 
 #define XASHLIB "@rpath/libxash.dylib"
@@ -56,7 +63,7 @@ const char *IOS_GetExecDir( void )
 void IOS_PrepareView( void )
 {
 	SDL_SetMainReady();
-	SDL_iPhoneSetEventPump(SDL_TRUE);
+	SDL_SetiOSEventPump(true);
 }
 
 char *IOS_GetUDID( void )
