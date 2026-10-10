@@ -1903,7 +1903,11 @@ pfnSPR_LoadExt
 */
 HSPRITE pfnSPR_LoadExt( const char *szPicName, uint texFlags )
 {
-	model_t *spr = CL_LoadSpriteModel( szPicName, SPR_CLIENT, texFlags );
+	model_t *spr;
+
+	GC_HUD_CALL( "SPR_LoadExt begin %s", szPicName ? szPicName : "(null)" );
+	spr = CL_LoadSpriteModel( szPicName, SPR_CLIENT, texFlags );
+	GC_HUD_CALL( "SPR_LoadExt done %s ok=%d", szPicName ? szPicName : "(null)", spr != NULL );
 
 	if( spr == NULL )
 		return 0;
@@ -1921,7 +1925,11 @@ function exported for support GoldSrc Monitor utility
 HSPRITE EXPORT pfnSPR_Load( const char *szPicName );
 HSPRITE EXPORT pfnSPR_Load( const char *szPicName )
 {
-	model_t *spr = CL_LoadSpriteModel( szPicName, SPR_HUDSPRITE, 0 );
+	model_t *spr;
+
+	GC_HUD_CALL( "SPR_Load begin %s", szPicName ? szPicName : "(null)" );
+	spr = CL_LoadSpriteModel( szPicName, SPR_HUDSPRITE, 0 );
+	GC_HUD_CALL( "SPR_Load done %s ok=%d", szPicName ? szPicName : "(null)", spr != NULL );
 
 	if( spr == NULL )
 		return 0;
@@ -2105,6 +2113,7 @@ for parsing half-life scripts - hud.txt etc
 */
 static client_sprite_t *SPR_GetList( char *psz, int *piCount )
 {
+	GC_HUD_CALL( "SPR_GetList %s", psz ? psz : "(null)" );
 	cached_spritelist_t	*pEntry = &clgame.sprlist[0];
 	int		slot, index, numSprites = 0;
 	byte *afile;
@@ -2240,6 +2249,7 @@ get actual screen info
 */
 int GAME_EXPORT CL_GetScreenInfo( SCREENINFO *pscrinfo )
 {
+	GC_HUD_CALL( "GetScreenInfo" );
 	qboolean apply_scale_factor = false; // we don't want floating point inaccuracies
 	float scale_factor = hud_scale.value;
 
@@ -2515,6 +2525,7 @@ returns specified message from titles.txt
 */
 client_textmessage_t *CL_TextMessageGet( const char *pName )
 {
+	GC_HUD_CALL( "TextMessageGet %s", pName ? pName : "(null)" );
 	int	i;
 
 	// first check internal messages
@@ -2777,6 +2788,7 @@ pfnGetClientTime
 */
 static float GAME_EXPORT pfnGetClientTime( void )
 {
+	GC_HUD_CALL( "GetClientTime" );
 	return cl.time;
 }
 
@@ -3276,6 +3288,7 @@ pfnGetLevelName
 */
 static const char *pfnGetLevelName( void )
 {
+	GC_HUD_CALL( "GetLevelName" );
 	static char	mapname[64];
 
 	// a1ba: don't return maps/.bsp if no map is loaded yet
@@ -3296,6 +3309,7 @@ pfnGetScreenFade
 */
 static void GAME_EXPORT pfnGetScreenFade( struct screenfade_s *fade )
 {
+	GC_HUD_CALL( "GetScreenFade" );
 	if( fade ) *fade = clgame.fade;
 }
 
@@ -4188,6 +4202,7 @@ static void GAME_EXPORT VGui_ViewportPaintBackground( int extents[4] )
 
 static cvar_t* GAME_EXPORT CL_CvarGetPointer( const char *szVarName )
 {
+	GC_HUD_CALL( "CvarGetPointer %s", szVarName ? szVarName : "(null)" );
 	cvar_t *result = (cvar_t *)Cvar_FindVar( szVarName );
 
 	if( !result )
@@ -4343,6 +4358,25 @@ static IVoiceTweak gVoiceApi =
 	Voice_GetControlFloat,
 };
 
+#if XASH_GAMECUBE
+static float GC_HudCvarValue( const char *name )
+{
+	GC_HUD_CALL( "CvarValue %s", name ? name : "(null)" );
+	return Cvar_VariableValue( name );
+}
+
+static const char *GC_HudCvarString( const char *name )
+{
+	GC_HUD_CALL( "CvarString %s", name ? name : "(null)" );
+	return Cvar_VariableString( name );
+}
+#define CL_HUD_CVAR_VALUE GC_HudCvarValue
+#define CL_HUD_CVAR_STRING GC_HudCvarString
+#else
+#define CL_HUD_CVAR_VALUE Cvar_VariableValue
+#define CL_HUD_CVAR_STRING Cvar_VariableString
+#endif
+
 // engine callbacks
 static cl_enginefunc_t gEngfuncs =
 {
@@ -4361,8 +4395,8 @@ static cl_enginefunc_t gEngfuncs =
 	CL_GetScreenInfo,
 	pfnSetCrosshair,
 	pfnCvar_RegisterClientVariable,
-	Cvar_VariableValue,
-	Cvar_VariableString,
+	CL_HUD_CVAR_VALUE,
+	CL_HUD_CVAR_STRING,
 	Cmd_AddClientCommand,
 	pfnHookUserMsg,
 	pfnServerCmd,
