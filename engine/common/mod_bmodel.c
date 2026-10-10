@@ -2329,6 +2329,28 @@ static int Mod_LoadEntities_splitstr_handler( char *prev, char *next, void *user
 
 /*
 =================
+Mod_StripHighBitOutsideQuotes
+
+GoldSrc COM_Parse compares signed chars, so any byte >= 0x80
+outside of quotes is skipped as whitespace. Some maps rely on it,
+e.g. 26 maps of Sven Co-op 3.0 have a stray 0xB7 after the last entity
+=================
+*/
+static void Mod_StripHighBitOutsideQuotes( char *entities )
+{
+	qboolean quoted = false;
+
+	for( char *p = entities; *p; p++ )
+	{
+		if( *p == '\"' )
+			quoted = !quoted;
+		else if( !quoted && (byte)*p >= 0x80 )
+			*p = ' ';
+	}
+}
+
+/*
+=================
 Mod_LoadEntities
 =================
 */
@@ -2372,6 +2394,7 @@ static void Mod_LoadEntities( model_t *mod, const dbspmodel_t *bmod )
 	mod->entities = Mem_Malloc( mod->mempool, entdatasize + 1 );
 	memcpy( mod->entities, entdata, entdatasize ); // moving to private model pool
 	mod->entities[entdatasize] = 0;
+	Mod_StripHighBitOutsideQuotes( mod->entities );
 
 	Mem_Free( entpatch ); // release entpatch if present
 	entpatch = NULL;
