@@ -29,6 +29,7 @@ CVAR_DEFINE( window_width, "width", "0", FCVAR_RENDERINFO|FCVAR_VIDRESTART, "scr
 CVAR_DEFINE( window_height, "height", "0", FCVAR_RENDERINFO|FCVAR_VIDRESTART, "screen height" );
 CVAR_DEFINE( vid_width, "vid_width", "0", FCVAR_READ_ONLY, "actual window viewport size" );
 CVAR_DEFINE( vid_height, "vid_height", "0", FCVAR_READ_ONLY, "actual window viewport size" );
+static CVAR_DEFINE( vid_window_insets, "_window_insets", "", FCVAR_PRIVILEGED, "override window safe area insets for testing: left top right bottom, in pixels" );
 
 glwstate_t	glw_state;
 
@@ -197,6 +198,45 @@ static void VID_Mode_f( void )
 	R_ChangeDisplaySettings( w, h, bound( 0, vid_fullscreen.value, WINDOW_MODE_COUNT - 1 ));
 }
 
+static void VID_ValidateWindowInsets( float *insets )
+{
+	for( int i = 0; i < 4; i++ )
+	{
+		if( IS_NAN( insets[i] ) || insets[i] < 0 || insets[i] >= 1 )
+		{
+			memset( insets, 0, sizeof( float ) * 4 );
+			return;
+		}
+	}
+	if( insets[0] + insets[2] >= 1 || insets[1] + insets[3] >= 1 )
+		memset( insets, 0, sizeof( float ) * 4 );
+}
+
+/*
+==================
+VID_UpdateWindowInsets
+
+refresh cached window safe area insets, called once per frame
+==================
+*/
+void VID_UpdateWindowInsets( void )
+{
+	if( FBitSet( vid_window_insets.flags, FCVAR_CHANGED ) && !COM_StringEmpty( vid_window_insets.string ) && refState.width > 0 && refState.height > 0 )
+	{
+		Q_atov( host.window_insets, vid_window_insets.string, 4 );
+		host.window_insets[0] /= refState.width;
+		host.window_insets[1] /= refState.height;
+		host.window_insets[2] /= refState.width;
+		host.window_insets[3] /= refState.height;
+	}
+	else
+	{
+		Platform_GetWindowInsets( host.hWnd, host.window_insets );
+	}
+
+	VID_ValidateWindowInsets( host.window_insets );
+}
+
 void VID_Init( void )
 {
 	// system screen width and height (don't suppose for change from console at all)
@@ -209,6 +249,7 @@ void VID_Init( void )
 	Cvar_RegisterVariable( &vid_maximized );
 	Cvar_RegisterVariable( &vid_width );
 	Cvar_RegisterVariable( &vid_height );
+	Cvar_RegisterVariable( &vid_window_insets );
 	Cvar_Get( "_window_xpos", "-1", FCVAR_RENDERINFO, "deprecated cvar" );
 	Cvar_Get( "_window_ypos", "-1", FCVAR_RENDERINFO, "deprecated cvar" );
 
@@ -220,3 +261,24 @@ void VID_Init( void )
 	V_Init(); // init gamma
 	R_Init(); // init renderer
 }
+
+#if XASH_ENGINE_TESTS
+#include "tests.h"
+
+void Test_RunWindowInsets( void )
+{
+	float insets[4] = { 0.05f, 0, 0.05f, 0.02f };
+
+	VID_ValidateWindowInsets( insets );
+	TASSERT( insets[0] == 0.05f && insets[3] == 0.02f );
+	insets[0] = -1;
+	VID_ValidateWindowInsets( insets );
+	TASSERT( insets[0] == 0 && insets[3] == 0 );
+	insets[0] = insets[2] = 0.5f;
+	VID_ValidateWindowInsets( insets );
+	TASSERT( insets[0] == 0 && insets[2] == 0 );
+	insets[1] = UintAsFloat( 0x7fc00000 );
+	VID_ValidateWindowInsets( insets );
+	TASSERT( insets[1] == 0 );
+}
+#endif // XASH_ENGINE_TESTS
