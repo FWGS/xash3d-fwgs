@@ -99,6 +99,7 @@ static const feature_message_t bugcomp_features[] =
 { BUGCOMP_GET_GAME_DIR_FULL_PATH, "Return full path in GET_GAME_DIR()", "get_game_dir_full" },
 { BUGCOMP_SPAWNFLAG_NOT_DEATHMATCH, "Inhibit entities with \"Not in Deathmatch\" spawnflag", "sf_notdm" },
 { BUGCOMP_ALWAYS_ENABLE_TEXT_INPUT, "Always enable text input during gameplay", "always_textinput" },
+{ BUGCOMP_PRESERVE_TEXTURE_NAME_CASE, "Preserve BSP texture name case", "texname_case" },
 };
 
 static const feature_message_t engine_features[] =

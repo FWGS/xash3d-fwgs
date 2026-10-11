@@ -282,6 +282,9 @@ typedef enum bugcomp_e
 
 	// keep platform text input enabled during gameplay, for mods that read text events on their own
 	BUGCOMP_ALWAYS_ENABLE_TEXT_INPUT = BIT( 5 ),
+
+	// keep BSP texture names in their original case, like in GoldSrc
+	BUGCOMP_PRESERVE_TEXTURE_NAME_CASE = BIT( 6 ),
 } bugcomp_t;
 
 typedef struct host_parm_s
