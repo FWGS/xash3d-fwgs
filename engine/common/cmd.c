@@ -1238,10 +1238,24 @@ static void Cmd_ExecScript( const char *filename )
 		return;
 	}
 
+	if( !len )
+	{
+		Mem_Free( f );
+		return;
+	}
+
 	if( f[len - 1] != '\n' )
 	{
-		Cbuf_InsertTextLen( f, len, len + 1 );
+		// Make sure there is room for the file and its trailing newline
+		if( (size_t)len + 1 >= sizeof( cmd_text.data ) - cmd_text.cursize )
+		{
+			Con_Reportf( S_WARN "%s: command buffer overflow\n", __func__ );
+			Mem_Free( f );
+			return;
+		}
+
 		Cbuf_InsertTextLen( "\n", 1, 1 );
+		Cbuf_InsertTextLen( f, len, len );
 	}
 	else Cbuf_InsertTextLen( f, len, len );
 
