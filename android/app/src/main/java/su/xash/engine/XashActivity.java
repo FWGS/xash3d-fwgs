@@ -75,18 +75,8 @@ public class XashActivity extends SDLActivity {
 			right = cutout.getSafeInsetRight();
 			bottom = cutout.getSafeInsetBottom();
 		}
-		// Insets are relative to the window. Remove space already outside SDL's
-		// surface instead of applying it twice on launchers that fit system bars.
-		View decor = getWindow().getDecorView();
-		int[] origin = new int[2];
-		surface.getLocationInWindow(origin);
 		float width = surface.getWidth(), height = surface.getHeight();
-		mWindowInsets = new float[] {
-			Math.max(0, left - origin[0]) / width,
-			Math.max(0, top - origin[1]) / height,
-			Math.max(0, origin[0] + width - decor.getWidth() + right) / width,
-			Math.max(0, origin[1] + height - decor.getHeight() + bottom) / height
-		};
+		mWindowInsets = new float[] { left / width, top / height, right / width, bottom / height };
 	}
 
 	@Override
