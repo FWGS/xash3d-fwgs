@@ -34,7 +34,7 @@ Fewer games use them than Valve's interfaces, so we allow extending them: new fi
 
 ### Xash3D FWGS interfaces
 
-Xash3D FWGS adds interfaces of its own: the extensions to the menu interface in `menu_int.h` (`GetExtAPI`, `GiveTextAPI` and `AddTouchButtonToList`), the mobility interface (`mobility_int.h`) and the VGUI support interface (`vgui_api.h`). Some of them have design flaws, but we keep them compatible anyway, unless it's proven that nothing uses them.
+Xash3D FWGS adds interfaces of its own: the extensions to the menu interface in `menu_int.h` (`GetExtAPI`, `GiveTextAPI` and `AddTouchButtonToList`), the mobility interface (`mobility_int.h`), SoundAPI (`common/sound_api.h`) and the VGUI support interface (`vgui_api.h`). Some of them have design flaws, but we keep them compatible anyway, unless it's proven that nothing uses them.
 
 ### Internal interfaces
 
