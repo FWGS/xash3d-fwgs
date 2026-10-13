@@ -25,6 +25,7 @@ add_definitions(
     -DHAVE_STRLCAT=1
     -DHAVE_STRNLEN=1
     -DCUSTOM_MODES=1
+    -DXASH_STATIC=1
 
     #-DDEFAULT_DEV=2
 )

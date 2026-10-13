@@ -681,7 +681,7 @@ typedef int (*REFAPI)( int version, ref_interface_t *pFunctionTable, ref_api_t* 
 // actually, they are just created on engine side for convenience
 // and must be retrieved by renderer side
 // sometimes it's done to standartize cvars to make it easier for users
-#if XASH_OGC //TODO: Improve this while still allowing one definition
+#if XASH_STATIC //TODO: Improve this while still allowing one definition
 #define ENGINE_SHARED_CVAR_LIST( f ) \
 	ENGINE_SHARED_CVAR_NAME( f, vid_gamma, gamma ) \
 	ENGINE_SHARED_CVAR_NAME( f, vid_brightness, brightness ) \

@@ -28,7 +28,7 @@ dlight_t      *gp_dlights;
 int            g_lightstylevalue[MAX_LIGHTSTYLES];
 poolhandle_t   r_temppool;
 
-#if !XASH_OGC
+#if !XASH_STATIC
 void _Mem_Free( void *data, const char *filename, int fileline )
 {
 	gEngfuncs._Mem_Free( data, filename, fileline );

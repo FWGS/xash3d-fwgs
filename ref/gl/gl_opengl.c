@@ -724,7 +724,7 @@ static void R_RenderInfo( qboolean startup )
 	gEngfuncs.Con_Printf( "\n" );
 	gEngfuncs.Con_Printf( "MODE: %ix%i\n", gpGlobals->width, gpGlobals->height );
 	gEngfuncs.Con_Printf( "\n" );
-	#if XASH_OGC
+	#if XASH_STATIC
 	if( !startup )
 		gEngfuncs.Con_Printf( "VERTICAL SYNC: %s\n", ref_gl_vsync->value ? "enabled" : "disabled" );
 	#else
@@ -1194,7 +1194,7 @@ static void GL_InitCommands( void )
 	gEngfuncs.Cvar_RegisterVariable( &gl_polyoffset_bmodels );
 
 	// make sure gl_vsync is checked after vid_restart
-	#if XASH_OGC
+	#if XASH_STATIC
 	SetBits( ref_gl_vsync->flags, FCVAR_CHANGED );
 	#else
 	SetBits( gl_vsync->flags, FCVAR_CHANGED );
@@ -1257,8 +1257,8 @@ static void GL_RemoveCommands( void )
 R_Init
 ===============
 */
-#if XASH_OGC
-qboolean GX_R_Init( void )
+#if XASH_STATIC
+qboolean REF_R_Init( void )
 #else
 qboolean R_Init( void )
 #endif
@@ -1310,8 +1310,8 @@ qboolean R_Init( void )
 R_Shutdown
 ===============
 */
-#if XASH_OGC
-void GX_R_Shutdown( void )
+#if XASH_STATIC
+void REF_R_Shutdown( void )
 #else
 void R_Shutdown( void )
 #endif

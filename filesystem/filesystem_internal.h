@@ -129,17 +129,21 @@ extern const fs_api_t g_api;
 
 #if XASH_OGC
 extern fs_interface_t fs_gEngfuncs;
-extern fs_globals_t fs_globalvars;
 #define g_engfuncs fs_gEngfuncs
-#define FI fs_globalvars
 #else
 extern fs_interface_t g_engfuncs;
+#endif
+
+#if XASH_STATIC
+extern fs_globals_t fs_globalvars;
+#define FI fs_globalvars
+#else
 extern fs_globals_t FI;
 #endif
 
 #define GI FI.GameInfo
 
-#if XASH_OGC
+#if XASH_STATIC
 #define Mem_Malloc( pool, size ) g_engfuncs._Mem_Alloc( pool, size, false, __FILE__, __LINE__ )
 #define Mem_Calloc( pool, size ) g_engfuncs._Mem_Alloc( pool, size, true, __FILE__, __LINE__ )
 #else

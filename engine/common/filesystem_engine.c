@@ -43,7 +43,7 @@ fs_globals_t *FI;
 static pfnCreateInterface_t fs_pfnCreateInterface;
 static HINSTANCE fs_hInstance;
 
-#if !XASH_OGC
+#ifndef XASH_STATIC
 search_t *FS_Search( const char *pattern, int caseinsensitive, int gamedironly )
 {
 	return g_fsapi.Search( pattern, caseinsensitive, gamedironly );

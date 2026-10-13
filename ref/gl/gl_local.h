@@ -278,7 +278,7 @@ extern gl_globals_t	tr;
 extern float		gldepthmin, gldepthmax;
 #define r_numEntities	(tr.draw_list->num_solid_entities + tr.draw_list->num_trans_entities)
 #define r_numStatics	(r_stats.c_client_ents)
-#if XASH_OGC
+#if XASH_STATIC
 #define Mod_AllowMaterials() (ref_host_allow_materials->value && !FBitSet( gp_host->features, ENGINE_DISABLE_HDTEXTURES ))
 #else
 #define Mod_AllowMaterials() (host_allow_materials->value && !FBitSet( gp_host->features, ENGINE_DISABLE_HDTEXTURES ))
@@ -462,9 +462,9 @@ qboolean R_UploadRipples( texture_t *image );
 //
 // renderer exports
 //
-#if XASH_OGC
-qboolean GX_R_Init( void );
-void GX_R_Shutdown( void );
+#if XASH_STATIC
+qboolean REF_R_Init( void );
+void REF_R_Shutdown( void );
 #else
 qboolean R_Init( void );
 void R_Shutdown( void );
@@ -510,7 +510,7 @@ const char *GL_ErrorString( int err ) RETURNS_NONNULL;
 //
 // gl_triapi.c
 //
-#if XASH_OGC
+#if XASH_STATIC
 #define TriRenderMode R_TriRenderMode
 #define TriColor4f R_TriColor4f
 #define TriColor4ub R_TriColor4ub
@@ -667,7 +667,7 @@ typedef struct
 extern glconfig_t		glConfig;
 extern glstate_t		glState;
 
-#if XASH_OGC
+#if XASH_STATIC
 extern glwstate_t		glw_state_gl;
 #define glw_state glw_state_gl
 #else

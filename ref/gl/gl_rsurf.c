@@ -1959,7 +1959,7 @@ void R_DrawBrushModel( cl_entity_t *e )
 	pglDisable( GL_BLEND );
 	pglDepthMask( GL_TRUE );
 
-	#if XASH_OGC
+	#if XASH_STATIC
 	if( ref_r_showhull->value > 0.0f )
 	#else
 	if( r_showhull->value > 0.0f )

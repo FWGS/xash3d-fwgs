@@ -1322,8 +1322,8 @@ static void R_InitTurb( void )
 }
 
 
-#if XASH_OGC
-qboolean GAME_EXPORT GX_R_Init( void )
+#if XASH_STATIC
+qboolean GAME_EXPORT REF_R_Init( void )
 #else
 qboolean GAME_EXPORT R_Init( void )
 #endif
@@ -1397,8 +1397,8 @@ qboolean GAME_EXPORT R_Init( void )
 	return true;
 }
 
-#if XASH_OGC
-void GAME_EXPORT GX_R_Shutdown( void )
+#if XASH_STATIC
+void GAME_EXPORT REF_R_Shutdown( void )
 #else
 void GAME_EXPORT R_Shutdown( void )
 #endif

@@ -23,10 +23,10 @@ GNU General Public License for more details.
 // ref_context.c
 //
 #if XASH_OGC
-extern ref_api_t      gEngfuncs_gx;
-extern ref_globals_t *gpGlobals_gx;
-#define gEngfuncs gEngfuncs_gx
-#define gpGlobals gpGlobals_gx
+extern ref_api_t      ref_gEngfuncs;
+extern ref_globals_t *ref_gpGlobals;
+#define gEngfuncs ref_gEngfuncs
+#define gpGlobals ref_gpGlobals
 #else
 extern ref_api_t      gEngfuncs;
 extern ref_globals_t *gpGlobals;

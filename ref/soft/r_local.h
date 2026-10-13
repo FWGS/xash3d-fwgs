@@ -441,9 +441,9 @@ void R_PolysetDrawSpansGlow( spanpackage_t *pspanpackage );
 //
 // renderer exports
 //
-#if XASH_OGC
-qboolean GX_R_Init( void );
-void GX_R_Shutdown( void );
+#if XASH_STATIC
+qboolean REF_R_Init( void );
+void REF_R_Shutdown( void );
 #else
 qboolean R_Init( void );
 void R_Shutdown( void );
@@ -483,7 +483,7 @@ void R_NewMap( void );
 //
 // gl_triapi.c
 //
-#if XASH_OGC
+#if XASH_STATIC
 #define TriRenderMode R_TriRenderMode
 #define TriColor4f R_TriColor4f
 #define TriColor4ub R_TriColor4ub

@@ -2215,7 +2215,7 @@ void R_ShutdownImages( void )
 
 void R_TextureReplacementReport( const char *modelname, int gl_texturenum, const char *foundpath )
 {
-	#if XASH_OGC
+	#if XASH_STATIC
 	if( ref_host_allow_materials->value != 2.0f )
 		return;
 	#else
@@ -2263,7 +2263,7 @@ void R_ShowTextures( void )
 {
 	static qboolean showHelp = true;
 
-	#if XASH_OGC
+	#if XASH_STATIC
 	if( !ref_r_showtextures->value )
 		return;
 	#else
@@ -2291,7 +2291,7 @@ void R_ShowTextures( void )
 	gEngfuncs.Con_DrawStringLen( NULL, NULL, &charHeight );
 
 	// keep a tile square and fitting on screen
-	#if XASH_OGC
+	#if XASH_STATIC
 	float zoom = bound( SHOWTEXTURES_ZOOM_MIN, ref_r_showtextures_zoom->value, SHOWTEXTURES_ZOOM_MAX );
 	#else
 	float zoom = bound( SHOWTEXTURES_ZOOM_MIN, r_showtextures_zoom->value, SHOWTEXTURES_ZOOM_MAX );
@@ -2305,7 +2305,7 @@ void R_ShowTextures( void )
 	int base_w = Q_max( 1, (int)( gpGlobals->width / w ));
 	int base_h = Q_max( 1, (int)( gpGlobals->height / ( h + charHeight * 2 )));
 	int per_page = base_w * base_h;
-	#if XASH_OGC
+	#if XASH_STATIC
 	int start = per_page * ( ref_r_showtextures->value - 1 ) + 1; // skip empty null texture
 	#else
 	int start = per_page * ( r_showtextures->value - 1 ) + 1; // skip empty null texture

@@ -100,7 +100,7 @@ static decal_t *R_DecalAlloc( decal_t *pdecal )
 {
 	int	limit = MAX_RENDER_DECALS;
 
-	#if XASH_OGC
+	#if XASH_STATIC
 	 if( ref_r_decals->value < limit )
 	 	limit = ref_r_decals->value;
 	 #else

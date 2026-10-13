@@ -27,7 +27,7 @@ GNU General Public License for more details.
 	#define O_BINARY 0
 #endif
 
-#if XASH_OGC
+#if XASH_STATIC
 fs_globals_t fs_globalvars;
 #else
 fs_globals_t  FI;
@@ -86,7 +86,7 @@ void FS_BackupFileName( file_t *file, const char *path, uint options ) {}
 void FS_InitMemory( void );
 void FS_Purge( file_t* file );
 
-#if !XASH_OGC
+#if !XASH_STATIC
 void _Mem_Free( void *data, const char *filename, int fileline )
 {
 	g_engfuncs._Mem_Free( data, filename, fileline );
