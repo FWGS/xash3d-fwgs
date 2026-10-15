@@ -41,6 +41,9 @@ GNU General Public License for more details.
 #include "tests.h"
 #include "library.h"
 #if XASH_GAMECUBE
+#include <ogc/system.h>
+#endif
+#if XASH_GAMECUBE
 void R_GcmapRestoreAfterMapLoad( void );
 void R_GcmapTrimForMapLoad( void );
 void GC_RestoreVideoMemoryAfterMapLoad( void );
@@ -706,9 +709,26 @@ Host_Frame
 */
 void Host_Frame( double time )
 {
+#if XASH_GAMECUBE
+	{
+		extern int gc_menu_step_frames;
+		static unsigned filtered;
+
+		if( gc_menu_step_frames > 0 && !( filtered++ % 100000 ))
+			SYS_Report( "Xash3D GameCube: STEP host frame enter filtered=%u\n", filtered );
+	}
+#endif
 	// decide the simulation time
 	if( !Host_FilterTime( time ))
 		return;
+#if XASH_GAMECUBE
+	{
+		extern int gc_menu_step_frames;
+
+		if( gc_menu_step_frames > 0 )
+			SYS_Report( "Xash3D GameCube: STEP host frame time=%.4f\n", time );
+	}
+#endif
 
 	double t1 = Platform_DoubleTime();
 
