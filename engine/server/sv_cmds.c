@@ -621,90 +621,281 @@ static void SV_EntPatch_f( void )
 
 /*
 ================
-SV_Status_f
+SV_GetGameAppID
+
+maps the current game directory to an AppID,
+used by the status/stat version line
 ================
 */
-static void SV_Status_f( void )
+static int SV_GetGameAppID( void )
+{
+	static const struct
+	{
+		int appid;
+		const char *gamedir;
+	} map[] =
+	{
+		{ 10,  "cstrike" },
+		{ 20,  "tfc" },
+		{ 30,  "dod" },
+		{ 40,  "dmc" },
+		{ 50,  "gearbox" },
+		{ 60,  "ricochet" },
+		{ 70,  "valve" },
+		{ 80,  "czero" },
+		{ 100, "czeror" },
+		{ 130, "bshift" },
+		{ 150, "cstrike_beta" },
+	};
+	const char *gamedir = GI ? GI->gamefolder : "valve";
+
+	for( int i = 0; i < ARRAYSIZE( map ); i++ )
+	{
+		if( !Q_stricmp( map[i].gamedir, gamedir ))
+			return map[i].appid;
+	}
+
+	return 70;
+}
+
+/*
+================
+SV_StatusPrintServerInfo
+
+prints the status header
+================
+*/
+static void SV_StatusPrintServerInfo( qboolean withAppID )
+{
+	netadr_t ip4, ip6;
+
+	NET_GetLocalAddress( &ip4, &ip6 );
+
+	Con_Printf( "hostname:  %s\n", Cvar_VariableString( "hostname" ));
+
+	if( withAppID )
+	{
+		Con_Printf( "version :  %i/%s %d insecure (%i)\n",
+			PROTOCOL_VERSION, XASH_VERSION, Q_buildnum(), SV_GetGameAppID( ));
+	}
+	else
+	{
+		Con_Printf( "version :  %i/%s %d insecure\n",
+			PROTOCOL_VERSION, XASH_VERSION, Q_buildnum( ));
+	}
+
+	if( ip4.type == NA_IP )
+		Con_Printf( "tcp/ip  :  %s\n", NET_AdrToString( ip4 ));
+	else if( ip6.type == NA_IP6 )
+		Con_Printf( "tcp/ip  :  %s\n", NET_AdrToString( ip6 ));
+
+	Con_Printf( "map     :  %s at: %d x, %d y, %d z\n", sv.name, 0, 0, 0 );
+}
+
+/*
+================
+SV_StatusGetUniqueID
+
+returns the uniqueid column value, parsers expect a single token
+================
+*/
+static const char *SV_StatusGetUniqueID( const sv_client_t *cl )
+{
+	const char *uuid;
+
+	if( FBitSet( cl->flags, FCL_FAKECLIENT ))
+		return "BOT";
+
+	uuid = Info_ValueForKey( cl->useragent, "uuid" );
+
+	return COM_StringEmpty( uuid ) ? "UNKNOWN" : uuid;
+}
+
+/*
+================
+SV_StatusGetPlaytime
+
+splits connection time into hours, minutes and seconds
+================
+*/
+static void SV_StatusGetPlaytime( const sv_client_t *cl, int *hours, int *minutes, int *seconds )
+{
+	*seconds = host.realtime - cl->netchan.connect_time;
+	*minutes = *seconds / 60;
+	*hours = 0;
+
+	if( *minutes )
+	{
+		*seconds %= 60;
+		*hours = *minutes / 60;
+		if( *hours )
+			*minutes %= 60;
+	}
+}
+
+/*
+================
+SV_StatusCanPrint
+
+common checks for status/stat/stats
+================
+*/
+static qboolean SV_StatusCanPrint( void )
 {
 #if !XASH_DEDICATED
 	if( !svs.clients && CL_Active( ))
 	{
 		Cmd_ForwardToServer();
-		return;
+		return false;
 	}
 #endif // XASH_DEDICATED
 
 	if( !svs.clients || sv.background )
 	{
 		Con_Printf( "^3no server running.\n" );
-		return;
+		return false;
 	}
 
-	Con_Printf( "map: %s\n", sv.name );
-	Con_Printf( "# score ping dev  lastmsg qport useragent\t\tname\t\taddress\n" );
+	return true;
+}
+
+/*
+================
+SV_Status_f
+================
+*/
+static void SV_Status_f( void )
+{
+	int players, bots;
+
+	if( !SV_StatusCanPrint( ))
+		return;
+
+	SV_GetPlayerCount( &players, &bots );
+	SV_StatusPrintServerInfo( true );
+	Con_Printf( "players :  %i active (%i max)\n\n", players, svs.maxclients );
+	Con_Printf( "#      name userid uniqueid frag time ping loss adr\n" );
 
 	for( int i = 0; i < svs.maxclients; i++ )
 	{
 		const sv_client_t *cl = &svs.clients[i];
-		int j = 0;
-		const char *s;
-		char devices[8];
-		string version;
-		string os;
-		string arch;
+		int hours, minutes, seconds;
+		size_t len;
+		string playtime;
+		char line[512];
 
-		if( !cl->state || !cl->edict )
+		if( cl->state != cs_spawned || !cl->edict )
 			continue;
 
-		if( cl->state == cs_connected )
-			s = "Connect ";
-		else if( cl->state == cs_spawning )
-			s = "Spawning";
-		else if( cl->state == cs_zombie )
-			s = "Zombie  ";
-		else if( FBitSet( cl->flags, FCL_FAKECLIENT ))
-			s = "Bot     ";
+		SV_StatusGetPlaytime( cl, &hours, &minutes, &seconds );
+
+		if( hours )
+			Q_snprintf( playtime, sizeof( playtime ), "%2i:%02i:%02i", hours, minutes, seconds );
 		else
-			s = va( "%8i", SV_CalcPing( cl ));
+			Q_snprintf( playtime, sizeof( playtime ), "%02i:%02i", minutes, seconds );
 
-		int input_devices = Q_atoi( Info_ValueForKey( cl->useragent, "d" ));
+		Q_snprintf( line, sizeof( line ), "#%2i %8s %i %s %3i %s %4i  %3i",
+			i + 1, va( "\"%s\"", cl->name ), cl->userid, SV_StatusGetUniqueID( cl ),
+			(int)cl->edict->v.frags, playtime, SV_CalcPing( cl ), (int)cl->packet_loss );
 
-		if( FBitSet( input_devices, INPUT_DEVICE_MOUSE ))
-			devices[j++] = 'm';
+		len = Q_strlen( line );
 
-		if( FBitSet( input_devices, INPUT_DEVICE_TOUCH ))
-			devices[j++] = 't';
+		if( cl->netchan.remote_address.type == NA_IP )
+		{
+			Q_snprintf( line + len, sizeof( line ) - len, " %s", NET_AdrToString( cl->netchan.remote_address ));
+			len = Q_strlen( line );
+		}
 
-		if( FBitSet( input_devices, INPUT_DEVICE_JOYSTICK ))
-			devices[j++] = 'j';
-
-		if( FBitSet( input_devices, INPUT_DEVICE_VR ))
-			devices[j++] = 'v';
-
-		if( j == 0 )
-			Q_strncpy( devices, "n/a", sizeof( devices ));
-		else
-			devices[j++] = 0;
-
-		Q_strncpy( version, Info_ValueForKey( cl->useragent, "v" ), sizeof( version ));
-		Q_strncpy( os, Info_ValueForKey( cl->useragent, "o" ), sizeof( os ));
-		Q_strncpy( arch, Info_ValueForKey( cl->useragent, "a" ), sizeof( arch ));
-		int buildnum = Q_atoi( Info_ValueForKey( cl->useragent, "b" ));
-
-		if( COM_StringEmpty( version ))
-			Q_strncpy( version, "n/a", sizeof( version ));
-		if( COM_StringEmpty( os ))
-			Q_strncpy( os, "n/a", sizeof( os ));
-		if( COM_StringEmpty( arch ))
-			Q_strncpy( arch, "n/a", sizeof( arch ));
-
-		Con_Printf( "%2i %5i %4s %4s %.5f %5i %s (%s-%s %i)\t%8s\t%8s\n",
-			i, (int)cl->edict->v.frags, s, devices, host.realtime - cl->netchan.last_received, cl->netchan.qport,
-			version, os, arch, buildnum,
-			cl->name, NET_BaseAdrToString( cl->netchan.remote_address ) );
-
+		Q_snprintf( line + len, sizeof( line ) - len, "\n" );
+		Con_Printf( "%s", line );
 	}
-	Con_Printf( "\n" );
+
+	Con_Printf( "%i users\n", players );
+}
+
+/*
+================
+SV_StatusFormatted_f
+
+tab-separated status variant, same data as status
+================
+*/
+static void SV_StatusFormatted_f( void )
+{
+	int players, bots;
+
+	if( !SV_StatusCanPrint( ))
+		return;
+
+	SV_GetPlayerCount( &players, &bots );
+	SV_StatusPrintServerInfo( false );
+	Con_Printf( "players :  %i active (%i max)\n\n", players, svs.maxclients );
+	Con_Printf( "%-2.2s\t%-9.9s\t%-7.7s\t%-20.20s\t%-4.4s\t%-8.8s\t%-4.4s\t%-4.4s\t%-21.21s\n",
+		"# ", "name", "userid   ", "uniqueid ", "frag", "time    ", "ping", "loss", "adr" );
+
+	for( int i = 0; i < svs.maxclients; i++ )
+	{
+		const sv_client_t *cl = &svs.clients[i];
+		int seconds, minutes, hours;
+		string playtime;
+
+		if( cl->state != cs_spawned || !cl->edict )
+			continue;
+
+		seconds = host.realtime - cl->netchan.connect_time;
+		minutes = seconds / 60;
+		hours = minutes / 60;
+
+		if( minutes && hours )
+			Q_snprintf( playtime, sizeof( playtime ), "%-2i:%02i:%02i", hours, minutes % 60, seconds % 60 );
+		else
+			Q_snprintf( playtime, sizeof( playtime ), "%02i:%02i", minutes, seconds % 60 );
+
+		Con_Printf( "%-2.2s\t%-9.9s\t%-7.7s\t%-20.20s\t%-4.4s\t%-8.8s\t%-4.4s\t%-4.4s\t%-21.21s\n",
+			va( "%-2i", i + 1 ), va( "\"%s\"", cl->name ), va( "%-7i", cl->userid ), SV_StatusGetUniqueID( cl ),
+			va( "%-4i", (int)cl->edict->v.frags ), playtime, va( "%-4i", SV_CalcPing( cl )),
+			va( "%-4i", (int)cl->packet_loss ), NET_AdrToString( cl->netchan.remote_address ));
+	}
+
+	Con_Printf( "%i users\n", players );
+}
+
+/*
+================
+SV_Stats_f
+
+print server statistics
+================
+*/
+static void SV_Stats_f( void )
+{
+	double avgIn = 0.0;
+	double avgOut = 0.0;
+	int players = 0;
+
+	if( svs.clients )
+	{
+		for( int i = 0; i < svs.maxclients; i++ )
+		{
+			const sv_client_t *cl = &svs.clients[i];
+
+			if( FBitSet( cl->flags, FCL_FAKECLIENT ) || cl->state < cs_connected )
+				continue;
+
+			players++;
+			avgIn += cl->netchan.flow[FLOW_INCOMING].avgkbytespersec;
+			avgOut += cl->netchan.flow[FLOW_OUTGOING].avgkbytespersec;
+		}
+	}
+
+	Con_Printf( "CPU   In    Out   Uptime  Users   FPS    Players\n" );
+	Con_Printf( "%5.2f %5.2f %5.2f %7i %5i %7.2f %7i\n",
+		100.0 * Sys_GetCPUUsage(),
+		avgIn, avgOut,
+		(int)host.realtime / 60,
+		SV_GetUserIDCount(),
+		host.frametime > 0.0 ? 1.0 / host.frametime : 0.0,
+		players );
 }
 
 /*
@@ -1036,6 +1227,8 @@ void SV_InitOperatorCommands( void )
 	Cmd_AddCommand( "heartbeat", SV_Heartbeat_f, "send a heartbeat to the master server" );
 	Cmd_AddCommand( "kick", SV_Kick_f, "kick a player off the server by number or name" );
 	Cmd_AddCommand( "status", SV_Status_f, "print server status information" );
+	Cmd_AddCommand( "stat", SV_StatusFormatted_f, "print server status information, tab-separated" );
+	Cmd_AddCommand( "stats", SV_Stats_f, "print server statistics" );
 	Cmd_AddCommand( "localinfo", SV_LocalInfo_f, "examine or change the localinfo string" );
 	Cmd_AddCommand( "serverinfo", SV_ServerInfo_f, "examine or change the serverinfo string" );
 	Cmd_AddCommand( "clientinfo", SV_ClientInfo_f, "print user infostring (player num required)" );
@@ -1076,6 +1269,8 @@ void SV_KillOperatorCommands( void )
 	Cmd_RemoveCommand( "heartbeat" );
 	Cmd_RemoveCommand( "kick" );
 	Cmd_RemoveCommand( "status" );
+	Cmd_RemoveCommand( "stat" );
+	Cmd_RemoveCommand( "stats" );
 	Cmd_RemoveCommand( "localinfo" );
 	Cmd_RemoveCommand( "serverinfo" );
 	Cmd_RemoveCommand( "clientinfo" );
