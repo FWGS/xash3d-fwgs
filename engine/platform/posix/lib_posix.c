@@ -24,6 +24,8 @@ GNU General Public License for more details.
 #elif XASH_PSVITA
 	#define VRTLD_LIBDL_COMPAT
 	#include <vrtld.h>
+#elif XASH_PS4
+	#include "platform/ps4/dlfcn_ps4.h"
 #else
 	#include <dlfcn.h>
 #endif
@@ -67,7 +69,7 @@ int dladdr( const void *addr, Dl_info *info )
 }
 #endif // XASH_NO_LIBDL
 
-#if !XASH_APPLE && !XASH_ANDROID && !XASH_PSVITA && !XASH_NSWITCH
+#if !XASH_APPLE && !XASH_ANDROID && !XASH_PSVITA && !XASH_NSWITCH && !XASH_PS4
 /*
 =============================================================================
 
@@ -278,7 +280,7 @@ qboolean Platform_CheckLibraryDirectDependency( const byte *data, size_t size, c
 
 	return false;
 }
-#endif // !XASH_APPLE && !XASH_ANDROID && !XASH_PSVITA && !XASH_NSWITCH
+#endif // !XASH_APPLE && !XASH_ANDROID && !XASH_PSVITA && !XASH_NSWITCH && !XASH_PS4
 
 void *COM_LoadLibrary( const char *dllname, int build_ordinals_table, qboolean directpath )
 {

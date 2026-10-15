@@ -109,6 +109,11 @@ SETUP BACKENDS DEFINITIONS
 	#define XASH_LIB LIB_POSIX
 #endif
 
+// PS4 module loader can't map addresses back to symbol names
+#if XASH_PS4 && !defined( XASH_ALLOW_SAVERESTORE_OFFSETS )
+	#define XASH_ALLOW_SAVERESTORE_OFFSETS
+#endif
+
 //
 // fallback to NULL
 //
@@ -148,6 +153,12 @@ Default build-depended cvar and constant values
 	#define DEFAULT_M_IGNORE     "1"
 	#define DEFAULT_MODE_WIDTH   960
 	#define DEFAULT_MODE_HEIGHT  544
+	#define DEFAULT_ALLOWCONSOLE 1
+#elif XASH_PS4
+	#define DEFAULT_FULLSCREEN   "0" // SDL fullscreen switch hangs, window covers the screen anyway
+	#define DEFAULT_M_IGNORE     "1"
+	#define DEFAULT_MODE_WIDTH   1280
+	#define DEFAULT_MODE_HEIGHT  720
 	#define DEFAULT_ALLOWCONSOLE 1
 #elif XASH_ANDROID
 	#define DEFAULT_TOUCH_ENABLE "1"

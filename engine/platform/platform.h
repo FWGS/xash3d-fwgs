@@ -67,7 +67,7 @@ void IOS_GetWindowInsets( void *window, float insets[4] );
 #endif
 
 // walks the direct dependency list of a game library image loaded from disk
-#if XASH_LIB == LIB_STATIC || XASH_ANDROID || XASH_IOS || XASH_PSVITA || XASH_NSWITCH
+#if XASH_LIB == LIB_STATIC || XASH_ANDROID || XASH_IOS || XASH_PSVITA || XASH_NSWITCH || XASH_PS4
 static inline qboolean Platform_CheckLibraryDirectDependency( const byte *data, size_t size, const char *depname )
 {
 	return false;
@@ -132,6 +132,19 @@ int PSVita_GetArgv( int in_argc, char **in_argv, char ***out_argv );
 void PSVita_InputUpdate( void );
 #endif
 
+#if XASH_PS4
+void PS4_Init( void );
+void PS4_Shutdown( void );
+qboolean PS4_GetBasePath( char *buf, const size_t buflen );
+int PS4_GetArgv( int in_argc, char **in_argv, char ***out_argv );
+int PS4_RunOnBigStack( int ( *func )( void *arg ), void *arg );
+void PS4_Log( const char *fmt, ... ) FORMAT_CHECK( 1 );
+void PS4_InputUpdate( void );
+qboolean PS4_PackageLibraryExists( const char *name );
+void PS4_FramePresented( void );
+void PS4_AllowHideSplash( void );
+#endif
+
 #if XASH_DOS
 void DOS_Init( void );
 void DOS_Shutdown( void );
@@ -161,6 +174,8 @@ static inline void Platform_Init( qboolean con_showalways )
 	NSwitch_Init( );
 #elif XASH_PSVITA
 	PSVita_Init( );
+#elif XASH_PS4
+	PS4_Init( );
 #elif XASH_DOS
 	DOS_Init( );
 #elif XASH_WIN32
@@ -176,6 +191,8 @@ static inline void Platform_Shutdown( void )
 	NSwitch_Shutdown( );
 #elif XASH_PSVITA
 	PSVita_Shutdown( );
+#elif XASH_PS4
+	PS4_Shutdown( );
 #elif XASH_DOS
 	DOS_Shutdown( );
 #elif XASH_WIN32
@@ -246,6 +263,11 @@ static inline qboolean Platform_LibraryExists( const char *name, qboolean gamedi
 	// when libs come from a separate APK (cs16client, tf15client, …) we can't see them
 	// from the VFS; trust the launcher.
 	if( !COM_StringEmptyOrNULL( getenv( "XASH3D_GAMELIBDIR" )))
+		return true;
+#endif
+#if XASH_PS4
+	// game libraries can be shipped in the package, see PS4_dlopen
+	if( PS4_PackageLibraryExists( name ))
 		return true;
 #endif
 	// FIXME: use FS_FindLibrary
