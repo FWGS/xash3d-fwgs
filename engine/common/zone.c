@@ -105,9 +105,12 @@ static mempool_t *poolchain = NULL; // critical stuff
 static size_t poolcount = 0;
 
 #if XASH_GAMECUBE
-/* While set, every allocator call checks the heap chains first so a
- * corruption during early boot is bracketed to one allocator call. */
-qboolean gc_mem_watch_hot = true;
+/* -gcmemwatch: GC_MemWatch checkpoints walk every chain; off by default
+ * because the walks cost real time on hardware. While gc_mem_watch_hot is
+ * set, every allocator call checks the chains first so a corruption is
+ * bracketed to one allocator call. */
+qboolean gc_mem_watch_enabled;
+qboolean gc_mem_watch_hot;
 #define GC_MEM_WATCH_CALL( what ) \
 	do { if( unlikely( gc_mem_watch_hot )) GC_MemWatchCall( what, filename, fileline ); } while( 0 )
 static void GC_MemWatchCall( const char *what, const char *filename, int fileline );
@@ -886,7 +889,7 @@ void GC_MemWatch( const char *tag )
 	static qboolean broken, busy;
 	static char last_ok[96] = "start";
 
-	if( broken || busy )
+	if( !gc_mem_watch_enabled || broken || busy )
 		return;
 
 	busy = true;
@@ -907,6 +910,8 @@ static int gc_mem_watch_hot_frames;
 
 void GC_MemWatchHotFrames( int frames )
 {
+	if( !gc_mem_watch_enabled )
+		return;
 	gc_mem_watch_hot_frames = frames;
 	gc_mem_watch_hot = true;
 }

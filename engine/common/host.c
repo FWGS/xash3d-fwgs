@@ -714,7 +714,7 @@ void Host_Frame( double time )
 
 	GC_WatchdogMark( "host frame" );
 #if XASH_GAMECUBE
-	if( host.framecount < 4000 )
+	if( gc_mem_watch_enabled && host.framecount < 4000 )
 	{
 		char tag[32];
 		Q_snprintf( tag, sizeof( tag ), "frame %u", (unsigned)host.framecount );
@@ -1225,6 +1225,12 @@ static void Host_InitCommon( int argc, char **argv, const char *progname, qboole
 
 	Memory_Init(); // init memory subsystem
 #if XASH_GAMECUBE
+	if( Sys_CheckParm( "-gcmemwatch" ))
+	{
+		gc_mem_watch_enabled = true;
+		gc_mem_watch_hot = true; /* until FS_Init returns */
+		Con_Reportf( "Xash3D GameCube: heap chain watch enabled\n" );
+	}
 	/* Reserve a contiguous BSP staging buffer before menu/client churn fragments MEM1. */
 	GC_InitMapLoadBuffer();
 #endif

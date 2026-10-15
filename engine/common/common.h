@@ -383,7 +383,7 @@ qboolean Mem_IsAllocatedExt( poolhandle_t poolptr, void *data );
 #if XASH_GAMECUBE
 qboolean GC_MemCheckChains( const char *tag );
 void GC_MemWatch( const char *tag );
-extern qboolean gc_mem_watch_hot;
+extern qboolean gc_mem_watch_enabled, gc_mem_watch_hot;
 void GC_MemWatchHotFrames( int frames );
 void GC_MemWatchFrame( void );
 void GC_DeltaCheckTables( const char *tag );
