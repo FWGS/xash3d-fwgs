@@ -2248,6 +2248,21 @@ CONSOLE INTERFACE
 */
 /*
 ================
+Con_GetEditText
+
+text being edited in the console or the chat line,
+for platforms that edit it in a system keyboard dialog
+================
+*/
+const char *Con_GetEditText( void )
+{
+	if( cls.key_dest == key_message )
+		return con.chat.buffer;
+	return con.input.buffer;
+}
+
+/*
+================
 Con_CharEvent
 
 Console input
