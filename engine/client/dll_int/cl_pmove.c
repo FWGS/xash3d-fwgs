@@ -19,6 +19,10 @@ GNU General Public License for more details.
 #include "cl_tent.h"
 #include "pm_local.h"
 #include "studio.h"
+#if XASH_GAMECUBE
+#include <ogc/system.h>
+extern int gc_menu_step_frames;
+#endif
 
 #define MAX_FORWARD			6	// forward probes for set idealpitch
 #define MIN_CORRECTION_DISTANCE	0.25f	// use smoothing if error is > this
@@ -965,8 +969,9 @@ static void CL_RunUsercmd( local_state_t *from, local_state_t *to, usercmd_t *u,
 				clgame.pmove->time, clgame.pmove->flTimeStepSound, clgame.pmove->iStepLeft,
 				clgame.pmove->flFallVelocity, clgame.pmove->flSwimTime, clgame.pmove->waterjumptime );
 		}
-		if( Sys_CheckParm( "-gcnewgame" ) && Sys_CheckParm( "-gcfullphysics" )
-			&& clgame.pmove->onground >= clgame.pmove->numphysent )
+		/* A stale ground index past numphysent hangs the client DLL's
+		 * PM_Move. Clear it on every route, not just full physics. */
+		if( clgame.pmove->onground >= clgame.pmove->numphysent )
 		{
 			Con_Reportf( "Xash3D GameCube: client PMove invalid ground index=%d physents=%d; clearing\n",
 				clgame.pmove->onground, clgame.pmove->numphysent );
@@ -982,9 +987,15 @@ static void CL_RunUsercmd( local_state_t *from, local_state_t *to, usercmd_t *u,
 			Con_Reportf( "Xash3D GameCube: native client PM_Move begin msec=%d move=(%.0f,%.0f,%.0f)\n",
 				cmd.msec, cmd.forwardmove, cmd.sidemove, cmd.upmove );
 		}
+		if( gc_menu_step_frames > 0 )
+			SYS_Report( "Xash3D GameCube: STEP pm_move begin msec=%d onground=%d physents=%d hull=%d movetype=%d org=(%.1f,%.1f,%.1f)\n",
+				cmd.msec, clgame.pmove->onground, clgame.pmove->numphysent, clgame.pmove->usehull,
+				clgame.pmove->movetype, clgame.pmove->origin[0], clgame.pmove->origin[1], clgame.pmove->origin[2] );
 #endif
 		clgame.dllFuncs.pfnPlayerMove( clgame.pmove, false );
 #if XASH_GAMECUBE
+		if( gc_menu_step_frames > 0 )
+			SYS_Report( "Xash3D GameCube: STEP pm_move ready\n" );
 		if( gc_trace_prediction )
 		{
 			Con_Reportf( "Xash3D GameCube: native client PM_Move ready origin=(%.1f,%.1f,%.1f) velocity=(%.1f,%.1f,%.1f)\n",
@@ -1011,7 +1022,15 @@ static void CL_RunUsercmd( local_state_t *from, local_state_t *to, usercmd_t *u,
 		else cl.local.lastground = clgame.pmove->onground; // world(0) or in air(-1)
 	}
 
+#if XASH_GAMECUBE
+	if( gc_menu_step_frames > 0 )
+		SYS_Report( "Xash3D GameCube: STEP post run cmd begin runfuncs=%d\n", runfuncs );
+#endif
 	clgame.dllFuncs.pfnPostRunCmd( from, to, &cmd, runfuncs, *time, random_seed );
+#if XASH_GAMECUBE
+	if( gc_menu_step_frames > 0 )
+		SYS_Report( "Xash3D GameCube: STEP post run cmd ready\n" );
+#endif
 
 	*time += (double)cmd.msec / 1000.0;
 }
@@ -1108,6 +1127,11 @@ void CL_PredictMovement( qboolean repredicting )
 	// predict forward until cl.time <= to->senttime
 	CL_PushPMStates();
 	CL_SetSolidPlayers( cl.playernum );
+#if XASH_GAMECUBE
+	if( gc_menu_step_frames > 0 )
+		SYS_Report( "Xash3D GameCube: STEP predict loop ack=%u out=%u repredict=%d\n",
+			cls.netchan.incoming_acknowledged, cls.netchan.outgoing_sequence, repredicting );
+#endif
 
 	for( i = 1; i < CL_UPDATE_MASK && cls.netchan.incoming_acknowledged + i < cls.netchan.outgoing_sequence + stoppoint; i++ )
 	{
