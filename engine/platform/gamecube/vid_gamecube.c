@@ -13498,11 +13498,18 @@ qboolean GC_PrepareNewGameWorldPresent( void )
 		}
 	}
 	GC_MemSample( "newgame world present" );
+	/* The menu route zeroes a heap block between here and the first HUD
+	 * sprite load; check the chains at every stage and allocator call for
+	 * the next few host frames to bracket it. */
+	GC_MemWatchHotFrames( 3 );
+	GC_MemWatch( "world present" );
 
 	/* G291/G293: seed tip-safe FX + lean decal before the Flipper present
 	 * pump (probe often SIGINT after the first CopyDisp). */
 	GC_TryDeferredEfxProof();
+	GC_MemWatch( "deferred efx proof" );
 	GC_TryDeferredDecalProof();
+	GC_MemWatch( "deferred decal proof" );
 
 	/* Lean BoundedGC before Flipper present pump — GC_RenderNewGameWorldFrames
 	 * can stall Host_Frame after G281/G105 (probe 20260807-035407 never

@@ -903,6 +903,21 @@ void GC_MemWatch( const char *tag )
 	busy = false;
 }
 
+static int gc_mem_watch_hot_frames;
+
+void GC_MemWatchHotFrames( int frames )
+{
+	gc_mem_watch_hot_frames = frames;
+	gc_mem_watch_hot = true;
+}
+
+/* Called once per host frame: ends a GC_MemWatchHotFrames window. */
+void GC_MemWatchFrame( void )
+{
+	if( gc_mem_watch_hot_frames > 0 && --gc_mem_watch_hot_frames == 0 )
+		gc_mem_watch_hot = false;
+}
+
 static void GC_MemWatchCall( const char *what, const char *filename, int fileline )
 {
 	char tag[96];

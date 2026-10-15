@@ -720,6 +720,7 @@ void Host_Frame( double time )
 		Q_snprintf( tag, sizeof( tag ), "frame %u", (unsigned)host.framecount );
 		GC_MemWatch( tag );
 	}
+	GC_MemWatchFrame();
 #endif
 	if( host.framecount == 0 )
 		Con_DPrintf( "Time to first frame: %.3f seconds\n", t1 - host.starttime );

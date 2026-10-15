@@ -39,6 +39,8 @@ static void GC_WatchdogStart( void );
 void GC_WatchdogMark( const char *stage )
 {
 	gc_watchdog_stage = stage;
+	if( gc_mem_watch_hot )
+		GC_MemWatch( stage );
 	/* Start the thread at the first mark (host frames), not during boot:
 	 * two boot runs hung silently in trivial steps after it was added. */
 	if( !gc_watchdog_progress )
@@ -51,6 +53,8 @@ void GC_WatchdogMark( const char *stage )
 void GC_WatchdogStage( const char *stage )
 {
 	gc_watchdog_stage = stage;
+	if( gc_mem_watch_hot )
+		GC_MemWatch( stage );
 }
 
 static void *GC_WatchdogThread( void *arg )
