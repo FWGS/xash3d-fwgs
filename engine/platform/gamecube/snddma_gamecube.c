@@ -224,7 +224,7 @@ static qboolean GCube_RealAudioInit( void )
 	{
 		snd.samples = Q_min( snd.samples, (int)ARRAYSIZE( gc_audio_ring ));
 		buffer_bytes = (size_t)snd.samples * (size_t)snd.format.width;
-		snd.buffer = gc_audio_ring;
+		snd.buffer = (byte *)gc_audio_ring;
 	}
 	memset( snd.buffer, 0, buffer_bytes );
 
