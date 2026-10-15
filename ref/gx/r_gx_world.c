@@ -303,6 +303,24 @@ static qboolean r_gx_studio_layout;
 #define GX_SetVtxDesc( attr, type ) ( r_gx_studio_layout = false, GX_SetVtxDesc( attr, type ))
 #define GX_SetVtxAttrFmt( fmt, attr, cnt, type, frac ) \
 	( r_gx_studio_layout = false, GX_SetVtxAttrFmt( fmt, attr, cnt, type, frac ))
+/* Bounded trace of every primitive begin, armed when the menu route's
+ * client goes active: the guest freezes there with no exception, which is
+ * how a vertex stream that does not match the descriptor looks. */
+static int r_gx_begin_trace;
+void R_GXArmBeginTrace( int count )
+{
+	r_gx_begin_trace = count;
+}
+void R_GXTraceBegin( const char *where, int line, int prim, int count, int studio )
+{
+	if( r_gx_begin_trace <= 0 )
+		return;
+	r_gx_begin_trace--;
+	gEngfuncs.Con_Reportf( "Xash3D GameCube: GXB %s:%d prim=0x%02x n=%d studio=%d\n",
+		where, line, prim, count, studio );
+}
+#define GX_Begin( prim, fmt, count ) \
+	( R_GXTraceBegin( "world", __LINE__, ( prim ), ( count ), r_gx_studio_layout ), GX_Begin( prim, fmt, count ))
 static unsigned r_gx_studio_shade_mask; /* G164: luminance buckets seen this pass */
 static qboolean r_gx_studio_gouraud_logged;
 static qboolean r_gx_studio_zrange_logged; /* G167 */
@@ -4372,6 +4390,11 @@ void R_GXStudioForceBegin( qboolean viewmodel ) { (void)viewmodel; }
 void R_GXStudioEnd( void ) {}
 void R_GXStudioRebindPending( void ) {}
 void R_GXInvalidateTriApiLayout( void ) {}
+void R_GXArmBeginTrace( int count ) { (void)count; }
+void R_GXTraceBegin( const char *where, int line, int prim, int count, int studio )
+{
+	(void)where; (void)line; (void)prim; (void)count; (void)studio;
+}
 void R_GXStudioInvalidateBindings( void ) {}
 int R_GXStudioEmitLeanMarker( const float origin[3] )
 {

@@ -434,6 +434,14 @@ static void CL_CheckClientState( void )
 	if(( cls.state == ca_connected || cls.state == ca_validate ) && ( cls.signon == SIGNONS ))
 	{
 		cls.state = ca_active;
+#if XASH_GAMECUBE
+		if( Sys_CheckParm( "-gcmenuplaystart" ))
+		{
+			extern void R_GXArmBeginTrace( int count );
+
+			R_GXArmBeginTrace( 400 );
+		}
+#endif
 		cls.changelevel = false;		// changelevel is done
 		cls.changedemo = false;		// changedemo is done
 		cl.first_frame = true;		// first rendering frame

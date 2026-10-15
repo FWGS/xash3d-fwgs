@@ -6602,18 +6602,6 @@ static void GC_PresentBufferViaGX( void )
 		guMtxIdentity( modelview );
 		GX_LoadPosMtxImm( modelview, GX_PNMTX0 );
 
-		{
-			extern void R_GXInvalidateTriApiLayout( void );
-
-			R_GXInvalidateTriApiLayout();
-		}
-		GX_ClearVtxDesc();
-		GX_SetVtxDesc( GX_VA_POS, GX_DIRECT );
-		GX_SetVtxDesc( GX_VA_CLR0, GX_DIRECT );
-		GX_SetVtxDesc( GX_VA_TEX0, GX_DIRECT );
-		GX_SetVtxAttrFmt( GX_VTXFMT0, GX_VA_POS, GX_POS_XYZ, GX_F32, 0 );
-		GX_SetVtxAttrFmt( GX_VTXFMT0, GX_VA_CLR0, GX_CLR_RGBA, GX_RGBA8, 0 );
-		GX_SetVtxAttrFmt( GX_VTXFMT0, GX_VA_TEX0, GX_TEX_ST, GX_F32, 0 );
 		GX_SetNumChans( 1 );
 		GX_SetNumTexGens( 1 );
 		GX_SetTexCoordGen( GX_TEXCOORD0, GX_TG_MTX2x4, GX_TG_TEX0, GX_IDENTITY );
@@ -6626,8 +6614,27 @@ static void GC_PresentBufferViaGX( void )
 		GX_SetColorUpdate( GX_TRUE );
 		GX_SetCullMode( GX_CULL_NONE );
 		gc_gx_present_pipe_ready = true;
-		GX_InvVtxCache();
 	}
+
+	/* The vertex layout is set on every present, not only with the rest of
+	 * the pipe: any GX draw that did not clear gc_gx_present_pipe_ready
+	 * would otherwise leave a descriptor this POS/CLR0/TEX0 stream does not
+	 * match, and the GP stalls on the desynced stream. */
+	{
+		extern void R_GXInvalidateTriApiLayout( void );
+		extern void R_GXTraceBegin( const char *where, int line, int prim, int count, int studio );
+
+		R_GXInvalidateTriApiLayout();
+		R_GXTraceBegin( "soft present", __LINE__, GX_QUADS, 4, 0 );
+	}
+	GX_ClearVtxDesc();
+	GX_SetVtxDesc( GX_VA_POS, GX_DIRECT );
+	GX_SetVtxDesc( GX_VA_CLR0, GX_DIRECT );
+	GX_SetVtxDesc( GX_VA_TEX0, GX_DIRECT );
+	GX_SetVtxAttrFmt( GX_VTXFMT0, GX_VA_POS, GX_POS_XYZ, GX_F32, 0 );
+	GX_SetVtxAttrFmt( GX_VTXFMT0, GX_VA_CLR0, GX_CLR_RGBA, GX_RGBA8, 0 );
+	GX_SetVtxAttrFmt( GX_VTXFMT0, GX_VA_TEX0, GX_TEX_ST, GX_F32, 0 );
+	GX_InvVtxCache();
 
 	/* Soft RGB565 tiles change every present — invalidate before bind. */
 	GX_InvalidateTexAll();
