@@ -283,6 +283,9 @@ static void Sys_PrintStdout( const char *logtime, size_t logtime_len, const char
 	{
 		fprintf( stderr, "%s %s", logtime, stripped );
 	}
+#elif XASH_PS4
+	// no console, written directly to file to survive crashes
+	PS4_Log( "%s %s", logtime, stripped );
 #endif
 
 #if !XASH_MOBILE_PLATFORM && !XASH_WIN32 // Wcon does the job

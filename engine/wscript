@@ -229,7 +229,10 @@ def build(bld):
 		source += bld.path.ant_glob('platform/linux/*.c')
 
 	# include common POSIX conformant code
-	if bld.env.DEST_OS not in ['win32', 'dos']:
+	if bld.env.DEST_OS == 'ps4':
+		# kernel loads modules, see platform/ps4/lib_ps4.c
+		source += bld.path.ant_glob('platform/posix/*.c', excl='platform/posix/lib_posix.c')
+	elif bld.env.DEST_OS not in ['win32', 'dos']:
 		source += bld.path.ant_glob('platform/posix/*.c')
 	if bld.env.IOS:
 		source += bld.path.ant_glob('platform/ios/*.c')

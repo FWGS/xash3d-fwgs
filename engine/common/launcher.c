@@ -33,11 +33,22 @@ static void Sys_ChangeGame( const char *progname )
 	// stub
 }
 
+#if XASH_PS4
+static int PS4_HostMain( void *unused )
+{
+	return Host_Main( szArgc, szArgv, XASH_GAMEDIR, 0, Sys_ChangeGame );
+}
+#endif // XASH_PS4
+
 int main( int argc, char **argv )
 {
 #if XASH_PSVITA
 	// inject -dev -console into args if required
 	szArgc = PSVita_GetArgv( argc, argv, &szArgv );
+#elif XASH_PS4
+	// read command line from file
+	szArgc = PS4_GetArgv( argc, argv, &szArgv );
+	return PS4_RunOnBigStack( PS4_HostMain, NULL );
 #elif XASH_IOS
 	IOS_LaunchDialog();
 	szArgc = IOS_GetArgs( &szArgv );

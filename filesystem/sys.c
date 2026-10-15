@@ -66,7 +66,7 @@ GNU General Public License for more details.
 	#define S_ISDIR( m ) ( FBitSet( m, S_IFMT ) == S_IFDIR )
 #endif
 
-#if !XASH_PSVITA && !XASH_NSWITCH
+#if !XASH_PSVITA && !XASH_NSWITCH && !XASH_PS4
 	#define HAVE_DUP
 #endif
 
@@ -211,7 +211,8 @@ MAYBE_UNUSED static const wchar_t *FS_PathToWideChar( const char *path )
 	MultiByteToWideChar( CP_UTF8, 0, path, -1, pathBuffer, MAX_PATH );
 	return pathBuffer;
 #endif
-	return L"";
+	// OpenOrbis headers define wchar_t as 16-bit, but compiler still makes wide literals 32-bit
+	return (const wchar_t *)L"";
 }
 
 /*
