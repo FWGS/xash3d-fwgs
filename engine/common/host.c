@@ -721,6 +721,10 @@ void Host_Frame( double time )
 		GC_MemWatch( tag );
 	}
 	GC_MemWatchFrame();
+	{
+		void GC_FrameHeartbeat( void );
+		GC_FrameHeartbeat();
+	}
 #endif
 	if( host.framecount == 0 )
 		Con_DPrintf( "Time to first frame: %.3f seconds\n", t1 - host.starttime );

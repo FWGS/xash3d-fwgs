@@ -14804,4 +14804,23 @@ ref_window_type_t R_GetWindowHandle( void **handle, ref_window_type_t type )
 	return REF_WINDOW_TYPE_NULL;
 }
 
+/* Bounded post-connect heartbeat: the menu route logs nothing per frame
+ * once active, so show that host frames and presents keep advancing and
+ * where the G36 sampler stands. */
+void GC_FrameHeartbeat( void )
+{
+	static unsigned int frames, beats;
+
+	if( cls.state != ca_active || beats >= 12 )
+		return;
+	if( ++frames % 120 )
+		return;
+	beats++;
+	SYS_Report( "Xash3D GameCube: frame heartbeat n=%u cl.time=%.2f presents=%u probe=%d warmup=%u samples=%u world_ready=%d light_left=%u\n",
+		frames, cl.time, gc_present_count, gc_budget_probe_active ? 1 : 0,
+		gc_budget_warmup_left, gc_budget_sample_count, gc_newgame_world_ready ? 1 : 0,
+		gc_light_present_left );
+}
+
 #endif /* XASH_VIDEO == VIDEO_GX */
+
