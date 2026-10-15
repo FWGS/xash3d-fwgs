@@ -22,6 +22,14 @@ GNU General Public License for more details.
 // include it after because it breaks definitions in net_api.h wtf
 #include <SDL_syswm.h>
 
+#if XASH_PS4
+// OpenGL renderers on PS4 draw through our GNM backend, which owns the display:
+// SDL video is shut down while it works, so SDL calls below are skipped for it
+#include "ps4/gnm/gnm_gl.h"
+static qboolean ps4_gnm;
+static int ps4_gnm_dummy_window; // host.hWnd must be non-NULL while the context exists
+#endif
+
 #if XASH_PSVITA
 #include <vrtld.h>
 #endif // XASH_PSVITA
@@ -133,11 +141,40 @@ qboolean SW_CreateBuffer( int width, int height, uint *stride, uint *bpp, uint *
 			return false;
 		}
 
+#if XASH_PS4
+		// window covers the whole screen, engine renders into smaller surface that is scaled on present
+		if( sw.surf )
+		{
+			SDL_FreeSurface( sw.surf );
+			sw.surf = NULL;
+		}
+
+		if( sw.win->w != width || sw.win->h != height )
+		{
+			sw.surf = SDL_CreateRGBSurfaceWithFormat( 0, width, height, sw.win->format->BitsPerPixel, sw.win->format->format );
+
+			if( !sw.surf )
+				Sys_Error( "%s: %s", __func__, SDL_GetError( ));
+
+			SDL_FillRect( sw.win, NULL, 0 );
+		}
+
+		{
+			SDL_Surface *target = sw.surf ? sw.surf : sw.win;
+
+			*bpp = target->format->BytesPerPixel;
+			*r = target->format->Rmask;
+			*g = target->format->Gmask;
+			*b = target->format->Bmask;
+			*stride = target->pitch / target->format->BytesPerPixel;
+		}
+#else
 		*bpp = sw.win->format->BytesPerPixel;
 		*r = sw.win->format->Rmask;
 		*g = sw.win->format->Gmask;
 		*b = sw.win->format->Bmask;
 		*stride = sw.win->pitch / sw.win->format->BytesPerPixel;
+#endif
 
 		/// TODO: check somehow if ref_soft can handle native format
 #if 0
@@ -221,7 +258,28 @@ void SW_UnlockBuffer( void )
 		};
 		SDL_Rect dst = src;
 		SDL_UnlockSurface( sw.surf );
+#if XASH_PS4
+		// scale to the screen keeping aspect ratio
+		if( sw.win->w * sw.height > sw.win->h * sw.width )
+		{
+			dst.h = sw.win->h;
+			dst.w = sw.width * sw.win->h / sw.height;
+		}
+		else
+		{
+			dst.w = sw.win->w;
+			dst.h = sw.height * sw.win->w / sw.width;
+		}
+
+		dst.x = ( sw.win->w - dst.w ) / 2;
+		dst.y = ( sw.win->h - dst.h ) / 2;
+
+		SDL_BlitScaled( sw.surf, &src, sw.win, &dst );
+		SDL_UpdateWindowSurface( host.hWnd );
+		PS4_FramePresented( );
+#else
 		SDL_BlitSurface( sw.surf, &src, sw.win, &dst );
+#endif
 		return;
 	}
 
@@ -229,6 +287,9 @@ void SW_UnlockBuffer( void )
 	SDL_UnlockSurface( sw.win );
 
 	SDL_UpdateWindowSurface( host.hWnd );
+#if XASH_PS4
+	PS4_FramePresented( );
+#endif
 }
 
 int R_MaxVideoModes( void )
@@ -332,7 +393,11 @@ GL_GetProcAddress
 */
 void *GL_GetProcAddress( const char *name )
 {
+#if XASH_PS4
+	void *func = PS4_GL_GetProcAddress( name );
+#else
 	void *func = SDL_GL_GetProcAddress( name );
+#endif
 
 #if XASH_PSVITA
 	// try to find in main module
@@ -359,6 +424,12 @@ void GL_UpdateSwapInterval( void )
 	{
 		ClearBits( gl_vsync.flags, FCVAR_CHANGED );
 
+#if XASH_PS4
+		// GNM backend always waits for vertical sync
+		if( ps4_gnm )
+			return;
+#endif
+
 		if( SDL_GL_SetSwapInterval( gl_vsync.value ) < 0 )
 			Con_Reportf( S_ERROR  "SDL_GL_SetSwapInterval: %s\n", SDL_GetError( ));
 	}
@@ -373,6 +444,15 @@ always return false
 */
 static qboolean GL_DeleteContext( void )
 {
+#if XASH_PS4
+	if( ps4_gnm )
+	{
+		PS4_GL_Shutdown();
+		ps4_gnm = false;
+		return false;
+	}
+#endif
+
 	if( glw_state.context )
 	{
 		SDL_GL_DeleteContext( glw_state.context );
@@ -395,6 +475,15 @@ static void VID_GetWindowSizeInPixels( SDL_Window *window, SDL_Renderer *rendere
 
 void VID_SaveWindowSize( int width, int height )
 {
+#if XASH_PS4
+	if( ps4_gnm )
+	{
+		VID_SetDisplayTransform( &width, &height );
+		R_SaveVideoMode( width, height, width, height, false );
+		return;
+	}
+#endif
+
 	qboolean maximized = FBitSet( SDL_GetWindowFlags( host.hWnd ), SDL_WINDOW_MAXIMIZED );
 	int render_w = width, render_h = height;
 
@@ -669,6 +758,49 @@ static rserr_t VID_CreateWindow( const int input_width, const int input_height, 
 	SetBits( flags, SDL_WINDOW_ALLOW_HIGHDPI );
 #endif // !XASH_WIN32
 
+#if XASH_PS4
+	// window always covers the whole screen, frame is scaled on present, see SW_UnlockBuffer
+	{
+		SDL_DisplayMode mode;
+
+		if( !SDL_GetDesktopDisplayMode( 0, &mode ))
+		{
+			rect.x = rect.y = 0;
+			rect.w = mode.w;
+			rect.h = mode.h;
+		}
+	}
+#endif // XASH_PS4
+
+#if XASH_PS4
+	if( !glw_state.software )
+	{
+		char debug[16], mips[16];
+		int w, h, debuglevel = 0, mipmaps = 2;
+
+		// -gnmdebug [level]: GNM backend log, 1 - submits and textures, 2 - every draw
+		if( Sys_GetParmFromCmdLine( "-gnmdebug", debug ))
+			debuglevel = Q_atoi( debug );
+		if( debuglevel <= 0 && Sys_CheckParm( "-gnmdebug" ))
+			debuglevel = 1;
+
+		// -gnmmips 0|1|2: no mipmaps, power of two textures only, all textures (default)
+		if( Sys_GetParmFromCmdLine( "-gnmmips", mips ))
+			mipmaps = bound( 0, Q_atoi( mips ), 2 );
+
+		// renders in the native resolution of the display
+		if( !PS4_GL_Init( &w, &h, !Sys_CheckParm( "-gnmnoflip" ), mipmaps, debuglevel, Sys_CheckParm( "-gnmstats" ) ))
+			return rserr_invalid_context;
+
+		ps4_gnm = true;
+		host.hWnd = (void *)&ps4_gnm_dummy_window;
+		// window size cvars keep what was asked, software renderer uses them as its resolution
+		R_SaveVideoMode( input_width, input_height, w, h, false );
+		Con_Printf( "Video: " S_GREEN "PS4 GNM" S_DEFAULT ", %dx%d\n", w, h );
+		return rserr_ok;
+	}
+#endif // XASH_PS4
+
 	if( !glw_state.software )
 		SetBits( flags, SDL_WINDOW_OPENGL );
 
@@ -740,8 +872,13 @@ static rserr_t VID_CreateWindow( const int input_width, const int input_height, 
 	}
 
 	// update window size if it was resized
+#if XASH_PS4
+	// render size isn't the window size, see above
+	VID_SaveWindowSize( input_width, input_height );
+#else
 	SDL_GetWindowSize( host.hWnd, &rect.w, &rect.h );
 	VID_SaveWindowSize( rect.w, rect.h );
+#endif
 
 	VID_Info_f();
 
@@ -776,6 +913,16 @@ VID_DestroyWindow
 */
 static void VID_DestroyWindow( void )
 {
+#if XASH_PS4
+	if( ps4_gnm || host.hWnd == (void *)&ps4_gnm_dummy_window )
+	{
+		GL_DeleteContext();
+		host.hWnd = NULL;
+		refState.window_mode = WINDOW_MODE_WINDOWED;
+		return;
+	}
+#endif
+
 	GL_DeleteContext();
 
 	VID_RestoreScreenResolution( (window_mode_t)vid_fullscreen.value );
@@ -801,11 +948,25 @@ static void GL_SetupAttributes( void )
 
 void GL_SwapBuffers( void )
 {
+#if XASH_PS4
+	if( ps4_gnm )
+	{
+		PS4_GL_SwapBuffers();
+		PS4_FramePresented();
+		return;
+	}
+#endif
+
 	SDL_GL_SwapWindow( host.hWnd );
 }
 
 int GL_SetAttribute( int attr, int val )
 {
+#if XASH_PS4
+	// context is always the same, see gnm_gl.c
+	return 0;
+#endif
+
 	switch( attr )
 	{
 #define MAP_REF_API_ATTRIBUTE_TO_SDL( name ) case REF_##name: return SDL_GL_SetAttribute( SDL_##name, val );
@@ -851,6 +1012,22 @@ int GL_SetAttribute( int attr, int val )
 
 int GL_GetAttribute( int attr, int *val )
 {
+#if XASH_PS4
+	switch( attr )
+	{
+	case REF_GL_RED_SIZE:
+	case REF_GL_GREEN_SIZE:
+	case REF_GL_BLUE_SIZE:
+	case REF_GL_ALPHA_SIZE: *val = 8; return 0;
+	case REF_GL_DEPTH_SIZE: *val = 24; return 0;
+	case REF_GL_DOUBLEBUFFER: *val = 1; return 0;
+	case REF_GL_CONTEXT_MAJOR_VERSION: *val = 2; return 0;
+	case REF_GL_CONTEXT_PROFILE_MASK: *val = REF_GL_CONTEXT_PROFILE_ES; return 0;
+	}
+	*val = 0;
+	return 0;
+#endif
+
 	switch( attr )
 	{
 #define MAP_REF_API_ATTRIBUTE_TO_SDL( name ) case REF_##name: return SDL_GL_GetAttribute( SDL_##name, val );
@@ -897,6 +1074,37 @@ qboolean R_Init_Video( ref_graphic_apis_t type )
 {
 	string safe;
 	SDL_DisplayMode display_mode;
+
+#if XASH_PS4
+	if( type == REF_GL )
+	{
+		// GNM backend opens the display itself, SDL must give it up
+		if( SDL_WasInit( SDL_INIT_VIDEO ))
+			SDL_QuitSubSystem( SDL_INIT_VIDEO );
+
+		// that takes events down too, and the engine still pumps them every frame
+		if( !SDL_WasInit( SDL_INIT_EVENTS ))
+			SDL_InitSubSystem( SDL_INIT_EVENTS );
+
+		refState.desktopBitsPixel = 32;
+		glw_state.software = false; // could be left from the software renderer
+
+		if( !VID_SetMode( ))
+			return false;
+
+		ref.dllFuncs.GL_InitExtensions();
+		host.renderinfo_changed = false;
+		return true;
+	}
+
+	// back from the GNM backend
+	if( !SDL_WasInit( SDL_INIT_VIDEO ) && SDL_InitSubSystem( SDL_INIT_VIDEO ))
+	{
+		Con_Reportf( S_ERROR "SDL_InitSubSystem( SDL_INIT_VIDEO ): %s\n", SDL_GetError( ));
+		return false;
+	}
+#endif // XASH_PS4
+
 	SDL_GetCurrentDisplayMode( VID_GetDisplayIndex( __func__, NULL ), &display_mode );
 
 	refState.desktopBitsPixel = SDL_BITSPERPIXEL( display_mode.format );
@@ -909,7 +1117,9 @@ qboolean R_Init_Video( ref_graphic_apis_t type )
 		SDL_SetHint( SDL_HINT_OPENGL_ES_DRIVER, "1" );
 #endif // XASH_WIN32
 
+#ifdef SDL_HINT_VIDEO_X11_FORCE_EGL // OpenOrbis SDL2 is too old
 		SDL_SetHint( SDL_HINT_VIDEO_X11_FORCE_EGL, "1" );
+#endif
 	}
 
 	SDL_SetHint( SDL_HINT_QTWAYLAND_WINDOW_FLAGS, "OverridesSystemGestures" );
@@ -965,6 +1175,15 @@ rserr_t R_ChangeDisplaySettings( int width, int height, window_mode_t window_mod
 {
 	rserr_t err;
 
+#if XASH_PS4
+	// screen size is fixed for the GNM backend
+	if( ps4_gnm )
+	{
+		refState.window_mode = window_mode;
+		return rserr_ok;
+	}
+#endif
+
 	if( !host.hWnd )
 		err = VID_CreateWindow( width, height, window_mode );
 	else
@@ -972,6 +1191,14 @@ rserr_t R_ChangeDisplaySettings( int width, int height, window_mode_t window_mod
 
 	if( err != rserr_ok )
 		return err;
+
+#if XASH_PS4
+	if( ps4_gnm )
+	{
+		refState.window_mode = window_mode;
+		return rserr_ok;
+	}
+#endif
 
 	SDL_DisplayMode display_mode;
 	SDL_GetWindowDisplayMode( host.hWnd, &display_mode );
@@ -1014,6 +1241,12 @@ qboolean VID_SetMode( void )
 	{
 		Cvar_DirectSet( &vid_fullscreen, DEFAULT_FULLSCREEN );
 		Con_Reportf( S_ERROR "%s: windowed unavailable on this platform\n", __func__ );
+	}
+#elif XASH_PS4
+	if( Q_strcmp( vid_fullscreen.string, DEFAULT_FULLSCREEN ))
+	{
+		Cvar_DirectSet( &vid_fullscreen, DEFAULT_FULLSCREEN );
+		Con_Reportf( S_ERROR "%s: fullscreen modes are unavailable on this platform\n", __func__ );
 	}
 #endif
 
@@ -1162,6 +1395,14 @@ void R_Free_Video( void )
 
 void VID_Info_f( void )
 {
+#if XASH_PS4
+	if( ps4_gnm )
+	{
+		Con_Printf( "Video: " S_GREEN "PS4 GNM" S_DEFAULT ", %dx%d\n", refState.width, refState.height );
+		return;
+	}
+#endif
+
 	Uint32 flags = SDL_GetWindowFlags( host.hWnd );
 	int width, height;
 	int render_width, render_height;
