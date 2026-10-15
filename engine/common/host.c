@@ -1305,6 +1305,7 @@ static void Host_InitCommon( int argc, char **argv, const char *progname, qboole
 	FS_Init();
 #if XASH_GAMECUBE
 	GC_MemWatch( "init FS_Init" );
+	gc_mem_watch_hot = false;
 #endif
 #if XASH_GAMECUBE
 	GC_MemSample( "searchpaths" );

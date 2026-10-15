@@ -105,6 +105,17 @@ static mempool_t *poolchain = NULL; // critical stuff
 static size_t poolcount = 0;
 
 #if XASH_GAMECUBE
+/* While set, every allocator call checks the heap chains first so a
+ * corruption during early boot is bracketed to one allocator call. */
+qboolean gc_mem_watch_hot = true;
+#define GC_MEM_WATCH_CALL( what ) \
+	do { if( unlikely( gc_mem_watch_hot )) GC_MemWatchCall( what, filename, fileline ); } while( 0 )
+static void GC_MemWatchCall( const char *what, const char *filename, int fileline );
+#else
+#define GC_MEM_WATCH_CALL( what ) ((void)0)
+#endif
+
+#if XASH_GAMECUBE
 void GC_MemReportPoolPressure( const char *subsystem, size_t requested )
 {
 	static char last_subsystem[64];
@@ -290,6 +301,7 @@ static qboolean Mem_CheckAllocHeaderSmall( const char *func, const memheader_sma
 
 void *_Mem_TryAlloc( poolhandle_t poolptr, size_t size, qboolean clear, const char *filename, int fileline )
 {
+	GC_MEM_WATCH_CALL( "alloc" );
 	if( size <= 0 || !poolptr )
 		return NULL;
 
@@ -457,6 +469,7 @@ static void Mem_FreeBlockSmall( memheader_small_t *mem, const char *filename, in
 
 void _Mem_Free( void *data, const char *filename, int fileline )
 {
+	GC_MEM_WATCH_CALL( "free" );
 	if( data == NULL )
 		return;
 
@@ -494,6 +507,7 @@ static void Mem_MigratePoolSmall( poolhandle_t newpoolptr, memheader_small_t *me
 
 void *_Mem_Realloc( poolhandle_t poolptr, void *data, size_t size, qboolean clear, const char *filename, int fileline )
 {
+	GC_MEM_WATCH_CALL( "realloc" );
 	if( size <= 0 )
 		return data; // no need to reallocate
 
@@ -649,6 +663,7 @@ static poolhandle_t Mem_InitPool( mempool_t *pool, const char *name, unsigned in
 
 poolhandle_t _Mem_AllocPool( const char *name, unsigned int flags, const char *filename, int fileline )
 {
+	GC_MEM_WATCH_CALL( "allocpool" );
 	for( size_t i = 0; i < poolcount; i++ )
 	{
 		if( poolchain[i].filename == NULL )
@@ -868,20 +883,32 @@ qboolean GC_MemCheckChains( const char *tag )
  * corrupting step is bracketed between two milestones. */
 void GC_MemWatch( const char *tag )
 {
-	static qboolean broken;
-	static char last_ok[64] = "start";
+	static qboolean broken, busy;
+	static char last_ok[96] = "start";
 
-	if( broken )
+	if( broken || busy )
 		return;
 
+	busy = true;
 	if( GC_MemCheckChainsEx( tag, false ))
 	{
 		Q_strncpy( last_ok, tag, sizeof( last_ok ));
+		busy = false;
 		return;
 	}
 
 	broken = true;
+	gc_mem_watch_hot = false;
 	Con_Reportf( S_ERROR "Xash3D GameCube: mem corruption first seen at=%s last_ok=%s\n", tag, last_ok );
+	busy = false;
+}
+
+static void GC_MemWatchCall( const char *what, const char *filename, int fileline )
+{
+	char tag[96];
+
+	Q_snprintf( tag, sizeof( tag ), "%s %s:%i", what, filename ? filename : "?", fileline );
+	GC_MemWatch( tag );
 }
 #endif
 

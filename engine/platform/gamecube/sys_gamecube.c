@@ -552,7 +552,9 @@ void GCube_Init( void )
 	if( xashdir[0] && chdir( xashdir ) == 0 )
 	{
 		Con_Reportf( "GameCube data directory: %s\n", xashdir );
+		GC_MemWatch( "platform chdir" );
 		GCube_LoadDiscBootOverrides();
+		GC_MemWatch( "platform boot overrides" );
 	}
 	else if( xashdir[0] )
 	{
@@ -561,11 +563,14 @@ void GCube_Init( void )
 	}
 
 	setup_gamecube_dll_functions();
+	GC_MemWatch( "platform dll exports" );
 
 	/* Initialize performance profiling */
 	GC_PerfInit();
+	GC_MemWatch( "platform perf init" );
 	GC_WatchdogInit();
 	GC_PerfCmd_Init();
+	GC_MemWatch( "platform perf commands" );
 #endif
 }
 
