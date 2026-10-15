@@ -1016,7 +1016,7 @@ void R_DrawBrushModel( cl_entity_t *pent );
 void R_InitCaches( void );
 void R_BlitScreen( void );
 qboolean R_InitBlit( qboolean gl );
-qboolean R_SetDisplayTransform( ref_screen_rotation_t rotate, int offset_x, int offset_y, float scale_x, float scale_y );
+qboolean R_SetDisplayTransform( ref_screen_rotation_t rotate, int offset_x, int offset_y, float unused1_default_at_1, float unused2_default_at_1 );
 
 //
 // r_edge.c

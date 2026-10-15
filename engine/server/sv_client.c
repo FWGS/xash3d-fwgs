@@ -283,6 +283,29 @@ static sv_client_t *SV_FindEmptySlot( void )
 	return NULL;
 }
 
+/*
+================
+SV_CountConnectingClients
+================
+*/
+static int SV_CountConnectingClients( netadr_t from )
+{
+	int count = 0;
+
+	for( int i = 0; i < svs.maxclients; i++ )
+	{
+		const sv_client_t *cl = &svs.clients[i];
+
+		if( cl->state != cs_connected && cl->state != cs_spawning )
+			continue;
+
+		if( NET_CompareBaseAdr( from, cl->netchan.remote_address ))
+			count++;
+	}
+
+	return count;
+}
+
 static void SV_MaybeNotifyPlayerCountChange( const sv_client_t *cl, const char *address )
 {
 	int count = 0;
@@ -337,6 +360,10 @@ static void SV_ConnectClient( netadr_t from )
 
 	// see if the challenge is valid (local clients don't need to challenge)
 	if( !SV_CheckChallenge( from, challenge ))
+		return;
+
+	// challenge stays valid for a while, don't let it be replayed at line rate
+	if( SV_RateLimited( from, SV_RATELIMIT_CONNECT ))
 		return;
 
 	// reply about protocol mismatch only after the challenge is validated
@@ -424,6 +451,12 @@ static void SV_ConnectClient( netadr_t from )
 	// the slot will be wiped clean.
 	if( !newcl )
 	{
+		if( sv_connect_max_per_ip.value > 0.0f && !NET_IsLocalAddress( from ) && SV_CountConnectingClients( from ) >= sv_connect_max_per_ip.value )
+		{
+			SV_RejectConnection( from, "too many connections from your address\n" );
+			return;
+		}
+
 		// connect the client if there are empty slots.
 		newcl = SV_FindEmptySlot();
 
@@ -842,6 +875,9 @@ static void SV_TestBandWidth( netadr_t from )
 	const int version = Q_atoi( Cmd_Argv( 1 ));
 	const int packetsize = Q_atoi( Cmd_Argv( 2 ));
 
+	if( SV_RateLimited( from, SV_RATELIMIT_CHALLENGE ))
+		return;
+
 	// third argument is the challenge, if it's empty, it means this is an
 	// old client that do not have challenge and testbandwidth swapped
 	if( !Q_strlen( Cmd_Argv( 3 )))
@@ -885,16 +921,20 @@ static void SV_TestBandWidth( netadr_t from )
 
 /*
 ================
-SV_QueryRateLimited
+SV_CheckRateLimit
 ================
 */
-qboolean SV_QueryRateLimited( netadr_t from MAYBE_UNUSED )
+static qboolean SV_CheckRateLimit( netadr_t from MAYBE_UNUSED, sv_ratelimit_t kind MAYBE_UNUSED, qboolean take MAYBE_UNUSED )
 {
 #if !XASH_LOW_MEMORY // these targets don't host public servers, always allow
 	enum { CACHE_SIZE = 8192 };
-	static struct { uint32_t last; float tokens; } cache[CACHE_SIZE];
+	// a table per kind, so flooding with one kind of request can't deplete the others
+	static struct { uint32_t last; float tokens; } cache[SV_RATELIMIT_COUNT][CACHE_SIZE];
 
-	if( sv_query_rate_limit.value <= 0.0f )
+	// real clients never come close to 1 per second for anything but queries
+	const float rate = kind == SV_RATELIMIT_QUERY ? sv_query_rate_limit.value : 1.0f;
+
+	if( rate <= 0.0f )
 		return false;
 
 	byte data[2 + 16]; // purpose, address type, address
@@ -923,26 +963,36 @@ qboolean SV_QueryRateLimited( netadr_t from MAYBE_UNUSED )
 
 	// millisecond tick; unsigned subtraction stays correct across the ~49 day wrap
 	uint32_t now = (uint32_t)(uint64_t)( host.realtime * 1000.0 );
-	uint32_t elapsed = now - cache[slot].last;
+	uint32_t elapsed = now - cache[kind][slot].last;
 
 	// the bucket is shared by every address hashing here, so it can't be evicted,
 	// only depleted, which bounds how much we amplify no matter how sources are spoofed
-	float tokens = cache[slot].tokens + elapsed * 0.001f * sv_query_rate_limit.value;
+	float tokens = cache[kind][slot].tokens + elapsed * 0.001f * rate;
 	const float burst = 5.0f;
 
 	if( tokens > burst )
 		tokens = burst;
-	cache[slot].last = now;
+	cache[kind][slot].last = now;
 
 	if( tokens < 1.0f )
 	{
-		cache[slot].tokens = tokens;
+		cache[kind][slot].tokens = tokens;
 		return true;
 	}
 
-	cache[slot].tokens = tokens - 1.0f;
+	cache[kind][slot].tokens = take ? tokens - 1.0f : tokens;
 #endif
 	return false;
+}
+
+/*
+================
+SV_RateLimited
+================
+*/
+qboolean SV_RateLimited( netadr_t from, sv_ratelimit_t kind )
+{
+	return SV_CheckRateLimit( from, kind, true );
 }
 
 /*
@@ -961,7 +1011,7 @@ static void SV_Info( netadr_t from, int protocolVersion )
 	if( svs.maxclients == 1 || !svs.initialized )
 		return;
 
-	if( SV_QueryRateLimited( from ))
+	if( SV_RateLimited( from, SV_RATELIMIT_QUERY ))
 		return;
 
 	s[0] = '\0';
@@ -1052,29 +1102,37 @@ void SV_RemoteCommand( netadr_t from, sizebuf_t *msg )
 	if( !rcon_enable.value || COM_StringEmpty( rcon_password.string ))
 		return;
 
+	// only failed attempts take tokens, so password guessing is throttled
+	// but an admin who knows the password isn't
+	if( SV_CheckRateLimit( from, SV_RATELIMIT_RCON, false ))
+		return;
+
+	if( !Rcon_Validate( ))
+	{
+		SV_RateLimited( from, SV_RATELIMIT_RCON );
+		return;
+	}
+
+	static char outputbuf[2048];
+	char remaining[1024];
+	char *p = remaining;
+
 	adr = NET_AdrToString( from );
 
-	if( Rcon_Validate( ))
+	Con_Printf( "Rcon from %s:\n%s\n", adr, MSG_GetData( msg ) + 4 );
+	Log_Printf( "Rcon: \"%s\" from \"%s\"\n", MSG_GetData( msg ) + 4, adr );
+
+	remaining[0] = 0;
+	for( int i = 2; i < Cmd_Argc(); i++ )
 	{
-		static char	outputbuf[2048];
-		char remaining[1024];
-		char *p = remaining;
-
-		Con_Printf( "Rcon from %s:\n%s\n", adr, MSG_GetData( msg ) + 4 );
-		Log_Printf( "Rcon: \"%s\" from \"%s\"\n", MSG_GetData( msg ) + 4, adr );
-
-		remaining[0] = 0;
-		for( int i = 2; i < Cmd_Argc(); i++ )
-		{
-			p += Q_strncpy( p, "\"", sizeof( remaining ) - ( p - remaining ));
-			p += Q_strncpy( p, Cmd_Argv( i ), sizeof( remaining ) - ( p - remaining ));
-			p += Q_strncpy( p, "\" ", sizeof( remaining ) - ( p - remaining ));
-		}
-
-		SV_BeginRedirect( &host.rd, from, RD_PACKET, outputbuf, sizeof( outputbuf ) - 16, SV_FlushRedirect );
-		Cmd_ExecuteString( remaining );
-		SV_EndRedirect( &host.rd );
+		p += Q_strncpy( p, "\"", sizeof( remaining ) - ( p - remaining ));
+		p += Q_strncpy( p, Cmd_Argv( i ), sizeof( remaining ) - ( p - remaining ));
+		p += Q_strncpy( p, "\" ", sizeof( remaining ) - ( p - remaining ));
 	}
+
+	SV_BeginRedirect( &host.rd, from, RD_PACKET, outputbuf, sizeof( outputbuf ) - 16, SV_FlushRedirect );
+	Cmd_ExecuteString( remaining );
+	SV_EndRedirect( &host.rd );
 }
 
 /*
@@ -3217,7 +3275,8 @@ void SV_ConnectionlessPacket( netadr_t from, sizebuf_t *msg )
 	}
 	else if( !Q_strcmp( pcmd, C2S_GETCHALLENGE ))
 	{
-		SV_SendChallenge( from, !sv_allow_testpacket.value || !svs.testpacket_buf );
+		if( !SV_RateLimited( from, SV_RATELIMIT_CHALLENGE ))
+			SV_SendChallenge( from, !sv_allow_testpacket.value || !svs.testpacket_buf );
 	}
 	else if( !Q_strcmp( pcmd, C2S_CONNECT ))
 	{
@@ -3225,11 +3284,13 @@ void SV_ConnectionlessPacket( netadr_t from, sizebuf_t *msg )
 	}
 	else if( !Q_strcmp( pcmd, A2A_PING ))
 	{
-		Netchan_OutOfBandPrint( NS_SERVER, from, A2A_ACK );
+		if( !SV_RateLimited( from, SV_RATELIMIT_QUERY ))
+			Netchan_OutOfBandPrint( NS_SERVER, from, A2A_ACK );
 	}
 	else if( !Q_strcmp( pcmd, A2A_GOLDSRC_PING ))
 	{
-		Netchan_OutOfBandPrint( NS_SERVER, from, A2A_GOLDSRC_ACK );
+		if( !SV_RateLimited( from, SV_RATELIMIT_QUERY ))
+			Netchan_OutOfBandPrint( NS_SERVER, from, A2A_GOLDSRC_ACK );
 	}
 	else if( !Q_strcmp( pcmd, C2S_RCON ))
 	{
@@ -3758,7 +3819,7 @@ void Test_RunQueryRateLimit( void )
 	// disabled by cvar: nothing is ever throttled
 	sv_query_rate_limit.value = 0.0f;
 	for( int i = 0; i < 32; i++ )
-		TASSERT( SV_QueryRateLimited( victim ) == false );
+		TASSERT( SV_RateLimited( victim, SV_RATELIMIT_QUERY ) == false );
 
 	// enabled: a fresh bucket lets a burst of 5 through, then throttles
 	sv_query_rate_limit.value = 1.0f;
@@ -3766,7 +3827,7 @@ void Test_RunQueryRateLimit( void )
 	int burst_allowed = 0;
 	for( int i = 0; i < 32; i++ )
 	{
-		if( !SV_QueryRateLimited( victim ))
+		if( !SV_RateLimited( victim, SV_RATELIMIT_QUERY ))
 			burst_allowed++;
 	}
 	TASSERT_EQi( burst_allowed, 5 );
@@ -3775,14 +3836,14 @@ void Test_RunQueryRateLimit( void )
 	// depleting one must not deplete the other with our fixed test salt
 	netadr_t collision = { .type = NA_IP, .ip = { 1, 2, 4, 7 } };
 	for( int i = 0; i < 5; i++ )
-		TASSERT( SV_QueryRateLimited( collision ) == false );
-	TASSERT( SV_QueryRateLimited( victim ) == true );
+		TASSERT( SV_RateLimited( collision, SV_RATELIMIT_QUERY ) == false );
+	TASSERT( SV_RateLimited( victim, SV_RATELIMIT_QUERY ) == true );
 
 	// a spoofed flood from other sources can only deplete buckets, never refill the
 	// victim's, so with no time elapsed the victim can't be evicted and stays throttled
 	for( int i = 0; i < 30000; i++ )
-		SV_QueryRateLimited(( netadr_t ){ .type = NA_IP, .ip4 = 0x10000000 + i });
-	TASSERT( SV_QueryRateLimited( victim ) == true );
+		SV_RateLimited(( netadr_t ){ .type = NA_IP, .ip4 = 0x10000000 + i }, SV_RATELIMIT_QUERY );
+	TASSERT( SV_RateLimited( victim, SV_RATELIMIT_QUERY ) == true );
 
 	// tokens refill with time: 3 seconds at 1/s lets exactly 3 more replies through
 	host.realtime += 3.0;
@@ -3790,10 +3851,28 @@ void Test_RunQueryRateLimit( void )
 	int refill_allowed = 0;
 	for( int i = 0; i < 32; i++ )
 	{
-		if( !SV_QueryRateLimited( victim ))
+		if( !SV_RateLimited( victim, SV_RATELIMIT_QUERY ))
 			refill_allowed++;
 	}
 	TASSERT_EQi( refill_allowed, 3 );
+
+	// other kinds have their own tables and aren't disabled by the query cvar
+	sv_query_rate_limit.value = 0.0f;
+
+	int connect_allowed = 0;
+	for( int i = 0; i < 32; i++ )
+	{
+		if( !SV_RateLimited( victim, SV_RATELIMIT_CONNECT ))
+			connect_allowed++;
+	}
+	TASSERT_EQi( connect_allowed, 5 );
+
+	// peeking doesn't take tokens, so only failed rcon attempts deplete the bucket
+	for( int i = 0; i < 32; i++ )
+		TASSERT( SV_CheckRateLimit( victim, SV_RATELIMIT_RCON, false ) == false );
+	for( int i = 0; i < 5; i++ )
+		TASSERT( SV_RateLimited( victim, SV_RATELIMIT_RCON ) == false );
+	TASSERT( SV_CheckRateLimit( victim, SV_RATELIMIT_RCON, false ) == true );
 
 	sv_query_rate_limit.value = saved_rate;
 	host.realtime = saved_time;

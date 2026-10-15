@@ -539,7 +539,7 @@ typedef struct ref_interface_s
 	// const char *(*R_GetInitError)( void );
 	void (*R_Shutdown)( void );
 	const char *(*R_GetConfigName)( void ); // returns config name without extension
-	qboolean (*R_SetDisplayTransform)( ref_screen_rotation_t rotate, int x, int y, float scale_x, float scale_y );
+	qboolean (*R_SetDisplayTransform)( ref_screen_rotation_t rotate, int x, int y, float unused1_default_at_1, float unused2_default_at_1 );
 
 	// only called for GL contexts
 	void (*GL_SetupAttributes)( int safegl );

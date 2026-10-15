@@ -10,6 +10,7 @@ CVAR_DEFINE( gl_texture_anisotropy, "gl_anisotropy", "8", FCVAR_GLCONFIG, "textu
 CVAR_DEFINE_AUTO( gl_texture_lodbias, "0.0", FCVAR_GLCONFIG, "LOD bias for mipmapped textures (perfomance|quality)" );
 CVAR_DEFINE_AUTO( gl_texture_nearest, "0", FCVAR_GLCONFIG, "disable texture filter" );
 CVAR_DEFINE_AUTO( gl_lightmap_nearest, "0", FCVAR_GLCONFIG, "disable lightmap filter" );
+CVAR_DEFINE_AUTO( gl_fbo_nearest, "0", FCVAR_GLCONFIG, "disable filter when upscaling the scene rendered with r_scene_scale" );
 CVAR_DEFINE_AUTO( gl_keeptjunctions, "1", FCVAR_GLCONFIG, "removing tjuncs causes blinking pixels" );
 CVAR_DEFINE_AUTO( gl_check_errors, "1", FCVAR_GLCONFIG, "ignore video engine errors" );
 CVAR_DEFINE_AUTO( gl_polyoffset, "2", FCVAR_GLCONFIG, "polygon offset for decals" );
@@ -39,6 +40,7 @@ CVAR_DEFINE_AUTO( r_ripple, "0", FCVAR_GLCONFIG, "enable software-like water tex
 CVAR_DEFINE_AUTO( r_ripple_updatetime, "0.05", FCVAR_GLCONFIG, "how fast ripple simulation is" );
 CVAR_DEFINE_AUTO( r_ripple_spawntime, "0.1", FCVAR_GLCONFIG, "how fast new ripples spawn" );
 CVAR_DEFINE_AUTO( r_large_lightmaps, "0", FCVAR_GLCONFIG|FCVAR_LATCH, "enable larger lightmap atlas textures (might break custom renderer mods)" );
+CVAR_DEFINE_AUTO( r_scene_scale, "1.0", FCVAR_GLCONFIG, "render the 3D scene at this fraction of the window resolution (0.1 to 8.0), HUD is unaffected" );
 
 
 gl_globals_t	tr;
@@ -271,6 +273,55 @@ static const dllfunc_t bufferstoragefuncs[] =
 { GL_CALL( glBufferStorage ) },
 };
 
+static const dllfunc_t framebufferobjectfuncs[] =
+{
+{ GL_CALL( glIsRenderbuffer ) },
+{ GL_CALL( glBindRenderbuffer ) },
+{ GL_CALL( glDeleteRenderbuffers ) },
+{ GL_CALL( glGenRenderbuffers ) },
+{ GL_CALL( glRenderbufferStorage ) },
+{ GL_CALL( glGetRenderbufferParameteriv ) },
+{ GL_CALL( glIsFramebuffer ) },
+{ GL_CALL( glBindFramebuffer ) },
+{ GL_CALL( glDeleteFramebuffers ) },
+{ GL_CALL( glGenFramebuffers ) },
+{ GL_CALL( glCheckFramebufferStatus ) },
+{ GL_CALL( glFramebufferTexture2D ) },
+{ GL_CALL( glFramebufferRenderbuffer ) },
+{ GL_CALL( glGetFramebufferAttachmentParameteriv ) },
+};
+
+static const dllfunc_t framebufferblitfuncs[] =
+{
+{ GL_CALL( glBlitFramebuffer ) },
+};
+
+static const dllfunc_t framebuffermultisamplefuncs[] =
+{
+{ GL_CALL( glRenderbufferStorageMultisample ) },
+};
+
+// GL_ARB_framebuffer_object merges the three EXT extensions above
+static const dllfunc_t framebufferarbfuncs[] MAYBE_UNUSED =
+{
+{ GL_CALL( glIsRenderbuffer ) },
+{ GL_CALL( glBindRenderbuffer ) },
+{ GL_CALL( glDeleteRenderbuffers ) },
+{ GL_CALL( glGenRenderbuffers ) },
+{ GL_CALL( glRenderbufferStorage ) },
+{ GL_CALL( glGetRenderbufferParameteriv ) },
+{ GL_CALL( glIsFramebuffer ) },
+{ GL_CALL( glBindFramebuffer ) },
+{ GL_CALL( glDeleteFramebuffers ) },
+{ GL_CALL( glGenFramebuffers ) },
+{ GL_CALL( glCheckFramebufferStatus ) },
+{ GL_CALL( glFramebufferTexture2D ) },
+{ GL_CALL( glFramebufferRenderbuffer ) },
+{ GL_CALL( glGetFramebufferAttachmentParameteriv ) },
+{ GL_CALL( glBlitFramebuffer ) },
+{ GL_CALL( glRenderbufferStorageMultisample ) },
+};
+
 static const dllfunc_t shaderobjectsfuncs[] MAYBE_UNUSED =
 {
 { GL_CALL( glDeleteObjectARB ) },
@@ -472,7 +523,8 @@ GL_CheckExtension
 */
 static qboolean GL_CheckExtension( const char *name, const dllfunc_t *funcs, size_t num_funcs, const char *cvarname, int r_ext, float minver )
 {
-	const float glver = (float)glConfig.version_major + glConfig.version_minor / 10.0f;
+	const int glver = glConfig.version_major * 10 + glConfig.version_minor;
+	const int iminver = Q_rint( minver * 10.0f );
 
 	gEngfuncs.Con_Reportf( "%s: %s ", __func__, name );
 	GL_SetExtension( r_ext, true );
@@ -495,7 +547,7 @@ static qboolean GL_CheckExtension( const char *name, const dllfunc_t *funcs, siz
 
 	const char *extensions_string = glConfig.extensions_string;
 
-	if(( name[2] == '_' || name[3] == '_' ) && !Q_strstr( extensions_string, name ) && ( glver < minver  || !minver || !glver ) )
+	if(( name[2] == '_' || name[3] == '_' ) && !Q_strstr( extensions_string, name ) && ( glver < iminver || !iminver || !glver ))
 	{
 		GL_SetExtension( r_ext, false );	// update render info
 		gEngfuncs.Con_Reportf( "- ^1failed\n" );
@@ -819,6 +871,28 @@ static void GL_InitExtensionsGLES( void )
 		case GL_BUFFER_STORAGE_EXT:
 			GL_CheckExtension( "GL_EXT_buffer_storage", bufferstoragefuncs, ARRAYSIZE( bufferstoragefuncs ), "gl_buffer_storage", GL_BUFFER_STORAGE_EXT, 0);
 			break;
+		case GL_FRAMEBUFFER_OBJECT_EXT:
+			// render targets use RGBA8 and packed depth-stencil renderbuffers and NPOT textures, all core since ES 3.0
+			if( glConfig.version_major >= 3 || ( GL_Support( GL_ARB_TEXTURE_NPOT_EXT )
+				&& Q_strstr( glConfig.extensions_string, "GL_OES_rgb8_rgba8" )
+				&& Q_strstr( glConfig.extensions_string, "GL_OES_packed_depth_stencil" )))
+				GL_CheckExtension( "GL_OES_framebuffer_object", framebufferobjectfuncs, ARRAYSIZE( framebufferobjectfuncs ), "gl_framebuffer_object", extid, 2.0 );
+			else
+				GL_SetExtension( extid, false );
+			break;
+		case GL_FRAMEBUFFER_BLIT_EXT:
+			// ES 2.0 blit extensions use vendor suffixes that GL_CheckExtension doesn't look up
+			if( glConfig.version_major >= 3 && GL_Support( GL_FRAMEBUFFER_OBJECT_EXT ))
+				GL_CheckExtension( "framebuffer_blit", framebufferblitfuncs, ARRAYSIZE( framebufferblitfuncs ), "gl_framebuffer_object", extid, 3.0 );
+			else
+				GL_SetExtension( extid, false );
+			break;
+		case GL_FRAMEBUFFER_MULTISAMPLE_EXT:
+			if( glConfig.version_major >= 3 && GL_Support( GL_FRAMEBUFFER_OBJECT_EXT ))
+				GL_CheckExtension( "framebuffer_multisample", framebuffermultisamplefuncs, ARRAYSIZE( framebuffermultisamplefuncs ), "gl_framebuffer_object", extid, 3.0 );
+			else
+				GL_SetExtension( extid, false );
+			break;
 
 #endif
 		case GL_DEBUG_OUTPUT:
@@ -946,6 +1020,17 @@ static void GL_InitExtensionsBigGL( void )
 	GL_CheckExtension( "GL_ARB_buffer_storage", bufferstoragefuncs, ARRAYSIZE( bufferstoragefuncs ), "gl_buffer_storage", GL_BUFFER_STORAGE_EXT, 4.4);
 	GL_CheckExtension( "GL_ARB_map_buffer_range", mapbufferrangefuncs, ARRAYSIZE( mapbufferrangefuncs ), "gl_map_buffer_range", GL_MAP_BUFFER_RANGE_EXT , 3.0);
 	GL_CheckExtension( "GL_ARB_draw_elements_base_vertex", drawrangeelementsbasevertexfuncs, ARRAYSIZE( drawrangeelementsbasevertexfuncs ), "gl_drawrangeelementsbasevertex", GL_DRAW_RANGE_ELEMENTS_BASE_VERTEX_EXT, 3.2 );
+	if( GL_CheckExtension( "GL_ARB_framebuffer_object", framebufferarbfuncs, ARRAYSIZE( framebufferarbfuncs ), "gl_framebuffer_object", GL_FRAMEBUFFER_OBJECT_EXT, 3.0 ))
+	{
+		GL_SetExtension( GL_FRAMEBUFFER_BLIT_EXT, true );
+		GL_SetExtension( GL_FRAMEBUFFER_MULTISAMPLE_EXT, true );
+	}
+	else
+	{
+		GL_CheckExtension( "GL_EXT_framebuffer_object", framebufferobjectfuncs, ARRAYSIZE( framebufferobjectfuncs ), "gl_framebuffer_object", GL_FRAMEBUFFER_OBJECT_EXT, 0 );
+		GL_CheckExtension( "GL_EXT_framebuffer_blit", framebufferblitfuncs, ARRAYSIZE( framebufferblitfuncs ), "gl_framebuffer_object", GL_FRAMEBUFFER_BLIT_EXT, 0 );
+		GL_CheckExtension( "GL_EXT_framebuffer_multisample", framebuffermultisamplefuncs, ARRAYSIZE( framebuffermultisamplefuncs ), "gl_framebuffer_object", GL_FRAMEBUFFER_MULTISAMPLE_EXT, 0 );
+	}
 #endif
 	if( GL_CheckExtension( "GL_ARB_shading_language_100", NULL, 0, NULL, GL_SHADER_GLSL100_EXT, 2.0 ))
 	{
@@ -1159,10 +1244,12 @@ static void GL_InitCommands( void )
 	gEngfuncs.Cvar_RegisterVariable( &r_vbo_overbrightmode );
 	gEngfuncs.Cvar_RegisterVariable( &r_vbo_detail );
 	gEngfuncs.Cvar_RegisterVariable( &r_large_lightmaps );
+	gEngfuncs.Cvar_RegisterVariable( &r_scene_scale );
 
 	gEngfuncs.Cvar_RegisterVariable( &gl_extensions );
 	gEngfuncs.Cvar_RegisterVariable( &gl_texture_nearest );
 	gEngfuncs.Cvar_RegisterVariable( &gl_lightmap_nearest );
+	gEngfuncs.Cvar_RegisterVariable( &gl_fbo_nearest );
 	gEngfuncs.Cvar_RegisterVariable( &gl_check_errors );
 	gEngfuncs.Cvar_RegisterVariable( &gl_texture_anisotropy );
 	gEngfuncs.Cvar_RegisterVariable( &gl_texture_lodbias );
@@ -1296,6 +1383,7 @@ void R_Shutdown( void )
 		return;
 
 	GL_RemoveCommands();
+	GL_FreeRenderTargets();
 	R_ShutdownImages();
 #if !XASH_GLES && !XASH_GL_STATIC
 	GL2_ShimShutdown();

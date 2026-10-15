@@ -131,6 +131,8 @@ void R_Set2DMode( qboolean enable )
 		if( glState.in2DMode )
 			return;
 
+		GL_BindScreenTarget();
+
 		matrix4x4 projection_matrix;
 
 		// set 2D virtual screen size
@@ -181,6 +183,8 @@ void R_Set2DMode( qboolean enable )
 	}
 	else
 	{
+		GL_BindSceneTarget();
+
 		pglDepthMask( GL_TRUE );
 		pglEnable( GL_DEPTH_TEST );
 		// restore the scene fog that was disabled in 2D mode

@@ -3345,7 +3345,7 @@ void R_DrawViewModel( void )
 		return;
 
 	// adjust the depth range to prevent view model from poking into walls
-	pglDepthRange( gldepthmin, gldepthmin + 0.3f * ( gldepthmax - gldepthmin ));
+	pglDepthRange( gldepthmin, gldepthmin + VIEWMODEL_DEPTH_RANGE * ( gldepthmax - gldepthmin ));
 	RI.currentmodel = RI.currententity->model;
 
 	switch( RI.currententity->model->type )

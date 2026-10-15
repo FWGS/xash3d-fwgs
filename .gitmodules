@@ -46,3 +46,6 @@
 [submodule "3rdparty/freevgui"]
 	path = 3rdparty/freevgui
 	url = https://github.com/FWGS/freevgui
+[submodule "3rdparty/mpg123/mpg123"]
+	path = 3rdparty/mpg123/mpg123
+	url = https://github.com/libsdl-org/mpg123

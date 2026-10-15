@@ -1215,8 +1215,7 @@ void Mod_LoadStudioModel( model_t *mod, void *buffer, size_t buffersize, qboolea
 	{
 		// well compute bounds from vertices and round to nearest even values
 		Mod_StudioComputeBounds( phdr, mod->mins, mod->maxs, true );
-		RoundUpHullSize( mod->mins );
-		RoundUpHullSize( mod->maxs );
+		RoundUpHullSize( mod->mins, mod->maxs );
 	}
 
 	mod->numframes = Mod_StudioBodyVariations( mod );

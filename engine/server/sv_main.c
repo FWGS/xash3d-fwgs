@@ -154,7 +154,8 @@ CVAR_DEFINE_AUTO( sv_fullupdate_penalty_time, "1", FCVAR_ARCHIVE, "allow fullupd
 CVAR_DEFINE_AUTO( sv_log_outofband, "0", FCVAR_ARCHIVE, "log out of band messages, can be useful for server admins and for engine debugging" );
 CVAR_DEFINE_AUTO( sv_allow_testpacket, "1", FCVAR_ARCHIVE, "allow generating and sending a big blob of data to test maximum packet size" );
 CVAR_DEFINE_AUTO( sv_expose_player_list, "1", FCVAR_ARCHIVE, "expose player list through packets that don't require connection" );
-CVAR_DEFINE_AUTO( sv_query_rate_limit, "1", FCVAR_ARCHIVE, "max info query replies per second per address bucket, 0 to disable" );
+CVAR_DEFINE_AUTO( sv_query_rate_limit, "1", FCVAR_ARCHIVE, "max info, ping, players and rules query replies per second per address bucket, 0 to disable" );
+CVAR_DEFINE_AUTO( sv_connect_max_per_ip, "3", FCVAR_ARCHIVE, "max clients from the same IP address that are still connecting, 0 to disable" );
 
 //============================================================================
 /*
@@ -998,11 +999,16 @@ void SV_Init( void )
 	Cvar_RegisterVariable( &sv_allow_testpacket );
 	Cvar_RegisterVariable( &sv_expose_player_list );
 	Cvar_RegisterVariable( &sv_query_rate_limit );
+	Cvar_RegisterVariable( &sv_connect_max_per_ip );
 
 	// when we in developer-mode automatically turn cheats on
 	if( host_developer.value ) Cvar_SetValue( "sv_cheats", 1.0f );
 
 	MSG_Init( &net_message, "NetMessage", net_message_buffer, sizeof( net_message_buffer ));
+
+	// rcon is accepted even before the first map is loaded, don't leave the salt zeroed until then
+	for( int i = 0; i < ARRAYSIZE( svs.challenge_salt ); i++ )
+		svs.challenge_salt[i] = COM_RandomLong( 0, 0x7FFFFFFE );
 
 	Q_snprintf( versionString, sizeof( versionString ), XASH_ENGINE_NAME ": " XASH_VERSION "-%s(%s-%s),%i,%i",
 		g_buildcommit, Q_buildos(), Q_buildarch(), PROTOCOL_VERSION, Q_buildnum() );

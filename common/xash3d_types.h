@@ -163,6 +163,15 @@ typedef int qboolean;
 	#define XASH_RESTRICT __restrict
 #endif
 
+// MSVC has __typeof__ in all C modes since 19.39, see https://learn.microsoft.com/en-us/cpp/c-language/typeof-c#requirements
+// However, at least up to 19.44 (VS 2022 17.14) __typeof__ applied to a function designator doesn't yield a function type
+// (typedef'd pointers to it aren't callable, error C2063), so only enable it on 19.51 (VS 2026 18.1) and newer, where it's known to work
+#if !defined( __cplusplus ) && __STDC_VERSION__ >= 202311L // not C++ and C23 or newer
+	#define XASH_TYPEOF typeof
+#elif __GNUC__ || __clang__ || ( !defined( __cplusplus ) && _MSC_VER >= 1951 ) // compiler-specific extensions
+	#define XASH_TYPEOF __typeof__
+#endif
+
 #if !defined( EXPORT )
 	#define EXPORT
 #endif // !defined( EXPORT )
@@ -222,6 +231,13 @@ typedef int qboolean;
 
 #if !defined( XASH_RESTRICT )
 	#define XASH_RESTRICT
+#endif
+
+#if defined( XASH_TYPEOF )
+	#define XASH_HAVE_TYPEOF 1
+#else
+	#define XASH_HAVE_TYPEOF 0
+	#define XASH_TYPEOF( x ) XASH_TYPEOF_is_not_supported_by_this_compiler
 #endif
 
 #if !defined( offsetof )

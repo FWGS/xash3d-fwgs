@@ -57,6 +57,7 @@ int IOS_GetArgs( char ***argv );
 const char *IOS_GetDocsDir( void );
 const char *IOS_GetExecDir( void );
 void IOS_LaunchDialog( void );
+void IOS_GetWindowInsets( void *window, float insets[4] );
 #endif // TARGET_OS_IOS
 
 #if XASH_WIN32 || XASH_LINUX
@@ -100,6 +101,7 @@ const char *Android_LoadID( void );
 void Android_SaveID( const char *id );
 void Android_Init( void );
 void *Android_GetNativeObject( const char *name );
+void Android_GetWindowInsets( float insets[4] );
 int Android_GetKeyboardHeight( void );
 void Android_Shutdown( void );
 #endif
@@ -520,5 +522,21 @@ qboolean VoiceCapture_Lock( qboolean lock );
 	#define INLINE_RAISE(x) raise(x)
 	#define INLINE_NANOSLEEP1() sleep(1)
 #endif // generic
+
+// safe area insets as fractions of the window size: left, top, right, bottom
+#if XASH_SDL == 3
+void Platform_GetWindowInsets( void *window, float insets[4] );
+#else
+static inline void Platform_GetWindowInsets( void *window, float insets[4] )
+{
+#if XASH_IOS && XASH_SDL == 2
+	IOS_GetWindowInsets( window, insets );
+#elif XASH_ANDROID && XASH_SDL == 2
+	Android_GetWindowInsets( insets );
+#else
+	insets[0] = insets[1] = insets[2] = insets[3] = 0.0f;
+#endif
+}
+#endif
 
 #endif // PLATFORM_H

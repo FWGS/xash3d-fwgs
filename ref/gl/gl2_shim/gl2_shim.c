@@ -1359,6 +1359,26 @@ static void APIENTRY GL2_LoadMatrixf( const GLfloat *m )
 	gl2wrap_matrix.update = 0xFFFFFFFFFFFFFFFF;
 }
 
+static void (APIENTRY *rpglGetFloatv)( GLenum pname, GLfloat *params );
+static void APIENTRY GL2_GetFloatv( GLenum pname, GLfloat *params )
+{
+	switch( pname )
+	{
+	case GL_MODELVIEW_MATRIX:
+		memcpy( params, gl2wrap_matrix.mv, 16 * sizeof( float ));
+		break;
+	case GL_PROJECTION_MATRIX:
+		memcpy( params, gl2wrap_matrix.pr, 16 * sizeof( float ));
+		break;
+	case GL_FOG_COLOR:
+		Vector4Copy( gl2wrap.fog, params );
+		break;
+	default:
+		rpglGetFloatv( pname, params );
+		break;
+	}
+}
+
 #if XASH_GLES
 static void ( APIENTRY *_pglDepthRangef)( GLfloat zFar, GLfloat zNear );
 static void APIENTRY GL2_DepthRange( GLdouble zFar, GLdouble zNear )
@@ -1813,6 +1833,7 @@ void GL2_ShimInstall( void )
 	GL2_OVERRIDE_PTR( LoadIdentity )
 	GL2_OVERRIDE_PTR( Ortho )
 	GL2_OVERRIDE_PTR( LoadMatrixf )
+	GL2_OVERRIDE_PTR_B( GetFloatv )
 	GL2_OVERRIDE_PTR( Scalef )
 	GL2_OVERRIDE_PTR( Translatef )
 	GL2_OVERRIDE_PTR( TexEnvi )

@@ -479,7 +479,8 @@ class NintendoSwitch:
 		# help the linker out
 		cflags += ['-ffunction-sections', '-fdata-sections']
 		# base include dirs
-		cflags += ['-isystem %s/include' % self.libnx_dir, '-I%s/include' % self.portlibs_dir]
+		# portlibs must be -isystem too, so bundled libraries headers (e.g. mpg123) take precedence over portlibs ones
+		cflags += ['-isystem %s/include' % self.libnx_dir, '-isystem %s/include' % self.portlibs_dir]
 		# the game wants GNU extensions
 		if cxx:
 			cflags += ['-std=gnu++17', '-D_GNU_SOURCE']

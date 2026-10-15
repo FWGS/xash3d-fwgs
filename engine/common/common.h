@@ -282,6 +282,9 @@ typedef enum bugcomp_e
 
 	// keep platform text input enabled during gameplay, for mods that read text events on their own
 	BUGCOMP_ALWAYS_ENABLE_TEXT_INPUT = BIT( 5 ),
+
+	// keep BSP texture names in their original case, like in GoldSrc
+	BUGCOMP_PRESERVE_TEXTURE_NAME_CASE = BIT( 6 ),
 } bugcomp_t;
 
 typedef struct host_parm_s
@@ -304,6 +307,7 @@ typedef struct host_parm_s
 
 	host_redirect_t rd; // remote console
 
+	float window_insets[4]; // safe area insets: left, top, right, bottom fractions of the window
 	void   *hWnd;          // main window
 
 	// command line parms
@@ -832,6 +836,7 @@ byte *LZSS_Compress( byte *pInput, int inputLength, uint *pOutputSize );
 uint LZSS_Decompress( const byte *pInput, byte *pOutput, size_t input_len, size_t output_len );
 void GL_FreeImage( const char *name );
 void VID_Init( void );
+void VID_UpdateWindowInsets( void );
 void UI_SetActiveMenu( qboolean fActive );
 void UI_ShowConnectionWarning( void );
 void Cmd_Null_f( void );

@@ -1260,6 +1260,8 @@ void Key_EnumCmds_f( void );
 void Key_SetKeyDest( int key_dest );
 void Key_EnableTextInput( qboolean enable, qboolean force );
 void Key_SetTextInputRect( int x, int y, int w, int h );
+void Key_SetTextInputBuffer( const char *text );
+const char *Key_GetTextInputBuffer( void );
 int Key_ToUpper( int key );
 qboolean Cmd_GetKeysList( const char *s, char *completedname, int length, qboolean print_suggestions );
 

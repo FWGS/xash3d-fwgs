@@ -20,6 +20,7 @@ def build(bld):
 	bld.stlib(source = bld.path.ant_glob('*.c'),
 		target = 'ref_common',
 		includes = '.',
+		features = 'format',
 		export_includes = '.',
 		defines = 'REF_DLL=1',
 		use = use,

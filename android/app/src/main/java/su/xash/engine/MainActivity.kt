@@ -5,6 +5,8 @@ import android.content.Context
 import android.content.Intent
 import android.os.Bundle
 import android.provider.Settings
+import android.view.LayoutInflater
+import android.widget.TextView
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.net.toUri
@@ -19,6 +21,7 @@ import kotlinx.coroutines.launch
 import su.xash.engine.databinding.ActivityMainBinding
 import su.xash.engine.model.AppUpdater
 import su.xash.engine.util.CrashReports
+import su.xash.engine.util.dialogContentView
 import su.xash.engine.util.monospaceTextView
 import su.xash.engine.util.showDownloadProgressDialog
 import java.io.File
@@ -54,20 +57,97 @@ class MainActivity : AppCompatActivity() {
 	private fun checkForEngineUpdate() {
 		val prefs = getSharedPreferences(UPDATE_PREFS, Context.MODE_PRIVATE)
 		val now = System.currentTimeMillis()
-		if (now - prefs.getLong(KEY_LAST_CHECK, 0L) < CHECK_INTERVAL_MS)
+		val installedDays = BuildConfig.VERSION_CODE / 10000
+		// Once the pending update is 2 weeks newer than the installed build, nag on
+		// every launch: reuse the last known remote build to skip the interval gate.
+		val maxNag = prefs.getInt(KEY_REMOTE_BUILDNUM, -1) - installedDays >= MAX_NAG_STALENESS_DAYS
+		if (!maxNag && now - prefs.getLong(KEY_LAST_CHECK, 0L) < CHECK_INTERVAL_MS)
 			return
 
 		val updater = AppUpdater(this)
 		lifecycleScope.launch {
-			val info = updater.checkForUpdate()
+			val result = updater.checkForUpdate()
 			prefs.edit().putLong(KEY_LAST_CHECK, now).apply()
-			if (info == null)
+			if (result !is AppUpdater.UpdateCheck.Available)
 				return@launch
-			if (prefs.getInt(KEY_DISMISSED_BUILDNUM, -1) >= info.buildNum)
+			val info = result.info
+			prefs.edit().putInt(KEY_REMOTE_BUILDNUM, info.buildNum).apply()
+
+			val staleness = info.buildNum - installedDays
+			val snoozed = prefs.getInt(KEY_DISMISSED_BUILDNUM, -1) >= info.buildNum &&
+				staleness < MAX_NAG_STALENESS_DAYS &&
+				now < prefs.getLong(KEY_DISMISS_UNTIL, 0L)
+			if (snoozed)
 				return@launch
+
 			val changelog = updater.fetchChangelog(BuildConfig.GIT_HASH, info.tagName)
 			showEngineUpdateDialog(updater, info.buildNum, changelog, prefs)
 		}
+	}
+
+	// Snooze shrinks the longer the user keeps skipping: 12h at first, linearly
+	// down to 0 after 2 days of skipping (then it nags at every check).
+	private fun snoozeFor(elapsedMs: Long): Long {
+		val factor = (1.0 - elapsedMs.toDouble() / DISMISS_ESCALATION_MS).coerceIn(0.0, 1.0)
+		return (DISMISS_SNOOZE_START_MS * factor).toLong()
+	}
+
+	private fun snoozeUpdate(prefs: android.content.SharedPreferences, remoteBuildNum: Int) {
+		val now = System.currentTimeMillis()
+		val prevBuild = prefs.getInt(KEY_DISMISSED_BUILDNUM, -1)
+		val prevFirst = prefs.getLong(KEY_FIRST_DISMISS_TIME, 0L)
+		// A newer build restarts the escalation clock; the same build keeps counting.
+		val firstDismiss = if (remoteBuildNum > prevBuild || prevFirst == 0L) now else prevFirst
+		val snooze = snoozeFor(now - firstDismiss)
+		prefs.edit()
+			.putInt(KEY_DISMISSED_BUILDNUM, remoteBuildNum)
+			.putLong(KEY_FIRST_DISMISS_TIME, firstDismiss)
+			.putLong(KEY_DISMISS_UNTIL, now + snooze)
+			.apply()
+	}
+
+	// Manual check from Settings: bypasses the interval and "later" gates and
+	// always reports back, so the user gets feedback ("up to date" / failure).
+	fun checkForUpdatesManually() {
+		val view = LayoutInflater.from(this).inflate(R.layout.dialog_download_progress, null)
+		view.findViewById<TextView>(R.id.downloadStatus).text = getString(R.string.engine_update_checking)
+		val dialog = MaterialAlertDialogBuilder(this)
+			.setTitle(R.string.engine_update_checking)
+			.setView(view)
+			.setCancelable(true)
+			.setNegativeButton(android.R.string.cancel) { d, _ -> d.dismiss() }
+			.create()
+		dialog.show()
+
+		val updater = AppUpdater(this)
+		val job = lifecycleScope.launch {
+			val result = updater.checkForUpdate()
+			if (!dialog.isShowing)
+				return@launch
+			dialog.dismiss()
+			when (result) {
+				is AppUpdater.UpdateCheck.Available -> {
+					val prefs = getSharedPreferences(UPDATE_PREFS, Context.MODE_PRIVATE)
+					prefs.edit().putLong(KEY_LAST_CHECK, System.currentTimeMillis()).apply()
+					val changelog = updater.fetchChangelog(BuildConfig.GIT_HASH, result.info.tagName)
+					showEngineUpdateDialog(updater, result.info.buildNum, changelog, prefs)
+				}
+				is AppUpdater.UpdateCheck.UpToDate,
+				is AppUpdater.UpdateCheck.Disabled ->
+					MaterialAlertDialogBuilder(this@MainActivity)
+						.setTitle(R.string.check_updates)
+						.setMessage(R.string.engine_update_up_to_date)
+						.setPositiveButton(android.R.string.ok, null)
+						.show()
+				is AppUpdater.UpdateCheck.Failed ->
+					MaterialAlertDialogBuilder(this@MainActivity)
+						.setTitle(R.string.check_updates)
+						.setMessage(R.string.engine_update_check_failed)
+						.setPositiveButton(android.R.string.ok, null)
+						.show()
+			}
+		}
+		dialog.setOnDismissListener { job.cancel() }
 	}
 
 	private fun showEngineUpdateDialog(
@@ -76,30 +156,36 @@ class MainActivity : AppCompatActivity() {
 		changelog: List<AppUpdater.CommitInfo>?,
 		prefs: android.content.SharedPreferences,
 	) {
-		val builder = MaterialAlertDialogBuilder(this)
+		val changelogText = changelog?.takeIf { it.isNotEmpty() }?.let { commits ->
+			buildString {
+				append(getString(R.string.engine_update_changelog_header))
+				val shown = commits.take(CHANGELOG_MAX_LINES)
+				for (c in shown)
+					append("\n* ").append(c.subject)
+				val extra = commits.size - shown.size
+				if (extra > 0)
+					append("\n").append(getString(R.string.engine_update_changelog_more, extra))
+			}
+		}
+
+		MaterialAlertDialogBuilder(this)
 			.setTitle(R.string.engine_update_available)
-			.setMessage(getString(R.string.engine_update_message, remoteBuildNum))
+			// Message and changelog share one custom view: with both setMessage()
+			// and setView() the dialog layout stops prioritizing the buttons, and
+			// a long changelog pushes them off screen. As a single view the
+			// buttons are measured first and the changelog shrinks and scrolls.
+			.setView(dialogContentView(
+				this,
+				getString(R.string.engine_update_message, remoteBuildNum),
+				changelogText,
+			))
 			.setPositiveButton(R.string.engine_update_download) { _, _ ->
 				showEngineDownloadDialog(updater)
 			}
 			.setNegativeButton(R.string.engine_update_later) { _, _ ->
-				prefs.edit().putInt(KEY_DISMISSED_BUILDNUM, remoteBuildNum).apply()
+				snoozeUpdate(prefs, remoteBuildNum)
 			}
-
-		if (!changelog.isNullOrEmpty()) {
-			val text = buildString {
-				append(getString(R.string.engine_update_changelog_header))
-				val shown = changelog.take(CHANGELOG_MAX_LINES)
-				for (c in shown)
-					append("\n• ").append(c.subject)
-				val extra = changelog.size - shown.size
-				if (extra > 0)
-					append("\n").append(getString(R.string.engine_update_changelog_more, extra))
-			}
-			builder.setView(monospaceTextView(this, text))
-		}
-
-		builder.show()
+			.show()
 	}
 
 	private fun showEngineDownloadDialog(updater: AppUpdater) {
@@ -181,6 +267,12 @@ class MainActivity : AppCompatActivity() {
 		private const val UPDATE_PREFS = "app_updater"
 		private const val KEY_LAST_CHECK = "last_check_ms"
 		private const val KEY_DISMISSED_BUILDNUM = "dismissed_buildnum"
-		private const val CHECK_INTERVAL_MS = 24 * 60 * 60 * 1000L
+		private const val KEY_DISMISS_UNTIL = "dismiss_until_ms"
+		private const val KEY_FIRST_DISMISS_TIME = "first_dismiss_ms"
+		private const val KEY_REMOTE_BUILDNUM = "remote_buildnum"
+		private const val CHECK_INTERVAL_MS = 6 * 60 * 60 * 1000L
+		private const val DISMISS_SNOOZE_START_MS = 12 * 60 * 60 * 1000L
+		private const val DISMISS_ESCALATION_MS = 2 * 24 * 60 * 60 * 1000L
+		private const val MAX_NAG_STALENESS_DAYS = 14
 	}
 }

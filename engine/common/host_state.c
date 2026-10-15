@@ -153,6 +153,7 @@ static void Host_RunFrame( double time )
 	// at this time, we don't need to get events from OS on dedicated
 #if !XASH_DEDICATED
 	Platform_RunEvents();
+	VID_UpdateWindowInsets();
 #endif // XASH_DEDICATED
 
 	// engine main frame

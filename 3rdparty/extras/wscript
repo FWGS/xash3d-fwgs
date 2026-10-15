@@ -3,15 +3,64 @@
 
 import os
 
+# pngquant exit code when --skip-if-larger didn't write the output
+PNGQUANT_SKIPPED = 98
+
 def options(opt):
 	pass
 
+def render_svgs(conf, srcdir):
+	tmpdir = conf.bldnode.make_node('extras_svg')
+	tmpdir.mkdir()
+	rendered = tmpdir.make_node('rendered.png')
+	quantized = tmpdir.make_node('quantized.png')
+
+	svgs = srcdir.ant_glob('**/*.svg', excl=['scripts/**'])
+	updated = 0
+
+	for svg in svgs:
+		conf.cmd_and_log(conf.env.RSVG_CONVERT + ['-o', rendered.abspath(), svg.abspath()])
+
+		ret = conf.exec_command(conf.env.PNGQUANT + ['--speed', '1', '--strip', '--skip-if-larger', '--force',
+			'--output', quantized.abspath(), '--', rendered.abspath()])
+		if ret == PNGQUANT_SKIPPED:
+			data = rendered.read('rb')
+		elif ret == 0:
+			data = quantized.read('rb')
+		else:
+			conf.fatal('pngquant failed on %s with code %d' % (rendered.abspath(), ret))
+
+		# only touch PNGs that actually changed
+		png = svg.parent.make_node(svg.name[:-4] + '.png')
+		if not png.exists() or png.read('rb') != data:
+			png.write(data, 'wb')
+			updated += 1
+
+	return len(svgs), updated
+
 def configure(conf):
-	if not conf.path.find_dir('xash-extras'):
+	srcdir = conf.path.find_dir('xash-extras')
+	if not srcdir:
 		conf.fatal('Can\'t find xash-extras submodule.')
 		return
 
 	conf.load('zip')
+
+	# re-render PNGs in xash-extras from their SVG sources, but only if both
+	# rsvg-convert and pngquant are available, otherwise use prerendered PNGs as is
+	if not conf.find_program('rsvg-convert', var='RSVG_CONVERT', mandatory=False):
+		return
+
+	if not conf.find_program('pngquant', mandatory=False):
+		return
+
+	conf.start_msg('Rendering SVGs in xash-extras')
+	try:
+		total, updated = render_svgs(conf, srcdir)
+	except Exception as e:
+		conf.end_msg('failed', color='RED')
+		conf.fatal('Can\'t render SVGs: %s' % e)
+	conf.end_msg('%d rendered, %d updated' % (total, updated))
 
 def build(bld):
 	srcdir = bld.path.find_dir('xash-extras')
@@ -23,6 +72,6 @@ def build(bld):
 
 	bld(features='zip',
 		name = 'extras.pk3',
-		files = srcdir.ant_glob('**/*', excl=['scripts/**', '.*']),
+		files = srcdir.ant_glob('**/*', excl=['scripts/**', '.*', '**/*.svg']),
 		relative_to = srcdir,
 		install_path = install_path)
