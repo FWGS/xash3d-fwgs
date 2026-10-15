@@ -723,7 +723,9 @@ void Host_Frame( double time )
 	GC_MemWatchFrame();
 	{
 		void GC_FrameHeartbeat( void );
+		void GC_WatchdogHostFrame( void );
 		GC_FrameHeartbeat();
+		GC_WatchdogHostFrame();
 	}
 #endif
 	if( host.framecount == 0 )
