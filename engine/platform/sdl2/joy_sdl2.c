@@ -343,6 +343,7 @@ void SDLash_HandleGameControllerEvent( SDL_Event *ev )
 	}
 }
 
+#if !XASH_PS4 // PS4 reads gamepad through libScePad, see platform/ps4/in_ps4.c
 void Platform_CalibrateGamepadGyro( void )
 {
 	SDLash_RestartCalibration();
@@ -387,7 +388,9 @@ Platform_JoyInit
 int Platform_JoyInit( void )
 {
 	SDL_SetHint( SDL_HINT_JOYSTICK_HIDAPI_PS4_RUMBLE, "1" );
+#ifdef SDL_HINT_JOYSTICK_HIDAPI_PS5_RUMBLE // OpenOrbis SDL2 is too old
 	SDL_SetHint( SDL_HINT_JOYSTICK_HIDAPI_PS5_RUMBLE, "1" );
+#endif
 
 	Con_Reportf( "Joystick: SDL GameController API\n" );
 	if( SDL_WasInit( SDL_INIT_GAMECONTROLLER ) != SDL_INIT_GAMECONTROLLER &&
@@ -436,3 +439,4 @@ void Platform_JoyShutdown( void )
 
 	SDL_QuitSubSystem( SDL_INIT_GAMECONTROLLER );
 }
+#endif // !XASH_PS4
