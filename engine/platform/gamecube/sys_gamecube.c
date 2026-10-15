@@ -111,6 +111,11 @@ static bool GCube_DVDReadSectors( sec_t sector, sec_t count, void *buffer )
 	{
 		if( !__io_gcdvd.readSectors( sector + i, 1, output + i * 0x800 ))
 			return false;
+		{
+			char tag[48];
+			Q_snprintf( tag, sizeof( tag ), "dvd sector %u to %p", (unsigned)( sector + i ), (void *)( output + i * 0x800 ));
+			GC_MemWatch( tag );
+		}
 	}
 	return true;
 }

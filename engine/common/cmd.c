@@ -241,6 +241,13 @@ static void Cbuf_ExecuteCommandsFromBuffer( cmdbuf_t *buf, qboolean isPrivileged
 
 		// execute the command line
 		Cmd_ExecuteStringWithPrivilegeCheck( line, isPrivileged );
+#if XASH_GAMECUBE
+		{
+			char tag[64];
+			Q_snprintf( tag, sizeof( tag ), "cmd %s", line );
+			GC_MemWatch( tag );
+		}
+#endif
 	}
 }
 
