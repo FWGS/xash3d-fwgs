@@ -71,6 +71,61 @@ static qboolean TestCaseinsensitive( void )
 	return true;
 }
 
+#if XASH_POSIX
+#include <unistd.h>
+
+// an entry that is listed in the directory, but doesn't exist on disk
+// (here a dangling symlink) must not turn the path into its directory
+static qboolean TestStaleEntry( void )
+{
+	file_t *f;
+	int magic = rand();
+
+	g_fs.AddGameDirectory( "./", FS_GAMEDIR_PATH );
+
+	f = g_fs.Open( "Stale/Present.bin", "wb", true );
+	g_fs.Write( f, &magic, sizeof( magic ));
+	g_fs.Close( f );
+
+	// cache the directory with the present file
+	if( !g_fs.FileExists( "stale/present.bin", true ))
+	{
+		printf( "FileExists fail\n" );
+		return false;
+	}
+
+	// leftovers of a failed run
+	unlink( "Stale/Missing.bin" );
+	unlink( "Stale/nowhere" );
+
+	if( symlink( "nowhere", "Stale/Missing.bin" ) < 0 )
+	{
+		printf( "symlink fail\n" );
+		return false;
+	}
+
+	// rescan the directory, now it lists the missing file
+	g_fs.FileExists( "stale/other.bin", true );
+
+	f = g_fs.Open( "stale/missing.bin", "wb", true );
+	if( !f )
+	{
+		printf( "Open for write of a missing listed file fail\n" );
+		return false;
+	}
+	g_fs.Write( f, &magic, sizeof( magic ));
+	g_fs.Close( f );
+
+	// writing through the symlink created its target
+	unlink( "Stale/Missing.bin" );
+	unlink( "Stale/nowhere" );
+	g_fs.Delete( "stale/present.bin" );
+	g_fs.Delete( "Stale" );
+
+	return true;
+}
+#endif
+
 int main( void )
 {
 	if( !LoadFilesystem() )
@@ -80,6 +135,11 @@ int main( void )
 
 	if( !TestCaseinsensitive())
 		return EXIT_FAILURE;
+
+#if XASH_POSIX
+	if( !TestStaleEntry())
+		return EXIT_FAILURE;
+#endif
 
 	printf( "success\n" );
 

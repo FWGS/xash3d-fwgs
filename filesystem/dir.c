@@ -311,6 +311,7 @@ qboolean FS_FixFileCase( dir_t *dir, const char *path, char *dst, const size_t l
 		  prev = next + 1, next = Q_strchrnul( prev, '/' ))
 	{
 		qboolean uptodate = false; // do not run second scan if we're just updated our directory list
+		dir_t *parent;
 		size_t temp;
 		char entryname[MAX_SYSPATH];
 		int ret;
@@ -346,7 +347,8 @@ qboolean FS_FixFileCase( dir_t *dir, const char *path, char *dst, const size_t l
 			uptodate = true;
 		}
 
-		dir = &dir->entries[ret];
+		parent = dir;
+		dir = &parent->entries[ret];
 		temp = i;
 		if( !FS_AppendToPath( dst, &temp, len, dir->name, path, "case fix" ))
 			return false;
@@ -355,12 +357,15 @@ qboolean FS_FixFileCase( dir_t *dir, const char *path, char *dst, const size_t l
 		{
 			dst[i] = 0; // strip failed part
 
+			// rescan the directory that holds the entry, not the entry itself,
+			// and append the found name right after the stripped part
 			// if we're creating files or folders, we don't care if path doesn't exist
 			// so copy everything that's left and exit without an error
-			if(( ret = FS_MaybeUpdateDirEntries( dir, dst, entryname )) < 0 )
+			if(( ret = FS_MaybeUpdateDirEntries( parent, dst, entryname )) < 0 )
 				return createpath ? FS_AppendToPath( dst, &i, len, prev, path, "create path rescan" ) : false;
 
-			dir = &dir->entries[ret];
+			dir = &parent->entries[ret];
+			temp = i;
 			if( !FS_AppendToPath( dst, &temp, len, dir->name, path, "case fix rescan" ))
 				return false;
 		}
