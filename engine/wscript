@@ -183,31 +183,20 @@ def configure(conf):
 		# system keyboard and microphone, platform/ps4/in_ps4.c and voice_ps4.c
 		conf.env.LIB_PS4CLIENT_SYS = ['SceImeDialog', 'SceCommonDialog', 'SceAudioIn']
 
-# opengnm sources for PS4 (Orbis backend), same list as its Makefile
-OPENGNM_SOURCES = [
-	'src/drawcommandbuffer.c', 'src/rendertarget.c', 'src/depthrendertarget.c', 'src/texture.c',
-	'src/shader.c', 'src/dataformat.c', 'src/commandbuffer.c', 'src/error.c', 'src/helpers.c',
-	'src/driver_orbis.c', 'src/platform_orbis.c',
-	'src/gpuaddr/surface.c', 'src/gpuaddr/tilemodes.c', 'src/gpuaddr/tiler.c', 'src/gpuaddr/decompress.c',
-	'src/gpuaddr/surfgen.c', 'src/gpuaddr/error.c',
-	'src/gcn/analyzer.c', 'src/gcn/assembler.c', 'src/gcn/decoder.c', 'src/gcn/error.c', 'src/gcn/format.c',
-	'src/gcn/types.c',
-	'src/pm4/format.c', 'src/pm4/decoder.c', 'src/pm4/error.c', 'src/pm4/types.c',
-]
-
 def build_ps4_gnm(bld):
-	# GNM backend for OpenGL renderers (platform/ps4/gnm) together with opengnm,
-	# separately from the engine: opengnm has its own platform.h
-	gnm = bld.path.parent.find_dir('3rdparty/opengnm')
-	if not gnm or not gnm.find_node('src/drawcommandbuffer.c'):
-		bld.fatal('3rdparty/opengnm is missing, scripts/ps4/build.sh fetches it')
+	# GPU device of the PS4 port (platform/ps4/gnm), uses opengnm from 3rdparty/opengnm;
+	# the OpenGL layer on top of it is a part of ref_gles3compat, see ref/gl/ps4.
+	# Built separately from the engine: opengnm has its own platform.h
+	gnm = bld.path.parent.find_dir('3rdparty/opengnm/opengnm')
 
 	bld.stlib(
-		source = [gnm.find_node(i) for i in OPENGNM_SOURCES] + bld.path.ant_glob('platform/ps4/gnm/*.c'),
+		source = bld.path.ant_glob('platform/ps4/gnm/*.c'),
 		target = 'ps4gnm',
+		features = 'c',
 		includes = [gnm.find_dir('include'), gnm.find_dir('src'), 'platform/ps4/gnm'],
 		defines = ['OPENGNM_ORBIS'],
 		cflags = ['-std=gnu11', '-Wno-unused-parameter'],
+		use = 'opengnm',
 		install_path = None,
 	)
 
@@ -307,7 +296,9 @@ def build(bld):
 		defines = []
 		if bld.env.XASH_SDL:
 			libs += ['SDL%d' % bld.env.XASH_SDL]
-			source += bld.path.ant_glob(['platform/sdl%d/*.c' % bld.env.XASH_SDL])
+			# PS4 draws through GNM, see platform/ps4/vid_gnm.c
+			excl = ['platform/sdl2/vid_sdl2.c'] if bld.env.DEST_OS == 'ps4' else []
+			source += bld.path.ant_glob(['platform/sdl%d/*.c' % bld.env.XASH_SDL], excl = excl)
 			defines += ['XASH_SDL=%d' % bld.env.XASH_SDL]
 
 		if bld.get_define('HAVE_FFMPEG'):
@@ -324,7 +315,7 @@ def build(bld):
 
 		if bld.env.PS4_GNM:
 			build_ps4_gnm(bld)
-			libs += ['ps4gnm', 'PS4GNM_SYS', 'PS4CLIENT_SYS']
+			libs += ['ps4gnm', 'opengnm', 'PS4GNM_SYS', 'PS4CLIENT_SYS']
 
 		# Android port is linked differently
 		if bld.env.DEST_OS == 'android':

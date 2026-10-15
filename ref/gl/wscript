@@ -67,10 +67,31 @@ def build(bld):
 		if not v['enable']:
 			continue
 
+		kuse = libs + v['libs']
+		klib = []
+
+		if k == 'ref_gles3compat' and bld.env.DEST_OS == 'ps4':
+			# OpenGL ES 2 subset over GNM, the engine owns the device (engine/platform/ps4/gnm).
+			# Compiled separately: opengnm has its own platform.h
+			root = bld.path.parent.parent
+			gnm = root.find_dir('3rdparty/opengnm/opengnm')
+			bld.objects(
+				source = bld.path.ant_glob('ps4/*.c'),
+				target = 'ref_gnm_gl',
+				features = 'c',
+				includes = [bld.path.find_dir('ps4'), root.find_dir('engine/platform/ps4/gnm'), gnm.find_dir('include'), gnm.find_dir('src')],
+				defines = ['OPENGNM_ORBIS'],
+				cflags = ['-std=gnu11', '-Wno-unused-parameter'],
+				use = 'opengnm',
+			)
+			kuse += ['ref_gnm_gl', 'opengnm']
+			klib += ['SceGnmDriver', 'SceVideoOut'] # opengnm calls them
+
 		bld.shlib(source = source,
 			target = k,
 			includes = includes,
 			features = 'format',
-			use = libs + v['libs'],
+			use = kuse,
+			lib = klib,
 			defines = v['defines'] + ['REF_DLL=1'],
 			install_path = bld.env.LIBDIR)

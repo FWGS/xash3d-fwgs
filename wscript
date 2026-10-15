@@ -124,6 +124,7 @@ SUBDIRS = [
 	Subproject('3rdparty/bzip2',        lambda x: x.env.CLIENT and not x.env.HAVE_SYSTEM_BZ2),
 	Subproject('3rdparty/mpg123',       lambda x: x.env.CLIENT and not x.env.HAVE_SYSTEM_MPG123),
 	Subproject('3rdparty/mbedtls'),
+	Subproject('3rdparty/opengnm',      lambda x: x.env.CLIENT and x.env.DEST_OS == 'ps4'),
 	Subproject('3rdparty/opus',         lambda x: x.env.CLIENT and not x.env.HAVE_SYSTEM_OPUS),
 	Subproject('3rdparty/libogg',       lambda x: x.env.CLIENT and not x.env.HAVE_SYSTEM_OGG),
 	Subproject('3rdparty/vorbis',       lambda x: x.env.CLIENT and (not x.env.HAVE_SYSTEM_VORBIS or not x.env.HAVE_SYSTEM_VORBISFILE)),
@@ -364,7 +365,7 @@ def configure(conf):
 		conf.options.BUILD_BUNDLED_DEPS = True
 	elif conf.env.DEST_OS == 'ps4':
 		# no OpenGL driver: ref_gles3compat (gl2_shim) draws through our GNM backend
-		# with precompiled shaders (engine/platform/ps4/gnm)
+		# with precompiled shaders (ref/gl/ps4)
 		conf.options.GL               = False
 		conf.options.GLES3COMPAT      = True
 		conf.options.SOFT             = False

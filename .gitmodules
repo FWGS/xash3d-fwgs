@@ -49,3 +49,6 @@
 [submodule "3rdparty/mpg123/mpg123"]
 	path = 3rdparty/mpg123/mpg123
 	url = https://github.com/libsdl-org/mpg123
+[submodule "3rdparty/opengnm/opengnm"]
+	path = 3rdparty/opengnm/opengnm
+	url = https://github.com/PS4-OpenGNM/opengnm
