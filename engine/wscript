@@ -169,6 +169,41 @@ def configure(conf):
 	for refdll in conf.refdlls:
 		refdll.register_define(conf)
 
+	# GNM backend for OpenGL renderers, see build_ps4_gnm
+	if conf.env.DEST_OS == 'ps4' and conf.env.CLIENT and not conf.env.DEDICATED:
+		conf.env.PS4_GNM = True
+		conf.env.LIB_PS4GNM_SYS = ['SceGnmDriver', 'SceVideoOut']
+		# system keyboard and microphone, platform/ps4/in_ps4.c and voice_ps4.c
+		conf.env.LIB_PS4CLIENT_SYS = ['SceImeDialog', 'SceCommonDialog', 'SceAudioIn']
+
+# opengnm sources for PS4 (Orbis backend), same list as its Makefile
+OPENGNM_SOURCES = [
+	'src/drawcommandbuffer.c', 'src/rendertarget.c', 'src/depthrendertarget.c', 'src/texture.c',
+	'src/shader.c', 'src/dataformat.c', 'src/commandbuffer.c', 'src/error.c', 'src/helpers.c',
+	'src/driver_orbis.c', 'src/platform_orbis.c',
+	'src/gpuaddr/surface.c', 'src/gpuaddr/tilemodes.c', 'src/gpuaddr/tiler.c', 'src/gpuaddr/decompress.c',
+	'src/gpuaddr/surfgen.c', 'src/gpuaddr/error.c',
+	'src/gcn/analyzer.c', 'src/gcn/assembler.c', 'src/gcn/decoder.c', 'src/gcn/error.c', 'src/gcn/format.c',
+	'src/gcn/types.c',
+	'src/pm4/format.c', 'src/pm4/decoder.c', 'src/pm4/error.c', 'src/pm4/types.c',
+]
+
+def build_ps4_gnm(bld):
+	# GNM backend for OpenGL renderers (platform/ps4/gnm) together with opengnm,
+	# separately from the engine: opengnm has its own platform.h
+	gnm = bld.path.parent.find_dir('3rdparty/opengnm')
+	if not gnm or not gnm.find_node('src/drawcommandbuffer.c'):
+		bld.fatal('3rdparty/opengnm is missing, scripts/ps4/build.sh fetches it')
+
+	bld.stlib(
+		source = [gnm.find_node(i) for i in OPENGNM_SOURCES] + bld.path.ant_glob('platform/ps4/gnm/*.c'),
+		target = 'ps4gnm',
+		includes = [gnm.find_dir('include'), gnm.find_dir('src'), 'platform/ps4/gnm'],
+		defines = ['OPENGNM_ORBIS'],
+		cflags = ['-std=gnu11', '-Wno-unused-parameter'],
+		install_path = None,
+	)
+
 def build(bld):
 	# public includes for renderers and utils use
 	bld(name = 'engine_includes', export_includes = '. common common/imagelib', use = 'filesystem_includes')
@@ -276,6 +311,10 @@ def build(bld):
 		if not bld.env.DEDICATED:
 			source += bld.path.ant_glob('client/**/*.c')
 			libs += ['bzip2', 'mpg123', 'MultiEmulator', 'opus', 'opusfile', 'vorbis', 'vorbisfile']
+
+		if bld.env.PS4_GNM:
+			build_ps4_gnm(bld)
+			libs += ['ps4gnm', 'PS4GNM_SYS', 'PS4CLIENT_SYS']
 
 		# Android port is linked differently
 		if bld.env.DEST_OS == 'android':
