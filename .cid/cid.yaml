@@ -1,0 +1,5 @@
+schema_version: "1"
+name: xash3d-gc
+config_dir: .cid
+storage_dir: .cid/storage
+include_builtin_actions: true
