@@ -2407,6 +2407,8 @@ def main() -> None:
 				menu_lines = ["menunewgame"]
 				if args.probe_dumpframes:
 					menu_lines.append("dumpframes")
+				if os.environ.get("XASH_GC_PROBE_MEMREPORT") == "1":
+					menu_lines.append("memreport")
 				(smoke_data / "gamecube.cfg").write_text(
 					"\n".join(menu_lines) + "\n", encoding="ascii"
 				)
@@ -2491,6 +2493,8 @@ def main() -> None:
 				menu_lines = ["menunewgame"]
 				if args.probe_dumpframes:
 					menu_lines.append("dumpframes")
+				if os.environ.get("XASH_GC_PROBE_MEMREPORT") == "1":
+					menu_lines.append("memreport")
 				(staged_data / "gamecube.cfg").write_text(
 					"\n".join(menu_lines) + "\n", encoding="ascii"
 				)

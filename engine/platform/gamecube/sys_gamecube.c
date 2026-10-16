@@ -660,6 +660,7 @@ static qboolean gc_fullphysics_configured;
 static qboolean gc_worldrender_configured;
 static qboolean gc_tas_configured;
 static qboolean gc_dumpframes_configured;
+static qboolean gc_memreport_configured;
 
 static void GCube_LoadDiscBootOverrides( void )
 {
@@ -685,6 +686,7 @@ static void GCube_LoadDiscBootOverrides( void )
 	gc_worldrender_configured = false;
 	gc_tas_configured = false;
 	gc_dumpframes_configured = false;
+	gc_memreport_configured = false;
 	gc_phase_test[0] = '\0';
 	gc_changelevel_map[0] = '\0';
 	gc_landmark_name[0] = '\0';
@@ -715,6 +717,13 @@ static void GCube_LoadDiscBootOverrides( void )
 			cursor++;
 		if( cursor[0] == '#' || cursor[0] == '\0' || cursor[0] == '\r' || cursor[0] == '\n' )
 			continue;
+
+		if( !Q_strnicmp( cursor, "memreport", 9 ))
+		{
+			gc_memreport_configured = true;
+			SYS_Report( "Xash3D GameCube: disc boot override memreport\n" );
+			continue;
+		}
 
 		if( !Q_strnicmp( cursor, "newgame", 7 ))
 		{
@@ -1133,6 +1142,8 @@ int GCube_GetArgv( int in_argc, char **in_argv, char ***out_argv )
 	}
 	if( gc_dumpframes_configured )
 		gc_argv[fake_argc++] = "-gcdumpframes";
+	if( gc_memreport_configured )
+		gc_argv[fake_argc++] = "-gcmemreport";
 	gc_argv[fake_argc++] = "-width";
 	/* Tip-safe soft/internal FB. Flipper EFB/XFB stay native 640×480 via VI. */
 	gc_argv[fake_argc++] = "320";
