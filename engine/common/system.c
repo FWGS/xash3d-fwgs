@@ -36,19 +36,10 @@ GNU General Public License for more details.
 #if !XASH_ANDROID
 #include <pwd.h>
 #endif
-
-#if !XASH_NSWITCH && !XASH_PSVITA && !XASH_WASI
-#include <sys/resource.h>
-#define XASH_HAVE_GETRUSAGE 1
-#endif
 #endif
 
 #if XASH_WIN32
-#ifndef WIN32_LEAN_AND_MEAN
-#define WIN32_LEAN_AND_MEAN
-#endif
 #include <process.h>
-#include <windows.h>
 #endif
 
 #if XASH_NSWITCH
@@ -92,7 +83,7 @@ Sys_GetCPUUsage
 
 returns this process CPU usage as a fraction of a single core,
 clamped to 0.0 .. 0.999. Returns 0.0 on platforms without
-process CPU accounting.
+process CPU accounting (Platform_GetCPUTime() returns 0.0 there).
 ===============
 */
 double Sys_GetCPUUsage( void )
@@ -100,32 +91,9 @@ double Sys_GetCPUUsage( void )
 	static double lastcputime = 0.0;
 	static double lastrealtime = 0.0;
 	static double cpuPercent = 0.0;
-	double cputime = 0.0;
+	double cputime = Platform_GetCPUTime();
 	double realtime = Sys_DoubleTime();
 	double dt, dcpu;
-
-#if XASH_WIN32
-	FILETIME createTime, exitTime, kernelTime, userTime;
-
-	if( GetProcessTimes( GetCurrentProcess(), &createTime, &exitTime, &kernelTime, &userTime ))
-	{
-		ULARGE_INTEGER k, u;
-
-		k.LowPart = kernelTime.dwLowDateTime;
-		k.HighPart = kernelTime.dwHighDateTime;
-		u.LowPart = userTime.dwLowDateTime;
-		u.HighPart = userTime.dwHighDateTime;
-		cputime = (k.QuadPart + u.QuadPart) * 1e-7; // 100ns units to seconds
-	}
-#elif defined( XASH_HAVE_GETRUSAGE )
-	struct rusage usage;
-
-	if( getrusage( RUSAGE_SELF, &usage ) == 0 )
-	{
-		cputime = usage.ru_utime.tv_sec + usage.ru_utime.tv_usec * 1e-6;
-		cputime += usage.ru_stime.tv_sec + usage.ru_stime.tv_usec * 1e-6;
-	}
-#endif
 
 	dt = realtime - lastrealtime;
 	dcpu = cputime - lastcputime;
