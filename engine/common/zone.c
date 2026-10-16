@@ -147,6 +147,30 @@ void GC_MemReportPoolPressure( const char *subsystem, size_t requested )
 		top[1] ? top[1]->name : "none", top[1] ? Q_memprint( top[1]->realsize ) : "0",
 		top[2] ? top[2]->name : "none", top[2] ? Q_memprint( top[2]->realsize ) : "0" );
 }
+
+/* Opt-in (-gcmemreport): one line per live pool at a map boundary, so the
+ * per-map table can be built from every subsystem, not just the top three. */
+void GC_MemPoolReport( const char *stage )
+{
+	size_t i, live = 0, total = 0;
+
+	if( !Sys_CheckParm( "-gcmemreport" ))
+		return;
+
+	for( i = 0; i < poolcount; i++ )
+	{
+		const mempool_t *pool = &poolchain[i];
+
+		if( !pool->realsize )
+			continue;
+		live++;
+		total += pool->realsize;
+		Con_Reportf( "Xash3D GameCube: mempool stage=%s name=%s realsize=%s payload=%u\n",
+			stage ? stage : "?", pool->name, Q_memprint( pool->realsize ), (unsigned)pool->totalsize );
+	}
+	Con_Reportf( "Xash3D GameCube: mempool stage=%s pools=%u live=%u sum=%s\n",
+		stage ? stage : "?", (unsigned)poolcount, (unsigned)live, Q_memprint( total ));
+}
 #endif
 
 // a1ba: due to mempool being passed with the model through reused 32-bit field
