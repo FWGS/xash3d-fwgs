@@ -40,6 +40,26 @@ void Platform_MessageBox( const char *title, const char *message, qboolean paren
 void Platform_SetStatus( const char *status );
 qboolean Platform_DebuggerPresent( void );
 
+// returns the total CPU time used by this process, in seconds
+#if XASH_WIN32
+double Win32_GetCPUTime( void );
+static inline double Platform_GetCPUTime( void )
+{
+	return Win32_GetCPUTime();
+}
+#elif XASH_POSIX && defined( HAVE_GETRUSAGE )
+double POSIX_GetCPUTime( void );
+static inline double Platform_GetCPUTime( void )
+{
+	return POSIX_GetCPUTime();
+}
+#else
+static inline double Platform_GetCPUTime( void )
+{
+	return 0.0;
+}
+#endif
+
 typedef enum
 {
 	ORIENTATION_UNKNOWN = 0,

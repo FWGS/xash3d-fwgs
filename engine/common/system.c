@@ -78,6 +78,41 @@ float GAME_EXPORT Sys_FloatTime( void )
 }
 
 /*
+===============
+Sys_GetCPUUsage
+
+returns this process CPU usage as a fraction of a single core,
+clamped to 0.0 .. 0.999. Returns 0.0 on platforms without
+process CPU accounting (Platform_GetCPUTime() returns 0.0 there).
+===============
+*/
+double Sys_GetCPUUsage( void )
+{
+	static double lastcputime = 0.0;
+	static double lastrealtime = 0.0;
+	static double cpuPercent = 0.0;
+	double cputime = Platform_GetCPUTime();
+	double realtime = Sys_DoubleTime();
+	double dt, dcpu;
+
+	dt = realtime - lastrealtime;
+	dcpu = cputime - lastcputime;
+
+	if( dt > 0.0 && dcpu >= 0.0 )
+		cpuPercent = ( dcpu / dt ) * 0.6 + cpuPercent * 0.4;
+
+	lastrealtime = realtime;
+	lastcputime = cputime;
+
+	if( cpuPercent > 0.999 )
+		cpuPercent = 0.999;
+	else if( cpuPercent < 0.0 )
+		cpuPercent = 0.0;
+
+	return cpuPercent;
+}
+
+/*
 ================
 Sys_DebugBreak
 ================

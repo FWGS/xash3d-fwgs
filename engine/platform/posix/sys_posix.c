@@ -136,3 +136,18 @@ void Platform_Sleep( int msec )
 }
 #endif // XASH_TIMER == TIMER_POSIX
 
+#if defined( HAVE_GETRUSAGE )
+#include <sys/resource.h>
+
+double POSIX_GetCPUTime( void )
+{
+	struct rusage usage;
+
+	if( getrusage( RUSAGE_SELF, &usage ) != 0 )
+		return 0.0;
+
+	return usage.ru_utime.tv_sec + usage.ru_utime.tv_usec * 1e-6
+		+ usage.ru_stime.tv_sec + usage.ru_stime.tv_usec * 1e-6;
+}
+#endif // HAVE_GETRUSAGE
+

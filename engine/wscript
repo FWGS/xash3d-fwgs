@@ -94,6 +94,13 @@ def configure(conf):
 	elif conf.env.DEST_OS == 'dos':
 		conf.options.STATIC = True
 
+	if conf.env.DEST_OS != 'win32':
+		conf.check(features='c cprogram',
+			fragment='#include <sys/resource.h>\nint main( void ) { struct rusage r; return getrusage( RUSAGE_SELF, &r ); }',
+			msg='Checking for getrusage',
+			define_name='HAVE_GETRUSAGE',
+			mandatory=False)
+
 	if conf.options.ENABLE_FUZZER:
 		conf.define('XASH_LLVM_LIBFUZZER', 1)
 		conf.env.append_unique('CFLAGS', '-fsanitize=fuzzer-no-link')

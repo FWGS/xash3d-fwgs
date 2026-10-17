@@ -44,6 +44,22 @@ void Platform_Sleep( int msec )
 }
 #endif // XASH_TIMER == TIMER_WIN32
 
+double Win32_GetCPUTime( void )
+{
+	FILETIME createTime, exitTime, kernelTime, userTime;
+	ULARGE_INTEGER k, u;
+
+	if( !GetProcessTimes( GetCurrentProcess(), &createTime, &exitTime, &kernelTime, &userTime ))
+		return 0.0;
+
+	k.LowPart = kernelTime.dwLowDateTime;
+	k.HighPart = kernelTime.dwHighDateTime;
+	u.LowPart = userTime.dwLowDateTime;
+	u.HighPart = userTime.dwHighDateTime;
+
+	return (k.QuadPart + u.QuadPart) * 1e-7; // 100ns units to seconds
+}
+
 void Win32_Init( qboolean con_showalways )
 {
 	HMODULE hModule = LoadLibraryW( L"kernel32.dll" );
