@@ -80,6 +80,8 @@ qboolean Platform_CheckLibraryDirectDependency( const byte *data, size_t size, c
 void Posix_Daemonize( void );
 void Posix_SetupSigtermHandling( void );
 char *Posix_Input( void );
+void Posix_Con_PrePrint( void );
+void Posix_Con_Redraw( void );
 // returns the number of stable network device MAC addresses, each packed into low 48 bits
 int Posix_GetNetDeviceAddresses( uint64_t *addresses, int max );
 #endif
