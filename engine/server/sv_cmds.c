@@ -899,6 +899,107 @@ static void SV_Stats_f( void )
 }
 
 /*
+================
+SV_Status2_f
+
+verbose server status, the Xash3D FWGS flavored one:
+client useragent, input devices and other per-player details
+================
+*/
+static void SV_Status2_f( void )
+{
+	netadr_t ip4, ip6;
+	int players, bots;
+
+	if( !SV_StatusCanPrint( ))
+		return;
+
+	SV_GetPlayerCount( &players, &bots );
+	NET_GetLocalAddress( &ip4, &ip6 );
+
+	Con_Printf( "hostname :  %s\n", Cvar_VariableString( "hostname" ));
+	Con_Printf( "version  :  %s build %d (%s-%s), protocol %d\n",
+		XASH_VERSION, Q_buildnum(), Q_buildos(), Q_buildarch(), PROTOCOL_VERSION );
+
+	if( ip4.type == NA_IP )
+		Con_Printf( "tcp/ip   :  %s\n", NET_AdrToString( ip4 ));
+	if( ip6.type == NA_IP6 )
+		Con_Printf( "tcp/ipv6 :  %s\n", NET_AdrToString( ip6 ));
+
+	Con_Printf( "map      :  %s\n", sv.name );
+	Con_Printf( "players  :  %d humans, %d bots, %d max\n\n", players, bots, svs.maxclients );
+
+	Con_Printf( " %2s  %-20.20s %6s %-8s %5s %5s %4s  %-7s %-4s %5s %6s  %-21.21s %s\n",
+		"#", "name", "userid", "state", "frag", "ping", "loss", "time", "dev", "qport", "last", "address", "agent" );
+
+	for( int i = 0; i < svs.maxclients; i++ )
+	{
+		const sv_client_t *cl = &svs.clients[i];
+		const char *state, *version, *os, *arch;
+		char devices[8];
+		char playtime[16];
+		char agent[64];
+		int hours, minutes, seconds;
+		int input_devices;
+		int j = 0;
+
+		if( !cl->state || !cl->edict )
+			continue;
+
+		switch( cl->state )
+		{
+		case cs_connected: state = "connect"; break;
+		case cs_spawning: state = "spawning"; break;
+		case cs_zombie: state = "zombie"; break;
+		default: state = FBitSet( cl->flags, FCL_FAKECLIENT ) ? "bot" : "active"; break;
+		}
+
+		input_devices = Q_atoi( Info_ValueForKey( cl->useragent, "d" ));
+
+		if( FBitSet( input_devices, INPUT_DEVICE_MOUSE ))
+			devices[j++] = 'm';
+		if( FBitSet( input_devices, INPUT_DEVICE_TOUCH ))
+			devices[j++] = 't';
+		if( FBitSet( input_devices, INPUT_DEVICE_JOYSTICK ))
+			devices[j++] = 'j';
+		if( FBitSet( input_devices, INPUT_DEVICE_VR ))
+			devices[j++] = 'v';
+
+		if( j == 0 )
+			Q_strncpy( devices, "n/a", sizeof( devices ));
+		else
+			devices[j] = 0;
+
+		version = Info_ValueForKey( cl->useragent, "v" );
+		os = Info_ValueForKey( cl->useragent, "o" );
+		arch = Info_ValueForKey( cl->useragent, "a" );
+
+		if( COM_StringEmpty( version )) version = "n/a";
+		if( COM_StringEmpty( os )) os = "n/a";
+		if( COM_StringEmpty( arch )) arch = "n/a";
+
+		Q_snprintf( agent, sizeof( agent ), "%s (%s-%s %d)",
+			version, os, arch, Q_atoi( Info_ValueForKey( cl->useragent, "b" )));
+
+		SV_StatusGetPlaytime( cl, &hours, &minutes, &seconds );
+
+		if( hours )
+			Q_snprintf( playtime, sizeof( playtime ), "%2i:%02i:%02i", hours, minutes, seconds );
+		else
+			Q_snprintf( playtime, sizeof( playtime ), "%02i:%02i", minutes, seconds );
+
+		Con_Printf( " %2i  %-20.20s %6i %-8s %5i %5i %4i  %-7s %-4s %5i %6.2f  %-21.21s %s\n",
+			i + 1, va( "\"%s\"", cl->name ), cl->userid, state,
+			(int)cl->edict->v.frags, SV_CalcPing( cl ), (int)cl->packet_loss,
+			playtime, devices, cl->netchan.qport,
+			host.realtime - cl->netchan.last_received,
+			NET_AdrToString( cl->netchan.remote_address ), agent );
+	}
+
+	Con_Printf( "\n%i humans, %i bots\n", players, bots );
+}
+
+/*
 ==================
 SV_ConSay_f
 ==================
@@ -1227,6 +1328,7 @@ void SV_InitOperatorCommands( void )
 	Cmd_AddCommand( "heartbeat", SV_Heartbeat_f, "send a heartbeat to the master server" );
 	Cmd_AddCommand( "kick", SV_Kick_f, "kick a player off the server by number or name" );
 	Cmd_AddCommand( "status", SV_Status_f, "print server status information" );
+	Cmd_AddCommand( "status2", SV_Status2_f, "print verbose server status information" );
 	Cmd_AddCommand( "stat", SV_StatusFormatted_f, "print server status information, tab-separated" );
 	Cmd_AddCommand( "stats", SV_Stats_f, "print server statistics" );
 	Cmd_AddCommand( "localinfo", SV_LocalInfo_f, "examine or change the localinfo string" );
@@ -1269,6 +1371,7 @@ void SV_KillOperatorCommands( void )
 	Cmd_RemoveCommand( "heartbeat" );
 	Cmd_RemoveCommand( "kick" );
 	Cmd_RemoveCommand( "status" );
+	Cmd_RemoveCommand( "status2" );
 	Cmd_RemoveCommand( "stat" );
 	Cmd_RemoveCommand( "stats" );
 	Cmd_RemoveCommand( "localinfo" );
