@@ -592,6 +592,26 @@ static void Key_AddKeyCommands( int key, const char *kb, qboolean down )
 	char button[1024];
 	char *buttonPtr = button;
 
+	// GoldSrc doesn't split bindings, the key number goes after the whole string
+	// and "+cmd;-cmd" relies on that, as only the "-cmd" half carries the key number
+	if( FBitSet( host.bugcomp, BUGCOMP_BIND_NOSPLIT ))
+	{
+		char cmd[1024];
+
+		if( kb[0] == '+' )
+		{
+			if( down ) Q_snprintf( cmd, sizeof( cmd ), "%s %i\n", kb, key );
+			else Q_snprintf( cmd, sizeof( cmd ), "-%s %i\n", kb + 1, key );
+			Cbuf_AddText( cmd );
+		}
+		else if( down )
+		{
+			Q_snprintf( cmd, sizeof( cmd ), "%s\n", kb );
+			Cbuf_AddText( cmd );
+		}
+		return;
+	}
+
 	for( int i = 0; ; i++ )
 	{
 		if( kb[i] == ';' || !kb[i] )

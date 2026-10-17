@@ -100,6 +100,7 @@ static const feature_message_t bugcomp_features[] =
 { BUGCOMP_SPAWNFLAG_NOT_DEATHMATCH, "Inhibit entities with \"Not in Deathmatch\" spawnflag", "sf_notdm" },
 { BUGCOMP_ALWAYS_ENABLE_TEXT_INPUT, "Always enable text input during gameplay", "always_textinput" },
 { BUGCOMP_PRESERVE_TEXTURE_NAME_CASE, "Preserve BSP texture name case", "texname_case" },
+{ BUGCOMP_BIND_NOSPLIT, "Don't split key bindings by semicolon", "bind_nosplit" },
 };
 
 static const feature_message_t engine_features[] =
