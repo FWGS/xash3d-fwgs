@@ -285,6 +285,9 @@ typedef enum bugcomp_e
 
 	// keep BSP texture names in their original case, like in GoldSrc
 	BUGCOMP_PRESERVE_TEXTURE_NAME_CASE = BIT( 6 ),
+
+	// don't split key bindings by semicolon, like in GoldSrc
+	BUGCOMP_BIND_NOSPLIT = BIT( 7 ),
 } bugcomp_t;
 
 typedef struct host_parm_s
