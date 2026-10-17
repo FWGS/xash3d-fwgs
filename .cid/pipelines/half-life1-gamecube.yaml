@@ -1,8 +1,8 @@
 # Runs on a self-hosted cid-runner on the owner's machine.
 # Set on the runner before starting it:
 #   HL1_GC_DIR             xash3d-gc checkout path (default: .)
-#   HL1_GC_BUILD_COMMAND   GameCube build command, e.g. ./scripts/build-gamecube.sh
-#   HL1_GC_TEST_COMMAND    Dolphin probe command (optional; defaults to true)
+#   HL1_GC_BUILD_COMMAND   GameCube build command (optional; defaults to ./scripts/build-gamecube.sh)
+#   HL1_GC_TEST_COMMAND    Dolphin probe command (optional; defaults to true, so only the build runs)
 schema_version: "1"
 name: half-life1-gamecube
 triggers:
@@ -15,7 +15,7 @@ steps:
     type: lint
     config:
       command: >-
-        test -n "${HL1_GC_BUILD_COMMAND:-}" || { echo "HL1_GC_BUILD_COMMAND is required" >&2; exit 2; };
+        test -f "${HL1_GC_DIR:-.}/scripts/build-gamecube.sh" || { echo "scripts/build-gamecube.sh not found" >&2; exit 2; };
         echo "GameCube toolchain adapter configured"
       timeout_seconds: 60
   - name: build-xash3d-gamecube
@@ -23,7 +23,7 @@ steps:
     depends_on: [toolchain-preflight]
     config:
       working_dir: "${HL1_GC_DIR:-.}"
-      command: "${HL1_GC_BUILD_COMMAND}"
+      command: "${HL1_GC_BUILD_COMMAND:-./scripts/build-gamecube.sh}"
       timeout_seconds: 3600
   - name: probe-new-game
     type: test
