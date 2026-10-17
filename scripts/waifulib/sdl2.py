@@ -98,6 +98,14 @@ def configure(conf):
 		sdl2_configure_path(conf, conf.options.SDL_PATH, libname)
 	elif conf.env.DEST_OS == 'darwin' and conf.options.SDL_USE_PKGCONFIG == False:
 		sdl2_configure_path(conf, '/Library/Frameworks/%s.framework' % libname, libname)
+	elif conf.env.DEST_OS == 'ps4' and not conf.options.SDL3:
+		# OpenOrbis toolchain ships prebuilt static SDL2 port
+		conf.start_msg('Configuring %s from OpenOrbis toolchain' % libname)
+		conf.env[HAVE] = 1
+		conf.env['INCLUDES_' + libname] = [os.path.join(conf.env.PS4_TOOLCHAIN, 'include', 'SDL2')]
+		conf.env['LIBPATH_' + libname] = [os.path.join(conf.env.PS4_TOOLCHAIN, 'lib')]
+		conf.env['LIB_' + libname] = [libname, 'SceVideoOut', 'SceAudioOut', 'ScePad', 'SceUserService', 'SceSysmodule']
+		conf.end_msg('yes')
 	elif conf.env.DEST_OS == 'emscripten':
 		flag = '-sUSE_SDL=%d' % (3 if conf.options.SDL3 else 2)
 		conf.env[HAVE] = 1

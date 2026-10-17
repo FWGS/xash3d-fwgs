@@ -690,8 +690,14 @@ static void SetFullscreenModeFromCommandLine( void )
 static void R_CollectRendererNames( void )
 {
 	// ordering is important!
+	// on PS4 gles3compat runs on the GNM backend and is the default,
+	// software is used when it is chosen with -ref soft or GNM fails to start
+#define SOFT_FIRST ( XASH_PS4 && XASH_REF_SOFT_ENABLED && !XASH_REF_GLES3COMPAT_ENABLED )
 	static const char *short_names[] =
 	{
+#if SOFT_FIRST
+		"soft",
+#endif
 #if XASH_REF_GL_ENABLED
 		"gl",
 #endif
@@ -707,7 +713,7 @@ static void R_CollectRendererNames( void )
 #if XASH_REF_GLES3COMPAT_ENABLED
 		"gles3compat",
 #endif
-#if XASH_REF_SOFT_ENABLED
+#if XASH_REF_SOFT_ENABLED && !SOFT_FIRST
 		"soft",
 #endif
 	};
@@ -715,6 +721,9 @@ static void R_CollectRendererNames( void )
 	// ordering is important here too!
 	static const char *long_names[ARRAYSIZE( short_names )] =
 	{
+#if SOFT_FIRST
+		"Software",
+#endif
 #if XASH_REF_GL_ENABLED
 		"OpenGL",
 #endif
@@ -730,10 +739,11 @@ static void R_CollectRendererNames( void )
 #if XASH_REF_GLES3COMPAT_ENABLED
 		"GLES3 (gl2_shim)",
 #endif
-#if XASH_REF_SOFT_ENABLED
+#if XASH_REF_SOFT_ENABLED && !SOFT_FIRST
 		"Software",
 #endif
 	};
+#undef SOFT_FIRST
 
 	ref.num_renderers = ARRAYSIZE( short_names );
 	ref.short_names = short_names;

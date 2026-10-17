@@ -1,0 +1,265 @@
+diff --git a/controls/AnimatedBanner.cpp b/controls/AnimatedBanner.cpp
+index bf16e4a..e335956 100644
+--- a/controls/AnimatedBanner.cpp
++++ b/controls/AnimatedBanner.cpp
+@@ -85,6 +85,9 @@ bool CMenuAnimatedBanner::TryLoad()
+ 
+ void CMenuAnimatedBanner::VidInit()
+ {
++	// decoration, must not take keyboard focus
++	SetBits( iFlags, QMF_INACTIVE );
++
+ 	// in hardware mode, it's scaled by screen width
+ 	// in software mode, scale must be 1.0f
+ 	scale = ScreenWidth / 1024.0f;
+diff --git a/controls/DropDown.cpp b/controls/DropDown.cpp
+index df9a835..dea3e09 100644
+--- a/controls/DropDown.cpp
++++ b/controls/DropDown.cpp
+@@ -81,6 +81,10 @@ int CMenuDropDown::IsNewStateByMouseClick()
+ 
+ bool CMenuDropDown::KeyDown( int key )
+ {
++	// open list takes arrows for itself, they change the value on key up
++	if( m_isOpen && !FBitSet( iFlags, QMF_MOUSEONLY ) && ( UI::Key::IsDownArrow( key ) || UI::Key::IsUpArrow( key )))
++		return true;
++
+ 	return false;
+ }
+ 
+@@ -103,9 +107,11 @@ bool CMenuDropDown::KeyUp( int key )
+ 
+ 	if( !FBitSet( iFlags, QMF_MOUSEONLY ) )
+ 	{
+-		if( UI::Key::IsDownArrow( key ) )
++		// arrows move focus between items, so closed list keeps its value,
++		// otherwise just passing through it with keyboard or gamepad changes it
++		if( m_isOpen && UI::Key::IsDownArrow( key ))
+ 			state += 1;
+-		else if( UI::Key::IsUpArrow( key ) )
++		else if( m_isOpen && UI::Key::IsUpArrow( key ))
+ 			state -= 1;
+ 		else if( UI::Key::IsEnter( key ) )
+ 		{
+@@ -160,6 +166,10 @@ void CMenuDropDown::Draw()
+ 	if( iFlags & QMF_DROPSHADOW )
+ 		textflags |= ETF_SHADOW;
+ 
++	// show which item has focus, same color as focused table stroke
++	if( IsCurrentSelected( ))
++		borderColor = uiInputTextColor;
++
+ 	if( m_isOpen )
+ 	{
+ 		Point pt( m_scPos.x, m_scPos.y );
+@@ -167,6 +177,9 @@ void CMenuDropDown::Draw()
+ 		if( !bDropUp )
+ 			pt.y += m_scItemSize.h;
+ 
++		// without mouse over the list, highlight the item chosen with arrows
++		bool mouseOver = UI_CursorInRect( pt.x, pt.y, m_scItemSize.w, m_scSize.h - m_scItemSize.h );
++
+ 		// all other items
+ 		UI_FillRect( pt.x, pt.y, m_scItemSize.w, m_scSize.h - m_scItemSize.h, 0xff000000 );
+ 		for( int i = 0; i < m_szNames.Count(); i++ )
+@@ -174,7 +187,9 @@ void CMenuDropDown::Draw()
+ 			uint textColor = iBgTextColor;
+ 			uint tempflags = textflags;
+ 
+-			if( UI_CursorInRect( pt, m_scItemSize ) && !(iFlags & (QMF_GRAYED|QMF_INACTIVE)))
++			bool highlight = mouseOver ? UI_CursorInRect( pt, m_scItemSize ) : i == m_iState;
++
++			if( highlight && !(iFlags & (QMF_GRAYED|QMF_INACTIVE)))
+ 			{
+ 				UI_FillRect( pt, m_scItemSize, colorFocus );
+ 				tempflags |= ETF_FORCECOL;
+diff --git a/controls/Field.cpp b/controls/Field.cpp
+index 9d33a26..e627f4e 100644
+--- a/controls/Field.cpp
++++ b/controls/Field.cpp
+@@ -142,6 +142,14 @@ bool CMenuField::KeyDown( int key )
+ {
+ 	bool handled = false;
+ 
++	// gamepad has no keys to type, ask the engine for the system keyboard with the text of this field
++	if( key == K_A_BUTTON )
++	{
++		EngFuncs::SetTextInputBuffer( szBuffer );
++		UI_EnableTextInput( true );
++		return true;
++	}
++
+ 	// clipboard paste
+ 	if( UI::Key::IsInsert( key ) && EngFuncs::KEY_IsDown( K_SHIFT ))
+ 	{
+diff --git a/controls/Framework.cpp b/controls/Framework.cpp
+index 12d2a29..5c98231 100644
+--- a/controls/Framework.cpp
++++ b/controls/Framework.cpp
+@@ -221,6 +221,8 @@ bool CMenuFramework::DrawAnimation()
+ 
+ CMenuFramework::CMenuBannerBitmap::CMenuBannerBitmap()
+ {
++	// decoration, must not take keyboard focus
++	SetBits( iFlags, QMF_INACTIVE );
+ 	SetRect( UI_BANNER_POSX, UI_BANNER_POSY, UI_BANNER_WIDTH, UI_BANNER_HEIGHT );
+ }
+ 
+diff --git a/controls/MovieBanner.cpp b/controls/MovieBanner.cpp
+index 730c727..f40becb 100755
+--- a/controls/MovieBanner.cpp
++++ b/controls/MovieBanner.cpp
+@@ -26,6 +26,9 @@ const float splashHeight = 480.0f;
+ 
+ void CMenuMovieBanner::VidInit()
+ {
++	// decoration, must not take keyboard focus
++	SetBits( iFlags, QMF_INACTIVE );
++
+ 	EngFuncs::PrecacheLogo( "logo.avi" );
+ 
+ 	float xScale, yScale;
+diff --git a/enginecallback_menu.h b/enginecallback_menu.h
+index 8b765be..36326cf 100644
+--- a/enginecallback_menu.h
++++ b/enginecallback_menu.h
+@@ -502,6 +502,12 @@ public:
+ 			textfuncs.pfnSetTextInputRect( x, y, w, h );
+ 	}
+ 
++	static inline void SetTextInputBuffer( const char *text )
++	{
++		if( textfuncs.pfnSetTextInputBuffer )
++			textfuncs.pfnSetTextInputBuffer( text );
++	}
++
+ 	static inline bool GetRenderers( int num, char *sz1, size_t s1, char *sz2, size_t s2 )
+ 	{
+ 		return textfuncs.pfnGetRenderers( num, sz1, s1, sz2, s2 ) != 0;
+diff --git a/menus/ServerBrowser.cpp b/menus/ServerBrowser.cpp
+index 8dc57df..14882e3 100644
+--- a/menus/ServerBrowser.cpp
++++ b/menus/ServerBrowser.cpp
+@@ -574,7 +574,6 @@ void CMenuGameListModel::Update( void )
+ 
+ 	if( servers.Count() )
+ 	{
+-		parent->joinGame->SetGrayed( false );
+ 		parent->MaybeEnableFavoriteButton();
+ 		parent->OnChangeSelectedServer();
+ 		if( m_iSortingColumn != -1 )
+@@ -584,6 +583,9 @@ void CMenuGameListModel::Update( void )
+ 
+ void CMenuGameListModel::OnActivateEntry( int line )
+ {
++	if( !servers.IsValidIndex( line ))
++		return;
++
+ 	CMenuServerBrowser::Connect( servers[line] );
+ }
+ 
+@@ -928,8 +930,6 @@ void CMenuServerBrowser::QueryServerList( const CUtlVector<favlist_entry_t> &lis
+ 			if( curTab == tabSwitch.GetState() && gameListModel.GetRows() == 0 )
+ 			{
+ 				gameListModel.AddServerToList( adr, fakeInfoString, list[i].favorited );
+-				joinGame->SetGrayed( false );
+-				viewGameInfo->SetGrayed( false );
+ 				MaybeEnableFavoriteButton();
+ 				OnChangeSelectedServer();
+ 			}
+@@ -1038,8 +1038,13 @@ void CMenuServerBrowser::OnTabSwitch()
+ void CMenuServerBrowser::OnChangeSelectedServer( void )
+ {
+ 	int i = gameList.GetCurrentIndex();
++	bool selected = gameListModel.servers.IsValidIndex( i );
+ 
+-	if( !gameListModel.servers.IsValidIndex( i ))
++	// selection can be lost when the list is refreshed
++	joinGame->SetGrayed( !selected );
++	viewGameInfo->SetGrayed( !selected );
++
++	if( !selected )
+ 		return;
+ 
+ 	bool fav = gameListModel.servers[i].favorite;
+@@ -1564,8 +1569,6 @@ void CMenuServerBrowser::AddServerToList( netadr_t adr, const char *info )
+ 
+ 		// Always update visible model for LAN
+ 		gameListModel.AddServerToList( adr, info, false );
+-		joinGame->SetGrayed( false );
+-		viewGameInfo->SetGrayed( false );
+ 		MaybeEnableFavoriteButton();
+ 		OnChangeSelectedServer();
+ 		return;
+@@ -1659,9 +1662,6 @@ void CMenuServerBrowser::AddServerToList( netadr_t adr, const char *info )
+ 	if( targetTab == curTabVisible )
+ 	{
+ 		gameListModel.AddServerToList( adr, info, is_favorite );
+-
+-		joinGame->SetGrayed( false );
+-		viewGameInfo->SetGrayed( false );
+ 		MaybeEnableFavoriteButton();
+ 		OnChangeSelectedServer();
+ 	}
+diff --git a/sdk_includes/engine/menu_int.h b/sdk_includes/engine/menu_int.h
+index ffa4ace..a83a58a 100644
+--- a/sdk_includes/engine/menu_int.h
++++ b/sdk_includes/engine/menu_int.h
+@@ -234,6 +234,11 @@ typedef struct ui_extendedfuncs_s {
+ 	// engine tries to keep this rect visible, when the on-screen keyboard covers the screen
+ 	// must be called before pfnEnableTextInput( true ), empty rect means the whole screen
+ 	void (*pfnSetTextInputRect)( int x, int y, int w, int h );
++
++	// asks the engine to open the system keyboard with this text, on platforms that have one,
++	// on the next pfnEnableTextInput( true ), even if text input is enabled already
++	// it's used when user activates the text field, for example with gamepad
++	void (*pfnSetTextInputBuffer)( const char *text );
+ } ui_extendedfuncs_t;
+ 
+ // deprecated export from old engine
+diff --git a/sdk_includes/public/build.h b/sdk_includes/public/build.h
+index 8eb7396..b92c51e 100644
+--- a/sdk_includes/public/build.h
++++ b/sdk_includes/public/build.h
+@@ -77,6 +77,7 @@ Then you can use another oneliner to query all variables:
+ #undef XASH_OSX
+ #undef XASH_POSIX
+ #undef XASH_PPC
++#undef XASH_PS4
+ #undef XASH_PSP
+ #undef XASH_PSVITA
+ #undef XASH_RISCV
+@@ -105,7 +106,11 @@ Then you can use another oneliner to query all variables:
+ 	#define XASH_PSP 1
+ #else // POSIX compatible
+ 	#define XASH_POSIX 1
+-	#if defined __linux__
++	// OpenOrbis toolchain targets FreeBSD, but libc++ headers undefine __FreeBSD__
++	// so PS4 must be checked first to get same result in C and C++
++	#if defined __ORBIS__
++		#define XASH_PS4 1
++	#elif defined __linux__
+ 		#if defined __ANDROID__
+ 			#define XASH_ANDROID 1
+ 			#if defined __TERMUX__
+diff --git a/sdk_includes/public/buildenums.h b/sdk_includes/public/buildenums.h
+index ef73e85..c91f5e6 100644
+--- a/sdk_includes/public/buildenums.h
++++ b/sdk_includes/public/buildenums.h
+@@ -60,6 +60,7 @@ For more information, please refer to <http://unlicense.org/>
+ #define PLATFORM_HURD       17
+ #define PLATFORM_PSP        18
+ #define PLATFORM_IOS    	19
++#define PLATFORM_PS4        20
+ 
+ #if XASH_WIN32
+ 	#define XASH_PLATFORM PLATFORM_WIN32
+@@ -97,6 +98,8 @@ For more information, please refer to <http://unlicense.org/>
+ 	#define XASH_PLATFORM PLATFORM_HURD
+ #elif XASH_PSP
+ 	#define XASH_PLATFORM PLATFORM_PSP
++#elif XASH_PS4
++	#define XASH_PLATFORM PLATFORM_PS4
+ #else
+ 	#error
+ #endif

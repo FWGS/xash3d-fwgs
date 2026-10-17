@@ -115,8 +115,12 @@ void SDLash_Init( void )
 	// SDL_SetHint( SDL_HINT_WINDOWS_DPI_SCALING, "1" );
 #endif // XASH_WIN32
 
+#ifdef SDL_HINT_ANDROID_BLOCK_ON_PAUSE // OpenOrbis SDL2 is too old
 	SDL_SetHint( SDL_HINT_ANDROID_BLOCK_ON_PAUSE, "0" );
+#endif
+#ifdef SDL_HINT_ANDROID_BLOCK_ON_PAUSE_PAUSEAUDIO
 	SDL_SetHint( SDL_HINT_ANDROID_BLOCK_ON_PAUSE_PAUSEAUDIO, "0" );
+#endif
 
 	// when launched through Steam (notably on Steam Deck) Steam Input hides the
 	// real controller and exposes a virtual gamepad without gyro/touchpad access

@@ -24,7 +24,8 @@ def configure(conf):
 		if conf.env.cxxshlib_PATTERN.startswith('lib'):
 			conf.env.cxxshlib_PATTERN = conf.env.cxxshlib_PATTERN[3:]
 
-	if conf.check_cc(fragment=MEMFD_CREATE_TEST, msg='Checking for memfd_create', mandatory=False):
+	# PS4 libc has memfd_create, but the kernel doesn't
+	if conf.env.DEST_OS != 'ps4' and conf.check_cc(fragment=MEMFD_CREATE_TEST, msg='Checking for memfd_create', mandatory=False):
 		conf.define('HAVE_MEMFD_CREATE', 1)
 
 	if conf.check_cc(fragment=DIRENT_D_TYPE_TEST, msg='Checking for d_type field in struct dirent', mandatory=False):

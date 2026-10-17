@@ -66,7 +66,8 @@ GNU General Public License for more details.
 	#define S_ISDIR( m ) ( FBitSet( m, S_IFMT ) == S_IFDIR )
 #endif
 
-#if !XASH_PSVITA && !XASH_NSWITCH
+// PS4 refuses dup() with EPERM, files inside packages are opened by path
+#if !XASH_PSVITA && !XASH_NSWITCH && !XASH_PS4
 	#define HAVE_DUP
 #endif
 
@@ -210,8 +211,10 @@ MAYBE_UNUSED static const wchar_t *FS_PathToWideChar( const char *path )
 	static wchar_t pathBuffer[MAX_PATH];
 	MultiByteToWideChar( CP_UTF8, 0, path, -1, pathBuffer, MAX_PATH );
 	return pathBuffer;
+#else
+	static const wchar_t empty[1] = { 0 };
+	return empty;
 #endif
-	return L"";
 }
 
 /*
