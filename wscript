@@ -142,7 +142,7 @@ SUBDIRS = [
 
 	# enabled optionally
 	Subproject('utils/mdldec',            lambda x: x.env.ENABLE_UTILS),
-	Subproject('utils/xar',               lambda x: x.env.ENABLE_UTILS and x.env.ENABLE_XAR),
+	Subproject('utils/xar',               lambda x: x.env.ENABLE_UTILS),
 	Subproject('utils/xash-clang-format', lambda x: x.env.ENABLE_UTILS),
 	Subproject('utils/xrcon-mcp',         lambda x: x.env.ENABLE_UTILS),
 
@@ -220,9 +220,6 @@ def options(opt):
 
 	grp.add_option('--enable-utils', action = 'store_true', dest = 'ENABLE_UTILS', default = False,
 		help = 'enable building various development utilities [default: %(default)s]')
-
-	grp.add_option('--enable-xar', action = 'store_true', dest = 'ENABLE_XAR', default = False,
-		help = 'enable building Xash ARchiver (experimental) [default: %(default)s]')
 
 	grp.add_option('--enable-fuzzer', action = 'store_true', dest = 'ENABLE_FUZZER', default = False,
 		help = 'enable building libFuzzer runner [default: %(default)s]' )
@@ -493,7 +490,6 @@ def configure(conf):
 
 	conf.env.TESTS         = conf.options.TESTS
 	conf.env.ENABLE_UTILS  = conf.options.ENABLE_UTILS
-	conf.env.ENABLE_XAR    = conf.options.ENABLE_XAR
 	conf.env.ENABLE_FUZZER = conf.options.ENABLE_FUZZER
 	conf.env.FREEVGUI_XASH_SUPPORT = True
 

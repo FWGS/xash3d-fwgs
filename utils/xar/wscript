@@ -3,12 +3,17 @@
 # a1batross, mittorn, 2018
 
 def options(opt):
-	pass
+	grp = opt.get_option_group('Utilities options')
+	grp.add_option('--enable-utils-xar', action='store_true', dest='ENABLE_UTILS_XAR',default=False,
+		help='enable xar (Xash ARchive) utility, to manipulate WAD/PAK/PK3 archives through filesystem_stdio [default: %(default)s]')
 
 def configure(conf):
-	pass
+	conf.env.ENABLE_UTILS_XAR = conf.options.ENABLE_UTILS_XAR
 
 def build(bld):
+	if not bld.env.ENABLE_UTILS_XAR:
+		return
+
 	bld.program(source   = bld.path.ant_glob('*.c'),
 		target   = 'xar',
 		includes = '.',
