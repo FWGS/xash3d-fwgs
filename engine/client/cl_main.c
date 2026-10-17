@@ -3792,6 +3792,7 @@ static void CL_InitLocal( void )
 	Cmd_AddRestrictedCommand( "killdemo", CL_DeleteDemo_f, "delete a specified demo file" );
 	Cmd_AddCommand ("startdemos", CL_StartDemos_f, "start playing back the selected demos sequentially" );
 	Cmd_AddCommand ("demos", CL_Demos_f, "restart looping demos defined by the last startdemos command" );
+	CL_DemoCamInit();
 	Cmd_AddCommand ("movie", CL_PlayVideo_f, "play a movie" );
 	Cmd_AddCommand ("stop", CL_Stop_f, "stop playing or recording a demo" );
 	Cmd_AddCommand( "listdemo", CL_ListDemo_f, "list demo entries" );

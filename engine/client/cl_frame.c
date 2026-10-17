@@ -935,12 +935,16 @@ qboolean CL_AddVisibleEntity( cl_entity_t *ent, int entityType )
 	if( !ent || !ent->model )
 		return false;
 
+	if( CL_DemoCamHideEntity( ent ))
+		return false;
+
 	// don't add the player in firstperson mode
 	if( RP_LOCALCLIENT( ent ))
 	{
 		cl.local.apply_effects = true;
 
-		if( !CL_IsThirdPerson( ) && ( ent->index == cl.viewentity ))
+		// unless the demo camera is following someone else and he's just another player
+		if( !CL_IsThirdPerson( ) && ( ent->index == cl.viewentity ) && !CL_DemoCamActive( ))
 		{
 			// we don't draw player in default renderer in firstperson mode
 			// but let the client.dll know about player entity anyway

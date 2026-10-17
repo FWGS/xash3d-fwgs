@@ -407,6 +407,7 @@ void V_RenderView( void )
 	do
 	{
 		clgame.dllFuncs.pfnCalcRefdef( &rp );
+		CL_DemoCamApply( &rp );
 
 		// client dll may replace viewmodel in pfnCalcRefdef, so set animtime again
 		// V_SetupViewModel did it only for the model known before this call

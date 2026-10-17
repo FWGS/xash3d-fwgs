@@ -171,6 +171,9 @@ intptr_t CL_RenderGetParm( const int parm, const int arg, const qboolean checkRe
 		case PARM_WATER_LEVEL:
 			return cl.local.waterlevel;
 		case PARM_LOCAL_HEALTH:
+			// the renderer hides the viewmodel of a dead recorder, not of the followed player
+			if( CL_DemoCamFirstPerson( ))
+				return 100;
 			return cl.local.health;
 		case PARM_SINGLEPLAYER_GAME:
 			return Host_IsSinglePlayerGame();
