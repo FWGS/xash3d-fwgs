@@ -32,7 +32,9 @@ add_definitions(
 file(GLOB PUBLIC_SOURCES public/*)
 list(REMOVE_ITEM PUBLIC_SOURCES "${CMAKE_CURRENT_SOURCE_DIR}/public/build_vcs.c")
 add_library(public STATIC ${PUBLIC_SOURCES})
-target_include_directories(public PUBLIC 3rdparty/library_suffix/include common engine public)
+target_include_directories(public PUBLIC ${DEPS_INCLUDE_DIRS} 3rdparty/library_suffix/include common engine public)
+
+add_subdirectory(3rdparty/mpg123/mpg123/ports/cmake)
 
 add_subdirectory(3rdparty/opus/opus)
 
@@ -55,6 +57,7 @@ target_include_directories(MultiEmulator PRIVATE
 file(GLOB FILESYSTEM_SOURCES filesystem/*)
 add_library(filesystem_stdio STATIC ${FILESYSTEM_SOURCES})
 target_include_directories(filesystem_stdio PUBLIC
+	${DEPS_INCLUDE_DIRS}
 	3rdparty/library_suffix/include
 	common
 	engine
@@ -193,13 +196,14 @@ target_include_directories(xash PUBLIC
     3rdparty/library_suffix/include
     3rdparty/MultiEmulator/include
     3rdparty/opus/opus/include
+    3rdparty/mpg123/mpg123/src/include
 
 	/opt/devkitpro/portlibs/wii/include/GL
 	)
 
 target_link_libraries(xash PUBLIC filesystem_stdio hl cl_dll ref_gl menu vgui
  BZip2::BZip2 Opus::opus
-library_suffix pthread ${DEPS_LIBRARIES}
+libmpg123 library_suffix pthread ${DEPS_LIBRARIES}
 MultiEmulator
 opengx
 )
