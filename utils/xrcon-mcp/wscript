@@ -1,0 +1,23 @@
+#! /usr/bin/env python
+# encoding: utf-8
+
+def options(opt):
+	grp = opt.get_option_group('Utilities options')
+
+	grp.add_option('--enable-xrcon-mcp', action = 'store_true', dest = 'ENABLE_UTILS_XRCON_MCP', default = False,
+		help = 'enable MCP server implementation to talk to the running engine over XRCon protocol [default: %(default)s]')
+
+def configure(conf):
+	conf.env.ENABLE_UTILS_XRCON_MCP = conf.options.ENABLE_UTILS_XRCON_MCP
+
+def build(bld):
+	if not bld.env.ENABLE_UTILS_XRCON_MCP:
+		return
+
+	bld.program(source   = bld.path.ant_glob('*.c'),
+		target   = 'xrcon-mcp',
+		includes = '.',
+		use      = 'public build_vcs werror yy_thunks',
+		install_path = bld.env.BINDIR,
+		subsystem = bld.env.CONSOLE_SUBSYSTEM
+	)

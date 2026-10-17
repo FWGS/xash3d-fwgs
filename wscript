@@ -144,6 +144,7 @@ SUBDIRS = [
 	Subproject('utils/mdldec',            lambda x: x.env.ENABLE_UTILS),
 	Subproject('utils/xar',               lambda x: x.env.ENABLE_UTILS and x.env.ENABLE_XAR),
 	Subproject('utils/xash-clang-format', lambda x: x.env.ENABLE_UTILS),
+	Subproject('utils/xrcon-mcp',         lambda x: x.env.ENABLE_UTILS),
 
 	# enabled on PSVita only
 	Subproject('ref/gl/vgl_shim',   lambda x: x.env.DEST_OS == 'psvita'),

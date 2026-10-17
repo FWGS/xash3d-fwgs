@@ -17,31 +17,7 @@ GNU General Public License for more details.
 #include "net_ws.h"
 #include "net_ws_private.h"
 #include "net_buffer.h"
-
-#define XRCON_TYPE_CMND          HostFourCC( 'C', 'M', 'N', 'D' )
-#define XRCON_TYPE_CHAN          HostFourCC( 'C', 'H', 'A', 'N' )
-#define XRCON_TYPE_AINF          HostFourCC( 'A', 'I', 'N', 'F' )
-#define XRCON_TYPE_ADON          HostFourCC( 'A', 'D', 'O', 'N' )
-#define XRCON_TYPE_PRNT          HostFourCC( 'P', 'R', 'N', 'T' )
-
-#define XRCON_CMND_VERSION       0x000000D4
-#define XRCON_CMND_VERSION_CS2RC 0x00D40000 // CS2RemoteConsole <= 1.3.0 byte-slot bug
-
-// type (u32) + version (u32) + length (u16) + handle (u16)
-#define XRCON_HEADER_SIZE        ( sizeof( uint32_t ) * 2 + sizeof( uint16_t ) * 2 )
-// hardcoded size for channel name, including null terminator
-#define XRCON_CHAN_NAME_SIZE     34
-// unknowns[19] (u32) + padding (u8)
-#define XRCON_AINF_PACKET_SIZE   ( sizeof( uint32_t ) * 19 + sizeof( uint8_t ) )
-// channel_id (u32) + padding (u32[5]) + RGBA (u32)
-#define XRCON_PRNT_HEADER_SIZE   ( sizeof( uint32_t ) * 7 )
-
-#define XRCON_MAX_FRAME_SIZE     4096 // an arbitrary number, should be enough for everything
-#define XRCON_PRINT_BUFFER_SIZE  4096
-#define XRCON_MAX_PACKET_SIZE    ( XRCON_HEADER_SIZE + XRCON_PRNT_HEADER_SIZE + XRCON_PRINT_BUFFER_SIZE )
-
-#define XRCON_TX_BUFFER_SIZE     ( XRCON_MAX_FRAME_SIZE * 4 )
-#define XRCON_RX_BUFFER_SIZE     ( XRCON_MAX_FRAME_SIZE + 64 )
+#include "xrcon_protocol.h"
 
 static CVAR_DEFINE_AUTO( xrcon_enable, "0", FCVAR_PRIVILEGED, "enable remote console access server" );
 static CVAR_DEFINE_AUTO( xrcon_address, "127.0.0.1:27000", FCVAR_PRIVILEGED, "XRCON server bind address and port" );
