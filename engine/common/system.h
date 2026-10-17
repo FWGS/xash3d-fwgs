@@ -54,6 +54,7 @@ extern int error_on_exit;
 double GAME_EXPORT Sys_DoubleTime( void ); // only for binary compatibility, use Platform_DoubleTime instead
 float GAME_EXPORT Sys_FloatTime( void ); // only for binary compatibility, use Platform_DoubleTime instead
 char *Sys_GetClipboardData( void );
+void Sys_SetClipboardData( const char *buffer );
 const char *Sys_GetCurrentUser( void );
 int Sys_CheckParm( const char *parm );
 void Sys_Warn( const char *format, ... ) FORMAT_CHECK( 1 );

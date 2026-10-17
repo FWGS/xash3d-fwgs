@@ -124,6 +124,18 @@ char *Sys_GetClipboardData( void )
 
 	return data;
 }
+
+/*
+================
+Sys_SetClipboardData
+
+put a string into the clipboard
+================
+*/
+void Sys_SetClipboardData( const char *buffer )
+{
+	Platform_SetClipboardText( buffer ? buffer : "" );
+}
 #endif // XASH_DEDICATED
 
 /*
