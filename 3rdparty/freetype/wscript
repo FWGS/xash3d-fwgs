@@ -1,0 +1,129 @@
+#! /usr/bin/env python
+# encoding: utf-8
+
+# options that are enabled in freetype's stock ftoption.h but we want disabled
+DISABLED_OPTIONS = [
+	# external libraries
+	'FT_CONFIG_OPTION_USE_BROTLI',
+	'FT_CONFIG_OPTION_USE_BZIP2',
+	'FT_CONFIG_OPTION_USE_HARFBUZZ',
+	'FT_CONFIG_OPTION_USE_HARFBUZZ_DYNAMIC',
+	'FT_CONFIG_OPTION_USE_LZW',
+	'FT_CONFIG_OPTION_USE_PNG',
+	'FT_CONFIG_OPTION_USE_ZLIB',
+	'FT_CONFIG_OPTION_SYSTEM_ZLIB',
+	'FT_CONFIG_OPTION_HVF',
+
+	# font formats and features we have no use for
+	'FT_CONFIG_OPTION_SVG',
+	'FT_CONFIG_OPTION_INCREMENTAL',
+	'FT_CONFIG_OPTION_MAC_FONTS',
+	'FT_CONFIG_OPTION_GUESSING_EMBEDDED_RFORK',
+	'TT_CONFIG_OPTION_BDF',
+	'TT_CONFIG_OPTION_COLOR_LAYERS',
+	'TT_CONFIG_OPTION_GX_VAR_SUPPORT',
+	'TT_CONFIG_OPTION_VARC',
+]
+
+# options that are disabled in freetype but we want enabled
+ENABLED_OPTIONS = [
+	# engine will use VFS
+	'FT_CONFIG_OPTION_DISABLE_STREAM_SUPPORT',
+]
+
+SOURCES = [
+	'freetype/src/autofit/autofit.c',
+	'freetype/src/base/ftbase.c',
+	'freetype/src/base/ftbitmap.c',
+	'freetype/src/base/ftdebug.c',
+	'freetype/src/base/ftinit.c',
+	'freetype/src/base/ftsystem.c',
+	'freetype/src/base/ftwinfnt.c',
+	'freetype/src/psnames/psnames.c',
+	'freetype/src/raster/raster.c',
+	'freetype/src/sfnt/sfnt.c',
+	'freetype/src/smooth/smooth.c',
+	'freetype/src/truetype/truetype.c',
+	'freetype/src/winfonts/winfnt.c',
+]
+
+def options(opt):
+	pass
+
+# same as freetype's own builds/meson/process_ftoption_h.py. The options can't
+# be just (un)defined from the command line, they must be rewritten in the header
+# itself, because ftoption.h derives more macros from them at the end of file
+def process_ftoption_h(task):
+	disabled = set(task.env.FT_DISABLED_OPTIONS)
+	enabled = set(task.env.FT_ENABLED_OPTIONS)
+	seen = set()
+	lines = []
+
+	for line in task.inputs[0].read().splitlines():
+		line = line.rstrip()
+
+		if line.startswith('/* #define ') and line.endswith(' */'):
+			name = line[11:-3].strip()
+		elif line.startswith('#define '):
+			name = line[8:].strip()
+		elif line.startswith('#undef '):
+			name = line[7:].strip()
+		else:
+			lines.append(line)
+			continue
+
+		seen.add(name)
+		if name in disabled:
+			line = '#undef ' + name
+		elif name in enabled:
+			line = '#define ' + name
+
+		lines.append(line)
+
+	missing = (disabled | enabled) - seen
+	if missing:
+		task.generator.bld.fatal('No such option in freetype ftoption.h: %s' % ', '.join(sorted(missing)))
+
+	task.outputs[0].write('\n'.join(lines) + '\n')
+
+def configure(conf):
+	if not conf.path.find_dir('freetype') or not conf.path.find_dir('freetype/src'):
+		conf.fatal('Can\'t find freetype submodule. Run `git submodule update --init --recursive`.')
+		return
+
+	both = set(DISABLED_OPTIONS) & set(ENABLED_OPTIONS)
+	if both:
+		conf.fatal('freetype options can\'t be enabled and disabled at the same time: %s' % ', '.join(sorted(both)))
+
+	conf.env.FT_DISABLED_OPTIONS = DISABLED_OPTIONS
+	conf.env.FT_ENABLED_OPTIONS = ENABLED_OPTIONS
+
+def build(bld):
+	# generated header must be written before anything gets compiled for gccdeps compatibility
+	bld(
+		rule = process_ftoption_h,
+		source = 'freetype/include/freetype/config/ftoption.h',
+		target = 'ftoption.h',
+		vars = ['FT_DISABLED_OPTIONS', 'FT_ENABLED_OPTIONS'],
+		before = 'c',
+		name = 'ft_ftoption'
+	)
+
+	# ftmodule.h is taken from the source directory and the generated ftoption.h from the build directory
+	# both are covered by the '.' include path.
+	# freetype's own copies are always referenced with the freetype/config/ prefix, so they never collide with ours
+	defines = ['FT_CONFIG_MODULES_H=<ftmodule.h>', 'FT_CONFIG_OPTIONS_H=<ftoption.h>']
+	build_defines = defines + ['FT2_BUILD_LIBRARY=1']
+
+	if bld.env.COMPILER_CC == 'msvc':
+		build_defines += ['_CRT_SECURE_NO_WARNINGS=1', '_CRT_NONSTDC_NO_DEPRECATE=1']
+
+	bld.stlib(
+		source = SOURCES,
+		target = 'freetype',
+		use = 'ft_ftoption',
+		defines = build_defines,
+		includes = ['.', 'freetype/include/'],
+		export_defines = defines,
+		export_includes = ['.', 'freetype/include/']
+	)

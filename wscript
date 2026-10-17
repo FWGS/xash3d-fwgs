@@ -284,6 +284,18 @@ int main(void) { z_stream s = { 0 }; return inflateInit2(&s, -MAX_WBITS); }'''
 
 	return conf.check_cc(lib='z', fragment=frag, msg='Checking for zlib', uselib_store='zlib', mandatory=False)
 
+
+def check_system_freetype(conf):
+	frag='''#include <ft2build.h>
+#include FT_FREETYPE_H
+int main(void) { FT_Library library; return FT_Init_FreeType( &library ); }'''
+
+	# search for freetype
+	if conf.check_cfg(package='freetype2', uselib_store='freetype', args='--cflags --libs', mandatory=False):
+		return False
+
+	return conf.check_cc(msg='Checking for freetype2 sanity', use='freetype werror', fragment=frag, mandatory=False)
+
 def configure(conf):
 	conf.load('fwgslib reconfigure compiler_optimizations')
 	if conf.options.ALLOW64:
@@ -608,6 +620,7 @@ def configure(conf):
 	prefer_bundled_opusfile = conf.options.BUILD_BUNDLED_DEPS
 	prefer_bundled_mpg123 = conf.options.BUILD_BUNDLED_DEPS
 	prefer_bundled_bzip2 = conf.options.BUILD_BUNDLED_DEPS
+	prefer_bundled_freetype = conf.options.BUILD_BUNDLED_DEPS
 	# zlib is a part of platform API on Android
 	prefer_bundled_zlib = conf.options.BUILD_BUNDLED_DEPS and conf.env.DEST_OS != 'android'
 
@@ -625,6 +638,8 @@ def configure(conf):
 			conf.env.HAVE_SYSTEM_MPG123 = check_system_mpg123(conf)
 		if not prefer_bundled_bzip2:
 			conf.env.HAVE_SYSTEM_BZ2 = check_system_bzip2(conf)
+		if not prefer_bundled_freetype:
+			conf.env.HAVE_SYSTEM_FREETYPE = check_system_freetype(conf)
 
 	if not prefer_bundled_zlib:
 		conf.env.HAVE_SYSTEM_ZLIB = check_system_zlib(conf)
