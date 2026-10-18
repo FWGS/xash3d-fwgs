@@ -577,6 +577,10 @@ static qboolean SV_IsSimulating( void )
 	{
 		if( CL_IsInConsole( ))
 			return false;
+
+		if( sv.paused )
+			return false;
+		
 		return true; // force simulating for background map
 	}
 
