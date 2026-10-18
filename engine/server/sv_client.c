@@ -1534,7 +1534,8 @@ SV_TogglePause
 */
 void SV_TogglePause( const char *msg )
 {
-	if( sv.background ) return;
+	// allow pause in background mode
+//	if( sv.background ) return;
 
 	sv.paused ^= 1;
 
