@@ -40,26 +40,6 @@ void Platform_MessageBox( const char *title, const char *message, qboolean paren
 void Platform_SetStatus( const char *status );
 qboolean Platform_DebuggerPresent( void );
 
-// returns the total CPU time used by this process, in seconds
-#if XASH_WIN32
-double Win32_GetCPUTime( void );
-static inline double Platform_GetCPUTime( void )
-{
-	return Win32_GetCPUTime();
-}
-#elif XASH_POSIX && defined( HAVE_GETRUSAGE )
-double POSIX_GetCPUTime( void );
-static inline double Platform_GetCPUTime( void )
-{
-	return POSIX_GetCPUTime();
-}
-#else
-static inline double Platform_GetCPUTime( void )
-{
-	return 0.0;
-}
-#endif
-
 typedef enum
 {
 	ORIENTATION_UNKNOWN = 0,
@@ -97,6 +77,7 @@ qboolean Platform_CheckLibraryDirectDependency( const byte *data, size_t size, c
 #endif
 
 #if XASH_POSIX
+double Posix_GetCPUTime( void );
 void Posix_Daemonize( void );
 void Posix_SetupSigtermHandling( void );
 char *Posix_Input( void );
@@ -127,6 +108,7 @@ void Android_Shutdown( void );
 #endif
 
 #if XASH_WIN32
+double Win32_GetCPUTime( void );
 void Win32_Init( qboolean con_showalways );
 void Win32_Shutdown( void );
 qboolean Win32_NanoSleep( int nsec );
@@ -138,6 +120,18 @@ void Wcon_DisableInput( void );
 char *Wcon_Input( void );
 void Wcon_WinPrint( const char *pMsg );
 #endif
+
+// returns the total CPU time used by this process, in seconds
+static inline double Platform_GetCPUTime( void )
+{
+#if XASH_WIN32
+	return Win32_GetCPUTime();
+#elif XASH_POSIX && HAVE_GETRUSAGE
+	return Posix_GetCPUTime();
+#else
+	return 0.0;
+#endif
+}
 
 #if XASH_NSWITCH
 void NSwitch_Init( void );

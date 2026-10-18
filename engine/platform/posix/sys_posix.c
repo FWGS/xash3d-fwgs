@@ -139,7 +139,7 @@ void Platform_Sleep( int msec )
 #if defined( HAVE_GETRUSAGE )
 #include <sys/resource.h>
 
-double POSIX_GetCPUTime( void )
+double Posix_GetCPUTime( void )
 {
 	struct rusage usage;
 

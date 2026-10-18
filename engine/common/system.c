@@ -93,10 +93,8 @@ double Sys_GetCPUUsage( void )
 	static double cpuPercent = 0.0;
 	double cputime = Platform_GetCPUTime();
 	double realtime = Sys_DoubleTime();
-	double dt, dcpu;
-
-	dt = realtime - lastrealtime;
-	dcpu = cputime - lastcputime;
+	double dt = realtime - lastrealtime;
+	double dcpu = cputime - lastcputime;
 
 	if( dt > 0.0 && dcpu >= 0.0 )
 		cpuPercent = ( dcpu / dt ) * 0.6 + cpuPercent * 0.4;

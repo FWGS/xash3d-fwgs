@@ -668,26 +668,21 @@ prints the status header
 static void SV_StatusPrintServerInfo( qboolean withAppID )
 {
 	netadr_t ip4, ip6;
-
 	NET_GetLocalAddress( &ip4, &ip6 );
 
 	Con_Printf( "hostname:  %s\n", Cvar_VariableString( "hostname" ));
 
 	if( withAppID )
-	{
 		Con_Printf( "version :  %i/%s %d insecure (%i)\n",
 			PROTOCOL_VERSION, XASH_VERSION, Q_buildnum(), SV_GetGameAppID( ));
-	}
 	else
-	{
 		Con_Printf( "version :  %i/%s %d insecure\n",
 			PROTOCOL_VERSION, XASH_VERSION, Q_buildnum( ));
-	}
 
 	if( ip4.type == NA_IP )
 		Con_Printf( "tcp/ip  :  %s\n", NET_AdrToString( ip4 ));
-	else if( ip6.type == NA_IP6 )
-		Con_Printf( "tcp/ip  :  %s\n", NET_AdrToString( ip6 ));
+	if( ip6.type == NA_IP6 )
+		Con_Printf( "tcp/ipv6:  %s\n", NET_AdrToString( ip6 ));
 
 	Con_Printf( "map     :  %s at: %d x, %d y, %d z\n", sv.name, 0, 0, 0 );
 }
@@ -701,12 +696,10 @@ returns the uniqueid column value, parsers expect a single token
 */
 static const char *SV_StatusGetUniqueID( const sv_client_t *cl )
 {
-	const char *uuid;
-
 	if( FBitSet( cl->flags, FCL_FAKECLIENT ))
 		return "BOT";
 
-	uuid = Info_ValueForKey( cl->useragent, "uuid" );
+	const char *uuid = Info_ValueForKey( cl->useragent, "uuid" );
 
 	return COM_StringEmpty( uuid ) ? "UNKNOWN" : uuid;
 }
@@ -766,11 +759,10 @@ SV_Status_f
 */
 static void SV_Status_f( void )
 {
-	int players, bots;
-
 	if( !SV_StatusCanPrint( ))
 		return;
 
+	int players, bots;
 	SV_GetPlayerCount( &players, &bots );
 	SV_StatusPrintServerInfo( true );
 	Con_Printf( "players :  %i active (%i max)\n\n", players, svs.maxclients );
@@ -779,26 +771,25 @@ static void SV_Status_f( void )
 	for( int i = 0; i < svs.maxclients; i++ )
 	{
 		const sv_client_t *cl = &svs.clients[i];
-		int hours, minutes, seconds;
-		size_t len;
-		string playtime;
-		char line[512];
 
 		if( cl->state != cs_spawned || !cl->edict )
 			continue;
 
+		int hours, minutes, seconds;
 		SV_StatusGetPlaytime( cl, &hours, &minutes, &seconds );
 
+		string playtime;
 		if( hours )
 			Q_snprintf( playtime, sizeof( playtime ), "%2i:%02i:%02i", hours, minutes, seconds );
 		else
 			Q_snprintf( playtime, sizeof( playtime ), "%02i:%02i", minutes, seconds );
 
+		char line[512];
 		Q_snprintf( line, sizeof( line ), "#%2i %8s %i %s %3i %s %4i  %3i",
 			i + 1, va( "\"%s\"", cl->name ), cl->userid, SV_StatusGetUniqueID( cl ),
 			(int)cl->edict->v.frags, playtime, SV_CalcPing( cl ), (int)cl->packet_loss );
 
-		len = Q_strlen( line );
+		size_t len = Q_strlen( line );
 
 		if( cl->netchan.remote_address.type == NA_IP )
 		{
@@ -822,11 +813,10 @@ tab-separated status variant, same data as status
 */
 static void SV_StatusFormatted_f( void )
 {
-	int players, bots;
-
 	if( !SV_StatusCanPrint( ))
 		return;
 
+	int players, bots;
 	SV_GetPlayerCount( &players, &bots );
 	SV_StatusPrintServerInfo( false );
 	Con_Printf( "players :  %i active (%i max)\n\n", players, svs.maxclients );
@@ -836,16 +826,15 @@ static void SV_StatusFormatted_f( void )
 	for( int i = 0; i < svs.maxclients; i++ )
 	{
 		const sv_client_t *cl = &svs.clients[i];
-		int seconds, minutes, hours;
-		string playtime;
 
 		if( cl->state != cs_spawned || !cl->edict )
 			continue;
 
-		seconds = host.realtime - cl->netchan.connect_time;
-		minutes = seconds / 60;
-		hours = minutes / 60;
+		int seconds = host.realtime - cl->netchan.connect_time;
+		int minutes = seconds / 60;
+		int hours = minutes / 60;
 
+		string playtime;
 		if( minutes && hours )
 			Q_snprintf( playtime, sizeof( playtime ), "%-2i:%02i:%02i", hours, minutes % 60, seconds % 60 );
 		else
@@ -908,95 +897,85 @@ client useragent, input devices and other per-player details
 */
 static void SV_Status2_f( void )
 {
-	netadr_t ip4, ip6;
-	int players, bots;
-
-	if( !SV_StatusCanPrint( ))
+#if !XASH_DEDICATED
+	if( !svs.clients && CL_Active( ))
+	{
+		Cmd_ForwardToServer();
 		return;
+	}
+#endif // XASH_DEDICATED
 
-	SV_GetPlayerCount( &players, &bots );
-	NET_GetLocalAddress( &ip4, &ip6 );
+	if( !svs.clients || sv.background )
+	{
+		Con_Printf( "^3no server running.\n" );
+		return;
+	}
 
-	Con_Printf( "hostname :  %s\n", Cvar_VariableString( "hostname" ));
-	Con_Printf( "version  :  %s build %d (%s-%s), protocol %d\n",
-		XASH_VERSION, Q_buildnum(), Q_buildos(), Q_buildarch(), PROTOCOL_VERSION );
-
-	if( ip4.type == NA_IP )
-		Con_Printf( "tcp/ip   :  %s\n", NET_AdrToString( ip4 ));
-	if( ip6.type == NA_IP6 )
-		Con_Printf( "tcp/ipv6 :  %s\n", NET_AdrToString( ip6 ));
-
-	Con_Printf( "map      :  %s\n", sv.name );
-	Con_Printf( "players  :  %d humans, %d bots, %d max\n\n", players, bots, svs.maxclients );
-
-	Con_Printf( " %2s  %-20.20s %6s %-8s %5s %5s %4s  %-7s %-4s %5s %6s  %-21.21s %s\n",
-		"#", "name", "userid", "state", "frag", "ping", "loss", "time", "dev", "qport", "last", "address", "agent" );
+	Con_Printf( "map: %s\n", sv.name );
+	Con_Printf( "# score ping dev  lastmsg qport useragent\t\tname\t\taddress\n" );
 
 	for( int i = 0; i < svs.maxclients; i++ )
 	{
 		const sv_client_t *cl = &svs.clients[i];
-		const char *state, *version, *os, *arch;
-		char devices[8];
-		char playtime[16];
-		char agent[64];
-		int hours, minutes, seconds;
-		int input_devices;
-		int j = 0;
 
 		if( !cl->state || !cl->edict )
 			continue;
 
-		switch( cl->state )
-		{
-		case cs_connected: state = "connect"; break;
-		case cs_spawning: state = "spawning"; break;
-		case cs_zombie: state = "zombie"; break;
-		default: state = FBitSet( cl->flags, FCL_FAKECLIENT ) ? "bot" : "active"; break;
-		}
+		const char *s;
+		if( cl->state == cs_connected )
+			s = "Connect ";
+		else if( cl->state == cs_spawning )
+			s = "Spawning";
+		else if( cl->state == cs_zombie )
+			s = "Zombie  ";
+		else if( FBitSet( cl->flags, FCL_FAKECLIENT ))
+			s = "Bot     ";
+		else
+			s = va( "%8i", SV_CalcPing( cl ));
 
-		input_devices = Q_atoi( Info_ValueForKey( cl->useragent, "d" ));
+		int input_devices = Q_atoi( Info_ValueForKey( cl->useragent, "d" ));
+		int j = 0;
+		char devices[8];
 
 		if( FBitSet( input_devices, INPUT_DEVICE_MOUSE ))
 			devices[j++] = 'm';
+
 		if( FBitSet( input_devices, INPUT_DEVICE_TOUCH ))
 			devices[j++] = 't';
+
 		if( FBitSet( input_devices, INPUT_DEVICE_JOYSTICK ))
 			devices[j++] = 'j';
+
 		if( FBitSet( input_devices, INPUT_DEVICE_VR ))
 			devices[j++] = 'v';
 
 		if( j == 0 )
 			Q_strncpy( devices, "n/a", sizeof( devices ));
 		else
-			devices[j] = 0;
+			devices[j++] = 0;
 
-		version = Info_ValueForKey( cl->useragent, "v" );
-		os = Info_ValueForKey( cl->useragent, "o" );
-		arch = Info_ValueForKey( cl->useragent, "a" );
+		string version;
+		string os;
+		string arch;
+		Q_strncpy( version, Info_ValueForKey( cl->useragent, "v" ), sizeof( version ));
+		Q_strncpy( os, Info_ValueForKey( cl->useragent, "o" ), sizeof( os ));
+		Q_strncpy( arch, Info_ValueForKey( cl->useragent, "a" ), sizeof( arch ));
+		int buildnum = Q_atoi( Info_ValueForKey( cl->useragent, "b" ));
 
-		if( COM_StringEmpty( version )) version = "n/a";
-		if( COM_StringEmpty( os )) os = "n/a";
-		if( COM_StringEmpty( arch )) arch = "n/a";
+		if( COM_StringEmpty( version ))
+			Q_strncpy( version, "n/a", sizeof( version ));
+		if( COM_StringEmpty( os ))
+			Q_strncpy( os, "n/a", sizeof( os ));
+		if( COM_StringEmpty( arch ))
+			Q_strncpy( arch, "n/a", sizeof( arch ));
 
-		Q_snprintf( agent, sizeof( agent ), "%s (%s-%s %d)",
-			version, os, arch, Q_atoi( Info_ValueForKey( cl->useragent, "b" )));
+		Con_Printf( "%2i %5i %4s %4s %.5f %5i %s (%s-%s %i)\t%8s\t%8s\n",
+			i, (int)cl->edict->v.frags, s, devices, host.realtime - cl->netchan.last_received, cl->netchan.qport,
+			version, os, arch, buildnum,
+			cl->name, NET_BaseAdrToString( cl->netchan.remote_address ) );
 
-		SV_StatusGetPlaytime( cl, &hours, &minutes, &seconds );
-
-		if( hours )
-			Q_snprintf( playtime, sizeof( playtime ), "%2i:%02i:%02i", hours, minutes, seconds );
-		else
-			Q_snprintf( playtime, sizeof( playtime ), "%02i:%02i", minutes, seconds );
-
-		Con_Printf( " %2i  %-20.20s %6i %-8s %5i %5i %4i  %-7s %-4s %5i %6.2f  %-21.21s %s\n",
-			i + 1, va( "\"%s\"", cl->name ), cl->userid, state,
-			(int)cl->edict->v.frags, SV_CalcPing( cl ), (int)cl->packet_loss,
-			playtime, devices, cl->netchan.qport,
-			host.realtime - cl->netchan.last_received,
-			NET_AdrToString( cl->netchan.remote_address ), agent );
 	}
-
-	Con_Printf( "\n%i humans, %i bots\n", players, bots );
+	Con_Printf( "\n" );
 }
 
 /*
