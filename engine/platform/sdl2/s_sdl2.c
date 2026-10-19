@@ -33,9 +33,7 @@ so it can unlock and free the data block after it has been played.
 =======================================================================
 */
 static int sdl_dev;
-#if !XASH_PS4
 static SDL_AudioDeviceID in_dev = 0;
-#endif
 static SDL_AudioFormat sdl_format;
 static char sdl_backend_name[32];
 
@@ -244,7 +242,6 @@ void SNDDMA_Activate( qboolean active )
 	SDL_PauseAudioDevice( sdl_dev, !active );
 }
 
-#if !XASH_PS4 // PS4 captures voice through libSceAudioIn, see platform/ps4/voice_ps4.c
 /*
 ===========
 SDL_SoundInputCallback
@@ -338,4 +335,3 @@ void VoiceCapture_Shutdown( void )
 	SDL_CloseAudioDevice( in_dev );
 	in_dev = 0;
 }
-#endif // !XASH_PS4

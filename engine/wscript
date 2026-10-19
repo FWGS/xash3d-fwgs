@@ -180,8 +180,8 @@ def configure(conf):
 	if conf.env.DEST_OS == 'ps4' and conf.env.CLIENT and not conf.env.DEDICATED:
 		conf.env.PS4_GNM = True
 		conf.env.LIB_PS4GNM_SYS = ['SceGnmDriver', 'SceVideoOut']
-		# system keyboard and microphone, platform/ps4/in_ps4.c and voice_ps4.c
-		conf.env.LIB_PS4CLIENT_SYS = ['SceImeDialog', 'SceCommonDialog', 'SceAudioIn']
+		# system keyboard, sound output and microphone, platform/ps4/in_ps4.c, s_ps4.c and voice_ps4.c
+		conf.env.LIB_PS4CLIENT_SYS = ['SceImeDialog', 'SceCommonDialog', 'SceAudioIn', 'SceAudioOut']
 
 def build_ps4_gnm(bld):
 	# GPU device of the PS4 port (platform/ps4/gnm), uses opengnm from 3rdparty/opengnm;
@@ -296,8 +296,8 @@ def build(bld):
 		defines = []
 		if bld.env.XASH_SDL:
 			libs += ['SDL%d' % bld.env.XASH_SDL]
-			# PS4 draws through GNM, see platform/ps4/vid_gnm.c
-			excl = ['platform/sdl2/vid_sdl2.c'] if bld.env.DEST_OS == 'ps4' else []
+			# PS4 draws through GNM (platform/ps4/vid_gnm.c) and has its own sound output (platform/ps4/s_ps4.c)
+			excl = ['platform/sdl2/vid_sdl2.c', 'platform/sdl2/s_sdl2.c'] if bld.env.DEST_OS == 'ps4' else []
 			source += bld.path.ant_glob(['platform/sdl%d/*.c' % bld.env.XASH_SDL], excl = excl)
 			defines += ['XASH_SDL=%d' % bld.env.XASH_SDL]
 
