@@ -2244,11 +2244,39 @@ int IN_TouchEvent( touchEventType type, int fingerID, float x, float y, float dx
 		if( cls.key_dest == key_console || cls.key_dest == key_message )
 		{
 			static float x1 = 0.0f;
+			static float tap_x = 0.0f, tap_y = 0.0f;
+			static qboolean tap_moved = false;
 			x1 += dx;
+
+			if( cls.key_dest == key_console && Con_ContextMenuActive( ))
+			{
+				int sx = (int)( x * refState.width );
+				int sy = (int)( y * refState.height );
+
+				if( type == event_motion )
+					Con_ContextMenuHover( sx, sy );
+				else if( type == event_up )
+					Con_ContextMenuTap( sx, sy );
+
+				UI_MouseMove( sx, sy );
+				return 0;
+			}
+
+			if( type == event_down )
+			{
+				tap_x = x;
+				tap_y = y;
+				tap_moved = false;
+			}
+			else if( type == event_motion && ( fabs( x - tap_x ) > 0.02f || fabs( y - tap_y ) > 0.02f ))
+			{
+				tap_moved = true;
+			}
 
 			if( type == event_up ) // don't show keyboard on every tap
 			{
-				Key_EnableTextInput( true, true );
+				if( cls.key_dest == key_message )
+					Key_EnableTextInput( true, true );
 				x1 = 0.0f;
 			}
 
@@ -2289,6 +2317,32 @@ int IN_TouchEvent( touchEventType type, int fingerID, float x, float y, float dx
 				else
 					Key_Message( K_ESCAPE );
 				x1 = 0.0f;
+				return 0;
+			}
+
+			if( cls.key_dest == key_console )
+			{
+				int sx = (int)( x * refState.width );
+				int sy = (int)( y * refState.height );
+
+				UI_MouseMove( sx, sy );
+
+				if( type == event_up && !tap_moved )
+				{
+					int ix, iy, iw, ih;
+
+					if( Con_GetInputRect( &ix, &iy, &iw, &ih ) && sy >= iy - 4 )
+					{
+						// tap on the input line shows the keyboard
+						Key_EnableTextInput( true, true );
+					}
+					else
+					{
+						// tap on the scrollback opens the context menu
+						Con_ContextMenuTap( sx, sy );
+					}
+				}
+
 				return 0;
 			}
 		}
