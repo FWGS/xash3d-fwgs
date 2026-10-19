@@ -48,6 +48,18 @@ static CVAR_DEFINE_AUTO( cl_logoext, "bmp", FCVAR_ARCHIVE, "temporary cvar to te
 CVAR_DEFINE_AUTO( cl_logomaxdim, "96", FCVAR_ARCHIVE, "maximum decal dimension" );
 static CVAR_DEFINE_AUTO( cl_test_bandwidth, "1", FCVAR_ARCHIVE, "test network bandwith before connection" );
 
+/*
+ * fake lag: segura o envio de pacotes por alguns ms. Os usercmds continuam
+ * sendo gerados e ficam no backlog; o proximo CL_WritePacket leva todos.
+ */
+static CVAR_DEFINE_AUTO( cl_fakelag, "0", FCVAR_ARCHIVE, "segura pacotes (fake lag)" );
+static CVAR_DEFINE_AUTO( cl_fakelag_limit, "60", FCVAR_ARCHIVE, "tempo maximo segurando o pacote, em ms" );
+static CVAR_DEFINE_AUTO( cl_fakelag_type, "1", FCVAR_ARCHIVE, "0 dinamico, 1 maximo, 2 flutuante" );
+static CVAR_DEFINE_AUTO( cl_fakelag_move, "0", FCVAR_ARCHIVE, "0 sempre, 1 so parado, 2 so no ar" );
+static CVAR_DEFINE_AUTO( cl_fakelag_while_shooting, "0", FCVAR_ARCHIVE, "segura tambem enquanto atira" );
+static CVAR_DEFINE_AUTO( cl_fakelag_variance, "20", FCVAR_ARCHIVE, "variacao do modo dinamico, em %%" );
+static CVAR_DEFINE_AUTO( cl_fakelag_debug, "0", 0, "mostra estatisticas do fakelag no console" );
+
 CVAR_DEFINE( cl_draw_particles, "r_drawparticles", "1", FCVAR_CHEAT, "render particles" );
 CVAR_DEFINE( cl_draw_tracers, "r_drawtracers", "1", FCVAR_CHEAT, "render tracers" );
 CVAR_DEFINE( cl_draw_beams, "r_drawbeams", "1", FCVAR_CHEAT, "render beams" );
@@ -941,13 +953,103 @@ CL_SendCommand
 Called every frame to builds and sends a command packet to the server.
 =================
 */
+/*
+ * fake lag: decide se o pacote deste frame deve ser segurado.
+ * Nunca deixa o backlog passar de FAKELAG_MAX_BACKLOG: acima disso o
+ * servidor receberia cmds demais de uma vez e o jogador "teleporta".
+ */
+#define FAKELAG_MAX_BACKLOG 8
+
+static double cl_fakelag_next;
+static int    cl_fakelag_toggle;
+static int    cl_fakelag_held;
+static int    cl_fakelag_sent;
+static double cl_fakelag_lastprint;
+
+static qboolean CL_HoldPacket( void )
+{
+	int backlog;
+	double limit;
+
+	if( !cl_fakelag.value || cls.state != ca_active )
+		return false;
+
+	limit = cl_fakelag_limit.value;
+
+	if( limit <= 0.0 )
+		return false;
+	if( limit > 200.0 )
+		limit = 200.0;
+
+	if( (int)cl_fakelag_move.value == 1 && VectorLength( cl.simvel ) > 5.0f )
+		return false;
+	if( (int)cl_fakelag_move.value == 2 && VectorLength( cl.simvel ) <= 5.0f )
+		return false;
+
+	if( !cl_fakelag_while_shooting.value && ( cl.cmd.buttons & IN_ATTACK ))
+		return false;
+
+	backlog = cls.netchan.outgoing_sequence - cls.lastoutgoingcommand;
+	if( backlog >= FAKELAG_MAX_BACKLOG )
+		return false;
+
+	switch( (int)cl_fakelag_type.value )
+	{
+	case 2: /* flutuante: um pacote sim, um nao */
+		cl_fakelag_toggle ^= 1;
+		return cl_fakelag_toggle ? true : false;
+
+	case 0: /* dinamico: alterna entre limit - variance/2 e limit + variance/2 */
+		{
+			double jitter = limit * ( cl_fakelag_variance.value * 0.01 );
+
+			if( host.realtime < cl_fakelag_next )
+				return true;
+
+			cl_fakelag_toggle ^= 1;
+			cl_fakelag_next = host.realtime +
+				( limit + ( cl_fakelag_toggle ? jitter * 0.5 : -jitter * 0.5 )) * 0.001;
+			return false;
+		}
+
+	default: /* maximo: segura exatamente limit ms */
+		if( cl_fakelag_next <= 0.0 )
+			cl_fakelag_next = host.realtime;
+
+		if(( host.realtime - cl_fakelag_next ) < limit * 0.001 )
+			return true;
+
+		cl_fakelag_next = host.realtime;
+		return false;
+	}
+}
+
 static void CL_SendCommand( void )
 {
 	// we create commands even if a demo is playing,
 	CL_CreateCmd();
 
-	// clc_move, userinfo etc
-	CL_WritePacket();
+	// fake lag: o cmd fica no backlog e vai junto no proximo envio
+	if( CL_HoldPacket( ))
+	{
+		cl_fakelag_held++;
+	}
+	else
+	{
+		// clc_move, userinfo etc
+		CL_WritePacket();
+		cl_fakelag_sent++;
+	}
+
+	if( cl_fakelag_debug.value && host.realtime - cl_fakelag_lastprint >= 5.0 )
+	{
+		Con_Printf( "fakelag: ativo=%d limite=%.0f tipo=%d segurados=%d enviados=%d\n",
+			(int)cl_fakelag.value, cl_fakelag_limit.value,
+			(int)cl_fakelag_type.value, cl_fakelag_held, cl_fakelag_sent );
+		cl_fakelag_lastprint = host.realtime;
+		cl_fakelag_held = 0;
+		cl_fakelag_sent = 0;
+	}
 }
 
 /*
@@ -3410,6 +3512,14 @@ static void CL_InitLocal( void )
 	Cvar_RegisterVariable( &cl_advertise_engine_in_name );
 	Cvar_RegisterVariable( &cl_log_outofband );
 	Cvar_RegisterVariable( &cl_autorecord );
+
+	Cvar_RegisterVariable( &cl_fakelag );
+	Cvar_RegisterVariable( &cl_fakelag_limit );
+	Cvar_RegisterVariable( &cl_fakelag_type );
+	Cvar_RegisterVariable( &cl_fakelag_move );
+	Cvar_RegisterVariable( &cl_fakelag_while_shooting );
+	Cvar_RegisterVariable( &cl_fakelag_variance );
+	Cvar_RegisterVariable( &cl_fakelag_debug );
 
 	Cvar_RegisterVariable( &showpause );
 	Cvar_RegisterVariable( &mp_decals );

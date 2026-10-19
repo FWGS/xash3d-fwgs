@@ -2839,7 +2839,7 @@ static void R_StudioFillBoneWeight( studio_static_vertex_t *dst, int vindex, byt
 
 	if( pvertweight )
 	{
-		for( i = 0; i < MAXSTUDIOBONEWEIGHTS && i < 4; i++ )
+		for( i = 0; i < 4; i++ )   /* MAXSTUDIOBONEWEIGHTS ja e 4 */
 		{
 			if( pvertweight[vindex].bone[i] < 0 )
 				break;

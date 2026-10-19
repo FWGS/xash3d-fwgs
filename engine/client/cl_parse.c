@@ -22,6 +22,7 @@ GNU General Public License for more details.
 
 #include "common.h"
 #include "client.h"
+#include "snd_esp.h"
 #include "net_encode.h"
 #include "cl_tent.h"
 #include "shake.h"
@@ -95,6 +96,8 @@ static void CL_ParseSoundPacket( sizebuf_t *msg, qboolean restore )
 
 	// positioned in space
 	MSG_ReadVec3Coord( msg, pos );
+
+	SndEsp_Push( pos, entnum, chan );
 
 	if( FBitSet( flags, SND_SENTENCE ))
 	{

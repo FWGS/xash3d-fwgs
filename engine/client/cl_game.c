@@ -516,8 +516,18 @@ static void CL_DrawScreenFade( void )
 {
 	screenfade_t	*sf = &clgame.fade;
 	int		alpha;
+	static convar_t	*cl_flash_alpha = NULL;
 
 	alpha = V_FadeAlpha( sf );
+
+	/*
+	 * Publica o alpha do screenfade para o client dll. O "flash check" do
+	 * aimbot usa isso para parar de mirar enquanto a flashbang cega.
+	 */
+	if( !cl_flash_alpha )
+		cl_flash_alpha = Cvar_Get( "cl_flash_alpha", "0", 0, "screenfade alpha (0-255)" );
+	if( cl_flash_alpha )
+		cl_flash_alpha->value = (float)alpha;
 
 	if( !alpha )
 		return;
