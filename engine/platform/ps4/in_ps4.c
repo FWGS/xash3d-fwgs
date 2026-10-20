@@ -14,8 +14,8 @@ GNU General Public License for more details.
 */
 
 /*
-OpenOrbis SDL2 joystick driver doesn't report sticks returning to center
-and drops one of the triggers, so DualShock 4 is read directly through libScePad
+DualShock 4 is read directly through libScePad: the PS4 has no mouse or window system,
+so input is polled once per frame in Platform_RunEvents
 */
 
 #include "platform/platform.h"
@@ -250,7 +250,7 @@ static void PS4_IME_KeyPress( int key )
 
 // typed text replaces the edited one: it's erased with the keys of the keyboard
 // (End, then Backspace for every character), then the text goes in like text input
-// events of SDL; console and chat send it right away
+// events of a keyboard; console and chat send it right away
 static void PS4_IME_Deliver( void )
 {
 	char text[IME_MAX_TEXT * 4 + 1];
@@ -409,13 +409,18 @@ void PS4_InputUpdate( void )
 
 	ps4pad.buttons = data.buttons;
 
-	// same layout as SDL GameController code uses
+	// layout of the common gamepad bindings
 	PS4_SendAxis( JOY_AXIS_SIDE, PS4_StickToAxis( data.leftStick.x ));
 	PS4_SendAxis( JOY_AXIS_FWD, PS4_StickToAxis( data.leftStick.y ));
 	PS4_SendAxis( JOY_AXIS_YAW, PS4_StickToAxis( data.rightStick.x ));
 	PS4_SendAxis( JOY_AXIS_PITCH, PS4_StickToAxis( data.rightStick.y ));
 	PS4_SendAxis( JOY_AXIS_LT, PS4_TriggerToAxis( data.analogButtons.l2 ));
 	PS4_SendAxis( JOY_AXIS_RT, PS4_TriggerToAxis( data.analogButtons.r2 ));
+}
+
+void Platform_RunEvents( void )
+{
+	PS4_InputUpdate();
 }
 
 int Platform_JoyInit( void )
@@ -479,7 +484,7 @@ void Platform_Vibrate2( float time, int val1, int val2, uint flags )
 	if( ps4pad.handle < 0 )
 		return;
 
-	// same strength as in the SDL code
+	// strength of the common gamepad rumble
 	if( val1 < 0 )
 		val1 = COM_RandomLong( 0x7FFF, 0xFFFF );
 	if( val2 < 0 )

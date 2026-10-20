@@ -435,8 +435,6 @@ void Platform_RunEvents( void )
 
 #if XASH_PSVITA
 	PSVita_InputUpdate();
-#elif XASH_PS4
-	PS4_InputUpdate();
 #endif
 }
 

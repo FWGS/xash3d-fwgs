@@ -31,7 +31,6 @@ GNU General Public License for more details.
 #include <orbis/SystemService.h>
 #include <orbis/Net.h>
 #include "platform/ps4/crash_ps4.h"
-#include <SDL.h>
 
 // application package mount point
 #define PS4_APP_DIR      "/app0"
@@ -54,8 +53,6 @@ static char *ps4_argv[PS4_MAX_ARGV];
 static char ps4_logpath[300];
 static qboolean ps4_log_sync; // -logsync, -gnmdebug: every write goes to disk, survives a console freeze
 
-static SDL_AssertState SDLCALL PS4_SDLAssertion( const SDL_AssertData *data, void *userdata );
-static void SDLCALL PS4_SDLLog( void *userdata, int category, SDL_LogPriority priority, const char *message );
 
 // 3rdparty/ps4compat/ps4_cwd.c
 const char *PS4_GetStatLayout( void );
@@ -205,7 +202,7 @@ static void PS4_SetupDataDir( void )
 
 	PS4_Log( "Xash3D FWGS PS4: base directory %s, stat layout %s\n", ps4_basedir, PS4_GetStatLayout( ));
 
-	// libraries (SDL port in particular) print to stdout directly,
+	// libraries print to stdout directly,
 	// applications can't redirect it, so it's captured by ps4_stdio.c
 	ps4_stdout_hook = PS4_LogWrite;
 
@@ -238,10 +235,6 @@ int PS4_GetArgv( int in_argc, char **in_argv, char ***out_argv )
 	PS4_SetupDataDir();
 
 	PS4_InstallCrashHandler( );
-
-	// before SDL_Init, so nothing can block on stdin or get lost
-	SDL_SetAssertionHandler( PS4_SDLAssertion, NULL );
-	SDL_LogSetOutputFunction( PS4_SDLLog, NULL );
 
 	ps4_argv[argc++] = ( in_argc > 0 && in_argv[0] ) ? in_argv[0] : (char *)PS4_APP_DIR "/eboot.bin";
 
@@ -360,21 +353,27 @@ int PS4_RunOnBigStack( int ( *func )( void *arg ), void *arg )
 
 /*
 ==================
-PS4_SDLAssertion
+Platform_DoubleTime
 
-Default SDL handler asks user on stdin and blocks forever, log and continue instead
+clock_gettime( CLOCK_MONOTONIC ) of the toolchain uses the clock id of its own libc,
+which the kernel reads as another clock (process CPU time), so the game would run slow.
+Time since the start of the process is taken from the kernel directly
 ==================
 */
-static SDL_AssertState SDLCALL PS4_SDLAssertion( const SDL_AssertData *data, void *userdata )
+double Platform_DoubleTime( void )
 {
-	PS4_Log( "SDL assertion failed: '%s' at %s:%d (%s), %u times\n",
-		data->condition, data->filename, data->linenum, data->function, data->trigger_count );
-	return SDL_ASSERTION_ALWAYS_IGNORE;
+	static uint64_t start;
+	const uint64_t now = sceKernelGetProcessTime( ); // microseconds
+
+	if( !start )
+		start = now;
+
+	return (double)( now - start ) / 1000000.0;
 }
 
-static void SDLCALL PS4_SDLLog( void *userdata, int category, SDL_LogPriority priority, const char *message )
+void Platform_Sleep( int msec )
 {
-	PS4_Log( "SDL: %s\n", message );
+	sceKernelUsleep( (uint32_t)msec * 1000 );
 }
 
 void PS4_Init( void )
@@ -396,7 +395,7 @@ void PS4_Init( void )
 		PS4_Log( "DNS servers: %d.%d.%d.%d, %d.%d.%d.%d\n", a[0], a[1], a[2], a[3], b[0], b[1], b[2], b[3] );
 	}
 
-	// SDL's PS4 backends expect user service to be initialized
+	// libScePad, libSceAudioIn and the system dialogs need user service
 	sceUserServiceInitialize( NULL );
 
 	PS4_InitKeyboard( );

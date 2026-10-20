@@ -49,6 +49,10 @@ SETUP BACKENDS DEFINITIONS
 		#define XASH_REDUCE_FD 1
 		#define XASH_NO_TOUCH  1
 		#define XASH_NO_ZIP    1
+	#elif XASH_PS4 // the video, sound and input are ours, see engine/platform/ps4
+		#define XASH_VIDEO     VIDEO_PS4
+		#define XASH_INPUT     INPUT_PS4
+		#define XASH_SOUND     SOUND_PS4
 	#endif
 #endif // !XASH_DEDICATED
 
@@ -81,6 +85,8 @@ SETUP BACKENDS DEFINITIONS
 		#define XASH_TIMER TIMER_DOS
 	#elif XASH_PSP
 		#define XASH_TIMER TIMER_PSP
+	#elif XASH_PS4
+		#define XASH_TIMER TIMER_PS4
 	#else // !XASH_WIN32
 		#define XASH_TIMER TIMER_POSIX
 	#endif // !XASH_WIN32

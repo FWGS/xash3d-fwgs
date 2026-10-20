@@ -343,7 +343,6 @@ void SDLash_HandleGameControllerEvent( SDL_Event *ev )
 	}
 }
 
-#if !XASH_PS4 // PS4 reads gamepad through libScePad, see platform/ps4/in_ps4.c
 void Platform_CalibrateGamepadGyro( void )
 {
 	SDLash_RestartCalibration();
@@ -437,4 +436,3 @@ void Platform_JoyShutdown( void )
 
 	SDL_QuitSubSystem( SDL_INIT_GAMECONTROLLER );
 }
-#endif // !XASH_PS4

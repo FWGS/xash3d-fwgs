@@ -60,9 +60,7 @@ Platform_SetMousePos
 */
 void GAME_EXPORT Platform_SetMousePos( int x, int y )
 {
-#if !XASH_PS4 // there is no mouse, and host.hWnd isn't an SDL window
 	SDL_WarpMouseInWindow( host.hWnd, x, y );
-#endif
 }
 
 /*
@@ -177,8 +175,7 @@ int Platform_TranslateKeyLayout( int keynum )
 	return keynum;
 }
 
-// PS Vita and PS4 have their own implementations, see platform/psvita/in_psvita.c and platform/ps4/in_ps4.c
-#if !XASH_PSVITA && !XASH_PS4
+#if !XASH_PSVITA
 
 /*
 =============
@@ -208,7 +205,7 @@ void Platform_EnableTextInput( qboolean enable, int x, int y, int w, int h )
 	SDL_StartTextInput();
 }
 
-#endif // !XASH_PSVITA && !XASH_PS4
+#endif // !XASH_PSVITA
 
 /*
 ========================
@@ -284,7 +281,6 @@ void Platform_SetCursorType( VGUI_DefaultCursor type )
 	host.mouse_visible = visible;
 	VGui_UpdateInternalCursorState( type );
 
-#if !XASH_PS4 // there is no mouse cursor
 	if( host.mouse_visible )
 	{
 		if( cursors.initialized )
@@ -311,7 +307,6 @@ void Platform_SetCursorType( VGUI_DefaultCursor type )
 
 		SDL_ShowCursor( false );
 	}
-#endif // !XASH_PS4
 }
 
 /*
@@ -321,11 +316,7 @@ Platform_GetMouseGrab
 */
 qboolean Platform_GetMouseGrab( void )
 {
-#if XASH_PS4
-	return false; // host.hWnd isn't an SDL window
-#else
 	return SDL_GetWindowGrab( host.hWnd );
-#endif
 }
 
 /*
@@ -335,9 +326,7 @@ Platform_SetMouseGrab
 */
 void Platform_SetMouseGrab( qboolean enable )
 {
-#if !XASH_PS4 // host.hWnd isn't an SDL window
 	SDL_SetWindowGrab( host.hWnd, enable );
-#endif
 }
 
 /*

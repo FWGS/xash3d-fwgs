@@ -297,7 +297,7 @@ static inline qboolean Platform_LibraryExists( const char *name, qboolean gamedi
 
 ==============================================================================
 */
-#if XASH_SDL >= 2
+#if XASH_SDL >= 2 || XASH_PS4
 void Platform_Vibrate( float life, char flags ); // left for compatibility
 void Platform_Vibrate2( float time, int low_freq, int high_freq, uint flags );
 #else
@@ -339,6 +339,13 @@ static inline void GAME_EXPORT Platform_GetMousePos( int *x, int *y )
 #if XASH_SDL || XASH_DOS
 void Platform_RunEvents( void );
 void Platform_MouseMove( float *x, float *y );
+#elif XASH_PS4 // no mouse, the gamepad is polled in Platform_RunEvents
+void Platform_RunEvents( void );
+static inline void Platform_MouseMove( float *x, float *y )
+{
+	if( x ) *x = 0.0f;
+	if( y ) *y = 0.0f;
+}
 #else
 static inline void Platform_RunEvents( void ) { }
 static inline void Platform_MouseMove( float *x, float *y )
@@ -350,7 +357,7 @@ static inline void Platform_MouseMove( float *x, float *y )
 
 // rect is the area where the text is edited, in render coordinates, so the platform
 // might keep it visible when it shows the on-screen keyboard over the game
-#if XASH_SDL >= 2 || XASH_PSVITA || XASH_DOS || XASH_USE_EVDEV
+#if XASH_SDL >= 2 || XASH_PSVITA || XASH_DOS || XASH_USE_EVDEV || XASH_PS4
 void Platform_EnableTextInput( qboolean enable, int x, int y, int w, int h );
 #else
 static inline void Platform_EnableTextInput( qboolean enable, int x, int y, int w, int h ) { }
@@ -365,15 +372,19 @@ int Platform_TranslateKeyLayout( int keynum );
 static inline int Platform_TranslateKeyLayout( int keynum ) { return keynum; }
 #endif
 
-#if XASH_SDL >= 2
+#if XASH_SDL >= 2 || XASH_PS4
 int Platform_JoyInit( void ); // returns number of connected gamepads, negative if error
 void Platform_JoyShutdown( void );
 void Platform_CalibrateGamepadGyro( void );
-key_modifier_t Platform_GetKeyModifiers( void );
 #else
 static inline int Platform_JoyInit( void ) { return 0; }
 static inline void Platform_JoyShutdown( void ) { }
 static inline void Platform_CalibrateGamepadGyro( void ) { }
+#endif
+
+#if XASH_SDL >= 2
+key_modifier_t Platform_GetKeyModifiers( void );
+#else
 static inline key_modifier_t Platform_GetKeyModifiers( void ) { return KeyModifier_None; }
 #endif
 

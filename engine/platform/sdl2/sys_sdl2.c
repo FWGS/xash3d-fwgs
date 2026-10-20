@@ -115,12 +115,8 @@ void SDLash_Init( void )
 	// SDL_SetHint( SDL_HINT_WINDOWS_DPI_SCALING, "1" );
 #endif // XASH_WIN32
 
-#ifdef SDL_HINT_ANDROID_BLOCK_ON_PAUSE
 	SDL_SetHint( SDL_HINT_ANDROID_BLOCK_ON_PAUSE, "0" );
-#endif
-#ifdef SDL_HINT_ANDROID_BLOCK_ON_PAUSE_PAUSEAUDIO
 	SDL_SetHint( SDL_HINT_ANDROID_BLOCK_ON_PAUSE_PAUSEAUDIO, "0" );
-#endif
 
 	// when launched through Steam (notably on Steam Deck) Steam Input hides the
 	// real controller and exposes a virtual gamepad without gyro/touchpad access
@@ -131,13 +127,7 @@ void SDLash_Init( void )
 		SDL_setenv( "SDL_GAMECONTROLLER_IGNORE_DEVICES", "0x28DE/0x11FF", 1 );
 	}
 
-	// PS4 draws through its own video backend, see platform/ps4/vid_gnm.c
-	Uint32 init_flags = SDL_INIT_TIMER | SDL_INIT_EVENTS;
-#if !XASH_PS4
-	init_flags |= SDL_INIT_VIDEO;
-#endif
-
-	if( SDL_Init( init_flags ))
+	if( SDL_Init( SDL_INIT_TIMER | SDL_INIT_VIDEO | SDL_INIT_EVENTS ) )
 	{
 		Sys_Warn( "SDL_Init failed: %s", SDL_GetError() );
 		host.type = HOST_DEDICATED;
