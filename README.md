@@ -11,6 +11,44 @@ Este repositório remove do guia principal instruções de plataformas fora do a
 
 ## Alteracoes Do Fork Por Data
 
+### 2026-10-19
+
+#### FastDL com HTTPS
+
+- Downloader HTTP ganhou TLS com OpenSSL (`HTTP_TlsInit`, `HTTP_FileTlsHandshake`,
+  `HTTP_NetSend`/`HTTP_NetRecv`), necessario para FastDL em `https://` (ex.: `mkl.bz`).
+- Build detecta zlib e OpenSSL no `wscript` (`HAVE_SYSTEM_ZLIB`, `HAVE_SYSTEM_OPENSSL`).
+- Descompressao em cascata: zlib do sistema, miniz e caminho legado (`http_decompress`).
+- Retry de sufixo `.bz2`/`.gz` quando o arquivo nao existe no FastDL
+  (`http_fastdl_suffix`) e recuperacao do nome original no `dlfile`.
+- `cl_downloadurl` permite fixar uma URL de FastDL quando o servidor nao anuncia uma.
+
+#### Parser de `svc_resourcelist`
+
+- Parser tolerante (`cl_parse.c`): descobre o layout por pontuacao, aceita
+  `rguc_reserved` de 32 bytes e count em 12 bits, remove prefixos `!`/`!A` do ReHLDS e
+  ignora nomes invalidos em vez de abortar a lista.
+- Servidores ReHLDS com recursos custom (ex.: 989 recursos) entram sem falhar.
+
+#### Precache e estabilidade
+
+- BSP vazio/truncado e' recusado; so o `.bsp` do mapa ocupa o world model.
+- Arquivo de 0 byte em `downloaded/` e' apagado e baixado de novo.
+- `RES_FATALIFMISSING` virou warning: recurso faltando nao derruba mais a conexao.
+- `Mod_UnloadTextures` nao chama mais `Assert(0)` em modelo invalido.
+- MP3 com ID3v2.3 passa a ser aceito (antes so 2.4).
+
+#### Fake lag
+
+- `cl_fakelag*` no envio de pacotes: choke com modo maximo/dinamico/flutuante,
+  limite em ms, variacao, restricao por movimento e opcao de segurar durante o tiro.
+
+#### Documentacao
+
+- `Documentation/fastdl.md` - resourcelist, TLS, descompressao, cvars e ferramentas.
+- `Documentation/fakelag.md` - cvars e funcionamento do choke.
+- `Documentation/client-fixes.md` - correcoes de compatibilidade.
+
 ### 2026-05-26
 
 #### Downloads e rede
