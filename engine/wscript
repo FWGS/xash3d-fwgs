@@ -223,6 +223,10 @@ def build(bld):
 		libs += ['CURL']
 	else:
 		source += ['common/http/net_http_xash.c']
+		if bld.get_define('HAVE_SYSTEM_ZLIB'):
+			libs += ['zlib']
+		if bld.get_define('HAVE_SYSTEM_OPENSSL'):
+			libs += ['OPENSSL']
 
 	if bld.env.DEST_OS == 'win32':
 		libs += ['USER32', 'SHELL32', 'GDI32', 'ADVAPI32', 'DBGHELP', 'PSAPI', 'WS2_32']

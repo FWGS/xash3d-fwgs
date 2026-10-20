@@ -95,6 +95,17 @@ qboolean CL_CheckFile( sizebuf_t *msg, resource_t *pResource )
 		return true;
 	}
 
+	/*
+	 * Arquivo de 0 byte e' resto de download interrompido: trata como
+	 * ausente para baixar de novo, senao o precache carrega lixo
+	 * (BSP vazio derruba o renderer).
+	 */
+	if( FS_FileExists( filepath, false ) && FS_FileSize( filepath, false ) <= 0 )
+	{
+		Con_Reportf( S_WARN "file %s esta vazio, baixando de novo\n", filepath );
+		FS_Delete( filepath );
+	}
+
 	// don't request downloads from local client it's silly
 	if( Host_IsLocalClient() || FS_FileExists( filepath, false ))
 		return true;

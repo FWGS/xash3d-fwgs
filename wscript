@@ -547,6 +547,22 @@ int main(void) { return (int)BZ2_bzlibVersion(); }'''
 
 			conf.env.HAVE_SYSTEM_BZ2 = conf.check_cc(lib='bz2', fragment=BZIP2_CHECK, uselib_store='bzip2', mandatory=False)
 
+			# search for zlib: preferido para gzip; sem ele caimos no miniz
+			ZLIB_CHECK='''#include <zlib.h>
+int main(void) { z_stream s; (void)s; return zlibVersion() == 0; }'''
+
+			conf.env.HAVE_SYSTEM_ZLIB = conf.check_cc(lib='z', header_name='zlib.h', fragment=ZLIB_CHECK, uselib_store='zlib', mandatory=False)
+			conf.define('HAVE_SYSTEM_ZLIB', conf.env.HAVE_SYSTEM_ZLIB)
+
+			# openssl: necessario para FastDL em https (mkl.bz e similares)
+			OPENSSL_CHECK='''#include <openssl/ssl.h>
+int main(void) { SSL_library_init(); return 0; }'''
+
+			conf.env.HAVE_SYSTEM_OPENSSL = conf.check_cc(lib='ssl', header_name='openssl/ssl.h', fragment=OPENSSL_CHECK, uselib_store='OPENSSL', mandatory=False)
+			if conf.env.HAVE_SYSTEM_OPENSSL:
+				conf.env.LIB_OPENSSL = ['ssl', 'crypto']
+			conf.define('HAVE_SYSTEM_OPENSSL', conf.env.HAVE_SYSTEM_OPENSSL)
+
 	conf.define('XASH_LOW_MEMORY', conf.options.LOW_MEMORY)
 
 	for i in SUBDIRS:

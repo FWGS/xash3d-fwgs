@@ -134,8 +134,8 @@ static qboolean Sound_ParseID3Tag( const byte *buffer, fs_offset_t filesize )
 		return true; // missing tag header is not an error
 	}
 
-	// support only latest id3 v2.4
-	if( header->major_ver != 4 || header->minor_ver == 0xff )
+	// v2.3 usa o mesmo encoding syncsafe do v2.4: aceita as duas
+	if( header->major_ver < 3 || header->major_ver > 4 || header->minor_ver == 0xff )
 	{
 		Con_Printf( S_ERROR "%s: invalid ID3v2 tag version 2.%d.%d. Convert to ID3v2.4!\n", __func__, header->major_ver, header->minor_ver );
 		return false;

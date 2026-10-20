@@ -20,12 +20,36 @@ GNU General Public License for more details.
 #include "xash3d_mathlib.h"
 #include "ipv6text.h"
 #include "net_ws_private.h"
+
+/*
+ * Descompressao HTTP: zlib do sistema quando existir (gzip nativo),
+ * miniz (vendorizado) como reserva e, por ultimo, o metodo antigo.
+ */
+#if defined(HAVE_SYSTEM_ZLIB) && HAVE_SYSTEM_ZLIB
+#define HTTP_HAVE_ZLIB 1
+#include <zlib.h>
+#else
+#define HTTP_HAVE_ZLIB 0
 #include "miniz.h"
+#endif
+
+#include <bzlib.h>
+
+/*
+ * TLS para FastDL em https (mkl.bz e afins). Sem openssl o downloader
+ * continua funcionando apenas em http:// puro.
+ */
+#if defined(HAVE_SYSTEM_OPENSSL) && HAVE_SYSTEM_OPENSSL
+#define HTTP_HAVE_TLS 1
+#include <openssl/ssl.h>
+#include <openssl/err.h>
+#else
+#define HTTP_HAVE_TLS 0
+#endif
 
 #ifndef XASH_USE_CURL_DOWNLOADER
 #define XASH_USE_CURL_DOWNLOADER 0
 #endif
-
 #if XASH_USE_CURL_DOWNLOADER
 #include <curl/curl.h>
 #include <archive.h>
@@ -124,6 +148,9 @@ typedef struct httpfile_s
 	char curl_error[CURL_ERROR_SIZE];
 #endif
 	int socket;
+#if HTTP_HAVE_TLS
+	void *ssl;                   // SSL* para FastDL em https
+#endif
 	int size;
 	int reported_size;
 	int downloaded;
@@ -145,6 +172,8 @@ typedef struct httpfile_s
 	int chunk_header_len;
 	int retries;
 	int redirects;
+	int suffix_try;              // 0 original, 1 .bz2, 2 .gz
+	char orig_path[MAX_SYSPATH]; // nome final, sem o sufixo de compressao
 	resource_t *resource;
 	http_process_fn_t pfn_process;
 	struct sockaddr_storage addr;
@@ -176,6 +205,8 @@ static CVAR_DEFINE_AUTO( http_maxconnections, "12", FCVAR_ARCHIVE | FCVAR_PRIVIL
 static CVAR_DEFINE_AUTO( http_max_retries, "2", FCVAR_ARCHIVE | FCVAR_PRIVILEGED, "retries per HTTP server before fallback/next server" );
 static CVAR_DEFINE_AUTO( http_max_redirects, "5", FCVAR_ARCHIVE | FCVAR_PRIVILEGED, "maximum HTTP redirects per file" );
 static CVAR_DEFINE_AUTO( http_show_headers, "0", FCVAR_ARCHIVE | FCVAR_PRIVILEGED, "show HTTP headers (request and response)" );
+static CVAR_DEFINE_AUTO( http_decompress, "0", FCVAR_ARCHIVE | FCVAR_PRIVILEGED, "descompressor: 0 auto, 1 zlib, 2 miniz, 3 legado" );
+static CVAR_DEFINE_AUTO( http_fastdl_suffix, "1", FCVAR_ARCHIVE | FCVAR_PRIVILEGED, "tenta arquivo.bz2/.gz quando o arquivo nao existe no fastdl" );
 
 #if XASH_USE_CURL_DOWNLOADER
 static CVAR_DEFINE_AUTO( http_curl, "1", FCVAR_ARCHIVE | FCVAR_PRIVILEGED, "use libcurl backend for HTTP/FastDL downloads" );
@@ -194,6 +225,12 @@ static int HTTP_FileQueue( httpfile_t *file );
 static int HTTP_FileResolveNS( httpfile_t *file );
 static int HTTP_FileSendRequest( httpfile_t *file );
 static int HTTP_FileDecompress( httpfile_t *file );
+#if HTTP_HAVE_TLS
+static int HTTP_FileTlsHandshake( httpfile_t *file );
+static int HTTP_NetSend( httpfile_t *file, const void *buf, int len );
+static int HTTP_NetRecv( httpfile_t *file, void *buf, int len );
+#endif
+static void HTTP_SelectProcessor( httpfile_t *file );
 static qboolean HTTP_ReopenIncomplete( httpfile_t *file, qboolean truncate );
 static qboolean HTTP_RestartTransfer( httpfile_t *file );
 static qboolean HTTP_ParseURLParts( const char *url_, char *host, size_t hostsize, int *port, char *path, size_t pathsize );
@@ -209,6 +246,14 @@ static qboolean HTTP_ArchiveExtractMember( const char *archive_path, const char 
 
 static void HTTP_CloseSocketOnly( httpfile_t *file )
 {
+#if HTTP_HAVE_TLS
+	if( file->ssl )
+	{
+		SSL_shutdown( (SSL *)file->ssl );
+		SSL_free( (SSL *)file->ssl );
+		file->ssl = NULL;
+	}
+#endif
 	if( file->socket != -1 )
 	{
 		closesocket( file->socket );
@@ -367,7 +412,7 @@ static qboolean HTTP_ParseURLParts( const char *url_, char *host, size_t hostsiz
 		url = url_ + 7;
 	else if( !Q_strnicmp( url_, "https://", 8 ))
 	{
-#if XASH_USE_CURL_DOWNLOADER
+#if XASH_USE_CURL_DOWNLOADER || HTTP_HAVE_TLS
 		url = url_ + 8;
 #else
 		Con_Printf( S_ERROR "HTTP: HTTPS FastDL URL '%s' needs a libcurl/OpenSSL backend; falling back to legacy download.\n", url_ );
@@ -987,6 +1032,14 @@ static qboolean HTTP_ApplyRedirect( httpfile_t *file, const char *location )
 	return HTTP_RestartTransfer( file );
 }
 
+static qboolean HTTP_HasCompressedSuffix( httpfile_t *file )
+{
+	size_t len = Q_strlen( file->path );
+
+	return (( len > 4 && !Q_stricmp( file->path + len - 4, ".bz2" ))
+		|| ( len > 3 && !Q_stricmp( file->path + len - 3, ".gz" )));
+}
+
 static qboolean HTTP_CheckComplete( httpfile_t *file )
 {
 	if( file->size > 0 )
@@ -1000,10 +1053,10 @@ static qboolean HTTP_CheckComplete( httpfile_t *file )
 
 	if( file->size > 0 && file->downloaded >= file->size )
 	{
-		if( file->compressed && !file->chunked )
+		if(( file->compressed && !file->chunked ) || HTTP_HasCompressedSuffix( file ))
 		{
-			file->pfn_process = HTTP_FileDecompress;
 			file->success = true;
+			HTTP_SelectProcessor( file );
 		}
 		else HTTP_FreeFile( file, false );
 
@@ -1042,6 +1095,14 @@ static void HTTP_FreeFile( httpfile_t *file, qboolean error )
 
 	if( error )
 	{
+		/* o sufixo .bz2/.gz e so para a URL: restaura o nome real antes de
+		 * qualquer fallback (dlfile) ou mensagem de erro */
+		if( file->orig_path[0] )
+		{
+			Q_strncpy( file->path, file->orig_path, sizeof( file->path ));
+			file->suffix_try = 0;
+		}
+
 		if( file->server && was_open && !file->no_retry && file->retries < (int)http_max_retries.value )
 		{
 			file->retries++;
@@ -1292,15 +1353,149 @@ static int HTTP_FileConnect( httpfile_t *file )
 	Q_strncpy( file->query_backup, file->buf, sizeof( file->query_backup ));
 	file->bytes_sent = 0;
 	file->header_size = 0;
-	file->pfn_process = HTTP_FileSendRequest;
+#if HTTP_HAVE_TLS
+	if( file->server && !Q_strnicmp( file->server->scheme, "https", 5 ))
+		file->pfn_process = HTTP_FileTlsHandshake;
+	else
+#endif
+		file->pfn_process = HTTP_FileSendRequest;
 	return 1;
 }
+
+#if HTTP_HAVE_TLS
+
+static SSL_CTX *http_ssl_ctx;
+
+static qboolean HTTP_TlsInit( void )
+{
+	if( http_ssl_ctx )
+		return true;
+
+	SSL_library_init();
+	SSL_load_error_strings();
+
+	http_ssl_ctx = SSL_CTX_new( TLS_client_method( ));
+	if( !http_ssl_ctx )
+		return false;
+
+	/* fastdl publico: nem sempre tem cadeia confiavel completa */
+	SSL_CTX_set_verify( http_ssl_ctx, SSL_VERIFY_NONE, NULL );
+	return true;
+}
+
+static int HTTP_NetSend( httpfile_t *file, const void *buf, int len )
+{
+	SSL *ssl = (SSL *)file->ssl;
+	int res, err;
+
+	if( !ssl )
+		return send( file->socket, buf, len, 0 );
+
+	res = SSL_write( ssl, buf, len );
+	if( res > 0 )
+		return res;
+
+	err = SSL_get_error( ssl, res );
+	if( err == SSL_ERROR_WANT_READ || err == SSL_ERROR_WANT_WRITE )
+	{
+		errno = EWOULDBLOCK;
+		return -1;
+	}
+
+	errno = ECONNRESET;
+	return -1;
+}
+
+static int HTTP_NetRecv( httpfile_t *file, void *buf, int len )
+{
+	SSL *ssl = (SSL *)file->ssl;
+	int res, err;
+
+	if( !ssl )
+		return recv( file->socket, buf, len, 0 );
+
+	res = SSL_read( ssl, buf, len );
+	if( res > 0 )
+		return res;
+
+	err = SSL_get_error( ssl, res );
+	if( err == SSL_ERROR_WANT_READ || err == SSL_ERROR_WANT_WRITE )
+	{
+		errno = EWOULDBLOCK;
+		return -1;
+	}
+
+	if( err == SSL_ERROR_ZERO_RETURN )
+		return 0; // fim limpo
+
+	errno = ECONNRESET;
+	return -1;
+}
+
+/*
+ * Handshake TLS em socket nao bloqueante: retorna 1 quando pronto para
+ * enviar a requisicao, 0 para aguardar e trata erro liberando o arquivo.
+ */
+static int HTTP_FileTlsHandshake( httpfile_t *file )
+{
+	SSL *ssl = (SSL *)file->ssl;
+	int res, err;
+
+	if( !ssl )
+	{
+		if( !HTTP_TlsInit( ))
+		{
+			Con_Printf( S_ERROR "HTTP: openssl indisponivel para %s\n", file->path );
+			HTTP_FreeFile( file, true );
+			return 0;
+		}
+
+		ssl = SSL_new( http_ssl_ctx );
+		if( !ssl )
+		{
+			HTTP_FreeFile( file, true );
+			return 0;
+		}
+
+		SSL_set_fd( ssl, file->socket );
+		SSL_set_tlsext_host_name( ssl, file->server->host );
+		SSL_set_connect_state( ssl );
+		file->ssl = ssl;
+	}
+
+	res = SSL_connect( ssl );
+	if( res == 1 )
+	{
+		file->blocktime = 0;
+		file->pfn_process = HTTP_FileSendRequest;
+		return 1;
+	}
+
+	err = SSL_get_error( ssl, res );
+	if( err == SSL_ERROR_WANT_READ || err == SSL_ERROR_WANT_WRITE )
+	{
+		file->blocktime += host.frametime;
+		file->blockreason = "tls handshake";
+		return 0;
+	}
+
+	Con_Printf( S_ERROR "HTTP: TLS handshake falhou para %s (%s)\n",
+		file->path, ERR_reason_error_string( ERR_get_error( )));
+	HTTP_FreeFile( file, true );
+	return 0;
+}
+
+#endif // HTTP_HAVE_TLS
 
 static int HTTP_FileSendRequest( httpfile_t *file )
 {
 	int res = -1;
 
+#if HTTP_HAVE_TLS
+	res = HTTP_NetSend( file, file->buf + file->bytes_sent, file->query_length - file->bytes_sent );
+#else
 	res = send( file->socket, file->buf + file->bytes_sent, file->query_length - file->bytes_sent, 0 );
+#endif
 
 	if( res >= 0 )
 	{
@@ -1335,48 +1530,87 @@ static int HTTP_FileSendRequest( httpfile_t *file )
 	return 0;
 }
 
-static int HTTP_FileDecompress( httpfile_t *file )
+/* ------------------------------------------------------------------ */
+/* descompressao: zlib -> miniz -> metodo antigo                       */
+/* ------------------------------------------------------------------ */
+
+#define HTTP_DECOMP_AUTO   0
+#define HTTP_DECOMP_ZLIB   1
+#define HTTP_DECOMP_MINIZ  2
+#define HTTP_DECOMP_LEGACY 3
+
+static const char *HTTP_DecompName( int mode )
+{
+	switch( mode )
+	{
+	case HTTP_DECOMP_ZLIB:   return "zlib";
+	case HTTP_DECOMP_MINIZ:  return "miniz";
+	case HTTP_DECOMP_LEGACY: return "legacy";
+	default:                 return "auto";
+	}
+}
+
+/*
+ * Descobre onde os dados deflate comecam num stream gzip.
+ * Retorna o offset do primeiro byte comprimido ou -1 se nao for gzip.
+ */
+static int HTTP_GzipDataOffset( const byte *buf, int len )
+{
+	int off = 10;
+
+	if( len < 10 || buf[0] != 0x1f || buf[1] != 0x8b || buf[2] != 8 )
+		return -1;
+
+	if( buf[3] & 0x04 )   /* FEXTRA */
+	{
+		if( len < off + 2 )
+			return -1;
+		off += 2 + ( buf[off] | ( buf[off + 1] << 8 ));
+	}
+	if( buf[3] & 0x08 )   /* FNAME */
+	{
+		while( off < len && buf[off] ) off++;
+		off++;
+	}
+	if( buf[3] & 0x10 )   /* FCOMMENT */
+	{
+		while( off < len && buf[off] ) off++;
+		off++;
+	}
+	if( buf[3] & 0x02 )   /* FHCRC */
+		off += 2;
+
+	return ( off < len ) ? off : -1;
+}
+
+/*
+ * Infla o arquivo a partir de offset e escreve em out.
+ * Retorna os bytes escritos, ou -1 em erro.
+ */
+static int HTTP_InflateToFile( httpfile_t *file, file_t *out, int offset, int windowBits )
 {
 	z_stream stream;
-	char name[MAX_SYSPATH];
-	file_t *out;
 	byte inbuf[32768];
 	byte outbuf[32768];
-	int zlib_result = Z_OK;
+	int rc = Z_OK;
 	int readbytes;
-
-	Q_snprintf( name, sizeof( name ), DEFAULT_DOWNLOADED_DIRECTORY "%s", file->path );
-	HTTP_NormalizePath( name );
-
-	if( !( out = FS_Open( name, "wb", true ) ) )
-	{
-		Con_Printf( S_ERROR "HTTP: cannot open decompressed output %s\n", name );
-		HTTP_FreeFile( file, true );
-		return 0;
-	}
+	int total = 0;
 
 	memset( &stream, 0, sizeof( stream ));
 
-	// 16 + MAX_WBITS tells zlib to parse the gzip wrapper itself.
-	if( inflateInit2( &stream, 16 + MAX_WBITS ) != Z_OK )
-	{
-		Con_Printf( S_ERROR "%s: inflateInit2 failed\n", __func__ );
-		FS_Close( out );
-		HTTP_FreeFile( file, true );
-		return 0;
-	}
+	if( inflateInit2( &stream, windowBits ) != Z_OK )
+		return -1;
 
-	g_fsapi.Seek( file->file, 0, SEEK_SET );
+	g_fsapi.Seek( file->file, offset, SEEK_SET );
 
 	do
 	{
 		readbytes = g_fsapi.Read( file->file, inbuf, sizeof( inbuf ));
 		if( readbytes < 0 )
 		{
-			zlib_result = Z_ERRNO;
+			rc = Z_ERRNO;
 			break;
 		}
-
 		if( readbytes == 0 )
 			break;
 
@@ -1390,35 +1624,315 @@ static int HTTP_FileDecompress( httpfile_t *file )
 			stream.next_out = outbuf;
 			stream.avail_out = sizeof( outbuf );
 
-			zlib_result = inflate( &stream, Z_NO_FLUSH );
-			if( zlib_result != Z_OK && zlib_result != Z_STREAM_END )
+			rc = inflate( &stream, Z_NO_FLUSH );
+			if( rc != Z_OK && rc != Z_STREAM_END && rc != Z_BUF_ERROR )
 				break;
 
 			have = sizeof( outbuf ) - stream.avail_out;
 			if( have > 0 && FS_Write( out, outbuf, have ) != have )
 			{
-				zlib_result = Z_ERRNO;
+				rc = Z_ERRNO;
 				break;
 			}
-		} while( stream.avail_out == 0 );
+			total += have;
+		} while( stream.avail_out == 0 && rc == Z_OK );
 
-		if( zlib_result != Z_OK && zlib_result != Z_STREAM_END )
+		if( rc != Z_OK && rc != Z_STREAM_END && rc != Z_BUF_ERROR )
 			break;
-	} while( zlib_result != Z_STREAM_END );
+
+		/* miniz/zlib devolvem BUF_ERROR quando so faltou entrada */
+		if( rc == Z_BUF_ERROR && stream.avail_in == 0 )
+			rc = Z_OK;
+	} while( rc != Z_STREAM_END );
 
 	inflateEnd( &stream );
+
+	return ( rc == Z_STREAM_END ) ? total : -1;
+}
+
+/*
+ * Tenta um backend especifico. Retorna bytes escritos ou -1.
+ */
+static int HTTP_TryDecompress( httpfile_t *file, const char *outname, int backend )
+{
+	file_t *out;
+	byte head[1024];
+	int windowBits, offset = 0;
+	int got, gzoff, rc;
+
+	switch( backend )
+	{
+	case HTTP_DECOMP_ZLIB:
+#if HTTP_HAVE_ZLIB
+		/* zlib le o envelope gzip inteiro */
+		windowBits = 16 + MAX_WBITS;
+		break;
+#else
+		return -1;
+#endif
+	case HTTP_DECOMP_MINIZ:
+		/* miniz so aceita +-15: pula o cabecalho e infla raw */
+		g_fsapi.Seek( file->file, 0, SEEK_SET );
+		got = g_fsapi.Read( file->file, head, sizeof( head ));
+		gzoff = ( got > 0 ) ? HTTP_GzipDataOffset( head, got ) : -1;
+		if( gzoff < 0 )
+			return -1;
+		windowBits = -MAX_WBITS;
+		offset = gzoff;
+		break;
+	default:
+		/* metodo antigo: tenta 16+MAX_WBITS sem pular nada */
+		windowBits = 16 + MAX_WBITS;
+		break;
+	}
+
+	if( !( out = FS_Open( outname, "wb", true )))
+		return -1;
+
+	rc = HTTP_InflateToFile( file, out, offset, windowBits );
 	FS_Close( out );
 
-	if( zlib_result == Z_STREAM_END )
-		HTTP_FreeFile( file, false );
+	if( rc > 0 )
+		Con_Reportf( "HTTP: %s descomprimido com %s (%d bytes)\n",
+			file->path, HTTP_DecompName( backend ), rc );
+
+	return rc;
+}
+
+/*
+ * Descomprime um buffer gzip em memoria, usando um backend especifico.
+ * Usado pelo selftest. Retorna bytes escritos ou -1.
+ */
+static int HTTP_GunzipBuffer( const byte *in, int inlen, int backend, byte *out, int outcap )
+{
+	z_stream stream;
+	int windowBits, offset = 0, rc = Z_OK, total = 0, gzoff;
+
+	if( backend == HTTP_DECOMP_ZLIB )
+	{
+#if HTTP_HAVE_ZLIB
+		windowBits = 16 + MAX_WBITS;
+#else
+		return -1;
+#endif
+	}
+	else if( backend == HTTP_DECOMP_MINIZ )
+	{
+		gzoff = HTTP_GzipDataOffset( in, inlen );
+		if( gzoff < 0 )
+			return -1;
+		windowBits = -MAX_WBITS;
+		offset = gzoff;
+	}
 	else
 	{
-		Con_Printf( S_ERROR "%s: gzip stream is broken for %s\n", __func__, file->path );
+		windowBits = 16 + MAX_WBITS;
+	}
+
+	memset( &stream, 0, sizeof( stream ));
+
+	if( inflateInit2( &stream, windowBits ) != Z_OK )
+		return -1;
+
+	stream.next_in = (byte *)in + offset;
+	stream.avail_in = inlen - offset;
+
+	do
+	{
+		stream.next_out = out + total;
+		stream.avail_out = outcap - total;
+
+		rc = inflate( &stream, Z_NO_FLUSH );
+		if( rc != Z_OK && rc != Z_STREAM_END && rc != Z_BUF_ERROR )
+			break;
+
+		total = outcap - stream.avail_out;
+
+		if( stream.avail_out == 0 && rc == Z_OK )
+			break; /* saida cheia */
+	} while( rc != Z_STREAM_END );
+
+	inflateEnd( &stream );
+
+	return ( rc == Z_STREAM_END ) ? total : -1;
+}
+
+static void Cmd_HttpGzipSelfTest( void )
+{
+	/* "hello fastdl" comprimido com gzip */
+	static const byte blob[] = {
+		0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00,
+		0x02, 0xff, 0xcb, 0x48, 0xcd, 0xc9, 0xc9, 0x57,
+		0x48, 0x4b, 0x2c, 0x2e, 0x49, 0xc9, 0x01, 0x00,
+		0xb2, 0x05, 0xea, 0xd6, 0x0c, 0x00, 0x00, 0x00
+	};
+	static const char expect[] = "hello fastdl";
+	byte out[64];
+	int i, ok = 0;
+
+	Con_Printf( "GZIP SELFTEST: zlib=%d\n", HTTP_HAVE_ZLIB );
+
+	for( i = HTTP_DECOMP_ZLIB; i <= HTTP_DECOMP_LEGACY; i++ )
+	{
+		int n = HTTP_GunzipBuffer( blob, sizeof( blob ), i, out, sizeof( out ));
+		qboolean good = ( n == (int)sizeof( expect ) - 1 && !memcmp( out, expect, n ));
+
+		Con_Printf( "  %-6s rc=%d %s\n", HTTP_DecompName( i ), n, good ? "ok" : "falhou" );
+		if( good )
+			ok++;
+	}
+
+	Con_Printf( "GZIP SELFTEST: %s\n", ok > 0 ? "PASS" : "FAIL" );
+}
+
+/* nome final do arquivo: sem o sufixo .bz2/.gz quando houve retry */
+static const char *HTTP_OutName( httpfile_t *file )
+{
+	return ( file->orig_path[0] ) ? file->orig_path : file->path;
+}
+
+/*
+ * Descomprime um arquivo .bz2 (padrao dos servidores fastdl).
+ * Escreve em downloaded/<nome original>.
+ */
+static int HTTP_FileBunzip2( httpfile_t *file )
+{
+	bz_stream stream;
+	char name[MAX_SYSPATH];
+	file_t *out;
+	byte inbuf[32768];
+	byte outbuf[32768];
+	int rc = BZ_OK, readbytes, total = 0;
+
+	Q_snprintf( name, sizeof( name ), DEFAULT_DOWNLOADED_DIRECTORY "%s", HTTP_OutName( file ));
+	HTTP_NormalizePath( name );
+
+	if( !( out = FS_Open( name, "wb", true ) ))
+	{
+		Con_Printf( S_ERROR "HTTP: cannot open bunzip2 output %s\n", name );
+		HTTP_FreeFile( file, true );
+		return 0;
+	}
+
+	memset( &stream, 0, sizeof( stream ));
+
+	if( BZ2_bzDecompressInit( &stream, 0, 0 ) != BZ_OK )
+	{
+		FS_Close( out );
+		HTTP_FreeFile( file, true );
+		return 0;
+	}
+
+	g_fsapi.Seek( file->file, 0, SEEK_SET );
+
+	do
+	{
+		readbytes = g_fsapi.Read( file->file, inbuf, sizeof( inbuf ));
+		if( readbytes <= 0 )
+			break;
+
+		stream.next_in = (char *)inbuf;
+		stream.avail_in = readbytes;
+
+		do
+		{
+			int have;
+
+			stream.next_out = (char *)outbuf;
+			stream.avail_out = sizeof( outbuf );
+
+			rc = BZ2_bzDecompress( &stream );
+			if( rc != BZ_OK && rc != BZ_STREAM_END )
+				break;
+
+			have = sizeof( outbuf ) - stream.avail_out;
+			if( have > 0 && FS_Write( out, outbuf, have ) != have )
+			{
+				rc = BZ_IO_ERROR;
+				break;
+			}
+			total += have;
+		} while( stream.avail_out == 0 && rc == BZ_OK );
+
+		if( rc != BZ_OK && rc != BZ_STREAM_END )
+			break;
+	} while( rc != BZ_STREAM_END );
+
+	BZ2_bzDecompressEnd( &stream );
+	FS_Close( out );
+
+	if( rc == BZ_STREAM_END )
+	{
+		Con_Reportf( "HTTP: %s descomprimido com bzip2 (%d bytes)\n", file->path, total );
+		HTTP_FreeFile( file, false );
+	}
+	else
+	{
+		Con_Printf( S_ERROR "HTTP: bz2 quebrado em %s\n", file->path );
 		FS_Delete( name );
 		HTTP_FreeFile( file, true );
 	}
 
 	return 1;
+}
+
+/* escolhe o processador final pelo Content-Encoding ou pela extensao */
+static void HTTP_SelectProcessor( httpfile_t *file )
+{
+	size_t len = Q_strlen( file->path );
+
+	if( file->compressed && !file->chunked )
+	{
+		file->pfn_process = HTTP_FileDecompress;
+	}
+	else if( len > 4 && !Q_stricmp( file->path + len - 4, ".bz2" ))
+	{
+		file->pfn_process = HTTP_FileBunzip2;
+	}
+	else if( len > 3 && !Q_stricmp( file->path + len - 3, ".gz" ))
+	{
+		file->pfn_process = HTTP_FileDecompress;
+	}
+	else
+	{
+		HTTP_FreeFile( file, false );
+	}
+}
+
+static int HTTP_FileDecompress( httpfile_t *file )
+{
+	static const int auto_order[] = { HTTP_DECOMP_ZLIB, HTTP_DECOMP_MINIZ, HTTP_DECOMP_LEGACY };
+	char name[MAX_SYSPATH];
+	int mode, i, written = -1;
+
+	Q_snprintf( name, sizeof( name ), DEFAULT_DOWNLOADED_DIRECTORY "%s", HTTP_OutName( file ));
+	HTTP_NormalizePath( name );
+
+	mode = (int)http_decompress.value;
+	if( mode < HTTP_DECOMP_AUTO || mode > HTTP_DECOMP_LEGACY )
+		mode = HTTP_DECOMP_AUTO;
+
+	if( mode == HTTP_DECOMP_AUTO )
+	{
+		for( i = 0; i < (int)( sizeof( auto_order ) / sizeof( auto_order[0] )) && written <= 0; i++ )
+			written = HTTP_TryDecompress( file, name, auto_order[i] );
+	}
+	else
+	{
+		written = HTTP_TryDecompress( file, name, mode );
+	}
+
+	if( written > 0 )
+	{
+		HTTP_FreeFile( file, false );
+		return 1;
+	}
+
+	Con_Printf( S_ERROR "%s: nenhum descompressor funcionou para %s\n", __func__, file->path );
+	FS_Delete( name );
+	HTTP_FreeFile( file, true );
+
+	return 0;
 }
 
 /*
@@ -1624,7 +2138,13 @@ static int HTTP_FileProcessStream( httpfile_t *curfile )
 	char recvbuf[sizeof( curfile->buf )];
 	int res;
 
-	while(( res = recv( curfile->socket, recvbuf, sizeof( recvbuf ) - 1, 0 )) > 0 )
+	while(( res =
+#if HTTP_HAVE_TLS
+		HTTP_NetRecv( curfile, recvbuf, sizeof( recvbuf ) - 1 )
+#else
+		recv( curfile->socket, recvbuf, sizeof( recvbuf ) - 1, 0 )
+#endif
+		) > 0 )
 	{
 		curfile->blocktime = 0;
 
@@ -1691,6 +2211,51 @@ static int HTTP_FileProcessStream( httpfile_t *curfile )
 
 				if( status != 200 && status != 206 )
 				{
+					/* fastdl costuma servir arquivo.bz2 quando o arquivo puro nao existe */
+					if( status == 404 && http_fastdl_suffix.value && curfile->suffix_try < 3 )
+					{
+						char oldinc[MAX_SYSPATH];
+						const char *ext = ( curfile->suffix_try == 0 ) ? ".bz2" :
+							( curfile->suffix_try == 1 ) ? ".gz" : NULL;
+
+						HTTP_MakeIncompleteName( curfile, oldinc, sizeof( oldinc ));
+
+						if( !curfile->orig_path[0] )
+							Q_strncpy( curfile->orig_path, curfile->path, sizeof( curfile->orig_path ));
+
+						curfile->suffix_try++;
+
+						if( ext )
+						{
+							Con_Reportf( "HTTP: %s nao existe, tentando %s\n", curfile->orig_path, ext );
+							Q_snprintf( curfile->path, sizeof( curfile->path ), "%s%s", curfile->orig_path, ext );
+						}
+						else
+						{
+							/* FastDL em Linux diferencia maiusculas: tenta minusculas */
+							Con_Reportf( "HTTP: %s nao existe, tentando %s\n", curfile->orig_path, "minusculas" );
+							Q_strnlwr( curfile->orig_path, curfile->path, sizeof( curfile->path ));
+						}
+						curfile->url_path[0] = '\0';
+
+						HTTP_CloseSocketOnly( curfile );
+						if( curfile->file )
+						{
+							FS_Close( curfile->file );
+							curfile->file = NULL;
+						}
+						FS_Delete( oldinc );
+
+						curfile->retries = 0;
+						curfile->redirects = 0;
+						curfile->downloaded = 0;
+						curfile->size = 0;
+						curfile->reported_size = 0;
+						HTTP_ResetResponseState( curfile );
+						curfile->pfn_process = HTTP_FileQueue;
+						return 0;
+					}
+
 					if( status == 400 || status == 401 || status == 403 || status == 404 )
 						curfile->no_retry = true;
 
@@ -1817,16 +2382,16 @@ static int HTTP_FileProcessStream( httpfile_t *curfile )
 	{
 		if( curfile->close_delimited && curfile->got_response )
 		{
-			if( curfile->compressed )
-				curfile->pfn_process = HTTP_FileDecompress;
+			if( curfile->compressed || HTTP_HasCompressedSuffix( curfile ))
+				HTTP_SelectProcessor( curfile );
 			else HTTP_FreeFile( curfile, false );
 			return 0;
 		}
 
 		if( curfile->got_response && curfile->size <= 0 && !curfile->chunked )
 		{
-			if( curfile->compressed )
-				curfile->pfn_process = HTTP_FileDecompress;
+			if( curfile->compressed || HTTP_HasCompressedSuffix( curfile ))
+				HTTP_SelectProcessor( curfile );
 			else HTTP_FreeFile( curfile, false );
 			return 0;
 		}
@@ -2184,6 +2749,7 @@ void HTTP_Init( void )
 	Cmd_AddRestrictedCommand( "http_clear", HTTP_Clear_f, "cancel all downloads" );
 	Cmd_AddRestrictedCommand( "http_list", HTTP_List_f, "list all queued downloads" );
 	Cmd_AddCommand( "http_addcustomserver", HTTP_AddCustomServer_f, "add custom fastdl server");
+	Cmd_AddCommand( "http_gzip_selftest", Cmd_HttpGzipSelfTest, "testa os descompressores gzip (zlib, miniz, legado)" );
 
 	Cvar_RegisterVariable( &http_useragent );
 	Cvar_RegisterVariable( &http_autoremove );
@@ -2192,6 +2758,8 @@ void HTTP_Init( void )
 	Cvar_RegisterVariable( &http_max_retries );
 	Cvar_RegisterVariable( &http_max_redirects );
 	Cvar_RegisterVariable( &http_show_headers );
+	Cvar_RegisterVariable( &http_decompress );
+	Cvar_RegisterVariable( &http_fastdl_suffix );
 #if XASH_USE_CURL_DOWNLOADER
 	Cvar_RegisterVariable( &http_curl );
 	Cvar_RegisterVariable( &http_connect_timeout );

@@ -557,6 +557,34 @@ static void CL_StartResourceDownloading( const char *pszMessage, qboolean bCusto
 	if( !COM_StringEmptyOrNULL( pszMessage ))
 		Con_DPrintf( "%s", pszMessage );
 
+	/* fallback de fastdl: servidor nao mandou svc_resourcelocation */
+	if( !bCustom && !COM_StringEmptyOrNULL( cl_downloadurl.string ))
+	{
+		char urls[256];
+		char *p, *start;
+		int count = 0;
+
+		Q_strncpy( urls, cl_downloadurl.string, sizeof( urls ));
+		p = urls;
+
+		while( *p && count < 4 )
+		{
+			while( *p == ' ' ) p++;
+			if( !*p ) break;
+
+			start = p;
+			while( *p && *p != ' ' ) p++;
+			if( *p ) *p++ = '\0';
+
+			if( Q_strlen( start ) > 7 )
+			{
+				Con_Reportf( "FastDL: usando cl_downloadurl %s\n", start );
+				HTTP_AddCustomServer( start );
+				count++;
+			}
+		}
+	}
+
 	cls.dl.nTotalSize = COM_SizeofResourceList( &cl.resourcesneeded, &ri );
 	cls.dl.nTotalToTransfer = CL_EstimateNeededResources();
 
@@ -1875,36 +1903,349 @@ CL_ParseResourceList
 
 ==============
 */
+/*
+ * svc_resourcelist: o header e' count + tipo, mas a largura do count muda
+ * entre implementacoes de servidor (HLDS usa MAX_RESOURCE_BITS = 13 bits,
+ * algumas builds usam 12). Em vez de adivinhar pelo primeiro nome, medimos
+ * quantas entradas seguidas fecham (nome valido + indice + tamanho + flags)
+ * e ficamos com o layout de maior pontuacao.
+ *
+ * A cauda de cada entrada e' a do protocolo:
+ *   index(12) size(24) flags(3) [md5(128) se RES_CUSTOM] 1 bit [+ reserved(64)]
+ */
+static const char *cl_res_prefixes[] =
+{
+	"sprites/", "maps/", "models/", "sound/", "overviews/",
+	"gfx/", "events/", "dlls/", "resource/"
+};
+
+static qboolean CL_ResHasPathPrefix( const char *name )
+{
+	int i;
+
+	for( i = 0; i < (int)( sizeof( cl_res_prefixes ) / sizeof( cl_res_prefixes[0] )); i++ )
+	{
+		if( !Q_strnicmp( name, cl_res_prefixes[i], Q_strlen( cl_res_prefixes[i] )))
+			return true;
+	}
+
+	return false;
+}
+
+/*
+ * ReHLDS marca recursos customizados com "!" na frente do nome
+ * ("!models/v_ak47.mdl") e as vezes com uma flag maiuscula depois
+ * ("!Amodels/player/..."). O arquivo real no FastDL nao tem esse prefixo.
+ */
+static const char *CL_ResStripPrefix( const char *name )
+{
+	if( name[0] != '!' )
+		return name;
+
+	name++;
+
+	if( name[0] >= 'A' && name[0] <= 'Z' && CL_ResHasPathPrefix( name + 1 ))
+		name++;
+
+	return name;
+}
+
+static qboolean CL_ResNameIsValid( const char *name )
+{
+	int i, len;
+
+	if( !name || !name[0] )
+		return false;
+
+	len = Q_strlen( name );
+
+	/* decal customizado: !MD5<hash>, sem prefixo de pasta */
+	if( name[0] == '!' )
+		return true;
+
+	/* submodelo brush do mapa: *1, *2, ... */
+	if( name[0] == '*' && name[1] )
+		return true;
+
+	if( len < 4 || len >= 64 )
+		return false;
+
+	/* arquivos na raiz do mod: cstrike.wad, delta.lst, valve.rc, etc */
+	if( Q_strstr( name, "." ) || Q_strstr( name, "/" ))
+		return true;
+
+	for( i = 0; i < (int)( sizeof( cl_res_prefixes ) / sizeof( cl_res_prefixes[0] )); i++ )
+	{
+		if( !Q_strnicmp( name, cl_res_prefixes[i], Q_strlen( cl_res_prefixes[i] )))
+			return true;
+	}
+
+	/*
+	 * Sons precacheados por caminho relativo ("ambience/x.wav") nao tem
+	 * prefixo de pasta, mas continuam sendo caminhos validos.
+	 */
+	if(( Q_strstr( name, ".wav" ) || Q_strstr( name, ".mp3" )) && Q_strstr( name, "/" ))
+		return true;
+
+	return false;
+}
+
+/*
+ * O tipo do servidor nao e' confiavel entre HLDS/ReHLDS/Xash, mas o prefixo
+ * do nome e' o que o engine usa para montar o caminho. Inferimos por ele.
+ * Sons sao guardados sem o "sound/" na lista do client.
+ */
+static int CL_ResGuessType( const char *name )
+{
+	if( !Q_strnicmp( name, "sound/", 6 ))     return t_sound;
+	if( !Q_strnicmp( name, "models/", 7 ))    return t_model;
+	if( !Q_strnicmp( name, "sprites/", 8 ))   return t_skin;
+	if( !Q_strnicmp( name, "gfx/", 4 ))       return t_skin;
+	if( !Q_strnicmp( name, "events/", 7 ))    return t_eventscript;
+
+	/* sons precacheados por caminho relativo: ambience/x.wav */
+	if( Q_strstr( name, ".wav" ) || Q_strstr( name, ".mp3" ))
+		return t_sound;
+
+	return t_generic;
+}
+
+/* le um nome em um bit qualquer, na mesma ordem de bits do engine (LSB) */
+static int CL_ResPeekName( sizebuf_t *msg, int bit, char *out, size_t outsize )
+{
+	int n = 0, p = bit;
+	const byte *data = (const byte *)msg->pData;
+
+	while( n < (int)outsize - 1 && p + 8 <= msg->nDataBits )
+	{
+		int c = 0, k;
+
+		for( k = 0; k < 8; k++ )
+			c |= (( data[( p + k ) >> 3] >> (( p + k ) & 7 )) & 1 ) << k;
+
+		if( c < 32 || c > 126 )
+			break;
+
+		out[n++] = (char)c;
+		p += 8;
+	}
+
+	out[n] = '\0';
+	return n;
+}
+
+/* procura a proxima entrada plausivel (tipo + nome) a partir de from_bit */
+static int CL_ResFindNext( sizebuf_t *msg, int from_bit )
+{
+	int bit, end = msg->nDataBits;
+	char probe[64];
+
+	for( bit = from_bit; bit < end - 64; bit++ )
+	{
+		if( CL_ResPeekName( msg, bit + 4, probe, sizeof( probe )) >= 4 && CL_ResNameIsValid( probe ))
+			return bit;
+	}
+
+	return -1;
+}
+
+/* le uma entrada completa; retorna true se nome e cauda fizerem sentido */
+static qboolean CL_ResReadEntry( sizebuf_t *msg, resource_t *out, connprotocol_t proto, qboolean strict )
+{
+	char name[64];
+	const char *name_ptr = name;
+	int type, i, len = 0;
+
+	type = MSG_ReadUBitLong( msg, 4 );
+
+	/* nome: bytes crus ate o terminador */
+	for( i = 0; i < (int)sizeof( name ) - 1; i++ )
+	{
+		int c = MSG_ReadByte( msg );
+
+		if( !c || c < 32 || c > 126 )
+			break;
+
+		name[len++] = (char)c;
+	}
+	name[len] = '\0';
+
+	{
+		const char *real = CL_ResStripPrefix( name );
+
+		if( strict )
+		{
+			if( !CL_ResNameIsValid( real ))
+				return false;
+		}
+		else if( !real[0] )
+		{
+			return false;
+		}
+
+		name_ptr = real;
+	}
+
+	out->type = CL_ResGuessType( name_ptr );
+	out->szFileName[0] = '\0';
+
+	if( out->type == t_sound && !Q_strnicmp( name_ptr, "sound/", 6 ))
+		Q_strncpy( out->szFileName, name_ptr + 6, sizeof( out->szFileName ));
+	else
+		Q_strncpy( out->szFileName, name_ptr, sizeof( out->szFileName ));
+
+	out->nIndex = MSG_ReadUBitLong( msg, MAX_MODEL_BITS );
+	out->nDownloadSize = MSG_ReadBitLong( msg, 24, proto != PROTO_GOLDSRC );
+
+	/* tamanho fora de faixa indica que a cauda nao estava alinhada */
+	if( out->nDownloadSize < -1 || out->nDownloadSize > ( 1 << 26 ))
+		return false;
+
+	out->ucFlags = MSG_ReadUBitLong( msg, 3 ) & ~RES_WASMISSING;
+
+	if( FBitSet( out->ucFlags, RES_CUSTOM ))
+	{
+		byte hash[16];
+
+		MSG_ReadBytes( msg, hash, sizeof( hash ));
+	}
+
+	if( MSG_ReadOneBit( msg ))
+	{
+		/* rguc_reserved tem 32 bytes no protocolo GoldSrc/Xash */
+		MSG_ReadBytes( msg, out->rguc_reserved, sizeof( out->rguc_reserved ));
+	}
+
+	if( msg->bOverflow )
+		return false;
+
+	(void)type;
+	out->ucFlags &= ~RES_WASMISSING;
+	return true;
+}
+
+/* pontua um layout contando quantas entradas seguidas fecham */
+static int CL_ResScoreLayout( sizebuf_t *msg, int start, int count_bits, int *out_total, connprotocol_t proto )
+{
+	sizebuf_t tmp;
+	resource_t probe;
+	int i, total, score = 0, anchor;
+
+	tmp = *msg;
+	tmp.iCurBit = start;
+
+	total = MSG_ReadUBitLong( &tmp, count_bits );
+	*out_total = total;
+
+	if( total <= 0 || total > 8192 )
+		return -1;
+
+	anchor = tmp.iCurBit;
+
+	for( i = 0; i < total && i < 48; i++ )
+	{
+		if( !CL_ResReadEntry( &tmp, &probe, proto, true ))
+			break;
+		score++;
+	}
+
+	(void)anchor;
+	return score;
+}
+
 void CL_ParseResourceList( sizebuf_t *msg, connprotocol_t proto )
 {
-	resource_t	*pResource;
-	int		i, total;
+	int count_cand[4];
+	resource_t *pResource;
+	int i, total = 0, count_bits = MAX_RESOURCE_BITS;
+	int start = msg->iCurBit;
+	int added = 0, best = -1;
+	qboolean adapted = false, resynced = false;
 
-	total = MSG_ReadUBitLong( msg, proto == PROTO_GOLDSRC ? MAX_GOLDSRC_RESOURCE_BITS : MAX_RESOURCE_BITS );
+	/* GoldSrc escreve o count com 12 bits; o protocolo Xash usa 13 */
+	count_cand[0] = ( proto == PROTO_GOLDSRC ) ? MAX_GOLDSRC_RESOURCE_BITS : MAX_RESOURCE_BITS;
+	count_cand[1] = ( proto == PROTO_GOLDSRC ) ? MAX_RESOURCE_BITS : MAX_GOLDSRC_RESOURCE_BITS;
+	count_cand[2] = 11;
+	count_cand[3] = 10;
+	resource_t scratch;
+
+	/* 1. escolhe o layout pela pontuacao (entradas seguidas que fecham) */
+	for( i = 0; i < (int)( sizeof( count_cand ) / sizeof( count_cand[0] )); i++ )
+	{
+		int cand_total = 0;
+		int score = CL_ResScoreLayout( msg, start, count_cand[i], &cand_total, proto );
+
+		if( score > best )
+		{
+			best = score;
+			count_bits = count_cand[i];
+			total = cand_total;
+		}
+	}
+
+	Con_Reportf( "resourcelist: count_bits=%d total=%d score=%d\n", count_bits, total, best );
+
+	if( best < 2 )
+	{
+		/* layout desconhecido: nao da' para separar os campos com seguranca */
+		Con_Printf( S_WARN "resourcelist: layout desconhecido, ignorando lista\n" );
+		msg->iCurBit = msg->nDataBits;
+		CL_StartResourceDownloading( "Verifying and downloading resources...\n", false );
+		return;
+	}
+
+	/* 2. le a lista inteira com o layout escolhido */
+	msg->iCurBit = start;
+	MSG_ReadUBitLong( msg, count_bits );
 
 	for( i = 0; i < total; i++ )
 	{
+		if( !CL_ResReadEntry( msg, &scratch, proto, false ))
+		{
+			/* layout desalinhado: pula para a proxima entrada plausivel */
+			int next = CL_ResFindNext( msg, msg->iCurBit + 1 );
+
+			Con_DPrintf( "resourcelist: entrada %d invalida, ressincronizando\n", i );
+
+			if( next < 0 )
+			{
+				Con_DPrintf( "resourcelist: sem proxima entrada, fim da lista\n" );
+				break;
+			}
+
+			msg->iCurBit = next;
+			resynced = true;
+
+			if( !CL_ResReadEntry( msg, &scratch, proto, false ))
+				break;
+		}
+
 		pResource = Mem_Calloc( cls.mempool, sizeof( resource_t ));
-		pResource->type = MSG_ReadUBitLong( msg, 4 );
-
-		Q_strncpy( pResource->szFileName, MSG_ReadString( msg ), sizeof( pResource->szFileName ));
-		pResource->nIndex = MSG_ReadUBitLong( msg, MAX_MODEL_BITS );
-		pResource->nDownloadSize = MSG_ReadBitLong( msg, 24, proto != PROTO_GOLDSRC );
-		pResource->ucFlags = MSG_ReadUBitLong( msg, 3 ) & ~RES_WASMISSING;
-
-		if( FBitSet( pResource->ucFlags, RES_CUSTOM ))
-			MSG_ReadBytes( msg, pResource->rgucMD5_hash, sizeof( pResource->rgucMD5_hash ));
-
-		if( MSG_ReadOneBit( msg ))
-			MSG_ReadBytes( msg, pResource->rguc_reserved, sizeof( pResource->rguc_reserved ));
-
+		*pResource = scratch;
 		CL_AddToResourceList( pResource, &cl.resourcesneeded );
+		added++;
 	}
 
-	CL_ParseConsistencyInfo( msg, proto );
+	if( adapted || resynced || added < total )
+	{
+		/*
+		 * A posicao do bit nao e' confiavel depois de um desalinhamento,
+		 * entao nao da' para ler a lista de consistencia: consome o resto
+		 * para nao gerar BAD no comando seguinte.
+		 */
+		Con_DPrintf( "resourcelist: %d de %d recursos (lista adaptada)\n", added, total );
+		msg->iCurBit = msg->nDataBits;
+	}
+	else
+	{
+		Con_Reportf( "resourcelist: %d recursos lidos (bit %d de %d)\n", added, msg->iCurBit, msg->nDataBits );
+		CL_ParseConsistencyInfo( msg, proto );
+		Con_Reportf( "consistencia: force=%d itens=%d (bit %d de %d)\n", cl.need_force_consistency_response, cl.num_consistency, msg->iCurBit, msg->nDataBits );
+	}
 
 	CL_StartResourceDownloading( "Verifying and downloading resources...\n", false );
 }
+
 
 /*
 ==================

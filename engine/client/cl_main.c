@@ -59,6 +59,7 @@ static CVAR_DEFINE_AUTO( cl_fakelag_move, "0", FCVAR_ARCHIVE, "0 sempre, 1 so pa
 static CVAR_DEFINE_AUTO( cl_fakelag_while_shooting, "0", FCVAR_ARCHIVE, "segura tambem enquanto atira" );
 static CVAR_DEFINE_AUTO( cl_fakelag_variance, "20", FCVAR_ARCHIVE, "variacao do modo dinamico, em %%" );
 static CVAR_DEFINE_AUTO( cl_fakelag_debug, "0", 0, "mostra estatisticas do fakelag no console" );
+CVAR_DEFINE_AUTO( cl_downloadurl, "", FCVAR_ARCHIVE, "url fastdl usada quando o servidor nao anuncia uma" );
 
 CVAR_DEFINE( cl_draw_particles, "r_drawparticles", "1", FCVAR_CHEAT, "render particles" );
 CVAR_DEFINE( cl_draw_tracers, "r_drawtracers", "1", FCVAR_CHEAT, "render tracers" );
@@ -3288,6 +3289,7 @@ static qboolean CL_ShouldRescanFilesystem( void )
 qboolean CL_PrecacheResources( void )
 {
 	resource_t	*pRes;
+	qboolean	world_loaded = false;
 
 	// if we downloaded new WAD files or any other archives they must be added to searchpath
 	if( CL_ShouldRescanFilesystem( ))
@@ -3302,10 +3304,57 @@ qboolean CL_PrecacheResources( void )
 		if( pRes->type != t_model || pRes->nIndex != WORLD_INDEX )
 			continue;
 
+		/* so o BSP do mapa pode ocupar o indice do world model */
+		if( !Q_strstr( pRes->szFileName, ".bsp" ))
+			continue;
+
+		/*
+		 * Um BSP truncado/vazio (download que falhou) carrega como modelo
+		 * sem superficies e derruba o renderer em R_GenerateVBO. Melhor
+		 * recusar aqui e deixar o mapa ser baixado de novo.
+		 */
+		if( FS_FileSize( pRes->szFileName, false ) < 1024 )
+		{
+			Con_Printf( S_ERROR "precache: %s esta vazio ou truncado, ignorando\n", pRes->szFileName );
+			continue;
+		}
+
 		cl.models[pRes->nIndex] = Mod_LoadWorld( pRes->szFileName, true );
+
+		if( cl.models[pRes->nIndex] && cl.models[pRes->nIndex]->type != mod_brush )
+		{
+			Con_Printf( S_ERROR "precache: %s nao e' um mapa valido\n", pRes->szFileName );
+			cl.models[pRes->nIndex] = NULL;
+		}
 		SetBits( pRes->ucFlags, RES_PRECACHED );
 		cl.nummodels = 1;
+		world_loaded = true;
 		break;
+	}
+
+	/*
+	 * Servidores GoldSrc mandam o BSP no svc_resourcelist, mas o indice do
+	 * world model pode se perder quando o layout da lista nao e o do Xash.
+	 * Nesse caso o mapa nunca e precacheado e o client morre com
+	 * "client world model is NULL". Fallback: carrega maps/<mapa>.bsp do
+	 * disco, que e exatamente o arquivo que o download gravou.
+	 */
+	if( !world_loaded && clgame.mapname[0] )
+	{
+		char mappath[MAX_SYSPATH];
+
+		Q_snprintf( mappath, sizeof( mappath ), "maps/%s.bsp", clgame.mapname );
+
+		if( FS_FileExists( mappath, false ) && FS_FileSize( mappath, false ) >= 1024 )
+		{
+			cl.models[WORLD_INDEX] = Mod_LoadWorld( mappath, true );
+
+			if( cl.models[WORLD_INDEX] )
+			{
+				cl.nummodels = 1;
+				Con_Reportf( "precache: world model carregado de %s (fallback)\n", mappath );
+			}
+		}
 	}
 
 	// then we set up all the world submodels
@@ -3326,8 +3375,11 @@ qboolean CL_PrecacheResources( void )
 
 				if( FBitSet( pRes->ucFlags, RES_FATALIFMISSING ))
 				{
-					CL_Disconnect_f();
-					return false;
+					/* ReHLDS marca como fatal arquivos que ele mesmo nao entrega
+					 * (FastDL sem o arquivo). Derrubar o client aqui impedia
+					 * qualquer entrada em servidores assim. */
+					Con_Printf( S_WARN "%s ausente, marcado fatal: seguindo\n", pRes->szFileName );
+					ClearBits( pRes->ucFlags, RES_FATALIFMISSING );
 				}
 			}
 		}
@@ -3362,9 +3414,11 @@ qboolean CL_PrecacheResources( void )
 					{
 						if( FBitSet( pRes->ucFlags, RES_FATALIFMISSING ))
 						{
-							S_EndRegistration();
-							CL_Disconnect_f();
-							return false;
+							/* ReHLDS marca como fatal arquivos que ele mesmo nao entrega
+							 * (FastDL sem o arquivo). Derrubar o client aqui impedia
+							 * qualquer entrada em servidores assim. */
+							Con_Printf( S_WARN "%s ausente, marcado fatal: seguindo\n", pRes->szFileName );
+							ClearBits( pRes->ucFlags, RES_FATALIFMISSING );
 						}
 					}
 				}
@@ -3378,6 +3432,10 @@ qboolean CL_PrecacheResources( void )
 		case t_skin:
 			break;
 		case t_model:
+			/* indice 1 e' reservado ao world model (BSP), nao a studiomodels */
+			if( pRes->nIndex == WORLD_INDEX && !Q_strstr( pRes->szFileName, ".bsp" ))
+				break;
+
 			if( pRes->nIndex >= 0 && pRes->nIndex < ARRAYSIZE( cl.models ))
 			{
 				cl.nummodels = Q_max( cl.nummodels, pRes->nIndex + 1 );
@@ -3387,13 +3445,23 @@ qboolean CL_PrecacheResources( void )
 					{
 						cl.models[pRes->nIndex] = Mod_ForName( pRes->szFileName, false, true );
 
+						/* arquivo corrompido carrega como mod_bad e derruba o
+						 * renderer ao descarregar texturas */
+						if( cl.models[pRes->nIndex] && cl.models[pRes->nIndex]->type == mod_bad )
+						{
+							Con_Printf( S_ERROR "precache: %s invalido, ignorando\n", pRes->szFileName );
+							cl.models[pRes->nIndex] = NULL;
+						}
+
 						if( cl.models[pRes->nIndex] == NULL )
 						{
 							if( FBitSet( pRes->ucFlags, RES_FATALIFMISSING ))
 							{
-								S_EndRegistration();
-								CL_Disconnect_f();
-								return false;
+								/* ReHLDS marca como fatal arquivos que ele mesmo nao entrega
+								 * (FastDL sem o arquivo). Derrubar o client aqui impedia
+								 * qualquer entrada em servidores assim. */
+								Con_Printf( S_WARN "%s ausente, marcado fatal: seguindo\n", pRes->szFileName );
+								ClearBits( pRes->ucFlags, RES_FATALIFMISSING );
 							}
 						}
 					}
@@ -3520,6 +3588,7 @@ static void CL_InitLocal( void )
 	Cvar_RegisterVariable( &cl_fakelag_while_shooting );
 	Cvar_RegisterVariable( &cl_fakelag_variance );
 	Cvar_RegisterVariable( &cl_fakelag_debug );
+	Cvar_RegisterVariable( &cl_downloadurl );
 
 	Cvar_RegisterVariable( &showpause );
 	Cvar_RegisterVariable( &mp_decals );

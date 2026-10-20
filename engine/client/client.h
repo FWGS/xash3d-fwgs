@@ -684,6 +684,7 @@ extern convar_t	mp_decals;
 extern convar_t	cl_logomaxdim;
 extern convar_t	cl_allow_download;
 extern convar_t	cl_download_ingame;
+extern convar_t	cl_downloadurl;
 extern convar_t	cl_nopred;
 extern convar_t	cl_timeout;
 extern convar_t	cl_interp;

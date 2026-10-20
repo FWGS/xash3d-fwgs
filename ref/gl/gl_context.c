@@ -139,7 +139,8 @@ static void Mod_UnloadTextures( model_t *mod )
 		Mod_SpriteUnloadTextures( mod->cache.data );
 		break;
 	default:
-		Assert( 0 );
+		/* mod_bad/nao carregado: nada a descarregar (um arquivo corrompido
+		 * chegando aqui derrubava o client inteiro com assert) */
 		break;
 	}
 }
