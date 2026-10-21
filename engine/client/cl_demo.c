@@ -386,6 +386,41 @@ void GAME_EXPORT CL_WriteDemoUserMessage( int size, byte *buffer )
 
 /*
 ====================
+CL_WriteDemoPlayers
+
+Players who joined before the recording started got their
+userinfo in messages the demo doesn't have. Without it the
+playback has no names for them
+====================
+*/
+static void CL_WriteDemoPlayers( void )
+{
+	sizebuf_t	buf;
+	byte	data[MAX_CLIENTS * ( MAX_INFO_STRING + 32 )];
+	int	i;
+
+	MSG_Init( &buf, "DemoPlayers", data, sizeof( data ));
+
+	for( i = 0; i < cl.maxclients; i++ )
+	{
+		player_info_t *player = &cl.players[i];
+
+		if( COM_StringEmpty( player->userinfo ))
+			continue;
+
+		MSG_BeginServerCmd( &buf, svc_updateuserinfo );
+		MSG_WriteUBitLong( &buf, i, MAX_CLIENT_BITS );
+		MSG_WriteLong( &buf, player->userid );
+		MSG_WriteOneBit( &buf, 1 );
+		MSG_WriteString( &buf, player->userinfo );
+		MSG_WriteBytes( &buf, player->hashedcdkey, sizeof( player->hashedcdkey ));
+	}
+
+	CL_WriteDemoMessage( false, 0, &buf );
+}
+
+/*
+====================
 CL_WriteDemoHeader
 
 Write demo header
@@ -465,6 +500,8 @@ static void CL_WriteDemoHeader( const char *name )
 	// demo playback should read this as an incoming message.
 	// write the client's realtime value out so we can synchronize the reads.
 	CL_WriteDemoCmdHeader( dem_jumptime, cls.demofile );
+
+	CL_WriteDemoPlayers();
 
 	if( clgame.hInstance ) clgame.dllFuncs.pfnReset();
 
