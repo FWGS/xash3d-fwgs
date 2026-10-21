@@ -9,20 +9,23 @@ Xash3D FWGS is a heavily modified fork of an original [Xash3D Engine](https://ww
 0) Rename `xash.dol` to `boot.dol` if it was compiled
 1) Move the `boot.dol` file to some directory inside the `apps` folder
 2) Copy `valve` directory to a folder named `xash3d` in the root of the sd card
-3) (Optional) copy `extras.pk3` inside the `xash3d` folder to fix the main menu
+3) (Optional) copy `extras.pk3` inside the `valve` folder to fix the main menu
 4) Run it via the Homebrew Channel
 
 ## Build instructions
-The Wii/GC port currently uses cmake to build its binaries. Will integrate it into waf at some point
+
+This port can be built with either cmake or waf. Waf builds are currently broken due to freevgui not being linked properly.
 
 **NOTE: NEVER USE GitHub's ZIP ARCHIVES. GitHub doesn't include external dependencies we're using!**
 
 ### Prerequisites
 
-*  Install CMake
 *  Install [devkitPro](https://devkitpro.org/wiki/Getting_Started)
 *  Install devkitPPC and the needed libraries
  `sudo (dkp-)pacman -S wii-dev wii-sdl2 wii-opengx ppc-bzip2 ppc-freetype ppc-zlib`
+
+#### Building with CMake
+*  Install CMake
 *  Create a development directory
 *  Clone the following repositories in the same directory
 ```
@@ -31,10 +34,29 @@ git clone --recursive https://github.com/MintFerret/mainui_cpp
 git clone --recursive https://github.com/MintFerret/hlsdk-portable
 ```
 
+#### building with Waf
+* Install Python
+* Clone the this repository
+```
+git clone --recursive https://github.com/MintFerret/xash3d-fwgs
+```
+
+* Inside the directory clone the hlsdk-portable repository
+```
+git clone --recursive https://github.com/MintFerret/hlsdk-portable 3rdparty/hlsdk-portable
+```
 
 ### Building
+
+#### CMake
+
 1) Configure build `cmake -S. -Bbuild -DCMAKE_TOOLCHAIN_FILE="/opt/devkitpro/cmake/Wii.cmake"`
 2) Compile `make -C build`
+
+#### Waf
+
+1) Configure build `./waf configure --wii --static-linking=filesystem_stdio,ref_gl,menu,server,client`
+2) Compile `./waf build` (build is compiled in `build/engine/xash.dol`)
 
 This will build:
 - the filesystem
