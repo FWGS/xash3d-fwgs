@@ -546,7 +546,6 @@ static void SV_SetupPMove( playermove_t *pmove, sv_client_t *cl, usercmd_t *ucmd
 	pmove->deadflag = clent->v.deadflag;
 	pmove->spectator = 0; // spectator physic all execute on client
 	pmove->movetype = clent->v.movetype;
-	if( pmove->multiplayer ) pmove->onground = -1;
 	pmove->waterlevel = clent->v.waterlevel;
 	pmove->watertype = clent->v.watertype;
 	pmove->maxspeed = svgame.movevars.maxspeed; // GoldSrc uses sv_maxspeed here?
@@ -586,6 +585,23 @@ static void SV_SetupPMove( playermove_t *pmove, sv_client_t *cl, usercmd_t *ucmd
 
 	SV_AddLinksToPmove( sv_areanodes, absmin, absmax );
 	SV_AddLaddersToPmove( sv_areanodes, absmin, absmax );
+
+	// restore onground from the player's previous move, like the client prediction does
+	// mods that skip PM_CategorizePosition (Firearms bipod) rely on it
+	pmove->onground = -1;
+	if( FBitSet( clent->v.flags, FL_ONGROUND ))
+	{
+		int ground = SV_IsValidEdict( clent->v.groundentity ) ? NUM_FOR_EDICT( clent->v.groundentity ) : 0;
+
+		for( int i = 0; i < pmove->numphysent; i++ )
+		{
+			if( pmove->physents[i].info == ground )
+			{
+				pmove->onground = i;
+				break;
+			}
+		}
+	}
 }
 
 static void SV_FinishPMove( playermove_t *pmove, sv_client_t *cl )
