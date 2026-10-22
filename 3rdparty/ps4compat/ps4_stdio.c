@@ -14,7 +14,7 @@ copies of the Software. See LICENSE for the full text.
 /*
 Static musl libc from OpenOrbis toolchain doesn't know about threads created
 through system pthread library, so it never locks FILE objects. When engine
-and SDL threads print at the same time, stdout buffer pointers get corrupted
+threads print at the same time, stdout buffer pointers get corrupted
 and the next printf crashes. Redirecting stdout with freopen() or dup2()
 isn't allowed for applications either.
 

@@ -23,9 +23,7 @@ PS4_WRAPPED_FUNCS = ['open', 'fopen', 'stat', 'lstat', 'fstat', 'opendir', 'read
 	'malloc', 'free', 'calloc', 'realloc', 'memalign', 'aligned_alloc', 'valloc', 'posix_memalign',
 	'malloc_usable_size',
 	# standard output is made thread safe, see ps4_stdio.c
-	'printf', 'vprintf', 'fprintf', 'vfprintf', 'puts', 'fputs', 'putchar', 'fputc', 'putc', 'fwrite',
-	# semaphores are emulated, see ps4_sync.c
-	'sem_init', 'sem_destroy', 'sem_post', 'sem_trywait', 'sem_wait', 'sem_timedwait', 'sem_getvalue']
+	'printf', 'vprintf', 'fprintf', 'vfprintf', 'puts', 'fputs', 'putchar', 'fputc', 'putc', 'fwrite']
 
 PS4_MALLOC_FUNCS = ['malloc', 'free', 'calloc', 'realloc', 'memalign', 'aligned_alloc', 'valloc',
 	'posix_memalign', 'malloc_usable_size']
@@ -43,13 +41,11 @@ def configure(conf):
 	# ps4_crtlib.c - module startup code, replaces broken crtlib.o from the toolchain
 	# ps4_malloc.c - process-wide heap
 	# ps4_stdio.c - thread safe standard output
-	# ps4_sync.c - working semaphores
 	# engine and hlsdk-portable keep them in different places
 	# (object name, source, extra flags)
 	objects = [
 		('cwd', 'ps4_cwd', []),
 		('stdio', 'ps4_stdio', []),
-		('sync', 'ps4_sync', []),
 		('crtlib', 'ps4_crtlib', []),
 		('malloc', 'ps4_malloc', []),
 		('malloc_module', 'ps4_malloc', ['-DPS4_MODULE=1']),
@@ -103,7 +99,7 @@ def ps4_add_runtime(self):
 		if self.env.PS4_MALLOC_WRAP:
 			# eboot.bin owns the process heap, modules find it at runtime
 			flags += [self.env.PS4_RT_MALLOC]
-	flags += [self.env.PS4_RT_CWD, self.env.PS4_RT_STDIO, self.env.PS4_RT_SYNC]
+	flags += [self.env.PS4_RT_CWD, self.env.PS4_RT_STDIO]
 	flags += self.env.PS4_WRAP_FLAGS
 	if is_cxx:
 		flags += ['-lc++']
@@ -119,7 +115,7 @@ def ps4_runtime_deps(self):
 	if self.env.DEST_OS != 'ps4' or not getattr(self, 'link_task', None):
 		return
 
-	for key in ['PS4_RT_CWD', 'PS4_RT_STDIO', 'PS4_RT_SYNC', 'PS4_RT_CRTLIB', 'PS4_RT_MALLOC', 'PS4_RT_MALLOC_MODULE']:
+	for key in ['PS4_RT_CWD', 'PS4_RT_STDIO', 'PS4_RT_CRTLIB', 'PS4_RT_MALLOC', 'PS4_RT_MALLOC_MODULE']:
 		path = self.env[key]
 		if path:
 			node = self.bld.root.find_node(path)

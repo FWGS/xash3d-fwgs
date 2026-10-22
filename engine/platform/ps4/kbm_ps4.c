@@ -79,24 +79,21 @@ static struct
 	qboolean kbd_active;            // the keys were used, so the system keyboard stays closed
 	byte     pressed[PS4_HID_KEYS]; // keys that were down at the previous update
 	uint32_t mods;
-	uint32_t nkeys;
 	uint32_t locks;
-	int      diag_read, diag_state, diag_unk1; // the last results of reading, to log changes
-	qboolean diag_time;
 	qboolean stream_works, state_works;
-	uint32_t raw_mods, raw_locks;
-	uint16_t raw_keys[8];
 	int      repeat_key;            // HID code, 0 - none
 	double   repeat_time;
 
 	// mouse
-	int32_t  mouse;
+	int32_t  mice[PS4_KBD_PROBES];  // the same mouse can be opened in several ways, see PS4_KbmInit
+	int      num_mice;
+	int      mouse_active;          // index in mice[] of the one that gives data, -1 - none yet
 	qboolean mouse_connected;
 	uint32_t mouse_buttons;
 	float    move_x, move_y;        // movement for the game, taken by Platform_MouseMove
 	int      cursor_x, cursor_y;    // cursor of the menu
 	qboolean grab;
-} ps4kbm = { .kbd = -1, .mouse = -1 };
+} ps4kbm = { .kbd = -1, .mouse_active = -1 };
 
 /*
 ==============
@@ -321,18 +318,6 @@ static void PS4_KeyboardApply( OrbisKeyboardData *data )
 			now[hid] = 1;
 	}
 
-	// raw data on every change, to see what the system gives
-	if( memcmp( data->keycodes, ps4kbm.raw_keys, sizeof( ps4kbm.raw_keys )) || data->nkeys != ps4kbm.nkeys
-		|| data->mods != ps4kbm.raw_mods || data->locks != ps4kbm.raw_locks )
-	{
-		Con_Reportf( "PS4 keyboard: nkeys %u, mods 0x%x, locks 0x%x, keys %u %u %u %u %u %u\n", data->nkeys, data->mods,
-			data->locks, data->keycodes[0], data->keycodes[1], data->keycodes[2], data->keycodes[3], data->keycodes[4], data->keycodes[5] );
-		memcpy( ps4kbm.raw_keys, data->keycodes, sizeof( ps4kbm.raw_keys ));
-		ps4kbm.nkeys = data->nkeys;
-		ps4kbm.raw_mods = data->mods;
-		ps4kbm.raw_locks = data->locks;
-	}
-
 	// something of the keyboard is used, the system keyboard is not needed
 	// (nkeys is 1 for no keys, the list ends with a zero)
 	for( int hid = 4; hid < PS4_HID_KEYS; hid++ )
@@ -375,7 +360,6 @@ static void PS4_KeyboardUpdate( void )
 	OrbisKeyboardData samples[PS4_KEYBOARD_SAMPLES];
 	OrbisKeyboardData data;
 	int count, ret;
-	uint64_t timestamp;
 
 	if( ps4kbm.kbd < 0 )
 		return;
@@ -391,7 +375,7 @@ static void PS4_KeyboardUpdate( void )
 			if( sceKeyboardReadState( ps4kbm.probes[i].handle, &probe ) < 0 || PS4_KeyboardDataIsEmpty( &probe ))
 				continue;
 
-			Con_Printf( "PS4 keyboard: handle 0x%08x (user 0x%x, index %d) gives data, using it\n",
+			Con_Reportf( "PS4 keyboard: handle 0x%08x (user 0x%x, index %d) gives data, using it\n",
 				ps4kbm.probes[i].handle, ps4kbm.probes[i].user, ps4kbm.probes[i].index );
 			ps4kbm.kbd = ps4kbm.probes[i].handle;
 			ps4kbm.num_probes = 0;
@@ -406,19 +390,6 @@ static void PS4_KeyboardUpdate( void )
 	// and the snapshot, ReadState is what the example of the toolchain uses
 	memset( &data, 0, sizeof( data ));
 	ret = sceKeyboardReadState( ps4kbm.kbd, &data );
-	memcpy( &timestamp, &data, sizeof( timestamp ));
-
-	// what the system gives, on every change of it
-	if( count != ps4kbm.diag_read || ret != ps4kbm.diag_state || (int)data.unk1 != ps4kbm.diag_unk1
-		|| ( timestamp != 0 ) != ps4kbm.diag_time )
-	{
-		Con_Reportf( "PS4 keyboard: Read %d, ReadState %d, timestamp %llu, unk1 %d, nkeys %d\n",
-			count, ret, (unsigned long long)timestamp, (int)data.unk1, (int)data.nkeys );
-		ps4kbm.diag_read = count;
-		ps4kbm.diag_state = ret;
-		ps4kbm.diag_unk1 = data.unk1;
-		ps4kbm.diag_time = timestamp != 0;
-	}
 
 	if( count > (int)ARRAYSIZE( samples ))
 		count = ARRAYSIZE( samples );
@@ -461,29 +432,35 @@ static void PS4_MouseSetConnected( qboolean connected )
 	Cvar_DirectSet( &m_ignore, connected ? "0" : "1" );
 }
 
-static void PS4_MouseUpdate( void )
+// reads one handle of the mouse, returns true if the mouse is connected and gave data
+static qboolean PS4_MouseRead( int32_t handle, qboolean *lost )
 {
 	ps4_mousedata_t data[PS4_MOUSE_SAMPLES];
+	qboolean got = false;
 	int count;
 
-	if( ps4kbm.mouse < 0 )
-		return;
-
 	memset( data, 0, sizeof( data ));
-	count = sceMouseRead( ps4kbm.mouse, data, ARRAYSIZE( data ));
+	*lost = false;
+	count = sceMouseRead( handle, data, ARRAYSIZE( data ));
 	if( count < 0 )
 	{
-		PS4_MouseSetConnected( false );
-		return;
+		*lost = true;
+		return false;
 	}
 
 	for( int i = 0; i < count; i++ )
 	{
 		const ps4_mousedata_t *m = &data[i];
 
-		PS4_MouseSetConnected( m->connected );
 		if( !m->connected )
+		{
+			*lost = true;
 			continue;
+		}
+
+		got = true;
+		*lost = false;
+		PS4_MouseSetConnected( true );
 
 		ps4kbm.move_x += m->x;
 		ps4kbm.move_y += m->y;
@@ -506,6 +483,40 @@ static void PS4_MouseUpdate( void )
 
 		if( m->wheel )
 			IN_MWheelEvent( m->wheel > 0 ? 1 : -1 );
+	}
+
+	return got;
+}
+
+static void PS4_MouseUpdate( void )
+{
+	if( !ps4kbm.num_mice )
+		return;
+
+	qboolean lost;
+
+	// the mouse is found: only its handle is read, so the same movement isn't counted twice
+	if( ps4kbm.mouse_active >= 0 )
+	{
+		PS4_MouseRead( ps4kbm.mice[ps4kbm.mouse_active], &lost );
+		if( lost )
+		{
+			// unplugged, any handle that gives data is taken next time
+			ps4kbm.mouse_active = -1;
+			PS4_MouseSetConnected( false );
+		}
+		return;
+	}
+
+	// not found yet, the first handle that gives data is used
+	for( int i = 0; i < ps4kbm.num_mice; i++ )
+	{
+		if( PS4_MouseRead( ps4kbm.mice[i], &lost ))
+		{
+			ps4kbm.mouse_active = i;
+			Con_Reportf( "PS4 mouse: handle 0x%08x gives data, using it\n", ps4kbm.mice[i] );
+			break;
+		}
 	}
 }
 
@@ -556,7 +567,7 @@ static void PS4_KbmInit( void )
 			{
 				const int32_t handle = sceKeyboardOpen( users[u], 0, index, NULL );
 
-				Con_Printf( "PS4 keyboard: user 0x%x, index %d: open 0x%08x\n", users[u], index, handle );
+				Con_Reportf( "PS4 keyboard: user 0x%x, index %d: open 0x%08x\n", users[u], index, handle );
 				if( handle < 0 || handle == ps4kbm.kbd )
 					continue;
 
@@ -570,10 +581,38 @@ static void PS4_KbmInit( void )
 
 	const int mouse_load = sceSysmoduleLoadModule( ORBIS_SYSMODULE_MOUSE );
 	const int mouse_init = sceMouseInit( );
-	ps4kbm.mouse = sceMouseOpen( user, 0, 0, NULL );
 
-	Con_Printf( "PS4 keyboard: load 0x%08x, init 0x%08x, open 0x%08x\n", kbd_load, kbd_init, ps4kbm.kbd );
-	Con_Printf( "PS4 mouse: load 0x%08x, init 0x%08x, open 0x%08x\n", mouse_load, mouse_init, ps4kbm.mouse );
+	// as with the keyboard, the mouse isn't always at the first port of the initial user
+	// (a receiver of a wireless mouse can take the first place), so the other ones are opened too
+	{
+		OrbisUserServiceLoginUserIdList list = { { -1, -1, -1, -1 } };
+		int32_t users[2 + ORBIS_USER_SERVICE_MAX_LOGIN_USERS] = { user, ORBIS_USER_SERVICE_USER_ID_SYSTEM };
+		int num_users = 2;
+
+		if( sceUserServiceGetLoginUserIdList( &list ) >= 0 )
+		{
+			for( int i = 0; i < ORBIS_USER_SERVICE_MAX_LOGIN_USERS; i++ )
+			{
+				if( list.userId[i] != -1 && list.userId[i] != user )
+					users[num_users++] = list.userId[i];
+			}
+		}
+
+		for( int u = 0; u < num_users; u++ )
+		{
+			for( int index = 0; index < 2 && ps4kbm.num_mice < PS4_KBD_PROBES; index++ )
+			{
+				const int32_t handle = sceMouseOpen( users[u], 0, index, NULL );
+
+				Con_Reportf( "PS4 mouse: user 0x%x, index %d: open 0x%08x\n", users[u], index, handle );
+				if( handle >= 0 )
+					ps4kbm.mice[ps4kbm.num_mice++] = handle;
+			}
+		}
+	}
+
+	Con_Reportf( "PS4 keyboard: load 0x%08x, init 0x%08x, open 0x%08x\n", kbd_load, kbd_init, ps4kbm.kbd );
+	Con_Reportf( "PS4 mouse: load 0x%08x, init 0x%08x, %d handles\n", mouse_load, mouse_init, ps4kbm.num_mice );
 }
 
 /*
@@ -601,10 +640,12 @@ void PS4_KbmShutdown( void )
 {
 	if( ps4kbm.kbd >= 0 )
 		sceKeyboardClose( ps4kbm.kbd );
-	if( ps4kbm.mouse >= 0 )
-		sceMouseClose( ps4kbm.mouse );
+	for( int i = 0; i < ps4kbm.num_mice; i++ )
+		sceMouseClose( ps4kbm.mice[i] );
 
-	ps4kbm.kbd = ps4kbm.mouse = -1;
+	ps4kbm.kbd = -1;
+	ps4kbm.num_mice = 0;
+	ps4kbm.mouse_active = -1;
 	ps4kbm.initialized = false;
 }
 
@@ -724,7 +765,7 @@ static void PS4_CursorLoad( void )
 	};
 
 	ps4cursor.texture = GL_LoadTextureInternal( "*ps4_cursor", &pic, TF_IMAGE|TF_ALLOW_NEAREST );
-	Con_Printf( "PS4 cursor: texture %d\n", ps4cursor.texture );
+	Con_Reportf( "PS4 cursor: texture %d\n", ps4cursor.texture );
 }
 
 void Platform_DrawCursor( void )
@@ -735,7 +776,7 @@ void Platform_DrawCursor( void )
 	// why it is not drawn, on every change
 	if( reason != last_reason )
 	{
-		Con_Printf( "PS4 cursor: %s\n", reason == 1 ? "no mouse yet" : reason == 2 ? "mouse is grabbed"
+		Con_Reportf( "PS4 cursor: %s\n", reason == 1 ? "no mouse yet" : reason == 2 ? "mouse is grabbed"
 			: reason == 3 ? "hidden by the engine" : "drawn" );
 		last_reason = reason;
 	}
