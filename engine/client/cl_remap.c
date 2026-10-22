@@ -259,17 +259,25 @@ static void CL_FreeRemapInfo( remap_info_t *info )
 {
 	Assert( info != NULL );
 
-	// release all colormap texture copies
-	for( int i = 0; i < info->numtextures; i++ )
+	if( info->ptexture != NULL )
 	{
-		if( info->ptexture != NULL )
+		// studio model: release all colormap texture copies
+		for( int i = 0; i < info->numtextures; i++ )
 		{
 			if( FBitSet( info->ptexture[i].flags, STUDIO_NF_COLORMAP ))
 				ref.dllFuncs.GL_FreeTexture( info->ptexture[i].index );
 		}
-
-		if( info->textures[i] != 0 )
-			ref.dllFuncs.GL_FreeTexture( info->textures[i] );
+	}
+	else
+	{
+		// alias model: release remapped skins
+		// textures array is only MAX_SKINS long, while a studio model may have
+		// more textures than that, so never index it with studio texture count
+		for( int i = 0; i < info->numtextures && i < ARRAYSIZE( info->textures ); i++ )
+		{
+			if( info->textures[i] != 0 )
+				ref.dllFuncs.GL_FreeTexture( info->textures[i] );
+		}
 	}
 
 	Mem_Free( info ); // release struct
@@ -301,7 +309,8 @@ static void CL_UpdateRemapInfo( cl_entity_t *entity, int topcolor, int bottomcol
 			if( FBitSet( info->ptexture[i].flags, STUDIO_NF_COLORMAP ))
 				CL_UpdateStudioTexture( entity, &info->ptexture[i], topcolor, bottomcolor );
 		}
-		else CL_UpdateAliasTexture( entity, &info->textures[i], i, topcolor, bottomcolor );
+		else if( i < ARRAYSIZE( info->textures ))
+			CL_UpdateAliasTexture( entity, &info->textures[i], i, topcolor, bottomcolor );
 	}
 
 	info->topcolor = topcolor;
