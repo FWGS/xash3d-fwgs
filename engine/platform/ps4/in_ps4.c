@@ -318,6 +318,10 @@ void Platform_EnableTextInput( qboolean enable, int x, int y, int w, int h )
 		ps4ime.requested = false;
 		ps4ime.chat_opened = false;
 	}
+	else if( PS4_KeyboardActive( ))
+	{
+		// the USB keyboard types, Cross still opens the system one
+	}
 	else if( !was_wanted && cls.key_dest == key_message )
 	{
 		// the chat line has nothing to look at without the keyboard, it opens with it,
@@ -343,6 +347,10 @@ static void PS4_StopVibration( void )
 
 void PS4_InputUpdate( void )
 {
+	// the system keyboard takes the keyboard and the mouse is of no use while it is open
+	if( !ps4ime.open )
+		PS4_KbmUpdate( );
+
 	if( ps4pad.handle < 0 )
 		return;
 
@@ -465,6 +473,7 @@ int Platform_JoyInit( void )
 
 void Platform_JoyShutdown( void )
 {
+	PS4_KbmShutdown( );
 	PS4_StopVibration( );
 
 	if( ps4pad.handle >= 0 )

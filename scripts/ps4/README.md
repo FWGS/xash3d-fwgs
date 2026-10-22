@@ -53,8 +53,11 @@ Half-Life runs: menu, gameplay, sound, DualShock 4, level changes, save/load, ex
   (1280x720 by default) and scaled to the screen.
 * DualShock 4 is read through libScePad directly, default layout is in
   `Key_SetDefaultGamepadBindings` (applied once over older configs, `resetkeys` restores it).
+* USB keyboard and mouse are read through libSceKeyboard and libSceMouse (`engine/platform/ps4/kbm_ps4.c`),
+  the keyboard layout is US. While a mouse is plugged in `m_ignore` is switched to 0 by itself. The system
+  keyboard opens for the gamepad only, Cross opens it again if the USB keyboard was used.
 * Sound goes through libSceAudioOut (`engine/platform/ps4/s_ps4.c`): the engine mixes at 44.1 kHz, a thread
-  resamples it to 48 kHz, the only rate of the main audio port. SDL is not used for audio.
+  resamples it to 48 kHz, the only rate of the main audio port.
 * Function names for savegames come from `<library>.prx.sym` files made by the build scripts of
   the game libraries (`llvm-nm` of the ELF image), the loader of the console has no symbol names.
 

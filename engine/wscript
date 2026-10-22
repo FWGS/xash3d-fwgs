@@ -182,8 +182,8 @@ def configure(conf):
 	if conf.env.DEST_OS == 'ps4' and conf.env.CLIENT and not conf.env.DEDICATED:
 		conf.env.PS4_GNM = True
 		conf.env.LIB_PS4GNM_SYS = ['SceGnmDriver', 'SceVideoOut']
-		# system keyboard, sound output and microphone, platform/ps4/in_ps4.c, s_ps4.c and voice_ps4.c
-		conf.env.LIB_PS4CLIENT_SYS = ['SceImeDialog', 'SceCommonDialog', 'SceAudioIn', 'SceAudioOut', 'ScePad', 'SceUserService', 'SceSysmodule']
+		# gamepad, system keyboard, USB keyboard and mouse, sound output and microphone: platform/ps4
+		conf.env.LIB_PS4CLIENT_SYS = ['SceImeDialog', 'SceCommonDialog', 'SceAudioIn', 'SceAudioOut', 'ScePad', 'SceUserService', 'SceSysmodule', 'SceKeyboard', 'SceMouse']
 
 def build_ps4_gnm(bld):
 	# GPU device of the PS4 port (platform/ps4/gnm), uses opengnm from 3rdparty/opengnm;

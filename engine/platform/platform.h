@@ -154,6 +154,9 @@ int PS4_GetArgv( int in_argc, char **in_argv, char ***out_argv );
 int PS4_RunOnBigStack( int ( *func )( void *arg ), void *arg );
 void PS4_Log( const char *fmt, ... ) FORMAT_CHECK( 1 );
 void PS4_InputUpdate( void );
+void PS4_KbmUpdate( void );
+void PS4_KbmShutdown( void );
+qboolean PS4_KeyboardActive( void );
 void PS4_InitKeyboard( void );
 qboolean PS4_PackageLibraryExists( const char *name );
 void PS4_FramePresented( void );
@@ -323,29 +326,40 @@ int Platform_GetClipboardText( char *buffer, size_t size );
 void Platform_SetClipboardText( const char *buffer );
 #else
 static inline void Platform_PreCreateMove( void ) { }
-static inline void GAME_EXPORT Platform_SetMousePos( int x, int y ) { }
-static inline void Platform_SetMouseGrab( qboolean enable ) { }
-static inline void Platform_SetCursorType( VGUI_DefaultCursor type ) { }
 static inline int Platform_GetClipboardText( char *buffer, size_t size ) { return 0; }
 static inline void Platform_SetClipboardText( const char *buffer ) { }
+#if XASH_PS4 // platform/ps4/kbm_ps4.c
+void Platform_SetCursorType( VGUI_DefaultCursor type );
+void GAME_EXPORT Platform_GetMousePos( int *x, int *y );
+void GAME_EXPORT Platform_SetMousePos( int x, int y );
+qboolean Platform_GetMouseGrab( void );
+void Platform_SetMouseGrab( qboolean enable );
+#else
+static inline void Platform_SetCursorType( VGUI_DefaultCursor type ) { }
+static inline void GAME_EXPORT Platform_SetMousePos( int x, int y ) { }
+static inline void Platform_SetMouseGrab( qboolean enable ) { }
 static inline qboolean Platform_GetMouseGrab( void ) { return false; }
 static inline void GAME_EXPORT Platform_GetMousePos( int *x, int *y )
 {
 	if( x ) *x = 0;
 	if( y ) *y = 0;
 }
+#endif // XASH_PS4
+#endif // XASH_SDL
+
+// the platform without a cursor of its own draws it after everything else
+#if XASH_PS4
+void Platform_DrawCursor( void );
+#else
+static inline void Platform_DrawCursor( void ) { }
 #endif
 
 #if XASH_SDL || XASH_DOS
 void Platform_RunEvents( void );
 void Platform_MouseMove( float *x, float *y );
-#elif XASH_PS4 // no mouse, the gamepad is polled in Platform_RunEvents
+#elif XASH_PS4 // the gamepad, keyboard and mouse are polled in Platform_RunEvents
 void Platform_RunEvents( void );
-static inline void Platform_MouseMove( float *x, float *y )
-{
-	if( x ) *x = 0.0f;
-	if( y ) *y = 0.0f;
-}
+void Platform_MouseMove( float *x, float *y );
 #else
 static inline void Platform_RunEvents( void ) { }
 static inline void Platform_MouseMove( float *x, float *y )

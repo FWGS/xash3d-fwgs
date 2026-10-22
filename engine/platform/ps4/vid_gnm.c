@@ -15,8 +15,8 @@ GNU General Public License for more details.
 
 /*
 The engine owns the display and the GPU device (platform/ps4/gnm), OpenGL renderers
-draw through the OpenGL ES 2 subset implemented by ref_gles3compat (ref/gl/ps4) over the device,
-SDL video isn't used. The screen has a fixed size and there are no windows
+draw through the OpenGL ES 2 subset implemented by ref_gles3compat (ref/gl/ps4) over the device.
+The screen has a fixed size and there are no windows
 */
 
 #include "platform/platform.h"

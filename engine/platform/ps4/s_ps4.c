@@ -42,7 +42,7 @@ static struct
 {
 	int handle;
 	pthread_t thread;
-	pthread_mutex_t lock; // recursive, like the lock of SDL audio device the mixer was written for
+	pthread_mutex_t lock; // recursive, the mixer expects a lock it can take twice
 	qboolean lock_ready;
 	qboolean running;     // thread is alive
 	qboolean active;      // false while the game is paused by the system, silence goes out
