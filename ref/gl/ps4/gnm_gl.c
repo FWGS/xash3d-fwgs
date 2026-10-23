@@ -180,7 +180,7 @@ typedef intptr_t GLsizeiptr;
 #define VS_BASE_VERTEX_SGPR 2 // see set_shaders
 
 // descriptor tables: binding N of a shader is at offset N * 64, see psbc_build_set_layout
-// in scripts/ps4/psbc/psbc-ps4.patch; bindings are in shaders/gl2.*.glsl
+// in opengnm-psbc; bindings are in shaders/gl2.*.glsl
 #define BINDING( n ) (( n ) * 64 )
 #define VS_TABLE_SIZE BINDING( 1 + SEM_COUNT ) // uniforms, then one buffer per attribute
 #define PS_TABLE_SIZE BINDING( 1 + MAX_TEXTURE_UNITS ) // uniforms, then textures

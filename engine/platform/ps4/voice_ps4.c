@@ -14,9 +14,8 @@ GNU General Public License for more details.
 */
 
 /*
-OpenOrbis SDL2 port has no audio capture, so the microphone (headset or camera)
-is read through libSceAudioIn. It gives 16 kHz mono, a thread reads it in blocks
-and resamples into the engine's voice input buffer.
+The microphone (headset or camera) is read through libSceAudioIn. It gives 16 kHz mono,
+a thread reads it in blocks and resamples into the engine's voice input buffer.
 */
 
 #include "common.h"

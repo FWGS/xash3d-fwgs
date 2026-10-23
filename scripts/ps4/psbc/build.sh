@@ -1,19 +1,11 @@
 #!/bin/sh
 # Builds host tools for compiling PS4 shaders: opengnm-psbc (SPIR-V -> PS4 shader binary)
-# with our patch, and glslang (GLSL -> SPIR-V). Only needed to change shaders, compiled
-# shaders are kept in the repository.
+# and glslang (GLSL -> SPIR-V). Only needed to change shaders, compiled shaders are kept
+# in the repository.
 #
 # Usage: scripts/ps4/psbc/build.sh [output directory]
-#   Prints paths to use as PSBC and GLSLANG for scripts/ps4/gnm/compile-shaders.sh.
+#   Prints paths to use as --ps4-psbc and --ps4-glslang options of waf configure.
 #
-# psbc-ps4.patch:
-#   - builds descriptor set 0 layout from shader resources, without it radv turns
-#     every uniform buffer or texture access into a load through a null descriptor;
-#     binding N is at offset N * 64, see psbc_build_set_layout()
-#   - assigns VS parameter exports and fragment shader input attribute indices,
-#     radv does both when linking a pipeline
-#   - GFX7/GFX8 register limits as in Mesa, old ones failed register allocation
-#   - no NEON blake3 source on x86
 set -e
 
 HERE=$(cd "$(dirname "$0")" && pwd)
@@ -21,7 +13,7 @@ ROOT=$(cd "$HERE/../../.." && pwd)
 OUT=${1:-$ROOT/build-psbc}
 
 PSBC_REPO=https://github.com/PS4-OpenGNM/opengnm-psbc
-PSBC_COMMIT=a92a1228ea3a64e4be9f0e61c2a65a5aa7ffed92
+PSBC_COMMIT=28697f007862427ebec54388ec972ce6e3545912
 OPENGNM_REPO=https://github.com/PS4-OpenGNM/opengnm
 OPENGNM_COMMIT=4b295ca54c82c83acf308d1c646a2dfa9ae57350
 VKHEADERS_REPO=https://github.com/KhronosGroup/Vulkan-Headers
@@ -72,10 +64,6 @@ fi
 echo "=== Building opengnm-psbc"
 PSBC="$OUT/opengnm-psbc"
 cd "$PSBC"
-if ! git apply --reverse --check "$HERE/psbc-ps4.patch" 2>/dev/null; then
-	git checkout -q -- .
-	git apply "$HERE/psbc-ps4.patch"
-fi
 cp "$HERE/config-host.mak" config.mak
 
 # Mesa generated sources which upstream Makefile has no rules for (see meson.build files)

@@ -20,12 +20,16 @@ opengnm is a git submodule (`3rdparty/opengnm/opengnm`), run
 [opengnm](https://github.com/PS4-OpenGNM/opengnm) is built into the engine for the GPU renderer.
 
 Shaders of the GPU renderer are compiled ahead of time and kept in
-`ref/gl/ps4/gnm_shaders.c`. After changing `ref/gl/ps4/shaders`:
+`ref/gl/ps4/gnm_shaders.c`. To rebuild them after changing `ref/gl/ps4/shaders`, give
+the host tools to configure, waf compiles the shaders with `scripts/ps4/gnm/compile_shaders.py`
+instead of using the file from the repository:
 
 ```
-scripts/ps4/psbc/build.sh          # host glslang and opengnm-psbc with our patch, prints their paths
-GLSLANG=... PSBC=... scripts/ps4/gnm/compile-shaders.sh
+scripts/ps4/psbc/build.sh          # host glslang and opengnm-psbc, prints their paths
+./waf configure --ps4 --ps4-glslang=... --ps4-psbc=...
 ```
+
+To update `gnm_shaders.c` in the repository, copy the file from `build/ref/gl/ps4/`.
 
 ## Running
 
@@ -73,7 +77,7 @@ GL context or the buffers of the software renderer on other platforms:
 * `ref/gl/ps4/gnm_gl.c` (part of ref_gles3compat): what gl2_shim needs from OpenGL ES 2
   over the device with opengnm. GL state, textures (linear, with mipmaps), buffers, draws, `glReadPixels`.
   gl2_shim programs are mapped to precompiled shader variants by their defines.
-* Shaders are GLSL compiled with glslang and opengnm-psbc with `scripts/ps4/psbc/psbc-ps4.patch`.
+* Shaders are GLSL compiled with glslang and opengnm-psbc.
 
 Things that were checked on the console (firmware 13.02) and are easy to break:
 
