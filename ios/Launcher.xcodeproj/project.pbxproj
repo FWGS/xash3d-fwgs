@@ -180,8 +180,9 @@
 			children = (
 				88C6586A305B195700986226 /* ZipArchive.xcodeproj */,
 			);
-			path = "SSZipArchive-master";
-			sourceTree = "<group>";
+			name = "SSZipArchive-master";
+			path = ../3rdparty/SSZipArchive;
+			sourceTree = SOURCE_ROOT;
 		};
 		88C6586E305B195700986226 /* Products */ = {
 			isa = PBXGroup;
