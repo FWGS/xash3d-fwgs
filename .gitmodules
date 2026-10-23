@@ -49,3 +49,6 @@
 [submodule "3rdparty/mpg123/mpg123"]
 	path = 3rdparty/mpg123/mpg123
 	url = https://github.com/libsdl-org/mpg123
+[submodule "3rdparty/zsign"]
+	path = 3rdparty/zsign
+	url = https://github.com/ksagameng2/zsign
