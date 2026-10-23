@@ -55,3 +55,6 @@
 [submodule "3rdparty/openssl"]
 	path = 3rdparty/openssl
 	url = https://github.com/openssl/openssl
+[submodule "3rdparty/SSZipArchive"]
+	path = 3rdparty/SSZipArchive
+	url = https://github.com/karmarama/SSZipArchive
