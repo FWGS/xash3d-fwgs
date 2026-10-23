@@ -51,6 +51,9 @@ NSString *libraryDirectory;
 	self.settingsController.tabBarItem = [[UITabBarItem alloc] initWithTitle:@"Settings" image:[UIImage imageNamed:@"gear"] tag:1];
 	
 	self.tabNavController = [[UITabBarController alloc] init];
+	if (@available(iOS 18.0, *)) {
+		self.tabNavController.traitOverrides.horizontalSizeClass = UIUserInterfaceSizeClassCompact;
+	}
 	[self.tabNavController setViewControllers:@[self.gamesNavController, self.settingsNavController] animated:YES];
 	
 	self.window.rootViewController = self.tabNavController;
