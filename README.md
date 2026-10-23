@@ -105,9 +105,6 @@ This repository contains our fork of HLSDK and restored source code for Half-Lif
 
 #### iOS/iPadOS
 * Install Xcode from the appstore.
-* Install [Homebrew package manager](https://brew.sh).
-
-* Install build dependencies by running: `brew install python`.
 
 * Clone the SDL2 repo `$ git clone --recursive https://github.com/libsdl-org/SDL.git -b SDL2` and compile the iOS framework by navigating to SDL/Xcode/SDL and opening the Xcode project.
 
@@ -135,10 +132,9 @@ To build you should clone [SDL](https://github.com/libsdl-org/SDL) from `SDL2` b
 
 #### iOS/iPadOS (MacOS only)
 0) (optional) Examine which build options are available: `./waf --help`.
-1) Configure build: `./waf configure --ios --enable-bundled-deps --sdl2 (path/to/SDL2.framework)`, set `--ios-simulator` instead of `--ios` if you want to build for simulator.
-2) Compile `./waf build`.
-3) Navigate to `build` and copy your compiled SDL2.framework there, then add your game dylibs to `build/ios/libs/(gamedir)/(dlls/cl_dlls)`(You can also run `scripts/ios/buildhlsdk.sh` instead to automatically create an ipa with hlsdk dylibs)
-4) Run `scripts/ios/createipa.sh` to create an installable ipa
+1) Copy your compiled SDL2.framework to the repository's root directory
+2) Add your game dylibs to `build/ios/libs/(gamedir)/(dlls/cl_dlls)` if desired (You can also run `scripts/ios/buildhlsdk.sh` instead to automatically create an ipa with hlsdk dylibs)
+3) Open the xcode project in `ios` and build it, an ipa file will be created at build/xash3d.ipa if successful
 
 ### Running tests
 
