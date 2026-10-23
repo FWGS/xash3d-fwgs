@@ -65,3 +65,6 @@
 	path = 3rdparty/opengnm-psbc/Vulkan-Headers
 	url = https://github.com/KhronosGroup/Vulkan-Headers
 	update = none
+[submodule "3rdparty/zsign"]
+	path = 3rdparty/zsign
+	url = https://github.com/ksagameng2/zsign
