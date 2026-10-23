@@ -1,9 +1,9 @@
 #ifndef XASH_PSA_CONFIG_H
 #define XASH_PSA_CONFIG_H
 
-#if (defined( _WIN32 ) && !defined( _WIN64 )) || defined( __vita__ ) || defined( __SWITCH__ )
-/* WinXP, PSVita and NSwitch use entropy paths upstream doesn't cover.
-   compat.c provides mbedtls_platform_get_entropy() for all three. */
+#if (defined( _WIN32 ) && !defined( _WIN64 )) || defined( __vita__ ) || defined( __SWITCH__ ) || defined( __ORBIS__ )
+/* WinXP, PSVita, NSwitch and PS4 use entropy paths upstream doesn't cover.
+   compat.c provides mbedtls_platform_get_entropy() for all four. */
 #undef MBEDTLS_PSA_BUILTIN_GET_ENTROPY
 #define MBEDTLS_PSA_DRIVER_GET_ENTROPY
 #endif

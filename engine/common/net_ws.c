@@ -153,7 +153,7 @@ qboolean NET_IsSocketValid( int socket )
 
 qboolean NET_MakeSocketNonBlocking( int socket_fd )
 {
-#if XASH_LINUX
+#if XASH_LINUX || XASH_PS4
 	int res = fcntl( socket_fd, F_GETFL, 0 );
 	if( NET_IsSocketError( res ))
 		return false;

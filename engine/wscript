@@ -122,6 +122,8 @@ def configure(conf):
 
 			if conf.env.DEST_OS == 'nswitch': # remove libstdc++ linking from SDL2, we link it later
 				conf.env.LIB_SDL2.remove('stdc++')
+		elif conf.env.DEST_OS == 'ps4':
+			pass # no SDL, video, sound and input are in platform/ps4
 		elif conf.env.DEST_OS == 'linux' and conf.options.FBDEV_SW:
 			conf.check_cc(lib='asound')
 		elif conf.options.SDL12: # TODO: move to sdl2.py
@@ -176,6 +178,30 @@ def configure(conf):
 	for refdll in conf.refdlls:
 		refdll.register_define(conf)
 
+	# GNM backend for OpenGL renderers, see build_ps4_gnm
+	if conf.env.DEST_OS == 'ps4' and conf.env.CLIENT and not conf.env.DEDICATED:
+		conf.env.PS4_GNM = True
+		conf.env.LIB_PS4GNM_SYS = ['SceGnmDriver', 'SceVideoOut']
+		# gamepad, system keyboard, USB keyboard and mouse, sound output and microphone: platform/ps4
+		conf.env.LIB_PS4CLIENT_SYS = ['SceImeDialog', 'SceCommonDialog', 'SceAudioIn', 'SceAudioOut', 'ScePad', 'SceUserService', 'SceSysmodule', 'SceKeyboard', 'SceMouse']
+
+def build_ps4_gnm(bld):
+	# GPU device of the PS4 port (platform/ps4/gnm), uses opengnm from 3rdparty/opengnm;
+	# the OpenGL layer on top of it is a part of ref_gles3compat, see ref/gl/ps4.
+	# Built separately from the engine: opengnm has its own platform.h
+	gnm = bld.path.parent.find_dir('3rdparty/opengnm/opengnm')
+
+	bld.stlib(
+		source = bld.path.ant_glob('platform/ps4/gnm/*.c'),
+		target = 'ps4gnm',
+		features = 'c',
+		includes = [gnm.find_dir('include'), gnm.find_dir('src'), 'platform/ps4/gnm'],
+		defines = ['OPENGNM_ORBIS'],
+		cflags = ['-std=gnu11', '-Wno-unused-parameter'],
+		use = 'opengnm',
+		install_path = None,
+	)
+
 def build(bld):
 	# public includes for renderers and utils use
 	bld(name = 'engine_includes', export_includes = '. common common/imagelib', use = 'filesystem_includes')
@@ -194,7 +220,10 @@ def build(bld):
 		source += bld.path.ant_glob('platform/linux/*.c')
 
 	# include common POSIX conformant code
-	if bld.env.DEST_OS not in ['win32', 'dos']:
+	if bld.env.DEST_OS == 'ps4':
+		# kernel loads modules, see platform/ps4/lib_ps4.c
+		source += bld.path.ant_glob('platform/posix/*.c', excl='platform/posix/lib_posix.c')
+	elif bld.env.DEST_OS not in ['win32', 'dos']:
 		source += bld.path.ant_glob('platform/posix/*.c')
 	if bld.env.IOS:
 		source += bld.path.ant_glob('platform/ios/*.c')
@@ -283,6 +312,10 @@ def build(bld):
 		if not bld.env.DEDICATED:
 			source += bld.path.ant_glob('client/**/*.c')
 			libs += ['bzip2', 'mpg123', 'MultiEmulator', 'opus', 'opusfile', 'vorbis', 'vorbisfile']
+
+		if bld.env.PS4_GNM:
+			build_ps4_gnm(bld)
+			libs += ['ps4gnm', 'opengnm', 'PS4GNM_SYS', 'PS4CLIENT_SYS']
 
 		# Android port is linked differently
 		if bld.env.DEST_OS == 'android':

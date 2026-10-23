@@ -124,6 +124,7 @@ SUBDIRS = [
 	Subproject('3rdparty/bzip2',        lambda x: x.env.CLIENT and not x.env.HAVE_SYSTEM_BZ2),
 	Subproject('3rdparty/mpg123',       lambda x: x.env.CLIENT and not x.env.HAVE_SYSTEM_MPG123),
 	Subproject('3rdparty/mbedtls'),
+	Subproject('3rdparty/opengnm',      lambda x: x.env.CLIENT and x.env.DEST_OS == 'ps4'),
 	Subproject('3rdparty/opus',         lambda x: x.env.CLIENT and not x.env.HAVE_SYSTEM_OPUS),
 	Subproject('3rdparty/libogg',       lambda x: x.env.CLIENT and not x.env.HAVE_SYSTEM_OGG),
 	Subproject('3rdparty/vorbis',       lambda x: x.env.CLIENT and (not x.env.HAVE_SYSTEM_VORBIS or not x.env.HAVE_SYSTEM_VORBISFILE)),
@@ -322,6 +323,9 @@ def configure(conf):
 	if conf.options.PSVITA:
 		conf.load('psvita')
 
+	if conf.options.PS4:
+		conf.load('ps4')
+
 	# HACKHACK: override msvc DEST_CPU value by something that we understand
 	if conf.env.DEST_CPU == 'amd64':
 		conf.env.DEST_CPU = 'x86_64'
@@ -359,6 +363,13 @@ def configure(conf):
 		enforce_pic = False
 	elif conf.env.MSVC_WINE:
 		conf.options.BUILD_BUNDLED_DEPS = True
+	elif conf.env.DEST_OS == 'ps4':
+		# no OpenGL driver: ref_gles3compat (gl2_shim) draws through our GNM backend
+		# with precompiled shaders (ref/gl/ps4)
+		conf.options.GL               = False
+		conf.options.GLES3COMPAT      = True
+		conf.options.SOFT             = False
+		conf.options.USE_STBTT        = True  # mainui: no freetype2 package for PS4
 
 	# psvita needs -fPIC set manually and static builds are incompatible with -fPIC
 	enforce_pic = conf.env.DEST_OS != 'psvita' and not conf.env.STATIC_LINKING
@@ -409,6 +420,12 @@ def configure(conf):
 		linkflags.append('-Wl,-undefined,error')
 	elif conf.env.SAILFISH:
 		conf.define('XASH_SAILFISH', 1)
+
+	if conf.env.DEST_OS == 'ps4':
+		# fix broken struct sockaddr_storage in OpenOrbis headers
+		fix = conf.path.find_node('3rdparty/ps4compat/ps4_sockaddr.h').abspath()
+		cflags += ['-include', fix]
+		cxxflags += ['-include', fix]
 
 	conf.check_cc(cflags=cflags, linkflags=linkflags, msg='Checking for required C flags')
 	conf.check_cxx(cxxflags=cxxflags, linkflags=linkflags, msg='Checking for required C++ flags')
@@ -508,7 +525,7 @@ def configure(conf):
 	if not conf.options.DEDICATED:
 		conf.env.SERVER = conf.options.ENABLE_DEDICATED
 		conf.env.CLIENT = True
-		conf.env.LAUNCHER = conf.env.DEST_OS not in ['android', 'nswitch', 'psvita', 'dos', 'emscripten'] and not conf.env.IOS and not conf.env.MAGX and not conf.env.STATIC_LINKING
+		conf.env.LAUNCHER = conf.env.DEST_OS not in ['android', 'nswitch', 'psvita', 'ps4', 'dos', 'emscripten'] and not conf.env.IOS and not conf.env.MAGX and not conf.env.STATIC_LINKING
 	else:
 		conf.env.SERVER = True
 		conf.env.CLIENT = False
@@ -518,7 +535,7 @@ def configure(conf):
 
 	conf.define_cond('SUPPORT_HL25_EXTENDED_STRUCTS', conf.options.SUPPORT_HL25_EXTENDED_STRUCTS)
 
-	if conf.options.ENABLE_RPATH and conf.env.DEST_OS not in ['nswitch', 'psvita']:
+	if conf.options.ENABLE_RPATH and conf.env.DEST_OS not in ['nswitch', 'psvita', 'ps4']:
 		if conf.env.DEST_OS == 'openbsd':
 			# OpenBSD requires -z origin to enable $ORIGIN expansion in RPATH
 			conf.env.RPATH_ST = '-Wl,-z,origin,-rpath,%s'
