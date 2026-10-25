@@ -21,11 +21,11 @@ GNU General Public License for more details.
 #include <orbis/libkernel.h>
 #include <orbis/VideoOut.h>
 
+#include <gnm.h>
 #include <gnm_dataformat.h>
 #include <gnm_drawcommandbuffer.h>
 #include <gnmdriver.h>
 #include <gpuaddr.h>
-#include <platform.h>
 #include <compat/pssl.h>
 #include <pm4/sid.h>
 

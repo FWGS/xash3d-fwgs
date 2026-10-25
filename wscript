@@ -372,6 +372,7 @@ def configure(conf):
 		conf.options.GLES3COMPAT      = False
 		conf.options.SOFT             = False
 		conf.options.USE_STBTT        = True  # mainui: no freetype2 package for PS4
+		conf.options.BUILD_BUNDLED_DEPS = True # the toolchain has no packages, host ones must not leak in
 		# opengnm calls them, both the engine and ref_gl link it
 		conf.env.LIB_PS4GNM_SYS = ['SceGnmDriver', 'SceVideoOut']
 

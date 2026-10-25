@@ -21,14 +21,14 @@ def configure(conf):
 		conf.fatal('Can\'t find opengnm submodule. Run `git submodule update --init --recursive`.')
 
 def build(bld):
-	# opengnm has its own platform.h, so its include paths are not exported:
-	# the GNM backend adds them for itself, see build_ps4_gnm in engine/wscript
 	bld.stlib(
 		source = [bld.path.find_node('opengnm/' + i) for i in SOURCES],
 		target = 'opengnm',
 		features = 'c',
 		includes = ['opengnm/include', 'opengnm/src'],
+		export_includes = 'opengnm/include',
 		defines = ['OPENGNM_ORBIS'],
 		cflags = ['-std=gnu11', '-Wno-unused-parameter'],
+		use = 'PS4GNM_SYS',
 		install_path = None,
 	)

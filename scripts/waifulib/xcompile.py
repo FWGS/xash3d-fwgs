@@ -828,9 +828,6 @@ def configure(conf):
 		conf.env.LINKFLAGS += ps4.linkflags()
 		conf.env.LDFLAGS += ps4.ldflags()
 		conf.env.PS4_TOOLCHAIN = ps4.toolchain
-		# never pick up host libraries through pkg-config
-		conf.environ['PKG_CONFIG_LIBDIR'] = os.path.join(ps4.toolchain, 'lib', 'pkgconfig')
-		conf.environ['PKG_CONFIG_PATH'] = ''
 		conf.env.HAVE_M = True
 		conf.env.LIB_M = [] # libm is part of OpenOrbis libc
 		conf.env.DEST_OS = 'ps4'

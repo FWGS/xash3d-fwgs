@@ -18,7 +18,6 @@ def configure(conf):
 		conf.find_program(conf.options.PS4_PSBC, var='PS4_PSBC')
 
 def build(bld):
-	gnm = bld.srcnode.find_dir('3rdparty/opengnm/opengnm')
 	shaders = bld.path.find_node('gnm_shaders.c')
 
 	# shaders are compiled for GCN with host tools, see scripts/ps4/psbc/build.sh
@@ -29,12 +28,10 @@ def build(bld):
 			target = shaders,
 			name = 'gnm_shaders')
 
-	# not a part of ref/gl sources: opengnm has its own platform.h
 	bld.stlib(source = bld.path.ant_glob('*.c', excl = 'gnm_shaders.c') + [shaders],
 		target = 'gnm_gl',
 		features = 'c',
-		includes = ['.', bld.srcnode.find_dir('engine/platform/ps4/gnm'), gnm.find_dir('include'), gnm.find_dir('src')],
-		defines = ['OPENGNM_ORBIS'],
+		includes = ['.', bld.srcnode.find_dir('engine/platform/ps4/gnm')],
 		cflags = ['-std=gnu11', '-Wno-unused-parameter'],
-		use = 'opengnm PS4GNM_SYS',
+		use = 'opengnm',
 		install_path = None)
