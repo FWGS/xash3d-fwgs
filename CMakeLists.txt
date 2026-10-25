@@ -66,6 +66,7 @@ target_include_directories(filesystem_stdio PUBLIC
 	public
 	pm_shared
 	filesystem
+	/opt/devkitpro/portlibs/ppc/include
 )
 target_compile_definitions(filesystem_stdio PRIVATE
 	-DXASH_GAMEDIR="valve"

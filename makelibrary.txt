@@ -280,10 +280,12 @@ add_library(vgui STATIC ${VGUI_SOURCES})
 
 target_include_directories(vgui PRIVATE
 	${CMAKE_CURRENT_SOURCE_DIR}/../hlsdk-portable/freevgui
-	${CMAKE_CURRENT_SOURCE_DIR}/../hlsdk-portable/engine
+	# Remove when vgui_api.h gets updated
+	#${CMAKE_CURRENT_SOURCE_DIR}/../hlsdk-portable/engine
 	${CMAKE_CURRENT_SOURCE_DIR}/../hlsdk-portable/freevgui/platform/common
 	${CMAKE_CURRENT_SOURCE_DIR}/../hlsdk-portable/freevgui/platform/posix
 	${CMAKE_CURRENT_SOURCE_DIR}/../hlsdk-portable/freevgui/platform/xash3d-fwgs
+	engine
 )
 
 target_compile_definitions(vgui PRIVATE
