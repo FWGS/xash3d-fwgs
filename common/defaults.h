@@ -156,7 +156,6 @@ Default build-depended cvar and constant values
 	#define DEFAULT_MODE_HEIGHT  544
 	#define DEFAULT_ALLOWCONSOLE 1
 #elif XASH_PS4
-	#define DEFAULT_M_IGNORE     "1" // reset to 0 while a mouse is plugged in, platform/ps4/kbm_ps4.c
 	#define DEFAULT_ALLOWCONSOLE 1
 #elif XASH_ANDROID
 	#define DEFAULT_TOUCH_ENABLE "1"

@@ -64,8 +64,6 @@ typedef struct
 #define PS4_MOD_ALT   ( ORBIS_KEYBOARD_MOD_LEFT_ALT   | ORBIS_KEYBOARD_MOD_RIGHT_ALT )
 #define PS4_MOD_META  ( ORBIS_KEYBOARD_MOD_LEFT_META  | ORBIS_KEYBOARD_MOD_RIGHT_META )
 
-extern convar_t m_ignore; // client/input/input.c
-
 static struct
 {
 	qboolean initialized;
@@ -427,9 +425,6 @@ static void PS4_MouseSetConnected( qboolean connected )
 
 	ps4kbm.mouse_connected = connected;
 	Con_Reportf( "PS4 mouse: %s\n", connected ? "connected" : "disconnected" );
-
-	// engine can't tell whether the mouse is there, m_ignore tells it
-	Cvar_DirectSet( &m_ignore, connected ? "0" : "1" );
 }
 
 // reads one handle of the mouse, returns true if the mouse is connected and gave data
@@ -532,9 +527,6 @@ static void PS4_KbmInit( void )
 		Con_Printf( S_ERROR "sceUserServiceGetInitialUser failed: 0x%08x\n", ret );
 		return;
 	}
-
-	// config may have the mouse enabled from the previous run
-	Cvar_DirectSet( &m_ignore, "1" );
 
 	ps4kbm.cursor_x = refState.width / 2;
 	ps4kbm.cursor_y = refState.height / 2;
@@ -682,6 +674,11 @@ void Platform_SetMouseGrab( qboolean enable )
 {
 	ps4kbm.grab = enable;
 	ps4kbm.move_x = ps4kbm.move_y = 0.0f; // what was moved before is not for the game
+}
+
+qboolean Platform_MouseConnected( void )
+{
+	return ps4kbm.mouse_connected;
 }
 
 /*

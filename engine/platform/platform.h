@@ -354,6 +354,13 @@ void Platform_DrawCursor( void );
 static inline void Platform_DrawCursor( void ) { }
 #endif
 
+// platforms that can't detect a mouse assume it's there
+#if XASH_PS4
+qboolean Platform_MouseConnected( void );
+#else
+static inline qboolean Platform_MouseConnected( void ) { return true; }
+#endif
+
 #if XASH_SDL || XASH_DOS
 void Platform_RunEvents( void );
 void Platform_MouseMove( float *x, float *y );
