@@ -52,3 +52,16 @@
 [submodule "3rdparty/opengnm/opengnm"]
 	path = 3rdparty/opengnm/opengnm
 	url = https://github.com/PS4-OpenGNM/opengnm
+	update = none
+[submodule "3rdparty/glslang/glslang"]
+	path = 3rdparty/glslang/glslang
+	url = https://github.com/KhronosGroup/glslang
+	update = none
+[submodule "3rdparty/opengnm-psbc/opengnm-psbc"]
+	path = 3rdparty/opengnm-psbc/opengnm-psbc
+	url = https://github.com/PS4-OpenGNM/opengnm-psbc
+	update = none
+[submodule "3rdparty/opengnm-psbc/Vulkan-Headers"]
+	path = 3rdparty/opengnm-psbc/Vulkan-Headers
+	url = https://github.com/KhronosGroup/Vulkan-Headers
+	update = none

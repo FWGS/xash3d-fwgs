@@ -18,7 +18,7 @@ def options(opt):
 
 def configure(conf):
 	if not conf.path.find_node('opengnm/src/drawcommandbuffer.c'):
-		conf.fatal('Can\'t find opengnm submodule. Run `git submodule update --init --recursive`.')
+		conf.fatal('Can\'t find opengnm submodule. Run `git submodule update --init --checkout 3rdparty/opengnm/opengnm`.')
 
 def build(bld):
 	bld.stlib(

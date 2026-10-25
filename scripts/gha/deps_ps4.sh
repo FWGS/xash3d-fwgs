@@ -2,6 +2,9 @@
 
 cd "$GITHUB_WORKSPACE" || exit 1
 
+# PS4-only submodules aren't checked out by default, see Documentation/ps4.md
+git submodule update --init --checkout --recursive 3rdparty/opengnm/opengnm 3rdparty/opengnm-psbc 3rdparty/glslang || exit 1
+
 # OpenOrbis builds the engine with LLVM 18 (newer lld picks musl's lite_malloc, which
 # gives two mallocs in the process)
 sudo apt-get update || exit 1

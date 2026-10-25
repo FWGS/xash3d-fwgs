@@ -14,8 +14,12 @@ PS4_IP=192.168.0.10 scripts/gha/build_ps4.sh # same, and upload to the console F
 ```
 
 `scripts/gha/deps_ps4.sh` is what CI does to get the toolchain and the game libraries.
-opengnm is a git submodule (`3rdparty/opengnm/opengnm`), run
-`git submodule update --init --recursive` after cloning.
+
+Submodules used only by the PS4 port aren't checked out by default:
+
+```
+git submodule update --init --checkout --recursive 3rdparty/opengnm/opengnm 3rdparty/opengnm-psbc 3rdparty/glslang
+```
 
 [opengnm](https://github.com/PS4-OpenGNM/opengnm) is built into the engine for the GPU renderer.
 
