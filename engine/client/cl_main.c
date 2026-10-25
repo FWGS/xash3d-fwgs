@@ -1621,6 +1621,10 @@ void CL_ClearState( void )
 	CL_ClearEffects ();
 	CL_FreeEdicts ();
 
+	// force remaps to reallocate in case we restart the map
+	CL_ClearAllRemaps();
+	clgame.maxRemapInfos = 0;
+
 	PM_ClearPhysEnts( clgame.pmove );
 	NetAPI_CancelAllRequests();
 
