@@ -181,13 +181,12 @@ def configure(conf):
 	# GNM backend for OpenGL renderers, see build_ps4_gnm
 	if conf.env.DEST_OS == 'ps4' and conf.env.CLIENT and not conf.env.DEDICATED:
 		conf.env.PS4_GNM = True
-		conf.env.LIB_PS4GNM_SYS = ['SceGnmDriver', 'SceVideoOut']
 		# gamepad, system keyboard, USB keyboard and mouse, sound output and microphone: platform/ps4
 		conf.env.LIB_PS4CLIENT_SYS = ['SceImeDialog', 'SceCommonDialog', 'SceAudioIn', 'SceAudioOut', 'ScePad', 'SceUserService', 'SceSysmodule', 'SceKeyboard', 'SceMouse']
 
 def build_ps4_gnm(bld):
 	# GPU device of the PS4 port (platform/ps4/gnm), uses opengnm from 3rdparty/opengnm;
-	# the OpenGL layer on top of it is a part of ref_gles3compat, see ref/gl/ps4.
+	# the OpenGL layer on top of it is a part of ref_gl, see ref/gl/ps4.
 	# Built separately from the engine: opengnm has its own platform.h
 	gnm = bld.path.parent.find_dir('3rdparty/opengnm/opengnm')
 

@@ -149,6 +149,9 @@ SUBDIRS = [
 
 	# enabled on PSVita only
 	Subproject('ref/gl/vgl_shim',   lambda x: x.env.DEST_OS == 'psvita'),
+
+	# enabled on PS4 only
+	Subproject('ref/gl/ps4',        lambda x: x.env.CLIENT and x.env.GL and x.env.DEST_OS == 'ps4'),
 ]
 
 REFDLLS = [
@@ -364,12 +367,13 @@ def configure(conf):
 	elif conf.env.MSVC_WINE:
 		conf.options.BUILD_BUNDLED_DEPS = True
 	elif conf.env.DEST_OS == 'ps4':
-		# no OpenGL driver: ref_gles3compat (gl2_shim) draws through our GNM backend
-		# with precompiled shaders (ref/gl/ps4)
-		conf.options.GL               = False
-		conf.options.GLES3COMPAT      = True
+		# no OpenGL driver: ref_gl draws through our OpenGL layer over GNM (ref/gl/ps4)
+		conf.options.GL               = True
+		conf.options.GLES3COMPAT      = False
 		conf.options.SOFT             = False
 		conf.options.USE_STBTT        = True  # mainui: no freetype2 package for PS4
+		# opengnm calls them, both the engine and ref_gl link it
+		conf.env.LIB_PS4GNM_SYS = ['SceGnmDriver', 'SceVideoOut']
 
 	# psvita needs -fPIC set manually and static builds are incompatible with -fPIC
 	enforce_pic = conf.env.DEST_OS != 'psvita' and not conf.env.STATIC_LINKING

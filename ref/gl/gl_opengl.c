@@ -794,7 +794,7 @@ static void GL_InitExtensionsGLES( void )
 #elif XASH_WES
 	glConfig.context = CONTEXT_TYPE_GLES_2_X;
 	glConfig.wrapper = GLES_WRAPPER_WES;
-#elif XASH_GLES3COMPAT
+#elif XASH_GLES3COMPAT || XASH_PS4
 	glConfig.context = CONTEXT_TYPE_GLES_2_X;
 	glConfig.wrapper = GLES_WRAPPER_NONE;
 #else

@@ -27,13 +27,13 @@ GNU General Public License for more details.
 	#define XASH_GLES 1
 	#define XASH_GL_STATIC 1
 	#define REF_GL_KEEP_MANGLED_FUNCTIONS 1
-#elif XASH_GLES3COMPAT
+#elif XASH_GLES3COMPAT || XASH_PS4 // PS4: OpenGL ES 2 subset over GNM under gl2_shim, see ref/gl/ps4
 	#ifdef SOFTFP_LINK
 		#undef APIENTRY
 		#define APIENTRY __attribute__((pcs("aapcs")))
 	#endif // SOFTFP_LINK
 	#define XASH_GLES 1
-#endif // XASH_GLES3COMPAT
+#endif // XASH_GLES3COMPAT || XASH_PS4
 
 typedef uint GLenum;
 typedef byte GLboolean;

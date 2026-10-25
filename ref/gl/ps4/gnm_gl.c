@@ -1,5 +1,5 @@
 /*
-gnm_gl.c - OpenGL ES 2.0 subset over GNM for ref_gles3compat on PS4
+gnm_gl.c - OpenGL ES 2.0 subset over GNM for ref_gl on PS4
 Copyright (C) 2026 sergiopoverony
 
 This program is free software: you can redistribute it and/or modify
@@ -13,7 +13,7 @@ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 */
 
-// Implements what ref_gl with gl2_shim (ref_gles3compat) calls. gl2_shim turns
+// Implements what ref_gl with gl2_shim calls. gl2_shim turns
 // fixed function GL into one shader with a few feature flags; programs here only
 // recognize those flags in the shader source and use precompiled variants
 // (see shaders/ and gnm_shaders.c). Vertex data is copied into per-submit

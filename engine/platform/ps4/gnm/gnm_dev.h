@@ -2,7 +2,7 @@
 gnm_dev.h - GNM device for PS4 OpenGL backend: memory, display, command submission
 
 The device lives in the engine (it owns the display, like the GL context or the buffers of the
-software renderer on other platforms), the renderer module only draws: ref_gles3compat
+software renderer on other platforms), the renderer module only draws: ref_gl
 (ref/gl/ps4) gets a table of these functions with R_GetWindowHandle( REF_WINDOW_TYPE_GNM ),
 see gnm_dev_api_t
 Copyright (C) 2026 sergiopoverony

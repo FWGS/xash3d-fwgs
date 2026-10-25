@@ -1,0 +1,40 @@
+#! /usr/bin/env python
+# encoding: utf-8
+
+import sys
+
+def options(opt):
+	grp = opt.add_option_group('PS4 OpenGL over GNM options')
+
+	grp.add_option('--ps4-glslang', action='store', dest='PS4_GLSLANG', default=None,
+		help = 'glslang binary, shaders of ref/gl/ps4 are rebuilt with it and --ps4-psbc [default: use ref/gl/ps4/gnm_shaders.c]')
+
+	grp.add_option('--ps4-psbc', action='store', dest='PS4_PSBC', default=None,
+		help = 'opengnm-psbc binary, see --ps4-glslang')
+
+def configure(conf):
+	if conf.options.PS4_GLSLANG and conf.options.PS4_PSBC:
+		conf.find_program(conf.options.PS4_GLSLANG, var='PS4_GLSLANG')
+		conf.find_program(conf.options.PS4_PSBC, var='PS4_PSBC')
+
+def build(bld):
+	gnm = bld.srcnode.find_dir('3rdparty/opengnm/opengnm')
+	shaders = bld.path.find_node('gnm_shaders.c')
+
+	# shaders are compiled for GCN with host tools, see scripts/ps4/psbc/build.sh
+	if bld.env.PS4_GLSLANG and bld.env.PS4_PSBC:
+		shaders = bld.path.get_bld().make_node('gnm_shaders.c')
+		bld(rule = '"%s" ${SRC[0].abspath()} --glslang ${PS4_GLSLANG} --psbc ${PS4_PSBC} --shaders "%s" -o ${TGT}' % (sys.executable, bld.path.find_dir('shaders').abspath()),
+			source = [bld.srcnode.find_node('scripts/ps4/gnm/compile_shaders.py')] + bld.path.ant_glob('shaders/*.glsl'),
+			target = shaders,
+			name = 'gnm_shaders')
+
+	# not a part of ref/gl sources: opengnm has its own platform.h
+	bld.stlib(source = bld.path.ant_glob('*.c', excl = 'gnm_shaders.c') + [shaders],
+		target = 'gnm_gl',
+		features = 'c',
+		includes = ['.', bld.srcnode.find_dir('engine/platform/ps4/gnm'), gnm.find_dir('include'), gnm.find_dir('src')],
+		defines = ['OPENGNM_ORBIS'],
+		cflags = ['-std=gnu11', '-Wno-unused-parameter'],
+		use = 'opengnm PS4GNM_SYS',
+		install_path = None)

@@ -4,7 +4,6 @@
 
 from waflib import Logs
 import os
-import sys
 
 top = '.'
 
@@ -14,19 +13,11 @@ def options(opt):
 	grp.add_option('--enable-static-gl', action='store_true', dest='GL_STATIC', default=False,
 		help = 'enable direct linking to opengl [default: %(default)s]')
 
-	grp.add_option('--ps4-glslang', action='store', dest='PS4_GLSLANG', default=None,
-		help = 'PS4: glslang binary, shaders of ref/gl/ps4 are rebuilt with it and --ps4-psbc [default: use ref/gl/ps4/gnm_shaders.c]')
-
-	grp.add_option('--ps4-psbc', action='store', dest='PS4_PSBC', default=None,
-		help = 'PS4: opengnm-psbc binary, see --ps4-glslang')
+	# stub
+	return
 
 def configure(conf):
 	conf.env.GL_STATIC = conf.options.GL_STATIC
-
-	if conf.env.DEST_OS == 'ps4' and conf.options.PS4_GLSLANG and conf.options.PS4_PSBC:
-		conf.find_program(conf.options.PS4_GLSLANG, var='PS4_GLSLANG')
-		conf.find_program(conf.options.PS4_PSBC, var='PS4_PSBC')
-
 	if conf.env.GL_STATIC:
 		conf.check(lib='GL')
 
@@ -40,6 +31,10 @@ def build(bld):
 		libs += [ 'sdk_includes', 'vgl_shim' ]
 	else:
 		libs += [ 'public', 'M' ]
+
+	# OpenGL over GNM, see ref/gl/ps4
+	if bld.env.DEST_OS == 'ps4':
+		libs += [ 'gnm_gl' ]
 
 	source = bld.path.ant_glob(['*.c', 'gl2_shim/*.c'])
 	includes = '.'
@@ -76,45 +71,10 @@ def build(bld):
 		if not v['enable']:
 			continue
 
-		kuse = libs + v['libs']
-		klib = []
-
-		if k == 'ref_gles3compat' and bld.env.DEST_OS == 'ps4':
-			# OpenGL ES 2 subset over GNM, the engine owns the device (engine/platform/ps4/gnm).
-			# Compiled separately: opengnm has its own platform.h
-			root = bld.path.parent.parent
-			gnm = root.find_dir('3rdparty/opengnm/opengnm')
-			shaders = bld.path.find_node('ps4/gnm_shaders.c')
-			sources = bld.path.ant_glob('ps4/*.c', excl = 'ps4/gnm_shaders.c')
-
-			if bld.env.PS4_GLSLANG and bld.env.PS4_PSBC:
-				# shaders are compiled for GCN with host tools, see scripts/ps4/psbc/build.sh
-				shaders = bld.path.get_bld().make_node('ps4/gnm_shaders.c')
-				bld(
-					rule = '"%s" ${SRC[0].abspath()} --glslang ${PS4_GLSLANG} --psbc ${PS4_PSBC} --shaders "%s" -o ${TGT}' % (
-						sys.executable, bld.path.find_dir('ps4/shaders').abspath()),
-					source = [root.find_node('scripts/ps4/gnm/compile_shaders.py')] + bld.path.ant_glob('ps4/shaders/*.glsl'),
-					target = shaders,
-					name = 'gnm_shaders',
-				)
-
-			bld.objects(
-				source = sources + [shaders],
-				target = 'ref_gnm_gl',
-				features = 'c',
-				includes = [bld.path.find_dir('ps4'), root.find_dir('engine/platform/ps4/gnm'), gnm.find_dir('include'), gnm.find_dir('src')],
-				defines = ['OPENGNM_ORBIS'],
-				cflags = ['-std=gnu11', '-Wno-unused-parameter'],
-				use = 'opengnm',
-			)
-			kuse += ['ref_gnm_gl', 'opengnm']
-			klib += ['SceGnmDriver', 'SceVideoOut'] # opengnm calls them
-
 		bld.shlib(source = source,
 			target = k,
 			includes = includes,
 			features = 'format',
-			use = kuse,
-			lib = klib,
+			use = libs + v['libs'],
 			defines = v['defines'] + ['REF_DLL=1'],
 			install_path = bld.env.LIBDIR)
