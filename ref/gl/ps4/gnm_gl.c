@@ -40,7 +40,6 @@ GNU General Public License for more details.
 
 const gnm_dev_api_t *gnm_api;
 
-#define GAME_EXPORT __attribute__(( visibility( "default" )))
 #define GNM_LOG( ... ) gnm_api->log( "GNM: " __VA_ARGS__ )
 
 typedef unsigned int GLenum;
@@ -2474,7 +2473,7 @@ static const char *const missing_on_purpose[] =
 	"glGetDebugMessageLogARB",
 };
 
-void *GAME_EXPORT PS4_GL_GetProcAddress( const char *name )
+void *PS4_GL_GetProcAddress( const char *name )
 {
 	size_t i;
 
@@ -2564,7 +2563,7 @@ static void reset_state( void )
 	restart_cb();
 }
 
-bool GAME_EXPORT PS4_GL_Init( const gnm_dev_api_t *api, bool flip_front, int mipmaps )
+int PS4_GL_Init( const gnm_dev_api_t *api )
 {
 	if( gl.initialized )
 		return true;
@@ -2578,8 +2577,8 @@ bool GAME_EXPORT PS4_GL_Init( const gnm_dev_api_t *api, bool flip_front, int mip
 		return false;
 	}
 
-	gl.flip_front = flip_front;
-	gl.mipmaps = mipmaps;
+	gl.flip_front = gnm_dev.flip_front;
+	gl.mipmaps = gnm_dev.mipmaps;
 	reset_state();
 
 	gl.initialized = true;
@@ -2588,7 +2587,7 @@ bool GAME_EXPORT PS4_GL_Init( const gnm_dev_api_t *api, bool flip_front, int mip
 }
 
 // the engine presents the frame after this
-void GAME_EXPORT PS4_GL_EndFrame( void )
+void PS4_GL_EndFrame( void )
 {
 	if( !gl.initialized )
 		return;
@@ -2600,12 +2599,14 @@ void GAME_EXPORT PS4_GL_EndFrame( void )
 }
 
 // the device is still open, the engine closes it after this
-void GAME_EXPORT PS4_GL_Shutdown( void )
+void PS4_GL_Shutdown( void )
 {
 	int i;
 
 	if( !gl.initialized )
 		return;
+
+	gnm_dev_set_restart_callback( NULL );
 
 	for( i = 0; i < gl.numtextures; i++ )
 	{

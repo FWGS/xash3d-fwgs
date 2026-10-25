@@ -3,7 +3,8 @@ gnm_dev.h - GNM device for PS4 OpenGL backend: memory, display, command submissi
 
 The device lives in the engine (it owns the display, like the GL context or the buffers of the
 software renderer on other platforms), the renderer module only draws: ref_gles3compat
-(ref/gl/ps4) gets a table of these functions from the engine, see gnm_dev_api_t
+(ref/gl/ps4) gets a table of these functions with R_GetWindowHandle( REF_WINDOW_TYPE_GNM ),
+see gnm_dev_api_t
 Copyright (C) 2026 sergiopoverony
 
 This program is free software: you can redistribute it and/or modify
@@ -61,6 +62,10 @@ typedef struct gnm_dev_s
 	bool hung;              // GPU didn't finish a submit, nothing is submitted anymore
 	uint32_t submit_draws;  // draws recorded into the current command buffer
 	char last_draw[192];    // description of the last draw, filled with debug enabled
+
+	// OpenGL layer options from the command line, see PS4_GL_Init
+	bool flip_front; // viewport flips Y, which inverts winding; -gnmnoflip turns it off
+	int mipmaps; // -gnmmips: 0 - off, 1 - power of two textures only, 2 - all textures
 } gnm_dev_t;
 
 #ifndef GNM_DEV_CLIENT
@@ -104,7 +109,7 @@ void gnm_dev_set_user_sgpr( GnmCommandBuffer *cmd, bool pixel, int reg, uint32_t
 // writes context registers directly (no opengnm helper for them)
 void gnm_dev_set_context_reg( GnmCommandBuffer *cmd, uint32_t reg, uint32_t value );
 
-// what the renderer module can use, the engine passes it to PS4_GL_Init
+// what the renderer module can use, it gets it with R_GetWindowHandle( REF_WINDOW_TYPE_GNM )
 typedef struct gnm_dev_api_s
 {
 	gnm_dev_t *dev;

@@ -21,7 +21,8 @@ GNU General Public License for more details.
 // platform.h), the device itself is described in gnm_dev.h for the code that uses opengnm.
 
 // debug: 0 - quiet, 1 - log submits and texture uploads, 2 - also every draw; stats: frame timing in the log
-void gnm_dev_configure( int debug, bool stats );
+// flip_front and mipmaps are options of the OpenGL layer in the renderer, see gnm_dev_t
+void gnm_dev_configure( int debug, bool stats, bool flip_front, int mipmaps );
 bool gnm_dev_init( void );
 void gnm_dev_shutdown( void );
 void gnm_dev_get_size( int *width, int *height );

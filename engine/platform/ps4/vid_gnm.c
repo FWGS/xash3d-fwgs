@@ -14,38 +14,19 @@ GNU General Public License for more details.
 */
 
 /*
-The engine owns the display and the GPU device (platform/ps4/gnm), OpenGL renderers
-draw through the OpenGL ES 2 subset implemented by ref_gles3compat (ref/gl/ps4) over the device.
+The engine owns the display and the GPU device (platform/ps4/gnm), like it owns the GL context
+on SDL. OpenGL renderers get the device with R_GetWindowHandle( REF_WINDOW_TYPE_GNM ) and draw
+through the OpenGL ES 2 subset implemented by ref_gles3compat (ref/gl/ps4) over the device.
 The screen has a fixed size and there are no windows
 */
 
 #include "platform/platform.h"
 #include "client.h"
 #include "vid_common.h"
-#include "library.h"
 #include "ps4/gnm/gnm_engine.h"
 
 static int ps4_gnm_dummy_window; // host.hWnd must be non-NULL while the context exists
 static qboolean ps4_gnm_opened;
-
-// exported by ref_gles3compat, see ref/gl/ps4/gnm_gl.h
-static struct
-{
-	bool ( *init )( const void *api, bool flip_front, int mipmaps );
-	void ( *end_frame )( void );
-	void ( *shutdown )( void );
-	void *( *get_proc_address )( const char *name );
-} ps4_gl;
-
-static qboolean PS4_GL_Load( void )
-{
-	ps4_gl.init = COM_GetProcAddress( ref.hInstance, "PS4_GL_Init" );
-	ps4_gl.end_frame = COM_GetProcAddress( ref.hInstance, "PS4_GL_EndFrame" );
-	ps4_gl.shutdown = COM_GetProcAddress( ref.hInstance, "PS4_GL_Shutdown" );
-	ps4_gl.get_proc_address = COM_GetProcAddress( ref.hInstance, "PS4_GL_GetProcAddress" );
-
-	return ps4_gl.init && ps4_gl.end_frame && ps4_gl.shutdown && ps4_gl.get_proc_address;
-}
 
 void Platform_Minimize_f( void )
 {
@@ -91,9 +72,10 @@ vidmode_t *R_GetVideoMode( int num )
 	return NULL;
 }
 
+// OpenGL is implemented by the renderer itself, see ref/gl/ps4
 void *GL_GetProcAddress( const char *name )
 {
-	return ps4_gl.get_proc_address ? ps4_gl.get_proc_address( name ) : NULL;
+	return NULL;
 }
 
 void GL_UpdateSwapInterval( void )
@@ -104,9 +86,6 @@ void GL_UpdateSwapInterval( void )
 
 void GL_SwapBuffers( void )
 {
-	if( ps4_gl.end_frame )
-		ps4_gl.end_frame();
-
 	gnm_dev_present();
 	PS4_FramePresented();
 }
@@ -137,6 +116,16 @@ int GL_GetAttribute( int attr, int *val )
 
 ref_window_type_t R_GetWindowHandle( void **handle, ref_window_type_t type )
 {
+	if( !ps4_gnm_opened )
+		return REF_WINDOW_TYPE_NULL;
+
+	if( !type || type == REF_WINDOW_TYPE_GNM )
+	{
+		if( handle )
+			*handle = (void *)gnm_dev_get_api();
+		return REF_WINDOW_TYPE_GNM;
+	}
+
 	return REF_WINDOW_TYPE_NULL;
 }
 
@@ -145,11 +134,6 @@ static void VID_Close( void )
 	if( !ps4_gnm_opened )
 		return;
 
-	// the renderer frees its GPU memory while the device is still there
-	if( ps4_gl.shutdown )
-		ps4_gl.shutdown();
-
-	memset( &ps4_gl, 0, sizeof( ps4_gl ));
 	gnm_dev_shutdown();
 	ps4_gnm_opened = false;
 	host.hWnd = NULL;
@@ -164,8 +148,8 @@ Opens the display, its size is the size of the screen
 */
 qboolean VID_SetMode( void )
 {
-	char debug[16];
-	int debuglevel = 0, w, h;
+	char debug[16], mips[16];
+	int debuglevel = 0, mipmaps = 2, w, h;
 
 	if( ps4_gnm_opened )
 		return true;
@@ -176,7 +160,11 @@ qboolean VID_SetMode( void )
 	if( debuglevel <= 0 && Sys_CheckParm( "-gnmdebug" ))
 		debuglevel = 1;
 
-	gnm_dev_configure( debuglevel, Sys_CheckParm( "-gnmstats" ));
+	// -gnmmips 0|1|2: no mipmaps, power of two textures only, all textures (default)
+	if( Sys_GetParmFromCmdLine( "-gnmmips", mips ))
+		mipmaps = bound( 0, Q_atoi( mips ), 2 );
+
+	gnm_dev_configure( debuglevel, Sys_CheckParm( "-gnmstats" ), !Sys_CheckParm( "-gnmnoflip" ), mipmaps );
 
 	if( !gnm_dev_init( ))
 		return false;
@@ -212,26 +200,6 @@ qboolean R_Init_Video( ref_graphic_apis_t type )
 
 	if( !VID_SetMode( ))
 		return false;
-
-	if( !PS4_GL_Load( ))
-	{
-		Con_Printf( S_ERROR "%s: renderer doesn't have the GNM OpenGL layer, use ref_gles3compat\n", __func__ );
-		VID_Close();
-		return false;
-	}
-
-	// -gnmmips 0|1|2: no mipmaps, power of two textures only, all textures (default)
-	char mips[16];
-	int mipmaps = 2;
-
-	if( Sys_GetParmFromCmdLine( "-gnmmips", mips ))
-		mipmaps = bound( 0, Q_atoi( mips ), 2 );
-
-	if( !ps4_gl.init( gnm_dev_get_api(), !Sys_CheckParm( "-gnmnoflip" ), mipmaps ))
-	{
-		VID_Close();
-		return false;
-	}
 
 	ref.dllFuncs.GL_InitExtensions();
 	host.renderinfo_changed = false;

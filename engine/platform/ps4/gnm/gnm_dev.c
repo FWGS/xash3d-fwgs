@@ -929,10 +929,12 @@ const gnm_dev_api_t gnm_dev_api =
 	.set_context_reg = gnm_dev_set_context_reg,
 };
 
-void gnm_dev_configure( int debug, bool stats )
+void gnm_dev_configure( int debug, bool stats, bool flip_front, int mipmaps )
 {
 	gnm_dev.debug = debug;
 	gnm_dev.stats = stats;
+	gnm_dev.flip_front = flip_front;
+	gnm_dev.mipmaps = mipmaps;
 }
 
 void gnm_dev_get_size( int *width, int *height )

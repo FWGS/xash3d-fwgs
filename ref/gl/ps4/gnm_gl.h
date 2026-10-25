@@ -15,17 +15,11 @@ GNU General Public License for more details.
 #ifndef GNM_GL_H
 #define GNM_GL_H
 
-#include <stdbool.h>
+// included by ref_gl code, so nothing from opengnm and no stdbool here
+struct gnm_dev_api_s;
 
-#include "gnm_dev.h"
-
-// The functions are exported by ref_gles3compat, the engine finds them by name (platform/ps4/vid_gnm.c):
-// the engine owns the display and the device (gnm_dev.h), the renderer only draws.
-
-// api: the device of the engine, already open;
-// flip_front is true by default (-gnmnoflip turns it off): the viewport flips Y, which inverts winding;
-// mipmaps: 0 - off, 1 - power of two textures only, 2 - all textures
-bool PS4_GL_Init( const gnm_dev_api_t *api, bool flip_front, int mipmaps );
+// api: the device of the engine, from R_GetWindowHandle( REF_WINDOW_TYPE_GNM )
+int PS4_GL_Init( const struct gnm_dev_api_s *api );
 // called before the engine presents the frame
 void PS4_GL_EndFrame( void );
 // called while the device is still open

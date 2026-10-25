@@ -1845,7 +1845,7 @@ void GL2_ShimInstall( void )
 	GL2_OVERRIDE_PTR( Fogi )
 	GL2_OVERRIDE_PTR( ShadeModel )
 #if XASH_GLES
-	_pglDepthRangef = gEngfuncs.GL_GetProcAddress( "glDepthRangef" );
+	_pglDepthRangef = GL_GetProcAddress( "glDepthRangef" );
 	GL2_OVERRIDE_PTR( PolygonMode )
 	GL2_OVERRIDE_PTR( PointSize )
 	GL2_OVERRIDE_PTR( DepthRange )
