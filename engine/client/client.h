@@ -1128,6 +1128,8 @@ void Con_ClearNotify( void );
 void Con_DrawDebug( void );
 void Con_RunConsole( void );
 qboolean Con_GetInputRect( int *x, int *y, int *w, int *h );
+qboolean Con_IsButtonAt( int x, int y );
+void Con_MouseMove( int x, int y );
 void Con_DrawConsole( void );
 void Con_DrawVersion( void );
 int Con_UtfProcessChar( int in );

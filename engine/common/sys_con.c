@@ -286,8 +286,10 @@ static void Sys_PrintStdout( const char *logtime, size_t logtime_len, const char
 #endif
 
 #if !XASH_MOBILE_PLATFORM && !XASH_WIN32 // Wcon does the job
+	Platform_ConsolePrintBegin();
 	Sys_PrintLogfile( STDOUT_FILENO, logtime, logtime_len, XASH_COLORIZE_CONSOLE ? msg : stripped, XASH_COLORIZE_CONSOLE );
 	Sys_FlushStdout();
+	Platform_ConsolePrintEnd( msg );
 #endif
 
 	XRcon_Print( stripped );
