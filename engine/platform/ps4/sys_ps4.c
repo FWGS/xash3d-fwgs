@@ -249,7 +249,7 @@ int PS4_GetArgv( int in_argc, char **in_argv, char ***out_argv )
 		fclose( f );
 		cmdline[len] = 0;
 
-		for( int i = 0; i < PS4_MAX_ARGV - 1; i++ )
+		for( int i = 0; argc < PS4_MAX_ARGV - 1; i++ )
 		{
 			p = COM_ParseFile( p, args[i], sizeof( args[i] ));
 
