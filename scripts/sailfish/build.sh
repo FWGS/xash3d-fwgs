@@ -1,79 +1,48 @@
 #!/bin/bash
 
+# Builds the RPM on a Sailfish OS device, run from the repository root
+# usage: scripts/sailfish/build.sh [ssh host]
+# without arguments it must be run on the device itself,
+# otherwise sources are packed here and the device builds them over ssh
+
 . scripts/lib.sh
 
-download_sign_key()
+name=harbour-xash3d-fwgs
+version=$(sed -n 's/^Version:[[:space:]]*//p' sailfish/$name.spec)
+cache=build/sailfish
+remote=sailfish-rpmbuild
+host=$1
+
+pack_tree()
 {
-	echo -n "Downloading $1: "
-	curl https://community.omprussia.ru/documentation/files/doc/$1 -o $1 &> /dev/null || die "Can't download $1" && echo "OK"
+	# untracked files are packed too, so changes can be tested before committing them
+	# no top directory in the archive, busybox tar on the device can't add it
+	{ git ls-files --recurse-submodules; git ls-files --others --exclude-standard; } | sort -u | while IFS= read -r f; do
+		# skip files deleted but not yet committed
+		[ -e "$f" ] || [ -L "$f" ] && printf '%s\n' "$f"
+	done | tar czf "$1" -T - || die
 }
 
-pack_sources()
-{
-	echo "Packing sources to $1..."
-	git ls-files --recurse-submodules | tar caf "$1" -T-
-}
+mkdir -p $cache/SOURCES
 
-dependencies="SDL2-devel ImageMagick"
-build_dir="build_rpm"
-
-if [ "$1" == "aurora" ]; then
-	name="su.xash.Engine"
-	flavor="aurora"
-else
-	name="harbour-xash3d-fwgs"
-	flavor="sailfish"
+if [ ! -d $cache/hlsdk-portable ]; then
+	git clone --depth 1 --recursive -b mobile_hacks https://github.com/FWGS/hlsdk-portable $cache/hlsdk-portable || die
 fi
 
-if [ $flavor == 'aurora' ]; then
-	download_sign_key regular_key.pem
-	download_sign_key regular_cert.pem
+pack_tree $cache/SOURCES/$name-$version.tar.gz
+(cd $cache/hlsdk-portable && pack_tree ../SOURCES/hlsdk-portable.tar.gz) || die
+
+if [ -z "$host" ]; then
+	rpmbuild --define "_topdir $PWD/$cache" -ba sailfish/$name.spec || die
+	ls $cache/RPMS/*/$name-*.rpm
+	exit 0
 fi
 
-rm -fr ${build_dir}/{BUILD,SRPMS}
-mkdir -p ${build_dir}/SOURCES
-pack_sources ${build_dir}/SOURCES/${name}.tar
-git clone https://github.com/FWGS/hlsdk-portable -b mobile_hacks
-pushd hlsdk-portable
-pack_sources ../${build_dir}/SOURCES/hlsdk-portable.tar
-popd
+ssh $SAILFISH_SSH_OPTS $host "rm -rf $remote && mkdir -p $remote/SOURCES" || die
+scp $SAILFISH_SSH_OPTS $cache/SOURCES/$name-$version.tar.gz $cache/SOURCES/hlsdk-portable.tar.gz $host:$remote/SOURCES/ || die
+scp $SAILFISH_SSH_OPTS sailfish/$name.spec $host:$remote/ || die
+ssh $SAILFISH_SSH_OPTS $host "rpmbuild --define \"_topdir \$HOME/$remote\" -ba $remote/$name.spec" || die
 
-sfdk_targets=`sfdk engine exec sb2-config -l | grep default | grep -v i486`
-
-for each in $sfdk_targets; do
-	target_arch=${each##*-}
-	target_arch=${target_arch/.default/}
-	echo "Build for '$each' target with '$target_arch' architecture"
-
-	# install deps for current target
-	sfdk engine exec sb2 -t $each -R -m sdk-install zypper in -y ${dependencies}
-
-	# build RPM for current target
-	sfdk engine exec sb2 -t $each rpmbuild \
-		--define "_topdir `pwd`/${build_dir}" \
-		--define "_arch $target_arch" \
-		--define "_packagename $name" \
-		--define "_flavor $flavor" \
-		-ba scripts/sailfish/harbour-xash3d-fwgs.spec || die "Build for ${each}: FAIL"
-
-	# sign RPM packacge
-	if [ "$flavor" == "aurora" ]; then
-		echo -n "Signing RPMs: "
-		sfdk engine exec sb2 -t $each rpmsign-external sign --key `pwd`/regular_key.pem --cert `pwd`/regular_cert.pem `pwd`/${build_dir}/RPMS/${target_arch}/$name-0*.rpm || die "FAIL" && echo "OK"
-	fi
-
-	echo -n "Validate RPM: "
-	if [ "$flavor" == "aurora" ]; then
-		validator_output=`sfdk engine exec rpm-validator -p regular $(pwd)/${build_dir}/RPMS/${target_arch}/$name-0* 2>&1`
-	else
-		sfdk config target=${each/.default/}
-		validator_output=`sfdk check $(pwd)/${build_dir}/RPMS/${target_arch}/$name-0* 2>&1`
-	fi
-	if [ $? -ne 0 ] ; then
-		echo "FAIL"
-		echo "${validator_output}"
-		break;
-	fi
-	echo "OK"
-done
-echo "All build done! All your packages in `pwd`/build_rpm/RPMS"
+mkdir -p $cache/RPMS
+scp $SAILFISH_SSH_OPTS "$host:$remote/RPMS/*/$name-*.rpm" $cache/RPMS/ || die
+ls $cache/RPMS/$name-*.rpm
