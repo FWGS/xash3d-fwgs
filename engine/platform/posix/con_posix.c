@@ -15,390 +15,374 @@ GNU General Public License for more details.
 
 #include "platform/platform.h"
 
-#if XASH_POSIX
-#include <unistd.h>
-#endif
-
-#if XASH_POSIX && defined( _POSIX_VERSION ) && !XASH_MOBILE_PLATFORM && !XASH_LOW_MEMORY
+#if !XASH_MOBILE_PLATFORM && !XASH_LOW_MEMORY
+// use with caution, running engine in Qt Creator may cause a freeze in read() call
+// I have never encountered this bug anywhere else, so still enable by default
 #include <sys/select.h>
 #include <sys/time.h>
 #include <termios.h>
 #include <signal.h>
-#include <stdlib.h>
-#include <string.h>
 
-#define COMMAND_HISTORY	64
+#define CON_HISTORY 64
 
-typedef struct
+enum
 {
-	qboolean	raw;
-	qboolean	inited;
-	struct termios	term;
-	int		historyLine;
-	int		historyNext;
-	int		cursorPosition;
-	int		textLen;
-	int		escParam;
-	int		escState;
-	string		text;
-	string		savedText;
-	string		lineBuffer[COMMAND_HISTORY];
-} posix_con_t;
+	ESC_NONE = 0,
+	ESC_START,
+	ESC_CSI,
+	ESC_CSI_PARAMS, // only first parameter is used
+	ESC_SS3,
+};
 
-static posix_con_t	s_pc;
-static char		s_input[MAX_STRING + 2];
-
-static void Posix_Write( const char *buf, size_t size )
+static struct
 {
-	if( write( STDOUT_FILENO, buf, size ) < 0 )
-		return;
-}
+	qboolean raw; // stdin and stdout are a terminal, we draw the input line ourselves
+	qboolean output_midline; // engine didn't finish printing a line, input line is hidden
+	qboolean dirty;
+	struct termios oldterm;
 
-static void Posix_Print( const char *msg )
+	char line[MAX_STRING];
+	int len;
+	int cursor;
+
+	char history[CON_HISTORY][MAX_STRING];
+	char backup[MAX_STRING];
+	int history_next;
+	int history_line;
+
+	int esc_state;
+	int esc_param;
+} s_con;
+
+static void Posix_ConWrite( const char *buf, size_t len )
 {
-	Posix_Write( msg, Q_strlen( msg ));
-}
-
-static void Posix_Redraw( void )
-{
-	char	seq[16];
-	int	back;
-
-	Posix_Print( "\r\033[K" );
-	Posix_Write( s_pc.text, s_pc.textLen );
-
-	back = s_pc.textLen - s_pc.cursorPosition;
-	if( back > 0 )
+	if( write( STDOUT_FILENO, buf, len ) < 0 )
 	{
-		Q_snprintf( seq, sizeof( seq ), "\033[%dD", back );
-		Posix_Print( seq );
+		// not critical for us
 	}
 }
 
-// called before engine prints, so the output doesn't collide with the input line
-void Posix_Con_PrePrint( void )
+static void Posix_ConRedraw( void )
 {
-	if( !s_pc.raw || s_pc.textLen == 0 )
+	char buf[MAX_STRING + 16];
+	int columns = 0;
+
+	s_con.dirty = false;
+
+	if( s_con.output_midline )
 		return;
 
-	Posix_Print( "\r\033[K" );
+	// every UTF-8 sequence is assumed to take one column
+	for( int i = s_con.cursor; i < s_con.len; i++ )
+	{
+		if(((byte)s_con.line[i] & 0xC0 ) != 0x80 )
+			columns++;
+	}
+
+	int len = Q_snprintf( buf, sizeof( buf ), "\r\033[K] %s", s_con.line );
+
+	if( columns > 0 )
+		len += Q_snprintf( buf + len, sizeof( buf ) - len, "\033[%dD", columns );
+
+	Posix_ConWrite( buf, len );
 }
 
-// called after engine prints to restore the input line
-void Posix_Con_Redraw( void )
+static int Posix_ConPrevChar( int pos )
 {
-	if( !s_pc.raw || s_pc.textLen == 0 )
-		return;
+	if( pos > 0 )
+		pos--;
 
-	Posix_Redraw();
+	while( pos > 0 && ((byte)s_con.line[pos] & 0xC0 ) == 0x80 )
+		pos--;
+
+	return pos;
 }
 
-static void Posix_Store( const char *cmd )
+static int Posix_ConNextChar( int pos )
 {
-	int prev = Q_max( 0, s_pc.historyLine - 1 );
+	if( pos < s_con.len )
+		pos++;
 
-	if( !cmd[0] )
-		return;
+	while( pos < s_con.len && ((byte)s_con.line[pos] & 0xC0 ) == 0x80 )
+		pos++;
 
-	// skip repeating commands
-	if( !Q_strcmp( cmd, s_pc.lineBuffer[prev % COMMAND_HISTORY] ))
-		return;
-
-	Q_strncpy( s_pc.lineBuffer[s_pc.historyNext % COMMAND_HISTORY], cmd, sizeof( s_pc.lineBuffer[0] ));
-	s_pc.historyLine = ++s_pc.historyNext;
+	return pos;
 }
 
-static void Posix_HistoryUp( void )
+static void Posix_ConSetCursor( int pos )
 {
-	if( s_pc.historyNext == 0 )
+	s_con.cursor = pos;
+	s_con.dirty = true;
+}
+
+static void Posix_ConSetLine( const char *text )
+{
+	s_con.len = Q_strncpy( s_con.line, text, sizeof( s_con.line ));
+	Posix_ConSetCursor( s_con.len );
+}
+
+static void Posix_ConInsert( char ch )
+{
+	if( s_con.len >= sizeof( s_con.line ) - 1 )
 		return;
 
-	if( s_pc.historyLine == s_pc.historyNext )
-		Q_strncpy( s_pc.savedText, s_pc.text, sizeof( s_pc.savedText ));
+	memmove( s_con.line + s_con.cursor + 1, s_con.line + s_con.cursor, s_con.len - s_con.cursor + 1 );
+	s_con.line[s_con.cursor] = ch;
+	s_con.len++;
+	Posix_ConSetCursor( s_con.cursor + 1 );
+}
+
+static void Posix_ConDelete( int from, int to )
+{
+	if( from >= to )
+		return;
+
+	memmove( s_con.line + from, s_con.line + to, s_con.len - to + 1 );
+	s_con.len -= to - from;
+	Posix_ConSetCursor( from );
+}
+
+static void Posix_ConHistorySave( void )
+{
+	if( s_con.history_line == s_con.history_next )
+		Q_strncpy( s_con.backup, s_con.line, sizeof( s_con.backup ));
 	else
-		Q_strncpy( s_pc.lineBuffer[s_pc.historyLine % COMMAND_HISTORY], s_pc.text, sizeof( s_pc.text ));
-
-	if(( s_pc.historyNext - s_pc.historyLine ) < COMMAND_HISTORY )
-		s_pc.historyLine = Q_max( 0, s_pc.historyLine - 1 );
-
-	Q_strncpy( s_pc.text, s_pc.lineBuffer[s_pc.historyLine % COMMAND_HISTORY], sizeof( s_pc.text ));
-	s_pc.textLen = Q_strlen( s_pc.text );
-	s_pc.cursorPosition = s_pc.textLen;
-	Posix_Redraw();
+		Q_strncpy( s_con.history[s_con.history_line % CON_HISTORY], s_con.line, sizeof( s_con.history[0] ));
 }
 
-static void Posix_HistoryDown( void )
+static void Posix_ConHistoryUp( void )
 {
-	if( s_pc.historyLine == s_pc.historyNext )
+	if( s_con.history_line <= Q_max( 0, s_con.history_next - CON_HISTORY ))
 		return;
 
-	Q_strncpy( s_pc.lineBuffer[s_pc.historyLine % COMMAND_HISTORY], s_pc.text, sizeof( s_pc.text ));
+	Posix_ConHistorySave();
+	s_con.history_line--;
+	Posix_ConSetLine( s_con.history[s_con.history_line % CON_HISTORY] );
+}
 
-	s_pc.historyLine = Q_min( s_pc.historyNext, s_pc.historyLine + 1 );
+static void Posix_ConHistoryDown( void )
+{
+	if( s_con.history_line >= s_con.history_next )
+		return;
 
-	if( s_pc.historyLine == s_pc.historyNext )
-		Q_strncpy( s_pc.text, s_pc.savedText, sizeof( s_pc.text ));
+	Posix_ConHistorySave();
+	s_con.history_line++;
+
+	if( s_con.history_line == s_con.history_next )
+		Posix_ConSetLine( s_con.backup );
 	else
-		Q_strncpy( s_pc.text, s_pc.lineBuffer[s_pc.historyLine % COMMAND_HISTORY], sizeof( s_pc.text ));
-
-	s_pc.textLen = Q_strlen( s_pc.text );
-	s_pc.cursorPosition = s_pc.textLen;
-	Posix_Redraw();
+		Posix_ConSetLine( s_con.history[s_con.history_line % CON_HISTORY] );
 }
 
-static void Posix_EventCharacter( char ch )
+static void Posix_ConHistoryAppend( void )
 {
-	if( s_pc.textLen >= (int)sizeof( s_pc.text ) - 1 )
-		return;
-
-	memmove( s_pc.text + s_pc.cursorPosition + 1, s_pc.text + s_pc.cursorPosition, s_pc.textLen - s_pc.cursorPosition );
-	s_pc.text[s_pc.cursorPosition] = ch;
-	s_pc.cursorPosition++;
-	s_pc.textLen++;
-	s_pc.text[s_pc.textLen] = '\0';
-	s_pc.historyLine = s_pc.historyNext;
-	Posix_Redraw();
-}
-
-static void Posix_EventBackspace( void )
-{
-	if( s_pc.cursorPosition < 1 )
-		return;
-
-	memmove( s_pc.text + s_pc.cursorPosition - 1, s_pc.text + s_pc.cursorPosition, s_pc.textLen - s_pc.cursorPosition );
-	s_pc.cursorPosition--;
-	s_pc.textLen--;
-	s_pc.text[s_pc.textLen] = '\0';
-	s_pc.historyLine = s_pc.historyNext;
-	Posix_Redraw();
-}
-
-static void Posix_EventDelete( void )
-{
-	if( s_pc.cursorPosition >= s_pc.textLen )
-		return;
-
-	memmove( s_pc.text + s_pc.cursorPosition, s_pc.text + s_pc.cursorPosition + 1, s_pc.textLen - s_pc.cursorPosition );
-	s_pc.textLen--;
-	s_pc.text[s_pc.textLen] = '\0';
-	s_pc.historyLine = s_pc.historyNext;
-	Posix_Redraw();
-}
-
-static void Posix_EventLeftArrow( void )
-{
-	if( s_pc.cursorPosition == 0 )
-		return;
-
-	s_pc.cursorPosition--;
-	Posix_Print( "\b" );
-}
-
-static void Posix_EventRightArrow( void )
-{
-	if( s_pc.cursorPosition == s_pc.textLen )
-		return;
-
-	Posix_Write( s_pc.text + s_pc.cursorPosition, 1 );
-	s_pc.cursorPosition++;
-}
-
-static void Posix_EventHome( void )
-{
-	while( s_pc.cursorPosition > 0 )
+	// don't store repeating commands
+	if( s_con.history_next == 0 || Q_strcmp( s_con.history[( s_con.history_next - 1 ) % CON_HISTORY], s_con.line ))
 	{
-		s_pc.cursorPosition--;
-		Posix_Print( "\b" );
+		Q_strncpy( s_con.history[s_con.history_next % CON_HISTORY], s_con.line, sizeof( s_con.history[0] ));
+		s_con.history_next++;
 	}
+
+	s_con.history_line = s_con.history_next;
 }
 
-static void Posix_EventEnd( void )
+static void Posix_ConComplete( void )
 {
-	if( s_pc.textLen > s_pc.cursorPosition )
-	{
-		Posix_Write( s_pc.text + s_pc.cursorPosition, s_pc.textLen - s_pc.cursorPosition );
-		s_pc.cursorPosition = s_pc.textLen;
-	}
+	Cmd_AutoComplete( s_con.line );
+	s_con.len = Q_strlen( s_con.line );
+	Posix_ConSetCursor( s_con.len );
 }
 
-static void Posix_EventTab( void )
+static char *Posix_ConNewline( void )
 {
-	s_pc.text[s_pc.textLen] = '\0';
-	Cmd_AutoComplete( s_pc.text );
-	s_pc.textLen = Q_strlen( s_pc.text );
-	s_pc.cursorPosition = s_pc.textLen;
-	s_pc.historyLine = s_pc.historyNext;
-	Posix_Redraw();
-}
+	static char cmd[MAX_STRING + 1];
 
-static char *Posix_EventNewline( void )
-{
-	int len = s_pc.textLen;
+	// leave the command on the screen, just like terminal does
+	Posix_ConRedraw();
+	Posix_ConWrite( "\n", 1 );
+	s_con.dirty = true;
 
-	Posix_Print( "\n" );
-
-	s_pc.text[s_pc.textLen] = '\0';
-	s_pc.cursorPosition = 0;
-	s_pc.textLen = 0;
-
-	if( len == 0 )
+	if( s_con.len == 0 )
 		return NULL;
 
-	Posix_Store( s_pc.text );
+	Posix_ConHistoryAppend();
+	Q_snprintf( cmd, sizeof( cmd ), "%s\n", s_con.line );
+	Posix_ConSetLine( "" );
 
-	Q_strncpy( s_input, s_pc.text, sizeof( s_input ) - 1 );
-	s_input[len] = '\n';
-	s_input[len + 1] = '\0';
-	s_pc.text[0] = '\0';
-
-	return s_input;
+	return cmd;
 }
 
-static void Posix_EventArrow( char ch )
+static void Posix_ConKey( int key )
 {
-	switch( ch )
+	switch( key )
 	{
-	case 'A': Posix_HistoryUp(); break;
-	case 'B': Posix_HistoryDown(); break;
-	case 'C': Posix_EventRightArrow(); break;
-	case 'D': Posix_EventLeftArrow(); break;
-	case 'H': Posix_EventHome(); break;
-	case 'F': Posix_EventEnd(); break;
-	}
-}
-
-static void Posix_EventEscape( char ch )
-{
-	if( s_pc.escState == 1 )
-	{
-		if( ch == '[' )
+	case 'A':
+		Posix_ConHistoryUp();
+		break;
+	case 'B':
+		Posix_ConHistoryDown();
+		break;
+	case 'C':
+		Posix_ConSetCursor( Posix_ConNextChar( s_con.cursor ));
+		break;
+	case 'D':
+		Posix_ConSetCursor( Posix_ConPrevChar( s_con.cursor ));
+		break;
+	case 'H':
+		Posix_ConSetCursor( 0 );
+		break;
+	case 'F':
+		Posix_ConSetCursor( s_con.len );
+		break;
+	case '~':
+		switch( s_con.esc_param )
 		{
-			s_pc.escState = 2;
-			s_pc.escParam = 0;
+		case 1:
+		case 7:
+			Posix_ConSetCursor( 0 );
+			break;
+		case 3:
+			Posix_ConDelete( s_con.cursor, Posix_ConNextChar( s_con.cursor ));
+			break;
+		case 4:
+		case 8:
+			Posix_ConSetCursor( s_con.len );
+			break;
 		}
-		else if( ch == 'O' )
-			s_pc.escState = 3;
-		else
-			s_pc.escState = 0;
-
-		return;
+		break;
 	}
+}
 
-	if( s_pc.escState == 2 )
+static void Posix_ConEscape( char ch )
+{
+	switch( s_con.esc_state )
 	{
+	case ESC_START:
+		if( ch == '[' )
+			s_con.esc_state = ESC_CSI;
+		else if( ch == 'O' )
+			s_con.esc_state = ESC_SS3;
+		else
+			s_con.esc_state = ESC_NONE;
+		return;
+	case ESC_CSI:
+	case ESC_CSI_PARAMS:
 		if( ch == ';' )
 		{
-			s_pc.escParam = 0;
+			s_con.esc_state = ESC_CSI_PARAMS;
 			return;
 		}
 
 		if( ch >= '0' && ch <= '9' )
 		{
-			if( s_pc.escParam < 1000 )
-				s_pc.escParam = s_pc.escParam * 10 + ( ch - '0' );
+			if( s_con.esc_state == ESC_CSI && s_con.esc_param < 1000 )
+				s_con.esc_param = s_con.esc_param * 10 + ch - '0';
 			return;
 		}
-
-		s_pc.escState = 0;
-
-		if( ch == '~' )
-		{
-			switch( s_pc.escParam )
-			{
-			case 1: case 7: Posix_EventHome(); break;
-			case 4: case 8: Posix_EventEnd(); break;
-			case 3: Posix_EventDelete(); break;
-			}
-			return;
-		}
-
-		Posix_EventArrow( ch );
-		return;
+		break;
 	}
 
-	if( s_pc.escState == 3 )
-	{
-		s_pc.escState = 0;
-		Posix_EventArrow( ch );
-	}
+	s_con.esc_state = ESC_NONE;
+	Posix_ConKey( ch );
 }
 
-static void Posix_Shutdown( void )
+void Posix_ShutdownConsole( void )
 {
-	if( !s_pc.raw )
+	if( !s_con.raw )
 		return;
 
-	tcsetattr( STDIN_FILENO, TCSANOW, &s_pc.term );
-	s_pc.raw = false;
+	if( !s_con.output_midline )
+		Posix_ConWrite( "\r\033[K", 4 );
+
+	tcsetattr( STDIN_FILENO, TCSANOW, &s_con.oldterm );
+	s_con.raw = false;
 }
 
-static void Posix_Signal( int sig )
+static void Posix_ConSignal( int sig )
 {
-	Posix_Shutdown();
+	Posix_ShutdownConsole();
 	signal( sig, SIG_DFL );
 	raise( sig );
 }
 
-static qboolean Posix_Init( void )
+void Posix_InitConsole( void )
 {
-	struct termios raw;
+	if( !Host_IsDedicated( ) || !isatty( STDIN_FILENO ) || !isatty( STDOUT_FILENO ))
+		return;
 
-	if( s_pc.inited )
-		return s_pc.raw;
+	// changing terminal from background job stops the process with SIGTTOU
+	if( tcgetpgrp( STDIN_FILENO ) != getpgrp( ))
+		return;
 
-	s_pc.inited = true;
+	if( tcgetattr( STDIN_FILENO, &s_con.oldterm ) < 0 )
+		return;
 
-	if( !isatty( STDIN_FILENO ) || !isatty( STDOUT_FILENO ))
-		return false;
+	struct termios term = s_con.oldterm;
+	term.c_lflag &= ~( ICANON | ECHO );
+	term.c_cc[VMIN] = 0;
+	term.c_cc[VTIME] = 0;
 
-	if( tcgetattr( STDIN_FILENO, &s_pc.term ) != 0 )
-		return false;
+	if( tcsetattr( STDIN_FILENO, TCSANOW, &term ) < 0 )
+		return;
 
-	raw = s_pc.term;
-	raw.c_lflag &= ~( ICANON | ECHO );
-	raw.c_cc[VMIN] = 0;
-	raw.c_cc[VTIME] = 0;
+	s_con.raw = true;
+	Posix_ConRedraw();
 
-	if( tcsetattr( STDIN_FILENO, TCSANOW, &raw ) != 0 )
-		return false;
+	// SDL quits properly on Ctrl-C, default handler kills us before shutdown can give the terminal back
+	struct sigaction old, act = { 0 };
+	act.sa_handler = Posix_ConSignal;
 
-	s_pc.raw = true;
-	atexit( Posix_Shutdown );
-
-	struct sigaction act = { 0 };
-	act.sa_handler = Posix_Signal;
-	sigaction( SIGINT, &act, NULL );
-
-	return true;
+	if( sigaction( SIGINT, NULL, &old ) == 0 && old.sa_handler == SIG_DFL )
+		sigaction( SIGINT, &act, NULL );
 }
 
-static char *Posix_InputLine( void )
+void Posix_ConsolePrintBegin( void )
 {
-	static char line[1024];
-	static int len;
+	if( s_con.raw && !s_con.output_midline )
+		Posix_ConWrite( "\r\033[K", 4 );
+}
+
+void Posix_ConsolePrintEnd( const char *msg )
+{
+	if( !s_con.raw )
+		return;
+
+	size_t len = Q_strlen( msg );
+
+	if( len > 0 )
+		s_con.output_midline = msg[len - 1] != '\n';
+
+	Posix_ConRedraw();
+}
+
+static qboolean Posix_ReadChar( char *ch )
+{
 	fd_set rfds;
 	struct timeval tv = { 0 };
 
 	FD_ZERO( &rfds );
 	FD_SET( STDIN_FILENO, &rfds );
 
-	while( select( STDIN_FILENO + 1, &rfds, NULL, NULL, &tv ) > 0 )
-	{
-		if( read( STDIN_FILENO, &line[len], 1 ) != 1 )
-			break;
+	if( select( STDIN_FILENO + 1, &rfds, NULL, NULL, &tv ) <= 0 )
+		return false;
 
-		if( line[len] == '\n' || len > (int)( sizeof( line ) - 2 ))
+	return read( STDIN_FILENO, ch, 1 ) == 1;
+}
+
+static char *Posix_InputLine( void )
+{
+	static char line[1024];
+	static int len;
+
+	while( Posix_ReadChar( &line[len] ))
+	{
+		if( line[len] == '\n' || len > ( sizeof( line ) - 2 ))
 		{
 			line[++len] = 0;
 			len = 0;
 			return line;
 		}
-
 		len++;
-		tv.tv_sec = 0;
-		tv.tv_usec = 0;
-		FD_ZERO( &rfds );
-		FD_SET( STDIN_FILENO, &rfds );
 	}
 
 	return NULL;
@@ -406,69 +390,60 @@ static char *Posix_InputLine( void )
 
 char *Posix_Input( void )
 {
-	fd_set rfds;
-	struct timeval tv = { 0 };
+	char ch;
 
 	if( !Host_IsDedicated( ))
 		return NULL;
 
-	if( !Posix_Init( ))
+	if( !s_con.raw )
 		return Posix_InputLine();
 
-	FD_ZERO( &rfds );
-	FD_SET( STDIN_FILENO, &rfds );
-
-	while( select( STDIN_FILENO + 1, &rfds, NULL, NULL, &tv ) > 0 )
+	while( Posix_ReadChar( &ch ))
 	{
-		char ch;
+		if( s_con.esc_state != ESC_NONE )
+		{
+			Posix_ConEscape( ch );
+			continue;
+		}
 
-		if( read( STDIN_FILENO, &ch, 1 ) != 1 )
+		switch( ch )
+		{
+		case '\033':
+			s_con.esc_state = ESC_START;
+			s_con.esc_param = 0;
 			break;
-
-		if( s_pc.escState != 0 )
+		case '\r':
+		case '\n':
 		{
-			Posix_EventEscape( ch );
-		}
-		else
-		{
-			switch( ch )
-			{
-			case 0x1b:
-				s_pc.escState = 1;
-				s_pc.escParam = 0;
-				break;
-			case '\r':
-			case '\n':
-			{
-				char *line = Posix_EventNewline();
+			char *cmd = Posix_ConNewline();
 
-				if( line )
-					return line;
-				break;
-			}
-			case 0x7f:
-			case '\b':
-				Posix_EventBackspace();
-				break;
-			case '\t':
-				Posix_EventTab();
-				break;
-			default:
-				if((unsigned char)ch >= ' ' )
-					Posix_EventCharacter( ch );
-				break;
-			}
+			if( cmd )
+				return cmd;
+			break;
 		}
-
-		tv.tv_sec = 0;
-		tv.tv_usec = 0;
-		FD_ZERO( &rfds );
-		FD_SET( STDIN_FILENO, &rfds );
+		case '\b':
+		case 0x7f:
+			Posix_ConDelete( Posix_ConPrevChar( s_con.cursor ), s_con.cursor );
+			break;
+		case '\t':
+			Posix_ConComplete();
+			break;
+		case 'a' - 'a' + 1:
+			Posix_ConSetCursor( 0 );
+			break;
+		case 'e' - 'a' + 1:
+			Posix_ConSetCursor( s_con.len );
+			break;
+		default:
+			if((byte)ch >= ' ' )
+				Posix_ConInsert( ch );
+			break;
+		}
 	}
+
+	if( s_con.dirty )
+		Posix_ConRedraw();
 
 	return NULL;
 }
-#else // !XASH_POSIX || !_POSIX_VERSION || XASH_MOBILE_PLATFORM || XASH_LOW_MEMORY
-void Posix_Con_PrePrint( void ) { }
-void Posix_Con_Redraw( void ) { }
-#endif // !XASH_POSIX || !_POSIX_VERSION || XASH_MOBILE_PLATFORM || XASH_LOW_MEMORY
+#endif // !XASH_MOBILE_PLATFORM && !XASH_LOW_MEMORY
