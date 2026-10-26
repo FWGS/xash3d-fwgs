@@ -359,9 +359,6 @@ static void PS4_KeyboardUpdate( void )
 	OrbisKeyboardData data;
 	int count, ret;
 
-	if( ps4kbm.kbd < 0 )
-		return;
-
 	// nothing from the main handle so far, look at the others
 	if( !ps4kbm.stream_works && !ps4kbm.state_works )
 	{
@@ -380,6 +377,9 @@ static void PS4_KeyboardUpdate( void )
 			break;
 		}
 	}
+
+	if( ps4kbm.kbd < 0 )
+		return;
 
 	// stream of changes, it's what the mouse has
 	memset( samples, 0, sizeof( samples ));
