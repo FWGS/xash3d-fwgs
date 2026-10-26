@@ -210,9 +210,9 @@ MAYBE_UNUSED static const wchar_t *FS_PathToWideChar( const char *path )
 	static wchar_t pathBuffer[MAX_PATH];
 	MultiByteToWideChar( CP_UTF8, 0, path, -1, pathBuffer, MAX_PATH );
 	return pathBuffer;
+#else
+	return NULL;
 #endif
-	// OpenOrbis headers define wchar_t as 16-bit, but compiler still makes wide literals 32-bit
-	return (const wchar_t *)L"";
 }
 
 /*
