@@ -163,16 +163,6 @@ static int Sys_Start( void )
 {
 	int ret;
 
-#if XASH_SAILFISH
-	const char *home = getenv( "HOME" );
-	char buf[1024];
-
-	// sailjail only exposes directories we have permissions for, Documents is also visible over MTP
-	snprintf( buf, sizeof( buf ), "%s/Documents/xash3d-fwgs", home );
-	setenv( "XASH3D_BASEDIR", buf, false );
-	setenv( "XASH3D_RODIR", "/usr/share/harbour-xash3d-fwgs/lib/rodir", false );
-#endif // XASH_SAILFISH
-
 	Sys_LoadEngine();
 	ret = Host_Main( szArgc, szArgv, XASH_GAMEDIR, 0, XASH_DISABLE_MENU_CHANGEGAME ? NULL : Sys_ChangeGame );
 	Sys_UnloadEngine();
