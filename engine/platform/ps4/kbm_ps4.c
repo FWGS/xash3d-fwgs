@@ -66,9 +66,6 @@ typedef struct
 
 static struct
 {
-	qboolean initialized;
-	double   retry_time;
-
 	// keyboard
 	int32_t  kbd;
 	struct { int32_t handle, user, index; } probes[PS4_KBD_PROBES]; // other ways to open the keyboard, if the main one is silent
@@ -434,6 +431,12 @@ static void PS4_MouseSetConnected( qboolean connected )
 
 	ps4kbm.mouse_connected = connected;
 	Con_Reportf( "PS4 mouse: %s\n", connected ? "connected" : "disconnected" );
+
+	if( connected )
+	{
+		ps4kbm.cursor_x = refState.width / 2;
+		ps4kbm.cursor_y = refState.height / 2;
+	}
 }
 
 // reads one handle of the mouse, returns true if the mouse is connected and gave data
@@ -531,21 +534,16 @@ static void PS4_MouseUpdate( void )
 	}
 }
 
-static void PS4_KbmInit( void )
+void PS4_KbmInit( void )
 {
 	int32_t user = -1;
 	int ret;
-
-	ps4kbm.initialized = true;
 
 	if(( ret = sceUserServiceGetInitialUser( &user )) < 0 )
 	{
 		Con_Printf( S_ERROR "sceUserServiceGetInitialUser failed: 0x%08x\n", ret );
 		return;
 	}
-
-	ps4kbm.cursor_x = refState.width / 2;
-	ps4kbm.cursor_y = refState.height / 2;
 
 	// lists of keyboards and mice are kept by the system, the devices are checked while reading
 	// the modules might be loaded and initialized by the system already, that is not a failure
@@ -632,9 +630,6 @@ Once per frame, from Platform_RunEvents
 */
 void PS4_KbmUpdate( void )
 {
-	if( !ps4kbm.initialized )
-		PS4_KbmInit( );
-
 	PS4_KeyboardUpdate( );
 	PS4_MouseUpdate( );
 }
@@ -691,7 +686,6 @@ void PS4_KbmShutdown( void )
 	ps4kbm.num_probes = 0;
 	ps4kbm.num_mice = 0;
 	ps4kbm.mouse_active = -1;
-	ps4kbm.initialized = false;
 }
 
 /*

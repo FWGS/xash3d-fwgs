@@ -350,12 +350,8 @@ static void PS4_StopVibration( void )
 	ps4pad.vibrating = false;
 }
 
-void PS4_InputUpdate( void )
+static void PS4_PadUpdate( void )
 {
-	// the system keyboard takes the keyboard and the mouse is of no use while it is open
-	if( !ps4ime.open )
-		PS4_KbmUpdate( );
-
 	if( ps4pad.handle < 0 )
 		return;
 
@@ -440,7 +436,11 @@ void PS4_InputUpdate( void )
 
 void Platform_RunEvents( void )
 {
-	PS4_InputUpdate();
+	// the system keyboard takes the keyboard and the mouse is of no use while it is open
+	if( !ps4ime.open )
+		PS4_KbmUpdate( );
+
+	PS4_PadUpdate( );
 }
 
 int Platform_JoyInit( void )
@@ -485,7 +485,6 @@ int Platform_JoyInit( void )
 
 void Platform_JoyShutdown( void )
 {
-	PS4_KbmShutdown( );
 	PS4_StopVibration( );
 
 	if( ps4pad.handle >= 0 )

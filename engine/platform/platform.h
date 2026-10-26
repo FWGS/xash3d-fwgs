@@ -153,7 +153,7 @@ qboolean PS4_GetBasePath( char *buf, const size_t buflen );
 int PS4_GetArgv( int in_argc, char **in_argv, char ***out_argv );
 int PS4_RunOnBigStack( int ( *func )( void *arg ), void *arg );
 void PS4_Log( const char *fmt, ... ) FORMAT_CHECK( 1 );
-void PS4_InputUpdate( void );
+void PS4_KbmInit( void );
 void PS4_KbmUpdate( void );
 void PS4_KbmShutdown( void );
 qboolean PS4_KeyboardActive( void );

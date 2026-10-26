@@ -404,6 +404,7 @@ void PS4_Init( void )
 	sceUserServiceInitialize( NULL );
 
 	PS4_InitKeyboard( );
+	PS4_KbmInit( );
 }
 
 /*
@@ -436,5 +437,6 @@ void PS4_FramePresented( void )
 
 void PS4_Shutdown( void )
 {
+	PS4_KbmShutdown( );
 	PS4_Log( "PS4_Shutdown\n" );
 }
