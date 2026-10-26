@@ -23,6 +23,7 @@ BuildRequires: pkgconfig(Qt5Gui)
 BuildRequires: pkgconfig(Qt5Network)
 BuildRequires: pkgconfig(Qt5Qml)
 BuildRequires: pkgconfig(Qt5Quick)
+BuildRequires: qt5-qttools-linguist
 # the default renderer, nanogl, loads it through SDL, so it's not picked up automatically
 %ifarch aarch64
 Requires: libGLESv1_CM.so.1()(64bit)

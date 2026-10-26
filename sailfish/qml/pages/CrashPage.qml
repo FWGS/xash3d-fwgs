@@ -27,7 +27,7 @@ Page {
 		PullDownMenu {
 			MenuItem {
 				text: qsTr( "Delete" )
-				onClicked: remorse.execute( qsTr( "Deleting crash report" ), function() {
+				onClicked: remorse.execute( qsTr( "Deleting crash log" ), function() {
 					crashReports.remove( page.name )
 					pageStack.pop()
 				})
@@ -54,14 +54,15 @@ Page {
 			spacing: Theme.paddingMedium
 
 			PageHeader {
-				title: page.fresh ? qsTr( "The game crashed" ) : qsTr( "Crash report" )
+				title: qsTr( "Crash log" )
+				description: page.fresh ? qsTr( "Xash3D FWGS crashed last time" ) : ""
 			}
 
 			Label {
 				x: Theme.horizontalPageMargin
 				width: parent.width - 2 * Theme.horizontalPageMargin
 				visible: page.fresh
-				text: qsTr( "Sending this report to the developers helps to fix the problem. Pull down to send or copy it. Reports are also kept in Settings." )
+				text: qsTr( "Sending this log to the developers helps fix the problem. Pull down to send or copy it. Crash logs are also kept in Settings." )
 				wrapMode: Text.Wrap
 				color: Theme.highlightColor
 			}

@@ -5,9 +5,10 @@ def options(opt):
 	pass
 
 def configure(conf):
-	# waf's qt5 tool can't parse Qt 5.6 configuration files, and moc is the only Qt tool needed here
+	# waf's qt5 tool can't parse Qt 5.6 configuration files, and only moc and lrelease are needed here
 	conf.check_cfg(package='Qt5Core', uselib_store='QT5CORE', variables=['host_bins'])
 	conf.find_program('moc', path_list=[conf.env.QT5CORE_host_bins], var='MOC')
+	conf.find_program('lrelease', path_list=[conf.env.QT5CORE_host_bins], var='LRELEASE')
 	conf.check_cfg(package='Qt5Core Qt5Gui Qt5Network Qt5Qml Qt5Quick sailfishapp', uselib_store='SAILFISHAPP', args='--cflags --libs')
 
 def build(bld):
@@ -36,6 +37,12 @@ def build(bld):
 	# SailfishApp::pathToMainQml looks for /usr/share/<binary name>/qml/<binary name>.qml
 	qml = bld.path.find_dir('qml')
 	bld.install_files('${PREFIX}/share/%s/qml' % name, qml.ant_glob('**/*.qml'), cwd = qml, relative_trick = True)
+
+	# SailfishApp::application loads translations/<binary name>-<locale>.qm, falling back to <binary name>.qm
+	for ts in bld.path.ant_glob('translations/*.ts'):
+		qm = bld.path.find_or_declare('translations/' + ts.name.replace('.ts', '.qm'))
+		bld(rule = '${LRELEASE} -silent ${SRC} -qm ${TGT}', source = ts, target = qm)
+		bld.install_files('${PREFIX}/share/%s/translations' % name, qm)
 
 	bld.install_files('${PREFIX}/share/applications', name + '.desktop')
 

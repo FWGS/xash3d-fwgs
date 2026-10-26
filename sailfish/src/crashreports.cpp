@@ -191,7 +191,7 @@ QString CrashReports::report( const QString &name ) const
 
 QString CrashReports::mailUrl( const QString &name ) const
 {
-	QString body = tr( "Describe what you were doing when the game crashed:" ) + "\n\n\n" + report( name );
+	QString body = tr( "Please describe in as much detail as possible what you were doing when the game crashed — every little thing helps us fix it!" ) + "\n\n\n" + report( name );
 
 	if( body.size() > MAIL_BODY_LIMIT )
 		body = body.left( MAIL_BODY_LIMIT ) + "\n[truncated]";

@@ -83,7 +83,7 @@ Page {
 				text: {
 					switch( page.updateStatus ) {
 					case "checking": return qsTr( "Checking for updates…" )
-					case "uptodate": return qsTr( "You're on the latest build." )
+					case "uptodate": return qsTr( "You're already on the latest build." )
 					case "failed": return qsTr( "Couldn't check for updates. Check your connection and try again." )
 					default: return ""
 					}
@@ -96,7 +96,7 @@ Page {
 
 			Button {
 				anchors.horizontalCenter: parent.horizontalCenter
-				text: qsTr( "Crash reports" )
+				text: qsTr( "Crash logs" )
 				onClicked: pageStack.push( Qt.resolvedUrl( "CrashLogsPage.qml" ))
 			}
 

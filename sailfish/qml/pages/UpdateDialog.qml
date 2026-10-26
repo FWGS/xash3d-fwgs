@@ -36,7 +36,7 @@ Dialog {
 
 			SectionHeader {
 				visible: changelog.length > 0
-				text: qsTr( "Changes since this build" )
+				text: qsTr( "Changes since your build" )
 			}
 
 			Repeater {

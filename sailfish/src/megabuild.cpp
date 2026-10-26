@@ -80,7 +80,7 @@ static bool ExtractZip( const QString &zip_path, const QDir &base, const QString
 
 	if( !mz_zip_reader_init_file( &zip, QFile::encodeName( zip_path ).constData(), 0 ))
 	{
-		error = QObject::tr( "Can't open the downloaded archive" );
+		error = MegaBuild::tr( "Can't open the downloaded archive" );
 		return false;
 	}
 
@@ -93,7 +93,7 @@ static bool ExtractZip( const QString &zip_path, const QDir &base, const QString
 
 		if( !mz_zip_reader_file_stat( &zip, i, &stat ))
 		{
-			error = QObject::tr( "Can't read the downloaded archive" );
+			error = MegaBuild::tr( "Can't read the downloaded archive" );
 			ok = false;
 			break;
 		}
@@ -108,7 +108,7 @@ static bool ExtractZip( const QString &zip_path, const QDir &base, const QString
 
 		if( rel.isEmpty() || rel.startsWith( '/' ) || rel.split( '/' ).contains( ".." ))
 		{
-			error = QObject::tr( "Unsafe path in the downloaded archive: %1" ).arg( name );
+			error = MegaBuild::tr( "Unsafe path in the downloaded archive: %1" ).arg( name );
 			ok = false;
 			break;
 		}
@@ -118,7 +118,7 @@ static bool ExtractZip( const QString &zip_path, const QDir &base, const QString
 
 		if( !data )
 		{
-			error = QObject::tr( "Can't unpack %1" ).arg( name );
+			error = MegaBuild::tr( "Can't unpack %1" ).arg( name );
 			ok = false;
 			break;
 		}

@@ -11,13 +11,13 @@ Page {
 		model: crashReports.history
 
 		header: PageHeader {
-			title: qsTr( "Crash reports" )
+			title: qsTr( "Crash logs" )
 		}
 
 		ViewPlaceholder {
 			enabled: list.count === 0
-			text: qsTr( "No crash reports" )
-			hintText: qsTr( "Reports are kept for 30 days and cleared on update" )
+			text: qsTr( "No crash logs recorded" )
+			hintText: qsTr( "Logs are kept for 30 days and cleared on update" )
 		}
 
 		delegate: ListItem {
@@ -26,7 +26,7 @@ Page {
 			menu: ContextMenu {
 				MenuItem {
 					text: qsTr( "Delete" )
-					onClicked: item.remorseAction( qsTr( "Deleting crash report" ), function() {
+					onClicked: item.remorseAction( qsTr( "Deleting crash log" ), function() {
 						crashReports.remove( modelData.name )
 					})
 				}
