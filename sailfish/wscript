@@ -14,7 +14,7 @@ def build(bld):
 	name = bld.env.SAILFISH_PACKAGE
 	source = bld.path.ant_glob('src/*.cpp')
 
-	for header in ['launcher.h', 'megabuild.h', 'updater.h']:
+	for header in ['crashreports.h', 'launcher.h', 'megabuild.h', 'updater.h']:
 		target = 'moc_' + header.replace('.h', '.cpp')
 		bld(rule = '${MOC} ${SRC} -o ${TGT}', source = 'src/' + header, target = target)
 		source += [target]

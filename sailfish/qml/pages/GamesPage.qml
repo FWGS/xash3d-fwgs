@@ -5,6 +5,7 @@ Page {
 	id: page
 
 	property string pendingGame
+	property bool crashChecked
 
 	function play( game ) {
 		if( launcher.isBundled( game.dir ) || game.downloaded ) {
@@ -17,6 +18,18 @@ Page {
 	}
 
 	allowedOrientations: Orientation.All
+
+	onStatusChanged: {
+		if( status !== PageStatus.Active || crashChecked )
+			return
+
+		crashChecked = true
+
+		var crash = crashReports.takePending()
+
+		if( crash !== "" )
+			pageStack.push( Qt.resolvedUrl( "CrashPage.qml" ), { name: crash, fresh: true })
+	}
 
 	Connections {
 		target: megabuild

@@ -79,6 +79,16 @@ Page {
 			}
 
 			SectionHeader {
+				text: qsTr( "Troubleshooting" )
+			}
+
+			Button {
+				anchors.horizontalCenter: parent.horizontalCenter
+				text: qsTr( "Crash reports" )
+				onClicked: pageStack.push( Qt.resolvedUrl( "CrashLogsPage.qml" ))
+			}
+
+			SectionHeader {
 				text: qsTr( "About" )
 			}
 

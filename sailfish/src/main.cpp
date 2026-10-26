@@ -22,6 +22,7 @@ GNU General Public License for more details.
 #include <QQuickView>
 #include <QScopedPointer>
 #include <sailfishapp.h>
+#include "crashreports.h"
 #include "engine.h"
 #include "gamecover.h"
 #include "launcher.h"
@@ -39,6 +40,7 @@ Q_DECL_EXPORT int main( int argc, char **argv )
 	QScopedPointer<Launcher> launcher( new Launcher );
 	QScopedPointer<MegaBuild> megabuild( new MegaBuild( launcher.data( )));
 	QScopedPointer<Updater> updater( new Updater );
+	QScopedPointer<CrashReports> crashreports( new CrashReports );
 	QScopedPointer<QQuickView> view( SailfishApp::createView( ));
 
 	// the engine owns the provider
@@ -46,6 +48,7 @@ Q_DECL_EXPORT int main( int argc, char **argv )
 	view->rootContext()->setContextProperty( "launcher", launcher.data( ));
 	view->rootContext()->setContextProperty( "megabuild", megabuild.data( ));
 	view->rootContext()->setContextProperty( "updater", updater.data( ));
+	view->rootContext()->setContextProperty( "crashReports", crashreports.data( ));
 	view->setSource( SailfishApp::pathToMainQml( ));
 	view->show();
 
@@ -56,6 +59,9 @@ Q_DECL_EXPORT int main( int argc, char **argv )
 
 	const QByteArray basedir = launcher->baseDir().toLocal8Bit();
 	const QStringList engine_args = launcher->engineArgs();
+	const QByteArray crashdir = crashreports->pendingDir().toLocal8Bit();
+
+	crashreports->prepareLaunch( engine_args );
 
 	std::vector<QByteArray> storage;
 
@@ -64,6 +70,7 @@ Q_DECL_EXPORT int main( int argc, char **argv )
 
 	// close our window and the Wayland connection before the engine opens its own
 	view.reset();
+	crashreports.reset();
 	updater.reset();
 	megabuild.reset();
 	launcher.reset();
@@ -80,6 +87,7 @@ Q_DECL_EXPORT int main( int argc, char **argv )
 
 	setenv( ENGINE_ENV, "1", 1 );
 	setenv( "XASH3D_BASEDIR", basedir.constData(), 1 );
+	setenv( "XASH3D_CRASH_DIR", crashdir.constData(), 1 );
 
 	// not /proc/self/exe, it points to the booster when launched through it
 	execv( ENGINE_BINARY, args.data( ));
