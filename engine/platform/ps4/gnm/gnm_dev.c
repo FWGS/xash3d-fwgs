@@ -854,6 +854,8 @@ bool gnm_dev_init( void )
 {
 	int debug = gnm_dev.debug;
 	bool stats_on = gnm_dev.stats;
+	bool flip_front = gnm_dev.flip_front;
+	int mipmaps = gnm_dev.mipmaps;
 
 	if( dev.initialized )
 		return true;
@@ -861,6 +863,8 @@ bool gnm_dev_init( void )
 	memset( &gnm_dev, 0, sizeof( gnm_dev ));
 	gnm_dev.debug = debug;
 	gnm_dev.stats = stats_on;
+	gnm_dev.flip_front = flip_front;
+	gnm_dev.mipmaps = mipmaps;
 
 	dev.tables = map_garlic( TABLE_POOL_SIZE, 64 * 1024, 0x80000000ULL, true );
 	if( !dev.tables )
