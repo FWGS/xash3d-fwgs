@@ -165,6 +165,7 @@ def build(bld):
 			'swapstruct': 'tests/test_swapstruct.c',
 			'siphash': 'tests/test_siphash.c',
 			'hullsize': 'tests/test_hullsize.c',
+			'utflib': 'tests/test_utflib.c',
 		}
 
 		for i in tests:
