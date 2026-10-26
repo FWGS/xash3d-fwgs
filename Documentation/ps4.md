@@ -5,14 +5,22 @@ Experimental port for jailbroken PS4 consoles, built with [OpenOrbis PS4 Toolcha
 ### Building
 
 Requirements: OpenOrbis toolchain (LLVM 18 build), `clang-18`, `lld-18`, `python3` with `mako` and `yaml`
-modules, C and C++ compilers for the build machine, `curl`.
-`PkgTool.Core` from the toolchain needs OpenSSL 1.1 (`libssl1.1`) on modern distributions.
+modules, C and C++ compilers for the build machine.
+`PkgTool.Core` from the toolchain makes the package and needs OpenSSL 1.1 (`libssl1.1`), without it
+only the signed images are built.
 
 ```
 export OO_PS4_TOOLCHAIN=/path/to/OpenOrbis/PS4Toolchain
-scripts/gha/build_ps4.sh                    # artifacts/IV0000-XASH00001_00-XASH3DFWGSPS4000.pkg
-PS4_IP=192.168.0.10 scripts/gha/build_ps4.sh # same, and upload to the console FTP (GoldHEN, port 2121)
+./waf configure -T release --ps4
+./waf build # build/engine/IV0000-XASH00001_00-XASH3DFWGSPS4000.pkg
 ```
+
+Game libraries built from [hlsdk-portable](https://github.com/FWGS/hlsdk-portable) are put into the
+package, configure looks for them in `../hlsdk-portable/build/ps4/valve` (where its
+`./waf install --destdir=build/ps4` puts them), `--ps4-gamelibs` selects another directory.
+
+The package can be uploaded to the console with GoldHEN FTP, e.g.
+`curl -T build/engine/IV0000-XASH00001_00-XASH3DFWGSPS4000.pkg ftp://<console IP>:2121/data/pkg/`.
 
 `scripts/gha/deps_ps4.sh` is what CI does to get the toolchain and the game libraries.
 
@@ -31,10 +39,7 @@ build machine. `--host-cc` and `--host-cxx` configure options select its compile
 ### Running
 
 * Game data goes to `/data/xash/valve` (or `/mnt/usbN/xash/valve` on USB storage).
-* Game libraries built from [hlsdk-portable](https://github.com/FWGS/hlsdk-portable)
-  (its `scripts/ps4/build.sh`) are put into the package by `build_ps4.sh`, it looks for them in
-  `../hlsdk-portable/build/ps4/valve` (or `HLSDK_PS4_BUILD`), so build hlsdk-portable first.
-  Libraries in `valve/cl_dlls` and `valve/dlls` on the console override packaged ones.
+* Libraries in `valve/cl_dlls` and `valve/dlls` on the console override packaged ones.
 * `extras.pk3` is opened directly from the package.
 * Extra command line arguments are read from `/data/xash/xash3d.cmdline`. The file is created
   on the first start with `-log -console`; edit it to change arguments, for example

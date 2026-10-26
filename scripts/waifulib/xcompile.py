@@ -712,6 +712,8 @@ def options(opt):
 		help='enable building for PlayStation Vita [default: %(default)s]')
 	xc.add_option('--ps4', action='store_true', dest='PS4', default = False,
 		help='enable building for PlayStation 4 with OpenOrbis toolchain [default: %(default)s]')
+	xc.add_option('--ps4-gamelibs', action='store', dest='PS4_GAMELIBS', default = None,
+		help='directory with PS4 game libraries from hlsdk-portable to put into the package [default: ../hlsdk-portable/build/ps4/valve]')
 	xc.add_option('--sailfish', action='store_true', dest='SAILFISH', default = False,
 		help='enable building for Sailfish')
 	xc.add_option('--emscripten', action='store_true', dest='EMSCRIPTEN', default = None,
