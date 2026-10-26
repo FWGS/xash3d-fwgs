@@ -1,18 +1,6 @@
 #! /usr/bin/env python
 # encoding: utf-8
 
-# opengnm sources for PS4 (Orbis backend), same list as its Makefile
-SOURCES = [
-	'src/drawcommandbuffer.c', 'src/rendertarget.c', 'src/depthrendertarget.c', 'src/texture.c',
-	'src/shader.c', 'src/dataformat.c', 'src/commandbuffer.c', 'src/error.c', 'src/helpers.c',
-	'src/driver_orbis.c', 'src/platform_orbis.c',
-	'src/gpuaddr/surface.c', 'src/gpuaddr/tilemodes.c', 'src/gpuaddr/tiler.c', 'src/gpuaddr/decompress.c',
-	'src/gpuaddr/surfgen.c', 'src/gpuaddr/error.c',
-	'src/gcn/analyzer.c', 'src/gcn/assembler.c', 'src/gcn/decoder.c', 'src/gcn/error.c', 'src/gcn/format.c',
-	'src/gcn/types.c',
-	'src/pm4/format.c', 'src/pm4/decoder.c', 'src/pm4/error.c', 'src/pm4/types.c',
-]
-
 def options(opt):
 	pass
 
@@ -22,7 +10,7 @@ def configure(conf):
 
 def build(bld):
 	bld.stlib(
-		source = [bld.path.find_node('opengnm/' + i) for i in SOURCES],
+		source = bld.path.ant_glob('opengnm/src/**/*.c', excl = 'opengnm/src/*_generic.c'),
 		target = 'opengnm',
 		features = 'c',
 		includes = ['opengnm/include', 'opengnm/src'],

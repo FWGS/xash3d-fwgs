@@ -8,7 +8,7 @@ git submodule update --init --checkout --recursive 3rdparty/opengnm/opengnm 3rdp
 # OpenOrbis builds the engine with LLVM 18 (newer lld picks musl's lite_malloc, which
 # gives two mallocs in the process)
 sudo apt-get update || exit 1
-sudo apt-get install -y clang-18 lld-18 llvm-18 python3 curl p7zip-full || exit 1
+sudo apt-get install -y clang-18 lld-18 llvm-18 python3 python3-mako python3-yaml curl p7zip-full || exit 1
 
 # PkgTool.Core is built for .NET Core 3.0, it can only load OpenSSL 1.0 or 1.1, and
 # current Ubuntu images have just OpenSSL 3

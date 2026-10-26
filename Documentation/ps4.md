@@ -4,7 +4,8 @@ Experimental port for jailbroken PS4 consoles, built with [OpenOrbis PS4 Toolcha
 
 ### Building
 
-Requirements: OpenOrbis toolchain (LLVM 18 build), `clang-18`, `lld-18`, `python3`, `curl`.
+Requirements: OpenOrbis toolchain (LLVM 18 build), `clang-18`, `lld-18`, `python3` with `mako` and `yaml`
+modules, C and C++ compilers for the build machine, `curl`.
 `PkgTool.Core` from the toolchain needs OpenSSL 1.1 (`libssl1.1`) on modern distributions.
 
 ```
@@ -23,17 +24,9 @@ git submodule update --init --checkout --recursive 3rdparty/opengnm/opengnm 3rdp
 
 [opengnm](https://github.com/PS4-OpenGNM/opengnm) is built into the engine for the GPU renderer.
 
-Shaders of the GPU renderer are compiled ahead of time and kept in
-`ref/gl/ps4/gnm_shaders.c`. To rebuild them after changing `ref/gl/ps4/shaders`, give
-the host tools to configure, waf compiles the shaders with `scripts/ps4/gnm/compile_shaders.py`
-instead of using the file from the repository:
-
-```
-scripts/ps4/psbc/build.sh          # host glslang and opengnm-psbc, prints their paths
-./waf configure --ps4 --ps4-glslang=... --ps4-psbc=...
-```
-
-To update `gnm_shaders.c` in the repository, copy the file from `build/ref/gl/ps4/`.
+Shaders of the GPU renderer (`ref/gl/ps4/shaders`) are compiled during the build with glslang and
+[opengnm-psbc](https://github.com/PS4-OpenGNM/opengnm-psbc), both are built from the submodules for the
+build machine. `--host-cc` and `--host-cxx` configure options select its compilers.
 
 ### Running
 

@@ -1,37 +1,88 @@
 #! /usr/bin/env python
 # encoding: utf-8
 
-import sys
-
 def options(opt):
-	grp = opt.add_option_group('PS4 OpenGL over GNM options')
-
-	grp.add_option('--ps4-glslang', action='store', dest='PS4_GLSLANG', default=None,
-		help = 'glslang binary, shaders of ref/gl/ps4 are rebuilt with it and --ps4-psbc [default: use ref/gl/ps4/gnm_shaders.c]')
-
-	grp.add_option('--ps4-psbc', action='store', dest='PS4_PSBC', default=None,
-		help = 'opengnm-psbc binary, see --ps4-glslang')
+	pass
 
 def configure(conf):
-	if conf.options.PS4_GLSLANG and conf.options.PS4_PSBC:
-		conf.find_program(conf.options.PS4_GLSLANG, var='PS4_GLSLANG')
-		conf.find_program(conf.options.PS4_PSBC, var='PS4_PSBC')
+	pass
+
+def gnm_shaders_c(task):
+	out = ['// Generated from ref/gl/ps4/shaders, see ref/gl/ps4/wscript', '#include <stdint.h>', '#include "gnm_shaders.h"', '']
+	names = []
+
+	for node in task.inputs:
+		data = node.read('rb')
+		name = node.name[:-len('.sb')]
+		lines = ['static const uint8_t %s[%d] __attribute__((aligned(16))) =\n{' % (name, len(data))]
+		lines += ['\t' + ', '.join('0x%02x' % b for b in data[i:i + 16]) + ',' for i in range(0, len(data), 16)]
+		lines.append('};\n')
+		out.append('\n'.join(lines))
+		names.append(name)
+
+	vs = [i for i in names if i.startswith('gl2_vs_')]
+	ps = [i for i in names if i.startswith('gl2_ps_')]
+
+	out.append('const gnm_shader_blob_t gnm_shader_clear_vs = { clear_vs, sizeof( clear_vs ) };')
+	out.append('const gnm_shader_blob_t gnm_shader_clear_ps = { clear_ps, sizeof( clear_ps ) };')
+	out.append('')
+	out.append('const gnm_shader_blob_t gnm_shader_gl2_vs[GNM_GL2_VS_COUNT] =\n{')
+	out += ['\t{ %s, sizeof( %s ) },' % (i, i) for i in vs]
+	out.append('};')
+	out.append('')
+	out.append('const gnm_shader_blob_t gnm_shader_gl2_ps[GNM_GL2_PS_COUNT] =\n{')
+	out += ['\t{ %s, sizeof( %s ) },' % (i, i) for i in ps]
+	out.append('};')
+
+	task.outputs[0].write('\n'.join(out) + '\n')
 
 def build(bld):
-	shaders = bld.path.find_node('gnm_shaders.c')
+	def tool(name):
+		tg = bld.get_tgen_by_name(name)
+		tg.post()
+		return tg.link_task.outputs[0]
 
-	# shaders are compiled for GCN with host tools, see scripts/ps4/psbc/build.sh
-	if bld.env.PS4_GLSLANG and bld.env.PS4_PSBC:
-		shaders = bld.path.get_bld().make_node('gnm_shaders.c')
-		bld(rule = '"%s" ${SRC[0].abspath()} --glslang ${PS4_GLSLANG} --psbc ${PS4_PSBC} --shaders "%s" -o ${TGT}' % (sys.executable, bld.path.find_dir('shaders').abspath()),
-			source = [bld.srcnode.find_node('scripts/ps4/gnm/compile_shaders.py')] + bld.path.ant_glob('shaders/*.glsl'),
-			target = shaders,
-			name = 'gnm_shaders')
+	glslang = tool('glslang-standalone')
+	psbc = tool('psbc')
+	shaders = []
+	names = []
 
-	bld.stlib(source = bld.path.ant_glob('*.c', excl = 'gnm_shaders.c') + [shaders],
+	# GLSL -> SPIR-V -> PS4 shader binary, -4 is the base PS4 GPU (GFX7), it also runs on PS4 Pro
+	def shader(source, stage, name, defines = []):
+		spv = bld.path.get_bld().make_node('shaders/%s.spv' % name)
+		sb = bld.path.get_bld().make_node('shaders/%s.sb' % name)
+
+		bld(rule = '${SRC[0].abspath()} --quiet -V -S %s %s ${SRC[1].abspath()} -o ${TGT}' % (stage, ' '.join(defines)),
+			source = [glslang, 'shaders/' + source],
+			target = spv,
+			name = name + '-spv')
+
+		bld(rule = '${SRC[0].abspath()} -s %s -f ${SRC[1].abspath()} -o ${TGT} -4' % ('vertex' if stage == 'vert' else 'fragment'),
+			source = [psbc, spv],
+			target = sb,
+			name = name + '-sb')
+
+		shaders.append(sb)
+		names.extend([name + '-spv', name + '-sb'])
+
+	shader('clear.vert.glsl', 'vert', 'clear_vs')
+	shader('clear.frag.glsl', 'frag', 'clear_ps')
+
+	# variant bits, see gnm_shaders.h
+	for i in range(8):
+		shader('gl2.vert.glsl', 'vert', 'gl2_vs_%d' % i, ['-DATTR_COLOR=%d' % (i & 1), '-DATTR_TEXCOORD0=%d' % ((i >> 1) & 1), '-DATTR_TEXCOORD1=%d' % ((i >> 2) & 1)])
+
+	for i in range(32):
+		shader('gl2.frag.glsl', 'frag', 'gl2_ps_%d' % i, ['-DATTR_COLOR=%d' % (i & 1), '-DATTR_TEXCOORD0=%d' % ((i >> 1) & 1), '-DATTR_TEXCOORD1=%d' % ((i >> 2) & 1),
+			'-DFEAT_ALPHA_TEST=%d' % ((i >> 3) & 1), '-DFEAT_FOG=%d' % ((i >> 4) & 1)])
+
+	gnm_shaders = bld.path.get_bld().make_node('gnm_shaders.c')
+	bld(rule = gnm_shaders_c, source = shaders, target = gnm_shaders, name = 'gnm-shaders')
+
+	bld.stlib(source = bld.path.ant_glob('*.c') + [gnm_shaders],
 		target = 'gnm_gl',
 		features = 'c',
 		includes = ['.', bld.srcnode.find_dir('engine/platform/ps4/gnm')],
 		cflags = ['-std=gnu11', '-Wno-unused-parameter'],
-		use = 'opengnm',
+		use = ['opengnm', 'gnm-shaders'] + names,
 		install_path = None)

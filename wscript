@@ -151,7 +151,9 @@ SUBDIRS = [
 	Subproject('ref/gl/vgl_shim',   lambda x: x.env.DEST_OS == 'psvita'),
 
 	# enabled on PS4 only
-	Subproject('ref/gl/ps4',        lambda x: x.env.CLIENT and x.env.GL and x.env.DEST_OS == 'ps4'),
+	Subproject('3rdparty/glslang',      lambda x: x.env.CLIENT and x.env.GL and x.env.DEST_OS == 'ps4'),
+	Subproject('3rdparty/opengnm-psbc', lambda x: x.env.CLIENT and x.env.GL and x.env.DEST_OS == 'ps4'),
+	Subproject('ref/gl/ps4',            lambda x: x.env.CLIENT and x.env.GL and x.env.DEST_OS == 'ps4'),
 ]
 
 REFDLLS = [
@@ -165,7 +167,7 @@ REFDLLS = [
 ]
 
 def options(opt):
-	opt.load('reconfigure compiler_optimizations xshlib xcompile compiler_cxx compiler_c sdl2 clang_compilation_database strip_on_install waf_unit_test msvs subproject ninja')
+	opt.load('reconfigure compiler_optimizations xshlib xcompile compiler_cxx compiler_c sdl2 clang_compilation_database strip_on_install waf_unit_test msvs subproject ninja host_tool_compiler')
 
 	grp = opt.add_option_group('Common options')
 
