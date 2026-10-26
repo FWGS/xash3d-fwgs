@@ -141,7 +141,7 @@ static struct
 	GLuint bound[MAX_TEXTURE_UNITS];
 
 	// fixed function state
-	bool texture_2d[MAX_TEXTURE_UNITS];
+	bool texture_1d[MAX_TEXTURE_UNITS], texture_2d[MAX_TEXTURE_UNITS];
 	bool alpha_test, fog;
 	float alpha_ref;
 	float fog_color[4];
@@ -358,6 +358,7 @@ static bool *cap_ptr( GLenum cap, bool *gpu )
 
 	switch( cap )
 	{
+	case GL_TEXTURE_1D: return &gl.texture_1d[gl.active_unit];
 	case GL_TEXTURE_2D: return &gl.texture_2d[gl.active_unit];
 	case GL_ALPHA_TEST: return &gl.alpha_test;
 	case GL_FOG: return &gl.fog;
@@ -851,6 +852,17 @@ Textures
 
 ==============================================================================
 */
+// 1D textures are 2D textures one texel high, a texture unit has one binding for both
+static bool texture_target( GLenum target )
+{
+	return target == GL_TEXTURE_2D || target == GL_TEXTURE_1D;
+}
+
+static bool texture_enabled( int unit )
+{
+	return gl.texture_1d[unit] || gl.texture_2d[unit];
+}
+
 static gl_texture_t *get_texture( GLuint name, bool create )
 {
 	if( name == 0 )
@@ -952,7 +964,7 @@ static GLboolean gl_IsTexture( GLuint texture )
 
 static void gl_BindTexture( GLenum target, GLuint texture )
 {
-	if( target != GL_TEXTURE_2D )
+	if( !texture_target( target ))
 		return;
 
 	gl.bound[gl.active_unit] = texture;
@@ -979,7 +991,7 @@ static void gl_TexParameteri( GLenum target, GLenum pname, GLint param )
 {
 	gl_texture_t *t = bound_texture();
 
-	if( !t || target != GL_TEXTURE_2D )
+	if( !t || !texture_target( target ))
 		return;
 
 	switch( pname )
@@ -1312,6 +1324,18 @@ static void gl_TexSubImage2D( GLenum target, GLint level, GLint x, GLint y, GLsi
 		memcpy( (uint8_t *)t->gpu + l->offset + ((size_t)( y + row ) * l->pitch + x ) * 4,
 			l->shadow + ((size_t)( y + row ) * l->width + x ) * 4, width * 4 );
 	}
+}
+
+static void gl_TexImage1D( GLenum target, GLint level, GLint internalformat, GLsizei width, GLint border, GLenum format, GLenum type, const GLvoid *pixels )
+{
+	if( target == GL_TEXTURE_1D )
+		gl_TexImage2D( GL_TEXTURE_2D, level, internalformat, width, 1, border, format, type, pixels );
+}
+
+static void gl_TexSubImage1D( GLenum target, GLint level, GLint x, GLsizei width, GLenum format, GLenum type, const GLvoid *pixels )
+{
+	if( target == GL_TEXTURE_1D )
+		gl_TexSubImage2D( GL_TEXTURE_2D, level, x, 0, width, 1, format, type, pixels );
 }
 
 static GnmSampler make_sampler( const gl_texture_t *t )
@@ -2043,7 +2067,7 @@ static void gl_End( void )
 
 	for( u = 0; u < MAX_TEXTURE_UNITS; u++ )
 	{
-		if( gl.texture_2d[u] )
+		if( texture_enabled( u ))
 			imm_attrib( gl.imm_tc[u], 2, &attribs[SEM_TC0 + u] );
 	}
 
@@ -2219,7 +2243,7 @@ static bool array_attribs( draw_attrib_t *attribs )
 	{
 		draw_attrib_t *a = &attribs[SEM_TC0 + u];
 
-		if( !gl.texture_2d[u] )
+		if( !texture_enabled( u ))
 			continue;
 
 		if( gl.arrays[SEM_TC0 + u].enabled )
@@ -2570,7 +2594,9 @@ static const gl_proc_t procs[] =
 	P( "glTexParameteri", gl_TexParameteri ),
 	P( "glTexParameterf", gl_TexParameterf ),
 	P( "glTexParameterfv", gl_TexParameterfv ),
+	P( "glTexImage1D", gl_TexImage1D ),
 	P( "glTexImage2D", gl_TexImage2D ),
+	P( "glTexSubImage1D", gl_TexSubImage1D ),
 	P( "glTexSubImage2D", gl_TexSubImage2D ),
 
 	P( "glBegin", gl_Begin ),
