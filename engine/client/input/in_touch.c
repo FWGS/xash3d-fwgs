@@ -639,13 +639,29 @@ static void Touch_ResetSticks( void )
 	touch.move_stick = false;
 }
 
-static void Touch_RemoveButtonFromList( touchbuttonlist_t *list, const char *name, qboolean privileged )
+static qboolean Touch_IsMenuButton( const touch_button_t *button )
+{
+#if XASH_SAILFISH || XASH_ENGINE_TESTS // FIXME: enable it for everybody?
+	// it might be the only way to get back to the menu, don't let user remove or hide it
+	return !Q_strcmp( button->command, "cancelselect" );
+#endif // XASH_SAILFISH
+}
+
+static void Touch_RemoveButtonFromList( touchbuttonlist_t *list, const char *name, qboolean privileged, qboolean keep_menu )
 {
 	IN_TouchEditClear();
 
-	touch_button_t *button;
-	while(( button = Touch_FindFirst( list, name, privileged )))
+	touch_button_t *button = Touch_FindFirst( list, name, privileged );
+	while( button )
 	{
+		touch_button_t *next = Touch_FindNext( button->next, name, privileged );
+
+		if( keep_menu && Touch_IsMenuButton( button ))
+		{
+			button = next;
+			continue;
+		}
+
 		if( button->prev )
 			button->prev->next = button->next;
 		else
@@ -659,12 +675,13 @@ static void Touch_RemoveButtonFromList( touchbuttonlist_t *list, const char *nam
 		Touch_ReleaseStick( button );
 		Touch_ReleaseLatch( button );
 		Mem_Free( button );
+		button = next;
 	}
 }
 
 void Touch_RemoveButton( const char *name, qboolean privileged )
 {
-	Touch_RemoveButtonFromList( &touch.list_user, name, privileged );
+	Touch_RemoveButtonFromList( &touch.list_user, name, privileged, true );
 }
 
 static void IN_TouchRemoveButton_f( void )
@@ -741,6 +758,9 @@ void Touch_HideButtons( const char *name, byte hide, qboolean privileged )
 	{
 		if( hide )
 		{
+			if( Touch_IsMenuButton( b ))
+				continue;
+
 			Touch_ReleaseStick( b );
 			Touch_ReleaseLatch( b );
 			SetBits( b->flags, TOUCH_FL_HIDE );
@@ -752,7 +772,7 @@ void Touch_HideButtons( const char *name, byte hide, qboolean privileged )
 
 static void Touch_ToggleSelection_f( void )
 {
-	if( touch.selection )
+	if( touch.selection && !Touch_IsMenuButton( touch.selection ))
 		touch.selection->flags ^= TOUCH_FL_HIDE;
 }
 
@@ -834,6 +854,10 @@ static void Touch_SetFlags_f( void )
 		if( button )
 		{
 			int flags = ( privileged ? 0 : TOUCH_FL_UNPRIVILEGED | TOUCH_FL_CLIENT ) | Q_atoi( Cmd_Argv( 2 ));
+
+			if( Touch_IsMenuButton( button ))
+				ClearBits( flags, TOUCH_FL_HIDE );
+
 			// Cleanup must inspect the old mode before flags can remove it.
 			if( FBitSet( flags, TOUCH_FL_HIDE ) || FBitSet( flags ^ button->flags, TOUCH_FL_STICK ))
 				Touch_ReleaseStick( button );
@@ -892,7 +916,7 @@ static touch_button_t *Touch_AddButton( touchbuttonlist_t *list, const char *nam
 {
 	touch_button_t *b = Mem_Calloc( touch.mempool, sizeof( *b ));
 
-	Touch_RemoveButtonFromList( list, name, privileged ); // replace if exist
+	Touch_RemoveButtonFromList( list, name, privileged, false ); // replace if exist
 
 	b->gl_texturenum = -1;
 	Q_strncpy( b->texture, texture, sizeof( b->texture ));
@@ -1044,6 +1068,10 @@ static void Touch_AddButton_f( void )
 
 	if( Cmd_Argc( ) >= 13 )
 		SetBits( button->flags, Q_atoi( Cmd_Argv( 12 )));
+
+	// configs saved before it was unhideable
+	if( Touch_IsMenuButton( button ))
+		ClearBits( button->flags, TOUCH_FL_HIDE );
 
 	if( Cmd_Argc( ) >= 14 )
 	{
@@ -2609,10 +2637,43 @@ static void Test_TouchLatch( void )
 	touch = saved;
 }
 
+static void Test_TouchMenuButton( void )
+{
+	struct touch_s saved = touch;
+	rgba_t color = { 255, 255, 255, 255 };
+
+	touch.mempool = Mem_AllocPool( "Test Touch" );
+	touch.list_user.first = touch.list_user.last = NULL;
+	touch.selection = NULL;
+
+	Touch_AddButton( &touch.list_user, "menu", "", "cancelselect", 0, 0, 1, 1, color, true );
+	Touch_AddButton( &touch.list_user, "jump", "", "+jump", 0, 0, 1, 1, color, true );
+
+	// removing everything keeps the menu button
+	Touch_RemoveButton( "*", true );
+	TASSERT( touch.list_user.first != NULL );
+	TASSERT( touch.list_user.first == touch.list_user.last );
+	TASSERT_STR( touch.list_user.first->name, "menu" );
+
+	// can't be hidden
+	Touch_HideButtons( "menu", true, true );
+	TASSERT( !FBitSet( touch.list_user.first->flags, TOUCH_FL_HIDE ));
+
+	// but can still be replaced by a config
+	Touch_AddButton( &touch.list_user, "menu", "", "cancelselect", 0, 0, 0.5f, 0.5f, color, true );
+	TASSERT( touch.list_user.first == touch.list_user.last );
+	TASSERT( touch.list_user.first->x2 == 0.5f );
+
+	Touch_ClearList( &touch.list_user );
+	Mem_FreePool( &touch.mempool );
+	touch = saved;
+}
+
 void Test_RunTouch( void )
 {
 	TRUN( Test_TouchStick() );
 	TRUN( Test_TouchLatch() );
+	TRUN( Test_TouchMenuButton() );
 }
 #endif // XASH_ENGINE_TESTS
 
