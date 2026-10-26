@@ -400,10 +400,6 @@ void IN_MouseEvent( int key, int down )
 		if( in_mouseactive )
 			clgame.dllFuncs.IN_MouseEvent( in_mstate );
 	}
-	else if( cls.key_dest == key_console )
-	{
-		Con_MouseEvent( K_MOUSE1 + key, down );
-	}
 	else
 	{
 		// perform button actions

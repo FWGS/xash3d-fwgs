@@ -55,7 +55,6 @@ double GAME_EXPORT Sys_DoubleTime( void ); // only for binary compatibility, use
 float GAME_EXPORT Sys_FloatTime( void ); // only for binary compatibility, use Platform_DoubleTime instead
 double Sys_GetCPUUsage( void ); // process CPU usage as fraction of one core, 0.0 if unsupported
 char *Sys_GetClipboardData( void );
-void Sys_SetClipboardData( const char *buffer );
 const char *Sys_GetCurrentUser( void );
 int Sys_CheckParm( const char *parm );
 void Sys_Warn( const char *format, ... ) FORMAT_CHECK( 1 );
