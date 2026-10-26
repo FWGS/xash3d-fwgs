@@ -2078,12 +2078,17 @@ static void gl_End( void )
 	draw_prims( gl.prim, 0, gl.numverts, 0, NULL, attribs, gl.imm_color );
 }
 
+static float clamp01( float v )
+{
+	return v < 0.0f ? 0.0f : v > 1.0f ? 1.0f : v;
+}
+
 static void gl_Color4f( GLfloat r, GLfloat g, GLfloat b, GLfloat a )
 {
-	gl.color[0] = r;
-	gl.color[1] = g;
-	gl.color[2] = b;
-	gl.color[3] = a;
+	gl.color[0] = clamp01( r );
+	gl.color[1] = clamp01( g );
+	gl.color[2] = clamp01( b );
+	gl.color[3] = clamp01( a );
 }
 
 static void gl_Color3f( GLfloat r, GLfloat g, GLfloat b )
