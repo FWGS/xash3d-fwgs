@@ -1891,6 +1891,17 @@ static void emit_draw_index( GnmCommandBuffer *cmd, uint32_t count, const void *
 	cmd->cmdptr += 6;
 }
 
+static void draw_dropped( const char *reason )
+{
+	static int s_count;
+
+	if( s_count < 16 )
+	{
+		GNM_LOG( "draw dropped: %s\n", reason );
+		s_count++;
+	}
+}
+
 // indexed: glDrawElements family, indices are a pointer or an offset into the element buffer;
 // otherwise glDrawArrays and first is the first vertex
 static void draw( GLenum mode, GLint first, GLsizei count, bool indexed, GLenum itype, const GLvoid *indices, GLint basevertex )
@@ -1922,7 +1933,10 @@ static void draw( GLenum mode, GLint first, GLsizei count, bool indexed, GLenum 
 
 	prim = primitive_type( mode );
 	if( prim < 0 )
+	{
+		draw_dropped( "unsupported primitive" );
 		return;
+	}
 
 	// vertex range used by the draw
 	if( indexed )
@@ -1933,13 +1947,19 @@ static void draw( GLenum mode, GLint first, GLsizei count, bool indexed, GLenum 
 		if( eb )
 		{
 			if( !eb->data || (uintptr_t)indices + (size_t)count * isize > eb->size )
+			{
+				draw_dropped( "indices are out of element buffer" );
 				return;
+			}
 			isrc = eb->data + (uintptr_t)indices;
 		}
 		else isrc = indices;
 
 		if( !isrc )
+		{
+			draw_dropped( "no indices" );
 			return;
+		}
 
 		vmin = 0x7fffffff;
 		vmax = -1;
@@ -1962,7 +1982,10 @@ static void draw( GLenum mode, GLint first, GLsizei count, bool indexed, GLenum 
 
 	numverts = vmax - vmin + 1;
 	if( vmin < 0 || numverts <= 0 || numverts > MAX_VERTS )
+	{
+		draw_dropped( "vertex range is out of limits" );
 		return;
+	}
 
 	idx32 = numverts > 65535;
 
@@ -1978,7 +2001,10 @@ static void draw( GLenum mode, GLint first, GLsizei count, bool indexed, GLenum 
 	for( k = 0; k < numsems; k++ )
 	{
 		if( !attrib_source( k, vmin, numverts, &attrs[k] ))
+		{
+			draw_dropped( "vertex attribute can't be read" );
 			return;
+		}
 		transient += (( attrs[k].bytes + 15 ) & ~15u ) + 16;
 	}
 	tables = VS_TABLE_SIZE + PS_TABLE_SIZE + 32;
