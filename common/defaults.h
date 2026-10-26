@@ -151,6 +151,10 @@ Default build-depended cvar and constant values
 	#define DEFAULT_ALLOWCONSOLE 1
 #elif XASH_ANDROID
 	#define DEFAULT_TOUCH_ENABLE "1"
+#elif XASH_SAILFISH
+	#define DEFAULT_TOUCH_ENABLE "1"
+	#define DEFAULT_M_IGNORE     "1"
+	#define DEFAULT_VID_ROTATE   "1" // compositor never rotates our window, which is portrait on phones
 #elif XASH_MOBILE_PLATFORM
 	#define DEFAULT_TOUCH_ENABLE "1"
 	#define DEFAULT_M_IGNORE     "1"
@@ -164,6 +168,10 @@ Default build-depended cvar and constant values
 #ifndef DEFAULT_M_IGNORE
 	#define DEFAULT_M_IGNORE "0"
 #endif // DEFAULT_M_IGNORE
+
+#ifndef DEFAULT_VID_ROTATE
+	#define DEFAULT_VID_ROTATE "0"
+#endif // DEFAULT_VID_ROTATE
 
 #ifndef DEFAULT_JOY_DEADZONE
 	#define DEFAULT_JOY_DEADZONE "4096"
