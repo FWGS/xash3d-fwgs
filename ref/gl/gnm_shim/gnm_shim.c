@@ -1910,6 +1910,10 @@ static void draw_prims( GLenum mode, GLint first, GLsizei count, GLenum itype, c
 {
 	int numquads, i, q;
 
+	// vertices of a quad strip go in pairs, an odd one isn't drawn
+	if( mode == GL_QUAD_STRIP )
+		count &= ~1;
+
 	if( mode != GL_QUADS )
 	{
 		draw( mode, first, count, itype, indices, attribs, color );
