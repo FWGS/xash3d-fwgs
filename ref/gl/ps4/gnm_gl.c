@@ -2563,12 +2563,18 @@ static void reset_state( void )
 	restart_cb();
 }
 
+static void gnm_message( GnmMessageSeverity severity, const char *message, void *userdata )
+{
+	GNM_LOG( "opengnm %s: %s\n", severity == GNM_MSGSEV_ERR ? "error" : "warning", message );
+}
+
 int PS4_GL_Init( const gnm_dev_api_t *api )
 {
 	if( gl.initialized )
 		return true;
 
 	gnm_api = api;
+	sceGnmSetMessageHandler( gnm_message, NULL );
 	gnm_dev_set_restart_callback( restart_cb );
 
 	if( !load_shaders( ) || !init_white_texture( ))

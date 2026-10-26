@@ -850,6 +850,11 @@ static bool init_display( void )
 	return init_depth_target( &gnm_dev.depth, gnm_dev.width, gnm_dev.height );
 }
 
+static void gnm_dev_message( GnmMessageSeverity severity, const char *message, void *userdata )
+{
+	GNM_LOG( "opengnm %s: %s\n", severity == GNM_MSGSEV_ERR ? "error" : "warning", message );
+}
+
 bool gnm_dev_init( void )
 {
 	int debug = gnm_dev.debug;
@@ -865,6 +870,8 @@ bool gnm_dev_init( void )
 	gnm_dev.stats = stats_on;
 	gnm_dev.flip_front = flip_front;
 	gnm_dev.mipmaps = mipmaps;
+
+	sceGnmSetMessageHandler( gnm_dev_message, NULL );
 
 	dev.tables = map_garlic( TABLE_POOL_SIZE, 64 * 1024, 0x80000000ULL, true );
 	if( !dev.tables )
