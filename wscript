@@ -137,7 +137,8 @@ SUBDIRS = [
 
 	Subproject('3rdparty/MultiEmulator',lambda x: x.env.CLIENT),
 	Subproject('stub/client',           lambda x: x.env.CLIENT),
-	Subproject('game_launch',           lambda x: x.env.LAUNCHER),
+	Subproject('game_launch',           lambda x: x.env.LAUNCHER and not x.env.SAILFISH),
+	Subproject('sailfish',              lambda x: x.env.CLIENT and x.env.SAILFISH),
 	Subproject('engine'), # keep latest for static linking
 
 	# enabled optionally
@@ -417,6 +418,8 @@ def configure(conf):
 		linkflags.append('-Wl,-undefined,error')
 	elif conf.env.SAILFISH:
 		conf.define('XASH_SAILFISH', 1)
+		# Harbour requires this name for the binary, desktop file, icons and /usr/share directory
+		conf.env.SAILFISH_PACKAGE = 'harbour-xash3d-fwgs'
 		# Harbour validator only recognizes DT_RPATH
 		linkflags.append('-Wl,--disable-new-dtags')
 
@@ -616,7 +619,7 @@ def configure(conf):
 		conf.env.PREFIX = conf.options.prefix
 		if conf.env.SAILFISH:
 			# Harbour allows shipping libraries only in /usr/share/<name>/lib, including the game libraries in rodir
-			conf.env.LIBDIR = os.path.join(conf.env.PREFIX, 'share', 'harbour-xash3d-fwgs', 'lib')
+			conf.env.LIBDIR = os.path.join(conf.env.PREFIX, 'share', conf.env.SAILFISH_PACKAGE, 'lib')
 			conf.env.SHAREDIR = conf.env.LIBDIR + '/rodir'
 			if conf.options.ENABLE_RPATH:
 				conf.env.DEFAULT_RPATH = conf.env.LIBDIR
