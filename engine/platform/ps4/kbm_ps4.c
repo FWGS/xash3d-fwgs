@@ -496,6 +496,13 @@ static void PS4_MouseUpdate( void )
 		PS4_MouseRead( ps4kbm.mice[ps4kbm.mouse_active], &lost );
 		if( lost )
 		{
+			for( int b = 0; b < PS4_MOUSE_BUTTONS; b++ )
+			{
+				if( FBitSet( ps4kbm.mouse_buttons, BIT( b )))
+					IN_MouseEvent( b, 0 );
+			}
+			ps4kbm.mouse_buttons = 0;
+
 			// unplugged, any handle that gives data is taken next time
 			ps4kbm.mouse_active = -1;
 			PS4_MouseSetConnected( false );
