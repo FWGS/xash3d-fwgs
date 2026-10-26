@@ -85,7 +85,10 @@ static void *PS4_VoiceThread( void *arg )
 
 		if( res < 0 )
 		{
-			Con_Reportf( S_ERROR "sceAudioInInput failed: 0x%08x\n", res );
+			char msg[64];
+
+			Q_snprintf( msg, sizeof( msg ), S_ERROR "sceAudioInInput failed: 0x%08x\n", res );
+			Sys_PrintLog( msg );
 			break;
 		}
 
