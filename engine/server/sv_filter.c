@@ -330,7 +330,6 @@ static void SV_RemoveIPFilter( ipfilter_t *toremove, qboolean removeAll, qboolea
 			}
 
 			*back = f->next;
-			back = &f->next;
 
 			Mem_Free( f );
 
@@ -345,10 +344,18 @@ static void SV_RemoveIPFilter( ipfilter_t *toremove, qboolean removeAll, qboolea
 qboolean SV_CheckIP( netadr_t *adr )
 {
 	// TODO: ip rate limit
-	for( ipfilter_t *entry = ipfilter; entry; entry = entry->next )
+	for( ipfilter_t **back = &ipfilter; *back; )
 	{
+		ipfilter_t *entry = *back;
+
 		if( entry->endTime && host.realtime > entry->endTime )
-			continue; // expired
+		{
+			*back = entry->next;
+			Mem_Free( entry );
+			continue;
+		}
+
+		back = &entry->next;
 
 		switch( NET_NetadrType( &entry->adr ))
 		{

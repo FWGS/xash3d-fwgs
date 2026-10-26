@@ -57,6 +57,7 @@ int IOS_GetArgs( char ***argv );
 const char *IOS_GetDocsDir( void );
 const char *IOS_GetExecDir( void );
 void IOS_LaunchDialog( void );
+void IOS_GetWindowInsets( void *window, float insets[4] );
 #endif // TARGET_OS_IOS
 
 #if XASH_WIN32 || XASH_LINUX
@@ -76,6 +77,7 @@ qboolean Platform_CheckLibraryDirectDependency( const byte *data, size_t size, c
 #endif
 
 #if XASH_POSIX
+double Posix_GetCPUTime( void );
 void Posix_Daemonize( void );
 void Posix_SetupSigtermHandling( void );
 char *Posix_Input( void );
@@ -100,11 +102,13 @@ const char *Android_LoadID( void );
 void Android_SaveID( const char *id );
 void Android_Init( void );
 void *Android_GetNativeObject( const char *name );
+void Android_GetWindowInsets( float insets[4] );
 int Android_GetKeyboardHeight( void );
 void Android_Shutdown( void );
 #endif
 
 #if XASH_WIN32
+double Win32_GetCPUTime( void );
 void Win32_Init( qboolean con_showalways );
 void Win32_Shutdown( void );
 qboolean Win32_NanoSleep( int nsec );
@@ -116,6 +120,18 @@ void Wcon_DisableInput( void );
 char *Wcon_Input( void );
 void Wcon_WinPrint( const char *pMsg );
 #endif
+
+// returns the total CPU time used by this process, in seconds
+static inline double Platform_GetCPUTime( void )
+{
+#if XASH_WIN32
+	return Win32_GetCPUTime();
+#elif XASH_POSIX && HAVE_GETRUSAGE
+	return Posix_GetCPUTime();
+#else
+	return 0.0;
+#endif
+}
 
 #if XASH_NSWITCH
 void NSwitch_Init( void );
@@ -530,5 +546,21 @@ qboolean VoiceCapture_Lock( qboolean lock );
 	#define INLINE_RAISE(x) raise(x)
 	#define INLINE_NANOSLEEP1() sleep(1)
 #endif // generic
+
+// safe area insets as fractions of the window size: left, top, right, bottom
+#if XASH_SDL == 3
+void Platform_GetWindowInsets( void *window, float insets[4] );
+#else
+static inline void Platform_GetWindowInsets( void *window, float insets[4] )
+{
+#if XASH_IOS && XASH_SDL == 2
+	IOS_GetWindowInsets( window, insets );
+#elif XASH_ANDROID && XASH_SDL == 2
+	Android_GetWindowInsets( insets );
+#else
+	insets[0] = insets[1] = insets[2] = insets[3] = 0.0f;
+#endif
+}
+#endif
 
 #endif // PLATFORM_H

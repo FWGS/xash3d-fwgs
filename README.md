@@ -31,6 +31,7 @@ git clone --recursive https://github.com/MintFerret/mainui_cpp
 git clone --recursive https://github.com/MintFerret/hlsdk-portable
 ```
 
+
 ### Building
 1) Configure build `cmake -S. -Bbuild -DCMAKE_TOOLCHAIN_FILE="/opt/devkitpro/cmake/Wii.cmake"`
 2) Compile `make -C build`

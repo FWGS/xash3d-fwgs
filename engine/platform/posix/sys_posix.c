@@ -107,6 +107,8 @@ void Posix_SetupSigtermHandling( void )
 #if XASH_TIMER == TIMER_POSIX
 double Platform_DoubleTime( void )
 {
+	static qboolean s_ClockInit;
+	static time_t s_ClockStart;
 	struct timespec ts;
 #if XASH_IRIX
 	clock_gettime( CLOCK_SGI_CYCLE, &ts );
@@ -118,7 +120,14 @@ double Platform_DoubleTime( void )
 	ts.tv_sec  = tv.tv_sec;
 	ts.tv_nsec = tv.tv_usec * 1000;
 #endif
-	return (double) ts.tv_sec + (double) ts.tv_nsec/1000000000.0;
+
+	if( !s_ClockInit )
+	{
+		s_ClockStart = ts.tv_sec;
+		s_ClockInit = true;
+	}
+
+	return (double)( ts.tv_sec - s_ClockStart ) + (double) ts.tv_nsec/1000000000.0;
 }
 
 void Platform_Sleep( int msec )
@@ -126,4 +135,19 @@ void Platform_Sleep( int msec )
 	usleep( msec * 1000 );
 }
 #endif // XASH_TIMER == TIMER_POSIX
+
+#if defined( HAVE_GETRUSAGE )
+#include <sys/resource.h>
+
+double Posix_GetCPUTime( void )
+{
+	struct rusage usage;
+
+	if( getrusage( RUSAGE_SELF, &usage ) != 0 )
+		return 0.0;
+
+	return usage.ru_utime.tv_sec + usage.ru_utime.tv_usec * 1e-6
+		+ usage.ru_stime.tv_sec + usage.ru_stime.tv_usec * 1e-6;
+}
+#endif // HAVE_GETRUSAGE
 

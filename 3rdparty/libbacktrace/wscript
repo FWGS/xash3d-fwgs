@@ -148,6 +148,7 @@ def configure(conf):
 	conf.define('BACKTRACE_USES_MALLOC', 0)
 	conf.define('BACKTRACE_SUPPORTS_THREADS', 1)
 	conf.define('BACKTRACE_SUPPORTS_DATA', conf.env.DEST_BINFMT in ['elf', 'mac-o'])
+	conf.define('BACKTRACE_SUPPORTS_MOREDATA', 1)
 
 	conf.write_config_header('backtrace-supported.h')
 

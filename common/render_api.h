@@ -276,6 +276,7 @@ typedef struct render_api_s
 	void		(*S_FadeMusicVolume)( float fadePercent );	// fade background track (0-100 percents)
 	// a1ba: changed long to int
 	void		(*SetRandomSeed)( int lSeed );		// set custom seed for RANDOM_FLOAT\RANDOM_LONG for predictable random
+	void		(*R_ClearAllDecals)( qboolean includePermanent );
 	// ONLY ADD NEW FUNCTIONS TO THE END OF THIS STRUCT.  INTERFACE VERSION IS FROZEN AT 37
 } render_api_t;
 

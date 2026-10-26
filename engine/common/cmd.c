@@ -132,25 +132,25 @@ Cbuf_InsertText
 Adds command text immediately after the current command
 ============
 */
-static void Cbuf_InsertTextToBuffer( cmdbuf_t *buf, const char *text, size_t len, size_t requested_len )
+static qboolean Cbuf_InsertTextToBuffer( cmdbuf_t *buf, const char *text, size_t len, size_t requested_len )
 {
 	if(( buf->cursize + requested_len ) >= sizeof( buf->data ))
 	{
 		Con_Reportf( S_WARN "%s: overflow\n", __func__ );
+		return false;
 	}
-	else
-	{
-		memmove( buf->data + len, buf->data, buf->cursize );
-		memcpy( buf->data, text, len );
-		buf->cursize += len;
-	}
+
+	memmove( buf->data + len, buf->data, buf->cursize );
+	memcpy( buf->data, text, len );
+	buf->cursize += len;
+	return true;
 }
 
-static void Cbuf_InsertTextLen( const char *text, size_t len, size_t requested_len )
+static qboolean Cbuf_InsertTextLen( const char *text, size_t len, size_t requested_len )
 {
 	// sometimes we need to insert more data than we have
 	// but also prevent overflow
-	Cbuf_InsertTextToBuffer( &cmd_text, text, len, requested_len );
+	return Cbuf_InsertTextToBuffer( &cmd_text, text, len, requested_len );
 }
 
 void Cbuf_InsertText( const char *text )
@@ -1238,12 +1238,21 @@ static void Cmd_ExecScript( const char *filename )
 		return;
 	}
 
-	if( f[len - 1] != '\n' )
+	if( len <= 0 )
 	{
-		Cbuf_InsertTextLen( f, len, len + 1 );
-		Cbuf_InsertTextLen( "\n", 1, 1 );
+		Mem_Free( f );
+		return;
 	}
-	else Cbuf_InsertTextLen( f, len, len );
+
+	qboolean inserted;
+
+	if( f[len - 1] != '\n' )
+		inserted = Cbuf_InsertTextLen( "\n", 1, len + 1 ) && Cbuf_InsertTextLen( f, len, len );
+	else
+		inserted = Cbuf_InsertTextLen( f, len, len );
+
+	if( !inserted )
+		Con_Printf( S_ERROR "%s: command buffer overflow, %s is not executed\n", __func__, filename );
 
 	Mem_Free( f );
 }

@@ -91,7 +91,7 @@ static const char *R_GetConfigName( void )
 	return NULL;
 }
 
-static qboolean R_SetDisplayTransform( ref_screen_rotation_t rotate, int x, int y, float scale_x, float scale_y )
+static qboolean R_SetDisplayTransform( ref_screen_rotation_t rotate, int x, int y, float unused1_default_at_1, float unused2_default_at_1 )
 {
 	return true;
 }
@@ -375,7 +375,7 @@ static const ref_interface_t gReffuncs =
 	.R_DecalShoot      = R_DecalShoot,
 	.R_DecalRemoveAll  = R_SimpleStubInt,
 	.R_CreateDecalList = R_CreateDecalList,
-	.R_ClearAllDecals  = R_SimpleStub,
+	.R_ClearAllDecals  = R_SimpleStubBool,
 
 	.R_StudioEstimateFrame = R_StudioEstimateFrame,
 	.R_StudioLerpMovement  = R_StudioLerpMovement,

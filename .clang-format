@@ -22,7 +22,7 @@ BraceWrapping:
   AfterExternBlock: false
   BeforeCatch: true
   BeforeElse: true
-  BeforeWhile: true
+  BeforeWhile: false
   IndentBraces: false
   SplitEmptyFunction: false
   SplitEmptyRecord: false
@@ -39,11 +39,11 @@ BinPackArguments: true
 BinPackParameters: true
 AlwaysBreakAfterReturnType: None
 AlwaysBreakAfterDefinitionReturnType: None
-AllowShortFunctionsOnASingleLine: None
-AllowShortBlocksOnASingleLine: Empty
-AllowShortCaseLabelsOnASingleLine: false
-AllowShortIfStatementsOnASingleLine: Never
-AllowShortLoopsOnASingleLine: false
+AllowShortFunctionsOnASingleLine: All
+AllowShortBlocksOnASingleLine: Always
+AllowShortCaseLabelsOnASingleLine: true
+AllowShortIfStatementsOnASingleLine: AllIfsAndElse
+AllowShortLoopsOnASingleLine: true
 AllowShortEnumsOnASingleLine: false
 BreakBeforeBinaryOperators: All
 BreakBeforeTernaryOperators: true
@@ -99,10 +99,11 @@ AlignConsecutiveMacros:
   Enabled: true
   AcrossEmptyLines: false
   AcrossComments: false
-AlignEscapedNewlines: Left
-AlignOperands: Align
+AlignEscapedNewlines: DontAlign
+SkipMacroDefinitionBody: true
+AlignOperands: DontAlign
 AlignTrailingComments:
-  Kind: Always
+  Kind: Leave
   OverEmptyLines: 0
 ColumnLimit: 0
 ReflowComments: false

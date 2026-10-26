@@ -458,6 +458,20 @@ static void Con_AddLine( const char *line, int length, qboolean newline )
 
 /*
 ================
+Con_GetSafeArea
+
+================
+*/
+static void Con_GetSafeArea( int lines, wrect_t *rc )
+{
+	rc->left = refState.width * host.window_insets[0];
+	rc->right = refState.width - (int)( refState.width * host.window_insets[2] );
+	rc->top = refState.height * host.window_insets[1];
+	rc->bottom = Q_min( lines, refState.height - (int)( refState.height * host.window_insets[3] ));
+}
+
+/*
+================
 Con_CheckResize
 
 If the line width has changed, reformat the buffer.
@@ -470,7 +484,10 @@ static void Con_CheckResize( void )
 	if( con.curFont && con.curFont->hFontTexture )
 		charWidth = con.curFont->charWidths['O'] - 1;
 
-	int width = ( refState.width / charWidth ) - 2;
+	wrect_t safe;
+	Con_GetSafeArea( refState.height, &safe );
+
+	int width = (( safe.right - safe.left ) / charWidth ) - 2;
 	if( !ref.initialized ) width = (640 / 5);
 
 	if( width == con.linewidth )
@@ -1672,15 +1689,15 @@ Con_DrawInput
 The input line scrolls horizontally if typing goes beyond the right edge
 ================
 */
-static void Con_DrawInput( int lines )
+static void Con_DrawInput( const wrect_t *safe )
 {
 	// don't draw anything (always draw if not active)
 	if( cls.key_dest != key_console || !con.curFont )
 		return;
 
-	int y = lines - ( con.curFont->charHeight * 2 );
-	CL_DrawCharacter( con.curFont->charWidths[' '], y, ']', g_color_table[7], con.curFont, 0 );
-	int x = Field_DrawInputLine( con.curFont->charWidths[' ']*2, y, &con.input, 255, true );
+	int y = safe->bottom - ( con.curFont->charHeight * 2 );
+	CL_DrawCharacter( safe->left + con.curFont->charWidths[' '], y, ']', g_color_table[7], con.curFont, 0 );
+	int x = Field_DrawInputLine( safe->left + con.curFont->charWidths[' ']*2, y, &con.input, 255, true );
 
 	// HACKHACK: avoid rendering issues when scroll != 0
 	if( con_showcompletion.value && con.input.scroll == 0 )
@@ -1697,7 +1714,7 @@ static void Con_DrawInput( int lines )
 		if( Q_strlen(con.input_completion.buffer) > len && !Q_strncmp( con.input.buffer, con.input_completion.buffer, len ))
 		{
 			con.input_completion.scroll = len;
-			Field_DrawInputLine( con.curFont->charWidths[' ']*2 + x, y, &con.input_completion, 128, false );
+			Field_DrawInputLine( safe->left + con.curFont->charWidths[' ']*2 + x, y, &con.input_completion, 128, false );
 		}
 	}
 }
@@ -1843,16 +1860,16 @@ If alpha is 0, the line is not drawn, but still wrapped and its height
 returned.
 ================
 */
-static int Con_DrawConsoleLine( int y, int lineno )
+static int Con_DrawConsoleLine( const wrect_t *safe, int y, int lineno )
 {
 	con_lineinfo_t	*li = &CON_LINES( lineno );
 
 	if( !li || !li->start || *li->start == '\1' )
 		return 0;	// this string will be shown only at notify
 
-	if( y >= con.curFont->charHeight )
+	if( y >= safe->top + con.curFont->charHeight )
 	{
-		float x = con.curFont->charWidths[' '];
+		float x = safe->left + con.curFont->charWidths[' '];
 
 		CL_DrawString( x, y, li->start, g_color_table[7], con.curFont, FONT_DRAW_UTF8 );
 	}
@@ -1919,6 +1936,9 @@ static void Con_DrawSolidConsole( int lines )
 	if( !con.curFont || !host.allow_console )
 		return; // nothing to draw
 
+	wrect_t safe;
+	Con_GetSafeArea( lines, &safe );
+
 	// draw current version
 	memcpy( color, g_color_table[7], sizeof( color ));
 
@@ -1926,21 +1946,21 @@ static void Con_DrawSolidConsole( int lines )
 
 	Con_DrawStringLen( curbuild, &stringLen, &charH );
 
-	start = refState.width - stringLen;
+	start = safe.right - stringLen;
 	fraction = lines / (float)refState.height;
 	color[3] = Q_min( fraction * 2.0f, 1.0f ) * 255; // fadeout version number
 
 #if XASH_MOBILE_PLATFORM
 	// the top of the screen might be hidden by the on-screen keyboard panning
-	Con_DrawString( start, lines - charH, curbuild, color );
+	Con_DrawString( start, safe.bottom - charH, curbuild, color );
 #else
-	Con_DrawString( start, 0, curbuild, color );
+	Con_DrawString( start, safe.top, curbuild, color );
 #endif
 
 	// draw the text
 	if( CON_LINES_COUNT > 0 )
 	{
-		int	ymax = lines - (con.curFont->charHeight * 2.0f);
+		int	ymax = safe.bottom - (con.curFont->charHeight * 2.0f);
 		int	lastline;
 
 		Con_LastVisibleLine( &lastline );
@@ -1953,24 +1973,24 @@ static void Con_DrawSolidConsole( int lines )
 			// draw red arrows to show the buffer is backscrolled
 			CL_SetFontColor( con.curFont, g_color_table[1] );
 			for( x = 0; x < con.linewidth; x += 4 )
-				CL_DrawCharacter( ( x + 1 ) * start, y, '^', NULL, con.curFont, FONT_DRAW_NOCOLOR );
+				CL_DrawCharacter( safe.left + ( x + 1 ) * start, y, '^', NULL, con.curFont, FONT_DRAW_NOCOLOR );
 			y -= con.curFont->charHeight;
 		}
 		x = lastline;
 
 		while( 1 )
 		{
-			y -= Con_DrawConsoleLine( y, x );
+			y -= Con_DrawConsoleLine( &safe, y, x );
 
 			// top of console buffer or console window
-			if( x == 0 || y < con.curFont->charHeight )
+			if( x == 0 || y < safe.top + con.curFont->charHeight )
 				break;
 			x--;
 		}
 	}
 
 	// draw the input prompt, user text, and cursor if desired
-	Con_DrawInput( lines );
+	Con_DrawInput( &safe );
 
 	y = lines - ( con.curFont->charHeight * 1.2f );
 	SCR_DrawFPS( Q_max( y, 4 )); // to avoid to hide fps counter
@@ -2128,9 +2148,12 @@ qboolean Con_GetInputRect( int *x, int *y, int *w, int *h )
 		if( lines <= 0 )
 			return false;
 
-		*x = con.curFont->charWidths[' '];
-		*y = lines - con.curFont->charHeight * 2;
-		*w = refState.width - *x;
+		wrect_t safe;
+		Con_GetSafeArea( lines, &safe );
+
+		*x = safe.left + con.curFont->charWidths[' '];
+		*y = safe.bottom - con.curFont->charHeight * 2;
+		*w = safe.right - *x;
 		*h = con.curFont->charHeight;
 		return true;
 	}

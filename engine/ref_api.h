@@ -80,7 +80,8 @@ GNU General Public License for more details.
 //     Their entries never exceed 1023, so the narrowing is lossless.
 // 19. Added R_Set2DOffset. Translates everything drawn in 2D mode, including TriAPI, by the given
 //     screen-space offset until it's changed again. Used to draw VGUI panels in their own coordinates.
-#define REF_API_VERSION 19
+// 20. R_ClearAllDecals now accepts includePermanent argument.
+#define REF_API_VERSION 20
 
 #define TF_SKY		(TF_SKYSIDE|TF_NOMIPMAP|TF_ALLOW_NEAREST)
 #define TF_FONT		(TF_NOMIPMAP|TF_CLAMP|TF_ALLOW_NEAREST)
@@ -538,7 +539,7 @@ typedef struct ref_interface_s
 	// const char *(*R_GetInitError)( void );
 	void (*R_Shutdown)( void );
 	const char *(*R_GetConfigName)( void ); // returns config name without extension
-	qboolean (*R_SetDisplayTransform)( ref_screen_rotation_t rotate, int x, int y, float scale_x, float scale_y );
+	qboolean (*R_SetDisplayTransform)( ref_screen_rotation_t rotate, int x, int y, float unused1_default_at_1, float unused2_default_at_1 );
 
 	// only called for GL contexts
 	void (*GL_SetupAttributes)( int safegl );
@@ -589,7 +590,7 @@ typedef struct ref_interface_s
 	void (*R_DecalShoot)( int textureIndex, int entityIndex, int modelIndex, vec3_t pos, int flags, float scale );
 	void (*R_DecalRemoveAll)( int texture );
 	int (*R_CreateDecalList)( struct decallist_s *pList );
-	void (*R_ClearAllDecals)( void );
+	void (*R_ClearAllDecals)( qboolean includePermanent );
 
 	// studio interface
 	float (*R_StudioEstimateFrame)( cl_entity_t *e, mstudioseqdesc_t *pseqdesc, double time );

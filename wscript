@@ -105,6 +105,7 @@ class RefDll:
 SUBDIRS = [
 	# always configured and built
 	Subproject('public'),
+	Subproject('3rdparty/miniz', lambda x: not x.env.HAVE_SYSTEM_ZLIB),
 	Subproject('filesystem'),
 	Subproject('stub/server'),
 	# unsupported on wii
@@ -123,6 +124,7 @@ SUBDIRS = [
 	Subproject('ref/soft',              lambda x: x.env.CLIENT and x.env.SOFT),
 	Subproject('ref/null',              lambda x: x.env.CLIENT and x.env.NULL),
 	Subproject('3rdparty/bzip2',        lambda x: x.env.CLIENT and not x.env.HAVE_SYSTEM_BZ2),
+	Subproject('3rdparty/mpg123',       lambda x: x.env.CLIENT and not x.env.HAVE_SYSTEM_MPG123),
 	Subproject('3rdparty/mbedtls',      lambda x: x.env.DEST_OS != 'wii'),
 	Subproject('3rdparty/opus',         lambda x: x.env.CLIENT and not x.env.HAVE_SYSTEM_OPUS),
 	Subproject('3rdparty/libogg',       lambda x: x.env.CLIENT and x.env.DEST_OS != 'wii' and not x.env.HAVE_SYSTEM_OGG),
@@ -144,8 +146,9 @@ SUBDIRS = [
 
 	# enabled optionally
 	Subproject('utils/mdldec',            lambda x: x.env.ENABLE_UTILS),
-	Subproject('utils/xar',               lambda x: x.env.ENABLE_UTILS and x.env.ENABLE_XAR),
+	Subproject('utils/xar',               lambda x: x.env.ENABLE_UTILS),
 	Subproject('utils/xash-clang-format', lambda x: x.env.ENABLE_UTILS),
+	Subproject('utils/xrcon-mcp',         lambda x: x.env.ENABLE_UTILS),
 
 	# enabled on PSVita only
 	Subproject('ref/gl/vgl_shim',   lambda x: x.env.DEST_OS == 'psvita'),
@@ -222,9 +225,6 @@ def options(opt):
 	grp.add_option('--enable-utils', action = 'store_true', dest = 'ENABLE_UTILS', default = False,
 		help = 'enable building various development utilities [default: %(default)s]')
 
-	grp.add_option('--enable-xar', action = 'store_true', dest = 'ENABLE_XAR', default = False,
-		help = 'enable building Xash ARchiver (experimental) [default: %(default)s]')
-
 	grp.add_option('--enable-fuzzer', action = 'store_true', dest = 'ENABLE_FUZZER', default = False,
 		help = 'enable building libFuzzer runner [default: %(default)s]' )
 
@@ -233,6 +233,72 @@ def options(opt):
 			continue
 
 		opt.add_subproject(i.name)
+
+def check_system_pkg(conf, name):
+	return conf.check_cfg(package=name, uselib_store=name, args='--cflags --libs', mandatory=False)
+
+def check_system_opus(conf):
+	# search for opus 1.4 only, it has fixes for custom modes
+	# 1.5 breaks custom modes: https://github.com/xiph/opus/issues/374
+	have_opus = conf.check_cfg(package='opus', uselib_store='opus', args=['opus = 1.4', '--cflags', '--libs'], mandatory=False)
+
+	# 1.6.1 fixes them again
+	if not have_opus:
+		have_opus = conf.check_cfg(package='opus', uselib_store='opus', args=['opus >= 1.6.1', '--cflags', '--libs'], mandatory=False)
+
+	if not have_opus:
+		return False
+
+	# now try to link with export that only exists with CUSTOM_MODES defined
+	frag='''#include <opus_custom.h>
+int main(void) { return !opus_custom_encoder_init((OpusCustomEncoder *)1, (const OpusCustomMode *)1, 1); }'''
+
+	return conf.check_cc(msg='Checking if opus supports custom modes', defines='CUSTOM_MODES=1', use='opus werror', fragment=frag, mandatory=False)
+
+def check_system_opusfile(conf):
+	if not check_system_pkg(conf, 'opusfile'):
+		return False
+
+	frag='''#include <opusfile.h>
+int main(int argc, char **argv) { return opus_tagcompare(argv[0], argv[1]); }'''
+
+	return conf.check_cc(msg='Checking for libopusfile sanity', use='opusfile werror', fragment=frag, mandatory=False)
+
+def check_system_mpg123(conf):
+	# 1.32 introduced portable API with int64_t reader callbacks
+	return conf.check_cfg(package='libmpg123', uselib_store='mpg123', args=['libmpg123 >= 1.32', '--cflags', '--libs'], mandatory=False)
+
+def check_system_bzip2(conf):
+	frag='''#include <bzlib.h>
+int main(void) { return (int)BZ2_bzlibVersion(); }'''
+
+	return conf.check_cc(lib='bz2', fragment=frag, uselib_store='bzip2', mandatory=False)
+
+def check_system_zlib(conf):
+	# search for zlib-ng with native API first, then for anything providing zlib API
+	frag='''#include <zlib-ng.h>
+int main(void) { zng_stream s = { 0 }; return zng_inflateInit2(&s, -MAX_WBITS); }'''
+
+	if conf.check_cc(lib='z-ng', fragment=frag, msg='Checking for zlib-ng', uselib_store='zlib', mandatory=False):
+		conf.env.append_unique('DEFINES_zlib', 'XASH_ZLIB_NG=1')
+		return True
+
+	frag='''#include <zlib.h>
+int main(void) { z_stream s = { 0 }; return inflateInit2(&s, -MAX_WBITS); }'''
+
+	return conf.check_cc(lib='z', fragment=frag, msg='Checking for zlib', uselib_store='zlib', mandatory=False)
+
+
+def check_system_freetype(conf):
+	frag='''#include <ft2build.h>
+#include FT_FREETYPE_H
+int main(void) { FT_Library library; return FT_Init_FreeType( &library ); }'''
+
+	# search for freetype
+	if conf.check_cfg(package='freetype2', uselib_store='freetype', args='--cflags --libs', mandatory=False):
+		return False
+
+	return conf.check_cc(msg='Checking for freetype2 sanity', use='freetype werror', fragment=frag, mandatory=False)
 
 def configure(conf):
 	conf.load('fwgslib reconfigure compiler_optimizations')
@@ -449,7 +515,6 @@ def configure(conf):
 
 	conf.env.TESTS         = conf.options.TESTS
 	conf.env.ENABLE_UTILS  = conf.options.ENABLE_UTILS
-	conf.env.ENABLE_XAR    = conf.options.ENABLE_XAR
 	conf.env.ENABLE_FUZZER = conf.options.ENABLE_FUZZER
 	conf.env.FREEVGUI_XASH_SUPPORT = True
 
@@ -560,41 +625,37 @@ def configure(conf):
 	else:
 		conf.env.SHAREDIR = conf.env.LIBDIR = conf.env.BINDIR = conf.env.PREFIX
 
-	if not conf.options.BUILD_BUNDLED_DEPS:
-		# there was a check for system libbacktrace but we can't be sure if it supports fileline or not
-		# therefore, always build libbacktrace ourselves
+	# there was a check for system libbacktrace but we can't be sure if it supports fileline or not
+	# therefore, always build libbacktrace ourselves
+	prefer_bundled_ogg = conf.options.BUILD_BUNDLED_DEPS
+	prefer_bundled_vorbis = conf.options.BUILD_BUNDLED_DEPS
+	prefer_bundled_opus = conf.options.BUILD_BUNDLED_DEPS
+	prefer_bundled_opusfile = conf.options.BUILD_BUNDLED_DEPS
+	prefer_bundled_mpg123 = conf.options.BUILD_BUNDLED_DEPS
+	prefer_bundled_bzip2 = conf.options.BUILD_BUNDLED_DEPS
+	prefer_bundled_freetype = conf.options.BUILD_BUNDLED_DEPS
+	# zlib is a part of platform API on Android
+	prefer_bundled_zlib = conf.options.BUILD_BUNDLED_DEPS and conf.env.DEST_OS != 'android'
 
-		if conf.env.CLIENT:
-			for i in ('ogg','opusfile','vorbis','vorbisfile'):
-				if conf.check_cfg(package=i, uselib_store=i, args='--cflags --libs', mandatory=False):
-					conf.env['HAVE_SYSTEM_%s' % i.upper()] = True
+	if conf.env.CLIENT:
+		if not prefer_bundled_ogg:
+			conf.env.HAVE_SYSTEM_OGG = check_system_pkg(conf, 'ogg')
+		if not prefer_bundled_vorbis:
+			conf.env.HAVE_SYSTEM_VORBIS = check_system_pkg(conf, 'vorbis')
+			conf.env.HAVE_SYSTEM_VORBISFILE = check_system_pkg(conf, 'vorbisfile')
+		if not prefer_bundled_opus:
+			conf.env.HAVE_SYSTEM_OPUS = check_system_opus(conf)
+		if not prefer_bundled_opusfile:
+			conf.env.HAVE_SYSTEM_OPUSFILE = check_system_opusfile(conf)
+		if not prefer_bundled_mpg123:
+			conf.env.HAVE_SYSTEM_MPG123 = check_system_mpg123(conf)
+		if not prefer_bundled_bzip2:
+			conf.env.HAVE_SYSTEM_BZ2 = check_system_bzip2(conf)
+		if not prefer_bundled_freetype:
+			conf.env.HAVE_SYSTEM_FREETYPE = check_system_freetype(conf)
 
-				if conf.env.HAVE_SYSTEM_OPUSFILE:
-					frag='''#include <opusfile.h>
-int main(int argc, char **argv) { return opus_tagcompare(argv[0], argv[1]); }'''
-
-					conf.env.HAVE_SYSTEM_OPUSFILE = conf.check_cc(msg='Checking for libopusfile sanity', use='opusfile werror', fragment=frag, mandatory=False)
-
-			# search for opus 1.4 only, it has fixes for custom modes
-			# 1.5 breaks custom modes: https://github.com/xiph/opus/issues/374
-			have_opus = conf.check_cfg(package='opus', uselib_store='opus', args=['opus = 1.4', '--cflags', '--libs'], mandatory=False)
-
-			# 1.6.1 fixes them again
-			if not have_opus:
-				have_opus = conf.check_cfg(package='opus', uselib_store='opus', args=['opus >= 1.6.1', '--cflags', '--libs'], mandatory=False)
-
-			if have_opus:
-				# now try to link with export that only exists with CUSTOM_MODES defined
-				frag='''#include <opus_custom.h>
-int main(void) { return !opus_custom_encoder_init((OpusCustomEncoder *)1, (const OpusCustomMode *)1, 1); }'''
-
-				conf.env.HAVE_SYSTEM_OPUS = conf.check_cc(msg='Checking if opus supports custom modes', defines='CUSTOM_MODES=1', use='opus werror', fragment=frag, mandatory=False)
-
-			# search for bzip2
-			BZIP2_CHECK='''#include <bzlib.h>
-int main(void) { return (int)BZ2_bzlibVersion(); }'''
-
-			conf.env.HAVE_SYSTEM_BZ2 = conf.check_cc(lib='bz2', fragment=BZIP2_CHECK, uselib_store='bzip2', mandatory=False)
+	if not prefer_bundled_zlib:
+		conf.env.HAVE_SYSTEM_ZLIB = check_system_zlib(conf)
 
 	conf.define('XASH_LOW_MEMORY', conf.options.LOW_MEMORY)
 

@@ -51,6 +51,10 @@ static struct
 // real platform text input state, might differ from host.textmode with BUGCOMP_ALWAYS_ENABLE_TEXT_INPUT
 static qboolean key_textinput_enabled;
 
+// text of the menu field, system keyboard opens with it on the next text input enable
+static char key_textinput_buffer[1024];
+static qboolean key_textinput_buffer_set;
+
 static const keyname_t keynames[] =
 {
 { "TAB",            K_TAB,                 ""                },
@@ -588,6 +592,26 @@ static void Key_AddKeyCommands( int key, const char *kb, qboolean down )
 	char button[1024];
 	char *buttonPtr = button;
 
+	// GoldSrc doesn't split bindings, the key number goes after the whole string
+	// and "+cmd;-cmd" relies on that, as only the "-cmd" half carries the key number
+	if( FBitSet( host.bugcomp, BUGCOMP_BIND_NOSPLIT ))
+	{
+		char cmd[1024];
+
+		if( kb[0] == '+' )
+		{
+			if( down ) Q_snprintf( cmd, sizeof( cmd ), "%s %i\n", kb, key );
+			else Q_snprintf( cmd, sizeof( cmd ), "-%s %i\n", kb + 1, key );
+			Cbuf_AddText( cmd );
+		}
+		else if( down )
+		{
+			Q_snprintf( cmd, sizeof( cmd ), "%s\n", kb );
+			Cbuf_AddText( cmd );
+		}
+		return;
+	}
+
 	for( int i = 0; ; i++ )
 	{
 		if( kb[i] == ';' || !kb[i] )
@@ -897,6 +921,31 @@ void Key_SetTextInputRect( int x, int y, int w, int h )
 
 /*
 ================
+Key_SetTextInputBuffer
+
+================
+*/
+void Key_SetTextInputBuffer( const char *text )
+{
+	key_textinput_buffer_set = text != NULL;
+	Q_strncpy( key_textinput_buffer, text ? text : "", sizeof( key_textinput_buffer ));
+}
+
+/*
+================
+Key_GetTextInputBuffer
+
+text for the system keyboard while Platform_EnableTextInput( true ) is called,
+NULL if the system keyboard isn't requested
+================
+*/
+const char *Key_GetTextInputBuffer( void )
+{
+	return key_textinput_buffer_set ? key_textinput_buffer : NULL;
+}
+
+/*
+================
 Key_EnableTextInput
 
 ================
@@ -906,8 +955,13 @@ void Key_EnableTextInput( qboolean enable, qboolean force )
 	if( osk_enable.value )
 	{
 		OSK_EnableTextInput( enable, force );
+		Key_SetTextInputBuffer( NULL );
 		return;
 	}
+
+	// the menu asks to open the system keyboard with its text, even if text input is enabled already
+	if( enable && key_textinput_buffer_set )
+		force = true;
 
 	// some mods (like Natural Selection) pull text events out of the platform event queue on their own and expect them to always arrive during the gameplay, like they do in GoldSrc
 	qboolean enable_platform = enable || ( cls.key_dest == key_game && FBitSet( host.bugcomp, BUGCOMP_ALWAYS_ENABLE_TEXT_INPUT ));
@@ -934,6 +988,9 @@ void Key_EnableTextInput( qboolean enable, qboolean force )
 
 	key_textinput_enabled = enable_platform;
 	host.textmode = enable;
+
+	// only for this request
+	Key_SetTextInputBuffer( NULL );
 }
 
 /*

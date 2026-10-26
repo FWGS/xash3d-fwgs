@@ -122,9 +122,11 @@ static void V_SetRefParams( ref_params_t *fd )
 {
 	memset( fd, 0, sizeof( ref_params_t ));
 
-	// probably this is not needs
 	VectorCopy( refState.vieworg, fd->vieworg );
 	VectorCopy( refState.viewangles, fd->viewangles );
+
+	// Compute view vectors from angles each frame
+	AngleVectors( fd->viewangles, fd->forward, fd->right, fd->up );
 
 	fd->frametime = host.frametime;
 	fd->time = cl.time;
@@ -405,6 +407,12 @@ void V_RenderView( void )
 	do
 	{
 		clgame.dllFuncs.pfnCalcRefdef( &rp );
+
+		// client dll may replace viewmodel in pfnCalcRefdef, so set animtime again
+		// V_SetupViewModel did it only for the model known before this call
+		if( clgame.viewent.model && clgame.viewent.model->type == mod_studio )
+			clgame.viewent.curstate.animtime = cl.local.weaponstarttime;
+
 		V_GetRefParams( &rp, &rvp );
 		V_RefApplyOverview( &rvp );
 		V_ApplyRefUnderwater( &rvp );

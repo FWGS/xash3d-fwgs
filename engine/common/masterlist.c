@@ -262,7 +262,7 @@ static int NET_ParseMasterStaticBody( const byte *body, size_t size )
 		if( adr.port == 0 )
 			adr.port = MSG_BigShort( PORT_SERVER );
 
-		NET_QueryServerByAddress( adr, gs );
+		NET_QueryServerByAddress( adr, gs ? PROTO_GOLDSRC : PROTO_CURRENT );
 		count++;
 	}
 

@@ -212,7 +212,10 @@ void FS_AddGameDirectory( const char *dir, uint flags )
 	stringlistfreecontents( &list );
 
 #if XASH_ANDROID
-	FS_AddArchive_Fullpath( &g_android_archive, dir, flags );
+	// launcher assets must be mounted on top of engine assets, even if launcher runs base game
+	FS_AddArchive_Fullpath( &g_android_archive, dir, flags & ~FS_GAMEDIR_PATH );
+	if( FBitSet( flags, FS_GAMEDIR_PATH ))
+		FS_AddArchive_Fullpath( &g_android_archive, dir, flags );
 #endif
 
 	// add the directory to the search path

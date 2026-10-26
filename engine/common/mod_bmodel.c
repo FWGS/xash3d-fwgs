@@ -710,7 +710,8 @@ static qboolean Mod_NameImpliesTextureIsAnimated( texture_t *tex )
 
 	// Name implies texture is animated - check second character is valid.
 	if( !( tex->name[1] >= '0' && tex->name[1] <= '9' ) &&
-		!( tex->name[1] >= 'a' && tex->name[1] <= 'j' ))
+		!( tex->name[1] >= 'a' && tex->name[1] <= 'j' ) &&
+		!( tex->name[1] >= 'A' && tex->name[1] <= 'J' ))
 	{
 		Con_Printf( S_ERROR "%s: animating texture \"%s\" has invalid name\n", __func__, tex->name );
 		return false;
@@ -1582,6 +1583,28 @@ static void Mod_LightMatrixFromTexMatrix( const mtexinfo_t *tx, float lmvecs[2][
 
 /*
 =================
+Mod_PointVecsProduct
+
+volatile forces rounding of every sum to double and result to float,
+same as compilers did it, otherwise x87 or FMA give different extents
+=================
+*/
+static float Mod_PointVecsProduct( const float *point, const float *vecs )
+{
+	volatile double val = 0.0;
+	volatile float res;
+
+	for( int i = 0; i < 3; i++ )
+		val += (double)point[i] * vecs[i];
+
+	val += vecs[3];
+	res = val;
+
+	return res;
+}
+
+/*
+=================
 Mod_CalcSurfaceExtents
 
 Fills in surf->texturemins[] and surf->extents[]
@@ -1625,14 +1648,22 @@ static void Mod_CalcSurfaceExtents( model_t *mod, msurface_t *surf, const dbspmo
 
 		for( int j = 0; j < 2; j++ )
 		{
+#if 0 // causes misaligned lightmap on ramp on cs_havana.bsp in either release i386 build or in -ffast-math build
 			val = DotProductPrecise( v->position, surf->texinfo->vecs[j] ) + surf->texinfo->vecs[j][3];
+#else
+			val = Mod_PointVecsProduct( v->position, surf->texinfo->vecs[j] );
+#endif
 			mins[j] = Q_min( val, mins[j] );
 			maxs[j] = Q_max( val, maxs[j] );
 		}
 
 		for( int j = 0; j < 2; j++ )
 		{
+#if 0 // same as above, therefore disabled
 			val = DotProductPrecise( v->position, info->lmvecs[j] ) + info->lmvecs[j][3];
+#else
+			val = Mod_PointVecsProduct( v->position, info->lmvecs[j] );
+#endif
 			lmmins[j] = Q_min( val, lmmins[j] );
 			lmmaxs[j] = Q_max( val, lmmaxs[j] );
 		}
@@ -2589,7 +2620,7 @@ static qboolean Mod_LooksLikeWaterTexture( const char *name )
 
 	if( !Host_IsQuakeCompatible( ))
 	{
-		if( !Q_strncmp( name, "water", 5 ) || !Q_strnicmp( name, "laser", 5 ))
+		if( !Q_strnicmp( name, "water", 5 ) || !Q_strnicmp( name, "laser", 5 ))
 			return true;
 	}
 
@@ -2955,8 +2986,11 @@ static void Mod_LoadTexture( model_t *mod, dbspmodel_t *bmod, int textureIndex )
 	texture_t *texture = (texture_t *)Mem_Calloc( mod->mempool, sizeof( *texture ));
 	mod->textures[textureIndex] = texture;
 
-	// Ensure texture name is lowercase.
-	Q_strnlwr( mipTex.name, texture->name, sizeof( texture->name ));
+	// Xash3D games rely on lowercase texture names, GoldSrc keeps them as is
+	if( FBitSet( host.bugcomp, BUGCOMP_PRESERVE_TEXTURE_NAME_CASE ))
+		Q_strncpy( texture->name, mipTex.name, sizeof( texture->name ));
+	else
+		Q_strnlwr( mipTex.name, texture->name, sizeof( texture->name ));
 
 	texture->width = mipTex.width;
 	texture->height = mipTex.height;
@@ -3004,7 +3038,7 @@ static void Mod_SequenceAnimatedTexture( model_t *mod, int baseTextureIndex )
 	else
 	{
 		// This texture is an alternate animation frame.
-		int frameIndex = (int)baseTexture->name[1] - (int)'a';
+		int frameIndex = (int)Q_toupper( baseTexture->name[1] ) - (int)'A';
 
 		altanims[frameIndex] = baseTexture;
 		altmax = frameIndex + 1;
@@ -3037,7 +3071,7 @@ static void Mod_SequenceAnimatedTexture( model_t *mod, int baseTextureIndex )
 		else
 		{
 			// This texture is an alternate frame.
-			int frameIndex = (int)altTexture->name[1] - (int)'a';
+			int frameIndex = (int)Q_toupper( altTexture->name[1] ) - (int)'A';
 			altanims[frameIndex] = altTexture;
 
 			if( frameIndex >= altmax )
@@ -4653,3 +4687,53 @@ int GAME_EXPORT Mod_SaveLump( const char *filename, const int lump, void *lumpda
 	FS_Close( f );
 	return LUMP_SAVE_OK;
 }
+
+#if XASH_ENGINE_TESTS
+#include "tests.h"
+
+static void Test_Mod_NameImpliesTextureIsAnimated( void )
+{
+	typedef struct { char name[64]; } test_texture_t;
+
+	test_texture_t valid[] =
+	{
+		{"+0"}, {"+9"}, {"-0"}, {"-9"},
+		{"+a"}, {"+A"}, {"+j"}, {"+J"},
+		{"-a"}, {"-A"}, {"-j"}, {"-J"},
+	};
+
+	for( int i = 0; i < (int)ARRAYSIZE( valid ); i++ )
+	{
+		TASSERT( Mod_NameImpliesTextureIsAnimated( (texture_t *)&valid[i] ));
+	}
+
+	test_texture_t invalid[] =
+	{
+		{"+k"}, {"+K"}, {"+z"}, {"+Z"},
+		{"-k"}, {"-K"}, {"-z"}, {"-Z"},
+		{"++"}, {"+-"}, {"-+"}, {"--"},
+		{"a0"}, {"0a"}, {""}, {"+"}, {"-"}, {" "}, {"+ "}, {"- "},
+	};
+
+	for( int i = 0; i < (int)ARRAYSIZE( invalid ); i++ )
+	{
+		TASSERT( !Mod_NameImpliesTextureIsAnimated( (texture_t *)&invalid[i] ));
+	}
+}
+
+static void Test_Mod_FrameIndexCalculation( void )
+{
+	TASSERT_EQi( Q_toupper( 'A' ) - 'A', 0 );
+	TASSERT_EQi( Q_toupper( 'a' ) - 'A', 0 );
+	TASSERT_EQi( Q_toupper( 'J' ) - 'A', 9 );
+	TASSERT_EQi( Q_toupper( 'j' ) - 'A', 9 );
+	TASSERT_EQi( Q_toupper( '0' ) - '0', 0 );
+	TASSERT_EQi( Q_toupper( '9' ) - '0', 9 );
+}
+
+void Test_RunModBmodel( void )
+{
+	TRUN( Test_Mod_NameImpliesTextureIsAnimated() );
+	TRUN( Test_Mod_FrameIndexCalculation() );
+}
+#endif

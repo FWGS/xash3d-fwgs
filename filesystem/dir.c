@@ -154,7 +154,7 @@ static void FS_PopulateDirEntries( dir_t *dir, const char *path )
 	stringlistfreecontents( &list );
 }
 
-static int FS_FindDirEntry( dir_t *dir, const char *name )
+static int FS_FindDirEntry( const dir_t *dir, const char *name, qboolean exact )
 {
 	// look for the file (binary search)
 	int left = 0;
@@ -167,7 +167,24 @@ static int FS_FindDirEntry( dir_t *dir, const char *name )
 
 		// found it
 		if( !diff )
-			return middle;
+		{
+			int i = middle;
+
+			if( !Q_strcmp( dir->entries[middle].name, name ))
+				return middle;
+
+			// names that only differ by case are next to each other, prefer the exact one
+			while( i > 0 && !Q_stricmp( dir->entries[i - 1].name, name ))
+				i--;
+
+			for( ; i < dir->numentries && !Q_stricmp( dir->entries[i].name, name ); i++ )
+			{
+				if( !Q_strcmp( dir->entries[i].name, name ))
+					return i;
+			}
+
+			return exact ? -1 : middle;
+		}
 
 		// if we're too far in the list
 		if( diff > 0 )
@@ -197,8 +214,9 @@ static void FS_MergeDirEntries( dir_t *dir, const stringlist_t *list )
 		if( oldentry->entries == NULL )
 			continue;
 
-		// try to find this directory in new tree
-		j = FS_FindDirEntry( &temp, oldentry->name );
+		// try to find this directory in new tree, by exact name, or directories
+		// that only differ by case would end up in the same entry and leak
+		j = FS_FindDirEntry( &temp, oldentry->name, true );
 
 		// not found, free memory
 		if( j < 0 )
@@ -238,30 +256,38 @@ static int FS_MaybeUpdateDirEntries( dir_t *dir, const char *path, const char *e
 	else if( dir->numentries <= DIRENTRY_EMPTY_DIRECTORY ) // not initialized or was empty
 	{
 		FS_InitDirEntries( dir, &list );
-		ret = FS_FindDirEntry( dir, entryname );
+		ret = FS_FindDirEntry( dir, entryname, false );
 	}
 	else if( list.numstrings != dir->numentries ) // quick update
 	{
 		FS_MergeDirEntries( dir, &list );
-		ret = FS_FindDirEntry( dir, entryname );
+		ret = FS_FindDirEntry( dir, entryname, false );
 	}
 	else
 	{
 		// do heavy compare if directory now have an entry we need
-		int i;
+		// don't merge if we already have it, an entry that is listed
+		// but doesn't exist on disk would rebuild the tree on every lookup
+		qboolean found = false, changed = false;
 
-		for( i = 0; i < list.numstrings; i++ )
+		for( int i = 0; i < list.numstrings; i++ )
 		{
-			if( !Q_stricmp( list.strings[i], entryname ))
+			if( Q_stricmp( list.strings[i], entryname ))
+				continue;
+
+			found = true;
+
+			if( FS_FindDirEntry( dir, list.strings[i], true ) < 0 )
+			{
+				changed = true;
 				break;
+			}
 		}
 
-		if( i != list.numstrings )
-		{
+		if( changed )
 			FS_MergeDirEntries( dir, &list );
-			ret = FS_FindDirEntry( dir, entryname );
-		}
-		else ret = -1;
+
+		ret = found ? FS_FindDirEntry( dir, entryname, false ) : -1;
 	}
 
 	stringlistfreecontents( &list );
@@ -311,6 +337,7 @@ qboolean FS_FixFileCase( dir_t *dir, const char *path, char *dst, const size_t l
 		  prev = next + 1, next = Q_strchrnul( prev, '/' ))
 	{
 		qboolean uptodate = false; // do not run second scan if we're just updated our directory list
+		dir_t *parent;
 		size_t temp;
 		char entryname[MAX_SYSPATH];
 		int ret;
@@ -336,7 +363,7 @@ qboolean FS_FixFileCase( dir_t *dir, const char *path, char *dst, const size_t l
 		Q_strncpy( entryname, prev, next - prev + 1 );
 
 		// didn't found, but does it exists in FS?
-		if(( ret = FS_FindDirEntry( dir, entryname )) < 0 )
+		if(( ret = FS_FindDirEntry( dir, entryname, false )) < 0 )
 		{
 			// if we're creating files or folders, we don't care if path doesn't exist
 			// so copy everything that's left and exit without an error
@@ -346,7 +373,8 @@ qboolean FS_FixFileCase( dir_t *dir, const char *path, char *dst, const size_t l
 			uptodate = true;
 		}
 
-		dir = &dir->entries[ret];
+		parent = dir;
+		dir = &parent->entries[ret];
 		temp = i;
 		if( !FS_AppendToPath( dst, &temp, len, dir->name, path, "case fix" ))
 			return false;
@@ -355,12 +383,15 @@ qboolean FS_FixFileCase( dir_t *dir, const char *path, char *dst, const size_t l
 		{
 			dst[i] = 0; // strip failed part
 
+			// rescan the directory that holds the entry, not the entry itself,
+			// and append the found name right after the stripped part
 			// if we're creating files or folders, we don't care if path doesn't exist
 			// so copy everything that's left and exit without an error
-			if(( ret = FS_MaybeUpdateDirEntries( dir, dst, entryname )) < 0 )
+			if(( ret = FS_MaybeUpdateDirEntries( parent, dst, entryname )) < 0 )
 				return createpath ? FS_AppendToPath( dst, &i, len, prev, path, "create path rescan" ) : false;
 
-			dir = &dir->entries[ret];
+			dir = &parent->entries[ret];
+			temp = i;
 			if( !FS_AppendToPath( dst, &temp, len, dir->name, path, "case fix rescan" ))
 				return false;
 		}

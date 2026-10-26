@@ -4,6 +4,8 @@
 
 Thanks to mittorn, we have the ability to fully customize the controls in Xash3D. The new config allows you to not only add and change control buttons, but also create custom menus. There is also a built-in visual editor available, which simplifies the customization process without the need for manual file editing.
 
+On devices with display cutouts, buttons are laid out inside the screen's safe area. Set `touch_safearea 0` to use the whole screen.
+
 ## Editor mode usage
 
 1. Launch Xash3D and start the game.
@@ -106,6 +108,8 @@ Flags define the behavior of the button. Their values ​​are powers of two:
 | `TOUCH_FL_DEF_HIDE` | 64 | The button is always hidden on startup. |
 | `TOUCH_FL_DRAW_ADDITIVE` | 128 | The button colors are added together in blend mode. |
 | `TOUCH_FL_STROKE` | 256 | Enables outline stroke around the button. |
+| `TOUCH_FL_STICK` | 2048 | Turns a `_joy` button into an analog stick with a visible thumb. |
+| `TOUCH_FL_COMMAND_LATCH` | 4096 | A `+command` button alternates between `+command` and `-command` on each press, e.g. for toggle crouch. |
 
 Flags can be combined by adding their values ​​together. For example, `5 = 1 + 4` is the combination of `TOUCH_FL_HIDE` and `TOUCH_FL_CLIENT` flags, which is a hidden client button.
 
@@ -133,6 +137,12 @@ Flags can be combined by adding their values ​​together. For example, `5 = 1
 
     *View of this button in layout editor*
     ![](images/example5.jpg)
+
+## Analog presets
+
+The `analog` and `analog_toggle` presets, available in the menu's Touch options, provide an analog movement stick and a drag-to-look area. `analog` holds crouch, `analog_toggle` toggles it.
+
+![Analog movement and drag-look controls in game](images/ios-touch-ingame.jpg)
 
 ## Tips
 

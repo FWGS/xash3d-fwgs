@@ -75,7 +75,7 @@ static qboolean Mod_LooksLikeWaterTexture( const char *name )
 
 	if( !FBitSet( gp_host->features, ENGINE_QUAKE_COMPATIBLE ))
 	{
-		if( !Q_strncmp( name, "water", 5 ) || !Q_strnicmp( name, "laser", 5 ))
+		if( !Q_strnicmp( name, "water", 5 ) || !Q_strnicmp( name, "laser", 5 ))
 			return true;
 	}
 
@@ -339,7 +339,7 @@ static void GAME_EXPORT R_SetupSky( int *skyboxTextures )
 		tr.skyboxTextures[i] = skyboxTextures[i];
 }
 
-static qboolean R_SetDisplayTransform( ref_screen_rotation_t rotate, int offset_x, int offset_y, float scale_x, float scale_y )
+static qboolean R_SetDisplayTransform( ref_screen_rotation_t rotate, int offset_x, int offset_y, float unused1_default_at_1, float unused2_default_at_1 )
 {
 	qboolean ret = true;
 
@@ -348,12 +348,6 @@ static qboolean R_SetDisplayTransform( ref_screen_rotation_t rotate, int offset_
 	if( offset_x || offset_y )
 	{
 		gEngfuncs.Con_Printf("offset transform not supported\n");
-		ret = false;
-	}
-
-	if( scale_x != 1.0f || scale_y != 1.0f )
-	{
-		gEngfuncs.Con_Printf("scale transform not supported\n");
 		ret = false;
 	}
 

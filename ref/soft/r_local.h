@@ -475,7 +475,7 @@ void R_DrawViewModel( void );
 void R_DecalShoot( int textureIndex, int entityIndex, int modelIndex, vec3_t pos, int flags, float scale );
 void R_DecalRemoveAll( int texture );
 int R_CreateDecalList( decallist_t *pList );
-void R_ClearAllDecals( void );
+void R_ClearAllDecals( qboolean includePermanent );
 byte *Mod_GetCurrentVis( void );
 void Mod_SetOrthoBounds( const float *mins, const float *maxs );
 void R_NewMap( void );
@@ -1035,7 +1035,7 @@ void R_DrawBrushModel( cl_entity_t *pent );
 void R_InitCaches( void );
 void R_BlitScreen( void );
 qboolean R_InitBlit( qboolean gl );
-qboolean R_SetDisplayTransform( ref_screen_rotation_t rotate, int offset_x, int offset_y, float scale_x, float scale_y );
+qboolean R_SetDisplayTransform( ref_screen_rotation_t rotate, int offset_x, int offset_y, float unused1_default_at_1, float unused2_default_at_1 );
 
 //
 // r_edge.c

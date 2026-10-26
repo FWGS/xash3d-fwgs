@@ -1,5 +1,7 @@
 #!/bin/bash
 
+. scripts/lib.sh
+
 cd "$GITHUB_WORKSPACE" || exit 1
 
 ANDROID_COMMANDLINE_TOOLS_VER="14742923"
@@ -24,6 +26,14 @@ pushd 3rdparty || exit 1
 wget "https://github.com/libsdl-org/SDL/releases/download/release-$SDL_VERSION/SDL2-$SDL_VERSION.tar.gz" -qO- | tar -xzf - || exit 1
 mv "SDL2-$SDL_VERSION" SDL
 popd || exit 1
+
+echo "Download FFmpeg"
+mkdir -p 3rdparty/ffmpeg || exit 1
+for ABI in armeabi-v7a:arm32 arm64-v8a:arm64 x86:i386; do
+	FFMPEG_ARCHIVE=$(GH_CPU_ARCH="${ABI#*:}" get_ffmpeg_archive)
+	wget "https://github.com/FWGS/FFmpeg-Builds/releases/download/latest/$FFMPEG_ARCHIVE.tar.xz" -qO- | tar -xJf - -C 3rdparty/ffmpeg || exit 1
+	mv "3rdparty/ffmpeg/$FFMPEG_ARCHIVE" "3rdparty/ffmpeg/${ABI%%:*}"
+done
 
 echo "Download Android SDK"
 mkdir -p sdk || exit 1

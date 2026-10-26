@@ -656,8 +656,8 @@ void SV_RestartDecals( void )
 
 	numdecals = ref.dllFuncs.R_CreateDecalList( list );
 
-	// remove decals from map
-	ref.dllFuncs.R_ClearAllDecals();
+	// remove decals from map for clean demo recording state (keep permanent)
+	ref.dllFuncs.R_ClearAllDecals( false );
 
 	// write decals into reliable datagram
 	msg = SV_GetReliableDatagram();
@@ -666,6 +666,11 @@ void SV_RestartDecals( void )
 	for( int i = 0; i < numdecals; i++ )
 	{
 		decallist_t *entry = &list[i];
+
+		// skip permanent decals - they're map data sent via svc_bspdecal on map load
+		if( FBitSet( entry->flags, FDECAL_PERMANENT ))
+			continue;
+
 		int modelIndex = SV_PEntityOfEntIndex( entry->entityIndex, true )->v.modelindex;
 
 		// game override
@@ -3046,9 +3051,9 @@ static void SV_AllocStringPool( void )
 	{
 		str64.maxstringarray = Q_atoi( lenstr );
 		if( str64.maxstringarray < 1024 || str64.maxstringarray >= INT_MAX )
-			str64.maxstringarray = 65536 * Q_ceil( GI->max_edicts / 1024.0f );
+			str64.maxstringarray = 65536 * ceil( GI->max_edicts / 1024.0f );
 	}
-	else str64.maxstringarray = 65536 * Q_ceil( GI->max_edicts / 1024.0f );
+	else str64.maxstringarray = 65536 * ceil( GI->max_edicts / 1024.0f );
 	if( Sys_CheckParm( "-str64dup" ) )
 		str64.allowdup = true;
 
@@ -3783,7 +3788,9 @@ static void GAME_EXPORT pfnSetClientMaxspeed( const edict_t *pEdict, float fNewM
 	// There isn't any reference to "maxspd" anywhere except some commented-out code in SDK
 	Info_SetValueForKeyf( cl->physinfo, "maxspd", MAX_INFO_STRING, "%.f", fNewMaxspeed );
 
-	cl->edict->v.maxspeed = fNewMaxspeed;
+	// cl->edict is NULL once the client has dropped, but game dlls (e.g. Marine Bot)
+	// may still call this for its edict, so write to the edict we've been given
+	((edict_t *)pEdict)->v.maxspeed = fNewMaxspeed;
 }
 
 /*
@@ -4759,8 +4766,8 @@ static enginefuncs_t gEngfuncs =
 	pfnRegUserMsg,
 	pfnAnimationAutomove,
 	pfnGetBonePosition,
-	(void*)pfnFunctionFromName,
-	(void*)pfnNameForFunction,
+	pfnFunctionFromName,
+	pfnNameForFunction,
 	pfnClientPrintf,
 	pfnServerPrint,
 	Cmd_Args,
