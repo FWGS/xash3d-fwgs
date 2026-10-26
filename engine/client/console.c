@@ -1905,7 +1905,7 @@ void Key_Console( int key )
 	if( key == K_ENTER || key == K_KP_ENTER || key == K_A_BUTTON )
 	{
 		// backslash text are commands, else chat
-		if( con.input.buffer[0] == '\\' || con.input.buffer[0] == '/' )
+		if( con.input.buffer[0] == '\\' || ( con.input.buffer[0] == '/' && con.input.buffer[1] != '/' ))
 			Cbuf_AddText( con.input.buffer + 1 ); // skip backslash
 		else Cbuf_AddText( con.input.buffer ); // valid command
 		Cbuf_AddText( "\n" );
