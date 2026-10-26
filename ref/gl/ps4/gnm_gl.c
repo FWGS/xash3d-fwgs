@@ -1822,9 +1822,11 @@ static bool attrib_source( int index, int vmin, int numverts, attr_source_t *out
 	}
 	}
 
+	const gl_buffer_t *b = NULL;
+
 	if( a->buffer )
 	{
-		const gl_buffer_t *b = get_buffer( a->buffer, false );
+		b = get_buffer( a->buffer, false );
 		if( !b || !b->data )
 			return false;
 		base = b->data + (uintptr_t)a->pointer;
@@ -1839,6 +1841,10 @@ static bool attrib_source( int index, int vmin, int numverts, attr_source_t *out
 	out->stride = a->stride ? a->stride : out->elemsize;
 	out->src = base + (size_t)vmin * out->stride;
 	out->bytes = (uint32_t)(( numverts - 1 ) * out->stride + out->elemsize );
+
+	if( b && (uintptr_t)a->pointer + (size_t)vmin * out->stride + out->bytes > b->size )
+		return false;
+
 	return true;
 }
 
