@@ -372,6 +372,15 @@ static void PS4_KeyboardUpdate( void )
 
 			Con_Reportf( "PS4 keyboard: handle 0x%08x (user 0x%x, index %d) gives data, using it\n",
 				ps4kbm.probes[i].handle, ps4kbm.probes[i].user, ps4kbm.probes[i].index );
+			if( ps4kbm.kbd >= 0 )
+				sceKeyboardClose( ps4kbm.kbd );
+
+			for( int j = 0; j < ps4kbm.num_probes; j++ )
+			{
+				if( j != i )
+					sceKeyboardClose( ps4kbm.probes[j].handle );
+			}
+
 			ps4kbm.kbd = ps4kbm.probes[i].handle;
 			ps4kbm.num_probes = 0;
 			break;
@@ -639,10 +648,13 @@ void PS4_KbmShutdown( void )
 {
 	if( ps4kbm.kbd >= 0 )
 		sceKeyboardClose( ps4kbm.kbd );
+	for( int i = 0; i < ps4kbm.num_probes; i++ )
+		sceKeyboardClose( ps4kbm.probes[i].handle );
 	for( int i = 0; i < ps4kbm.num_mice; i++ )
 		sceMouseClose( ps4kbm.mice[i] );
 
 	ps4kbm.kbd = -1;
+	ps4kbm.num_probes = 0;
 	ps4kbm.num_mice = 0;
 	ps4kbm.mouse_active = -1;
 	ps4kbm.initialized = false;
