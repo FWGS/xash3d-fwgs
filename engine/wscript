@@ -278,7 +278,7 @@ def build(bld):
 			source += bld.path.ant_glob(['platform/sdl%d/*.c' % bld.env.XASH_SDL])
 			defines += ['XASH_SDL=%d' % bld.env.XASH_SDL]
 
-		# GPU device for the OpenGL layer in ref_gl, see ref/gl/ps4
+		# GPU device for the OpenGL layer in ref_gl, see ref/gl/gnm_shim
 		if bld.env.DEST_OS == 'ps4':
 			libs += ['opengnm', 'PS4CLIENT_SYS']
 			source += bld.path.ant_glob('platform/ps4/gnm/*.c')

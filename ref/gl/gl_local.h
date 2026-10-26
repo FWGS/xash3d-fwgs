@@ -39,7 +39,7 @@ void VGL_ShimEndFrame( void );
 #include "gl2_shim/gl2_shim.h"
 #endif
 #if XASH_PS4
-#include "ps4/gnm_gl.h"
+#include "gnm_shim/gnm_shim.h"
 #endif
 
 #ifndef offsetof

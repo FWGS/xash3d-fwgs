@@ -3,7 +3,7 @@
 //
 // opengnm-psbc can't fetch vertex attributes without a fetch shader,
 // so attributes are pulled from raw buffers: one buffer per attribute,
-// layout described by attr[] in the uniform buffer (see gnm_gl.c).
+// layout described by attr[] in the uniform buffer (see gnm_shim.c).
 #version 450
 
 #define ATTR_FLOAT 0

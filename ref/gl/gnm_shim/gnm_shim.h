@@ -1,5 +1,5 @@
 /*
-gnm_gl.h - OpenGL ES 2.0 subset over GNM for ref_gl on PS4
+gnm_shim.h - OpenGL ES 2.0 subset over GNM for ref_gl on PS4
 Copyright (C) 2026 sergiopoverony
 
 This program is free software: you can redistribute it and/or modify
@@ -12,8 +12,8 @@ but WITHOUT ANY WARRANTY; without even the implied warranty of
 MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 */
-#ifndef GNM_GL_H
-#define GNM_GL_H
+#ifndef GNM_SHIM_H
+#define GNM_SHIM_H
 
 // included by ref_gl code, so nothing from opengnm and no stdbool here
 struct gnm_dev_api_s;
@@ -26,4 +26,4 @@ void PS4_GL_EndFrame( void );
 void PS4_GL_Shutdown( void );
 void *PS4_GL_GetProcAddress( const char *name );
 
-#endif // GNM_GL_H
+#endif // GNM_SHIM_H

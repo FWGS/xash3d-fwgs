@@ -16,7 +16,7 @@ GNU General Public License for more details.
 /*
 The engine owns the display and the GPU device (platform/ps4/gnm), like it owns the GL context
 on SDL. OpenGL renderers get the device with R_GetWindowHandle( REF_WINDOW_TYPE_GNM ) and draw
-through the OpenGL ES 2 subset implemented by ref_gl (ref/gl/ps4) over the device.
+through the OpenGL ES 2 subset implemented by ref_gl (ref/gl/gnm_shim) over the device.
 The screen has a fixed size and there are no windows
 */
 
@@ -68,7 +68,7 @@ vidmode_t *R_GetVideoMode( int num )
 	return NULL;
 }
 
-// OpenGL is implemented by the renderer itself, see ref/gl/ps4
+// OpenGL is implemented by the renderer itself, see ref/gl/gnm_shim
 void *GL_GetProcAddress( const char *name )
 {
 	return NULL;
@@ -86,7 +86,7 @@ void GL_SwapBuffers( void )
 	PS4_FramePresented();
 }
 
-// the context is always the same, see gnm_gl.c
+// the context is always the same, see gnm_shim.c
 int GL_SetAttribute( int attr, int val )
 {
 	return 0;

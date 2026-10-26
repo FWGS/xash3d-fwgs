@@ -32,7 +32,7 @@ git submodule update --init --checkout --recursive 3rdparty/opengnm/opengnm 3rdp
 
 [opengnm](https://github.com/PS4-OpenGNM/opengnm) is built into the engine for the GPU renderer.
 
-Shaders of the GPU renderer (`ref/gl/ps4/shaders`) are compiled during the build with glslang and
+Shaders of the GPU renderer (`ref/gl/gnm_shim/shaders`) are compiled during the build with glslang and
 [opengnm-psbc](https://github.com/PS4-OpenGNM/opengnm-psbc), both are built from the submodules for the
 build machine. `--host-cc` and `--host-cxx` configure options select its compilers.
 
@@ -75,7 +75,7 @@ GL context or the buffers of the software renderer on other platforms:
   and flips. Submits are synchronous, the GPU is far from being the bottleneck.
   `engine/platform/ps4/vid_gnm.c` opens it, the renderer gets it as a table of functions
   with `R_GetWindowHandle( REF_WINDOW_TYPE_GNM )`.
-* `ref/gl/ps4/gnm_gl.c` (part of ref_gl, built from `ref/gl/ps4/wscript`): what gl2_shim needs from OpenGL ES 2
+* `ref/gl/gnm_shim/gnm_shim.c` (part of ref_gl, built from `ref/gl/gnm_shim/wscript`): what gl2_shim needs from OpenGL ES 2
   over the device with opengnm. GL state, textures (linear, with mipmaps), buffers, draws, `glReadPixels`.
   gl2_shim programs are mapped to precompiled shader variants by their defines.
 * Shaders are GLSL compiled with glslang and opengnm-psbc.

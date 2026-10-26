@@ -32,9 +32,9 @@ def build(bld):
 	else:
 		libs += [ 'public', 'M' ]
 
-	# OpenGL over GNM, see ref/gl/ps4
+	# OpenGL over GNM, see ref/gl/gnm_shim
 	if bld.env.DEST_OS == 'ps4':
-		libs += [ 'gnm_gl' ]
+		libs += [ 'gnm_shim' ]
 
 	source = bld.path.ant_glob(['*.c', 'gl2_shim/*.c'])
 	includes = '.'

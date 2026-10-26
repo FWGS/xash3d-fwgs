@@ -154,7 +154,7 @@ SUBDIRS = [
 	# enabled on PS4 only
 	Subproject('3rdparty/glslang',      lambda x: x.env.CLIENT and x.env.GL and x.env.DEST_OS == 'ps4'),
 	Subproject('3rdparty/opengnm-psbc', lambda x: x.env.CLIENT and x.env.GL and x.env.DEST_OS == 'ps4'),
-	Subproject('ref/gl/ps4',            lambda x: x.env.CLIENT and x.env.GL and x.env.DEST_OS == 'ps4'),
+	Subproject('ref/gl/gnm_shim',            lambda x: x.env.CLIENT and x.env.GL and x.env.DEST_OS == 'ps4'),
 ]
 
 REFDLLS = [
@@ -370,7 +370,7 @@ def configure(conf):
 	elif conf.env.MSVC_WINE:
 		conf.options.BUILD_BUNDLED_DEPS = True
 	elif conf.env.DEST_OS == 'ps4':
-		# no OpenGL driver: ref_gl draws through our OpenGL layer over GNM (ref/gl/ps4)
+		# no OpenGL driver: ref_gl draws through our OpenGL layer over GNM (ref/gl/gnm_shim)
 		conf.options.GL               = True
 		conf.options.GLES3COMPAT      = False
 		conf.options.SOFT             = False

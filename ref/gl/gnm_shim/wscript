@@ -8,7 +8,7 @@ def configure(conf):
 	pass
 
 def gnm_shaders_c(task):
-	out = ['// Generated from ref/gl/ps4/shaders, see ref/gl/ps4/wscript', '#include <stdint.h>', '#include "gnm_shaders.h"', '']
+	out = ['// Generated from ref/gl/gnm_shim/shaders, see ref/gl/gnm_shim/wscript', '#include <stdint.h>', '#include "gnm_shaders.h"', '']
 	names = []
 
 	for node in task.inputs:
@@ -80,7 +80,7 @@ def build(bld):
 	bld(rule = gnm_shaders_c, source = shaders, target = gnm_shaders, name = 'gnm-shaders')
 
 	bld.stlib(source = bld.path.ant_glob('*.c') + [gnm_shaders],
-		target = 'gnm_gl',
+		target = 'gnm_shim',
 		features = 'c',
 		includes = ['.', bld.srcnode.find_dir('engine/platform/ps4/gnm')],
 		cflags = ['-std=gnu11', '-Wno-unused-parameter'],

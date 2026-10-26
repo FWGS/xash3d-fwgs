@@ -1,5 +1,5 @@
 /*
-gnm_gl.c - OpenGL ES 2.0 subset over GNM for ref_gl on PS4
+gnm_shim.c - OpenGL ES 2.0 subset over GNM for ref_gl on PS4
 Copyright (C) 2026 sergiopoverony
 
 This program is free software: you can redistribute it and/or modify
@@ -35,7 +35,7 @@ GNU General Public License for more details.
 
 #define GNM_DEV_CLIENT
 #include "gnm_dev.h"
-#include "gnm_gl.h"
+#include "gnm_shim.h"
 #include "gnm_shaders.h"
 
 const gnm_dev_api_t *gnm_api;
