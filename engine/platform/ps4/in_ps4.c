@@ -94,6 +94,21 @@ static void PS4_SendAxis( engineAxis_t axis, short value )
 	Joy_AxisMotionEvent( axis, value );
 }
 
+static void PS4_ReleasePad( void )
+{
+	for( size_t i = 0; i < ARRAYSIZE( ps4_buttons ); i++ )
+	{
+		if( FBitSet( ps4pad.buttons, ps4_buttons[i].mask ))
+			Key_Event( ps4_buttons[i].key, false );
+	}
+	PS4_SendAxis( JOY_AXIS_SIDE, 0 );
+	PS4_SendAxis( JOY_AXIS_FWD, 0 );
+	PS4_SendAxis( JOY_AXIS_YAW, 0 );
+	PS4_SendAxis( JOY_AXIS_PITCH, 0 );
+	PS4_SendAxis( JOY_AXIS_LT, 0 );
+	PS4_SendAxis( JOY_AXIS_RT, 0 );
+}
+
 /*
 ==============================================================================
 
@@ -229,17 +244,7 @@ static void PS4_IME_Open( const char *text )
 
 	// nothing reaches the game while the dialog takes the gamepad: held buttons
 	// are released now, buttons still held when it closes don't press again
-	for( size_t i = 0; i < ARRAYSIZE( ps4_buttons ); i++ )
-	{
-		if( FBitSet( ps4pad.buttons, ps4_buttons[i].mask ))
-			Key_Event( ps4_buttons[i].key, false );
-	}
-	PS4_SendAxis( JOY_AXIS_SIDE, 0 );
-	PS4_SendAxis( JOY_AXIS_FWD, 0 );
-	PS4_SendAxis( JOY_AXIS_YAW, 0 );
-	PS4_SendAxis( JOY_AXIS_PITCH, 0 );
-	PS4_SendAxis( JOY_AXIS_LT, 0 );
-	PS4_SendAxis( JOY_AXIS_RT, 0 );
+	PS4_ReleasePad();
 }
 
 static void PS4_IME_KeyPress( int key )
@@ -360,7 +365,14 @@ void PS4_InputUpdate( void )
 	OrbisPadData data = { 0 };
 
 	if( scePadReadState( ps4pad.handle, &data ) < 0 || !data.connected )
+	{
+		if( !ps4ime.open )
+			PS4_ReleasePad();
+
+		ps4pad.buttons = 0;
+		ps4pad.repeat_time = 0.0;
 		return;
+	}
 
 	if( ps4ime.requested )
 	{
