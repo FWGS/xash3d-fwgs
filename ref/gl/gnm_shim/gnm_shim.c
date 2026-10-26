@@ -2133,6 +2133,11 @@ static void gl_TexCoord2fv( const GLfloat *v )
 	gl_MultiTexCoord2f( GL_TEXTURE0_ARB, v[0], v[1] );
 }
 
+static void gl_TexCoord3f( GLfloat s, GLfloat t, GLfloat r )
+{
+	gl_MultiTexCoord2f( GL_TEXTURE0_ARB, s, t );
+}
+
 // there's no lighting
 static void gl_Normal3fv( const GLfloat *v )
 {
@@ -2610,6 +2615,7 @@ static const gl_proc_t procs[] =
 	P( "glColor4ubv", gl_Color4ubv ),
 	P( "glTexCoord2f", gl_TexCoord2f ),
 	P( "glTexCoord2fv", gl_TexCoord2fv ),
+	P( "glTexCoord3f", gl_TexCoord3f ),
 	P( "glMultiTexCoord1f", gl_MultiTexCoord1f ),
 	P( "glMultiTexCoord2f", gl_MultiTexCoord2f ),
 	P( "glMultiTexCoord3f", gl_MultiTexCoord3f ),
