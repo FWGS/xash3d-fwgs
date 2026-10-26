@@ -12,14 +12,20 @@ but WITHOUT ANY WARRANTY; without even the implied warranty of
 MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 */
+#include <algorithm>
 #include <QCoreApplication>
 #include <QDir>
 #include <QFile>
 #include <QRegularExpression>
+#include <QSettings>
 #include <QTextStream>
+#include <QUrl>
 #include <QVariantMap>
-#include "launcher.h"
 #include "engine.h"
+#include "gamecover.h"
+#include "launcher.h"
+#include "megabuild.h"
+#include "settings.h"
 
 // these mods work with valve libraries built from hlsdk-portable mobile_hacks branch, see android/.../model/Game.kt
 static const char *const s_mobile_hacks_games[] =
@@ -28,43 +34,113 @@ static const char *const s_mobile_hacks_games[] =
 	"redempt", "secret", "sewer_beta", "tot", "valve", "vendetta",
 };
 
-static QString ReadGameTitle( const QDir &dir )
+// gameinfo.txt takes priority over liblist.gam, like in the engine
+static void ReadGameInfo( const QDir &dir, QString &title, QString &icon )
 {
-	// gameinfo.txt takes priority over liblist.gam, like in the engine
 	static const struct
 	{
 		const char *file;
-		const char *key;
+		const char *title_key;
 	} sources[] =
 	{
 		{ "gameinfo.txt", "title" },
 		{ "liblist.gam", "game" },
 	};
 
+	const QRegularExpression re( "^\\s*(\\w+)\\s+\"([^\"]*)\"" );
+
 	for( const auto &source : sources )
 	{
-		QFile file( dir.filePath( source.file ));
+		QFile file( FindFileCaseInsensitive( dir, source.file ));
 
 		if( !file.open( QIODevice::ReadOnly | QIODevice::Text ))
 			continue;
 
-		const QRegularExpression re( QStringLiteral( "^\\s*%1\\s+\"([^\"]*)\"" ).arg( source.key ), QRegularExpression::CaseInsensitiveOption );
 		QTextStream stream( &file );
 
 		while( !stream.atEnd( ))
 		{
 			const QRegularExpressionMatch match = re.match( stream.readLine( ));
 
-			if( match.hasMatch( ))
-				return match.captured( 1 );
-		}
-	}
+			if( !match.hasMatch( ))
+				continue;
 
-	return QString();
+			const QString key = match.captured( 1 );
+
+			if( !key.compare( source.title_key, Qt::CaseInsensitive ))
+				title = match.captured( 2 );
+			else if( !key.compare( "icon", Qt::CaseInsensitive ))
+				icon = match.captured( 2 );
+		}
+
+		return;
+	}
 }
 
-Launcher::Launcher( QObject *parent ) : QObject( parent ),
-	m_baseDir( QDir::home().filePath( ENGINE_BASEDIR ))
+// shell-like: whitespace separates, quotes group, backslash escapes
+static QStringList SplitArguments( const QString &line )
+{
+	QStringList args;
+	QString current;
+	QChar quote;
+	bool in_arg = false;
+
+	for( int i = 0; i < line.size(); i++ )
+	{
+		const QChar c = line[i];
+
+		if( !quote.isNull( ))
+		{
+			if( c == quote )
+				quote = QChar();
+			else if( c == '\\' && quote == '"' && i + 1 < line.size( ))
+				current += line[++i];
+			else
+				current += c;
+			continue;
+		}
+
+		if( c.isSpace( ))
+		{
+			if( in_arg )
+				args << current;
+
+			current.clear();
+			in_arg = false;
+			continue;
+		}
+
+		in_arg = true;
+
+		if( c == '"' || c == '\'' )
+			quote = c;
+		else if( c == '\\' && i + 1 < line.size( ))
+			current += line[++i];
+		else
+			current += c;
+	}
+
+	if( in_arg )
+		args << current;
+
+	return args;
+}
+
+Launcher::Launcher( QObject *parent ) : QObject( parent )
+{
+	QSettings settings( SettingsPath(), QSettings::IniFormat );
+
+	m_baseDir = settings.value( "basedir", defaultBaseDir( )).toString();
+	prepareBaseDir();
+	refresh();
+}
+
+QString Launcher::defaultBaseDir() const
+{
+	return QDir::home().filePath( ENGINE_BASEDIR );
+}
+
+void Launcher::prepareBaseDir()
 {
 	QDir().mkpath( m_baseDir );
 
@@ -73,13 +149,31 @@ Launcher::Launcher( QObject *parent ) : QObject( parent ),
 
 	if( !nomedia.exists( ))
 		nomedia.open( QIODevice::WriteOnly );
+}
 
+void Launcher::setBaseDir( const QString &dir )
+{
+	const QString path = dir.isEmpty() ? defaultBaseDir() : QDir::cleanPath( dir );
+
+	if( path == m_baseDir )
+		return;
+
+	QSettings settings( SettingsPath(), QSettings::IniFormat );
+
+	if( path == defaultBaseDir( ))
+		settings.remove( "basedir" );
+	else
+		settings.setValue( "basedir", path );
+
+	m_baseDir = path;
+	prepareBaseDir();
+	emit baseDirChanged();
 	refresh();
 }
 
 void Launcher::refresh()
 {
-	const QFileInfoList dirs = QDir( m_baseDir ).entryInfoList( QDir::Dirs | QDir::NoDotAndDotDot, QDir::Name | QDir::IgnoreCase );
+	const QFileInfoList dirs = QDir( m_baseDir ).entryInfoList( QDir::Dirs | QDir::NoDotAndDotDot );
 
 	m_games.clear();
 
@@ -87,18 +181,54 @@ void Launcher::refresh()
 	{
 		const QDir dir( info.absoluteFilePath( ));
 
-		if( !dir.exists( "gameinfo.txt" ) && !dir.exists( "liblist.gam" ))
+		if( FindFileCaseInsensitive( dir, "gameinfo.txt" ).isEmpty() && FindFileCaseInsensitive( dir, "liblist.gam" ).isEmpty( ))
 			continue;
 
-		const QString title = ReadGameTitle( dir );
+		QString title, icon = "game.ico";
+		ReadGameInfo( dir, title, icon );
+
+		const QString icon_path = FindFileCaseInsensitive( dir, icon );
 		QVariantMap game;
 
 		game["dir"] = info.fileName();
+		game["path"] = info.absoluteFilePath();
 		game["title"] = title.isEmpty() ? info.fileName() : title;
+		game["icon"] = icon_path.isEmpty() ? QString() : QUrl::fromLocalFile( icon_path ).toString();
+		game["downloaded"] = dir.exists( MEGABUILD_INFO_FILE );
 		m_games.append( game );
 	}
 
+	std::sort( m_games.begin(), m_games.end(), []( const QVariant &a, const QVariant &b )
+	{
+		return a.toMap().value( "title" ).toString().localeAwareCompare( b.toMap().value( "title" ).toString( )) < 0;
+	});
+
 	emit gamesChanged();
+}
+
+bool Launcher::isBundled( const QString &gamedir ) const
+{
+	for( const char *game : s_mobile_hacks_games )
+	{
+		if( !gamedir.compare( game, Qt::CaseInsensitive ))
+			return true;
+	}
+
+	return false;
+}
+
+QString Launcher::gameArguments( const QString &gamedir ) const
+{
+	QSettings settings( SettingsPath(), QSettings::IniFormat );
+
+	return settings.value( "games/" + gamedir + "/arguments", defaultArguments( )).toString();
+}
+
+void Launcher::setGameArguments( const QString &gamedir, const QString &args )
+{
+	QSettings settings( SettingsPath(), QSettings::IniFormat );
+
+	settings.setValue( "games/" + gamedir + "/arguments", args );
 }
 
 void Launcher::launch( const QString &gamedir )
@@ -108,15 +238,10 @@ void Launcher::launch( const QString &gamedir )
 	if( gamedir.compare( "valve", Qt::CaseInsensitive ))
 		m_engineArgs << "-game" << gamedir;
 
-	for( const char *game : s_mobile_hacks_games )
-	{
-		if( !gamedir.compare( game, Qt::CaseInsensitive ))
-		{
-			m_engineArgs << "-dll" << "@hl";
-			break;
-		}
-	}
+	if( isBundled( gamedir ))
+		m_engineArgs << "-dll" << "@hl";
 
+	m_engineArgs << SplitArguments( gameArguments( gamedir ));
 	m_launchRequested = true;
 
 	// the engine is started after the event loop exits and Qt is torn down

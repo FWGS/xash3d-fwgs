@@ -22,22 +22,36 @@ class Launcher : public QObject
 {
 	Q_OBJECT
 	Q_PROPERTY( QVariantList games READ games NOTIFY gamesChanged )
+	Q_PROPERTY( QString baseDir READ baseDir WRITE setBaseDir NOTIFY baseDirChanged )
+	Q_PROPERTY( QString defaultBaseDir READ defaultBaseDir CONSTANT )
+	Q_PROPERTY( QString defaultArguments READ defaultArguments CONSTANT )
 
 public:
 	explicit Launcher( QObject *parent = nullptr );
 
 	QVariantList games() const { return m_games; }
 	QString baseDir() const { return m_baseDir; }
+	void setBaseDir( const QString &dir );
+	QString defaultBaseDir() const;
+	QString defaultArguments() const { return "-console -log"; }
+
 	QStringList engineArgs() const { return m_engineArgs; }
 	bool launchRequested() const { return m_launchRequested; }
 
 	Q_INVOKABLE void refresh();
+	// bundled mobile_hacks libraries cover it, nothing to download
+	Q_INVOKABLE bool isBundled( const QString &gamedir ) const;
+	Q_INVOKABLE QString gameArguments( const QString &gamedir ) const;
+	Q_INVOKABLE void setGameArguments( const QString &gamedir, const QString &args );
 	Q_INVOKABLE void launch( const QString &gamedir );
 
 signals:
 	void gamesChanged();
+	void baseDirChanged();
 
 private:
+	void prepareBaseDir();
+
 	QString m_baseDir;
 	QVariantList m_games;
 	QStringList m_engineArgs;

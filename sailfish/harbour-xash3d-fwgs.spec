@@ -20,6 +20,7 @@ BuildRequires: libvorbis-devel
 BuildRequires: pkgconfig(sailfishapp)
 BuildRequires: pkgconfig(Qt5Core)
 BuildRequires: pkgconfig(Qt5Gui)
+BuildRequires: pkgconfig(Qt5Network)
 BuildRequires: pkgconfig(Qt5Qml)
 BuildRequires: pkgconfig(Qt5Quick)
 # the default renderer, nanogl, loads it through SDL, so it's not picked up automatically

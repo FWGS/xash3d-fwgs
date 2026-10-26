@@ -8,19 +8,27 @@ def configure(conf):
 	# waf's qt5 tool can't parse Qt 5.6 configuration files, and moc is the only Qt tool needed here
 	conf.check_cfg(package='Qt5Core', uselib_store='QT5CORE', variables=['host_bins'])
 	conf.find_program('moc', path_list=[conf.env.QT5CORE_host_bins], var='MOC')
-	conf.check_cfg(package='Qt5Core Qt5Gui Qt5Qml Qt5Quick sailfishapp', uselib_store='SAILFISHAPP', args='--cflags --libs')
+	conf.check_cfg(package='Qt5Core Qt5Gui Qt5Network Qt5Qml Qt5Quick sailfishapp', uselib_store='SAILFISHAPP', args='--cflags --libs')
 
 def build(bld):
 	name = bld.env.SAILFISH_PACKAGE
+	source = bld.path.ant_glob('src/*.cpp')
 
-	bld(rule = '${MOC} ${SRC} -o ${TGT}', source = 'src/launcher.h', target = 'moc_launcher.cpp')
+	for header in ['launcher.h', 'megabuild.h', 'updater.h']:
+		target = 'moc_' + header.replace('.h', '.cpp')
+		bld(rule = '${MOC} ${SRC} -o ${TGT}', source = 'src/' + header, target = target)
+		source += [target]
+
+	# the engine builds its own copy without archive support
+	source += [bld.path.find_node('../3rdparty/miniz/miniz.c')]
 
 	bld.program(
-		source = bld.path.ant_glob('src/*.cpp') + ['moc_launcher.cpp'],
+		source = source,
 		target = name,
-		includes = 'src',
-		defines = ['XASH_PACKAGE_NAME="%s"' % name],
-		use = 'SAILFISHAPP DL',
+		includes = 'src ../3rdparty/miniz',
+		# zlib names would clash with the system zlib Qt uses
+		defines = ['XASH_PACKAGE_NAME="%s"' % name, 'MINIZ_NO_ZLIB_COMPATIBLE_NAMES'],
+		use = 'SAILFISHAPP DL public build_vcs',
 		rpath = bld.env.DEFAULT_RPATH,
 		install_path = bld.env.BINDIR
 	)

@@ -18,11 +18,15 @@ GNU General Public License for more details.
 #include <vector>
 #include <QGuiApplication>
 #include <QQmlContext>
+#include <QQmlEngine>
 #include <QQuickView>
 #include <QScopedPointer>
 #include <sailfishapp.h>
-#include "launcher.h"
 #include "engine.h"
+#include "gamecover.h"
+#include "launcher.h"
+#include "megabuild.h"
+#include "updater.h"
 
 Q_DECL_EXPORT int main( int argc, char **argv )
 {
@@ -30,11 +34,18 @@ Q_DECL_EXPORT int main( int argc, char **argv )
 	if( getenv( ENGINE_ENV ))
 		return Engine_Main( argc, argv );
 
+	// declared before the view, so QML is gone before the objects it uses
 	QScopedPointer<QGuiApplication> app( SailfishApp::application( argc, argv ));
-	QScopedPointer<QQuickView> view( SailfishApp::createView( ));
 	QScopedPointer<Launcher> launcher( new Launcher );
+	QScopedPointer<MegaBuild> megabuild( new MegaBuild( launcher.data( )));
+	QScopedPointer<Updater> updater( new Updater );
+	QScopedPointer<QQuickView> view( SailfishApp::createView( ));
 
+	// the engine owns the provider
+	view->engine()->addImageProvider( "cover", new GameCoverProvider );
 	view->rootContext()->setContextProperty( "launcher", launcher.data( ));
+	view->rootContext()->setContextProperty( "megabuild", megabuild.data( ));
+	view->rootContext()->setContextProperty( "updater", updater.data( ));
 	view->setSource( SailfishApp::pathToMainQml( ));
 	view->show();
 
@@ -52,8 +63,10 @@ Q_DECL_EXPORT int main( int argc, char **argv )
 		storage.push_back( arg.toLocal8Bit( ));
 
 	// close our window and the Wayland connection before the engine opens its own
-	launcher.reset();
 	view.reset();
+	updater.reset();
+	megabuild.reset();
+	launcher.reset();
 	app.reset();
 
 	std::vector<char *> args;
