@@ -239,6 +239,10 @@ static void SDLash_InputEvent( SDL_TextInputEvent input )
 
 static void SDLash_ActiveEvent( int gain )
 {
+#if XASH_SAILFISH
+	Sailfish_SetActive( gain );
+#endif
+
 	if( gain )
 	{
 		host.status = HOST_FRAME;
@@ -435,6 +439,10 @@ void Platform_RunEvents( void )
 
 #if XASH_PSVITA
 	PSVita_InputUpdate();
+#endif
+
+#if XASH_SAILFISH
+	Sailfish_RunEvents();
 #endif
 }
 

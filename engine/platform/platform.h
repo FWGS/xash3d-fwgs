@@ -107,6 +107,13 @@ int Android_GetKeyboardHeight( void );
 void Android_Shutdown( void );
 #endif
 
+#if XASH_SAILFISH && !XASH_DEDICATED
+void Sailfish_Init( void );
+void Sailfish_Shutdown( void );
+void Sailfish_SetActive( qboolean active );
+void Sailfish_RunEvents( void );
+#endif
+
 #if XASH_WIN32
 double Win32_GetCPUTime( void );
 void Win32_Init( qboolean con_showalways );
@@ -182,10 +189,18 @@ static inline void Platform_Init( qboolean con_showalways )
 #elif XASH_LINUX
 	Linux_Init( );
 #endif
+
+#if XASH_SAILFISH && !XASH_DEDICATED
+	Sailfish_Init( );
+#endif
 }
 
 static inline void Platform_Shutdown( void )
 {
+#if XASH_SAILFISH && !XASH_DEDICATED
+	Sailfish_Shutdown( );
+#endif
+
 #if XASH_NSWITCH
 	NSwitch_Shutdown( );
 #elif XASH_PSVITA
