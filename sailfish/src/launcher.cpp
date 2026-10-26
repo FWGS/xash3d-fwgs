@@ -206,6 +206,37 @@ void Launcher::refresh()
 	emit gamesChanged();
 }
 
+bool Launcher::startLastGame() const
+{
+	QSettings settings( SettingsPath(), QSettings::IniFormat );
+
+	return settings.value( "start_last_game", false ).toBool();
+}
+
+void Launcher::setStartLastGame( bool enable )
+{
+	QSettings settings( SettingsPath(), QSettings::IniFormat );
+
+	settings.setValue( "start_last_game", enable );
+	emit startLastGameChanged();
+}
+
+QVariantMap Launcher::lastGame() const
+{
+	QSettings settings( SettingsPath(), QSettings::IniFormat );
+	const QString gamedir = settings.value( "last_game" ).toString();
+
+	for( const QVariant &game : m_games )
+	{
+		const QVariantMap map = game.toMap();
+
+		if( map.value( "dir" ).toString() == gamedir )
+			return map;
+	}
+
+	return QVariantMap();
+}
+
 bool Launcher::isBundled( const QString &gamedir ) const
 {
 	for( const char *game : s_mobile_hacks_games )
@@ -243,6 +274,9 @@ void Launcher::launch( const QString &gamedir )
 
 	m_engineArgs << SplitArguments( gameArguments( gamedir ));
 	m_launchRequested = true;
+
+	QSettings settings( SettingsPath(), QSettings::IniFormat );
+	settings.setValue( "last_game", gamedir );
 
 	// the engine is started after the event loop exits and Qt is torn down
 	QCoreApplication::quit();

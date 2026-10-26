@@ -46,6 +46,18 @@ Page {
 			}
 
 			SectionHeader {
+				text: qsTr( "Startup" )
+			}
+
+			TextSwitch {
+				text: qsTr( "Start last played game" )
+				description: qsTr( "Starts after a short countdown, tap it to stay in the launcher" )
+				checked: launcher.startLastGame
+				automaticCheck: false
+				onClicked: launcher.startLastGame = !checked
+			}
+
+			SectionHeader {
 				visible: updater.enabled
 				text: qsTr( "Updates" )
 			}

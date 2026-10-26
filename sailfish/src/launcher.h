@@ -17,6 +17,7 @@ GNU General Public License for more details.
 #include <QObject>
 #include <QStringList>
 #include <QVariantList>
+#include <QVariantMap>
 
 class Launcher : public QObject
 {
@@ -25,6 +26,8 @@ class Launcher : public QObject
 	Q_PROPERTY( QString baseDir READ baseDir WRITE setBaseDir NOTIFY baseDirChanged )
 	Q_PROPERTY( QString defaultBaseDir READ defaultBaseDir CONSTANT )
 	Q_PROPERTY( QString defaultArguments READ defaultArguments CONSTANT )
+	Q_PROPERTY( bool startLastGame READ startLastGame WRITE setStartLastGame NOTIFY startLastGameChanged )
+	Q_PROPERTY( QVariantMap lastGame READ lastGame NOTIFY gamesChanged )
 
 public:
 	explicit Launcher( QObject *parent = nullptr );
@@ -34,6 +37,10 @@ public:
 	void setBaseDir( const QString &dir );
 	QString defaultBaseDir() const;
 	QString defaultArguments() const { return "-console -log"; }
+	bool startLastGame() const;
+	void setStartLastGame( bool enable );
+	// empty if it's gone from the base directory
+	QVariantMap lastGame() const;
 
 	QStringList engineArgs() const { return m_engineArgs; }
 	bool launchRequested() const { return m_launchRequested; }
@@ -48,6 +55,7 @@ public:
 signals:
 	void gamesChanged();
 	void baseDirChanged();
+	void startLastGameChanged();
 
 private:
 	void prepareBaseDir();

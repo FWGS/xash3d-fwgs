@@ -5,7 +5,7 @@ Page {
 	id: page
 
 	property string pendingGame
-	property bool crashChecked
+	property bool startupChecked
 
 	function play( game ) {
 		if( launcher.isBundled( game.dir ) || game.downloaded ) {
@@ -20,15 +20,29 @@ Page {
 	allowedOrientations: Orientation.All
 
 	onStatusChanged: {
-		if( status !== PageStatus.Active || crashChecked )
+		// the countdown is meant for the games list, not for whatever is on top of it
+		if( status === PageStatus.Deactivating )
+			remorse.cancel()
+
+		if( status !== PageStatus.Active || startupChecked )
 			return
 
-		crashChecked = true
+		startupChecked = true
 
 		var crash = crashReports.takePending()
 
-		if( crash !== "" )
+		if( crash !== "" ) {
 			pageStack.push( Qt.resolvedUrl( "CrashPage.qml" ), { name: crash, fresh: true })
+			return
+		}
+
+		var game = launcher.lastGame
+
+		if( launcher.startLastGame && game.dir !== undefined ) {
+			remorse.execute( qsTr( "Starting %1" ).arg( game.title ), function() {
+				page.play( game )
+			})
+		}
 	}
 
 	Connections {
