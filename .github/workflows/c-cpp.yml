@@ -52,10 +52,10 @@ jobs:
           - os: ubuntu-latest
             targetos: psvita
             targetarch: armv7hf
-          - os: ubuntu-24.04-arm # builds natively in Sailfish SDK target container
+          - os: ubuntu-latest # Platform SDK tooling is i486
             targetos: sailfish
             targetarch: aarch64
-          - os: ubuntu-24.04-arm
+          - os: ubuntu-latest
             targetos: sailfish
             targetarch: armv7hl
           - os: windows-latest
@@ -77,6 +77,7 @@ jobs:
       SDL_VERSION: 2.32.10
       FFMPEG_VERSION: '9.0'
       YY_THUNKS_VERSION: v1.2.1
+      SAILFISH_SDK_VERSION: 3.13.5
       SAILFISH_TARGET_VERSION: 5.1.0.11
       GH_CPU_ARCH: ${{ matrix.targetarch }}
       GH_CPU_OS: ${{ matrix.targetos }}
@@ -86,12 +87,12 @@ jobs:
       uses: actions/checkout@v6
       with:
         submodules: recursive
-    - name: Cache Sailfish SDK target
+    - name: Cache Sailfish SDK images
       if: matrix.targetos == 'sailfish'
       uses: actions/cache@v6
       with:
-        path: ${{ runner.temp }}/sailfish-target
-        key: sailfish-target-${{ env.SAILFISH_TARGET_VERSION }}-${{ matrix.targetarch }}
+        path: ${{ runner.temp }}/sailfish-sdk
+        key: sailfish-sdk-${{ env.SAILFISH_SDK_VERSION }}-${{ env.SAILFISH_TARGET_VERSION }}-${{ matrix.targetarch }}
     - name: Install dependencies
       run: bash scripts/gha/deps_${{ matrix.targetos }}.sh
     - name: Build engine
