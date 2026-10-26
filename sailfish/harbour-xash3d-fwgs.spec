@@ -17,6 +17,11 @@ BuildRequires: zlib-devel
 BuildRequires: bzip2-devel
 BuildRequires: libogg-devel
 BuildRequires: libvorbis-devel
+BuildRequires: pkgconfig(sailfishapp)
+BuildRequires: pkgconfig(Qt5Core)
+BuildRequires: pkgconfig(Qt5Gui)
+BuildRequires: pkgconfig(Qt5Qml)
+BuildRequires: pkgconfig(Qt5Quick)
 # the default renderer, nanogl, loads it through SDL, so it's not picked up automatically
 %ifarch aarch64
 Requires: libGLESv1_CM.so.1()(64bit)
@@ -52,14 +57,8 @@ python3 waf build %{?_smp_mflags}
 
 %install
 python3 waf install --destdir=%{buildroot}
-mv %{buildroot}%{_bindir}/xash3d %{buildroot}%{_bindir}/%{name}
 cd hlsdk-portable
 python3 waf install --destdir=%{buildroot}%{_datadir}/%{name}/lib/rodir
-cd ..
-install -D -m 644 scripts/sailfish/%{name}.desktop %{buildroot}%{_datadir}/applications/%{name}.desktop
-for size in 86x86 108x108 128x128 172x172; do
-	install -D -m 644 scripts/sailfish/icons/$size/%{name}.png %{buildroot}%{_datadir}/icons/hicolor/$size/apps/%{name}.png
-done
 
 %files
 %defattr(-,root,root,-)

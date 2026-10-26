@@ -1,0 +1,35 @@
+#! /usr/bin/env python
+# encoding: utf-8
+
+def options(opt):
+	pass
+
+def configure(conf):
+	# waf's qt5 tool can't parse Qt 5.6 configuration files, and moc is the only Qt tool needed here
+	conf.check_cfg(package='Qt5Core', uselib_store='QT5CORE', variables=['host_bins'])
+	conf.find_program('moc', path_list=[conf.env.QT5CORE_host_bins], var='MOC')
+	conf.check_cfg(package='Qt5Core Qt5Gui Qt5Qml Qt5Quick sailfishapp', uselib_store='SAILFISHAPP', args='--cflags --libs')
+
+def build(bld):
+	name = bld.env.SAILFISH_PACKAGE
+
+	bld(rule = '${MOC} ${SRC} -o ${TGT}', source = 'src/launcher.h', target = 'moc_launcher.cpp')
+
+	bld.program(
+		source = bld.path.ant_glob('src/*.cpp') + ['moc_launcher.cpp'],
+		target = name,
+		includes = 'src',
+		defines = ['XASH_PACKAGE_NAME="%s"' % name],
+		use = 'SAILFISHAPP DL',
+		rpath = bld.env.DEFAULT_RPATH,
+		install_path = bld.env.BINDIR
+	)
+
+	# SailfishApp::pathToMainQml looks for /usr/share/<binary name>/qml/<binary name>.qml
+	qml = bld.path.find_dir('qml')
+	bld.install_files('${PREFIX}/share/%s/qml' % name, qml.ant_glob('**/*.qml'), cwd = qml, relative_trick = True)
+
+	bld.install_files('${PREFIX}/share/applications', name + '.desktop')
+
+	for size in ['86x86', '108x108', '128x128', '172x172']:
+		bld.install_as('${PREFIX}/share/icons/hicolor/%s/apps/%s.png' % (size, name), 'icons/%s/%s.png' % (size, name))
