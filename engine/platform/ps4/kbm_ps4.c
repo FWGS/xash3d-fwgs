@@ -644,6 +644,40 @@ qboolean PS4_KeyboardActive( void )
 	return ps4kbm.kbd_active;
 }
 
+/*
+==============
+Platform_GetKeyModifiers
+
+==============
+*/
+key_modifier_t Platform_GetKeyModifiers( void )
+{
+	key_modifier_t mods = KeyModifier_None;
+
+	if( FBitSet( ps4kbm.mods, ORBIS_KEYBOARD_MOD_LEFT_SHIFT ))
+		SetBits( mods, KeyModifier_LeftShift );
+	if( FBitSet( ps4kbm.mods, ORBIS_KEYBOARD_MOD_RIGHT_SHIFT ))
+		SetBits( mods, KeyModifier_RightShift );
+	if( FBitSet( ps4kbm.mods, ORBIS_KEYBOARD_MOD_LEFT_CTRL ))
+		SetBits( mods, KeyModifier_LeftCtrl );
+	if( FBitSet( ps4kbm.mods, ORBIS_KEYBOARD_MOD_RIGHT_CTRL ))
+		SetBits( mods, KeyModifier_RightCtrl );
+	if( FBitSet( ps4kbm.mods, ORBIS_KEYBOARD_MOD_LEFT_ALT ))
+		SetBits( mods, KeyModifier_LeftAlt );
+	if( FBitSet( ps4kbm.mods, ORBIS_KEYBOARD_MOD_RIGHT_ALT ))
+		SetBits( mods, KeyModifier_RightAlt );
+	if( FBitSet( ps4kbm.mods, ORBIS_KEYBOARD_MOD_LEFT_META ))
+		SetBits( mods, KeyModifier_LeftSuper );
+	if( FBitSet( ps4kbm.mods, ORBIS_KEYBOARD_MOD_RIGHT_META ))
+		SetBits( mods, KeyModifier_RightSuper );
+	if( FBitSet( ps4kbm.locks, ORBIS_KEYBOARD_NUM_LOCK ))
+		SetBits( mods, KeyModifier_NumLock );
+	if( FBitSet( ps4kbm.locks, ORBIS_KEYBOARD_CAPS_LOCK ))
+		SetBits( mods, KeyModifier_CapsLock );
+
+	return mods;
+}
+
 void PS4_KbmShutdown( void )
 {
 	if( ps4kbm.kbd >= 0 )

@@ -397,15 +397,11 @@ static inline int Platform_TranslateKeyLayout( int keynum ) { return keynum; }
 int Platform_JoyInit( void ); // returns number of connected gamepads, negative if error
 void Platform_JoyShutdown( void );
 void Platform_CalibrateGamepadGyro( void );
+key_modifier_t Platform_GetKeyModifiers( void );
 #else
 static inline int Platform_JoyInit( void ) { return 0; }
 static inline void Platform_JoyShutdown( void ) { }
 static inline void Platform_CalibrateGamepadGyro( void ) { }
-#endif
-
-#if XASH_SDL >= 2
-key_modifier_t Platform_GetKeyModifiers( void );
-#else
 static inline key_modifier_t Platform_GetKeyModifiers( void ) { return KeyModifier_None; }
 #endif
 
