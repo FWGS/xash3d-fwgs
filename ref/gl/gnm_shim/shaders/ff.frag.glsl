@@ -1,4 +1,5 @@
-// Fragment shader of gl2_shim (ref/gl/gl2_shim/fragment.glsl.inc) for GNM.
+// Fragment shader of gnm_shim: vertex or current color modulated by the textures,
+// alpha test with GL_GREATER and GL_EXP fog.
 // Built with defines ATTR_COLOR, ATTR_TEXCOORD0, ATTR_TEXCOORD1,
 // FEAT_ALPHA_TEST, FEAT_FOG (0 or 1).
 #version 450

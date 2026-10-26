@@ -57,13 +57,13 @@ typedef struct gnm_dev_s
 	uint32_t frame;
 
 	// diagnostics
-	int debug;              // -gnmdebug level, see PS4_GL_Init
+	int debug;              // -gnmdebug level, see GNM_ShimInit
 	bool stats;             // -gnmstats: frame timing in the log every 300 frames
 	bool hung;              // GPU didn't finish a submit, nothing is submitted anymore
 	uint32_t submit_draws;  // draws recorded into the current command buffer
 	char last_draw[192];    // description of the last draw, filled with debug enabled
 
-	// OpenGL layer options from the command line, see PS4_GL_Init
+	// OpenGL layer options from the command line, see GNM_ShimInit
 	bool flip_front; // viewport flips Y, which inverts winding; -gnmnoflip turns it off
 	int mipmaps; // -gnmmips: 0 - off, 1 - power of two textures only, 2 - all textures
 } gnm_dev_t;

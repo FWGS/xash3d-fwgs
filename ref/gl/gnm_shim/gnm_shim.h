@@ -1,5 +1,5 @@
 /*
-gnm_shim.h - OpenGL ES 2.0 subset over GNM for ref_gl on PS4
+gnm_shim.h - fixed function OpenGL over GNM for ref_gl on PS4
 Copyright (C) 2026 sergiopoverony
 
 This program is free software: you can redistribute it and/or modify
@@ -19,11 +19,11 @@ GNU General Public License for more details.
 struct gnm_dev_api_s;
 
 // api: the device of the engine, from R_GetWindowHandle( REF_WINDOW_TYPE_GNM )
-int PS4_GL_Init( const struct gnm_dev_api_s *api );
+int GNM_ShimInit( const struct gnm_dev_api_s *api );
 // called before the engine presents the frame
-void PS4_GL_EndFrame( void );
+void GNM_ShimEndFrame( void );
 // called while the device is still open
-void PS4_GL_Shutdown( void );
-void *PS4_GL_GetProcAddress( const char *name );
+void GNM_ShimShutdown( void );
+void *GNM_ShimGetProcAddress( const char *name );
 
 #endif // GNM_SHIM_H

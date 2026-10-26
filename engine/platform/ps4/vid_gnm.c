@@ -16,7 +16,7 @@ GNU General Public License for more details.
 /*
 The engine owns the display and the GPU device (platform/ps4/gnm), like it owns the GL context
 on SDL. OpenGL renderers get the device with R_GetWindowHandle( REF_WINDOW_TYPE_GNM ) and draw
-through the OpenGL ES 2 subset implemented by ref_gl (ref/gl/gnm_shim) over the device.
+through the fixed function OpenGL subset implemented by ref_gl (ref/gl/gnm_shim) over the device.
 The screen has a fixed size and there are no windows
 */
 

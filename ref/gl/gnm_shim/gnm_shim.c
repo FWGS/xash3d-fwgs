@@ -1,5 +1,5 @@
 /*
-gnm_shim.c - OpenGL ES 2.0 subset over GNM for ref_gl on PS4
+gnm_shim.c - fixed function OpenGL over GNM for ref_gl on PS4
 Copyright (C) 2026 sergiopoverony
 
 This program is free software: you can redistribute it and/or modify
@@ -13,11 +13,11 @@ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 */
 
-// Implements what ref_gl with gl2_shim calls. gl2_shim turns
-// fixed function GL into one shader with a few feature flags; programs here only
-// recognize those flags in the shader source and use precompiled variants
-// (see shaders/ and gnm_shaders.c). Vertex data is copied into per-submit
-// memory on every draw and pulled by the vertex shader.
+// Implements what ref_gl calls, like vgl_shim does on top of vitaGL, but
+// there's no driver below: state, textures and draws go to GNM directly.
+// Fixed function state selects one of precompiled shader variants (see
+// shaders/ and gnm_shaders.h). Vertex data is copied into per-submit memory
+// on every draw and pulled by the vertex shader.
 
 #include <math.h>
 #include <stdio.h>
@@ -35,163 +35,33 @@ GNU General Public License for more details.
 
 #define GNM_DEV_CLIENT
 #include "gnm_dev.h"
+#include "xash3d_types.h"
+#include "gl_export.h"
 #include "gnm_shim.h"
 #include "gnm_shaders.h"
+
+#define GL_MIRRORED_REPEAT 0x8370
 
 const gnm_dev_api_t *gnm_api;
 
 #define GNM_LOG( ... ) gnm_api->log( "GNM: " __VA_ARGS__ )
 
-typedef unsigned int GLenum;
-typedef unsigned char GLboolean;
-typedef unsigned int GLbitfield;
-typedef int GLint;
-typedef int GLsizei;
-typedef unsigned int GLuint;
-typedef float GLfloat;
-typedef float GLclampf;
-typedef double GLdouble;
-typedef double GLclampd;
-typedef char GLchar;
-typedef void GLvoid;
-typedef intptr_t GLintptr;
-typedef intptr_t GLsizeiptr;
-
-#define GL_NO_ERROR                 0
-#define GL_INVALID_ENUM             0x0500
-#define GL_INVALID_VALUE            0x0501
-#define GL_INVALID_OPERATION        0x0502
-#define GL_OUT_OF_MEMORY            0x0505
-
-#define GL_POINTS                   0x0000
-#define GL_LINES                    0x0001
-#define GL_LINE_LOOP                0x0002
-#define GL_LINE_STRIP               0x0003
-#define GL_TRIANGLES                0x0004
-#define GL_TRIANGLE_STRIP           0x0005
-#define GL_TRIANGLE_FAN             0x0006
-#define GL_QUADS                    0x0007
-#define GL_POLYGON                  0x0009
-
-#define GL_ZERO                     0
-#define GL_ONE                      1
-#define GL_SRC_COLOR                0x0300
-#define GL_ONE_MINUS_SRC_COLOR      0x0301
-#define GL_SRC_ALPHA                0x0302
-#define GL_ONE_MINUS_SRC_ALPHA      0x0303
-#define GL_DST_ALPHA                0x0304
-#define GL_ONE_MINUS_DST_ALPHA      0x0305
-#define GL_DST_COLOR                0x0306
-#define GL_ONE_MINUS_DST_COLOR      0x0307
-#define GL_SRC_ALPHA_SATURATE       0x0308
-
-#define GL_NEVER                    0x0200
-#define GL_ALWAYS                   0x0207
-
-#define GL_FRONT                    0x0404
-#define GL_BACK                     0x0405
-#define GL_FRONT_AND_BACK           0x0408
-#define GL_CW                       0x0900
-#define GL_CCW                      0x0901
-
-#define GL_CULL_FACE                0x0B44
-#define GL_DEPTH_TEST               0x0B71
-#define GL_STENCIL_TEST             0x0B90
-#define GL_BLEND                    0x0BE2
-#define GL_SCISSOR_TEST             0x0C11
-#define GL_POLYGON_OFFSET_FILL      0x8037
-#define GL_VIEWPORT                 0x0BA2
-
-#define GL_DEPTH_BUFFER_BIT         0x00000100
-#define GL_COLOR_BUFFER_BIT         0x00004000
-
-#define GL_UNSIGNED_BYTE            0x1401
-#define GL_UNSIGNED_SHORT           0x1403
-#define GL_UNSIGNED_INT             0x1405
-#define GL_FLOAT                    0x1406
-
-#define GL_ALPHA                    0x1906
-#define GL_RGB                      0x1907
-#define GL_RGBA                     0x1908
-#define GL_LUMINANCE                0x1909
-#define GL_LUMINANCE_ALPHA          0x190A
-#define GL_BGR                      0x80E0
-#define GL_BGRA                     0x80E1
-
-#define GL_TEXTURE_2D               0x0DE1
-#define GL_TEXTURE_MAG_FILTER       0x2800
-#define GL_TEXTURE_MIN_FILTER       0x2801
-#define GL_TEXTURE_WRAP_S           0x2802
-#define GL_TEXTURE_WRAP_T           0x2803
-#define GL_NEAREST                  0x2600
-#define GL_NEAREST_MIPMAP_NEAREST   0x2700
-#define GL_NEAREST_MIPMAP_LINEAR    0x2702
-#define GL_LINEAR_MIPMAP_NEAREST    0x2701
-#define GL_LINEAR_MIPMAP_LINEAR     0x2703
-#define GL_CLAMP                    0x2900
-#define GL_CLAMP_TO_EDGE            0x812F
-#define GL_MIRRORED_REPEAT          0x8370
-#define GL_TEXTURE0                 0x84C0
-
-#define GL_UNPACK_ALIGNMENT         0x0CF5
-#define GL_PACK_ALIGNMENT           0x0D05
-
-#define GL_VENDOR                   0x1F00
-#define GL_RENDERER                 0x1F01
-#define GL_VERSION                  0x1F02
-#define GL_EXTENSIONS               0x1F03
-#define GL_TEXTURE_MAX_ANISOTROPY_EXT     0x84FE
-#define GL_MAX_TEXTURE_MAX_ANISOTROPY_EXT 0x84FF
-#define GL_SHADING_LANGUAGE_VERSION 0x8B8C
-
-#define GL_MAX_TEXTURE_SIZE         0x0D33
-#define GL_MAX_TEXTURE_UNITS        0x84E2
-#define GL_MAX_TEXTURE_IMAGE_UNITS  0x8872
-#define GL_MAX_TEXTURE_COORDS       0x8871
-#define GL_MAX_VERTEX_ATTRIBS       0x8869
-#define GL_MAX_VERTEX_UNIFORM_COMPONENTS 0x8B4A
-#define GL_MAJOR_VERSION            0x821B
-#define GL_MINOR_VERSION            0x821C
-#define GL_NUM_EXTENSIONS           0x821D
-#define GL_MAX_ELEMENTS_VERTICES    0x80E8
-#define GL_MAX_ELEMENTS_INDICES     0x80E9
-#define GL_RED_BITS                 0x0D52
-#define GL_GREEN_BITS               0x0D53
-#define GL_BLUE_BITS                0x0D54
-#define GL_ALPHA_BITS               0x0D55
-#define GL_DEPTH_BITS               0x0D56
-#define GL_STENCIL_BITS             0x0D57
-
-#define GL_ARRAY_BUFFER             0x8892
-#define GL_ELEMENT_ARRAY_BUFFER     0x8893
-
-#define GL_FRAGMENT_SHADER          0x8B30
-#define GL_VERTEX_SHADER            0x8B31
-#define GL_DELETE_STATUS            0x8B80
-#define GL_COMPILE_STATUS           0x8B81
-#define GL_LINK_STATUS              0x8B82
-#define GL_VALIDATE_STATUS          0x8B83
-#define GL_INFO_LOG_LENGTH          0x8B84
-#define GL_ATTACHED_SHADERS         0x8B85
-#define GL_SHADER_TYPE              0x8B4F
-
-#define MAX_TEXTURE_UNITS  2
+#define MAX_TEXTURE_UNITS   2
+#define MAX_TEXTURE_LEVELS  14 // 8192x8192 down to 1x1
+#define MAX_VERTS           ( 1024 * 1024 )
 #define VS_BASE_VERTEX_SGPR 2 // see set_shaders
 
+// vertex attributes, in the order of shader variant bits
+enum { SEM_POS, SEM_COLOR, SEM_TC0, SEM_TC1, SEM_COUNT };
+
 // descriptor tables: binding N of a shader is at offset N * 64, see psbc_build_set_layout
-// in opengnm-psbc; bindings are in shaders/gl2.*.glsl
+// in opengnm-psbc; bindings are in shaders/ff.*.glsl
 #define BINDING( n ) (( n ) * 64 )
 #define VS_TABLE_SIZE BINDING( 1 + SEM_COUNT ) // uniforms, then one buffer per attribute
 #define PS_TABLE_SIZE BINDING( 1 + MAX_TEXTURE_UNITS ) // uniforms, then textures
-#define MAX_ATTRIBS        8
-#define MAX_VERTS          ( 1024 * 1024 )
 
-// gl2_shim attributes, their order in programs and shader variants
-enum { SEM_POS, SEM_COLOR, SEM_TC0, SEM_TC1, SEM_COUNT };
-
-// uniform locations given to gl2_shim
-enum { U_MVP, U_COLOR, U_ALPHA, U_FOG, U_TEX0, U_TEX1, U_COUNT };
-static const char *uniform_names[U_COUNT] = { "uMVP", "uColor", "uAlphaTest", "uFog", "uTex0", "uTex1" };
+// texture matrices are kept for glMatrixMode, but the shaders don't apply them
+enum { MAT_MODELVIEW, MAT_PROJECTION, MAT_TEXTURE, MAT_COUNT };
 
 /*
 ==============================================================================
@@ -200,8 +70,6 @@ Objects
 
 ==============================================================================
 */
-#define MAX_TEXTURE_LEVELS 14 // 8192x8192 down to 1x1
-
 typedef struct gl_texture_level_s
 {
 	uint8_t *shadow;  // RGBA8 copy, kept for partial updates and reuploads
@@ -216,6 +84,7 @@ typedef struct gl_texture_s
 	int width, height;    // level 0
 	int numlevels;        // levels in GPU memory
 	bool dirty;           // shadow copies changed, GPU memory is rebuilt before the next draw
+	GLint internalformat; // channels of the client data that are used, see apply_internalformat
 	void *gpu;
 	gl_texture_level_t levels[MAX_TEXTURE_LEVELS];
 	GnmTexture desc;
@@ -231,25 +100,8 @@ typedef struct gl_buffer_s
 	size_t size;
 } gl_buffer_t;
 
-typedef struct gl_object_s
-{
-	enum { OBJ_FREE, OBJ_SHADER, OBJ_PROGRAM } kind;
-
-	// shader
-	GLenum type;
-	int flags;     // parsed from the source
-	bool compiled;
-
-	// program
-	int vsflags, psflags;
-	bool linked;
-	float uniforms_mvp[16];
-	float uniforms_color[4];
-	float uniforms_fog[4];
-	float uniform_alpha;
-} gl_object_t;
-
-typedef struct gl_attrib_s
+// client array, buffer is GL_ARRAY_BUFFER bound when the pointer was set
+typedef struct gl_array_s
 {
 	bool enabled;
 	GLint size;
@@ -257,7 +109,18 @@ typedef struct gl_attrib_s
 	GLsizei stride;
 	const void *pointer;
 	GLuint buffer;
-} gl_attrib_t;
+} gl_array_t;
+
+// vertex attribute of a draw, in client memory, buffer contents or the current state
+typedef struct draw_attrib_s
+{
+	const uint8_t *data; // NULL - not used by the draw
+	size_t limit;        // bytes that can be read from data
+	GLint size;
+	GLenum type;
+	GLsizei stride;      // 0 - tightly packed
+	bool constant;       // one value for all vertices
+} draw_attrib_t;
 
 static struct
 {
@@ -274,14 +137,34 @@ static struct
 	GLuint next_buffer;
 	GLuint array_buffer, element_buffer;
 
-	gl_object_t *objects;
-	int numobjects;
-	GLuint program;
-
-	gl_attrib_t attribs[MAX_ATTRIBS];
-
-	int active_unit;
+	int active_unit, client_unit;
 	GLuint bound[MAX_TEXTURE_UNITS];
+
+	// fixed function state
+	bool texture_2d[MAX_TEXTURE_UNITS];
+	bool alpha_test, fog;
+	float alpha_ref;
+	float fog_color[4];
+	float fog_density;
+	float matrix[MAT_COUNT][16];
+	int matrix_mode;
+	float color[4];
+	float texcoord[MAX_TEXTURE_UNITS][2];
+
+	// client arrays: vertices, colors, texture coordinates of every unit
+	gl_array_t arrays[SEM_COUNT];
+
+	// vertices between glBegin and glEnd
+	bool begun;
+	GLenum prim;
+	int numverts, maxverts;
+	float *imm_pos;
+	float *imm_color;
+	float *imm_tc[MAX_TEXTURE_UNITS];
+
+	// GL_QUADS drawn as triangles
+	uint32_t *quad_indices;
+	int maxquadindices;
 
 	// render state
 	bool blend, depth_test, cull, scissor_test, polygon_offset;
@@ -304,8 +187,8 @@ static struct
 	const gnm_ps_t *cur_ps;
 	int cur_prim;
 
-	gnm_vs_t clear_vs, vs[GNM_GL2_VS_COUNT];
-	gnm_ps_t clear_ps, ps[GNM_GL2_PS_COUNT];
+	gnm_vs_t clear_vs, vs[GNM_FF_VS_COUNT];
+	gnm_ps_t clear_ps, ps[GNM_FF_PS_COUNT];
 
 	bool flip_front; // front face meaning swapped, needed on the console (-gnmnoflip disables)
 	int mipmaps;     // 0 - level 0 only, 1 - power of two textures, 2 - all textures
@@ -329,59 +212,6 @@ static uint32_t recording_serial( void )
 /*
 ==============================================================================
 
-Unimplemented functions: every name gets its own stub that reports it once
-
-==============================================================================
-*/
-#define MAX_STUBS 128
-static const char *stub_names[MAX_STUBS];
-static bool stub_reported[MAX_STUBS];
-static int numstubs;
-
-static void stub_called( int i )
-{
-	if( !stub_reported[i] )
-	{
-		GNM_LOG( "unimplemented %s called\n", stub_names[i] ? stub_names[i] : "?" );
-		stub_reported[i] = true;
-	}
-}
-
-#define STUB( n ) static long stub_##n( void ) { stub_called( n ); return 0; }
-#define STUB8( n ) STUB( n##0 ) STUB( n##1 ) STUB( n##2 ) STUB( n##3 ) STUB( n##4 ) STUB( n##5 ) STUB( n##6 ) STUB( n##7 )
-STUB8( 0 ) STUB8( 1 ) STUB8( 2 ) STUB8( 3 ) STUB8( 4 ) STUB8( 5 ) STUB8( 6 ) STUB8( 7 )
-STUB8( 8 ) STUB8( 9 ) STUB8( 10 ) STUB8( 11 ) STUB8( 12 ) STUB8( 13 ) STUB8( 14 ) STUB8( 15 )
-#undef STUB
-#undef STUB8
-
-#define STUBREF8( n ) stub_##n##0, stub_##n##1, stub_##n##2, stub_##n##3, stub_##n##4, stub_##n##5, stub_##n##6, stub_##n##7
-static long (*const stubs[MAX_STUBS])( void ) =
-{
-	STUBREF8( 0 ), STUBREF8( 1 ), STUBREF8( 2 ), STUBREF8( 3 ), STUBREF8( 4 ), STUBREF8( 5 ), STUBREF8( 6 ), STUBREF8( 7 ),
-	STUBREF8( 8 ), STUBREF8( 9 ), STUBREF8( 10 ), STUBREF8( 11 ), STUBREF8( 12 ), STUBREF8( 13 ), STUBREF8( 14 ), STUBREF8( 15 ),
-};
-#undef STUBREF8
-
-static void *get_stub( const char *name )
-{
-	int i;
-
-	for( i = 0; i < numstubs; i++ )
-	{
-		if( !strcmp( stub_names[i], name ))
-			return (void *)stubs[i];
-	}
-
-	if( numstubs >= MAX_STUBS )
-		return NULL;
-
-	stub_names[numstubs] = strdup( name );
-	return (void *)stubs[numstubs++];
-}
-
-/*
-==============================================================================
-
 Errors, strings, queries
 
 ==============================================================================
@@ -393,79 +223,81 @@ static GLenum gl_GetError( void )
 	return err;
 }
 
-static const char *gl_GetString( GLenum name )
+static const GLubyte *gl_GetString( GLenum name )
 {
 	switch( name )
 	{
-	case GL_VENDOR: return "Xash3D FWGS";
-	case GL_RENDERER: return "PS4 GNM (opengnm)";
-	case GL_VERSION: return "OpenGL ES 2.0 xash-gnm";
-	case GL_SHADING_LANGUAGE_VERSION: return "OpenGL ES GLSL ES 1.00";
-	case GL_EXTENSIONS: return "GL_OES_texture_npot GL_EXT_draw_range_elements GL_OES_draw_elements_base_vertex GL_EXT_texture_filter_anisotropic";
+	case GL_VENDOR: return (const GLubyte *)"Xash3D FWGS";
+	case GL_RENDERER: return (const GLubyte *)"PS4 GNM (opengnm)";
+	case GL_VERSION: return (const GLubyte *)"1.1 xash-gnm";
+	case GL_EXTENSIONS: return (const GLubyte *)"GL_ARB_multitexture GL_ARB_texture_non_power_of_two GL_EXT_texture_edge_clamp "
+		"GL_EXT_texture_filter_anisotropic GL_ARB_vertex_buffer_object";
 	}
 
 	set_error( GL_INVALID_ENUM );
-	return "";
+	return (const GLubyte *)"";
 }
 
 static void gl_GetIntegerv( GLenum pname, GLint *v )
 {
-	static bool reported[16];
-	static GLenum reported_names[16];
+	static GLenum s_reported[16];
 	int i;
 
 	switch( pname )
 	{
-	case GL_MAJOR_VERSION: *v = 2; return;
-	case GL_MINOR_VERSION: *v = 0; return;
-	case GL_NUM_EXTENSIONS: *v = 0; return;
-	case GL_MAX_TEXTURE_SIZE: *v = 4096; return;
-	case GL_MAX_TEXTURE_UNITS:
-	case GL_MAX_TEXTURE_IMAGE_UNITS:
-	case GL_MAX_TEXTURE_COORDS: *v = MAX_TEXTURE_UNITS; return;
-	case GL_MAX_VERTEX_ATTRIBS: *v = MAX_ATTRIBS; return;
-	case GL_MAX_VERTEX_UNIFORM_COMPONENTS: *v = 1024; return;
-	case GL_MAX_ELEMENTS_VERTICES:
-	case GL_MAX_ELEMENTS_INDICES: *v = MAX_VERTS; return;
-	case GL_RED_BITS: case GL_GREEN_BITS: case GL_BLUE_BITS: case GL_ALPHA_BITS: *v = 8; return;
-	case GL_DEPTH_BITS: *v = 24; return;
-	case GL_STENCIL_BITS: *v = 0; return;
-	case GL_VIEWPORT:
-		for( i = 0; i < 4; i++ )
-			v[i] = gl.viewport[i];
+	case GL_MAX_TEXTURE_SIZE:
+		*v = 4096;
+		return;
+	case GL_MAX_TEXTURE_UNITS_ARB:
+	case GL_MAX_TEXTURE_IMAGE_UNITS_ARB:
+	case GL_MAX_TEXTURE_COORDS_ARB:
+		*v = MAX_TEXTURE_UNITS;
+		return;
+	case GL_MAJOR_VERSION:
+	case GL_MINOR_VERSION:
+	case GL_NUM_EXTENSIONS:
+		// not in OpenGL 1.1, ref_gl takes the version from GL_VERSION
+		*v = 0;
 		return;
 	}
 
 	*v = 0;
 
-	for( i = 0; i < 16 && reported[i]; i++ )
+	for( i = 0; i < 16 && s_reported[i]; i++ )
 	{
-		if( reported_names[i] == pname )
+		if( s_reported[i] == pname )
 			return;
 	}
 
 	if( i < 16 )
 	{
-		reported[i] = true;
-		reported_names[i] = pname;
+		s_reported[i] = pname;
 		GNM_LOG( "glGetIntegerv: unknown 0x%x\n", pname );
 	}
 }
 
 static void gl_GetFloatv( GLenum pname, GLfloat *v )
 {
-	GLint i[4] = { 0 };
-	int n = pname == GL_VIEWPORT ? 4 : 1, k;
+	GLint i = 0;
 
-	if( pname == GL_MAX_TEXTURE_MAX_ANISOTROPY_EXT )
+	switch( pname )
 	{
+	case GL_MODELVIEW_MATRIX:
+		memcpy( v, gl.matrix[MAT_MODELVIEW], sizeof( gl.matrix[0] ));
+		return;
+	case GL_PROJECTION_MATRIX:
+		memcpy( v, gl.matrix[MAT_PROJECTION], sizeof( gl.matrix[0] ));
+		return;
+	case GL_FOG_COLOR:
+		memcpy( v, gl.fog_color, sizeof( gl.fog_color ));
+		return;
+	case GL_MAX_TEXTURE_MAX_ANISOTROPY_EXT:
 		*v = 16.0f;
 		return;
 	}
 
-	gl_GetIntegerv( pname, i );
-	for( k = 0; k < n; k++ )
-		v[k] = (float)i[k];
+	gl_GetIntegerv( pname, &i );
+	*v = (float)i;
 }
 
 static void gl_GetBooleanv( GLenum pname, GLboolean *v )
@@ -482,10 +314,6 @@ static void gl_Finish( void )
 }
 
 static void gl_Flush( void )
-{
-}
-
-static void gl_Hint( GLenum target, GLenum mode )
 {
 }
 
@@ -512,8 +340,11 @@ Render state
 
 ==============================================================================
 */
-static bool *cap_ptr( GLenum cap )
+// gpu: the state is emitted into the command buffer, others select shader variants
+static bool *cap_ptr( GLenum cap, bool *gpu )
 {
+	*gpu = true;
+
 	switch( cap )
 	{
 	case GL_BLEND: return &gl.blend;
@@ -522,34 +353,46 @@ static bool *cap_ptr( GLenum cap )
 	case GL_SCISSOR_TEST: return &gl.scissor_test;
 	case GL_POLYGON_OFFSET_FILL: return &gl.polygon_offset;
 	}
+
+	*gpu = false;
+
+	switch( cap )
+	{
+	case GL_TEXTURE_2D: return &gl.texture_2d[gl.active_unit];
+	case GL_ALPHA_TEST: return &gl.alpha_test;
+	case GL_FOG: return &gl.fog;
+	}
+
 	return NULL;
+}
+
+static void set_cap( GLenum cap, bool enable )
+{
+	bool gpu;
+	bool *p = cap_ptr( cap, &gpu );
+
+	if( !p || *p == enable )
+		return;
+
+	*p = enable;
+	if( gpu )
+		gl.dirty_state = true;
 }
 
 static void gl_Enable( GLenum cap )
 {
-	bool *p = cap_ptr( cap );
-
-	if( p && !*p )
-	{
-		*p = true;
-		gl.dirty_state = true;
-	}
+	set_cap( cap, true );
 }
 
 static void gl_Disable( GLenum cap )
 {
-	bool *p = cap_ptr( cap );
-
-	if( p && *p )
-	{
-		*p = false;
-		gl.dirty_state = true;
-	}
+	set_cap( cap, false );
 }
 
 static GLboolean gl_IsEnabled( GLenum cap )
 {
-	bool *p = cap_ptr( cap );
+	bool gpu;
+	bool *p = cap_ptr( cap, &gpu );
 	return p ? *p : false;
 }
 
@@ -572,16 +415,11 @@ static void gl_DepthMask( GLboolean flag )
 	gl.dirty_state = true;
 }
 
-static void gl_DepthRangef( GLfloat n, GLfloat f )
-{
-	gl.depth_near = n;
-	gl.depth_far = f;
-	gl.dirty_state = true;
-}
-
 static void gl_DepthRange( GLclampd n, GLclampd f )
 {
-	gl_DepthRangef( (float)n, (float)f );
+	gl.depth_near = (float)n;
+	gl.depth_far = (float)f;
+	gl.dirty_state = true;
 }
 
 static void gl_ColorMask( GLboolean r, GLboolean g, GLboolean b, GLboolean a )
@@ -635,28 +473,83 @@ static void gl_ClearColor( GLclampf r, GLclampf g, GLclampf b, GLclampf a )
 	gl.clear_color[3] = a;
 }
 
-static void gl_ClearDepthf( GLclampf d )
-{
-	gl.clear_depth = d;
-}
-
 static void gl_ClearDepth( GLclampd d )
 {
 	gl.clear_depth = (float)d;
 }
 
-static void gl_noop_GLenum( GLenum a )
+// the shaders only compare with GL_GREATER
+static void gl_AlphaFunc( GLenum func, GLclampf ref )
+{
+	gl.alpha_ref = ref;
+}
+
+// the shaders only do GL_EXP fog
+static void gl_Fogf( GLenum pname, GLfloat param )
+{
+	if( pname == GL_FOG_DENSITY )
+		gl.fog_density = param;
+}
+
+static void gl_Fogi( GLenum pname, GLint param )
+{
+	gl_Fogf( pname, (GLfloat)param );
+}
+
+static void gl_Fogfv( GLenum pname, const GLfloat *params )
+{
+	if( pname == GL_FOG_COLOR )
+		memcpy( gl.fog_color, params, sizeof( gl.fog_color ));
+	else
+		gl_Fogf( pname, params[0] );
+}
+
+// the shaders always modulate
+static void gl_TexEnvi( GLenum target, GLenum pname, GLint param )
 {
 }
 
-static void gl_noop_GLfloat( GLfloat a )
+static void gl_TexEnvf( GLenum target, GLenum pname, GLfloat param )
 {
 }
 
-static void gl_noop_GLenum_GLenum( GLenum a, GLenum b )
+static void gl_TexEnvfv( GLenum target, GLenum pname, const GLfloat *params )
 {
 }
 
+static void gl_TexGeni( GLenum coord, GLenum pname, GLint param )
+{
+}
+
+static void gl_Hint( GLenum target, GLenum mode )
+{
+}
+
+static void gl_ShadeModel( GLenum mode )
+{
+}
+
+static void gl_PolygonMode( GLenum face, GLenum mode )
+{
+}
+
+static void gl_LineWidth( GLfloat width )
+{
+}
+
+static void gl_PointSize( GLfloat size )
+{
+}
+
+static void gl_DrawBuffer( GLenum mode )
+{
+}
+
+static void gl_ReadBuffer( GLenum mode )
+{
+}
+
+// there's no stencil buffer
 static void gl_StencilFunc( GLenum func, GLint ref, GLuint mask )
 {
 }
@@ -890,6 +783,70 @@ static void set_primitive( GnmCommandBuffer *cmd, int prim )
 /*
 ==============================================================================
 
+Matrices
+
+==============================================================================
+*/
+static void identity( float *m )
+{
+	memset( m, 0, sizeof( float ) * 16 );
+	m[0] = m[5] = m[10] = m[15] = 1.0f;
+}
+
+// column-major, out = a * b
+static void mat_mul( const float *a, const float *b, float *out )
+{
+	for( int c = 0; c < 4; c++ )
+	{
+		for( int r = 0; r < 4; r++ )
+			out[c * 4 + r] = a[r] * b[c * 4] + a[4 + r] * b[c * 4 + 1] + a[8 + r] * b[c * 4 + 2] + a[12 + r] * b[c * 4 + 3];
+	}
+}
+
+static void gl_MatrixMode( GLenum mode )
+{
+	switch( mode )
+	{
+	case GL_MODELVIEW: gl.matrix_mode = MAT_MODELVIEW; break;
+	case GL_PROJECTION: gl.matrix_mode = MAT_PROJECTION; break;
+	case GL_TEXTURE: gl.matrix_mode = MAT_TEXTURE; break;
+	default: set_error( GL_INVALID_ENUM ); break;
+	}
+}
+
+static void gl_LoadIdentity( void )
+{
+	identity( gl.matrix[gl.matrix_mode] );
+}
+
+static void gl_LoadMatrixf( const GLfloat *m )
+{
+	memcpy( gl.matrix[gl.matrix_mode], m, sizeof( gl.matrix[0] ));
+}
+
+static void gl_Translatef( GLfloat x, GLfloat y, GLfloat z )
+{
+	float *m = gl.matrix[gl.matrix_mode];
+
+	for( int r = 0; r < 4; r++ )
+		m[12 + r] += x * m[r] + y * m[4 + r] + z * m[8 + r];
+}
+
+static void gl_Scalef( GLfloat x, GLfloat y, GLfloat z )
+{
+	float *m = gl.matrix[gl.matrix_mode];
+
+	for( int r = 0; r < 4; r++ )
+	{
+		m[r] *= x;
+		m[4 + r] *= y;
+		m[8 + r] *= z;
+	}
+}
+
+/*
+==============================================================================
+
 Textures
 
 ==============================================================================
@@ -922,9 +879,10 @@ static gl_texture_t *get_texture( GLuint name, bool create )
 		t = &gl.textures[name];
 		memset( t, 0, sizeof( *t ));
 		t->exists = true;
+		t->internalformat = GL_RGBA;
 		t->min_filter = GL_NEAREST_MIPMAP_LINEAR;
-		t->mag_filter = 0x2601; // GL_LINEAR
-		t->wrap_s = t->wrap_t = 0x2901; // GL_REPEAT
+		t->mag_filter = GL_LINEAR;
+		t->wrap_s = t->wrap_t = GL_REPEAT;
 	}
 
 	return &gl.textures[name];
@@ -1003,10 +961,18 @@ static void gl_BindTexture( GLenum target, GLuint texture )
 
 static void gl_ActiveTexture( GLenum unit )
 {
-	int u = (int)unit - GL_TEXTURE0;
+	int u = (int)unit - GL_TEXTURE0_ARB;
 
 	if( u >= 0 && u < MAX_TEXTURE_UNITS )
 		gl.active_unit = u;
+}
+
+static void gl_ClientActiveTexture( GLenum unit )
+{
+	int u = (int)unit - GL_TEXTURE0_ARB;
+
+	if( u >= 0 && u < MAX_TEXTURE_UNITS )
+		gl.client_unit = u;
 }
 
 static void gl_TexParameteri( GLenum target, GLenum pname, GLint param )
@@ -1067,21 +1033,52 @@ static bool convert_pixels( uint8_t *dst, int dststride, const uint8_t *src, int
 			continue;
 		}
 
-		for( x = 0; x < w; x++, s += comps, d += 4 )
+		for( x = 0; x < w; x++ )
 		{
+			const uint8_t *sp = s + x * comps;
+			uint8_t *dp = d + x * 4;
+
 			switch( format )
 			{
-			case GL_BGRA: d[0] = s[2]; d[1] = s[1]; d[2] = s[0]; d[3] = s[3]; break;
-			case GL_RGB: d[0] = s[0]; d[1] = s[1]; d[2] = s[2]; d[3] = 255; break;
-			case GL_BGR: d[0] = s[2]; d[1] = s[1]; d[2] = s[0]; d[3] = 255; break;
-			case GL_LUMINANCE_ALPHA: d[0] = d[1] = d[2] = s[0]; d[3] = s[1]; break;
-			case GL_LUMINANCE: d[0] = d[1] = d[2] = s[0]; d[3] = 255; break;
-			case GL_ALPHA: d[0] = d[1] = d[2] = 255; d[3] = s[0]; break;
+			case GL_BGRA: dp[0] = sp[2]; dp[1] = sp[1]; dp[2] = sp[0]; dp[3] = sp[3]; break;
+			case GL_RGB: dp[0] = sp[0]; dp[1] = sp[1]; dp[2] = sp[2]; dp[3] = 255; break;
+			case GL_BGR: dp[0] = sp[2]; dp[1] = sp[1]; dp[2] = sp[0]; dp[3] = 255; break;
+			case GL_LUMINANCE_ALPHA: dp[0] = dp[1] = dp[2] = sp[0]; dp[3] = sp[1]; break;
+			case GL_LUMINANCE: dp[0] = dp[1] = dp[2] = sp[0]; dp[3] = 255; break;
+			case GL_ALPHA: dp[0] = dp[1] = dp[2] = 255; dp[3] = sp[0]; break;
 			}
 		}
 	}
 
 	return true;
+}
+
+// what the internal format keeps of RGBA8: no alpha in color and luminance formats,
+// red in every channel of intensity formats
+static void apply_internalformat( uint8_t *dst, int dststride, int w, int h, GLint internalformat )
+{
+	int x, y;
+
+	switch( internalformat )
+	{
+	case GL_RGB: case GL_RGB5: case GL_RGB8: case GL_LUMINANCE: case GL_LUMINANCE4: case GL_LUMINANCE8:
+		for( y = 0; y < h; y++ )
+		{
+			for( x = 0; x < w; x++ )
+				dst[y * dststride + x * 4 + 3] = 255;
+		}
+		break;
+	case GL_INTENSITY: case GL_INTENSITY8:
+		for( y = 0; y < h; y++ )
+		{
+			for( x = 0; x < w; x++ )
+			{
+				uint8_t *p = dst + y * dststride + x * 4;
+				p[1] = p[2] = p[3] = p[0];
+			}
+		}
+		break;
+	}
 }
 
 static uint32_t next_pow2( uint32_t v )
@@ -1231,6 +1228,7 @@ static void gl_TexImage2D( GLenum target, GLint level, GLint internalformat, GLs
 		free_texture_storage( t );
 		t->width = width;
 		t->height = height;
+		t->internalformat = internalformat;
 	}
 
 	l = &t->levels[level];
@@ -1240,19 +1238,24 @@ static void gl_TexImage2D( GLenum target, GLint level, GLint internalformat, GLs
 	l->shadow = calloc( 1, (size_t)width * height * 4 );
 	t->dirty = true;
 
-	if( pixels && !convert_pixels( l->shadow, width * 4, pixels, width, height, format, type ))
+	if( pixels )
 	{
-		static bool reported;
-		if( !reported )
+		if( convert_pixels( l->shadow, width * 4, pixels, width, height, format, type ))
+			apply_internalformat( l->shadow, width * 4, width, height, t->internalformat );
+		else
 		{
-			GNM_LOG( "glTexImage2D: unsupported format 0x%x type 0x%x\n", format, type );
-			reported = true;
+			static bool s_reported;
+			if( !s_reported )
+			{
+				GNM_LOG( "glTexImage2D: unsupported format 0x%x type 0x%x\n", format, type );
+				s_reported = true;
+			}
 		}
 	}
 
 	if( gnm_dev.debug && level == 0 )
-		GNM_LOG( "glTexImage2D: texture %u %dx%d, format 0x%x type 0x%x align %d, %s\n",
-			gl.bound[gl.active_unit], width, height, format, type, gl.unpack_alignment,
+		GNM_LOG( "glTexImage2D: texture %u %dx%d, internal format 0x%x, format 0x%x type 0x%x align %d, %s\n",
+			gl.bound[gl.active_unit], width, height, internalformat, format, type, gl.unpack_alignment,
 			pixels ? "data" : "no data" );
 }
 
@@ -1260,6 +1263,7 @@ static void gl_TexSubImage2D( GLenum target, GLint level, GLint x, GLint y, GLsi
 {
 	gl_texture_t *t = bound_texture();
 	gl_texture_level_t *l;
+	uint8_t *dst;
 	int row;
 
 	if( !t || target != GL_TEXTURE_2D || level < 0 || level >= MAX_TEXTURE_LEVELS || !pixels )
@@ -1277,21 +1281,23 @@ static void gl_TexSubImage2D( GLenum target, GLint level, GLint x, GLint y, GLsi
 
 	if( gnm_dev.debug )
 	{
-		static int logged;
-		if( logged < 64 || gnm_dev.debug >= 2 )
+		static int s_logged;
+		if( s_logged < 64 || gnm_dev.debug >= 2 )
 		{
 			GNM_LOG( "glTexSubImage2D: texture %u level %d (%dx%d) rect %d,%d %dx%d, format 0x%x type 0x%x align %d, %s\n",
 				gl.bound[gl.active_unit], level, l->width, l->height, x, y, width, height, format, type, gl.unpack_alignment,
 				t->dirty || !t->gpu ? "pending upload" : t->used_serial == recording_serial() ? "in use, new memory" : "in place" );
-			logged++;
+			s_logged++;
 		}
 	}
 
-	if( !convert_pixels( l->shadow + ((size_t)y * l->width + x ) * 4, l->width * 4, pixels, width, height, format, type ))
+	dst = l->shadow + ((size_t)y * l->width + x ) * 4;
+	if( !convert_pixels( dst, l->width * 4, pixels, width, height, format, type ))
 	{
 		GNM_LOG( "glTexSubImage2D: unsupported format 0x%x type 0x%x\n", format, type );
 		return;
 	}
+	apply_internalformat( dst, l->width * 4, width, height, t->internalformat );
 
 	// GPU still has to read the old contents in this submit, new memory is made
 	// before the next draw that uses the texture
@@ -1385,10 +1391,16 @@ static GLuint *buffer_binding( GLenum target )
 {
 	switch( target )
 	{
-	case GL_ARRAY_BUFFER: return &gl.array_buffer;
-	case GL_ELEMENT_ARRAY_BUFFER: return &gl.element_buffer;
+	case GL_ARRAY_BUFFER_ARB: return &gl.array_buffer;
+	case GL_ELEMENT_ARRAY_BUFFER_ARB: return &gl.element_buffer;
 	}
 	return NULL;
+}
+
+static gl_buffer_t *bound_buffer( GLenum target )
+{
+	GLuint *bind = buffer_binding( target );
+	return bind ? get_buffer( *bind, false ) : NULL;
 }
 
 static void gl_GenBuffers( GLsizei n, GLuint *buffers )
@@ -1404,12 +1416,11 @@ static void gl_GenBuffers( GLsizei n, GLuint *buffers )
 
 static void gl_DeleteBuffers( GLsizei n, const GLuint *buffers )
 {
-	int i;
+	int i, a;
 
 	for( i = 0; i < n; i++ )
 	{
 		gl_buffer_t *b = get_buffer( buffers[i], false );
-		int a;
 
 		if( !b )
 			continue;
@@ -1417,12 +1428,14 @@ static void gl_DeleteBuffers( GLsizei n, const GLuint *buffers )
 		free( b->data );
 		memset( b, 0, sizeof( *b ));
 
-		if( gl.array_buffer == buffers[i] ) gl.array_buffer = 0;
-		if( gl.element_buffer == buffers[i] ) gl.element_buffer = 0;
-		for( a = 0; a < MAX_ATTRIBS; a++ )
+		if( gl.array_buffer == buffers[i] )
+			gl.array_buffer = 0;
+		if( gl.element_buffer == buffers[i] )
+			gl.element_buffer = 0;
+		for( a = 0; a < SEM_COUNT; a++ )
 		{
-			if( gl.attribs[a].buffer == buffers[i] )
-				gl.attribs[a].buffer = 0;
+			if( gl.arrays[a].buffer == buffers[i] )
+				gl.arrays[a].buffer = 0;
 		}
 	}
 }
@@ -1444,10 +1457,9 @@ static void gl_BindBuffer( GLenum target, GLuint buffer )
 }
 
 // buffer contents live in CPU memory, draws copy what they use
-static void gl_BufferData( GLenum target, GLsizeiptr size, const GLvoid *data, GLenum usage )
+static void gl_BufferData( GLenum target, GLsizeiptrARB size, const GLvoid *data, GLenum usage )
 {
-	GLuint *bind = buffer_binding( target );
-	gl_buffer_t *b = bind ? get_buffer( *bind, false ) : NULL;
+	gl_buffer_t *b = bound_buffer( target );
 
 	if( !b || size < 0 )
 		return;
@@ -1459,315 +1471,25 @@ static void gl_BufferData( GLenum target, GLsizeiptr size, const GLvoid *data, G
 		memcpy( b->data, data, size );
 }
 
-static void gl_BufferSubData( GLenum target, GLintptr offset, GLsizeiptr size, const GLvoid *data )
+static void gl_BufferSubData( GLenum target, GLintptrARB offset, GLsizeiptrARB size, const GLvoid *data )
 {
-	GLuint *bind = buffer_binding( target );
-	gl_buffer_t *b = bind ? get_buffer( *bind, false ) : NULL;
+	gl_buffer_t *b = bound_buffer( target );
 
-	if( !b || !b->data || offset < 0 || offset + size > (GLintptr)b->size )
+	if( !b || !b->data || offset < 0 || size < 0 || (size_t)offset + size > b->size )
 		return;
 
 	memcpy( b->data + offset, data, size );
 }
 
-/*
-==============================================================================
-
-Shaders and programs
-
-==============================================================================
-*/
-static gl_object_t *get_object( GLuint name, int kind )
+static GLvoid *gl_MapBuffer( GLenum target, GLenum access )
 {
-	if( name == 0 || (int)name >= gl.numobjects || (int)gl.objects[name].kind != kind )
-		return NULL;
-	return &gl.objects[name];
+	gl_buffer_t *b = bound_buffer( target );
+	return b ? b->data : NULL;
 }
 
-static GLuint new_object( int kind )
+static GLboolean gl_UnmapBuffer( GLenum target )
 {
-	int i;
-
-	for( i = 1; i < gl.numobjects; i++ )
-	{
-		if( gl.objects[i].kind == OBJ_FREE )
-			break;
-	}
-
-	if( i >= gl.numobjects )
-	{
-		int num = gl.numobjects ? gl.numobjects * 2 : 64;
-		gl.objects = realloc( gl.objects, num * sizeof( gl_object_t ));
-		memset( gl.objects + gl.numobjects, 0, ( num - gl.numobjects ) * sizeof( gl_object_t ));
-		if( !gl.numobjects )
-			i = 1;
-		gl.numobjects = num;
-	}
-
-	memset( &gl.objects[i], 0, sizeof( gl.objects[i] ));
-	gl.objects[i].kind = kind;
-	return i;
-}
-
-static GLuint gl_CreateShader( GLenum type )
-{
-	GLuint id = new_object( OBJ_SHADER );
-	gl.objects[id].type = type;
-	return id;
-}
-
-static int define_value( const char *src, const char *name )
-{
-	char key[64];
-	const char *p;
-
-	snprintf( key, sizeof( key ), "#define %s ", name );
-	p = strstr( src, key );
-	return p ? atoi( p + strlen( key )) : 0;
-}
-
-static void gl_ShaderSource( GLuint shader, GLsizei count, const GLchar *const *strings, const GLint *lengths )
-{
-	gl_object_t *o = get_object( shader, OBJ_SHADER );
-	size_t total = 0;
-	char *src;
-	int i;
-
-	if( !o )
-		return;
-
-	for( i = 0; i < count; i++ )
-		total += lengths && lengths[i] >= 0 ? (size_t)lengths[i] : strlen( strings[i] );
-
-	src = malloc( total + 1 );
-	total = 0;
-	for( i = 0; i < count; i++ )
-	{
-		size_t len = lengths && lengths[i] >= 0 ? (size_t)lengths[i] : strlen( strings[i] );
-		memcpy( src + total, strings[i], len );
-		total += len;
-	}
-	src[total] = 0;
-
-	// only gl2_shim shaders are known: features come from its defines
-	o->flags = 0;
-	if( define_value( src, "ATTR_COLOR" )) o->flags |= GNM_GL2_COLOR;
-	if( define_value( src, "ATTR_TEXCOORD0" )) o->flags |= GNM_GL2_TEXCOORD0;
-	if( define_value( src, "ATTR_TEXCOORD1" )) o->flags |= GNM_GL2_TEXCOORD1;
-	if( define_value( src, "FEAT_ALPHA_TEST" )) o->flags |= GNM_GL2_ALPHA_TEST;
-	if( define_value( src, "FEAT_FOG" )) o->flags |= GNM_GL2_FOG;
-	o->compiled = strstr( src, "#define ATTR_POSITION" ) != NULL;
-
-	if( !o->compiled )
-		GNM_LOG( "glShaderSource: not a gl2_shim shader\n" );
-
-	free( src );
-}
-
-static void gl_CompileShader( GLuint shader )
-{
-}
-
-static GLuint gl_CreateProgram( void )
-{
-	GLuint id = new_object( OBJ_PROGRAM );
-	gl_object_t *p = &gl.objects[id];
-
-	p->vsflags = p->psflags = -1;
-	p->uniforms_mvp[0] = p->uniforms_mvp[5] = p->uniforms_mvp[10] = p->uniforms_mvp[15] = 1.0f;
-	p->uniforms_color[0] = p->uniforms_color[1] = p->uniforms_color[2] = p->uniforms_color[3] = 1.0f;
-	return id;
-}
-
-static void gl_AttachShader( GLuint program, GLuint shader )
-{
-	gl_object_t *p = get_object( program, OBJ_PROGRAM );
-	gl_object_t *s = get_object( shader, OBJ_SHADER );
-
-	if( !p || !s || !s->compiled )
-		return;
-
-	if( s->type == GL_VERTEX_SHADER )
-		p->vsflags = s->flags;
-	else if( s->type == GL_FRAGMENT_SHADER )
-		p->psflags = s->flags;
-}
-
-static void gl_DetachShader( GLuint program, GLuint shader )
-{
-}
-
-static void gl_LinkProgram( GLuint program )
-{
-	gl_object_t *p = get_object( program, OBJ_PROGRAM );
-
-	if( !p )
-		return;
-
-	p->linked = p->vsflags >= 0 && p->psflags >= 0;
-	if( !p->linked )
-		GNM_LOG( "glLinkProgram: program %u has no gl2_shim shaders\n", program );
-}
-
-static void gl_DeleteObject( GLuint obj )
-{
-	if( obj && (int)obj < gl.numobjects )
-	{
-		if( gl.program == obj )
-			gl.program = 0;
-		gl.objects[obj].kind = OBJ_FREE;
-	}
-}
-
-static void gl_UseProgram( GLuint program )
-{
-	gl.program = program;
-}
-
-static void gl_BindAttribLocation( GLuint program, GLuint index, const GLchar *name )
-{
-	// attributes are always numbered in gl2_shim order
-}
-
-static void gl_ValidateProgram( GLuint program )
-{
-}
-
-static void gl_GetObjectParameteriv( GLuint obj, GLenum pname, GLint *params )
-{
-	gl_object_t *o = obj && (int)obj < gl.numobjects ? &gl.objects[obj] : NULL;
-
-	if( !o || o->kind == OBJ_FREE )
-	{
-		*params = 0;
-		return;
-	}
-
-	switch( pname )
-	{
-	case GL_COMPILE_STATUS: *params = o->kind == OBJ_SHADER && o->compiled; break;
-	case GL_LINK_STATUS: *params = o->kind == OBJ_PROGRAM && o->linked; break;
-	case GL_VALIDATE_STATUS: *params = 1; break;
-	case GL_INFO_LOG_LENGTH: *params = 1; break;
-	case GL_SHADER_TYPE: *params = o->type; break;
-	default: *params = 0; break;
-	}
-}
-
-static void gl_GetInfoLog( GLuint obj, GLsizei maxlength, GLsizei *length, GLchar *log )
-{
-	if( maxlength > 0 )
-		log[0] = 0;
-	if( length )
-		*length = 0;
-}
-
-static GLint gl_GetUniformLocation( GLuint program, const GLchar *name )
-{
-	int i;
-
-	for( i = 0; i < U_COUNT; i++ )
-	{
-		if( !strcmp( name, uniform_names[i] ))
-			return i;
-	}
-
-	return -1;
-}
-
-static GLint gl_GetAttribLocation( GLuint program, const GLchar *name )
-{
-	return -1;
-}
-
-static gl_object_t *current_program( void )
-{
-	return get_object( gl.program, OBJ_PROGRAM );
-}
-
-static void gl_Uniform1i( GLint location, GLint v0 )
-{
-	// samplers: uTex0 is always unit 0, uTex1 is unit 1
-}
-
-static void gl_Uniform1f( GLint location, GLfloat v0 )
-{
-	gl_object_t *p = current_program();
-
-	if( p && location == U_ALPHA )
-		p->uniform_alpha = v0;
-}
-
-static void gl_Uniform4fv( GLint location, GLsizei count, const GLfloat *v )
-{
-	gl_object_t *p = current_program();
-
-	if( !p || count < 1 )
-		return;
-
-	if( location == U_COLOR )
-		memcpy( p->uniforms_color, v, sizeof( p->uniforms_color ));
-	else if( location == U_FOG )
-		memcpy( p->uniforms_fog, v, sizeof( p->uniforms_fog ));
-}
-
-static void gl_Uniform4f( GLint location, GLfloat x, GLfloat y, GLfloat z, GLfloat w )
-{
-	const GLfloat v[4] = { x, y, z, w };
-	gl_Uniform4fv( location, 1, v );
-}
-
-static void gl_UniformMatrix4fv( GLint location, GLsizei count, GLboolean transpose, const GLfloat *v )
-{
-	gl_object_t *p = current_program();
-	int r, c;
-
-	if( !p || count < 1 || location != U_MVP )
-		return;
-
-	if( !transpose )
-	{
-		memcpy( p->uniforms_mvp, v, sizeof( p->uniforms_mvp ));
-		return;
-	}
-
-	for( r = 0; r < 4; r++ )
-		for( c = 0; c < 4; c++ )
-			p->uniforms_mvp[c * 4 + r] = v[r * 4 + c];
-}
-
-/*
-==============================================================================
-
-Vertex attributes
-
-==============================================================================
-*/
-static void gl_EnableVertexAttribArray( GLuint index )
-{
-	if( index < MAX_ATTRIBS )
-		gl.attribs[index].enabled = true;
-}
-
-static void gl_DisableVertexAttribArray( GLuint index )
-{
-	if( index < MAX_ATTRIBS )
-		gl.attribs[index].enabled = false;
-}
-
-static void gl_VertexAttribPointer( GLuint index, GLint size, GLenum type, GLboolean normalized, GLsizei stride, const GLvoid *pointer )
-{
-	gl_attrib_t *a;
-
-	if( index >= MAX_ATTRIBS )
-		return;
-
-	a = &gl.attribs[index];
-	a->size = size;
-	a->type = type;
-	a->stride = stride;
-	a->pointer = pointer;
-	a->buffer = gl.array_buffer;
+	return bound_buffer( target ) != NULL;
 }
 
 /*
@@ -1787,24 +1509,20 @@ typedef struct
 	uint32_t bytes;     // to copy
 } attr_source_t;
 
-static bool attrib_source( int index, int vmin, int numverts, attr_source_t *out )
+static void draw_dropped( const char *reason )
 {
-	static const float default_attrib[4] = { 1.0f, 1.0f, 1.0f, 1.0f };
-	const gl_attrib_t *a = &gl.attribs[index];
-	const uint8_t *base;
-	int typesize;
+	static int s_count;
 
-	if( !a->enabled )
+	if( s_count < 16 )
 	{
-		// shouldn't happen with gl2_shim, keep the draw going with white
-		out->src = (const uint8_t *)default_attrib;
-		out->stride = 0;
-		out->comps = 4;
-		out->type = 0;
-		out->elemsize = 16;
-		out->bytes = 16;
-		return true;
+		GNM_LOG( "draw dropped: %s\n", reason );
+		s_count++;
 	}
+}
+
+static bool attrib_source( const draw_attrib_t *a, int vmin, int numverts, attr_source_t *out )
+{
+	int typesize;
 
 	switch( a->type )
 	{
@@ -1812,37 +1530,36 @@ static bool attrib_source( int index, int vmin, int numverts, attr_source_t *out
 	case GL_UNSIGNED_BYTE: typesize = 1; out->type = 1; break;
 	default:
 	{
-		static bool reported;
-		if( !reported )
+		static bool s_reported;
+		if( !s_reported )
 		{
 			GNM_LOG( "vertex attribute type 0x%x isn't supported\n", a->type );
-			reported = true;
+			s_reported = true;
 		}
 		return false;
 	}
 	}
 
-	const gl_buffer_t *b = NULL;
-
-	if( a->buffer )
-	{
-		b = get_buffer( a->buffer, false );
-		if( !b || !b->data )
-			return false;
-		base = b->data + (uintptr_t)a->pointer;
-	}
-	else base = a->pointer;
-
-	if( !base )
+	if( a->size < 1 || a->size > 4 )
 		return false;
 
 	out->comps = a->size;
 	out->elemsize = a->size * typesize;
-	out->stride = a->stride ? a->stride : out->elemsize;
-	out->src = base + (size_t)vmin * out->stride;
-	out->bytes = (uint32_t)(( numverts - 1 ) * out->stride + out->elemsize );
 
-	if( b && (uintptr_t)a->pointer + (size_t)vmin * out->stride + out->bytes > b->size )
+	if( a->constant )
+	{
+		out->stride = 0;
+		out->src = a->data;
+		out->bytes = out->elemsize;
+	}
+	else
+	{
+		out->stride = a->stride ? a->stride : out->elemsize;
+		out->src = a->data + (size_t)vmin * out->stride;
+		out->bytes = (uint32_t)(( numverts - 1 ) * out->stride + out->elemsize );
+	}
+
+	if( (size_t)( out->src - a->data ) + out->bytes > a->limit )
 		return false;
 
 	return true;
@@ -1859,10 +1576,31 @@ static int primitive_type( GLenum mode )
 	case GL_TRIANGLES: return GNM_PT_TRILIST;
 	case GL_TRIANGLE_STRIP: return GNM_PT_TRISTRIP;
 	case GL_TRIANGLE_FAN: return GNM_PT_TRIFAN;
-	case GL_QUADS: return GNM_PT_QUADLIST;
+	case GL_QUAD_STRIP: return GNM_PT_TRISTRIP;
 	case GL_POLYGON: return GNM_PT_TRIFAN;
 	}
 	return -1;
+}
+
+static int index_size( GLenum type )
+{
+	switch( type )
+	{
+	case GL_UNSIGNED_BYTE: return 1;
+	case GL_UNSIGNED_SHORT: return 2;
+	case GL_UNSIGNED_INT: return 4;
+	}
+	return 0;
+}
+
+static uint32_t read_index( const void *indices, GLenum type, int i )
+{
+	switch( type )
+	{
+	case GL_UNSIGNED_BYTE: return ((const uint8_t *)indices)[i];
+	case GL_UNSIGNED_SHORT: return ((const uint16_t *)indices)[i];
+	}
+	return ((const uint32_t *)indices)[i];
 }
 
 static const gl_texture_t *usable_texture( int unit )
@@ -1897,45 +1635,22 @@ static void emit_draw_index( GnmCommandBuffer *cmd, uint32_t count, const void *
 	cmd->cmdptr += 6;
 }
 
-static void draw_dropped( const char *reason )
+// indices: client memory with count indices of itype, otherwise first is the first vertex;
+// absent color is the uniform one, texture units without texture coordinates aren't sampled
+static void draw( GLenum mode, GLint first, GLsizei count, GLenum itype, const void *indices, const draw_attrib_t *attribs, const float *color )
 {
-	static int s_count;
-
-	if( s_count < 16 )
-	{
-		GNM_LOG( "draw dropped: %s\n", reason );
-		s_count++;
-	}
-}
-
-// indexed: glDrawElements family, indices are a pointer or an offset into the element buffer;
-// otherwise glDrawArrays and first is the first vertex
-static void draw( GLenum mode, GLint first, GLsizei count, bool indexed, GLenum itype, const GLvoid *indices, GLint basevertex )
-{
-	gl_object_t *p = current_program();
 	attr_source_t attrs[SEM_COUNT];
-	const uint8_t *isrc = NULL;
 	int vmin, vmax, numverts, prim, vsbits, psbits, sem, k, i;
 	int semantics[SEM_COUNT], numsems = 0;
 	uint32_t transient, tables, ibytes = 0;
 	const gnm_vs_t *vs;
 	const gnm_ps_t *ps;
 	GnmCommandBuffer *cmd;
+	float mvp[16];
 	bool idx32 = false;
 
 	if( count <= 0 )
 		return;
-
-	if( !p || !p->linked )
-	{
-		static bool reported;
-		if( !reported )
-		{
-			GNM_LOG( "draw without gl2_shim program\n" );
-			reported = true;
-		}
-		return;
-	}
 
 	prim = primitive_type( mode );
 	if( prim < 0 )
@@ -1945,39 +1660,16 @@ static void draw( GLenum mode, GLint first, GLsizei count, bool indexed, GLenum 
 	}
 
 	// vertex range used by the draw
-	if( indexed )
+	if( indices )
 	{
-		const gl_buffer_t *eb = get_buffer( gl.element_buffer, false );
-		int isize = itype == GL_UNSIGNED_INT ? 4 : itype == GL_UNSIGNED_SHORT ? 2 : 1;
-
-		if( eb )
-		{
-			if( !eb->data || (uintptr_t)indices + (size_t)count * isize > eb->size )
-			{
-				draw_dropped( "indices are out of element buffer" );
-				return;
-			}
-			isrc = eb->data + (uintptr_t)indices;
-		}
-		else isrc = indices;
-
-		if( !isrc )
-		{
-			draw_dropped( "no indices" );
-			return;
-		}
-
 		vmin = 0x7fffffff;
 		vmax = -1;
 		for( i = 0; i < count; i++ )
 		{
-			int v = isize == 4 ? (int)((const uint32_t *)isrc)[i] : isize == 2 ? ((const uint16_t *)isrc)[i] : isrc[i];
+			int v = (int)read_index( indices, itype, i );
 			if( v < vmin ) vmin = v;
 			if( v > vmax ) vmax = v;
 		}
-
-		vmin += basevertex;
-		vmax += basevertex;
 		ibytes = count * 4;
 	}
 	else
@@ -1995,18 +1687,35 @@ static void draw( GLenum mode, GLint first, GLsizei count, bool indexed, GLenum 
 
 	idx32 = numverts > 65535;
 
-	// attributes the program reads, in gl2_shim order: attribute k is the k-th of them
-	vsbits = p->vsflags & ( GNM_GL2_COLOR | GNM_GL2_TEXCOORD0 | GNM_GL2_TEXCOORD1 );
-	psbits = p->psflags & ( GNM_GL2_COLOR | GNM_GL2_TEXCOORD0 | GNM_GL2_TEXCOORD1 | GNM_GL2_ALPHA_TEST | GNM_GL2_FOG );
+	// attributes the variant reads, in this order: attribute k is the k-th of them
+	vsbits = 0;
 	semantics[numsems++] = SEM_POS;
-	if( vsbits & GNM_GL2_COLOR ) semantics[numsems++] = SEM_COLOR;
-	if( vsbits & GNM_GL2_TEXCOORD0 ) semantics[numsems++] = SEM_TC0;
-	if( vsbits & GNM_GL2_TEXCOORD1 ) semantics[numsems++] = SEM_TC1;
+	if( attribs[SEM_COLOR].data )
+	{
+		vsbits |= GNM_FF_COLOR;
+		semantics[numsems++] = SEM_COLOR;
+	}
+	if( attribs[SEM_TC0].data )
+	{
+		vsbits |= GNM_FF_TEXCOORD0;
+		semantics[numsems++] = SEM_TC0;
+	}
+	if( attribs[SEM_TC1].data )
+	{
+		vsbits |= GNM_FF_TEXCOORD1;
+		semantics[numsems++] = SEM_TC1;
+	}
+
+	psbits = vsbits;
+	if( gl.alpha_test )
+		psbits |= GNM_FF_ALPHA_TEST;
+	if( gl.fog )
+		psbits |= GNM_FF_FOG;
 
 	transient = 144 + 48 + ibytes;
 	for( k = 0; k < numsems; k++ )
 	{
-		if( !attrib_source( k, vmin, numverts, &attrs[k] ))
+		if( !attrib_source( &attribs[semantics[k]], vmin, numverts, &attrs[k] ))
 		{
 			draw_dropped( "vertex attribute can't be read" );
 			return;
@@ -2024,7 +1733,7 @@ static void draw( GLenum mode, GLint first, GLsizei count, bool indexed, GLenum 
 		snprintf( gnm_dev.last_draw, sizeof( gnm_dev.last_draw ),
 			"draw %u: mode 0x%x count %d %s verts %d..%d, vs %d ps %d, attribs %d, tex0 %u (%dx%d) tex1 %u (%dx%d), "
 			"blend %d depth %d/%d cull %d",
-			gnm_dev.submit_draws, mode, count, indexed ? ( idx32 ? "idx32" : "idx16" ) : "arrays", vmin, vmax, vsbits, psbits, numsems,
+			gnm_dev.submit_draws, mode, count, indices ? ( idx32 ? "idx32" : "idx16" ) : "arrays", vmin, vmax, vsbits, psbits, numsems,
 			gl.bound[0], t0 ? t0->width : 0, t0 ? t0->height : 0, gl.bound[1], t1 ? t1->width : 0, t1 ? t1->height : 0,
 			gl.blend, gl.depth_test, gl.depth_mask, gl.cull );
 		if( gnm_dev.debug == 2 )
@@ -2053,7 +1762,8 @@ static void draw( GLenum mode, GLint first, GLsizei count, bool indexed, GLenum 
 
 		int32_t *ai = (int32_t *)( vsu + 64 );
 
-		memcpy( vsu, p->uniforms_mvp, 64 );
+		mat_mul( gl.matrix[MAT_PROJECTION], gl.matrix[MAT_MODELVIEW], mvp );
+		memcpy( vsu, mvp, 64 );
 		memset( vsu + 64, 0, 80 );
 
 		for( k = 0; k < numsems; k++ )
@@ -2102,9 +1812,12 @@ static void draw( GLenum mode, GLint first, GLsizei count, bool indexed, GLenum 
 			return;
 		}
 
-		memcpy( psu, p->uniforms_color, 16 );
-		memcpy( psu + 4, p->uniforms_fog, 16 );
-		psu[8] = p->uniform_alpha;
+		memcpy( psu, color, 16 );
+		psu[4] = gl.fog_color[0];
+		psu[5] = gl.fog_color[1];
+		psu[6] = gl.fog_color[2];
+		psu[7] = gl.fog_density;
+		psu[8] = gl.alpha_ref;
 		psu[9] = psu[10] = psu[11] = 0.0f;
 
 		b = sceGnmCreateConstBuffer( psu, 48 );
@@ -2117,7 +1830,7 @@ static void draw( GLenum mode, GLint first, GLsizei count, bool indexed, GLenum 
 			const gl_texture_t *t;
 			GnmSampler s;
 
-			if( !( psbits & ( u ? GNM_GL2_TEXCOORD1 : GNM_GL2_TEXCOORD0 )))
+			if( !( psbits & ( u ? GNM_FF_TEXCOORD1 : GNM_FF_TEXCOORD0 )))
 				continue;
 
 			t = usable_texture( u );
@@ -2132,11 +1845,9 @@ static void draw( GLenum mode, GLint first, GLsizei count, bool indexed, GLenum 
 
 	set_primitive( cmd, prim );
 
-	if( isrc )
+	if( indices )
 	{
-		int isize = itype == GL_UNSIGNED_INT ? 4 : itype == GL_UNSIGNED_SHORT ? 2 : 1;
 		void *idata = gnm_dev_alloc_transient( idx32 ? count * 4 : count * 2, 16 );
-		const int rebase = basevertex - vmin;
 
 		if( !idata )
 		{
@@ -2146,10 +1857,12 @@ static void draw( GLenum mode, GLint first, GLsizei count, bool indexed, GLenum 
 
 		for( i = 0; i < count; i++ )
 		{
-			int v = isize == 4 ? (int)((const uint32_t *)isrc)[i] : isize == 2 ? ((const uint16_t *)isrc)[i] : isrc[i];
-			v += rebase;
-			if( idx32 ) ((uint32_t *)idata)[i] = v;
-			else ((uint16_t *)idata)[i] = (uint16_t)v;
+			uint32_t v = read_index( indices, itype, i ) - vmin;
+
+			if( idx32 )
+				((uint32_t *)idata)[i] = v;
+			else
+				((uint16_t *)idata)[i] = (uint16_t)v;
 		}
 
 		sceGnmDrawCmdSetIndexSize( cmd, idx32 ? GNM_INDEX_32 : GNM_INDEX_16, GNM_POLICY_LRU );
@@ -2168,31 +1881,429 @@ static void draw( GLenum mode, GLint first, GLsizei count, bool indexed, GLenum 
 		gnm_dev_flush( "debug" );
 }
 
+// GL_QUADS as triangles, one quad is a fan
+static void draw_prims( GLenum mode, GLint first, GLsizei count, GLenum itype, const void *indices, const draw_attrib_t *attribs, const float *color )
+{
+	int numquads, i, q;
+
+	if( mode != GL_QUADS )
+	{
+		draw( mode, first, count, itype, indices, attribs, color );
+		return;
+	}
+
+	if( count == 4 && !indices )
+	{
+		draw( GL_TRIANGLE_FAN, first, count, 0, NULL, attribs, color );
+		return;
+	}
+
+	numquads = count / 4;
+	if( numquads * 6 > gl.maxquadindices )
+	{
+		uint32_t *p = realloc( gl.quad_indices, numquads * 6 * sizeof( uint32_t ));
+
+		if( !p )
+		{
+			draw_dropped( "out of memory for quads" );
+			return;
+		}
+
+		gl.quad_indices = p;
+		gl.maxquadindices = numquads * 6;
+	}
+
+	for( q = 0; q < numquads; q++ )
+	{
+		uint32_t v[4];
+
+		for( i = 0; i < 4; i++ )
+			v[i] = indices ? read_index( indices, itype, q * 4 + i ) : (uint32_t)( first + q * 4 + i );
+
+		gl.quad_indices[q * 6 + 0] = v[0];
+		gl.quad_indices[q * 6 + 1] = v[1];
+		gl.quad_indices[q * 6 + 2] = v[2];
+		gl.quad_indices[q * 6 + 3] = v[0];
+		gl.quad_indices[q * 6 + 4] = v[2];
+		gl.quad_indices[q * 6 + 5] = v[3];
+	}
+
+	draw( GL_TRIANGLES, 0, numquads * 6, GL_UNSIGNED_INT, gl.quad_indices, attribs, color );
+}
+
+/*
+==============================================================================
+
+glBegin and glEnd
+
+==============================================================================
+*/
+static bool imm_grow( void )
+{
+	int num = gl.maxverts ? gl.maxverts * 2 : 1024;
+	float *p;
+	int u;
+
+	if( num > MAX_VERTS )
+		return false;
+
+	if(( p = realloc( gl.imm_pos, num * 3 * sizeof( float ))))
+		gl.imm_pos = p;
+	else
+		return false;
+
+	if(( p = realloc( gl.imm_color, num * 4 * sizeof( float ))))
+		gl.imm_color = p;
+	else
+		return false;
+
+	for( u = 0; u < MAX_TEXTURE_UNITS; u++ )
+	{
+		if(( p = realloc( gl.imm_tc[u], num * 2 * sizeof( float ))))
+			gl.imm_tc[u] = p;
+		else
+			return false;
+	}
+
+	gl.maxverts = num;
+	return true;
+}
+
+static void gl_Begin( GLenum mode )
+{
+	gl.prim = mode;
+	gl.numverts = 0;
+	gl.begun = true;
+}
+
+static void gl_Vertex3f( GLfloat x, GLfloat y, GLfloat z )
+{
+	const int i = gl.numverts;
+	int u;
+
+	if( !gl.begun )
+		return;
+
+	if( i >= gl.maxverts && !imm_grow( ))
+	{
+		draw_dropped( "too many vertices between glBegin and glEnd" );
+		return;
+	}
+
+	gl.imm_pos[i * 3 + 0] = x;
+	gl.imm_pos[i * 3 + 1] = y;
+	gl.imm_pos[i * 3 + 2] = z;
+	memcpy( &gl.imm_color[i * 4], gl.color, sizeof( gl.color ));
+	for( u = 0; u < MAX_TEXTURE_UNITS; u++ )
+		memcpy( &gl.imm_tc[u][i * 2], gl.texcoord[u], sizeof( gl.texcoord[u] ));
+	gl.numverts++;
+}
+
+static void gl_Vertex2f( GLfloat x, GLfloat y )
+{
+	gl_Vertex3f( x, y, 0.0f );
+}
+
+static void gl_Vertex3fv( const GLfloat *v )
+{
+	gl_Vertex3f( v[0], v[1], v[2] );
+}
+
+static void imm_attrib( float *data, int size, draw_attrib_t *out )
+{
+	out->data = (const uint8_t *)data;
+	out->limit = (size_t)gl.numverts * size * sizeof( float );
+	out->size = size;
+	out->type = GL_FLOAT;
+	out->stride = 0;
+	out->constant = false;
+}
+
+static void gl_End( void )
+{
+	draw_attrib_t attribs[SEM_COUNT];
+	bool varying_color = false;
+	int i, u;
+
+	if( !gl.begun )
+		return;
+
+	gl.begun = false;
+	if( !gl.numverts )
+		return;
+
+	memset( attribs, 0, sizeof( attribs ));
+	imm_attrib( gl.imm_pos, 3, &attribs[SEM_POS] );
+
+	// color of all vertices goes as the uniform when it's the same
+	for( i = 1; i < gl.numverts && !varying_color; i++ )
+		varying_color = memcmp( &gl.imm_color[i * 4], gl.imm_color, sizeof( float ) * 4 ) != 0;
+	if( varying_color )
+		imm_attrib( gl.imm_color, 4, &attribs[SEM_COLOR] );
+
+	for( u = 0; u < MAX_TEXTURE_UNITS; u++ )
+	{
+		if( gl.texture_2d[u] )
+			imm_attrib( gl.imm_tc[u], 2, &attribs[SEM_TC0 + u] );
+	}
+
+	draw_prims( gl.prim, 0, gl.numverts, 0, NULL, attribs, gl.imm_color );
+}
+
+static void gl_Color4f( GLfloat r, GLfloat g, GLfloat b, GLfloat a )
+{
+	gl.color[0] = r;
+	gl.color[1] = g;
+	gl.color[2] = b;
+	gl.color[3] = a;
+}
+
+static void gl_Color3f( GLfloat r, GLfloat g, GLfloat b )
+{
+	gl_Color4f( r, g, b, 1.0f );
+}
+
+static void gl_Color4ub( GLubyte r, GLubyte g, GLubyte b, GLubyte a )
+{
+	gl_Color4f( r / 255.0f, g / 255.0f, b / 255.0f, a / 255.0f );
+}
+
+static void gl_Color4ubv( const GLubyte *v )
+{
+	gl_Color4ub( v[0], v[1], v[2], v[3] );
+}
+
+static void gl_MultiTexCoord2f( GLenum target, GLfloat s, GLfloat t )
+{
+	int u = (int)target - GL_TEXTURE0_ARB;
+
+	if( u < 0 || u >= MAX_TEXTURE_UNITS )
+		return;
+
+	gl.texcoord[u][0] = s;
+	gl.texcoord[u][1] = t;
+}
+
+static void gl_MultiTexCoord1f( GLenum target, GLfloat s )
+{
+	gl_MultiTexCoord2f( target, s, 0.0f );
+}
+
+static void gl_MultiTexCoord3f( GLenum target, GLfloat s, GLfloat t, GLfloat r )
+{
+	gl_MultiTexCoord2f( target, s, t );
+}
+
+static void gl_MultiTexCoord4f( GLenum target, GLfloat s, GLfloat t, GLfloat r, GLfloat q )
+{
+	gl_MultiTexCoord2f( target, s, t );
+}
+
+static void gl_TexCoord2f( GLfloat s, GLfloat t )
+{
+	gl_MultiTexCoord2f( GL_TEXTURE0_ARB, s, t );
+}
+
+static void gl_TexCoord2fv( const GLfloat *v )
+{
+	gl_MultiTexCoord2f( GL_TEXTURE0_ARB, v[0], v[1] );
+}
+
+// there's no lighting
+static void gl_Normal3fv( const GLfloat *v )
+{
+}
+
+/*
+==============================================================================
+
+Client arrays
+
+==============================================================================
+*/
+static gl_array_t *client_array( GLenum array )
+{
+	switch( array )
+	{
+	case GL_VERTEX_ARRAY: return &gl.arrays[SEM_POS];
+	case GL_COLOR_ARRAY: return &gl.arrays[SEM_COLOR];
+	case GL_TEXTURE_COORD_ARRAY: return &gl.arrays[SEM_TC0 + gl.client_unit];
+	}
+	return NULL;
+}
+
+static void set_pointer( gl_array_t *a, GLint size, GLenum type, GLsizei stride, const GLvoid *pointer )
+{
+	a->size = size;
+	a->type = type;
+	a->stride = stride;
+	a->pointer = pointer;
+	a->buffer = gl.array_buffer;
+}
+
+static void gl_VertexPointer( GLint size, GLenum type, GLsizei stride, const GLvoid *pointer )
+{
+	set_pointer( &gl.arrays[SEM_POS], size, type, stride, pointer );
+}
+
+static void gl_ColorPointer( GLint size, GLenum type, GLsizei stride, const GLvoid *pointer )
+{
+	set_pointer( &gl.arrays[SEM_COLOR], size, type, stride, pointer );
+}
+
+static void gl_TexCoordPointer( GLint size, GLenum type, GLsizei stride, const GLvoid *pointer )
+{
+	set_pointer( &gl.arrays[SEM_TC0 + gl.client_unit], size, type, stride, pointer );
+}
+
+static void gl_EnableClientState( GLenum array )
+{
+	gl_array_t *a = client_array( array );
+
+	if( a )
+		a->enabled = true;
+}
+
+static void gl_DisableClientState( GLenum array )
+{
+	gl_array_t *a = client_array( array );
+
+	if( a )
+		a->enabled = false;
+}
+
+// buffer contents or client memory of an array
+static bool array_attrib( const gl_array_t *a, draw_attrib_t *out )
+{
+	if( a->buffer )
+	{
+		const gl_buffer_t *b = get_buffer( a->buffer, false );
+		const uintptr_t offset = (uintptr_t)a->pointer;
+
+		if( !b || !b->data || offset >= b->size )
+			return false;
+
+		out->data = b->data + offset;
+		out->limit = b->size - offset;
+	}
+	else
+	{
+		if( !a->pointer )
+			return false;
+
+		out->data = a->pointer;
+		out->limit = SIZE_MAX;
+	}
+
+	out->size = a->size;
+	out->type = a->type;
+	out->stride = a->stride;
+	out->constant = false;
+	return true;
+}
+
+// texture units without an array use the current texture coordinates
+static bool array_attribs( draw_attrib_t *attribs )
+{
+	int u;
+
+	memset( attribs, 0, sizeof( *attribs ) * SEM_COUNT );
+
+	if( !gl.arrays[SEM_POS].enabled || !array_attrib( &gl.arrays[SEM_POS], &attribs[SEM_POS] ))
+		return false;
+
+	if( gl.arrays[SEM_COLOR].enabled && !array_attrib( &gl.arrays[SEM_COLOR], &attribs[SEM_COLOR] ))
+		return false;
+
+	for( u = 0; u < MAX_TEXTURE_UNITS; u++ )
+	{
+		draw_attrib_t *a = &attribs[SEM_TC0 + u];
+
+		if( !gl.texture_2d[u] )
+			continue;
+
+		if( gl.arrays[SEM_TC0 + u].enabled )
+		{
+			if( !array_attrib( &gl.arrays[SEM_TC0 + u], a ))
+				return false;
+		}
+		else
+		{
+			a->data = (const uint8_t *)gl.texcoord[u];
+			a->limit = sizeof( gl.texcoord[u] );
+			a->size = 2;
+			a->type = GL_FLOAT;
+			a->constant = true;
+		}
+	}
+
+	return true;
+}
+
 static void gl_DrawArrays( GLenum mode, GLint first, GLsizei count )
 {
-	draw( mode, first, count, false, 0, NULL, 0 );
+	draw_attrib_t attribs[SEM_COUNT];
+
+	if( !array_attribs( attribs ))
+	{
+		draw_dropped( "vertex arrays can't be read" );
+		return;
+	}
+
+	draw_prims( mode, first, count, 0, NULL, attribs, gl.color );
 }
 
 static void gl_DrawElements( GLenum mode, GLsizei count, GLenum type, const GLvoid *indices )
 {
-	draw( mode, 0, count, true, type, indices, 0 );
+	draw_attrib_t attribs[SEM_COUNT];
+	const int isize = index_size( type );
+	const uint8_t *isrc = indices;
+
+	if( !isize )
+	{
+		set_error( GL_INVALID_ENUM );
+		return;
+	}
+
+	if( gl.element_buffer )
+	{
+		const gl_buffer_t *eb = get_buffer( gl.element_buffer, false );
+
+		if( !eb || !eb->data || (uintptr_t)indices + (size_t)count * isize > eb->size )
+		{
+			draw_dropped( "indices are out of element buffer" );
+			return;
+		}
+		isrc = eb->data + (uintptr_t)indices;
+	}
+
+	if( !isrc )
+	{
+		draw_dropped( "no indices" );
+		return;
+	}
+
+	if( !array_attribs( attribs ))
+	{
+		draw_dropped( "vertex arrays can't be read" );
+		return;
+	}
+
+	draw_prims( mode, 0, count, type, isrc, attribs, gl.color );
 }
 
 static void gl_DrawRangeElements( GLenum mode, GLuint start, GLuint end, GLsizei count, GLenum type, const GLvoid *indices )
 {
-	draw( mode, 0, count, true, type, indices, 0 );
+	gl_DrawElements( mode, count, type, indices );
 }
 
-static void gl_DrawRangeElementsBaseVertex( GLenum mode, GLuint start, GLuint end, GLsizei count, GLenum type, const GLvoid *indices, GLint basevertex )
-{
-	draw( mode, 0, count, true, type, indices, basevertex );
-}
+/*
+==============================================================================
 
-static void gl_DrawElementsBaseVertex( GLenum mode, GLsizei count, GLenum type, const GLvoid *indices, GLint basevertex )
-{
-	draw( mode, 0, count, true, type, indices, basevertex );
-}
+Clear and read back
 
+==============================================================================
+*/
 // fullscreen triangle, clipped by the scissor box like in OpenGL
 static void gl_Clear( GLbitfield mask )
 {
@@ -2291,9 +2402,9 @@ so the tiling math runs once per micro tile.
 */
 static void gl_ReadPixels( GLint x, GLint y, GLsizei width, GLsizei height, GLenum format, GLenum type, GLvoid *pixels )
 {
-	static GpaSurfaceContext ctx;
-	static const GnmRenderTarget *ctx_rt;
-	static uint32_t pattern[64];
+	static GpaSurfaceContext s_ctx;
+	static const GnmRenderTarget *s_ctx_rt;
+	static uint32_t s_pattern[64];
 	const GnmRenderTarget *rt = &gnm_dev.color[gnm_dev.back];
 	const uint8_t *mem = sceGnmRtGetBaseAddr( rt );
 	const int comps = format == GL_RGB ? 3 : 4;
@@ -2317,7 +2428,7 @@ static void gl_ReadPixels( GLint x, GLint y, GLsizei width, GLsizei height, GLen
 
 	gnm_dev_flush( "glReadPixels" );
 
-	if( ctx_rt != rt )
+	if( s_ctx_rt != rt )
 	{
 		const GpaTextureInfo info = sceGnmRtBuildInfo( rt );
 		GpaTilingParams tp;
@@ -2332,20 +2443,20 @@ static void gl_ReadPixels( GLint x, GLint y, GLsizei width, GLsizei height, GLen
 		}
 
 		tp.surfaceflags.display = 1;
-		if( sceGpaInitSurfaceContext( &ctx, size, &tp ) != GPA_ERR_OK )
+		if( sceGpaInitSurfaceContext( &s_ctx, size, &tp ) != GPA_ERR_OK )
 		{
 			GNM_LOG( "glReadPixels: no surface context for the color target\n" );
 			return;
 		}
 
-		sceGpaComputeSurfaceCoord( &base, NULL, &ctx, 0, 0, 0, 0 );
+		sceGpaComputeSurfaceCoord( &base, NULL, &s_ctx, 0, 0, 0, 0 );
 		for( i = 0; i < 64; i++ )
 		{
-			sceGpaComputeSurfaceCoord( &off, NULL, &ctx, i & 7, i >> 3, 0, 0 );
-			pattern[i] = (uint32_t)( off - base );
+			sceGpaComputeSurfaceCoord( &off, NULL, &s_ctx, i & 7, i >> 3, 0, 0 );
+			s_pattern[i] = (uint32_t)( off - base );
 		}
 
-		ctx_rt = rt;
+		s_ctx_rt = rt;
 	}
 
 	for( row = 0; row < height; row++ )
@@ -2359,7 +2470,7 @@ static void gl_ReadPixels( GLint x, GLint y, GLsizei width, GLsizei height, GLen
 		if( sy < 0 || sy >= gnm_dev.height )
 			continue;
 
-		for( col = 0; col < width; col++, dst += comps )
+		for( col = 0; col < width; col++ )
 		{
 			const int sx = x + col;
 			const uint8_t *src;
@@ -2370,11 +2481,11 @@ static void gl_ReadPixels( GLint x, GLint y, GLsizei width, GLsizei height, GLen
 			if(( sx & ~7 ) != tile_x )
 			{
 				tile_x = sx & ~7;
-				sceGpaComputeSurfaceCoord( &tile, NULL, &ctx, tile_x, sy & ~7, 0, 0 );
+				sceGpaComputeSurfaceCoord( &tile, NULL, &s_ctx, tile_x, sy & ~7, 0, 0 );
 			}
 
-			src = mem + tile + pattern[( sy & 7 ) * 8 + ( sx & 7 )];
-			memcpy( dst, src, comps );
+			src = mem + tile + s_pattern[( sy & 7 ) * 8 + ( sx & 7 )];
+			memcpy( dst + col * comps, src, comps );
 		}
 	}
 }
@@ -2402,7 +2513,6 @@ static const gl_proc_t procs[] =
 	P( "glGetBooleanv", gl_GetBooleanv ),
 	P( "glFinish", gl_Finish ),
 	P( "glFlush", gl_Flush ),
-	P( "glHint", gl_Hint ),
 	P( "glPixelStorei", gl_PixelStorei ),
 	P( "glPixelStoref", gl_PixelStoref ),
 
@@ -2413,7 +2523,6 @@ static const gl_proc_t procs[] =
 	P( "glDepthFunc", gl_DepthFunc ),
 	P( "glDepthMask", gl_DepthMask ),
 	P( "glDepthRange", gl_DepthRange ),
-	P( "glDepthRangef", gl_DepthRangef ),
 	P( "glColorMask", gl_ColorMask ),
 	P( "glCullFace", gl_CullFace ),
 	P( "glFrontFace", gl_FrontFace ),
@@ -2422,19 +2531,33 @@ static const gl_proc_t procs[] =
 	P( "glScissor", gl_Scissor ),
 	P( "glClearColor", gl_ClearColor ),
 	P( "glClearDepth", gl_ClearDepth ),
-	P( "glClearDepthf", gl_ClearDepthf ),
 	P( "glClear", gl_Clear ),
+	P( "glAlphaFunc", gl_AlphaFunc ),
+	P( "glFogf", gl_Fogf ),
+	P( "glFogi", gl_Fogi ),
+	P( "glFogfv", gl_Fogfv ),
+	P( "glTexEnvi", gl_TexEnvi ),
+	P( "glTexEnvf", gl_TexEnvf ),
+	P( "glTexEnvfv", gl_TexEnvfv ),
+	P( "glTexGeni", gl_TexGeni ),
+	P( "glHint", gl_Hint ),
+	P( "glShadeModel", gl_ShadeModel ),
+	P( "glPolygonMode", gl_PolygonMode ),
+	P( "glLineWidth", gl_LineWidth ),
+	P( "glPointSize", gl_PointSize ),
+	P( "glDrawBuffer", gl_DrawBuffer ),
+	P( "glReadBuffer", gl_ReadBuffer ),
 	P( "glStencilFunc", gl_StencilFunc ),
 	P( "glStencilOp", gl_StencilOp ),
 	P( "glStencilMask", gl_StencilMask ),
 	P( "glClearStencil", gl_ClearStencil ),
-	P( "glDrawBuffer", gl_noop_GLenum ),
-	P( "glReadBuffer", gl_noop_GLenum ),
-	P( "glShadeModel", gl_noop_GLenum ),
-	P( "glLineWidth", gl_noop_GLfloat ),
-	P( "glPointSize", gl_noop_GLfloat ),
-	P( "glPolygonMode", gl_noop_GLenum_GLenum ),
 	P( "glReadPixels", gl_ReadPixels ),
+
+	P( "glMatrixMode", gl_MatrixMode ),
+	P( "glLoadIdentity", gl_LoadIdentity ),
+	P( "glLoadMatrixf", gl_LoadMatrixf ),
+	P( "glTranslatef", gl_Translatef ),
+	P( "glScalef", gl_Scalef ),
 
 	P( "glGenTextures", gl_GenTextures ),
 	P( "glDeleteTextures", gl_DeleteTextures ),
@@ -2442,101 +2565,53 @@ static const gl_proc_t procs[] =
 	P( "glBindTexture", gl_BindTexture ),
 	P( "glActiveTexture", gl_ActiveTexture ),
 	P( "glActiveTextureARB", gl_ActiveTexture ),
+	P( "glClientActiveTexture", gl_ClientActiveTexture ),
+	P( "glClientActiveTextureARB", gl_ClientActiveTexture ),
 	P( "glTexParameteri", gl_TexParameteri ),
 	P( "glTexParameterf", gl_TexParameterf ),
 	P( "glTexParameterfv", gl_TexParameterfv ),
 	P( "glTexImage2D", gl_TexImage2D ),
 	P( "glTexSubImage2D", gl_TexSubImage2D ),
 
-	P( "glGenBuffers", gl_GenBuffers ),
-	P( "glGenBuffersARB", gl_GenBuffers ),
-	P( "glDeleteBuffers", gl_DeleteBuffers ),
-	P( "glDeleteBuffersARB", gl_DeleteBuffers ),
-	P( "glIsBuffer", gl_IsBuffer ),
-	P( "glIsBufferARB", gl_IsBuffer ),
-	P( "glBindBuffer", gl_BindBuffer ),
-	P( "glBindBufferARB", gl_BindBuffer ),
-	P( "glBufferData", gl_BufferData ),
-	P( "glBufferDataARB", gl_BufferData ),
-	P( "glBufferSubData", gl_BufferSubData ),
-	P( "glBufferSubDataARB", gl_BufferSubData ),
+	P( "glBegin", gl_Begin ),
+	P( "glEnd", gl_End ),
+	P( "glVertex2f", gl_Vertex2f ),
+	P( "glVertex3f", gl_Vertex3f ),
+	P( "glVertex3fv", gl_Vertex3fv ),
+	P( "glColor3f", gl_Color3f ),
+	P( "glColor4f", gl_Color4f ),
+	P( "glColor4ub", gl_Color4ub ),
+	P( "glColor4ubv", gl_Color4ubv ),
+	P( "glTexCoord2f", gl_TexCoord2f ),
+	P( "glTexCoord2fv", gl_TexCoord2fv ),
+	P( "glMultiTexCoord1f", gl_MultiTexCoord1f ),
+	P( "glMultiTexCoord2f", gl_MultiTexCoord2f ),
+	P( "glMultiTexCoord3f", gl_MultiTexCoord3f ),
+	P( "glMultiTexCoord4f", gl_MultiTexCoord4f ),
+	P( "glNormal3fv", gl_Normal3fv ),
 
-	P( "glCreateShader", gl_CreateShader ),
-	P( "glCreateShaderObjectARB", gl_CreateShader ),
-	P( "glShaderSource", gl_ShaderSource ),
-	P( "glShaderSourceARB", gl_ShaderSource ),
-	P( "glCompileShader", gl_CompileShader ),
-	P( "glCompileShaderARB", gl_CompileShader ),
-	P( "glCreateProgram", gl_CreateProgram ),
-	P( "glCreateProgramObjectARB", gl_CreateProgram ),
-	P( "glAttachShader", gl_AttachShader ),
-	P( "glAttachObjectARB", gl_AttachShader ),
-	P( "glDetachShader", gl_DetachShader ),
-	P( "glDetachObjectARB", gl_DetachShader ),
-	P( "glLinkProgram", gl_LinkProgram ),
-	P( "glLinkProgramARB", gl_LinkProgram ),
-	P( "glDeleteShader", gl_DeleteObject ),
-	P( "glDeleteProgram", gl_DeleteObject ),
-	P( "glDeleteObjectARB", gl_DeleteObject ),
-	P( "glUseProgram", gl_UseProgram ),
-	P( "glUseProgramObjectARB", gl_UseProgram ),
-	P( "glValidateProgram", gl_ValidateProgram ),
-	P( "glValidateProgramARB", gl_ValidateProgram ),
-	P( "glBindAttribLocation", gl_BindAttribLocation ),
-	P( "glBindAttribLocationARB", gl_BindAttribLocation ),
-	P( "glGetShaderiv", gl_GetObjectParameteriv ),
-	P( "glGetProgramiv", gl_GetObjectParameteriv ),
-	P( "glGetObjectParameterivARB", gl_GetObjectParameteriv ),
-	P( "glGetShaderInfoLog", gl_GetInfoLog ),
-	P( "glGetProgramInfoLog", gl_GetInfoLog ),
-	P( "glGetInfoLogARB", gl_GetInfoLog ),
-	P( "glGetUniformLocation", gl_GetUniformLocation ),
-	P( "glGetUniformLocationARB", gl_GetUniformLocation ),
-	P( "glGetAttribLocation", gl_GetAttribLocation ),
-	P( "glGetAttribLocationARB", gl_GetAttribLocation ),
-	P( "glUniform1i", gl_Uniform1i ),
-	P( "glUniform1iARB", gl_Uniform1i ),
-	P( "glUniform1f", gl_Uniform1f ),
-	P( "glUniform1fARB", gl_Uniform1f ),
-	P( "glUniform4f", gl_Uniform4f ),
-	P( "glUniform4fARB", gl_Uniform4f ),
-	P( "glUniform4fv", gl_Uniform4fv ),
-	P( "glUniform4fvARB", gl_Uniform4fv ),
-	P( "glUniformMatrix4fv", gl_UniformMatrix4fv ),
-	P( "glUniformMatrix4fvARB", gl_UniformMatrix4fv ),
-
-	P( "glEnableVertexAttribArray", gl_EnableVertexAttribArray ),
-	P( "glEnableVertexAttribArrayARB", gl_EnableVertexAttribArray ),
-	P( "glDisableVertexAttribArray", gl_DisableVertexAttribArray ),
-	P( "glDisableVertexAttribArrayARB", gl_DisableVertexAttribArray ),
-	P( "glVertexAttribPointer", gl_VertexAttribPointer ),
-	P( "glVertexAttribPointerARB", gl_VertexAttribPointer ),
-
+	P( "glVertexPointer", gl_VertexPointer ),
+	P( "glColorPointer", gl_ColorPointer ),
+	P( "glTexCoordPointer", gl_TexCoordPointer ),
+	P( "glEnableClientState", gl_EnableClientState ),
+	P( "glDisableClientState", gl_DisableClientState ),
 	P( "glDrawArrays", gl_DrawArrays ),
 	P( "glDrawElements", gl_DrawElements ),
 	P( "glDrawRangeElements", gl_DrawRangeElements ),
 	P( "glDrawRangeElementsEXT", gl_DrawRangeElements ),
-	P( "glDrawRangeElementsBaseVertex", gl_DrawRangeElementsBaseVertex ),
-	P( "glDrawRangeElementsBaseVertexOES", gl_DrawRangeElementsBaseVertex ),
-	P( "glDrawElementsBaseVertex", gl_DrawElementsBaseVertex ),
-	P( "glDrawElementsBaseVertexOES", gl_DrawElementsBaseVertex ),
+
+	P( "glGenBuffersARB", gl_GenBuffers ),
+	P( "glDeleteBuffersARB", gl_DeleteBuffers ),
+	P( "glIsBufferARB", gl_IsBuffer ),
+	P( "glBindBufferARB", gl_BindBuffer ),
+	P( "glBufferDataARB", gl_BufferData ),
+	P( "glBufferSubDataARB", gl_BufferSubData ),
+	P( "glMapBufferARB", gl_MapBuffer ),
+	P( "glUnmapBufferARB", gl_UnmapBuffer ),
 };
 #undef P
 
-// functions gl2_shim replaces and never calls through, and functions ref_gl
-// checks for optional features: unknown names there must stay NULL
-static const char *const missing_on_purpose[] =
-{
-	"glMapBufferRange", "glMapBufferRangeEXT", "glFlushMappedBufferRange", "glFlushMappedBufferRangeEXT",
-	"glBufferStorage", "glBufferStorageEXT", "glBindVertexArray", "glBindVertexArrayOES",
-	"glGenVertexArrays", "glGenVertexArraysOES", "glDeleteVertexArrays", "glDeleteVertexArraysOES",
-	"glMapBuffer", "glMapBufferARB", "glUnmapBuffer", "glUnmapBufferARB",
-	"glGetStringi", "glDebugMessageControl", "glDebugMessageControlARB", "glDebugMessageCallback",
-	"glDebugMessageCallbackARB", "glDebugMessageInsert", "glDebugMessageInsertARB", "glGetDebugMessageLog",
-	"glGetDebugMessageLogARB",
-};
-
-void *PS4_GL_GetProcAddress( const char *name )
+void *GNM_ShimGetProcAddress( const char *name )
 {
 	size_t i;
 
@@ -2546,15 +2621,7 @@ void *PS4_GL_GetProcAddress( const char *name )
 			return procs[i].func;
 	}
 
-	for( i = 0; i < sizeof( missing_on_purpose ) / sizeof( missing_on_purpose[0] ); i++ )
-	{
-		if( !strcmp( missing_on_purpose[i], name ))
-			return NULL;
-	}
-
-	// everything else: legacy GL 1.x functions gl2_shim replaces, or something
-	// we don't do yet; a stub that reports the name once is safer than NULL
-	return get_stub( name );
+	return NULL;
 }
 
 /*
@@ -2572,15 +2639,15 @@ static bool load_shaders( void )
 		|| !gnm_dev_load_ps( &gl.clear_ps, gnm_shader_clear_ps.data, gnm_shader_clear_ps.size ))
 		return false;
 
-	for( i = 0; i < GNM_GL2_VS_COUNT; i++ )
+	for( i = 0; i < GNM_FF_VS_COUNT; i++ )
 	{
-		if( !gnm_dev_load_vs( &gl.vs[i], gnm_shader_gl2_vs[i].data, gnm_shader_gl2_vs[i].size ))
+		if( !gnm_dev_load_vs( &gl.vs[i], gnm_shader_ff_vs[i].data, gnm_shader_ff_vs[i].size ))
 			return false;
 	}
 
-	for( i = 0; i < GNM_GL2_PS_COUNT; i++ )
+	for( i = 0; i < GNM_FF_PS_COUNT; i++ )
 	{
-		if( !gnm_dev_load_ps( &gl.ps[i], gnm_shader_gl2_ps[i].data, gnm_shader_gl2_ps[i].size ))
+		if( !gnm_dev_load_ps( &gl.ps[i], gnm_shader_ff_ps[i].data, gnm_shader_ff_ps[i].size ))
 			return false;
 	}
 
@@ -2604,12 +2671,14 @@ static bool init_white_texture( void )
 
 static void reset_state( void )
 {
+	int i;
+
 	gl.error = GL_NO_ERROR;
 	gl.next_texture = 1;
 	gl.next_buffer = 1;
 	gl.blend_src = GL_ONE;
 	gl.blend_dst = GL_ZERO;
-	gl.depth_func = 0x0201; // GL_LESS
+	gl.depth_func = GL_LESS;
 	gl.depth_mask = true;
 	gl.color_mask = 0xf;
 	gl.cull_face = GL_BACK;
@@ -2623,6 +2692,13 @@ static void reset_state( void )
 	gl.viewport[2] = gnm_dev.width;
 	gl.viewport[3] = gnm_dev.height;
 	memcpy( gl.scissor, gl.viewport, sizeof( gl.scissor ));
+
+	for( i = 0; i < MAT_COUNT; i++ )
+		identity( gl.matrix[i] );
+	gl.matrix_mode = MAT_MODELVIEW;
+	gl.color[0] = gl.color[1] = gl.color[2] = gl.color[3] = 1.0f;
+	gl.fog_density = 1.0f;
+
 	restart_cb();
 }
 
@@ -2631,7 +2707,7 @@ static void gnm_message( GnmMessageSeverity severity, const char *message, void 
 	GNM_LOG( "opengnm %s: %s\n", severity == GNM_MSGSEV_ERR ? "error" : "warning", message );
 }
 
-int PS4_GL_Init( const gnm_dev_api_t *api )
+int GNM_ShimInit( const gnm_dev_api_t *api )
 {
 	if( gl.initialized )
 		return true;
@@ -2656,7 +2732,7 @@ int PS4_GL_Init( const gnm_dev_api_t *api )
 }
 
 // the engine presents the frame after this
-void PS4_GL_EndFrame( void )
+void GNM_ShimEndFrame( void )
 {
 	if( !gl.initialized )
 		return;
@@ -2668,7 +2744,7 @@ void PS4_GL_EndFrame( void )
 }
 
 // the device is still open, the engine closes it after this
-void PS4_GL_Shutdown( void )
+void GNM_ShimShutdown( void )
 {
 	int i;
 
@@ -2686,15 +2762,12 @@ void PS4_GL_Shutdown( void )
 	for( i = 0; i < gl.numbuffers; i++ )
 		free( gl.buffers[i].data );
 	free( gl.buffers );
-	free( gl.objects );
+	free( gl.imm_pos );
+	free( gl.imm_color );
+	for( i = 0; i < MAX_TEXTURE_UNITS; i++ )
+		free( gl.imm_tc[i] );
+	free( gl.quad_indices );
 
-	gl.textures = NULL;
-	gl.numtextures = 0;
-	gl.buffers = NULL;
-	gl.numbuffers = 0;
-	gl.objects = NULL;
-	gl.numobjects = 0;
-	gl.program = 0;
-	gl.initialized = false;
+	memset( &gl, 0, sizeof( gl ));
 	// shaders and the white texture stay in GPU memory, they're loaded again on next init
 }

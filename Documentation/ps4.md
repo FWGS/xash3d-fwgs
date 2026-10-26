@@ -52,8 +52,8 @@ build machine. `--host-cc` and `--host-cxx` configure options select its compile
 
 Half-Life runs: menu, gameplay, sound, DualShock 4, level changes, save/load, exit.
 
-* Renderer: `gl` (ref_gl with gl2_shim) on top of a small
-  OpenGL ES 2 subset written over GNM, see below. 1920x1080, 60 FPS with vsync,
+* Renderer: `gl` (ref_gl) on top of the fixed function OpenGL subset written over GNM,
+  see below. 1920x1080, 60 FPS with vsync,
   a frame takes about 1-3 ms of CPU and 1-2 ms of GPU time.
 * DualShock 4 is read through libScePad directly, default layout is in
   `Key_SetDefaultGamepadBindings` (applied once over older configs, `resetkeys` restores it).
@@ -75,9 +75,12 @@ GL context or the buffers of the software renderer on other platforms:
   and flips. Submits are synchronous, the GPU is far from being the bottleneck.
   `engine/platform/ps4/vid_gnm.c` opens it, the renderer gets it as a table of functions
   with `R_GetWindowHandle( REF_WINDOW_TYPE_GNM )`.
-* `ref/gl/gnm_shim/gnm_shim.c` (part of ref_gl, built from `ref/gl/gnm_shim/wscript`): what gl2_shim needs from OpenGL ES 2
-  over the device with opengnm. GL state, textures (linear, with mipmaps), buffers, draws, `glReadPixels`.
-  gl2_shim programs are mapped to precompiled shader variants by their defines.
+* `ref/gl/gnm_shim/gnm_shim.c` (part of ref_gl, built from `ref/gl/gnm_shim/wscript`): the fixed function
+  OpenGL functions ref_gl calls, over the device with opengnm, like `vgl_shim` on PSVita. GL state, matrices,
+  `glBegin`/`glEnd`, client arrays, textures (linear, with mipmaps), buffers, `glReadPixels`.
+  Enabled texture units, vertex colors, alpha test and fog select one of precompiled shader variants.
+  Texture environment modes other than modulate, texture matrices and fog modes other than `GL_EXP`
+  aren't implemented.
 * Shaders are GLSL compiled with glslang and opengnm-psbc.
 
 Things that were checked on the console (firmware 13.02) and are easy to break:

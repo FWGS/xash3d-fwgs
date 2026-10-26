@@ -20,17 +20,17 @@ def gnm_shaders_c(task):
 		out.append('\n'.join(lines))
 		names.append(name)
 
-	vs = [i for i in names if i.startswith('gl2_vs_')]
-	ps = [i for i in names if i.startswith('gl2_ps_')]
+	vs = [i for i in names if i.startswith('ff_vs_')]
+	ps = [i for i in names if i.startswith('ff_ps_')]
 
 	out.append('const gnm_shader_blob_t gnm_shader_clear_vs = { clear_vs, sizeof( clear_vs ) };')
 	out.append('const gnm_shader_blob_t gnm_shader_clear_ps = { clear_ps, sizeof( clear_ps ) };')
 	out.append('')
-	out.append('const gnm_shader_blob_t gnm_shader_gl2_vs[GNM_GL2_VS_COUNT] =\n{')
+	out.append('const gnm_shader_blob_t gnm_shader_ff_vs[GNM_FF_VS_COUNT] =\n{')
 	out += ['\t{ %s, sizeof( %s ) },' % (i, i) for i in vs]
 	out.append('};')
 	out.append('')
-	out.append('const gnm_shader_blob_t gnm_shader_gl2_ps[GNM_GL2_PS_COUNT] =\n{')
+	out.append('const gnm_shader_blob_t gnm_shader_ff_ps[GNM_FF_PS_COUNT] =\n{')
 	out += ['\t{ %s, sizeof( %s ) },' % (i, i) for i in ps]
 	out.append('};')
 
@@ -70,10 +70,10 @@ def build(bld):
 
 	# variant bits, see gnm_shaders.h
 	for i in range(8):
-		shader('gl2.vert.glsl', 'vert', 'gl2_vs_%d' % i, ['-DATTR_COLOR=%d' % (i & 1), '-DATTR_TEXCOORD0=%d' % ((i >> 1) & 1), '-DATTR_TEXCOORD1=%d' % ((i >> 2) & 1)])
+		shader('ff.vert.glsl', 'vert', 'ff_vs_%d' % i, ['-DATTR_COLOR=%d' % (i & 1), '-DATTR_TEXCOORD0=%d' % ((i >> 1) & 1), '-DATTR_TEXCOORD1=%d' % ((i >> 2) & 1)])
 
 	for i in range(32):
-		shader('gl2.frag.glsl', 'frag', 'gl2_ps_%d' % i, ['-DATTR_COLOR=%d' % (i & 1), '-DATTR_TEXCOORD0=%d' % ((i >> 1) & 1), '-DATTR_TEXCOORD1=%d' % ((i >> 2) & 1),
+		shader('ff.frag.glsl', 'frag', 'ff_ps_%d' % i, ['-DATTR_COLOR=%d' % (i & 1), '-DATTR_TEXCOORD0=%d' % ((i >> 1) & 1), '-DATTR_TEXCOORD1=%d' % ((i >> 2) & 1),
 			'-DFEAT_ALPHA_TEST=%d' % ((i >> 3) & 1), '-DFEAT_FOG=%d' % ((i >> 4) & 1)])
 
 	gnm_shaders = bld.path.get_bld().make_node('gnm_shaders.c')
@@ -82,7 +82,7 @@ def build(bld):
 	bld.stlib(source = bld.path.ant_glob('*.c') + [gnm_shaders],
 		target = 'gnm_shim',
 		features = 'c',
-		includes = ['.', bld.srcnode.find_dir('engine/platform/ps4/gnm')],
+		includes = ['.', '..', bld.srcnode.find_dir('engine/platform/ps4/gnm')],
 		cflags = ['-std=gnu11', '-Wno-unused-parameter'],
-		use = ['opengnm', 'gnm-shaders'] + names,
+		use = ['opengnm', 'gnm-shaders', 'engine_includes', 'sdk_includes'] + names,
 		install_path = None)

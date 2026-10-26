@@ -634,7 +634,7 @@ void GAME_EXPORT *GL_GetProcAddress( const char *name )
 {
 #if XASH_PS4
 	// OpenGL is implemented by the renderer itself, the engine only has the device
-	return PS4_GL_GetProcAddress( name );
+	return GNM_ShimGetProcAddress( name );
 #else
 	return gEngfuncs.GL_GetProcAddress( name );
 #endif
@@ -794,7 +794,7 @@ static void GL_InitExtensionsGLES( void )
 #elif XASH_WES
 	glConfig.context = CONTEXT_TYPE_GLES_2_X;
 	glConfig.wrapper = GLES_WRAPPER_WES;
-#elif XASH_GLES3COMPAT || XASH_PS4
+#elif XASH_GLES3COMPAT
 	glConfig.context = CONTEXT_TYPE_GLES_2_X;
 	glConfig.wrapper = GLES_WRAPPER_NONE;
 #else
@@ -1087,6 +1087,9 @@ static void GL_InitExtensionsBigGL( void )
 	GL_SetExtension( GL_OPENGL_110, true );
 	// init our immediate mode override
 	VGL_ShimInit();
+#elif XASH_PS4
+	// gnm_shim implements only GL1.1 functions that are used
+	GL_SetExtension( GL_OPENGL_110, true );
 #endif
 #if !XASH_GLES && !XASH_GL_STATIC
 	if( gEngfuncs.Sys_CheckParm( "-gl2shim" ))
@@ -1400,7 +1403,7 @@ void R_Shutdown( void )
 #endif // XASH_GL4ES
 
 #if XASH_PS4
-	PS4_GL_Shutdown();
+	GNM_ShimShutdown();
 #endif
 
 	// shut down OS specific OpenGL stuff like contexts, etc.
@@ -1622,7 +1625,7 @@ void GL_OnContextCreated( void )
 #if XASH_PS4
 	void *gnm = NULL;
 
-	if( gEngfuncs.R_GetWindowHandle( &gnm, REF_WINDOW_TYPE_GNM ) != REF_WINDOW_TYPE_GNM || !PS4_GL_Init( gnm ))
+	if( gEngfuncs.R_GetWindowHandle( &gnm, REF_WINDOW_TYPE_GNM ) != REF_WINDOW_TYPE_GNM || !GNM_ShimInit( gnm ))
 		gEngfuncs.Host_Error( "%s: can't initialize OpenGL over GNM\n", __func__ );
 #endif
 

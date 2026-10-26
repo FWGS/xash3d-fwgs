@@ -1,5 +1,5 @@
 /*
-gnm_shaders.h - precompiled shaders of PS4 GNM renderer backend
+gnm_shaders.h - precompiled shaders of gnm_shim
 Copyright (C) 2026 sergiopoverony
 
 This program is free software: you can redistribute it and/or modify
@@ -18,15 +18,15 @@ GNU General Public License for more details.
 #include <stddef.h>
 #include <stdint.h>
 
-// variant bits, same order as gl2_shim flags
-#define GNM_GL2_COLOR      ( 1 << 0 )
-#define GNM_GL2_TEXCOORD0  ( 1 << 1 )
-#define GNM_GL2_TEXCOORD1  ( 1 << 2 )
-#define GNM_GL2_ALPHA_TEST ( 1 << 3 )
-#define GNM_GL2_FOG        ( 1 << 4 )
+// variant bits of fixed function shaders
+#define GNM_FF_COLOR      ( 1 << 0 )
+#define GNM_FF_TEXCOORD0  ( 1 << 1 )
+#define GNM_FF_TEXCOORD1  ( 1 << 2 )
+#define GNM_FF_ALPHA_TEST ( 1 << 3 )
+#define GNM_FF_FOG        ( 1 << 4 )
 
-#define GNM_GL2_VS_COUNT 8  // attribute bits only
-#define GNM_GL2_PS_COUNT 32 // attribute and feature bits
+#define GNM_FF_VS_COUNT 8  // attribute bits only
+#define GNM_FF_PS_COUNT 32 // attribute and feature bits
 
 typedef struct gnm_shader_blob_s
 {
@@ -36,7 +36,7 @@ typedef struct gnm_shader_blob_s
 
 extern const gnm_shader_blob_t gnm_shader_clear_vs;
 extern const gnm_shader_blob_t gnm_shader_clear_ps;
-extern const gnm_shader_blob_t gnm_shader_gl2_vs[GNM_GL2_VS_COUNT];
-extern const gnm_shader_blob_t gnm_shader_gl2_ps[GNM_GL2_PS_COUNT];
+extern const gnm_shader_blob_t gnm_shader_ff_vs[GNM_FF_VS_COUNT];
+extern const gnm_shader_blob_t gnm_shader_ff_ps[GNM_FF_PS_COUNT];
 
 #endif // GNM_SHADERS_H

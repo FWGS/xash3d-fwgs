@@ -1,4 +1,4 @@
-// Vertex shader of gl2_shim (ref/gl/gl2_shim/vertex.glsl.inc) for GNM.
+// Vertex shader of gnm_shim: transform by the modelview projection matrix.
 // Built with defines ATTR_COLOR, ATTR_TEXCOORD0, ATTR_TEXCOORD1 (0 or 1).
 //
 // opengnm-psbc can't fetch vertex attributes without a fetch shader,

@@ -1142,7 +1142,7 @@ void R_EndFrame( void )
 	// flush any remaining 2D bits
 	R_Set2DMode( false );
 #if XASH_PS4
-	PS4_GL_EndFrame();
+	GNM_ShimEndFrame();
 #endif
 	gEngfuncs.GL_SwapBuffers();
 }
