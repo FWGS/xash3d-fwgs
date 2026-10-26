@@ -41,5 +41,6 @@ echo "OO_PS4_TOOLCHAIN=$GITHUB_WORKSPACE/$(dirname "$OO_LINKER")" >> "$GITHUB_EN
 
 echo "Downloading HLSDK..."
 
+# PS4 support isn't merged yet, see FWGS/hlsdk-portable#637
 rm -rf hlsdk-portable
-git clone --recursive https://github.com/FWGS/hlsdk-portable || exit 1
+git clone --depth 1 --recursive -b ps4-port https://github.com/sergiopoverony/hlsdk-portable || exit 1

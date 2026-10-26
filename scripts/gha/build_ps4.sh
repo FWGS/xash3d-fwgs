@@ -4,7 +4,17 @@
 
 cd "$BUILDDIR" || die
 
-./waf configure -T release --ps4 || die_configure
+echo "Building HLSDK..."
+
+pushd hlsdk-portable || die
+# This is not our bug if HLSDK doesn't build with -Werrors enabled
+./waf configure -T release --ps4 --disable-werror || die_configure
+./waf build install --destdir=build/ps4 || die
+popd || die
+
+echo "Building engine..."
+
+./waf configure -T release --ps4 --ps4-gamelibs=hlsdk-portable/build/ps4/valve || die_configure
 ./waf build || die
 
 mkdir -p artifacts || die
