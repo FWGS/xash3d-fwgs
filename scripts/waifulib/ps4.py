@@ -36,41 +36,6 @@ def configure(conf):
 	for i in ['cprogram', 'cxxprogram', 'cshlib', 'cxxshlib']:
 		conf.env['LINKFLAGS_' + i] = ['-Wl,-pie']
 
-	# runtime objects linked into every image:
-	# ps4_cwd.c - working directory emulation
-	# ps4_crtlib.c - module startup code, replaces broken crtlib.o from the toolchain
-	# ps4_malloc.c - process-wide heap
-	# ps4_stdio.c - thread safe standard output
-	# engine and hlsdk-portable keep them in different places
-	# (object name, source, extra flags)
-	objects = [
-		('cwd', 'ps4_cwd', []),
-		('stdio', 'ps4_stdio', []),
-		('crtlib', 'ps4_crtlib', []),
-		('malloc', 'ps4_malloc', []),
-		('malloc_module', 'ps4_malloc', ['-DPS4_MODULE=1']),
-	]
-
-	for key, name, extra in objects:
-		for i in ['3rdparty/ps4compat/', 'scripts/ps4/']:
-			src = conf.path.find_node(i + name + '.c')
-			if src:
-				break
-		else:
-			conf.fatal('%s.c not found' % name)
-
-		obj = conf.bldnode.make_node('ps4_rt_%s.o' % key)
-		conf.start_msg('Compiling PS4 runtime %s' % key)
-		cmd = conf.env.CC + conf.env.CFLAGS + extra + ['-O2', '-c', src.abspath(), '-o', obj.abspath()]
-		try:
-			conf.cmd_and_log(cmd)
-		except Exception as e:
-			conf.end_msg('failed', color='RED')
-			conf.fatal('Failed to compile %s: %s' % (src.abspath(), e))
-		conf.end_msg('ok')
-
-		conf.env['PS4_RT_' + key.upper()] = obj.abspath()
-
 	# diagnostic switch: PS4_NO_MALLOC_WRAP=1 keeps original per-image musl malloc
 	conf.env.PS4_MALLOC_WRAP = not os.environ.get('PS4_NO_MALLOC_WRAP')
 	funcs = PS4_WRAPPED_FUNCS
@@ -78,6 +43,31 @@ def configure(conf):
 		funcs = [i for i in funcs if i not in PS4_MALLOC_FUNCS]
 	conf.msg('PS4 shared locked heap', conf.env.PS4_MALLOC_WRAP)
 	conf.env.PS4_WRAP_FLAGS = ['-Wl,--wrap=%s' % i for i in funcs]
+
+# runtime objects of 3rdparty/ps4compat:
+# ps4_cwd.c - working directory emulation
+# ps4_crtlib.c - module startup code, replaces broken crtlib.o from the toolchain
+# ps4_malloc.c - process-wide heap
+# ps4_stdio.c - thread safe standard output
+@TaskGen.feature('cprogram', 'cxxprogram', 'cshlib', 'cxxshlib')
+@TaskGen.before_method('process_use')
+def ps4_use_runtime(self):
+	# configuration tests link without it, it's built later
+	if self.env.DEST_OS != 'ps4' or getattr(self.bld, 'conf', None):
+		return
+
+	is_library = 'cshlib' in self.features or 'cxxshlib' in self.features
+	use = ['ps4compat_cwd', 'ps4compat_stdio']
+
+	if is_library:
+		use += ['ps4compat_crtlib']
+		if self.env.PS4_MALLOC_WRAP:
+			use += ['ps4compat_malloc_module']
+	elif self.env.PS4_MALLOC_WRAP:
+		# eboot.bin owns the process heap, modules find it at runtime
+		use += ['ps4compat_malloc']
+
+	self.use = self.to_list(getattr(self, 'use', [])) + use
 
 @TaskGen.feature('cprogram', 'cxxprogram', 'cshlib', 'cxxshlib')
 @TaskGen.after_method('propagate_uselib_vars')
@@ -90,34 +80,11 @@ def ps4_add_runtime(self):
 	is_library = 'cshlib' in self.features or 'cxxshlib' in self.features
 	is_cxx = 'cxx' in self.features or 'cxxprogram' in self.features or 'cxxshlib' in self.features
 
-	if is_library:
-		flags = [self.env.PS4_RT_CRTLIB]
-		if self.env.PS4_MALLOC_WRAP:
-			flags += [self.env.PS4_RT_MALLOC_MODULE]
-	else:
-		flags = [self.env.PS4_CRT_PROGRAM, '-lSceSystemService']
-		if self.env.PS4_MALLOC_WRAP:
-			# eboot.bin owns the process heap, modules find it at runtime
-			flags += [self.env.PS4_RT_MALLOC]
-	flags += [self.env.PS4_RT_CWD, self.env.PS4_RT_STDIO]
-	flags += self.env.PS4_WRAP_FLAGS
+	flags = [] if is_library else [self.env.PS4_CRT_PROGRAM, '-lSceSystemService']
+	if not getattr(self.bld, 'conf', None):
+		flags += self.env.PS4_WRAP_FLAGS
 	if is_cxx:
 		flags += ['-lc++']
 	flags += ['-lc'] + PS4_SYSTEM_LIBS
 
 	self.env.append_value('LDFLAGS', flags)
-
-@TaskGen.feature('cprogram', 'cxxprogram', 'cshlib', 'cxxshlib')
-@TaskGen.after_method('apply_link')
-def ps4_runtime_deps(self):
-	# runtime objects are passed through LDFLAGS, so waf doesn't know
-	# images have to be relinked when they change
-	if self.env.DEST_OS != 'ps4' or not getattr(self, 'link_task', None):
-		return
-
-	for key in ['PS4_RT_CWD', 'PS4_RT_STDIO', 'PS4_RT_CRTLIB', 'PS4_RT_MALLOC', 'PS4_RT_MALLOC_MODULE']:
-		path = self.env[key]
-		if path:
-			node = self.bld.root.find_node(path)
-			if node:
-				self.link_task.dep_nodes.append(node)

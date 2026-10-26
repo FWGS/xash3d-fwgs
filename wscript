@@ -125,6 +125,7 @@ SUBDIRS = [
 	Subproject('3rdparty/mpg123',       lambda x: x.env.CLIENT and not x.env.HAVE_SYSTEM_MPG123),
 	Subproject('3rdparty/mbedtls'),
 	Subproject('3rdparty/opengnm',      lambda x: x.env.CLIENT and x.env.DEST_OS == 'ps4'),
+	Subproject('3rdparty/ps4compat',    lambda x: x.env.DEST_OS == 'ps4'),
 	Subproject('3rdparty/opus',         lambda x: x.env.CLIENT and not x.env.HAVE_SYSTEM_OPUS),
 	Subproject('3rdparty/libogg',       lambda x: x.env.CLIENT and not x.env.HAVE_SYSTEM_OGG),
 	Subproject('3rdparty/vorbis',       lambda x: x.env.CLIENT and (not x.env.HAVE_SYSTEM_VORBIS or not x.env.HAVE_SYSTEM_VORBISFILE)),
