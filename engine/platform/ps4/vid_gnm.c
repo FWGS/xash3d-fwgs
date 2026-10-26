@@ -37,11 +37,7 @@ platform_orientation_t Platform_GetDisplayOrientation( void )
 	return ORIENTATION_LANDSCAPE;
 }
 
-void VID_RestoreScreenResolution( window_mode_t window_mode )
-{
-}
-
-void VID_SaveWindowSize( int width, int height )
+static void VID_SaveWindowSize( int width, int height )
 {
 	VID_SetDisplayTransform( &width, &height );
 	R_SaveVideoMode( width, height, width, height, false );
