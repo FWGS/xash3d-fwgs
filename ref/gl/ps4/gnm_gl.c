@@ -2037,8 +2037,15 @@ static void draw( GLenum mode, GLint first, GLsizei count, bool indexed, GLenum 
 	{
 		uint8_t *vsu = gnm_dev_alloc_transient( 144, 16 );
 		uint8_t *table = gnm_dev_alloc_table( VS_TABLE_SIZE );
-		int32_t *ai = (int32_t *)( vsu + 64 );
 		GnmBuffer b;
+
+		if( !vsu || !table )
+		{
+			draw_dropped( "out of GPU memory" );
+			return;
+		}
+
+		int32_t *ai = (int32_t *)( vsu + 64 );
 
 		memcpy( vsu, p->uniforms_mvp, 64 );
 		memset( vsu + 64, 0, 80 );
@@ -2046,6 +2053,12 @@ static void draw( GLenum mode, GLint first, GLsizei count, bool indexed, GLenum 
 		for( k = 0; k < numsems; k++ )
 		{
 			uint8_t *data = gnm_dev_alloc_transient( attrs[k].bytes + 16, 16 );
+
+			if( !data )
+			{
+				draw_dropped( "out of GPU memory" );
+				return;
+			}
 
 			memcpy( data, attrs[k].src, attrs[k].bytes );
 			memset( data + attrs[k].bytes, 0, 16 ); // unaligned byte reads go a bit past the end
@@ -2076,6 +2089,12 @@ static void draw( GLenum mode, GLint first, GLsizei count, bool indexed, GLenum 
 		uint8_t *table = gnm_dev_alloc_table( PS_TABLE_SIZE );
 		GnmBuffer b;
 		int u;
+
+		if( !psu || !table )
+		{
+			draw_dropped( "out of GPU memory" );
+			return;
+		}
 
 		memcpy( psu, p->uniforms_color, 16 );
 		memcpy( psu + 4, p->uniforms_fog, 16 );
@@ -2112,6 +2131,12 @@ static void draw( GLenum mode, GLint first, GLsizei count, bool indexed, GLenum 
 		int isize = itype == GL_UNSIGNED_INT ? 4 : itype == GL_UNSIGNED_SHORT ? 2 : 1;
 		void *idata = gnm_dev_alloc_transient( idx32 ? count * 4 : count * 2, 16 );
 		const int rebase = basevertex - vmin;
+
+		if( !idata )
+		{
+			draw_dropped( "out of GPU memory" );
+			return;
+		}
 
 		for( i = 0; i < count; i++ )
 		{
@@ -2181,6 +2206,14 @@ static void gl_Clear( GLbitfield mask )
 		return;
 
 	cmd = gnm_dev_reserve( 1024, 64, 64 );
+	colordata = gnm_dev_alloc_transient( 16, 16 );
+	table = gnm_dev_alloc_table( 16 );
+
+	if( !colordata || !table )
+	{
+		draw_dropped( "clear: out of GPU memory" );
+		return;
+	}
 
 	if( gnm_dev.debug )
 	{
@@ -2226,9 +2259,7 @@ static void gl_Clear( GLbitfield mask )
 
 	set_shaders( cmd, &gl.clear_vs, &gl.clear_ps );
 
-	colordata = gnm_dev_alloc_transient( 16, 16 );
 	memcpy( colordata, gl.clear_color, 16 );
-	table = gnm_dev_alloc_table( 16 );
 	b = sceGnmCreateConstBuffer( colordata, 16 );
 	b.stride = 0;
 	b.numrecords = 16;
