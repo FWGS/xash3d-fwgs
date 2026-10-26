@@ -376,6 +376,11 @@ void Platform_Sleep( int msec )
 	sceKernelUsleep( (uint32_t)msec * 1000 );
 }
 
+void Platform_ShellExecute( const char *path, const char *parms )
+{
+	Con_Reportf( S_WARN "Tried to shell execute \"%s\" -- not supported\n", path );
+}
+
 void PS4_Init( void )
 {
 	OrbisNetDnsInfo dns = { 0 };
