@@ -19,7 +19,6 @@ GNU General Public License for more details.
 #include <QRegularExpression>
 #include <QSettings>
 #include <QTextStream>
-#include <QUrl>
 #include <QVariantMap>
 #include "engine.h"
 #include "gamecover.h"
@@ -187,13 +186,13 @@ void Launcher::refresh()
 		QString title, icon = "game.ico";
 		ReadGameInfo( dir, title, icon );
 
-		const QString icon_path = FindFileCaseInsensitive( dir, icon );
+		const QString icon_path = FindGameIcon( dir, icon );
 		QVariantMap game;
 
 		game["dir"] = info.fileName();
 		game["path"] = info.absoluteFilePath();
 		game["title"] = title.isEmpty() ? info.fileName() : title;
-		game["icon"] = icon_path.isEmpty() ? QString() : QUrl::fromLocalFile( icon_path ).toString();
+		game["icon"] = icon_path;
 		game["downloaded"] = dir.exists( MEGABUILD_INFO_FILE );
 		m_games.append( game );
 	}

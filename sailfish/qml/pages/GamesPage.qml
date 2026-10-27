@@ -161,7 +161,7 @@ Page {
 					sourceSize.width: width
 					sourceSize.height: height
 					anchors.verticalCenter: parent.verticalCenter
-					source: modelData.icon
+					source: modelData.icon !== "" ? "image://icon/" + modelData.icon : ""
 					visible: modelData.icon !== "" && status !== Image.Error
 				}
 

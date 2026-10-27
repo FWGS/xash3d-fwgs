@@ -45,6 +45,7 @@ Q_DECL_EXPORT int main( int argc, char **argv )
 
 	// the engine owns the provider
 	view->engine()->addImageProvider( "cover", new GameCoverProvider );
+	view->engine()->addImageProvider( "icon", new GameIconProvider );
 	view->rootContext()->setContextProperty( "launcher", launcher.data( ));
 	view->rootContext()->setContextProperty( "megabuild", megabuild.data( ));
 	view->rootContext()->setContextProperty( "updater", updater.data( ));

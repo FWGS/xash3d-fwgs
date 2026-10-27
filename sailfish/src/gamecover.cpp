@@ -1,5 +1,5 @@
 /*
-gamecover.cpp - game cover images composed from menu backgrounds
+gamecover.cpp - game cover images composed from menu backgrounds, and game icons
 Copyright (C) 2026 Alibek Omarov
 
 This program is free software: you can redistribute it and/or modify
@@ -13,6 +13,7 @@ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 */
 #include <QFile>
+#include <QImageReader>
 #include <QPainter>
 #include <QRegularExpression>
 #include "gamecover.h"
@@ -237,6 +238,76 @@ QImage GameCoverProvider::requestImage( const QString &id, QSize *size, const QS
 
 	if( !image.isNull() && requestedSize.width() > 0 )
 		image = image.scaledToWidth( requestedSize.width(), Qt::SmoothTransformation );
+
+	if( size )
+		*size = image.size();
+
+	return image;
+}
+
+static QImage LoadIcon( const QString &path )
+{
+	if( path.endsWith( ".tga", Qt::CaseInsensitive ))
+		return LoadTGA( path );
+
+	QImageReader reader( path );
+	QImage image;
+
+	do
+	{
+		const QImage frame = reader.read();
+
+		// same sized images usually go from fewer to more colors
+		if( !frame.isNull() && frame.width() * frame.height() >= image.width() * image.height( ))
+			image = frame;
+	} while( reader.jumpToNextImage( ));
+
+	return image;
+}
+
+QString FindGameIcon( const QDir &game, QString icon )
+{
+	icon.replace( '\\', '/' );
+
+	// the engine appends .ico when there's no extension and tries the .tga variant first,
+	// Steam shows the _big.tga variant in the library
+	if( QFileInfo( icon ).suffix().isEmpty( ))
+		icon += ".ico";
+
+	const QString base = icon.left( icon.lastIndexOf( '.' ));
+	QString best;
+	int best_area = 0;
+
+	// mods often point to a file they don't have, or have a better one elsewhere
+	for( const QString &name : { base + "_big.tga", base + ".tga", icon, QString( "game.ico" )})
+	{
+		const QString path = FindFileCaseInsensitive( game, name );
+
+		if( path.isEmpty( ))
+			continue;
+
+		const QImage image = LoadIcon( path );
+
+		if( image.width() * image.height() > best_area )
+		{
+			best = path;
+			best_area = image.width() * image.height();
+		}
+	}
+
+	return best;
+}
+
+GameIconProvider::GameIconProvider() : QQuickImageProvider( QQuickImageProvider::Image )
+{
+}
+
+QImage GameIconProvider::requestImage( const QString &id, QSize *size, const QSize &requestedSize )
+{
+	QImage image = LoadIcon( id );
+
+	if( !image.isNull() && requestedSize.isValid( ))
+		image = image.scaled( requestedSize, Qt::KeepAspectRatio, Qt::SmoothTransformation );
 
 	if( size )
 		*size = image.size();

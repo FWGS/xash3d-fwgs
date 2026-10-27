@@ -20,11 +20,23 @@ GNU General Public License for more details.
 // game data often comes from Windows, where names don't match the case
 QString FindFileCaseInsensitive( const QDir &base, const QString &relpath );
 
+// candidates follow the engine and Steam, the largest image wins
+QString FindGameIcon( const QDir &game, QString icon );
+
 // image://cover/<absolute game directory path>
 class GameCoverProvider : public QQuickImageProvider
 {
 public:
 	GameCoverProvider();
+
+	QImage requestImage( const QString &id, QSize *size, const QSize &requestedSize ) override;
+};
+
+// image://icon/<absolute icon path>, takes the largest image from .ico files
+class GameIconProvider : public QQuickImageProvider
+{
+public:
+	GameIconProvider();
 
 	QImage requestImage( const QString &id, QSize *size, const QSize &requestedSize ) override;
 };
