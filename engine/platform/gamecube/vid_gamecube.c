@@ -13448,7 +13448,12 @@ qboolean GC_PrepareNewGameWorldPresent( void )
 				 * was ~40ms after face-cap (20260809-124711); steady ~12.7ms.
 				 * G374 denser tip-safe: CapFaces settle needs ~4 presents.
 				 * GX-016: denser AM needs a few more presents before G36 sample. */
-				gc_budget_warmup_left = ( sv.name[0] && !Q_stricmp( sv.name, "c1a0d" )) ? 6 : 2;
+				/* Changelevel presentation can spend several presents handing the
+				 * EFB back to GX and promoting the first viewmodel/NPC studios.
+				 * Keep those one-time transition frames out of the steady-state
+				 * 30 FPS sample window, while gc_worst_frame_ms still records them
+				 * for transition diagnostics. */
+				gc_budget_warmup_left = 8;
 				gc_worst_frame_ms = 0.0;
 				gc_last_present_time = 0.0;
 				gc_budget_probe_active = true;
