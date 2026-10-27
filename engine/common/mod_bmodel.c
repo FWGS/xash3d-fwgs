@@ -5406,6 +5406,7 @@ static void Mod_GCReleaseBspSourceBuffer( model_t *mod, dbspmodel_t *bmod, byte 
 static void Mod_GCReleaseGcmapPreSurfaceStaging( model_t *mod, dbspmodel_t *bmod, byte *mod_base, size_t bufferlen )
 {
 	byte *pinned;
+	size_t scratch_capacity = bufferlen;
 
 	if( !GC_MapLoadMemoryOpt() || !bmod->isworld || !mod_base || bufferlen == 0 )
 		return;
@@ -5464,9 +5465,11 @@ static void Mod_GCReleaseGcmapPreSurfaceStaging( model_t *mod, dbspmodel_t *bmod
 	 * Required for New Game too: the enlarged BSS mapload arena leaves too
 	 * little MEM1 for a 661 Kb surface malloc (Sys_Error on Mem_Calloc fallback). */
 	gc_bsp_scratch_base = mod_base;
-	gc_bsp_scratch_size = bufferlen > gc_bsp_scratch_carve_high
-		? bufferlen - gc_bsp_scratch_carve_high
-		: bufferlen;
+	if( GC_IsMapLoadBuffer( mod_base ) && GC_MapLoadBufferCapacity() > scratch_capacity )
+		scratch_capacity = GC_MapLoadBufferCapacity();
+	gc_bsp_scratch_size = scratch_capacity > gc_bsp_scratch_carve_high
+		? scratch_capacity - gc_bsp_scratch_carve_high
+		: scratch_capacity;
 	gc_retain_bsp_source_buffer = true;
 	Con_Reportf( "Xash3D GameCube: rearmed BSP scratch for surfaces %s%s\n",
 		Q_memprint( gc_bsp_scratch_size ),
@@ -5476,9 +5479,12 @@ static void Mod_GCReleaseGcmapPreSurfaceStaging( model_t *mod, dbspmodel_t *bmod
 static void Mod_GCReleaseBspSourceBuffer( model_t *mod, dbspmodel_t *bmod, byte *mod_base, size_t bufferlen )
 {
 	size_t leaf_esize, node_esize, clip_esize;
+	size_t scratch_capacity = bufferlen;
 
 	if( !mod_base || bufferlen == 0 )
 		return;
+	if( GC_IsMapLoadBuffer( mod_base ) && GC_MapLoadBufferCapacity() > scratch_capacity )
+		scratch_capacity = GC_MapLoadBufferCapacity();
 	if( gc_retain_bsp_source_buffer )
 	{
 		Con_Reportf( "Xash3D GameCube: retaining BSP source buffer for gcmap scratch\n" );
@@ -5519,9 +5525,9 @@ static void Mod_GCReleaseBspSourceBuffer( model_t *mod, dbspmodel_t *bmod, byte 
 		if( clip_bytes && !Sys_CheckParm( "-gcfullphysics" ))
 			carve_total += ALIGN( clip_bytes, 32 );
 
-		if( carve_total > 0 && carve_total < bufferlen )
+		if( carve_total > 0 && carve_total < scratch_capacity )
 		{
-			byte *carve_ptr = mod_base + bufferlen - carve_total;
+			byte *carve_ptr = mod_base + scratch_capacity - carve_total;
 
 			if( node_bytes )
 			{

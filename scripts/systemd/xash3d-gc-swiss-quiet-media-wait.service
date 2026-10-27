@@ -1,0 +1,15 @@
+[Unit]
+Description=Xash3D GC Swiss quiet media wait (wake only on SD/dropfile)
+After=default.target
+
+[Service]
+Type=simple
+WorkingDirectory=%h/Desktop/xash3d-gc
+ExecStart=%h/Desktop/xash3d-gc/scripts/gamecube-swiss-quiet-media-wait.sh
+Restart=always
+RestartSec=5
+StandardOutput=append:%h/Desktop/xash3d-gc/.ai/logs/swiss-media-quiet-wait.log
+StandardError=append:%h/Desktop/xash3d-gc/.ai/logs/swiss-media-quiet-wait.log
+
+[Install]
+WantedBy=default.target

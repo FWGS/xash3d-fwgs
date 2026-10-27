@@ -54,6 +54,7 @@ void *GC_BorrowMapLoadBuffer( size_t size );
 qboolean GC_ReleaseMapLoadBuffer( void *ptr );
 void GC_DiscardMapLoadBuffer( void );
 qboolean GC_IsMapLoadBuffer( const void *ptr );
+size_t GC_MapLoadBufferCapacity( void );
 /* Unused bytes after a borrowed BSP image inside the static map-load arena. */
 void *GC_MapLoadBufferTailAlloc( size_t after_offset, size_t need );
 
@@ -100,6 +101,7 @@ static inline void *GC_BorrowMapLoadBuffer( size_t size ) { (void)size; return N
 static inline qboolean GC_ReleaseMapLoadBuffer( void *ptr ) { (void)ptr; return false; }
 static inline void GC_DiscardMapLoadBuffer( void ) { }
 static inline qboolean GC_IsMapLoadBuffer( const void *ptr ) { (void)ptr; return false; }
+static inline size_t GC_MapLoadBufferCapacity( void ) { return 0; }
 static inline void *GC_MapLoadBufferTailAlloc( size_t after_offset, size_t need )
 {
 	(void)after_offset;

@@ -2343,8 +2343,11 @@ void SV_ChangeLevel( qboolean loadfromsavedgame, const char *mapname, const char
 	}
 
 #if XASH_GAMECUBE
+	Con_Reportf( "Xash3D GameCube: SV_ChangeLevel begin map=%s start=%s loadsave=%d\n",
+		mapname ? mapname : "?", start ? start : "(none)", loadfromsavedgame ? 1 : 0 );
 	/* G92: drop New Game PVS pins before the world model is unloaded. */
 	GC_ResetNewGameWorldForChangelevel();
+	Con_Reportf( "Xash3D GameCube: SV_ChangeLevel after teardown\n" );
 #endif
 
 	if( start )
@@ -2386,13 +2389,22 @@ void SV_ChangeLevel( qboolean loadfromsavedgame, const char *mapname, const char
 		}
 	}
 
+#if XASH_GAMECUBE
+	Con_Reportf( "Xash3D GameCube: SV_ChangeLevel deactivate begin\n" );
+#endif
 	SV_InactivateClients ();
 	SV_FinalMessage( "", true );
 	SV_DeactivateServer ();
+#if XASH_GAMECUBE
+	Con_Reportf( "Xash3D GameCube: SV_ChangeLevel spawn begin map=%s\n", level );
+#endif
 
 	if( !SV_SpawnServer( level, startspot, background ))
 		return;	// ???
-
+#if XASH_GAMECUBE
+	Con_Reportf( "Xash3D GameCube: SV_ChangeLevel spawn ready map=%s\n",
+		sv.name[0] ? sv.name : "?" );
+#endif
 	if( loadfromsavedgame )
 	{
 		// finish saving gamestate

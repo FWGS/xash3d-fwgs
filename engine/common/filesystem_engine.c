@@ -232,6 +232,18 @@ void FS_SaveVFSConfig( void )
 void FS_LoadGameInfo( void )
 {
 	FS_LoadVFSConfig( g_fsapi.Gamedir( ));
+#if XASH_GAMECUBE
+	/* Disc-only: Host_Init calls this twice (FS_Init + post-Image_Init). The
+	 * second ClearSearchPath/ZIP teardown was corrupting MEM1 on lean c0a0e
+	 * smoke ISOs (Mem_FreeBlockBig trashed sentinel @ zip.c). VFS config is
+	 * unchanged without writable storage — reuse the first mount. */
+	if( FI && FI->GameInfo && !GCube_HasPersistentWritableStorage() )
+	{
+		Con_Reportf( "Xash3D GameCube: filesystem gameinfo reuse (disc-only) info=%p\n",
+			(void *)FI->GameInfo );
+		return;
+	}
+#endif
 	Con_Reportf( "Xash3D GameCube: filesystem gameinfo load begin\n" );
 	g_fsapi.LoadGameInfo( FS_MountFlags(), ui_language.string );
 	Con_Reportf( "Xash3D GameCube: filesystem gameinfo load ready info=%p\n", (void *)( FI ? FI->GameInfo : NULL ));

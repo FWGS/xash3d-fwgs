@@ -1624,13 +1624,15 @@ int EXPORT Host_Main( int argc, char **argv, const char *progname, int bChangeGa
 							char landmark[MAX_QPATH];
 
 							/* G97–G100: distinctive inventory proves continuity across hop.
-							 * Tram (c0a0) keeps early COM_ChangeLevel. Reactor maps hang in
+							 * Tram tip (c0a0*) keeps early COM_ChangeLevel. Reactor maps hang in
 							 * that early hop (c3a2→c3a2a, probe 20260809-122207) — defer to
 							 * post-G36 present (vid_gamecube). */
 							if( Sys_GetParmFromCmdLine( "-gcchangelevel", dest )
 								&& Q_stricmp( dest, sv.name ))
 							{
-								if( sv.name[0] && Q_stricmp( sv.name, "c0a0" ))
+								const qboolean tram_tip = !Q_strnicmp( sv.name, "c0a0", 4 );
+
+								if( sv.name[0] && !tram_tip )
 								{
 									Con_Reportf( "Xash3D GameCube: changelevel defer post-G36 map=%s from=%s\n",
 										dest, sv.name );
@@ -1644,7 +1646,23 @@ int EXPORT Host_Main( int argc, char **argv, const char *progname, int bChangeGa
 									Con_Reportf( "Xash3D GameCube: changelevel begin map=%s from=%s landmark=%s\n",
 										dest, sv.name[0] ? sv.name : "?",
 										landmark[0] ? landmark : "(none)" );
-									COM_ChangeLevel( dest, landmark[0] ? landmark : NULL, false );
+									GCube_AppendSwissEvidence( "changelevel begin map=%s from=%s",
+										dest, sv.name[0] ? sv.name : "?" );
+									/* Tear Flipper/PVS pins only — do NOT discard the map-load
+									 * arena here while c0a0e is still the active world; that
+									 * hung dest FS_SysOpen/MapIsValid (20260829 tram→AM probes).
+									 * Mod_PurgeStudioCache releases the arena on real hop. */
+									GC_ResetNewGameWorldForChangelevel();
+									/* COM_ChangeLevel no-ops unless nextstate==RUNFRAME.
+									 * Direct-map init is often still LOAD_LEVEL here, so
+									 * queue classic changelevel for the first main-loop
+									 * frame instead (same as console / G68 defer path). */
+									if( landmark[0] )
+										Cbuf_AddTextf( "changelevel2 %s %s\n", dest, landmark );
+									else
+										Cbuf_AddTextf( "changelevel %s\n", dest );
+									Con_Reportf( "Xash3D GameCube: changelevel queued for main loop dest=%s\n",
+										dest );
 								}
 							}
 						}
@@ -1695,12 +1713,13 @@ int EXPORT Host_Main( int argc, char **argv, const char *progname, int bChangeGa
 #endif
 
 	#if XASH_GAMECUBE
-		/* Tram G68 early hops skip smoke (COM_ChangeLevel already ran). Reactor
-		 * hops defer post-G36 and still need Prepare on the source map. */
+		/* Tram tip (c0a0*) G68 early hops skip smoke/prepare — that path hangs
+		 * in G320 prepare before the main loop can drain the queued changelevel.
+		 * Reactor hops still prepare on the source map (post-G36 defer). */
 		if( Sys_CheckParm( "-gcmap" ) && SV_Active()
 			&& ( !Sys_CheckParm( "-gcchangelevel" )
 				|| ( Sys_CheckParm( "-gcnewgame" ) && sv.name[0]
-					&& Q_stricmp( sv.name, "c0a0" )) ))
+					&& Q_strnicmp( sv.name, "c0a0", 4 ) )) )
 		{
 			qboolean force_status_panel = Sys_CheckParm( "-gcstatuspanel" ) ? true : false;
 
@@ -1767,7 +1786,23 @@ int EXPORT Host_Main( int argc, char **argv, const char *progname, int bChangeGa
 	}
 
 	// check after all configs were executed
+#if XASH_GAMECUBE
+	/* Tram→AM early changelevel queues before the main loop; HPAK_CheckIntegrity
+	 * hangs on disc-only New Game (c0a0e→c1a0 probes). Skip for map probes. */
+	if( Sys_CheckParm( "-gcmap" ) || Sys_CheckParm( "-gcnewgame" ))
+	{
+		Con_Reportf( "Xash3D GameCube: HPAK integrity check skipped (gcmap/newgame)\n" );
+	}
+	else
+	{
+		Con_Reportf( "Xash3D GameCube: HPAK integrity check begin\n" );
+		HPAK_CheckIntegrity( hpk_custom_file.string );
+		Con_Reportf( "Xash3D GameCube: HPAK integrity check ready\n" );
+	}
+	Con_Reportf( "Xash3D GameCube: host main loop begin status=%d\n", host.status );
+#else
 	HPAK_CheckIntegrity( hpk_custom_file.string );
+#endif
 
 	// main window message loop
 	while( host.status != HOST_CRASHED )

@@ -180,6 +180,8 @@ qboolean Mod_GCWorldSurfacesScratchRetained( model_t *mod ); /* G283: scratch re
 qboolean Mod_GCIsRetainedBspScratch( const void *buf );
 void Mod_GCClearRetainedBspScratch( void );
 qboolean Mod_GCIsStudioBssCache( const void *ptr );
+byte *Mod_GCStudioBssAlloc( size_t size );
+byte *Mod_GCStudioBssGrowLast( void *ptr, size_t old_size, size_t new_size );
 #endif
 
 //

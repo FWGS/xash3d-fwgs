@@ -13,9 +13,10 @@ if [ "${GC_BOOT_PROBE_INNER:-0}" != "1" ]; then
 	exec timeout --foreground --signal=TERM --kill-after=10 "$PROBE_TIMEOUT" "$0" "$@"
 fi
 cleanup_boot_probe_processes() {
-    pkill -TERM -f '[d]olphin-emu|[D]olphinQt' 2>/dev/null || true
+    # Match stock dolphin-emu and renamed bring-up binaries (xash-gc-dolphin).
+    pkill -TERM -f '[d]olphin-emu|[D]olphinQt|[x]ash-gc-dolphin' 2>/dev/null || true
     sleep 1
-    pkill -KILL -f '[d]olphin-emu|[D]olphinQt' 2>/dev/null || true
+    pkill -KILL -f '[d]olphin-emu|[D]olphinQt|[x]ash-gc-dolphin' 2>/dev/null || true
 }
 cleanup_boot_probe_locks() {
     rm -f .ai/dolphin-probe.lock .ai/goal-supervisor.lock .ai/goal-loop.lock 2>/dev/null || true

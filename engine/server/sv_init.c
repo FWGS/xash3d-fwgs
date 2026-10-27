@@ -750,6 +750,9 @@ void SV_ActivateServer( int runPhysics )
 	GC_RestoreVideoMemoryAfterMapLoad();
 	R_GcmapRestoreAfterMapLoad();
 	Con_Reportf( "Xash3D GameCube: map loaded %s\n", sv.name );
+	GCube_AppendSwissEvidence( "map loaded %s", sv.name );
+	/* Watchdog: if entity spawn never finishes, still return to Swiss. */
+	GCube_ArmSwissQuit();
 	GC_ReportBootPhase( GC_BOOT_MAP );
 	GC_MemSample( "map active" );
 	GC_MemPoolReport( "map active" );
@@ -789,6 +792,13 @@ void SV_ActivateServer( int runPhysics )
 			second_map = true;
 			Con_Reportf( "Xash3D GameCube: G68 changelevel ready from=%s to=%s\n",
 				gc_cl_prev, sv.name );
+			GCube_AppendSwissEvidence( "G68 changelevel ready from=%s to=%s",
+				gc_cl_prev, sv.name );
+			/* Emit MAP_READY before G95 prepare — prepare can hang after
+			 * CapFaces on tram→AM (c0a0e→c1a0 probe 20260829-060622) and
+			 * the harness requires MAP_READY + G68 + G100 for CHANGELEVEL_READY. */
+			Con_Reportf( "Xash3D GameCube: MAP_READY %s\n", sv.name );
+			GC_ReportBootPhase( GC_BOOT_MAP );
 		}
 		else if( gc_cl_prev[0] && Sys_CheckParm( "-gcchangelevel2" )
 			&& Sys_GetParmFromCmdLine( "-gcchangelevel2", dest )
@@ -798,6 +808,10 @@ void SV_ActivateServer( int runPhysics )
 			second_map = true;
 			Con_Reportf( "Xash3D GameCube: G68 changelevel ready from=%s to=%s\n",
 				gc_cl_prev, sv.name );
+			GCube_AppendSwissEvidence( "G68 changelevel ready from=%s to=%s",
+				gc_cl_prev, sv.name );
+			Con_Reportf( "Xash3D GameCube: MAP_READY %s\n", sv.name );
+			GC_ReportBootPhase( GC_BOOT_MAP );
 		}
 		Q_strncpy( gc_cl_prev, sv.name, sizeof( gc_cl_prev ));
 
@@ -851,11 +865,12 @@ void SV_ActivateServer( int runPhysics )
 		Con_Printf( S_WARN "%i static decals was rejected due buffer overflow\n", sv.ignored_world_decals );
 
 #if XASH_GAMECUBE
-	if( GC_MapLoadMemoryOpt() )
-	{
-		Con_Reportf( "Xash3D GameCube: MAP_READY %s\n", sv.name );
-		GC_ReportBootPhase( GC_BOOT_MAP );
-	}
+	/* Always emit MAP_READY once ActivateServer finishes. Gating on
+	 * GC_MapLoadMemoryOpt() skipped the marker on tram→AM changelevel
+	 * (G68+G100 present, no MAP_READY c1a0 — probe 20260829-055848), so
+	 * the harness never reached CHANGELEVEL_READY. */
+	Con_Reportf( "Xash3D GameCube: MAP_READY %s\n", sv.name );
+	GC_ReportBootPhase( GC_BOOT_MAP );
 #endif
 }
 
@@ -874,7 +889,17 @@ void SV_DeactivateServer( void )
 		Cbuf_AddTextf( "exec %s\n", cycle );
 
 	if( !COM_StringEmpty( sv.name ))
+	{
+#if XASH_GAMECUBE
+		/* Missing maps/<map>_unload.cfg FS_LoadFile hangs disc lookup mid
+		 * changelevel worldspawn (c0a0e→c1a0a probe 20260829-054502:
+		 * progress=0 then execing unload, never CSoundEnt skip). Retail
+		 * tram maps have no unload scripts; skip the DVD probe. */
+		Con_Reportf( "Xash3D GameCube: skip maps/%s_unload.cfg\n", sv.name );
+#else
 		Cbuf_AddTextf( "exec maps/%s_unload.cfg\n", sv.name );
+#endif
+	}
 
 	if( !svs.initialized || sv.state == ss_dead )
 		return;
@@ -1159,43 +1184,45 @@ qboolean SV_SpawnServer( const char *mapname, const char *startspot, qboolean ba
 #if XASH_GAMECUBE
 	extern void FS_FindFile_f( const char *filename );
 
-	/* Temporary G201 evidence: FS_FileExists and FS_LoadFile use separate
-	 * filesystem paths. Keep both observations before Delta_Init so a missing
-	 * disc/search-path asset cannot be mistaken for a delta encoder failure. */
-	{
-		fs_offset_t delta_size = 0, valve_delta_size = 0;
-		byte *delta_data, *valve_delta_data;
-		const char *delta_disk, *valve_delta_disk;
-		qboolean delta_exists, valve_delta_exists;
-
-		delta_exists = FS_FileExists( "delta.lst", false );
-		valve_delta_exists = FS_FileExists( "valve/delta.lst", false );
-		delta_disk = FS_GetDiskPath( "delta.lst", false );
-		valve_delta_disk = FS_GetDiskPath( "valve/delta.lst", false );
-		delta_data = FS_LoadFile( "delta.lst", &delta_size, false );
-		valve_delta_data = FS_LoadFile( "valve/delta.lst", &valve_delta_size, false );
-		Con_Reportf( "Xash3D GameCube: G201 delta diagnostic exists=%d load=%d size=%lld disk=%s valve_exists=%d valve_load=%d valve_size=%lld valve_disk=%s\n",
-			delta_exists, delta_data != NULL, (long long)delta_size,
-			delta_disk ? delta_disk : "(none)", valve_delta_exists,
-			valve_delta_data != NULL, (long long)valve_delta_size,
-			valve_delta_disk ? valve_delta_disk : "(none)" );
-		FS_Path_f();
-		FS_FindFile_f( "delta.lst" );
-		FS_FindFile_f( "valve/delta.lst" );
-		if( delta_data ) Mem_Free( delta_data );
-		if( valve_delta_data ) Mem_Free( valve_delta_data );
-	}
-
 	/* G201: spawn-time Delta_Init re-parses delta.lst; under tight MEM1 that
 	 * second FS_LoadFile can stall forever after a layout shift. Progs already
 	 * initialized delta — skip reinit on New Game (also -gcnodeltareinit).
-	 * Also skip if delta.lst is missing — local maps don't require deltas. */
-	if( Sys_CheckParm( "-gcnodeltareinit" ) || Sys_CheckParm( "-gcnewgame" ))
+	 * Also skip if delta.lst is missing — local maps don't require deltas.
+	 *
+	 * Lean -gcmap discs: the FS_Path_f / FindFile probes below hung forever on
+	 * c0a0e after LOADING BSP (probe 20260829-012117). Keep diagnostics off
+	 * for smoke/newgame; real Swiss SD boots still skip via -gcnewgame. */
+	if( Sys_CheckParm( "-gcnodeltareinit" ) || Sys_CheckParm( "-gcnewgame" )
+		|| Sys_CheckParm( "-gcmap" ))
 	{
-		Con_Reportf( "Xash3D GameCube: G201 delta reinit skipped (newgame)\n" );
+		Con_Reportf( "Xash3D GameCube: G201 delta reinit skipped (newgame/gcmap)\n" );
 	}
 	else
 	{
+		/* Temporary G201 evidence: FS_FileExists and FS_LoadFile use separate
+		 * filesystem paths. Keep both observations before Delta_Init so a missing
+		 * disc/search-path asset cannot be mistaken for a delta encoder failure. */
+		{
+			fs_offset_t delta_size = 0, valve_delta_size = 0;
+			byte *delta_data, *valve_delta_data;
+			const char *delta_disk, *valve_delta_disk;
+			qboolean delta_exists, valve_delta_exists;
+
+			delta_exists = FS_FileExists( "delta.lst", false );
+			valve_delta_exists = FS_FileExists( "valve/delta.lst", false );
+			delta_disk = FS_GetDiskPath( "delta.lst", false );
+			valve_delta_disk = FS_GetDiskPath( "valve/delta.lst", false );
+			delta_data = FS_LoadFile( "delta.lst", &delta_size, false );
+			valve_delta_data = FS_LoadFile( "valve/delta.lst", &valve_delta_size, false );
+			Con_Reportf( "Xash3D GameCube: G201 delta diagnostic exists=%d load=%d size=%lld disk=%s valve_exists=%d valve_load=%d valve_size=%lld valve_disk=%s\n",
+				delta_exists, delta_data != NULL, (long long)delta_size,
+				delta_disk ? delta_disk : "(none)", valve_delta_exists,
+				valve_delta_data != NULL, (long long)valve_delta_size,
+				valve_delta_disk ? valve_delta_disk : "(none)" );
+			if( delta_data ) Mem_Free( delta_data );
+			if( valve_delta_data ) Mem_Free( valve_delta_data );
+		}
+
 		Con_Reportf( "Xash3D GameCube: G201 delta reinit begin\n" );
 		if( FS_FileExists( "delta.lst", false ) || FS_FileExists( "valve/delta.lst", false ))
 		{
@@ -1329,8 +1356,13 @@ qboolean SV_SpawnServer( const char *mapname, const char *startspot, qboolean ba
 	Con_Reportf( "Xash3D GameCube: pre-spawn Mod_FreeUnused begin\n" );
 	Mod_FreeUnused();
 	Con_Reportf( "Xash3D GameCube: pre-spawn Mod_FreeUnused ready\n" );
-	GC_SetLoadingProgress( 0.15f );
-	GC_DrawLoadingStatus( "PREPARING MAP", sv.name );
+	/* GC_DrawLoadingStatus / progress hung tram→AM changelevel after FreeUnused
+	 * (probe 20260829-054115). Skip draws on probe hops; keep trim/purge. */
+	if( !Sys_CheckParm( "-gcchangelevel" ))
+	{
+		GC_SetLoadingProgress( 0.15f );
+		GC_DrawLoadingStatus( "PREPARING MAP", sv.name );
+	}
 	Con_Reportf( "Xash3D GameCube: pre-spawn loading status ready\n" );
 	Con_Reportf( "Xash3D GameCube: pre-spawn renderer trim begin\n" );
 	R_GcmapTrimForMapLoad();
@@ -1349,8 +1381,11 @@ qboolean SV_SpawnServer( const char *mapname, const char *startspot, qboolean ba
 	Con_Reportf( "Xash3D GameCube: pre-spawn memory trim\n" );
 #endif
 #if XASH_GAMECUBE
-	GC_SetLoadingProgress( 0.40f );
-	GC_DrawLoadingStatus( "LOADING BSP", sv.model_precache[WORLD_INDEX] );
+	if( !Sys_CheckParm( "-gcchangelevel" ))
+	{
+		GC_SetLoadingProgress( 0.40f );
+		GC_DrawLoadingStatus( "LOADING BSP", sv.model_precache[WORLD_INDEX] );
+	}
 #endif
 	sv.worldmodel = sv.models[WORLD_INDEX] = Mod_LoadWorld( sv.model_precache[WORLD_INDEX], true );
 	CRC32_MapFile( &sv.worldmapCRC, sv.model_precache[WORLD_INDEX], svs.maxclients > 1 );
@@ -1358,8 +1393,11 @@ qboolean SV_SpawnServer( const char *mapname, const char *startspot, qboolean ba
 	GC_MemSample( "bsp load" );
 	if( !GC_MapLoadMemoryOpt())
 	{
-		GC_SetLoadingProgress( 0.75f );
-		GC_DrawLoadingStatus( "SPAWNING ENTITIES", sv.name );
+		if( !Sys_CheckParm( "-gcchangelevel" ))
+		{
+			GC_SetLoadingProgress( 0.75f );
+			GC_DrawLoadingStatus( "SPAWNING ENTITIES", sv.name );
+		}
 	}
 	else
 		Con_Reportf( "Xash3D GameCube: submodel precache begin count=%d\n", sv.worldmodel->numsubmodels );
@@ -1486,5 +1524,14 @@ State machine exec changelevel path
 */
 void SV_ExecChangeLevel( void )
 {
+#if XASH_GAMECUBE
+	Con_Reportf( "Xash3D GameCube: ExecChangeLevel begin map=%s landmark=%s load=%d\n",
+		GameState->levelName, GameState->landmarkName[0] ? GameState->landmarkName : "(none)",
+		GameState->loadGame ? 1 : 0 );
+#endif
 	SV_ChangeLevel( GameState->loadGame, GameState->levelName, GameState->landmarkName, GameState->backgroundMap );
+#if XASH_GAMECUBE
+	Con_Reportf( "Xash3D GameCube: ExecChangeLevel ready map=%s\n",
+		sv.name[0] ? sv.name : "?" );
+#endif
 }

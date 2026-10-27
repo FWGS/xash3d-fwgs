@@ -2,6 +2,27 @@ Auto-port task for Xash3D GameCube
 =================================
 
 Current goal:
+**Hardware gate:** Dolphin CAM018 PASS; need real swiss-evidence.txt from GameCube.
+
+**Dolphin progress (2026-08-29):**
+- Tip-safe `c1a0a→c1a0d` **CHANGELEVEL_READY** PASS
+- Cold `MAP_READY c0a0e` PASS (CSoundEnt / InitBodyQue / SENTENCEG skips)
+- Tram early hop plumbing: Cbuf-queue changelevel, skip HPAK on gcmap/newgame, skip smoke/prepare on `c0a0*`
+- **Unblocked 2026-08-29**: skip `GC_DrawLoadingStatus` on `-gcchangelevel`; skip missing `maps/*_unload.cfg` DVD hang; emit `MAP_READY` on G68 before G95 prepare
+- **PASS**: `c0a0e→c1a0` **CHANGELEVEL_READY** EXIT:0 (probe `20260829-060942`)
+- **PASS**: tip-safe `c1a0a→c1a0d` **CHANGELEVEL_READY** EXIT:0 (campaign-am log)
+- **PASS**: dual-hop `c0a0e→c1a0→c1a0d` **CHANGELEVEL_READY** EXIT:0 (probe `20260829-061900`; G335 on `c1a0`)
+- **CAM018_VERIFY: PASS** (16/16 CHANGELEVEL_READY + nonblack) — `.ai/logs/campaign-visual-20260829-063311`
+- **Fix**: `GCube_HasValveAssets` spot-check expanded for CAM-018 lean discs (c1a1+ were MISSING GAME DATA)
+- Emulation campaign spine complete through Nihilanth; HW blocked on FAT32 Swiss SD (`swiss-evidence.txt`)
+- **HW fix**: FAT `gamecube.cfg` preferred over DVD (disc cannot shadow swissquit); DOL `9d35a276…` / smoke `013db466…`
+- Swiss packet current (DOL `9d35a276…`, smoke `013db466…`, disc `82cb0e79…`); oneshot USR1-under-`$(wait)` fixed; Desktop evidence drop supported
+- Watchers: `xash3d-gc-swiss-hw-oneshot` (flock singleton) + sd-watch + agent-wake + path-kick(`/run/media`) + quiet-media-wait + lan-share `:8765`
+- Off-host: `Desktop/XASH3D-GC-OFFHOST.txt`, QR `XASH3D-GC-LAN-SHARE-QR.png` → `http://192.168.1.244:8765/`
+- Operator: plug FAT32 SD / flash dropfile / flash off-host / or copy `swiss-evidence.txt` → Desktop `XASH3D-GC-SWISS-EVIDENCE.txt`
+- Goal incomplete until real `swiss-evidence.txt` from hardware — **pause this Cursor goal until media/evidence** (host keep-alives cannot finish G38)
+
+
 Tighten G36 frame budget / restore fuller entity spawn when MEM allows.
 Match retail visuals without cutting fill/spawn.
 
@@ -180,14 +201,33 @@ Match retail visuals without cutting fill/spawn.
     hallway strip + cyan underfoot
   - Evidence: `.ai/logs/dolphin-probe-20260813-163840`
   - Stills: `.ai/screenshots/g380-hallway/`
+- **G381**: Flipper underfoot pad + NPC-room CapFaces fill (G212 locked)
+  - Pad: re-`GX_LoadTexObj` on constant-Z draw; widen strip y≈44 / x±78;
+    borrow resident tex only (no `world->surfaces` walk — CapFaces hang);
+    never magenta; concrete `0x6A6864` if borrow fails
+  - Room: ST slack 512/192; keep near horiz AABB≤320; underfoot keep boost;
+    restream near-eye floors while prefer_walls locked
+  - Studio albedo (tip-safe): BSS 84→256 KiB; never lean-strip `*t.mdl`;
+    T.mdl BSS scratch (132 KiB) when heap malloc fails; in-place BSS grow
+    for mesh+texhdr; per-skin decode purge + TF_NOMIPMAP
+  - Boot: `GCube_HasValveAssets` uses `stat` only (DVD `readdir(maps/)` hung
+    second `FS_LoadGameInfo`); smoke `swissquit` opt-in via `GC_SMOKE_SWISSQUIT`
+  - Tip-safe DumpFrames `c1a0a→c1a0d`: **CHANGELEVEL_READY**; GX-022
+    `gc022-hallway`; CapFaces **drawn=115**; `gx_tris=740`;
+    soft skins **22/31** (fallback=9); bind `#models/scientist/Sci3(Back2)`
+  - Evidence: `.ai/logs/dolphin-probe-20260829-003621`
+  - Stills: `.ai/screenshots/g381-hallway/` (`best-nongreen.png` keys DumpFrames
+    software-green XFB)
 
-**NEXT** (see port plan TODO-HW-012 … wave 2 TODO-HW-022 … TODO-DOC-023):
-- TODO-HW-012 / TODO-HW-022: physical Swiss sign-off + boot UX retest
-- Software follow-ups: FS-022 matrix polish
+**NEXT** (full-game Dolphin first — Swiss HW deferred until SD exists):
+- Prove campaign continuity on current DOL: tip-safe CHANGELEVEL spine
+  through chapters (tram → AM → combat → Lambda → Xen → Nihilanth)
+- G381 Flipper follow-ups: remaining studio skin fallback (9/31), DumpFrames
+  XFB software-green, denser CapFaces room fill under NPC
+- TODO-HW-012 / TODO-HW-022: physical Swiss sign-off (blocked: no SD/reader)
+  - Packet + oneshot/watch still staged; do not UpdateGoal without evidence
+- Software: EVIDENCE-025 / GX-025 / remaining *-025 host fixtures
 - Hardware matrix: INPUT-006, AUDIO-007/022, FS-008/022, VIDEO-009, SAVE-010
-- Release: TODO-RELEASE-022 after hardware evidence
-- Done this pass: VIDEO-022 Dolphin NTSC/prog/PAL matrix; MEM-003 world tex pool
-  4→3; SAVE-022 rename interrupt; GX-023; GX-022; MEM-022; BOOT-023; DOC-023
 
 Rules:
 - Force-relink after HLSDK archive changes.

@@ -77,6 +77,7 @@ write_manifest() {
 			OUT/bin/xash \
 			OUT/bin/gamecube-handoff.txt \
 			OUT/xash3d-gc.iso \
+			OUT/xash3d-gc-swiss-smoke.img \
 			OUT/libref_gx.a \
 			OUT/libfilesystem_stdio.a \
 			OUT/valve/extras.pk3
@@ -110,7 +111,21 @@ cat >"$CHECKLIST" <<EOF
 
 - \`OUT/bin/boot.dol\`
 - Optional smoke ISO: \`OUT/xash3d-gc.iso\`
+- Optional flashable smoke FAT image: \`OUT/xash3d-gc-swiss-smoke.img\`
+  (build with \`scripts/gamecube-swiss-smoke-image.sh\`)
 - Legal local Half-Life assets copied by the operator, not from Git.
+
+## Fast smoke media (c0a0e)
+
+\`\`\`sh
+scripts/gamecube-swiss-smoke-image.sh
+# flash (destroys card contents):
+sudo dd if=OUT/xash3d-gc-swiss-smoke.img of=/dev/sdX bs=4M status=progress conv=fsync
+# or copy without wipe:
+rsync -a .ai/logs/swiss-smoke-stage/ /path/to/sd/
+\`\`\`
+
+Swiss: boot \`apps/xash3d-gc/boot.dol\` → New Game on \`$SMOKE_MAP\` → changelevel → quit.
 
 ## SD / Loader Layout
 
@@ -143,10 +158,9 @@ device, so \`fatInitDefault()\` stays disc-only. Capture Swiss markers on real
 hardware, then rebuild the packet:
 
 \`\`\`sh
-scripts/gamecube-operator-evidence.sh --require-swiss \\
-  --reuse-probe <hardware-osreport-dir> \\
-  --reuse-soak .ai/logs/soak-probe-20260808-141117 \\
-  --reuse-gameplay .ai/logs/operator-evidence-20260808-audio/merge-continuity
+scripts/gamecube-swiss-evidence.sh --log <sd-mount-or-swiss-evidence.txt>
+# auto-picks a G509 soak with report.json; override: SWISS_REUSE_SOAK=...
+# optional gameplay: SWISS_REUSE_GAMEPLAY=...
 \`\`\`
 
 ## Swiss markers for \`--require-swiss\` PASS

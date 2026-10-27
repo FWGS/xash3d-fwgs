@@ -4810,6 +4810,11 @@ through them.
   entry in port plan and hardware matrix. **2026-08-27 HW boot fix:** early blue
   splash, hardware loading plaque, SD-without-valve→disc fallback, disc-only vfs
   skip rescan — retest after rebuilding `OUT/bin/boot.dol`.
+  **Prep 2026-08-28 (G381):** live `boot.dol` `3e005bfb…`, smoke FAT `239c1623…`
+  (128 MiB `--no-iso`); G77 Dolphin proxy `.ai/logs/hardware-smoke-20260828-205911/`;
+  portable packet `/run/media/tim/Expansion/01_GAME_DEV/xash3d-gc-swiss-hw-20260828/`;
+  host waiters `scripts/gamecube-swiss-hw-oneshot.sh` + sd-watch. Dated Swiss
+  operator evidence still required.
 - [x] **TODO-SOAK-013 — G509 real Dolphin changelevel soak.** Ran live soak
   `c0a0e:c1a0` (1 iteration, require-ladder + require-changelevel). Evidence:
   `.ai/logs/soak-g509-20260827-193411/` (PASS, changelevel ready, landmark + ladder).
@@ -4874,6 +4879,12 @@ through them.
   **Done 2026-08-28:** fresh DumpFrames `c1a0a→c1a0d` probe logs
   `GX-022 textured underfoot pad borrowed texture=gc022-hallway`, with G36 PASS,
   nonblack visual sampling, and Ladder 10/10 (`.ai/logs/dolphin-probe-20260828-003013/`).
+  **G381 follow-up 2026-08-28/29:** rebind TEXMAP0 on constant-Z pad; widen underfoot
+  strip; no surfaces walk; near-horiz CapFaces keep; studio BSS 256 KiB + T.mdl
+  scratch + in-place mesh grow; soft skins 22/31 (nomip/purge). Tip-safe
+  `CHANGELEVEL_READY` + drawn=115 + Sci3 bind
+  (`.ai/logs/dolphin-probe-20260829-003621/`, stills `.ai/screenshots/g381-hallway/`).
+  Remaining: 9/31 defaultTexture fallback, DumpFrames software-green XFB.
 - [x] **TODO-GX-023 — Post-lab CapFaces emit.** Campaign hops (Lambda/Xen) still log
   `low-res probe skips CapFaces` / `drawn=0`. Enable bounded CapFaces draw on denser
   maps without reintroducing G364 portal seams or G36 regression. Acceptance:
@@ -4921,6 +4932,9 @@ through them.
   hardware routes are reported explicitly as `FAIL`; no Dolphin FAT route is
   inferred as available. Evidence discovery now prefers the newest matching
   `swiss-evidence.txt`/`stderr.log` so stale failed probes cannot mask newer data.
+  **Software polish 2026-08-28:** matrix covers `hybrid`; scores disc as read-only
+  (`g508=N/A`); emits `FS022_VERIFY` + `summary.md`; ingests `fs-route.json`
+  (`gc-fs-route-v1`). Hardware Swiss rows still outstanding.
 - [ ] **TODO-SAVE-022 — Save interrupt harness (extends TODO-SAVE-010).** Dolphin
   gcprobe fault injection for `.new`/`.bak`; hardware checklist for power-loss and
   full-card on real SD. Acceptance: deterministic recovery after simulated rename
@@ -4970,6 +4984,9 @@ through them.
   route, loader, volume, writable state, artifact hash, and G508 result, with
   explicit read-only/disc semantics. Acceptance: the FS-022 matrix ingests one
   schema-valid record per route and rejects ambiguous route claims.
+  **Software done 2026-08-28:** `gc-fs-route-v1` in
+  `scripts/waifulib/gamecube_fs_route.py` (`--validate`); matrix ingests
+  `fs-route.json` and rejects writable-disc / g508=PASS-on-disc claims.
 - [ ] **TODO-INTRO-025 — Intro/menu replay automation.** Add a deterministic
   scripted replay for intro completion, menu-down, and confirm with frame-count
   and loop-detection markers. Acceptance: the playback gate emits a complete

@@ -7,10 +7,12 @@ Platform layer ported from Division-Zero-GX/xash3d-wii.
 #include "platform/platform.h"
 #include "cvar.h"
 #include "net_ws.h"
+#include "system.h"
 #include <stdio.h>
 #include <unistd.h>
 #include <string.h>
 #include <errno.h>
+#include <stdarg.h>
 
 #if XASH_GAMECUBE
 #include <ogc/system.h>
@@ -49,6 +51,8 @@ static const char *const gc_fat_volume_roots[] =
 };
 
 #define GC_DEFAULT_SMOKE_MAP "c0a0e"
+/* ~6s @60Hz after map/entity so playable-present + slow SD flush can finish. */
+#define GC_SWISSQUIT_FRAMES 360
 
 static qboolean gc_fat_mounted;
 static qboolean gc_dvd_mounted;
@@ -67,6 +71,7 @@ static DISC_INTERFACE gc_dvd_io;
 static bool GCube_DVDReadSectors( sec_t sector, sec_t count, void *buffer );
 #endif
 static qboolean GCube_MountDisc( void );
+static void GCube_EnsureFatMounted( void );
 static void GCube_LoadDiscBootOverrides( void );
 
 static qboolean GCube_MountDisc( void )
@@ -212,14 +217,72 @@ static qboolean GCube_HasValveAssets( const char *xashdir )
 	if( !xashdir || !xashdir[0] )
 		return false;
 
+	/* Prefer gfx.wad; liblist.gam alone used to accept half-staged cards that
+	 * then hung for hours probing missing maps/wads on real hardware.
+	 * Maps: stat the directory only — never readdir DVD/FAT here. A full
+	 * maps/ listing on gcdisc hung the second FS_LoadGameInfo under Dolphin
+	 * (G381 tip-safe DumpFrames BOOT_NO_ENGINE_READY). */
 	Q_snprintf( probe, sizeof( probe ), "%s/valve/gfx.wad", xashdir );
-	if( stat( probe, &st ) == 0 && S_ISREG( st.st_mode ))
-		return true;
+	if( !( stat( probe, &st ) == 0 && S_ISREG( st.st_mode )))
+	{
+		Q_snprintf( probe, sizeof( probe ), "%s/valve/liblist.gam", xashdir );
+		if( !( stat( probe, &st ) == 0 && S_ISREG( st.st_mode )))
+			return false;
+	}
 
-	Q_snprintf( probe, sizeof( probe ), "%s/valve/liblist.gam", xashdir );
-	if( stat( probe, &st ) == 0 && S_ISREG( st.st_mode ))
-		return true;
+	Q_snprintf( probe, sizeof( probe ), "%s/valve/maps", xashdir );
+	if( !( stat( probe, &st ) == 0 && S_ISDIR( st.st_mode )))
+		return false;
 
+	/* Spot-check one retail/smoke BSP so an empty maps/ dir is rejected without
+	 * enumerating the DVD FST (readdir hung second FS_LoadGameInfo — G381).
+	 * Lean probe discs only stage the hop pair — include CAM-018 spine maps
+	 * and -gcmap/-gcchangelevel names (c1a1-only discs hit MISSING GAME DATA
+	 * with the old tram/AM-only list — campaign 20260829-062806). */
+	{
+		static const char *const k_maps[] = {
+			"c0a0.bsp", "c0a0e.bsp", "c1a0.bsp", "c1a0a.bsp", "c1a0d.bsp",
+			"c1a1.bsp", "c1a1a.bsp", "c1a2.bsp", "c1a2a.bsp", "c1a3.bsp",
+			"c1a3d.bsp", "c1a4.bsp", "c1a4k.bsp", "c2a1.bsp", "c2a1b.bsp",
+			"c2a2.bsp", "c2a2a.bsp", "c2a3.bsp", "c2a3a.bsp", "c2a4.bsp",
+			"c2a4a.bsp", "c2a5.bsp", "c2a5w.bsp", "c3a1.bsp", "c3a1a.bsp",
+			"c3a2.bsp", "c3a2a.bsp", "c4a1.bsp", "c4a2.bsp", "c4a2a.bsp",
+			"c4a3.bsp", "c5a1.bsp",
+		};
+		char maparg[MAX_QPATH];
+		size_t i;
+
+		for( i = 0; i < sizeof( k_maps ) / sizeof( k_maps[0] ); i++ )
+		{
+			Q_snprintf( probe, sizeof( probe ), "%s/valve/maps/%s", xashdir, k_maps[i] );
+			if( stat( probe, &st ) == 0 && S_ISREG( st.st_mode ))
+				return true;
+		}
+
+		maparg[0] = '\0';
+		if( !Sys_GetParmFromCmdLine( "-gcmap", maparg ) || !maparg[0] )
+			maparg[0] = '\0';
+		if( maparg[0] )
+		{
+			Q_snprintf( probe, sizeof( probe ), "%s/valve/maps/%s.bsp", xashdir, maparg );
+			if( stat( probe, &st ) == 0 && S_ISREG( st.st_mode ))
+				return true;
+		}
+		maparg[0] = '\0';
+		if( Sys_GetParmFromCmdLine( "-gcchangelevel", maparg ) && maparg[0] )
+		{
+			Q_snprintf( probe, sizeof( probe ), "%s/valve/maps/%s.bsp", xashdir, maparg );
+			if( stat( probe, &st ) == 0 && S_ISREG( st.st_mode ))
+				return true;
+		}
+		maparg[0] = '\0';
+		if( Sys_GetParmFromCmdLine( "-gcchangelevel2", maparg ) && maparg[0] )
+		{
+			Q_snprintf( probe, sizeof( probe ), "%s/valve/maps/%s.bsp", xashdir, maparg );
+			if( stat( probe, &st ) == 0 && S_ISREG( st.st_mode ))
+				return true;
+		}
+	}
 	return false;
 }
 
@@ -259,8 +322,9 @@ static qboolean GCube_SelectFatVolume( char *out_root, size_t out_len )
 		const char *root = gc_fat_volume_roots[i];
 		if( !GCube_PathAccessible( root ))
 			continue;
-		Q_snprintf( candidate, sizeof( candidate ), "%s%s/valve", root, GC_DATA_PATH );
-		if( GCube_PathAccessible( candidate ))
+		Q_snprintf( candidate, sizeof( candidate ), "%s%s", root, GC_DATA_PATH );
+		/* Require gfx.wad + maps — empty valve/ dirs caused HW black hangs. */
+		if( GCube_HasValveAssets( candidate ))
 		{
 			Q_strncpy( out_root, root, out_len );
 			return true;
@@ -441,6 +505,20 @@ void GCube_EnsureWritableLayout( void )
  * xash3d/valve/logs/swiss-evidence.txt without a live OSReport capture.
  * Disc-only Dolphin has no FAT root — this is a no-op there.
  */
+static void GCube_FsyncEvidenceFile( FILE *f )
+{
+	if( !f )
+		return;
+	fflush( f );
+#if XASH_GAMECUBE
+	{
+		int fd = fileno( f );
+		if( fd >= 0 )
+			fsync( fd );
+	}
+#endif
+}
+
 static void GCube_WriteSwissEvidenceLog( qboolean shutting_down )
 {
 	char path[MAX_SYSPATH];
@@ -464,6 +542,8 @@ static void GCube_WriteSwissEvidenceLog( qboolean shutting_down )
 #else
 		fprintf( f, "Xash3D GameCube: OGC stack=libogc fat=libfat\n" );
 #endif
+		/* Operator parity: same boot.dol used for Dolphin proxy + Swiss. */
+		fprintf( f, "Xash3D GameCube: hardware evidence route ready\n" );
 		for( i = 0; i < sizeof( gc_fat_volume_roots ) / sizeof( gc_fat_volume_roots[0] ); i++ )
 		{
 			const char *root = gc_fat_volume_roots[i];
@@ -479,7 +559,41 @@ static void GCube_WriteSwissEvidenceLog( qboolean shutting_down )
 	{
 		fprintf( f, "Xash3D GameCube: FAT shutdown (return to Swiss loader via exit stub)\n" );
 	}
-	fflush( f );
+	GCube_FsyncEvidenceFile( f );
+	fclose( f );
+}
+
+/*
+ * Append a playable/runtime evidence line to swiss-evidence.txt on FAT.
+ * Used so a real Swiss run can prove map load / changelevel without USB Gecko.
+ */
+void GCube_AppendSwissEvidence( const char *fmt, ... )
+{
+	char path[MAX_SYSPATH];
+	char line[512];
+	va_list argptr;
+	FILE *f;
+
+	if( !fmt || !fmt[0] || !GCube_FatRootReady() )
+		return;
+
+	va_start( argptr, fmt );
+	Q_vsnprintf( line, sizeof( line ), fmt, argptr );
+	va_end( argptr );
+	if( !line[0] )
+		return;
+
+	Q_snprintf( path, sizeof( path ), "%s%s/valve/logs/swiss-evidence.txt",
+		gc_fat_write_root, GC_DATA_PATH );
+	f = fopen( path, "a" );
+	if( !f )
+		return;
+	/* Keep OSReport-compatible wording so host parsers stay unified. */
+	if( Q_strnicmp( line, "Xash3D GameCube:", 16 ) == 0 )
+		fprintf( f, "%s\n", line );
+	else
+		fprintf( f, "Xash3D GameCube: %s\n", line );
+	GCube_FsyncEvidenceFile( f );
 	fclose( f );
 }
 
@@ -494,14 +608,13 @@ void GCube_Init( void )
 	 * to ensure offline boot works without network hardware. */
 	NET_Config( false, false );
 
-	gc_fat_mounted = fatInitDefault();
-	gc_fat_write_root[0] = '\0';
-	gc_fat_base_root[0] = '\0';
+	/* May already be mounted from GetArgv (Swiss SD gamecube.cfg). */
+	GCube_EnsureFatMounted();
+	GC_RefreshBootSplash();
 	if( !gc_fat_mounted )
 		Con_Reportf( S_WARN "SD card init failed\n" );
 	else
 	{
-		GCube_ProbeFatVolumes();
 #if defined(XASH_GAMECUBE_LIBDVM) && XASH_GAMECUBE_LIBDVM
 		Con_Reportf( "Xash3D GameCube: FAT mount ready (libdvm Swiss volumes)\n" );
 #else
@@ -513,6 +626,7 @@ void GCube_Init( void )
 
 	if( !GCube_MountDisc() )
 		Con_Reportf( S_WARN "Xash3D GameCube: DVD mount failed (skipping mount)\n" );
+	GC_RefreshBootSplash();
 	if( gc_dvd_mounted )
 		Con_Reportf( "GameCube DVD filesystem mounted (%s)\n", ISO9660_GetVolumeLabel( GC_DVD_DEVICE ) );
 	else
@@ -649,12 +763,38 @@ static qboolean gc_fullphysics_configured;
 static qboolean gc_worldrender_configured;
 static qboolean gc_tas_configured;
 static qboolean gc_dumpframes_configured;
+static qboolean gc_swissquit_configured;
+static int gc_swissquit_frames = -1; /* -1 idle, >=0 countdown, -2 done */
+static u64 gc_swissquit_last_poll_ticks; /* coalesce vid+input polls same frame */
+
+/*
+ * Mount FAT early so Swiss SD-only boots can read gamecube.cfg before argv
+ * is finalized in GCube_GetArgv (GCube_Init runs later via Platform_Init).
+ */
+static void GCube_EnsureFatMounted( void )
+{
+#if XASH_GAMECUBE
+	if( gc_fat_mounted )
+		return;
+
+	gc_fat_write_root[0] = '\0';
+	gc_fat_base_root[0] = '\0';
+	gc_fat_mounted = fatInitDefault();
+	if( !gc_fat_mounted )
+	{
+		SYS_Report( "Xash3D GameCube: FAT init failed (disc-only or no media)\n" );
+		return;
+	}
+	GCube_ProbeFatVolumes();
+#endif
+}
 
 static void GCube_LoadDiscBootOverrides( void )
 {
 #if XASH_GAMECUBE
-	FILE *file;
+	FILE *file = NULL;
 	char line[128];
+	char fatcfg[MAX_SYSPATH];
 
 	gc_smoke_map_configured = false;
 	gc_newgame_configured = false;
@@ -674,6 +814,7 @@ static void GCube_LoadDiscBootOverrides( void )
 	gc_worldrender_configured = false;
 	gc_tas_configured = false;
 	gc_dumpframes_configured = false;
+	gc_swissquit_configured = false;
 	gc_phase_test[0] = '\0';
 	gc_changelevel_map[0] = '\0';
 	gc_landmark_name[0] = '\0';
@@ -681,14 +822,26 @@ static void GCube_LoadDiscBootOverrides( void )
 	gc_landmark2_name[0] = '\0';
 	gc_tas_name[0] = '\0';
 
-	if( !GCube_MountDisc() )
-		return;
+	/* DVD is optional. Prefer FAT gamecube.cfg when a Swiss volume is ready so
+	 * an inserted disc cannot shadow sd:/ map/swissquit (HW evidence path).
+	 * Disc-only boots (no FAT) still use gcdisc:/valve/gamecube.cfg. */
+	(void)GCube_MountDisc();
+	GCube_EnsureFatMounted();
 
-	/* If running on read-only boot without a config file, the default smoke
-	 * map below still gives the probe a deterministic map-load route. */
-	file = fopen( GC_DVD_DEVICE ":/" GC_DATA_PATH "/valve/gamecube.cfg", "r" );
+	if( GCube_FatRootReady() )
+	{
+		Q_snprintf( fatcfg, sizeof( fatcfg ), "%s%s/valve/gamecube.cfg",
+			gc_fat_write_root, GC_DATA_PATH );
+		file = fopen( fatcfg, "r" );
+		if( file )
+			SYS_Report( "Xash3D GameCube: FAT boot cfg %s\n", fatcfg );
+	}
+	if( !file && gc_dvd_mounted )
+		file = fopen( GC_DVD_DEVICE ":/" GC_DATA_PATH "/valve/gamecube.cfg", "r" );
 	if( !file )
 		file = fopen( GC_DATA_PATH "/valve/gamecube.cfg", "r" );
+	if( !file )
+		file = fopen( "valve/gamecube.cfg", "r" );
 	/* No gamecube.cfg map override means retail menu boot, not smoke map load. */
 	if( !file )
 		return;
@@ -876,6 +1029,18 @@ static void GCube_LoadDiscBootOverrides( void )
 			}
 		}
 
+		/* Swiss HW: auto-return to loader after playable markers (FAT shutdown). */
+		if( !Q_strnicmp( cursor, "swissquit", 9 ))
+		{
+			char ch = cursor[9];
+			if( ch == '\0' || ch == '\r' || ch == '\n' || ch == ' ' || ch == '\t' )
+			{
+				gc_swissquit_configured = true;
+				SYS_Report( "Xash3D GameCube: disc boot override swissquit\n" );
+				continue;
+			}
+		}
+
 		/* G356: parse changelevel2 before changelevel (prefix overlap). */
 		if( !Q_strnicmp( cursor, "changelevel2", 12 ) && ( cursor[12] == ' ' || cursor[12] == '\t' ))
 		{
@@ -1034,24 +1199,117 @@ static void GCube_LoadDiscBootOverrides( void )
 #endif
 }
 
+/*
+ * After map/entity FAT markers, schedule return to Swiss so shutdown writes
+ * "FAT shutdown (return to Swiss loader via exit stub)". Only arms when FAT
+ * is writable — disc-only Dolphin probes keep running.
+ *
+ * Re-arms on each call (map → entity → playable) so a slow SD spawn cannot
+ * burn the whole countdown before playable-present evidence lands.
+ */
+void GCube_ArmSwissQuit( void )
+{
+#if XASH_GAMECUBE
+	if( !Sys_CheckParm( "-gcswissquit" ))
+		return;
+	if( !GCube_HasWritableStorage() )
+		return;
+	if( gc_swissquit_frames == -2 )
+		return;
+	/* ~6s of presents so playable-present + slow SD flush can land before quit. */
+	gc_swissquit_frames = GC_SWISSQUIT_FRAMES;
+	gc_swissquit_last_poll_ticks = 0;
+	SYS_Report( "Xash3D GameCube: swissquit armed frames=%d\n", gc_swissquit_frames );
+	GCube_AppendSwissEvidence( "swissquit armed frames=%d", gc_swissquit_frames );
+#endif
+}
+
+void GCube_PollSwissQuit( void )
+{
+#if XASH_GAMECUBE
+	u64 now;
+
+	if( gc_swissquit_frames < 0 )
+		return;
+
+	/* vid Present and PAD input both call this; without coalescing the
+	 * countdown finishes ~2× fast and can miss playable present evidence. */
+	now = gettime();
+	if( gc_swissquit_last_poll_ticks
+		&& diff_msec( gc_swissquit_last_poll_ticks, now ) < 8 )
+		return;
+	gc_swissquit_last_poll_ticks = now;
+
+	if( gc_swissquit_frames > 0 )
+	{
+		gc_swissquit_frames--;
+		return;
+	}
+	gc_swissquit_frames = -2;
+	SYS_Report( "Xash3D GameCube: swissquit → Sys_Quit (evidence complete)\n" );
+	Sys_Quit( "swiss evidence complete" );
+#endif
+}
+
 int GCube_GetArgv( int in_argc, char **in_argv, char ***out_argv )
 {
 	int fake_argc = 0;
+	int i;
+	qboolean have_gcmap = false;
+	qboolean have_swissquit = false;
 
-	/* Swiss / wiiload / libogc2 often pass the DOL path as argv[0] with argc>=1.
-	 * Prefer real guest argv whenever the loader supplied more than a bare path. */
-	if( in_argc > 1 )
+	/* Always read gamecube.cfg (disc and/or FAT) before deciding argv. */
+	GCube_LoadDiscBootOverrides();
+
+	/* Swiss may pass argc>1 (DOL path + extras). Still inject smoke map /
+	 * swissquit from FAT cfg when the loader omitted them. */
+	if( in_argc > 1 && in_argv )
 	{
+		for( i = 1; i < in_argc; i++ )
+		{
+			if( !in_argv[i] )
+				continue;
+			if( !Q_stricmp( in_argv[i], "-gcmap" ))
+				have_gcmap = true;
+			if( !Q_stricmp( in_argv[i], "-gcswissquit" ))
+				have_swissquit = true;
+		}
+		if(( !have_gcmap && gc_smoke_map_configured )
+			|| ( !have_swissquit && gc_swissquit_configured ))
+		{
+			int need = in_argc;
+			if( !have_gcmap && gc_smoke_map_configured )
+				need += 2;
+			if( !have_swissquit && gc_swissquit_configured )
+				need += 1;
+			if( need < (int)( sizeof( gc_argv ) / sizeof( gc_argv[0] )))
+			{
+				for( i = 0; i < in_argc; i++ )
+					gc_argv[fake_argc++] = in_argv[i];
+				if( !have_gcmap && gc_smoke_map_configured )
+				{
+					gc_argv[fake_argc++] = "-gcmap";
+					gc_argv[fake_argc++] = gc_smoke_map;
+					SYS_Report( "Xash3D GameCube: merged FAT -gcmap %s onto loader argv\n",
+						gc_smoke_map );
+				}
+				if( !have_swissquit && gc_swissquit_configured )
+				{
+					gc_argv[fake_argc++] = "-gcswissquit";
+					SYS_Report( "Xash3D GameCube: merged FAT -gcswissquit onto loader argv\n" );
+				}
+				*out_argv = gc_argv;
+				return fake_argc;
+			}
+		}
 		SYS_Report( "Xash3D GameCube: using loader argv argc=%d argv0=%s\n",
-			in_argc, ( in_argv && in_argv[0] ) ? in_argv[0] : "(null)" );
+			in_argc, in_argv[0] ? in_argv[0] : "(null)" );
 		*out_argv = in_argv;
 		return in_argc;
 	}
 
 	if( in_argc == 1 && in_argv && in_argv[0] && in_argv[0][0] )
 		SYS_Report( "Xash3D GameCube: loader argv0=%s (building disc overrides)\n", in_argv[0] );
-
-	GCube_LoadDiscBootOverrides();
 
 	gc_argv[fake_argc++] = "xash";
 	gc_argv[fake_argc++] = "xash";
@@ -1122,6 +1380,8 @@ int GCube_GetArgv( int in_argc, char **in_argv, char ***out_argv )
 	}
 	if( gc_dumpframes_configured )
 		gc_argv[fake_argc++] = "-gcdumpframes";
+	if( gc_swissquit_configured )
+		gc_argv[fake_argc++] = "-gcswissquit";
 	gc_argv[fake_argc++] = "-width";
 	/* Tip-safe soft/internal FB. Flipper EFB/XFB stay native 640×480 via VI. */
 	gc_argv[fake_argc++] = "320";

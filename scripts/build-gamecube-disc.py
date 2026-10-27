@@ -1129,6 +1129,7 @@ def lean_studio_mesh_bytes(src: Path) -> bytes | None:
 def inject_gc_studio_into_bootstrap(archive: "zipfile.ZipFile", data: Path) -> int:
 	"""Add allowlisted MDLs into an existing bootstrap ZIP under gc_studio/."""
 	staged = 0
+	all_stems = {Path(r).stem.lower() for r in GC_STUDIO_MODELS}
 	for relative in GC_STUDIO_MODELS:
 		src = data / relative
 		if not src.is_file():
@@ -1136,9 +1137,16 @@ def inject_gc_studio_into_bootstrap(archive: "zipfile.ZipFile", data: Path) -> i
 		arcname = f"gc_studio/{Path(relative).name.lower()}"
 		if arcname in archive.NameToInfo:
 			continue
-		payload = lean_studio_mesh_bytes(src)
+		# G381: *t.mdl companions are skin atlases (scientistt, barneyt, …).
+		# Never lean-strip them — lean cut scientistt.mdl to ~244 bytes.
+		# Note: stem "scientist" itself ends with 't'; match base∈allowlist.
+		stem = Path(relative).stem.lower()
+		is_tex_companion = stem.endswith("t") and stem[:-1] in all_stems
+		payload = None if is_tex_companion else lean_studio_mesh_bytes(src)
 		if payload is None:
 			archive.write(src, arcname, compress_type=zipfile.ZIP_STORED)
+			if is_tex_companion:
+				print(f"  studio skins {Path(relative).name}: {src.stat().st_size} bytes (full)")
 		else:
 			archive.writestr(arcname, payload, compress_type=zipfile.ZIP_STORED)
 			print(
@@ -1416,6 +1424,11 @@ def write_smoke_overrides(
 	(output / "config.cfg").write_text("\n", encoding="ascii")
 	(output / "autoexec.cfg").write_text("\n", encoding="ascii")
 	lines = [f"map {Path(smoke_map).stem}"]
+	# Swiss SD smoke only: return to loader after markers so FAT shutdown is written.
+	# Do not bake into DumpFrames/newgame Flipper probes — SwissQuit can race tip-safe
+	# changelevel/DumpFrames and is irrelevant on disc-only Dolphin.
+	if os.environ.get("GC_SMOKE_SWISSQUIT", "").strip().lower() in ("1", "true", "yes", "on"):
+		lines.append("swissquit")
 	if newgame:
 		lines.append("newgame")
 	if newsaveload:

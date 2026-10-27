@@ -629,6 +629,19 @@ SCR_BeginLoadingPlaque
 */
 void SCR_BeginLoadingPlaque( qboolean is_background )
 {
+#if XASH_GAMECUBE
+	/* Tram→AM early changelevel hangs here (Host_RunFrame plaque begin, no
+	 * further logs — probe 20260829-053852). Skip plaque/status/UpdateScreen
+	 * for probe hops; dest SpawnServer follows immediately. */
+	if( Sys_CheckParm( "-gcchangelevel" ) || Sys_CheckParm( "-gcnewgame" ))
+	{
+		S_StopAllSounds( true );
+		cl.audio_prepped = false;
+		cls.draw_changelevel = !is_background;
+		Con_Reportf( "Xash3D GameCube: loading plaque skipped (gcmap hop)\n" );
+		return;
+	}
+#endif
 	S_StopAllSounds( true );
 	cl.audio_prepped = false;			// don't play ambients
 

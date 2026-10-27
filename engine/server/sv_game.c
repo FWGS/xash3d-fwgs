@@ -867,6 +867,8 @@ void SV_QueueChangeLevel( const char *level, const char *landname )
 	char	mapname[MAX_QPATH];
 
 #if XASH_GAMECUBE
+	Con_Reportf( "Xash3D GameCube: QueueChangeLevel begin level=%s landmark=%s frame=%d\n",
+		level ? level : "?", landname ? landname : "(none)", sv.framecount );
 	/* G208: tram/landmark changelevel OOMs MEM1 (~194 KiB planes) and aborts
 	 * G36 after Flipper walls already present. Hold on c0a0 unless the probe
 	 * explicitly requested -gcchangelevel. */
@@ -891,6 +893,10 @@ void SV_QueueChangeLevel( const char *level, const char *landname )
 		smooth = true;
 
 	flags = SV_MapIsValid( mapname, landname );
+#if XASH_GAMECUBE
+	Con_Reportf( "Xash3D GameCube: QueueChangeLevel MapIsValid done flags=0x%x smooth=%d\n",
+		flags, smooth ? 1 : 0 );
+#endif
 
 	if( FBitSet( flags, MAP_INVALID_VERSION ))
 	{
@@ -935,10 +941,18 @@ void SV_QueueChangeLevel( const char *level, const char *landname )
 	}
 
 	SV_SkipUpdates ();
+#if XASH_GAMECUBE
+	Con_Reportf( "Xash3D GameCube: QueueChangeLevel calling COM_ChangeLevel map=%s smooth=%d\n",
+		mapname, smooth ? 1 : 0 );
+#endif
 
 	// changelevel will be executed on a next frame
 	if( smooth ) COM_ChangeLevel( mapname, landname, sv.background );	// Smoothed Half-Life changelevel
 	else COM_ChangeLevel( mapname, NULL, sv.background );		// Classic Quake changlevel
+#if XASH_GAMECUBE
+	Con_Reportf( "Xash3D GameCube: QueueChangeLevel COM_ChangeLevel returned map=%s nextstate=%d\n",
+		mapname, (int)GameState->nextstate );
+#endif
 }
 
 /*
@@ -1070,7 +1084,51 @@ uint SV_MapIsValid( const char *filename, const char *landmark_name )
 	char	*pfile;
 	char	*ents;
 
+#if XASH_GAMECUBE
+	Con_Reportf( "Xash3D GameCube: MapIsValid begin map=%s landmark=%s\n",
+		filename ? filename : "?",
+		COM_StringEmptyOrNULL( landmark_name ) ? "(none)" : landmark_name );
+	/* G381: full entity-script Read+Z_Calloc hangs under MEM1 when changelevel
+	 * validates the dest while the tram tip world is still resident
+	 * (c0a0e→c1a0a MapIsValid begin, no further logs). Existence + lump test
+	 * is enough for probe hops; trust -gclandmark when present. */
+	if( Sys_CheckParm( "-gcchangelevel" ))
+	{
+		string	bspfilename;
+		byte	buf[MAX_TOKEN];
+		dlump_t	entities;
+		file_t	*f;
+		fs_offset_t filelen;
+
+		Q_snprintf( bspfilename, sizeof( bspfilename ), "maps/%s.bsp", filename );
+		f = FS_Open( bspfilename, "rb", false );
+		if( !f )
+		{
+			Con_Reportf( "Xash3D GameCube: MapIsValid lean missing %s\n", bspfilename );
+			return 0;
+		}
+		SetBits( flags, MAP_IS_EXIST );
+		filelen = FS_Read( f, buf, sizeof( buf ));
+		if( !Mod_TestBmodelLumps( f, bspfilename, buf, filelen,
+				( host_developer.value ) ? false : true, &entities ))
+		{
+			SetBits( flags, MAP_INVALID_VERSION );
+			FS_Close( f );
+			Con_Reportf( "Xash3D GameCube: MapIsValid lean invalid %s\n", bspfilename );
+			return flags;
+		}
+		FS_Close( f );
+		if( !COM_StringEmptyOrNULL( landmark_name ))
+			SetBits( flags, MAP_HAS_LANDMARK );
+		Con_Reportf( "Xash3D GameCube: MapIsValid lean ready flags=0x%x\n", flags );
+		return flags;
+	}
+#endif
 	ents = SV_ReadEntityScript( filename, &flags );
+#if XASH_GAMECUBE
+	Con_Reportf( "Xash3D GameCube: MapIsValid ents=%s flags=0x%x\n",
+		ents ? "ok" : "null", flags );
+#endif
 
 	if( ents )
 	{
@@ -1083,7 +1141,9 @@ uint SV_MapIsValid( const char *filename, const char *landmark_name )
 		if( !need_landmark )
 		{
 			Mem_Free( ents );
-
+#if XASH_GAMECUBE
+			Con_Reportf( "Xash3D GameCube: MapIsValid ready (no landmark) flags=0x%x\n", flags );
+#endif
 			return flags;
 		}
 
@@ -1108,6 +1168,9 @@ uint SV_MapIsValid( const char *filename, const char *landmark_name )
 		Mem_Free( ents );
 	}
 
+#if XASH_GAMECUBE
+	Con_Reportf( "Xash3D GameCube: MapIsValid ready flags=0x%x\n", flags );
+#endif
 	return flags;
 }
 
@@ -3211,9 +3274,9 @@ static void *GAME_EXPORT pfnPvAllocEntPrivateData( edict_t *pEdict, long cb )
 		{
 			qboolean used_fallback = false;
 
-			/* G369: prefer static CSoundEnt before libc malloc — tram c0a0e at
-			 * HWM≈3.37 Mb hangs after a successful 2176-byte heap alloc
-			 * (probe 20260812-005503). BSS avoids the tip freelist. */
+			/* G369: prefer static CSoundEnt before libc malloc when world
+			 * still creates one (non-skip paths / changelevel). Cold New Game
+			 * skips CreateSoundEnt in HLSDK world.cpp (G381). */
 			if( !pEdict->pvPrivateData && Sys_CheckParm( "-gcnewgame" )
 				&& !gc_soundent_fallback_used
 				&& NUM_FOR_EDICT( pEdict ) != 1
@@ -5602,6 +5665,18 @@ static qboolean SV_ParseEdict( char **pfile, edict_t *ent, int entity_index, qbo
 	}
 
 #if XASH_GAMECUBE
+	/* G381: CSoundEnt AllocPrivateData/GetClassPtr hangs on cold tram tip
+	 * (c0a0e probes). Inhibit before private alloc — post-ParseEdict skip is
+	 * too late (hang is inside SV_AllocPrivateData). */
+	if( Sys_CheckParm( "-gcnewgame" ) && !sv.startspot[0]
+		&& !Q_stricmp( classname, "soundent" ))
+	{
+		if( inhibited_early )
+			*inhibited_early = true;
+		SV_FreeKeyValueStrings( pkvd, numpairs );
+		Con_Reportf( "Xash3D GameCube: G381 inhibit soundent before AllocPrivateData\n" );
+		return false;
+	}
 	if( SV_GCMapSmokeRoute() && SV_GCMapShouldInhibitBudget( classname, entity_index ))
 	{
 		if( inhibited_early )
@@ -5756,15 +5831,36 @@ static void SV_LoadFromFile( const char *mapname, char *entities )
 			{
 				COM_FileBase( mapname, mapbase, sizeof( mapbase ));
 				if( !Q_strnicmp( mapbase, "c0a0", 4 ))
-					gc_tail_essentials_from = 0x7fffffff; /* G343/G344 full spawn */
+				{
+					/* G343 full tram spawn hangs after CSoundEnt private alloc on
+					 * lean tip-safe/smoke (c0a0e probes 20260812 / 20260829).
+					 * Keep essentials-only for cold -gcnewgame smoke so Swiss HW
+					 * can reach MAP_READY + swissquit; changelevel hops retain
+					 * headroom via startspot. */
+					if( Sys_CheckParm( "-gcnewgame" ) && !sv.startspot[0] )
+						gc_tail_essentials_from = 64;
+					else
+						gc_tail_essentials_from = 0x7fffffff; /* G343/G344 full spawn */
+				}
 				else if( !Q_stricmp( mapbase, "c1a0d" ) && sv.startspot[0] )
 					gc_tail_essentials_from = 0x7fffffff; /* G372 denser full spawn */
-				else if( !Q_stricmp( mapbase, "c1a0" )
-					|| !Q_stricmp( mapbase, "c1a0a" )
+				else if( !Q_stricmp( mapbase, "c1a0" ))
+				{
+					/* Cold + changelevel onto c1a0 hangs mid-spawn after
+					 * progress=64 (Dolphin 20260829-044506 / c0a0e→c1a0 r12).
+					 * Essentials-only past 64 reaches MAP_READY for continuity. */
+					gc_tail_essentials_from = 64;
+				}
+				else if( !Q_stricmp( mapbase, "c1a0a" )
 					|| !Q_stricmp( mapbase, "c1a0b" )
 					|| !Q_stricmp( mapbase, "c1a0c" )
 					|| !Q_stricmp( mapbase, "c1a0e" ))
-					gc_tail_essentials_from = 256; /* G371: raise 192→256 after G369 */
+				{
+					/* c0a0e→c1a0a hung at entity 0 on unload.cfg (fixed
+					 * separately); once past worldspawn, keep lean tail like
+					 * c1a0 so denser AM maps reach MAP_READY under MEM1. */
+					gc_tail_essentials_from = 64;
+				}
 			}
 		}
 #endif
@@ -5842,6 +5938,19 @@ static void SV_LoadFromFile( const char *mapname, char *entities )
 					inhibited++;
 					continue;
 				}
+			}
+			/* G381: cold tram c0a0* historically hung inside pfnSpawn after
+			 * CSoundEnt private alloc. Classname is often still empty here
+			 * (set during GetClassPtr), so match the G369 BSS fallback edict. */
+			if( Sys_CheckParm( "-gcnewgame" ) && !sv.startspot[0]
+				&& ( ent->pvPrivateData == gc_soundent_private_fallback
+					|| !Q_stricmp( SV_ClassName( ent ), "soundent" )))
+			{
+				Con_Reportf( "Xash3D GameCube: G381 skip soundent spawn edict=%d\n",
+					NUM_FOR_EDICT( ent ));
+				SV_FreeEdict( ent );
+				inhibited++;
+				continue;
 			}
 #endif
 
@@ -5950,6 +6059,8 @@ void SV_SpawnEntities( const char *mapname )
 	SV_LoadFromFile( mapname, sv.worldmodel->entities );
 #if XASH_GAMECUBE
 	Con_Reportf( "Xash3D GameCube: entity lump spawn ready\n" );
+	GCube_AppendSwissEvidence( "entity lump spawn ready" );
+	GCube_ArmSwissQuit();
 	if( Sys_CheckParm( "-gcnewgame" ))
 	{
 		SV_GCPlaceNewGameTrackTrains();

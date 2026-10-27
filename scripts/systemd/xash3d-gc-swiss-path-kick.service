@@ -1,0 +1,9 @@
+[Unit]
+Description=Xash3D GC Swiss path kick (dropfiles + new mounts)
+After=default.target
+
+[Service]
+Type=oneshot
+WorkingDirectory=%h/Desktop/xash3d-gc
+ExecStart=%h/Desktop/xash3d-gc/scripts/gamecube-swiss-path-kick.sh
+Nice=10

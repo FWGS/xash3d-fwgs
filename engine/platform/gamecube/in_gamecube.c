@@ -813,6 +813,31 @@ void Platform_RunEvents( void )
 	PAD_Read( gc_pad );
 	PAD_Clamp( gc_pad );
 	GC_ApplyDefaultBindings();
+
+	/* Swiss HW backup: Z+Start returns to loader (writes FAT shutdown marker).
+	 * swissquit auto-path covers -gcmap; this covers hangs / retail menu boots. */
+	{
+		static qboolean gc_zstart_quit_latched;
+		int p;
+		u16 chord;
+
+		if( !gc_zstart_quit_latched && GCube_HasWritableStorage() )
+		{
+			for( p = 0; p < PAD_CHANMAX; p++ )
+			{
+				chord = gc_pad[p].button;
+				if(( chord & PAD_TRIGGER_Z ) && ( chord & PAD_BUTTON_START ))
+				{
+					gc_zstart_quit_latched = true;
+					Con_Reportf( "Xash3D GameCube: Z+Start → quit to Swiss\n" );
+					GCube_AppendSwissEvidence( "operator quit Z+Start" );
+					Sys_Quit( "Z+Start swiss return" );
+				}
+			}
+		}
+	}
+	GCube_PollSwissQuit();
+
 	if( !gc_postsignon_diag && cls.signon == SIGNONS )
 	{
 		gc_postsignon_diag = true;

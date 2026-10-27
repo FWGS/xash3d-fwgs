@@ -2,34 +2,44 @@
 
 ## Current Milestone
 
-**Dolphin tip-safe retail path green; hardware boot UX improved (2026-08-27).**
+**Dolphin tip-safe retail path green; hardware handoff armed for Swiss (2026-08-28).**
 Lean `-gcnewgame` `c1a0a→c1a0d` reaches CHANGELEVEL_READY with G36/G45/G506/LADDER
-PASS (avg ~16.9 ms). Campaign visual proof (Lambda/Xen), map-compat RC gate, G509
-soak, and NPC studio verify scripts are in place. **Physical Swiss sign-off**
-(TODO-HW-012/022) remains the release gap — Dolphin has no SD EXI device.
+PASS. Campaign visual proof, map-compat RC, G509 soak, NPC studio verify, GX-022
+textured underfoot pad, and FS-022/025 storage-route matrix are in place.
+**Physical Swiss sign-off** (TODO-HW-012/022 / G38) remains the release gap —
+host packet armed (`boot.dol` `e96e3c52…`, hybrid smoke `3f680e71…` with Swiss
+r2092 loader); physical FAT32 SD still required. Dolphin has no SD EXI device.
 
-## Current Automated State (2026-08-27)
+## Current Automated State (2026-08-28)
 
 - **HW boot fix:** early blue splash, hardware loading plaque during init, SD-without-
   `valve/`→disc fallback, disc-only vfs skip rescan, fatal boot panel on missing assets.
-- **GX-016/017:** denser G36 PASS; concrete underfoot pad + near-floor CapFaces rank.
-- **HUD-021/005:** G290 late HUD promote at present=24/48 (`real=5`).
-- **CAM-018:** Lambda `c3a2→c3a2a` + Xen `c4a1→c4a2` CHANGELEVEL_READY scripts.
-- **RC-019 / BUILD-020 / SOAK-013 / RC-014:** gate and reproducibility closes.
-- Tip-safe evidence: `.ai/logs/dolphin-probe-20260827-212058/` (post boot-fatal build).
+- **GX-022:** textured underfoot pad borrows resident hallway tex (no DOL growth).
+- **FS-022/025:** storage-route matrix + `gc-fs-route-v1` schema (disc/hybrid scoring).
+- **Handoff packet:** Expansion `xash3d-gc-swiss-hw-20260828/` + stage
+  `.ai/logs/swiss-smoke-stage/` (`boot.dol` `e96e3c52…`, hybrid smoke `3f680e71…`,
+  `swiss.dol` / `apps/swiss/boot.dol` from Swiss r2092).
+- **G77 Dolphin proxy PASS (swissquit re-arm DOL):** `.ai/logs/hardware-smoke-20260828-224924/`.
+- **Swiss smoke FAT image:** `OUT/xash3d-gc-swiss-smoke.img` (256 MiB hybrid DOL+valve+ISO+Swiss).
+- **Host waiters:** `xash3d-gc-swiss-sd-watch.service` + `xash3d-gc-swiss-hw-oneshot.service`
+  (FAT32 only; accepts real `XASH3DGC`/`XASHSMOKE` remounts; skips loop verify mounts;
+  auto-unmount after stage; exFAT/raw-disk notify).
+- Tip-safe G381 hallway: `.ai/logs/dolphin-probe-20260828-204414/` (CHANGELEVEL_READY).
 
 ## Build Status
 
-| Artifact | Size | Format |
-|----------|------|--------|
-| `OUT/bin/boot.dol` | 6,032,352 bytes | PowerPC DOL |
-| `OUT/bin/xash` | 33,922,608 bytes | PowerPC ELF |
+| Artifact | Size | Format | sha256 (prefix) |
+|----------|------|--------|-----------------|
+| `OUT/bin/boot.dol` | ~6.0 MiB | PowerPC DOL | `e96e3c52…` |
+| `OUT/xash3d-gc-swiss-smoke.img` | 256 MiB | FAT hybrid | `3f680e71…` |
+| `OUT/xash3d-gc-swiss-disc.iso` | ~91 MiB | GC smoke ISO | `55522807…` |
 
 **Build Notes**:
 - Engine builds successfully against Swiss-first libogc2 (or classic libogc).
-- DOL generation is now structurally valid for Dolphin boot.
-- No current build error blocks runtime work.
+- DOL generation is structurally valid for Dolphin boot; G43 boot-media compliance PASS.
+- No current build error blocks runtime or hardware staging work.
 - Stack resolver: `python3 scripts/waifulib/gamecube_ogc_stack.py`
+- Operator staging: `scripts/stage-sd-assets.sh <Half-Life> <sd-mount> --route sd`
 
 ## Dolphin Status
 
@@ -53,11 +63,14 @@ Interpretation:
 
 ## Real-Hardware Status
 
-**Status**: Boot UX improved in software; operator retest required (TODO-HW-012/022)
+**Status**: Software + handoff ready; physical Swiss run required (TODO-HW-012/022)
 
+- **2026-08-28 (G381):** Live `boot.dol` sha256 prefix `3e005bfb…`; smoke FAT
+  `c3229d0e…`. Packet on Expansion; oneshot/watch armed. Physical Swiss evidence
+  still required (`swiss-evidence.txt` FAT + map/playable + shutdown).
 - **2026-08-27:** Fixed black-screen boot (early splash, loading plaque, asset path
-  validation, fatal panel when `valve/` missing). Rebuild `OUT/bin/boot.dol` before
-  retesting on Swiss/GameCube.
+  validation, fatal panel when `valve/` missing). Current `OUT/bin/boot.dol` includes
+  that fix — stage it (or the smoke ISO) to Swiss/SD2SP2/SD Gecko and record evidence.
 - Physical GameCube / Swiss validation still matters for release confidence.
 - G38/G77 remain manual checkpoints; use `scripts/gamecube-hardware-smoke.sh` +
   `scripts/gamecube-swiss-evidence.sh`.
@@ -190,10 +203,46 @@ probe; then update this status from fresh evidence.
 
 ## Next Task
 
-**Campaign continuity (Dolphin) — past c0a0d / deeper Xen past c4a2**
+### Full renderer-arena BSP scratch — 2026-10-27
 
-1. Optional: tram hops c0a0d→c0a0e→c1a0; Xen past c4a2 (e.g. c4a2→c4a2a).
-2. Swiss / hardware G38 remains deferred (physical SD; Dolphin has no SD EXI).
+- Probe bundle: `.ai/logs/dolphin-probe-20261027-042554/`.
+- Root cause of the `c5a1` lightmap OOM was an accounting mismatch: the
+  renderer lent a 3.50 MiB static map-load arena, but the BSP scratch allocator
+  retained only the 2.62 MiB source-file length and ignored the arena tail.
+- The map-load API now exposes its actual retained capacity. BSP node and
+  clipnode high carves, surface scratch, and transient lump reloads use that
+  capacity without increasing the static allocation.
+- Runtime proof: scratch grew from 2.26 MiB to 3.13 MiB; the 1.05 MiB lighting
+  lump reloaded through scratch, bound for the G154 bake, and was released
+  afterward. `c5a1` reached `MAP_READY`; the runtime ladder passed 10/10.
+- Timing proof: 15 samples, 4.66 ms average, 26.34 ms p95/max against the
+  33.33 ms 30 FPS budget (`G36_STATUS: PASS`).
+- Remaining probe classification is `MAP_LOADED_INPUT_READY`: presentation is
+  missing the expected viewmodel marker and the scripted TAS action route is
+  unseen. This is no longer a BSP/lightmap/map-readiness failure.
+
+### Dense-map deferred viewmodel scheduling — 2026-10-27
+
+- Probe bundle: `.ai/logs/dolphin-probe-20261027-043346/`.
+- The remaining `c5a1` presentation miss was an exact-present scheduling bug:
+  G36 deliberately blocked studio promotion at present 1, and the lean route
+  did not retry until exact presents 32/40. Deferred viewmodel promotion now
+  runs once at the first eligible post-budget present and retains bounded NPC
+  retries at the later thresholds.
+- Runtime proof: real `v_crowbar.mdl` and `v_9mmhandgun.mdl` models were pinned;
+  G105, G172, lean-HUD, attack, jump, use, sustained world, map-ready, input,
+  and nonblack markers all passed. Harness result: `NEWGAME_READY`, G36/G45/
+  G506 PASS, runtime ladder 10/10.
+- Timing remained 4.66 ms average and 26.34 ms p95/max against the 33.33 ms
+  30 FPS budget. DOL SHA-256:
+  `00511da5b790e221e3abaacd151354da5b3de2e3229aa37a68f85abe753c98d0`.
+
+**Full-game Dolphin proof (current DOL) — campaign CHANGELEVEL spine**
+
+1. Tip-safe continuity hops across chapters on packet DOL `77f53b3a…`
+   (tram → AM → combat → Lambda → Xen → Nihilanth).
+2. Flipper polish (G381 skins / CapFaces) as hop failures or visual gaps appear.
+3. Swiss / hardware G38 deferred (no FAT32 SD); do not block emulation on it.
 
 
 ### Tram + Xen hops past c0a0b / c4a1 — 2026-08-09
@@ -254,7 +303,7 @@ it is not the reason the automation should stop today.
 
 ## Last Updated
 
-2026-08-27
+2026-08-29
 
 ### Changelevel continuity validated — 2026-08-04
 

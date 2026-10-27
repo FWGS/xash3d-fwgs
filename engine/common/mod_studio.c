@@ -967,20 +967,102 @@ Mod_GCLoadStudioTexFile
 
 GoldSrc ships skins as models/foxt.mdl (lowercase t). Mod_StudioTexName uses
 T.mdl — try both so lean mesh-only promote can upload Flipper skins (G376).
+
+G381: tip CapFaces leaves heap unable to malloc ~127 KiB scientistt.mdl.
+Fall back to a dedicated BSS scratch so Flipper skins still upload.
 =============
 */
+#define GC_STUDIO_TEX_SCRATCH_BYTES (132 * 1024)
+static byte     gc_studio_tex_scratch[GC_STUDIO_TEX_SCRATCH_BYTES] __attribute__((aligned( 32 )));
+static qboolean gc_studio_tex_scratch_busy;
+
+static qboolean Mod_GCIsStudioTexScratch( const void *ptr )
+{
+	return ptr == (void *)gc_studio_tex_scratch;
+}
+
+static void Mod_GCReleaseStudioTexBuf( void *ptr )
+{
+	if( !ptr )
+		return;
+	if( Mod_GCIsStudioTexScratch( ptr ))
+	{
+		gc_studio_tex_scratch_busy = false;
+		return;
+	}
+	Mem_Free( ptr );
+}
+
+static void *Mod_GCLoadFileToStudioTexScratch( const char *path, fs_offset_t *size_out )
+{
+	file_t *f;
+	fs_offset_t sz;
+
+	if( !path || !path[0] || gc_studio_tex_scratch_busy )
+		return NULL;
+	f = FS_Open( path, "rb", false );
+	if( !f )
+		return NULL;
+	sz = FS_FileLength( f );
+	if( sz < (fs_offset_t)sizeof( studiohdr_t ) || sz > (fs_offset_t)GC_STUDIO_TEX_SCRATCH_BYTES )
+	{
+		FS_Close( f );
+		return NULL;
+	}
+	if( FS_Read( f, gc_studio_tex_scratch, (size_t)sz ) != sz )
+	{
+		FS_Close( f );
+		return NULL;
+	}
+	FS_Close( f );
+	gc_studio_tex_scratch_busy = true;
+	if( size_out )
+		*size_out = sz;
+	Con_Reportf( "Xash3D GameCube: G381 studio T.mdl scratch '%s' (%s)\n",
+		path, Q_memprint( (size_t)sz ));
+	return gc_studio_tex_scratch;
+}
+
 static void *Mod_GCLoadStudioTexFile( const char *modname, fs_offset_t *size_out )
 {
 	void *buf;
-	string	texname;
+	string	tex_upper;
+	string	tex_lower;
+	char bare[64];
+	char mirror[MAX_QPATH];
 
-	buf = FS_LoadFile( Mod_StudioTexName( modname ), size_out, false );
+	COM_FileBase( modname, bare, sizeof( bare ));
+	/* Prefer bootstrap companion (full skins) before disc models/ — tip heap
+	 * often cannot malloc 127 KiB, so try BSS scratch immediately after. */
+	Q_snprintf( mirror, sizeof( mirror ), "gc_studio/%st.mdl", bare );
+	buf = FS_LoadFile( mirror, size_out, false );
 	if( buf )
 		return buf;
-	Q_strncpy( texname, modname, sizeof( texname ));
-	COM_StripExtension( texname );
-	Q_strncat( texname, "t.mdl", sizeof( texname ));
-	return FS_LoadFile( texname, size_out, false );
+	buf = Mod_GCLoadFileToStudioTexScratch( mirror, size_out );
+	if( buf )
+		return buf;
+
+	Q_strncpy( tex_upper, Mod_StudioTexName( modname ), sizeof( tex_upper ));
+	buf = FS_LoadFile( tex_upper, size_out, false );
+	if( buf )
+		return buf;
+	buf = Mod_GCLoadFileToStudioTexScratch( tex_upper, size_out );
+	if( buf )
+		return buf;
+
+	Q_strncpy( tex_lower, modname, sizeof( tex_lower ));
+	COM_StripExtension( tex_lower );
+	Q_strncat( tex_lower, "t.mdl", sizeof( tex_lower ));
+	buf = FS_LoadFile( tex_lower, size_out, false );
+	if( buf )
+		return buf;
+	buf = Mod_GCLoadFileToStudioTexScratch( tex_lower, size_out );
+	if( buf )
+		return buf;
+
+	if( size_out )
+		*size_out = 0;
+	return NULL;
 }
 #endif
 
@@ -1303,7 +1385,11 @@ void Mod_LoadStudioModel( model_t *mod, void *buffer, size_t buffersize, qboolea
 		else Con_Printf( S_WARN "%s: %s missing textures file\n", __func__, mod->name );
 
 		if( buffer2 )
+#if XASH_GAMECUBE
+			Mod_GCReleaseStudioTexBuf( buffer2 ); // release T.mdl / scratch
+#else
 			Mem_Free( buffer2 ); // release T.mdl
+#endif
 	}
 #endif
 
@@ -1351,13 +1437,36 @@ void Mod_LoadStudioModel( model_t *mod, void *buffer, size_t buffersize, qboolea
 					size_t size2 = thdr->numskinfamilies * thdr->numskinref * sizeof( short );
 					size_t merged = mesh + size1 + size2;
 
+					/* Retail order: upload skins from T.mdl (pixel data live),
+					 * then keep only mesh+texhdr in resident cache.
+					 * G381: tip heap is empty — grow the BSS mesh slice in place
+					 * when calloc(merged) fails (was mesh-only white NPC). */
+					Image_GCPurgeDecodeScratch();
 					ref.dllFuncs.Mod_StudioLoadTextures( mod, thdr );
+					textures_loaded = true;
+
+					Image_GCPurgeDecodeScratch();
 					mod->cache.data = calloc( 1, merged );
+					if( !mod->cache.data )
+					{
+						Image_GCPurgeDecodeScratch();
+						mod->cache.data = calloc( 1, merged );
+					}
+					if( !mod->cache.data && Mod_GCIsStudioBssCache( buffer ))
+					{
+						byte *slot = Mod_GCStudioBssGrowLast( buffer, mesh, merged );
+
+						if( !slot )
+							slot = Mod_GCStudioBssAlloc( merged );
+						if( slot )
+							mod->cache.data = slot;
+					}
 					if( mod->cache.data )
 					{
 						byte *in, *out;
 
-						memcpy( mod->cache.data, buffer, mesh );
+						if( mod->cache.data != buffer )
+							memcpy( mod->cache.data, buffer, mesh );
 						phdr = (studiohdr_t *)mod->cache.data;
 						phdr->length = (int)mesh;
 						phdr->numskinfamilies = thdr->numskinfamilies;
@@ -1371,8 +1480,7 @@ void Mod_LoadStudioModel( model_t *mod, void *buffer, size_t buffersize, qboolea
 						phdr->length = (int)merged;
 						Con_Reportf( "Xash3D GameCube: G376 studio T.mdl skins '%s' n=%d kept=%s\n",
 							mod->name, phdr->numtextures, Q_memprint( merged ));
-						if( tex_buf )
-							Mem_Free( tex_buf );
+						Mod_GCReleaseStudioTexBuf( tex_buf );
 						tex_buf = NULL;
 						thdr = NULL;
 						goto gc_mesh_only_done;
@@ -1382,7 +1490,7 @@ void Mod_LoadStudioModel( model_t *mod, void *buffer, size_t buffersize, qboolea
 				}
 				if( tex_buf )
 				{
-					Mem_Free( tex_buf );
+					Mod_GCReleaseStudioTexBuf( tex_buf );
 					tex_buf = NULL;
 				}
 				thdr = NULL;

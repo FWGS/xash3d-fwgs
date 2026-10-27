@@ -4783,11 +4783,16 @@ qboolean CL_LoadProgs( const char *name )
 	clgame.maxRemapInfos = 0; // will be alloc on first call CL_InitEdicts();
 	clgame.maxEntities = 2; // world + localclient (have valid entities not in game)
 
+#if XASH_GAMECUBE
+	/* -gcmap lean discs: FS_FileExists("media/cdaudio.txt") can stall DVD FST
+	 * probes (c0a0e hung after pfnInitialize). Skip playlist on smoke routes. */
+	if( Sys_CheckParm( "-nosound" ) || Sys_CheckParm( "-gcmap" ))
+		Con_Reportf( "Xash3D GameCube: CD audio init skipped\n" );
+	else
+		CL_InitCDAudio( "media/cdaudio.txt" );
+#else
 	if( !Sys_CheckParm( "-nosound" ))
 		CL_InitCDAudio( "media/cdaudio.txt" );
-#if XASH_GAMECUBE
-	else
-		Con_Reportf( "Xash3D GameCube: CD audio init skipped\n" );
 #endif
 	if( Sys_CheckParm( "-nohud" ))
 	{

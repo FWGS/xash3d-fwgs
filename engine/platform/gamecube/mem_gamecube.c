@@ -333,6 +333,11 @@ qboolean GC_IsMapLoadBuffer( const void *ptr )
 	return ptr != NULL && ptr == gc_mapload_buf;
 }
 
+size_t GC_MapLoadBufferCapacity( void )
+{
+	return gc_mapload_buf_size;
+}
+
 void *GC_MapLoadBufferTailAlloc( size_t after_offset, size_t need )
 {
 	size_t off;

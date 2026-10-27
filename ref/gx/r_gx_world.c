@@ -243,7 +243,7 @@ static qboolean r_gx_tex_band_logged;
 #define GC_GX_G36_SAMPLE_LIVE_BUDGET 48
 #endif
 #ifndef GC_GX_G36_DENSER_FACE_BUDGET
-#define GC_GX_G36_DENSER_FACE_BUDGET 64
+#define GC_GX_G36_DENSER_FACE_BUDGET 115	/* G381: was 64 — room fill under DumpFrames */
 #endif
 #ifndef GC_GX_G36_DENSER_LIVE_BUDGET
 #define GC_GX_G36_DENSER_LIVE_BUDGET 32
@@ -1525,10 +1525,67 @@ static int R_GXEmitFaceVerts( const msurface_t *surf, model_t *world,
 	return R_GXEmitFace( surf, world, -3 );
 }
 
+/* Underfoot pad probe surface: firstedge < 0, extents 256×256. */
+static qboolean R_GXIsSyntheticUnderfootPad( const msurface_t *surf )
+{
+	return surf && surf->firstedge < 0
+		&& surf->extents[0] == 256 && surf->extents[1] == 256;
+}
+
+static int R_GXBorrowedWorldTexnum( void )
+{
+	int texnum = GC_GetNewGameCapTextureNum();
+
+	if( texnum <= 0 )
+		texnum = GC_GetResidentWorldDiffuseTexnum();
+	if( texnum <= 0 )
+		texnum = GC_GetTramDiffuseTexnum();
+	if( texnum <= 0 )
+		texnum = (int)r_gx_bound_texnum;
+	return texnum;
+}
+
+/* Borrow a resident visible world texture — no new GX object.
+ * G381: do not walk world->surfaces (scratch msurface hang under CapFaces).
+ * Prefer resident/tram/bound texnums over CapFaces cache (cache can be a
+ * lightmap-ish name that REPLACE-paints the whole underfoot green). */
+static texture_t *R_GXBorrowPadFaceTexture( model_t *world, texture_t *cache, qboolean cache_valid )
+{
+	static texture_t pad_borrow;
+	static qboolean gx022_logged;
+	texture_t *face = NULL;
+	int texnum;
+
+	(void)world;
+
+	texnum = R_GXBorrowedWorldTexnum();
+	if( texnum > 0 )
+	{
+		memset( &pad_borrow, 0, sizeof( pad_borrow ));
+		pad_borrow.gl_texturenum = texnum;
+		Q_strncpy( pad_borrow.name, "gc022-hallway", sizeof( pad_borrow.name ));
+		face = &pad_borrow;
+	}
+	else if( cache_valid && cache && cache->gl_texturenum > 0
+		&& cache->name[0] && cache->name[0] != '-' && cache->name[0] != '{' )
+	{
+		face = cache;
+	}
+
+	if( face && !gx022_logged )
+	{
+		gx022_logged = true;
+		gEngfuncs.Con_Reportf(
+			"Xash3D GameCube: GX-022 textured underfoot pad borrowed texture=%s\n",
+			face->name[0] ? face->name : "?" );
+	}
+	return face;
+}
+
 static int R_GXEmitFace( const msurface_t *surf, model_t *world, int slot )
 {
 	static texture_t pad_texture_cache;
-	static texture_t pad_numeric_texture;
+	static texture_t pad_retry_texture;
 	static qboolean pad_texture_cache_valid;
 	mvertex_t *pverts;
 	vec3_t pts[32];
@@ -1633,114 +1690,13 @@ static int R_GXEmitFace( const msurface_t *surf, model_t *world, int slot )
 	}
 
 	color = 0xFFFFFFFFu;
-	if( surf->firstedge < 0 && surf->extents[0] == 256 && surf->extents[1] == 256 )
-	{
-		static qboolean gx022_attempt_logged;
-		if( !gx022_attempt_logged )
-		{
-			gx022_attempt_logged = true;
-			gEngfuncs.Con_Reportf( "Xash3D GameCube: GX-022 pad attempt extents=%d,%d surfaces=%d captex=%d resident=%d tram=%d bound=%u\n",
-				surf->extents[0], surf->extents[1], world->numsurfaces,
-				GC_GetNewGameCapTextureNum(), GC_GetResidentWorldDiffuseTexnum(),
-				GC_GetTramDiffuseTexnum(), r_gx_bound_texnum );
-		}
-	}
 	if( surf->texinfo && surf->texinfo->texture )
 		face_texture = surf->texinfo->texture;
-	if( !face_texture && surf->firstedge < 0 && surf->extents[0] == 256
-		&& surf->extents[1] == 256 )
-	{
-		int numeric_texnum = GC_GetNewGameCapTextureNum();
-		if( numeric_texnum <= 0 ) numeric_texnum = GC_GetResidentWorldDiffuseTexnum();
-		if( numeric_texnum <= 0 ) numeric_texnum = GC_GetTramDiffuseTexnum();
-		if( numeric_texnum <= 0 ) numeric_texnum = (int)r_gx_bound_texnum;
-		if( numeric_texnum > 0 )
-		{
-			memset( &pad_numeric_texture, 0, sizeof( pad_numeric_texture ));
-			pad_numeric_texture.gl_texturenum = numeric_texnum;
-			Q_strncpy( pad_numeric_texture.name, "gc022-hallway", sizeof( pad_numeric_texture.name ));
-			face_texture = &pad_numeric_texture;
-			gEngfuncs.Con_Reportf( "Xash3D GameCube: GX-022 textured underfoot pad borrowed texture=%s\n",
-				face_texture->name );
-		}
-	}
 	/* GX-022: synthetic NPC pad has no texinfo. Borrow a resident, visible
 	 * horizontal world texture so the pad is textured without allocating or
 	 * duplicating a texture object. */
-	if( !face_texture && surf->firstedge < 0 && surf->extents[0] == 256
-		&& surf->extents[1] == 256 )
-	{
-		for( i = 0; world->surfaces && i < world->numsurfaces; i++ )
-		{
-			msurface_t *candidate = &world->surfaces[i];
-			if( candidate->texinfo && candidate->texinfo->texture
-				&& candidate->texinfo->texture->gl_texturenum > 0
-				&& candidate->plane && candidate->plane->normal[2] > 0.7f
-				&& !( candidate->flags & SURF_DRAWSKY ))
-			{
-				face_texture = candidate->texinfo->texture;
-				break;
-			}
-		}
-		/* Retained/scratch-trimmed maps may no longer expose live planes. A
-		 * valid non-sky world texture is still a safe visual fallback. */
-		if( !face_texture )
-		{
-			for( i = 0; world->surfaces && i < world->numsurfaces; i++ )
-			{
-			msurface_t *candidate = &world->surfaces[i];
-			if( candidate->texinfo && candidate->texinfo->texture
-				&& candidate->texinfo->texture->gl_texturenum > 0
-				&& !( candidate->flags & SURF_DRAWSKY ))
-				{
-					face_texture = candidate->texinfo->texture;
-					break;
-				}
-			}
-		}
-		if( !face_texture )
-		{
-			int tram_texnum = GC_GetNewGameCapTextureNum();
-			static texture_t pad_texture;
-			if( world->texinfo )
-			{
-				for( i = 0; i < world->numtexinfo; i++ )
-				{
-					if( world->texinfo[i].texture
-						&& world->texinfo[i].texture->gl_texturenum > 0 )
-					{
-						face_texture = world->texinfo[i].texture;
-						break;
-					}
-				}
-			}
-			if( pad_texture_cache_valid && pad_texture_cache.gl_texturenum > 0 )
-				face_texture = &pad_texture_cache;
-			if( tram_texnum <= 0 )
-				tram_texnum = GC_GetResidentWorldDiffuseTexnum();
-			if( tram_texnum <= 0 )
-				tram_texnum = GC_GetTramDiffuseTexnum();
-			if( tram_texnum <= 0 && r_gx_bound_texnum > 0 )
-				tram_texnum = (int)r_gx_bound_texnum;
-			if( !face_texture && tram_texnum > 0 )
-			{
-				memset( &pad_texture, 0, sizeof( pad_texture ));
-				pad_texture.gl_texturenum = tram_texnum;
-				Q_strncpy( pad_texture.name, "gc022-hallway", sizeof( pad_texture.name ));
-				face_texture = &pad_texture;
-			}
-		}
-		if( face_texture )
-		{
-			static qboolean gx022_logged;
-			if( !gx022_logged )
-			{
-				gx022_logged = true;
-				gEngfuncs.Con_Reportf( "Xash3D GameCube: GX-022 textured underfoot pad borrowed texture=%s\n",
-					face_texture->name[0] ? face_texture->name : "?" );
-			}
-		}
-	}
+	else if( R_GXIsSyntheticUnderfootPad( surf ))
+		face_texture = R_GXBorrowPadFaceTexture( world, &pad_texture_cache, pad_texture_cache_valid );
 	if( face_texture )
 	{
 		if( surf->firstedge >= 0 && face_texture->gl_texturenum > 0 )
@@ -1751,14 +1707,9 @@ static int R_GXEmitFace( const msurface_t *surf, model_t *world, int slot )
 			pad_texture_cache_valid = true;
 		}
 		gxt = R_GXBindTexture( face_texture );
-		if( !gxt && surf->firstedge < 0 && surf->extents[0] == 256
-			&& surf->extents[1] == 256 )
+		if( !gxt && R_GXIsSyntheticUnderfootPad( surf ))
 		{
-			static texture_t pad_retry_texture;
-			int retry_texnum = GC_GetNewGameCapTextureNum();
-			if( retry_texnum <= 0 ) retry_texnum = GC_GetResidentWorldDiffuseTexnum();
-			if( retry_texnum <= 0 ) retry_texnum = GC_GetTramDiffuseTexnum();
-			if( retry_texnum <= 0 ) retry_texnum = (int)r_gx_bound_texnum;
+			int retry_texnum = R_GXBorrowedWorldTexnum();
 			if( retry_texnum > 0 )
 			{
 				memset( &pad_retry_texture, 0, sizeof( pad_retry_texture ));
@@ -1837,8 +1788,7 @@ static int R_GXEmitFace( const msurface_t *surf, model_t *world, int slot )
 			}
 		}
 	}
-	if( gxt && !surf->texinfo && surf->firstedge < 0 && surf->extents[0] == 256
-		&& surf->extents[1] == 256 )
+	if( gxt && !surf->texinfo && R_GXIsSyntheticUnderfootPad( surf ))
 	{
 		/* Keep the established eye-space constant-Z pad projection below while
 		 * switching only its TEV input to the borrowed resident texture. */
@@ -2006,14 +1956,20 @@ static int R_GXEmitFace( const msurface_t *surf, model_t *world, int slot )
 		}
 		else
 			r_gx_state_reuses++;
+		/* G381: textured underfoot pad — rebind TEXMAP0 after FLAT TEV
+		 * (TEXMAP_NULL) so LEQUAL fill cannot leave G285 cyan clear bars. */
 		if( pad_textured )
 		{
+			if( gxt )
+				GX_LoadTexObj( &gxt->obj, GX_TEXMAP0 );
 			GX_SetNumTexGens( 1 );
 			GX_SetNumTevStages( 1 );
 			GX_SetTexCoordGen( GX_TEXCOORD0, GX_TG_MTX2x4, GX_TG_TEX0, GX_IDENTITY );
 			GX_SetTevOrder( GX_TEVSTAGE0, GX_TEXCOORD0, GX_TEXMAP0, GX_COLORNULL );
 			GX_SetTevOp( GX_TEVSTAGE0, GX_REPLACE );
 			GX_SetVtxDesc( GX_VA_TEX0, GX_DIRECT );
+			r_gx_face_mode = GC_GX_FACE_MODE_TEXTURED;
+			r_gx_state_sets++;
 		}
 
 		/* Constant-Z eye pad (G200) — NPC dump floor only (256×256). Menu tram
@@ -2026,7 +1982,7 @@ static int R_GXEmitFace( const msurface_t *surf, model_t *world, int slot )
 			float e[4][3], bb[4][3];
 			Mtx ident, mv;
 			const float zbb = -100.0f;
-			float x0, x1, y0, y1, ymax;
+			float x0, x1, y0, y1, ymax, ymin;
 			int vi;
 			static qboolean g380_eye_logged;
 
@@ -2047,22 +2003,28 @@ static int R_GXEmitFace( const msurface_t *surf, model_t *world, int slot )
 				bb[vi][0] = e[vi][0] * ( zbb / ez );
 				bb[vi][1] = e[vi][1] * ( zbb / ez );
 				bb[vi][2] = zbb;
-				if( bb[vi][0] > 70.0f ) bb[vi][0] = 70.0f;
-				if( bb[vi][0] < -70.0f ) bb[vi][0] = -70.0f;
-				if( bb[vi][1] > 52.0f ) bb[vi][1] = 52.0f;
-				if( bb[vi][1] < -52.0f ) bb[vi][1] = -52.0f;
+				/* G381: modest eye clamp — full ±96 painted most of EFB. */
+				if( bb[vi][0] > 78.0f ) bb[vi][0] = 78.0f;
+				if( bb[vi][0] < -78.0f ) bb[vi][0] = -78.0f;
+				if( bb[vi][1] > 56.0f ) bb[vi][1] = 56.0f;
+				if( bb[vi][1] < -56.0f ) bb[vi][1] = -56.0f;
 			}
 			x0 = x1 = bb[0][0];
-			ymax = bb[0][1];
+			ymax = ymin = bb[0][1];
 			for( vi = 1; vi < 4; vi++ )
 			{
 				if( bb[vi][0] < x0 ) x0 = bb[vi][0];
 				if( bb[vi][0] > x1 ) x1 = bb[vi][0];
 				if( bb[vi][1] > ymax ) ymax = bb[vi][1];
+				if( bb[vi][1] < ymin ) ymin = bb[vi][1];
 			}
-			/* Thin band at the far/NPC edge of the projected pad. */
+			/* G381: widen underfoot strip (was 28u) without covering the EFB. */
 			y1 = ymax;
-			y0 = ymax - 28.0f;
+			y0 = ymax - 44.0f;
+			if( y0 < ymin )
+				y0 = ymin;
+			if( y1 - y0 < 36.0f )
+				y0 = y1 - 36.0f;
 			if( !g380_eye_logged )
 			{
 				g380_eye_logged = true;

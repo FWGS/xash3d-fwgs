@@ -365,8 +365,11 @@ class GameCubeHostTests(unittest.TestCase):
 		self.assertIn("GX-022: synthetic NPC pad", gx)
 		self.assertIn("Keep the established eye-space constant-Z", gx)
 		self.assertIn("static const float pad_uv[4][2]", gx)
-		self.assertIn("face_texture = candidate->texinfo->texture", gx)
-		self.assertNotIn("malloc", gx[gx.index("GX-022: synthetic NPC pad"):gx.index("GX-022: synthetic NPC pad") + 1200])
+		# G381: borrow resident/tram texnum only — do not walk world->surfaces.
+		self.assertIn("R_GXBorrowedWorldTexnum", gx)
+		self.assertIn("do not walk world->surfaces", gx)
+		face_fn = gx.index("static int R_GXEmitFace")
+		self.assertNotIn("malloc(", gx[face_fn:gx.index("static void R_GXMarkVisibleSurfaces", face_fn)])
 
 	def test_dolphin_harness_exposes_cpu_and_backend_experiments(self) -> None:
 		harness = load_script("dolphin_vision_config", "scripts/dolphin-vision-test.py")
@@ -962,16 +965,86 @@ class GameCubeHostTests(unittest.TestCase):
 			old.mkdir(); new.mkdir()
 			(old / "stderr.log").write_text("sd:/ route=sd\n", encoding="utf-8")
 			(new / "stderr.log").write_text(
+				"FAT volume ready sd:/\n"
 				"sd:/ route=sd\nG508 config round trip ready route=sd\n",
 				encoding="utf-8")
 			os.utime(old / "stderr.log", (1, 1))
 			os.utime(new / "stderr.log", (2, 2))
+			out = root / "out"
 			result = subprocess.run(
 				["bash", str(ROOT / "scripts/gamecube-storage-route-matrix.sh")],
-				cwd=ROOT, env={**os.environ, "FS022_LOG_ROOT": str(root)},
+				cwd=ROOT,
+				env={
+					**os.environ,
+					"FS022_LOG_ROOT": str(root),
+					"FS022_OUT": str(out),
+				},
 				text=True, capture_output=True, check=False)
-			self.assertEqual(result.returncode, 0)
-			self.assertIn("sd\t" + str(new / "stderr.log") + "\tPASS\tPASS", result.stdout)
+			self.assertEqual(result.returncode, 0, result.stderr + result.stdout)
+			self.assertIn(f"sd\t{new / 'stderr.log'}\t1\tPASS\tPASS\t", result.stdout)
+			self.assertIn("FS022_VERIFY:", result.stdout)
+			self.assertTrue((out / "summary.md").is_file())
+			self.assertIn("hybrid", result.stdout)
+
+	def test_fs025_route_schema_rejects_ambiguous_claims(self) -> None:
+		fs = load_script("fs_route", "scripts/waifulib/gamecube_fs_route.py")
+		good = fs.parse_schema_record({
+			"schema": "gc-fs-route-v1",
+			"route": "sd",
+			"loader": "swiss",
+			"volume": "sd:/",
+			"writable": True,
+			"artifact_hash": "abc",
+			"g508": "PASS",
+		})
+		self.assertEqual(fs.validate_schema_record(good), [])
+		bad = fs.parse_schema_record({
+			"schema": "gc-fs-route-v1",
+			"route": "disc",
+			"loader": "swiss",
+			"volume": "gcdisc:/",
+			"writable": True,
+			"g508": "PASS",
+		})
+		errors = fs.validate_schema_record(bad)
+		self.assertTrue(any("writable" in e for e in errors))
+		self.assertTrue(any("g508=PASS" in e for e in errors))
+
+	def test_fs022_matrix_scores_disc_hybrid_and_schema(self) -> None:
+		fs = load_script("fs_route2", "scripts/waifulib/gamecube_fs_route.py")
+		with tempfile.TemporaryDirectory() as tmpdir:
+			root = Path(tmpdir)
+			(root / "disc").mkdir()
+			(root / "hybrid").mkdir()
+			(root / "sd").mkdir()
+			(root / "disc" / "stderr.log").write_text(
+				"Xash3D GameCube: DVD mount ready\n"
+				"Xash3D GameCube: SD storage not mounted (disc-only mode)\n",
+				encoding="utf-8")
+			(root / "hybrid" / "stderr.log").write_text(
+				"FAT volume ready sd:/\n"
+				"Xash3D GameCube: DVD mount ready\n"
+				"G508 config round trip ready route=sd\n",
+				encoding="utf-8")
+			(root / "sd" / "fs-route.json").write_text(
+				json.dumps({
+					"schema": "gc-fs-route-v1",
+					"route": "sd",
+					"loader": "swiss",
+					"volume": "sd:/",
+					"writable": True,
+					"artifact_hash": "",
+					"g508": "PASS",
+				}),
+				encoding="utf-8")
+			report = fs.evaluate_matrix(input_root=root, log_root=root / "empty")
+			by = {row["route"]: row for row in report["rows"]}
+			self.assertEqual(by["sd"]["status"], "PASS")
+			self.assertEqual(by["disc"]["status"], "PASS")
+			self.assertEqual(by["disc"]["g508"], "N/A")
+			self.assertEqual(by["hybrid"]["status"], "PASS")
+			self.assertEqual(by["carda"]["status"], "FAIL")
+			self.assertIn("FS022_VERIFY: FAIL", fs.format_tsv(report))
 
 	def test_build_docs_prefer_waf_libogc2_not_gekko_cmake(self) -> None:
 		linking = (ROOT / "docs/GAMECUBE_GAME_MODULE_LINKING.md").read_text(encoding="utf-8")
@@ -1021,6 +1094,16 @@ class GameCubeHostTests(unittest.TestCase):
 		self.assertIsNone(full["first_missing"])
 		self.assertIn("entity_spawn", full["passed"])
 
+		# Direct-map boots intentionally skip the optional spawn-time reparse under
+		# tight MEM1.  The initial server-progs parse is sufficient evidence that
+		# delta.lst was found and its tables were initialized.
+		direct_map = complete.replace(
+			"Xash3D GameCube: G201 delta reinit ready\n",
+			"Xash3D GameCube: server progs delta ready\n"
+			"Xash3D GameCube: G201 delta reinit skipped (newgame/gcmap)\n",
+		)
+		self.assertTrue(ladder.evaluate_ladder(direct_map)["ok"])
+
 		# Explicit delta failure must stop even if other text mentions delta.
 		failed = partial + "Delta_InitFields: couldn't load file delta.lst\n"
 		bad = ladder.evaluate_ladder(failed)
@@ -1034,6 +1117,22 @@ class GameCubeHostTests(unittest.TestCase):
 			"Xash3D GameCube: map loaded c0a0\n"
 		)
 		self.assertEqual(ladder.evaluate_ladder(no_spawn)["first_missing"], "entity_spawn")
+
+	def test_bsp_scratch_uses_full_renderer_mapload_capacity(self) -> None:
+		bmodel = (ROOT / "engine/common/mod_bmodel.c").read_text(encoding="utf-8")
+		memory = (ROOT / "engine/platform/gamecube/mem_gamecube.c").read_text(encoding="utf-8")
+		self.assertIn("size_t GC_MapLoadBufferCapacity( void )", memory)
+		self.assertIn("scratch_capacity = GC_MapLoadBufferCapacity()", bmodel)
+		self.assertIn("mod_base + scratch_capacity - carve_total", bmodel)
+
+	def test_deferred_viewmodel_uses_post_budget_threshold(self) -> None:
+		video = (ROOT / "engine/platform/gamecube/vid_gamecube.c").read_text(encoding="utf-8")
+		start = video.index("static void GC_TryDeferredStudios( void )\n{")
+		end = video.index("static void GC_TryLeanPlayerPhysPrime( void )", start)
+		deferred = video[start:end]
+		self.assertIn("!lean_view_attempted && gc_present_count >= 1", deferred)
+		self.assertNotIn("gc_present_count != 1 && gc_present_count != 32", deferred)
+		self.assertIn("gc_present_count < last_present_count", deferred)
 
 	def test_runtime_ladder_cli_fixture(self) -> None:
 		ladder = load_script("runtime_ladder_cli", "scripts/gamecube-runtime-ladder.py")
@@ -1166,6 +1265,283 @@ class GameCubeHostTests(unittest.TestCase):
 		self.assertIn("--require-swiss", handoff)
 		self.assertIn("FAT volume ready", handoff)
 		self.assertIn("operator-evidence-20260808-audio", handoff)
+		self.assertIn("xash3d-gc-swiss-smoke.img", handoff)
+		self.assertIn("gamecube-swiss-smoke-image.sh", handoff)
+
+	def test_swiss_smoke_image_script_guards_valve_assets(self) -> None:
+		import subprocess
+
+		script = (ROOT / "scripts/gamecube-swiss-smoke-image.sh").read_text(encoding="utf-8")
+		self.assertIn("gfx.wad", script)
+		self.assertIn("would black-hang on hardware", script)
+		self.assertIn("--with-iso", script)
+		self.assertIn("xash3d-gc.iso", script)
+		self.assertTrue((ROOT / "scripts/gamecube-swiss-smoke-image.sh").stat().st_mode & 0o111)
+		result = subprocess.run(
+			["bash", str(ROOT / "scripts/gamecube-swiss-smoke-image.sh"), "--help"],
+			cwd=ROOT, text=True, capture_output=True, check=False)
+		self.assertEqual(result.returncode, 0, result.stderr)
+		self.assertIn("FAT32", result.stdout)
+		self.assertIn("boot.dol", result.stdout)
+
+	def test_hw_boot_refresh_splash_and_valve_maps_gate(self) -> None:
+		sys_gc = (ROOT / "engine/platform/gamecube/sys_gamecube.c").read_text(encoding="utf-8")
+		vid = (ROOT / "engine/platform/gamecube/vid_gamecube.c").read_text(encoding="utf-8")
+		hdr = (ROOT / "engine/platform/platform.h").read_text(encoding="utf-8")
+		self.assertIn("GC_RefreshBootSplash", hdr)
+		self.assertIn("void GC_RefreshBootSplash( void )", vid)
+		self.assertIn("GC_RefreshBootSplash()", sys_gc)
+		self.assertGreaterEqual(sys_gc.count("GC_RefreshBootSplash()"), 2)
+		self.assertIn("half-staged cards", sys_gc)
+		self.assertIn(".bsp", sys_gc[sys_gc.index("GCube_HasValveAssets"):sys_gc.index("GCube_PathAccessible")])
+		self.assertIn("GCube_HasValveAssets( candidate )", sys_gc)
+		wait = (ROOT / "scripts/gamecube-swiss-sd-wait.sh").read_text(encoding="utf-8")
+		self.assertIn("--rsync", wait)
+		self.assertIn("swiss-smoke-stage", wait)
+		self.assertIn("XASH3DGC", wait)
+		self.assertIn("XASHSMOKE", wait)
+		self.assertIn("/dev/loop", wait)
+		self.assertIn("exFAT", wait)
+		self.assertIn("swiss-evidence.txt", wait)
+		self.assertIn("--exclude", wait)
+		self.assertIn("findmnt", wait)
+		self.assertIn("list_flash_candidates", wait)
+		self.assertIn("currently mounted", wait)
+		self.assertIn("--wait-device", wait)
+		self.assertIn("is_safe_flash_disk", wait)
+		self.assertIn("512", wait)
+		oneshot = (ROOT / "scripts/gamecube-swiss-hw-oneshot.sh").read_text(encoding="utf-8")
+		self.assertIn('"$name" == "XASH3DGC"', oneshot)
+		self.assertIn('"$name" == "XASHSMOKE"', oneshot)
+		self.assertIn("/dev/loop", oneshot)
+		watch_txt = (ROOT / "scripts/gamecube-swiss-sd-watch.sh").read_text(encoding="utf-8")
+		self.assertIn('"$name" == "XASH3DGC"', watch_txt)
+		self.assertIn("/dev/loop", watch_txt)
+		evidence = (ROOT / "scripts/gamecube-swiss-evidence.sh").read_text(encoding="utf-8")
+		self.assertIn("resolve_soak_dir", evidence)
+		self.assertIn("SWISS_REUSE_SOAK", evidence)
+		self.assertIn("soak-g509-20260827-193411", evidence)
+		self.assertIn("Merging Swiss FAT markers", evidence)
+		self.assertIn("SWISS_EVIDENCE_DIR", evidence)
+		self.assertIn("swiss-evidence-raw.txt", evidence)
+		watch = ROOT / "scripts/gamecube-swiss-sd-watch.sh"
+		self.assertTrue(watch.is_file())
+		self.assertTrue(watch.stat().st_mode & 0o111)
+		self.assertIn("gamecube-swiss-sd-wait.sh", watch.read_text(encoding="utf-8"))
+		watch_txt = watch.read_text(encoding="utf-8")
+		self.assertIn("evidence_present", watch_txt)
+		self.assertIn("skip stage (ingest)", watch_txt)
+		complete = (ROOT / "scripts/gamecube-swiss-hw-complete.sh").read_text(encoding="utf-8")
+		self.assertIn("--require-swiss", complete)
+		self.assertIn("TODO-HW-012", complete)
+		self.assertTrue((ROOT / "scripts/gamecube-swiss-hw-complete.sh").stat().st_mode & 0o111)
+		flash = ROOT / "scripts/gamecube-swiss-hw-flash-when-ready.sh"
+		self.assertTrue(flash.is_file())
+		self.assertTrue(flash.stat().st_mode & 0o111)
+		flash_txt = flash.read_text(encoding="utf-8")
+		self.assertIn("--device", flash_txt)
+		self.assertIn("SWISS_FLASH_DEVICE", flash_txt)
+		self.assertIn("auto map c0a0e", flash_txt)
+		oneshot = (ROOT / "scripts/gamecube-swiss-hw-oneshot.sh").read_text(encoding="utf-8")
+		self.assertIn("SWISS_FLASH_DEVICE", oneshot)
+		self.assertIn("SWISS_FLASH_YES", oneshot)
+		self.assertIn("gamecube-swiss-flash-from-dropfile", oneshot)
+		self.assertIn("XASH3D-GC-FLASH-DEVICE.txt", oneshot)
+		self.assertIn("gamecube-swiss-ingest-from-dropfile", oneshot)
+		self.assertIn("XASH3D-GC-SWISS-EVIDENCE.txt", oneshot)
+		self.assertIn("sleep 1 || true", oneshot)
+		self.assertIn('self=$BASHPID', oneshot)
+		self.assertIn("kill -USR1 \"$self\"", oneshot)
+		self.assertIn("trap ':' USR1", oneshot)
+		drop = ROOT / "scripts/gamecube-swiss-flash-from-dropfile.sh"
+		self.assertTrue(drop.is_file())
+		self.assertTrue(drop.stat().st_mode & 0o111)
+		ingest = ROOT / "scripts/gamecube-swiss-ingest-from-dropfile.sh"
+		self.assertTrue(ingest.is_file())
+		self.assertTrue(ingest.stat().st_mode & 0o111)
+		self.assertIn("XASH3D-GC-SWISS-EVIDENCE.txt", ingest.read_text(encoding="utf-8"))
+		self.assertIn("gamecube-swiss-hw-complete.sh", ingest.read_text(encoding="utf-8"))
+		self.assertIn("FAT (preferred volume|volume ready|shutdown)", ingest.read_text(encoding="utf-8"))
+		wake = ROOT / "scripts/gamecube-swiss-sd-agent-wake.sh"
+		self.assertTrue(wake.is_file())
+		self.assertTrue(wake.stat().st_mode & 0o111)
+		wake_txt = wake.read_text(encoding="utf-8")
+		self.assertIn("Extra|Stream|Expansion", wake_txt)
+		self.assertIn("AGENT_LOOP_WAKE_swiss_sd", wake_txt)
+		self.assertIn("swiss-evidence.txt", wake_txt)
+		self.assertIn("gamecube-swiss-ingest-from-dropfile", wake_txt)
+		self.assertIn("XASH3D-GC-SWISS-EVIDENCE.txt", wake_txt)
+		path_unit = (
+			ROOT / "scripts/systemd/xash3d-gc-swiss-path-kick.path"
+		).read_text(encoding="utf-8")
+		self.assertIn("XASH3D-GC-FLASH-DEVICE.txt", path_unit)
+		self.assertIn("XASH3D-GC-SWISS-EVIDENCE.txt", path_unit)
+		self.assertTrue((ROOT / "scripts/gamecube-swiss-path-kick.sh").stat().st_mode & 0o111)
+		# Must not deep-walk archive mounts (hangs on Expansion).
+		self.assertNotIn("find /run/media/tim -maxdepth", wake_txt)
+		wake_unit = (
+			ROOT / "scripts/systemd/xash3d-gc-swiss-sd-agent-wake.service"
+		).read_text(encoding="utf-8")
+		self.assertIn("gamecube-swiss-sd-agent-wake.sh", wake_unit)
+		self.assertIn("--wait-device", flash.read_text(encoding="utf-8"))
+		self.assertIn("gamecube-swiss-hw-complete.sh", flash.read_text(encoding="utf-8"))
+		smoke = (ROOT / "scripts/gamecube-swiss-smoke-image.sh").read_text(encoding="utf-8")
+		self.assertIn("SWISS_DOL", smoke)
+		self.assertIn("swiss.dol", smoke)
+		self.assertIn("apps/swiss/boot.dol", smoke)
+		verify = ROOT / "scripts/gamecube-swiss-smoke-verify.py"
+		self.assertTrue(verify.is_file())
+		self.assertIn("pyfatfs", verify.read_text(encoding="utf-8"))
+		targets = ROOT / "scripts/gamecube-swiss-list-flash-targets.sh"
+		self.assertTrue(targets.is_file())
+		self.assertTrue(targets.stat().st_mode & 0o111)
+		self.assertIn("OUT/xash3d-gc-swiss-smoke.img", targets.read_text(encoding="utf-8"))
+		extract = ROOT / "scripts/gamecube-swiss-extract-stage.sh"
+		self.assertTrue(extract.is_file())
+		self.assertTrue(extract.stat().st_mode & 0o111)
+		self.assertTrue((ROOT / "OUT/xash3d-gc-swiss-stage.tar.gz").is_file())
+
+
+	def test_swiss_hybrid_smoke_stage_has_iso_and_swissquit(self) -> None:
+		"""Hybrid Swiss stage/image must carry DOL path + compact ISO + swissquit."""
+		stage = ROOT / ".ai/logs/swiss-smoke-stage"
+		self.assertTrue((stage / "apps/xash3d-gc/boot.dol").is_file())
+		self.assertTrue((stage / "swiss.dol").is_file(), "smoke stage should include Swiss loader when cached")
+		self.assertTrue((stage / "apps/swiss/boot.dol").is_file())
+		self.assertTrue((stage / "xash3d/valve/gfx.wad").is_file())
+		self.assertTrue((stage / "xash3d/valve/maps/c0a0e.bsp").is_file())
+		cfg = (stage / "xash3d/valve/gamecube.cfg").read_text(encoding="utf-8")
+		self.assertIn("map c0a0e", cfg)
+		self.assertIn("swissquit", cfg)
+		# Compact swiss disc preferred for hybrid cards.
+		self.assertTrue((ROOT / "OUT/xash3d-gc-swiss-disc.iso").is_file())
+		img = ROOT / "OUT/xash3d-gc-swiss-smoke.img"
+		self.assertTrue(img.is_file())
+		# 256MiB hybrid image (DOL+valve+ISO).
+		self.assertGreaterEqual(img.stat().st_size, 200 * 1024 * 1024)
+		smoke = (ROOT / "scripts/gamecube-swiss-smoke-image.sh").read_text(encoding="utf-8")
+		self.assertIn("SWISS_SMOKE_ISO", smoke)
+		self.assertIn("xash3d-gc-swiss-disc.iso", smoke)
+
+	def test_swiss_sd_loads_gamecube_cfg_without_dvd(self) -> None:
+		"""Swiss SD-only boots must read FAT gamecube.cfg (no DVD MountDisc gate)."""
+		sys_gc = (ROOT / "engine/platform/gamecube/sys_gamecube.c").read_text(encoding="utf-8")
+		self.assertIn("GCube_EnsureFatMounted", sys_gc)
+		self.assertIn("FAT boot cfg", sys_gc)
+		self.assertIn("%s%s/valve/gamecube.cfg", sys_gc)
+		self.assertIn("GCube_ArmSwissQuit", sys_gc)
+		self.assertIn("-gcswissquit", sys_gc)
+		self.assertIn("merged FAT -gcmap", sys_gc)
+		# Prefer FAT gamecube.cfg over DVD so an inserted disc cannot shadow swissquit.
+		fat_idx = sys_gc.find("GCube_FatRootReady()")
+		dvd_fopen = sys_gc.find('fopen( GC_DVD_DEVICE ":/" GC_DATA_PATH "/valve/gamecube.cfg"')
+		self.assertGreater(fat_idx, 0)
+		self.assertGreater(dvd_fopen, fat_idx)
+		self.assertIn("cannot shadow sd:/ map/swissquit", sys_gc)
+		cfg = ROOT / ".ai/logs/swiss-smoke-stage/xash3d/valve/gamecube.cfg"
+		self.assertTrue(cfg.is_file(), "smoke stage needs gamecube.cfg for -gcmap")
+		body = cfg.read_text(encoding="utf-8")
+		self.assertIn("map c0a0e", body)
+		self.assertIn("swissquit", body)
+		self.assertIn("GCube_ArmSwissQuit", (ROOT / "engine/server/sv_game.c").read_text(encoding="utf-8"))
+		self.assertIn("GCube_ArmSwissQuit", (ROOT / "engine/server/sv_init.c").read_text(encoding="utf-8"))
+		self.assertIn("GCube_PollSwissQuit", (ROOT / "engine/platform/gamecube/vid_gamecube.c").read_text(encoding="utf-8"))
+		# Dual vid+input polls must coalesce or swissquit finishes ~2× fast.
+		self.assertIn("diff_msec", sys_gc)
+		self.assertIn("gc_swissquit_last_poll_ticks", sys_gc)
+		self.assertIn("GCube_PollSwissQuit", (ROOT / "engine/platform/gamecube/in_gamecube.c").read_text(encoding="utf-8"))
+		self.assertIn("GC_SWISSQUIT_FRAMES", sys_gc)
+		self.assertIn("GCube_FsyncEvidenceFile", sys_gc)
+		self.assertIn("fsync", sys_gc)
+		# Re-arm (not one-shot): slow SD entity/playable must refresh countdown.
+		self.assertIn("gc_swissquit_frames == -2", sys_gc)
+		self.assertNotIn("gc_swissquit_frames >= 0 || gc_swissquit_frames == -2", sys_gc)
+		vid = (ROOT / "engine/platform/gamecube/vid_gamecube.c").read_text(encoding="utf-8")
+		self.assertIn("playable present map=", vid)
+		# First playable present must refresh swissquit window.
+		playable_idx = vid.find("playable present map=")
+		self.assertGreater(playable_idx, 0)
+		self.assertIn(
+			"GCube_ArmSwissQuit",
+			vid[playable_idx : playable_idx + 500],
+		)
+		oneshot = (ROOT / "scripts/gamecube-swiss-hw-oneshot.sh").read_text(encoding="utf-8")
+		self.assertIn("scan_evidence", oneshot)
+		self.assertIn("udisksctl monitor", oneshot)
+		self.assertIn("USR1", oneshot)
+		inp = (ROOT / "engine/platform/gamecube/in_gamecube.c").read_text(encoding="utf-8")
+		self.assertIn("Z+Start", inp)
+		self.assertIn("PAD_TRIGGER_Z", inp)
+		meta = ROOT / ".ai/logs/swiss-smoke-stage/apps/xash3d-gc/meta.xml"
+		self.assertTrue(meta.is_file())
+		meta_txt = meta.read_text(encoding="utf-8")
+		self.assertIn("Xash3D GC", meta_txt)
+		self.assertIn("c0a0e", meta_txt)
+		self.assertNotIn("$SMOKE_MAP", meta_txt)
+		smoke_sh = (ROOT / "scripts/gamecube-swiss-smoke-image.sh").read_text(encoding="utf-8")
+		# meta.xml heredoc must expand SMOKE_MAP (unquoted delimiter).
+		self.assertIn('cat >"$STAGE_DIR/apps/xash3d-gc/meta.xml" <<META', smoke_sh)
+		self.assertNotIn("<<'META'", smoke_sh)
+	def test_swiss_evidence_engine_markers_parse(self) -> None:
+		"""Markers written by GCube_WriteSwissEvidenceLog must satisfy --require-swiss."""
+		gs = load_script("gc_storage_swiss_markers", "scripts/waifulib/gamecube_storage.py")
+		body = "\n".join(
+			[
+				"Xash3D GameCube: OGC stack=libogc2 fat=libdvm (Swiss)",
+				"Xash3D GameCube: hardware evidence route ready",
+				"Xash3D GameCube: FAT volume ready sd:/",
+				"Xash3D GameCube: FAT preferred volume sd:/ (count=1)",
+				"Xash3D GameCube: FAT shutdown (return to Swiss loader via exit stub)",
+			]
+		)
+		fat = gs.parse_fat_volume_status(body)
+		loader = gs.parse_loader_status(body)
+		self.assertTrue(fat["ok"])
+		self.assertEqual(fat["preferred"], "sd:/")
+		self.assertTrue(loader["swiss_return"])
+		self.assertTrue(loader["fat_shutdown"])
+		playable = gs.parse_playable_status(body + "\nmap loaded c0a0e\nentity lump spawn ready\n")
+		self.assertTrue(playable["ok"])
+		self.assertIn("c0a0e", playable["map_loaded"])
+		# soak resolver must find a live report.json (stale 20260808 path is gone)
+		evidence = (ROOT / "scripts/gamecube-swiss-evidence.sh").read_text(encoding="utf-8")
+		self.assertIn("resolve_soak_dir", evidence)
+		soak = ROOT / ".ai/logs/soak-g509-20260827-193411/report.json"
+		self.assertTrue(soak.is_file(), "expected fallback G509 soak report on disk")
+		sys_gc = (ROOT / "engine/platform/gamecube/sys_gamecube.c").read_text(encoding="utf-8")
+		self.assertIn("GCube_AppendSwissEvidence", sys_gc)
+		self.assertIn("GCube_AppendSwissEvidence", (ROOT / "engine/platform/platform.h").read_text(encoding="utf-8"))
+		self.assertIn("GCube_AppendSwissEvidence", (ROOT / "engine/server/sv_init.c").read_text(encoding="utf-8"))
+		vid = (ROOT / "engine/platform/gamecube/vid_gamecube.c").read_text(encoding="utf-8")
+		self.assertIn("playable present map=", vid)
+		self.assertIn("gc_swiss_playable_present_logged", vid)
+
+	def test_swiss_oneshot_evidence_complete_matches_engine_format(self) -> None:
+		"""Oneshot Phase-2 greps must match GCube_* Swiss evidence wording."""
+		oneshot = (ROOT / "scripts/gamecube-swiss-hw-oneshot.sh").read_text(encoding="utf-8")
+		self.assertIn("FAT preferred volume", oneshot)
+		self.assertIn(r"FAT volume ready (sd:|carda:|cardb:)/", oneshot)
+		self.assertIn("FAT shutdown (return to Swiss loader via exit stub)", oneshot)
+		self.assertIn("map loaded ", oneshot)
+		self.assertIn("entity lump spawn ready|playable present .*nonblack=1", oneshot)
+		self.assertIn("scan_evidence", oneshot)
+		self.assertIn("try_mount_raw_fat", oneshot)
+		self.assertIn("udisksctl mount", oneshot)
+		self.assertIn("auto map c0a0e", oneshot)
+		# Fixture used for host dry-run of the same marker set.
+		fix = ROOT / ".ai/logs/swiss-e2e-ingest-fixture/xash3d/valve/logs/swiss-evidence.txt"
+		self.assertTrue(fix.is_file(), "expected swiss-e2e-ingest-fixture on disk")
+		body = fix.read_text(encoding="utf-8")
+		for needle in (
+			"FAT preferred volume sd:/",
+			"FAT volume ready sd:/",
+			"FAT shutdown (return to Swiss loader via exit stub)",
+			"map loaded c0a0e",
+			"entity lump spawn ready",
+			"playable present map=c0a0e",
+			"nonblack=1",
+		):
+			self.assertIn(needle, body)
 
 	def test_rc_check_wires_g509_and_g508(self) -> None:
 		rc = (ROOT / "scripts/gamecube-rc-check.sh").read_text(encoding="utf-8")

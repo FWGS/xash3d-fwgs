@@ -1382,6 +1382,13 @@ static void Cmd_Exec_f( void )
 			"sv_allow_shaders 1\n" );
 		return;
 	}
+	/* Missing *_unload.cfg hung FS_LoadFile on DVD during changelevel
+	 * worldspawn (SERVER_EXECUTE flush). Skip even if already queued. */
+	if( Q_stristr( cfgpath, "_unload.cfg" ))
+	{
+		Con_Reportf( "Xash3D GameCube: skip missing unload exec %s\n", cfgpath );
+		return;
+	}
 #endif
 
 	Con_Printf( "execing " S_GREEN "%s" S_DEFAULT "\n", Cmd_Argv( 1 ));

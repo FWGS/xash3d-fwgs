@@ -15,6 +15,7 @@ scripts/gamecube-reproducibility-check.py
 
 - [ ] Record the commit hash and artifact hashes from the reproducibility log.
 - [ ] Use a FAT32 SD card for SD Gecko or SD2SP2 routes.
+- [ ] Do **not** use exFAT — Swiss/libdvm only mounts FAT16/FAT32.
 - [ ] Place an official or compatible GameCube controller in Port 1.
 - [ ] Prefer composite or S-Video for first boot; test component/progressive
   modes only after basic video is proven.
@@ -24,6 +25,33 @@ scripts/gamecube-reproducibility-check.py
 ## Route A: SD Gecko or SD2SP2 (Swiss / libdvm)
 
 Loader: Swiss (libogc2 DOL) or equivalent homebrew loader.
+
+Fast smoke path (c0a0e subset + boot.dol; auto-skips oversized full ISO):
+
+```sh
+scripts/gamecube-swiss-hw-flash-when-ready.sh
+# or interactive (lists candidates, confirms, dd):
+scripts/gamecube-swiss-flash-interactive.sh
+# or:
+scripts/gamecube-swiss-smoke-image.sh --no-iso
+sudo dd if=OUT/xash3d-gc-swiss-smoke.img of=/dev/sdX bs=4M status=progress conv=fsync
+```
+
+Current coherent packet (also on Expansion `01_GAME_DEV/xash3d-gc-swiss-hw-20260829/`
+and Desktop `xash3d-gc-swiss-smoke.img` / `xash3d-gc-swiss-boot.dol`):
+`boot.dol` `9d35a276…` (FAT-prefer cfg), smoke FAT `013db466…` (256 MiB hybrid DOL +
+Swiss r2092 + valve + ISO, map `c0a0e` + swissquit). Dolphin CAM018_VERIFY PASS
+(20260829-063311). After quit:
+
+```sh
+scripts/gamecube-swiss-hw-complete.sh --log /path/to/sd
+```
+
+Or copy the stage tree without wiping the card:
+
+```sh
+rsync -a .ai/logs/swiss-smoke-stage/ /path/to/sd/
+```
 
 Swiss/libdvm volume prefixes:
 

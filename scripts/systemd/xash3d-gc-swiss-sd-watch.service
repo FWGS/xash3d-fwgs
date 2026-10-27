@@ -1,0 +1,15 @@
+[Unit]
+Description=Xash3D GameCube Swiss SD auto-stage watcher
+After=default.target
+
+[Service]
+Type=simple
+WorkingDirectory=%h/Desktop/xash3d-gc
+ExecStart=%h/Desktop/xash3d-gc/scripts/gamecube-swiss-sd-watch.sh
+Restart=always
+RestartSec=3
+StandardOutput=append:%h/Desktop/xash3d-gc/.ai/logs/udev-sd-watch-live.log
+StandardError=append:%h/Desktop/xash3d-gc/.ai/logs/udev-sd-watch-live.log
+
+[Install]
+WantedBy=default.target

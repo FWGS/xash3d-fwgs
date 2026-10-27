@@ -51,6 +51,7 @@ DEFAULT_GATES: tuple[LadderGate, ...] = (
 		"delta_load",
 		"delta.lst / delta tables available",
 		(
+			"server progs delta ready",
 			"G201 delta reinit ready",
 			"G201 delta diagnostic exists=1",
 		),

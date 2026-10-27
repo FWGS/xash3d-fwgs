@@ -1,0 +1,16 @@
+[Unit]
+Description=Xash3D GC Swiss LAN flash share (smoke.img for off-host)
+After=default.target
+
+[Service]
+Type=simple
+WorkingDirectory=%h/Desktop/xash3d-gc
+ExecStartPre=/bin/bash %h/Desktop/xash3d-gc/scripts/gamecube-swiss-lan-share.sh --prepare-only
+ExecStart=/usr/bin/python3 -m http.server 8765 --directory %h/Desktop/xash3d-gc/.ai/logs/swiss-lan-share
+Restart=on-failure
+RestartSec=5
+StandardOutput=append:%h/Desktop/xash3d-gc/.ai/logs/swiss-lan-share/http.log
+StandardError=append:%h/Desktop/xash3d-gc/.ai/logs/swiss-lan-share/http.log
+
+[Install]
+WantedBy=default.target

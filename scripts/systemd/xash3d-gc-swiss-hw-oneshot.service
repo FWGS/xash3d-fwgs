@@ -1,0 +1,22 @@
+[Unit]
+Description=Xash3D GC Swiss HW oneshot (wait SD → stage → ingest evidence)
+After=default.target
+# Prefer this unit over ad-hoc systemd-run duplicates.
+Conflicts=gc-swiss-oneshot-live.service
+# Disable start-rate limiting so overnight wait/restart cycles keep running.
+StartLimitIntervalSec=0
+
+[Service]
+Type=simple
+WorkingDirectory=%h/Desktop/xash3d-gc
+Environment=SD_WAIT_TIMEOUT=86400
+Environment="SWISS_SD_WATCH_SKIP=Extra Stream Expansion XASH3DGC XASHSMOKE"
+Environment=SWISS_SD_WATCH_MAX_GIB=512
+ExecStart=/bin/bash %h/Desktop/xash3d-gc/scripts/gamecube-swiss-hw-oneshot.sh
+Restart=on-failure
+RestartSec=30
+StandardOutput=append:%h/Desktop/xash3d-gc/.ai/logs/swiss-hw-oneshot-live.log
+StandardError=append:%h/Desktop/xash3d-gc/.ai/logs/swiss-hw-oneshot-live.log
+
+[Install]
+WantedBy=default.target

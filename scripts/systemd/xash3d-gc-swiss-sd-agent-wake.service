@@ -1,0 +1,15 @@
+[Unit]
+Description=Xash3D GC Swiss SD agent wake (notify Cursor on SD insert)
+After=default.target
+
+[Service]
+Type=simple
+WorkingDirectory=%h/Desktop/xash3d-gc
+ExecStart=%h/Desktop/xash3d-gc/scripts/gamecube-swiss-sd-agent-wake.sh
+Restart=always
+RestartSec=3
+StandardOutput=append:%h/Desktop/xash3d-gc/.ai/logs/swiss-sd-agent-wake.log
+StandardError=append:%h/Desktop/xash3d-gc/.ai/logs/swiss-sd-agent-wake.log
+
+[Install]
+WantedBy=default.target

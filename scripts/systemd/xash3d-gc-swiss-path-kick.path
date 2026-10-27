@@ -1,0 +1,14 @@
+[Unit]
+Description=Xash3D GC Swiss — react to Desktop dropfiles + new media mounts
+After=default.target
+
+[Path]
+PathExists=%h/Desktop/XASH3D-GC-FLASH-DEVICE.txt
+PathExists=%h/Desktop/XASH3D-GC-SWISS-EVIDENCE.txt
+PathExists=%h/Desktop/swiss-evidence.txt
+# Fire when a volume appears/disappears under /run/media/tim (SD insert).
+PathChanged=/run/media/tim
+Unit=xash3d-gc-swiss-path-kick.service
+
+[Install]
+WantedBy=default.target

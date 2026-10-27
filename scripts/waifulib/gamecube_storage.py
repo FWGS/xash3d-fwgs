@@ -153,6 +153,39 @@ def parse_loader_status(text: str) -> dict:
 	}
 
 
+_MAP_LOADED_RE = re.compile(
+	r"map loaded\s+(\S+)",
+	re.IGNORECASE,
+)
+
+
+def parse_playable_status(text: str) -> dict:
+	"""Parse on-card / OSReport playable runtime markers for hardware evidence."""
+	body = text or ""
+	maps = [m.group(1) for m in _MAP_LOADED_RE.finditer(body)]
+	# de-dupe preserving order
+	seen = set()
+	map_loaded = []
+	for name in maps:
+		if name not in seen:
+			seen.add(name)
+			map_loaded.append(name)
+	entity_ready = "entity lump spawn ready" in body
+	changelevel = (
+		"changelevel ready" in body
+		or "changelevel begin" in body
+		or "G68 changelevel ready" in body
+	)
+	present = "playable present" in body and "nonblack=1" in body
+	return {
+		"map_loaded": map_loaded,
+		"entity_spawn_ready": entity_ready,
+		"changelevel": changelevel,
+		"present_nonblack": present,
+		"ok": bool(map_loaded) and (entity_ready or present),
+	}
+
+
 def format_layout_help(volume_root: str = "sd:/") -> str:
 	root = normalize_volume_root(volume_root) or "sd:/"
 	paths = writable_layout_paths(root)
@@ -190,6 +223,7 @@ if __name__ == "__main__":
 			"fat": parse_fat_volume_status(text),
 			"g508": parse_g508_status(text),
 			"loader": parse_loader_status(text),
+			"playable": parse_playable_status(text),
 		}, indent=2))
 	elif args.select is not None:
 		print(select_fat_volume(args.select, has_valve=args.has_valve) or "")

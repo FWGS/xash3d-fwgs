@@ -170,8 +170,18 @@ static void Host_RunFrame( double time )
 		Host_SetState( STATE_GAME_SHUTDOWN, false );
 		break;
 	case STATE_CHANGELEVEL:
+#if XASH_GAMECUBE
+		Con_Reportf( "Xash3D GameCube: Host_RunFrame CHANGELEVEL plaque begin\n" );
+#endif
 		SCR_BeginLoadingPlaque( GameState->backgroundMap );
+#if XASH_GAMECUBE
+		Con_Reportf( "Xash3D GameCube: Host_RunFrame CHANGELEVEL setstate begin\n" );
+#endif
 		Host_SetState( GameState->nextstate, true );
+#if XASH_GAMECUBE
+		Con_Reportf( "Xash3D GameCube: Host_RunFrame CHANGELEVEL setstate ready cur=%d\n",
+			(int)GameState->curstate );
+#endif
 		break;
 	default:
 		Host_SetState( STATE_RUNFRAME, true );

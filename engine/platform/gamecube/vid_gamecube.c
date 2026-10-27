@@ -774,6 +774,13 @@ static int GC_CapSlotKeepScore( int slot )
 	if( GC_G380NpcRoomHoriz( &f->plane, &f->texinfo, f->texturemins, f->extents,
 		f->texinfo.texture != NULL ))
 		score += 750000; /* GX-017: hallway floors beat far slabs */
+	else if( gc_g376_npc_dump_active && fabs( f->plane.normal[2] ) > 0.55f )
+	{
+		float d = GC_CapFaceAabbDist( slot );
+
+		if( d <= 320.0f )
+			score += 400000; /* G381: near horiz without ST match */
+	}
 	return score;
 }
 
@@ -3531,7 +3538,7 @@ static qboolean GC_G378DumpEyeOnFaceST( int slot )
 		f->texinfo.vecs, f->texturemins, f->extents, 64.0f, GC_G378_FAR_DUMP );
 }
 
-/* G380: floor/ceiling the dump eye or NPC origin stands on. */
+/* G380/G381: floor/ceiling the dump eye or NPC origin stands on. */
 static qboolean GC_G380NpcRoomHoriz( const mplane_t *pl, const mtexinfo_t *tx,
 	const short mins[2], const short extents[2], qboolean has_tex )
 {
@@ -3539,14 +3546,13 @@ static qboolean GC_G380NpcRoomHoriz( const mplane_t *pl, const mtexinfo_t *tx,
 		return false;
 	if( fabs( pl->normal[2] ) < 0.55f )
 		return false;
-	/* Slack 384u so adjacent hallway floor strips around the NPC match;
-	 * plane_max 160u keeps ceiling and dump-eye (z+36) without grabbing
-	 * another storey. */
+	/* G381: slack 512u / plane_max 192u — adjacent hallway strips under the
+	 * NPC keep without grabbing another storey. */
 	if( GC_G378OriginOnPlaneST( gc_newgame_capture_origin, pl, tx->vecs, mins, extents,
-		384.0f, 160.0f ))
+		512.0f, 192.0f ))
 		return true;
 	if( GC_G378OriginOnPlaneST( gc_g376_npc_origin, pl, tx->vecs, mins, extents,
-		384.0f, 160.0f ))
+		512.0f, 192.0f ))
 		return true;
 	return false;
 }
@@ -3582,16 +3588,23 @@ static void GC_RerankCapFacesNearDumpEye( void )
 	{
 		float dist = GC_CapFaceAabbDist( i );
 		qboolean floorish = ( fabs( gc_newgame_cap_faces[i].plane.normal[2] ) > 0.55f );
+		qboolean st_room = GC_G380NpcRoomHoriz( &gc_newgame_cap_faces[i].plane,
+			&gc_newgame_cap_faces[i].texinfo,
+			gc_newgame_cap_faces[i].texturemins,
+			gc_newgame_cap_faces[i].extents,
+			gc_newgame_cap_faces[i].texinfo.texture != NULL );
+		/* G381: keep near horiz slabs by AABB even when ST miss (underfoot). */
 		qboolean keep = ( dist <= GC_G378_FAR_DUMP )
-			|| GC_G380NpcRoomHoriz( &gc_newgame_cap_faces[i].plane,
-				&gc_newgame_cap_faces[i].texinfo,
-				gc_newgame_cap_faces[i].texturemins,
-				gc_newgame_cap_faces[i].extents,
-				gc_newgame_cap_faces[i].texinfo.texture != NULL );
+			|| st_room
+			|| ( floorish && dist <= 320.0f );
 
 		gc_newgame_cap_areas[i] = GC_CapSlotKeepScore( i );
 		if( keep && floorish && dist <= 384.0f )
 			gc_newgame_cap_areas[i] += 300000; /* GX-017: near hallway floor */
+		if( keep && floorish && dist <= 192.0f )
+			gc_newgame_cap_areas[i] += 250000; /* G381: underfoot over far walls */
+		if( st_room )
+			gc_newgame_cap_areas[i] += 150000;
 		if( dist < mind )
 			mind = dist;
 		if( dist > maxd )
@@ -4715,6 +4728,18 @@ static void GC_RefreshCapFacesFromCands( int cache_slot )
 		{
 			cand_score += 500000;
 		}
+		/* G381: near-eye horizontal floors beat far industrial slabs while
+		 * G212 stays locked (no wm->surfaces walk). */
+		else if( gc_g376_npc_dump_active && cand->has_tex
+			&& fabs( cand->plane.normal[2] ) > 0.55f
+			&& !VectorIsNull( gc_newgame_capture_origin ))
+		{
+			float cd = fabs( DotProduct( gc_newgame_capture_origin, cand->plane.normal )
+				- cand->plane.dist );
+
+			if( cd < 192.0f )
+				cand_score += 350000;
+		}
 
 		if( gc_newgame_cap_face_count < GC_MAX_CAP_FACES )
 			slot = gc_newgame_cap_face_count;
@@ -4858,13 +4883,13 @@ static void GC_G380AdmitNpcRoomFloors( void )
 			}
 		}
 	}
-	z = npc[2] + 2.0f; /* sit above fill coplanar floors so LEQUAL keeps cyan */
-	/* Pad under the NPC only — full eye→NPC trapezoid covered the EFB and
-	 * stalled Dolphin DumpFrames. */
-	x0 = npc[0] + 64.0f;
-	x1 = npc[0] - 48.0f;
-	y0n = npc[1] - 40.0f;
-	y1n = npc[1] + 40.0f;
+	/* G381: sit above fill; pad is textured (GX-022) so clear cyan cannot peek. */
+	z = npc[2] + 2.0f;
+	/* Modest wider XY under NPC (full trapezoid stalled DumpFrames). */
+	x0 = npc[0] + 80.0f;
+	x1 = npc[0] - 64.0f;
+	y0n = npc[1] - 56.0f;
+	y1n = npc[1] + 56.0f;
 	y0f = y0n;
 	y1f = y1n;
 	(void)eye;
@@ -6244,6 +6269,24 @@ void GC_EarlyBootSplash( void )
 #endif
 }
 
+/* Keep the dark-blue frame on-screen while FAT/DVD I/O runs (HW black hang). */
+void GC_RefreshBootSplash( void )
+{
+#if XASH_GAMECUBE
+	unsigned short *dst;
+
+	if( gc.initialized || !rmode || !xfb[0] )
+		return;
+
+	dst = (unsigned short *)xfb[0];
+	VIDEO_ClearFrameBuffer( rmode, dst, 0x0010 );
+	VIDEO_SetNextFramebuffer( xfb[0] );
+	VIDEO_SetBlack( false );
+	VIDEO_Flush();
+	VIDEO_WaitVSync();
+#endif
+}
+
 /*
 ===========
 GC_ResolveVideoMode
@@ -7279,6 +7322,30 @@ static void GC_PresentBuffer( void )
 			sampled_nonblack = false;
 		}
 	}
+
+	/* One-shot FAT evidence: first nonblack active present proves Flipper output
+	 * on Swiss SD without USB Gecko (swiss-evidence.txt). */
+	if( sampled_nonblack
+		&& cls.state == ca_active
+		&& cls.signon == SIGNONS
+		&& clgame.mapname[0]
+		&& GCube_HasWritableStorage() )
+	{
+		static qboolean gc_swiss_playable_present_logged;
+
+		if( !gc_swiss_playable_present_logged )
+		{
+			gc_swiss_playable_present_logged = true;
+			GCube_AppendSwissEvidence( "playable present map=%s frame=%u nonblack=1",
+				clgame.mapname, gc_present_count );
+			Con_Reportf( "Xash3D GameCube: playable present map=%s frame=%u\n",
+				clgame.mapname, gc_present_count );
+			/* Refresh swissquit window from first playable frame so slow SD
+			 * map/entity load cannot exhaust the countdown early. */
+			GCube_ArmSwissQuit();
+		}
+	}
+	GCube_PollSwissQuit();
 
 	/* G36: After New Game arm, skip connect warm-up presents then sample
 	 * steady Host_Frame intervals (not synthetic fill bursts). */
@@ -8930,16 +8997,18 @@ void GC_DrawLoadingStatus( const char *message, const char *details )
 
 	/* Host_Init: Dolphin capture routes skip init presents (probe timeout).
 	 * Real hardware/Swiss retail boots show the loading plaque via early XFB
-	 * once CL_Init has created rmode/xfb — otherwise black for minutes. */
+	 * once CL_Init has created rmode/xfb — otherwise black for minutes.
+	 * Lean -gcmap smoke ISOs may omit loading.tga; never block boot probing
+	 * that asset (c0a0e hung in GC_LoadLoadingBackground under Dolphin). */
 	if( host.status == HOST_INIT )
 	{
-		(void)GC_LoadLoadingBackground();
-		if( GC_IsCaptureDiagnostics() )
+		if( Sys_CheckParm( "-gcmap" ) || GC_IsCaptureDiagnostics() )
 		{
 			Con_Reportf( "Xash3D GameCube: loading status %s (%s) init-skip-present\n",
 				message ? message : "?", details ? details : "" );
 			return;
 		}
+		(void)GC_LoadLoadingBackground();
 		if( !rmode || !xfb[which_fb] )
 		{
 			Con_Reportf( "Xash3D GameCube: loading status %s (%s) init-wait-video\n",
@@ -9501,6 +9570,11 @@ MDL malloc). Early present slots so short probes still reach view≥2.
 static void GC_TryDeferredStudios( void )
 {
 #if XASH_GAMECUBE
+	static unsigned last_present_count;
+	static qboolean lean_view_attempted;
+	static qboolean lean_npc32_attempted;
+	static qboolean lean_npc40_attempted;
+
 	if( !gc_newgame_world_ready )
 		return;
 	/* G297: MDL promote mid-G36 sample window spikes present hitch. */
@@ -9510,8 +9584,24 @@ static void GC_TryDeferredStudios( void )
 	 * (G371) after CapFaces/presents coalesce freelist. */
 	if( Sys_CheckParm( "-gcnewgame" ) && !Sys_CheckParm( "-gcfullphysics" ))
 	{
-		if( gc_present_count != 1 && gc_present_count != 32
-			&& gc_present_count != 40 )
+		/* The G36 budget window can span present 1, so exact-count scheduling
+		 * permanently missed the viewmodel on dense maps. Reset when a new map
+		 * restarts the counter and run each threshold once at its first eligible
+		 * post-budget present. */
+		if( gc_present_count < last_present_count )
+		{
+			lean_view_attempted = false;
+			lean_npc32_attempted = false;
+			lean_npc40_attempted = false;
+		}
+		last_present_count = gc_present_count;
+		if( !lean_view_attempted && gc_present_count >= 1 )
+			lean_view_attempted = true;
+		else if( !lean_npc32_attempted && gc_present_count >= 32 )
+			lean_npc32_attempted = true;
+		else if( !lean_npc40_attempted && gc_present_count >= 40 )
+			lean_npc40_attempted = true;
+		else
 			return;
 	}
 	else if( gc_present_count != 1 && gc_present_count != 2 && gc_present_count != 4
@@ -13186,7 +13276,8 @@ static qboolean GC_IsDenserAmMapName( const char *name )
 	if( !name || !name[0] )
 		return false;
 	/* Match denser_am_early Prepare skip set (G335/G340). */
-	return ( !Q_stricmp( name, "c1a0d" )
+	return ( !Q_stricmp( name, "c1a0" )
+		|| !Q_stricmp( name, "c1a0d" )
 		|| !Q_stricmp( name, "c1a0a" )
 		|| !Q_stricmp( name, "c1a0b" )
 		|| !Q_stricmp( name, "c1a0c" )
@@ -13532,7 +13623,8 @@ qboolean GC_PrepareNewGameWorldPresent( void )
 	 * c4a2a→c4a2b 20260810-143648 hung in post-present ServerFrame after
 	 * "probe gameplay move/look begin" — G336/G338 already covered c4a/c5a. */
 	const qboolean denser_am_early = Sys_CheckParm( "-gcnewgame" )
-		&& ( !Q_stricmp( sv.name, "c1a0d" )
+		&& ( !Q_stricmp( sv.name, "c1a0" )
+			|| !Q_stricmp( sv.name, "c1a0d" )
 			|| !Q_stricmp( sv.name, "c1a0a" )
 			|| !Q_stricmp( sv.name, "c1a0b" )
 			|| !Q_stricmp( sv.name, "c1a0c" )
@@ -13545,11 +13637,11 @@ qboolean GC_PrepareNewGameWorldPresent( void )
 			|| !Q_strnicmp( sv.name, "c3a", 3 )
 			|| !Q_strnicmp( sv.name, "c4a", 3 )
 			|| !Q_strnicmp( sv.name, "c5a", 3 )
-			/* G368: dual-hop DumpFrames — hop1 (e.g. c1a0) is not denser_am
-			 * but the Flipper present pump hangs under DumpFrames I/O before
-			 * changelevel2 arms. Take the G335 short path on intermediate hops. */
+			/* G368: dual-hop intermediate (e.g. c1a0) — Flipper present pump
+			 * hangs after CapFaces before changelevel2 arms (probe
+			 * 20260829-061236). Take G335 short path whenever hop2 is set,
+			 * not only under DumpFrames. */
 			|| ( Sys_CheckParm( "-gcchangelevel2" )
-				&& ( Sys_CheckParm( "-gcdumpframes" ) || Sys_CheckParm( "-gcdump" ))
 				&& GC_IsProbeChangelevelDest() ));
 
 	if( Sys_CheckParm( "-gcfullphysics" ))

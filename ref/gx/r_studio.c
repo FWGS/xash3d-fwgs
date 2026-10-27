@@ -3673,6 +3673,10 @@ static void R_StudioLoadTexture( model_t *mod, studiohdr_t *phdr, mstudiotexture
 
 	if( FBitSet( ptexture->flags, STUDIO_NF_NOMIPS ))
 		SetBits( flags, TF_NOMIPMAP );
+#if XASH_GAMECUBE
+	/* Tip-safe: mip chain allocs are what push scientist skins to defaultTexture. */
+	SetBits( flags, TF_NOMIPMAP );
+#endif
 
 	// NOTE: replace index with pointer to start of imagebuffer, ImageLib expected it
 	// ptexture->index = (int)((byte *)phdr) + ptexture->index;
@@ -3722,17 +3726,33 @@ void GAME_EXPORT Mod_StudioLoadTextures( model_t *mod, void *data )
 	if( phdr->textureindex > 0 && phdr->numtextures > 0 )
 	{
 		int loaded = 0;
+#if XASH_GAMECUBE
+		int fallback = 0;
+		extern void Image_GCPurgeDecodeScratch( void );
+#endif
 
 		for( int i = 0; i < phdr->numtextures; i++ )
 		{
+#if XASH_GAMECUBE
+			/* Tip CapFaces leaves decode scratch fragmented — purge per skin
+			 * or scientist uploads collapse to defaultTexture (magenta). */
+			Image_GCPurgeDecodeScratch();
+#endif
 			R_StudioLoadTexture( mod, phdr, &ptexture[i] );
+#if XASH_GAMECUBE
+			if( ptexture[i].index && ptexture[i].index != tr.defaultTexture )
+				loaded++;
+			else if( ptexture[i].index == tr.defaultTexture )
+				fallback++;
+#else
 			if( ptexture[i].index )
 				loaded++;
+#endif
 		}
 #if XASH_GAMECUBE
 		if( gEngfuncs.Sys_CheckParm( "-gcnewgame" ))
-			gEngfuncs.Con_Reportf( "Xash3D GameCube: studio soft skins '%s' %d/%d\n",
-				mod->name, loaded, phdr->numtextures );
+			gEngfuncs.Con_Reportf( "Xash3D GameCube: studio soft skins '%s' %d/%d fallback=%d\n",
+				mod->name, loaded, phdr->numtextures, fallback );
 #endif
 	}
 }

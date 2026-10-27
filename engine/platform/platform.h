@@ -136,6 +136,7 @@ typedef enum
 
 void GCube_EarlyInit( void );
 void GC_EarlyBootSplash( void );
+void GC_RefreshBootSplash( void );
 void GC_DrawBootFatalPanel( const char *message, const char *details );
 void GCube_Init( void );
 void GCube_Shutdown( void );
@@ -145,6 +146,9 @@ qboolean GCube_GetWritablePath( char *buf, size_t buflen );
 qboolean GCube_HasWritableStorage( void );
 qboolean GCube_HasPersistentWritableStorage( void );
 void GCube_EnsureWritableLayout( void );
+void GCube_AppendSwissEvidence( const char *fmt, ... );
+void GCube_ArmSwissQuit( void );
+void GCube_PollSwissQuit( void );
 int GCube_GetArgv( int in_argc, char **in_argv, char ***out_argv );
 int GC_GetVisualQuality( void );
 const char *GC_GetQualityProfileName( void );

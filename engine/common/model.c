@@ -55,7 +55,7 @@ static int     gc_pinned_viewmodel_count;
 static int     gc_deferred_studio_attempts;
 /* G287/G289: tip-safe studio staging — bump-allocate lean meshes into BSS.
  * Crowbar ~19 KiB + handgun ~60 KiB fit in 80 KiB (heap is empty post-prep). */
-#define GC_STUDIO_BSS_BYTES (84 * 1024) /* crowbar+handgun+roach lean mesh */
+#define GC_STUDIO_BSS_BYTES (256 * 1024) /* G381: view BSS + scientist (was 84 KiB) */
 static byte    gc_studio_bss[GC_STUDIO_BSS_BYTES] __attribute__((aligned( 32 )));
 static size_t  gc_studio_bss_bump;
 static int     gc_studio_bss_owners; /* resident cache.data slices */
@@ -69,7 +69,7 @@ qboolean Mod_GCIsStudioBssCache( const void *ptr )
 	return ( p >= gc_studio_bss && p < gc_studio_bss + GC_STUDIO_BSS_BYTES );
 }
 
-static byte *Mod_GCStudioBssAlloc( size_t size )
+byte *Mod_GCStudioBssAlloc( size_t size )
 {
 	size_t align_off;
 
@@ -81,6 +81,34 @@ static byte *Mod_GCStudioBssAlloc( size_t size )
 	gc_studio_bss_bump = align_off + size;
 	gc_studio_bss_owners++;
 	return gc_studio_bss + align_off;
+}
+
+/*
+ * G381: grow the last BSS studio slice in place (mesh → mesh+T.mdl headers).
+ * Tip CapFaces leaves heap empty; scientist mesh already occupies the bump so
+ * a second Mod_GCStudioBssAlloc(merged) fails and we used to keep mesh-only
+ * (white NPC / HUD sprite bind).
+ */
+byte *Mod_GCStudioBssGrowLast( void *ptr, size_t old_size, size_t new_size )
+{
+	byte *p = (byte *)ptr;
+	size_t off;
+	size_t old_end;
+
+	if( !ptr || old_size == 0 || new_size < old_size || new_size > GC_STUDIO_BSS_BYTES )
+		return NULL;
+	if( !Mod_GCIsStudioBssCache( ptr ))
+		return NULL;
+	off = (size_t)( p - gc_studio_bss );
+	old_end = off + old_size;
+	/* Accept either exact bump or 32-byte padded bump from Alloc. */
+	if( gc_studio_bss_bump != old_end
+		&& gc_studio_bss_bump != (( old_end + 31u ) & ~31u ))
+		return NULL;
+	if( off + new_size > GC_STUDIO_BSS_BYTES )
+		return NULL;
+	gc_studio_bss_bump = off + new_size;
+	return p;
 }
 
 static qboolean Mod_GCIsPinnedViewModel( const model_t *mod )
@@ -289,6 +317,9 @@ static byte *Mod_GCLoadStudioFile( const char *model_path, fs_offset_t *length, 
 		}
 	}
 
+	/* G381: CapFaces/pad tex decode can leave scratch holes that block the
+	 * 170 KiB scientist zip malloc (mirror miss buf=0). Purge before heap read. */
+	Image_GCPurgeDecodeScratch();
 	buf = FS_LoadFileMalloc( mirror, length, false );
 	if( buf && *length >= (fs_offset_t)sizeof( studiohdr_t ))
 	{
@@ -1381,8 +1412,16 @@ model_t *Mod_LoadWorld( const char *name, qboolean preload )
 	if( !Q_stricmp( mod_known->name, name ))
 		return mod_known;
 
+#if XASH_GAMECUBE
+	Con_Reportf( "Xash3D GameCube: Mod_LoadWorld begin name=%s preload=%d\n",
+		name ? name : "?", preload ? 1 : 0 );
+#endif
 	// free sequence files on studiomodels
 	Mod_PurgeStudioCache();
+#if XASH_GAMECUBE
+	Con_Reportf( "Xash3D GameCube: Mod_LoadWorld after purge name=%s\n",
+		name ? name : "?" );
+#endif
 
 	// load the newmap
 	world.loading = true;
@@ -1397,6 +1436,8 @@ model_t *Mod_LoadWorld( const char *name, qboolean preload )
 		Con_Reportf( "Xash3D GameCube: Mod_LoadWorld request='%s' registered='%s' exists=%d size=%li preload=%d\n",
 			name, pworld ? pworld->name : "(null)", exists, (long)filesize, preload );
 	}
+	Con_Reportf( "Xash3D GameCube: Mod_LoadWorld ready name=%s\n",
+		name ? name : "?" );
 #endif
 	world.loading = false;
 
