@@ -384,7 +384,7 @@ static void* GAME_EXPORT R_GetProcAddress( const char *name )
 #if XASH_GL4ES
 	return gl4es_GetProcAddress( name );
 #else // TODO: other wrappers
-	return gEngfuncs.GL_GetProcAddress( name );
+	return GL_GetProcAddress( name );
 #endif
 }
 

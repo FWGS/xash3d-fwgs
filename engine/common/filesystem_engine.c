@@ -279,6 +279,11 @@ static qboolean FS_DetermineRootDirectory( char *out, size_t size )
 		return true;
 	Sys_Error( "couldn't find %s data directory", XASH_ENGINE_NAME );
 	return false;
+#elif XASH_PS4
+	if( PS4_GetBasePath( out, size ))
+		return true;
+	Sys_Error( "couldn't find %s data directory", XASH_ENGINE_NAME );
+	return false;
 #elif ( XASH_SDL >= 2 ) && !XASH_NSWITCH // GetBasePath not impl'd in switch-sdl2
 	// SDL2 hands the base path over to us, SDL3 keeps ownership and frees it on quit
 	qboolean owned = XASH_SDL == 2;

@@ -1,0 +1,163 @@
+#! /usr/bin/env python
+# encoding: utf-8
+
+# opengnm-psbc for the build machine: SPIR-V to PS4 shader binary compiler made of
+# vendored Mesa (NIR, ACO). Sources and generators follow its Makefile, plus the
+# generated files the Makefile has no rules for
+import subprocess, sys
+
+def options(opt):
+	pass
+
+def configure(conf):
+	if not conf.path.find_node('opengnm-psbc/cmd/psbc/main.c') or not conf.path.find_node('Vulkan-Headers/registry/vk.xml'):
+		conf.fatal('Can\'t find opengnm-psbc submodules. Run `git submodule update --init --checkout 3rdparty/opengnm-psbc`.')
+
+	for i in ['mako', 'yaml']:
+		try:
+			__import__(i)
+		except ImportError:
+			conf.fatal('Python module %s is needed to generate opengnm-psbc sources' % i)
+
+	conf.load('host_tool_compiler')
+	conf.setup_host_env()
+
+def amdgfxregs_h(task):
+	cmd = [sys.executable, task.inputs[0].abspath(), '--sort', 'address', '--guard', 'AMDGPUregs'] + [i.abspath() for i in task.inputs[1:]]
+	out = subprocess.check_output(cmd, universal_newlines = True)
+
+	# SQ export targets aren't in the register files, the Makefile appends them
+	out += '\n'
+	for name, value in [('MRT0', 0), ('MRT1', 1), ('MRT2', 2), ('MRT3', 3), ('MRT4', 4), ('MRT5', 5), ('MRT6', 6), ('MRT7', 7),
+		('MRTZ', 8), ('NULL', 9), ('POS0', 12), ('POS1', 13), ('POS2', 14), ('POS3', 15), ('POS4', 16),
+		('PRIM', 20), ('PARAM0', 32), ('PARAM', 32), ('MRT', 0), ('POS', 12)]:
+		out += '#define V_008DFC_SQ_EXP_%s %d\n' % (name, value)
+
+	task.outputs[0].write(out)
+
+def build(bld):
+	src = bld.path.find_dir('opengnm-psbc')
+	py = '"%s" ${SRC[0].abspath()}' % sys.executable
+	gen_sources = []
+	gen_names = []
+
+	def gen(rule, source, target, compile = False):
+		name = 'psbc-gen-%d' % len(gen_names)
+		bld(rule = rule, source = source, target = target, path = src, name = name, ext_out = ['.h'])
+		gen_names.append(name)
+		if compile:
+			gen_sources.append(src.find_or_declare(target))
+
+	nir = 'src/compiler/nir/'
+	gen(py + ' > ${TGT}', nir + 'nir_opcodes_h.py ' + nir + 'nir_opcodes.py', nir + 'nir_opcodes.h')
+	gen(py + ' > ${TGT}', nir + 'nir_opcodes_c.py ' + nir + 'nir_opcodes.py', nir + 'nir_opcodes.c', True)
+	gen(py + ' --out ${TGT}', nir + 'nir_intrinsics_h.py ' + nir + 'nir_intrinsics.py', nir + 'nir_intrinsics.h')
+	gen(py + ' --out ${TGT}', nir + 'nir_intrinsics_c.py ' + nir + 'nir_intrinsics.py', nir + 'nir_intrinsics.c', True)
+	gen(py + ' --out ${TGT}', nir + 'nir_intrinsics_indices_h.py ' + nir + 'nir_intrinsics.py', nir + 'nir_intrinsics_indices.h')
+	gen(py + ' > ${TGT}', nir + 'nir_constant_expressions.py ' + nir + 'nir_opcodes.py', nir + 'nir_constant_expressions.c', True)
+	gen(py + ' --out ${TGT}', nir + 'nir_opt_algebraic.py ' + nir + 'nir_algebraic.py ' + nir + 'nir_opcodes.py', nir + 'nir_opt_algebraic.c', True)
+	gen(py + ' > ${TGT}', nir + 'nir_builder_opcodes_h.py ' + nir + 'nir_opcodes.py', nir + 'nir_builder_opcodes.h')
+
+	aco = 'src/amd/compiler/'
+	gen(py + ' > ${TGT}', aco + 'aco_opcodes_h.py ' + aco + 'aco_opcodes.py', aco + 'aco_opcodes.h')
+	gen(py + ' > ${TGT}', aco + 'aco_opcodes_cpp.py ' + aco + 'aco_opcodes.py', aco + 'aco_opcodes.cpp', True)
+	gen(py + ' > ${TGT}', aco + 'aco_builder_h.py ' + aco + 'aco_opcodes.py', aco + 'aco_builder.h')
+
+	spv = 'src/compiler/spirv/'
+	gen(py + ' --out-c ${TGT[0].abspath()} --out-h ${TGT[1].abspath()} --json ${SRC[1].abspath()}', spv + 'spirv_info_gen.py ' + spv + 'spirv.core.grammar.json', spv + 'spirv_info.c ' + spv + 'spirv_info.h')
+	gen_sources.append(src.find_or_declare(spv + 'spirv_info.c'))
+	# the Makefile takes spir-v.xml from SPIRV-Headers, the same file is vendored
+	gen(py + ' ${SRC[1].abspath()} ${TGT}', spv + 'vtn_generator_ids_h.py ' + spv + 'spir-v.xml', spv + 'vtn_generator_ids.h')
+	gen(py + ' ${SRC[1].abspath()} ${TGT}', spv + 'vtn_gather_types_c.py ' + spv + 'spirv.core.grammar.json', spv + 'vtn_gather_types.c', True)
+
+	regs = ['gfx6.json', 'gfx7.json', 'gfx8.json', 'gfx81.json', 'gfx9.json', 'gfx940.json', 'gfx10.json',
+		'gfx10-rsrc.json', 'gfx103.json', 'gfx11.json', 'gfx11-rsrc.json', 'gfx115.json', 'gfx12.json',
+		'gfx12-rsrc.json', 'registers-manually-defined.json', 'pkt3.json']
+	regs = ' '.join('src/amd/registers/' + i for i in regs)
+	bld(rule = amdgfxregs_h, source = 'src/amd/registers/makeregheader.py ' + regs, target = 'src/amd/common/amdgfxregs.h', path = src, name = 'psbc-amdgfxregs', ext_out = ['.h'])
+	gen_names.append('psbc-amdgfxregs')
+	gen(py + ' ${SRC[1].abspath()} ' + ' '.join('${SRC[%d].abspath()}' % (i + 2) for i in range(len(regs.split()))) + ' > ${TGT}', 'src/amd/common/sid_tables.py src/amd/registers/pkt3.json ' + regs, 'src/amd/common/sid_tables.h')
+
+	fmt = 'src/util/format/'
+	gen(py + ' ${SRC[1].abspath()} --enums > ${TGT}', fmt + 'u_format_table.py ' + fmt + 'u_format.yaml', fmt + 'u_format_gen.h')
+	gen(py + ' ${SRC[1].abspath()} --header > ${TGT}', fmt + 'u_format_table.py ' + fmt + 'u_format.yaml', fmt + 'u_format_pack.h')
+	gen(py + ' ${SRC[1].abspath()} > ${TGT}', fmt + 'u_format_table.py ' + fmt + 'u_format.yaml', fmt + 'u_format_table.c', True)
+	gen(py + ' > ${TGT}', 'src/util/format_srgb.py', 'src/util/format_srgb.c', True)
+	gen(py + ' ${SRC[1].abspath()} ${SRC[2].abspath()} > ${TGT}', 'src/util/process_shader_stats.py src/util/shader_stats.rnc src/util/shader_stats.xml', 'src/util/shader_stats.h')
+	gen(py + ' ${TGT}', 'src/compiler/builtin_types_h.py src/compiler/builtin_types.py', 'src/compiler/builtin_types.h')
+	gen(py + ' ${TGT}', 'src/compiler/builtin_types_c.py src/compiler/builtin_types.py', 'src/compiler/builtin_types.c', True)
+	gen(py + ' ${SRC[1].abspath()} ${SRC[2].abspath()} ${SRC[3].abspath()} > ${TGT}', 'src/amd/common/gfx10_format_table.py ' + fmt + 'u_format.yaml src/amd/registers/gfx10-rsrc.json src/amd/registers/gfx11-rsrc.json', 'src/amd/common/gfx10_format_table.c', True)
+
+	pkt = 'src/amd/packets/'
+	pkt_inputs = pkt + 'cp_pm4_table_data_gfx11.json ' + pkt + 'pm4_it_opcodes_gfx11.h ' + pkt + 'cp_pm4_table_data_gfx12.json ' + pkt + 'pm4_it_opcodes_gfx12.h'
+	for i in ['gfx11', 'gfx12']:
+		gen(py + ' ${SRC[1].abspath()} ${SRC[2].abspath()} ${SRC[3].abspath()} ${SRC[4].abspath()} %s packets_h > ${TGT}' % i, pkt + 'parse_cp_pm4_table_data_json.py ' + pkt_inputs, 'src/amd/common/amd_cp_packets_%s.h' % i)
+
+	vk = bld.path.find_dir('Vulkan-Headers')
+	bld(rule = py + ' --xml ${SRC[1].abspath()} --out ${TGT} --beta false', source = ['src/vulkan/util/vk_struct_type_cast_gen.py', vk.find_node('registry/vk.xml')], target = 'src/vulkan/util/vk_struct_type_cast.h', path = src, name = 'psbc-vk-struct-type-cast', ext_out = ['.h'])
+	gen_names.append('psbc-vk-struct-type-cast')
+
+	sources = src.ant_glob([
+		'psbc_stubs.c', 'libpsbc/psbc_compile.c', 'cmd/psbc/crc32_sb.c', 'cmd/psbc/main.c',
+		'src/compiler/*.c',
+		'src/compiler/nir/*.c',
+		'src/compiler/spirv/*.c',
+		'src/amd/compiler/*.cpp',
+		'src/amd/compiler/instruction_selection/*.cpp',
+		'src/amd/common/*.c',
+		'src/amd/common/nir/*.c',
+		'src/amd/vulkan/radv_postprocess_nir_standalone.c', 'src/amd/vulkan/radv_shader.c',
+		'src/amd/vulkan/radv_shader_args.c', 'src/amd/vulkan/radv_shader_info.c',
+		'src/amd/vulkan/nir/*.c',
+		'src/util/*.c',
+		'src/util/*.cpp',
+		'src/util/format/*.c',
+		'src/util/blake3/blake3.c', 'src/util/blake3/blake3_dispatch.c', 'src/util/blake3/blake3_portable.c',
+		'src/c11/impl/threads_posix.c', 'src/c11/impl/time.c',
+		'src/vulkan/runtime/vk_nir_lower_descriptor_heaps.c', 'src/vulkan/runtime/vk_nir_convert_ycbcr.c',
+	], excl = [
+		# standalone tools and conflicting stubs
+		'src/compiler/nir/nir_stub.c', 'src/compiler/spirv/spirv2nir.c', 'src/compiler/spirv/vtn_bindgen2.c',
+		# platform, driver and test code
+		'src/amd/common/ac_linux_drm.c', 'src/amd/common/ac_rtld.c', 'src/amd/common/ac_rgp_elf_object_pack.c',
+		'src/amd/common/ac_gpu_info.c', 'src/amd/common/ac_video.c', 'src/amd/common/ac_surface.c',
+		'src/amd/common/ac_surface_meta_address_test.c', 'src/amd/common/ac_surface_modifier_test.c',
+		'src/amd/common/ac_vcn_dec.c', 'src/amd/common/amdgpu_devices.c', 'src/amd/common/ac_ib_parser.c',
+		# ray tracing
+		'src/amd/vulkan/nir/radv_nir_lower_ray_queries.c', 'src/amd/vulkan/nir/radv_nir_rt_*.c',
+		# platform-specific and profiling
+		'src/util/cache_ops_*.c', 'src/util/u_debug_stack.c', 'src/util/u_sync_provider.c',
+		'src/util/os_socket.c', 'src/util/xmlconfig.c',
+	])
+
+	# same order as upstream, generated and vendored files of src/util/format include each other as neighbours
+	includes = ['include', 'libpsbc', bld.srcnode.find_dir('3rdparty/opengnm/opengnm/include'), vk.find_dir('include'),
+		'src', 'src/amd', 'src/amd/common', 'src/amd/common/nir', 'src/amd/compiler',
+		'src/amd/vulkan', 'src/amd/vulkan/nir', 'src/vulkan/runtime', 'src/vulkan/runtime/bvh',
+		'src/vulkan/util', 'src/compiler', 'src/compiler/nir', 'src/compiler/spirv',
+		'src/gallium/include', 'src/mesa', 'src/mesa/main', 'src/util', 'cmd/psbc', 'include/mesa',
+		'src/util/format',
+	]
+
+	big_endian = 1 if bld.all_envs['host'].HOST_BIG_ENDIAN else 0
+	defines = [
+		'_GNU_SOURCE', 'HAVE_PTHREAD=1', 'HAVE_STRUCT_TIMESPEC=1', 'HAVE_SYSCONF=1', 'alloca=__builtin_alloca',
+		'UTIL_ARCH_LITTLE_ENDIAN=%d' % (1 - big_endian), 'UTIL_ARCH_BIG_ENDIAN=%d' % big_endian,
+		# portable implementation only, SIMD variants are assembly files
+		'BLAKE3_NO_SSE2', 'BLAKE3_NO_SSE41', 'BLAKE3_NO_AVX2', 'BLAKE3_NO_AVX512', 'BLAKE3_USE_NEON=0',
+	]
+	flags = ['-include', 'strings.h', '-Wno-unused-function', '-Wno-unused-variable']
+
+	bld.program(source = sources + gen_sources,
+		target = 'psbc',
+		features = 'c cxx',
+		path = src,
+		includes = includes,
+		defines = defines,
+		# incompatible pointer types are an error since GCC 14, upstream builds with clang
+		cflags = ['-std=gnu11', '-Wno-error=incompatible-pointer-types'] + flags,
+		cxxflags = ['-std=c++17'] + flags,
+		lib = ['m', 'pthread'],
+		use = gen_names,
+		env = bld.all_envs['host'].derive(),
+		install_path = None)

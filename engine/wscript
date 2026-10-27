@@ -122,6 +122,9 @@ def configure(conf):
 
 			if conf.env.DEST_OS == 'nswitch': # remove libstdc++ linking from SDL2, we link it later
 				conf.env.LIB_SDL2.remove('stdc++')
+		elif conf.env.DEST_OS == 'ps4':
+			# no SDL, video, sound and input are in platform/ps4
+			conf.env.LIB_PS4CLIENT_SYS = ['SceImeDialog', 'SceCommonDialog', 'SceAudioIn', 'SceAudioOut', 'ScePad', 'SceUserService', 'SceSysmodule', 'SceKeyboard', 'SceMouse']
 		elif conf.env.DEST_OS == 'linux' and conf.options.FBDEV_SW:
 			conf.check_cc(lib='asound')
 		elif conf.options.SDL12: # TODO: move to sdl2.py
@@ -194,7 +197,10 @@ def build(bld):
 		source += bld.path.ant_glob('platform/linux/*.c')
 
 	# include common POSIX conformant code
-	if bld.env.DEST_OS not in ['win32', 'dos']:
+	if bld.env.DEST_OS == 'ps4':
+		# kernel loads modules, see platform/ps4/lib_ps4.c
+		source += bld.path.ant_glob('platform/posix/*.c', excl='platform/posix/lib_posix.c')
+	elif bld.env.DEST_OS not in ['win32', 'dos']:
 		source += bld.path.ant_glob('platform/posix/*.c')
 	if bld.env.IOS:
 		source += bld.path.ant_glob('platform/ios/*.c')
@@ -272,6 +278,11 @@ def build(bld):
 			source += bld.path.ant_glob(['platform/sdl%d/*.c' % bld.env.XASH_SDL])
 			defines += ['XASH_SDL=%d' % bld.env.XASH_SDL]
 
+		# GPU device for the OpenGL layer in ref_gl, see ref/gl/gnm_shim
+		if bld.env.DEST_OS == 'ps4':
+			libs += ['opengnm', 'PS4CLIENT_SYS']
+			source += bld.path.ant_glob('platform/ps4/gnm/*.c')
+
 		if bld.get_define('HAVE_FFMPEG'):
 			libs.append('SWRESAMPLE')
 			libs.append('AVCODEC')
@@ -325,9 +336,11 @@ def build(bld):
 			special_install_path = bld.env.BINDIR,
 			nacp = 'platform/nswitch/xash3d-fwgs.nacp',
 			icon = 'platform/nswitch/icon.jpg',
-			sce_sys = 'platform/psvita/sce_sys',
+			sce_sys = 'platform/%s/sce_sys' % bld.env.DEST_OS,
 			title_id = 'XASH10000',
 			app_name = 'xash3d-fwgs',
+			ps4_content_id = 'IV0000-XASH00001_00-XASH3DFWGSPS4000',
+			ps4_title = 'Xash3D FWGS',
 			rpath = bld.env.DEFAULT_RPATH,
 			linkflags = linkflags,
 		)

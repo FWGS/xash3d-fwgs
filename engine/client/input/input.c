@@ -54,6 +54,19 @@ CVAR_DEFINE_AUTO( touch_enable, DEFAULT_TOUCH_ENABLE, FCVAR_ARCHIVE | FCVAR_FILT
 
 /*
 ================
+IN_MouseConnected
+================
+*/
+qboolean IN_MouseConnected( void )
+{
+	if( m_ignore.value )
+		return false;
+
+	return Platform_MouseConnected();
+}
+
+/*
+================
 IN_CollectInputDevices
 
 Returns a bit mask representing connected devices or, at least, enabled
@@ -63,7 +76,7 @@ uint IN_CollectInputDevices( void )
 {
 	uint ret = 0;
 
-	if( !m_ignore.value ) // no way to check is mouse connected, so use cvar only
+	if( IN_MouseConnected( ))
 		ret |= INPUT_DEVICE_MOUSE;
 
 	if( touch_enable.value )
