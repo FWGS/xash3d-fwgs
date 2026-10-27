@@ -103,7 +103,6 @@ void Android_SaveID( const char *id );
 void Android_Init( void );
 void *Android_GetNativeObject( const char *name );
 void Android_GetWindowInsets( float insets[4] );
-int Android_GetKeyboardHeight( void );
 void Android_Shutdown( void );
 #endif
 
