@@ -318,18 +318,6 @@ static GVariant *Maliit_WidgetInformation( qboolean focus )
 	return g_variant_new( "(a{sv}b)", &info, TRUE );
 }
 
-static int Maliit_OrientationAngle( void )
-{
-	// the window is portrait, the picture is rotated by the renderer
-	switch( ref.rotation )
-	{
-	case REF_ROTATE_CW: return 90;
-	case REF_ROTATE_CCW: return 270;
-	case REF_ROTATE_UD: return 180;
-	default: return 0;
-	}
-}
-
 static void Maliit_Hide( void )
 {
 	if( !s_maliit.connection || g_dbus_connection_is_closed( s_maliit.connection ))
@@ -350,7 +338,7 @@ static void Maliit_Show( void )
 		s_maliit.activated = true;
 	}
 
-	Maliit_Call( "appOrientationChanged", g_variant_new( "(i)", Maliit_OrientationAngle( )));
+	Maliit_Call( "appOrientationChanged", g_variant_new( "(i)", Sailfish_OrientationAngle( )));
 	Maliit_Call( "updateWidgetInformation", Maliit_WidgetInformation( true ));
 	Maliit_Call( "showInputMethod", NULL );
 }
@@ -364,6 +352,7 @@ Sailfish_EnableTextInput
 void Sailfish_EnableTextInput( qboolean enable, int x, int y, int w, int h )
 {
 	s_maliit.enabled = enable;
+	Sailfish_SetTextInputArea( enable ? y : 0, enable ? h : 0 );
 
 	if( enable )
 		Maliit_Show();

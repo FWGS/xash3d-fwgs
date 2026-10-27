@@ -399,6 +399,9 @@ void VID_SaveWindowSize( int width, int height )
 	int render_w = width, render_h = height;
 
 	VID_GetWindowSizeInPixels( host.hWnd, sw.renderer, &render_w, &render_h );
+#if XASH_SAILFISH
+	Sailfish_KeepWindowSize( &width, &height, &render_w, &render_h );
+#endif
 	VID_SetDisplayTransform( &render_w, &render_h );
 	R_SaveVideoMode( width, height, render_w, render_h, maximized );
 }

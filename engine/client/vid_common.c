@@ -141,6 +141,7 @@ notify ref dll about screen transformations
 void VID_SetDisplayTransform( int *render_w, int *render_h )
 {
 	uint rotate = vid_rotate.value;
+	int offset_x = 0, offset_y = 0;
 
 	if( rotate < REF_ROTATE_NONE || rotate > REF_ROTATE_CCW )
 		rotate = REF_ROTATE_NONE;
@@ -149,9 +150,14 @@ void VID_SetDisplayTransform( int *render_w, int *render_h )
 	// only landscape and inverted landscape make sense on a phone
 	if( rotate != REF_ROTATE_CW && rotate != REF_ROTATE_CCW )
 		rotate = REF_ROTATE_CW;
+
+	// the compositor rotates the window itself, it has to know the orientation to put the keyboard right anyway
+	Sailfish_SetOrientation( rotate );
+	Sailfish_GetDisplayOffset( &offset_x, &offset_y );
+	rotate = REF_ROTATE_NONE;
 #endif // XASH_SAILFISH
 
-	if( ref.dllFuncs.R_SetDisplayTransform( rotate, 0, 0, 1.0f, 1.0f ))
+	if( ref.dllFuncs.R_SetDisplayTransform( rotate, offset_x, offset_y, 1.0f, 1.0f ))
 	{
 		if( rotate & 1 )
 		{

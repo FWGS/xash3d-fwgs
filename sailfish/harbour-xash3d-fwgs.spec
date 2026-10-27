@@ -13,6 +13,7 @@ BuildRequires: python3-base
 BuildRequires: pkgconfig(sdl2)
 BuildRequires: pkgconfig(gio-2.0)
 BuildRequires: pkgconfig(audioresource)
+BuildRequires: pkgconfig(wayland-client)
 BuildRequires: zlib-devel
 BuildRequires: bzip2-devel
 BuildRequires: libogg-devel

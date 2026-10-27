@@ -114,6 +114,12 @@ void Sailfish_RunEvents( void );
 void Sailfish_EnableTextInput( qboolean enable, int x, int y, int w, int h );
 void Sailfish_SuspendTextInput( qboolean suspend );
 void Sailfish_ShutdownTextInput( void );
+void Sailfish_SetOrientation( int rotate );
+int Sailfish_OrientationAngle( void );
+void Sailfish_KeepWindowSize( int *width, int *height, int *render_w, int *render_h );
+void Sailfish_GetDisplayOffset( int *x, int *y );
+void Sailfish_SetTextInputArea( int y, int h );
+void Sailfish_MapTouch( int64_t device, float *x, float *y, float *dx, float *dy );
 #endif
 
 #if XASH_WIN32

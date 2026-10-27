@@ -156,7 +156,7 @@ Default build-depended cvar and constant values
 #elif XASH_SAILFISH
 	#define DEFAULT_TOUCH_ENABLE "1"
 	#define DEFAULT_M_IGNORE     "1"
-	#define DEFAULT_VID_ROTATE   "1" // compositor never rotates our window, which is portrait on phones
+	#define DEFAULT_VID_ROTATE   "1" // picks the landscape orientation the compositor rotates our window to
 #elif XASH_MOBILE_PLATFORM
 	#define DEFAULT_TOUCH_ENABLE "1"
 	#define DEFAULT_M_IGNORE     "1"
