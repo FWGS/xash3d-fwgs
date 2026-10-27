@@ -13476,7 +13476,9 @@ qboolean GC_PrepareNewGameWorldPresent( void )
 		{
 			gc_cl_budget_armed = true;
 			gc_budget_sample_count = 0;
-			gc_budget_warmup_left = 0;
+			/* G509 can arm after an earlier probe hop has already completed.
+			 * Give this destination the same transition grace as the first hop. */
+			gc_budget_warmup_left = 8;
 			gc_worst_frame_ms = 0.0;
 			gc_last_present_time = 0.0;
 			gc_budget_probe_active = true;
