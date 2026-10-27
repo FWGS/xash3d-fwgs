@@ -389,15 +389,59 @@ static void Key_Unbindall_f( void )
 	Key_SetBinding( K_START_BUTTON, "cancelselect" );
 }
 
+#if XASH_PS4
+// DualShock 4 layout, applied once over older saved layouts (see key_padlayout)
+#define PS4_PAD_LAYOUT_VERSION 2
+
+static const struct
+{
+	int key;
+	const char *binding;
+} ps4_pad_layout[] =
+{
+{ K_LTRIGGER,    "+attack2" },     // L2
+{ K_L2_BUTTON,   "+attack2" },
+{ K_RTRIGGER,    "+attack" },      // R2
+{ K_R2_BUTTON,   "+attack" },
+{ K_L1_BUTTON,   "invprev" },
+{ K_R1_BUTTON,   "invnext" },
+{ K_X_BUTTON,    "+use" },         // square
+{ K_B_BUTTON,    "+duck" },        // circle
+{ K_A_BUTTON,    "+jump" },        // cross
+{ K_Y_BUTTON,    "+reload" },      // triangle
+{ K_LSTICK,      "+voicerecord" }, // L3
+{ K_RSTICK,      "impulse 100" },  // R3, flashlight
+{ K_DPAD_UP,     "invnext" },
+{ K_DPAD_DOWN,   "invprev" },
+{ K_DPAD_RIGHT,  "lastinv" },
+{ K_DPAD_LEFT,   "+showscores" },
+};
+
+static CVAR_DEFINE_AUTO( key_padlayout, "0", FCVAR_ARCHIVE|FCVAR_PRIVILEGED, "version of default gamepad layout applied to the bindings, internal" );
+
+static void Key_ApplyGamepadLayout( void )
+{
+	for( int i = 0; i < ARRAYSIZE( ps4_pad_layout ); i++ )
+		Key_SetBinding( ps4_pad_layout[i].key, ps4_pad_layout[i].binding );
+}
+
+static const char *Key_DefaultGamepadBinding( int keynum, const char *binding )
+{
+	for( int i = 0; i < ARRAYSIZE( ps4_pad_layout ); i++ )
+	{
+		if( ps4_pad_layout[i].key == keynum )
+			return ps4_pad_layout[i].binding;
+	}
+
+	return binding;
+}
+#endif
+
 /*
 ===================
 Key_Reset_f
 ===================
 */
-#if XASH_PS4
-static void Key_ApplyGamepadLayout( void );
-#endif
-
 static void Key_Reset_f( void )
 {
 	// clear all keys first
@@ -580,59 +624,11 @@ static qboolean Key_IsGamepadKey( int keynum )
 	return ( keynum >= K_JOY1 && keynum <= K_JOY4 ) || ( keynum >= K_AUX1 && keynum <= K_AUX32 );
 }
 
-#if XASH_PS4
-// DualShock 4 layout, applied once over older saved layouts (see key_padlayout)
-#define PS4_PAD_LAYOUT_VERSION 2
-
-static const struct
-{
-	int key;
-	const char *binding;
-} ps4_pad_layout[] =
-{
-{ K_LTRIGGER,    "+attack2" },     // L2
-{ K_L2_BUTTON,   "+attack2" },
-{ K_RTRIGGER,    "+attack" },      // R2
-{ K_R2_BUTTON,   "+attack" },
-{ K_L1_BUTTON,   "invprev" },
-{ K_R1_BUTTON,   "invnext" },
-{ K_X_BUTTON,    "+use" },         // square
-{ K_B_BUTTON,    "+duck" },        // circle
-{ K_A_BUTTON,    "+jump" },        // cross
-{ K_Y_BUTTON,    "+reload" },      // triangle
-{ K_LSTICK,      "+voicerecord" }, // L3
-{ K_RSTICK,      "impulse 100" },  // R3, flashlight
-{ K_DPAD_UP,     "invnext" },
-{ K_DPAD_DOWN,   "invprev" },
-{ K_DPAD_RIGHT,  "lastinv" },
-{ K_DPAD_LEFT,   "+showscores" },
-};
-
-static CVAR_DEFINE_AUTO( key_padlayout, "0", FCVAR_ARCHIVE|FCVAR_PRIVILEGED, "version of default gamepad layout applied to the bindings, internal" );
-
-static void Key_ApplyGamepadLayout( void )
-{
-	for( int i = 0; i < ARRAYSIZE( ps4_pad_layout ); i++ )
-		Key_SetBinding( ps4_pad_layout[i].key, ps4_pad_layout[i].binding );
-}
-
-static const char *Key_DefaultGamepadBinding( int keynum, const char *binding )
-{
-	for( int i = 0; i < ARRAYSIZE( ps4_pad_layout ); i++ )
-	{
-		if( ps4_pad_layout[i].key == keynum )
-			return ps4_pad_layout[i].binding;
-	}
-
-	return binding;
-}
-#endif
 
 void Key_SetDefaultGamepadBindings( void )
 {
 	// some gamepad keys like START can be bound by desktop configs too
 	const int main_keys[] = { K_A_BUTTON, K_B_BUTTON, K_X_BUTTON, K_Y_BUTTON, K_L1_BUTTON, K_R1_BUTTON };
-	int i;
 
 #if XASH_PS4
 	// the layout changed, put new defaults over the buttons it covers once,
@@ -651,7 +647,7 @@ void Key_SetDefaultGamepadBindings( void )
 	}
 #endif
 
-	for( i = 0; i < ARRAYSIZE( main_keys ); i++ )
+	for( int i = 0; i < ARRAYSIZE( main_keys ); i++ )
 	{
 		const char *binding = Key_GetBinding( main_keys[i] );
 
@@ -661,7 +657,7 @@ void Key_SetDefaultGamepadBindings( void )
 
 	Con_Reportf( "%s: main gamepad buttons are unbound, restoring defaults\n", __func__ );
 
-	for( i = 0; i < ARRAYSIZE( keynames ); i++ )
+	for( int i = 0; i < ARRAYSIZE( keynames ); i++ )
 	{
 		const char *binding;
 
