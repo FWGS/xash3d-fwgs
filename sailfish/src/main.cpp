@@ -27,6 +27,7 @@ GNU General Public License for more details.
 #include "gamecover.h"
 #include "launcher.h"
 #include "megabuild.h"
+#include "messagebox.h"
 #include "updater.h"
 
 Q_DECL_EXPORT int main( int argc, char **argv )
@@ -34,6 +35,9 @@ Q_DECL_EXPORT int main( int argc, char **argv )
 	// Harbour allows only one executable, so the engine is started from the same one
 	if( getenv( ENGINE_ENV ))
 		return Engine_Main( argc, argv );
+
+	if( getenv( MESSAGEBOX_ENV ))
+		return MessageBox_Main( argc, argv );
 
 	// declared before the view, so QML is gone before the objects it uses
 	QScopedPointer<QGuiApplication> app( SailfishApp::application( argc, argv ));

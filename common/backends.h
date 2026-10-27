@@ -48,6 +48,7 @@ GNU General Public License for more details.
 #define MSGBOX_PSP     2
 #define MSGBOX_WIN32   3
 #define MSGBOX_NSWITCH 4
+#define MSGBOX_SAILFISH 5
 
 // library loading (XASH_LIB)
 #define LIB_NULL   0

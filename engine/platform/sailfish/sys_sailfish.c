@@ -12,6 +12,9 @@ but WITHOUT ANY WARRANTY; without even the implied warranty of
 MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 */
+#include <errno.h>
+#include <spawn.h>
+#include <sys/wait.h>
 #include <gio/gio.h>
 #include <audioresource.h>
 #include <SDL.h>
@@ -28,6 +31,7 @@ static struct
 	GDBusConnection *system_bus;
 	audioresource_t *audio;
 	qboolean active;
+	qboolean audio_lost;
 	qboolean gestures_overridden;
 	double next_blanking_pause;
 } s_sailfish;
@@ -60,6 +64,7 @@ static void Sailfish_AudioResourceCallback( audioresource_t *audio, bool acquire
 	Con_Reportf( "%s: audio resource %s\n", __func__, acquired ? "acquired" : "lost" );
 
 	// writes to the stream block while the audio policy doesn't let us play
+	s_sailfish.audio_lost = !acquired;
 	SNDDMA_Activate( acquired );
 }
 
@@ -151,3 +156,62 @@ void Sailfish_RunEvents( void )
 		s_sailfish.next_blanking_pause = host.realtime + BLANKING_PAUSE_INTERVAL;
 	}
 }
+
+#if XASH_MESSAGEBOX == MSGBOX_SAILFISH
+/*
+========================
+Platform_MessageBox
+
+========================
+*/
+void Platform_MessageBox( const char *title, const char *message, qboolean parentMainWindow )
+{
+	extern char **environ;
+	static const char engine_env[] = "XASH3D_SAILFISH_ENGINE=";
+	char exe[MAX_OSPATH];
+	char *argv[] = { exe, (char *)title, (char *)message, NULL };
+	ssize_t len = readlink( "/proc/self/exe", exe, sizeof( exe ) - 1 );
+
+	if( len < 0 )
+		return;
+
+	exe[len] = 0;
+
+	// the launcher shows it from a separate process, it doesn't depend on our renderer or EGL state
+	int count = 0;
+
+	while( environ[count] )
+		count++;
+
+	char **envp = malloc(( count + 2 ) * sizeof( *envp ));
+	int envc = 0;
+
+	for( int i = 0; i < count; i++ )
+	{
+		if( Q_strncmp( environ[i], engine_env, sizeof( engine_env ) - 1 ))
+			envp[envc++] = environ[i];
+	}
+
+	envp[envc++] = (char *)"XASH3D_SAILFISH_MESSAGEBOX=1";
+	envp[envc] = NULL;
+
+	pid_t pid;
+	int ret = posix_spawn( &pid, exe, NULL, NULL, argv, envp );
+
+	free( envp );
+
+	if( ret != 0 )
+	{
+		fprintf( stderr, "%s: can't start %s: %s\n", __func__, exe, strerror( ret ));
+		return;
+	}
+
+	// the audio thread would loop the last buffer while we wait
+	SNDDMA_Activate( false );
+
+	while( waitpid( pid, NULL, 0 ) < 0 && errno == EINTR )
+		;
+
+	SNDDMA_Activate( !s_sailfish.audio_lost );
+}
+#endif // XASH_MESSAGEBOX == MSGBOX_SAILFISH

@@ -56,7 +56,9 @@ SETUP BACKENDS DEFINITIONS
 // select messagebox implementation
 //
 #ifndef XASH_MESSAGEBOX
-	#if XASH_SDL >= 2 && !XASH_NSWITCH // SDL2 messageboxes are not available on NSW
+	#if XASH_SAILFISH && !XASH_DEDICATED // SDL2 needs zenity or kdialog there
+		#define XASH_MESSAGEBOX MSGBOX_SAILFISH
+	#elif XASH_SDL >= 2 && !XASH_NSWITCH // SDL2 messageboxes are not available on NSW
 		#define XASH_MESSAGEBOX MSGBOX_SDL
 	#elif XASH_WIN32
 		#define XASH_MESSAGEBOX MSGBOX_WIN32

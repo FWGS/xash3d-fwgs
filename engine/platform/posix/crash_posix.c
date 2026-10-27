@@ -115,8 +115,10 @@ static void Sys_Crash( int signal, siginfo_t *si, void *context )
 #endif
 	host.status = HOST_CRASHED;
 
+#if !XASH_SAILFISH // on Sailfish the launcher shows the crash report on next start instead, it can't be started from here
 	// put MessageBox as Sys_Error
 	Platform_MessageBox( "Xash Error", crash_message, false );
+#endif
 
 	// log saved, now we can try to save configs and close log correctly, it may crash
 	if( host.type == HOST_NORMAL )
