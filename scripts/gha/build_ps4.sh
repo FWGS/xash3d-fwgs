@@ -8,7 +8,7 @@ echo "Building HLSDK..."
 
 pushd hlsdk-portable || die
 # This is not our bug if HLSDK doesn't build with -Werrors enabled
-./waf configure -T release --ps4 --disable-werror || die_configure
+CC=clang-18 CXX=clang++-18 ./waf configure -T release --ps4 --disable-werror || die_configure
 ./waf build install --destdir=build/ps4 || die
 popd || die
 

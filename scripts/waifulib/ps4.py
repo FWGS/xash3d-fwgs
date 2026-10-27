@@ -74,6 +74,14 @@ def configure(conf):
 	conf.msg('PS4 game libraries', conf.env.PS4_GAMELIBS or 'not found, the package will need them on the console',
 		color = 'GREEN' if conf.env.PS4_GAMELIBS else 'YELLOW')
 
+	# custom images (from your copy of the game, for example) replace the default ones
+	sce_sys = conf.options.PS4_SCE_SYS or os.path.join(conf.path.abspath(), 'ps4_sce_sys')
+	if os.path.isdir(sce_sys):
+		conf.env.PS4_SCE_SYS = os.path.abspath(sce_sys)
+	elif conf.options.PS4_SCE_SYS:
+		conf.fatal('%s is not a directory' % sce_sys)
+	conf.msg('PS4 custom images', conf.env.PS4_SCE_SYS or 'not used, default images', color = 'GREEN' if conf.env.PS4_SCE_SYS else 'YELLOW')
+
 # runtime objects of 3rdparty/ps4compat:
 # ps4_cwd.c - working directory emulation
 # ps4_crtlib.c - module startup code, replaces broken crtlib.o from the toolchain
@@ -281,10 +289,17 @@ def ps4_package(self):
 	# icon0.png is 512x512, pic0.png and pic1.png are 1920x1080, the system shows one of
 	# them as splash until the engine hides it
 	sce_sys = self.path.find_dir(self.sce_sys)
-	pic0 = sce_sys.find_node('pic0.png')
-	files.append(('sce_sys/icon0.png', sce_sys.find_node('icon0.png')))
+	custom = self.bld.root.find_dir(self.env.PS4_SCE_SYS) if self.env.PS4_SCE_SYS else None
+
+	def image(name):
+		return ( custom.find_node(name) if custom else None ) or sce_sys.find_node(name)
+
+	# the same image is used for both pictures if only one is given
+	pic0 = image('pic0.png')
+	pic1 = ( custom.find_node('pic1.png') if custom else None ) or ( custom.find_node('pic0.png') if custom else None ) or sce_sys.find_node('pic1.png') or pic0
+	files.append(('sce_sys/icon0.png', image('icon0.png')))
 	files.append(('sce_sys/pic0.png', pic0))
-	files.append(('sce_sys/pic1.png', sce_sys.find_node('pic1.png') or pic0))
+	files.append(('sce_sys/pic1.png', pic1))
 
 	sample = self.bld.root.find_dir(os.path.join(self.env.PS4_TOOLCHAIN, 'samples', 'hello_world'))
 	files.append(('sce_sys/about/right.sprx', sample.find_node('sce_sys/about/right.sprx')))

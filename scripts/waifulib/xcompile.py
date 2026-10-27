@@ -714,6 +714,8 @@ def options(opt):
 		help='enable building for PlayStation 4 with OpenOrbis toolchain [default: %(default)s]')
 	xc.add_option('--ps4-gamelibs', action='store', dest='PS4_GAMELIBS', default = None,
 		help='directory with PS4 game libraries from hlsdk-portable to put into the package [default: ../hlsdk-portable/build/ps4/valve]')
+	xc.add_option('--ps4-sce-sys', action='store', dest='PS4_SCE_SYS', default = None,
+		help='directory with custom icon0.png, pic0.png and pic1.png for the PS4 package [default: ./ps4_sce_sys]')
 	xc.add_option('--sailfish', action='store_true', dest='SAILFISH', default = False,
 		help='enable building for Sailfish')
 	xc.add_option('--emscripten', action='store_true', dest='EMSCRIPTEN', default = None,
