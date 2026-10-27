@@ -242,7 +242,14 @@ csx/
 # Local AI harness runtime output
 .ai/logs/
 .ai/*.iso
+.ai/venv-fat/
+.ai/cache/
+# Screenshots, frame dumps, comparison renders, and captured videos are local
+# evidence. Keep them out of normal Git and Git LFS; publish selected evidence
+# separately when needed.
+.ai/screenshots*/
 .ai/slices/
+.agent-logs/
 .ai/state/goal-loop-memory.json
 .ai/state/dolphin-harness-latest.md
 .ai/state/dolphin-harness-memory.json
@@ -392,8 +399,17 @@ GEMINI.md
 .ai/goal-supervisor.lock
 
 # game data
-OUT/*.iso
-OUT/hlsdk-gamecube/
+/OUT/
+*.iso
+*.gcm
+*.dol
+*.mp4
+*.mkv
+*.webm
+*.avi
+*.mov
+captures/
+recordings/
 games_data/
 # Local RE4 / retail GameCube discs (not part of the HL port)
 /games/
@@ -412,3 +428,4 @@ Half-Life 2: Episode Two/
 # Runtime-only autonomous supervisor state
 .agent-logs/gamecube-overnight/current-supervisor.pid
 .agent-logs/gamecube-overnight/current-supervisor.log
+PLUG-SWISS-SD-NOW.txt
