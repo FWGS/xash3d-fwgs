@@ -17,6 +17,7 @@ GNU General Public License for more details.
 #include <SDL.h>
 #include "common.h"
 #include "client.h"
+#include "input.h"
 #include "platform/platform.h"
 
 // MCE forgets the request after 60 seconds
@@ -42,8 +43,8 @@ static void Sailfish_RequestMCE( const char *method )
 
 static void Sailfish_UpdateSystemGestures( void )
 {
-	// edge swipes are the only way to leave the app, so only block them while playing
-	qboolean overridden = cls.key_dest == key_game && cls.state == ca_active;
+	// edge swipes are the only way to leave the app, so only block them while playing with touch controls
+	qboolean overridden = cls.key_dest == key_game && cls.state == ca_active && touch_enable.value;
 
 	if( s_sailfish.gestures_overridden == overridden )
 		return;
