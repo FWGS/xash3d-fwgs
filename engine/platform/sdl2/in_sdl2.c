@@ -185,6 +185,11 @@ SDLash_EnableTextInput
 */
 void Platform_EnableTextInput( qboolean enable, int x, int y, int w, int h )
 {
+#if XASH_SAILFISH
+	// SDL can't show the on-screen keyboard there
+	Sailfish_EnableTextInput( enable, x, y, w, h );
+#endif
+
 	if( !enable )
 	{
 		SDL_StopTextInput();

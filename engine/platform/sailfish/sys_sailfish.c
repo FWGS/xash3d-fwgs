@@ -120,6 +120,7 @@ Sailfish_Shutdown
 void Sailfish_Shutdown( void )
 {
 	Sailfish_SetActive( false );
+	Sailfish_ShutdownTextInput();
 
 	if( s_sailfish.audio )
 	{
@@ -208,9 +209,14 @@ void Platform_MessageBox( const char *title, const char *message, qboolean paren
 
 	// the audio thread would loop the last buffer while we wait
 	SNDDMA_Activate( false );
+	Sailfish_SuspendTextInput( true );
 
 	while( waitpid( pid, NULL, 0 ) < 0 && errno == EINTR )
 		;
+
+	// the engine quits after a fatal error, the keyboard would flash up before that
+	if( host.status != HOST_ERR_FATAL )
+		Sailfish_SuspendTextInput( false );
 
 	SNDDMA_Activate( !s_sailfish.audio_lost );
 }

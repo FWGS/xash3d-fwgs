@@ -111,6 +111,9 @@ void Sailfish_Init( void );
 void Sailfish_Shutdown( void );
 void Sailfish_SetActive( qboolean active );
 void Sailfish_RunEvents( void );
+void Sailfish_EnableTextInput( qboolean enable, int x, int y, int w, int h );
+void Sailfish_SuspendTextInput( qboolean suspend );
+void Sailfish_ShutdownTextInput( void );
 #endif
 
 #if XASH_WIN32
