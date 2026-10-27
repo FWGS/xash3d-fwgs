@@ -240,6 +240,46 @@ bool MegaBuild::updateAvailable( const QString &gamedir ) const
 	return remote.value( "sha256" ).toString().compare( local.value( "sha256" ).toString(), Qt::CaseInsensitive ) != 0;
 }
 
+QVariantMap MegaBuild::verify( const QString &gamedir ) const
+{
+	const QDir base( m_launcher->baseDir( ));
+	const QJsonObject info = readBuildInfo( gamedir );
+	const QJsonArray files = info.value( "files" ).toArray();
+	const QString platform = info.value( "platform" ).toString();
+	QStringList missing, modified, problems;
+
+	for( const QJsonValue &value : files )
+	{
+		const QJsonObject entry = value.toObject();
+		const QString rel = entry.value( "path" ).toString();
+		const QString path = base.filePath( rel );
+		const QString name = rel.startsWith( gamedir + '/' ) ? rel.mid( gamedir.size() + 1 ) : rel;
+
+		if( !QFileInfo( path ).isFile( ))
+			missing.append( name );
+		else if( FileSHA256( path ).compare( entry.value( "sha256" ).toString(), Qt::CaseInsensitive ))
+			modified.append( name );
+	}
+
+	// a game folder copied from a PC keeps the record of libraries downloaded there
+	if( platform != PLATFORM )
+		problems.append( tr( "These libraries are built for %1, this device needs %2" ).arg( platform ).arg( PLATFORM ));
+
+	if( files.isEmpty( ))
+		problems.append( tr( "The list of installed files is missing or damaged" ));
+
+	if( !missing.isEmpty( ))
+		problems.append( tr( "Missing: %1" ).arg( missing.join( ", " )));
+
+	if( !modified.isEmpty( ))
+		problems.append( tr( "Changed: %1" ).arg( modified.join( ", " )));
+
+	QVariantMap result;
+	result["ok"] = problems.isEmpty();
+	result["message"] = problems.isEmpty() ? tr( "All files are intact" ) : problems.join( '\n' );
+	return result;
+}
+
 void MegaBuild::fetchManifest( std::function<void( bool reachable )> done )
 {
 	QNetworkRequest request( QUrl( MANIFEST_URL ));

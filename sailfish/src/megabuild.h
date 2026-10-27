@@ -43,6 +43,8 @@ public:
 	Q_INVOKABLE bool isInstalled( const QString &gamedir ) const;
 	Q_INVOKABLE QVariantMap installedInfo( const QString &gamedir ) const;
 	Q_INVOKABLE bool updateAvailable( const QString &gamedir ) const;
+	// { "ok": bool, "message": string }
+	Q_INVOKABLE QVariantMap verify( const QString &gamedir ) const;
 
 	// queryFinished( gamedir, "available" | "missing" | "unreachable" )
 	Q_INVOKABLE void query( const QString &gamedir );

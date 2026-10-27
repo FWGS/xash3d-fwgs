@@ -9,6 +9,7 @@ Page {
 	property var source: info.source ? info.source : ({})
 	property bool downloaded: info.filename !== undefined
 	property bool updateAvailable
+	property var verification: ({})
 
 	allowedOrientations: Orientation.All
 
@@ -31,6 +32,7 @@ Page {
 
 			page.info = megabuild.installedInfo( gamedir )
 			page.updateAvailable = false
+			page.verification = {}
 		}
 	}
 
@@ -117,6 +119,15 @@ Page {
 				value: page.info.downloaded ? Format.formatDate( page.info.downloaded, Formatter.DateMedium ) : "—"
 			}
 
+			Label {
+				x: Theme.horizontalPageMargin
+				width: parent.width - 2 * Theme.horizontalPageMargin
+				visible: page.downloaded && page.verification.ok !== undefined
+				text: page.verification.message || ""
+				wrapMode: Text.Wrap
+				color: page.verification.ok ? Theme.highlightColor : Theme.errorColor
+			}
+
 			ButtonLayout {
 				visible: page.downloaded
 
@@ -130,6 +141,18 @@ Page {
 					visible: page.updateAvailable
 					text: qsTr( "Update" )
 					onClicked: pageStack.push( Qt.resolvedUrl( "DownloadPage.qml" ), { gamedir: page.game.dir })
+				}
+
+				Button {
+					text: qsTr( "Verify" )
+					onClicked: page.verification = megabuild.verify( page.game.dir )
+				}
+
+				Button {
+					// Update downloads the same thing
+					visible: page.verification.ok === false && !page.updateAvailable
+					text: qsTr( "Reinstall" )
+					onClicked: pageStack.push( Qt.resolvedUrl( "DownloadPage.qml" ), { gamedir: page.game.dir, launchGame: false })
 				}
 
 				Button {

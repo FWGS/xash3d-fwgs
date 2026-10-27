@@ -5,6 +5,8 @@ Page {
 	id: page
 
 	property string gamedir
+	// reinstalling from the game page goes back to it instead
+	property bool launchGame: true
 	property string error
 	property bool failed
 
@@ -33,7 +35,10 @@ Page {
 				return
 
 			if( success ) {
-				launcher.launch( gamedir )
+				if( page.launchGame )
+					launcher.launch( gamedir )
+				else
+					pageStack.pop()
 			} else if( error === "" ) {
 				// cancelled
 				pageStack.pop()

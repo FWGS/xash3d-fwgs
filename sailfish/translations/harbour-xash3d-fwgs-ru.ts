@@ -163,6 +163,14 @@
         <translation>Обновить</translation>
     </message>
     <message>
+        <source>Verify</source>
+        <translation>Проверить</translation>
+    </message>
+    <message>
+        <source>Reinstall</source>
+        <translation>Переустановить</translation>
+    </message>
+    <message>
         <source>Remove</source>
         <translation>Удалить</translation>
     </message>
@@ -235,6 +243,26 @@
     <message>
         <source>Can&apos;t unpack %1</source>
         <translation>Не удалось распаковать %1</translation>
+    </message>
+    <message>
+        <source>These libraries are built for %1, this device needs %2</source>
+        <translation>Эти библиотеки собраны для %1, а этому устройству нужны %2</translation>
+    </message>
+    <message>
+        <source>The list of installed files is missing or damaged</source>
+        <translation>Список установленных файлов отсутствует или повреждён</translation>
+    </message>
+    <message>
+        <source>Missing: %1</source>
+        <translation>Не найдено: %1</translation>
+    </message>
+    <message>
+        <source>Changed: %1</source>
+        <translation>Изменено: %1</translation>
+    </message>
+    <message>
+        <source>All files are intact</source>
+        <translation>Все файлы в порядке</translation>
     </message>
     <message>
         <source>Can&apos;t reach the game library server</source>
