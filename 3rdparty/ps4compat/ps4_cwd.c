@@ -1,14 +1,11 @@
 /*
 ps4_cwd.c - current working directory emulation for PS4
-Copyright (c) 2026 Xash3D FWGS contributors
+Written by Xash3D FWGS contributors, 2026
 
-SPDX-License-Identifier: MIT
+SPDX-License-Identifier: Unlicense
 
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software. See LICENSE for the full text.
+This is free and unencumbered software released into the public domain.
+See https://unlicense.org for details.
 */
 
 /*

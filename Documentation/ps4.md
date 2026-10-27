@@ -101,7 +101,7 @@ Command line options (`xash3d.cmdline`):
 
 ### Implementation notes
 
-OpenOrbis toolchain needed several workarounds, all in `3rdparty/ps4compat` (MIT)
+OpenOrbis toolchain needed several workarounds, all in `3rdparty/ps4compat` (public domain)
 and linked into every image by `scripts/waifulib/ps4.py`:
 
 * `ps4_crtlib.c` replaces toolchain `crtlib.o`, which never runs global constructors of modules.

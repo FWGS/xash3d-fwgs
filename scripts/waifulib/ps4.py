@@ -1,7 +1,7 @@
 # encoding: utf-8
 # ps4.py -- PlayStation 4 (OpenOrbis toolchain) linking and packaging support
 # SPDX-License-Identifier: MIT
-# Copyright (c) 2026 Xash3D FWGS contributors, see 3rdparty/ps4compat/LICENSE
+# Copyright (c) 2026 Xash3D FWGS contributors
 
 # Every PS4 image (eboot.bin or .prx module) is a PIE ELF linked against
 # OpenOrbis startup object, static musl libc and stubs of system libraries,

@@ -1,7 +1,8 @@
 # ps4compat
 
 Runtime fixes for applications built with the OpenOrbis PS4 toolchain. Used by
-Xash3D FWGS and hlsdk-portable, licensed under MIT so any project can take it.
+Xash3D FWGS and hlsdk-portable, released into the public domain (Unlicense)
+so any project can take it.
 
 Every PS4 image (`eboot.bin` and each `.prx`) must link these objects. The
 linker redirects libc functions to them with `-Wl,--wrap=<function>`.
