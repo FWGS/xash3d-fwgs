@@ -22,7 +22,8 @@ GNU General Public License for more details.
 NSString *const RELEASE_BASE_URL = @"https://github.com/FWGS/hlsdk-mega-build/releases/download/continuous";
 NSString *const MANIFEST_URL = @"/manifest.json";
 NSUInteger const MANIFEST_VERSION = 1;
-NSDictionary *manifest;
+NSDictionary *manifest = nil;
+BOOL isFetchingManifest;
 
 NSString *sha256ForFile(NSString *filePath) {
 	unsigned char digest[CC_SHA256_DIGEST_LENGTH];
@@ -41,11 +42,12 @@ NSString *sha256ForFile(NSString *filePath) {
 
 @implementation LibDownloader
 
-+ (NSDictionary*)fetchManifest {	
++ (void)fetchManifest {
+	if (manifest)
+		return;
 	NSString *manifestPath = [libraryDirectory stringByAppendingPathComponent:@"manifest.plist"];
 	
 	NSURL *manifestURL = [NSURL URLWithString:[RELEASE_BASE_URL stringByAppendingString:MANIFEST_URL]];
-	NSDictionary * __block manifest;
 	NSURLSessionDataTask *task = [NSURLSession.sharedSession dataTaskWithURL:manifestURL completionHandler:^(NSData *data, NSURLResponse *response, NSError *error){
 		NSError *serializationerror = nil;
 		NSString *manifestver = nil;
@@ -77,6 +79,7 @@ NSString *sha256ForFile(NSString *filePath) {
 		}
 		
 		[manifest writeToFile:manifestPath atomically:NO];
+		isFetchingManifest = NO;
 		return;
 
 loadfromdisk:
@@ -85,17 +88,24 @@ loadfromdisk:
 		{
 			manifest = [NSDictionary dictionaryWithContentsOfFile:manifestPath];
 		}
+		isFetchingManifest = NO;
 	}];
 	
+	isFetchingManifest = YES;
 	[task resume];
-
-	@autoreleasepool {
-		while (task.state != NSURLSessionTaskStateCompleted) {
-			[[NSRunLoop currentRunLoop] runMode:NSDefaultRunLoopMode beforeDate:[NSDate distantFuture]];
-		}
-	}
 	
-	return manifest;
+	return;
+}
+
++ (BOOL)checkSupportedForGame:(Game *)game {
+	t_gameentry entry;
+	
+	if(![self setEntry:&entry forGame:game])
+	{
+		//unsupported
+		return NO;
+	}
+	return YES;
 }
 
 + (BOOL)fetchLibsForGame:(Game *)game {
@@ -187,9 +197,13 @@ loadfromdisk:
 	}
 }
 
-+ (BOOL)setEntry:(t_gameentry*)entry forGame:(Game *)game{
++ (BOOL)setEntry:(nonnull t_gameentry*)entry forGame:(Game *)game{
+	@autoreleasepool {
+		while (isFetchingManifest) {
+				[NSRunLoop.currentRunLoop runMode:NSDefaultRunLoopMode beforeDate:[NSDate distantFuture]];
+			}
+	}
 	
-	manifest = [LibDownloader fetchManifest];
 	if (!manifest)
 	{
 		NSLog(@"No manifest!");
