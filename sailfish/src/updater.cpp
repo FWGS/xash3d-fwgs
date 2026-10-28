@@ -168,14 +168,13 @@ void Updater::check( bool manual )
 		}
 
 		// the package for this device, or the release page if there's none
-		const QRegularExpression asset_re( "^harbour-xash3d-fwgs-.+\\." RPM_ARCH "\\.rpm$" );
 		QString url = RELEASE_PAGE_URL;
 
 		for( const QJsonValue &value : release.value( "assets" ).toArray( ))
 		{
 			const QJsonObject asset = value.toObject();
 
-			if( asset_re.match( asset.value( "name" ).toString( )).hasMatch( ))
+			if( asset.value( "name" ).toString() == "harbour-xash3d-fwgs." RPM_ARCH ".rpm" )
 			{
 				url = asset.value( "browser_download_url" ).toString();
 				break;
