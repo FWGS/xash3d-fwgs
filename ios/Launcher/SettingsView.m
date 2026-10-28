@@ -1,5 +1,5 @@
 /*
-SettingsView.m
+SettingsView.m - View Controller for the settings tab
 Copyright (C) 2026 Xash3D FWGS contributors
 
 This program is free software: you can redistribute it and/or modify
