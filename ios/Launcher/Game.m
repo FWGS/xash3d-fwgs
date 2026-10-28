@@ -235,7 +235,7 @@ loadwithoutlayout:
 - (BOOL)isLoadable {
 	BOOL retVal = YES;
 	if (!self.libList)
-		[self initLibList];
+		[self initUnsupportedLibList];
 	
 	for (NSString *lib in self.libList)
 	{
@@ -262,7 +262,36 @@ loadwithoutlayout:
 	return retVal;
 }
 
+UIWindow *alertWindow;
+
 -(IBAction)startGame {
+	//FIXME: this will display an alert if the libraries are already installed but are not loadable due to a separate error
+	if (![self isLoadable] && [LibDownloader checkSupportedForGame:self])
+	{
+		UIViewController *vc = [[UIViewController alloc] init];
+		alertWindow = [[UIWindow alloc] initWithFrame:UIScreen.mainScreen.bounds];
+		alertWindow.windowLevel = UIWindowLevelAlert + 1.0f;
+		alertWindow.rootViewController = vc;
+		[alertWindow makeKeyAndVisible];
+		
+		NSString *message = [NSString stringWithFormat:@"Game libraries are available for \"%@\", do you want to download them?\nNote that the game may not function properly if the libraries are missing", self.gameDir];
+		UIAlertController *alert = [UIAlertController alertControllerWithTitle:nil message:message preferredStyle:UIAlertControllerStyleAlert];
+		UIAlertAction *downloadAction = [UIAlertAction actionWithTitle:@"Yes" style:UIAlertActionStyleDefault handler:^(UIAlertAction *action){
+			[LibDownloader fetchLibsForGame:self];
+			[(AppDelegate*)UIApplication.sharedApplication.delegate performSelector:@selector(runEngine:) withObject:self afterDelay:0.0];
+			alertWindow = nil;
+		}];
+		UIAlertAction *dismissAction = [UIAlertAction actionWithTitle:@"No" style:UIAlertActionStyleDefault handler:^(UIAlertAction *action) {
+			[(AppDelegate*)UIApplication.sharedApplication.delegate performSelector:@selector(runEngine:) withObject:self afterDelay:0.0];
+			alertWindow = nil;
+		}];
+		
+		[alert addAction:downloadAction];
+		[alert addAction:dismissAction];
+		[vc presentViewController:alert animated:YES completion:nil];
+		return;
+	}
+	
 	//has to be called this way to avoid ui problems in engine (mainly when displaying SDL_ShowMessageBoxSimple)
 	[(AppDelegate*)UIApplication.sharedApplication.delegate performSelector:@selector(runEngine:) withObject:self afterDelay:0.0];
 }
@@ -286,14 +315,15 @@ loadwithoutlayout:
 	NSMutableArray<NSString*> *list = [[NSMutableArray alloc] init];
 	[list addObject:[gamedllname stringByAppendingString:@"_ios_arm64.dylib"]];
 	NSError *error;
-	for (NSString *file in [NSFileManager.defaultManager contentsOfDirectoryAtPath:dll_path error:&error])
+	NSArray *files = [NSFileManager.defaultManager contentsOfDirectoryAtPath:dll_path error:&error];
+	if (error)
 	{
-		if (error)
-		{
-			NSLog(@"Error while listing dlls: %@", error.localizedDescription);
-			break;
-		}
-		
+		NSLog(@"Error while listing dlls: %@", error.localizedDescription);
+		return;
+	}
+	
+	for (NSString *file in files)
+	{
 		//check if the library is for ios
 		if (!strstr(file.lastPathComponent.UTF8String, "_ios_arm64.dylib"))
 		{
@@ -306,7 +336,7 @@ loadwithoutlayout:
 	self.libList = list.copy;
 }
 
--(void)initLibList {
+/*-(void)initLibList {
 	NSURL *libsURL;
 	NSString *bundledLibs = [NSBundle.mainBundle pathForResource:self.gameDir ofType:nil];
 	BOOL isdir;
@@ -328,8 +358,8 @@ loadwithoutlayout:
 		}
 	}
 	
-	NSURL *searchURL = [NSURL fileURLWithPath:self.gameDir relativeToURL:libsURL];
-	NSDirectoryEnumerator *enumerator = [NSFileManager.defaultManager enumeratorAtPath:searchURL.path];
+	NSString *searchPath = [libsURL.path stringByAppendingPathComponent:self.gameDir];
+	NSDirectoryEnumerator *enumerator = [NSFileManager.defaultManager enumeratorAtPath:searchPath];
 	NSMutableArray *list = [[NSMutableArray alloc] init];
 		
 
@@ -347,7 +377,7 @@ loadwithoutlayout:
 		
 		NSError *copyerror;
 		if (!self.bundled)
-			[NSFileManager.defaultManager copyItemAtPath:[searchURL.path stringByAppendingPathComponent:path] toPath:[self.URL.path stringByAppendingPathComponent:path] error:&copyerror];
+			[NSFileManager.defaultManager copyItemAtPath:[searchPath stringByAppendingPathComponent:path] toPath:[self.URL.path stringByAppendingPathComponent:path] error:&copyerror];
 		
 		if (copyerror)
 			NSLog(@"Failed to copy lib due to error: %@", copyerror.localizedDescription);
@@ -363,7 +393,7 @@ loadwithoutlayout:
 	if (list.count > 0)
 		self.libList = list.copy;
 	
-}
+}*/
 
 - (void)dealloc {
 	free(self.gameInfo);

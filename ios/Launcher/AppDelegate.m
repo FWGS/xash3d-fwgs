@@ -19,6 +19,7 @@ GNU General Public License for more details.
 #import "dlfcn.h"
 #import "Globals.h"
 #import "Alert.h"
+#import "Downloader.h"
 #import <AppTrackingTransparency/AppTrackingTransparency.h>
 
 NSURL *documentsDirctory;
@@ -64,7 +65,7 @@ NSString *libraryDirectory;
 		//engine will retrieve the id later
 		[ATTrackingManager requestTrackingAuthorizationWithCompletionHandler:^(ATTrackingManagerAuthorizationStatus status){}];
 	}
-	
+	[LibDownloader fetchManifest];
 	return YES;
 }
 
