@@ -1,5 +1,5 @@
 /*
-Game.h
+Game.h - Class representing a game
 Copyright (C) 2026 Xash3D FWGS contributors
 
 This program is free software: you can redistribute it and/or modify
