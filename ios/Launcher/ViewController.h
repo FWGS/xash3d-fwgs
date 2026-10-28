@@ -1,5 +1,5 @@
 /*
-ViewController.h
+ViewController.h - View Controller for the games tab
 Copyright (C) 2026 Xash3D FWGS contributors
 
 This program is free software: you can redistribute it and/or modify
