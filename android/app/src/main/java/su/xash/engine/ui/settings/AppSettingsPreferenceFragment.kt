@@ -94,7 +94,7 @@ class AppSettingsPreferenceFragment() : PreferenceFragmentCompat() {
 			val success = when (result) {
 				is Result.Success -> result
 				is Result.Failure -> {
-					showGameDirectoryError(result.messageRes)
+					showGameDirectoryError(result.messageRes, *result.formatArgs.toTypedArray())
 					return@launch
 				}
 			}
@@ -111,33 +111,20 @@ class AppSettingsPreferenceFragment() : PreferenceFragmentCompat() {
 				return@launch
 			}
 
-			val contents = withContext(Dispatchers.IO) { inspectGameDirectory(directory) }
+			val hasGames = withContext(Dispatchers.IO) { hasGameDirectories(directory) }
 			if (requestId != gameDirectoryRequestId) return@launch
-			if (contents == null) {
-				showGameDirectoryError(R.string.game_data_location_unreadable)
-				return@launch
-			}
 
-			when {
-				contents.hasGames -> saveGamePath(directory, requestId)
-				// .nomedia would hide this directory's contents from media apps
-				success.insideMediaDirectory && !contents.isEmpty ->
-					showGameDirectoryError(R.string.game_data_location_media_content)
-				else -> confirmGamePathWithoutGames(directory, requestId)
+			when (hasGames) {
+				null -> showGameDirectoryError(R.string.game_data_location_unreadable)
+				true -> saveGamePath(directory, requestId)
+				false -> confirmGamePathWithoutGames(directory, requestId)
 			}
 		}
 	}
 
-	private class DirectoryContents(val hasGames: Boolean, val isEmpty: Boolean)
-
 	// Returns null if the directory cannot be listed
-	private fun inspectGameDirectory(directory: File): DirectoryContents? = try {
-		directory.listFiles()?.let { entries ->
-			DirectoryContents(
-				hasGames = entries.any { it.isDirectory && Game.checkIfGamedir(it) != null },
-				isEmpty = entries.isEmpty()
-			)
-		}
+	private fun hasGameDirectories(directory: File): Boolean? = try {
+		directory.listFiles()?.any { it.isDirectory && Game.checkIfGamedir(it) != null }
 	} catch (e: SecurityException) {
 		null
 	}
@@ -195,11 +182,17 @@ class AppSettingsPreferenceFragment() : PreferenceFragmentCompat() {
 		super.onDestroyView()
 	}
 
-	private fun showGameDirectoryError(messageRes: Int) {
+	private fun showGameDirectoryError(messageRes: Int, vararg formatArgs: Any) {
+		val message = if (formatArgs.isEmpty()) {
+			getString(messageRes)
+		} else {
+			getString(messageRes, *formatArgs)
+		}
+
 		showDialog(
 			MaterialAlertDialogBuilder(requireContext())
 				.setTitle(R.string.game_data_location)
-				.setMessage(messageRes)
+				.setMessage(message)
 				.setPositiveButton(android.R.string.ok, null)
 		)
 	}
