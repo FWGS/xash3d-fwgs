@@ -1,15 +1,19 @@
 # Use scripts/sailfish/build.sh to build this
 
+# the build number the engine reports, days from Apr 1 2015 to the commit date, so rpmbuild must run in the git checkout
+%{!?buildnum:%global buildnum %(d=$(git log -1 --format=%%cs 2>/dev/null) && echo $(( ( $(date -u -d "$d 00:00:00" +%%s) - $(date -u -d "2015-04-01 00:00:00" +%%s) ) / 86400 )) || echo 0)}
+
 Name: harbour-xash3d-fwgs
 Summary: Xash3D FWGS
 Version: 0.21
-Release: 1
+Release: %{buildnum}
 Group: Amusements/Games
 License: GPLv3+
 URL: https://github.com/FWGS/xash3d-fwgs
 Source0: %{name}-%{version}.tar.gz
 Source1: hlsdk-portable.tar.gz
 BuildRequires: python3-base
+BuildRequires: git
 BuildRequires: pkgconfig(sdl2)
 BuildRequires: pkgconfig(gio-2.0)
 BuildRequires: pkgconfig(audioresource)
