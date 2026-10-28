@@ -28,9 +28,10 @@ typedef struct {
 
 @property NSDictionary *manifest;
 
-+ (NSDictionary*)fetchManifest;
++ (void)fetchManifest;
 + (BOOL)setEntry:(t_gameentry*)entry forGame:(Game *)game;
 + (BOOL)fetchLibsForGame:(Game *)game;
++ (BOOL)checkSupportedForGame:(Game *)game;
 
 @end
 
