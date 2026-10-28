@@ -25,13 +25,22 @@ class GameAdapter(private val libraryViewModel: LibraryViewModel) :
 		return holder.bind(getItem(position))
 	}
 
+	fun gameAt(position: Int): Game = getItem(position)
+
+	// Different game data locations may contain games with the same directory
+	// names, so compare full paths to avoid reusing cards with stale click handlers.
 	private class DiffCallback : DiffUtil.ItemCallback<Game>() {
 		override fun areItemsTheSame(oldItem: Game, newItem: Game): Boolean {
-			return oldItem.basedir.name == newItem.basedir.name
+			return oldItem.basedir == newItem.basedir
 		}
 
 		override fun areContentsTheSame(oldItem: Game, newItem: Game): Boolean {
-			return oldItem.basedir.name == newItem.basedir.name
+			return oldItem.basedir == newItem.basedir &&
+				oldItem.title == newItem.title &&
+				oldItem.iconSignature == newItem.iconSignature &&
+				oldItem.coverSignature == newItem.coverSignature &&
+				(oldItem.icon == null) == (newItem.icon == null) &&
+				(oldItem.cover == null) == (newItem.cover == null)
 		}
 
 	}
@@ -43,28 +52,48 @@ class GameAdapter(private val libraryViewModel: LibraryViewModel) :
 				gameTitle.text = game.title
 
 				if (game.icon != null) {
+					gameIcon.visibility = View.VISIBLE
 					gameIcon.setImageBitmap(game.icon)
 				} else {
 					gameIcon.visibility = View.GONE
 				}
 
 				if (game.cover != null) {
+					gameCover.visibility = View.VISIBLE
 					gameCover.setImageBitmap(game.cover)
 				} else {
 					gameCover.visibility = View.GONE
 				}
 
 				settingsButton.setOnClickListener {
-					libraryViewModel.setSelectedGame(game)
+					val selected = currentGame() ?: return@setOnClickListener
+					libraryViewModel.setSelectedGame(selected)
+
 					it.findNavController()
 						.navigate(R.id.action_libraryFragment_to_gameSettingsFragment)
 				}
 
-				root.setOnClickListener { libraryViewModel.startEngine(it.context, game) }
-				launchButton.setOnClickListener {
-					libraryViewModel.startEngine(it.context, game)
-				}
+				root.setOnClickListener { launchEngine() }
+				launchButton.setOnClickListener { launchEngine() }
 			}
+		}
+
+		private fun launchEngine() {
+			val game = currentGame()
+
+			if (game != null) {
+				libraryViewModel.startEngine(itemView.context, game)
+			}
+		}
+
+		private fun currentGame(): Game? {
+			val position = bindingAdapterPosition
+
+			if (position == RecyclerView.NO_POSITION) {
+				return null
+			}
+
+			return gameAt(position)
 		}
 	}
 }
