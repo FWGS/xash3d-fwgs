@@ -2965,7 +2965,37 @@ static void Mod_LoadEntities( model_t *mod, const dbspmodel_t *bmod )
 #if XASH_GAMECUBE
 	if( GC_MapLoadMemoryOpt() )
 	{
-		Con_Reportf( "Xash3D GameCube: bmodel entities copied %zu bytes\n", entdatasize );
+		/* Skip the full worldspawn parse, but always rebuild the WAD list
+		 * from this map's "wad" key: textures resolve through it, and a
+		 * list left over from an earlier map was gone by c0a0b (every
+		 * world texture fell back to the missing-texture checker). */
+		char *wfile = (char *)mod->entities;
+		qboolean in_world = false;
+
+		Mem_Free( world.wadlist );
+		world.wadlist = NULL;
+		world.wadcount = 0;
+		while(( wfile = COM_ParseFile( wfile, token, sizeof( token ))) != NULL )
+		{
+			if( !in_world )
+			{
+				if( token[0] != '{' )
+					break;
+				in_world = true;
+				continue;
+			}
+			if( token[0] == '}' )
+				break;
+			Q_strncpy( keyname, token, sizeof( keyname ));
+			if(( wfile = COM_ParseFile( wfile, token, sizeof( token ))) == NULL )
+				break;
+			if( !Q_stricmp( keyname, "wad" ))
+			{
+				Q_splitstr( token, ';', &world, Mod_LoadEntities_splitstr_handler );
+				break;
+			}
+		}
+		Con_Reportf( "Xash3D GameCube: bmodel entities copied %zu bytes wads=%d\n", entdatasize, world.wadcount );
 		return;
 	}
 #endif
@@ -3646,6 +3676,23 @@ static void Mod_LoadTextureData( model_t *mod, dbspmodel_t *bmod, int textureInd
 	// If texture is completely missed:
 	if( texture->gl_texturenum == 0 )
 	{
+#if XASH_GAMECUBE
+		{
+			static char logged_map[64];
+
+			if( Q_strcmp( logged_map, mod->name ))
+			{
+				int w;
+
+				Q_strncpy( logged_map, mod->name, sizeof( logged_map ));
+				Con_Reportf( "Xash3D GameCube: wad miss map=%s tex=%s wadcount=%d r_wadtextures=%g ofs0=%d\n",
+					mod->name, mipTex.name, world.wadcount, r_wadtextures.value, mipTex.offsets[0] );
+				for( w = 0; w < world.wadcount; w++ )
+					Con_Reportf( "Xash3D GameCube: wad miss list[%d]=%s usage=%d\n", w,
+						world.wadlist[w].name, world.wadlist[w].usage );
+			}
+		}
+#endif
 		Con_DPrintf( S_ERROR "Unable to find %s.mip\n", mipTex.name );
 		texture->gl_texturenum = R_GetBuiltinTexture( REF_DEFAULT_TEXTURE );
 	}
