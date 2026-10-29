@@ -39,6 +39,7 @@ static void GC_WatchdogStart( void );
 
 void GC_WatchdogMark( const char *stage )
 {
+	GC_ProfMark( stage );
 	gc_watchdog_stage = stage;
 	if( gc_mem_watch_hot )
 		GC_MemWatch( stage );
@@ -60,6 +61,7 @@ void GC_WatchdogHostFrame( void )
  * stalled loop keeps calling must not hide the stall. */
 void GC_WatchdogStage( const char *stage )
 {
+	GC_ProfMark( stage );
 	gc_watchdog_stage = stage;
 	if( gc_mem_watch_hot )
 		GC_MemWatch( stage );
@@ -365,6 +367,93 @@ void GC_PerfFrameEnd( void )
     
     /* Per-frame console I/O distorts the workload being measured. */
     (void)frame_time;
+}
+
+/* Opt-in stage profiler (-gcprofile). Each GC_ProfMark() charges the time
+ * since the previous mark to the named stage; GC_ProfFrame() starts a host
+ * frame and charges the gap since the last mark of the previous frame to
+ * "frame tail". Every 64 frames it logs the per-stage average and resets.
+ * Without -gcprofile both calls return before reading the clock. */
+#define GC_PROF_MAX_STAGES 24
+#define GC_PROF_REPORT_FRAMES 64
+static const char *gc_prof_name[GC_PROF_MAX_STAGES];
+static double gc_prof_acc[GC_PROF_MAX_STAGES];
+static int gc_prof_hits[GC_PROF_MAX_STAGES];
+static int gc_prof_count;
+static double gc_prof_last;
+static double gc_prof_window_start;
+static int gc_prof_frames;
+static int gc_prof_enabled = -1;
+
+static qboolean GC_ProfEnabled( void )
+{
+	if( gc_prof_enabled < 0 )
+		gc_prof_enabled = Sys_CheckParm( "-gcprofile" ) ? 1 : 0;
+	return gc_prof_enabled > 0;
+}
+
+static void GC_ProfCharge( const char *name, double now )
+{
+	int i;
+
+	if( gc_prof_last > 0.0 )
+	{
+		for( i = 0; i < gc_prof_count; i++ )
+		{
+			if( gc_prof_name[i] == name )
+				break;
+		}
+		if( i == gc_prof_count && gc_prof_count < GC_PROF_MAX_STAGES )
+		{
+			gc_prof_name[i] = name;
+			gc_prof_acc[i] = 0.0;
+			gc_prof_hits[i] = 0;
+			gc_prof_count++;
+		}
+		if( i < gc_prof_count )
+		{
+			gc_prof_acc[i] += now - gc_prof_last;
+			gc_prof_hits[i]++;
+		}
+	}
+	gc_prof_last = now;
+}
+
+void GC_ProfMark( const char *name )
+{
+	if( !GC_ProfEnabled( ))
+		return;
+	GC_ProfCharge( name, Platform_DoubleTime( ));
+}
+
+void GC_ProfFrame( void )
+{
+	double now;
+	int i;
+
+	if( !GC_ProfEnabled( ))
+		return;
+	now = Platform_DoubleTime();
+	GC_ProfCharge( "frame tail", now );
+	if( gc_prof_window_start <= 0.0 )
+		gc_prof_window_start = now;
+	if( ++gc_prof_frames < GC_PROF_REPORT_FRAMES )
+		return;
+
+	Con_Reportf( "Xash3D GameCube: profile frames=%d avg_frame=%.2fms state=%d\n",
+		gc_prof_frames, ( now - gc_prof_window_start ) * 1000.0 / gc_prof_frames, cls.state );
+	for( i = 0; i < gc_prof_count; i++ )
+	{
+		if( !gc_prof_hits[i] )
+			continue;
+		Con_Reportf( "Xash3D GameCube: profile stage=\"%s\" avg=%.2fms per_frame=%.2fms hits=%d\n",
+			gc_prof_name[i], gc_prof_acc[i] * 1000.0 / gc_prof_hits[i],
+			gc_prof_acc[i] * 1000.0 / gc_prof_frames, gc_prof_hits[i] );
+		gc_prof_acc[i] = 0.0;
+		gc_prof_hits[i] = 0;
+	}
+	gc_prof_frames = 0;
+	gc_prof_window_start = now;
 }
 
 /* Performance profiling markers */

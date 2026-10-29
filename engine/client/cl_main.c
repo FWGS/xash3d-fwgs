@@ -3951,7 +3951,7 @@ Host_ClientFrame
  * each client-frame step for a few frames after ca_active. */
 int gc_menu_step_frames;
 #define CL_GC_STEP( name ) \
-	do { if( gc_menu_step_frames > 0 ) SYS_Report( "Xash3D GameCube: STEP " name " left=%d\n", gc_menu_step_frames ); } while( 0 )
+	do { GC_ProfMark( name ); if( gc_menu_step_frames > 0 ) SYS_Report( "Xash3D GameCube: STEP " name " left=%d\n", gc_menu_step_frames ); } while( 0 )
 #else
 #define CL_GC_STEP( name ) ((void)0)
 #endif

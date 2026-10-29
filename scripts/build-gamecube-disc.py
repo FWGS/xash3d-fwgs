@@ -2602,6 +2602,8 @@ def main() -> None:
 					menu_lines.append("dumpframes")
 				if os.environ.get("XASH_GC_PROBE_MEMREPORT") == "1":
 					menu_lines.append("memreport")
+				if os.environ.get("XASH_GC_PROBE_PROFILE") == "1":
+					menu_lines.append("profile")
 				(staged_data / "gamecube.cfg").write_text(
 					"\n".join(menu_lines) + "\n", encoding="ascii"
 				)

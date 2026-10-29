@@ -869,10 +869,12 @@ static qboolean R_GCTraceFirstEntityFrame( void )
 		&& ( gEngfuncs.Sys_CheckParm( "-gcnewgame" )
 			|| gEngfuncs.Sys_CheckParm( "-gcmenuplaystart" ));
 }
-#define R_GC_ENTITY_TRACE( ... ) \
+/* The format string doubles as the watchdog/-gcprofile stage name, so each
+ * phase of the entity pass is charged separately. */
+#define R_GC_ENTITY_TRACE( fmt, ... ) \
 	do { \
-		GC_WatchdogMark( "DrawEntities" ); \
-		if( R_GCTraceFirstEntityFrame( )) gEngfuncs.Con_Reportf( __VA_ARGS__ ); \
+		GC_WatchdogMark( fmt ); \
+		if( R_GCTraceFirstEntityFrame( )) gEngfuncs.Con_Reportf( fmt, ##__VA_ARGS__ ); \
 	} while( 0 )
 #else
 #define R_GC_ENTITY_TRACE( ... ) ((void)0)
@@ -1767,7 +1769,9 @@ static void R_EdgeDrawingGcmapProbe( void )
 			}
 			return;
 		}
+		GC_WatchdogMark( "GX world: pre-CapFaces" );
 		cap_drawn = R_GXDrawNewGameCapFaces();
+		GC_WatchdogMark( "GX world: CapFaces" );
 		if( tr.framecount <= 1 )
 			gEngfuncs.Con_Reportf( "Xash3D GameCube: R_EdgeDrawing GX CapFaces drawn=%d\n",
 				cap_drawn );
@@ -1786,11 +1790,13 @@ static void R_EdgeDrawingGcmapProbe( void )
 				continue;
 			bdrawn += R_GXDrawBrushModel( be );
 		}
+		GC_WatchdogMark( "GX world: brush models" );
 		/* G277: EmitEntities skipped on New Game Flipper path — draw tram. */
 		{
 			extern int GC_GXDrawIntroTrain( void );
 			bdrawn += GC_GXDrawIntroTrain();
 		}
+		GC_WatchdogMark( "GX world: intro train" );
 		if( !g235_logged || ( bdrawn > 0 && g235_logged ))
 		{
 			static qboolean g235_ok;
@@ -2203,6 +2209,7 @@ void GAME_EXPORT R_RenderScene( void )
 
 	R_MarkLeaves();
 #if XASH_GAMECUBE
+	GC_WatchdogMark( "R_RenderScene setup+markleaves" );
 	if( tr.framecount <= 1
 		&& ( gEngfuncs.Sys_CheckParm( "-gcnewgame" )
 			|| gEngfuncs.Sys_CheckParm( "-gcmenuplaystart" )))
@@ -2212,6 +2219,7 @@ void GAME_EXPORT R_RenderScene( void )
 	// R_DrawWorld();
 	R_EdgeDrawing();
 #if XASH_GAMECUBE
+	GC_WatchdogMark( "R_EdgeDrawing (world)" );
 	if( tr.framecount <= 1
 		&& ( gEngfuncs.Sys_CheckParm( "-gcnewgame" )
 			|| gEngfuncs.Sys_CheckParm( "-gcmenuplaystart" )))
