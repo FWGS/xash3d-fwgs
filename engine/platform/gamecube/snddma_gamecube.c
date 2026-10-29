@@ -27,6 +27,7 @@ static volatile unsigned int gc_audio_chunks_submitted;
 static volatile unsigned int gc_audio_nonzero_chunks;
 static volatile int gc_audio_last_peak;
 static volatile int gc_audio_max_peak;
+static volatile int gc_audio_window_peak;	/* -gcprofile meter */
 static qboolean gc_audio_reported_nonzero;
 static unsigned int gc_audio_submit_polls;
 static unsigned int gc_audio_callbacks;
@@ -137,6 +138,8 @@ static void GC_AudioCopyChunk( int16_t *dest, int bytes )
 	gc_audio_last_peak = GC_AudioPeak( dest, bytes / (int)sizeof( int16_t ));
 	if( gc_audio_last_peak > gc_audio_max_peak )
 		gc_audio_max_peak = gc_audio_last_peak;
+	if( gc_audio_last_peak > gc_audio_window_peak )
+		gc_audio_window_peak = gc_audio_last_peak;
 	gc_audio_chunks_submitted++;
 	if( gc_audio_last_peak > 0 )
 		gc_audio_nonzero_chunks++;
@@ -341,6 +344,27 @@ void SNDDMA_Submit( void )
 
 	if( gc_audio_real && gc_voice_started )
 	{
+		static int meter = -1;
+		static double meter_next;
+		static unsigned int meter_chunks, meter_nonzero;
+
+		/* -gcprofile: output level every 0.5 s, to see gaps across loads. */
+		if( meter < 0 )
+			meter = Sys_CheckParm( "-gcprofile" ) ? 1 : 0;
+		if( meter && Platform_DoubleTime() >= meter_next )
+		{
+			char track[64];
+			const qboolean bg = S_StreamGetCurrentState( track, sizeof( track ), NULL, 0, NULL );
+
+			Con_Reportf( "Xash3D GameCube: audio meter t=%.1f chunks=%u nonzero=%u peak=%d bg=%s st=%d\n",
+				Platform_DoubleTime(), gc_audio_chunks_submitted - meter_chunks,
+				gc_audio_nonzero_chunks - meter_nonzero, gc_audio_window_peak,
+				bg ? track : "-", cls.state );
+			meter_chunks = gc_audio_chunks_submitted;
+			meter_nonzero = gc_audio_nonzero_chunks;
+			gc_audio_window_peak = 0;
+			meter_next = Platform_DoubleTime() + 0.5;
+		}
 		gc_audio_submit_polls++;
 		if( !gc_audio_reported_nonzero && gc_audio_nonzero_chunks > 0 )
 		{

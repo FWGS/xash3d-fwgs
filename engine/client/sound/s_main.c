@@ -23,6 +23,25 @@ GNU General Public License for more details.
 #define GC_INTRO_RAW_SAMPLES 256
 static byte s_gc_intro_raw_store[sizeof( rawchan_t ) + sizeof( portable_samplepair_t ) * GC_INTRO_RAW_SAMPLES];
 static qboolean s_gc_intro_raw_busy;
+/* Menu New Game: the background track's raw channel (64 KiB) is allocated
+ * once, while c0a0's heap still has a contiguous block, and kept across
+ * S_StopAllSounds and changelevels. Re-allocating it on c0a0a failed (MEM1
+ * fragmented after the map load) and the tram stream went silent. */
+static rawchan_t *s_gc_bg_raw_keep;
+
+static qboolean S_GCIsKeptRaw( const rawchan_t *ch )
+{
+	return ch && ( ch == (rawchan_t *)s_gc_intro_raw_store || ch == s_gc_bg_raw_keep );
+}
+
+static void S_GCReleaseKeptRaw( rawchan_t *ch )
+{
+	if( ch == (rawchan_t *)s_gc_intro_raw_store )
+	{
+		s_gc_intro_raw_busy = false;
+		memset( s_gc_intro_raw_store, 0, sizeof( s_gc_intro_raw_store ));
+	}
+}
 #endif
 #include "pm_local.h"
 #include "platform/platform.h"
@@ -1221,6 +1240,25 @@ rawchan_t *S_FindRawChannel( int entnum, qboolean create )
 		if( entnum == S_RAW_SOUND_BACKGROUNDTRACK && Sys_CheckParm( "-gcnewgame" ))
 			raw_samples = GC_INTRO_RAW_SAMPLES;
 #endif
+#if XASH_GAMECUBE
+		if( entnum == S_RAW_SOUND_BACKGROUNDTRACK && GC_MenuRunsServer())
+		{
+			const size_t bytes = sizeof( *ch ) + sizeof( portable_samplepair_t ) * raw_samples;
+
+			if( !s_gc_bg_raw_keep )
+			{
+				s_gc_bg_raw_keep = (rawchan_t *)malloc( bytes );
+				if( s_gc_bg_raw_keep )
+					Con_Reportf( "Xash3D GameCube: background raw channel kept samples=%u\n", (uint)raw_samples );
+			}
+			if( s_gc_bg_raw_keep )
+			{
+				memset( s_gc_bg_raw_keep, 0, bytes );
+				snd.raw_channels[best] = s_gc_bg_raw_keep;
+			}
+		}
+		if( !snd.raw_channels[best] )
+#endif
 		snd.raw_channels[best] = Mem_Calloc( sndpool, sizeof( *ch ) + sizeof( portable_samplepair_t ) * raw_samples );
 #if XASH_GAMECUBE
 		if( !snd.raw_channels[best]
@@ -1413,10 +1451,9 @@ static void S_FreeIdleRawChannels( void )
 		{
 			snd.raw_channels[i] = NULL;
 #if XASH_GAMECUBE
-			if( ch == (rawchan_t *)s_gc_intro_raw_store )
+			if( S_GCIsKeptRaw( ch ))
 			{
-				s_gc_intro_raw_busy = false;
-				memset( s_gc_intro_raw_store, 0, sizeof( s_gc_intro_raw_store ));
+				S_GCReleaseKeptRaw( ch );
 			}
 			else
 #endif
@@ -1505,10 +1542,10 @@ static void S_FreeRawChannels( void )
 	for( int i = 0; i < snd.max_raw_channels; i++ )
 	{
 #if XASH_GAMECUBE
-		if( snd.raw_channels[i] == (rawchan_t *)s_gc_intro_raw_store )
+		if( S_GCIsKeptRaw( snd.raw_channels[i] ))
 		{
+			S_GCReleaseKeptRaw( snd.raw_channels[i] );
 			snd.raw_channels[i] = NULL;
-			s_gc_intro_raw_busy = false;
 			continue;
 		}
 #endif
