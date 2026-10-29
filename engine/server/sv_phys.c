@@ -2668,6 +2668,32 @@ void SV_Physics( void )
 	// increase framecount
 	sv.framecount++;
 
+#if XASH_GAMECUBE
+	/* Bounded ride trace on the menu New Game route: does the player follow
+	 * the intro tram (groundentity / origin) across maps? */
+	if( GC_MenuRunsServer() && ( sv.framecount & 63 ) == 0 )
+	{
+		static int ride_logs;
+		edict_t *pl = SV_EdictNum( 1 );
+
+		if( ride_logs < 40 && pl && SV_IsValidEdict( pl ))
+		{
+			const edict_t *g = pl->v.groundentity;
+			const int gm = ( g && g->v.modelindex > 0 && g->v.modelindex < MAX_MODELS ) ? g->v.modelindex : 0;
+
+			ride_logs++;
+			Con_Reportf( "Xash3D GameCube: ride map=%s player=(%.0f,%.0f,%.0f) stuck=%d solid=%d hull=(%.0f..%.0f) vel=%.0f flags=0x%x movetype=%d ground=%d %s (%.0f,%.0f,%.0f) gvel=%.0f\n",
+				sv.name, pl->v.origin[0], pl->v.origin[1], pl->v.origin[2],
+				SV_TestEntityPosition( pl, NULL ) ? 1 : 0,
+				pl->v.solid, pl->v.mins[2], pl->v.maxs[2],
+				VectorLength( pl->v.velocity ),
+				(unsigned)pl->v.flags, pl->v.movetype, g ? NUM_FOR_EDICT( g ) : -1,
+				gm ? sv.model_precache[gm] : "-", g ? g->v.origin[0] : 0.0f, g ? g->v.origin[1] : 0.0f,
+				g ? g->v.origin[2] : 0.0f, g ? VectorLength( g->v.velocity ) : 0.0f );
+		}
+	}
+#endif
+
 #if 0 // figure out why this causes memory corruption
 	// decrement svgame.numEntities if the highest number entities died
 	for( ; ( ent = SV_EdictNum( svgame.numEntities - 1 )) && ent->free; svgame.numEntities-- );

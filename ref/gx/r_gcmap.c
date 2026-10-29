@@ -182,9 +182,22 @@ void R_GcmapRestoreAfterMapLoad( void )
 
 	if( gc_static_map_arena_dirty )
 	{
-		R_GCRebuildBlendMaps();
-		gc_static_map_arena_dirty = false;
-		gEngfuncs.Con_Reportf( "Xash3D GameCube: renderer lookup tables rebuilt after map load\n" );
+		extern qboolean GC_WorldSurfacesPinned( void );
+
+		/* The map load re-arms this same arena as BSP scratch for the world's
+		 * surfaces/nodes/clipnodes without marking it in use. On the menu
+		 * live-BSP route that world stays resident, and rebuilding the soft
+		 * blend tables over it made c0a0a solid around the transferred
+		 * player. GX draws this route; the tables stay dirty until the
+		 * world releases the arena. */
+		if( gEngfuncs.Sys_CheckParm( "-gcmenuplaystart" ) && GC_WorldSurfacesPinned() )
+			gEngfuncs.Con_Reportf( "Xash3D GameCube: renderer lookup tables left to the live BSP arena\n" );
+		else
+		{
+			R_GCRebuildBlendMaps();
+			gc_static_map_arena_dirty = false;
+			gEngfuncs.Con_Reportf( "Xash3D GameCube: renderer lookup tables rebuilt after map load\n" );
+		}
 	}
 
 	if( gEngfuncs.Sys_CheckParm( "-gcmap" ) || gEngfuncs.Sys_CheckParm( "-gcnewgame" )
