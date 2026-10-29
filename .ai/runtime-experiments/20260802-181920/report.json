@@ -1,0 +1,27 @@
+{
+  "schema": "gamecube.runtime-experiment.v1",
+  "experiment_id": "20260802-181920",
+  "parent_commit": "bca20d624141d399d65c93a25a7dee766f4a12a8",
+  "hypothesis": "The G201 precheck may be a false positive because FS_FileExists can see save-file state while FS_LoadFile cannot resolve the staged delta.lst; report both paths and require delta.lst in smoke validation.",
+  "targets": [
+    "engine/server/sv_init.c",
+    "scripts/build-gamecube-disc.py"
+  ],
+  "baseline_result": "GUEST_RUNTIME_ERROR:delta.lst",
+  "result": "exit:125",
+  "build": {
+    "exit_code": 1,
+    "log": "/home/tim/Desktop/xash3d-gc-runtime-experiment/.ai/runtime-experiments/20260802-181920/build.log"
+  },
+  "probe": {
+    "exit_code": 125,
+    "log": "/home/tim/Desktop/xash3d-gc-runtime-experiment/.ai/runtime-experiments/20260802-181920/probe.log"
+  },
+  "changed_source": [
+    " M engine/server/sv_init.c"
+  ],
+  "decision": "REVERT",
+  "recommendation": "REVERT_CANDIDATE",
+  "next_action": "Record KEEP or REVERT after reviewing logs; do not create a generic runtime-fix commit.",
+  "decision_note": "Targeted experiment files restored explicitly after reviewing build and probe logs."
+}
