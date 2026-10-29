@@ -59,6 +59,8 @@ void GC_MemSample( const char *stage )
 	size_t total = Mem_TotalRealSize();
 	size_t delta = (total >= gc_mem_last) ? (total - gc_mem_last) : 0;
 
+	GC_MemWatch( stage );
+
 	if( total > gc_mem_hwm )
 		gc_mem_hwm = total;
 

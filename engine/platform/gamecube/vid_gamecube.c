@@ -6653,13 +6653,6 @@ static void GC_PresentBufferViaGX( void )
 		guMtxIdentity( modelview );
 		GX_LoadPosMtxImm( modelview, GX_PNMTX0 );
 
-		GX_ClearVtxDesc();
-		GX_SetVtxDesc( GX_VA_POS, GX_DIRECT );
-		GX_SetVtxDesc( GX_VA_CLR0, GX_DIRECT );
-		GX_SetVtxDesc( GX_VA_TEX0, GX_DIRECT );
-		GX_SetVtxAttrFmt( GX_VTXFMT0, GX_VA_POS, GX_POS_XYZ, GX_F32, 0 );
-		GX_SetVtxAttrFmt( GX_VTXFMT0, GX_VA_CLR0, GX_CLR_RGBA, GX_RGBA8, 0 );
-		GX_SetVtxAttrFmt( GX_VTXFMT0, GX_VA_TEX0, GX_TEX_ST, GX_F32, 0 );
 		GX_SetNumChans( 1 );
 		GX_SetNumTexGens( 1 );
 		GX_SetTexCoordGen( GX_TEXCOORD0, GX_TG_MTX2x4, GX_TG_TEX0, GX_IDENTITY );
@@ -6672,8 +6665,27 @@ static void GC_PresentBufferViaGX( void )
 		GX_SetColorUpdate( GX_TRUE );
 		GX_SetCullMode( GX_CULL_NONE );
 		gc_gx_present_pipe_ready = true;
-		GX_InvVtxCache();
 	}
+
+	/* The vertex layout is set on every present, not only with the rest of
+	 * the pipe: any GX draw that did not clear gc_gx_present_pipe_ready
+	 * would otherwise leave a descriptor this POS/CLR0/TEX0 stream does not
+	 * match, and the GP stalls on the desynced stream. */
+	{
+		extern void R_GXInvalidateTriApiLayout( void );
+		extern void R_GXTraceBegin( const char *where, int line, int prim, int count, int studio );
+
+		R_GXInvalidateTriApiLayout();
+		R_GXTraceBegin( "soft present", __LINE__, GX_QUADS, 4, 0 );
+	}
+	GX_ClearVtxDesc();
+	GX_SetVtxDesc( GX_VA_POS, GX_DIRECT );
+	GX_SetVtxDesc( GX_VA_CLR0, GX_DIRECT );
+	GX_SetVtxDesc( GX_VA_TEX0, GX_DIRECT );
+	GX_SetVtxAttrFmt( GX_VTXFMT0, GX_VA_POS, GX_POS_XYZ, GX_F32, 0 );
+	GX_SetVtxAttrFmt( GX_VTXFMT0, GX_VA_CLR0, GX_CLR_RGBA, GX_RGBA8, 0 );
+	GX_SetVtxAttrFmt( GX_VTXFMT0, GX_VA_TEX0, GX_TEX_ST, GX_F32, 0 );
+	GX_InvVtxCache();
 
 	/* Soft RGB565 tiles change every present — invalidate before bind. */
 	GX_InvalidateTexAll();
@@ -13610,11 +13622,18 @@ qboolean GC_PrepareNewGameWorldPresent( void )
 		}
 	}
 	GC_MemSample( "newgame world present" );
+	/* The menu route zeroes a heap block between here and the first HUD
+	 * sprite load; check the chains at every stage and allocator call for
+	 * the next few host frames to bracket it. */
+	GC_MemWatchHotFrames( 3 );
+	GC_MemWatch( "world present" );
 
 	/* G291/G293: seed tip-safe FX + lean decal before the Flipper present
 	 * pump (probe often SIGINT after the first CopyDisp). */
 	GC_TryDeferredEfxProof();
+	GC_MemWatch( "deferred efx proof" );
 	GC_TryDeferredDecalProof();
+	GC_MemWatch( "deferred decal proof" );
 
 	/* Lean BoundedGC before Flipper present pump — GC_RenderNewGameWorldFrames
 	 * can stall Host_Frame after G281/G105 (probe 20260807-035407 never
@@ -14914,4 +14933,23 @@ ref_window_type_t R_GetWindowHandle( void **handle, ref_window_type_t type )
 	return REF_WINDOW_TYPE_NULL;
 }
 
+/* Bounded post-connect heartbeat: the menu route logs nothing per frame
+ * once active, so show that host frames and presents keep advancing and
+ * where the G36 sampler stands. */
+void GC_FrameHeartbeat( void )
+{
+	static unsigned int frames, beats;
+
+	if( cls.state != ca_active || beats >= 12 )
+		return;
+	if( ++frames % 120 )
+		return;
+	beats++;
+	SYS_Report( "Xash3D GameCube: frame heartbeat n=%u cl.time=%.2f presents=%u probe=%d warmup=%u samples=%u world_ready=%d light_left=%u\n",
+		frames, cl.time, gc_present_count, gc_budget_probe_active ? 1 : 0,
+		gc_budget_warmup_left, gc_budget_sample_count, gc_newgame_world_ready ? 1 : 0,
+		gc_light_present_left );
+}
+
 #endif /* XASH_VIDEO == VIDEO_GX */
+

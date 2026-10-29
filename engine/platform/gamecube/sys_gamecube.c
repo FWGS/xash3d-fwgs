@@ -117,6 +117,12 @@ static bool GCube_DVDReadSectors( sec_t sector, sec_t count, void *buffer )
 	{
 		if( !__io_gcdvd.readSectors( sector + i, 1, output + i * 0x800 ))
 			return false;
+		if( gc_mem_watch_enabled )
+		{
+			char tag[48];
+			Q_snprintf( tag, sizeof( tag ), "dvd sector %u to %p", (unsigned)( sector + i ), (void *)( output + i * 0x800 ));
+			GC_MemWatch( tag );
+		}
 	}
 	return true;
 }
@@ -682,7 +688,9 @@ void GCube_Init( void )
 	if( xashdir[0] && chdir( xashdir ) == 0 )
 	{
 		Con_Reportf( "GameCube data directory: %s\n", xashdir );
+		GC_MemWatch( "platform chdir" );
 		GCube_LoadDiscBootOverrides();
+		GC_MemWatch( "platform boot overrides" );
 	}
 	else if( xashdir[0] )
 	{
@@ -691,11 +699,14 @@ void GCube_Init( void )
 	}
 
 	setup_gamecube_dll_functions();
+	GC_MemWatch( "platform dll exports" );
 
 	/* Initialize performance profiling */
 	GC_PerfInit();
+	GC_MemWatch( "platform perf init" );
 	GC_WatchdogInit();
 	GC_PerfCmd_Init();
+	GC_MemWatch( "platform perf commands" );
 #endif
 }
 
@@ -810,6 +821,7 @@ static void GCube_EnsureFatMounted( void )
 	GCube_ProbeFatVolumes();
 #endif
 }
+static qboolean gc_memreport_configured;
 
 static void GCube_LoadDiscBootOverrides( void )
 {
@@ -838,6 +850,7 @@ static void GCube_LoadDiscBootOverrides( void )
 	gc_tas_configured = false;
 	gc_dumpframes_configured = false;
 	gc_swissquit_configured = false;
+	gc_memreport_configured = false;
 	gc_phase_test[0] = '\0';
 	gc_changelevel_map[0] = '\0';
 	gc_landmark_name[0] = '\0';
@@ -883,6 +896,13 @@ static void GCube_LoadDiscBootOverrides( void )
 			cursor++;
 		if( cursor[0] == '#' || cursor[0] == '\0' || cursor[0] == '\r' || cursor[0] == '\n' )
 			continue;
+
+		if( !Q_strnicmp( cursor, "memreport", 9 ))
+		{
+			gc_memreport_configured = true;
+			SYS_Report( "Xash3D GameCube: disc boot override memreport\n" );
+			continue;
+		}
 
 		if( !Q_strnicmp( cursor, "newgame", 7 ))
 		{
@@ -1385,6 +1405,8 @@ int GCube_GetArgv( int in_argc, char **in_argv, char ***out_argv )
 		gc_argv[fake_argc++] = "-gcmenuplaystart";
 		gc_argv[fake_argc++] = "-gcplayerinput";
 	}
+	if( gc_memreport_configured )
+		gc_argv[fake_argc++] = "-gcmemreport";
 	gc_argv[fake_argc++] = "-width";
 	/* Tip-safe soft/internal FB. Flipper EFB/XFB stay native 640×480 via VI. */
 	gc_argv[fake_argc++] = "320";

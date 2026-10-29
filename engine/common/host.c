@@ -41,6 +41,9 @@ GNU General Public License for more details.
 #include "tests.h"
 #include "library.h"
 #if XASH_GAMECUBE
+#include <ogc/system.h>
+#endif
+#if XASH_GAMECUBE
 void R_GcmapRestoreAfterMapLoad( void );
 void R_GcmapTrimForMapLoad( void );
 void GC_RestoreVideoMemoryAfterMapLoad( void );
@@ -706,13 +709,45 @@ Host_Frame
 */
 void Host_Frame( double time )
 {
+#if XASH_GAMECUBE
+	{
+		extern int gc_menu_step_frames;
+		static unsigned filtered;
+
+		if( gc_menu_step_frames > 0 && !( filtered++ % 100000 ))
+			SYS_Report( "Xash3D GameCube: STEP host frame enter filtered=%u\n", filtered );
+	}
+#endif
 	// decide the simulation time
 	if( !Host_FilterTime( time ))
 		return;
+#if XASH_GAMECUBE
+	{
+		extern int gc_menu_step_frames;
+
+		if( gc_menu_step_frames > 0 )
+			SYS_Report( "Xash3D GameCube: STEP host frame time=%.4f\n", time );
+	}
+#endif
 
 	double t1 = Platform_DoubleTime();
 
 	GC_WatchdogMark( "host frame" );
+#if XASH_GAMECUBE
+	if( gc_mem_watch_enabled && host.framecount < 4000 )
+	{
+		char tag[32];
+		Q_snprintf( tag, sizeof( tag ), "frame %u", (unsigned)host.framecount );
+		GC_MemWatch( tag );
+	}
+	GC_MemWatchFrame();
+	{
+		void GC_FrameHeartbeat( void );
+		void GC_WatchdogHostFrame( void );
+		GC_FrameHeartbeat();
+		GC_WatchdogHostFrame();
+	}
+#endif
 	if( host.framecount == 0 )
 		Con_DPrintf( "Time to first frame: %.3f seconds\n", t1 - host.starttime );
 
@@ -1216,6 +1251,12 @@ static void Host_InitCommon( int argc, char **argv, const char *progname, qboole
 
 	Memory_Init(); // init memory subsystem
 #if XASH_GAMECUBE
+	if( Sys_CheckParm( "-gcmemwatch" ))
+	{
+		gc_mem_watch_enabled = true;
+		gc_mem_watch_hot = true; /* until FS_Init returns */
+		Con_Reportf( "Xash3D GameCube: heap chain watch enabled\n" );
+	}
 	/* Reserve a contiguous BSP staging buffer before menu/client churn fragments MEM1. */
 	GC_InitMapLoadBuffer();
 #endif
@@ -1262,6 +1303,9 @@ static void Host_InitCommon( int argc, char **argv, const char *progname, qboole
 	// startup cmds and cvars subsystem
 	Cmd_Init();
 	Cvar_Init();
+#if XASH_GAMECUBE
+	GC_MemWatch( "init Cmd_Init" );
+#endif
 
 	// share developer level across all dlls
 	Cvar_DirectSetValue( &host_developer, developer );
@@ -1273,6 +1317,9 @@ static void Host_InitCommon( int argc, char **argv, const char *progname, qboole
 
 	Sys_InitLog();
 	Con_Init(); // early console running to catch all the messages
+#if XASH_GAMECUBE
+	GC_MemWatch( "init Con_Init" );
+#endif
 
 	XRcon_Init();
 
@@ -1289,6 +1336,10 @@ static void Host_InitCommon( int argc, char **argv, const char *progname, qboole
 #endif
 	Platform_Init( Host_IsDedicated( ) || developer >= DEV_EXTENDED );
 	FS_Init();
+#if XASH_GAMECUBE
+	GC_MemWatch( "init FS_Init" );
+	gc_mem_watch_hot = false;
+#endif
 #if XASH_GAMECUBE
 	GC_MemSample( "searchpaths" );
 #endif
@@ -1320,7 +1371,13 @@ static void Host_InitCommon( int argc, char **argv, const char *progname, qboole
 #endif
 
 	Image_Init();
+#if XASH_GAMECUBE
+	GC_MemWatch( "init Image_Init" );
+#endif
 	Sound_Init();
+#if XASH_GAMECUBE
+	GC_MemWatch( "init Sound_Init" );
+#endif
 
 #if XASH_ENGINE_TESTS
 	if( Sys_CheckParm( "-runtests" ))
@@ -1338,11 +1395,17 @@ static void Host_InitCommon( int argc, char **argv, const char *progname, qboole
 		Sys_Error( "%s: couldn't load gfx.wad\n", __func__ );
 
 	Host_InitDecals ();	// reload decals
+#if XASH_GAMECUBE
+	GC_MemWatch( "init Host_InitDecals" );
+#endif
 
 	HPAK_Init();
 
 	IN_Init();
 	Key_Init();
+#if XASH_GAMECUBE
+	GC_MemWatch( "init Key_Init" );
+#endif
 }
 
 static void Host_FreeCommon( void )
@@ -1422,7 +1485,13 @@ int EXPORT Host_Main( int argc, char **argv, const char *progname, int bChangeGa
 		FCVAR_READ_ONLY, "indicates if engine was compiled with extended msurface_t struct" );
 
 	Mod_Init();
+#if XASH_GAMECUBE
+	GC_MemWatch( "init Mod_Init" );
+#endif
 	NET_Init();
+#if XASH_GAMECUBE
+	GC_MemWatch( "init NET_Init" );
+#endif
 	NET_InitMasters();
 	Netchan_Init();
 
@@ -1439,12 +1508,18 @@ int EXPORT Host_Main( int argc, char **argv, const char *progname, int bChangeGa
 
 	SV_Init();
 #if XASH_GAMECUBE
+	GC_MemWatch( "init SV_Init" );
+#endif
+#if XASH_GAMECUBE
 	GC_MemSample( "server init" );
 	Con_Reportf( "Xash3D GameCube: server init ready\n" );
 	/* Report engine before CL_Init so renderer/sw_fb/menu/client can advance. */
 	GC_ReportBootPhase( GC_BOOT_ENGINE );
 #endif
 	CL_Init();
+#if XASH_GAMECUBE
+	GC_MemWatch( "init CL_Init" );
+#endif
 #if XASH_GAMECUBE
 	Con_Reportf( "Xash3D GameCube: engine subsystems ready\n" );
 	/* Keep the real hardware/Dolphin display informative while menu assets and

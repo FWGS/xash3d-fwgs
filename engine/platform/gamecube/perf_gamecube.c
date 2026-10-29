@@ -30,14 +30,30 @@ Copyright (C) 2026 xash3d-gc contributors
 #define GC_WATCHDOG_STACK_SIZE     8192
 #define GC_WATCHDOG_PRIORITY       100
 static volatile unsigned gc_watchdog_progress;
+static volatile unsigned gc_watchdog_host_frames;
 static const char * volatile gc_watchdog_stage = "boot";
 static lwp_t gc_watchdog_thread = LWP_THREAD_NULL;
 static u8 gc_watchdog_stack[GC_WATCHDOG_STACK_SIZE] __attribute__(( aligned( 32 )));
 
+static void GC_WatchdogStart( void );
+
 void GC_WatchdogMark( const char *stage )
 {
 	gc_watchdog_stage = stage;
+	if( gc_mem_watch_hot )
+		GC_MemWatch( stage );
+	/* Start the thread at the first mark (host frames), not during boot:
+	 * two boot runs hung silently in trivial steps after it was added. */
+	if( !gc_watchdog_progress )
+		GC_WatchdogStart();
 	gc_watchdog_progress++;
+}
+
+/* A loop that keeps marking stages (presents, draw-done waits) hides a stall
+ * from the progress check, so host frames are tracked on their own too. */
+void GC_WatchdogHostFrame( void )
+{
+	gc_watchdog_host_frames++;
 }
 
 /* Name the current stage without counting it as progress: callbacks a
@@ -45,12 +61,16 @@ void GC_WatchdogMark( const char *stage )
 void GC_WatchdogStage( const char *stage )
 {
 	gc_watchdog_stage = stage;
+	if( gc_mem_watch_hot )
+		GC_MemWatch( stage );
 }
 
 static void *GC_WatchdogThread( void *arg )
 {
 	unsigned last_progress = 0;
 	unsigned stalled_seconds = 0;
+	unsigned last_host_frames = 0;
+	unsigned host_stalled_seconds = 0;
 
 	(void)arg;
 
@@ -59,6 +79,23 @@ static void *GC_WatchdogThread( void *arg )
 		u8 overhi = 0, underlo = 0, read_idle = 0, cmd_idle = 0, brkpt = 0;
 
 		usleep( 1000000 );
+
+		if( gc_watchdog_host_frames && gc_watchdog_host_frames == last_host_frames )
+		{
+			host_stalled_seconds++;
+			if( host_stalled_seconds >= 10 && host_stalled_seconds % 10 == 0 )
+			{
+				GX_GetGPStatus( &overhi, &underlo, &read_idle, &cmd_idle, &brkpt );
+				SYS_Report( "Xash3D GameCube: watchdog host frames stuck %us frames=%u marks=%u stage=%s read_idle=%u cmd_idle=%u\n",
+					host_stalled_seconds, gc_watchdog_host_frames, gc_watchdog_progress,
+					gc_watchdog_stage ? gc_watchdog_stage : "?", read_idle, cmd_idle );
+			}
+		}
+		else
+		{
+			last_host_frames = gc_watchdog_host_frames;
+			host_stalled_seconds = 0;
+		}
 
 		if( !gc_watchdog_progress || gc_watchdog_progress != last_progress )
 		{
@@ -81,13 +118,33 @@ static void *GC_WatchdogThread( void *arg )
 	return NULL;
 }
 
+static qboolean gc_watchdog_allowed;
+
 void GC_WatchdogInit( void )
 {
-	if( gc_watchdog_thread != LWP_THREAD_NULL )
+	/* Only arms the watchdog; the thread starts on the first mark. */
+	gc_watchdog_allowed = true;
+}
+
+static void GC_WatchdogStart( void )
+{
+	if( !gc_watchdog_allowed || gc_watchdog_thread != LWP_THREAD_NULL )
 		return;
+	gc_watchdog_allowed = false; /* one attempt */
+	/* -gcnowatchdog disables it for A/B runs. */
+	if( Sys_CheckParm( "-gcnowatchdog" ))
+	{
+		Con_Reportf( "Xash3D GameCube: watchdog disabled (-gcnowatchdog)\n" );
+		return;
+	}
 	if( LWP_CreateThread( &gc_watchdog_thread, GC_WatchdogThread, NULL,
 		gc_watchdog_stack, sizeof( gc_watchdog_stack ), GC_WATCHDOG_PRIORITY ) < 0 )
+	{
 		gc_watchdog_thread = LWP_THREAD_NULL;
+		Con_Reportf( S_WARN "Xash3D GameCube: watchdog thread failed to start\n" );
+		return;
+	}
+	Con_Reportf( "Xash3D GameCube: watchdog thread started\n" );
 }
 
 /* Global performance metrics */

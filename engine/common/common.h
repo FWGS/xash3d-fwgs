@@ -380,6 +380,14 @@ void _Mem_FreePool( poolhandle_t *poolptr, const char *filename, int fileline );
 void _Mem_EmptyPool( poolhandle_t poolptr, const char *filename, int fileline );
 void _Mem_Check( const char *filename, int fileline );
 qboolean Mem_IsAllocatedExt( poolhandle_t poolptr, void *data );
+#if XASH_GAMECUBE
+qboolean GC_MemCheckChains( const char *tag );
+void GC_MemWatch( const char *tag );
+extern qboolean gc_mem_watch_enabled, gc_mem_watch_hot;
+void GC_MemWatchHotFrames( int frames );
+void GC_MemWatchFrame( void );
+void GC_DeltaCheckTables( const char *tag );
+#endif
 void Mem_PrintStats( void );
 void Mem_Stats_f( void );
 size_t Mem_TotalRealSize( void );
