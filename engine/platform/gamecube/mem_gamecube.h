@@ -57,6 +57,8 @@ qboolean GC_IsMapLoadBuffer( const void *ptr );
 size_t GC_MapLoadBufferCapacity( void );
 /* Unused bytes after a borrowed BSP image inside the static map-load arena. */
 void *GC_MapLoadBufferTailAlloc( size_t after_offset, size_t need );
+unsigned int GC_AramReserve( unsigned int size );
+void GC_AramCopy( unsigned int aram, void *buf, unsigned int len, qboolean write );
 
 /* True during -gcmap smoke loads and retail New Game (gc_playstart) map loads. */
 void GC_BeginMapLoadMemoryOpt( void );

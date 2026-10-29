@@ -21,11 +21,14 @@ probes use a 12KB static bank (no late MEM1 malloc); G94 save/load still mallocs
 #include "common/com_strings.h"
 
 extern int Sys_CheckParm( const char *parm );
+extern unsigned int GC_AramReserve( unsigned int size );
+extern void GC_AramCopy( unsigned int aram, void *buf, unsigned int len, qboolean write );
 
 #define GC_PROBE_SAVE_FD      (-9001)
 #define GC_PROBE_SAVE_CAP     (160 * 1024) /* G94 save/load blobs */
 #define GC_PROBE_CONFIG_CAP   (12 * 1024)  /* G508 config-only (no malloc) */
-#define GC_PROBE_SAVE_FILES   12
+#define GC_PROBE_SAVE_FILES   48 /* transition saves: <map>.HL1/.HL2/.HL3 per level */
+#define GC_TRANSITION_ARAM_CAP ( 4 * 1024 * 1024 )
 #define GC_PROBE_SAVE_NAMESZ  96
 
 typedef struct gc_probe_save_file_s
@@ -50,6 +53,9 @@ static size_t gc_probe_save_used;
 static gc_probe_save_file_t gc_probe_save_files[GC_PROBE_SAVE_FILES];
 static int gc_probe_save_nfiles;
 static gc_probe_save_open_t gc_probe_save_opens[4];
+/* Transition mode keeps file bodies in ARAM: GoldSrc writes every visited
+ * level's save/<map>.HL? on each changelevel and MEM1 cannot hold them. */
+static unsigned int gc_probe_save_aram;
 static int gc_probe_save_nopens;
 static qboolean gc_probe_save_logged;
 static qboolean gc_probe_opens_inited;
@@ -63,10 +69,27 @@ static qboolean GC_ProbeSaveConfigOnly( void )
 		&& Sys_CheckParm( "-gcnewsaveload" ) == 0;
 }
 
+static qboolean GC_ProbeSaveTransitionMode( void )
+{
+	return Sys_CheckParm( "-gcmenuplaystart" ) != 0 && Sys_CheckParm( "-gcmenunoserver" ) == 0
+		&& Sys_CheckParm( "-gcnewsaveload" ) == 0 && Sys_CheckParm( "-gcconfigroundtrip" ) == 0;
+}
+
 static qboolean GC_ProbeSaveEnsureBlob( void )
 {
-	if( gc_probe_save_blob )
+	if( gc_probe_save_blob || gc_probe_save_aram )
 		return true;
+	if( GC_ProbeSaveTransitionMode( ))
+	{
+		gc_probe_save_aram = GC_AramReserve( GC_TRANSITION_ARAM_CAP );
+		if( !gc_probe_save_aram )
+		{
+			Con_Reportf( S_ERROR "Xash3D GameCube: transition save bank ARAM reserve failed\n" );
+			return false;
+		}
+		gc_probe_save_cap = GC_TRANSITION_ARAM_CAP;
+		return true;
+	}
 	if( GC_ProbeSaveConfigOnly())
 	{
 		gc_probe_save_blob = gc_probe_config_static;
@@ -88,8 +111,12 @@ static qboolean GC_ProbeSaveEnsureBlob( void )
 
 static qboolean GC_ProbeSaveEnabled( void )
 {
+	/* The real-server menu New Game route keeps GoldSrc's transition saves
+	 * (save/<map>.HL?) here when the disc boot has no writable storage. */
 	return Sys_CheckParm( "-gcnewsaveload" ) != 0
-		|| Sys_CheckParm( "-gcconfigroundtrip" ) != 0;
+		|| Sys_CheckParm( "-gcconfigroundtrip" ) != 0
+		|| ( Sys_CheckParm( "-gcmenuplaystart" ) != 0
+			&& Sys_CheckParm( "-gcmenunoserver" ) == 0 );
 }
 
 static const char *GC_ProbeSaveBasename( const char *path )
@@ -272,7 +299,8 @@ file_t *GC_ProbeSaveOpen( const char *filepath, const char *mode )
 
 	if( !gc_probe_save_logged )
 	{
-		Con_Reportf( "Xash3D GameCube: G94/G508 probe save bank ready (RAM, no SD)\n" );
+		Con_Reportf( "Xash3D GameCube: G94/G508 probe save bank ready (%s, no SD)\n",
+			gc_probe_save_aram ? "ARAM transition" : "RAM" );
 		gc_probe_save_logged = true;
 	}
 	Con_Reportf( "Xash3D GameCube: G94 probe save %s name=%s\n",
@@ -308,7 +336,11 @@ fs_offset_t GC_ProbeSaveWrite( file_t *file, const void *data, size_t datasize )
 		Con_Reportf( S_ERROR "Xash3D GameCube: G94 probe save bank full (%s)\n", ent->name );
 		return 0;
 	}
-	memcpy( gc_probe_save_blob + ent->offset + (size_t)gc_probe_save_opens[oi].pos, data, datasize );
+	if( gc_probe_save_aram )
+		GC_AramCopy( gc_probe_save_aram + (unsigned int)( ent->offset + (size_t)gc_probe_save_opens[oi].pos ),
+			(void *)data, (unsigned int)datasize, true );
+	else
+		memcpy( gc_probe_save_blob + ent->offset + (size_t)gc_probe_save_opens[oi].pos, data, datasize );
 	gc_probe_save_opens[oi].pos += (fs_offset_t)datasize;
 	if( (size_t)gc_probe_save_opens[oi].pos > ent->length )
 		ent->length = (size_t)gc_probe_save_opens[oi].pos;
@@ -336,7 +368,11 @@ fs_offset_t GC_ProbeSaveRead( file_t *file, void *buffer, size_t buffersize )
 		return 0;
 	avail = ent->length - (size_t)gc_probe_save_opens[oi].pos;
 	n = ( buffersize < avail ) ? buffersize : avail;
-	memcpy( buffer, gc_probe_save_blob + ent->offset + (size_t)gc_probe_save_opens[oi].pos, n );
+	if( gc_probe_save_aram )
+		GC_AramCopy( gc_probe_save_aram + (unsigned int)( ent->offset + (size_t)gc_probe_save_opens[oi].pos ),
+			buffer, (unsigned int)n, false );
+	else
+		memcpy( buffer, gc_probe_save_blob + ent->offset + (size_t)gc_probe_save_opens[oi].pos, n );
 	gc_probe_save_opens[oi].pos += (fs_offset_t)n;
 	file->position = gc_probe_save_opens[oi].pos;
 	return (fs_offset_t)n;

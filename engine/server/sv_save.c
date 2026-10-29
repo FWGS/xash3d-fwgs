@@ -63,13 +63,15 @@ qboolean gc_lean_weapon_grant_active;
 #if XASH_GAMECUBE
 static int SV_SaveHeapSize( void )
 {
-	if( Sys_CheckParm( "-gcnewsaveload" ))
+	if( Sys_CheckParm( "-gcnewsaveload" ) || GC_MenuRunsServer( ))
 		return GC_PROBE_SAVE_HEAPSIZE;
 	return SAVE_HEAPSIZE;
 }
 
 static int SV_SaveHashStrings( void )
 {
+	if( GC_MenuRunsServer( ))
+		return 0x7FF; /* a full retail map has more unique strings than 511 */
 	if( Sys_CheckParm( "-gcnewsaveload" ))
 		return GC_PROBE_SAVE_HASHSTRINGS;
 	return SAVE_HASHSTRINGS;
@@ -922,7 +924,9 @@ static SAVERESTOREDATA *SaveInit( int size, int tokenCount )
 
 #if XASH_GAMECUBE
 	gc_save_use_sysheap = false;
-	if( Sys_CheckParm( "-gcnewsaveload" ))
+	/* Transition saves on the menu route too: a failed calloc returns NULL
+	 * (SV_ChangeLevel falls back to the G100 stash) instead of a fatal OOM. */
+	if( Sys_CheckParm( "-gcnewsaveload" ) || GC_MenuRunsServer( ))
 	{
 		pSaveData = (SAVERESTOREDATA *)calloc( 1, sizeof( SAVERESTOREDATA ) + (size_t)size );
 		if( !pSaveData )
@@ -1729,6 +1733,22 @@ static SAVERESTOREDATA *SaveGameState( int changelevel )
 	if( !svgame.dllFuncs.pfnParmsChangeLevel )
 		return NULL;
 
+#if XASH_GAMECUBE
+	/* Transition save: the largest contiguous block MEM1 has right now. */
+	if( GC_MenuRunsServer( ))
+	{
+		static const int sizes[] = { 0x30000, 0x28000, 0x20000, 0x18000 };
+		int si;
+
+		pSaveData = NULL;
+		for( si = 0; si < (int)ARRAYSIZE( sizes ) && !pSaveData; si++ )
+			pSaveData = SaveInit( sizes[si], SV_SaveHashStrings() );
+		if( pSaveData )
+			Con_Reportf( "Xash3D GameCube: transition save buffer %s\n",
+				Q_memprint( pSaveData->bufferSize ));
+	}
+	else
+#endif
 	pSaveData = SaveInit( SV_SaveHeapSize(), SV_SaveHashStrings() );
 	if( !pSaveData )
 		return NULL;
@@ -1874,6 +1894,10 @@ static SAVERESTOREDATA *SaveGameState( int changelevel )
 	FS_Write( pFile, pTokenData, pSaveData->tokenSize );	// write tokens into the file
 	FS_Write( pFile, pTableData, tableSize );		// dump ETABLE structures
 	FS_Write( pFile, pSaveData->pBaseData, dataSize );	// and finally store all the other data
+#if XASH_GAMECUBE
+	Con_Reportf( "Xash3D GameCube: transition save %s data=%d table=%d tokens=%d/%d bytes buffer=%d\n",
+		name, dataSize, tableSize, pSaveData->tokenCount, pSaveData->tokenSize, pSaveData->bufferSize );
+#endif
 	FS_Close( pFile );
 
 	if( !EntityPatchWrite( pSaveData, sv.name ))
@@ -2362,8 +2386,9 @@ void SV_ChangeLevel( qboolean loadfromsavedgame, const char *mapname, const char
 	if( loadfromsavedgame )
 	{
 #if XASH_GAMECUBE
-		/* G97–G100: full SaveGameState OOMs under MEM1 — lean BSS landmark hop. */
-		if( startspot && startspot[0] && GC_LeanLandmarkStash( startspot ))
+		/* G97–G100: full SaveGameState OOMs under MEM1 — lean BSS landmark hop.
+		 * The real-server menu route takes the GoldSrc save/restore path. */
+		if( !GC_MenuRunsServer() && startspot && startspot[0] && GC_LeanLandmarkStash( startspot ))
 		{
 			lean_landmark = true;
 			loadfromsavedgame = false;
@@ -2375,9 +2400,33 @@ void SV_ChangeLevel( qboolean loadfromsavedgame, const char *mapname, const char
 		// smooth transition in-progress
 		svgame.globals->changelevel = true;
 
+#if XASH_GAMECUBE
+		/* The save buffer is one contiguous block: free the renderer and
+		 * video scratch first (SV_SpawnServer would trim them next anyway). */
+		if( GC_MenuRunsServer( ))
+		{
+			extern void R_GcmapTrimForMapLoad( void );
+			extern void GC_TrimVideoMemoryForMapLoad( void );
+			extern void GC_MemSample( const char *stage );
+
+			R_GcmapTrimForMapLoad();
+			GC_TrimVideoMemoryForMapLoad();
+			GC_MemSample( "pre-transition save" ); /* mem_gamecube.c */
+		}
+#endif
 		// save the current level's state
 		pSaveData = SaveGameState( true );
 
+#if XASH_GAMECUBE
+		if( !pSaveData && GC_MenuRunsServer() && startspot && startspot[0]
+			&& GC_LeanLandmarkStash( startspot ))
+		{
+			Con_Reportf( S_WARN "Xash3D GameCube: transition save failed, using G100 landmark stash\n" );
+			lean_landmark = true;
+			loadfromsavedgame = false;
+		}
+		else
+#endif
 		if( !pSaveData )
 		{
 			// make user notice the error

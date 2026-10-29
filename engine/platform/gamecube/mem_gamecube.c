@@ -9,6 +9,8 @@ Copyright (C) 2026 xash3d-gc contributors
 #include <stdlib.h>
 #include <malloc.h>
 #include <ogc/system.h>
+#include <ogc/aram.h>
+#include <ogc/cache.h>
 
 void *R_GCBorrowMapLoadStaticArena( size_t size, size_t *capacity );
 qboolean R_GCReleaseMapLoadStaticArena( void *ptr );
@@ -424,5 +426,76 @@ qboolean GC_MapLoadMemoryOpt( void )
 		|| gc_mapload_memopt_depth > 0
 		|| Sys_CheckParm( "-gcmap" ) != 0
 		|| ( Sys_CheckParm( "-gcnewgame" ) != 0 && gc_newgame_bootstrap_memopt );
+}
+
+/*
+==============================================================================
+
+ARAM storage helpers
+
+The 16 MiB of auxiliary RAM is DMA-only. These move arbitrary byte ranges
+through a 32-byte aligned MEM1 bounce buffer, so callers (the transition
+save bank) never need a MEM1 copy of a whole file.
+
+==============================================================================
+*/
+#define GC_ARAM_BOUNCE 4096
+static u8 gc_aram_bounce[GC_ARAM_BOUNCE] __attribute__(( aligned( 32 )));
+static u32 gc_aram_reserve_blocks[4];
+
+static void GC_AramDMA( u32 type, u32 aram, u32 len )
+{
+	if( type == AR_MRAMTOARAM )
+		DCFlushRange( gc_aram_bounce, len );
+	else
+		DCInvalidateRange( gc_aram_bounce, len );
+	while( AR_GetDMAStatus( ))
+		;
+	AR_StartDMA( type, (u32)gc_aram_bounce, aram, len );
+	while( AR_GetDMAStatus( ))
+		;
+	if( type == AR_ARAMTOMRAM )
+		DCInvalidateRange( gc_aram_bounce, len );
+}
+
+unsigned int GC_AramReserve( unsigned int size )
+{
+	u32 base;
+
+	if( !AR_CheckInit( ))
+		AR_Init( gc_aram_reserve_blocks, 4 );
+	base = AR_Alloc(( size + 31u ) & ~31u );
+	Con_Reportf( "Xash3D GameCube: ARAM reserve %s at 0x%08x\n", Q_memprint( size ), base );
+	return base;
+}
+
+void GC_AramCopy( unsigned int aram, void *buf, unsigned int len, qboolean write )
+{
+	byte *p = (byte *)buf;
+
+	while( len > 0 )
+	{
+		const u32 a0 = aram & ~31u;
+		const u32 off = aram - a0;
+		const u32 chunk = Q_min( len, GC_ARAM_BOUNCE - off );
+		const u32 span = ( off + chunk + 31u ) & ~31u;
+
+		if( write )
+		{
+			/* Partial 32-byte blocks keep their neighbouring bytes. */
+			if( off || ( chunk & 31u ))
+				GC_AramDMA( AR_ARAMTOMRAM, a0, span );
+			memcpy( gc_aram_bounce + off, p, chunk );
+			GC_AramDMA( AR_MRAMTOARAM, a0, span );
+		}
+		else
+		{
+			GC_AramDMA( AR_ARAMTOMRAM, a0, span );
+			memcpy( p, gc_aram_bounce + off, chunk );
+		}
+		aram += chunk;
+		p += chunk;
+		len -= chunk;
+	}
 }
 #endif
