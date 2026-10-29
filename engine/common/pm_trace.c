@@ -229,7 +229,10 @@ qboolean PM_RecursiveHullCheck( hull_t *hull, int num, float p1f, float p2f, vec
 	}
 #endif
 loc0:
-	if( ++steps > hull->lastclipnode - hull->firstclipnode + 1 )
+	/* A path visits at most every clipnode once, then the leaf: count + 1
+	 * steps. "+ 1" rejected the full walk of a 6-node box hull (bbox and
+	 * brush-entity traces) as cyclic and aborted the trace. */
+	if( ++steps > hull->lastclipnode - hull->firstclipnode + 2 )
 	{
 		Con_Reportf( S_WARN "PM_RecursiveHullCheck: cyclic hull path at node %d (range %d..%d)\n",
 			num, hull->firstclipnode, hull->lastclipnode );
