@@ -4111,6 +4111,12 @@ void Host_ClientFrame( void )
 #endif
 
 	// update audio
+#if XASH_GAMECUBE
+	/* G278: menu New Game strips c0a0's ambient_generic VO like the lean
+	 * route; stream the tram announcer/rumble here (it gates itself). */
+	if( Sys_CheckParm( "-gcmenuplaystart" ))
+		GC_UpdateNewGameIntroAudio();
+#endif
 	SND_UpdateSound ();
 #if XASH_GAMECUBE
 	if( gc_fullphysics_trace )

@@ -14534,7 +14534,11 @@ void GC_UpdateNewGameIntroAudio( void )
 	static qboolean armed;
 	double elapsed;
 
-	if( !Sys_CheckParm( "-gcnewgame" ) || !GC_IsNewGameG36Done() )
+	/* The menu New Game route inhibits ambient_generic/multi_manager on
+	 * c0a0 too (SV_GCMapShouldInhibitClass), so without this stream the tram
+	 * ride is silent there. */
+	if(( !Sys_CheckParm( "-gcnewgame" ) && !Sys_CheckParm( "-gcmenuplaystart" ))
+		|| !GC_IsNewGameG36Done() )
 		return;
 	if( !GC_IsNewGameWorldReady() || Sys_CheckParm( "-gcnewsaveload" ))
 		return;
