@@ -652,6 +652,16 @@ static void Netchan_CreateFragments_( netchan_t *chan, sizebuf_t *msg )
 
 	fragbufwaiting_t *wait = (fragbufwaiting_t *)Mem_Calloc( net_mempool, sizeof( fragbufwaiting_t ));
 
+#if XASH_GAMECUBE
+	/* The 64 KiB BZ2 output array below lives in this function's stack
+	 * frame, far past the main thread's stack: the first fragmented
+	 * reliable message (the restored level after a GoldSrc changelevel)
+	 * smashed the stack and jumped to 0. Local loopback gains nothing from
+	 * compression, so GameCube skips BZ2 and never reserves that array. */
+	if( 0 )
+	{
+	}
+#else
 	if( chan->use_bz2 && memcmp( MSG_GetData( msg ), "BZ2", 4 ))
 	{
 #if !XASH_DEDICATED
@@ -672,6 +682,7 @@ static void Netchan_CreateFragments_( netchan_t *chan, sizebuf_t *msg )
 		Host_Error( "%s: BZ2 compression is not supported for server", __func__ );
 #endif
 	}
+#endif
 	else if( chan->use_lzss && !LZSS_IsCompressed( MSG_GetData( msg ), MSG_GetMaxBytes( msg )))
 	{
 		uint uCompressedSize = 0;
@@ -1150,6 +1161,13 @@ qboolean Netchan_CopyNormalFragments( netchan_t *chan, sizebuf_t *msg, size_t *l
 
 	size_t size = MSG_GetNumBytesWritten( msg );
 
+#if XASH_GAMECUBE
+	/* As in Netchan_CreateFragments_: no 64 KiB BZ2 array in this frame on
+	 * GameCube (the local server never sends BZ2). */
+	if( 0 )
+	{
+	}
+#else
 	if( chan->use_bz2 && size >= 4 && !memcmp( MSG_GetData( msg ), "BZ2", 4 ))
 	{
 #if !XASH_DEDICATED
@@ -1169,9 +1187,14 @@ qboolean Netchan_CopyNormalFragments( netchan_t *chan, sizebuf_t *msg, size_t *l
 		Host_Error( "%s: BZ2 compression is not supported for server\n", __func__ );
 #endif
 	}
+#endif
 	else if( chan->use_lzss && LZSS_IsCompressed( MSG_GetData( msg ), size ))
 	{
+#if XASH_GAMECUBE
+		static byte buf[NET_MAX_MESSAGE]; /* keep it off the small main stack */
+#else
 		byte buf[NET_MAX_MESSAGE];
+#endif
 		uint uDecompressedLen = LZSS_GetActualSize( MSG_GetData( msg ), size );
 
 		if( uDecompressedLen == 0 || uDecompressedLen > sizeof( buf ))
