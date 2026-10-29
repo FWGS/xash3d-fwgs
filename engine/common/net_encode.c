@@ -993,8 +993,37 @@ void Delta_InitClient( void )
 	if( numActive ) delta_init = true;
 }
 
+#if XASH_GAMECUBE
+/* Log any dynamic delta table whose fields block is no longer linked in
+ * host.mempool, plus a full pool chain walk. Called at map-load steps to
+ * find what broke the chain before Delta_Shutdown's fatal free. */
+void GC_DeltaCheckTables( const char *tag )
+{
+	int bad = 0;
+
+	for( int i = 0; i < ARRAYSIZE( dt_info ); i++ )
+	{
+		if( !dt_info[i].pFields || !dt_info[i].fieldsDynamic )
+			continue;
+		if( !Mem_IsAllocatedExt( host.mempool, dt_info[i].pFields ))
+		{
+			if( bad++ < 4 )
+				Con_Reportf( S_ERROR "Xash3D GameCube: delta table unlinked at=%s name=%s fields=%p\n",
+					tag, dt_info[i].pName, (void *)dt_info[i].pFields );
+		}
+	}
+	GC_MemCheckChains( tag );
+	if( !bad )
+		Con_Reportf( "Xash3D GameCube: delta tables linked at=%s\n", tag );
+}
+#endif
+
 void Delta_Shutdown( void )
 {
+#if XASH_GAMECUBE
+	if( delta_init )
+		GC_DeltaCheckTables( "delta shutdown" );
+#endif
 	if( !delta_init ) return;
 
 	for( int i = 0; i < ARRAYSIZE( dt_info ); i++ )

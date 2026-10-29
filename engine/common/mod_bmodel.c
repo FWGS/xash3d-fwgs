@@ -2021,11 +2021,14 @@ static void Mod_SetParent( model_t *mod, mnode_t *node, mnode_t *parent )
 	size_t duplicate_leafs = 0;
 #if XASH_GAMECUBE
 	/* Avoid libc heap at world-load time — MEM1 is already dominated by the
-	 * map-load arena (c1a1f: 3574 nodes / 2443 leafs OOMs malloc here). */
-	enum { GC_PARENT_WALK_MAX = 4096 };
-	static mod_parent_frame_t gc_parent_stack[GC_PARENT_WALK_MAX];
-	static byte gc_parent_node_seen[GC_PARENT_WALK_MAX];
-	static byte gc_parent_leaf_seen[GC_PARENT_WALK_MAX];
+	 * map-load arena (c1a1f: 3574 nodes / 2443 leafs OOMs malloc here).
+	 * The DFS stack only grows with tree depth, so it needs far fewer frames
+	 * than nodes; seen flags are bits. That covers the BSP30 node/leaf limits
+	 * (t0a0: 4171 nodes overflowed the old 4096 cap) in the same .bss. */
+	enum { GC_PARENT_STACK_MAX = 4096, GC_PARENT_SEEN_MAX = 32768 };
+	static mod_parent_frame_t gc_parent_stack[GC_PARENT_STACK_MAX];
+	static byte gc_parent_node_seen[GC_PARENT_SEEN_MAX / 8];
+	static byte gc_parent_leaf_seen[GC_PARENT_SEEN_MAX / 8];
 	qboolean used_static = false;
 #endif
 
@@ -2035,16 +2038,17 @@ static void Mod_SetParent( model_t *mod, mnode_t *node, mnode_t *parent )
 	stack_capacity = mod ? (size_t)Q_max( mod->numnodes, 1 ) : 1;
 #if XASH_GAMECUBE
 	if( mod
-		&& (size_t)mod->numnodes <= (size_t)GC_PARENT_WALK_MAX
-		&& (size_t)mod->numleafs <= (size_t)GC_PARENT_WALK_MAX )
+		&& (size_t)mod->numnodes <= (size_t)GC_PARENT_SEEN_MAX
+		&& (size_t)mod->numleafs <= (size_t)GC_PARENT_SEEN_MAX )
 	{
 		stack = gc_parent_stack;
+		stack_capacity = GC_PARENT_STACK_MAX;
 		node_seen = ( mod->numnodes > 0 ) ? gc_parent_node_seen : NULL;
 		leaf_seen = ( mod->numleafs > 0 ) ? gc_parent_leaf_seen : NULL;
 		if( node_seen )
-			memset( node_seen, 0, (size_t)mod->numnodes );
+			memset( node_seen, 0, ((size_t)mod->numnodes + 7 ) / 8 );
 		if( leaf_seen )
-			memset( leaf_seen, 0, (size_t)mod->numleafs );
+			memset( leaf_seen, 0, ((size_t)mod->numleafs + 7 ) / 8 );
 		used_static = true;
 	}
 	else
@@ -2054,9 +2058,9 @@ static void Mod_SetParent( model_t *mod, mnode_t *node, mnode_t *parent )
 		if( mod )
 		{
 			if( mod->numnodes > 0 )
-				node_seen = calloc( mod->numnodes, sizeof( *node_seen ));
+				node_seen = calloc(( mod->numnodes + 7 ) / 8, sizeof( *node_seen ));
 			if( mod->numleafs > 0 )
-				leaf_seen = calloc( mod->numleafs, sizeof( *leaf_seen ));
+				leaf_seen = calloc(( mod->numleafs + 7 ) / 8, sizeof( *leaf_seen ));
 		}
 	}
 
@@ -2116,28 +2120,28 @@ static void Mod_SetParent( model_t *mod, mnode_t *node, mnode_t *parent )
 			{
 				node_index = (size_t)( cur - mod->nodes );
 
-				if( node_seen && node_seen[node_index] )
+				if( node_seen && ( node_seen[node_index >> 3] & BIT( node_index & 7 )))
 				{
 					duplicate_nodes++;
 					continue;
 				}
 
 				if( node_seen )
-					node_seen[node_index] = 1;
+					node_seen[node_index >> 3] |= BIT( node_index & 7 );
 			}
 			else if( cur_ptr >= leafs_begin && cur_ptr < leafs_end )
 			{
 				is_leaf = true;
 				leaf_index = (size_t)((mleaf_t *)cur - mod->leafs );
 
-				if( leaf_seen && leaf_seen[leaf_index] )
+				if( leaf_seen && ( leaf_seen[leaf_index >> 3] & BIT( leaf_index & 7 )))
 				{
 					duplicate_leafs++;
 					continue;
 				}
 
 				if( leaf_seen )
-					leaf_seen[leaf_index] = 1;
+					leaf_seen[leaf_index >> 3] |= BIT( leaf_index & 7 );
 
 				if( cur->contents >= 0 )
 				{

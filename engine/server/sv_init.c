@@ -1191,9 +1191,13 @@ qboolean SV_SpawnServer( const char *mapname, const char *startspot, qboolean ba
 	 *
 	 * Lean -gcmap discs: the FS_Path_f / FindFile probes below hung forever on
 	 * c0a0e after LOADING BSP (probe 20260829-012117). Keep diagnostics off
-	 * for smoke/newgame; real Swiss SD boots still skip via -gcnewgame. */
+	 * for smoke/newgame; real Swiss SD boots still skip via -gcnewgame.
+	 *
+	 * Menu New Game too: the reinit's tables came out unlinked from
+	 * host.mempool by the reconnect's Delta_Shutdown (Mem_FreeBlockBig
+	 * fatal at net_encode.c Delta_Shutdown). */
 	if( Sys_CheckParm( "-gcnodeltareinit" ) || Sys_CheckParm( "-gcnewgame" )
-		|| Sys_CheckParm( "-gcmap" ))
+		|| Sys_CheckParm( "-gcmap" ) || Sys_CheckParm( "-gcmenuplaystart" ))
 	{
 		Con_Reportf( "Xash3D GameCube: G201 delta reinit skipped (newgame/gcmap)\n" );
 	}

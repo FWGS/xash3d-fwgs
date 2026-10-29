@@ -414,11 +414,23 @@ static void GC_HandleConnectionChange( int port, u32 type, qboolean connected )
 	}
 }
 
+/* Probe routes that script the pad themselves: synthetic input must win even
+ * when Dolphin reports a connected (idle) controller in port 1. */
+static qboolean GC_ProbeRouteForcesSynthetic( void )
+{
+	/* -gcplayerinput: the menu route on real hardware, with a player. */
+	if( Sys_CheckParm( "-gcplayerinput" ))
+		return false;
+	return Sys_CheckParm( "-gcmap" ) || Sys_CheckParm( "-gcfullphysics" )
+		|| Sys_CheckParm( "-gcmenuplaystart" );
+}
+
 qboolean GC_ShouldUseProbeInputFallback( void )
 {
+	if( Sys_CheckParm( "-gcplayerinput" ))
+		return false;
 	/* Automated Dolphin probes do not receive real SI pad packets. */
-	if( Sys_CheckParm( "-gcmap" ) || Sys_CheckParm( "-gcfullphysics" )
-		|| Sys_CheckParm( "-gcmenuplaystart" ))
+	if( GC_ProbeRouteForcesSynthetic( ))
 		return true;
 	/* Disc-only / G94 probe boots match the headless Dolphin profile. */
 	if( !GCube_HasPersistentWritableStorage( ))
@@ -843,6 +855,26 @@ void Platform_RunEvents( void )
 		gc_postsignon_diag = true;
 		Con_Reportf( "Xash3D GameCube: input poll post-signon synthetic=%d fallback=%d connected=%d active_port=%d\n",
 			gc_probe_synthetic, GC_ShouldUseProbeInputFallback(), gc_connected, gc_active_port );
+	}
+
+	/* A disc-only boot (no SD) also falls back to the synthetic pad, and on
+	 * real hardware that used to lock out the player's controller for good.
+	 * Hand over as soon as a real pad shows input; Dolphin's idle probe pad
+	 * never does, so headless retail probes keep their synthetic driver. */
+	if( gc_probe_synthetic && !GC_ProbeRouteForcesSynthetic( ))
+	{
+		for( port = 0; port < PAD_CHANMAX; port++ )
+		{
+			if( !GC_PortHasActivity( port ))
+				continue;
+			Con_Reportf( "Xash3D GameCube: real controller input on port %d, leaving synthetic pad\n",
+				port + 1 );
+			GC_ReleaseAllInput();
+			gc_probe_synthetic = false;
+			gc_connected = false;
+			gc_active_port = -1;
+			break;
+		}
 	}
 
 	/* Automated Dolphin probes run without real SI packets. Once we switch to

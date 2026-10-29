@@ -459,6 +459,15 @@ void Con_Reportf( const char *szFmt, ... )
 	va_start( args, szFmt );
 	Con_Printfv( false, szFmt, args );
 	va_end( args );
+#if XASH_GAMECUBE
+	/* during a heap watch window every report line is a checkpoint */
+	if( gc_mem_watch_hot )
+	{
+		char tag[64];
+		Q_snprintf( tag, sizeof( tag ), "log %s", szFmt );
+		GC_MemWatch( tag );
+	}
+#endif
 }
 
 

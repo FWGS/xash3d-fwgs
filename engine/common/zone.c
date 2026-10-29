@@ -125,6 +125,20 @@ static qboolean gc_poolchain_static;
 #endif
 
 #if XASH_GAMECUBE
+/* -gcmemwatch: GC_MemWatch checkpoints walk every chain; off by default
+ * because the walks cost real time on hardware. While gc_mem_watch_hot is
+ * set, every allocator call checks the chains first so a corruption is
+ * bracketed to one allocator call. */
+qboolean gc_mem_watch_enabled;
+qboolean gc_mem_watch_hot;
+#define GC_MEM_WATCH_CALL( what ) \
+	do { if( unlikely( gc_mem_watch_hot )) GC_MemWatchCall( what, filename, fileline ); } while( 0 )
+static void GC_MemWatchCall( const char *what, const char *filename, int fileline );
+#else
+#define GC_MEM_WATCH_CALL( what ) ((void)0)
+#endif
+
+#if XASH_GAMECUBE
 void GC_MemReportPoolPressure( const char *subsystem, size_t requested )
 {
 	static char last_subsystem[64];
@@ -346,6 +360,7 @@ static qboolean Mem_CheckAllocHeaderSmall( const char *func, const memheader_sma
 
 void *_Mem_TryAlloc( poolhandle_t poolptr, size_t size, qboolean clear, const char *filename, int fileline )
 {
+	GC_MEM_WATCH_CALL( "alloc" );
 	if( size <= 0 || !poolptr )
 		return NULL;
 
@@ -543,6 +558,7 @@ static void Mem_FreeBlockSmall( memheader_small_t *mem, const char *filename, in
 
 void _Mem_Free( void *data, const char *filename, int fileline )
 {
+	GC_MEM_WATCH_CALL( "free" );
 	if( data == NULL )
 		return;
 
@@ -580,6 +596,7 @@ static void Mem_MigratePoolSmall( poolhandle_t newpoolptr, memheader_small_t *me
 
 void *_Mem_Realloc( poolhandle_t poolptr, void *data, size_t size, qboolean clear, const char *filename, int fileline )
 {
+	GC_MEM_WATCH_CALL( "realloc" );
 	if( size <= 0 )
 		return data; // no need to reallocate
 
@@ -760,6 +777,7 @@ static poolhandle_t Mem_InitPool( mempool_t *pool, const char *name, unsigned in
 
 poolhandle_t _Mem_AllocPool( const char *name, unsigned int flags, const char *filename, int fileline )
 {
+	GC_MEM_WATCH_CALL( "allocpool" );
 	for( size_t i = 0; i < poolcount; i++ )
 	{
 		if( poolchain[i].filename == NULL )
@@ -897,6 +915,151 @@ void _Mem_Check( const char *filename, int fileline )
 			Mem_CheckAllocHeaderSmall( __func__, mem, filename, fileline );
 	}
 }
+
+#if XASH_GAMECUBE
+/* Non-fatal walk of every pool's block chains: logs the first broken link
+ * or trashed sentinel with the given tag. Used at map-load checkpoints to
+ * find what corrupted a pool chain (menu route Mem_FreeBlockBig fatal). */
+static void GC_MemDumpBytes( const char *what, const void *addr, size_t len )
+{
+	const byte *b = addr;
+	char line[3 * 32 + 1];
+	size_t i;
+
+	len = Q_min( len, 32 );
+	for( i = 0; i < len; i++ )
+		Q_snprintf( line + i * 3, sizeof( line ) - i * 3, "%02x ", b[i] );
+	line[len * 3] = 0;
+	Con_Reportf( S_ERROR "Xash3D GameCube: mem dump %s %p: %s\n", what, addr, line );
+}
+
+static qboolean GC_MemCheckChainsEx( const char *tag, qboolean verbose )
+{
+	for( size_t i = 0; i < poolcount; i++ )
+	{
+		mempool_t *pool = &poolchain[i];
+		memheader_t *prev = NULL;
+		memheader_small_t *sprev = NULL;
+		int n = 0;
+
+		if( !pool->filename )
+			continue;
+
+		for( memheader_t *mem = pool->chain; mem; prev = mem, mem = mem->next, n++ )
+		{
+			if( mem->prev != prev || mem->sentinel1 != MEMHEADER_SENTINEL_BIG
+				|| *((const byte *)mem + sizeof( memheader_t ) + mem->size ) != MEMHEADER_SENTINEL2 )
+			{
+				Con_Reportf( S_ERROR "Xash3D GameCube: mem chain broken at=%s pool=\"%s\" block=%d mem=%p prev=%p expect_prev=%p s1=%08x alloc=%s:%i\n",
+					tag, pool->name, n, (void *)mem, (void *)mem->prev, (void *)prev,
+					(unsigned)mem->sentinel1,
+					mem->sentinel1 == MEMHEADER_SENTINEL_BIG ? Mem_CheckFilename( mem->filename ) : "?",
+					mem->sentinel1 == MEMHEADER_SENTINEL_BIG ? mem->fileline : 0 );
+				if( prev )
+					Con_Reportf( S_ERROR "Xash3D GameCube: mem chain broken newer=%p alloc=%s:%i size=%u\n",
+						(void *)prev, Mem_CheckFilename( prev->filename ), prev->fileline, (unsigned)prev->size );
+				GC_MemDumpBytes( "before", (const byte *)mem - 32, 32 );
+				GC_MemDumpBytes( "header", mem, sizeof( *mem ));
+				return false;
+			}
+			if( n > 1000000 )
+			{
+				Con_Reportf( S_ERROR "Xash3D GameCube: mem chain cycle at=%s pool=\"%s\"\n", tag, pool->name );
+				return false;
+			}
+		}
+
+		n = 0;
+		for( memheader_small_t *mem = pool->chain_small; mem; sprev = mem, mem = mem->next, n++ )
+		{
+			if( mem->prev != sprev || mem->sentinel1 != MEMHEADER_SENTINEL_SMALL
+				|| *((const byte *)mem + sizeof( memheader_small_t ) + mem->size ) != MEMHEADER_SENTINEL2 )
+			{
+				const byte s2 = mem->sentinel1 == MEMHEADER_SENTINEL_SMALL
+					? *((const byte *)mem + sizeof( memheader_small_t ) + mem->size ) : 0;
+
+				Con_Reportf( S_ERROR "Xash3D GameCube: mem small chain broken at=%s pool=\"%s\" block=%d mem=%p prev=%p expect_prev=%p next=%p poolptr=%u size=%u s1=%04x s2=%02x why=%s\n",
+					tag, pool->name, n, (void *)mem, (void *)mem->prev, (void *)sprev, (void *)mem->next,
+					(unsigned)mem->poolptr, (unsigned)mem->size, (unsigned)mem->sentinel1, (unsigned)s2,
+					mem->sentinel1 != MEMHEADER_SENTINEL_SMALL ? "header" : mem->prev != sprev ? "prev" : "tail" );
+				if( sprev )
+				{
+					Con_Reportf( S_ERROR "Xash3D GameCube: mem small chain newer=%p size=%u data=\"%.*s\"\n",
+						(void *)sprev, (unsigned)sprev->size, (int)sprev->size, (const char *)( sprev + 1 ));
+				}
+				GC_MemDumpBytes( "before", (const byte *)mem - 32, 32 );
+				GC_MemDumpBytes( "header", mem, sizeof( *mem ));
+				if( mem->sentinel1 == MEMHEADER_SENTINEL_SMALL )
+					GC_MemDumpBytes( "data", mem + 1, (size_t)mem->size + 1 );
+				return false;
+			}
+			if( n > 1000000 )
+			{
+				Con_Reportf( S_ERROR "Xash3D GameCube: mem small chain cycle at=%s pool=\"%s\"\n", tag, pool->name );
+				return false;
+			}
+		}
+	}
+	if( verbose )
+		Con_Reportf( "Xash3D GameCube: mem chains ok at=%s\n", tag );
+	return true;
+}
+
+qboolean GC_MemCheckChains( const char *tag )
+{
+	return GC_MemCheckChainsEx( tag, true );
+}
+
+/* Silent watch for heap corruption: checks every chain at each call until
+ * the first break, then reports the last tag that was still clean so the
+ * corrupting step is bracketed between two milestones. */
+void GC_MemWatch( const char *tag )
+{
+	static qboolean broken, busy;
+	static char last_ok[96] = "start";
+
+	if( !gc_mem_watch_enabled || broken || busy )
+		return;
+
+	busy = true;
+	if( GC_MemCheckChainsEx( tag, false ))
+	{
+		Q_strncpy( last_ok, tag, sizeof( last_ok ));
+		busy = false;
+		return;
+	}
+
+	broken = true;
+	gc_mem_watch_hot = false;
+	Con_Reportf( S_ERROR "Xash3D GameCube: mem corruption first seen at=%s last_ok=%s\n", tag, last_ok );
+	busy = false;
+}
+
+static int gc_mem_watch_hot_frames;
+
+void GC_MemWatchHotFrames( int frames )
+{
+	if( !gc_mem_watch_enabled )
+		return;
+	gc_mem_watch_hot_frames = frames;
+	gc_mem_watch_hot = true;
+}
+
+/* Called once per host frame: ends a GC_MemWatchHotFrames window. */
+void GC_MemWatchFrame( void )
+{
+	if( gc_mem_watch_hot_frames > 0 && --gc_mem_watch_hot_frames == 0 )
+		gc_mem_watch_hot = false;
+}
+
+static void GC_MemWatchCall( const char *what, const char *filename, int fileline )
+{
+	char tag[96];
+
+	Q_snprintf( tag, sizeof( tag ), "%s %s:%i", what, filename ? filename : "?", fileline );
+	GC_MemWatch( tag );
+}
+#endif
 
 void Mem_PrintStats( void )
 {

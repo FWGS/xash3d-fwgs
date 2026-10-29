@@ -61,6 +61,16 @@ Swiss/libdvm volume prefixes:
 | SD Gecko Slot A | `carda:/` | `scripts/stage-sd-assets.sh … --route carda` |
 | SD Gecko Slot B | `cardb:/` | `scripts/stage-sd-assets.sh … --route cardb` |
 
+`stage-sd-assets.sh` (full game, not the smoke subset) writes the same payload
+as the retail Dolphin disc: `stage_retail_data` output, the baked menu and
+loading art, the boot overlays, `gamecube-bootstrap.pk3` and `extras.pk3`. It
+also writes `xash3d/valve/gamecube.cfg` with `retailnewgame`: the menu New Game
+memory route (`-gcmenuplaystart`) with the real controller (`-gcplayerinput`)
+instead of the synthetic probe pad. Pass `--plain-menu` for no cfg. Saves and an
+existing `config.cfg` on the card are kept. Before 2026-10-29 this script copied
+Source-engine folders and no `gfx.wad`/`liblist.gam`, so the engine rejected the
+card; re-stage any card made with it.
+
 Required media layout (host mount paths map 1:1 under the volume prefix):
 
 ```text

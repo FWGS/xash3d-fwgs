@@ -34,6 +34,10 @@ static unsigned int gc_audio_add_failures;
 static u32 gc_audio_counter_base;
 static qboolean gc_audio_counter_valid;
 static int16_t gc_audio_chunk[2][GC_AUDIO_CHUNK_SAMPLES * 2] __attribute__((aligned( 32 )));
+/* The DMA ring must not live in the Sound Zone: S_GameCubeTrimForMapLoad
+ * empties that pool for map load while snd.buffer stays in use, and the
+ * mixer then painted silence (zeros) over whatever reused the memory. */
+static int16_t gc_audio_ring[GC_AUDIO_DEFAULT_SAMPLES * 2] __attribute__((aligned( 32 )));
 
 void S_GCGetAudioTelemetry( unsigned int *chunks, unsigned int *nonzero_chunks,
 	unsigned int *sample_counter_delta, unsigned int *callbacks,
@@ -193,7 +197,6 @@ static qboolean GCube_RealAudioInit( void )
 {
 	int samplecount;
 	size_t buffer_bytes;
-	qboolean gc_mapload_audio_pin;
 
 	ASND_Init();
 	/* ASND_Init leaves playback paused; unpause on first mix submit. */
@@ -207,33 +210,23 @@ static qboolean GCube_RealAudioInit( void )
 	snd.format.channels = 2;
 	snd.samples = samplecount * snd.format.channels;
 	buffer_bytes = (size_t)snd.samples * (size_t)snd.format.width;
-	gc_mapload_audio_pin = ( Sys_CheckParm( "-gcnewgame" ) != 0 );
 	snd.buffer = NULL;
 	gc_audio_buffer_malloced = false;
 
-	/* The deferred New Game client reload runs after the world is resident and
-	 * can hit a hard Sound Zone OOM before Mem_Calloc returns. Pin this small
-	 * audio ring outside the zone so gameplay startup can finish. */
-	if( gc_mapload_audio_pin )
+	/* Keep the ring outside the Sound Zone (see gc_audio_ring). */
+	if( buffer_bytes > sizeof( gc_audio_ring ))
 	{
 		snd.buffer = malloc( buffer_bytes );
 		if( snd.buffer )
-		{
-			memset( snd.buffer, 0, buffer_bytes );
 			gc_audio_buffer_malloced = true;
-			Con_Reportf( "Xash3D GameCube: audio ring pinned via malloc %s for newgame\n",
-				Q_memprint( buffer_bytes ));
-		}
 	}
-
-	if( !snd.buffer )
-		snd.buffer = Mem_Calloc( sndpool, buffer_bytes );
 	if( !snd.buffer )
 	{
-		ASND_End();
-		Con_Reportf( S_ERROR "GameCube audio: ring buffer allocation failed\n" );
-		return false;
+		snd.samples = Q_min( snd.samples, (int)ARRAYSIZE( gc_audio_ring ));
+		buffer_bytes = (size_t)snd.samples * (size_t)snd.format.width;
+		snd.buffer = (byte *)gc_audio_ring;
 	}
+	memset( snd.buffer, 0, buffer_bytes );
 
 	snd.samplepos = 0;
 	gc_voice_started = false;
@@ -316,14 +309,9 @@ void SNDDMA_Shutdown( void )
 	gc_audio_counter_base = 0;
 	gc_audio_counter_valid = false;
 
-	if( snd.buffer )
-	{
-		if( gc_audio_buffer_malloced )
-			free( snd.buffer );
-		else
-			Mem_Free( snd.buffer );
-		snd.buffer = NULL;
-	}
+	if( snd.buffer && gc_audio_buffer_malloced )
+		free( snd.buffer );
+	snd.buffer = NULL;
 
 	snd.samples = 0;
 	snd.samplepos = 0;

@@ -73,6 +73,7 @@ static bool GCube_DVDReadSectors( sec_t sector, sec_t count, void *buffer );
 static qboolean GCube_MountDisc( void );
 static void GCube_EnsureFatMounted( void );
 static void GCube_LoadDiscBootOverrides( void );
+static qboolean GCube_FatHasGameData( void );
 
 static qboolean GCube_MountDisc( void )
 {
@@ -116,6 +117,12 @@ static bool GCube_DVDReadSectors( sec_t sector, sec_t count, void *buffer )
 	{
 		if( !__io_gcdvd.readSectors( sector + i, 1, output + i * 0x800 ))
 			return false;
+		if( gc_mem_watch_enabled )
+		{
+			char tag[48];
+			Q_snprintf( tag, sizeof( tag ), "dvd sector %u to %p", (unsigned)( sector + i ), (void *)( output + i * 0x800 ));
+			GC_MemWatch( tag );
+		}
 	}
 	return true;
 }
@@ -378,6 +385,21 @@ static qboolean GCube_FatRootReady( void )
 		&& GCube_PathAccessible( gc_fat_write_root );
 }
 
+/* HW: the Swiss SD route has the whole game on FAT. Probing the drive then
+ * buys nothing and can stall: DVD_Mount waits on a console with no disc, an
+ * open lid or a removed drive, which Dolphin (always a disc) never shows. */
+static qboolean GCube_FatHasGameData( void )
+{
+	char candidate[MAX_SYSPATH];
+	const char *root;
+
+	if( !GCube_FatRootReady() )
+		return false;
+	root = gc_fat_base_root[0] ? gc_fat_base_root : gc_fat_write_root;
+	Q_snprintf( candidate, sizeof( candidate ), "%s%s", root, GC_DATA_PATH );
+	return GCube_HasValveAssets( candidate );
+}
+
 qboolean GCube_GetDiscPath( char *buf, size_t buflen )
 {
 	const char *path = GC_DVD_DEVICE ":/" GC_DATA_PATH;
@@ -624,13 +646,18 @@ void GCube_Init( void )
 			Con_Reportf( S_WARN "FAT init succeeded but no accessible volume root\n" );
 	}
 
-	if( !GCube_MountDisc() )
-		Con_Reportf( S_WARN "Xash3D GameCube: DVD mount failed (skipping mount)\n" );
-	GC_RefreshBootSplash();
-	if( gc_dvd_mounted )
-		Con_Reportf( "GameCube DVD filesystem mounted (%s)\n", ISO9660_GetVolumeLabel( GC_DVD_DEVICE ) );
+	if( GCube_FatHasGameData() && !gc_dvd_mounted )
+		Con_Reportf( "Xash3D GameCube: game data on FAT, DVD not mounted\n" );
 	else
-		Con_Reportf( S_WARN "DVD filesystem init failed\n" );
+	{
+		if( !GCube_MountDisc() )
+			Con_Reportf( S_WARN "Xash3D GameCube: DVD mount failed (skipping mount)\n" );
+		GC_RefreshBootSplash();
+		if( gc_dvd_mounted )
+			Con_Reportf( "GameCube DVD filesystem mounted (%s)\n", ISO9660_GetVolumeLabel( GC_DVD_DEVICE ) );
+		else
+			Con_Reportf( S_WARN "DVD filesystem init failed\n" );
+	}
 
 	/* Check for writable storage before proceeding with layout setup */
 	if( !GCube_HasWritableStorage() )
@@ -661,7 +688,9 @@ void GCube_Init( void )
 	if( xashdir[0] && chdir( xashdir ) == 0 )
 	{
 		Con_Reportf( "GameCube data directory: %s\n", xashdir );
+		GC_MemWatch( "platform chdir" );
 		GCube_LoadDiscBootOverrides();
+		GC_MemWatch( "platform boot overrides" );
 	}
 	else if( xashdir[0] )
 	{
@@ -670,11 +699,14 @@ void GCube_Init( void )
 	}
 
 	setup_gamecube_dll_functions();
+	GC_MemWatch( "platform dll exports" );
 
 	/* Initialize performance profiling */
 	GC_PerfInit();
+	GC_MemWatch( "platform perf init" );
 	GC_WatchdogInit();
 	GC_PerfCmd_Init();
+	GC_MemWatch( "platform perf commands" );
 #endif
 }
 
@@ -753,6 +785,7 @@ static char gc_tas_name[32];
 static qboolean gc_smoke_map_configured;
 static qboolean gc_newgame_configured;
 static qboolean gc_menu_newgame_configured;
+static qboolean gc_retail_newgame_configured;
 static qboolean gc_phase_test_configured;
 static qboolean gc_changelevel_configured;
 static qboolean gc_landmark_configured;
@@ -788,6 +821,7 @@ static void GCube_EnsureFatMounted( void )
 	GCube_ProbeFatVolumes();
 #endif
 }
+static qboolean gc_memreport_configured;
 
 static void GCube_LoadDiscBootOverrides( void )
 {
@@ -799,6 +833,7 @@ static void GCube_LoadDiscBootOverrides( void )
 	gc_smoke_map_configured = false;
 	gc_newgame_configured = false;
 	gc_menu_newgame_configured = false;
+	gc_retail_newgame_configured = false;
 	gc_newsaveload_configured = false;
 	gc_configroundtrip_configured = false;
 	gc_saveinterrupt_configured = false;
@@ -815,6 +850,7 @@ static void GCube_LoadDiscBootOverrides( void )
 	gc_tas_configured = false;
 	gc_dumpframes_configured = false;
 	gc_swissquit_configured = false;
+	gc_memreport_configured = false;
 	gc_phase_test[0] = '\0';
 	gc_changelevel_map[0] = '\0';
 	gc_landmark_name[0] = '\0';
@@ -825,8 +861,11 @@ static void GCube_LoadDiscBootOverrides( void )
 	/* DVD is optional. Prefer FAT gamecube.cfg when a Swiss volume is ready so
 	 * an inserted disc cannot shadow sd:/ map/swissquit (HW evidence path).
 	 * Disc-only boots (no FAT) still use gcdisc:/valve/gamecube.cfg. */
-	(void)GCube_MountDisc();
 	GCube_EnsureFatMounted();
+	if( GCube_FatHasGameData() )
+		SYS_Report( "Xash3D GameCube: FAT has game data, skipping DVD mount\n" );
+	else
+		(void)GCube_MountDisc();
 
 	if( GCube_FatRootReady() )
 	{
@@ -858,6 +897,13 @@ static void GCube_LoadDiscBootOverrides( void )
 		if( cursor[0] == '#' || cursor[0] == '\0' || cursor[0] == '\r' || cursor[0] == '\n' )
 			continue;
 
+		if( !Q_strnicmp( cursor, "memreport", 9 ))
+		{
+			gc_memreport_configured = true;
+			SYS_Report( "Xash3D GameCube: disc boot override memreport\n" );
+			continue;
+		}
+
 		if( !Q_strnicmp( cursor, "newgame", 7 ))
 		{
 			char ch = cursor[7];
@@ -876,6 +922,19 @@ static void GCube_LoadDiscBootOverrides( void )
 			{
 				gc_menu_newgame_configured = true;
 				SYS_Report( "Xash3D GameCube: disc boot override menunewgame\n" );
+				continue;
+			}
+		}
+
+		/* HW: the menu New Game route (-gcmenuplaystart memory policy) with a
+		 * player at the pad. Unlike menunewgame, no synthetic probe input. */
+		if( !Q_strnicmp( cursor, "retailnewgame", 13 ))
+		{
+			char ch = cursor[13];
+			if( ch == '\0' || ch == '\r' || ch == '\n' || ch == ' ' || ch == '\t' )
+			{
+				gc_retail_newgame_configured = true;
+				SYS_Report( "Xash3D GameCube: disc boot override retailnewgame\n" );
 				continue;
 			}
 		}
@@ -1255,58 +1314,17 @@ int GCube_GetArgv( int in_argc, char **in_argv, char ***out_argv )
 {
 	int fake_argc = 0;
 	int i;
-	qboolean have_gcmap = false;
-	qboolean have_swissquit = false;
 
 	/* Always read gamecube.cfg (disc and/or FAT) before deciding argv. */
 	GCube_LoadDiscBootOverrides();
 
-	/* Swiss may pass argc>1 (DOL path + extras). Still inject smoke map /
-	 * swissquit from FAT cfg when the loader omitted them. */
+	/* Swiss can pass argc>1 (DOL path plus a .cli file's arguments). Those
+	 * used to replace the whole built argv, which dropped -game valve, the
+	 * 320x240 mode and every gamecube.cfg route flag. Build the normal argv
+	 * and append the loader's extras after it. */
 	if( in_argc > 1 && in_argv )
-	{
-		for( i = 1; i < in_argc; i++ )
-		{
-			if( !in_argv[i] )
-				continue;
-			if( !Q_stricmp( in_argv[i], "-gcmap" ))
-				have_gcmap = true;
-			if( !Q_stricmp( in_argv[i], "-gcswissquit" ))
-				have_swissquit = true;
-		}
-		if(( !have_gcmap && gc_smoke_map_configured )
-			|| ( !have_swissquit && gc_swissquit_configured ))
-		{
-			int need = in_argc;
-			if( !have_gcmap && gc_smoke_map_configured )
-				need += 2;
-			if( !have_swissquit && gc_swissquit_configured )
-				need += 1;
-			if( need < (int)( sizeof( gc_argv ) / sizeof( gc_argv[0] )))
-			{
-				for( i = 0; i < in_argc; i++ )
-					gc_argv[fake_argc++] = in_argv[i];
-				if( !have_gcmap && gc_smoke_map_configured )
-				{
-					gc_argv[fake_argc++] = "-gcmap";
-					gc_argv[fake_argc++] = gc_smoke_map;
-					SYS_Report( "Xash3D GameCube: merged FAT -gcmap %s onto loader argv\n",
-						gc_smoke_map );
-				}
-				if( !have_swissquit && gc_swissquit_configured )
-				{
-					gc_argv[fake_argc++] = "-gcswissquit";
-					SYS_Report( "Xash3D GameCube: merged FAT -gcswissquit onto loader argv\n" );
-				}
-				*out_argv = gc_argv;
-				return fake_argc;
-			}
-		}
-		SYS_Report( "Xash3D GameCube: using loader argv argc=%d argv0=%s\n",
+		SYS_Report( "Xash3D GameCube: using loader argv argc=%d argv0=%s (appending extras)\n",
 			in_argc, in_argv[0] ? in_argv[0] : "(null)" );
-		*out_argv = in_argv;
-		return in_argc;
-	}
 
 	if( in_argc == 1 && in_argv && in_argv[0] && in_argv[0][0] )
 		SYS_Report( "Xash3D GameCube: loader argv0=%s (building disc overrides)\n", in_argv[0] );
@@ -1382,11 +1400,32 @@ int GCube_GetArgv( int in_argc, char **in_argv, char ***out_argv )
 		gc_argv[fake_argc++] = "-gcdumpframes";
 	if( gc_swissquit_configured )
 		gc_argv[fake_argc++] = "-gcswissquit";
+	if( gc_retail_newgame_configured && !gc_menu_newgame_configured )
+	{
+		gc_argv[fake_argc++] = "-gcmenuplaystart";
+		gc_argv[fake_argc++] = "-gcplayerinput";
+	}
+	if( gc_memreport_configured )
+		gc_argv[fake_argc++] = "-gcmemreport";
 	gc_argv[fake_argc++] = "-width";
 	/* Tip-safe soft/internal FB. Flipper EFB/XFB stay native 640×480 via VI. */
 	gc_argv[fake_argc++] = "320";
 	gc_argv[fake_argc++] = "-height";
 	gc_argv[fake_argc++] = "240";
+
+	/* Loader extras go last. Sys_GetParmFromCmdLine takes the first match, so
+	 * a repeated flag cannot override gamecube.cfg; it only adds new ones. */
+	for( i = 1; in_argv && i < in_argc; i++ )
+	{
+		if( !in_argv[i] || !in_argv[i][0] )
+			continue;
+		if( fake_argc + 1 >= (int)( sizeof( gc_argv ) / sizeof( gc_argv[0] )))
+		{
+			SYS_Report( "Xash3D GameCube: loader argv truncated at %s\n", in_argv[i] );
+			break;
+		}
+		gc_argv[fake_argc++] = in_argv[i];
+	}
 
 	*out_argv = gc_argv;
 	return fake_argc;

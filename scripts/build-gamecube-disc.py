@@ -251,6 +251,51 @@ def build_apploader(
 	return result
 
 
+def write_bootstrap_pk3(data: Path, bootstrap: Path, recursive: bool = False) -> None:
+	"""Write gamecube-bootstrap.pk3 (small files plus GC studio/HUD/font/sky mirrors).
+
+	Shared by the disc image and the Swiss SD card stage so both routes boot
+	the same payload.
+	"""
+	with zipfile.ZipFile(bootstrap, "w", zipfile.ZIP_DEFLATED) as archive:
+		children = data.rglob("*") if recursive else data.iterdir()
+		for child in sorted(children):
+			suffix = child.suffix.lower()
+			# G346: smoke changelevel dests like c1a0.bsp are ~2.5 MiB. The
+			# old 2 MiB cap left them FST-only; when directory find flaps to
+			# pk3-only (c0a0e→c1a0 20260810-195734/195827) Host_Error misses
+			# the map. Allow BSPs up to 4 MiB in the bootstrap archive.
+			size_cap = 4 * 1024 * 1024 if suffix == ".bsp" else 2 * 1024 * 1024
+			if (
+				child.is_file()
+				and suffix not in BOOTSTRAP_EXCLUDED_EXTENSIONS
+				and child.stat().st_size <= size_cap
+			):
+				compress_type = (
+					zipfile.ZIP_STORED
+					if suffix in (".bsp", ".mdl")
+					else zipfile.ZIP_DEFLATED
+				)
+				archive.write(
+					child,
+					child.relative_to(data).as_posix(),
+					compress_type=compress_type,
+				)
+		studio_count = inject_gc_studio_into_bootstrap(archive, data)
+		if studio_count:
+			print(f"GameCube studio mirror: injected {studio_count} MDL(s) into bootstrap pk3")
+		hud_count = inject_gc_hud_into_bootstrap(archive, data)
+		if hud_count:
+			print(f"GameCube HUD mirror: injected {hud_count} sprite(s) into bootstrap pk3")
+		font_count = inject_gc_font_into_bootstrap(archive, data)
+		if font_count:
+			print(f"GameCube font mirror: injected {font_count} lean font(s) into bootstrap pk3")
+		sky_count = inject_gc_sky_into_bootstrap(archive, data)
+		if sky_count:
+			print(f"GameCube sky mirror: injected {sky_count} lean BMP(s) into bootstrap pk3")
+		# G293 disc inject deferred — ISO early-exit while debugging tip-safe path.
+
+
 def build_iso9660(
 	data: Path,
 	extras: Path | None,
@@ -276,43 +321,7 @@ def build_iso9660(
 	]
 	with tempfile.TemporaryDirectory(prefix="xash3d-gc-bootstrap-") as temp:
 		bootstrap = Path(temp) / "gamecube-bootstrap.pk3"
-		with zipfile.ZipFile(bootstrap, "w", zipfile.ZIP_DEFLATED) as archive:
-			children = data.rglob("*") if bootstrap_recursive else data.iterdir()
-			for child in sorted(children):
-				suffix = child.suffix.lower()
-				# G346: smoke changelevel dests like c1a0.bsp are ~2.5 MiB. The
-				# old 2 MiB cap left them FST-only; when directory find flaps to
-				# pk3-only (c0a0e→c1a0 20260810-195734/195827) Host_Error misses
-				# the map. Allow BSPs up to 4 MiB in the bootstrap archive.
-				size_cap = 4 * 1024 * 1024 if suffix == ".bsp" else 2 * 1024 * 1024
-				if (
-					child.is_file()
-					and suffix not in BOOTSTRAP_EXCLUDED_EXTENSIONS
-					and child.stat().st_size <= size_cap
-				):
-					compress_type = (
-						zipfile.ZIP_STORED
-						if suffix in (".bsp", ".mdl")
-						else zipfile.ZIP_DEFLATED
-					)
-					archive.write(
-						child,
-						child.relative_to(data).as_posix(),
-						compress_type=compress_type,
-					)
-			studio_count = inject_gc_studio_into_bootstrap(archive, data)
-			if studio_count:
-				print(f"GameCube studio mirror: injected {studio_count} MDL(s) into bootstrap pk3")
-			hud_count = inject_gc_hud_into_bootstrap(archive, data)
-			if hud_count:
-				print(f"GameCube HUD mirror: injected {hud_count} sprite(s) into bootstrap pk3")
-			font_count = inject_gc_font_into_bootstrap(archive, data)
-			if font_count:
-				print(f"GameCube font mirror: injected {font_count} lean font(s) into bootstrap pk3")
-			sky_count = inject_gc_sky_into_bootstrap(archive, data)
-			if sky_count:
-				print(f"GameCube sky mirror: injected {sky_count} lean BMP(s) into bootstrap pk3")
-			# G293 disc inject deferred — ISO early-exit while debugging tip-safe path.
+		write_bootstrap_pk3(data, bootstrap, bootstrap_recursive)
 
 		if extras is not None:
 			command.append(f"/xash3d/valve/extras.pk3={extras}")
@@ -2219,6 +2228,91 @@ def validate_smoke_assets(data_path: Path, smoke_map: str) -> list[str]:
 
 	return errors
 
+# Files the pre-2026-10 SD stager wrote that the engine would still mount
+# (every *.pk3 in valve/ is a search path; each costs FS pool memory on MEM1).
+LEGACY_SD_STAGE_PK3 = ("models.pk3", "sound.pk3", "materials.pk3", "maps.pk3", "scripts.pk3", "cfg.pk3")
+
+# Default gamecube.cfg for the Swiss SD route: the Dolphin-tested menu New
+# Game memory policy (-gcmenuplaystart) with the player's real controller.
+SD_DEFAULT_BOOT_CFG = ("retailnewgame",)
+
+
+def stage_sd_card(
+	source: Path,
+	card_root: Path,
+	dol: Path | None,
+	extras: Path | None,
+	*,
+	include_startup_vids: bool = True,
+	boot_cfg: tuple[str, ...] = SD_DEFAULT_BOOT_CFG,
+) -> Path:
+	"""Stage the retail disc payload onto a Swiss FAT volume (sd:/, carda:/, cardb:/).
+
+	The layout under <card>/xash3d/valve matches what build_disc() puts under
+	/xash3d/valve on the ISO that Dolphin probes boot, so the hardware SD route
+	runs the same files. Source files are never modified. Existing saves and a
+	player's config.cfg on the card are kept.
+	"""
+	valve = card_root / "xash3d" / "valve"
+	for sub in ("save", "logs", "screenshots"):
+		(valve / sub).mkdir(parents=True, exist_ok=True)
+
+	for name in LEGACY_SD_STAGE_PK3:
+		legacy = valve / name
+		if legacy.is_file():
+			legacy.unlink()
+			print(f"Removed legacy SD stage archive {legacy.relative_to(card_root)}")
+
+	player_config = (valve / "config.cfg").is_file()
+	_, skipped = stage_retail_data(source, valve)
+	if skipped:
+		print(
+			f"Retail staging: omitted {skipped} unsupported file(s) "
+			f"({', '.join(sorted(UNSUPPORTED_EXTENSIONS))})."
+		)
+	if not stage_gc_menu_assets(source, valve):
+		print("Warning: GameCube retail menu background bake failed.", file=sys.stderr)
+	if not stage_gc_loading_assets(source, valve):
+		print("Warning: GameCube loading plaque bake failed.", file=sys.stderr)
+
+	with tempfile.TemporaryDirectory(prefix="xash3d-gc-sd-overlay-") as temp:
+		overlays = create_startup_vids_overlay(
+			source, Path(temp) / "valve", include_startup_vids=include_startup_vids
+		)
+		for relative, overlay in overlays:
+			dest = valve / relative
+			# The disc ships an empty config.cfg. On SD a config.cfg that was
+			# already on the card holds the player's saved options; keep it.
+			if relative == "config.cfg" and player_config:
+				continue
+			dest.parent.mkdir(parents=True, exist_ok=True)
+			shutil.copy2(overlay, dest)
+
+	cfg = valve / "gamecube.cfg"
+	if boot_cfg:
+		cfg.write_text("\n".join(boot_cfg) + "\n", encoding="ascii")
+		print(f"Wrote {cfg.relative_to(card_root)}: {', '.join(boot_cfg)}")
+	elif cfg.is_file():
+		cfg.unlink()
+		print(f"Removed {cfg.relative_to(card_root)} (plain retail menu boot)")
+
+	# Same archive build_iso9660() grafts onto the disc (it skips *.pk3, so a
+	# re-stage does not pack the previous copy).
+	with tempfile.TemporaryDirectory(prefix="xash3d-gc-sd-bootstrap-") as temp:
+		bootstrap = Path(temp) / "gamecube-bootstrap.pk3"
+		write_bootstrap_pk3(valve, bootstrap)
+		shutil.copy2(bootstrap, valve / "gamecube-bootstrap.pk3")
+	if extras is not None:
+		shutil.copy2(extras, valve / "extras.pk3")
+
+	if dol is not None:
+		app = card_root / "apps" / "xash3d-gc"
+		app.mkdir(parents=True, exist_ok=True)
+		shutil.copy2(dol, app / "boot.dol")
+
+	return valve
+
+
 def main() -> None:
 	script_dir = Path(__file__).resolve().parent
 	parser = argparse.ArgumentParser(description=__doc__)
@@ -2420,6 +2514,8 @@ def main() -> None:
 				menu_lines = ["menunewgame"]
 				if args.probe_dumpframes:
 					menu_lines.append("dumpframes")
+				if os.environ.get("XASH_GC_PROBE_MEMREPORT") == "1":
+					menu_lines.append("memreport")
 				(smoke_data / "gamecube.cfg").write_text(
 					"\n".join(menu_lines) + "\n", encoding="ascii"
 				)
@@ -2504,6 +2600,8 @@ def main() -> None:
 				menu_lines = ["menunewgame"]
 				if args.probe_dumpframes:
 					menu_lines.append("dumpframes")
+				if os.environ.get("XASH_GC_PROBE_MEMREPORT") == "1":
+					menu_lines.append("memreport")
 				(staged_data / "gamecube.cfg").write_text(
 					"\n".join(menu_lines) + "\n", encoding="ascii"
 				)

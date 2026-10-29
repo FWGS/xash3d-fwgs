@@ -27,6 +27,8 @@ GNU General Public License for more details.
 
 #if XASH_GAMECUBE
 #include "gamecube/mem_gamecube.h"
+#include <ogc/system.h>
+extern int gc_menu_step_frames;
 extern qboolean UI_UsingBuiltInFallbackMenu( void );
 void UI_GameCubeLeaveMenuOnlyBootstrap( void );
 void GC_DrawLoadingStatus( const char *message, const char *details );
@@ -434,6 +436,15 @@ static void CL_CheckClientState( void )
 	if(( cls.state == ca_connected || cls.state == ca_validate ) && ( cls.signon == SIGNONS ))
 	{
 		cls.state = ca_active;
+#if XASH_GAMECUBE
+		if( Sys_CheckParm( "-gcmenuplaystart" ))
+		{
+			extern void R_GXArmBeginTrace( int count );
+
+			R_GXArmBeginTrace( 400 );
+			gc_menu_step_frames = 3;
+		}
+#endif
 		cls.changelevel = false;		// changelevel is done
 		cls.changedemo = false;		// changedemo is done
 		cl.first_frame = true;		// first rendering frame
@@ -3935,6 +3946,16 @@ Host_ClientFrame
 
 ==================
 */
+#if XASH_GAMECUBE
+/* Menu route: the guest froze silently in the first active frames. Name
+ * each client-frame step for a few frames after ca_active. */
+int gc_menu_step_frames;
+#define CL_GC_STEP( name ) \
+	do { if( gc_menu_step_frames > 0 ) SYS_Report( "Xash3D GameCube: STEP " name " left=%d\n", gc_menu_step_frames ); } while( 0 )
+#else
+#define CL_GC_STEP( name ) ((void)0)
+#endif
+
 void Host_ClientFrame( void )
 {
 #if XASH_GAMECUBE
@@ -4007,9 +4028,12 @@ void Host_ClientFrame( void )
 
 	// if running the server remotely, send intentions now after
 	// the incoming messages have been read
+	CL_GC_STEP( "client frame begin" );
 	if( !SV_Active( )) CL_SendCommand ();
 
+	CL_GC_STEP( "send command" );
 	clgame.dllFuncs.pfnFrame( host.frametime );
+	CL_GC_STEP( "client dll frame" );
 #if XASH_GAMECUBE
 	if( gc_fullphysics_trace ) Con_Reportf( "Xash3D GameCube: native client DLL frame ready\n" );
 #endif
@@ -4019,6 +4043,7 @@ void Host_ClientFrame( void )
 
 	// read updates from server
 	CL_ReadPackets ();
+	CL_GC_STEP( "read packets" );
 #if XASH_GAMECUBE
 	if( gc_fullphysics_trace ) Con_Reportf( "Xash3D GameCube: native client packets ready state=%d signon=%d\n", cls.state, cls.signon );
 #endif
@@ -4026,10 +4051,12 @@ void Host_ClientFrame( void )
 	/* Finalize ca_active after packets so New Game arm/presents happen in
 	 * Host_ClientFrame (before the next Host_ServerFrame can stall). */
 	CL_CheckClientState();
+	CL_GC_STEP( "check client state" );
 
 	// do prediction again in case we got
 	// a new portion updates from server
 	CL_RedoPrediction ();
+	CL_GC_STEP( "prediction" );
 #if XASH_GAMECUBE
 	if( gc_fullphysics_trace ) Con_Reportf( "Xash3D GameCube: native client prediction ready\n" );
 #endif
@@ -4041,7 +4068,9 @@ void Host_ClientFrame( void )
 #endif
 
 	// emit visible entities
+	CL_GC_STEP( "voice" );
 	CL_EmitEntities ();
+	CL_GC_STEP( "emit entities" );
 #if XASH_GAMECUBE
 	if( gc_fullphysics_trace ) Con_Reportf( "Xash3D GameCube: native client entities ready\n" );
 #endif
@@ -4063,6 +4092,7 @@ void Host_ClientFrame( void )
 	if( gc_fullphysics_trace ) Con_Reportf( "Xash3D GameCube: native client resources ready\n" );
 #endif
 
+	CL_GC_STEP( "resources" );
 	// handle thirdperson camera
 	CL_MoveThirdpersonCamera();
 
@@ -4072,8 +4102,10 @@ void Host_ClientFrame( void )
 	// catch changes video settings
 	VID_CheckChanges();
 
+	CL_GC_STEP( "video changes" );
 	// update the screen
 	SCR_UpdateScreen ();
+	CL_GC_STEP( "update screen" );
 #if XASH_GAMECUBE
 	if( gc_fullphysics_trace ) Con_Reportf( "Xash3D GameCube: native client screen ready\n" );
 #endif
@@ -4091,8 +4123,13 @@ void Host_ClientFrame( void )
 	// play avi-files
 	SCR_RunCinematic ();
 
+	CL_GC_STEP( "sound and cinematic" );
 	// adjust client time
 	CL_AdjustClock ();
+#if XASH_GAMECUBE
+	if( gc_menu_step_frames > 0 )
+		gc_menu_step_frames--;
+#endif
 }
 
 //============================================================================
