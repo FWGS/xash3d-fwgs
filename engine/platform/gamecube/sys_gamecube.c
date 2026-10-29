@@ -163,8 +163,12 @@ void Platform_Sleep( int msec )
 double Platform_DoubleTime( void )
 {
 #if XASH_GAMECUBE
+	/* gettime(), not gettick(): gettick() is the low 32 bits of the time
+	 * base and wraps every ~106 s, after which diff_ticks() underflowed and
+	 * every engine clock jumped to ~4.5e11 s ("level loaded at
+	 * 455475162209 sec", timeouts firing at once). */
 	static u64 start_ticks;
-	u64 now = gettick();
+	u64 now = gettime();
 
 	if( start_ticks == 0 ) {
 		start_ticks = now;
