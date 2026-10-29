@@ -641,6 +641,11 @@ searchpath_t *FS_AddWad_Fullpath( const char *wadfile, int flags )
 	search->pfnFindFile = FS_FindFile_WAD;
 	search->pfnSearch = FS_Search_WAD;
 	search->pfnLoadFile = W_ReadLump;
+	#if XASH_GAMECUBE
+	/* A texture may be probed before WAD mounting completes.  Do not let the
+	 * early negative result hide a valid lump once this archive is attached. */
+	FS_ClearFindMissCache();
+	#endif
 
 	Con_Reportf( "Adding WAD: %s (%i files)\n", wadfile, wad->numlumps );
 	return search;

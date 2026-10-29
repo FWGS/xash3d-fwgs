@@ -213,7 +213,15 @@ void Mod_LoadSpriteModel( model_t *mod, void *buffer, size_t buffersize, qboolea
 	mod->type = mod_sprite;
 	char poolname[MAX_VA_STRING];
 	Q_snprintf( poolname, sizeof( poolname ), "^2%s^7", mod->name );
-	mod->mempool = Mem_AllocPool( poolname );
+#if XASH_GAMECUBE
+	/* Fullphysics c0a0 can exhaust the indexed pool table while retaining many
+	 * retail HUD sprites. Share the long-lived host pool for these assets; the
+	 * model unload path deliberately leaves this owner pool intact. */
+	if( Sys_CheckParm( "-gcfullphysics" ))
+		mod->mempool = host.mempool;
+	else
+#endif
+		mod->mempool = Mem_AllocPool( poolname );
 
 	if( version == SPRITE_VERSION_Q1 || version == SPRITE_VERSION_32 )
 	{

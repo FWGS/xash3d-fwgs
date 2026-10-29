@@ -70,13 +70,18 @@ if [[ -n "${SWISS_FLASH_DEVICE:-}" ]]; then
 fi
 
 is_skipped() {
-	local name="$1" m src
-	case " $SKIP_NAMES " in
-		*" $name "*)
+	local name="$1" original_name="$1" skip_name m src
+	# Mount labels are case-preserving but the configured host-volume exclusion
+	# list is not.  Fold both sides so an unrelated removable drive cannot be
+	# auto-staged merely because its desktop label differs in case.
+	skip_name="${name,,}"
+	case " ${SKIP_NAMES,,} " in
+		*" $skip_name "*)
 			# Smoke-image FAT labels: skip loop verify mounts only — a real
 			# dd'd Swiss card remounts with the same label and must be accepted.
+			name="${name^^}"
 			if [[ "$name" == "XASH3DGC" || "$name" == "XASHSMOKE" ]]; then
-				m="/run/media/tim/$name"
+				m="/run/media/tim/$original_name"
 				src="$(findmnt -n -o SOURCE --target "$m" 2>/dev/null || true)"
 				case "$src" in
 					/dev/loop*|loop\[*\]|*"["loop*) return 0 ;;

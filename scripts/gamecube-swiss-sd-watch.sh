@@ -22,13 +22,18 @@ staged_ok=0
 waiting_notify=0
 
 is_skipped() {
-	local name="$1" m src
-	case " $SKIP_NAMES " in
-		*" $name "*)
+	local name="$1" original_name="$1" skip_name m src
+	# Desktop mount labels are user-controlled (for example EXTRA vs Extra).
+	# Treat configured host-volume exclusions case-insensitively so a renamed
+	# unrelated USB disk can never become an automatic staging target.
+	skip_name="${name,,}"
+	case " ${SKIP_NAMES,,} " in
+		*" $skip_name "*)
 			# Smoke-image FAT labels: skip loop verify mounts only, not a real
 			# dd'd card that remounts as XASH3DGC/XASHSMOKE.
+			name="${name^^}"
 			if [[ "$name" == "XASH3DGC" || "$name" == "XASHSMOKE" ]]; then
-				m="/run/media/tim/$name"
+				m="/run/media/tim/$original_name"
 				src="$(findmnt -n -o SOURCE --target "$m" 2>/dev/null || true)"
 				case "$src" in
 					/dev/loop*|loop\[*\]|*"["loop*) return 0 ;;

@@ -1445,21 +1445,26 @@ void Mod_LoadStudioModel( model_t *mod, void *buffer, size_t buffersize, qboolea
 					ref.dllFuncs.Mod_StudioLoadTextures( mod, thdr );
 					textures_loaded = true;
 
-					Image_GCPurgeDecodeScratch();
-					mod->cache.data = calloc( 1, merged );
+					/* The source mesh is already in the static arena on the
+					 * GameCube route.  Extend that slice before considering calloc:
+					 * calling the fragmented runtime heap here was the post-present
+					 * `_malloc_r` DSI path on scientist/Barney/headcrab promotion. */
+					if( Mod_GCIsStudioBssCache( buffer ))
+					{
+						byte *slot = Mod_GCStudioBssGrowLast( buffer, mesh, merged );
+
+						if( slot )
+							mod->cache.data = slot;
+					}
 					if( !mod->cache.data )
 					{
 						Image_GCPurgeDecodeScratch();
 						mod->cache.data = calloc( 1, merged );
-					}
-					if( !mod->cache.data && Mod_GCIsStudioBssCache( buffer ))
-					{
-						byte *slot = Mod_GCStudioBssGrowLast( buffer, mesh, merged );
-
-						if( !slot )
-							slot = Mod_GCStudioBssAlloc( merged );
-						if( slot )
-							mod->cache.data = slot;
+						if( !mod->cache.data )
+						{
+							Image_GCPurgeDecodeScratch();
+							mod->cache.data = calloc( 1, merged );
+						}
 					}
 					if( mod->cache.data )
 					{

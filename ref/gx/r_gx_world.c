@@ -1622,12 +1622,24 @@ static int R_GXEmitFace( const msurface_t *surf, model_t *world, int slot )
 	}
 	if( nverts < 3 )
 	{
+		static int gx_live_emit_guard_reports;
+
 		if( !world->vertexes || !world->surfedges )
+		{
+			if( slot == -1 && gx_live_emit_guard_reports++ < 3 )
+				gEngfuncs.Con_Reportf( "Xash3D GameCube: live BSP emit missing verts=%p surfedges=%p\n",
+					world->vertexes, world->surfedges );
 			return 0;
+		}
 		if( surf->numedges < 3 || surf->numedges > 32 )
 			return 0;
 		if( !world->edges16 && !world->edges32 )
+		{
+			if( slot == -1 && gx_live_emit_guard_reports++ < 3 )
+				gEngfuncs.Con_Reportf( "Xash3D GameCube: live BSP emit missing edges16=%p edges32=%p\n",
+					world->edges16, world->edges32 );
 			return 0;
+		}
 
 		pverts = world->vertexes;
 		nverts = 0;
@@ -1636,18 +1648,20 @@ static int R_GXEmitFace( const msurface_t *surf, model_t *world, int slot )
 			int lindex = world->surfedges[surf->firstedge + i];
 			int v;
 
-			if( world->edges32 )
-			{
-				medge32_t *e = ( lindex > 0 ) ? &world->edges32[lindex] : &world->edges32[-lindex];
-				v = ( lindex > 0 ) ? e->v[0] : e->v[1];
-			}
-			else
+			/* Retail HL1 BSPs use the 16-bit edge representation.  `edges16`
+			 * and `edges32` are a union, so a non-NULL `edges32` cannot be used
+			 * as a format test here. */
 			{
 				medge16_t *e = ( lindex > 0 ) ? &world->edges16[lindex] : &world->edges16[-lindex];
 				v = ( lindex > 0 ) ? e->v[0] : e->v[1];
 			}
 			if( v < 0 || v >= world->numvertexes )
+			{
+				if( slot == -1 && gx_live_emit_guard_reports++ < 3 )
+					gEngfuncs.Con_Reportf( "Xash3D GameCube: live BSP emit bad vertex=%d max=%d edge=%d\n",
+						v, world->numvertexes, lindex );
 				return 0;
+			}
 			VectorCopy( pverts[v].position, pts[nverts] );
 			nverts++;
 		}
@@ -2652,7 +2666,11 @@ int R_GXDrawNewGameCapFaces( void )
 	/* Stamp marksurfaces only when leaf→surface links are still valid.
 	 * After G132 scratch reuse on New Game / menu New Game, MarkLeaves already
 	 * full-stamped surf->visframe; walking dangling firstmarksurface hangs. */
-	if( !( newgame_probe && GC_UseLowResWorldProbe() ))
+	/* Low-res probe mode normally avoids touching retained scratch links.
+	 * When menu New Game has deliberately retained the complete map-load arena,
+	 * those links are live and the full BSP pass needs their visframe stamps. */
+	if( !( newgame_probe && GC_UseLowResWorldProbe() )
+		|| ( surfaces_pinned && !scratch_retained ))
 		R_GXMarkVisibleSurfaces( world );
 
 	draw = GC_GetNewGameDrawSurfs();
@@ -2792,6 +2810,15 @@ int R_GXDrawNewGameCapFaces( void )
 					"Xash3D GameCube: G213 live BSP Flipper opaque=%d (surfaces pinned)\n",
 					drawn );
 			}
+		}
+		/* The menu route retained the complete BSP source and successfully
+		 * emitted its live PVS surfaces.  CapFaces/fill are the degraded
+		 * scratch-reuse fallback; layering them over real geometry creates the
+		 * synthetic tram corridor and must not be used on this path. */
+		if( surfaces_pinned && !scratch_retained && drawn > 0 )
+		{
+			GC_NoteCapFacesDrawn( drawn );
+			return drawn;
 		}
 		/* Also emit near-eye cap faces with LM atlas for readable walls.
 		 * G231: LM/live write Z first — flat-fill after so gray only plugs holes. */

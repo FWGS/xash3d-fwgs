@@ -462,7 +462,19 @@ static void Image_ConvertPalTo24bit( rgbdata_t *pic )
 void Image_CopyPalette32bit( void )
 {
 	if( image.palette ) return; // already created ?
-	image.palette = Mem_Malloc( host.imagepool, 1024 );
+	image.palette = Mem_TryMalloc( host.imagepool, 1024 );
+#if XASH_GAMECUBE
+	if( !image.palette )
+	{
+		/* Palette setup is a tiny long-lived asset. Under MEM1 pressure the
+		 * ImageLib pool may fail on its header even when libc can provide the
+		 * 1 KiB payload; keep the retail path alive and report the fallback. */
+		image.palette = malloc( 1024 );
+		if( image.palette )
+			Con_Reportf( "Xash3D GameCube: image palette libc fallback\n" );
+	}
+#endif
+	if( !image.palette ) return;
 	memcpy( image.palette, image.d_currentpal, 1024 );
 }
 

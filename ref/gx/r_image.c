@@ -15,11 +15,41 @@ GNU General Public License for more details.
 
 #include "r_local.h"
 
+#if XASH_GAMECUBE
+void Image_GCPurgeDecodeScratch( void );
+
+#endif
+
 #define TEXTURES_HASH_SIZE ( MAX_TEXTURES >> 2 )
 
 static image_t r_images[MAX_TEXTURES];
 static image_t *r_imagesHashTable[TEXTURES_HASH_SIZE];
 static uint    r_numImages;
+
+#if XASH_GAMECUBE
+void R_GCTrimTextureMips( void )
+{
+	int i, trimmed = 0;
+	for( i = 0; i < (int)r_numImages; i++ )
+	{
+		image_t *image = &r_images[i];
+		int level;
+		if( !image->pixels[0] ) continue;
+		for( level = 1; level < 4; level++ )
+		{
+			if( image->pixels[level] )
+			{
+				Mem_Free( image->pixels[level] );
+				image->pixels[level] = NULL;
+				trimmed++;
+			}
+		}
+		image->numMips = 1;
+	}
+	if( trimmed )
+		gEngfuncs.Con_Reportf( "Xash3D GameCube: trimmed %d resident texture mips under MEM1 pressure\n", trimmed );
+}
+#endif
 
 #if XASH_GAMECUBE
 static qboolean GC_IsFullRes2DImage( const image_t *tex )
@@ -350,6 +380,16 @@ static qboolean GL_UploadTexture( image_t *tex, rgbdata_t *pic )
 		// it seems to assume memory readable. maybe it was pointed to WAD?
 #if XASH_GAMECUBE
 		tex->pixels[j] = (pixel_t *)Mem_TryCalloc( r_temppool, width * height * sizeof( pixel_t ));
+		/* Decode scratch is transient and may be the last reclaimable MEM1
+		 * block when late studio/WAD textures arrive.  Purge it before
+		 * declaring a real texture allocation failure; this preserves the
+		 * retail texture instead of silently substituting a fallback. */
+		if( !tex->pixels[j] )
+		{
+			Image_GCPurgeDecodeScratch();
+			R_GCTrimTextureMips();
+			tex->pixels[j] = (pixel_t *)Mem_TryCalloc( r_temppool, width * height * sizeof( pixel_t ));
+		}
 #else
 		tex->pixels[j] = (pixel_t *)Mem_Calloc( r_temppool, width * height * sizeof( pixel_t ));
 #endif
@@ -357,7 +397,8 @@ static qboolean GL_UploadTexture( image_t *tex, rgbdata_t *pic )
 		// guard against OOM in low-memory mode
 		if( !tex->pixels[j] )
 		{
-			gEngfuncs.Con_Reportf( S_ERROR "%s: OOM allocating %ux%ux%u pixels, truncating mips at %u\n", __func__, width, height, tex->depth, j );
+			gEngfuncs.Con_Reportf( S_ERROR "%s: OOM allocating %ux%ux%u pixels for %s, truncating mips at %u\n",
+				__func__, width, height, tex->depth, tex->name, j );
 			if( tex->alpha_pixels )
 			{
 				Mem_Free( tex->alpha_pixels );
@@ -368,10 +409,30 @@ static qboolean GL_UploadTexture( image_t *tex, rgbdata_t *pic )
 			tex->numMips = j;
 			if( tex->numMips == 0 )
 			{
-				gEngfuncs.Con_Reportf( S_WARN "%s: skipping texture %s (OOM on first mip)\n", __func__, tex->name );
-				return false;
+				/* Preserve a renderable identity under severe MEM1 pressure:
+				 * collapse the texture to a 2x2 resident fallback instead of
+				 * dropping it entirely.  The source's first texel is replicated;
+				 * higher-quality promotion remains a later streaming opportunity. */
+				tex->width = width = 2;
+				tex->height = height = 2;
+				activeMips = 1;
+				tex->pixels[0] = (pixel_t *)Mem_TryCalloc( r_temppool, 4 * sizeof( pixel_t ));
+				if( !tex->pixels[0] )
+				{
+					gEngfuncs.Con_Reportf( S_WARN "%s: skipping texture %s (fallback mip OOM)\n", __func__, tex->name );
+					return false;
+				}
+				for( uint fallback = 0; fallback < 4; fallback++ )
+					tex->pixels[0][fallback] = (pixel_t)( buf[0] << 8 | buf[1] );
+				gEngfuncs.Con_Reportf( S_WARN "%s: %s using 2x2 fallback mip\n", __func__, tex->name );
 			}
-			gEngfuncs.Con_Reportf( S_WARN "%s: %s using %u mips after OOM\n", __func__, tex->name, tex->numMips );
+			if( tex->numMips )
+				gEngfuncs.Con_Reportf( S_WARN "%s: %s using %u mips after OOM\n", __func__, tex->name, tex->numMips );
+			if( tex->numMips == 0 )
+			{
+				tex->numMips = 1;
+				tex->size = 4 * sizeof( pixel_t );
+			}
 			return true;
 #else
 			return false;
@@ -390,6 +451,11 @@ static qboolean GL_UploadTexture( image_t *tex, rgbdata_t *pic )
 		{
 #if XASH_GAMECUBE
 			tex->alpha_pixels = (pixel_t *)Mem_TryCalloc( r_temppool, width * height * sizeof( pixel_t ));
+			if( !tex->alpha_pixels )
+			{
+				Image_GCPurgeDecodeScratch();
+				tex->alpha_pixels = (pixel_t *)Mem_TryCalloc( r_temppool, width * height * sizeof( pixel_t ));
+			}
 #else
 			tex->alpha_pixels = (pixel_t *)Mem_Calloc( r_temppool, width * height * sizeof( pixel_t ));
 #endif

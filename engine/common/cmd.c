@@ -577,7 +577,24 @@ void Cmd_TokenizeString( const char *text )
 
 	// clear the args from the last string
 	for( int i = 0; i < cmd_argc; i++ )
+	{
+	#if XASH_GAMECUBE
+		/* Local server/client handoff can invalidate the shared token context
+		 * before the next command begins.  Never pass an already-released
+		 * slot to the small-block allocator; tokenization immediately replaces
+		 * it, and clearing it here keeps a nested pass from seeing stale text. */
+		if( cmd_argv[i] && !Mem_IsAllocatedExt( cmd_pool, cmd_argv[i] ))
+		{
+			Con_Reportf( "Xash3D GameCube: dropped stale command token slot=%d\n", i );
+			cmd_argv[i] = NULL;
+			continue;
+		}
+	#endif
 		Mem_Free( cmd_argv[i] );
+		/* Command dispatch can re-enter tokenization on the GameCube local
+		 * route. Do not leave a freed pool string reachable by the nested pass. */
+		cmd_argv[i] = NULL;
+	}
 
 	cmd_argc = 0; // clear previous args
 	cmd_args = NULL;

@@ -1016,6 +1016,10 @@ void SV_RunCmd( sv_client_t *cl, usercmd_t *ucmd, int random_seed )
 			ucmd->forwardmove, ucmd->sidemove, ucmd->upmove );
 	if( Sys_CheckParm( "-gcfullphysics" ) && ( ucmd->buttons & IN_ATTACK ))
 	{
+		/* Ensure the retail crowbar inventory is deployed before the first
+		 * injected attack; c0a0 can reach PMove before the deferred weapon
+		 * readiness hook otherwise. */
+		GC_LeanEnsureWeaponCombatReady( clent );
 		static qboolean gc_g120_attack_logged;
 
 		if( !gc_g120_attack_logged && clent->pvPrivateData )

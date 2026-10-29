@@ -1816,6 +1816,8 @@ static qboolean SV_IsNewGameInteractClass( const char *classname )
 		return true;
 	if( !Q_stricmp( classname, "trigger_once" ) || !Q_stricmp( classname, "trigger_multiple" ))
 		return true;
+	if( !Q_stricmp( classname, "trigger_changelevel" ))
+		return true;
 	if( !Q_stricmp( classname, "func_rot_button" ))
 		return true;
 	return false;

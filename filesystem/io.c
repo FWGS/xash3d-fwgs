@@ -783,7 +783,6 @@ static byte *FS_LoadFile_( const char *path, fs_offset_t *filesizeptr, const qbo
 	// some mappers used leading '/' or '\' in path to models or sounds
 	if( path[0] == '/' || path[0] == '\\' )
 		path++;
-
 	if( path[0] == '/' || path[0] == '\\' )
 		path++;
 

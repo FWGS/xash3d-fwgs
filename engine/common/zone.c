@@ -19,6 +19,8 @@ GNU General Public License for more details.
 #include "common.h"
 #if XASH_GAMECUBE
 #include "gamecube/mem_gamecube.h"
+void R_GCTrimTextureMips( void );
+void Image_GCPurgeDecodeScratch( void );
 #define Mem_ReportOOM( pool, sz ) GC_MemFail( (pool)->name, (sz), filename, fileline )
 #else
 #define Mem_ReportOOM( pool, sz ) ((void)0)
@@ -29,6 +31,10 @@ GNU General Public License for more details.
 #define MEMHEADER_SENTINEL2      0xDFU
 
 #define MEM_SMALL_MAX UINT8_MAX
+#if XASH_GAMECUBE
+#define GC_FS_ARENA_SIZE (512u * 1024u)
+#define GC_FS_ARENA_MIN (2u * 1024u)
+#endif
 
 #ifdef XASH_CUSTOM_SWAP
 #include "platform/swap/swap.h"
@@ -99,10 +105,24 @@ typedef struct mempool_s
 	int                fileline;
 	uint               flags;         // MEM_SMALL_ALLOC_OPT, etc.
 	char               name[64];      // name of the pool
+#if XASH_GAMECUBE
+	byte               *gc_arena;
+	size_t              gc_arena_size;
+	size_t              gc_arena_offset;
+#endif
 } mempool_t;
 
 static mempool_t *poolchain = NULL; // critical stuff
 static size_t poolcount = 0;
+#if XASH_GAMECUBE
+/* MEM1 can have enough aggregate free space for the small pool table growth
+ * but no contiguous block for realloc(). Keep a bounded table reserve so
+ * creating late sprite/model pools does not become a false OOM. Handles are
+ * indices, so relocating the table is safe after copying live entries. */
+#define GC_POOLCHAIN_RESERVE 512
+static mempool_t gc_poolchain_reserve[GC_POOLCHAIN_RESERVE];
+static qboolean gc_poolchain_static;
+#endif
 
 #if XASH_GAMECUBE
 void GC_MemReportPoolPressure( const char *subsystem, size_t requested )
@@ -208,6 +228,18 @@ static inline void Mem_PoolSubtract( mempool_t *pool, size_t paysize, size_t blo
 	pool->totalsize -= paysize;
 	pool->realsize -= blocksize;
 }
+
+#if XASH_GAMECUBE
+static qboolean Mem_IsArenaBlock( const mempool_t *pool, const void *ptr )
+{
+	uintptr_t p;
+	if( !pool || !pool->gc_arena || !ptr )
+		return false;
+	p = (uintptr_t)ptr;
+	return p >= (uintptr_t)pool->gc_arena
+		&& p < (uintptr_t)( pool->gc_arena + pool->gc_arena_size );
+}
+#endif
 
 static inline void Mem_PoolLinkAllocBig( mempool_t *pool, memheader_t *mem )
 {
@@ -341,7 +373,22 @@ void *_Mem_TryAlloc( poolhandle_t poolptr, size_t size, qboolean clear, const ch
 
 	{
 		size_t blocksize = sizeof( memheader_t ) + size + sizeof( byte );
-		memheader_t *mem = Q_malloc( blocksize );
+		memheader_t *mem = NULL;
+
+#if XASH_GAMECUBE
+		if( !Q_stricmp( pool->name, "FileSystem Pool" ) && pool->gc_arena
+			&& size >= GC_FS_ARENA_MIN )
+		{
+			size_t aligned = ( pool->gc_arena_offset + 31u ) & ~31u;
+			if( aligned <= pool->gc_arena_size && blocksize <= pool->gc_arena_size - aligned )
+			{
+				mem = (memheader_t *)( pool->gc_arena + aligned );
+				pool->gc_arena_offset = aligned + blocksize;
+			}
+		}
+#endif
+		if( !mem )
+			mem = Q_malloc( blocksize );
 
 		if( mem == NULL )
 			return NULL;
@@ -380,6 +427,18 @@ void *_Mem_Alloc( poolhandle_t poolptr, size_t size, qboolean clear, const char 
 		 * callers already treat NULL as missing content. Fatals here abort G36. */
 		if( pool && !Q_stricmp( pool->name, "FileSystem Pool" ))
 		{
+			/* Decode scratch is a short-lived MEM1 allocation that can sit
+			 * between otherwise reusable blocks.  Drop it before trimming the
+			 * resident mip tiers so the retry gets the allocator's best
+			 * contiguous view of the heap. */
+			Image_GCPurgeDecodeScratch();
+			/* The GX texture cache owns reclaimable mip tiers.  Reclaim them
+			 * before soft-failing a late retail file allocation, then retry the
+			 * exact request without changing payload or ownership semantics. */
+			R_GCTrimTextureMips();
+			ptr = _Mem_TryAlloc( poolptr, size, clear, filename, fileline );
+			if( ptr )
+				return ptr;
 			Con_Reportf( "Xash3D GameCube: soft-fail FS alloc size=%s at %s:%i\n",
 				Q_memprint( size ), filename, fileline );
 			return NULL;
@@ -455,7 +514,10 @@ static void Mem_FreeBlockBig( memheader_t *mem, const char *filename, int fileli
 	Mem_PoolSubtract( pool, mem->size, sizeof( memheader_t ) + mem->size + sizeof( byte ));
 	Mem_PoolUnlinkAllocBig( pool, mem );
 
-	Q_free( mem );
+#if XASH_GAMECUBE
+	if( !Mem_IsArenaBlock( pool, mem ))
+#endif
+		Q_free( mem );
 }
 
 static void Mem_FreeBlockSmall( memheader_small_t *mem, const char *filename, int fileline )
@@ -617,6 +679,19 @@ void *_Mem_Realloc( poolhandle_t poolptr, void *data, size_t size, qboolean clea
 		size_t oldsize = mem->size;
 		if( size == oldsize )
 			return data;
+		#if XASH_GAMECUBE
+		if( Mem_IsArenaBlock( pool, mem ))
+		{
+			void *newdata = _Mem_Alloc( poolptr, size, false, filename, fileline );
+			if( !newdata )
+				return NULL;
+			memcpy( newdata, data, Q_min( oldsize, size ));
+			if( clear && size > oldsize )
+				memset((byte *)newdata + oldsize, 0, size - oldsize );
+			Mem_FreeBlockBig( mem, filename, fileline );
+			return newdata;
+		}
+		#endif
 
 		uintptr_t oldmem = (uintptr_t)mem;
 		mem = Q_realloc( mem, sizeof( memheader_t ) + size + sizeof( byte ));
@@ -667,6 +742,18 @@ static poolhandle_t Mem_InitPool( mempool_t *pool, const char *name, unsigned in
 	pool->flags = flags;
 	pool->realsize = sizeof( mempool_t );
 	Q_strncpy( pool->name, name, sizeof( pool->name ));
+#if XASH_GAMECUBE
+	if( !Q_stricmp( name, "FileSystem Pool" ))
+	{
+		pool->gc_arena = Q_malloc( GC_FS_ARENA_SIZE );
+		if( pool->gc_arena )
+		{
+			pool->gc_arena_size = GC_FS_ARENA_SIZE;
+			Con_Reportf( "Xash3D GameCube: filesystem arena ready size=%s\n",
+				Q_memprint( pool->gc_arena_size ));
+		}
+	}
+#endif
 
 	return Mem_PoolIndex( pool );
 }
@@ -683,6 +770,16 @@ poolhandle_t _Mem_AllocPool( const char *name, unsigned int flags, const char *f
 	if( pool == NULL )
 	{
 #if XASH_GAMECUBE
+		if( !gc_poolchain_static && poolcount < GC_POOLCHAIN_RESERVE )
+		{
+			memcpy( gc_poolchain_reserve, poolchain,
+				sizeof( *poolchain ) * poolcount );
+			Q_free( poolchain );
+			poolchain = gc_poolchain_reserve;
+			gc_poolchain_static = true;
+			pool = &poolchain[poolcount++];
+			return Mem_InitPool( pool, name, flags, filename, fileline );
+		}
 		GC_MemFail( name, sizeof( *poolchain ), filename, fileline );
 #endif
 		Sys_Error( "%s: out of memory (allocpool at %s:%i)\n", __func__, filename, fileline );
@@ -711,6 +808,10 @@ void _Mem_EmptyPool( poolhandle_t poolptr, const char *filename, int fileline )
 
 	while( pool->chain_small )
 		Mem_FreeBlockSmall( pool->chain_small, filename, fileline );
+#if XASH_GAMECUBE
+	if( pool->gc_arena )
+		pool->gc_arena_offset = 0;
+#endif
 }
 
 void _Mem_FreePool( poolhandle_t *poolptr, const char *filename, int fileline )
@@ -731,6 +832,10 @@ void _Mem_FreePool( poolhandle_t *poolptr, const char *filename, int fileline )
 
 	_Mem_EmptyPool( *poolptr, filename, fileline );
 
+#if XASH_GAMECUBE
+	if( pool->gc_arena )
+		Q_free( pool->gc_arena );
+#endif
 	memset( pool, 0xBF, sizeof( mempool_t ));
 	pool->chain = NULL;
 	pool->chain_small = NULL;
@@ -903,9 +1008,12 @@ Memory_Init
 */
 void Memory_Init( void )
 {
-	if( poolchain )
+	if( poolchain && !gc_poolchain_static )
 		Q_free( poolchain );
 
 	poolchain = NULL;
 	poolcount = 0;
+#if XASH_GAMECUBE
+	gc_poolchain_static = false;
+#endif
 }

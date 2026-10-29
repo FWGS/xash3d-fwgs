@@ -74,13 +74,30 @@ if [[ -n "$LATEST_FRAME" ]]; then
 	cp -f "$LATEST_FRAME" "$SCREENSHOT"
 	echo "Saved Dolphin frame screenshot: $SCREENSHOT"
 elif [[ -n "$LATEST_TGA" ]]; then
-	SCREENSHOT_PATH="$SCREENSHOT" TGA_PATH="$LATEST_TGA" python3 - <<'PY'
+	# Dolphin can leave its newest asynchronous TGA write incomplete when the
+	# bounded probe shuts down.  Walk backwards and retain the newest complete
+	# guest frame; do not silently substitute the baked preview for runtime
+	# evidence.
+	VALID_TGA=""
+	while IFS= read -r candidate; do
+		if SCREENSHOT_PATH="$SCREENSHOT" TGA_PATH="$candidate" python3 - <<'PY'
 from PIL import Image
 import os
 
-Image.open(os.environ["TGA_PATH"]).save(os.environ["SCREENSHOT_PATH"])
+image = Image.open(os.environ["TGA_PATH"])
+image.load()
+image.save(os.environ["SCREENSHOT_PATH"])
 PY
-	echo "Converted Dolphin TGA frame: $SCREENSHOT"
+		then
+			VALID_TGA="$candidate"
+			break
+		fi
+	done < <(find "$FRAME_ROOT" -type f -name '*.tga' -printf '%T@ %p\n' 2>/dev/null | sort -rn | cut -d' ' -f2-)
+	if [[ -z "$VALID_TGA" ]]; then
+		echo "FAIL: Dolphin dumped TGAs but none was complete" >&2
+		exit 1
+	fi
+	echo "Converted complete Dolphin TGA frame: $SCREENSHOT ($VALID_TGA)"
 elif [[ -f "$OUT_DIR/gc-main-menu.png" ]]; then
 	cp -f "$OUT_DIR/gc-main-menu.png" "$SCREENSHOT"
 	echo "Saved baked menu preview screenshot: $SCREENSHOT"

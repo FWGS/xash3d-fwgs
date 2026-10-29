@@ -2813,6 +2813,13 @@ void GC_LeanEnsureWeaponCombatReady( edict_t *player )
 
 	ppriv = (byte *)player->pvPrivateData;
 	wpriv = *(byte **)( ppriv + GC_HL_PLAYER_ACTIVE_OFF );
+	if( !wpriv && Sys_CheckParm( "-gcfullphysics" ))
+	{
+		/* Fullphysics can bypass the lean ClientPutInServer grant. Seed the
+		 * retail crowbar before the first injected attack. */
+		if( GC_LeanGiveWeaponsFromBits( player, ( 1 << 1 )) > 0 )
+			wpriv = *(byte **)( ppriv + GC_HL_PLAYER_ACTIVE_OFF );
+	}
 	if( !wpriv )
 	{
 		Con_Reportf( S_WARN "Xash3D GameCube: G120 weapon ready skipped (no active item)\n" );

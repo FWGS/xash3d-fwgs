@@ -51,6 +51,19 @@ static void *gc_surfaces_malloc_block;
 static void *gc_texinfo_malloc_block;
 static void *gc_nodes_malloc_block;
 static void *gc_clipnodes_malloc_block;
+static qboolean gc_clipnodes_pool_block;
+#if XASH_GAMECUBE
+/* c0a0 has 7,568 compact nodes.  Keep a bounded normalized fallback outside
+ * fragmented MEM1 heaps; larger maps continue to require a real allocation. */
+#define GC_STATIC_CLIPNODE_CAPACITY 16384
+static mclipnode16_t gc_static_clipnodes[GC_STATIC_CLIPNODE_CAPACITY]
+	__attribute__((aligned( 32 )));
+/* Hull 0 is a separate normalized node table; keep a second bounded reserve
+ * so large retail BSPs can finish world setup when MEM1 is fragmented. */
+static mclipnode16_t gc_static_hull0[GC_STATIC_CLIPNODE_CAPACITY]
+	__attribute__((aligned( 32 )));
+static qboolean gc_clipnodes_static_block;
+#endif
 static void *gc_planes_malloc_block;
 static qboolean gc_planes_arena_tail;
 static qboolean gc_retain_bsp_source_buffer;
@@ -2346,6 +2359,7 @@ static void Mod_MakeHull0( model_t *mod, const dbspmodel_t *bmod )
 	{
 		mclipnode16_t *out = NULL;
 		mnode_t *in = mod->nodes;
+		const size_t hull0_bytes = mod->numnodes * sizeof( *hull->clipnodes16 );
 
 #if XASH_GAMECUBE
 		/* Native physics and game-DLL traces need hull 0 after rendering has
@@ -2354,7 +2368,6 @@ static void Mod_MakeHull0( model_t *mod, const dbspmodel_t *bmod )
 			&& bmod->isworld && gc_retain_bsp_source_buffer
 			&& gc_bsp_scratch_base && gc_bsp_scratch_size && mod->numnodes > 0 )
 		{
-			const size_t hull0_bytes = mod->numnodes * sizeof( *hull->clipnodes16 );
 			gc_bsp_busy_range_t busy[10];
 			size_t busy_count = 0;
 
@@ -2461,7 +2474,19 @@ static void Mod_MakeHull0( model_t *mod, const dbspmodel_t *bmod )
 		}
 #endif
 		if( !out )
-			hull->clipnodes16 = out = Mem_Malloc( mod->mempool, mod->numnodes * sizeof( *hull->clipnodes16 ));
+		{
+#if XASH_GAMECUBE
+			if( mod->numnodes <= GC_STATIC_CLIPNODE_CAPACITY )
+			{
+				out = gc_static_hull0;
+				Con_Reportf( "Xash3D GameCube: world hull0 using static normalized reserve %s\n",
+					Q_memprint( hull0_bytes ));
+			}
+#endif
+			if( !out )
+				out = Mem_Malloc( mod->mempool, mod->numnodes * sizeof( *hull->clipnodes16 ));
+			hull->clipnodes16 = out;
+		}
 
 		for( int i = 0; i < mod->numnodes; i++, out++, in++ )
 		{
@@ -3129,6 +3154,7 @@ static void Mod_LoadEdges( model_t *mod, dbspmodel_t *bmod )
 
 		for( int i = 0; i < bmod->numedges; i++, in++, out++ )
 		{
+			/* BSP lumps were normalized by the loader before this stage. */
 			out->v[0] = in->v[0];
 			out->v[1] = in->v[1];
 		}
@@ -3141,6 +3167,7 @@ static void Mod_LoadEdges( model_t *mod, dbspmodel_t *bmod )
 
 		for( int i = 0; i < bmod->numedges; i++, in++, out++ )
 		{
+			/* BSP lumps were normalized by the loader before this stage. */
 			out->v[0] = (word)in->v[0];
 			out->v[1] = (word)in->v[1];
 		}
@@ -4929,6 +4956,12 @@ qboolean Mod_GCWorldSurfacesScratchRetained( model_t *mod )
 {
 	if( !mod || !mod->surfaces || !gc_world_msurface_retained )
 		return false;
+	/* The menu New Game route deliberately retains the whole map-load arena
+	 * through presentation.  Its surface, edge, node and leaf pointers are
+	 * consequently still live, so let the GX renderer walk the real BSP/PVS
+	 * instead of treating this as the scratch-reuse CapFaces fallback. */
+	if( Sys_CheckParm( "-gcmenuplaystart" ))
+		return false;
 	return Mod_GCPointerInScratchArena( mod->surfaces );
 }
 
@@ -5014,8 +5047,15 @@ free_clipnodes:
 		}
 	}
 
-	free( gc_clipnodes_malloc_block );
+	if( gc_clipnodes_static_block )
+		;
+	else if( gc_clipnodes_pool_block )
+		Mem_Free( gc_clipnodes_malloc_block );
+	else
+		free( gc_clipnodes_malloc_block );
 	gc_clipnodes_malloc_block = NULL;
+	gc_clipnodes_pool_block = false;
+	gc_clipnodes_static_block = false;
 }
 
 static void Mod_GCRestoreDeferredMarkfaces( dbspmodel_t *bmod )
@@ -5487,7 +5527,20 @@ static void Mod_GCReleaseBspSourceBuffer( model_t *mod, dbspmodel_t *bmod, byte 
 		scratch_capacity = GC_MapLoadBufferCapacity();
 	if( gc_retain_bsp_source_buffer )
 	{
-		Con_Reportf( "Xash3D GameCube: retaining BSP source buffer for gcmap scratch\n" );
+		Con_Reportf( "Xash3D GameCube: retaining BSP source buffer for gcmap scratch"
+			" aliases surfaces=%d texinfo=%d marksurfaces=%d leafs=%d nodes=%d clipnodes=%d"
+			" light=%d deluxe=%d shadow=%d rgb=%d size=%s\n",
+			Mod_GCPointerInBuffer( bmod->surfaces, mod_base, bufferlen ),
+			Mod_GCPointerInBuffer( bmod->texinfo, mod_base, bufferlen ),
+			Mod_GCPointerInBuffer( mod->marksurfaces, mod_base, bufferlen ),
+			Mod_GCPointerInBuffer( bmod->leafs, mod_base, bufferlen ),
+			Mod_GCPointerInBuffer( bmod->nodes, mod_base, bufferlen ),
+			Mod_GCPointerInBuffer( bmod->clipnodes, mod_base, bufferlen ),
+			Mod_GCPointerInBuffer( bmod->lightdata, mod_base, bufferlen ),
+			Mod_GCPointerInBuffer( bmod->deluxdata, mod_base, bufferlen ),
+			Mod_GCPointerInBuffer( bmod->shadowdata, mod_base, bufferlen ),
+			Mod_GCPointerInBuffer( bmod->rgblightdata, mod_base, bufferlen ),
+			Q_memprint( bufferlen ));
 		return;
 	}
 
@@ -6046,6 +6099,39 @@ static void Mod_LoadClipnodes( model_t *mod, dbspmodel_t *bmod )
 				Image_GCPurgeDecodeScratch();
 				owned = (mclipnode16_t *)malloc( clip_sz );
 			}
+			if( !owned && GC_MapLoadMemoryOpt() && mod->visdata )
+			{
+				/* Fullphysics needs normalized compact nodes, not a raw BSP
+				 * alias.  Reclaim retained PVS bytes before falling back to a
+				 * scratch alias; the renderer already has a full-vis fallback. */
+				Mem_Free( mod->visdata );
+				mod->visdata = NULL;
+				if( mod->leafs )
+				{
+					for( int i = 0; i < mod->numleafs; i++ )
+						mod->leafs[i].compressed_vis = NULL;
+				}
+				Con_Reportf( "Xash3D GameCube: reclaimed retained visdata for fullphysics clipnodes\n" );
+				owned = (mclipnode16_t *)malloc( clip_sz );
+			}
+			if( !owned )
+			{
+				/* MEM1 may have enough bytes but no contiguous libc block after
+				 * BSP/texture staging.  The model pool has its own allocator and
+				 * can supply the same normalized compact representation. */
+				owned = (mclipnode16_t *)Mem_TryMalloc( mod->mempool, clip_sz );
+				if( owned )
+					gc_clipnodes_pool_block = true;
+			}
+		#if XASH_GAMECUBE
+			if( !owned && bmod->numclipnodes <= GC_STATIC_CLIPNODE_CAPACITY )
+			{
+				owned = gc_static_clipnodes;
+				gc_clipnodes_static_block = true;
+				Con_Reportf( "Xash3D GameCube: fullphysics clipnodes using static normalized reserve %s\n",
+					Q_memprint( clip_sz ));
+			}
+		#endif
 			if( !owned )
 			{
 				GC_MemFail( "clipnodes", clip_sz, __FILE__, __LINE__ );
@@ -6097,6 +6183,7 @@ static void Mod_LoadClipnodes( model_t *mod, dbspmodel_t *bmod )
 			else
 			{
 				gc_clipnodes_malloc_block = bmod->clipnodes;
+				gc_clipnodes_pool_block = false;
 				Con_Reportf( "Xash3D GameCube: compact clipnodes aliased from heap lump %s\n",
 					Q_memprint( clip_sz ));
 			}

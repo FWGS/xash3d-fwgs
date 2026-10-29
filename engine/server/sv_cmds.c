@@ -56,10 +56,18 @@ static void SV_GameCubePlayStart_f( void )
 		Con_Reportf( "Xash3D GameCube: play start post-activate %s\n", map );
 		if( Sys_CheckParm( "-gcmenuplaystart" ))
 			SV_GCPlaceNewGameTrackTrains();
-		/* World is resident; free BSP staging and unused stubs before client. */
-		Con_Reportf( "Xash3D GameCube: play start discard map buffer begin %s\n", map );
-		GC_DiscardMapLoadBuffer();
-		Con_Reportf( "Xash3D GameCube: play start discard map buffer ready %s\n", map );
+		/* The menu New Game path now renders the full retained BSP directly.
+		 * Keep its map-load arena alive through client bring-up: discarding it
+		 * turns the world surface/edge pointers into the CapFaces-only fallback.
+		 * Other memory-constrained map routes retain the original discard policy. */
+		if( Sys_CheckParm( "-gcmenuplaystart" ))
+			Con_Reportf( "Xash3D GameCube: play start retain map buffer for live BSP %s\n", map );
+		else
+		{
+			Con_Reportf( "Xash3D GameCube: play start discard map buffer begin %s\n", map );
+			GC_DiscardMapLoadBuffer();
+			Con_Reportf( "Xash3D GameCube: play start discard map buffer ready %s\n", map );
+		}
 		Con_Reportf( "Xash3D GameCube: play start mark precache freeable begin %s\n", map );
 		Mod_GcmapMarkPrecacheFreeable();
 		Con_Reportf( "Xash3D GameCube: play start mark precache freeable ready %s\n", map );

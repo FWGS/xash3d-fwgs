@@ -27,7 +27,9 @@ found=0
 for name in /run/media/tim/*; do
 	[[ -d "$name" ]] || continue
 	b="$(basename "$name")"
-	case "$b" in Extra|Stream|Expansion) continue ;; esac
+	# Mount labels can vary in case (EXTRA vs Extra); never report a configured
+	# host drive as a Swiss staging candidate.
+	case "${b,,}" in extra|stream|expansion) continue ;; esac
 	# Smoke labels: skip loop verify mounts only (real dd'd cards remount same name).
 	if [[ "$b" == "XASH3DGC" || "$b" == "XASHSMOKE" ]]; then
 		src="$(findmnt -n -o SOURCE --target "$name" 2>/dev/null || true)"

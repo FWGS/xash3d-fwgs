@@ -85,6 +85,14 @@ static GXRModeObj *rmode = NULL;
 static uint8_t gx_fifo[256 * 1024] __attribute__((aligned(32)));
 static unsigned int gc_present_count;
 
+/* The direct GameCube presentation paths can run before the ref DLL has
+ * registered its normal renderer cvars.  They still need a real cvar rather
+ * than silently dropping a requested viewmodel state. */
+static void GC_EnsureDrawViewmodelCvar( void )
+{
+	Cvar_Get( "r_drawviewmodel", "1", 0, "draw firstperson weapon model" );
+}
+
 /* GX_DrawDone sleeps until Flipper retires the draw-done token and has no
  * timeout. New Game froze for minutes right after the first world
  * CopyDisp with no further log, so wait ourselves, with a timeout.
@@ -9308,6 +9316,7 @@ qboolean GC_AttemptGcmapWorldRender( int count )
 	}
 	VectorCopy( center, rvp.vieworigin );
 	SetBits( rvp.flags, RF_DRAW_WORLD );
+	GC_EnsureDrawViewmodelCvar();
 	Q_snprintf( old_drawviewmodel, sizeof( old_drawviewmodel ), "%s", Cvar_VariableString( "r_drawviewmodel" ));
 	Cvar_Set( "r_drawviewmodel", "0" );
 
@@ -9324,6 +9333,7 @@ qboolean GC_AttemptGcmapWorldRender( int count )
 		/* R_EndFrame -> R_BlitScreen already presents; avoid a second present. */
 		ref.dllFuncs.R_EndFrame();
 	}
+	GC_EnsureDrawViewmodelCvar();
 	Cvar_Set( "r_drawviewmodel", old_drawviewmodel );
 	Con_Reportf( "Xash3D GameCube: gcmap ready\n" );
 	return true;
@@ -10005,6 +10015,11 @@ int GC_GXDrawIntroTrain( void )
 	edict_t *ent;
 
 	if( !Sys_CheckParm( "-gcnewgame" ) && !Sys_CheckParm( "-gcmenuplaystart" ))
+		return 0;
+	/* A retained full BSP renders the actual train/world relationship. The
+	 * baked tram only exists for the CapFaces scratch-reuse fallback and would
+	 * otherwise overlay real map geometry. */
+	if( GC_WorldSurfacesPinned() && !GC_WorldSurfacesScratchRetained() )
 		return 0;
 	/* -gcnewgame waits for prepare world_ready; menu draws when CapFaces live. */
 	if( Sys_CheckParm( "-gcnewgame" ) && !gc_newgame_world_ready )
@@ -12509,6 +12524,7 @@ qboolean GC_RenderNewGameWorldPassNoFrame( qboolean draw_viewmodel )
 	}
 	SetBits( rvp.flags, RF_DRAW_WORLD );
 
+	GC_EnsureDrawViewmodelCvar();
 	Q_snprintf( old_drawviewmodel, sizeof( old_drawviewmodel ), "%s", Cvar_VariableString( "r_drawviewmodel" ));
 	Cvar_Set( "r_drawviewmodel", draw_viewmodel ? "1" : "0" );
 
@@ -12517,6 +12533,7 @@ qboolean GC_RenderNewGameWorldPassNoFrame( qboolean draw_viewmodel )
 	/* Match GC_RenderNewGameWorldFrames: do not call R_Set2DMode before the
 	 * world pass — it has hung Host_Frame on the post-G36 pump. */
 	ref.dllFuncs.GL_RenderFrame( &rvp );
+	GC_EnsureDrawViewmodelCvar();
 	Cvar_Set( "r_drawviewmodel", old_drawviewmodel );
 	return true;
 #else
@@ -13024,6 +13041,7 @@ qboolean GC_RenderNewGameWorldFrames( int count )
 	if( !gc_g212_stream_locked )
 		GC_FlushPendingCapFaceRefresh();
 	SetBits( rvp.flags, RF_DRAW_WORLD );
+	GC_EnsureDrawViewmodelCvar();
 	Q_snprintf( old_drawviewmodel, sizeof( old_drawviewmodel ), "%s", Cvar_VariableString( "r_drawviewmodel" ));
 	/* G149: dump/landmark path may force viewmodel on for DumpFrames evidence. */
 	Cvar_Set( "r_drawviewmodel", gc_force_draw_viewmodel ? "1" : "0" );
@@ -13086,6 +13104,7 @@ qboolean GC_RenderNewGameWorldFrames( int count )
 		if( trace )
 			Con_Reportf( "Xash3D GameCube: newgame frame %d after R_EndFrame\n", frame_trace );
 	}
+	GC_EnsureDrawViewmodelCvar();
 	Cvar_Set( "r_drawviewmodel", old_drawviewmodel );
 	{
 		static qboolean ready_logged;
@@ -13825,6 +13844,7 @@ qboolean GC_PrepareNewGameWorldPresent( void )
 						extern void R_GXBeginDumpAnimFrame( void );
 						extern void R_GXDumpSkipViewmodel( int on );
 
+						GC_EnsureDrawViewmodelCvar();
 						Q_snprintf( old_vm, sizeof( old_vm ), "%s",
 							Cvar_VariableString( "r_drawviewmodel" ));
 						Cvar_Set( "r_drawviewmodel", "0" );
@@ -13842,6 +13862,7 @@ qboolean GC_PrepareNewGameWorldPresent( void )
 							GC_PresentBuffer();
 						}
 						R_GXDumpSkipViewmodel( 0 );
+						GC_EnsureDrawViewmodelCvar();
 						Cvar_Set( "r_drawviewmodel", old_vm );
 					}
 					Con_Reportf( "Xash3D GameCube: G362 Flipper EFB dump presents map=%s drawn=%d\n",
@@ -13948,10 +13969,12 @@ qboolean GC_PrepareNewGameWorldPresent( void )
 				else
 				{
 					char old_vm[16];
+					GC_EnsureDrawViewmodelCvar();
 					Q_snprintf( old_vm, sizeof( old_vm ), "%s", Cvar_VariableString( "r_drawviewmodel" ));
 					Cvar_Set( "r_drawviewmodel", "1" );
 					if( GC_RenderNewGameWorldFrames( 1 ))
 						Con_Reportf( "Xash3D GameCube: V_RenderView viewmodel draw\n" );
+					GC_EnsureDrawViewmodelCvar();
 					Cvar_Set( "r_drawviewmodel", old_vm );
 				}
 			}

@@ -51,6 +51,7 @@ GNU General Public License for more details.
 #define GC_SPRITE_LIST_POOL_ENTRIES 256
 static client_sprite_t *gc_sprite_list_pool;
 static int gc_sprite_list_pool_used;
+static int gc_sprite_list_pool_capacity;
 
 static void CL_GameCubeApplySmokeClientBudgets( void )
 {
@@ -2187,7 +2188,7 @@ static client_sprite_t *SPR_GetList( char *psz, int *piCount )
 	 * carve lists from it instead.
 	 */
 	if( gc_sprite_list_pool && numSprites > 0 &&
-		gc_sprite_list_pool_used + numSprites <= GC_SPRITE_LIST_POOL_ENTRIES )
+		gc_sprite_list_pool_used + numSprites <= gc_sprite_list_pool_capacity )
 	{
 		pEntry->pList = &gc_sprite_list_pool[gc_sprite_list_pool_used];
 		gc_sprite_list_pool_used += numSprites;
@@ -4224,6 +4225,18 @@ static cvar_t* GAME_EXPORT CL_CvarGetPointer( const char *szVarName )
 	GC_HUD_CALL( "CvarGetPointer %s", szVarName ? szVarName : "(null)" );
 	cvar_t *result = (cvar_t *)Cvar_FindVar( szVarName );
 
+#if XASH_GAMECUBE
+	/* The built-in GameCube client can reach HUD_VidInit while the static GX
+	 * renderer is still completing its low-memory handoff.  On that route the
+	 * renderer-owned quality cvar may not yet be visible to the client DLL.
+	 * The retail HUD dereferences the returned pointer, so create the engine
+	 * cvar here instead of returning NULL and stranding the first world frame
+	 * after it has already been rendered. */
+	if( !result && szVarName && !Q_stricmp( szVarName, "gc_quality" ))
+		result = (cvar_t *)Cvar_Get( "gc_quality", "0", FCVAR_ARCHIVE,
+			"GameCube quality profile: 0=playable/low-mem, 1=standard, 2=high" );
+#endif
+
 	if( !result )
 		Con_DPrintf( S_WARN "%s: client tried to get non-existent cvar \"%s\"\n", __func__, szVarName );
 	
@@ -4565,6 +4578,7 @@ void CL_UnloadProgs( void )
 	Mem_FreePool( &clgame.mempool );
 	gc_sprite_list_pool = NULL;
 	gc_sprite_list_pool_used = 0;
+	gc_sprite_list_pool_capacity = 0;
 	memset( &clgame, 0, sizeof( clgame ));
 }
 
@@ -4649,13 +4663,14 @@ qboolean CL_LoadProgs( const char *name )
 	cls.mempool = Mem_AllocPool( "Client Static Pool" );
 	clgame.mempool = Mem_AllocPool( "Client Edicts Zone" );
 	#if XASH_GAMECUBE
+	gc_sprite_list_pool_capacity = GC_SPRITE_LIST_POOL_ENTRIES;
 	gc_sprite_list_pool = Mem_TryCalloc( cls.mempool,
-		sizeof( client_sprite_t ) * GC_SPRITE_LIST_POOL_ENTRIES );
+		sizeof( client_sprite_t ) * gc_sprite_list_pool_capacity );
 	gc_sprite_list_pool_used = 0;
 	if( gc_sprite_list_pool )
 		Con_Reportf( "Xash3D GameCube: client sprite list pool entries=%d bytes=%u\n",
-			GC_SPRITE_LIST_POOL_ENTRIES,
-			(unsigned)( sizeof( client_sprite_t ) * GC_SPRITE_LIST_POOL_ENTRIES ));
+			gc_sprite_list_pool_capacity,
+			(unsigned)( sizeof( client_sprite_t ) * gc_sprite_list_pool_capacity ));
 	else
 		Con_Reportf( S_WARN "Xash3D GameCube: client sprite list pool unavailable; using per-list allocations\n" );
 	#endif

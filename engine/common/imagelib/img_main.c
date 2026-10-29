@@ -329,6 +329,22 @@ static qboolean Image_ProbeLoad_( const loadpixformat_t *fmt, const char *name, 
 #else
 	byte *f = FS_LoadFile( path, &filesize, false );
 #endif
+	/* Embedded BSP texture names carry provenance before ':'.  If the
+	 * direct probe misses, retry only the texture suffix so mounted WADs can
+	 * resolve it without altering global device/path handling. */
+	if( !f )
+	{
+		const char *colon = Q_strrchr( path, ':' );
+		if( colon && ( path[0] == '#' || Q_stristr( path, ".bsp:" )))
+		{
+			const char *suffix_path = colon + 1;
+#if XASH_GAMECUBE
+			f = g_fsapi.LoadFileMalloc( suffix_path, &filesize, false );
+#else
+			f = FS_LoadFile( suffix_path, &filesize, false );
+#endif
+		}
+	}
 
 	Image_IncrementLookupTime();
 
@@ -342,7 +358,6 @@ static qboolean Image_ProbeLoad_( const loadpixformat_t *fmt, const char *name, 
 		Mem_Free( f );
 #endif
 	}
-
 	return success;
 }
 

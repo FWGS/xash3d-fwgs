@@ -53,9 +53,10 @@ static char   gc_landmark_viewmodel[64];
 static model_t *gc_pinned_viewmodels[GC_REAL_STUDIO_MAX_VIEW];
 static int     gc_pinned_viewmodel_count;
 static int     gc_deferred_studio_attempts;
-/* G287/G289: tip-safe studio staging — bump-allocate lean meshes into BSS.
- * Crowbar ~19 KiB + handgun ~60 KiB fit in 80 KiB (heap is empty post-prep). */
-#define GC_STUDIO_BSS_BYTES (256 * 1024) /* G381: view BSS + scientist (was 84 KiB) */
+/* Keep the complete lean c0a0 set and its resident T.mdl headers out of the
+ * fragmented MEM1 heap.  The meshes alone are ~384 KiB; their retained skin
+ * metadata brings the live set to roughly 0.75 MiB. */
+#define GC_STUDIO_BSS_BYTES (1024 * 1024)
 static byte    gc_studio_bss[GC_STUDIO_BSS_BYTES] __attribute__((aligned( 32 )));
 static size_t  gc_studio_bss_bump;
 static int     gc_studio_bss_owners; /* resident cache.data slices */
@@ -913,7 +914,9 @@ void Mod_FreeModel( model_t *mod )
 		}
 #endif
 #if XASH_GAMECUBE
-			Mem_FreePool( &mod->mempool );
+			if( !( mod->type == mod_sprite && Sys_CheckParm( "-gcfullphysics" )
+				&& mod->mempool == host.mempool ))
+				Mem_FreePool( &mod->mempool );
 #else
 		Mem_FreePool( &mod->mempool );
 #endif
