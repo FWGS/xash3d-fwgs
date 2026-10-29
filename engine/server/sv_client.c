@@ -87,8 +87,28 @@ qboolean SV_GCPrimeDirectMapPlayer( void )
 	ent = cl->edict ? cl->edict : SV_EdictNum( 1 );
 	if( !ent || !SV_IsValidEdict( ent ))
 		return false;
+	/* Already a client: after a GoldSrc changelevel this is the transferred
+	 * player. Keep it, but still set up the local client below (skipping that
+	 * left netchan.pfnBlockSize NULL and the first fragment jumped to 0). */
 	if( ent->pvPrivateData && FBitSet( ent->v.flags, FL_CLIENT ))
-		return true;
+	{
+		cl->edict = ent;
+		Con_Reportf( "Xash3D GameCube: direct-map player already placed edict=%d origin=(%.0f,%.0f,%.0f)\n",
+			NUM_FOR_EDICT( ent ), ent->v.origin[0], ent->v.origin[1], ent->v.origin[2] );
+		goto client_ready;
+	}
+
+	/* A GoldSrc changelevel restored this level and transferred the player
+	 * (LoadAdjacentEnts): keep that edict, only set up the local client
+	 * below. ClientPutInServer here re-spawned it at a spawn spot. */
+	if( sv.loadgame && ent->pvPrivateData )
+	{
+		cl->edict = ent;
+		Con_Reportf( "Xash3D GameCube: direct-map player kept from transition edict=%d flags=0x%x origin=(%.0f,%.0f,%.0f)\n",
+			NUM_FOR_EDICT( ent ), (unsigned)ent->v.flags,
+			ent->v.origin[0], ent->v.origin[1], ent->v.origin[2] );
+		goto client_ready;
+	}
 
 	SV_InitEdict( ent );
 	cl->edict = ent;
@@ -108,6 +128,7 @@ qboolean SV_GCPrimeDirectMapPlayer( void )
 	Con_Reportf( "Xash3D GameCube: direct-map player prime ready edict=%d private=%p origin=(%.0f,%.0f,%.0f)\n",
 		NUM_FOR_EDICT( ent ), ent->pvPrivateData,
 		ent->v.origin[0], ent->v.origin[1], ent->v.origin[2] );
+client_ready:
 
 	/* The direct map route has already performed the spawn half of local
 	 * sign-on above. Complete its normal begin transition so lean BoundedGC
@@ -1609,6 +1630,18 @@ static void SV_PutClientInServer( sv_client_t *cl )
 		sv.loadgame = false;
 		sv.paused = false;
 	}
+#if XASH_GAMECUBE
+	/* Menu New Game spawns the local client twice (direct-map prime, then
+	 * the serverdata shortcut). Re-running ClientPutInServer on a live
+	 * player re-spawned it at a spawn spot, which after a changelevel threw
+	 * away the transferred player (position in the tram, view, state). */
+	else if( GC_MenuRunsServer() && ent->pvPrivateData && FBitSet( ent->v.flags, FL_CLIENT ))
+	{
+		Con_Reportf( "Xash3D GameCube: spawn keeps placed player edict=%d origin=(%.0f,%.0f,%.0f)\n",
+			NUM_FOR_EDICT( ent ), ent->v.origin[0], ent->v.origin[1], ent->v.origin[2] );
+		cl->pViewEntity = NULL;
+	}
+#endif
 	else
 	{
 		if( Q_atoi( Info_ValueForKey( cl->userinfo, "hltv" )))

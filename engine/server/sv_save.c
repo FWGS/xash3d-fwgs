@@ -54,6 +54,27 @@ void GC_LeanLandmarkGrantWeaponsAfterPutInServer( void );
 void GC_PresentLandmarkViewModel( void );
 void GC_NewGameNotifyLandmarkReposition( void );
 static qboolean gc_save_use_sysheap;
+/* Transition saves on the menu New Game route live in the renderer's idle
+ * static surface-cache store: one predictable block instead of a
+ * fragmentation-dependent calloc (96..192 KiB failed on some runs). */
+static qboolean gc_save_use_borrowed;
+static qboolean gc_save_borrow_next;
+static byte *gc_save_borrow_base;
+static size_t gc_save_borrow_size;
+static size_t gc_save_borrow_used;
+
+static void *GC_SaveBorrowCarve( size_t bytes )
+{
+	byte *p;
+
+	gc_save_borrow_used = ( gc_save_borrow_used + 31 ) & ~(size_t)31;
+	if( gc_save_borrow_used + bytes > gc_save_borrow_size )
+		return NULL;
+	p = gc_save_borrow_base + gc_save_borrow_used;
+	gc_save_borrow_used += bytes;
+	memset( p, 0, bytes );
+	return p;
+}
 qboolean gc_lean_weapon_grant_active;
 #endif // XASH_GAMECUBE
 
@@ -453,7 +474,9 @@ reserve space for ETABLE's
 static void InitEntityTable( SAVERESTOREDATA *pSaveData, int entityCount )
 {
 #if XASH_GAMECUBE
-	if( gc_save_use_sysheap )
+	if( gc_save_use_borrowed )
+		pSaveData->pTable = (ENTITYTABLE *)GC_SaveBorrowCarve( (size_t)entityCount * sizeof( ENTITYTABLE ));
+	else if( gc_save_use_sysheap )
 		pSaveData->pTable = (ENTITYTABLE *)calloc( (size_t)entityCount, sizeof( ENTITYTABLE ));
 	else
 #endif
@@ -924,6 +947,28 @@ static SAVERESTOREDATA *SaveInit( int size, int tokenCount )
 
 #if XASH_GAMECUBE
 	gc_save_use_sysheap = false;
+	gc_save_use_borrowed = false;
+	if( gc_save_borrow_next )
+	{
+		extern byte *R_GCBorrowSurfaceCacheStore( size_t *size );
+		/* Data gets what remains after the header, tokens and entity table. */
+		const size_t table = (size_t)svgame.numEntities * sizeof( ENTITYTABLE ) + 64;
+		const size_t tokens = (size_t)tokenCount * sizeof( char * ) + 32;
+
+		gc_save_borrow_next = false;
+		gc_save_borrow_base = R_GCBorrowSurfaceCacheStore( &gc_save_borrow_size );
+		gc_save_borrow_used = 0;
+		if( gc_save_borrow_base && gc_save_borrow_size > sizeof( SAVERESTOREDATA ) + tokens + table + 4096 )
+		{
+			size = (int)( gc_save_borrow_size - sizeof( SAVERESTOREDATA ) - tokens - table - 64 );
+			pSaveData = (SAVERESTOREDATA *)GC_SaveBorrowCarve( sizeof( SAVERESTOREDATA ) + (size_t)size );
+			pSaveData->pTokens = (char **)GC_SaveBorrowCarve( (size_t)tokenCount * sizeof( char * ));
+			gc_save_use_borrowed = true;
+			Con_Reportf( "Xash3D GameCube: transition save in surface-cache store data=%s tokens=%d\n",
+				Q_memprint( size ), tokenCount );
+			goto gc_save_init_done;
+		}
+	}
 	/* Transition saves on the menu route too: a failed calloc returns NULL
 	 * (SV_ChangeLevel falls back to the G100 stash) instead of a fatal OOM. */
 	if( Sys_CheckParm( "-gcnewsaveload" ) || GC_MenuRunsServer( ))
@@ -951,6 +996,9 @@ static SAVERESTOREDATA *SaveInit( int size, int tokenCount )
 		pSaveData = Mem_Calloc( host.mempool, sizeof( SAVERESTOREDATA ) + size );
 		pSaveData->pTokens = (char **)Mem_Calloc( host.mempool, tokenCount * sizeof( char* ));
 	}
+#if XASH_GAMECUBE
+gc_save_init_done:
+#endif
 	pSaveData->tokenCount = tokenCount;
 
 	pSaveData->pBaseData = (char *)(pSaveData + 1); // skip the save structure);
@@ -996,6 +1044,16 @@ release global save-restore buffer
 static void SaveFinish( SAVERESTOREDATA *pSaveData )
 {
 	if( !pSaveData ) return;
+#if XASH_GAMECUBE
+	/* Borrowed store: nothing to free, and the renderer may already have
+	 * reclaimed it during SV_SpawnServer, so do not touch pSaveData. */
+	if( gc_save_use_borrowed )
+	{
+		svgame.globals->pSaveData = NULL;
+		gc_save_use_borrowed = false;
+		return;
+	}
+#endif
 
 	if( pSaveData->pTokens )
 	{
@@ -1740,7 +1798,8 @@ static SAVERESTOREDATA *SaveGameState( int changelevel )
 		static const int sizes[] = { 0x30000, 0x28000, 0x20000, 0x18000 };
 		int si;
 
-		pSaveData = NULL;
+		gc_save_borrow_next = true;
+		pSaveData = SaveInit( sizes[0], SV_SaveHashStrings() );
 		for( si = 0; si < (int)ARRAYSIZE( sizes ) && !pSaveData; si++ )
 			pSaveData = SaveInit( sizes[si], SV_SaveHashStrings() );
 		if( pSaveData )
@@ -1763,7 +1822,7 @@ static SAVERESTOREDATA *SaveGameState( int changelevel )
 	// initialize entity table to count moved entities
 	InitEntityTable( pSaveData, svgame.numEntities );
 #if XASH_GAMECUBE
-	if( Sys_CheckParm( "-gcnewsaveload" ))
+	if( Sys_CheckParm( "-gcnewsaveload" ) || GC_MenuRunsServer( ))
 	{
 		if( !pSaveData->pTable )
 		{

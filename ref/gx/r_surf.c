@@ -1319,6 +1319,17 @@ static qboolean R_TryInitGameCubeSurfaceCacheSized( int size, qboolean allow_low
 #endif
 
 #if XASH_GAMECUBE
+/* The GX live-BSP route draws through Flipper and never needs the soft
+ * surface cache during a changelevel save: hand its static store to the
+ * transition save (sv_save.c). The next map load re-creates the cache. */
+byte *R_GCBorrowSurfaceCacheStore( size_t *size )
+{
+	R_GcmapTrimSurfaceCache();
+	if( size )
+		*size = GC_SURFACE_CACHE_LOWRES;
+	return gc_lowres_surfcache_store;
+}
+
 void R_GcmapTrimSurfaceCache( void )
 {
 	if( sc_base )
