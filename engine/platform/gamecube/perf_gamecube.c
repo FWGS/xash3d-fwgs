@@ -24,11 +24,15 @@ CVAR_DEFINE_AUTO( gc_perf_window, "60", FCVAR_ARCHIVE, "FPS window size" );
 /* Memory profiling */
 static size_t gc_mem_hwm = 0;
 static size_t gc_mem_last = 0;
+static double gc_frame_time_sum = 0.0;
+static int gc_frame_time_count = 0;
 
 /* Initialize performance metrics */
 void GC_PerfInit( void )
 {
     memset( &gc_perf_metrics, 0, sizeof( gc_perf_metrics ) );
+    gc_frame_time_sum = 0.0;
+    gc_frame_time_count = 0;
     gc_perf_metrics.last_frame_time = Platform_DoubleTime();
     gc_perf_metrics.last_fps_update = Platform_DoubleTime();
     
@@ -59,9 +63,19 @@ void GC_PerfUpdate( void )
     gc_perf_metrics.frame_count++;
     
     /* Update FPS window */
+    /* Clamp the user-controlled window before indexing fixed storage. */
+    int window = atoi( gc_perf_window.string );
+    if( window < 1 )
+        window = 1;
+    if( window > (int)( sizeof( gc_perf_metrics.fps_window ) /
+        sizeof( gc_perf_metrics.fps_window[0] )))
+        window = (int)( sizeof( gc_perf_metrics.fps_window ) /
+            sizeof( gc_perf_metrics.fps_window[0] ));
+
     gc_perf_metrics.fps_window[gc_perf_metrics.fps_window_index] = (float)fps;
-    gc_perf_metrics.fps_window_index = (gc_perf_metrics.fps_window_index + 1) % gc_perf_metrics.fps_window_count;
-    if( gc_perf_metrics.fps_window_count < (int)atoi(gc_perf_window.string) )
+    gc_perf_metrics.fps_window_index =
+        ( gc_perf_metrics.fps_window_index + 1 ) % window;
+    if( gc_perf_metrics.fps_window_count < window )
         gc_perf_metrics.fps_window_count++;
     
     /* Calculate FPS statistics */
@@ -86,19 +100,17 @@ void GC_PerfUpdate( void )
     gc_perf_metrics.fps = (float)fps;
     
     /* Update memory stats */
-    GC_MemArena_GetStats( (GC_MemArenaStats*)&gc_perf_metrics );
-    gc_perf_metrics.memory_used = Mem_TotalRealSize();
-    gc_perf_metrics.memory_hwm = gc_mem_hwm;
-    gc_perf_metrics.memory_free = (gc_perf_metrics.memory_used < GC_MEMORY_BUDGET_BYTES) ? 
-                                   (GC_MEMORY_BUDGET_BYTES - gc_perf_metrics.memory_used) : 0;
-    gc_perf_metrics.budget_exceeded = (gc_perf_metrics.memory_used > GC_MEMORY_BUDGET_BYTES);
+    GC_MemArenaStats memory;
+    GC_MemArena_GetStats( &memory );
+    gc_perf_metrics.memory_used = memory.total;
+    gc_perf_metrics.memory_hwm = memory.hwm;
+    gc_perf_metrics.memory_free = memory.budget_free;
+    gc_perf_metrics.budget_exceeded = memory.budget_exceeded;
     
     /* Update average frame time */
-    static double frame_time_sum = 0.0;
-    static int frame_time_count = 0;
-    frame_time_sum += frame_time;
-    frame_time_count++;
-    gc_perf_metrics.avg_frame_time = frame_time_sum / frame_time_count;
+    gc_frame_time_sum += frame_time;
+    gc_frame_time_count++;
+    gc_perf_metrics.avg_frame_time = gc_frame_time_sum / gc_frame_time_count;
     
     /* Update FPS every second */
     if( now - gc_perf_metrics.last_fps_update >= 1.0 )
@@ -150,6 +162,8 @@ static void GC_PerfCmd_Report_f( void )
 static void GC_PerfCmd_Reset_f( void )
 {
     memset( &gc_perf_metrics, 0, sizeof( gc_perf_metrics ) );
+    gc_frame_time_sum = 0.0;
+    gc_frame_time_count = 0;
     gc_perf_metrics.last_frame_time = Platform_DoubleTime();
     gc_perf_metrics.last_fps_update = Platform_DoubleTime();
     Con_Reportf( "Xash3D GameCube: performance metrics reset\n" );
@@ -215,10 +229,8 @@ void GC_PerfFrameEnd( void )
     double now = Platform_DoubleTime();
     double frame_time = (now - gc_perf_frame_start_time) * 1000.0; /* ms */
     
-    if( frame_time > 0.0 )
-    {
-        Con_Reportf( "Xash3D GameCube: frame time %.2f ms\n", frame_time );
-    }
+    /* Per-frame console I/O distorts the workload being measured. */
+    (void)frame_time;
 }
 
 /* Performance profiling markers */

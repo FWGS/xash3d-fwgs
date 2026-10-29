@@ -36,7 +36,7 @@ unsigned R_GXGetTriColorRGBA( void )
 {
 	return gx_rgba;
 }
-static struct { float x, y, z, u, v; unsigned c; } gx_triv[3];
+static gx_tri_vertex_t gx_triv[64];
 /* G166: soft DumpFrames studio RGB light (R5G5B5<<8), not greyscale Quake ramp.
  * Only attribute shade stats to the viewmodel so world studio props do not
  * lock a weak early log before G161 soft dump. */
@@ -183,6 +183,15 @@ draw triangle sequence
 void GAME_EXPORT TriEnd( void )
 {
 #if XASH_GAMECUBE
+	if( R_GXTriApiIsActive() && ( mode == TRI_TRIANGLE_FAN || mode == TRI_TRIANGLE_STRIP )
+		&& vertcount >= 3 )
+	{
+		R_GXStudioEmitFanC( gx_triv, vertcount, mode == TRI_TRIANGLE_STRIP );
+	}
+	if( R_GXTriApiIsActive() && mode == TRI_TRIANGLES && vertcount >= 3 )
+		R_GXStudioEmitTrianglesC( gx_triv, vertcount - ( vertcount % 3 ));
+	vertcount = 0;
+	n = 0;
 	/* Keep effects TriAPI pipe open across many TriBegin/End pairs in one
 	 * particle/sprite batch; studio End owns its own flush. */
 	(void)0;
@@ -380,6 +389,11 @@ void GAME_EXPORT TriVertex3f( float x, float y, float z )
 	{
 		if( mode == TRI_TRIANGLES )
 		{
+			if( vertcount >= (int)( sizeof( gx_triv ) / sizeof( gx_triv[0] )))
+			{
+				R_GXStudioEmitTrianglesC( gx_triv, vertcount - ( vertcount % 3 ));
+				vertcount = 0;
+			}
 			gx_triv[vertcount].x = x;
 			gx_triv[vertcount].y = y;
 			gx_triv[vertcount].z = z;
@@ -387,18 +401,15 @@ void GAME_EXPORT TriVertex3f( float x, float y, float z )
 			gx_triv[vertcount].v = gx_v;
 			gx_triv[vertcount].c = gx_rgba;
 			vertcount++;
-			if( vertcount == 3 )
-			{
-				R_GXStudioEmitTriC(
-					gx_triv[0].x, gx_triv[0].y, gx_triv[0].z, gx_triv[0].u, gx_triv[0].v, gx_triv[0].c,
-					gx_triv[1].x, gx_triv[1].y, gx_triv[1].z, gx_triv[1].u, gx_triv[1].v, gx_triv[1].c,
-					gx_triv[2].x, gx_triv[2].y, gx_triv[2].z, gx_triv[2].u, gx_triv[2].v, gx_triv[2].c );
-				vertcount = 0;
-			}
 			return;
 		}
 		if( mode == TRI_TRIANGLE_FAN )
 		{
+			if( vertcount >= (int)( sizeof( gx_triv ) / sizeof( gx_triv[0] )))
+			{
+				R_GXStudioEmitFanC( gx_triv, vertcount, false );
+				vertcount = 0;
+			}
 			gx_triv[vertcount].x = x;
 			gx_triv[vertcount].y = y;
 			gx_triv[vertcount].z = z;
@@ -406,42 +417,25 @@ void GAME_EXPORT TriVertex3f( float x, float y, float z )
 			gx_triv[vertcount].v = gx_v;
 			gx_triv[vertcount].c = gx_rgba;
 			vertcount++;
-			if( vertcount >= 3 )
-			{
-				R_GXStudioEmitTriC(
-					gx_triv[0].x, gx_triv[0].y, gx_triv[0].z, gx_triv[0].u, gx_triv[0].v, gx_triv[0].c,
-					gx_triv[1].x, gx_triv[1].y, gx_triv[1].z, gx_triv[1].u, gx_triv[1].v, gx_triv[1].c,
-					gx_triv[2].x, gx_triv[2].y, gx_triv[2].z, gx_triv[2].u, gx_triv[2].v, gx_triv[2].c );
-				gx_triv[1] = gx_triv[2];
-				vertcount = 2;
-			}
 			return;
 		}
 		if( mode == TRI_TRIANGLE_STRIP )
 		{
-			gx_triv[n].x = x;
-			gx_triv[n].y = y;
-			gx_triv[n].z = z;
-			gx_triv[n].u = gx_u;
-			gx_triv[n].v = gx_v;
-			gx_triv[n].c = gx_rgba;
-			n++;
-			vertcount++;
-			if( n == 3 )
-				n = 0;
-			if( vertcount >= 3 )
+			if( vertcount >= (int)( sizeof( gx_triv ) / sizeof( gx_triv[0] )))
 			{
-				if( vertcount & 1 )
-					R_GXStudioEmitTriC(
-						gx_triv[0].x, gx_triv[0].y, gx_triv[0].z, gx_triv[0].u, gx_triv[0].v, gx_triv[0].c,
-						gx_triv[1].x, gx_triv[1].y, gx_triv[1].z, gx_triv[1].u, gx_triv[1].v, gx_triv[1].c,
-						gx_triv[2].x, gx_triv[2].y, gx_triv[2].z, gx_triv[2].u, gx_triv[2].v, gx_triv[2].c );
-				else
-					R_GXStudioEmitTriC(
-						gx_triv[2].x, gx_triv[2].y, gx_triv[2].z, gx_triv[2].u, gx_triv[2].v, gx_triv[2].c,
-						gx_triv[1].x, gx_triv[1].y, gx_triv[1].z, gx_triv[1].u, gx_triv[1].v, gx_triv[1].c,
-						gx_triv[0].x, gx_triv[0].y, gx_triv[0].z, gx_triv[0].u, gx_triv[0].v, gx_triv[0].c );
+				R_GXStudioEmitFanC( gx_triv, vertcount, true );
+				/* Preserve the strip's winding across a bounded flush. */
+				gx_triv[0] = gx_triv[vertcount - 2];
+				gx_triv[1] = gx_triv[vertcount - 1];
+				vertcount = 2;
 			}
+			gx_triv[vertcount].x = x;
+			gx_triv[vertcount].y = y;
+			gx_triv[vertcount].z = z;
+			gx_triv[vertcount].u = gx_u;
+			gx_triv[vertcount].v = gx_v;
+			gx_triv[vertcount].c = gx_rgba;
+			vertcount++;
 			return;
 		}
 		return;

@@ -34,6 +34,8 @@ def write_config(user_dir: Path, *, frame_dump_fallback: bool = False) -> None:
 	gfx_backend = os.environ.get("DOLPHIN_GFX_BACKEND", "").strip()
 	gfx_multithreading = os.environ.get("DOLPHIN_GFX_MULTITHREADING", "1").strip().lower() in {"1", "true", "yes", "on"}
 	dump_audio = os.environ.get("DOLPHIN_DUMP_AUDIO", "0").strip().lower() in {"1", "true", "yes", "on"}
+	mute_audio = os.environ.get("DOLPHIN_MUTE_AUDIO", "0").strip().lower() in {"1", "true", "yes", "on"}
+	audio_volume = 0 if mute_audio else 100
 	gfx_line = f"GFXBackend = {gfx_backend}\n" if gfx_backend else ""
 	movie_settings = """[Movie]
 DumpFrames = True
@@ -45,6 +47,7 @@ CPUThread = {str(cpu_thread)}
 {gfx_line}DSPHLE = True
 FastDiscSpeed = True
 [DSP]
+Volume = {audio_volume}
 DumpAudio = {str(dump_audio)}
 DumpAudioSilent = False
 [Analytics]

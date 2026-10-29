@@ -168,6 +168,9 @@ def build(bld):
 		libs.remove( 'backtrace_custom' )
 	includes = ['server', 'client', 'client/vgui', 'common/soundlib', 'platform']
 	gamecube_defines = []
+	if os.environ.get('XASH_GAMECUBE_ENABLE_GCMAP_PROBES', '').lower() in ('1', 'yes', 'true', 'on'):
+		gamecube_defines += ['XASH_GAMECUBE_ENABLE_GCMAP_PROBES=1']
+		Logs.info('GameCube gcmap world-render probes enabled')
 
 	# basic build: dedicated only
 	source = bld.path.ant_glob(['common/*.c', 'common/imagelib/*.c', 'common/soundlib/*.c', 'server/*.c', 'common/http/*.c'])

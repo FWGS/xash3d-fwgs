@@ -191,6 +191,12 @@ int FS_Close( file_t *file )
 		GC_IntroFileRelease( file );
 		return 0;
 	}
+	if( FBitSet( file->flags, FILE_GC_BSP_STATIC ))
+	{
+		extern void GC_BspFileRelease( file_t *f );
+		GC_BspFileRelease( file );
+		return 0;
+	}
 	if( FBitSet( file->flags, FILE_SYS_MALLOC ))
 	{
 		free( file );

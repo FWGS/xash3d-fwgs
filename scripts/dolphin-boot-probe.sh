@@ -126,8 +126,8 @@ if [[ -n "$GC_PHASE_TEST" ]]; then
 	G82_FAULT_MARKER="G82: Intentional phase fault at ${GC_PHASE_TEST}"
 fi
 DOLPHIN_MMU="${DOLPHIN_MMU:-True}"
-mkdir -p "$USER_DIR/Config"
-DUMP_FRAMES=0
+DOLPHIN_AUDIO_VOLUME=100; [[ "${DOLPHIN_MUTE_AUDIO:-0}" =~ ^(1|true|TRUE|True|yes|YES|Yes|on|ON|On)$ ]] && DOLPHIN_AUDIO_VOLUME=0
+mkdir -p "$USER_DIR/Config"; DUMP_FRAMES=0
 # Retail screenshot capture is useful for visual evidence but changes Dolphin
 # host throughput substantially.  Keep the historical retail default while
 # allowing an explicit zero for timing/audio validation.
@@ -141,11 +141,9 @@ fi
 # conservative deterministic defaults; retail capture otherwise measures the
 # emulator's logging/render throughput instead of the guest's pacing.
 if [[ "$DOLPHIN_RETAIL" == "1" ]]; then
-	DOLPHIN_CPU_CORE="${DOLPHIN_CPU_CORE:-1}"
-	DOLPHIN_CPU_THREAD="${DOLPHIN_CPU_THREAD:-True}"
+	DOLPHIN_CPU_CORE="${DOLPHIN_CPU_CORE:-1}"; DOLPHIN_CPU_THREAD="${DOLPHIN_CPU_THREAD:-True}"
 else
-	DOLPHIN_CPU_CORE="${DOLPHIN_CPU_CORE:-0}"
-	DOLPHIN_CPU_THREAD="${DOLPHIN_CPU_THREAD:-False}"
+	DOLPHIN_CPU_CORE="${DOLPHIN_CPU_CORE:-0}"; DOLPHIN_CPU_THREAD="${DOLPHIN_CPU_THREAD:-False}"
 fi
 cat > "$USER_DIR/Config/Dolphin.ini" <<EOF
 [Core]
@@ -159,6 +157,8 @@ SIDevice0 = 6
 SIDevice1 = 0
 SIDevice2 = 0
 SIDevice3 = 0
+[DSP]
+Volume = ${DOLPHIN_AUDIO_VOLUME}
 [Interface]
 ConfirmStop = False
 EOF

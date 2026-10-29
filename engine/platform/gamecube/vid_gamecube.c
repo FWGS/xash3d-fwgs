@@ -6935,9 +6935,12 @@ static void GC_PresentBuffer( void )
 			SYS_Report( "Xash3D GameCube: software buffer pixel[0]=0x%04X (RGB565)\n", first_pixel );
 		}
 
-		/* G144: scrub soft chroma / span cracks on live New Game frames before
-		 * GX or CPU present. Dump path already scrubs once in PrepareNewGame. */
-		if( gc_newgame_world_ready && gc_cpu_dump_presents_left <= 0 )
+		/* G144/G382: neighborhood crack cleanup is expensive on Flipper. The
+		 * low-memory New Game route has a static world buffer, so its first scrub
+		 * is sufficient; normal live routes retain an occasional refresh. */
+		if( gc_newgame_world_ready && gc_cpu_dump_presents_left <= 0
+			&& ( gc_present_count <= 1
+				|| ( !Sys_CheckParm( "-gcnewgame" ) && ( gc_present_count & 7 ) == 0 )))
 			GC_ScrubLiveWorldSpeckles( gc.buffer, gc.width, gc.height, gc.stride );
 
 		/* Native GX present: tile linear RGB565 → EFB textured quad → XFB.
@@ -8858,7 +8861,11 @@ qboolean GC_AttemptGcmapWorldRender( int count )
 	int i;
 
 	if( !ref.initialized || !SV_Active() )
+	{
+		Con_Reportf( "Xash3D GameCube: gcmap world render gate ref=%d sv=%d\n",
+			ref.initialized ? 1 : 0, SV_Active() ? 1 : 0 );
 		return false;
+	}
 
 	if( count <= 0 )
 		count = 12;
@@ -9282,17 +9289,24 @@ static void GC_TryDeferredEfxProof( void )
 #if XASH_GAMECUBE
 	vec3_t org;
 	static qboolean beam_ready;
+	static unsigned int next_try;
 
 	if( !gc_newgame_world_ready || beam_ready )
 		return;
 	if( !Sys_CheckParm( "-gcnewgame" ))
 		return;
-	/* Retry every present until G320 has a textured sprite in nummodels. */
+	/* Retry with spacing. On MEM1 pressure the sprite upload can fail; retrying
+	 * every present turns a harmless proof effect into a recurring allocator/ZIP
+	 * walk on the real Flipper CPU. */
 	if( gc_present_count > 64 )
+		return;
+	if( gc_present_count < next_try )
 		return;
 
 	VectorCopy( refState.vieworg, org );
 	beam_ready = CL_GCSeedFlipperEfxProof( org );
+	if( !beam_ready )
+		next_try = gc_present_count + ( gc_present_count < 8 ? 2 : 8 );
 #endif
 }
 
@@ -13472,9 +13486,9 @@ qboolean GC_PrepareNewGameWorldPresent( void )
 		/* Menu New Game: even 2× ServerFrame hung after CapFaces (probe
 		 * 20260813-193243 never reached restream+render). Skip primes and
 		 * go straight to Flipper restream/present pump. */
-		if( Sys_CheckParm( "-gcmenuplaystart" ))
+		if( Sys_CheckParm( "-gcmenuplaystart" ) || Sys_CheckParm( "-gcnewgame" ))
 		{
-			Con_Reportf( "Xash3D GameCube: menu post-present ServerFrame prime skipped\n" );
+			Con_Reportf( "Xash3D GameCube: low-memory post-present ServerFrame prime skipped\n" );
 		}
 		else
 		{

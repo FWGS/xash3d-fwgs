@@ -1008,6 +1008,11 @@ qboolean GC_FillNewGameMoveUsercmd( usercmd_t *cmd, const float *cur_angles )
 		return false;
 	if( !Sys_CheckParm( "-gcnewgame" ) || !GC_IsNewGameG36Done() )
 		return false;
+	/* The smoke harness only needs input polling and a stable present.  Do not
+	 * synthesize a post-present command: the carved c0a0 collision hull is not
+	 * safe for automated movement, while real controller input remains active. */
+	if( gc_probe_synthetic )
+		return false;
 
 	memset( cmd, 0, sizeof( *cmd ));
 	VectorCopy( cur_angles, cmd->viewangles );
@@ -1051,7 +1056,10 @@ qboolean GC_FillNewGameMoveUsercmd( usercmd_t *cmd, const float *cur_angles )
 			return cmd->buttons != 0 || sx != 0.0f || sy != 0.0f || cx != 0.0f || cy != 0.0f;
 		}
 
-		/* Synthetic: walk forward and yaw for a few post-G36 ticks. */
+		/* Synthetic input is intentionally buttons-only on the low-res smoke
+		 * route.  The carved c0a0 hull can contain aliased clipnodes; injecting
+		 * movement here enters PM_RecursiveHullCheck before the first stable
+		 * present.  Real controller sticks still use the live path below. */
 		if( gc_move_inject_frames < 8 )
 		{
 			if( !gc_move_begin_logged )
@@ -1060,10 +1068,8 @@ qboolean GC_FillNewGameMoveUsercmd( usercmd_t *cmd, const float *cur_angles )
 				Con_Reportf( "Xash3D GameCube: probe gameplay move/look begin\n" );
 			}
 
-			cmd->forwardmove = 200.0f;
-			cmd->viewangles[YAW] = anglemod( cur_angles[YAW] + 12.0f );
 			gc_move_inject_frames++;
-			return true;
+			return cmd->buttons != 0;
 		}
 		/* After walk inject, still deliver attack/jump/use for lean combat. */
 		return cmd->buttons != 0;

@@ -54,11 +54,40 @@ static qboolean gc_soundent_fallback_used;
 static byte gc_ent_priv_slab[49152];
 static size_t gc_ent_priv_slab_used;
 static int gc_ent_priv_slab_hits;
+/* Entity key/value copies are short-lived during spawn.  A tiny fallback
+ * avoids losing the whole map to a final fragmented 11-byte allocation. */
+static byte gc_kv_slab[8192];
+static size_t gc_kv_slab_used;
 
 static qboolean SV_GCPrivateDataIsSlab( const void *ptr )
 {
 	const byte *p = (const byte *)ptr;
 	return p >= gc_ent_priv_slab && p < gc_ent_priv_slab + sizeof( gc_ent_priv_slab );
+}
+
+static char *SV_GCCopyKeyValue( const char *s )
+{
+	size_t size;
+	char *dst;
+
+	if( !s )
+		return NULL;
+	dst = copystring( s );
+	if( dst )
+		return dst;
+	size = Q_strlen( s ) + 1;
+	if( gc_kv_slab_used + size > sizeof( gc_kv_slab ))
+		return NULL;
+	dst = (char *)( gc_kv_slab + gc_kv_slab_used );
+	gc_kv_slab_used += size;
+	memcpy( dst, s, size );
+	return dst;
+}
+
+static qboolean SV_GCKeyValueIsSlab( const void *ptr )
+{
+	const byte *p = (const byte *)ptr;
+	return p >= gc_kv_slab && p < gc_kv_slab + sizeof( gc_kv_slab );
 }
 #endif
 
@@ -3535,6 +3564,8 @@ string_t GAME_EXPORT SV_AllocString( const char *szValue )
 
 	(void)dupe_string;
 	(void)found_dupe;
+	if( !processed_string )
+		return 0;
 
 	SV_ProcessString( processed_string, szValue );
 
@@ -5217,8 +5248,15 @@ static void SV_FreeKeyValueStrings( KeyValueData *kvd, int numpairs )
 {
 	for( int i = 0; i < numpairs; i++ )
 	{
+	#if XASH_GAMECUBE
+		if( !SV_GCKeyValueIsSlab( kvd[i].szKeyName ))
+			Mem_Free( kvd[i].szKeyName );
+		if( !SV_GCKeyValueIsSlab( kvd[i].szValue ))
+			Mem_Free( kvd[i].szValue );
+	#else
 		Mem_Free( kvd[i].szKeyName );
 		Mem_Free( kvd[i].szValue );
+	#endif
 	}
 }
 
@@ -5542,8 +5580,8 @@ static qboolean SV_ParseEdict( char **pfile, edict_t *ent, int entity_index, qbo
 
 		// create keyvalue strings
 		pkvd[numpairs].szClassName = (char*)""; // unknown at this moment
-		pkvd[numpairs].szKeyName = copystring( keyname );
-		pkvd[numpairs].szValue = copystring( value );
+		pkvd[numpairs].szKeyName = SV_GCCopyKeyValue( keyname );
+		pkvd[numpairs].szValue = SV_GCCopyKeyValue( value );
 		pkvd[numpairs].fHandled = false;
 		numpairs++;
 
@@ -5690,6 +5728,7 @@ static void SV_LoadFromFile( const char *mapname, char *entities )
 	gc_soundent_fallback_used = false;
 	gc_ent_priv_slab_used = 0;
 	gc_ent_priv_slab_hits = 0;
+	gc_kv_slab_used = 0;
 #endif
 
 	// user dll can override spawn entities function (Xash3D extension)

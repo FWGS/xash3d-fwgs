@@ -4231,7 +4231,12 @@ qboolean CL_GameCubeEnsureClientReady( void )
 	GC_SetLoadingProgress( 0.90f );
 	GC_DrawLoadingStatus( "CLIENT INIT", "half-life" );
 
-	if( !Sys_CheckParm( "-nosound" ) && !snd.initialized )
+	/* The fallback-menu New Game transition is still inside the tightest
+	 * MEM1 window.  Starting the DSP/voice backend here can retain decode
+	 * scratch and prevent the client progs from completing their first load.
+	 * The normal direct New Game route keeps its existing eager audio path;
+	 * menu play-start brings audio up after the client is resident. */
+	if( !Sys_CheckParm( "-nosound" ) && !Sys_CheckParm( "-gcmenuplaystart" ) && !snd.initialized )
 	{
 		S_Init();
 		Voice_Init( VOICE_DEFAULT_CODEC, 3, true );
@@ -4244,7 +4249,11 @@ qboolean CL_GameCubeEnsureClientReady( void )
 
 	COM_GetCommonLibraryPath( LIBRARY_CLIENT, libpath, sizeof( libpath ));
 #if XASH_GAMECUBE
-	Image_GCPurgeDecodeScratch();
+	/* Menu play-start already purges decode scratch immediately before this
+	 * call. Repeating it here can monopolize MEM1 before COM_LoadLibrary and
+	 * makes the fallback-menu route appear to hang in deferred init. */
+	if( !Sys_CheckParm( "-gcmenuplaystart" ))
+		Image_GCPurgeDecodeScratch();
 #endif
 	if( !CL_LoadProgs( libpath ))
 	{

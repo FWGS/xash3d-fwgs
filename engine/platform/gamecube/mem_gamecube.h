@@ -27,6 +27,7 @@ typedef struct {
 void GC_MemSetMap( const char *mapname );
 void GC_MemSample( const char *stage );
 void GC_MemFail( const char *subsystem, size_t size, const char *file, int line );
+void GC_MemReportPoolPressure( const char *subsystem, size_t requested );
 
 /* Runtime memory arena telemetry */
 void GC_MemArena_GetStats( GC_MemArenaStats *stats );
@@ -80,6 +81,11 @@ static inline void GC_MemFail( const char *subsystem, size_t size, const char *f
 	(void)size;
 	(void)file;
 	(void)line;
+}
+static inline void GC_MemReportPoolPressure( const char *subsystem, size_t requested )
+{
+	(void)subsystem;
+	(void)requested;
 }
 static inline void GC_InitMapLoadBuffer( void ) { }
 static inline void GC_PrepareMapLoadBuffer( size_t size ) { (void)size; }

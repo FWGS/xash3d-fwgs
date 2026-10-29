@@ -1446,6 +1446,11 @@ int EXPORT Host_Main( int argc, char **argv, const char *progname, int bChangeGa
 	CL_Init();
 #if XASH_GAMECUBE
 	Con_Reportf( "Xash3D GameCube: engine subsystems ready\n" );
+	/* Keep the real hardware/Dolphin display informative while menu assets and
+	 * the first map are still loading. This call is safe after CL_Init because
+	 * the GameCube video/XFB path has been created; it uses static fallback
+	 * buffers and does not depend on menu textures. */
+	GC_DrawLoadingStatus( "XASH3D GAMECUBE", "LOADING MENU..." );
 #endif
 
 #if !XASH_GAMECUBE
@@ -1580,14 +1585,22 @@ int EXPORT Host_Main( int argc, char **argv, const char *progname, int bChangeGa
 						Con_Reportf( "Xash3D GameCube: G326 pre-map client ensure ready\n" );
 				}
 				GC_TrimClientSubsystemsForMapLoad();
+				GC_SetLoadingProgress( 0.25f );
+				GC_DrawLoadingStatus( "PREPARING MAP", gcmap );
 				Mod_FreeUnused();
 				R_GcmapTrimForMapLoad();
 				GC_TrimVideoMemoryForMapLoad();
 				GC_PrepareMapLoadBufferForMap( gcmap );
+				GC_SetLoadingProgress( 0.50f );
+				GC_DrawLoadingStatus( "LOADING BSP", gcmap );
 				if( SV_SpawnServer( gcmap, NULL, false ))
 				{
+					GC_SetLoadingProgress( 0.80f );
+					GC_DrawLoadingStatus( "SPAWNING WORLD", gcmap );
 					SV_SpawnEntities( gcmap );
 					SV_ActivateServer( true );
+					GC_SetLoadingProgress( 1.0f );
+					GC_DrawLoadingStatus( "MAP READY", gcmap );
 					Con_Reportf( "Xash3D GameCube: direct map ready\n" );
 					/* G68: with -gcnewgame, finish client bring-up on this map
 					 * (do not gc_playstart → c0a0). Enables G92 changelevel path. */

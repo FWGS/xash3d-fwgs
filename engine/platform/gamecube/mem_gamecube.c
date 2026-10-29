@@ -59,6 +59,7 @@ void GC_MemFail( const char *subsystem, size_t size, const char *file, int line 
 	Con_Reportf( "Xash3D GameCube: mem FAIL subsystem=%s size=%s map=%s at=%s:%i total=%s hwm=%s\n",
 		subsystem ? subsystem : "unknown", Q_memprint( size ), gc_mem_map, file, line,
 		Q_memprint( Mem_TotalRealSize() ), Q_memprint( gc_mem_hwm ));
+	GC_MemReportPoolPressure( subsystem, size );
 }
 
 /* Runtime memory arena telemetry */
@@ -368,4 +369,3 @@ qboolean GC_MapLoadMemoryOpt( void )
 		|| ( Sys_CheckParm( "-gcnewgame" ) != 0 && gc_newgame_bootstrap_memopt );
 }
 #endif
-

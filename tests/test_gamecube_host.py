@@ -163,6 +163,13 @@ class GameCubeHostTests(unittest.TestCase):
 			self.assertEqual(sections, [(0x100, 0x80003100, 0x20)])
 			self.assertEqual((bss_address, bss_size, entry), (0x80004000, 0x180, 0x80003100))
 
+	def test_gamecube_apploader_publishes_fst_at_bs2_offsets(self) -> None:
+		source = (ROOT / "scripts/gamecube-apploader.c").read_text(encoding="utf-8")
+		self.assertIn("0x80000038u = APPLOADER_FST_ADDRESS", source)
+		self.assertIn("0x8000003cu = APPLOADER_FST_SIZE", source)
+		self.assertIn("0x80000040u = APPLOADER_FST_SIZE", source)
+		self.assertNotIn("0x80000034u = APPLOADER_FST_ADDRESS", source)
+
 	def test_module_registration_keeps_static_server_client_exports(self) -> None:
 		source = (ROOT / "engine/platform/gamecube/dll_gamecube.c").read_text(encoding="utf-8")
 		self.assertIn('dll_register( "server", lib_hl_gamecube_ppc_exports )', source)
@@ -170,6 +177,48 @@ class GameCubeHostTests(unittest.TestCase):
 		self.assertIn("setup_gamecube_server_exports", source)
 		self.assertIn("setup_gamecube_client_exports", source)
 		self.assertIn("GAMECUBE_MAX_REGISTERED_DLLS", source)
+
+	def test_libogc2_platform_api_keeps_classic_fallback(self) -> None:
+		source = (ROOT / "engine/platform/gamecube/sys_gamecube.c").read_text(encoding="utf-8")
+		self.assertIn("ogc/timesupp.h", source)
+		self.assertIn("XASH_GAMECUBE_LIBOGC2", source)
+		self.assertIn("(DISC_INTERFACE *)&__io_gcdvd", source)
+		self.assertIn("gc_dvd_io = __io_gcdvd", source)
+		self.assertIn("u64 now = gettick();", source)
+		self.assertIn("TB_TIMER_CLOCK * 1000", source)
+
+	def test_low_memory_probe_avoids_unbounded_gx_and_physics_work(self) -> None:
+		gx = (ROOT / "ref/gx/r_main.c").read_text(encoding="utf-8")
+		game = (ROOT / "engine/platform/gamecube/in_gamecube.c").read_text(encoding="utf-8")
+		vid = (ROOT / "engine/platform/gamecube/vid_gamecube.c").read_text(encoding="utf-8")
+		self.assertIn("low-res probe skips CapFaces", gx)
+		self.assertIn("if( gc_probe_synthetic )", game)
+		self.assertIn("low-memory post-present ServerFrame prime skipped", vid)
+		self.assertIn("next_try = gc_present_count +", vid)
+		self.assertIn("!Sys_CheckParm( \"-gcnewgame\" )", vid)
+
+	def test_performance_telemetry_is_bounded_and_memory_safe(self) -> None:
+		perf = (ROOT / "engine/platform/gamecube/perf_gamecube.c").read_text(encoding="utf-8")
+		self.assertIn("if( window < 1 )", perf)
+		self.assertIn("% window", perf)
+		self.assertIn("GC_MemArenaStats memory;", perf)
+		self.assertIn("GC_MemArena_GetStats( &memory )", perf)
+		self.assertNotIn("GC_MemArena_GetStats( (GC_MemArenaStats*)&gc_perf_metrics )", perf)
+		self.assertNotIn('Con_Reportf( "Xash3D GameCube: frame time %.2f ms\\n"', perf)
+
+	def test_flipper_far_face_band_keeps_bounded_long_range_coverage(self) -> None:
+		world = (ROOT / "ref/gx/r_gx_world.c").read_text(encoding="utf-8")
+		self.assertIn("GC_GX_FAR_FACE_DIST 3072.0f", world)
+		self.assertIn("GC_GX_FAR_MIN_AREA 2048", world)
+		self.assertIn("GC_GX_FRAME_FACE_BUDGET", world)
+
+	def test_memory_fail_reports_top_gamecube_pools(self) -> None:
+		mem = (ROOT / "engine/platform/gamecube/mem_gamecube.c").read_text(encoding="utf-8")
+		zone = (ROOT / "engine/common/zone.c").read_text(encoding="utf-8")
+		self.assertIn("GC_MemReportPoolPressure( subsystem, size )", mem)
+		self.assertIn("mem pools request=%s subsystem=%s", zone)
+		self.assertIn("top[2]", zone)
+		self.assertIn("Repeated tiny entity-string failures", zone)
 
 	def test_probe_marker_parsing_and_failure_classification(self) -> None:
 		analyze = load_script("probe_analyze", "scripts/dolphin-probe-analyze.py")
@@ -295,6 +344,7 @@ class GameCubeHostTests(unittest.TestCase):
 				"DOLPHIN_CPU_CORE": "1",
 				"DOLPHIN_GFX_BACKEND": "Vulkan",
 				"DOLPHIN_GFX_MULTITHREADING": "1",
+				"DOLPHIN_MUTE_AUDIO": "1",
 			}, clear=False
 		):
 			harness.write_config(Path(tmpdir))
@@ -302,7 +352,17 @@ class GameCubeHostTests(unittest.TestCase):
 			self.assertIn("CPUThread = True", config)
 			self.assertIn("CPUCore = 1", config)
 			self.assertIn("GFXBackend = Vulkan", config)
+			self.assertIn("Volume = 0", config)
 			self.assertIn("BackendMultithreading = True", (Path(tmpdir) / "Config" / "GFX.ini").read_text(encoding="utf-8"))
+
+	def test_dolphin_boot_probe_exposes_host_audio_mute_switch(self) -> None:
+		probe = (ROOT / "scripts/dolphin-boot-probe.sh").read_text(encoding="utf-8")
+		vision = (ROOT / "scripts/dolphin-vision-test.py").read_text(encoding="utf-8")
+		self.assertIn("DOLPHIN_MUTE_AUDIO", probe)
+		self.assertIn("DOLPHIN_MUTE_AUDIO", vision)
+		self.assertIn("DOLPHIN_AUDIO_VOLUME", probe)
+		self.assertIn("Volume = ${DOLPHIN_AUDIO_VOLUME}", probe)
+		self.assertIn("audio_volume = 0 if mute_audio else 100", vision)
 
 	def test_gameplay_gate_requires_ordered_post_action_stability(self) -> None:
 		gate = load_script("gameplay_gate_order", "scripts/gamecube-gameplay-gate.py")

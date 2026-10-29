@@ -6763,7 +6763,9 @@ static qboolean Mod_LoadBmodelLumps( model_t *mod, byte *mod_base, size_t buffer
 #endif
 	Mod_LoadClipnodes( mod, bmod );
 #if XASH_GAMECUBE
-	Mod_GCCloseBspReloadFile();
+	/* Keep the shared BSP reload handle alive through Mod_LoadLighting below.
+	 * Reopening the same DVD file after clipnodes costs another file_t from the
+	 * already-fragmented FileSystem pool on GameCube. */
 	if( bmod->version != QBSP2_VERSION && !bmod->isbsp30ext && bmod->clipnodes_out == NULL )
 		retain_bsp_buffer = true;
 	if( gc_retain_bsp_source_buffer )
@@ -6789,6 +6791,7 @@ static qboolean Mod_LoadBmodelLumps( model_t *mod, byte *mod_base, size_t buffer
 #endif
 	Mod_LoadLighting( mod, bmod );
 #if XASH_GAMECUBE
+	Mod_GCCloseBspReloadFile();
 	Con_Reportf( "Xash3D GameCube: bmodel lighting ready\n" );
 	/* G277: capture after Mod_LoadLighting binds samples to every world and
 	 * embedded-submodel surface, but before the BSP scratch backing is released.

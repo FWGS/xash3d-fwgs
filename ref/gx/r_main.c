@@ -1725,6 +1725,18 @@ static void R_EdgeDrawingGcmapProbe( void )
 		VectorCopy( RI.rvp.vieworigin, tr.modelorg );
 		if( tr.framecount <= 1 )
 			gEngfuncs.Con_Reportf( "Xash3D GameCube: R_EdgeDrawing GX CapFaces begin\n" );
+		/* The 320x240 bring-up route already has a static world buffer. Avoid
+		 * the full BSP cap walk when MEM1 is exhausted before first present. */
+		if( GC_UseLowResWorldProbe() )
+		{
+			static qboolean lowres_logged;
+			if( !lowres_logged )
+			{
+				lowres_logged = true;
+				gEngfuncs.Con_Reportf( "Xash3D GameCube: low-res probe skips CapFaces\n" );
+			}
+			return;
+		}
 		cap_drawn = R_GXDrawNewGameCapFaces();
 		if( tr.framecount <= 1 )
 			gEngfuncs.Con_Reportf( "Xash3D GameCube: R_EdgeDrawing GX CapFaces drawn=%d\n",
@@ -2512,13 +2524,19 @@ void GAME_EXPORT R_NewMap( void )
 
 	tr.sample_size = gEngfuncs.Mod_SampleSizeForFace( &world->surfaces[0] );
 
-	for( int i = 1; i < world->numsurfaces; i++ )
+	/* The low-memory gcmap renderer does not build lightmaps. Scanning every
+	 * BSP surface here can monopolize the Flipper probe before its first frame;
+	 * the first face is sufficient for the unused sample metadata. */
+	if( !( GC_IsLowMemoryMode() && GC_UseLowResWorldProbe() ))
 	{
-		int sample_size = gEngfuncs.Mod_SampleSizeForFace( &world->surfaces[i] );
-		if( sample_size != tr.sample_size )
+		for( int i = 1; i < world->numsurfaces; i++ )
 		{
-			tr.sample_size = -1;
-			break;
+			int sample_size = gEngfuncs.Mod_SampleSizeForFace( &world->surfaces[i] );
+			if( sample_size != tr.sample_size )
+			{
+				tr.sample_size = -1;
+				break;
+			}
 		}
 	}
 	tr.sample_bits = -1;

@@ -40,9 +40,12 @@ static int apploader_main( void **address, u32 *size, u32 *offset )
 
 static void *apploader_close( void )
 {
-	*(volatile u32 *)0x80000034u = APPLOADER_FST_ADDRESS;
+	/* BS2 exposes the FST through these fixed low-memory words.  0x34 is
+	 * reserved; writing the address there shifts the contract and makes the
+	 * retail boot path hang before the DOL entry point is reached. */
 	*(volatile u32 *)0x80000038u = APPLOADER_FST_ADDRESS;
 	*(volatile u32 *)0x8000003cu = APPLOADER_FST_SIZE;
+	*(volatile u32 *)0x80000040u = APPLOADER_FST_SIZE;
 	/* devkitPPC's __app_start clears SBSS/BSS before calling main. */
 	return (void *)APPLOADER_ENTRY_POINT;
 }
