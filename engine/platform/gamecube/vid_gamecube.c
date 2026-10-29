@@ -107,27 +107,43 @@ static void GC_EnsureDrawViewmodelCvar( void )
 #define GC_DRAWDONE_IDLE_MS 2
 static unsigned int gc_drawdone_timeouts;
 
+/* One draw-sync token sequence for every CPU/GP wait: the present's
+ * DrawDone and the renderer's texture fences (GC_GXFenceWait). Tokens only
+ * grow, so "the GP has reached token t" is a wrap-safe compare. */
+static u16 gc_gx_fence_issued;
+
+static qboolean GC_GXFenceReached( u16 token )
+{
+	return (s16)( GX_GetDrawSync() - token ) >= 0;
+}
+
+static u16 GC_GXFenceIssue( void )
+{
+	gc_gx_fence_issued++;
+	GX_SetDrawSync( gc_gx_fence_issued );
+	GX_Flush();
+	return gc_gx_fence_issued;
+}
+
 static qboolean GC_GXDrawDoneTimed( const char *where )
 {
-	static u16 token;
+	u16 token;
 	u64 start, idle_start = 0;
 	u8 overhi = 0, underlo = 0, read_idle = 0, cmd_idle = 0, brkpt = 0;
 
 	GC_WatchdogMark( where );
-	token++;
-	GX_SetDrawSync( token );
-	GX_Flush();
+	token = GC_GXFenceIssue();
 	start = gettime();
 
 	for( ;; )
 	{
-		if( GX_GetDrawSync() == token )
+		if( GC_GXFenceReached( token ))
 			return true;
 
 		GX_GetGPStatus( &overhi, &underlo, &read_idle, &cmd_idle, &brkpt );
 		if( read_idle && cmd_idle )
 		{
-			if( GX_GetDrawSync() == token )
+			if( GC_GXFenceReached( token ))
 				return true;
 			/* Idle for a few ms in a row with no token: stop waiting. */
 			if( !idle_start )
@@ -164,6 +180,49 @@ static qboolean GC_GXDrawDoneTimed( const char *where )
 	GX_AbortFrame();
 	return false;
 }
+
+/* The token the GP will report once it has executed every command queued
+ * so far. A renderer that hands Flipper a texture buffer records this, and
+ * calls GC_GXFenceWait with it before writing that buffer again. */
+u16 GC_GXFenceNext( void )
+{
+	return (u16)( gc_gx_fence_issued + 1 );
+}
+
+/* Wait until the GP has executed everything queued before GC_GXFenceNext()
+ * returned 'token'. Returns true when it had to wait. */
+qboolean GC_GXFenceWait( u16 token )
+{
+	u64 start, idle_start = 0;
+	u8 overhi = 0, underlo = 0, read_idle = 0, cmd_idle = 0, brkpt = 0;
+
+	if( (s16)( gc_gx_fence_issued - token ) < 0 )
+		GC_GXFenceIssue();
+	if( GC_GXFenceReached( token ))
+		return false;
+	start = gettime();
+	while( !GC_GXFenceReached( token ))
+	{
+		/* Same escapes as GC_GXDrawDoneTimed: a GP idle for a few ms with
+		 * no token has nothing left that could read the buffer. */
+		GX_GetGPStatus( &overhi, &underlo, &read_idle, &cmd_idle, &brkpt );
+		if( read_idle && cmd_idle )
+		{
+			if( !idle_start )
+				idle_start = gettime();
+			else if( ticks_to_millisecs( diff_ticks( idle_start, gettime())) >= GC_DRAWDONE_IDLE_MS )
+				break;
+		}
+		else idle_start = 0;
+		if( ticks_to_millisecs( diff_ticks( start, gettime())) > GC_DRAWDONE_TIMEOUT_MS )
+		{
+			SYS_Report( "Xash3D GameCube: GX fence timeout token=%u\n", token );
+			break;
+		}
+	}
+	return true;
+}
+
 static qboolean gc_lean_player_physics_armed;
 static unsigned int gc_blank_present_count;
 static unsigned int gc_budget_sample_count;

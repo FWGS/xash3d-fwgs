@@ -194,6 +194,8 @@ void GC_WatchdogMark( const char *stage );
 void GC_ProfMark( const char *name );
 void GC_ProfFrame( void );
 void GC_MarkGxWorldEfbReady( void );
+unsigned short GC_GXFenceNext( void );
+qboolean GC_GXFenceWait( unsigned short token );
 void GC_EnableGxWorldLive( void );
 qboolean GC_AllowFlipperCapFaces( void );
 void *GC_GetGxVideoMode( void );

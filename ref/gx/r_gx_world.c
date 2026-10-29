@@ -47,6 +47,7 @@ Not feature-parity: full brush-mover lighting remains soft/diagnostic.
 #include <malloc.h>
 #include <string.h>
 #include <math.h>
+#include <stdlib.h>
 
 extern qboolean GC_UseGxWorldDraw( void );
 extern qboolean GC_UseGxRenderer( void );
@@ -92,6 +93,8 @@ extern const unsigned short *GC_GetTramLightmapAtlas( int *w, int *h );
 extern void GC_GetTramLightmapUV( int face, float s, float t, float *out_s, float *out_t );
 extern msurface_t *GC_GetLiveDrawSurfs( void );
 extern unsigned R_GXGetTriColorRGBA( void );
+extern u16 GC_GXFenceNext( void );
+extern qboolean GC_GXFenceWait( u16 token );
 
 #define GC_GX_TEX_SLOTS		32
 #define GC_GX_TEX_HUD_RESERVE	9	/* menu tiles plus live HUD sheets */
@@ -125,6 +128,13 @@ static qboolean r_gx_cinematic_ready;
 static unsigned r_gx_cinematic_updates;
 static int r_gx_tex_clock;
 static int r_gx_tex_lru[GC_GX_TEX_SLOTS];
+/* Draw-sync token after the last draw queued with each slot bound. A miss
+ * waits for it before re-swizzling into the slot: Flipper reads texels when
+ * it executes the FIFO, so overwriting a slot still referenced by queued
+ * faces drew those faces with the new texture (tunnel walls flashing to the
+ * next texture's panels every frame on the tram ride). */
+static u16 r_gx_tex_fence[GC_GX_TEX_SLOTS];
+static unsigned r_gx_tex_uploads, r_gx_tex_fence_stalls;
 static model_t *r_gx_tex_world;
 static qboolean r_gx_world_drew;
 static qboolean r_gx_world_logged;
@@ -801,6 +811,7 @@ static gc_gx_tex_t *R_GXBindTexnum( unsigned texnum, qboolean hud_bind )
 			&& r_gx_tex[i].fmt == want_fmt )
 		{
 			r_gx_tex_lru[i] = ++r_gx_tex_clock;
+			r_gx_tex_fence[i] = GC_GXFenceNext();
 			if( hud_bind )
 				r_gx_tex[i].hud_pin = true;
 			if( r_gx_bound_texnum != texnum || r_gx_bound_fmt != want_fmt )
@@ -865,6 +876,9 @@ static gc_gx_tex_t *R_GXBindTexnum( unsigned texnum, qboolean hud_bind )
 	}
 
 	t = &r_gx_tex[slot];
+	if( t->valid && GC_GXFenceWait( r_gx_tex_fence[slot] ))
+		r_gx_tex_fence_stalls++;
+	r_gx_tex_uploads++;
 
 	src_w = img->width;
 	src_h = img->height;
@@ -963,6 +977,7 @@ static gc_gx_tex_t *R_GXBindTexnum( unsigned texnum, qboolean hud_bind )
 	t->valid = true;
 	t->hud_pin = hud_bind;
 	r_gx_tex_lru[slot] = ++r_gx_tex_clock;
+	r_gx_tex_fence[slot] = GC_GXFenceNext();
 	/* New tiled texels — invalidate once here, not every world pass. */
 	GX_InvalidateTexAll();
 	r_gx_tex_invalidates++;
@@ -1013,6 +1028,28 @@ static unsigned R_GXSurfTexKey( const msurface_t *surf )
 	if( !surf || !surf->texinfo || !surf->texinfo->texture )
 		return 0u;
 	return (unsigned)surf->texinfo->texture->gl_texturenum;
+}
+
+/* Faces queued by a pass as ( texture << 16 ) | surface index and emitted
+ * texture-sorted: the world pool holds only GC_GX_TEX_WORLD_POOL textures,
+ * so emitting in BSP order re-uploaded a texture for nearly every face
+ * (~230 converts per frame on the tram ride for ~38 distinct textures). */
+#define GC_GX_FACE_SORT_MAX 2048
+static unsigned r_gx_face_sort[GC_GX_FACE_SORT_MAX];
+
+static int R_GXFaceSortCmp( const void *a, const void *b )
+{
+	const unsigned x = *(const unsigned *)a, y = *(const unsigned *)b;
+
+	return ( x > y ) - ( x < y );
+}
+
+static qboolean R_GXFaceSortPush( int *n, const msurface_t *surf, int index )
+{
+	if( *n >= GC_GX_FACE_SORT_MAX || index < 0 || index > 0xFFFF )
+		return false;
+	r_gx_face_sort[( *n )++] = (( R_GXSurfTexKey( surf ) & 0xFFFFu ) << 16 ) | (unsigned)index;
+	return true;
 }
 
 static void R_GXOrderFacesByTexBands( const msurface_t *draw, int n, int *order )
@@ -2204,6 +2241,7 @@ static int R_GXDrawWorldLiveSurfaces( model_t *world, qboolean opaque_too )
 	int opaque_drawn = 0;
 	int trans_drawn = 0;
 	int skip_vis = 0, skip_plane = 0, skip_back = 0, skip_area = 0, emit_zero = 0;
+	int nsort = 0;
 	const qboolean newgame = gEngfuncs.Sys_CheckParm( "-gcnewgame" );
 	qboolean surfaces_live;
 	qboolean surfaces_pinned;
@@ -2314,6 +2352,7 @@ static int R_GXDrawWorldLiveSurfaces( model_t *world, qboolean opaque_too )
 				esurf = &tmp;
 			}
 
+			if( !R_GXFaceSortPush( &nsort, esurf, i ))
 			{
 				int got = R_GXEmitFace( esurf, world, -1 );
 				if( got <= 0 )
@@ -2322,6 +2361,29 @@ static int R_GXDrawWorldLiveSurfaces( model_t *world, qboolean opaque_too )
 					opaque_drawn += got;
 			}
 			emit_budget--;
+		}
+
+		qsort( r_gx_face_sort, nsort, sizeof( r_gx_face_sort[0] ), R_GXFaceSortCmp );
+		for( i = 0; i < nsort; i++ )
+		{
+			const msurface_t *esurf;
+			msurface_t tmp;
+			int got;
+
+			surf = &world->surfaces[r_gx_face_sort[i] & 0xFFFFu];
+			esurf = surf;
+			if( newgame && surfaces_pinned )
+			{
+				tmp = *surf;
+				tmp.texinfo = NULL;
+				tmp.samples = NULL;
+				esurf = &tmp;
+			}
+			got = R_GXEmitFace( esurf, world, -1 );
+			if( got <= 0 )
+				emit_zero++;
+			else
+				opaque_drawn += got;
 		}
 	}
 
@@ -2692,6 +2754,19 @@ int R_GXDrawNewGameCapFaces( void )
 	}
 
 	RI.currentmodel = world;
+	{
+		static int profile = -1, passes;
+
+		if( profile < 0 )
+			profile = gEngfuncs.Sys_CheckParm( "-gcprofile" ) != 0;
+		if( profile && ++passes >= 64 )
+		{
+			gEngfuncs.Con_Reportf( "Xash3D GameCube: gx tex passes=%d uploads=%u stalls=%u\n",
+				passes, r_gx_tex_uploads, r_gx_tex_fence_stalls );
+			passes = 0;
+			r_gx_tex_uploads = r_gx_tex_fence_stalls = 0;
+		}
+	}
 	r_gx_tex_draws = 0;
 	r_gx_flat_draws = 0;
 	r_gx_lm_draws = 0;
@@ -4348,13 +4423,14 @@ int R_GXDrawBrushModel( cl_entity_t *e )
 	{
 	int skip_plane = 0, skip_sky = 0, skip_edges = 0, emit_zero = 0;
 
+	int nsort = 0;
+	const int face_cap = gEngfuncs.Sys_CheckParm( "-gcmenuplaystart" ) ? 512 : 256;
+
 	for( i = 0; i < mod->nummodelsurfaces; i++, psurf++ )
 	{
-		int got;
-
 		/* G310 tram face budget matches GC_TRAM_MAX_FACES. The menu route
 		 * draws the live submodel, and *12 has 341 faces: 256 cut its walls. */
-		if( drawn >= ( gEngfuncs.Sys_CheckParm( "-gcmenuplaystart" ) ? 512 : 256 ))
+		if( nsort >= face_cap )
 			break;
 		if( !psurf->plane || psurf->numedges < 3 )
 		{
@@ -4372,7 +4448,14 @@ int R_GXDrawBrushModel( cl_entity_t *e )
 			continue;
 		}
 		/* No CPU backface — cabin walls face inward; angles break modelorg. */
-		got = R_GXEmitFace( psurf, geom, -1 );
+		if( !R_GXFaceSortPush( &nsort, psurf, i ))
+			break;
+	}
+	qsort( r_gx_face_sort, nsort, sizeof( r_gx_face_sort[0] ), R_GXFaceSortCmp );
+	for( i = 0; i < nsort; i++ )
+	{
+		int got = R_GXEmitFace( &geom->surfaces[mod->firstmodelsurface + ( r_gx_face_sort[i] & 0xFFFFu )], geom, -1 );
+
 		if( got <= 0 )
 			emit_zero++;
 		drawn += got;
