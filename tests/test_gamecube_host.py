@@ -928,34 +928,49 @@ class GameCubeHostTests(unittest.TestCase):
 		self.assertIn("carda", result.stdout)
 		self.assertIn("sdgecko", result.stdout)
 		with tempfile.TemporaryDirectory() as tmpdir:
-			src = Path(tmpdir) / "hl"
+			src = Path(tmpdir) / "hl" / "valve"
 			dst = Path(tmpdir) / "sd"
-			src.mkdir()
-			dst.mkdir()
-			(src / "gameinfo.txt").write_text("gameinfo\n", encoding="utf-8")
+			dol = Path(tmpdir) / "boot.dol"
+			(src / "gfx").mkdir(parents=True)
 			(src / "maps").mkdir()
-			(src / "maps" / "c0a0.bsp").write_bytes(b"BSP")
-			env = dict(**{k: v for k, v in __import__("os").environ.items()})
-			env["STAGE_SD_NONINTERACTIVE"] = "1"
+			dst.mkdir()
+			dol.write_bytes(b"DOL")
+			for name in ("liblist.gam", "delta.lst", "gfx.wad", "gfx/palette.lmp",
+					"gfx/conback.lmp", "gfx/colormap.lmp", "valve.rc", "default.cfg", "config.cfg"):
+				(src / name).write_text("x\n", encoding="utf-8")
+			(src / "maps" / "C0A0.BSP").write_bytes(b"BSP")
+			# Archive the pre-fix stager left behind; the engine would mount it.
+			(dst / "xash3d/valve").mkdir(parents=True)
+			(dst / "xash3d/valve/maps.pk3").write_bytes(b"PK")
 			staged = subprocess.run(
 				[
 					"bash",
 					str(ROOT / "scripts/stage-sd-assets.sh"),
-					str(src),
+					str(src.parent),
 					str(dst),
 					"--route",
 					"carda",
+					"--dol",
+					str(dol),
 				],
 				cwd=ROOT,
 				text=True,
 				capture_output=True,
-				env=env,
 				check=False,
 			)
 			self.assertEqual(staged.returncode, 0, staged.stderr + staged.stdout)
 			self.assertIn("carda:/xash3d/valve/", staged.stdout)
-			self.assertTrue((dst / "xash3d/valve/gameinfo.txt").is_file())
-			self.assertTrue((dst / "apps/xash3d-gc").is_dir())
+			valve = dst / "xash3d/valve"
+			# The engine's GCube_HasValveAssets gate: gfx.wad / liblist.gam + a map.
+			self.assertTrue((valve / "gfx.wad").is_file())
+			self.assertTrue((valve / "liblist.gam").is_file())
+			self.assertTrue((valve / "maps/c0a0.bsp").is_file())
+			self.assertTrue((valve / "gamecube-bootstrap.pk3").is_file())
+			self.assertFalse((valve / "maps.pk3").exists())
+			self.assertEqual((valve / "gamecube.cfg").read_text(encoding="ascii"), "retailnewgame\n")
+			self.assertTrue((dst / "apps/xash3d-gc/boot.dol").is_file())
+			for sub in ("save", "logs", "screenshots"):
+				self.assertTrue((valve / sub).is_dir())
 
 	def test_storage_route_matrix_prefers_newest_matching_log(self) -> None:
 		import subprocess
@@ -1431,7 +1446,10 @@ class GameCubeHostTests(unittest.TestCase):
 		self.assertIn("%s%s/valve/gamecube.cfg", sys_gc)
 		self.assertIn("GCube_ArmSwissQuit", sys_gc)
 		self.assertIn("-gcswissquit", sys_gc)
-		self.assertIn("merged FAT -gcmap", sys_gc)
+		# Swiss .cli extras are appended to the built argv, not substituted for it.
+		self.assertIn("Loader extras go last", sys_gc)
+		# The SD route has the game on FAT; the drive is not probed.
+		self.assertIn("FAT has game data, skipping DVD mount", sys_gc)
 		# Prefer FAT gamecube.cfg over DVD so an inserted disc cannot shadow swissquit.
 		fat_idx = sys_gc.find("GCube_FatRootReady()")
 		dvd_fopen = sys_gc.find('fopen( GC_DVD_DEVICE ":/" GC_DATA_PATH "/valve/gamecube.cfg"')
