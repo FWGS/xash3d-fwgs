@@ -3308,10 +3308,23 @@ static cl_entity_t *R_FindParentEntity( cl_entity_t *e, cl_entity_t **entities, 
 R_DrawStudioModel
 =================
 */
+#if XASH_GAMECUBE
+/* Per-entity studio draw counts for the client's NPC status dump. */
+static unsigned short r_gc_studio_draws[1024];
+
+unsigned R_GCStudioDrawCount( int index )
+{
+	return ( index >= 0 && index < 1024 ) ? r_gc_studio_draws[index] : 0;
+}
+#endif
+
 void R_DrawStudioModel( cl_entity_t *e )
 {
 #if XASH_GAMECUBE
 	qboolean gx_studio = false;
+
+	if( e && e->index >= 0 && e->index < 1024 )
+		r_gc_studio_draws[e->index]++;
 	qboolean lean = gEngfuncs.Sys_CheckParm( "-gcnewgame" )
 		&& !gEngfuncs.Sys_CheckParm( "-gcfullphysics" );
 
@@ -3688,7 +3701,17 @@ static void R_StudioLoadTexture( model_t *mod, studiohdr_t *phdr, mstudiotexture
 
 	// build the texname
 	Q_snprintf( texname, sizeof( texname ), "#%s/%s.mdl", mdlname, name );
+#if XASH_GAMECUBE
+	{
+		extern qboolean r_gc_studio_skins_in_arena;
+
+		r_gc_studio_skins_in_arena = GC_MenuRunsServer();
+		ptexture->index = GL_LoadTexture( texname, (byte *)ptexture, size, flags );
+		r_gc_studio_skins_in_arena = false;
+	}
+#else
 	ptexture->index = GL_LoadTexture( texname, (byte *)ptexture, size, flags );
+#endif
 
 	if( !ptexture->index )
 	{

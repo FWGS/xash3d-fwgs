@@ -30,6 +30,7 @@ static int	mod_numknown = 0;
 poolhandle_t      com_studiocache;		// cache for submodels
 #if XASH_GAMECUBE
 #include "gamecube/mem_gamecube.h"
+#include "platform/platform.h"
 void FS_ClearFindMissCache( void );
 qboolean GC_IsNewGameWorldReady( void );
 void R_GXStudioInvalidateBindings( void );
@@ -45,6 +46,8 @@ static qboolean Mod_GCIsNewGameRoute( void )
 #define GC_REAL_STUDIO_MAX_NPC    4
 #define GC_REAL_STUDIO_MAX_VIEW   3
 #define GC_REAL_STUDIO_MAX_BYTES  (640 * 1024) /* G371: view + scientist + barney */
+#define GC_REAL_STUDIO_MAX_NPC_MENU   8
+#define GC_REAL_STUDIO_MAX_BYTES_MENU ( 900 * 1024 )
 
 static int    gc_real_studio_npc;
 static int    gc_real_studio_view;
@@ -60,6 +63,38 @@ static int     gc_deferred_studio_attempts;
 static byte    gc_studio_bss[GC_STUDIO_BSS_BYTES] __attribute__((aligned( 32 )));
 static size_t  gc_studio_bss_bump;
 static int     gc_studio_bss_owners; /* resident cache.data slices */
+
+byte *Mod_GCStudioBssAlloc( size_t size );
+
+/* Menu New Game: read a studio sequence-group file (scientist01.mdl ...)
+ * straight into the studio arena. The heap path needed the file twice
+ * (FS_LoadFile + cache copy, ~130 KiB) and failed during the c0a0 walks. */
+byte *Mod_GCStudioArenaLoadFile( const char *path, fs_offset_t *length )
+{
+	file_t *f = FS_Open( path, "rb", false );
+	fs_offset_t flen, total = 0, got;
+	byte *slot;
+
+	*length = 0;
+	if( !f )
+		return NULL;
+	flen = FS_FileLength( f );
+	slot = flen > 0 ? Mod_GCStudioBssAlloc( (size_t)flen ) : NULL;
+	if( !slot )
+	{
+		FS_Close( f );
+		return NULL;
+	}
+	while( total < flen && ( got = FS_Read( f, slot + total, flen - total )) > 0 )
+		total += got;
+	FS_Close( f );
+	if( total != flen )
+		return NULL; /* bump hole, rare short read */
+	*length = flen;
+	Con_Reportf( "Xash3D GameCube: studio seqgroup '%s' in arena (%s) bump=%s\n",
+		path, Q_memprint( (size_t)flen ), Q_memprint( gc_studio_bss_bump ));
+	return slot;
+}
 
 qboolean Mod_GCIsStudioBssCache( const void *ptr )
 {
@@ -176,6 +211,8 @@ static qboolean Mod_GCStudioNameAllowed( const char *name, qboolean *is_viewmode
 		"scientist", "barney", "gman", "player", "roach",
 		"headcrab", "houndeye", "zombie",
 		"scientist01", "scientist02", "scientist03",
+		/* Menu New Game intro props (c0a0 / c0a0a forklifts). */
+		"forklift",
 		/* Tiny lean world-weapon stub for Flipper studio draw admit. */
 		"w_crowbar",
 		NULL
@@ -216,16 +253,21 @@ static qboolean Mod_GCAllowRealStudioLoad( const char *name, size_t filesize )
 	/* Retail Flipper + New Game probe — allowlisted meshes only. */
 	if( !Mod_GCStudioNameAllowed( name, &is_view ))
 		return false;
+	/* Menu New Game keeps the whole intro cast resident in the 1 MiB studio
+	 * BSS arena (scientist + barney + forklift + view meshes ~0.6 MiB). */
+	const int max_npc = GC_MenuRunsServer() ? GC_REAL_STUDIO_MAX_NPC_MENU : GC_REAL_STUDIO_MAX_NPC;
+	const size_t max_bytes = GC_MenuRunsServer() ? GC_REAL_STUDIO_MAX_BYTES_MENU : GC_REAL_STUDIO_MAX_BYTES;
+
 	if( is_view )
 	{
 		if( gc_real_studio_view >= GC_REAL_STUDIO_MAX_VIEW )
 			return false;
 	}
-	else if( gc_real_studio_npc >= GC_REAL_STUDIO_MAX_NPC )
+	else if( gc_real_studio_npc >= max_npc )
 		return false;
 	if( filesize < sizeof( studiohdr_t ) || filesize > ( 220 * 1024 ))
 		return false;
-	if( gc_real_studio_bytes + filesize > GC_REAL_STUDIO_MAX_BYTES )
+	if( gc_real_studio_bytes + filesize > max_bytes )
 		return false;
 	return true;
 }
@@ -619,6 +661,9 @@ void Mod_GCTryDeferredStudios( void )
 	}
 
 	presents = GC_GetNewGamePresentCount();
+	/* Menu New Game loads the cast at precache (Mod_LoadModel). */
+	if( GC_MenuRunsServer() && presents >= 24 )
+		return;
 	if( Mod_GCIsNewGameRoute() && !Sys_CheckParm( "-gcfullphysics" )
 		&& presents >= 24 )
 	{
@@ -1133,6 +1178,15 @@ static model_t *Mod_LoadModel( model_t *mod, qboolean crash )
 
 		if( ext && ( !Q_stricmp( ext, "mdl" ) || !Q_stricmp( ext, "spr" )) )
 		{
+			/* Menu New Game runs real monster AI from spawn, which needs the
+			 * real sequences: load allowlisted meshes into the studio arena
+			 * now instead of leaving a stub until after map prep. */
+			qboolean is_view = false;
+
+			if( GC_MenuRunsServer() && !Q_stricmp( ext, "mdl" )
+				&& Mod_GCStudioNameAllowed( tempname, &is_view ) && !is_view
+				&& Mod_GCPromoteStudioPath( tempname ))
+				return mod;
 			/* Real meshes are promoted after map prep in Mod_GCLoadNewGameStudios. */
 			mod->needload = NL_NEEDS_LOADED;
 			return mod;
@@ -1491,8 +1545,11 @@ void Mod_GcmapMarkPrecacheFreeable( void )
 			continue;
 		if( mod->needload == NL_PRESENT )
 		{
-			/* Keep New Game deferred real studio meshes for world present. */
-			if( Sys_CheckParm( "-gcnewgame" ) && mod->type == mod_studio )
+			/* Keep New Game deferred real studio meshes for world present.
+			 * Menu New Game: the intro cast is resident in the studio arena
+			 * and referenced by both sv.models and cl.models; freeing it let
+			 * a later promote reuse the slot for another model. */
+			if(( Sys_CheckParm( "-gcnewgame" ) || GC_MenuRunsServer()) && mod->type == mod_studio )
 			{
 				studiohdr_t *hdr = (studiohdr_t *)mod->cache.data;
 				if( hdr && hdr->numbodyparts > 0 )
@@ -1545,6 +1602,11 @@ void *GAME_EXPORT Mod_CacheCheck( cache_user_t *c )
 	if( !c->data )
 		return NULL;
 
+#if XASH_GAMECUBE
+	/* Sequence groups loaded into the studio arena stay resident. */
+	if( Mod_GCIsStudioBssCache( c->data ))
+		return c->data;
+#endif
 	if( !Mem_IsAllocatedExt( com_studiocache, c->data ))
 		return NULL;
 
@@ -1570,11 +1632,21 @@ void GAME_EXPORT Mod_LoadCacheFile( const char *filename, cache_user_t *cu )
 	Q_strncpy( modname, filename, sizeof( modname ));
 	COM_FixSlashes( modname );
 
-	byte *buf = FS_LoadFile( modname, &size, false );
+	byte *buf = NULL;
+#if XASH_GAMECUBE
+	/* Menu New Game: the client studio renderer's sequence groups go to
+	 * the studio arena like R_StudioGetAnim's (one copy, no heap). */
+	if( GC_MenuRunsServer() && ( buf = Mod_GCStudioArenaLoadFile( modname, &size )) != NULL )
+		cu->data = buf;
+	else
+#endif
+	{
+	buf = FS_LoadFile( modname, &size, false );
 	if( !buf || !size ) Host_Error( "LoadCacheFile: ^1can't load %s^7\n", filename );
 	cu->data = Mem_Malloc( com_studiocache, size );
 	memcpy( cu->data, buf, size );
 	Mem_Free( buf );
+	}
 
 	// this handles when studio model renderer tries to load sequence files on it's own
 	// which is what they always do in HLSDK

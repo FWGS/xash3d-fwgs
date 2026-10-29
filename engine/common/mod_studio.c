@@ -587,6 +587,19 @@ void *R_StudioGetAnim( studiohdr_t *m_pStudioHeader, model_t *m_pSubModel, mstud
 		return ((byte *)m_pStudioHeader + pseqdesc->animindex);
 
 	cache_user_t *paSequences = (cache_user_t *)m_pSubModel->submodels;
+#if XASH_GAMECUBE
+	/* Menu New Game: the group table and files live in the studio arena,
+	 * next to the resident mesh (com_studiocache is emptied at play start). */
+	const qboolean arena = GC_MenuRunsServer();
+
+	if( paSequences == NULL && arena )
+	{
+		paSequences = (cache_user_t *)Mod_GCStudioBssAlloc( MAXSTUDIOGROUPS * sizeof( cache_user_t ));
+		if( paSequences )
+			memset( paSequences, 0, MAXSTUDIOGROUPS * sizeof( cache_user_t ));
+		m_pSubModel->submodels = (void *)paSequences;
+	}
+#endif
 	if( paSequences == NULL )
 	{
 		paSequences = (cache_user_t *)Mem_Calloc( com_studiocache, MAXSTUDIOGROUPS * sizeof( cache_user_t ));
@@ -607,7 +620,36 @@ void *R_StudioGetAnim( studiohdr_t *m_pStudioHeader, model_t *m_pSubModel, mstud
 		Q_snprintf( filepath, sizeof( filepath ), "%s/%s%i%i.mdl", modelpath, modelname, pseqdesc->seqgroup / 10, pseqdesc->seqgroup % 10 );
 
 		fs_offset_t filesize;
-		byte *buf = FS_LoadFile( filepath, &filesize, false );
+		byte *buf;
+#if XASH_GAMECUBE
+		if( arena )
+		{
+			buf = Mod_GCStudioArenaLoadFile( filepath, &filesize );
+			if( buf && LittleLong( IDSEQGRPHEADER ) == *(uint *)buf )
+			{
+				paSequences[pseqdesc->seqgroup].data = buf;
+				Mod_SwapStudioSeqGroupAnims( m_pStudioHeader, pseqdesc, buf );
+				return buf + pseqdesc->animindex;
+			}
+		}
+#endif
+		buf = FS_LoadFile( filepath, &filesize, false );
+#if XASH_GAMECUBE
+		if(( !buf || !filesize ) && arena )
+		{
+			/* Out of room: play sequence 0's animation rather than ending
+			 * the game, when its blend layout covers this sequence. */
+			mstudioseqdesc_t *seq0 = (mstudioseqdesc_t *)((byte *)m_pStudioHeader + m_pStudioHeader->seqindex);
+			static int warned;
+
+			if( seq0->seqgroup == 0 && pseqdesc->numblends <= seq0->numblends )
+			{
+				if( warned++ < 4 )
+					Con_Reportf( S_WARN "Xash3D GameCube: no room for %s, using sequence 0\n", filepath );
+				return (byte *)m_pStudioHeader + seq0->animindex;
+			}
+		}
+#endif
 		if( !buf || !filesize )
 			Host_Error( "%s: can't load %s\n", __func__, filepath );
 		if( LittleLong( IDSEQGRPHEADER ) != *(uint *)buf )
@@ -1310,7 +1352,7 @@ void Mod_LoadStudioModel( model_t *mod, void *buffer, size_t buffersize, qboolea
 	skip_studio_textures = (GC_GetVisualQuality( ) == 0);
 	/* Allowlisted MDLs (New Game + retail Flipper): lean mesh, tip-safe cache. */
 	if( buffer && buffersize > sizeof( studiohdr_t )
-		&& ( Sys_CheckParm( "-gcnewgame" ) || GC_IsNewGameWorldReady() ))
+		&& ( Sys_CheckParm( "-gcnewgame" ) || GC_IsNewGameWorldReady() || GC_MenuRunsServer()))
 	{
 		Cvar_Set( "gc_quality", "0" );
 		skip_studio_textures = false;
@@ -1441,14 +1483,12 @@ void Mod_LoadStudioModel( model_t *mod, void *buffer, size_t buffersize, qboolea
 					 * then keep only mesh+texhdr in resident cache.
 					 * G381: tip heap is empty — grow the BSS mesh slice in place
 					 * when calloc(merged) fails (was mesh-only white NPC). */
-					Image_GCPurgeDecodeScratch();
-					ref.dllFuncs.Mod_StudioLoadTextures( mod, thdr );
-					textures_loaded = true;
-
 					/* The source mesh is already in the static arena on the
 					 * GameCube route.  Extend that slice before considering calloc:
 					 * calling the fragmented runtime heap here was the post-present
-					 * `_malloc_r` DSI path on scientist/Barney/headcrab promotion. */
+					 * `_malloc_r` DSI path on scientist/Barney/headcrab promotion.
+					 * Grow before uploading skins: on the menu route the skin
+					 * pixels are bump-allocated from the same arena. */
 					if( Mod_GCIsStudioBssCache( buffer ))
 					{
 						byte *slot = Mod_GCStudioBssGrowLast( buffer, mesh, merged );
@@ -1456,6 +1496,9 @@ void Mod_LoadStudioModel( model_t *mod, void *buffer, size_t buffersize, qboolea
 						if( slot )
 							mod->cache.data = slot;
 					}
+					Image_GCPurgeDecodeScratch();
+					ref.dllFuncs.Mod_StudioLoadTextures( mod, thdr );
+					textures_loaded = true;
 					if( !mod->cache.data )
 					{
 						Image_GCPurgeDecodeScratch();

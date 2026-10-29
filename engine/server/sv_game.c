@@ -5404,7 +5404,9 @@ static qboolean SV_GCMapShouldInhibitClass( const char *classname )
 		{
 			int scientist_cap = 4;
 
-			if( Sys_CheckParm( "-gcfullphysics" ))
+			/* Menu New Game: the intro cast spawns with real AI (all of
+			 * c0a0's walkers and station scientists). */
+			if( Sys_CheckParm( "-gcfullphysics" ) || GC_MenuRunsServer())
 				return false;
 			/* G373: c1a0d has 6 walking scientists; admit all on tip-safe hop. */
 			if( sv.startspot[0] && !Q_stricmp( sv.name, "c1a0d" ))
@@ -5416,7 +5418,7 @@ static qboolean SV_GCMapShouldInhibitClass( const char *classname )
 		}
 		if( !Q_stricmp( classname, "monster_sitting_scientist" ))
 		{
-			if( Sys_CheckParm( "-gcfullphysics" ))
+			if( Sys_CheckParm( "-gcfullphysics" ) || GC_MenuRunsServer())
 				return false;
 			/* G332: cold New Game into denser AM maps (c1a0d) aborts after the
 			 * first G314/G316 sitting-scientist release (probe 20260810-025920:
@@ -5427,7 +5429,7 @@ static qboolean SV_GCMapShouldInhibitClass( const char *classname )
 		}
 		if( !Q_stricmp( classname, "monster_barney" ))
 		{
-			if( Sys_CheckParm( "-gcfullphysics" ))
+			if( Sys_CheckParm( "-gcfullphysics" ) || GC_MenuRunsServer())
 				return false;
 			if( gc_lean_barney_admit >= 2 )
 				return true;
@@ -5533,7 +5535,14 @@ static qboolean SV_GCMapShouldInhibitBudget( const char *classname, size_t entit
 	}
 	
 	/* Fall back to policy-based inhibition for smoke probes */
-	return SV_GCMapShouldInhibitClass( classname );
+	if( SV_GCMapShouldInhibitClass( classname ))
+	{
+		if( GC_MenuRunsServer() && ( !Q_strnicmp( classname, "monster_", 8 )
+			|| !Q_strnicmp( classname, "cycler", 6 ) || !Q_stricmp( classname, "env_model" )))
+			Con_Reportf( "Xash3D GameCube: npc sv inhibited class=%s entity=%d\n", classname, entity_index );
+		return true;
+	}
+	return false;
 }
 #endif
 
@@ -5988,6 +5997,31 @@ static void SV_LoadFromFile( const char *mapname, char *entities )
 
 		Con_DPrintf( "\n%i entities inhibited\n", inhibited );
 #if XASH_GAMECUBE
+		/* Menu New Game: which studio-model actors this map spawned. */
+		if( GC_MenuRunsServer())
+		{
+			int e, n = 0;
+
+			for( e = 1; e < svgame.numEntities && n < 32; e++ )
+			{
+				edict_t *ed = SV_EdictNum( e );
+				const char *cn, *mdl;
+
+				if( ed->free )
+					continue;
+				cn = SV_ClassName( ed );
+				mdl = SV_GetString( ed->v.model );
+				if( Q_strnicmp( cn, "monster_", 8 ) && Q_strnicmp( cn, "cycler", 6 )
+					&& Q_stricmp( cn, "env_model" ) && !Q_stristr( mdl, ".mdl" ))
+					continue;
+				n++;
+				Con_Reportf( "Xash3D GameCube: npc sv map=%s edict=%d class=%s name=%s model=%s org=%.0f %.0f %.0f seq=%d fr=%.2f move=%d solid=%d think=%.2f priv=%d\n",
+					sv.name, e, cn, SV_GetString( ed->v.targetname ), mdl,
+					ed->v.origin[0], ed->v.origin[1], ed->v.origin[2], ed->v.sequence,
+					ed->v.framerate, ed->v.movetype, ed->v.solid, ed->v.nextthink,
+					ed->pvPrivateData ? 1 : 0 );
+			}
+		}
 		if( Sys_CheckParm( "-gcnewgame" ))
 			Con_Reportf( "Xash3D GameCube: G316 entities inhibited=%d (static scientists restored)\n",
 				inhibited );

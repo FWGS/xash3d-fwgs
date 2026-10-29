@@ -27,6 +27,12 @@ static image_t *r_imagesHashTable[TEXTURES_HASH_SIZE];
 static uint    r_numImages;
 
 #if XASH_GAMECUBE
+#if XASH_GAMECUBE
+qboolean Mod_GCIsStudioBssCache( const void *ptr );
+byte *Mod_GCStudioBssAlloc( size_t size );
+qboolean r_gc_studio_skins_in_arena;
+#endif
+
 void R_GCTrimTextureMips( void )
 {
 	int i, trimmed = 0;
@@ -382,7 +388,18 @@ static qboolean GL_UploadTexture( image_t *tex, rgbdata_t *pic )
 		// increase size to workaround triangle renderer bugs
 		// it seems to assume memory readable. maybe it was pointed to WAD?
 #if XASH_GAMECUBE
-		tex->pixels[j] = (pixel_t *)Mem_TryCalloc( r_temppool, width * height * sizeof( pixel_t ));
+		tex->pixels[j] = NULL;
+		/* Menu New Game studio skins live beside their meshes in the static
+		 * studio arena: the MEM1 heap had no room for the intro cast's skins
+		 * (~94 KiB) once the whole c0a0 BSP was resident. */
+		if( r_gc_studio_skins_in_arena && j == 0 )
+		{
+			tex->pixels[j] = (pixel_t *)Mod_GCStudioBssAlloc( width * height * sizeof( pixel_t ));
+			if( tex->pixels[j] )
+				memset( tex->pixels[j], 0, width * height * sizeof( pixel_t ));
+		}
+		if( !tex->pixels[j] )
+			tex->pixels[j] = (pixel_t *)Mem_TryCalloc( r_temppool, width * height * sizeof( pixel_t ));
 		/* Decode scratch is transient and may be the last reclaimable MEM1
 		 * block when late studio/WAD textures arrive.  Purge it before
 		 * declaring a real texture allocation failure; this preserves the
@@ -721,7 +738,8 @@ static void GL_DeleteTexture( image_t *tex )
 		if( tex->pixels[i] )
 		{
 #if XASH_GAMECUBE
-			if( !R_GCIsStaticCinematicPixels( tex->pixels[i] ))
+			if( !R_GCIsStaticCinematicPixels( tex->pixels[i] )
+				&& !Mod_GCIsStudioBssCache( tex->pixels[i] ))
 #endif
 				Mem_Free( tex->pixels[i] );
 		}

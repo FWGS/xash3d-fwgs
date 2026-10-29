@@ -419,6 +419,7 @@ qboolean GC_UseGxWorldDraw( void );
 void GC_WatchdogMark( const char *stage );
 qboolean GC_UseGxRenderer( void );
 void GC_MarkGxWorldEfbReady( void );
+qboolean GC_MenuRunsServer( void );
 void GC_EnableGxWorldLive( void );
 qboolean GC_AllowFlipperCapFaces( void );
 void *GC_GetGxVideoMode( void );

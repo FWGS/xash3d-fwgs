@@ -1155,7 +1155,9 @@ static void CL_LinkPacketEntities( frame_t *frame )
 		{
 			model_t *mod = SV_ModelHandle( state->modelindex );
 
-			if( mod && mod->type == mod_brush )
+			/* Studio actors too: their resident mesh is the server's. */
+			if( mod && ( mod->type == mod_brush
+				|| ( mod->type == mod_studio && mod->cache.data )))
 			{
 				cl.models[state->modelindex] = mod;
 				ent->model = mod;
@@ -1169,8 +1171,11 @@ static void CL_LinkPacketEntities( frame_t *frame )
 			if( nomodel_logs < 12 )
 			{
 				nomodel_logs++;
-				Con_Reportf( "Xash3D GameCube: packet entity %d modelindex=%d has no client model\n",
-					state->number, state->modelindex );
+				model_t *svmod = SV_Active() ? SV_ModelHandle( state->modelindex ) : NULL;
+
+				Con_Reportf( "Xash3D GameCube: packet entity %d modelindex=%d has no client model (server %s type=%d data=%d)\n",
+					state->number, state->modelindex, svmod ? svmod->name : "-",
+					svmod ? svmod->type : -1, svmod && svmod->cache.data ? 1 : 0 );
 			}
 		}
 #endif
@@ -1722,6 +1727,44 @@ void CL_GameCubeLeanEmitBrushEntities( void )
 }
 #endif
 
+#if XASH_GAMECUBE
+/* -gcprofile: every 5 s, the studio-model entities in the current packet:
+ * model loaded or not, animation state, and how often GX drew each since
+ * the last dump (R_GCStudioDrawCount). */
+static void CL_GCDumpStudioEntities( frame_t *frame )
+{
+	extern unsigned R_GCStudioDrawCount( int index );
+	static unsigned last_draws[1024];
+	static double next_dump;
+	static int profile = -1;
+	int i, n = 0;
+
+	if( profile < 0 )
+		profile = Sys_CheckParm( "-gcprofile" ) ? 1 : 0;
+	if( !profile || host.realtime < next_dump )
+		return;
+	next_dump = host.realtime + 5.0;
+
+	for( i = 0; i < frame->num_entities && n < 24; i++ )
+	{
+		const entity_state_t *st = &cls.packet_entities[( frame->first_entity + i ) % cls.num_client_entities];
+		cl_entity_t *e = CL_EDICT_NUM( st->number );
+		model_t *mod = CL_ModelHandle( st->modelindex );
+		unsigned draws;
+
+		if( !mod || mod->type != mod_studio || st->number <= cl.maxclients )
+			continue;
+		draws = R_GCStudioDrawCount( st->number );
+		Con_Reportf( "Xash3D GameCube: npc cl map=%s ent=%d model=%s loaded=%d org=%.0f %.0f %.0f seq=%d frame=%.1f fr=%.2f anim=%.1f draws=+%u\n",
+			clgame.mapname, st->number, mod->name, mod->cache.data ? 1 : 0,
+			e->origin[0], e->origin[1], e->origin[2], st->sequence, st->frame,
+			st->framerate, st->animtime, draws - last_draws[st->number & 1023] );
+		last_draws[st->number & 1023] = draws;
+		n++;
+	}
+}
+#endif
+
 void CL_EmitEntities( void )
 {
 	if( cl.paused ) return; // don't waste time
@@ -1753,6 +1796,9 @@ void CL_EmitEntities( void )
 
 	// link all the entities that actually have update
 	CL_LinkPacketEntities ( &cl.frames[cl.parsecountmod] );
+#if XASH_GAMECUBE
+	CL_GCDumpStudioEntities( &cl.frames[cl.parsecountmod] );
+#endif
 
 	// link custom user temp entities
 	clgame.dllFuncs.pfnCreateEntities();
