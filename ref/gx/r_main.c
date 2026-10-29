@@ -223,7 +223,9 @@ static int R_TransEntityCompare( const cl_entity_t **a, const cl_entity_t **b )
 	int rendermode2 = R_GetEntityRenderMode( ent2 );
 
 	// sort by distance
-	if(( ent1->model && ent1->model->type != mod_brush ) || rendermode1 != kRenderTransAlpha )
+	// (a translucent entity can arrive without a model on GameCube: the
+	// c0a0b changelevel faulted reading NULL->mins here)
+	if( ent1->model && ( ent1->model->type != mod_brush || rendermode1 != kRenderTransAlpha ))
 	{
 		VectorAverage( ent1->model->mins, ent1->model->maxs, org );
 		VectorAdd( ent1->origin, org, org );
@@ -233,7 +235,7 @@ static int R_TransEntityCompare( const cl_entity_t **a, const cl_entity_t **b )
 	else
 		dist1 = 1000000000;
 
-	if(( ent1->model && ent2->model->type != mod_brush ) || rendermode2 != kRenderTransAlpha )
+	if( ent2->model && ( ent2->model->type != mod_brush || rendermode2 != kRenderTransAlpha ))
 	{
 		VectorAverage( ent2->model->mins, ent2->model->maxs, org );
 		VectorAdd( ent2->origin, org, org );
@@ -1077,6 +1079,19 @@ static void R_DrawEntitiesOnList( void )
 					continue;
 
 				Assert( RI.currententity != NULL );
+#if XASH_GAMECUBE
+				/* c0a0b: a translucent entity reached the list without a
+				 * model (asserted here after the sort fix). Nothing to draw. */
+				if( !RI.currentmodel )
+				{
+					static int nomodel_logs;
+
+					if( nomodel_logs++ < 4 )
+						gEngfuncs.Con_Reportf( "Xash3D GameCube: trans entity %d without model rendermode=%d\n",
+							RI.currententity->index, RI.currententity->curstate.rendermode );
+					continue;
+				}
+#endif
 				Assert( RI.currentmodel != NULL );
 
 				switch( RI.currentmodel->type )
