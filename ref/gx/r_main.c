@@ -1778,8 +1778,33 @@ static void R_EdgeDrawingGcmapProbe( void )
 		/* G235: opaque brush movers were skipped by this early return —
 		 * soft path called R_DrawBEntitiesOnList; Flipper never did. */
 		bn = (int)tr.draw_list->num_edge_entities;
-		if( bn > 8 )
-			bn = 8;
+		/* Menu New Game sends the real packet list (doors, walls, trucks and
+		 * the intro tram *12); 8 dropped the tram behind the station movers. */
+		if( bn > ( gEngfuncs.Sys_CheckParm( "-gcmenuplaystart" ) ? 32 : 8 ))
+			bn = gEngfuncs.Sys_CheckParm( "-gcmenuplaystart" ) ? 32 : 8;
+		{
+			static int edge_list_logs;
+
+			/* Twice per run: which brush movers the client handed over. */
+			if( gEngfuncs.Sys_CheckParm( "-gcmenuplaystart" ) && edge_list_logs < 2
+				&& ( tr.framecount == 120 || tr.framecount == 600 ))
+			{
+				char names[160];
+				size_t used = 0;
+
+				names[0] = 0;
+				for( bi = 0; bi < bn && used + 8 < sizeof( names ); bi++ )
+				{
+					cl_entity_t *be = tr.draw_list->edge_entities[bi];
+
+					if( be && be->model )
+						used += Q_snprintf( names + used, sizeof( names ) - used, "%s ", be->model->name );
+				}
+				edge_list_logs++;
+				gEngfuncs.Con_Reportf( "Xash3D GameCube: menu brush movers n=%u: %s\n",
+					tr.draw_list->num_edge_entities, names );
+			}
+		}
 		for( bi = 0; bi < bn; bi++ )
 		{
 			cl_entity_t *be = tr.draw_list->edge_entities[bi];
@@ -1952,6 +1977,108 @@ static void R_EdgeDrawing( void )
 	R_EdgeDrawingStack();
 }
 
+#if XASH_GAMECUBE
+/*
+===============
+R_GCMarkLiveBspPVS
+
+Menu New Game live BSP: find the view leaf, decode its GoldSrc vis row
+and stamp the visible leaves (plus parents) and their surfaces. Returns
+false, leaving the caller's full-vis fallback in charge, whenever the
+retained BSP or its vis data is not available. -gcnolivepvs disables it.
+===============
+*/
+static qboolean R_GCMarkLiveBspPVS( void )
+{
+	extern qboolean GC_WorldSurfacesPinned( void );
+	extern qboolean GC_WorldSurfacesScratchRetained( void );
+	static byte visrow[MAX_MAP_LEAFS / 8];
+	model_t *world = WORLDMODEL;
+	mleaf_t *viewleaf;
+	const byte *in;
+	int row, out, i, leafs = 0, surfs = 0;
+
+	if( !gEngfuncs.Sys_CheckParm( "-gcmenuplaystart" )
+		|| gEngfuncs.Sys_CheckParm( "-gcnolivepvs" ))
+		return false;
+	if( !GC_WorldSurfacesPinned() || GC_WorldSurfacesScratchRetained() )
+		return false;
+	if( !world || !world->nodes || !world->leafs || !world->surfaces
+		|| !world->visdata || world->numleafs <= 0 )
+		return false;
+
+	viewleaf = gEngfuncs.Mod_PointInLeaf( RI.rvp.vieworigin, world->nodes, world );
+	if( !viewleaf || !viewleaf->compressed_vis || viewleaf == world->leafs )
+		return false;
+
+	/* GoldSrc vis rows cover leafs 1..numleafs, zero runs RLE-packed. */
+	row = ( world->numleafs + 7 ) >> 3;
+	if( row > (int)sizeof( visrow ))
+		return false;
+	in = viewleaf->compressed_vis;
+	for( out = 0; out < row; )
+	{
+		if( *in )
+		{
+			visrow[out++] = *in++;
+			continue;
+		}
+		for( i = in[1]; i > 0 && out < row; i-- )
+			visrow[out++] = 0;
+		in += 2;
+	}
+
+	tr.visframecount++;
+	r_viewcluster = viewleaf->cluster;
+	r_oldviewcluster = r_viewcluster;
+	RI.viewleaf = viewleaf;
+	for( i = 0; i < world->numleafs; i++ )
+	{
+		mleaf_t *leaf = &world->leafs[i + 1];
+		mnode_t *node = (mnode_t *)leaf;
+		msurface_t **mark;
+		int c, depth = 0;
+
+		if( leaf != viewleaf && !( visrow[i >> 3] & ( 1 << ( i & 7 ))))
+			continue;
+		leafs++;
+		do
+		{
+			if( node->visframe == tr.visframecount )
+				break;
+			node->visframe = tr.visframecount;
+			node = node->parent;
+		}
+		while( node && ++depth <= world->numnodes + 8 );
+
+		mark = leaf->firstmarksurface;
+		for( c = leaf->nummarksurfaces; mark && c > 0; c--, mark++ )
+		{
+			if(( *mark )->visframe != tr.framecount )
+			{
+				( *mark )->visframe = tr.framecount;
+				surfs++;
+			}
+		}
+	}
+
+	{
+		static int last_cluster = -2;
+		static int cluster_logs;
+
+		/* One line per view-cluster change, bounded for long rides. */
+		if( viewleaf->cluster != last_cluster && cluster_logs < 32 )
+		{
+			cluster_logs++;
+			gEngfuncs.Con_Reportf( "Xash3D GameCube: live BSP PVS cluster=%d leafs=%d/%d surfs=%d/%d\n",
+				viewleaf->cluster, leafs, world->numleafs, surfs, world->numsurfaces );
+		}
+		last_cluster = viewleaf->cluster;
+	}
+	return true;
+}
+#endif
+
 /*
 ===============
 R_MarkLeaves
@@ -2017,6 +2144,13 @@ static void R_MarkLeaves( void )
 		if( tr.framecount <= 1 )
 			gEngfuncs.Con_Reportf( "Xash3D GameCube: cached FatPVS apply failed; using full-vis\n" );
 	}
+
+	/* Menu New Game keeps the whole map-load arena resident ("play start
+	 * retain map buffer for live BSP"), so its nodes and leaf vis rows are
+	 * live. Mark only the view leaf's PVS instead of the full-vis fallback
+	 * below, which made the live BSP pass emit every world face. */
+	if( GC_UseLowResWorldProbe() && R_GCMarkLiveBspPVS() )
+		return;
 
 	/* New Game / menu fallback if prepare cache missing: full-vis (keeps pixels).
 	 * Menu must not fall into R_FatPVS — live nodes hang after discard
@@ -2355,12 +2489,18 @@ void GAME_EXPORT R_RenderFrame( const ref_viewpass_t *rvp )
 				return;
 		}
 
-		/* Lean EmitBrush already cleared+filled the list; do not wipe it. */
+		/* Lean EmitBrush already cleared+filled the list; do not wipe it.
+		 * The same holds for CL_EmitEntities on the menu New Game route, whose
+		 * brush movers (the c0a0 tram *12) land in edge_entities, not solid. */
 		if( !( ( gEngfuncs.Sys_CheckParm( "-gcnewgame" )
 				|| gEngfuncs.Sys_CheckParm( "-gcmenuplaystart" ))
 			&& !gEngfuncs.Sys_CheckParm( "-gcfullphysics" )
 			&& GC_UseGxWorldDraw()
-			&& tr.draw_list && tr.draw_list->num_solid_entities > 0 ))
+			&& tr.draw_list
+			&& ( tr.draw_list->num_solid_entities > 0
+				|| ( gEngfuncs.Sys_CheckParm( "-gcmenuplaystart" )
+					&& ( tr.draw_list->num_edge_entities > 0
+						|| tr.draw_list->num_trans_entities > 0 )))))
 			R_ClearScene();
 		R_SetupRefParams( rvp );
 		tr.fCustomRendering = false;

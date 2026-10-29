@@ -1280,9 +1280,18 @@ def inject_gc_font_into_bootstrap(archive: "zipfile.ZipFile", data: Path) -> int
 		pal = lump[fin_off + src_w * src_h :]
 		dst_w, dst_h = 128, 32
 		out = bytearray(dst_w * dst_h)
+		# Brightest of each 2x2, not point sampling: CREDITSFONT strokes are
+		# 1 px wide and every-other-pixel sampling dropped them (garbled intro
+		# credits). Brightness comes from the palette (after the 2-byte count);
+		# the index order is not a ramp.
+		lum = [sum(pal[2 + 3 * k : 5 + 3 * k]) for k in range(256)]
 		for y in range(dst_h):
 			for x in range(dst_w):
-				out[y * dst_w + x] = pix[(y * 2) * src_w + (x * 2)]
+				o = (y * 2) * src_w + (x * 2)
+				out[y * dst_w + x] = max(
+					(pix[o], pix[o + 1], pix[o + src_w], pix[o + src_w + 1]),
+					key=lambda idx: lum[idx],
+				)
 		_width, _height, rowcount, rowheight = struct.unpack_from("<iiii", lump, 0)
 		struct.pack_into(
 			"<iiii", lump, 0, _width, dst_h, rowcount, max(1, rowheight // 2)
@@ -1297,6 +1306,11 @@ def inject_gc_font_into_bootstrap(archive: "zipfile.ZipFile", data: Path) -> int
 			return 0
 		archive.writestr(arcname, payload, compress_type=zipfile.ZIP_STORED)
 		print(f"  lean font CREDITSFONT: → {arcname} ({len(payload)} bytes, {dst_w}x{dst_h})")
+		# Full-resolution copy for the menu New Game intro credits, which are
+		# unreadable at half size. The engine loads it only on that route.
+		full = bytes(blob[filepos : filepos + disksize])
+		archive.writestr("gfx/gc_creditsfont256.fnt", full, compress_type=zipfile.ZIP_STORED)
+		print(f"  full font CREDITSFONT: → gfx/gc_creditsfont256.fnt ({len(full)} bytes, 256x{src_h})")
 		return 1
 	return 0
 
@@ -2604,6 +2618,8 @@ def main() -> None:
 					menu_lines.append("memreport")
 				if os.environ.get("XASH_GC_PROBE_PROFILE") == "1":
 					menu_lines.append("profile")
+				if os.environ.get("XASH_GC_PROBE_NOLIVEPVS") == "1":
+					menu_lines.append("nolivepvs")
 				(staged_data / "gamecube.cfg").write_text(
 					"\n".join(menu_lines) + "\n", encoding="ascii"
 				)

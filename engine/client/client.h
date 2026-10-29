@@ -868,6 +868,11 @@ void CL_ClearSpriteTextures( void );
 void CL_HudMessage( const char *pMessage );
 void CL_CenterPrint( const char *text, float y );
 client_textmessage_t *CL_TextMessageGet( const char *pName );
+#if XASH_GAMECUBE
+void CL_GCHudTextShow( const char *name );
+void CL_GCHudTextDraw( void );
+void CL_GCHudTextClear( void );
+#endif
 void NetAPI_CancelAllRequests( void );
 model_t *CL_LoadClientSprite( const char *filename );
 model_t *CL_LoadModel( const char *modelname, int *index );

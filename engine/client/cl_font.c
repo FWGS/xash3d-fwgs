@@ -141,17 +141,26 @@ qboolean CL_GCLoadLeanHudFont( cl_font_t *font, float scale, convar_t *rendermod
 	const byte *fin, *pal;
 	int i, tex, font_width, pixels;
 	unsigned short numcolors;
+	/* Menu New Game draws the intro credits with this font; the 128-wide
+	 * lean bake is unreadable there, so it loads the original 256-wide
+	 * CREDITSFONT (~18 KiB, read through a temporary heap buffer). */
+	const qboolean full = GC_MenuRunsServer();
+	const char *path = full ? "gfx/gc_creditsfont256.fnt" : "gfx/gc_creditsfont.fnt";
+	const char *texname = full ? "#gc_full_hudfont" : "#gc_lean_hudfont";
+	const fs_offset_t cap = full ? 32 * 1024 : GC_LEAN_FONT_BSS_BYTES;
+	byte *buf = bss;
+	qboolean ok = false;
 
 	if( !font || !rendermode )
 		return false;
 	if( font->valid )
 		return true;
 
-	font_width = 128;
+	font_width = full ? 256 : 128;
 
 	if( cached && cached_tex > 0 )
 	{
-		if( ref.dllFuncs.GL_FindTexture( "#gc_lean_hudfont" ) == cached_tex )
+		if( ref.dllFuncs.GL_FindTexture( texname ) == cached_tex )
 		{
 			src = cached_src;
 			tex = cached_tex;
@@ -161,11 +170,16 @@ qboolean CL_GCLoadLeanHudFont( cl_font_t *font, float scale, convar_t *rendermod
 		cached_tex = 0;
 	}
 
-	f = FS_Open( "gfx/gc_creditsfont.fnt", "rb", false );
+	f = FS_Open( path, "rb", false );
 	if( !f )
 		return false;
 	flen = FS_FileLength( f );
-	if( flen < (fs_offset_t)sizeof( qfont_t ) || flen > (fs_offset_t)GC_LEAN_FONT_BSS_BYTES )
+	if( flen < (fs_offset_t)sizeof( qfont_t ) || flen > cap )
+	{
+		FS_Close( f );
+		return false;
+	}
+	if( full && !( buf = (byte *)malloc( (size_t)flen )))
 	{
 		FS_Close( f );
 		return false;
@@ -173,35 +187,35 @@ qboolean CL_GCLoadLeanHudFont( cl_font_t *font, float scale, convar_t *rendermod
 	total = 0;
 	while( total < flen )
 	{
-		got = FS_Read( f, bss + total, flen - total );
+		got = FS_Read( f, buf + total, flen - total );
 		if( got <= 0 )
 			break;
 		total += got;
 	}
 	FS_Close( f );
 	if( total != flen )
-		return false;
+		goto done;
 
-	memcpy( &src, bss, sizeof( src ));
+	memcpy( &src, buf, sizeof( src ));
 	le_struct_swap( qfont_swap, &src );
 
 	/* G296 lean bake: 128 × height atlas (retail oldstyle was 256 × height). */
 	pixels = font_width * src.height;
-	fin = bss + sizeof( qfont_t ) - 4;
-	if((size_t)( fin - bss ) + (size_t)pixels + 2 + 768 > (size_t)flen )
-		return false;
+	fin = buf + sizeof( qfont_t ) - 4;
+	if((size_t)( fin - buf ) + (size_t)pixels + 2 + 768 > (size_t)flen )
+		goto done;
 	pal = fin + pixels;
 	numcolors = (unsigned short)( pal[0] | ( pal[1] << 8 ));
 	pal += 2;
 	if( numcolors != 256 )
-		return false;
+		goto done;
 
-	tex = ref.dllFuncs.GL_FindTexture( "#gc_lean_hudfont" );
+	tex = ref.dllFuncs.GL_FindTexture( texname );
 	if( tex <= 0 )
 	{
 		rgba = (byte *)malloc( (size_t)pixels * 4u );
 		if( !rgba )
-			return false;
+			goto done;
 		for( i = 0; i < pixels; i++ )
 		{
 			byte idx = fin[i];
@@ -220,11 +234,13 @@ qboolean CL_GCLoadLeanHudFont( cl_font_t *font, float scale, convar_t *rendermod
 			}
 		}
 
-		tex = ref.dllFuncs.GL_CreateTexture( "#gc_lean_hudfont", font_width, src.height, rgba,
-			TF_FONT | TF_NEAREST | TF_HAS_ALPHA );
+		/* The full font is drawn at half size into the 320x240 EFB: bilinear
+		 * at 2:1 averages each 2x2, where nearest dropped every other row. */
+		tex = ref.dllFuncs.GL_CreateTexture( texname, font_width, src.height, rgba,
+			full ? ( TF_FONT | TF_HAS_ALPHA ) : ( TF_FONT | TF_NEAREST | TF_HAS_ALPHA ));
 		free( rgba );
 		if( tex <= 0 )
-			return false;
+			goto done;
 		Con_Reportf( "Xash3D GameCube: G296 lean HUD font tex=%d %dx%d row=%d\n",
 			tex, font_width, src.height, src.rowheight );
 	}
@@ -232,12 +248,18 @@ qboolean CL_GCLoadLeanHudFont( cl_font_t *font, float scale, convar_t *rendermod
 	cached_src = src;
 	cached_tex = tex;
 	cached = true;
+	if( buf != bss )
+		free( buf );
+	buf = bss;
 
 apply_font:
 	font->hFontTexture = tex;
 	font->type = FONT_VARIABLE;
 	font->valid = true;
 	font->scale = scale ? scale : 1.0f;
+	/* The full font is 640x480-sized; HUD space here is 320x240. */
+	if( full )
+		font->scale *= 0.5f;
 	font->rendermode = rendermode;
 	font->charHeight = Q_rint( src.rowheight * font->scale );
 
@@ -251,8 +273,12 @@ apply_font:
 		font->fontRc[i].bottom = font->fontRc[i].top + src.rowheight;
 		font->charWidths[i] = Q_rint( ci->charwidth * font->scale );
 	}
+	ok = true;
 
-	return true;
+done:
+	if( buf != bss )
+		free( buf );
+	return ok;
 }
 #endif
 

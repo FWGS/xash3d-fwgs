@@ -57,7 +57,7 @@ static void SV_GameCubePlayStart_f( void )
 		SV_ActivateServer( true );
 		Con_Reportf( "Xash3D GameCube: play start post-activate %s\n", map );
 		GC_DeltaCheckTables( "play start post-activate" );
-		if( Sys_CheckParm( "-gcmenuplaystart" ))
+		if( Sys_CheckParm( "-gcmenuplaystart" ) && !GC_MenuRunsServer() )
 			SV_GCPlaceNewGameTrackTrains();
 		/* The menu New Game path now renders the full retained BSP directly.
 		 * Keep its map-load arena alive through client bring-up: discarding it

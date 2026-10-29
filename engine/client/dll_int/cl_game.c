@@ -1014,10 +1014,21 @@ void CL_DrawHUD( int state )
 	switch( state )
 	{
 	case CL_ACTIVE:
+	{
+#if XASH_GAMECUBE
+		/* Half-Life shows no HUD before the HEV suit (WEAPON_SUIT, bit 31);
+		 * the quality-0 client.dll's lean HUD ignores that, so skip it and
+		 * the crosshair here. Fades and intro titles still draw. */
+		const qboolean gc_no_suit = Sys_CheckParm( "-gcmenuplaystart" )
+			&& !FBitSet( cl.frames[cl.parsecountmod].clientdata.weapons, BIT( 31 ));
+#else
+		const qboolean gc_no_suit = false;
+#endif
 		if( !cl.intermission )
 			CL_DrawScreenFade ();
 		CL_HUD_TRACE( "fade done" );
-		CL_DrawCrosshair ();
+		if( !gc_no_suit )
+			CL_DrawCrosshair ();
 		CL_HUD_TRACE( "crosshair done" );
 		CL_DrawCenterPrint ();
 		CL_HUD_TRACE( "centerprint done" );
@@ -1026,13 +1037,17 @@ void CL_DrawHUD( int state )
 			gc_hud_call_trace = 200;
 		GC_WatchdogMark( "client HUD Redraw" );
 #endif
-		clgame.dllFuncs.pfnRedraw( cl.time, cl.intermission );
+		if( !gc_no_suit )
+			clgame.dllFuncs.pfnRedraw( cl.time, cl.intermission );
 #if XASH_GAMECUBE
 		gc_hud_call_trace = 0;
+		/* env_message titles the quality-0 client.dll does not draw. */
+		CL_GCHudTextDraw();
 #endif
 		CL_HUD_TRACE( "client Redraw done" );
 		if( cl.intermission ) CL_DrawScreenFade ();
 		break;
+	}
 	case CL_PAUSED:
 		CL_DrawScreenFade ();
 		CL_DrawCrosshair ();
@@ -4821,7 +4836,16 @@ qboolean CL_LoadProgs( const char *name )
 		CL_GameCubeApplySmokeClientBudgets();
 		if( GC_MapLoadMemoryOpt())
 		{
-			Con_Reportf( "Xash3D GameCube: titles init skipped for gcmap smoke route\n" );
+			/* Menu New Game runs the map's env_message credits (CR1..CR8 on
+			 * c0a0); their text lives in titles.txt (~12 KiB). */
+			if( GC_MenuRunsServer( ))
+			{
+				CL_InitTitles( "titles.txt" );
+				Con_Reportf( "Xash3D GameCube: titles ready for menu New Game count=%d\n",
+					clgame.numTitles );
+			}
+			else
+				Con_Reportf( "Xash3D GameCube: titles init skipped for gcmap smoke route\n" );
 			/* G291: tip-safe particle pool. G320: beam pool (budget 8) so
 			 * additive env_beam/env_laser / lightning can allocate; tents stay off. */
 			CL_InitParticles();

@@ -302,3 +302,184 @@ void Test_RunTitles( void )
 }
 
 #endif // XASH_ENGINE_TESTS
+
+#if XASH_GAMECUBE
+/*
+==============================================================================
+
+GameCube HudText fallback
+
+At HUD quality 0 the GameCube client.dll registers only its combat messages,
+so the env_message credits of the intro (CR27, CR1..CR8 on c0a0) arrive as
+HudText with nobody to draw them. Queue them here and draw them over the
+Flipper HUD pass with the effects CHudMessage uses: 0 fade in/out, 1 flicker
+in, 2 write-out with a highlight colour that trails the leading character.
+
+==============================================================================
+*/
+#define GC_HUDTEXT_SLOTS 4
+
+typedef struct
+{
+	client_textmessage_t *msg;
+	double start;
+} gc_hudtext_t;
+
+static gc_hudtext_t gc_hudtext[GC_HUDTEXT_SLOTS];
+
+void CL_GCHudTextShow( const char *name )
+{
+	client_textmessage_t *msg;
+	int i, slot = 0;
+
+	if( COM_StringEmptyOrNULL( name ))
+		return;
+	msg = CL_TextMessageGet( name );
+	if( !msg || !msg->pMessage )
+	{
+		Con_Reportf( "Xash3D GameCube: HudText %s has no title\n", name );
+		return;
+	}
+	/* Same message restarts in place; otherwise take a free or the oldest slot. */
+	for( i = 0; i < GC_HUDTEXT_SLOTS; i++ )
+	{
+		if( gc_hudtext[i].msg == msg || !gc_hudtext[i].msg )
+		{
+			slot = i;
+			break;
+		}
+		if( gc_hudtext[i].start < gc_hudtext[slot].start )
+			slot = i;
+	}
+	gc_hudtext[slot].msg = msg;
+	gc_hudtext[slot].start = cl.time;
+	Con_Reportf( "Xash3D GameCube: HudText %s effect=%d at %.2f\n", name, msg->effect, cl.time );
+}
+
+static int CL_GCHudTextLineWidth( const char *s, const cl_font_t *font )
+{
+	int w = 0;
+
+	for( ; *s && *s != '\n'; s++ )
+		w += font->charWidths[(byte)*s];
+	return (int)( w * font->scale );
+}
+
+static float CL_GCHudTextPos( float pos, int size, int screen )
+{
+	if( pos == -1.0f )
+		return ( screen - size ) * 0.5f;
+	if( pos < 0.0f )
+		return ( 1.0f + pos ) * screen - size;
+	return pos * screen;
+}
+
+static void CL_GCHudTextDrawOne( const client_textmessage_t *msg, float t )
+{
+	cl_font_t *font = &cls.creditsFont;
+	const int sw = clgame.scrInfo.iWidth > 0 ? clgame.scrInfo.iWidth : 320;
+	const int sh = clgame.scrInfo.iHeight > 0 ? clgame.scrInfo.iHeight : 240;
+	const int lineh = (int)( font->charHeight * font->scale );
+	const char *s = msg->pMessage;
+	int lines = 1, chars = 0, idx = 0;
+	float y, fade = 1.0f;
+
+	for( const char *p = s; *p; p++ )
+	{
+		if( *p == '\n' && p[1] )
+			lines++;
+		else if( *p != '\n' )
+			chars++;
+	}
+
+	/* Envelope shared by every effect: hold after the in-phase, then fade. */
+	{
+		const float in = msg->effect == 2 ? msg->fadein * chars + msg->fxtime : msg->fadein;
+		const float out_start = in + msg->holdtime;
+
+		if( msg->effect != 2 && t < msg->fadein && msg->fadein > 0.0f )
+			fade = t / msg->fadein;
+		else if( t > out_start )
+			fade = msg->fadeout > 0.0f ? 1.0f - ( t - out_start ) / msg->fadeout : 0.0f;
+		fade = bound( 0.0f, fade, 1.0f );
+	}
+
+	y = CL_GCHudTextPos( msg->y, lines * lineh, sh );
+	while( *s )
+	{
+		float x = CL_GCHudTextPos( msg->x, CL_GCHudTextLineWidth( s, font ), sw );
+
+		for( ; *s && *s != '\n'; s++, idx++ )
+		{
+			float r = msg->r1, g = msg->g1, b = msg->b1, a = fade;
+			rgba_t color;
+
+			if( msg->effect == 2 )
+			{
+				/* Character idx appears at idx*fadein; it shows color2 for
+				 * fxtime, then blends to color1. */
+				const float appear = idx * msg->fadein;
+				float k;
+
+				/* Later characters appear later still: done with the message. */
+				if( t < appear )
+					return;
+				k = msg->fxtime > 0.0f ? ( t - appear ) / msg->fxtime : 1.0f;
+				k = bound( 0.0f, k, 1.0f );
+				r = msg->r2 + ( msg->r1 - msg->r2 ) * k;
+				g = msg->g2 + ( msg->g1 - msg->g2 ) * k;
+				b = msg->b2 + ( msg->b1 - msg->b2 ) * k;
+			}
+			else if( msg->effect == 1 && t < msg->fadein && ( COM_RandomLong( 0, 100 ) < 30 ))
+			{
+				/* Flickery credits: random characters flash toward color2. */
+				r = msg->r2;
+				g = msg->g2;
+				b = msg->b2;
+			}
+
+			/* The credits font draws additively: fade by scaling the colour. */
+			color[0] = (byte)( r * a );
+			color[1] = (byte)( g * a );
+			color[2] = (byte)( b * a );
+			color[3] = 255;
+			x += CL_DrawCharacter( x, y, (byte)*s, color, font, FONT_DRAW_HUD );
+		}
+		while( *s && *s != '\n' )
+			s++;
+		if( *s == '\n' )
+			s++;
+		y += lineh;
+	}
+}
+
+void CL_GCHudTextDraw( void )
+{
+	int i;
+
+	if( !cls.creditsFont.valid )
+		return;
+	for( i = 0; i < GC_HUDTEXT_SLOTS; i++ )
+	{
+		const client_textmessage_t *msg = gc_hudtext[i].msg;
+		float t, total;
+
+		if( !msg )
+			continue;
+		t = (float)( cl.time - gc_hudtext[i].start );
+		total = ( msg->effect == 2 ? msg->fadein * Q_strlen( msg->pMessage ) + msg->fxtime : msg->fadein )
+			+ msg->holdtime + msg->fadeout;
+		if( t < 0.0f || t > total )
+		{
+			gc_hudtext[i].msg = NULL;
+			continue;
+		}
+		CL_GCHudTextDrawOne( msg, t );
+	}
+}
+
+void CL_GCHudTextClear( void )
+{
+	memset( gc_hudtext, 0, sizeof( gc_hudtext ));
+}
+#endif // XASH_GAMECUBE

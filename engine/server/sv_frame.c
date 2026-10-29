@@ -92,7 +92,10 @@ static void SV_AddEntitiesToPacket( edict_t *pViewEnt, edict_t *pClient, client_
 	 * After G36 (G87): was player-only (full brush walk stalled Host_Frame).
 	 * G277: still admit a small near-eye brush-mover budget so the c0a0 tram
 	 * (*submodel) reaches Flipper R_GXDrawBrushModel / edge_entities. */
-	if( ( Sys_CheckParm( "-gcnewgame" ) || Sys_CheckParm( "-gcmenuplaystart" ))
+	/* GC_MenuRunsServer: the menu route runs the real map logic and packs
+	 * with the game's own AddToFullPack below, like GoldSrc. */
+	if( ( Sys_CheckParm( "-gcnewgame" )
+			|| ( Sys_CheckParm( "-gcmenuplaystart" ) && !GC_MenuRunsServer() ))
 		&& from_client )
 	{
 		int		e;

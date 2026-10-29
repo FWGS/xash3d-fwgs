@@ -825,7 +825,8 @@ void Host_Frame( double time )
 					Con_Reportf( "Xash3D GameCube: direct-map bounded server tick complete\n" );
 				}
 			}
-			else if( !( Sys_CheckParm( "-gcmenuplaystart" ) && !Sys_CheckParm( "-gcfullphysics" )) )
+			else if( !( Sys_CheckParm( "-gcmenuplaystart" ) && !Sys_CheckParm( "-gcfullphysics" ))
+				|| GC_MenuRunsServer() )
 			{
 				Host_ServerFrame ();
 				if( gc_post_prep_crumbs == 0 )

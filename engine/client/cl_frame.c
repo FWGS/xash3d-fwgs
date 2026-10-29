@@ -948,7 +948,7 @@ qboolean CL_AddVisibleEntity( cl_entity_t *ent, int entityType )
 	if( !ent || !ent->model )
 		return false;
 	#if XASH_GAMECUBE
-	if( Sys_CheckParm( "-gcnewgame" ) && gc_g317_seen < 16 )
+	if(( Sys_CheckParm( "-gcnewgame" ) || Sys_CheckParm( "-gcmenuplaystart" )) && gc_g317_seen < 16 )
 	{
 		Con_Reportf( "Xash3D GameCube: G317 client entity index=%d model=%s type=%d\n",
 			ent->index, ent->model->name, entityType );
@@ -974,7 +974,7 @@ qboolean CL_AddVisibleEntity( cl_entity_t *ent, int entityType )
 	if( !clgame.dllFuncs.pfnAddEntity( entityType, ent, ent->model->name ))
 	{
 		#if XASH_GAMECUBE
-		if( Sys_CheckParm( "-gcnewgame" ) && gc_g317_rejected < 8 )
+		if(( Sys_CheckParm( "-gcnewgame" ) || Sys_CheckParm( "-gcmenuplaystart" )) && gc_g317_rejected < 8 )
 		{
 			Con_Reportf( "Xash3D GameCube: G317 client entity rejected index=%d model=%s\n",
 				ent->index, ent->model->name );
@@ -1145,6 +1145,35 @@ static void CL_LinkPacketEntities( frame_t *frame )
 		ent->curstate.frame = state->frame;
 		qboolean interpolate = false;
 
+#if XASH_GAMECUBE
+		/* The lean menu route never registers the client model precache. On
+		 * the listen server the brush submodels (*N: the c0a0 tram, doors,
+		 * walls) are the same world-owned model_t, so lend the server handle,
+		 * as CL_GameCubeLeanEmitBrushEntities does for -gcnewgame. */
+		if( !ent->model && Sys_CheckParm( "-gcmenuplaystart" ) && SV_Active()
+			&& state->modelindex > 0 && state->modelindex < MAX_MODELS )
+		{
+			model_t *mod = SV_ModelHandle( state->modelindex );
+
+			if( mod && mod->type == mod_brush )
+			{
+				cl.models[state->modelindex] = mod;
+				ent->model = mod;
+			}
+		}
+		if( !ent->model && Sys_CheckParm( "-gcmenuplaystart" ))
+		{
+			static int nomodel_logs;
+
+			/* Bounded: packet entities the client cannot draw for lack of a model. */
+			if( nomodel_logs < 12 )
+			{
+				nomodel_logs++;
+				Con_Reportf( "Xash3D GameCube: packet entity %d modelindex=%d has no client model\n",
+					state->number, state->modelindex );
+			}
+		}
+#endif
 		if( !ent->model ) continue;
 
 		if( ent->curstate.rendermode == kRenderNormal )
@@ -1212,6 +1241,18 @@ static void CL_LinkPacketEntities( frame_t *frame )
 
 		if( ent->model->type == mod_brush )
 		{
+#if XASH_GAMECUBE
+			/* Menu New Game takes the view straight from the server origin
+			 * (no prediction), so a pusher lerped ex_interp behind drew the
+			 * c0a0 tram ~30 units behind its rider: the cabin's front wall
+			 * fell behind the camera. Draw pushers at the same timebase. */
+			if( ent->curstate.movetype == MOVETYPE_PUSH && Sys_CheckParm( "-gcmenuplaystart" ))
+			{
+				VectorCopy( ent->curstate.origin, ent->origin );
+				VectorCopy( ent->curstate.angles, ent->angles );
+			}
+			else
+#endif
 			CL_InterpolateModel( ent );
 		}
 		else

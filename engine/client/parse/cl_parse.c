@@ -2535,6 +2535,18 @@ void CL_ParseUserMessage( sizebuf_t *msg, int svc_num, connprotocol_t proto )
 			clgame.msg[i].name, iSize, clgame.msg[i].number );
 	}
 
+#if XASH_GAMECUBE
+	/* The quality-0 GameCube client.dll does not hook HudText; draw the
+	 * map's env_message titles (intro credits) from the engine instead. */
+	if(( !clgame.msg[i].func || clgame.msg[i].func == CL_UserMsgStub )
+		&& !Q_strcmp( clgame.msg[i].name, "HudText" ))
+	{
+		pbuf[sizeof( pbuf ) - 1] = 0;
+		CL_GCHudTextShow( (const char *)pbuf );
+		return;
+	}
+#endif
+
 	if( clgame.msg[i].func )
 	{
 		clgame.msg[i].func( clgame.msg[i].name, iSize, pbuf );

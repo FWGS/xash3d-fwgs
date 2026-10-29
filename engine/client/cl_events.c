@@ -246,7 +246,17 @@ static qboolean CL_FireEvent( event_info_t *ei, int slot )
 		if( !ev )
 		{
 			int idx = bound( 1, ei->index, ( MAX_EVENTS - 1 ));
+#if XASH_GAMECUBE
+			/* A moving func_tracktrain fires its event every frame; OSREPORT
+			 * per frame costs real frame time on the menu New Game ride. */
+			static int unhooked_reports;
+
+			if( unhooked_reports++ < 4 )
+				Con_Reportf( S_ERROR "%s: event %d (%s) not hooked by the client\n",
+					__func__, ei->index, cl.event_precache[idx] );
+#else
 			Con_Reportf( S_ERROR "%s: %s not precached\n", __func__, cl.event_precache[idx] );
+#endif
 			break;
 		}
 

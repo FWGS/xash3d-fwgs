@@ -870,6 +870,12 @@ static gc_gx_tex_t *R_GXBindTexnum( unsigned texnum, qboolean hud_bind )
 	src_h = img->height;
 	dst_w = R_GXSnapDim( src_w );
 	dst_h = R_GXSnapDim( src_h );
+	/* Wide HUD sheets (the 256x64 credits font) keep their width when the
+	 * area fits the same 128x128 tile budget; snapping to 128 point-sampled
+	 * every other column away and garbled the intro credits. */
+	if( hud_bind && src_w > GC_GX_TEX_MAX_DIM && src_w <= 2 * GC_GX_TEX_MAX_DIM
+		&& ( src_w & 3 ) == 0 && dst_h * src_w <= GC_GX_TEX_MAX_DIM * GC_GX_TEX_MAX_DIM )
+		dst_w = src_w;
 	step_x = src_w / dst_w;
 	step_y = src_h / dst_h;
 	if( step_x < 1 )
@@ -944,8 +950,9 @@ static gc_gx_tex_t *R_GXBindTexnum( unsigned texnum, qboolean hud_bind )
 
 	GX_InitTexObj( &t->obj, t->tiled, (u16)dst_w, (u16)dst_h,
 		want_fmt, GX_REPEAT, GX_REPEAT, GX_FALSE );
-	/* G203: LINEAR on world diffuse; HUD stays NEAR for crisp sprites. */
-	if( hud_bind )
+	/* G203: LINEAR on world diffuse; HUD stays NEAR for crisp sprites,
+	 * except fonts created without TF_NEAREST (drawn minified 2:1). */
+	if( hud_bind && !( FBitSet( img->flags, TF_FONT ) && !FBitSet( img->flags, TF_NEAREST )))
 		GX_InitTexObjFilterMode( &t->obj, GX_NEAR, GX_NEAR );
 	else
 		GX_InitTexObjFilterMode( &t->obj, GX_LINEAR, GX_LINEAR );
@@ -2849,6 +2856,11 @@ int R_GXDrawNewGameCapFaces( void )
 		if( surfaces_pinned && !scratch_retained && drawn > 0 )
 		{
 			GC_NoteCapFacesDrawn( drawn );
+			/* Same bookkeeping as the common exit below: the HUD pass (and
+			 * the intro credits drawn with it) only runs once the world drew. */
+			GX_Flush();
+			r_gx_world_drew = true;
+			GC_MarkGxWorldEfbReady();
 			return drawn;
 		}
 		/* Also emit near-eye cap faces with LM atlas for readable walls.
@@ -4270,21 +4282,51 @@ int R_GXDrawBrushModel( cl_entity_t *e )
 	GX_SetCullMode( GX_CULL_NONE );
 
 	psurf = &geom->surfaces[mod->firstmodelsurface];
+	{
+	int skip_plane = 0, skip_sky = 0, skip_edges = 0, emit_zero = 0;
+
 	for( i = 0; i < mod->nummodelsurfaces; i++, psurf++ )
 	{
 		int got;
 
-		if( drawn >= 256 ) /* G310 tram face budget matches GC_TRAM_MAX_FACES */
+		/* G310 tram face budget matches GC_TRAM_MAX_FACES. The menu route
+		 * draws the live submodel, and *12 has 341 faces: 256 cut its walls. */
+		if( drawn >= ( gEngfuncs.Sys_CheckParm( "-gcmenuplaystart" ) ? 512 : 256 ))
 			break;
 		if( !psurf->plane || psurf->numedges < 3 )
+		{
+			skip_plane++;
 			continue;
+		}
 		if( psurf->flags & SURF_DRAWSKY )
+		{
+			skip_sky++;
 			continue;
+		}
 		if( psurf->numedges > 32 )
+		{
+			skip_edges++;
 			continue;
+		}
 		/* No CPU backface — cabin walls face inward; angles break modelorg. */
 		got = R_GXEmitFace( psurf, geom, -1 );
+		if( got <= 0 )
+			emit_zero++;
 		drawn += got;
+	}
+	{
+		static int tram_logs;
+
+		/* Bounded: how much of the intro tram cabin reaches the Flipper. */
+		if( tram_logs < 3 && !Q_strcmp( mod->name, "*12" ) && ( tr.framecount & 127 ) == 0 )
+		{
+			tram_logs++;
+			gEngfuncs.Con_Reportf( "Xash3D GameCube: tram *12 faces=%d drawn=%d plane=%d sky=%d edges=%d emit0=%d org=%.0f %.0f %.0f ang=%.0f %.0f %.0f eye=%.0f %.0f %.0f\n",
+				mod->nummodelsurfaces, drawn, skip_plane, skip_sky, skip_edges, emit_zero,
+				e->origin[0], e->origin[1], e->origin[2], e->angles[0], e->angles[1], e->angles[2],
+				RI.rvp.vieworigin[0], RI.rvp.vieworigin[1], RI.rvp.vieworigin[2] );
+		}
+	}
 	}
 
 	/* Restore world modelview for subsequent draws. */

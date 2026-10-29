@@ -12746,8 +12746,12 @@ qboolean GC_RenderNewGameWorldFrames( int count )
 		if( player && !player->free && !VectorIsNull( player->v.origin ))
 		{
 			VectorCopy( player->v.origin, center );
-			/* G279: tram ride origin is already eye height — do not +48. */
-			if( !Sys_CheckParm( "-gcnewgame" ))
+			/* G279: tram ride origin is already eye height — do not +48.
+			 * The real-server menu route has a real player: use its view
+			 * offset like V_CalcRefdef (+48 sat 20 units high in the tram). */
+			if( GC_MenuRunsServer() )
+				center[2] += player->v.view_ofs[2];
+			else if( !Sys_CheckParm( "-gcnewgame" ))
 				center[2] += 48.0f;
 			VectorCopy( player->v.v_angle, rvp.viewangles );
 		}
@@ -14522,6 +14526,23 @@ qboolean GC_PrepareNewGameWorldPresent( void )
 }
 
 #if XASH_GAMECUBE
+/*
+===========
+GC_MenuRunsServer
+
+Menu New Game keeps the whole BSP resident, so it runs the real server:
+the c0a0 entity chain (trigger_auto -> start_titles -> train/title_manager)
+moves the intro tram along its path_tracks and fires the env_message
+credits on the map's own schedule. -gcmenunoserver restores the old
+present-only route.
+===========
+*/
+qboolean GC_MenuRunsServer( void )
+{
+	return Sys_CheckParm( "-gcmenuplaystart" ) && !Sys_CheckParm( "-gcmenunoserver" )
+		&& !Sys_CheckParm( "-gcfullphysics" );
+}
+
 /*
 ===========
 GC_UpdateNewGameIntroAudio

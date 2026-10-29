@@ -5359,8 +5359,9 @@ static qboolean SV_GCMapShouldInhibitClass( const char *classname )
 	 * controllers. G313 admits static monster_generic props through the HLSDK's
 	 * lean GameCube spawn path. G314 does the same for seated scientists. G315
 	 * admits static Barneys; G316 admits static walking scientists without
-	 * talk, heal, sound, or autonomous AI precache. */
-	if( Sys_CheckParm( "-gcnewgame" ))
+	 * talk, heal, sound, or autonomous AI precache. The menu New Game route
+	 * shares this policy once it runs the real server (GC_MenuRunsServer). */
+	if( Sys_CheckParm( "-gcnewgame" ) || GC_MenuRunsServer() )
 	{
 		/* G320: reactor lightning (env_beam) + security lasers. Cap admits —
 		 * c3a2d has 26 beams; uncapped hung Host_Frame. */
@@ -6066,10 +6067,12 @@ void SV_SpawnEntities( const char *mapname )
 		SV_GCPlaceNewGameTrackTrains();
 		GC_BakeDeferredNewGameCapFaces();
 	}
-	/* Menu: place *12 then bake CapFaces + tram cabin while BSP edges live. */
+	/* Menu: place *12 then bake CapFaces + tram cabin while BSP edges live.
+	 * When the real server runs, func_tracktrain places itself on its path. */
 	if( Sys_CheckParm( "-gcmenuplaystart" ))
 	{
-		SV_GCPlaceNewGameTrackTrains();
+		if( !GC_MenuRunsServer() )
+			SV_GCPlaceNewGameTrackTrains();
 		GC_BakeMenuNewGameCapFacesNoPVS();
 	}
 	if( Sys_CheckParm( "-gcmap" ))
