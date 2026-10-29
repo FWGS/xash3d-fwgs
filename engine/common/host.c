@@ -821,6 +821,7 @@ void Host_Frame( double time )
 				if( !gc_direct_map_server_tick )
 				{
 					Host_ServerFrame ();
+					GC_ProfMark( "server frame" );
 					gc_direct_map_server_tick = true;
 					Con_Reportf( "Xash3D GameCube: direct-map bounded server tick complete\n" );
 				}
@@ -829,6 +830,7 @@ void Host_Frame( double time )
 				|| GC_MenuRunsServer() )
 			{
 				Host_ServerFrame ();
+				GC_ProfMark( "server frame" );
 				if( gc_post_prep_crumbs == 0 )
 					Con_Reportf( "Xash3D GameCube: G320 post-prepare ServerFrame ok\n" );
 			}
@@ -846,7 +848,10 @@ void Host_Frame( double time )
 		{
 			Host_ClientFrame ();
 			if( !GC_ShouldUseLightPresent() )
+			{
 				Host_ServerFrame ();
+				GC_ProfMark( "server frame" );
+			}
 		}
 	}
 	else

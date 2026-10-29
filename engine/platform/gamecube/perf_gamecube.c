@@ -374,7 +374,7 @@ void GC_PerfFrameEnd( void )
  * frame and charges the gap since the last mark of the previous frame to
  * "frame tail". Every 64 frames it logs the per-stage average and resets.
  * Without -gcprofile both calls return before reading the clock. */
-#define GC_PROF_MAX_STAGES 24
+#define GC_PROF_MAX_STAGES 64
 #define GC_PROF_REPORT_FRAMES 64
 static const char *gc_prof_name[GC_PROF_MAX_STAGES];
 static double gc_prof_acc[GC_PROF_MAX_STAGES];
