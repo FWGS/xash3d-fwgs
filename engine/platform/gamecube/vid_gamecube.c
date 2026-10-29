@@ -223,6 +223,35 @@ qboolean GC_GXFenceWait( u16 token )
 	return true;
 }
 
+/* Menu New Game changelevel: GoldSrc keeps the last frame on screen while the
+ * next map loads. Without this the switch flashed the loading status panel
+ * (drawn over the soft buffer the map load borrows, so garbled) and the
+ * re-allocated dark-blue soft buffer between frozen frames. While the hold is
+ * on, soft and status presents are skipped and the displayed XFB stays; the
+ * first Flipper world frame of the new map ends it. */
+#define GC_TRANSITION_HOLD_MAX_SEC 15.0
+static double gc_transition_hold_start;
+
+void GC_BeginTransitionHold( void )
+{
+	if( !GC_MenuRunsServer())
+		return;
+	gc_transition_hold_start = Sys_FloatTime();
+	Con_Reportf( "Xash3D GameCube: transition hold begin\n" );
+}
+
+static qboolean GC_TransitionHoldActive( void )
+{
+	if( gc_transition_hold_start <= 0.0 )
+		return false;
+	if( Sys_FloatTime() - gc_transition_hold_start > GC_TRANSITION_HOLD_MAX_SEC )
+	{
+		Con_Reportf( "Xash3D GameCube: transition hold timed out\n" );
+		gc_transition_hold_start = 0.0;
+		return false;
+	}
+	return true;
+}
 static qboolean gc_lean_player_physics_armed;
 static unsigned int gc_blank_present_count;
 static unsigned int gc_budget_sample_count;
@@ -7021,6 +7050,27 @@ static void GC_PresentBuffer( void )
 			return;
 		}
 	}
+	if( GC_TransitionHoldActive())
+	{
+		/* HUD/2D GX draws also mark the EFB ready, so only a frame of the
+		 * new map with the plaque down ends the hold (as SCR_EndLoadingPlaque
+		 * does in GoldSrc). Earlier Flipper frames still copy, with clear,
+		 * into the hidden back XFB so the EFB starts clean; nothing flips. */
+		if( !gc_gx_world_efb_ready || cls.draw_changelevel || cls.state != ca_active )
+		{
+			if( gc_gx_world_efb_ready )
+			{
+				GC_GXDrawDoneTimed( "transition hold" );
+				GX_CopyDisp( xfb[which_fb], GX_TRUE );
+				GX_Flush();
+				gc_gx_world_efb_ready = false;
+			}
+			return;
+		}
+		Con_Reportf( "Xash3D GameCube: transition hold end held=%.2fs\n",
+			Sys_FloatTime() - gc_transition_hold_start );
+		gc_transition_hold_start = 0.0;
+	}
 	if( gc_gx_world_efb_ready && gc_cpu_dump_presents_left <= 0
 		&& !( GC_IsCaptureDiagnostics() && gc_g193_soft_lock ))
 	{
@@ -9100,6 +9150,10 @@ void GC_DrawLoadingStatus( const char *message, const char *details )
 			return;
 		}
 	}
+
+	/* Changelevel hold: the last world frame stays up instead. */
+	if( GC_TransitionHoldActive())
+		return;
 
 	if( gc.buffer && gc.width > 0 && gc.height > 0 )
 	{

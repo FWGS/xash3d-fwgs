@@ -196,6 +196,7 @@ void GC_ProfFrame( void );
 void GC_MarkGxWorldEfbReady( void );
 unsigned short GC_GXFenceNext( void );
 qboolean GC_GXFenceWait( unsigned short token );
+void GC_BeginTransitionHold( void );
 void GC_EnableGxWorldLive( void );
 qboolean GC_AllowFlipperCapFaces( void );
 void *GC_GetGxVideoMode( void );

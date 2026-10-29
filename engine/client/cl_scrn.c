@@ -641,6 +641,16 @@ void SCR_BeginLoadingPlaque( qboolean is_background )
 		Con_Reportf( "Xash3D GameCube: loading plaque skipped (gcmap hop)\n" );
 		return;
 	}
+	/* Menu New Game runs the real server: keep the last frame up through
+	 * the changelevel like GoldSrc, no status panel. */
+	if( GC_MenuRunsServer() && !is_background )
+	{
+		S_StopAllSounds( true );
+		cl.audio_prepped = false;
+		cls.draw_changelevel = true;
+		GC_BeginTransitionHold();
+		return;
+	}
 #endif
 	S_StopAllSounds( true );
 	cl.audio_prepped = false;			// don't play ambients
