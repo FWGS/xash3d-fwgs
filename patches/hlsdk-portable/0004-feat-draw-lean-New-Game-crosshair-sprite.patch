@@ -1,7 +1,7 @@
 From 3f10b90de4cba3e4c1895d3f0cf26e9ab94277a6 Mon Sep 17 00:00:00 2001
 From: timfox <timfox@outlook.com>
 Date: Sun, 12 Jul 2026 02:19:54 -0700
-Subject: [PATCH 4/9] feat: draw lean New Game crosshair sprite
+Subject: [PATCH 04/10] feat: draw lean New Game crosshair sprite
 
 Center-screen crosshairs.spr joins pain/train on the quality-0 HUD path.
 

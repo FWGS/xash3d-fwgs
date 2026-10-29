@@ -1,7 +1,8 @@
 From f8e9c255ef29f0eb9ca0ea218b3040833eb6eda6 Mon Sep 17 00:00:00 2001
 From: timfox <timfox@outlook.com>
 Date: Thu, 29 Oct 2026 15:48:54 -0700
-Subject: [PATCH 9/9] gamecube: record the uncommitted GameCube game-code edits
+Subject: [PATCH 09/10] gamecube: record the uncommitted GameCube game-code
+ edits
 
 Snapshot of the GameCube work that only existed as uncommitted edits in
 this checkout: lean HUD/input, lean New Game spawn paths (static actors,

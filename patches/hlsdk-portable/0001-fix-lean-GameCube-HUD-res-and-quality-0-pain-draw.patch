@@ -1,7 +1,7 @@
 From 45bac7026848a7bceb839c32b18a5c7988e5984b Mon Sep 17 00:00:00 2001
 From: timfox <timfox@outlook.com>
 Date: Sun, 12 Jul 2026 00:49:15 -0700
-Subject: [PATCH 1/9] fix: lean GameCube HUD res and quality-0 pain draw
+Subject: [PATCH 01/10] fix: lean GameCube HUD res and quality-0 pain draw
 
 Avoid clamping GetSpriteRes to sprites/0_*.spr when VidInit has not set
 m_iMaxRes, set 320 caps on quality-0 VidInit, and draw a single bootstrap

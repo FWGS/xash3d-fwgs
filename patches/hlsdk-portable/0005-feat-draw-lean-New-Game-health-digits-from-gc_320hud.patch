@@ -1,7 +1,7 @@
 From 5cee9f0954cf0f3e37082989097afaf84e79e65a Mon Sep 17 00:00:00 2001
 From: timfox <timfox@outlook.com>
 Date: Sun, 12 Jul 2026 02:25:43 -0700
-Subject: [PATCH 5/9] feat: draw lean New Game health digits from gc_320hud2
+Subject: [PATCH 05/10] feat: draw lean New Game health digits from gc_320hud2
 
 Quality-0 HUD paints a top-left health cross and three-digit value from
 the bootstrap number sheet.

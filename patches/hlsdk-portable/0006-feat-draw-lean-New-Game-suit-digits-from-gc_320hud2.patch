@@ -1,7 +1,7 @@
 From 26b54b82e03826b622276b6b15c44e306c4cad5b Mon Sep 17 00:00:00 2001
 From: timfox <timfox@outlook.com>
 Date: Sun, 12 Jul 2026 09:54:54 -0700
-Subject: [PATCH 6/9] feat: draw lean New Game suit digits from gc_320hud2
+Subject: [PATCH 06/10] feat: draw lean New Game suit digits from gc_320hud2
 
 Expose battery for readback and clip for optional ammo digits so the
 q0 HUD shows suit icon+numbers alongside health without VidInit.

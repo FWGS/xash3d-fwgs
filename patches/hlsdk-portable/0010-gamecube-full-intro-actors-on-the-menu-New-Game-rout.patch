@@ -1,0 +1,223 @@
+From 8e755e982900541a43b05697c2780e693da3f932 Mon Sep 17 00:00:00 2001
+From: timfox <timfox@outlook.com>
+Date: Thu, 29 Oct 2026 16:22:09 -0700
+Subject: [PATCH 10/10] gamecube: full intro actors on the menu New Game route
+
+The GameCube spawn paths made every scientist, sitting scientist, Barney
+and monster_generic a static actor with no AI, so the c0a0 walkers never
+moved and their scripted_sequences could not take them. On the menu New
+Game route (-gcmenuplaystart, real server, whole BSP resident) they now
+run the stock GoldSrc Spawn: MonsterInit, AI schedules, scripted walks
+and animation. GC_FullActors() picks the route at runtime; the lean
+routes keep the static actors.
+
+Co-Authored-By: Claude Opus 5.5 (1M context) <noreply@anthropic.com>
+---
+ dlls/barney.cpp         | 36 ++++++++++++-----------
+ dlls/enginecallback.h   | 12 ++++++++
+ dlls/genericmonster.cpp | 25 +++++++++-------
+ dlls/scientist.cpp      | 63 ++++++++++++++++++++++-------------------
+ 4 files changed, 79 insertions(+), 57 deletions(-)
+
+diff --git a/dlls/barney.cpp b/dlls/barney.cpp
+index 9d98c909..5a6e3941 100644
+--- a/dlls/barney.cpp
++++ b/dlls/barney.cpp
+@@ -335,22 +335,25 @@ void CBarney::HandleAnimEvent( MonsterEvent_t *pEvent )
+ void CBarney::Spawn()
+ {
+ #if XASH_GAMECUBE
+-	PRECACHE_MODEL( "models/barney.mdl" );
+-	SET_MODEL( ENT( pev ), "models/barney.mdl" );
+-	UTIL_SetSize( pev, VEC_HUMAN_HULL_MIN, VEC_HUMAN_HULL_MAX );
+-	pev->solid = SOLID_SLIDEBOX;
+-	pev->movetype = MOVETYPE_NONE;
+-	pev->health = gSkillData.barneyHealth;
+-	pev->view_ofs = Vector( 0.0f, 0.0f, 50.0f );
+-	pev->body = BARNEY_BODY_GUNHOLSTERED;
+-	pev->takedamage = DAMAGE_NO;
+-	pev->nextthink = 0;
+-	m_MonsterState = MONSTERSTATE_NONE;
+-	m_fGunDrawn = FALSE;
+-	ALERT( at_console, "Xash3D GameCube: G315 static Barney target=%s\n",
+-		STRING( pev->targetname ) );
+-	return;
+-#else
++	if( !GC_FullActors())
++	{
++		PRECACHE_MODEL( "models/barney.mdl" );
++		SET_MODEL( ENT( pev ), "models/barney.mdl" );
++		UTIL_SetSize( pev, VEC_HUMAN_HULL_MIN, VEC_HUMAN_HULL_MAX );
++		pev->solid = SOLID_SLIDEBOX;
++		pev->movetype = MOVETYPE_NONE;
++		pev->health = gSkillData.barneyHealth;
++		pev->view_ofs = Vector( 0.0f, 0.0f, 50.0f );
++		pev->body = BARNEY_BODY_GUNHOLSTERED;
++		pev->takedamage = DAMAGE_NO;
++		pev->nextthink = 0;
++		m_MonsterState = MONSTERSTATE_NONE;
++		m_fGunDrawn = FALSE;
++		ALERT( at_console, "Xash3D GameCube: G315 static Barney target=%s\n",
++			STRING( pev->targetname ) );
++		return;
++	}
++#endif
+ 	Precache();
+ 
+ 	SET_MODEL( ENT( pev ), "models/barney.mdl" );
+@@ -371,7 +374,6 @@ void CBarney::Spawn()
+ 
+ 	MonsterInit();
+ 	SetUse( &CTalkMonster::FollowerUse );
+-#endif
+ }
+ 
+ //=========================================================
+diff --git a/dlls/enginecallback.h b/dlls/enginecallback.h
+index d9d709d7..dd38cb4d 100644
+--- a/dlls/enginecallback.h
++++ b/dlls/enginecallback.h
+@@ -160,4 +160,16 @@ inline void *GET_PRIVATE( edict_t *pent )
+ 
+ #define PLAYER_CNX_STATS		( *g_engfuncs.pfnGetPlayerStats )
+ 
++#if XASH_GAMECUBE
++// Menu New Game runs the real server with the intro BSP resident: actors
++// spawn with full AI, scripts and animation there. Other GameCube routes
++// keep the lean static actors.
++inline BOOL GC_FullActors( void )
++{
++	return g_engfuncs.CheckParm( (char *)"-gcmenuplaystart", NULL )
++		&& !g_engfuncs.CheckParm( (char *)"-gcmenunoserver", NULL )
++		&& !g_engfuncs.CheckParm( (char *)"-gcfullphysics", NULL );
++}
++#endif
++
+ #endif		//ENGINECALLBACK_H
+diff --git a/dlls/genericmonster.cpp b/dlls/genericmonster.cpp
+index f2a586c4..dd07ab79 100644
+--- a/dlls/genericmonster.cpp
++++ b/dlls/genericmonster.cpp
+@@ -147,17 +147,20 @@ void CGenericMonster::Spawn()
+ 	m_MonsterState = MONSTERSTATE_NONE;
+ 
+ #if XASH_GAMECUBE
+-	// GameCube maps use a shared studio stub at spawn time. Running
+-	// MonsterInit against that one-frame placeholder leaves MonsterThink in the
+-	// studio sequence loop before the Flipper present can arm. The c0a0 generic
+-	// actors are static forklift props; keep their entity/model/solid state for
+-	// scripted targeting without scheduling autonomous monster AI.
+-	pev->takedamage = DAMAGE_NO;
+-	pev->movetype = MOVETYPE_NONE;
+-	pev->nextthink = 0;
+-	ALERT( at_console, "Xash3D GameCube: G313 static monster_generic model=%s\n",
+-		STRING( pev->model ) );
+-	return;
++	if( !GC_FullActors())
++	{
++		// GameCube maps use a shared studio stub at spawn time. Running
++		// MonsterInit against that one-frame placeholder leaves MonsterThink in the
++		// studio sequence loop before the Flipper present can arm. The c0a0 generic
++		// actors are static forklift props; keep their entity/model/solid state for
++		// scripted targeting without scheduling autonomous monster AI.
++		pev->takedamage = DAMAGE_NO;
++		pev->movetype = MOVETYPE_NONE;
++		pev->nextthink = 0;
++		ALERT( at_console, "Xash3D GameCube: G313 static monster_generic model=%s\n",
++			STRING( pev->model ) );
++		return;
++	}
+ #endif
+ 
+ 	MonsterInit();
+diff --git a/dlls/scientist.cpp b/dlls/scientist.cpp
+index 9325a788..f86f5b7b 100644
+--- a/dlls/scientist.cpp
++++ b/dlls/scientist.cpp
+@@ -636,21 +636,24 @@ void CScientist::Spawn( void )
+ 	}
+ 
+ #if XASH_GAMECUBE
+-	PRECACHE_MODEL( GetScientistModel() );
+-	SET_MODEL( ENT( pev ), GetScientistModel() );
+-	UTIL_SetSize( pev, VEC_HUMAN_HULL_MIN, VEC_HUMAN_HULL_MAX );
+-	pev->solid = SOLID_NOT;
+-	pev->movetype = MOVETYPE_NONE;
+-	pev->health = gSkillData.scientistHealth;
+-	pev->view_ofs = Vector( 0, 0, 50 );
+-	pev->skin = pev->body == HEAD_LUTHER ? 1 : 0;
+-	pev->takedamage = DAMAGE_NO;
+-	pev->nextthink = 0;
+-	m_MonsterState = MONSTERSTATE_NONE;
+-	ALERT( at_console, "Xash3D GameCube: G316 static scientist target=%s\n",
+-		STRING( pev->targetname ) );
+-	return;
+-#else
++	if( !GC_FullActors())
++	{
++		PRECACHE_MODEL( GetScientistModel() );
++		SET_MODEL( ENT( pev ), GetScientistModel() );
++		UTIL_SetSize( pev, VEC_HUMAN_HULL_MIN, VEC_HUMAN_HULL_MAX );
++		pev->solid = SOLID_NOT;
++		pev->movetype = MOVETYPE_NONE;
++		pev->health = gSkillData.scientistHealth;
++		pev->view_ofs = Vector( 0, 0, 50 );
++		pev->skin = pev->body == HEAD_LUTHER ? 1 : 0;
++		pev->takedamage = DAMAGE_NO;
++		pev->nextthink = 0;
++		m_MonsterState = MONSTERSTATE_NONE;
++		ALERT( at_console, "Xash3D GameCube: G316 static scientist target=%s\n",
++			STRING( pev->targetname ) );
++		return;
++	}
++#endif
+ 	Precache();
+ 
+ 	SET_MODEL( ENT( pev ), GetScientistModel());
+@@ -683,7 +686,6 @@ void CScientist::Spawn( void )
+ 
+ 	MonsterInit();
+ 	SetUse( &CTalkMonster::FollowerUse );
+-#endif
+ }
+ 
+ //=========================================================
+@@ -1320,19 +1322,22 @@ void CSittingScientist::Spawn()
+ 	PRECACHE_MODEL( "models/scientist.mdl" );
+ 	SET_MODEL( ENT( pev ), "models/scientist.mdl" );
+ #if XASH_GAMECUBE
+-	// The map-load studio placeholder has no named sequences or bone
+-	// controllers. Keep seated predisaster scientists as static, script-visible
+-	// actors until their lean real mesh can be promoted after Flipper startup.
+-	UTIL_SetSize( pev, Vector( -14, -14, 0 ), Vector( 14, 14, 36 ) );
+-	pev->solid = SOLID_NOT;
+-	pev->movetype = MOVETYPE_NONE;
+-	pev->effects = 0;
+-	pev->health = 50;
+-	pev->takedamage = DAMAGE_NO;
+-	pev->nextthink = 0;
+-	SetBits( pev->spawnflags, SF_MONSTER_PREDISASTER );
+-	ALERT( at_console, "Xash3D GameCube: G314 static sitting scientist\n" );
+-	return;
++	if( !GC_FullActors())
++	{
++		// The map-load studio placeholder has no named sequences or bone
++		// controllers. Keep seated predisaster scientists as static, script-visible
++		// actors until their lean real mesh can be promoted after Flipper startup.
++		UTIL_SetSize( pev, Vector( -14, -14, 0 ), Vector( 14, 14, 36 ) );
++		pev->solid = SOLID_NOT;
++		pev->movetype = MOVETYPE_NONE;
++		pev->effects = 0;
++		pev->health = 50;
++		pev->takedamage = DAMAGE_NO;
++		pev->nextthink = 0;
++		SetBits( pev->spawnflags, SF_MONSTER_PREDISASTER );
++		ALERT( at_console, "Xash3D GameCube: G314 static sitting scientist\n" );
++		return;
++	}
+ #endif
+ 	Precache();
+ 	InitBoneControllers();
+-- 
+2.53.0
+

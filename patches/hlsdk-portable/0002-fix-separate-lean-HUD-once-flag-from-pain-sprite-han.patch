@@ -1,7 +1,8 @@
 From b141505419c556ae3495c7bebeb9ad2aba7ba563 Mon Sep 17 00:00:00 2001
 From: timfox <timfox@outlook.com>
 Date: Sun, 12 Jul 2026 01:44:47 -0700
-Subject: [PATCH 2/9] fix: separate lean HUD once-flag from pain sprite handle
+Subject: [PATCH 02/10] fix: separate lean HUD once-flag from pain sprite
+ handle
 
 Keep the New Game pain-sprite log state on its own static so it cannot
 alias the sprite handle under COMDAT BSS packing.

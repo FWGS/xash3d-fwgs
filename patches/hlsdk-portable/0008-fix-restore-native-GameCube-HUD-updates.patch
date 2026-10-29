@@ -1,7 +1,7 @@
 From 9c6a12fb2c7beaa43a8fbc8b69b5dd51ebffdcc4 Mon Sep 17 00:00:00 2001
 From: timfox <timfox@outlook.com>
 Date: Sat, 18 Jul 2026 15:57:55 -0700
-Subject: [PATCH 8/9] fix: restore native GameCube HUD updates
+Subject: [PATCH 08/10] fix: restore native GameCube HUD updates
 
 ---
  cl_dll/hud.cpp  | 36 ++++++++++++++++++++++++++++++++++--

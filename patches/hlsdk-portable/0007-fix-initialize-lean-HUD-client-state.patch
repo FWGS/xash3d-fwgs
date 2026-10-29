@@ -1,7 +1,7 @@
 From 1ac87ab267d093ef808f914a336ac3e7033012b7 Mon Sep 17 00:00:00 2001
 From: timfox <timfox@outlook.com>
 Date: Sat, 18 Jul 2026 14:20:42 -0700
-Subject: [PATCH 7/9] fix: initialize lean HUD client state
+Subject: [PATCH 07/10] fix: initialize lean HUD client state
 
 ---
  cl_dll/hud.cpp | 12 +++++++++---
