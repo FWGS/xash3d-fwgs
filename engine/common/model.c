@@ -1485,6 +1485,10 @@ void Mod_GcmapMarkPrecacheFreeable( void )
 			continue;
 		if( mod->name[0] == '*' )
 			continue;
+		/* Never a world BSP: after a changelevel the current level need not
+		 * sit in slot 0, and freeing it unpinned its live surfaces. */
+		if( mod->type == mod_brush && !Q_strnicmp( mod->name, "maps/", 5 ))
+			continue;
 		if( mod->needload == NL_PRESENT )
 		{
 			/* Keep New Game deferred real studio meshes for world present. */

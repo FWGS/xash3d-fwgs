@@ -2647,6 +2647,18 @@ int R_GXDrawNewGameCapFaces( void )
 			short_map[len - 4] = '\0';
 		map_name = short_map;
 	}
+	{
+		static char logged_map[64];
+
+		/* Once per map: which world path this frame takes (live BSP vs caps). */
+		if( Q_strcmp( logged_map, map_name ))
+		{
+			Q_strncpy( logged_map, map_name, sizeof( logged_map ));
+			gEngfuncs.Con_Reportf( "Xash3D GameCube: world path map=%s live=%d pinned=%d scratch=%d probe=%d nsurf=%d\n",
+				map_name, surfaces_live ? 1 : 0, surfaces_pinned ? 1 : 0, scratch_retained ? 1 : 0,
+				newgame_probe ? 1 : 0, world->numsurfaces );
+		}
+	}
 
 	if( r_gx_tex_world != world )
 	{

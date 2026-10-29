@@ -69,6 +69,10 @@ static qboolean gc_planes_arena_tail;
 static qboolean gc_retain_bsp_source_buffer;
 /* G283: world msurface_t settled in retained BSP scratch (busy-protected). */
 static qboolean gc_world_msurface_retained;
+/* The world model whose load claimed the gc_*_malloc_block / scratch state
+ * below. Freeing any other brush model (a stale previous level after a
+ * changelevel) must not tear the current world down. */
+static const model_t *gc_world_blocks_owner;
 static byte *gc_bsp_scratch_base;
 static size_t gc_bsp_scratch_size;
 static size_t gc_bsp_scratch_carve_high;
@@ -3067,6 +3071,7 @@ static void Mod_LoadPlanes( model_t *mod, const dbspmodel_t *bmod )
 		if( out )
 		{
 			gc_planes_malloc_block = out;
+			gc_world_blocks_owner = mod;
 			Con_Reportf( "Xash3D GameCube: world planes using malloc %s\n",
 				Q_memprint( plane_bytes ));
 		}
@@ -3273,6 +3278,7 @@ static void Mod_LoadMarkSurfaces( model_t *mod, dbspmodel_t *bmod )
 		if( out )
 		{
 			gc_marksurfaces_malloc_block = out;
+			gc_world_blocks_owner = mod;
 			Con_Reportf( "Xash3D GameCube: world marksurfaces via malloc %s\n", Q_memprint( mark_bytes ));
 		}
 		else
@@ -4196,6 +4202,7 @@ static void Mod_LoadSurfaces( model_t *mod, dbspmodel_t *bmod )
 			memset( surf_block, 0, surf_bytes );
 			Mod_GCInvalidateScratchOverlap( bmod, gc_bsp_scratch_base, gc_bsp_scratch_size, surf_block, surf_bytes );
 			gc_world_msurface_retained = true;
+			gc_world_blocks_owner = mod;
 			Con_Reportf( "Xash3D GameCube: world surfaces using BSP scratch %s (G283 retain-pin)\n",
 				Q_memprint( surf_bytes ));
 		}
@@ -4207,6 +4214,7 @@ static void Mod_LoadSurfaces( model_t *mod, dbspmodel_t *bmod )
 		if( surf_block )
 		{
 			gc_surfaces_malloc_block = surf_block;
+			gc_world_blocks_owner = mod;
 			memset( surf_block, 0, surf_bytes );
 			Con_Reportf( "Xash3D GameCube: world surfaces via malloc %s\n", Q_memprint( surf_bytes ));
 		}
@@ -4935,6 +4943,7 @@ qboolean Mod_GCPromoteWorldSurfaces( model_t *mod )
 
 	mod->surfaces = new_surf;
 	gc_surfaces_malloc_block = block;
+	gc_world_blocks_owner = mod;
 	Con_Reportf( "Xash3D GameCube: G132 promoted world surfaces via malloc %s\n",
 		Q_memprint( bytes ));
 	return true;
@@ -4975,6 +4984,13 @@ qboolean Mod_GCWorldSurfacesScratchRetained( model_t *mod )
 
 void Mod_GameCubeFreeMallocSurfaces( model_t *mod )
 {
+	if( mod && gc_world_blocks_owner && mod != gc_world_blocks_owner )
+	{
+		Con_Reportf( "Xash3D GameCube: keep world blocks of %s while freeing %s\n",
+			gc_world_blocks_owner->name, mod->name );
+		return;
+	}
+	gc_world_blocks_owner = NULL;
 	gc_world_msurface_retained = false;
 
 	if( gc_planes_malloc_block )
