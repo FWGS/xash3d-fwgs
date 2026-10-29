@@ -822,6 +822,7 @@ static void GCube_EnsureFatMounted( void )
 #endif
 }
 static qboolean gc_memreport_configured;
+static qboolean gc_profile_configured;
 
 static void GCube_LoadDiscBootOverrides( void )
 {
@@ -851,6 +852,7 @@ static void GCube_LoadDiscBootOverrides( void )
 	gc_dumpframes_configured = false;
 	gc_swissquit_configured = false;
 	gc_memreport_configured = false;
+	gc_profile_configured = false;
 	gc_phase_test[0] = '\0';
 	gc_changelevel_map[0] = '\0';
 	gc_landmark_name[0] = '\0';
@@ -901,6 +903,13 @@ static void GCube_LoadDiscBootOverrides( void )
 		{
 			gc_memreport_configured = true;
 			SYS_Report( "Xash3D GameCube: disc boot override memreport\n" );
+			continue;
+		}
+
+		if( !Q_strnicmp( cursor, "profile", 7 ))
+		{
+			gc_profile_configured = true;
+			SYS_Report( "Xash3D GameCube: disc boot override profile\n" );
 			continue;
 		}
 
@@ -1407,6 +1416,8 @@ int GCube_GetArgv( int in_argc, char **in_argv, char ***out_argv )
 	}
 	if( gc_memreport_configured )
 		gc_argv[fake_argc++] = "-gcmemreport";
+	if( gc_profile_configured )
+		gc_argv[fake_argc++] = "-gcprofile";
 	gc_argv[fake_argc++] = "-width";
 	/* Tip-safe soft/internal FB. Flipper EFB/XFB stay native 640×480 via VI. */
 	gc_argv[fake_argc++] = "320";

@@ -3951,7 +3951,7 @@ Host_ClientFrame
  * each client-frame step for a few frames after ca_active. */
 int gc_menu_step_frames;
 #define CL_GC_STEP( name ) \
-	do { if( gc_menu_step_frames > 0 ) SYS_Report( "Xash3D GameCube: STEP " name " left=%d\n", gc_menu_step_frames ); } while( 0 )
+	do { GC_ProfMark( name ); if( gc_menu_step_frames > 0 ) SYS_Report( "Xash3D GameCube: STEP " name " left=%d\n", gc_menu_step_frames ); } while( 0 )
 #else
 #define CL_GC_STEP( name ) ((void)0)
 #endif
@@ -4111,6 +4111,12 @@ void Host_ClientFrame( void )
 #endif
 
 	// update audio
+#if XASH_GAMECUBE
+	/* G278: menu New Game strips c0a0's ambient_generic VO like the lean
+	 * route; stream the tram announcer/rumble here (it gates itself). */
+	if( Sys_CheckParm( "-gcmenuplaystart" ))
+		GC_UpdateNewGameIntroAudio();
+#endif
 	SND_UpdateSound ();
 #if XASH_GAMECUBE
 	if( gc_fullphysics_trace )

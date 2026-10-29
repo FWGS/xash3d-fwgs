@@ -7036,12 +7036,15 @@ static void GC_PresentBuffer( void )
 		if( gc_present_count == 20 || gc_present_count == 28 || gc_present_count == 36 )
 			Con_Reportf( "Xash3D GameCube: present Flipper DrawDone begin presents=%u\n",
 				gc_present_count );
+		GC_ProfMark( "present: end-frame work before DrawDone" );
 		GC_GXDrawDoneTimed( "Flipper present" );
+		GC_ProfMark( "present: GX DrawDone wait" );
 		if( gc_present_count == 20 || gc_present_count == 28 || gc_present_count == 36 )
 			Con_Reportf( "Xash3D GameCube: present Flipper DrawDone end presents=%u\n",
 				gc_present_count );
 		GX_CopyDisp( xfb[which_fb], GX_FALSE );
 		GX_Flush();
+		GC_ProfMark( "present: CopyDisp" );
 		gc_gx_world_efb_ready = false;
 		{
 			/* Pair with the first-frame entity trace: the first few in-game
@@ -7090,8 +7093,10 @@ static void GC_PresentBuffer( void )
 			/* G297: during G36 samples skip WaitVSync so frame times measure
 			 * Flipper work (vsync locked every sample to ~16.7ms). Retail and
 			 * post-sample presents still VI-pace at 60 fields/sec. */
+			GC_ProfMark( "present: pre-vsync" );
 			if( !budget_no_vsync )
 				VIDEO_WaitVSync();
+			GC_ProfMark( "present: VI vsync wait" );
 			which_fb ^= 1;
 			if( gc_present_count == 20 || gc_present_count == 28 || gc_present_count == 36 )
 				Con_Reportf( "Xash3D GameCube: present Flipper vsync done presents=%u\n",
@@ -13077,6 +13082,7 @@ qboolean GC_RenderNewGameWorldFrames( int count )
 
 		if( trace )
 			frame_trace++;
+		GC_ProfMark( "newgame frame setup" );
 		ref.dllFuncs.R_BeginFrame( false );
 		VectorCopy( rvp.vieworigin, refState.vieworg );
 		VectorCopy( rvp.viewangles, refState.viewangles );
@@ -14534,7 +14540,11 @@ void GC_UpdateNewGameIntroAudio( void )
 	static qboolean armed;
 	double elapsed;
 
-	if( !Sys_CheckParm( "-gcnewgame" ) || !GC_IsNewGameG36Done() )
+	/* The menu New Game route inhibits ambient_generic/multi_manager on
+	 * c0a0 too (SV_GCMapShouldInhibitClass), so without this stream the tram
+	 * ride is silent there. */
+	if(( !Sys_CheckParm( "-gcnewgame" ) && !Sys_CheckParm( "-gcmenuplaystart" ))
+		|| !GC_IsNewGameG36Done() )
 		return;
 	if( !GC_IsNewGameWorldReady() || Sys_CheckParm( "-gcnewsaveload" ))
 		return;
