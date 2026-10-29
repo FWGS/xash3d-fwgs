@@ -2873,13 +2873,17 @@ static int Mod_LoadEntities_splitstr_handler( char *prev, char *next, void *user
 	if( Q_stricmp( COM_FileExtension( wad ), "wad" ))
 		return 0;
 
+	// make sure that wad does really exist. On GameCube the archive may be
+	// mounted under gcdisc:/ while the BSP stores only its basename.
+	qboolean wad_exists = FS_FileExists( wad, false );
 #if XASH_GAMECUBE
-	if( GC_MapLoadMemoryOpt() )
-		return 0;
+	/* The BSP stores retail WAD basenames while the disc mounts them under
+	 * gcdisc:/...; retain the declaration and let GetArchiveByName resolve it
+	 * later instead of rejecting it at this existence check. */
+	if( GC_MapLoadMemoryOpt( ))
+		wad_exists = true;
 #endif
-
-	// make sure that wad does really exists
-	if( FS_FileExists( wad, false ))
+	if( wad_exists )
 	{
 		int num = w->wadcount++;
 

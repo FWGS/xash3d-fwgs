@@ -788,6 +788,10 @@ static byte *FS_LoadFile_( const char *path, fs_offset_t *filesizeptr, const qbo
 
 	if( !fs_searchpaths || FS_CheckNastyPath( path ))
 		return NULL;
+	#if XASH_GAMECUBE
+	if( Q_stristr( path, ".mip" ))
+		Con_Reportf( "Xash3D GameCube: FS_LoadFile mip request path=%s\n", path );
+	#endif
 
 	search = FS_FindFile( path, &pack_ind, netpath, sizeof( netpath ), gamedironly ? FS_GAMEDIRONLY_SEARCH_FLAGS : 0 );
 
