@@ -635,6 +635,9 @@ and hold them into permament memory pool
 static void CL_InitTitles( const char *filename )
 {
 	// clear out any old data that's sitting around.
+#if XASH_GAMECUBE
+	CL_GCHudTextClear(); /* queued titles point into clgame.titles */
+#endif
 	Mem_Free( clgame.titles );
 
 	clgame.titles = NULL;

@@ -426,6 +426,7 @@ qboolean R_GXWorldDrewThisFrame( void );
 void R_GXClearWorldDrewFlag( void );
 qboolean R_GXDrawStretchPic( float x, float y, float w, float h,
 	float s1, float t1, float s2, float t2, int texnum );
+qboolean R_GXFillRGBA( float x, float y, float w, float h, int r, int g, int b, int a, int rendermode );
 int R_GXDrawNewGameCapFaces( void );
 qboolean R_GXStudioIsActive( void );
 qboolean R_GXTriApiIsActive( void );

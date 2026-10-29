@@ -257,9 +257,10 @@ apply_font:
 	font->type = FONT_VARIABLE;
 	font->valid = true;
 	font->scale = scale ? scale : 1.0f;
-	/* The full font is 640x480-sized; HUD space here is 320x240. */
-	if( full )
-		font->scale *= 0.5f;
+	/* The full font draws 1:1 into the 320x240 HUD space: the 2D path
+	 * point-samples, so any minification garbled the intro credits. This
+	 * is twice the retail credits size relative to the screen, which is
+	 * what keeps them readable at this resolution. */
 	font->rendermode = rendermode;
 	font->charHeight = Q_rint( src.rowheight * font->scale );
 

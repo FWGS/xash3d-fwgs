@@ -43,6 +43,10 @@ CL_FillRGBA
 */
 static void GAME_EXPORT CL_FillRGBA( int rendermode, float _x, float _y, float _w, float _h, byte r, byte g, byte b, byte a )
 {
+#if XASH_GAMECUBE
+	if( R_GXFillRGBA( _x, _y, _w, _h, r, g, b, a, rendermode ))
+		return;
+#endif
 	vid.rendermode = rendermode;
 	_TriColor4ub( r, g, b, a );
 	Draw_Fill( _x, _y, _w, _h );

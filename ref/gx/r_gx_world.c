@@ -3897,6 +3897,57 @@ static void R_GXPrepareHud2DState( void )
 	r_gx_hud_2d_ready = true;
 }
 
+/* Untextured HUD rectangle on the Flipper EFB (FillRGBA). The soft Draw_Fill
+ * buffer is not presented on GX HUD frames, so translucent backings (intro
+ * title boxes) never showed. Leaves the textured 2D state as it found it. */
+qboolean R_GXFillRGBA( float x, float y, float w, float h, int r, int g, int b, int a, int rendermode )
+{
+	const u32 color = ((u32)r << 24 ) | ((u32)g << 16 ) | ((u32)b << 8 ) | (u32)a;
+
+	if( !GC_UseGxRenderer() || w < 1.0f || h < 1.0f || a <= 0 )
+		return false;
+	if( !r_gx_hud_2d_ready )
+		R_GXPrepareHud2DState();
+	if( !r_gx_hud_2d_ready )
+		return false;
+
+	GX_SetNumTexGens( 0 );
+	GX_SetTevOrder( GX_TEVSTAGE0, GX_TEXCOORDNULL, GX_TEXMAP_NULL, GX_COLOR0A0 );
+	GX_SetTevOp( GX_TEVSTAGE0, GX_PASSCLR );
+	GX_ClearVtxDesc();
+	GX_SetVtxDesc( GX_VA_POS, GX_DIRECT );
+	GX_SetVtxDesc( GX_VA_CLR0, GX_DIRECT );
+	GX_SetAlphaCompare( GX_ALWAYS, 0, GX_AOP_AND, GX_ALWAYS, 0 );
+	if( rendermode == kRenderTransAdd )
+		GX_SetBlendMode( GX_BM_BLEND, GX_BL_SRCALPHA, GX_BL_ONE, GX_LO_NOOP );
+	else if( a < 255 )
+		GX_SetBlendMode( GX_BM_BLEND, GX_BL_SRCALPHA, GX_BL_INVSRCALPHA, GX_LO_NOOP );
+	else
+		GX_SetBlendMode( GX_BM_NONE, GX_BL_ONE, GX_BL_ZERO, GX_LO_NOOP );
+
+	GX_Begin( GX_QUADS, GX_VTXFMT0, 4 );
+	GX_Position3f32( x, y, 0.0f );
+	GX_Color1u32( color );
+	GX_Position3f32( x + w, y, 0.0f );
+	GX_Color1u32( color );
+	GX_Position3f32( x + w, y + h, 0.0f );
+	GX_Color1u32( color );
+	GX_Position3f32( x, y + h, 0.0f );
+	GX_Color1u32( color );
+	GX_End();
+
+	GX_SetNumTexGens( 1 );
+	GX_SetTevOrder( GX_TEVSTAGE0, GX_TEXCOORD0, GX_TEXMAP0, GX_COLOR0A0 );
+	GX_SetTevOp( GX_TEVSTAGE0, GX_MODULATE );
+	GX_ClearVtxDesc();
+	GX_SetVtxDesc( GX_VA_POS, GX_DIRECT );
+	GX_SetVtxDesc( GX_VA_CLR0, GX_DIRECT );
+	GX_SetVtxDesc( GX_VA_TEX0, GX_DIRECT );
+	r_gx_bound_texnum = 0;
+	r_gx_bound_fmt = 0;
+	return true;
+}
+
 qboolean R_GXDrawStretchPic( float x, float y, float w, float h,
 	float s1, float t1, float s2, float t2, int texnum )
 {
@@ -4399,6 +4450,12 @@ void R_GXClearWorldDrewFlag( void )
 
 qboolean R_GXWorldDrewThisFrame( void ) { return false; }
 void R_GXClearWorldDrewFlag( void ) {}
+qboolean R_GXFillRGBA( float x, float y, float w, float h, int r, int g, int b, int a, int rendermode )
+{
+	(void)x; (void)y; (void)w; (void)h; (void)r; (void)g; (void)b; (void)a; (void)rendermode;
+	return false;
+}
+
 qboolean R_GXDrawStretchPic( float x, float y, float w, float h,
 	float s1, float t1, float s2, float t2, int texnum )
 {

@@ -194,7 +194,10 @@ static void R_DrawStretchPicImplementation( int x, int y, int w, int h, int s1, 
 				if( alpha == 0 )
 					continue;
 
-				if( vid.color != COLOR_WHITE )
+				/* The lean route keeps modmap in the map-load arena, which the BSP
+				 * then reuses: on the RGB565 FB modulate in display space below
+				 * (tinted HUD text read garbage there and came out speckled). */
+				if( vid.color != COLOR_WHITE && !rgb565_fb )
 					src = vid.modmap[( src & 0xff00 ) | ( vid.color >> 8 )] << 8 | ( src & vid.color & 0xff ) | (( src & 0xff ) >> 3 );
 
 				/* New Game world FB is display RGB565; soft blend tables do not apply. */
@@ -207,6 +210,15 @@ static void R_DrawStretchPicImplementation( int x, int y, int w, int h, int s1, 
 					if( src == TRANSPARENT_COLOR )
 						continue;
 					src565 = vid.screen[src];
+					if( vid.color != COLOR_WHITE )
+					{
+						const pixel_t c565 = vid.screen[vid.color];
+
+						r = ((( src565 >> 11 ) & 0x1Fu ) * (( c565 >> 11 ) & 0x1Fu )) / 31u;
+						g = ((( src565 >> 5 ) & 0x3Fu ) * (( c565 >> 5 ) & 0x3Fu )) / 63u;
+						b = (( src565 & 0x1Fu ) * ( c565 & 0x1Fu )) / 31u;
+						src565 = (pixel_t)(( r << 11 ) | ( g << 5 ) | b );
+					}
 					if( vid.rendermode == kRenderTransColor
 						|| vid.rendermode == kRenderTransAlpha )
 					{
@@ -416,8 +428,15 @@ void Draw_Fill( int x, int y, int w, int h )
 					if( b > 31 ) b = 31;
 					dest[u] = (pixel_t)(( r << 11 ) | ( g << 5 ) | b );
 				}
-				else if( alpha < 4 )
-					continue;
+				else if( alpha < 7 )
+				{
+					/* Translucent fill (title backings): blend in RGB565. */
+					pixel_t d = dest[u];
+					unsigned int r = ((( src >> 11 ) & 0x1F ) * alpha + (( d >> 11 ) & 0x1F ) * ( 7 - alpha )) / 7;
+					unsigned int g = ((( src >> 5 ) & 0x3F ) * alpha + (( d >> 5 ) & 0x3F ) * ( 7 - alpha )) / 7;
+					unsigned int b = (( src & 0x1F ) * alpha + ( d & 0x1F ) * ( 7 - alpha )) / 7;
+					dest[u] = (pixel_t)(( r << 11 ) | ( g << 5 ) | b );
+				}
 				else
 					dest[u] = src;
 				continue;

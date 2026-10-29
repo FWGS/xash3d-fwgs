@@ -365,13 +365,55 @@ static int CL_GCHudTextLineWidth( const char *s, const cl_font_t *font )
 	return (int)( w * font->scale );
 }
 
+#define GC_HUDTEXT_MARGIN 8 /* safe area at the 320x240 HUD resolution */
+
 static float CL_GCHudTextPos( float pos, int size, int screen )
 {
+	float p;
+
 	if( pos == -1.0f )
-		return ( screen - size ) * 0.5f;
-	if( pos < 0.0f )
-		return ( 1.0f + pos ) * screen - size;
-	return pos * screen;
+		p = ( screen - size ) * 0.5f;
+	else if( pos < 0.0f )
+		p = ( 1.0f + pos ) * screen - size;
+	else
+		p = pos * screen;
+	/* The 2x credits font must stay inside the safe area. */
+	if( p + size > screen - GC_HUDTEXT_MARGIN )
+		p = screen - GC_HUDTEXT_MARGIN - size;
+	if( p < GC_HUDTEXT_MARGIN )
+		p = GC_HUDTEXT_MARGIN;
+	return p;
+}
+
+/* Dark translucent backing behind a title block: the credits font draws
+ * additively and its grey final colours vanish on lit tunnel walls. */
+static void CL_GCHudTextBacking( const client_textmessage_t *msg, float y, int lines,
+	int lineh, int sw, float fade )
+{
+	const cl_font_t *font = &cls.creditsFont;
+	const char *s = msg->pMessage;
+	float x0 = (float)sw, x1 = 0.0f, bx, by, bw, bh;
+
+	while( *s )
+	{
+		const int w = CL_GCHudTextLineWidth( s, font );
+		const float x = CL_GCHudTextPos( msg->x, w, sw );
+
+		x0 = Q_min( x0, x );
+		x1 = Q_max( x1, x + w );
+		while( *s && *s != '\n' )
+			s++;
+		if( *s == '\n' )
+			s++;
+	}
+	if( x1 <= x0 || fade <= 0.0f )
+		return;
+	bx = x0 - 4.0f;
+	by = y - 2.0f;
+	bw = ( x1 - x0 ) + 8.0f;
+	bh = (float)( lines * lineh ) + 4.0f;
+	SPR_AdjustSize( &bx, &by, &bw, &bh );
+	ref.dllFuncs.FillRGBA( kRenderTransTexture, bx, by, bw, bh, 0, 0, 0, (int)( 150.0f * fade ));
 }
 
 static void CL_GCHudTextDrawOne( const client_textmessage_t *msg, float t )
@@ -405,6 +447,7 @@ static void CL_GCHudTextDrawOne( const client_textmessage_t *msg, float t )
 	}
 
 	y = CL_GCHudTextPos( msg->y, lines * lineh, sh );
+	CL_GCHudTextBacking( msg, y, lines, lineh, sw, fade );
 	while( *s )
 	{
 		float x = CL_GCHudTextPos( msg->x, CL_GCHudTextLineWidth( s, font ), sw );
@@ -453,9 +496,32 @@ static void CL_GCHudTextDrawOne( const client_textmessage_t *msg, float t )
 	}
 }
 
+/* Map-load renderer trims free textures, so the credits font created at boot
+ * can end up pointing at whatever reused its texture slot (that drew the
+ * garbled glyphs). Recreate it when the slot no longer holds the font. */
+static void CL_GCHudTextEnsureFont( void )
+{
+	cl_font_t *font = &cls.creditsFont;
+	int w = 0, h = 0;
+
+	if( font->valid )
+	{
+		R_GetTextureParms( &w, &h, font->hFontTexture );
+		if( w == 256 && h == 64 )
+			return;
+		Con_Reportf( "Xash3D GameCube: credits font texture %d is now %dx%d, reloading\n",
+			font->hFontTexture, w, h );
+		font->valid = false;
+	}
+	CL_GCLoadLeanHudFont( font, hud_fontscale.value, &hud_fontrender );
+}
+
 void CL_GCHudTextDraw( void )
 {
 	int i;
+
+	if( gc_hudtext[0].msg || gc_hudtext[1].msg || gc_hudtext[2].msg || gc_hudtext[3].msg )
+		CL_GCHudTextEnsureFont();
 
 	if( !cls.creditsFont.valid )
 		return;

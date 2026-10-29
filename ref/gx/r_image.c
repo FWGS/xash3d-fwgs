@@ -169,7 +169,7 @@ static void GL_SetTextureDimensions( image_t *tex, int width, int height, int de
 		int q = GC_GetVisualQuality();
 
 		if( q == 0 )
-			maxTextureSize = 128;
+			maxTextureSize = FBitSet( tex->flags, TF_FONT ) ? 256 : 128; /* see GL_UploadTexture */
 		else if( q == 1 && !GC_IsFullRes2DImage( tex ))
 			maxTextureSize = 256;
 		/* Menu/HUD/UI images are frequently drawn fullscreen. Keep their
@@ -343,7 +343,10 @@ static qboolean GL_UploadTexture( image_t *tex, rgbdata_t *pic )
 	if( FBitSet( tex->flags, TF_NOMIPMAP ) && FBitSet( tex->flags, TF_CLAMP ))
 		clamp_ui = true;
 
-	if( q == 0 || clamp_ui )
+	/* Fonts keep their atlas width: CL_DrawCharacter addresses glyphs in the
+	 * source layout, and the 256-wide credits font resampled to 128 drew
+	 * sheared, interleaved glyphs (32 KiB at 256x64 is affordable). */
+	if(( q == 0 || clamp_ui ) && !FBitSet( tex->flags, TF_FONT ))
 	{
 		resampleWidth = Q_min( resampleWidth, 128 );
 		resampleHeight = Q_min( resampleHeight, 128 );
@@ -906,7 +909,10 @@ int GAME_EXPORT GL_CreateTexture( const char *name, int width, int height, const
 	// Internal textures (default, particle, white, gray, black) are small utility
 	// textures; clamping to 64x64 in quality 0 saves memory without visual impact
 #if XASH_GAMECUBE
-	if( GC_GetVisualQuality() == 0 && Q_strcmp( name, "*cintexture" ))
+	/* Not fonts: this keeps the caller's buffer and only shrinks the declared
+	 * size, so a 256-wide font atlas was read with a 64-pixel stride and drew
+	 * sheared, unreadable glyphs (the intro credits). */
+	if( GC_GetVisualQuality() == 0 && Q_strcmp( name, "*cintexture" ) && !FBitSet( flags, TF_FONT ))
 	{
 		if( r_empty.width > 64 ) r_empty.width = 64;
 		if( r_empty.height > 64 ) r_empty.height = 64;
