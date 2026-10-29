@@ -4,7 +4,8 @@ iso9660_gamecube.c - patched copy of libogc 3.1.0 libiso9660 (devoptab for the D
 This is an altered version of libogc's libiso9660/iso9660.c, vendored so the
 engine links it instead of -liso9660. Changes from upstream are marked
 "xash3d-gc": dirname() no longer underflows on paths without a separator,
-and entry_from_path() checks its strdup results.
+entry_from_path() checks its strdup results, and stat/open of a file scans
+the parent directory in place instead of leaking a heap copy of its listing.
 
 libogc copyright (C) 2004 - 2025 Michael Wiedenbauer (shagkur), Dave Murphy (WinterMute)
 
@@ -400,6 +401,79 @@ static bool path_entry_from_path(MOUNT_DESCR *mdescr, PATH_ENTRY *path_entry, co
 	return found;
 }
 
+/* xash3d-gc: walk one directory's records like read_directory(), but compare
+ * each name against base instead of collecting children on the heap. */
+static bool find_file_in_directory(MOUNT_DESCR *mdescr, DIR_ENTRY *entry, PATH_ENTRY *parent, const char *base, u32 nl)
+{
+	u32 sector = parent->table_entry.sector;
+	u32 remaining = 0;
+	u32 sector_offset = 0;
+	bool first = true;
+
+	do
+	{
+		u8 *buf = mdescr->cluster_buffer;
+		u8 reclen;
+
+		if (__read(mdescr, buf, (u64) sector * SECTOR_SIZE + sector_offset, (SECTOR_SIZE - sector_offset)) != (SECTOR_SIZE - sector_offset))
+			return false;
+		reclen = buf[0];
+		if (reclen)
+		{
+			u32 esector = *(u32 *) (buf + OFFSET_SECTOR) + buf[OFFSET_EXTENDED];
+			u32 esize = *(u32 *) (buf + OFFSET_SIZE);
+			u8 flags = buf[OFFSET_FLAGS];
+			u8 namelen = buf[OFFSET_NAMELEN];
+
+			if (namelen == 1 && !buf[OFFSET_NAME])
+			{
+				// . - the directory itself, carries its size
+				if (first)
+					remaining = esize;
+			}
+			else if (!(namelen == 1 && buf[OFFSET_NAME] == 1))
+			{
+				char name[ISO_MAXPATHLEN];
+				u32 i;
+
+				if (mdescr->iso_unicode)
+				{
+					for (i = 0; i < (namelen / 2) && i < ISO_MAXPATHLEN - 1; i++)
+						name[i] = buf[OFFSET_NAME + i * 2 + 1];
+				}
+				else
+				{
+					for (i = 0; i < namelen && i < ISO_MAXPATHLEN - 1; i++)
+						name[i] = buf[OFFSET_NAME + i];
+				}
+				name[i] = '\x00';
+				if (!(flags & FLAG_DIR) && i >= 2 && name[i - 2] == ';')
+					name[i - 2] = '\x00';
+
+				if (nl == strnlen(name, ISO_MAXPATHLEN - 1) && !strncasecmp(base, name, nl))
+				{
+					memset(entry, 0, sizeof(DIR_ENTRY));
+					strcpy(entry->name, name);
+					entry->sector = esector;
+					entry->size = esize;
+					entry->flags = flags;
+					return true;
+				}
+			}
+		}
+		first = false;
+		sector_offset += reclen;
+		if (sector_offset >= SECTOR_SIZE || !buf[reclen])
+		{
+			remaining = remaining > SECTOR_SIZE ? remaining - SECTOR_SIZE : 0;
+			sector_offset = 0;
+			sector++;
+		}
+	} while (remaining > 0);
+
+	return false;
+}
+
 static bool find_in_directory(MOUNT_DESCR *mdescr, DIR_ENTRY *entry, PATH_ENTRY *parent, const char *base)
 {
 	u32 childIdx;
@@ -417,18 +491,14 @@ static bool find_in_directory(MOUNT_DESCR *mdescr, DIR_ENTRY *entry, PATH_ENTRY 
 		}
 	}
 
-	if (!read_directory(mdescr, entry, parent))
-		return false;
-	for (childIdx = 0; childIdx < entry->fileCount; childIdx++)
-	{
-		DIR_ENTRY *child = entry->children + childIdx;
-		if (nl == strnlen(child->name, ISO_MAXPATHLEN - 1) && !strncasecmp(base, child->name, nl))
-		{
-			memcpy(entry, child, sizeof(DIR_ENTRY));
-			return true;
-		}
-	}
-	return false;
+	/* xash3d-gc: upstream read the whole parent listing into a heap array
+	 * (one DIR_ENTRY per file, grown by realloc) and then memcpy'd the match
+	 * over entry, leaking that array on every successful stat/open. maps/ on
+	 * a retail disc is ~20 KiB of listing; at New Game the heap has less than
+	 * that left, so the realloc failed and stat reported ENOENT for a file
+	 * that was found moments earlier. Scan the directory records in place and
+	 * keep only the match: no heap use, nothing to leak. */
+	return find_file_in_directory(mdescr, entry, parent, base, nl);
 }
 
 static bool entry_from_path(MOUNT_DESCR *mdescr, DIR_ENTRY *entry, const char *const_path)
