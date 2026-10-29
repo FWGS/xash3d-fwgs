@@ -1,0 +1,133 @@
+From 9c6a12fb2c7beaa43a8fbc8b69b5dd51ebffdcc4 Mon Sep 17 00:00:00 2001
+From: timfox <timfox@outlook.com>
+Date: Sat, 18 Jul 2026 15:57:55 -0700
+Subject: [PATCH 8/9] fix: restore native GameCube HUD updates
+
+---
+ cl_dll/hud.cpp  | 36 ++++++++++++++++++++++++++++++++++--
+ dlls/player.cpp | 33 +++++++++++++++++++++++++++++++++
+ 2 files changed, 67 insertions(+), 2 deletions(-)
+
+diff --git a/cl_dll/hud.cpp b/cl_dll/hud.cpp
+index c593cb61..c3d474be 100644
+--- a/cl_dll/hud.cpp
++++ b/cl_dll/hud.cpp
+@@ -99,6 +99,22 @@ float g_hud_text_color[3];
+ 
+ extern client_sprite_t *GetSpriteList( client_sprite_t *pList, const char *psz, int iRes, int iCount );
+ 
++#ifdef __GAMECUBE__
++int __MsgFunc_Geiger( const char *, int, void * );
++int __MsgFunc_Flashlight( const char *, int, void * );
++int __MsgFunc_FlashBat( const char *, int, void * );
++int __MsgFunc_Health( const char *, int, void * );
++int __MsgFunc_Damage( const char *, int, void * );
++int __MsgFunc_Battery( const char *, int, void * );
++int __MsgFunc_Train( const char *, int, void * );
++int __MsgFunc_CurWeapon( const char *, int, void * );
++int __MsgFunc_WeaponList( const char *, int, void * );
++int __MsgFunc_HideWeapon( const char *, int, void * );
++int __MsgFunc_AmmoX( const char *, int, void * );
++int __MsgFunc_StatusText( const char *, int, void * );
++int __MsgFunc_StatusValue( const char *, int, void * );
++#endif
++
+ extern cvar_t *sensitivity;
+ cvar_t *cl_lw = NULL;
+ cvar_t *cl_viewbob = NULL;
+@@ -351,8 +367,24 @@ void CHud::Init( void )
+ 	if( quality == 0 )
+ 	{
+ 		/* UpdateClientData still runs the original HUD Think path at quality 0.
+-		 * Initialize every value it dereferences even though sprite-list and
+-		 * individual HUD-element allocation remain disabled. */
++		 * Register original message wrappers and initialize every value it
++		 * dereferences without allocating sprite or HUD-element lists. */
++		HOOK_MESSAGE( ResetHUD );
++		HOOK_MESSAGE( InitHUD );
++		HOOK_MESSAGE( SetFOV );
++		HOOK_MESSAGE( Geiger );
++		HOOK_MESSAGE( Flashlight );
++		HOOK_MESSAGE( FlashBat );
++		HOOK_MESSAGE( Health );
++		HOOK_MESSAGE( Damage );
++		HOOK_MESSAGE( Battery );
++		HOOK_MESSAGE( Train );
++		HOOK_MESSAGE( CurWeapon );
++		HOOK_MESSAGE( WeaponList );
++		HOOK_MESSAGE( HideWeapon );
++		HOOK_MESSAGE( AmmoX );
++		HOOK_MESSAGE( StatusText );
++		HOOK_MESSAGE( StatusValue );
+ 		m_iLogo = 0;
+ 		CVAR_CREATE( "zoom_sensitivity_ratio", "1.2", FCVAR_ARCHIVE );
+ 		default_fov = CVAR_CREATE( "default_fov", "90", FCVAR_ARCHIVE );
+diff --git a/dlls/player.cpp b/dlls/player.cpp
+index e9305f8b..c85569a9 100644
+--- a/dlls/player.cpp
++++ b/dlls/player.cpp
+@@ -1785,6 +1785,11 @@ void CBasePlayer::UpdateStatusBar()
+ 	int newSBarState[SBAR_END] = {0};
+ 	char sbuf0[SBAR_STRING_SIZE];
+ 	char sbuf1[ SBAR_STRING_SIZE ];
++#if XASH_GAMECUBE
++	static int gcStatusTraceLog;
++	BOOL gcTraceStatus = g_engfuncs.CheckParm( (char *)"-gcfullphysics", NULL )
++		&& gcStatusTraceLog++ < 2;
++#endif
+ 
+ 	strcpy( sbuf0, m_SbarString0 );
+ 	strcpy( sbuf1, m_SbarString1 );
+@@ -1794,7 +1799,15 @@ void CBasePlayer::UpdateStatusBar()
+ 	UTIL_MakeVectors( pev->v_angle + pev->punchangle );
+ 	Vector vecSrc = EyePosition();
+ 	Vector vecEnd = vecSrc + ( gpGlobals->v_forward * MAX_ID_RANGE );
++#if XASH_GAMECUBE
++	if( gcTraceStatus )
++		ALERT( at_aiconsole, "*GameCube: native HUD status trace begin\n" );
++#endif
+ 	UTIL_TraceLine( vecSrc, vecEnd, dont_ignore_monsters, edict(), &tr );
++#if XASH_GAMECUBE
++	if( gcTraceStatus )
++		ALERT( at_aiconsole, "*GameCube: native HUD status trace ready\n" );
++#endif
+ 
+ 	if( tr.flFraction != 1.0f )
+ 	{
+@@ -4019,6 +4032,23 @@ reflecting all of the HUD state info.
+ */
+ void CBasePlayer::UpdateClientData( void )
+ {
++#if XASH_GAMECUBE
++	BOOL gcTraceNativeHUD = m_fInitHUD && g_engfuncs.CheckParm( (char *)"-gcfullphysics", NULL );
++
++	/* New Game bring-up: full UpdateClientData (weapon/HUD msgs, status bar)
++	 * stalls Host_ServerFrame after G36. Clear init once, then no-op. */
++	if( g_engfuncs.CheckParm( (char *)"-gcnewgame", NULL )
++		&& !g_engfuncs.CheckParm( (char *)"-gcfullphysics", NULL ) )
++	{
++		if( m_fInitHUD )
++		{
++			m_fInitHUD = FALSE;
++			gInitHUD = FALSE;
++			ALERT( at_aiconsole, "*GameCube: skipped UpdateClientData for newgame\n" );
++		}
++		return;
++	}
++#endif
+ 	if( m_fInitHUD )
+ 	{
+ 		m_fInitHUD = FALSE;
+@@ -4259,6 +4289,9 @@ void CBasePlayer::UpdateClientData( void )
+ 		UpdateStatusBar();
+ 		m_flNextSBarUpdateTime = gpGlobals->time + 0.2f;
+ 	}
++#if XASH_GAMECUBE
++	if( gcTraceNativeHUD ) ALERT( at_aiconsole, "*GameCube: native HUD client update ready\n" );
++#endif
+ }
+ 
+ //=========================================================
+-- 
+2.53.0
+

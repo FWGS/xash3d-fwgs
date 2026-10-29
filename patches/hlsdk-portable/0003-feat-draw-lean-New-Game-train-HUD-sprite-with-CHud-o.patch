@@ -1,0 +1,134 @@
+From aa9e54865400366922cfc44214ac329f9a247f16 Mon Sep 17 00:00:00 2001
+From: timfox <timfox@outlook.com>
+Date: Sun, 12 Jul 2026 02:07:18 -0700
+Subject: [PATCH 3/9] feat: draw lean New Game train HUD sprite with CHud
+ once-flag
+
+Quality-0 Redraw now paints pain+train sheets and keeps the OSReport
+once-flag on CHud so GameCube BSS packing cannot re-spam every frame.
+
+Co-authored-by: Cursor <cursoragent@cursor.com>
+---
+ cl_dll/hud.cpp        |  1 +
+ cl_dll/hud.h          |  5 ++++
+ cl_dll/hud_redraw.cpp | 54 ++++++++++++++++++++++++++++---------------
+ 3 files changed, 42 insertions(+), 18 deletions(-)
+
+diff --git a/cl_dll/hud.cpp b/cl_dll/hud.cpp
+index 1f04e4c1..d3d5297f 100644
+--- a/cl_dll/hud.cpp
++++ b/cl_dll/hud.cpp
+@@ -354,6 +354,7 @@ void CHud::Init( void )
+ 		// that might call Hud functions expecting Init to have run
+ 		m_iLogo = 0;
+ 		m_iFOV = 0;
++		m_iGcLeanHudLog = 0;
+ 		m_flTime = 1.0;
+ 		gEngfuncs.Con_Printf( "Xash3D GameCube: CHud::Init minimal ready\n" );
+ 		return;
+diff --git a/cl_dll/hud.h b/cl_dll/hud.h
+index 9cceb8a5..09d3f1c5 100644
+--- a/cl_dll/hud.h
++++ b/cl_dll/hud.h
+@@ -543,6 +543,7 @@ private:
+ 	HUDLIST						*m_pHudList;
+ 	HSPRITE						m_hsprLogo;
+ 	int							m_iLogo;
++	int							m_iGcLeanHudLog; /* GameCube quality-0 HUD once-flag */
+ 	client_sprite_t				*m_pSpriteList;
+ 	int							m_iSpriteCount;
+ 	int							m_iSpriteCountAllRes;
+@@ -661,6 +662,10 @@ public:
+ 
+ 	float GetSensitivity();
+ 
++#ifdef __GAMECUBE__
++	int GC_GetHUDVisualQuality();
++#endif
++
+ 	void GetAllPlayersInfo( void );
+ };
+ 
+diff --git a/cl_dll/hud_redraw.cpp b/cl_dll/hud_redraw.cpp
+index 8fc85889..b5f381fb 100644
+--- a/cl_dll/hud_redraw.cpp
++++ b/cl_dll/hud_redraw.cpp
+@@ -97,6 +97,12 @@ void CHud::Think( void )
+ // Redraw
+ // step through the local data,  placing the appropriate graphics & text as appropriate
+ // returns 1 if they've changed, 0 otherwise
++#ifdef __GAMECUBE__
++/* File-scope sprite handles — avoid function-local COMDAT BSS packing on GC. */
++static HSPRITE s_gcLeanPain = 0;
++static HSPRITE s_gcLeanTrain = 0;
++#endif
++
+ int CHud::Redraw( float flTime, int intermission )
+ {
+ 	m_fOldTime = m_flTime;	// save time of previous redraw
+@@ -160,32 +166,44 @@ int CHud::Redraw( float flTime, int intermission )
+ 
+ 		if( q <= 0 )
+ 		{
+-			static HSPRITE leanPain = 0;
+-			/* File-scope-ish once flag kept adjacent to avoid COMDAT BSS aliasing
+-			 * with leanPain (observed as every-frame OSReport spam on GC). */
+-			static int leanHudLogState = 0; /* 0=pending 1=ok 2=fail */
+-
+-			if( !leanPain )
+-				leanPain = LoadSprite( "sprites/%d_pain.spr" );
+-			if( leanPain )
++			if( !s_gcLeanPain )
++				s_gcLeanPain = LoadSprite( "sprites/%d_pain.spr" );
++			if( !s_gcLeanTrain )
++				s_gcLeanTrain = LoadSprite( "sprites/%d_train.spr" );
++			if( s_gcLeanPain )
+ 			{
+ 				int y;
+ 
+-				SPR_Set( leanPain, 255, 180, 180 );
+-				y = ScreenHeight - SPR_Height( leanPain, 0 ) - 4;
++				SPR_Set( s_gcLeanPain, 255, 180, 180 );
++				y = ScreenHeight - SPR_Height( s_gcLeanPain, 0 ) - 4;
+ 				if( y < 0 )
+ 					y = 0;
+ 				SPR_DrawAdditive( 0, 4, y, NULL );
+-				if( leanHudLogState == 0 )
+-				{
+-					gEngfuncs.Con_Printf( "Xash3D GameCube: lean HUD pain sprite drawn\n" );
+-					leanHudLogState = 1;
+-				}
+ 			}
+-			else if( leanHudLogState == 0 )
++			if( s_gcLeanTrain )
+ 			{
+-				gEngfuncs.Con_Printf( "Xash3D GameCube: lean HUD pain sprite load failed\n" );
+-				leanHudLogState = 2;
++				int y;
++
++				SPR_Set( s_gcLeanTrain, 200, 220, 255 );
++				y = ScreenHeight - SPR_Height( s_gcLeanTrain, 0 ) - 4;
++				if( y < 0 )
++					y = 0;
++				SPR_DrawAdditive( 0, ScreenWidth - SPR_Width( s_gcLeanTrain, 0 ) - 4, y, NULL );
++			}
++			/* Once-flag lives on CHud — file/function statics re-spam on GC. */
++			if( m_iGcLeanHudLog == 0 )
++			{
++				if( s_gcLeanPain || s_gcLeanTrain )
++				{
++					m_iGcLeanHudLog = 1;
++					gEngfuncs.Con_Printf( "Xash3D GameCube: lean HUD sprites drawn pain=%d train=%d\n",
++						s_gcLeanPain ? 1 : 0, s_gcLeanTrain ? 1 : 0 );
++				}
++				else
++				{
++					m_iGcLeanHudLog = 2;
++					gEngfuncs.Con_Printf( "Xash3D GameCube: lean HUD sprite load failed\n" );
++				}
+ 			}
+ 			return 1;
+ 		}
+-- 
+2.53.0
+

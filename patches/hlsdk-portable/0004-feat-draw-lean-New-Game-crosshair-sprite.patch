@@ -1,0 +1,68 @@
+From 3f10b90de4cba3e4c1895d3f0cf26e9ab94277a6 Mon Sep 17 00:00:00 2001
+From: timfox <timfox@outlook.com>
+Date: Sun, 12 Jul 2026 02:19:54 -0700
+Subject: [PATCH 4/9] feat: draw lean New Game crosshair sprite
+
+Center-screen crosshairs.spr joins pain/train on the quality-0 HUD path.
+
+Co-authored-by: Cursor <cursoragent@cursor.com>
+---
+ cl_dll/hud_redraw.cpp | 23 ++++++++++++++++++++---
+ 1 file changed, 20 insertions(+), 3 deletions(-)
+
+diff --git a/cl_dll/hud_redraw.cpp b/cl_dll/hud_redraw.cpp
+index b5f381fb..939bbe8b 100644
+--- a/cl_dll/hud_redraw.cpp
++++ b/cl_dll/hud_redraw.cpp
+@@ -101,6 +101,7 @@ void CHud::Think( void )
+ /* File-scope sprite handles — avoid function-local COMDAT BSS packing on GC. */
+ static HSPRITE s_gcLeanPain = 0;
+ static HSPRITE s_gcLeanTrain = 0;
++static HSPRITE s_gcLeanCross = 0;
+ #endif
+ 
+ int CHud::Redraw( float flTime, int intermission )
+@@ -170,6 +171,8 @@ int CHud::Redraw( float flTime, int intermission )
+ 				s_gcLeanPain = LoadSprite( "sprites/%d_pain.spr" );
+ 			if( !s_gcLeanTrain )
+ 				s_gcLeanTrain = LoadSprite( "sprites/%d_train.spr" );
++			if( !s_gcLeanCross )
++				s_gcLeanCross = SPR_Load( "sprites/crosshairs.spr" );
+ 			if( s_gcLeanPain )
+ 			{
+ 				int y;
+@@ -190,14 +193,28 @@ int CHud::Redraw( float flTime, int intermission )
+ 					y = 0;
+ 				SPR_DrawAdditive( 0, ScreenWidth - SPR_Width( s_gcLeanTrain, 0 ) - 4, y, NULL );
+ 			}
++			if( s_gcLeanCross )
++			{
++				const int w = SPR_Width( s_gcLeanCross, 0 );
++				const int h = SPR_Height( s_gcLeanCross, 0 );
++				int x = ( ScreenWidth - w ) / 2;
++				int y = ( ScreenHeight - h ) / 2;
++
++				if( x < 0 )
++					x = 0;
++				if( y < 0 )
++					y = 0;
++				SPR_Set( s_gcLeanCross, 0, 255, 0 );
++				SPR_DrawHoles( 0, x, y, NULL );
++			}
+ 			/* Once-flag lives on CHud — file/function statics re-spam on GC. */
+ 			if( m_iGcLeanHudLog == 0 )
+ 			{
+-				if( s_gcLeanPain || s_gcLeanTrain )
++				if( s_gcLeanPain || s_gcLeanTrain || s_gcLeanCross )
+ 				{
+ 					m_iGcLeanHudLog = 1;
+-					gEngfuncs.Con_Printf( "Xash3D GameCube: lean HUD sprites drawn pain=%d train=%d\n",
+-						s_gcLeanPain ? 1 : 0, s_gcLeanTrain ? 1 : 0 );
++					gEngfuncs.Con_Printf( "Xash3D GameCube: lean HUD sprites drawn pain=%d train=%d cross=%d\n",
++						s_gcLeanPain ? 1 : 0, s_gcLeanTrain ? 1 : 0, s_gcLeanCross ? 1 : 0 );
+ 				}
+ 				else
+ 				{
+-- 
+2.53.0
+

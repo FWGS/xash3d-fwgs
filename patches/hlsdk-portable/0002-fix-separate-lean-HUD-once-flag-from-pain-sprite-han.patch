@@ -1,0 +1,50 @@
+From b141505419c556ae3495c7bebeb9ad2aba7ba563 Mon Sep 17 00:00:00 2001
+From: timfox <timfox@outlook.com>
+Date: Sun, 12 Jul 2026 01:44:47 -0700
+Subject: [PATCH 2/9] fix: separate lean HUD once-flag from pain sprite handle
+
+Keep the New Game pain-sprite log state on its own static so it cannot
+alias the sprite handle under COMDAT BSS packing.
+---
+ cl_dll/hud_redraw.cpp | 12 +++++++-----
+ 1 file changed, 7 insertions(+), 5 deletions(-)
+
+diff --git a/cl_dll/hud_redraw.cpp b/cl_dll/hud_redraw.cpp
+index f966fd1a..8fc85889 100644
+--- a/cl_dll/hud_redraw.cpp
++++ b/cl_dll/hud_redraw.cpp
+@@ -161,7 +161,9 @@ int CHud::Redraw( float flTime, int intermission )
+ 		if( q <= 0 )
+ 		{
+ 			static HSPRITE leanPain = 0;
+-			static int leanLogged = 0;
++			/* File-scope-ish once flag kept adjacent to avoid COMDAT BSS aliasing
++			 * with leanPain (observed as every-frame OSReport spam on GC). */
++			static int leanHudLogState = 0; /* 0=pending 1=ok 2=fail */
+ 
+ 			if( !leanPain )
+ 				leanPain = LoadSprite( "sprites/%d_pain.spr" );
+@@ -174,16 +176,16 @@ int CHud::Redraw( float flTime, int intermission )
+ 				if( y < 0 )
+ 					y = 0;
+ 				SPR_DrawAdditive( 0, 4, y, NULL );
+-				if( !leanLogged )
++				if( leanHudLogState == 0 )
+ 				{
+ 					gEngfuncs.Con_Printf( "Xash3D GameCube: lean HUD pain sprite drawn\n" );
+-					leanLogged = 1;
++					leanHudLogState = 1;
+ 				}
+ 			}
+-			else if( !leanLogged )
++			else if( leanHudLogState == 0 )
+ 			{
+ 				gEngfuncs.Con_Printf( "Xash3D GameCube: lean HUD pain sprite load failed\n" );
+-				leanLogged = 1;
++				leanHudLogState = 2;
+ 			}
+ 			return 1;
+ 		}
+-- 
+2.53.0
+

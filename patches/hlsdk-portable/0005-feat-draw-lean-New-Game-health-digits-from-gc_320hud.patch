@@ -1,0 +1,105 @@
+From 5cee9f0954cf0f3e37082989097afaf84e79e65a Mon Sep 17 00:00:00 2001
+From: timfox <timfox@outlook.com>
+Date: Sun, 12 Jul 2026 02:25:43 -0700
+Subject: [PATCH 5/9] feat: draw lean New Game health digits from gc_320hud2
+
+Quality-0 HUD paints a top-left health cross and three-digit value from
+the bootstrap number sheet.
+
+Co-authored-by: Cursor <cursoragent@cursor.com>
+---
+ cl_dll/hud_redraw.cpp | 59 ++++++++++++++++++++++++++++++++++++++++---
+ 1 file changed, 56 insertions(+), 3 deletions(-)
+
+diff --git a/cl_dll/hud_redraw.cpp b/cl_dll/hud_redraw.cpp
+index 939bbe8b..9b36c68d 100644
+--- a/cl_dll/hud_redraw.cpp
++++ b/cl_dll/hud_redraw.cpp
+@@ -102,6 +102,38 @@ void CHud::Think( void )
+ static HSPRITE s_gcLeanPain = 0;
+ static HSPRITE s_gcLeanTrain = 0;
+ static HSPRITE s_gcLeanCross = 0;
++static HSPRITE s_gcLeanHud2 = 0;
++
++/* 320hud2 digit/cross rects from valve/sprites/hud.txt (320 block). */
++static void GC_LeanDrawHudDigit( HSPRITE sheet, int digit, int x, int y, int r, int g, int b )
++{
++	wrect_t rc;
++
++	if( digit < 0 || digit > 9 || !sheet )
++		return;
++	rc.left = digit * 12;
++	rc.top = 0;
++	rc.right = rc.left + 12;
++	rc.bottom = 16;
++	SPR_Set( sheet, r, g, b );
++	SPR_DrawAdditive( 0, x, y, &rc );
++}
++
++static void GC_LeanDrawHudNumber( HSPRITE sheet, int value, int x, int y, int r, int g, int b )
++{
++	int hundreds, tens, ones;
++
++	if( value < 0 )
++		value = 0;
++	if( value > 999 )
++		value = 999;
++	hundreds = value / 100;
++	tens = ( value / 10 ) % 10;
++	ones = value % 10;
++	GC_LeanDrawHudDigit( sheet, hundreds, x, y, r, g, b );
++	GC_LeanDrawHudDigit( sheet, tens, x + 12, y, r, g, b );
++	GC_LeanDrawHudDigit( sheet, ones, x + 24, y, r, g, b );
++}
+ #endif
+ 
+ int CHud::Redraw( float flTime, int intermission )
+@@ -167,6 +199,9 @@ int CHud::Redraw( float flTime, int intermission )
+ 
+ 		if( q <= 0 )
+ 		{
++			/* Load number sheet first — same size as crosshairs; avoid last-slot OOM. */
++			if( !s_gcLeanHud2 )
++				s_gcLeanHud2 = SPR_Load( "sprites/gc_320hud2.spr" );
+ 			if( !s_gcLeanPain )
+ 				s_gcLeanPain = LoadSprite( "sprites/%d_pain.spr" );
+ 			if( !s_gcLeanTrain )
+@@ -207,14 +242,32 @@ int CHud::Redraw( float flTime, int intermission )
+ 				SPR_Set( s_gcLeanCross, 0, 255, 0 );
+ 				SPR_DrawHoles( 0, x, y, NULL );
+ 			}
++			if( s_gcLeanHud2 )
++			{
++				wrect_t cross;
++				int hp = m_Health.m_iHealth;
++				const int y = 4;
++
++				if( hp <= 0 )
++					hp = 100;
++				/* health cross icon at hud.txt: cross 0,72 16x16 — top-left */
++				cross.left = 0;
++				cross.top = 72;
++				cross.right = 16;
++				cross.bottom = 88;
++				SPR_Set( s_gcLeanHud2, 255, 160, 0 );
++				SPR_DrawAdditive( 0, 4, y, &cross );
++				GC_LeanDrawHudNumber( s_gcLeanHud2, hp, 22, y, 255, 160, 0 );
++			}
+ 			/* Once-flag lives on CHud — file/function statics re-spam on GC. */
+ 			if( m_iGcLeanHudLog == 0 )
+ 			{
+-				if( s_gcLeanPain || s_gcLeanTrain || s_gcLeanCross )
++				if( s_gcLeanPain || s_gcLeanTrain || s_gcLeanCross || s_gcLeanHud2 )
+ 				{
+ 					m_iGcLeanHudLog = 1;
+-					gEngfuncs.Con_Printf( "Xash3D GameCube: lean HUD sprites drawn pain=%d train=%d cross=%d\n",
+-						s_gcLeanPain ? 1 : 0, s_gcLeanTrain ? 1 : 0, s_gcLeanCross ? 1 : 0 );
++					gEngfuncs.Con_Printf( "Xash3D GameCube: lean HUD sprites drawn pain=%d train=%d cross=%d nums=%d\n",
++						s_gcLeanPain ? 1 : 0, s_gcLeanTrain ? 1 : 0,
++						s_gcLeanCross ? 1 : 0, s_gcLeanHud2 ? 1 : 0 );
+ 				}
+ 				else
+ 				{
+-- 
+2.53.0
+

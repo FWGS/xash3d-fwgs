@@ -1,0 +1,113 @@
+From 26b54b82e03826b622276b6b15c44e306c4cad5b Mon Sep 17 00:00:00 2001
+From: timfox <timfox@outlook.com>
+Date: Sun, 12 Jul 2026 09:54:54 -0700
+Subject: [PATCH 6/9] feat: draw lean New Game suit digits from gc_320hud2
+
+Expose battery for readback and clip for optional ammo digits so the
+q0 HUD shows suit icon+numbers alongside health without VidInit.
+
+Co-authored-by: Cursor <cursoragent@cursor.com>
+---
+ cl_dll/hud.h          |  6 ++++--
+ cl_dll/hud_redraw.cpp | 36 +++++++++++++++++++++++++++++++++---
+ 2 files changed, 37 insertions(+), 5 deletions(-)
+
+diff --git a/cl_dll/hud.h b/cl_dll/hud.h
+index 09d3f1c5..94492544 100644
+--- a/cl_dll/hud.h
++++ b/cl_dll/hud.h
+@@ -137,6 +137,8 @@ public:
+ 	void _cdecl UserCmd_Close( void );
+ 	void _cdecl UserCmd_NextWeapon( void );
+ 	void _cdecl UserCmd_PrevWeapon( void );
++	/* GameCube lean HUD: clip count, or -1 if melee / no weapon. */
++	int GetLeanClip( void ) const { return m_pWeapon ? m_pWeapon->iClip : -1; }
+ 
+ private:
+ 	float m_fFade;
+@@ -389,13 +391,13 @@ public:
+ 	int VidInit( void );
+ 	int Draw( float flTime );
+ 	int MsgFunc_Battery( const char *pszName,  int iSize, void *pbuf );
+-	
++	int m_iBat; /* public for GameCube lean HUD readback */
++
+ private:
+ 	HSPRITE m_hSprite1;
+ 	HSPRITE m_hSprite2;
+ 	wrect_t *m_prc1;
+ 	wrect_t *m_prc2;
+-	int m_iBat;
+ 	float m_fFade;
+ 	int m_iHeight;		// width of the battery innards
+ };
+diff --git a/cl_dll/hud_redraw.cpp b/cl_dll/hud_redraw.cpp
+index 9b36c68d..b37c1c3f 100644
+--- a/cl_dll/hud_redraw.cpp
++++ b/cl_dll/hud_redraw.cpp
+@@ -244,12 +244,18 @@ int CHud::Redraw( float flTime, int intermission )
+ 			}
+ 			if( s_gcLeanHud2 )
+ 			{
+-				wrect_t cross;
++				wrect_t cross, suit;
+ 				int hp = m_Health.m_iHealth;
++				int suit_val = m_Battery.m_iBat;
++				int clip = m_Ammo.GetLeanClip();
+ 				const int y = 4;
+ 
+ 				if( hp <= 0 )
+ 					hp = 100;
++				if( suit_val < 0 )
++					suit_val = 0;
++				if( suit_val > 999 )
++					suit_val = 999;
+ 				/* health cross icon at hud.txt: cross 0,72 16x16 — top-left */
+ 				cross.left = 0;
+ 				cross.top = 72;
+@@ -258,6 +264,28 @@ int CHud::Redraw( float flTime, int intermission )
+ 				SPR_Set( s_gcLeanHud2, 255, 160, 0 );
+ 				SPR_DrawAdditive( 0, 4, y, &cross );
+ 				GC_LeanDrawHudNumber( s_gcLeanHud2, hp, 22, y, 255, 160, 0 );
++
++				/* suit_empty 20,52 20x20 — top-right with armor digits */
++				suit.left = 20;
++				suit.top = 52;
++				suit.right = 40;
++				suit.bottom = 72;
++				{
++					const int sx = ScreenWidth - 20 - 4 - 36;
++
++					SPR_Set( s_gcLeanHud2, 0, 160, 255 );
++					SPR_DrawAdditive( 0, sx, y, &suit );
++					GC_LeanDrawHudNumber( s_gcLeanHud2, suit_val, sx + 22, y + 2, 0, 160, 255 );
++				}
++
++				/* Ammo/clip digits bottom-right when weapon has a clip. */
++				if( clip >= 0 )
++				{
++					if( clip > 999 )
++						clip = 999;
++					GC_LeanDrawHudNumber( s_gcLeanHud2, clip,
++						ScreenWidth - 4 - 36, ScreenHeight - 4 - 16, 255, 160, 0 );
++				}
+ 			}
+ 			/* Once-flag lives on CHud — file/function statics re-spam on GC. */
+ 			if( m_iGcLeanHudLog == 0 )
+@@ -265,9 +293,11 @@ int CHud::Redraw( float flTime, int intermission )
+ 				if( s_gcLeanPain || s_gcLeanTrain || s_gcLeanCross || s_gcLeanHud2 )
+ 				{
+ 					m_iGcLeanHudLog = 1;
+-					gEngfuncs.Con_Printf( "Xash3D GameCube: lean HUD sprites drawn pain=%d train=%d cross=%d nums=%d\n",
++					gEngfuncs.Con_Printf( "Xash3D GameCube: lean HUD sprites drawn pain=%d train=%d cross=%d nums=%d suit=%d ammo=%d\n",
+ 						s_gcLeanPain ? 1 : 0, s_gcLeanTrain ? 1 : 0,
+-						s_gcLeanCross ? 1 : 0, s_gcLeanHud2 ? 1 : 0 );
++						s_gcLeanCross ? 1 : 0, s_gcLeanHud2 ? 1 : 0,
++						s_gcLeanHud2 ? 1 : 0,
++						( s_gcLeanHud2 && m_Ammo.GetLeanClip() >= 0 ) ? 1 : 0 );
+ 				}
+ 				else
+ 				{
+-- 
+2.53.0
+
