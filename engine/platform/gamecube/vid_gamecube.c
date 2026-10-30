@@ -6660,8 +6660,8 @@ static void GC_InitVideoHardware( void )
 	GX_SetCopyFilter( rmode->aa, rmode->sample_pattern, GX_TRUE, rmode->vfilter );
 	GX_SetFieldMode( rmode->field_rendering, (( rmode->viHeight == 2 * rmode->xfbHeight ) ? GX_ENABLE : GX_DISABLE ));
 
-	/* Pure Flipper: RGB565 EFB + explicit copy-clear (sky/black). */
-	GX_SetPixelFmt( GX_PF_RGB565_Z16, GX_ZC_LINEAR );
+	/* Pure Flipper: 24-bit colour and depth EFB + explicit copy-clear (sky/black). */
+	GX_SetPixelFmt( GX_PF_RGB8_Z24, GX_ZC_LINEAR );
 	{
 		GXColor clear = { 89, 141, 210, 255 }; /* outdoor sky; G221 overrides per-frame */
 		GX_SetCopyClear( clear, 0x00ffffff );

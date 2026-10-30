@@ -1606,7 +1606,7 @@ static void R_GXSetupWorld3DState( void )
 
 	GX_SetViewport( 0.0f, 0.0f, (f32)rmode->fbWidth, (f32)rmode->efbHeight, 0.0f, 1.0f );
 	GX_SetScissor( 0, 0, rmode->fbWidth, rmode->efbHeight );
-	GX_SetPixelFmt( GX_PF_RGB565_Z16, GX_ZC_LINEAR );
+	GX_SetPixelFmt( GX_PF_RGB8_Z24, GX_ZC_LINEAR );
 	/* G210: EDGE verts restore BSP winding — HW backface cull on again. */
 	GX_SetZMode( GX_TRUE, GX_LEQUAL, GX_TRUE );
 	GX_SetColorUpdate( GX_TRUE );
@@ -3813,7 +3813,7 @@ static void R_GXPrepareStudioState( qboolean viewmodel )
 	{
 		/* Viewport near/far filled below (G167 compresses viewmodel depth). */
 		GX_SetScissor( 0, 0, rmode->fbWidth, rmode->efbHeight );
-		GX_SetPixelFmt( GX_PF_RGB565_Z16, GX_ZC_LINEAR );
+		GX_SetPixelFmt( GX_PF_RGB8_Z24, GX_ZC_LINEAR );
 		GX_SetColorUpdate( GX_TRUE );
 	}
 

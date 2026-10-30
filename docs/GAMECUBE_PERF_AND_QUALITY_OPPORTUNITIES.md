@@ -38,7 +38,9 @@ by steps. The world pass and brush entities took 11–18 ms per frame.
 | 7 | Mipmaps, then full-size textures above 128 | Sharper close up, less shimmer | Needs ~1 MB per map as RGB565; CMPR or arena placement to be decided |
 | 8 | Lightstyles via partial atlas updates, samples in ARAM (lightmaps were already bilinear) | Retail lighting | **Done** |
 | 9 | Dynamic lights, model lighting from the lightmap | Retail lighting | Planned |
-| 10 | HUD/text at native 640×480, EFB antialiasing, deflicker | Sharper picture | Planned |
+| 10 | EFB 24-bit colour and depth (was RGB565/Z16). No cost measured; banding and depth precision by design, not measured from the compressed recording | Quality | **Done** |
+| 10b | Text: already the full 256-wide font at 1:1 texels, magnified 2× by request; no gain available without a new font | - | Skipped |
+| 10c | EFB antialiasing, deflicker | Sharper picture | Evaluate |
 | 11 | Display lists / indexed vertices for static faces | CPU headroom | Planned, by need: the world pass is now 4–6 ms |
 | 12 | Prefetch the next map during the ride | Shorter holds (2–5 s) | Planned |
 | 13 | Mixing on the DSP (ASND voices) | CPU headroom | Evaluate |
