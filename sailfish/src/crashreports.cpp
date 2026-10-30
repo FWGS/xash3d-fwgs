@@ -25,10 +25,21 @@ GNU General Public License for more details.
 #include "crashreports.h"
 #include "settings.h"
 
-#define CRASH_EMAIL "crash@fwgs.gay"
+// every byte is xored with 0xff, like in the Android launcher, to keep the address away from spam crawlers
+#define CRASH_EMAIL "9c8d9e8c97bf9988988cd1989e86"
 #define HISTORY_DAYS 30
 #define ENGINE_LOG_LINES 50
 #define MAIL_BODY_LIMIT 8000 // mail clients don't reliably take longer mailto links
+
+static QString CrashEmail()
+{
+	QByteArray addr = QByteArray::fromHex( CRASH_EMAIL );
+
+	for( int i = 0; i < addr.size(); i++ )
+		addr[i] = addr[i] ^ 0xff;
+
+	return QString::fromLatin1( addr );
+}
 
 static QString CrashesDir()
 {
@@ -234,9 +245,7 @@ QString CrashReports::mailUrl( const QString &name ) const
 		encoded += marker;
 	}
 
-	return QString( "mailto:" CRASH_EMAIL "?subject=%1&body=%2" )
-		.arg( QString::fromLatin1( QUrl::toPercentEncoding( "Xash3D FWGS crash report" )))
-		.arg( QString::fromLatin1( encoded ));
+	return QString( "mailto:%1?subject=%2&body=%3" ).arg( CrashEmail(), QString::fromLatin1( QUrl::toPercentEncoding( "Xash3D FWGS crash report" )), QString::fromLatin1( encoded ));
 }
 
 void CrashReports::remove( const QString &name )
