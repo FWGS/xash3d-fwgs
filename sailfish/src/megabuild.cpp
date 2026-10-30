@@ -38,6 +38,7 @@ GNU General Public License for more details.
 
 // inside the game folder, so moving files out of it never crosses file systems
 #define STAGING_DIR ".mod_build_staging"
+#define BACKUP_DIR ".mod_build_backup"
 
 // hlsdk-mega-build platform keys, the library suffix inside is decided by the build
 static QString Platform()
@@ -157,24 +158,56 @@ static bool ExtractZip( const QString &zip_path, const QDir &staging, const QStr
 	return ok;
 }
 
-static bool MoveStaged( const QDir &staging, const QDir &base, const QString &gamedir, const QJsonArray &files, QString &error )
+// the replaced files go into the backup folder first, so a failed install can put them back
+static bool MoveStaged( const QDir &staging, const QDir &backup, const QDir &base, const QString &gamedir, const QJsonArray &files, QString &error )
 {
+	QStringList backed_up, moved;
+	bool ok = true;
+
 	for( const QJsonValue &value : files )
 	{
 		const QString target_rel = value.toObject().value( "path" ).toString();
+		const QString name = target_rel.mid( gamedir.size() + 1 );
 		const QString target = base.filePath( target_rel );
+		const QFileInfo info( target );
 
-		QDir().mkpath( QFileInfo( target ).absolutePath( ));
+		if( info.exists() || info.isSymLink( ))
+		{
+			QDir().mkpath( QFileInfo( backup.filePath( name )).absolutePath( ));
 
-		// replaces the old file in one step, QFile::rename refuses to overwrite
-		if( rename( QFile::encodeName( staging.filePath( target_rel.mid( gamedir.size() + 1 ))).constData(), QFile::encodeName( target ).constData( )))
+			if( rename( QFile::encodeName( target ).constData(), QFile::encodeName( backup.filePath( name )).constData( )))
+			{
+				error = MegaBuild::tr( "Can't install %1: %2" ).arg( target_rel ).arg( QString::fromLocal8Bit( strerror( errno )));
+				ok = false;
+				break;
+			}
+
+			backed_up.append( name );
+		}
+
+		QDir().mkpath( info.absolutePath( ));
+
+		// QFile::rename refuses to overwrite
+		if( rename( QFile::encodeName( staging.filePath( name )).constData(), QFile::encodeName( target ).constData( )))
 		{
 			error = MegaBuild::tr( "Can't install %1: %2" ).arg( target_rel ).arg( QString::fromLocal8Bit( strerror( errno )));
-			return false;
+			ok = false;
+			break;
 		}
+
+		moved.append( name );
 	}
 
-	return true;
+	if( ok )
+		return true;
+
+	for( const QString &name : moved )
+		QFile::remove( base.filePath( gamedir + '/' + name ));
+
+	for( const QString &name : backed_up )
+		rename( QFile::encodeName( backup.filePath( name )).constData(), QFile::encodeName( base.filePath( gamedir + '/' + name )).constData( ));
+
+	return false;
 }
 
 MegaBuild::MegaBuild( const Launcher *launcher, QObject *parent ) : QObject( parent ),
@@ -502,17 +535,20 @@ void MegaBuild::finishInstall( const QString &gamedir, const QString &zip_path )
 	const QJsonObject build = findBuild( gamedir );
 	const QJsonObject previous = readBuildInfo( gamedir );
 	QDir staging( base.filePath( gamedir + "/" STAGING_DIR ));
+	QDir backup( base.filePath( gamedir + "/" BACKUP_DIR ));
 	QJsonArray files;
 	QString error;
 
-	// leftover from an interrupted update
+	// leftovers from an interrupted update
 	staging.removeRecursively();
+	backup.removeRecursively();
 
 	// the old libraries stay untouched until the whole archive is unpacked
-	const bool installed = ExtractZip( zip_path, staging, gamedir, files, error ) && MoveStaged( staging, base, gamedir, files, error );
+	const bool installed = ExtractZip( zip_path, staging, gamedir, files, error ) && MoveStaged( staging, backup, base, gamedir, files, error );
 
 	QFile::remove( zip_path );
 	staging.removeRecursively();
+	backup.removeRecursively();
 
 	if( !installed )
 	{
