@@ -1,0 +1,34 @@
+From 3cd3e29e3d9fc8b2c0416cc8788097934ccf2859 Mon Sep 17 00:00:00 2001
+From: timfox <timfox@outlook.com>
+Date: Fri, 30 Oct 2026 06:19:32 -0700
+Subject: [PATCH] gamecube: 16-slot entity position history
+
+Matches the engine's cl_entity_t: frees 1344 bytes per entity so the client
+table fits 460 entries in the same memory.
+
+Co-Authored-By: Claude Opus 5.5 (1M context) <noreply@anthropic.com>
+---
+ common/cl_entity.h | 6 ++++++
+ 1 file changed, 6 insertions(+)
+
+diff --git a/common/cl_entity.h b/common/cl_entity.h
+index d5323aa1..d6e0f8c9 100644
+--- a/common/cl_entity.h
++++ b/common/cl_entity.h
+@@ -57,7 +57,13 @@ typedef struct
+ 
+ typedef struct cl_entity_s cl_entity_t;
+ 
++#if defined( __gamecube__ )
++// GameCube: these 1344 bytes per entity limited the client table to 256 entries
++// (c0a0c needs 340+, the tram is 306); 16 updates cover the 0.1 s interpolation.
++#define HISTORY_MAX		16		// Must be power of 2
++#else
+ #define HISTORY_MAX		64		// Must be power of 2
++#endif
+ #define HISTORY_MASK	( HISTORY_MAX - 1 )
+ 
+ #include "entity_state.h"
+-- 
+2.53.0
+

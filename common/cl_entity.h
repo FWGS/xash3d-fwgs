@@ -59,7 +59,13 @@ typedef struct
 
 typedef struct cl_entity_s cl_entity_t;
 
+#if defined( __gamecube__ )
+// GameCube: these 1344 bytes per entity limited the client table to 256 entries
+// (c0a0c needs 340+, the tram is 306); 16 updates cover the 0.1 s interpolation.
+#define HISTORY_MAX		16		// Must be power of 2
+#else
 #define HISTORY_MAX		64		// Must be power of 2
+#endif
 #define HISTORY_MASK	( HISTORY_MAX - 1 )
 
 #include "entity_state.h"

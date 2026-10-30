@@ -30,7 +30,7 @@ int CL_UPDATE_BACKUP = SINGLEPLAYER_BACKUP;
 #endif
 
 #if XASH_GAMECUBE
-#define GC_GCMAP_DEFAULT_CLIENT_EDICTS 256
+#define GC_GCMAP_DEFAULT_CLIENT_EDICTS 460
 
 static qboolean CL_GameCubeMapRoute( void )
 {

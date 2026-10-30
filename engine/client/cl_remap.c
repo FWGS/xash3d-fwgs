@@ -18,7 +18,7 @@ GNU General Public License for more details.
 
 #if XASH_GAMECUBE
 extern int GC_MapLoadMemoryOpt( void );
-#define GC_GCMAP_STATIC_CLIENT_EDICTS 256
+#define GC_GCMAP_STATIC_CLIENT_EDICTS 460
 extern remap_info_t *gc_gcmap_bootstrap_remap_info[GC_GCMAP_STATIC_CLIENT_EDICTS + 1];
 #endif
 #include "studio.h"

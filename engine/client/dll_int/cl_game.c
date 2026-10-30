@@ -1140,7 +1140,7 @@ void CL_ClearWorld( void )
 }
 
 #if XASH_GAMECUBE
-#define GC_GCMAP_STATIC_CLIENT_EDICTS 256
+#define GC_GCMAP_STATIC_CLIENT_EDICTS 460
 static cl_entity_t gc_gcmap_bootstrap_entities[GC_GCMAP_STATIC_CLIENT_EDICTS];
 static entity_state_t gc_gcmap_bootstrap_packet_entities[128];
 remap_info_t *gc_gcmap_bootstrap_remap_info[GC_GCMAP_STATIC_CLIENT_EDICTS + 1];
