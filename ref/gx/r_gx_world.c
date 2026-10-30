@@ -148,7 +148,8 @@ enum
 	GC_GX_FACE_MODE_FLAT,
 	GC_GX_FACE_MODE_TEXTURED,
 	GC_GX_FACE_MODE_TEXTURED_LIVE, /* G219: MODULATE muted live skyfill */
-	GC_GX_FACE_MODE_LIT
+	GC_GX_FACE_MODE_LIT,
+	GC_GX_FACE_MODE_LIT_LIVE	/* live BSP faces x full-res lightmap atlas */
 };
 static int r_gx_face_mode;
 static unsigned r_gx_bound_texnum;
@@ -171,6 +172,7 @@ static qboolean r_gx_lm_atlas_checked;
 static qboolean r_gx_lm_atlas_available;
 static int r_gx_lm_atlas_gen = -1;
 static qboolean r_gx_lm_atlas_bound;
+static qboolean r_gx_live_lm_bound;
 static int r_gx_efb_dump_hold; /* G200: keep Flipper EFB for DumpFramesAsImages */
 static qboolean r_gx_g221_world_clear_done;
 
@@ -1429,6 +1431,7 @@ static void R_GXSetupWorld3DState( void )
 	r_gx_bound_fmt = 0;
 	r_gx_cull_none = false;
 	r_gx_lm_atlas_bound = false;
+	r_gx_live_lm_bound = false;
 	r_gx_lm_atlas_checked = false;
 	r_gx_lm_atlas_available = false;
 }
@@ -1475,6 +1478,42 @@ static void R_GXFaceLMST( const msurface_t *surf, const float *pos, float *s, fl
 	*t /= lh;
 }
 
+/* Menu New Game: the world's full-resolution lightmap atlas, baked at
+ * map load (Mod_GCBakeMenuLightmapAtlas) into the retained BSP scratch. */
+static GXTexObj r_gx_live_lm_obj;
+static int r_gx_live_lm_gen = -1;
+static int r_gx_live_lm_w, r_gx_live_lm_h;
+
+static qboolean R_GXBindLiveLightmap( void )
+{
+	extern const unsigned short *GC_GetLiveLightmapAtlas( int *w, int *h, int *generation );
+	int w, h, gen;
+	const unsigned short *atlas = GC_GetLiveLightmapAtlas( &w, &h, &gen );
+
+	if( !atlas || w < 4 || h < 4 )
+		return false;
+	if( gen != r_gx_live_lm_gen )
+	{
+		GX_InitTexObj( &r_gx_live_lm_obj, (void *)atlas, (u16)w, (u16)h,
+			GX_TF_RGB565, GX_CLAMP, GX_CLAMP, GX_FALSE );
+		GX_InitTexObjFilterMode( &r_gx_live_lm_obj, GX_LINEAR, GX_LINEAR );
+		/* New map: the atlas memory held other data a moment ago. */
+		GX_InvalidateTexAll();
+		r_gx_live_lm_gen = gen;
+		r_gx_live_lm_w = w;
+		r_gx_live_lm_h = h;
+		r_gx_live_lm_bound = false;
+	}
+	if( !r_gx_live_lm_bound )
+	{
+		GX_LoadTexObj( &r_gx_live_lm_obj, GX_TEXMAP1 );
+		r_gx_live_lm_bound = true;
+		r_gx_lm_atlas_bound = false;
+		r_gx_lm_loads++;
+	}
+	return true;
+}
+
 static qboolean R_GXBindLightmapAtlas( void )
 {
 	extern const unsigned short *GC_GetNewGameCapLightmapAtlas( int *w, int *h );
@@ -1491,6 +1530,7 @@ static qboolean R_GXBindLightmapAtlas( void )
 		{
 			GX_LoadTexObj( &r_gx_lm_atlas_obj, GX_TEXMAP1 );
 			r_gx_lm_atlas_bound = true;
+			r_gx_live_lm_bound = false;
 			r_gx_lm_loads++;
 		}
 		else
@@ -1522,6 +1562,7 @@ static qboolean R_GXBindLightmapAtlas( void )
 	{
 		GX_LoadTexObj( &r_gx_lm_atlas_obj, GX_TEXMAP1 );
 		r_gx_lm_atlas_bound = true;
+		r_gx_live_lm_bound = false;
 		r_gx_lm_loads++;
 	}
 	else
@@ -1674,6 +1715,8 @@ static int R_GXEmitFace( const msurface_t *surf, model_t *world, int slot )
 	qboolean textured = false;
 	qboolean pad_textured = false;
 	qboolean lit = false;
+	qboolean live_lm = false;
+	float live_sample = 16.0f;
 	int bake_src = -1;
 
 	if( !surf || !world )
@@ -1813,6 +1856,17 @@ static int R_GXEmitFace( const msurface_t *surf, model_t *world, int slot )
 			if( surf->firstedge >= 0 )
 				GC_RecordResidentWorldDiffuseTexnum( (int)gxt->texnum );
 			textured = true;
+			/* Live BSP faces with a baked rect in the menu lightmap atlas. */
+			if( slot == -1 && surf->lightmaptexturenum == 1 && surf->info
+				&& !( surf->flags & ( SURF_DRAWTURB | SURF_TRANSPARENT ))
+				&& R_GXBindLiveLightmap())
+			{
+				live_lm = true;
+				if( gEngfuncs.Mod_SampleSizeForFace )
+					live_sample = (float)gEngfuncs.Mod_SampleSizeForFace( surf );
+				if( live_sample < 1.0f )
+					live_sample = 16.0f;
+			}
 			for( i = 0; i < nverts; i++ )
 			{
 				float ls, lt;
@@ -1846,12 +1900,22 @@ static int R_GXEmitFace( const msurface_t *surf, model_t *world, int slot )
 						R_GXFaceLMST( surf, pts[i], &ls, &lt );
 					GC_GetNewGameCapLightmapAtlasUV( slot, ls, lt, &lmst[i][0], &lmst[i][1] );
 				}
+				else if( live_lm )
+				{
+					/* GL lightmap coordinates, in texels of the face's rect. */
+					const mextrasurf_t *info = surf->info;
+
+					ls = DotProduct( pts[i], info->lmvecs[0] ) + info->lmvecs[0][3] - info->lightmapmins[0];
+					lt = DotProduct( pts[i], info->lmvecs[1] ) + info->lmvecs[1][3] - info->lightmapmins[1];
+					lmst[i][0] = ( surf->light_s + ls / live_sample + 0.5f ) / r_gx_live_lm_w;
+					lmst[i][1] = ( surf->light_t + lt / live_sample + 0.5f ) / r_gx_live_lm_h;
+				}
 			}
 			/* Cap/live atlas lightmaps when we have a matching slot. */
-			lit = ( slot >= 0 ) ? R_GXBindLightmapAtlas() : false;
+			lit = ( slot >= 0 ) ? R_GXBindLightmapAtlas() : live_lm;
 			/* G207: re-enable LM for EDGE/TEX (boosted bake + corner atlas UV).
 			 * Plane-fallback quads still REPLACE — LM ST meaningless there. */
-			if( lit && r_gx_newgame_route )
+			if( lit && slot >= 0 && r_gx_newgame_route )
 			{
 				if( bake_src != 1 && bake_src != 3 )
 				{
@@ -1928,7 +1992,9 @@ static int R_GXEmitFace( const msurface_t *surf, model_t *world, int slot )
 
 	if( textured && lit )
 	{
-		if( r_gx_face_mode != GC_GX_FACE_MODE_LIT )
+		const int lit_mode = live_lm ? GC_GX_FACE_MODE_LIT_LIVE : GC_GX_FACE_MODE_LIT;
+
+		if( r_gx_face_mode != lit_mode )
 		{
 			GX_SetNumTexGens( 2 );
 			GX_SetTexCoordGen( GX_TEXCOORD0, GX_TG_MTX2x4, GX_TG_TEX0, GX_IDENTITY );
@@ -1944,7 +2010,9 @@ static int R_GXEmitFace( const msurface_t *surf, model_t *world, int slot )
 			{
 				u32 lm_scale = GX_CS_SCALE_2;
 
-				if( r_gx_menu_route )
+				/* Raw BSP lightmaps: texture x light x 2 (GoldSrc overbright).
+				 * The boosted cap bake on the menu tram stays at x1. */
+				if( r_gx_menu_route && !live_lm )
 					lm_scale = GX_CS_SCALE_1;
 				GX_SetTevColorOp( GX_TEVSTAGE1, GX_TEV_ADD, GX_TB_ZERO, lm_scale, GX_TRUE, GX_TEVPREV );
 			}
@@ -1956,7 +2024,7 @@ static int R_GXEmitFace( const msurface_t *surf, model_t *world, int slot )
 			GX_SetVtxDesc( GX_VA_TEX0, GX_DIRECT );
 			GX_SetVtxDesc( GX_VA_TEX1, GX_DIRECT );
 			GX_SetVtxAttrFmt( GX_VTXFMT0, GX_VA_TEX1, GX_TEX_ST, GX_F32, 0 );
-			r_gx_face_mode = GC_GX_FACE_MODE_LIT;
+			r_gx_face_mode = lit_mode;
 			r_gx_state_sets++;
 		}
 		else
@@ -2748,6 +2816,7 @@ int R_GXDrawNewGameCapFaces( void )
 		r_gx_tex_invalidates++;
 		r_gx_lm_atlas_valid = false;
 		r_gx_lm_atlas_bound = false;
+	r_gx_live_lm_bound = false;
 		r_gx_lm_atlas_checked = false;
 		r_gx_lm_atlas_available = false;
 		r_gx_cap_generation = gen;
@@ -3981,6 +4050,7 @@ static void R_GXPrepareHud2DState( void )
 	r_gx_bound_texnum = 0;
 	r_gx_bound_fmt = 0;
 	r_gx_lm_atlas_bound = false;
+	r_gx_live_lm_bound = false;
 	r_gx_hud_2d_ready = true;
 }
 
@@ -4161,6 +4231,7 @@ int R_GXDrawTramBaked( const float *origin, const float *angles )
 	r_gx_bound_texnum = 0;
 	r_gx_bound_fmt = 0;
 	r_gx_lm_atlas_bound = false;
+	r_gx_live_lm_bound = false;
 	GX_SetCullMode( GX_CULL_NONE );
 	/* Full mesh: normal Z. Exterior-only Z-ignore was for the 6-quad shell. */
 	r_gx_flat_z_ignore = false;
@@ -4174,6 +4245,7 @@ int R_GXDrawTramBaked( const float *origin, const float *angles )
 			GX_TF_RGB565, GX_CLAMP, GX_CLAMP, GX_FALSE );
 		GX_InitTexObjFilterMode( &tram_lm_obj, GX_LINEAR, GX_LINEAR );
 		GX_LoadTexObj( &tram_lm_obj, GX_TEXMAP1 );
+		r_gx_live_lm_bound = false;
 		lit = true;
 	}
 
@@ -4416,6 +4488,7 @@ int R_GXDrawBrushModel( cl_entity_t *e )
 	r_gx_bound_texnum = 0;
 	r_gx_bound_fmt = 0;
 	r_gx_lm_atlas_bound = false;
+	r_gx_live_lm_bound = false;
 	/* G277: cabin interiors — HW backface would drop inner tram walls. */
 	GX_SetCullMode( GX_CULL_NONE );
 

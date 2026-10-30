@@ -27,6 +27,8 @@ GNU General Public License for more details.
 #if XASH_GAMECUBE
 #include <stdlib.h>
 #include "gamecube/mem_gamecube.h"
+#include "platform/platform.h"
+#include <ogc/cache.h>
 
 void GC_CaptureNewGamePVS( void );
 void GC_CaptureNewGamePVSFromModel( model_t *wmodel );
@@ -76,6 +78,7 @@ static const model_t *gc_world_blocks_owner;
 static byte *gc_bsp_scratch_base;
 static size_t gc_bsp_scratch_size;
 static size_t gc_bsp_scratch_carve_high;
+static qboolean gc_texinfo_carve_pending;
 static file_t *gc_bsp_reload_file;
 static char gc_bsp_reload_path[MAX_QPATH];
 static dheader_t gc_bsp_reload_header;
@@ -95,8 +98,11 @@ qboolean Mod_GCIsRetainedBspScratch( const void *buf )
 	return buf != NULL && buf == gc_bsp_scratch_base;
 }
 
+static byte *gc_menu_lm_atlas;
+
 void Mod_GCClearRetainedBspScratch( void )
 {
+	gc_menu_lm_atlas = NULL; /* lives in the scratch */
 	gc_bsp_scratch_base = NULL;
 	gc_bsp_scratch_size = 0;
 	gc_bsp_scratch_carve_high = 0;
@@ -5199,12 +5205,21 @@ static const mlumpinfo_t *Mod_GCFindStdLumpInfo( int lumpnum )
 	return NULL;
 }
 
+static size_t Mod_GCCollectAllWorldScratchBusy( model_t *mod, dbspmodel_t *bmod, gc_bsp_busy_range_t *busy, size_t cap );
+
 static size_t Mod_GCCollectWorldScratchBusy( model_t *mod, dbspmodel_t *bmod, gc_bsp_busy_range_t *busy, size_t busy_cap )
 {
 	size_t busy_count = 0;
 
 	if( !busy || busy_cap == 0 || !gc_bsp_scratch_base || gc_bsp_scratch_size == 0 )
 		return 0;
+
+	/* Lump reloads into the scratch must avoid everything the world model
+	 * owns there. This list missed hull 0's clipnodes, so reloading the
+	 * lighting lump on the menu route overwrote them (DSI in
+	 * PM_HullPointContents from SV_CheckWater). */
+	if( mod && bmod )
+		return Mod_GCCollectAllWorldScratchBusy( mod, bmod, busy, busy_cap );
 
 	if( mod && mod->surfaces && Mod_GCPointerInBuffer( mod->surfaces, gc_bsp_scratch_base, gc_bsp_scratch_size )
 		&& busy_count < busy_cap )
@@ -5422,7 +5437,7 @@ static qboolean Mod_GCReloadStdBspLump( model_t *mod, dbspmodel_t *bmod, int lum
 	lumpbuf = (byte *)malloc( lump.filelen );
 	if( !lumpbuf && gc_retain_bsp_source_buffer && gc_bsp_scratch_base && gc_bsp_scratch_size )
 	{
-		gc_bsp_busy_range_t busy[12];
+		gc_bsp_busy_range_t busy[32];
 		size_t busy_count = Mod_GCCollectWorldScratchBusy( mod, bmod, busy, ARRAYSIZE( busy ));
 
 		lumpbuf = (byte *)Mod_GCAllocBspScratch( gc_bsp_scratch_base, gc_bsp_scratch_size,
@@ -5546,14 +5561,19 @@ static void Mod_GCReleaseGcmapPreSurfaceStaging( model_t *mod, dbspmodel_t *bmod
 
 		if( !pinned )
 		{
-			Con_Reportf( S_WARN "Xash3D GameCube: retaining gcmap BSP staging; texinfo pin skipped (%s)\n",
+			/* Fragmented heap (c0a0b after its WAD textures): carve texinfo
+			 * high with nodes/clipnodes instead of keeping the whole staging
+			 * buffer, which left no room for the 853 KiB surface block. */
+			Con_Reportf( "Xash3D GameCube: texinfo pin deferred to the high carve (%s)\n",
 				Q_memprint( texinfo_bytes ));
-			gc_retain_bsp_source_buffer = true;
-			return;
+			gc_texinfo_carve_pending = true;
 		}
-		mod->texinfo = (mtexinfo_t *)pinned;
-		if( texinfo_heap_owned )
-			gc_texinfo_malloc_block = pinned;
+		else
+		{
+			mod->texinfo = (mtexinfo_t *)pinned;
+			if( texinfo_heap_owned )
+				gc_texinfo_malloc_block = pinned;
+		}
 	}
 
 	if( bmod->version == QBSP2_VERSION )
@@ -5636,6 +5656,7 @@ static void Mod_GCReleaseBspSourceBuffer( model_t *mod, dbspmodel_t *bmod, byte 
 		void *clip_stash = NULL;
 		size_t node_bytes = 0;
 		size_t clip_bytes = 0;
+		size_t texinfo_bytes = 0;
 		size_t carve_total = 0;
 		qboolean clip_carved = false;
 
@@ -5644,10 +5665,17 @@ static void Mod_GCReleaseBspSourceBuffer( model_t *mod, dbspmodel_t *bmod, byte 
 		if( bmod->numclipnodes > 0 && Mod_GCPointerInBuffer( bmod->clipnodes, mod_base, bufferlen ))
 			clip_bytes = bmod->numclipnodes * clip_esize;
 
+		if( gc_texinfo_carve_pending && mod->texinfo
+			&& Mod_GCPointerInBuffer( mod->texinfo, mod_base, bufferlen ))
+			texinfo_bytes = mod->numtexinfo * sizeof( mtexinfo_t );
+		gc_texinfo_carve_pending = false;
+
 		if( node_bytes )
 			carve_total += ALIGN( node_bytes, 32 );
 		if( clip_bytes && !Sys_CheckParm( "-gcfullphysics" ))
 			carve_total += ALIGN( clip_bytes, 32 );
+		if( texinfo_bytes )
+			carve_total += ALIGN( texinfo_bytes, 32 );
 
 		if( carve_total > 0 && carve_total < scratch_capacity )
 		{
@@ -5671,6 +5699,14 @@ static void Mod_GCReleaseBspSourceBuffer( model_t *mod, dbspmodel_t *bmod, byte 
 				carve_ptr += carve;
 				Con_Reportf( "Xash3D GameCube: carved clipnodes into BSP scratch high %s\n",
 					Q_memprint( clip_bytes ));
+			}
+			if( texinfo_bytes )
+			{
+				memmove( carve_ptr, mod->texinfo, texinfo_bytes );
+				mod->texinfo = (mtexinfo_t *)carve_ptr;
+				carve_ptr += ALIGN( texinfo_bytes, 32 );
+				Con_Reportf( "Xash3D GameCube: carved texinfo into BSP scratch high %s\n",
+					Q_memprint( texinfo_bytes ));
 			}
 			gc_bsp_scratch_carve_high = carve_total;
 		}
@@ -6441,6 +6477,271 @@ static void Mod_LoadShadowmap( model_t *mod, dbspmodel_t *bmod )
 	memcpy( bmod->shadowdata_out, bmod->shadowdata, bmod->shadowdatasize );
 }
 
+#if XASH_GAMECUBE
+/*
+=================
+Menu New Game lightmap atlas
+
+The live-BSP world on the menu New Game route was drawn with flat diffuse
+textures: the generic lighting path skips maps over 256 KiB (all of the
+intro), and only the old 320-face cap set had a (4x4 per face) atlas. At
+load, pack every lit face's style-0 lightmap at full resolution into one
+RGB565 GX texture (GX 4x4 tile order) placed in a free gap of the retained
+BSP scratch, and record each face's offset in light_s/light_t
+(lightmaptexturenum = GC_MENU_LM_BAKED). The lighting lump is released by
+the caller afterwards as before.
+=================
+*/
+#define GC_MENU_LM_WIDTH 1024
+#define GC_MENU_LM_MAX_HEIGHT 1024
+#define GC_MENU_LM_BAKED 1
+
+static int gc_menu_lm_w, gc_menu_lm_h;
+static const byte *gc_menu_lm_lift;
+static int gc_menu_lm_generation;
+
+const unsigned short *GC_GetLiveLightmapAtlas( int *w, int *h, int *generation )
+{
+	if( w ) *w = gc_menu_lm_w;
+	if( h ) *h = gc_menu_lm_h;
+	if( generation ) *generation = gc_menu_lm_generation;
+	return (const unsigned short *)gc_menu_lm_atlas;
+}
+
+static void Mod_GCBusyAdd( gc_bsp_busy_range_t *busy, size_t *count, size_t cap, const void *ptr, size_t bytes )
+{
+	size_t start;
+
+	if( !ptr || !bytes || *count >= cap
+		|| !Mod_GCPointerInBuffer( ptr, gc_bsp_scratch_base, gc_bsp_scratch_size ))
+		return;
+	start = (const byte *)ptr - gc_bsp_scratch_base;
+	busy[*count].start = start;
+	busy[*count].end = Q_min( start + bytes, gc_bsp_scratch_size );
+	( *count )++;
+}
+
+/* Everything the world model (and the raw lumps still read) points to in
+ * the scratch, sorted and merged for Mod_GCAllocBspScratch. */
+static size_t Mod_GCCollectAllWorldScratchBusy( model_t *mod, dbspmodel_t *bmod, gc_bsp_busy_range_t *busy, size_t cap )
+{
+	const qboolean bsp2 = bmod->version == QBSP2_VERSION;
+	size_t n = 0, i, j, out;
+	int h;
+
+	Mod_GCBusyAdd( busy, &n, cap, mod->planes, mod->numplanes * sizeof( mplane_t ));
+	Mod_GCBusyAdd( busy, &n, cap, mod->leafs, ( mod->numleafs + 1 ) * sizeof( mleaf_t ));
+	Mod_GCBusyAdd( busy, &n, cap, mod->vertexes, mod->numvertexes * sizeof( mvertex_t ));
+	Mod_GCBusyAdd( busy, &n, cap, mod->edges16, mod->numedges * ( bsp2 ? sizeof( medge32_t ) : sizeof( medge16_t )));
+	Mod_GCBusyAdd( busy, &n, cap, mod->nodes, mod->numnodes * sizeof( mnode_t ));
+	Mod_GCBusyAdd( busy, &n, cap, mod->texinfo, mod->numtexinfo * sizeof( mtexinfo_t ));
+	Mod_GCBusyAdd( busy, &n, cap, mod->surfaces, mod->numsurfaces * ( sizeof( msurface_t ) + sizeof( mextrasurf_t )));
+	if( mod->numsurfaces > 0 )
+		Mod_GCBusyAdd( busy, &n, cap, mod->surfaces[0].info, mod->numsurfaces * sizeof( mextrasurf_t ));
+	Mod_GCBusyAdd( busy, &n, cap, mod->surfedges, mod->numsurfedges * sizeof( int ));
+	Mod_GCBusyAdd( busy, &n, cap, mod->clipnodes16, mod->numclipnodes * ( bsp2 ? sizeof( mclipnode32_t ) : sizeof( mclipnode16_t )));
+	Mod_GCBusyAdd( busy, &n, cap, mod->marksurfaces, mod->nummarksurfaces * sizeof( *mod->marksurfaces ));
+	for( h = 0; h < MAX_MAP_HULLS; h++ )
+	{
+		if( mod->hulls[h].lastclipnode >= mod->hulls[h].firstclipnode )
+			Mod_GCBusyAdd( busy, &n, cap, mod->hulls[h].clipnodes16,
+				( mod->hulls[h].lastclipnode + 1 ) * ( bsp2 ? sizeof( mclipnode32_t ) : sizeof( mclipnode16_t )));
+	}
+	Mod_GCBusyAdd( busy, &n, cap, mod->textures, mod->numtextures * sizeof( *mod->textures ));
+	Mod_GCBusyAdd( busy, &n, cap, mod->visdata, bmod->visdatasize );
+	Mod_GCBusyAdd( busy, &n, cap, mod->entities, mod->entities ? Q_strlen( mod->entities ) + 1 : 0 );
+	Mod_GCBusyAdd( busy, &n, cap, mod->submodels, mod->numsubmodels * sizeof( dmodel_t ));
+	Mod_GCBusyAdd( busy, &n, cap, bmod->visdata, bmod->visdatasize );
+	Mod_GCBusyAdd( busy, &n, cap, bmod->lightdata, bmod->lightdatasize );
+	Mod_GCBusyAdd( busy, &n, cap, bsp2 ? (void *)bmod->surfaces32 : (void *)bmod->surfaces,
+		bmod->numsurfaces * ( bsp2 ? sizeof( dface32_t ) : sizeof( dface_t )));
+	/* The baked lightmap atlas lives in the scratch for the map's life. */
+	Mod_GCBusyAdd( busy, &n, cap, gc_menu_lm_atlas, (size_t)gc_menu_lm_w * gc_menu_lm_h * sizeof( unsigned short ));
+
+	for( i = 0; i < n; i++ )
+	{
+		for( j = i + 1; j < n; j++ )
+		{
+			if( busy[j].start < busy[i].start )
+			{
+				gc_bsp_busy_range_t tmp = busy[i];
+				busy[i] = busy[j];
+				busy[j] = tmp;
+			}
+		}
+	}
+	for( i = 0, out = 0; i < n; i++ )
+	{
+		if( out > 0 && busy[i].start <= busy[out - 1].end )
+			busy[out - 1].end = Q_max( busy[out - 1].end, busy[i].end );
+		else
+			busy[out++] = busy[i];
+	}
+	return out;
+}
+
+static void Mod_GCBakeMenuLightmapAtlasInner( model_t *mod, dbspmodel_t *bmod )
+{
+	gc_bsp_busy_range_t busy[32];
+	size_t busy_count, bytes;
+	int i, x = 0, y = 0, rowh = 0, baked = 0, w = GC_MENU_LM_WIDTH, h;
+	byte *atlas;
+
+	gc_menu_lm_atlas = NULL;
+	gc_menu_lm_w = gc_menu_lm_h = 0;
+	gc_menu_lm_generation++;
+
+	for( i = 0; i < mod->numsurfaces; i++ )
+		mod->surfaces[i].lightmaptexturenum = -1;
+
+	if( !gc_bsp_scratch_base || bmod->lightmap_samples != 3 )
+		return;
+	if( !bmod->lightdata || !bmod->lightdatasize )
+		Mod_GCEnsureBspLump( mod, bmod, LUMP_LIGHTING );
+	if( !bmod->lightdata || !bmod->lightdatasize )
+	{
+		Con_Reportf( S_WARN "Xash3D GameCube: menu lightmaps: no lighting lump\n" );
+		return;
+	}
+	/* Per-face lightofs lives in the raw face lump, freed before lighting. */
+	if( !bmod->surfaces && !bmod->surfaces32 )
+		Mod_GCEnsureBspLump( mod, bmod, LUMP_FACES );
+	if(( bmod->version == QBSP2_VERSION ? (void *)bmod->surfaces32 : (void *)bmod->surfaces ) == NULL
+		|| bmod->numsurfaces < (size_t)mod->numsurfaces )
+	{
+		Con_Reportf( S_WARN "Xash3D GameCube: menu lightmaps: no face lump\n" );
+		return;
+	}
+
+	/* Pass 1: shelf-pack each face's lightmap rectangle. */
+	for( i = 0; i < mod->numsurfaces; i++ )
+	{
+		msurface_t *surf = &mod->surfaces[i];
+		const int lightofs = bmod->version == QBSP2_VERSION ? bmod->surfaces32[i].lightofs : bmod->surfaces[i].lightofs;
+		int sample, smax, tmax;
+
+		if( lightofs < 0 || !surf->info || surf->styles[0] == 255
+			|| FBitSet( surf->flags, SURF_DRAWSKY|SURF_DRAWTURB ))
+			continue;
+		sample = Mod_SampleSizeForFace( surf );
+		if( sample < 1 )
+			continue;
+		smax = ( surf->info->lightextents[0] / sample ) + 1;
+		tmax = ( surf->info->lightextents[1] / sample ) + 1;
+		if( smax < 1 || tmax < 1 || smax > w
+			|| (size_t)lightofs + (size_t)smax * tmax * 3 > bmod->lightdatasize )
+			continue;
+		if( x + smax > w )
+		{
+			x = 0;
+			y += rowh;
+			rowh = 0;
+		}
+		surf->light_s = x;
+		surf->light_t = y;
+		surf->lightmaptexturenum = GC_MENU_LM_BAKED;
+		x += smax;
+		rowh = Q_max( rowh, tmax );
+		baked++;
+	}
+	h = ( y + rowh + 3 ) & ~3;
+	if( !baked || h > GC_MENU_LM_MAX_HEIGHT )
+	{
+		Con_Reportf( S_WARN "Xash3D GameCube: menu lightmaps: %d faces need %dx%d, skipped\n", baked, w, h );
+		for( i = 0; i < mod->numsurfaces; i++ )
+			mod->surfaces[i].lightmaptexturenum = -1;
+		return;
+	}
+
+	bytes = (size_t)w * h * sizeof( unsigned short );
+	busy_count = Mod_GCCollectAllWorldScratchBusy( mod, bmod, busy, ARRAYSIZE( busy ));
+	/* The scratch base itself need not be 32-byte aligned (0x...2c seen), and
+	 * Flipper ignores the low 5 bits of a texture address: an offset-aligned
+	 * atlas was fetched 12 bytes early, shifting texels through the 4x4 tiles
+	 * into a checker. Over-allocate and align the absolute address. */
+	atlas = (byte *)Mod_GCAllocBspScratch( gc_bsp_scratch_base, gc_bsp_scratch_size, busy, busy_count, bytes + 32, 32 );
+	if( atlas )
+		atlas = (byte *)(((uintptr_t)atlas + 31 ) & ~(uintptr_t)31 );
+	if( !atlas )
+	{
+		Con_Reportf( S_WARN "Xash3D GameCube: menu lightmaps: no scratch gap for %s (busy=%zu)\n",
+			Q_memprint( bytes ), busy_count );
+		for( i = 0; i < mod->numsurfaces; i++ )
+			mod->surfaces[i].lightmaptexturenum = -1;
+		return;
+	}
+	memset( atlas, 0, bytes );
+
+	/* GoldSrc lifts dark lighting through texgamma and the hardware gamma
+	 * ramp; a straight x2 modulate left the c0a0 tunnels between fixtures
+	 * near black. Lift the samples by 1/1.4 gamma (20 -> 41, 128 -> 156). */
+	{
+		static byte lift[256];
+		static qboolean lift_ready;
+
+		if( !lift_ready )
+		{
+			for( i = 0; i < 256; i++ )
+				lift[i] = (byte)bound( 0, (int)( 255.0 * pow( i / 255.0, 1.0 / 1.4 ) + 0.5 ), 255 );
+			lift_ready = true;
+		}
+		gc_menu_lm_lift = lift;
+	}
+
+	/* Pass 2: style-0 samples into GX RGB565 4x4 tiles. */
+	for( i = 0; i < mod->numsurfaces; i++ )
+	{
+		msurface_t *surf = &mod->surfaces[i];
+		const int lightofs = bmod->version == QBSP2_VERSION ? bmod->surfaces32[i].lightofs : bmod->surfaces[i].lightofs;
+		const byte *src;
+		int sample, smax, tmax, s, t;
+
+		if( surf->lightmaptexturenum != GC_MENU_LM_BAKED )
+			continue;
+		sample = Mod_SampleSizeForFace( surf );
+		smax = ( surf->info->lightextents[0] / sample ) + 1;
+		tmax = ( surf->info->lightextents[1] / sample ) + 1;
+		src = bmod->lightdata + lightofs;
+		for( t = 0; t < tmax; t++ )
+		{
+			for( s = 0; s < smax; s++, src += 3 )
+			{
+				const int ax = surf->light_s + s, ay = surf->light_t + t;
+				const size_t texel = ((size_t)( ay >> 2 ) * ( w >> 2 ) + ( ax >> 2 )) * 16 + ( ay & 3 ) * 4 + ( ax & 3 );
+
+				((unsigned short *)atlas)[texel] = (unsigned short)((( gc_menu_lm_lift[src[0]] >> 3 ) << 11 )
+					| (( gc_menu_lm_lift[src[1]] >> 2 ) << 5 ) | ( gc_menu_lm_lift[src[2]] >> 3 ));
+			}
+		}
+	}
+	DCFlushRange( atlas, (u32)bytes );
+
+	gc_menu_lm_atlas = atlas;
+	gc_menu_lm_w = w;
+	gc_menu_lm_h = h;
+	Con_Reportf( "Xash3D GameCube: menu lightmaps baked faces=%d atlas=%dx%d (%s) at scratch+%s busy=%zu\n",
+		baked, w, h, Q_memprint( bytes ), Q_memprint( (size_t)( atlas - gc_bsp_scratch_base )), busy_count );
+}
+
+static void Mod_GCBakeMenuLightmapAtlas( model_t *mod, dbspmodel_t *bmod )
+{
+	/* The bake reloads the face lump for lightofs when it was already
+	 * dropped; nothing after lighting needs it, so give it back (a 72 KiB
+	 * heap copy per map starved the audio stream and fragmented MEM1 until
+	 * c0a0b's surfedges allocation failed). */
+	const qboolean faces_resident = bmod->surfaces || bmod->surfaces32;
+
+	Mod_GCBakeMenuLightmapAtlasInner( mod, bmod );
+	if( !faces_resident )
+	{
+		if( bmod->version == QBSP2_VERSION )
+			Mod_GCFreeBspPin( (void **)&bmod->surfaces32 );
+		else
+			Mod_GCFreeBspPin( (void **)&bmod->surfaces );
+	}
+}
+#endif
+
 /*
 =================
 Mod_LoadLighting
@@ -6454,6 +6755,12 @@ static void Mod_LoadLighting( model_t *mod, dbspmodel_t *bmod )
 	if( Sys_CheckParm( "-gcnolightmaps" ))
 	{
 		Con_Reportf( "Xash3D GameCube: lightmaps disabled\n" );
+		return;
+	}
+
+	if( GC_MenuRunsServer() && bmod->isworld )
+	{
+		Mod_GCBakeMenuLightmapAtlas( mod, bmod );
 		return;
 	}
 
