@@ -12,13 +12,16 @@ but WITHOUT ANY WARRANTY; without even the implied warranty of
 MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 */
-#pragma once
+#ifndef ENGINE_H
+#define ENGINE_H
 
 // set by the launcher, survives the engine restarting itself on game change
-#define ENGINE_ENV "XASH3D_SAILFISH_ENGINE"
+#define ENGINE_ENV    "XASH3D_SAILFISH_ENGINE"
 #define ENGINE_BINARY "/usr/bin/" XASH_PACKAGE_NAME
 
 // relative to $HOME, sailjail exposes Documents with the Documents permission and it's visible over MTP
 #define ENGINE_BASEDIR "Documents/xash3d-fwgs"
 
 int Engine_Main( int argc, char **argv );
+
+#endif // ENGINE_H

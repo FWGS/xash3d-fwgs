@@ -12,7 +12,8 @@ but WITHOUT ANY WARRANTY; without even the implied warranty of
 MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 */
-#pragma once
+#ifndef GAMECOVER_H
+#define GAMECOVER_H
 
 #include <QDir>
 #include <QQuickImageProvider>
@@ -40,3 +41,5 @@ public:
 
 	QImage requestImage( const QString &id, QSize *size, const QSize &requestedSize ) override;
 };
+
+#endif // GAMECOVER_H

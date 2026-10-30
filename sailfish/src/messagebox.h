@@ -12,9 +12,12 @@ but WITHOUT ANY WARRANTY; without even the implied warranty of
 MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 */
-#pragma once
+#ifndef MESSAGEBOX_H
+#define MESSAGEBOX_H
 
 // set by the engine, which starts us with the title and the text as arguments and waits until we exit
 #define MESSAGEBOX_ENV "XASH3D_SAILFISH_MESSAGEBOX"
 
 int MessageBox_Main( int argc, char **argv );
+
+#endif // MESSAGEBOX_H

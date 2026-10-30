@@ -12,7 +12,8 @@ but WITHOUT ANY WARRANTY; without even the implied warranty of
 MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 */
-#pragma once
+#ifndef LAUNCHER_H
+#define LAUNCHER_H
 
 #include <QObject>
 #include <QStringList>
@@ -39,6 +40,7 @@ public:
 	QString defaultArguments() const { return "-console -log"; }
 	bool startLastGame() const;
 	void setStartLastGame( bool enable );
+
 	// empty if it's gone from the base directory
 	QVariantMap lastGame() const;
 
@@ -46,11 +48,13 @@ public:
 	bool launchRequested() const { return m_launchRequested; }
 
 	Q_INVOKABLE void refresh();
+
 	// bundled mobile_hacks libraries cover it, nothing to download
 	Q_INVOKABLE bool isBundled( const QString &gamedir ) const;
 	Q_INVOKABLE QString gameArguments( const QString &gamedir ) const;
 	Q_INVOKABLE void setGameArguments( const QString &gamedir, const QString &args );
 	Q_INVOKABLE void launch( const QString &gamedir );
+
 	// empty if the package has no such file
 	Q_INVOKABLE QString licenseText( const QString &name ) const;
 
@@ -67,3 +71,5 @@ private:
 	QStringList m_engineArgs;
 	bool m_launchRequested = false;
 };
+
+#endif // LAUNCHER_H

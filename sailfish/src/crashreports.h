@@ -12,7 +12,8 @@ but WITHOUT ANY WARRANTY; without even the implied warranty of
 MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 */
-#pragma once
+#ifndef CRASHREPORTS_H
+#define CRASHREPORTS_H
 
 #include <QObject>
 #include <QStringList>
@@ -51,3 +52,5 @@ private:
 	QString readReport( const QString &name, QStringList &enginelog ) const;
 	void prune() const;
 };
+
+#endif // CRASHREPORTS_H

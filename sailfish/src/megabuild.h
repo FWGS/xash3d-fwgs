@@ -12,7 +12,8 @@ but WITHOUT ANY WARRANTY; without even the implied warranty of
 MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 */
-#pragma once
+#ifndef MEGABUILD_H
+#define MEGABUILD_H
 
 #include <functional>
 #include <QCryptographicHash>
@@ -81,3 +82,5 @@ private:
 	bool m_busy = false;
 	bool m_cancelled = false;
 };
+
+#endif // MEGABUILD_H
