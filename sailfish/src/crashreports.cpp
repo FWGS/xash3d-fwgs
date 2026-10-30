@@ -58,6 +58,14 @@ static bool IsValidName( const QString &name )
 	return name.startsWith( "crash-" ) && !name.contains( '/' ) && !name.contains( ".." );
 }
 
+static QString EngineLogSection( const QStringList &enginelog, int lines )
+{
+	if( enginelog.isEmpty() || lines <= 0 )
+		return QString();
+
+	return "\n--- engine.log, last lines ---\n" + enginelog.mid( qMax( 0, enginelog.size() - lines )).join( '\n' ) + '\n';
+}
+
 CrashReports::CrashReports( QObject *parent ) : QObject( parent )
 {
 	prune();
@@ -168,10 +176,13 @@ QString CrashReports::takePending()
 
 QString CrashReports::report( const QString &name ) const
 {
-	return composeReport( name, ENGINE_LOG_LINES );
+	QStringList enginelog;
+	const QString text = readReport( name, enginelog );
+
+	return text + EngineLogSection( enginelog, ENGINE_LOG_LINES );
 }
 
-QString CrashReports::composeReport( const QString &name, int log_lines ) const
+QString CrashReports::readReport( const QString &name, QStringList &enginelog ) const
 {
 	if( !IsValidName( name ))
 		return QString();
@@ -179,8 +190,9 @@ QString CrashReports::composeReport( const QString &name, int log_lines ) const
 	const QDir dir( QDir( historyDir( )).filePath( name ));
 	const QString sysinfo = ReadFile( dir.filePath( "sysinfo.txt" ));
 	const QString launch = ReadFile( dir.filePath( "launch.txt" ));
-	const QStringList enginelog = ReadFile( dir.filePath( "engine.log" )).split( '\n', QString::SkipEmptyParts );
 	QString text = ReadFile( dir.filePath( "crash.log" ));
+
+	enginelog = ReadFile( dir.filePath( "engine.log" )).split( '\n', QString::SkipEmptyParts );
 
 	if( !sysinfo.isEmpty( ))
 		text += "\n--- System info ---\n" + sysinfo;
@@ -188,22 +200,21 @@ QString CrashReports::composeReport( const QString &name, int log_lines ) const
 	if( !launch.isEmpty( ))
 		text += "\n--- Launch arguments ---\n" + launch;
 
-	if( !enginelog.isEmpty() && log_lines > 0 )
-		text += "\n--- engine.log, last lines ---\n" + enginelog.mid( qMax( 0, enginelog.size() - log_lines )).join( '\n' ) + '\n';
-
 	return text;
 }
 
 QString CrashReports::mailUrl( const QString &name ) const
 {
 	const QString prompt = tr( "Please describe in as much detail as possible what you were doing when the game crashed — every little thing helps us fix it!" ) + "\n\n\n";
+	QStringList enginelog;
+	const QString text = prompt + readReport( name, enginelog );
 	QString body;
 	QByteArray encoded;
 
 	// the limit is on the link, the oldest engine.log lines are the furthest from the crash and go first
 	for( int lines = ENGINE_LOG_LINES; lines >= 0; lines-- )
 	{
-		body = prompt + composeReport( name, lines );
+		body = text + EngineLogSection( enginelog, lines );
 
 		// QUrlQuery leaves + and other reserved characters as is, encode everything
 		encoded = QUrl::toPercentEncoding( body );

@@ -46,6 +46,7 @@ signals:
 
 private:
 	QString historyDir() const;
-	QString composeReport( const QString &name, int log_lines ) const;
+	// everything but engine.log, which is returned split into lines
+	QString readReport( const QString &name, QStringList &enginelog ) const;
 	void prune() const;
 };
