@@ -18,6 +18,9 @@ GNU General Public License for more details.
 #include <QRegularExpression>
 #include "gamecover.h"
 
+// also keeps width * height within int
+#define MAX_IMAGE_SIZE 4096
+
 QString FindFileCaseInsensitive( const QDir &base, const QString &relpath )
 {
 	QString path = base.absolutePath();
@@ -52,6 +55,23 @@ QString FindFileCaseInsensitive( const QDir &base, const QString &relpath )
 	return path;
 }
 
+// invalid if it's not an uncompressed or RLE true color image
+static QSize TGASize( const uchar *header )
+{
+	const int type = header[2];
+	const int width = header[12] | header[13] << 8;
+	const int height = header[14] | header[15] << 8;
+	const int bpp = header[16];
+
+	if( header[1] != 0 || ( type != 2 && type != 10 ) || ( bpp != 24 && bpp != 32 ))
+		return QSize();
+
+	if( width <= 0 || height <= 0 || width > MAX_IMAGE_SIZE || height > MAX_IMAGE_SIZE )
+		return QSize();
+
+	return QSize( width, height );
+}
+
 // Qt has no TGA plugin on Sailfish, menu backgrounds are uncompressed or RLE true color images
 static QImage LoadTGA( const QString &path )
 {
@@ -66,20 +86,22 @@ static QImage LoadTGA( const QString &path )
 		return QImage();
 
 	const uchar *header = (const uchar *)data.constData();
-	const int type = header[2];
-	const int width = header[12] | header[13] << 8;
-	const int height = header[14] | header[15] << 8;
-	const int bpp = header[16];
-	const bool top_down = header[17] & 0x20;
+	const QSize size = TGASize( header );
 
-	if( header[1] != 0 || ( type != 2 && type != 10 ) || ( bpp != 24 && bpp != 32 ) || width <= 0 || height <= 0 )
+	if( !size.isValid( ))
 		return QImage();
 
-	const int bytes = bpp / 8;
+	const int type = header[2];
+	const int width = size.width();
+	const int height = size.height();
+	const int bytes = header[16] / 8;
+	const bool top_down = header[17] & 0x20;
+	// 32 bit images often have garbage there when the descriptor doesn't count alpha bits
+	const bool alpha = bytes == 4 && ( header[17] & 0x0f ) == 8;
 	const uchar *src = header + 18 + header[0];
 	const uchar *end = header + data.size();
 	const int count = width * height;
-	QImage image( width, height, QImage::Format_RGB32 );
+	QImage image( width, height, alpha ? QImage::Format_ARGB32 : QImage::Format_RGB32 );
 	int index = 0;
 
 	auto put = [&]( const uchar *pixel )
@@ -87,7 +109,7 @@ static QImage LoadTGA( const QString &path )
 		const int x = index % width;
 		const int y = top_down ? index / width : height - 1 - index / width;
 
-		image.setPixel( x, y, qRgb( pixel[2], pixel[1], pixel[0] ));
+		image.setPixel( x, y, alpha ? qRgba( pixel[2], pixel[1], pixel[0], pixel[3] ) : qRgb( pixel[2], pixel[1], pixel[0] ));
 		index++;
 	};
 
@@ -154,7 +176,7 @@ static QImage ComposeFromLayout( const QDir &game, const QString &layout_path )
 			const int width = tokens[i + 1].toInt();
 			const int height = tokens[i + 2].toInt();
 
-			if( width <= 0 || height <= 0 || width > 4096 || height > 4096 )
+			if( width <= 0 || height <= 0 || width > MAX_IMAGE_SIZE || height > MAX_IMAGE_SIZE )
 				return QImage();
 
 			canvas = QImage( width, height, QImage::Format_RGB32 );
