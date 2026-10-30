@@ -934,6 +934,19 @@ static void R_DrawEntitiesOnList( void )
 			continue;
 
 		Assert( RI.currententity != NULL );
+#if XASH_GAMECUBE
+		/* As in the translucent pass: c0a0c put a model-less entity on the
+		 * solid list. Nothing to draw. */
+		if( !RI.currentmodel )
+		{
+			static int nomodel_logs;
+
+			if( nomodel_logs++ < 4 )
+				gEngfuncs.Con_Reportf( "Xash3D GameCube: solid entity %d without model rendermode=%d\n",
+					RI.currententity->index, RI.currententity->curstate.rendermode );
+			continue;
+		}
+#endif
 		Assert( RI.currentmodel != NULL );
 
 		switch( RI.currentmodel->type )

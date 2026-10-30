@@ -57,6 +57,7 @@ qboolean GC_IsMapLoadBuffer( const void *ptr );
 size_t GC_MapLoadBufferCapacity( void );
 /* Unused bytes after a borrowed BSP image inside the static map-load arena. */
 void *GC_MapLoadBufferTailAlloc( size_t after_offset, size_t need );
+size_t GC_MapLoadBufferTailHighwater( void );
 unsigned int GC_AramReserve( unsigned int size );
 void GC_AramCopy( unsigned int aram, void *buf, unsigned int len, qboolean write );
 

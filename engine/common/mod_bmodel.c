@@ -253,6 +253,9 @@ typedef struct
 	qboolean  isbsp30ext;
 
 } dbspmodel_t;
+#if XASH_GAMECUBE
+static void *Mod_GCAllocWorldScratch( model_t *mod, dbspmodel_t *bmod, const gc_bsp_busy_range_t *busy, size_t busy_count, size_t alloc_size, size_t align );
+#endif
 
 #if XASH_GAMECUBE
 static void Mod_GCFreeGcmapPreSurfaceLumps( dbspmodel_t *bmod )
@@ -2479,7 +2482,7 @@ static void Mod_MakeHull0( model_t *mod, const dbspmodel_t *bmod )
 				}
 			}
 
-			out = (mclipnode16_t *)Mod_GCAllocBspScratch( gc_bsp_scratch_base, gc_bsp_scratch_size, busy, busy_count, hull0_bytes, 32 );
+			out = (mclipnode16_t *)Mod_GCAllocWorldScratch( mod, bmod, busy, busy_count, hull0_bytes, 32 );
 			if( out )
 			{
 				hull->clipnodes16 = out;
@@ -3186,6 +3189,33 @@ static void Mod_LoadVertexes( model_t *mod, dbspmodel_t *bmod )
 	}
 }
 
+/* World arrays the GameCube heap may be too fragmented to hold after a few
+ * changelevels (c0a0c's 87 KiB surfedges): try malloc, then the free tail of
+ * the static map-load arena (as planes do), then the model pool. Scratch and
+ * tail blocks are released with the map-load arena, never freed here. */
+static void *Mod_GCWorldArrayAlloc( model_t *mod, dbspmodel_t *bmod, size_t bytes, const char *what )
+{
+#if XASH_GAMECUBE
+	if( GC_MapLoadMemoryOpt() && bmod->isworld && bytes > 0
+		&& gc_bsp_scratch_base && GC_IsMapLoadBuffer( gc_bsp_scratch_base ))
+	{
+		void *out = Mem_TryMalloc( mod->mempool, bytes );
+
+		if( out )
+			return out;
+		out = GC_MapLoadBufferTailAlloc( Q_max( gc_bsp_scratch_size + gc_bsp_scratch_carve_high,
+			GC_MapLoadBufferTailHighwater( )), bytes );
+		if( out )
+		{
+			Con_Reportf( "Xash3D GameCube: world %s using map-load arena tail %s\n", what, Q_memprint( bytes ));
+			return out;
+		}
+	}
+#endif
+	(void)what;
+	return Mem_Malloc( mod->mempool, bytes );
+}
+
 /*
 =================
 Mod_LoadEdges
@@ -3212,7 +3242,7 @@ static void Mod_LoadEdges( model_t *mod, dbspmodel_t *bmod )
 	{
 		dedge_t	*in = bmod->edges;
 		medge16_t *out;
-		mod->edges16 = out = Mem_Malloc( mod->mempool, bmod->numedges * sizeof( *out ));
+		mod->edges16 = out = Mod_GCWorldArrayAlloc( mod, bmod, bmod->numedges * sizeof( *out ), "edges" );
 
 		for( int i = 0; i < bmod->numedges; i++, in++, out++ )
 		{
@@ -3230,7 +3260,7 @@ Mod_LoadSurfEdges
 */
 static void Mod_LoadSurfEdges( model_t *mod, dbspmodel_t *bmod )
 {
-	mod->surfedges = Mem_Malloc( mod->mempool, bmod->numsurfedges * sizeof( dsurfedge_t ));
+	mod->surfedges = Mod_GCWorldArrayAlloc( mod, bmod, bmod->numsurfedges * sizeof( dsurfedge_t ), "surfedges" );
 	memcpy( mod->surfedges, bmod->surfedges, bmod->numsurfedges * sizeof( dsurfedge_t ));
 	mod->numsurfedges = bmod->numsurfedges;
 }
@@ -3300,7 +3330,7 @@ static void Mod_LoadMarkSurfaces( model_t *mod, dbspmodel_t *bmod )
 				}
 			}
 
-			out = (msurface_t **)Mod_GCAllocBspScratch( gc_bsp_scratch_base, gc_bsp_scratch_size, busy, busy_count, mark_bytes, 32 );
+			out = (msurface_t **)Mod_GCAllocWorldScratch( mod, bmod, busy, busy_count, mark_bytes, 32 );
 			if( out )
 			{
 				Mod_GCInvalidateScratchOverlap( bmod, gc_bsp_scratch_base, gc_bsp_scratch_size, (byte *)out, mark_bytes );
@@ -4249,7 +4279,7 @@ static void Mod_LoadSurfaces( model_t *mod, dbspmodel_t *bmod )
 			}
 		}
 
-		surf_block = (byte *)Mod_GCAllocBspScratch( gc_bsp_scratch_base, gc_bsp_scratch_size, busy, busy_count, surf_bytes, 32 );
+		surf_block = (byte *)Mod_GCAllocWorldScratch( mod, bmod, busy, busy_count, surf_bytes, 32 );
 		if( surf_block )
 		{
 			memset( surf_block, 0, surf_bytes );
@@ -4550,7 +4580,7 @@ static void Mod_LoadNodes( model_t *mod, dbspmodel_t *bmod )
 					}
 				}
 
-				out = (mnode_t *)Mod_GCAllocBspScratch( gc_bsp_scratch_base, gc_bsp_scratch_size, busy, busy_count, node_bytes, 32 );
+				out = (mnode_t *)Mod_GCAllocWorldScratch( mod, bmod, busy, busy_count, node_bytes, 32 );
 				if( out )
 				{
 					memset( out, 0, node_bytes );
@@ -5879,7 +5909,7 @@ static void Mod_LoadLeafs( model_t *mod, dbspmodel_t *bmod )
 				}
 			}
 
-			out = (mleaf_t *)Mod_GCAllocBspScratch( gc_bsp_scratch_base, gc_bsp_scratch_size, busy, busy_count, leaf_bytes, 32 );
+			out = (mleaf_t *)Mod_GCAllocWorldScratch( mod, bmod, busy, busy_count, leaf_bytes, 32 );
 			if( out )
 			{
 				memset( out, 0, leaf_bytes );
@@ -6498,6 +6528,7 @@ the caller afterwards as before.
 
 static int gc_menu_lm_w, gc_menu_lm_h;
 static const byte *gc_menu_lm_lift;
+static const model_t *gc_menu_lm_owner;
 static int gc_menu_lm_generation;
 
 const unsigned short *GC_GetLiveLightmapAtlas( int *w, int *h, int *generation )
@@ -6555,8 +6586,9 @@ static size_t Mod_GCCollectAllWorldScratchBusy( model_t *mod, dbspmodel_t *bmod,
 	Mod_GCBusyAdd( busy, &n, cap, bmod->lightdata, bmod->lightdatasize );
 	Mod_GCBusyAdd( busy, &n, cap, bsp2 ? (void *)bmod->surfaces32 : (void *)bmod->surfaces,
 		bmod->numsurfaces * ( bsp2 ? sizeof( dface32_t ) : sizeof( dface_t )));
-	/* The baked lightmap atlas lives in the scratch for the map's life. */
-	Mod_GCBusyAdd( busy, &n, cap, gc_menu_lm_atlas, (size_t)gc_menu_lm_w * gc_menu_lm_h * sizeof( unsigned short ));
+	/* The baked lightmap atlas lives in the scratch for its map's life. */
+	if( gc_menu_lm_owner == mod )
+		Mod_GCBusyAdd( busy, &n, cap, gc_menu_lm_atlas, (size_t)gc_menu_lm_w * gc_menu_lm_h * sizeof( unsigned short ));
 
 	for( i = 0; i < n; i++ )
 	{
@@ -6578,6 +6610,39 @@ static size_t Mod_GCCollectAllWorldScratchBusy( model_t *mod, dbspmodel_t *bmod,
 			busy[out++] = busy[i];
 	}
 	return out;
+}
+
+/* Scratch placement that protects the site's own ranges plus everything the
+ * world already owns in the scratch. The per-site lists were partial (hull 0,
+ * arena-tail planes/edges were not in them). */
+static void *Mod_GCAllocWorldScratch( model_t *mod, dbspmodel_t *bmod, const gc_bsp_busy_range_t *busy, size_t busy_count, size_t alloc_size, size_t align )
+{
+	gc_bsp_busy_range_t all[48];
+	size_t n, i, j, out;
+
+	n = Mod_GCCollectAllWorldScratchBusy( mod, bmod, all, ARRAYSIZE( all ) - 12 );
+	for( i = 0; i < busy_count && n < ARRAYSIZE( all ); i++ )
+		all[n++] = busy[i];
+	for( i = 0; i < n; i++ )
+	{
+		for( j = i + 1; j < n; j++ )
+		{
+			if( all[j].start < all[i].start )
+			{
+				gc_bsp_busy_range_t tmp = all[i];
+				all[i] = all[j];
+				all[j] = tmp;
+			}
+		}
+	}
+	for( i = 0, out = 0; i < n; i++ )
+	{
+		if( out > 0 && all[i].start <= all[out - 1].end )
+			all[out - 1].end = Q_max( all[out - 1].end, all[i].end );
+		else
+			all[out++] = all[i];
+	}
+	return Mod_GCAllocBspScratch( gc_bsp_scratch_base, gc_bsp_scratch_size, all, out, alloc_size, align );
 }
 
 static void Mod_GCBakeMenuLightmapAtlasInner( model_t *mod, dbspmodel_t *bmod )
@@ -6719,6 +6784,7 @@ static void Mod_GCBakeMenuLightmapAtlasInner( model_t *mod, dbspmodel_t *bmod )
 	gc_menu_lm_atlas = atlas;
 	gc_menu_lm_w = w;
 	gc_menu_lm_h = h;
+	gc_menu_lm_owner = mod;
 	Con_Reportf( "Xash3D GameCube: menu lightmaps baked faces=%d atlas=%dx%d (%s) at scratch+%s busy=%zu\n",
 		baked, w, h, Q_memprint( bytes ), Q_memprint( (size_t)( atlas - gc_bsp_scratch_base )), busy_count );
 }
@@ -7360,19 +7426,37 @@ static int Mod_LumpLooksLikeEntitiesFile( file_t *f, const dlump_t *l, int flags
 		return -1;
 	}
 
-	char *buf = Z_Malloc( l->filelen + 1 );
-	if( FS_Read( f, buf, l->filelen ) != l->filelen )
+	/* Stream the lump through a small buffer instead of allocating all of
+	 * it: the 64 KiB Z_Malloc was fatal on GameCube's fragmented heap at the
+	 * c0a0b -> c0a0c changelevel. Keep sizeof( "\"classname\"" ) - 2 bytes of
+	 * overlap so a match across two chunks is still found. */
 	{
-		if( !FBitSet( flags, LUMP_SILENT ))
-			Con_DPrintf( S_ERROR "can't read %s lump of map ^2%s^7", msg, loadstat.name );
-		Z_Free( buf );
-		return -1;
+		const size_t keep = sizeof( "\"classname\"" ) - 2;
+		char buf[2048];
+		size_t have = 0, left = l->filelen;
+
+		while( left > 0 )
+		{
+			const size_t want = Q_min( left, sizeof( buf ) - have );
+
+			if( FS_Read( f, buf + have, want ) != (fs_offset_t)want )
+			{
+				if( !FBitSet( flags, LUMP_SILENT ))
+					Con_DPrintf( S_ERROR "can't read %s lump of map ^2%s^7", msg, loadstat.name );
+				return -1;
+			}
+			have += want;
+			left -= want;
+			if( Mod_LumpLooksLikeEntities( buf, have ))
+				return 1;
+			if( have > keep )
+			{
+				memmove( buf, buf + have - keep, keep );
+				have = keep;
+			}
+		}
 	}
-
-	int ret = Mod_LumpLooksLikeEntities( buf, l->filelen );
-
-	Z_Free( buf );
-	return ret;
+	return 0;
 }
 
 /*

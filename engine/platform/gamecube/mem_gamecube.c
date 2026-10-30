@@ -342,6 +342,12 @@ size_t GC_MapLoadBufferCapacity( void )
 	return gc_mapload_buf_size;
 }
 
+/* End of the last tail carve: the next carve must start at or above it. */
+size_t GC_MapLoadBufferTailHighwater( void )
+{
+	return gc_mapload_tail_highwater;
+}
+
 void *GC_MapLoadBufferTailAlloc( size_t after_offset, size_t need )
 {
 	size_t off;

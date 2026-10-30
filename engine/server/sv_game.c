@@ -1011,6 +1011,22 @@ SV_ReadEntityScript
 pfnMapIsValid use this
 ==============
 */
+#if XASH_GAMECUBE
+static char *sv_gc_ents_borrowed;
+#endif
+
+static void SV_FreeEntityScript( char *ents )
+{
+#if XASH_GAMECUBE
+	if( ents && ents == sv_gc_ents_borrowed )
+	{
+		sv_gc_ents_borrowed = NULL;
+		return;
+	}
+#endif
+	Mem_Free( ents );
+}
+
 static char *SV_ReadEntityScript( const char *filename, int *flags )
 {
 	string      bspfilename, entfilename;
@@ -1064,6 +1080,26 @@ static char *SV_ReadEntityScript( const char *filename, int *flags )
 	{
 		FS_Seek( f, lumpofs, SEEK_SET );
 		ents = Z_Calloc( lumplen + 1 );
+#if XASH_GAMECUBE
+		/* The 64 KiB entity text soft-failed on the fragmented heap at the
+		 * c0a0b -> c0a0c changelevel and was then read into NULL. Validation
+		 * is brief and the GX world does not use the soft surface cache, so
+		 * borrow its store (the transition save takes it next anyway). */
+		if( !ents && GC_MenuRunsServer())
+		{
+			extern byte *R_GCBorrowSurfaceCacheStore( size_t *size );
+			size_t store_size = 0;
+			byte *store = R_GCBorrowSurfaceCacheStore( &store_size );
+
+			if( store && store_size > (size_t)lumplen )
+			{
+				memset( store, 0, lumplen + 1 );
+				ents = (char *)store;
+				sv_gc_ents_borrowed = ents;
+			}
+		}
+		if( ents )
+#endif
 		FS_Read( f, ents, lumplen );
 	}
 	FS_Close( f ); // all done
@@ -1140,7 +1176,7 @@ uint SV_MapIsValid( const char *filename, const char *landmark_name )
 
 		if( !need_landmark )
 		{
-			Mem_Free( ents );
+			SV_FreeEntityScript( ents );
 #if XASH_GAMECUBE
 			Con_Reportf( "Xash3D GameCube: MapIsValid ready (no landmark) flags=0x%x\n", flags );
 #endif
@@ -1165,7 +1201,7 @@ uint SV_MapIsValid( const char *filename, const char *landmark_name )
 			}
 		}
 
-		Mem_Free( ents );
+		SV_FreeEntityScript( ents );
 	}
 
 #if XASH_GAMECUBE
