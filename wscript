@@ -137,7 +137,8 @@ SUBDIRS = [
 
 	Subproject('3rdparty/MultiEmulator',lambda x: x.env.CLIENT),
 	Subproject('stub/client',           lambda x: x.env.CLIENT),
-	Subproject('game_launch',           lambda x: x.env.LAUNCHER),
+	Subproject('game_launch',           lambda x: x.env.LAUNCHER and not x.env.SAILFISH),
+	Subproject('sailfish',              lambda x: x.env.CLIENT and x.env.SAILFISH),
 	Subproject('engine'), # keep latest for static linking
 
 	# enabled optionally
@@ -359,6 +360,14 @@ def configure(conf):
 		enforce_pic = False
 	elif conf.env.MSVC_WINE:
 		conf.options.BUILD_BUNDLED_DEPS = True
+	elif conf.env.SAILFISH:
+		conf.options.NANOGL           = True
+		conf.options.GLWES            = False # deprecated
+		conf.options.GL4ES            = True
+		conf.options.GLES3COMPAT      = True
+		conf.options.GL               = False
+		# Harbour doesn't allow linking to system freetype
+		conf.options.USE_STBTT        = True
 
 	# psvita needs -fPIC set manually and static builds are incompatible with -fPIC
 	enforce_pic = conf.env.DEST_OS != 'psvita' and not conf.env.STATIC_LINKING
@@ -409,6 +418,10 @@ def configure(conf):
 		linkflags.append('-Wl,-undefined,error')
 	elif conf.env.SAILFISH:
 		conf.define('XASH_SAILFISH', 1)
+		# Harbour requires this name for the binary, desktop file, icons and /usr/share directory
+		conf.env.SAILFISH_PACKAGE = 'harbour-xash3d-fwgs'
+		# Harbour validator only recognizes DT_RPATH
+		linkflags.append('-Wl,--disable-new-dtags')
 
 	conf.check_cc(cflags=cflags, linkflags=linkflags, msg='Checking for required C flags')
 	conf.check_cxx(cxxflags=cxxflags, linkflags=linkflags, msg='Checking for required C++ flags')
@@ -605,7 +618,11 @@ def configure(conf):
 	if conf.options.PACKAGING:
 		conf.env.PREFIX = conf.options.prefix
 		if conf.env.SAILFISH:
-			conf.env.SHAREDIR = '${PREFIX}/share/harbour-xash3d-fwgs/rodir'
+			# Harbour allows shipping libraries only in /usr/share/<name>/lib, including the game libraries in rodir
+			conf.env.LIBDIR = os.path.join(conf.env.PREFIX, 'share', conf.env.SAILFISH_PACKAGE, 'lib')
+			conf.env.SHAREDIR = conf.env.LIBDIR + '/rodir'
+			if conf.options.ENABLE_RPATH:
+				conf.env.DEFAULT_RPATH = conf.env.LIBDIR
 		else:
 			conf.env.SHAREDIR = '${PREFIX}/share/xash3d'
 			conf.env.LIBDIR += '/xash3d'
@@ -621,6 +638,12 @@ def configure(conf):
 	prefer_bundled_mpg123 = conf.options.BUILD_BUNDLED_DEPS
 	prefer_bundled_bzip2 = conf.options.BUILD_BUNDLED_DEPS
 	prefer_bundled_freetype = conf.options.BUILD_BUNDLED_DEPS
+	# Harbour doesn't allow linking to these system libraries
+	if conf.env.SAILFISH:
+		prefer_bundled_opus = True
+		prefer_bundled_opusfile = True
+		prefer_bundled_mpg123 = True
+		prefer_bundled_freetype = True
 	# zlib is a part of platform API on Android
 	prefer_bundled_zlib = conf.options.BUILD_BUNDLED_DEPS and conf.env.DEST_OS != 'android'
 

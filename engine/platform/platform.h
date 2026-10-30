@@ -107,8 +107,23 @@ void Android_SaveID( const char *id );
 void Android_Init( void );
 void *Android_GetNativeObject( const char *name );
 void Android_GetWindowInsets( float insets[4] );
-int Android_GetKeyboardHeight( void );
 void Android_Shutdown( void );
+#endif
+
+#if XASH_SAILFISH && !XASH_DEDICATED
+void Sailfish_Init( void );
+void Sailfish_Shutdown( void );
+void Sailfish_SetActive( qboolean active );
+void Sailfish_RunEvents( void );
+void Sailfish_EnableTextInput( qboolean enable, int x, int y, int w, int h );
+void Sailfish_SuspendTextInput( qboolean suspend );
+void Sailfish_ShutdownTextInput( void );
+void Sailfish_SetOrientation( int rotate );
+int Sailfish_OrientationAngle( void );
+void Sailfish_KeepWindowSize( int *width, int *height, int *render_w, int *render_h );
+void Sailfish_GetDisplayOffset( int *x, int *y );
+void Sailfish_SetTextInputArea( int y, int h );
+void Sailfish_MapTouch( int64_t device, float *x, float *y, float *dx, float *dy );
 #endif
 
 #if XASH_WIN32
@@ -191,10 +206,18 @@ static inline void Platform_Init( qboolean con_showalways )
 #elif XASH_LINUX
 	Linux_Init( );
 #endif
+
+#if XASH_SAILFISH && !XASH_DEDICATED
+	Sailfish_Init( );
+#endif
 }
 
 static inline void Platform_Shutdown( void )
 {
+#if XASH_SAILFISH && !XASH_DEDICATED
+	Sailfish_Shutdown( );
+#endif
+
 #if XASH_NSWITCH
 	NSwitch_Shutdown( );
 #elif XASH_PSVITA

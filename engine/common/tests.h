@@ -52,6 +52,7 @@ void Test_RunMunge( void );
 void Test_RunModBmodel( void );
 void Test_RunTitles( void );
 void Test_RunConfig( void );
+void Test_RunSystem( void );
 #if XASH_NO_TOUCH
 #define Test_RunTouch() ((void)0)
 #else
@@ -71,7 +72,8 @@ void Test_RunWindowInsets( void );
 	Test_RunBuffer(); \
 	Test_RunDelta(); \
 	Test_RunMunge(); \
-	Test_RunModBmodel();
+	Test_RunModBmodel(); \
+	Test_RunSystem();
 
 #define TEST_LIST_0_CLIENT \
 	Test_RunCon(); \

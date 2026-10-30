@@ -163,15 +163,6 @@ static int Sys_Start( void )
 {
 	int ret;
 
-#if XASH_SAILFISH
-	const char *home = getenv( "HOME" );
-	char buf[1024];
-
-	snprintf( buf, sizeof( buf ), "%s/xash", home );
-	setenv( "XASH3D_BASEDIR", buf, true );
-	setenv( "XASH3D_RODIR", "/usr/share/harbour-xash3d-fwgs/rodir", true );
-#endif // XASH_SAILFISH
-
 	Sys_LoadEngine();
 	ret = Host_Main( szArgc, szArgv, XASH_GAMEDIR, 0, XASH_DISABLE_MENU_CHANGEGAME ? NULL : Sys_ChangeGame );
 	Sys_UnloadEngine();

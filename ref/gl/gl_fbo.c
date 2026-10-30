@@ -260,7 +260,7 @@ void GL_CheckRenderTargets( void )
 	pglBindFramebuffer( GL_FRAMEBUFFER, tr.targets.screen.fbo );
 }
 
-static void GL_DrawTargetQuad( const gl_rendertarget_t *rt, int width, int height, GLint filter )
+static void GL_DrawTargetQuad( const gl_rendertarget_t *rt, int x, int y, int width, int height, GLint filter )
 {
 	matrix4x4 m;
 
@@ -270,7 +270,7 @@ static void GL_DrawTargetQuad( const gl_rendertarget_t *rt, int width, int heigh
 		return;
 	}
 
-	pglViewport( 0, 0, width, height );
+	pglViewport( x, y, width, height );
 	Matrix4x4_CreateOrtho( m, 0, width, height, 0, -99999, 99999 );
 	pglMatrixMode( GL_PROJECTION );
 	GL_LoadMatrix( m );
@@ -306,11 +306,11 @@ static void GL_DrawTargetQuad( const gl_rendertarget_t *rt, int width, int heigh
 	pglTexEnvi( GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_MODULATE );
 }
 
-static void GL_BlitTarget( const gl_rendertarget_t *src, GLuint dst_fbo, int dst_width, int dst_height, GLenum filter )
+static void GL_BlitTarget( const gl_rendertarget_t *src, GLuint dst_fbo, int dst_x, int dst_y, int dst_width, int dst_height, GLenum filter )
 {
 	pglBindFramebuffer( GL_READ_FRAMEBUFFER, src->fbo );
 	pglBindFramebuffer( GL_DRAW_FRAMEBUFFER, dst_fbo );
-	pglBlitFramebuffer( 0, 0, src->width, src->height, 0, 0, dst_width, dst_height, GL_COLOR_BUFFER_BIT, filter );
+	pglBlitFramebuffer( 0, 0, src->width, src->height, dst_x, dst_y, dst_x + dst_width, dst_y + dst_height, GL_COLOR_BUFFER_BIT, filter );
 }
 
 /*
@@ -368,16 +368,16 @@ void GL_BindScreenTarget( void )
 		GLint filter = gl_fbo_nearest.value ? GL_NEAREST : GL_LINEAR;
 
 		if( tr.targets.msaa.fbo )
-			GL_BlitTarget( &tr.targets.msaa, tr.targets.scene.fbo, tr.targets.scene.width, tr.targets.scene.height, GL_NEAREST );
+			GL_BlitTarget( &tr.targets.msaa, tr.targets.scene.fbo, 0, 0, tr.targets.scene.width, tr.targets.scene.height, GL_NEAREST );
 
 		if( GL_Support( GL_FRAMEBUFFER_BLIT_EXT ))
 		{
-			GL_BlitTarget( &tr.targets.scene, screen->fbo, screen->width, screen->height, filter );
+			GL_BlitTarget( &tr.targets.scene, screen->fbo, 0, 0, screen->width, screen->height, filter );
 		}
 		else
 		{
 			pglBindFramebuffer( GL_FRAMEBUFFER, screen->fbo );
-			GL_DrawTargetQuad( &tr.targets.scene, screen->width, screen->height, filter );
+			GL_DrawTargetQuad( &tr.targets.scene, 0, 0, screen->width, screen->height, filter );
 		}
 
 		glState.sceneTargetDrawn = false;
@@ -402,13 +402,13 @@ void GL_PresentScreenTarget( void )
 
 	if( GL_Support( GL_FRAMEBUFFER_BLIT_EXT ))
 	{
-		GL_BlitTarget( screen, 0, screen->width, screen->height, GL_NEAREST );
+		GL_BlitTarget( screen, 0, tr.offset_x, tr.offset_y, screen->width, screen->height, GL_NEAREST );
 		pglBindFramebuffer( GL_FRAMEBUFFER, 0 );
 	}
 	else
 	{
 		pglBindFramebuffer( GL_FRAMEBUFFER, 0 );
-		GL_DrawTargetQuad( screen, screen->width, screen->height, GL_NEAREST );
+		GL_DrawTargetQuad( screen, tr.offset_x, tr.offset_y, screen->width, screen->height, GL_NEAREST );
 	}
 }
 

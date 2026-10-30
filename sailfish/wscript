@@ -1,0 +1,66 @@
+#! /usr/bin/env python
+# encoding: utf-8
+
+def options(opt):
+	pass
+
+def configure(conf):
+	# waf's qt5 tool can't parse Qt 5.6 configuration files, and only moc and lrelease are needed here
+	conf.check_cfg(package='Qt5Core', uselib_store='QT5CORE', variables=['host_bins'])
+	conf.find_program('moc', path_list=[conf.env.QT5CORE_host_bins], var='MOC')
+	conf.find_program('lrelease', path_list=[conf.env.QT5CORE_host_bins], var='LRELEASE')
+	conf.check_cfg(package='Qt5Core Qt5Gui Qt5Network Qt5Qml Qt5Quick sailfishapp', uselib_store='SAILFISHAPP', args='--cflags --libs')
+
+def build(bld):
+	name = bld.env.SAILFISH_PACKAGE
+	source = bld.path.ant_glob('src/*.cpp')
+
+	for header in ['crashreports.h', 'launcher.h', 'megabuild.h', 'updater.h']:
+		target = 'moc_' + header.replace('.h', '.cpp')
+		bld(rule = '${MOC} ${SRC} -o ${TGT}', source = 'src/' + header, target = target)
+		source += [target]
+
+	# the engine builds its own copy without archive support
+	source += [bld.path.find_node('../3rdparty/miniz/miniz.c')]
+
+	bld.program(
+		source = source,
+		target = name,
+		includes = 'src ../3rdparty/miniz',
+		# zlib names would clash with the system zlib Qt uses
+		defines = ['XASH_PACKAGE_NAME="%s"' % name, 'MINIZ_NO_ZLIB_COMPATIBLE_NAMES'],
+		use = 'SAILFISHAPP DL public build_vcs library_suffix',
+		rpath = bld.env.DEFAULT_RPATH,
+		install_path = bld.env.BINDIR
+	)
+
+	# SailfishApp::pathToMainQml looks for /usr/share/<binary name>/qml/<binary name>.qml
+	qml = bld.path.find_dir('qml')
+	bld.install_files('${PREFIX}/share/%s/qml' % name, qml.ant_glob('**/*.qml'), cwd = qml, relative_trick = True)
+
+	# SailfishApp::application loads translations/<binary name>-<locale>.qm, falling back to <binary name>.qm
+	for ts in bld.path.ant_glob('translations/*.ts'):
+		qm = bld.path.find_or_declare('translations/' + ts.name.replace('.ts', '.qm'))
+		bld(rule = '${LRELEASE} -silent ${SRC} -qm ${TGT}', source = ts, target = qm)
+		bld.install_files('${PREFIX}/share/%s/translations' % name, qm)
+
+	# shown by the licenses page, hlsdk-portable's one is installed by the spec file
+	licenses = {
+		'miniutl.txt': '../3rdparty/mainui/miniutl/LICENSE',
+		'gl4es.txt': '../3rdparty/gl4es/gl4es/LICENSE',
+		'opus.txt': '../3rdparty/opus/opus/COPYING',
+		'opusfile.txt': '../3rdparty/opusfile/opusfile/COPYING',
+		'mpg123.txt': '../3rdparty/mpg123/mpg123/COPYING',
+		'mbedtls.txt': '../3rdparty/mbedtls/mbedtls/LICENSE',
+		'libbacktrace.txt': '../3rdparty/libbacktrace/libbacktrace/LICENSE',
+		'multiemulator.txt': '../3rdparty/MultiEmulator/LICENSE',
+		'xash-extras-logos.txt': '../3rdparty/extras/xash-extras/logos/license.txt',
+	}
+
+	for dst, src in licenses.items():
+		bld.install_as('${PREFIX}/share/%s/licenses/%s' % (name, dst), src)
+
+	bld.install_files('${PREFIX}/share/applications', name + '.desktop')
+
+	for size in ['86x86', '108x108', '128x128', '172x172']:
+		bld.install_as('${PREFIX}/share/icons/hicolor/%s/apps/%s.png' % (size, name), 'icons/%s/%s.png' % (size, name))

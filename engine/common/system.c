@@ -574,7 +574,50 @@ qboolean Sys_CanRestart( void )
 
 /*
 ==================
-Sys_ChangeGame
+Sys_NewInstanceArgs
+
+newargs must have space for argc + 4 pointers
+==================
+*/
+static int Sys_NewInstanceArgs( char **newargs, int argc, const char **argv, const char *gamedir )
+{
+	qboolean replaced_arg = false;
+	int count = 0;
+
+	for( int i = 0; i < argc; i++ )
+	{
+		// library overrides belong to the previous game
+		if( !Q_stricmp( argv[i], "-dll" ) || !Q_stricmp( argv[i], "-clientlib" ) || !Q_stricmp( argv[i], "-menulib" ))
+		{
+			i++;
+			continue;
+		}
+
+		newargs[count++] = strdup( argv[i] );
+
+		if( !Q_stricmp( argv[i], "-game" ))
+		{
+			newargs[count++] = strdup( gamedir );
+			replaced_arg = true;
+			i++;
+		}
+	}
+
+	if( !replaced_arg )
+	{
+		newargs[count++] = strdup( "-game" );
+		newargs[count++] = strdup( gamedir );
+	}
+
+	newargs[count++] = strdup( "-changegame" );
+	newargs[count] = NULL;
+
+	return count;
+}
+
+/*
+==================
+Sys_NewInstance
 
 This is a special function
 
@@ -585,68 +628,31 @@ it explicitly doesn't use internal allocation or string copy utils
 */
 qboolean Sys_NewInstance( const char *gamedir, const char *finalmsg )
 {
-	qboolean replaced_arg = false;
-
-#if XASH_NSWITCH
-	char newargs[4096];
-	const char *exe = host.argv[0]; // arg 0 is always the full NRO path
-
-	for( int i = 0; i < host.argc; i++ )
-	{
-		Q_strncat( newargs, host.argv[i], sizeof( newargs ));
-		Q_strncat( newargs, " ", sizeof( newargs ));
-
-		if( !Q_stricmp( host.argv[i], "-game" ))
-		{
-			Q_strncat( newargs, gamedir, sizeof( newargs ));
-			Q_strncat( newargs, " ", sizeof( newargs ));
-			replaced_arg = true;
-			i++;
-		}
-	}
-
-	if( !replaced_arg )
-	{
-		Q_strncat( newargs, "-game ", sizeof( newargs ));
-		Q_strncat( newargs, gamedir, sizeof( newargs ));
-	}
-
-	Q_strncat( newargs, " -changegame", sizeof( newargs ));
-
-	// just restart the entire thing
-	printf( "envSetNextLoad exe: `%s`\n", exe );
-	printf( "envSetNextLoad argv:\n`%s`\n", newargs );
-
-	Host_ShutdownWithReason( finalmsg );
-	envSetNextLoad( exe, newargs );
-	exit( 0 );
-#else
-	char *exe = NULL;
 	// don't use engine allocation utils here
 	// they will be freed after Host_Shutdown
 	char **newargs = calloc( host.argc + 4, sizeof( *newargs ));
-	int i;
+	int count = Sys_NewInstanceArgs( newargs, host.argc, host.argv, gamedir );
 
-	for( i = 0; i < host.argc; i++ )
+#if XASH_NSWITCH
+	char cmdline[4096] = "";
+	const char *exe = host.argv[0]; // arg 0 is always the full NRO path
+
+	for( int i = 0; i < count; i++ )
 	{
-		newargs[i] = strdup( host.argv[i] );
-
-		if( !Q_stricmp( newargs[i], "-game" ))
-		{
-			newargs[i + 1] = strdup( gamedir );
-			replaced_arg = true;
-			i++;
-		}
+		if( i > 0 )
+			Q_strncat( cmdline, " ", sizeof( cmdline ));
+		Q_strncat( cmdline, newargs[i], sizeof( cmdline ));
 	}
 
-	if( !replaced_arg )
-	{
-		newargs[i++] = strdup( "-game" );
-		newargs[i++] = strdup( gamedir );
-	}
+	// just restart the entire thing
+	printf( "envSetNextLoad exe: `%s`\n", exe );
+	printf( "envSetNextLoad argv:\n`%s`\n", cmdline );
 
-	newargs[i++] = strdup( "-changegame" );
-	newargs[i] = NULL;
+	Host_ShutdownWithReason( finalmsg );
+	envSetNextLoad( exe, cmdline );
+	exit( 0 );
+#else
+	char *exe = NULL;
 
 	Host_ShutdownWithReason( finalmsg );
 
@@ -669,7 +675,7 @@ qboolean Sys_NewInstance( const char *gamedir, const char *finalmsg )
 	}
 #endif
 
-	for( ; i >= 0; i-- )
+	for( int i = 0; i < count; i++ )
 		free( newargs[i] );
 	free( newargs );
 	free( exe );
@@ -709,3 +715,47 @@ void *Sys_GetNativeObject( const char *obj )
 
 	return ptr;
 }
+
+#if XASH_ENGINE_TESTS
+#include "tests.h"
+
+static void Test_NewInstanceArgs( void )
+{
+	const char *argv[] = { "xash3d", "-game", "bshift", "-dll", "@hl", "-clientlib", "client", "-menulib", "menu", "-dev", "1" };
+	char *newargs[ARRAYSIZE( argv ) + 4];
+	int count = Sys_NewInstanceArgs( newargs, ARRAYSIZE( argv ), argv, "gearbox" );
+
+	// library overrides are dropped, -game is replaced
+	TASSERT_EQi( count, 6 );
+	TASSERT_STR( newargs[0], "xash3d" );
+	TASSERT_STR( newargs[1], "-game" );
+	TASSERT_STR( newargs[2], "gearbox" );
+	TASSERT_STR( newargs[3], "-dev" );
+	TASSERT_STR( newargs[4], "1" );
+	TASSERT_STR( newargs[5], "-changegame" );
+	TASSERT( newargs[6] == NULL );
+
+	for( int i = 0; i < count; i++ )
+		free( newargs[i] );
+
+	// -game is added when it wasn't passed
+	const char *argv2[] = { "xash3d", "-dll", "@hl" };
+	char *newargs2[ARRAYSIZE( argv2 ) + 4];
+	count = Sys_NewInstanceArgs( newargs2, ARRAYSIZE( argv2 ), argv2, "valve" );
+
+	TASSERT_EQi( count, 4 );
+	TASSERT_STR( newargs2[0], "xash3d" );
+	TASSERT_STR( newargs2[1], "-game" );
+	TASSERT_STR( newargs2[2], "valve" );
+	TASSERT_STR( newargs2[3], "-changegame" );
+	TASSERT( newargs2[4] == NULL );
+
+	for( int i = 0; i < count; i++ )
+		free( newargs2[i] );
+}
+
+void Test_RunSystem( void )
+{
+	TRUN( Test_NewInstanceArgs() );
+}
+#endif // XASH_ENGINE_TESTS

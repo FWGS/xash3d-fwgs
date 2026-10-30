@@ -20,6 +20,7 @@ Table is sorted by status and platform.
 | GNU/Linux       | Supported                  | @a1batross, @mittorn     |
 | macOS           | Supported                  | @sofakng                 | 
 | PSVita          | Supported                  | @fgsfdsfgs               |
+| Sailfish OS     | Supported                  | @a1batross               |
 | Switch          | Supported                  | @fgsfdsfgs               |
 | Windows         | Supported                  | @a1batross, @SNMetamorph |
 | iOS             | Supported                  | @ksagameng2              |
