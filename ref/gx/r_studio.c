@@ -2276,7 +2276,8 @@ static void R_StudioDrawPoints( void )
 		for( i = 0; i < m_pSubModel->numverts; i++ )
 		{
 			Matrix3x4_VectorTransform( g_studio.bonestransform[pvertbone[i]], pstudioverts[i], g_studio.verts[i] );
-			R_LightStrength( pvertbone[i], pstudioverts[i], g_studio.lightpos[i] );
+			if( g_studio.numlocallights )
+				R_LightStrength( pvertbone[i], pstudioverts[i], g_studio.lightpos[i] );
 		}
 #if XASH_GAMECUBE
 		if( gEngfuncs.Sys_CheckParm( "-gcnewgame" ) && m_pSubModel->numverts > 0 )

@@ -4221,7 +4221,8 @@ void R_GXStudioEmitFanC( const gx_tri_vertex_t *verts, int count, qboolean strip
 	R_GXEnsureTriApiLayout();
 	if( r_gx_studio_bound_tex == 0 )
 		R_GXStudioBindTexnum( (unsigned)tr.whiteTexture );
-	for( i = 0; i < count; i++ )
+	/* Viewmodel diagnostics only: this is the hot path for every NPC. */
+	for( i = 0; r_gx_studio_viewmodel && i < count; i++ )
 	{
 		R_GXStudioNoteNdcVert( verts[i].x, verts[i].y, verts[i].z );
 		R_GXStudioNoteShade( verts[i].c );

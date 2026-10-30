@@ -35,12 +35,12 @@ by steps. The world pass and brush entities took 11–18 ms per frame.
 | 5 | Studio meshes as strips, colour cached per normal | c0a0 36 → 50 fps | **Done** |
 | 6 | Studio arena: per-map model sets, no reload leak, full forklift skins, loader, G-Man | Retail cast; stops the arena filling | **Done** |
 | 6b | Intermittent `GX DrawDone` waits of 8–25 ms | Removes run-to-run swings | Open, see below |
-| 7 | Mipmaps, then full-size textures above 128 | Sharper close up, less shimmer | Needs ~1 MB per map as RGB565; CMPR or arena placement to be decided |
+| 7 | Mipmaps, then full-size textures above 128 | Sharper close up, less shimmer | Deferred: mip chains need 33% more than the heap has at c0a0 (50 KB free) |
 | 8 | Lightstyles via partial atlas updates, samples in ARAM (lightmaps were already bilinear) | Retail lighting | **Done** |
 | 9 | Dynamic lights, model lighting from the lightmap | Retail lighting | Planned |
 | 10 | EFB 24-bit colour and depth (was RGB565/Z16). No cost measured; banding and depth precision by design, not measured from the compressed recording | Quality | **Done** |
 | 10b | Text: already the full 256-wide font at 1:1 texels, magnified 2× by request; no gain available without a new font | - | Skipped |
-| 10c | EFB antialiasing, deflicker | Sharper picture | Evaluate |
+| 10c | EFB antialiasing | Sharper picture | Not viable: Flipper MSAA needs RGB565_Z16 and a half-height EFB, giving up 24-bit colour and depth |
 | 11 | Display lists / indexed vertices for static faces | CPU headroom | Planned, by need: the world pass is now 4–6 ms |
 | 12 | Prefetch the next map during the ride | Shorter holds (2–5 s) | Planned |
 | 13 | Mixing on the DSP (ASND voices) | CPU headroom | Evaluate |
@@ -136,11 +136,21 @@ two comparable segments (115 and 214 before; frames over 1%: 0). The third
 bright c0a0 warehouse rather than a dark tunnel; its heat map follows moving
 edges of the rails and walls. A same-scene comparison is still to do.
 
+Same-scene check on one build, native textures off → on: 121 → 109, 511 → 233,
+304 → 467 spike px/frame. The runs still do not line up frame for frame (the
+faster build sees more distinct frames), so this is mixed, not a clear win: the
+earlier 175/245/444 → 115/33/214 overstated it.
+
+### c0a0c/d pacing
+
+Both maps hold 17 ms except while the loader is in view: it costs 6.9 ms and
+pushes work just over one vsync, so those stretches run at 33 ms.
+
 ### Open: GX DrawDone waits
 
 Stretches of 8–25 ms/frame in `present: GX DrawDone wait`, tens of seconds long,
 on a different map each run with identical submitted work (same draws, vertices
 and binds). Not the cause: host vsync (off in Dolphin and the driver: the wait
 moved), the recorder (still there with recording off). Without it every map
-holds 53–59 fps. Probably Dolphin/host GPU side, not shown to be game cost; an
+holds 53–59 fps. Not seen in the last dozen rides. Probably Dolphin/host GPU side, not shown to be game cost; an
 asynchronous flip (item 14) would absorb it if it matters.
