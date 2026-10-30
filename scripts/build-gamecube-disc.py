@@ -1093,6 +1093,109 @@ def inject_gc_sky_into_bootstrap(archive: "zipfile.ZipFile", data: Path) -> int:
 	return staged
 
 
+GC_SKY_CMPR_SIZE = 128
+GC_SKY_SUFFIXES = ("rt", "bk", "lf", "ft", "up", "dn")
+
+
+def gx_cmpr_encode(rgb: "np.ndarray") -> bytes:
+	"""Encode an H×W×3 uint8 image (H, W multiples of 8) as GX CMPR (DXT1).
+
+	Endpoints are the brightest and darkest pixel of each 4×4 block (enough
+	for skies); blocks are laid out in 8×8 tiles of 2×2 blocks, big-endian.
+	"""
+	import numpy as np
+
+	h, w, _ = rgb.shape
+	px = rgb.astype(np.int32)
+	# blocks[by, bx, y, x, c]
+	blocks = px.reshape(h // 4, 4, w // 4, 4, 3).transpose(0, 2, 1, 3, 4)
+	flat = blocks.reshape(h // 4, w // 4, 16, 3)
+	lum = flat @ np.array([299, 587, 114])
+	hi = np.take_along_axis(flat, lum.argmax(-1)[..., None, None], 2)[..., 0, :]
+	lo = np.take_along_axis(flat, lum.argmin(-1)[..., None, None], 2)[..., 0, :]
+
+	def to565(c):
+		return ((c[..., 0] >> 3) << 11) | ((c[..., 1] >> 2) << 5) | (c[..., 2] >> 3)
+
+	def from565(v):
+		r = (v >> 11) & 31
+		g = (v >> 5) & 63
+		b = v & 31
+		return np.stack(((r << 3) | (r >> 2), (g << 2) | (g >> 4), (b << 3) | (b >> 2)), -1)
+
+	c0, c1 = to565(hi), to565(lo)
+	swap = c0 < c1
+	c0, c1 = np.where(swap, c1, c0), np.where(swap, c0, c1)
+	e0, e1 = from565(c0), from565(c1)
+	pal = np.stack((e0, e1, (2 * e0 + e1) // 3, (e0 + 2 * e1) // 3), 2)
+	dist = ((flat[:, :, :, None, :] - pal[:, :, None, :, :]) ** 2).sum(-1)
+	idx = dist.argmin(-1)
+	idx = np.where((c0 == c1)[..., None], 0, idx)
+	rows = idx.reshape(h // 4, w // 4, 4, 4)
+	bits = (rows[..., 0] << 6) | (rows[..., 1] << 4) | (rows[..., 2] << 2) | rows[..., 3]
+	out = bytearray()
+	for ty in range(0, h // 4, 2):
+		for tx in range(0, w // 4, 2):
+			for by, bx in ((ty, tx), (ty, tx + 1), (ty + 1, tx), (ty + 1, tx + 1)):
+				out += struct.pack(">HH", int(c0[by, bx]), int(c1[by, bx]))
+				out += bytes(int(b) for b in bits[by, bx])
+	return bytes(out)
+
+
+def map_sky_names(source: Path) -> set[str]:
+	"""Sky names the maps use (worldspawn "skyname"), plus the default."""
+	names = {"desert"}
+	for bsp in (source / "maps").glob("*.bsp"):
+		try:
+			with bsp.open("rb") as f:
+				head = f.read(12)
+				off, length = struct.unpack_from("<ii", head, 4)
+				f.seek(off)
+				text = f.read(min(length, 4096)).decode("latin-1", "replace")
+		except (OSError, struct.error):
+			continue
+		m = re.search(r'"skyname"\s+"([^"]+)"', text.split("}", 1)[0])
+		if m:
+			names.add(m.group(1).lower())
+	return names
+
+
+def build_sky_cmpr_overlays(source: Path, output: Path) -> list[tuple[str, Path]]:
+	"""Skyboxes as 128×128 GX CMPR sides (8 KiB each) in shallow media/.
+
+	The engine draws them as a camera-centred box (r_gx_world.c); the 256²
+	TGAs would need ~768 KiB of MEM1 per sky as RGB565.
+	"""
+	try:
+		import numpy as np
+		from PIL import Image
+	except ImportError:
+		print("warning: numpy/Pillow missing, skyboxes not converted")
+		return []
+	overlays = []
+	media = output / "media"
+	media.mkdir(parents=True, exist_ok=True)
+	for name in sorted(map_sky_names(source)):
+		sides = []
+		for suffix in GC_SKY_SUFFIXES:
+			for ext in ("tga", "bmp"):
+				src = source / "gfx/env" / f"{name}{suffix}.{ext}"
+				if src.is_file():
+					sides.append((suffix, src))
+					break
+		if len(sides) != 6:
+			continue
+		for suffix, src in sides:
+			with Image.open(src) as img:
+				img = img.convert("RGB").resize((GC_SKY_CMPR_SIZE, GC_SKY_CMPR_SIZE), Image.Resampling.LANCZOS)
+				data = gx_cmpr_encode(np.asarray(img))
+			rel = f"media/sky_{name}{suffix}.cmp"
+			(output / rel).write_bytes(data)
+			overlays.append((rel, output / rel))
+	print(f"  skyboxes: {len(overlays) // 6} as GX CMPR {GC_SKY_CMPR_SIZE}x{GC_SKY_CMPR_SIZE}")
+	return overlays
+
+
 def lean_studio_mesh_bytes(src: Path) -> bytes | None:
 	"""G289: truncate MDL before texture blobs (numtextures=0) for tip-safe BSS.
 
@@ -1630,7 +1733,12 @@ def create_retail_boot_overlays(
 		("media/c0a0_tr_gmorn.wav", source / "sound/tride/c0a0_tr_gmorn.wav"),
 		("media/c0a0_tr_time.wav", source / "sound/tride/c0a0_tr_time.wav"),
 		("media/ttrain1.wav", source / "sound/plats/ttrain1.wav"),
+		# The rest of the ride's announcer (c0a0a-c0a0e ambient_generics),
+		# streamed by the engine's S_GCStreamVoice.
+		*((f"media/c0a0_tr_{n}.wav", source / f"sound/tride/c0a0_tr_{n}.wav")
+			for n in ("dest", "noeat", "emerg", "tourn", "jobs", "haz", "arrive", "exit")),
 	)
+	overlays.extend(build_sky_cmpr_overlays(source, output))
 	for dest_rel, src_wav in intro_vo:
 		if not src_wav.is_file():
 			continue

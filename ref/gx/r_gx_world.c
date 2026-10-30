@@ -1308,6 +1308,160 @@ static void R_GXClearDepthPerspective( GXRModeObj *rmode )
 	GX_SetColorUpdate( GX_TRUE );
 }
 
+/*
+=============
+R_GXDrawSkyBox
+
+The map's sky as a box around the camera, drawn before the world with
+depth off so it shows wherever the sky faces (skipped by the world pass)
+leave holes, as GoldSrc draws it. The sides come from the disc as 128x128
+GX CMPR (media/sky_<name><side>.cmp, made by build-gamecube-disc.py):
+48 KiB for all six, reloaded only when the map's sky name changes, so the
+sky survives changelevels. Missing sides keep the solid clear colour.
+=============
+*/
+#define R_GX_SKY_SIZE	128
+#define R_GX_SKY_BYTES	( R_GX_SKY_SIZE * R_GX_SKY_SIZE / 2 )
+void R_GXInvalidateTriApiLayout( void );
+static u8 r_gx_sky_data[6][R_GX_SKY_BYTES] __attribute__(( aligned( 32 )));
+static GXTexObj r_gx_sky_obj[6];
+static char r_gx_sky_name[32];
+static qboolean r_gx_sky_ready;
+static const model_t *r_gx_sky_world;
+static qboolean r_gx_sky_world_has_sky;
+static char r_gx_sky_world_name[64];
+
+static void R_GXSkyLoad( void )
+{
+	/* Xash skybox side order (ref_common.c r_skyBoxSuffix). */
+	static const char *const suffix[6] = { "rt", "bk", "lf", "ft", "up", "dn" };
+	const char *name = ( gp_movevars && gp_movevars->skyName[0] ) ? gp_movevars->skyName : "desert";
+	char lower[32];
+	int i;
+
+	if( r_gx_sky_name[0] && !Q_stricmp( name, r_gx_sky_name ))
+		return;
+	Q_strncpy( r_gx_sky_name, name, sizeof( r_gx_sky_name ));
+	Q_strnlwr( name, lower, sizeof( lower ));
+	r_gx_sky_ready = true;
+	for( i = 0; i < 6 && r_gx_sky_ready; i++ )
+	{
+		char path[64];
+		fs_offset_t len = 0;
+		byte *buf;
+
+		Q_snprintf( path, sizeof( path ), "media/sky_%s%s.cmp", lower, suffix[i] );
+		buf = gEngfuncs.fsapi->LoadFileMalloc( path, &len, false );
+		if( buf && len == R_GX_SKY_BYTES )
+			memcpy( r_gx_sky_data[i], buf, R_GX_SKY_BYTES );
+		else
+		{
+			gEngfuncs.Con_Reportf( "Xash3D GameCube: sky %s missing %s, using the clear colour\n", name, path );
+			r_gx_sky_ready = false;
+		}
+		free( buf );
+	}
+	if( !r_gx_sky_ready )
+		return;
+	DCFlushRange( r_gx_sky_data, sizeof( r_gx_sky_data ));
+	GX_InvalidateTexAll();
+	for( i = 0; i < 6; i++ )
+	{
+		GX_InitTexObj( &r_gx_sky_obj[i], r_gx_sky_data[i], R_GX_SKY_SIZE, R_GX_SKY_SIZE,
+			GX_TF_CMPR, GX_CLAMP, GX_CLAMP, GX_FALSE );
+		GX_InitTexObjLOD( &r_gx_sky_obj[i], GX_LINEAR, GX_LINEAR, 0.0f, 0.0f, 0.0f,
+			GX_FALSE, GX_FALSE, GX_ANISO_1 );
+	}
+	gEngfuncs.Con_Reportf( "Xash3D GameCube: sky %s loaded (6 x %dx%d CMPR)\n", name, R_GX_SKY_SIZE, R_GX_SKY_SIZE );
+}
+
+/* Only maps with sky faces get the box; indoor maps keep the clear colour. */
+static qboolean R_GXSkyVisible( void )
+{
+	const model_t *world = WORLDMODEL;
+
+	if( !world )
+		return false;
+	/* The world model slot is reused across maps: key on the name. */
+	if( world != r_gx_sky_world || Q_strcmp( world->name, r_gx_sky_world_name ))
+	{
+		int i;
+
+		r_gx_sky_world = world;
+		Q_strncpy( r_gx_sky_world_name, world->name, sizeof( r_gx_sky_world_name ));
+		/* Surfaces can already be scratch-trimmed: then assume sky. */
+		r_gx_sky_world_has_sky = !world->surfaces;
+		for( i = 0; world->surfaces && i < world->numsurfaces; i++ )
+		{
+			if( world->surfaces[i].flags & SURF_DRAWSKY )
+			{
+				r_gx_sky_world_has_sky = true;
+				break;
+			}
+		}
+		gEngfuncs.Con_Reportf( "Xash3D GameCube: sky faces=%d on %s\n", r_gx_sky_world_has_sky, world->name );
+	}
+	if( !r_gx_sky_world_has_sky )
+		return false;
+	R_GXSkyLoad();
+	return r_gx_sky_ready;
+}
+
+static void R_GXDrawSkyBox( void )
+{
+	/* Box axes and side order as ref/gl/gl_warp.c draws them. */
+	static const int st_to_vec[6][3] =
+	{
+		{ 3, -1, 2 }, { -3, 1, 2 }, { 1, 3, 2 }, { -1, -3, 2 }, { -2, -1, 3 }, { 2, -1, -3 }
+	};
+	static const int sky_tex_order[6] = { 0, 2, 1, 3, 4, 5 };
+	static const float corner[4][2] = { { -1, -1 }, { -1, 1 }, { 1, 1 }, { 1, -1 } };
+	const float dist = 256.0f; /* any size inside the far plane: depth is off */
+	int axis, c, j;
+
+	GX_SetZMode( GX_FALSE, GX_ALWAYS, GX_FALSE );
+	GX_SetCullMode( GX_CULL_NONE );
+	GX_SetBlendMode( GX_BM_NONE, GX_BL_ONE, GX_BL_ZERO, GX_LO_NOOP );
+	GX_SetNumChans( 0 );
+	GX_SetNumTexGens( 1 );
+	GX_SetNumTevStages( 1 );
+	GX_SetTexCoordGen( GX_TEXCOORD0, GX_TG_MTX2x4, GX_TG_TEX0, GX_IDENTITY );
+	GX_SetTevOrder( GX_TEVSTAGE0, GX_TEXCOORD0, GX_TEXMAP0, GX_COLORNULL );
+	GX_SetTevOp( GX_TEVSTAGE0, GX_REPLACE );
+	GX_ClearVtxDesc();
+	GX_SetVtxDesc( GX_VA_POS, GX_DIRECT );
+	GX_SetVtxDesc( GX_VA_TEX0, GX_DIRECT );
+	GX_SetVtxAttrFmt( GX_VTXFMT0, GX_VA_POS, GX_POS_XYZ, GX_F32, 0 );
+	GX_SetVtxAttrFmt( GX_VTXFMT0, GX_VA_TEX0, GX_TEX_ST, GX_F32, 0 );
+	GX_InvVtxCache();
+
+	for( axis = 0; axis < 6; axis++ )
+	{
+		GX_LoadTexObj( &r_gx_sky_obj[sky_tex_order[axis]], GX_TEXMAP0 );
+		GX_Begin( GX_QUADS, GX_VTXFMT0, 4 );
+		for( c = 0; c < 4; c++ )
+		{
+			const float b[3] = { corner[c][0] * dist, corner[c][1] * dist, dist };
+			float v[3];
+
+			for( j = 0; j < 3; j++ )
+			{
+				const int k = st_to_vec[axis][j];
+
+				v[j] = RI.rvp.vieworigin[j] + (( k < 0 ) ? -b[-k - 1] : b[k - 1] );
+			}
+			GX_Position3f32( v[0], v[1], v[2] );
+			GX_TexCoord2f32(( corner[c][0] + 1.0f ) * 0.5f, 1.0f - ( corner[c][1] + 1.0f ) * 0.5f );
+		}
+		GX_End();
+	}
+
+	r_gx_face_mode = GC_GX_FACE_MODE_NONE;
+	r_gx_bound_texnum = 0;
+	r_gx_bound_fmt = 0;
+	R_GXInvalidateTriApiLayout();
+}
+
 static void R_GXSetupWorld3DState( void )
 {
 	GXRModeObj *rmode = (GXRModeObj *)GC_GetGxVideoMode();
@@ -1367,6 +1521,17 @@ static void R_GXSetupWorld3DState( void )
 	GX_LoadProjectionMtx( proj, GX_PERSPECTIVE );
 	R_GXBuildWorldModelview( mv );
 	GX_LoadPosMtxImm( mv, GX_PNMTX0 );
+
+	if( R_GXSkyVisible( ))
+	{
+		R_GXDrawSkyBox();
+		GX_SetZMode( GX_TRUE, GX_LEQUAL, GX_TRUE );
+		GX_SetCullMode( GX_CULL_BACK );
+		GX_SetNumChans( 1 );
+		GX_SetNumTexGens( 0 );
+		GX_SetTevOrder( GX_TEVSTAGE0, GX_TEXCOORDNULL, GX_TEXMAP_NULL, GX_COLOR0A0 );
+		GX_SetTevOp( GX_TEVSTAGE0, GX_PASSCLR );
+	}
 
 	/* Optional camera-space marker: -gcmagenta (proved EFB→DumpFrames in G200). */
 	if( gEngfuncs.Sys_CheckParm( "-gcmagenta" ))
