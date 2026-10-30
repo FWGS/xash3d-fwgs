@@ -61,7 +61,7 @@ class iOS:
 	
 	def cflags(self, cxx = False):
 	
-		cflags = [ '-isysroot' + self.sdkpath, self.target, '-mios-version-min=12.0' ]
+		cflags = [ '-isysroot' + self.sdkpath, self.target, '-mios-version-min=12.0' , '-fobjc-arc' ]
 		return cflags
 		
 	def linkflags(self):
