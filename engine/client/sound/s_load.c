@@ -70,6 +70,19 @@ static struct
 	uint   stamp;
 } s_gc_lru[GC_SFX_LRU_SLOTS];
 static uint     s_gc_sfx_lru_clock;
+/* Menu route: no disc reload of a sound before this time (host.realtime in
+ * 1/10 s). A sound evicted or refused moments ago would otherwise be read
+ * from disc again mid-frame on its next play: on c0a0d the wading and tram
+ * sounds reloaded 558 times (27 ms/frame in packet parsing). */
+static uint32_t s_gc_sfx_cooldown[MAX_SFX];
+#define GC_SFX_EVICT_COOLDOWN	20	/* 2 s */
+#define GC_SFX_REFUSE_COOLDOWN	100	/* 10 s */
+
+static void S_GCSfxCooldown( const sfx_t *sfx, uint32_t tenths )
+{
+	if( GC_MenuRunsServer() && sfx )
+		s_gc_sfx_cooldown[sfx - s_knownSfx] = (uint32_t)( host.realtime * 10.0 ) + tenths;
+}
 
 static qboolean S_GCAllowRuntimeSoundLoad( void )
 {
@@ -156,6 +169,7 @@ static void S_GCEvictBudgetedSfx( sfx_t *sfx )
 			snd.channels[ch].sfx = NULL;
 	}
 	S_GCClearLruSlot( sfx );
+	S_GCSfxCooldown( sfx, GC_SFX_EVICT_COOLDOWN );
 	/* Drop the samples only: freeing the slot let the next new sound take
 	 * its handle while the client's sound_index still pointed at it (an NPC
 	 * footstep then replayed the announcer). The name stays, so the sound
@@ -387,6 +401,9 @@ wavdata_t *S_LoadSound( sfx_t *sfx )
 		s_gcmapSoundSkips++;
 		return NULL;
 	}
+	if( GC_MenuRunsServer() && Q_stricmp( sfx->name, "*default" )
+		&& (uint32_t)( host.realtime * 10.0 ) < s_gc_sfx_cooldown[sfx - s_knownSfx] )
+		return NULL;
 	if( S_GCAllowRuntimeSoundLoad() )
 	{
 		/* Drop finished button10 only; do not rotate other pl_step* here —
@@ -453,6 +470,7 @@ wavdata_t *S_LoadSound( sfx_t *sfx )
 		}
 		if( !sc && GC_MapLoadMemoryOpt() && Q_stricmp( sfx->name, "*default" ))
 		{
+			S_GCSfxCooldown( sfx, GC_SFX_REFUSE_COOLDOWN );
 			Con_Reportf( "Xash3D GameCube: sound fallback skipped for map-load memopt %s\n", sfx->name );
 			return NULL;
 		}
@@ -477,6 +495,7 @@ wavdata_t *S_LoadSound( sfx_t *sfx )
 			|| s_gc_sfx_budget_used + sc->size > GC_SFX_BUDGET
 			|| ( GC_MenuRunsServer() && GC_MemHeapFreeBytes() < GC_SFX_MENU_HEAP_FLOOR ))
 		{
+			S_GCSfxCooldown( sfx, GC_SFX_REFUSE_COOLDOWN );
 			Con_Reportf( "Xash3D GameCube: gameplay sfx budget refused name=%s size=%u used=%u cap=%u\n",
 				sfx->name, (uint)sc->size, (uint)s_gc_sfx_budget_used, (uint)GC_SFX_BUDGET );
 			FS_FreeSound( sc );
@@ -567,6 +586,9 @@ sfx_t *S_FindName( const char *pname, qboolean *pfInCache )
 
 	sfx = &s_knownSfx[i];
 	memset( sfx, 0, sizeof( *sfx ));
+#if XASH_GAMECUBE
+	s_gc_sfx_cooldown[i] = 0;
+#endif
 	if( pfInCache ) *pfInCache = false;
 	Q_strncpy( sfx->name, name, sizeof( sfx->name ));
 	sfx->servercount = cl.servercount;

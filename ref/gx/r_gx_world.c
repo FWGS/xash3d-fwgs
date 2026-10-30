@@ -158,6 +158,7 @@ static u8 r_gx_bound_fmt;
  * Flipper back-face rejection for the ordinary BSP that follows them. */
 static qboolean r_gx_cull_none;
 static int r_gx_state_sets;
+static unsigned r_gx_frame_verts; /* -gcprofile: vertices submitted this frame */
 static int r_gx_state_reuses;
 static int r_gx_tex_loads;
 static int r_gx_tex_reuses;
@@ -2199,6 +2200,7 @@ static int R_GXEmitFace( const msurface_t *surf, model_t *world, int slot )
 		 * A triangle fan sends each vertex once instead of repeating p0 and
 		 * the two edge vertices for every triangle. */
 		GX_Begin( GX_TRIANGLEFAN, GX_VTXFMT0, (u16)nverts );
+		r_gx_frame_verts += nverts;
 		for( i = 0; i < nverts; i++ )
 		{
 			GX_Position3f32( pts[i][0], pts[i][1], pts[i][2] );
@@ -2252,6 +2254,7 @@ static int R_GXEmitFace( const msurface_t *surf, model_t *world, int slot )
 			r_gx_state_reuses++;
 
 		GX_Begin( GX_TRIANGLEFAN, GX_VTXFMT0, (u16)nverts );
+		r_gx_frame_verts += nverts;
 		for( i = 0; i < nverts; i++ )
 		{
 			GX_Position3f32( pts[i][0], pts[i][1], pts[i][2] );
@@ -2401,6 +2404,8 @@ static int R_GXEmitFace( const msurface_t *surf, model_t *world, int slot )
 		else
 		{
 			GX_Begin( GX_TRIANGLEFAN, GX_VTXFMT0, (u16)nverts );
+			r_gx_frame_verts += nverts;
+		r_gx_frame_verts += nverts;
 			for( i = 0; i < nverts; i++ )
 			{
 				GX_Position3f32( pts[i][0], pts[i][1], pts[i][2] );
@@ -2990,20 +2995,32 @@ int R_GXDrawNewGameCapFaces( void )
 	RI.currentmodel = world;
 	{
 		static int profile = -1, passes;
+		static unsigned sum_draws, sum_verts, sum_states, sum_binds;
 
 		if( profile < 0 )
 			profile = gEngfuncs.Sys_CheckParm( "-gcprofile" ) != 0;
+		if( profile )
+		{
+			sum_draws += r_gx_tex_draws + r_gx_flat_draws + r_gx_lm_draws;
+			sum_verts += r_gx_frame_verts;
+			sum_states += r_gx_state_sets;
+			sum_binds += r_gx_tex_loads + r_gx_lm_loads;
+		}
 		if( profile && ++passes >= 64 )
 		{
 			gEngfuncs.Con_Reportf( "Xash3D GameCube: gx tex passes=%d uploads=%u stalls=%u\n",
 				passes, r_gx_tex_uploads, r_gx_tex_fence_stalls );
+			gEngfuncs.Con_Reportf( "Xash3D GameCube: gx world per frame draws=%u verts=%u state_sets=%u tex_binds=%u\n",
+				sum_draws / passes, sum_verts / passes, sum_states / passes, sum_binds / passes );
 			passes = 0;
+			sum_draws = sum_verts = sum_states = sum_binds = 0;
 			r_gx_tex_uploads = r_gx_tex_fence_stalls = 0;
 		}
 	}
 	r_gx_tex_draws = 0;
 	r_gx_flat_draws = 0;
 	r_gx_lm_draws = 0;
+	r_gx_frame_verts = 0;
 	r_gx_state_sets = 0;
 	r_gx_state_reuses = 0;
 	r_gx_tex_loads = 0;
