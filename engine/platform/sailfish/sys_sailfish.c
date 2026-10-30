@@ -80,6 +80,7 @@ void Sailfish_SetActive( qboolean active )
 		return;
 
 	s_sailfish.active = active;
+	Sailfish_SuspendTextInput( !active );
 
 	if( active )
 		s_sailfish.next_blanking_pause = 0.0;
