@@ -58,6 +58,10 @@ static qboolean gc_save_use_sysheap;
  * static surface-cache store: one predictable block instead of a
  * fragmentation-dependent calloc (96..192 KiB failed on some runs). */
 static qboolean gc_save_use_borrowed;
+/* Entity table size of the save being restored (file header), so a
+ * borrowed store reserves room for it rather than for svgame.numEntities. */
+static int gc_save_table_hint;
+static ENTITYTABLE *gc_save_table_heaped;
 static qboolean gc_save_borrow_next;
 static byte *gc_save_borrow_base;
 static size_t gc_save_borrow_size;
@@ -474,11 +478,20 @@ reserve space for ETABLE's
 static void InitEntityTable( SAVERESTOREDATA *pSaveData, int entityCount )
 {
 #if XASH_GAMECUBE
+	pSaveData->pTable = NULL;
 	if( gc_save_use_borrowed )
 		pSaveData->pTable = (ENTITYTABLE *)GC_SaveBorrowCarve( (size_t)entityCount * sizeof( ENTITYTABLE ));
-	else if( gc_save_use_sysheap )
+	if( !pSaveData->pTable && ( gc_save_use_sysheap || gc_save_use_borrowed ))
+	{
+		/* Borrowed store full (c0a0d restoring c0a0c's table): heap it. The
+		 * free path checks the store bounds before calling free(). */
 		pSaveData->pTable = (ENTITYTABLE *)calloc( (size_t)entityCount, sizeof( ENTITYTABLE ));
-	else
+		if( gc_save_use_borrowed )
+			gc_save_table_heaped = pSaveData->pTable;
+	}
+	if( !pSaveData->pTable && ( gc_save_use_sysheap || gc_save_use_borrowed ))
+		Sys_Error( "InitEntityTable: no room for %d entries\n", entityCount );
+	if( !pSaveData->pTable )
 #endif
 	pSaveData->pTable = Mem_Calloc( host.mempool, sizeof( ENTITYTABLE ) * entityCount );
 	pSaveData->tableCount = entityCount;
@@ -956,7 +969,7 @@ gc_save_try_borrow:
 	{
 		extern byte *R_GCBorrowSurfaceCacheStore( size_t *size );
 		/* Data gets what remains after the header, tokens and entity table. */
-		const size_t table = (size_t)svgame.numEntities * sizeof( ENTITYTABLE ) + 64;
+		const size_t table = (size_t)Q_max( svgame.numEntities, gc_save_table_hint ) * sizeof( ENTITYTABLE ) + 64;
 		const size_t tokens = (size_t)tokenCount * sizeof( char * ) + 32;
 
 		gc_save_borrow_next = false;
@@ -1070,6 +1083,11 @@ static void SaveFinish( SAVERESTOREDATA *pSaveData )
 	{
 		svgame.globals->pSaveData = NULL;
 		gc_save_use_borrowed = false;
+		if( gc_save_table_heaped )
+		{
+			free( gc_save_table_heaped );
+			gc_save_table_heaped = NULL;
+		}
 		return;
 	}
 #endif
@@ -1262,7 +1280,13 @@ static SAVERESTOREDATA *LoadSaveData( const char *level )
 	totalSize = Q_max( clientSize, ( size + tokenSize ));
 
 	// init the read buffer
+#if XASH_GAMECUBE
+	gc_save_table_hint = tableCount;
+#endif
 	pSaveData = SaveInit( totalSize, tokenCount );
+#if XASH_GAMECUBE
+	gc_save_table_hint = 0;
+#endif
 	if( !pSaveData )
 	{
 		FS_Close( pFile );
