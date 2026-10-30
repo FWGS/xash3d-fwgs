@@ -231,12 +231,16 @@ qboolean GC_GXFenceWait( u16 token )
  * first Flipper world frame of the new map ends it. */
 #define GC_TRANSITION_HOLD_MAX_SEC 15.0
 static double gc_transition_hold_start;
+static qboolean gc_transition_hold_changelevel;
 
 void GC_BeginTransitionHold( void )
 {
-	if( !GC_MenuRunsServer())
+	if( !GC_MenuRunsServer() || gc_transition_hold_start > 0.0 )
 		return;
 	gc_transition_hold_start = Sys_FloatTime();
+	/* A changelevel holds until the plaque is down (below); the first load
+	 * from the menu ends at its first world frame. */
+	gc_transition_hold_changelevel = cls.state == ca_active || cls.draw_changelevel;
 	Con_Reportf( "Xash3D GameCube: transition hold begin\n" );
 }
 
@@ -7056,7 +7060,9 @@ static void GC_PresentBuffer( void )
 		 * new map with the plaque down ends the hold (as SCR_EndLoadingPlaque
 		 * does in GoldSrc). Earlier Flipper frames still copy, with clear,
 		 * into the hidden back XFB so the EFB starts clean; nothing flips. */
-		if( !gc_gx_world_efb_ready || cls.draw_changelevel || cls.state != ca_active )
+		if( !gc_gx_world_efb_ready
+			|| ( gc_transition_hold_changelevel && ( cls.draw_changelevel || cls.state != ca_active ))
+			|| ( !gc_transition_hold_changelevel && !GC_IsNewGameWorldReady()))
 		{
 			if( gc_gx_world_efb_ready )
 			{
@@ -9151,7 +9157,11 @@ void GC_DrawLoadingStatus( const char *message, const char *details )
 		}
 	}
 
-	/* Changelevel hold: the last world frame stays up instead. */
+	/* Changelevel hold: the last world frame stays up instead. The first
+	 * New Game load on this route holds the menu frame the same way (the
+	 * status panel drew garbled over the borrowed soft buffer). */
+	if( host.status != HOST_INIT && GC_MenuRunsServer())
+		GC_BeginTransitionHold();
 	if( GC_TransitionHoldActive())
 		return;
 
