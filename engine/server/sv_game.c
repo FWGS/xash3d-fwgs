@@ -5493,6 +5493,10 @@ static qboolean SV_GCMapShouldInhibitClass( const char *classname )
 			gc_lean_barney_admit++;
 			return false;
 		}
+		/* The menu route runs the real map: what is left of this list was
+		 * MEM1 policy for the lean route. */
+		if( GC_MenuRunsServer( ))
+			return false;
 		if(( !Q_strnicmp( classname, "monster_", 8 )
 			&& Q_stricmp( classname, "monster_generic" )
 			&& Q_stricmp( classname, "monster_sitting_scientist" )

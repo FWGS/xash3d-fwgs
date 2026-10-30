@@ -1187,6 +1187,17 @@ static void CL_LinkPacketEntities( frame_t *frame )
 				cl.models[state->modelindex] = mod;
 				ent->model = mod;
 			}
+			/* The server's sprite is a stub: use the client's own. */
+			else if( mod && mod->name[0] && Q_stristr( mod->name, ".spr" ))
+			{
+				model_t *sprite = CL_LoadClientSprite( mod->name );
+
+				if( sprite && sprite->type == mod_sprite )
+				{
+					cl.models[state->modelindex] = sprite;
+					ent->model = sprite;
+				}
+			}
 		}
 		if( !ent->model && Sys_CheckParm( "-gcmenuplaystart" ))
 		{
