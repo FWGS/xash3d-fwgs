@@ -172,7 +172,10 @@ qboolean CL_GCLoadLeanHudFont( cl_font_t *font, float scale, convar_t *rendermod
 
 	f = FS_Open( path, "rb", false );
 	if( !f )
+	{
+		Con_Reportf( "Xash3D GameCube: credits font open failed %s\n", path );
 		return false;
+	}
 	flen = FS_FileLength( f );
 	if( flen < (fs_offset_t)sizeof( qfont_t ) || flen > cap )
 	{
@@ -181,6 +184,7 @@ qboolean CL_GCLoadLeanHudFont( cl_font_t *font, float scale, convar_t *rendermod
 	}
 	if( full && !( buf = (byte *)malloc( (size_t)flen )))
 	{
+		Con_Reportf( "Xash3D GameCube: credits font malloc %u failed\n", (uint)flen );
 		FS_Close( f );
 		return false;
 	}
@@ -215,7 +219,10 @@ qboolean CL_GCLoadLeanHudFont( cl_font_t *font, float scale, convar_t *rendermod
 	{
 		rgba = (byte *)malloc( (size_t)pixels * 4u );
 		if( !rgba )
+		{
+			Con_Reportf( "Xash3D GameCube: credits font rgba malloc %u failed\n", (uint)pixels * 4u );
 			goto done;
+		}
 		for( i = 0; i < pixels; i++ )
 		{
 			byte idx = fin[i];
@@ -240,7 +247,10 @@ qboolean CL_GCLoadLeanHudFont( cl_font_t *font, float scale, convar_t *rendermod
 			full ? ( TF_FONT | TF_HAS_ALPHA ) : ( TF_FONT | TF_NEAREST | TF_HAS_ALPHA ));
 		free( rgba );
 		if( tex <= 0 )
+		{
+			Con_Reportf( "Xash3D GameCube: credits font texture create failed %dx%d\n", font_width, src.height );
 			goto done;
+		}
 		Con_Reportf( "Xash3D GameCube: G296 lean HUD font tex=%d %dx%d row=%d\n",
 			tex, font_width, src.height, src.rowheight );
 	}
@@ -340,9 +350,12 @@ void CL_FreeFont( cl_font_t *font )
 		return;
 
 #if XASH_GAMECUBE
-	/* G296: pin lean HUD font TEXMAP — VidInit reload must not tip-recreate. */
+	/* G296: pin lean HUD font TEXMAP — VidInit reload must not tip-recreate.
+	 * Same for the full credits font of the menu route: recreating it needs
+	 * a contiguous 64 KiB RGBA buffer the fragmented in-game heap lacks. */
 	if( font->hFontTexture
-		&& ref.dllFuncs.GL_FindTexture( "#gc_lean_hudfont" ) == font->hFontTexture )
+		&& ( ref.dllFuncs.GL_FindTexture( "#gc_lean_hudfont" ) == font->hFontTexture
+			|| ref.dllFuncs.GL_FindTexture( "#gc_full_hudfont" ) == font->hFontTexture ))
 	{
 		memset( font, 0, sizeof( *font ));
 		return;

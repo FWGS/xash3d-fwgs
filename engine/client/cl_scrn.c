@@ -1151,8 +1151,11 @@ void SCR_LoadCreditsFont( void )
 	dword crc = 0;
 
 #if XASH_GAMECUBE
-	/* G296: tip-safe lean font before wad/conchars (18–34 KiB W_ReadLump tip). */
-	if( GC_MapLoadMemoryOpt() || Sys_CheckParm( "-gcnewgame" ))
+	/* G296: tip-safe lean font before wad/conchars (18–34 KiB W_ReadLump tip).
+	 * The menu New Game route takes it at boot too, while the heap still
+	 * has the contiguous 64 KiB its full credits font needs to build; the
+	 * texture is then pinned (CL_FreeFont) and never rebuilt in game. */
+	if( GC_MapLoadMemoryOpt() || Sys_CheckParm( "-gcnewgame" ) || GC_MenuRunsServer( ))
 	{
 		if( CL_GCLoadLeanHudFont( font, scale, &hud_fontrender ))
 		{

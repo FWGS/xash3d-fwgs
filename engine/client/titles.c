@@ -323,6 +323,7 @@ typedef struct
 {
 	client_textmessage_t *msg;
 	double start;
+	int frames;	/* frames drawn, for the fired/displayed log */
 } gc_hudtext_t;
 
 static gc_hudtext_t gc_hudtext[GC_HUDTEXT_SLOTS];
@@ -351,8 +352,12 @@ void CL_GCHudTextShow( const char *name )
 		if( gc_hudtext[i].start < gc_hudtext[slot].start )
 			slot = i;
 	}
+	if( gc_hudtext[slot].msg && gc_hudtext[slot].msg != msg )
+		Con_Reportf( "Xash3D GameCube: HudText %s evicted by %s after %d frames\n",
+			gc_hudtext[slot].msg->pName, name, gc_hudtext[slot].frames );
 	gc_hudtext[slot].msg = msg;
 	gc_hudtext[slot].start = cl.time;
+	gc_hudtext[slot].frames = 0;
 	Con_Reportf( "Xash3D GameCube: HudText %s effect=%d at %.2f\n", name, msg->effect, cl.time );
 }
 
@@ -502,6 +507,7 @@ static void CL_GCHudTextDrawOne( const client_textmessage_t *msg, float t )
 static void CL_GCHudTextEnsureFont( void )
 {
 	cl_font_t *font = &cls.creditsFont;
+	static double next_retry;
 	int w = 0, h = 0;
 
 	if( font->valid )
@@ -513,18 +519,36 @@ static void CL_GCHudTextEnsureFont( void )
 			font->hFontTexture, w, h );
 		font->valid = false;
 	}
+	/* A failed load is a disc read: do not retry it every frame. */
+	if( host.realtime < next_retry )
+		return;
 	CL_GCLoadLeanHudFont( font, hud_fontscale.value, &hud_fontrender );
+	if( !font->valid )
+		next_retry = host.realtime + 1.0;
 }
 
 void CL_GCHudTextDraw( void )
 {
 	int i;
 
-	if( gc_hudtext[0].msg || gc_hudtext[1].msg || gc_hudtext[2].msg || gc_hudtext[3].msg )
+	/* Reload the font as soon as the map is up, before game sounds and
+	 * models take the heap, not when the first credit arrives. */
+	if( cls.state == ca_active
+		|| gc_hudtext[0].msg || gc_hudtext[1].msg || gc_hudtext[2].msg || gc_hudtext[3].msg )
 		CL_GCHudTextEnsureFont();
 
 	if( !cls.creditsFont.valid )
+	{
+		static double warned;
+
+		if(( gc_hudtext[0].msg || gc_hudtext[1].msg || gc_hudtext[2].msg || gc_hudtext[3].msg )
+			&& host.realtime > warned )
+		{
+			warned = host.realtime + 2.0;
+			Con_Reportf( "Xash3D GameCube: HudText pending but credits font invalid\n" );
+		}
 		return;
+	}
 	for( i = 0; i < GC_HUDTEXT_SLOTS; i++ )
 	{
 		const client_textmessage_t *msg = gc_hudtext[i].msg;
@@ -533,19 +557,39 @@ void CL_GCHudTextDraw( void )
 		if( !msg )
 			continue;
 		t = (float)( cl.time - gc_hudtext[i].start );
+		/* cl.time is re-lerped after the message is parsed and can step back
+		 * a few ms in the same frame: that dropped every other credit before
+		 * it was drawn. A bigger step back is a level's clock restarting;
+		 * restart the message with it. */
+		if( t < 0.0f )
+		{
+			if( t < -0.5f )
+				gc_hudtext[i].start = cl.time;
+			t = 0.0f;
+		}
 		total = ( msg->effect == 2 ? msg->fadein * Q_strlen( msg->pMessage ) + msg->fxtime : msg->fadein )
 			+ msg->holdtime + msg->fadeout;
 		if( t < 0.0f || t > total )
 		{
+			Con_Reportf( "Xash3D GameCube: HudText %s done frames=%d t=%.2f/%.2f\n",
+				msg->pName, gc_hudtext[i].frames, t, total );
 			gc_hudtext[i].msg = NULL;
 			continue;
 		}
+		if( gc_hudtext[i].frames++ == 0 )
+			Con_Reportf( "Xash3D GameCube: HudText %s displayed at %.2f\n", msg->pName, cl.time );
 		CL_GCHudTextDrawOne( msg, t );
 	}
 }
 
 void CL_GCHudTextClear( void )
 {
+	int i;
+
+	for( i = 0; i < GC_HUDTEXT_SLOTS; i++ )
+		if( gc_hudtext[i].msg )
+			Con_Reportf( "Xash3D GameCube: HudText %s cleared after %d frames\n",
+				gc_hudtext[i].msg->pName, gc_hudtext[i].frames );
 	memset( gc_hudtext, 0, sizeof( gc_hudtext ));
 }
 #endif // XASH_GAMECUBE
