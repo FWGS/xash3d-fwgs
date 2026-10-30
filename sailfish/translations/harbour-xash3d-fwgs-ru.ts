@@ -307,6 +307,10 @@
         <translation>Загруженный файл повреждён</translation>
     </message>
     <message>
+        <source>Can&apos;t install %1: its folder leads outside of the game folder</source>
+        <translation>Не удалось установить %1: его папка ведёт за пределы папки игры</translation>
+    </message>
+    <message>
         <source>Can&apos;t install %1: %2</source>
         <translation>Не удалось установить %1: %2</translation>
     </message>

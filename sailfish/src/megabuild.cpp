@@ -72,6 +72,24 @@ static QString FileSHA256( const QString &path )
 	return QString::fromLatin1( hash.result().toHex( ));
 }
 
+// a path that doesn't exist yet is checked by its closest existing parent
+static bool IsInside( const QString &root, const QString &path )
+{
+	QFileInfo info( path );
+
+	while( !info.exists( ))
+		info.setFile( info.absolutePath( ));
+
+	const QString canonical = info.canonicalFilePath();
+
+	return !root.isEmpty() && ( canonical == root || canonical.startsWith( root + '/' ));
+}
+
+static QString GameRoot( const QDir &base, const QString &gamedir )
+{
+	return QDir( base.filePath( gamedir )).canonicalPath();
+}
+
 // files are recorded with their final paths in the game folder
 static bool ExtractZip( const QString &zip_path, const QDir &staging, const QString &gamedir, QJsonArray &files, QString &error )
 {
@@ -161,8 +179,21 @@ static bool ExtractZip( const QString &zip_path, const QDir &staging, const QStr
 // the replaced files go into the backup folder first, so a failed install can put them back
 static bool MoveStaged( const QDir &staging, const QDir &backup, const QDir &base, const QString &gamedir, const QJsonArray &files, QString &error )
 {
+	const QString root = GameRoot( base, gamedir );
 	QStringList backed_up, moved;
 	bool ok = true;
+
+	// a symlinked folder would take the files out of the game folder
+	for( const QJsonValue &value : files )
+	{
+		const QString target_rel = value.toObject().value( "path" ).toString();
+
+		if( !IsInside( root, QFileInfo( base.filePath( target_rel )).absolutePath( )))
+		{
+			error = MegaBuild::tr( "Can't install %1: its folder leads outside of the game folder" ).arg( target_rel );
+			return false;
+		}
+	}
 
 	for( const QJsonValue &value : files )
 	{
@@ -558,7 +589,7 @@ void MegaBuild::finishInstall( const QString &gamedir, const QString &zip_path )
 
 	// only after the new build is in place, so a failed update keeps the old libraries
 	if( !previous.isEmpty( ))
-		removeRecordedFiles( previous, files );
+		removeRecordedFiles( gamedir, previous, files );
 
 	QJsonObject info;
 	info["gamedir"] = gamedir;
@@ -596,10 +627,10 @@ void MegaBuild::cancel()
 		m_reply->abort();
 }
 
-bool MegaBuild::removeRecordedFiles( const QJsonObject &info, const QJsonArray &keep ) const
+bool MegaBuild::removeRecordedFiles( const QString &gamedir, const QJsonObject &info, const QJsonArray &keep ) const
 {
 	const QDir base( m_launcher->baseDir( ));
-	const QString root = base.canonicalPath() + '/';
+	const QString root = GameRoot( base, gamedir );
 	QSet<QString> dirs;
 	QSet<QString> kept;
 
@@ -617,8 +648,8 @@ bool MegaBuild::removeRecordedFiles( const QJsonObject &info, const QJsonArray &
 
 		const QFileInfo target( base.filePath( rel ));
 
-		// refuse to follow paths that escape the base directory
-		if( !target.isFile() || !target.canonicalFilePath().startsWith( root ))
+		// refuse to follow paths that escape the game folder
+		if( !target.isFile() || !IsInside( root, target.filePath( )))
 			continue;
 
 		// keep files modified by the user
@@ -646,7 +677,7 @@ bool MegaBuild::uninstall( const QString &gamedir )
 	if( info.isEmpty( ))
 		return false;
 
-	removeRecordedFiles( info );
+	removeRecordedFiles( gamedir, info );
 	QFile::remove( QDir( m_launcher->baseDir( )).filePath( gamedir + "/" MEGABUILD_INFO_FILE ));
 	emit installedChanged( gamedir );
 	return true;

@@ -69,7 +69,7 @@ private:
 	void fail( const QString &gamedir, const QString &error );
 	QJsonObject readBuildInfo( const QString &gamedir ) const;
 	// files in keep belong to the build that replaced it
-	bool removeRecordedFiles( const QJsonObject &info, const QJsonArray &keep = QJsonArray() ) const;
+	bool removeRecordedFiles( const QString &gamedir, const QJsonObject &info, const QJsonArray &keep = QJsonArray() ) const;
 
 	const Launcher *m_launcher;
 	QNetworkAccessManager m_network;
