@@ -240,6 +240,7 @@ publish/
 csx/
 
 # Local AI harness runtime output
+.ai/
 .ai/logs/
 .ai/*.iso
 .ai/venv-fat/
