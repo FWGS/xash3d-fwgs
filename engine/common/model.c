@@ -305,7 +305,7 @@ static qboolean Mod_GCStudioNameAllowed( const char *name, qboolean *is_viewmode
 		"headcrab", "houndeye", "zombie",
 		"scientist01", "scientist02", "scientist03",
 		/* Menu New Game intro props (c0a0 / c0a0a forklifts). */
-		"forklift", "loader",
+		"forklift", "loader", "filecabinet",
 		/* Tiny lean world-weapon stub for Flipper studio draw admit. */
 		"w_crowbar",
 		NULL
