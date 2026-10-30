@@ -16,6 +16,31 @@ GNU General Public License for more details.
 #include "r_local.h"
 
 #if XASH_GAMECUBE
+/* Mip 0 is 32-byte aligned inside a slightly larger block so the GX path can
+ * use it as a texture in place (R_GXNativeTexture in r_gx_world.c). */
+static pixel_t *R_GCAllocMip( image_t *tex, uint level, size_t bytes )
+{
+	byte *base = (byte *)Mem_TryCalloc( r_temppool, bytes + ( level == 0 ? 31 : 0 ));
+
+	if( !base || level != 0 )
+		return (pixel_t *)base;
+	tex->gc_pixels_base = base;
+	return (pixel_t *)(((uintptr_t)base + 31 ) & ~(uintptr_t)31 );
+}
+
+static void R_GCFreeMip( image_t *tex, uint level )
+{
+	if( level == 0 && tex->gc_pixels_base )
+	{
+		Mem_Free( tex->gc_pixels_base );
+		tex->gc_pixels_base = NULL;
+		return;
+	}
+	Mem_Free( tex->pixels[level] );
+}
+#endif
+
+#if XASH_GAMECUBE
 void Image_GCPurgeDecodeScratch( void );
 
 #endif
@@ -45,7 +70,7 @@ void R_GCTrimTextureMips( void )
 		{
 			if( image->pixels[level] )
 			{
-				Mem_Free( image->pixels[level] );
+				R_GCFreeMip( image, level );
 				image->pixels[level] = NULL;
 				trimmed++;
 			}
@@ -398,8 +423,13 @@ static qboolean GL_UploadTexture( image_t *tex, rgbdata_t *pic )
 			if( tex->pixels[j] )
 				memset( tex->pixels[j], 0, width * height * sizeof( pixel_t ));
 		}
+		if( j == 0 )
+		{
+			tex->gc_pixels_base = NULL;
+			tex->gc_gx_native = false;
+		}
 		if( !tex->pixels[j] )
-			tex->pixels[j] = (pixel_t *)Mem_TryCalloc( r_temppool, width * height * sizeof( pixel_t ));
+			tex->pixels[j] = R_GCAllocMip( tex, j, width * height * sizeof( pixel_t ));
 		/* Decode scratch is transient and may be the last reclaimable MEM1
 		 * block when late studio/WAD textures arrive.  Purge it before
 		 * declaring a real texture allocation failure; this preserves the
@@ -408,7 +438,7 @@ static qboolean GL_UploadTexture( image_t *tex, rgbdata_t *pic )
 		{
 			Image_GCPurgeDecodeScratch();
 			R_GCTrimTextureMips();
-			tex->pixels[j] = (pixel_t *)Mem_TryCalloc( r_temppool, width * height * sizeof( pixel_t ));
+			tex->pixels[j] = R_GCAllocMip( tex, j, width * height * sizeof( pixel_t ));
 		}
 #else
 		tex->pixels[j] = (pixel_t *)Mem_Calloc( r_temppool, width * height * sizeof( pixel_t ));
@@ -741,7 +771,7 @@ static void GL_DeleteTexture( image_t *tex )
 			if( !R_GCIsStaticCinematicPixels( tex->pixels[i] )
 				&& !Mod_GCIsStudioBssCache( tex->pixels[i] ))
 #endif
-				Mem_Free( tex->pixels[i] );
+				R_GCFreeMip( tex, i );
 		}
 	}
 	if( tex->alpha_pixels )

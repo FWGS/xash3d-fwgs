@@ -491,6 +491,10 @@ typedef struct image_s
 
 	pixel_t        *pixels[4];                              // mip levels
 	pixel_t        *alpha_pixels;                           // mip levels
+#if XASH_GAMECUBE
+	void           *gc_pixels_base;                         // pixels[0] is 32-byte aligned inside this block
+	qboolean       gc_gx_native;                            // pixels[0] now holds GX tiled RGB565, not soft pixels
+#endif
 
 	uint           hashValue;
 	struct image_s *nextHash;

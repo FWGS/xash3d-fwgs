@@ -62,6 +62,7 @@ def main():
 	maps = parse(path)
 	if not maps:
 		sys.exit("no profile blocks (was the disc built with -gcprofile?)")
+	rows = []
 	for name, blocks in maps.items():
 		frames = [b["frame"] for b in blocks]
 		mean = sum(frames) / len(frames)
@@ -70,6 +71,16 @@ def main():
 			for k, v in b["stages"].items():
 				stages[k] += v / len(blocks)
 		top = sorted(stages.items(), key=lambda kv: -kv[1])[: args.top]
+		ordered = sorted(frames)
+		p95 = ordered[min(len(ordered) - 1, int(len(ordered) * 0.95))]
+		first, spent = [], 0.0
+		for f in frames:  # blocks in the first 15 s of the map
+			if spent >= 15000.0:
+				break
+			first.append(f)
+			spent += f * 64
+		first15 = sum(first) / len(first)
+		rows.append(f"| {name} | {mean:.1f} | {1000 / mean:.0f} | {p95:.1f} | {max(frames):.1f} | {first15:.1f} |")
 		if args.markdown:
 			print(f"\n### {name}: {len(blocks)} x 64 frames, mean {mean:.1f} ms ({1000 / mean:.0f} fps), worst block {max(frames):.1f} ms\n")
 			print("| Stage | ms/frame |\n|---|---|")
@@ -79,6 +90,8 @@ def main():
 			print(f"== {name}: blocks={len(blocks)} mean={mean:.1f}ms ({1000 / mean:.0f} fps) worst={max(frames):.1f}ms")
 			for k, v in top:
 				print(f"   {v:7.2f}  {k}")
+	print("\n| Map | mean ms | fps | p95 ms | worst ms | first 15 s ms |\n|---|---|---|---|---|---|")
+	print("\n".join(rows))
 	return 0
 
 

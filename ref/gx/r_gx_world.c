@@ -778,6 +778,95 @@ static void R_GXTexCacheReset( void )
 	}
 }
 
+/*
+=============
+R_GXNativeTexture
+
+World and model textures are all resident as soft pixels, but a few pool
+slots cycled them through CPU conversion every frame (30-110 uploads, 11-36
+GP stalls per frame). On the menu route each is converted once, in place, to
+GX tiled RGB565: 4 rows of the soft image are the same bytes as a row of
+4x4 tiles, and a dimension that is not a multiple of 4 only shrinks. Later
+binds only load the texture object. The soft renderer does not draw these on this route.
+=============
+*/
+static gc_gx_tex_t r_gx_tex_native;
+static unsigned r_gx_tex_native_conversions;
+static int r_gx_tex_native_route = -1;
+extern qboolean GC_MenuRunsServer( void );
+
+static gc_gx_tex_t *R_GXNativeTexture( image_t *img, unsigned texnum )
+{
+	gc_gx_tex_t *t = &r_gx_tex_native;
+	int step_x = 1, step_y = 1, w, h;
+
+	/* Larger sides are box filtered down: without mipmaps they shimmer. */
+	while( img->width / step_x > GC_GX_TEX_MAX_DIM )
+		step_x *= 2;
+	while( img->height / step_y > GC_GX_TEX_MAX_DIM )
+		step_y *= 2;
+	w = ( img->width / step_x ) & ~3;
+	h = ( img->height / step_y ) & ~3;
+	if( w < 4 || h < 4 || ((uintptr_t)img->pixels[0] & 31 ))
+		return NULL;
+	if( !img->gc_gx_native )
+	{
+		u16 *dst = (u16 *)img->pixels[0];
+		int y, x, sx, sy;
+
+		/* Reads stay ahead of the writes: the output is never larger. */
+		for( y = 0; y < h; y += 4, dst += w * 4 )
+		{
+			for( x = 0; x < w * 4; x++ )
+			{
+				const pixel_t *src = img->pixels[0] + ( y + x / w ) * step_y * img->width + ( x % w ) * step_x;
+				unsigned r = 0, g = 0, b = 0;
+
+				for( sy = 0; sy < step_y; sy++ )
+				{
+					for( sx = 0; sx < step_x; sx++ )
+					{
+						const pixel_t soft = src[sy * img->width + sx];
+						const unsigned c = soft == TRANSPARENT_COLOR ? 0 : (u16)R_GCSoftToRGB565( soft );
+
+						r += c >> 11;
+						g += ( c >> 5 ) & 63;
+						b += c & 31;
+					}
+				}
+				r /= step_x * step_y;
+				g /= step_x * step_y;
+				b /= step_x * step_y;
+				r_gx_tex_linear[x] = (u16)(( r << 11 ) | ( g << 5 ) | b );
+			}
+			R_GXSwizzleRGB565( r_gx_tex_linear, w, w, 4, dst );
+		}
+		DCFlushRange( img->pixels[0], (u32)( w * h * sizeof( u16 )));
+		GX_InvalidateTexAll();
+		r_gx_tex_invalidates++;
+		img->gc_gx_native = true;
+		r_gx_tex_native_conversions++;
+		r_gx_bound_texnum = 0;
+	}
+	if( r_gx_bound_texnum != texnum || r_gx_bound_fmt != GX_TF_RGB565 )
+	{
+		GX_InitTexObj( &t->obj, img->pixels[0], (u16)w, (u16)h, GX_TF_RGB565, GX_REPEAT, GX_REPEAT, GX_FALSE );
+		GX_InitTexObjFilterMode( &t->obj, GX_LINEAR, GX_LINEAR );
+		t->texnum = texnum;
+		t->w = w;
+		t->h = h;
+		t->fmt = GX_TF_RGB565;
+		t->valid = true;
+		GX_LoadTexObj( &t->obj, GX_TEXMAP0 );
+		r_gx_bound_texnum = texnum;
+		r_gx_bound_fmt = GX_TF_RGB565;
+		r_gx_tex_loads++;
+	}
+	else
+		r_gx_tex_reuses++;
+	return t;
+}
+
 static gc_gx_tex_t *R_GXBindTexnum( unsigned texnum, qboolean hud_bind )
 {
 	image_t *img;
@@ -807,6 +896,16 @@ static gc_gx_tex_t *R_GXBindTexnum( unsigned texnum, qboolean hud_bind )
 	}
 	if( !img || !img->pixels[0] || img->width < 1 || img->height < 1 )
 		return NULL;
+	/* Sys_CheckParm walks argv: this runs for every bind. */
+	if( r_gx_tex_native_route < 0 )
+		r_gx_tex_native_route = GC_MenuRunsServer() && !gEngfuncs.Sys_CheckParm( "-gcnonativetex" );
+	if( !hud_bind && r_gx_tex_native_route )
+	{
+		gc_gx_tex_t *native = R_GXNativeTexture( img, texnum );
+
+		if( native )
+			return native;
+	}
 
 	for( i = 0; i < GC_GX_TEX_SLOTS; i++ )
 	{
@@ -3008,8 +3107,8 @@ int R_GXDrawNewGameCapFaces( void )
 		}
 		if( profile && ++passes >= 64 )
 		{
-			gEngfuncs.Con_Reportf( "Xash3D GameCube: gx tex passes=%d uploads=%u stalls=%u\n",
-				passes, r_gx_tex_uploads, r_gx_tex_fence_stalls );
+			gEngfuncs.Con_Reportf( "Xash3D GameCube: gx tex passes=%d uploads=%u stalls=%u native=%u\n",
+				passes, r_gx_tex_uploads, r_gx_tex_fence_stalls, r_gx_tex_native_conversions );
 			gEngfuncs.Con_Reportf( "Xash3D GameCube: gx world per frame draws=%u verts=%u state_sets=%u tex_binds=%u\n",
 				sum_draws / passes, sum_verts / passes, sum_states / passes, sum_binds / passes );
 			passes = 0;

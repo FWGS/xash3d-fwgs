@@ -521,7 +521,12 @@ void GAME_EXPORT GL_UpdateTexture( int texnum, int cols, int rows, int width, in
 	#if XASH_GAMECUBE
 				if( !R_GCIsStaticCinematicPixels( tex->pixels[i] ))
 	#endif
-					Mem_Free( tex->pixels[i] );
+				{
+					if( i == 0 && tex->gc_pixels_base )
+						Mem_Free( tex->gc_pixels_base );
+					else
+						Mem_Free( tex->pixels[i] );
+				}
 				tex->pixels[i] = NULL;
 			}
 		}

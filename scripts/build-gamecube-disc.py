@@ -2740,6 +2740,8 @@ def main() -> None:
 					menu_lines.append("profile")
 				if os.environ.get("XASH_GC_PROBE_NOLIVEPVS") == "1":
 					menu_lines.append("nolivepvs")
+				if os.environ.get("XASH_GC_PROBE_NONATIVETEX") == "1":
+					menu_lines.append("nonativetex")
 				(staged_data / "gamecube.cfg").write_text(
 					"\n".join(menu_lines) + "\n", encoding="ascii"
 				)
