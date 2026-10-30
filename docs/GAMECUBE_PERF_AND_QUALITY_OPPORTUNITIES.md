@@ -119,6 +119,14 @@ Lightning beams now draw: the renderer's model lookup was bounded by a client
 count this route never fills, so every `env_beam` was dropped
 (`G291 Flipper EFX tris=504` on c0a0c).
 
+### Flicker after items 6 and 8
+
+Lossless 60 fps segments on the probe disc: 104 and 257 spike px/frame on the
+two comparable segments (115 and 214 before; frames over 1%: 0). The third
+(33 → 294) is not comparable: the segment is time based and now lands in the
+bright c0a0 warehouse rather than a dark tunnel; its heat map follows moving
+edges of the rails and walls. A same-scene comparison is still to do.
+
 ### Open: GX DrawDone waits
 
 Stretches of 8–25 ms/frame in `present: GX DrawDone wait`, tens of seconds long,
