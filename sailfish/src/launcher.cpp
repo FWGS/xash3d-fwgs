@@ -20,6 +20,7 @@ GNU General Public License for more details.
 #include <QSettings>
 #include <QTextStream>
 #include <QVariantMap>
+#include <crtlib.h>
 #include "engine.h"
 #include "gamecover.h"
 #include "launcher.h"
@@ -86,53 +87,18 @@ static void ReadGameInfo( const QDir &dir, QString &title, QString &icon )
 ========================
 SplitArguments
 
-shell-like: whitespace separates, quotes group, backslash escapes
+the same rules as the engine console, but commas and apostrophes stay in the words
 ========================
 */
 static QStringList SplitArguments( const QString &line )
 {
+	QByteArray data = line.toUtf8();
+	QByteArray token( data.size() + 1, '\0' );
 	QStringList args;
-	QString current;
-	QChar quote;
-	bool in_arg = false;
+	char *p = data.data();
 
-	for( int i = 0; i < line.size(); i++ )
-	{
-		const QChar c = line[i];
-
-		if( !quote.isNull( ))
-		{
-			if( c == quote )
-				quote = QChar();
-			else if( c == '\\' && quote == '"' && i + 1 < line.size( ))
-				current += line[++i];
-			else
-				current += c;
-			continue;
-		}
-
-		if( c.isSpace( ))
-		{
-			if( in_arg )
-				args << current;
-
-			current.clear();
-			in_arg = false;
-			continue;
-		}
-
-		in_arg = true;
-
-		if( c == '"' || c == '\'' )
-			quote = c;
-		else if( c == '\\' && i + 1 < line.size( ))
-			current += line[++i];
-		else
-			current += c;
-	}
-
-	if( in_arg )
-		args << current;
+	while(( p = COM_ParseFileSafe( p, token.data(), token.size(), PFILE_NO_BRACKETS_AS_TOKEN | PFILE_NO_COMMA_AS_TOKEN | PFILE_NO_SINGLE_QUOTE_AS_TOKEN, NULL, NULL )))
+		args << QString::fromUtf8( token.constData( ));
 
 	return args;
 }
