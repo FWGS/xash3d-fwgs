@@ -1018,6 +1018,21 @@ static void CL_LinkCustomEntity( cl_entity_t *ent, entity_state_t *state )
 {
 	ent->curstate.movetype = state->modelindex; // !!!
 
+#if XASH_GAMECUBE
+	/* The menu route lends server models, and the server's sprite is a stub:
+	 * the beam needs the client's own sprite. */
+	if( ent->model->type != mod_sprite && GC_MenuRunsServer( ))
+	{
+		model_t *sprite = CL_LoadClientSprite( ent->model->name );
+
+		if( sprite && sprite->type == mod_sprite )
+		{
+			if( state->modelindex > 0 && state->modelindex < MAX_MODELS )
+				cl.models[state->modelindex] = sprite;
+			ent->model = sprite;
+		}
+	}
+#endif
 	if( ent->model->type != mod_sprite )
 	{
 #if XASH_GAMECUBE

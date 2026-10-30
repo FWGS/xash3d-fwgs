@@ -7,11 +7,9 @@ and the engine log. Retail behaviour is taken from the maps' own entities
 (trigger_auto / multi_manager timings, ambient_generic, env_message) and
 the stock game code.
 
-Reference recordings (full ride c0a0 → c0a0e): probe disc
-`.ai/playtests/20261030-015618-menu-newgame-d1c92d7269.mp4` (kept), and the
-play disc with the real controller and the camera turned every 25 s
-`.ai/playtests/20261030-023723-menu-newgame-d1c92d7269.mp4`
-(log `.ai/logs/dolphin-probe-20261030-023722`): 40/40 titles shown, 10/10
+Reference recording (full ride c0a0 → c0a0e, play disc with the real
+controller and the camera turned every 25 s, kept):
+`.ai/playtests/20261030-100657-menu-newgame-b3f63beff5.mp4`: 40/40 titles shown, 10/10
 announcer lines, 5/5 hops, no allocation failures, ladder 10/10.
 
 ## Verified
@@ -29,6 +27,7 @@ announcer lines, 5/5 hops, no allocation failures, ladder 10/10.
 | Sky | Six-sided skybox from the map's skyname (default desert) wherever sky faces are | Same skybox as a camera-centred box behind the world (128×128 compressed sides, 48 KiB), reloaded when the sky name changes; maps without sky faces keep a solid clear colour. Of the intro maps only c0a0b has sky (2desert) | `sky 2desert loaded`, `sky faces=1 on maps/c0a0b.bsp`; canyon frames; one-frame flicker metric unchanged |
 | Cast | Scientists, Barneys, forklifts, loader, G-Man on c0a0d | All load with their skins; models load per map | `studio skinned` lines, `gmanlook` script |
 | Light styles | Switched and animated lights | Live: faces recomposed in the lightmap atlas when a style changes, samples in ARAM | `light styles kept faces=1399`, c0a0c frames |
+| Beams | env_beam lightning | Drawn | `G291 Flipper EFX tris` on c0a0c |
 | A/V sync | — | Picture freeze and sound stop at each hop line up with the engine log within ~0.1 s | Recording vs log, docs/GAMECUBE_PLAY_DOLPHIN.md |
 
 ## Open

@@ -70,7 +70,7 @@ until mipmaps land.
 
 Checks on the after run: ladder 10/10, 40/40 titles, 10/10 announcer lines,
 5/5 hops, no allocation failures, audio −18 dB mean, peak 0 dB.
-Recording: `.ai/playtests/20261030-055150-menu-newgame-6a93fc553a.mp4`.
+Recording: `.ai/playtests/20261030-100657-menu-newgame-b3f63beff5.mp4`.
 `gamecube.cfg` line `nonativetex` turns native textures off for comparison.
 
 ### Client entities, forklift, studio (items 3–5)
@@ -80,7 +80,7 @@ Recording: `.ai/playtests/20261030-055150-menu-newgame-6a93fc553a.mp4`.
   (engine and game code, patch 0011); 460 entries in 762 KB, was 256 in 768 KB.
 - Forklift loads on c0a0 instead of the next map (47 KB, studio arena).
 - c0a0 with the forklifts in: mean 27.6 → 19.9 ms (36 → 50 fps), p95 34.4 → 20.6 ms.
-  Recording: `.ai/playtests/20261030-065129-menu-newgame-7f64571e54.mp4`.
+  Recording: `.ai/playtests/20261030-100657-menu-newgame-b3f63beff5.mp4`.
 
 Run-to-run noise: identical builds move individual maps by up to 20 ms because
 of the intermittent DrawDone wait (item 6), so single-map swings under that
@@ -97,7 +97,7 @@ its first skinned draw: scientist, barney, forklift, loader, gman.
 
 c0a0c/d: 55 → 42 fps with the loader in view (p95 34 ms: the frame just misses
 vsync). Studio stage 3.6 ms; this is the added content, and the next target.
-Recording: `.ai/playtests/20261030-082412-menu-newgame-60ee7a182c.mp4`.
+Recording: `.ai/playtests/20261030-100657-menu-newgame-b3f63beff5.mp4`.
 
 Still inhibited on the menu route: `cycler` (one), `env_sprite`,
 `env_explosion`, `infodecal`, `speaker`, weapons/ammo/items. Retail gaps to
@@ -113,10 +113,11 @@ frame. No MEM1 cost beyond a small face table. The 3-slot world texture pool,
 idle since native textures, is 1 slot: 64 KB back, which the boot needed (2 KB
 of new static data had tipped HUD init at c0a0 into a silent failure, heap free
 there is about 50 KB). Recording:
-`.ai/playtests/20261030-091354-menu-newgame-584af2984c.mp4`.
+`.ai/playtests/20261030-100657-menu-newgame-b3f63beff5.mp4`.
 
-Open: the first beam logs no client model (`first beam model=?`), so lightning
-beams are likely not drawing.
+Lightning beams now draw: the renderer's model lookup was bounded by a client
+count this route never fills, so every `env_beam` was dropped
+(`G291 Flipper EFX tris=504` on c0a0c).
 
 ### Open: GX DrawDone waits
 

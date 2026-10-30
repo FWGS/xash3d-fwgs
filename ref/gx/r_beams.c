@@ -907,14 +907,16 @@ static void R_BeamDraw( BEAM *pbeam, float frametime )
 {
 #if XASH_GAMECUBE
 	static qboolean beam_logged;
+	static int beam_misses;
+	const model_t *m = CL_ModelHandle( pbeam->modelIndex );
 
-	if( !beam_logged )
+	if( !m )
+		beam_misses++;
+	else if( !beam_logged )
 	{
-		const model_t *m = CL_ModelHandle( pbeam->modelIndex );
-
 		beam_logged = true;
-		gEngfuncs.Con_Reportf( "Xash3D GameCube: first beam model=%s type=%d cache=%d\n",
-			m ? m->name : "?", m ? m->type : -1, ( m && m->cache.data ) ? 1 : 0 );
+		gEngfuncs.Con_Reportf( "Xash3D GameCube: first beam model=%s type=%d cache=%d after %d misses\n",
+			m->name, m->type, m->cache.data ? 1 : 0, beam_misses );
 	}
 #endif
 	vec3_t delta;

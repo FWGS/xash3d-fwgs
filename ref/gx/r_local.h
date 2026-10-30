@@ -728,7 +728,10 @@ static inline cl_entity_t *CL_GetEntityByIndex( int index )
 
 static inline model_t *CL_ModelHandle( int index )
 {
-	if( unlikely( index < 0 || index >= gp_cl->nummodels ))
+	/* Not nummodels: the menu route never registers the client model list,
+	 * so that count stays low while the engine fills models[] on demand, and
+	 * every model looked up by index here (lightning beams) was refused. */
+	if( unlikely( index < 0 || index >= MAX_MODELS ))
 		return NULL;
 
 	return gp_cl->models[index];
