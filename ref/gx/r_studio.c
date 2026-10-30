@@ -1770,6 +1770,24 @@ static void R_StudioSetupSkin( studiohdr_t *ptexturehdr, int index )
 	{
 		GL_Bind( XASH_TEXTURE0, ptexture[index].index );
 #if XASH_GAMECUBE
+		{
+			/* One line per model that reaches the screen with a real skin. */
+			static char seen[16][32];
+			int i;
+
+			for( i = 0; RI.currentmodel && i < 16; i++ )
+			{
+				if( !Q_strcmp( seen[i], RI.currentmodel->name + 7 ))
+					break;
+				if( !seen[i][0] )
+				{
+					Q_strncpy( seen[i], RI.currentmodel->name + 7, sizeof( seen[i] ));
+					gEngfuncs.Con_Reportf( "Xash3D GameCube: studio skinned %s tex=%d %s\n",
+						RI.currentmodel->name, ptexture[index].index, ptexture[index].name );
+					break;
+				}
+			}
+		}
 		R_GXStudioBindTexnum( (unsigned)ptexture[index].index );
 #endif
 	}

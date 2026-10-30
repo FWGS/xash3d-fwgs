@@ -305,7 +305,7 @@ static qboolean Mod_GCStudioNameAllowed( const char *name, qboolean *is_viewmode
 		"headcrab", "houndeye", "zombie",
 		"scientist01", "scientist02", "scientist03",
 		/* Menu New Game intro props (c0a0 / c0a0a forklifts). */
-		"forklift",
+		"forklift", "loader",
 		/* Tiny lean world-weapon stub for Flipper studio draw admit. */
 		"w_crowbar",
 		NULL
@@ -358,7 +358,8 @@ static qboolean Mod_GCAllowRealStudioLoad( const char *name, size_t filesize )
 	}
 	else if( gc_real_studio_npc >= max_npc )
 		return false;
-	if( filesize < sizeof( studiohdr_t ) || filesize > ( 220 * 1024 ))
+	/* The loader is 352 KiB with its embedded skins. */
+	if( filesize < sizeof( studiohdr_t ) || filesize > (( GC_MenuRunsServer() ? 400 : 220 ) * 1024 ))
 		return false;
 	if( gc_real_studio_bytes + filesize > max_bytes )
 		return false;

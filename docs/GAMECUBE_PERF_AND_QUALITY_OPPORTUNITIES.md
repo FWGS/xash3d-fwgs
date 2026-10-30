@@ -33,7 +33,7 @@ by steps. The world pass and brush entities took 11–18 ms per frame.
 | 3 | Client entity table 256 → 460 in the same memory | Tram and high edicts stop vanishing | **Done** |
 | 4 | Forklift model on c0a0 (disc mirror) | Retail content | **Done** |
 | 5 | Studio meshes as strips, colour cached per normal | c0a0 36 → 50 fps | **Done** |
-| 6 | Studio arena: per-map model sets, no reload leak, full forklift skins, loader, G-Man | Retail cast; stops the arena filling | Next |
+| 6 | Studio arena: per-map model sets, no reload leak, full forklift skins, loader, G-Man | Retail cast; stops the arena filling | **Done** |
 | 6b | Intermittent `GX DrawDone` waits of 8–25 ms | Removes run-to-run swings | Open, see below |
 | 7 | Mipmaps, then full-size textures above 128 | Sharper close up, less shimmer | Needs ~1 MB per map as RGB565; CMPR or arena placement to be decided |
 | 8 | Bilinear/atlas lightmap review, lightstyles via partial updates | Retail lighting | Planned |
@@ -86,16 +86,22 @@ Run-to-run noise: identical builds move individual maps by up to 20 ms because
 of the intermittent DrawDone wait (item 6), so single-map swings under that
 wait are not attributed to a change. Stage tables are compared instead.
 
-### Open: studio arena
+### Studio arena and the full cast (item 6)
 
-The 1 MiB studio arena is bump allocated and only resets when every model in
-it is freed, which does not happen during the ride. Barney is reloaded on later
-maps and each reload consumes it again: the ride ends at 1020 of 1024 KB, and the
-budget counter reads 676 of 640 KB. Missing as a result of the same limits:
-`models/loader.mdl` (352 KB, c0a0b–d, over the 220 KB per-file cap) and the
-c0a0d G-Man are not confirmed drawn, and the mirror strips the skins embedded in
-`forklift.mdl` (194 KB with them, 46 KB without). Needs per-map model sets
-with a reset at changelevel.
+The arena is released at each changelevel and each map loads its own set. Peak
+on the ride 925 KB of 1024, per map (it used to climb to 1020 and never free).
+The forklift keeps its embedded skins, and the loader (c0a0b–d) and G-Man (c0a0d)
+load; `monster_gman` had been inhibited. Each model logs `studio skinned` on
+its first skinned draw: scientist, barney, forklift, loader, gman.
+`Gibbed monster is thinking` 3273 → 0.
+
+c0a0c/d: 55 → 42 fps with the loader in view (p95 34 ms: the frame just misses
+vsync). Studio stage 3.6 ms; this is the added content, and the next target.
+Recording: `.ai/playtests/20261030-082412-menu-newgame-60ee7a182c.mp4`.
+
+Still inhibited on the menu route: `cycler` (one), `env_sprite`,
+`env_explosion`, `infodecal`, `speaker`, weapons/ammo/items. Retail gaps to
+restore before leaving the intro.
 
 ### Open: GX DrawDone waits
 

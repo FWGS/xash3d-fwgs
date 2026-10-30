@@ -932,6 +932,10 @@ GC_STUDIO_MODELS = (
 	"models/barney.mdl",
 	# c0a0's forklift: the plain heap read fails after the BSP (47 KiB).
 	"models/forklift.mdl",
+	"models/loader.mdl",
+	# c0a0d: the G-Man, skins in gmant.mdl.
+	"models/gman.mdl",
+	"models/gmant.mdl",
 	# G376: external GoldSrc skins (*t.mdl) for Flipper NPC texturing.
 	"models/scientistt.mdl",
 	"models/barneyt.mdl",
@@ -1256,7 +1260,9 @@ def inject_gc_studio_into_bootstrap(archive: "zipfile.ZipFile", data: Path) -> i
 		# Note: stem "scientist" itself ends with 't'; match base∈allowlist.
 		stem = Path(relative).stem.lower()
 		is_tex_companion = stem.endswith("t") and stem[:-1] in all_stems
-		payload = None if is_tex_companion else lean_studio_mesh_bytes(src)
+		# Props with their skins inside the model keep them.
+		keep_skins = stem in ("forklift", "loader")
+		payload = None if is_tex_companion or keep_skins else lean_studio_mesh_bytes(src)
 		if payload is None:
 			archive.write(src, arcname, compress_type=zipfile.ZIP_STORED)
 			if is_tex_companion:

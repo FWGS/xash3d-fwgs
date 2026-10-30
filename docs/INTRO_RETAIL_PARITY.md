@@ -27,6 +27,7 @@ announcer lines, 5/5 hops, no allocation failures, ladder 10/10.
 | Credit timing (c0a0) | start_titles 0.3 s → title_manager +6 → CR1..CR8 every 3 s | CR1..CR8 3.0 s apart | `HudText CRn effect=… at t` |
 | Changelevel | GoldSrc keeps the last frame with a LOADING plaque while the next map loads | Last frame held with "LOADING" and animated dots; same on the first New Game load | `loading overlay on/off`, recording frames at each hop |
 | Sky | Six-sided skybox from the map's skyname (default desert) wherever sky faces are | Same skybox as a camera-centred box behind the world (128×128 compressed sides, 48 KiB), reloaded when the sky name changes; maps without sky faces keep a solid clear colour. Of the intro maps only c0a0b has sky (2desert) | `sky 2desert loaded`, `sky faces=1 on maps/c0a0b.bsp`; canyon frames; one-frame flicker metric unchanged |
+| Cast | Scientists, Barneys, forklifts, loader, G-Man on c0a0d | All load with their skins; models load per map | `studio skinned` lines, `gmanlook` script |
 | A/V sync | — | Picture freeze and sound stop at each hop line up with the engine log within ~0.1 s | Recording vs log, docs/GAMECUBE_PLAY_DOLPHIN.md |
 
 ## Open
