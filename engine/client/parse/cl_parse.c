@@ -2427,12 +2427,6 @@ qboolean CL_ParseCommonHLMessage( sizebuf_t *msg, connprotocol_t proto, int svc_
 			Con_Printf( "Stufftext: %s%c", s, len && s[len-1] == '\n' ? '\0' : '\n' );
 		}
 
-#ifdef HACKS_RELATED_HLMODS
-		// disable Cry Of Fear antisave protection
-		if( !Q_strnicmp( s, "disconnect", 10 ) && cls.signon != SIGNONS )
-			break; // too early
-#endif
-
 		Cbuf_AddFilteredText( s );
 		break;
 	case svc_setangle:
