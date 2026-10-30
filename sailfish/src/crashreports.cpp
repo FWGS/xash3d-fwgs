@@ -193,13 +193,26 @@ QString CrashReports::mailUrl( const QString &name ) const
 {
 	QString body = tr( "Please describe in as much detail as possible what you were doing when the game crashed — every little thing helps us fix it!" ) + "\n\n\n" + report( name );
 
-	if( body.size() > MAIL_BODY_LIMIT )
-		body = body.left( MAIL_BODY_LIMIT ) + "\n[truncated]";
-
 	// QUrlQuery leaves + and other reserved characters as is, encode everything
+	QByteArray encoded = QUrl::toPercentEncoding( body );
+
+	// the limit is on the link, a character takes up to 9 bytes there
+	if( encoded.size() > MAIL_BODY_LIMIT )
+	{
+		const QByteArray marker = QUrl::toPercentEncoding( "\n[truncated]" );
+
+		while( encoded.size() + marker.size() > MAIL_BODY_LIMIT )
+		{
+			body.chop(( encoded.size() + marker.size() - MAIL_BODY_LIMIT ) / 9 + 1 );
+			encoded = QUrl::toPercentEncoding( body );
+		}
+
+		encoded += marker;
+	}
+
 	return QString( "mailto:" CRASH_EMAIL "?subject=%1&body=%2" )
 		.arg( QString::fromLatin1( QUrl::toPercentEncoding( "Xash3D FWGS crash report" )))
-		.arg( QString::fromLatin1( QUrl::toPercentEncoding( body )));
+		.arg( QString::fromLatin1( encoded ));
 }
 
 void CrashReports::remove( const QString &name )
