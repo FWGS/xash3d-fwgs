@@ -20,7 +20,6 @@ GNU General Public License for more details.
 #include <QSettings>
 #include <QTextStream>
 #include <QVariantMap>
-#include <build.h>
 #include "engine.h"
 #include "gamecover.h"
 #include "launcher.h"
@@ -33,15 +32,6 @@ static const char *const s_mobile_hacks_games[] =
 	"aom", "bdlands", "biglolly", "bshift", "caseclosed", "hl_urbicide", "induction",
 	"redempt", "secret", "sewer_beta", "tot", "valve", "vendetta",
 };
-
-// the engine's library suffix for this architecture
-#if XASH_ARM && XASH_64BIT
-#define CLIENT_LIBRARY "cl_dlls/client_arm64.so"
-#elif XASH_ARM
-#define CLIENT_LIBRARY "cl_dlls/client_armv7hf.so"
-#else
-#define CLIENT_LIBRARY ""
-#endif
 
 // gameinfo.txt takes priority over liblist.gam, like in the engine
 static void ReadGameInfo( const QDir &dir, QString &title, QString &icon )
@@ -204,8 +194,6 @@ void Launcher::refresh()
 		game["title"] = title.isEmpty() ? info.fileName() : title;
 		game["icon"] = icon_path;
 		game["downloaded"] = dir.exists( MEGABUILD_INFO_FILE );
-		// put there by the user, not by the downloader
-		game["libraries"] = *CLIENT_LIBRARY && !FindFileCaseInsensitive( dir, CLIENT_LIBRARY ).isEmpty();
 		m_games.append( game );
 	}
 
