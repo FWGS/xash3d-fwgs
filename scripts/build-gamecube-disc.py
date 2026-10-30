@@ -2355,6 +2355,11 @@ def main() -> None:
 		help="stage valve/gamecube.cfg with a newgame override for automated retail probes",
 	)
 	parser.add_argument(
+		"--play",
+		action="store_true",
+		help="stage gamecube.cfg retailnewgame: the menu New Game route with the real controller (for playing in Dolphin)",
+	)
+	parser.add_argument(
 		"--probe-menu-newgame",
 		action="store_true",
 		help="stage a retail menu boot that presses the built-in New Game item",
@@ -2610,6 +2615,13 @@ def main() -> None:
 				)
 				if args.probe_tas:
 					stage_probe_tas(staged_data, args.probe_tas, scripts_root=script_dir)
+			elif args.play:
+				play_lines = ["retailnewgame"]
+				if os.environ.get("XASH_GC_PROBE_PROFILE") == "1":
+					play_lines.append("profile")
+				(staged_data / "gamecube.cfg").write_text(
+					"\n".join(play_lines) + "\n", encoding="ascii"
+				)
 			elif args.probe_menu_newgame:
 				menu_lines = ["menunewgame"]
 				if args.probe_dumpframes:

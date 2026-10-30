@@ -61,16 +61,17 @@ typedef struct gc_button_map_s
 
 static const gc_button_map_t gc_buttons[] =
 {
-	{ PAD_BUTTON_A,     K_B_BUTTON,     "A",     "use/confirm" },
-	{ PAD_BUTTON_B,     K_A_BUTTON,     "B",     "melee attack" },
-	{ PAD_BUTTON_X,     K_Y_BUTTON,     "X",     "strafe" },
-	/* Use the canonical jump key so a stale X_BUTTON config cannot turn the
-	 * physical jump button into reload or another user binding. */
-	{ PAD_BUTTON_Y,     K_SPACE,        "Y",     "jump" },
+	/* Physical buttons map to their own gamepad keys: the menus confirm on
+	 * K_A_BUTTON and go back on K_B_BUTTON. A was mapped to K_B_BUTTON, so
+	 * a player's A backed out of the menu and B confirmed. */
+	{ PAD_BUTTON_A,     K_A_BUTTON,     "A",     "confirm / jump" },
+	{ PAD_BUTTON_B,     K_B_BUTTON,     "B",     "back / use" },
+	{ PAD_BUTTON_X,     K_X_BUTTON,     "X",     "reload" },
+	{ PAD_BUTTON_Y,     K_Y_BUTTON,     "Y",     "flashlight" },
 	{ PAD_BUTTON_START, K_START_BUTTON, "Start", "pause/menu" },
-	{ PAD_TRIGGER_Z,    K_Z_BUTTON,     "Z",     "reload" },
-	{ PAD_TRIGGER_L,    K_L1_BUTTON,    "L",     "duck" },
-	{ PAD_TRIGGER_R,    K_R1_BUTTON,    "R",     "attack" },
+	{ PAD_TRIGGER_Z,    K_Z_BUTTON,     "Z",     "duck" },
+	{ PAD_TRIGGER_L,    K_L1_BUTTON,    "L",     "alt fire" },
+	{ PAD_TRIGGER_R,    K_R1_BUTTON,    "R",     "fire" },
 	{ PAD_BUTTON_UP,    K_DPAD_UP,      "D-Up",  "previous weapon" },
 	{ PAD_BUTTON_DOWN,  K_DPAD_DOWN,    "D-Down","next weapon" },
 	{ PAD_BUTTON_LEFT,  K_DPAD_LEFT,    "D-Left","previous weapon" },
@@ -106,20 +107,19 @@ typedef struct gc_default_bind_s
 
 static const gc_default_bind_t gc_default_binds[] =
 {
-	{ K_A_BUTTON, "slot1; +attack" },
+	/* docs/GAMECUBE_CONTROLS.md; override in valve/gamecube_pad.cfg. */
+	{ K_A_BUTTON, "+jump" },
 	{ K_B_BUTTON, "+use" },
-	{ K_X_BUTTON, "+jump" },
-	{ K_Y_BUTTON, "+strafe" },
+	{ K_X_BUTTON, "+reload" },
+	{ K_Y_BUTTON, "impulse 100" },
 	{ K_START_BUTTON, "cancelselect" },
 	{ K_DPAD_UP, "invprev" },
 	{ K_DPAD_DOWN, "invnext" },
-	{ K_DPAD_LEFT, "invprev" },
+	{ K_DPAD_LEFT, "lastinv" },
 	{ K_DPAD_RIGHT, "invnext" },
-	{ K_L1_BUTTON, "+duck" },
+	{ K_L1_BUTTON, "+attack2" },
 	{ K_R1_BUTTON, "+attack" },
-	{ K_JOY1, "+speed" },
-	{ K_JOY2, "+attack2" },
-	{ K_Z_BUTTON, "+reload" },
+	{ K_Z_BUTTON, "+duck" },
 };
 
 static qboolean GC_IsGameCubeControllerType( u32 type )
@@ -190,6 +190,15 @@ static short GC_StickToShort( s8 stick )
 {
 	stick = GC_ApplyStickDeadzone( stick );
 	return (short)bound( -32768, (int)(stick * (SHRT_MAX / GC_STICK_RANGE)), 32767 );
+}
+
+/* C-stick look: quadratic response, full speed at full tilt but fine aim
+ * near the centre (a linear stick overshot small corrections). */
+static short GC_LookStickToShort( s8 stick )
+{
+	const float v = bound( -1.0f, (float)GC_ApplyStickDeadzone( stick ) / GC_STICK_RANGE, 1.0f );
+
+	return (short)bound( -32768, (int)( v * fabsf( v ) * SHRT_MAX ), 32767 );
 }
 
 static short GC_TriggerToShort( u8 trigger )
@@ -292,15 +301,16 @@ static void GC_ApplyDefaultBindings( void )
 	for( size_t i = 0; i < ARRAYSIZE( gc_default_binds ); i++ )
 	{
 		const gc_default_bind_t *bind = &gc_default_binds[i];
-		const char *current = Key_GetBinding( bind->key );
 
-		if( !COM_StringEmptyOrNULL( current ))
-			continue;
-
+		/* Always: a config.cfg from an older layout must not leave A on
+		 * back or attack. gamecube_pad.cfg (below) is the place to rebind. */
 		Key_SetBinding( bind->key, bind->binding );
 		applied++;
 	}
 
+	/* Look speed at full C-stick tilt, in degrees per second; a negative
+	 * joy_pitch inverts the Y axis. Then the player's own overrides. */
+	Cbuf_AddText( "joy_yaw 160\njoy_pitch 120\nexec gamecube_pad.cfg\n" );
 	gc_bindings_applied = true;
 	Con_Reportf( "Xash3D GameCube: default controller binds ready port=%d applied=%zu\n",
 		GC_HasForcedPreferredPort() ? GC_PreferredPort() + 1 : 1, applied );
@@ -324,6 +334,9 @@ static void GC_UpdateButtons( u16 held )
 					host.framecount, host.realtime );
 			}
 #endif
+			if( Sys_CheckParm( "-gcprofile" ))
+				Con_Reportf( "Xash3D GameCube: pad press %s -> %s key_dest=%d\n",
+					btn->gc_name, Key_KeynumToString( btn->key ), cls.key_dest );
 			Key_Event( btn->key, true );
 		}
 
@@ -584,14 +597,14 @@ static u16 GC_ProbeSyntheticHeldButtons( void )
 				return 0;
 			gc_probe_action_stage = 3;
 			Con_Reportf( "Xash3D GameCube: probe gameplay action jump\n" );
-			return PAD_BUTTON_Y;
+			return PAD_BUTTON_A;
 		case 3:
 			gc_probe_action_stage = 4;
 			return 0;
 		case 4:
 			gc_probe_action_stage = 5;
 			Con_Reportf( "Xash3D GameCube: probe gameplay action use\n" );
-			return PAD_BUTTON_A;
+			return PAD_BUTTON_B;
 		case 5:
 			gc_probe_action_stage = 6;
 			if( !gc_probe_action_complete_logged )
@@ -639,7 +652,7 @@ static u16 GC_ProbeSyntheticHeldButtons( void )
 			gc_probe_action_time = host.realtime;
 			gc_probe_action_frame = host.framecount;
 			Con_Reportf( "Xash3D GameCube: probe menu New Game confirm\n" );
-			return PAD_BUTTON_B;
+			return PAD_BUTTON_A;
 		}
 		if( gc_probe_action_stage == 1
 			&& GC_ProbeMenuStageReady( GC_PROBE_MENU_STEP_DELAY, GC_PROBE_MENU_STEP_FRAMES ))
@@ -657,7 +670,7 @@ static u16 GC_ProbeSyntheticHeldButtons( void )
 			gc_probe_action_time = host.realtime;
 			gc_probe_action_frame = host.framecount;
 			Con_Reportf( "Xash3D GameCube: probe difficulty menu confirm selection=1\n" );
-			return PAD_BUTTON_B;
+			return PAD_BUTTON_A;
 		}
 		if( gc_probe_action_stage == 3
 			&& GC_ProbeMenuStageReady( GC_PROBE_MENU_STEP_DELAY, GC_PROBE_MENU_STEP_FRAMES ))
@@ -725,7 +738,7 @@ static u16 GC_ProbeSyntheticHeldButtons( void )
 		gc_probe_action_time = host.realtime;
 		gc_probe_action_frame = host.framecount;
 		Con_Reportf( "Xash3D GameCube: probe menu action confirm\n" );
-		return PAD_BUTTON_B;
+		return PAD_BUTTON_A;
 	case 3:
 		if( !GC_ProbeMenuStageReady( GC_PROBE_MENU_STEP_DELAY, GC_PROBE_MENU_STEP_FRAMES ))
 			return 0;
@@ -741,7 +754,7 @@ static u16 GC_ProbeSyntheticHeldButtons( void )
 		gc_probe_action_time = host.realtime;
 		gc_probe_action_frame = host.framecount;
 		Con_Reportf( "Xash3D GameCube: probe menu action back\n" );
-		return PAD_BUTTON_A;
+		return PAD_BUTTON_B;
 	case 5:
 		if( !GC_ProbeMenuStageReady( GC_PROBE_MENU_STEP_DELAY, GC_PROBE_MENU_STEP_FRAMES ))
 			return 0;
@@ -813,6 +826,36 @@ static void GC_UpdateProbeSyntheticAxes( void )
 	GC_UpdateAxis( JOY_AXIS_PITCH, pitch, &prev_pitch );
 }
 
+/* PAD_ScanPads() performs the frame's PAD_Read (and clamps it, and resets
+ * unplugged channels). A second PAD_Read right after it found the SI
+ * response already consumed and returned PAD_ERR_TRANSFER for every port,
+ * so a real controller was never seen as ready ("no GameCube controller
+ * detected"). Take the scanned state instead. */
+static void GC_ReadPads( void )
+{
+	const u32 connected_mask = PAD_ScanPads();
+	int port;
+
+	for( port = 0; port < PAD_CHANMAX; port++ )
+	{
+		memset( &gc_pad[port], 0, sizeof( gc_pad[port] ));
+		/* libogc's PAD_ScanPads returns ( 1 << chan ) per connected port. */
+		if( !( connected_mask & ( 1u << port )))
+		{
+			gc_pad[port].err = PAD_ERR_NO_CONTROLLER;
+			continue;
+		}
+		gc_pad[port].err = PAD_ERR_NONE;
+		gc_pad[port].button = PAD_ButtonsHeld( port );
+		gc_pad[port].stickX = PAD_StickX( port );
+		gc_pad[port].stickY = PAD_StickY( port );
+		gc_pad[port].substickX = PAD_SubStickX( port );
+		gc_pad[port].substickY = PAD_SubStickY( port );
+		gc_pad[port].triggerL = PAD_TriggerL( port );
+		gc_pad[port].triggerR = PAD_TriggerR( port );
+	}
+}
+
 void Platform_RunEvents( void )
 {
 	static qboolean gc_postsignon_diag;
@@ -821,9 +864,7 @@ void Platform_RunEvents( void )
 	qboolean connected;
 	u32 type;
 
-	PAD_ScanPads();
-	PAD_Read( gc_pad );
-	PAD_Clamp( gc_pad );
+	GC_ReadPads();
 	GC_ApplyDefaultBindings();
 
 	/* Swiss HW backup: Z+Start returns to loader (writes FAT shutdown marker).
@@ -961,10 +1002,27 @@ void Platform_RunEvents( void )
 		gc_input_logged = true;
 	}
 
+	/* -gcprofile: raw sticks and the resulting view once a second. */
+	{
+		static int profile = -1;
+		static double next_log;
+
+		if( profile < 0 )
+			profile = Sys_CheckParm( "-gcprofile" ) ? 1 : 0;
+		if( profile && host.realtime >= next_log )
+		{
+			next_log = host.realtime + 1.0;
+			Con_Reportf( "Xash3D GameCube: pad port=%d buttons=0x%04x main=%d,%d c=%d,%d lt=%d rt=%d view=%.1f,%.1f org=%.0f,%.0f,%.0f move=%.0f,%.0f st=%d key_dest=%d\n",
+				port + 1, held, gc_pad[port].stickX, gc_pad[port].stickY, gc_pad[port].substickX, gc_pad[port].substickY,
+				gc_pad[port].triggerL, gc_pad[port].triggerR, cl.viewangles[PITCH], cl.viewangles[YAW],
+				cl.simorg[0], cl.simorg[1], cl.simorg[2], cl.cmd.forwardmove, cl.cmd.sidemove,
+				cls.state, cls.key_dest );
+		}
+	}
 	GC_UpdateAxis( JOY_AXIS_SIDE, GC_StickToShort( gc_pad[port].stickX ), &prev_side );
 	GC_UpdateAxis( JOY_AXIS_FWD, GC_StickToShort( -gc_pad[port].stickY ), &prev_fwd );
-	GC_UpdateAxis( JOY_AXIS_YAW, GC_StickToShort( gc_pad[port].substickX ), &prev_yaw );
-	GC_UpdateAxis( JOY_AXIS_PITCH, GC_StickToShort( -gc_pad[port].substickY ), &prev_pitch );
+	GC_UpdateAxis( JOY_AXIS_YAW, GC_LookStickToShort( gc_pad[port].substickX ), &prev_yaw );
+	GC_UpdateAxis( JOY_AXIS_PITCH, GC_LookStickToShort( -gc_pad[port].substickY ), &prev_pitch );
 	GC_UpdateAxis( JOY_AXIS_LT, GC_TriggerToShort( gc_pad[port].triggerL ), &prev_lt );
 	GC_UpdateAxis( JOY_AXIS_RT, GC_TriggerToShort( gc_pad[port].triggerR ), &prev_rt );
 }
@@ -1013,9 +1071,7 @@ int Platform_JoyInit( void )
 		/* Dolphin and cold hardware can need several SI polls before PAD_ERR_NONE. */
 		for( attempt = 0; attempt < 120; attempt++ )
 		{
-			PAD_ScanPads();
-			PAD_Read( gc_pad );
-			PAD_Clamp( gc_pad );
+			GC_ReadPads();
 			port = GC_FindActivePort();
 			if( port >= 0 )
 			{
@@ -1079,13 +1135,16 @@ qboolean GC_FillNewGameMoveUsercmd( usercmd_t *cmd, const float *cur_angles )
 	if( port >= 0 && port < PAD_CHANMAX )
 		held = gc_pad[port].button;
 	/* Lean phys reads pev->button from this cmd (no SV_RunCmd). Map pad. */
+	/* Same layout as the full route (docs/GAMECUBE_CONTROLS.md). */
 	if( held & PAD_TRIGGER_R )
 		cmd->buttons |= IN_ATTACK;
-	if( held & PAD_BUTTON_Y )
-		cmd->buttons |= IN_JUMP;
-	if( held & PAD_BUTTON_A )
-		cmd->buttons |= IN_USE;
 	if( held & PAD_TRIGGER_L )
+		cmd->buttons |= IN_ATTACK2;
+	if( held & PAD_BUTTON_A )
+		cmd->buttons |= IN_JUMP;
+	if( held & PAD_BUTTON_B )
+		cmd->buttons |= IN_USE;
+	if( held & PAD_TRIGGER_Z )
 		cmd->buttons |= IN_DUCK;
 
 	if( gc_probe_synthetic || !gc_connected )

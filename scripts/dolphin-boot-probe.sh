@@ -42,7 +42,7 @@ PREBUILT_ISO="${1:-${DOLPHIN_PREBUILT_ISO:-}}"
 if [[ -n "$PREBUILT_ISO" && "$PREBUILT_ISO" != /* ]]; then
 	PREBUILT_ISO="$ROOT/$PREBUILT_ISO"
 fi
-USER_DIR="$ROOT/$LOG_DIR/dolphin-user"
+USER_DIR="${DOLPHIN_USER_DIR:-$ROOT/$LOG_DIR/dolphin-user}"
 DOLPHIN_RETAIL="${DOLPHIN_RETAIL:-0}"
 DOLPHIN_NEWGAME="${DOLPHIN_NEWGAME:-0}"
 if (( DOLPHIN_NEWGAME )); then
@@ -201,6 +201,43 @@ SkipDuplicateXFBs = False
 ImmediateXFBEnable = False
 EOF
 	echo "==> DumpFrames GFX DisableCopyToVRAM=${DUMP_COPY_TO_VRAM} (${DUMP_COPY_NOTE})"
+fi
+# DOLPHIN_PAD_PIPE=1: map GameCube port 1 to a Dolphin named-pipe device
+# ($USER_DIR/Pipes/gcpad) so a driver script can send real SI pad packets
+# (PRESS A / SET MAIN x y / SET C x y) instead of the engine's synthetic pad.
+if [[ "${DOLPHIN_PAD_PIPE:-0}" == "1" ]]; then
+	# The FIFO needs a POSIX filesystem (the project drive is not one):
+	# set DOLPHIN_USER_DIR to a tmpfs path for pipe runs.
+	mkdir -p "$USER_DIR/Pipes"
+	rm -f "$USER_DIR/Pipes/gcpad"
+	mkfifo "$USER_DIR/Pipes/gcpad" || { echo "error: cannot create pad FIFO under $USER_DIR (set DOLPHIN_USER_DIR to a tmpfs path)" >&2; exit 1; }
+	cat > "$USER_DIR/Config/GCPadNew.ini" <<'EOF'
+[GCPad1]
+Device = Pipe/0/gcpad
+Buttons/A = `Button A`
+Buttons/B = `Button B`
+Buttons/X = `Button X`
+Buttons/Y = `Button Y`
+Buttons/Z = `Button Z`
+Buttons/Start = `Button START`
+Main Stick/Up = `Axis MAIN Y -`
+Main Stick/Down = `Axis MAIN Y +`
+Main Stick/Left = `Axis MAIN X -`
+Main Stick/Right = `Axis MAIN X +`
+C-Stick/Up = `Axis C Y -`
+C-Stick/Down = `Axis C Y +`
+C-Stick/Left = `Axis C X -`
+C-Stick/Right = `Axis C X +`
+Triggers/L = `Button L`
+Triggers/R = `Button R`
+D-Pad/Up = `Button D_UP`
+D-Pad/Down = `Button D_DOWN`
+D-Pad/Left = `Button D_LEFT`
+D-Pad/Right = `Button D_RIGHT`
+EOF
+	# The render window is not focused during automated runs.
+	printf '[Input]\nBackgroundInput = True\n' >> "$USER_DIR/Config/Dolphin.ini"
+	echo "==> GameCube port 1 on Dolphin pipe $USER_DIR/Pipes/gcpad"
 fi
 cat > "$USER_DIR/Config/Logger.ini" <<'EOF'
 [Logs]
