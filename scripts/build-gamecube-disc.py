@@ -2733,6 +2733,8 @@ def main() -> None:
 					stage_probe_tas(staged_data, args.probe_tas, scripts_root=script_dir)
 			elif args.play:
 				play_lines = ["retailnewgame"]
+				if os.environ.get("XASH_GC_PROBE_AUTOHOP") == "1":
+					play_lines.append("autohop")
 				if os.environ.get("XASH_GC_PROBE_PROFILE") == "1":
 					play_lines.append("profile")
 				(staged_data / "gamecube.cfg").write_text(

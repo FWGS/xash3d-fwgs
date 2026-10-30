@@ -829,6 +829,7 @@ static qboolean gc_memreport_configured;
 static qboolean gc_profile_configured;
 static qboolean gc_nolivepvs_configured;
 static qboolean gc_nonativetex_configured;
+static qboolean gc_autohop_configured;
 
 static void GCube_LoadDiscBootOverrides( void )
 {
@@ -861,6 +862,7 @@ static void GCube_LoadDiscBootOverrides( void )
 	gc_profile_configured = false;
 	gc_nolivepvs_configured = false;
 	gc_nonativetex_configured = false;
+	gc_autohop_configured = false;
 	gc_phase_test[0] = '\0';
 	gc_changelevel_map[0] = '\0';
 	gc_landmark_name[0] = '\0';
@@ -918,6 +920,13 @@ static void GCube_LoadDiscBootOverrides( void )
 		{
 			gc_profile_configured = true;
 			SYS_Report( "Xash3D GameCube: disc boot override profile\n" );
+			continue;
+		}
+
+		if( !Q_strnicmp( cursor, "autohop", 7 ))
+		{
+			gc_autohop_configured = true;
+			SYS_Report( "Xash3D GameCube: disc boot override autohop\n" );
 			continue;
 		}
 
@@ -1444,6 +1453,8 @@ int GCube_GetArgv( int in_argc, char **in_argv, char ***out_argv )
 		gc_argv[fake_argc++] = "-gcnolivepvs";
 	if( gc_nonativetex_configured )
 		gc_argv[fake_argc++] = "-gcnonativetex";
+	if( gc_autohop_configured )
+		gc_argv[fake_argc++] = "-gcautohop";
 	gc_argv[fake_argc++] = "-width";
 	/* Tip-safe soft/internal FB. Flipper EFB/XFB stay native 640×480 via VI. */
 	gc_argv[fake_argc++] = "320";
