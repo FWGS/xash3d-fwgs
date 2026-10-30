@@ -73,7 +73,8 @@ static QSize TGASize( const uchar *header )
 }
 
 // Qt has no TGA plugin on Sailfish, menu backgrounds are uncompressed or RLE true color images
-static QImage LoadTGA( const QString &path )
+// the engine draws menu backgrounds opaque, only icons need alpha
+static QImage LoadTGA( const QString &path, bool keep_alpha )
 {
 	QFile file( path );
 
@@ -97,7 +98,7 @@ static QImage LoadTGA( const QString &path )
 	const int bytes = header[16] / 8;
 	const bool top_down = header[17] & 0x20;
 	// 32 bit images often have garbage there when the descriptor doesn't count alpha bits
-	const bool alpha = bytes == 4 && ( header[17] & 0x0f ) == 8;
+	const bool alpha = keep_alpha && bytes == 4 && ( header[17] & 0x0f ) == 8;
 	const uchar *src = header + 18 + header[0];
 	const uchar *end = header + data.size();
 	const int count = width * height;
@@ -188,7 +189,7 @@ static QImage ComposeFromLayout( const QDir &game, const QString &layout_path )
 		if( i + 3 >= tokens.size( ) || canvas.isNull( ))
 			break;
 
-		const QImage tile = LoadTGA( FindFileCaseInsensitive( game, tokens[i] ));
+		const QImage tile = LoadTGA( FindFileCaseInsensitive( game, tokens[i] ), false );
 
 		if( !tile.isNull( ))
 		{
@@ -222,7 +223,7 @@ static QImage ComposeFromTiles( const QDir &game )
 		for( char column = 'a'; column <= 'd'; column++ )
 		{
 			const QString name = QString( "resource/background/800_%1_%2_loading.tga" ).arg( row ).arg( column );
-			const QImage tile = LoadTGA( FindFileCaseInsensitive( game, name ));
+			const QImage tile = LoadTGA( FindFileCaseInsensitive( game, name ), false );
 
 			if( tile.isNull( ))
 			{
@@ -270,7 +271,7 @@ QImage GameCoverProvider::requestImage( const QString &id, QSize *size, const QS
 static QImage LoadIcon( const QString &path )
 {
 	if( path.endsWith( ".tga", Qt::CaseInsensitive ))
-		return LoadTGA( path );
+		return LoadTGA( path, true );
 
 	QImageReader reader( path );
 	QImage image;
