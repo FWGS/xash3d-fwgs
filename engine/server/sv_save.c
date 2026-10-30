@@ -2289,9 +2289,18 @@ static int CreateEntityTransitionList( SAVERESTOREDATA *pSaveData, int levelMask
 				if( svgame.dllFuncs.pfnRestore( pent, pSaveData, 1 ) > 0 )
 				{
 					movedCount++;
+#if XASH_GAMECUBE
+					Con_Reportf( "Xash3D GameCube: global %s (%s) moved to this level\n",
+						SV_GetString( tmpVars.globalname ), SV_GetString( pTable->classname ));
+#endif
 				}
 				else
 				{
+#if XASH_GAMECUBE
+					Con_Reportf( "Xash3D GameCube: global %s (%s) merged into %s\n",
+						SV_GetString( tmpVars.globalname ), SV_GetString( pTable->classname ),
+						SV_IsValidEdict( pNewEnt ) ? "local copy" : "nothing" );
+#endif
 					if( SV_IsValidEdict( pNewEnt )) // update the table so decals can find parent entity
 						pTable->pent = pNewEnt;
 					SetBits( pent->v.flags, FL_KILLME );
@@ -2476,6 +2485,7 @@ void SV_ChangeLevel( qboolean loadfromsavedgame, const char *mapname, const char
 #if XASH_GAMECUBE
 	Con_Reportf( "Xash3D GameCube: SV_ChangeLevel begin map=%s start=%s loadsave=%d\n",
 		mapname ? mapname : "?", start ? start : "(none)", loadfromsavedgame ? 1 : 0 );
+	SV_GCReportHopRider( "before transition" );
 	/* G92: drop New Game PVS pins before the world model is unloaded. */
 	GC_ResetNewGameWorldForChangelevel();
 	Con_Reportf( "Xash3D GameCube: SV_ChangeLevel after teardown\n" );
@@ -2569,6 +2579,9 @@ void SV_ChangeLevel( qboolean loadfromsavedgame, const char *mapname, const char
 		if( !LoadGameState( level, true ))
 			SV_SpawnEntities( level );
 		LoadAdjacentEnts( oldlevel, startspot );
+#if XASH_GAMECUBE
+		SV_GCReportHopRider( "after transition" );
+#endif
 
 		if( sv_newunit.value )
 			ClearSaveDir();
@@ -2584,6 +2597,81 @@ void SV_ChangeLevel( qboolean loadfromsavedgame, const char *mapname, const char
 }
 
 #if XASH_GAMECUBE
+/*
+=============
+SV_GCReportHopRider
+
+Per-hop check for the intro ride: the tram (global "intro_train") must
+arrive in the new level and the player must still be riding it.
+=============
+*/
+static double gc_hop_check_due[2];
+
+/* Re-check 3 s and 10 s into the new level: still riding, still moving. */
+void SV_GCHopRiderTick( void )
+{
+	int i;
+
+	for( i = 0; i < 2; i++ )
+	{
+		if( gc_hop_check_due[i] > 0.0 && sv.time >= gc_hop_check_due[i] )
+		{
+			gc_hop_check_due[i] = 0.0;
+			SV_GCReportHopRider( i ? "+10s" : "+3s" );
+		}
+	}
+}
+
+void SV_GCReportHopRider( const char *when )
+{
+	edict_t *tram = NULL, *player;
+	int e;
+
+	for( e = svs.maxclients + 1; e < svgame.numEntities; e++ )
+	{
+		edict_t *ent = SV_EdictNum( e );
+
+		if( SV_IsValidEdict( ent ) && ent->v.globalname
+			&& !Q_stricmp( SV_GetString( ent->v.globalname ), "intro_train" ))
+		{
+			tram = ent;
+			break;
+		}
+	}
+	if( !tram )
+	{
+		Con_Reportf( "Xash3D GameCube: hop check %s map=%s: no intro_train\n", when, sv.name );
+		return;
+	}
+	if( !Q_strcmp( when, "after transition" ))
+	{
+		gc_hop_check_due[0] = sv.time + 3.0;
+		gc_hop_check_due[1] = sv.time + 10.0;
+	}
+	player = svs.maxclients >= 1 ? SV_EdictNum( 1 ) : NULL;
+	if( !SV_IsValidEdict( player ))
+		player = NULL;
+	{
+		vec3_t rel = { 0, 0, 0 };
+		qboolean inside = false;
+
+		if( player )
+		{
+			VectorSubtract( player->v.origin, tram->v.origin, rel );
+			inside = rel[0] >= tram->v.mins[0] && rel[0] <= tram->v.maxs[0]
+				&& rel[1] >= tram->v.mins[1] && rel[1] <= tram->v.maxs[1]
+				&& rel[2] >= tram->v.mins[2] && rel[2] <= tram->v.maxs[2] + 72.0f;
+		}
+		Con_Reportf( "Xash3D GameCube: hop check %s map=%s tram=%d %s org=%.0f %.0f %.0f speed=%.0f "
+			"nodraw=%d solid=%d player rel=%.0f %.0f %.0f inside=%d on_tram=%d\n",
+			when, sv.name, NUM_FOR_EDICT( tram ), SV_GetString( tram->v.model ),
+			tram->v.origin[0], tram->v.origin[1], tram->v.origin[2], tram->v.speed,
+			FBitSet( tram->v.effects, EF_NODRAW ) ? 1 : 0, tram->v.solid,
+			rel[0], rel[1], rel[2], inside ? 1 : 0,
+			player && player->v.groundentity == tram ? 1 : 0 );
+	}
+}
+
 #define GC_G94_SAVE_MAGIC		"G94SAVE1"
 #define GC_G100_LAND_MAGIC		"G100LAND"
 

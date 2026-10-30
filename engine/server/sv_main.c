@@ -614,6 +614,11 @@ static qboolean SV_RunGameFrame( void )
 	if( !sv.simulating )
 		return true;
 
+#if XASH_GAMECUBE
+	if( GC_MenuRunsServer( ))
+		SV_GCHopRiderTick();
+#endif
+
 	if( sv_fps.value != 0.0f )
 	{
 		double		fps = (1.0 / (double)( sv_fps.value - 0.01f )); // FP issues

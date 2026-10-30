@@ -635,6 +635,8 @@ qboolean SV_GCPrimeDirectMapPlayer( void );
 edict_t *SV_GCFindIntroTrain( void );
 void GC_LeanLandmarkProbePlantAmmo( void );
 void GC_LeanLandmarkRestore( void );
+void SV_GCReportHopRider( const char *when );
+void SV_GCHopRiderTick( void );
 void GC_LeanLandmarkGrantWeapons( void );
 void GC_LeanLandmarkGrantWeaponsAfterPutInServer( void );
 void GC_LeanEnsureWeaponCombatReady( edict_t *player );
