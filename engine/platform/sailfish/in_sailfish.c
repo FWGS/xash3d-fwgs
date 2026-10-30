@@ -24,6 +24,9 @@ GNU General Public License for more details.
 #define MALIIT_SERVER_IFACE "com.meego.inputmethod.uiserver1"
 #define MALIIT_CONTEXT_PATH "/com/meego/inputmethod/inputcontext"
 
+// the address is asked on the engine thread, don't freeze the game for D-Bus' default 25 seconds
+#define MALIIT_ADDRESS_TIMEOUT_MS 2000
+
 // QEvent::Type
 #define QT_KEY_PRESS 6
 
@@ -236,7 +239,7 @@ static qboolean Maliit_Connect( void )
 	g_dbus_connection_set_exit_on_close( session, FALSE );
 
 	GVariant *reply = g_dbus_connection_call_sync( session, "org.maliit.server", "/org/maliit/server/address", "org.freedesktop.DBus.Properties", "Get",
-		g_variant_new( "(ss)", "org.maliit.Server.Address", "address" ), G_VARIANT_TYPE( "(v)" ), G_DBUS_CALL_FLAGS_NONE, -1, NULL, &error );
+		g_variant_new( "(ss)", "org.maliit.Server.Address", "address" ), G_VARIANT_TYPE( "(v)" ), G_DBUS_CALL_FLAGS_NONE, MALIIT_ADDRESS_TIMEOUT_MS, NULL, &error );
 
 	g_object_unref( session );
 
