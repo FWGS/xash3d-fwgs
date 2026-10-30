@@ -231,6 +231,28 @@ static qboolean R_StudioComputeBBox( vec3_t bbox[8] )
 			VectorCopy( p2, bbox[i] );
 	}
 
+#if XASH_GAMECUBE
+	/* Frustum test as the stock renderers do it (R_CullModel is a stub here,
+	 * so every model in the PVS was skinned and drawn, even behind the view).
+	 * A sphere around the box, with a margin for animation past it. */
+	if( !bbox && GC_UseGxWorldDraw( ))
+	{
+		const float tx = tanf( ( RI.rvp.fov_x > 1.0f ? RI.rvp.fov_x : 90.0f ) * (float)M_PI_F / 360.0f );
+		const float ty = tanf( ( RI.rvp.fov_y > 1.0f ? RI.rvp.fov_y : 90.0f ) * (float)M_PI_F / 360.0f );
+		vec3_t center, half, d;
+		float radius, depth;
+
+		VectorAverage( studio_mins, studio_maxs, center );
+		VectorSubtract( studio_maxs, center, half );
+		radius = VectorLength( half ) + 16.0f;
+		VectorSubtract( center, RI.rvp.vieworigin, d );
+		depth = DotProduct( d, RI.vforward );
+		if( depth < -radius
+			|| fabsf( DotProduct( d, RI.vright )) - depth * tx > radius * sqrtf( 1.0f + tx * tx )
+			|| fabsf( DotProduct( d, RI.vup )) - depth * ty > radius * sqrtf( 1.0f + ty * ty ))
+			return false;
+	}
+#endif
 	if( !bbox && R_CullModel( e, studio_mins, studio_maxs ))
 		return false;  // model culled
 	return true;           // visible
