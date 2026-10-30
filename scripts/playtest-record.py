@@ -126,7 +126,7 @@ def record(args):
 	base = os.path.join(OUT_DIR, f"{stamp}-{args.route}-{sha}")
 	mkv = base + ".mkv"
 	ff = subprocess.Popen(["ffmpeg", "-hide_banner", "-loglevel", "error", "-y",
-		"-thread_queue_size", "512", "-f", "x11grab", "-framerate", str(args.fps), "-window_id", win, "-i", os.environ.get("DISPLAY", ":0"),
+		"-thread_queue_size", "512", "-f", "x11grab", "-draw_mouse", "0", "-framerate", str(args.fps), "-window_id", win, "-i", os.environ.get("DISPLAY", ":0"),
 		"-thread_queue_size", "512", "-f", "pulse", "-i", f"{args.sink}.monitor",
 		"-c:v", "libx264", "-preset", "veryfast", "-crf", "30", "-pix_fmt", "yuv420p", "-g", str(args.fps * 2),
 		"-c:a", "aac", "-b:a", "96k", "-f", "matroska", mkv],
