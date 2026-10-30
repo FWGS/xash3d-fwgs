@@ -46,5 +46,6 @@ signals:
 
 private:
 	QString historyDir() const;
+	QString composeReport( const QString &name, int log_lines ) const;
 	void prune() const;
 };

@@ -168,6 +168,11 @@ QString CrashReports::takePending()
 
 QString CrashReports::report( const QString &name ) const
 {
+	return composeReport( name, ENGINE_LOG_LINES );
+}
+
+QString CrashReports::composeReport( const QString &name, int log_lines ) const
+{
 	if( !IsValidName( name ))
 		return QString();
 
@@ -183,20 +188,31 @@ QString CrashReports::report( const QString &name ) const
 	if( !launch.isEmpty( ))
 		text += "\n--- Launch arguments ---\n" + launch;
 
-	if( !enginelog.isEmpty( ))
-		text += "\n--- engine.log, last lines ---\n" + enginelog.mid( qMax( 0, enginelog.size() - ENGINE_LOG_LINES )).join( '\n' ) + '\n';
+	if( !enginelog.isEmpty() && log_lines > 0 )
+		text += "\n--- engine.log, last lines ---\n" + enginelog.mid( qMax( 0, enginelog.size() - log_lines )).join( '\n' ) + '\n';
 
 	return text;
 }
 
 QString CrashReports::mailUrl( const QString &name ) const
 {
-	QString body = tr( "Please describe in as much detail as possible what you were doing when the game crashed — every little thing helps us fix it!" ) + "\n\n\n" + report( name );
+	const QString prompt = tr( "Please describe in as much detail as possible what you were doing when the game crashed — every little thing helps us fix it!" ) + "\n\n\n";
+	QString body;
+	QByteArray encoded;
 
-	// QUrlQuery leaves + and other reserved characters as is, encode everything
-	QByteArray encoded = QUrl::toPercentEncoding( body );
+	// the limit is on the link, the oldest engine.log lines are the furthest from the crash and go first
+	for( int lines = ENGINE_LOG_LINES; lines >= 0; lines-- )
+	{
+		body = prompt + composeReport( name, lines );
 
-	// the limit is on the link, a character takes up to 9 bytes there
+		// QUrlQuery leaves + and other reserved characters as is, encode everything
+		encoded = QUrl::toPercentEncoding( body );
+
+		if( encoded.size() <= MAIL_BODY_LIMIT )
+			break;
+	}
+
+	// a character takes up to 9 bytes in the link
 	if( encoded.size() > MAIL_BODY_LIMIT )
 	{
 		const QByteArray marker = QUrl::toPercentEncoding( "\n[truncated]" );
