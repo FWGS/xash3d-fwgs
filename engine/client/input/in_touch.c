@@ -644,7 +644,9 @@ static qboolean Touch_IsMenuButton( const touch_button_t *button )
 #if XASH_SAILFISH || XASH_ENGINE_TESTS // FIXME: enable it for everybody?
 	// it might be the only way to get back to the menu, don't let user remove or hide it
 	return !Q_strcmp( button->command, "cancelselect" );
-#endif // XASH_SAILFISH
+#else // !XASH_SAILFISH && !XASH_ENGINE_TESTS
+	return false;
+#endif // !XASH_SAILFISH && !XASH_ENGINE_TESTS
 }
 
 static void Touch_RemoveButtonFromList( touchbuttonlist_t *list, const char *name, qboolean privileged, qboolean keep_menu )
