@@ -1909,10 +1909,8 @@ static void R_StudioDrawNormalMesh( short *ptricmds, vec3_t *pstudionorms, float
 		while(( i = *( ptricmds++ )))
 		{
 			qboolean fan = false;
-			float    xv[64], yv[64], zv[64], uv[64], vv[64];
-			unsigned cv[64];
+			gx_tri_vertex_t vx[64];
 			int      nverts = 0;
-			int      v;
 
 			if( i < 0 )
 			{
@@ -1937,18 +1935,21 @@ static void R_StudioDrawNormalMesh( short *ptricmds, vec3_t *pstudionorms, float
 				pos = g_studio.verts[idx];
 
 				R_StudioSetColorBegin( ptricmds, pstudionorms );
-				xv[nverts] = pos[0];
-				yv[nverts] = pos[1];
-				zv[nverts] = pos[2];
-				uv[nverts] = ptricmds[2] * s;
-				vv[nverts] = ptricmds[3] * t;
-				cv[nverts] = R_GXGetTriColorRGBA();
-				if( pos[0] < emn[0] ) emn[0] = pos[0];
-				if( pos[1] < emn[1] ) emn[1] = pos[1];
-				if( pos[2] < emn[2] ) emn[2] = pos[2];
-				if( pos[0] > emx[0] ) emx[0] = pos[0];
-				if( pos[1] > emx[1] ) emx[1] = pos[1];
-				if( pos[2] > emx[2] ) emx[2] = pos[2];
+				vx[nverts].x = pos[0];
+				vx[nverts].y = pos[1];
+				vx[nverts].z = pos[2];
+				vx[nverts].u = ptricmds[2] * s;
+				vx[nverts].v = ptricmds[3] * t;
+				vx[nverts].c = R_GXGetTriColorRGBA();
+				if( !emit_bbox_logged )
+				{
+					if( pos[0] < emn[0] ) emn[0] = pos[0];
+					if( pos[1] < emn[1] ) emn[1] = pos[1];
+					if( pos[2] < emn[2] ) emn[2] = pos[2];
+					if( pos[0] > emx[0] ) emx[0] = pos[0];
+					if( pos[1] > emx[1] ) emx[1] = pos[1];
+					if( pos[2] > emx[2] ) emx[2] = pos[2];
+				}
 				emit_n++;
 				nverts++;
 			}
@@ -1959,30 +1960,9 @@ static void R_StudioDrawNormalMesh( short *ptricmds, vec3_t *pstudionorms, float
 			if( nverts < 3 )
 				continue;
 
-			if( fan )
-			{
-				for( v = 1; v + 1 < nverts; v++ )
-					R_GXStudioEmitTriC(
-						xv[0], yv[0], zv[0], uv[0], vv[0], cv[0],
-						xv[v], yv[v], zv[v], uv[v], vv[v], cv[v],
-						xv[v + 1], yv[v + 1], zv[v + 1], uv[v + 1], vv[v + 1], cv[v + 1] );
-			}
-			else
-			{
-				for( v = 0; v + 2 < nverts; v++ )
-				{
-					if( v & 1 )
-						R_GXStudioEmitTriC(
-							xv[v + 2], yv[v + 2], zv[v + 2], uv[v + 2], vv[v + 2], cv[v + 2],
-							xv[v + 1], yv[v + 1], zv[v + 1], uv[v + 1], vv[v + 1], cv[v + 1],
-							xv[v], yv[v], zv[v], uv[v], vv[v], cv[v] );
-					else
-						R_GXStudioEmitTriC(
-							xv[v], yv[v], zv[v], uv[v], vv[v], cv[v],
-							xv[v + 1], yv[v + 1], zv[v + 1], uv[v + 1], vv[v + 1], cv[v + 1],
-							xv[v + 2], yv[v + 2], zv[v + 2], uv[v + 2], vv[v + 2], cv[v + 2] );
-				}
-			}
+			/* One strip or fan per command, not a GX_Begin per triangle
+			 * resending all three vertices. */
+			R_GXStudioEmitFanC( vx, nverts, !fan );
 		}
 
 		if( !emit_bbox_logged && emit_n > 0 )
