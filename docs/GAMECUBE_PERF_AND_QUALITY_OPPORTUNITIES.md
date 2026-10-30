@@ -33,7 +33,8 @@ by steps. The world pass and brush entities took 11–18 ms per frame.
 | 3 | Client entity table 256 → 460 in the same memory | Tram and high edicts stop vanishing | **Done** |
 | 4 | Forklift model on c0a0 (disc mirror) | Retail content | **Done** |
 | 5 | Studio meshes as strips, colour cached per normal | c0a0 36 → 50 fps | **Done** |
-| 6 | Intermittent `GX DrawDone` waits of 8–25 ms | Removes the remaining run-to-run swings | Next |
+| 6 | Studio arena: per-map model sets, no reload leak, full forklift skins, loader, G-Man | Retail cast; stops the arena filling | Next |
+| 6b | Intermittent `GX DrawDone` waits of 8–25 ms | Removes run-to-run swings | Open, see below |
 | 7 | Mipmaps, then full-size textures above 128 | Sharper close up, less shimmer | Needs ~1 MB per map as RGB565; CMPR or arena placement to be decided |
 | 8 | Bilinear/atlas lightmap review, lightstyles via partial updates | Retail lighting | Planned |
 | 9 | Dynamic lights, model lighting from the lightmap | Retail lighting | Planned |
@@ -84,3 +85,23 @@ Recording: `.ai/playtests/20261030-055150-menu-newgame-6a93fc553a.mp4`.
 Run-to-run noise: identical builds move individual maps by up to 20 ms because
 of the intermittent DrawDone wait (item 6), so single-map swings under that
 wait are not attributed to a change. Stage tables are compared instead.
+
+### Open: studio arena
+
+The 1 MiB studio arena is bump allocated and only resets when every model in
+it is freed, which does not happen during the ride. Barney is reloaded on later
+maps and each reload consumes it again: the ride ends at 1020 of 1024 KB, and the
+budget counter reads 676 of 640 KB. Missing as a result of the same limits:
+`models/loader.mdl` (352 KB, c0a0b–d, over the 220 KB per-file cap) and the
+c0a0d G-Man are not confirmed drawn, and the mirror strips the skins embedded in
+`forklift.mdl` (194 KB with them, 46 KB without). Needs per-map model sets
+with a reset at changelevel.
+
+### Open: GX DrawDone waits
+
+Stretches of 8–25 ms/frame in `present: GX DrawDone wait`, tens of seconds long,
+on a different map each run with identical submitted work (same draws, vertices
+and binds). Not the cause: host vsync (off in Dolphin and the driver: the wait
+moved), the recorder (still there with recording off). Without it every map
+holds 53–59 fps. Probably Dolphin/host GPU side, not shown to be game cost; an
+asynchronous flip (item 14) would absorb it if it matters.
