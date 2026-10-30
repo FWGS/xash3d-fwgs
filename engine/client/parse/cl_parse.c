@@ -124,6 +124,13 @@ static void CL_ParseSoundPacket( sizebuf_t *msg, qboolean restore )
 	{
 		char	sentenceName[32];
 
+#if XASH_GAMECUBE
+		/* MAX_SOUNDS is low here: sentence numbers past it arrive with this
+		 * flag, and '#' would read the number as the sentence's text. */
+		if( FBitSet( flags, SND_SEQUENCE ) && GC_MenuRunsServer( ))
+			Q_snprintf( sentenceName, sizeof( sentenceName ), "!%i", sound + MAX_SOUNDS_NONSENTENCE );
+		else
+#endif
 		if( FBitSet( flags, SND_SEQUENCE ))
 			Q_snprintf( sentenceName, sizeof( sentenceName ), "!#%i", sound + MAX_SOUNDS_NONSENTENCE );
 		else Q_snprintf( sentenceName, sizeof( sentenceName ), "!%i", sound );

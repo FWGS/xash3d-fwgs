@@ -2247,7 +2247,7 @@ qboolean S_Init( void )
 	S_InitSounds ();
 #if XASH_GAMECUBE
 	Con_Reportf( "Xash3D GameCube: sound defaults ready\n" );
-	if( GC_MapLoadMemoryOpt())
+	if( GC_MapLoadMemoryOpt() && !GC_MenuRunsServer())
 	{
 		Con_Reportf( "Xash3D GameCube: vox init skipped for map-load memopt\n" );
 	}

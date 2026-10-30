@@ -1,0 +1,57 @@
+From 3111bf83c619649b65ad689b608fb49b7a8775d5 Mon Sep 17 00:00:00 2001
+From: timfox <timfox@outlook.com>
+Date: Fri, 30 Oct 2026 15:10:53 -0700
+Subject: [PATCH] gamecube: sentence groups on the menu route
+
+SENTENCEG_Init runs from GameDLLInit while the heap has room for the file.
+
+Co-Authored-By: Claude Opus 5.5 (1M context) <noreply@anthropic.com>
+---
+ dlls/game.cpp  |  4 ++++
+ dlls/sound.cpp | 15 ++++++++++-----
+ 2 files changed, 14 insertions(+), 5 deletions(-)
+
+diff --git a/dlls/game.cpp b/dlls/game.cpp
+index 5c4bb6ca..9f3116f3 100644
+--- a/dlls/game.cpp
++++ b/dlls/game.cpp
+@@ -475,6 +475,10 @@ cvar_t sv_busters = { "sv_busters", "0" };
+ // This gets called one time when the game is initialied
+ void GameDLLInit( void )
+ {
++#if XASH_GAMECUBE
++	if( GC_FullActors())
++		SENTENCEG_Init();
++#endif
+ 	g_psv_gravity = CVAR_GET_POINTER( "sv_gravity" );
+ 	g_psv_aim = CVAR_GET_POINTER( "sv_aim" );
+ 	g_psv_allow_autoaim = CVAR_GET_POINTER( "sv_allow_autoaim" );
+diff --git a/dlls/sound.cpp b/dlls/sound.cpp
+index 709e985f..db3a56f5 100644
+--- a/dlls/sound.cpp
++++ b/dlls/sound.cpp
+@@ -1249,11 +1249,16 @@ void SENTENCEG_Init()
+ #if XASH_GAMECUBE
+ 	/* G381: sentences.txt load/parse + large name-table clear hangs on cold
+ 	 * tram→AM changelevel discs (c0a0e→c1a0, post-bodyque). Sentence groups
+-	 * are optional for campaign continuity bring-up. */
+-	fSentencesInit = TRUE;
+-	gcallsentences = 0;
+-	ALERT( at_console, "*GameCube: skipping SENTENCEG_Init during port bring-up\n" );
+-	return;
++	 * are optional for campaign continuity bring-up. The menu New Game route
++	 * runs the full cast, and calls this from GameDLLInit while the heap has
++	 * room for the file. */
++	if( !GC_FullActors())
++	{
++		fSentencesInit = TRUE;
++		gcallsentences = 0;
++		ALERT( at_console, "*GameCube: skipping SENTENCEG_Init during port bring-up\n" );
++		return;
++	}
+ #endif
+ 
+ 	memset( gszallsentencenames, 0, CVOXFILESENTENCEMAX * CBSENTENCENAME_MAX );
+-- 
+2.53.0
+

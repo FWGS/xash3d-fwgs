@@ -13,6 +13,7 @@ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 */
 
+#include <malloc.h>
 #include "r_local.h"
 
 #if XASH_GAMECUBE
@@ -22,13 +23,15 @@ GNU General Public License for more details.
 static pixel_t gc_rgb565_r[256];
 static pixel_t gc_rgb565_g[256];
 static pixel_t gc_rgb565_b[256];
-static pixel_t gc_rgb565_to_sw[65536];
-static pixel_t gc_cinematic_pixels[GC_CINEMATIC_MAX_WIDTH * GC_CINEMATIC_MAX_HEIGHT] __attribute__((aligned( 32 )));
+/* Only videos use these (280 KB): allocated on first use, so a game without
+ * startup videos has the memory for its map (c0a0 ran out of heap). */
+static pixel_t *gc_rgb565_to_sw;
+static pixel_t *gc_cinematic_pixels;
 static qboolean gc_rgb565_tables_ready;
 
 qboolean R_GCIsStaticCinematicPixels( const pixel_t *pixels )
 {
-	return pixels == gc_cinematic_pixels;
+	return pixels != NULL && pixels == gc_cinematic_pixels;
 }
 
 static void GC_BuildRGB565Tables( void )
@@ -53,7 +56,9 @@ static void GC_BuildRGB565Tables( void )
 		gc_rgb565_b[i] = (pixel_t)( b_major | b_minor );
 	}
 
-	for( unsigned int c = 0; c < ARRAYSIZE( gc_rgb565_to_sw ); c++ )
+	if( !gc_rgb565_to_sw )
+		gc_rgb565_to_sw = (pixel_t *)malloc( 65536 * sizeof( pixel_t ));
+	for( unsigned int c = 0; c < 65536; c++ )
 	{
 		unsigned int r = ( c >> 11 ) & 0x1F;
 		unsigned int g = ( c >> 5 ) & 0x3F;
@@ -540,7 +545,10 @@ void GAME_EXPORT GL_UpdateTexture( int texnum, int cols, int rows, int width, in
 		if( !Q_strcmp( tex->name, "*cintexture" ) &&
 			width <= GC_CINEMATIC_MAX_WIDTH && height <= GC_CINEMATIC_MAX_HEIGHT )
 		{
-			memset( gc_cinematic_pixels, 0, pixel_count * sizeof( pixel_t ));
+			if( !gc_cinematic_pixels )
+				gc_cinematic_pixels = (pixel_t *)memalign( 32, GC_CINEMATIC_MAX_WIDTH * GC_CINEMATIC_MAX_HEIGHT * sizeof( pixel_t ));
+			if( gc_cinematic_pixels )
+				memset( gc_cinematic_pixels, 0, pixel_count * sizeof( pixel_t ));
 			tex->pixels[0] = gc_cinematic_pixels;
 		}
 		else

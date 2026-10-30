@@ -107,8 +107,7 @@ static u16 r_gx_tex_world_pool[GC_GX_TEX_WORLD_POOL][GC_GX_TEX_MAX_DIM * GC_GX_T
 static qboolean gc_mem003_world_pool_logged;
 #define GC_GX_CINEMATIC_WIDTH 320
 #define GC_GX_CINEMATIC_HEIGHT 240
-static u16 r_gx_cinematic_pool[GC_GX_CINEMATIC_WIDTH * GC_GX_CINEMATIC_HEIGHT]
-	__attribute__((aligned( 32 )));
+#define GC_GX_CINEMATIC_BYTES ( GC_GX_CINEMATIC_WIDTH * GC_GX_CINEMATIC_HEIGHT * sizeof( u16 ))
 
 typedef struct
 {
@@ -693,10 +692,13 @@ void GL_UpdateCinematicTexture( int texnum, int width, int height, const byte *b
 	update_number = ++r_gx_cinematic_updates;
 	stage_start = gEngfuncs.pfnTime();
 
+	/* Allocated on first use: a game without videos keeps the 150 KB. */
 	if( !r_gx_cinematic_tex.tiled )
 	{
-		r_gx_cinematic_tex.tiled = r_gx_cinematic_pool;
-		r_gx_cinematic_tex.alloc_bytes = sizeof( r_gx_cinematic_pool );
+		r_gx_cinematic_tex.tiled = (u16 *)memalign( 32, GC_GX_CINEMATIC_BYTES );
+		if( !r_gx_cinematic_tex.tiled )
+			return;
+		r_gx_cinematic_tex.alloc_bytes = GC_GX_CINEMATIC_BYTES;
 	}
 	if( !r_gx_cinematic_ready || r_gx_cinematic_tex.texnum != (unsigned)texnum )
 	{
@@ -713,7 +715,7 @@ void GL_UpdateCinematicTexture( int texnum, int width, int height, const byte *b
 	else
 		return;
 	stage_tiles = gEngfuncs.pfnTime();
-	DCFlushRange( r_gx_cinematic_tex.tiled, sizeof( r_gx_cinematic_pool ));
+	DCFlushRange( r_gx_cinematic_tex.tiled, GC_GX_CINEMATIC_BYTES );
 	stage_flush = gEngfuncs.pfnTime();
 	r_gx_cinematic_tex.texnum = (unsigned)texnum;
 	r_gx_cinematic_tex.w = GC_GX_CINEMATIC_WIDTH;
@@ -763,9 +765,14 @@ static void R_GXTexCacheReset( void )
 		}
 	}
 	r_gx_tex_clock = 0;
-	memset( &r_gx_cinematic_tex, 0, sizeof( r_gx_cinematic_tex ));
-	r_gx_cinematic_tex.tiled = r_gx_cinematic_pool;
-	r_gx_cinematic_tex.alloc_bytes = sizeof( r_gx_cinematic_pool );
+	{
+		u16 *tiled = r_gx_cinematic_tex.tiled;
+		const size_t alloc_bytes = r_gx_cinematic_tex.alloc_bytes;
+
+		memset( &r_gx_cinematic_tex, 0, sizeof( r_gx_cinematic_tex ));
+		r_gx_cinematic_tex.tiled = tiled;
+		r_gx_cinematic_tex.alloc_bytes = alloc_bytes;
+	}
 	r_gx_cinematic_ready = false;
 	r_gx_tex_world = NULL;
 	r_gx_hud_pool_ready = false;

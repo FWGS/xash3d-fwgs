@@ -141,6 +141,14 @@ Same-scene check on one build, native textures off → on: 121 → 109, 511 → 
 faster build sees more distinct frames), so this is mixed, not a clear win: the
 earlier 175/245/444 → 115/33/214 overstated it.
 
+### NPC speech and heap
+
+Sentence groups run from GameDLLInit (patch 0012). The engine's table is in ARAM
+with 16-bit offsets. Video buffers (430 KB of static memory unused without
+startup videos) are allocated on first use: unclaimed heap at c0a0 48 → 444 KB,
+which pays for the speech and a 256 KB sound budget. The WAV loader's 16 KB
+limit, which had been silently refusing the tram's sounds, now matches 48 KB.
+
 ### c0a0c/d pacing
 
 Both maps hold 17 ms except while the loader is in view: it costs 6.9 ms and

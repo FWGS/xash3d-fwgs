@@ -17,6 +17,9 @@ GNU General Public License for more details.
 #include "sound.h"
 #include "const.h"
 #include <ctype.h>
+#if XASH_GAMECUBE
+#include "platform/gamecube/mem_gamecube.h"
+#endif
 
 #define TRIM_SCAN_MAX 255
 #define TRIM_SAMPLES_BELOW_8 2
@@ -251,9 +254,116 @@ static const char *VOX_GetDirectory( char *szpath, const char *psz, int nsize )
 	return p + 1;
 }
 
+#if XASH_GAMECUBE
+/* Menu New Game: the sentence table as heap strings is ~75 KB, more than c0a0
+ * has free. sentences.txt stays in ARAM with a 16-bit offset per sentence,
+ * and a line is read when it is spoken. */
+#define GC_VOX_LINE_MAX 256
+static unsigned int gc_vox_aram;
+static unsigned short *gc_vox_offsets;
+static int gc_vox_count;
+
+static const char *GC_VoxReadLine( int index )
+{
+	static char line[GC_VOX_LINE_MAX];
+
+	GC_AramCopy( gc_vox_aram + gc_vox_offsets[index], line, sizeof( line ), false );
+	line[sizeof( line ) - 1] = 0;
+	return line;
+}
+
+static const char *GC_VoxValue( const char *line )
+{
+	const char *c = line + Q_strlen( line ) + 1;
+
+	if( c >= line + GC_VOX_LINE_MAX )
+		return NULL;
+	for( ; *c == ' ' || *c == '\t'; c++ );
+	return c;
+}
+
+static void GC_VoxInit( const char *path )
+{
+	byte *buf;
+	fs_offset_t size;
+	char *p, *last;
+	int pass;
+
+	buf = FS_LoadFile( path, &size, false );
+	if( !buf || size >= 65536 )
+	{
+		Con_Reportf( S_WARN "Xash3D GameCube: sentences not loaded (%s)\n", path );
+		if( buf )
+			Mem_Free( buf );
+		return;
+	}
+	/* Count, then record: the same line rules as VOX_ReadSentenceFile_. */
+	for( pass = 0; pass < 2; pass++ )
+	{
+		int n = 0;
+
+		p = (char *)buf;
+		last = p + size;
+		while( p < last )
+		{
+			for( ; p < last && ( *p == '\n' || *p == '\r' || *p == '\t' || *p == ' ' ); p++ );
+			if( p < last && *p != '/' )
+			{
+				if( pass )
+					gc_vox_offsets[n] = (unsigned short)( p - (char *)buf );
+				n++;
+				for( ; p < last && *p && *p != ' ' && *p != '\t'; p++ );
+				if( pass && p < last )
+					*p++ = 0;
+			}
+			for( ; p < last && *p && *p != '\n' && *p != '\r'; p++ );
+			if( pass && p < last )
+				*p = 0;
+			if( p < last )
+				p++;
+		}
+		if( !pass )
+		{
+			gc_vox_offsets = (unsigned short *)malloc( n * sizeof( *gc_vox_offsets ));
+			if( !gc_vox_offsets )
+			{
+				Mem_Free( buf );
+				return;
+			}
+			gc_vox_count = n;
+		}
+	}
+	gc_vox_aram = GC_AramReserve( (unsigned int)size + GC_VOX_LINE_MAX );
+	GC_AramCopy( gc_vox_aram, buf, (unsigned int)size, true );
+	Mem_Free( buf );
+	Con_Reportf( "Xash3D GameCube: %d sentences in ARAM (%s)\n", gc_vox_count, Q_memprint( size ));
+}
+#endif
+
 static const char *VOX_LookupString( const char *pszin )
 {
 	int i = -1;
+
+#if XASH_GAMECUBE
+	if( gc_vox_count && *pszin != '#' )
+	{
+		if( Q_isdigit( pszin ))
+		{
+			i = Q_atoi( pszin );
+			if( i < gc_vox_count )
+				return GC_VoxValue( GC_VoxReadLine( i ));
+		}
+		for( i = 0; i < gc_vox_count; i++ )
+		{
+			const char *line = GC_VoxReadLine( i );
+
+			if( !Q_stricmp( pszin, line ))
+				return GC_VoxValue( line );
+		}
+		return NULL;
+	}
+	i = -1;
+#endif
 
 	// check if we are an immediate sentence
 	if( *pszin == '#' )
@@ -581,6 +691,13 @@ static void VOX_ReadSentenceFile( const char *path )
 
 void VOX_Init( void )
 {
+#if XASH_GAMECUBE
+	if( GC_MenuRunsServer( ))
+	{
+		GC_VoxInit( DEFAULT_SOUNDPATH "sentences.txt" );
+		return;
+	}
+#endif
 	VOX_ReadSentenceFile( DEFAULT_SOUNDPATH "sentences.txt" );
 }
 

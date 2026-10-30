@@ -19,7 +19,7 @@ announcer lines, 5/5 hops, no allocation failures, ladder 10/10.
 | Tram across changelevels | The tram is one global entity (`globalname intro_train`) carried through every landmark transition with the player riding it | Same: the global merges into each map's copy at every hop (c0a0→a→b→c→d→e), keeps its speed, and the player is back on it (`groundentity` = tram) within 3 s | `hop check` lines: before / after transition / +3 s / +10 s for all 5 hops |
 | Announcer (VO) | ambient_generic lines fired by each map: gmorn, time (c0a0), dest (a), noeat, emerg (b), tourn, jobs (c), haz, arrive (d), exit (e) | All 10 play in full, once, at the time the map fires them. They are streamed from the disc (250–840 KB each, too big for the sound cache) | `VO stream media/c0a0_tr_*.wav ok=1`, one per line, in order |
 | c0a0 VO timing | trigger_auto 1 s → audiomm: gmorn at ~2 s, time at ~15 s (no overlap: gmorn is 11.6 s) | Same, from the map's own entities (was: a hand schedule that started "time" 3 s into "good morning") | `Firing: (wav1)` / `(wav2)` 13 s apart |
-| Tram sounds | func_tracktrain `sounds 1`: plats/ttrain_start1, ttrain1 (loop, pitch by speed), ttrain_brake1 | Same sounds, from the tram entity (the old background rumble loop that stood in for them is gone) | `registered late plats/ttrain*.wav`, no budget refusals |
+| Tram sounds | func_tracktrain `sounds 1`: plats/ttrain_start1, ttrain1 (loop, pitch by speed), ttrain_brake1 | Same sounds, from the tram entity (the old background rumble loop that stood in for them is gone) | `load allowed plats/ttrain*`, one load each. Before 2026-10-30 evening the WAV loader's own 16 KB limit refused them, so the tram was silent after the rumble was removed |
 | Other game sounds | NPC footsteps, doors, sparks, buttons | Play (they were all dropped before: the client of this route never got the sound list) | `registered late common/npc_step1.wav` etc. |
 | Credits / titles | env_message CR1–CR38, CR27, OPENTITLE3/4, the c0a0c tube panels CR28–CR34 | All shown with their titles.txt effects (fade, flicker, write-out) | 40 fired, 40 `HudText … displayed`, none `done frames=0` (half were dropped before) |
 | Credit timing (c0a0) | start_titles 0.3 s → title_manager +6 → CR1..CR8 every 3 s | CR1..CR8 3.0 s apart | `HudText CRn effect=… at t` |
@@ -28,13 +28,13 @@ announcer lines, 5/5 hops, no allocation failures, ladder 10/10.
 | Cast | Scientists, Barneys, forklifts, loader, G-Man on c0a0d | All load with their skins; models load per map | `studio skinned` lines, `gmanlook` script |
 | Light styles | Switched and animated lights | Live: faces recomposed in the lightmap atlas when a style changes, samples in ARAM | `light styles kept faces=1399`, c0a0c frames |
 | Beams | env_beam lightning | Drawn | `G291 Flipper EFX tris` on c0a0c |
+| NPC speech | Scientist and Barney sentences | Spoken: sentences.txt in ARAM (1065 lines), lines loaded on demand up to 48 KB; longer lines (about 18% of scientist files) stay silent | `load allowed scientist/...` |
 | A/V sync | — | Picture freeze and sound stop at each hop line up with the engine log within ~0.1 s | Recording vs log, docs/GAMECUBE_PLAY_DOLPHIN.md |
 
 ## Open
 
 | Area | Retail | GameCube build now |
 |---|---|---|
-| Sentences | Scientists / Barney speak `!` sentences | Silent: SENTENCEG_Init is skipped on the GameCube game code |
 | Hold length | A few frames on PC | 2–5 s per hop (disc reads); covered by the LOADING overlay |
 | NPC start-up | Smooth | Frame time is high for the first ~15 s of c0a0 while NPC AI starts |
 | c0a0e exit | Door opens, the player walks out to c1a0 | Ride and arrival verified; leaving the tram and the c0a0e → c1a0 hop not yet checked |
