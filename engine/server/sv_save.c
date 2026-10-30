@@ -944,10 +944,14 @@ initialize global save-restore buffer
 static SAVERESTOREDATA *SaveInit( int size, int tokenCount )
 {
 	SAVERESTOREDATA	*pSaveData;
+#if XASH_GAMECUBE
+	qboolean retried = false;
+#endif
 
 #if XASH_GAMECUBE
 	gc_save_use_sysheap = false;
 	gc_save_use_borrowed = false;
+gc_save_try_borrow:
 	if( gc_save_borrow_next )
 	{
 		extern byte *R_GCBorrowSurfaceCacheStore( size_t *size );
@@ -958,7 +962,9 @@ static SAVERESTOREDATA *SaveInit( int size, int tokenCount )
 		gc_save_borrow_next = false;
 		gc_save_borrow_base = R_GCBorrowSurfaceCacheStore( &gc_save_borrow_size );
 		gc_save_borrow_used = 0;
-		if( gc_save_borrow_base && gc_save_borrow_size > sizeof( SAVERESTOREDATA ) + tokens + table + 4096 )
+		if( gc_save_borrow_base && gc_save_borrow_size > sizeof( SAVERESTOREDATA ) + tokens + table + 4096
+			/* A restore needs its whole file; a save sizes itself to the store. */
+			&& ( !retried || gc_save_borrow_size - sizeof( SAVERESTOREDATA ) - tokens - table - 64 >= (size_t)size ))
 		{
 			size = (int)( gc_save_borrow_size - sizeof( SAVERESTOREDATA ) - tokens - table - 64 );
 			pSaveData = (SAVERESTOREDATA *)GC_SaveBorrowCarve( sizeof( SAVERESTOREDATA ) + (size_t)size );
@@ -974,17 +980,30 @@ static SAVERESTOREDATA *SaveInit( int size, int tokenCount )
 	if( Sys_CheckParm( "-gcnewsaveload" ) || GC_MenuRunsServer( ))
 	{
 		pSaveData = (SAVERESTOREDATA *)calloc( 1, sizeof( SAVERESTOREDATA ) + (size_t)size );
+		if( pSaveData )
+		{
+			pSaveData->pTokens = (char **)calloc( (size_t)tokenCount, sizeof( char* ));
+			if( !pSaveData->pTokens )
+			{
+				free( pSaveData );
+				pSaveData = NULL;
+			}
+		}
 		if( !pSaveData )
 		{
+			/* Fragmented heap (loading c0a0a's save for adjacent entities
+			 * on the way into c0a0b): restore through the renderer's idle
+			 * surface-cache store like the transition save does. */
+			if( !retried && GC_MenuRunsServer())
+			{
+				retried = true;
+				gc_save_borrow_next = true;
+				Con_Reportf( "Xash3D GameCube: SaveInit heap %d bytes failed, trying surface-cache store\n",
+					(int)( sizeof( SAVERESTOREDATA ) + size ));
+				goto gc_save_try_borrow;
+			}
 			Con_Printf( S_ERROR "SaveInit: calloc %d bytes failed\n",
 				(int)( sizeof( SAVERESTOREDATA ) + size ));
-			return NULL;
-		}
-		pSaveData->pTokens = (char **)calloc( (size_t)tokenCount, sizeof( char* ));
-		if( !pSaveData->pTokens )
-		{
-			free( pSaveData );
-			Con_Printf( S_ERROR "SaveInit: calloc tokens failed\n" );
 			return NULL;
 		}
 		gc_save_use_sysheap = true;
@@ -1244,6 +1263,11 @@ static SAVERESTOREDATA *LoadSaveData( const char *level )
 
 	// init the read buffer
 	pSaveData = SaveInit( totalSize, tokenCount );
+	if( !pSaveData )
+	{
+		FS_Close( pFile );
+		return NULL;
+	}
 
 	Q_strncpy( pSaveData->szCurrentMapName, level, sizeof( pSaveData->szCurrentMapName ));
 	pSaveData->tableCount = tableCount;		// count ETABLE entries
