@@ -233,6 +233,165 @@ qboolean GC_GXFenceWait( u16 token )
 static double gc_transition_hold_start;
 static qboolean gc_transition_hold_changelevel;
 
+/* "LOADING" over the held frame, as GoldSrc shows while a map loads. Drawn
+ * with Flipper into a corner of the EFB and copied into just that rectangle
+ * of the displayed XFB, so the frozen frame stays around it (Dolphin stitches
+ * the partial XFB copy over the frame like hardware shows it; a CPU write
+ * into the XFB instead makes Dolphin's texture-only XFB show stale RAM).
+ * GC_LoadingOverlayPulse redraws it with one more dot from points in the
+ * load that run between GX frames: the hold's hidden frames, the load
+ * status stages, BSP lumps and the entity spawn loop. */
+#define GC_LOADING_SCALE	3
+#define GC_LOADING_TEXT		"LOADING"
+#define GC_LOADING_DOTS		3
+#define GC_LOADING_PULSE_SEC	0.25
+static unsigned char GC_FatalGlyphRow( char ch, int row );
+static qboolean GC_TransitionHoldActive( void );
+static qboolean gc_gx_present_pipe_ready;
+static u8 *gc_loading_fb;
+static u32 gc_loading_phase;
+static double gc_loading_next;
+
+static void GC_LoadingQuad( f32 x, f32 y, f32 w, f32 h, u32 rgba )
+{
+	GX_Position3f32( x, y, 0.0f );
+	GX_Color1u32( rgba );
+	GX_Position3f32( x + w, y, 0.0f );
+	GX_Color1u32( rgba );
+	GX_Position3f32( x + w, y + h, 0.0f );
+	GX_Color1u32( rgba );
+	GX_Position3f32( x, y + h, 0.0f );
+	GX_Color1u32( rgba );
+}
+
+/* Lit glyph pixels of text at (x, y); emits them when emit is set. */
+static int GC_LoadingGlyphQuads( const char *text, int x, int y, qboolean emit )
+{
+	const int cell = 6 * GC_LOADING_SCALE;
+	int i, row, col, n = 0;
+
+	for( i = 0; text[i]; i++ )
+		for( row = 0; row < 7; row++ )
+		{
+			unsigned char bits = GC_FatalGlyphRow( text[i], row );
+
+			for( col = 0; col < 5; col++ )
+			{
+				if( !( bits & ( 1 << ( 4 - col ))))
+					continue;
+				if( emit )
+					GC_LoadingQuad( x + i * cell + col * GC_LOADING_SCALE, y + row * GC_LOADING_SCALE,
+						GC_LOADING_SCALE, GC_LOADING_SCALE, 0xEBEBEBFF );
+				n++;
+			}
+		}
+	return n;
+}
+
+static void GC_LoadingOverlayDraw( void )
+{
+	const int cell = 6 * GC_LOADING_SCALE;
+	const u16 efb_h = rmode->efbHeight, xfb_h = rmode->xfbHeight, fb_w = rmode->fbWidth;
+	/* XFB lines are 32-byte aligned: x and width in 16-pixel steps. */
+	const u16 w = (u16)(((((int)sizeof( GC_LOADING_TEXT ) - 1 + GC_LOADING_DOTS ) * cell
+		+ 8 * GC_LOADING_SCALE ) + 15 ) & ~15 );
+	const u16 h = 15 * GC_LOADING_SCALE;
+	const u16 x = (u16)((( fb_w - w ) / 2 ) & ~15 );
+	const u16 y = (u16)( efb_h - h - efb_h / 8 );
+	const int tx = x + 4 * GC_LOADING_SCALE, ty = y + 4 * GC_LOADING_SCALE;
+	char text[sizeof( GC_LOADING_TEXT ) + GC_LOADING_DOTS];
+	u32 dots = gc_loading_phase % ( GC_LOADING_DOTS + 1 ), i, lines;
+	Mtx44 proj;
+	Mtx mv;
+	int quads;
+
+	Q_strncpy( text, GC_LOADING_TEXT, sizeof( text ));
+	for( i = 0; i < dots; i++ )
+		Q_strncat( text, ".", sizeof( text ));
+	quads = 1 + GC_LoadingGlyphQuads( text, tx, ty, false );
+
+	GX_SetViewport( 0.0f, 0.0f, fb_w, efb_h, 0.0f, 1.0f );
+	GX_SetScissor( 0, 0, fb_w, efb_h );
+	guOrtho( proj, 0.0f, efb_h, 0.0f, fb_w, 0.0f, 1.0f );
+	GX_LoadProjectionMtx( proj, GX_ORTHOGRAPHIC );
+	guMtxIdentity( mv );
+	GX_LoadPosMtxImm( mv, GX_PNMTX0 );
+	GX_SetCurrentMtx( GX_PNMTX0 );
+	GX_SetNumChans( 1 );
+	GX_SetChanCtrl( GX_COLOR0A0, GX_DISABLE, GX_SRC_REG, GX_SRC_VTX, GX_LIGHTNULL, GX_DF_NONE, GX_AF_NONE );
+	GX_SetNumTexGens( 0 );
+	GX_SetNumTevStages( 1 );
+	GX_SetTevOrder( GX_TEVSTAGE0, GX_TEXCOORDNULL, GX_TEXMAP_NULL, GX_COLOR0A0 );
+	GX_SetTevOp( GX_TEVSTAGE0, GX_PASSCLR );
+	GX_SetBlendMode( GX_BM_NONE, GX_BL_ONE, GX_BL_ZERO, GX_LO_NOOP );
+	GX_SetAlphaCompare( GX_ALWAYS, 0, GX_AOP_AND, GX_ALWAYS, 0 );
+	GX_SetZMode( GX_FALSE, GX_ALWAYS, GX_FALSE );
+	GX_SetColorUpdate( GX_TRUE );
+	GX_SetCullMode( GX_CULL_NONE );
+	{
+		extern void R_GXInvalidateTriApiLayout( void );
+
+		R_GXInvalidateTriApiLayout();
+	}
+	GX_ClearVtxDesc();
+	GX_SetVtxDesc( GX_VA_POS, GX_DIRECT );
+	GX_SetVtxDesc( GX_VA_CLR0, GX_DIRECT );
+	GX_SetVtxAttrFmt( GX_VTXFMT0, GX_VA_POS, GX_POS_XYZ, GX_F32, 0 );
+	GX_SetVtxAttrFmt( GX_VTXFMT0, GX_VA_CLR0, GX_CLR_RGBA, GX_RGBA8, 0 );
+	GX_InvVtxCache();
+
+	GX_Begin( GX_QUADS, GX_VTXFMT0, (u16)( quads * 4 ));
+	GC_LoadingQuad( x, y, w, h, 0x181818FF );
+	GC_LoadingGlyphQuads( text, tx, ty, true );
+	GX_End();
+
+	GX_SetDispCopySrc( x, y, w, h );
+	lines = GX_SetDispCopyYScale((f32)xfb_h / (f32)efb_h );
+	GX_SetDispCopyDst( fb_w, (u16)lines );
+	GC_GXDrawDoneTimed( "loading overlay" );
+	GX_CopyDisp( gc_loading_fb + ((u32)y * xfb_h / efb_h ) * fb_w * 2 + x * 2, GX_FALSE );
+	GX_Flush();
+	/* Back to the full-frame copy both present paths assume. */
+	GX_SetDispCopySrc( 0, 0, fb_w, efb_h );
+	GX_SetDispCopyDst( fb_w, xfb_h );
+	GX_SetDispCopyYScale((f32)xfb_h / (f32)efb_h );
+	gc_gx_present_pipe_ready = false;
+}
+
+static void GC_LoadingOverlayBegin( void )
+{
+	u8 *fb;
+
+	if( !rmode || Sys_CheckParm( "-gcnoloadingoverlay" ))
+		return;
+	/* The XFB on screen: the one flipped to last. */
+	fb = (u8 *)VIDEO_GetCurrentFramebuffer();
+	if( !fb || ( fb != (u8 *)xfb[0] && fb != (u8 *)xfb[1] ))
+		return;
+	gc_loading_fb = fb;
+	gc_loading_phase = 0;
+	GC_LoadingOverlayDraw();
+	gc_loading_next = Sys_FloatTime() + GC_LOADING_PULSE_SEC;
+	Con_Reportf( "Xash3D GameCube: loading overlay on\n" );
+}
+
+void GC_LoadingOverlayPulse( void )
+{
+	if( !gc_loading_fb || !GC_TransitionHoldActive() || Sys_FloatTime() < gc_loading_next )
+		return;
+	gc_loading_phase++;
+	GC_LoadingOverlayDraw();
+	gc_loading_next = Sys_FloatTime() + GC_LOADING_PULSE_SEC;
+}
+
+static void GC_LoadingOverlayEnd( void )
+{
+	if( !gc_loading_fb )
+		return;
+	gc_loading_fb = NULL;
+	Con_Reportf( "Xash3D GameCube: loading overlay off after %u pulses\n", gc_loading_phase );
+}
+
 void GC_BeginTransitionHold( void )
 {
 	if( !GC_MenuRunsServer() || gc_transition_hold_start > 0.0 )
@@ -242,6 +401,7 @@ void GC_BeginTransitionHold( void )
 	 * from the menu ends at its first world frame. */
 	gc_transition_hold_changelevel = cls.state == ca_active || cls.draw_changelevel;
 	Con_Reportf( "Xash3D GameCube: transition hold begin\n" );
+	GC_LoadingOverlayBegin();
 }
 
 static qboolean GC_TransitionHoldActive( void )
@@ -252,6 +412,7 @@ static qboolean GC_TransitionHoldActive( void )
 	{
 		Con_Reportf( "Xash3D GameCube: transition hold timed out\n" );
 		gc_transition_hold_start = 0.0;
+		GC_LoadingOverlayEnd();
 		return false;
 	}
 	return true;
@@ -5801,8 +5962,10 @@ static void GC_MaybeRestreamRideMapFaces( const float *eye )
 			Con_Reportf( "Xash3D GameCube: G364 denser portal OR cl=%d neigh=%d n=%d L=%d\n",
 				cluster, portal_neigh, gc_newgame_cap_face_count, gc_live_face_count );
 		nlog++;
-		/* Arm DumpFrames EFB hold after restream so late ride frames encode. */
-		if( nlog == 2 || nlog == 5 )
+		/* Arm DumpFrames EFB hold after restream so late ride frames encode.
+		 * Capture runs only: the hold skips the world clear, and in play the
+		 * holes then flickered with whatever the EFB last held. */
+		if( GC_IsCaptureDiagnostics() && ( nlog == 2 || nlog == 5 ))
 		{
 			extern void R_GXHoldEfbForDump( int frames );
 			R_GXHoldEfbForDump( 5 );
@@ -7071,11 +7234,13 @@ static void GC_PresentBuffer( void )
 				GX_Flush();
 				gc_gx_world_efb_ready = false;
 			}
+			GC_LoadingOverlayPulse();
 			return;
 		}
 		Con_Reportf( "Xash3D GameCube: transition hold end held=%.2fs\n",
 			Sys_FloatTime() - gc_transition_hold_start );
 		gc_transition_hold_start = 0.0;
+		GC_LoadingOverlayEnd();
 	}
 	if( gc_gx_world_efb_ready && gc_cpu_dump_presents_left <= 0
 		&& !( GC_IsCaptureDiagnostics() && gc_g193_soft_lock ))
@@ -9163,7 +9328,10 @@ void GC_DrawLoadingStatus( const char *message, const char *details )
 	if( host.status != HOST_INIT && GC_MenuRunsServer())
 		GC_BeginTransitionHold();
 	if( GC_TransitionHoldActive())
+	{
+		GC_LoadingOverlayPulse();
 		return;
+	}
 
 	if( gc.buffer && gc.width > 0 && gc.height > 0 )
 	{
@@ -14693,6 +14861,11 @@ void GC_UpdateNewGameIntroAudio( void )
 	if( !GC_IsNewGameWorldReady() || Sys_CheckParm( "-gcnewsaveload" ))
 		return;
 	if( cls.state != ca_active )
+		return;
+	/* Menu route: the maps' own ambient_generics fire the announcer at the
+	 * retail times (streamed by S_GCStreamVoice) and the tram plays its own
+	 * plats/ttrain sounds, so nothing is scheduled here. */
+	if( GC_MenuRunsServer( ))
 		return;
 	/* G320: c0a0 tram VO only — opening media/c0a0_tr_*.wav on reactor
 	 * maps hung the first Host_Frame after Prepare (c3a2 20260809-004108). */

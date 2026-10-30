@@ -499,6 +499,17 @@ MSG_PVS	send to clients potentially visible from org
 MSG_PHS	send to clients potentially audible from org
 =================
 */
+#if XASH_GAMECUBE
+/* Sound name for a precache index, for the client of a local map route
+ * (which never receives the resource list). */
+const char *SV_GCSoundPrecacheName( int index )
+{
+	if( !SV_Active() || index <= 0 || index >= MAX_SOUNDS )
+		return NULL;
+	return sv.sound_precache[index];
+}
+#endif
+
 static int SV_Multicast( int dest, const vec3_t origin, const edict_t *ent, qboolean usermessage, qboolean filter )
 {
 	byte		*mask = NULL;
@@ -2437,7 +2448,17 @@ static void GAME_EXPORT pfnEmitAmbientSound( edict_t *ent, float *pos, const cha
 		msg_dest = MSG_ALL;
 
 	if( SV_BuildSoundMsg( &sv.multicast, ent, CHAN_STATIC, sample, vol * 255, attn, flags, pitch, pos ))
+	{
+#if XASH_GAMECUBE
+		if( sample && !Q_strnicmp( sample, "tride/", 6 ))
+			Con_Reportf( "Xash3D GameCube: VO emit %s dest=%d flags=%d\n", sample, msg_dest, flags );
+#endif
 		SV_Multicast( msg_dest, pos, NULL, false, false );
+	}
+#if XASH_GAMECUBE
+	else if( sample && !Q_strnicmp( sample, "tride/", 6 ))
+		Con_Reportf( "Xash3D GameCube: VO emit %s not sent\n", sample );
+#endif
 }
 
 /*
@@ -5966,6 +5987,7 @@ static void SV_LoadFromFile( const char *mapname, char *entities )
 				Con_Reportf( "Xash3D GameCube: G334 tail keep %s edict=%d\n",
 					spawn_class, NUM_FOR_EDICT( ent ));
 			}
+			GC_LoadingOverlayPulse();
 			if( SV_GCMapSmokeRoute() )
 			{
 				const char *spawn_class = SV_ClassName( ent );

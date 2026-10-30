@@ -56,6 +56,15 @@ static void GC_MemHeapStats( size_t *used, size_t *free_in_heap, size_t *unclaim
 	*unclaimed = hi > lo ? (size_t)( hi - lo ) : 0;
 }
 
+/* Heap bytes still allocatable: free inside the arena plus unclaimed MEM1. */
+size_t GC_MemHeapFreeBytes( void )
+{
+	size_t used, free_in_heap, unclaimed;
+
+	GC_MemHeapStats( &used, &free_in_heap, &unclaimed );
+	return free_in_heap + unclaimed;
+}
+
 void GC_MemSample( const char *stage )
 {
 	size_t total = Mem_TotalRealSize();

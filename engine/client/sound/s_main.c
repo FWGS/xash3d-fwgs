@@ -643,6 +643,45 @@ it will never be restarted.  Use StartStaticSound (pass CHAN_STATIC to EMIT_SOUN
 SV_StartSound.
 ====================
 */
+#if XASH_GAMECUBE
+/*
+=================
+S_GCStreamVoice
+
+The intro announcer lines (tride/*.wav, 250-840 KB each) are far over what
+the sound cache can hold, so they were refused and the ride was silent
+after c0a0. Stream them from the disc's shallow media/ copy on the
+background track instead, at the time the map's ambient_generic fires them.
+=================
+*/
+static qboolean S_GCStreamVoice( const sfx_t *sfx, int flags )
+{
+	char path[MAX_QPATH], current[MAX_QPATH];
+
+	if( !GC_MenuRunsServer() || Q_strnicmp( sfx->name, "tride/", 6 ))
+		return false;
+	Q_snprintf( path, sizeof( path ), "media/%s", sfx->name + 6 );
+	if( FBitSet( flags, SND_STOP ))
+	{
+		if( S_StreamGetCurrentState( current, sizeof( current ), NULL, 0, NULL )
+			&& !Q_stricmp( current, path ))
+			S_StopBackgroundTrack();
+		return true;
+	}
+	if( FBitSet( flags, SND_CHANGE_VOL|SND_CHANGE_PITCH ))
+		return true;
+	/* Already playing this line: keep it going rather than restart it. */
+	if( S_StreamGetCurrentState( current, sizeof( current ), NULL, 0, NULL )
+		&& !Q_stricmp( current, path ))
+		return true;
+	FS_ClearFindMissCache();
+	S_StartBackgroundTrack( path, NULL, 0, true );
+	Con_Reportf( "Xash3D GameCube: VO stream %s ok=%d\n", path,
+		S_StreamGetCurrentState( NULL, 0, NULL, 0, NULL ) ? 1 : 0 );
+	return true;
+}
+#endif
+
 void S_StartSound( const vec3_t pos, int ent, int chan, sound_t handle, float fvol, float attn, int pitch, int flags )
 {
 	wavdata_t	*pSource;
@@ -654,6 +693,10 @@ void S_StartSound( const vec3_t pos, int ent, int chan, sound_t handle, float fv
 	if( !snd.initialized ) return;
 	sfx = S_GetSfxByHandle( handle );
 	if( !sfx ) return;
+#if XASH_GAMECUBE
+	if( S_GCStreamVoice( sfx, flags ))
+		return;
+#endif
 
 	vol = bound( 0, fvol * 255, 255 );
 	if( pitch <= 1 ) pitch = PITCH_NORM; // Invasion issues
@@ -914,6 +957,10 @@ void S_AmbientSound( const vec3_t pos, int ent, sound_t handle, float fvol, floa
 	if( !snd.initialized ) return;
 	sfx = S_GetSfxByHandle( handle );
 	if( !sfx ) return;
+#if XASH_GAMECUBE
+	if( S_GCStreamVoice( sfx, flags ))
+		return;
+#endif
 
 	vol = bound( 0, fvol * 255, 255 );
 	if( pitch <= 1 ) pitch = PITCH_NORM; // Invasion issues

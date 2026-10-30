@@ -47,6 +47,16 @@ static qboolean s_registering = false;
 /* G121: stock glock fire is pl_gun3.wav (~13 KiB PCM @ 22 kHz); keep under
  * the session budget while allowing one fire WAV through EV_PlaySound. */
 #define GC_SFX_MAX_FILE_BYTES	(16u * 1024u)
+/* Menu New Game runs the real map with its NPCs and tram: their sounds
+ * (tram start/loop/brake ~90 KiB, footsteps, doors) thrashed the lean budget,
+ * reloading from disc on every step. ~300-470 KiB of heap stays free there. */
+#define GC_SFX_MENU_BUDGET_BYTES	(128u * 1024u)
+#define GC_SFX_MENU_MAX_FILE_BYTES	(48u * 1024u)
+/* ...but never at the cost of what the map still has to allocate (the
+ * credits font reload, NPC models): keep this much heap free. */
+#define GC_SFX_MENU_HEAP_FLOOR	(128u * 1024u)
+#define GC_SFX_BUDGET		( GC_MenuRunsServer() ? GC_SFX_MENU_BUDGET_BYTES : GC_SFX_BUDGET_BYTES )
+#define GC_SFX_MAX_FILE		( GC_MenuRunsServer() ? GC_SFX_MENU_MAX_FILE_BYTES : GC_SFX_MAX_FILE_BYTES )
 /* G124: gentle reclaim for small footsteps; hard retry drops one fire WAV. */
 #define GC_SFX_LOAD_HEADROOM_SOFT	(4u * 1024u)
 #define GC_SFX_LOAD_HEADROOM_HARD	(8u * 1024u)
@@ -68,7 +78,8 @@ static qboolean S_GCAllowRuntimeSoundLoad( void )
 
 	/* Keep map/bootstrap lean; allow a capped trickle once in-world. */
 	return cls.state == ca_active && !s_registering
-		&& s_gc_sfx_budget_used < GC_SFX_BUDGET_BYTES;
+		&& s_gc_sfx_budget_used < GC_SFX_BUDGET
+		&& ( !GC_MenuRunsServer() || GC_MemHeapFreeBytes() >= GC_SFX_MENU_HEAP_FLOOR );
 }
 
 static qboolean S_GCSfxIsPlaying( const sfx_t *sfx )
@@ -145,7 +156,15 @@ static void S_GCEvictBudgetedSfx( sfx_t *sfx )
 			snd.channels[ch].sfx = NULL;
 	}
 	S_GCClearLruSlot( sfx );
-	S_FreeSound( sfx );
+	/* Drop the samples only: freeing the slot let the next new sound take
+	 * its handle while the client's sound_index still pointed at it (an NPC
+	 * footstep then replayed the announcer). The name stays, so the sound
+	 * reloads on its next use. */
+	if( sfx->cache->size > s_gc_sfx_budget_used )
+		s_gc_sfx_budget_used = 0;
+	else s_gc_sfx_budget_used -= sfx->cache->size;
+	FS_FreeSound( sfx->cache );
+	sfx->cache = NULL;
 }
 
 /*
@@ -163,6 +182,14 @@ static size_t S_GCMakeRoomForBudgetedLoad( const sfx_t *keep, size_t want, size_
 
 	if( want == 0 )
 		want = GC_SFX_LOAD_HEADROOM_SOFT;
+	/* Menu route: evict only when the budget is actually short, not before
+	 * every load (two footsteps evicted each other on every step). */
+	if( GC_MenuRunsServer( ))
+	{
+		if( s_gc_sfx_budget_used + want <= GC_SFX_BUDGET )
+			return 0;
+		want = s_gc_sfx_budget_used + want - GC_SFX_BUDGET;
+	}
 
 	while( freed < want )
 	{
@@ -349,6 +376,9 @@ wavdata_t *S_LoadSound( sfx_t *sfx )
 		return NULL;
 
 #if XASH_GAMECUBE
+	/* Announcer lines are streamed (S_GCStreamVoice), never cached. */
+	if( GC_MenuRunsServer() && !Q_strnicmp( sfx->name, "tride/", 6 ))
+		return NULL;
 	if( GC_MapLoadMemoryOpt() && Q_stricmp( sfx->name, "*default" )
 		&& !S_GCAllowRuntimeSoundLoad() )
 	{
@@ -443,11 +473,12 @@ wavdata_t *S_LoadSound( sfx_t *sfx )
 	{
 		int peak = 0;
 
-		if( sc->size > GC_SFX_MAX_FILE_BYTES
-			|| s_gc_sfx_budget_used + sc->size > GC_SFX_BUDGET_BYTES )
+		if( sc->size > GC_SFX_MAX_FILE
+			|| s_gc_sfx_budget_used + sc->size > GC_SFX_BUDGET
+			|| ( GC_MenuRunsServer() && GC_MemHeapFreeBytes() < GC_SFX_MENU_HEAP_FLOOR ))
 		{
 			Con_Reportf( "Xash3D GameCube: gameplay sfx budget refused name=%s size=%u used=%u cap=%u\n",
-				sfx->name, (uint)sc->size, (uint)s_gc_sfx_budget_used, (uint)GC_SFX_BUDGET_BYTES );
+				sfx->name, (uint)sc->size, (uint)s_gc_sfx_budget_used, (uint)GC_SFX_BUDGET );
 			FS_FreeSound( sc );
 			return NULL;
 		}
@@ -476,7 +507,7 @@ wavdata_t *S_LoadSound( sfx_t *sfx )
 		}
 		Con_Reportf( "Xash3D GameCube: gameplay sound decoded samples=%u bytes=%u rate=%u width=%u channels=%u peak=%d budget_used=%u cap=%u\n",
 			sc->samples, (uint)sc->size, sc->rate, sc->width, sc->channels, peak,
-			(uint)s_gc_sfx_budget_used, (uint)GC_SFX_BUDGET_BYTES );
+			(uint)s_gc_sfx_budget_used, (uint)GC_SFX_BUDGET );
 	}
 #endif
 

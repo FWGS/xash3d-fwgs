@@ -7267,36 +7267,43 @@ static qboolean Mod_LoadBmodelLumps( model_t *mod, byte *mod_base, size_t buffer
 	// load into heap
 #if XASH_GAMECUBE
 	Con_Reportf( "Xash3D GameCube: bmodel entities begin\n" );
+	GC_LoadingOverlayPulse();
 #endif
 	Mod_LoadEntities( mod, bmod );
 #if XASH_GAMECUBE
 	Con_Reportf( "Xash3D GameCube: bmodel entities ready\n" );
 	Con_Reportf( "Xash3D GameCube: bmodel planes begin\n" );
+	GC_LoadingOverlayPulse();
 #endif
 	Mod_LoadPlanes( mod, bmod );
 #if XASH_GAMECUBE
 	Con_Reportf( "Xash3D GameCube: bmodel planes ready\n" );
 	Con_Reportf( "Xash3D GameCube: bmodel submodel lump begin\n" );
+	GC_LoadingOverlayPulse();
 #endif
 	Mod_LoadSubmodels( mod, bmod );
 #if XASH_GAMECUBE
 	Con_Reportf( "Xash3D GameCube: bmodel submodel lump ready\n" );
 	Con_Reportf( "Xash3D GameCube: bmodel vertexes begin\n" );
+	GC_LoadingOverlayPulse();
 #endif
 	Mod_LoadVertexes( mod, bmod );
 #if XASH_GAMECUBE
 	Con_Reportf( "Xash3D GameCube: bmodel vertexes ready\n" );
 	Con_Reportf( "Xash3D GameCube: bmodel edges begin\n" );
+	GC_LoadingOverlayPulse();
 #endif
 	Mod_LoadEdges( mod, bmod );
 #if XASH_GAMECUBE
 	Con_Reportf( "Xash3D GameCube: bmodel edges ready\n" );
 	Con_Reportf( "Xash3D GameCube: bmodel surfedges begin\n" );
+	GC_LoadingOverlayPulse();
 #endif
 	Mod_LoadSurfEdges( mod, bmod );
 #if XASH_GAMECUBE
 	Con_Reportf( "Xash3D GameCube: bmodel surfedges ready\n" );
 	Con_Reportf( "Xash3D GameCube: bmodel textures begin\n" );
+	GC_LoadingOverlayPulse();
 #endif
 	Mod_LoadTextures( mod, bmod );
 #if XASH_GAMECUBE
@@ -7311,11 +7318,13 @@ static qboolean Mod_LoadBmodelLumps( model_t *mod, byte *mod_base, size_t buffer
 			Mem_EmptyPool( host.imagepool );
 	}
 	Con_Reportf( "Xash3D GameCube: bmodel visibility begin\n" );
+	GC_LoadingOverlayPulse();
 #endif
 	Mod_LoadVisibility( mod, bmod );
 #if XASH_GAMECUBE
 	Con_Reportf( "Xash3D GameCube: bmodel visibility ready\n" );
 	Con_Reportf( "Xash3D GameCube: bmodel texinfo begin\n" );
+	GC_LoadingOverlayPulse();
 #endif
 	Mod_LoadTexInfo( mod, bmod );
 #if XASH_GAMECUBE
@@ -7325,6 +7334,7 @@ static qboolean Mod_LoadBmodelLumps( model_t *mod, byte *mod_base, size_t buffer
 	GC_MemSample( "pre-surfaces" );
 	Mod_GCEnsureBspLump( mod, bmod, LUMP_FACES );
 	Con_Reportf( "Xash3D GameCube: bmodel surfaces begin\n" );
+	GC_LoadingOverlayPulse();
 #endif
 	Mod_LoadSurfaces( mod, bmod );
 #if XASH_GAMECUBE
@@ -7367,16 +7377,19 @@ static qboolean Mod_LoadBmodelLumps( model_t *mod, byte *mod_base, size_t buffer
 	// preform some post-initalization
 #if XASH_GAMECUBE
 	Con_Reportf( "Xash3D GameCube: bmodel hull0 begin\n" );
+	GC_LoadingOverlayPulse();
 #endif
 	Mod_MakeHull0( mod, bmod );
 #if XASH_GAMECUBE
 	Con_Reportf( "Xash3D GameCube: bmodel hull0 ready\n" );
 	Con_Reportf( "Xash3D GameCube: bmodel submodels begin\n" );
+	GC_LoadingOverlayPulse();
 #endif
 	Mod_SetupSubmodels( mod, bmod );
 #if XASH_GAMECUBE
 	Con_Reportf( "Xash3D GameCube: bmodel submodels ready\n" );
 	Con_Reportf( "Xash3D GameCube: bmodel lighting begin\n" );
+	GC_LoadingOverlayPulse();
 #endif
 	Mod_LoadLighting( mod, bmod );
 #if XASH_GAMECUBE

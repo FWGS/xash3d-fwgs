@@ -247,6 +247,7 @@ void GC_PlayNewGameGameplaySound( void );
 /* G278: stream c0a0 tram VO (tride/*.wav) — too large for SFX budget. */
 void GC_UpdateNewGameIntroAudio( void );
 qboolean GC_MenuRunsServer( void ); /* menu New Game runs the real map logic */
+void GC_LoadingOverlayPulse( void ); /* animate LOADING during a held load */
 void GC_DrawLoadingStatus( const char *message, const char *details );
 void GC_SetLoadingProgress( float progress );
 float GC_GetLoadingProgress( void );

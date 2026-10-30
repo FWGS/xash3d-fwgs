@@ -66,6 +66,7 @@ void GC_BeginMapLoadMemoryOpt( void );
 void GC_EndMapLoadMemoryOpt( void );
 void GC_ClearMapLoadMemoryOpt( void );
 qboolean GC_MapLoadMemoryOpt( void );
+size_t GC_MemHeapFreeBytes( void );
 
 /* Memory budget telemetry */
 size_t GC_MemBudgetTotal( void );

@@ -143,6 +143,31 @@ static void CL_ParseSoundPacket( sizebuf_t *msg, qboolean restore )
 		MSG_ReadBytes( msg, &forcedEnd, sizeof( forcedEnd ), sizeof( forcedEnd ));
 	}
 
+#if XASH_GAMECUBE
+	/* The local map route skips the resource list (SV_ActivateServer), so
+	 * this client never learned the map's sound names and dropped every
+	 * positional sound: the announcer, NPCs, the tram. Take the name from
+	 * the local server on first use and register it then; loads still go
+	 * through the gameplay sound budget, announcer lines are streamed. */
+	if( GC_MenuRunsServer() && !FBitSet( flags, SND_SENTENCE )
+		&& sound > 0 && sound < MAX_SOUNDS && !cl.sound_precache[sound][0] )
+	{
+		extern const char *SV_GCSoundPrecacheName( int index );
+		const char *name = SV_GCSoundPrecacheName( sound );
+
+		if( !COM_StringEmptyOrNULL( name ))
+		{
+			Q_strncpy( cl.sound_precache[sound], name, sizeof( cl.sound_precache[0] ));
+			cl.sound_index[sound] = handle = S_RegisterSound( name );
+			Con_Reportf( "Xash3D GameCube: sound %d registered late %s handle=%d\n", sound, name, handle );
+		}
+	}
+	if( GC_MenuRunsServer() && cls.state == ca_active && !cl.audio_prepped )
+	{
+		cl.audio_prepped = true;
+		Con_Reportf( "Xash3D GameCube: audio prepped for local map route\n" );
+	}
+#endif
 	if( !cl.audio_prepped )
 		return; // too early
 
