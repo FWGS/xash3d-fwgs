@@ -11,4 +11,5 @@ git clone --depth 1 https://github.com/sailfishos/sdk-harbour-rpmvalidator build
 echo "Validating RPM..."
 
 # exits with non-zero only on errors, warnings (e.g. unstripped binaries) don't fail it
-docker exec -u mersdk sailfish bash build/sdk-harbour-rpmvalidator/rpmvalidation.sh artifacts/harbour-xash3d-fwgs.*.rpm || die
+# validate the RPM as built, the artifact copy is renamed and fails the file name check
+docker exec -u mersdk sailfish bash build/sdk-harbour-rpmvalidator/rpmvalidation.sh RPMS/harbour-xash3d-fwgs-[0-9]*."$GH_CPU_ARCH".rpm || die
