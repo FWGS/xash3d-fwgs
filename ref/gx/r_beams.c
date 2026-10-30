@@ -905,6 +905,18 @@ Update beam vars and draw it
 */
 static void R_BeamDraw( BEAM *pbeam, float frametime )
 {
+#if XASH_GAMECUBE
+	static qboolean beam_logged;
+
+	if( !beam_logged )
+	{
+		const model_t *m = CL_ModelHandle( pbeam->modelIndex );
+
+		beam_logged = true;
+		gEngfuncs.Con_Reportf( "Xash3D GameCube: first beam model=%s type=%d cache=%d\n",
+			m ? m->name : "?", m ? m->type : -1, ( m && m->cache.data ) ? 1 : 0 );
+	}
+#endif
 	vec3_t delta;
 
 	model_t *model = CL_ModelHandle( pbeam->modelIndex );

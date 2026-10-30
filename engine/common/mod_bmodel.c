@@ -99,10 +99,12 @@ qboolean Mod_GCIsRetainedBspScratch( const void *buf )
 }
 
 static byte *gc_menu_lm_atlas;
+static int gc_menu_ls_count; /* animated faces kept in the scratch, see below */
 
 void Mod_GCClearRetainedBspScratch( void )
 {
 	gc_menu_lm_atlas = NULL; /* lives in the scratch */
+	gc_menu_ls_count = 0;
 	gc_bsp_scratch_base = NULL;
 	gc_bsp_scratch_size = 0;
 	gc_bsp_scratch_carve_high = 0;
@@ -6528,6 +6530,19 @@ the caller afterwards as before.
 
 static int gc_menu_lm_w, gc_menu_lm_h;
 static const byte *gc_menu_lm_lift;
+typedef struct
+{
+	unsigned long long mask; /* styles below 64 this face uses */
+	unsigned int offset;     /* in ARAM: style after style */
+	word x, y, w, h;         /* in the atlas */
+	byte styles[MAXLIGHTMAPS];
+	byte numstyles;
+} gc_ls_face_t;
+static gc_ls_face_t *gc_menu_ls_faces;
+#define GC_MENU_LS_ARAM_BYTES ( 1024 * 1024 )
+static unsigned int gc_menu_ls_aram;
+static byte gc_menu_ls_buffer[2 * 1024]; /* one row of a face, all styles, from ARAM */
+static qboolean gc_menu_ls_used[64];
 static const model_t *gc_menu_lm_owner;
 static int gc_menu_lm_generation;
 
@@ -6643,6 +6658,182 @@ static void *Mod_GCAllocWorldScratch( model_t *mod, dbspmodel_t *bmod, const gc_
 			all[out++] = all[i];
 	}
 	return Mod_GCAllocBspScratch( gc_bsp_scratch_base, gc_bsp_scratch_size, all, out, alloc_size, align );
+}
+
+/*
+=================
+Mod_GCKeepLightStyles
+
+Light styles. The atlas holds style 0; faces that also use switchable or
+animated styles keep all their samples in ARAM (the lighting lump is released
+after the bake; c0a0c needs 379 KB, MEM1 has no such room), and
+GC_UpdateLightmapStyles recomposes only those faces when a style's value
+changes. If they do not fit, the faces stay at style 0 as they were baked.
+=================
+*/
+static void Mod_GCKeepLightStyles( model_t *mod, dbspmodel_t *bmod )
+{
+	size_t samples = 0, offset;
+	int i, faces = 0;
+
+	gc_menu_ls_count = 0;
+	memset( gc_menu_ls_used, 0, sizeof( gc_menu_ls_used ));
+	for( i = 0; i < mod->numsurfaces; i++ )
+	{
+		const msurface_t *surf = &mod->surfaces[i];
+		int n = 0, sample;
+
+		if( surf->lightmaptexturenum != GC_MENU_LM_BAKED )
+			continue;
+		while( n < MAXLIGHTMAPS && surf->styles[n] != 255 )
+			n++;
+		if( n < 2 && surf->styles[0] == 0 )
+			continue;
+		sample = Mod_SampleSizeForFace( surf );
+		samples += (size_t)n * 3 * (( surf->info->lightextents[0] / sample ) + 1 ) * (( surf->info->lightextents[1] / sample ) + 1 );
+		faces++;
+	}
+	if( !faces )
+		return;
+	if( !gc_menu_ls_aram )
+		gc_menu_ls_aram = GC_AramReserve( GC_MENU_LS_ARAM_BYTES );
+	free( gc_menu_ls_faces );
+	gc_menu_ls_faces = samples <= GC_MENU_LS_ARAM_BYTES ? (gc_ls_face_t *)malloc( faces * sizeof( gc_ls_face_t )) : NULL;
+	if( !gc_menu_ls_faces )
+	{
+		Con_Reportf( S_WARN "Xash3D GameCube: light styles: no room for %d faces (%s), staying at style 0\n",
+			faces, Q_memprint( samples ));
+		return;
+	}
+	offset = 0;
+	for( i = 0; i < mod->numsurfaces; i++ )
+	{
+		const msurface_t *surf = &mod->surfaces[i];
+		const int lightofs = bmod->version == QBSP2_VERSION ? bmod->surfaces32[i].lightofs : bmod->surfaces[i].lightofs;
+		gc_ls_face_t *face;
+		int n = 0, sample, smax, tmax, j;
+		size_t size;
+
+		if( surf->lightmaptexturenum != GC_MENU_LM_BAKED )
+			continue;
+		while( n < MAXLIGHTMAPS && surf->styles[n] != 255 )
+			n++;
+		if( n < 2 && surf->styles[0] == 0 )
+			continue;
+		sample = Mod_SampleSizeForFace( surf );
+		smax = ( surf->info->lightextents[0] / sample ) + 1;
+		tmax = ( surf->info->lightextents[1] / sample ) + 1;
+		size = (size_t)n * 3 * smax * tmax;
+		if( (size_t)n * 3 * smax > sizeof( gc_menu_ls_buffer ))
+			continue; /* a huge face keeps its bake */
+		face = &gc_menu_ls_faces[gc_menu_ls_count++];
+		face->x = (word)surf->light_s;
+		face->y = (word)surf->light_t;
+		face->w = (word)smax;
+		face->h = (word)tmax;
+		face->numstyles = n;
+		face->offset = offset;
+		face->mask = 0;
+		for( j = 0; j < n; j++ )
+		{
+			face->styles[j] = surf->styles[j];
+			if( surf->styles[j] < 64 )
+			{
+				face->mask |= 1ULL << surf->styles[j];
+				gc_menu_ls_used[surf->styles[j]] = true;
+			}
+		}
+		GC_AramCopy( gc_menu_ls_aram + offset, (void *)( bmod->lightdata + lightofs ), size, true );
+		offset += size;
+	}
+	Con_Reportf( "Xash3D GameCube: light styles kept faces=%d samples=%s in ARAM\n", gc_menu_ls_count, Q_memprint( offset ));
+}
+
+/* Called once per world pass. True when the atlas changed: the renderer then
+ * invalidates its texture cache. */
+qboolean GC_UpdateLightmapStyles( void )
+{
+	static int last_gen = -1;
+	static int value[64];
+	static unsigned long long pending, pass;
+	static int cursor;
+	const int ofs = (int)( cl.time * 10.0 );
+	int i, done = 0;
+
+	if( !gc_menu_ls_count || !gc_menu_lm_atlas || cls.state != ca_active )
+		return false;
+	if( last_gen != gc_menu_lm_generation )
+	{
+		last_gen = gc_menu_lm_generation;
+		memset( value, -1, sizeof( value ));
+		pending = pass = 0;
+		cursor = 0;
+	}
+	for( i = 0; i < 64; i++ )
+	{
+		const lightstyle_t *ls = &cl.lightstyles[i];
+		int v;
+
+		if( !gc_menu_ls_used[i] )
+			continue;
+		v = ls->length ? (int)( ls->map[ofs % ls->length] * 22.0f ) : 264;
+		if( v != value[i] )
+		{
+			value[i] = v;
+			pending |= 1ULL << i;
+		}
+	}
+	if( !pass )
+	{
+		if( !pending )
+			return false;
+		pass = pending;
+		pending = 0;
+		cursor = 0;
+	}
+	/* A style's whole set can be hundreds of faces: spread it over frames. */
+	for( ; cursor < gc_menu_ls_count && done < 256; cursor++ )
+	{
+		const gc_ls_face_t *face = &gc_menu_ls_faces[cursor];
+		const int w = gc_menu_lm_w;
+		int s, t, j;
+
+		if( !( face->mask & pass ))
+			continue;
+		done++;
+		for( t = 0; t < face->h; t++ )
+		{
+			for( j = 0; j < face->numstyles; j++ )
+				GC_AramCopy( gc_menu_ls_aram + face->offset + ( j * face->h + t ) * face->w * 3,
+					gc_menu_ls_buffer + j * face->w * 3, face->w * 3, false );
+			for( s = 0; s < face->w; s++ )
+			{
+				const int ax = face->x + s, ay = face->y + t;
+				const size_t texel = ((size_t)( ay >> 2 ) * ( w >> 2 ) + ( ax >> 2 )) * 16 + ( ay & 3 ) * 4 + ( ax & 3 );
+				const byte *src = gc_menu_ls_buffer + s * 3;
+				int c[3] = { 0, 0, 0 }, k;
+
+				for( j = 0; j < face->numstyles; j++, src += face->w * 3 )
+				{
+					const int v = face->styles[j] < 64 ? value[face->styles[j]] : 264;
+
+					if( v > 0 )
+						for( k = 0; k < 3; k++ )
+							c[k] += src[k] * v;
+				}
+				for( k = 0; k < 3; k++ )
+					c[k] = gc_menu_lm_lift[Q_min( c[k] / 264, 255 )];
+				((unsigned short *)gc_menu_lm_atlas)[texel] = (unsigned short)((( c[0] >> 3 ) << 11 )
+					| (( c[1] >> 2 ) << 5 ) | ( c[2] >> 3 ));
+			}
+		}
+	}
+	if( cursor >= gc_menu_ls_count )
+		pass = 0;
+	if( !done )
+		return false;
+	DCFlushRange( gc_menu_lm_atlas, (u32)( gc_menu_lm_w * gc_menu_lm_h * sizeof( unsigned short )));
+	return true;
 }
 
 static void Mod_GCBakeMenuLightmapAtlasInner( model_t *mod, dbspmodel_t *bmod )
@@ -6829,6 +7020,7 @@ static void Mod_GCBakeMenuLightmapAtlasInner( model_t *mod, dbspmodel_t *bmod )
 	gc_menu_lm_w = w;
 	gc_menu_lm_h = h;
 	gc_menu_lm_owner = mod;
+	Mod_GCKeepLightStyles( mod, bmod );
 	Con_Reportf( "Xash3D GameCube: menu lightmaps baked faces=%d atlas=%dx%d (%s) at scratch+%s busy=%zu\n",
 		baked, w, h, Q_memprint( bytes ), Q_memprint( (size_t)( atlas - gc_bsp_scratch_base )), busy_count );
 }

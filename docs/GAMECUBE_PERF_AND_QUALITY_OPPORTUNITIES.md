@@ -36,7 +36,7 @@ by steps. The world pass and brush entities took 11–18 ms per frame.
 | 6 | Studio arena: per-map model sets, no reload leak, full forklift skins, loader, G-Man | Retail cast; stops the arena filling | **Done** |
 | 6b | Intermittent `GX DrawDone` waits of 8–25 ms | Removes run-to-run swings | Open, see below |
 | 7 | Mipmaps, then full-size textures above 128 | Sharper close up, less shimmer | Needs ~1 MB per map as RGB565; CMPR or arena placement to be decided |
-| 8 | Bilinear/atlas lightmap review, lightstyles via partial updates | Retail lighting | Planned |
+| 8 | Lightstyles via partial atlas updates, samples in ARAM (lightmaps were already bilinear) | Retail lighting | **Done** |
 | 9 | Dynamic lights, model lighting from the lightmap | Retail lighting | Planned |
 | 10 | HUD/text at native 640×480, EFB antialiasing, deflicker | Sharper picture | Planned |
 | 11 | Display lists / indexed vertices for static faces | CPU headroom | Planned, by need: the world pass is now 4–6 ms |
@@ -102,6 +102,21 @@ Recording: `.ai/playtests/20261030-082412-menu-newgame-60ee7a182c.mp4`.
 Still inhibited on the menu route: `cycler` (one), `env_sprite`,
 `env_explosion`, `infodecal`, `speaker`, weapons/ammo/items. Retail gaps to
 restore before leaving the intro.
+
+### Light styles (item 8)
+
+The intro maps have no flickering styles; they use switchable ones (32+), and
+the bake only held style 0, so switched lights were missing. Every style's
+samples now stay in ARAM (1 MiB reserved; 380 KB on c0a0c, 1399 faces) and faces
+are recomposed into the atlas only when a style changes, at most 256 faces a
+frame. No MEM1 cost beyond a small face table. The 3-slot world texture pool,
+idle since native textures, is 1 slot: 64 KB back, which the boot needed (2 KB
+of new static data had tipped HUD init at c0a0 into a silent failure, heap free
+there is about 50 KB). Recording:
+`.ai/playtests/20261030-091354-menu-newgame-584af2984c.mp4`.
+
+Open: the first beam logs no client model (`first beam model=?`), so lightning
+beams are likely not drawing.
 
 ### Open: GX DrawDone waits
 

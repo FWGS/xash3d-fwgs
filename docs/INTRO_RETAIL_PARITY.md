@@ -28,6 +28,7 @@ announcer lines, 5/5 hops, no allocation failures, ladder 10/10.
 | Changelevel | GoldSrc keeps the last frame with a LOADING plaque while the next map loads | Last frame held with "LOADING" and animated dots; same on the first New Game load | `loading overlay on/off`, recording frames at each hop |
 | Sky | Six-sided skybox from the map's skyname (default desert) wherever sky faces are | Same skybox as a camera-centred box behind the world (128×128 compressed sides, 48 KiB), reloaded when the sky name changes; maps without sky faces keep a solid clear colour. Of the intro maps only c0a0b has sky (2desert) | `sky 2desert loaded`, `sky faces=1 on maps/c0a0b.bsp`; canyon frames; one-frame flicker metric unchanged |
 | Cast | Scientists, Barneys, forklifts, loader, G-Man on c0a0d | All load with their skins; models load per map | `studio skinned` lines, `gmanlook` script |
+| Light styles | Switched and animated lights | Live: faces recomposed in the lightmap atlas when a style changes, samples in ARAM | `light styles kept faces=1399`, c0a0c frames |
 | A/V sync | — | Picture freeze and sound stop at each hop line up with the engine log within ~0.1 s | Recording vs log, docs/GAMECUBE_PLAY_DOLPHIN.md |
 
 ## Open
@@ -35,7 +36,6 @@ announcer lines, 5/5 hops, no allocation failures, ladder 10/10.
 | Area | Retail | GameCube build now |
 |---|---|---|
 | Sentences | Scientists / Barney speak `!` sentences | Silent: SENTENCEG_Init is skipped on the GameCube game code |
-| Light styles | Flickering / switched lights animate | Static (lightmaps are baked once) |
 | Hold length | A few frames on PC | 2–5 s per hop (disc reads); covered by the LOADING overlay |
 | NPC start-up | Smooth | Frame time is high for the first ~15 s of c0a0 while NPC AI starts |
 | c0a0e exit | Door opens, the player walks out to c1a0 | Ride and arrival verified; leaving the tram and the c0a0e → c1a0 hop not yet checked |
