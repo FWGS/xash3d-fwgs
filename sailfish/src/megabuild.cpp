@@ -393,6 +393,7 @@ void MegaBuild::download( const QString &gamedir, bool retry )
 
 	request.setAttribute( QNetworkRequest::FollowRedirectsAttribute, true );
 	m_hash.reset();
+	m_writeError.clear();
 	m_reply = m_network.get( request );
 
 	connect( m_reply, &QNetworkReply::downloadProgress, this, &MegaBuild::progress );
@@ -401,11 +402,18 @@ void MegaBuild::download( const QString &gamedir, bool retry )
 	{
 		const QByteArray chunk = m_reply->readAll();
 
+		if( !m_writeError.isEmpty( ))
+			return;
+
 		m_hash.addData( chunk );
 
-		// a full disk would otherwise show up later as a broken archive
+		// a full disk would otherwise show up later as a broken archive or a network error,
+		// QFile forgets the error on the next write
 		if( m_download->write( chunk ) != chunk.size( ))
+		{
+			m_writeError = m_download->errorString();
 			m_reply->abort();
+		}
 	});
 
 	connect( m_reply, &QNetworkReply::finished, this, [this, gamedir, build, retry]()
@@ -416,11 +424,9 @@ void MegaBuild::download( const QString &gamedir, bool retry )
 
 		reply->deleteLater();
 		m_hash.addData( rest );
-		m_download->write( rest );
-		m_download->flush();
 
-		const bool written = m_download->error() == QFileDevice::NoError;
-		const QString write_error = m_download->errorString();
+		if( m_writeError.isEmpty() && ( m_download->write( rest ) != rest.size() || !m_download->flush( )))
+			m_writeError = m_download->errorString();
 
 		m_download->close();
 		delete m_download;
@@ -433,10 +439,10 @@ void MegaBuild::download( const QString &gamedir, bool retry )
 			return;
 		}
 
-		if( !written )
+		if( !m_writeError.isEmpty( ))
 		{
 			QFile::remove( zip_path );
-			fail( gamedir, write_error );
+			fail( gamedir, m_writeError );
 			return;
 		}
 

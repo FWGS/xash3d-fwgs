@@ -77,6 +77,7 @@ private:
 	QPointer<QNetworkReply> m_reply;
 	QFile *m_download = nullptr;
 	QCryptographicHash m_hash;
+	QString m_writeError;
 	bool m_busy = false;
 	bool m_cancelled = false;
 };
