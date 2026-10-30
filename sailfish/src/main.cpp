@@ -14,6 +14,7 @@ GNU General Public License for more details.
 */
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include <unistd.h>
 #include <vector>
 #include <QGuiApplication>
@@ -96,13 +97,37 @@ Q_DECL_EXPORT int main( int argc, char **argv )
 
 	args.push_back( nullptr );
 
-	setenv( ENGINE_ENV, "1", 1 );
-	setenv( "XASH3D_BASEDIR", basedir.constData(), 1 );
-	setenv( "XASH3D_CRASH_DIR", crashdir.constData(), 1 );
+	// not setenv, Qt and booster threads may still be running and setenv isn't safe with them
+	const QByteArray overrides[] =
+	{
+		ENGINE_ENV "=1",
+		"XASH3D_BASEDIR=" + basedir,
+		"XASH3D_CRASH_DIR=" + crashdir,
+	};
+	std::vector<char *> envp;
+
+	for( char **env = environ; *env; env++ )
+	{
+		bool keep = true;
+
+		for( const QByteArray &entry : overrides )
+		{
+			if( !strncmp( *env, entry.constData(), entry.indexOf( '=' ) + 1 ))
+				keep = false;
+		}
+
+		if( keep )
+			envp.push_back( *env );
+	}
+
+	for( const QByteArray &entry : overrides )
+		envp.push_back( (char *)entry.constData( ));
+
+	envp.push_back( nullptr );
 
 	// not /proc/self/exe, it points to the booster when launched through it
-	execv( ENGINE_BINARY, args.data( ));
+	execve( ENGINE_BINARY, args.data(), envp.data( ));
 
-	perror( "execv " ENGINE_BINARY );
+	perror( "execve " ENGINE_BINARY );
 	return 1;
 }
