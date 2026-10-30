@@ -12,6 +12,7 @@ but WITHOUT ANY WARRANTY; without even the implied warranty of
 MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 */
+#include <algorithm>
 #include <QFile>
 #include <QImageReader>
 #include <QPainter>
@@ -335,27 +336,29 @@ QString FindGameIcon( const QDir &game, QString icon )
 		icon += ".ico";
 
 	const QString base = icon.left( icon.lastIndexOf( '.' ));
-	QString best;
-	int best_area = 0;
+	QList<QPair<int, QString>> candidates;
 
 	// mods often point to a file they don't have, or have a better one elsewhere
 	for( const QString &name : { base + "_big.tga", base + ".tga", icon, QString( "game.ico" )})
 	{
 		const QString path = FindFileCaseInsensitive( game, name );
+		const int area = path.isEmpty() ? 0 : IconArea( path );
 
-		if( path.isEmpty( ))
-			continue;
-
-		const int area = IconArea( path );
-
-		if( area > best_area )
-		{
-			best = path;
-			best_area = area;
-		}
+		if( area > 0 )
+			candidates.append( qMakePair( area, path ));
 	}
 
-	return best;
+	// keeps the order above for the same size
+	std::stable_sort( candidates.begin(), candidates.end(), []( const QPair<int, QString> &a, const QPair<int, QString> &b ) { return a.first > b.first; } );
+
+	// a header can be fine with the rest of the file broken
+	for( const QPair<int, QString> &candidate : candidates )
+	{
+		if( !LoadIcon( candidate.second ).isNull( ))
+			return candidate.second;
+	}
+
+	return QString();
 }
 
 GameIconProvider::GameIconProvider() : QQuickImageProvider( QQuickImageProvider::Image )
