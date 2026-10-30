@@ -402,7 +402,10 @@ void MegaBuild::download( const QString &gamedir, bool retry )
 		const QByteArray chunk = m_reply->readAll();
 
 		m_hash.addData( chunk );
-		m_download->write( chunk );
+
+		// a full disk would otherwise show up later as a broken archive
+		if( m_download->write( chunk ) != chunk.size( ))
+			m_reply->abort();
 	});
 
 	connect( m_reply, &QNetworkReply::finished, this, [this, gamedir, build, retry]()
@@ -414,6 +417,11 @@ void MegaBuild::download( const QString &gamedir, bool retry )
 		reply->deleteLater();
 		m_hash.addData( rest );
 		m_download->write( rest );
+		m_download->flush();
+
+		const bool written = m_download->error() == QFileDevice::NoError;
+		const QString write_error = m_download->errorString();
+
 		m_download->close();
 		delete m_download;
 		m_download = nullptr;
@@ -422,6 +430,13 @@ void MegaBuild::download( const QString &gamedir, bool retry )
 		{
 			QFile::remove( zip_path );
 			fail( gamedir, QString( ));
+			return;
+		}
+
+		if( !written )
+		{
+			QFile::remove( zip_path );
+			fail( gamedir, write_error );
 			return;
 		}
 
