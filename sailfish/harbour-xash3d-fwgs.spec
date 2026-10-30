@@ -1,4 +1,4 @@
-# Use scripts/sailfish/build.sh to build this
+# See Documentation/sailfish.md for build instructions
 
 # the build number the engine reports, days from Apr 1 2015 to the commit date, so rpmbuild must run in the git checkout
 %{!?buildnum:%global buildnum %(d=$(git log -1 --format=%%cs 2>/dev/null) && echo $(( ( $(date -u -d "$d 00:00:00" +%%s) - $(date -u -d "2015-04-01 00:00:00" +%%s) ) / 86400 )) || echo 0)}
