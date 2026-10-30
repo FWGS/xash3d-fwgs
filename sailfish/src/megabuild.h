@@ -16,6 +16,7 @@ GNU General Public License for more details.
 
 #include <functional>
 #include <QCryptographicHash>
+#include <QJsonArray>
 #include <QJsonObject>
 #include <QNetworkAccessManager>
 #include <QObject>
@@ -67,7 +68,8 @@ private:
 	void finishInstall( const QString &gamedir, const QString &zip_path );
 	void fail( const QString &gamedir, const QString &error );
 	QJsonObject readBuildInfo( const QString &gamedir ) const;
-	bool removeRecordedFiles( const QJsonObject &info ) const;
+	// files in keep belong to the build that replaced it
+	bool removeRecordedFiles( const QJsonObject &info, const QJsonArray &keep = QJsonArray() ) const;
 
 	const Launcher *m_launcher;
 	QNetworkAccessManager m_network;

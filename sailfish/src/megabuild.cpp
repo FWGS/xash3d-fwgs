@@ -478,9 +478,6 @@ void MegaBuild::finishInstall( const QString &gamedir, const QString &zip_path )
 	QJsonArray files;
 	QString error;
 
-	if( !previous.isEmpty( ))
-		removeRecordedFiles( previous );
-
 	const bool extracted = ExtractZip( zip_path, base, gamedir, files, error );
 
 	QFile::remove( zip_path );
@@ -490,6 +487,10 @@ void MegaBuild::finishInstall( const QString &gamedir, const QString &zip_path )
 		fail( gamedir, error );
 		return;
 	}
+
+	// only after the new build is in place, so a failed update keeps the old libraries
+	if( !previous.isEmpty( ))
+		removeRecordedFiles( previous, files );
 
 	QJsonObject info;
 	info["gamedir"] = gamedir;
@@ -527,11 +528,15 @@ void MegaBuild::cancel()
 		m_reply->abort();
 }
 
-bool MegaBuild::removeRecordedFiles( const QJsonObject &info ) const
+bool MegaBuild::removeRecordedFiles( const QJsonObject &info, const QJsonArray &keep ) const
 {
 	const QDir base( m_launcher->baseDir( ));
 	const QString root = base.canonicalPath() + '/';
 	QSet<QString> dirs;
+	QSet<QString> kept;
+
+	for( const QJsonValue &value : keep )
+		kept.insert( value.toObject().value( "path" ).toString( ));
 
 	for( const QJsonValue &value : info.value( "files" ).toArray( ))
 	{
@@ -539,7 +544,7 @@ bool MegaBuild::removeRecordedFiles( const QJsonObject &info ) const
 		const QString rel = entry.value( "path" ).toString();
 		const QString sha = entry.value( "sha256" ).toString();
 
-		if( rel.isEmpty() || sha.isEmpty( ))
+		if( rel.isEmpty() || sha.isEmpty() || kept.contains( rel ))
 			continue;
 
 		const QFileInfo target( base.filePath( rel ));
