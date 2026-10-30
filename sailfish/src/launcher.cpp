@@ -33,6 +33,15 @@ static const char *const s_mobile_hacks_games[] =
 	"redempt", "secret", "sewer_beta", "tot", "valve", "vendetta",
 };
 
+// the engine's library suffix for this architecture
+#if defined( __aarch64__ )
+#define CLIENT_LIBRARY "cl_dlls/client_arm64.so"
+#elif defined( __arm__ )
+#define CLIENT_LIBRARY "cl_dlls/client_armv7hf.so"
+#else
+#define CLIENT_LIBRARY ""
+#endif
+
 // gameinfo.txt takes priority over liblist.gam, like in the engine
 static void ReadGameInfo( const QDir &dir, QString &title, QString &icon )
 {
@@ -194,6 +203,8 @@ void Launcher::refresh()
 		game["title"] = title.isEmpty() ? info.fileName() : title;
 		game["icon"] = icon_path;
 		game["downloaded"] = dir.exists( MEGABUILD_INFO_FILE );
+		// put there by the user, not by the downloader
+		game["libraries"] = *CLIENT_LIBRARY && !FindFileCaseInsensitive( dir, CLIENT_LIBRARY ).isEmpty();
 		m_games.append( game );
 	}
 

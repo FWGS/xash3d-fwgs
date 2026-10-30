@@ -8,7 +8,7 @@ Page {
 	property bool startupChecked
 
 	function play( game ) {
-		if( launcher.isBundled( game.dir ) || game.downloaded ) {
+		if( launcher.isBundled( game.dir ) || game.downloaded || game.libraries ) {
 			launcher.launch( game.dir )
 			return
 		}
