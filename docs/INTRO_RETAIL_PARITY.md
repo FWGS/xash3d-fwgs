@@ -7,8 +7,12 @@ and the engine log. Retail behaviour is taken from the maps' own entities
 (trigger_auto / multi_manager timings, ambient_generic, env_message) and
 the stock game code.
 
-Reference recording: `.ai/playtests/20261030-015618-menu-newgame-d1c92d7269.mp4`
-(full ride, 429 s, kept), probe log `.ai/logs/dolphin-probe-20261030-015615`.
+Reference recordings (full ride c0a0 → c0a0e): probe disc
+`.ai/playtests/20261030-015618-menu-newgame-d1c92d7269.mp4` (kept), and the
+play disc with the real controller and the camera turned every 25 s
+`.ai/playtests/20261030-023723-menu-newgame-d1c92d7269.mp4`
+(log `.ai/logs/dolphin-probe-20261030-023722`): 40/40 titles shown, 10/10
+announcer lines, 5/5 hops, no allocation failures, ladder 10/10.
 
 ## Verified
 
@@ -22,6 +26,7 @@ Reference recording: `.ai/playtests/20261030-015618-menu-newgame-d1c92d7269.mp4`
 | Credits / titles | env_message CR1–CR38, CR27, OPENTITLE3/4, the c0a0c tube panels CR28–CR34 | All shown with their titles.txt effects (fade, flicker, write-out) | 40 fired, 40 `HudText … displayed`, none `done frames=0` (half were dropped before) |
 | Credit timing (c0a0) | start_titles 0.3 s → title_manager +6 → CR1..CR8 every 3 s | CR1..CR8 3.0 s apart | `HudText CRn effect=… at t` |
 | Changelevel | GoldSrc keeps the last frame with a LOADING plaque while the next map loads | Last frame held with "LOADING" and animated dots; same on the first New Game load | `loading overlay on/off`, recording frames at each hop |
+| Sky | Six-sided skybox from the map's skyname (default desert) wherever sky faces are | Same skybox as a camera-centred box behind the world (128×128 compressed sides, 48 KiB), reloaded when the sky name changes; maps without sky faces keep a solid clear colour. Of the intro maps only c0a0b has sky (2desert) | `sky 2desert loaded`, `sky faces=1 on maps/c0a0b.bsp`; canyon frames; one-frame flicker metric unchanged |
 | A/V sync | — | Picture freeze and sound stop at each hop line up with the engine log within ~0.1 s | Recording vs log, docs/GAMECUBE_PLAY_DOLPHIN.md |
 
 ## Open
@@ -33,5 +38,6 @@ Reference recording: `.ai/playtests/20261030-015618-menu-newgame-d1c92d7269.mp4`
 | Hold length | A few frames on PC | 2–5 s per hop (disc reads); covered by the LOADING overlay |
 | NPC start-up | Smooth | Frame time is high for the first ~15 s of c0a0 while NPC AI starts |
 | c0a0e exit | Door opens, the player walks out to c1a0 | Ride and arrival verified; leaving the tram and the c0a0e → c1a0 hop not yet checked |
+| Sky after c0a0e | c1a0 and later outdoor maps | Same code path, not yet seen in a recording (needs walking out of the tram) |
 | Boot | Menu after the logos | A garbled status panel can show briefly before the menu |
 | c0a0a | Smooth ride | Occasional judder |
