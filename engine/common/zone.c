@@ -109,6 +109,7 @@ typedef struct mempool_s
 	byte               *gc_arena;
 	size_t              gc_arena_size;
 	size_t              gc_arena_offset;
+	size_t              gc_arena_live;	/* blocks currently in the arena */
 #endif
 } mempool_t;
 
@@ -399,6 +400,7 @@ void *_Mem_TryAlloc( poolhandle_t poolptr, size_t size, qboolean clear, const ch
 			{
 				mem = (memheader_t *)( pool->gc_arena + aligned );
 				pool->gc_arena_offset = aligned + blocksize;
+				pool->gc_arena_live++;
 			}
 		}
 #endif
@@ -530,9 +532,26 @@ static void Mem_FreeBlockBig( memheader_t *mem, const char *filename, int fileli
 	Mem_PoolUnlinkAllocBig( pool, mem );
 
 #if XASH_GAMECUBE
-	if( !Mem_IsArenaBlock( pool, mem ))
+	if( Mem_IsArenaBlock( pool, mem ))
+	{
+		/* The arena is a bump allocator: give space back when the top
+		 * block goes (read-decode-free WAD/file loads are LIFO) and when
+		 * it empties. It used to fill once with long-gone file buffers,
+		 * after which every load hit the fragmented heap (c0a0b WAD
+		 * textures soft-failed with ~800 KiB free). */
+		const size_t start = (byte *)mem - pool->gc_arena;
+		const size_t end = start + sizeof( memheader_t ) + mem->size + sizeof( byte );
+
+		if( pool->gc_arena_live > 0 )
+			pool->gc_arena_live--;
+		if( pool->gc_arena_live == 0 )
+			pool->gc_arena_offset = 0;
+		else if( end == pool->gc_arena_offset )
+			pool->gc_arena_offset = start;
+		return;
+	}
 #endif
-		Q_free( mem );
+	Q_free( mem );
 }
 
 static void Mem_FreeBlockSmall( memheader_small_t *mem, const char *filename, int fileline )
@@ -828,7 +847,10 @@ void _Mem_EmptyPool( poolhandle_t poolptr, const char *filename, int fileline )
 		Mem_FreeBlockSmall( pool->chain_small, filename, fileline );
 #if XASH_GAMECUBE
 	if( pool->gc_arena )
+	{
 		pool->gc_arena_offset = 0;
+		pool->gc_arena_live = 0;
+	}
 #endif
 }
 
