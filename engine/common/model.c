@@ -96,6 +96,99 @@ byte *Mod_GCStudioArenaLoadFile( const char *path, fs_offset_t *length )
 	return slot;
 }
 
+/* Menu New Game sequence groups (scientist01..07.mdl, barney01..03.mdl, up
+ * to 65 KiB each) live in a few fixed arena slots reused least-recently
+ * used. Bump-allocating every group filled the 1 MiB studio arena by c0a0b
+ * ("LoadCacheFile: can't load models/scientist04.mdl"). Reusing a slot
+ * clears its previous owner's cache_user_t, so Cache_Check reloads it. */
+#define GC_SEQGROUP_SLOTS     4
+#define GC_SEQGROUP_SLOT_SIZE ( 66 * 1024 )
+static struct
+{
+	byte         *buf;
+	cache_user_t *owner;
+	unsigned     used;
+} gc_seqgroup_slot[GC_SEQGROUP_SLOTS];
+static unsigned gc_seqgroup_clock;
+
+static int Mod_GCSeqGroupSlotOf( const void *ptr )
+{
+	int i;
+
+	for( i = 0; i < GC_SEQGROUP_SLOTS; i++ )
+	{
+		if( gc_seqgroup_slot[i].buf && (const byte *)ptr >= gc_seqgroup_slot[i].buf
+			&& (const byte *)ptr < gc_seqgroup_slot[i].buf + GC_SEQGROUP_SLOT_SIZE )
+			return i;
+	}
+	return -1;
+}
+
+byte *Mod_GCSeqGroupLoad( const char *path, cache_user_t *cu, fs_offset_t *length )
+{
+	file_t *f;
+	fs_offset_t flen, total = 0, got;
+	int i, pick = -1;
+
+	*length = 0;
+	f = FS_Open( path, "rb", false );
+	if( !f )
+		return NULL;
+	flen = FS_FileLength( f );
+	if( flen <= 0 || flen > GC_SEQGROUP_SLOT_SIZE )
+	{
+		FS_Close( f );
+		return NULL;
+	}
+	for( i = 0; i < GC_SEQGROUP_SLOTS && pick < 0; i++ )
+	{
+		if( !gc_seqgroup_slot[i].buf )
+		{
+			gc_seqgroup_slot[i].buf = Mod_GCStudioBssAlloc( GC_SEQGROUP_SLOT_SIZE );
+			if( gc_seqgroup_slot[i].buf )
+				pick = i;
+			break;
+		}
+		if( !gc_seqgroup_slot[i].owner )
+			pick = i;
+	}
+	if( pick < 0 )
+	{
+		for( i = 0; i < GC_SEQGROUP_SLOTS; i++ )
+		{
+			if( gc_seqgroup_slot[i].buf && ( pick < 0 || gc_seqgroup_slot[i].used < gc_seqgroup_slot[pick].used ))
+				pick = i;
+		}
+	}
+	if( pick < 0 )
+	{
+		FS_Close( f );
+		return NULL;
+	}
+	if( gc_seqgroup_slot[pick].owner && Mod_GCSeqGroupSlotOf( gc_seqgroup_slot[pick].owner->data ) == pick )
+		gc_seqgroup_slot[pick].owner->data = NULL;
+	gc_seqgroup_slot[pick].owner = NULL;
+	while( total < flen && ( got = FS_Read( f, gc_seqgroup_slot[pick].buf + total, flen - total )) > 0 )
+		total += got;
+	FS_Close( f );
+	if( total != flen )
+		return NULL;
+	gc_seqgroup_slot[pick].owner = cu;
+	gc_seqgroup_slot[pick].used = ++gc_seqgroup_clock;
+	cu->data = gc_seqgroup_slot[pick].buf;
+	*length = flen;
+	Con_Reportf( "Xash3D GameCube: studio seqgroup '%s' in slot %d (%s)\n", path, pick, Q_memprint( (size_t)flen ));
+	return gc_seqgroup_slot[pick].buf;
+}
+
+void Mod_GCSeqGroupTouch( const void *ptr )
+{
+	int i = Mod_GCSeqGroupSlotOf( ptr );
+
+	if( i >= 0 )
+		gc_seqgroup_slot[i].used = ++gc_seqgroup_clock;
+}
+
 qboolean Mod_GCIsStudioBssCache( const void *ptr )
 {
 	const byte *p = (const byte *)ptr;
@@ -1603,9 +1696,13 @@ void *GAME_EXPORT Mod_CacheCheck( cache_user_t *c )
 		return NULL;
 
 #if XASH_GAMECUBE
-	/* Sequence groups loaded into the studio arena stay resident. */
+	/* Sequence groups loaded into the studio arena stay resident until
+	 * their slot is reused (which clears c->data). */
 	if( Mod_GCIsStudioBssCache( c->data ))
+	{
+		Mod_GCSeqGroupTouch( c->data );
 		return c->data;
+	}
 #endif
 	if( !Mem_IsAllocatedExt( com_studiocache, c->data ))
 		return NULL;
@@ -1636,7 +1733,7 @@ void GAME_EXPORT Mod_LoadCacheFile( const char *filename, cache_user_t *cu )
 #if XASH_GAMECUBE
 	/* Menu New Game: the client studio renderer's sequence groups go to
 	 * the studio arena like R_StudioGetAnim's (one copy, no heap). */
-	if( GC_MenuRunsServer() && ( buf = Mod_GCStudioArenaLoadFile( modname, &size )) != NULL )
+	if( GC_MenuRunsServer() && ( buf = Mod_GCSeqGroupLoad( modname, cu, &size )) != NULL )
 		cu->data = buf;
 	else
 #endif

@@ -624,10 +624,9 @@ void *R_StudioGetAnim( studiohdr_t *m_pStudioHeader, model_t *m_pSubModel, mstud
 #if XASH_GAMECUBE
 		if( arena )
 		{
-			buf = Mod_GCStudioArenaLoadFile( filepath, &filesize );
+			buf = Mod_GCSeqGroupLoad( filepath, &paSequences[pseqdesc->seqgroup], &filesize );
 			if( buf && LittleLong( IDSEQGRPHEADER ) == *(uint *)buf )
 			{
-				paSequences[pseqdesc->seqgroup].data = buf;
 				Mod_SwapStudioSeqGroupAnims( m_pStudioHeader, pseqdesc, buf );
 				return buf + pseqdesc->animindex;
 			}

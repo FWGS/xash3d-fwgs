@@ -998,6 +998,8 @@ static void R_DrawEntitiesOnList( void )
 			continue;
 
 		Assert( RI.currententity != NULL );
+		if( !RI.currentmodel ) /* model-less list slot (c0a0b/c0a0c); see above */
+			continue;
 		Assert( RI.currentmodel != NULL );
 
 		switch( RI.currentmodel->type )
@@ -1155,6 +1157,8 @@ static void R_DrawEntitiesOnList( void )
 				continue;
 
 			Assert( RI.currententity != NULL );
+			if( !RI.currentmodel ) /* model-less list slot (c0a0b/c0a0c); see above */
+				continue;
 			Assert( RI.currentmodel != NULL );
 
 			switch( RI.currentmodel->type )
