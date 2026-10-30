@@ -81,6 +81,10 @@ double Posix_GetCPUTime( void );
 void Posix_Daemonize( void );
 void Posix_SetupSigtermHandling( void );
 char *Posix_Input( void );
+void Posix_InitConsole( void );
+void Posix_ShutdownConsole( void );
+void Posix_ConsolePrintBegin( void );
+void Posix_ConsolePrintEnd( const char *msg );
 // returns the number of stable network device MAC addresses, each packed into low 48 bits
 int Posix_GetNetDeviceAddresses( uint64_t *addresses, int max );
 #endif
@@ -184,6 +188,11 @@ static inline void Platform_Init( qboolean con_showalways )
 	SDLash_Init( );
 #endif
 
+#if XASH_POSIX && !XASH_MOBILE_PLATFORM && !XASH_LOW_MEMORY
+	// after SDL, so it can install its Ctrl-C handler first
+	Posix_InitConsole( );
+#endif
+
 #if XASH_ANDROID
 	Android_Init( );
 #elif XASH_NSWITCH
@@ -219,6 +228,10 @@ static inline void Platform_Shutdown( void )
 	Win32_Shutdown( );
 #elif XASH_LINUX
 	Linux_Shutdown( );
+#endif
+
+#if XASH_POSIX && !XASH_MOBILE_PLATFORM && !XASH_LOW_MEMORY
+	Posix_ShutdownConsole( );
 #endif
 
 #if XASH_SDL
@@ -392,6 +405,21 @@ static inline char *Platform_Input( void )
 	return Posix_Input();
 #else
 	return NULL;
+#endif
+}
+
+// hide and redraw the terminal input line around stdout prints
+static inline void Platform_ConsolePrintBegin( void )
+{
+#if XASH_POSIX && !XASH_MOBILE_PLATFORM && !XASH_LOW_MEMORY
+	Posix_ConsolePrintBegin();
+#endif
+}
+
+static inline void Platform_ConsolePrintEnd( const char *msg )
+{
+#if XASH_POSIX && !XASH_MOBILE_PLATFORM && !XASH_LOW_MEMORY
+	Posix_ConsolePrintEnd( msg );
 #endif
 }
 

@@ -2276,9 +2276,14 @@ int IN_TouchEvent( touchEventType type, int fingerID, float x, float y, float dx
 			static float x1 = 0.0f;
 			x1 += dx;
 
+			// let K_MOUSE1 below press console buttons, finger motion isn't passed, so dragging scrolls instead of selecting text
+			if( type == event_down && cls.key_dest == key_console )
+				Con_MouseMove( x * refState.width, y * refState.height );
+
 			if( type == event_up ) // don't show keyboard on every tap
 			{
-				Key_EnableTextInput( true, true );
+				if( !Con_IsButtonAt( x * refState.width, y * refState.height ))
+					Key_EnableTextInput( true, true );
 				x1 = 0.0f;
 			}
 
