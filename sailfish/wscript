@@ -54,6 +54,7 @@ def build(bld):
 		'mbedtls.txt': '../3rdparty/mbedtls/mbedtls/LICENSE',
 		'libbacktrace.txt': '../3rdparty/libbacktrace/libbacktrace/LICENSE',
 		'multiemulator.txt': '../3rdparty/MultiEmulator/LICENSE',
+		'xash-extras-logos.txt': '../3rdparty/extras/xash-extras/logos/license.txt',
 	}
 
 	for dst, src in licenses.items():

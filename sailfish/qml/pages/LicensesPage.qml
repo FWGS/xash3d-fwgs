@@ -21,6 +21,7 @@ Page {
 		ListElement { name: "libbacktrace"; license: "BSD 3-Clause"; file: "libbacktrace.txt"; url: "" }
 		ListElement { name: "MultiEmulator"; license: "MIT"; file: "multiemulator.txt"; url: "" }
 		ListElement { name: "miniz"; license: "MIT"; file: ""; url: "https://github.com/richgel999/miniz/blob/master/LICENSE" }
+		ListElement { name: "Spray logos"; license: "CC BY-NC-SA 4.0, Apache 2.0"; file: "xash-extras-logos.txt"; url: "" }
 		ListElement { name: "stb_truetype"; license: "Public domain or MIT"; file: ""; url: "https://github.com/nothings/stb" }
 		ListElement { name: "SipHash"; license: "CC0 1.0"; file: ""; url: "https://github.com/veorq/SipHash" }
 		ListElement { name: "SDL_GameControllerDB"; license: "zlib"; file: ""; url: "https://github.com/mdqinc/SDL_GameControllerDB" }
