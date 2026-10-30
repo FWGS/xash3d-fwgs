@@ -9,7 +9,7 @@ the stock game code.
 
 Reference recording (full ride c0a0 → c0a0e, play disc with the real
 controller and the camera turned every 25 s, kept):
-`.ai/playtests/20261030-102941-menu-newgame-7ee19f569c.mp4`: 40/40 titles shown, 10/10
+`.ai/playtests/20261030-150229-menu-newgame-7c5fd79d27.mp4`: 40/40 titles shown, 10/10
 announcer lines, 5/5 hops, no allocation failures, ladder 10/10.
 
 ## Verified
