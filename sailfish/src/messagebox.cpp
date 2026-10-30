@@ -21,6 +21,12 @@ GNU General Public License for more details.
 #include <sailfishapp.h>
 #include "messagebox.h"
 
+/*
+========================
+MessageBox_Main
+
+========================
+*/
 int MessageBox_Main( int argc, char **argv )
 {
 	QScopedPointer<QGuiApplication> app( SailfishApp::application( argc, argv ));

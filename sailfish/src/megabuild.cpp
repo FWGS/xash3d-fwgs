@@ -40,12 +40,24 @@ GNU General Public License for more details.
 #define STAGING_DIR ".mod_build_staging"
 #define BACKUP_DIR ".mod_build_backup"
 
-// hlsdk-mega-build platform keys, the library suffix inside is decided by the build
+/*
+========================
+Platform
+
+hlsdk-mega-build platform keys, the library suffix inside is decided by the build
+========================
+*/
 static QString Platform()
 {
 	return QString( "%1-%2" ).arg( QString::fromLatin1( Q_buildos( ))).arg( QString::fromLatin1( Q_buildarch( )));
 }
 
+/*
+========================
+CachePath
+
+========================
+*/
 static QString CachePath( const char *name )
 {
 	const QString dir = QStandardPaths::writableLocation( QStandardPaths::CacheLocation );
@@ -54,11 +66,23 @@ static QString CachePath( const char *name )
 	return dir + '/' + name;
 }
 
+/*
+========================
+IsValidManifest
+
+========================
+*/
 static bool IsValidManifest( const QJsonDocument &doc )
 {
 	return doc.isObject() && doc.object().value( "version" ).toInt( -1 ) == MANIFEST_VERSION;
 }
 
+/*
+========================
+FileSHA256
+
+========================
+*/
 static QString FileSHA256( const QString &path )
 {
 	QFile file( path );
@@ -72,7 +96,13 @@ static QString FileSHA256( const QString &path )
 	return QString::fromLatin1( hash.result().toHex( ));
 }
 
-// a path that doesn't exist yet is checked by its closest existing parent
+/*
+========================
+IsInside
+
+a path that doesn't exist yet is checked by its closest existing parent
+========================
+*/
 static bool IsInside( const QString &root, const QString &path )
 {
 	QFileInfo info( path );
@@ -85,12 +115,24 @@ static bool IsInside( const QString &root, const QString &path )
 	return !root.isEmpty() && ( canonical == root || canonical.startsWith( root + '/' ));
 }
 
+/*
+========================
+GameRoot
+
+========================
+*/
 static QString GameRoot( const QDir &base, const QString &gamedir )
 {
 	return QDir( base.filePath( gamedir )).canonicalPath();
 }
 
-// files are recorded with their final paths in the game folder
+/*
+========================
+ExtractZip
+
+files are recorded with their final paths in the game folder
+========================
+*/
 static bool ExtractZip( const QString &zip_path, const QDir &staging, const QString &gamedir, QJsonArray &files, QString &error )
 {
 	mz_zip_archive zip;
@@ -176,7 +218,13 @@ static bool ExtractZip( const QString &zip_path, const QDir &staging, const QStr
 	return ok;
 }
 
-// the replaced files go into the backup folder first, so a failed install can put them back
+/*
+========================
+MoveStaged
+
+the replaced files go into the backup folder first, so a failed install can put them back
+========================
+*/
 static bool MoveStaged( const QDir &staging, const QDir &backup, const QDir &base, const QString &gamedir, const QJsonArray &files, QString &error )
 {
 	const QString root = GameRoot( base, gamedir );
@@ -241,12 +289,24 @@ static bool MoveStaged( const QDir &staging, const QDir &backup, const QDir &bas
 	return false;
 }
 
+/*
+========================
+MegaBuild::MegaBuild
+
+========================
+*/
 MegaBuild::MegaBuild( const Launcher *launcher, QObject *parent ) : QObject( parent ),
 	m_launcher( launcher ),
 	m_hash( QCryptographicHash::Sha256 )
 {
 }
 
+/*
+========================
+MegaBuild::setBusy
+
+========================
+*/
 void MegaBuild::setBusy( bool busy )
 {
 	if( m_busy == busy )
@@ -256,6 +316,12 @@ void MegaBuild::setBusy( bool busy )
 	emit busyChanged();
 }
 
+/*
+========================
+MegaBuild::readBuildInfo
+
+========================
+*/
 QJsonObject MegaBuild::readBuildInfo( const QString &gamedir ) const
 {
 	QFile file( QDir( m_launcher->baseDir( )).filePath( gamedir + "/" MEGABUILD_INFO_FILE ));
@@ -266,11 +332,23 @@ QJsonObject MegaBuild::readBuildInfo( const QString &gamedir ) const
 	return QJsonDocument::fromJson( file.readAll( )).object();
 }
 
+/*
+========================
+MegaBuild::isInstalled
+
+========================
+*/
 bool MegaBuild::isInstalled( const QString &gamedir ) const
 {
 	return QFile::exists( QDir( m_launcher->baseDir( )).filePath( gamedir + "/" MEGABUILD_INFO_FILE ));
 }
 
+/*
+========================
+MegaBuild::installedInfo
+
+========================
+*/
 QVariantMap MegaBuild::installedInfo( const QString &gamedir ) const
 {
 	const QJsonObject info = readBuildInfo( gamedir );
@@ -284,6 +362,12 @@ QVariantMap MegaBuild::installedInfo( const QString &gamedir ) const
 	return map;
 }
 
+/*
+========================
+MegaBuild::findBuild
+
+========================
+*/
 QJsonObject MegaBuild::findBuild( const QString &gamedir ) const
 {
 	const QJsonObject mods = m_manifest.value( "mods" ).toObject();
@@ -304,6 +388,12 @@ QJsonObject MegaBuild::findBuild( const QString &gamedir ) const
 	return QJsonObject();
 }
 
+/*
+========================
+MegaBuild::updateAvailable
+
+========================
+*/
 bool MegaBuild::updateAvailable( const QString &gamedir ) const
 {
 	const QJsonObject local = readBuildInfo( gamedir );
@@ -324,6 +414,12 @@ bool MegaBuild::updateAvailable( const QString &gamedir ) const
 	return remote.value( "sha256" ).toString().compare( local.value( "sha256" ).toString(), Qt::CaseInsensitive ) != 0;
 }
 
+/*
+========================
+MegaBuild::verify
+
+========================
+*/
 QVariantMap MegaBuild::verify( const QString &gamedir ) const
 {
 	const QDir base( m_launcher->baseDir( ));
@@ -364,6 +460,12 @@ QVariantMap MegaBuild::verify( const QString &gamedir ) const
 	return result;
 }
 
+/*
+========================
+MegaBuild::fetchManifest
+
+========================
+*/
 void MegaBuild::fetchManifest( std::function<void( bool reachable )> done )
 {
 	QNetworkRequest request( QUrl( MANIFEST_URL ));
@@ -420,6 +522,12 @@ void MegaBuild::fetchManifest( std::function<void( bool reachable )> done )
 	});
 }
 
+/*
+========================
+MegaBuild::query
+
+========================
+*/
 void MegaBuild::query( const QString &gamedir )
 {
 	fetchManifest( [this, gamedir]( bool reachable )
@@ -431,6 +539,12 @@ void MegaBuild::query( const QString &gamedir )
 	});
 }
 
+/*
+========================
+MegaBuild::install
+
+========================
+*/
 void MegaBuild::install( const QString &gamedir )
 {
 	if( m_busy )
@@ -451,6 +565,12 @@ void MegaBuild::install( const QString &gamedir )
 	});
 }
 
+/*
+========================
+MegaBuild::download
+
+========================
+*/
 void MegaBuild::download( const QString &gamedir, bool retry )
 {
 	const QJsonObject build = findBuild( gamedir );
@@ -560,6 +680,12 @@ void MegaBuild::download( const QString &gamedir, bool retry )
 	});
 }
 
+/*
+========================
+MegaBuild::finishInstall
+
+========================
+*/
 void MegaBuild::finishInstall( const QString &gamedir, const QString &zip_path )
 {
 	const QDir base( m_launcher->baseDir( ));
@@ -613,12 +739,24 @@ void MegaBuild::finishInstall( const QString &gamedir, const QString &zip_path )
 	emit installFinished( gamedir, true, QString( ));
 }
 
+/*
+========================
+MegaBuild::fail
+
+========================
+*/
 void MegaBuild::fail( const QString &gamedir, const QString &error )
 {
 	setBusy( false );
 	emit installFinished( gamedir, false, error );
 }
 
+/*
+========================
+MegaBuild::cancel
+
+========================
+*/
 void MegaBuild::cancel()
 {
 	m_cancelled = true;
@@ -627,6 +765,12 @@ void MegaBuild::cancel()
 		m_reply->abort();
 }
 
+/*
+========================
+MegaBuild::removeRecordedFiles
+
+========================
+*/
 bool MegaBuild::removeRecordedFiles( const QString &gamedir, const QJsonObject &info, const QJsonArray &keep ) const
 {
 	const QDir base( m_launcher->baseDir( ));
@@ -670,6 +814,12 @@ bool MegaBuild::removeRecordedFiles( const QString &gamedir, const QJsonObject &
 	return true;
 }
 
+/*
+========================
+MegaBuild::uninstall
+
+========================
+*/
 bool MegaBuild::uninstall( const QString &gamedir )
 {
 	const QJsonObject info = readBuildInfo( gamedir );

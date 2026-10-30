@@ -31,6 +31,12 @@ GNU General Public License for more details.
 #define ENGINE_LOG_LINES 50
 #define MAIL_BODY_LIMIT 8000 // mail clients don't reliably take longer mailto links
 
+/*
+========================
+CrashEmail
+
+========================
+*/
 static QString CrashEmail()
 {
 	QByteArray addr = QByteArray::fromHex( CRASH_EMAIL );
@@ -41,11 +47,23 @@ static QString CrashEmail()
 	return QString::fromLatin1( addr );
 }
 
+/*
+========================
+CrashesDir
+
+========================
+*/
 static QString CrashesDir()
 {
 	return QStandardPaths::writableLocation( QStandardPaths::AppDataLocation ) + "/crashes";
 }
 
+/*
+========================
+ReadFile
+
+========================
+*/
 static QString ReadFile( const QString &path )
 {
 	QFile file( path );
@@ -56,16 +74,34 @@ static QString ReadFile( const QString &path )
 	return QString::fromUtf8( file.readAll( ));
 }
 
+/*
+========================
+BuildString
+
+========================
+*/
 static QString BuildString()
 {
 	return QString( "%1-%2" ).arg( Q_buildnum( )).arg( QString::fromLatin1( g_buildcommit ));
 }
 
+/*
+========================
+IsValidName
+
+========================
+*/
 static bool IsValidName( const QString &name )
 {
 	return name.startsWith( "crash-" ) && !name.contains( '/' ) && !name.contains( ".." );
 }
 
+/*
+========================
+EngineLogSection
+
+========================
+*/
 static QString EngineLogSection( const QStringList &enginelog, int lines )
 {
 	if( enginelog.isEmpty() || lines <= 0 )
@@ -74,21 +110,45 @@ static QString EngineLogSection( const QStringList &enginelog, int lines )
 	return "\n--- engine.log, last lines ---\n" + enginelog.mid( qMax( 0, enginelog.size() - lines )).join( '\n' ) + '\n';
 }
 
+/*
+========================
+CrashReports::CrashReports
+
+========================
+*/
 CrashReports::CrashReports( QObject *parent ) : QObject( parent )
 {
 	prune();
 }
 
+/*
+========================
+CrashReports::pendingDir
+
+========================
+*/
 QString CrashReports::pendingDir() const
 {
 	return CrashesDir() + "/pending";
 }
 
+/*
+========================
+CrashReports::historyDir
+
+========================
+*/
 QString CrashReports::historyDir() const
 {
 	return CrashesDir() + "/history";
 }
 
+/*
+========================
+CrashReports::prune
+
+========================
+*/
 void CrashReports::prune() const
 {
 	QSettings settings( SettingsPath(), QSettings::IniFormat );
@@ -111,6 +171,12 @@ void CrashReports::prune() const
 	}
 }
 
+/*
+========================
+CrashReports::prepareLaunch
+
+========================
+*/
 void CrashReports::prepareLaunch( const QStringList &args ) const
 {
 	QDir dir( pendingDir( ));
@@ -146,6 +212,12 @@ void CrashReports::prepareLaunch( const QStringList &args ) const
 		QTextStream( &launch ) << args.join( ' ' ) << '\n';
 }
 
+/*
+========================
+CrashReports::history
+
+========================
+*/
 QVariantList CrashReports::history() const
 {
 	QVariantList list;
@@ -163,6 +235,12 @@ QVariantList CrashReports::history() const
 	return list;
 }
 
+/*
+========================
+CrashReports::takePending
+
+========================
+*/
 QString CrashReports::takePending()
 {
 	const QDir pending( pendingDir( ));
@@ -182,6 +260,12 @@ QString CrashReports::takePending()
 	return name;
 }
 
+/*
+========================
+CrashReports::report
+
+========================
+*/
 QString CrashReports::report( const QString &name ) const
 {
 	QStringList enginelog;
@@ -190,6 +274,12 @@ QString CrashReports::report( const QString &name ) const
 	return text + EngineLogSection( enginelog, ENGINE_LOG_LINES );
 }
 
+/*
+========================
+CrashReports::readReport
+
+========================
+*/
 QString CrashReports::readReport( const QString &name, QStringList &enginelog ) const
 {
 	if( !IsValidName( name ))
@@ -211,6 +301,12 @@ QString CrashReports::readReport( const QString &name, QStringList &enginelog ) 
 	return text;
 }
 
+/*
+========================
+CrashReports::mailUrl
+
+========================
+*/
 QString CrashReports::mailUrl( const QString &name ) const
 {
 	const QString prompt = tr( "Please describe in as much detail as possible what you were doing when the game crashed — every little thing helps us fix it!" ) + "\n\n\n";
@@ -248,6 +344,12 @@ QString CrashReports::mailUrl( const QString &name ) const
 	return QString( "mailto:%1?subject=%2&body=%3" ).arg( CrashEmail(), QString::fromLatin1( QUrl::toPercentEncoding( "Xash3D FWGS crash report" )), QString::fromLatin1( encoded ));
 }
 
+/*
+========================
+CrashReports::remove
+
+========================
+*/
 void CrashReports::remove( const QString &name )
 {
 	if( !IsValidName( name ))

@@ -22,6 +22,12 @@ GNU General Public License for more details.
 // also keeps width * height within int
 #define MAX_IMAGE_SIZE 4096
 
+/*
+========================
+FindFileCaseInsensitive
+
+========================
+*/
 QString FindFileCaseInsensitive( const QDir &base, const QString &relpath )
 {
 	QString path = base.absolutePath();
@@ -56,7 +62,13 @@ QString FindFileCaseInsensitive( const QDir &base, const QString &relpath )
 	return path;
 }
 
-// invalid if it's not an uncompressed or RLE true color image
+/*
+========================
+TGASize
+
+invalid if it's not an uncompressed or RLE true color image
+========================
+*/
 static QSize TGASize( const uchar *header )
 {
 	const int type = header[2];
@@ -73,8 +85,14 @@ static QSize TGASize( const uchar *header )
 	return QSize( width, height );
 }
 
-// Qt has no TGA plugin on Sailfish, menu backgrounds are uncompressed or RLE true color images
-// the engine draws menu backgrounds opaque, only icons need alpha
+/*
+========================
+LoadTGA
+
+Qt has no TGA plugin on Sailfish, menu backgrounds are uncompressed or RLE true color images
+the engine draws menu backgrounds opaque, only icons need alpha
+========================
+*/
 static QImage LoadTGA( const QString &path, bool keep_alpha )
 {
 	QFile file( path );
@@ -159,7 +177,13 @@ static QImage LoadTGA( const QString &path, bool keep_alpha )
 	return image;
 }
 
-// resource/BackgroundLayout.txt: "resolution W H", then "<tga> <mode> <x> <y>" entries
+/*
+========================
+ComposeFromLayout
+
+resource/BackgroundLayout.txt: "resolution W H", then "<tga> <mode> <x> <y>" entries
+========================
+*/
 static QImage ComposeFromLayout( const QDir &game, const QString &layout_path )
 {
 	QFile file( layout_path );
@@ -205,7 +229,13 @@ static QImage ComposeFromLayout( const QDir &game, const QString &layout_path )
 	return drawn ? canvas : QImage();
 }
 
-// old games only have the 800x600 tiles: resource/background/800_<row>_<column>_loading.tga
+/*
+========================
+ComposeFromTiles
+
+old games only have the 800x600 tiles: resource/background/800_<row>_<column>_loading.tga
+========================
+*/
 static QImage ComposeFromTiles( const QDir &game )
 {
 	QImage canvas( 800, 600, QImage::Format_RGB32 );
@@ -245,10 +275,22 @@ static QImage ComposeFromTiles( const QDir &game )
 	return drawn ? canvas : QImage();
 }
 
+/*
+========================
+GameCoverProvider::GameCoverProvider
+
+========================
+*/
 GameCoverProvider::GameCoverProvider() : QQuickImageProvider( QQuickImageProvider::Image )
 {
 }
 
+/*
+========================
+GameCoverProvider::requestImage
+
+========================
+*/
 QImage GameCoverProvider::requestImage( const QString &id, QSize *size, const QSize &requestedSize )
 {
 	const QDir game( id );
@@ -269,6 +311,12 @@ QImage GameCoverProvider::requestImage( const QString &id, QSize *size, const QS
 	return image;
 }
 
+/*
+========================
+LoadIcon
+
+========================
+*/
 static QImage LoadIcon( const QString &path )
 {
 	if( path.endsWith( ".tga", Qt::CaseInsensitive ))
@@ -289,7 +337,13 @@ static QImage LoadIcon( const QString &path )
 	return image;
 }
 
-// area of the largest image in the file, from the headers only: refresh runs it for every game
+/*
+========================
+IconArea
+
+area of the largest image in the file, from the headers only: refresh runs it for every game
+========================
+*/
 static int IconArea( const QString &path )
 {
 	if( path.endsWith( ".tga", Qt::CaseInsensitive ))
@@ -326,6 +380,12 @@ static int IconArea( const QString &path )
 	return area;
 }
 
+/*
+========================
+FindGameIcon
+
+========================
+*/
 QString FindGameIcon( const QDir &game, QString icon )
 {
 	icon.replace( '\\', '/' );
@@ -361,10 +421,22 @@ QString FindGameIcon( const QDir &game, QString icon )
 	return QString();
 }
 
+/*
+========================
+GameIconProvider::GameIconProvider
+
+========================
+*/
 GameIconProvider::GameIconProvider() : QQuickImageProvider( QQuickImageProvider::Image )
 {
 }
 
+/*
+========================
+GameIconProvider::requestImage
+
+========================
+*/
 QImage GameIconProvider::requestImage( const QString &id, QSize *size, const QSize &requestedSize )
 {
 	QImage image = LoadIcon( id );

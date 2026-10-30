@@ -30,6 +30,12 @@ GNU General Public License for more details.
 #include "messagebox.h"
 #include "updater.h"
 
+/*
+========================
+main
+
+========================
+*/
 Q_DECL_EXPORT int main( int argc, char **argv )
 {
 	// Harbour allows only one executable, so the engine is started from the same one

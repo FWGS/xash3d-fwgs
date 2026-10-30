@@ -47,11 +47,23 @@ GNU General Public License for more details.
 #define RPM_ARCH "x86_64"
 #endif
 
+/*
+========================
+Now
+
+========================
+*/
 static qint64 Now()
 {
 	return QDateTime::currentMSecsSinceEpoch();
 }
 
+/*
+========================
+GitHubRequest
+
+========================
+*/
 static QNetworkRequest GitHubRequest( const QString &url )
 {
 	QNetworkRequest request( url );
@@ -63,7 +75,13 @@ static QNetworkRequest GitHubRequest( const QString &url )
 	return request;
 }
 
-// git describe output: [<tag>-<n>-g]<hash>[-dirty]
+/*
+========================
+CommitHash
+
+git describe output: [<tag>-<n>-g]<hash>[-dirty]
+========================
+*/
 static QString CommitHash( const QString &describe )
 {
 	QString hash = describe;
@@ -79,20 +97,44 @@ static QString CommitHash( const QString &describe )
 	return QRegularExpression( "^[0-9a-fA-F]{7,40}$" ).match( hash ).hasMatch() ? hash : QString();
 }
 
+/*
+========================
+Updater::Updater
+
+========================
+*/
 Updater::Updater( QObject *parent ) : QObject( parent )
 {
 }
 
+/*
+========================
+Updater::buildNumber
+
+========================
+*/
 int Updater::buildNumber() const
 {
 	return Q_buildnum();
 }
 
+/*
+========================
+Updater::buildCommit
+
+========================
+*/
 QString Updater::buildCommit() const
 {
 	return QString::fromLatin1( g_buildcommit );
 }
 
+/*
+========================
+Updater::autoCheck
+
+========================
+*/
 void Updater::autoCheck()
 {
 	if( !enabled( ))
@@ -109,6 +151,12 @@ void Updater::autoCheck()
 	check( false );
 }
 
+/*
+========================
+Updater::manualCheck
+
+========================
+*/
 void Updater::manualCheck()
 {
 	if( !enabled( ))
@@ -120,6 +168,12 @@ void Updater::manualCheck()
 	check( true );
 }
 
+/*
+========================
+Updater::check
+
+========================
+*/
 void Updater::check( bool manual )
 {
 	QNetworkReply *reply = m_network.get( GitHubRequest( RELEASE_API_URL ));
@@ -187,6 +241,12 @@ void Updater::check( bool manual )
 	});
 }
 
+/*
+========================
+Updater::fetchChangelog
+
+========================
+*/
 void Updater::fetchChangelog( int remoteBuild, const QString &tag, const QString &url )
 {
 	const QString hash = CommitHash( buildCommit( ));
@@ -224,6 +284,12 @@ void Updater::fetchChangelog( int remoteBuild, const QString &tag, const QString
 	});
 }
 
+/*
+========================
+Updater::snooze
+
+========================
+*/
 void Updater::snooze( int remoteBuild )
 {
 	QSettings settings( SettingsPath(), QSettings::IniFormat );

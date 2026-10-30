@@ -21,6 +21,12 @@ typedef void (*pfnChangeGame)( const char *progname );
 typedef int (*pfnInit)( int argc, char **argv, const char *progname, int bChangeGame, pfnChangeGame func );
 typedef void (*pfnShutdown)( void );
 
+/*
+========================
+Engine_Main
+
+========================
+*/
 int Engine_Main( int argc, char **argv )
 {
 	char basedir[4096];

@@ -26,14 +26,20 @@ GNU General Public License for more details.
 #include "megabuild.h"
 #include "settings.h"
 
-// these mods work with valve libraries built from hlsdk-portable mobile_hacks branch, see android/.../model/Game.kt
+// these mods work with libraries built from hlsdk-portable mobile_hacks branch, see android/.../model/Game.kt
 static const char *const s_mobile_hacks_games[] =
 {
 	"aom", "bdlands", "biglolly", "bshift", "caseclosed", "hl_urbicide", "induction",
 	"redempt", "secret", "sewer_beta", "tot", "valve", "vendetta",
 };
 
-// gameinfo.txt takes priority over liblist.gam, like in the engine
+/*
+========================
+ReadGameInfo
+
+gameinfo.txt takes priority over liblist.gam, like in the engine
+========================
+*/
 static void ReadGameInfo( const QDir &dir, QString &title, QString &icon )
 {
 	static const struct
@@ -76,7 +82,13 @@ static void ReadGameInfo( const QDir &dir, QString &title, QString &icon )
 	}
 }
 
-// shell-like: whitespace separates, quotes group, backslash escapes
+/*
+========================
+SplitArguments
+
+shell-like: whitespace separates, quotes group, backslash escapes
+========================
+*/
 static QStringList SplitArguments( const QString &line )
 {
 	QStringList args;
@@ -125,6 +137,12 @@ static QStringList SplitArguments( const QString &line )
 	return args;
 }
 
+/*
+========================
+Launcher::Launcher
+
+========================
+*/
 Launcher::Launcher( QObject *parent ) : QObject( parent )
 {
 	QSettings settings( SettingsPath(), QSettings::IniFormat );
@@ -134,11 +152,23 @@ Launcher::Launcher( QObject *parent ) : QObject( parent )
 	refresh();
 }
 
+/*
+========================
+Launcher::defaultBaseDir
+
+========================
+*/
 QString Launcher::defaultBaseDir() const
 {
 	return QDir::home().filePath( ENGINE_BASEDIR );
 }
 
+/*
+========================
+Launcher::prepareBaseDir
+
+========================
+*/
 void Launcher::prepareBaseDir()
 {
 	QDir().mkpath( m_baseDir );
@@ -150,6 +180,12 @@ void Launcher::prepareBaseDir()
 		nomedia.open( QIODevice::WriteOnly );
 }
 
+/*
+========================
+Launcher::setBaseDir
+
+========================
+*/
 void Launcher::setBaseDir( const QString &dir )
 {
 	const QString path = dir.isEmpty() ? defaultBaseDir() : QDir::cleanPath( dir );
@@ -170,6 +206,12 @@ void Launcher::setBaseDir( const QString &dir )
 	refresh();
 }
 
+/*
+========================
+Launcher::refresh
+
+========================
+*/
 void Launcher::refresh()
 {
 	const QFileInfoList dirs = QDir( m_baseDir ).entryInfoList( QDir::Dirs | QDir::NoDotAndDotDot );
@@ -205,6 +247,12 @@ void Launcher::refresh()
 	emit gamesChanged();
 }
 
+/*
+========================
+Launcher::startLastGame
+
+========================
+*/
 bool Launcher::startLastGame() const
 {
 	QSettings settings( SettingsPath(), QSettings::IniFormat );
@@ -212,6 +260,12 @@ bool Launcher::startLastGame() const
 	return settings.value( "start_last_game", false ).toBool();
 }
 
+/*
+========================
+Launcher::setStartLastGame
+
+========================
+*/
 void Launcher::setStartLastGame( bool enable )
 {
 	QSettings settings( SettingsPath(), QSettings::IniFormat );
@@ -220,6 +274,12 @@ void Launcher::setStartLastGame( bool enable )
 	emit startLastGameChanged();
 }
 
+/*
+========================
+Launcher::lastGame
+
+========================
+*/
 QVariantMap Launcher::lastGame() const
 {
 	QSettings settings( SettingsPath(), QSettings::IniFormat );
@@ -236,6 +296,12 @@ QVariantMap Launcher::lastGame() const
 	return QVariantMap();
 }
 
+/*
+========================
+Launcher::isBundled
+
+========================
+*/
 bool Launcher::isBundled( const QString &gamedir ) const
 {
 	for( const char *game : s_mobile_hacks_games )
@@ -247,6 +313,12 @@ bool Launcher::isBundled( const QString &gamedir ) const
 	return false;
 }
 
+/*
+========================
+Launcher::gameArguments
+
+========================
+*/
 QString Launcher::gameArguments( const QString &gamedir ) const
 {
 	QSettings settings( SettingsPath(), QSettings::IniFormat );
@@ -254,6 +326,12 @@ QString Launcher::gameArguments( const QString &gamedir ) const
 	return settings.value( "games/" + gamedir + "/arguments", defaultArguments( )).toString();
 }
 
+/*
+========================
+Launcher::setGameArguments
+
+========================
+*/
 void Launcher::setGameArguments( const QString &gamedir, const QString &args )
 {
 	QSettings settings( SettingsPath(), QSettings::IniFormat );
@@ -265,6 +343,12 @@ void Launcher::setGameArguments( const QString &gamedir, const QString &args )
 		settings.setValue( "games/" + gamedir + "/arguments", args );
 }
 
+/*
+========================
+Launcher::launch
+
+========================
+*/
 void Launcher::launch( const QString &gamedir )
 {
 	m_engineArgs.clear();
@@ -285,6 +369,12 @@ void Launcher::launch( const QString &gamedir )
 	QCoreApplication::quit();
 }
 
+/*
+========================
+Launcher::licenseText
+
+========================
+*/
 QString Launcher::licenseText( const QString &name ) const
 {
 	if( name.contains( '/' ))
