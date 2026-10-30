@@ -187,6 +187,9 @@ void Platform_MessageBox( const char *title, const char *message, qboolean paren
 	char **envp = malloc(( count + 2 ) * sizeof( *envp ));
 	int envc = 0;
 
+	if( !envp )
+		return;
+
 	for( int i = 0; i < count; i++ )
 	{
 		if( Q_strncmp( environ[i], engine_env, sizeof( engine_env ) - 1 ))
