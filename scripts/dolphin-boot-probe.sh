@@ -274,7 +274,10 @@ if (( SKIP_DISC )); then
 	rm -f "$ISO_PATH"
 	if ! ln "$PREBUILT_ISO" "$ISO_PATH" 2>/dev/null; then
 		if ! ln -s "$PREBUILT_ISO" "$ISO_PATH" 2>/dev/null; then
-			cp -f "$PREBUILT_ISO" "$ISO_PATH"
+			# exFAT has no links: boot the prebuilt image in place instead
+			# of copying 0.5 GiB into every log dir (73 GiB of copies filled
+			# the drive).
+			ISO_PATH="$PREBUILT_ISO"
 		fi
 	fi
 else
