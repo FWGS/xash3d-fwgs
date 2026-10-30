@@ -21,30 +21,27 @@ GNU General Public License for more details.
 #include <QRegularExpression>
 #include <QSettings>
 #include <QTimer>
+#include <crtlib.h>
 #include "settings.h"
 #include "updater.h"
 
-// from libpublic, the same build number and commit the engine reports
-extern "C" int Q_buildnum( void );
-extern "C" const char *g_buildcommit;
-
-#define RELEASE_API_URL "https://api.github.com/repos/FWGS/xash3d-fwgs/releases/tags/continuous"
-#define COMPARE_API_URL "https://api.github.com/repos/FWGS/xash3d-fwgs/compare/"
+#define RELEASE_API_URL  "https://api.github.com/repos/FWGS/xash3d-fwgs/releases/tags/continuous"
+#define COMPARE_API_URL  "https://api.github.com/repos/FWGS/xash3d-fwgs/compare/"
 #define RELEASE_PAGE_URL "https://github.com/FWGS/xash3d-fwgs/releases/tag/continuous"
 
 // same rules as the Android launcher
-#define STALENESS_DAYS 3 // remote build must be this much newer to be offered
+#define STALENESS_DAYS         3  // remote build must be this much newer to be offered
 #define MAX_NAG_STALENESS_DAYS 14 // after that, check on every start and ignore snoozing
-#define CHECK_INTERVAL_MS ( 6 * 60 * 60 * 1000LL )
-#define SNOOZE_START_MS ( 12 * 60 * 60 * 1000LL )
-#define SNOOZE_ESCALATION_MS ( 2 * 24 * 60 * 60 * 1000LL ) // snooze shrinks to nothing over this much skipping
-#define CHANGELOG_MAX_LINES 15
+#define CHECK_INTERVAL_MS      ( 6 * 60 * 60 * 1000LL )
+#define SNOOZE_START_MS        ( 12 * 60 * 60 * 1000LL )
+#define SNOOZE_ESCALATION_MS   ( 2 * 24 * 60 * 60 * 1000LL ) // snooze shrinks to nothing over this much skipping
+#define CHANGELOG_MAX_LINES    15
 
-#if defined( __aarch64__ )
+#if XASH_ARM && XASH_64BIT
 #define RPM_ARCH "aarch64"
-#elif defined( __arm__ )
+#elif XASH_ARM
 #define RPM_ARCH "armv7hl"
-#elif defined( __i386__ )
+#elif XASH_X86
 #define RPM_ARCH "i486"
 #else
 #define RPM_ARCH "x86_64"

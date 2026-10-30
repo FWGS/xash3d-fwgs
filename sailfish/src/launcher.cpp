@@ -20,6 +20,7 @@ GNU General Public License for more details.
 #include <QSettings>
 #include <QTextStream>
 #include <QVariantMap>
+#include <build.h>
 #include "engine.h"
 #include "gamecover.h"
 #include "launcher.h"
@@ -34,9 +35,9 @@ static const char *const s_mobile_hacks_games[] =
 };
 
 // the engine's library suffix for this architecture
-#if defined( __aarch64__ )
+#if XASH_ARM && XASH_64BIT
 #define CLIENT_LIBRARY "cl_dlls/client_arm64.so"
-#elif defined( __arm__ )
+#elif XASH_ARM
 #define CLIENT_LIBRARY "cl_dlls/client_armv7hf.so"
 #else
 #define CLIENT_LIBRARY ""

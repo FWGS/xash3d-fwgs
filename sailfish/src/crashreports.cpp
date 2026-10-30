@@ -21,12 +21,9 @@ GNU General Public License for more details.
 #include <QTextStream>
 #include <QUrl>
 #include <QVariantMap>
+#include <crtlib.h>
 #include "crashreports.h"
 #include "settings.h"
-
-// from libpublic, the same build number and commit the engine reports
-extern "C" int Q_buildnum( void );
-extern "C" const char *g_buildcommit;
 
 #define CRASH_EMAIL "crash@fwgs.gay"
 #define HISTORY_DAYS 30

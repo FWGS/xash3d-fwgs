@@ -27,6 +27,7 @@ GNU General Public License for more details.
 #include <QSet>
 #include <QStandardPaths>
 #include <QTimer>
+#include <library_suffix.h>
 #include <miniz.h>
 #include "launcher.h"
 #include "megabuild.h"
@@ -39,17 +40,10 @@ GNU General Public License for more details.
 #define STAGING_DIR ".mod_build_staging"
 
 // hlsdk-mega-build platform keys, the library suffix inside is decided by the build
-#if defined( __aarch64__ )
-#define PLATFORM "linux-arm64"
-#elif defined( __arm__ )
-#define PLATFORM "linux-armhf"
-#elif defined( __x86_64__ )
-#define PLATFORM "linux-amd64"
-#elif defined( __i386__ )
-#define PLATFORM "linux-i386"
-#else
-#define PLATFORM ""
-#endif
+static QString Platform()
+{
+	return QString( "%1-%2" ).arg( QString::fromLatin1( Q_buildos( ))).arg( QString::fromLatin1( Q_buildarch( )));
+}
 
 static QString CachePath( const char *name )
 {
@@ -235,7 +229,7 @@ QJsonObject MegaBuild::findBuild( const QString &gamedir ) const
 		if( key.compare( gamedir, Qt::CaseInsensitive ))
 			continue;
 
-		const QJsonObject build = mods.value( key ).toObject().value( "builds" ).toObject().value( PLATFORM ).toObject();
+		const QJsonObject build = mods.value( key ).toObject().value( "builds" ).toObject().value( Platform( )).toObject();
 
 		if( build.value( "filename" ).toString().isEmpty() || build.value( "sha256" ).toString().isEmpty( ))
 			return QJsonObject();
@@ -254,7 +248,7 @@ bool MegaBuild::updateAvailable( const QString &gamedir ) const
 	if( local.isEmpty() || remote.isEmpty( ))
 		return false;
 
-	if( local.value( "platform" ).toString() != PLATFORM )
+	if( local.value( "platform" ).toString() != Platform( ))
 		return true;
 
 	// rebuilt every couple of days with a new hash, the source tree tells if anything changed
@@ -288,8 +282,8 @@ QVariantMap MegaBuild::verify( const QString &gamedir ) const
 	}
 
 	// a game folder copied from a PC keeps the record of libraries downloaded there
-	if( platform != PLATFORM )
-		problems.append( tr( "These libraries are built for %1, this device needs %2" ).arg( platform ).arg( PLATFORM ));
+	if( platform != Platform( ))
+		problems.append( tr( "These libraries are built for %1, this device needs %2" ).arg( platform ).arg( Platform( )));
 
 	if( files.isEmpty( ))
 		problems.append( tr( "The list of installed files is missing or damaged" ));
@@ -532,7 +526,7 @@ void MegaBuild::finishInstall( const QString &gamedir, const QString &zip_path )
 
 	QJsonObject info;
 	info["gamedir"] = gamedir;
-	info["platform"] = PLATFORM;
+	info["platform"] = Platform();
 	info["filename"] = build.value( "filename" );
 	info["sha256"] = build.value( "sha256" );
 	info["source"] = build.value( "source" ).isObject() ? build.value( "source" ) : QJsonObject();

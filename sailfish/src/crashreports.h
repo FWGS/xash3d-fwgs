@@ -30,6 +30,7 @@ public:
 
 	// passed to the engine as XASH3D_CRASH_DIR
 	QString pendingDir() const;
+
 	// system information and launch arguments go along with the crash
 	void prepareLaunch( const QStringList &args ) const;
 

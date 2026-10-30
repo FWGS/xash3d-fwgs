@@ -34,12 +34,14 @@ public:
 
 	// throttled and snoozable, quiet unless there's an update to show
 	Q_INVOKABLE void autoCheck();
+
 	// always reports back through checkFinished
 	Q_INVOKABLE void manualCheck();
 	Q_INVOKABLE void snooze( int remoteBuild );
 
 signals:
 	void updateAvailable( int remoteBuild, const QString &url, const QStringList &changelog, int moreCommits );
+
 	// "available", "uptodate", "failed", "disabled"
 	void checkFinished( const QString &status );
 
