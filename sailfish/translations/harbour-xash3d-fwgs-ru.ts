@@ -306,6 +306,10 @@
         <source>The downloaded file is corrupted</source>
         <translation>Загруженный файл повреждён</translation>
     </message>
+    <message>
+        <source>Can&apos;t install %1: %2</source>
+        <translation>Не удалось установить %1: %2</translation>
+    </message>
 </context>
 <context>
     <name>MessageBox</name>

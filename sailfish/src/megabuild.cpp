@@ -13,6 +13,8 @@ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 */
 #include <algorithm>
+#include <errno.h>
+#include <stdio.h>
 #include <string.h>
 #include <QDir>
 #include <QFile>
@@ -32,6 +34,9 @@ GNU General Public License for more details.
 #define RELEASE_URL "https://github.com/FWGS/hlsdk-mega-build/releases/download/continuous/"
 #define MANIFEST_URL RELEASE_URL "manifest.json"
 #define MANIFEST_VERSION 1
+
+// inside the game folder, so moving files out of it never crosses file systems
+#define STAGING_DIR ".mod_build_staging"
 
 // hlsdk-mega-build platform keys, the library suffix inside is decided by the build
 #if defined( __aarch64__ )
@@ -72,7 +77,8 @@ static QString FileSHA256( const QString &path )
 	return QString::fromLatin1( hash.result().toHex( ));
 }
 
-static bool ExtractZip( const QString &zip_path, const QDir &base, const QString &gamedir, QJsonArray &files, QString &error )
+// files are recorded with their final paths in the game folder
+static bool ExtractZip( const QString &zip_path, const QDir &staging, const QString &gamedir, QJsonArray &files, QString &error )
 {
 	mz_zip_archive zip;
 
@@ -125,7 +131,7 @@ static bool ExtractZip( const QString &zip_path, const QDir &base, const QString
 
 		const QByteArray bytes = QByteArray::fromRawData( (const char *)data, (int)size );
 		const QString target_rel = gamedir + '/' + rel;
-		const QString target = base.filePath( target_rel );
+		const QString target = staging.filePath( rel );
 		QSaveFile file( target );
 
 		QDir().mkpath( QFileInfo( target ).absolutePath( ));
@@ -155,6 +161,26 @@ static bool ExtractZip( const QString &zip_path, const QDir &base, const QString
 
 	mz_zip_reader_end( &zip );
 	return ok;
+}
+
+static bool MoveStaged( const QDir &staging, const QDir &base, const QString &gamedir, const QJsonArray &files, QString &error )
+{
+	for( const QJsonValue &value : files )
+	{
+		const QString target_rel = value.toObject().value( "path" ).toString();
+		const QString target = base.filePath( target_rel );
+
+		QDir().mkpath( QFileInfo( target ).absolutePath( ));
+
+		// replaces the old file in one step, QFile::rename refuses to overwrite
+		if( rename( QFile::encodeName( staging.filePath( target_rel.mid( gamedir.size() + 1 ))).constData(), QFile::encodeName( target ).constData( )))
+		{
+			error = MegaBuild::tr( "Can't install %1: %2" ).arg( target_rel ).arg( QString::fromLocal8Bit( strerror( errno )));
+			return false;
+		}
+	}
+
+	return true;
 }
 
 MegaBuild::MegaBuild( const Launcher *launcher, QObject *parent ) : QObject( parent ),
@@ -481,14 +507,20 @@ void MegaBuild::finishInstall( const QString &gamedir, const QString &zip_path )
 	const QDir base( m_launcher->baseDir( ));
 	const QJsonObject build = findBuild( gamedir );
 	const QJsonObject previous = readBuildInfo( gamedir );
+	QDir staging( base.filePath( gamedir + "/" STAGING_DIR ));
 	QJsonArray files;
 	QString error;
 
-	const bool extracted = ExtractZip( zip_path, base, gamedir, files, error );
+	// leftover from an interrupted update
+	staging.removeRecursively();
+
+	// the old libraries stay untouched until the whole archive is unpacked
+	const bool installed = ExtractZip( zip_path, staging, gamedir, files, error ) && MoveStaged( staging, base, gamedir, files, error );
 
 	QFile::remove( zip_path );
+	staging.removeRecursively();
 
-	if( !extracted )
+	if( !installed )
 	{
 		fail( gamedir, error );
 		return;
