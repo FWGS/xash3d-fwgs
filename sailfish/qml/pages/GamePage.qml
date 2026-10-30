@@ -140,7 +140,7 @@ Page {
 				Button {
 					visible: page.updateAvailable
 					text: qsTr( "Update" )
-					onClicked: pageStack.push( Qt.resolvedUrl( "DownloadPage.qml" ), { gamedir: page.game.dir })
+					onClicked: pageStack.push( Qt.resolvedUrl( "DownloadPage.qml" ), { gamedir: page.game.dir, launchGame: false })
 				}
 
 				Button {
