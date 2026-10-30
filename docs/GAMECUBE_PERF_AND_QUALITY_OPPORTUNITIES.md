@@ -30,14 +30,18 @@ by steps. The world pass and brush entities took 11–18 ms per frame.
 |---|---|---|---|
 | 1 | Sound reload cooldown | Removes disc stalls | **Done** |
 | 2 | Native GX textures in place (no pool, no conversion) | World pass 3× faster | **Done** |
-| 3 | Mipmaps, then full-size textures above 128 | Sharper close up, less shimmer | Next |
-| 4 | Remaining spikes (60–90 ms worst blocks), c0a0 AI start-up | Steady 60 | Next |
-| 5 | Bilinear/atlas lightmap review, lightstyles via partial updates | Retail lighting | Planned |
-| 6 | Dynamic lights, model lighting from the lightmap | Retail lighting | Planned |
-| 7 | HUD/text at native 640×480, EFB antialiasing, deflicker | Sharper picture | Planned |
-| 8 | Display lists / indexed vertices for static faces | CPU headroom | Planned, by need: the world pass is now 4–6 ms |
-| 9 | Prefetch the next map during the ride | Shorter holds (2–5 s) | Planned |
-| 10 | Mixing on the DSP (ASND voices) | CPU headroom | Evaluate |
+| 3 | Client entity table 256 → 460 in the same memory | Tram and high edicts stop vanishing | **Done** |
+| 4 | Forklift model on c0a0 (disc mirror) | Retail content | **Done** |
+| 5 | Studio meshes as strips, colour cached per normal | c0a0 36 → 50 fps | **Done** |
+| 6 | Intermittent `GX DrawDone` waits of 8–25 ms | Removes the remaining run-to-run swings | Next |
+| 7 | Mipmaps, then full-size textures above 128 | Sharper close up, less shimmer | Needs ~1 MB per map as RGB565; CMPR or arena placement to be decided |
+| 8 | Bilinear/atlas lightmap review, lightstyles via partial updates | Retail lighting | Planned |
+| 9 | Dynamic lights, model lighting from the lightmap | Retail lighting | Planned |
+| 10 | HUD/text at native 640×480, EFB antialiasing, deflicker | Sharper picture | Planned |
+| 11 | Display lists / indexed vertices for static faces | CPU headroom | Planned, by need: the world pass is now 4–6 ms |
+| 12 | Prefetch the next map during the ride | Shorter holds (2–5 s) | Planned |
+| 13 | Mixing on the DSP (ASND voices) | CPU headroom | Evaluate |
+| 14 | Asynchronous flip (CPU/GPU overlap, one frame more latency) | Absorbs GPU waits | Evaluate after item 6 |
 
 ## Results
 
@@ -67,3 +71,16 @@ Checks on the after run: ladder 10/10, 40/40 titles, 10/10 announcer lines,
 5/5 hops, no allocation failures, audio −18 dB mean, peak 0 dB.
 Recording: `.ai/playtests/20261030-055150-menu-newgame-6a93fc553a.mp4`.
 `gamecube.cfg` line `nonativetex` turns native textures off for comparison.
+
+### Client entities, forklift, studio (items 3–5)
+
+- `CL_DeltaEntity: invalid newnum` 6456 → 0 on the ride; the tram (edict 306
+  on c0a0c) is drawn there now. `cl_entity_t` position history 64 → 16 slots
+  (engine and game code, patch 0011); 460 entries in 762 KB, was 256 in 768 KB.
+- Forklift loads on c0a0 instead of the next map (47 KB, studio arena).
+- c0a0 with the forklifts in: mean 27.6 → 19.9 ms (36 → 50 fps), p95 34.4 → 20.6 ms.
+  Recording: `.ai/playtests/20261030-065129-menu-newgame-7f64571e54.mp4`.
+
+Run-to-run noise: identical builds move individual maps by up to 20 ms because
+of the intermittent DrawDone wait (item 6), so single-map swings under that
+wait are not attributed to a change. Stage tables are compared instead.

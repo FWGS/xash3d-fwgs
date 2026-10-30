@@ -1880,6 +1880,11 @@ R_StudioDrawNormalMesh
 generic path
 ===============
 */
+#if XASH_GAMECUBE
+#define R_GX_STUDIO_COLOR_CACHE 2048
+static unsigned r_gx_studio_colors[R_GX_STUDIO_COLOR_CACHE]; /* packed RGBA per normal, 0 = not yet */
+#endif
+
 static void R_StudioDrawNormalMesh( short *ptricmds, vec3_t *pstudionorms, float s, float t )
 {
 	int   i;
@@ -1934,13 +1939,23 @@ static void R_StudioDrawNormalMesh( short *ptricmds, vec3_t *pstudionorms, float
 				}
 				pos = g_studio.verts[idx];
 
-				R_StudioSetColorBegin( ptricmds, pstudionorms );
+				/* Without dynamic lights the colour only depends on the
+				 * normal: pack it once per normal, not per mesh vertex. */
+				if( g_studio.numlocallights || ptricmds[1] >= R_GX_STUDIO_COLOR_CACHE
+					|| !r_gx_studio_colors[ptricmds[1]] )
+				{
+					R_StudioSetColorBegin( ptricmds, pstudionorms );
+					vx[nverts].c = R_GXGetTriColorRGBA();
+					if( !g_studio.numlocallights && ptricmds[1] < R_GX_STUDIO_COLOR_CACHE )
+						r_gx_studio_colors[ptricmds[1]] = vx[nverts].c;
+				}
+				else
+					vx[nverts].c = r_gx_studio_colors[ptricmds[1]];
 				vx[nverts].x = pos[0];
 				vx[nverts].y = pos[1];
 				vx[nverts].z = pos[2];
 				vx[nverts].u = ptricmds[2] * s;
 				vx[nverts].v = ptricmds[3] * t;
-				vx[nverts].c = R_GXGetTriColorRGBA();
 				if( !emit_bbox_logged )
 				{
 					if( pos[0] < emn[0] ) emn[0] = pos[0];
@@ -2315,6 +2330,10 @@ static void R_StudioDrawPoints( void )
 	// NOTE: rewind normals at start
 	pstudionorms = (vec3_t *)((byte *)m_pStudioHeader + m_pSubModel->normindex );
 
+#if XASH_GAMECUBE
+	memset( r_gx_studio_colors, 0, sizeof( r_gx_studio_colors[0] )
+		* Q_min( m_pSubModel->numnorms, R_GX_STUDIO_COLOR_CACHE ));
+#endif
 	for( j = 0; j < m_pSubModel->nummesh; j++ )
 	{
 		float oldblend = tr.blend;
