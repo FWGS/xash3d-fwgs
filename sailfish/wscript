@@ -29,7 +29,7 @@ def build(bld):
 		includes = 'src ../3rdparty/miniz',
 		# zlib names would clash with the system zlib Qt uses
 		defines = ['XASH_PACKAGE_NAME="%s"' % name, 'MINIZ_NO_ZLIB_COMPATIBLE_NAMES'],
-		use = 'SAILFISHAPP DL public build_vcs',
+		use = 'SAILFISHAPP DL public build_vcs library_suffix',
 		rpath = bld.env.DEFAULT_RPATH,
 		install_path = bld.env.BINDIR
 	)
