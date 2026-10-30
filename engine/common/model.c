@@ -1617,6 +1617,45 @@ void Mod_FreeUnused( void )
 }
 
 #if XASH_GAMECUBE
+/*
+================
+Mod_GCReleaseStudioArena
+
+Menu route, before a map loads: the studio arena is a bump allocator that
+only rewinds when every model in it is gone. Models that stayed (the pinned
+view models) kept it from ever rewinding while the others were reloaded on
+top, and the intro ride ended at 1020 of 1024 KB. Release all of them here;
+the new map loads its own set during the LOADING hold.
+================
+*/
+void Mod_GCReleaseStudioArena( void )
+{
+	const size_t before = gc_studio_bss_bump;
+	model_t *mod;
+	int i, freed = 0;
+
+	if( !GC_MenuRunsServer( ))
+		return;
+	gc_pinned_viewmodel_count = 0;
+	memset( gc_pinned_viewmodels, 0, sizeof( gc_pinned_viewmodels ));
+	for( i = 1, mod = &mod_known[1]; i < mod_numknown; i++, mod++ )
+	{
+		if( mod->needload != NL_UNREFERENCED && mod->type == mod_studio
+			&& mod->cache.data && Mod_GCIsStudioBssCache( mod->cache.data ))
+		{
+			Mod_FreeModel( mod );
+			freed++;
+		}
+	}
+	gc_real_studio_npc = 0;
+	gc_real_studio_view = 0;
+	gc_real_studio_bytes = 0;
+	gc_deferred_studio_attempts = 0;
+	gc_studio_bss_owners = 0;
+	gc_studio_bss_bump = 0;
+	Con_Reportf( "Xash3D GameCube: studio arena released models=%d bytes=%u\n", freed, (uint)before );
+}
+
 void Mod_GcmapMarkPrecacheFreeable( void )
 {
 	model_t *mod;
