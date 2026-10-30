@@ -693,6 +693,22 @@ cleanup_flatpak_dolphin() {
 		pkill -KILL -f "dolphin.*${USER_DIR}" >/dev/null 2>&1 || true
 	fi
 }
+# Playtest recording (DOLPHIN_RECORD=0 to skip): Dolphin plays into a private
+# null sink (silent), recorded with the render window to .ai/playtests/.
+PLAYTEST_REC_PID=
+PLAYTEST_SINK_MODS=
+if [[ "${DOLPHIN_RECORD:-1}" == "1" ]] && command -v pactl >/dev/null 2>&1 \
+	&& command -v ffmpeg >/dev/null 2>&1 && [[ -n "${DISPLAY:-}" ]]; then
+	PLAYTEST_SINK="xashrec$$"
+	if PLAYTEST_SINK_MODS="$(python3 scripts/playtest-record.py sink create "$PLAYTEST_SINK")"; then
+		export PULSE_SINK="$PLAYTEST_SINK"
+		PLAYTEST_ROUTE="${DOLPHIN_PLAYTEST_ROUTE:-$([[ "${DOLPHIN_MENU_NEWGAME:-0}" == "1" ]] && echo menu-newgame || echo probe)}"
+		python3 scripts/playtest-record.py record --pid 0 --sink "$PLAYTEST_SINK" \
+			--route "$PLAYTEST_ROUTE" --disc "$ISO_PATH" --logdir "$LOG_DIR" \
+			--json-out "$LOG_DIR/playtest.txt" > "$LOG_DIR/playtest-record.log" 2>&1 &
+		PLAYTEST_REC_PID=$!
+	fi
+fi
 echo "==> Launching bounded Dolphin boot probe (${TIMEOUT_SEC}s, MMU=${DOLPHIN_MMU})..."
 set +e
 if (( DOLPHIN_IS_FLATPAK )); then

@@ -249,6 +249,7 @@ csx/
 # separately when needed.
 .ai/screenshots*/
 .ai/slices/
+.ai/playtests/
 .agent-logs/
 .ai/state/goal-loop-memory.json
 .ai/state/dolphin-harness-latest.md

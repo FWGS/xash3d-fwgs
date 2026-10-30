@@ -102,7 +102,24 @@ finalize_probe() {
 		--smoke-map "$SMOKE_MAP" \
 		--probe-status "$status" \
 		--update-state || echo "WARNING: dolphin-probe-analyze timed out or failed"
+	playtest_finish
 	exit "$exit_code"
+}
+
+# Finish the playtest recording started by dolphin-boot-probe.sh: wait for
+# the remux, tag it with the ladder result, drop the private sink.
+playtest_finish() {
+	[[ -n "${PLAYTEST_REC_PID:-}" ]] || return 0
+	timeout 180 tail --pid="$PLAYTEST_REC_PID" -f /dev/null 2>/dev/null || kill "$PLAYTEST_REC_PID" 2>/dev/null || true
+	if [[ -s "$LOG_DIR/playtest.txt" ]]; then
+		local rec result
+		rec="$(head -1 "$LOG_DIR/playtest.txt")"
+		result="$(python3 -c 'import json,sys; d=json.load(open(sys.argv[1])); print(("PASS" if d.get("ok") else "FAIL") + " " + str(len(d.get("passed", []))) + "/" + str(len(d.get("gates", []))))' "$LOG_DIR/ladder.json" 2>/dev/null || echo unknown)"
+		python3 scripts/playtest-record.py annotate "$rec" "result=$result" >/dev/null 2>&1 || true
+		echo "PLAYTEST_RECORDING: ${rec%.json}.mp4 ($result)"
+	fi
+	[[ -n "${PLAYTEST_SINK_MODS:-}" ]] && python3 scripts/playtest-record.py sink destroy $PLAYTEST_SINK_MODS || true
+	PLAYTEST_REC_PID=
 }
 
 probe_report_g45() {

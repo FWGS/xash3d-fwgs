@@ -12,7 +12,9 @@ Starts the GameCube disc in the project's Dolphin with a mute toggle window.
 
   --muted          start with Dolphin's audio muted
   --unmuted        start with sound on
-  --save-default   remember --muted/--unmuted as the default
+  --record         record the session with sound to .ai/playtests/ (default)
+  --no-record      do not record
+  --save-default   remember --muted/--unmuted and --record/--no-record
   --no-toggle      do not open the mute toggle window
   --build          (re)build the play disc first (OUT/xash3d-gc-play.iso)
   --install-desktop  add "Xash3D GameCube (Dolphin)" to the desktop app menu
@@ -21,11 +23,16 @@ Starts the GameCube disc in the project's Dolphin with a mute toggle window.
 ISO defaults to OUT/xash3d-gc-play.iso (menu New Game with the real
 controller; build it with --build or scripts/build-gamecube-disc.py --play).
 
-Mute silences Dolphin's output stream (PulseAudio/PipeWire): the game keeps
-mixing audio and running at full speed, only the speakers go quiet. Toggle
+Mute only silences the speakers (PulseAudio/PipeWire): the game keeps
+mixing audio and running at full speed, and the recording keeps its sound. Toggle
 it live with the big MUTED / SOUND ON window (click, Space or M there).
 
-Defaults live in ~/.config/xash3d-gc/play.conf (START_MUTED=1|0, default 1).
+Recording: video + the game's sound (also while muted) to
+.ai/playtests/<date>-play-<commit>.mp4 with a .json sidecar and INDEX.md;
+skipped when the drive has less than 5 GB free.
+
+Defaults live in ~/.config/xash3d-gc/play.conf (START_MUTED=1|0, default 1;
+RECORD=1|0, default 1).
 Dolphin settings for this launcher (controller mapping, video) live in
 ~/.local/share/xash3d-gc/dolphin; map your controller once under
 Controllers > Port 1 > Standard Controller and it is kept.
@@ -38,6 +45,7 @@ CONF="$CONF_DIR/play.conf"
 USER_DIR="${XDG_DATA_HOME:-$HOME/.local/share}/xash3d-gc/dolphin"
 ISO="$ROOT/OUT/xash3d-gc-play.iso"
 START_MUTED=1
+RECORD=1
 TOGGLE=1
 SAVE=0
 BUILD=0
@@ -48,6 +56,8 @@ while [[ $# -gt 0 ]]; do
 	case "$1" in
 		--muted) START_MUTED=1 ;;
 		--unmuted) START_MUTED=0 ;;
+		--record) RECORD=1 ;;
+		--no-record) RECORD=0 ;;
 		--save-default) SAVE=1 ;;
 		--no-toggle) TOGGLE=0 ;;
 		--build) BUILD=1 ;;
@@ -74,8 +84,8 @@ done
 
 if (( SAVE )); then
 	mkdir -p "$CONF_DIR"
-	printf 'START_MUTED=%d\n' "$START_MUTED" > "$CONF"
-	echo "saved default: $([[ $START_MUTED == 1 ]] && echo muted || echo unmuted) ($CONF)"
+	printf 'START_MUTED=%d\nRECORD=%d\n' "$START_MUTED" "$RECORD" > "$CONF"
+	echo "saved default: $([[ $START_MUTED == 1 ]] && echo muted || echo unmuted), $([[ $RECORD == 1 ]] && echo recording || echo not recording) ($CONF)"
 fi
 
 if (( BUILD )) || [[ ! -f "$ISO" ]]; then
@@ -127,12 +137,44 @@ PY
 export EGL_PLATFORM=x11 QT_QPA_PLATFORM=xcb
 unset WAYLAND_DISPLAY
 
-echo "==> $ISO ($([[ $START_MUTED == 1 ]] && echo muted || echo sound on))"
+# Recording: Dolphin plays into a private null sink that is recorded; the
+# mute window plays it on the speakers through a loopback it adds or removes,
+# so the recording keeps the game's sound while muted.
+REC_PY="$ROOT/scripts/playtest-record.py"
+SINK_MODS=
+SINK=
+REC_PID=
+if (( RECORD )) && command -v ffmpeg >/dev/null && command -v pactl >/dev/null; then
+	SINK="xashplay$$"
+	if SINK_MODS="$(python3 "$REC_PY" sink create "$SINK")"; then
+		export PULSE_SINK="$SINK"
+	else
+		SINK_MODS=
+		SINK=
+	fi
+fi
+cleanup()
+{
+	[[ -n "$REC_PID" ]] && { timeout 120 tail --pid="$REC_PID" -f /dev/null 2>/dev/null || true; }
+	[[ -n "$SINK_MODS" ]] && python3 "$REC_PY" sink destroy $SINK_MODS
+	SINK_MODS=
+}
+trap cleanup EXIT
+
+echo "==> $ISO ($([[ $START_MUTED == 1 ]] && echo muted || echo sound on)$([[ -n $SINK_MODS ]] && echo ", recording"))"
 "$DOLPHIN" -u "$USER_DIR" -e "$ISO" &
 DOLPHIN_PID=$!
 
+if [[ -n "$SINK_MODS" ]]; then
+	python3 "$REC_PY" record --pid "$DOLPHIN_PID" --sink "$SINK" --route play --disc "$ISO" &
+	REC_PID=$!
+fi
+
 START_FLAG=$([[ $START_MUTED == 1 ]] && echo --muted || echo --unmuted)
 python3 "$ROOT/scripts/dolphin-mute-toggle.py" --pid "$DOLPHIN_PID" "$START_FLAG" \
+	$( [[ -n "$SINK" ]] && echo --game-sink "$SINK" ) \
+	$( [[ -n "$SINK" && -n "${XASH_PLAY_LOOPBACK_SINK:-}" ]] && echo --speaker-sink "$XASH_PLAY_LOOPBACK_SINK" ) \
+	$( [[ -n "$REC_PID" ]] && echo --rec-pid "$REC_PID" ) \
 	$( (( TOGGLE )) || echo --no-window ) &
 TOGGLE_PID=$!
 
