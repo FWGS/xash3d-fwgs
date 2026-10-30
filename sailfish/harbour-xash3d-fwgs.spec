@@ -64,6 +64,7 @@ python3 waf build %{?_smp_mflags}
 
 %install
 python3 waf install --destdir=%{buildroot}
+install -D -m 644 hlsdk-portable/LICENSE %{buildroot}%{_datadir}/%{name}/licenses/hlsdk-portable.txt
 cd hlsdk-portable
 python3 waf install --destdir=%{buildroot}%{_datadir}/%{name}/lib/rodir
 

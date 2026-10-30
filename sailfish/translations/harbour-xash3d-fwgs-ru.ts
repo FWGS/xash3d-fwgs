@@ -28,12 +28,28 @@
         <translation>Игровые библиотеки, поставляемые с приложением и загружаемые из hlsdk-mega-build, собраны из кода на основе Half-Life SDK и распространяются на условиях лицензии Half-Life 1 SDK. Half-Life — товарный знак Valve Corporation, это приложение не связано с Valve.</translation>
     </message>
     <message>
-        <source>Source code</source>
-        <translation>Исходный код</translation>
+        <source>App icon</source>
+        <translation>Значок приложения</translation>
     </message>
     <message>
-        <source>Half-Life SDK license</source>
-        <translation>Лицензия Half-Life SDK</translation>
+        <source>The app icon is based on jolla-icon-shapes by Morpog and is distributed under the Creative Commons Attribution-ShareAlike 3.0 Unported license.</source>
+        <translation>Значок приложения основан на jolla-icon-shapes от Morpog и распространяется на условиях лицензии Creative Commons Attribution-ShareAlike 3.0 Unported.</translation>
+    </message>
+    <message>
+        <source>CC BY-SA 3.0 license</source>
+        <translation>Лицензия CC BY-SA 3.0</translation>
+    </message>
+    <message>
+        <source>Third-party software</source>
+        <translation>Сторонние компоненты</translation>
+    </message>
+    <message>
+        <source>Xash3D FWGS includes code from other projects, each under its own license.</source>
+        <translation>Xash3D FWGS включает код других проектов, каждый из которых распространяется на условиях своей лицензии.</translation>
+    </message>
+    <message>
+        <source>Licenses</source>
+        <translation>Лицензии</translation>
     </message>
 </context>
 <context>
@@ -227,6 +243,20 @@
     </message>
 </context>
 <context>
+    <name>LicensePage</name>
+    <message>
+        <source>The license text is missing from this build.</source>
+        <translation>В этой сборке нет текста лицензии.</translation>
+    </message>
+</context>
+<context>
+    <name>LicensesPage</name>
+    <message>
+        <source>Licenses</source>
+        <translation>Лицензии</translation>
+    </message>
+</context>
+<context>
     <name>MegaBuild</name>
     <message>
         <source>Can&apos;t open the downloaded archive</source>
@@ -275,6 +305,21 @@
     <message>
         <source>The downloaded file is corrupted</source>
         <translation>Загруженный файл повреждён</translation>
+    </message>
+</context>
+<context>
+    <name>MessageBox</name>
+    <message>
+        <source>Copied to clipboard</source>
+        <translation>Скопировано в буфер обмена</translation>
+    </message>
+    <message>
+        <source>Copy to clipboard</source>
+        <translation>Скопировать в буфер обмена</translation>
+    </message>
+    <message>
+        <source>OK</source>
+        <translation>ОК</translation>
     </message>
 </context>
 <context>

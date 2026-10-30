@@ -51,6 +51,8 @@ public:
 	Q_INVOKABLE QString gameArguments( const QString &gamedir ) const;
 	Q_INVOKABLE void setGameArguments( const QString &gamedir, const QString &args );
 	Q_INVOKABLE void launch( const QString &gamedir );
+	// empty if the package has no such file
+	Q_INVOKABLE QString licenseText( const QString &name ) const;
 
 signals:
 	void gamesChanged();

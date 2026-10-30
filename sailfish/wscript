@@ -44,6 +44,21 @@ def build(bld):
 		bld(rule = '${LRELEASE} -silent ${SRC} -qm ${TGT}', source = ts, target = qm)
 		bld.install_files('${PREFIX}/share/%s/translations' % name, qm)
 
+	# shown by the licenses page, hlsdk-portable's one is installed by the spec file
+	licenses = {
+		'miniutl.txt': '../3rdparty/mainui/miniutl/LICENSE',
+		'gl4es.txt': '../3rdparty/gl4es/gl4es/LICENSE',
+		'opus.txt': '../3rdparty/opus/opus/COPYING',
+		'opusfile.txt': '../3rdparty/opusfile/opusfile/COPYING',
+		'mpg123.txt': '../3rdparty/mpg123/mpg123/COPYING',
+		'mbedtls.txt': '../3rdparty/mbedtls/mbedtls/LICENSE',
+		'libbacktrace.txt': '../3rdparty/libbacktrace/libbacktrace/LICENSE',
+		'multiemulator.txt': '../3rdparty/MultiEmulator/LICENSE',
+	}
+
+	for dst, src in licenses.items():
+		bld.install_as('${PREFIX}/share/%s/licenses/%s' % (name, dst), src)
+
 	bld.install_files('${PREFIX}/share/applications', name + '.desktop')
 
 	for size in ['86x86', '108x108', '128x128', '172x172']:

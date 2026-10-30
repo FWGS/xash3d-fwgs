@@ -57,16 +57,46 @@ Page {
 				color: Theme.highlightColor
 			}
 
+			SectionHeader {
+				text: qsTr( "App icon" )
+			}
+
+			Label {
+				x: Theme.horizontalPageMargin
+				width: parent.width - 2 * Theme.horizontalPageMargin
+				text: qsTr( "The app icon is based on jolla-icon-shapes by Morpog and is distributed under the Creative Commons Attribution-ShareAlike 3.0 Unported license." )
+				wrapMode: Text.Wrap
+				color: Theme.highlightColor
+			}
+
 			ButtonLayout {
 				Button {
-					text: qsTr( "Source code" )
-					onClicked: Qt.openUrlExternally( "https://github.com/FWGS/xash3d-fwgs" )
+					text: "jolla-icon-shapes"
+					onClicked: Qt.openUrlExternally( "https://github.com/Morpog/jolla-icon-shapes" )
 				}
 
 				Button {
-					text: qsTr( "Half-Life SDK license" )
-					onClicked: Qt.openUrlExternally( "https://github.com/FWGS/hlsdk-portable/blob/master/LICENSE" )
+					text: qsTr( "CC BY-SA 3.0 license" )
+					onClicked: Qt.openUrlExternally( "https://creativecommons.org/licenses/by-sa/3.0/" )
 				}
+			}
+
+			SectionHeader {
+				text: qsTr( "Third-party software" )
+			}
+
+			Label {
+				x: Theme.horizontalPageMargin
+				width: parent.width - 2 * Theme.horizontalPageMargin
+				text: qsTr( "Xash3D FWGS includes code from other projects, each under its own license." )
+				wrapMode: Text.Wrap
+				color: Theme.highlightColor
+			}
+
+			Button {
+				anchors.horizontalCenter: parent.horizontalCenter
+				text: qsTr( "Licenses" )
+				onClicked: pageStack.push( Qt.resolvedUrl( "LicensesPage.qml" ))
 			}
 		}
 

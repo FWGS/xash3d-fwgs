@@ -280,3 +280,16 @@ void Launcher::launch( const QString &gamedir )
 	// the engine is started after the event loop exits and Qt is torn down
 	QCoreApplication::quit();
 }
+
+QString Launcher::licenseText( const QString &name ) const
+{
+	if( name.contains( '/' ))
+		return QString();
+
+	QFile file( "/usr/share/" XASH_PACKAGE_NAME "/licenses/" + name );
+
+	if( !file.open( QIODevice::ReadOnly | QIODevice::Text ))
+		return QString();
+
+	return QString::fromUtf8( file.readAll( ));
+}
