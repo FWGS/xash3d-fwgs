@@ -258,7 +258,11 @@ void Launcher::setGameArguments( const QString &gamedir, const QString &args )
 {
 	QSettings settings( SettingsPath(), QSettings::IniFormat );
 
-	settings.setValue( "games/" + gamedir + "/arguments", args );
+	// the field shows the defaults as a placeholder when it's empty
+	if( args.trimmed().isEmpty( ))
+		settings.remove( "games/" + gamedir + "/arguments" );
+	else
+		settings.setValue( "games/" + gamedir + "/arguments", args );
 }
 
 void Launcher::launch( const QString &gamedir )
