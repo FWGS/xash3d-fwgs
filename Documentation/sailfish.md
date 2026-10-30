@@ -19,7 +19,7 @@ Xash3D FWGS runs on Sailfish OS as a native app with its own launcher. The packa
    ```
    devel-su pkcon install-local harbour-xash3d-fwgs.aarch64.rpm
    ```
-4. Start Xash3D FWGS once. It creates the game data folder, `Documents/xash3d-fwgs` (or create the folder useful).
+4. Start Xash3D FWGS once. It creates the game data folder, `Documents/xash3d-fwgs` (or create the folder yourself).
 5. Copy the `valve` folder and any mod folders from your Half-Life installation into `Documents/xash3d-fwgs`, for example over USB. **Do not overwrite anything.** The launcher finds them when you come back to it, or after Refresh in the pull-down menu.
 
 To update, install a newer RPM the same way. Removing the app doesn't delete the game data folder.
