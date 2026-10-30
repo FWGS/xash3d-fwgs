@@ -287,6 +287,43 @@ static QImage LoadIcon( const QString &path )
 	return image;
 }
 
+// area of the largest image in the file, from the headers only: refresh runs it for every game
+static int IconArea( const QString &path )
+{
+	if( path.endsWith( ".tga", Qt::CaseInsensitive ))
+	{
+		QFile file( path );
+		uchar header[18];
+
+		if( !file.open( QIODevice::ReadOnly ) || file.read( (char *)header, sizeof( header )) != sizeof( header ))
+			return 0;
+
+		const QSize size = TGASize( header );
+
+		return size.isValid() ? size.width() * size.height() : 0;
+	}
+
+	QImageReader reader( path );
+	int area = 0;
+
+	do
+	{
+		const QSize size = reader.size();
+
+		// the format can't tell without decoding
+		if( !size.isValid( ))
+		{
+			const QImage image = LoadIcon( path );
+
+			return image.width() * image.height();
+		}
+
+		area = qMax( area, size.width() * size.height( ));
+	} while( reader.jumpToNextImage( ));
+
+	return area;
+}
+
 QString FindGameIcon( const QDir &game, QString icon )
 {
 	icon.replace( '\\', '/' );
@@ -308,12 +345,12 @@ QString FindGameIcon( const QDir &game, QString icon )
 		if( path.isEmpty( ))
 			continue;
 
-		const QImage image = LoadIcon( path );
+		const int area = IconArea( path );
 
-		if( image.width() * image.height() > best_area )
+		if( area > best_area )
 		{
 			best = path;
-			best_area = image.width() * image.height();
+			best_area = area;
 		}
 	}
 
