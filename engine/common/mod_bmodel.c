@@ -6678,36 +6678,80 @@ static void Mod_GCBakeMenuLightmapAtlasInner( model_t *mod, dbspmodel_t *bmod )
 		return;
 	}
 
-	/* Pass 1: shelf-pack each face's lightmap rectangle. */
-	for( i = 0; i < mod->numsurfaces; i++ )
+	/* Pass 1: shelf-pack each face's lightmap rectangle, tallest first
+	 * (BSP order wasted about half the atlas on short faces in tall rows). */
 	{
-		msurface_t *surf = &mod->surfaces[i];
-		const int lightofs = bmod->version == QBSP2_VERSION ? bmod->surfaces32[i].lightofs : bmod->surfaces[i].lightofs;
-		int sample, smax, tmax;
+		int *order = (int *)malloc( mod->numsurfaces * sizeof( int ));
+		int count = 0, k;
 
-		if( lightofs < 0 || !surf->info || surf->styles[0] == 255
-			|| FBitSet( surf->flags, SURF_DRAWSKY|SURF_DRAWTURB ))
-			continue;
-		sample = Mod_SampleSizeForFace( surf );
-		if( sample < 1 )
-			continue;
-		smax = ( surf->info->lightextents[0] / sample ) + 1;
-		tmax = ( surf->info->lightextents[1] / sample ) + 1;
-		if( smax < 1 || tmax < 1 || smax > w
-			|| (size_t)lightofs + (size_t)smax * tmax * 3 > bmod->lightdatasize )
-			continue;
-		if( x + smax > w )
+		for( i = 0; i < mod->numsurfaces; i++ )
 		{
-			x = 0;
-			y += rowh;
-			rowh = 0;
+			msurface_t *surf = &mod->surfaces[i];
+			const int lightofs = bmod->version == QBSP2_VERSION ? bmod->surfaces32[i].lightofs : bmod->surfaces[i].lightofs;
+			int sample, smax, tmax;
+
+			if( lightofs < 0 || !surf->info || surf->styles[0] == 255
+				|| FBitSet( surf->flags, SURF_DRAWSKY|SURF_DRAWTURB ))
+				continue;
+			sample = Mod_SampleSizeForFace( surf );
+			if( sample < 1 )
+				continue;
+			smax = ( surf->info->lightextents[0] / sample ) + 1;
+			tmax = ( surf->info->lightextents[1] / sample ) + 1;
+			if( smax < 1 || tmax < 1 || smax > w
+				|| (size_t)lightofs + (size_t)smax * tmax * 3 > bmod->lightdatasize )
+				continue;
+			/* Mark packable; light_t holds the height for the sort. */
+			surf->lightmaptexturenum = GC_MENU_LM_BAKED;
+			surf->light_s = smax;
+			surf->light_t = tmax;
+			if( order )
+				order[count++] = i;
 		}
-		surf->light_s = x;
-		surf->light_t = y;
-		surf->lightmaptexturenum = GC_MENU_LM_BAKED;
-		x += smax;
-		rowh = Q_max( rowh, tmax );
-		baked++;
+		if( order )
+		{
+			/* Insertion sort by height then width, descending (a few
+			 * thousand faces, once per map load). */
+			for( k = 1; k < count; k++ )
+			{
+				const int v = order[k];
+				const msurface_t *sv = &mod->surfaces[v];
+				int j = k;
+
+				while( j > 0 )
+				{
+					const msurface_t *sp = &mod->surfaces[order[j - 1]];
+
+					if( sp->light_t > sv->light_t || ( sp->light_t == sv->light_t && sp->light_s >= sv->light_s ))
+						break;
+					order[j] = order[j - 1];
+					j--;
+				}
+				order[j] = v;
+			}
+		}
+		for( k = 0; k < ( order ? count : mod->numsurfaces ); k++ )
+		{
+			msurface_t *surf = &mod->surfaces[order ? order[k] : k];
+			int smax, tmax;
+
+			if( surf->lightmaptexturenum != GC_MENU_LM_BAKED )
+				continue;
+			smax = surf->light_s;
+			tmax = surf->light_t;
+			if( x + smax > w )
+			{
+				x = 0;
+				y += rowh;
+				rowh = 0;
+			}
+			surf->light_s = x;
+			surf->light_t = y;
+			x += smax;
+			rowh = Q_max( rowh, tmax );
+			baked++;
+		}
+		free( order );
 	}
 	h = ( y + rowh + 3 ) & ~3;
 	if( !baked || h > GC_MENU_LM_MAX_HEIGHT )
