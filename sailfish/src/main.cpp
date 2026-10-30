@@ -102,6 +102,7 @@ Q_DECL_EXPORT int main( int argc, char **argv )
 	{
 		ENGINE_ENV "=1",
 		"XASH3D_BASEDIR=" + basedir,
+		"XASH3D_RODIR=/usr/share/" XASH_PACKAGE_NAME "/lib/rodir",
 		"XASH3D_CRASH_DIR=" + crashdir,
 	};
 	std::vector<char *> envp;

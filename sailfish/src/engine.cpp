@@ -14,7 +14,6 @@ GNU General Public License for more details.
 */
 #include <dlfcn.h>
 #include <stdio.h>
-#include <stdlib.h>
 #include "engine.h"
 
 typedef void (*pfnChangeGame)( const char *progname );
@@ -29,12 +28,6 @@ Engine_Main
 */
 int Engine_Main( int argc, char **argv )
 {
-	char basedir[4096];
-
-	snprintf( basedir, sizeof( basedir ), "%s/" ENGINE_BASEDIR, getenv( "HOME" ));
-	setenv( "XASH3D_BASEDIR", basedir, 0 );
-	setenv( "XASH3D_RODIR", "/usr/share/" XASH_PACKAGE_NAME "/lib/rodir", 0 );
-
 	// found through the binary's RPATH
 	void *engine = dlopen( "libxash.so", RTLD_NOW | RTLD_LOCAL );
 
