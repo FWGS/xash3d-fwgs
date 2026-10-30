@@ -1019,7 +1019,17 @@ static void CL_LinkCustomEntity( cl_entity_t *ent, entity_state_t *state )
 	ent->curstate.movetype = state->modelindex; // !!!
 
 	if( ent->model->type != mod_sprite )
+	{
+#if XASH_GAMECUBE
+		static const model_t *warned; /* OSReport per frame is not free */
+
+		if( warned != ent->model )
+#endif
 		Con_Reportf( S_WARN "bad model on beam ( %s )\n", ent->model->name );
+#if XASH_GAMECUBE
+		warned = ent->model;
+#endif
+	}
 
 	ent->latched.prevsequence = ent->curstate.sequence;
 	VectorCopy( ent->origin, ent->latched.prevorigin );

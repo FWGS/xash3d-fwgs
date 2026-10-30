@@ -930,6 +930,8 @@ GC_STUDIO_MODELS = (
 	"models/zombie.mdl",
 	"models/scientist.mdl",
 	"models/barney.mdl",
+	# c0a0's forklift: the plain heap read fails after the BSP (47 KiB).
+	"models/forklift.mdl",
 	# G376: external GoldSrc skins (*t.mdl) for Flipper NPC texturing.
 	"models/scientistt.mdl",
 	"models/barneyt.mdl",
