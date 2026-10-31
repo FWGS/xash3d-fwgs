@@ -103,7 +103,8 @@ static MALLOC_LIKE( FS_FreeSound, 1 ) wavdata_t *SoundPackInPlaceFile( byte *f, 
 		sound.wav = NULL;
 		sound.gc_inplace_file = false;
 
-		owned = Mem_Malloc( host.soundpool, need );
+		/* A smaller copy is only worth it if it saves real memory. */
+		owned = filesize - need >= 4096 ? Mem_Malloc( host.soundpool, need ) : NULL;
 		if( owned )
 		{
 			memcpy( owned, pack, need );

@@ -1362,8 +1362,10 @@ qboolean SV_SpawnServer( const char *mapname, const char *startspot, qboolean ba
 	Con_Reportf( "Xash3D GameCube: pre-spawn Mod_FreeUnused ready\n" );
 	{
 		extern void Mod_GCReleaseStudioArena( void );
+		extern void S_GCReleaseIdleSounds( void );
 
 		Mod_GCReleaseStudioArena();
+		S_GCReleaseIdleSounds();
 	}
 	/* GC_DrawLoadingStatus / progress hung tram→AM changelevel after FreeUnused
 	 * (probe 20260829-054115). Skip draws on probe hops; keep trim/purge. */

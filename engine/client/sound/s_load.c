@@ -77,6 +77,7 @@ static uint     s_gc_sfx_lru_clock;
 static uint32_t s_gc_sfx_cooldown[MAX_SFX];
 #define GC_SFX_EVICT_COOLDOWN	20	/* 2 s */
 #define GC_SFX_REFUSE_COOLDOWN	100	/* 10 s */
+static unsigned s_gc_snd_restores;
 
 static void S_GCSfxCooldown( const sfx_t *sfx, uint32_t tenths )
 {
@@ -161,8 +162,8 @@ static void S_GCEvictBudgetedSfx( sfx_t *sfx )
 	if( !sfx || !sfx->cache || !FBitSet( sfx->cache->flags, GC_SOUND_RUNTIME_BUDGETED ))
 		return;
 
-	Con_Reportf( "Xash3D GameCube: G124 LRU evict sfx %s bytes=%u\n",
-		sfx->name, (uint)sfx->cache->size );
+	Con_Reportf( "Xash3D GameCube: G124 LRU evict sfx %s bytes=%u restores=%u\n",
+		sfx->name, (uint)sfx->cache->size, s_gc_snd_restores );
 	for( ch = 0; ch < snd.max_channels; ch++ )
 	{
 		if( snd.channels[ch].sfx == sfx )
@@ -254,6 +255,110 @@ static size_t S_GCMakeRoomForBudgetedLoad( const sfx_t *keep, size_t want, size_
 	}
 
 	return freed;
+}
+#endif
+
+#if XASH_GAMECUBE
+/*
+ARAM keeps every sound that has been loaded, ready to play, so the MEM1 budget
+is only a window: an evicted sound comes back by DMA, with no disc read and no
+file buffer. The store is a ring, new sounds overwrite the oldest.
+*/
+#define GC_SND_ARAM_BYTES   ( 2u * 1024u * 1024u )
+#define GC_SND_ARAM_ENTRIES 256
+
+typedef struct
+{
+	uint32_t hash, aram, bytes;
+} gc_snd_stored_t;
+
+static gc_snd_stored_t s_gc_snd_store[GC_SND_ARAM_ENTRIES];
+static uint32_t s_gc_snd_base, s_gc_snd_head, s_gc_snd_next;
+
+static uint32_t S_GCSoundHash( const char *name )
+{
+	uint32_t h = 2166136261u;
+
+	for( ; *name; name++ )
+		h = ( h ^ (byte)Q_tolower( *name )) * 16777619u;
+	return h ? h : 1;
+}
+
+static const gc_snd_stored_t *S_GCSoundStored( const sfx_t *sfx )
+{
+	const uint32_t h = S_GCSoundHash( sfx->name );
+	int i;
+
+	for( i = 0; i < GC_SND_ARAM_ENTRIES; i++ )
+	{
+		if( s_gc_snd_store[i].hash == h )
+			return &s_gc_snd_store[i];
+	}
+	return NULL;
+}
+
+static void S_GCSoundStorePut( const sfx_t *sfx, wavdata_t *sc )
+{
+	const uint32_t bytes = (uint32_t)( sizeof( wavdata_t ) + sc->size );
+	gc_snd_stored_t *e;
+	int i;
+
+	if( S_GCSoundStored( sfx ) || bytes > GC_SND_ARAM_BYTES )
+		return;
+	if( !s_gc_snd_base )
+		s_gc_snd_base = GC_AramReserve( GC_SND_ARAM_BYTES );
+	if( s_gc_snd_head + bytes > GC_SND_ARAM_BYTES )
+		s_gc_snd_head = 0;
+	for( i = 0; i < GC_SND_ARAM_ENTRIES; i++ )
+	{
+		e = &s_gc_snd_store[i];
+		if( e->hash && e->aram < s_gc_snd_head + bytes && e->aram + e->bytes > s_gc_snd_head )
+			e->hash = 0;
+	}
+	e = &s_gc_snd_store[s_gc_snd_next];
+	s_gc_snd_next = ( s_gc_snd_next + 1 ) % GC_SND_ARAM_ENTRIES;
+	e->hash = S_GCSoundHash( sfx->name );
+	e->aram = s_gc_snd_head;
+	e->bytes = bytes;
+	GC_AramCopy( s_gc_snd_base + e->aram, sc, bytes, true );
+	s_gc_snd_head = ( s_gc_snd_head + bytes + 31u ) & ~31u;
+}
+
+/* Before a changelevel loads models: ARAM has the samples, and those file
+ * buffers need the heap's big blocks more than idle sounds do. */
+void S_GCReleaseIdleSounds( void )
+{
+	uint i;
+
+	for( i = 0; i < s_numSfx; i++ )
+	{
+		sfx_t *sfx = &s_knownSfx[i];
+
+		if( sfx->cache && S_GCSoundStored( sfx ) && !S_GCSfxIsPlaying( sfx ))
+			S_GCEvictBudgetedSfx( sfx );
+	}
+}
+
+/* Back into the budget from ARAM. NULL leaves it to the usual path. */
+static wavdata_t *S_GCSoundFromStore( sfx_t *sfx )
+{
+	const gc_snd_stored_t *e = S_GCSoundStored( sfx );
+	const size_t size = e ? e->bytes - sizeof( wavdata_t ) : 0;
+	wavdata_t *sc;
+
+	if( !e )
+		return NULL;
+	S_GCMakeRoomForBudgetedLoad( sfx, size, 0 );
+	if( s_gc_sfx_budget_used + size > GC_SFX_BUDGET || GC_MemHeapFreeBytes() < GC_SFX_MENU_HEAP_FLOOR )
+		return NULL;
+	sc = Mem_TryMalloc( host.soundpool, e->bytes );
+	if( !sc )
+		return NULL;
+	GC_AramCopy( s_gc_snd_base + e->aram, sc, e->bytes, false );
+	s_gc_sfx_budget_used += size;
+	S_GCTouchBudgetedLru( sfx );
+	s_gc_snd_restores++;
+	return sc;
 }
 #endif
 
@@ -401,9 +506,20 @@ wavdata_t *S_LoadSound( sfx_t *sfx )
 		s_gcmapSoundSkips++;
 		return NULL;
 	}
-	if( GC_MenuRunsServer() && Q_stricmp( sfx->name, "*default" )
-		&& (uint32_t)( host.realtime * 10.0 ) < s_gc_sfx_cooldown[sfx - s_knownSfx] )
-		return NULL;
+	if( GC_MenuRunsServer() && Q_stricmp( sfx->name, "*default" ))
+	{
+		if(( sfx->cache = S_GCSoundFromStore( sfx )) != NULL )
+			return sfx->cache;
+		if( (uint32_t)( host.realtime * 10.0 ) < s_gc_sfx_cooldown[sfx - s_knownSfx] )
+			return NULL;
+		/* Too big for the budget: don't take a file buffer just to refuse it. */
+		if( FS_FileSize( va( "sound/%s", sfx->name[0] == '*' ? sfx->name + 1 : sfx->name ), false ) > GC_SFX_MAX_FILE + 1024 )
+		{
+			S_GCSfxCooldown( sfx, GC_SFX_REFUSE_COOLDOWN );
+			Con_Reportf( "Xash3D GameCube: sound over the file limit %s\n", sfx->name );
+			return NULL;
+		}
+	}
 	if( S_GCAllowRuntimeSoundLoad() )
 	{
 		/* Drop finished button10 only; do not rotate other pl_step* here —
@@ -491,6 +607,10 @@ wavdata_t *S_LoadSound( sfx_t *sfx )
 	{
 		int peak = 0;
 
+		/* Only now is the size known: the room made before the load was a guess. */
+		if( GC_MenuRunsServer() && sc->size <= GC_SFX_MAX_FILE )
+			S_GCMakeRoomForBudgetedLoad( sfx, sc->size, 0 );
+
 		if( sc->size > GC_SFX_MAX_FILE
 			|| s_gc_sfx_budget_used + sc->size > GC_SFX_BUDGET
 			|| ( GC_MenuRunsServer() && GC_MemHeapFreeBytes() < GC_SFX_MENU_HEAP_FLOOR ))
@@ -505,6 +625,8 @@ wavdata_t *S_LoadSound( sfx_t *sfx )
 		s_gc_sfx_budget_used += sc->size;
 		SetBits( sc->flags, GC_SOUND_RUNTIME_BUDGETED );
 		S_GCTouchBudgetedLru( sfx );
+		if( GC_MenuRunsServer( ))
+			S_GCSoundStorePut( sfx, sc );
 
 		if( sc->width == 2 )
 		{
