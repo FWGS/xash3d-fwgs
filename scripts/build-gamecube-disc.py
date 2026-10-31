@@ -1456,7 +1456,7 @@ def inject_gc_studio_into_bootstrap(archive: "zipfile.ZipFile", data: Path) -> i
 		stem = Path(relative).stem.lower()
 		is_tex_companion = stem.endswith("t") and stem[:-1] in all_stems
 		# Props with their skins inside the model keep them.
-		keep_skins = stem in ("forklift", "loader", "filecabinet")
+		keep_skins = stem in ("forklift", "loader", "filecabinet") or stem.startswith("v_")
 		payload = None if is_tex_companion or keep_skins else lean_studio_mesh_bytes(src)
 		if payload is None:
 			archive.write(src, arcname, compress_type=zipfile.ZIP_STORED)
