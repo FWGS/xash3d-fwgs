@@ -2639,24 +2639,6 @@ void SV_GCHopRiderTick( void )
 			Cbuf_AddText( "sv_cheats 1\ngive weapon_9mmhandgun\ngive weapon_crowbar\n" );
 		}
 	}
-	/* Probe: the ride ends at c0a0e, where a player walks to c1a0. Stand at
-	 * the map's landmark and take its real changelevel, to test past it. */
-	if( sv.time > 30.0 && !Q_stricmp( sv.name, "c0a0e" ) && Sys_CheckParm( "-gcautohop" ))
-	{
-		static qboolean hopped;
-
-		if( !hopped && svs.maxclients >= 1 && SV_IsValidEdict( SV_EdictNum( 1 )))
-		{
-			edict_t *player = SV_EdictNum( 1 );
-			const vec3_t landmark = { -2489.0f, -545.0f, -122.0f };
-
-			hopped = true;
-			VectorCopy( landmark, player->v.origin );
-			SV_LinkEdict( player, false );
-			Cbuf_AddText( "changelevel2 c1a0 c0a0toc1a0\n" );
-		}
-	}
-
 	for( i = 0; i < 2; i++ )
 	{
 		if( gc_hop_check_due[i] > 0.0 && sv.time >= gc_hop_check_due[i] )

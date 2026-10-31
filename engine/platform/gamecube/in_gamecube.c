@@ -39,6 +39,7 @@ Connectivity Safety:
 #include "keydefs.h"
 #include "input.h"
 #include "client.h"
+#include "server.h"
 #include "platform/platform.h"
 
 #if XASH_GAMECUBE && XASH_INPUT == INPUT_GAMECUBE
@@ -992,6 +993,21 @@ void Platform_RunEvents( void )
 
 	if( !connected )
 		return;
+
+	/* Probe: walk out of the tram at c0a0e as a held stick would, through the
+	 * real usercmd and player movement, once the door has opened. */
+	if( !Q_stricmp( sv.name, "c0a0e" ) && sv.time > 28.0 && Sys_CheckParm( "-gcautohop" ))
+	{
+		static const float route[][2] = { { -1125, -640 }, { -1500, -600 }, { -2000, -590 }, { -2520, -590 } };
+		static int leg;
+		const float dx = route[leg][0] - cl.simorg[0], dy = route[leg][1] - cl.simorg[1];
+
+		if( dx * dx + dy * dy < 40.0f * 40.0f && leg + 1 < (int)( sizeof( route ) / sizeof( route[0] )))
+			leg++;
+		gc_pad[port].stickX = 0;
+		gc_pad[port].stickY = 127;
+		cl.viewangles[YAW] = anglemod( atan2( dy, dx ) * ( 180.0f / M_PI_F ));
+	}
 
 	held = gc_pad[port].button;
 	GC_UpdateButtons( held );
