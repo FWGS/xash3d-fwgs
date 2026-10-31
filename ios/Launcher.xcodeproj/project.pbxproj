@@ -7,8 +7,6 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
-		8844E26C308C04260008611A /* libcrypto.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 8844E26A308C041C0008611A /* libcrypto.a */; };
-		8844E26D308C04260008611A /* libssl.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 8844E26B308C041C0008611A /* libssl.a */; };
 		886E085C30927DC200E67107 /* archive.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 886E07FF30927DC200E67107 /* archive.cpp */; };
 		886E085D30927DC200E67107 /* fs.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 886E080230927DC200E67107 /* fs.cpp */; };
 		886E085E30927DC200E67107 /* json.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 886E080430927DC200E67107 /* json.cpp */; };
@@ -360,8 +358,6 @@
 			files = (
 				888810FE306DA9040029FADB /* OpenGLES.framework in Frameworks */,
 				88C65891305B196700986226 /* ZipArchive.framework in Frameworks */,
-				8844E26C308C04260008611A /* libcrypto.a in Frameworks */,
-				8844E26D308C04260008611A /* libssl.a in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -981,7 +977,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "cd ..\n\n#customize engine build here\nWAF_FLAGS=\"--enable-bundled-deps -T debug --use-sdl3\"\n\nif [[ \"$PLATFORM_NAME\" == \"iphonesimulator\" ]]; then\n    WAF_FLAGS=\"$WAF_FLAGS --ios-simulator --sdl2=$(realpath \"SDL3.xcframework/ios-arm64_x86_64-simulator/SDL3.framework\")\"\nelse\n    WAF_FLAGS=\"$WAF_FLAGS --ios --sdl2=$(realpath \"SDL3.xcframework/ios-arm64/SDL3.framework\")\"\nfi\n\ncd 3rdparty/openssl\n\ncase \"${PLATFORM_NAME}\" in\n    iphoneos)\n        export CROSS_TOP=\"/Applications/Xcode.app/Contents/Developer/Platforms/iPhoneOS.platform/Developer\"\n        export CROSS_SDK=\"iPhoneOS.sdk\"\n        export PATH=\"$(xcode-select -p)/Toolchains/XcodeDefault.xctoolchain/usr/bin:$PATH\"\n        CONFIG_TARGET=\"ios64-cross\"\n        ;;\n    iphonesimulator)\n        export CROSS_TOP=\"/Applications/Xcode.app/Contents/Developer/Platforms/iPhoneSimulator.platform/Developer\"\n        export CROSS_SDK=\"iPhoneSimulator.sdk\"\n        CONFIG_TARGET=\"iossimulator-xcrun\"\n        ;;\nesac\n\n./Configure ${CONFIG_TARGET} no-shared no-tests || exit 1\n\nmake clean\nmake -j$(sysctl -n hw.ncpu) || exit 1\n\ncd ../..\n./waf configure $WAF_FLAGS || exit 1\n\n./waf build install --destdir=$TARGET_BUILD_DIR/$UNLOCALIZED_RESOURCES_FOLDER_PATH || exit 1\n\ncp -r SDL3.framework $TARGET_BUILD_DIR/$UNLOCALIZED_RESOURCES_FOLDER_PATH\n\n\nif [ $CODE_SIGNING_ALLOWED != \"NO\" ]; then\n\tcodesign --force --verbose --sign \"$EXPANDED_CODE_SIGN_IDENTITY\" $TARGET_BUILD_DIR/$UNLOCALIZED_RESOURCES_FOLDER_PATH/*.dylib\n\tcodesign --force --verbose --sign \"$EXPANDED_CODE_SIGN_IDENTITY\" $TARGET_BUILD_DIR/$UNLOCALIZED_RESOURCES_FOLDER_PATH/SDL3.framework\nfi\n";
+			shellScript = "cd ..\n\n#customize engine build here\nWAF_FLAGS=\"--enable-bundled-deps -T debug --use-sdl3\"\n\nif [[ \"$PLATFORM_NAME\" == \"iphonesimulator\" ]]; then\n    WAF_FLAGS=\"$WAF_FLAGS --ios-simulator --sdl2=$(realpath \"SDL3.xcframework/ios-arm64_x86_64-simulator/SDL3.framework\")\"\nelse\n    WAF_FLAGS=\"$WAF_FLAGS --ios --sdl2=$(realpath \"SDL3.xcframework/ios-arm64/SDL3.framework\")\"\nfi\n\n./waf configure $WAF_FLAGS || exit 1\n\n./waf build install --destdir=$TARGET_BUILD_DIR/$UNLOCALIZED_RESOURCES_FOLDER_PATH || exit 1\n\ncp -r SDL3.framework $TARGET_BUILD_DIR/$UNLOCALIZED_RESOURCES_FOLDER_PATH\n\n\nif [ $CODE_SIGNING_ALLOWED != \"NO\" ]; then\n\tcodesign --force --verbose --sign \"$EXPANDED_CODE_SIGN_IDENTITY\" $TARGET_BUILD_DIR/$UNLOCALIZED_RESOURCES_FOLDER_PATH/*.dylib\n\tcodesign --force --verbose --sign \"$EXPANDED_CODE_SIGN_IDENTITY\" $TARGET_BUILD_DIR/$UNLOCALIZED_RESOURCES_FOLDER_PATH/SDL3.framework\nfi\n\n#build openssl\nOPENSSL_DIR=$(realpath \"3rdparty/openssl\")\n\nmkdir -p \"$TARGET_BUILD_DIR\"\ncd \"$TARGET_BUILD_DIR\"\n\ncase \"${PLATFORM_NAME}\" in\n    iphoneos)\n        export CROSS_TOP=\"/Applications/Xcode.app/Contents/Developer/Platforms/iPhoneOS.platform/Developer\"\n        export CROSS_SDK=\"iPhoneOS.sdk\"\n        CONFIG_TARGET=\"ios64-cross\"\n        ;;\n    iphonesimulator)\n        export CROSS_TOP=\"/Applications/Xcode.app/Contents/Developer/Platforms/iPhoneSimulator.platform/Developer\"\n        export CROSS_SDK=\"iPhoneSimulator.sdk\"\n        CONFIG_TARGET=\"iossimulator-xcrun\"\n        ;;\nesac\n\nif [ ! -f Makefile ]; then\n\t$OPENSSL_DIR/Configure ${CONFIG_TARGET} no-shared no-tests || exit 1\n\tmake -j$(sysctl -n hw.ncpu) || exit 1\nfi\n";
 		};
 		88C65753305B0F7900986226 /* ShellScript */ = {
 			isa = PBXShellScriptBuildPhase;
@@ -1085,11 +1081,14 @@
 				LIBRARY_SEARCH_PATHS = (
 					"$(inherited)",
 					"$(PROJECT_DIR)/Launcher",
+					"$(TARGET_BUILD_DIR)/**",
 					"$(PROJECT_DIR)",
-					"\"$(SRCROOT)/../3rdparty/openssl\"",
 				);
 				MARKETING_VERSION = 1.0;
-				OTHER_LDFLAGS = "";
+				OTHER_LDFLAGS = (
+					"-lcrypto",
+					"-lssl",
+				);
 				PRODUCT_BUNDLE_IDENTIFIER = su.xash.engine;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				STRING_CATALOG_GENERATE_SYMBOLS = YES;
@@ -1143,11 +1142,14 @@
 				LIBRARY_SEARCH_PATHS = (
 					"$(inherited)",
 					"$(PROJECT_DIR)/Launcher",
+					"$(TARGET_BUILD_DIR)/**",
 					"$(PROJECT_DIR)",
-					"\"$(SRCROOT)/../3rdparty/openssl\"",
 				);
 				MARKETING_VERSION = 1.0;
-				OTHER_LDFLAGS = "";
+				OTHER_LDFLAGS = (
+					"-lcrypto",
+					"-lssl",
+				);
 				PRODUCT_BUNDLE_IDENTIFIER = su.xash.engine;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				STRING_CATALOG_GENERATE_SYMBOLS = YES;
