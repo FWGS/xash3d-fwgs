@@ -821,6 +821,9 @@ static gc_gx_tex_t *R_GXNativeTexture( image_t *img, unsigned texnum )
 		u16 *dst = (u16 *)img->pixels[0];
 		int y, x, sx, sy;
 
+		if( gEngfuncs.Sys_CheckParm( "-gcmodeltrace" ))
+			gEngfuncs.Con_Reportf( "modeltrace convert %s %dx%d -> %dx%d ptr=%p first=%04x %04x\n", img->name, img->width, img->height, w, h, img->pixels[0], img->pixels[0][0], img->pixels[0][1] );
+
 		/* Reads stay ahead of the writes: the output is never larger. */
 		for( y = 0; y < h; y += 4, dst += w * 4 )
 		{

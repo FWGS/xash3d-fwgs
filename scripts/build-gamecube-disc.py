@@ -2931,6 +2931,8 @@ def main() -> None:
 				play_lines = ["retailnewgame"]
 				if os.environ.get("XASH_GC_PROBE_AUTOHOP") == "1":
 					play_lines.append("autohop")
+				if os.environ.get("XASH_GC_PROBE_MODELTRACE") == "1":
+					play_lines.append("modeltrace")
 				if os.environ.get("XASH_GC_PROBE_PROFILE") == "1":
 					play_lines.append("profile")
 				(staged_data / "gamecube.cfg").write_text(

@@ -209,6 +209,8 @@ byte *Mod_GCStudioBssAlloc( size_t size )
 		return NULL;
 	gc_studio_bss_bump = align_off + size;
 	gc_studio_bss_owners++;
+	if( Sys_CheckParm( "-gcmodeltrace" ))
+		Con_Reportf( "modeltrace alloc %p size=%u bump=%u\n", gc_studio_bss + align_off, (unsigned)size, (unsigned)gc_studio_bss_bump );
 	return gc_studio_bss + align_off;
 }
 
