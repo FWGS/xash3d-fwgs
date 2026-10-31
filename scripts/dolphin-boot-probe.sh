@@ -700,7 +700,7 @@ PLAYTEST_SINK_MODS=
 if [[ "${DOLPHIN_RECORD:-1}" == "1" ]] && command -v pactl >/dev/null 2>&1 \
 	&& command -v ffmpeg >/dev/null 2>&1 && [[ -n "${DISPLAY:-}" ]]; then
 	PLAYTEST_SINK="xashrec$$"
-	if PLAYTEST_SINK_MODS="$(python3 scripts/playtest-record.py sink create "$PLAYTEST_SINK")"; then
+	if PLAYTEST_SINK_MODS="$(python3 scripts/playtest-record.py sink create "$PLAYTEST_SINK" --loopback)"; then
 		export PULSE_SINK="$PLAYTEST_SINK"
 		PLAYTEST_ROUTE="${DOLPHIN_PLAYTEST_ROUTE:-$([[ "${DOLPHIN_MENU_NEWGAME:-0}" == "1" ]] && echo menu-newgame || echo probe)}"
 		python3 scripts/playtest-record.py record --pid 0 --sink "$PLAYTEST_SINK" \
