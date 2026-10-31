@@ -1090,13 +1090,12 @@ static char *SV_ReadEntityScript( const char *filename, int *flags )
 	if( !ents && lumplen >= 32 )
 	{
 		FS_Seek( f, lumpofs, SEEK_SET );
-		ents = Z_Calloc( lumplen + 1 );
 #if XASH_GAMECUBE
-		/* The 64 KiB entity text soft-failed on the fragmented heap at the
-		 * c0a0b -> c0a0c changelevel and was then read into NULL. Validation
-		 * is brief and the GX world does not use the soft surface cache, so
-		 * borrow its store (the transition save takes it next anyway). */
-		if( !ents && GC_MenuRunsServer())
+		/* The 64 KiB entity text can fail on the fragmented heap at a
+		 * changelevel. Validation is brief and the GX world does not use the
+		 * soft surface cache, so borrow its store (the transition save takes
+		 * it next anyway). */
+		if( GC_MenuRunsServer())
 		{
 			extern byte *R_GCBorrowSurfaceCacheStore( size_t *size );
 			size_t store_size = 0;
@@ -1109,6 +1108,10 @@ static char *SV_ReadEntityScript( const char *filename, int *flags )
 				sv_gc_ents_borrowed = ents;
 			}
 		}
+		if( !ents )
+#endif
+		ents = Z_Calloc( lumplen + 1 );
+#if XASH_GAMECUBE
 		if( ents )
 #endif
 		FS_Read( f, ents, lumplen );
