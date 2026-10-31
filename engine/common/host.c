@@ -1316,6 +1316,7 @@ int EXPORT Host_Main( int argc, char **argv, const char *progname, int bChangeGa
 
 #ifndef XASH_DEDICATED
 	IN_GyroCheckAvailability();
+	Joy_AutoPreset();
 #endif
 
 	string demoname;

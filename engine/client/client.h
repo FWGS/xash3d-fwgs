@@ -1249,6 +1249,7 @@ void Key_Event( int key, int down );
 void Key_Init( void );
 void Key_WriteBindings( file_t *f );
 const char *Key_GetBinding( int keynum );
+const char *Key_GetDefaultBinding( int keynum );
 void Key_SetBinding( int keynum, const char *binding );
 const char *Key_LookupBinding( const char *pBinding );
 void Key_ClearStates( void );

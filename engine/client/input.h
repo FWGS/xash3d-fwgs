@@ -153,7 +153,9 @@ typedef enum joy_calibration_state_s
 } joy_calibration_state_t;
 
 qboolean Joy_IsActive( void );
-void Joy_SetCapabilities( qboolean have_gyro, int num_touchpads );
+void Joy_AutoPreset( void );
+const char *Joy_SteamControllerPreset( int vendor, int product );
+void Joy_SetCapabilities( qboolean have_gyro, int num_touchpads, const char *preset );
 void Joy_SetCalibrationState( joy_calibration_state_t state );
 void Joy_AxisMotionEvent( engineAxis_t engineAxis, short value );
 void Joy_GyroEvent( vec3_t data );
