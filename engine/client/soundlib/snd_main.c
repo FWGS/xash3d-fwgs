@@ -14,6 +14,9 @@ GNU General Public License for more details.
 */
 
 #include "soundlib.h"
+#if XASH_GAMECUBE
+#include "platform/platform.h"
+#endif
 
 static void Sound_Reset( void )
 {
@@ -30,13 +33,44 @@ static void Sound_Reset( void )
 #endif
 }
 
+#if XASH_GAMECUBE
+/* Sound files read into the model skin scratch, idle during play: a 38 KB file
+ * buffer was failing on the fragmented heap with 300 KB free. */
+extern byte *Mod_GCSoundScratch( fs_offset_t size );
+extern qboolean Mod_GCIsSoundScratch( const void *ptr );
+
+static byte *SND_LOADFILE( const char *path, fs_offset_t *size )
+{
+	file_t *f;
+	byte *buf;
+
+	if( !GC_MenuRunsServer( ))
+		return FS_LoadFile( path, size, false );
+	f = FS_Open( path, "rb", false );
+	if( !f )
+		return NULL;
+	*size = FS_FileLength( f );
+	buf = Mod_GCSoundScratch( *size );
+	if( !buf || FS_Read( f, buf, *size ) != *size )
+		buf = NULL;
+	FS_Close( f );
+	return buf;
+}
+#define SND_FREEFILE( f ) do { if( !Mod_GCIsSoundScratch( f )) Mem_Free( f ); } while( 0 )
+#else
+#define SND_LOADFILE( path, size ) FS_LoadFile( path, size, false )
+#define SND_FREEFILE( f ) Mem_Free( f )
+#endif
+
 static MALLOC_LIKE( FS_FreeSound, 1 ) wavdata_t *SoundPack( void )
 {
-	wavdata_t *pack = Mem_Malloc( host.soundpool, sizeof( *pack ) + sound.size );
-
 #if XASH_GAMECUBE
+	wavdata_t *pack = Mem_TryMalloc( host.soundpool, sizeof( *pack ) + sound.size );
+
 	if( !pack )
 		return NULL;
+#else
+	wavdata_t *pack = Mem_Malloc( host.soundpool, sizeof( *pack ) + sound.size );
 #endif
 
 	pack->size = sound.size;
@@ -167,48 +201,48 @@ wavdata_t *FS_LoadSound( const char *filename, const byte *buffer, size_t size )
 
 			Q_snprintf( path, sizeof( path ), DEFAULT_SOUNDPATH "%s.%s", loadname, format->ext );
 
-			byte *f = FS_LoadFile( path, &filesize, false );
+			byte *f = SND_LOADFILE( path, &filesize );
 			if( f && filesize > 0 )
 			{
 				success = format->loadfunc( path, f, filesize );
 #if XASH_GAMECUBE
 				if( success && sound.gc_inplace_file )
 				{
-					wavdata_t *pack = SoundPackInPlaceFile( f, filesize );
+					wavdata_t *pack = Mod_GCIsSoundScratch( f ) ? NULL : SoundPackInPlaceFile( f, filesize );
 					if( pack )
 						return pack;
 					pack = SoundPack();
-					Mem_Free( f );
+					SND_FREEFILE( f );
 					if( pack )
 						return pack;
 					return NULL;
 				}
 #endif
-				Mem_Free( f ); // release buffer
+				SND_FREEFILE( f ); // release buffer
 			}
 
 			if( success )
 				return SoundPack(); // loaded
 
 			Q_snprintf( path, sizeof( path ), "%s.%s", loadname, format->ext );
-			f = FS_LoadFile( path, &filesize, false );
+			f = SND_LOADFILE( path, &filesize );
 			if( f && filesize > 0 )
 			{
 				success = format->loadfunc( path, f, filesize );
 #if XASH_GAMECUBE
 				if( success && sound.gc_inplace_file )
 				{
-					wavdata_t *pack = SoundPackInPlaceFile( f, filesize );
+					wavdata_t *pack = Mod_GCIsSoundScratch( f ) ? NULL : SoundPackInPlaceFile( f, filesize );
 					if( pack )
 						return pack;
 					pack = SoundPack();
-					Mem_Free( f );
+					SND_FREEFILE( f );
 					if( pack )
 						return pack;
 					return NULL;
 				}
 #endif
-				Mem_Free( f ); // release buffer
+				SND_FREEFILE( f ); // release buffer
 			}
 
 			if( success )

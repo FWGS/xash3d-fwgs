@@ -186,6 +186,26 @@ Tried and rejected:
 
 Dolphin does not model the fill cost of trilinear, anisotropy or the alpha test.
 
+### Sound: ARAM store, files outside the heap
+
+Evicting harder made it worse: the budget is smaller than the sounds in use, so
+each eviction became a disc read (128 evictions, 27 failed allocations). Sounds
+now stay in ARAM once loaded, so an eviction is a DMA, idle sounds go before a
+changelevel so model skin files have room, and sound files read into the model
+skin scratch, which is idle during play: a 38 KB file buffer was failing with
+300 KB free on a fragmented heap. Budget 256 → 320 KB.
+
+Same route into c1a0, one ride each, so these vary:
+
+| | Refused | Failed allocations | Evictions | From ARAM |
+|---|---|---|---|---|
+| Before | ~50 | 12 | | 0 |
+| After | 1 | 0 | 74 | 37 |
+
+`gmanT.mdl` (144 KB) fits no block at a changelevel and a static scratch 16 KB
+larger breaks boot, even with the same memory taken off the texture pool: it
+borrows the texture hot window while it is read. All 5 of the cast skinned.
+
 ### Open: GX DrawDone waits
 
 Stretches of 8–25 ms/frame in `present: GX DrawDone wait`, tens of seconds long,

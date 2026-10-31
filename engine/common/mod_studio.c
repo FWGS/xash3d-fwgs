@@ -1025,6 +1025,16 @@ static qboolean Mod_GCIsStudioTexScratch( const void *ptr )
 	return ptr == (void *)gc_studio_tex_scratch || ( ptr && ptr == gc_studio_tex_borrowed );
 }
 
+byte *Mod_GCSoundScratch( fs_offset_t size )
+{
+	return !gc_studio_tex_scratch_busy && size <= (fs_offset_t)GC_STUDIO_TEX_SCRATCH_BYTES ? gc_studio_tex_scratch : NULL;
+}
+
+qboolean Mod_GCIsSoundScratch( const void *ptr )
+{
+	return ptr == (void *)gc_studio_tex_scratch;
+}
+
 static void Mod_GCReleaseStudioTexBuf( void *ptr )
 {
 	if( !ptr )

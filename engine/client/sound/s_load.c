@@ -50,7 +50,7 @@ static qboolean s_registering = false;
 /* Menu New Game runs the real map with its NPCs and tram: their sounds
  * (tram start/loop/brake ~90 KiB, footsteps, doors) thrashed the lean budget,
  * reloading from disc on every step. ~300-470 KiB of heap stays free there. */
-#define GC_SFX_MENU_BUDGET_BYTES	(256u * 1024u)
+#define GC_SFX_MENU_BUDGET_BYTES	(320u * 1024u)
 #define GC_SFX_MENU_MAX_FILE_BYTES	(48u * 1024u)
 /* ...but never at the cost of what the map still has to allocate (the
  * credits font reload, NPC models): keep this much heap free. */
