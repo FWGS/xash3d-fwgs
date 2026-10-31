@@ -5428,7 +5428,7 @@ static qboolean SV_GCMapShouldInhibitClass( const char *classname )
 		if( !Q_stricmp( classname, "env_beam" )
 			|| !Q_stricmp( classname, "env_laser" ))
 		{
-			if( Sys_CheckParm( "-gcfullphysics" ))
+			if( Sys_CheckParm( "-gcfullphysics" ) || GC_MenuRunsServer())
 				return false;
 			if( gc_lean_beam_admit >= 8 )
 				return true;
@@ -5448,7 +5448,9 @@ static qboolean SV_GCMapShouldInhibitClass( const char *classname )
 		{
 			int scripted_cap = 12;
 
-			if( Sys_CheckParm( "-gcfullphysics" ))
+			/* Menu New Game: every script runs. The cap dropped c0a0's last
+			 * five, among them Barney banging on the door and the forklifts. */
+			if( Sys_CheckParm( "-gcfullphysics" ) || GC_MenuRunsServer())
 				return false;
 			if( sv.startspot[0] && !Q_stricmp( sv.name, "c1a0d" ))
 				scripted_cap = 20; /* G373 */

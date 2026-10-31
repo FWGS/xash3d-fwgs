@@ -1279,6 +1279,43 @@ def wt_encode(w: int, h: int, pixels: bytes, palette: bytes, alpha: bool) -> tup
 	return tw, th, count, bytes(levels)
 
 
+def build_music_overlays(source: Path, output: Path, cache: Path) -> list[tuple[str, Path]]:
+	"""CD tracks as 22 kHz stereo WAV, media/cdNN.wav, with the cdaudio.txt
+	playlist. The Gekko can't decode MP3 during play; a WAV streams from disc
+	the way the announcer does. An MP3's title tag names its CD track."""
+	cache.mkdir(parents=True, exist_ok=True)
+	tracks = {}
+	for mp3 in sorted((source / "media").glob("*.mp3")):
+		probe = subprocess.run(
+			["ffprobe", "-v", "error", "-show_entries", "format_tags=title", "-of", "csv=p=0", str(mp3)],
+			capture_output=True, text=True,
+		)
+		m = re.search(r"AudioTrack (\d+)", probe.stdout)
+		if m:
+			tracks[int(m.group(1))] = mp3
+	overlays = []
+	lines = []
+	for number in range(1, max(tracks, default=0) + 1):
+		mp3 = tracks.get(number)
+		if mp3 is None:
+			lines.append("blank")
+			continue
+		rel = f"media/cd{number:02d}.wav"
+		wav = cache / f"cd{number:02d}.wav"
+		if not wav.is_file():
+			subprocess.run(
+				["ffmpeg", "-v", "error", "-y", "-i", str(mp3), "-ar", "22050", "-ac", "2", "-c:a", "pcm_s16le", str(wav)],
+				check=True,
+			)
+		overlays.append((rel, wav))
+		lines.append(f"/{rel}")
+	playlist = output / "media" / "cdaudio.txt"
+	playlist.write_text("\n".join(lines) + "\n", encoding="ascii")
+	overlays.append(("media/cdaudio.txt", playlist))
+	print(f"  music: {len(overlays) - 1} CD tracks as 22 kHz WAV")
+	return overlays
+
+
 def build_world_texture_packs(source: Path, output: Path, cache: Path) -> list[tuple[str, Path]]:
 	"""media/wt_<map>.gct: each map's world textures as GX CMPR with mip
 	chains, read in one go by the engine (mod_bmodel.c). Water and sky keep the
@@ -1942,6 +1979,7 @@ def create_retail_boot_overlays(
 			for n in ("dest", "noeat", "emerg", "tourn", "jobs", "haz", "arrive", "exit")),
 	)
 	overlays.extend(build_sky_cmpr_overlays(source, output))
+	overlays.extend(build_music_overlays(source, output, Path(__file__).resolve().parents[1] / "build" / "gc-music-cache"))
 	overlays.extend(build_world_texture_packs(source, output, Path(__file__).resolve().parents[1] / "build" / "gc-wt-cache"))
 	for dest_rel, src_wav in intro_vo:
 		if not src_wav.is_file():

@@ -356,8 +356,10 @@ void SNDDMA_Submit( void )
 			char track[64];
 			const qboolean bg = S_StreamGetCurrentState( track, sizeof( track ), NULL, 0, NULL );
 
-			Con_Reportf( "Xash3D GameCube: audio meter t=%.1f chunks=%u nonzero=%u peak=%d bg=%s st=%d\n",
-				Platform_DoubleTime(), gc_audio_chunks_submitted - meter_chunks,
+			extern const char *S_GCVoiceCurrent( void );
+
+			Con_Reportf( "Xash3D GameCube: audio meter vo=%s t=%.1f chunks=%u nonzero=%u peak=%d bg=%s st=%d\n",
+				S_GCVoiceCurrent( ), Platform_DoubleTime(), gc_audio_chunks_submitted - meter_chunks,
 				gc_audio_nonzero_chunks - meter_nonzero, gc_audio_window_peak,
 				bg ? track : "-", cls.state );
 			meter_chunks = gc_audio_chunks_submitted;

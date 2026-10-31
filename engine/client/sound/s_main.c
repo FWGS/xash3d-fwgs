@@ -654,30 +654,31 @@ after c0a0. Stream them from the disc's shallow media/ copy on the
 background track instead, at the time the map's ambient_generic fires them.
 =================
 */
+const char *S_GCVoiceCurrent( void );
+void S_GCVoiceStop( void );
+qboolean S_GCVoiceStart( const char *path );
+void S_GCVoiceUpdate( void );
+
 static qboolean S_GCStreamVoice( const sfx_t *sfx, int flags )
 {
-	char path[MAX_QPATH], current[MAX_QPATH];
+	char path[MAX_QPATH];
 
 	if( !GC_MenuRunsServer() || Q_strnicmp( sfx->name, "tride/", 6 ))
 		return false;
 	Q_snprintf( path, sizeof( path ), "media/%s", sfx->name + 6 );
 	if( FBitSet( flags, SND_STOP ))
 	{
-		if( S_StreamGetCurrentState( current, sizeof( current ), NULL, 0, NULL )
-			&& !Q_stricmp( current, path ))
-			S_StopBackgroundTrack();
+		if( !Q_stricmp( S_GCVoiceCurrent( ), path ))
+			S_GCVoiceStop( );
 		return true;
 	}
 	if( FBitSet( flags, SND_CHANGE_VOL|SND_CHANGE_PITCH ))
 		return true;
 	/* Already playing this line: keep it going rather than restart it. */
-	if( S_StreamGetCurrentState( current, sizeof( current ), NULL, 0, NULL )
-		&& !Q_stricmp( current, path ))
+	if( !Q_stricmp( S_GCVoiceCurrent( ), path ))
 		return true;
 	FS_ClearFindMissCache();
-	S_StartBackgroundTrack( path, NULL, 0, true );
-	Con_Reportf( "Xash3D GameCube: VO stream %s ok=%d\n", path,
-		S_StreamGetCurrentState( NULL, 0, NULL, 0, NULL ) ? 1 : 0 );
+	Con_Reportf( "Xash3D GameCube: VO stream %s ok=%d\n", path, S_GCVoiceStart( path ));
 	return true;
 }
 #endif
@@ -1859,6 +1860,9 @@ void SND_UpdateSound( void )
 	}
 
 	S_StreamBackgroundTrack ();
+#if XASH_GAMECUBE
+	S_GCVoiceUpdate( );
+#endif
 
 	// mix some sound
 	S_UpdateChannels ();
@@ -2306,6 +2310,9 @@ void S_GameCubeTrimForMapLoad( void )
 	if( !snd.initialized )
 		return;
 
+#if XASH_GAMECUBE
+	S_GCVoiceStop( );
+#endif
 	S_StopBackgroundTrack();
 	S_StopAllSounds( false );
 	S_FreeRawChannels();
