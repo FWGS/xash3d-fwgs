@@ -151,6 +151,10 @@ static void SDLash_GamepadAddMappings( const char *name )
 
 static const char *SDLash_GamepadPreset( SDL_Gamepad *gc )
 {
+	// Steam Input virtual gamepad reports the real controller's IDs and type, but its buttons are remapped to the Xbox layout
+	if( SDL_GetGamepadSteamHandle( gc ))
+		return "xbox";
+
 	const char *preset = Joy_SteamControllerPreset( SDL_GetGamepadVendor( gc ), SDL_GetGamepadProduct( gc ));
 
 	if( preset )

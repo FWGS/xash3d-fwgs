@@ -159,6 +159,12 @@ static const char *SDLash_GameControllerPreset( SDL_GameController *gc )
 #if XASH_PSVITA
 	return "psvita";
 #elif SDL_VERSION_ATLEAST( 2, 0, 14 )
+#if SDL_VERSION_ATLEAST( 2, 30, 0 )
+	// Steam Input virtual gamepad reports the real controller's IDs and type, but its buttons are remapped to the Xbox layout
+	if( SDL_GameControllerGetSteamHandle( gc ))
+		return "xbox";
+#endif // SDL_VERSION_ATLEAST( 2, 30, 0 )
+
 	const char *preset = Joy_SteamControllerPreset( SDL_GameControllerGetVendor( gc ), SDL_GameControllerGetProduct( gc ));
 
 	if( preset )
