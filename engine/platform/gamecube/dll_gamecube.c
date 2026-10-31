@@ -6,6 +6,7 @@ dll_gamecube.c - static library registration for GameCube (from xash3d-wii)
 
 #if XASH_GAMECUBE
 #include "common.h"
+#include "server.h"
 #include "library.h"
 #include "filesystem.h"
 #include <ogc/system.h>
@@ -341,13 +342,15 @@ void *COM_FunctionFromName( void *hInstance, const char *pName )
 
 const char *COM_NameForFunction( void *hInstance, void *function )
 {
-	Dl_info info = { 0 };
+	static char name[32];
 
 	(void)hInstance;
 
-	if( dladdr( function, &info ) && info.dli_sname )
-		return info.dli_sname;
-
-	return NULL;
+	/* Game code is linked in with no symbol table, so dladdr can't name its
+	 * think and touch functions and every entity crossing a changelevel lost
+	 * them. An offset from a known function restores the same pointer: the
+	 * saves only ever go back into this same binary. */
+	Q_snprintf( name, sizeof( name ), "ofs:%d", (int)( (byte *)function - (byte *)svgame.dllFuncs.pfnGameInit ));
+	return name;
 }
 #endif /* XASH_GAMECUBE */
