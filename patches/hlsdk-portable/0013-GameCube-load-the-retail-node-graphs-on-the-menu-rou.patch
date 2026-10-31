@@ -1,0 +1,33 @@
+From 2261eb159f620049fbb3fa0f5c11799905781356 Mon Sep 17 00:00:00 2001
+From: timfox <timfox@outlook.com>
+Date: Fri, 30 Oct 2026 21:02:16 -0700
+Subject: [PATCH] GameCube: load the retail node graphs on the menu route
+
+Co-Authored-By: Claude Opus 5.5 (1M context) <noreply@anthropic.com>
+---
+ dlls/world.cpp | 9 +++++++--
+ 1 file changed, 7 insertions(+), 2 deletions(-)
+
+diff --git a/dlls/world.cpp b/dlls/world.cpp
+index 7a938764..5247bfcb 100644
+--- a/dlls/world.cpp
++++ b/dlls/world.cpp
+@@ -616,8 +616,13 @@ void CWorld::Precache( void )
+ 	/* Temporary bring-up path: GameCube disc boots do not yet have a reliable
+ 	 * read/write route for HL node graphs, and falling back to AllocNodes()
+ 	 * immediately blows MEM1. Skip graph load/build so gameplay startup can
+-	 * continue while engine and filesystem porting catch up. */
+-	ALERT( at_console, "*GameCube: skipping node graph build/load during port bring-up\n" );
++	 * continue while engine and filesystem porting catch up.
++	 * The menu New Game route loads the retail .nod (10-20 KB, read only):
++	 * scripted walks need it, and Barney's at c0a0e opens the tram door. */
++	if( GC_FullActors() && WorldGraph.FLoadGraph( STRING( gpGlobals->mapname )))
++		ALERT( at_console, "*GameCube: graph loaded nodes=%d links=%d\n", WorldGraph.m_cNodes, WorldGraph.m_cLinks );
++	else
++		ALERT( at_console, "*GameCube: skipping node graph build/load during port bring-up\n" );
+ #else
+ 	// make sure the .NOD file is newer than the .BSP file.
+ 	if( !WorldGraph.CheckNODFile( STRING( gpGlobals->mapname ) ) )
+-- 
+2.53.0
+
