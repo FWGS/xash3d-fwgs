@@ -6,6 +6,7 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import re
 import subprocess
 import sys
 from datetime import datetime, timezone
@@ -21,6 +22,11 @@ try:
 	import fcntl
 except ImportError:  # pragma: no cover - non-Unix fallback
 	fcntl = None
+
+AGENT_SCRIPTS = Path(__file__).resolve().parent / "agent"
+if str(AGENT_SCRIPTS) not in sys.path:
+	sys.path.insert(0, str(AGENT_SCRIPTS))
+from gc_runtime_acceptance import evaluate_runtime_evidence
 
 
 DISCOVERY_STATE_PATH = Path(".ai/state/discovery-supervisor.json")
@@ -311,7 +317,7 @@ def experiment_progress(text: str) -> dict[str, object]:
 
 def write_experiment_result(root: Path, item: dict[str, object], before: str, after: str,
 	decision: str = "pending", reason: str = "", baseline: str = "",
-	candidate: str = "") -> None:
+	candidate: str = "", evidence: dict[str, object] | None = None) -> None:
 	payload = {
 		"item_id": item.get("item_id"),
 		"timestamp": datetime.now(timezone.utc).isoformat(),
@@ -321,6 +327,7 @@ def write_experiment_result(root: Path, item: dict[str, object], before: str, af
 		"reason": reason,
 		"baseline_commit": baseline,
 		"candidate_commit": candidate,
+		"runtime_evidence": evidence,
 	}
 	path = root / EXPERIMENT_STATE_PATH
 	path.parent.mkdir(parents=True, exist_ok=True)
@@ -400,6 +407,46 @@ def refresh_runtime_probe(root: Path, env: dict[str, str]) -> int:
 		print(f"run-until-done: runtime probe refresh exited {status}; continuing with refreshed evidence",
 			file=sys.stderr, flush=True)
 	return status
+
+
+def refresh_runtime_evidence(root: Path, env: dict[str, str], baseline: str,
+	intended_paths: list[str]) -> tuple[int, dict[str, object]]:
+	"""Run the complete build/disc/probe contract and persist its evidence."""
+	log_dir = root / ".ai/logs" / (
+		"automation-runtime-" + datetime.now(timezone.utc).strftime("%Y%m%d-%H%M%S"))
+	log_dir.mkdir(parents=True, exist_ok=True)
+
+	def phase(command: list[str], name: str, extra: dict[str, str] | None = None) -> tuple[int, str]:
+		phase_env = env.copy()
+		if extra:
+			phase_env.update(extra)
+		path = log_dir / f"{name}.log"
+		with path.open("w", encoding="utf-8") as stream:
+			result = subprocess.run(command, cwd=root, env=phase_env, text=True,
+				stdout=stream, stderr=subprocess.STDOUT, check=False)
+		return result.returncode, read_text(path)
+
+	build_code, build_log = phase(["bash", "scripts/build-gamecube.sh"], "build",
+		{"XASH3D_GC_SKIP_DISC_BUILD": "1"})
+	disc_code, disc_log = phase(
+		["python3", "scripts/build-gamecube-disc.py", "--output", "OUT/xash3d-gc.iso"],
+		"disc",
+	)
+	probe_code, probe_log = phase(
+		["bash", "scripts/dolphin-boot-probe.sh", "OUT/xash3d-gc.iso"],
+		"probe",
+		{"DOLPHIN_SKIP_BUILD": "1"},
+	)
+	report = evaluate_runtime_evidence(
+		root, build_code=build_code, build_log=build_log,
+		disc_code=disc_code, disc_log=disc_log, probe_log=probe_log,
+		baseline=baseline, intended_paths=intended_paths,
+	)
+	report["log_dir"] = str(log_dir.relative_to(root))
+	state_path = root / ".ai/state/runtime-acceptance-latest.json"
+	state_path.parent.mkdir(parents=True, exist_ok=True)
+	state_path.write_text(json.dumps(report, indent=2) + "\n", encoding="utf-8")
+	return (0 if report["accepted"] else 1), report
 
 
 def runtime_regression_gate(root: Path, env: dict[str, str]) -> int:
@@ -501,18 +548,24 @@ def run_discovery_pass(root: Path, item: dict[str, object]) -> int:
 			)
 			return status
 		if is_runtime_discovery_item(item):
-			probe_status = refresh_runtime_probe(root, env)
+			intended_paths = [
+				path for path in re.split(
+					r"[:,]", env.get("AI_INTENDED_EDIT_PATHS")
+					or env.get("AI_REQUIRED_EDIT_PATHS") or ":".join(context)) if path
+			]
+			probe_status, evidence = refresh_runtime_evidence(
+				root, env, baseline, intended_paths)
 			gate_status = runtime_regression_gate(root, env)
 			after_probe = read_text(root / HARNESS_STATE_PATH)
 			candidate = subprocess.run(["git", "rev-parse", "HEAD"], cwd=root,
 				text=True, capture_output=True, check=False).stdout.strip()
 			before_score = int(experiment_progress(before_probe)["score"])
 			after_score = int(experiment_progress(after_probe)["score"])
-			if os.environ.get("AI_STRICT_RUNTIME_PROGRESS", "1").lower() not in {"0", "false", "no"} and after_score <= before_score:
-				reason = f"readiness score did not advance ({before_score} -> {after_score})"
+			if probe_status != 0 or gate_status != 0:
+				reason = f"runtime evidence rejected: {evidence.get('required_failures', [])}"
 				if not baseline or not discard_to_baseline(root, baseline):
 					write_experiment_result(root, item, before_probe, after_probe,
-						"discard_restore_failed", reason, baseline, candidate)
+						"discard_restore_failed", reason, baseline, candidate, evidence)
 					record_discovery_feedback(
 						root, item, 21, "runtime_probe",
 						"Stop automation and inspect the failed baseline restore before retrying.",
@@ -520,24 +573,14 @@ def run_discovery_pass(root: Path, item: dict[str, object]) -> int:
 					)
 					return 21
 				write_experiment_result(root, item, before_probe, after_probe,
-					"discard_no_runtime_progress", reason, baseline, candidate)
+					"discard_runtime_evidence", reason, baseline, candidate, evidence)
 				record_discovery_feedback(
 					root, item, 20, "runtime_probe",
-					"Discarded the patch because the readiness score did not advance.",
-					f"Runtime experiment made no progress ({before_score} -> {after_score}); patch reverted.")
+					"Discarded the patch because the runtime acceptance contract failed.",
+					f"Runtime evidence rejected ({evidence.get('required_failures', [])}); patch reverted.")
 				return 20
 			write_experiment_result(root, item, before_probe, after_probe, "keep",
-				f"readiness score advanced ({before_score} -> {after_score})", baseline, candidate)
-			if probe_status != 0 or gate_status != 0:
-				record_discovery_feedback(
-					root,
-					item,
-					20,
-					"runtime_probe",
-					"Restore the GameCube smoke route before accepting another runtime change.",
-					f"Discovery pass `{item.get('item_id')}` was rejected by the runtime regression gate.",
-				)
-				return 20
+				f"runtime evidence contract passed ({before_score} -> {after_score})", baseline, candidate, evidence)
 		clear_discovery_feedback(root)
 		return 0
 	finally:

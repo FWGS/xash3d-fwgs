@@ -1,5 +1,31 @@
 # Xash3D GameCube Automation Goals
 
+## Active release-readiness queue
+
+This compact matrix supersedes the historical completed micro-goal stream for
+automation purposes. The runner must select the first incomplete G491-G500
+goal, and discovery must not create renderer-polish work while map/gameplay
+gates are red.
+
+| Release gate | Goal(s) | Acceptance marker / artifact |
+|---|---|---|
+| Build and boot | G491 | clean build, valid DOL, disc, boot marker |
+| Filesystem and asset loading | G492 | search paths, `delta.lst`, asset-load evidence |
+| Static client/server modules | G492/G493 | both modules registered without guest fatal |
+| BSP/map load | G491/G492 | BSP opened, delta tables initialized, `map loaded` |
+| Player spawn and input | G493/G494 | entities spawned, controller-ready, action marker |
+| World rendering | G495 | stable nonblack gameplay frame |
+| Studio models and HUD | G495 | model/HUD evidence in gameplay frame |
+| Audio | G496 | nonzero audio/mixer evidence |
+| Save/load | G497 | save/reload state continuity |
+| Changelevel | G497 | transition and state continuity |
+| Campaign smoke test | G498/G499 | bounded route, no guest fatal, report |
+| Hardware validation | G500 | physical checklist and handoff report |
+
+G491-G500 are the only active release queue. Older completed goals remain below
+for provenance and audit history; they must not generate new renderer tuning
+work until the map/gameplay rows are green.
+
 The goal runner works on the first unchecked automatic goal. Aider may mark a
 goal complete only when its acceptance checks are demonstrated and recorded in
 `docs/GAMECUBE_PORT_PLAN.md`. Keep patches below the review gate's 400 changed

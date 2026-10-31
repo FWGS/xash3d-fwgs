@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 import json
+import os
 import re
 import subprocess
 import sys
@@ -10,6 +11,7 @@ if str(SCRIPT_DIR) not in sys.path:
     sys.path.insert(0, str(SCRIPT_DIR))
 
 from gc_common import REPO, normalize_repo_path, repo_path_pattern
+from gc_runtime_acceptance import evaluate_runtime_evidence
 AGENDA_PATH = REPO / ".ai/gc-reagent-agenda.json"
 REPORT_PATH = REPO / ".ai/reagent-last-probe.json"
 LAST_LOG_PATH = REPO / ".ai/logs/reagent-last-build.log"
@@ -313,6 +315,7 @@ def main():
     print("== GC reagent ==")
 
     agenda = load_agenda()
+    baseline_commit = run(["git", "rev-parse", "HEAD"])[1].strip()
 
     dirty_source, status = git_dirty_source_state()
     if dirty_source:
@@ -340,6 +343,8 @@ def main():
         return 1
 
     combined_log = ""
+    phase_logs = {}
+    phase_codes = {}
     last_cmd = None
     last_reason = None
     last_code = 0
@@ -349,6 +354,8 @@ def main():
         last_reason = reason
         code, log = run(cmd)
         last_code = code
+        phase_logs[reason] = log
+        phase_codes[reason] = code
         combined_log += f"\n\n===== PHASE {reason}: {' '.join(cmd)} =====\n"
         combined_log += log
 
@@ -361,10 +368,23 @@ def main():
     error_context = extract_error_context(combined_log)
     failure = classify_failure(error_context)
     patch_targets, target_reason = choose_patch_targets(error_context, combined_log, agenda)
+    evidence = evaluate_runtime_evidence(
+        REPO,
+        build_code=phase_codes.get("gamecube_engine_build", 125),
+        build_log=phase_logs.get("gamecube_engine_build", ""),
+        disc_code=phase_codes.get("gamecube_disc_build", 125),
+        disc_log=phase_logs.get("gamecube_disc_build", ""),
+        probe_log=phase_logs.get("dolphin_boot_probe", ""),
+        baseline=baseline_commit,
+        intended_paths=[p for p in re.split(
+            r"[:,]", os.environ.get("AI_INTENDED_EDIT_PATHS")
+            or os.environ.get("AI_REQUIRED_EDIT_PATHS", "")) if p],
+    )
 
     report = {
-        "build_ok": last_code == 0,
-        "failure_kind": failure,
+        "build_ok": bool(evidence["accepted"]),
+        "runtime_evidence": evidence,
+        "failure_kind": failure if evidence["accepted"] else "runtime_evidence",
         "build_reason": last_reason,
         "build_cmd": last_cmd,
         "patch_targets": patch_targets,
@@ -381,7 +401,7 @@ def main():
     }
 
     write_report(report)
-    return 0 if last_code == 0 else 1
+    return 0 if evidence["accepted"] else 1
 
 
 if __name__ == "__main__":

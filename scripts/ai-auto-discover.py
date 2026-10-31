@@ -26,6 +26,7 @@ DISCOVERY_STATE_PATH = Path(".ai/state/discovery-supervisor.json")
 HYPOTHESIS_STATE_PATH = Path(".ai/state/discovery-hypotheses.json")
 AUTOMATION_FAILURES = {"no_edit", "model_budget", "review_reject"}
 RUNTIME_DIRTY_RE = re.compile(r"^(engine/|ref/|common/|filesystem/|public/|stub/)")
+READINESS_GOALS = tuple(f"G{number}" for number in range(491, 501))
 
 DISCOVERY_RECIPES: dict[str, dict[str, object]] = {
 	"memory_pressure": {
@@ -104,6 +105,22 @@ DISCOVERY_RECIPES: dict[str, dict[str, object]] = {
 			"engine/common/mod_bmodel.c",
 		),
 		"read_context": (".ai/prompts/GAMECUBE_MEMORY_BUDGET.md",),
+		"include_common_reads": False,
+	},
+	"readiness_runtime": {
+		"title": "restore the first failing release-readiness gate",
+		"subject": "fix: advance GameCube release-readiness gate",
+		"context": (
+			"engine/common/filesystem_engine.c",
+			"engine/common/model.c",
+			"engine/server/sv_init.c",
+			"engine/platform/gamecube/in_gamecube.c",
+			"scripts/dolphin-boot-probe.sh",
+		),
+		"read_context": (
+			".ai/prompts/GAMECUBE_STORAGE_NOTES.md",
+			".ai/prompts/GAMECUBE_MEMORY_BUDGET.md",
+		),
 		"include_common_reads": False,
 	},
 	"no_edit": {
@@ -204,7 +221,26 @@ def parse_goals(path: Path) -> list[Goal]:
 
 
 def active_goal(goals: list[Goal]) -> Goal | None:
+	for goal_id in READINESS_GOALS:
+		goal = next((item for item in goals if item.goal_id == goal_id), None)
+		if goal is not None and not goal.automatic_done:
+			return goal
 	return next((goal for goal in goals if not goal.automatic_done), None)
+
+
+def renderer_polish_frozen(root: Path) -> bool:
+	"""Keep visual-polish discovery frozen until map and input are proven."""
+	evidence: list[str] = []
+	for relative in (".ai/state/dolphin-harness-latest.md",
+			".ai/state/runtime-acceptance-latest.json"):
+		path = root / relative
+		if path.is_file():
+			evidence.append(path.read_text(encoding="utf-8", errors="replace"))
+	text = "\n".join(evidence).lower()
+	map_ready = bool(re.search(r"(?:map[_ ]loaded|map[_ ]ready|map_ready)", text))
+	controller_ready = bool(re.search(r"(?:controller[_ ]ready|g45_status[^\n]*pass|g45[^\n]*pass)", text))
+	guest_failure = bool(re.search(r"(?:guest[_ ]failure|host_error|sys_error|xash error|mmu fault|invalid read)", text))
+	return not (map_ready and controller_ready and not guest_failure)
 
 
 def load_memory(root: Path) -> dict[str, object]:
@@ -485,6 +521,7 @@ def runtime_port_status(root: Path) -> str:
 	if (root / "OUT/bin/boot.dol").is_file() and (root / "OUT/xash3d-gc.iso").is_file():
 		parts.append("The native build/package path is already working (`OUT/bin/boot.dol` and `OUT/xash3d-gc.iso` exist).")
 	parts.append("What remains is runtime porting: boot cleanly, load a map, reach controller-ready, confirm stable visual output, confirm stable audio, and avoid fatal/runtime regressions.")
+	parts.append("The active release-readiness queue is G491-G500; renderer polish is frozen until the map and gameplay gates are green.")
 	parts.append("Do not spend this pass on supervisor or review-gate tuning.")
 	return " ".join(parts)
 
@@ -518,6 +555,8 @@ def experiment_contract(failure_class: str, evidence: str, context: list[str]) -
 
 def build_discovered_item(root: Path, goal: Goal | None, recent: dict[str, object]) -> WorkItem | None:
 	failure_class = str(recent.get("result") or "").strip() or "runtime_probe"
+	if renderer_polish_frozen(root) and failure_class == "visual_runtime":
+		failure_class = "readiness_runtime"
 	recipe = DISCOVERY_RECIPES.get(failure_class)
 	if recipe is None and goal is not None:
 		recipe = DISCOVERY_RECIPES.get("runtime_probe")
