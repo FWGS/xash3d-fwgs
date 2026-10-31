@@ -3649,7 +3649,7 @@ static struct
 /* MEM1 for the map's textures, taken once at the first map. Boot and map
  * load leave about this much, and more starves client init. It holds the low
  * mips of everything, the rest of it is the hot window (R_GXPackedTexture). */
-#define GC_WT_POOL_BYTES ( 640 * 1024 )
+#define GC_WT_POOL_BYTES ( 576 * 1024 )
 #define GC_WT_SPLIT_DIM  64
 static byte *gc_wt_pool;
 
