@@ -910,6 +910,22 @@ void R_GCHotWindow( void *base, unsigned size )
 	r_gx_hot.size = size;
 }
 
+/* For a moment during a map load: the whole window, emptied. What was resident
+ * falls back to its low mips and is streamed in again on its next bind. */
+void *R_GCHotBorrow( unsigned bytes )
+{
+	int i;
+
+	if( bytes > r_gx_hot.size )
+		return NULL;
+	for( i = 0; i < r_gx_hot.count; i++ )
+		r_gx_hot.list[i]->gc_packed_hot = NULL;
+	r_gx_hot.count = 0;
+	r_gx_hot.head = 0;
+	r_gx_bound_texnum = 0;
+	return r_gx_hot.base;
+}
+
 /* Room for bytes at the ring's head, evicting what has been idle long enough;
  * something in use is stepped over. NULL if nothing can go this frame. */
 static byte *R_GXHotAlloc( unsigned bytes )

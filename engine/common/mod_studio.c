@@ -1017,9 +1017,12 @@ Fall back to a dedicated BSS scratch so Flipper skins still upload.
 static byte     gc_studio_tex_scratch[GC_STUDIO_TEX_SCRATCH_BYTES] __attribute__((aligned( 32 )));
 static qboolean gc_studio_tex_scratch_busy;
 
+/* A file too big for it (gmanT.mdl, 144 KiB) borrows the texture hot window. */
+static void *gc_studio_tex_borrowed;
+
 static qboolean Mod_GCIsStudioTexScratch( const void *ptr )
 {
-	return ptr == (void *)gc_studio_tex_scratch;
+	return ptr == (void *)gc_studio_tex_scratch || ( ptr && ptr == gc_studio_tex_borrowed );
 }
 
 static void Mod_GCReleaseStudioTexBuf( void *ptr )
@@ -1029,6 +1032,7 @@ static void Mod_GCReleaseStudioTexBuf( void *ptr )
 	if( Mod_GCIsStudioTexScratch( ptr ))
 	{
 		gc_studio_tex_scratch_busy = false;
+		gc_studio_tex_borrowed = NULL;
 		return;
 	}
 	Mem_Free( ptr );
@@ -1036,8 +1040,10 @@ static void Mod_GCReleaseStudioTexBuf( void *ptr )
 
 static void *Mod_GCLoadFileToStudioTexScratch( const char *path, fs_offset_t *size_out )
 {
+	extern void *R_GCHotBorrow( unsigned bytes );
 	file_t *f;
 	fs_offset_t sz;
+	byte *dst = gc_studio_tex_scratch;
 
 	if( !path || !path[0] || gc_studio_tex_scratch_busy )
 		return NULL;
@@ -1045,12 +1051,14 @@ static void *Mod_GCLoadFileToStudioTexScratch( const char *path, fs_offset_t *si
 	if( !f )
 		return NULL;
 	sz = FS_FileLength( f );
-	if( sz < (fs_offset_t)sizeof( studiohdr_t ) || sz > (fs_offset_t)GC_STUDIO_TEX_SCRATCH_BYTES )
+	if( sz > (fs_offset_t)GC_STUDIO_TEX_SCRATCH_BYTES )
+		dst = gc_studio_tex_borrowed = R_GCHotBorrow( (unsigned)sz );
+	if( sz < (fs_offset_t)sizeof( studiohdr_t ) || !dst )
 	{
 		FS_Close( f );
 		return NULL;
 	}
-	if( FS_Read( f, gc_studio_tex_scratch, (size_t)sz ) != sz )
+	if( FS_Read( f, dst, (size_t)sz ) != sz )
 	{
 		FS_Close( f );
 		return NULL;
@@ -1061,7 +1069,7 @@ static void *Mod_GCLoadFileToStudioTexScratch( const char *path, fs_offset_t *si
 		*size_out = sz;
 	Con_Reportf( "Xash3D GameCube: G381 studio T.mdl scratch '%s' (%s)\n",
 		path, Q_memprint( (size_t)sz ));
-	return gc_studio_tex_scratch;
+	return dst;
 }
 
 static void *Mod_GCLoadStudioTexFile( const char *modname, fs_offset_t *size_out )
@@ -1074,12 +1082,12 @@ static void *Mod_GCLoadStudioTexFile( const char *modname, fs_offset_t *size_out
 
 	COM_FileBase( modname, bare, sizeof( bare ));
 	/* Prefer bootstrap companion (full skins) before disc models/ — tip heap
-	 * often cannot malloc 127 KiB, so try BSS scratch immediately after. */
+	 * often cannot malloc 127 KiB, so the BSS scratch comes first. */
 	Q_snprintf( mirror, sizeof( mirror ), "gc_studio/%st.mdl", bare );
-	buf = FS_LoadFile( mirror, size_out, false );
+	buf = Mod_GCLoadFileToStudioTexScratch( mirror, size_out );
 	if( buf )
 		return buf;
-	buf = Mod_GCLoadFileToStudioTexScratch( mirror, size_out );
+	buf = FS_LoadFile( mirror, size_out, false );
 	if( buf )
 		return buf;
 
