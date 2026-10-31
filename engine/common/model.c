@@ -1644,6 +1644,7 @@ void Mod_GCReleaseStudioArena( void )
 		if( mod->needload != NL_UNREFERENCED && mod->type == mod_studio
 			&& mod->cache.data && Mod_GCIsStudioBssCache( mod->cache.data ))
 		{
+			mod->submodels = NULL;	/* its sequence group table is in the arena */
 			Mod_FreeModel( mod );
 			freed++;
 		}
@@ -1654,6 +1655,12 @@ void Mod_GCReleaseStudioArena( void )
 	gc_deferred_studio_attempts = 0;
 	gc_studio_bss_owners = 0;
 	gc_studio_bss_bump = 0;
+	/* The animation slots are in the arena too: a slot kept across this reset
+	 * wrote the next animation file over the new map's skins. Two are placed
+	 * first, so a full arena still has animations; the others come on demand. */
+	memset( gc_seqgroup_slot, 0, sizeof( gc_seqgroup_slot ));
+	gc_seqgroup_slot[0].buf = Mod_GCStudioBssAlloc( GC_SEQGROUP_SLOT_SIZE );
+	gc_seqgroup_slot[1].buf = Mod_GCStudioBssAlloc( GC_SEQGROUP_SLOT_SIZE );
 	Con_Reportf( "Xash3D GameCube: studio arena released models=%d bytes=%u\n", freed, (uint)before );
 }
 
