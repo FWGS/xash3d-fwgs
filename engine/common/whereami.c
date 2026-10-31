@@ -594,8 +594,8 @@ int WAI_PREFIX(getModulePath)(char* out, int capacity, int* dirname_length)
   return length;
 }
 
-#elif defined(__DragonFly__) || defined(__FreeBSD__) || \
-      defined(__FreeBSD_kernel__) || defined(__NetBSD__) || defined(__OpenBSD__)
+#elif ( defined(__DragonFly__) || defined(__FreeBSD__) || \
+      defined(__FreeBSD_kernel__) || defined(__NetBSD__) || defined(__OpenBSD__) ) && !defined(__ORBIS__)
 
 #include <limits.h>
 #include <stdlib.h>
@@ -839,7 +839,7 @@ int WAI_PREFIX(getModulePath)(char* out, int capacity, int* dirname_length)
   return -1;
 }
 
-#elif defined(__SWITCH__) || defined(__vita__) || defined(__EMSCRIPTEN__)
+#elif defined(__SWITCH__) || defined(__vita__) || defined(__EMSCRIPTEN__) || defined(__ORBIS__)
 
 /* Not possible on this platform */
 

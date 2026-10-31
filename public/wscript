@@ -117,8 +117,7 @@ def configure(conf):
 			exports_list.append(define)
 			return {'fragment': frag, 'msg': 'Checking for ' + msg, 'define_name': define, 'mandatory': False, 'use': 'M werror export', 'compiler': 'c'}
 
-		conf.multicheck(
-			check_libc_extension(TGMATH_H_TEST, 'tgmath.h', 'HAVE_TGMATH_H'),
+		checks = [
 			check_libc_extension(STRNCASECMP_TEST, 'strncasecmp', 'HAVE_STRNCASECMP'),
 			check_libc_extension(STRCASECMP_TEST, 'strcasecmp', 'HAVE_STRCASECMP'),
 			check_libc_extension(STRCASESTR_TEST, 'strcasestr', 'HAVE_STRCASESTR'),
@@ -126,7 +125,13 @@ def configure(conf):
 			check_libc_extension(STRLCPY_TEST, 'strlcpy', 'HAVE_STRLCPY'),
 			check_libc_extension(STRLCAT_TEST, 'strlcat', 'HAVE_STRLCAT'),
 			check_libc_extension(STRNLEN_TEST, 'strnlen', 'HAVE_STRNLEN'),
-		)
+		]
+
+		# musl's tgmath.h from OpenOrbis toolchain makes clang pick complex functions
+		if conf.env.DEST_OS != 'ps4':
+			checks.insert(0, check_libc_extension(TGMATH_H_TEST, 'tgmath.h', 'HAVE_TGMATH_H'))
+
+		conf.multicheck(*checks)
 
 		for export in exports_list:
 			if conf.env[export]:

@@ -124,6 +124,8 @@ SUBDIRS = [
 	Subproject('3rdparty/bzip2',        lambda x: x.env.CLIENT and not x.env.HAVE_SYSTEM_BZ2),
 	Subproject('3rdparty/mpg123',       lambda x: x.env.CLIENT and not x.env.HAVE_SYSTEM_MPG123),
 	Subproject('3rdparty/mbedtls'),
+	Subproject('3rdparty/opengnm',      lambda x: x.env.CLIENT and x.env.DEST_OS == 'ps4'),
+	Subproject('3rdparty/ps4compat',    lambda x: x.env.DEST_OS == 'ps4'),
 	Subproject('3rdparty/opus',         lambda x: x.env.CLIENT and not x.env.HAVE_SYSTEM_OPUS),
 	Subproject('3rdparty/libogg',       lambda x: x.env.CLIENT and not x.env.HAVE_SYSTEM_OGG),
 	Subproject('3rdparty/vorbis',       lambda x: x.env.CLIENT and (not x.env.HAVE_SYSTEM_VORBIS or not x.env.HAVE_SYSTEM_VORBISFILE)),
@@ -149,6 +151,11 @@ SUBDIRS = [
 
 	# enabled on PSVita only
 	Subproject('ref/gl/vgl_shim',   lambda x: x.env.DEST_OS == 'psvita'),
+
+	# enabled on PS4 only
+	Subproject('3rdparty/glslang',      lambda x: x.env.CLIENT and x.env.GL and x.env.DEST_OS == 'ps4'),
+	Subproject('3rdparty/opengnm-psbc', lambda x: x.env.CLIENT and x.env.GL and x.env.DEST_OS == 'ps4'),
+	Subproject('ref/gl/gnm_shim',            lambda x: x.env.CLIENT and x.env.GL and x.env.DEST_OS == 'ps4'),
 ]
 
 REFDLLS = [
@@ -162,7 +169,7 @@ REFDLLS = [
 ]
 
 def options(opt):
-	opt.load('reconfigure compiler_optimizations xshlib xcompile compiler_cxx compiler_c sdl2 clang_compilation_database strip_on_install waf_unit_test msvs subproject ninja')
+	opt.load('reconfigure compiler_optimizations xshlib xcompile compiler_cxx compiler_c sdl2 clang_compilation_database strip_on_install waf_unit_test msvs subproject ninja host_tool_compiler')
 
 	grp = opt.add_option_group('Common options')
 
@@ -323,6 +330,9 @@ def configure(conf):
 	if conf.options.PSVITA:
 		conf.load('psvita')
 
+	if conf.options.PS4:
+		conf.load('ps4')
+
 	# HACKHACK: override msvc DEST_CPU value by something that we understand
 	if conf.env.DEST_CPU == 'amd64':
 		conf.env.DEST_CPU = 'x86_64'
@@ -360,6 +370,15 @@ def configure(conf):
 		enforce_pic = False
 	elif conf.env.MSVC_WINE:
 		conf.options.BUILD_BUNDLED_DEPS = True
+	elif conf.env.DEST_OS == 'ps4':
+		# no OpenGL driver: ref_gl draws through our OpenGL layer over GNM (ref/gl/gnm_shim)
+		conf.options.GL               = True
+		conf.options.GLES3COMPAT      = False
+		conf.options.SOFT             = False
+		conf.options.USE_STBTT        = True  # mainui: no freetype2 package for PS4
+		conf.options.BUILD_BUNDLED_DEPS = True # the toolchain has no packages, host ones must not leak in
+		# opengnm calls them, both the engine and ref_gl link it
+		conf.env.LIB_PS4GNM_SYS = ['SceGnmDriver', 'SceVideoOut']
 	elif conf.env.SAILFISH:
 		conf.options.NANOGL           = True
 		conf.options.GLWES            = False # deprecated
@@ -422,6 +441,12 @@ def configure(conf):
 		conf.env.SAILFISH_PACKAGE = 'harbour-xash3d-fwgs'
 		# Harbour validator only recognizes DT_RPATH
 		linkflags.append('-Wl,--disable-new-dtags')
+
+	if conf.env.DEST_OS == 'ps4':
+		# fix broken struct sockaddr_storage in OpenOrbis headers
+		fix = conf.path.find_node('3rdparty/ps4compat/ps4_sockaddr.h').abspath()
+		cflags += ['-include', fix]
+		cxxflags += ['-include', fix]
 
 	conf.check_cc(cflags=cflags, linkflags=linkflags, msg='Checking for required C flags')
 	conf.check_cxx(cxxflags=cxxflags, linkflags=linkflags, msg='Checking for required C++ flags')
@@ -521,7 +546,7 @@ def configure(conf):
 	if not conf.options.DEDICATED:
 		conf.env.SERVER = conf.options.ENABLE_DEDICATED
 		conf.env.CLIENT = True
-		conf.env.LAUNCHER = conf.env.DEST_OS not in ['android', 'nswitch', 'psvita', 'dos', 'emscripten'] and not conf.env.IOS and not conf.env.MAGX and not conf.env.STATIC_LINKING
+		conf.env.LAUNCHER = conf.env.DEST_OS not in ['android', 'nswitch', 'psvita', 'ps4', 'dos', 'emscripten'] and not conf.env.IOS and not conf.env.MAGX and not conf.env.STATIC_LINKING
 	else:
 		conf.env.SERVER = True
 		conf.env.CLIENT = False
@@ -531,7 +556,7 @@ def configure(conf):
 
 	conf.define_cond('SUPPORT_HL25_EXTENDED_STRUCTS', conf.options.SUPPORT_HL25_EXTENDED_STRUCTS)
 
-	if conf.options.ENABLE_RPATH and conf.env.DEST_OS not in ['nswitch', 'psvita']:
+	if conf.options.ENABLE_RPATH and conf.env.DEST_OS not in ['nswitch', 'psvita', 'ps4']:
 		if conf.env.DEST_OS == 'openbsd':
 			# OpenBSD requires -z origin to enable $ORIGIN expansion in RPATH
 			conf.env.RPATH_ST = '-Wl,-z,origin,-rpath,%s'

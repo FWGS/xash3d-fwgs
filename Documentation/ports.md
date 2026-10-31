@@ -32,6 +32,7 @@ Table is sorted by status and platform.
 | Solaris         | Orphaned                   | N/A                      | Works but not throughly tested
 | WebAssembly System Interface | Orphaned      | N/A                      | Undone, WASI is missing a lot of APIs we want to use
 | Dreamcast       | In progress                | @maximqaxd               | [GitHub Repository](https://github.com/maximqaxd/xash3d-fwgs_dc/)
+| PS4             | In progress                | @sergiopoverony          | Jailbroken consoles only, see [ps4.md](ps4.md)
 | PSP             | In progress                | @Crow_bar, @Velaron      | [GitHub Repository](https://github.com/Crow-bar/xash3d-fwgs)
 | Wii             | In progress                | Collaborative effort     | [GitHub Repository](https://github.com/saucesaft/xash3d-wii)
 | Emscripten      | Old Engine                 | N/A                      | 

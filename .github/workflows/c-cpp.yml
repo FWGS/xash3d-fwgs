@@ -52,6 +52,9 @@ jobs:
           - os: ubuntu-latest
             targetos: psvita
             targetarch: armv7hf
+          - os: ubuntu-latest
+            targetos: ps4
+            targetarch: amd64
           - os: ubuntu-latest # Platform SDK tooling is i486
             targetos: sailfish
             targetarch: aarch64

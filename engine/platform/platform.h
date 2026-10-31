@@ -67,7 +67,7 @@ void IOS_GetWindowInsets( void *window, float insets[4] );
 #endif
 
 // walks the direct dependency list of a game library image loaded from disk
-#if XASH_LIB == LIB_STATIC || XASH_ANDROID || XASH_IOS || XASH_PSVITA || XASH_NSWITCH
+#if XASH_LIB == LIB_STATIC || XASH_ANDROID || XASH_IOS || XASH_PSVITA || XASH_NSWITCH || XASH_PS4
 static inline qboolean Platform_CheckLibraryDirectDependency( const byte *data, size_t size, const char *depname )
 {
 	return false;
@@ -165,6 +165,23 @@ int PSVita_GetArgv( int in_argc, char **in_argv, char ***out_argv );
 void PSVita_InputUpdate( void );
 #endif
 
+#if XASH_PS4
+void PS4_Init( void );
+void PS4_Shutdown( void );
+qboolean PS4_GetBasePath( char *buf, const size_t buflen );
+int PS4_GetArgv( int in_argc, char **in_argv, char ***out_argv );
+int PS4_RunOnBigStack( int ( *func )( void *arg ), void *arg );
+void PS4_Log( const char *fmt, ... ) FORMAT_CHECK( 1 );
+void PS4_KbmInit( void );
+void PS4_KbmUpdate( void );
+void PS4_KbmShutdown( void );
+qboolean PS4_KeyboardActive( void );
+void PS4_InitKeyboard( void );
+qboolean PS4_PackageLibraryExists( const char *name );
+void PS4_FramePresented( void );
+void PS4_AllowHideSplash( void );
+#endif
+
 #if XASH_DOS
 void DOS_Init( void );
 void DOS_Shutdown( void );
@@ -199,6 +216,8 @@ static inline void Platform_Init( qboolean con_showalways )
 	NSwitch_Init( );
 #elif XASH_PSVITA
 	PSVita_Init( );
+#elif XASH_PS4
+	PS4_Init( );
 #elif XASH_DOS
 	DOS_Init( );
 #elif XASH_WIN32
@@ -222,6 +241,8 @@ static inline void Platform_Shutdown( void )
 	NSwitch_Shutdown( );
 #elif XASH_PSVITA
 	PSVita_Shutdown( );
+#elif XASH_PS4
+	PS4_Shutdown( );
 #elif XASH_DOS
 	DOS_Shutdown( );
 #elif XASH_WIN32
@@ -298,6 +319,11 @@ static inline qboolean Platform_LibraryExists( const char *name, qboolean gamedi
 	if( !COM_StringEmptyOrNULL( getenv( "XASH3D_GAMELIBDIR" )))
 		return true;
 #endif
+#if XASH_PS4
+	// game libraries can be shipped in the package, see lib_ps4.c
+	if( PS4_PackageLibraryExists( name ))
+		return true;
+#endif
 	// FIXME: use FS_FindLibrary
 	return g_fsapi.FileExists( name, gamedironly );
 }
@@ -310,7 +336,7 @@ static inline qboolean Platform_LibraryExists( const char *name, qboolean gamedi
 
 ==============================================================================
 */
-#if XASH_SDL >= 2
+#if XASH_SDL >= 2 || XASH_PS4
 void Platform_Vibrate( float life, char flags ); // left for compatibility
 void Platform_Vibrate2( float time, int low_freq, int high_freq, uint flags );
 #else
@@ -336,20 +362,45 @@ int Platform_GetClipboardText( char *buffer, size_t size );
 void Platform_SetClipboardText( const char *buffer );
 #else
 static inline void Platform_PreCreateMove( void ) { }
-static inline void GAME_EXPORT Platform_SetMousePos( int x, int y ) { }
-static inline void Platform_SetMouseGrab( qboolean enable ) { }
-static inline void Platform_SetCursorType( VGUI_DefaultCursor type ) { }
 static inline int Platform_GetClipboardText( char *buffer, size_t size ) { return 0; }
 static inline void Platform_SetClipboardText( const char *buffer ) { }
+#if XASH_PS4 // platform/ps4/kbm_ps4.c
+void Platform_SetCursorType( VGUI_DefaultCursor type );
+void GAME_EXPORT Platform_GetMousePos( int *x, int *y );
+void GAME_EXPORT Platform_SetMousePos( int x, int y );
+qboolean Platform_GetMouseGrab( void );
+void Platform_SetMouseGrab( qboolean enable );
+#else
+static inline void Platform_SetCursorType( VGUI_DefaultCursor type ) { }
+static inline void GAME_EXPORT Platform_SetMousePos( int x, int y ) { }
+static inline void Platform_SetMouseGrab( qboolean enable ) { }
 static inline qboolean Platform_GetMouseGrab( void ) { return false; }
 static inline void GAME_EXPORT Platform_GetMousePos( int *x, int *y )
 {
 	if( x ) *x = 0;
 	if( y ) *y = 0;
 }
+#endif // XASH_PS4
+#endif // XASH_SDL
+
+// the platform without a cursor of its own draws it after everything else
+#if XASH_PS4
+void Platform_DrawCursor( void );
+#else
+static inline void Platform_DrawCursor( void ) { }
+#endif
+
+// platforms that can't detect a mouse assume it's there
+#if XASH_PS4
+qboolean Platform_MouseConnected( void );
+#else
+static inline qboolean Platform_MouseConnected( void ) { return true; }
 #endif
 
 #if XASH_SDL || XASH_DOS
+void Platform_RunEvents( void );
+void Platform_MouseMove( float *x, float *y );
+#elif XASH_PS4 // the gamepad, keyboard and mouse are polled in Platform_RunEvents
 void Platform_RunEvents( void );
 void Platform_MouseMove( float *x, float *y );
 #else
@@ -363,7 +414,7 @@ static inline void Platform_MouseMove( float *x, float *y )
 
 // rect is the area where the text is edited, in render coordinates, so the platform
 // might keep it visible when it shows the on-screen keyboard over the game
-#if XASH_SDL >= 2 || XASH_PSVITA || XASH_DOS || XASH_USE_EVDEV
+#if XASH_SDL >= 2 || XASH_PSVITA || XASH_DOS || XASH_USE_EVDEV || XASH_PS4
 void Platform_EnableTextInput( qboolean enable, int x, int y, int w, int h );
 #else
 static inline void Platform_EnableTextInput( qboolean enable, int x, int y, int w, int h ) { }
@@ -378,7 +429,7 @@ int Platform_TranslateKeyLayout( int keynum );
 static inline int Platform_TranslateKeyLayout( int keynum ) { return keynum; }
 #endif
 
-#if XASH_SDL >= 2
+#if XASH_SDL >= 2 || XASH_PS4
 int Platform_JoyInit( void ); // returns number of connected gamepads, negative if error
 void Platform_JoyShutdown( void );
 void Platform_CalibrateGamepadGyro( void );

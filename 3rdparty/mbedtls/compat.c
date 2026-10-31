@@ -22,6 +22,9 @@ Source: https://github.com/vitasdk/vita-headers/blob/master/include/psp2/kernel/
 
 NSwitch: randomGet from libnx.
 Source: https://github.com/switchbrew/libnx/blob/master/nx/include/switch/kernel/random.h
+
+PS4: kern.arandom of FreeBSD 9 based kernel, returns up to 256 bytes at once.
+Source: https://man.freebsd.org/cgi/man.cgi?query=random&sektion=4&manpath=FreeBSD+9.0-RELEASE
 */
 
 #include "mbedtls/platform.h"
@@ -97,6 +100,39 @@ int mbedtls_platform_get_entropy( psa_driver_get_entropy_flags_t flags, size_t *
 		return PSA_ERROR_NOT_SUPPORTED;
 
 	randomGet( output, output_size );
+	*estimate_bits = 8 * output_size;
+	return 0;
+}
+#elif defined( __ORBIS__ )
+#include <stddef.h>
+
+/* OpenOrbis headers have no sys/sysctl.h */
+#define XASH_CTL_KERN 1
+#define XASH_KERN_ARND 37
+
+extern int sysctl( const int *name, unsigned int namelen, void *oldp, size_t *oldlenp, const void *newp, size_t newlen );
+
+int mbedtls_platform_get_entropy( psa_driver_get_entropy_flags_t flags, size_t *estimate_bits, unsigned char *output, size_t output_size )
+{
+	const int mib[2] = { XASH_CTL_KERN, XASH_KERN_ARND };
+
+	if( flags != 0 )
+		return PSA_ERROR_NOT_SUPPORTED;
+
+	size_t total = 0;
+	while( total < output_size )
+	{
+		size_t chunk = output_size - total;
+
+		if( chunk > 256 )
+			chunk = 256;
+
+		if( sysctl( mib, 2, output + total, &chunk, NULL, 0 ) != 0 || chunk == 0 )
+			return PSA_ERROR_INSUFFICIENT_ENTROPY;
+
+		total += chunk;
+	}
+
 	*estimate_bits = 8 * output_size;
 	return 0;
 }

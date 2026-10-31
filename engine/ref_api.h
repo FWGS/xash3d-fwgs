@@ -150,6 +150,7 @@ typedef enum ref_window_type_e
 	REF_WINDOW_TYPE_MACOS, // NSWindow*
 	REF_WINDOW_TYPE_SDL2, // SDL2 SDL_Window*
 	REF_WINDOW_TYPE_SDL3, // SDL3 SDL_Window*
+	REF_WINDOW_TYPE_GNM, // PS4 gnm_dev_api_t*
 } ref_window_type_t;
 
 typedef struct
