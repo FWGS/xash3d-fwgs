@@ -299,6 +299,23 @@ const char *Key_GetBinding( int keynum )
 
 /*
 ===================
+Key_GetDefaultBinding
+
+===================
+*/
+const char *Key_GetDefaultBinding( int keynum )
+{
+	for( int i = 0; i < ARRAYSIZE( keynames ); i++ )
+	{
+		if( keynames[i].keynum == keynum )
+			return keynames[i].binding;
+	}
+
+	return "";
+}
+
+/*
+===================
 Key_GetKey
 ===================
 */

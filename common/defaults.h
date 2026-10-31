@@ -60,7 +60,9 @@ SETUP BACKENDS DEFINITIONS
 // select messagebox implementation
 //
 #ifndef XASH_MESSAGEBOX
-	#if XASH_SDL >= 2 && !XASH_NSWITCH // SDL2 messageboxes are not available on NSW
+	#if XASH_SAILFISH && !XASH_DEDICATED // SDL2 needs zenity or kdialog there
+		#define XASH_MESSAGEBOX MSGBOX_SAILFISH
+	#elif XASH_SDL >= 2 && !XASH_NSWITCH // SDL2 messageboxes are not available on NSW
 		#define XASH_MESSAGEBOX MSGBOX_SDL
 	#elif XASH_WIN32
 		#define XASH_MESSAGEBOX MSGBOX_WIN32
@@ -159,6 +161,10 @@ Default build-depended cvar and constant values
 	#define DEFAULT_ALLOWCONSOLE 1
 #elif XASH_ANDROID
 	#define DEFAULT_TOUCH_ENABLE "1"
+#elif XASH_SAILFISH
+	#define DEFAULT_TOUCH_ENABLE "1"
+	#define DEFAULT_M_IGNORE     "1"
+	#define DEFAULT_VID_ROTATE   "1" // picks the landscape orientation the compositor rotates our window to
 #elif XASH_MOBILE_PLATFORM
 	#define DEFAULT_TOUCH_ENABLE "1"
 	#define DEFAULT_M_IGNORE     "1"
@@ -172,6 +178,10 @@ Default build-depended cvar and constant values
 #ifndef DEFAULT_M_IGNORE
 	#define DEFAULT_M_IGNORE "0"
 #endif // DEFAULT_M_IGNORE
+
+#ifndef DEFAULT_VID_ROTATE
+	#define DEFAULT_VID_ROTATE "0"
+#endif // DEFAULT_VID_ROTATE
 
 #ifndef DEFAULT_JOY_DEADZONE
 	#define DEFAULT_JOY_DEADZONE "4096"

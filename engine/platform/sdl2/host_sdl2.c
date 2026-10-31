@@ -239,6 +239,10 @@ static void SDLash_InputEvent( SDL_TextInputEvent input )
 
 static void SDLash_ActiveEvent( int gain )
 {
+#if XASH_SAILFISH
+	Sailfish_SetActive( gain );
+#endif
+
 	if( gain )
 	{
 		host.status = HOST_FRAME;
@@ -348,6 +352,10 @@ static void SDLash_EventHandler( SDL_Event *event )
 			dy /= (float)refState.height;
 		}
 
+#if XASH_SAILFISH
+		Sailfish_MapTouch( event->tfinger.touchId, &x, &y, &dx, &dy );
+#endif
+
 		IN_TouchEvent( type, event->tfinger.fingerId, x, y, dx, dy );
 		break;
 	}
@@ -435,6 +443,10 @@ void Platform_RunEvents( void )
 
 #if XASH_PSVITA
 	PSVita_InputUpdate();
+#endif
+
+#if XASH_SAILFISH
+	Sailfish_RunEvents();
 #endif
 }
 

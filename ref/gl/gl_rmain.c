@@ -554,9 +554,13 @@ void R_SetupGL( qboolean set_gl_state )
 		int y = scene_height - RI.rvp.viewport[1] * scene_height / gpGlobals->height;
 		int y2 = scene_height - (( RI.rvp.viewport[1] + RI.rvp.viewport[3] ) * scene_height + gpGlobals->height - 1 ) / gpGlobals->height;
 
+		// the screen target is moved into place when it's presented
+		int ox = GL_RenderTargetsActive() ? 0 : tr.offset_x;
+		int oy = GL_RenderTargetsActive() ? 0 : tr.offset_y;
+
 		if( tr.rotation & 1 )
-			pglViewport( y2, x, y - y2, x2 - x );
-		else pglViewport( x, y2, x2 - x, y - y2 );
+			pglViewport( ox + y2, oy + x, y - y2, x2 - x );
+		else pglViewport( ox + x, oy + y2, x2 - x, y - y2 );
 	}
 	else
 	{

@@ -265,6 +265,7 @@ typedef struct
 	uint max_entities;
 
 	ref_screen_rotation_t rotation;
+	int offset_x, offset_y; // picture position in the window, see R_SetDisplayTransform
 
 	gl_rendertargets_t targets;
 } gl_globals_t;

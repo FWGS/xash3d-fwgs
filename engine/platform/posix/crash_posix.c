@@ -18,17 +18,21 @@ GNU General Public License for more details.
 #if XASH_FREEBSD || XASH_NETBSD || XASH_OPENBSD || XASH_ANDROID || XASH_LINUX || XASH_APPLE
 #include <signal.h>
 #include <sys/mman.h>
-#if XASH_ANDROID
+#if XASH_ANDROID || XASH_SAILFISH
+// launcher picks up crash reports from XASH3D_CRASH_DIR on next start
+#define HAVE_CRASH_DIR 1
 #include <sys/stat.h>
 #include <fcntl.h>
 #include <unistd.h>
+#endif
+#if XASH_ANDROID
 #include <android/log.h>
 #endif
 #include "library.h"
 #include "input.h"
 #include "crash.h"
 
-#if XASH_ANDROID
+#if HAVE_CRASH_DIR
 static char crashlog_path[MAX_OSPATH];
 static char enginelog_path[MAX_OSPATH];
 #endif
@@ -69,8 +73,8 @@ static void Sys_Crash( int signal, siginfo_t *si, void *context )
 	}
 #endif // HAVE_LIBBACKTRACE
 
-#if XASH_ANDROID
-	// also write to a dedicated crash report file the Java side picks up on next launch
+#if HAVE_CRASH_DIR
+	// also write to a dedicated crash report file the launcher picks up on next start
 	if( crashlog_path[0] )
 	{
 		int crashfd = open( crashlog_path, O_WRONLY|O_CREAT|O_TRUNC, 0644 );
@@ -100,7 +104,9 @@ static void Sys_Crash( int signal, siginfo_t *si, void *context )
 			close( outfd );
 		}
 	}
+#endif // HAVE_CRASH_DIR
 
+#if XASH_ANDROID
 	// JNI/SDL calls aren't safe from a signal handler on Android
 	_exit( 128 + signal );
 #else
@@ -109,8 +115,10 @@ static void Sys_Crash( int signal, siginfo_t *si, void *context )
 #endif
 	host.status = HOST_CRASHED;
 
+#if !XASH_SAILFISH // on Sailfish the launcher shows the crash report on next start instead, it can't be started from here
 	// put MessageBox as Sys_Error
 	Platform_MessageBox( "Xash Error", crash_message, false );
+#endif
 
 	// log saved, now we can try to save configs and close log correctly, it may crash
 	if( host.type == HOST_NORMAL )
@@ -133,7 +141,7 @@ void Sys_SetupCrashHandler( const char *argv0 )
 		.sa_flags = SA_SIGINFO | SA_ONSTACK,
 	};
 
-#if XASH_ANDROID
+#if HAVE_CRASH_DIR
 	const char *crashdir = getenv( "XASH3D_CRASH_DIR" );
 
 	if( !COM_StringEmptyOrNULL( crashdir ))
@@ -141,7 +149,9 @@ void Sys_SetupCrashHandler( const char *argv0 )
 		Q_snprintf( crashlog_path, sizeof( crashlog_path ), "%s/crash.log", crashdir );
 		Q_snprintf( enginelog_path, sizeof( enginelog_path ), "%s/engine.log", crashdir );
 	}
+#endif // HAVE_CRASH_DIR
 
+#if XASH_ANDROID
 	// unblock the engine/SDL_main thread just in case
 	sigset_t set;
 	sigemptyset( &set );

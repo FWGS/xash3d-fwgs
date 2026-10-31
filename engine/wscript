@@ -134,6 +134,11 @@ def configure(conf):
 		else:
 			find_sdl(conf)
 
+		if conf.env.SAILFISH:
+			conf.check_cfg(package='gio-2.0', uselib_store='GIO', args='--cflags --libs')
+			conf.check_cfg(package='audioresource', uselib_store='AUDIORESOURCE', args='--cflags --libs')
+			conf.check_cfg(package='wayland-client', uselib_store='WAYLAND_CLIENT', args='--cflags --libs')
+
 
 	if conf.options.STATIC:
 		conf.env.STATIC = True
@@ -294,6 +299,10 @@ def build(bld):
 		if not bld.env.DEDICATED:
 			source += bld.path.ant_glob('client/**/*.c')
 			libs += ['bzip2', 'mpg123', 'MultiEmulator', 'opus', 'opusfile', 'vorbis', 'vorbisfile']
+
+			if bld.env.SAILFISH:
+				source += bld.path.ant_glob('platform/sailfish/*.c')
+				libs += ['GIO', 'AUDIORESOURCE', 'WAYLAND_CLIENT']
 
 		# Android port is linked differently
 		if bld.env.DEST_OS == 'android':

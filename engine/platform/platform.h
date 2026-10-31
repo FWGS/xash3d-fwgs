@@ -81,6 +81,10 @@ double Posix_GetCPUTime( void );
 void Posix_Daemonize( void );
 void Posix_SetupSigtermHandling( void );
 char *Posix_Input( void );
+void Posix_InitConsole( void );
+void Posix_ShutdownConsole( void );
+void Posix_ConsolePrintBegin( void );
+void Posix_ConsolePrintEnd( const char *msg );
 // returns the number of stable network device MAC addresses, each packed into low 48 bits
 int Posix_GetNetDeviceAddresses( uint64_t *addresses, int max );
 #endif
@@ -103,8 +107,23 @@ void Android_SaveID( const char *id );
 void Android_Init( void );
 void *Android_GetNativeObject( const char *name );
 void Android_GetWindowInsets( float insets[4] );
-int Android_GetKeyboardHeight( void );
 void Android_Shutdown( void );
+#endif
+
+#if XASH_SAILFISH && !XASH_DEDICATED
+void Sailfish_Init( void );
+void Sailfish_Shutdown( void );
+void Sailfish_SetActive( qboolean active );
+void Sailfish_RunEvents( void );
+void Sailfish_EnableTextInput( qboolean enable, int x, int y, int w, int h );
+void Sailfish_SuspendTextInput( qboolean suspend );
+void Sailfish_ShutdownTextInput( void );
+void Sailfish_SetOrientation( int rotate );
+int Sailfish_OrientationAngle( void );
+void Sailfish_KeepWindowSize( int *width, int *height, int *render_w, int *render_h );
+void Sailfish_GetDisplayOffset( int *x, int *y );
+void Sailfish_SetTextInputArea( int y, int h );
+void Sailfish_MapTouch( int64_t device, float *x, float *y, float *dx, float *dy );
 #endif
 
 #if XASH_WIN32
@@ -186,6 +205,11 @@ static inline void Platform_Init( qboolean con_showalways )
 	SDLash_Init( );
 #endif
 
+#if XASH_POSIX && !XASH_MOBILE_PLATFORM && !XASH_LOW_MEMORY
+	// after SDL, so it can install its Ctrl-C handler first
+	Posix_InitConsole( );
+#endif
+
 #if XASH_ANDROID
 	Android_Init( );
 #elif XASH_NSWITCH
@@ -201,10 +225,18 @@ static inline void Platform_Init( qboolean con_showalways )
 #elif XASH_LINUX
 	Linux_Init( );
 #endif
+
+#if XASH_SAILFISH && !XASH_DEDICATED
+	Sailfish_Init( );
+#endif
 }
 
 static inline void Platform_Shutdown( void )
 {
+#if XASH_SAILFISH && !XASH_DEDICATED
+	Sailfish_Shutdown( );
+#endif
+
 #if XASH_NSWITCH
 	NSwitch_Shutdown( );
 #elif XASH_PSVITA
@@ -217,6 +249,10 @@ static inline void Platform_Shutdown( void )
 	Win32_Shutdown( );
 #elif XASH_LINUX
 	Linux_Shutdown( );
+#endif
+
+#if XASH_POSIX && !XASH_MOBILE_PLATFORM && !XASH_LOW_MEMORY
+	Posix_ShutdownConsole( );
 #endif
 
 #if XASH_SDL
@@ -420,6 +456,21 @@ static inline char *Platform_Input( void )
 	return Posix_Input();
 #else
 	return NULL;
+#endif
+}
+
+// hide and redraw the terminal input line around stdout prints
+static inline void Platform_ConsolePrintBegin( void )
+{
+#if XASH_POSIX && !XASH_MOBILE_PLATFORM && !XASH_LOW_MEMORY
+	Posix_ConsolePrintBegin();
+#endif
+}
+
+static inline void Platform_ConsolePrintEnd( const char *msg )
+{
+#if XASH_POSIX && !XASH_MOBILE_PLATFORM && !XASH_LOW_MEMORY
+	Posix_ConsolePrintEnd( msg );
 #endif
 }
 
