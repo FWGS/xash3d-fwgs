@@ -9,7 +9,7 @@ the stock game code.
 
 Reference recording (full ride c0a0 → c0a0e, play disc with the real
 controller and the camera turned every 25 s, kept):
-`.ai/playtests/20261030-153838-menu-newgame-ce647e2767.mp4`: 40/40 titles shown, 10/10
+`.ai/playtests/20261030-231241-menu-newgame-23aa2ef44a.mp4`: 40/40 titles shown, 10/10
 announcer lines, 5/5 hops, no allocation failures, ladder 10/10. The ride now goes on
 through the tram door into c1a0: 41 titles, 6 hops, no allocation failures.
 

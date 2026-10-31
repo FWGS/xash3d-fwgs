@@ -72,7 +72,7 @@ until mipmaps land.
 
 Checks on the after run: ladder 10/10, 40/40 titles, 10/10 announcer lines,
 5/5 hops, no allocation failures, audio −18 dB mean, peak 0 dB.
-Recording: `.ai/playtests/20261030-153838-menu-newgame-ce647e2767.mp4`.
+Recording: `.ai/playtests/20261030-231241-menu-newgame-23aa2ef44a.mp4`.
 `gamecube.cfg` line `nonativetex` turns native textures off for comparison.
 
 ### Client entities, forklift, studio (items 3–5)
@@ -82,7 +82,7 @@ Recording: `.ai/playtests/20261030-153838-menu-newgame-ce647e2767.mp4`.
   (engine and game code, patch 0011); 460 entries in 762 KB, was 256 in 768 KB.
 - Forklift loads on c0a0 instead of the next map (47 KB, studio arena).
 - c0a0 with the forklifts in: mean 27.6 → 19.9 ms (36 → 50 fps), p95 34.4 → 20.6 ms.
-  Recording: `.ai/playtests/20261030-153838-menu-newgame-ce647e2767.mp4`.
+  Recording: `.ai/playtests/20261030-231241-menu-newgame-23aa2ef44a.mp4`.
 
 Run-to-run noise: identical builds move individual maps by up to 20 ms because
 of the intermittent DrawDone wait (item 6), so single-map swings under that
@@ -99,7 +99,7 @@ its first skinned draw: scientist, barney, forklift, loader, gman.
 
 c0a0c/d: 55 → 42 fps with the loader in view (p95 34 ms: the frame just misses
 vsync). Studio stage 3.6 ms; this is the added content, and the next target.
-Recording: `.ai/playtests/20261030-153838-menu-newgame-ce647e2767.mp4`.
+Recording: `.ai/playtests/20261030-231241-menu-newgame-23aa2ef44a.mp4`.
 
 The filtered classes (`cycler`, `env_sprite`, `env_explosion`, `infodecal`,
 `speaker`, weapons, ammo, items) now spawn on the menu route. Admitting every
@@ -116,7 +116,7 @@ frame. No MEM1 cost beyond a small face table. The 3-slot world texture pool,
 idle since native textures, is 1 slot: 64 KB back, which the boot needed (2 KB
 of new static data had tipped HUD init at c0a0 into a silent failure, heap free
 there is about 50 KB). Recording:
-`.ai/playtests/20261030-153838-menu-newgame-ce647e2767.mp4`.
+`.ai/playtests/20261030-231241-menu-newgame-23aa2ef44a.mp4`.
 
 Lightning beams now draw: the renderer's model lookup was bounded by a client
 count this route never fills, so every `env_beam` was dropped
@@ -162,7 +162,7 @@ cut-out alpha, in a fixed 640 KB of MEM1, with no conversion at load. Design:
 docs/GAMECUBE_ARAM_STREAMING_DESIGN.md.
 
 Clean ride: ladder 10/10, 40/40 titles, 10/10 announcer lines, 5/5 hops, 0 failed
-allocations. Recording: `.ai/playtests/20261030-214054-menu-newgame-85d2cafd38.mp4`.
+allocations. Recording: `.ai/playtests/20261030-231241-menu-newgame-23aa2ef44a.mp4`.
 
 | Map | Mean ms | p95 ms | From ARAM | From disc | Texture load |
 |---|---|---|---|---|---|
