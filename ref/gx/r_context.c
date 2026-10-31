@@ -75,6 +75,13 @@ static void Mod_UnloadTextures( model_t *mod )
 	switch( mod->type )
 	{
 	case mod_studio:
+#if XASH_GAMECUBE
+		/* Skins live in the studio arena on this route: an image left behind
+		 * after the arena reset was found by name on the next load and drew
+		 * whatever had replaced its pixels. */
+		if( GC_MenuRunsServer( ))
+			Mod_StudioUnloadTextures( mod->cache.data );
+#endif
 		// Mod_StudioUnloadTextures( mod->cache.data );
 		break;
 	case mod_alias:
