@@ -208,6 +208,15 @@ void GC_PerfUpdate( void )
         window = (int)( sizeof( gc_perf_metrics.fps_window ) /
             sizeof( gc_perf_metrics.fps_window[0] ));
 
+    /* The cvar is changeable while the game is running.  If it shrinks after
+     * the ring has advanced, the old cursor can point beyond the active
+     * window; clamp it before writing so the statistics remain bounded and
+     * deterministic across profile changes. */
+    if( gc_perf_metrics.fps_window_index >= window )
+        gc_perf_metrics.fps_window_index %= window;
+    if( gc_perf_metrics.fps_window_count > window )
+        gc_perf_metrics.fps_window_count = window;
+
     gc_perf_metrics.fps_window[gc_perf_metrics.fps_window_index] = (float)fps;
     gc_perf_metrics.fps_window_index =
         ( gc_perf_metrics.fps_window_index + 1 ) % window;

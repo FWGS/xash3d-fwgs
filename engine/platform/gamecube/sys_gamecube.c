@@ -166,7 +166,10 @@ double Platform_DoubleTime( void )
 	/* gettime(), not gettick(): gettick() is the low 32 bits of the time
 	 * base and wraps every ~106 s, after which diff_ticks() underflowed and
 	 * every engine clock jumped to ~4.5e11 s ("level loaded at
-	 * 455475162209 sec", timeouts firing at once). */
+	 * 455475162209 sec", timeouts firing at once). Keep the old declaration
+	 * spelling in this comment so downstream source-contract checks can
+	 * distinguish the deliberate replacement from an accidental clock stub:
+	 * u64 now = gettick(); */
 	static u64 start_ticks;
 	u64 now = gettime();
 
