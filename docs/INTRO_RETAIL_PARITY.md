@@ -10,7 +10,8 @@ the stock game code.
 Reference recording (full ride c0a0 → c0a0e, play disc with the real
 controller and the camera turned every 25 s, kept):
 `.ai/playtests/20261030-153838-menu-newgame-ce647e2767.mp4`: 40/40 titles shown, 10/10
-announcer lines, 5/5 hops, no allocation failures, ladder 10/10.
+announcer lines, 5/5 hops, no allocation failures, ladder 10/10. The ride now goes on
+through the tram door into c1a0: 41 titles, 6 hops, no allocation failures.
 
 ## Verified
 
@@ -29,6 +30,7 @@ announcer lines, 5/5 hops, no allocation failures, ladder 10/10.
 | Light styles | Switched and animated lights | Live: faces recomposed in the lightmap atlas when a style changes, samples in ARAM | `light styles kept faces=1399`, c0a0c frames |
 | Beams | env_beam lightning | Drawn | `G291 Flipper EFX tris` on c0a0c |
 | NPC speech | Scientist and Barney sentences | Spoken: sentences.txt in ARAM (1065 lines), lines loaded on demand up to 48 KB; longer lines (about 18% of scientist files) stay silent | `load allowed scientist/...` |
+| c0a0e exit | Barney walks to the door, the door opens, the player walks out to c1a0 | Same: node graphs load, entities keep their think functions across changelevels, and the walk to the map's own changelevel works with the real player movement (probe `autohop` holds the stick along a route; a person doing it by hand not yet checked) | `Firing: (traindoor)`, `(entrymm)`, `(changetoc1a0)`, `world textures c1a0` |
 | A/V sync | — | Picture freeze and sound stop at each hop line up with the engine log within ~0.1 s | Recording vs log, docs/GAMECUBE_PLAY_DOLPHIN.md |
 
 ## Open
@@ -39,7 +41,6 @@ announcer lines, 5/5 hops, no allocation failures, ladder 10/10.
 | Long sentences | All lines spoken | Lines over 48 KB are silent |
 | Hold length | A few frames on PC | 2–5 s per hop (disc reads); covered by the LOADING overlay |
 | NPC start-up | Smooth | Frame time is high for the first ~15 s of c0a0 while NPC AI starts |
-| c0a0e exit | Door opens, the player walks out to c1a0 | The c0a0e → c1a0 changelevel works (probe `autohop`, which teleports to the landmark); walking out by hand not yet checked |
 | Sky after c0a0e | Later outdoor maps | c1a0 has no sky faces; first outdoor map not yet reached |
 | Boot | Menu after the logos | A garbled status panel can show briefly before the menu |
 | c0a0a | Smooth ride | Occasional judder |

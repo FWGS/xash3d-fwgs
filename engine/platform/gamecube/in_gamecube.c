@@ -998,7 +998,7 @@ void Platform_RunEvents( void )
 	 * real usercmd and player movement, once the door has opened. */
 	if( !Q_stricmp( sv.name, "c0a0e" ) && sv.time > 28.0 && Sys_CheckParm( "-gcautohop" ))
 	{
-		static const float route[][2] = { { -1125, -640 }, { -1500, -600 }, { -2000, -590 }, { -2520, -590 } };
+		static const float route[][2] = { { -1073, -530 }, { -1073, -735 }, { -1500, -620 }, { -2000, -590 }, { -2520, -590 } };
 		static int leg;
 		const float dx = route[leg][0] - cl.simorg[0], dy = route[leg][1] - cl.simorg[1];
 

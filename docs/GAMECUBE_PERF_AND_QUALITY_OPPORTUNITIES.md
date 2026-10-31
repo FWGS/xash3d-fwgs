@@ -35,7 +35,7 @@ by steps. The world pass and brush entities took 11–18 ms per frame.
 | 5 | Studio meshes as strips, colour cached per normal | c0a0 36 → 50 fps | **Done** |
 | 6 | Studio arena: per-map model sets, no reload leak, full forklift skins, loader, G-Man | Retail cast; stops the arena filling | **Done** |
 | 6b | Intermittent `GX DrawDone` waits of 8–25 ms | Removes run-to-run swings | Open, see below |
-| 7 | Mipmaps, then full-size textures above 128 | Sharper close up, less shimmer | Deferred: mip chains need 33% more than the heap has at c0a0 (50 KB free) |
+| 7 | Mipmaps, then full-size textures above 128 | Sharper close up, less shimmer | **Done**, as CMPR packs in ARAM with a MEM1 hot window: docs/GAMECUBE_ARAM_STREAMING_DESIGN.md |
 | 8 | Lightstyles via partial atlas updates, samples in ARAM (lightmaps were already bilinear) | Retail lighting | **Done** |
 | 9 | Dynamic lights, model lighting from the lightmap | Retail lighting | Planned |
 | 10 | EFB 24-bit colour and depth (was RGB565/Z16). No cost measured; banding and depth precision by design, not measured from the compressed recording | Quality | **Done** |
@@ -154,6 +154,37 @@ limit, which had been silently refusing the tram's sounds, now matches 48 KB.
 
 Both maps hold 17 ms except while the loader is in view: it costs 6.9 ms and
 pushes work just over one vsync, so those stretches run at 33 ms.
+
+### World textures: CMPR, ARAM store, hot window (item 7)
+
+Retail-size textures with mip chains, trilinear filtering, 2× anisotropy and
+cut-out alpha, in a fixed 640 KB of MEM1, with no conversion at load. Design:
+docs/GAMECUBE_ARAM_STREAMING_DESIGN.md.
+
+Clean ride: ladder 10/10, 40/40 titles, 10/10 announcer lines, 5/5 hops, 0 failed
+allocations. Recording: `.ai/playtests/20261030-214054-menu-newgame-85d2cafd38.mp4`.
+
+| Map | Mean ms | p95 ms | From ARAM | From disc | Texture load |
+|---|---|---|---|---|---|
+| c0a0 | 19.0 | 46.6 | 0 | 629 KB | 303 ms |
+| c0a0a | 17.9 | 18.7 | 435 KB | 249 KB | 168 ms |
+| c0a0b | 17.4 | 17.5 | 413 KB | 640 KB | 368 ms |
+| c0a0c | 19.5 | 31.0 | 443 KB | 236 KB | 168 ms |
+| c0a0d | 19.1 | 33.4 | 579 KB | 160 KB | 124 ms |
+| c0a0e | 17.0 | 16.9 | 413 KB | 137 KB | 91 ms |
+
+Before, same maps, mean ms: 19.2, 19.0, 17.5, 20.5, 21.3, 17.1. c0a0 p95 was 19.8
+and is now 46.6 in this ride (38.5 in the one before it): open, not yet explained.
+
+Tried and rejected:
+
+- 1.2 MB static pool: starved boot and hung at c0a0c (9,418 failed allocations).
+- Heap pool as large as the largest block (832 KB): left 32 KB and client init
+  shut the game down.
+- Whole packs in MEM1: a 631 KB pack left c0a0's heap 350 KB worse off than the
+  capped textures, so the hot window took its place.
+
+Dolphin does not model the fill cost of trilinear, anisotropy or the alpha test.
 
 ### Open: GX DrawDone waits
 
