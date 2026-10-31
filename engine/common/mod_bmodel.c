@@ -29,6 +29,8 @@ GNU General Public License for more details.
 #include "gamecube/mem_gamecube.h"
 #include "platform/platform.h"
 #include <ogc/cache.h>
+#include <ogc/gx.h>
+#include <malloc.h>
 
 void GC_CaptureNewGamePVS( void );
 void GC_CaptureNewGamePVSFromModel( model_t *wmodel );
@@ -3614,6 +3616,213 @@ done:
 #endif // !XASH_DEDICATED
 }
 
+#if XASH_GAMECUBE
+/*
+=================
+Mod_GCWorldPackLoad
+
+media/wt_<map>.gct from the disc build: the map's world textures as GX CMPR
+with mip chains, one read into one block. The block replaces the old map's;
+textures not in it (water, sky) load the usual way.
+=================
+*/
+#define GC_WT_MAX_TEXTURES 512
+typedef struct
+{
+	char     name[16];
+	uint16_t width, height;
+	byte     levels, flags;
+	uint16_t pad;
+	uint32_t offset;
+} gc_wt_entry_t;
+
+static struct
+{
+	byte          *block;
+	gc_wt_entry_t *table;
+	byte          *data;
+	uint32_t      count;
+	uint32_t      aram[GC_WT_MAX_TEXTURES];	/* the whole chain */
+	uint32_t      bytes[GC_WT_MAX_TEXTURES];	/* its size if split, else 0 */
+} gc_wt;
+
+/* MEM1 for the map's textures, taken once at the first map. Boot and map
+ * load leave about this much, and more starves client init. It holds the low
+ * mips of everything, the rest of it is the hot window (R_GXPackedTexture). */
+#define GC_WT_POOL_BYTES ( 640 * 1024 )
+#define GC_WT_SPLIT_DIM  64
+static byte *gc_wt_pool;
+
+/*
+ARAM keeps every texture a pack has loaded, by name and content, so a
+changelevel takes the ones the maps share from ARAM by DMA and only reads the
+rest from disc. The store is a ring: new textures overwrite the oldest.
+*/
+#define GC_WT_ARAM_BYTES ( 6 * 1024 * 1024 )
+#define GC_WT_ARAM_ENTRIES 512
+
+typedef struct
+{
+	char     name[16];
+	uint32_t aram, size;
+	uint16_t tag;
+	byte     valid;
+} gc_wt_stored_t;
+
+static gc_wt_stored_t gc_wt_store[GC_WT_ARAM_ENTRIES];
+static uint32_t gc_wt_store_base, gc_wt_store_head, gc_wt_store_next;
+
+static const gc_wt_stored_t *Mod_GCWorldStoreFind( const gc_wt_entry_t *e, uint32_t size )
+{
+	int i;
+
+	for( i = 0; i < GC_WT_ARAM_ENTRIES; i++ )
+	{
+		const gc_wt_stored_t *s = &gc_wt_store[i];
+
+		if( s->valid && s->tag == e->pad && s->size == size && !Q_strncmp( s->name, e->name, sizeof( s->name )))
+			return s;
+	}
+	return NULL;
+}
+
+static const gc_wt_stored_t *Mod_GCWorldStorePut( const gc_wt_entry_t *e, byte *data, uint32_t size )
+{
+	gc_wt_stored_t *s;
+	int i;
+
+	if( size > GC_WT_ARAM_BYTES )
+		return NULL;
+	if( gc_wt_store_head + size > GC_WT_ARAM_BYTES )
+		gc_wt_store_head = 0;
+	for( i = 0; i < GC_WT_ARAM_ENTRIES; i++ )
+	{
+		s = &gc_wt_store[i];
+		if( s->valid && s->aram < gc_wt_store_head + size && s->aram + s->size > gc_wt_store_head )
+			s->valid = false;
+	}
+	s = &gc_wt_store[gc_wt_store_next];
+	gc_wt_store_next = ( gc_wt_store_next + 1 ) % GC_WT_ARAM_ENTRIES;
+	memcpy( s->name, e->name, sizeof( s->name ));
+	s->aram = gc_wt_store_head;
+	s->size = size;
+	s->tag = e->pad;
+	s->valid = true;
+	GC_AramTransfer( gc_wt_store_base + s->aram, data, size, true );
+	gc_wt_store_head += size;
+	return s;
+}
+
+static void Mod_GCWorldPackLoad( const char *modelname )
+{
+	extern void R_GCPackedRelease( void );
+	extern void R_GCHotWindow( void *base, unsigned size );
+	string  path, stem;
+	file_t  *f;
+	fs_offset_t size;
+	uint32_t i, data_bytes, first, low, hits = 0, misses = 0, hit_bytes = 0, miss_bytes = 0;
+	double start;
+
+	if( gc_wt.block )
+	{
+		R_GCPackedRelease( );
+		memset( &gc_wt, 0, sizeof( gc_wt ));
+	}
+	if( !GC_MenuRunsServer() || Sys_CheckParm( "-gcnotexpacks" ))
+		return;
+	COM_FileBase( modelname, stem, sizeof( stem ));
+	Q_strnlwr( stem, stem, sizeof( stem ));
+	Q_snprintf( path, sizeof( path ), "media/wt_%s.gct", stem );
+	f = FS_Open( path, "rb", false );
+	if( !f )
+		return;
+	start = Sys_DoubleTime( );
+	size = FS_FileLength( f );
+	if( !gc_wt_store_base )
+		gc_wt_store_base = GC_AramReserve( GC_WT_ARAM_BYTES );
+	if( !gc_wt_pool )
+		gc_wt_pool = memalign( 32, GC_WT_POOL_BYTES );
+	if( !gc_wt_pool || FS_Read( f, gc_wt_pool, 12 ) != 12 || memcmp( gc_wt_pool, "GCWT", 4 ))
+	{
+		Con_Reportf( S_ERROR "Xash3D GameCube: world texture pack %s refused\n", path );
+		FS_Close( f );
+		return;
+	}
+	memcpy( &gc_wt.count, gc_wt_pool + 4, sizeof( gc_wt.count ));
+	if( gc_wt.count > GC_WT_MAX_TEXTURES )
+		gc_wt.count = GC_WT_MAX_TEXTURES;
+	memcpy( &data_bytes, gc_wt_pool + 8, sizeof( data_bytes ));
+	first = ( 12 + gc_wt.count * sizeof( gc_wt_entry_t ) + 31 ) & ~(uint32_t)31;
+	FS_Read( f, gc_wt_pool + 12, first - 12 );
+	gc_wt.table = (gc_wt_entry_t *)( gc_wt_pool + 12 );
+	gc_wt.data = gc_wt_pool + first;
+	low = 0;
+
+	for( i = 0; i < gc_wt.count; i++ )
+	{
+		gc_wt_entry_t *e = &gc_wt.table[i];
+		const uint32_t end = i + 1 < gc_wt.count ? gc_wt.table[i + 1].offset : data_bytes;
+		const uint32_t bytes = end - e->offset;
+		const qboolean split = e->levels > 1 && ( e->width > GC_WT_SPLIT_DIM || e->height > GC_WT_SPLIT_DIM );
+		const uint32_t skip = split ? e->width * e->height / 2 : 0;
+		const uint32_t room = GC_WT_POOL_BYTES - first - low;
+		const gc_wt_stored_t *s = Mod_GCWorldStoreFind( e, bytes );
+
+		if( s )
+		{
+			hits++;
+			hit_bytes += bytes;
+		}
+		else
+		{
+			/* Through the top of the pool, on its way to ARAM. */
+			byte *through = gc_wt_pool + (( GC_WT_POOL_BYTES - bytes ) & ~(uint32_t)31 );
+
+			if( bytes > room )
+				break;
+			FS_Seek( f, first + e->offset, SEEK_SET );
+			FS_Read( f, through, bytes );
+			s = Mod_GCWorldStorePut( e, through, bytes );
+			misses++;
+			miss_bytes += bytes;
+		}
+		if( !s || bytes - skip > room )
+			break;
+		GC_AramTransfer( gc_wt_store_base + s->aram + skip, gc_wt.data + low, bytes - skip, false );
+		/* The entry now says where things are. */
+		e->offset = low;
+		e->flags |= split ? 2 : 0;
+		gc_wt.aram[i] = gc_wt_store_base + s->aram;
+		gc_wt.bytes[i] = split ? bytes : 0;
+		low += bytes - skip;
+	}
+	gc_wt.count = i;
+	gc_wt.block = gc_wt_pool;
+	DCFlushRange( gc_wt_pool, first );
+	GX_InvalidateTexAll( );
+	FS_Close( f );
+	R_GCHotWindow( gc_wt.data + low, GC_WT_POOL_BYTES - first - low );
+	Con_Reportf( "Xash3D GameCube: world textures %s aram=%u/%u Kb disc=%u/%u Kb low=%u Kb hot=%u Kb in %.0f ms\n", stem,
+		hits, hit_bytes / 1024, misses, miss_bytes / 1024, low / 1024, ( GC_WT_POOL_BYTES - first - low ) / 1024,
+		( Sys_DoubleTime( ) - start ) * 1000.0 );
+}
+
+static int Mod_GCWorldPackTexture( const char *name )
+{
+	extern int R_GCPackedTexture( const char *name, int width, int height, int levels, qboolean alpha, void *data, unsigned aram, unsigned bytes );
+	uint32_t i;
+
+	for( i = 0; i < gc_wt.count; i++ )
+	{
+		const gc_wt_entry_t *e = &gc_wt.table[i];
+
+		if( !Q_strnicmp( e->name, name, sizeof( e->name )))
+			return R_GCPackedTexture( e->name, e->width, e->height, e->levels, e->flags & 1, gc_wt.data + e->offset, gc_wt.aram[i], gc_wt.bytes[i] );
+	}
+	return 0;
+}
+#endif
+
 static void Mod_LoadTextureData( model_t *mod, dbspmodel_t *bmod, int textureIndex )
 {
 	uint32_t txFlags = 0;
@@ -3659,6 +3868,10 @@ static void Mod_LoadTextureData( model_t *mod, dbspmodel_t *bmod, int textureInd
 	// 3. Internal from map
 
 	texture->gl_texturenum = 0;
+#if XASH_GAMECUBE
+	if( bmod->isworld && !iswater && ( texture->gl_texturenum = Mod_GCWorldPackTexture( mipTex.name )) != 0 )
+		return;
+#endif
 	Q_strncpy( safemtname, mipTex.name, sizeof( safemtname ));
 	if( safemtname[0] == '*' )
 		safemtname[0] = '!'; // replace unexpected symbol
@@ -4005,6 +4218,10 @@ static void Mod_LoadTextures( model_t *mod, dbspmodel_t *bmod )
 	mod->textures = (texture_t **)Mem_Calloc( mod->mempool, lump->nummiptex * sizeof( texture_t * ));
 	mod->numtextures = lump->nummiptex;
 
+#if XASH_GAMECUBE
+	if( bmod->isworld )
+		Mod_GCWorldPackLoad( mod->name );
+#endif
 	Mod_LoadAllTextures( mod, bmod );
 	Mod_SequenceAllAnimatedTextures( mod );
 

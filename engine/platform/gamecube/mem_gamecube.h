@@ -59,6 +59,7 @@ size_t GC_MapLoadBufferCapacity( void );
 void *GC_MapLoadBufferTailAlloc( size_t after_offset, size_t need );
 size_t GC_MapLoadBufferTailHighwater( void );
 unsigned int GC_AramReserve( unsigned int size );
+void GC_AramTransfer( unsigned int aram, void *buf, unsigned int len, qboolean write );
 void GC_AramCopy( unsigned int aram, void *buf, unsigned int len, qboolean write );
 
 /* True during -gcmap smoke loads and retail New Game (gc_playstart) map loads. */

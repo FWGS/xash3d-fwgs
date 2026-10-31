@@ -856,6 +856,52 @@ int GAME_EXPORT GL_LoadTexture( const char *name, const byte *buf, size_t size, 
 	return tex - r_images;
 }
 
+#if XASH_GAMECUBE
+/*
+================
+R_GCPackedTexture
+
+A world texture from the map's pack: already GX CMPR with its mips, so it has
+no soft pixels and nothing is converted. width and height are the whole
+texture's; data holds its mips from level 1 when bytes is set, and the whole
+chain, streamed from aram into the hot window on use, is bytes long.
+Same name, same slot on the next map.
+================
+*/
+int R_GCPackedTexture( const char *name, int width, int height, int levels, qboolean alpha, void *data, unsigned aram, unsigned bytes )
+{
+	char    full[64];
+	image_t *tex;
+
+	Q_snprintf( full, sizeof( full ), "#wt/%s", name );
+	if(( tex = GL_TextureForName( full )) == NULL )
+		tex = GL_AllocTexture( full, TF_NOMIPMAP );
+	tex->width = tex->srcWidth = width;
+	tex->height = tex->srcHeight = height;
+	tex->gc_packed = data;
+	tex->gc_packed_hot = NULL;
+	tex->gc_packed_aram = aram;
+	tex->gc_packed_bytes = bytes;
+	tex->gc_packed_levels = (byte)levels;
+	tex->gc_packed_alpha = (byte)alpha;
+	tex->gc_packed_queued = false;
+	return tex - r_images;
+}
+
+/* The pack's memory is going: nothing may bind into it. */
+void R_GCPackedRelease( void )
+{
+	uint i;
+
+	for( i = 0; i < r_numImages; i++ )
+	{
+		r_images[i].gc_packed = NULL;
+		r_images[i].gc_packed_hot = NULL;
+		r_images[i].gc_packed_queued = false;
+	}
+}
+#endif
+
 /*
 ================
 GL_LoadTextureArray

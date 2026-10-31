@@ -493,6 +493,14 @@ typedef struct image_s
 	pixel_t        *alpha_pixels;                           // mip levels
 #if XASH_GAMECUBE
 	void           *gc_pixels_base;                         // pixels[0] is 32-byte aligned inside this block
+	void           *gc_packed;                               // CMPR mip chain in the map's texture pack (no pixels)
+	void           *gc_packed_hot;                           // whole mip chain, in the hot window, when streamed in
+	unsigned int   gc_packed_aram;                           // the whole chain in ARAM
+	unsigned int   gc_packed_bytes;                          // size of the whole chain, 0: gc_packed is already whole
+	unsigned int   gc_packed_used;                           // hot window frame of the last bind
+	byte           gc_packed_levels;
+	byte           gc_packed_alpha;
+	byte           gc_packed_queued;
 	qboolean       gc_gx_native;                            // pixels[0] now holds GX tiled RGB565, not soft pixels
 #endif
 

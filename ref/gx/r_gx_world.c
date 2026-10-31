@@ -874,6 +874,178 @@ static gc_gx_tex_t *R_GXNativeTexture( image_t *img, unsigned texnum )
 	return t;
 }
 
+/*
+=============
+R_GXPackedTexture
+
+A texture of the map's pack: CMPR with its mips, trilinear. Above 64 texels a
+side only the mips from level 1 are always in memory; the first bind asks for
+the whole chain, which R_GXHotService streams from ARAM into the hot window
+between frames. Until then the low mips draw, so a slow DMA is never a stall.
+A cut-out texture needs the alpha test, every other bind turns it back off.
+=============
+*/
+#define GC_HOT_LIST_MAX     128
+#define GC_HOT_QUEUE_MAX    32
+#define GC_HOT_FRAME_BYTES  ( 96 * 1024 )	/* a frame's worth of streaming */
+#define GC_HOT_KEEP_FRAMES  90		/* not evicted until this long unused */
+
+static struct
+{
+	byte     *base;
+	unsigned size, head, frame;
+	image_t  *list[GC_HOT_LIST_MAX];
+	int      count;
+	image_t  *queue[GC_HOT_QUEUE_MAX];
+	int      queued;
+	unsigned uploads, bytes, evictions, deferred;
+} r_gx_hot;
+static qboolean r_gx_packed_alpha_test;
+
+/* The hot window of this map; resets everything in it. */
+void R_GCHotWindow( void *base, unsigned size )
+{
+	memset( &r_gx_hot, 0, sizeof( r_gx_hot ));
+	r_gx_hot.base = (byte *)base;
+	r_gx_hot.size = size;
+}
+
+/* Room for bytes at the ring's head, evicting what has been idle long enough;
+ * something in use is stepped over. NULL if nothing can go this frame. */
+static byte *R_GXHotAlloc( unsigned bytes )
+{
+	int tries, i;
+
+	if( bytes > r_gx_hot.size )
+		return NULL;
+	for( tries = 0; tries < 8; tries++ )
+	{
+		byte *start, *end;
+		qboolean busy = false;
+
+		if( r_gx_hot.head + bytes > r_gx_hot.size )
+			r_gx_hot.head = 0;
+		start = r_gx_hot.base + r_gx_hot.head;
+		end = start + bytes;
+		for( i = 0; i < r_gx_hot.count; i++ )
+		{
+			const image_t *img = r_gx_hot.list[i];
+			const byte *a = (const byte *)img->gc_packed_hot;
+
+			if( a < end && a + img->gc_packed_bytes > start
+				&& r_gx_hot.frame - img->gc_packed_used < GC_HOT_KEEP_FRAMES )
+			{
+				r_gx_hot.head = ( a + img->gc_packed_bytes ) - r_gx_hot.base;
+				busy = true;
+				break;
+			}
+		}
+		if( busy )
+			continue;
+		for( i = 0; i < r_gx_hot.count; )
+		{
+			image_t *img = r_gx_hot.list[i];
+			const byte *a = (const byte *)img->gc_packed_hot;
+
+			if( a < end && a + img->gc_packed_bytes > start )
+			{
+				img->gc_packed_hot = NULL;
+				r_gx_hot.list[i] = r_gx_hot.list[--r_gx_hot.count];
+				r_gx_hot.evictions++;
+			}
+			else
+				i++;
+		}
+		r_gx_hot.head += bytes;
+		return start;
+	}
+	return NULL;
+}
+
+/* Between frames, with the GPU done with last frame's textures. */
+static void R_GXHotService( void )
+{
+	extern void GC_AramTransfer( unsigned int aram, void *buf, unsigned int len, qboolean write );
+	unsigned spent = 0;
+	int i, kept = 0;
+
+	r_gx_hot.frame++;
+	for( i = 0; i < r_gx_hot.queued; i++ )
+	{
+		image_t *img = r_gx_hot.queue[i];
+		byte *dst = NULL;
+
+		if( !img->gc_packed )
+			continue;
+		if( spent < GC_HOT_FRAME_BYTES && r_gx_hot.count < GC_HOT_LIST_MAX )
+			dst = R_GXHotAlloc( img->gc_packed_bytes );
+		if( !dst )
+		{
+			r_gx_hot.queue[kept++] = img;
+			r_gx_hot.deferred++;
+			continue;
+		}
+		GC_AramTransfer( img->gc_packed_aram, dst, img->gc_packed_bytes, false );
+		img->gc_packed_hot = dst;
+		img->gc_packed_queued = false;
+		r_gx_hot.list[r_gx_hot.count++] = img;
+		r_gx_hot.uploads++;
+		r_gx_hot.bytes += img->gc_packed_bytes;
+		spent += img->gc_packed_bytes;
+	}
+	r_gx_hot.queued = kept;
+	/* A chain can land where another one was: drop the texture cache's copy. */
+	if( spent )
+		GX_InvalidateTexAll();
+}
+
+static gc_gx_tex_t *R_GXPackedTexture( image_t *img, unsigned texnum )
+{
+	gc_gx_tex_t *t = &r_gx_tex_native;
+
+	img->gc_packed_used = r_gx_hot.frame;
+	if( img->gc_packed_bytes && !img->gc_packed_hot && !img->gc_packed_queued
+		&& r_gx_hot.queued < GC_HOT_QUEUE_MAX )
+	{
+		img->gc_packed_queued = true;
+		r_gx_hot.queue[r_gx_hot.queued++] = img;
+	}
+	if( r_gx_bound_texnum != texnum || r_gx_bound_fmt != GX_TF_CMPR )
+	{
+		const qboolean low = img->gc_packed_bytes && !img->gc_packed_hot;
+		const int levels = img->gc_packed_levels - ( low ? 1 : 0 );
+		const int w = low ? img->width / 2 : img->width, h = low ? img->height / 2 : img->height;
+		void *data = img->gc_packed_hot ? img->gc_packed_hot : img->gc_packed;
+
+		GX_InitTexObj( &t->obj, data, (u16)w, (u16)h, GX_TF_CMPR, GX_REPEAT, GX_REPEAT, levels > 1 ? GX_TRUE : GX_FALSE );
+		if( levels > 1 )
+			GX_InitTexObjLOD( &t->obj, GX_LIN_MIP_LIN, GX_LINEAR, 0.0f, (f32)( levels - 1 ), 0.0f, GX_FALSE, GX_TRUE, GX_ANISO_2 );
+		else
+			GX_InitTexObjFilterMode( &t->obj, GX_LINEAR, GX_LINEAR );
+		t->texnum = texnum;
+		t->w = img->width;
+		t->h = img->height;
+		t->fmt = GX_TF_CMPR;
+		t->valid = true;
+		GX_LoadTexObj( &t->obj, GX_TEXMAP0 );
+		r_gx_bound_texnum = texnum;
+		r_gx_bound_fmt = GX_TF_CMPR;
+		r_gx_tex_loads++;
+	}
+	else
+		r_gx_tex_reuses++;
+	if( r_gx_packed_alpha_test != (qboolean)img->gc_packed_alpha )
+	{
+		r_gx_packed_alpha_test = img->gc_packed_alpha;
+		if( r_gx_packed_alpha_test )
+			GX_SetAlphaCompare( GX_GREATER, 127, GX_AOP_AND, GX_ALWAYS, 0 );
+		else
+			GX_SetAlphaCompare( GX_ALWAYS, 0, GX_AOP_AND, GX_ALWAYS, 0 );
+		GX_SetZCompLoc( r_gx_packed_alpha_test ? GX_FALSE : GX_TRUE );
+	}
+	return t;
+}
+
 static gc_gx_tex_t *R_GXBindTexnum( unsigned texnum, qboolean hud_bind )
 {
 	image_t *img;
@@ -901,6 +1073,8 @@ static gc_gx_tex_t *R_GXBindTexnum( unsigned texnum, qboolean hud_bind )
 			r_gx_tex_reuses++;
 		return &r_gx_cinematic_tex;
 	}
+	if( img && img->gc_packed )
+		return R_GXPackedTexture( img, texnum );
 	if( !img || !img->pixels[0] || img->width < 1 || img->height < 1 )
 		return NULL;
 	/* Sys_CheckParm walks argv: this runs for every bind. */
@@ -1708,6 +1882,12 @@ static void R_GXSetupWorld3DState( void )
 	r_gx_bound_texnum = 0;
 	r_gx_bound_fmt = 0;
 	r_gx_cull_none = false;
+	if( r_gx_packed_alpha_test )
+	{
+		r_gx_packed_alpha_test = false;
+		GX_SetAlphaCompare( GX_ALWAYS, 0, GX_AOP_AND, GX_ALWAYS, 0 );
+		GX_SetZCompLoc( GX_TRUE );
+	}
 	r_gx_lm_atlas_bound = false;
 	r_gx_live_lm_bound = false;
 	r_gx_lm_atlas_checked = false;
@@ -3122,6 +3302,8 @@ int R_GXDrawNewGameCapFaces( void )
 		{
 			gEngfuncs.Con_Reportf( "Xash3D GameCube: gx tex passes=%d uploads=%u stalls=%u native=%u\n",
 				passes, r_gx_tex_uploads, r_gx_tex_fence_stalls, r_gx_tex_native_conversions );
+			gEngfuncs.Con_Reportf( "Xash3D GameCube: hot window %u Kb resident=%d queued=%d uploads=%u bytes=%u evictions=%u deferred=%u\n",
+				r_gx_hot.size / 1024, r_gx_hot.count, r_gx_hot.queued, r_gx_hot.uploads, r_gx_hot.bytes, r_gx_hot.evictions, r_gx_hot.deferred );
 			gEngfuncs.Con_Reportf( "Xash3D GameCube: gx world per frame draws=%u verts=%u state_sets=%u tex_binds=%u\n",
 				sum_draws / passes, sum_verts / passes, sum_states / passes, sum_binds / passes );
 			passes = 0;
@@ -3149,6 +3331,7 @@ int R_GXDrawNewGameCapFaces( void )
 		gEngfuncs.Con_Reportf( "Xash3D GameCube: CapFaces begin map=%s f=%d\n",
 			map_name, tr.framecount );
 	}
+	R_GXHotService();
 	R_GXSetupWorld3DState();
 
 	/* Stamp marksurfaces only when leaf→surface links are still valid.

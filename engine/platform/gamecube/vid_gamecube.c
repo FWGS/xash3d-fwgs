@@ -759,7 +759,7 @@ static int gc_aram_fill_count;
 static qboolean gc_aram_fill_tried;
 static qboolean gc_g225_aram_logged;
 static gc_fill_face_t gc_aram_stage __attribute__(( aligned( 32 )));
-static u32 gc_aram_blocks[4];
+static u32 gc_aram_blocks[8];
 
 /*
  * G212: keep-score for the 320-slot Flipper budget. MEM1 cannot hold all BSP30
@@ -4317,7 +4317,7 @@ static qboolean GC_AramFillEnsure( void )
 		return false;
 	gc_aram_fill_tried = true;
 	if( !AR_CheckInit())
-		AR_Init( gc_aram_blocks, 4 );
+		AR_Init( gc_aram_blocks, 8 );
 	gc_aram_fill_base = AR_Alloc( (u32)GC_ARAM_FILL_MAX * (u32)GC_ARAM_FACE_STRIDE );
 	if( !gc_aram_fill_base )
 	{

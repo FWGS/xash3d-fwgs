@@ -456,7 +456,7 @@ save bank) never need a MEM1 copy of a whole file.
 */
 #define GC_ARAM_BOUNCE 4096
 static u8 gc_aram_bounce[GC_ARAM_BOUNCE] __attribute__(( aligned( 32 )));
-static u32 gc_aram_reserve_blocks[4];
+static u32 gc_aram_reserve_blocks[8];
 
 static void GC_AramDMA( u32 type, u32 aram, u32 len )
 {
@@ -478,10 +478,26 @@ unsigned int GC_AramReserve( unsigned int size )
 	u32 base;
 
 	if( !AR_CheckInit( ))
-		AR_Init( gc_aram_reserve_blocks, 4 );
+		AR_Init( gc_aram_reserve_blocks, 8 );
 	base = AR_Alloc(( size + 31u ) & ~31u );
 	Con_Reportf( "Xash3D GameCube: ARAM reserve %s at 0x%08x\n", Q_memprint( size ), base );
 	return base;
+}
+
+/* Whole 32-byte aligned blocks, straight to or from the buffer. */
+void GC_AramTransfer( unsigned int aram, void *buf, unsigned int len, qboolean write )
+{
+	if( write )
+		DCFlushRange( buf, len );
+	else
+		DCInvalidateRange( buf, len );
+	while( AR_GetDMAStatus( ))
+		;
+	AR_StartDMA( write ? AR_MRAMTOARAM : AR_ARAMTOMRAM, (u32)buf, aram, len );
+	while( AR_GetDMAStatus( ))
+		;
+	if( !write )
+		DCInvalidateRange( buf, len );
 }
 
 void GC_AramCopy( unsigned int aram, void *buf, unsigned int len, qboolean write )

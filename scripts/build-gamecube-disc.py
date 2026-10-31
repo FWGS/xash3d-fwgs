@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import os
 import re
 import shutil
@@ -1149,6 +1150,199 @@ def gx_cmpr_encode(rgb: "np.ndarray") -> bytes:
 	return bytes(out)
 
 
+def gx_cmpr_encode_blocks(rgb: "np.ndarray", opaque: "np.ndarray") -> bytes:
+	"""GX CMPR (DXT1) with principal-axis endpoints, 1-bit alpha when a block
+	has transparent pixels. rgb is H×W×3 uint8, opaque H×W bool, both multiples
+	of 8; blocks are laid out in 8×8 tiles of 2×2 blocks, big-endian."""
+	import numpy as np
+
+	h, w = opaque.shape
+	bh, bw = h // 4, w // 4
+	flat = rgb.astype(np.float32).reshape(bh, 4, bw, 4, 3).transpose(0, 2, 1, 3, 4).reshape(bh, bw, 16, 3)
+	mask = opaque.reshape(bh, 4, bw, 4).transpose(0, 2, 1, 3).reshape(bh, bw, 16)
+	weight = mask[..., None].astype(np.float32)
+	count = np.maximum(weight.sum(2, keepdims=True), 1.0)
+	mean = (flat * weight).sum(2, keepdims=True) / count
+	diff = (flat - mean) * weight
+	cov = np.einsum("...ki,...kj->...ij", diff, diff)
+	axis = np.ones(cov.shape[:2] + (3,), np.float32)
+	for _ in range(8):	# power iteration
+		axis = np.einsum("...ij,...j->...i", cov, axis)
+		axis /= np.maximum(np.linalg.norm(axis, axis=-1, keepdims=True), 1e-6)
+	t = np.einsum("...ki,...i->...k", flat - mean, axis)
+	lo_t = np.where(mask, t, np.inf).min(2)
+	hi_t = np.where(mask, t, -np.inf).max(2)
+	lo_t = np.where(np.isfinite(lo_t), lo_t, 0.0)
+	hi_t = np.where(np.isfinite(hi_t), hi_t, 0.0)
+	lo = np.clip(mean[:, :, 0] + axis * lo_t[..., None], 0, 255).astype(np.int32)
+	hi = np.clip(mean[:, :, 0] + axis * hi_t[..., None], 0, 255).astype(np.int32)
+
+	def to565(c):
+		return ((c[..., 0] >> 3) << 11) | ((c[..., 1] >> 2) << 5) | (c[..., 2] >> 3)
+
+	def from565(v):
+		r, g, b = (v >> 11) & 31, (v >> 5) & 63, v & 31
+		return np.stack(((r << 3) | (r >> 2), (g << 2) | (g >> 4), (b << 3) | (b >> 2)), -1)
+
+	a, b = to565(hi), to565(lo)
+	has_alpha = ~mask.all(2)
+	# c0 > c1 selects four colours, c0 <= c1 three plus transparent.
+	four = np.where(a > b, a, b), np.where(a > b, b, a)
+	c0 = np.where(has_alpha, four[1], four[0])
+	c1 = np.where(has_alpha, four[0], four[1])
+	e0, e1 = from565(c0), from565(c1)
+	pal4 = np.stack((e0, e1, (2 * e0 + e1) // 3, (e0 + 2 * e1) // 3), 2)
+	pal3 = np.stack((e0, e1, (e0 + e1) // 2, np.full_like(e0, 100000)), 2)
+	pal = np.where(has_alpha[..., None, None], pal3, pal4).astype(np.float32)
+	dist = ((flat[:, :, :, None, :] - pal[:, :, None, :, :]) ** 2).sum(-1)
+	idx = dist.argmin(-1)
+	idx = np.where(mask, idx, 3)
+	idx = np.where(((c0 == c1) & ~has_alpha)[..., None], 0, idx)
+	rows = idx.reshape(bh, bw, 4, 4)
+	bits = ((rows[..., 0] << 6) | (rows[..., 1] << 4) | (rows[..., 2] << 2) | rows[..., 3]).astype(np.uint8)
+	out = bytearray()
+	for ty in range(0, bh, 2):
+		for tx in range(0, bw, 2):
+			for by, bx in ((ty, tx), (ty, tx + 1), (ty + 1, tx), (ty + 1, tx + 1)):
+				out += struct.pack(">HH", int(c0[by, bx]), int(c1[by, bx]))
+				out += bits[by, bx].tobytes()
+	return bytes(out)
+
+
+GC_WT_MAGIC = b"GCWT"
+GC_WT_FLAG_ALPHA = 1
+GC_WT_ENTRY = struct.Struct(">16sHHBBHI")	# name, w, h, levels, flags, content tag, offset
+
+
+def wt_read_miptex(data: bytes, offset: int = 0):
+	"""A WAD3/BSP miptex: (name, w, h, indexed pixels, 768-byte palette), or None."""
+	raw_name, w, h, m0 = struct.unpack_from("<16sIII", data, offset)
+	if not m0 or not w or not h or w * h > 1 << 20:
+		return None
+	name = raw_name.split(b"\0")[0].decode("latin-1").lower()
+	end = offset + m0 + w * h + (w * h) // 4 + (w * h) // 16 + (w * h) // 64
+	count = struct.unpack_from("<H", data, end)[0]
+	if count != 256 or end + 2 + 768 > len(data):
+		return None
+	return name, w, h, data[offset + m0:offset + m0 + w * h], data[end + 2:end + 2 + 768]
+
+
+def wt_read_wads(source: Path) -> dict:
+	"""Every miptex (type 0x43) of the game's WADs, first WAD wins."""
+	found = {}
+	for wad in sorted(source.glob("*.wad")):
+		data = wad.read_bytes()
+		if data[:4] not in (b"WAD3", b"WAD2"):
+			continue
+		count, table = struct.unpack_from("<ii", data, 4)
+		for i in range(count):
+			pos, disk, size, kind, comp, _pad, raw = struct.unpack_from("<iiibbh16s", data, table + i * 32)
+			if kind != 0x43 or comp:
+				continue
+			name = raw.split(b"\0")[0].decode("latin-1").lower()
+			if name not in found:
+				found[name] = (data, pos)
+	return found
+
+
+def wt_encode(w: int, h: int, pixels: bytes, palette: bytes, alpha: bool) -> tuple[int, int, int, bytes]:
+	"""Palette texture to a CMPR mip chain, power-of-two sides (GX_REPEAT
+	needs them; UVs are normalised, so a resize does not move anything)."""
+	import numpy as np
+	from PIL import Image
+
+	pal = np.frombuffer(palette, np.uint8).reshape(256, 3)
+	idx = np.frombuffer(pixels, np.uint8).reshape(h, w)
+	rgb = pal[idx]
+	opaque = idx != 255 if alpha else np.ones((h, w), bool)
+	tw, th = 1 << max(3, (w - 1).bit_length()), 1 << max(3, (h - 1).bit_length())
+	if (tw, th) != (w, h):
+		resample = Image.Resampling.NEAREST if alpha else Image.Resampling.BICUBIC
+		rgb = np.asarray(Image.fromarray(rgb).resize((tw, th), resample))
+		opaque = np.asarray(Image.fromarray(opaque).resize((tw, th), Image.Resampling.NEAREST))
+	levels = bytearray()
+	count = 0
+	fcol = rgb.astype(np.float32)
+	fcov = opaque.astype(np.float32)
+	while True:
+		levels += gx_cmpr_encode_blocks(np.clip(fcol + 0.5, 0, 255).astype(np.uint8), fcov >= 0.5)
+		count += 1
+		ch, cw = fcov.shape
+		if min(ch, cw) <= 8:
+			break
+		# Box filter weighted by coverage, so a transparent pixel's colour
+		# never bleeds into the edge of a cut-out.
+		cover = fcov.reshape(ch // 2, 2, cw // 2, 2).sum((1, 3))
+		sumc = (fcol * fcov[..., None]).reshape(ch // 2, 2, cw // 2, 2, 3).sum((1, 3))
+		fcol = np.where(cover[..., None] > 0, sumc / np.maximum(cover[..., None], 1e-6), 0)
+		fcov = cover / 4
+	return tw, th, count, bytes(levels)
+
+
+def build_world_texture_packs(source: Path, output: Path, cache: Path) -> list[tuple[str, Path]]:
+	"""media/wt_<map>.gct: each map's world textures as GX CMPR with mip
+	chains, read in one go by the engine (mod_bmodel.c). Water and sky keep the
+	engine's own path."""
+	try:
+		import numpy  # noqa: F401
+		from PIL import Image  # noqa: F401
+	except ImportError:
+		print("warning: numpy/Pillow missing, no world texture packs")
+		return []
+	cache.mkdir(parents=True, exist_ok=True)
+	wads = wt_read_wads(source)
+	overlays = []
+	media = output / "media"
+	media.mkdir(parents=True, exist_ok=True)
+	total = 0
+	for bsp in sorted((source / "maps").glob("*.bsp")):
+		data = bsp.read_bytes()
+		off, _size = struct.unpack_from("<ii", data, 4 + 2 * 8)
+		count = struct.unpack_from("<i", data, off)[0]
+		entries, blob = [], bytearray()
+		seen = set()
+		for o in struct.unpack_from(f"<{count}i", data, off + 4):
+			if o < 0:
+				continue
+			raw = struct.unpack_from("<16s", data, off + o)[0]
+			name = raw.split(b"\0")[0].decode("latin-1").lower()
+			if name in seen or name[:1] in ("!", "*") or name.startswith("sky"):
+				continue
+			seen.add(name)
+			mip = wt_read_miptex(data, off + o)
+			if mip is None and name in wads:
+				mip = wt_read_miptex(*wads[name])
+			if mip is None:
+				continue
+			_, w, h, pixels, palette = mip
+			alpha = name.startswith("{")
+			key = hashlib.md5(bytes((alpha,)) + struct.pack("<II", w, h) + pixels + palette + b"2").hexdigest()
+			item = cache / f"{key}.bin"
+			if item.is_file():
+				tw, th, levels = struct.unpack_from("<HHH", item.read_bytes())
+				body = item.read_bytes()[6:]
+			else:
+				tw, th, levels, body = wt_encode(w, h, pixels, palette, alpha)
+				item.write_bytes(struct.pack("<HHH", tw, th, levels) + body)
+			entries.append((name, tw, th, levels, GC_WT_FLAG_ALPHA if alpha else 0, int(key[:4], 16), len(blob)))
+			blob += body
+			blob += bytes(-len(blob) & 31)
+		if not entries:
+			continue
+		head = GC_WT_MAGIC + struct.pack(">II", len(entries), len(blob))
+		table = b"".join(
+			GC_WT_ENTRY.pack(n.encode("latin-1"), tw, th, lv, fl, tag, of) for n, tw, th, lv, fl, tag, of in entries
+		)
+		first = len(head) + len(table)
+		pad = bytes(-first & 31)
+		rel = f"media/wt_{bsp.stem.lower()}.gct"
+		(output / rel).write_bytes(head + table + pad + bytes(blob))
+		overlays.append((rel, output / rel))
+		total += len(blob)
+	print(f"  world textures: {len(overlays)} map packs, CMPR with mipmaps, {total // (1024 * 1024)} MiB")
+	return overlays
+
+
 def map_sky_names(source: Path) -> set[str]:
 	"""Sky names the maps use (worldspawn "skyname"), plus the default."""
 	names = {"desert"}
@@ -1748,6 +1942,7 @@ def create_retail_boot_overlays(
 			for n in ("dest", "noeat", "emerg", "tourn", "jobs", "haz", "arrive", "exit")),
 	)
 	overlays.extend(build_sky_cmpr_overlays(source, output))
+	overlays.extend(build_world_texture_packs(source, output, Path(__file__).resolve().parents[1] / "build" / "gc-wt-cache"))
 	for dest_rel, src_wav in intro_vo:
 		if not src_wav.is_file():
 			continue
