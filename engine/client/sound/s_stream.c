@@ -348,6 +348,74 @@ void S_StreamBackgroundTrack( void )
 	}
 }
 
+#if XASH_GAMECUBE
+/*
+=================
+S_GCVoice
+
+The announcer's lines stream beside the background track, which belongs to
+the music, on the channel cinematics would use: this route has none.
+=================
+*/
+static stream_t *s_gcVoice;
+static char s_gcVoiceName[MAX_QPATH];
+
+const char *S_GCVoiceCurrent( void )
+{
+	return s_gcVoice ? s_gcVoiceName : "";
+}
+
+void S_GCVoiceStop( void )
+{
+	if( s_gcVoice )
+		FS_FreeStream( s_gcVoice );
+	s_gcVoice = NULL;
+	s_gcVoiceName[0] = '\0';
+}
+
+qboolean S_GCVoiceStart( const char *path )
+{
+	S_GCVoiceStop( );
+	if( !snd.initialized )
+		return false;
+	s_gcVoice = FS_OpenStream( path );
+	Q_strncpy( s_gcVoiceName, path, sizeof( s_gcVoiceName ));
+	return s_gcVoice != NULL;
+}
+
+void S_GCVoiceUpdate( void )
+{
+	byte raw[MAX_RAW_SAMPLES];
+	rawchan_t *ch;
+
+	if( !snd.initialized || !s_gcVoice || cl.paused || snd.stream_paused )
+		return;
+	if(( ch = S_FindRawChannel( S_RAW_SOUND_SOUNDTRACK, true )) == NULL )
+		return;
+	if( ch->s_rawend < snd.soundtime )
+		ch->s_rawend = snd.soundtime;
+	while( ch->s_rawend < snd.soundtime + ch->max_samples )
+	{
+		const stream_t *info = s_gcVoice;
+		const int frame = info->width * info->channels;
+		int bytes = (int)(( ch->max_samples - ( ch->s_rawend - snd.soundtime )) * ((float)info->rate / SOUND_DMA_SPEED )) * frame;
+		int r;
+
+		if( bytes < frame )
+			return;
+		if( bytes > (int)sizeof( raw ))
+			bytes = sizeof( raw ) - sizeof( raw ) % frame;
+		r = FS_ReadStream( s_gcVoice, bytes, raw );
+		if( r <= 0 )
+		{
+			S_GCVoiceStop( );
+			return;
+		}
+		S_RawEntSamples( S_RAW_SOUND_SOUNDTRACK, r / frame, info->rate, info->width, info->channels, raw, (int)( 255.0f * S_GetMusicVolume( )), ATTN_NONE );
+	}
+}
+#endif
+
 /*
 =================
 S_StartStreaming
