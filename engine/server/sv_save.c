@@ -2606,12 +2606,39 @@ arrive in the new level and the player must still be riding it.
 =============
 */
 static double gc_hop_check_due[2];
+static vec3_t gc_hop_view_angles;
+static qboolean gc_hop_view_pending;
 
 /* Re-check 3 s and 10 s into the new level: still riding, still moving. */
 void SV_GCHopRiderTick( void )
 {
 	int i;
 
+	/* The transition's own spawn sends the restored angles, but this route
+	 * then reconnects the client, which clears them, and the view snapped to
+	 * yaw 0 on every hop. Send them again once the client is really in. */
+	if( gc_hop_view_pending && CL_IsInGame() && svs.maxclients >= 1
+		&& SV_IsValidEdict( SV_EdictNum( 1 )))
+	{
+		edict_t *player = SV_EdictNum( 1 );
+
+		gc_hop_view_pending = false;
+		VectorCopy( gc_hop_view_angles, player->v.v_angle );
+		VectorCopy( gc_hop_view_angles, player->v.angles );
+		player->v.fixangle = 1;
+	}
+
+	/* Probe: past the ride, weapons to check the view models. */
+	if( sv.time > 8.0 && !Q_stricmp( sv.name, "c1a0" ) && Sys_CheckParm( "-gcautohop" ))
+	{
+		static qboolean given;
+
+		if( !given )
+		{
+			given = true;
+			Cbuf_AddText( "sv_cheats 1\ngive weapon_9mmhandgun\ngive weapon_crowbar\n" );
+		}
+	}
 	/* Probe: the ride ends at c0a0e, where a player walks to c1a0. Stand at
 	 * the map's landmark and take its real changelevel, to test past it. */
 	if( sv.time > 30.0 && !Q_stricmp( sv.name, "c0a0e" ) && Sys_CheckParm( "-gcautohop" ))
@@ -2645,6 +2672,27 @@ void SV_GCReportHopRider( const char *when )
 	edict_t *tram = NULL, *player;
 	int e;
 
+	/* Every map, with or without a tram. */
+	if( !Q_strcmp( when, "after transition" ))
+	{
+		gc_hop_check_due[0] = sv.time + 3.0;
+		gc_hop_check_due[1] = sv.time + 10.0;
+	}
+	if( !Q_strcmp( when, "before transition" ))
+		gc_hop_view_pending = false;
+	player = svs.maxclients >= 1 ? SV_EdictNum( 1 ) : NULL;
+	if( player && SV_IsValidEdict( player ))
+	{
+		if( !Q_strcmp( when, "after transition" ))
+		{
+			VectorCopy( player->v.v_angle, gc_hop_view_angles );
+			gc_hop_view_pending = true;
+		}
+		Con_Reportf( "Xash3D GameCube: hop view %s map=%s v_angle=%.1f %.1f %.1f vel=%.0f %.0f %.0f fixangle=%d\n",
+			when, sv.name, player->v.v_angle[0], player->v.v_angle[1], player->v.v_angle[2],
+			player->v.velocity[0], player->v.velocity[1], player->v.velocity[2], player->v.fixangle );
+	}
+
 	for( e = svs.maxclients + 1; e < svgame.numEntities; e++ )
 	{
 		edict_t *ent = SV_EdictNum( e );
@@ -2660,11 +2708,6 @@ void SV_GCReportHopRider( const char *when )
 	{
 		Con_Reportf( "Xash3D GameCube: hop check %s map=%s: no intro_train\n", when, sv.name );
 		return;
-	}
-	if( !Q_strcmp( when, "after transition" ))
-	{
-		gc_hop_check_due[0] = sv.time + 3.0;
-		gc_hop_check_due[1] = sv.time + 10.0;
 	}
 	player = svs.maxclients >= 1 ? SV_EdictNum( 1 ) : NULL;
 	if( !SV_IsValidEdict( player ))
