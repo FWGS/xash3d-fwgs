@@ -5,6 +5,7 @@ appcompat = "1.7.1"
 material = "1.12.0"
 navigationRuntimeKtx = "2.9.1"
 preferenceKtx = "1.2.1"
+recyclerview = "1.3.2"
 swiperefreshlayout = "1.1.0"
 
 [libraries]
@@ -15,6 +16,7 @@ navigation-fragment-ktx = { module = "androidx.navigation:navigation-fragment-kt
 navigation-runtime-ktx = { module = "androidx.navigation:navigation-runtime-ktx", version.ref = "navigationRuntimeKtx" }
 navigation-ui-ktx = { module = "androidx.navigation:navigation-ui-ktx", version.ref = "navigationRuntimeKtx" }
 preference-ktx = { module = "androidx.preference:preference-ktx", version.ref = "preferenceKtx" }
+recyclerview = { module = "androidx.recyclerview:recyclerview", version.ref = "recyclerview" }
 swiperefreshlayout = { module = "androidx.swiperefreshlayout:swiperefreshlayout", version.ref = "swiperefreshlayout" }
 
 [plugins]

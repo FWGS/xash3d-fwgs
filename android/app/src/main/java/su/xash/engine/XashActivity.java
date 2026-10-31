@@ -6,7 +6,6 @@ import android.content.pm.ActivityInfo;
 import android.content.res.AssetManager;
 import android.os.Build;
 import android.os.Bundle;
-import android.os.Environment;
 import android.provider.Settings.Secure;
 import android.util.Log;
 import android.view.KeyEvent;
@@ -18,6 +17,7 @@ import android.view.WindowManager;
 import org.libsdl.app.SDLActivity;
 
 import su.xash.engine.util.CrashReports;
+import su.xash.engine.util.Prefs;
 import su.xash.engine.util.SoftKeyboardPan;
 
 import java.io.File;
@@ -229,13 +229,12 @@ public class XashActivity extends SDLActivity {
 		String pakfile = getIntent().getStringExtra("pakfile");
 		if (pakfile != null) nativeSetenv("XASH3D_EXTRAS_PAK2", pakfile);
 
+		// Not started from the library, use the location from settings
 		String basedir = getIntent().getStringExtra("basedir");
-		if (basedir != null) {
-			nativeSetenv("XASH3D_BASEDIR", basedir);
-		} else {
-			String rootPath = Environment.getExternalStorageDirectory().getAbsolutePath() + "/xash";
-			nativeSetenv("XASH3D_BASEDIR", rootPath);
+		if (basedir == null) {
+			basedir = Prefs.getGamePath(this).getAbsolutePath();
 		}
+		nativeSetenv("XASH3D_BASEDIR", basedir);
 
 		mUseVolumeKeys = getIntent().getBooleanExtra("usevolume", false);
 		mPackageName = getIntent().getStringExtra("package");

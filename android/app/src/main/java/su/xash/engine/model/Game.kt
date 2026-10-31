@@ -6,23 +6,29 @@ import android.content.pm.PackageInfo
 import android.content.pm.PackageManager
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
+import android.util.Log
 import androidx.core.net.toUri
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.launch
 import su.xash.engine.R
 import su.xash.engine.XashActivity
 import su.xash.engine.util.showDownloadProgressDialog
 import java.io.File
 import java.io.FileInputStream
+import java.io.IOException
 
-class Game(val ctx: Context, val basedir: File, val gameInfoFile: File) {
+class Game(val ctx: Context, val basedir: File, val gameInfoFile: File, previous: Game? = null) {
 	private var iconName = "game.ico"
 	var title = "Unknown Game"
 	var icon: Bitmap? = null
 	var cover: Bitmap? = null
+	val iconSignature: String?
+	val coverSignature: String?
 
 	val mobileHacksGames = arrayOf("aom", "bdlands", "biglolly", "bshift", "caseclosed",
 		"hl_urbicide", "induction", "redempt", "secret",
@@ -41,14 +47,37 @@ class Game(val ctx: Context, val basedir: File, val gameInfoFile: File) {
 		parseGameInfo(gameInfoFile)
 
 		val iconFile = File(basedir, iconName)
-		if (iconFile.exists()) {
-			icon = BitmapFactory.decodeFile(iconFile.path)
+		val iconSig = if (iconFile.isFile) {
+			"${iconFile.absolutePath}:${iconFile.length()}:${iconFile.lastModified()}"
+		} else {
+			null
+		}
+		iconSignature = iconSig
+		if (iconSig != null) {
+			icon = if (previous != null && previous.iconSignature == iconSig) {
+				previous.icon
+			} else {
+				BitmapFactory.decodeFile(iconFile.path)
+			}
 		}
 
-		try {
-			cover = BackgroundBitmap.createBackground(basedir)
+		val coverSig = try {
+			BackgroundBitmap.getBackgroundSignature(basedir)
 		} catch (e: Exception) {
-			e.printStackTrace()
+			Log.w(TAG, "Failed to fingerprint the background of $basedir", e)
+			null
+		}
+		coverSignature = coverSig
+		cover = if (coverSig != null && previous != null && previous.coverSignature == coverSig) {
+			previous.cover
+		} else {
+			try {
+				BackgroundBitmap.createBackground(basedir)
+			} catch (e: Exception) {
+				// Most mods have no background tiles at all, this is not an error.
+				Log.d(TAG, "No background for $basedir: ${e.message}")
+				null
+			}
 		}
 	}
 
@@ -225,15 +254,24 @@ class Game(val ctx: Context, val basedir: File, val gameInfoFile: File) {
 	}
 
 	companion object {
-		fun getGames(ctx: Context, root: File): List<Game> {
+		private const val TAG = "Game"
+
+		suspend fun getGames(ctx: Context, root: File, previous: List<Game> = emptyList()): List<Game> {
+			val known = previous.associateBy { it.basedir }
 			val games = mutableListOf<Game>()
 
-			root.listFiles()?.forEach {
-				if (it.isDirectory) {
-					val subDirGameInfoFile = checkIfGamedir(it)
-					if (subDirGameInfoFile != null) {
-						games.add(Game(ctx, it, subDirGameInfoFile))
-					}
+			val entries = root.listFiles() ?: throw IOException("Cannot list $root")
+
+			for (dir in entries) {
+				currentCoroutineContext().ensureActive()
+
+				try {
+					if (!dir.isDirectory) continue
+					val gameInfoFile = checkIfGamedir(dir) ?: continue
+
+					games.add(Game(ctx, dir, gameInfoFile, known[dir]))
+				} catch (e: Exception) {
+					Log.w(TAG, "Skipping game directory $dir", e)
 				}
 			}
 
