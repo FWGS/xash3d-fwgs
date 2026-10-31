@@ -55,8 +55,8 @@ Half-Life runs: menu, gameplay, sound, DualShock 4, level changes, save/load, ex
 * Renderer: `gl` (ref_gl) on top of the fixed function OpenGL subset written over GNM,
   see below. 1920x1080, 60 FPS with vsync,
   a frame takes about 1-3 ms of CPU and 1-2 ms of GPU time.
-* DualShock 4 is read through libScePad directly, default layout is in
-  `Key_SetDefaultGamepadBindings` (applied once over older configs, `resetkeys` restores it).
+* DualShock 4 is read through libScePad directly, bindings come from the `playstation` gamepad preset,
+  applied once while gamepad keys are untouched (`joy_loadpreset playstation` restores it).
 * USB keyboard and mouse are read through libSceKeyboard and libSceMouse (`engine/platform/ps4/kbm_ps4.c`),
   the keyboard layout is US. Servers are told about the mouse only while one is plugged in. The system
   keyboard opens for the gamepad only, Cross opens it again if the USB keyboard was used.

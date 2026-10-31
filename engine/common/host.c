@@ -1303,11 +1303,6 @@ int EXPORT Host_Main( int argc, char **argv, const char *progname, int bChangeGa
 		// exec all files from userconfig.d
 		Cbuf_AddText( "userconfigd\n" );
 		Cbuf_Execute();
-
-#if XASH_PS4
-		// gamepad is the only input device, configs from PC may leave it unbound
-		Key_SetDefaultGamepadBindings();
-#endif
 		break;
 	case HOST_DEDICATED:
 		// allways parse commandline in dedicated-mode

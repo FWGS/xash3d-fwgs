@@ -480,6 +480,9 @@ int Platform_JoyInit( void )
 	ps4pad.buttons = 0;
 	memset( ps4pad.axes, 0, sizeof( ps4pad.axes ));
 
+	// gyroscope and touchpad of DualShock 4 aren't read yet
+	Joy_SetCapabilities( false, 0, "playstation" );
+
 	return 1;
 }
 
