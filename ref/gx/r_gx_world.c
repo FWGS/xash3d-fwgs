@@ -101,7 +101,7 @@ extern qboolean GC_GXFenceWait( u16 token );
 #define GC_GX_TEX_MAX_DIM	128	/* HUD menu background needs the full 128x96 tile */
 /* MEM-003: 4→3 BSS world tiles (−32 KiB). World binds LRU within the pool;
  * HUD/cinematic keep reserved storage. G199 noted 8 tipped clipnodes — keep ≥3. */
-#define GC_GX_TEX_WORLD_POOL	1
+#define GC_GX_TEX_WORLD_POOL	3
 static u16 r_gx_tex_world_pool[GC_GX_TEX_WORLD_POOL][GC_GX_TEX_MAX_DIM * GC_GX_TEX_MAX_DIM]
 	__attribute__((aligned( 32 )));
 static qboolean gc_mem003_world_pool_logged;

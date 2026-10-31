@@ -4,8 +4,6 @@ Copyright (C) 2026 xash3d-gc contributors
 */
 #pragma once
 
-#if XASH_GAMECUBE
-
 /* Performance metrics structure */
 typedef struct {
     float fps;                    /* Current frames per second */
@@ -26,6 +24,8 @@ typedef struct {
     int fps_window_index;        /* Current position in FPS window */
     int fps_window_count;        /* Number of samples in window */
 } GC_PerfMetrics;
+
+#if XASH_GAMECUBE
 
 /* Stall watchdog: GC_WatchdogMark records the current stage and progress;
  * a periodic alarm reports the stage and GP status when progress stops. */
