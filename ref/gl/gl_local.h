@@ -57,7 +57,7 @@ void VGL_ShimEndFrame( void );
 
 #define BLOCK_SIZE		tr.block_size	// lightmap blocksize
 #define BLOCK_SIZE_DEFAULT	128		// for keep backward compatibility
-#define BLOCK_SIZE_MAX	1024
+#define BLOCK_SIZE_MAX 1024
 
 #define MAX_TEXTURES            8192	// a1ba: increased by users request
 #define MAX_DETAIL_TEXTURES	256
@@ -65,6 +65,17 @@ void VGL_ShimEndFrame( void );
 #define SUBDIVIDE_SIZE	64
 #define MAX_DECAL_SURFS	4096
 #define MAX_DRAW_STACK	2		// normal view and menu view
+
+#if XASH_OGC
+#undef MAX_TEXTURES
+#undef MAX_DETAIL_TEXTURES
+#undef MAX_DECAL_SURFS
+#undef BLOCK_SIZE_MAX
+#define MAX_TEXTURES 2048
+#define MAX_DETAIL_TEXTURES 256
+#define MAX_DECAL_SURFS 256
+#define BLOCK_SIZE_MAX 256
+#endif
 
 #define SHADEDOT_QUANT 	16		// precalculated dot products for quantized angles
 #define SHADE_LAMBERT	1.4953241
@@ -84,7 +95,11 @@ void VGL_ShimEndFrame( void );
 
 #define HACKS_RELATED_HLMODS		// some HL-mods works differently under Xash and can't be fixed without some hacks at least at current time
 
+#if XASH_OGC
+#define SKYBOX_BASE_NUM ( MAX_TEXTURES - 16 )	// 2032, inside opengx's table
+#else
 #define SKYBOX_BASE_NUM 5800 // set skybox base (to let some mods load hi-res skyboxes)
+#endif
 
 typedef struct gltexture_s
 {
@@ -294,7 +309,11 @@ extern gl_globals_t	tr;
 extern float		gldepthmin, gldepthmax;
 #define r_numEntities	(tr.draw_list->num_solid_entities + tr.draw_list->num_trans_entities)
 #define r_numStatics	(r_stats.c_client_ents)
+#if XASH_STATIC
+#define Mod_AllowMaterials() (ref_host_allow_materials->value && !FBitSet( gp_host->features, ENGINE_DISABLE_HDTEXTURES ))
+#else
 #define Mod_AllowMaterials() (host_allow_materials->value && !FBitSet( gp_host->features, ENGINE_DISABLE_HDTEXTURES ))
+#endif
 
 //
 // gl_backend.c
@@ -478,7 +497,7 @@ void Mod_StudioUnloadTextures( void *data );
 //
 // gl_alias.c
 //
-void Mod_LoadAliasModel( model_t *mod, const void *buffer, qboolean *loaded );
+void R_Mod_LoadAliasModel( model_t *mod, const void *buffer, qboolean *loaded );
 void R_DrawAliasModel( cl_entity_t *e );
 void R_AliasInit( void );
 
@@ -499,8 +518,13 @@ qboolean R_UploadRipples( texture_t *image );
 //
 // renderer exports
 //
+#if XASH_STATIC
+qboolean REF_R_Init( void );
+void REF_R_Shutdown( void );
+#else
 qboolean R_Init( void );
 void R_Shutdown( void );
+#endif
 void GL_SetupAttributes( int safegl );
 void GL_OnContextCreated( void );
 void GL_InitExtensions( void );
@@ -542,6 +566,15 @@ const char *GL_ErrorString( int err ) RETURNS_NONNULL;
 //
 // gl_triapi.c
 //
+#if XASH_STATIC
+#define TriRenderMode R_TriRenderMode
+#define TriColor4f R_TriColor4f
+#define TriColor4ub R_TriColor4ub
+#define TriBrightness R_TriBrightness
+#define TriWorldToScreen R_TriWorldToScreen
+#define TriSpriteTexture R_TriSpriteTexture
+#define TriCullFace R_TriCullFace
+#endif
 void TriRenderMode( int mode );
 void TriBegin( int mode );
 void TriEnd( void );
@@ -693,8 +726,14 @@ typedef struct
 
 extern glconfig_t		glConfig;
 extern glstate_t		glState;
+
+#if XASH_STATIC
+extern glwstate_t		glw_state_gl;
+#define glw_state glw_state_gl
+#else
 // move to engine
 extern glwstate_t		glw_state;
+#endif
 
 //
 // helper funcs

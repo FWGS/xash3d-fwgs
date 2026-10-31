@@ -47,7 +47,7 @@ void *ANDROID_LoadLibrary( const char *path )
 	}
 
 	// try VFS
-	dll_user_t *hInst = FS_FindLibrary( path, false );
+	dll_user_t *hInst = COM_FindLibrary( path, false );
 	if( hInst )
 	{
 		Con_Reportf( "%s: VFS found \"%s\"\n", __func__, hInst->fullPath );

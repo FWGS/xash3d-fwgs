@@ -52,6 +52,11 @@ typedef int fixed16_t;
 	#define MAX_DECAL_SURFS 256
 #endif
 
+#if XASH_OGC
+	#undef MAX_TEXTURES
+	#define MAX_TEXTURES 	4096
+#endif
+
 #define MAX_DETAIL_TEXTURES 256
 #define MAX_LIGHTMAPS       256
 #define SUBDIVIDE_SIZE      64
@@ -436,8 +441,13 @@ void R_PolysetDrawSpansGlow( spanpackage_t *pspanpackage );
 //
 // renderer exports
 //
+#if XASH_STATIC
+qboolean REF_R_Init( void );
+void REF_R_Shutdown( void );
+#else
 qboolean R_Init( void );
 void R_Shutdown( void );
+#endif
 void GL_SetupAttributes( int safegl );
 void GL_InitExtensions( void );
 void GL_ClearExtensions( void );
@@ -473,6 +483,15 @@ void R_NewMap( void );
 //
 // gl_triapi.c
 //
+#if XASH_STATIC
+#define TriRenderMode R_TriRenderMode
+#define TriColor4f R_TriColor4f
+#define TriColor4ub R_TriColor4ub
+#define TriBrightness R_TriBrightness
+#define TriWorldToScreen R_TriWorldToScreen
+#define TriSpriteTexture R_TriSpriteTexture
+#define TriCullFace R_TriCullFace
+#endif
 void TriRenderMode( int mode );
 void TriBegin( int mode );
 void TriEnd( void );

@@ -170,6 +170,12 @@ void DOS_Init( void );
 void DOS_Shutdown( void );
 #endif
 
+#if XASH_OGC
+void OGC_Init( void );
+void OGC_Shutdown( void );
+qboolean OGC_GetBasePath( char *buf, const size_t buflen );
+#endif
+
 #if XASH_LINUX
 void Linux_Init( void );
 void Linux_Shutdown( void );
@@ -205,6 +211,8 @@ static inline void Platform_Init( qboolean con_showalways )
 	Win32_Init( con_showalways );
 #elif XASH_LINUX
 	Linux_Init( );
+#elif XASH_OGC
+	OGC_Init( );
 #endif
 
 #if XASH_SAILFISH && !XASH_DEDICATED
@@ -228,6 +236,8 @@ static inline void Platform_Shutdown( void )
 	Win32_Shutdown( );
 #elif XASH_LINUX
 	Linux_Shutdown( );
+#elif XASH_OGC
+	OGC_Shutdown( );
 #endif
 
 #if XASH_POSIX && !XASH_MOBILE_PLATFORM && !XASH_LOW_MEMORY
@@ -298,7 +308,7 @@ static inline qboolean Platform_LibraryExists( const char *name, qboolean gamedi
 	if( !COM_StringEmptyOrNULL( getenv( "XASH3D_GAMELIBDIR" )))
 		return true;
 #endif
-	// FIXME: use FS_FindLibrary
+	// FIXME: use COM_FindLibrary
 	return g_fsapi.FileExists( name, gamedironly );
 }
 

@@ -89,7 +89,11 @@ static void *Sys_GetNativeObjectStub( const char *object )
 	return NULL;
 }
 
+#if XASH_OGC
+fs_interface_t fs_gEngfuncs =
+#else
 fs_interface_t g_engfuncs =
+#endif
 {
 	Con_PrintfStub,
 	Con_PrintfStub,

@@ -459,6 +459,15 @@ void VOX_LoadSound( channel_t *ch, const char *pszin )
 
 	psz = VOX_LookupString( pszin );
 
+	#if XASH_OGC // ignore the #
+		if( pszin[0] == '#' )
+			psz = VOX_LookupString( pszin + 1);
+		else
+			psz = VOX_LookupString( pszin);
+	#else
+		psz = VOX_LookupString( pszin);
+	#endif
+
 	if( !psz )
 	{
 		// sometimes modders remove sentences but entities continue to use them, so it's a warning, not an error

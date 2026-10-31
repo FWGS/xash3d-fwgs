@@ -17,6 +17,7 @@ GNU General Public License for more details.
 #include "xash3d_mathlib.h"
 #include "const.h"
 #include "r_studioint.h"
+#include <malloc.h>
 #include "triangleapi.h"
 #include "studio.h"
 #include "pm_local.h"
@@ -126,7 +127,8 @@ CVAR_DEFINE_AUTO( r_studio_builtin_renderer, "0", 0, "use built-in studio model 
 static cvar_t			*cl_righthand = NULL;
 
 static r_studio_interface_t	*pStudioDraw;
-static studio_draw_state_t	g_studio;		// global studio state
+static studio_draw_state_t	*g_studio_mem;		// global studio state
+#define g_studio			(*g_studio_mem)
 
 // global variables
 static qboolean m_fDoRemap;
@@ -146,8 +148,16 @@ R_StudioInit
 */
 void R_StudioInit( void )
 {
+	if( !g_studio_mem )
+	{
+		// 32-byte aligned in case anything here is handed to the GPU directly
+		g_studio_mem = memalign( 32, sizeof( *g_studio_mem ));
+		if( !g_studio_mem )
+			gEngfuncs.Host_Error( "%s: failed to allocate studio state\n", __func__ );
+		memset( g_studio_mem, 0, sizeof( *g_studio_mem ));
+	}
 
-#if XASH_PSVITA
+#if XASH_PSVITA || XASH_OGC
 	// don't do the same array-building work twice since that's what our FFP shim does anyway
 	gEngfuncs.Cvar_FullSet( "r_studio_drawelements", "0", FCVAR_READ_ONLY );
 #endif
@@ -1880,6 +1890,7 @@ static void R_StudioBuildArrayChromeMesh( short *ptricmds, vec3_t *pstudionorms,
 
 static void R_StudioDrawArrays( uint startverts, uint startelems )
 {
+	#if !XASH_OGC
 	if( g_studio.numelems == startelems )
 		return;
 
@@ -1900,6 +1911,7 @@ static void R_StudioDrawArrays( uint startverts, uint startelems )
 	pglDisableClientState( GL_TEXTURE_COORD_ARRAY );
 	if( !( g_nForceFaceFlags & STUDIO_NF_CHROME ) )
 		pglDisableClientState( GL_COLOR_ARRAY );
+	#endif
 }
 
 /*

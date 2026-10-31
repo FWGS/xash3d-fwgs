@@ -83,7 +83,7 @@ const char *COM_OffsetNameForFunction( void *function )
 	return sname;
 }
 
-dll_user_t *FS_FindLibrary( const char *dllname, qboolean directpath )
+dll_user_t *COM_FindLibrary( const char *dllname, qboolean directpath )
 {
 	// no fs loaded yet, but let engine find fs
 	if( !g_fsapi.FindLibrary )
@@ -446,7 +446,7 @@ const char *COM_GetPlatformNeutralName( const char *in_name )
 
 qboolean COM_CheckLibraryDirectDependency( const char *name, const char *depname, qboolean directpath )
 {
-	dll_user_t *hInst = FS_FindLibrary( name, directpath );
+	dll_user_t *hInst = COM_FindLibrary( name, directpath );
 
 	if( !hInst )
 		return false;

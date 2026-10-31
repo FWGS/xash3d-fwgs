@@ -201,7 +201,13 @@ void Mod_ClearStudioCache( void );
 //
 // mod_sprite.c
 //
+#if XASH_OGC
+void OGC_Mod_LoadSpriteModel( model_t *mod, void *buffer, size_t buffersize, qboolean *loaded );
+#define Mod_LoadSpriteModel OGC_Mod_LoadSpriteModel
+
+#else
 void Mod_LoadSpriteModel( model_t *mod, void *buffer, size_t buffersize, qboolean *loaded );
+#endif
 void Mod_SpriteLoadTextures( model_t *mod, const void *buffer );
 void Mod_SpriteUnloadTextures( void *data );
 

@@ -17,7 +17,9 @@ GNU General Public License for more details.
 #include "imagelib.h"
 
 #define DEBUG_LOOKUPS_COUNT 0
+//#if !XASH_OGC
 #define USE_FS_SEARCH_FOR_LOOKUPS 1
+//#endif
 
 // global image variables
 imglib_t	image;

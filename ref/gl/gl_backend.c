@@ -160,6 +160,7 @@ void GL_SelectTexture( int tmu )
 
 	glState.activeTMU = tmu;
 
+	#if !XASH_OGC
 	if( pglActiveTextureARB )
 	{
 		pglActiveTextureARB( tmu + GL_TEXTURE0_ARB );
@@ -167,6 +168,7 @@ void GL_SelectTexture( int tmu )
 		if( tmu < glConfig.max_texture_coords )
 			pglClientActiveTextureARB( tmu + GL_TEXTURE0_ARB );
 	}
+	#endif
 }
 
 /*

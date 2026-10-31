@@ -13,8 +13,11 @@
 
 from waflib import Logs, Utils, TaskGen, Task
 from waflib.Tools import ccroot, c, cxx
+import subprocess
 
 MAIN_BINARY = 'xash'
+# Should we add every library that has conflicts with eachother?
+NAMESPACE_LIBRARIES = ('client', 'server')
 
 def options(opt):
 	opt.add_option('--static-linking', action='store', dest='STATIC_LINKING', default=None)
@@ -23,24 +26,39 @@ def configure(conf):
 	if conf.options.STATIC_LINKING:
 		conf.find_program('ld')
 		conf.find_program('objcopy')
+		conf.find_program('nm')
 		conf.env.STATIC_LINKING = conf.options.STATIC_LINKING
 		conf.add_os_flags('LD_RELOCATABLE_FLAGS')
 
 def build(bld):
 	if bld.env.STATIC_LINKING:
+
 		apply_static(MAIN_BINARY,*bld.env.STATIC_LINKING.split(','))
 
 class objcopy_relocatable_lib(Task.Task):
-	"remove all exports except of lib_${NAME}_exports"
+	"namespace the defined symbols in a relocatable library"
 	no_errcheck_out = True
-	run_str = '${OBJCOPY} -G lib_${NAME}_exports ${SRC[0].abspath()} ${TGT[0].abspath()}'
+	vars = ['OBJCOPY', 'NM', 'NAME']
+
+	def run(self):
+		"""Keep separately-built libraries namespaced in the final binary"""
+		output = subprocess.check_output([self.env.NM[0], '--defined-only', '--extern-only', '--format=posix', self.inputs[0].abspath()], stderr=subprocess.STDOUT,universal_newlines=True,)
+
+		if self.env.NAME in NAMESPACE_LIBRARIES:
+			symbols = sorted(set(line.split()[0] for line in output.splitlines() if line.split()))
+		else:
+			symbols = []
+		self.outputs[1].write(''.join('%s %s_%s\n' % (symbol, self.env.NAME, symbol) for symbol in symbols))
+
+		return self.exec_command([self.env.OBJCOPY[0], '--redefine-syms=%s' % self.outputs[1].abspath(), self.inputs[0].abspath(), self.outputs[0].abspath(),])
+
 	def keyword(self):
-		return 'ObjCopy'
+		return 'Namespace'
 
 class xshlib(ccroot.link_task):
 	"make relocatable library"
 	no_errcheck_out = True
-	run_str = '${LD} -r -o ${TGT[0].abspath()} ${LD_RELOCATABLE_FLAGS} ${CCLNK_SRC_F}${SRC}'
+	run_str = '${LD} -r -o ${TGT[0].abspath()} ${LD_RELOCATABLE_FLAGS} ${CCLNK_SRC_F}${SRC} ${STLIBPATH_ST:STLIBPATH} ${STLIB_ST:STLIB}'
 
 	def add_target(self, target):
 		"create objcopy task for target"
@@ -52,9 +70,10 @@ class xshlib(ccroot.link_task):
 		base = self.generator.path
 		target_unstripped = base.find_or_declare('%s.unstripped.o'% target)
 		target_stripped = base.find_or_declare('%s.o'% target)
+		target_symbols = base.find_or_declare('%s.symbols'% target)
 
 		self.set_outputs(target_unstripped)
-		self.generator.objcopy_task= self.generator.create_task('objcopy_relocatable_lib', target_unstripped, target_stripped)
+		self.generator.objcopy_task= self.generator.create_task('objcopy_relocatable_lib', target_unstripped, [target_stripped, target_symbols])
 		self.generator.objcopy_task.env['NAME'] = target
 
 class cprogram_static(c.cprogram):
@@ -75,8 +94,14 @@ def apply_static(main, *reloc):
 		"generate library list"
 
 		libraries = reloc
-		externs = '\n'.join(['extern table_t lib_%s_exports[];' % e for e in libraries])
-		table = '\n'.join(['{ "%s", &lib_%s_exports },' % (e, e) for e in libraries])
+		# prefixing also affects exports
+		def exports_symbol(name):
+			if name in NAMESPACE_LIBRARIES:
+				return '%s_lib_%s_exports' % (name, name)
+			return 'lib_%s_exports' % name
+
+		externs = '\n'.join(['extern table_t %s[];' % exports_symbol(e) for e in libraries])
+		table = '\n'.join(['{ "%s", &%s },' % (e, exports_symbol(e)) for e in libraries])
 		out_node.write('%s\nstruct {const char *name;void *func;} libs[] = {\n%s\n{0,0}\n};\n' % (externs, table ))
 
 
@@ -113,3 +138,16 @@ def apply_static(main, *reloc):
 
 			for t in reloc:
 				self.source += [self.bld.get_tgen_by_name(t).objcopy_task.outputs[0]]
+
+				# Forward each relocatable module's own external uselib
+				existing_use = Utils.to_list(getattr(self, 'use', []))
+				for u in Utils.to_list(getattr(self.bld.get_tgen_by_name(t), 'use', [])):
+					if u in reloc or u in existing_use:
+						continue
+					existing_use.append(u)
+					# Include paths to the external libraries
+					for key in ('STLIB_', 'STLIBPATH_', 'LIB_', 'LIBPATH_'):
+						val = self.bld.get_tgen_by_name(t).env[key + u]
+						if val:
+							self.env.append_unique(key + u, val)
+				self.use = existing_use

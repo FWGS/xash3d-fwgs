@@ -55,7 +55,7 @@ typedef struct dir_s
 
 static qboolean Platform_GetDirectoryCaseSensitivity( const char *dir )
 {
-#if XASH_WIN32 || XASH_PSVITA || XASH_NSWITCH
+#if XASH_WIN32 || XASH_PSVITA || XASH_NSWITCH || XASH_OGC
 	return false;
 #elif XASH_ANDROID
 	// on Android, doing code below causes crash in MediaProviderGoogle.apk!libfuse_jni.so

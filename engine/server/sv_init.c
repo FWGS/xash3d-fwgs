@@ -20,7 +20,7 @@ GNU General Public License for more details.
 #include "voice.h"
 #include "pm_local.h"
 
-#if XASH_LOW_MEMORY != 2
+#if XASH_LOW_MEMORY != 2 && !XASH_OGC
 int SV_UPDATE_BACKUP = SINGLEPLAYER_BACKUP;
 #endif
 server_t		sv;	// local server

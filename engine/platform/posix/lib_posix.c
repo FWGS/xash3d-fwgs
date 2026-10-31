@@ -290,8 +290,8 @@ void *COM_LoadLibrary( const char *dllname, int build_ordinals_table, qboolean d
 #endif
 
 	// platforms where gameinfo mechanism is working goes here
-	// and use FS_FindLibrary
-	dll_user_t *hInst = FS_FindLibrary( dllname, directpath );
+	// and use COM_FindLibrary
+	dll_user_t *hInst = COM_FindLibrary( dllname, directpath );
 	char buf[MAX_VA_STRING];
 
 	if( !hInst )

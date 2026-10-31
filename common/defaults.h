@@ -49,6 +49,11 @@ SETUP BACKENDS DEFINITIONS
 		#define XASH_REDUCE_FD 1
 		#define XASH_NO_TOUCH  1
 		#define XASH_NO_ZIP    1
+	#elif XASH_OGC
+		#define XASH_VIDEO     VIDEO_OGC
+		//#define XASH_REDUCE_FD 1
+		#define XASH_NO_ZIP    1
+		#define XASH_NO_TOUCH  1
 	#endif
 #endif // !XASH_DEDICATED
 
@@ -105,6 +110,7 @@ SETUP BACKENDS DEFINITIONS
 	#define XASH_LIB LIB_STATIC
 	#define XASH_INTERNAL_GAMELIBS
 	#define XASH_ALLOW_SAVERESTORE_OFFSETS
+	#define XASH_STATIC 1
 #elif XASH_WIN32
 	#define XASH_LIB LIB_WIN32
 #elif XASH_POSIX
@@ -151,6 +157,11 @@ Default build-depended cvar and constant values
 	#define DEFAULT_MODE_WIDTH   960
 	#define DEFAULT_MODE_HEIGHT  544
 	#define DEFAULT_ALLOWCONSOLE 1
+#elif XASH_OGC
+	#define DEFAULT_MODE_WIDTH   640
+	#define DEFAULT_MODE_HEIGHT  480
+	#define DEFAULT_ALLOWCONSOLE  1
+	#define XASH_NO_IPV6_RESOLVE  1
 #elif XASH_ANDROID
 	#define DEFAULT_TOUCH_ENABLE "1"
 #elif XASH_SAILFISH

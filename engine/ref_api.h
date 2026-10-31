@@ -683,6 +683,38 @@ typedef int (*REFAPI)( int version, ref_interface_t *pFunctionTable, ref_api_t* 
 // actually, they are just created on engine side for convenience
 // and must be retrieved by renderer side
 // sometimes it's done to standartize cvars to make it easier for users
+#if XASH_STATIC //TODO: Improve this while still allowing one definition
+#define ENGINE_SHARED_CVAR_LIST( f ) \
+	ENGINE_SHARED_CVAR_NAME( f, vid_gamma, gamma ) \
+	ENGINE_SHARED_CVAR_NAME( f, vid_brightness, brightness ) \
+	ENGINE_SHARED_CVAR_NAME( f, v_lightgamma, lightgamma ) \
+	ENGINE_SHARED_CVAR_NAME( f, v_direct, direct ) \
+	ENGINE_SHARED_CVAR_NAME( f, ref_r_showtextures, r_showtextures ) \
+	ENGINE_SHARED_CVAR_NAME( f, ref_r_showtextures_zoom, r_showtextures_zoom ) \
+	ENGINE_SHARED_CVAR( f, r_speeds ) \
+	ENGINE_SHARED_CVAR( f, r_fullbright ) \
+	ENGINE_SHARED_CVAR( f, r_norefresh ) \
+	ENGINE_SHARED_CVAR( f, r_lightmap ) \
+	ENGINE_SHARED_CVAR( f, r_dynamic ) \
+	ENGINE_SHARED_CVAR( f, r_drawentities ) \
+	ENGINE_SHARED_CVAR_NAME( f, ref_r_decals, r_decals ) \
+	ENGINE_SHARED_CVAR_NAME( f, ref_r_showhull, r_showhull ) \
+	ENGINE_SHARED_CVAR_NAME( f, ref_gl_vsync, gl_vsync ) \
+	ENGINE_SHARED_CVAR_NAME( f, ref_gl_clear, gl_clear ) \
+	ENGINE_SHARED_CVAR( f, cl_himodels ) \
+	ENGINE_SHARED_CVAR( f, cl_lightstyle_lerping ) \
+	ENGINE_SHARED_CVAR( f, tracerred ) \
+	ENGINE_SHARED_CVAR( f, tracergreen ) \
+	ENGINE_SHARED_CVAR( f, tracerblue ) \
+	ENGINE_SHARED_CVAR( f, traceralpha ) \
+	ENGINE_SHARED_CVAR( f, r_sprite_lerping ) \
+	ENGINE_SHARED_CVAR( f, r_sprite_lighting ) \
+	ENGINE_SHARED_CVAR( f, r_drawviewmodel ) \
+	ENGINE_SHARED_CVAR( f, r_glowshellfreq ) \
+	ENGINE_SHARED_CVAR_NAME( f, ref_host_allow_materials, host_allow_materials ) \
+	ENGINE_SHARED_CVAR( f, r_pvs_radius ) \
+
+#else
 #define ENGINE_SHARED_CVAR_LIST( f ) \
 	ENGINE_SHARED_CVAR_NAME( f, vid_gamma, gamma ) \
 	ENGINE_SHARED_CVAR_NAME( f, vid_brightness, brightness ) \
@@ -712,6 +744,8 @@ typedef int (*REFAPI)( int version, ref_interface_t *pFunctionTable, ref_api_t* 
 	ENGINE_SHARED_CVAR( f, r_glowshellfreq ) \
 	ENGINE_SHARED_CVAR( f, host_allow_materials ) \
 	ENGINE_SHARED_CVAR( f, r_pvs_radius ) \
+
+#endif
 
 #define DECLARE_ENGINE_SHARED_CVAR_LIST() \
 	ENGINE_SHARED_CVAR_LIST( DECLARE_ENGINE_SHARED_CVAR )

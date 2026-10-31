@@ -35,7 +35,7 @@ typedef struct dll_user_s
 	uintptr_t	funcBase;			// base offset
 } dll_user_t;
 
-dll_user_t *FS_FindLibrary( const char *dllname, qboolean directpath );
+dll_user_t *COM_FindLibrary( const char *dllname, qboolean directpath );
 void *COM_LoadLibrary( const char *dllname, int build_ordinals_table, qboolean directpath );
 void *COM_GetProcAddress( void *hInstance, const char *name );
 void *COM_GetProcAddressFromDependency( void *hInstance, const char *depname, const char *name );

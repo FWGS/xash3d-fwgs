@@ -384,6 +384,12 @@ void *_Mem_Alloc( poolhandle_t poolptr, size_t size, qboolean clear, const char 
 poolhandle_t _Mem_AllocPool( const char *name, unsigned int flags, const char *filename, int fileline )
 	WARN_UNUSED_RESULT;
 
+#if XASH_STATIC
+void FS_Mem_Free( void *data, const char *filename, int fileline );
+void *FS_Mem_Alloc( poolhandle_t poolptr, size_t size, qboolean clear, const char *filename, int fileline )
+ALLOC_CHECK( 2 ) MALLOC_LIKE( FS_Mem_Free, 1 ) WARN_UNUSED_RESULT;
+#endif
+
 // pool flags
 #define MEM_SMALL_ALLOC_OPT (1U<<0) // use compact header for allocations <= 255 bytes (drops filename/fileline tracking)
 
@@ -425,7 +431,7 @@ byte *FS_LoadFile( const char *path, fs_offset_t *filesizeptr, qboolean gamediro
 byte *FS_LoadDirectFile( const char *path, fs_offset_t *filesizeptr )
 	MALLOC_LIKE( _Mem_Free, 1 ) WARN_UNUSED_RESULT;
 void FS_Rescan_f( void );
-void FS_LoadGameInfo( void );
+void COM_FS_LoadGameInfo( void );
 void FS_SaveVFSConfig( void );
 
 //

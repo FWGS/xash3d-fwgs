@@ -265,6 +265,7 @@ enables global fog on the level
 */
 void TriFog( float flFogColor[3], float flStart, float flEnd, int bOn )
 {
+	#if !XASH_OGC
 	// overrided by internal fog
 	if( RI.fogEnabled || !gl_fog.value ) return;
 	RI.fogCustom = bOn;
@@ -305,6 +306,7 @@ void TriFog( float flFogColor[3], float flStart, float flEnd, int bOn )
 	pglFogf( GL_FOG_START, RI.fogStart );
 	pglFogf( GL_FOG_END, RI.fogEnd );
 	pglHint( GL_FOG_HINT, GL_NICEST );
+	#endif
 }
 
 /*

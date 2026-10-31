@@ -69,7 +69,7 @@ enum { false, true };
 #endif
 typedef int qboolean;
 
-#if XASH_LOW_MEMORY == 1 || XASH_PSP
+#if XASH_LOW_MEMORY == 1 || XASH_PSP || XASH_OGC
 	#define MAX_QPATH 48
 	#define MAX_MODS  16
 #elif XASH_LOW_MEMORY == 2

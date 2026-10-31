@@ -27,7 +27,12 @@ GNU General Public License for more details.
 	#define O_BINARY 0
 #endif
 
-fs_globals_t FI;
+#if XASH_STATIC
+fs_globals_t fs_globalvars;
+#else
+fs_globals_t  FI;
+#endif
+
 poolhandle_t  fs_mempool;
 char          fs_rootdir[MAX_SYSPATH];
 searchpath_t *fs_writepath;
@@ -78,6 +83,10 @@ void FS_EnsureOpenFile( file_t *file ) {}
 void FS_BackupFileName( file_t *file, const char *path, uint options ) {}
 #endif
 
+void FS_InitMemory( void );
+void FS_Purge( file_t* file );
+
+#if !XASH_STATIC
 void _Mem_Free( void *data, const char *filename, int fileline )
 {
 	g_engfuncs._Mem_Free( data, filename, fileline );
@@ -87,6 +96,17 @@ void *_Mem_Alloc( poolhandle_t poolptr, size_t size, qboolean clear, const char 
 {
 	return g_engfuncs._Mem_Alloc( poolptr, size, clear, filename, fileline );
 }
+#else
+void FS_Mem_Free( void *data, const char *filename, int fileline )
+{
+	g_engfuncs._Mem_Free( data, filename, fileline );
+}
+
+void *FS_Mem_Alloc( poolhandle_t poolptr, size_t size, qboolean clear, const char *filename, int fileline )
+{
+	return g_engfuncs._Mem_Alloc( poolptr, size, clear, filename, fileline );
+}
+#endif
 
 void FS_InitMemory( void )
 {

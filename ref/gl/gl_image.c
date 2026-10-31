@@ -19,7 +19,7 @@ GNU General Public License for more details.
 
 #define TEXTURES_HASH_SIZE	(MAX_TEXTURES >> 2)
 
-static gl_texture_t		gl_textures[MAX_TEXTURES];
+static gl_texture_t		*gl_textures;
 static gl_texture_t*	gl_texturesHashTable[TEXTURES_HASH_SIZE];
 static uint		gl_numTextures;
 
@@ -412,6 +412,12 @@ static int GL_CalcMipmapCount( gl_texture_t *tex, qboolean haveBuffer )
 
 	// mip-maps can't exceeds 16
 	int mipcount;
+
+#if XASH_OGC
+	// skip past the first miplevel map
+	return 1;
+#endif
+
 	for( mipcount = 0; mipcount < 16; mipcount++ )
 	{
 		int width = Q_max( 1, ( tex->width >> mipcount ));
@@ -646,18 +652,33 @@ static void GL_SetTextureFormat( gl_texture_t *tex, pixformat_t format, int chan
 		switch( GL_CalcTextureSamples( channelMask ))
 		{
 		case 1:
+			#if XASH_OGC
+			if( !FBitSet( tex->flags, TF_ALPHACONTRAST ))
+				tex->format = GL_RGB;
+			else
+			#endif
 			if( FBitSet( tex->flags, TF_ALPHACONTRAST ))
 				tex->format = GL_INTENSITY8;
 			else tex->format = GL_LUMINANCE8;
 			break;
-		case 2: tex->format = GL_LUMINANCE8_ALPHA8; break;
+		case 2:
+			#if XASH_OGC
+			tex->format = GL_RGBA8;
+			#else
+			tex->format = GL_LUMINANCE8_ALPHA8;
+			#endif
+			break;
 		case 3:
+			#if XASH_OGC
+			tex->format = GL_RGB;
+			#else
 			switch( bits )
 			{
 			case 16: tex->format = GL_RGB5; break;
 			case 32: tex->format = GL_RGB8; break;
 			default: tex->format = GL_RGB; break;
 			}
+			#endif
 			break;
 		case 4:
 		default:
@@ -830,6 +851,71 @@ static void GL_BuildMipMap( byte *in, int srcWidth, int srcHeight, int srcDepth,
 	}
 }
 
+static void GL_ConvertLuminanceToRGBA565( GLenum *inFormat, GLint width, GLint height, GLint depth, const void *data )
+{
+	static byte *lum;
+	static size_t lumsize;
+	size_t need = (size_t)width * height * depth;
+
+	if( need > lumsize )
+	{
+		byte *grown = realloc( lum, need );
+
+		if( grown )
+		{
+			lum = grown;
+			lumsize = need;
+		}
+	}
+
+	if( lum && need <= lumsize )
+	{
+		const byte *src = data;
+		size_t i;
+
+		for( i = 0; i < need; i++ )
+			lum[i] = src[i * 4];
+
+		data = lum;
+		inFormat = ( GLenum * )GL_LUMINANCE;
+	}
+}
+
+static void GL_ConvertRGBAToRGB565( GLenum *inFormat, GLint width, GLint height, GLint depth, const void *data )
+{
+	static byte *rgb;
+	static size_t rgbsize;
+	size_t px = (size_t)width * height * depth;
+	size_t need = px * 3;
+
+	if( need > rgbsize )
+	{
+		byte *grown = realloc( rgb, need );
+
+		if( grown )
+		{
+			rgb = grown;
+			rgbsize = need;
+		}
+	}
+
+	if( rgb && need <= rgbsize )
+	{
+		const byte *src = data;
+		size_t i;
+
+		for( i = 0; i < px; i++ )
+		{
+			rgb[i * 3 + 0] = src[i * 4 + 0];
+			rgb[i * 3 + 1] = src[i * 4 + 1];
+			rgb[i * 3 + 2] = src[i * 4 + 2];
+		}
+
+		data = rgb;
+		inFormat = ( GLenum * )GL_RGB;
+	}
+}
+
 static void GL_TextureImageRAW( gl_texture_t *tex, GLint side, GLint level, GLint width, GLint height, GLint depth, GLint type, const void *data )
 {
 	const GLuint cubeTarget = GL_TEXTURE_CUBE_MAP_POSITIVE_X_ARB;
@@ -868,24 +954,43 @@ static void GL_TextureImageRAW( gl_texture_t *tex, GLint side, GLint level, GLin
 	else
 		dataType = GL_UNSIGNED_BYTE;
 
-	if( tex->target == GL_TEXTURE_1D )
-	{
-		if( subImage ) pglTexSubImage1D( tex->target, level, 0, width, inFormat, dataType, data );
-		else pglTexImage1D( tex->target, level, tex->format, width, 0, inFormat, dataType, data );
-	}
-	else if( tex->target == GL_TEXTURE_CUBE_MAP_ARB )
+#if XASH_OGC
+	if(( tex->format == GL_LUMINANCE8 || tex->format == GL_INTENSITY8 )
+		&& ( inFormat == GL_RGBA || inFormat == GL_BGRA ) && data != NULL )
+		GL_ConvertLuminanceToRGBA565( &inFormat, width, height, depth, &data );
+
+	// RGB565 wants three byte pixels handed to it. the data
+	// arrives as RGBA and opengx reads at the width the format implies.
+	if( tex->format == GL_RGB && ( inFormat == GL_RGBA || inFormat == GL_BGRA ) && data != NULL )
+		GL_ConvertRGBAToRGB565( &inFormat, width, height, depth, &data);
+#endif
+
+	#if XASH_OGC
+	if( tex->target == GL_TEXTURE_CUBE_MAP_ARB )
 	{
 		if( subImage ) pglTexSubImage2D( cubeTarget + side, level, 0, 0, width, height, inFormat, dataType, data );
 		else pglTexImage2D( cubeTarget + side, level, tex->format, width, height, 0, inFormat, dataType, data );
+	}
+	#else
+	if( tex->target == GL_TEXTURE_CUBE_MAP_ARB )
+	{
+		if( subImage ) pglTexSubImage2D( cubeTarget + side, level, 0, 0, width, height, inFormat, dataType, data );
+		else pglTexImage2D( cubeTarget + side, level, tex->format, width, height, 0, inFormat, dataType, data );
+	}
+	else if( tex->target == GL_TEXTURE_1D )
+	{
+		if( subImage ) pglTexSubImage1D( tex->target, level, 0, width, inFormat, dataType, data );
+		else pglTexImage1D( tex->target, level, tex->format, width, 0, inFormat, dataType, data );
 	}
 	else if( tex->target == GL_TEXTURE_3D || tex->target == GL_TEXTURE_2D_ARRAY_EXT )
 	{
 		if( subImage ) pglTexSubImage3D( tex->target, level, 0, 0, 0, width, height, depth, inFormat, dataType, data );
 		else pglTexImage3D( tex->target, level, tex->format, width, height, depth, 0, inFormat, dataType, data );
 	}
+	#endif
 	else if( tex->target == GL_TEXTURE_2D_MULTISAMPLE )
 	{
-#if !defined( XASH_GL_STATIC ) || (!defined( XASH_GLES ) && !defined( XASH_GL4ES ))
+#if !defined( XASH_GL_STATIC ) || (!defined( XASH_GLES ) && !defined( XASH_GL4ES )) && !defined( XASH_OGC )
 		GLsizei	samplesCount = (GLsizei)gEngfuncs.pfnGetCvarFloat( "gl_msaa_samples" );
 		switch( samplesCount )
 		{
@@ -916,7 +1021,7 @@ static void GL_TextureImageCompressed( gl_texture_t *tex, GLint side, GLint leve
 
 	Assert( tex != NULL );
 
-#if !XASH_GLES
+#if !XASH_GLES && !XASH_OGC
 	if( tex->target == GL_TEXTURE_1D )
 	{
 		if( subImage ) pglCompressedTexSubImage1DARB( tex->target, level, 0, width, tex->format, size, data );
@@ -964,6 +1069,7 @@ GL_UploadTexture
 upload texture into video memory
 ===============
 */
+
 static qboolean GL_UploadTexture( gl_texture_t *tex, rgbdata_t *pic )
 {
 	// dedicated server
@@ -1363,6 +1469,7 @@ void GL_UpdateTexSize( int texnum, int width, int height, int depth )
 		}
 	}
 }
+
 
 /*
 ================
@@ -2062,7 +2169,14 @@ R_InitImages
 */
 void R_InitImages( void )
 {
-	memset( gl_textures, 0, sizeof( gl_textures ));
+	if( !gl_textures )
+	{
+		gl_textures = calloc( MAX_TEXTURES, sizeof( *gl_textures ));
+		if( !gl_textures )
+			gEngfuncs.Host_Error( "%s: failed to allocate %d textures\n", __func__, MAX_TEXTURES );
+	}
+
+	memset( gl_textures, 0, MAX_TEXTURES * sizeof( *gl_textures ));
 	memset( gl_texturesHashTable, 0, sizeof( gl_texturesHashTable ));
 	gl_numTextures = 0;
 
@@ -2095,14 +2209,19 @@ void R_ShutdownImages( void )
 
 	memset( tr.lightmapTextures, 0, sizeof( tr.lightmapTextures ));
 	memset( gl_texturesHashTable, 0, sizeof( gl_texturesHashTable ));
-	memset( gl_textures, 0, sizeof( gl_textures ));
+	memset( gl_textures, 0, MAX_TEXTURES * sizeof( *gl_textures ));
 	gl_numTextures = 0;
 }
 
 void R_TextureReplacementReport( const char *modelname, int gl_texturenum, const char *foundpath )
 {
+	#if XASH_STATIC
+	if( ref_host_allow_materials->value != 2.0f )
+		return;
+	#else
 	if( host_allow_materials->value != 2.0f )
 		return;
+	#endif
 
 	if( gl_texturenum > 0 )
 		gEngfuncs.Con_Printf( "Looking for %s tex replacement..." S_GREEN "OK (%s)\n", modelname, foundpath );
@@ -2144,8 +2263,13 @@ void R_ShowTextures( void )
 {
 	static qboolean showHelp = true;
 
+	#if XASH_STATIC
+	if( !ref_r_showtextures->value )
+		return;
+	#else
 	if( !r_showtextures->value )
 		return;
+	#endif
 
 	if( showHelp )
 	{
@@ -2167,7 +2291,11 @@ void R_ShowTextures( void )
 	gEngfuncs.Con_DrawStringLen( NULL, NULL, &charHeight );
 
 	// keep a tile square and fitting on screen
+	#if XASH_STATIC
+	float zoom = bound( SHOWTEXTURES_ZOOM_MIN, ref_r_showtextures_zoom->value, SHOWTEXTURES_ZOOM_MAX );
+	#else
 	float zoom = bound( SHOWTEXTURES_ZOOM_MIN, r_showtextures_zoom->value, SHOWTEXTURES_ZOOM_MAX );
+	#endif
 	float w = Q_min( 200.0f * zoom, gpGlobals->width );
 	float h = Q_min( 200.0f * zoom, Q_max( 1.0f, gpGlobals->height - charHeight * 2.0f ));
 
@@ -2177,7 +2305,11 @@ void R_ShowTextures( void )
 	int base_w = Q_max( 1, (int)( gpGlobals->width / w ));
 	int base_h = Q_max( 1, (int)( gpGlobals->height / ( h + charHeight * 2 )));
 	int per_page = base_w * base_h;
+	#if XASH_STATIC
+	int start = per_page * ( ref_r_showtextures->value - 1 ) + 1; // skip empty null texture
+	#else
 	int start = per_page * ( r_showtextures->value - 1 ) + 1; // skip empty null texture
+	#endif
 
 	GL_SetRenderMode( kRenderTransTexture );	// nc changed from normal to trans, Con_DrawString does this anyway
 
@@ -2193,13 +2325,14 @@ void R_ShowTextures( void )
 				empty_page = false;
 				break;
 			}
-
+		#if !XASH_OGC
 			const gl_texture_t *image = R_GetTexture( i );
 			if( pglIsTexture( image->texnum ))
 			{
 				empty_page = false;
 				break;
 			}
+		#endif
 		}
 
 		if( empty_page )
@@ -2224,8 +2357,10 @@ void R_ShowTextures( void )
 			break;
 
 		const gl_texture_t *image = R_GetTexture( i );
+		#if !XASH_OGC
 		if( !pglIsTexture( image->texnum ))
 			continue;
+		#endif
 
 		float x = k % base_w * gpGlobals->width / base_w;
 		float y = k / base_w * gpGlobals->height / base_h;

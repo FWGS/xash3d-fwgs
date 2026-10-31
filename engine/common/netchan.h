@@ -79,6 +79,16 @@ GNU General Public License for more details.
 #define NUM_PACKET_ENTITIES		256	// 170 Mb for multiplayer with 32 players
 #define MAX_CUSTOM_BASELINES		64
 
+#if XASH_OGC
+	#undef SINGLEPLAYER_BACKUP
+	#undef NUM_PACKET_ENTITIES
+	#undef MAX_CUSTOM_BASELINES
+	#undef NET_MAX_FRAGMENT
+	#define SINGLEPLAYER_BACKUP		4
+	#define NUM_PACKET_ENTITIES		32
+	#define MAX_CUSTOM_BASELINES		8
+	#define NET_MAX_FRAGMENT		32768
+#else
 #if XASH_LOW_MEMORY == 2
 	#undef MULTIPLAYER_BACKUP
 	#undef SINGLEPLAYER_BACKUP
@@ -99,6 +109,7 @@ GNU General Public License for more details.
 	#define NUM_PACKET_ENTITIES		64
 	#define MAX_CUSTOM_BASELINES		8
 	#define NET_MAX_FRAGMENT		32768
+#endif
 #endif
 
 /*

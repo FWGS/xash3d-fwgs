@@ -149,7 +149,7 @@ static qboolean Mod_ProcessRenderData( model_t *mod, qboolean create, const byte
 		loaded = true;
 		break;
 	case mod_alias:
-		Mod_LoadAliasModel( mod, buf, &loaded );
+		R_Mod_LoadAliasModel( mod, buf, &loaded );
 		break;
 	default:
 		gEngfuncs.Host_Error( "%s: unsupported type %d\n", __func__, mod->type );
@@ -426,6 +426,7 @@ static void R_NewMap( void )
 
 	if( gEngfuncs.drawFuncs->R_NewMap != NULL )
 		gEngfuncs.drawFuncs->R_NewMap();
+
 }
 
 static void R_FillRenderAPI( render_api_t *api )
@@ -465,8 +466,13 @@ static void R_FillTriAPI( triangleapi_t *api )
 
 const ref_interface_t gReffuncs =
 {
+	#if XASH_STATIC
+	REF_R_Init,
+	REF_R_Shutdown,
+	#else
 	R_Init,
 	R_Shutdown,
+	#endif
 	R_GetConfigName,
 	R_SetDisplayTransform,
 

@@ -5,7 +5,8 @@ def options(opt):
 	pass
 
 def configure(conf):
-	pass
+	if conf.env.STATIC_LINKING:
+		conf.define('XASH_STATIC', 1)
 
 def build(bld):
 	use = ['engine_includes', 'sdk_includes', 'werror']

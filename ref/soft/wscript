@@ -11,7 +11,8 @@ def options(opt):
 	return
 
 def configure(conf):
-	return
+	if conf.env.STATIC_LINKING:
+		conf.define('XASH_STATIC', 1)
 
 def build(bld):
 	libs = [ 'ref_common', 'engine_includes', 'werror', 'yy_thunks' ]

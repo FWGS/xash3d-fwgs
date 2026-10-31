@@ -123,16 +123,33 @@ typedef struct searchpath_s
 typedef searchpath_t *(*FS_ADDARCHIVE_FULLPATH)( const char *path, int flags );
 
 extern char fs_rootdir[MAX_SYSPATH], fs_basedir[MAX_SYSPATH], fs_rodir[MAX_SYSPATH];
-extern fs_globals_t FI;
 extern searchpath_t *fs_writepath, *fs_searchpaths;
 extern poolhandle_t fs_mempool;
-extern fs_interface_t g_engfuncs;
 extern const fs_api_t g_api;
+
+#if XASH_OGC
+extern fs_interface_t fs_gEngfuncs;
+#define g_engfuncs fs_gEngfuncs
+#else
+extern fs_interface_t g_engfuncs;
+#endif
+
+#if XASH_STATIC
+extern fs_globals_t fs_globalvars;
+#define FI fs_globalvars
+#else
+extern fs_globals_t FI;
+#endif
 
 #define GI FI.GameInfo
 
+#if XASH_STATIC
+#define Mem_Malloc( pool, size ) g_engfuncs._Mem_Alloc( pool, size, false, __FILE__, __LINE__ )
+#define Mem_Calloc( pool, size ) g_engfuncs._Mem_Alloc( pool, size, true, __FILE__, __LINE__ )
+#else
 #define Mem_Malloc( pool, size ) _Mem_Alloc( pool, size, false, __FILE__, __LINE__ )
 #define Mem_Calloc( pool, size ) _Mem_Alloc( pool, size, true, __FILE__, __LINE__ )
+#endif
 #define Mem_Realloc( pool, ptr, size ) g_engfuncs._Mem_Realloc( pool, ptr, size, true, __FILE__, __LINE__ )
 #define Mem_Free( mem ) _Mem_Free( mem, __FILE__, __LINE__ )
 #define Mem_AllocPool( name ) g_engfuncs._Mem_AllocPool( name, 0, __FILE__, __LINE__ )

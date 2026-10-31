@@ -43,6 +43,7 @@ fs_globals_t *FI;
 static pfnCreateInterface_t fs_pfnCreateInterface;
 static HINSTANCE fs_hInstance;
 
+#ifndef XASH_STATIC
 search_t *FS_Search( const char *pattern, int caseinsensitive, int gamedironly )
 {
 	return g_fsapi.Search( pattern, caseinsensitive, gamedironly );
@@ -67,7 +68,7 @@ byte *FS_LoadDirectFile( const char *path, fs_offset_t *filesizeptr )
 {
 	return g_fsapi.LoadDirectFile( path, filesizeptr );
 }
-
+#endif
 static void COM_StripDirectorySlash( char *pname )
 {
 	size_t len = Q_strlen( pname );
@@ -158,7 +159,7 @@ void FS_SaveVFSConfig( void )
 	ClearBits( ui_language.flags, FCVAR_CHANGED );
 }
 
-void FS_LoadGameInfo( void )
+void COM_FS_LoadGameInfo( void )
 {
 	FS_LoadVFSConfig( g_fsapi.Gamedir( ));
 

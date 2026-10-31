@@ -145,7 +145,9 @@ static const dllfunc_t opengl_110funcs[] =
 { GL_CALL( glClearStencil ) },
 { GL_CALL( glIsEnabled ) },
 { GL_CALL( glIsList ) },
+#if XASH_OGC
 { GL_CALL( glIsTexture ) },
+#endif
 { GL_CALL( glTexEnvf ) },
 { GL_CALL( glTexEnvfv ) },
 { GL_CALL( glTexEnvi ) },
@@ -630,8 +632,13 @@ GL_GetProcAddress
 defined just for nanogl/glwes, so it don't link to SDL2 directly, nor use dlsym
 ==============
 */
-void GAME_EXPORT *GL_GetProcAddress( const char *name ); // keep defined for nanogl/wes
-void GAME_EXPORT *GL_GetProcAddress( const char *name )
+#if XASH_OGC
+static void GAME_EXPORT *OGC_GL_GetProcAddress( const char *name ); // keep defined for nanogl/wes
+static void GAME_EXPORT *OGC_GL_GetProcAddress( const char *name )
+#else
+static void GAME_EXPORT *GL_GetProcAddress( const char *name ); // keep defined for nanogl/wes
+static void GAME_EXPORT *GL_GetProcAddress( const char *name )
+#endif
 {
 	return gEngfuncs.GL_GetProcAddress( name );
 }
@@ -769,8 +776,13 @@ static void R_RenderInfo( qboolean startup )
 	gEngfuncs.Con_Printf( "\n" );
 	gEngfuncs.Con_Printf( "MODE: %ix%i\n", gpGlobals->width, gpGlobals->height );
 	gEngfuncs.Con_Printf( "\n" );
+	#if XASH_STATIC
+	if( !startup )
+		gEngfuncs.Con_Printf( "VERTICAL SYNC: %s\n", ref_gl_vsync->value ? "enabled" : "disabled" );
+	#else
 	if( !startup )
 		gEngfuncs.Con_Printf( "VERTICAL SYNC: %s\n", gl_vsync->value ? "enabled" : "disabled" );
+	#endif
 	gEngfuncs.Con_Printf( "Color %d bits, Alpha %d bits, Depth %d bits, Stencil %d bits\n", glConfig.color_bits,
 		glConfig.alpha_bits, glConfig.depth_bits, glConfig.stencil_bits );
 }
@@ -1164,7 +1176,7 @@ void GL_InitExtensions( void )
 	pglGetIntegerv( GL_MAX_TEXTURE_SIZE, &glConfig.max_2d_texture_size );
 	if( glConfig.max_2d_texture_size <= 0 ) glConfig.max_2d_texture_size = 256;
 
-#if !XASH_GL4ES // GL4ES doesn't provide glDebugMessage functions, even as stubs
+#if !XASH_GL4ES && !XASH_OGC// GL4ES doesn't provide glDebugMessage functions, even as stubs
 	// enable gldebug if allowed
 	if( GL_Support( GL_DEBUG_OUTPUT ))
 	{
@@ -1269,7 +1281,11 @@ static void GL_InitCommands( void )
 	gEngfuncs.Cvar_RegisterVariable( &gl_polyoffset_bmodels );
 
 	// make sure gl_vsync is checked after vid_restart
+	#if XASH_STATIC
+	SetBits( ref_gl_vsync->flags, FCVAR_CHANGED );
+	#else
 	SetBits( gl_vsync->flags, FCVAR_CHANGED );
+	#endif
 
 	gEngfuncs.Cmd_AddCommand( "r_info", R_RenderInfo_f, "display renderer info" );
 	gEngfuncs.Cmd_AddCommand( "timerefresh", SCR_TimeRefresh_f, "turn quickly and print rendering statistcs" );
@@ -1328,7 +1344,11 @@ static void GL_RemoveCommands( void )
 R_Init
 ===============
 */
+#if XASH_STATIC
+qboolean REF_R_Init( void )
+#else
 qboolean R_Init( void )
+#endif
 {
 	if( glw_state.initialized )
 		return true;
@@ -1377,7 +1397,11 @@ qboolean R_Init( void )
 R_Shutdown
 ===============
 */
+#if XASH_STATIC
+void REF_R_Shutdown( void )
+#else
 void R_Shutdown( void )
+#endif
 {
 	if( !glw_state.initialized )
 		return;

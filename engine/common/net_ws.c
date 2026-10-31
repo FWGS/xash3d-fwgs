@@ -135,7 +135,7 @@ static void NET_ClearLagData( qboolean bClient, qboolean bServer );
 
 qboolean NET_IsSocketError( int retval )
 {
-#if XASH_WIN32 || XASH_DOS4GW
+#if XASH_WIN32 || XASH_DOS4GW || XASH_OGC
 	return retval == SOCKET_ERROR ? true : false;
 #else
 	return retval < 0 ? true : false;
@@ -144,7 +144,7 @@ qboolean NET_IsSocketError( int retval )
 
 qboolean NET_IsSocketValid( int socket )
 {
-#if XASH_WIN32 || XASH_DOS4GW
+#if XASH_WIN32 || XASH_DOS4GW || XASH_OGC
 	return socket != INVALID_SOCKET;
 #else
 	return socket >= 0;
@@ -262,6 +262,7 @@ NET_GetHostByName
 */
 static qboolean NET_GetHostByName( const char *hostname, int family, struct sockaddr_storage *addr )
 {
+#if !XASH_OGC
 	struct addrinfo *ai = NULL, *cur;
 	qboolean ret = false;
 
@@ -292,6 +293,20 @@ static qboolean NET_GetHostByName( const char *hostname, int family, struct sock
 	}
 
 	return ret;
+#else
+	struct hostent *h;
+
+	if( family == AF_INET6 )
+		return false;
+
+	if(!( h = net_gethostbyname( hostname )))
+		return false;
+
+	((struct sockaddr_in *)addr)->sin_family = AF_INET;
+	((struct sockaddr_in *)addr)->sin_addr = *(struct in_addr *)h->h_addr_list[0];
+
+	return true;
+#endif
 }
 
 static void NET_ResolveThread( void );
@@ -1614,11 +1629,13 @@ static int NET_IPSocket( const char *net_iface, int port, int family )
 		setsockopt( net_socket, SOL_SOCKET, SO_RCVTIMEO, (char *)&timeout, sizeof(timeout));
 	}
 
+	#if !XASH_OGC
 	// make it broadcast capable
 	if( NET_IsSocketError( setsockopt( net_socket, SOL_SOCKET, SO_BROADCAST, (char *)&_true, sizeof( _true ))))
 	{
 		Con_DPrintf( S_WARN "%s: port: %d setsockopt SO_BROADCAST: %s\n", __func__, port, NET_ErrorString( ));
 	}
+	#endif //not supported
 
 	if( !NET_MakeSocketReuseAddr( net_socket ))
 	{
@@ -2011,6 +2028,20 @@ void NET_Init( void )
 		Con_DPrintf( S_ERROR "network initialization failed.\n" );
 		return;
 	}
+#endif
+
+#if XASH_OGC
+	char localip[16] = {0};
+	char gateway[16] = {0};
+	char netmask[16] = {0};
+
+	int32_t ret = if_config( localip, netmask, gateway, true, 20);
+    if (ret < 0)
+	{
+		Con_Printf( S_ERROR "Wii network configuration failed: %i.\n", ret );
+		return;
+	}
+	Con_Printf("wii network configured, ip: %s, gw: %s, mask %s\n", localip, gateway, netmask);
 #endif
 
 	NET_InitializeCriticalSections();

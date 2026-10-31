@@ -93,7 +93,7 @@ typedef struct
 #define ANGLE_MASK		(ANGLE_BACKUP - 1)
 
 #define CL_UPDATE_MASK	(CL_UPDATE_BACKUP - 1)
-#if XASH_LOW_MEMORY == 2
+#if XASH_LOW_MEMORY == 2 && !XASH_OGC
 #define CL_UPDATE_BACKUP SINGLEPLAYER_BACKUP
 #else
 extern int CL_UPDATE_BACKUP;

@@ -30,13 +30,17 @@ static const loadwavfmt_t load_game[] =
 #ifndef XASH_DEDICATED
 { "wav", Sound_LoadWAV },
 { "mp3", Sound_LoadMPG },
+#if !defined(XASH_NO_OGG_CONTAINER)
 { "ogg", Sound_LoadOggVorbis },
 { "opus", Sound_LoadOggOpus },
+#endif
 #else // we only need extensions
 { "wav" },
 { "mp3" },
+#if !defined(XASH_NO_OGG_CONTAINER)
 { "ogg" },
 { "opus" },
+#endif
 #endif
 { NULL },
 };
@@ -53,13 +57,17 @@ static const streamfmt_t stream_game[] =
 #ifndef XASH_DEDICATED
 { "mp3", Stream_OpenMPG, Stream_ReadMPG, Stream_SetPosMPG, Stream_GetPosMPG, Stream_FreeMPG },
 { "wav", Stream_OpenWAV, Stream_ReadWAV, Stream_SetPosWAV, Stream_GetPosWAV, Stream_FreeWAV },
+#if !defined(XASH_NO_OGG_CONTAINER)
 { "ogg", Stream_OpenOggVorbis, Stream_ReadOggVorbis, Stream_SetPosOggVorbis, Stream_GetPosOggVorbis, Stream_FreeOggVorbis },
 { "opus", Stream_OpenOggOpus, Stream_ReadOggOpus, Stream_SetPosOggOpus, Stream_GetPosOggOpus, Stream_FreeOggOpus },
+#endif
 #else // we only need extensions
 { "mp3" },
 { "wav" },
+#if !defined(XASH_NO_OGG_CONTAINER)
 { "ogg" },
 { "opus" },
+#endif
 #endif
 { NULL },
 };

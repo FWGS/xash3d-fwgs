@@ -658,6 +658,7 @@ Host_Frame
 */
 void Host_Frame( double time )
 {
+
 	// decide the simulation time
 	if( !Host_FilterTime( time ))
 		return;
@@ -1144,7 +1145,7 @@ static void Host_InitCommon( int argc, char **argv, const char *progname, qboole
 		Host_RunTests( 1 );
 #endif
 
-	FS_LoadGameInfo();
+	COM_FS_LoadGameInfo();
 	Host_CheckGameLibraries();
 	Cvar_PostFSInit();
 

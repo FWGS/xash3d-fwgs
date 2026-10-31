@@ -272,7 +272,7 @@ static qboolean SteamBroker_ProcessFrame( void )
 			}
 		}
 	}
-	
+
 	// remove processed frame from buffer
 	memmove( broker.rx_buffer, broker.rx_buffer + frame_size, broker.rx_buffer_pos - frame_size );
 	broker.rx_buffer_pos -= frame_size;

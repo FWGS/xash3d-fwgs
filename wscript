@@ -54,6 +54,7 @@ def use_xash_clang_format(self):
 			t.env.env = dict(os.environ, XASH_CLANG_FORMAT_BIN=real_cf)
 
 
+
 class Subproject:
 	def __init__(self, name, fnFilter = None):
 		self.name = name
@@ -107,7 +108,8 @@ SUBDIRS = [
 	Subproject('3rdparty/miniz', lambda x: not x.env.HAVE_SYSTEM_ZLIB),
 	Subproject('filesystem'),
 	Subproject('stub/server'),
-	Subproject('3rdparty/libbacktrace'),
+	# unsupported on wii
+	Subproject('3rdparty/libbacktrace', lambda x: x.env.DEST_OS != 'wii'),
 	Subproject('3rdparty/library_suffix'),
 	Subproject('3rdparty/yy-thunks'),
 	Subproject('utils/run-fuzzer', lambda x: x.env.ENABLE_FUZZER),
@@ -123,10 +125,10 @@ SUBDIRS = [
 	Subproject('ref/null',              lambda x: x.env.CLIENT and x.env.NULL),
 	Subproject('3rdparty/bzip2',        lambda x: x.env.CLIENT and not x.env.HAVE_SYSTEM_BZ2),
 	Subproject('3rdparty/mpg123',       lambda x: x.env.CLIENT and not x.env.HAVE_SYSTEM_MPG123),
-	Subproject('3rdparty/mbedtls'),
+	Subproject('3rdparty/mbedtls',      lambda x: x.env.DEST_OS != 'wii'),
 	Subproject('3rdparty/opus',         lambda x: x.env.CLIENT and not x.env.HAVE_SYSTEM_OPUS),
-	Subproject('3rdparty/libogg',       lambda x: x.env.CLIENT and not x.env.HAVE_SYSTEM_OGG),
-	Subproject('3rdparty/vorbis',       lambda x: x.env.CLIENT and (not x.env.HAVE_SYSTEM_VORBIS or not x.env.HAVE_SYSTEM_VORBISFILE)),
+	Subproject('3rdparty/libogg',       lambda x: x.env.CLIENT and x.env.DEST_OS != 'wii' and not x.env.HAVE_SYSTEM_OGG),
+	Subproject('3rdparty/vorbis',       lambda x: x.env.CLIENT and x.env.DEST_OS != 'wii' and (not x.env.HAVE_SYSTEM_VORBIS or not x.env.HAVE_SYSTEM_VORBISFILE)),
 	Subproject('3rdparty/opusfile',     lambda x: x.env.CLIENT and not x.env.HAVE_SYSTEM_OPUSFILE),
 	Subproject('3rdparty/maintui',      lambda x: x.env.CLIENT and x.env.TUI),
 	Subproject('3rdparty/mainui',       lambda x: x.env.CLIENT and x.env.DEST_OS != 'android'),
@@ -134,6 +136,8 @@ SUBDIRS = [
 	# engine is obligated to provide VGUI interface in 32-bit builds on Windows/Linux/Mac as shared library
 	# on platforms supported only by Xash3D FWGS, freevgui can be linked statically into client library
 	Subproject('3rdparty/freevgui',     lambda x: x.env.CLIENT and x.env.DEST_OS in ['win32', 'linux', 'darwin'] and x.env.DEST_CPU == 'x86'),
+
+	Subproject('3rdparty/hlsdk-portable',lambda x: x.env.CLIENT and x.env.STATIC_LINKING),
 
 	Subproject('3rdparty/MultiEmulator',lambda x: x.env.CLIENT),
 	Subproject('stub/client',           lambda x: x.env.CLIENT),
@@ -307,7 +311,7 @@ def configure(conf):
 		conf.env.MSVC_TARGETS = ['x86']
 
 	# Load compilers early
-	conf.load('xshlib xcompile compiler_c compiler_cxx')
+	conf.load('xcompile xshlib compiler_c compiler_cxx')
 
 	if not conf.options.WAFCACHE:
 		conf.load('gccdeps')
@@ -322,6 +326,9 @@ def configure(conf):
 
 	if conf.options.PSVITA:
 		conf.load('psvita')
+
+	if conf.options.WII:
+		conf.load('ogc')
 
 	# HACKHACK: override msvc DEST_CPU value by something that we understand
 	if conf.env.DEST_CPU == 'amd64':
@@ -358,6 +365,12 @@ def configure(conf):
 		conf.options.GL               = False
 		conf.options.LOW_MEMORY       = 1
 		enforce_pic = False
+	elif conf.env.DEST_OS == 'wii':
+		conf.options.GL               = True
+		conf.options.GL_STATIC        = True
+		conf.options.SOFT             = False
+		conf.options.NULL             = False
+		conf.options.LOW_MEMORY       = 2
 	elif conf.env.MSVC_WINE:
 		conf.options.BUILD_BUNDLED_DEPS = True
 	elif conf.env.SAILFISH:
@@ -450,7 +463,7 @@ def configure(conf):
 			'-Werror=implicit-fallthrough=2',
 			'-Werror=logical-op',
 			'-Werror=nonnull',
-			'-Werror=packed',
+			# '-Werror=packed',
 			'-Werror=packed-not-aligned',
 			'-Werror=parentheses',
 			'-Werror=return-type',
@@ -458,7 +471,7 @@ def configure(conf):
 			'-Werror=sizeof-pointer-memaccess',
 			'-Werror=sizeof-array-div',
 			'-Werror=sizeof-pointer-div',
-			'-Werror=strict-aliasing',
+			#'-Werror=strict-aliasing',
 			'-Werror=string-compare',
 			'-Werror=tautological-compare',
 			'-Werror=use-after-free=3',
@@ -498,7 +511,7 @@ def configure(conf):
 			'-Werror=jump-misses-init',
 			'-Werror=old-style-declaration',
 			'-Werror=old-style-definition',
-			'-Werror=strict-prototypes',
+			#'-Werror=strict-prototypes',
 			'-fnonconst-initializers', # owcc
 			'-Wmissing-prototypes', # not an error yet
 		]
@@ -521,7 +534,7 @@ def configure(conf):
 	if not conf.options.DEDICATED:
 		conf.env.SERVER = conf.options.ENABLE_DEDICATED
 		conf.env.CLIENT = True
-		conf.env.LAUNCHER = conf.env.DEST_OS not in ['android', 'nswitch', 'psvita', 'dos', 'emscripten'] and not conf.env.IOS and not conf.env.MAGX and not conf.env.STATIC_LINKING
+		conf.env.LAUNCHER = conf.env.DEST_OS not in ['android', 'nswitch', 'psvita', 'dos', 'wii', 'emscripten'] and not conf.env.IOS and not conf.env.MAGX and not conf.env.STATIC_LINKING
 	else:
 		conf.env.SERVER = True
 		conf.env.CLIENT = False
@@ -531,7 +544,7 @@ def configure(conf):
 
 	conf.define_cond('SUPPORT_HL25_EXTENDED_STRUCTS', conf.options.SUPPORT_HL25_EXTENDED_STRUCTS)
 
-	if conf.options.ENABLE_RPATH and conf.env.DEST_OS not in ['nswitch', 'psvita']:
+	if conf.options.ENABLE_RPATH and conf.env.DEST_OS not in ['nswitch', 'psvita','wii']:
 		if conf.env.DEST_OS == 'openbsd':
 			# OpenBSD requires -z origin to enable $ORIGIN expansion in RPATH
 			conf.env.RPATH_ST = '-Wl,-z,origin,-rpath,%s'
@@ -607,7 +620,7 @@ def configure(conf):
 		# with our native API level
 		# https://android.googlesource.com/platform/bionic/+/HEAD/docs/32-bit-abi.md
 		pass
-	elif conf.env.DEST_OS == 'psvita':
+	elif conf.env.DEST_OS == ['psvita', 'wii']:
 		# PSVita don't have large file support at all
 		pass
 	else:

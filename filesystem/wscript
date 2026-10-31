@@ -30,18 +30,21 @@ def configure(conf):
 	if conf.check_cc(fragment=DIRENT_D_TYPE_TEST, msg='Checking for d_type field in struct dirent', mandatory=False):
 		conf.define('HAVE_DIRENT_D_TYPE', 1)
 
+	if conf.env.STATIC_LINKING:
+		conf.define('XASH_STATIC', 1)
+
 def build(bld):
 	bld(name = 'filesystem_includes', export_includes = '.')
 
 	libs = [ 'filesystem_includes', 'sdk_includes', 'werror', 'yy_thunks' ]
 
 	# on PSVita do not link any libraries that are already in the main executable, but add the includes target
-	if bld.env.DEST_OS != 'psvita':
+	if bld.env.DEST_OS != 'psvita' and not bld.env.STATIC_LINKING:
 		libs += [ 'public', 'zlib', 'ANDROID', 'library_suffix', 'build_vcs' ]
 
 	bld.shlib(target = 'filesystem_stdio',
 		features = 'seq format',
-		source = bld.path.ant_glob(['*.c', '*.cpp']),
+		source = bld.path.ant_glob(['*.c', '*.cpp'], excl='link_helper.cpp'),
 		use = libs,
 		install_path = bld.env.LIBDIR)
 

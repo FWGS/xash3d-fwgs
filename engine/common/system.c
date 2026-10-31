@@ -186,7 +186,7 @@ const char *Sys_GetCurrentUser( void )
 	sceAppUtilSystemParamGetString( SCE_SYSTEM_PARAM_ID_USERNAME, username, sizeof( username ) - 1 );
 	if( !COM_StringEmpty( username ))
 		return username;
-#elif XASH_POSIX && !XASH_ANDROID && !XASH_NSWITCH
+#elif XASH_POSIX && !XASH_ANDROID && !XASH_NSWITCH && !XASH_OGC
 	static string username;
 	struct passwd *pw = getpwuid( geteuid( ));
 
@@ -563,7 +563,7 @@ qboolean Sys_CanRestart( void )
 {
 #if XASH_NSWITCH || XASH_PSVITA
 	return true;
-#elif XASH_IOS
+#elif XASH_IOS || XASH_OGC
 	return false;
 #else
 	int exelen = wai_getExecutablePath( NULL, 0, NULL );
@@ -660,6 +660,9 @@ qboolean Sys_NewInstance( const char *gamedir, const char *finalmsg )
 	// under normal circumstances it's always going to be the same path
 	exe = strdup( "app0:/eboot.bin" );
 	sceAppMgrLoadExec( exe, newargs, NULL );
+
+#elif XASH_OGC
+	Host_ShutdownWithReason( finalmsg );
 #else
 	int exelen = wai_getExecutablePath( NULL, 0, NULL );
 	if( exelen >= 0 )

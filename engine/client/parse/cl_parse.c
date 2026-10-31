@@ -22,7 +22,7 @@ GNU General Public License for more details.
 #include "input.h"
 #include "eiface.h"
 
-#if XASH_LOW_MEMORY != 2
+#if XASH_LOW_MEMORY != 2 || XASH_OGC
 int CL_UPDATE_BACKUP = SINGLEPLAYER_BACKUP;
 #endif
 /*

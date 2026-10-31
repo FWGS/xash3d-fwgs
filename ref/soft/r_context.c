@@ -439,8 +439,13 @@ static void R_FillTriAPI( triangleapi_t *api )
 
 const ref_interface_t gReffuncs =
 {
+	#if XASH_STATIC
+	REF_R_Init,
+	REF_R_Shutdown,
+	#else
 	R_Init,
 	R_Shutdown,
+	#endif
 	R_GetConfigName,
 	R_SetDisplayTransform,
 

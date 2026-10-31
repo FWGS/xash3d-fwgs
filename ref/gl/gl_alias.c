@@ -481,7 +481,7 @@ static const void *Mod_LoadAllSkins( model_t *mod, int numskins, const daliasski
 Mod_LoadAliasModel
 =================
 */
-void Mod_LoadAliasModel( model_t *mod, const void *buffer, qboolean *loaded )
+void R_Mod_LoadAliasModel( model_t *mod, const void *buffer, qboolean *loaded )
 {
 	if( loaded ) *loaded = false;
 	const daliashdr_t *pinmodel = (const daliashdr_t *)buffer;
