@@ -75,6 +75,19 @@ void GAME_EXPORT CL_DrawParticles( double frametime, particle_t *cl_active_parti
 	{
 		int guard = 0;
 
+	/* One GX/TriAPI primitive for the entire particle pass. Opening a quad
+	 * primitive per particle needlessly flushes state/FIFO work and made
+	 * particle-heavy effects disproportionately expensive on Flipper. */
+	/* GX's TriAPI represents quads as a single triangle fan.  That is fine
+	 * for one quad, but not for a whole particle list: subsequent particles
+	 * would be connected to the first vertex.  Emit a triangle list on GX so
+	 * every billboard remains independent while still sharing one primitive
+	 * and one GX state setup. */
+#if XASH_GAMECUBE
+	TriBegin( TRI_TRIANGLES );
+#else
+	TriBegin( TRI_QUADS );
+#endif
 	for( particle_t *p = cl_active_particles; p; p = p->next )
 	{
 		if( ++guard > 256 )
@@ -135,7 +148,6 @@ void GAME_EXPORT CL_DrawParticles( double frametime, particle_t *cl_active_parti
 					(void *)p, p->type, p->color, p->org[0], p->org[1], p->org[2] );
 			}
 #endif
-			TriBegin( TRI_QUADS );
 			TriTexCoord2f( 0.0f, 1.0f );
 			TriVertex3f( p->org[0] - right[0] + up[0], p->org[1] - right[1] + up[1], p->org[2] - right[2] + up[2] );
 			TriTexCoord2f( 0.0f, 0.0f );
@@ -144,7 +156,13 @@ void GAME_EXPORT CL_DrawParticles( double frametime, particle_t *cl_active_parti
 			TriVertex3f( p->org[0] + right[0] - up[0], p->org[1] + right[1] - up[1], p->org[2] + right[2] - up[2] );
 			TriTexCoord2f( 1.0f, 1.0f );
 			TriVertex3f( p->org[0] - right[0] - up[0], p->org[1] - right[1] - up[1], p->org[2] - right[2] - up[2] );
-			TriEnd();
+#if XASH_GAMECUBE
+			/* Complete the second triangle of the quad. */
+			TriTexCoord2f( 0.0f, 1.0f );
+			TriVertex3f( p->org[0] - right[0] + up[0], p->org[1] - right[1] + up[1], p->org[2] - right[2] + up[2] );
+			TriTexCoord2f( 1.0f, 0.0f );
+			TriVertex3f( p->org[0] + right[0] - up[0], p->org[1] + right[1] - up[1], p->org[2] + right[2] - up[2] );
+#endif
 			r_stats.c_particle_count++;
 		}
 
@@ -159,6 +177,7 @@ void GAME_EXPORT CL_DrawParticles( double frametime, particle_t *cl_active_parti
 #endif
 		gEngfuncs.CL_ThinkParticle( frametime, p );
 	}
+	TriEnd();
 	}
 	// pglDepthMask( GL_TRUE );
 }
@@ -234,6 +253,12 @@ void GAME_EXPORT CL_DrawTracers( double frametime, particle_t *cl_active_tracers
 
 	{
 		int guard = 0;
+#if XASH_GAMECUBE
+		/* All tracers use the same dot texture and blend state.  Keep one GX
+		 * triangle-list submission open for the pass, while retaining each
+		 * tracer's independent color and geometry. */
+		TriBegin( TRI_TRIANGLES );
+#endif
 
 	for( particle_t *p = cl_active_tracers; p; p = p->next )
 	{
@@ -316,16 +341,26 @@ void GAME_EXPORT CL_DrawTracers( double frametime, particle_t *cl_active_tracers
 			}
 
 
+#if !XASH_GAMECUBE
 			TriBegin( TRI_QUADS );
+#endif
 			TriTexCoord2f( 0.0f, 0.8f );
 			TriVertex3fv( verts[2] );
 			TriTexCoord2f( 1.0f, 0.8f );
 			TriVertex3fv( verts[3] );
 			TriTexCoord2f( 1.0f, 0.0f );
 			TriVertex3fv( verts[1] );
+#if XASH_GAMECUBE
+			TriTexCoord2f( 0.0f, 0.8f );
+			TriVertex3fv( verts[2] );
+			TriTexCoord2f( 1.0f, 0.0f );
+			TriVertex3fv( verts[1] );
+#endif
 			TriTexCoord2f( 0.0f, 0.0f );
 			TriVertex3fv( verts[0] );
+#if !XASH_GAMECUBE
 			TriEnd();
+#endif
 		}
 
 		// evaluate position
@@ -348,6 +383,9 @@ void GAME_EXPORT CL_DrawTracers( double frametime, particle_t *cl_active_tracers
 			p->vel[2] = gravity * 0.05;
 		}
 	}
+	#if XASH_GAMECUBE
+		TriEnd();
+	#endif
 	}
 
 	// pglDepthMask( GL_TRUE );

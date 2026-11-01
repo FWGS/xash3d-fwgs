@@ -64,6 +64,27 @@ typedef struct gc_video_s
 
 static gc_video_t gc;
 #if XASH_GAMECUBE
+static void *GC_VideoAlloc( size_t bytes, const char *tag )
+{
+	void *ptr;
+	size_t free_bytes;
+
+	if( bytes == 0 )
+		return NULL;
+	free_bytes = GC_MemHeapFreeBytes();
+	if( free_bytes < bytes )
+	{
+		Con_Reportf( S_WARN "Xash3D GameCube: video alloc refused tag=%s need=%s free=%s\n",
+			tag ? tag : "unknown", Q_memprint( bytes ), Q_memprint( free_bytes ));
+		return NULL;
+	}
+	ptr = malloc( bytes );
+	if( !ptr )
+		Con_Reportf( S_WARN "Xash3D GameCube: video alloc failed tag=%s need=%s free=%s\n",
+			tag ? tag : "unknown", Q_memprint( bytes ), Q_memprint( free_bytes ));
+	return ptr;
+}
+
 static void *xfb[2] = { NULL, NULL };
 static u32 xfb_bytes[2];
 
@@ -82,7 +103,11 @@ static void GC_AllocXFB( int i, GXRModeObj *mode )
 }
 static int which_fb = 0;
 static GXRModeObj *rmode = NULL;
-static uint8_t gx_fifo[256 * 1024] __attribute__((aligned(32)));
+/* A larger FIFO lets Broadway queue the next world/effects batch while
+ * Flipper is still consuming the previous one.  This is especially useful
+ * for HL1's particle-heavy scenes; the buffer is MEM1-resident and remains
+ * well below the GameCube's available low-memory budget. */
+static uint8_t gx_fifo[512 * 1024] __attribute__((aligned(32)));
 static unsigned int gc_present_count;
 
 /* The direct GameCube presentation paths can run before the ref DLL has
@@ -458,6 +483,7 @@ typedef struct
 	int		numedges;
 	int		flags;
 	int		area;
+	int		score;
 	mplane_t	plane;
 	mtexinfo_t	texinfo;
 	qboolean	has_tex;
@@ -759,6 +785,11 @@ static int gc_aram_fill_count;
 static qboolean gc_aram_fill_tried;
 static qboolean gc_g225_aram_logged;
 static gc_fill_face_t gc_aram_stage __attribute__(( aligned( 32 )));
+/* Small MEM1 read-through cache for ARAM faces.  Face consumers commonly
+ * ask for vertices and plane data back-to-back; avoid issuing the same ARAM
+ * DMA twice while keeping the cache bounded and deterministic. */
+static int gc_aram_face_cached_slot = -1;
+static gc_fill_face_t gc_aram_face_cached __attribute__(( aligned( 32 )));
 static u32 gc_aram_blocks[8];
 
 /*
@@ -1178,6 +1209,7 @@ int GC_GetLiveFaceBakeSrc( int index )
 
 static qboolean GC_AramFillEnsure( void );
 static qboolean GC_AramFillRead( int slot );
+static void GC_AramFillRelease( void );
 
 int GC_GetFillFaceCount( void )
 {
@@ -3240,7 +3272,7 @@ static void GC_CaptureDrawFacesNoPVS( model_t *wmodel )
 	/* FromSurfbits early-outs when surfbytes was never set (menu skips FatPVS). */
 	if( gc_newgame_surfbytes <= 0 )
 		gc_newgame_surfbytes = (int)bytes;
-	allbits = (byte *)malloc( bytes );
+	allbits = (byte *)GC_VideoAlloc( bytes, "world surfbits" );
 	if( allbits )
 	{
 		memset( allbits, 0xff, bytes );
@@ -3616,7 +3648,9 @@ static void GC_FreeLiveFaces( void )
 	gc_fill_face_capacity = 0;
 	gc_fill_face_count = 0;
 	gc_g222_fill_logged = false;
+	GC_AramFillRelease();
 	gc_aram_fill_count = 0;
+	gc_aram_face_cached_slot = -1;
 	gc_g225_aram_logged = false;
 	/* G277: do NOT free tram faces here — AllocLiveFacePool calls this. */
 }
@@ -3646,8 +3680,8 @@ static qboolean GC_AllocLiveFacePool( int want )
 		size_t cand_bytes = (size_t)max_faces * sizeof( gc_live_cand_t );
 		size_t score_bytes = (size_t)max_faces * sizeof( int );
 
-		gc_live_faces = (gc_live_cand_t *)malloc( cand_bytes );
-		gc_live_face_scores = (int *)malloc( score_bytes );
+		gc_live_faces = (gc_live_cand_t *)GC_VideoAlloc( cand_bytes, "live faces" );
+		gc_live_face_scores = (int *)GC_VideoAlloc( score_bytes, "live face scores" );
 		if( gc_live_faces && gc_live_face_scores )
 		{
 			gc_live_face_capacity = max_faces;
@@ -4328,6 +4362,18 @@ static qboolean GC_AramFillEnsure( void )
 	return true;
 }
 
+static void GC_AramFillRelease( void )
+{
+	if( !gc_aram_fill_base )
+		return;
+	while( AR_GetDMAStatus())
+		;
+	/* G225 owns the most recent ARAM allocation in this subsystem. */
+	AR_Free( NULL );
+	gc_aram_fill_base = 0;
+	gc_aram_face_cached_slot = -1;
+}
+
 static void GC_AramFillWrite( int slot, const gc_fill_face_t *face )
 {
 	gc_aram_stage = *face;
@@ -4345,6 +4391,11 @@ static qboolean GC_AramFillRead( int slot )
 {
 	if( !gc_aram_fill_base || slot < 0 || slot >= gc_aram_fill_count )
 		return false;
+	if( gc_aram_face_cached_slot == slot )
+	{
+		gc_aram_stage = gc_aram_face_cached;
+		return true;
+	}
 	while( AR_GetDMAStatus())
 		;
 	AR_StartDMARead( (u32)&gc_aram_stage,
@@ -4353,6 +4404,8 @@ static qboolean GC_AramFillRead( int slot )
 	while( AR_GetDMAStatus())
 		;
 	DCInvalidateRange( &gc_aram_stage, GC_ARAM_FACE_STRIDE );
+	gc_aram_face_cached = gc_aram_stage;
+	gc_aram_face_cached_slot = slot;
 	return true;
 }
 
@@ -4419,8 +4472,8 @@ static qboolean GC_AllocFillFacePool( int want )
 		size_t face_bytes = (size_t)max_faces * sizeof( gc_fill_face_t );
 		size_t score_bytes = (size_t)max_faces * sizeof( int );
 
-		gc_fill_faces = (gc_fill_face_t *)malloc( face_bytes );
-		gc_fill_face_scores = (int *)malloc( score_bytes );
+		gc_fill_faces = (gc_fill_face_t *)GC_VideoAlloc( face_bytes, "fill faces" );
+		gc_fill_face_scores = (int *)GC_VideoAlloc( score_bytes, "fill face scores" );
 		if( gc_fill_faces && gc_fill_face_scores )
 		{
 			gc_fill_face_capacity = max_faces;
@@ -4491,7 +4544,7 @@ static void GC_CaptureFillFacesFromSurfbits( model_t *wmodel, const byte *surfbi
 	/* Scores may have been freed after menu CapFaces bake to tip AllocPool. */
 	if( gc_fill_faces && !gc_fill_face_scores && gc_fill_face_capacity > 0 )
 	{
-		gc_fill_face_scores = (int *)malloc( (size_t)gc_fill_face_capacity * sizeof( int ));
+		gc_fill_face_scores = (int *)GC_VideoAlloc( (size_t)gc_fill_face_capacity * sizeof( int ), "fill face score retry" );
 		if( !gc_fill_face_scores )
 			return;
 		memset( gc_fill_face_scores, 0, (size_t)gc_fill_face_capacity * sizeof( int ));
@@ -4666,10 +4719,8 @@ static void GC_SortRefreshCandsByAreaDesc( int cache_slot )
 		{
 			const gc_refresh_cand_t *a = &gc_refresh_cands[i];
 			const gc_refresh_cand_t *b = &gc_refresh_cands[j];
-			int sa = GC_CapNearEyeScore( &a->plane, a->area,
-				fabs( a->plane.normal[2] ) < 0.35f );
-			int sb = GC_CapNearEyeScore( &b->plane, b->area,
-				fabs( b->plane.normal[2] ) < 0.35f );
+			int sa = a->score;
+			int sb = b->score;
 
 			if( sb > sa )
 			{
@@ -4846,6 +4897,7 @@ static void GC_BuildRefreshCandsFromSurfbits( model_t *wmodel, const byte *surfb
 			dst->numedges = src->numedges;
 			dst->flags = src->flags;
 			dst->area = area;
+			dst->score = score;
 			dst->plane = *src->plane;
 			dst->texturemins[0] = src->texturemins[0];
 			dst->texturemins[1] = src->texturemins[1];
@@ -4862,27 +4914,10 @@ static void GC_BuildRefreshCandsFromSurfbits( model_t *wmodel, const byte *surfb
 			continue;
 		}
 		min_i = 0;
-		min_score = GC_CapNearEyeScore( &gc_refresh_cands[0].plane,
-			gc_refresh_cands[0].area,
-			fabs( gc_refresh_cands[0].plane.normal[2] ) < 0.35f );
-		if( prefer_walls && fabs( gc_refresh_cands[0].plane.normal[2] ) < 0.35f )
-			min_score += gc_refresh_cands[0].area;
-		if( gc_refresh_cands[0].has_tex
-			&& GC_G380NpcRoomHoriz( &gc_refresh_cands[0].plane, &gc_refresh_cands[0].texinfo,
-				gc_refresh_cands[0].texturemins, gc_refresh_cands[0].extents, true ))
-			min_score += 500000;
+		min_score = gc_refresh_cands[0].score;
 		for( k = 1; k < GC_CAP_REFRESH_NEW_MAX; k++ )
 		{
-			int ks = GC_CapNearEyeScore( &gc_refresh_cands[k].plane,
-				gc_refresh_cands[k].area,
-				fabs( gc_refresh_cands[k].plane.normal[2] ) < 0.35f );
-
-			if( prefer_walls && fabs( gc_refresh_cands[k].plane.normal[2] ) < 0.35f )
-				ks += gc_refresh_cands[k].area;
-			if( gc_refresh_cands[k].has_tex
-				&& GC_G380NpcRoomHoriz( &gc_refresh_cands[k].plane, &gc_refresh_cands[k].texinfo,
-					gc_refresh_cands[k].texturemins, gc_refresh_cands[k].extents, true ))
-				ks += 500000;
+			int ks = gc_refresh_cands[k].score;
 			if( ks < min_score )
 			{
 				min_score = ks;
@@ -11086,7 +11121,7 @@ static qboolean GC_CaptureLeanCompressedPVS( model_t *wmodel, int numclusters, s
 	size_t total = 0;
 	int i;
 
-	gc_newgame_compressed_ofs = (int *)malloc( (size_t)numclusters * sizeof( int ));
+	gc_newgame_compressed_ofs = (int *)GC_VideoAlloc( (size_t)numclusters * sizeof( int ), "compressed PVS offsets" );
 	if( !gc_newgame_compressed_ofs )
 		return false;
 	for( i = 0; i < numclusters; i++ )
@@ -11111,7 +11146,7 @@ static qboolean GC_CaptureLeanCompressedPVS( model_t *wmodel, int numclusters, s
 	if( !total )
 		return false;
 
-	gc_newgame_compressed_pvs = (byte *)malloc( total );
+	gc_newgame_compressed_pvs = (byte *)GC_VideoAlloc( total, "compressed PVS" );
 	if( !gc_newgame_compressed_pvs )
 		return false;
 
@@ -11698,7 +11733,7 @@ void GC_BakeMenuNewGameCapFacesNoPVS( void )
 	if( gc_newgame_surfbytes <= 0 )
 		gc_newgame_surfbytes = ( wmodel->numsurfaces + 7 ) / 8;
 	if( gc_newgame_surfbytes > 0 && gc_newgame_surfbytes <= 1024 )
-		bits = (byte *)malloc( (size_t)gc_newgame_surfbytes );
+		bits = (byte *)GC_VideoAlloc( (size_t)gc_newgame_surfbytes, "surface cache bits" );
 
 	if( bits && GC_BakeMenuTramLeanSurfbits( wmodel, eye, bits ))
 	{
@@ -15185,6 +15220,11 @@ void GC_RestoreVideoMemoryAfterMapLoad( void )
 		{ GC_VIDEO_NEWGAME_PROBE_WIDTH, GC_VIDEO_NEWGAME_PROBE_HEIGHT },
 	};
 	size_t i;
+
+	/* The BSP staging arena is only a load-time resource.  Release it before
+	 * allocating the steady-state presentation buffer so large maps do not
+	 * retain several megabytes across level changes. */
+	GC_DiscardMapLoadBuffer();
 
 	if( gc.buffer && gc.width > 0 && gc.height > 0
 		&& gc.width >= GC_VIDEO_NEWGAME_PROBE_WIDTH

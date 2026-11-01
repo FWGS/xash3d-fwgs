@@ -1391,6 +1391,11 @@ int GCube_GetArgv( int in_argc, char **in_argv, char ***out_argv )
 		gc_argv[fake_argc++] = "-gcnewgame";
 	if( gc_menu_newgame_configured )
 		gc_argv[fake_argc++] = "-gcmenuplaystart";
+	/* Keep the actor policy explicit in the DLL argv. Some static HLSDK
+	 * loaders expose the menu route after argv normalization; this dedicated
+	 * flag makes the full-AI/sentence/node-graph profile unambiguous. */
+	if( gc_menu_newgame_configured )
+		gc_argv[fake_argc++] = "-gcfullactors";
 	if( gc_worldrender_configured )
 		gc_argv[fake_argc++] = "-gcworldrender";
 	if( gc_smoke_map_configured )

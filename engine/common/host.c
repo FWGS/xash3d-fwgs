@@ -755,12 +755,24 @@ void Host_Frame( double time )
 		Con_DPrintf( "Time to first frame: %.3f seconds\n", t1 - host.starttime );
 
 	Host_InputFrame ();  // input frame
+	#if XASH_GAMECUBE
+	if( host.framecount < 3 )
+		Con_Reportf( "Xash3D GameCube: GHOST frame=%u after input\n", host.framecount );
+	#endif
 	if( Sys_CheckParm( "-gctas" ) && host.framecount < 8 )
 		Con_Reportf( "Xash3D GameCube: post-input Host_Frame=%u\n", host.framecount );
 	Host_ClientBegin (); // begin client
+	#if XASH_GAMECUBE
+	if( host.framecount < 3 )
+		Con_Reportf( "Xash3D GameCube: GHOST frame=%u after client begin\n", host.framecount );
+	#endif
 	if( Sys_CheckParm( "-gctas" ) && host.framecount < 8 )
 		Con_Reportf( "Xash3D GameCube: post-client-begin Host_Frame=%u\n", host.framecount );
 	Host_GetCommands (); // dedicated in
+	#if XASH_GAMECUBE
+	if( host.framecount < 3 )
+		Con_Reportf( "Xash3D GameCube: GHOST frame=%u after commands\n", host.framecount );
+	#endif
 	if( Sys_CheckParm( "-gctas" ) && host.framecount < 8 )
 		Con_Reportf( "Xash3D GameCube: post-commands Host_Frame=%u\n", host.framecount );
 #if XASH_GAMECUBE
@@ -895,6 +907,10 @@ void Host_Frame( double time )
 	HTTP_Run();			 // both server and client
 #endif
 	XRcon_Frame();
+	#if XASH_GAMECUBE
+	if( host.framecount < 3 )
+		Con_Reportf( "Xash3D GameCube: GHOST frame=%u after simulation\n", host.framecount );
+	#endif
 
 	host.framecount++;
 	host.pureframetime = Platform_DoubleTime() - t1;

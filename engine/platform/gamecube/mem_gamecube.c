@@ -307,13 +307,20 @@ void *GC_BorrowMapLoadBuffer( size_t size )
 			return gc_mapload_buf;
 		}
 
+		if( GC_MemHeapFreeBytes() < alloc_size )
+		{
+			Con_Reportf( S_ERROR "Xash3D GameCube: map-load buffer rejected by heap budget need=%s free=%s\n",
+				Q_memprint( alloc_size ), Q_memprint( GC_MemHeapFreeBytes() ));
+			return NULL;
+		}
 		gc_mapload_buf = (byte *)malloc( alloc_size );
 		if( !gc_mapload_buf )
 		{
 			/* One more shot after releasing decode scratch; keeps mid-size BSPs
 			 * loading when the renderer arena is still a few hundred KB short. */
 			Image_GCPurgeDecodeScratch();
-			gc_mapload_buf = (byte *)malloc( alloc_size );
+			if( GC_MemHeapFreeBytes() >= alloc_size )
+				gc_mapload_buf = (byte *)malloc( alloc_size );
 		}
 		if( !gc_mapload_buf )
 		{

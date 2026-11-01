@@ -43,10 +43,12 @@ static void AVI_ParseAudioFormat( movie_state_t *Avi, fs_offset_t file_size );
  * underruns even though the ASND clock itself is correct.  Fill the raw
  * channel's complete ring so producer cadence cannot starve playback. */
 #define GC_AVI_AUDIO_LEAD_SAMPLES	8192
-/* Quarter-res Cinepak fallback when no .gcvid companion is present. */
-#define GC_AVI_DECODE_SCALE		4
-#define GC_AVI_UPLOAD_MAX_W		160
-#define GC_AVI_UPLOAD_MAX_H		120
+/* Half-res Cinepak fallback when no .gcvid companion is present.  This keeps
+ * retail 640x480 AVI playback at the same 320x240 presentation resolution as
+ * the native GCVID path while leaving the converter path fully lossless. */
+#define GC_AVI_DECODE_SCALE		2
+#define GC_AVI_UPLOAD_MAX_W		320
+#define GC_AVI_UPLOAD_MAX_H		240
 #define GC_AVI_STATIC_FRAME_MAX_BYTES	( 320 * 240 * 2 )
 static byte gc_avi_static_frame[GC_AVI_STATIC_FRAME_MAX_BYTES] __attribute__((aligned( 32 )));
 
@@ -821,11 +823,20 @@ static qboolean AVI_DecodeFrame( movie_state_t *Avi, uint frame, qboolean upload
 					uint changed_tiles;
 					const uint tile_size = 8;
 					const uint tiles_x = (uint)Avi->width / tile_size;
+					const uint tiles_y = (uint)Avi->height / tile_size;
+					byte seen_tiles[40u * 30u];
 					byte tilebuf[128]; /* 8 * 8 * 2 = 128 bytes, max tile size */
 
 					if( FS_Read( Avi->file, count_bytes, sizeof( count_bytes )) != sizeof( count_bytes ))
 						return false;
 					changed_tiles = AVI_RL16( count_bytes );
+					if( changed_tiles > tiles_x * tiles_y )
+					{
+						Con_Reportf( "Xash3D GameCube: intro GCVID invalid tile count frame=%u count=%u max=%u\n",
+							frame, changed_tiles, tiles_x * tiles_y );
+						return false;
+					}
+					memset( seen_tiles, 0, sizeof( seen_tiles ));
 					for( uint tile = 0; tile < changed_tiles; tile++ )
 					{
 						byte index_bytes[2];
@@ -834,10 +845,22 @@ static qboolean AVI_DecodeFrame( movie_state_t *Avi, uint frame, qboolean upload
 						if( FS_Read( Avi->file, index_bytes, sizeof( index_bytes )) != sizeof( index_bytes ))
 							return false;
 						tile_index = AVI_RL16( index_bytes );
+						if( tile_index >= tiles_x * tiles_y )
+						{
+							Con_Reportf( "Xash3D GameCube: intro GCVID invalid tile frame=%u index=%u max=%u\n",
+								frame, tile_index, tiles_x * tiles_y );
+							return false;
+						}
+						{
+							const qboolean duplicate = seen_tiles[tile_index] != 0;
+							seen_tiles[tile_index] = 1;
+							if( FS_Read( Avi->file, tilebuf, sizeof( tilebuf )) != sizeof( tilebuf ))
+								return false;
+							if( duplicate )
+								continue;
+						}
 						tile_x = tile_index % tiles_x;
 						tile_y = tile_index / tiles_x;
-						if( FS_Read( Avi->file, tilebuf, sizeof( tilebuf )) != sizeof( tilebuf ))
-							return false;
 						for( uint row = 0; row < tile_size; row++ )
 						{
 							byte *dst = Avi->frame + ((( tile_y * tile_size + row ) * Avi->width ) + tile_x * tile_size ) * 2;
