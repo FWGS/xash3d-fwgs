@@ -183,9 +183,9 @@ loadwithoutlayout:
 		
 		if ([token isEqualToString:@"hd_background"])
 		{
-			int value;
-			[scanner scanInt:&value];
-			self.gameInfo->hd_background = value;
+			NSString *value;
+			[scanner scanUpToCharactersFromSet:[NSCharacterSet whitespaceAndNewlineCharacterSet] intoString:&value];
+			self.gameInfo->hd_background = [[value stringByTrimmingCharactersInSet:quotesSet] boolValue];
 			continue;
 		}
 		else if ([token isEqualToString:@"gamedll_osx"])
