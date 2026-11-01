@@ -95,7 +95,8 @@ void CL_InitParticles( void )
 #if XASH_GAMECUBE
 	if( Sys_CheckParm( "-gcmap" ) || GC_MapLoadMemoryOpt())
 		max_particles = Q_min( max_particles,
-			Sys_CheckParm( "-gcfullphysics" ) ? 96 : 16 );
+			( Sys_CheckParm( "-gcfullphysics" ) || Sys_CheckParm( "-gcfullactors" ) )
+				? 96 : 16 );
 #endif
 	cl_particles = Mem_Calloc( cls.mempool, sizeof( particle_t ) * max_particles );
 	cl_numparticles = max_particles;

@@ -97,13 +97,28 @@ static int SCR_AddStartupVid( int c, const char *movie )
 	return c + 1;
 }
 
+static qboolean SCR_StartupVideoExists( const char *movie )
+{
+	char companion[MAX_QPATH];
+	char *dot;
+
+	if( FS_FileExists( movie, false ))
+		return true;
+	Q_strncpy( companion, movie, sizeof( companion ));
+	dot = strrchr( companion, '.' );
+	if( dot )
+		*dot = '\0';
+	Q_strncat( companion, ".gcvid", sizeof( companion ));
+	return FS_FileExists( companion, false );
+}
+
 static int SCR_AddDefaultStartupVids( void )
 {
 	int c = 0;
 
-	if( FS_FileExists( "media/sierra.avi", false ))
+	if( SCR_StartupVideoExists( "media/sierra.avi" ))
 		c = SCR_AddStartupVid( c, "media/sierra.avi" );
-	if( FS_FileExists( "media/valve.avi", false ))
+	if( SCR_StartupVideoExists( "media/valve.avi" ))
 		c = SCR_AddStartupVid( c, "media/valve.avi" );
 	if( c > 0 )
 		Con_Reportf( "Xash3D GameCube: using read-only startup AVI playlist (%d)\n", c );
@@ -140,8 +155,15 @@ static int SCR_LoadStartupVidList( void )
 #if XASH_GAMECUBE
 			Con_Reportf( "Xash3D GameCube: startup vid candidate %s\n", token );
 #endif
-			if( !FS_FileExists( token, false ))
+			if( !FS_FileExists( token, false )
+#if XASH_GAMECUBE
+				&& !SCR_StartupVideoExists( token )
+#endif
+			)
+			{
+				Con_Reportf( "Xash3D GameCube: startup video payload missing %s\n", token );
 				continue;
+			}
 
 			c = SCR_AddStartupVid( c, token );
 			if( c >= MAX_MOVIES )
@@ -203,10 +225,13 @@ void SCR_CheckStartupVids( void )
 
 #if XASH_GAMECUBE
 	Con_Reportf( "Xash3D GameCube: startup vid check begin\n" );
-	if(( Sys_CheckParm( "-gcnewgame" ) || Sys_CheckParm( "-gcmap" )) && SV_Active() )
+	/* Retail startup owns the intro cinematic even when the launcher selected
+	 * New Game.  Keep the explicit smoke/map route headless so automated
+	 * probes do not block on media or audio timing. */
+	if( Sys_CheckParm( "-gcmap" ) && SV_Active() )
 	{
 		cls.movienum = -1;
-		Con_Reportf( "Xash3D GameCube: skip startup video scan for local map route\n" );
+		Con_Reportf( "Xash3D GameCube: skip startup video scan for gcmap route\n" );
 		CL_CheckStartupDemos();
 		return;
 	}

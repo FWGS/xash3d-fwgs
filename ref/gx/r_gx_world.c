@@ -644,6 +644,8 @@ static void R_GXUpdateRawCinematicTiles( const byte *src, u16 *dst,
 	for( tile = 0; tile < tile_count; tile++ )
 	{
 		const uint tile_index = tiles[tile];
+		if( tile_index >= 40u * 30u )
+			continue;
 		const uint tile_x = ( tile_index % 40u ) * 8u;
 		const uint tile_y = ( tile_index / 40u ) * 8u;
 		uint block_y, block_x, row, col;
@@ -664,6 +666,34 @@ static void R_GXUpdateRawCinematicTiles( const byte *src, u16 *dst,
 						dst[block + row * 4u + col] =
 							(u16)( pixels[0] | ((u16)pixels[1] << 8) );
 				}
+			}
+		}
+	}
+}
+
+static void R_GXFlushRawCinematicTiles( u16 *dst,
+	const uint16_t *tiles, uint tile_count )
+{
+	uint tile;
+
+	for( tile = 0; tile < tile_count; tile++ )
+	{
+		const uint tile_index = tiles[tile];
+		if( tile_index >= 40u * 30u )
+			continue;
+		const uint tile_x = ( tile_index % 40u ) * 8u;
+		const uint tile_y = ( tile_index / 40u ) * 8u;
+		uint block_y, block_x;
+
+		/* Each 8x8 delta tile covers four contiguous 4x4 GX blocks.  Flush
+		 * only those 128-byte blocks instead of the full 150 KiB texture. */
+		for( block_y = 0; block_y < 2; block_y++ )
+		{
+			for( block_x = 0; block_x < 2; block_x++ )
+			{
+				const uint block = ((( tile_y / 4u + block_y ) * 80u) +
+					(tile_x / 4u + block_x)) * 16u;
+				DCFlushRange( dst + block, 16u * sizeof( u16 ));
 			}
 		}
 	}
@@ -715,7 +745,10 @@ void GL_UpdateCinematicTexture( int texnum, int width, int height, const byte *b
 	else
 		return;
 	stage_tiles = gEngfuncs.pfnTime();
-	DCFlushRange( r_gx_cinematic_tex.tiled, GC_GX_CINEMATIC_BYTES );
+	if( full_upload )
+		DCFlushRange( r_gx_cinematic_tex.tiled, GC_GX_CINEMATIC_BYTES );
+	else
+		R_GXFlushRawCinematicTiles( r_gx_cinematic_tex.tiled, dirty_tiles, dirty_count );
 	stage_flush = gEngfuncs.pfnTime();
 	r_gx_cinematic_tex.texnum = (unsigned)texnum;
 	r_gx_cinematic_tex.w = GC_GX_CINEMATIC_WIDTH;

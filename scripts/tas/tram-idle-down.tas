@@ -1,0 +1,6 @@
+# Minimal opening-tram proof TAS.
+# Format: frames buttons stickX stickY cstickX cstickY
+# Stay hands-off for three seconds, tap D-pad Down for 250 ms, then ride.
+180 - 0 0 0 0
+15 DDOWN 0 0 0 0
+600 - 0 0 0 0
