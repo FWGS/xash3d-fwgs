@@ -1,5 +1,5 @@
 /*
-mcp.c - MCP JSON-RPC dispatcher for xrcon-mcp
+mcp.c - MCP JSON-RPC dispatcher for xrcon-tui
 Copyright (C) 2026 Xash3D FWGS contributors
 
 This program is free software: you can redistribute it and/or modify
@@ -16,7 +16,6 @@ GNU General Public License for more details.
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <unistd.h>
 
 #include "crtlib.h"
 #include "mcp.h"
@@ -45,16 +44,58 @@ GNU General Public License for more details.
 #define MCP_CONNECT_DEFAULT_WAIT_MS 3000
 #define MCP_CONNECT_MAX_WAIT_MS     30000
 
-void MCP_Init( mcp_t *m, xrcon_t *xrcon, log_buf_t *log )
+#define MCP_LINE_MAX ( 1024 * 1024 )
+
+void MCP_Init( mcp_t *m, net_t *net, log_buf_t *log )
 {
 	memset( m, 0, sizeof( *m ));
-	m->xrcon = xrcon;
+	m->net = net;
 	m->log = log;
 }
 
-void MCP_MarkLogDirty( mcp_t *m )
+void MCP_Free( mcp_t *m )
+{
+	free( m->line );
+	m->line = NULL;
+	m->line_len = m->line_cap = 0;
+}
+
+static void MCP_MarkLogDirty( mcp_t *m )
 {
 	m->log_dirty = 1;
+}
+
+void MCP_OnPrint( void *user, const char *text, size_t len )
+{
+	mcp_t *m = (mcp_t *)user;
+
+	LogBuf_Append( m->log, text, len );
+	if( text[len - 1] != '\n' )
+		LogBuf_Append( m->log, "\n", 1 );
+
+	MCP_MarkLogDirty( m );
+}
+
+// errors such as a dropped connection also go to the log, so a waiting tool call sees them
+void MCP_OnMessage( void *user, int kind, const char *msg )
+{
+	mcp_t *m = (mcp_t *)user;
+	char line[600];
+
+	Q_snprintf( line, sizeof( line ), "[xrcon-mcp] %s\n", msg );
+	fputs( line, stderr );
+
+	if( kind == NET_MSG_ERROR )
+	{
+		LogBuf_AppendStr( m->log, line );
+		MCP_MarkLogDirty( m );
+	}
+}
+
+static void MCP_Disconnect( mcp_t *m, const char *why )
+{
+	MCP_OnMessage( m, NET_MSG_ERROR, why );
+	Net_Disconnect( m->net, NULL );
 }
 
 static void MCP_WriteLine( json_w_t *w )
@@ -159,7 +200,7 @@ static void MCP_FinishAndSend( json_w_t *w )
 	JSON_WFree( w );
 }
 
-static void MCP_DoInitialize( mcp_t *m, const json_doc_t *doc, int id_idx )
+static void MCP_DoInitialize( const json_doc_t *doc, int id_idx )
 {
 	char version[64];
 	Q_snprintf( version, sizeof( version ), "%s+build.%d", MCP_SERVER_VERSION, Q_buildnum( ));
@@ -177,7 +218,6 @@ static void MCP_DoInitialize( mcp_t *m, const json_doc_t *doc, int id_idx )
 	JSON_WStr( &w, "}}" );
 
 	MCP_FinishAndSend( &w );
-	m->initialized = 1;
 }
 
 static void MCP_DoPing( const json_doc_t *doc, int id_idx )
@@ -347,12 +387,12 @@ static void MCP_DoToolsCall( mcp_t *m, const json_doc_t *doc, int id_idx, int pa
 			MCP_ToolError( doc, id_idx, "connect in progress; wait for it to finish" );
 			return;
 		}
-		if( !XRcon_IsConnected( m->xrcon ) && !XRcon_IsConnecting( m->xrcon ))
+		if( m->net->state == NET_OFFLINE )
 		{
 			MCP_ToolText( doc, id_idx, "already disconnected" );
 			return;
 		}
-		XRcon_RequestDisconnect( m->xrcon, "tool" );
+		MCP_Disconnect( m, "disconnected: tool" );
 		MCP_ToolText( doc, id_idx, "disconnected" );
 		return;
 	}
@@ -364,13 +404,13 @@ static void MCP_DoToolsCall( mcp_t *m, const json_doc_t *doc, int id_idx, int pa
 			MCP_ToolError( doc, id_idx, "another connect is in progress" );
 			return;
 		}
-		if( XRcon_IsConnected( m->xrcon ) || XRcon_IsConnecting( m->xrcon ))
+		if( m->net->state != NET_OFFLINE )
 		{
 			MCP_ToolError( doc, id_idx, "already connected; call xrcon_disconnect first" );
 			return;
 		}
 
-		char host[128];
+		char host[sizeof( m->net->host )];
 		Q_strncpy( host, MCP_CONNECT_DEFAULT_HOST, sizeof( host ));
 		if( args_idx >= 0 )
 		{
@@ -385,20 +425,14 @@ static void MCP_DoToolsCall( mcp_t *m, const json_doc_t *doc, int id_idx, int pa
 		int port = MCP_OptInt( doc, args_idx, "port", MCP_CONNECT_DEFAULT_PORT, 1, 65535 );
 		int wait_ms = MCP_OptInt( doc, args_idx, "wait_ms", MCP_CONNECT_DEFAULT_WAIT_MS, 1, MCP_CONNECT_MAX_WAIT_MS );
 
-		if( XRcon_RequestConnect( m->xrcon, host, port ) < 0 )
+		m->net->connect_timeout_ms = wait_ms;
+		if( !Net_Connect( m->net, host, port, false, now_ms ))
 		{
-			MCP_ToolError( doc, id_idx, m->xrcon->last_error );
+			MCP_ToolError( doc, id_idx, m->net->last_error );
 			return;
 		}
 
-		if( XRcon_IsConnected( m->xrcon ))
-		{
-			char reply[192];
-			Q_snprintf( reply, sizeof( reply ), "connected to %s:%d", host, port );
-			MCP_ToolText( doc, id_idx, reply );
-			return;
-		}
-
+		// even a local connect completes only after the engine greets us
 		m->pending_connect_active = 1;
 		MCP_CaptureId( m->pending_connect_id, sizeof( m->pending_connect_id ), doc, id_idx );
 		m->pending_connect_deadline_ms = now_ms + wait_ms;
@@ -465,9 +499,15 @@ static void MCP_DoToolsCall( mcp_t *m, const json_doc_t *doc, int id_idx, int pa
 		}
 	}
 
-	if( !XRcon_IsConnected( m->xrcon ))
+	if( !Net_IsUp( m->net ))
 	{
 		MCP_ToolError( doc, id_idx, "not connected to XRCON server; command dropped" );
+		return;
+	}
+
+	if((size_t)cmdlen > NET_MAX_COMMAND )
+	{
+		MCP_ToolError( doc, id_idx, "command too long" );
 		return;
 	}
 
@@ -496,8 +536,7 @@ static void MCP_DoToolsCall( mcp_t *m, const json_doc_t *doc, int id_idx, int pa
 
 	if( kind != MCP_KIND_WAIT )
 	{
-		int sent = XRcon_SendCmnd( m->xrcon, cmd, (size_t)cmdlen );
-		if( sent < 0 )
+		if( !Net_Send( m->net, cmd, (size_t)cmdlen ))
 		{
 			MCP_ToolError( doc, id_idx, "send failed" );
 			return;
@@ -507,7 +546,7 @@ static void MCP_DoToolsCall( mcp_t *m, const json_doc_t *doc, int id_idx, int pa
 		{
 			char reply[160];
 			Q_snprintf( reply, sizeof( reply ),
-				"queued %d bytes; watch resource " MCP_URI_LOG " for output", sent );
+				"queued %d bytes; watch resource " MCP_URI_LOG " for output", cmdlen );
 			MCP_ToolText( doc, id_idx, reply );
 			return;
 		}
@@ -618,24 +657,29 @@ static void MCP_DoResourcesRead( mcp_t *m, const json_doc_t *doc, int id_idx, in
 
 	if( JSON_StringEq( doc, uri_idx, MCP_URI_INFO ))
 	{
-		char info[1024];
-		int n = Q_snprintf( info, sizeof( info ),
-			"{\"host\":\"%s\",\"port\":%d,\"state\":\"%s\",\"server_name\":\"%s\","
-			"\"log_bytes_appended\":%llu,\"log_bytes_evicted\":%llu,\"last_error\":\"%s\"}",
-			m->xrcon->host, m->xrcon->port,
-			XRcon_StateString( m->xrcon ),
-			m->xrcon->server_name,
-			(unsigned long long)m->log->total_appended,
-			(unsigned long long)m->log->total_evicted,
-			m->xrcon->last_error );
-
-		if( n < 0 )
-			n = 0;
+		json_w_t info;
+		JSON_WInit( &info );
+		JSON_WStr( &info, "{\"host\":" );
+		JSON_WStrEscaped( &info, m->net->host );
+		JSON_WStr( &info, ",\"port\":" );
+		JSON_WInt64( &info, m->net->port );
+		JSON_WStr( &info, ",\"state\":" );
+		JSON_WStrEscaped( &info, Net_StateString( m->net ));
+		JSON_WStr( &info, ",\"server_name\":" );
+		JSON_WStrEscaped( &info, m->net->server_name );
+		JSON_WStr( &info, ",\"log_bytes_appended\":" );
+		JSON_WInt64( &info, (int64_t)m->log->total_appended );
+		JSON_WStr( &info, ",\"log_bytes_evicted\":" );
+		JSON_WInt64( &info, (int64_t)m->log->total_evicted );
+		JSON_WStr( &info, ",\"last_error\":" );
+		JSON_WStrEscaped( &info, m->net->last_error );
+		JSON_WPutc( &info, '}' );
 
 		json_w_t w;
 		MCP_StartResult( &w, doc, id_idx );
-		MCP_WriteResource( &w, MCP_URI_INFO, "application/json", info, (size_t)n );
+		MCP_WriteResource( &w, MCP_URI_INFO, "application/json", info.oom ? "{}" : info.buf, info.oom ? 2 : info.len );
 		MCP_FinishAndSend( &w );
+		JSON_WFree( &info );
 		return;
 	}
 
@@ -657,11 +701,10 @@ static void MCP_DoResourcesSubscribe( mcp_t *m, const json_doc_t *doc, int id_id
 		return;
 	}
 
+	// xrcon://info subscriptions are accepted, but no updates are sent for it
 	if( JSON_StringEq( doc, uri_idx, MCP_URI_LOG ))
 		m->log_subscribed = subscribe;
-	else if( JSON_StringEq( doc, uri_idx, MCP_URI_INFO ))
-		m->info_subscribed = subscribe;
-	else
+	else if( !JSON_StringEq( doc, uri_idx, MCP_URI_INFO ))
 	{
 		MCP_SendError( doc, id_idx, -32602, "unknown resource uri" );
 		return;
@@ -673,7 +716,7 @@ static void MCP_DoResourcesSubscribe( mcp_t *m, const json_doc_t *doc, int id_id
 	MCP_FinishAndSend( &w );
 }
 
-void MCP_HandleLine( mcp_t *m, const char *line, size_t len, int64_t now_ms )
+static void MCP_HandleLine( mcp_t *m, const char *line, size_t len, int64_t now_ms )
 {
 	while( len > 0 && ( line[len - 1] == '\n' || line[len - 1] == '\r' ))
 		len--;
@@ -710,19 +753,11 @@ void MCP_HandleLine( mcp_t *m, const char *line, size_t len, int64_t now_ms )
 
 	// Notifications: no response.
 	if( id_idx < 0 )
-	{
-		if( JSON_StringEq( &doc, method_idx, "notifications/initialized" ))
-		{
-			m->initialized = 1;
-			return;
-		}
-		// Silently ignore unknown notifications.
 		return;
-	}
 
 	if( JSON_StringEq( &doc, method_idx, "initialize" ))
 	{
-		MCP_DoInitialize( m, &doc, id_idx );
+		MCP_DoInitialize( &doc, id_idx );
 		return;
 	}
 	if( JSON_StringEq( &doc, method_idx, "ping" ))
@@ -764,6 +799,64 @@ void MCP_HandleLine( mcp_t *m, const char *line, size_t len, int64_t now_ms )
 	MCP_SendError( &doc, id_idx, -32601, "method not found" );
 }
 
+static void MCP_LineAppend( mcp_t *m, const char *s, size_t len )
+{
+	if( m->line_overflow || len == 0 )
+		return;
+
+	if( m->line_len + len > MCP_LINE_MAX )
+	{
+		fprintf( stderr, "[xrcon-mcp] stdin line exceeded %d bytes, discarding\n", MCP_LINE_MAX );
+		m->line_overflow = 1;
+		return;
+	}
+
+	if( m->line_len + len > m->line_cap )
+	{
+		size_t cap = m->line_cap ? m->line_cap : 4096;
+
+		while( cap < m->line_len + len )
+			cap *= 2;
+
+		char *line = (char *)realloc( m->line, cap );
+		if( !line )
+		{
+			fprintf( stderr, "[xrcon-mcp] out of memory, discarding stdin line\n" );
+			m->line_overflow = 1;
+			return;
+		}
+
+		m->line = line;
+		m->line_cap = cap;
+	}
+
+	memcpy( m->line + m->line_len, s, len );
+	m->line_len += len;
+}
+
+void MCP_Feed( mcp_t *m, const char *data, size_t len, int64_t now_ms )
+{
+	size_t pos = 0;
+
+	while( pos < len )
+	{
+		const char *nl = (const char *)memchr( data + pos, '\n', len - pos );
+		size_t end = nl ? (size_t)( nl - data ) : len;
+
+		MCP_LineAppend( m, data + pos, end - pos );
+
+		if( !nl )
+			return;
+
+		if( !m->line_overflow )
+			MCP_HandleLine( m, m->line, m->line_len, now_ms );
+
+		m->line_len = 0;
+		m->line_overflow = 0;
+		pos = end + 1;
+	}
+}
+
 static void MCP_FireConnectResponse( mcp_t *m, int connected, const char *detail )
 {
 	json_w_t w;
@@ -786,20 +879,26 @@ void MCP_TickPending( mcp_t *m, int64_t now_ms )
 {
 	if( m->pending_connect_active )
 	{
-		if( XRcon_IsConnected( m->xrcon ))
+		char reply[512];
+
+		if( m->net->state == NET_ONLINE )
 		{
-			char reply[192];
-			Q_snprintf( reply, sizeof( reply ), "connected to %s:%d",
-				m->xrcon->host, m->xrcon->port );
+			Q_snprintf( reply, sizeof( reply ), "connected to %s:%d", m->net->host, m->net->port );
 			MCP_FireConnectResponse( m, 1, reply );
 		}
-		else if( !XRcon_IsConnecting( m->xrcon ))
+		else if( m->net->state == NET_OFFLINE )
 		{
-			MCP_FireConnectResponse( m, 0, m->xrcon->last_error );
+			MCP_FireConnectResponse( m, 0, m->net->last_error );
+		}
+		else if( now_ms >= m->pending_connect_deadline_ms && m->net->state == NET_CONNECTED )
+		{
+			// the TCP connection sits in the listen backlog until the current client leaves
+			Q_snprintf( reply, sizeof( reply ), "connected to %s:%d, but the engine hasn't accepted the connection yet: it serves one XRCON client at a time and another one is probably attached. Commands are queued until it accepts, xrcon_disconnect gives up.", m->net->host, m->net->port );
+			MCP_FireConnectResponse( m, 1, reply );
 		}
 		else if( now_ms >= m->pending_connect_deadline_ms )
 		{
-			XRcon_RequestDisconnect( m->xrcon, "connect timeout" );
+			MCP_Disconnect( m, "disconnected: connect timeout" );
 			MCP_FireConnectResponse( m, 0, "connect timeout" );
 		}
 	}

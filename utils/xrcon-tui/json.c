@@ -1,5 +1,5 @@
 /*
-json.c - minimal JSON encoder and tokenising parser for xrcon-mcp
+json.c - minimal JSON encoder and tokenising parser for xrcon-tui
 Copyright (C) 2026 Xash3D FWGS contributors
 
 This program is free software: you can redistribute it and/or modify
@@ -223,13 +223,6 @@ int JSON_Parse( const char *js, int len, json_tok_t *toks, int max_toks )
 		return -1;
 
 	return p.ntoks;
-}
-
-int JSON_TokenLen( const json_doc_t *doc, int tok_idx )
-{
-	if( tok_idx < 0 || tok_idx >= doc->ntoks )
-		return 0;
-	return doc->toks[tok_idx].end - doc->toks[tok_idx].start;
 }
 
 const char *JSON_TokenPtr( const json_doc_t *doc, int tok_idx )

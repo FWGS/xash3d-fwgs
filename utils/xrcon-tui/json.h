@@ -1,5 +1,5 @@
 /*
-json.h - minimal JSON encoder and tokenising parser for xrcon-mcp
+json.h - minimal JSON encoder and tokenising parser for xrcon-tui
 Copyright (C) 2026 Xash3D FWGS contributors
 
 This program is free software: you can redistribute it and/or modify
@@ -13,8 +13,8 @@ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 */
 
-#ifndef XRCON_MCP_JSON_H
-#define XRCON_MCP_JSON_H
+#ifndef XRCON_TUI_JSON_H
+#define XRCON_TUI_JSON_H
 
 #include <stddef.h>
 #include <stdint.h>
@@ -52,7 +52,6 @@ int JSON_ObjFind( const json_doc_t *doc, int obj_idx, const char *key );
 int JSON_StringEq( const json_doc_t *doc, int tok_idx, const char *s );
 int JSON_StringDup( const json_doc_t *doc, int tok_idx, char *dst, size_t dstsize );
 int JSON_TokenAsInt64( const json_doc_t *doc, int tok_idx, int64_t *out );
-int JSON_TokenLen( const json_doc_t *doc, int tok_idx );
 const char *JSON_TokenPtr( const json_doc_t *doc, int tok_idx );
 
 typedef struct
@@ -76,4 +75,4 @@ void JSON_WInt64( json_w_t *w, int64_t v );
 void JSON_WBool( json_w_t *w, int v );
 void JSON_WNull( json_w_t *w );
 
-#endif // XRCON_MCP_JSON_H
+#endif // XRCON_TUI_JSON_H

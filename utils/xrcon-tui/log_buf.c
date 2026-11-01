@@ -1,5 +1,5 @@
 /*
-log_buf.c - bounded line-oriented ring buffer for xrcon-mcp
+log_buf.c - bounded line-oriented ring buffer for xrcon-tui
 Copyright (C) 2026 Xash3D FWGS contributors
 
 This program is free software: you can redistribute it and/or modify

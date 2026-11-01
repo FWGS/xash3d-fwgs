@@ -1,5 +1,5 @@
 /*
-mcp.h - MCP JSON-RPC dispatcher for xrcon-mcp
+mcp.h - MCP JSON-RPC dispatcher for xrcon-tui
 Copyright (C) 2026 Xash3D FWGS contributors
 
 This program is free software: you can redistribute it and/or modify
@@ -13,26 +13,30 @@ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 */
 
-#ifndef XRCON_MCP_MCP_H
-#define XRCON_MCP_MCP_H
+#ifndef XRCON_TUI_MCP_H
+#define XRCON_TUI_MCP_H
 
 #include <stddef.h>
 #include <stdint.h>
 
 #include "log_buf.h"
-#include "xrcon.h"
+#include "net.h"
 
 #define MCP_URI_LOG  "xrcon://log"
 #define MCP_URI_INFO "xrcon://info"
 
 typedef struct
 {
-	xrcon_t *xrcon;
+	net_t *net;
 	log_buf_t *log;
 	int log_subscribed;
-	int info_subscribed;
-	int initialized;
 	int log_dirty; // set when log changed; main loop drains it via MCP_FlushPendingNotifications
+
+	// stdin is split into JSON-RPC lines here
+	char *line;
+	size_t line_len;
+	size_t line_cap;
+	int line_overflow;
 
 	// Single-flight xrcon_exec_sync deferred response.
 	int pending_active;
@@ -44,17 +48,21 @@ typedef struct
 	int pending_quiet_ms;
 	int pending_max_bytes;
 
-	// Deferred xrcon_connect response, waiting for the in-flight TCP connect to settle.
+	// Deferred xrcon_connect response, waiting for the engine to accept the connection.
 	int pending_connect_active;
 	char pending_connect_id[256];
 	int64_t pending_connect_deadline_ms;
 } mcp_t;
 
-void MCP_Init( mcp_t *m, xrcon_t *xrcon, log_buf_t *log );
-void MCP_HandleLine( mcp_t *m, const char *line, size_t len, int64_t now_ms );
-void MCP_MarkLogDirty( mcp_t *m );
+void MCP_Init( mcp_t *m, net_t *net, log_buf_t *log );
+void MCP_Free( mcp_t *m );
+void MCP_Feed( mcp_t *m, const char *data, size_t len, int64_t now_ms );
 void MCP_FlushPendingNotifications( mcp_t *m );
 void MCP_TickPending( mcp_t *m, int64_t now_ms );
 int MCP_PendingPollTimeout( const mcp_t *m, int64_t now_ms, int cur_timeout_ms );
 
-#endif // XRCON_MCP_MCP_H
+// net_t callbacks, user is the mcp_t
+void MCP_OnPrint( void *user, const char *text, size_t len );
+void MCP_OnMessage( void *user, int kind, const char *msg );
+
+#endif // XRCON_TUI_MCP_H

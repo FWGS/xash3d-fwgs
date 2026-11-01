@@ -1,5 +1,5 @@
 /*
-log_buf.h - bounded line-oriented ring buffer for xrcon-mcp
+log_buf.h - bounded line-oriented ring buffer for xrcon-tui
 Copyright (C) 2026 Xash3D FWGS contributors
 
 This program is free software: you can redistribute it and/or modify
@@ -13,8 +13,8 @@ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 */
 
-#ifndef XRCON_MCP_LOG_BUF_H
-#define XRCON_MCP_LOG_BUF_H
+#ifndef XRCON_TUI_LOG_BUF_H
+#define XRCON_TUI_LOG_BUF_H
 
 #include <stddef.h>
 #include <stdint.h>
@@ -33,4 +33,4 @@ void LogBuf_Free( log_buf_t *lb );
 void LogBuf_Append( log_buf_t *lb, const char *s, size_t n );
 void LogBuf_AppendStr( log_buf_t *lb, const char *s );
 
-#endif // XRCON_MCP_LOG_BUF_H
+#endif // XRCON_TUI_LOG_BUF_H
