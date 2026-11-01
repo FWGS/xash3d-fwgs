@@ -50,6 +50,7 @@ size_t GC_MapLoadPressureDelta( void );
 void GC_InitMapLoadBuffer( void );
 void GC_PrepareMapLoadBuffer( size_t size );
 void GC_PrepareMapLoadBufferForMap( const char *mapname );
+qboolean GC_LoadMapMetadata( const char *mapname );
 void *GC_BorrowMapLoadBuffer( size_t size );
 qboolean GC_ReleaseMapLoadBuffer( void *ptr );
 void GC_DiscardMapLoadBuffer( void );
@@ -61,6 +62,8 @@ size_t GC_MapLoadBufferTailHighwater( void );
 unsigned int GC_AramReserve( unsigned int size );
 void GC_AramTransfer( unsigned int aram, void *buf, unsigned int len, qboolean write );
 void GC_AramCopy( unsigned int aram, void *buf, unsigned int len, qboolean write );
+void GC_PrefetchMenuIdle( void );
+void GC_PrefetchStats( unsigned int *used, unsigned int *capacity, unsigned int *entries );
 
 /* True during -gcmap smoke loads and retail New Game (gc_playstart) map loads. */
 void GC_BeginMapLoadMemoryOpt( void );
@@ -102,6 +105,7 @@ static inline void GC_MemPoolReport( const char *stage ) { (void)stage; }
 static inline void GC_InitMapLoadBuffer( void ) { }
 static inline void GC_PrepareMapLoadBuffer( size_t size ) { (void)size; }
 static inline void GC_PrepareMapLoadBufferForMap( const char *mapname ) { (void)mapname; }
+static inline qboolean GC_LoadMapMetadata( const char *mapname ) { (void)mapname; return false; }
 static inline void *GC_BorrowMapLoadBuffer( size_t size ) { (void)size; return NULL; }
 static inline qboolean GC_ReleaseMapLoadBuffer( void *ptr ) { (void)ptr; return false; }
 static inline void GC_DiscardMapLoadBuffer( void ) { }
@@ -117,6 +121,11 @@ static inline void GC_BeginMapLoadMemoryOpt( void ) { }
 static inline void GC_EndMapLoadMemoryOpt( void ) { }
 static inline void GC_ClearMapLoadMemoryOpt( void ) { }
 static inline qboolean GC_MapLoadMemoryOpt( void ) { return false; }
+static inline void GC_PrefetchMenuIdle( void ) { }
+static inline void GC_PrefetchStats( unsigned int *used, unsigned int *capacity, unsigned int *entries )
+{
+	if( used ) *used = 0; if( capacity ) *capacity = 0; if( entries ) *entries = 0;
+}
 
 /* Map-load memory pressure measurement (stubs) */
 static inline void GC_MapLoadPressureBegin( void ) { }

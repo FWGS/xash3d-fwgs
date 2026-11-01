@@ -17,6 +17,7 @@ Starts the GameCube disc in the project's Dolphin with a mute toggle window.
   --save-default   remember --muted/--unmuted and --record/--no-record
   --no-toggle      do not open the mute toggle window
   --build          (re)build the play disc first (OUT/xash3d-gc-play.iso)
+  --perf           build/launch a profiling play disc with the performance overlay
   --install-desktop  add "Xash3D GameCube (Dolphin)" to the desktop app menu
   -h, --help       this help
 
@@ -49,6 +50,8 @@ RECORD=1
 TOGGLE=1
 SAVE=0
 BUILD=0
+FORCE_BUILD=0
+PERF=0
 
 [[ -f "$CONF" ]] && source "$CONF"
 
@@ -60,7 +63,8 @@ while [[ $# -gt 0 ]]; do
 		--no-record) RECORD=0 ;;
 		--save-default) SAVE=1 ;;
 		--no-toggle) TOGGLE=0 ;;
-		--build) BUILD=1 ;;
+		--build) BUILD=1; FORCE_BUILD=1 ;;
+		--perf) PERF=1; BUILD=1; FORCE_BUILD=1; ISO="$ROOT/OUT/xash3d-gc-play-perf.iso" ;;
 		--install-desktop)
 			apps="${XDG_DATA_HOME:-$HOME/.local/share}/applications"
 			mkdir -p "$apps"
@@ -88,10 +92,35 @@ if (( SAVE )); then
 	echo "saved default: $([[ $START_MUTED == 1 ]] && echo muted || echo unmuted), $([[ $RECORD == 1 ]] && echo recording || echo not recording) ($CONF)"
 fi
 
+ENGINE_BIN="$ROOT/build/engine/xash"
+BOOT_DOL="$ROOT/OUT/bin/boot.dol"
+if [[ -f "$ENGINE_BIN" && ( ! -f "$BOOT_DOL" || "$ENGINE_BIN" -nt "$BOOT_DOL" ) ]]; then
+	 echo "==> generating GameCube DOL from the current engine"
+	mkdir -p "$ROOT/OUT/bin"
+	python3 "$ROOT/scripts/elf-to-dol.py" "$ENGINE_BIN" "$BOOT_DOL"
+fi
+if [[ -f "$BOOT_DOL" && -f "$ISO" && "$BOOT_DOL" -nt "$ISO" ]]; then
+	BUILD=1
+	echo "==> play ISO is older than the current boot.dol; rebuilding"
+fi
 if (( BUILD )) || [[ ! -f "$ISO" ]]; then
-	echo "==> building play disc $ISO"
-	python3 "$ROOT/scripts/build-gamecube-disc.py" --output "$ISO" --data "$ROOT/Half-Life/valve" \
-		--skip-startup-vids --play
+	# Never let Dolphin observe the image while the large data tree is still
+	# being copied.  Serialize concurrent launcher windows and publish only a
+	# completed image with an atomic rename.
+	mkdir -p "$ROOT/OUT"
+	exec 9>"$ROOT/OUT/.play-disc.lock"
+	flock 9
+	if (( ! FORCE_BUILD )) && [[ -f "$ISO" && "$ENGINE_BIN" -ot "$ISO" ]]; then
+		BUILD=0
+	else
+		echo "==> building play disc $ISO"
+		tmp_iso="$ISO.tmp.$$"
+		trap 'rm -f "$tmp_iso"' EXIT
+		python3 "$ROOT/scripts/build-gamecube-disc.py" --dol "$BOOT_DOL" --output "$tmp_iso" --data "$ROOT/Half-Life/valve" \
+		--play $([[ $PERF == 1 ]] && echo --perf)
+		mv -f "$tmp_iso" "$ISO"
+		trap - EXIT
+	fi
 fi
 
 DOLPHIN="$ROOT/3rdparty/dolphin/build/Binaries/dolphin-emu"

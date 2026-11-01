@@ -1108,6 +1108,9 @@ void CL_AddClientResources( void );
 void CL_InitParticles( void );
 void CL_ClearParticles( void );
 void CL_FreeParticles( void );
+#if XASH_GAMECUBE
+void CL_GetEfxPoolStats( int *active_particles, int *free_particles, int *active_beams, int *free_beams );
+#endif
 void CL_InitTempEnts( void );
 void CL_FreeTempEnts( void );
 void CL_TempEntUpdate( void );

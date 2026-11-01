@@ -1935,6 +1935,64 @@ def build_logo_gcvid_companion(source: Path, output: Path) -> Path | None:
 	return output_movie
 
 
+def build_c0a0_prefetch_manifest(source: Path, output: Path) -> Path:
+	"""Emit a deterministic first-map read-ahead manifest.
+
+	The runtime can consume this during menu idle without walking the retail
+	filesystem.  Keep it as plain ASCII so it is cheap to inspect and safe to
+	stage in the bootstrap overlay; ordering is intentional and stable.
+	"""
+	priority = (
+		"maps/c0a0.bsp",
+		"maps/c0a0a.bsp",
+		"models/player.mdl",
+		"models/barney.mdl",
+		"models/scientist.mdl",
+		"models/zombiet.mdl",
+		"sound/tride/c0a0_tr_gmorn.wav",
+		"sound/tride/c0a0_tr_time.wav",
+		"sound/plats/ttrain1.wav",
+	)
+	entries: list[str] = []
+	seen: set[str] = set()
+	for relative in priority:
+		path = source / relative
+		if path.is_file():
+			entries.append(f"{relative} {path.stat().st_size}\n")
+			seen.add(relative)
+	# Include nearby first-map assets in lexical order after the critical set.
+	for root_name in ("models", "sprites", "sound"):
+		root = source / root_name
+		if not root.is_dir():
+			continue
+		for path in sorted(root.rglob("*"), key=lambda item: item.as_posix().lower()):
+			if not path.is_file():
+				continue
+			relative = path.relative_to(source).as_posix()
+			if relative in seen or not any(token in relative.lower() for token in ("c0a0", "train", "tride", "barney", "scientist")):
+				continue
+			entries.append(f"{relative} {path.stat().st_size}\n")
+			seen.add(relative)
+	manifest = output / "media" / "c0a0.prefetch"
+	manifest.parent.mkdir(parents=True, exist_ok=True)
+	manifest.write_text("# Xash3D GameCube prefetch v1\n" + "".join(entries), encoding="ascii")
+	return manifest
+
+
+def build_c0a0_bsp_metadata(source: Path, output: Path) -> tuple[tuple[str, Path], ...]:
+	"""Add validated lump indexes for the opening tram transition chain."""
+	script = Path(__file__).with_name("generate-gc-bsp-meta.py")
+	result: list[tuple[str, Path]] = []
+	for map_name in ("c0a0", "c0a0a", "c0a0b", "c0a0b1", "c0a0b2", "c0a0c", "c0a0d", "c0a0e"):
+		source_map = source / "maps" / f"{map_name}.bsp"
+		if not source_map.is_file():
+			continue
+		metadata = output / "media" / f"{map_name}.gcmeta"
+		subprocess.run([sys.executable, str(script), str(source_map), str(metadata)], check=True)
+		result.append((f"media/{map_name}.gcmeta", metadata))
+	return tuple(result)
+
+
 GC_RETAIL_VALVE_RC = """// GameCube retail boot (read-only disc)
 exec autoexec.cfg
 stuffcmds
@@ -1962,6 +2020,9 @@ def create_retail_boot_overlays(
 
 	media = output / "media"
 	media.mkdir(exist_ok=True)
+	prefetch_manifest = build_c0a0_prefetch_manifest(source, output)
+	overlays.append(("media/c0a0.prefetch", prefetch_manifest))
+	overlays.extend(build_c0a0_bsp_metadata(source, output))
 	logo_gcvid = build_logo_gcvid_companion(source, output)
 	if logo_gcvid is not None:
 		overlays.append(("media/logo.gcvid", logo_gcvid))
@@ -2710,6 +2771,11 @@ def main() -> None:
 		help="stage gamecube.cfg retailnewgame: the menu New Game route with the real controller (for playing in Dolphin)",
 	)
 	parser.add_argument(
+		"--perf",
+		action="store_true",
+		help="enable GameCube performance overlay/profiling in the interactive play config",
+	)
+	parser.add_argument(
 		"--probe-menu-newgame",
 		action="store_true",
 		help="stage a retail menu boot that presses the built-in New Game item",
@@ -2968,7 +3034,13 @@ def main() -> None:
 				if args.probe_tas:
 					stage_probe_tas(staged_data, args.probe_tas, scripts_root=script_dir)
 			elif args.play:
-				play_lines = ["retailnewgame"]
+				# The interactive play disc is a full retail simulation.  Keep
+				# reduced physics confined to explicit probe routes; NPC thinks,
+				# scripted sequences, effects, decals, and viewmodels must remain
+				# enabled during normal play.
+				play_lines = ["retailnewgame", "fullphysics"]
+				if args.perf:
+					play_lines.extend(["profile", "gc_perf_enable 1", "gc_perf_draw 1"])
 				if os.environ.get("XASH_GC_PROBE_AUTOHOP") == "1":
 					play_lines.append("autohop")
 				if os.environ.get("XASH_GC_PROBE_MODELTRACE") == "1":

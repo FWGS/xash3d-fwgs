@@ -4707,6 +4707,7 @@ static void GC_SortRefreshCandsByAreaDesc( int cache_slot )
 {
 	int i, j;
 	int n;
+	qboolean swapped;
 
 	if( cache_slot < 0 || cache_slot >= GC_SURFBITS_CACHE_SLOTS )
 		return;
@@ -4715,6 +4716,7 @@ static void GC_SortRefreshCandsByAreaDesc( int cache_slot )
 	n = gc_refresh_ncands[cache_slot];
 	for( i = 0; i < n - 1; i++ )
 	{
+		swapped = false;
 		for( j = i + 1; j < n; j++ )
 		{
 			const gc_refresh_cand_t *a = &gc_refresh_cands[i];
@@ -4727,8 +4729,11 @@ static void GC_SortRefreshCandsByAreaDesc( int cache_slot )
 				gc_refresh_cand_t tmp = gc_refresh_cands[i];
 				gc_refresh_cands[i] = gc_refresh_cands[j];
 				gc_refresh_cands[j] = tmp;
+				swapped = true;
 			}
 		}
+		if( !swapped )
+			break;
 	}
 }
 

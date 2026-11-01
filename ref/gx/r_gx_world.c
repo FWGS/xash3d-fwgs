@@ -162,6 +162,14 @@ static int r_gx_state_reuses;
 static int r_gx_tex_loads;
 static int r_gx_tex_reuses;
 static qboolean r_gx_state_cache_logged;
+
+void R_GXGetStateStats( int *sets, int *reuses, int *tex_loads, int *tex_reuses )
+{
+	if( sets ) *sets = r_gx_state_sets;
+	if( reuses ) *reuses = r_gx_state_reuses;
+	if( tex_loads ) *tex_loads = r_gx_tex_loads;
+	if( tex_reuses ) *tex_reuses = r_gx_tex_reuses;
+}
 /* Route flags are stable for a world pass; avoid Sys_CheckParm in every face. */
 static qboolean r_gx_newgame_route;
 static qboolean r_gx_menu_route;
@@ -1048,7 +1056,14 @@ static void R_GXHotService( void )
 	r_gx_hot.queued = kept;
 	/* A chain can land where another one was: drop the texture cache's copy. */
 	if( spent )
+	{
 		GX_InvalidateTexAll();
+		/* GX texture memory was changed behind the bind cache. Force the next
+		 * draw to reload its object, including when the streamed texture was
+		 * already the active one at the frame boundary. */
+		r_gx_bound_texnum = 0;
+		r_gx_bound_fmt = 0;
+	}
 }
 
 static gc_gx_tex_t *R_GXPackedTexture( image_t *img, unsigned texnum )
@@ -1546,11 +1561,12 @@ static void R_GXClearEfbSky( GXRModeObj *rmode )
 	Mtx ident;
 	const f32 fb_w = (f32)rmode->fbWidth;
 	const f32 fb_h = (f32)rmode->efbHeight;
-	/* G221/G285: Flipper outdoor clear (desert sky). Indoor hole fill used to
-	 * force concrete gray whenever GX world was live — outdoor tram looked wrong
-	 * on hardware. Textured backdrop draws when lean sides are resident.
+	/* G221/G285: use the desert clear only when a real skybox side exists.
+	 * A map hole/void is fog-black; blue here made missing geometry look like
+	 * an untextured outdoor sky and was especially visible through tram gaps.
+	 * Textured backdrop draws when lean sides are resident.
 	 * G348: tram tunnel (c0a0*) uses dark concrete — sky blue void fought retail. */
-	u32 sky = 0x5A8CD2FFu;
+	u32 sky = R_GXHasSkyboxSide() ? 0x5A8CD2FFu : 0x000000FFu;
 	GXColor copy_clear;
 	extern qboolean GC_IsTramIntroMap( void );
 

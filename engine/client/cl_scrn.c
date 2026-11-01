@@ -1133,7 +1133,12 @@ void SCR_UpdateScreen( void )
 	// (assuming levelshots are off) and drawing 2d on top of nothing or cleared screen
 	// is ugly, specifically with Adreno and ImgTec GPUs
 	if( screen_redraw || !cls.changelevel || !cls.changedemo )
+	{
+	#if XASH_GAMECUBE
+		GC_PerfDraw();
+	#endif
 		V_PostRender();
+	}
 }
 
 /*
