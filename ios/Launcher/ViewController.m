@@ -95,8 +95,8 @@ GNU General Public License for more details.
 - (void)constraintsInit {
 	[NSLayoutConstraint activateConstraints:@[
 		[self.gamesView.topAnchor constraintEqualToAnchor:self.view.safeAreaLayoutGuide.topAnchor],
-			[self.gamesView.leadingAnchor constraintEqualToAnchor:self.view.leadingAnchor],
-			[self.gamesView.trailingAnchor constraintEqualToAnchor:self.view.trailingAnchor],
+			[self.gamesView.leadingAnchor constraintEqualToAnchor:self.view.readableContentGuide.leadingAnchor],
+			[self.gamesView.trailingAnchor constraintEqualToAnchor:self.view.readableContentGuide.trailingAnchor],
 		[self.gamesView.bottomAnchor constraintEqualToAnchor:self.view.bottomAnchor],
 	]];
 }
