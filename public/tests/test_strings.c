@@ -113,6 +113,38 @@ static int Test_TrimSpace( void )
 
 #include <stdio.h>
 
+static int Test_StripControlChars( void )
+{
+	string s;
+
+	// escape sequences lose their ESC, tabs and newlines stay
+	COM_StripControlChars( s, "\x1b[31mred\x1b[0m\tok\n", sizeof( s ));
+	if( Q_strcmp( s, "[31mred[0m\tok\n" ))
+		return 1;
+
+	// BEL, CR, DEL and CSI encoded as UTF-8
+	COM_StripControlChars( s, "a\x07g\r\x7fh\xc2\x9bpm", sizeof( s ));
+	if( Q_strcmp( s, "aghpm" ))
+		return 2;
+
+	// UTF-8 text, NO-BREAK SPACE and a stray CP1252 byte are left alone
+	COM_StripControlChars( s, "\xd0\x96\xc2\xa0\xe9", sizeof( s ));
+	if( Q_strcmp( s, "\xd0\x96\xc2\xa0\xe9" ))
+		return 3;
+
+	// check it truncates
+	COM_StripControlChars( s, "xash\x1bxash", 5 );
+	if( Q_strcmp( s, "xash" ))
+		return 4;
+
+	Q_strncpy( s, "in\x1bplace", sizeof( s ));
+	COM_StripControlChars( s, s, sizeof( s ));
+	if( Q_strcmp( s, "inplace" ))
+		return 5;
+
+	return 0;
+}
+
 static int Test_memgets( qboolean include_null_terminator )
 {
 	char data[] =
@@ -183,6 +215,11 @@ int main( void )
 
 	if( ret > 0 )
 		return ret + 64;
+
+	ret = Test_StripControlChars();
+
+	if( ret > 0 )
+		return ret + 80;
 
 	return 0;
 }

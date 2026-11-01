@@ -114,6 +114,88 @@ uint32_t Q_DecodeUTF16( utfstate_t *s, uint32_t in )
 	return 0;
 }
 
+size_t Q_UTF8SequenceLength( uint8_t lead )
+{
+	if( lead >= 0xc2u && lead <= 0xdfu )
+		return 2;
+
+	if( lead >= 0xe0u && lead <= 0xefu )
+		return 3;
+
+	if( lead >= 0xf0u && lead <= 0xf4u )
+		return 4;
+
+	return 1;
+}
+
+size_t Q_DecodeUTF8Char( const char *s, size_t len, uint32_t *uc )
+{
+	const uint8_t *p = (const uint8_t *)s;
+
+	if( unlikely( len == 0 ))
+	{
+		*uc = 0xfffdu;
+		return 0;
+	}
+
+	if( likely( p[0] <= 0x7fu ))
+	{
+		*uc = p[0];
+		return 1;
+	}
+
+	size_t need = Q_UTF8SequenceLength( p[0] );
+
+	if( need == 1 )
+	{
+		*uc = 0xfffdu;
+		return 1;
+	}
+
+	uint32_t c = p[0] & ( 0x7fu >> need );
+
+	for( size_t i = 1; i < need; i++ )
+	{
+		if( i >= len || ( p[i] & 0xc0u ) != 0x80u )
+		{
+			*uc = 0xfffdu;
+			return i;
+		}
+
+		c = ( c << 6 ) | ( p[i] & 0x3fu );
+	}
+
+	// overlong forms, surrogates and values past U+10FFFF, two byte overlongs are rejected by the lead byte
+	if(( need == 3 && c < 0x800u ) || ( need == 4 && c < 0x10000u ) || c > 0x10ffffu || ( c >= 0xd800u && c <= 0xdfffu ))
+		c = 0xfffdu;
+
+	*uc = c;
+	return need;
+}
+
+size_t Q_UTF8PrevChar( const char *s, size_t pos )
+{
+	if( pos == 0 )
+		return 0;
+
+	pos--;
+
+	while( pos > 0 && ((uint8_t)s[pos] & 0xc0u ) == 0x80u )
+		pos--;
+
+	return pos;
+}
+
+size_t Q_UTF8NextChar( const char *s, size_t len, size_t pos )
+{
+	uint32_t uc;
+
+	if( pos >= len )
+		return len;
+
+	return pos + Q_DecodeUTF8Char( s + pos, len - pos, &uc );
+}
+
 static size_t Q_CodepointLength( uint32_t ch )
 {
 	if( ch <= 0x7fu )

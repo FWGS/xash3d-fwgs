@@ -301,6 +301,10 @@ static void Sys_PrintStdout( const char *logtime, size_t logtime_len, const char
 void Sys_PrintLog( const char *pMsg )
 {
 	static char lastchar;
+	static char clean[MAX_PRINT_MSG];
+
+	COM_StripControlChars( clean, pMsg, sizeof( clean ));
+	pMsg = clean;
 
 	const struct tm *crt_tm = NULL;
 	if( !lastchar || lastchar == '\n' )

@@ -111,6 +111,7 @@ int Q_vsnprintf( char *buffer, size_t buffersize, const char *format, va_list ar
 int Q_snprintf( char *buffer, size_t buffersize, const char *format, ... ) FORMAT_CHECK( 3 );
 #define Q_strpbrk strpbrk
 void COM_StripColors( const char *in, char *out );
+void COM_StripControlChars( char *dst, const char *src, size_t size ); // drops what a terminal would act on instead of printing
 #define Q_memprint( val ) Q_pretifymem( val, 2 )
 char *Q_pretifymem( float value, int digitsafterdecimal ) RETURNS_NONNULL;
 void COM_FileBase( const char *in, char *out, size_t size );

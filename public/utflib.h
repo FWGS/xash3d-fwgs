@@ -32,6 +32,17 @@ uint32_t Q_DecodeUTF8( utfstate_t *s, uint32_t ch );
 uint32_t Q_DecodeUTF16( utfstate_t *s, uint32_t ch );
 size_t Q_EncodeUTF8( char dst[4], uint32_t ch );
 
+// decodes one code point, invalid, overlong and truncated sequences yield U+FFFD
+// returns the number of bytes consumed, at least one when len isn't zero
+size_t Q_DecodeUTF8Char( const char *s, size_t len, uint32_t *uc );
+
+// sequence length announced by a lead byte, 1 for ASCII and invalid lead bytes
+size_t Q_UTF8SequenceLength( uint8_t lead );
+
+// byte offsets of the code points before and after pos
+size_t Q_UTF8PrevChar( const char *s, size_t pos );
+size_t Q_UTF8NextChar( const char *s, size_t len, size_t pos );
+
 size_t Q_UTF8Length( const char *s );
 
 // srcsize in byte pairs

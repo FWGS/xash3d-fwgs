@@ -14,6 +14,7 @@ GNU General Public License for more details.
 */
 
 #include "platform/platform.h"
+#include "utflib.h"
 
 #if !XASH_MOBILE_PLATFORM && !XASH_LOW_MEMORY
 // use with caution, running engine in Qt Creator may cause a freeze in read() call
@@ -89,24 +90,12 @@ static void Posix_ConRedraw( void )
 
 static int Posix_ConPrevChar( int pos )
 {
-	if( pos > 0 )
-		pos--;
-
-	while( pos > 0 && ((byte)s_con.line[pos] & 0xC0 ) == 0x80 )
-		pos--;
-
-	return pos;
+	return Q_UTF8PrevChar( s_con.line, pos );
 }
 
 static int Posix_ConNextChar( int pos )
 {
-	if( pos < s_con.len )
-		pos++;
-
-	while( pos < s_con.len && ((byte)s_con.line[pos] & 0xC0 ) == 0x80 )
-		pos++;
-
-	return pos;
+	return Q_UTF8NextChar( s_con.line, s_con.len, pos );
 }
 
 static void Posix_ConSetCursor( int pos )
