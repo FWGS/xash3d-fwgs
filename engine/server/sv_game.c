@@ -305,11 +305,14 @@ void GAME_EXPORT SV_SetModel( edict_t *ent, const char *modelname )
 	COM_FixSlashes( name );
 
 #if XASH_GAMECUBE
-	/* Player MDL rebind after precache free OOMs/crashes under New Game MEM1.
+	/* Player MDL rebind after precache free OOMs/crashes during the New Game
+	 * bootstrap/reconnect window. The client is still assembling its first
+	 * complete frame here; attempting a studio load from this callback can
+	 * race the map arena and crash before the world-ready handoff.
 	 * Keep a default player hull without studio reload or world relink.
 	 * Use the real precache slot (not world index 1) so entity frames do not
 	 * treat the client as a brush model; clear dangling stub pointers.
-	 * Menu New Game (-gcmenuplaystart) hits the same Mod_ForName hang. */
+	 * Normal gameplay model binding remains available after this handoff. */
 	if( ( Sys_CheckParm( "-gcnewgame" ) || Sys_CheckParm( "-gcmenuplaystart" ))
 		&& !Q_stricmp( name, "models/player.mdl" ))
 	{

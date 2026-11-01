@@ -297,6 +297,17 @@ static BEAM		*cl_active_beams;
 static BEAM		*cl_free_beams;
 static BEAM		*cl_viewbeams = NULL;		// beams pool
 
+#if XASH_GAMECUBE
+void CL_GetEfxPoolStats( int *active_particles, int *free_particles, int *active_beams, int *free_beams )
+{
+	int n;
+	if( active_particles ) { n = 0; for( particle_t *p = cl_active_particles; p; p = p->next ) n++; *active_particles = n; }
+	if( free_particles ) { n = 0; for( particle_t *p = cl_free_particles; p; p = p->next ) n++; *free_particles = n; }
+	if( active_beams ) { n = 0; for( BEAM *b = cl_active_beams; b; b = b->next ) n++; *active_beams = n; }
+	if( free_beams ) { n = 0; for( BEAM *b = cl_free_beams; b; b = b->next ) n++; *free_beams = n; }
+}
+#endif
+
 
 /*
 ==============================================================

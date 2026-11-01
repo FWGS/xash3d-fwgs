@@ -14,6 +14,7 @@ Copyright (C) 2026 xash3d-gc contributors
 
 void *R_GCBorrowMapLoadStaticArena( size_t size, size_t *capacity );
 qboolean R_GCReleaseMapLoadStaticArena( void *ptr );
+qboolean SV_Active( void );
 
 static char gc_mem_map[MAX_QPATH] = "(none)";
 static size_t gc_mem_last;
@@ -33,6 +34,15 @@ static qboolean gc_mapload_buf_in_use;
 static int gc_mapload_memopt_depth;
 static qboolean gc_mapload_memopt_session; /* stays on after playstart until cleared */
 static qboolean gc_newgame_bootstrap_memopt = true;
+
+#define GC_PREFETCH_MAX_ENTRIES 32
+#define GC_PREFETCH_MAX_BYTES (2u * 1024u * 1024u)
+#define GC_PREFETCH_CHUNK 32768u
+typedef struct { char path[MAX_QPATH]; unsigned int size, aram; qboolean ready; } gc_prefetch_entry_t;
+static gc_prefetch_entry_t gc_prefetch[GC_PREFETCH_MAX_ENTRIES];
+static unsigned int gc_prefetch_count, gc_prefetch_next, gc_prefetch_used, gc_prefetch_aram;
+static qboolean gc_prefetch_manifest_ready, gc_prefetch_initialized;
+static byte gc_prefetch_bounce[GC_PREFETCH_CHUNK] __attribute__(( aligned( 32 )));
 
 void GC_MemSetMap( const char *mapname )
 {
@@ -266,6 +276,7 @@ void GC_PrepareMapLoadBufferForMap( const char *mapname )
 		GC_PrepareMapLoadBuffer( GC_MAPLOAD_BUFFER_DEFAULT );
 		return;
 	}
+	GC_LoadMapMetadata( mapname );
 
 	Q_snprintf( path, sizeof( path ), "maps/%s.bsp", mapname );
 	filesize = FS_FileSize( path, false );
@@ -273,6 +284,58 @@ void GC_PrepareMapLoadBufferForMap( const char *mapname )
 		GC_PrepareMapLoadBuffer( (size_t)filesize );
 	else
 		GC_PrepareMapLoadBuffer( GC_MAPLOAD_BUFFER_DEFAULT );
+}
+
+qboolean GC_LoadMapMetadata( const char *mapname )
+{
+	char path[MAX_QPATH];
+	char base[MAX_QPATH];
+	char text[4096];
+	file_t *f;
+	int n, rows = 0, hot = 0;
+	if( !mapname || !mapname[0] ) return false;
+	COM_FileBase( mapname, base, sizeof( base ));
+	Q_snprintf( path, sizeof( path ), "media/%s.gcmeta", base );
+	f = FS_Open( path, "rb", false );
+	if( !f ) return false;
+	n = FS_Read( text, sizeof( text ) - 1, f );
+	FS_Close( f );
+	if( n <= 0 ) return false;
+	text[n] = '\0';
+	{
+		char *cursor = text;
+		char *end;
+	unsigned version, crc, file_size;
+	fs_offset_t actual_size;
+		if( sscanf( cursor, "GCMETA 1 %u %x %u", &version, &crc, &file_size ) != 3
+			|| version != 30 || !crc || !file_size ) return false;
+		actual_size = FS_FileSize( va( "maps/%s.bsp", base ), false );
+		if( actual_size <= 0 || (unsigned)actual_size != file_size ) return false;
+		end = strchr( cursor, '\n' );
+		if( !end ) return false;
+		cursor = end + 1;
+		while( cursor && *cursor )
+		{
+			int index, offset, size, align;
+			char name[32], tier[8];
+			end = strchr( cursor, '\n' );
+			if( end ) *end = '\0';
+			if( !Q_strnicmp( cursor, "BATCHES ", 8 )) break;
+			if( sscanf( cursor, "%d %31s %7s %d %d %d", &index, name, tier,
+				&offset, &size, &align ) != 6 || index != rows || index < 0 || index >= 15
+				|| offset < 0 || size < 0 || align != ( offset & 31 )
+				|| ( Q_stricmp( tier, "HOT" ) && Q_stricmp( tier, "COLD" )))
+				return false;
+			if( !Q_stricmp( tier, "HOT" )) hot++;
+			rows++;
+			if( !end ) break;
+			cursor = end + 1;
+		}
+	}
+	if( rows != 15 ) return false;
+	Con_Reportf( "Xash3D GameCube: validated BSP metadata %s rows=%d hot=%d size=%u\n",
+		path, rows, hot, file_size );
+	return true;
 }
 
 void *GC_BorrowMapLoadBuffer( size_t size )
@@ -535,5 +598,81 @@ void GC_AramCopy( unsigned int aram, void *buf, unsigned int len, qboolean write
 		p += chunk;
 		len -= chunk;
 	}
+}
+
+void GC_PrefetchMenuIdle( void )
+{
+	file_t *f;
+	char manifest[8192];
+	int n;
+	if( gc_prefetch_manifest_ready || cls.key_dest != key_menu
+		|| SV_Active() || Sys_CheckParm( "-gcmap" )) return;
+	if( !gc_prefetch_initialized )
+	{
+		gc_prefetch_initialized = true;
+		f = FS_Open( "media/c0a0.prefetch", "rb", false );
+		if( !f ) { gc_prefetch_manifest_ready = true; return; }
+		n = FS_Read( manifest, sizeof( manifest ) - 1, f ); FS_Close( f );
+		if( n <= 0 ) { gc_prefetch_manifest_ready = true; return; }
+		manifest[n] = '\0';
+		{
+			char *cursor = manifest;
+			while( gc_prefetch_count < GC_PREFETCH_MAX_ENTRIES && cursor && *cursor )
+			{
+				char *end = strchr( cursor, '\n' );
+				if( end ) *end = '\0';
+				if( cursor[0] != '#' && cursor[0] != '\0'
+					&& sscanf( cursor, "%127s %u", gc_prefetch[gc_prefetch_count].path,
+						&gc_prefetch[gc_prefetch_count].size ) == 2 ) gc_prefetch_count++;
+				if( !end ) break; cursor = end + 1;
+			}
+		}
+		if( !gc_prefetch_count ) { gc_prefetch_manifest_ready = true; return; }
+		{
+			unsigned int reserve = 0;
+			unsigned int i;
+			for( i = 0; i < gc_prefetch_count; i++ )
+			{
+				if( gc_prefetch[i].size <= 512u * 1024u
+					&& gc_prefetch[i].size <= GC_PREFETCH_MAX_BYTES - reserve )
+					reserve += ( gc_prefetch[i].size + 31u ) & ~31u;
+			}
+			if( !reserve ) { gc_prefetch_manifest_ready = true; return; }
+			if( reserve > GC_PREFETCH_MAX_BYTES ) reserve = GC_PREFETCH_MAX_BYTES;
+			gc_prefetch_aram = GC_AramReserve( reserve );
+			if( !gc_prefetch_aram ) { gc_prefetch_manifest_ready = true; return; }
+		}
+	}
+	if( gc_prefetch_next >= gc_prefetch_count ) { gc_prefetch_manifest_ready = true; return; }
+	{
+		gc_prefetch_entry_t *entry = &gc_prefetch[gc_prefetch_next++];
+		unsigned int left, offset = 0;
+		if( !entry->size || entry->size > 512u * 1024u
+			|| entry->size > GC_PREFETCH_MAX_BYTES - gc_prefetch_used ) return;
+		f = FS_Open( entry->path, "rb", false ); if( !f ) return;
+		entry->aram = gc_prefetch_aram + gc_prefetch_used; left = entry->size;
+		while( left )
+		{
+			unsigned int chunk = left > GC_PREFETCH_CHUNK ? GC_PREFETCH_CHUNK : left;
+			if( FS_Read( gc_prefetch_bounce, chunk, f ) != (int)chunk ) break;
+			/* File tails are commonly not DMA-sized; AramCopy preserves the
+			 * neighbouring bytes in the final 32-byte block. */
+			GC_AramCopy( entry->aram + offset, gc_prefetch_bounce, chunk, true );
+			offset += chunk; left -= chunk;
+		}
+		FS_Close( f );
+		if( !left )
+		{
+			entry->ready = true;
+			gc_prefetch_used += ( entry->size + 31u ) & ~31u;
+		}
+	}
+}
+
+void GC_PrefetchStats( unsigned int *used, unsigned int *capacity, unsigned int *entries )
+{
+	if( used ) *used = gc_prefetch_used;
+	if( capacity ) *capacity = gc_prefetch_aram ? GC_PREFETCH_MAX_BYTES : 0;
+	if( entries ) *entries = gc_prefetch_next;
 }
 #endif

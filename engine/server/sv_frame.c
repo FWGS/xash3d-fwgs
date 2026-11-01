@@ -726,14 +726,15 @@ static void SV_WriteClientdataToMessage( sv_client_t *cl, sizebuf_t *msg )
 #if XASH_GAMECUBE
 	gc_native_callbacks = ( Sys_CheckParm( "-gcnewgame" )
 			|| Sys_CheckParm( "-gcmenuplaystart" ))
-		&& Sys_CheckParm( "-gcfullphysics" ) && GC_IsNewGameG36Done();
+		&& Sys_CheckParm( "-gcfullphysics" ) && GC_IsNewGameG36Done()
+		&& GC_IsNewGameWorldReady();
 
 	/* Post-G36: pfnUpdateClientData / GetWeaponData stall Host_Frame on c0a0.
 	 * Keep the minimal snapshot only for reduced bring-up modes (G87).
 	 * Menu New Game (-gcmenuplaystart) needs the same pre-G36 minimal pack. */
 	if( ( Sys_CheckParm( "-gcnewgame" ) || Sys_CheckParm( "-gcmenuplaystart" ))
 		&& ( GC_IsNewGameG36Done() || Sys_CheckParm( "-gcmenuplaystart" ))
-		&& !Sys_CheckParm( "-gcfullphysics" ))
+		&& ( !Sys_CheckParm( "-gcfullphysics" ) || !GC_IsNewGameWorldReady() ))
 	{
 		VectorCopy( clent->v.origin, frame->clientdata.origin );
 		VectorCopy( clent->v.velocity, frame->clientdata.velocity );

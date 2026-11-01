@@ -770,6 +770,11 @@ void Host_Frame( double time )
 		Con_Reportf( "Xash3D GameCube: post-client-begin Host_Frame=%u\n", host.framecount );
 	Host_GetCommands (); // dedicated in
 	#if XASH_GAMECUBE
+	/* Consume at most one bounded first-map prefetch step while the retail
+	 * menu is idle. New Game routes disable this as soon as they are selected. */
+	GC_PrefetchMenuIdle();
+	#endif
+	#if XASH_GAMECUBE
 	if( host.framecount < 3 )
 		Con_Reportf( "Xash3D GameCube: GHOST frame=%u after commands\n", host.framecount );
 	#endif

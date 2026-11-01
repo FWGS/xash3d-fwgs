@@ -9,6 +9,10 @@ Copyright (C) 2026 xash3d-gc contributors
 #include "mem_gamecube.h"
 #include "client.h"
 #include "perf_gamecube.h"
+#if XASH_GAMECUBE
+extern void CL_GetEfxPoolStats( int *, int *, int *, int * );
+extern void R_GXGetStateStats( int *, int *, int *, int * );
+#endif
 #include <string.h>
 
 #if XASH_GAMECUBE
@@ -154,7 +158,7 @@ static GC_PerfMetrics gc_perf_metrics;
 
 /* Performance cvars */
 CVAR_DEFINE_AUTO( gc_perf_enable, "1", FCVAR_ARCHIVE, "Enable performance profiling" );
-CVAR_DEFINE_AUTO( gc_perf_draw, "1", FCVAR_ARCHIVE, "Draw performance overlay" );
+CVAR_DEFINE_AUTO( gc_perf_draw, "0", FCVAR_ARCHIVE, "Draw performance overlay" );
 CVAR_DEFINE_AUTO( gc_perf_window, "60", FCVAR_ARCHIVE, "FPS window size" );
 
 /* Memory profiling */
@@ -325,10 +329,16 @@ void GC_PerfCmd_Init( void )
 /* Performance telemetry display */
 void GC_PerfDraw( void )
 {
+	unsigned int prefetch_used, prefetch_capacity, prefetch_entries;
+	int active_particles, free_particles, active_beams, free_beams;
+	int state_sets, state_reuses, tex_loads, tex_reuses;
     if( !gc_perf_enable.string || !gc_perf_draw.string || atoi(gc_perf_enable.string) == 0 || atoi(gc_perf_draw.string) == 0 )
         return;
     
     const GC_PerfMetrics* m = GC_PerfGetMetrics();
+	GC_PrefetchStats( &prefetch_used, &prefetch_capacity, &prefetch_entries );
+	CL_GetEfxPoolStats( &active_particles, &free_particles, &active_beams, &free_beams );
+	R_GXGetStateStats( &state_sets, &state_reuses, &tex_loads, &tex_reuses );
     
     /* Draw FPS overlay in top-left corner */
     Con_DrawString( 8, 8, va( "FPS: %.1f (%.1f/%.1f)", m->fps, m->avg_fps, m->min_fps ), 0 );
@@ -341,6 +351,12 @@ void GC_PerfDraw( void )
     
     /* Draw budget status */
     Con_DrawString( 8, 56, va( "BUDGET: %s", m->budget_exceeded ? "EXCEEDED" : "OK" ), 0 );
+	Con_DrawString( 8, 72, va( "ARAM: %u/%u KiB  PREFETCH: %u",
+		prefetch_used / 1024u, prefetch_capacity / 1024u, prefetch_entries ), 0 );
+	Con_DrawString( 8, 88, va( "EFX: P %d/%d  B %d/%d",
+		active_particles, free_particles, active_beams, free_beams ), 0 );
+	Con_DrawString( 8, 104, va( "GX: S %d/%d  T %d/%d",
+		state_sets, state_reuses, tex_loads, tex_reuses ), 0 );
 }
 
 /* Memory profiling */
