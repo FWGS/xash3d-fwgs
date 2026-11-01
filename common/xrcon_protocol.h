@@ -17,6 +17,7 @@ GNU General Public License for more details.
 #define XRCON_PROTOCOL_H
 
 #include <stdint.h>
+#include <string.h>
 
 #include "xash3d_types.h"
 
@@ -48,5 +49,37 @@ GNU General Public License for more details.
 // Buffer sizes derived from the frame limit.
 #define XRCON_TX_BUFFER_SIZE     ( XRCON_MAX_FRAME_SIZE * 4 )
 #define XRCON_RX_BUFFER_SIZE     ( XRCON_MAX_FRAME_SIZE + 64 )
+
+typedef struct
+{
+	uint32_t type; // host-endian, compare with XRCON_TYPE_*
+	uint32_t version;
+	uint16_t length; // whole frame, header included
+	uint16_t handle;
+} xrcon_header_t;
+
+// numbers are big-endian on the wire, the type tag is already in transmission order
+static inline void XRcon_WriteHeader( uint8_t *frame, uint32_t type, uint16_t length )
+{
+	const uint32_t version = BigLong( XRCON_CMND_VERSION );
+	const uint16_t len = BigShort( length );
+	const uint16_t handle = 0;
+
+	memcpy( frame + 0, &type, sizeof( type ));
+	memcpy( frame + 4, &version, sizeof( version ));
+	memcpy( frame + 8, &len, sizeof( len ));
+	memcpy( frame + 10, &handle, sizeof( handle ));
+}
+
+static inline void XRcon_ReadHeader( const uint8_t *frame, xrcon_header_t *hdr )
+{
+	memcpy( &hdr->type, frame + 0, sizeof( hdr->type ));
+	memcpy( &hdr->version, frame + 4, sizeof( hdr->version ));
+	memcpy( &hdr->length, frame + 8, sizeof( hdr->length ));
+	memcpy( &hdr->handle, frame + 10, sizeof( hdr->handle ));
+	hdr->version = BigLong( hdr->version );
+	hdr->length = BigShort( hdr->length );
+	hdr->handle = BigShort( hdr->handle );
+}
 
 #endif // XRCON_PROTOCOL_H
