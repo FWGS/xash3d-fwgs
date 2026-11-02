@@ -6516,7 +6516,10 @@ static void Mod_LoadClipnodes( model_t *mod, dbspmodel_t *bmod )
 		{
 			Con_Reportf( S_WARN "Xash3D GameCube: dropping retained visdata to reload clipnodes\n" );
 			/* Fall back to full-vis leaf marking for this map session. */
-			Mem_Free( mod->visdata );
+			/* World arrays may be carved from the shared map-load arena tail.
+			 * They have no Mem header and are released with the arena. */
+			if( !GC_IsMapLoadBufferAddress( mod->visdata ))
+				Mem_Free( mod->visdata );
 			mod->visdata = NULL;
 			/* Clear leaf compressed_vis pointers that referenced the freed block. */
 			if( mod->leafs )
@@ -6549,7 +6552,10 @@ static void Mod_LoadClipnodes( model_t *mod, dbspmodel_t *bmod )
 				/* Fullphysics needs normalized compact nodes, not a raw BSP
 				 * alias.  Reclaim retained PVS bytes before falling back to a
 				 * scratch alias; the renderer already has a full-vis fallback. */
-				Mem_Free( mod->visdata );
+				/* visdata may be an arena-tail allocation, which cannot be
+				 * individually freed through the zone allocator. */
+				if( !GC_IsMapLoadBufferAddress( mod->visdata ))
+					Mem_Free( mod->visdata );
 				mod->visdata = NULL;
 				if( mod->leafs )
 				{
