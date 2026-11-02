@@ -686,6 +686,8 @@ save bank) never need a MEM1 copy of a whole file.
 #define GC_ARAM_BOUNCE 4096
 static u8 gc_aram_bounce[GC_ARAM_BOUNCE] __attribute__(( aligned( 32 )));
 static u32 gc_aram_reserve_blocks[8];
+static u32 gc_aram_audio_base;
+static u32 gc_aram_audio_capacity;
 static u32 gc_aram_map_base;
 static u32 gc_aram_map_capacity;
 
@@ -781,6 +783,34 @@ unsigned int GC_AramReserve( unsigned int size )
 	base = AR_Alloc(( size + 31u ) & ~31u );
 	Con_Reportf( "Xash3D GameCube: ARAM reserve %s at 0x%08x\n", Q_memprint( size ), base );
 	return base;
+}
+
+unsigned int GC_AramAudioReserve( unsigned int size )
+{
+	u32 aligned;
+
+	if( gc_aram_audio_base )
+		return gc_aram_audio_capacity >= size ? gc_aram_audio_base : 0;
+	aligned = ( size + 31u ) & ~31u;
+	if( !aligned )
+		return 0;
+	gc_aram_audio_base = AR_Alloc( aligned );
+	if( !gc_aram_audio_base )
+		return 0;
+	gc_aram_audio_capacity = aligned;
+	Con_Reportf( "Xash3D GameCube: ARAM audio reserve %s at 0x%08x\n",
+		Q_memprint( aligned ), gc_aram_audio_base );
+	return gc_aram_audio_base;
+}
+
+unsigned int GC_AramAudioBase( void )
+{
+	return gc_aram_audio_base;
+}
+
+unsigned int GC_AramAudioCapacity( void )
+{
+	return gc_aram_audio_capacity;
 }
 
 unsigned int GC_AramMapReserve( unsigned int size )
