@@ -64,6 +64,10 @@ size_t GC_MapLoadBufferCapacity( void );
 void *GC_MapLoadBufferTailAlloc( size_t after_offset, size_t need );
 size_t GC_MapLoadBufferTailHighwater( void );
 unsigned int GC_AramReserve( unsigned int size );
+/* Session-owned audio/DSP budget; established before map streaming. */
+unsigned int GC_AramAudioReserve( unsigned int size );
+unsigned int GC_AramAudioBase( void );
+unsigned int GC_AramAudioCapacity( void );
 /* One map-owned ARAM window, reused across transitions without new blocks. */
 unsigned int GC_AramMapReserve( unsigned int size );
 void GC_AramMapReset( void );

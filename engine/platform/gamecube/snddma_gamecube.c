@@ -7,6 +7,7 @@ The engine mixer writes native PowerPC big-endian stereo 16-bit samples.
 #include "common.h"
 #include "sound.h"
 #include "client.h"
+#include "mem_gamecube.h"
 
 #if XASH_GAMECUBE
 
@@ -216,6 +217,12 @@ static qboolean GCube_RealAudioInit( void )
 	size_t buffer_bytes;
 
 	ASND_Init();
+	/* Reserve a stable cold-data budget after the DSP backend is online.  The
+	 * audio mixer still feeds ASND from the native ring today; this reservation
+	 * is the ownership boundary for the forthcoming ARAM sample/voice cache and
+	 * keeps map/texture streaming from claiming the same address range. */
+	if( !GC_AramAudioReserve( 1024u * 1024u ))
+		Con_Reportf( S_WARN "Xash3D GameCube: ARAM audio reserve unavailable\n" );
 	/* ASND_Init leaves playback paused; unpause on first mix submit. */
 
 	samplecount = (int)s_samplecount.value;
