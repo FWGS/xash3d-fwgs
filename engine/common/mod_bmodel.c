@@ -7600,6 +7600,8 @@ static qboolean Mod_LoadBmodelLumps( model_t *mod, byte *mod_base, size_t buffer
 
 	// byte-swap BSP header and lump directory from little-endian
 	Mod_SwapBSPLumps( mod_base, bufferlen );
+	if( isworld )
+		GC_StageMapHotLumps( mod_base, bufferlen );
 
 	switch( header->version )
 	{

@@ -16,6 +16,7 @@ GNU General Public License for more details.
 #include "soundlib.h"
 #if XASH_GAMECUBE
 #include "platform/platform.h"
+#include "../../platform/gamecube/mem_gamecube.h"
 #endif
 
 static void Sound_Reset( void )
@@ -43,6 +44,23 @@ static byte *SND_LOADFILE( const char *path, fs_offset_t *size )
 {
 	file_t *f;
 	byte *buf;
+	fs_offset_t cached_size;
+
+	/* The menu prefetcher stages the opening tram VO and other read-ahead
+	 * sounds in ARAM. Resolve the exact file size first, then copy directly
+	 * into the normal sound scratch buffer so the decoder and lifetime rules
+	 * remain unchanged. */
+	cached_size = FS_FileSize( path, false );
+	if( cached_size > 0 && cached_size <= 0xFFFFFFFFu
+		&& GC_PrefetchContains( path, (unsigned int)cached_size ))
+	{
+		buf = Mod_GCSoundScratch( cached_size );
+		if( buf && GC_PrefetchRead( path, buf, (unsigned int)cached_size ))
+		{
+			*size = cached_size;
+			return buf;
+		}
+	}
 
 	if( !GC_MenuRunsServer( ))
 		return FS_LoadFile( path, size, false );

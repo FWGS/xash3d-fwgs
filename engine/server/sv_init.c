@@ -1388,6 +1388,7 @@ qboolean SV_SpawnServer( const char *mapname, const char *startspot, qboolean ba
 	 * here, after the old world has been purged, so FS_LoadFile does not fall
 	 * back to a fragmented MEM1 allocation. */
 	GC_PrepareMapLoadBufferForMap( sv.name );
+	GC_MemBreadcrumb( "map buffer prepared" );
 	Con_Reportf( "Xash3D GameCube: pre-spawn map buffer prepared for %s\n", sv.name );
 	Con_Reportf( "Xash3D GameCube: pre-spawn memory trim\n" );
 #endif
@@ -1399,9 +1400,11 @@ qboolean SV_SpawnServer( const char *mapname, const char *startspot, qboolean ba
 	}
 #endif
 	sv.worldmodel = sv.models[WORLD_INDEX] = Mod_LoadWorld( sv.model_precache[WORLD_INDEX], true );
+	GC_MemBreadcrumb( "world model loaded" );
 	CRC32_MapFile( &sv.worldmapCRC, sv.model_precache[WORLD_INDEX], svs.maxclients > 1 );
 #if XASH_GAMECUBE
 	GC_MemSample( "bsp load" );
+	GC_MemBreadcrumb( "bsp sample complete" );
 	if( !GC_MapLoadMemoryOpt())
 	{
 		if( !Sys_CheckParm( "-gcchangelevel" ))
