@@ -3745,7 +3745,11 @@ static void R_StudioLoadTexture( model_t *mod, studiohdr_t *phdr, mstudiotexture
 	{
 		extern qboolean r_gc_studio_skins_in_arena;
 
-		r_gc_studio_skins_in_arena = GC_MenuRunsServer();
+		/* The direct new-game route has the same fixed studio lifetime as the
+		 * menu server route.  Keep its decoded base planes beside the compact
+		 * MDLs instead of competing with the client heap during map load. */
+		r_gc_studio_skins_in_arena = GC_MenuRunsServer()
+			|| gEngfuncs.Sys_CheckParm( "-gcnewgame" );
 		ptexture->index = GL_LoadTexture( texname, (byte *)ptexture, size, flags );
 		r_gc_studio_skins_in_arena = false;
 	}

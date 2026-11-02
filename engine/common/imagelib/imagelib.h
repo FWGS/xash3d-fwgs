@@ -95,6 +95,7 @@ typedef struct imglib_s
 	int			cmd_flags;	// global imglib flags
 	int			force_flags;	// override cmd_flags
 	qboolean			custom_palette;	// custom palette was installed
+	qboolean			mdl_decode;		// current image is an embedded studio texture
 } imglib_t;
 
 // imagelib definitions
@@ -126,6 +127,12 @@ enum
 };
 
 extern imglib_t image;
+
+#if XASH_GAMECUBE
+void *Image_GCAllocMdlDecode( size_t bytes );
+qboolean Image_GCIsMdlDecode( const void *ptr );
+#endif
+
 
 byte *Image_ResampleInternal( const void *indata, int in_w, int in_h, int out_w, int out_h, int intype, qboolean *done );
 byte *Image_FlipInternal( const byte *in, word *srcwidth, word *srcheight, int type, int flags );

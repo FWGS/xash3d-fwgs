@@ -1320,7 +1320,7 @@ qboolean Image_AddIndexedImageToPack( const byte *in, int width, int height )
 #if XASH_GAMECUBE
 	if( !Image_CheckFlag( IL_KEEP_8BIT ) && !FBitSet( image.flags, IMAGE_HAS_LUMA|IMAGE_QUAKESKY ))
 	{
-		const int max_size = Image_GCMaxLoadDimension( NULL );
+		const int max_size = image.mdl_decode ? 128 : Image_GCMaxLoadDimension( NULL );
 		if( scaled_width > max_size || scaled_height > max_size )
 		{
 			qboolean resampled = false;
@@ -1353,7 +1353,11 @@ qboolean Image_AddIndexedImageToPack( const byte *in, int width, int height )
 
 	// reallocate image buffer
 #if XASH_GAMECUBE
-	image.rgba = Mem_TryMalloc( host.imagepool, image.size );
+	image.rgba = image.mdl_decode
+		? Image_GCAllocMdlDecode( image.size )
+		: Mem_TryMalloc( host.imagepool, image.size );
+	if( !image.rgba && image.mdl_decode )
+		image.rgba = Mem_TryMalloc( host.imagepool, image.size );
 	if( !image.rgba )
 		return false;
 #else

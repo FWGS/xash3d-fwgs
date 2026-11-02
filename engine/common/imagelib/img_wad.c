@@ -197,6 +197,7 @@ qboolean Image_LoadMDL( const char *name, const byte *buffer, fs_offset_t filesi
 {
 	mstudiotexture_t *pin = (mstudiotexture_t *)buffer;
 	int flags = pin->flags;
+	image.mdl_decode = true;
 
 	image.width = pin->width;
 	image.height = pin->height;

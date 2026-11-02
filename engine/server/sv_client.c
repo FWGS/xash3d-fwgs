@@ -118,6 +118,10 @@ qboolean SV_GCPrimeDirectMapPlayer( void )
 	Con_Reportf( "Xash3D GameCube: direct-map player prime begin edict=%d\n",
 		NUM_FOR_EDICT( ent ));
 	svgame.dllFuncs.pfnClientPutInServer( ent );
+	/* Direct-map New Game primes the player outside the normal serverdata
+	 * activation path, so apply the same safe starting-weapon handoff here. */
+	if( Sys_CheckParm( "-gcnewgame" ))
+		GC_LeanLandmarkGrantWeaponsAfterPutInServer();
 	if( !ent->pvPrivateData || !FBitSet( ent->v.flags, FL_CLIENT ))
 	{
 		Con_Reportf( S_WARN "Xash3D GameCube: direct-map player prime failed private=%p flags=0x%x\n",
@@ -1696,8 +1700,9 @@ static void SV_PutClientInServer( sv_client_t *cl )
 					dropped, ent->v.origin[0], ent->v.origin[1], ent->v.origin[2] );
 			}
 		}
-		/* G119: put-in rebuilds CBasePlayer; re-grant queued landmark inventory. */
-		if( Sys_CheckParm( "-gcnewgame" ) && Sys_CheckParm( "-gcchangelevel" ))
+		/* G119/G326: put-in rebuilds CBasePlayer. Re-arm the retail starting
+		 * crowbar through the safe post-spawn create/touch path. */
+		if( Sys_CheckParm( "-gcnewgame" ))
 			GC_LeanLandmarkGrantWeaponsAfterPutInServer();
 #endif
 
