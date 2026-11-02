@@ -3,6 +3,7 @@ mem_gamecube.c - GameCube main-memory telemetry and map-load staging
 Copyright (C) 2026 xash3d-gc contributors
 */
 #include "common.h"
+#include "client.h"
 
 #if XASH_GAMECUBE
 #include "mem_gamecube.h"
@@ -36,6 +37,42 @@ static int gc_mapload_memopt_depth;
 static qboolean gc_mapload_memopt_session; /* stays on after playstart until cleared */
 static qboolean gc_newgame_bootstrap_memopt = true;
 
+#define GC_JOB_MAX 64
+typedef struct { GC_JobFn fn; void *opaque; GC_JobPriority priority; } gc_job_t;
+static gc_job_t gc_jobs[GC_JOB_MAX];
+static unsigned gc_job_count;
+
+qboolean GC_JobEnqueue( GC_JobFn fn, void *opaque, GC_JobPriority priority )
+{
+	unsigned i;
+	if( !fn || gc_job_count >= GC_JOB_MAX ) return false;
+	for( i = gc_job_count; i > 0 && gc_jobs[i - 1].priority > priority; i-- )
+		gc_jobs[i] = gc_jobs[i - 1];
+	gc_jobs[i].fn = fn;
+	gc_jobs[i].opaque = opaque;
+	gc_jobs[i].priority = priority;
+	gc_job_count++;
+	return true;
+}
+
+unsigned GC_JobPending( void ) { return gc_job_count; }
+
+unsigned GC_JobRunBudget( unsigned budget_us )
+{
+	const double start = Sys_DoubleTime( );
+	unsigned ran = 0;
+	while( gc_job_count )
+	{
+		gc_job_t job = gc_jobs[0];
+		memmove( gc_jobs, gc_jobs + 1, ( gc_job_count - 1 ) * sizeof( gc_jobs[0] ));
+		gc_job_count--;
+		job.fn( job.opaque );
+		ran++;
+		if( budget_us && ( Sys_DoubleTime( ) - start ) * 1000000.0 >= budget_us ) break;
+	}
+	return ran;
+}
+
 #define GC_BSP_BATCH_FACE_MAX 16384
 static unsigned short gc_bsp_face_batch[GC_BSP_BATCH_FACE_MAX];
 static int gc_bsp_batch_faces;
@@ -65,6 +102,7 @@ void GC_MapBatchStats( unsigned int *batches, unsigned int *faces )
 typedef struct { char path[MAX_QPATH]; unsigned int size, aram; qboolean ready; } gc_prefetch_entry_t;
 static gc_prefetch_entry_t gc_prefetch[GC_PREFETCH_MAX_ENTRIES];
 static unsigned int gc_prefetch_count, gc_prefetch_next, gc_prefetch_used, gc_prefetch_aram;
+static unsigned int gc_prefetch_capacity;
 static qboolean gc_prefetch_manifest_ready, gc_prefetch_initialized;
 static byte gc_prefetch_bounce[GC_PREFETCH_CHUNK] __attribute__(( aligned( 32 )));
 
@@ -328,11 +366,14 @@ qboolean GC_LoadMapMetadata( const char *mapname )
 {
 	char path[MAX_QPATH];
 	char base[MAX_QPATH];
-	/* Metadata can be sizeable on later chapters; keep this out of the
-	 * PowerPC stack, which is also used by the BSP loader call chain. */
-	static char text[65536];
+	/* The metadata is only needed while parsing. Do not reserve 64 KiB of
+	 * scarce MEM1 permanently for a buffer that is idle during gameplay. */
+	char *text;
 	file_t *f;
 	int n, rows = 0, hot = 0;
+	fs_offset_t text_size;
+	qboolean valid = false;
+	unsigned file_size = 0;
 	memset( gc_bsp_face_batch, 0, sizeof( gc_bsp_face_batch ));
 	gc_bsp_batch_faces = 0;
 	gc_bsp_batch_count = 0;
@@ -347,21 +388,33 @@ qboolean GC_LoadMapMetadata( const char *mapname )
 	Q_snprintf( path, sizeof( path ), "media/%s.gcmeta", base );
 	f = FS_Open( path, "rb", false );
 	if( !f ) return false;
-	n = FS_Read( text, sizeof( text ) - 1, f );
+	text_size = FS_FileLength( f );
+	if( text_size <= 0 || text_size >= 65536 )
+	{
+		FS_Close( f );
+		return false;
+	}
+	text = malloc( (size_t)text_size + 1 );
+	if( !text )
+	{
+		FS_Close( f );
+		return false;
+	}
+	n = FS_Read( f, text, (size_t)text_size );
 	FS_Close( f );
-	if( n <= 0 ) return false;
+	if( n != text_size ) goto done;
 	text[n] = '\0';
 	{
 		char *cursor = text;
 		char *end;
-	unsigned version, crc, file_size;
+	unsigned version, crc;
 	fs_offset_t actual_size;
 		if( sscanf( cursor, "GCMETA 1 %u %x %u", &version, &crc, &file_size ) != 3
-			|| version != 30 || !crc || !file_size ) return false;
+			|| version != 30 || !crc || !file_size ) goto done;
 		actual_size = FS_FileSize( va( "maps/%s.bsp", base ), false );
-		if( actual_size <= 0 || (unsigned)actual_size != file_size ) return false;
+		if( actual_size <= 0 || (unsigned)actual_size != file_size ) goto done;
 		end = strchr( cursor, '\n' );
-		if( !end ) return false;
+		if( !end ) goto done;
 		cursor = end + 1;
 		while( cursor && *cursor )
 		{
@@ -374,7 +427,7 @@ qboolean GC_LoadMapMetadata( const char *mapname )
 				int batch_count, face_count, batch_no = 0;
 				if( sscanf( cursor, "BATCHES %d %d", &batch_count, &face_count ) != 2
 					|| batch_count < 0 || batch_count > 4096 || face_count < 0
-					|| face_count > GC_BSP_BATCH_FACE_MAX ) return false;
+					|| face_count > GC_BSP_BATCH_FACE_MAX ) goto done;
 				cursor = end ? end + 1 : NULL;
 				while( cursor && *cursor && batch_no < batch_count )
 				{
@@ -384,13 +437,13 @@ qboolean GC_LoadMapMetadata( const char *mapname )
 					if( end ) *end = '\0';
 					if( sscanf( cursor, "BATCH %d %d %d %d %n", &miptex, &flags,
 						&count, &firstface, &consumed ) != 4 || count < 0 || firstface < 0
-						|| firstface + count > face_count ) return false;
+						|| firstface + count > face_count ) goto done;
 					p = cursor + consumed;
 					while( count-- > 0 )
 					{
 						char *next;
 						long face = strtol( p, &next, 10 );
-						if( next == p || face < 0 || face >= GC_BSP_BATCH_FACE_MAX ) return false;
+						if( next == p || face < 0 || face >= GC_BSP_BATCH_FACE_MAX ) goto done;
 						gc_bsp_face_batch[face] = (unsigned short)( batch_no + 1 );
 						if( face + 1 > gc_bsp_batch_faces ) gc_bsp_batch_faces = (int)face + 1;
 						p = next;
@@ -400,7 +453,7 @@ qboolean GC_LoadMapMetadata( const char *mapname )
 					if( !end ) break;
 					cursor = end + 1;
 				}
-				if( batch_no != batch_count ) return false;
+				if( batch_no != batch_count ) goto done;
 				gc_bsp_batch_count = (unsigned int)batch_count;
 				gc_bsp_batches_valid = true;
 				break;
@@ -409,7 +462,7 @@ qboolean GC_LoadMapMetadata( const char *mapname )
 				&offset, &size, &align ) != 6 || index != rows || index < 0 || index >= 15
 				|| offset < 0 || size < 0 || align != ( offset & 31 )
 				|| ( Q_stricmp( tier, "HOT" ) && Q_stricmp( tier, "COLD" )))
-				return false;
+				goto done;
 			gc_bsp_lump_offset[index] = offset;
 			gc_bsp_lump_size[index] = size;
 			gc_bsp_lump_hot[index] = !Q_stricmp( tier, "HOT" );
@@ -419,10 +472,18 @@ qboolean GC_LoadMapMetadata( const char *mapname )
 			cursor = end + 1;
 		}
 	}
-	if( rows != 15 ) return false;
+	if( rows != 15 ) goto done;
 	Con_Reportf( "Xash3D GameCube: validated BSP metadata %s rows=%d hot=%d size=%u\n",
-		path, rows, hot, file_size );
-	return true;
+				path, rows, hot, file_size );
+	valid = true;
+done:
+	free( text );
+	if( !valid )
+	{
+		gc_bsp_batches_valid = false;
+		memset( gc_bsp_lump_aram, 0, sizeof( gc_bsp_lump_aram ));
+	}
+	return valid;
 }
 
 void *GC_BorrowMapLoadBuffer( size_t size )
@@ -678,6 +739,24 @@ qboolean GC_MapHotLumpRead( int lump, size_t offset, void *dst, size_t size )
 	return true;
 }
 
+qboolean GC_MapHotLumpReadPointer( const void *source, void *dst, size_t size )
+{
+	uintptr_t p = (uintptr_t)source, base = (uintptr_t)gc_mapload_buf;
+	int i;
+	if( !source || !dst || !size || !base || p < base || p >= base + gc_mapload_buf_size )
+		return false;
+	for( i = 0; i < 15; i++ )
+	{
+		uintptr_t start;
+		if( !gc_bsp_lump_hot[i] || !gc_bsp_lump_aram[i] ) continue;
+		start = base + (uintptr_t)gc_bsp_lump_offset[i];
+		if( p >= start && p - start <= (uintptr_t)gc_bsp_lump_size[i]
+			&& size <= (size_t)gc_bsp_lump_size[i] - (size_t)( p - start ))
+			return GC_MapHotLumpRead( i, (size_t)( p - start ), dst, size );
+	}
+	return false;
+}
+
 unsigned int GC_AramReserve( unsigned int size )
 {
 	u32 base;
@@ -775,7 +854,7 @@ void GC_PrefetchMenuIdle( void )
 		gc_prefetch_initialized = true;
 		f = FS_Open( "media/c0a0.prefetch", "rb", false );
 		if( !f ) { gc_prefetch_manifest_ready = true; return; }
-		n = FS_Read( manifest, sizeof( manifest ) - 1, f ); FS_Close( f );
+			n = FS_Read( f, manifest, sizeof( manifest ) - 1 ); FS_Close( f );
 		if( n <= 0 ) { gc_prefetch_manifest_ready = true; return; }
 		manifest[n] = '\0';
 		{
@@ -802,7 +881,11 @@ void GC_PrefetchMenuIdle( void )
 			}
 			if( !reserve ) { gc_prefetch_manifest_ready = true; return; }
 			if( reserve > GC_PREFETCH_MAX_BYTES ) reserve = GC_PREFETCH_MAX_BYTES;
-			gc_prefetch_aram = GC_AramReserve( reserve );
+			if( !gc_prefetch_aram )
+			{
+				gc_prefetch_aram = GC_AramReserve( reserve );
+				if( gc_prefetch_aram ) gc_prefetch_capacity = reserve;
+			}
 			if( !gc_prefetch_aram ) { gc_prefetch_manifest_ready = true; return; }
 		}
 	}
@@ -811,13 +894,14 @@ void GC_PrefetchMenuIdle( void )
 		gc_prefetch_entry_t *entry = &gc_prefetch[gc_prefetch_next++];
 		unsigned int left, offset = 0;
 		if( !entry->size || entry->size > 512u * 1024u
-			|| entry->size > GC_PREFETCH_MAX_BYTES - gc_prefetch_used ) return;
+			|| gc_prefetch_used > gc_prefetch_capacity
+			|| (( entry->size + 31u ) & ~31u ) > gc_prefetch_capacity - gc_prefetch_used ) return;
 		f = FS_Open( entry->path, "rb", false ); if( !f ) return;
 		entry->aram = gc_prefetch_aram + gc_prefetch_used; left = entry->size;
 		while( left )
 		{
 			unsigned int chunk = left > GC_PREFETCH_CHUNK ? GC_PREFETCH_CHUNK : left;
-			if( FS_Read( gc_prefetch_bounce, chunk, f ) != (int)chunk ) break;
+			if( FS_Read( f, gc_prefetch_bounce, chunk ) != (int)chunk ) break;
 			/* File tails are commonly not DMA-sized; AramCopy preserves the
 			 * neighbouring bytes in the final 32-byte block. */
 			GC_AramCopy( entry->aram + offset, gc_prefetch_bounce, chunk, true );
@@ -849,7 +933,7 @@ void GC_PrefetchResetForMenu( void )
 void GC_PrefetchStats( unsigned int *used, unsigned int *capacity, unsigned int *entries )
 {
 	if( used ) *used = gc_prefetch_used;
-	if( capacity ) *capacity = gc_prefetch_aram ? GC_PREFETCH_MAX_BYTES : 0;
+	if( capacity ) *capacity = gc_prefetch_capacity;
 	if( entries ) *entries = gc_prefetch_next;
 }
 

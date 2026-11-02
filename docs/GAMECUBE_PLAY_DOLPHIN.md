@@ -1,9 +1,9 @@
 # Playing in Dolphin (with mute)
 
 ```
-scripts/play-dolphin.sh            # start muted (default) with the mute window
-scripts/play-dolphin.sh --unmuted  # start with sound on
-scripts/play-dolphin.sh --unmuted --save-default   # make sound-on the default
+scripts/play-dolphin.sh            # start with sound on (default)
+scripts/play-dolphin.sh --muted    # start muted
+scripts/play-dolphin.sh --muted --save-default  # make muted the default
 scripts/play-dolphin.sh --build    # rebuild the play disc first
 scripts/play-dolphin.sh --install-desktop          # add an app-menu entry
 scripts/play-dolphin.sh --no-record                # do not record this session
@@ -39,7 +39,7 @@ own mute hotkey was not used: with the hotkey focus requirement off (needed
 for a separate window to trigger it), all of Dolphin's keyboard hotkeys
 become global (Escape would stop the game from any window).
 
-Settings: `~/.config/xash3d-gc/play.conf` (`START_MUTED=1|0`, default 1).
+Settings: `~/.config/xash3d-gc/play.conf` (`START_MUTED=1|0`, default 0).
 The launcher's Dolphin profile is `~/.local/share/xash3d-gc/dolphin`; on the
 first run it copies the controller mapping from your normal Dolphin profile
 if there is one. Map the controller once under Controllers > Port 1 >

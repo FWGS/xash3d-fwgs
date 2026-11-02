@@ -1060,14 +1060,16 @@ static void AVI_StreamAudio( movie_state_t *Avi )
 			{
 				unsigned int audio_chunks, audio_nonzero, audio_counter;
 				unsigned int audio_callbacks, audio_add_failures;
+				int audio_last_peak, audio_max_peak;
 				S_GCGetAudioTelemetry( &audio_chunks, &audio_nonzero, &audio_counter,
-					&audio_callbacks, &audio_add_failures );
+					&audio_callbacks, &audio_add_failures, &audio_last_peak, &audio_max_peak );
 				Avi->native_audio_reported_second++;
-				Con_Reportf( "Xash3D GameCube: native intro audio progress second=%u bytes=%u sound=%d painted=%d samplepos=%d raw=%u/%u chunks=%u nonzero=%u callbacks=%u addfail=%u asnd=%u\n",
+				Con_Reportf( "Xash3D GameCube: native intro audio progress second=%u bytes=%u sound=%d painted=%d samplepos=%d raw=%u/%u chunks=%u nonzero=%u callbacks=%u addfail=%u peak=%d maxpeak=%d asnd=%u\n",
 					Avi->native_audio_reported_second, Avi->native_audio_offset,
 					snd.soundtime, snd.paintedtime, snd.samplepos,
 					ch->s_rawend - snd.soundtime, ch->max_samples,
-					audio_chunks, audio_nonzero, audio_callbacks, audio_add_failures, audio_counter );
+					audio_chunks, audio_nonzero, audio_callbacks, audio_add_failures,
+					audio_last_peak, audio_max_peak, audio_counter );
 			}
 			if( !Avi->audio_reported )
 			{

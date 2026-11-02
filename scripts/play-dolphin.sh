@@ -18,6 +18,7 @@ Starts the GameCube disc in the project's Dolphin with a mute toggle window.
   --no-toggle      do not open the mute toggle window
   --build          (re)build the play disc first (OUT/xash3d-gc-play.iso)
   --perf           build/launch a profiling play disc with the performance overlay
+  --local-cache    launch the completed ISO from the local build cache (no HDD copy)
   --install-desktop  add "Xash3D GameCube (Dolphin)" to the desktop app menu
   -h, --help       this help
 
@@ -32,7 +33,7 @@ Recording: video + the game's sound (also while muted) to
 .ai/playtests/<date>-play-<commit>.mp4 with a .json sidecar and INDEX.md;
 skipped when the drive has less than 5 GB free.
 
-Defaults live in ~/.config/xash3d-gc/play.conf (START_MUTED=1|0, default 1;
+Defaults live in ~/.config/xash3d-gc/play.conf (START_MUTED=1|0, default 0;
 RECORD=1|0, default 1).
 Dolphin settings for this launcher (controller mapping, video) live in
 ~/.local/share/xash3d-gc/dolphin; map your controller once under
@@ -45,13 +46,15 @@ CONF_DIR="${XDG_CONFIG_HOME:-$HOME/.config}/xash3d-gc"
 CONF="$CONF_DIR/play.conf"
 USER_DIR="${XDG_DATA_HOME:-$HOME/.local/share}/xash3d-gc/dolphin"
 ISO="$ROOT/OUT/xash3d-gc-play.iso"
-START_MUTED=1
+START_MUTED=0
 RECORD=1
 TOGGLE=1
 SAVE=0
 BUILD=0
 FORCE_BUILD=0
 PERF=0
+PUBLISH=1
+BUILD_LOCK_HELD=0
 
 [[ -f "$CONF" ]] && source "$CONF"
 
@@ -65,6 +68,7 @@ while [[ $# -gt 0 ]]; do
 		--no-toggle) TOGGLE=0 ;;
 		--build) BUILD=1; FORCE_BUILD=1 ;;
 		--perf) PERF=1; BUILD=1; FORCE_BUILD=1; ISO="$ROOT/OUT/xash3d-gc-play-perf.iso" ;;
+		--local-cache) PUBLISH=0; BUILD=1; FORCE_BUILD=1 ;;
 		--install-desktop)
 			apps="${XDG_DATA_HOME:-$HOME/.local/share}/applications"
 			mkdir -p "$apps"
@@ -108,19 +112,62 @@ if (( BUILD )) || [[ ! -f "$ISO" ]]; then
 	# being copied.  Serialize concurrent launcher windows and publish only a
 	# completed image with an atomic rename.
 	mkdir -p "$ROOT/OUT"
+	# Remove only abandoned atomic publish files created by this launcher.
+	# The age guard avoids touching a copy that another launcher may still own.
+	find "$ROOT/OUT" -maxdepth 1 -type f -name 'xash3d-gc-play*.iso.tmp.*' \
+		-mtime +2 -delete 2>/dev/null || true
 	exec 9>"$ROOT/OUT/.play-disc.lock"
 	flock 9
+	BUILD_LOCK_HELD=1
 	if (( ! FORCE_BUILD )) && [[ -f "$ISO" && "$ENGINE_BIN" -ot "$ISO" ]]; then
 		BUILD=0
 	else
 		echo "==> building play disc $ISO"
-		tmp_iso="$ISO.tmp.$$"
+		# Assemble on local tmpfs/SSD. The project lives on a USB HDD/exFAT
+		# volume; xorriso performs many metadata reads and is dramatically
+		# slower when its output is written there. Publish only the completed
+		# image back to OUT after validation.
+		BUILD_CACHE="${XDG_CACHE_HOME:-/tmp}/xash3d-gc-iso-build"
+		mkdir -p "$BUILD_CACHE"
+		# Keep failed/interrupted builds from accumulating indefinitely. Only
+		# remove our own old generated images, and never touch retail content.
+		find "$BUILD_CACHE" -maxdepth 1 -type f \
+			\( -name 'xash3d-gc-play-*.iso' -o -name 'xash3d-gc-play-*.iso.tmp' \) \
+			-mtime +2 -delete 2>/dev/null || true
+		free_bytes() { df -P -B1 "$1" 2>/dev/null | awk 'NR==2 {print $4}'; }
+		cache_free="$(free_bytes "$BUILD_CACHE")"
+		if [[ "$cache_free" =~ ^[0-9]+$ ]] && (( cache_free < 1200000000 )); then
+			echo "error: less than 1.2 GB free in ISO build cache: $BUILD_CACHE" >&2
+			exit 1
+		fi
+		BUILD_DATA="$BUILD_CACHE/valve"
+		echo "==> synchronizing retail content to local build cache"
+		rsync -a --delete "$ROOT/Half-Life/valve/" "$BUILD_DATA/"
+		tmp_iso="$BUILD_CACHE/xash3d-gc-play-$$.iso"
 		trap 'rm -f "$tmp_iso"' EXIT
-		python3 "$ROOT/scripts/build-gamecube-disc.py" --dol "$BOOT_DOL" --output "$tmp_iso" --data "$ROOT/Half-Life/valve" \
+		python3 "$ROOT/scripts/build-gamecube-disc.py" --dol "$BOOT_DOL" --output "$tmp_iso" --data "$BUILD_DATA" \
 		--play $([[ $PERF == 1 ]] && echo --perf)
-		mv -f "$tmp_iso" "$ISO"
-		trap - EXIT
+		if (( PUBLISH )); then
+			publish_free="$(free_bytes "$(dirname "$ISO")")"
+			if [[ "$publish_free" =~ ^[0-9]+$ ]] && (( publish_free < 1000000000 )); then
+				echo "error: less than 1 GB free beside published ISO: $(dirname "$ISO")" >&2
+				echo "completed local ISO retained at $tmp_iso; rerun with --local-cache to play it" >&2
+				exit 1
+			fi
+			publish_tmp="$ISO.tmp.$$"
+			cp --reflink=auto "$tmp_iso" "$publish_tmp"
+			mv -f "$publish_tmp" "$ISO"
+			trap - EXIT
+		else
+			ISO="$tmp_iso"
+			trap - EXIT
+			echo "==> using local ISO cache; no HDD publish copy"
+		fi
 	fi
+fi
+if (( BUILD_LOCK_HELD )); then
+	flock -u 9
+	exec 9>&-
 fi
 
 DOLPHIN="$ROOT/3rdparty/dolphin/build/Binaries/dolphin-emu"
@@ -200,11 +247,20 @@ if [[ -n "$SINK_MODS" ]]; then
 fi
 
 START_FLAG=$([[ $START_MUTED == 1 ]] && echo --muted || echo --unmuted)
-python3 "$ROOT/scripts/dolphin-mute-toggle.py" --pid "$DOLPHIN_PID" "$START_FLAG" \
-	$( [[ -n "$SINK" ]] && echo --game-sink "$SINK" ) \
-	$( [[ -n "$SINK" && -n "${XASH_PLAY_LOOPBACK_SINK:-}" ]] && echo --speaker-sink "$XASH_PLAY_LOOPBACK_SINK" ) \
-	$( [[ -n "$REC_PID" ]] && echo --rec-pid "$REC_PID" ) \
-	$( (( TOGGLE )) || echo --no-window ) &
+TOGGLE_ARGS=(--pid "$DOLPHIN_PID" "$START_FLAG")
+[[ -n "$SINK" ]] && TOGGLE_ARGS+=(--game-sink "$SINK")
+if [[ -n "$SINK" && -n "${XASH_PLAY_LOOPBACK_SINK:-}" ]]; then
+	TOGGLE_ARGS+=(--speaker-sink "$XASH_PLAY_LOOPBACK_SINK")
+fi
+if (( TOGGLE )); then
+	[[ -n "$REC_PID" ]] && TOGGLE_ARGS+=(--rec-pid "$REC_PID")
+else
+	# --no-toggle hides the control window; it must still enforce the selected
+	# audio state. Otherwise PulseAudio can restore Dolphin's old muted stream,
+	# and recording mode leaves its private sink disconnected from the speakers.
+	TOGGLE_ARGS+=(--no-window)
+fi
+python3 "$ROOT/scripts/dolphin-mute-toggle.py" "${TOGGLE_ARGS[@]}" &
 TOGGLE_PID=$!
 
 wait "$DOLPHIN_PID" || true

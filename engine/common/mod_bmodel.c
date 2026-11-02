@@ -1197,6 +1197,13 @@ Mod_DecompressPVS
 
 ===================
 */
+static byte Mod_GCReadPVSByte( const byte *in )
+{
+	byte value;
+	if( GC_MapHotLumpReadPointer( in, &value, 1 )) return value;
+	return *in;
+}
+
 static void Mod_DecompressPVS( byte *const out, const byte *in, size_t visbytes )
 {
 	byte *dst = out;
@@ -1209,13 +1216,13 @@ static void Mod_DecompressPVS( byte *const out, const byte *in, size_t visbytes 
 
 	while( dst < out + visbytes )
 	{
-		if( *in ) // uncompressed
+		if( Mod_GCReadPVSByte( in )) // uncompressed
 		{
-			*dst++ = *in++;
+			*dst++ = Mod_GCReadPVSByte( in++ );
 		}
 		else // zero repeated `c` times
 		{
-			size_t c = in[1];
+			size_t c = Mod_GCReadPVSByte( in + 1 );
 			/* A zero run-length never advances dst and spins forever. */
 			if( c == 0 )
 			{
@@ -3649,7 +3656,7 @@ static struct
 /* MEM1 for the map's textures, taken once at the first map. Boot and map
  * load leave about this much, and more starves client init. It holds the low
  * mips of everything, the rest of it is the hot window (R_GXPackedTexture). */
-#define GC_WT_POOL_BYTES ( 576 * 1024 )
+#define GC_WT_POOL_BYTES ( 448 * 1024 )
 #define GC_WT_SPLIT_DIM  64
 static byte *gc_wt_pool;
 
@@ -3740,9 +3747,23 @@ static void Mod_GCWorldPackLoad( const char *modelname )
 	size = FS_FileLength( f );
 	if( !gc_wt_store_base )
 		gc_wt_store_base = GC_AramReserve( GC_WT_ARAM_BYTES );
+	if( !gc_wt_store_base )
+	{
+		Con_Reportf( S_ERROR "Xash3D GameCube: world texture pack %s needs %u bytes of ARAM\n",
+			path, (unsigned)GC_WT_ARAM_BYTES );
+		FS_Close( f );
+		return;
+	}
 	if( !gc_wt_pool )
 		gc_wt_pool = memalign( 32, GC_WT_POOL_BYTES );
-	if( !gc_wt_pool || FS_Read( f, gc_wt_pool, 12 ) != 12 || memcmp( gc_wt_pool, "GCWT", 4 ))
+	if( !gc_wt_pool )
+	{
+		Con_Reportf( S_ERROR "Xash3D GameCube: world texture pack %s needs %u contiguous MEM1 bytes (heap free %u)\n",
+			path, (unsigned)GC_WT_POOL_BYTES, (unsigned)GC_MemHeapFreeBytes() );
+		FS_Close( f );
+		return;
+	}
+	if( FS_Read( f, gc_wt_pool, 12 ) != 12 || memcmp( gc_wt_pool, "GCWT", 4 ))
 	{
 		Con_Reportf( S_ERROR "Xash3D GameCube: world texture pack %s refused\n", path );
 		FS_Close( f );
@@ -4355,7 +4376,8 @@ static void Mod_LoadTexInfo( model_t *mod, dbspmodel_t *bmod )
 	{
 		size_t texinfo_bytes = bmod->numtexinfo * sizeof( *out );
 
-		if( bmod->lightdata && bmod->lightdatasize >= texinfo_bytes )
+		if( bmod->lightdata && bmod->lightdatasize >= texinfo_bytes
+			&& !( Sys_CheckParm( "-gcmenuplaystart" ) && Sys_CheckParm( "-gcfullphysics" )))
 		{
 			out = (mtexinfo_t *)bmod->lightdata;
 			memset( out, 0, texinfo_bytes );
@@ -5785,9 +5807,26 @@ static void Mod_GCReleaseGcmapPreSurfaceStaging( model_t *mod, dbspmodel_t *bmod
 
 	if( !GC_MapLoadMemoryOpt() || !bmod->isworld || !mod_base || bufferlen == 0 )
 		return;
-
+	/* Retail menu New Game loads from the exact BSP staging buffer that contains
+	 * the validated face and lighting lumps. Keep it resident through surface
+	 * conversion and capture; dropping it here clears bmod->surfaces, then the
+	 * disc-reopen fallback can fail under the fragmented mount/file pool. The
+	 * scratch allocator already accounts for these source ranges. */
+	if( Sys_CheckParm( "-gcfullphysics" ) && bmod->surfaces
+		&& Mod_GCPointerInBuffer( bmod->surfaces, mod_base, bufferlen ))
+	{
+		gc_retain_bsp_source_buffer = true;
+		gc_bsp_scratch_base = mod_base;
+		gc_bsp_scratch_size = GC_IsMapLoadBuffer( mod_base )
+			? GC_MapLoadBufferCapacity() : bufferlen;
+		Con_Reportf( "Xash3D GameCube: retaining full-physics face/light staging %s through surfaces\n",
+			Q_memprint( bufferlen ));
+		return;
+	}
 	if( !gc_retain_bsp_source_buffer
-		&& !( mod->texinfo && Mod_GCPointerInBuffer( mod->texinfo, mod_base, bufferlen )))
+		&& !( mod->texinfo && Mod_GCPointerInBuffer( mod->texinfo, mod_base, bufferlen ))
+		&& !( bmod->lightdata && Mod_GCPointerInBuffer( bmod->lightdata, mod_base, bufferlen ))
+		&& !Sys_CheckParm( "-gcfullphysics" ))
 		return;
 
 	if( mod->texinfo && Mod_GCPointerInBuffer( mod->texinfo, mod_base, bufferlen ))
@@ -6015,7 +6054,8 @@ static void Mod_GCReleaseBspSourceBuffer( model_t *mod, dbspmodel_t *bmod, byte 
 	}
 
 	if( bmod->lightdatasize && Mod_GCPointerInBuffer( bmod->lightdata, mod_base, bufferlen )
-		&& !Sys_CheckParm( "-gcnolightmaps" ) && bmod->lightdatasize <= ( 256 * 1024 ))
+		&& !Sys_CheckParm( "-gcnolightmaps" )
+		&& ( bmod->lightdatasize <= ( 256 * 1024 ) || Sys_CheckParm( "-gcfullphysics" )))
 	{
 		Mod_GCStashDeferredLump( (void **)&gc_bsp_deferred.lightdata, bmod->lightdata, bmod->lightdatasize );
 		gc_bsp_deferred.lightdatasize = bmod->lightdatasize;
@@ -6681,6 +6721,12 @@ static void Mod_LoadVisibility( model_t *mod, dbspmodel_t *bmod )
 #else
 	mod->visdata = Mem_Malloc( mod->mempool, bmod->visdatasize );
 #endif
+	/* Visibility is deliberately copied from the validated BSP load buffer.
+	 * It is a small, latency-sensitive structure and every leaf keeps a
+	 * pointer into this MEM1 allocation for the map lifetime. Streaming it
+	 * through ARAM here adds a DMA dependency during level startup without
+	 * reducing the required MEM1 allocation; hot-lump staging remains available
+	 * for renderer/asset consumers that can tolerate asynchronous reads. */
 	memcpy( mod->visdata, bmod->visdata, bmod->visdatasize );
 
 #if XASH_GAMECUBE
@@ -7282,6 +7328,15 @@ static void Mod_LoadLighting( model_t *mod, dbspmodel_t *bmod )
 		Mod_GCBakeMenuLightmapAtlas( mod, bmod );
 		return;
 	}
+	/* Full-physics retail menu start disables GC_MenuRunsServer's bounded
+	 * gameplay policy, but still uses the Flipper menu-world renderer. Preserve
+	 * and bake the live BSP lightmaps here so neither world nor tram is unlit. */
+	if( Sys_CheckParm( "-gcmenuplaystart" ) && Sys_CheckParm( "-gcfullphysics" )
+		&& bmod->isworld )
+	{
+		Mod_GCBakeMenuLightmapAtlas( mod, bmod );
+		return;
+	}
 
 	/* G154: New Game reloads lighting from disc for Flipper LM bake only —
 	 * full Mem_Malloc residency is still skipped for large maps. */
@@ -7744,6 +7799,9 @@ static qboolean Mod_LoadBmodelLumps( model_t *mod, byte *mod_base, size_t buffer
 	Mod_GCReleaseGcmapPreSurfaceStaging( mod, bmod, mod_base, bufferlen );
 	GC_MemSample( "pre-surfaces" );
 	Mod_GCEnsureBspLump( mod, bmod, LUMP_FACES );
+	if( bmod->numsurfaces && ( bmod->version == QBSP2_VERSION ? !bmod->surfaces32 : !bmod->surfaces ))
+		Host_Error( "Xash3D GameCube: missing BSP faces for %s (%zu faces) before surface load\n",
+			mod->name, bmod->numsurfaces );
 	Con_Reportf( "Xash3D GameCube: bmodel surfaces begin\n" );
 	GC_LoadingOverlayPulse();
 #endif

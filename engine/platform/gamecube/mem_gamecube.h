@@ -69,6 +69,7 @@ void GC_AramMapReset( void );
 unsigned int GC_AramMapCapacity( void );
 qboolean GC_StageMapHotLumps( const void *bsp, size_t bsp_size );
 qboolean GC_MapHotLumpRead( int lump, size_t offset, void *dst, size_t size );
+qboolean GC_MapHotLumpReadPointer( const void *source, void *dst, size_t size );
 void GC_AramTransfer( unsigned int aram, void *buf, unsigned int len, qboolean write );
 void GC_AramCopy( unsigned int aram, void *buf, unsigned int len, qboolean write );
 void GC_PrefetchMenuIdle( void );
@@ -98,6 +99,12 @@ size_t GC_EntityEstimateSize( void );
 void GC_WatchdogMark( const char *stage );
 void GC_WatchdogStage( const char *stage );
 
+typedef void (*GC_JobFn)( void *opaque );
+typedef enum { GC_JOB_CRITICAL = 0, GC_JOB_STREAM = 1, GC_JOB_BACKGROUND = 2 } GC_JobPriority;
+qboolean GC_JobEnqueue( GC_JobFn fn, void *opaque, GC_JobPriority priority );
+unsigned GC_JobRunBudget( unsigned budget_us );
+unsigned GC_JobPending( void );
+
 #else
 
 static inline void GC_MemSetMap( const char *mapname ) { (void)mapname; }
@@ -125,6 +132,8 @@ static inline qboolean GC_StageMapHotLumps( const void *bsp, size_t bsp_size )
 { (void)bsp; (void)bsp_size; return false; }
 static inline qboolean GC_MapHotLumpRead( int lump, size_t offset, void *dst, size_t size )
 { (void)lump; (void)offset; (void)dst; (void)size; return false; }
+static inline qboolean GC_MapHotLumpReadPointer( const void *source, void *dst, size_t size )
+{ (void)source; (void)dst; (void)size; return false; }
 static inline void GC_MapBatchStats( unsigned int *batches, unsigned int *faces )
 { if( batches ) *batches = 0; if( faces ) *faces = 0; }
 static inline void *GC_BorrowMapLoadBuffer( size_t size ) { (void)size; return NULL; }
@@ -164,5 +173,11 @@ static inline size_t GC_MapLoadPressureDelta( void ) { return 0; }
 static inline size_t GC_EntityEstimateSize( void ) { return 0; }
 static inline void GC_WatchdogMark( const char *stage ) { (void)stage; }
 static inline void GC_WatchdogStage( const char *stage ) { (void)stage; }
+typedef void (*GC_JobFn)( void *opaque );
+typedef enum { GC_JOB_CRITICAL = 0, GC_JOB_STREAM = 1, GC_JOB_BACKGROUND = 2 } GC_JobPriority;
+static inline qboolean GC_JobEnqueue( GC_JobFn fn, void *opaque, GC_JobPriority priority )
+{ (void)fn; (void)opaque; (void)priority; return false; }
+static inline unsigned GC_JobRunBudget( unsigned budget_us ) { (void)budget_us; return 0; }
+static inline unsigned GC_JobPending( void ) { return 0; }
 
 #endif

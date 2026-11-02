@@ -49,7 +49,11 @@ GNU General Public License for more details.
  * room for normal additions without reserving a 58 KiB contiguous MEM1 block
  * after map load, where that reservation can starve client initialization. */
 #define GC_SPRITE_LIST_POOL_ENTRIES 256
-static client_sprite_t *gc_sprite_list_pool;
+/* Keep the bounded cache in the client image's BSS.  Reserving this from the
+ * client heap after the world is loaded can fail on a fragmented heap, then a
+ * later weapon list falls through to fatal Mem_Calloc. */
+static client_sprite_t gc_sprite_list_pool_storage[GC_SPRITE_LIST_POOL_ENTRIES];
+static client_sprite_t *gc_sprite_list_pool = gc_sprite_list_pool_storage;
 static int gc_sprite_list_pool_used;
 static int gc_sprite_list_pool_capacity;
 
@@ -4594,7 +4598,7 @@ void CL_UnloadProgs( void )
 	COM_FreeLibrary( clgame.hInstance );
 	Mem_FreePool( &cls.mempool );
 	Mem_FreePool( &clgame.mempool );
-	gc_sprite_list_pool = NULL;
+	gc_sprite_list_pool = gc_sprite_list_pool_storage;
 	gc_sprite_list_pool_used = 0;
 	gc_sprite_list_pool_capacity = 0;
 	memset( &clgame, 0, sizeof( clgame ));
@@ -4682,15 +4686,11 @@ qboolean CL_LoadProgs( const char *name )
 	clgame.mempool = Mem_AllocPool( "Client Edicts Zone" );
 	#if XASH_GAMECUBE
 	gc_sprite_list_pool_capacity = GC_SPRITE_LIST_POOL_ENTRIES;
-	gc_sprite_list_pool = Mem_TryCalloc( cls.mempool,
-		sizeof( client_sprite_t ) * gc_sprite_list_pool_capacity );
 	gc_sprite_list_pool_used = 0;
-	if( gc_sprite_list_pool )
-		Con_Reportf( "Xash3D GameCube: client sprite list pool entries=%d bytes=%u\n",
-			gc_sprite_list_pool_capacity,
-			(unsigned)( sizeof( client_sprite_t ) * gc_sprite_list_pool_capacity ));
-	else
-		Con_Reportf( S_WARN "Xash3D GameCube: client sprite list pool unavailable; using per-list allocations\n" );
+	memset( gc_sprite_list_pool_storage, 0, sizeof( gc_sprite_list_pool_storage ));
+	Con_Reportf( "Xash3D GameCube: client sprite list pool entries=%d bytes=%u (static)\n",
+		gc_sprite_list_pool_capacity,
+		(unsigned)sizeof( gc_sprite_list_pool_storage ));
 	#endif
 	clgame.entities = NULL;
 

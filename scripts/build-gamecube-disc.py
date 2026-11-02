@@ -3067,6 +3067,10 @@ def main() -> None:
 				)
 			elif args.probe_menu_newgame:
 				menu_lines = ["menunewgame"]
+				if args.probe_fullphysics:
+					menu_lines.append("fullphysics")
+				if args.probe_tas:
+					menu_lines.append(f"tas {args.probe_tas}")
 				if args.probe_dumpframes:
 					menu_lines.append("dumpframes")
 				if os.environ.get("XASH_GC_PROBE_MEMREPORT") == "1":

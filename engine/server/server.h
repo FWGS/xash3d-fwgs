@@ -510,6 +510,7 @@ void SV_Impact( edict_t *e1, edict_t *e2, trace_t *trace );
 void SV_FreeOldEntities( void );
 #if XASH_GAMECUBE
 void SV_GCPlaceNewGameTrackTrains( void );
+void SV_GCStepIntroTrain( void );
 #endif
 
 //

@@ -144,7 +144,10 @@ qboolean CL_GCLoadLeanHudFont( cl_font_t *font, float scale, convar_t *rendermod
 	/* Menu New Game draws the intro credits with this font; the 128-wide
 	 * lean bake is unreadable there, so it loads the original 256-wide
 	 * CREDITSFONT (~18 KiB, read through a temporary heap buffer). */
-	const qboolean full = GC_MenuRunsServer();
+	/* Keep the full atlas on the menu too: the lean 128px bake was intended
+	 * for the low-memory HUD path and makes the retail menu glyphs visibly
+	 * soft/aliased. The full 256px companion is already in the bootstrap pk3. */
+	const qboolean full = true;
 	const char *path = full ? "gfx/gc_creditsfont256.fnt" : "gfx/gc_creditsfont.fnt";
 	const char *texname = full ? "#gc_full_hudfont" : "#gc_lean_hudfont";
 	const fs_offset_t cap = full ? 32 * 1024 : GC_LEAN_FONT_BSS_BYTES;

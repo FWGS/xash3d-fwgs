@@ -37,6 +37,7 @@ static qboolean gc_menu_visible;
 static qboolean gc_menu_builtin_fallback;
 static qboolean gc_menu_vidinit_pending;
 static qboolean gc_menu_use_baked_retail;
+static qboolean gc_menu_textures_loaded;
 static qboolean gc_menu_reported_retail_ready;
 static qboolean gc_menu_reported_button_ready;
 static int gc_menu_selection;
@@ -149,13 +150,12 @@ done:
 
 static void UI_GCLoadFallbackMenuTextures( void )
 {
-	static qboolean loaded;
 	char path[MAX_QPATH];
 
 	if( cls.state == ca_cinematic )
 		return;
 
-	if( loaded )
+	if( gc_menu_textures_loaded )
 		return;
 
 	gc_menu_logo = ref.dllFuncs.GL_LoadTexture( "resource/gc_menu/logo.tga", NULL, 0, TF_IMAGE|TF_NOMIPMAP|TF_CLAMP );
@@ -238,7 +238,7 @@ static void UI_GCLoadFallbackMenuTextures( void )
 		}
 	}
 
-	loaded = true;
+	gc_menu_textures_loaded = true;
 }
 
 void UI_EnableBuiltInFallbackMenu( void )
@@ -489,7 +489,7 @@ qboolean UI_UsingBuiltInFallbackMenu( void )
 	return gc_menu_builtin_fallback;
 }
 
-void UI_GameCubeLeaveMenuOnlyBootstrap( void )
+void UI_GameCubeReleaseMenuTextures( void )
 {
 	/* The fallback menu is only a bootstrap surface.  Its baked menu tiles
 	 * compete with the first map's MEM1 allocations if they remain resident. */
@@ -515,6 +515,12 @@ void UI_GameCubeLeaveMenuOnlyBootstrap( void )
 		gc_menu_background[i].texnum = 0;
 	}
 	gc_menu_background_count = 0;
+	gc_menu_textures_loaded = false;
+}
+
+void UI_GameCubeLeaveMenuOnlyBootstrap( void )
+{
+	UI_GameCubeReleaseMenuTextures();
 	gc_menu_builtin_fallback = false;
 }
 #endif

@@ -2099,7 +2099,7 @@ G278: move *12 along path_track without HLSDK TrackTrain PUSH (tips).
 Flipper draw reads server origin, so the cabin rides visually.
 =============
 */
-static void SV_GCStepIntroTrain( void )
+void SV_GCStepIntroTrain( void )
 {
 	static edict_t *train;
 	static edict_t *path;
@@ -2108,13 +2108,14 @@ static void SV_GCStepIntroTrain( void )
 	static qboolean inited;
 	static double ride_arm_time;
 	static qboolean ride_started;
+	static qboolean menu_train_probe_logged;
 	static char ride_map[MAX_QPATH];
 	int first_world = svs.maxclients + 1;
 	vec3_t delta, dest;
 	float dist, step, yaw;
 	int pe;
 
-	if( !Sys_CheckParm( "-gcnewgame" ))
+	if( !Sys_CheckParm( "-gcnewgame" ) && !Sys_CheckParm( "-gcmenuplaystart" ))
 		return;
 
 	/* G345: reset ride state on map change — stale train/path edicts from the
@@ -2146,9 +2147,41 @@ static void SV_GCStepIntroTrain( void )
 			const char *targ;
 
 			if( !SV_GCIsIntroTrackTrain( ent ))
-				continue;
+			{
+				const char *precache = NULL;
+
+				/* Menu New Game may expose *12 before the HLSDK has assigned
+				 * MOVETYPE_PUSH. Placement already uses this same model test. */
+				if( !Sys_CheckParm( "-gcmenuplaystart" ) || !SV_IsValidEdict( ent )
+					|| ent->v.modelindex <= 0 || ent->v.modelindex >= MAX_MODELS )
+					continue;
+				precache = sv.model_precache[ent->v.modelindex];
+				if( !precache || Q_strcmp( precache, "*12" ))
+					continue;
+				if( !menu_train_probe_logged )
+				{
+					menu_train_probe_logged = true;
+					Con_Reportf( "Xash3D GameCube: G278 menu train candidate edict=%d class=%s move=%d target=%s origin=(%.0f,%.0f,%.0f)\n",
+						NUM_FOR_EDICT( ent ), SV_ClassName( ent ), (int)ent->v.movetype,
+						SV_GetString( ent->v.target ), ent->v.origin[0], ent->v.origin[1], ent->v.origin[2] );
+				}
+			}
+			else if( Sys_CheckParm( "-gcmenuplaystart" )
+				&& ent->v.modelindex > 0 && ent->v.modelindex < MAX_MODELS
+				&& sv.model_precache[ent->v.modelindex]
+				&& !Q_strcmp( sv.model_precache[ent->v.modelindex], "*12" )
+				&& !menu_train_probe_logged )
+			{
+				menu_train_probe_logged = true;
+				Con_Reportf( "Xash3D GameCube: G278 menu train candidate edict=%d class=%s move=%d target=%s origin=(%.0f,%.0f,%.0f)\n",
+					NUM_FOR_EDICT( ent ), SV_ClassName( ent ), (int)ent->v.movetype,
+					SV_GetString( ent->v.target ), ent->v.origin[0], ent->v.origin[1], ent->v.origin[2] );
+			}
 			targ = SV_GetString( ent->v.target );
 			if( !targ || !targ[0] )
+				targ = ( Sys_CheckParm( "-gcmenuplaystart" ) && !Q_stricmp( sv.name, "c0a0" ))
+					? "trainstop1" : NULL;
+			if( !targ )
 				continue;
 			for( pe = first_world; pe < svgame.numEntities; pe++ )
 			{
@@ -2162,6 +2195,25 @@ static void SV_GCStepIntroTrain( void )
 					continue;
 				found_path = cand;
 				break;
+			}
+			/* Retail c0a0's func_tracktrain starts at trainstop1. Some menu
+			 * priming paths leave target unset, so recover the known BSP route. */
+			if( !found_path && Sys_CheckParm( "-gcmenuplaystart" )
+				&& !Q_stricmp( sv.name, "c0a0" ) && Q_strcmp( targ, "trainstop1" ))
+			{
+				for( pe = first_world; pe < svgame.numEntities; pe++ )
+				{
+					edict_t *cand = SV_EdictNum( pe );
+					if( !SV_IsValidEdict( cand )
+						|| Q_stricmp( SV_ClassName( cand ), "path_track" )
+						|| Q_strcmp( SV_GetString( cand->v.targetname ), "trainstop1" ))
+						continue;
+					found_path = cand;
+					targ = "trainstop1";
+					Con_Reportf( "Xash3D GameCube: G278 menu path fallback trainstop1 edict=%d\n",
+						NUM_FOR_EDICT( cand ));
+					break;
+				}
 			}
 			if( !found_path )
 				continue;
@@ -2209,10 +2261,12 @@ static void SV_GCStepIntroTrain( void )
 	if( dist <= step || dist < 1.0f )
 	{
 		const char *next_name;
+		const char *node_name;
+		edict_t *next_path = NULL;
 
 		VectorCopy( dest, train->v.origin );
+		node_name = SV_GetString( path->v.targetname );
 		next_name = SV_GetString( path->v.target );
-		path = NULL;
 		if( next_name && next_name[0] )
 		{
 			for( pe = first_world; pe < svgame.numEntities; pe++ )
@@ -2225,9 +2279,23 @@ static void SV_GCStepIntroTrain( void )
 					continue;
 				if( Q_strcmp( SV_GetString( cand->v.targetname ), next_name ))
 					continue;
-				path = cand;
+				next_path = cand;
 				break;
 			}
+		}
+		if( next_path )
+		{
+			path = next_path;
+			Con_Reportf( "Xash3D GameCube: G278 tram path advance node=%s next=%s edict=%d\n",
+				SV_GetString( train->v.target ), next_name,
+				NUM_FOR_EDICT( next_path ));
+		}
+		else
+		{
+			path = NULL;
+			Con_Reportf( "Xash3D GameCube: G278 tram path end node=%s next=%s\n",
+				node_name ? node_name : "(none)",
+				next_name && next_name[0] ? next_name : "(none)" );
 		}
 	}
 	else
@@ -2253,7 +2321,10 @@ static void SV_GCStepIntroTrain( void )
 		Con_Reportf( "Xash3D GameCube: G278 ride skip link train\n" );
 #endif
 
-	/* Keep the local player riding with the tram (intro eye). */
+	/* Lean New Game owns this legacy scripted eye offset. The full-physics
+	 * menu route retains its actual player-to-tram offset and is carried by
+	 * PM_CheckMovingGround from the train's frame-to-frame displacement. */
+	if( Sys_CheckParm( "-gcnewgame" ) && !Sys_CheckParm( "-gcmenuplaystart" ))
 	{
 		edict_t *player = ( svs.maxclients >= 1 ) ? SV_EdictNum( 1 ) : NULL;
 
@@ -2669,6 +2740,16 @@ void SV_Physics( void )
 	sv.framecount++;
 
 #if XASH_GAMECUBE
+	/* The full-physics c0a0 route runs the bounded path follower after the
+	 * regular entity physics pass. It advances only the intro tracktrain; the
+	 * player's next PMove consumes that displacement as moving-ground carry. */
+	if( Sys_CheckParm( "-gcfullphysics" ) && Sys_CheckParm( "-gcnewgame" )
+		&& !Sys_CheckParm( "-gcchangelevel" ))
+	{
+		SV_GCPlaceNewGameTrackTrains();
+		SV_GCStepIntroTrain();
+	}
+
 	/* Bounded ride trace on the menu New Game route: does the player follow
 	 * the intro tram (groundentity / origin) across maps? */
 	if( GC_MenuRunsServer() && ( sv.framecount & 63 ) == 0 )

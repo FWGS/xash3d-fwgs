@@ -21,17 +21,18 @@ GNU General Public License for more details.
 #if XASH_GAMECUBE
 #include "gamecube/mem_gamecube.h"
 #define GC_INTRO_RAW_SAMPLES 256
+#define GC_RESERVED_RAW_SAMPLES MAX_RAW_SAMPLES
 static byte s_gc_intro_raw_store[sizeof( rawchan_t ) + sizeof( portable_samplepair_t ) * GC_INTRO_RAW_SAMPLES];
 static qboolean s_gc_intro_raw_busy;
-/* Menu New Game: the background track's raw channel (64 KiB) is allocated
- * once, while c0a0's heap still has a contiguous block, and kept across
- * S_StopAllSounds and changelevels. Re-allocating it on c0a0a failed (MEM1
- * fragmented after the map load) and the tram stream went silent. */
-static rawchan_t *s_gc_bg_raw_keep;
+/* Engine-owned streams use reserved rings so map-load fragmentation cannot
+ * shrink or prevent their channel buffers. */
+static byte s_gc_bg_raw_store[sizeof( rawchan_t ) + sizeof( portable_samplepair_t ) * GC_RESERVED_RAW_SAMPLES] __attribute__(( aligned( 32 )));
+static byte s_gc_movie_raw_store[sizeof( rawchan_t ) + sizeof( portable_samplepair_t ) * GC_RESERVED_RAW_SAMPLES] __attribute__(( aligned( 32 )));
 
 static qboolean S_GCIsKeptRaw( const rawchan_t *ch )
 {
-	return ch && ( ch == (rawchan_t *)s_gc_intro_raw_store || ch == s_gc_bg_raw_keep );
+	return ch && ( ch == (rawchan_t *)s_gc_intro_raw_store
+		|| ch == (rawchan_t *)s_gc_bg_raw_store || ch == (rawchan_t *)s_gc_movie_raw_store );
 }
 
 static void S_GCReleaseKeptRaw( rawchan_t *ch )
@@ -41,6 +42,10 @@ static void S_GCReleaseKeptRaw( rawchan_t *ch )
 		s_gc_intro_raw_busy = false;
 		memset( s_gc_intro_raw_store, 0, sizeof( s_gc_intro_raw_store ));
 	}
+	else if( ch == (rawchan_t *)s_gc_bg_raw_store )
+		memset( s_gc_bg_raw_store, 0, sizeof( s_gc_bg_raw_store ));
+	else if( ch == (rawchan_t *)s_gc_movie_raw_store )
+		memset( s_gc_movie_raw_store, 0, sizeof( s_gc_movie_raw_store ));
 }
 #endif
 #include "pm_local.h"
@@ -1284,31 +1289,33 @@ rawchan_t *S_FindRawChannel( int entnum, qboolean create )
 	{
 		size_t raw_samples = MAX_RAW_SAMPLES;
 #if XASH_GAMECUBE
-		/* G278: full 8k stereo pairs (~64 KiB) fatals Sound Zone post-G36. */
-		if( entnum == S_RAW_SOUND_BACKGROUNDTRACK && Sys_CheckParm( "-gcnewgame" ))
-			raw_samples = GC_INTRO_RAW_SAMPLES;
+		if( entnum == S_RAW_SOUND_BACKGROUNDTRACK || entnum == S_RAW_SOUND_SOUNDTRACK )
+		{
+			rawchan_t *reserved = (rawchan_t *)( entnum == S_RAW_SOUND_BACKGROUNDTRACK
+				? s_gc_bg_raw_store : s_gc_movie_raw_store );
+			memset( reserved, 0, sizeof( *reserved )
+				+ sizeof( portable_samplepair_t ) * GC_RESERVED_RAW_SAMPLES );
+			snd.raw_channels[best] = reserved;
+			raw_samples = GC_RESERVED_RAW_SAMPLES;
+			Con_Reportf( "Xash3D GameCube: reserved raw stream ent=%d samples=%u bytes=%u\n",
+				entnum, (uint)raw_samples,
+				(uint)( sizeof( *reserved ) + sizeof( portable_samplepair_t ) * raw_samples ));
+		}
 #endif
 #if XASH_GAMECUBE
-		if( entnum == S_RAW_SOUND_BACKGROUNDTRACK && GC_MenuRunsServer())
+		if( !snd.raw_channels[best] )
 		{
-			const size_t bytes = sizeof( *ch ) + sizeof( portable_samplepair_t ) * raw_samples;
-
-			if( !s_gc_bg_raw_keep )
+			raw_samples = ( entnum == S_RAW_SOUND_BACKGROUNDTRACK && Sys_CheckParm( "-gcnewgame" ))
+				? GC_INTRO_RAW_SAMPLES : MAX_RAW_SAMPLES;
+			while( raw_samples >= ( Sys_CheckParm( "-gcnewgame" )
+				&& entnum == S_RAW_SOUND_BACKGROUNDTRACK ? GC_INTRO_RAW_SAMPLES : 1024 )
+				&& !snd.raw_channels[best] )
 			{
-				s_gc_bg_raw_keep = (rawchan_t *)malloc( bytes );
-				if( s_gc_bg_raw_keep )
-					Con_Reportf( "Xash3D GameCube: background raw channel kept samples=%u\n", (uint)raw_samples );
-			}
-			if( s_gc_bg_raw_keep )
-			{
-				memset( s_gc_bg_raw_keep, 0, bytes );
-				snd.raw_channels[best] = s_gc_bg_raw_keep;
+				snd.raw_channels[best] = Mem_TryCalloc( sndpool, sizeof( *ch )
+					+ sizeof( portable_samplepair_t ) * raw_samples );
+				if( !snd.raw_channels[best] ) raw_samples >>= 1;
 			}
 		}
-		if( !snd.raw_channels[best] )
-#endif
-		snd.raw_channels[best] = Mem_Calloc( sndpool, sizeof( *ch ) + sizeof( portable_samplepair_t ) * raw_samples );
-#if XASH_GAMECUBE
 		if( !snd.raw_channels[best]
 			&& entnum == S_RAW_SOUND_BACKGROUNDTRACK
 			&& Sys_CheckParm( "-gcnewgame" )
@@ -1327,6 +1334,8 @@ rawchan_t *S_FindRawChannel( int entnum, qboolean create )
 				entnum, (uint)raw_samples );
 			return NULL;
 		}
+#else
+		snd.raw_channels[best] = Mem_Calloc( sndpool, sizeof( *ch ) + sizeof( portable_samplepair_t ) * raw_samples );
 #endif
 		snd.raw_channels[best]->max_samples = raw_samples;
 	}
