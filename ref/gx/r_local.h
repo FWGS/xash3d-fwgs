@@ -114,8 +114,8 @@ typedef struct
 	byte         modmap[256 * 256];
 	pixel_t      alphamap[3 * 1024 * 256];
 #if XASH_GAMECUBE
-	/* Contiguous with tables above; widens map-load staging beyond 2.5 MiB so
-	 * early campaign BSPs (c1a1+) fit without a heap calloc under MEM1 pressure. */
+	/* Contiguous with tables above; 3.5 MiB staging arena while the renderer's
+	 * screen buffers and surface cache are trimmed for BSP loading. */
 	byte         mapload_pad[1024 * 1024];
 #endif
 	pixel_t      color;

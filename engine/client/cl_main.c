@@ -27,6 +27,7 @@ GNU General Public License for more details.
 
 #if XASH_GAMECUBE
 #include "gamecube/mem_gamecube.h"
+#include "gamecube/storage_gamecube.h"
 #include <ogc/system.h>
 extern int gc_menu_step_frames;
 extern qboolean UI_UsingBuiltInFallbackMenu( void );
@@ -4352,9 +4353,18 @@ void CL_Shutdown( void )
 
 	if( host.status != HOST_CRASHED && cls.initialized )
 	{
+#if XASH_GAMECUBE
+		/* Disc-only boots and the volatile probe-save backend do not have a
+		 * filesystem write path suitable for renderer/input config files.
+		 * FS_Open(..., "w") can reach GCFS with an unset write root during
+		 * normal map teardown; persist these only when a real FAT route exists. */
+		if( GCube_HasPersistentWritableStorage() )
+#endif
+		{
 		Host_WriteOpenGLConfig ();
 		Host_WriteVideoConfig ();
 		Touch_WriteConfig();
+		}
 	}
 
 	Joy_Shutdown ();

@@ -3204,7 +3204,7 @@ static void Mod_LoadVertexes( model_t *mod, dbspmodel_t *bmod )
  * changelevels (c0a0c's 87 KiB surfedges): try malloc, then the free tail of
  * the static map-load arena (as planes do), then the model pool. Scratch and
  * tail blocks are released with the map-load arena, never freed here. */
-static void *Mod_GCWorldArrayAlloc( model_t *mod, dbspmodel_t *bmod, size_t bytes, const char *what )
+static void *Mod_GCWorldArrayTryAlloc( model_t *mod, dbspmodel_t *bmod, size_t bytes, const char *what )
 {
 #if XASH_GAMECUBE
 	if( GC_MapLoadMemoryOpt() && bmod->isworld && bytes > 0
@@ -3224,6 +3224,14 @@ static void *Mod_GCWorldArrayAlloc( model_t *mod, dbspmodel_t *bmod, size_t byte
 	}
 #endif
 	(void)what;
+	return NULL;
+}
+
+static void *Mod_GCWorldArrayAlloc( model_t *mod, dbspmodel_t *bmod, size_t bytes, const char *what )
+{
+	void *out = Mod_GCWorldArrayTryAlloc( mod, bmod, bytes, what );
+	if( out )
+		return out;
 	return Mem_Malloc( mod->mempool, bytes );
 }
 
@@ -3653,12 +3661,16 @@ static struct
 	uint32_t      bytes[GC_WT_MAX_TEXTURES];	/* its size if split, else 0 */
 } gc_wt;
 
-/* MEM1 for the map's textures, taken once at the first map. Boot and map
- * load leave about this much, and more starves client init. It holds the low
- * mips of everything, the rest of it is the hot window (R_GXPackedTexture). */
+/* Transient table/hot-mip pool: prefer unused map-load arena tail to avoid a
+ * large contiguous MEM1 allocation. Boot/map load leaves little headroom; the
+ * full texture chains live in ARAM and this pool only holds active low mips. */
 #define GC_WT_POOL_BYTES ( 448 * 1024 )
+#define GC_WT_MIN_POOL_BYTES ( 256 * 1024 )
+#define GC_WT_TAIL_GUARD_BYTES ( 96 * 1024 )
 #define GC_WT_SPLIT_DIM  64
 static byte *gc_wt_pool;
+static size_t gc_wt_pool_bytes;
+static qboolean gc_wt_pool_mapload_tail;
 
 /*
 ARAM keeps every texture a pack has loaded, by name and content, so a
@@ -3720,7 +3732,7 @@ static const gc_wt_stored_t *Mod_GCWorldStorePut( const gc_wt_entry_t *e, byte *
 	return s;
 }
 
-static void Mod_GCWorldPackLoad( const char *modelname )
+static void Mod_GCWorldPackLoad( const char *modelname, size_t surface_reserve )
 {
 	extern void R_GCPackedRelease( void );
 	extern void R_GCHotWindow( void *base, unsigned size );
@@ -3728,12 +3740,21 @@ static void Mod_GCWorldPackLoad( const char *modelname )
 	file_t  *f;
 	fs_offset_t size;
 	uint32_t i, data_bytes, first, low, hits = 0, misses = 0, hit_bytes = 0, miss_bytes = 0;
+	size_t pool_bytes = gc_wt_pool_bytes ? gc_wt_pool_bytes : GC_WT_POOL_BYTES;
 	double start;
 
 	if( gc_wt.block )
 	{
 		R_GCPackedRelease( );
 		memset( &gc_wt, 0, sizeof( gc_wt ));
+	}
+	/* A map-load-tail pool belongs to the previous world's arena; reacquire it
+	 * for this BSP after the old packed textures have been released. */
+	if( gc_wt_pool_mapload_tail )
+	{
+		gc_wt_pool = NULL;
+		gc_wt_pool_bytes = 0;
+		gc_wt_pool_mapload_tail = false;
 	}
 	if( !GC_MenuRunsServer() || Sys_CheckParm( "-gcnotexpacks" ))
 		return;
@@ -3755,11 +3776,40 @@ static void Mod_GCWorldPackLoad( const char *modelname )
 		return;
 	}
 	if( !gc_wt_pool )
-		gc_wt_pool = memalign( 32, GC_WT_POOL_BYTES );
+	{
+		size_t after = gc_bsp_scratch_size + gc_bsp_scratch_carve_high;
+		size_t capacity = GC_MapLoadBufferCapacity();
+		size_t remaining, reserve, tail_pool;
+		after = Q_max( after, GC_MapLoadBufferTailHighwater() );
+		remaining = capacity > after ? capacity - after : 0;
+		reserve = surface_reserve + GC_WT_TAIL_GUARD_BYTES;
+		tail_pool = GC_WT_POOL_BYTES;
+		if( remaining > reserve && remaining - reserve < tail_pool )
+		{
+			size_t budgeted = ( remaining - reserve ) & ~(size_t)31;
+			if( budgeted >= GC_WT_MIN_POOL_BYTES )
+				tail_pool = budgeted;
+		}
+		pool_bytes = tail_pool;
+		gc_wt_pool = (byte *)GC_MapLoadBufferTailAlloc( after, pool_bytes );
+		if( gc_wt_pool )
+		{
+			gc_wt_pool_mapload_tail = true;
+			gc_wt_pool_bytes = pool_bytes;
+			Con_Reportf( "Xash3D GameCube: world texture pack pool using map-load arena tail %s%s\n",
+				Q_memprint( pool_bytes ), pool_bytes < GC_WT_POOL_BYTES ? " (surface-reserved)" : "" );
+		}
+		else
+		{
+			pool_bytes = GC_WT_POOL_BYTES;
+			gc_wt_pool = memalign( 32, pool_bytes );
+			if( gc_wt_pool ) gc_wt_pool_bytes = pool_bytes;
+		}
+	}
 	if( !gc_wt_pool )
 	{
 		Con_Reportf( S_ERROR "Xash3D GameCube: world texture pack %s needs %u contiguous MEM1 bytes (heap free %u)\n",
-			path, (unsigned)GC_WT_POOL_BYTES, (unsigned)GC_MemHeapFreeBytes() );
+			path, (unsigned)pool_bytes, (unsigned)GC_MemHeapFreeBytes() );
 		FS_Close( f );
 		return;
 	}
@@ -3786,7 +3836,7 @@ static void Mod_GCWorldPackLoad( const char *modelname )
 		const uint32_t bytes = end - e->offset;
 		const qboolean split = e->levels > 1 && ( e->width > GC_WT_SPLIT_DIM || e->height > GC_WT_SPLIT_DIM );
 		const uint32_t skip = split ? e->width * e->height / 2 : 0;
-		const uint32_t room = GC_WT_POOL_BYTES - first - low;
+		const uint32_t room = (uint32_t)pool_bytes - first - low;
 		const gc_wt_stored_t *s = Mod_GCWorldStoreFind( e, bytes );
 
 		if( s )
@@ -3797,7 +3847,7 @@ static void Mod_GCWorldPackLoad( const char *modelname )
 		else
 		{
 			/* Through the top of the pool, on its way to ARAM. */
-			byte *through = gc_wt_pool + (( GC_WT_POOL_BYTES - bytes ) & ~(uint32_t)31 );
+			byte *through = gc_wt_pool + (( (uint32_t)pool_bytes - bytes ) & ~(uint32_t)31 );
 
 			if( bytes > room )
 				break;
@@ -3822,9 +3872,9 @@ static void Mod_GCWorldPackLoad( const char *modelname )
 	DCFlushRange( gc_wt_pool, first );
 	GX_InvalidateTexAll( );
 	FS_Close( f );
-	R_GCHotWindow( gc_wt.data + low, GC_WT_POOL_BYTES - first - low );
+	R_GCHotWindow( gc_wt.data + low, (unsigned)( pool_bytes - first - low ));
 	Con_Reportf( "Xash3D GameCube: world textures %s aram=%u/%u Kb disc=%u/%u Kb low=%u Kb hot=%u Kb in %.0f ms\n", stem,
-		hits, hit_bytes / 1024, misses, miss_bytes / 1024, low / 1024, ( GC_WT_POOL_BYTES - first - low ) / 1024,
+		hits, hit_bytes / 1024, misses, miss_bytes / 1024, low / 1024, ((uint32_t)pool_bytes - first - low) / 1024,
 		( Sys_DoubleTime( ) - start ) * 1000.0 );
 }
 
@@ -4241,7 +4291,8 @@ static void Mod_LoadTextures( model_t *mod, dbspmodel_t *bmod )
 
 #if XASH_GAMECUBE
 	if( bmod->isworld )
-		Mod_GCWorldPackLoad( mod->name );
+		Mod_GCWorldPackLoad( mod->name,
+			bmod->numsurfaces * ( sizeof( msurface_t ) + sizeof( mextrasurf_t )));
 #endif
 	Mod_LoadAllTextures( mod, bmod );
 	Mod_SequenceAllAnimatedTextures( mod );
@@ -4388,13 +4439,11 @@ static void Mod_LoadTexInfo( model_t *mod, dbspmodel_t *bmod )
 		}
 		if( !out )
 		{
-			out = (mtexinfo_t *)malloc( texinfo_bytes );
+			/* Full-physics intro maps keep bmod->lightdata intact for real
+			 * lightmaps. Use the same pool/tail allocator as other world arrays. */
+			out = (mtexinfo_t *)Mod_GCWorldArrayAlloc( mod, bmod, texinfo_bytes, "texinfo" );
 			if( out )
-			{
 				memset( out, 0, texinfo_bytes );
-				gc_texinfo_malloc_block = out;
-				Con_Reportf( "Xash3D GameCube: world texinfo via malloc %s\n", Q_memprint( texinfo_bytes ));
-			}
 		}
 	}
 #endif
@@ -6694,7 +6743,12 @@ static void Mod_LoadVisibility( model_t *mod, dbspmodel_t *bmod )
 	}
 
 	/* Optional: renderer can fall back to full-vis leaf marking. */
-	mod->visdata = Mem_TryMalloc( mod->mempool, bmod->visdatasize );
+#if XASH_GAMECUBE
+	if( GC_MapLoadMemoryOpt() && bmod->isworld )
+		mod->visdata = Mod_GCWorldArrayTryAlloc( mod, bmod, bmod->visdatasize, "visdata" );
+	else
+#endif
+		mod->visdata = Mem_TryMalloc( mod->mempool, bmod->visdatasize );
 	if( !mod->visdata )
 	{
 		Con_Reportf( "Xash3D GameCube: skipping visdata (%s) under memory pressure\n",

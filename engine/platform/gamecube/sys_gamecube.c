@@ -1459,6 +1459,9 @@ int GCube_GetArgv( int in_argc, char **in_argv, char ***out_argv )
 	if( gc_retail_newgame_configured && !gc_menu_newgame_configured )
 	{
 		gc_argv[fake_argc++] = "-gcmenuplaystart";
+		/* retailnewgame runs the full intro server under the retail physics
+		 * profile; keep the actor policy explicit across argv normalization. */
+		gc_argv[fake_argc++] = "-gcfullactors";
 		gc_argv[fake_argc++] = "-gcplayerinput";
 	}
 	if( gc_memreport_configured )

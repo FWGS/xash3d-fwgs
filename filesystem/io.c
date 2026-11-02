@@ -74,6 +74,12 @@ file_t *FS_OpenReadFile( const char *filename, const char *mode, qboolean gamedi
 	int pack_ind;
 	searchpath_t *search;
 
+	/* Some engine and game DLL callers can forward an absent optional path.
+	 * Reject it here before platform-specific filters or FS_FindFile inspect
+	 * the string. */
+	if( !filename || !mode || !mode[0] )
+		return NULL;
+
 #if XASH_GAMECUBE
 	/* G278: prefer absolute disc open for intro VO — libogc ISO9660
 	 * find/readdir is flaky for media/ siblings after world load. */
@@ -111,7 +117,7 @@ Open a file. The syntax is the same as fopen
 */
 file_t *FS_Open( const char *filepath, const char *mode, qboolean gamedironly )
 {
-	if( !fs_searchpaths )
+	if( !filepath || !mode || !mode[0] || !fs_searchpaths )
 		return NULL;
 
 	// some mappers used leading '/' or '\' in path to models or sounds
@@ -136,6 +142,10 @@ file_t *FS_Open( const char *filepath, const char *mode, qboolean gamedironly )
 	if( mode[0] == 'w' || mode[0] == 'a'|| mode[0] == 'e' || Q_strchr( mode, '+' ))
 	{
 		char real_path[MAX_SYSPATH];
+		/* A read-only installation can still reach config/save writers during
+		 * shutdown or error recovery. Never dereference a missing write root. */
+		if( !fs_writepath )
+			return NULL;
 
 		// open the file on disk directly
 		if( !FS_FixFileCase( fs_writepath->dir, filepath, real_path, sizeof( real_path ), true ))
