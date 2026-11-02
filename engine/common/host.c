@@ -736,7 +736,10 @@ void Host_Frame( double time )
 	GC_WatchdogMark( "host frame" );
 #if XASH_GAMECUBE
 	GC_ProfFrame();
-	GC_JobRunBudget( 1200 );
+	/* The queue is intentionally dormant until a producer is ready; avoid
+	 * touching its scheduler on every retail frame when it is empty. */
+	if( GC_JobPending( ))
+		GC_JobRunBudget( 1200 );
 #endif
 #if XASH_GAMECUBE
 	if( gc_mem_watch_enabled && host.framecount < 4000 )
@@ -772,6 +775,14 @@ void Host_Frame( double time )
 		Con_Reportf( "Xash3D GameCube: post-client-begin Host_Frame=%u\n", host.framecount );
 	Host_GetCommands (); // dedicated in
 	#if XASH_GAMECUBE
+	/* ASND is fully initialized by this point. Establish the audio ARAM owner
+	 * before any menu prefetch, BSP, or texture streaming can append session
+	 * allocations. This makes the audio window deterministic across boots. */
+	if( host.framecount == 0 && !GC_AramAudioBase( ))
+	{
+		if( !GC_AramAudioReserve( 1024u * 1024u ))
+			Con_Reportf( S_WARN "Xash3D GameCube: deferred ARAM audio reserve unavailable\n" );
+	}
 	/* Consume at most one bounded first-map prefetch step while the retail
 	 * menu is idle. New Game routes disable this as soon as they are selected. */
 	GC_PrefetchMenuIdle();

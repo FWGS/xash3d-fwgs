@@ -685,9 +685,13 @@ lean NPC mesh promote so denser stills can capture scientists/barneys.
 void Mod_GCPromoteLeanNpcStudios( void )
 {
 	static const char *promote_lean_npc[] = {
+		/* Headcrab is the smallest deferred NPC.  Promote it first while the
+		 * post-map heap still has a contiguous read/decode window; loading it
+		 * after scientist/barney made the ZIP read fail despite the compact
+		 * gc_studio mirror being present. */
+		"models/headcrab.mdl",
 		"models/scientist.mdl",
 		"models/barney.mdl",
-		"models/headcrab.mdl",
 		NULL
 	};
 	int i;
@@ -732,9 +736,11 @@ void Mod_GCTryDeferredStudios( void )
 		NULL
 	};
 	static const char *promote_lean_npc[] = {
+		/* Read the smallest deferred NPC before the larger cast meshes consume
+		 * the last contiguous MEM1 archive-read window. */
+		"models/headcrab.mdl",
 		"models/scientist.mdl",
 		"models/barney.mdl",
-		"models/headcrab.mdl",
 		NULL
 	};
 	const char **promote;

@@ -174,7 +174,18 @@ void Image_Shutdown( void )
 
 byte *Image_Copy( size_t size )
 {
-	byte *out = Mem_Realloc( host.imagepool, image.tempbuffer, size );
+	byte *out;
+	#if XASH_GAMECUBE
+	if( Image_GCIsTransient( image.tempbuffer ))
+	{
+		out = Mem_Malloc( host.imagepool, size );
+		if( out ) memcpy( out, image.tempbuffer, size );
+		image.tempbuffer = NULL;
+		Image_GCReleaseTransient();
+		return out;
+	}
+	#endif
+	out = Mem_Realloc( host.imagepool, image.tempbuffer, size );
 	image.tempbuffer = NULL;
 
 	return out;
@@ -340,6 +351,14 @@ int Image_GCMaxLoadDimension( const char *name )
 
 void Image_GCPurgeDecodeScratch( void )
 {
+	#if XASH_GAMECUBE
+	if( Image_GCIsTransient( image.tempbuffer ))
+	{
+		image.tempbuffer = NULL;
+		Image_GCReleaseTransient();
+		return;
+	}
+	#endif
 	if( image.tempbuffer )
 	{
 		Mem_Free( image.tempbuffer );
@@ -1176,7 +1195,13 @@ byte *Image_ResampleInternal( const void *indata, int inwidth, int inheight, int
 	{
 	case PF_INDEXED_24:
 	case PF_INDEXED_32:
-		image.tempbuffer = (byte *)Mem_Realloc( host.imagepool, image.tempbuffer, outwidth * outheight );
+		#if XASH_GAMECUBE
+		if(( Sys_CheckParm( "-gcmap" ) || Sys_CheckParm( "-gcnewgame" )) && !image.tempbuffer )
+			image.tempbuffer = (byte *)Image_GCAllocTransient( outwidth * outheight );
+		else
+		#endif
+		if( !image.tempbuffer || !Image_GCIsTransient( image.tempbuffer ))
+			image.tempbuffer = (byte *)Mem_Realloc( host.imagepool, image.tempbuffer, outwidth * outheight );
 		if( !image.tempbuffer )
 		{
 			*resampled = false;
@@ -1186,7 +1211,13 @@ byte *Image_ResampleInternal( const void *indata, int inwidth, int inheight, int
 		break;
 	case PF_RGB_24:
 	case PF_BGR_24:
-		image.tempbuffer = (byte *)Mem_Realloc( host.imagepool, image.tempbuffer, outwidth * outheight * 3 );
+		#if XASH_GAMECUBE
+		if(( Sys_CheckParm( "-gcmap" ) || Sys_CheckParm( "-gcnewgame" )) && !image.tempbuffer )
+			image.tempbuffer = (byte *)Image_GCAllocTransient( outwidth * outheight * 3 );
+		else
+		#endif
+		if( !image.tempbuffer || !Image_GCIsTransient( image.tempbuffer ))
+			image.tempbuffer = (byte *)Mem_Realloc( host.imagepool, image.tempbuffer, outwidth * outheight * 3 );
 		if( !image.tempbuffer )
 		{
 			*resampled = false;
@@ -1197,7 +1228,13 @@ byte *Image_ResampleInternal( const void *indata, int inwidth, int inheight, int
 		break;
 	case PF_RGBA_32:
 	case PF_BGRA_32:
-		image.tempbuffer = (byte *)Mem_Realloc( host.imagepool, image.tempbuffer, outwidth * outheight * 4 );
+		#if XASH_GAMECUBE
+		if(( Sys_CheckParm( "-gcmap" ) || Sys_CheckParm( "-gcnewgame" )) && !image.tempbuffer )
+			image.tempbuffer = (byte *)Image_GCAllocTransient( outwidth * outheight * 4 );
+		else
+		#endif
+		if( !image.tempbuffer || !Image_GCIsTransient( image.tempbuffer ))
+			image.tempbuffer = (byte *)Mem_Realloc( host.imagepool, image.tempbuffer, outwidth * outheight * 4 );
 		if( !image.tempbuffer )
 		{
 			*resampled = false;

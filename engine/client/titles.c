@@ -508,6 +508,7 @@ static void CL_GCHudTextEnsureFont( void )
 {
 	cl_font_t *font = &cls.creditsFont;
 	static double next_retry;
+	static double retry_delay = 1.0;
 	int w = 0, h = 0;
 
 	if( font->valid )
@@ -519,12 +520,29 @@ static void CL_GCHudTextEnsureFont( void )
 			font->hFontTexture, w, h );
 		font->valid = false;
 	}
-	/* A failed load is a disc read: do not retry it every frame. */
+	/* A failed or degraded load is a disc read/texture allocation: never retry
+	 * it every frame.  This also handles a successful 2x2 fallback, which used
+	 * to set valid=true and immediately re-enter this function forever. */
 	if( host.realtime < next_retry )
 		return;
 	CL_GCLoadLeanHudFont( font, hud_fontscale.value, &hud_fontrender );
-	if( !font->valid )
-		next_retry = host.realtime + 1.0;
+	if( font->valid )
+	{
+		R_GetTextureParms( &w, &h, font->hFontTexture );
+		if( w == 256 && h == 64 )
+			retry_delay = 1.0;
+		else
+		{
+			font->valid = false;
+			next_retry = host.realtime + retry_delay;
+			retry_delay = Q_min( retry_delay * 2.0, 8.0 );
+		}
+	}
+	else
+	{
+		next_retry = host.realtime + retry_delay;
+		retry_delay = Q_min( retry_delay * 2.0, 8.0 );
+	}
 }
 
 void CL_GCHudTextDraw( void )
