@@ -2964,10 +2964,14 @@ def main() -> None:
 				# The fallback menu otherwise defaults to c0a0, which is not
 				# necessarily the staged smoke BSP (for example c0a0e).
 				menu_lines = ["menunewgame", f"map {Path(args.smoke_map).stem}"]
+				if args.probe_fullphysics:
+					menu_lines.append("fullphysics")
 				if args.probe_dumpframes:
 					menu_lines.append("dumpframes")
 				if os.environ.get("XASH_GC_PROBE_MEMREPORT") == "1":
 					menu_lines.append("memreport")
+				if os.environ.get("XASH_GC_PROBE_NOTEXPACKS") == "1":
+					menu_lines.append("notexpacks")
 				(smoke_data / "gamecube.cfg").write_text(
 					"\n".join(menu_lines) + "\n", encoding="ascii"
 				)
@@ -3081,6 +3085,8 @@ def main() -> None:
 					menu_lines.append("nolivepvs")
 				if os.environ.get("XASH_GC_PROBE_NONATIVETEX") == "1":
 					menu_lines.append("nonativetex")
+				if os.environ.get("XASH_GC_PROBE_NOTEXPACKS") == "1":
+					menu_lines.append("notexpacks")
 				(staged_data / "gamecube.cfg").write_text(
 					"\n".join(menu_lines) + "\n", encoding="ascii"
 				)

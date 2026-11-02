@@ -564,6 +564,15 @@ qboolean GC_IsMapLoadBuffer( const void *ptr )
 	return ptr != NULL && ptr == gc_mapload_buf;
 }
 
+qboolean GC_IsMapLoadBufferAddress( const void *ptr )
+{
+	const uintptr_t address = (uintptr_t)ptr;
+	const uintptr_t base = (uintptr_t)gc_mapload_buf;
+
+	return ptr != NULL && gc_mapload_buf != NULL
+		&& address >= base && address - base < gc_mapload_buf_size;
+}
+
 size_t GC_MapLoadBufferCapacity( void )
 {
 	return gc_mapload_buf_size;
