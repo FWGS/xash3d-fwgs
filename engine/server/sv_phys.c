@@ -1928,16 +1928,15 @@ the c0a0 intro tram (*12 / func_tracktrain) so the ride can move.
 static qboolean SV_GCIsIntroTrackTrain( edict_t *ent )
 {
 	const char *precache;
-	const char *classname;
 
-	if( !SV_IsValidEdict( ent ) || ent->v.movetype != MOVETYPE_PUSH )
+	if( !SV_IsValidEdict( ent ) )
 		return false;
-	classname = SV_ClassName( ent );
-	if( classname && !Q_stricmp( classname, "func_tracktrain" ))
-		return true;
 	if( ent->v.modelindex <= 0 || ent->v.modelindex >= MAX_MODELS )
 		return false;
 	precache = sv.model_precache[ent->v.modelindex];
+	/* c0a0 also contains the freight truck (*6), a func_tracktrain whose
+	 * target is flatbedstart. Following the first classname match drove that
+	 * vehicle along the intro tram route while the player stayed on *12. */
 	return ( precache && !Q_strcmp( precache, "*12" ));
 }
 
@@ -2106,6 +2105,7 @@ void SV_GCStepIntroTrain( void )
 	static int log_n;
 	static int ride_log_n;
 	static qboolean inited;
+	static qboolean ride_ended;
 	static double ride_arm_time;
 	static qboolean ride_started;
 	static qboolean menu_train_probe_logged;
@@ -2128,13 +2128,17 @@ void SV_GCStepIntroTrain( void )
 		log_n = 0;
 		ride_log_n = 0;
 		inited = false;
+		ride_ended = false;
 		ride_arm_time = 0.0;
 		ride_started = false;
 		Con_Reportf( "Xash3D GameCube: G345 G278 ride reset map=%s\n",
 			sv.name[0] ? sv.name : "?" );
 	}
 
-	if( !inited || !path || !SV_IsValidEdict( path ))
+	/* A missing terminal path_track is the BSP's end-of-route condition.
+	 * Do not interpret it as an uninitialized follower and teleport back to
+	 * trainstop1 on the next frame. */
+	if( !inited || ( !ride_ended && ( !path || !SV_IsValidEdict( path ))))
 	{
 		int e;
 
@@ -2293,6 +2297,7 @@ void SV_GCStepIntroTrain( void )
 		else
 		{
 			path = NULL;
+			ride_ended = true;
 			Con_Reportf( "Xash3D GameCube: G278 tram path end node=%s next=%s\n",
 				node_name ? node_name : "(none)",
 				next_name && next_name[0] ? next_name : "(none)" );

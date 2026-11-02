@@ -403,7 +403,7 @@ def build(bld):
 		if bld.env.DEST_OS == 'gamecube' and bld.env.STLIBPATH_HLSDK_GAMECUBE:
 			client_libpath = bld.env.STLIBPATH_HLSDK_GAMECUBE
 
-		f(source = source,
+		tg = f(source = source,
 			target = 'xash',
 			includes = includes,
 			features = 'cxx c',
@@ -420,6 +420,18 @@ def build(bld):
 			libpath = client_libpath,
 			linkflags = linkflags,
 		)
+
+		# The GameCube HLSDK archives are installed outside Waf's task graph.
+		# Record them as link dependencies so rebuilding the archive cannot leave
+		# a stale engine ELF/DOL behind when no engine source file changed.
+		if bld.env.DEST_OS == 'gamecube' and tg:
+			tg.post()
+			for archive in (hlsdk_server, hlsdk_client, hlsdk_vcs):
+				if not os.path.isfile(archive):
+					continue
+				node = bld.root.make_node(archive)
+				if node not in tg.link_task.dep_nodes:
+					tg.link_task.dep_nodes.append(node)
 
 		# the execution stucks on macOS, disable for now
 		if bld.env.TESTS and Utils.unversioned_sys_platform() != 'darwin':

@@ -697,7 +697,7 @@ static void GC_AramDMA( u32 type, u32 aram, u32 len )
 
 qboolean GC_StageMapHotLumps( const void *bsp, size_t bsp_size )
 {
-	unsigned int total = 0, cursor = 0, base;
+	unsigned int total = 0, reserve, cursor = 0, base;
 	int i;
 
 	if( !bsp || !bsp_size || !gc_bsp_batches_valid ) return false;
@@ -707,7 +707,13 @@ qboolean GC_StageMapHotLumps( const void *bsp, size_t bsp_size )
 		total = ( total + 31u ) & ~31u;
 		total += (unsigned int)gc_bsp_lump_size[i];
 	}
-	base = GC_AramMapReserve( total );
+	/* Reserve headroom on the first map so the same session window can hold
+	 * the next tram-chain BSP's slightly larger hot-lump set without asking
+	 * the non-growing ARAM allocator for a second block mid-transition. */
+	reserve = total + 128u * 1024u;
+	if( reserve < total ) return false;
+	if( reserve < 1024u * 1024u ) reserve = 1024u * 1024u;
+	base = GC_AramMapReserve( reserve );
 	if( !base || total > GC_AramMapCapacity() ) return false;
 	for( i = 0; i < 15; i++ )
 	{

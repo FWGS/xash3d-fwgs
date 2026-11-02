@@ -52,7 +52,11 @@ static qboolean s_registering = false;
  * reloading from disc on every step. ~300-470 KiB of heap stays free there. */
 #define GC_SFX_MENU_BUDGET_BYTES	(320u * 1024u)
 #define GC_SFX_MENU_MAX_FILE_BYTES	(48u * 1024u)
-#define GC_SFX_MENU_HEAP_FLOOR	(128u * 1024u)
+/* c0a0 reaches the active world with only ~40 KiB of free heap. A 128 KiB
+ * floor silently refused even 2–3 KiB footsteps and NPC one-shots. Keep a
+ * real 16 KiB reserve for transient server/client work while admitting small
+ * gameplay sounds; the byte budget and per-file cap still bound total usage. */
+#define GC_SFX_MENU_HEAP_FLOOR	(16u * 1024u)
 #define GC_SFX_BUDGET		( GC_MenuRunsServer() ? GC_SFX_MENU_BUDGET_BYTES : GC_SFX_BUDGET_BYTES )
 #define GC_SFX_MAX_FILE		( GC_MenuRunsServer() ? GC_SFX_MENU_MAX_FILE_BYTES : GC_SFX_MAX_FILE_BYTES )
 /* G124: gentle reclaim for small footsteps; hard retry drops one fire WAV. */
