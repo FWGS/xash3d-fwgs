@@ -67,13 +67,13 @@ jobs:
           - os: windows-2022 # always use the oldest possible for 32-bit because of older compilers, and better support of certain legacy OSes
             targetos: win32
             targetarch: i386
-          - os: macos-14 # arm64 as per github documentation
+          - os: macos-26 # arm64 as per github documentation
             targetos: apple
             targetarch: arm64
           - os: macos-latest
             targetos: ios
             targetarch: arm64
-          - os: macos-15-intel
+          - os: macos-26-intel
             targetos: apple
             targetarch: amd64
     env:
