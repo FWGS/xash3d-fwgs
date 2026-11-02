@@ -1548,6 +1548,10 @@ static qboolean SaveClientState( SAVERESTOREDATA *pSaveData, const char *level, 
 	int		i;
 	char		*pTokenData;
 	decallist_t	*decalList = NULL;
+#if XASH_GAMECUBE
+	qboolean decalInSaveBuffer = false;
+	int originalBufferSize = 0;
+#endif
 	SAVE_CLIENT	header = { 0 };
 	file_t		*pFile;
 
@@ -1561,7 +1565,26 @@ static qboolean SaveClientState( SAVERESTOREDATA *pSaveData, const char *level, 
 	if( !Host_IsDedicated( ))
 	{
 		// g-cont. add space for studiodecals if present
-		decalList = (decallist_t *)Mem_Calloc( host.mempool, sizeof( decallist_t ) * MAX_RENDER_DECALS * 2 );
+		{
+			const size_t decalBytes = sizeof( decallist_t ) * MAX_RENDER_DECALS * 2;
+#if XASH_GAMECUBE
+			/* The client state reuses the cleared save buffer. Borrow its
+			 * unused tail for the renderer's temporary decal list, keeping
+			 * the serializer's writable range disjoint until it is consumed. */
+			if( pSaveData->bufferSize > 0 && (size_t)pSaveData->bufferSize > decalBytes + 4096 )
+			{
+				uintptr_t end = (uintptr_t)pSaveData->pBaseData + (size_t)pSaveData->bufferSize;
+				uintptr_t start = ( end - decalBytes ) & ~(uintptr_t)15;
+				originalBufferSize = pSaveData->bufferSize;
+				pSaveData->bufferSize = (int)( start - (uintptr_t)pSaveData->pBaseData );
+				decalList = (decallist_t *)start;
+				memset( decalList, 0, decalBytes );
+				decalInSaveBuffer = true;
+			}
+			else
+#endif
+				decalList = (decallist_t *)Mem_Calloc( host.mempool, decalBytes );
+		}
 
 		header.decalCount = ref.dllFuncs.R_CreateDecalList( decalList );
 
@@ -1599,7 +1622,16 @@ static qboolean SaveClientState( SAVERESTOREDATA *pSaveData, const char *level, 
 	}
 
 	if( decalList )
+#if XASH_GAMECUBE
+	{
+		if( decalInSaveBuffer )
+			pSaveData->bufferSize = originalBufferSize;
+		else
+			Mem_Free( decalList );
+	}
+#else
 		Mem_Free( decalList );
+#endif
 
 	// write client entities
 	for( i = 0; i < header.entityCount; i++ )

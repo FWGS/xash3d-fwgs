@@ -499,6 +499,49 @@ void SV_InitClientMove( void )
 
 static void PM_CheckMovingGround( edict_t *ent, float frametime )
 {
+#if XASH_GAMECUBE
+	/* The c0a0 intro car is rendered and path-advanced from the client-side
+	 * *12 model, so it does not pass through MOVETYPE_PUSH.  Keep its occupant
+	 * attached using the same per-frame platform displacement a pusher would
+	 * provide.  The normal BSP/player trace and all other maps are untouched. */
+	if( Sys_CheckParm( "-gcmenuplaystart" ) && Sys_CheckParm( "-gcfullphysics" )
+		&& !Sys_CheckParm( "-gcchangelevel" ))
+	{
+		static edict_t *last_tram;
+		static vec3_t last_tram_origin;
+		static qboolean last_tram_origin_valid;
+		static qboolean tram_carry_logged;
+		edict_t *tram = SV_GCFindIntroTrain();
+		if( tram )
+		{
+			if( tram == last_tram && last_tram_origin_valid
+				&& ( ent->v.flags & FL_ONGROUND ) && ent->v.groundentity == tram )
+			{
+				vec3_t delta;
+				VectorSubtract( tram->v.origin, last_tram_origin, delta );
+				if( !VectorIsNull( delta ))
+				{
+					VectorAdd( ent->v.origin, delta, ent->v.origin );
+					SV_LinkEdict( ent, false );
+					if( !tram_carry_logged )
+					{
+						Con_Reportf( "Xash3D GameCube: tram platform carried player delta=(%.1f,%.1f,%.1f)\n",
+							delta[0], delta[1], delta[2] );
+						tram_carry_logged = true;
+					}
+				}
+			}
+			VectorCopy( tram->v.origin, last_tram_origin );
+			last_tram = tram;
+			last_tram_origin_valid = true;
+		}
+		else
+		{
+			last_tram = NULL;
+			last_tram_origin_valid = false;
+		}
+	}
+#endif
 	if( svgame.physFuncs.SV_UpdatePlayerBaseVelocity != NULL )
 	{
 		svgame.physFuncs.SV_UpdatePlayerBaseVelocity( ent );
@@ -598,7 +641,8 @@ static void SV_SetupPMove( playermove_t *pmove, sv_client_t *cl, usercmd_t *ucmd
 	/* The bounded intro-tram pusher can sit just outside the area-node query
 	 * at the eye-height spawn. Add it explicitly or PMove falls through the
 	 * visible car while the static BSP floor remains far below it. */
-	if( Sys_CheckParm( "-gcnewgame" ) && !Sys_CheckParm( "-gcchangelevel" ))
+	if(( Sys_CheckParm( "-gcnewgame" ) || Sys_CheckParm( "-gcmenuplaystart" ))
+		&& !Sys_CheckParm( "-gcchangelevel" ))
 	{
 		edict_t *tram = SV_GCFindIntroTrain();
 		if( tram )
@@ -615,9 +659,13 @@ static void SV_SetupPMove( playermove_t *pmove, sv_client_t *cl, usercmd_t *ucmd
 			if( !present && svgame.pmove->numphysent < MAX_PHYSENTS )
 			{
 				physent_t *pe = &svgame.pmove->physents[svgame.pmove->numphysent++];
-				if( SV_CopyEdictToPhysEnt( pe, tram ))
+				static qboolean tram_physent_logged;
+				if( SV_CopyEdictToPhysEnt( pe, tram ) && !tram_physent_logged )
+				{
 					Con_Reportf( "Xash3D GameCube: PMove tram physent added edict=%d\n",
 						NUM_FOR_EDICT( tram ));
+					tram_physent_logged = true;
+				}
 			}
 		}
 	}
@@ -673,6 +721,45 @@ static void SV_FinishPMove( playermove_t *pmove, sv_client_t *cl )
 	{
 		SetBits( clent->v.flags, FL_ONGROUND );
 		clent->v.groundentity = SV_EdictNum( pmove->physents[pmove->onground].info );
+	}
+	/* The intro train's *12 render model is deliberately advanced along its
+	 * path without the stock PUSH physics. Preserve player support while the
+	 * full-physics menu route is inside the cabin; outside this cabin envelope,
+	 * normal PMove ground traces own the player as usual. */
+	if( Sys_CheckParm( "-gcmenuplaystart" ) && Sys_CheckParm( "-gcfullphysics" )
+		&& !Sys_CheckParm( "-gcchangelevel" ))
+	{
+		static qboolean tram_support_logged;
+		edict_t *tram = SV_GCFindIntroTrain();
+		if( tram )
+		{
+			const float dx = clent->v.origin[0] - tram->v.origin[0];
+			const float dy = clent->v.origin[1] - tram->v.origin[1];
+			const float dz = clent->v.origin[2] - tram->v.origin[2];
+			static qboolean tram_relation_logged;
+			if( !tram_relation_logged )
+			{
+				Con_Reportf( "Xash3D GameCube: tram/player relation player=(%.0f,%.0f,%.0f) tram=(%.0f,%.0f,%.0f) solid=%d rel=(%.0f,%.0f,%.0f)\n",
+					clent->v.origin[0], clent->v.origin[1], clent->v.origin[2],
+					tram->v.origin[0], tram->v.origin[1], tram->v.origin[2],
+					(int)tram->v.solid, dx, dy, dz );
+				tram_relation_logged = true;
+			}
+			if( fabsf( dx ) < 192.0f && fabsf( dy ) < 128.0f
+				&& dz > -32.0f && dz < 160.0f )
+			{
+				SetBits( clent->v.flags, FL_ONGROUND );
+				clent->v.groundentity = tram;
+				if( clent->v.velocity[2] < 0.0f )
+					clent->v.velocity[2] = 0.0f;
+				if( !tram_support_logged )
+				{
+					Con_Reportf( "Xash3D GameCube: full-physics tram cabin support active rel=(%.0f,%.0f,%.0f)\n",
+						dx, dy, dz );
+					tram_support_logged = true;
+				}
+			}
+		}
 	}
 
 	// angles
@@ -933,6 +1020,18 @@ void SV_RunCmd( sv_client_t *cl, usercmd_t *ucmd, int random_seed )
 
 	clent = cl->edict;
 	cmd = *ucmd;
+
+#if XASH_GAMECUBE
+	/* Menu New Game's full-physics route emits player commands even while the
+	 * normal world simulation is not armed. Advance the intro tracktrain here,
+	 * immediately before PMove so moving-ground carry uses the same frame. */
+	if( Sys_CheckParm( "-gcmenuplaystart" ) && Sys_CheckParm( "-gcfullphysics" )
+		&& !Sys_CheckParm( "-gcchangelevel" ))
+	{
+		SV_GCPlaceNewGameTrackTrains();
+		SV_GCStepIntroTrain();
+	}
+#endif
 
 	if( cl->ignorecmdtime > host.realtime )
 	{

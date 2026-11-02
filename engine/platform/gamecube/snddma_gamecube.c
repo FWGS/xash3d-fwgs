@@ -42,17 +42,31 @@ static int16_t gc_audio_ring[GC_AUDIO_DEFAULT_SAMPLES * 2] __attribute__((aligne
 
 void S_GCGetAudioTelemetry( unsigned int *chunks, unsigned int *nonzero_chunks,
 	unsigned int *sample_counter_delta, unsigned int *callbacks,
-	unsigned int *add_failures )
+	unsigned int *add_failures, int *last_peak, int *max_peak )
 {
 	if( chunks ) *chunks = gc_audio_chunks_submitted;
 	if( nonzero_chunks ) *nonzero_chunks = gc_audio_nonzero_chunks;
 	if( callbacks ) *callbacks = gc_audio_callbacks;
 	if( add_failures ) *add_failures = gc_audio_add_failures;
+	if( last_peak ) *last_peak = gc_audio_last_peak;
+	if( max_peak ) *max_peak = gc_audio_max_peak;
 	if( sample_counter_delta )
 	{
 		u32 counter = ASND_GetSampleCounter();
 		*sample_counter_delta = gc_audio_counter_valid ? counter - gc_audio_counter_base : 0;
 	}
+}
+
+void S_GCLogAudioTelemetry( const char *tag )
+{
+	unsigned int chunks, nonzero, counter, callbacks, add_failures;
+	int peak, max_peak;
+
+	S_GCGetAudioTelemetry( &chunks, &nonzero, &counter, &callbacks,
+		&add_failures, &peak, &max_peak );
+	Con_Reportf( "Xash3D GameCube: audio telemetry %s chunks=%u nonzero=%u callbacks=%u addfail=%u peak=%d maxpeak=%d asnd=%u voice=%d initialized=%d\n",
+		tag ? tag : "?", chunks, nonzero, callbacks, add_failures,
+		peak, max_peak, counter, gc_voice_started ? 1 : 0, snd.initialized ? 1 : 0 );
 }
 
 static qboolean GCube_NullAudioInit( void );

@@ -1061,8 +1061,7 @@ void Mod_FreeModel( model_t *mod )
 		}
 #endif
 #if XASH_GAMECUBE
-			if( !( mod->type == mod_sprite && Sys_CheckParm( "-gcfullphysics" )
-				&& mod->mempool == host.mempool ))
+			if( !( mod->type == mod_sprite && mod->mempool == host.mempool ))
 				Mem_FreePool( &mod->mempool );
 #else
 		Mem_FreePool( &mod->mempool );

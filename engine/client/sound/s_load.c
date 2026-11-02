@@ -52,8 +52,6 @@ static qboolean s_registering = false;
  * reloading from disc on every step. ~300-470 KiB of heap stays free there. */
 #define GC_SFX_MENU_BUDGET_BYTES	(320u * 1024u)
 #define GC_SFX_MENU_MAX_FILE_BYTES	(48u * 1024u)
-/* ...but never at the cost of what the map still has to allocate (the
- * credits font reload, NPC models): keep this much heap free. */
 #define GC_SFX_MENU_HEAP_FLOOR	(128u * 1024u)
 #define GC_SFX_BUDGET		( GC_MenuRunsServer() ? GC_SFX_MENU_BUDGET_BYTES : GC_SFX_BUDGET_BYTES )
 #define GC_SFX_MAX_FILE		( GC_MenuRunsServer() ? GC_SFX_MENU_MAX_FILE_BYTES : GC_SFX_MAX_FILE_BYTES )
@@ -90,10 +88,12 @@ static qboolean S_GCAllowRuntimeSoundLoad( void )
 	if( !GC_MapLoadMemoryOpt() )
 		return false;
 
-	/* Keep map/bootstrap lean; allow a capped trickle once in-world. */
+	/* Keep map/bootstrap lean; once the client is active, admit bounded sounds
+	 * from the dedicated SFX pool even when the map-load session is retained.
+	 * The former menu-only heap floor rejected every ambient/NPC sound because
+	 * the retained map arena made free-heap fluctuate below 128 KiB. */
 	return cls.state == ca_active && !s_registering
-		&& s_gc_sfx_budget_used < GC_SFX_BUDGET
-		&& ( !GC_MenuRunsServer() || GC_MemHeapFreeBytes() >= GC_SFX_MENU_HEAP_FLOOR );
+		&& s_gc_sfx_budget_used < GC_SFX_BUDGET;
 }
 
 static qboolean S_GCSfxIsPlaying( const sfx_t *sfx )

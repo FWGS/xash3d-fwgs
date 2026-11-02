@@ -735,6 +735,7 @@ void Host_Frame( double time )
 	GC_WatchdogMark( "host frame" );
 #if XASH_GAMECUBE
 	GC_ProfFrame();
+	GC_JobRunBudget( 1200 );
 #endif
 #if XASH_GAMECUBE
 	if( gc_mem_watch_enabled && host.framecount < 4000 )

@@ -13,13 +13,52 @@ if [ "${GC_BOOT_PROBE_INNER:-0}" != "1" ]; then
 	exec timeout --foreground --signal=TERM --kill-after=10 "$PROBE_TIMEOUT" "$0" "$@"
 fi
 cleanup_boot_probe_processes() {
-    # Match stock dolphin-emu and renamed bring-up binaries (xash-gc-dolphin).
-    pkill -TERM -f '[d]olphin-emu|[D]olphinQt|[x]ash-gc-dolphin' 2>/dev/null || true
-    sleep 1
-    pkill -KILL -f '[d]olphin-emu|[D]olphinQt|[x]ash-gc-dolphin' 2>/dev/null || true
+	# Never terminate the user's interactive Dolphin session. A probe has a
+	# unique -u profile, so scope cleanup to processes carrying this exact path.
+	python3 - "${USER_DIR:-}" <<'PY'
+import os, signal, sys, time
+
+profile = os.path.realpath(sys.argv[1]) if len(sys.argv) > 1 and sys.argv[1] else ""
+if not profile:
+	 raise SystemExit(0)
+
+def owned_pids():
+	found = []
+	for entry in os.scandir("/proc"):
+		if not entry.name.isdigit():
+			continue
+		try:
+			with open(f"/proc/{entry.name}/cmdline", "rb") as f:
+				argv = [arg.decode(errors="replace") for arg in f.read().split(b"\0") if arg]
+		except (OSError, ProcessLookupError):
+			continue
+		if not argv or os.path.basename(argv[0]).lower() not in {
+			"dolphin-emu", "dolphinqt", "xash-gc-dolphin", "flatpak"
+		}:
+			continue
+		for i, arg in enumerate(argv[:-1]):
+			if arg == "-u" and os.path.realpath(argv[i + 1]) == profile:
+				found.append(int(entry.name))
+				break
+	return found
+
+pids = owned_pids()
+for pid in pids:
+	try: os.kill(pid, signal.SIGTERM)
+	except ProcessLookupError: pass
+deadline = time.monotonic() + 1.5
+while pids and time.monotonic() < deadline:
+	time.sleep(0.1)
+	pids = [pid for pid in pids if os.path.exists(f"/proc/{pid}")]
+for pid in pids:
+	try: os.kill(pid, signal.SIGKILL)
+	except ProcessLookupError: pass
+PY
 }
 cleanup_boot_probe_locks() {
-    rm -f .ai/dolphin-probe.lock .ai/goal-supervisor.lock .ai/goal-loop.lock 2>/dev/null || true
+	# flock releases automatically when this process exits. Keep the inode so
+	# concurrent probes cannot lock a newly-created replacement inode.
+	:
 }
 on_boot_probe_exit() {
     rc=$?

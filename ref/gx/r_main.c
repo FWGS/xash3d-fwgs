@@ -1774,6 +1774,21 @@ static void R_EdgeDrawingGcmapProbe( void )
 {
 	if( !FBitSet( RI.rvp.flags, RF_DRAW_WORLD ))
 		return;
+	/* New Game may enter this compatibility edge path before the soft framebuffer
+	 * has been allocated (the normal GameCube path is Flipper). Do not let sky
+	 * spans write through a null d_viewbuffer during that window. */
+	if( !vid.buffer || vid.width <= 0 || vid.height <= 0 || vid.rowbytes <= 0 )
+	{
+		static qboolean missing_buffer_logged;
+		if( !missing_buffer_logged )
+		{
+			missing_buffer_logged = true;
+			gEngfuncs.Con_Reportf( "Xash3D GameCube: skipping edge probe without soft framebuffer\n" );
+		}
+		return;
+	}
+	d_viewbuffer = (pixel_t *)vid.buffer;
+	r_screenwidth = vid.rowbytes;
 
 	/* G151: Flipper GX world — no soft edges/spans. */
 	if( GC_UseGxWorldDraw() )

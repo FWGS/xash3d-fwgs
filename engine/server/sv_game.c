@@ -33,6 +33,9 @@ void CL_GCRelinkEventHooks( void );
 
 // GameAPI functions declarations
 static int GAME_EXPORT pfnModelIndex( const char *m );
+#if XASH_GAMECUBE
+static qboolean SV_GCMapSmokeRoute( void );
+#endif
 
 // fatpvs stuff
 static byte fatphs[(MAX_MAP_LEAFS+7)/8];
@@ -380,7 +383,17 @@ void GAME_EXPORT SV_SetModel( edict_t *ent, const char *modelname )
 	}
 #endif
 
+#if XASH_GAMECUBE
+	if( GC_MenuRunsServer() && !Q_stricmp( name, "models/scientist.mdl" ))
+		Con_Reportf( "Xash3D GameCube: SV_SetModel index lookup begin edict=%d\n",
+			NUM_FOR_EDICT( ent ));
+#endif
 	i = SV_ModelIndex( name );
+#if XASH_GAMECUBE
+	if( GC_MenuRunsServer() && !Q_stricmp( name, "models/scientist.mdl" ))
+		Con_Reportf( "Xash3D GameCube: SV_SetModel index lookup done edict=%d index=%d\n",
+			NUM_FOR_EDICT( ent ), i );
+#endif
 	if( i == 0 )
 	{
 		if( sv.state == ss_active )
@@ -402,6 +415,9 @@ void GAME_EXPORT SV_SetModel( edict_t *ent, const char *modelname )
 			Con_Reportf( "Xash3D GameCube: SV_SetModel rebinding %s index=%d\n", name, i );
 			mod = Mod_ForName( name, false, true );
 			sv.models[i] = mod;
+			if( GC_MenuRunsServer() && !Q_stricmp( name, "models/scientist.mdl" ))
+				Con_Reportf( "Xash3D GameCube: SV_SetModel rebind done edict=%d mod=%p\n",
+					NUM_FOR_EDICT( ent ), mod );
 		}
 #endif
 	}
@@ -416,6 +432,11 @@ void GAME_EXPORT SV_SetModel( edict_t *ent, const char *modelname )
 	if( mod && mod->type != mod_studio )
 		SV_SetMinMaxSize( ent, mod->mins, mod->maxs, true );
 	else SV_SetMinMaxSize( ent, vec3_origin, vec3_origin, true );
+#if XASH_GAMECUBE
+	if( GC_MenuRunsServer() && !Q_stricmp( name, "models/scientist.mdl" ))
+		Con_Reportf( "Xash3D GameCube: SV_SetModel done edict=%d index=%d type=%d\n",
+			NUM_FOR_EDICT( ent ), i, mod ? mod->type : -1 );
+#endif
 }
 
 /*
@@ -1390,6 +1411,7 @@ static edict_t* SV_AllocPrivateData( edict_t *ent, string_t className, qboolean 
 {
 	const char	*pszClassName;
 	LINK_ENTITY_FUNC	SpawnEdict;
+	const qboolean gc_trace = SV_GCMapSmokeRoute() && ent && NUM_FOR_EDICT( ent ) >= 90;
 
 	pszClassName = SV_GetString( className );
 
@@ -1410,7 +1432,11 @@ static edict_t* SV_AllocPrivateData( edict_t *ent, string_t className, qboolean 
 	ent->v.pContainingEntity = ent; // re-link
 
 	// allocate edict private memory (passed by dlls)
+	if( gc_trace )
+		Con_Reportf( "Xash3D GameCube: private class lookup begin edict=%d class=%s\n", NUM_FOR_EDICT( ent ), pszClassName );
 	SpawnEdict = SV_GetEntityClass( pszClassName );
+	if( gc_trace )
+		Con_Reportf( "Xash3D GameCube: private class lookup done edict=%d class=%s found=%d\n", NUM_FOR_EDICT( ent ), pszClassName, SpawnEdict ? 1 : 0 );
 
 	if( !SpawnEdict )
 	{
@@ -1435,7 +1461,11 @@ static edict_t* SV_AllocPrivateData( edict_t *ent, string_t className, qboolean 
 		}
 	}
 
+	if( gc_trace )
+		Con_Reportf( "Xash3D GameCube: private constructor begin edict=%d class=%s\n", NUM_FOR_EDICT( ent ), pszClassName );
 	SpawnEdict( &ent->v );
+	if( gc_trace )
+		Con_Reportf( "Xash3D GameCube: private constructor done edict=%d class=%s private=%p\n", NUM_FOR_EDICT( ent ), pszClassName, ent->pvPrivateData );
 
 #if XASH_GAMECUBE
 	/* HLSDK GetClassPtr links run even when malloc fails; drop those edicts. */
@@ -3321,8 +3351,17 @@ pfnPvAllocEntPrivateData
 static void *GAME_EXPORT pfnPvAllocEntPrivateData( edict_t *pEdict, long cb )
 {
 	Assert( pEdict != NULL );
+#if XASH_GAMECUBE
+	const qboolean gc_trace = SV_GCMapSmokeRoute() && NUM_FOR_EDICT( pEdict ) >= 90;
+	if( gc_trace )
+		Con_Reportf( "Xash3D GameCube: private alloc begin edict=%d size=%ld\n", NUM_FOR_EDICT( pEdict ), cb );
+#endif
 
 	SV_FreePrivateData( pEdict );
+#if XASH_GAMECUBE
+	if( gc_trace )
+		Con_Reportf( "Xash3D GameCube: private alloc old release done edict=%d\n", NUM_FOR_EDICT( pEdict ));
+#endif
 
 	if( cb > 0 )
 	{
@@ -3352,13 +3391,23 @@ static void *GAME_EXPORT pfnPvAllocEntPrivateData( edict_t *pEdict, long cb )
 				Con_Reportf( "Xash3D GameCube: G369 ent private data using static soundent fallback size=%zu edict=%d\n",
 					size, NUM_FOR_EDICT( pEdict ));
 			}
-			if( !pEdict->pvPrivateData )
-				pEdict->pvPrivateData = malloc( size );
+			/* Avoid libc malloc during map-load sessions. On the retail c0a0
+			 * entity stream it can stall indefinitely once the fragmented MEM1
+			 * heap is near its tip (observed entering func_tracktrain edict
+			 * private data). The engine zone allocator is bounded and can fail
+			 * immediately, after which the small BSS slab below is available. */
 			if( !pEdict->pvPrivateData )
 				pEdict->pvPrivateData = Mem_TryCalloc( svgame.mempool, size );
+#if XASH_GAMECUBE
+			if( gc_trace )
+				Con_Reportf( "Xash3D GameCube: private alloc zone done edict=%d ptr=%p\n", NUM_FOR_EDICT( pEdict ), pEdict->pvPrivateData );
+#endif
+			if( !pEdict->pvPrivateData && !Sys_CheckParm( "-gcmap" )
+				&& !Sys_CheckParm( "-gcnewgame" ) && !GC_MapLoadMemoryOpt() )
+				pEdict->pvPrivateData = malloc( size );
 			/* Player spawn must not return NULL — GetClassPtr crashes. Keep a
 			 * static fallback for the single-player client edict under New Game. */
-			if( !pEdict->pvPrivateData && Sys_CheckParm( "-gcnewgame" )
+			if( !pEdict->pvPrivateData
 				&& NUM_FOR_EDICT( pEdict ) == 1 && size <= sizeof( gc_player_private_fallback ))
 			{
 				memset( gc_player_private_fallback, 0, sizeof( gc_player_private_fallback ));
@@ -3368,7 +3417,7 @@ static void *GAME_EXPORT pfnPvAllocEntPrivateData( edict_t *pEdict, long cb )
 					size );
 			}
 			/* G330: small-entity bump slab after libc tip (GetClassPtr needs non-NULL). */
-			if( !pEdict->pvPrivateData && Sys_CheckParm( "-gcnewgame" )
+			if( !pEdict->pvPrivateData
 				&& size <= 1024
 				&& gc_ent_priv_slab_used + size <= sizeof( gc_ent_priv_slab ))
 			{
@@ -5630,9 +5679,17 @@ static qboolean SV_ParseEdict( char **pfile, edict_t *ent, int entity_index, qbo
 	qboolean		adjust_origin = false, customentity;
 	int		numpairs = 0;
 	const char	*classname = NULL;
+#if XASH_GAMECUBE
+	const qboolean trace_entity = SV_GCMapSmokeRoute() && entity_index >= 204 && entity_index <= 210;
+#endif
 
 	if( inhibited_early )
 		*inhibited_early = false;
+#if XASH_GAMECUBE
+	if( SV_GCMapSmokeRoute() && entity_index == 207 )
+		Con_Reportf( "Xash3D GameCube: entity parse trace begin=%d edict=%d\n",
+			entity_index, NUM_FOR_EDICT( ent ));
+#endif
 
 	// go through all the dictionary pairs
 	while( 1 )
@@ -5642,6 +5699,10 @@ static qboolean SV_ParseEdict( char **pfile, edict_t *ent, int entity_index, qbo
 		int len;
 
 		// parse key
+#if XASH_GAMECUBE
+		if( trace_entity )
+			Con_Reportf( "Xash3D GameCube: entity parse key token begin=%d pairs=%d\n", entity_index, numpairs );
+#endif
 		if(( *pfile = COM_ParseFile( *pfile, keyname, sizeof( keyname ))) == NULL )
 #if XASH_GAMECUBE
 		{
@@ -5655,11 +5716,19 @@ static qboolean SV_ParseEdict( char **pfile, edict_t *ent, int entity_index, qbo
 #else
 			Host_Error( "%s: EOF without closing brace\n", __func__ );
 #endif
+		#if XASH_GAMECUBE
+		if( trace_entity )
+			Con_Reportf( "Xash3D GameCube: entity parse key token done=%d key=%s\n", entity_index, keyname );
+		#endif
 
 		if( keyname[0] == '}' )
 			break; // end of desc
 
 		// parse value
+#if XASH_GAMECUBE
+		if( trace_entity )
+			Con_Reportf( "Xash3D GameCube: entity parse value token begin=%d key=%s\n", entity_index, keyname );
+#endif
 		if(( *pfile = COM_ParseFile( *pfile, value, sizeof( value ))) == NULL )
 #if XASH_GAMECUBE
 		{
@@ -5673,6 +5742,10 @@ static qboolean SV_ParseEdict( char **pfile, edict_t *ent, int entity_index, qbo
 #else
 			Host_Error( "%s: EOF without closing brace\n", __func__ );
 #endif
+		#if XASH_GAMECUBE
+		if( trace_entity )
+			Con_Reportf( "Xash3D GameCube: entity parse value token done=%d key=%s\n", entity_index, keyname );
+		#endif
 
 		if( value[0] == '}' )
 			Host_Error( "%s: closing brace without data\n", __func__ );
@@ -5701,7 +5774,15 @@ static qboolean SV_ParseEdict( char **pfile, edict_t *ent, int entity_index, qbo
 			if( classname != NULL )
 				continue;
 
+			#if XASH_GAMECUBE
+			if( trace_entity )
+				Con_Reportf( "Xash3D GameCube: entity parse classname callback begin=%d\n", entity_index );
+			#endif
 			svgame.dllFuncs.pfnKeyValue( ent, &kvd );
+			#if XASH_GAMECUBE
+			if( trace_entity )
+				Con_Reportf( "Xash3D GameCube: entity parse classname callback done=%d\n", entity_index );
+			#endif
 
 			// ideally, all game dlls should handle classname.
 			// throw an error for now, improve the logic if it causes
@@ -5744,19 +5825,13 @@ static qboolean SV_ParseEdict( char **pfile, edict_t *ent, int entity_index, qbo
 		return false;
 	}
 
+	#if XASH_GAMECUBE
+	if( SV_GCMapSmokeRoute() && entity_index == 207 )
+		Con_Reportf( "Xash3D GameCube: entity parse trace classname=%s pairs=%d\n",
+			classname ? classname : "(none)", numpairs );
+	#endif
+
 #if XASH_GAMECUBE
-	/* G381: CSoundEnt AllocPrivateData/GetClassPtr hangs on cold tram tip
-	 * (c0a0e probes). Inhibit before private alloc — post-ParseEdict skip is
-	 * too late (hang is inside SV_AllocPrivateData). */
-	if( Sys_CheckParm( "-gcnewgame" ) && !sv.startspot[0]
-		&& !Q_stricmp( classname, "soundent" ))
-	{
-		if( inhibited_early )
-			*inhibited_early = true;
-		SV_FreeKeyValueStrings( pkvd, numpairs );
-		Con_Reportf( "Xash3D GameCube: G381 inhibit soundent before AllocPrivateData\n" );
-		return false;
-	}
 	if( SV_GCMapSmokeRoute() && SV_GCMapShouldInhibitBudget( classname, entity_index ))
 	{
 		if( inhibited_early )
@@ -5766,7 +5841,17 @@ static qboolean SV_ParseEdict( char **pfile, edict_t *ent, int entity_index, qbo
 	}
 #endif
 
+#if XASH_GAMECUBE
+	if( SV_GCMapSmokeRoute() && entity_index == 207 )
+		Con_Reportf( "Xash3D GameCube: entity parse trace private begin=%d class=%s\n",
+			entity_index, classname );
+#endif
 	ent = SV_AllocPrivateData( ent, ent->v.classname, &customentity );
+#if XASH_GAMECUBE
+	if( SV_GCMapSmokeRoute() && entity_index == 207 )
+		Con_Reportf( "Xash3D GameCube: entity parse trace private done=%d valid=%d\n",
+			entity_index, SV_IsValidEdict( ent ) ? 1 : 0 );
+#endif
 
 	if( !SV_IsValidEdict( ent ) || FBitSet( ent->v.flags, FL_KILLME ))
 	{
@@ -5846,11 +5931,24 @@ static qboolean SV_ParseEdict( char **pfile, edict_t *ent, int entity_index, qbo
 		value = pkvd[i].szValue;
 
 		pkvd[i].szClassName = (char *)classname;
+#if XASH_GAMECUBE
+		if( SV_GCMapSmokeRoute() && entity_index == 207 )
+			Con_Reportf( "Xash3D GameCube: entity parse trace key begin=%s\n", keyname );
+#endif
 		svgame.dllFuncs.pfnKeyValue( ent, &pkvd[i] );
+#if XASH_GAMECUBE
+		if( SV_GCMapSmokeRoute() && entity_index == 207 )
+			Con_Reportf( "Xash3D GameCube: entity parse trace key done=%s\n", keyname );
+#endif
 
 		Mem_Free( keyname );
 		Mem_Free( value );
 	}
+	#if XASH_GAMECUBE
+	if( SV_GCMapSmokeRoute() && entity_index == 207 )
+		Con_Reportf( "Xash3D GameCube: entity parse trace done=%d class=%s\n",
+			entity_index, classname );
+	#endif
 
 	return true;
 }
@@ -5946,9 +6044,23 @@ static void SV_LoadFromFile( const char *mapname, char *entities )
 #endif
 
 		// parse ents
-		while(( entities = COM_ParseFile( entities, token, sizeof( token ))) != NULL )
+		while( 1 )
 		{
 			qboolean inhibited_early = false;
+			char *next_entities;
+
+			next_entities = COM_ParseFile( entities, token, sizeof( token ));
+#if XASH_GAMECUBE
+			if( SV_GCMapSmokeRoute() && entity_index >= 200 && entity_index <= 210 )
+				Con_Reportf( "Xash3D GameCube: entity loop token begin=%d\n", entity_index );
+#endif
+			entities = next_entities;
+			if( !entities )
+				break;
+#if XASH_GAMECUBE
+			if( SV_GCMapSmokeRoute() && entity_index >= 200 && entity_index <= 210 )
+				Con_Reportf( "Xash3D GameCube: entity loop token done=%d token=%s\n", entity_index, token );
+#endif
 
 			if( token[0] != '{' )
 				Host_Error( "%s: found %s when expecting {\n", __func__, token );
@@ -5959,6 +6071,10 @@ static void SV_LoadFromFile( const char *mapname, char *entities )
 				ent = SV_EdictNum( 0 ); // already initialized
 			}
 			else ent = SV_AllocEdict();
+#if XASH_GAMECUBE
+			if( SV_GCMapSmokeRoute() && entity_index >= 200 && entity_index <= 210 )
+				Con_Reportf( "Xash3D GameCube: entity loop edict done=%d edict=%d\n", entity_index, NUM_FOR_EDICT( ent ));
+#endif
 
 #if XASH_GAMECUBE
 			const qboolean gc_tail_essentials = Sys_CheckParm( "-gcnewgame" )
@@ -6004,6 +6120,11 @@ static void SV_LoadFromFile( const char *mapname, char *entities )
 			if( SV_GCMapSmokeRoute() )
 			{
 				const char *spawn_class = SV_ClassName( ent );
+				const qboolean trace_entity = entity_index >= 190 && entity_index <= 220;
+
+				if( trace_entity )
+					Con_Reportf( "Xash3D GameCube: entity trace parsed=%d class=%s edict=%d\n",
+						entity_index - 1, spawn_class, NUM_FOR_EDICT( ent ));
 
 				/* Light sampling for late spawns; full spam stalls Dolphin OSReport. */
 				if( entity_index >= 90 && ( entity_index & 15 ) == 0 )
@@ -6012,6 +6133,9 @@ static void SV_LoadFromFile( const char *mapname, char *entities )
 
 				if( SV_GCMapShouldInhibitBudget( spawn_class, entity_index ))
 				{
+					if( trace_entity )
+						Con_Reportf( "Xash3D GameCube: entity trace inhibited=%d class=%s\n",
+							entity_index - 1, spawn_class );
 					if(( entity_index & 63 ) == 0 )
 						Con_Reportf( "Xash3D GameCube: gcmap inhibited entity=%d classname=%s\n",
 							entity_index - 1, spawn_class );
@@ -6019,24 +6143,20 @@ static void SV_LoadFromFile( const char *mapname, char *entities )
 					inhibited++;
 					continue;
 				}
-			}
-			/* G381: cold tram c0a0* historically hung inside pfnSpawn after
-			 * CSoundEnt private alloc. Classname is often still empty here
-			 * (set during GetClassPtr), so match the G369 BSS fallback edict. */
-			if( Sys_CheckParm( "-gcnewgame" ) && !sv.startspot[0]
-				&& ( ent->pvPrivateData == gc_soundent_private_fallback
-					|| !Q_stricmp( SV_ClassName( ent ), "soundent" )))
-			{
-				Con_Reportf( "Xash3D GameCube: G381 skip soundent spawn edict=%d\n",
-					NUM_FOR_EDICT( ent ));
-				SV_FreeEdict( ent );
-				inhibited++;
-				continue;
+				if( trace_entity )
+					Con_Reportf( "Xash3D GameCube: entity trace admitted=%d class=%s\n",
+						entity_index - 1, spawn_class );
 			}
 #endif
 
+			if( SV_GCMapSmokeRoute() && entity_index >= 190 && entity_index <= 220 )
+				Con_Reportf( "Xash3D GameCube: entity trace spawn begin=%d class=%s\n",
+					entity_index - 1, SV_ClassName( ent ));
 			if( svgame.dllFuncs.pfnSpawn( ent ) == -1 )
 			{
+				if( SV_GCMapSmokeRoute() && entity_index >= 190 && entity_index <= 220 )
+					Con_Reportf( "Xash3D GameCube: entity trace spawn rejected=%d class=%s\n",
+						entity_index - 1, SV_ClassName( ent ));
 				// game rejected the spawn
 				if( !FBitSet( ent->v.flags, FL_KILLME ))
 				{
@@ -6045,25 +6165,15 @@ static void SV_LoadFromFile( const char *mapname, char *entities )
 				}
 			}
 #if XASH_GAMECUBE
-			else if( Sys_CheckParm( "-gcnewgame" )
-				&& ( !Q_stricmp( SV_ClassName( ent ), "monster_scientist" )
-					|| !Q_stricmp( SV_ClassName( ent ), "monster_barney" )
-					|| !Q_stricmp( SV_ClassName( ent ), "monster_sitting_scientist" )))
-			{
-				/* G316: lean static actors install no AI/use callbacks, so
-				 * their C++ objects provide no post-spawn behavior. Keep the
-				 * render/collision edicts and target names, but release every
-				 * private block to leave room for the local-client handshake. */
-				SV_FreePrivateData( ent );
-				Con_Reportf( "Xash3D GameCube: G316 static private released class=%s edict=%d\n",
-					SV_ClassName( ent ), NUM_FOR_EDICT( ent ));
-			}
 			else if( SV_GCMapSmokeRoute() && entity_index >= 90 && ( entity_index & 15 ) == 0 )
 			{
 				Con_Reportf( "Xash3D GameCube: entity spawn done=%d classname=%s\n",
 					entity_index - 1, SV_ClassName( ent ));
 			}
 #endif
+			if( SV_GCMapSmokeRoute() && entity_index >= 190 && entity_index <= 220 )
+				Con_Reportf( "Xash3D GameCube: entity trace spawn returned=%d class=%s\n",
+					entity_index - 1, SV_ClassName( ent ));
 		}
 
 		Con_DPrintf( "\n%i entities inhibited\n", inhibited );

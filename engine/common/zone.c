@@ -120,7 +120,7 @@ static size_t poolcount = 0;
  * but no contiguous block for realloc(). Keep a bounded table reserve so
  * creating late sprite/model pools does not become a false OOM. Handles are
  * indices, so relocating the table is safe after copying live entries. */
-#define GC_POOLCHAIN_RESERVE 512
+#define GC_POOLCHAIN_RESERVE 1024
 static mempool_t gc_poolchain_reserve[GC_POOLCHAIN_RESERVE];
 static qboolean gc_poolchain_static;
 #endif
@@ -802,6 +802,19 @@ poolhandle_t _Mem_AllocPool( const char *name, unsigned int flags, const char *f
 		if( poolchain[i].filename == NULL )
 			return Mem_InitPool( &poolchain[i], name, flags, filename, fileline );
 	}
+	#if XASH_GAMECUBE
+	/* Once the dynamic table has moved into its BSS reserve, never pass that
+	 * static address back to realloc. Continue allocating entries in-place. */
+	if( gc_poolchain_static )
+	{
+		if( poolcount < GC_POOLCHAIN_RESERVE )
+			return Mem_InitPool( &poolchain[poolcount++], name, flags, filename, fileline );
+		GC_MemFail( name, sizeof( *poolchain ), filename, fileline );
+		Sys_Error( "%s: pool table exhausted (%u entries) at %s:%i\n",
+			__func__, (unsigned)poolcount, filename, fileline );
+		return 0;
+	}
+	#endif
 
 	mempool_t *pool = (mempool_t *)Q_realloc( poolchain, sizeof( *poolchain ) * ( poolcount + 1 ));
 	if( pool == NULL )

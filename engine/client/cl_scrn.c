@@ -104,6 +104,8 @@ void GC_TrimClientSubsystemsForMapLoad( void )
 	 * progs while the ~2 MiB BSP file buffer is resident. */
 	UI_SetActiveMenu( false );
 	Key_SetKeyDest( key_game );
+	if( UI_UsingBuiltInFallbackMenu() )
+		UI_GameCubeReleaseMenuTextures();
 	if( gameui.hInstance )
 	{
 		UI_UnloadProgs();

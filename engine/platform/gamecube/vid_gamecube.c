@@ -395,6 +395,27 @@ static void GC_LoadingOverlayBegin( void )
 		return;
 	gc_loading_fb = fb;
 	gc_loading_phase = 0;
+	/* Menu New Game has no previous gameplay frame to preserve. Cover the
+	 * transition in black while the server, BSP and first Flipper frame settle;
+	 * changelevels retain the retail behavior of holding the prior frame. */
+	if( !gc_transition_hold_changelevel )
+	{
+		GX_SetCopyClear((GXColor){ 0, 0, 0, 255 }, 0x00ffffff );
+		GX_SetDispCopySrc( 0, 0, rmode->fbWidth, rmode->efbHeight );
+		GX_SetDispCopyDst( rmode->fbWidth, rmode->xfbHeight );
+		GX_SetDispCopyYScale((f32)rmode->xfbHeight / (f32)rmode->efbHeight );
+		GC_GXDrawDoneTimed( "newgame black cover" );
+		GX_CopyDisp( gc_loading_fb, GX_TRUE );
+		GX_Flush();
+		GC_GXDrawDoneTimed( "newgame black cover present" );
+		GX_SetDispCopySrc( 0, 0, rmode->fbWidth, rmode->efbHeight );
+		GX_SetDispCopyDst( rmode->fbWidth, rmode->xfbHeight );
+		GX_SetDispCopyYScale((f32)rmode->xfbHeight / (f32)rmode->efbHeight );
+		gc_gx_present_pipe_ready = false;
+		gc_loading_fb = NULL;
+		Con_Reportf( "Xash3D GameCube: New Game black cover presented\n" );
+		return;
+	}
 	GC_LoadingOverlayDraw();
 	gc_loading_next = Sys_FloatTime() + GC_LOADING_PULSE_SEC;
 	Con_Reportf( "Xash3D GameCube: loading overlay on\n" );
@@ -528,9 +549,9 @@ static int gc_newgame_vis_nodes;
 #define GC_CAP_AREA_SLOTS (( GC_MAX_CAP_FACES * 7 ) / 8) /* 280 top-K by area */
 /* G153/G176: bake style-0 lightmap to RGB565 at capture (must be multiple of 4). */
 #define GC_CAP_LM_DIM 4
-/* G180: pack 4×4 face LMs into one Flipper atlas (32×16 tiles = 512 slots). */
+/* G180/G281: one Flipper atlas for world caps plus the intro tram (32×32 tiles). */
 #define GC_LM_ATLAS_W 128
-#define GC_LM_ATLAS_H 64
+#define GC_LM_ATLAS_H 128
 #define GC_LM_ATLAS_COLS ( GC_LM_ATLAS_W / GC_CAP_LM_DIM )
 #define GC_LM_ATLAS_ROWS ( GC_LM_ATLAS_H / GC_CAP_LM_DIM )
 typedef struct
@@ -702,11 +723,11 @@ static qboolean gc_menu_fill_bss_active;
  * G310: live BSS 64→48 unlocked lean×192 + live=124.
  * Atlas LM only covers slots 320..511 (192); extra faces draw flat.
  */
-#define GC_TRAM_MAX_FACES 256 /* geom; first 192 get LM tiles */
-#define GC_TRAM_LM_MAX 192 /* GC_TRAM_LM_SLOT0 .. atlas end */
+#define GC_TRAM_MAX_FACES 256 /* geometry and lightmap tiles */
+#define GC_TRAM_LM_MAX ( GC_LM_ATLAS_COLS * GC_LM_ATLAS_ROWS - GC_TRAM_LM_SLOT0 )
 #define GC_TRAM_EXT_RESERVE 24 /* windshield/nose slots after cabin fill */
 #define GC_TRAM_MAX_VERTS 4 /* quads; decimate n>4 at bake (caps still use 5) */
-#define GC_TRAM_LM_SLOT0 320	/* unused tiles in 128×64 cap atlas (512 capacity) */
+#define GC_TRAM_LM_SLOT0 320	/* reserve slots 320..575 in the 128×128 atlas */
 #define GC_TRAM_FACE_EXTERIOR 0x01
 typedef struct
 {
@@ -732,6 +753,59 @@ static vec3_t gc_tram_model_origin; /* *12 submodel origin at bake */
 static signed char gc_tram_st[GC_TRAM_ST_MAX][GC_TRAM_MAX_VERTS][2];
 
 static void GC_BakeTramLightmapTile( const msurface_t *src, u16 *dst );
+
+/* Menu New Game packs the world's real style-0 samples into the live GX atlas
+ * instead of assigning msurface_t::samples. Pull the matching face rectangle
+ * from that atlas when baking the tram's compact 4x4 tiles. */
+static qboolean GC_BakeTramLightmapFromLiveAtlas( const msurface_t *src, u16 *dst )
+{
+	extern const unsigned short *GC_GetLiveLightmapAtlas( int *w, int *h, int *generation );
+	const unsigned short *atlas;
+	const mextrasurf_t *info;
+	int w = 0, h = 0, generation = 0;
+	int sample_size, smax, tmax, x, y, tile_x, tile_y, ty;
+	u16 linear[GC_CAP_LM_DIM * GC_CAP_LM_DIM];
+	u16 *out;
+
+	if( !src || !dst || !src->info || src->lightmaptexturenum != 1 )
+		return false;
+	atlas = GC_GetLiveLightmapAtlas( &w, &h, &generation );
+	(void)generation;
+	if( !atlas || w < 4 || h < 4 )
+		return false;
+	info = src->info;
+	sample_size = Mod_SampleSizeForFace( src );
+	if( sample_size < 1 )
+		return false;
+	smax = info->lightextents[0] / sample_size + 1;
+	tmax = info->lightextents[1] / sample_size + 1;
+	if( smax < 1 || tmax < 1 || src->light_s < 0 || src->light_t < 0
+		|| src->light_s + smax > w || src->light_t + tmax > h )
+		return false;
+
+	for( y = 0; y < GC_CAP_LM_DIM; y++ )
+	{
+		int sy = ( tmax <= 1 ) ? 0 : y * ( tmax - 1 ) / ( GC_CAP_LM_DIM - 1 );
+		for( x = 0; x < GC_CAP_LM_DIM; x++ )
+		{
+			int sx = ( smax <= 1 ) ? 0 : x * ( smax - 1 ) / ( GC_CAP_LM_DIM - 1 );
+			int ax = src->light_s + sx, ay = src->light_t + sy;
+			size_t index = ((size_t)( ay >> 2 ) * (size_t)( w >> 2 ) + (size_t)( ax >> 2 )) * 16
+				+ (size_t)( ay & 3 ) * 4 + (size_t)( ax & 3 );
+			linear[y * GC_CAP_LM_DIM + x] = atlas[index];
+		}
+	}
+	out = dst;
+	for( tile_y = 0; tile_y < GC_CAP_LM_DIM; tile_y += 4 )
+		for( tile_x = 0; tile_x < GC_CAP_LM_DIM; tile_x += 4 )
+			for( ty = 0; ty < 4; ty++ )
+			{
+				const u16 *row = linear + ( tile_y + ty ) * GC_CAP_LM_DIM + tile_x;
+				out[0] = row[0]; out[1] = row[1]; out[2] = row[2]; out[3] = row[3];
+				out += 4;
+			}
+	return true;
+}
 
 static void GC_BakeTramSlotST( int slot, const msurface_t *src, const gc_tram_face_t *face )
 {
@@ -1711,6 +1785,11 @@ static void GC_BakeTramLightmaps( model_t *wmodel )
 			&& !( best->flags & ( SURF_DRAWSKY | SURF_DRAWTURB | SURF_TRANSPARENT )))
 		{
 			GC_BakeTramLightmapTile( best, tile );
+			baked++;
+		}
+		else if( best && !( best->flags & ( SURF_DRAWSKY | SURF_DRAWTURB | SURF_TRANSPARENT ))
+			&& GC_BakeTramLightmapFromLiveAtlas( best, tile ))
+		{
 			baked++;
 		}
 		else
@@ -14871,7 +14950,7 @@ present-only route.
 qboolean GC_MenuRunsServer( void )
 {
 	return Sys_CheckParm( "-gcmenuplaystart" ) && !Sys_CheckParm( "-gcmenunoserver" )
-		&& !Sys_CheckParm( "-gcfullphysics" );
+		&& ( !Sys_CheckParm( "-gcfullphysics" ) || Sys_CheckParm( "-gcfullactors" ));
 }
 
 /*
@@ -15033,10 +15112,13 @@ void GC_PlayNewGameGameplaySound( void )
 
 		FS_ClearFindMissCache();
 		for( s = 0; s < (int)( sizeof( preload ) / sizeof( preload[0] )); s++ )
-			(void)S_RegisterSound( preload[s] );
+		{
+			int handle = S_RegisterSound( preload[s] );
+			Con_Reportf( "Xash3D GameCube: gameplay SFX preload %s handle=%d bytes=%u\n",
+				preload[s], handle, (uint)S_GCGameplaySfxBudgetUsed() );
+		}
 		/* G172: retry HUD sheets after SFX while freelist may have coalesced. */
 		CL_GCPreloadNewGameHudSpritesLate();
-		return;
 	}
 
 	Con_Reportf( "Xash3D GameCube: gameplay snd begin %s st=%d\n",
@@ -15061,6 +15143,7 @@ void GC_PlayNewGameGameplaySound( void )
 		SND_UpdateSound();
 
 	Con_Reportf( "Xash3D GameCube: gameplay snd ready %s\n", name );
+	S_GCLogAudioTelemetry( "gameplay-start" );
 }
 #else
 void GC_UpdateNewGameIntroAudio( void )
