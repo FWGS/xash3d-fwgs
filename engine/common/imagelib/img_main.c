@@ -27,6 +27,26 @@ extern fs_api_t g_fsapi;
 // global image variables
 imglib_t	image;
 
+#if XASH_GAMECUBE
+/* One decode at a time; 128 KiB covers the larger weapon/headcrab skins
+ * without turning the general MEM1 heap into a texture backlog. */
+static byte gc_mdl_decode_rgba[256 * 128 * 4] __attribute__((aligned(32)));
+static qboolean gc_mdl_decode_busy;
+
+void *Image_GCAllocMdlDecode( size_t bytes )
+{
+	if( gc_mdl_decode_busy || bytes > sizeof( gc_mdl_decode_rgba ))
+		return NULL;
+	gc_mdl_decode_busy = true;
+	return gc_mdl_decode_rgba;
+}
+
+qboolean Image_GCIsMdlDecode( const void *ptr )
+{
+	return ptr == gc_mdl_decode_rgba;
+}
+#endif
+
 typedef struct suffix_s
 {
 	const char	*suf;
@@ -163,6 +183,7 @@ void Image_Reset( void )
 	image.palette = NULL;
 	image.cubemap = NULL;
 	image.rgba = NULL;
+	image.mdl_decode = false;
 	image.ptr = 0;
 	image.size = 0;
 
@@ -632,7 +653,14 @@ free RGBA buffer
 void FS_FreeImage( rgbdata_t *pack )
 {
 	if( !pack ) return;
+	#if XASH_GAMECUBE
+	if( pack->buffer && !Image_GCIsMdlDecode( pack->buffer ))
+		Mem_Free( pack->buffer );
+	if( gc_mdl_decode_busy )
+		gc_mdl_decode_busy = false;
+	#else
 	if( pack->buffer ) Mem_Free( pack->buffer );
+	#endif
 	if( pack->palette ) Mem_Free( pack->palette );
 	Mem_Free( pack );
 }

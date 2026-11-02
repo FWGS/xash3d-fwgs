@@ -384,6 +384,16 @@ static qboolean GL_UploadTexture( image_t *tex, rgbdata_t *pic )
 		tex->width = resampleWidth;
 		tex->height = resampleHeight;
 	}
+	/* Native studio skins have no soft-renderer consumer after upload.  Keep
+	 * every retail texture entry, but bound decoded residency so the complete
+	 * tram cast fits beside the compact MDLs in the fixed studio arena. */
+	if( r_gc_studio_skins_in_arena && !FBitSet( tex->flags, TF_FONT ))
+	{
+		resampleWidth = Q_min( resampleWidth, 96 );
+		resampleHeight = Q_min( resampleHeight, 96 );
+		tex->width = resampleWidth;
+		tex->height = resampleHeight;
+	}
 #endif
 
 	if((( pic->width != tex->width ) || ( pic->height != tex->height )))
@@ -500,7 +510,16 @@ static qboolean GL_UploadTexture( image_t *tex, rgbdata_t *pic )
 		else if( j == 0 && tex->flags & TF_HAS_ALPHA && q > 0 )
 		{
 #if XASH_GAMECUBE
-			tex->alpha_pixels = (pixel_t *)Mem_TryCalloc( r_temppool, width * height * sizeof( pixel_t ));
+			/* GX studio skins are uploaded as RGB565 by R_GXNativeTexture;
+			 * retaining a second 16-bit alpha plane only duplicates the same
+			 * MEM1 pressure and is not consumed by that native path. */
+			if( r_gc_studio_skins_in_arena )
+			{
+				tex->alpha_pixels = NULL;
+				ClearBits( tex->flags, TF_HAS_ALPHA );
+			}
+			else
+				tex->alpha_pixels = (pixel_t *)Mem_TryCalloc( r_temppool, width * height * sizeof( pixel_t ));
 			if( !tex->alpha_pixels )
 			{
 				Image_GCPurgeDecodeScratch();
@@ -774,7 +793,11 @@ static void GL_DeleteTexture( image_t *tex )
 				R_GCFreeMip( tex, i );
 		}
 	}
-	if( tex->alpha_pixels )
+	if( tex->alpha_pixels
+#if XASH_GAMECUBE
+		&& !Mod_GCIsStudioBssCache( tex->alpha_pixels )
+#endif
+	)
 		Mem_Free( tex->alpha_pixels );
 
 	memset( tex, 0, sizeof( *tex ));
@@ -837,7 +860,22 @@ int GAME_EXPORT GL_LoadTexture( const char *name, const byte *buf, size_t size, 
 
 	rgbdata_t *pic = gEngfuncs.FS_LoadImage( name, buf, size );
 	if( !pic )
+	{
+		#if XASH_GAMECUBE
+		if( name[0] == '#' && !Q_strnicmp( name + 1, "models/", 7 ))
+		{
+			static int gc_mdl_decode_failures;
+			if( gc_mdl_decode_failures < 16 )
+			{
+				gc_mdl_decode_failures++;
+				gEngfuncs.Con_Reportf(
+					"Xash3D GameCube: G392 MDL image decode failed name=%s bytes=%u\n",
+					name, (unsigned)size );
+			}
+		}
+		#endif
 		return 0;    // couldn't loading image
+	}
 
 	// allocate the new one
 	tex = GL_AllocTexture( name, flags );

@@ -3530,8 +3530,16 @@ ActivateServer. Re-arm and grant after the DLL put-in returns.
 */
 void GC_LeanLandmarkGrantWeaponsAfterPutInServer( void )
 {
-	if( !Sys_CheckParm( "-gcnewgame" ) || !gc_g100_grant_weapons )
+	if( !Sys_CheckParm( "-gcnewgame" ))
 		return;
+	/* The DLL's early GiveNamedItem path is unsafe while the GameCube
+	 * client is still being rebuilt.  Queue the retail starting crowbar and
+	 * use the already measured post-spawn create/touch path instead. */
+	if( !gc_g100_grant_weapons )
+	{
+		gc_g100_grant_weapons = ( 1 << 1 );
+		gc_g100_grant_have_ammo = false;
+	}
 
 	gc_g100_grant_pending = true;
 	Con_Reportf( "Xash3D GameCube: G119 re-grant after ClientPutInServer weapons=0x%x\n",

@@ -359,6 +359,7 @@ SMOKE_CONFIG_FILES = (
 	"server.cfg",
 	"skill.cfg",
 	"spserver.cfg",
+	"sound/sentences.txt",
 	"valve.rc",
 	"xashcomm.lst",
 	"gfx/colormap.lmp",
