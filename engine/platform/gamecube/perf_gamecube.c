@@ -330,6 +330,7 @@ void GC_PerfCmd_Init( void )
 void GC_PerfDraw( void )
 {
 	unsigned int prefetch_used, prefetch_capacity, prefetch_entries;
+	unsigned int bsp_batches, bsp_batch_faces;
 	int active_particles, free_particles, active_beams, free_beams;
 	int state_sets, state_reuses, tex_loads, tex_reuses;
     if( !gc_perf_enable.string || !gc_perf_draw.string || atoi(gc_perf_enable.string) == 0 || atoi(gc_perf_draw.string) == 0 )
@@ -337,6 +338,7 @@ void GC_PerfDraw( void )
     
     const GC_PerfMetrics* m = GC_PerfGetMetrics();
 	GC_PrefetchStats( &prefetch_used, &prefetch_capacity, &prefetch_entries );
+	GC_MapBatchStats( &bsp_batches, &bsp_batch_faces );
 	CL_GetEfxPoolStats( &active_particles, &free_particles, &active_beams, &free_beams );
 	R_GXGetStateStats( &state_sets, &state_reuses, &tex_loads, &tex_reuses );
     
@@ -353,9 +355,10 @@ void GC_PerfDraw( void )
     Con_DrawString( 8, 56, va( "BUDGET: %s", m->budget_exceeded ? "EXCEEDED" : "OK" ), 0 );
 	Con_DrawString( 8, 72, va( "ARAM: %u/%u KiB  PREFETCH: %u",
 		prefetch_used / 1024u, prefetch_capacity / 1024u, prefetch_entries ), 0 );
-	Con_DrawString( 8, 88, va( "EFX: P %d/%d  B %d/%d",
+	Con_DrawString( 8, 88, va( "BSP BATCH: %u faces/%u groups", bsp_batch_faces, bsp_batches ), 0 );
+	Con_DrawString( 8, 104, va( "EFX: P %d/%d  B %d/%d",
 		active_particles, free_particles, active_beams, free_beams ), 0 );
-	Con_DrawString( 8, 104, va( "GX: S %d/%d  T %d/%d",
+	Con_DrawString( 8, 120, va( "GX: S %d/%d  T %d/%d",
 		state_sets, state_reuses, tex_loads, tex_reuses ), 0 );
 }
 

@@ -85,6 +85,12 @@ byte *Mod_GCStudioArenaLoadFile( const char *path, fs_offset_t *length )
 		FS_Close( f );
 		return NULL;
 	}
+	if( GC_PrefetchRead( path, slot, (unsigned int)flen ))
+	{
+		FS_Close( f );
+		*length = flen;
+		return slot;
+	}
 	while( total < flen && ( got = FS_Read( f, slot + total, flen - total )) > 0 )
 		total += got;
 	FS_Close( f );

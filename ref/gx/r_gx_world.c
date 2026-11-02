@@ -48,6 +48,7 @@ Not feature-parity: full brush-mover lighting remains soft/diagnostic.
 #include <string.h>
 #include <math.h>
 #include <stdlib.h>
+#include "../../engine/platform/gamecube/mem_gamecube.h"
 
 extern qboolean GC_UseGxWorldDraw( void );
 extern qboolean GC_UseGxRenderer( void );
@@ -1396,9 +1397,12 @@ static int R_GXFaceSortCmp( const void *a, const void *b )
 
 static qboolean R_GXFaceSortPush( int *n, const msurface_t *surf, int index )
 {
+	unsigned batch = GC_MapFaceBatchKey( index );
+	unsigned texture = R_GXSurfTexKey( surf );
 	if( *n >= GC_GX_FACE_SORT_MAX || index < 0 || index > 0xFFFF )
 		return false;
-	r_gx_face_sort[( *n )++] = (( R_GXSurfTexKey( surf ) & 0xFFFFu ) << 16 ) | (unsigned)index;
+	if( batch ) texture = (( batch & 0xFFu ) << 8 ) | ( texture & 0xFFu );
+	r_gx_face_sort[( *n )++] = (( texture & 0xFFFFu ) << 16 ) | (unsigned)index;
 	return true;
 }
 

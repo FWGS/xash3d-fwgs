@@ -81,6 +81,15 @@ GCPCM_RATE = 48000
 GCPCM_CHANNELS = 2
 GCPCM_WIDTH = 2
 
+GC_BUILD_BANNER = """
+⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⢀⣠⣤⣴⣶⣾⣿⣿⣿⣿⣿⣿⣷⣶⣦⣤⣄⡀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀
+⠀⠀⠀⠀⠀⠀⠀⠀⣀⣴⣾⣿⣿⣿⣿⣿⣿⣿⠿⠿⠿⠿⢿⣿⣿⣿⣿⣿⣿⣷⣦⣀⠀⠀⠀⠀⠀⠀⠀⠀
+⠀⠀⠀⠀⠀⠀⣠⣾⣿⣿⣿⡿⠟⠋⠁⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠈⠙⠻⢿⣿⣿⣿⣷⣄⡀⠀⠀⠀⠀⠀
+⠀⠀⠀⠀⣠⣾⣿⣿⣿⠟⠉⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠉⠻⣿⣿⣿⣷⣄⠀⠀⠀⠀
+⠀⠀⢀⣼⣿⣿⣿⠟⠁⠀⠀⠀⠀⠀⠀⣶⣶⣶⣶⣶⣶⣦⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠈⠻⣿⣿⣿⣧⡀⠀⠀
+⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀
+"""
+
 
 def align(value: int, boundary: int) -> int:
 	return (value + boundary - 1) & ~(boundary - 1)
@@ -311,7 +320,6 @@ def build_iso9660(
 	command = [
 		xorriso,
 		"-as", "mkisofs",
-		"-quiet",
 		"-iso-level", "3",
 		"-J",
 		"-R",
@@ -329,6 +337,11 @@ def build_iso9660(
 		for relative, source in overlays:
 			command.append(f"/xash3d/valve/{relative}={source}")
 		command.append(f"/xash3d/valve/gamecube-bootstrap.pk3={bootstrap}")
+		print(
+			f"GameCube ISO: assembling {len(command) - 11} grafts into "
+			f"{output_path} (xorriso progress follows)",
+			flush=True,
+		)
 		output_path.unlink(missing_ok=True)
 		subprocess.run(command, check=True)
 
@@ -2739,6 +2752,8 @@ def stage_sd_card(
 
 
 def main() -> None:
+	print(GC_BUILD_BANNER)
+	print("Xash3D GameCube: content build begins")
 	script_dir = Path(__file__).resolve().parent
 	parser = argparse.ArgumentParser(description=__doc__)
 	parser.add_argument("--dol", type=Path, default=Path("OUT/bin/boot.dol"))

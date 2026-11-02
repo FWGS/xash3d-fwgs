@@ -45,16 +45,17 @@ def main(argv: list[str]) -> int:
         raise SystemExit(f"invalid face/texinfo stride in {source}")
     face_count = face_len // 20
     tex_count = tex_len // 40
-    batches: dict[int, list[int]] = {}
+    batches: dict[tuple[int, int], list[int]] = {}
     for face_index in range(face_count):
         texinfo = struct.unpack_from("<h", data, face_ofs + face_index * 20 + 10)[0]
         if texinfo < 0 or texinfo >= tex_count:
             raise SystemExit(f"invalid texinfo index {texinfo} in face {face_index}")
-        batches.setdefault(texinfo, []).append(face_index)
+        miptex, flags = struct.unpack_from("<ii", data, tex_ofs + texinfo * 40 + 32)
+        batches.setdefault((miptex, flags), []).append(face_index)
     rows.append(f"BATCHES {len(batches)} {face_count}\n")
-    for texinfo, faces in sorted(batches.items()):
-        rows.append("BATCH %d %d %d %s\n" % (
-            texinfo, len(faces), faces[0], ",".join(str(face) for face in faces)))
+    for (miptex, flags), faces in sorted(batches.items()):
+        rows.append("BATCH %d %d %d %d %s\n" % (
+            miptex, flags, len(faces), faces[0], ",".join(str(face) for face in faces)))
     output.parent.mkdir(parents=True, exist_ok=True)
     output.write_text("".join(rows), encoding="ascii")
     return 0

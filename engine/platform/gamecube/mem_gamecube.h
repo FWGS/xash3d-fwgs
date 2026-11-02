@@ -26,6 +26,7 @@ typedef struct {
 
 void GC_MemSetMap( const char *mapname );
 void GC_MemSample( const char *stage );
+void GC_MemBreadcrumb( const char *stage );
 void GC_MemFail( const char *subsystem, size_t size, const char *file, int line );
 void GC_MemReportPoolPressure( const char *subsystem, size_t requested );
 void GC_MemPoolReport( const char *stage );
@@ -51,6 +52,8 @@ void GC_InitMapLoadBuffer( void );
 void GC_PrepareMapLoadBuffer( size_t size );
 void GC_PrepareMapLoadBufferForMap( const char *mapname );
 qboolean GC_LoadMapMetadata( const char *mapname );
+unsigned int GC_MapFaceBatchKey( int face_index );
+void GC_MapBatchStats( unsigned int *batches, unsigned int *faces );
 void *GC_BorrowMapLoadBuffer( size_t size );
 qboolean GC_ReleaseMapLoadBuffer( void *ptr );
 void GC_DiscardMapLoadBuffer( void );
@@ -60,10 +63,20 @@ size_t GC_MapLoadBufferCapacity( void );
 void *GC_MapLoadBufferTailAlloc( size_t after_offset, size_t need );
 size_t GC_MapLoadBufferTailHighwater( void );
 unsigned int GC_AramReserve( unsigned int size );
+/* One map-owned ARAM window, reused across transitions without new blocks. */
+unsigned int GC_AramMapReserve( unsigned int size );
+void GC_AramMapReset( void );
+unsigned int GC_AramMapCapacity( void );
+qboolean GC_StageMapHotLumps( const void *bsp, size_t bsp_size );
+qboolean GC_MapHotLumpRead( int lump, size_t offset, void *dst, size_t size );
 void GC_AramTransfer( unsigned int aram, void *buf, unsigned int len, qboolean write );
 void GC_AramCopy( unsigned int aram, void *buf, unsigned int len, qboolean write );
 void GC_PrefetchMenuIdle( void );
+/* Reuse the session-owned ARAM window without allocating another block. */
+void GC_PrefetchResetForMenu( void );
 void GC_PrefetchStats( unsigned int *used, unsigned int *capacity, unsigned int *entries );
+qboolean GC_PrefetchRead( const char *path, void *buffer, unsigned int size );
+qboolean GC_PrefetchContains( const char *path, unsigned int size );
 
 /* True during -gcmap smoke loads and retail New Game (gc_playstart) map loads. */
 void GC_BeginMapLoadMemoryOpt( void );
@@ -89,6 +102,7 @@ void GC_WatchdogStage( const char *stage );
 
 static inline void GC_MemSetMap( const char *mapname ) { (void)mapname; }
 static inline void GC_MemSample( const char *stage ) { (void)stage; }
+static inline void GC_MemBreadcrumb( const char *stage ) { (void)stage; }
 static inline void GC_MemFail( const char *subsystem, size_t size, const char *file, int line )
 {
 	(void)subsystem;
@@ -106,6 +120,13 @@ static inline void GC_InitMapLoadBuffer( void ) { }
 static inline void GC_PrepareMapLoadBuffer( size_t size ) { (void)size; }
 static inline void GC_PrepareMapLoadBufferForMap( const char *mapname ) { (void)mapname; }
 static inline qboolean GC_LoadMapMetadata( const char *mapname ) { (void)mapname; return false; }
+static inline unsigned int GC_MapFaceBatchKey( int face_index ) { (void)face_index; return 0; }
+static inline qboolean GC_StageMapHotLumps( const void *bsp, size_t bsp_size )
+{ (void)bsp; (void)bsp_size; return false; }
+static inline qboolean GC_MapHotLumpRead( int lump, size_t offset, void *dst, size_t size )
+{ (void)lump; (void)offset; (void)dst; (void)size; return false; }
+static inline void GC_MapBatchStats( unsigned int *batches, unsigned int *faces )
+{ if( batches ) *batches = 0; if( faces ) *faces = 0; }
 static inline void *GC_BorrowMapLoadBuffer( size_t size ) { (void)size; return NULL; }
 static inline qboolean GC_ReleaseMapLoadBuffer( void *ptr ) { (void)ptr; return false; }
 static inline void GC_DiscardMapLoadBuffer( void ) { }
@@ -122,10 +143,15 @@ static inline void GC_EndMapLoadMemoryOpt( void ) { }
 static inline void GC_ClearMapLoadMemoryOpt( void ) { }
 static inline qboolean GC_MapLoadMemoryOpt( void ) { return false; }
 static inline void GC_PrefetchMenuIdle( void ) { }
+static inline void GC_PrefetchResetForMenu( void ) { }
 static inline void GC_PrefetchStats( unsigned int *used, unsigned int *capacity, unsigned int *entries )
 {
 	if( used ) *used = 0; if( capacity ) *capacity = 0; if( entries ) *entries = 0;
 }
+static inline qboolean GC_PrefetchRead( const char *path, void *buffer, unsigned int size )
+{ (void)path; (void)buffer; (void)size; return false; }
+static inline qboolean GC_PrefetchContains( const char *path, unsigned int size )
+{ (void)path; (void)size; return false; }
 
 /* Map-load memory pressure measurement (stubs) */
 static inline void GC_MapLoadPressureBegin( void ) { }

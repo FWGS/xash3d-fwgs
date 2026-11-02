@@ -15,6 +15,7 @@ Copyright (C) 2026 xash3d-gc contributors
 void *R_GCBorrowMapLoadStaticArena( size_t size, size_t *capacity );
 qboolean R_GCReleaseMapLoadStaticArena( void *ptr );
 qboolean SV_Active( void );
+void GCube_AppendSwissEvidence( const char *fmt, ... );
 
 static char gc_mem_map[MAX_QPATH] = "(none)";
 static size_t gc_mem_last;
@@ -34,6 +35,29 @@ static qboolean gc_mapload_buf_in_use;
 static int gc_mapload_memopt_depth;
 static qboolean gc_mapload_memopt_session; /* stays on after playstart until cleared */
 static qboolean gc_newgame_bootstrap_memopt = true;
+
+#define GC_BSP_BATCH_FACE_MAX 16384
+static unsigned short gc_bsp_face_batch[GC_BSP_BATCH_FACE_MAX];
+static int gc_bsp_batch_faces;
+static unsigned int gc_bsp_batch_count;
+static qboolean gc_bsp_batches_valid;
+static int gc_bsp_lump_offset[15], gc_bsp_lump_size[15];
+static qboolean gc_bsp_lump_hot[15];
+static unsigned int gc_bsp_lump_aram[15];
+static unsigned int gc_bsp_hot_aram, gc_bsp_hot_bytes;
+
+unsigned int GC_MapFaceBatchKey( int face_index )
+{
+	if( !gc_bsp_batches_valid || face_index < 0 || face_index >= gc_bsp_batch_faces )
+		return 0;
+	return gc_bsp_face_batch[face_index];
+}
+
+void GC_MapBatchStats( unsigned int *batches, unsigned int *faces )
+{
+	if( batches ) *batches = gc_bsp_batches_valid ? gc_bsp_batch_count : 0;
+	if( faces ) *faces = gc_bsp_batches_valid ? (unsigned int)gc_bsp_batch_faces : 0;
+}
 
 #define GC_PREFETCH_MAX_ENTRIES 32
 #define GC_PREFETCH_MAX_BYTES (2u * 1024u * 1024u)
@@ -99,6 +123,20 @@ void GC_MemSample( const char *stage )
 			stage, Q_memprint( total ), Q_memprint( delta ), Q_memprint( gc_mem_hwm ), gc_mem_map,
 			Q_memprint( heap_used ), Q_memprint( heap_free ), Q_memprint( heap_unclaimed ));
 	}
+}
+
+void GC_MemBreadcrumb( const char *stage )
+{
+	size_t heap_used, heap_free, heap_unclaimed;
+
+	if( !stage || !stage[0] ) return;
+	GC_WatchdogMark( stage );
+	GC_MemHeapStats( &heap_used, &heap_free, &heap_unclaimed );
+	/* This is deliberately written even when the memory total is unchanged:
+	 * the last completed stage is the useful artifact after a hard reset. */
+	GCube_AppendSwissEvidence( "breadcrumb stage=%s map=%s total=%u hwm=%u heap_used=%u heap_free=%u unclaimed=%u",
+		stage, gc_mem_map, (unsigned)Mem_TotalRealSize(), (unsigned)gc_mem_hwm,
+		(unsigned)heap_used, (unsigned)heap_free, (unsigned)heap_unclaimed );
 }
 
 void GC_MemFail( const char *subsystem, size_t size, const char *file, int line )
@@ -290,9 +328,20 @@ qboolean GC_LoadMapMetadata( const char *mapname )
 {
 	char path[MAX_QPATH];
 	char base[MAX_QPATH];
-	char text[4096];
+	/* Metadata can be sizeable on later chapters; keep this out of the
+	 * PowerPC stack, which is also used by the BSP loader call chain. */
+	static char text[65536];
 	file_t *f;
 	int n, rows = 0, hot = 0;
+	memset( gc_bsp_face_batch, 0, sizeof( gc_bsp_face_batch ));
+	gc_bsp_batch_faces = 0;
+	gc_bsp_batch_count = 0;
+	gc_bsp_batches_valid = false;
+	memset( gc_bsp_lump_offset, 0, sizeof( gc_bsp_lump_offset ));
+	memset( gc_bsp_lump_size, 0, sizeof( gc_bsp_lump_size ));
+	memset( gc_bsp_lump_hot, 0, sizeof( gc_bsp_lump_hot ));
+	memset( gc_bsp_lump_aram, 0, sizeof( gc_bsp_lump_aram ));
+	gc_bsp_hot_aram = gc_bsp_hot_bytes = 0;
 	if( !mapname || !mapname[0] ) return false;
 	COM_FileBase( mapname, base, sizeof( base ));
 	Q_snprintf( path, sizeof( path ), "media/%s.gcmeta", base );
@@ -320,12 +369,50 @@ qboolean GC_LoadMapMetadata( const char *mapname )
 			char name[32], tier[8];
 			end = strchr( cursor, '\n' );
 			if( end ) *end = '\0';
-			if( !Q_strnicmp( cursor, "BATCHES ", 8 )) break;
+			if( !Q_strnicmp( cursor, "BATCHES ", 8 ))
+			{
+				int batch_count, face_count, batch_no = 0;
+				if( sscanf( cursor, "BATCHES %d %d", &batch_count, &face_count ) != 2
+					|| batch_count < 0 || batch_count > 4096 || face_count < 0
+					|| face_count > GC_BSP_BATCH_FACE_MAX ) return false;
+				cursor = end ? end + 1 : NULL;
+				while( cursor && *cursor && batch_no < batch_count )
+				{
+					int miptex, flags, count, firstface, consumed = 0;
+					char *p;
+					end = strchr( cursor, '\n' );
+					if( end ) *end = '\0';
+					if( sscanf( cursor, "BATCH %d %d %d %d %n", &miptex, &flags,
+						&count, &firstface, &consumed ) != 4 || count < 0 || firstface < 0
+						|| firstface + count > face_count ) return false;
+					p = cursor + consumed;
+					while( count-- > 0 )
+					{
+						char *next;
+						long face = strtol( p, &next, 10 );
+						if( next == p || face < 0 || face >= GC_BSP_BATCH_FACE_MAX ) return false;
+						gc_bsp_face_batch[face] = (unsigned short)( batch_no + 1 );
+						if( face + 1 > gc_bsp_batch_faces ) gc_bsp_batch_faces = (int)face + 1;
+						p = next;
+						if( *p == ',' ) p++;
+					}
+					batch_no++;
+					if( !end ) break;
+					cursor = end + 1;
+				}
+				if( batch_no != batch_count ) return false;
+				gc_bsp_batch_count = (unsigned int)batch_count;
+				gc_bsp_batches_valid = true;
+				break;
+			}
 			if( sscanf( cursor, "%d %31s %7s %d %d %d", &index, name, tier,
 				&offset, &size, &align ) != 6 || index != rows || index < 0 || index >= 15
 				|| offset < 0 || size < 0 || align != ( offset & 31 )
 				|| ( Q_stricmp( tier, "HOT" ) && Q_stricmp( tier, "COLD" )))
 				return false;
+			gc_bsp_lump_offset[index] = offset;
+			gc_bsp_lump_size[index] = size;
+			gc_bsp_lump_hot[index] = !Q_stricmp( tier, "HOT" );
 			if( !Q_stricmp( tier, "HOT" )) hot++;
 			rows++;
 			if( !end ) break;
@@ -503,6 +590,8 @@ void GC_ClearMapLoadMemoryOpt( void )
 	gc_mapload_memopt_depth = 0;
 	gc_mapload_memopt_session = false;
 	gc_newgame_bootstrap_memopt = false;
+	GC_AramMapReset();
+	GC_PrefetchResetForMenu();
 }
 
 qboolean GC_MapLoadMemoryOpt( void )
@@ -527,6 +616,8 @@ save bank) never need a MEM1 copy of a whole file.
 #define GC_ARAM_BOUNCE 4096
 static u8 gc_aram_bounce[GC_ARAM_BOUNCE] __attribute__(( aligned( 32 )));
 static u32 gc_aram_reserve_blocks[8];
+static u32 gc_aram_map_base;
+static u32 gc_aram_map_capacity;
 
 static void GC_AramDMA( u32 type, u32 aram, u32 len )
 {
@@ -543,6 +634,50 @@ static void GC_AramDMA( u32 type, u32 aram, u32 len )
 		DCInvalidateRange( gc_aram_bounce, len );
 }
 
+qboolean GC_StageMapHotLumps( const void *bsp, size_t bsp_size )
+{
+	unsigned int total = 0, cursor = 0, base;
+	int i;
+
+	if( !bsp || !bsp_size || !gc_bsp_batches_valid ) return false;
+	for( i = 0; i < 15; i++ )
+	{
+		if( !gc_bsp_lump_hot[i] || gc_bsp_lump_size[i] <= 0 ) continue;
+		total = ( total + 31u ) & ~31u;
+		total += (unsigned int)gc_bsp_lump_size[i];
+	}
+	base = GC_AramMapReserve( total );
+	if( !base || total > GC_AramMapCapacity() ) return false;
+	for( i = 0; i < 15; i++ )
+	{
+		unsigned int size;
+		if( !gc_bsp_lump_hot[i] || gc_bsp_lump_size[i] <= 0 ) continue;
+		if( gc_bsp_lump_offset[i] < 0
+			|| (size_t)gc_bsp_lump_offset[i] + (size_t)gc_bsp_lump_size[i] > bsp_size )
+			return false;
+		size = (unsigned int)gc_bsp_lump_size[i];
+		GC_AramCopy( base + cursor, (byte *)bsp + gc_bsp_lump_offset[i], size, true );
+		gc_bsp_lump_aram[i] = base + cursor;
+		cursor = ( cursor + size + 31u ) & ~31u;
+	}
+	gc_bsp_hot_aram = base;
+	gc_bsp_hot_bytes = cursor;
+	Con_Reportf( "Xash3D GameCube: staged BSP HOT bytes=%s aram=0x%08x\n",
+		Q_memprint( cursor ), base );
+	return true;
+}
+
+qboolean GC_MapHotLumpRead( int lump, size_t offset, void *dst, size_t size )
+{
+	if( lump < 0 || lump >= 15 || !dst || !size || !gc_bsp_lump_aram[lump]
+		|| !gc_bsp_lump_hot[lump] || offset > (size_t)gc_bsp_lump_size[lump]
+		|| size > (size_t)gc_bsp_lump_size[lump] - offset )
+		return false;
+	GC_AramCopy( gc_bsp_lump_aram[lump] + (unsigned int)offset, dst,
+		(unsigned int)size, false );
+	return true;
+}
+
 unsigned int GC_AramReserve( unsigned int size )
 {
 	u32 base;
@@ -552,6 +687,34 @@ unsigned int GC_AramReserve( unsigned int size )
 	base = AR_Alloc(( size + 31u ) & ~31u );
 	Con_Reportf( "Xash3D GameCube: ARAM reserve %s at 0x%08x\n", Q_memprint( size ), base );
 	return base;
+}
+
+unsigned int GC_AramMapReserve( unsigned int size )
+{
+	u32 aligned = ( size + 31u ) & ~31u;
+	if( !aligned ) return 0;
+	if( gc_aram_map_base && aligned <= gc_aram_map_capacity )
+		return gc_aram_map_base;
+	if( gc_aram_map_base )
+	{
+		Con_Reportf( S_WARN "Xash3D GameCube: map ARAM window too small need=%s have=%s\n",
+			Q_memprint( aligned ), Q_memprint( gc_aram_map_capacity ));
+		return 0;
+	}
+	gc_aram_map_base = GC_AramReserve( aligned );
+	if( gc_aram_map_base ) gc_aram_map_capacity = aligned;
+	return gc_aram_map_base;
+}
+
+void GC_AramMapReset( void )
+{
+	/* Ownership is retained; callers can overwrite the window for the next
+	 * map without asking AR_Alloc for another block. */
+}
+
+unsigned int GC_AramMapCapacity( void )
+{
+	return gc_aram_map_capacity;
 }
 
 /* Whole 32-byte aligned blocks, straight to or from the buffer. */
@@ -669,10 +832,53 @@ void GC_PrefetchMenuIdle( void )
 	}
 }
 
+void GC_PrefetchResetForMenu( void )
+{
+	/* AR_Free is intentionally not used here: other subsystems may have
+	 * allocated a block after the prefetch window. The window is a permanent
+	 * session owner and is reset in place, which gives transitions deterministic
+	 * reuse without ARAM fragmentation or stale reads. */
+	memset( gc_prefetch, 0, sizeof( gc_prefetch ));
+	gc_prefetch_count = 0;
+	gc_prefetch_next = 0;
+	gc_prefetch_used = 0;
+	gc_prefetch_manifest_ready = false;
+	gc_prefetch_initialized = false;
+}
+
 void GC_PrefetchStats( unsigned int *used, unsigned int *capacity, unsigned int *entries )
 {
 	if( used ) *used = gc_prefetch_used;
 	if( capacity ) *capacity = gc_prefetch_aram ? GC_PREFETCH_MAX_BYTES : 0;
 	if( entries ) *entries = gc_prefetch_next;
+}
+
+qboolean GC_PrefetchRead( const char *path, void *buffer, unsigned int size )
+{
+	unsigned int i;
+	if( !path || !buffer || !size ) return false;
+	for( i = 0; i < gc_prefetch_count; i++ )
+	{
+		gc_prefetch_entry_t *entry = &gc_prefetch[i];
+		if( entry->ready && entry->size == size && !Q_stricmp( entry->path, path ))
+		{
+			GC_AramCopy( entry->aram, buffer, size, false );
+			return true;
+		}
+	}
+	return false;
+}
+
+qboolean GC_PrefetchContains( const char *path, unsigned int size )
+{
+	unsigned int i;
+	if( !path || !size ) return false;
+	for( i = 0; i < gc_prefetch_count; i++ )
+	{
+		const gc_prefetch_entry_t *entry = &gc_prefetch[i];
+		if( entry->ready && entry->size == size && !Q_stricmp( entry->path, path ))
+			return true;
+	}
+	return false;
 }
 #endif
