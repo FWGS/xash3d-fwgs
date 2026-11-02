@@ -919,8 +919,22 @@ static inline model_t *CL_ModelHandle( int modelindex )
 	return likely( modelindex >= 0 && modelindex < MAX_MODELS ) ? cl.models[modelindex] : NULL;
 }
 
+// cl_democam.c
+qboolean CL_DemoCamActive( void );
+qboolean CL_DemoCamFirstPerson( void );
+qboolean CL_DemoCamHideEntity( const cl_entity_t *ent );
+qboolean CL_DemoCamKey( int key, qboolean down );
+void CL_DemoCamReset( void );
+void CL_DemoCamInit( void );
+void CL_DemoCamApply( ref_params_t *fd );
+void CL_DemoCamEvent( const char *name, const event_args_t *args );
+
 static inline qboolean CL_IsThirdPerson( void )
 {
+	// following another player in a demo, his eyes are the view
+	if( CL_DemoCamActive( ))
+		return !CL_DemoCamFirstPerson();
+
 	return clgame.dllFuncs.CL_IsThirdPerson();
 }
 

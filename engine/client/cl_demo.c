@@ -716,6 +716,7 @@ static void CL_DemoStartPlayback( int mode )
 	}
 
 	cls.demoplayback = mode;
+	CL_DemoCamReset();
 	cls.state = ca_connected;
 	cl.background = (cls.demonum != -1) ? true : false;
 	cls.spectator = false;

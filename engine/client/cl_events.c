@@ -215,6 +215,8 @@ static qboolean CL_FireEvent( event_info_t *ei, int slot )
 		{
 			const char *name = cl.event_precache[ei->index];
 
+			CL_DemoCamEvent( name, &ei->args );
+
 			if( cl_trace_events.value )
 			{
 				Con_Printf( "^3EVENT %s AT %.2f %.2f %.2f\n"    // event name
