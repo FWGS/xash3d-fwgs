@@ -508,6 +508,10 @@ typedef struct image_s
 	struct image_s *nextHash;
 } image_t;
 
+#if XASH_GAMECUBE
+void R_GCFreeMip( image_t *tex, uint level );
+#endif
+
 //
 // gl_beams.c
 //

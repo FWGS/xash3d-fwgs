@@ -4,6 +4,11 @@
 set -e
 
 export DEVKITPRO="${DEVKITPRO:-/opt/devkitpro}"
+# Keep compiler/configure scratch files off quota-sensitive host /tmp.  Honor
+# an explicit caller choice, but make the normal build command self-contained.
+if [ -z "${TMPDIR:-}" ] && [ -d /dev/shm ]; then
+	export TMPDIR=/dev/shm
+fi
 # auto|libogc2|libogc — Swiss / Extrems libogc2 is the default preference.
 export XASH_GAMECUBE_OGC_STACK="${XASH_GAMECUBE_OGC_STACK:-auto}"
 
@@ -16,9 +21,13 @@ HLSDK_EXPORTS="$HLSDK_DESTDIR/$HLSDK_GAMEDIR/dlls/gamecube_server_entity_exports
 NM="${DEVKITPRO:-/opt/devkitpro}/devkitPPC/bin/powerpc-eabi-nm"
 
 if command -v python3 >/dev/null 2>&1; then
-	python3 "$ROOT/scripts/waifulib/gamecube_ogc_stack.py" > /tmp/gamecube-ogc-stack.json
+	# Keep transient resolver metadata off quota-sensitive host /tmp.  The
+	# resolver is read only during this invocation, so tmpfs is preferable.
+	GC_STACK_METADATA="${XASH_GAMECUBE_STACK_METADATA:-${TMPDIR:-/dev/shm}/gamecube-ogc-stack.json}"
+	export XASH_GAMECUBE_STACK_METADATA="$GC_STACK_METADATA"
+	python3 "$ROOT/scripts/waifulib/gamecube_ogc_stack.py" > "$GC_STACK_METADATA"
 	echo "GameCube OGC stack resolution:"
-	python3 -c 'import json; d=json.load(open("/tmp/gamecube-ogc-stack.json")); print(" ", d.get("stack"), d.get("root"), "fat="+str(d.get("fat_provider"))); raise SystemExit(0 if d.get("available") else 1)' \
+	python3 -c 'import json, os; d=json.load(open(os.environ["XASH_GAMECUBE_STACK_METADATA"])); print(" ", d.get("stack"), d.get("root"), "fat="+str(d.get("fat_provider"))); raise SystemExit(0 if d.get("available") else 1)' \
 		|| { echo "error: GameCube OGC stack not available under $DEVKITPRO (install libogc2 for Swiss)" >&2; exit 1; }
 fi
 
@@ -67,8 +76,8 @@ fi
 	echo "renderer=REF_GX"
 	echo "policy=retail-flipper"
 	echo "loader=swiss"
-	if [[ -f /tmp/gamecube-ogc-stack.json ]]; then
-		python3 -c 'import json; d=json.load(open("/tmp/gamecube-ogc-stack.json")); print("ogc_stack=%s" % d.get("stack")); print("ogc_root=%s" % d.get("root")); print("fat_provider=%s" % d.get("fat_provider"))'
+	if [[ -f "$XASH_GAMECUBE_STACK_METADATA" ]]; then
+		python3 -c 'import json, os; d=json.load(open(os.environ["XASH_GAMECUBE_STACK_METADATA"])); print("ogc_stack=%s" % d.get("stack")); print("ogc_root=%s" % d.get("root")); print("fat_provider=%s" % d.get("fat_provider"))'
 	fi
 	echo "elf=OUT/bin/xash"
 	echo "dol=OUT/bin/boot.dol"

@@ -2519,7 +2519,9 @@ static void Mod_MakeHull0( model_t *mod, const dbspmodel_t *bmod )
 				}
 			}
 
-			out = (mclipnode16_t *)Mod_GCAllocWorldScratch( mod, bmod, busy, busy_count, hull0_bytes, 32 );
+			/* The scratch collector only observes the source BSP here; its
+			 * historical API predates const-qualified load inputs. */
+			out = (mclipnode16_t *)Mod_GCAllocWorldScratch( mod, (dbspmodel_t *)bmod, busy, busy_count, hull0_bytes, 32 );
 			if( out )
 			{
 				hull->clipnodes16 = out;
@@ -3782,7 +3784,12 @@ static void Mod_GCWorldPackLoad( const char *modelname, size_t surface_reserve )
 		gc_wt_pool_bytes = 0;
 		gc_wt_pool_mapload_tail = false;
 	}
-	if( !GC_MenuRunsServer() || Sys_CheckParm( "-gcnotexpacks" ))
+	/* Smoke/New Game boots use -gcnewgame without the retail menu-start
+	 * switch. They still need the same ARAM world-pack path; otherwise the
+	 * BSP's embedded textures are decoded into MEM1 and produce misleading
+	 * transition-pressure fallbacks. */
+	if(( !GC_MenuRunsServer() && !Sys_CheckParm( "-gcnewgame" ))
+		|| Sys_CheckParm( "-gcnotexpacks" ))
 		return;
 	COM_FileBase( modelname, stem, sizeof( stem ));
 	Q_strnlwr( stem, stem, sizeof( stem ));
@@ -3915,6 +3922,24 @@ static int Mod_GCWorldPackTexture( const char *name )
 
 		if( !Q_strnicmp( e->name, name, sizeof( e->name )))
 			return R_GCPackedTexture( e->name, e->width, e->height, e->levels, e->flags & 1, gc_wt.data + e->offset, gc_wt.aram[i], gc_wt.bytes[i] );
+	}
+	/* A few retail BSPs reference an animated frame with a name that differs
+	 * from the packed table only in the frame digit.  Keep the texture on the
+	 * packed GX path if a toolchain/loader has normalized that digit away;
+	 * falling through here would allocate the full indexed mip chain in MEM1.
+	 */
+	if( name && name[0] == '-' && name[1] >= '0' && name[1] <= '9' )
+	{
+		for( i = 0; i < gc_wt.count; i++ )
+		{
+			const gc_wt_entry_t *e = &gc_wt.table[i];
+
+			if( e->name[0] == '-' && e->name[1] >= '0' && e->name[1] <= '9' &&
+				!Q_strnicmp( e->name + 2, name + 2, sizeof( e->name ) - 2 ))
+			{
+				return R_GCPackedTexture( e->name, e->width, e->height, e->levels, e->flags & 1, gc_wt.data + e->offset, gc_wt.aram[i], gc_wt.bytes[i] );
+			}
+		}
 	}
 	return 0;
 }

@@ -16,6 +16,13 @@ import zipfile
 from dataclasses import dataclass, field
 from pathlib import Path
 
+# Disc assembly compiles a small apploader and stages several temporary asset
+# trees.  On the development host /tmp may be quota-limited even when the
+# workspace has ample room; prefer a tmpfs unless the caller selected a path.
+if not os.environ.get("TMPDIR") and os.path.isdir("/dev/shm"):
+	os.environ["TMPDIR"] = "/dev/shm"
+	tempfile.tempdir = "/dev/shm"
+
 # Critical assets required for basic engine boot and map loading
 CRITICAL_ASSETS = (
 	"liblist.gam",
@@ -1330,7 +1337,12 @@ def build_music_overlays(source: Path, output: Path, cache: Path) -> list[tuple[
 	return overlays
 
 
-def build_world_texture_packs(source: Path, output: Path, cache: Path) -> list[tuple[str, Path]]:
+def build_world_texture_packs(
+	source: Path,
+	output: Path,
+	cache: Path,
+	map_stems: set[str] | None = None,
+) -> list[tuple[str, Path]]:
 	"""media/wt_<map>.gct: each map's world textures as GX CMPR with mip
 	chains, read in one go by the engine (mod_bmodel.c). Water and sky keep the
 	engine's own path."""
@@ -1347,6 +1359,8 @@ def build_world_texture_packs(source: Path, output: Path, cache: Path) -> list[t
 	media.mkdir(parents=True, exist_ok=True)
 	total = 0
 	for bsp in sorted((source / "maps").glob("*.bsp")):
+		if map_stems is not None and bsp.stem.lower() not in map_stems:
+			continue
 		data = bsp.read_bytes()
 		off, _size = struct.unpack_from("<ii", data, 4 + 2 * 8)
 		count = struct.unpack_from("<i", data, off)[0]
@@ -2404,6 +2418,21 @@ def stage_smoke_data(
 		copy_if_present(source, output, dest_relative)
 		for resource in sorted(smoke_map_resources(dest_source)):
 			copy_if_present(source, output, resource)
+
+	# Keep smoke probes on the same ARAM-backed world-texture path as retail.
+	# Without these derived packs, embedded BSP textures fall back to MEM1
+	# uploads and produce misleading transition-pressure failures.
+	pack_stems = {Path(smoke_map).stem.lower()}
+	if changelevel:
+		pack_stems.add(Path(changelevel).stem.lower())
+	if changelevel2:
+		pack_stems.add(Path(changelevel2).stem.lower())
+	build_world_texture_packs(
+		source,
+		output,
+		Path(__file__).resolve().parents[1] / "build" / "gc-wt-cache",
+		pack_stems,
+	)
 
 	(output / "custom").mkdir(exist_ok=True)
 	(output / "maps").mkdir(exist_ok=True)

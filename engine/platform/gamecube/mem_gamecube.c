@@ -660,6 +660,10 @@ void GC_ClearMapLoadMemoryOpt( void )
 	gc_mapload_memopt_depth = 0;
 	gc_mapload_memopt_session = false;
 	gc_newgame_bootstrap_memopt = false;
+	/* Jobs may retain pointers into the outgoing map arena.  Drop them before
+	 * releasing/resetting map-owned storage; future streaming producers can
+	 * safely enqueue work again on the next map. */
+	gc_job_count = 0;
 	GC_AramMapReset();
 	GC_PrefetchResetForMenu();
 }
@@ -794,6 +798,11 @@ unsigned int GC_AramAudioReserve( unsigned int size )
 	aligned = ( size + 31u ) & ~31u;
 	if( !aligned )
 		return 0;
+	/* Host-frame reservation can precede the first map allocator request. Keep
+	 * ARAM initialization local to this ownership boundary so callers do not
+	 * depend on incidental ordering in texture or BSP streaming. */
+	if( !AR_CheckInit( ))
+		AR_Init( gc_aram_reserve_blocks, 8 );
 	gc_aram_audio_base = AR_Alloc( aligned );
 	if( !gc_aram_audio_base )
 		return 0;

@@ -16,11 +16,66 @@ GNU General Public License for more details.
 #include "r_local.h"
 
 #if XASH_GAMECUBE
+/* Keep a few 64x64 HUD/effect sprites resident when the general MEM1 heap
+ * is fragmented late in a map load.  Smaller textures still share these
+ * slots; the 8 KiB stride covers the common HUD/lightning sprite sizes. */
+static byte gc_tiny_pixels[8][8192] __attribute__((aligned(32)));
+static unsigned gc_tiny_pixels_used;
+/* Late native studio skins can arrive after the compact studio arena has
+ * become contiguous-full.  Keep a bounded overflow window for base planes;
+ * this avoids pushing small skin allocations back through fragmented MEM1. */
+#define GC_STUDIO_SKIN_OVERFLOW_BYTES (64 * 1024)
+static byte gc_studio_skin_overflow[GC_STUDIO_SKIN_OVERFLOW_BYTES] __attribute__((aligned(32)));
+static size_t gc_studio_skin_overflow_bump;
+static unsigned gc_studio_skin_overflow_live;
+extern qboolean r_gc_studio_skins_in_arena;
+
+static pixel_t *R_GCAllocStudioSkinOverflow( image_t *tex, size_t bytes )
+{
+	size_t off, end;
+	byte *base;
+
+	if( !r_gc_studio_skins_in_arena || bytes == 0 )
+		return NULL;
+	off = ( gc_studio_skin_overflow_bump + 31u ) & ~(size_t)31u;
+	end = off + bytes + 31u;
+	if( end > sizeof( gc_studio_skin_overflow ))
+		return NULL;
+	base = gc_studio_skin_overflow + off;
+	gc_studio_skin_overflow_bump = end;
+	gc_studio_skin_overflow_live++;
+	tex->gc_pixels_base = base;
+	return (pixel_t *)(((uintptr_t)base + 31u) & ~(uintptr_t)31u);
+}
+
+static qboolean R_GCIsStudioSkinOverflow( const void *ptr )
+{
+	const byte *p = (const byte *)ptr;
+	return p >= gc_studio_skin_overflow
+		&& p < gc_studio_skin_overflow + sizeof( gc_studio_skin_overflow );
+}
+
 /* Mip 0 is 32-byte aligned inside a slightly larger block so the GX path can
  * use it as a texture in place (R_GXNativeTexture in r_gx_world.c). */
 static pixel_t *R_GCAllocMip( image_t *tex, uint level, size_t bytes )
 {
 	byte *base = (byte *)Mem_TryCalloc( r_temppool, bytes + ( level == 0 ? 31 : 0 ));
+	if( !base && level == 0 && bytes <= sizeof( gc_tiny_pixels[0] ))
+	{
+		for( unsigned i = 0; i < ARRAYSIZE( gc_tiny_pixels ); i++ )
+		{
+			if( gc_tiny_pixels_used & (1u << i) ) continue;
+			gc_tiny_pixels_used |= 1u << i;
+			tex->gc_pixels_base = gc_tiny_pixels[i];
+			return (pixel_t *)gc_tiny_pixels[i];
+		}
+	}
+	if( !base && level == 0 )
+	{
+		pixel_t *overflow = R_GCAllocStudioSkinOverflow( tex, bytes );
+		if( overflow )
+			return overflow;
+	}
 
 	if( !base || level != 0 )
 		return (pixel_t *)base;
@@ -28,10 +83,28 @@ static pixel_t *R_GCAllocMip( image_t *tex, uint level, size_t bytes )
 	return (pixel_t *)(((uintptr_t)base + 31 ) & ~(uintptr_t)31 );
 }
 
-static void R_GCFreeMip( image_t *tex, uint level )
+void R_GCFreeMip( image_t *tex, uint level )
 {
 	if( level == 0 && tex->gc_pixels_base )
 	{
+		for( unsigned i = 0; i < ARRAYSIZE( gc_tiny_pixels ); i++ )
+		{
+			if( tex->gc_pixels_base == gc_tiny_pixels[i] )
+			{
+				gc_tiny_pixels_used &= ~(1u << i);
+				tex->gc_pixels_base = NULL;
+				return;
+			}
+		}
+		if( R_GCIsStudioSkinOverflow( tex->gc_pixels_base ))
+		{
+			if( gc_studio_skin_overflow_live > 0 )
+				gc_studio_skin_overflow_live--;
+			if( gc_studio_skin_overflow_live == 0 )
+				gc_studio_skin_overflow_bump = 0;
+			tex->gc_pixels_base = NULL;
+			return;
+		}
 		Mem_Free( tex->gc_pixels_base );
 		tex->gc_pixels_base = NULL;
 		return;

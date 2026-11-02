@@ -528,7 +528,7 @@ void GAME_EXPORT GL_UpdateTexture( int texnum, int cols, int rows, int width, in
 	#endif
 				{
 					if( i == 0 && tex->gc_pixels_base )
-						Mem_Free( tex->gc_pixels_base );
+						R_GCFreeMip( tex, 0 );
 					else
 						Mem_Free( tex->pixels[i] );
 				}

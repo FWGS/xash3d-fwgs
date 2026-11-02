@@ -32,6 +32,8 @@ imglib_t	image;
  * without turning the general MEM1 heap into a texture backlog. */
 static byte gc_mdl_decode_rgba[256 * 128 * 4] __attribute__((aligned(32)));
 static qboolean gc_mdl_decode_busy;
+static byte gc_transient[128 * 1024] __attribute__((aligned(32)));
+static qboolean gc_transient_busy;
 
 void *Image_GCAllocMdlDecode( size_t bytes )
 {
@@ -44,6 +46,23 @@ void *Image_GCAllocMdlDecode( size_t bytes )
 qboolean Image_GCIsMdlDecode( const void *ptr )
 {
 	return ptr == gc_mdl_decode_rgba;
+}
+
+void *Image_GCAllocTransient( size_t bytes )
+{
+	if( gc_transient_busy || bytes > sizeof( gc_transient )) return NULL;
+	gc_transient_busy = true;
+	return gc_transient;
+}
+
+qboolean Image_GCIsTransient( const void *ptr )
+{
+	return ptr == gc_transient;
+}
+
+void Image_GCReleaseTransient( void )
+{
+	gc_transient_busy = false;
 }
 #endif
 

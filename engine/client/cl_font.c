@@ -18,6 +18,9 @@ GNU General Public License for more details.
 #include "client.h"
 #include "qfont.h"
 #include "swaplib.h"
+#if XASH_GAMECUBE
+#include "imagelib/imagelib.h"
+#endif
 
 le_struct_begin( charinfo_swap )
 	le_struct_field( charinfo, startoffset )
@@ -134,10 +137,16 @@ qboolean CL_GCLoadLeanHudFont( cl_font_t *font, float scale, convar_t *rendermod
 	static qfont_t cached_src;
 	static int cached_tex;
 	static qboolean cached;
+	/* The full 256px atlas is useful on desktop, but late New Game map loads
+	 * leave too little contiguous MEM1 for it on real GameCube hardware.  Use
+	 * the pre-baked atlas by default; an explicit future high-memory profile
+	 * can clear this gate without changing the font metrics path. */
+	static qboolean force_lean = true;
 	file_t *f;
 	fs_offset_t flen, total, got;
 	qfont_t src;
 	byte *rgba;
+	qboolean rgba_transient = false;
 	const byte *fin, *pal;
 	int i, tex, font_width, pixels;
 	unsigned short numcolors;
@@ -147,7 +156,7 @@ qboolean CL_GCLoadLeanHudFont( cl_font_t *font, float scale, convar_t *rendermod
 	/* Keep the full atlas on the menu too: the lean 128px bake was intended
 	 * for the low-memory HUD path and makes the retail menu glyphs visibly
 	 * soft/aliased. The full 256px companion is already in the bootstrap pk3. */
-	const qboolean full = true;
+	const qboolean full = !force_lean;
 	const char *path = full ? "gfx/gc_creditsfont256.fnt" : "gfx/gc_creditsfont.fnt";
 	const char *texname = full ? "#gc_full_hudfont" : "#gc_lean_hudfont";
 	const fs_offset_t cap = full ? 32 * 1024 : GC_LEAN_FONT_BSS_BYTES;
@@ -187,9 +196,10 @@ qboolean CL_GCLoadLeanHudFont( cl_font_t *font, float scale, convar_t *rendermod
 	}
 	if( full && !( buf = (byte *)malloc( (size_t)flen )))
 	{
-		Con_Reportf( "Xash3D GameCube: credits font malloc %u failed\n", (uint)flen );
 		FS_Close( f );
-		return false;
+		force_lean = true;
+		Con_Reportf( "Xash3D GameCube: full credits font unavailable; using lean atlas\n" );
+		return CL_GCLoadLeanHudFont( font, scale, rendermode );
 	}
 	total = 0;
 	while( total < flen )
@@ -220,6 +230,12 @@ qboolean CL_GCLoadLeanHudFont( cl_font_t *font, float scale, convar_t *rendermod
 	tex = ref.dllFuncs.GL_FindTexture( texname );
 	if( tex <= 0 )
 	{
+		rgba = NULL;
+#if XASH_GAMECUBE
+		rgba = (byte *)Image_GCAllocTransient( (size_t)pixels * 4u );
+	rgba_transient = rgba != NULL;
+#endif
+	if( !rgba )
 		rgba = (byte *)malloc( (size_t)pixels * 4u );
 		if( !rgba )
 		{
@@ -248,10 +264,23 @@ qboolean CL_GCLoadLeanHudFont( cl_font_t *font, float scale, convar_t *rendermod
 		 * at 2:1 averages each 2x2, where nearest dropped every other row. */
 		tex = ref.dllFuncs.GL_CreateTexture( texname, font_width, src.height, rgba,
 			full ? ( TF_FONT | TF_HAS_ALPHA ) : ( TF_FONT | TF_NEAREST | TF_HAS_ALPHA ));
-		free( rgba );
+		if( rgba_transient )
+			Image_GCReleaseTransient();
+		else
+			free( rgba );
 		if( tex <= 0 )
 		{
 			Con_Reportf( "Xash3D GameCube: credits font texture create failed %dx%d\n", font_width, src.height );
+			if( full )
+			{
+				/* The source/font decode succeeded, but the full atlas could not
+				 * obtain a resident GX texture after the map load.  Retry through
+				 * the baked lean atlas so the HUD never leaves a dead font handle. */
+				force_lean = true;
+				if( buf != bss )
+					free( buf );
+				return CL_GCLoadLeanHudFont( font, scale, rendermode );
+			}
 			goto done;
 		}
 		Con_Reportf( "Xash3D GameCube: G296 lean HUD font tex=%d %dx%d row=%d\n",
