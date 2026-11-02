@@ -38,6 +38,10 @@ RECORD=1|0, default 1).
 Dolphin settings for this launcher (controller mapping, video) live in
 ~/.local/share/xash3d-gc/dolphin; map your controller once under
 Controllers > Port 1 > Standard Controller and it is kept.
+
+Large temporary ISO and asset staging files default to
+/mnt/datasets/xash3d-gc-iso-build. Override this with
+XASH3D_GC_ISO_CACHE=/path/to/cache.
 EOF
 }
 
@@ -123,11 +127,11 @@ if (( BUILD )) || [[ ! -f "$ISO" ]]; then
 		BUILD=0
 	else
 		echo "==> building play disc $ISO"
-		# Assemble on local tmpfs/SSD. The project lives on a USB HDD/exFAT
-		# volume; xorriso performs many metadata reads and is dramatically
-		# slower when its output is written there. Publish only the completed
-		# image back to OUT after validation.
-		BUILD_CACHE="${XDG_CACHE_HOME:-/tmp}/xash3d-gc-iso-build"
+		# Some tmpfs mounts report plenty of free space but impose a per-user
+		# quota; xorriso then fails near the end of a build with "Disk quota
+		# exceeded". Keep all large transient data on the datasets volume by
+		# default, and allow an explicit fast-cache override when available.
+		BUILD_CACHE="${XASH3D_GC_ISO_CACHE:-/mnt/datasets/xash3d-gc-iso-build}"
 		mkdir -p "$BUILD_CACHE"
 		# Keep failed/interrupted builds from accumulating indefinitely. Only
 		# remove our own old generated images, and never touch retail content.
@@ -145,7 +149,10 @@ if (( BUILD )) || [[ ! -f "$ISO" ]]; then
 		rsync -a --delete "$ROOT/Half-Life/valve/" "$BUILD_DATA/"
 		tmp_iso="$BUILD_CACHE/xash3d-gc-play-$$.iso"
 		trap 'rm -f "$tmp_iso"' EXIT
-		python3 "$ROOT/scripts/build-gamecube-disc.py" --dol "$BOOT_DOL" --output "$tmp_iso" --data "$BUILD_DATA" \
+		# build-gamecube-disc.py stages the retail tree through tempfile too.
+		# Point it at the same cache so neither staging nor xorriso can exhaust
+		# the tmpfs user quota.
+		TMPDIR="$BUILD_CACHE" python3 "$ROOT/scripts/build-gamecube-disc.py" --dol "$BOOT_DOL" --output "$tmp_iso" --data "$BUILD_DATA" \
 		--play $([[ $PERF == 1 ]] && echo --perf)
 		if (( PUBLISH )); then
 			publish_free="$(free_bytes "$(dirname "$ISO")")"
