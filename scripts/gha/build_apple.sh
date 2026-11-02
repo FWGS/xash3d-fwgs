@@ -2,6 +2,9 @@
 
 . scripts/lib.sh
 
+# Keep the minimum macOS version consistent across arm64 and amd64 builds.
+export MACOSX_DEPLOYMENT_TARGET=14.8
+
 cd "$GITHUB_WORKSPACE" || die
 
 pushd hlsdk || die
