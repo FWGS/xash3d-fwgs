@@ -1468,12 +1468,14 @@ static edict_t* SV_AllocPrivateData( edict_t *ent, string_t className, qboolean 
 	SpawnEdict( &ent->v );
 
 #if XASH_GAMECUBE
-	/* HLSDK GetClassPtr links run even when malloc fails; drop those edicts. */
-	if(( Sys_CheckParm( "-gcmap" ) || Sys_CheckParm( "-gcnewgame" )) && !ent->pvPrivateData )
+	/* Never silently leave a retail map entity half initialized when its
+	 * private block cannot be allocated. Abort the map load so the memory
+	 * failure is visible and fixable instead of shipping a missing NPC/trigger. */
+	if( GC_MapLoadMemoryOpt() && !ent->pvPrivateData )
 	{
-		Con_Reportf( S_WARN "Xash3D GameCube: dropping entity after private-data alloc miss classname=%s\n",
-			pszClassName );
 		SV_FreeEdict( ent );
+		Host_Error( "%s: private-data allocation failed for entity %s; aborting map load without omitting it\n",
+			__func__, pszClassName );
 		return NULL;
 	}
 #endif
@@ -5428,192 +5430,10 @@ static qboolean SV_GCMapSmokeRoute( void )
 	return GC_MapLoadMemoryOpt();
 }
 
-static qboolean SV_GCMapParseEOF( const char *stage, int entity_index, const char *classname )
-{
-	if( !SV_GCMapSmokeRoute() )
-		return false;
-
-	Con_Reportf( S_WARN "Xash3D GameCube: entity parse EOF skipped stage=%s entity=%d classname=%s\n",
-		stage, entity_index, classname ? classname : "<unknown>" );
-	return true;
-}
-
-static int	gc_lean_beam_admit;
-static int	gc_lean_scripted_admit;
-static int	gc_lean_scientist_admit;
-static int	gc_lean_sitting_scientist_admit;
-static int	gc_lean_barney_admit;
-
-static qboolean SV_GCMapShouldInhibitClass( const char *classname )
-{
-	if( COM_StringEmpty( classname ))
-		return false;
-
-	/* New Game (-gcnewgame) still runs under map-load memopt, but must keep world
-	 * decoration, nodes, and triggers so ClientPutInServer / graph setup can finish.
-	 * Strip heavy gameplay plus sprite/sound decor that burns MEM1 on retail c0a0
-	 * (env_glow/env_sprite flare loads previously OOMed past HUD_Init).
-	 * G303/G304/G305: mm + ambient + env_message after G302 reclaim. G311:
-	 * env_glow uses the shared map-load sprite stub. G312 restores scripted
-	 * controllers. G313 admits static monster_generic props through the HLSDK's
-	 * lean GameCube spawn path. G314 does the same for seated scientists. G315
-	 * admits static Barneys; G316 admits static walking scientists without
-	 * talk, heal, sound, or autonomous AI precache. The menu New Game route
-	 * shares this policy once it runs the real server (GC_MenuRunsServer). */
-	if( Sys_CheckParm( "-gcnewgame" ) || GC_MenuRunsServer() )
-	{
-		/* G320: reactor lightning (env_beam) + security lasers. Cap admits —
-		 * c3a2d has 26 beams; uncapped hung Host_Frame. */
-		if( !Q_stricmp( classname, "env_beam" )
-			|| !Q_stricmp( classname, "env_laser" ))
-		{
-			if( Sys_CheckParm( "-gcfullphysics" ) || GC_MenuRunsServer())
-				return false;
-			if( gc_lean_beam_admit >= 8 )
-				return true;
-			gc_lean_beam_admit++;
-			Con_Reportf( "Xash3D GameCube: G320 admit %s n=%d\n",
-				classname, gc_lean_beam_admit );
-			return false;
-		}
-		/* c1a0 has 47 scripted_sequence entities; uncapped private blocks
-		 * exhaust MEM1 before later Barneys/scientists spawn (probe
-		 * 20260809-231912: malloc failed size=816 monster_barney).
-		 * G373: tip-safe denser (c1a0d changelevel) raises 12→20 after G372
-		 * full spawn — HWM stayed ≈2.90 Mb with inhibited 55→45. */
-		if( !Q_stricmp( classname, "scripted_sequence" )
-			|| !Q_stricmp( classname, "aiscripted_sequence" )
-			|| !Q_stricmp( classname, "scripted_sentence" ))
-		{
-			int scripted_cap = 12;
-
-			/* Menu New Game: every script runs. The cap dropped c0a0's last
-			 * five, among them Barney banging on the door and the forklifts. */
-			if( Sys_CheckParm( "-gcfullphysics" ) || GC_MenuRunsServer())
-				return false;
-			if( sv.startspot[0] && !Q_stricmp( sv.name, "c1a0d" ))
-				scripted_cap = 20; /* G373 */
-			if( gc_lean_scripted_admit >= scripted_cap )
-				return true;
-			gc_lean_scripted_admit++;
-			if( gc_lean_scripted_admit <= 3 || ( gc_lean_scripted_admit & 7 ) == 0 )
-				Con_Reportf( "Xash3D GameCube: G321 admit %s n=%d\n",
-					classname, gc_lean_scripted_admit );
-			return false;
-		}
-		if( !Q_stricmp( classname, "monster_scientist" ))
-		{
-			int scientist_cap = 4;
-
-			/* Menu New Game: the intro cast spawns with real AI (all of
-			 * c0a0's walkers and station scientists). */
-			if( Sys_CheckParm( "-gcfullphysics" ) || GC_MenuRunsServer())
-				return false;
-			/* G373: c1a0d has 6 walking scientists; admit all on tip-safe hop. */
-			if( sv.startspot[0] && !Q_stricmp( sv.name, "c1a0d" ))
-				scientist_cap = 6;
-			if( gc_lean_scientist_admit >= scientist_cap )
-				return true;
-			gc_lean_scientist_admit++;
-			return false;
-		}
-		if( !Q_stricmp( classname, "monster_sitting_scientist" ))
-		{
-			if( Sys_CheckParm( "-gcfullphysics" ) || GC_MenuRunsServer())
-				return false;
-			/* G332: cold New Game into denser AM maps (c1a0d) aborts after the
-			 * first G314/G316 sitting-scientist release (probe 20260810-025920:
-			 * Unloading world cascade, no Host_Error line). Seated predisaster
-			 * actors are not required for landmark changelevels — inhibit all. */
-			gc_lean_sitting_scientist_admit++;
-			return true;
-		}
-		if( !Q_stricmp( classname, "monster_barney" ))
-		{
-			if( Sys_CheckParm( "-gcfullphysics" ) || GC_MenuRunsServer())
-				return false;
-			if( gc_lean_barney_admit >= 2 )
-				return true;
-			gc_lean_barney_admit++;
-			return false;
-		}
-		/* The menu route runs the real map: what is left of this list was
-		 * MEM1 policy for the lean route. */
-		if( GC_MenuRunsServer( ))
-			return false;
-		if(( !Q_strnicmp( classname, "monster_", 8 )
-			&& Q_stricmp( classname, "monster_generic" )
-			&& Q_stricmp( classname, "monster_sitting_scientist" )
-			&& Q_stricmp( classname, "monster_barney" )
-			&& Q_stricmp( classname, "monster_scientist" )
-			&& !( GC_MenuRunsServer() && !Q_stricmp( classname, "monster_gman" )))
-		 || !Q_strnicmp( classname, "weapon_", 7 )
-		 || !Q_strnicmp( classname, "ammo_", 5 )
-		 || !Q_strnicmp( classname, "item_", 5 )
-		 || !Q_stricmp( classname, "world_items" )
-		 || !Q_strnicmp( classname, "cycler", 6 )
-		 || !Q_stricmp( classname, "env_sprite" )
-		 || !Q_stricmp( classname, "env_explosion" )
-		 || !Q_stricmp( classname, "infodecal" )
-		 || !Q_stricmp( classname, "speaker" ))
-			return true;
-		return false;
-	}
-
-	/* Smoke probes (-gcmap) are about verifying native BSP/map rendering inside
-	 * MEM1, not fully simulating HL single-player logic. Strip the heaviest
-	 * dynamic gameplay entities so large retail maps can reach MAP_READY. */
-	if( !Q_strnicmp( classname, "monster_", 8 )
-	 || !Q_strnicmp( classname, "weapon_", 7 )
-	 || !Q_strnicmp( classname, "ammo_", 5 )
-	 || !Q_strnicmp( classname, "item_", 5 )
-	 || !Q_stricmp( classname, "world_items" )
-	 || !Q_strnicmp( classname, "cycler", 6 )
-	 || !Q_strnicmp( classname, "info_node", 9 )
-	 || !Q_stricmp( classname, "scripted_sequence" )
-	 || !Q_stricmp( classname, "aiscripted_sequence" )
-	 || !Q_stricmp( classname, "scripted_sentence" )
-	 || !Q_stricmp( classname, "func_healthcharger" )
-	 || !Q_stricmp( classname, "func_recharge" )
-	 || !Q_stricmp( classname, "func_pushable" )
-	 || !Q_stricmp( classname, "ambient_generic" )
-	 || !Q_stricmp( classname, "env_sprite" )
-	 || !Q_stricmp( classname, "env_glow" )
-	 || !Q_stricmp( classname, "env_beam" )
-	 || !Q_stricmp( classname, "env_laser" )
-	 || !Q_stricmp( classname, "env_explosion" )
-	 || !Q_stricmp( classname, "multi_manager" )
-	 || !Q_stricmp( classname, "multisource" )
-	 || !Q_stricmp( classname, "infodecal" )
-	 || !Q_stricmp( classname, "info_target" )
-	 || !Q_stricmp( classname, "path_track" )
-	 || !Q_stricmp( classname, "path_corner" )
-	 || !Q_stricmp( classname, "trigger_auto" )
-	 || !Q_stricmp( classname, "speaker" )
-	 || !Q_stricmp( classname, "func_breakable" )
-	 || !Q_stricmp( classname, "func_illusionary" )
-	 || !Q_stricmp( classname, "func_pendulum" )
-	 || !Q_stricmp( classname, "func_wall_toggle" )
-	 || !Q_stricmp( classname, "func_rotating" )
-	 || !Q_stricmp( classname, "func_wall" )
-	 || !Q_stricmp( classname, "func_ladder" )
-	 || !Q_stricmp( classname, "func_water" )
-	 || !Q_stricmp( classname, "func_conveyor" )
-	 || !Q_stricmp( classname, "light" )
-	 || !Q_stricmp( classname, "light_spot" )
-	 || !Q_stricmp( classname, "env_spark" )
-	 || !Q_stricmp( classname, "env_shake" )
-	 || !Q_stricmp( classname, "env_shooter" )
-	 || !Q_strnicmp( classname, "trigger_", 8 ))
-		return true;
-
-	return false;
-}
-
 /* G433: Replace policy-based entity inhibition with measured budgeting
  * Check if entity should be inhibited based on memory budget.
  * Returns true if entity should be inhibited. */
-static qboolean SV_GCMapShouldInhibitBudget( const char *classname, size_t entity_index )
+static qboolean SV_GCMapCannotFitEntity( const char *classname, size_t entity_index )
 {
 	size_t entity_size;
 	qboolean over_budget;
@@ -5632,21 +5452,12 @@ static qboolean SV_GCMapShouldInhibitBudget( const char *classname, size_t entit
 		/* Check if we can afford to spawn this entity */
 		if( !GC_MemBudgetEnforce( entity_size, "entity_spawn" ))
 		{
-			/* Budget exceeded, inhibit entity */
+			/* Do not silently omit gameplay entities: the caller aborts this map load. */
 			if( entity_index >= 90 && ( entity_index & 63 ) == 0 )
-				Con_Reportf( "Xash3D GameCube: gcmap inhibited (budget) entity=%d classname=%s\n",
+				Con_Reportf( S_WARN "Xash3D GameCube: entity budget failure entity=%d classname=%s\n",
 					entity_index, classname );
 			return true;
 		}
-	}
-	
-	/* Fall back to policy-based inhibition for smoke probes */
-	if( SV_GCMapShouldInhibitClass( classname ))
-	{
-		if( GC_MenuRunsServer() && ( !Q_strnicmp( classname, "monster_", 8 )
-			|| !Q_strnicmp( classname, "cycler", 6 ) || !Q_stricmp( classname, "env_model" )))
-			Con_Reportf( "Xash3D GameCube: npc sv inhibited class=%s entity=%d\n", classname, entity_index );
-		return true;
 	}
 	return false;
 }
@@ -5660,15 +5471,12 @@ Parses an edict out of the given string, returning the new position
 ed should be a properly initialized empty edict.
 ====================
 */
-static qboolean SV_ParseEdict( char **pfile, edict_t *ent, int entity_index, qboolean *inhibited_early )
+static qboolean SV_ParseEdict( char **pfile, edict_t *ent, int entity_index )
 {
 	KeyValueData	pkvd[256]; // per one entity
 	qboolean		adjust_origin = false, customentity;
 	int		numpairs = 0;
 	const char	*classname = NULL;
-
-	if( inhibited_early )
-		*inhibited_early = false;
 
 	// go through all the dictionary pairs
 	while( 1 )
@@ -5679,36 +5487,14 @@ static qboolean SV_ParseEdict( char **pfile, edict_t *ent, int entity_index, qbo
 
 		// parse key
 		if(( *pfile = COM_ParseFile( *pfile, keyname, sizeof( keyname ))) == NULL )
-#if XASH_GAMECUBE
-		{
-			if( SV_GCMapParseEOF( "key", entity_index, classname ))
-			{
-				SV_FreeKeyValueStrings( pkvd, numpairs );
-				return false;
-			}
 			Host_Error( "%s: EOF without closing brace\n", __func__ );
-		}
-#else
-			Host_Error( "%s: EOF without closing brace\n", __func__ );
-#endif
 
 		if( keyname[0] == '}' )
 			break; // end of desc
 
 		// parse value
 		if(( *pfile = COM_ParseFile( *pfile, value, sizeof( value ))) == NULL )
-#if XASH_GAMECUBE
-		{
-			if( SV_GCMapParseEOF( "value", entity_index, classname ))
-			{
-				SV_FreeKeyValueStrings( pkvd, numpairs );
-				return false;
-			}
 			Host_Error( "%s: EOF without closing brace\n", __func__ );
-		}
-#else
-			Host_Error( "%s: EOF without closing brace\n", __func__ );
-#endif
 
 		if( value[0] == '}' )
 			Host_Error( "%s: closing brace without data\n", __func__ );
@@ -5782,11 +5568,11 @@ static qboolean SV_ParseEdict( char **pfile, edict_t *ent, int entity_index, qbo
 
 
 #if XASH_GAMECUBE
-	if( SV_GCMapSmokeRoute() && SV_GCMapShouldInhibitBudget( classname, entity_index ))
+	if( SV_GCMapSmokeRoute() && SV_GCMapCannotFitEntity( classname, entity_index ))
 	{
-		if( inhibited_early )
-			*inhibited_early = true;
 		SV_FreeKeyValueStrings( pkvd, numpairs );
+		Host_Error( "%s: memory budget cannot support entity %d (%s); aborting map load without omitting gameplay entities\n",
+			__func__, entity_index, classname );
 		return false;
 	}
 #endif
@@ -5899,11 +5685,6 @@ static void SV_LoadFromFile( const char *mapname, char *entities )
 
 	Assert( entities != NULL );
 #if XASH_GAMECUBE
-	gc_lean_beam_admit = 0;
-	gc_lean_scripted_admit = 0;
-	gc_lean_scientist_admit = 0;
-	gc_lean_sitting_scientist_admit = 0;
-	gc_lean_barney_admit = 0;
 	gc_soundent_fallback_used = false;
 	gc_ent_priv_slab_used = 0;
 	gc_ent_priv_slab_hits = 0;
@@ -5916,64 +5697,11 @@ static void SV_LoadFromFile( const char *mapname, char *entities )
 	{
 		int inhibited = 0;
 		int entity_index = 0;
-#if XASH_GAMECUBE
-		/* G334: after index N, only keep continuity essentials.
-		 * Hard truncate dropped c1a0a→c1a0b landmark/changelevel at 169–170
-		 * (and late info_player_start). Parse the tail but free the rest.
-		 * G343/G344: tram chain (c0a0*) has MEM/G36 headroom after G341 —
-		 * disable essentials-only there (N = INT_MAX) for full spawn.
-		 * G349/G350: early AM (c1a0, c1a0a/b/c/e) raises 128→192.
-		 * G355: denser c1a0d raises 128→192 on changelevel only
-		 * (sv.startspot; tip-safe hop HWM≈2.9 Mb). Cold NEWGAME stays 128.
-		 * G371: early AM + denser tip-safe raise 192→256.
-		 * G372: denser tip-safe c1a0d full spawn (map≈268 ents; G334@256 only
-		 * cut scripted_sequence/ambient tail — NPCs already <256). */
-		int gc_tail_essentials_from = 128;
-		{
-			char mapbase[MAX_QPATH];
-
-			if( mapname && mapname[0] )
-			{
-				COM_FileBase( mapname, mapbase, sizeof( mapbase ));
-				if( !Q_strnicmp( mapbase, "c0a0", 4 ))
-				{
-					/* G343 full tram spawn hangs after CSoundEnt private alloc on
-					 * lean tip-safe/smoke (c0a0e probes 20260812 / 20260829).
-					 * Keep essentials-only for cold -gcnewgame smoke so Swiss HW
-					 * can reach MAP_READY + swissquit; changelevel hops retain
-					 * headroom via startspot. */
-					if( Sys_CheckParm( "-gcnewgame" ) && !sv.startspot[0] )
-						gc_tail_essentials_from = 64;
-					else
-						gc_tail_essentials_from = 0x7fffffff; /* G343/G344 full spawn */
-				}
-				else if( !Q_stricmp( mapbase, "c1a0d" ) && sv.startspot[0] )
-					gc_tail_essentials_from = 0x7fffffff; /* G372 denser full spawn */
-				else if( !Q_stricmp( mapbase, "c1a0" ))
-				{
-					/* Cold + changelevel onto c1a0 hangs mid-spawn after
-					 * progress=64 (Dolphin 20260829-044506 / c0a0e→c1a0 r12).
-					 * Essentials-only past 64 reaches MAP_READY for continuity. */
-					gc_tail_essentials_from = 64;
-				}
-				else if( !Q_stricmp( mapbase, "c1a0a" )
-					|| !Q_stricmp( mapbase, "c1a0b" )
-					|| !Q_stricmp( mapbase, "c1a0c" )
-					|| !Q_stricmp( mapbase, "c1a0e" ))
-				{
-					/* c0a0e→c1a0a hung at entity 0 on unload.cfg (fixed
-					 * separately); once past worldspawn, keep lean tail like
-					 * c1a0 so denser AM maps reach MAP_READY under MEM1. */
-					gc_tail_essentials_from = 64;
-				}
-			}
-		}
-#endif
 
 		// parse ents
 		while(( entities = COM_ParseFile( entities, token, sizeof( token ))) != NULL )
 		{
-			qboolean inhibited_early = false;
+			int spawn_result;
 
 			if( token[0] != '{' )
 				Host_Error( "%s: found %s when expecting {\n", __func__, token );
@@ -5990,68 +5718,48 @@ static void SV_LoadFromFile( const char *mapname, char *entities )
 #endif
 
 #if XASH_GAMECUBE
-			const qboolean gc_tail_essentials = Sys_CheckParm( "-gcnewgame" )
-				&& entity_index >= gc_tail_essentials_from;
-			if( entity_index == 0 && Sys_CheckParm( "-gcnewgame" )
-				&& gc_tail_essentials_from == 0x7fffffff )
-				Con_Reportf( "Xash3D GameCube: G343 G334 disabled (full spawn) map=%s\n",
-					mapname && mapname[0] ? mapname : "?" );
-			if( gc_tail_essentials && ( entity_index == gc_tail_essentials_from ))
-				Con_Reportf( "Xash3D GameCube: G334 tail essentials-only from %d\n",
-					entity_index );
 			if( SV_GCMapSmokeRoute() && ( entity_index & 31 ) == 0 )
 				Con_Reportf( "Xash3D GameCube: entity spawn progress=%d\n", entity_index );
 #endif
 
-			if( !SV_ParseEdict( &entities, ent, entity_index++, &inhibited_early ))
+			if( !SV_ParseEdict( &entities, ent, entity_index++ ))
 			{
-				if( inhibited_early )
-				{
-					SV_FreeEdict( ent );
-					inhibited++;
-				}
-				continue;
+				Host_Error( "%s: entity %d has no classname; aborting map load instead of silently omitting it\n",
+					__func__, entity_index - 1 );
+				return;
 			}
 
 #if XASH_GAMECUBE
-			if( gc_tail_essentials )
-			{
-				const char *spawn_class = SV_ClassName( ent );
-
-				if( Q_stricmp( spawn_class, "info_landmark" )
-					&& Q_stricmp( spawn_class, "trigger_changelevel" )
-					&& Q_stricmp( spawn_class, "info_player_start" ))
-				{
-					SV_FreeEdict( ent );
-					inhibited++;
-					continue;
-				}
-				Con_Reportf( "Xash3D GameCube: G334 tail keep %s edict=%d\n",
-					spawn_class, NUM_FOR_EDICT( ent ));
-			}
 			GC_LoadingOverlayPulse();
 			if( SV_GCMapSmokeRoute() )
 			{
 				const char *spawn_class = SV_ClassName( ent );
 
-				/* Light sampling for late spawns; full spam stalls Dolphin OSReport. */
-				if( entity_index >= 90 && ( entity_index & 15 ) == 0 )
-					Con_Reportf( "Xash3D GameCube: entity spawn step=%d classname=%s\n",
-						entity_index - 1, spawn_class );
+				if( entity_index >= 64 && entity_index <= 90 )
+					Con_Reportf( "Xash3D GameCube: entity spawn parsed=%d class=%s edict=%d\n",
+						entity_index - 1, spawn_class, NUM_FOR_EDICT( ent ));
 
-				if( SV_GCMapShouldInhibitBudget( spawn_class, entity_index ))
+				if( SV_GCMapCannotFitEntity( spawn_class, entity_index ))
 				{
-					if(( entity_index & 63 ) == 0 )
-						Con_Reportf( "Xash3D GameCube: gcmap inhibited entity=%d classname=%s\n",
-							entity_index - 1, spawn_class );
-					SV_FreeEdict( ent );
-					inhibited++;
-					continue;
+					Host_Error( "%s: memory budget cannot support entity %d (%s); aborting map load without omitting gameplay entities\n",
+						__func__, entity_index - 1, spawn_class );
+					return;
 				}
 			}
 #endif
 
-			if( svgame.dllFuncs.pfnSpawn( ent ) == -1 )
+#if XASH_GAMECUBE
+			if( SV_GCMapSmokeRoute() && entity_index >= 64 && entity_index <= 90 )
+				Con_Reportf( "Xash3D GameCube: entity spawn call begin=%d class=%s\n",
+					entity_index - 1, SV_ClassName( ent ));
+#endif
+			spawn_result = svgame.dllFuncs.pfnSpawn( ent );
+#if XASH_GAMECUBE
+			if( SV_GCMapSmokeRoute() && entity_index >= 64 && entity_index <= 90 )
+				Con_Reportf( "Xash3D GameCube: entity spawn call end=%d class=%s result=%d\n",
+					entity_index - 1, SV_ClassName( ent ), spawn_result );
+#endif
+			if( spawn_result == -1 )
 			{
 				// game rejected the spawn
 				if( !FBitSet( ent->v.flags, FL_KILLME ))
@@ -6096,9 +5804,7 @@ static void SV_LoadFromFile( const char *mapname, char *entities )
 					ed->pvPrivateData ? 1 : 0 );
 			}
 		}
-		if( Sys_CheckParm( "-gcnewgame" ))
-			Con_Reportf( "Xash3D GameCube: G316 entities inhibited=%d (static scientists restored)\n",
-				inhibited );
+		Con_Reportf( "Xash3D GameCube: entity spawn complete; game-rejected=%d\n", inhibited );
 #endif
 	}
 

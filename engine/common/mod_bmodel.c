@@ -1322,7 +1322,18 @@ NOTE: can return NULL
 */
 byte *Mod_GetPVSForPoint( const vec3_t p )
 {
-	ASSERT( worldmodel != NULL );
+	if( !worldmodel || !worldmodel->nodes )
+	{
+#if XASH_GAMECUBE
+		static qboolean warned_missing_world;
+		if( !warned_missing_world )
+		{
+			Con_Reportf( S_WARN "Xash3D GameCube: soft assert Mod_GetPVSForPoint without world model; using full visibility\n" );
+			warned_missing_world = true;
+		}
+#endif
+		return NULL;
+	}
 
 	mleaf_t	*leaf = Mod_PointInLeaf( p, worldmodel->nodes, worldmodel );
 
@@ -1405,7 +1416,22 @@ within radius pixels of the given point.
 */
 int Mod_FatPVS( const vec3_t org, float radius, byte *visbuffer, int visbytes, qboolean merge, qboolean fullvis, qboolean phs )
 {
-	ASSERT( worldmodel != NULL );
+	if( !visbuffer || visbytes <= 0 )
+		return 0;
+
+	if( !worldmodel || !worldmodel->nodes )
+	{
+#if XASH_GAMECUBE
+		static qboolean warned_missing_world;
+		if( !warned_missing_world )
+		{
+			Con_Reportf( S_WARN "Xash3D GameCube: soft assert Mod_FatPVS without world model; using full visibility\n" );
+			warned_missing_world = true;
+		}
+#endif
+		memset( visbuffer, 0xFF, visbytes );
+		return visbytes;
+	}
 
 	mleaf_t	*leaf = Mod_PointInLeaf( org, worldmodel->nodes, worldmodel );
 	int	bytes = Q_min( world.visbytes, visbytes );

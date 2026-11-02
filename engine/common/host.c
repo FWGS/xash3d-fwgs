@@ -60,6 +60,7 @@ qboolean GC_IsFrameBudgetProbeActive( void );
 #endif
 
 host_parm_t		host;	// host parms
+static qboolean hosterror_frame_valid;
 
 static jmp_buf return_from_main_buf;
 
@@ -940,13 +941,13 @@ void GAME_EXPORT Host_Error( const char *error, ... )
 
 	CL_WriteMessageHistory (); // before Q_error call
 
-	if( host.framecount < 3 )
+	if( !Host_CanAbortCurrentFrame( ))
 	{
-		Sys_Error( "%sInit: %s", __func__, hosterror1 );
+		Sys_Error( "%sInit: no active frame recovery point: %s", __func__, hosterror1 );
 		return;
 	}
 
-	if( host.framecount == host.errorframe )
+	if( hosterror_frame_valid && host.framecount == host.errorframe )
 	{
 		Sys_Error( "%sMulti: %s", __func__, hosterror2 );
 		return;
@@ -974,6 +975,7 @@ void GAME_EXPORT Host_Error( const char *error, ... )
 	recursive = true;
 	Q_strncpy( hosterror2, hosterror1, sizeof( hosterror2 ));
 	host.errorframe = host.framecount; // to avoid multply calls per frame
+	hosterror_frame_valid = true;
 
 	// clearing cmd buffer to prevent execute any commands
 	COM_InitHostState();
@@ -1590,6 +1592,7 @@ int EXPORT Host_Main( int argc, char **argv, const char *progname, int bChangeGa
 	else Cmd_AddRestrictedCommand( "minimize", Platform_Minimize_f, "minimize main window to tray" );
 
 	host.errorframe = 0;
+	hosterror_frame_valid = false;
 
 	if( progname[0] == '#' )
 		progname++;

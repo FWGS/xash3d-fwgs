@@ -594,6 +594,7 @@ void Host_ShutdownWithReason( const char *reason );
 int EXPORT Host_Main( int argc, char **argv, const char *progname, int bChangeGame, pfnChangeGame func );
 void Host_EndGame( qboolean abort, const char *message, ... ) FORMAT_CHECK( 2 );
 void Host_AbortCurrentFrame( void ) NORETURN;
+qboolean Host_CanAbortCurrentFrame( void );
 void Host_WriteServerConfig( const char *name );
 void Host_WriteOpenGLConfig( void );
 void Host_WriteVideoConfig( void );

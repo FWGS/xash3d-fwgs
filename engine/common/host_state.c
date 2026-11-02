@@ -17,6 +17,12 @@ GNU General Public License for more details.
 #include "platform/platform.h"
 
 static jmp_buf g_abortframe;
+static qboolean g_abortframe_active;
+
+qboolean Host_CanAbortCurrentFrame( void )
+{
+	return g_abortframe_active;
+}
 
 void COM_InitHostState( void )
 {
@@ -204,7 +210,11 @@ void Host_AbortCurrentFrame( void )
 void COM_Frame( double time )
 {
 	if( setjmp( g_abortframe ))
+	{
+		g_abortframe_active = false;
 		return;
+	}
+	g_abortframe_active = true;
 
 	int loopCount = 0;
 	while( 1 )
@@ -240,4 +250,5 @@ void COM_Frame( double time )
 		if(( GameState->curstate == oldState ) || ( ++loopCount > 8 ))
 			Sys_Error( "state infinity loop!\n" );
 	}
+	g_abortframe_active = false;
 }

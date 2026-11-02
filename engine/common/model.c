@@ -1599,7 +1599,12 @@ model_t *Mod_LoadWorld( const char *name, qboolean preload )
 #endif
 	world.loading = false;
 
-	ASSERT( pworld == mod_known );
+	if( pworld != mod_known )
+	{
+		Host_Error( "%s: soft assert world model registration mismatch (%p != %p)\n",
+			__func__, (void *)pworld, (void *)mod_known );
+		return NULL;
+	}
 
 	return pworld;
 }
