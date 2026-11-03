@@ -16,6 +16,7 @@ Copyright (C) 2026 xash3d-gc contributors
 void *R_GCBorrowMapLoadStaticArena( size_t size, size_t *capacity );
 qboolean R_GCReleaseMapLoadStaticArena( void *ptr );
 qboolean SV_Active( void );
+qboolean SV_GCPrivateOverflowReserved( void );
 void GCube_AppendSwissEvidence( const char *fmt, ... );
 
 static char gc_mem_map[MAX_QPATH] = "(none)";
@@ -490,6 +491,9 @@ void *GC_BorrowMapLoadBuffer( size_t size )
 {
 	if( size == 0 )
 		return NULL;
+	/* Entity private objects may still point into this map's arena. */
+	if( SV_GCPrivateOverflowReserved() )
+		return NULL;
 
 	if( gc_mapload_buf && gc_mapload_buf_in_use )
 		return NULL;
@@ -524,14 +528,14 @@ void *GC_BorrowMapLoadBuffer( size_t size )
 				Q_memprint( alloc_size ), Q_memprint( GC_MemHeapFreeBytes() ));
 			return NULL;
 		}
-		gc_mapload_buf = (byte *)malloc( alloc_size );
+		gc_mapload_buf = (byte *)memalign( 32, alloc_size );
 		if( !gc_mapload_buf )
 		{
 			/* One more shot after releasing decode scratch; keeps mid-size BSPs
 			 * loading when the renderer arena is still a few hundred KB short. */
 			Image_GCPurgeDecodeScratch();
 			if( GC_MemHeapFreeBytes() >= alloc_size )
-				gc_mapload_buf = (byte *)malloc( alloc_size );
+				gc_mapload_buf = (byte *)memalign( 32, alloc_size );
 		}
 		if( !gc_mapload_buf )
 		{
@@ -588,13 +592,20 @@ void *GC_MapLoadBufferTailAlloc( size_t after_offset, size_t need )
 {
 	size_t off;
 	size_t remaining;
+	uintptr_t address, aligned, base;
 
-	if( !gc_mapload_buf || !gc_mapload_buf_in_use || need == 0 )
+	/* A live entity overflow reservation pins this map's arena after the BSP
+	 * staging borrow ends. Its high-water mark also protects all earlier tail
+	 * allocations, so remaining tail space is still safe for world arrays. */
+	if( !gc_mapload_buf || ( !gc_mapload_buf_in_use && !SV_GCPrivateOverflowReserved() ) || need == 0 )
 		return NULL;
 
-	off = ( after_offset + 31u ) & ~31u;
-	if( off < after_offset )
+	base = (uintptr_t)gc_mapload_buf;
+	address = base + after_offset;
+	if( address < base || address > UINTPTR_MAX - 31u )
 		return NULL;
+	aligned = ( address + 31u ) & ~(uintptr_t)31u;
+	off = (size_t)( aligned - base );
 	if( off + need < off )
 		return NULL;
 	if( off < gc_mapload_tail_highwater )
@@ -622,6 +633,11 @@ void *GC_MapLoadBufferTailAlloc( size_t after_offset, size_t need )
 
 void GC_DiscardMapLoadBuffer( void )
 {
+	if( SV_GCPrivateOverflowReserved() )
+	{
+		Con_Reportf( "Xash3D GameCube: retaining map arena for entity private data\n" );
+		return;
+	}
 	if( gc_mapload_buf_in_use )
 		return;
 

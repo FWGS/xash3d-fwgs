@@ -2,6 +2,7 @@
 r_gcmap.c - GameCube smoke boot memory trims
 */
 #include "r_local.h"
+#include <stdint.h>
 
 #if XASH_GAMECUBE
 static qboolean gc_renderer_trimmed;
@@ -14,6 +15,14 @@ static qboolean gc_static_map_arena_dirty;
 static short gc_gcmap_static_zbuffer[GC_GCMAP_STATIC_MAX_W * GC_GCMAP_STATIC_MAX_H];
 static pixel_t gc_gcmap_static_viewbuffer[GC_GCMAP_STATIC_MAX_W * GC_GCMAP_STATIC_MAX_H];
 
+/* DVD and ARAM DMA require absolute 32-byte alignment. The first renderer
+ * table is a struct member and need not itself start on a cache-line boundary. */
+static byte *R_GcmapStaticArenaBase( void )
+{
+	const uintptr_t raw = (uintptr_t)&vid.colormap[0];
+	return (byte *)(( raw + 31u ) & ~(uintptr_t)31u );
+}
+
 static void R_GcmapReportStaticArenaTelemetry( void )
 {
 	const size_t colormap = sizeof( vid.colormap );
@@ -23,7 +32,8 @@ static void R_GcmapReportStaticArenaTelemetry( void )
 	const size_t modmap = sizeof( vid.modmap );
 	const size_t alphamap = sizeof( vid.alphamap );
 	const size_t pad = sizeof( vid.mapload_pad );
-	const size_t total = colormap + screen + screen32 + addmap + modmap + alphamap + pad;
+	const size_t alignment = (size_t)( R_GcmapStaticArenaBase() - (byte *)&vid.colormap[0] );
+	const size_t total = colormap + screen + screen32 + addmap + modmap + alphamap + pad - alignment;
 	size_t largest = colormap;
 	if( screen > largest ) largest = screen;
 	if( screen32 > largest ) largest = screen32;
@@ -34,10 +44,10 @@ static void R_GcmapReportStaticArenaTelemetry( void )
 
 	gEngfuncs.Con_Reportf(
 		"Xash3D GameCube: mem arena=mapload bytes=%lu largest=%lu "
-		"colormap=%lu screen=%lu screen32=%lu addmap=%lu modmap=%lu alphamap=%lu pad=%lu\n",
+		"colormap=%lu screen=%lu screen32=%lu addmap=%lu modmap=%lu alphamap=%lu pad=%lu alignment=%lu\n",
 		(unsigned long)total, (unsigned long)largest, (unsigned long)colormap,
 		(unsigned long)screen, (unsigned long)screen32, (unsigned long)addmap,
-		(unsigned long)modmap, (unsigned long)alphamap, (unsigned long)pad );
+		(unsigned long)modmap, (unsigned long)alphamap, (unsigned long)pad, (unsigned long)alignment );
 }
 
 void R_GcmapTrimScreenBuffers( void );
@@ -119,10 +129,12 @@ qboolean R_GcmapGetViewport( int *width, int *height )
 
 void *R_GCBorrowMapLoadStaticArena( size_t size, size_t *capacity )
 {
-	byte *base = (byte *)&vid.colormap[0];
+	byte *raw = (byte *)&vid.colormap[0];
+	byte *base = R_GcmapStaticArenaBase();
 	size_t arena_size = sizeof( vid.colormap ) + sizeof( vid.screen ) + sizeof( vid.screen32 )
 		+ sizeof( vid.addmap ) + sizeof( vid.modmap ) + sizeof( vid.alphamap )
 		+ sizeof( vid.mapload_pad );
+	arena_size -= (size_t)( base - raw );
 
 	if( capacity )
 		*capacity = arena_size;
@@ -151,7 +163,7 @@ void *R_GCBorrowMapLoadStaticArena( size_t size, size_t *capacity )
 
 qboolean R_GCReleaseMapLoadStaticArena( void *ptr )
 {
-	if( !ptr || ptr != (void *)&vid.colormap[0] || !gc_static_map_arena_in_use )
+	if( !ptr || ptr != (void *)R_GcmapStaticArenaBase() || !gc_static_map_arena_in_use )
 		return false;
 
 	gc_static_map_arena_in_use = false;
@@ -161,7 +173,7 @@ qboolean R_GCReleaseMapLoadStaticArena( void *ptr )
 
 qboolean R_GCIsMapLoadStaticArena( const void *ptr )
 {
-	return ptr != NULL && ptr == (const void *)&vid.colormap[0];
+	return ptr != NULL && ptr == (const void *)R_GcmapStaticArenaBase();
 }
 
 void R_GcmapTrimForMapLoad( void )

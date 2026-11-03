@@ -51,9 +51,11 @@ typedef struct gc_bsp_deferred_s
 static gc_bsp_deferred_t gc_bsp_deferred;
 static void *gc_marksurfaces_malloc_block;
 static void *gc_leafs_malloc_block;
+static qboolean gc_leafs_arena_tail;
 static void *gc_surfaces_malloc_block;
 static void *gc_texinfo_malloc_block;
 static void *gc_nodes_malloc_block;
+static qboolean gc_nodes_arena_tail;
 static void *gc_clipnodes_malloc_block;
 static qboolean gc_clipnodes_pool_block;
 #if XASH_GAMECUBE
@@ -3698,6 +3700,7 @@ static struct
 #define GC_WT_MIN_POOL_BYTES ( 16 * 1024 )
 #define GC_WT_TAIL_GUARD_BYTES ( 96 * 1024 )
 #define GC_WT_SPLIT_DIM  64
+#define GC_WT_MIN_HOT_BYTES ( 32 * 1024 )
 static byte *gc_wt_pool;
 static size_t gc_wt_pool_bytes;
 static qboolean gc_wt_pool_mapload_tail;
@@ -3720,6 +3723,60 @@ typedef struct
 
 static gc_wt_stored_t gc_wt_store[GC_WT_ARAM_ENTRIES];
 static uint32_t gc_wt_store_base, gc_wt_store_head, gc_wt_store_next;
+
+/* When the remaining tail can accommodate both world trees, share it between
+ * them and entity overflow. If they cannot both fit, leave the default entity
+ * reserve and let the scratch allocator satisfy whichever tree it can. */
+static size_t Mod_GCEntityOverflowBudget( size_t remaining, size_t leaf_bytes, size_t node_bytes )
+{
+	const size_t minimum = 32u * 1024u;
+	const size_t guard = 8u * 1024u;
+	size_t spare;
+	if( leaf_bytes > remaining || node_bytes > remaining - leaf_bytes )
+		return GC_ENTITY_OVERFLOW_BYTES;
+	spare = remaining - leaf_bytes - node_bytes;
+	if( spare >= minimum + guard && spare < GC_ENTITY_OVERFLOW_BYTES + guard )
+		return ( spare - guard ) & ~(size_t)31;
+	return GC_ENTITY_OVERFLOW_BYTES;
+}
+
+/* Keep small textures fully resident when possible. Under pressure, split
+ * progressively smaller mip chains so the complete pack fits while retaining
+ * a streaming window for full-resolution chains. Offsets include pack padding. */
+static unsigned Mod_GCWorldPackSplitDim( const gc_wt_entry_t *table, uint32_t count,
+	uint32_t data_bytes, size_t pool_bytes, uint32_t first )
+{
+	static const unsigned candidates[] = { 64, 32, 16, 8 };
+	uint32_t i, max_chain = 0;
+	size_t candidate;
+	for( i = 0; i < count; i++ )
+	{
+		const uint32_t end = i + 1 < count ? table[i + 1].offset : data_bytes;
+		if( end <= table[i].offset || end > data_bytes )
+			return GC_WT_SPLIT_DIM;
+		if( end - table[i].offset > max_chain )
+			max_chain = end - table[i].offset;
+	}
+	for( candidate = 0; candidate < ARRAYSIZE( candidates ); candidate++ )
+	{
+		size_t resident = 0;
+		for( i = 0; i < count; i++ )
+		{
+			const gc_wt_entry_t *e = &table[i];
+			const uint32_t end = i + 1 < count ? table[i + 1].offset : data_bytes;
+			const uint32_t bytes = end - e->offset;
+			const qboolean split = e->levels > 1 && ( e->width > candidates[candidate] || e->height > candidates[candidate] );
+			const uint32_t skip = split ? (uint32_t)e->width * e->height / 2 : 0;
+			if( skip > bytes )
+				return GC_WT_SPLIT_DIM;
+			resident += bytes - skip;
+		}
+		if( first <= pool_bytes && resident <= pool_bytes - first
+			&& Q_max( max_chain, GC_WT_MIN_HOT_BYTES ) <= pool_bytes - first - resident )
+			return candidates[candidate];
+	}
+	return 8;
+}
 
 static const gc_wt_stored_t *Mod_GCWorldStoreFind( const gc_wt_entry_t *e, uint32_t size )
 {
@@ -3769,7 +3826,8 @@ static void Mod_GCWorldPackLoad( const char *modelname, size_t surface_reserve )
 	string  path, stem;
 	file_t  *f;
 	fs_offset_t size;
-	uint32_t i, data_bytes, first, low, hits = 0, misses = 0, hit_bytes = 0, miss_bytes = 0;
+	uint32_t i, data_bytes, first, low, total_textures, hits = 0, misses = 0, hit_bytes = 0, miss_bytes = 0;
+	unsigned split_dim;
 	size_t pool_bytes = gc_wt_pool_bytes ? gc_wt_pool_bytes : GC_WT_POOL_BYTES;
 	double start;
 	(void)surface_reserve;
@@ -3880,18 +3938,29 @@ static void Mod_GCWorldPackLoad( const char *modelname, size_t surface_reserve )
 	gc_wt.table = (gc_wt_entry_t *)( gc_wt_pool + 12 );
 	gc_wt.data = gc_wt_pool + first;
 	low = 0;
+	total_textures = gc_wt.count;
+	if( gc_wt.count > 1 )
+		Con_Reportf( "Xash3D GameCube: texture table map=%s count=%u last_offset=%u previous_offset=%u data_bytes=%u\n",
+			stem, (unsigned)gc_wt.count, (unsigned)gc_wt.table[gc_wt.count - 1].offset,
+			(unsigned)gc_wt.table[gc_wt.count - 2].offset, (unsigned)data_bytes );
+	split_dim = Mod_GCWorldPackSplitDim( gc_wt.table, gc_wt.count, data_bytes, pool_bytes, first );
 
 	for( i = 0; i < gc_wt.count; i++ )
 	{
 		gc_wt_entry_t *e = &gc_wt.table[i];
 		const uint32_t end = i + 1 < gc_wt.count ? gc_wt.table[i + 1].offset : data_bytes;
 		const uint32_t bytes = end - e->offset;
-		const qboolean split = e->levels > 1 && ( e->width > GC_WT_SPLIT_DIM || e->height > GC_WT_SPLIT_DIM );
-		const uint32_t skip = split ? e->width * e->height / 2 : 0;
+		const qboolean split = e->levels > 1 && ( e->width > split_dim || e->height > split_dim );
+		const uint32_t skip = split ? (uint32_t)e->width * e->height / 2 : 0;
 		const uint32_t room = (uint32_t)pool_bytes - first - low;
-		const gc_wt_stored_t *s = Mod_GCWorldStoreFind( e, bytes );
+		const gc_wt_stored_t *s;
 		if( end <= e->offset || end > data_bytes || skip > bytes )
+		{
+			Con_Reportf( S_WARN "Xash3D GameCube: texture pack stop map=%s index=%u reason=invalid-range offset=%u end=%u skip=%u\n",
+				stem, (unsigned)i, (unsigned)e->offset, (unsigned)end, (unsigned)skip );
 			break;
+		}
+		s = Mod_GCWorldStoreFind( e, bytes );
 
 		if( s )
 		{
@@ -3904,19 +3973,33 @@ static void Mod_GCWorldPackLoad( const char *modelname, size_t surface_reserve )
 			byte *through;
 
 			if( bytes > room )
+			{
+				Con_Reportf( S_WARN "Xash3D GameCube: texture pack stop map=%s index=%u reason=staging-budget bytes=%u room=%u\n",
+					stem, (unsigned)i, (unsigned)bytes, (unsigned)room );
 				break;
+			}
 			through = gc_wt_pool + (( (uint32_t)pool_bytes - bytes ) & ~(uint32_t)31 );
 			if( through < gc_wt.data + low )
+			{
+				Con_Reportf( S_WARN "Xash3D GameCube: texture pack stop map=%s index=%u reason=staging-alignment\n", stem, (unsigned)i );
 				break;
+			}
 			FS_Seek( f, first + e->offset, SEEK_SET );
 			if( FS_Read( f, through, bytes ) != bytes )
+			{
+				Con_Reportf( S_WARN "Xash3D GameCube: texture pack stop map=%s index=%u reason=short-read bytes=%u\n", stem, (unsigned)i, (unsigned)bytes );
 				break;
+			}
 			s = Mod_GCWorldStorePut( e, through, bytes );
 			misses++;
 			miss_bytes += bytes;
 		}
 		if( !s || bytes - skip > room )
+		{
+			Con_Reportf( S_WARN "Xash3D GameCube: texture pack stop map=%s index=%u reason=%s bytes=%u room=%u\n",
+				stem, (unsigned)i, !s ? "aram" : "resident-budget", (unsigned)( bytes - skip ), (unsigned)room );
 			break;
+		}
 		GC_AramTransfer( gc_wt_store_base + s->aram + skip, gc_wt.data + low, bytes - skip, false );
 		/* The entry now says where things are. */
 		e->offset = low;
@@ -3934,6 +4017,9 @@ static void Mod_GCWorldPackLoad( const char *modelname, size_t surface_reserve )
 	Con_Reportf( "Xash3D GameCube: world textures %s aram=%u/%u Kb disc=%u/%u Kb low=%u Kb hot=%u Kb in %.0f ms\n", stem,
 		hits, hit_bytes / 1024, misses, miss_bytes / 1024, low / 1024, ((uint32_t)pool_bytes - first - low) / 1024,
 		( Sys_DoubleTime( ) - start ) * 1000.0 );
+	Con_Reportf( "Xash3D GameCube: texture budget map=%s packed=%u total=%u pool_bytes=%u resident_bytes=%u hot_bytes=%u split_dim=%u\n",
+		stem, (unsigned)gc_wt.count, (unsigned)total_textures, (unsigned)pool_bytes,
+		(unsigned)low, (unsigned)( pool_bytes - first - low ), split_dim );
 }
 
 static int Mod_GCWorldPackTexture( const char *name )
@@ -4368,8 +4454,23 @@ static void Mod_LoadTextures( model_t *mod, dbspmodel_t *bmod )
 
 #if XASH_GAMECUBE
 	if( bmod->isworld )
+	{
 		Mod_GCWorldPackLoad( mod->name,
 			bmod->numsurfaces * ( sizeof( msurface_t ) + sizeof( mextrasurf_t )));
+		/* Dense entity lumps need more than the fixed MEM1 slab. Reserve from
+		 * the already-budgeted tail only after the pack has taken its share;
+		 * never overlap the BSP image, carved arrays, or packed textures. */
+		if( bmod->entdatasize >= 64u * 1024u && gc_wt_pool_mapload_tail )
+		{
+			const size_t after = Q_max( gc_bsp_scratch_size + gc_bsp_scratch_carve_high,
+				GC_MapLoadBufferTailHighwater() );
+			const size_t capacity = GC_MapLoadBufferCapacity();
+			const size_t remaining = capacity > after ? capacity - after : 0;
+			const size_t budget = Mod_GCEntityOverflowBudget( remaining,
+				(size_t)bmod->numleafs * sizeof( mleaf_t ), (size_t)bmod->numnodes * sizeof( mnode_t ));
+			SV_GCReservePrivateOverflow( after, budget );
+		}
+	}
 #endif
 	Mod_LoadAllTextures( mod, bmod );
 	Mod_SequenceAllAnimatedTextures( mod );
@@ -4948,11 +5049,21 @@ static void Mod_LoadNodes( model_t *mod, dbspmodel_t *bmod )
 				}
 
 				out = (mnode_t *)Mod_GCAllocWorldScratch( mod, bmod, busy, busy_count, node_bytes, 32 );
+				if( !out && SV_GCPrivateOverflowReserved() )
+				{
+					out = (mnode_t *)GC_MapLoadBufferTailAlloc( GC_MapLoadBufferTailHighwater(), node_bytes );
+					if( out )
+					{
+						gc_nodes_arena_tail = true;
+						gc_world_blocks_owner = mod;
+					}
+				}
 				if( out )
 				{
 					memset( out, 0, node_bytes );
 					Mod_GCInvalidateScratchOverlap( bmod, gc_bsp_scratch_base, gc_bsp_scratch_size, (byte *)out, node_bytes );
-					Con_Reportf( "Xash3D GameCube: world nodes using BSP scratch %s\n", Q_memprint( node_bytes ));
+					Con_Reportf( "Xash3D GameCube: world nodes using %s %s\n",
+						gc_nodes_arena_tail ? "retained arena tail" : "BSP scratch", Q_memprint( node_bytes ));
 				}
 			}
 
@@ -5474,6 +5585,11 @@ void Mod_GameCubeFreeMallocSurfaces( model_t *mod )
 		free( gc_leafs_malloc_block );
 		gc_leafs_malloc_block = NULL;
 	}
+	if( gc_leafs_arena_tail )
+	{
+		if( mod ) mod->leafs = NULL;
+		gc_leafs_arena_tail = false;
+	}
 
 	if( gc_surfaces_malloc_block )
 	{
@@ -5494,6 +5610,11 @@ void Mod_GameCubeFreeMallocSurfaces( model_t *mod )
 	gc_texinfo_malloc_block = NULL;
 
 free_nodes:
+	if( gc_nodes_arena_tail )
+	{
+		if( mod ) mod->nodes = NULL;
+		gc_nodes_arena_tail = false;
+	}
 	if( !gc_nodes_malloc_block )
 		goto free_clipnodes;
 
@@ -6299,11 +6420,21 @@ static void Mod_LoadLeafs( model_t *mod, dbspmodel_t *bmod )
 			}
 
 			out = (mleaf_t *)Mod_GCAllocWorldScratch( mod, bmod, busy, busy_count, leaf_bytes, 32 );
+			if( !out && SV_GCPrivateOverflowReserved() )
+			{
+				out = (mleaf_t *)GC_MapLoadBufferTailAlloc( GC_MapLoadBufferTailHighwater(), leaf_bytes );
+				if( out )
+				{
+					gc_leafs_arena_tail = true;
+					gc_world_blocks_owner = mod;
+				}
+			}
 			if( out )
 			{
 				memset( out, 0, leaf_bytes );
 				Mod_GCInvalidateScratchOverlap( bmod, gc_bsp_scratch_base, gc_bsp_scratch_size, (byte *)out, leaf_bytes );
-				Con_Reportf( "Xash3D GameCube: world leafs using BSP scratch %s\n", Q_memprint( leaf_bytes ));
+				Con_Reportf( "Xash3D GameCube: world leafs using %s %s\n",
+					gc_leafs_arena_tail ? "retained arena tail" : "BSP scratch", Q_memprint( leaf_bytes ));
 			}
 		}
 

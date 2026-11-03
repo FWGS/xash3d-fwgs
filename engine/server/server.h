@@ -607,6 +607,11 @@ void SV_SkipUpdates( void );
 qboolean SV_LoadProgs( const char *name );
 void SV_UnloadProgs( void );
 void SV_FreeEdicts( void );
+#if XASH_GAMECUBE
+#define GC_ENTITY_OVERFLOW_BYTES (64u * 1024u)
+void SV_GCReservePrivateOverflow( size_t after, size_t bytes );
+qboolean SV_GCPrivateOverflowReserved( void );
+#endif
 edict_t *SV_AllocEdict( void );
 void SV_FreeEdict( edict_t *pEdict );
 void SV_InitEdict( edict_t *pEdict );

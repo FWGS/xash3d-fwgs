@@ -172,7 +172,6 @@ probe_newgame_progress_ready() {
 }
 
 probe_wait_flatpak() {
-	flatpak kill "${DOLPHIN_FLATPAK_ID:-org.DolphinEmu.dolphin-emu}" >/dev/null 2>&1 || true
 	trap cleanup_flatpak_dolphin EXIT
 	"${DOLPHIN_CMD[@]}" >"$LOG_DIR/stdout.log" 2>"$LOG_DIR/stderr.log" &
 	DOLPHIN_WRAPPER_PID=$!

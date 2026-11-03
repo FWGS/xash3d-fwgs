@@ -3,10 +3,15 @@
 ## Current verification — 2026-11-02
 
 Current follow-up: entity private-data allocations now reuse freed 16-byte
-blocks anywhere in the 108 KiB slab. A sanitizer-backed native fixture verifies
-hole reuse, alignment, exhaustion, and preservation of live objects. Dense-map
-runtime validation is pending; prior map-ready results below predate this
-allocator change. Small texture pools now reject oversized tables, invalid
+blocks anywhere in the 108 KiB slab. Dense maps can also reserve 64 KiB from
+the map arena after texture staging, with arena reuse deferred until entity
+destructors finish. `c1a2` reaches `MAP_READY` with this reserve
+(`.ai/logs/map-compat-20261102-192510/`). Sanitizer-backed native fixtures verify
+hole reuse, alignment, exhaustion, preservation of live objects, and the arena
+discard guard. A Dolphin `c1a2→c1a2a` landmark transition passed its G68
+readiness and input checks (`.ai/logs/dolphin-probe-20261102-193411/`). Full
+gameplay and hardware validation remain outstanding.
+Small texture pools now reject oversized tables, invalid
 file ranges, short reads, and staging transfers that overlap resident mips.
 The build pipeline installs dependencies before generating the DOL because
 installation can relink the ELF and invalidate an earlier DOL.
@@ -15,7 +20,7 @@ The representative campaign audit at
 `.ai/logs/campaign-audit-20261102-181501/` recorded 14 ready maps, five runtime
 failures, and one inconclusive probe. Its 237 transition targets all exist;
 that static check does not verify traversal. Subsequent texture-pack work
-cleared `c1a1`; `c1a2`, `c1a3`, `c2a1`, `c2a2`, and `c2a4e` still need current
+cleared `c1a1` and `c1a2`; `c1a3`, `c2a1`, `c2a2`, and `c2a4e` still need current
 runtime proof. No claim of campaign-wide quality budgeting is made yet.
 
 Release completion remains unproven. Fresh ending-map (`c5a1`) probes exposed
@@ -47,10 +52,17 @@ Hazard Course `t0a0` now reaches `MAP_READY` after all 335 entities spawn with
 the reduced fallback slab (`.ai/logs/map-compat-20261102-181050/`). This clears
 the previous entity-spawn blocker; campaign transitions and real hardware
 playability remain separate verification gates.
-The same texture-pack gate clears `c1a1`
-(`.ai/logs/map-compat-20261102-183929/`); `c1a2` now loads its pack and reaches
-entity 608 before exhausting the current private-data fallback, so dense Office
-Complex coverage remains in progress.
+The texture-pack gate clears `c1a1`
+(`.ai/logs/map-compat-20261102-183929/`). The overflow reserve clears the
+`c1a2` entity-allocation failure. Adaptive split selection subsequently loads
+all 161 `c1a2` packed textures with 43,040 bytes left for full-resolution
+streaming (`.ai/logs/map-compat-20261102-193103/texture-budget-results.tsv`).
+This is load and allocation evidence, not a visual or gameplay quality pass.
+The transition destination `c1a2a` initially loaded 141 of 143 packed
+textures. The renderer map arena was not 32-byte aligned, allowing DMA cache
+operations to invalidate the end of its texture table. After aligning the
+arena base and tail allocations, a fresh direct `c1a2a` probe loaded 143 of
+143 textures and reached `MAP_READY` (`.ai/logs/dolphin-probe-20261102-194344/`).
 Repeated guest-debugger samples show libogc `SI_Transfer` / `SI_GetTypeAsync`
 callbacks and `udelay`; the cause of the stall is still under investigation.
 Saved trace: `.ai/logs/dolphin-debug-c5a1-20261102/gdb-stall.log`.

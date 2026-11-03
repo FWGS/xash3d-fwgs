@@ -26,6 +26,56 @@ def load_script(name: str, relative: str):
 
 
 class GameCubeHostTests(unittest.TestCase):
+	def test_dolphin_cleanup_only_stops_matching_profile(self) -> None:
+		import shutil
+		import subprocess
+		compiler = shutil.which("cc")
+		if not compiler:
+			self.skipTest("host C compiler unavailable")
+		with tempfile.TemporaryDirectory() as tmpdir:
+			root = Path(tmpdir)
+			source = root / "probe.c"
+			source.write_text("#include <unistd.h>\nint main(void) { for (;;) pause(); }\n")
+			executable = root / "dolphin-emu"
+			subprocess.run([compiler, str(source), "-o", str(executable)], check=True)
+			profile1, profile2 = root / "probe1", root / "probe2"
+			p1 = subprocess.Popen([str(executable), "-u", str(profile1)])
+			p2 = subprocess.Popen([str(executable), "-u", str(profile2)])
+			try:
+				command = ["bash", "-c", 'source "$1"; cleanup_boot_probe_processes',
+					"_", str(ROOT / "scripts/dolphin-probe-cleanup.sh")]
+				result = subprocess.run(command, env=dict(os.environ, USER_DIR=str(profile1)),
+					text=True, capture_output=True, timeout=10)
+				self.assertEqual(result.returncode, 0, result.stderr)
+				self.assertNotEqual(p1.wait(timeout=5), 0)
+				self.assertIsNone(p2.poll(), "a different Dolphin profile must remain running")
+			finally:
+				for proc in (p1, p2):
+					if proc.poll() is None:
+						proc.terminate()
+					proc.wait(timeout=5)
+
+	def test_dolphin_pipe_setup_preserves_non_fifo_and_configures_fifo(self) -> None:
+		import subprocess
+		with tempfile.TemporaryDirectory() as tmpdir:
+			user = Path(tmpdir)
+			(user / "Pipes").mkdir()
+			(user / "Config").mkdir()
+			pipe = user / "Pipes/gcpad"
+			pipe.write_text("keep", encoding="utf-8")
+			env = dict(os.environ, USER_DIR=str(user), DOLPHIN_PAD_PIPE="1")
+			command = ["bash", "-c", 'source "$1"', "_", str(ROOT / "scripts/dolphin-probe-config.sh")]
+			result = subprocess.run(command, env=env, text=True, capture_output=True)
+			self.assertNotEqual(result.returncode, 0)
+			self.assertEqual(pipe.read_text(encoding="utf-8"), "keep")
+			pipe.unlink()
+			result = subprocess.run(command, env=env, text=True, capture_output=True)
+			self.assertEqual(result.returncode, 0, result.stderr)
+			self.assertTrue(pipe.is_fifo())
+			self.assertIn("Device = Pipe/0/gcpad", (user / "Config/GCPadNew.ini").read_text())
+			self.assertIn("BackgroundInput = True", (user / "Config/Dolphin.ini").read_text())
+			self.assertIn("OSREPORT = True", (user / "Config/Logger.ini").read_text())
+
 	def test_campaign_audit_uses_invocation_results_and_does_not_claim_playability(self) -> None:
 		import subprocess
 		with tempfile.TemporaryDirectory() as tmpdir:
@@ -960,6 +1010,52 @@ class GameCubeHostTests(unittest.TestCase):
 			self.assertEqual(arena[0]["status"], "PASS")
 			self.assertEqual(arena[0]["remaining_bytes"], 937984)
 			self.assertEqual(arena[1]["status"], "OVERLAP")
+
+	def test_memory_evidence_reports_texture_coverage_per_map(self) -> None:
+		memory = load_script("memory_texture_budget", "scripts/gamecube-memory-evidence.py")
+		with tempfile.TemporaryDirectory() as tmpdir:
+			root = Path(tmpdir)
+			(root / ".ai/logs").mkdir(parents=True)
+			(root / ".ai/logs/stale.log").write_text(
+				"texture budget map=stale packed=1 total=1 pool_bytes=10 "
+				"resident_bytes=1 hot_bytes=1\n", encoding="utf-8")
+			log = root / "textures.log"
+			log.write_text(
+				"texture budget map=c1a2 packed=134 total=220 pool_bytes=192000 "
+				"resident_bytes=184320 hot_bytes=2048 split_dim=32\n"
+				"texture budget map=c5a1 packed=12 total=12 pool_bytes=65536 "
+				"resident_bytes=8192 hot_bytes=45056\n", encoding="utf-8")
+			budgets = memory.generate(root, [log])["runtime"]["texture_budgets"]
+			self.assertEqual([row["map"] for row in budgets], ["c1a2", "c5a1"])
+			self.assertEqual([row["complete"] for row in budgets], [False, True])
+			self.assertEqual(budgets[0]["hot_bytes"], 2048)
+			self.assertEqual(budgets[0]["split_dim"], 32)
+			self.assertIsNone(budgets[1]["split_dim"])
+
+	def test_texture_budget_audit_uses_each_map_probe_and_preserves_missing(self) -> None:
+		audit = load_script("texture_budget_audit", "scripts/gamecube-texture-budget-audit.py")
+		with tempfile.TemporaryDirectory() as tmpdir:
+			root = Path(tmpdir)
+			(root / "run1").mkdir()
+			(root / "run2").mkdir()
+			(root / "run1/stderr.log").write_text(
+				"texture budget map=c1a2 packed=161 total=161 pool_bytes=192000 "
+				"resident_bytes=144416 hot_bytes=43040 split_dim=32\n"
+				"texture budget map=c1a3 packed=1 total=1 pool_bytes=100 "
+				"resident_bytes=50 hot_bytes=10 split_dim=64\n", encoding="utf-8")
+			(root / "run2/stderr.log").write_text(
+				"texture budget map=c1a3 packed=4 total=9 pool_bytes=100 "
+				"resident_bytes=50 hot_bytes=10 split_dim=8\n", encoding="utf-8")
+			results = root / "results.tsv"
+			results.write_text("map\tstatus\tlog_path\n"
+				"c1a2\tMAP_READY\trun1\n"
+				"c1a3\tTIMEOUT\trun2\n"
+				"c2a1\tGUEST_FAILURE\tmissing\n", encoding="utf-8")
+			rows = audit.audit(results, root)
+			self.assertEqual([row["coverage"] for row in rows],
+				["COMPLETE", "INCOMPLETE", "UNAVAILABLE"])
+			self.assertEqual(rows[1]["packed"], "4")
+			self.assertEqual(rows[2]["map_status"], "GUEST_FAILURE")
 
 	def test_stage_sd_assets_route_carda(self) -> None:
 		import subprocess

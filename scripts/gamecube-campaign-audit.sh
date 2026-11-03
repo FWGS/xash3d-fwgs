@@ -188,6 +188,14 @@ else
 			' "$LATEST_MAP_LOG/results.tsv" >> "$MAP_TSV"
 		done
 	done
+	# Keep visual-memory evidence separate from map readiness: an otherwise
+	# successful load may have admitted only part of its texture pack.
+	if ! python3 scripts/gamecube-texture-budget-audit.py \
+		--map-results "$LOG_BASE/raw-map-results.tsv" \
+		--output "$LOG_BASE/texture-budget-results.tsv"; then
+		echo "texture budget audit failed" >&2
+		exit 1
+	fi
 fi
 
 for row in "${AUDIT_CHAPTER_ROWS[@]}"; do
@@ -300,6 +308,9 @@ PY
 	echo "- Map source: \`$MAP_SOURCE_DIR\`"
 	echo "- Per-map timeout: ${PROBE_TIMEOUT}s"
 	echo "- Map results: \`$MAP_TSV\`"
+	if [[ "$DRY_RUN" != "1" ]]; then
+		echo "- Texture budget samples: \`$LOG_BASE/texture-budget-results.tsv\` (coverage only; not visual verification)"
+	fi
 	echo "- Chapter results: \`$CHAPTER_TSV\`"
 	echo "- Transition results: \`$TRANSITION_TSV\`"
 	echo "- Map loads do not establish chapter playability or completion; transitions below only check whether target files exist."

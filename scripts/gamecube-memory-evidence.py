@@ -35,6 +35,10 @@ FAIL_RE = re.compile(
 ARENA_RE = re.compile(
     r"mem arena tail=(?P<status>AVAILABLE|UNAVAILABLE|PASS|FAIL|OVERLAP)\s+"
     r"(?P<fields>[^\n]+)", re.I)
+TEXTURE_BUDGET_RE = re.compile(
+    r"texture budget map=(?P<map>\S+) packed=(?P<packed>\d+) total=(?P<total>\d+) "
+    r"pool_bytes=(?P<pool_bytes>\d+) resident_bytes=(?P<resident_bytes>\d+) "
+    r"hot_bytes=(?P<hot_bytes>\d+)(?:\s+split_dim=(?P<split_dim>\d+))?", re.I)
 
 
 def parse_size(value: str) -> int | None:
@@ -99,7 +103,8 @@ def elf_sections(path: Path) -> list[str]:
 
 def collect_logs(root: Path, explicit: list[Path]) -> str:
     paths = [path if path.is_absolute() else root / path for path in explicit]
-    paths.extend(sorted((root / ".ai/logs").glob("**/*.log")))
+    if not paths:
+        paths = sorted((root / ".ai/logs").glob("**/*.log"))
     return "\n".join(read_text(path) for path in dict.fromkeys(paths))
 
 
@@ -164,6 +169,14 @@ def generate(root: Path, log_paths: list[Path]) -> dict[str, object]:
         for key, value in re.findall(r"(\w+)=([0-9]+)", match.group("fields")):
             row[key if key.endswith("_bytes") else f"{key}_bytes"] = int(value)
         arena_tail.append(row)
+    texture_budgets = []
+    for match in TEXTURE_BUDGET_RE.finditer(log_text):
+        row = match.groupdict()
+        for key in ("packed", "total", "pool_bytes", "resident_bytes", "hot_bytes"):
+            row[key] = int(row[key])
+        row["split_dim"] = int(row["split_dim"]) if row["split_dim"] is not None else None
+        row["complete"] = row["total"] > 0 and row["packed"] == row["total"]
+        texture_budgets.append(row)
     largest = max(failures, key=lambda row: row.get("size_bytes") or -1,
         default=None)
     per_map: dict[str, dict[str, object]] = {}
@@ -195,6 +208,7 @@ def generate(root: Path, log_paths: list[Path]) -> dict[str, object]:
             "mem2_high_water_bytes": "UNAVAILABLE",
             "samples": samples, "map_load_pressure": pressure,
             "arena_tail": arena_tail,
+            "texture_budgets": texture_budgets,
             "per_map_peak": list(per_map.values()), "largest_failed_allocation": largest,
             "texture_lightmap_audio_cache": "UNAVAILABLE without tagged telemetry"},
         "interpretation": "measured fields only; unavailable fields are not estimates",
@@ -208,7 +222,7 @@ def markdown(report: dict[str, object]) -> str:
     arena_pass = sum(1 for row in arena if row.get("status") in ("PASS", "AVAILABLE"))
     arena_overlap = sum(1 for row in arena if row.get("status") == "OVERLAP")
     arena_remaining = max((row.get("remaining_bytes", 0) for row in arena), default=0)
-    return "\n".join([
+    lines = [
         "# Generated GameCube Memory Evidence", "",
         f"Schema: `{report['schema']}`", "",
         "| Field | Value |", "|---|---|",
@@ -224,11 +238,23 @@ def markdown(report: dict[str, object]) -> str:
         f"| Arena-tail telemetry samples | {len(runtime['arena_tail'])} |",
         f"| Arena-tail PASS/AVAILABLE | {arena_pass} |",
         f"| Arena-tail OVERLAP rejects | {arena_overlap} |",
+        f"| Texture budget samples | {len(runtime['texture_budgets'])} |",
         f"| Largest reported tail | {arena_remaining} bytes |",
         f"| Largest failed allocation | {runtime['largest_failed_allocation'] or 'UNAVAILABLE'} |",
         f"| Texture/lightmap/audio/cache | {runtime['texture_lightmap_audio_cache']} |",
-        "", "This file is generated. Do not turn unavailable fields into estimates.", "",
-    ])
+    ]
+    if runtime["texture_budgets"]:
+        lines.extend(["", "## Texture budget samples", "",
+            "| Map | Packed / total | Resident bytes | Hot bytes | Split threshold |",
+            "|---|---:|---:|---:|---:|"])
+        for row in runtime["texture_budgets"]:
+            lines.append(
+                f"| {row['map']} | {row['packed']} / {row['total']} | "
+                f"{row['resident_bytes']} | {row['hot_bytes']} | "
+                f"{row['split_dim'] if row['split_dim'] is not None else 'UNAVAILABLE'} |"
+            )
+    lines.extend(["", "This file is generated. Do not turn unavailable fields into estimates.", ""])
+    return "\n".join(lines)
 
 
 def main() -> int:
@@ -236,7 +262,8 @@ def main() -> int:
     parser.add_argument("--repo", type=Path, default=Path(__file__).resolve().parents[1])
     parser.add_argument("--output", type=Path)
     parser.add_argument("--markdown", type=Path)
-    parser.add_argument("--log", type=Path, action="append", default=[])
+    parser.add_argument("--log", type=Path, action="append", default=[],
+        help="use only these logs; without --log, discover logs under .ai/logs")
     args = parser.parse_args()
     root = args.repo.resolve()
     report = generate(root, args.log)

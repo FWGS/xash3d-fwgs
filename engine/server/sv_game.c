@@ -58,6 +58,78 @@ static byte gc_ent_priv_slab_bits[sizeof( gc_ent_priv_slab ) / 16 / 8];
 static size_t gc_ent_priv_slab_used;
 static int gc_ent_priv_slab_hits;
 static uint16_t gc_ent_priv_slab_size[MAX_EDICTS];
+static byte *gc_ent_priv_overflow;
+static byte gc_ent_priv_overflow_bits[GC_ENTITY_OVERFLOW_BYTES / 16 / 8];
+static size_t gc_ent_priv_overflow_capacity;
+static size_t gc_ent_priv_overflow_used;
+
+/* Borrow only the unused tail of this world's retained map arena. The server
+ * releases it after all entity private-data destructors have run. */
+void SV_GCReservePrivateOverflow( size_t after, size_t bytes )
+{
+	if( gc_ent_priv_overflow )
+		return;
+	if( bytes > GC_ENTITY_OVERFLOW_BYTES ) bytes = GC_ENTITY_OVERFLOW_BYTES;
+	bytes &= ~(size_t)31;
+	if( !bytes ) return;
+	gc_ent_priv_overflow = GC_MapLoadBufferTailAlloc( after, bytes );
+	if( gc_ent_priv_overflow )
+	{
+		gc_ent_priv_overflow_capacity = bytes;
+		memset( gc_ent_priv_overflow_bits, 0, sizeof( gc_ent_priv_overflow_bits ));
+		gc_ent_priv_overflow_used = 0;
+		Con_Reportf( "Xash3D GameCube: entity overflow reserved %u bytes in map arena\n",
+			(unsigned)bytes );
+	}
+}
+
+qboolean SV_GCPrivateOverflowReserved( void )
+{
+	return gc_ent_priv_overflow != NULL;
+}
+
+static qboolean SV_GCPrivateDataIsOverflow( const void *ptr )
+{
+	const uintptr_t p = (uintptr_t)ptr;
+	const uintptr_t base = (uintptr_t)gc_ent_priv_overflow;
+	return gc_ent_priv_overflow && p >= base && p - base < gc_ent_priv_overflow_capacity;
+}
+
+static void *SV_GCPrivateOverflowAlloc( size_t size )
+{
+	size_t i, start = 0, run = 0;
+	const size_t blocks = gc_ent_priv_overflow_capacity / 16;
+	const size_t need = ( size + 15 ) / 16;
+	if( !gc_ent_priv_overflow || !need || need > blocks )
+		return NULL;
+	for( i = 0; i < blocks; i++ )
+	{
+		if( gc_ent_priv_overflow_bits[i / 8] & ( 1u << ( i & 7 )))
+		{
+			run = 0;
+			continue;
+		}
+		if( !run ) start = i;
+		if( ++run == need )
+		{
+			for( i = start; i < start + need; i++ )
+				gc_ent_priv_overflow_bits[i / 8] |= 1u << ( i & 7 );
+			gc_ent_priv_overflow_used += need * 16;
+			return gc_ent_priv_overflow + start * 16;
+		}
+	}
+	return NULL;
+}
+
+static void SV_GCPrivateOverflowFree( void *ptr, size_t size )
+{
+	const size_t start = ((byte *)ptr - gc_ent_priv_overflow ) / 16;
+	const size_t need = ( size + 15 ) / 16;
+	size_t i;
+	for( i = start; i < start + need; i++ )
+		gc_ent_priv_overflow_bits[i / 8] &= ~( 1u << ( i & 7 ));
+	gc_ent_priv_overflow_used -= need * 16;
+}
 
 static void *SV_GCPrivateSlabAlloc( size_t size )
 {
@@ -1324,6 +1396,15 @@ static void GAME_EXPORT SV_FreePrivateData( edict_t *pEdict )
 			gc_ent_priv_slab_size[edict_index] = 0;
 		/* Slab blocks never pass to Mem_Free/free. */
 	}
+	else if( SV_GCPrivateDataIsOverflow( pEdict->pvPrivateData ))
+	{
+		const int edict_index = NUM_FOR_EDICT( pEdict );
+		const size_t size = edict_index >= 0 && edict_index < MAX_EDICTS
+			? gc_ent_priv_slab_size[edict_index] : 0;
+		if( size ) SV_GCPrivateOverflowFree( pEdict->pvPrivateData, size );
+		if( edict_index >= 0 && edict_index < MAX_EDICTS )
+			gc_ent_priv_slab_size[edict_index] = 0;
+	}
 	else if( Mem_IsAllocatedExt( svgame.mempool, pEdict->pvPrivateData ))
 		Mem_Free( pEdict->pvPrivateData );
 	else if( Sys_CheckParm( "-gcmap" ) || Sys_CheckParm( "-gcnewgame" ) || GC_MapLoadMemoryOpt() )
@@ -1553,6 +1634,18 @@ void SV_FreeEdicts( void )
 		if( ent->free ) continue;
 		SV_FreeEdict( ent );
 	}
+#if XASH_GAMECUBE
+	/* Only after game-DLL destructors have finished may the world arena be
+	 * discarded or reused for the next BSP. */
+	if( gc_ent_priv_overflow_used )
+		Con_Reportf( S_WARN "Xash3D GameCube: entity overflow still has %u live bytes after edict cleanup\n",
+			(unsigned)gc_ent_priv_overflow_used );
+	else
+	{
+		gc_ent_priv_overflow = NULL;
+		gc_ent_priv_overflow_capacity = 0;
+	}
+#endif
 }
 
 /*
@@ -3433,7 +3526,8 @@ static void *GAME_EXPORT pfnPvAllocEntPrivateData( edict_t *pEdict, long cb )
 			/* Small map entities use the bounded private-data slab first. Reuse
 			 * holes left by destroyed entities before requesting heap memory. */
 			if( !pEdict->pvPrivateData && size <= 1024
-				&& ( pEdict->pvPrivateData = SV_GCPrivateSlabAlloc( size )) != NULL )
+				&& (( pEdict->pvPrivateData = SV_GCPrivateSlabAlloc( size )) != NULL
+					|| ( pEdict->pvPrivateData = SV_GCPrivateOverflowAlloc( size )) != NULL ))
 			{
 				const int edict_index = NUM_FOR_EDICT( pEdict );
 				memset( pEdict->pvPrivateData, 0, size );
@@ -3442,8 +3536,8 @@ static void *GAME_EXPORT pfnPvAllocEntPrivateData( edict_t *pEdict, long cb )
 					gc_ent_priv_slab_size[edict_index] = (uint16_t)size;
 				used_fallback = true;
 				if( gc_ent_priv_slab_hits <= 3 || ( gc_ent_priv_slab_hits & 15 ) == 0 )
-					Con_Reportf( "Xash3D GameCube: G330 ent private slab size=%zu edict=%d hits=%d used=%zu\n",
-						size, edict_index, gc_ent_priv_slab_hits, gc_ent_priv_slab_used );
+					Con_Reportf( "Xash3D GameCube: G330 ent private slab size=%zu edict=%d hits=%d used=%zu overflow=%zu\n",
+						size, edict_index, gc_ent_priv_slab_hits, gc_ent_priv_slab_used, gc_ent_priv_overflow_used );
 			}
 			if( !pEdict->pvPrivateData )
 				pEdict->pvPrivateData = Mem_TryCalloc( svgame.mempool, size );

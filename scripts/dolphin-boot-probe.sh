@@ -12,60 +12,7 @@ if [ "${GC_BOOT_PROBE_INNER:-0}" != "1" ]; then
 	export GC_BOOT_PROBE_INNER=1
 	exec timeout --foreground --signal=TERM --kill-after=10 "$PROBE_TIMEOUT" "$0" "$@"
 fi
-cleanup_boot_probe_processes() {
-	# Never terminate the user's interactive Dolphin session. A probe has a
-	# unique -u profile, so scope cleanup to processes carrying this exact path.
-	python3 - "${USER_DIR:-}" <<'PY'
-import os, signal, sys, time
-
-profile = os.path.realpath(sys.argv[1]) if len(sys.argv) > 1 and sys.argv[1] else ""
-if not profile:
-	 raise SystemExit(0)
-
-def owned_pids():
-	found = []
-	for entry in os.scandir("/proc"):
-		if not entry.name.isdigit():
-			continue
-		try:
-			with open(f"/proc/{entry.name}/cmdline", "rb") as f:
-				argv = [arg.decode(errors="replace") for arg in f.read().split(b"\0") if arg]
-		except (OSError, ProcessLookupError):
-			continue
-		if not argv or os.path.basename(argv[0]).lower() not in {
-			"dolphin-emu", "dolphinqt", "xash-gc-dolphin", "flatpak"
-		}:
-			continue
-		for i, arg in enumerate(argv[:-1]):
-			if arg == "-u" and os.path.realpath(argv[i + 1]) == profile:
-				found.append(int(entry.name))
-				break
-	return found
-
-pids = owned_pids()
-for pid in pids:
-	try: os.kill(pid, signal.SIGTERM)
-	except ProcessLookupError: pass
-deadline = time.monotonic() + 1.5
-while pids and time.monotonic() < deadline:
-	time.sleep(0.1)
-	pids = [pid for pid in pids if os.path.exists(f"/proc/{pid}")]
-for pid in pids:
-	try: os.kill(pid, signal.SIGKILL)
-	except ProcessLookupError: pass
-PY
-}
-cleanup_boot_probe_locks() {
-	# flock releases automatically when this process exits. Keep the inode so
-	# concurrent probes cannot lock a newly-created replacement inode.
-	:
-}
-on_boot_probe_exit() {
-    rc=$?
-    cleanup_boot_probe_processes
-    cleanup_boot_probe_locks
-    exit "$rc"
-}
+source "$(dirname "${BASH_SOURCE[0]}")/dolphin-probe-cleanup.sh" || exit $?
 trap on_boot_probe_exit EXIT INT TERM
 set -uo pipefail
 ROOT="$(git rev-parse --show-toplevel)"
@@ -241,57 +188,7 @@ ImmediateXFBEnable = False
 EOF
 	echo "==> DumpFrames GFX DisableCopyToVRAM=${DUMP_COPY_TO_VRAM} (${DUMP_COPY_NOTE})"
 fi
-# DOLPHIN_PAD_PIPE=1: map GameCube port 1 to a Dolphin named-pipe device
-# ($USER_DIR/Pipes/gcpad) so a driver script can send real SI pad packets
-# (PRESS A / SET MAIN x y / SET C x y) instead of the engine's synthetic pad.
-if [[ "${DOLPHIN_PAD_PIPE:-0}" == "1" ]]; then
-	# The FIFO needs a POSIX filesystem (the project drive is not one):
-	# set DOLPHIN_USER_DIR to a tmpfs path for pipe runs.
-	mkdir -p "$USER_DIR/Pipes"
-	rm -f "$USER_DIR/Pipes/gcpad"
-	mkfifo "$USER_DIR/Pipes/gcpad" || { echo "error: cannot create pad FIFO under $USER_DIR (set DOLPHIN_USER_DIR to a tmpfs path)" >&2; exit 1; }
-	cat > "$USER_DIR/Config/GCPadNew.ini" <<'EOF'
-[GCPad1]
-Device = Pipe/0/gcpad
-Buttons/A = `Button A`
-Buttons/B = `Button B`
-Buttons/X = `Button X`
-Buttons/Y = `Button Y`
-Buttons/Z = `Button Z`
-Buttons/Start = `Button START`
-Main Stick/Up = `Axis MAIN Y -`
-Main Stick/Down = `Axis MAIN Y +`
-Main Stick/Left = `Axis MAIN X -`
-Main Stick/Right = `Axis MAIN X +`
-C-Stick/Up = `Axis C Y -`
-C-Stick/Down = `Axis C Y +`
-C-Stick/Left = `Axis C X -`
-C-Stick/Right = `Axis C X +`
-Triggers/L = `Button L`
-Triggers/R = `Button R`
-D-Pad/Up = `Button D_UP`
-D-Pad/Down = `Button D_DOWN`
-D-Pad/Left = `Button D_LEFT`
-D-Pad/Right = `Button D_RIGHT`
-EOF
-	# The render window is not focused during automated runs.
-	printf '[Input]\nBackgroundInput = True\n' >> "$USER_DIR/Config/Dolphin.ini"
-	echo "==> GameCube port 1 on Dolphin pipe $USER_DIR/Pipes/gcpad"
-fi
-cat > "$USER_DIR/Config/Logger.ini" <<'EOF'
-[Logs]
-BOOT = True
-CORE = True
-DVD = False
-OSREPORT = True
-OSREPORT_HLE = True
-PowerPC = False
-[Options]
-Verbosity = 4
-WriteToConsole = True
-WriteToFile = True
-WriteToWindow = False
-EOF
+source scripts/dolphin-probe-config.sh || exit $?
 echo "==> Building GameCube engine and DOL..."
 SKIP_ENGINE=0
 SKIP_DISC=0
@@ -726,10 +623,9 @@ else
 fi
 cleanup_flatpak_dolphin() {
 	if (( DOLPHIN_IS_FLATPAK )); then
-		flatpak kill "${DOLPHIN_FLATPAK_ID:-org.DolphinEmu.dolphin-emu}" >/dev/null 2>&1 || true
-		pkill -TERM -f "dolphin.*${USER_DIR}" >/dev/null 2>&1 || true
-		sleep 1
-		pkill -KILL -f "dolphin.*${USER_DIR}" >/dev/null 2>&1 || true
+		# The Flatpak application ID may also be used by an interactive
+		# Dolphin session. Only stop processes carrying this probe's profile.
+		cleanup_boot_probe_processes
 	fi
 }
 # Playtest recording (DOLPHIN_RECORD=0 to skip): Dolphin plays into a private

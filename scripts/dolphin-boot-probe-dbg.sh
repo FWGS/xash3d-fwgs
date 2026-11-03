@@ -12,20 +12,7 @@ if [ "${GC_BOOT_PROBE_INNER:-0}" != "1" ]; then
 	export GC_BOOT_PROBE_INNER=1
 	exec timeout --foreground --signal=TERM --kill-after=10 "$PROBE_TIMEOUT" "$0" "$@"
 fi
-cleanup_boot_probe_processes() {
-    pkill -TERM -f '[d]olphin-emu|[D]olphinQt' 2>/dev/null || true
-    sleep 1
-    pkill -KILL -f '[d]olphin-emu|[D]olphinQt' 2>/dev/null || true
-}
-cleanup_boot_probe_locks() {
-    rm -f .ai/dolphin-probe.lock .ai/goal-supervisor.lock .ai/goal-loop.lock 2>/dev/null || true
-}
-on_boot_probe_exit() {
-    rc=$?
-    cleanup_boot_probe_processes
-    cleanup_boot_probe_locks
-    exit "$rc"
-}
+source "$(dirname "${BASH_SOURCE[0]}")/dolphin-probe-cleanup.sh" || exit $?
 trap on_boot_probe_exit EXIT INT TERM
 set -uo pipefail
 ROOT="$(git rev-parse --show-toplevel)"
@@ -649,10 +636,7 @@ else
 fi
 cleanup_flatpak_dolphin() {
 	if (( DOLPHIN_IS_FLATPAK )); then
-		flatpak kill "${DOLPHIN_FLATPAK_ID:-org.DolphinEmu.dolphin-emu}" >/dev/null 2>&1 || true
-		pkill -TERM -f "dolphin.*${USER_DIR}" >/dev/null 2>&1 || true
-		sleep 1
-		pkill -KILL -f "dolphin.*${USER_DIR}" >/dev/null 2>&1 || true
+		cleanup_boot_probe_processes
 	fi
 }
 echo "==> Launching bounded Dolphin boot probe (${TIMEOUT_SEC}s, MMU=${DOLPHIN_MMU})..."
