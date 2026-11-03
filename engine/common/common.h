@@ -381,6 +381,7 @@ void _Mem_EmptyPool( poolhandle_t poolptr, const char *filename, int fileline );
 void _Mem_Check( const char *filename, int fileline );
 qboolean Mem_IsAllocatedExt( poolhandle_t poolptr, void *data );
 #if XASH_GAMECUBE
+const char *Mem_FindPoolString( poolhandle_t poolptr, const char *value );
 qboolean GC_MemCheckChains( const char *tag );
 void GC_MemWatch( const char *tag );
 extern qboolean gc_mem_watch_enabled, gc_mem_watch_hot;

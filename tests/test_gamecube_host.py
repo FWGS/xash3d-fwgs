@@ -26,6 +26,53 @@ def load_script(name: str, relative: str):
 
 
 class GameCubeHostTests(unittest.TestCase):
+	def test_campaign_audit_uses_invocation_results_and_does_not_claim_playability(self) -> None:
+		import subprocess
+		with tempfile.TemporaryDirectory() as tmpdir:
+			root = Path(tmpdir)
+			maps = root / "maps"
+			maps.mkdir()
+			(maps / "c5a1.bsp").write_bytes(b"fixture")
+			results = root / "probe-results"
+			results.mkdir()
+			(results / "results.tsv").write_text(
+				"map\tstatus\tmemory_peak\tblocker\tlog_path\n"
+				"c5a1\tMAP_READY\tN/A\t\tfixture\n", encoding="utf-8")
+			probe = root / "probe.sh"
+			probe.write_text(f'#!/bin/sh\nprintf "   TSV: %s/results.tsv\\n" "{results}"\n', encoding="utf-8")
+			probe.chmod(0o755)
+			out = root / "audit"
+			env = {**os.environ, "MAP_SOURCE_DIR": str(maps), "MAP_COMPAT_SCRIPT": str(probe),
+				"CAMPAIGN_AUDIT_LOG_DIR": str(out)}
+			run = subprocess.run(["bash", "scripts/gamecube-campaign-audit.sh", "--chapter", "Endgame"],
+				cwd=ROOT, env=env, text=True, capture_output=True, timeout=30)
+			self.assertEqual(run.returncode, 0, run.stdout + run.stderr)
+			self.assertIn("Endgame\tmaps_loaded\t1\t1", (out / "chapter-results.tsv").read_text())
+			self.assertIn("do not establish chapter playability", (out / "summary.md").read_text())
+
+	def test_map_compat_rejects_stale_and_fatal_probe_evidence(self) -> None:
+		import subprocess
+		with tempfile.TemporaryDirectory() as tmpdir:
+			root = Path(tmpdir)
+			(root / "c5a1.bsp").write_bytes(b"fixture")
+			log = root / "probe-log"
+			log.mkdir()
+			(log / "stderr.log").write_text(
+				"Xash3D GameCube: map loaded c5a1\n"
+				"Xash3D GameCube: fatal message=out of memory\n", encoding="utf-8")
+			probe = root / "probe.sh"
+			env = {**os.environ, "MAP_SOURCE_DIR": str(root), "GAMECUBE_MAP_PROBE_SCRIPT": str(probe)}
+			probe.write_text(f'printf "Logs: %s\\nMAP_READY: c5a1\\n" "{log}"\n', encoding="utf-8")
+			result = subprocess.run(["bash", "scripts/gamecube-map-compat-probe.sh", "c5a1"],
+				cwd=ROOT, env=env, text=True, capture_output=True, timeout=30)
+			self.assertNotEqual(result.returncode, 0, result.stdout)
+			self.assertIn("Result: GUEST_FAILURE", result.stdout)
+			probe.write_text('echo "probe failed before reporting logs"\nexit 1\n', encoding="utf-8")
+			result = subprocess.run(["bash", "scripts/gamecube-map-compat-probe.sh", "c5a1"],
+				cwd=ROOT, env=env, text=True, capture_output=True, timeout=30)
+			self.assertNotEqual(result.returncode, 0, result.stdout)
+			self.assertIn("Result: INCONCLUSIVE", result.stdout)
+
 	def test_disc_asset_staging_requires_delta_lst(self) -> None:
 		disc = load_script("disc", "scripts/build-gamecube-disc.py")
 		with tempfile.TemporaryDirectory() as tmpdir:
@@ -1024,6 +1071,12 @@ class GameCubeHostTests(unittest.TestCase):
 		errors = fs.validate_schema_record(bad)
 		self.assertTrue(any("writable" in e for e in errors))
 		self.assertTrue(any("g508=PASS" in e for e in errors))
+		pending = fs.parse_schema_record({"route": "sd", "g508": "unseen", "writable": "false"})
+		self.assertEqual(pending["g508"], "unseen")
+		self.assertFalse(pending["writable"])
+		self.assertEqual(fs.validate_schema_record(pending), [])
+		with self.assertRaises(ValueError):
+			fs.parse_schema_record({"route": "disc", "writable": "perhaps"})
 
 	def test_fs022_matrix_scores_disc_hybrid_and_schema(self) -> None:
 		fs = load_script("fs_route2", "scripts/waifulib/gamecube_fs_route.py")
@@ -1139,6 +1192,8 @@ class GameCubeHostTests(unittest.TestCase):
 		self.assertIn("size_t GC_MapLoadBufferCapacity( void )", memory)
 		self.assertIn("scratch_capacity = GC_MapLoadBufferCapacity()", bmodel)
 		self.assertIn("mod_base + scratch_capacity - carve_total", bmodel)
+		self.assertIn('!Sys_CheckParm( "-gcmap" )', bmodel)
+		self.assertIn("GC_WT_MIN_POOL_BYTES ( 16 * 1024 )", bmodel)
 
 	def test_deferred_viewmodel_uses_post_budget_threshold(self) -> None:
 		video = (ROOT / "engine/platform/gamecube/vid_gamecube.c").read_text(encoding="utf-8")
@@ -1309,6 +1364,7 @@ class GameCubeHostTests(unittest.TestCase):
 		self.assertGreaterEqual(sys_gc.count("GC_RefreshBootSplash()"), 2)
 		self.assertIn("half-staged cards", sys_gc)
 		self.assertIn(".bsp", sys_gc[sys_gc.index("GCube_HasValveAssets"):sys_gc.index("GCube_PathAccessible")])
+		self.assertIn("media/valve.gcvid", sys_gc[sys_gc.index("GCube_HasValveAssets"):sys_gc.index("GCube_PathAccessible")])
 		self.assertIn("GCube_HasValveAssets( candidate )", sys_gc)
 		wait = (ROOT / "scripts/gamecube-swiss-sd-wait.sh").read_text(encoding="utf-8")
 		self.assertIn("--rsync", wait)

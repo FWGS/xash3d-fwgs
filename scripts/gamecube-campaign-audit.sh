@@ -74,11 +74,12 @@ CHAPTERS=(
 	"Surface Tension|c2a5|c2a5 c2a5a c2a5b c2a5c c2a5d c2a5e c2a5f c2a5g c2a5w c2a5x"
 	"Forget About Freeman|c3a1|c3a1 c3a1a c3a1b"
 	"Lambda Core|c3a2|c3a2 c3a2a c3a2b c3a2c c3a2d c3a2e c3a2f"
-	"Xen|c4a1|c4a1 c4a1a c4a1b c4a1c c4a1d c4a1e c4a1f"
+	"Xen|c4a1|c4a1"
 	"Gonarch's Lair|c4a2|c4a2 c4a2a c4a2b"
-	"Interloper|c4a3|c4a3"
-	"Nihilanth|c5a1|c5a1"
-	"Hazard Course|t0a0|t0a0 t0a0a t0a0b t0a0b1"
+	"Interloper|c4a1a|c4a1a c4a1b c4a1c c4a1d c4a1e c4a1f"
+	"Nihilanth|c4a3|c4a3"
+	"Endgame|c5a1|c5a1"
+	"Hazard Course|t0a0|t0a0 t0a0a t0a0b t0a0b1 t0a0b2 t0a0c t0a0d"
 )
 
 declare -a MAPS
@@ -162,7 +163,9 @@ else
 		done
 	done
 	MAP_COMPAT_TIMEOUT="$PROBE_TIMEOUT" "$MAP_COMPAT_SCRIPT" "${MAPS[@]}" | tee "$LOG_BASE/map-compat.log"
-	LATEST_MAP_LOG="$(ls -td .ai/logs/map-compat-* 2>/dev/null | head -n 1 || true)"
+	# Consume only the directory reported by this invocation, never a concurrent
+	# or older run that happens to have the newest timestamp.
+	LATEST_MAP_LOG="$(awk '/^   TSV: / {sub(/\/results\.tsv$/, "", $2); print $2}' "$LOG_BASE/map-compat.log" | tail -n 1)"
 	if [[ -z "$LATEST_MAP_LOG" || ! -s "$LATEST_MAP_LOG/results.tsv" ]]; then
 		echo "map compatibility probe did not produce results.tsv" >&2
 		exit 1
@@ -213,9 +216,9 @@ for row in "${AUDIT_CHAPTER_ROWS[@]}"; do
 		esac
 	done
 	if (( loaded == total && total > 0 )); then
-		classification="playable"
+		classification="maps_loaded"
 	elif (( loaded > 0 )); then
-		classification="partially_playable"
+		classification="partially_loaded"
 	elif [[ "$blocker" == *"not tested"* ]]; then
 		classification="not_tested"
 	else
@@ -299,6 +302,7 @@ PY
 	echo "- Map results: \`$MAP_TSV\`"
 	echo "- Chapter results: \`$CHAPTER_TSV\`"
 	echo "- Transition results: \`$TRANSITION_TSV\`"
+	echo "- Map loads do not establish chapter playability or completion; transitions below only check whether target files exist."
 	echo
 	echo "## Transition Summary"
 	echo

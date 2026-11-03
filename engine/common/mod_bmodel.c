@@ -3199,12 +3199,14 @@ static void Mod_LoadPlanes( model_t *mod, const dbspmodel_t *bmod )
 Mod_LoadVertexes
 =================
 */
+static void *Mod_GCWorldArrayAlloc( model_t *mod, dbspmodel_t *bmod, size_t bytes, const char *what );
+
 static void Mod_LoadVertexes( model_t *mod, dbspmodel_t *bmod )
 {
 	mvertex_t	*out;
 
 	dvertex_t	*in = bmod->vertexes;
-	out = mod->vertexes = Mem_Malloc( mod->mempool, bmod->numvertexes * sizeof( mvertex_t ));
+	out = mod->vertexes = Mod_GCWorldArrayAlloc( mod, bmod, bmod->numvertexes * sizeof( mvertex_t ), "vertexes" );
 	mod->numvertexes = bmod->numvertexes;
 
 	if( bmod->isworld ) ClearBounds( world.mins, world.maxs );
@@ -3693,7 +3695,7 @@ static struct
  * large contiguous MEM1 allocation. Boot/map load leaves little headroom; the
  * full texture chains live in ARAM and this pool only holds active low mips. */
 #define GC_WT_POOL_BYTES ( 448 * 1024 )
-#define GC_WT_MIN_POOL_BYTES ( 256 * 1024 )
+#define GC_WT_MIN_POOL_BYTES ( 16 * 1024 )
 #define GC_WT_TAIL_GUARD_BYTES ( 96 * 1024 )
 #define GC_WT_SPLIT_DIM  64
 static byte *gc_wt_pool;
@@ -3770,6 +3772,7 @@ static void Mod_GCWorldPackLoad( const char *modelname, size_t surface_reserve )
 	uint32_t i, data_bytes, first, low, hits = 0, misses = 0, hit_bytes = 0, miss_bytes = 0;
 	size_t pool_bytes = gc_wt_pool_bytes ? gc_wt_pool_bytes : GC_WT_POOL_BYTES;
 	double start;
+	(void)surface_reserve;
 
 	if( gc_wt.block )
 	{
@@ -3788,7 +3791,8 @@ static void Mod_GCWorldPackLoad( const char *modelname, size_t surface_reserve )
 	 * switch. They still need the same ARAM world-pack path; otherwise the
 	 * BSP's embedded textures are decoded into MEM1 and produce misleading
 	 * transition-pressure fallbacks. */
-	if(( !GC_MenuRunsServer() && !Sys_CheckParm( "-gcnewgame" ))
+	if(( !GC_MenuRunsServer() && !Sys_CheckParm( "-gcnewgame" )
+		&& !Sys_CheckParm( "-gcmap" ))
 		|| Sys_CheckParm( "-gcnotexpacks" ))
 		return;
 	COM_FileBase( modelname, stem, sizeof( stem ));
@@ -3815,7 +3819,11 @@ static void Mod_GCWorldPackLoad( const char *modelname, size_t surface_reserve )
 		size_t remaining, reserve, tail_pool;
 		after = Q_max( after, GC_MapLoadBufferTailHighwater() );
 		remaining = capacity > after ? capacity - after : 0;
-		reserve = surface_reserve + GC_WT_TAIL_GUARD_BYTES;
+		/* The pack may split chains into ARAM; reserving the entire future
+		 * surface cache here prevents dense maps from using their remaining
+		 * map-arena tail at all. Keep only a guard and let later surface
+		 * allocation fall back to the heap if needed. */
+		reserve = GC_WT_TAIL_GUARD_BYTES;
 		tail_pool = GC_WT_POOL_BYTES;
 		if( remaining > reserve && remaining - reserve < tail_pool )
 		{
@@ -3854,10 +3862,21 @@ static void Mod_GCWorldPackLoad( const char *modelname, size_t surface_reserve )
 	}
 	memcpy( &gc_wt.count, gc_wt_pool + 4, sizeof( gc_wt.count ));
 	if( gc_wt.count > GC_WT_MAX_TEXTURES )
-		gc_wt.count = GC_WT_MAX_TEXTURES;
+	{
+		gc_wt.count = 0;
+		FS_Close( f );
+		return;
+	}
 	memcpy( &data_bytes, gc_wt_pool + 8, sizeof( data_bytes ));
 	first = ( 12 + gc_wt.count * sizeof( gc_wt_entry_t ) + 31 ) & ~(uint32_t)31;
-	FS_Read( f, gc_wt_pool + 12, first - 12 );
+	if( first > pool_bytes || size < first || data_bytes > size - first
+		|| FS_Read( f, gc_wt_pool + 12, first - 12 ) != first - 12 )
+	{
+		Con_Reportf( S_ERROR "Xash3D GameCube: world texture pack %s table exceeds budget or file\n", path );
+		gc_wt.count = 0;
+		FS_Close( f );
+		return;
+	}
 	gc_wt.table = (gc_wt_entry_t *)( gc_wt_pool + 12 );
 	gc_wt.data = gc_wt_pool + first;
 	low = 0;
@@ -3871,6 +3890,8 @@ static void Mod_GCWorldPackLoad( const char *modelname, size_t surface_reserve )
 		const uint32_t skip = split ? e->width * e->height / 2 : 0;
 		const uint32_t room = (uint32_t)pool_bytes - first - low;
 		const gc_wt_stored_t *s = Mod_GCWorldStoreFind( e, bytes );
+		if( end <= e->offset || end > data_bytes || skip > bytes )
+			break;
 
 		if( s )
 		{
@@ -3880,12 +3901,16 @@ static void Mod_GCWorldPackLoad( const char *modelname, size_t surface_reserve )
 		else
 		{
 			/* Through the top of the pool, on its way to ARAM. */
-			byte *through = gc_wt_pool + (( (uint32_t)pool_bytes - bytes ) & ~(uint32_t)31 );
+			byte *through;
 
 			if( bytes > room )
 				break;
+			through = gc_wt_pool + (( (uint32_t)pool_bytes - bytes ) & ~(uint32_t)31 );
+			if( through < gc_wt.data + low )
+				break;
 			FS_Seek( f, first + e->offset, SEEK_SET );
-			FS_Read( f, through, bytes );
+			if( FS_Read( f, through, bytes ) != bytes )
+				break;
 			s = Mod_GCWorldStorePut( e, through, bytes );
 			misses++;
 			miss_bytes += bytes;
@@ -4011,7 +4036,8 @@ static void Mod_LoadTextureData( model_t *mod, dbspmodel_t *bmod, int textureInd
 	}
 
 	// Try WAD texture (force while r_wadtextures is 1)
-	if( !texture->gl_texturenum && (( r_wadtextures.value && world.wadcount > 0 ) || mipTex.offsets[0] <= 0 ))
+	if( !texture->gl_texturenum && !Sys_CheckParm( "-gcmap" )
+		&& (( r_wadtextures.value && world.wadcount > 0 ) || mipTex.offsets[0] <= 0 ))
 	{
 		rgbdata_t *pic = NULL;
 		int wad_index = Mod_LoadTextureFromWadList( world.wadlist, world.wadcount, mipTex.name, Host_IsDedicated() ? NULL : &pic, texpath, sizeof( texpath ));
@@ -5984,7 +6010,10 @@ static void Mod_GCReleaseGcmapPreSurfaceStaging( model_t *mod, dbspmodel_t *bmod
 	 * Required for New Game too: the enlarged BSS mapload arena leaves too
 	 * little MEM1 for a 661 Kb surface malloc (Sys_Error on Mem_Calloc fallback). */
 	gc_bsp_scratch_base = mod_base;
-	if( GC_IsMapLoadBuffer( mod_base ) && GC_MapLoadBufferCapacity() > scratch_capacity )
+	/* Tail allocations contain live world arrays. Keep the scratch carve
+	 * below the original BSP image when any tail allocation exists. */
+	if( GC_IsMapLoadBuffer( mod_base ) && GC_MapLoadBufferTailHighwater() <= bufferlen
+		&& GC_MapLoadBufferCapacity() > scratch_capacity )
 		scratch_capacity = GC_MapLoadBufferCapacity();
 	gc_bsp_scratch_size = scratch_capacity > gc_bsp_scratch_carve_high
 		? scratch_capacity - gc_bsp_scratch_carve_high
@@ -6002,7 +6031,8 @@ static void Mod_GCReleaseBspSourceBuffer( model_t *mod, dbspmodel_t *bmod, byte 
 
 	if( !mod_base || bufferlen == 0 )
 		return;
-	if( GC_IsMapLoadBuffer( mod_base ) && GC_MapLoadBufferCapacity() > scratch_capacity )
+	if( GC_IsMapLoadBuffer( mod_base ) && GC_MapLoadBufferTailHighwater() <= bufferlen
+		&& GC_MapLoadBufferCapacity() > scratch_capacity )
 		scratch_capacity = GC_MapLoadBufferCapacity();
 	if( gc_retain_bsp_source_buffer )
 	{

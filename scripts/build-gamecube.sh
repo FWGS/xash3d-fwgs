@@ -47,6 +47,11 @@ fi
 
 ./waf build
 
+# Installation can relink the engine while updating static dependencies.
+# Convert only the final installed build, otherwise the disc freshness gate
+# correctly rejects a DOL made from the earlier ELF.
+./waf install --destdir=OUT
+
 mkdir -p OUT/bin
 cp build/engine/xash OUT/bin/xash
 
@@ -92,8 +97,6 @@ fi
 	fi
 } | tee OUT/bin/gamecube-handoff.txt
 echo "Handoff metadata: OUT/bin/gamecube-handoff.txt"
-
-./waf install --destdir=OUT
 
 echo "GameCube build installed to OUT/"
 

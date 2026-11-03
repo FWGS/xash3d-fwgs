@@ -244,6 +244,16 @@ static qboolean GCube_HasValveAssets( const char *xashdir )
 			return false;
 	}
 
+	/* Intro-only probe discs intentionally omit the retail maps tree.  A
+	 * native startup-video companion is sufficient to boot the cinematic path;
+	 * do not reject that legal lightweight staging before the client opens it. */
+	{
+		char movie[MAX_SYSPATH];
+		Q_snprintf( movie, sizeof( movie ), "%s/valve/media/valve.gcvid", xashdir );
+		if( stat( movie, &st ) == 0 && S_ISREG( st.st_mode ))
+			return true;
+	}
+
 	Q_snprintf( probe, sizeof( probe ), "%s/valve/maps", xashdir );
 	if( !( stat( probe, &st ) == 0 && S_ISDIR( st.st_mode )))
 		return false;

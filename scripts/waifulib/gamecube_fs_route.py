@@ -90,11 +90,16 @@ def parse_schema_record(raw: str | Dict[str, Any]) -> Dict[str, Any]:
 		if isinstance(val, bool):
 			rec["writable"] = val
 		else:
-			rec["writable"] = str(val).strip().lower() in ("1", "true", "yes", "on")
+			value = str(val).strip().lower()
+			if value not in ("1", "true", "yes", "on", "0", "false", "no", "off"):
+				raise ValueError(f"invalid writable value {val!r}")
+			rec["writable"] = value in ("1", "true", "yes", "on")
 	if rec["g508"]:
 		rec["g508"] = rec["g508"].upper()
 		if rec["g508"] == "NA":
 			rec["g508"] = "N/A"
+		elif rec["g508"] == "UNSEEN":
+			rec["g508"] = "unseen"
 	return rec
 
 

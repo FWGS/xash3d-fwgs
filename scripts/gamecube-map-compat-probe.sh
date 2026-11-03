@@ -12,7 +12,7 @@ fi
 
 # Defaults
 MAP_SOURCE_DIR="${MAP_SOURCE_DIR:-Half-Life/valve/maps}"
-PROBE_SCRIPT="scripts/dolphin-boot-probe.sh"
+PROBE_SCRIPT="${GAMECUBE_MAP_PROBE_SCRIPT:-scripts/dolphin-boot-probe.sh}"
 LOG_BASE=".ai/logs/map-compat-$(date +%Y%m%d-%H%M%S)"
 TSV_FILE="$LOG_BASE/results.tsv"
 MD_FILE="$LOG_BASE/summary.md"
@@ -117,26 +117,35 @@ for bsp in "${map_files[@]}"; do
 	)
 	PROBE_EXIT=$?
 	set -e
+	PROBE_OUTPUT_LOG="$LOG_BASE/${map_name}-probe.log"
+	printf '%s\n' "$PROBE_OUTPUT" > "$PROBE_OUTPUT_LOG"
 	
 	# Use the log directory reported by this probe. Falling back to "latest"
 	# is unsafe when the GUI/Aider/Codex can run Dolphin probes concurrently.
 	PROBE_LOG_DIR=$(printf "%s\n" "$PROBE_OUTPUT" | awk '/^Logs: / {print $2; found=1} END {exit found ? 0 : 1}' || true)
-	if [[ -z "$PROBE_LOG_DIR" ]]; then
-		PROBE_LOG_DIR=$(ls -td "$ROOT"/.ai/logs/dolphin-probe-* 2>/dev/null | head -n 1 || true)
-	fi
 	
-	STATUS="UNKNOWN"
-	BLOCKER=""
+	STATUS="INCONCLUSIVE"
+	BLOCKER="Probe did not report its log directory (exit $PROBE_EXIT)"
 	MEM_PEAK="N/A"
-	LOG_PATH="N/A"
+	LOG_PATH="$PROBE_OUTPUT_LOG"
 	
 	if [[ -n "$PROBE_LOG_DIR" ]]; then
 		LOG_PATH="$PROBE_LOG_DIR"
+		BLOCKER=""
 		STDERR_LOG="$PROBE_LOG_DIR/stderr.log"
 		STDOUT_LOG="$PROBE_LOG_DIR/stdout.log"
 		
-		# Check for success markers
-		if echo "$PROBE_OUTPUT" | grep -qsF "MAP_READY:"; then
+		# A later fatal error invalidates earlier map-ready markers.
+		if echo "$PROBE_OUTPUT" | grep -qsF "GUEST_FAILURE" || \
+		   grep -aqF "Xash3D GameCube: fatal message=" "$STDERR_LOG" "$STDOUT_LOG" 2>/dev/null || \
+		   grep -aqF "Xash3D GameCube: mem FAIL" "$STDERR_LOG" "$STDOUT_LOG" 2>/dev/null; then
+			STATUS="GUEST_FAILURE"
+			BLOCKER=$(grep -ahm1 -E 'Xash3D GameCube: (fatal message=|mem FAIL)' "$STDERR_LOG" "$STDOUT_LOG" 2>/dev/null || true)
+			[[ -n "$BLOCKER" ]] || BLOCKER="Guest failure reported by probe"
+		elif echo "$PROBE_OUTPUT" | grep -qsF "HOST_FAILURE"; then
+			STATUS="HOST_FAILURE"
+			BLOCKER="Dolphin/Host initialization failed"
+		elif echo "$PROBE_OUTPUT" | grep -qsF "MAP_READY:"; then
 			STATUS="MAP_READY"
 		elif [[ -n "$changelevel_from" ]] && echo "$PROBE_OUTPUT" | grep -qsF "CHANGELEVEL_READY"; then
 			STATUS="MAP_READY"
@@ -152,31 +161,13 @@ for bsp in "${map_files[@]}"; do
 			STATUS="MAP_LOADED"
 		elif echo "$PROBE_OUTPUT" | grep -qsF "MAP_READY"; then
 			STATUS="MAP_READY"
-		elif echo "$PROBE_OUTPUT" | grep -qsF "GUEST_FAILURE"; then
-			STATUS="GUEST_FAILURE"
-			BLOCKER=$(grep -ahm1 "Xash3D GameCube: fatal message=" "$STDERR_LOG" "$STDOUT_LOG" 2>/dev/null || true)
-			if [[ -z "$BLOCKER" ]]; then
-				BLOCKER=$(grep -ahm1 "Xash3D GameCube: mem FAIL" "$STDERR_LOG" "$STDOUT_LOG" 2>/dev/null || true)
-			fi
-			if [[ -z "$BLOCKER" ]]; then
-				BLOCKER=$(grep -ahm1 -iE "Host_Error|Sys_Error|_Mem_Alloc|out of memory|fatal|panic|assert" "$STDERR_LOG" "$STDOUT_LOG" 2>/dev/null || true)
-			fi
-			if [[ -z "$BLOCKER" ]]; then
-				BLOCKER=$(grep -ahm1 -iE "error|fail" "$STDERR_LOG" "$STDOUT_LOG" 2>/dev/null || echo "Guest failure")
-			fi
-		elif grep -aqF "Xash3D GameCube: fatal message=" "$STDERR_LOG" 2>/dev/null || \
-		     grep -aqF "Xash3D GameCube: mem FAIL" "$STDERR_LOG" 2>/dev/null; then
-			STATUS="GUEST_FAILURE"
-			BLOCKER=$(grep -ahm1 "Xash3D GameCube: fatal message=" "$STDERR_LOG" "$STDOUT_LOG" 2>/dev/null || true)
-			if [[ -z "$BLOCKER" ]]; then
-				BLOCKER=$(grep -ahm1 "Xash3D GameCube: mem FAIL" "$STDERR_LOG" "$STDOUT_LOG" 2>/dev/null || true)
-			fi
-		elif echo "$PROBE_OUTPUT" | grep -qsF "HOST_FAILURE"; then
-			STATUS="HOST_FAILURE"
-			BLOCKER="Dolphin/Host initialization failed"
 		elif [[ $PROBE_EXIT -ne 0 ]] && echo "$PROBE_OUTPUT" | grep -qsF "MAP_TIMEOUT"; then
 			STATUS="TIMEOUT"
 			BLOCKER="Probe timed out after ${PROBE_TIMEOUT}s"
+		elif grep -aqsF "Unloading world" "$STDERR_LOG" "$STDOUT_LOG" 2>/dev/null && \
+		     ! grep -aqsF "Xash3D GameCube: map loaded ${map_name}" "$STDERR_LOG" "$STDOUT_LOG" 2>/dev/null; then
+			STATUS="GUEST_FAILURE"
+			BLOCKER="Guest shut down while loading ${map_name} before map-ready"
 		else
 			STATUS="INCONCLUSIVE"
 			BLOCKER="No clear success/failure markers"

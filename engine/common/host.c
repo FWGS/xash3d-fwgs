@@ -950,6 +950,10 @@ void GAME_EXPORT Host_Error( const char *error, ... )
 	Q_vsnprintf( hosterror1, sizeof( hosterror1 ), error, argptr );
 	va_end( argptr );
 
+#if XASH_GAMECUBE
+	SYS_Report( "Xash3D GameCube: Host_Error message=%s\n", hosterror1 );
+#endif
+
 	CL_WriteMessageHistory (); // before Q_error call
 
 	if( !Host_CanAbortCurrentFrame( ))
@@ -1955,6 +1959,11 @@ void Host_ShutdownWithReason( const char *reason )
 		return;
 
 	host.shutdown_issued = true;
+
+#if XASH_GAMECUBE
+	SYS_Report( "Xash3D GameCube: host shutdown reason=%s status=%d frame=%u\n",
+		reason ? reason : "<none>", host.status, host.framecount );
+#endif
 
 	if( reason != NULL )
 		Con_Printf( S_NOTE "Issuing host shutdown due to reason \"%s\"\n", reason );

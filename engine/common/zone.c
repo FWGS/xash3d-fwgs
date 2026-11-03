@@ -359,6 +359,32 @@ static qboolean Mem_CheckAllocHeaderSmall( const char *func, const memheader_sma
 }
 
 
+#if XASH_GAMECUBE
+/* String pools retain their allocations until map teardown. Reuse an exact
+ * match without allocating a separate intern table in MEM1. */
+const char *Mem_FindPoolString( poolhandle_t poolptr, const char *value )
+{
+	mempool_t *pool = Mem_FindPool( poolptr );
+	size_t size;
+	if( !pool || !value )
+		return NULL;
+	size = Q_strlen( value ) + 1;
+	for( memheader_t *mem = pool->chain; mem; mem = mem->next )
+	{
+		const char *data = (const char *)( mem + 1 );
+		if( mem->size == size && !memcmp( data, value, size ))
+			return data;
+	}
+	for( memheader_small_t *mem = pool->chain_small; mem; mem = mem->next )
+	{
+		const char *data = (const char *)( mem + 1 );
+		if( mem->size == size && !memcmp( data, value, size ))
+			return data;
+	}
+	return NULL;
+}
+#endif
+
 void *_Mem_TryAlloc( poolhandle_t poolptr, size_t size, qboolean clear, const char *filename, int fileline )
 {
 	GC_MEM_WATCH_CALL( "alloc" );

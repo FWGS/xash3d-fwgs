@@ -47,13 +47,53 @@ static byte gc_player_private_fallback[4096];
  * leaves GetClassPtr on NULL and aborts before entity spawn. */
 static byte gc_soundent_private_fallback[4096];
 static qboolean gc_soundent_fallback_used;
-/* G330: bounded bump slab for small map-private blocks. Keep it modest —
- * a large BSS tip killed GX texture upload (probe 20260810-025713:
- * ref_gx zone 8 KiB Host_Error). Top-of-slab frees reclaim spawn temporaries. */
-static byte gc_ent_priv_slab[49152];
+/* G330: bounded bump slab for small map-private blocks. Keep it bounded to
+ * preserve MEM1 headroom, but large enough for dense retail maps: c5a1 reaches
+ * entity 258 with 704-byte hornet blocks before the old 48 KiB slab filled.
+ * Freed blocks are reusable regardless of entity destruction order. */
+static byte gc_ent_priv_slab[110592] __attribute__((aligned(16)));
+/* One bit per aligned block allows arbitrary entity destruction to reclaim
+ * space without allocating heap headers or moving live game-DLL objects. */
+static byte gc_ent_priv_slab_bits[sizeof( gc_ent_priv_slab ) / 16 / 8];
 static size_t gc_ent_priv_slab_used;
 static int gc_ent_priv_slab_hits;
 static uint16_t gc_ent_priv_slab_size[MAX_EDICTS];
+
+static void *SV_GCPrivateSlabAlloc( size_t size )
+{
+	size_t start = 0, run = 0, i;
+	const size_t blocks = sizeof( gc_ent_priv_slab ) / 16;
+	const size_t need = ( size + 15 ) / 16;
+	if( !need || need > blocks )
+		return NULL;
+	for( i = 0; i < blocks; i++ )
+	{
+		if( gc_ent_priv_slab_bits[i / 8] & ( 1u << ( i & 7 )))
+		{
+			run = 0;
+			continue;
+		}
+		if( !run ) start = i;
+		if( ++run == need )
+		{
+			for( i = start; i < start + need; i++ )
+				gc_ent_priv_slab_bits[i / 8] |= 1u << ( i & 7 );
+			gc_ent_priv_slab_used += need * 16;
+			return gc_ent_priv_slab + start * 16;
+		}
+	}
+	return NULL;
+}
+
+static void SV_GCPrivateSlabFree( void *ptr, size_t size )
+{
+	const size_t start = ((byte *)ptr - gc_ent_priv_slab ) / 16;
+	const size_t need = ( size + 15 ) / 16;
+	size_t i;
+	for( i = start; i < start + need; i++ )
+		gc_ent_priv_slab_bits[i / 8] &= ~( 1u << ( i & 7 ));
+	gc_ent_priv_slab_used -= need * 16;
+}
 /* Entity key/value copies are short-lived during spawn.  A tiny fallback
  * avoids losing the whole map to a final fragmented 11-byte allocation. */
 static byte gc_kv_slab[8192];
@@ -61,8 +101,9 @@ static size_t gc_kv_slab_used;
 
 static qboolean SV_GCPrivateDataIsSlab( const void *ptr )
 {
-	const byte *p = (const byte *)ptr;
-	return p >= gc_ent_priv_slab && p < gc_ent_priv_slab + sizeof( gc_ent_priv_slab );
+	const uintptr_t p = (uintptr_t)ptr;
+	const uintptr_t base = (uintptr_t)gc_ent_priv_slab;
+	return p >= base && p - base < sizeof( gc_ent_priv_slab );
 }
 
 static char *SV_GCCopyKeyValue( const char *s )
@@ -86,9 +127,12 @@ static char *SV_GCCopyKeyValue( const char *s )
 
 static qboolean SV_GCKeyValueIsSlab( const void *ptr )
 {
-	const byte *p = (const byte *)ptr;
-	return p >= gc_kv_slab && p < gc_kv_slab + sizeof( gc_kv_slab );
+	const uintptr_t p = (uintptr_t)ptr;
+	const uintptr_t base = (uintptr_t)gc_kv_slab;
+	return p >= base && p - base < sizeof( gc_kv_slab );
 }
+#else
+#define SV_GCCopyKeyValue( s ) copystring( s )
 #endif
 
 // exports
@@ -1274,11 +1318,11 @@ static void GAME_EXPORT SV_FreePrivateData( edict_t *pEdict )
 		const int edict_index = NUM_FOR_EDICT( pEdict );
 		const size_t size = edict_index >= 0 && edict_index < MAX_EDICTS
 			? gc_ent_priv_slab_size[edict_index] : 0;
-		if( size && (byte *)pEdict->pvPrivateData + size == gc_ent_priv_slab + gc_ent_priv_slab_used )
-			gc_ent_priv_slab_used -= size;
+		if( size )
+			SV_GCPrivateSlabFree( pEdict->pvPrivateData, size );
 		if( edict_index >= 0 && edict_index < MAX_EDICTS )
 			gc_ent_priv_slab_size[edict_index] = 0;
-		/* G330 bump slab — reclaim top blocks, never pass them to Mem_Free/free. */
+		/* Slab blocks never pass to Mem_Free/free. */
 	}
 	else if( Mem_IsAllocatedExt( svgame.mempool, pEdict->pvPrivateData ))
 		Mem_Free( pEdict->pvPrivateData );
@@ -1361,7 +1405,6 @@ edict_t *GAME_EXPORT SV_AllocEdict( void )
 {
 	edict_t	*e;
 	int	i;
-
 	for( i = svs.maxclients + 1; i < svgame.numEntities; i++ )
 	{
 		e = SV_EdictNum( i );
@@ -3387,17 +3430,13 @@ static void *GAME_EXPORT pfnPvAllocEntPrivateData( edict_t *pEdict, long cb )
 			}
 			/* Avoid libc malloc during map-load sessions. On c0a0 it stalled
 			 * indefinitely when the fragmented MEM1 heap reached its tip. */
-			/* Small map entities use the bounded private-data slab first. Their
-			 * short-lived helpers are released in spawn order, so top-of-slab
-			 * reclamation keeps the arena reusable and avoids fragile heap headers
-			 * at the MEM1 tip. */
+			/* Small map entities use the bounded private-data slab first. Reuse
+			 * holes left by destroyed entities before requesting heap memory. */
 			if( !pEdict->pvPrivateData && size <= 1024
-				&& gc_ent_priv_slab_used + size <= sizeof( gc_ent_priv_slab ))
+				&& ( pEdict->pvPrivateData = SV_GCPrivateSlabAlloc( size )) != NULL )
 			{
 				const int edict_index = NUM_FOR_EDICT( pEdict );
-				pEdict->pvPrivateData = gc_ent_priv_slab + gc_ent_priv_slab_used;
 				memset( pEdict->pvPrivateData, 0, size );
-				gc_ent_priv_slab_used += size;
 				gc_ent_priv_slab_hits++;
 				if( edict_index >= 0 && edict_index < MAX_EDICTS )
 					gc_ent_priv_slab_size[edict_index] = (uint16_t)size;
@@ -3634,7 +3673,11 @@ static void SV_AllocStringPool( void )
 	svgame.globals->pStringBase = "";
 #endif // !XASH_64BIT
 
+#if XASH_GAMECUBE
+	svgame.stringspool = Mem_AllocPoolExt( "Server Strings", MEM_SMALL_ALLOC_OPT );
+#else
 	svgame.stringspool = Mem_AllocPool( "Server Strings" );
+#endif
 }
 
 static void SV_FreeStringPool( void )
@@ -3721,6 +3764,17 @@ use -str64dup to disable deduplication, -str64alloc to set array size
 */
 string_t GAME_EXPORT SV_AllocString( const char *szValue )
 {
+#if XASH_GAMECUBE && !XASH_64BIT
+	/* Classnames/model names recur throughout retail maps. A separate heap
+	 * allocation per occurrence exhausted Server Strings during c5a1 spawn.
+	 * Escaped values still take the normal normalization path below. */
+	if( !svgame.physFuncs.pfnAllocString && !strchr( szValue, '\\' ))
+	{
+		const char *existing = Mem_FindPoolString( svgame.stringspool, szValue );
+		if( existing )
+			return existing - svgame.globals->pStringBase;
+	}
+#endif
 	uint len = SV_ProcessString( NULL, szValue );
 	char *processed_string = Mem_Calloc( svgame.stringspool, len );
 	char *dupe_string = NULL;
@@ -3729,7 +3783,12 @@ string_t GAME_EXPORT SV_AllocString( const char *szValue )
 	(void)dupe_string;
 	(void)found_dupe;
 	if( !processed_string )
+	{
+#if XASH_GAMECUBE
+		Host_Error( "%s: unable to allocate %u bytes for server string '%s'\n", __func__, len, szValue );
+#endif
 		return 0;
+	}
 
 	SV_ProcessString( processed_string, szValue );
 
@@ -5408,19 +5467,21 @@ static enginefuncs_t gEngfuncs =
 	pfnPEntityOfEntIndexAllEntities,
 };
 
+static void SV_FreeKeyValueString( const char *value )
+{
+#if XASH_GAMECUBE
+	if( SV_GCKeyValueIsSlab( value ))
+		return;
+#endif
+	Mem_Free( (void *)value );
+}
+
 static void SV_FreeKeyValueStrings( KeyValueData *kvd, int numpairs )
 {
 	for( int i = 0; i < numpairs; i++ )
 	{
-	#if XASH_GAMECUBE
-		if( !SV_GCKeyValueIsSlab( kvd[i].szKeyName ))
-			Mem_Free( kvd[i].szKeyName );
-		if( !SV_GCKeyValueIsSlab( kvd[i].szValue ))
-			Mem_Free( kvd[i].szValue );
-	#else
-		Mem_Free( kvd[i].szKeyName );
-		Mem_Free( kvd[i].szValue );
-	#endif
+		SV_FreeKeyValueString( kvd[i].szKeyName );
+		SV_FreeKeyValueString( kvd[i].szValue );
 	}
 }
 
@@ -5477,6 +5538,12 @@ static qboolean SV_ParseEdict( char **pfile, edict_t *ent, int entity_index )
 	qboolean		adjust_origin = false, customentity;
 	int		numpairs = 0;
 	const char	*classname = NULL;
+
+#if XASH_GAMECUBE
+	/* KeyValue strings are temporary: the normal path frees them after each
+	 * callback. The fallback slab has the same lifetime, one entity at a time. */
+	gc_kv_slab_used = 0;
+#endif
 
 	// go through all the dictionary pairs
 	while( 1 )
@@ -5548,6 +5615,12 @@ static qboolean SV_ParseEdict( char **pfile, edict_t *ent, int entity_index )
 		pkvd[numpairs].szKeyName = SV_GCCopyKeyValue( keyname );
 		pkvd[numpairs].szValue = SV_GCCopyKeyValue( value );
 		pkvd[numpairs].fHandled = false;
+		if( !pkvd[numpairs].szKeyName || !pkvd[numpairs].szValue )
+		{
+			SV_FreeKeyValueStrings( pkvd, numpairs + 1 );
+			Host_Error( "%s: unable to store keyvalues for entity %d\n", __func__, entity_index );
+			return false;
+		}
 		numpairs++;
 
 		if( numpairs >= ARRAYSIZE( pkvd ))
@@ -5563,6 +5636,7 @@ static qboolean SV_ParseEdict( char **pfile, edict_t *ent, int entity_index )
 	{
 		// release allocated strings
 		SV_FreeKeyValueStrings( pkvd, numpairs );
+		Host_Error( "%s: entity %d has no classname\n", __func__, entity_index );
 		return false;
 	}
 
@@ -5583,6 +5657,8 @@ static qboolean SV_ParseEdict( char **pfile, edict_t *ent, int entity_index )
 	{
 		// release allocated strings
 		SV_FreeKeyValueStrings( pkvd, numpairs );
+		Host_Error( "%s: entity %d (%s) rejected during private-data initialization (free=%d flags=%x)\n",
+			__func__, entity_index, classname, ent ? ent->free : -1, ent ? ent->v.flags : 0 );
 		return false;
 	}
 
@@ -5622,21 +5698,21 @@ static qboolean SV_ParseEdict( char **pfile, edict_t *ent, int entity_index )
 		{
 			float	flYawAngle = Q_atof( pkvd[i].szValue );
 
-			Mem_Free( pkvd[i].szKeyName ); // will be replace with 'angles'
-			Mem_Free( pkvd[i].szValue );	// release old value, so we don't need these
-			pkvd[i].szKeyName = copystring( "angles" );
+			SV_FreeKeyValueString( pkvd[i].szKeyName ); // will be replaced with 'angles'
+			SV_FreeKeyValueString( pkvd[i].szValue );
+			pkvd[i].szKeyName = SV_GCCopyKeyValue( "angles" );
 			keyname = pkvd[i].szKeyName;
 
 			if( flYawAngle >= 0.0f )
 			{
 				Q_snprintf( temp, sizeof( temp ), "%g %g %g", ent->v.angles[0], flYawAngle, ent->v.angles[2] );
-				pkvd[i].szValue = copystring( temp );
+				pkvd[i].szValue = SV_GCCopyKeyValue( temp );
 			}
 			else if( flYawAngle == -1.0f )
-				pkvd[i].szValue = copystring( "-90 0 0" );
+				pkvd[i].szValue = SV_GCCopyKeyValue( "-90 0 0" );
 			else if( flYawAngle == -2.0f )
-				pkvd[i].szValue = copystring( "90 0 0" );
-			else pkvd[i].szValue = copystring( "0 0 0" ); // technically an error
+				pkvd[i].szValue = SV_GCCopyKeyValue( "90 0 0" );
+			else pkvd[i].szValue = SV_GCCopyKeyValue( "0 0 0" ); // technically an error
 			value = pkvd[i].szValue;
 		}
 		else if( adjust_origin && !Q_strcmp( pkvd[i].szKeyName, "origin" ))
@@ -5645,22 +5721,29 @@ static qboolean SV_ParseEdict( char **pfile, edict_t *ent, int entity_index )
 			vec3_t origin;
 
 			COM_ParseVector( &pstart, origin, 3 );
-			Mem_Free( pkvd[i].szValue );	// release old value, so we don't need these
+			SV_FreeKeyValueString( pkvd[i].szValue );
 
 			Q_snprintf( temp, sizeof( temp ), "%g %g %g", origin[0], origin[1], origin[2] - 16.0f );
-			pkvd[i].szValue = copystring( temp );
+			pkvd[i].szValue = SV_GCCopyKeyValue( temp );
 			value = pkvd[i].szValue;
 		}
 
 		// do not leak memory if game overwritten these pointers
 		keyname = pkvd[i].szKeyName;
 		value = pkvd[i].szValue;
+		if( !keyname || !value )
+		{
+			SV_FreeKeyValueString( keyname );
+			SV_FreeKeyValueString( value );
+			Host_Error( "%s: unable to transform keyvalues for entity %d\n", __func__, entity_index );
+			return false;
+		}
 
 		pkvd[i].szClassName = (char *)classname;
 		svgame.dllFuncs.pfnKeyValue( ent, &pkvd[i] );
 
-		Mem_Free( keyname );
-		Mem_Free( value );
+		SV_FreeKeyValueString( keyname );
+		SV_FreeKeyValueString( value );
 	}
 	return true;
 }
@@ -5687,6 +5770,7 @@ static void SV_LoadFromFile( const char *mapname, char *entities )
 #if XASH_GAMECUBE
 	gc_soundent_fallback_used = false;
 	gc_ent_priv_slab_used = 0;
+	memset( gc_ent_priv_slab_bits, 0, sizeof( gc_ent_priv_slab_bits ));
 	gc_ent_priv_slab_hits = 0;
 	memset( gc_ent_priv_slab_size, 0, sizeof( gc_ent_priv_slab_size ));
 	gc_kv_slab_used = 0;
@@ -5724,16 +5808,22 @@ static void SV_LoadFromFile( const char *mapname, char *entities )
 
 			if( !SV_ParseEdict( &entities, ent, entity_index++ ))
 			{
-				Host_Error( "%s: entity %d has no classname; aborting map load instead of silently omitting it\n",
+				Host_Error( "%s: entity %d failed to parse or initialize; aborting map load instead of silently omitting it\n",
 					__func__, entity_index - 1 );
 				return;
 			}
+			if( SV_GCMapSmokeRoute() && (( entity_index - 1 ) & 31 ) == 0 )
+				Con_Reportf( "Xash3D GameCube: entity parsed=%d classname=%s\n",
+					entity_index - 1, SV_ClassName( ent ));
 
 #if XASH_GAMECUBE
 			GC_LoadingOverlayPulse();
 			if( SV_GCMapSmokeRoute() )
 			{
 				const char *spawn_class = SV_ClassName( ent );
+				if( entity_index == 257 )
+					Con_Reportf( "Xash3D GameCube: entity budget check begin=%d class=%s\n",
+						entity_index - 1, spawn_class );
 
 				if( entity_index >= 64 && entity_index <= 90 )
 					Con_Reportf( "Xash3D GameCube: entity spawn parsed=%d class=%s edict=%d\n",
@@ -5745,6 +5835,9 @@ static void SV_LoadFromFile( const char *mapname, char *entities )
 						__func__, entity_index - 1, spawn_class );
 					return;
 				}
+				if( entity_index == 257 )
+					Con_Reportf( "Xash3D GameCube: entity budget check end=%d class=%s\n",
+						entity_index - 1, spawn_class );
 			}
 #endif
 
@@ -5752,10 +5845,16 @@ static void SV_LoadFromFile( const char *mapname, char *entities )
 			if( SV_GCMapSmokeRoute() && entity_index >= 64 && entity_index <= 90 )
 				Con_Reportf( "Xash3D GameCube: entity spawn call begin=%d class=%s\n",
 					entity_index - 1, SV_ClassName( ent ));
+			if( SV_GCMapSmokeRoute() && entity_index == 257 )
+				Con_Reportf( "Xash3D GameCube: entity spawn call begin=%d class=%s\n",
+					entity_index - 1, SV_ClassName( ent ));
 #endif
 			spawn_result = svgame.dllFuncs.pfnSpawn( ent );
 #if XASH_GAMECUBE
 			if( SV_GCMapSmokeRoute() && entity_index >= 64 && entity_index <= 90 )
+				Con_Reportf( "Xash3D GameCube: entity spawn call end=%d class=%s result=%d\n",
+					entity_index - 1, SV_ClassName( ent ), spawn_result );
+			if( SV_GCMapSmokeRoute() && entity_index == 257 )
 				Con_Reportf( "Xash3D GameCube: entity spawn call end=%d class=%s result=%d\n",
 					entity_index - 1, SV_ClassName( ent ), spawn_result );
 #endif

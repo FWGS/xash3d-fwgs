@@ -1,5 +1,65 @@
 # Xash3D GameCube Port Status
 
+## Current verification — 2026-11-02
+
+Current follow-up: entity private-data allocations now reuse freed 16-byte
+blocks anywhere in the 108 KiB slab. A sanitizer-backed native fixture verifies
+hole reuse, alignment, exhaustion, and preservation of live objects. Dense-map
+runtime validation is pending; prior map-ready results below predate this
+allocator change. Small texture pools now reject oversized tables, invalid
+file ranges, short reads, and staging transfers that overlap resident mips.
+The build pipeline installs dependencies before generating the DOL because
+installation can relink the ELF and invalidate an earlier DOL.
+
+The representative campaign audit at
+`.ai/logs/campaign-audit-20261102-181501/` recorded 14 ready maps, five runtime
+failures, and one inconclusive probe. Its 237 transition targets all exist;
+that static check does not verify traversal. Subsequent texture-pack work
+cleared `c1a1`; `c1a2`, `c1a3`, `c2a1`, `c2a2`, and `c2a4e` still need current
+runtime proof. No claim of campaign-wide quality budgeting is made yet.
+
+Release completion remains unproven. Fresh ending-map (`c5a1`) probes exposed
+allocation failures before vertex conversion and private-data exhaustion during
+entity spawning. World vertices now use the existing map-arena fallback; server
+strings reuse identical allocations and use compact headers; temporary key/value
+slab strings retain their correct ownership during cleanup. The native C lookup
+and ownership regression fixtures pass.
+
+The latest direct-map run reaches `MAP_READY` after the full entity list, with a
+2.31 MiB reported memory peak. The private-data fallback is now bounded at
+108 KiB, recovering MEM1 headroom while still admitting dense maps. World
+texture packs are now enabled for `-gcmap` probes and can split into a small
+map-arena tail plus ARAM. Probe evidence: `.ai/logs/map-compat-20261102-145736/`.
+The representative Xen maps `c4a1` and Nihilanth `c4a3` also reach `MAP_READY`
+in fresh probes (`.ai/logs/map-compat-20261102-151034/` and
+`.ai/logs/map-compat-20261102-150613/`). These are load/readiness gates, not yet
+proof of playable transitions or hardware behavior.
+The early `c0a0` map reaches `MAP_READY` as well (`.ai/logs/map-compat-20261102-151426/`).
+The cold changelevel route `c0a0e→c1a0` also reaches `MAP_READY`
+(`.ai/logs/map-compat-20261102-153554/`), confirming at least one real
+cross-map handoff in the current build.
+The chained `c1a0→c1a0a` route reaches `MAP_READY` too
+(`.ai/logs/map-compat-20261102-153924/`).
+The full campaign audit dry-run enumerates every listed chapter map and finds
+all local BSP files, including the corrected Xen/Gonarch/Interloper/Nihilanth,
+Endgame, and Hazard Course assignments (`.ai/logs/campaign-audit-20261102-164052/`).
+Hazard Course `t0a0` now reaches `MAP_READY` after all 335 entities spawn with
+the reduced fallback slab (`.ai/logs/map-compat-20261102-181050/`). This clears
+the previous entity-spawn blocker; campaign transitions and real hardware
+playability remain separate verification gates.
+The same texture-pack gate clears `c1a1`
+(`.ai/logs/map-compat-20261102-183929/`); `c1a2` now loads its pack and reaches
+entity 608 before exhausting the current private-data fallback, so dense Office
+Complex coverage remains in progress.
+Repeated guest-debugger samples show libogc `SI_Transfer` / `SI_GetTypeAsync`
+callbacks and `udelay`; the cause of the stall is still under investigation.
+Saved trace: `.ai/logs/dolphin-debug-c5a1-20261102/gdb-stall.log`.
+
+The chapter audit now correctly assigns Nihilanth to `c4a3` and Endgame to
+`c5a1`; map-load results do not claim chapter completion.
+The older milestone notes below describe historical evidence, not current
+release sign-off. Physical Swiss and full campaign validation remain open.
+
 ## Current Milestone
 
 **Dolphin tip-safe retail path green; hardware handoff armed for Swiss (2026-08-28).**
