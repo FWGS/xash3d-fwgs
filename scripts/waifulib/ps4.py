@@ -66,12 +66,12 @@ def configure(conf):
 	conf.msg('Building PS4 package', 'yes' if conf.env.PS4_PKG else 'no, PkgTool.Core needs OpenSSL 1.1',
 		color = 'GREEN' if conf.env.PS4_PKG else 'YELLOW')
 
-	gamelibs = conf.options.PS4_GAMELIBS or os.path.join(conf.path.abspath(), '..', 'hlsdk-portable', 'build', 'ps4', 'valve')
-	if os.path.isdir(gamelibs):
+	gamelibs = conf.options.PS4_GAMELIBS
+	if gamelibs:
+		if not os.path.isdir(gamelibs):
+			conf.fatal('%s is not a directory' % gamelibs)
 		conf.env.PS4_GAMELIBS = os.path.abspath(gamelibs)
-	elif conf.options.PS4_GAMELIBS:
-		conf.fatal('%s is not a directory' % gamelibs)
-	conf.msg('PS4 game libraries', conf.env.PS4_GAMELIBS or 'not found, the package will need them on the console',
+	conf.msg('PS4 game libraries', conf.env.PS4_GAMELIBS or 'not set, the package will need them on the console',
 		color = 'GREEN' if conf.env.PS4_GAMELIBS else 'YELLOW')
 
 	# custom images (from your copy of the game, for example) replace the default ones

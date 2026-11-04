@@ -17,6 +17,7 @@ from waflib import Logs, TaskGen
 from waflib.Tools import c_config
 from collections import OrderedDict
 import os
+import shutil
 import sys
 
 ANDROID_NDK_ENVVARS = ['ANDROID_NDK_HOME', 'ANDROID_NDK']
@@ -580,12 +581,14 @@ class PS4:
 	def __init__(self, ctx):
 		self.ctx = ctx
 
+		self.toolchain = ctx.options.PS4_TOOLCHAIN
 		for i in PS4_ENVVARS:
-			self.toolchain = os.getenv(i)
-			if self.toolchain != None:
+			if self.toolchain:
 				break
-		else:
-			ctx.fatal('Set %s environment variable pointing to the OpenOrbis PS4 toolchain!' %
+			self.toolchain = os.getenv(i)
+
+		if not self.toolchain:
+			ctx.fatal('Set the OpenOrbis PS4 toolchain path with --ps4-toolchain or %s environment variable!' %
 				' or '.join(PS4_ENVVARS))
 
 		self.toolchain = os.path.abspath(self.toolchain)
@@ -593,26 +596,38 @@ class PS4:
 		if not os.path.exists(os.path.join(self.toolchain, 'link.x')):
 			ctx.fatal('OpenOrbis toolchain not found in `%s`!' % self.toolchain)
 
-	def find_clang(self, name, fallbacks = []):
-		# OpenOrbis libc++ is built with LLVM 18, so prefer matching versioned binaries
-		for i in [name + '-18', name] + fallbacks:
-			path = self.ctx.find_program(i, mandatory=False, var='PS4_' + ''.join(c if c.isalnum() else '_' for c in name.upper()))
-			if path:
-				return path[0]
-		self.ctx.fatal('%s not found!' % name)
+		# compilers are given as usual: CC=clang-18 CXX=clang++-18 ./waf configure --ps4
+		self.cc_cmd = os.getenv('CC', 'clang')
+		self.cxx_cmd = os.getenv('CXX', 'clang++')
+		self.llvm_bin = self.installed_dir()
+
+	def installed_dir(self):
+		# LLVM tools of the same version as the compiler are installed next to it,
+		# distributions link versioned binaries to /usr/bin, so the link is resolved
+		cc = shutil.which(self.cc_cmd.split()[0])
+		if not cc:
+			self.ctx.fatal('C compiler `%s` not found, set it with CC environment variable!' % self.cc_cmd)
+		return os.path.dirname(os.path.realpath(cc))
+
+	def llvm_tool(self, name):
+		# OpenOrbis libraries are built with LLVM 18, tools must match the compiler
+		# (newer lld picks musl's lite_malloc), the clang driver itself takes ld.lld from PATH
+		if self.llvm_bin and os.path.exists(os.path.join(self.llvm_bin, name)):
+			return os.path.join(self.llvm_bin, name)
+		return name
 
 	# target and __ORBIS__ are part of compiler command, so waf detects DEST_OS correctly
 	def cc(self):
-		return '%s --target=%s -D__ORBIS__' % (self.find_clang('clang'), self.target)
+		return '%s --target=%s -D__ORBIS__' % (self.cc_cmd, self.target)
 
 	def cxx(self):
-		return '%s --target=%s -D__ORBIS__' % (self.find_clang('clang++'), self.target)
+		return '%s --target=%s -D__ORBIS__' % (self.cxx_cmd, self.target)
 
 	def ar(self):
-		return self.find_clang('llvm-ar', ['ar'])
+		return os.getenv('AR', self.llvm_tool('llvm-ar'))
 
 	def strip(self):
-		return self.find_clang('llvm-strip', ['strip'])
+		return os.getenv('STRIP', self.llvm_tool('llvm-strip'))
 
 	def cflags(self, cxx = False):
 		cflags = ['--target=%s' % self.target, '--sysroot=%s' % self.toolchain]
@@ -624,13 +639,12 @@ class PS4:
 		cflags += ['-isystem', os.path.join(self.toolchain, 'include')]
 		return cflags
 
-	def lld(self):
-		# clang driver takes ld.lld from PATH, which might be newer version with different --wrap behaviour
-		return self.find_clang('ld.lld')
-
 	# they go before object list
 	def linkflags(self):
-		linkflags = ['--target=%s' % self.target, '--sysroot=%s' % self.toolchain, '-fuse-ld=%s' % self.lld(), '-nostdlib']
+		linkflags = ['--target=%s' % self.target, '--sysroot=%s' % self.toolchain, '-fuse-ld=lld', '-nostdlib']
+		lld = self.llvm_tool('ld.lld')
+		if os.path.isabs(lld):
+			linkflags += ['--ld-path=%s' % lld]
 		# OpenOrbis images are PIE, use toolchain linker script and no ELF interpreter
 		linkflags += ['-Wl,--no-dynamic-linker', '-Wl,-m,elf_x86_64', '-Wl,--eh-frame-hdr']
 		linkflags += ['-Wl,--script,%s' % os.path.join(self.toolchain, 'link.x')]
@@ -712,8 +726,10 @@ def options(opt):
 		help='enable building for PlayStation Vita [default: %(default)s]')
 	xc.add_option('--ps4', action='store_true', dest='PS4', default = False,
 		help='enable building for PlayStation 4 with OpenOrbis toolchain [default: %(default)s]')
+	xc.add_option('--ps4-toolchain', action='store', dest='PS4_TOOLCHAIN', default = None,
+		help='path to OpenOrbis PS4Toolchain directory [default: OO_PS4_TOOLCHAIN environment variable]')
 	xc.add_option('--ps4-gamelibs', action='store', dest='PS4_GAMELIBS', default = None,
-		help='directory with PS4 game libraries from hlsdk-portable to put into the package [default: ../hlsdk-portable/build/ps4/valve]')
+		help='game directory with PS4 game libraries from hlsdk-portable to put into the package')
 	xc.add_option('--ps4-sce-sys', action='store', dest='PS4_SCE_SYS', default = None,
 		help='directory with custom icon0.png, pic0.png and pic1.png for the PS4 package [default: ./ps4_sce_sys]')
 	xc.add_option('--sailfish', action='store_true', dest='SAILFISH', default = False,

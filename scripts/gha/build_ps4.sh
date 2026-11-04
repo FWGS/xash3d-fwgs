@@ -21,7 +21,7 @@ popd || die
 
 echo "Building engine..."
 
-./waf configure -T release --ps4 --ps4-gamelibs=hlsdk-portable/build/ps4/valve || die_configure
+CC=clang-18 CXX=clang++-18 ./waf configure -T release --ps4 --ps4-gamelibs=hlsdk-portable/build/ps4/valve || die_configure
 ./waf build || die
 
 mkdir -p artifacts || die
