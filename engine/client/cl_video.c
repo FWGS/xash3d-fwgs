@@ -389,6 +389,12 @@ qboolean SCR_PlayCinematic( const char *arg )
 	if( option )
 		*option = '\0';
 	Con_Reportf( "Xash3D GameCube: intro AVI play %s\n", movie_path );
+	/* The startup movie's 150 KiB GX upload surface is deliberately released
+	 * at menu handoff. Recreate the lightweight handle only when another
+	 * cinematic is actually requested. */
+	if( cin_texture <= 0 )
+		cin_texture = ref.dllFuncs.GL_CreateTexture( "*cintexture", 320, 240, NULL,
+			TF_NOMIPMAP|TF_CLAMP );
 	AVI_OpenVideo( cin_state, movie_path, true, false );
 #else
 	AVI_OpenVideo( cin_state, fullpath, true, false );
@@ -458,11 +464,17 @@ void SCR_StopCinematic( void )
 #endif
 	AVI_CloseVideo( cin_state );
 	S_StopStreaming();
+	if( cin_texture > 0 )
+	{
+		ref.dllFuncs.GL_FreeTexture( cin_texture );
+		cin_texture = 0;
+	}
 
 	cls.state = ca_disconnected;
 	cls.signon = 0;
 
 #if XASH_GAMECUBE
+	Image_GCPurgeDecodeScratch();
 	Con_Reportf( "Xash3D GameCube: activating menu after cinematic\n" );
 #endif
 	UI_SetActiveMenu( true );

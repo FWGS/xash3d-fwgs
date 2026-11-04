@@ -298,6 +298,14 @@ def write_bootstrap_pk3(data: Path, bootstrap: Path, recursive: bool = False) ->
 					child.relative_to(data).as_posix(),
 					compress_type=compress_type,
 				)
+		# The fallback menu is loaded through the bootstrap search path during
+		# read-only retail startup. Keep generated GC menu tiles there even when
+		# the general bootstrap is intentionally non-recursive.
+		menu_dir = data / "resource" / "gc_menu"
+		if menu_dir.is_dir() and not recursive:
+			for child in sorted(menu_dir.rglob("*")):
+				if child.is_file() and child.suffix.lower() not in BOOTSTRAP_EXCLUDED_EXTENSIONS:
+					archive.write(child, child.relative_to(data).as_posix(), compress_type=zipfile.ZIP_DEFLATED)
 		studio_count = inject_gc_studio_into_bootstrap(archive, data)
 		if studio_count:
 			print(f"GameCube studio mirror: injected {studio_count} MDL(s) into bootstrap pk3")
@@ -513,11 +521,19 @@ SMOKE_PRECACHE_MODELS = (
 	"models/scientist.mdl",
 	"models/barney.mdl",
 	"models/roach.mdl",
+	# c1a1f furniture + campaign cast for studio BSS promote.
+	"models/filecabinet.mdl",
+	"models/gman.mdl",
+	"models/houndeye.mdl",
+	"models/forklift.mdl",
+	"models/loader.mdl",
 	# G376: *t.mdl skins (base MDLs have numtextures=0).
 	"models/scientistt.mdl",
 	"models/barneyt.mdl",
 	"models/headcrabt.mdl",
 	"models/zombiet.mdl",
+	"models/gmant.mdl",
+	"models/houndeyet.mdl",
 	"models/v_egon.mdl",
 	"models/v_gauss.mdl",
 	"models/v_grenade.mdl",
@@ -676,7 +692,7 @@ def _gc_menu_preserve_retail_tone(image):
 
 	rgba = image.convert("RGBA")
 	rgb = rgba.convert("RGB")
-	# Very small contrast lift so 128x96 survives RGB565 without blowing out the art.
+	# Very small contrast lift so the 16x16 GX menu decode survives RGB565 without blowing out the art.
 	rgb = ImageEnhance.Contrast(rgb).enhance(1.04)
 	return rgb.convert("RGBA")
 
@@ -770,18 +786,20 @@ def stage_gc_menu_assets(source: Path, output: Path) -> bool:
 	menu_dir = output / "resource" / "gc_menu"
 	menu_dir.mkdir(parents=True, exist_ok=True)
 
-	# Keep the baked menu at the native 4:3 logical aspect. The GX HUD upload
-	# path retains the tiled 128x96 dimensions directly.
+	# GX texture loaders require power-of-two dimensions on the retail path.
+	# Preserve the 4:3 composition inside a 16x16 canvas so the late mainui
+	# load fits the fragmented MEM1 heap (the draw path scales it fullscreen).
 	if best is not None and best_ratio >= 0.02:
 		background = _gc_menu_preserve_retail_tone(
-			_gc_menu_fit_aspect(best, (128, 96)))
+			_gc_menu_fit_aspect(best, (16, 16)))
 		source_note = best_label
 	else:
-		background = _gc_menu_synthetic_background((128, 96))
+		background = _gc_menu_synthetic_background((16, 16))
 		source_note = "synthetic fallback (retail tiles missing or pure black)"
 
 	background_path = menu_dir / "background.tga"
 	background.save(background_path, format="TGA")
+	background.save(menu_dir / "background.bmp", format="BMP")
 
 	# Prefer the original white retail title logo so the baked menu matches the
 	# real menu composition instead of the earlier orange fallback treatment.
@@ -795,6 +813,13 @@ def stage_gc_menu_assets(source: Path, output: Path) -> bool:
 			logo = Image.open(logo_src).convert("RGBA")
 	if logo is not None:
 		logo.thumbnail((256, 32), Image.Resampling.LANCZOS)
+		# Retail uses the familiar amber Half-Life wordmark on the menu.
+		logo_pixels = logo.load()
+		for py in range(logo.height):
+			for px in range(logo.width):
+				r, g, b, a = logo_pixels[px, py]
+				if a:
+					logo_pixels[px, py] = (214, 138, 26, a)
 		logo.save(menu_dir / "logo.tga", format="TGA")
 
 	# Bake the complete retail menu composition into one opaque GX texture.
@@ -816,14 +841,16 @@ def stage_gc_menu_assets(source: Path, output: Path) -> bool:
 	for index, (label, desc) in enumerate(menu_items):
 		y = 270 + index * 42
 		draw.text((57, y), label, font=label_font, fill=(255, 207, 24, 255) if index == 0 else (230, 184, 16, 255))
-		draw.text((192, y + 3), desc, font=desc_font, fill=(110, 110, 110, 255))
-	# Nine GX-sized tiles preserve 384x288 working resolution while keeping
-	# every texture within the 128x96 tile limit and the bounded HUD pool.
-	composite = composite.resize((384, 288), Image.Resampling.LANCZOS).convert("RGBA")
+		draw.text((192, y + 3), desc, font=desc_font, fill=(156, 156, 156, 255))
+	# Nine small tiles preserve the composition while fitting the startup MEM1
+	# image pool (3x3 at 32x32 = 36 KiB decoded RGBA). The GameCube TGA path is
+	# the reliable fallback-menu texture path; BMP tiles are not accepted by the
+	# retail image loader.
+	composite = composite.resize((96, 96), Image.Resampling.LANCZOS).convert("RGBA")
 	for row in range(3):
 		for col in range(3):
-			composite.crop((col * 128, row * 96, (col + 1) * 128, (row + 1) * 96)).save(
-				menu_dir / f"menu_{row * 3 + col}.tga", format="TGA")
+			tile = composite.crop((col * 32, row * 32, (col + 1) * 32, (row + 1) * 32))
+			tile.save(menu_dir / f"menu_{row * 3 + col}.tga", format="TGA")
 
 	print(f"GameCube menu assets: baked {background_path.relative_to(output)} from {source_note}")
 	return True
@@ -952,9 +979,11 @@ GC_STUDIO_MODELS = (
 	"models/zombie.mdl",
 	"models/scientist.mdl",
 	"models/barney.mdl",
+	"models/houndeye.mdl",
 	# c0a0's forklift: the plain heap read fails after the BSP (47 KiB).
 	"models/forklift.mdl",
 	"models/loader.mdl",
+	# c1a1f monster_furniture uses filecabinet (there is no furniture.mdl).
 	"models/filecabinet.mdl",
 	# c0a0d: the G-Man, skins in gmant.mdl.
 	"models/gman.mdl",
@@ -964,6 +993,7 @@ GC_STUDIO_MODELS = (
 	"models/barneyt.mdl",
 	"models/headcrabt.mdl",
 	"models/zombiet.mdl",
+	"models/houndeyet.mdl",
 	"models/roach.mdl",
 )
 
@@ -1508,8 +1538,14 @@ def inject_gc_studio_into_bootstrap(archive: "zipfile.ZipFile", data: Path) -> i
 	"""Add allowlisted MDLs into an existing bootstrap ZIP under gc_studio/."""
 	staged = 0
 	all_stems = {Path(r).stem.lower() for r in GC_STUDIO_MODELS}
+	# Smoke staging may omit campaign meshes; fall back to retail valve tree.
+	retail = Path(__file__).resolve().parent.parent / "Half-Life" / "valve"
 	for relative in GC_STUDIO_MODELS:
 		src = data / relative
+		if not src.is_file() and retail.is_dir():
+			alt = retail / relative
+			if alt.is_file():
+				src = alt
 		if not src.is_file():
 			continue
 		arcname = f"gc_studio/{Path(relative).name.lower()}"

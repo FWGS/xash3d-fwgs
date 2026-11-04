@@ -21,6 +21,7 @@ The engine mixer writes native PowerPC big-endian stereo 16-bit samples.
 static qboolean gc_audio_real;
 static qboolean gc_audio_unpaused;
 static qboolean gc_voice_started;
+static qboolean gc_audio_ramp_pending;
 static qboolean gc_audio_buffer_malloced;
 static volatile int gc_audio_play_chunk;
 static volatile unsigned int gc_audio_chunks_submitted;
@@ -186,6 +187,11 @@ static void GC_AudioVoiceCallback( s32 voice )
 		return;
 	}
 	gc_audio_play_chunk = chunk;
+	if( gc_audio_ramp_pending )
+	{
+		ASND_ChangeVolumeVoice( GC_AUDIO_VOICE, MAX_VOLUME, MAX_VOLUME );
+		gc_audio_ramp_pending = false;
+	}
 }
 
 static qboolean GCube_StartVoice( void )
@@ -199,13 +205,14 @@ static qboolean GCube_StartVoice( void )
 	DCFlushRange( gc_audio_chunk[0], GC_AUDIO_CHUNK_BYTES );
 
 	status = ASND_SetVoice( GC_AUDIO_VOICE, VOICE_STEREO_16BIT_BE, SOUND_DMA_SPEED, 0,
-		gc_audio_chunk[0], GC_AUDIO_CHUNK_BYTES, 255, 255, GC_AudioVoiceCallback );
+		gc_audio_chunk[0], GC_AUDIO_CHUNK_BYTES, 0, 0, GC_AudioVoiceCallback );
 	if( status == SND_INVALID )
 		return false;
 
 	gc_audio_counter_base = ASND_GetSampleCounter();
 	gc_audio_counter_valid = true;
 	gc_voice_started = true;
+	gc_audio_ramp_pending = true;
 	gc_audio_play_chunk = 0;
 	return true;
 }
@@ -216,7 +223,8 @@ static qboolean GCube_RealAudioInit( void )
 	size_t buffer_bytes;
 
 	ASND_Init();
-	/* ASND_Init leaves playback paused; unpause on first mix submit. */
+	/* Keep the DAC explicitly paused until a zeroed priming chunk is queued. */
+	ASND_Pause( 1 );
 
 	samplecount = (int)s_samplecount.value;
 	if( samplecount <= 0 )
@@ -247,6 +255,7 @@ static qboolean GCube_RealAudioInit( void )
 
 	snd.samplepos = 0;
 	gc_voice_started = false;
+	gc_audio_ramp_pending = false;
 	gc_audio_real = true;
 	gc_audio_unpaused = false;
 	gc_audio_chunks_submitted = 0;
@@ -276,6 +285,7 @@ static qboolean GCube_NullAudioInit( void )
 	gc_audio_real = false;
 	gc_audio_unpaused = false;
 	gc_voice_started = false;
+	gc_audio_ramp_pending = false;
 	gc_audio_chunks_submitted = 0;
 	gc_audio_nonzero_chunks = 0;
 	gc_audio_last_peak = 0;
@@ -323,6 +333,7 @@ void SNDDMA_Shutdown( void )
 	snd.initialized = false;
 	gc_audio_real = false;
 	gc_voice_started = false;
+	gc_audio_ramp_pending = false;
 	gc_audio_counter_base = 0;
 	gc_audio_counter_valid = false;
 

@@ -13,6 +13,16 @@ controller and the camera turned every 25 s, kept):
 announcer lines, 5/5 hops, no allocation failures, ladder 10/10. The ride now goes on
 through the tram door into c1a0: 41 titles, 6 hops, no allocation failures.
 
+The normal GameCube boot route now suppresses the diagnostic `LOADING MENU...`
+status panel after client initialization, so the clean early boot frame is held
+until the startup logos/cinematic hand off to the interactive menu. Diagnostic
+`-gcmap` and `-gcnewgame` routes retain the panel.
+
+Fresh visual/input evidence from the current TGA-path run
+`.ai/logs/dolphin-probe-20261103-105749/`
+shows the baked background, Half-Life title, live menu labels/descriptions, and
+selection marker after the intro; the menu probe also passes down/confirm/back.
+
 ## Verified
 
 | Area | Retail | GameCube build | Evidence |

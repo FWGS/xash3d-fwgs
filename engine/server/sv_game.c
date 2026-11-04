@@ -47,10 +47,9 @@ static byte gc_player_private_fallback[4096];
  * leaves GetClassPtr on NULL and aborts before entity spawn. */
 static byte gc_soundent_private_fallback[4096];
 static qboolean gc_soundent_fallback_used;
-/* G330: bounded bump slab for small map-private blocks. Keep it bounded to
- * preserve MEM1 headroom, but large enough for dense retail maps: c5a1 reaches
- * entity 258 with 704-byte hornet blocks before the old 48 KiB slab filled.
- * Freed blocks are reusable regardless of entity destruction order. */
+/* G330: bounded bump slab for map-private blocks. Keep static BSS ≤108 KiB —
+ * growing it to 192 KiB OOM'd Zone Engine before c1a1f BSP open. Larger
+ * (>1 KiB) privates go to map-arena overflow (GC_ENTITY_OVERFLOW_BYTES). */
 static byte gc_ent_priv_slab[110592] __attribute__((aligned(16)));
 /* One bit per aligned block allows arbitrary entity destruction to reclaim
  * space without allocating heap headers or moving live game-DLL objects. */
@@ -520,17 +519,28 @@ void GAME_EXPORT SV_SetModel( edict_t *ent, const char *modelname )
 		ent->v.modelindex = i;
 		mod = sv.models[i];
 #if XASH_GAMECUBE
-		/* Precache stubs may have been freed for world-render headroom;
-		 * re-bind before touching mod->type (dangling pointer crash). */
+		/* Precache under memopt leaves .mdl slots as NL_NEEDS_LOADED stubs
+		 * (type still mod_bad, cache.data NULL). Promote allowlisted meshes
+		 * into studio BSS — never Mod_ForName/disc malloc under tip MEM1
+		 * (w_9mmhandgun OOM after c1a1f cast was loaded). */
 		if( GC_MapLoadMemoryOpt()
-			&& ( !mod || mod->needload == NL_UNREFERENCED || !mod->name[0] ))
+			&& name[0] && !Q_strnicmp( name, "models/", 7 )
+			&& Q_stristr( name, ".mdl" )
+			&& ( !mod || mod->needload == NL_UNREFERENCED || mod->needload == NL_NEEDS_LOADED
+				|| !mod->name[0] || !mod->cache.data
+				|| ( mod->type == mod_studio && !mod->cache.data )))
 		{
 			Con_Reportf( "Xash3D GameCube: SV_SetModel rebinding %s index=%d\n", name, i );
-			mod = Mod_ForName( name, false, true );
+			/* PromoteStudioPath allowlists first — no disc malloc for gibs/w_*. */
+			Mod_GCPromoteStudioPath( name );
+			mod = Mod_FindName( name, false );
 			sv.models[i] = mod;
-			if( GC_MenuRunsServer() && !Q_stricmp( name, "models/scientist.mdl" ))
-				Con_Reportf( "Xash3D GameCube: SV_SetModel rebind done edict=%d mod=%p\n",
-					NUM_FOR_EDICT( ent ), mod );
+			if( !Q_stricmp( name, "models/scientist.mdl" )
+				|| !Q_stricmp( name, "models/zombie.mdl" )
+				|| !Q_stricmp( name, "models/headcrab.mdl" )
+				|| !Q_stricmp( name, "models/filecabinet.mdl" ))
+				Con_Reportf( "Xash3D GameCube: SV_SetModel rebind done edict=%d mod=%p cache=%p\n",
+					NUM_FOR_EDICT( ent ), mod, mod ? mod->cache.data : NULL );
 		}
 #endif
 	}
@@ -1592,11 +1602,26 @@ static edict_t* SV_AllocPrivateData( edict_t *ent, string_t className, qboolean 
 	SpawnEdict( &ent->v );
 
 #if XASH_GAMECUBE
-	/* Never silently leave a retail map entity half initialized when its
-	 * private block cannot be allocated. Abort the map load so the memory
-	 * failure is visible and fixable instead of shipping a missing NPC/trigger. */
+	/* Tip MEM1: brush furniture can miss a private block without ending the
+	 * whole map. NPCs/triggers still abort — missing AI is not playable HL1. */
 	if( GC_MapLoadMemoryOpt() && !ent->pvPrivateData )
 	{
+		const char *cn = pszClassName ? pszClassName : "";
+
+		if( !Q_strnicmp( cn, "func_", 5 )
+			|| !Q_strnicmp( cn, "env_", 4 )
+			|| !Q_strnicmp( cn, "light", 5 )
+			|| !Q_strnicmp( cn, "info_", 5 )
+			|| !Q_strnicmp( cn, "ambient_", 8 )
+			|| !Q_strnicmp( cn, "multi_", 6 )
+			|| !Q_strnicmp( cn, "trigger_", 8 )
+			|| !Q_strnicmp( cn, "path_", 5 )
+			|| !Q_strnicmp( cn, "speaker", 7 ))
+		{
+			Con_Reportf( S_WARN "Xash3D GameCube: private-data miss %s — skipping entity\n", cn );
+			SV_FreeEdict( ent );
+			return NULL;
+		}
 		SV_FreeEdict( ent );
 		Host_Error( "%s: private-data allocation failed for entity %s; aborting map load without omitting it\n",
 			__func__, pszClassName );
@@ -3525,7 +3550,9 @@ static void *GAME_EXPORT pfnPvAllocEntPrivateData( edict_t *pEdict, long cb )
 			 * indefinitely when the fragmented MEM1 heap reached its tip. */
 			/* Small map entities use the bounded private-data slab first. Reuse
 			 * holes left by destroyed entities before requesting heap memory. */
-			if( !pEdict->pvPrivateData && size <= 1024
+			/* Prefer slab/overflow up through 2 KiB so GetClassPtr never sees
+			 * NULL mid-construction when tip heap is empty (c1a1f ~entity 408). */
+			if( !pEdict->pvPrivateData && size <= 2048
 				&& (( pEdict->pvPrivateData = SV_GCPrivateSlabAlloc( size )) != NULL
 					|| ( pEdict->pvPrivateData = SV_GCPrivateOverflowAlloc( size )) != NULL ))
 			{
@@ -5736,20 +5763,29 @@ static qboolean SV_ParseEdict( char **pfile, edict_t *ent, int entity_index )
 
 
 #if XASH_GAMECUBE
-	if( SV_GCMapSmokeRoute() && SV_GCMapCannotFitEntity( classname, entity_index ))
-	{
-		SV_FreeKeyValueStrings( pkvd, numpairs );
-		Host_Error( "%s: memory budget cannot support entity %d (%s); aborting map load without omitting gameplay entities\n",
-			__func__, entity_index, classname );
-		return false;
-	}
+	/* Budget telemetry only — aborting mid-map omits the rest of HL1. Soft-skip
+	 * happens via private-data miss below when tip MEM1 truly cannot serve. */
+	if( SV_GCMapSmokeRoute() && SV_GCMapCannotFitEntity( classname, entity_index )
+		&& ( entity_index & 31 ) == 0 )
+		Con_Reportf( S_WARN "Xash3D GameCube: entity budget pressure entity=%d class=%s\n",
+			entity_index, classname );
 #endif
 
 	ent = SV_AllocPrivateData( ent, ent->v.classname, &customentity );
 
 	if( !SV_IsValidEdict( ent ) || FBitSet( ent->v.flags, FL_KILLME ))
 	{
-		// release allocated strings
+		/* Soft-miss under memopt already freed the edict and logged — keep
+		 * parsing so one tip-heap brush miss does not unload the whole map. */
+#if XASH_GAMECUBE
+		if( GC_MapLoadMemoryOpt() )
+		{
+			SV_FreeKeyValueStrings( pkvd, numpairs );
+			Con_Reportf( S_WARN "Xash3D GameCube: entity %d (%s) skipped after private-data miss\n",
+				entity_index, classname );
+			return true;
+		}
+#endif
 		SV_FreeKeyValueStrings( pkvd, numpairs );
 		Host_Error( "%s: entity %d (%s) rejected during private-data initialization (free=%d flags=%x)\n",
 			__func__, entity_index, classname, ent ? ent->free : -1, ent ? ent->v.flags : 0 );
@@ -5923,12 +5959,10 @@ static void SV_LoadFromFile( const char *mapname, char *entities )
 					Con_Reportf( "Xash3D GameCube: entity spawn parsed=%d class=%s edict=%d\n",
 						entity_index - 1, spawn_class, NUM_FOR_EDICT( ent ));
 
-				if( SV_GCMapCannotFitEntity( spawn_class, entity_index ))
-				{
-					Host_Error( "%s: memory budget cannot support entity %d (%s); aborting map load without omitting gameplay entities\n",
-						__func__, entity_index - 1, spawn_class );
-					return;
-				}
+				if( SV_GCMapCannotFitEntity( spawn_class, entity_index )
+					&& ( entity_index & 31 ) == 0 )
+					Con_Reportf( S_WARN "Xash3D GameCube: spawn budget pressure entity=%d class=%s\n",
+						entity_index - 1, spawn_class );
 				if( entity_index == 257 )
 					Con_Reportf( "Xash3D GameCube: entity budget check end=%d class=%s\n",
 						entity_index - 1, spawn_class );
@@ -5963,6 +5997,11 @@ static void SV_LoadFromFile( const char *mapname, char *entities )
 			}
 #if XASH_GAMECUBE
 			else if( SV_GCMapSmokeRoute() && entity_index >= 90 && ( entity_index & 15 ) == 0 )
+			{
+				Con_Reportf( "Xash3D GameCube: entity spawn done=%d classname=%s\n",
+					entity_index - 1, SV_ClassName( ent ));
+			}
+			else if( SV_GCMapSmokeRoute() && entity_index >= 400 )
 			{
 				Con_Reportf( "Xash3D GameCube: entity spawn done=%d classname=%s\n",
 					entity_index - 1, SV_ClassName( ent ));
@@ -6048,7 +6087,8 @@ void SV_SpawnEntities( const char *mapname )
 #if XASH_GAMECUBE
 	/* G329/G369: reclaim ImageLib + Capture-time FatPVS extras before
 	 * CSoundEnt so tram/denser BSP can finish entity spawn. */
-	if( Sys_CheckParm( "-gcmap" ) || Sys_CheckParm( "-gcnewgame" ))
+	if( Sys_CheckParm( "-gcmap" ) || Sys_CheckParm( "-gcnewgame" )
+		|| Sys_CheckParm( "-gcmenuplaystart" ) || GC_MapLoadMemoryOpt() )
 	{
 		Image_GCPurgeDecodeScratch();
 		if( host.imagepool )
@@ -6057,6 +6097,9 @@ void SV_SpawnEntities( const char *mapname )
 		gc_soundent_fallback_used = false;
 		Con_Reportf( "Xash3D GameCube: pre-entity memory trim\n" );
 		GC_MemSample( "pre-entity spawn" );
+		/* Promote allowlisted NPC/view meshes while MEM1 is still coherent.
+		 * Spawn reads studiohdr for eye positions; stubs hung denser maps. */
+		Mod_GCLoadPreEntityStudios();
 	}
 #endif
 

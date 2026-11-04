@@ -736,10 +736,8 @@ void Host_Frame( double time )
 	GC_WatchdogMark( "host frame" );
 #if XASH_GAMECUBE
 	GC_ProfFrame();
-	/* The queue is intentionally dormant until a producer is ready; avoid
-	 * touching its scheduler on every retail frame when it is empty. */
-	if( GC_JobPending( ))
-		GC_JobRunBudget( 1200 );
+	/* Job queue currently has no GameCube producers; keep startup/video/menu
+	 * deterministic until jobs carry explicit ownership and lifetime fences. */
 #endif
 #if XASH_GAMECUBE
 	if( gc_mem_watch_enabled && host.framecount < 4000 )
@@ -778,7 +776,11 @@ void Host_Frame( double time )
 	/* ASND is fully initialized by this point. Establish the audio ARAM owner
 	 * before any menu prefetch, BSP, or texture streaming can append session
 	 * allocations. This makes the audio window deterministic across boots. */
-	if( host.framecount == 0 && !GC_AramAudioBase( ))
+	/* The boot cinematic owns ARAM exclusively.  Its one-shot video prefetch
+	 * must remain the most recent allocation so it can be returned intact at
+	 * the end of playback; establish persistent audio only once the menu is
+	 * allowed to lazy-load. */
+	if( cls.state != ca_cinematic && !GC_AramAudioBase( ))
 	{
 		if( !GC_AramAudioReserve( 1024u * 1024u ))
 			Con_Reportf( S_WARN "Xash3D GameCube: deferred ARAM audio reserve unavailable\n" );
@@ -1571,11 +1573,12 @@ int EXPORT Host_Main( int argc, char **argv, const char *progname, int bChangeGa
 #endif
 #if XASH_GAMECUBE
 	Con_Reportf( "Xash3D GameCube: engine subsystems ready\n" );
-	/* Keep the real hardware/Dolphin display informative while menu assets and
-	 * the first map are still loading. This call is safe after CL_Init because
-	 * the GameCube video/XFB path has been created; it uses static fallback
-	 * buffers and does not depend on menu textures. */
-	GC_DrawLoadingStatus( "XASH3D GAMECUBE", "LOADING MENU..." );
+	/* Retail startup goes from the logos directly into the menu. The generic
+	 * status panel is useful for headless/map diagnostics, but showing it on
+	 * the normal route briefly exposes the pre-menu bootstrap buffer and does
+	 * not match the retail handoff. */
+	if( Sys_CheckParm( "-gcmap" ) || Sys_CheckParm( "-gcnewgame" ))
+		GC_DrawLoadingStatus( "XASH3D GAMECUBE", "LOADING MENU..." );
 #endif
 
 #if !XASH_GAMECUBE

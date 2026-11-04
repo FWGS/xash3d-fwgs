@@ -115,7 +115,9 @@ typedef struct
 	pixel_t      alphamap[3 * 1024 * 256];
 #if XASH_GAMECUBE
 	/* Contiguous with tables above; 3.5 MiB staging arena while the renderer's
-	 * screen buffers and surface cache are trimmed for BSP loading. */
+	 * screen buffers and surface cache are trimmed for BSP loading. Dense maps
+	 * reclaim the trailing BSP texture lump (after the CMPR pack loads) instead
+	 * of growing this pad into MEM1 that SV_Init still needs. */
 	byte         mapload_pad[1024 * 1024];
 #endif
 	pixel_t      color;
@@ -539,6 +541,9 @@ void R_Set2DMode( qboolean enable );
 void GL_UpdateTexture( int texnum, int cols, int rows, int width, int height, const byte *buffer, pixformat_t fmt );
 void GL_UpdateCinematicTexture( int texnum, int width, int height, const byte *buffer,
 	const uint16_t *dirty_tiles, uint dirty_count, qboolean full_upload );
+void R_GXReleaseCinematicTexture( unsigned int texnum );
+pixel_t *R_GXAcquireCinematicSoftwarePixels( size_t bytes );
+void R_GXReleaseCinematicSoftwarePixels( void );
 
 // gl_image.c
 //

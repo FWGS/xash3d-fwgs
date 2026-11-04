@@ -28,6 +28,12 @@ struct movie_state_s
 	avi_frame_index_t	*index;
 	avi_frame_index_t	*audio_index;
 	uint32_t		*raw_frame_offsets;
+	byte			*raw_prefetch;
+	size_t			raw_prefetch_size;
+	qboolean		raw_prefetch_malloced;
+	unsigned int	raw_prefetch_aram;
+	size_t			raw_prefetch_cache_offset;
+	unsigned int	raw_prefetch_cache_bytes;
 	cinepak_decoder_t	decoder;
 	fs_offset_t		movie_list_pos;
 	fs_offset_t		data_offset;

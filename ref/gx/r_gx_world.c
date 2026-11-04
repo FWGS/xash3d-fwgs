@@ -738,7 +738,15 @@ void GL_UpdateCinematicTexture( int texnum, int width, int height, const byte *b
 		if( !r_gx_cinematic_tex.tiled )
 			return;
 		r_gx_cinematic_tex.alloc_bytes = GC_GX_CINEMATIC_BYTES;
+		gEngfuncs.Con_Reportf( "Xash3D GameCube: cinematic GX alloc ptr=%p bytes=%u align=%u\n",
+			r_gx_cinematic_tex.tiled, (unsigned)GC_GX_CINEMATIC_BYTES,
+			(unsigned)((uintptr_t)r_gx_cinematic_tex.tiled & 31u) );
 	}
+	/* The cinematic storage is single-buffered.  Do not overwrite it until
+	 * Flipper has consumed the prior frame; GX_InvalidateTexAll only invalidates
+	 * the texture cache and is not a producer/consumer fence. */
+	if( r_gx_cinematic_ready )
+		GX_DrawDone();
 	if( !r_gx_cinematic_ready || r_gx_cinematic_tex.texnum != (unsigned)texnum )
 	{
 		full_upload = true;
@@ -766,12 +774,49 @@ void GL_UpdateCinematicTexture( int texnum, int width, int height, const byte *b
 	r_gx_cinematic_tex.valid = true;
 	r_gx_cinematic_ready = true;
 	GX_InvalidateTexAll();
+	/* Force GX_LoadTexObj on the next draw.  Some Flipper/Dolphin paths retain
+	 * the old texture-cache tag even after GX_InvalidateTexAll when the object
+	 * address is unchanged. */
+	r_gx_bound_texnum = 0;
+	r_gx_bound_fmt = 0;
 	if( update_number == 1 || !( update_number % 15 ))
 		gEngfuncs.Con_Reportf( "Xash3D GameCube: cinematic gx stages frame=%u tiles=%u full=%d update=%.3fms flush=%.3fms invalidate=%.3fms\n",
 			update_number, dirty_count, full_upload,
 			( stage_tiles - stage_start ) * 1000.0,
 			( stage_flush - stage_tiles ) * 1000.0,
 			( gEngfuncs.pfnTime() - stage_flush ) * 1000.0 );
+	if( update_number <= 2 )
+		gEngfuncs.Con_Reportf( "Xash3D GameCube: cinematic GX upload=%u tex=%d full=%d dirty=%u ptr=%p\n",
+			update_number, texnum, full_upload, dirty_count, r_gx_cinematic_tex.tiled );
+}
+
+void R_GXReleaseCinematicTexture( unsigned int texnum )
+{
+	if( !r_gx_cinematic_tex.tiled || r_gx_cinematic_tex.texnum != texnum )
+		return;
+	R_GXReleaseCinematicSoftwarePixels();
+	free( r_gx_cinematic_tex.tiled );
+	memset( &r_gx_cinematic_tex, 0, sizeof( r_gx_cinematic_tex ));
+	r_gx_cinematic_ready = false;
+	if( r_gx_bound_texnum == texnum )
+	{
+		r_gx_bound_texnum = 0;
+		r_gx_bound_fmt = 0;
+	}
+}
+
+pixel_t *R_GXAcquireCinematicSoftwarePixels( size_t bytes )
+{
+	if( bytes > GC_GX_CINEMATIC_BYTES )
+		return NULL;
+	if( !r_gx_cinematic_tex.tiled )
+	{
+		r_gx_cinematic_tex.tiled = (u16 *)memalign( 32, GC_GX_CINEMATIC_BYTES );
+		if( !r_gx_cinematic_tex.tiled )
+			return NULL;
+		r_gx_cinematic_tex.alloc_bytes = GC_GX_CINEMATIC_BYTES;
+	}
+	return (pixel_t *)r_gx_cinematic_tex.tiled;
 }
 
 static void R_GXTexCacheReset( void )
@@ -1133,6 +1178,9 @@ static gc_gx_tex_t *R_GXBindTexnum( unsigned texnum, qboolean hud_bind )
 		if( r_gx_bound_texnum != texnum || r_gx_bound_fmt != r_gx_cinematic_tex.fmt )
 		{
 			GX_LoadTexObj( &r_gx_cinematic_tex.obj, GX_TEXMAP0 );
+			if( r_gx_cinematic_updates <= 2 )
+				gEngfuncs.Con_Reportf( "Xash3D GameCube: cinematic GX bind tex=%u fmt=%u ptr=%p\n",
+					texnum, (unsigned)r_gx_cinematic_tex.fmt, r_gx_cinematic_tex.tiled );
 			r_gx_bound_texnum = texnum;
 			r_gx_bound_fmt = r_gx_cinematic_tex.fmt;
 			r_gx_tex_loads++;
@@ -4595,6 +4643,9 @@ static void R_GXPrepareHud2DState( void )
 	GX_LoadProjectionMtx( ortho, GX_ORTHOGRAPHIC );
 	guMtxIdentity( ident );
 	GX_LoadPosMtxImm( ident, GX_PNMTX0 );
+	/* HUD texture coordinates are already normalized; do not inherit a world
+	 * texture matrix from the preceding 3D pass. */
+	GX_LoadTexMtxImm( ident, GX_TEXMTX0, GX_MTX2x4 );
 
 	r_gx_face_mode = GC_GX_FACE_MODE_NONE;
 	r_gx_bound_texnum = 0;

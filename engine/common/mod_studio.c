@@ -1367,12 +1367,18 @@ void Mod_LoadStudioModel( model_t *mod, void *buffer, size_t buffersize, qboolea
 
 #if XASH_GAMECUBE
 	skip_studio_textures = (GC_GetVisualQuality( ) == 0);
-	/* Allowlisted MDLs (New Game + retail Flipper): lean mesh, tip-safe cache. */
+	/* Allowlisted MDLs: lean mesh (+ optional *t skins via G376) on the
+	 * studio BSS path. Covers -gcmap smoke maps too — without this, c1a1f
+	 * tried Mem_AllocPool studio loads under memopt and left null pstudiohdr. */
 	if( buffer && buffersize > sizeof( studiohdr_t )
-		&& ( Sys_CheckParm( "-gcnewgame" ) || GC_IsNewGameWorldReady() || GC_MenuRunsServer()))
+		&& ( Sys_CheckParm( "-gcnewgame" ) || Sys_CheckParm( "-gcmap" )
+			|| GC_MapLoadMemoryOpt() || GC_IsNewGameWorldReady()
+			|| GC_MenuRunsServer()))
 	{
-		Cvar_Set( "gc_quality", "0" );
-		skip_studio_textures = false;
+		/* Keep skins when quality > 0; never demote the session just to load.
+		 * Pre-entity promote forces mesh-only so G376 uploads do not tip spawn. */
+		skip_studio_textures = ( GC_GetVisualQuality() == 0 )
+			|| Mod_GCStudioPreEntityMeshOnly();
 		gc_real_studio = true;
 		gc_mesh_only = true;
 	}

@@ -2264,6 +2264,11 @@ qboolean S_Init( void )
 	{
 		Con_Reportf( "Xash3D GameCube: vox init skipped for map-load memopt\n" );
 	}
+	else if( cls.state != ca_active )
+	{
+		/* Speech data is not needed by the startup cinematic or main menu. */
+		Con_Reportf( "Xash3D GameCube: vox init deferred until active client\n" );
+	}
 	else
 #endif
 	{

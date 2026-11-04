@@ -1195,6 +1195,7 @@ void GAME_EXPORT GL_FreeTexture( unsigned int texnum )
 	// number 0 it's already freed
 	if( texnum <= 0 )
 		return;
+	R_GXReleaseCinematicTexture( texnum );
 
 	GL_DeleteTexture( &r_images[texnum] );
 }

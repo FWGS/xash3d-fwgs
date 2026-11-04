@@ -379,6 +379,11 @@ def build(bld):
 
 		if bld.env.DEST_OS in ['nswitch', 'psvita', 'gamecube', 'emscripten']:
 			install_path = None
+		if bld.env.DEST_OS == 'gamecube':
+			# mainui is a static subproject on GameCube; include it in the
+			# engine link so its registered menu exports can replace the
+			# bootstrap fallback at retail startup.
+			libs += ['menu']
 
 		defines += gamecube_defines
 

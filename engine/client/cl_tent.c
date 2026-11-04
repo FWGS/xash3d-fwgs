@@ -208,13 +208,28 @@ void CL_InitTempEnts( void )
 {
 	int max_tents = GI->max_tents;
 #if XASH_GAMECUBE
-	max_tents = Q_min( max_tents, Sys_CheckParm( "-gcmap" ) ? 4 : 64 );
+	/* Keep the disconnected retail menu lean; gameplay effects get the larger
+	 * pool once the client is active. */
+	/* The client boot phase is published before this pool is created, so it is
+	 * not a reliable discriminator for the disconnected retail menu. Keep the
+	 * GameCube pool lean at allocation time; the normal desktop-sized pool is
+	 * not viable alongside the resident mainui module in MEM1. */
+	max_tents = Q_min( max_tents, 4 );
 #endif
 
 	cl_tempents = Mem_Calloc( cls.mempool, sizeof( TEMPENTITY ) * max_tents );
 	CL_ClearTempEnts();
 
 	// load tempent sprites (glowshell, muzzleflashes etc)
+	#if XASH_GAMECUBE
+	if( !cl.worldmodel )
+	{
+		/* The retail startup cinematic/menu has no world effects to draw yet;
+		 * defer sprite precaching until the first map supplies a world model. */
+		Con_Reportf( "Xash3D GameCube: client tempent sprites deferred until world\n" );
+		return;
+	}
+	#endif
 	CL_LoadClientSprites ();
 }
 

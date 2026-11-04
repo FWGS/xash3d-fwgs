@@ -41,13 +41,15 @@ static qboolean Mod_GCIsNewGameRoute( void )
 	return Sys_CheckParm( "-gcnewgame" ) || Sys_CheckParm( "-gcmenuplaystart" );
 }
 
-/* New Game only: a few real MDLs (NPCs/viewweapons) instead of empty stubs.
- * Mesh-only (no studio texel upload) — skins bind white under quality 0. */
-#define GC_REAL_STUDIO_MAX_NPC    4
-#define GC_REAL_STUDIO_MAX_VIEW   3
-#define GC_REAL_STUDIO_MAX_BYTES  (640 * 1024) /* G371: view + scientist + barney */
-#define GC_REAL_STUDIO_MAX_NPC_MENU   8
-#define GC_REAL_STUDIO_MAX_BYTES_MENU ( 900 * 1024 )
+/* Real MDLs live in the 1 MiB studio BSS arena (lean meshes + viewweapons).
+ * Stubbing left GetEyePosition null and stalled denser maps during spawn —
+ * the GameCube can hold the early-campaign cast without that compromise. */
+/* 1 MiB studio BSS — fill it. Lean meshes + *t skins keep HL1 looking right. */
+#define GC_REAL_STUDIO_MAX_NPC    20
+#define GC_REAL_STUDIO_MAX_VIEW   5
+#define GC_REAL_STUDIO_MAX_BYTES  ( 1000 * 1024 )
+#define GC_REAL_STUDIO_MAX_NPC_MENU   16
+#define GC_REAL_STUDIO_MAX_BYTES_MENU ( 1000 * 1024 )
 
 static int    gc_real_studio_npc;
 static int    gc_real_studio_view;
@@ -63,6 +65,14 @@ static int     gc_deferred_studio_attempts;
 static byte    gc_studio_bss[GC_STUDIO_BSS_BYTES] __attribute__((aligned( 32 )));
 static size_t  gc_studio_bss_bump;
 static int     gc_studio_bss_owners; /* resident cache.data slices */
+/* Pre-entity promote: mesh only — G376 skin uploads tip MEM1 and crash
+ * mid-spawn (c1a1f ~entity 96). Skins re-promote after MAP_READY. */
+static qboolean gc_studio_pre_entity_mesh_only;
+
+qboolean Mod_GCStudioPreEntityMeshOnly( void )
+{
+	return gc_studio_pre_entity_mesh_only;
+}
 
 byte *Mod_GCStudioBssAlloc( size_t size );
 
@@ -312,8 +322,11 @@ static qboolean Mod_GCStudioNameAllowed( const char *name, qboolean *is_viewmode
 		"scientist", "barney", "gman", "player", "roach",
 		"headcrab", "houndeye", "zombie",
 		"scientist01", "scientist02", "scientist03",
-		/* Menu New Game intro props (c0a0 / c0a0a forklifts). */
+		/* Menu New Game intro props + monster_furniture (c1a1f uses filecabinet). */
 		"forklift", "loader", "filecabinet",
+		/* Campaign cast — lean mesh + *t skin atlas stays under 1 MiB BSS. */
+		"bullsquid", "agrunt", "islave", "hgrunt", "tentacle2", "garg",
+		"apache", "osprey", "ichthyosaur", "leech", "barnacle",
 		/* Tiny lean world-weapon stub for Flipper studio draw admit. */
 		"w_crowbar",
 		NULL
@@ -366,8 +379,8 @@ static qboolean Mod_GCAllowRealStudioLoad( const char *name, size_t filesize )
 	}
 	else if( gc_real_studio_npc >= max_npc )
 		return false;
-	/* The loader is 352 KiB with its embedded skins. */
-	if( filesize < sizeof( studiohdr_t ) || filesize > (( GC_MenuRunsServer() ? 400 : 220 ) * 1024 ))
+	/* Lean meshes stay under ~200 KiB; allow up to 400 KiB for skinned props. */
+	if( filesize < sizeof( studiohdr_t ) || filesize > ( 400 * 1024 ))
 		return false;
 	if( gc_real_studio_bytes + filesize > max_bytes )
 		return false;
@@ -502,7 +515,7 @@ const char *Mod_GCLandmarkViewModelPath( void )
 	return gc_landmark_viewmodel[0] ? gc_landmark_viewmodel : NULL;
 }
 
-static qboolean Mod_GCPromoteStudioPath( const char *path )
+qboolean Mod_GCPromoteStudioPath( const char *path )
 {
 	model_t *mod;
 	byte *buf;
@@ -514,13 +527,16 @@ static qboolean Mod_GCPromoteStudioPath( const char *path )
 	if( !path || !path[0] )
 		return false;
 
+	/* Reject before any FS/disc I/O — tip MEM1 cannot absorb random w_*.mdl. */
+	if( !Mod_GCStudioNameAllowed( path, &is_view ))
+		return false;
+
 	/* G156: reuse resident mesh — never re-read 130KB from disc under MEM1. */
 	mod = Mod_FindName( path, false );
 	if( !mod )
 		return false;
 	if( Mod_GCStudioAlreadyResident( mod ))
 	{
-		Mod_GCStudioNameAllowed( path, &is_view );
 		if( is_view )
 			Mod_GCPinViewModel( mod );
 		return true;
@@ -852,6 +868,52 @@ void Mod_GCLoadNewGameStudios( void )
 
 	Con_Reportf( "Xash3D GameCube: deferred studio done npc=%d view=%d budget=%s\n",
 		gc_real_studio_npc, gc_real_studio_view, Q_memprint( gc_real_studio_bytes ));
+}
+
+/*
+=============
+Mod_GCLoadPreEntityStudios
+
+After the world BSP has settled (and FatPVS extras are reclaimed), load the
+allowlisted cast into the studio BSS arena so MonsterInit can read eye
+positions and bone controllers. Deferring until post-present left c1a1f
+hanging inside the second zombie Spawn with a null studiohdr.
+=============
+*/
+void Mod_GCLoadPreEntityStudios( void )
+{
+	/* c1a1f cast first (proven tip-safe ~0.5 MiB with skins). Heavier
+	 * campaign meshes (gman/houndeye/forklift) promote on SetModel demand
+	 * so pre-entity does not push studio BSS into the crash cliff. */
+	static const char *promote[] = {
+		"models/v_crowbar.mdl",
+		"models/w_crowbar.mdl",
+		"models/roach.mdl",
+		"models/headcrab.mdl",
+		"models/zombie.mdl",
+		"models/barney.mdl",
+		"models/scientist.mdl",
+		"models/filecabinet.mdl",
+		NULL
+	};
+	int i;
+
+	/* -gcmap / session memopt — same gate as the call site, explicit so a
+	 * stale outer check cannot skip the cast. */
+	if( !GC_MapLoadMemoryOpt() && !Sys_CheckParm( "-gcmap" )
+		&& !Sys_CheckParm( "-gcnewgame" ))
+		return;
+
+	FS_ClearFindMissCache();
+	Image_GCPurgeDecodeScratch();
+	gc_studio_pre_entity_mesh_only = true;
+	for( i = 0; promote[i]; i++ )
+		Mod_GCPromoteStudioPath( promote[i] );
+	gc_studio_pre_entity_mesh_only = false;
+	Mod_GCRebindPromotedStudios();
+	Con_Reportf( "Xash3D GameCube: pre-entity studios npc=%d view=%d budget=%s bump=%s\n",
+		gc_real_studio_npc, gc_real_studio_view, Q_memprint( gc_real_studio_bytes ),
+		Q_memprint( gc_studio_bss_bump ));
 }
 
 
@@ -1285,16 +1347,15 @@ static model_t *Mod_LoadModel( model_t *mod, qboolean crash )
 
 		if( ext && ( !Q_stricmp( ext, "mdl" ) || !Q_stricmp( ext, "spr" )) )
 		{
-			/* Menu New Game runs real monster AI from spawn, which needs the
-			 * real sequences: load allowlisted meshes into the studio arena
-			 * now instead of leaving a stub until after map prep. */
+			/* Monster AI reads studiohdr during Spawn (eye position, controllers).
+			 * Promote allowlisted meshes into the studio BSS arena now for every
+			 * memopt route — not only the retail menu server. */
 			qboolean is_view = false;
 
-			if( GC_MenuRunsServer() && !Q_stricmp( ext, "mdl" )
-				&& Mod_GCStudioNameAllowed( tempname, &is_view ) && !is_view
+			if( !Q_stricmp( ext, "mdl" )
+				&& Mod_GCStudioNameAllowed( tempname, &is_view )
 				&& Mod_GCPromoteStudioPath( tempname ))
 				return mod;
-			/* Real meshes are promoted after map prep in Mod_GCLoadNewGameStudios. */
 			mod->needload = NL_NEEDS_LOADED;
 			return mod;
 		}

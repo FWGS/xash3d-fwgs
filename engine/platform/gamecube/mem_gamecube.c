@@ -708,6 +708,8 @@ static u8 gc_aram_bounce[GC_ARAM_BOUNCE] __attribute__(( aligned( 32 )));
 static u32 gc_aram_reserve_blocks[8];
 static u32 gc_aram_audio_base;
 static u32 gc_aram_audio_capacity;
+static u32 gc_aram_video_base;
+static u32 gc_aram_video_capacity;
 static u32 gc_aram_map_base;
 static u32 gc_aram_map_capacity;
 
@@ -838,6 +840,31 @@ unsigned int GC_AramAudioCapacity( void )
 	return gc_aram_audio_capacity;
 }
 
+unsigned int GC_AramVideoReserve( unsigned int size )
+{
+	u32 aligned = ( size + 31u ) & ~31u;
+	if( !aligned ) return 0;
+	if( gc_aram_video_base )
+		return gc_aram_video_capacity >= aligned ? gc_aram_video_base : 0;
+	gc_aram_video_base = GC_AramReserve( aligned );
+	if( gc_aram_video_base ) gc_aram_video_capacity = aligned;
+	return gc_aram_video_base;
+}
+
+void GC_AramVideoRelease( void )
+{
+	u32 released = 0;
+	if( !gc_aram_video_base ) return;
+	/* The boot video is the final ARAM owner before menu startup.  Release its
+	 * top-of-stack block so menu/map streaming receives the full window. */
+	while( AR_GetDMAStatus( ))
+		;
+	AR_Free( &released );
+	Con_Reportf( "Xash3D GameCube: ARAM video release %s\n", Q_memprint( released ));
+	gc_aram_video_base = 0;
+	gc_aram_video_capacity = 0;
+}
+
 unsigned int GC_AramMapReserve( unsigned int size )
 {
 	u32 aligned = ( size + 31u ) & ~31u;
@@ -917,7 +944,7 @@ void GC_PrefetchMenuIdle( void )
 	file_t *f;
 	char manifest[8192];
 	int n;
-	if( gc_prefetch_manifest_ready || cls.key_dest != key_menu
+	if( gc_prefetch_manifest_ready || cls.key_dest != key_menu || cls.state == ca_cinematic
 		|| SV_Active() || Sys_CheckParm( "-gcmap" )) return;
 	if( !gc_prefetch_initialized )
 	{

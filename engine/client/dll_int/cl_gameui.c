@@ -159,22 +159,11 @@ static void UI_GCLoadFallbackMenuTextures( void )
 		return;
 
 	gc_menu_logo = ref.dllFuncs.GL_LoadTexture( "resource/gc_menu/logo.tga", NULL, 0, TF_IMAGE|TF_NOMIPMAP|TF_CLAMP );
-	for( int i = 0; i < ARRAYSIZE( gc_menu_composite ); i++ )
-	{
-		char name[64];
-		Q_snprintf( name, sizeof( name ), "resource/gc_menu/menu_%d.tga", i );
-		gc_menu_composite[i] = ref.dllFuncs.GL_LoadTexture( name, NULL, 0,
-			TF_IMAGE|TF_NOMIPMAP|TF_CLAMP );
-	}
 	if( gc_menu_logo <= 0 )
 		gc_menu_logo = ref.dllFuncs.GL_LoadTexture( "resource/logo_game.tga", NULL, 0, TF_IMAGE|TF_NOMIPMAP|TF_CLAMP );
-	gc_menu_logo_blur[0] = ref.dllFuncs.GL_LoadTexture( "resource/logo_big_blurred_0.tga", NULL, 0, TF_IMAGE|TF_NOMIPMAP|TF_CLAMP );
-	gc_menu_logo_blur[1] = ref.dllFuncs.GL_LoadTexture( "resource/logo_big_blurred_1.tga", NULL, 0, TF_IMAGE|TF_NOMIPMAP|TF_CLAMP );
-	gc_menu_logo_blur[2] = ref.dllFuncs.GL_LoadTexture( "resource/logo_big_blurred_2.tga", NULL, 0, TF_IMAGE|TF_NOMIPMAP|TF_CLAMP );
-	gc_menu_logo_blur[3] = ref.dllFuncs.GL_LoadTexture( "resource/logo_big_blurred_3.tga", NULL, 0, TF_IMAGE|TF_NOMIPMAP|TF_CLAMP );
 
 	{
-		int baked_bg = ref.dllFuncs.GL_LoadTexture( "resource/gc_menu/background.tga", NULL, 0,
+		int baked_bg = ref.dllFuncs.GL_LoadTexture( "resource/gc_menu/background.bmp", NULL, 0,
 			TF_IMAGE|TF_NOMIPMAP|TF_CLAMP );
 		if( baked_bg > 0 )
 		{
@@ -203,6 +192,25 @@ static void UI_GCLoadFallbackMenuTextures( void )
 			piece->t1 = 1.0f;
 		}
 	}
+	if( gc_menu_use_baked_retail )
+	{
+		/* The bake already includes the retail title and menu lettering. Extra
+		 * composite tiles and blurred logos are redundant and starve ImageLib
+		 * immediately after the intro returns its MEM1. */
+		gc_menu_textures_loaded = true;
+		return;
+	}
+	for( int i = 0; i < ARRAYSIZE( gc_menu_composite ); i++ )
+	{
+		char name[64];
+		Q_snprintf( name, sizeof( name ), "resource/gc_menu/menu_%d.tga", i );
+		gc_menu_composite[i] = ref.dllFuncs.GL_LoadTexture( name, NULL, 0,
+			TF_IMAGE|TF_NOMIPMAP|TF_CLAMP );
+	}
+	gc_menu_logo_blur[0] = ref.dllFuncs.GL_LoadTexture( "resource/logo_big_blurred_0.tga", NULL, 0, TF_IMAGE|TF_NOMIPMAP|TF_CLAMP );
+	gc_menu_logo_blur[1] = ref.dllFuncs.GL_LoadTexture( "resource/logo_big_blurred_1.tga", NULL, 0, TF_IMAGE|TF_NOMIPMAP|TF_CLAMP );
+	gc_menu_logo_blur[2] = ref.dllFuncs.GL_LoadTexture( "resource/logo_big_blurred_2.tga", NULL, 0, TF_IMAGE|TF_NOMIPMAP|TF_CLAMP );
+	gc_menu_logo_blur[3] = ref.dllFuncs.GL_LoadTexture( "resource/logo_big_blurred_3.tga", NULL, 0, TF_IMAGE|TF_NOMIPMAP|TF_CLAMP );
 
 	if( !gc_menu_use_baked_retail )
 		UI_GCLoadFallbackMenuLayout();
@@ -337,7 +345,8 @@ static void UI_GCDrawFallbackMenu( void )
 			int x1 = ( col + 1 ) * refState.width / 3;
 			int y1 = ( row + 1 ) * refState.height / 3;
 			ref.dllFuncs.R_DrawStretchPic( x, y, x1 - x, y1 - y,
-				0, 0, 1, 1, gc_menu_composite[i] );
+				0.015625f, 0.015625f, 0.984375f, 0.984375f,
+				gc_menu_composite[i] );
 		}
 		/* Keep navigation visible over the baked text. The command and
 		 * selection state remain live even though the artwork is composited. */
@@ -442,6 +451,16 @@ static void UI_GCDrawFallbackMenu( void )
 		UI_GCDrawMenuString( base_x, base_y + (int)ARRAYSIZE( gc_menu_items ) * row_h + row_h + 18,
 			"Starting up...", 120, 120, 120, false );
 	}
+	else if( !gc_menu_reported_button_ready )
+	{
+		/* The baked background path still draws live controller-driven labels
+		 * below it. Publish the same readiness transition as the composite path
+		 * once command execution is safe, so startup probes and hardware UX use
+		 * the actual interactive boundary rather than an asset-load boundary. */
+		Cvar_SetValue( "gc_menu_ready", 1.0f );
+		Con_Reportf( "Xash3D GameCube: retail menu button text ready\n" );
+		gc_menu_reported_button_ready = true;
+	}
 }
 
 static void UI_GCActivateFallbackMenuItem( void )
@@ -515,6 +534,7 @@ void UI_GameCubeReleaseMenuTextures( void )
 		gc_menu_background[i].texnum = 0;
 	}
 	gc_menu_background_count = 0;
+	gc_menu_use_baked_retail = false;
 	gc_menu_textures_loaded = false;
 }
 

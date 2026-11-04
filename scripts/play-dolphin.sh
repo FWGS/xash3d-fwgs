@@ -50,6 +50,11 @@ CONF_DIR="${XDG_CONFIG_HOME:-$HOME/.config}/xash3d-gc"
 CONF="$CONF_DIR/play.conf"
 USER_DIR="${XDG_DATA_HOME:-$HOME/.local/share}/xash3d-gc/dolphin"
 ISO="$ROOT/OUT/xash3d-gc-play.iso"
+DOLPHIN="${DOLPHIN:-}"
+if [[ -f "$ROOT/scripts/gamecube-env.sh" ]]; then
+	# shellcheck disable=SC1091
+	source "$ROOT/scripts/gamecube-env.sh"
+fi
 START_MUTED=0
 RECORD=1
 TOGGLE=1
@@ -177,8 +182,12 @@ if (( BUILD_LOCK_HELD )); then
 	exec 9>&-
 fi
 
-DOLPHIN="$ROOT/3rdparty/dolphin/build/Binaries/dolphin-emu"
-[[ -x "$DOLPHIN" ]] || DOLPHIN="$(command -v dolphin-emu || true)"
+if [[ -n "${DOLPHIN_EXECUTABLE:-}" && "$DOLPHIN_EXECUTABLE" != flatpak:* && -x "$DOLPHIN_EXECUTABLE" ]]; then
+	DOLPHIN="$DOLPHIN_EXECUTABLE"
+else
+	DOLPHIN="$ROOT/3rdparty/dolphin/build/Binaries/dolphin-emu"
+	[[ -x "$DOLPHIN" ]] || DOLPHIN="$(command -v dolphin-emu || true)"
+fi
 [[ -n "$DOLPHIN" ]] || { echo "error: no Dolphin found (build 3rdparty/dolphin or install dolphin-emu)" >&2; exit 1; }
 
 mkdir -p "$USER_DIR/Config"

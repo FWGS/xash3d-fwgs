@@ -21,7 +21,21 @@ The representative campaign audit at
 failures, and one inconclusive probe. Its 237 transition targets all exist;
 that static check does not verify traversal. Subsequent texture-pack work
 cleared `c1a1` and `c1a2`; `c1a3`, `c2a1`, `c2a2`, and `c2a4e` still need current
-runtime proof. No claim of campaign-wide quality budgeting is made yet.
+runtime proof. Fresh adaptive-reserve verification now passes `c2a4e`, `c1a2`,
+`c1a3`, and `c2a1` (`.ai/logs/map-compat-20261102-233305/`): all four reach
+`MAP_READY`. The formerly failing `c2a4e` reserves 51,776 bytes, retains all
+115 packed textures, and loads both its 189.44 KiB leaf and 294.18 KiB node
+arrays from the retained arena. This remains a map-load gate, not campaign-wide
+visual, gameplay, or physical-hardware sign-off.
+
+The retail intro/menu regression is fixed in the current build. The fallback
+Cinepak path now keeps decoder and upload dimensions consistent, and menu startup
+uses the baked retail background without redundantly loading nine composite tiles
+and four blurred logos. Fresh Dolphin evidence reaches the final intro frame and
+the interactive menu with no ImageLib OOM (`.ai/logs/dolphin-probe-20261103-002113/`).
+The video completed at 15 fps, but the strict host-timestamp pacing gate remains
+red under this loaded Dolphin run; visual and hardware playback still need a
+dedicated timing capture.
 
 Release completion remains unproven. Fresh ending-map (`c5a1`) probes exposed
 allocation failures before vertex conversion and private-data exhaustion during
@@ -895,6 +909,20 @@ Rendered Dolphin evidence is also content-addressed:
 - c0a0 Dolphin log: `e0f7e02756b5a110193801cdf3fc0deca5dce9734136223f73a8d459783e4360`
 
 #### Deferred optimization: progressive mip streaming
+
+#### Dense-map BSP surface budgeting (2026-11-03)
+
+The map-load static arena was expanded with a 2 MiB tail pad, and dense maps
+now budget their world texture pack to a 16 KiB ARAM-streaming table when the
+surface reserve exceeds 900 KiB. Face lumps are copied into the map tail before
+BSP staging release, while cleanup only frees face pins that still point into
+the original source buffer. This removes the contiguous-surface allocation
+failures and stale-pointer hang observed on `c1a2`/`c1a3`/`c2a1` while keeping
+the tiny-tail `c1a1f` path intact.
+
+Verified probes: `c1a1f`, `c1a2`, `c1a3`, and `c2a1` each reached `MAP_READY`
+with zero hard failures in `.ai/logs/map-compat-20261103-013216` and the
+preceding focused probe logs.
 
 After allocator and full-map correctness are stable, consider a progressive
 texture cache. Preload a 2x2 or 4x4 fallback mip for every visible material,

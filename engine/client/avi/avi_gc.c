@@ -9,6 +9,9 @@ Copyright (C) 2026 Xash3D GameCube port contributors
 #include "avi_cinepak.h"
 #include "avi_gc.h"
 #include "platform/platform.h"
+#if XASH_GAMECUBE
+#include "../../platform/gamecube/mem_gamecube.h"
+#endif
 
 static qboolean avi_initialized;
 static poolhandle_t avi_mempool;
@@ -37,20 +40,61 @@ static fs_offset_t AVI_ScanFor( file_t *file, const char *tag, fs_offset_t start
 static void AVI_ParseAudioFormat( movie_state_t *Avi, fs_offset_t file_size );
 
 #if XASH_GAMECUBE
-#define GC_AVI_AUDIO_SLICE_BYTES	16384
+#define GC_AVI_AUDIO_SLICE_BYTES	2048
 /* The intro video is 15 fps, while the 48 kHz DMA cursor advances about
  * 3200 samples between AVI_Think calls.  A 2048-sample lead therefore
  * underruns even though the ASND clock itself is correct.  Fill the raw
  * channel's complete ring so producer cadence cannot starve playback. */
 #define GC_AVI_AUDIO_LEAD_SAMPLES	8192
-/* Half-res Cinepak fallback when no .gcvid companion is present.  This keeps
- * retail 640x480 AVI playback at the same 320x240 presentation resolution as
- * the native GCVID path while leaving the converter path fully lossless. */
-#define GC_AVI_DECODE_SCALE		2
+/* Keep the Cinepak fallback at native decoded dimensions.  The renderer's
+ * cinematic upload path expects the decoder stride and upload dimensions to
+ * agree; half-resolution fallback produced vertically repeated/corrupt frames
+ * on retail AVI playback and prevented the main menu from activating. */
+#define GC_AVI_DECODE_SCALE		1
 #define GC_AVI_UPLOAD_MAX_W		320
 #define GC_AVI_UPLOAD_MAX_H		240
 #define GC_AVI_STATIC_FRAME_MAX_BYTES	( 320 * 240 * 2 )
 static byte gc_avi_static_frame[GC_AVI_STATIC_FRAME_MAX_BYTES] __attribute__((aligned( 32 )));
+static byte gc_avi_prefetch_stage[16384] __attribute__((aligned( 32 )));
+static byte gc_avi_aram_cache[4096] __attribute__((aligned( 32 )));
+
+static fs_offset_t AVI_GCReadRaw( movie_state_t *Avi, fs_offset_t offset, void *dst, size_t bytes )
+{
+	if( Avi->raw_prefetch_aram && offset >= Avi->data_offset )
+	{
+		const size_t rel = (size_t)( offset - Avi->data_offset );
+		if( rel <= Avi->raw_prefetch_size && bytes <= Avi->raw_prefetch_size - rel )
+		{
+			if( bytes > sizeof( gc_avi_aram_cache ))
+				GC_AramCopy( Avi->raw_prefetch_aram + (unsigned int)rel, dst, (unsigned int)bytes, false );
+			else
+			{
+				const size_t cache_offset = rel & ~( sizeof( gc_avi_aram_cache ) - 1 );
+				if( Avi->raw_prefetch_cache_bytes == 0 || rel < Avi->raw_prefetch_cache_offset ||
+					rel + bytes > Avi->raw_prefetch_cache_offset + Avi->raw_prefetch_cache_bytes )
+				{
+					Avi->raw_prefetch_cache_offset = cache_offset;
+					Avi->raw_prefetch_cache_bytes = (unsigned int)Q_min( sizeof( gc_avi_aram_cache ),
+						Avi->raw_prefetch_size - cache_offset );
+					GC_AramCopy( Avi->raw_prefetch_aram + (unsigned int)cache_offset,
+						gc_avi_aram_cache, Avi->raw_prefetch_cache_bytes, false );
+				}
+				memcpy( dst, gc_avi_aram_cache + rel - Avi->raw_prefetch_cache_offset, bytes );
+			}
+			return (fs_offset_t)bytes;
+		}
+	}
+	if( Avi->raw_prefetch && offset >= Avi->data_offset &&
+		(size_t)( offset - Avi->data_offset ) <= Avi->raw_prefetch_size &&
+		bytes <= Avi->raw_prefetch_size - (size_t)( offset - Avi->data_offset ))
+	{
+		memcpy( dst, Avi->raw_prefetch + (size_t)( offset - Avi->data_offset ), bytes );
+		return (fs_offset_t)bytes;
+	}
+	if( FS_Seek( Avi->file, offset, SEEK_SET ) == -1 )
+		return -1;
+	return FS_Read( Avi->file, dst, bytes );
+}
 
 static qboolean AVI_UsesStaticFrameBuffer( const movie_state_t *Avi )
 {
@@ -199,6 +243,42 @@ static qboolean AVI_OpenGCVID( movie_state_t *Avi, const char *filename, qboolea
 	Avi->upload_width = (int)width;
 	Avi->upload_height = (int)height;
 	Avi->data_offset = FS_Tell( Avi->file );
+	/* Give the one-shot intro first claim on available heap.  If the complete
+	 * payload fits, decoding becomes seek-free and menu assets cannot compete
+	 * with its I/O; otherwise retain the normal streaming fallback. */
+	{
+		fs_offset_t end = FS_FileSize( path, false );
+		if( end > Avi->data_offset )
+		{
+			Avi->raw_prefetch_size = (size_t)( end - Avi->data_offset );
+			Avi->raw_prefetch_aram = GC_AramVideoReserve( (unsigned int)Avi->raw_prefetch_size );
+			if( Avi->raw_prefetch_aram )
+			{
+				size_t left = Avi->raw_prefetch_size, copied = 0;
+				qboolean prefetch_ok = FS_Seek( Avi->file, Avi->data_offset, SEEK_SET ) != -1;
+				while( prefetch_ok && left )
+				{
+					const size_t chunk = Q_min( left, sizeof( gc_avi_prefetch_stage ));
+					if( FS_Read( Avi->file, gc_avi_prefetch_stage, chunk ) != (fs_offset_t)chunk )
+					{
+						prefetch_ok = false;
+						break;
+					}
+					GC_AramCopy( Avi->raw_prefetch_aram + (unsigned int)copied,
+						gc_avi_prefetch_stage, (unsigned int)chunk, true );
+					copied += chunk;
+					left -= chunk;
+				}
+				if( !prefetch_ok || copied != Avi->raw_prefetch_size )
+				{
+					GC_AramVideoRelease();
+					Avi->raw_prefetch_aram = 0;
+				}
+				else Con_Reportf( "Xash3D GameCube: intro GCVID prefetched %s in ARAM\n", Q_memprint( Avi->raw_prefetch_size ));
+			}
+		}
+		FS_Seek( Avi->file, Avi->data_offset, SEEK_SET );
+	}
 	Avi->current_frame = (uint)-1;
 	Avi->active = true;
 	Con_Reportf( "Xash3D GameCube: intro GCVID opened %s (%ux%u, %u frames%s, %s)\n",
@@ -808,14 +888,12 @@ static qboolean AVI_DecodeFrame( movie_state_t *Avi, uint frame, qboolean upload
 					Con_Reportf( "Xash3D GameCube: intro GCVID decode begin frame=%u offset=%ld current=%u\n",
 						f, (long)offset, Avi->current_frame );
 				#endif
-				if( FS_Seek( Avi->file, offset, SEEK_SET ) == -1 )
-					return false;
-				if( FS_Read( Avi->file, &tag, 1 ) != 1 )
+				if( AVI_GCReadRaw( Avi, offset, &tag, 1 ) != 1 )
 					return false;
 				if( tag == AVI_GCVID_KEYFRAME )
 				{
 					Avi->raw_full_upload = true;
-					if( FS_Read( Avi->file, Avi->frame, Avi->frame_size ) != (fs_offset_t)Avi->frame_size )
+					if( AVI_GCReadRaw( Avi, offset + 1, Avi->frame, Avi->frame_size ) != (fs_offset_t)Avi->frame_size )
 						return false;
 				}
 				else if( tag == AVI_GCVID_DELTAFRAME )
@@ -827,8 +905,10 @@ static qboolean AVI_DecodeFrame( movie_state_t *Avi, uint frame, qboolean upload
 					byte seen_tiles[40u * 30u];
 					byte tilebuf[128]; /* 8 * 8 * 2 = 128 bytes, max tile size */
 
-					if( FS_Read( Avi->file, count_bytes, sizeof( count_bytes )) != sizeof( count_bytes ))
+					fs_offset_t cursor = offset + 1;
+					if( AVI_GCReadRaw( Avi, cursor, count_bytes, sizeof( count_bytes )) != sizeof( count_bytes ))
 						return false;
+					cursor += sizeof( count_bytes );
 					changed_tiles = AVI_RL16( count_bytes );
 					if( changed_tiles > tiles_x * tiles_y )
 					{
@@ -842,8 +922,9 @@ static qboolean AVI_DecodeFrame( movie_state_t *Avi, uint frame, qboolean upload
 						byte index_bytes[2];
 						uint tile_index, tile_x, tile_y;
 
-						if( FS_Read( Avi->file, index_bytes, sizeof( index_bytes )) != sizeof( index_bytes ))
+						if( AVI_GCReadRaw( Avi, cursor, index_bytes, sizeof( index_bytes )) != sizeof( index_bytes ))
 							return false;
+						cursor += sizeof( index_bytes );
 						tile_index = AVI_RL16( index_bytes );
 						if( tile_index >= tiles_x * tiles_y )
 						{
@@ -854,8 +935,9 @@ static qboolean AVI_DecodeFrame( movie_state_t *Avi, uint frame, qboolean upload
 						{
 							const qboolean duplicate = seen_tiles[tile_index] != 0;
 							seen_tiles[tile_index] = 1;
-							if( FS_Read( Avi->file, tilebuf, sizeof( tilebuf )) != sizeof( tilebuf ))
+							if( AVI_GCReadRaw( Avi, cursor, tilebuf, sizeof( tilebuf )) != sizeof( tilebuf ))
 								return false;
+							cursor += sizeof( tilebuf );
 							if( duplicate )
 								continue;
 						}
@@ -881,9 +963,7 @@ static qboolean AVI_DecodeFrame( movie_state_t *Avi, uint frame, qboolean upload
 
 		{
 			fs_offset_t offset = Avi->data_offset + (fs_offset_t)frame * (fs_offset_t)Avi->frame_size;
-			if( FS_Seek( Avi->file, offset, SEEK_SET ) == -1 )
-				return false;
-			if( FS_Read( Avi->file, Avi->frame, Avi->frame_size ) != (fs_offset_t)Avi->frame_size )
+			if( AVI_GCReadRaw( Avi, offset, Avi->frame, Avi->frame_size ) != (fs_offset_t)Avi->frame_size )
 				return false;
 		}
 		return true;
@@ -1219,8 +1299,9 @@ void AVI_OpenVideo( movie_state_t *Avi, const char *filename, qboolean load_audi
 	{
 		if( load_audio )
 		{
-			AVI_AttachAudioFromAVI( Avi, safe_filename );
 			AVI_AttachNativeAudio( Avi, safe_filename );
+			if( !Avi->native_audio_file )
+				AVI_AttachAudioFromAVI( Avi, safe_filename );
 		}
 		Avi->x = 0;
 		Avi->y = 0;
@@ -1249,8 +1330,9 @@ void AVI_OpenVideo( movie_state_t *Avi, const char *filename, qboolean load_audi
 		{
 			if( load_audio )
 			{
-				AVI_AttachAudioFromAVI( Avi, gc_fallback );
 				AVI_AttachNativeAudio( Avi, gc_fallback );
+				if( !Avi->native_audio_file )
+					AVI_AttachAudioFromAVI( Avi, gc_fallback );
 			}
 			Avi->x = 0;
 			Avi->y = 0;
@@ -1300,34 +1382,7 @@ void AVI_OpenVideo( movie_state_t *Avi, const char *filename, qboolean load_audi
 		return;
 	}
 
-	if( Avi->file )
-	{
-		FS_Close( Avi->file );
-		Avi->file = NULL;
-	}
-	AVI_ClearAudioState( Avi );
-#if XASH_GAMECUBE
-	if( Avi->decoder.rgb )
-	{
-		Mem_Free( Avi->decoder.rgb );
-		Avi->decoder.rgb = NULL;
-	}
-	memset( &Avi->decoder, 0, sizeof( Avi->decoder ));
-	if( Avi->frame && !AVI_UsesStaticFrameBuffer( Avi ))
-		Mem_Free( Avi->frame );
-#else
-	Cinepak_Free( &Avi->decoder );
-	if( Avi->frame )
-		Mem_Free( Avi->frame );
-#endif
-	Avi->frame = NULL;
-	Avi->upload_frame = NULL;
-	if( Avi->index )
-		Mem_Free( Avi->index );
-	Avi->index = NULL;
-	if( Avi->chunk )
-		Mem_Free( Avi->chunk );
-	Avi->chunk = NULL;
+	AVI_CloseVideo( Avi );
 	if( !quiet )
 		Con_Printf( S_ERROR "Couldn't open intro video %s\n", safe_filename );
 }
@@ -1337,50 +1392,20 @@ void AVI_CloseVideo( movie_state_t *Avi )
 	if( !Avi )
 		return;
 
-#if XASH_GAMECUBE
-	/*
-	 * The GameCube intro path only opens a handful of AVI states during boot.
-	 * We currently prefer preserving those decode buffers over returning them to
-	 * the CRT heap, because Dolphin is reporting an invalid write inside _free_r
-	 * during the intro-to-menu transition. Keeping the buffers alive avoids that
-	 * fragile cleanup edge while we stabilize the boot flow.
-	 */
 	if( Avi->file )
 		FS_Close( Avi->file );
 	if( Avi->audio_file )
 		FS_Close( Avi->audio_file );
+#if XASH_GAMECUBE
 	if( Avi->native_audio_file )
 		FS_Close( Avi->native_audio_file );
-	Avi->file = NULL;
-	Avi->audio_file = NULL;
-	Avi->native_audio_file = NULL;
-	Avi->active = false;
-	Avi->paused = false;
-	Avi->playback_started = false;
-	Avi->audio_playback_started = false;
-	Avi->frame_on_gpu = false;
-	Avi->current_frame = (uint)-1;
-	Avi->audio_current_chunk = 0;
-	Avi->audio_chunk_size = 0;
-	Avi->audio_chunk_offset = 0;
-	Avi->audio_rate = 0;
-	Avi->audio_width = 0;
-	Avi->audio_channels = 0;
-	Avi->audio_bytes_submitted = 0;
-	Avi->native_audio_data_size = 0;
-	Avi->native_audio_offset = 0;
-	Avi->native_audio_reported_second = 0;
-	Avi->audio_reported = false;
-	Avi->audio_playback_started = false;
-	Avi->audio_channel_ready = false;
-	Avi->debug_think_calls = 0;
-	Avi->ui_logo = false;
-	return;
-#else
-	if( Avi->file )
-		FS_Close( Avi->file );
-	if( Avi->audio_file )
-		FS_Close( Avi->audio_file );
+	if( Avi->raw_prefetch && Avi->raw_prefetch_malloced )
+		free( Avi->raw_prefetch );
+	if( Avi->raw_prefetch_aram )
+		GC_AramVideoRelease();
+	if( Avi->raw_frame_offsets )
+		Mem_Free( Avi->raw_frame_offsets );
+#endif
 	if( Avi->frame )
 	{
 #if XASH_GAMECUBE
@@ -1400,8 +1425,11 @@ void AVI_CloseVideo( movie_state_t *Avi )
 		Mem_Free( Avi->audio_index );
 	Cinepak_Free( &Avi->decoder );
 
-	memset( Avi, 0, sizeof( *Avi ));
+#if XASH_GAMECUBE
+	if( Avi->active )
+		Con_Reportf( "Xash3D GameCube: intro video buffers released\n" );
 #endif
+	memset( Avi, 0, sizeof( *Avi ));
 }
 
 qboolean AVI_Think( movie_state_t *Avi )
@@ -1494,7 +1522,7 @@ qboolean AVI_Think( movie_state_t *Avi )
 		if( Avi->raw_rgb565 && ref.dllFuncs.GL_UpdateCinematicTexture )
 			ref.dllFuncs.GL_UpdateCinematicTexture( Avi->texture == 0 ? SCR_GetCinematicTexture() : Avi->texture,
 				Avi->upload_width, Avi->upload_height, upload_pixels,
-				Avi->raw_dirty_tiles, Avi->raw_dirty_count, Avi->raw_full_upload );
+				Avi->raw_dirty_tiles, Avi->raw_dirty_count, false );
 		else if( Avi->texture == 0 )
 		{
 		#if XASH_GAMECUBE

@@ -73,6 +73,9 @@ static qboolean gc_clipnodes_static_block;
 static void *gc_planes_malloc_block;
 static qboolean gc_planes_arena_tail;
 static qboolean gc_retain_bsp_source_buffer;
+static qboolean gc_surfedges_source_alias;
+static qboolean gc_faces_source_alias;
+static dface_t *gc_faces_tail_copy;
 /* G283: world msurface_t settled in retained BSP scratch (busy-protected). */
 static qboolean gc_world_msurface_retained;
 /* The world model whose load claimed the gc_*_malloc_block / scratch state
@@ -82,6 +85,11 @@ static const model_t *gc_world_blocks_owner;
 static byte *gc_bsp_scratch_base;
 static size_t gc_bsp_scratch_size;
 static size_t gc_bsp_scratch_carve_high;
+/* Bytes kept free at the high end of the map-load arena until the world
+ * surface table is placed. Converted planes/vertexes/edges/faces must not
+ * consume this region: c2a4e/c5a1 need the lighting-through-EOF hole plus
+ * the unused tail as one contiguous block. */
+static size_t gc_bsp_surface_reserve;
 static qboolean gc_texinfo_carve_pending;
 static file_t *gc_bsp_reload_file;
 static char gc_bsp_reload_path[MAX_QPATH];
@@ -112,7 +120,11 @@ void Mod_GCClearRetainedBspScratch( void )
 	gc_bsp_scratch_base = NULL;
 	gc_bsp_scratch_size = 0;
 	gc_bsp_scratch_carve_high = 0;
+	gc_bsp_surface_reserve = 0;
 	gc_retain_bsp_source_buffer = false;
+	gc_surfedges_source_alias = false;
+	gc_faces_source_alias = false;
+	gc_faces_tail_copy = NULL;
 	gc_world_msurface_retained = false;
 }
 
@@ -127,6 +139,40 @@ static qboolean Mod_GCPointerInScratchArena( const void *ptr )
 	full_size = gc_bsp_scratch_size + gc_bsp_scratch_carve_high;
 	return Mod_GCPointerInBuffer( ptr, gc_bsp_scratch_base, full_size );
 }
+
+#if XASH_GAMECUBE
+static size_t Mod_GCSurfaceBlockBytes( size_t numsurfaces )
+{
+	if( numsurfaces == 0 )
+		return 0;
+	return numsurfaces * ( sizeof( msurface_t ) + sizeof( mextrasurf_t ));
+}
+
+static size_t Mod_GCPreSurfaceCapacity( void )
+{
+	const size_t cap = GC_MapLoadBufferCapacity();
+
+	if( gc_bsp_surface_reserve == 0 || cap <= gc_bsp_surface_reserve )
+		return cap;
+	return cap - gc_bsp_surface_reserve;
+}
+
+/* Tail carves that would land in the reserved surface slot must fail so the
+ * surface table can occupy lighting-through-EOF plus unused tail as one hole.
+ * Never start below the BSP image: a zero highwater would otherwise place
+ * faces/texinfo at offset 0 on top of in-place planes (c1a1f/c4a3 hang). */
+static void *Mod_GCPreSurfaceTailAlloc( size_t after, size_t need )
+{
+	const size_t usable = Mod_GCPreSurfaceCapacity();
+	const size_t floor = gc_bsp_scratch_size + gc_bsp_scratch_carve_high;
+
+	if( after < floor )
+		after = floor;
+	if( need == 0 || after >= usable || need > usable - after )
+		return NULL;
+	return GC_MapLoadBufferTailAlloc( after, need );
+}
+#endif
 
 static void Mod_GCFreeBspPin( void **ptr )
 {
@@ -1726,7 +1772,8 @@ int Mod_SampleSizeForFace( const msurface_t *surf )
 	if( FBitSet( surf->texinfo->flags, TEX_EXTRA_LIGHTMAP ))
 		return LM_SAMPLE_EXTRASIZE;
 
-	if( surf->texinfo->faceinfo )
+	if( surf->texinfo->faceinfo && surf->texinfo->faceinfo->texture_step > 0
+		&& surf->texinfo->faceinfo->texture_step <= 4096 )
 		return surf->texinfo->faceinfo->texture_step;
 
 	return LM_SAMPLE_SIZE;
@@ -1839,7 +1886,7 @@ static void Mod_LightMatrixFromTexMatrix( const mtexinfo_t *tx, float lmvecs[2][
 	if( FBitSet( tx->flags, TEX_EXTRA_LIGHTMAP ))
 		lmscale = LM_SAMPLE_EXTRASIZE;
 
-	if( tx->faceinfo )
+	if( tx->faceinfo && tx->faceinfo->texture_step > 0 && tx->faceinfo->texture_step <= 4096 )
 		lmscale = tx->faceinfo->texture_step;
 
 	// copy texmatrix into lightmap matrix fisrt
@@ -3143,7 +3190,7 @@ static void Mod_LoadPlanes( model_t *mod, const dbspmodel_t *bmod )
 	 * unused tail of the static map-load arena (capacity 3.5 Mb, BSP image is
 	 * often ~1.5 Mb). Never carve into the retained BSP image itself.
 	 */
-	out = NULL;
+		out = NULL;
 	gc_planes_arena_tail = false;
 	if( GC_MapLoadMemoryOpt() && bmod->isworld && bmod->numplanes > 0 )
 	{
@@ -3155,16 +3202,39 @@ static void Mod_LoadPlanes( model_t *mod, const dbspmodel_t *bmod )
 			Con_Reportf( "Xash3D GameCube: world planes using malloc %s\n",
 				Q_memprint( plane_bytes ));
 		}
+		else if( sizeof( mplane_t ) == sizeof( dplane_t ) && bmod->planes
+			&& Mod_GCPointerInScratchArena( bmod->planes ))
+		{
+			/* Same 20-byte layout as dplane_t. Convert in place so dense maps
+			 * (c2a4e/c5a1) keep the high arena free for the surface table. */
+			out = (mplane_t *)bmod->planes;
+			gc_planes_arena_tail = true;
+			Con_Reportf( "Xash3D GameCube: world planes converted in place %s\n",
+				Q_memprint( plane_bytes ));
+		}
 		else if( gc_bsp_scratch_base && GC_IsMapLoadBuffer( gc_bsp_scratch_base ))
 		{
-			size_t after = gc_bsp_scratch_size + gc_bsp_scratch_carve_high;
+			size_t after = Q_max( gc_bsp_scratch_size + gc_bsp_scratch_carve_high,
+				GC_MapLoadBufferTailHighwater() );
 
-			out = (mplane_t *)GC_MapLoadBufferTailAlloc( after, plane_bytes );
+			/* Prefer a released-lump hole over the tail. The tail is reserved
+			 * for surfaces on maps whose face table exceeds the leftover. */
+			out = (mplane_t *)Mod_GCAllocWorldScratch( mod, (dbspmodel_t *)bmod, NULL, 0, plane_bytes, 32 );
 			if( out )
 			{
 				gc_planes_arena_tail = true;
-				Con_Reportf( "Xash3D GameCube: world planes using map-load arena tail %s (after %s)\n",
-					Q_memprint( plane_bytes ), Q_memprint( after ));
+				Con_Reportf( "Xash3D GameCube: world planes using BSP scratch hole %s\n",
+					Q_memprint( plane_bytes ));
+			}
+			else
+			{
+				out = (mplane_t *)Mod_GCPreSurfaceTailAlloc( after, plane_bytes );
+				if( out )
+				{
+					gc_planes_arena_tail = true;
+					Con_Reportf( "Xash3D GameCube: world planes using map-load arena tail %s (after %s)\n",
+						Q_memprint( plane_bytes ), Q_memprint( after ));
+				}
 			}
 		}
 	}
@@ -3179,10 +3249,12 @@ static void Mod_LoadPlanes( model_t *mod, const dbspmodel_t *bmod )
 
 	for( int i = 0; i < bmod->numplanes; i++, in++, out++ )
 	{
+		dplane_t src = *in;
+
 		out->signbits = 0;
 		for( int j = 0; j < 3; j++ )
 		{
-			out->normal[j] = in->normal[j];
+			out->normal[j] = src.normal[j];
 
 			if( out->normal[j] < 0.0f )
 				SetBits( out->signbits, BIT( j ));
@@ -3191,8 +3263,8 @@ static void Mod_LoadPlanes( model_t *mod, const dbspmodel_t *bmod )
 		if( VectorLength( out->normal ) < 0.5f )
 			Con_Printf( S_ERROR "bad normal for plane #%i\n", i );
 
-		out->dist = in->dist;
-		out->type = in->type;
+		out->dist = src.dist;
+		out->type = src.type;
 	}
 }
 
@@ -3208,7 +3280,19 @@ static void Mod_LoadVertexes( model_t *mod, dbspmodel_t *bmod )
 	mvertex_t	*out;
 
 	dvertex_t	*in = bmod->vertexes;
-	out = mod->vertexes = Mod_GCWorldArrayAlloc( mod, bmod, bmod->numvertexes * sizeof( mvertex_t ), "vertexes" );
+#if XASH_GAMECUBE
+	out = NULL;
+	if( GC_MapLoadMemoryOpt() && bmod->isworld && sizeof( mvertex_t ) == sizeof( dvertex_t )
+		&& bmod->vertexes && Mod_GCPointerInScratchArena( bmod->vertexes ))
+	{
+		out = (mvertex_t *)bmod->vertexes;
+		Con_Reportf( "Xash3D GameCube: world vertexes converted in place %s\n",
+			Q_memprint( bmod->numvertexes * sizeof( mvertex_t )));
+	}
+	if( !out )
+#endif
+	out = Mod_GCWorldArrayAlloc( mod, bmod, bmod->numvertexes * sizeof( mvertex_t ), "vertexes" );
+	mod->vertexes = out;
 	mod->numvertexes = bmod->numvertexes;
 
 	if( bmod->isworld ) ClearBounds( world.mins, world.maxs );
@@ -3246,7 +3330,14 @@ static void *Mod_GCWorldArrayTryAlloc( model_t *mod, dbspmodel_t *bmod, size_t b
 
 		if( out )
 			return out;
-		out = GC_MapLoadBufferTailAlloc( Q_max( gc_bsp_scratch_size + gc_bsp_scratch_carve_high,
+		/* Holes first: the high arena is reserved for the surface table. */
+		out = Mod_GCAllocWorldScratch( mod, bmod, NULL, 0, bytes, 32 );
+		if( out )
+		{
+			Con_Reportf( "Xash3D GameCube: world %s using BSP scratch hole %s\n", what, Q_memprint( bytes ));
+			return out;
+		}
+		out = Mod_GCPreSurfaceTailAlloc( Q_max( gc_bsp_scratch_size + gc_bsp_scratch_carve_high,
 			GC_MapLoadBufferTailHighwater( )), bytes );
 		if( out )
 		{
@@ -3311,6 +3402,48 @@ Mod_LoadSurfEdges
 */
 static void Mod_LoadSurfEdges( model_t *mod, dbspmodel_t *bmod )
 {
+#if XASH_GAMECUBE
+	if( GC_MapLoadMemoryOpt() && bmod->isworld && bmod->version != QBSP2_VERSION
+		&& bmod->surfaces && gc_bsp_scratch_base
+		&& Mod_GCPointerInBuffer( bmod->surfaces, gc_bsp_scratch_base, gc_bsp_scratch_size ))
+	{
+		size_t bytes = bmod->numsurfaces * sizeof( dface_t );
+		dface_t *copy = (dface_t *)Mod_GCPreSurfaceTailAlloc(
+			GC_MapLoadBufferTailHighwater( ), bytes );
+		gc_retain_bsp_source_buffer = true;
+		if( copy )
+		{
+			memcpy( copy, bmod->surfaces, bytes );
+			bmod->surfaces = copy;
+			gc_faces_tail_copy = copy;
+			gc_faces_source_alias = false;
+			Con_Reportf( "Xash3D GameCube: world faces copied to map tail %s\n", Q_memprint( bytes ));
+		}
+		else
+		{
+			gc_faces_source_alias = true;
+			Con_Reportf( "Xash3D GameCube: world faces alias retained BSP source %s\n",
+				Q_memprint( bytes ));
+		}
+	}
+	/* Surfedges are already a flat int32 table in the BSP image. On the
+	 * fragmented c1a1f route, alias that retained source lump instead of
+	 * allocating a second 102 KiB copy; the source arena is pinned through
+	 * surface conversion and released with the map as a whole. */
+	if( GC_MapLoadMemoryOpt() && bmod->isworld && bmod->surfedges
+		&& gc_bsp_scratch_base && Mod_GCPointerInBuffer( bmod->surfedges,
+			gc_bsp_scratch_base, gc_bsp_scratch_size ))
+	{
+		mod->surfedges = bmod->surfedges;
+		gc_surfedges_source_alias = true;
+		mod->numsurfedges = bmod->numsurfedges;
+		gc_retain_bsp_source_buffer = true;
+		Con_Reportf( "Xash3D GameCube: world surfedges %s %s\n",
+			gc_surfedges_source_alias ? "alias retained BSP source" : "copied to map tail",
+			Q_memprint( bmod->numsurfedges * sizeof( dsurfedge_t )));
+		return;
+	}
+#endif
 	mod->surfedges = Mod_GCWorldArrayAlloc( mod, bmod, bmod->numsurfedges * sizeof( dsurfedge_t ), "surfedges" );
 	memcpy( mod->surfedges, bmod->surfedges, bmod->numsurfedges * sizeof( dsurfedge_t ));
 	mod->numsurfedges = bmod->numsurfedges;
@@ -3723,13 +3856,14 @@ typedef struct
 
 static gc_wt_stored_t gc_wt_store[GC_WT_ARAM_ENTRIES];
 static uint32_t gc_wt_store_base, gc_wt_store_head, gc_wt_store_next;
+static byte gc_wt_stage[16 * 1024] __attribute__((aligned(32)));
 
 /* When the remaining tail can accommodate both world trees, share it between
  * them and entity overflow. If they cannot both fit, leave the default entity
  * reserve and let the scratch allocator satisfy whichever tree it can. */
 static size_t Mod_GCEntityOverflowBudget( size_t remaining, size_t leaf_bytes, size_t node_bytes )
 {
-	const size_t minimum = 32u * 1024u;
+	const size_t minimum = 64u * 1024u;
 	const size_t guard = 8u * 1024u;
 	size_t spare;
 	if( leaf_bytes > remaining || node_bytes > remaining - leaf_bytes )
@@ -3819,6 +3953,34 @@ static const gc_wt_stored_t *Mod_GCWorldStorePut( const gc_wt_entry_t *e, byte *
 	return s;
 }
 
+static const gc_wt_stored_t *Mod_GCWorldStorePutFile( const gc_wt_entry_t *e, file_t *f, fs_offset_t offset, uint32_t size )
+{
+	gc_wt_stored_t *s;
+	uint32_t done = 0;
+	int i;
+	if( size > GC_WT_ARAM_BYTES ) return NULL;
+	if( gc_wt_store_head + size > GC_WT_ARAM_BYTES ) gc_wt_store_head = 0;
+	for( i = 0; i < GC_WT_ARAM_ENTRIES; i++ )
+	{
+		s = &gc_wt_store[i];
+		if( s->valid && s->aram < gc_wt_store_head + size && s->aram + s->size > gc_wt_store_head ) s->valid = false;
+	}
+	s = &gc_wt_store[gc_wt_store_next];
+	gc_wt_store_next = ( gc_wt_store_next + 1 ) % GC_WT_ARAM_ENTRIES;
+	memcpy( s->name, e->name, sizeof( s->name ));
+	s->aram = gc_wt_store_head; s->size = size; s->tag = e->pad; s->valid = true;
+	FS_Seek( f, offset, SEEK_SET );
+	while( done < size )
+	{
+		uint32_t chunk = Q_min( (uint32_t)sizeof( gc_wt_stage ), size - done );
+		if( FS_Read( f, gc_wt_stage, chunk ) != chunk ) { s->valid = false; return NULL; }
+		GC_AramTransfer( gc_wt_store_base + s->aram + done, gc_wt_stage, chunk, true );
+		done += chunk;
+	}
+	gc_wt_store_head += size;
+	return s;
+}
+
 static void Mod_GCWorldPackLoad( const char *modelname, size_t surface_reserve )
 {
 	extern void R_GCPackedRelease( void );
@@ -3830,7 +3992,6 @@ static void Mod_GCWorldPackLoad( const char *modelname, size_t surface_reserve )
 	unsigned split_dim;
 	size_t pool_bytes = gc_wt_pool_bytes ? gc_wt_pool_bytes : GC_WT_POOL_BYTES;
 	double start;
-	(void)surface_reserve;
 
 	if( gc_wt.block )
 	{
@@ -3876,6 +4037,7 @@ static void Mod_GCWorldPackLoad( const char *modelname, size_t surface_reserve )
 		size_t capacity = GC_MapLoadBufferCapacity();
 		size_t remaining, reserve, tail_pool;
 		after = Q_max( after, GC_MapLoadBufferTailHighwater() );
+		capacity = Mod_GCPreSurfaceCapacity();
 		remaining = capacity > after ? capacity - after : 0;
 		/* The pack may split chains into ARAM; reserving the entire future
 		 * surface cache here prevents dense maps from using their remaining
@@ -3883,14 +4045,22 @@ static void Mod_GCWorldPackLoad( const char *modelname, size_t surface_reserve )
 		 * allocation fall back to the heap if needed. */
 		reserve = GC_WT_TAIL_GUARD_BYTES;
 		tail_pool = GC_WT_POOL_BYTES;
-		if( remaining > reserve && remaining - reserve < tail_pool )
+		/* On maps whose world-array conversion already consumed the tail, keep
+		 * a minimal streaming pool rather than falling back to a 458 KiB heap
+		 * allocation that can never succeed after changelevel fragmentation. */
+		if( remaining >= GC_WT_MIN_POOL_BYTES
+			&& ( remaining < reserve || remaining - reserve < tail_pool ))
 		{
-			size_t budgeted = ( remaining - reserve ) & ~(size_t)31;
+			size_t budgeted = ( remaining > reserve ? remaining - reserve : remaining ) & ~(size_t)31;
 			if( budgeted >= GC_WT_MIN_POOL_BYTES )
 				tail_pool = budgeted;
 		}
 		pool_bytes = tail_pool;
-		gc_wt_pool = (byte *)GC_MapLoadBufferTailAlloc( after, pool_bytes );
+		if( surface_reserve > 0 && remaining < surface_reserve + GC_WT_MIN_POOL_BYTES )
+			pool_bytes = GC_WT_MIN_POOL_BYTES;
+		if( remaining < pool_bytes )
+			pool_bytes = remaining >= GC_WT_MIN_POOL_BYTES ? ( remaining & ~(size_t)31 ) : 0;
+		gc_wt_pool = pool_bytes ? (byte *)Mod_GCPreSurfaceTailAlloc( after, pool_bytes ) : NULL;
 		if( gc_wt_pool )
 		{
 			gc_wt_pool_mapload_tail = true;
@@ -3900,7 +4070,7 @@ static void Mod_GCWorldPackLoad( const char *modelname, size_t surface_reserve )
 		}
 		else
 		{
-			pool_bytes = GC_WT_POOL_BYTES;
+			pool_bytes = gc_bsp_surface_reserve ? GC_WT_MIN_POOL_BYTES : GC_WT_POOL_BYTES;
 			gc_wt_pool = memalign( 32, pool_bytes );
 			if( gc_wt_pool ) gc_wt_pool_bytes = pool_bytes;
 		}
@@ -3953,6 +4123,7 @@ static void Mod_GCWorldPackLoad( const char *modelname, size_t surface_reserve )
 		const qboolean split = e->levels > 1 && ( e->width > split_dim || e->height > split_dim );
 		const uint32_t skip = split ? (uint32_t)e->width * e->height / 2 : 0;
 		const uint32_t room = (uint32_t)pool_bytes - first - low;
+		const qboolean aram_only = pool_bytes < 64u * 1024u;
 		const gc_wt_stored_t *s;
 		if( end <= e->offset || end > data_bytes || skip > bytes )
 		{
@@ -3972,12 +4143,24 @@ static void Mod_GCWorldPackLoad( const char *modelname, size_t surface_reserve )
 			/* Through the top of the pool, on its way to ARAM. */
 			byte *through;
 
-			if( bytes > room )
+			if( !aram_only && bytes > room )
 			{
 				Con_Reportf( S_WARN "Xash3D GameCube: texture pack stop map=%s index=%u reason=staging-budget bytes=%u room=%u\n",
 					stem, (unsigned)i, (unsigned)bytes, (unsigned)room );
 				break;
 			}
+			if( aram_only )
+			{
+				s = Mod_GCWorldStorePutFile( e, f, first + e->offset, bytes );
+				if( !s )
+				{
+					Con_Reportf( S_WARN "Xash3D GameCube: texture pack stop map=%s index=%u reason=stream-read\n", stem, (unsigned)i );
+					break;
+				}
+				misses++; miss_bytes += bytes;
+			}
+			else
+			{
 			through = gc_wt_pool + (( (uint32_t)pool_bytes - bytes ) & ~(uint32_t)31 );
 			if( through < gc_wt.data + low )
 			{
@@ -3993,6 +4176,20 @@ static void Mod_GCWorldPackLoad( const char *modelname, size_t surface_reserve )
 			s = Mod_GCWorldStorePut( e, through, bytes );
 			misses++;
 			miss_bytes += bytes;
+			}
+		}
+		if( aram_only )
+		{
+			/* Keep only the table in MEM1. Each chain is staged through the
+			 * tail fragment and retained in ARAM; GX will stream it into the hot
+			 * window when the texture is bound. */
+			if( !s )
+				break;
+			e->offset = 0;
+			e->flags |= 2;
+			gc_wt.aram[i] = gc_wt_store_base + s->aram;
+			gc_wt.bytes[i] = bytes;
+			continue;
 		}
 		if( !s || bytes - skip > room )
 		{
@@ -4457,18 +4654,40 @@ static void Mod_LoadTextures( model_t *mod, dbspmodel_t *bmod )
 	{
 		Mod_GCWorldPackLoad( mod->name,
 			bmod->numsurfaces * ( sizeof( msurface_t ) + sizeof( mextrasurf_t )));
-		/* Dense entity lumps need more than the fixed MEM1 slab. Reserve from
-		 * the already-budgeted tail only after the pack has taken its share;
-		 * never overlap the BSP image, carved arrays, or packed textures. */
-		if( bmod->entdatasize >= 64u * 1024u && gc_wt_pool_mapload_tail )
+		/* Dense entity lumps need more than the fixed MEM1 slab. Prefer the
+		 * unused tail below the surface reserve; if the BSP already occupies
+		 * that range (c1a1f), sit overflow immediately below the reserved
+		 * surface slot so it overlaps unpinned EOF texture/lighting lumps. */
+		if( bmod->entdatasize >= 64u * 1024u )
 		{
-			const size_t after = Q_max( gc_bsp_scratch_size + gc_bsp_scratch_carve_high,
+			const size_t after_floor = Q_max( gc_bsp_scratch_size + gc_bsp_scratch_carve_high,
 				GC_MapLoadBufferTailHighwater() );
-			const size_t capacity = GC_MapLoadBufferCapacity();
-			const size_t remaining = capacity > after ? capacity - after : 0;
-			const size_t budget = Mod_GCEntityOverflowBudget( remaining,
-				(size_t)bmod->numleafs * sizeof( mleaf_t ), (size_t)bmod->numnodes * sizeof( mnode_t ));
-			SV_GCReservePrivateOverflow( after, budget );
+			const size_t usable = Mod_GCPreSurfaceCapacity();
+			const size_t remaining = usable > after_floor ? usable - after_floor : 0;
+			if( remaining >= 32u * 1024u )
+			{
+				const size_t budget = Mod_GCEntityOverflowBudget( remaining,
+					(size_t)bmod->numleafs * sizeof( mleaf_t ), (size_t)bmod->numnodes * sizeof( mnode_t ));
+				SV_GCReservePrivateOverflow( after_floor, budget );
+			}
+			else if( gc_bsp_surface_reserve )
+			{
+				const size_t cap = GC_MapLoadBufferCapacity();
+				/* c1a1f sits overflow under the surface slot — 64 KiB keeps
+				 * late breakables out of tip-heap GetClassPtr NULLs. */
+				const size_t ov = 64u * 1024u;
+				size_t after;
+
+				if( cap > gc_bsp_surface_reserve + ov )
+				{
+					after = cap - gc_bsp_surface_reserve - ov;
+					if( after >= GC_MapLoadBufferTailHighwater() )
+						SV_GCReservePrivateOverflow( after, ov );
+				}
+			}
+			if( !SV_GCPrivateOverflowReserved() )
+				Con_Reportf( "Xash3D GameCube: entity overflow skipped; map tail remaining %s\n",
+					Q_memprint( remaining ));
 		}
 	}
 #endif
@@ -4661,6 +4880,7 @@ static void Mod_LoadSurfaces( model_t *mod, dbspmodel_t *bmod )
 	int          next_lightofs = -1;
 	int          prev_lightofs = -1;
 	int          lightofs;
+	int          gc_bad_surface_logs = 0;
 	msurface_t   *out;
 	mextrasurf_t *info;
 #if XASH_GAMECUBE
@@ -4671,7 +4891,24 @@ static void Mod_LoadSurfaces( model_t *mod, dbspmodel_t *bmod )
 	/* Surface output is populated while the original BSP face lump is still
 	 * being read. Keep it off the BSP scratch buffer until overlap handling is
 	 * proven safe on hardware/Dolphin. */
-	if( use_bsp_surface_scratch && gc_retain_bsp_source_buffer && gc_bsp_scratch_base && gc_bsp_scratch_size )
+	if( use_bsp_surface_scratch && gc_bsp_surface_reserve >= surf_bytes
+		&& gc_bsp_scratch_base && GC_IsMapLoadBuffer( gc_bsp_scratch_base ))
+	{
+		const size_t cap = GC_MapLoadBufferCapacity();
+		const size_t off = cap - gc_bsp_surface_reserve;
+		surf_block = (byte *)GC_MapLoadBufferTailAlloc( off, surf_bytes );
+		if( surf_block )
+		{
+			memset( surf_block, 0, surf_bytes );
+			gc_world_msurface_retained = true;
+			gc_world_blocks_owner = mod;
+			gc_bsp_surface_reserve = 0;
+			Con_Reportf( "Xash3D GameCube: world surfaces using reserved map-load slot %s\n",
+				Q_memprint( surf_bytes ));
+		}
+	}
+
+	if( !surf_block && use_bsp_surface_scratch && gc_retain_bsp_source_buffer && gc_bsp_scratch_base && gc_bsp_scratch_size )
 	{
 		gc_bsp_busy_range_t busy[6];
 		size_t busy_count = 0;
@@ -4759,6 +4996,20 @@ static void Mod_LoadSurfaces( model_t *mod, dbspmodel_t *bmod )
 		}
 	}
 
+	if( !surf_block && use_bsp_surface_scratch && gc_bsp_scratch_base
+		&& GC_IsMapLoadBuffer( gc_bsp_scratch_base ))
+	{
+		surf_block = (byte *)GC_MapLoadBufferTailAlloc( GC_MapLoadBufferTailHighwater(), surf_bytes );
+		if( surf_block )
+		{
+			memset( surf_block, 0, surf_bytes );
+			gc_world_msurface_retained = true;
+			gc_world_blocks_owner = mod;
+			Con_Reportf( "Xash3D GameCube: world surfaces using map-load arena tail %s\n",
+				Q_memprint( surf_bytes ));
+		}
+	}
+
 	if( !surf_block )
 	{
 		surf_block = (byte *)malloc( surf_bytes );
@@ -4801,7 +5052,8 @@ static void Mod_LoadSurfaces( model_t *mod, dbspmodel_t *bmod )
 		{
 			dface32_t	*in = &bmod->surfaces32[i];
 
-			if(( in->firstedge + in->numedges ) > mod->numsurfedges )
+			if( in->firstedge < 0 || in->numedges <= 0 || in->numedges > 64
+				|| in->firstedge > mod->numsurfedges - in->numedges )
 				continue;	// corrupted level?
 			out->firstedge = in->firstedge;
 			out->numedges = in->numedges;
@@ -4817,9 +5069,14 @@ static void Mod_LoadSurfaces( model_t *mod, dbspmodel_t *bmod )
 		{
 			dface_t	*in = &bmod->surfaces[i];
 
-			if(( in->firstedge + in->numedges ) > mod->numsurfedges )
+			if( in->firstedge < 0 || in->numedges <= 0 || in->numedges > 64
+				|| in->firstedge > mod->numsurfedges - in->numedges )
 			{
-				Con_Reportf( S_ERROR "bad surface %i from %zu\n", i, bmod->numsurfaces );
+				if( gc_bad_surface_logs < 8 )
+					Con_Reportf( S_ERROR "bad surface %i from %zu\n", i, bmod->numsurfaces );
+				else if( gc_bad_surface_logs == 8 )
+					Con_Reportf( S_ERROR "bad surface: suppressing further messages\n" );
+				gc_bad_surface_logs++;
 				continue;
 			}
 
@@ -4917,14 +5174,9 @@ static void Mod_LoadSurfaces( model_t *mod, dbspmodel_t *bmod )
 	}
 
 #if XASH_GAMECUBE
-	/* G154: keep dfaces until lighting so lightofs can bind samples for bake. */
-	if( !( Sys_CheckParm( "-gcnewgame" ) && bmod->isworld ))
-	{
-		if( bmod->version == QBSP2_VERSION )
-			Mod_GCFreeBspPin( (void **)&bmod->surfaces32 );
-		else
-			Mod_GCFreeBspPin( (void **)&bmod->surfaces );
-	}
+	/* Keep the face lump through lighting. It may be backed by the map-tail
+	 * arena, which shares the enlarged scratch address range; freeing by address
+	 * here can mistake a relocated face copy for the original BSP pin. */
 #endif
 }
 
@@ -6054,12 +6306,33 @@ static void Mod_GCReleaseGcmapPreSurfaceStaging( model_t *mod, dbspmodel_t *bmod
 
 	if( !GC_MapLoadMemoryOpt() || !bmod->isworld || !mod_base || bufferlen == 0 )
 		return;
+	{
+		const size_t surf_bytes = bmod->numsurfaces * ( sizeof( msurface_t ) + sizeof( mextrasurf_t ));
+		const size_t highwater = GC_MapLoadBufferTailHighwater();
+		const size_t capacity = GC_IsMapLoadBuffer( mod_base )
+			? GC_MapLoadBufferCapacity() : bufferlen;
+		const size_t remaining = capacity > highwater ? capacity - highwater : 0;
+
+		/* c2a1: releasing/high-carving the 1.70 MiB BSP image to make room for
+		 * a 1.08 MiB surface table then carved nodes into that same tail.
+		 * When the remaining tail already holds the surfaces, keep the source
+		 * lumps where they are. */
+		if( surf_bytes > 900u * 1024u && remaining >= surf_bytes + 8192u )
+		{
+			gc_retain_bsp_source_buffer = true;
+			gc_bsp_scratch_base = mod_base;
+			gc_bsp_scratch_size = capacity;
+			Con_Reportf( "Xash3D GameCube: retaining BSP staging through surfaces; tail remaining %s\n",
+				Q_memprint( remaining ));
+			return;
+		}
+	}
 	/* Retail menu New Game loads from the exact BSP staging buffer that contains
 	 * the validated face and lighting lumps. Keep it resident through surface
 	 * conversion and capture; dropping it here clears bmod->surfaces, then the
 	 * disc-reopen fallback can fail under the fragmented mount/file pool. The
 	 * scratch allocator already accounts for these source ranges. */
-	if( Sys_CheckParm( "-gcfullphysics" ) && bmod->surfaces
+	if(( Sys_CheckParm( "-gcfullphysics" ) || gc_faces_source_alias ) && bmod->surfaces
 		&& Mod_GCPointerInBuffer( bmod->surfaces, mod_base, bufferlen ))
 	{
 		gc_retain_bsp_source_buffer = true;
@@ -6125,6 +6398,8 @@ static void Mod_GCReleaseGcmapPreSurfaceStaging( model_t *mod, dbspmodel_t *bmod
 	Con_Reportf( "Xash3D GameCube: releasing gcmap BSP staging %s before surfaces\n",
 		Q_memprint( bufferlen ));
 	Mod_GCReleaseBspSourceBuffer( mod, bmod, mod_base, bufferlen );
+	if( !gc_faces_source_alias && !bmod->surfaces && gc_faces_tail_copy )
+		bmod->surfaces = gc_faces_tail_copy;
 	/* Staging lumps are cleared, but the map-load arena stays allocated
 	 * (GC_ReleaseMapLoadBuffer only clears in-use). Re-arm it as free scratch
 	 * so surface/leaf/node tables can settle without a peaky heap calloc.
@@ -6133,8 +6408,7 @@ static void Mod_GCReleaseGcmapPreSurfaceStaging( model_t *mod, dbspmodel_t *bmod
 	gc_bsp_scratch_base = mod_base;
 	/* Tail allocations contain live world arrays. Keep the scratch carve
 	 * below the original BSP image when any tail allocation exists. */
-	if( GC_IsMapLoadBuffer( mod_base ) && GC_MapLoadBufferTailHighwater() <= bufferlen
-		&& GC_MapLoadBufferCapacity() > scratch_capacity )
+	if( GC_IsMapLoadBuffer( mod_base ) && GC_MapLoadBufferCapacity() > scratch_capacity )
 		scratch_capacity = GC_MapLoadBufferCapacity();
 	gc_bsp_scratch_size = scratch_capacity > gc_bsp_scratch_carve_high
 		? scratch_capacity - gc_bsp_scratch_carve_high
@@ -6152,8 +6426,7 @@ static void Mod_GCReleaseBspSourceBuffer( model_t *mod, dbspmodel_t *bmod, byte 
 
 	if( !mod_base || bufferlen == 0 )
 		return;
-	if( GC_IsMapLoadBuffer( mod_base ) && GC_MapLoadBufferTailHighwater() <= bufferlen
-		&& GC_MapLoadBufferCapacity() > scratch_capacity )
+	if( GC_IsMapLoadBuffer( mod_base ) && GC_MapLoadBufferCapacity() > scratch_capacity )
 		scratch_capacity = GC_MapLoadBufferCapacity();
 	if( gc_retain_bsp_source_buffer )
 	{
@@ -6198,6 +6471,7 @@ static void Mod_GCReleaseBspSourceBuffer( model_t *mod, dbspmodel_t *bmod, byte 
 		size_t texinfo_bytes = 0;
 		size_t carve_total = 0;
 		qboolean clip_carved = false;
+		qboolean skip_high_carve = false;
 
 		if( bmod->numnodes > 0 && Mod_GCPointerInBuffer( bmod->nodes, mod_base, bufferlen ))
 			node_bytes = bmod->numnodes * node_esize;
@@ -6215,6 +6489,36 @@ static void Mod_GCReleaseBspSourceBuffer( model_t *mod, dbspmodel_t *bmod, byte 
 			carve_total += ALIGN( clip_bytes, 32 );
 		if( texinfo_bytes )
 			carve_total += ALIGN( texinfo_bytes, 32 );
+
+		{
+			const size_t surf_bytes = bmod->numsurfaces * ( sizeof( msurface_t ) + sizeof( mextrasurf_t ));
+			const size_t highwater = GC_MapLoadBufferTailHighwater();
+			const size_t tail_left = scratch_capacity > highwater ? scratch_capacity - highwater : 0;
+
+			/* c2a1: high-carving 270 KiB of nodes/clipnodes/texinfo into the
+			 * end of the arena leaves the 1.08 MiB surface table overlapping
+			 * those copies. Skip the carve when the remaining tail can hold
+			 * the surfaces; keep the source lumps in the original BSP image.
+			 * c1a0d: a 172 KiB high carve also overwrote face/edge tail copies
+			 * when highwater had already climbed into that same end slot. */
+			if( surf_bytes > 900u * 1024u && tail_left >= surf_bytes + 8192u )
+			{
+				Con_Reportf( "Xash3D GameCube: skipping high carve %s so surfaces can use remaining tail %s\n",
+					Q_memprint( carve_total ), Q_memprint( tail_left ));
+				carve_total = 0;
+				skip_high_carve = true;
+			}
+			else if( gc_bsp_surface_reserve ||
+				( carve_total > 0 && scratch_capacity >= carve_total
+					&& scratch_capacity - carve_total < highwater ))
+			{
+				Con_Reportf( "Xash3D GameCube: skipping high carve %s (reserve %s highwater %s)\n",
+					Q_memprint( carve_total ), Q_memprint( gc_bsp_surface_reserve ),
+					Q_memprint( highwater ));
+				carve_total = 0;
+				skip_high_carve = true;
+			}
+		}
 
 		if( carve_total > 0 && carve_total < scratch_capacity )
 		{
@@ -6253,7 +6557,7 @@ static void Mod_GCReleaseBspSourceBuffer( model_t *mod, dbspmodel_t *bmod, byte 
 		/* Renderer restore rebuilds lookup tables over the static map-load arena.
 		 * Collision clipnodes must outlive that reuse; prefer the reserved scratch
 		 * carve so a low MEM1 heap cannot turn a valid map into a fatal error. */
-		if( clip_bytes && !clip_carved )
+		if( clip_bytes && !clip_carved && !skip_high_carve )
 		{
 			clip_stash = malloc( clip_bytes );
 			if( !clip_stash )
@@ -7134,8 +7438,35 @@ static size_t Mod_GCCollectAllWorldScratchBusy( model_t *mod, dbspmodel_t *bmod,
 	Mod_GCBusyAdd( busy, &n, cap, mod->submodels, mod->numsubmodels * sizeof( dmodel_t ));
 	Mod_GCBusyAdd( busy, &n, cap, bmod->visdata, bmod->visdatasize );
 	Mod_GCBusyAdd( busy, &n, cap, bmod->lightdata, bmod->lightdatasize );
-	Mod_GCBusyAdd( busy, &n, cap, bsp2 ? (void *)bmod->surfaces32 : (void *)bmod->surfaces,
-		bmod->numsurfaces * ( bsp2 ? sizeof( dface32_t ) : sizeof( dface_t )));
+	Mod_GCBusyAdd( busy, &n, cap, bmod->deluxdata, bmod->deluxdatasize );
+	Mod_GCBusyAdd( busy, &n, cap, bmod->shadowdata, bmod->shadowdatasize );
+	Mod_GCBusyAdd( busy, &n, cap, bmod->rgblightdata, bmod->rgblightdatasize );
+	Mod_GCBusyAdd( busy, &n, cap, bmod->entdata, bmod->entdatasize );
+	Mod_GCBusyAdd( busy, &n, cap, bmod->textures, bmod->texdatasize );
+	Mod_GCBusyAdd( busy, &n, cap, bmod->planes, bmod->numplanes * sizeof( dplane_t ));
+	Mod_GCBusyAdd( busy, &n, cap, bmod->vertexes, bmod->numvertexes * sizeof( dvertex_t ));
+	Mod_GCBusyAdd( busy, &n, cap, bmod->submodels, bmod->numsubmodels * sizeof( dmodel_t ));
+	Mod_GCBusyAdd( busy, &n, cap, bmod->texinfo, bmod->numtexinfo * sizeof( dtexinfo_t ));
+	Mod_GCBusyAdd( busy, &n, cap, bmod->surfedges, bmod->numsurfedges * sizeof( dsurfedge_t ));
+	Mod_GCBusyAdd( busy, &n, cap, bmod->faceinfo, bmod->numfaceinfo * sizeof( dfaceinfo_t ));
+	if( bsp2 )
+	{
+		Mod_GCBusyAdd( busy, &n, cap, bmod->nodes32, bmod->numnodes * sizeof( dnode32_t ));
+		Mod_GCBusyAdd( busy, &n, cap, bmod->leafs32, bmod->numleafs * sizeof( dleaf32_t ));
+		Mod_GCBusyAdd( busy, &n, cap, bmod->clipnodes32, bmod->numclipnodes * sizeof( dclipnode32_t ));
+		Mod_GCBusyAdd( busy, &n, cap, bmod->edges32, bmod->numedges * sizeof( dedge32_t ));
+		Mod_GCBusyAdd( busy, &n, cap, bmod->markfaces32, bmod->nummarkfaces * sizeof( dmarkface32_t ));
+		Mod_GCBusyAdd( busy, &n, cap, bmod->surfaces32, bmod->numsurfaces * sizeof( dface32_t ));
+	}
+	else
+	{
+		Mod_GCBusyAdd( busy, &n, cap, bmod->nodes, bmod->numnodes * sizeof( dnode_t ));
+		Mod_GCBusyAdd( busy, &n, cap, bmod->leafs, bmod->numleafs * sizeof( dleaf_t ));
+		Mod_GCBusyAdd( busy, &n, cap, bmod->clipnodes, bmod->numclipnodes * sizeof( dclipnode_t ));
+		Mod_GCBusyAdd( busy, &n, cap, bmod->edges, bmod->numedges * sizeof( dedge_t ));
+		Mod_GCBusyAdd( busy, &n, cap, bmod->markfaces, bmod->nummarkfaces * sizeof( dmarkface_t ));
+		Mod_GCBusyAdd( busy, &n, cap, bmod->surfaces, bmod->numsurfaces * sizeof( dface_t ));
+	}
 	/* The baked lightmap atlas lives in the scratch for its map's life. */
 	if( gc_menu_lm_owner == mod )
 		Mod_GCBusyAdd( busy, &n, cap, gc_menu_lm_atlas, (size_t)gc_menu_lm_w * gc_menu_lm_h * sizeof( unsigned short ));
@@ -7167,10 +7498,10 @@ static size_t Mod_GCCollectAllWorldScratchBusy( model_t *mod, dbspmodel_t *bmod,
  * arena-tail planes/edges were not in them). */
 static void *Mod_GCAllocWorldScratch( model_t *mod, dbspmodel_t *bmod, const gc_bsp_busy_range_t *busy, size_t busy_count, size_t alloc_size, size_t align )
 {
-	gc_bsp_busy_range_t all[48];
+	gc_bsp_busy_range_t all[64];
 	size_t n, i, j, out;
 
-	n = Mod_GCCollectAllWorldScratchBusy( mod, bmod, all, ARRAYSIZE( all ) - 12 );
+	n = Mod_GCCollectAllWorldScratchBusy( mod, bmod, all, ARRAYSIZE( all ) - 8 );
 	for( i = 0; i < busy_count && n < ARRAYSIZE( all ); i++ )
 		all[n++] = busy[i];
 	for( i = 0; i < n; i++ )
@@ -7192,7 +7523,28 @@ static void *Mod_GCAllocWorldScratch( model_t *mod, dbspmodel_t *bmod, const gc_
 		else
 			all[out++] = all[i];
 	}
-	return Mod_GCAllocBspScratch( gc_bsp_scratch_base, gc_bsp_scratch_size, all, out, alloc_size, align );
+	{
+		size_t scratch_size = gc_bsp_scratch_size;
+		size_t i2, n2;
+
+		if( gc_bsp_surface_reserve )
+		{
+			const size_t usable = Mod_GCPreSurfaceCapacity();
+
+			if( scratch_size > usable )
+				scratch_size = usable;
+			for( i2 = 0, n2 = 0; i2 < out; i2++ )
+			{
+				if( all[i2].start >= scratch_size )
+					continue;
+				if( all[i2].end > scratch_size )
+					all[i2].end = scratch_size;
+				all[n2++] = all[i2];
+			}
+			out = n2;
+		}
+		return Mod_GCAllocBspScratch( gc_bsp_scratch_base, scratch_size, all, out, alloc_size, align );
+	}
 }
 
 /*
@@ -7373,7 +7725,7 @@ qboolean GC_UpdateLightmapStyles( void )
 
 static void Mod_GCBakeMenuLightmapAtlasInner( model_t *mod, dbspmodel_t *bmod )
 {
-	gc_bsp_busy_range_t busy[32];
+	gc_bsp_busy_range_t busy[64];
 	size_t busy_count, bytes;
 	int i, x = 0, y = 0, rowh = 0, baked = 0, w = GC_MENU_LM_WIDTH, h;
 	byte *atlas;
@@ -7963,6 +8315,7 @@ static qboolean Mod_LoadBmodelLumps( model_t *mod, byte *mod_base, size_t buffer
 	gc_bsp_scratch_base = mod_base;
 	gc_bsp_scratch_size = bufferlen;
 	gc_bsp_scratch_carve_high = 0;
+	gc_bsp_surface_reserve = 0;
 #endif
 	bmod->version = header->version;	// share up global
 	if( isworld )
@@ -8002,6 +8355,30 @@ static qboolean Mod_LoadBmodelLumps( model_t *mod, byte *mod_base, size_t buffer
 			Con_DPrintf( "%s: %i warning(s)\n", __func__, loadstat.numwarnings );
 	}
 
+#if XASH_GAMECUBE
+	if( GC_MapLoadMemoryOpt() && bmod->isworld )
+	{
+		const size_t surf_bytes = Mod_GCSurfaceBlockBytes( bmod->numsurfaces );
+
+		/* Keep 32 extra bytes so TailAlloc's 32-byte align-up still fits. */
+		gc_bsp_surface_reserve = surf_bytes ? ALIGN( surf_bytes, 32 ) + 32 : 0;
+		if( gc_bsp_surface_reserve )
+			Con_Reportf( "Xash3D GameCube: reserving map-load high slot %s for %zu surfaces\n",
+				Q_memprint( gc_bsp_surface_reserve ), bmod->numsurfaces );
+		/* Drop large lightmaps from the busy set before world-array conversion
+		 * so lighting-through-EOF plus the unused tail stay one hole. Smoke
+		 * maps already skip >256 KiB samples; New Game reloads for Flipper bake. */
+		if( bmod->lightdatasize > ( 256 * 1024 )
+			&& Mod_GCPointerInScratchArena( bmod->lightdata ))
+		{
+			Con_Reportf( "Xash3D GameCube: deferring large lightmaps %s for surface placement\n",
+				Q_memprint( bmod->lightdatasize ));
+			bmod->lightdata = NULL;
+			bmod->lightdatasize = 0;
+		}
+	}
+#endif
+
 	// load into heap
 #if XASH_GAMECUBE
 	Con_Reportf( "Xash3D GameCube: bmodel entities begin\n" );
@@ -8010,6 +8387,23 @@ static qboolean Mod_LoadBmodelLumps( model_t *mod, byte *mod_base, size_t buffer
 	Mod_LoadEntities( mod, bmod );
 #if XASH_GAMECUBE
 	Con_Reportf( "Xash3D GameCube: bmodel entities ready\n" );
+	/* Load the world texture pack and drop the BSP mip lump before converting
+	 * planes. c1a1f keeps 1.7 MiB of embedded textures at the end of the
+	 * staging buffer; that hole is what plane conversion needs on the 3.5 MiB
+	 * map-load arena. */
+	if( bmod->isworld )
+	{
+		Con_Reportf( "Xash3D GameCube: bmodel textures begin\n" );
+		GC_LoadingOverlayPulse();
+		Mod_LoadTextures( mod, bmod );
+		Con_Reportf( "Xash3D GameCube: bmodel textures ready\n" );
+		if( GC_MapLoadMemoryOpt() )
+		{
+			Image_GCPurgeDecodeScratch();
+			if( host.imagepool )
+				Mem_EmptyPool( host.imagepool );
+		}
+	}
 	Con_Reportf( "Xash3D GameCube: bmodel planes begin\n" );
 	GC_LoadingOverlayPulse();
 #endif
@@ -8040,23 +8434,17 @@ static qboolean Mod_LoadBmodelLumps( model_t *mod, byte *mod_base, size_t buffer
 	Mod_LoadSurfEdges( mod, bmod );
 #if XASH_GAMECUBE
 	Con_Reportf( "Xash3D GameCube: bmodel surfedges ready\n" );
-	Con_Reportf( "Xash3D GameCube: bmodel textures begin\n" );
-	GC_LoadingOverlayPulse();
-#endif
-	Mod_LoadTextures( mod, bmod );
-#if XASH_GAMECUBE
-	Con_Reportf( "Xash3D GameCube: bmodel textures ready\n" );
-	/* Transient WAD/MIP decode scratch is unused after GX upload; reclaim
-	 * before surfaces/entities so cold New Game denser maps (c1a0d) can
-	 * still malloc CSoundEnt after G326 keep-client (G328/G329). */
-	if( GC_MapLoadMemoryOpt() && bmod->isworld )
+	if( !bmod->isworld )
 	{
-		Image_GCPurgeDecodeScratch();
-		if( host.imagepool )
-			Mem_EmptyPool( host.imagepool );
+		Con_Reportf( "Xash3D GameCube: bmodel textures begin\n" );
+		GC_LoadingOverlayPulse();
+		Mod_LoadTextures( mod, bmod );
+		Con_Reportf( "Xash3D GameCube: bmodel textures ready\n" );
 	}
 	Con_Reportf( "Xash3D GameCube: bmodel visibility begin\n" );
 	GC_LoadingOverlayPulse();
+#else
+	Mod_LoadTextures( mod, bmod );
 #endif
 	Mod_LoadVisibility( mod, bmod );
 #if XASH_GAMECUBE
@@ -8067,10 +8455,38 @@ static qboolean Mod_LoadBmodelLumps( model_t *mod, byte *mod_base, size_t buffer
 	Mod_LoadTexInfo( mod, bmod );
 #if XASH_GAMECUBE
 	Con_Reportf( "Xash3D GameCube: bmodel texinfo ready\n" );
+	if( bmod->isworld && bmod->numsurfaces * ( sizeof( msurface_t ) + sizeof( mextrasurf_t )) > 900u * 1024u
+		&& mod->texinfo && Mod_GCPointerInBuffer( mod->texinfo, gc_bsp_scratch_base, gc_bsp_scratch_size ))
+	{
+		const size_t bytes = mod->numtexinfo * sizeof( mtexinfo_t );
+		const size_t surf_bytes = bmod->numsurfaces * ( sizeof( msurface_t ) + sizeof( mextrasurf_t ));
+		const size_t highwater = GC_MapLoadBufferTailHighwater();
+		const size_t capacity = GC_MapLoadBufferCapacity();
+		const size_t remaining = capacity > highwater ? capacity - highwater : 0;
+		mtexinfo_t *copy = NULL;
+
+		/* c2a1: a 55 KiB texinfo tail copy left surfaces 23 KiB short of the
+		 * 1.08 MiB block they need. Keep texinfo in the BSP image when the
+		 * remaining tail cannot hold both. */
+		if( remaining >= bytes + surf_bytes + 8192u )
+			copy = (mtexinfo_t *)Mod_GCPreSurfaceTailAlloc( highwater, bytes );
+		else
+			Con_Reportf( "Xash3D GameCube: texinfo left in BSP staging (%s) to keep %s for surfaces\n",
+				Q_memprint( bytes ), Q_memprint( remaining ));
+		if( copy )
+		{
+			memcpy( copy, mod->texinfo, bytes );
+			mod->texinfo = copy;
+			Con_Reportf( "Xash3D GameCube: world texinfo copied to map tail %s\n", Q_memprint( bytes ));
+		}
+	}
+	/* Faces are still needed by Mod_LoadSurfaces. Materialize them while the
+	 * BSP source/staging buffer is available; releasing it first can leave the
+	 * New Game path with less free heap than this small lump requires. */
+	Mod_GCEnsureBspLump( mod, bmod, LUMP_FACES );
 	Mod_GCFreeGcmapPreSurfaceLumps( bmod );
 	Mod_GCReleaseGcmapPreSurfaceStaging( mod, bmod, mod_base, bufferlen );
 	GC_MemSample( "pre-surfaces" );
-	Mod_GCEnsureBspLump( mod, bmod, LUMP_FACES );
 	if( bmod->numsurfaces && ( bmod->version == QBSP2_VERSION ? !bmod->surfaces32 : !bmod->surfaces ))
 		Host_Error( "Xash3D GameCube: missing BSP faces for %s (%zu faces) before surface load\n",
 			mod->name, bmod->numsurfaces );

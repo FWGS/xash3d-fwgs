@@ -15255,8 +15255,9 @@ void GC_ArmPostMapFrameBudgetSamples( void )
 		gc_last_present_time = 0.0;
 	}
 
-	if( GC_MapLoadMemoryOpt())
-		Cvar_Set( "gc_quality", "0" );
+	/* Keep gc_quality — memopt is a memory strategy, not a visual demotion.
+	 * GameCube can run HL1 at standard; smoke probes that need lean FX set
+	 * gc_quality 0 themselves. */
 
 	gc_newgame_world_ready = false;
 	gc_gx_present_logged = false;

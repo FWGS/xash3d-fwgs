@@ -68,6 +68,9 @@ unsigned int GC_AramReserve( unsigned int size );
 unsigned int GC_AramAudioReserve( unsigned int size );
 unsigned int GC_AramAudioBase( void );
 unsigned int GC_AramAudioCapacity( void );
+/* One-shot boot-video window. It is released before menu idle prefetch starts. */
+unsigned int GC_AramVideoReserve( unsigned int size );
+void GC_AramVideoRelease( void );
 /* One map-owned ARAM window, reused across transitions without new blocks. */
 unsigned int GC_AramMapReserve( unsigned int size );
 void GC_AramMapReset( void );

@@ -165,6 +165,10 @@ void Mod_LoadDetailTextures( model_t *mod );
 #if XASH_GAMECUBE
 poolhandle_t Mod_GameCubeSharedStudioPool( void );
 void Mod_GCLoadNewGameStudios( void );
+void Mod_GCLoadPreEntityStudios( void ); /* cast into studio BSS before Spawn */
+qboolean Mod_GCPromoteStudioPath( const char *path ); /* allowlisted MDL → studio BSS */
+qboolean Mod_GCStudioPreEntityMeshOnly( void ); /* true during pre-entity mesh promote */
+qboolean Mod_GCStudioPreEntityMeshOnly( void ); /* true during pre-entity mesh promote */
 void Mod_GCTryDeferredStudios( void ); /* G287: post-present MDL promote */
 void Mod_GCRebindPromotedStudios( void ); /* G371: rebind sv.models after promote */
 void Mod_GCPromoteLeanNpcStudios( void ); /* G375: force NPC promote before DumpFrames */

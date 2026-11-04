@@ -60,12 +60,32 @@ static int gc_sprite_list_pool_capacity;
 static void CL_GameCubeApplySmokeClientBudgets( void )
 {
 	gameinfo_t *mutable_gi;
-	/* Retail play keeps modest FX budgets so the world BSP (~2 MiB) and client
-	 * can coexist. Smoke probes stay even tighter. */
-	int particles = GC_MapLoadMemoryOpt() ? 16 : 256;
-	/* G320: lean beams=4 left no room for reactor lightning + lasers. */
-	int beams = GC_MapLoadMemoryOpt() ? 8 : 16;
-	int tents = GC_MapLoadMemoryOpt() ? 4 : 64;
+	/* MEM1 still hosts the world BSP; keep FX inside leftover heap, but do not
+	 * starve HL1 of blood/sparks/tracers when gc_quality is standard+. */
+	/* Default to standard when the cvar is not registered yet — smoke/low
+	 * must set gc_quality 0 explicitly. HL1 on GC should not inherit the
+	 * ultra-lean FX pools just because map-load memopt is on. */
+	int quality = Cvar_FindVar( "gc_quality" ) ? Cvar_VariableInteger( "gc_quality" ) : 1;
+	int particles = 256;
+	int beams = 16;
+	int tents = 64;
+
+	if( GC_MapLoadMemoryOpt() )
+	{
+		if( quality <= 0 )
+		{
+			particles = 24;
+			beams = 8;
+			tents = 8;
+		}
+		else
+		{
+			/* Standard: zombie blood + weapon tracers without desktop 256/64. */
+			particles = 96;
+			beams = 12;
+			tents = 32;
+		}
+	}
 
 	/* G127: fullphysics combat needs more than the lean tracer pool;
 	 * 96 coexists with HUD+SFX preload. Larger pools (192) hung the probe. */
@@ -4859,9 +4879,19 @@ qboolean CL_LoadProgs( const char *name )
 #endif
 		{
 			CL_InitTitles( "titles.txt" );
+		#if XASH_GAMECUBE
+			if( !cl.worldmodel )
+			{
+				/* Startup cinematic/menu has no world transient effects yet. */
+				Con_Reportf( "Xash3D GameCube: transient client effects deferred until world\n" );
+			}
+			else
+		#endif
+			{
 			CL_InitParticles( );
 			CL_InitViewBeams( );
 			CL_InitTempEnts( );
+			}
 		}
 
 		if( !R_InitRenderAPI( ))	// Xash3D extension

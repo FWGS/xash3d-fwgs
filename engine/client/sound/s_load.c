@@ -442,7 +442,10 @@ static wavdata_t *S_CreateDefaultSound( void )
 	uint channels = 1;
 	uint width = 2;
 #if XASH_GAMECUBE
-	qboolean tinyFallback = GC_MapLoadMemoryOpt();
+	/* The default entry is only a silent fallback sample.  It is never a
+	 * streamed/gameplay asset, so a full-second buffer wastes 96 KiB of MEM1
+	 * before the retail menu or a map has even started. */
+	qboolean tinyFallback = true;
 #endif
 	size_t size = samples * width * channels;
 

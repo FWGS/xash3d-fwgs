@@ -256,6 +256,13 @@ int setup_gamecube_dll_functions( void )
 
 	ret |= setup_gamecube_filesystem_exports();
 	ret |= setup_gamecube_ref_exports();
+#if XASH_GAMECUBE
+	/* mainui is linked statically on GameCube. Register its exports alongside
+	 * the other built-in modules so the retail menu path is selected instead
+	 * of silently falling back to the diagnostic bootstrap UI. */
+	extern int setup_gamecube_menu_exports( void );
+	ret |= setup_gamecube_menu_exports();
+#endif
 #if XASH_GAMECUBE_HLSDK_STATIC
 	// When using static linking, register the statically linked libraries
 	extern int setup_gamecube_server_exports( void );

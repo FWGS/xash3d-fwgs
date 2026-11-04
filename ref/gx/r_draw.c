@@ -27,6 +27,11 @@ static pixel_t gc_rgb565_b[256];
  * startup videos has the memory for its map (c0a0 ran out of heap). */
 static pixel_t *gc_rgb565_to_sw;
 static pixel_t *gc_cinematic_pixels;
+
+void R_GXReleaseCinematicSoftwarePixels( void )
+{
+	gc_cinematic_pixels = NULL;
+}
 static qboolean gc_rgb565_tables_ready;
 
 qboolean R_GCIsStaticCinematicPixels( const pixel_t *pixels )
@@ -546,7 +551,8 @@ void GAME_EXPORT GL_UpdateTexture( int texnum, int cols, int rows, int width, in
 			width <= GC_CINEMATIC_MAX_WIDTH && height <= GC_CINEMATIC_MAX_HEIGHT )
 		{
 			if( !gc_cinematic_pixels )
-				gc_cinematic_pixels = (pixel_t *)memalign( 32, GC_CINEMATIC_MAX_WIDTH * GC_CINEMATIC_MAX_HEIGHT * sizeof( pixel_t ));
+				gc_cinematic_pixels = R_GXAcquireCinematicSoftwarePixels(
+					GC_CINEMATIC_MAX_WIDTH * GC_CINEMATIC_MAX_HEIGHT * sizeof( pixel_t ));
 			if( gc_cinematic_pixels )
 				memset( gc_cinematic_pixels, 0, pixel_count * sizeof( pixel_t ));
 			tex->pixels[0] = gc_cinematic_pixels;
@@ -580,15 +586,18 @@ void GAME_EXPORT GL_UpdateTexture( int texnum, int cols, int rows, int width, in
 	GC_BuildRGB565Tables();
 	if( fmt == PF_RGB_565 && cols == width && rows == height )
 	{
-		const pixel_t *src565 = (const pixel_t *)buffer;
+		const byte *src565 = buffer;
 		size_t i;
 
 		for( i = 0; i < pixel_count; i++ )
-			pixels[i] = gc_rgb565_to_sw[src565[i]];
+		{
+			const unsigned rgb = src565[i * 2] | ((unsigned)src565[i * 2 + 1] << 8);
+			pixels[i] = gc_rgb565_to_sw[rgb];
+		}
 		if( width > 0 && height > 0 )
 		{
 			size_t mid = (size_t)( height / 2 ) * (size_t)width + (size_t)( width / 2 );
-			pixel_t mid_src = src565[mid];
+			pixel_t mid_src = (pixel_t)( src565[mid * 2] | ((unsigned)src565[mid * 2 + 1] << 8) );
 			gc_mid_packed = pixels[mid];
 			gc_mid_r = ( mid_src >> 11 ) & 0x1F;
 			gc_mid_g = ( mid_src >> 5 ) & 0x3F;
