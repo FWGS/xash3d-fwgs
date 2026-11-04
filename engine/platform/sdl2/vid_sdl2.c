@@ -536,6 +536,13 @@ static rserr_t VID_SetScreenResolution( int width, int height, window_mode_t win
 	const int display_index = VID_GetDisplayIndex( __func__, host.hWnd );
 	int out_width, out_height;
 
+	// needed: leaving and re-entering fullscreen passes the window through a
+	// normal windowed state for a moment, and a decorated frame makes the title
+	// bar flash around the game when it is restored from minimize, so the frame
+	// is kept off in both fullscreen modes
+	if( window_mode != WINDOW_MODE_WINDOWED )
+		SDL_SetWindowBordered( host.hWnd, SDL_FALSE );
+
 	switch( window_mode )
 	{
 	case WINDOW_MODE_BORDERLESS:
@@ -548,6 +555,9 @@ static rserr_t VID_SetScreenResolution( int width, int height, window_mode_t win
 			// no video mode change to begin with
 			return rserr_invalid_fullscreen;
 		}
+
+		// borderless never was always-on-top
+		SDL_SetWindowAlwaysOnTop( host.hWnd, SDL_FALSE );
 		break;
 	}
 	case WINDOW_MODE_FULLSCREEN:
@@ -574,6 +584,12 @@ static rserr_t VID_SetScreenResolution( int width, int height, window_mode_t win
 			return appropriate_err;
 		}
 
+		// SDL 2.0.x put an exclusive fullscreen window above every other window
+		// while it had focus; newer SDL does that only for always-on-top windows.
+		// A window that lost focus and was restored may otherwise stay composited
+		// underneath another top-level window and show nothing
+		SDL_SetWindowAlwaysOnTop( host.hWnd, SDL_TRUE );
+
 		// SDL_SetWindowDisplayMode is broken in SDL2, it changes the display mode but doesn't change window size
 		SDL_SetWindowSize( host.hWnd, got.w, got.h );
 
@@ -588,6 +604,7 @@ static rserr_t VID_SetScreenResolution( int width, int height, window_mode_t win
 			return rserr_unknown;
 		}
 
+		SDL_SetWindowAlwaysOnTop( host.hWnd, SDL_FALSE );
 		SDL_SetWindowResizable( host.hWnd, SDL_TRUE );
 		SDL_SetWindowBordered( host.hWnd, SDL_TRUE );
 
