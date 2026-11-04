@@ -91,6 +91,7 @@ if [[ -z "${DOLPHIN_LANDMARK2:-}" && -n "$DOLPHIN_CHANGELEVEL" && -n "$DOLPHIN_C
 		c1a0d:c1a0a) DOLPHIN_LANDMARK2="c1a0dtoa" ;;
 		c1a0a:c1a0b) DOLPHIN_LANDMARK2="c1a0atob" ;;
 		c1a0b:c1a0c) DOLPHIN_LANDMARK2="c1a0btoc" ;;
+		c1a0c:c1a1) DOLPHIN_LANDMARK2="c1a0catoc1a1" ;;
 	esac
 fi
 GUEST_MARKER="Xash3D GameCube: bootstrap"

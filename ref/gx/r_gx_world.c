@@ -3483,8 +3483,20 @@ emit_pool:
 		fa = p->psurface;
 		if( !fa || !p->texture )
 			continue;
-		if( !fa->plane )
+		if( !fa->plane || !fa->texinfo )
 			continue;
+#if XASH_GAMECUBE
+		/* Stale changelevel surfaces can carry dangling faceinfo; skip rather
+		 * than DSI inside Mod_SampleSizeForFace (hardware 20261104). */
+		{
+			const uintptr_t tip = (uintptr_t)fa->texinfo;
+			if( tip < 0x80000000u || tip >= 0x81800000u )
+			{
+				p->psurface = NULL;
+				continue;
+			}
+		}
+#endif
 
 		v = R_DecalSetupVerts( p, fa, p->texture, &numVerts );
 		if( numVerts < 3 )

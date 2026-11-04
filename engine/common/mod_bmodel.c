@@ -81,6 +81,7 @@ static dmodel_t gc_static_submodels[GC_STATIC_SUBMODEL_CAPACITY]
 	__attribute__((aligned( 32 )));
 static void *gc_submodels_malloc_block;
 static qboolean gc_submodels_static_block;
+static void *gc_entities_malloc_block;
 #endif
 static void *gc_planes_malloc_block;
 static qboolean gc_planes_arena_tail;
@@ -1785,9 +1786,23 @@ int Mod_SampleSizeForFace( const msurface_t *surf )
 	if( FBitSet( surf->texinfo->flags, TEX_EXTRA_LIGHTMAP ))
 		return LM_SAMPLE_EXTRASIZE;
 
-	if( surf->texinfo->faceinfo && surf->texinfo->faceinfo->texture_step > 0
-		&& surf->texinfo->faceinfo->texture_step <= 4096 )
-		return surf->texinfo->faceinfo->texture_step;
+	if( surf->texinfo->faceinfo )
+	{
+		const mfaceinfo_t *fi = surf->texinfo->faceinfo;
+#if XASH_GAMECUBE
+		/* faceinfo lives in the map tip pool while texinfo may sit in BSP
+		 * scratch/arena. After changelevel the pool is gone and faceinfo is a
+		 * dangling pointer (DSI: lhz texture_step, DAR=0xD240D310, hardware
+		 * 20261104 via R_DecalVertsLight → Mod_SampleSizeForFace). */
+		{
+			const uintptr_t p = (uintptr_t)fi;
+			if( p < 0x80000000u || p >= 0x81800000u )
+				return LM_SAMPLE_SIZE;
+		}
+#endif
+		if( fi->texture_step > 0 && fi->texture_step <= 4096 )
+			return fi->texture_step;
+	}
 
 	return LM_SAMPLE_SIZE;
 }
@@ -3101,8 +3116,36 @@ static void Mod_LoadEntities( model_t *mod, const dbspmodel_t *bmod )
 		}
 	}
 
-	// make sure that we really have null terminator
-	mod->entities = Mem_Malloc( mod->mempool, entdatasize + 1 );
+	/* Tip soft-NULL on denser entity lumps (≥48 KiB catch-all) used to return
+	 * NULL here; memcpy then DSI'd at dest+4 (PC=memcpy, DAR=0x4, LR=Mod_LoadEntities
+	 * hardware 20261104). Prefer system malloc under map-load opt. */
+#if XASH_GAMECUBE
+	mod->entities = NULL;
+	if( gc_entities_malloc_block )
+	{
+		free( gc_entities_malloc_block );
+		gc_entities_malloc_block = NULL;
+	}
+	if( GC_MapLoadMemoryOpt() && bmod->isworld && entdatasize > 0 )
+	{
+		mod->entities = (char *)malloc( entdatasize + 1 );
+		if( !mod->entities )
+		{
+			Image_GCPurgeDecodeScratch();
+			mod->entities = (char *)malloc( entdatasize + 1 );
+		}
+		if( mod->entities )
+		{
+			gc_entities_malloc_block = mod->entities;
+			Con_Reportf( "Xash3D GameCube: world entities using malloc %s\n",
+				Q_memprint( entdatasize + 1 ));
+		}
+	}
+	if( !mod->entities )
+#endif
+		mod->entities = Mem_Malloc( mod->mempool, entdatasize + 1 );
+	if( !mod->entities )
+		Host_Error( "%s: out of memory for entities (%s)\n", __func__, Q_memprint( entdatasize + 1 ));
 	memcpy( mod->entities, entdata, entdatasize ); // moving to private model pool
 	mod->entities[entdatasize] = 0;
 
@@ -4947,6 +4990,16 @@ static void Mod_LoadTexInfo( model_t *mod, dbspmodel_t *bmod )
 		// make sure what faceinfo is really exist
 		if( faceinfo != NULL && in->faceinfo != -1 && in->faceinfo < bmod->numfaceinfo )
 			out->faceinfo = &faceinfo[in->faceinfo];
+#if XASH_GAMECUBE
+		/* Scratch/arena texinfo outlives the tip mempool that owns faceinfo.
+		 * Keep faceinfo NULL so decal sample-size never walks a freed table. */
+		else
+			out->faceinfo = NULL;
+		if( out->faceinfo && GC_MapLoadMemoryOpt() && bmod->isworld
+			&& ( Mod_GCPointerInScratchArena( out )
+				|| ( gc_bsp_scratch_base && GC_IsMapLoadBuffer( (byte *)out )) ))
+			out->faceinfo = NULL;
+#endif
 	}
 
 }
@@ -5999,6 +6052,13 @@ free_clipnodes:
 		if( mod && mod->submodels == gc_static_submodels )
 			mod->submodels = NULL;
 		gc_submodels_static_block = false;
+	}
+	if( gc_entities_malloc_block )
+	{
+		if( mod && mod->entities == (char *)gc_entities_malloc_block )
+			mod->entities = NULL;
+		free( gc_entities_malloc_block );
+		gc_entities_malloc_block = NULL;
 	}
 }
 

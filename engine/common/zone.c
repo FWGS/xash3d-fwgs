@@ -589,7 +589,15 @@ void *_Mem_Alloc( poolhandle_t poolptr, size_t size, qboolean clear, const char 
 					|| Q_stristr( filename, "s_load.c" )
 					|| Q_stristr( filename, "s_main.c" );
 			}
-			if( content_pool || content_file || size >= ( 48 * 1024 ))
+			/* Never soft-NULL mod_bmodel / maps/*.bsp — callers memcpy into the
+			 * result (Mod_LoadEntities DSI at dest+4, hardware 20261104,
+			 * DAR=0x4 / PC=memcpy). Size>=48 KiB used to catch menu content,
+			 * but denser entity lumps are 34–80 KiB in the map pool. */
+			if( filename && Q_stristr( filename, "mod_bmodel.c" ))
+				;
+			else if( pool && pool->name && Q_stristr( pool->name, ".bsp" ))
+				;
+			else if( content_pool || content_file || size >= ( 48 * 1024 ))
 			{
 				Con_Reportf( "Xash3D GameCube: soft-fail tip content alloc size=%s pool=%s at %s:%i\n",
 					Q_memprint( size ), pool && pool->name ? pool->name : "?",
