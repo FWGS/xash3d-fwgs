@@ -8,6 +8,12 @@ DESTDIR="${HLSDK_GAMECUBE_DESTDIR:-$ROOT/OUT/hlsdk-gamecube}"
 BRANCH="${HLSDK_GAMECUBE_BRANCH:-mobile_hacks}"
 GAMEDIR="${HLSDK_GAMECUBE_GAMEDIR:-valve}"
 
+case "$GAMEDIR" in
+	valve) DOL_HINT="halflife1.dol (+ boot.dol alias)" ;;
+	dod) DOL_HINT="dodgc.dol (see docs/gamecube/MULTI_GAME.md research gate)" ;;
+	*) DOL_HINT="${GAMEDIR}gc.dol" ;;
+esac
+
 set +e
 "$ROOT/scripts/hlsdk-gamecube-probe.sh"
 status=$?
@@ -29,7 +35,7 @@ if git -C "$HLSDK_DIR" rev-parse --is-inside-work-tree >/dev/null 2>&1; then
 	git -C "$HLSDK_DIR" checkout "$BRANCH"
 fi
 
-echo "Building HLSDK branch $BRANCH for GameCube..."
+echo "Building HLSDK branch $BRANCH for GameCube gamedir=$GAMEDIR → $DOL_HINT ..."
 (
 	cd "$HLSDK_DIR"
 	./waf configure -T release --gamecube --disable-werror

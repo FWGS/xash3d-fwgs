@@ -321,17 +321,58 @@ def write_bootstrap_pk3(data: Path, bootstrap: Path, recursive: bool = False) ->
 		# G293 disc inject deferred — ISO early-exit while debugging tip-safe path.
 
 
+def _safe_gamedir_name(name: str) -> str:
+	cleaned = (name or "").strip()
+	if not cleaned or any(c for c in cleaned if not (c.isalnum() or c in "_-")):
+		raise ValueError(f"invalid gamedir name: {name!r}")
+	return cleaned
+
+
+def discover_sibling_gamedirs(primary_data: Path, primary_gamedir: str) -> list[tuple[str, Path]]:
+	"""Find sibling GoldSrc trees next to the primary --data folder (e.g. dod beside valve)."""
+	known = ("valve", "dod", "gearbox", "bshift", "cstrike", "czero", "tfc", "dmc", "ricochet")
+	parent = primary_data.resolve().parent
+	found: list[tuple[str, Path]] = []
+	for name in known:
+		if name == primary_gamedir:
+			continue
+		candidate = parent / name
+		if not candidate.is_dir():
+			continue
+		if (candidate / "liblist.gam").is_file() or (candidate / "gfx.wad").is_file():
+			found.append((name, candidate))
+	return found
+
+
+def parse_extra_data_args(values: list[str] | None) -> list[tuple[str, Path]]:
+	"""Parse --extra-data GAMEDIR=PATH entries."""
+	result: list[tuple[str, Path]] = []
+	for raw in values or []:
+		if "=" not in raw:
+			raise ValueError(f"--extra-data expects GAMEDIR=PATH, got {raw!r}")
+		name, path_str = raw.split("=", 1)
+		gamedir = _safe_gamedir_name(name)
+		path = Path(path_str)
+		if not path.is_dir():
+			raise FileNotFoundError(f"--extra-data path missing for {gamedir}: {path}")
+		result.append((gamedir, path))
+	return result
+
+
 def build_iso9660(
 	data: Path,
 	extras: Path | None,
 	output_path: Path,
 	bootstrap_recursive: bool = False,
 	overlays: tuple[tuple[str, Path], ...] = (),
+	gamedir: str = "valve",
+	extra_gamedirs: tuple[tuple[str, Path], ...] = (),
 ) -> None:
 	xorriso = shutil.which("xorriso")
 	if xorriso is None:
 		raise FileNotFoundError("xorriso is required to build the GameCube data disc")
 
+	primary = _safe_gamedir_name(gamedir)
 	command = [
 		xorriso,
 		"-as", "mkisofs",
@@ -341,20 +382,29 @@ def build_iso9660(
 		"-V", "XASH3D_GC",
 		"-o", str(output_path),
 		"-graft-points",
-		f"/xash3d/valve={data}",
+		f"/xash3d/{primary}={data}",
 	]
+	seen = {primary}
+	for extra_name, extra_path in extra_gamedirs:
+		name = _safe_gamedir_name(extra_name)
+		if name in seen:
+			continue
+		seen.add(name)
+		command.append(f"/xash3d/{name}={extra_path}")
+		print(f"GameCube ISO: extra gamedir graft /xash3d/{name}={extra_path}")
+
 	with tempfile.TemporaryDirectory(prefix="xash3d-gc-bootstrap-") as temp:
 		bootstrap = Path(temp) / "gamecube-bootstrap.pk3"
 		write_bootstrap_pk3(data, bootstrap, bootstrap_recursive)
 
 		if extras is not None:
-			command.append(f"/xash3d/valve/extras.pk3={extras}")
+			command.append(f"/xash3d/{primary}/extras.pk3={extras}")
 		for relative, source in overlays:
-			command.append(f"/xash3d/valve/{relative}={source}")
-		command.append(f"/xash3d/valve/gamecube-bootstrap.pk3={bootstrap}")
+			command.append(f"/xash3d/{primary}/{relative}={source}")
+		command.append(f"/xash3d/{primary}/gamecube-bootstrap.pk3={bootstrap}")
 		print(
 			f"GameCube ISO: assembling {len(command) - 11} grafts into "
-			f"{output_path} (xorriso progress follows)",
+			f"{output_path} (primary={primary}, xorriso progress follows)",
 			flush=True,
 		)
 		output_path.unlink(missing_ok=True)
@@ -786,20 +836,38 @@ def stage_gc_menu_assets(source: Path, output: Path) -> bool:
 	menu_dir = output / "resource" / "gc_menu"
 	menu_dir.mkdir(parents=True, exist_ok=True)
 
-	# GX texture loaders require power-of-two dimensions on the retail path.
-	# Preserve the 4:3 composition inside a 16x16 canvas so the late mainui
-	# load fits the fragmented MEM1 heap (the draw path scales it fullscreen).
+	# Soft HUD is 320×240 (2× to the 640×480 EFB). Bake the menu sheet at
+	# that logical size so each quadrant is 160×120 (~56 KiB RGB) and can
+	# LoadFile+decode after the intro tip — 320×240 tiles (~230 KiB files)
+	# soft-failed FS_LoadFile before ImageLib ever ran.
+	gc_menu_bg_size = (320, 240)
+	bake_src_size = (640, 480)
 	if best is not None and best_ratio >= 0.02:
-		background = _gc_menu_preserve_retail_tone(
-			_gc_menu_fit_aspect(best, (16, 16)))
+		hires = _gc_menu_preserve_retail_tone(
+			_gc_menu_fit_aspect(best, bake_src_size))
+		background = hires.resize(gc_menu_bg_size, Image.Resampling.LANCZOS)
 		source_note = best_label
 	else:
-		background = _gc_menu_synthetic_background((16, 16))
+		background = _gc_menu_synthetic_background(gc_menu_bg_size)
 		source_note = "synthetic fallback (retail tiles missing or pure black)"
 
+	# Four 160×120 RGB tiles (~56 KiB decode each). Keep a full soft-res sheet
+	# for tools/hosts; live menu uses the layout tiles.
+	background_rgb = background.convert("RGB")
 	background_path = menu_dir / "background.tga"
-	background.save(background_path, format="TGA")
-	background.save(menu_dir / "background.bmp", format="BMP")
+	background_rgb.save(background_path, format="TGA")
+	background_rgb.save(menu_dir / "background.bmp", format="BMP")
+	tile_w, tile_h = 160, 120
+	layout_lines = [f"resolution\t{gc_menu_bg_size[0]}\t{gc_menu_bg_size[1]}", ""]
+	for row, y in enumerate((0, tile_h)):
+		for col, x in enumerate((0, tile_w)):
+			tile = background_rgb.crop((x, y, x + tile_w, y + tile_h))
+			tile_name = f"bg_{row}_{col}.tga"
+			tile.save(menu_dir / tile_name, format="TGA")
+			layout_lines.append(
+				f"resource/gc_menu/{tile_name}\tfit\t{x}\t{y}"
+			)
+	(menu_dir / "BackgroundLayout.txt").write_text("\n".join(layout_lines) + "\n")
 
 	# Prefer the original white retail title logo so the baked menu matches the
 	# real menu composition instead of the earlier orange fallback treatment.
@@ -812,7 +880,8 @@ def stage_gc_menu_assets(source: Path, output: Path) -> bool:
 		if logo_src.is_file():
 			logo = Image.open(logo_src).convert("RGBA")
 	if logo is not None:
-		logo.thumbnail((256, 32), Image.Resampling.LANCZOS)
+		# Match on-screen titleLogo size (512×56 menu units) at source density.
+		logo.thumbnail((512, 64), Image.Resampling.LANCZOS)
 		# Retail uses the familiar amber Half-Life wordmark on the menu.
 		logo_pixels = logo.load()
 		for py in range(logo.height):
@@ -822,37 +891,24 @@ def stage_gc_menu_assets(source: Path, output: Path) -> bool:
 					logo_pixels[px, py] = (214, 138, 26, a)
 		logo.save(menu_dir / "logo.tga", format="TGA")
 
-	# Bake the complete retail menu composition into one opaque GX texture.
-	# This keeps the menu independent of the low-memory fallback font and the
-	# separate RGB5A3 logo alpha path, both of which are unreliable during the
-	# read-only retail bootstrap.
-	composite = background.resize((640, 480), Image.Resampling.LANCZOS)
+	# Optional low-memory 3×3 preview tiles for probes that cannot hold the
+	# full 640×480 sheet; the live menu uses background.tga + logo.tga.
+	composite = background.convert("RGBA")
 	if logo is not None:
-		logo_draw = logo.resize((int(640 * 0.74), max(1, int(logo.height * (640 * 0.74 / logo.width)))), Image.Resampling.LANCZOS)
+		logo_draw = logo.resize(
+			(int(640 * 0.74), max(1, int(logo.height * (640 * 0.74 / max(logo.width, 1))))),
+			Image.Resampling.LANCZOS)
 		composite.alpha_composite(logo_draw, (int((640 - logo_draw.width) / 2), int(480 * 0.08)))
-	draw = ImageDraw.Draw(composite)
-	label_font = _gc_menu_font(source, ImageFont, 18, medium=True)
-	desc_font = _gc_menu_font(source, ImageFont, 12)
-	menu_items = (
-		("New game", "Start a new single player game."),
-		("Load game", "Load a previously saved game."),
-		("Options", "Change game settings, configure controls."),
-	)
-	for index, (label, desc) in enumerate(menu_items):
-		y = 270 + index * 42
-		draw.text((57, y), label, font=label_font, fill=(255, 207, 24, 255) if index == 0 else (230, 184, 16, 255))
-		draw.text((192, y + 3), desc, font=desc_font, fill=(156, 156, 156, 255))
-	# Nine small tiles preserve the composition while fitting the startup MEM1
-	# image pool (3x3 at 32x32 = 36 KiB decoded RGBA). The GameCube TGA path is
-	# the reliable fallback-menu texture path; BMP tiles are not accepted by the
-	# retail image loader.
-	composite = composite.resize((96, 96), Image.Resampling.LANCZOS).convert("RGBA")
+	composite = composite.resize((96, 96), Image.Resampling.LANCZOS)
 	for row in range(3):
 		for col in range(3):
 			tile = composite.crop((col * 32, row * 32, (col + 1) * 32, (row + 1) * 32))
 			tile.save(menu_dir / f"menu_{row * 3 + col}.tga", format="TGA")
 
-	print(f"GameCube menu assets: baked {background_path.relative_to(output)} from {source_note}")
+	print(
+		f"GameCube menu assets: baked {background_path.relative_to(output)} "
+		f"{gc_menu_bg_size[0]}x{gc_menu_bg_size[1]} from {source_note}"
+	)
 	return True
 
 
@@ -994,7 +1050,16 @@ GC_STUDIO_MODELS = (
 	"models/headcrabt.mdl",
 	"models/zombiet.mdl",
 	"models/houndeyet.mdl",
-	"models/roach.mdl",
+	# Xen boss and reinforcements. The boss has embedded skins; the others
+	# use separate T.mdl atlases and must keep both files accessible.
+	"models/nihilanth.mdl",
+	"models/big_mom.mdl",
+	"models/big_momt.mdl",
+	"models/baby_headcrab.mdl",
+	"models/controller.mdl",
+	"models/controllert.mdl",
+	"models/islave.mdl",
+	"models/islavet.mdl",
 )
 
 # Direct-load HUD sheets for lean New Game Redraw (ISO9660 sprites/ lookups
@@ -1557,7 +1622,7 @@ def inject_gc_studio_into_bootstrap(archive: "zipfile.ZipFile", data: Path) -> i
 		stem = Path(relative).stem.lower()
 		is_tex_companion = stem.endswith("t") and stem[:-1] in all_stems
 		# Props with their skins inside the model keep them.
-		keep_skins = stem in ("forklift", "loader", "filecabinet") or stem.startswith("v_")
+		keep_skins = stem in ("forklift", "loader", "filecabinet", "nihilanth", "baby_headcrab") or stem.startswith("v_")
 		payload = None if is_tex_companion or keep_skins else lean_studio_mesh_bytes(src)
 		if payload is None:
 			archive.write(src, arcname, compress_type=zipfile.ZIP_STORED)
@@ -2511,9 +2576,19 @@ def build_disc(
 	apploader_linker: Path,
 	bootstrap_recursive: bool = False,
 	overlays: tuple[tuple[str, Path], ...] = (),
+	gamedir: str = "valve",
+	extra_gamedirs: tuple[tuple[str, Path], ...] = (),
 ) -> None:
 	output_path.parent.mkdir(parents=True, exist_ok=True)
-	build_iso9660(data, extras, output_path, bootstrap_recursive, overlays)
+	build_iso9660(
+		data,
+		extras,
+		output_path,
+		bootstrap_recursive,
+		overlays,
+		gamedir=gamedir,
+		extra_gamedirs=extra_gamedirs,
+	)
 	iso9660_size = output_path.stat().st_size
 	dol_size = dol.stat().st_size
 	dol_offset = align(iso9660_size, 0x800)
@@ -2812,7 +2887,11 @@ def stage_sd_card(
 	if dol is not None:
 		app = card_root / "apps" / "xash3d-gc"
 		app.mkdir(parents=True, exist_ok=True)
+		# Always publish boot.dol for Swiss layouts that expect the legacy name.
 		shutil.copy2(dol, app / "boot.dol")
+		# Also keep the uniquely named release DOL when the source is named.
+		if dol.name not in ("boot.dol", "boot.DOL"):
+			shutil.copy2(dol, app / dol.name)
 
 	return valve
 
@@ -2824,6 +2903,23 @@ def main() -> None:
 	parser = argparse.ArgumentParser(description=__doc__)
 	parser.add_argument("--dol", type=Path, default=Path("OUT/bin/boot.dol"))
 	parser.add_argument("--data", type=Path, default=Path("Half-Life/valve"))
+	parser.add_argument(
+		"--gamedir",
+		default="valve",
+		help="primary ISO/SD folder under /xash3d/ (default: valve → linked HL1 DOL)",
+	)
+	parser.add_argument(
+		"--extra-data",
+		action="append",
+		default=[],
+		metavar="GAMEDIR=PATH",
+		help="additional /xash3d/<GAMEDIR> graft (repeatable); e.g. dod=Half-Life/dod",
+	)
+	parser.add_argument(
+		"--no-auto-extra-gamedirs",
+		action="store_true",
+		help="do not auto-stage sibling gamedirs next to --data (dod, gearbox, …)",
+	)
 	parser.add_argument("--extras", type=Path, default=Path("OUT/valve/extras.pk3"))
 	parser.add_argument("--output", type=Path, default=Path("OUT/xash3d-gc.iso"))
 	parser.add_argument(
@@ -2977,9 +3073,42 @@ def main() -> None:
 			parser.error(f"--probe-tas script missing: {tas_src}")
 		args.probe_tas = tas_name
 
+	try:
+		primary_gamedir = _safe_gamedir_name(args.gamedir)
+	except ValueError as exc:
+		parser.error(str(exc))
+
+	try:
+		extra_gamedirs = parse_extra_data_args(args.extra_data)
+	except (ValueError, FileNotFoundError) as exc:
+		parser.error(str(exc))
+
+	if not args.no_auto_extra_gamedirs:
+		auto_extras = discover_sibling_gamedirs(args.data, primary_gamedir)
+		explicit = {name for name, _ in extra_gamedirs}
+		for name, path in auto_extras:
+			if name in explicit or name == primary_gamedir:
+				continue
+			print(f"GameCube ISO: auto-staging sibling gamedir {name} from {path}")
+			extra_gamedirs.append((name, path))
+	extra_gamedirs_tuple = tuple(extra_gamedirs)
+
 	# Full retail builds validate source, then stage a normalized copy for the ISO.
+	# HL1 uses the strict critical list; other titles only require marker files
+	# (DoD / OpFor trees often omit valve.rc and HL campaign lumps).
 	if not args.smoke_map and not args.intro_avi:
-		validation_errors = validate_assets(args.data)
+		if primary_gamedir == "valve":
+			validation_errors = validate_assets(args.data)
+		else:
+			validation_errors = []
+			if not args.data.is_dir():
+				validation_errors.append(f"Data directory not found: {args.data}")
+			else:
+				has_marker = (args.data / "liblist.gam").is_file() or (args.data / "gfx.wad").is_file()
+				if not has_marker:
+					validation_errors.append(
+						f"MISSING: {primary_gamedir} needs liblist.gam or gfx.wad under {args.data}"
+					)
 		if validation_errors:
 			print("Asset validation failed:", file=sys.stderr)
 			for error in validation_errors:
@@ -2991,7 +3120,7 @@ def main() -> None:
 		with tempfile.TemporaryDirectory(prefix="xash3d-gc-smoke-data-") as temp:
 			smoke_data = stage_smoke_data(
 				args.data,
-				Path(temp) / "valve",
+				Path(temp) / primary_gamedir,
 				args.smoke_map,
 				# ISO boots rebuild argv from gamecube.cfg; Dolphin -- guest
 				# args never reach the DOL. Bake newgame whenever the probe
@@ -3053,10 +3182,12 @@ def main() -> None:
 				args.apploader_source,
 				args.apploader_linker,
 				bootstrap_recursive=True,
+				gamedir=primary_gamedir,
+				extra_gamedirs=extra_gamedirs_tuple,
 			)
 	elif args.intro_avi:
 		with tempfile.TemporaryDirectory(prefix="xash3d-gc-intro-avi-data-") as temp:
-			intro_data = stage_intro_avi_data(args.data, Path(temp) / "valve")
+			intro_data = stage_intro_avi_data(args.data, Path(temp) / primary_gamedir)
 			staged_movies = [
 				relative for relative in SMOKE_INTRO_MEDIA
 				if (intro_data / relative).is_file()
@@ -3075,11 +3206,16 @@ def main() -> None:
 				args.apploader_source,
 				args.apploader_linker,
 				bootstrap_recursive=True,
+				gamedir=primary_gamedir,
+				extra_gamedirs=extra_gamedirs_tuple,
 			)
 	else:
-		print("Staging retail Half-Life assets for GameCube (source files are not modified).")
+		print(
+			f"Staging retail assets for GameCube gamedir={primary_gamedir} "
+			"(source files are not modified)."
+		)
 		with tempfile.TemporaryDirectory(prefix="xash3d-gc-retail-data-") as temp:
-			staged_root = Path(temp) / "valve"
+			staged_root = Path(temp) / primary_gamedir
 			staged_data, skipped = stage_retail_data(args.data, staged_root)
 			if skipped:
 				print(
@@ -3090,12 +3226,13 @@ def main() -> None:
 				print("Warning: GameCube retail menu background bake failed.", file=sys.stderr)
 			if not stage_gc_loading_assets(args.data, staged_data):
 				print("Warning: GameCube loading plaque bake failed.", file=sys.stderr)
-			validation_errors = validate_staged_retail_assets(staged_data)
-			if validation_errors:
-				print("Staged retail asset validation failed:", file=sys.stderr)
-				for error in validation_errors:
-					print(f"  - {error}", file=sys.stderr)
-				sys.exit(1)
+			if primary_gamedir == "valve":
+				validation_errors = validate_staged_retail_assets(staged_data)
+				if validation_errors:
+					print("Staged retail asset validation failed:", file=sys.stderr)
+					for error in validation_errors:
+						print(f"  - {error}", file=sys.stderr)
+					sys.exit(1)
 
 			if args.probe_newgame:
 				write_probe_newgame_override(
@@ -3158,8 +3295,12 @@ def main() -> None:
 				)
 			elif args.probe_phasetest:
 				write_probe_phasetest_override(staged_data, args.probe_phasetest)
+			elif args.probe_dumpframes:
+				# Plain retail menu + soft DumpFrames evidence (no New Game).
+				(staged_data / "gamecube.cfg").write_text("dumpframes\n", encoding="ascii")
+				print("Retail menu: staged gamecube.cfg dumpframes for soft DumpFrames")
 
-			overlay_root = Path(temp) / "overlay" / "valve"
+			overlay_root = Path(temp) / "overlay" / primary_gamedir
 			overlays = create_startup_vids_overlay(
 				args.data,
 				overlay_root,
@@ -3173,6 +3314,8 @@ def main() -> None:
 				args.apploader_source,
 				args.apploader_linker,
 				overlays=overlays,
+				gamedir=primary_gamedir,
+				extra_gamedirs=extra_gamedirs_tuple,
 			)
 
 

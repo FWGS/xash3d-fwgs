@@ -3824,6 +3824,7 @@ static struct
 	uint32_t      count;
 	uint32_t      aram[GC_WT_MAX_TEXTURES];	/* the whole chain */
 	uint32_t      bytes[GC_WT_MAX_TEXTURES];	/* its size if split, else 0 */
+	byte          low_shift[GC_WT_MAX_TEXTURES]; /* first resident mip */
 } gc_wt;
 
 /* Transient table/hot-mip pool: prefer unused map-load arena tail to avoid a
@@ -4121,7 +4122,8 @@ static void Mod_GCWorldPackLoad( const char *modelname, size_t surface_reserve )
 		const uint32_t end = i + 1 < gc_wt.count ? gc_wt.table[i + 1].offset : data_bytes;
 		const uint32_t bytes = end - e->offset;
 		const qboolean split = e->levels > 1 && ( e->width > split_dim || e->height > split_dim );
-		const uint32_t skip = split ? (uint32_t)e->width * e->height / 2 : 0;
+		uint32_t skip = split ? (uint32_t)e->width * e->height / 2 : 0;
+		unsigned low_shift = split ? 1 : 0;
 		const uint32_t room = (uint32_t)pool_bytes - first - low;
 		const qboolean aram_only = pool_bytes < 64u * 1024u;
 		const gc_wt_stored_t *s;
@@ -4180,15 +4182,34 @@ static void Mod_GCWorldPackLoad( const char *modelname, size_t surface_reserve )
 		}
 		if( aram_only )
 		{
-			/* Keep only the table in MEM1. Each chain is staged through the
-			 * tail fragment and retained in ARAM; GX will stream it into the hot
-			 * window when the texture is bound. */
-			if( !s )
+			/* Reserve a real mip chain for every texture. The remaining pool
+			 * is a hot window for full chains; never point GX at that empty
+			 * window while an upload is pending or too large to fit. */
+			uint32_t budget = ((uint32_t)pool_bytes - first) / 2 / total_textures;
+			uint32_t w = e->width, h = e->height;
+			skip = 0;
+			low_shift = 0;
+			while( low_shift + 1 < e->levels && bytes - skip > budget )
+			{
+				uint32_t level_bytes = ((w + 7) / 8) * ((h + 7) / 8) * 32;
+				if( level_bytes > bytes - skip ) break;
+				skip += level_bytes;
+				w = Q_max( 1u, w / 2 );
+				h = Q_max( 1u, h / 2 );
+				low_shift++;
+			}
+			if( !s || bytes - skip > room )
+			{
+				Con_Reportf( S_WARN "Xash3D GameCube: texture pack stop map=%s index=%u reason=resident-budget\n", stem, (unsigned)i );
 				break;
-			e->offset = 0;
-			e->flags |= 2;
+			}
+			GC_AramTransfer( gc_wt_store_base + s->aram + skip, gc_wt.data + low, bytes - skip, false );
+			e->offset = low;
+			e->flags |= low_shift ? 2 : 0;
 			gc_wt.aram[i] = gc_wt_store_base + s->aram;
-			gc_wt.bytes[i] = bytes;
+			gc_wt.bytes[i] = low_shift ? bytes : 0;
+			gc_wt.low_shift[i] = low_shift;
+			low += bytes - skip;
 			continue;
 		}
 		if( !s || bytes - skip > room )
@@ -4203,6 +4224,7 @@ static void Mod_GCWorldPackLoad( const char *modelname, size_t surface_reserve )
 		e->flags |= split ? 2 : 0;
 		gc_wt.aram[i] = gc_wt_store_base + s->aram;
 		gc_wt.bytes[i] = split ? bytes : 0;
+		gc_wt.low_shift[i] = low_shift;
 		low += bytes - skip;
 	}
 	gc_wt.count = i;
@@ -4221,7 +4243,7 @@ static void Mod_GCWorldPackLoad( const char *modelname, size_t surface_reserve )
 
 static int Mod_GCWorldPackTexture( const char *name )
 {
-	extern int R_GCPackedTexture( const char *name, int width, int height, int levels, qboolean alpha, void *data, unsigned aram, unsigned bytes );
+	extern int R_GCPackedTexture( const char *name, int width, int height, int levels, qboolean alpha, void *data, unsigned aram, unsigned bytes, unsigned low_shift );
 	uint32_t i;
 
 	for( i = 0; i < gc_wt.count; i++ )
@@ -4229,7 +4251,7 @@ static int Mod_GCWorldPackTexture( const char *name )
 		const gc_wt_entry_t *e = &gc_wt.table[i];
 
 		if( !Q_strnicmp( e->name, name, sizeof( e->name )))
-			return R_GCPackedTexture( e->name, e->width, e->height, e->levels, e->flags & 1, gc_wt.data + e->offset, gc_wt.aram[i], gc_wt.bytes[i] );
+			return R_GCPackedTexture( e->name, e->width, e->height, e->levels, e->flags & 1, gc_wt.data + e->offset, gc_wt.aram[i], gc_wt.bytes[i], gc_wt.low_shift[i] );
 	}
 	/* A few retail BSPs reference an animated frame with a name that differs
 	 * from the packed table only in the frame digit.  Keep the texture on the
@@ -4245,7 +4267,7 @@ static int Mod_GCWorldPackTexture( const char *name )
 			if( e->name[0] == '-' && e->name[1] >= '0' && e->name[1] <= '9' &&
 				!Q_strnicmp( e->name + 2, name + 2, sizeof( e->name ) - 2 ))
 			{
-				return R_GCPackedTexture( e->name, e->width, e->height, e->levels, e->flags & 1, gc_wt.data + e->offset, gc_wt.aram[i], gc_wt.bytes[i] );
+				return R_GCPackedTexture( e->name, e->width, e->height, e->levels, e->flags & 1, gc_wt.data + e->offset, gc_wt.aram[i], gc_wt.bytes[i], gc_wt.low_shift[i] );
 			}
 		}
 	}

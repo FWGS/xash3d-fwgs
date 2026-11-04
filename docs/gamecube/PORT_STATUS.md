@@ -1,5 +1,82 @@
 # Xash3D GameCube Port Status
 
+## Xen actor loading — 2026-11-04
+
+The GameCube studio allowlist and bootstrap mirror now include Nihilanth,
+Gonarch, its baby headcrabs, alien controllers, and alien slaves. The embedded Nihilanth model and
+the separate Gonarch/controller/slave skin companions are preserved in full.
+Xen maps reserve the studio arena for actors actually encountered instead of
+preloading the unrelated intro cast.
+
+Fresh Dolphin direct-map evidence: `c4a2` reached `MAP_READY` with Gonarch's
+model and six companion texture headers (`.ai/logs/dolphin-probe-20261104-015657/`);
+`c4a3` reached `MAP_READY` with Nihilanth and controller/slave models
+(`.ai/logs/dolphin-probe-20261104-015926/`); and `c4a1d` reached `MAP_READY`
+with the controller and slave companions (`.ai/logs/dolphin-probe-20261104-020201/`).
+The latter used approximately 507 KiB of the studio arena instead of 1,007 KiB
+with the intro cast. A host fixture verifies that staging preserves the boss and
+companion skin payloads.
+
+These are map-load and model-loading checks, not visual or boss-fight proof.
+An earlier full-physics `c4a3` probe exited during spawning after archive
+allocation failures (`.ai/logs/dolphin-probe-20261104-020303/`). A subsequent
+probe reached world rendering and scripted attack, jump and use
+(`.ai/logs/dolphin-probe-20261104-022007/`), but recorded filesystem allocation
+failures, skipped Nihilanth skin upload at low quality, missed the frame-time
+target, and captured visibly corrupted world textures. It is not a boss-fight
+pass. Fixing fatal-panel drawing also made crash diagnostics safe for the small
+panel buffer. A later build retained fallback mip data for all 26 packed `c4a3`
+world textures instead of pointing at an empty streaming window, but its
+full-physics probe exited during entity spawning before a world frame
+(`.ai/logs/dolphin-probe-20261104-022459/`). Visual improvement therefore remains
+unverified. The corrected fallback-mip path subsequently reached `MAP_READY`
+on a separate `c4a3` direct-map image with all 26 packed textures retained
+(`.ai/logs/dolphin-probe-20261104-023107/`); direct-map rendering intentionally
+uses a status-panel fallback, so this confirms loading only. The next gates are a visually correct playable boss encounter,
+transitions and physical-hardware checks.
+
+## Multi-game / named DOLs — 2026-11-03
+
+Same repo; one DOL per title. HL1 release is `OUT/bin/halflife1.dol` with
+`boot.dol` kept as the Swiss/docs alias. Day of Defeat will use `dodgc.dol`
+after the vgui2 / client-source research gate in
+[`MULTI_GAME.md`](MULTI_GAME.md). Boot now logs detected `xash3d/<gamedir>/`
+trees; disc packaging can stage multiple gamedirs. HL1 remains the only
+supported play path until a DoD-linked DOL exists.
+
+## Menu / HUD MEM1 follow-up — 2026-11-04 (verified)
+
+Root causes from `.ai/logs/dolphin-probe-20261103-203758/` and
+`…-205544/`:
+
+1. **`resource/gameui_english.txt` is 26,556 bytes** — after intro release,
+   `FS_LoadFileFromArchive` could not allocate 26,557 bytes. GC main menu
+   labels are hardcoded English + builtins, so GameUI dictionary load is now
+   skipped on GameCube (`3rdparty/mainui/MenuStrings.cpp`).
+2. **Two HUD slabs thrashed the menu font** when `logo.tga` rebound — late
+   framedumps showed an empty panel with orange glyph fragments. HUD reserve
+   is now **3** slabs, and LRU eviction prefers non-font chrome
+   (`ref/gx/r_gx_world.c`).
+3. **`-gcmenuplaystart` + `-gcmap` never ensured client / Prepare** — Activate
+   deferred Prepare until client progs, but the `-gcmap` ClientFrame path
+   kept them unloaded and never queued `gc_playstart`, so Host_Frame stayed
+   at `ready=0` (`.ai/logs/dolphin-probe-20261103-235225/`). Post-smoke now
+   ensures the client and Prepare for menu playstart; lean-play arm and SCR
+   sustain accept `-gcmenuplaystart` (`host.c`, `cl_main.c`).
+
+### Dolphin evidence — 2026-11-04
+
+- Retail menu: `.ai/logs/dolphin-probe-20261104-000250/` — `RETAIL_READY`,
+  `localization skip resource/gameui_english.txt`, `menu console font ready`,
+  `retail menu button text ready … New Game`, G45 menu actions PASS.
+- Menu→New Game `c0a0`: `.ai/logs/dolphin-probe-20261104-000713/` —
+  `MENU_NEWGAME_READY` with play start ready, G36 PASS (15 samples,
+  avg 4.97 ms / p95 5.07 ms), G506 PASS (G172 + lean-HUD + G105),
+  ladder 10/10, nonblack frames. Earlier proof:
+  `.ai/logs/dolphin-probe-20261104-000100/`. Screenshot:
+  `.ai/screenshots/c0a0-menu-newgame-20261104.png`.
+- Hardware and full-campaign visual parity remain open.
+
 ## Current verification — 2026-11-02
 
 Current follow-up: entity private-data allocations now reuse freed 16-byte
@@ -289,260 +366,33 @@ probe; then update this status from fresh evidence.
 
 ## Next Task
 
-### Full renderer-arena BSP scratch — 2026-10-27
+Cleared 2026-11-04: the Oct 27–28 “Next Task” write-ups below were finished
+engineering notes, not open work. Closed and removed from this list:
 
-- Probe bundle: `.ai/logs/dolphin-probe-20261027-042554/`.
-- Root cause of the `c5a1` lightmap OOM was an accounting mismatch: the
-  renderer lent a 3.50 MiB static map-load arena, but the BSP scratch allocator
-  retained only the 2.62 MiB source-file length and ignored the arena tail.
-- The map-load API now exposes its actual retained capacity. BSP node and
-  clipnode high carves, surface scratch, and transient lump reloads use that
-  capacity without increasing the static allocation.
-- Runtime proof: scratch grew from 2.26 MiB to 3.13 MiB; the 1.05 MiB lighting
-  lump reloaded through scratch, bound for the G154 bake, and was released
-  afterward. `c5a1` reached `MAP_READY`; the runtime ladder passed 10/10.
-- Timing proof: 15 samples, 4.66 ms average, 26.34 ms p95/max against the
-  33.33 ms 30 FPS budget (`G36_STATUS: PASS`).
-- Remaining probe classification is `MAP_LOADED_INPUT_READY`: presentation is
-  missing the expected viewmodel marker and the scripted TAS action route is
-  unseen. This is no longer a BSP/lightmap/map-readiness failure.
+- renderer-arena BSP scratch (`c5a1` lightmap OOM)
+- dense-map deferred viewmodel scheduling
+- terminal campaign hop `c4a3→c5a1` CHANGELEVEL_READY
+- retail-menu Dolphin visual proof (reconfirmed `.ai/logs/dolphin-probe-20261104-000250/`)
+- HUD `gc_quality` null-pointer handoff
+- native OpenGL `_malloc_r` DSI (fixed via static studio arena merge)
+- rejected 512 KiB studio-size experiment (already reverted)
+- live BSP `edges16` recovery + sustained real-BSP presentation
+- tram/Xen/Lambda tip-safe hops and related OOM closes from 2026-08-09
 
-### Dense-map deferred viewmodel scheduling — 2026-10-27
+Still open:
 
-- Probe bundle: `.ai/logs/dolphin-probe-20261027-043346/`.
-- The remaining `c5a1` presentation miss was an exact-present scheduling bug:
-  G36 deliberately blocked studio promotion at present 1, and the lean route
-  did not retry until exact presents 32/40. Deferred viewmodel promotion now
-  runs once at the first eligible post-budget present and retains bounded NPC
-  retries at the later thresholds.
-- Runtime proof: real `v_crowbar.mdl` and `v_9mmhandgun.mdl` models were pinned;
-  G105, G172, lean-HUD, attack, jump, use, sustained world, map-ready, input,
-  and nonblack markers all passed. Harness result: `NEWGAME_READY`, G36/G45/
-  G506 PASS, runtime ladder 10/10.
-- Timing remained 4.66 ms average and 26.34 ms p95/max against the 33.33 ms
-  30 FPS budget. DOL SHA-256:
-  `00511da5b790e221e3abaacd151354da5b3de2e3229aa37a68f85abe753c98d0`.
-
-**Full-game Dolphin proof (current DOL) — campaign CHANGELEVEL spine**
-
-### Current-DOL terminal campaign hop — 2026-10-27
-
-- Fresh artifact: `OUT/bin/boot.dol`, SHA-256
-  `80fff451972ebb66ed73dd427badc3b47fe662667b638730e75486bc4fafb1f4`.
-- Fresh probe: `.ai/logs/dolphin-probe-20261027-203545/`; its staged ISO is
-  SHA-256 `444828d7361facc834313bca00ee0195968c1a7b0583d5eeda141222a54db0f5`.
-- `c4a3` → `c5a1` reached `CHANGELEVEL_READY` with landmark continuity,
-  a nonblack sampled frame, controller input, and attack/jump/use actions.
-  The runtime ladder passed 10/10; G36 was PASS (15 samples: 1.27 ms average,
-  1.32 ms p95/max versus the 33.33 ms / 30 FPS target), as were G45 and G506.
-- Host-side GameCube contracts remain green: `85 passed` in
-  `tests/test_gamecube_host.py` after the same rebuild.
-
-### Visual-proof correction — 2026-10-27
-
-- Dumped completion frames are **not acceptable visual proof yet**. The first
-  fresh campaign capture (`c0a0e` → `c1a0`,
-  `.ai/logs/dolphin-probe-20261027-223114/`) retained a bright-green XFB with
-  only sparse geometry instead of a completed level image.
-- This is explained by the current GameCube timing harness, not by a valid
-  sky/level render: `GC_FillBudgetProbeFrameBuffer()` deliberately writes
-  RGB565 `0x07E0` (bright green) and `GC_PresentBudgetProbeFrame()` presents
-  that buffer. DumpFrames is sampling that probe/XFB path before a stable GX
-  world frame. Do not describe G36 or `CHANGELEVEL_READY` telemetry as
-  completed visual rendering until an actual post-world GX screenshot passes.
-- Required next gate: capture one non-probe, post-`R_GXDrawNewGameCapFaces`
-  destination frame per representative chapter and verify that it contains a
-  complete non-green world image. The physical Swiss G38/G66 gate remains
-  separate and still requires console evidence.
-
-### Retail-menu Dolphin visual proof — 2026-10-27
-
-- A clean retail-menu run reached `RETAIL_READY`; G45 controller input and
-  `menu:down,confirm,back` actions passed in
-  `.ai/logs/dolphin-probe-20261027-224502/`.
-- The recovered complete Dolphin frame is
-  `.ai/screenshots/gc-main-menu-dolphin-runtime.png`. It contains the retail
-  Half-Life menu background, logo, selected `New game` row, and the three
-  standard menu entries; it is not the green gameplay timing buffer.
-- The aligned runtime viewport and asset-derived retail-menu preview are
-  recorded side by side in
-  `.ai/screenshots/gc-main-menu-dolphin-vs-preview.png`. Their absolute
-  pixel difference is 10.29/255 mean (29/255 p95), consistent with the
-  runtime's filtering/gamma rather than a missing UI render.
-- `scripts/capture-gc-main-menu.sh` now rejects an incomplete last TGA and
-  selects the newest complete Dolphin frame, so this evidence cannot silently
-  fall back to the baked preview. This proves the menu route only; it does not
-  close the separate post-world-frame visual gate above.
-
-### Gameplay visual audit — 2026-10-27
-
-- The non-diagnostic menu-to-New-Game route reached `MENU_NEWGAME_READY` on
-  `c0a0` in `.ai/logs/dolphin-probe-20261027-230612/`, but the analyzer
-  correctly returned `MAP_LOADED_RENDER_FALLBACK_ONLY`. Its 110 complete TGA
-  frames are almost entirely a uniform fallback buffer, not a level scene.
-- The separate `gcworldrender` experiment
-  (`.ai/logs/dolphin-probe-20261027-230349/`) did emit a fragment of GX world
-  geometry, then crashed. It also carries the `WORLD PRESENT` diagnostic
-  overlay, so it is not a retail gameplay frame and cannot be used for parity.
-- A direct-EFB DumpFrames configuration was also tested on the ordinary menu
-  path (`.ai/logs/dolphin-probe-20261027-235525/`); it timed out before `c0a0`
-  loaded. That speculative capture setting was reverted rather than retained.
-- Therefore gameplay visual matching in Dolphin remains **unproven and
-  currently failing**. `MENU_NEWGAME_READY`, `MAP_READY`, face counts, and
-  nonblack pixels are behavioral diagnostics only; none is a substitute for a
-  complete retail-like scene.
-
-### HUD-to-world handoff repair — 2026-10-28
-
-- The prior ordinary menu-to-New-Game run rendered CapFaces and the tram but
-  stalled in `HUD_VidInit`: the built-in client requested `gc_quality` and
-  received a null cvar pointer. `CL_CvarGetPointer()` now materializes that
-  GameCube renderer cvar with the low-memory default when the static renderer
-  handoff has not exposed it yet.
-- Fresh DOL probe: `.ai/logs/dolphin-probe-20261028-001057/`. It reached map
-  and input readiness, completed `newgame world render ready`, sustained SCR
-  world frames, passed G506 (G172 + lean HUD + G105), and passed the runtime
-  ladder 10/10. Its 15 timing samples were 26.28 ms average / 46.39 ms p95
-  against the default 16.67 ms capture target.
-- This confirms that the former HUD null-pointer stall is fixed. It is still
-  behavioral evidence only: a one-shot native Dolphin screenshot of a
-  completed world frame is required before asserting gameplay visual parity.
-
-### Native OpenGL capture audit — 2026-10-28
-
-- A direct Dolphin OpenGL boot of the same validated menu-to-New-Game ISO
-  reached sustained live GX presentation: CapFaces, tram brush model, HUD,
-  crowbar, scientist, Barney, and headcrab promotion were all logged. The
-  displayed window was captured at
-  `.ai/screenshots/c0a0-dolphin-opengl-window.png`.
-- That screenshot is a red GameCube DSI exception screen, **not** a gameplay
-  frame. The exception PC `0x8045d948` resolves in the fresh ELF to
-  `_malloc_r`; it occurs after deferred NPC studio promotion (383.57 KiB of
-  the 640 KiB studio budget) and before a valid native screenshot can be
-  saved. This is the current concrete gameplay-stability blocker.
-- Do not use the sustained-frame markers as proof of retail visual parity
-  until this post-promotion allocator fault is removed and the replacement
-  native OpenGL capture shows a complete scene.
-
-### Rejected studio-arena experiment — 2026-10-28
-
-- Expanding the static studio BSS arena from 256 KiB to 512 KiB was tested to
-  avoid heap allocation for the Barney and headcrab meshes. The fresh compact
-  ISO replay (`.ai/current-menu-newgame.iso`) stopped during the following
-  `c0a0` pre-spawn path, before model promotion or a native gameplay frame.
-- It therefore neither removes the allocator fault nor supplies visual
-  evidence. That size-only change was reverted; the native OpenGL DSI fault remained the
-  blocker and no gameplay-retail-parity claim is warranted.
-
-### Static studio merge replay — 2026-10-28
-
-- The rejected size-only experiment was replaced with a targeted fix: the
-  complete lean studio set and retained `T.mdl` headers use a 1 MiB static
-  arena, and a mesh already in that arena is extended there **before** any
-  `calloc` attempt. This removes the prior post-present `_malloc_r` route.
-- Fresh direct OpenGL evidence from `.ai/allocator-static-user-0726/` reached
-  64 sustained world frames after promotion. It logged BSS reads for crowbar,
-  scientist, Barney, and headcrab, plus all three `G376` skin merges and the
-  `G371` promotion gate, with no DSI exception.
-- `.ai/screenshots/c0a0-static-studio-live.png` is the first valid native
-  non-diagnostic `c0a0` frame from that route. It proves live GameCube GX
-  gameplay presentation after the former allocator fault, but it visibly has
-  stretched/incorrect world geometry and a black portal region. It is evidence
-  **against** gameplay retail parity, not a parity pass. The next rendering
-  task is to repair the world-geometry path before taking per-level frames.
-
-### Live BSP recovery — 2026-10-28
-
-- The menu New Game route retains its map-load arena through presentation and
-  now stamps visible full-BSP surfaces. Direct diagnosis found the GX emitter
-  was interpreting the `edges16`/`edges32` union as 32-bit; retail HL1 maps
-  now explicitly use `edges16` (the source lump was already endian-normalized).
-- Fresh native OpenGL evidence in `.ai/live-bsp-final-user-0742/` reports
-  `opaque=2004 trans=12 … emit0=0` and `G283 live BSP Flipper opaque=2016`.
-  `.ai/screenshots/c0a0-live-bsp-final.png` is the matching frame. It shows
-  real ceiling/wall geometry, but the synthetic tram/fill overlay and black
-  portal still make it non-retail; visual parity remains unproven.
-
-### Sustained real-BSP presentation — 2026-10-28
-
-- The retained full-BSP path now bypasses the CapFaces/fill and baked-tram
-  fallbacks. A command-token cleanup fixed the post-frame-8 double-free at
-  `cmd.c:580` that appeared once this route was allowed to continue.
-- Fresh direct OpenGL run `.ai/live-bsp-stable-user-0750/` passed 32 world
-  frames and all scientist/Barney/headcrab `G376` skin merges plus `G371`
-  promotion with no DSI or allocator error. Its native frame is
-  `.ai/screenshots/c0a0-live-bsp-stable.png`.
-- The capture is a real c0a0 corridor (tracks, walls, and ceiling), not the
-  former synthetic overlay. A black far portal/void persists, so it is still
-  not a retail-parity frame or the requested completed first-level capture.
-
-### Current hardware handoff — 2026-10-27
-
-- Refreshed FAT32 Swiss smoke image:
-  `OUT/xash3d-gc-swiss-smoke.img` (256 MiB hybrid DOL + smoke assets + compact
-  ISO), SHA-256
-  `c0622b05a566856fe618763bc9827f8b80141da5d7de60acf0be0d126e1affb7`.
-  Its staged `apps/xash3d-gc/boot.dol` is byte-identical to the current DOL
-  above; the image verifier found the loader, `gfx.wad`, `liblist.gam`,
-  `c0a0e.bsp`, and log directory.
-- Operator handoff: `.ai/logs/hardware-handoff-20261027-222554/`.
-  The G56 checklist verifier passed; physical Swiss boot, FAT mount, playable
-  map, and return-to-loader evidence remain the only unclosed G38/G66 gates.
-
-1. Tip-safe continuity hops across chapters on packet DOL `77f53b3a…`
-   (tram → AM → combat → Lambda → Xen → Nihilanth).
-2. Flipper polish (G381 skins / CapFaces) as hop failures or visual gaps appear.
-3. Swiss / hardware G38 deferred (no FAT32 SD); do not block emulation on it.
-
-
-### Tram + Xen hops past c0a0b / c4a1 — 2026-08-09
-
-- Landmark defaults added in `scripts/dolphin-boot-probe.sh` for
-  c0a0b→c0a0c (`c0a0btoc`), c0a0c→d (`c0a0ctod`), c0a0d→e, c0a0e→c1a0,
-  c4a1→c4a2 (`c4a2`), c4a2→c4a2a (`c4a2_0a`).
-- **CHANGELEVEL_READY** c0a0b→c0a0c `20260809-205421` (G36/G45/G506 PASS).
-- **CHANGELEVEL_READY** c4a1→c4a2 `20260809-205526` (G36/G45/G506 PASS).
-- **CHANGELEVEL_READY** c0a0c→c0a0d `20260809-205629` (G36/G45/G506 PASS).
-- No tip-safe lean engine fix required for these hops.
-
-### Xen NEWGAME + c0a0a→c0a0b OOM closed — 2026-08-09
-
-- c4a1 hang after G292 (`20260809-131438`): CapFaces fell through to
-  `R_GXDrawWorldLiveSurfaces` on scratch-retain frames after the one-shot
-  G283 log (live=0 Xen). Tip-safe: scratch-retain stays LM-caps + water +
-  G292 only. **NEWGAME_READY** `20260809-184328` (G291 EFX + play-start).
-- c0a0a→c0a0b OOM at `Mod_LoadPlanes` 308 Kb: SWAP/zone + malloc exhausted
-  after Prepare; planes now prefer system malloc, else unused map-load arena
-  tail (not BSP-image carve). **CHANGELEVEL_READY** `20260809-184625`
-  (`world planes using map-load arena tail 308.05 Kb`).
-- Regression: c0a0 G36 PASS `20260809-184736` avg=12.75ms.
-
-### Reactor Host_Frame + Lambda Core green — 2026-08-09
-
-- Host_Frame after SCR~16: skip lean world `SV_RunThink` on non-c0a0
-  (probe `20260809-013402`).
-- Lean combat tip-safe: `DecalGunshot` / `TEXTURETYPE_PlaySound` /
-  `UTIL_BubbleTrail` skip hung TE paths; crowbar `FireBulletsPlayer` proven
-  on c3a2 (`20260809-121134`) with SCR frames=32.
-- Probe attack hold: TRIGGER_R held 16 frames so lean FillUsercmd sees IN_ATTACK.
-- Lambda single-map NEWGAME_READY: c3a2, c3a2a–c3a2f, c3a2d (all G36/G45/G506).
-- Lambda changelevel c3a2→c3a2a landmark `c3a2f`: **CHANGELEVEL_READY**
-  (`20260809-123857`) — defer hop post-G36, source Prepare with `-gcchangelevel`,
-  skip non-c0a0 world interaction (trigger→breakable hung). Further hops
-  c3a2a→b→c→d/f also CHANGELEVEL_READY.
-- c0a0 G36 WEAK (~56ms) → PASS: tram-only face/live budget during armed
-  samples (`GC_IsG36SampleFaceCap`); sticky Prepare draw-cap removed (broke
-  c3a2 beams). Proof: c0a0 `20260809-130441` avg=12.75ms; c3a2
-  `20260809-130544` NEWGAME_READY + SCR32 + map beam blit gpu=1.
-- Campaign hops beyond Lambda: tip-safe `PM_RecursiveHullCheck` bad-node
-  (was Host_Error on c0a0a). **CHANGELEVEL_READY** c0a0→c0a0a
-  `20260809-131124`; c3a1 NEWGAME + c3a1→c3a1a `20260809-131232` /
-  `20260809-131328`. Landmark defaults added for a1a1a / c0a0tob /
-  c3a2_c4a1. Xen c4a1 NEWGAME_READY `20260809-184328`; c0a0a→c0a0b
-  CHANGELEVEL_READY `20260809-184625`. Further: c0a0b→c0a0c
-  `20260809-205421`, c0a0c→c0a0d `20260809-205629`, c4a1→c4a2
-  `20260809-205526` (landmark defaults extended).
-- Swiss: evidence writer OGC stack line; fixture ingest COMPLETE (real SD still required).
+1. **Chapter visual gate** — capture one non-probe, non-green post-world GX
+   frame per representative chapter (tram / AM / combat / Lambda / Xen /
+   end). `c0a0` now has non-green DumpFrames evidence
+   (`.ai/screenshots/c0a0-menu-newgame-20261104.png`,
+   `.ai/logs/dolphin-probe-20261104-000713/`); far-portal / retail-parity
+   polish remains. Do not treat G36 / CHANGELEVEL_READY alone as visual parity.
+2. **Tip-safe continuity hops** on the current DOL across the campaign spine
+   (tram → AM → combat → Lambda → Xen → Nihilanth), with Flipper polish
+   (G381 skins / CapFaces) as hop failures appear.
+3. **Swiss / hardware G38–G66** — physical FAT32 SD boot, playable map, and
+   return-to-loader. Host handoff/smoke image remain available
+   (`OUT/xash3d-gc-swiss-smoke.img`); do not block Dolphin work on this.
 
 ## External Blockers
 

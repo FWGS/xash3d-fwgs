@@ -328,11 +328,16 @@ int Image_GCMaxLoadDimension( const char *name )
 		break;
 	}
 
-	/* Menu background/logo tiles: keep decode buffers small so the retail
-	 * main menu can load without killing the ImageLib pool. Return early so
-	 * AllowLargeDecode("logo"/"background") cannot raise the cap again. */
+	/* Main-menu sheets: Flipper-native detail. Full 640×480 is four lazy
+	 * 320×240 tiles; logo keeps a wide atlas. */
+	if( name && Q_stristr( name, "resource/gc_menu/background" ))
+		return 320;
+	if( name && Q_stristr( name, "resource/gc_menu/bg_" ))
+		return 160;
+	if( name && Q_stristr( name, "resource/gc_menu/logo" ))
+		return 512;
 	if( name && Q_stristr( name, "resource/gc_menu" ))
-		return Q_min( max_dim, 256 );
+		return Q_max( max_dim, 320 );
 	if( name && ( Q_stristr( name, "resource/background" ) || Q_stristr( name, "resource/logo" )
 		|| Q_stristr( name, "gfx/shell" )))
 		return Q_min( max_dim, 128 );

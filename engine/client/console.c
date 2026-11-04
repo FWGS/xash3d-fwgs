@@ -571,9 +571,9 @@ static void Con_LoadConsoleFont( int fontNumber, cl_font_t *font )
 		return; // already loaded
 
 #if XASH_GAMECUBE
-	/* G301: New Game / gcmap — never open fonts.wad or gfx/conchars (18–34 KiB
-	 * W_ReadLump tip). Reuse bootstrap CREDITSFONT already pinned for HUD. */
-	if( Sys_CheckParm( "-gcnewgame" ) || Sys_CheckParm( "-gcmap" ))
+	/* The menu bitmap font also uses the console font. Share the bootstrap
+	 * HUD atlas on retail boots as well as map probes: the full console font
+	 * can exceed the GameCube file/heap budget, leaving menu text invisible. */
 	{
 		static qboolean g301_logged;
 
@@ -592,7 +592,8 @@ static void Con_LoadConsoleFont( int fontNumber, cl_font_t *font )
 			g301_logged = true;
 			Con_Reportf( "Xash3D GameCube: G301 lean console font unavailable\n" );
 		}
-		return;
+		if( Sys_CheckParm( "-gcnewgame" ) || Sys_CheckParm( "-gcmap" ))
+			return;
 	}
 #endif
 
@@ -794,8 +795,27 @@ Con_DrawStringLen
 compute string width and height in screen pixels
 ====================
 */
+#if XASH_GAMECUBE
+static void Con_GameCubeEnsureMenuFont( void )
+{
+	/* MainUI's bitmap font draws through this function even when the console
+	 * itself has not been opened. The retail boot deliberately defers console
+	 * initialization, so bind the already available lean atlas on first menu
+	 * text rather than silently drawing with a NULL font. */
+	if( !con.curFont && cls.key_dest == key_menu &&
+		CL_GCLoadLeanHudFont( &con.chars[0], con_fontscale.value, &con_fontrender ))
+	{
+		con.curFont = &con.chars[0];
+		Con_Reportf( "Xash3D GameCube: menu console font ready\n" );
+	}
+}
+#endif
+
 void GAME_EXPORT Con_DrawStringLen( const char *pText, int *length, int *height )
 {
+#if XASH_GAMECUBE
+	Con_GameCubeEnsureMenuFont();
+#endif
 	CL_DrawStringLen( con.curFont, pText, length, height, FONT_DRAW_UTF8 );
 }
 
@@ -808,6 +828,9 @@ client version of routine
 */
 int Con_DrawString( int x, int y, const char *string, const rgba_t setColor )
 {
+#if XASH_GAMECUBE
+	Con_GameCubeEnsureMenuFont();
+#endif
 	return CL_DrawString( x, y, string, setColor, con.curFont, FONT_DRAW_UTF8 );
 }
 

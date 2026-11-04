@@ -319,6 +319,12 @@ def configure(conf):
 
 	cflags, linkflags = conf.get_optimization_flags()
 	cxxflags = list(cflags) # optimization flags are common between C and C++ but we need a copy
+	if conf.env.DEST_OS == 'gamecube' and conf.env.COMPILER_CC in ('gcc', 'clang'):
+		# GameCube crash reports use the platform exception handler, not DWARF
+		# asynchronous unwinding. Keep C++ exception tables, but avoid retaining
+		# per-instruction C unwind metadata in the MEM1-resident executable.
+		cflags = [flag for flag in cflags if flag != '-fasynchronous-unwind-tables']
+		cflags += ['-fno-asynchronous-unwind-tables', '-fno-unwind-tables']
 
 	# on the Switch, allow undefined symbols by default, which is needed for libsolder to work
 	# we'll specifically disallow them for the engine executable

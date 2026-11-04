@@ -65,21 +65,33 @@ static fs_offset_t AVI_GCReadRaw( movie_state_t *Avi, fs_offset_t offset, void *
 		const size_t rel = (size_t)( offset - Avi->data_offset );
 		if( rel <= Avi->raw_prefetch_size && bytes <= Avi->raw_prefetch_size - rel )
 		{
-			if( bytes > sizeof( gc_avi_aram_cache ))
-				GC_AramCopy( Avi->raw_prefetch_aram + (unsigned int)rel, dst, (unsigned int)bytes, false );
+			const size_t cache_size = sizeof( gc_avi_aram_cache );
+			const size_t cache_offset = rel & ~( cache_size - 1 );
+
+			/* 8x8 RGB565 tiles are 128 bytes.  A read that starts in the last
+			 * 127 bytes of a 4 KiB window cannot be satisfied by reloading that
+			 * same aligned window — the old path memcpy'd past the cache and
+			 * painted garbage/"stale" chunks into the intro.  Spanning and
+			 * oversize reads go straight from ARAM. */
+			if( bytes > cache_size || ( rel + bytes ) > ( cache_offset + cache_size ))
+			{
+				GC_AramCopy( Avi->raw_prefetch_aram + (unsigned int)rel, dst,
+					(unsigned int)bytes, false );
+			}
 			else
 			{
-				const size_t cache_offset = rel & ~( sizeof( gc_avi_aram_cache ) - 1 );
-				if( Avi->raw_prefetch_cache_bytes == 0 || rel < Avi->raw_prefetch_cache_offset ||
-					rel + bytes > Avi->raw_prefetch_cache_offset + Avi->raw_prefetch_cache_bytes )
+				if( Avi->raw_prefetch_cache_bytes == 0 ||
+					cache_offset != Avi->raw_prefetch_cache_offset ||
+					bytes > Avi->raw_prefetch_cache_bytes ||
+					( rel - cache_offset ) + bytes > Avi->raw_prefetch_cache_bytes )
 				{
 					Avi->raw_prefetch_cache_offset = cache_offset;
-					Avi->raw_prefetch_cache_bytes = (unsigned int)Q_min( sizeof( gc_avi_aram_cache ),
+					Avi->raw_prefetch_cache_bytes = (unsigned int)Q_min( cache_size,
 						Avi->raw_prefetch_size - cache_offset );
 					GC_AramCopy( Avi->raw_prefetch_aram + (unsigned int)cache_offset,
 						gc_avi_aram_cache, Avi->raw_prefetch_cache_bytes, false );
 				}
-				memcpy( dst, gc_avi_aram_cache + rel - Avi->raw_prefetch_cache_offset, bytes );
+				memcpy( dst, gc_avi_aram_cache + ( rel - Avi->raw_prefetch_cache_offset ), bytes );
 			}
 			return (fs_offset_t)bytes;
 		}
@@ -871,8 +883,14 @@ static qboolean AVI_DecodeFrame( movie_state_t *Avi, uint frame, qboolean upload
 
 		if( Avi->raw_delta_tiles )
 		{
+			/* Track dirty tiles across the whole catch-up window so the same
+			 * 8x8 index is only uploaded once, and so overflow can fall back
+			 * to a full swizzle instead of leaving stale Flipper tiles. */
+			byte catchup_dirty[40u * 30u];
+
 			Avi->raw_dirty_count = 0;
 			Avi->raw_full_upload = false;
+			memset( catchup_dirty, 0, sizeof( catchup_dirty ));
 			if( frame < Avi->current_frame )
 			{
 				Avi->current_frame = (uint)-1;
@@ -892,7 +910,12 @@ static qboolean AVI_DecodeFrame( movie_state_t *Avi, uint frame, qboolean upload
 					return false;
 				if( tag == AVI_GCVID_KEYFRAME )
 				{
+					/* Keyframe replaces the whole RGB565 plane — force a full
+					 * GX swizzle. Clear the dirty list; later deltas in this
+					 * catch-up still append, but full_upload covers them. */
 					Avi->raw_full_upload = true;
+					Avi->raw_dirty_count = 0;
+					memset( catchup_dirty, 0, sizeof( catchup_dirty ));
 					if( AVI_GCReadRaw( Avi, offset + 1, Avi->frame, Avi->frame_size ) != (fs_offset_t)Avi->frame_size )
 						return false;
 				}
@@ -948,8 +971,21 @@ static qboolean AVI_DecodeFrame( movie_state_t *Avi, uint frame, qboolean upload
 							byte *dst = Avi->frame + ((( tile_y * tile_size + row ) * Avi->width ) + tile_x * tile_size ) * 2;
 							memcpy( dst, tilebuf + row * tile_size * 2, tile_size * 2 );
 						}
+						/* Multi-frame catch-up can exceed AVI_GC_MAX_TILES;
+						 * drop the partial dirty list and swizzle the whole
+						 * frame so skipped tiles cannot linger on Flipper. */
+						if( Avi->raw_full_upload )
+							continue;
+						if( catchup_dirty[tile_index] )
+							continue;
+						catchup_dirty[tile_index] = 1;
 						if( Avi->raw_dirty_count < AVI_GC_MAX_TILES )
 							Avi->raw_dirty_tiles[Avi->raw_dirty_count++] = (uint16_t)tile_index;
+						else
+						{
+							Avi->raw_full_upload = true;
+							Avi->raw_dirty_count = 0;
+						}
 					}
 				}
 				else return false;
@@ -1522,7 +1558,7 @@ qboolean AVI_Think( movie_state_t *Avi )
 		if( Avi->raw_rgb565 && ref.dllFuncs.GL_UpdateCinematicTexture )
 			ref.dllFuncs.GL_UpdateCinematicTexture( Avi->texture == 0 ? SCR_GetCinematicTexture() : Avi->texture,
 				Avi->upload_width, Avi->upload_height, upload_pixels,
-				Avi->raw_dirty_tiles, Avi->raw_dirty_count, false );
+				Avi->raw_dirty_tiles, Avi->raw_dirty_count, Avi->raw_full_upload );
 		else if( Avi->texture == 0 )
 		{
 		#if XASH_GAMECUBE

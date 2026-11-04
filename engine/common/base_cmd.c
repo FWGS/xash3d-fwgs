@@ -146,6 +146,13 @@ void BaseCmd_Insert( base_command_type_e type, base_command_t *basecmd, const ch
 	uint hash = BaseCmd_HashKey( name );
 	size_t len = Q_strlen( name );
 	base_command_hashmap_t *elem = Mem_Malloc( basecmd_pool, sizeof( base_command_hashmap_t ) + len + 1 );
+#if XASH_GAMECUBE
+	if( !elem )
+	{
+		Con_Reportf( "Xash3D GameCube: BaseCmd_Insert OOM name=%s (skipped)\n", name );
+		return;
+	}
+#endif
 
 	elem->basecmd = basecmd;
 	elem->type = type;

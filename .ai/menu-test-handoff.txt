@@ -1,8 +1,8 @@
 xash3d-gc disc hardware handoff
 iso=.ai/menu-test.iso
-iso_bytes=524584960
-dol=OUT/bin/boot.dol
-dol_bytes=6073920
+iso_bytes=807532544
+dol=OUT/bin/halflife1.dol
+dol_bytes=6396480
 renderer=REF_GX
 policy=retail-flipper
 note=boot.dol must be produced by elf2dol (objcopy pseudo-DOL rejected)

@@ -697,7 +697,24 @@ int Cmd_AddCommandEx( const char *cmd_name, xcommand_t function, const char *cmd
 	// use a small malloc to avoid zone fragmentation
 	desc_len = Q_strlen( cmd_desc ) + 1;
 	cmd = Mem_Malloc( cmd_pool, sizeof( cmd_t ) + desc_len );
+#if XASH_GAMECUBE
+	/* Soft-fail Console Commands under tip (New Game InitInput) — never Sys_Error
+	 * on a 19-byte BaseCmd/cmd name when HUD slabs still owned the heap. */
+	if( !cmd )
+	{
+		Con_Reportf( "Xash3D GameCube: Cmd_AddCommand OOM name=%s (skipped)\n", cmd_name );
+		return 0;
+	}
+#endif
 	cmd->name = copystringpool( cmd_pool, cmd_name );
+#if XASH_GAMECUBE
+	if( !cmd->name )
+	{
+		Mem_Free( cmd );
+		Con_Reportf( "Xash3D GameCube: Cmd_AddCommand name OOM name=%s (skipped)\n", cmd_name );
+		return 0;
+	}
+#endif
 	Q_strncpy( cmd->desc, cmd_desc, desc_len );
 	cmd->function = function;
 	cmd->flags = iFlags;

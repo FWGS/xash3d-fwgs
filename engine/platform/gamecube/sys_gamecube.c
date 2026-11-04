@@ -36,6 +36,16 @@ Platform layer ported from Division-Zero-GX/xash3d-wii.
 #define GC_DATA_PATH "xash3d"
 #define GC_DVD_DEVICE "gcdisc"
 
+/* Linked title for this DOL (waf --gamedir / XASH_GAMEDIR). Per-game DOLs
+ * bake valve vs dod here; runtime -game follows this, not a Custom Game restart. */
+#ifndef XASH_GAMEDIR
+#define XASH_GAMEDIR "valve"
+#endif
+#define GC_ACTIVE_GAMEDIR XASH_GAMEDIR
+
+#define GC_MAX_DETECTED_GAMES 16
+#define GC_MAX_GAMEDIR_NAME 32
+
 /*
  * libdvm (Swiss / libogc2) mounts GameCube storage as:
  *   sd:     Serial Port 2 (SD2SP2)
@@ -74,6 +84,8 @@ static qboolean GCube_MountDisc( void );
 static void GCube_EnsureFatMounted( void );
 static void GCube_LoadDiscBootOverrides( void );
 static qboolean GCube_FatHasGameData( void );
+/* Declared later; used when logging multi-game detection onto FAT. */
+void GCube_AppendSwissEvidence( const char *fmt, ... );
 
 static qboolean GCube_MountDisc( void )
 {
@@ -137,9 +149,15 @@ void Platform_ShellExecute( const char *path, const char *parms )
 
 void Platform_MessageBox( const char *title, const char *message, qboolean parentMainWindow )
 {
+	extern void GC_DrawFatalBreadcrumb( const char *message, const char *details );
+
 	(void)parentMainWindow;
 	SYS_Report( "%s: %s\n", title, message );
 	fprintf( stderr, "%s:\n%s\n", title, message );
+	/* Host_Error used to only SYS_Report — soft status flashed then vanished.
+	 * Draw the magenta fatal panel and halt so the text can be read. */
+	GC_DrawFatalBreadcrumb( title ? title : "Host Error",
+		message ? message : "NO DETAILS" );
 }
 
 void Posix_Daemonize( void )
@@ -223,40 +241,85 @@ void GCube_EarlyInit( void )
 #endif
 }
 
-static qboolean GCube_HasValveAssets( const char *xashdir )
+static qboolean GCube_GameDirNameSafe( const char *name )
+{
+	size_t i;
+
+	if( !name || !name[0] || Q_strlen( name ) >= GC_MAX_GAMEDIR_NAME )
+		return false;
+	if( !Q_strcmp( name, "." ) || !Q_strcmp( name, ".." ))
+		return false;
+	for( i = 0; name[i]; i++ )
+	{
+		const char c = name[i];
+		if( ( c >= 'a' && c <= 'z' ) || ( c >= 'A' && c <= 'Z' )
+			|| ( c >= '0' && c <= '9' ) || c == '_' || c == '-' )
+			continue;
+		return false;
+	}
+	return true;
+}
+
+/* Lightweight presence check used for multi-game detection (any title). */
+static qboolean GCube_LooksLikeGameDir( const char *xashdir, const char *gamedir )
 {
 	char probe[MAX_SYSPATH];
 	struct stat st;
 
-	if( !xashdir || !xashdir[0] )
+	if( !xashdir || !xashdir[0] || !GCube_GameDirNameSafe( gamedir ))
+		return false;
+
+	Q_snprintf( probe, sizeof( probe ), "%s/%s/gfx.wad", xashdir, gamedir );
+	if( stat( probe, &st ) == 0 && S_ISREG( st.st_mode ))
+		return true;
+	Q_snprintf( probe, sizeof( probe ), "%s/%s/liblist.gam", xashdir, gamedir );
+	return ( stat( probe, &st ) == 0 && S_ISREG( st.st_mode ));
+}
+
+/*
+ * Strict playable-root check for the DOL's linked title.
+ * valve keeps the HL1 gfx/maps spot-checks that reject empty SD layouts;
+ * other gamedirs require marker + maps/ (no DVD readdir of maps/).
+ */
+static qboolean GCube_HasGameAssets( const char *xashdir, const char *gamedir )
+{
+	char probe[MAX_SYSPATH];
+	struct stat st;
+	const qboolean is_valve = ( gamedir && !Q_stricmp( gamedir, "valve" ));
+
+	if( !xashdir || !xashdir[0] || !GCube_GameDirNameSafe( gamedir ))
 		return false;
 
 	/* Prefer gfx.wad; liblist.gam alone used to accept half-staged cards that
 	 * then hung for hours probing missing maps/wads on real hardware.
-	 * Maps: stat the directory only — never readdir DVD/FAT here. A full
+	 * Maps: stat the directory only — never readdir DVD/FAT maps/ here. A full
 	 * maps/ listing on gcdisc hung the second FS_LoadGameInfo under Dolphin
 	 * (G381 tip-safe DumpFrames BOOT_NO_ENGINE_READY). */
-	Q_snprintf( probe, sizeof( probe ), "%s/valve/gfx.wad", xashdir );
+	Q_snprintf( probe, sizeof( probe ), "%s/%s/gfx.wad", xashdir, gamedir );
 	if( !( stat( probe, &st ) == 0 && S_ISREG( st.st_mode )))
 	{
-		Q_snprintf( probe, sizeof( probe ), "%s/valve/liblist.gam", xashdir );
+		Q_snprintf( probe, sizeof( probe ), "%s/%s/liblist.gam", xashdir, gamedir );
 		if( !( stat( probe, &st ) == 0 && S_ISREG( st.st_mode )))
 			return false;
 	}
 
-	/* Intro-only probe discs intentionally omit the retail maps tree.  A
-	 * native startup-video companion is sufficient to boot the cinematic path;
-	 * do not reject that legal lightweight staging before the client opens it. */
+	if( is_valve )
 	{
+		/* Intro-only probe discs intentionally omit the retail maps tree.  A
+		 * native startup-video companion is sufficient to boot the cinematic path;
+		 * do not reject that legal lightweight staging before the client opens it. */
 		char movie[MAX_SYSPATH];
 		Q_snprintf( movie, sizeof( movie ), "%s/valve/media/valve.gcvid", xashdir );
 		if( stat( movie, &st ) == 0 && S_ISREG( st.st_mode ))
 			return true;
 	}
 
-	Q_snprintf( probe, sizeof( probe ), "%s/valve/maps", xashdir );
+	Q_snprintf( probe, sizeof( probe ), "%s/%s/maps", xashdir, gamedir );
 	if( !( stat( probe, &st ) == 0 && S_ISDIR( st.st_mode )))
 		return false;
+
+	if( !is_valve )
+		return true;
 
 	/* Spot-check one retail/smoke BSP so an empty maps/ dir is rejected without
 	 * enumerating the DVD FST (readdir hung second FS_LoadGameInfo — G381).
@@ -310,6 +373,106 @@ static qboolean GCube_HasValveAssets( const char *xashdir )
 	return false;
 }
 
+static qboolean GCube_HasActiveGameAssets( const char *xashdir )
+{
+	return GCube_HasGameAssets( xashdir, GC_ACTIVE_GAMEDIR );
+}
+
+static int GCube_AddDetectedGame( char names[][GC_MAX_GAMEDIR_NAME], int count, const char *name )
+{
+	int i;
+
+	if( !GCube_GameDirNameSafe( name ) || count >= GC_MAX_DETECTED_GAMES )
+		return count;
+	for( i = 0; i < count; i++ )
+	{
+		if( !Q_stricmp( names[i], name ))
+			return count;
+	}
+	Q_strncpy( names[count], name, GC_MAX_GAMEDIR_NAME );
+	return count + 1;
+}
+
+/*
+ * Scan xash3d/ for sibling game folders. Always stats a known shortlist
+ * (safe on DVD). On FAT only, also readdir for unexpected mods — never
+ * readdir maps/ or DVD roots here (G381).
+ */
+static int GCube_CollectDetectedGames( const char *xashdir, char names[][GC_MAX_GAMEDIR_NAME], int max_names )
+{
+	static const char *const k_known[] = {
+		"valve", "dod", "gearbox", "bshift", "cstrike", "czero",
+		"tfc", "dmc", "ricochet", "valve_addon",
+	};
+	int count = 0;
+	size_t i;
+	struct stat st;
+	char path[MAX_SYSPATH];
+
+	if( !xashdir || !xashdir[0] || !names || max_names <= 0 )
+		return 0;
+
+	for( i = 0; i < sizeof( k_known ) / sizeof( k_known[0] ); i++ )
+	{
+		if( GCube_LooksLikeGameDir( xashdir, k_known[i] ))
+			count = GCube_AddDetectedGame( names, count, k_known[i] );
+	}
+
+	/* FAT-only directory walk for additional gamedirs beside the shortlist. */
+	if( !Q_strnicmp( xashdir, "gcdisc:", 7 ))
+		return count;
+
+	Q_snprintf( path, sizeof( path ), "%s", xashdir );
+	if( !( stat( path, &st ) == 0 && S_ISDIR( st.st_mode )))
+		return count;
+
+	{
+		DIR *dir = opendir( path );
+		struct dirent *ent;
+
+		if( !dir )
+			return count;
+		while(( ent = readdir( dir )) != NULL && count < max_names )
+		{
+			if( !GCube_GameDirNameSafe( ent->d_name ))
+				continue;
+			if( !GCube_LooksLikeGameDir( xashdir, ent->d_name ))
+				continue;
+			count = GCube_AddDetectedGame( names, count, ent->d_name );
+		}
+		closedir( dir );
+	}
+	return count;
+}
+
+static void GCube_LogDetectedGames( const char *xashdir )
+{
+	char names[GC_MAX_DETECTED_GAMES][GC_MAX_GAMEDIR_NAME];
+	char line[512];
+	int count;
+	int i;
+	size_t used = 0;
+
+	count = GCube_CollectDetectedGames( xashdir, names, GC_MAX_DETECTED_GAMES );
+	used = (size_t)Q_snprintf( line, sizeof( line ),
+		"Xash3D GameCube: linked gamedir=%s detected=", GC_ACTIVE_GAMEDIR );
+	if( count <= 0 )
+	{
+		Q_snprintf( line + used, sizeof( line ) - used, "(none)" );
+	}
+	else
+	{
+		for( i = 0; i < count && used + 1 < sizeof( line ); i++ )
+		{
+			used += (size_t)Q_snprintf( line + used, sizeof( line ) - used,
+				"%s%s", i ? "," : "", names[i] );
+		}
+	}
+	SYS_Report( "%s\n", line );
+	Con_Reportf( "%s\n", line );
+	GCube_AppendSwissEvidence( "%s", line );
+}
+
 static qboolean GCube_PathAccessible( const char *path )
 {
 	struct stat st;
@@ -330,8 +493,9 @@ static qboolean GCube_PathAccessible( const char *path )
 }
 
 /*
- * Prefer a volume that already has xash3d/valve; otherwise first mounted root.
- * Order matches Swiss/libdvm: SD2SP2 (sd), SD Gecko A (carda), Slot B (cardb).
+ * Prefer a volume that already has xash3d/<active gamedir>; otherwise first
+ * mounted root. Order matches Swiss/libdvm: SD2SP2 (sd), SD Gecko A (carda),
+ * Slot B (cardb).
  */
 static qboolean GCube_SelectFatVolume( char *out_root, size_t out_len )
 {
@@ -347,8 +511,8 @@ static qboolean GCube_SelectFatVolume( char *out_root, size_t out_len )
 		if( !GCube_PathAccessible( root ))
 			continue;
 		Q_snprintf( candidate, sizeof( candidate ), "%s%s", root, GC_DATA_PATH );
-		/* Require gfx.wad + maps — empty valve/ dirs caused HW black hangs. */
-		if( GCube_HasValveAssets( candidate ))
+		/* Require playable assets for this DOL — empty dirs caused HW hangs. */
+		if( GCube_HasActiveGameAssets( candidate ))
 		{
 			Q_strncpy( out_root, root, out_len );
 			return true;
@@ -414,7 +578,7 @@ static qboolean GCube_FatHasGameData( void )
 		return false;
 	root = gc_fat_base_root[0] ? gc_fat_base_root : gc_fat_write_root;
 	Q_snprintf( candidate, sizeof( candidate ), "%s%s", root, GC_DATA_PATH );
-	return GCube_HasValveAssets( candidate );
+	return GCube_HasActiveGameAssets( candidate );
 }
 
 qboolean GCube_GetDiscPath( char *buf, size_t buflen )
@@ -484,7 +648,7 @@ static void GCube_MkdirIgnoreExists( const char *path )
  * G32: GameCube Save/Load Policy
  *
  * Storage: Swiss/libdvm FAT volumes — prefer sd: (SD2SP2), then carda:/cardb:
- *          (SD Gecko). Layout: <vol>/xash3d/valve/save.
+ *          (SD Gecko). Layout: <vol>/xash3d/<gamedir>/save.
  * Size Bounds: Half-Life saves are typically <128KB. We report available
  *             space at init to bound expectations. Engine save logic
  *             relies on FS_Open/Write failure returns for disk-full errors.
@@ -510,9 +674,12 @@ static void GCube_LogStorageStatus( void )
 void GCube_EnsureWritableLayout( void )
 {
 	char base[MAX_SYSPATH];
-	char valve[MAX_SYSPATH];
+	char gamedir_path[MAX_SYSPATH];
 	char save[MAX_SYSPATH];
 	char logs[MAX_SYSPATH];
+	char detected[GC_MAX_DETECTED_GAMES][GC_MAX_GAMEDIR_NAME];
+	int detected_count;
+	int i;
 
 	if( !GCube_GetWritablePath( base, sizeof( base )))
 		return;
@@ -525,18 +692,27 @@ void GCube_EnsureWritableLayout( void )
 	}
 
 	GCube_MkdirIgnoreExists( base );
-	Q_snprintf( valve, sizeof( valve ), "%s/valve", base );
-	GCube_MkdirIgnoreExists( valve );
-	Q_snprintf( save, sizeof( save ), "%s/valve/save", base );
+	/* Always ensure the DOL's linked gamedir save/logs tree. */
+	Q_snprintf( gamedir_path, sizeof( gamedir_path ), "%s/%s", base, GC_ACTIVE_GAMEDIR );
+	GCube_MkdirIgnoreExists( gamedir_path );
+	Q_snprintf( save, sizeof( save ), "%s/%s/save", base, GC_ACTIVE_GAMEDIR );
 	GCube_MkdirIgnoreExists( save );
-	Q_snprintf( logs, sizeof( logs ), "%s/valve/logs", base );
+	Q_snprintf( logs, sizeof( logs ), "%s/%s/logs", base, GC_ACTIVE_GAMEDIR );
 	GCube_MkdirIgnoreExists( logs );
 
-	/* G32: Ensure standard Half-Life save slots directory exists.
-	 * The engine uses 'valve/save' for autosaves and 'valve/save/<mapname>'
-	 * for manual saves in some builds, but standard HL uses 'valve/save'
-	 * directly for .sav files. We ensure the base is ready. */
-
+	/* Also create save/logs for sibling titles already staged on the card. */
+	detected_count = GCube_CollectDetectedGames( base, detected, GC_MAX_DETECTED_GAMES );
+	for( i = 0; i < detected_count; i++ )
+	{
+		if( !Q_stricmp( detected[i], GC_ACTIVE_GAMEDIR ))
+			continue;
+		Q_snprintf( gamedir_path, sizeof( gamedir_path ), "%s/%s", base, detected[i] );
+		GCube_MkdirIgnoreExists( gamedir_path );
+		Q_snprintf( save, sizeof( save ), "%s/%s/save", base, detected[i] );
+		GCube_MkdirIgnoreExists( save );
+		Q_snprintf( logs, sizeof( logs ), "%s/%s/logs", base, detected[i] );
+		GCube_MkdirIgnoreExists( logs );
+	}
 }
 
 /*
@@ -568,8 +744,8 @@ static void GCube_WriteSwissEvidenceLog( qboolean shutting_down )
 	if( !GCube_FatRootReady() )
 		return;
 
-	Q_snprintf( path, sizeof( path ), "%s%s/valve/logs/swiss-evidence.txt",
-		gc_fat_write_root, GC_DATA_PATH );
+	Q_snprintf( path, sizeof( path ), "%s%s/%s/logs/swiss-evidence.txt",
+		gc_fat_write_root, GC_DATA_PATH, GC_ACTIVE_GAMEDIR );
 	f = fopen( path, shutting_down ? "a" : "w" );
 	if( !f )
 		return;
@@ -581,7 +757,8 @@ static void GCube_WriteSwissEvidenceLog( qboolean shutting_down )
 #else
 		fprintf( f, "Xash3D GameCube: OGC stack=libogc fat=libfat\n" );
 #endif
-		/* Operator parity: same boot.dol used for Dolphin proxy + Swiss. */
+		/* Operator parity: same named DOL used for Dolphin proxy + Swiss. */
+		fprintf( f, "Xash3D GameCube: linked gamedir=%s\n", GC_ACTIVE_GAMEDIR );
 		fprintf( f, "Xash3D GameCube: hardware evidence route ready\n" );
 		for( i = 0; i < sizeof( gc_fat_volume_roots ) / sizeof( gc_fat_volume_roots[0] ); i++ )
 		{
@@ -622,8 +799,8 @@ void GCube_AppendSwissEvidence( const char *fmt, ... )
 	if( !line[0] )
 		return;
 
-	Q_snprintf( path, sizeof( path ), "%s%s/valve/logs/swiss-evidence.txt",
-		gc_fat_write_root, GC_DATA_PATH );
+	Q_snprintf( path, sizeof( path ), "%s%s/%s/logs/swiss-evidence.txt",
+		gc_fat_write_root, GC_DATA_PATH, GC_ACTIVE_GAMEDIR );
 	f = fopen( path, "a" );
 	if( !f )
 		return;
@@ -699,7 +876,7 @@ void GCube_Init( void )
 		Con_Reportf( S_ERROR "Xash3D GameCube: FATAL: Cannot initialize game data path.\n" );
 		xashdir[0] = '\0';
 		GC_DrawBootFatalPanel( "MISSING GAME DATA",
-			"Need sd:/xash3d/valve or boot disc ISO" );
+			"Need sd:/xash3d/" GC_ACTIVE_GAMEDIR " or boot disc ISO" );
 	}
 
 	if( xashdir[0] && chdir( xashdir ) == 0 )
@@ -733,36 +910,39 @@ qboolean GCube_GetBasePath( char *buf, size_t buflen )
 	char candidate[MAX_SYSPATH];
 	qboolean fat_tried = false;
 
-	/* Prefer FAT only when valve/ is present — bare sd:/ with boot.dol but no
-	 * staged Half-Life assets hung for hours on missing gfx.wad lookups. */
+	/* Prefer FAT only when the linked gamedir is present — bare sd:/ with a
+	 * DOL but no staged assets hung for hours on missing gfx.wad lookups. */
 	if( GCube_FatRootReady() )
 	{
 		const char *root = gc_fat_base_root[0] ? gc_fat_base_root : gc_fat_write_root;
 
 		fat_tried = true;
 		Q_snprintf( candidate, sizeof( candidate ), "%s%s", root, GC_DATA_PATH );
-		if( GCube_HasValveAssets( candidate ))
+		if( GCube_HasActiveGameAssets( candidate ))
 		{
+			GCube_LogDetectedGames( candidate );
 			Q_strncpy( buf, candidate, buflen );
 			return true;
 		}
-		Con_Reportf( S_WARN "Xash3D GameCube: FAT %s has no valve/ (need gfx.wad + maps on SD or boot disc ISO)\n",
-			root );
+		Con_Reportf( S_WARN "Xash3D GameCube: FAT %s has no %s/ (need gfx.wad + maps on SD or boot disc ISO)\n",
+			root, GC_ACTIVE_GAMEDIR );
 	}
 
 	if( gc_dvd_mounted )
 	{
 		Q_snprintf( candidate, sizeof( candidate ), "%s:/%s", GC_DVD_DEVICE, GC_DATA_PATH );
-		if( GCube_PathAccessible( candidate ) && GCube_HasValveAssets( candidate ))
+		if( GCube_PathAccessible( candidate ) && GCube_HasActiveGameAssets( candidate ))
 		{
+			GCube_LogDetectedGames( candidate );
 			Q_strncpy( buf, candidate, buflen );
 			if( fat_tried )
-				Con_Reportf( "Xash3D GameCube: using disc game root %s (SD lacks valve/)\n", candidate );
+				Con_Reportf( "Xash3D GameCube: using disc game root %s (SD lacks %s/)\n",
+					candidate, GC_ACTIVE_GAMEDIR );
 			return true;
 		}
 		if( fat_tried )
-			Con_Reportf( S_WARN "Xash3D GameCube: disc mounted but %s/valve/ missing or empty\n",
-				candidate );
+			Con_Reportf( S_WARN "Xash3D GameCube: disc mounted but %s/%s/ missing or empty\n",
+				candidate, GC_ACTIVE_GAMEDIR );
 	}
 
 	{
@@ -778,8 +958,9 @@ qboolean GCube_GetBasePath( char *buf, size_t buflen )
 			}
 
 			Q_snprintf( candidate, sizeof( candidate ), "%s%s", gc_fat_volume_roots[i], GC_DATA_PATH );
-			if( GCube_HasValveAssets( candidate ))
+			if( GCube_HasActiveGameAssets( candidate ))
 			{
+				GCube_LogDetectedGames( candidate );
 				Q_strncpy( buf, candidate, buflen );
 				return true;
 			}
@@ -889,7 +1070,7 @@ static void GCube_LoadDiscBootOverrides( void )
 
 	/* DVD is optional. Prefer FAT gamecube.cfg when a Swiss volume is ready so
 	 * an inserted disc cannot shadow sd:/ map/swissquit (HW evidence path).
-	 * Disc-only boots (no FAT) still use gcdisc:/valve/gamecube.cfg. */
+	 * Disc-only boots (no FAT) still use gcdisc:/<gamedir>/gamecube.cfg. */
 	GCube_EnsureFatMounted();
 	if( GCube_FatHasGameData() )
 		SYS_Report( "Xash3D GameCube: FAT has game data, skipping DVD mount\n" );
@@ -898,18 +1079,29 @@ static void GCube_LoadDiscBootOverrides( void )
 
 	if( GCube_FatRootReady() )
 	{
-		Q_snprintf( fatcfg, sizeof( fatcfg ), "%s%s/valve/gamecube.cfg",
-			gc_fat_write_root, GC_DATA_PATH );
+		Q_snprintf( fatcfg, sizeof( fatcfg ), "%s%s/%s/gamecube.cfg",
+			gc_fat_write_root, GC_DATA_PATH, GC_ACTIVE_GAMEDIR );
 		file = fopen( fatcfg, "r" );
 		if( file )
 			SYS_Report( "Xash3D GameCube: FAT boot cfg %s\n", fatcfg );
 	}
 	if( !file && gc_dvd_mounted )
-		file = fopen( GC_DVD_DEVICE ":/" GC_DATA_PATH "/valve/gamecube.cfg", "r" );
+	{
+		Q_snprintf( fatcfg, sizeof( fatcfg ),
+			GC_DVD_DEVICE ":/" GC_DATA_PATH "/%s/gamecube.cfg", GC_ACTIVE_GAMEDIR );
+		file = fopen( fatcfg, "r" );
+	}
 	if( !file )
-		file = fopen( GC_DATA_PATH "/valve/gamecube.cfg", "r" );
+	{
+		Q_snprintf( fatcfg, sizeof( fatcfg ),
+			GC_DATA_PATH "/%s/gamecube.cfg", GC_ACTIVE_GAMEDIR );
+		file = fopen( fatcfg, "r" );
+	}
 	if( !file )
-		file = fopen( "valve/gamecube.cfg", "r" );
+	{
+		Q_snprintf( fatcfg, sizeof( fatcfg ), "%s/gamecube.cfg", GC_ACTIVE_GAMEDIR );
+		file = fopen( fatcfg, "r" );
+	}
 	/* No gamecube.cfg map override means retail menu boot, not smoke map load. */
 	if( !file )
 		return;
@@ -1389,7 +1581,7 @@ int GCube_GetArgv( int in_argc, char **in_argv, char ***out_argv )
 	GCube_LoadDiscBootOverrides();
 
 	/* Swiss can pass argc>1 (DOL path plus a .cli file's arguments). Those
-	 * used to replace the whole built argv, which dropped -game valve, the
+	 * used to replace the whole built argv, which dropped -game <gamedir>, the
 	 * 320x240 mode and every gamecube.cfg route flag. Build the normal argv
 	 * and append the loader's extras after it. */
 	if( in_argc > 1 && in_argv )
@@ -1405,7 +1597,8 @@ int GCube_GetArgv( int in_argc, char **in_argv, char ***out_argv )
 	gc_argv[fake_argc++] = "2";
 	gc_argv[fake_argc++] = "-log";
 	gc_argv[fake_argc++] = "-game";
-	gc_argv[fake_argc++] = "valve";
+	/* Baked at link time via XASH_GAMEDIR / --gamedir (halflife1.dol → valve). */
+	gc_argv[fake_argc++] = GC_ACTIVE_GAMEDIR;
 	if( gc_newgame_configured )
 		gc_argv[fake_argc++] = "-gcnewgame";
 	if( gc_menu_newgame_configured )

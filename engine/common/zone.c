@@ -21,6 +21,7 @@ GNU General Public License for more details.
 #include "gamecube/mem_gamecube.h"
 void R_GCTrimTextureMips( void );
 void Image_GCPurgeDecodeScratch( void );
+void R_GXReleaseHudPoolForMapLoad( void );
 #define Mem_ReportOOM( pool, sz ) GC_MemFail( (pool)->name, (sz), filename, fileline )
 #else
 #define Mem_ReportOOM( pool, sz ) ((void)0)
@@ -531,6 +532,21 @@ void *_Mem_Alloc( poolhandle_t poolptr, size_t size, qboolean clear, const char 
 		{
 			Con_Reportf( "Xash3D GameCube: soft-fail entity string alloc size=%s at %s:%i\n",
 				Q_memprint( size ), filename, fileline );
+			return NULL;
+		}
+		/* New Game InitInput registers ~50 client binds; tip can be dry after
+		 * BSP+HUD slabs. Soft-fail so Cmd_AddCommandEx can skip instead of halt. */
+		if( pool && ( !Q_stricmp( pool->name, "Console Commands" )
+			|| !Q_stricmp( pool->name, "BaseCmd" )))
+		{
+			Image_GCPurgeDecodeScratch();
+			R_GCTrimTextureMips();
+			R_GXReleaseHudPoolForMapLoad();
+			ptr = _Mem_TryAlloc( poolptr, size, clear, filename, fileline );
+			if( ptr )
+				return ptr;
+			Con_Reportf( "Xash3D GameCube: soft-fail %s alloc size=%s at %s:%i\n",
+				pool->name, Q_memprint( size ), filename, fileline );
 			return NULL;
 		}
 #endif

@@ -7635,6 +7635,12 @@ static void GC_PresentBuffer( void )
 		if( GC_CanPresentViaGX( src_w, src_h ))
 		{
 			qboolean dump_latch = ( gc_cpu_dump_presents_left > 0 );
+			/* Retail-menu DumpFrames: soft HUD is mirrored under -gcdumpframes but
+			 * never arms the world G191 counter. Always CPU-blit XFB RAM so
+			 * DisableCopyToVRAM probes see the soft buffer. */
+			const qboolean menu_soft_dump = !dump_latch
+				&& !gc_newgame_world_ready
+				&& ( Sys_CheckParm( "-gcdumpframes" ) || Sys_CheckParm( "-gcdump" ));
 
 			GC_SwizzleRGB565ToTiled( src, gc.stride, src_w, src_h, gc_tiled_rgb565 );
 			DCFlushRange( gc_tiled_rgb565, (u32)((size_t)src_w * (size_t)src_h * sizeof( u16 )));
@@ -7642,11 +7648,13 @@ static void GC_PresentBuffer( void )
 			GC_PresentBufferViaGX();
 			/* G192: with XFB→RAM (probe GFX), CPU YUYV ensures DumpFrames see the
 			 * scrubbed soft buffer even if the tiled EFB quad is muted. */
-			if( dump_latch )
+			if( dump_latch || menu_soft_dump )
 			{
 				if( !gc_budget_probe_active )
 					DCFlushRange( gc.buffer, (u32)buf_size );
 				GC_BlitSoftwareBufferScaled( src, src_w, src_h, gc.stride, dst, copy_w, copy_h, row_pairs );
+				if( menu_soft_dump )
+					g128_cpu_dump = true;
 			}
 			if( dump_latch )
 			{
@@ -8354,12 +8362,14 @@ static int GC_FatalDrawLine( unsigned short *dst, int x, int y, const char *text
 		x, y, text, color, scale, max_chars );
 }
 
-static void GC_FatalDrawWrapped( unsigned short *dst, int x, int y, const char *text, unsigned short color, int scale, int max_chars, int max_lines )
+static void GC_FatalDrawWrapped( unsigned short *dst, int stride, int width, int height,
+	int x, int y, const char *text, unsigned short color, int scale, int max_chars, int max_lines )
 {
 	int line = 0;
 	while( text && *text && line < max_lines )
 	{
-		int used = GC_FatalDrawLine( dst, x, y + line * 9 * scale, text, color, scale, max_chars );
+		int used = GC_StatusDrawLine( dst, stride, width, height,
+			x, y + line * 9 * scale, text, color, scale, max_chars );
 		text += used;
 		if( *text == '\n' )
 			text++;
@@ -9803,12 +9813,34 @@ void GC_DrawFatalBreadcrumb( const char *message, const char *details )
 	}
 	GC_StatusDrawLine( panel, panel_w, panel_w, panel_h,
 		4, 4, "XASH3D GAMECUBE FATAL", 0xFFFF, 1, 24 );
-	GC_FatalDrawWrapped( panel, 4, 20,
-		message ? message : "UNKNOWN ERROR", 0xFFE0, 1, 36, 2 );
-	GC_FatalDrawWrapped( panel, 4, 40,
-		details ? details : "NO DETAILS", 0xFFFF, 1, 36, 6 );
+	GC_FatalDrawWrapped( panel, panel_w, panel_w, panel_h, 4, 20,
+		message ? message : "UNKNOWN ERROR", 0xFFE0, 1, 25, 2 );
+	GC_FatalDrawWrapped( panel, panel_w, panel_w, panel_h, 4, 40,
+		details ? details : "NO DETAILS", 0xFFFF, 1, 25, 6 );
 	GC_StatusDrawLine( panel, panel_w, panel_w, panel_h,
 		4, panel_h - 14, "HALTED: POWER CYCLE OR RESET", 0x07E0, 1, 28 );
+
+	/* Always CPU-blit into XFB RAM so the panel stays readable even when
+	 * Flipper CopyDisp / DisableCopyToVRAM leave the soft latch empty. */
+	dst = (unsigned int *)MEM_K1_TO_K0( xfb[0] );
+	if( row_pairs > 0 )
+	{
+		GC_BlitSoftwareBufferScaled( panel, panel_w, panel_h, panel_w,
+			dst, rmode->fbWidth, rmode->xfbHeight, row_pairs );
+	}
+	else
+	{
+		unsigned int magenta = GC_RGBPairToYUYV( 0xF81F, 0xF81F );
+
+		for( row = 0; row < rmode->xfbHeight; row++ )
+		{
+			unsigned int *rowdst = dst + row * ( rmode->fbWidth / 2 );
+			for( col = 0; col < rmode->fbWidth / 2; col++ )
+				rowdst[col] = magenta;
+		}
+	}
+	DCFlushRange( MEM_K1_TO_K0( xfb[0] ),
+		(u32)( rmode->fbWidth * rmode->xfbHeight * sizeof( unsigned short )));
 
 	if( GC_CanPresentViaGX( panel_w, panel_h ))
 	{
@@ -9816,38 +9848,20 @@ void GC_DrawFatalBreadcrumb( const char *message, const char *details )
 		DCFlushRange( gc_tiled_rgb565, (u32)((size_t)panel_w * (size_t)panel_h * sizeof( u16 )));
 		GC_InitPresentTextureTiled( gc_tiled_rgb565, panel_w, panel_h );
 		GC_PresentBufferViaGX();
-		VIDEO_SetNextFramebuffer( xfb[which_fb] );
-		VIDEO_Flush();
-		VIDEO_WaitVSync();
-	}
-	else
-	{
-		unsigned int magenta = GC_RGBPairToYUYV( 0xF81F, 0xF81F );
-		dst = (unsigned int *)xfb[0];
-		/* Prefer scaled RGB→YUYV blit; fall back to solid magenta YUYV. */
-		if( row_pairs > 0 )
-		{
-			GC_BlitSoftwareBufferScaled( panel, panel_w, panel_h, panel_w,
-				dst, rmode->fbWidth, rmode->xfbHeight, row_pairs );
-		}
-		else
-		{
-			for( row = 0; row < rmode->xfbHeight; row++ )
-			{
-				unsigned int *rowdst = dst + row * ( rmode->fbWidth / 2 );
-				for( col = 0; col < rmode->fbWidth / 2; col++ )
-					rowdst[col] = magenta;
-			}
-		}
-		DCFlushRange( MEM_K1_TO_K0( xfb[0] ), (u32)( rmode->fbWidth * rmode->xfbHeight * sizeof( unsigned short )));
-		VIDEO_SetNextFramebuffer( xfb[0] );
-		VIDEO_Flush();
-		VIDEO_WaitVSync();
 	}
 
-	for( i = 0; i < 3; i++ )
+	VIDEO_SetNextFramebuffer( xfb[0] );
+	VIDEO_SetBlack( false );
+	VIDEO_Flush();
+	VIDEO_WaitVSync();
+
+	Con_Reportf( "Xash3D GameCube: fatal breadcrumb held (power-cycle / reset to leave)\n" );
+	/* Halt here — Sys_Quit used to tear the XFB down after ~3 fields. */
+	for( ;; )
+	{
 		VIDEO_WaitVSync();
-	/* Leave display active — do not VIDEO_SetBlack. */
+		(void)i;
+	}
 #endif
 }
 

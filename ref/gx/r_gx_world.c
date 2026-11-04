@@ -98,12 +98,23 @@ extern u16 GC_GXFenceNext( void );
 extern qboolean GC_GXFenceWait( u16 token );
 
 #define GC_GX_TEX_SLOTS		32
-#define GC_GX_TEX_HUD_RESERVE	9	/* menu tiles plus live HUD sheets */
-#define GC_GX_TEX_MAX_DIM	128	/* HUD menu background needs the full 128x96 tile */
+/* Font + title logo + chrome. Keep this at 3: bumping to 8 pre-reserved
+ * 128² slabs (~256 KiB) at R_Init starved the 150 KiB cinematic texture and
+ * left the intro black. Menu bg tiles grow HUD slots on demand after the
+ * intro releases ARAM/MEM1. */
+#define GC_GX_TEX_HUD_RESERVE	3
+/* World pool stays compact; menu chrome may use Flipper's larger limit. */
+#define GC_GX_TEX_WORLD_MAX_DIM	128
+#define GC_GX_TEX_HUD_MAX_DIM	512	/* logo / HUD sheets (≤ Flipper 1024) */
+#define GC_GX_TEX_MAX_DIM	GC_GX_TEX_WORLD_MAX_DIM
+/* Fullscreen menu background matches NTSC EFB; dedicated lazy slab. */
+#define GC_GX_MENU_BG_WIDTH	640
+#define GC_GX_MENU_BG_HEIGHT	480
+#define GC_GX_MENU_BG_BYTES	( GC_GX_MENU_BG_WIDTH * GC_GX_MENU_BG_HEIGHT * sizeof( u16 ))
 /* MEM-003: 4→3 BSS world tiles (−32 KiB). World binds LRU within the pool;
  * HUD/cinematic keep reserved storage. G199 noted 8 tipped clipnodes — keep ≥3. */
 #define GC_GX_TEX_WORLD_POOL	3
-static u16 r_gx_tex_world_pool[GC_GX_TEX_WORLD_POOL][GC_GX_TEX_MAX_DIM * GC_GX_TEX_MAX_DIM]
+static u16 r_gx_tex_world_pool[GC_GX_TEX_WORLD_POOL][GC_GX_TEX_WORLD_MAX_DIM * GC_GX_TEX_WORLD_MAX_DIM]
 	__attribute__((aligned( 32 )));
 static qboolean gc_mem003_world_pool_logged;
 #define GC_GX_CINEMATIC_WIDTH 320
@@ -120,12 +131,15 @@ typedef struct
 	u16		*tiled;	/* MEM1 aligned */
 	qboolean	valid;
 	qboolean	hud_pin;	/* G183: do not LRU-evict for world binds */
+	qboolean	is_font;	/* menu/HUD font atlas — prefer not to LRU-evict */
 } gc_gx_tex_t;
 
 static gc_gx_tex_t r_gx_tex[GC_GX_TEX_SLOTS];
 static gc_gx_tex_t r_gx_cinematic_tex;
 static qboolean r_gx_cinematic_ready;
 static unsigned r_gx_cinematic_updates;
+static gc_gx_tex_t r_gx_menu_bg_tex;
+static qboolean r_gx_menu_bg_ready;
 static int r_gx_tex_clock;
 static int r_gx_tex_lru[GC_GX_TEX_SLOTS];
 /* Draw-sync token after the last draw queued with each slot bound. A miss
@@ -363,8 +377,12 @@ static int r_gx_hud_holes_pics;
 static int r_gx_hud_bind_fails;
 static int r_gx_hud_fill_px;
 static int r_gx_hud_holes_fill_px;
-/* G183: keep convert scratch off the deep world→HUD stack. */
-static u16 r_gx_tex_linear[GC_GX_TEX_MAX_DIM * GC_GX_TEX_MAX_DIM];
+/* G183: keep convert scratch off the deep world→HUD stack.
+ * Small BSS for world/HUD fonts; large menu uploads lazy-grow this pointer. */
+static u16 r_gx_tex_linear_small[GC_GX_TEX_WORLD_MAX_DIM * GC_GX_TEX_WORLD_MAX_DIM]
+	__attribute__((aligned( 32 )));
+static u16 *r_gx_tex_linear = r_gx_tex_linear_small;
+static size_t r_gx_tex_linear_cap = GC_GX_TEX_WORLD_MAX_DIM * GC_GX_TEX_WORLD_MAX_DIM;
 
 #define GC_GX_TEX_HUD_SLOT0	( GC_GX_TEX_SLOTS - GC_GX_TEX_HUD_RESERVE )
 
@@ -390,8 +408,9 @@ static u16 R_GXSoftToRGB5A3( pixel_t soft )
 }
 
 /*
- * G184: carve 4×64×64 TEXMAP0 slabs before world fills MEM1 so crosshair /
- * hud sheets never memalign-fail on the Flipper HUD pass.
+ * Reserve HUD TEXMAP0 slabs before world fills MEM1. Textures share them
+ * through the fenced LRU; reserving nine full 128×128 slabs exhausts the
+ * heap before the retail menu can load localization / titles.
  */
 static void R_GXReserveHudPool( void )
 {
@@ -430,7 +449,32 @@ static void R_GXReserveHudPool( void )
 /* Called at the end of R_Init, while MEM1 still has room. */
 void R_GXReserveHudPoolEarly( void )
 {
-	R_GXReserveHudPool();
+	/* Defer until the first HUD bind. Reserving at R_Init raced the intro
+	 * cinematic's 150 KiB GX surface and produced a black valve.avi. */
+}
+
+/*
+ * Release HUD Flipper slabs + menu background before New Game client InitInput.
+ * Soft imagepool empties alone leave these memalign() blocks on the tip and the
+ * first pfnAddCommand (19-byte BaseCmd name) then Sys_Errors.
+ */
+void R_GXReleaseHudPoolForMapLoad( void )
+{
+	int i;
+
+	for( i = GC_GX_TEX_HUD_SLOT0; i < GC_GX_TEX_SLOTS; i++ )
+	{
+		if( r_gx_tex[i].tiled )
+		{
+			free( r_gx_tex[i].tiled );
+			r_gx_tex[i].tiled = NULL;
+		}
+		memset( &r_gx_tex[i], 0, sizeof( r_gx_tex[i] ));
+	}
+	r_gx_hud_pool_ready = false;
+	R_GXReleaseMenuBackgroundTexture( 0 );
+	R_GXReleaseCinematicTexture( 0 );
+	gEngfuncs.Con_Reportf( "Xash3D GameCube: GX HUD/menu slabs released for map load\n" );
 }
 
 qboolean R_GXWorldDrewThisFrame( void )
@@ -708,17 +752,155 @@ static void R_GXFlushRawCinematicTiles( u16 *dst,
 	}
 }
 
-static int R_GXSnapDim( int n )
+static int R_GXSnapDimMax( int n, int max_dim )
 {
 	int d;
 
 	if( n < 4 )
 		return 4;
-	if( n > GC_GX_TEX_MAX_DIM )
-		n = GC_GX_TEX_MAX_DIM;
+	if( n > max_dim )
+		n = max_dim;
 	/* Round down to multiple of 4 (GX_TF_RGB565 tile). */
 	d = n & ~3;
 	return d < 4 ? 4 : d;
+}
+
+static int R_GXSnapDim( int n )
+{
+	return R_GXSnapDimMax( n, GC_GX_TEX_WORLD_MAX_DIM );
+}
+
+static u16 *R_GXEnsureLinearScratch( size_t pixels )
+{
+	if( pixels <= r_gx_tex_linear_cap )
+		return r_gx_tex_linear;
+	if( pixels > (size_t)GC_GX_TEX_HUD_MAX_DIM * (size_t)GC_GX_TEX_HUD_MAX_DIM )
+		pixels = (size_t)GC_GX_TEX_HUD_MAX_DIM * (size_t)GC_GX_TEX_HUD_MAX_DIM;
+	{
+		u16 *neu = (u16 *)memalign( 32, pixels * sizeof( u16 ));
+		if( !neu )
+			return NULL;
+		if( r_gx_tex_linear != r_gx_tex_linear_small )
+			free( r_gx_tex_linear );
+		r_gx_tex_linear = neu;
+		r_gx_tex_linear_cap = pixels;
+		gEngfuncs.Con_Reportf( "Xash3D GameCube: GX linear scratch grown to %u pixels\n",
+			(unsigned)pixels );
+	}
+	return r_gx_tex_linear;
+}
+
+static qboolean R_GXIsMenuBackgroundName( const char *name )
+{
+	if( !name || !name[0] )
+		return false;
+	/* Single-sheet path only; quadrant tiles use the normal HUD LRU. */
+	return Q_stristr( name, "gc_menu/background" ) != NULL
+		&& Q_stristr( name, "gc_menu/bg_" ) == NULL;
+}
+
+static gc_gx_tex_t *R_GXBindMenuBackground( image_t *img, unsigned texnum )
+{
+	int src_w, src_h, dst_w, dst_h, x, y, step_x, step_y;
+	size_t bytes;
+	u16 *linear;
+
+	src_w = img->width;
+	src_h = img->height;
+	dst_w = R_GXSnapDimMax( src_w, GC_GX_MENU_BG_WIDTH );
+	dst_h = R_GXSnapDimMax( src_h, GC_GX_MENU_BG_HEIGHT );
+	bytes = (size_t)dst_w * (size_t)dst_h * sizeof( u16 );
+	linear = R_GXEnsureLinearScratch( (size_t)dst_w * (size_t)dst_h );
+	if( !linear )
+		return NULL;
+
+	if( !r_gx_menu_bg_tex.tiled || r_gx_menu_bg_tex.alloc_bytes < bytes )
+	{
+		u16 *neu = (u16 *)memalign( 32, bytes > GC_GX_MENU_BG_BYTES ? bytes : GC_GX_MENU_BG_BYTES );
+		if( !neu )
+			return NULL;
+		if( r_gx_menu_bg_tex.tiled )
+			free( r_gx_menu_bg_tex.tiled );
+		r_gx_menu_bg_tex.tiled = neu;
+		r_gx_menu_bg_tex.alloc_bytes = bytes > GC_GX_MENU_BG_BYTES ? bytes : GC_GX_MENU_BG_BYTES;
+		gEngfuncs.Con_Reportf( "Xash3D GameCube: menu background GX alloc %ux%u (%u KiB)\n",
+			dst_w, dst_h, (unsigned)( r_gx_menu_bg_tex.alloc_bytes / 1024u ));
+	}
+
+	if( r_gx_menu_bg_ready && r_gx_menu_bg_tex.texnum == texnum
+		&& r_gx_menu_bg_tex.w == dst_w && r_gx_menu_bg_tex.h == dst_h )
+	{
+		if( r_gx_bound_texnum != texnum || r_gx_bound_fmt != r_gx_menu_bg_tex.fmt )
+		{
+			GX_LoadTexObj( &r_gx_menu_bg_tex.obj, GX_TEXMAP0 );
+			r_gx_bound_texnum = texnum;
+			r_gx_bound_fmt = r_gx_menu_bg_tex.fmt;
+			r_gx_tex_loads++;
+		}
+		else
+			r_gx_tex_reuses++;
+		return &r_gx_menu_bg_tex;
+	}
+
+	step_x = src_w / dst_w;
+	step_y = src_h / dst_h;
+	if( step_x < 1 ) step_x = 1;
+	if( step_y < 1 ) step_y = 1;
+	for( y = 0; y < dst_h; y++ )
+	{
+		int sy = y * step_y;
+		if( sy >= src_h )
+			sy = src_h - 1;
+		for( x = 0; x < dst_w; x++ )
+		{
+			int sx = x * step_x;
+			pixel_t soft;
+			if( sx >= src_w )
+				sx = src_w - 1;
+			soft = img->pixels[0][sy * src_w + sx];
+			linear[y * dst_w + x] = R_GXSoftToRGB5A3( soft );
+		}
+	}
+	R_GXSwizzleRGB565( linear, dst_w, dst_w, dst_h, r_gx_menu_bg_tex.tiled );
+	DCFlushRange( r_gx_menu_bg_tex.tiled, (u32)bytes );
+	GX_InitTexObj( &r_gx_menu_bg_tex.obj, r_gx_menu_bg_tex.tiled,
+		(u16)dst_w, (u16)dst_h, GX_TF_RGB5A3, GX_CLAMP, GX_CLAMP, GX_FALSE );
+	GX_InitTexObjFilterMode( &r_gx_menu_bg_tex.obj, GX_LINEAR, GX_LINEAR );
+	r_gx_menu_bg_tex.texnum = texnum;
+	r_gx_menu_bg_tex.w = dst_w;
+	r_gx_menu_bg_tex.h = dst_h;
+	r_gx_menu_bg_tex.fmt = GX_TF_RGB5A3;
+	r_gx_menu_bg_tex.valid = true;
+	r_gx_menu_bg_tex.hud_pin = true;
+	r_gx_menu_bg_ready = true;
+	GX_InvalidateTexAll();
+	GX_LoadTexObj( &r_gx_menu_bg_tex.obj, GX_TEXMAP0 );
+	r_gx_bound_texnum = texnum;
+	r_gx_bound_fmt = GX_TF_RGB5A3;
+	r_gx_tex_loads++;
+	return &r_gx_menu_bg_tex;
+}
+
+void R_GXReleaseMenuBackgroundTexture( unsigned int texnum )
+{
+	if( r_gx_menu_bg_tex.tiled && ( texnum == 0 || r_gx_menu_bg_tex.texnum == texnum ))
+	{
+		free( r_gx_menu_bg_tex.tiled );
+		memset( &r_gx_menu_bg_tex, 0, sizeof( r_gx_menu_bg_tex ));
+		r_gx_menu_bg_ready = false;
+		if( r_gx_bound_texnum == texnum || texnum == 0 )
+		{
+			r_gx_bound_texnum = 0;
+			r_gx_bound_fmt = 0;
+		}
+	}
+	/* Drop the grown linear scratch when the whole menu is purged. */
+	if( texnum == 0 && r_gx_tex_linear != r_gx_tex_linear_small )
+	{
+		free( r_gx_tex_linear );
+		r_gx_tex_linear = r_gx_tex_linear_small;
+		r_gx_tex_linear_cap = GC_GX_TEX_WORLD_MAX_DIM * GC_GX_TEX_WORLD_MAX_DIM;
+	}
 }
 
 void GL_UpdateCinematicTexture( int texnum, int width, int height, const byte *buffer,
@@ -736,7 +918,16 @@ void GL_UpdateCinematicTexture( int texnum, int width, int height, const byte *b
 	{
 		r_gx_cinematic_tex.tiled = (u16 *)memalign( 32, GC_GX_CINEMATIC_BYTES );
 		if( !r_gx_cinematic_tex.tiled )
+		{
+			static qboolean logged_fail;
+			if( !logged_fail )
+			{
+				gEngfuncs.Con_Printf( "Xash3D GameCube: cinematic GX alloc FAILED (%u bytes) — intro will be black\n",
+					(unsigned)GC_GX_CINEMATIC_BYTES );
+				logged_fail = true;
+			}
 			return;
+		}
 		r_gx_cinematic_tex.alloc_bytes = GC_GX_CINEMATIC_BYTES;
 		gEngfuncs.Con_Reportf( "Xash3D GameCube: cinematic GX alloc ptr=%p bytes=%u align=%u\n",
 			r_gx_cinematic_tex.tiled, (unsigned)GC_GX_CINEMATIC_BYTES,
@@ -1126,8 +1317,9 @@ static gc_gx_tex_t *R_GXPackedTexture( image_t *img, unsigned texnum )
 	if( r_gx_bound_texnum != texnum || r_gx_bound_fmt != GX_TF_CMPR )
 	{
 		const qboolean low = img->gc_packed_bytes && !img->gc_packed_hot;
-		const int levels = img->gc_packed_levels - ( low ? 1 : 0 );
-		const int w = low ? img->width / 2 : img->width, h = low ? img->height / 2 : img->height;
+		const unsigned shift = low ? img->gc_packed_low_shift : 0;
+		const int levels = img->gc_packed_levels - shift;
+		const int w = Q_max( 1, img->width >> shift ), h = Q_max( 1, img->height >> shift );
 		void *data = img->gc_packed_hot ? img->gc_packed_hot : img->gc_packed;
 
 		GX_InitTexObj( &t->obj, data, (u16)w, (u16)h, GX_TF_CMPR, GX_REPEAT, GX_REPEAT, levels > 1 ? GX_TRUE : GX_FALSE );
@@ -1189,6 +1381,12 @@ static gc_gx_tex_t *R_GXBindTexnum( unsigned texnum, qboolean hud_bind )
 			r_gx_tex_reuses++;
 		return &r_gx_cinematic_tex;
 	}
+	if( hud_bind && img && R_GXIsMenuBackgroundName( img->name ) && img->pixels[0] )
+	{
+		gc_gx_tex_t *menu_bg = R_GXBindMenuBackground( img, texnum );
+		if( menu_bg )
+			return menu_bg;
+	}
 	if( img && img->gc_packed )
 		return R_GXPackedTexture( img, texnum );
 	if( !img || !img->pixels[0] || img->width < 1 || img->height < 1 )
@@ -1226,7 +1424,7 @@ static gc_gx_tex_t *R_GXBindTexnum( unsigned texnum, qboolean hud_bind )
 		}
 	}
 
-	/* Prefer free slot; HUD only uses reserved high slots (preallocated). */
+	/* HUD slots can be only partially reserved when MEM1 is tight. */
 	slot = -1;
 	victim = -1;
 	if( hud_bind )
@@ -1234,7 +1432,7 @@ static gc_gx_tex_t *R_GXBindTexnum( unsigned texnum, qboolean hud_bind )
 		R_GXReserveHudPool();
 		for( i = GC_GX_TEX_HUD_SLOT0; i < GC_GX_TEX_SLOTS; i++ )
 		{
-			if( !r_gx_tex[i].valid )
+			if( !r_gx_tex[i].valid && r_gx_tex[i].tiled )
 			{
 				slot = i;
 				break;
@@ -1242,12 +1440,43 @@ static gc_gx_tex_t *R_GXBindTexnum( unsigned texnum, qboolean hud_bind )
 		}
 		if( slot < 0 )
 		{
+			qboolean partial = false;
+			int font_victim = -1;
+
 			for( i = GC_GX_TEX_HUD_SLOT0; i < GC_GX_TEX_SLOTS; i++ )
 			{
+				if( !r_gx_tex[i].tiled )
+					partial = true;
+				if( !r_gx_tex[i].tiled )
+					continue;
+				/* Prefer evicting chrome/logo over the menu font atlas. */
+				if( r_gx_tex[i].is_font )
+				{
+					if( font_victim < 0 || r_gx_tex_lru[i] < r_gx_tex_lru[font_victim] )
+						font_victim = i;
+					continue;
+				}
 				if( victim < 0 || r_gx_tex_lru[i] < r_gx_tex_lru[victim] )
 					victim = i;
 			}
-			slot = victim;
+			if( victim < 0 )
+				victim = font_victim;
+			/* Reuse a reserved slab before trying an unbacked slot. Otherwise
+			 * a partial reservation makes every subsequent HUD bind fail even
+			 * though an older HUD texture could be safely evicted. */
+			slot = victim >= 0 ? victim : GC_GX_TEX_HUD_SLOT0;
+			if( victim >= 0 )
+			{
+				static qboolean logged;
+
+				if( !logged )
+				{
+					logged = true;
+					gEngfuncs.Con_Reportf(
+						"Xash3D GameCube: HUD pool reusing slot=%d partial=%d font=%d\n",
+						slot, partial ? 1 : 0, r_gx_tex[slot].is_font ? 1 : 0 );
+				}
+			}
 		}
 	}
 	else
@@ -1281,20 +1510,35 @@ static gc_gx_tex_t *R_GXBindTexnum( unsigned texnum, qboolean hud_bind )
 
 	src_w = img->width;
 	src_h = img->height;
-	dst_w = R_GXSnapDim( src_w );
-	dst_h = R_GXSnapDim( src_h );
-	/* Wide HUD sheets (the 256x64 credits font) keep their width when the
-	 * area fits the same 128x128 tile budget; snapping to 128 point-sampled
-	 * every other column away and garbled the intro credits. */
-	if( hud_bind && src_w > GC_GX_TEX_MAX_DIM && src_w <= 2 * GC_GX_TEX_MAX_DIM
-		&& ( src_w & 3 ) == 0 && dst_h * src_w <= GC_GX_TEX_MAX_DIM * GC_GX_TEX_MAX_DIM )
-		dst_w = src_w;
+	if( hud_bind )
+	{
+		dst_w = R_GXSnapDimMax( src_w, GC_GX_TEX_HUD_MAX_DIM );
+		dst_h = R_GXSnapDimMax( src_h, GC_GX_TEX_HUD_MAX_DIM );
+		/* Wide HUD sheets (credits font / title logo) keep source width when
+		 * the area fits the HUD tile budget. */
+		if( src_w > GC_GX_TEX_WORLD_MAX_DIM && src_w <= GC_GX_TEX_HUD_MAX_DIM
+			&& ( src_w & 3 ) == 0
+			&& (size_t)dst_h * (size_t)src_w <= (size_t)GC_GX_TEX_HUD_MAX_DIM * (size_t)GC_GX_TEX_HUD_MAX_DIM )
+			dst_w = src_w;
+	}
+	else
+	{
+		dst_w = R_GXSnapDim( src_w );
+		dst_h = R_GXSnapDim( src_h );
+	}
 	step_x = src_w / dst_w;
 	step_y = src_h / dst_h;
 	if( step_x < 1 )
 		step_x = 1;
 	if( step_y < 1 )
 		step_y = 1;
+
+	if( !R_GXEnsureLinearScratch( (size_t)dst_w * (size_t)dst_h ))
+	{
+		if( hud_bind )
+			r_gx_hud_bind_fails++;
+		return NULL;
+	}
 
 	for( y = 0; y < dst_h; y++ )
 	{
@@ -1324,17 +1568,20 @@ static gc_gx_tex_t *R_GXBindTexnum( unsigned texnum, qboolean hud_bind )
 	 * Reuse any staging buffer large enough (HUD snaps are ≤ 64×64).
 	 */
 	{
-		const size_t max_tile = (size_t)GC_GX_TEX_MAX_DIM * (size_t)GC_GX_TEX_MAX_DIM * sizeof( u16 );
+		const size_t max_tile = hud_bind
+			? (size_t)GC_GX_TEX_HUD_MAX_DIM * (size_t)GC_GX_TEX_HUD_MAX_DIM * sizeof( u16 )
+			: (size_t)GC_GX_TEX_WORLD_MAX_DIM * (size_t)GC_GX_TEX_WORLD_MAX_DIM * sizeof( u16 );
 		size_t want = bytes;
 
-		/* HUD uploads prefer a full 64×64 staging slab so later sheets reuse. */
-		if( hud_bind && want < max_tile )
-			want = max_tile;
+		/* HUD uploads prefer a reusable staging slab so later sheets reuse. */
+		if( hud_bind && want < (size_t)GC_GX_TEX_WORLD_MAX_DIM * (size_t)GC_GX_TEX_WORLD_MAX_DIM * sizeof( u16 ))
+			want = (size_t)GC_GX_TEX_WORLD_MAX_DIM * (size_t)GC_GX_TEX_WORLD_MAX_DIM * sizeof( u16 );
 
 		if( slot < GC_GX_TEX_WORLD_POOL )
 		{
 			t->tiled = r_gx_tex_world_pool[slot];
-			t->alloc_bytes = max_tile;
+			t->alloc_bytes = (size_t)GC_GX_TEX_WORLD_MAX_DIM * (size_t)GC_GX_TEX_WORLD_MAX_DIM * sizeof( u16 );
+			(void)max_tile;
 		}
 		else if( !t->tiled || t->alloc_bytes < bytes )
 		{
@@ -1364,8 +1611,12 @@ static gc_gx_tex_t *R_GXBindTexnum( unsigned texnum, qboolean hud_bind )
 	GX_InitTexObj( &t->obj, t->tiled, (u16)dst_w, (u16)dst_h,
 		want_fmt, GX_REPEAT, GX_REPEAT, GX_FALSE );
 	/* G203: LINEAR on world diffuse; HUD stays NEAR for crisp sprites,
-	 * except fonts created without TF_NEAREST (drawn minified 2:1). */
-	if( hud_bind && !( FBitSet( img->flags, TF_FONT ) && !FBitSet( img->flags, TF_NEAREST )))
+	 * except fonts created without TF_NEAREST (drawn minified 2:1) and the
+	 * high-res title logo which is stretched across the menu. */
+	if( hud_bind && img->name[0] && ( Q_stristr( img->name, "gc_menu/logo" )
+		|| Q_stristr( img->name, "gc_menu/bg_" )))
+		GX_InitTexObjFilterMode( &t->obj, GX_LINEAR, GX_LINEAR );
+	else if( hud_bind && !( FBitSet( img->flags, TF_FONT ) && !FBitSet( img->flags, TF_NEAREST )))
 		GX_InitTexObjFilterMode( &t->obj, GX_NEAR, GX_NEAR );
 	else
 		GX_InitTexObjFilterMode( &t->obj, GX_LINEAR, GX_LINEAR );
@@ -1375,6 +1626,7 @@ static gc_gx_tex_t *R_GXBindTexnum( unsigned texnum, qboolean hud_bind )
 	t->fmt = want_fmt;
 	t->valid = true;
 	t->hud_pin = hud_bind;
+	t->is_font = hud_bind && FBitSet( img->flags, TF_FONT );
 	r_gx_tex_lru[slot] = ++r_gx_tex_clock;
 	r_gx_tex_fence[slot] = GC_GXFenceNext();
 	/* New tiled texels — invalidate once here, not every world pass. */

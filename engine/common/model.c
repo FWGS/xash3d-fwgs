@@ -230,6 +230,23 @@ byte *Mod_GCStudioBssAlloc( size_t size )
 	return gc_studio_bss + align_off;
 }
 
+/* Roll back an unsuccessful read only while its slice is still last. */
+static void Mod_GCStudioBssRollbackLast( byte *slot, size_t size, size_t previous_bump )
+{
+	size_t offset;
+
+	if( !Mod_GCIsStudioBssCache( slot ) || gc_studio_bss_owners <= 0 )
+		return;
+	offset = (size_t)( slot - gc_studio_bss );
+	if( size > GC_STUDIO_BSS_BYTES - offset || previous_bump > offset )
+		return;
+	if( gc_studio_bss_bump == offset + size )
+	{
+		gc_studio_bss_bump = previous_bump;
+		gc_studio_bss_owners--;
+	}
+}
+
 /*
  * G381: grow the last BSS studio slice in place (mesh → mesh+T.mdl headers).
  * Tip CapFaces leaves heap empty; scientist mesh already occupies the bump so
@@ -327,6 +344,9 @@ static qboolean Mod_GCStudioNameAllowed( const char *name, qboolean *is_viewmode
 		/* Campaign cast — lean mesh + *t skin atlas stays under 1 MiB BSS. */
 		"bullsquid", "agrunt", "islave", "hgrunt", "tentacle2", "garg",
 		"apache", "osprey", "ichthyosaur", "leech", "barnacle",
+		/* Xen's final encounters require these studio headers for boss AI,
+		 * animation and visible alien controllers. */
+		"nihilanth", "big_mom", "baby_headcrab", "controller",
 		/* Tiny lean world-weapon stub for Flipper studio draw admit. */
 		"w_crowbar",
 		NULL
@@ -379,8 +399,8 @@ static qboolean Mod_GCAllowRealStudioLoad( const char *name, size_t filesize )
 	}
 	else if( gc_real_studio_npc >= max_npc )
 		return false;
-	/* Lean meshes stay under ~200 KiB; allow up to 400 KiB for skinned props. */
-	if( filesize < sizeof( studiohdr_t ) || filesize > ( 400 * 1024 ))
+	/* The internally textured Nihilanth is approximately 420 KiB. */
+	if( filesize < sizeof( studiohdr_t ) || filesize > ( 448 * 1024 ))
 		return false;
 	if( gc_real_studio_bytes + filesize > max_bytes )
 		return false;
@@ -421,6 +441,7 @@ static byte *Mod_GCLoadStudioFile( const char *model_path, fs_offset_t *length, 
 	byte *slot;
 	file_t *f;
 	fs_offset_t flen, total, got;
+	size_t previous_bump;
 
 	*length = 0;
 	if( from_bss )
@@ -434,7 +455,19 @@ static byte *Mod_GCLoadStudioFile( const char *model_path, fs_offset_t *length, 
 		if( f )
 		{
 			flen = FS_FileLength( f );
+			/* Check limits before reserving a persistent arena slice. A
+			 * budget rejection after the read cannot free that slice once
+			 * other models have been allocated. */
+			if( flen >= (fs_offset_t)sizeof( studiohdr_t ) &&
+				!Mod_GCAllowRealStudioLoad( model_path, (size_t)flen ))
+			{
+				FS_Close( f );
+				Con_Reportf( "Xash3D GameCube: deferred studio budget skip '%s' (%s)\n",
+					model_path, Q_memprint( (size_t)flen ));
+				return NULL;
+			}
 			slot = NULL;
+			previous_bump = gc_studio_bss_bump;
 			if( flen >= (fs_offset_t)sizeof( studiohdr_t )
 				&& flen <= (fs_offset_t)GC_STUDIO_BSS_BYTES )
 				slot = Mod_GCStudioBssAlloc( (size_t)flen );
@@ -459,11 +492,11 @@ static byte *Mod_GCLoadStudioFile( const char *model_path, fs_offset_t *length, 
 						Q_memprint( gc_studio_bss_bump ));
 					return slot;
 				}
-				/* Bump already advanced — leave hole (rare short read). */
 				Con_Reportf( "Xash3D GameCube: G289 studio BSS short '%s' read=%li want=%li\n",
 					mirror, (long)total, (long)flen );
-				/* Rewind bump to avoid corrupting BSS arena. */
-				gc_studio_bss_bump = ( gc_studio_bss_bump + 31u ) & ~31u;
+				/* Only release the last allocation: another owner may have
+				 * acquired a later slice while the file was being read. */
+				Mod_GCStudioBssRollbackLast( slot, (size_t)flen, previous_bump );
 			}
 			else
 			{
@@ -903,6 +936,15 @@ void Mod_GCLoadPreEntityStudios( void )
 	if( !GC_MapLoadMemoryOpt() && !Sys_CheckParm( "-gcmap" )
 		&& !Sys_CheckParm( "-gcnewgame" ))
 		return;
+
+	/* Xen maps need this bounded arena for their own actors. Loading the
+	 * unrelated intro cast first left c4a1d with only 17 KiB after its alien
+	 * controllers and could exhaust it before Nihilanth or Gonarch spawn. */
+	if( !Q_strnicmp( sv.name, "c4a", 3 ))
+	{
+		Con_Reportf( "Xash3D GameCube: pre-entity studios reserved for Xen map %s\n", sv.name );
+		return;
+	}
 
 	FS_ClearFindMissCache();
 	Image_GCPurgeDecodeScratch();

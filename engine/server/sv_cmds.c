@@ -31,6 +31,8 @@ void GC_ArmPostMapFrameBudgetSamples( void );
 qboolean CL_GameCubeEnsureClientReady( void );
 void Image_GCPurgeDecodeScratch( void );
 void FS_ClearFindMissCache( void );
+void R_GcFreeMenuImages( void );
+void R_GXReleaseHudPoolForMapLoad( void );
 
 static void SV_GameCubePlayStart_f( void )
 {
@@ -84,6 +86,10 @@ static void SV_GameCubePlayStart_f( void )
 		{
 			Image_GCPurgeDecodeScratch();
 			FS_ClearFindMissCache();
+			/* Reclaim Flipper menu/HUD again: Capture/menu may have refilled
+			 * slabs between Trim and client InitInput. */
+			R_GcFreeMenuImages();
+			R_GXReleaseHudPoolForMapLoad();
 		}
 		Con_Reportf( "Xash3D GameCube: play start ensure client begin %s\n", map );
 		if( !CL_GameCubeEnsureClientReady() )

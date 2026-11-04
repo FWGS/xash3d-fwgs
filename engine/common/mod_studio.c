@@ -1589,8 +1589,11 @@ void Mod_LoadStudioModel( model_t *mod, void *buffer, size_t buffersize, qboolea
 				memcpy( mod->cache.data, buffer, mesh );
 			phdr = (studiohdr_t *)mod->cache.data;
 			phdr->length = (int)mesh;
-			if( src->numtextures > 0 )
+			if( src->numtextures > 0 && !skip_studio_textures && !Host_IsDedicated() )
 				Con_Reportf( "Xash3D GameCube: studio skins loaded '%s' n=%d kept=%s\n",
+					mod->name, phdr->numtextures, Q_memprint( mesh ));
+			else if( src->numtextures > 0 )
+				Con_Reportf( "Xash3D GameCube: studio skin upload skipped '%s' n=%d kept=%s\n",
 					mod->name, phdr->numtextures, Q_memprint( mesh ));
 			else
 				Con_Reportf( "Xash3D GameCube: lean studio cache '%s' %s\n",

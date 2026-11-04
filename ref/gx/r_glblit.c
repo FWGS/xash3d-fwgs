@@ -599,6 +599,21 @@ void R_EnsureDrawBuffer( void )
 #if XASH_GAMECUBE
 	size_t pixels;
 
+	/* DumpFrames soft-latch presents gc.buffer (DisableCopyToVRAM). Pure Flipper
+	 * otherwise draws into the static BSS viewbuffer, which never reaches XFB. */
+	if( gEngfuncs.Sys_CheckParm( "-gcdumpframes" )
+		|| gEngfuncs.Sys_CheckParm( "-gcdump" ))
+	{
+		void *soft = gEngfuncs.SW_LockBuffer ? gEngfuncs.SW_LockBuffer() : NULL;
+
+		if( soft && vid.width > 0 && vid.height > 0 )
+		{
+			vid.buffer = (pixel_t *)soft;
+			vid.rowbytes = vid.width;
+			return;
+		}
+	}
+
 	if( vid.buffer && vid.width > 0 && vid.height > 0 )
 		return;
 	if( vid.width <= 0 || vid.height <= 0 )

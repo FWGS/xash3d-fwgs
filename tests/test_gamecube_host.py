@@ -26,6 +26,51 @@ def load_script(name: str, relative: str):
 
 
 class GameCubeHostTests(unittest.TestCase):
+	def test_dolphin_probe_preserves_child_exit_status(self) -> None:
+		import subprocess
+		script = r'''
+set -e
+source "$1"
+(exit 0) & child=$!
+probe_collect_exit_status "$child"
+[[ "$DOLPHIN_EXIT" == 0 ]]
+(exit 23) & child=$!
+probe_collect_exit_status "$child"
+[[ "$DOLPHIN_EXIT" == 23 ]]
+(kill -TERM "$BASHPID") & child=$!
+probe_collect_exit_status "$child"
+[[ "$DOLPHIN_EXIT" == 143 ]]
+'''
+		result = subprocess.run(["bash", "-c", script, "_", str(ROOT / "scripts/dolphin-probe-common.sh")],
+			text=True, capture_output=True, timeout=10)
+		self.assertEqual(result.returncode, 0, result.stderr)
+
+	def test_xen_studio_mirrors_keep_boss_and_companion_skins(self) -> None:
+		import zipfile
+		disc = load_script("disc_xen_studios", "scripts/build-gamecube-disc.py")
+		models = ("nihilanth", "big_mom", "big_momt", "baby_headcrab", "controller", "controllert")
+		with tempfile.TemporaryDirectory() as tmpdir:
+			root = Path(tmpdir)
+			(root / "models").mkdir()
+			payloads = {}
+			for name in models:
+				data = bytearray(320)
+				data[:4] = b"IDST"
+				struct.pack_into("<i", data, 72, len(data))
+				struct.pack_into("<3i", data, 180, 1, 256, 288)
+				data[-1] = 0xA5
+				payloads[name] = bytes(data)
+				(root / "models" / f"{name}.mdl").write_bytes(data)
+			archive = root / "bootstrap.zip"
+			with patch.object(disc, "GC_STUDIO_MODELS", tuple(f"models/{name}.mdl" for name in models)):
+				with zipfile.ZipFile(archive, "w") as z:
+					self.assertEqual(disc.inject_gc_studio_into_bootstrap(z, root), len(models))
+			with zipfile.ZipFile(archive) as z:
+				for name in ("nihilanth", "big_momt", "baby_headcrab", "controllert"):
+					self.assertEqual(z.read(f"gc_studio/{name}.mdl"), payloads[name])
+				for name in ("big_mom", "controller"):
+					self.assertEqual(len(z.read(f"gc_studio/{name}.mdl")), 256)
+
 	def test_dolphin_cleanup_only_stops_matching_profile(self) -> None:
 		import shutil
 		import subprocess

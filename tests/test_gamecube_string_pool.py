@@ -10,6 +10,89 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 class GameCubeStringPoolTests(unittest.TestCase):
+    def test_fatal_panel_wrapping_stays_within_small_panel(self):
+        compiler = shutil.which("cc")
+        if not compiler:
+            self.skipTest("host C compiler unavailable")
+        source = (ROOT / "engine/platform/gamecube/vid_gamecube.c").read_text()
+        def section(start, end):
+            return start + source.split(start, 1)[1].split(end, 1)[0]
+        fixture = r'''
+#include <assert.h>
+#include <stddef.h>
+#define FBitSet(value, bit) ((value) & (bit))
+static unsigned char GC_FatalGlyphRow(char ch, int row) { (void)ch; (void)row; return 31; }
+'''
+        fixture += section("static void GC_StatusPutPixel(", "\nstatic void GC_FatalPutPixel(")
+        fixture += section("static void GC_StatusDrawChar(", "\nstatic void GC_FatalDrawChar(")
+        fixture += section("static int GC_StatusDrawLine(", "\nstatic int GC_FatalDrawLine(")
+        fixture += section("static void GC_FatalDrawWrapped(", "\nstatic unsigned short GC_RGB8To565(")
+        fixture += r'''
+int main(void) {
+    struct { unsigned short before[32], panel[160 * 120], after[32]; } s = {0};
+    for (int i = 0; i < 32; i++) s.before[i] = s.after[i] = 0x1234;
+    GC_FatalDrawWrapped(s.panel, 160, 160, 120, 4, 20,
+        "A long fatal message that wraps across several lines and has\nnewlines", 0xabcd, 1, 25, 6);
+    assert(s.panel[20 * 160 + 4] == 0xabcd);
+    for (int i = 0; i < 32; i++) assert(s.before[i] == 0x1234 && s.after[i] == 0x1234);
+    return 0;
+}
+'''
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp)
+            (path / "fixture.c").write_text(fixture)
+            subprocess.run([compiler, "-std=c99", "-Wall", "-Wextra", "-Werror",
+                            "-fsanitize=undefined", str(path / "fixture.c"),
+                            "-o", str(path / "fixture")], check=True)
+            subprocess.run([str(path / "fixture")], check=True)
+
+    def test_studio_arena_failed_read_rolls_back_only_last_slice(self):
+        compiler = shutil.which("cc")
+        if not compiler:
+            self.skipTest("host C compiler unavailable")
+        source = (ROOT / "engine/common/model.c").read_text()
+        functions = source.split("qboolean Mod_GCIsStudioBssCache(", 1)[1].split(
+            "\n/*\n * G381", 1)[0]
+        fixture = r'''
+#include <assert.h>
+#include <stddef.h>
+#include <stdint.h>
+typedef unsigned char byte;
+typedef int qboolean;
+#define true 1
+#define false 0
+#define GC_STUDIO_BSS_BYTES 256
+static byte gc_studio_bss[GC_STUDIO_BSS_BYTES] __attribute__((aligned(32)));
+static size_t gc_studio_bss_bump;
+static int gc_studio_bss_owners;
+static int Sys_CheckParm(const char *s) { (void)s; return 0; }
+static void Con_Reportf(const char *s, ...) { (void)s; }
+'''
+        fixture += "qboolean Mod_GCIsStudioBssCache(" + functions
+        fixture += r'''
+int main(void) {
+    byte *live = Mod_GCStudioBssAlloc(13);
+    size_t before = gc_studio_bss_bump;
+    byte *failed = Mod_GCStudioBssAlloc(45);
+    assert(live && failed && gc_studio_bss_owners == 2);
+    Mod_GCStudioBssRollbackLast(failed, 45, before);
+    assert(gc_studio_bss_bump == before && gc_studio_bss_owners == 1);
+    assert(Mod_GCStudioBssAlloc(45) == failed);
+    byte *later = Mod_GCStudioBssAlloc(16);
+    size_t occupied = gc_studio_bss_bump;
+    Mod_GCStudioBssRollbackLast(failed, 45, before);
+    assert(later && gc_studio_bss_bump == occupied && gc_studio_bss_owners == 3);
+    return 0;
+}
+'''
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp)
+            (path / "fixture.c").write_text(fixture)
+            subprocess.run([compiler, "-std=c99", "-Wall", "-Wextra", "-Werror",
+                            "-fsanitize=undefined", str(path / "fixture.c"),
+                            "-o", str(path / "fixture")], check=True)
+            subprocess.run([str(path / "fixture")], check=True)
+
     def test_renderer_arena_aligned_base_and_release_identity(self):
         compiler = shutil.which("cc")
         if not compiler:

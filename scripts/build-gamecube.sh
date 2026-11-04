@@ -1,6 +1,11 @@
 #!/usr/bin/env bash
 # Build Xash3D FWGS for Nintendo GameCube (requires devkitPro)
 # Swiss-first stack: prefers libogc2 + libdvm under $DEVKITPRO.
+#
+# Named DOL releases (one statically linked title per DOL):
+#   HLSDK_GAMECUBE_GAMEDIR=valve  → OUT/bin/halflife1.dol (+ boot.dol alias)
+#   HLSDK_GAMECUBE_GAMEDIR=dod    → OUT/bin/dodgc.dol
+# Or: scripts/build-gamecube.sh --game-profile=halflife1|dod
 set -e
 
 export DEVKITPRO="${DEVKITPRO:-/opt/devkitpro}"
@@ -15,7 +20,59 @@ export XASH_GAMECUBE_OGC_STACK="${XASH_GAMECUBE_OGC_STACK:-auto}"
 ROOT="$(git rev-parse --show-toplevel)"
 HLSDK_DIR="${HLSDK_PORTABLE_DIR:-$ROOT/3rdparty/hlsdk-portable}"
 HLSDK_DESTDIR="${HLSDK_GAMECUBE_DESTDIR:-$ROOT/OUT/hlsdk-gamecube}"
-HLSDK_GAMEDIR="${HLSDK_GAMECUBE_GAMEDIR:-valve}"
+
+# Profile → gamedir / release DOL name.
+gamecube_normalize_profile() {
+	case "$1" in
+		""|valve|halflife1|hl1|hl) echo "valve" ;;
+		dod|dodgc|dayofdefeat) echo "dod" ;;
+		*) echo "$1" ;;
+	esac
+}
+
+gamecube_dol_basename() {
+	case "$1" in
+		valve) echo "halflife1.dol" ;;
+		dod) echo "dodgc.dol" ;;
+		*) echo "${1}gc.dol" ;;
+	esac
+}
+
+GAME_PROFILE="${XASH_GAMECUBE_GAME_PROFILE:-}"
+FILTERED_ARGS=()
+while (( $# )); do
+	case "$1" in
+		--game-profile=*)
+			GAME_PROFILE="${1#--game-profile=}"
+			shift
+			;;
+		--game-profile)
+			GAME_PROFILE="${2:-}"
+			shift 2
+			;;
+		--gamedir=*)
+			GAME_PROFILE="${1#--gamedir=}"
+			shift
+			;;
+		--gamedir)
+			GAME_PROFILE="${2:-}"
+			shift 2
+			;;
+		*)
+			FILTERED_ARGS+=("$1")
+			shift
+			;;
+	esac
+done
+set -- "${FILTERED_ARGS[@]}"
+
+if [ -n "${HLSDK_GAMECUBE_GAMEDIR:-}" ] && [ -z "$GAME_PROFILE" ]; then
+	GAME_PROFILE="$HLSDK_GAMECUBE_GAMEDIR"
+fi
+HLSDK_GAMEDIR="$(gamecube_normalize_profile "${GAME_PROFILE:-valve}")"
+export HLSDK_GAMECUBE_GAMEDIR="$HLSDK_GAMEDIR"
+DOL_NAME="$(gamecube_dol_basename "$HLSDK_GAMEDIR")"
+
 HLSDK_SERVER_ARCHIVE="$HLSDK_DESTDIR/$HLSDK_GAMEDIR/dlls/libhl_gamecube_ppc.a"
 HLSDK_EXPORTS="$HLSDK_DESTDIR/$HLSDK_GAMEDIR/dlls/gamecube_server_entity_exports.inc"
 NM="${DEVKITPRO:-/opt/devkitpro}/devkitPPC/bin/powerpc-eabi-nm"
@@ -31,11 +88,19 @@ if command -v python3 >/dev/null 2>&1; then
 		|| { echo "error: GameCube OGC stack not available under $DEVKITPRO (install libogc2 for Swiss)" >&2; exit 1; }
 fi
 
+echo "GameCube build profile: gamedir=$HLSDK_GAMEDIR dol=$DOL_NAME"
+
 if [ -s "$HLSDK_SERVER_ARCHIVE" ] && [ -d "$HLSDK_DIR/dlls" ] && [ -x "$NM" ]; then
 	python3 "$ROOT/scripts/generate-hlsdk-gamecube-exports.py" \
 		--hlsdk-dir "$HLSDK_DIR" \
 		--archive "$HLSDK_SERVER_ARCHIVE" \
 		--output "$HLSDK_EXPORTS"
+elif [ "$HLSDK_GAMEDIR" != "valve" ] && [ ! -s "$HLSDK_SERVER_ARCHIVE" ]; then
+	echo "error: missing HLSDK archives for gamedir=$HLSDK_GAMEDIR:" >&2
+	echo "  expected $HLSDK_SERVER_ARCHIVE" >&2
+	echo "  build with HLSDK_GAMECUBE_GAMEDIR=$HLSDK_GAMEDIR scripts/hlsdk-gamecube-build.sh" >&2
+	echo "  (Day of Defeat also needs a viable client/server source — see docs/gamecube/MULTI_GAME.md)" >&2
+	exit 1
 fi
 
 ./waf configure --gamecube \
@@ -43,6 +108,7 @@ fi
 	--disable-gl --disable-soft --enable-gx \
 	--low-memory-mode=2 \
 	--disable-werror \
+	--gamedir "$HLSDK_GAMEDIR" \
 	"$@"
 
 ./waf build
@@ -54,16 +120,19 @@ fi
 
 mkdir -p OUT/bin
 cp build/engine/xash OUT/bin/xash
+# Keep a gamedir-tagged ELF beside the release DOL for multi-profile OUT trees.
+cp OUT/bin/xash "OUT/bin/xash-${HLSDK_GAMEDIR}"
 
 if command -v powerpc-eabi-strip >/dev/null 2>&1; then
 	if ! powerpc-eabi-strip OUT/bin/xash; then
 		echo "warning: powerpc-eabi-strip failed; keeping unstripped OUT/bin/xash" >&2
 	fi
+	cp OUT/bin/xash "OUT/bin/xash-${HLSDK_GAMEDIR}"
 fi
 
 if command -v python3 >/dev/null 2>&1; then
-	if python3 "$ROOT/scripts/elf-to-dol.py" OUT/bin/xash OUT/bin/boot.dol; then
-		echo "DOL generated successfully using Python script"
+	if python3 "$ROOT/scripts/elf-to-dol.py" OUT/bin/xash "OUT/bin/$DOL_NAME"; then
+		echo "DOL generated successfully: OUT/bin/$DOL_NAME"
 	else
 		echo "error: Python DOL generation failed" >&2
 		exit 1
@@ -71,6 +140,12 @@ if command -v python3 >/dev/null 2>&1; then
 else
 	echo "error: python3 not found; cannot generate DOL" >&2
 	exit 1
+fi
+
+# HL1 keeps boot.dol as a stable Swiss/docs alias of halflife1.dol.
+if [ "$HLSDK_GAMEDIR" = "valve" ]; then
+	cp -f "OUT/bin/$DOL_NAME" OUT/bin/boot.dol
+	echo "HL1 alias: OUT/bin/boot.dol → $DOL_NAME"
 fi
 
 # Artifact / linkage metadata for hardware handoff.
@@ -81,16 +156,22 @@ fi
 	echo "renderer=REF_GX"
 	echo "policy=retail-flipper"
 	echo "loader=swiss"
+	echo "gamedir=$HLSDK_GAMEDIR"
+	echo "dol_name=$DOL_NAME"
 	if [[ -f "$XASH_GAMECUBE_STACK_METADATA" ]]; then
 		python3 -c 'import json, os; d=json.load(open(os.environ["XASH_GAMECUBE_STACK_METADATA"])); print("ogc_stack=%s" % d.get("stack")); print("ogc_root=%s" % d.get("root")); print("fat_provider=%s" % d.get("fat_provider"))'
 	fi
 	echo "elf=OUT/bin/xash"
-	echo "dol=OUT/bin/boot.dol"
+	echo "elf_profile=OUT/bin/xash-${HLSDK_GAMEDIR}"
+	echo "dol=OUT/bin/$DOL_NAME"
+	if [ "$HLSDK_GAMEDIR" = "valve" ]; then
+		echo "dol_alias=OUT/bin/boot.dol"
+	fi
 	if [ -f OUT/bin/xash ]; then
 		echo "elf_bytes=$(wc -c < OUT/bin/xash | tr -d ' ')"
 	fi
-	if [ -f OUT/bin/boot.dol ]; then
-		echo "dol_bytes=$(wc -c < OUT/bin/boot.dol | tr -d ' ')"
+	if [ -f "OUT/bin/$DOL_NAME" ]; then
+		echo "dol_bytes=$(wc -c < "OUT/bin/$DOL_NAME" | tr -d ' ')"
 		command -v powerpc-eabi-nm >/dev/null 2>&1 && \
 			powerpc-eabi-nm OUT/bin/xash 2>/dev/null | grep -E 'GetRefAPI|GC_UseGxWorldDraw|GC_IsCaptureDiagnostics' | head -20 \
 			| sed 's/^/sym /' || true
@@ -100,24 +181,30 @@ echo "Handoff metadata: OUT/bin/gamecube-handoff.txt"
 
 echo "GameCube build installed to OUT/"
 
-GC_DATA="${XASH3D_GC_DATA:-Half-Life/valve}"
+# Default data path follows the profile; HL1 stays Half-Life/valve.
+case "$HLSDK_GAMEDIR" in
+	valve) GC_DATA_DEFAULT="Half-Life/valve" ;;
+	dod) GC_DATA_DEFAULT="Half-Life/dod" ;;
+	*) GC_DATA_DEFAULT="Half-Life/$HLSDK_GAMEDIR" ;;
+esac
+GC_DATA="${XASH3D_GC_DATA:-$GC_DATA_DEFAULT}"
 GC_ISO="${XASH3D_GC_ISO:-OUT/xash3d-gc.iso}"
 GC_SMOKE_MAP="${XASH3D_GC_SMOKE_MAP:-}"
 GC_SKIP_DISC_BUILD="${XASH3D_GC_SKIP_DISC_BUILD:-0}"
 
 if [ "$GC_SKIP_DISC_BUILD" = "1" ]; then
 	echo "Skipping disc build (XASH3D_GC_SKIP_DISC_BUILD=1)."
-	echo "For disc packaging, run: python3 scripts/build-gamecube-disc.py --output OUT/xash3d-gc.iso --data ${GC_DATA}"
-	echo "For DOL testing, provide Half-Life assets at sd:/xash3d/valve/ before launching OUT/bin/boot.dol."
+	echo "For disc packaging, run: python3 scripts/build-gamecube-disc.py --output OUT/xash3d-gc.iso --data ${GC_DATA} --gamedir ${HLSDK_GAMEDIR} --dol OUT/bin/${DOL_NAME}"
+	echo "For DOL testing, provide assets at sd:/xash3d/${HLSDK_GAMEDIR}/ before launching OUT/bin/${DOL_NAME}."
 	exit 0
 fi
 
 if [ -d "$GC_DATA" ]; then
-	DISC_ARGS=(--output "$GC_ISO" --data "$GC_DATA")
+	DISC_ARGS=(--output "$GC_ISO" --data "$GC_DATA" --gamedir "$HLSDK_GAMEDIR" --dol "OUT/bin/$DOL_NAME")
 	if [ -n "$GC_SMOKE_MAP" ]; then
 		DISC_ARGS+=(--smoke-map "$GC_SMOKE_MAP")
 	fi
-	echo "Building GameCube disc from $GC_DATA ..."
+	echo "Building GameCube disc from $GC_DATA (gamedir=$HLSDK_GAMEDIR) ..."
 	if python3 "$ROOT/scripts/build-gamecube-disc.py" "${DISC_ARGS[@]}"; then
 		echo "Disc image ready: $GC_ISO"
 	else
@@ -125,9 +212,9 @@ if [ -d "$GC_DATA" ]; then
 		exit 1
 	fi
 else
-	echo "Half-Life data not found at $GC_DATA; skipping disc build."
+	echo "Game data not found at $GC_DATA; skipping disc build."
 	echo "Set XASH3D_GC_DATA or install retail assets, then run:"
-	echo "  python3 scripts/build-gamecube-disc.py --output OUT/xash3d-gc.iso --data Half-Life/valve"
+	echo "  python3 scripts/build-gamecube-disc.py --output OUT/xash3d-gc.iso --data ${GC_DATA_DEFAULT} --gamedir ${HLSDK_GAMEDIR} --dol OUT/bin/${DOL_NAME}"
 fi
 
-echo "For DOL testing, provide Half-Life assets at sd:/xash3d/valve/ before launching OUT/bin/boot.dol."
+echo "For DOL testing, provide assets at sd:/xash3d/${HLSDK_GAMEDIR}/ before launching OUT/bin/${DOL_NAME}."

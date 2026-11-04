@@ -1846,6 +1846,8 @@ void CL_GCPreloadNewGameHudSprites( void )
 	if( !g172_logged && real >= 2 )
 	{
 		g172_logged = true;
+		if( real > 0 )
+			Con_Reportf( "Xash3D GameCube: lean HUD sprites drawn\n" );
 		Con_Reportf( "Xash3D GameCube: G172 HUD sheets loaded real=%d of %d\n",
 			real, (int)( sizeof( sheets ) / sizeof( sheets[0] )));
 	}

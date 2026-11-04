@@ -166,7 +166,10 @@ static void R_DrawStretchPicImplementation( int x, int y, int w, int h, int s1, 
 #if XASH_GAMECUBE
 	{
 		int row_stride = pic->width;
-		const qboolean rgb565_fb = GC_UseLowResWorldProbe();
+		/* Soft FB is RGB565 on GC; dumpframes mirrors HUD here without -gcnewgame. */
+		const qboolean rgb565_fb = GC_UseLowResWorldProbe()
+			|| gEngfuncs.Sys_CheckParm( "-gcdumpframes" )
+			|| gEngfuncs.Sys_CheckParm( "-gcdump" );
 		static qboolean gc_rgb565_2d_logged;
 
 		if( row_stride <= 0 )
@@ -354,7 +357,34 @@ void GAME_EXPORT R_DrawStretchPic( float x, float y, float w, float h, float s1,
 	if( GC_UseGxRenderer()
 		&& R_GXDrawStretchPic( x, y, w, h, s1, t1, s2, t2, texnum ))
 	{
-		GC_MarkGxWorldEfbReady();
+		const qboolean dump_soft = ( gEngfuncs.Sys_CheckParm( "-gcdumpframes" )
+			|| gEngfuncs.Sys_CheckParm( "-gcdump" ));
+
+		/* Retail / play: Flipper CopyDisp presents the EFB. Probe DumpFrames with
+		 * DisableCopyToVRAM soft-latch XFB RAM, so mirror HUD into the soft buffer
+		 * and skip the EFB-ready mark — soft present then encodes readable stills. */
+		if( !dump_soft )
+			GC_MarkGxWorldEfbReady();
+		else
+		{
+			pic = R_GetTexture( texnum );
+			if( pic && pic->pixels[0] && !pic->gc_gx_native
+				&& pic->width > 0 && pic->height > 0 )
+			{
+				if( !Q_strcmp( pic->name, "*cintexture" ) && pic->srcWidth > 0 && pic->srcHeight > 0 )
+				{
+					R_DrawStretchPicImplementation( x, y, w, h,
+						pic->srcWidth * s1, pic->srcHeight * t1,
+						pic->srcWidth * s2, pic->srcHeight * t2, pic );
+				}
+				else
+				{
+					R_DrawStretchPicImplementation( x, y, w, h,
+						pic->width * s1, pic->height * t1,
+						pic->width * s2, pic->height * t2, pic );
+				}
+			}
+		}
 		return;
 	}
 #endif
@@ -383,7 +413,9 @@ void Draw_Fill( int x, int y, int w, int h )
 
 #if XASH_GAMECUBE
 	R_EnsureDrawBuffer();
-	const qboolean rgb565_fb = GC_UseLowResWorldProbe();
+	const qboolean rgb565_fb = GC_UseLowResWorldProbe()
+		|| gEngfuncs.Sys_CheckParm( "-gcdumpframes" )
+		|| gEngfuncs.Sys_CheckParm( "-gcdump" );
 	if( rgb565_fb )
 		src = vid.screen[vid.color];
 #endif

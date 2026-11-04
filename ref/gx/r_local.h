@@ -500,6 +500,7 @@ typedef struct image_s
 	unsigned int   gc_packed_aram;                           // the whole chain in ARAM
 	unsigned int   gc_packed_bytes;                          // size of the whole chain, 0: gc_packed is already whole
 	unsigned int   gc_packed_used;                           // hot window frame of the last bind
+	byte           gc_packed_low_shift;
 	byte           gc_packed_levels;
 	byte           gc_packed_alpha;
 	byte           gc_packed_queued;
@@ -542,6 +543,8 @@ void GL_UpdateTexture( int texnum, int cols, int rows, int width, int height, co
 void GL_UpdateCinematicTexture( int texnum, int width, int height, const byte *buffer,
 	const uint16_t *dirty_tiles, uint dirty_count, qboolean full_upload );
 void R_GXReleaseCinematicTexture( unsigned int texnum );
+void R_GXReleaseMenuBackgroundTexture( unsigned int texnum );
+void R_GXReleaseHudPoolForMapLoad( void );
 pixel_t *R_GXAcquireCinematicSoftwarePixels( size_t bytes );
 void R_GXReleaseCinematicSoftwarePixels( void );
 

@@ -442,8 +442,9 @@ static qboolean GL_UploadTexture( image_t *tex, rgbdata_t *pic )
 	int resampleHeight = tex->height;
 	qboolean clamp_ui = false;
 
-	/* Menu/UI textures (TF_NOMIPMAP|TF_CLAMP) are large TGA tiles; always cap
-	 * them on GameCube so the retail main menu fits MEM1. */
+	/* Menu/UI textures (TF_NOMIPMAP|TF_CLAMP) are large TGA tiles. Cap ordinary
+	 * chrome at 128, but keep the dedicated gc_menu background/logo at native
+	 * GameCube resolution for the main menu. */
 	if( FBitSet( tex->flags, TF_NOMIPMAP ) && FBitSet( tex->flags, TF_CLAMP ))
 		clamp_ui = true;
 
@@ -452,8 +453,15 @@ static qboolean GL_UploadTexture( image_t *tex, rgbdata_t *pic )
 	 * sheared, interleaved glyphs (32 KiB at 256x64 is affordable). */
 	if(( q == 0 || clamp_ui ) && !FBitSet( tex->flags, TF_FONT ))
 	{
-		resampleWidth = Q_min( resampleWidth, 128 );
-		resampleHeight = Q_min( resampleHeight, 128 );
+		int ui_cap = 128;
+		if( tex->name[0] && Q_stristr( tex->name, "gc_menu/background" ))
+			ui_cap = 320;
+		else if( tex->name[0] && Q_stristr( tex->name, "gc_menu/bg_" ))
+			ui_cap = 160;
+		else if( tex->name[0] && Q_stristr( tex->name, "gc_menu/logo" ))
+			ui_cap = 512;
+		resampleWidth = Q_min( resampleWidth, ui_cap );
+		resampleHeight = Q_min( resampleHeight, ui_cap );
 		tex->width = resampleWidth;
 		tex->height = resampleHeight;
 	}
@@ -979,7 +987,7 @@ chain, streamed from aram into the hot window on use, is bytes long.
 Same name, same slot on the next map.
 ================
 */
-int R_GCPackedTexture( const char *name, int width, int height, int levels, qboolean alpha, void *data, unsigned aram, unsigned bytes )
+int R_GCPackedTexture( const char *name, int width, int height, int levels, qboolean alpha, void *data, unsigned aram, unsigned bytes, unsigned low_shift )
 {
 	char    full[64];
 	image_t *tex;
@@ -993,6 +1001,7 @@ int R_GCPackedTexture( const char *name, int width, int height, int levels, qboo
 	tex->gc_packed_hot = NULL;
 	tex->gc_packed_aram = aram;
 	tex->gc_packed_bytes = bytes;
+	tex->gc_packed_low_shift = (byte)low_shift;
 	tex->gc_packed_levels = (byte)levels;
 	tex->gc_packed_alpha = (byte)alpha;
 	tex->gc_packed_queued = false;
@@ -1196,6 +1205,7 @@ void GAME_EXPORT GL_FreeTexture( unsigned int texnum )
 	if( texnum <= 0 )
 		return;
 	R_GXReleaseCinematicTexture( texnum );
+	R_GXReleaseMenuBackgroundTexture( texnum );
 
 	GL_DeleteTexture( &r_images[texnum] );
 }
@@ -1458,6 +1468,8 @@ void R_GcFreeMenuImages( void )
 		GL_DeleteTexture( tex );
 		freed++;
 	}
+
+	R_GXReleaseMenuBackgroundTexture( 0 );
 
 	gEngfuncs.Con_Reportf( "Xash3D GameCube: freed %d menu/UI textures for map load\n", freed );
 }

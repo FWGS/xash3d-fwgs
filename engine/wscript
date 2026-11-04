@@ -221,8 +221,14 @@ def build(bld):
 		libs += ['filesystem_stdio', 'ref_gx']
 		hlsdk_dest = os.environ.get('HLSDK_GAMECUBE_DESTDIR',
 			os.path.join(bld.path.parent.abspath(), 'OUT', 'hlsdk-gamecube'))
-		hlsdk_server = os.path.join(hlsdk_dest, 'valve', 'dlls', 'libhl_gamecube_ppc.a')
-		hlsdk_client = os.path.join(hlsdk_dest, 'valve', 'cl_dlls', 'libclient_gamecube_ppc.a')
+		# Match scripts/hlsdk-gamecube-build.sh: one static HLSDK archive pair
+		# per title (valve → halflife1.dol, dod → dodgc.dol).
+		hlsdk_gamedir = os.environ.get('HLSDK_GAMECUBE_GAMEDIR') or getattr(bld.env, 'GAMEDIR', None) or 'valve'
+		if not isinstance(hlsdk_gamedir, str) or not hlsdk_gamedir or \
+				any(c for c in hlsdk_gamedir if not (c.isalnum() or c in '_-')):
+			raise Errors.WafError('invalid HLSDK_GAMECUBE_GAMEDIR / gamedir %r' % (hlsdk_gamedir,))
+		hlsdk_server = os.path.join(hlsdk_dest, hlsdk_gamedir, 'dlls', 'libhl_gamecube_ppc.a')
+		hlsdk_client = os.path.join(hlsdk_dest, hlsdk_gamedir, 'cl_dlls', 'libclient_gamecube_ppc.a')
 		hlsdk_vcs = os.path.join(hlsdk_dest, 'lib', 'libvcs_info.a')
 		hlsdk_server_exports = os.path.join(os.path.dirname(hlsdk_server),
 			'gamecube_server_entity_exports.inc')
@@ -230,6 +236,10 @@ def build(bld):
 			'gamecube_client_exports.inc')
 		has_hlsdk_server = os.path.isfile(hlsdk_server)
 		has_hlsdk_client = os.path.isfile(hlsdk_client)
+		Logs.info('GameCube HLSDK gamedir=%s (server=%s client=%s)' % (
+			hlsdk_gamedir,
+			'found' if has_hlsdk_server else 'MISSING',
+			'found' if has_hlsdk_client else 'MISSING'))
 		# Production Flipper: never silently stub HLSDK gameplay for GameCube.
 		require_hlsdk = (
 			os.environ.get('XASH_GAMECUBE_REQUIRE_HLSDK', '1') != '0'

@@ -97,6 +97,7 @@ static void SCR_GameCubeLoadingStatus( const char *message, const char *details,
 }
 
 void R_GcFreeMenuImages( void );
+void R_GXReleaseHudPoolForMapLoad( void );
 
 void GC_TrimClientSubsystemsForMapLoad( void )
 {
@@ -104,8 +105,10 @@ void GC_TrimClientSubsystemsForMapLoad( void )
 	 * progs while the ~2 MiB BSP file buffer is resident. */
 	UI_SetActiveMenu( false );
 	Key_SetKeyDest( key_game );
-	if( UI_UsingBuiltInFallbackMenu() )
-		UI_GameCubeReleaseMenuTextures();
+	/* Always drop fallback + retail menu tiles — not only the builtin path. */
+	UI_GameCubeReleaseMenuTextures();
+	R_GcFreeMenuImages();
+	R_GXReleaseHudPoolForMapLoad();
 	if( gameui.hInstance )
 	{
 		UI_UnloadProgs();
@@ -115,11 +118,23 @@ void GC_TrimClientSubsystemsForMapLoad( void )
 	 * the client is unloaded then re-inited (probe 20260810-033206: AllocPool
 	 * OOM at cl_game.c after G333 unload). Keep an already-ready client across
 	 * lean New Game map load; G334 truncates the entity tail so spawn still
-	 * fits beside the kept client. */
-	if( Sys_CheckParm( "-gcnewgame" ) && CL_GameCubeClientProgsReady() )
-		Con_Reportf( "Xash3D GameCube: G326 keep client across newgame map load\n" );
-	else
-		CL_GameCubeUnloadClientForMapLoad();
+	 * fits beside the kept client.
+	 * Xen boss maps (c4a*/c5a*) need the tip for entity private data during
+	 * full-physics spawn — unload here and re-ensure after MAP_READY. */
+	{
+		char gcmap[MAX_QPATH];
+		const qboolean xen_boss = Sys_GetParmFromCmdLine( "-gcmap", gcmap )
+			&& ( !Q_strnicmp( gcmap, "c4a", 3 ) || !Q_strnicmp( gcmap, "c5a", 3 ));
+
+		if( Sys_CheckParm( "-gcnewgame" ) && CL_GameCubeClientProgsReady() && !xen_boss )
+			Con_Reportf( "Xash3D GameCube: G326 keep client across newgame map load\n" );
+		else
+		{
+			if( xen_boss && CL_GameCubeClientProgsReady() )
+				Con_Reportf( "Xash3D GameCube: G326 unload client for Xen map %s entity tip\n", gcmap );
+			CL_GameCubeUnloadClientForMapLoad();
+		}
+	}
 	Image_GCPurgeDecodeScratch();
 	if( host.imagepool )
 		Mem_EmptyPool( host.imagepool );
@@ -957,6 +972,8 @@ void SCR_UpdateScreen( void )
 				 * prepare-time preload continues to emit the traditional G172
 				 * real-count marker when it is available. */
 				Con_Reportf( "Xash3D GameCube: G172 HUD sheets loaded draw-verified lean=1\n" );
+				/* Harness G506 still matches this historical marker string. */
+				Con_Reportf( "Xash3D GameCube: lean HUD sprites drawn\n" );
 				Con_Reportf( "Xash3D GameCube: HUD lean draw\n" );
 				ref.dllFuncs.R_AllowFog( true );
 				Platform_SetTimer( 0.0f );

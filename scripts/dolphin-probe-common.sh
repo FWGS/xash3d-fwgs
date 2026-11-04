@@ -65,6 +65,15 @@ probe_dolphin_alive() {
 	return 1
 }
 
+# Preserve the child's actual status, including signal exits, under set -e.
+probe_collect_exit_status() {
+	if wait "$1" >/dev/null 2>&1; then
+		DOLPHIN_EXIT=0
+	else
+		DOLPHIN_EXIT=$?
+	fi
+}
+
 probe_guest_error() {
 	grep -aEiq 'Host_Error|Sys_Error|Xash Error|_Mem_Alloc: out of memory|fatal error|guest.*(crash|abort)|Invalid read from|MMU fault|Program attempting to read|trashed (small )?header sentinel' \
 		"$LOG_DIR/stderr.log" "$LOG_DIR/stdout.log" \
@@ -530,8 +539,7 @@ probe_wait_native() {
 		if ! probe_dolphin_alive; then
 			sleep 2
 			if ! probe_dolphin_alive; then
-				wait "$DOLPHIN_WRAPPER_PID" >/dev/null 2>&1 || true
-				DOLPHIN_EXIT=$?
+				probe_collect_exit_status "$DOLPHIN_WRAPPER_PID"
 				return
 			fi
 		fi
@@ -993,7 +1001,7 @@ fi
 
 if (( READY_FOUND )) && (( GUEST_FOUND )) && (( DOLPHIN_NEWGAME )) && ! (( MAP_FOUND )); then
 	probe_guest_error && probe_fail_guest guest_failure "GUEST_FAILURE: New Game bootstrap reached engine readiness, followed by a guest error before map load."
-	echo "NEWGAME_EARLY_EXIT: Engine readiness was observed, but New Game exited before ${SMOKE_MAP:-the map} loaded."
+	echo "NEWGAME_EARLY_EXIT: Engine readiness was observed, but New Game exited before ${SMOKE_MAP:-the map} loaded (Dolphin exit ${DOLPHIN_EXIT})."
 	grep -ahF 'OSREPORT' "${LOG_FILES[@]}" | tail -1 | sed 's/^/Last guest log: /'
 	echo "Logs: $LOG_DIR"
 	finalize_probe newgame_early_exit 4

@@ -51,6 +51,9 @@ void GC_TrimVideoMemoryForMapLoad( void );
 void GC_DrawLoadingStatus( const char *message, const char *details );
 void GC_SetLoadingProgress( float progress );
 void GC_TrimClientSubsystemsForMapLoad( void );
+void R_GcFreeMenuImages( void );
+void R_GXReleaseHudPoolForMapLoad( void );
+void Image_GCPurgeDecodeScratch( void );
 void GC_BeginFrameBudgetProbe( void );
 void GC_RunGcmapSmokeFrames( const char *mapname, int count );
 qboolean GC_AttemptGcmapWorldRender( int count );
@@ -960,7 +963,14 @@ void GAME_EXPORT Host_Error( const char *error, ... )
 
 	if( !Host_CanAbortCurrentFrame( ))
 	{
+#if XASH_GAMECUBE
+		/* Direct -gcmap load runs before COM_Frame's setjmp. Keep the real
+		 * reason (e.g. SV_AllocPrivateData …) on the fatal panel instead of
+		 * wrapping it as "Host_ErrorInit: no active frame recovery point". */
+		Sys_Error( "%s", hosterror1 );
+#else
 		Sys_Error( "%sInit: no active frame recovery point: %s", __func__, hosterror1 );
+#endif
 		return;
 	}
 
@@ -971,12 +981,17 @@ void GAME_EXPORT Host_Error( const char *error, ... )
 	}
 
 	Con_Printf( S_RED "%s" S_DEFAULT ": %s", __func__, hosterror1 );
+#if XASH_GAMECUBE
+	/* Always surface Host_Error on-screen; developer console is unreachable on TV. */
+	Platform_MessageBox( "Host Error", hosterror1, true );
+#else
 	if( host_developer.value )
 	{
 		UI_SetActiveMenu( false );
 		Key_SetKeyDest( key_console );
 	}
 	else Platform_MessageBox( "Host Error", hosterror1, true );
+#endif
 
 	// host is shutting down. don't invoke infinite loop
 	if( host.status == HOST_SHUTDOWN || host.status == HOST_ERR_FATAL )
@@ -1726,6 +1741,11 @@ int EXPORT Host_Main( int argc, char **argv, const char *progname, int bChangeGa
 				{
 					GC_SetLoadingProgress( 0.80f );
 					GC_DrawLoadingStatus( "SPAWNING WORLD", gcmap );
+					/* Free Flipper slabs again — G326 client ensure may have
+					 * refilled HUD/fonts before BSP, starving late c4a3 privates. */
+					R_GcFreeMenuImages();
+					R_GXReleaseHudPoolForMapLoad();
+					Image_GCPurgeDecodeScratch();
 					SV_SpawnEntities( gcmap );
 					SV_ActivateServer( true );
 					GC_SetLoadingProgress( 1.0f );
@@ -1877,10 +1897,28 @@ int EXPORT Host_Main( int argc, char **argv, const char *progname, int bChangeGa
 			/* G320: lean New Game Prepare before first ServerFrame. Budget
 			 * samples often never flush on non-c0a0 (g36_done stays false),
 			 * so Host_Frame skipped Prepare and ServerFrame hung
-			 * (c3a2 20260809-003411 after spserver skip). */
-			if( Sys_CheckParm( "-gcnewgame" ) && !Sys_CheckParm( "-gcfullphysics" )
+			 * (c3a2 20260809-003411 after spserver skip).
+			 * Menu New Game (-gcmenuplaystart) with -gcmap hits the same gap:
+			 * SV_ActivateServer defers Prepare until client progs exist, but
+			 * the -gcmap ClientFrame path never loads them and never queues
+			 * gc_playstart (probe 20261103-235225: ready=0 forever). */
+			if( ( Sys_CheckParm( "-gcnewgame" ) || Sys_CheckParm( "-gcmenuplaystart" ))
+				&& !Sys_CheckParm( "-gcfullphysics" )
 				&& !GC_IsNewGameWorldReady() )
 			{
+				if( Sys_CheckParm( "-gcmenuplaystart" )
+					&& !CL_GameCubeClientProgsReady() )
+				{
+					Con_Reportf( "Xash3D GameCube: G320 post-smoke ensure client map=%s\n",
+						sv.name[0] ? sv.name : "?" );
+					Image_GCPurgeDecodeScratch();
+					FS_ClearFindMissCache();
+					if( !CL_GameCubeEnsureClientReady() )
+					{
+						Con_Reportf( S_WARN "Xash3D GameCube: G320 post-smoke client failed map=%s\n",
+							sv.name[0] ? sv.name : "?" );
+					}
+				}
 				Con_Reportf( "Xash3D GameCube: G320 post-smoke prepare map=%s\n",
 					sv.name[0] ? sv.name : "?" );
 				/* c1a0 20260809-232253: prepare hung with no further logs after

@@ -110,7 +110,10 @@ static void Sys_GameCubeFatalBreadcrumb( const char *message )
 		host.status, host.framecount, host.errorframe, route, gcmap[0] ? gcmap : "<none>", subsystem,
 		GC_GetBootPhaseName( GC_GetBootPhase()), g_buildcommit, mem );
 	SYS_Report( "Xash3D GameCube: fatal breadcrumb end\n" );
-	Q_snprintf( details, sizeof( details ), "SUBSYSTEM %s\nBUILD %s\nMAP %s\nROUTE %s\nMEM %s\nFRAME %u",
+	/* Keep FILE:LINE on its own short line — the soft panel wraps at ~25 cols
+	 * and was truncating "at path/file.c:123" down to "AT ." */
+	Q_snprintf( details, sizeof( details ),
+		"SUB %s\n%s\nMAP %s\nROUTE %s\nMEM %s\nFRAME %u",
 		subsystem, g_buildcommit, gcmap[0] ? gcmap : "NONE", route, mem, host.framecount );
 	GC_DrawFatalBreadcrumb( message, details );
 }

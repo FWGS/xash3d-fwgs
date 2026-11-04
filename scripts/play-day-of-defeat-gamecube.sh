@@ -1,6 +1,9 @@
 #!/usr/bin/env bash
-# Play the GameCube build of Day of Defeat with this project's Dolphin emulator called GameCube, optionally muted, with a
-# big always-on-top mute toggle window. See docs/GAMECUBE_PLAY_DOLPHIN.md.
+# Launch a Day of Defeat GameCube play disc in Dolphin.
+# Requires OUT/bin/dodgc.dol (HLSDK_GAMECUBE_GAMEDIR=dod build) and retail dod/
+# assets. This is NOT an HL1 launcher — see scripts/play-dolphin.sh for that.
+# DoD gameplay also needs a viable client/server source; see
+# docs/gamecube/MULTI_GAME.md (vgui2 research gate).
 set -euo pipefail
 
 usage()
@@ -8,7 +11,12 @@ usage()
 	cat <<'EOF'
 usage: scripts/play-day-of-defeat-gamecube.sh [options] [ISO]
 
-Starts the GameCube disc in the project's Dolphin with a mute toggle window.
+Starts a Day of Defeat GameCube disc in the project's Dolphin with a mute toggle.
+
+Requires:
+  OUT/bin/dodgc.dol          (build: HLSDK_GAMECUBE_GAMEDIR=dod scripts/build-gamecube.sh)
+  Half-Life/dod/             (or XASH3D_GC_DOD_DATA) retail assets
+  Half-Life/valve/           auto-staged as basedir sibling when present
 
   --muted          start with Dolphin's audio muted
   --unmuted        start with sound on
@@ -16,14 +24,13 @@ Starts the GameCube disc in the project's Dolphin with a mute toggle window.
   --no-record      do not record
   --save-default   remember --muted/--unmuted and --record/--no-record
   --no-toggle      do not open the mute toggle window
-  --build          (re)build the play disc first (OUT/xash3d-gc-play.iso)
+  --build          (re)build the DoD play disc first (OUT/xash3d-gc-dod-play.iso)
   --perf           build/launch a profiling play disc with the performance overlay
   --local-cache    launch the completed ISO from the local build cache (no HDD copy)
-  --install-desktop  add "Xash3D GameCube (Dolphin)" to the desktop app menu
+  --install-desktop  add "Xash3D GameCube DoD (Dolphin)" to the desktop app menu
   -h, --help       this help
 
-ISO defaults to OUT/xash3d-gc-play.iso (menu New Game with the real
-controller; build it with --build or scripts/build-gamecube-disc.py --play).
+ISO defaults to OUT/xash3d-gc-dod-play.iso. For Half-Life 1 use scripts/play-dolphin.sh.
 
 Mute only silences the speakers (PulseAudio/PipeWire): the game keeps
 mixing audio and running at full speed, and the recording keeps its sound. Toggle
@@ -47,9 +54,21 @@ EOF
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 CONF_DIR="${XDG_CONFIG_HOME:-$HOME/.config}/xash3d-gc"
-CONF="$CONF_DIR/play.conf"
-USER_DIR="${XDG_DATA_HOME:-$HOME/.local/share}/xash3d-gc/dolphin"
-ISO="$ROOT/OUT/xash3d-gc-play.iso"
+CONF="$CONF_DIR/play-dod.conf"
+USER_DIR="${XDG_DATA_HOME:-$HOME/.local/share}/xash3d-gc/dolphin-dod"
+ISO="$ROOT/OUT/xash3d-gc-dod-play.iso"
+DOD_DOL="$ROOT/OUT/bin/dodgc.dol"
+DOD_DATA_DEFAULT=""
+for candidate in \
+	"${XASH3D_GC_DOD_DATA:-}" \
+	"$ROOT/Half-Life/dod" \
+	"$ROOT/Day of Defeat/dod" \
+	"$ROOT/dod"
+do
+	[[ -n "$candidate" && -d "$candidate" ]] || continue
+	DOD_DATA_DEFAULT="$candidate"
+	break
+done
 START_MUTED=0
 RECORD=1
 TOGGLE=1
@@ -71,21 +90,21 @@ while [[ $# -gt 0 ]]; do
 		--save-default) SAVE=1 ;;
 		--no-toggle) TOGGLE=0 ;;
 		--build) BUILD=1; FORCE_BUILD=1 ;;
-		--perf) PERF=1; BUILD=1; FORCE_BUILD=1; ISO="$ROOT/OUT/xash3d-gc-play-perf.iso" ;;
+		--perf) PERF=1; BUILD=1; FORCE_BUILD=1; ISO="$ROOT/OUT/xash3d-gc-dod-play-perf.iso" ;;
 		--local-cache) PUBLISH=0; BUILD=1; FORCE_BUILD=1 ;;
 		--install-desktop)
 			apps="${XDG_DATA_HOME:-$HOME/.local/share}/applications"
 			mkdir -p "$apps"
-			cat > "$apps/xash3d-gc-play.desktop" <<EOF
+			cat > "$apps/xash3d-gc-dod-play.desktop" <<EOF
 [Desktop Entry]
 Type=Application
-Name=Xash3D GameCube (Dolphin)
-Comment=Play the GameCube build in Dolphin with a mute toggle
-Exec=$ROOT/scripts/play-dolphin.sh
+Name=Xash3D GameCube DoD (Dolphin)
+Comment=Play Day of Defeat GameCube build in Dolphin (requires dodgc.dol)
+Exec=$ROOT/scripts/play-day-of-defeat-gamecube.sh
 Terminal=false
 Categories=Game;
 EOF
-			echo "installed $apps/xash3d-gc-play.desktop"
+			echo "installed $apps/xash3d-gc-dod-play.desktop"
 			exit 0 ;;
 		-h|--help) usage; exit 0 ;;
 		-*) echo "unknown option: $1" >&2; usage >&2; exit 2 ;;
@@ -101,15 +120,23 @@ if (( SAVE )); then
 fi
 
 ENGINE_BIN="$ROOT/build/engine/xash"
-BOOT_DOL="$ROOT/OUT/bin/boot.dol"
-if [[ -f "$ENGINE_BIN" && ( ! -f "$BOOT_DOL" || "$ENGINE_BIN" -nt "$BOOT_DOL" ) ]]; then
-	 echo "==> generating GameCube DOL from the current engine"
-	mkdir -p "$ROOT/OUT/bin"
-	python3 "$ROOT/scripts/elf-to-dol.py" "$ENGINE_BIN" "$BOOT_DOL"
+BOOT_DOL="$DOD_DOL"
+if [[ ! -f "$DOD_DOL" ]]; then
+	echo "error: missing $DOD_DOL" >&2
+	echo "Day of Defeat uses a separate statically linked DOL." >&2
+	echo "  HLSDK_GAMECUBE_GAMEDIR=dod scripts/hlsdk-gamecube-build.sh" >&2
+	echo "  HLSDK_GAMECUBE_GAMEDIR=dod scripts/build-gamecube.sh" >&2
+	echo "Steam DoD also needs a non-vgui2 game client — see docs/gamecube/MULTI_GAME.md" >&2
+	exit 1
+fi
+if [[ -z "$DOD_DATA_DEFAULT" ]]; then
+	echo "error: Day of Defeat assets not found (tried Half-Life/dod, Day of Defeat/dod, \$XASH3D_GC_DOD_DATA)" >&2
+	echo "Stage retail dod/ beside valve/, then rebuild. HL1 play stays scripts/play-dolphin.sh." >&2
+	exit 1
 fi
 if [[ -f "$BOOT_DOL" && -f "$ISO" && "$BOOT_DOL" -nt "$ISO" ]]; then
 	BUILD=1
-	echo "==> play ISO is older than the current boot.dol; rebuilding"
+	echo "==> DoD play ISO is older than dodgc.dol; rebuilding"
 fi
 if (( BUILD )) || [[ ! -f "$ISO" ]]; then
 	# Never let Dolphin observe the image while the large data tree is still
@@ -118,15 +145,15 @@ if (( BUILD )) || [[ ! -f "$ISO" ]]; then
 	mkdir -p "$ROOT/OUT"
 	# Remove only abandoned atomic publish files created by this launcher.
 	# The age guard avoids touching a copy that another launcher may still own.
-	find "$ROOT/OUT" -maxdepth 1 -type f -name 'xash3d-gc-play*.iso.tmp.*' \
+	find "$ROOT/OUT" -maxdepth 1 -type f -name 'xash3d-gc-dod-play*.iso.tmp.*' \
 		-mtime +2 -delete 2>/dev/null || true
-	exec 9>"$ROOT/OUT/.play-disc.lock"
+	exec 9>"$ROOT/OUT/.play-dod-disc.lock"
 	flock 9
 	BUILD_LOCK_HELD=1
-	if (( ! FORCE_BUILD )) && [[ -f "$ISO" && "$ENGINE_BIN" -ot "$ISO" ]]; then
+	if (( ! FORCE_BUILD )) && [[ -f "$ISO" && "$BOOT_DOL" -ot "$ISO" ]]; then
 		BUILD=0
 	else
-		echo "==> building play disc $ISO"
+		echo "==> building DoD play disc $ISO"
 		# Some tmpfs mounts report plenty of free space but impose a per-user
 		# quota; xorriso then fails near the end of a build with "Disk quota
 		# exceeded". Keep all large transient data on the datasets volume by
@@ -136,7 +163,7 @@ if (( BUILD )) || [[ ! -f "$ISO" ]]; then
 		# Keep failed/interrupted builds from accumulating indefinitely. Only
 		# remove our own old generated images, and never touch retail content.
 		find "$BUILD_CACHE" -maxdepth 1 -type f \
-			\( -name 'xash3d-gc-play-*.iso' -o -name 'xash3d-gc-play-*.iso.tmp' \) \
+			\( -name 'xash3d-gc-dod-play-*.iso' -o -name 'xash3d-gc-dod-play-*.iso.tmp' \) \
 			-mtime +2 -delete 2>/dev/null || true
 		free_bytes() { df -P -B1 "$1" 2>/dev/null | awk 'NR==2 {print $4}'; }
 		cache_free="$(free_bytes "$BUILD_CACHE")"
@@ -144,16 +171,22 @@ if (( BUILD )) || [[ ! -f "$ISO" ]]; then
 			echo "error: less than 1.2 GB free in ISO build cache: $BUILD_CACHE" >&2
 			exit 1
 		fi
-		BUILD_DATA="$BUILD_CACHE/valve"
-		echo "==> synchronizing retail content to local build cache"
-		rsync -a --delete "$ROOT/Half-Life/valve/" "$BUILD_DATA/"
-		tmp_iso="$BUILD_CACHE/xash3d-gc-play-$$.iso"
+		BUILD_DATA="$BUILD_CACHE/dod"
+		echo "==> synchronizing DoD retail content to local build cache ($DOD_DATA_DEFAULT)"
+		rsync -a --delete "$DOD_DATA_DEFAULT/" "$BUILD_DATA/"
+		# DoD liblist typically falls back to valve/; stage sibling when present.
+		if [[ -d "$ROOT/Half-Life/valve" ]]; then
+			mkdir -p "$BUILD_CACHE/valve"
+			rsync -a --delete "$ROOT/Half-Life/valve/" "$BUILD_CACHE/valve/"
+		fi
+		tmp_iso="$BUILD_CACHE/xash3d-gc-dod-play-$$.iso"
 		trap 'rm -f "$tmp_iso"' EXIT
 		# build-gamecube-disc.py stages the retail tree through tempfile too.
 		# Point it at the same cache so neither staging nor xorriso can exhaust
-		# the tmpfs user quota.
-		TMPDIR="$BUILD_CACHE" python3 "$ROOT/scripts/build-gamecube-disc.py" --dol "$BOOT_DOL" --output "$tmp_iso" --data "$BUILD_DATA" \
-		--play $([[ $PERF == 1 ]] && echo --perf)
+		# the tmpfs user quota. Auto-extra picks up valve/ beside dod/.
+		TMPDIR="$BUILD_CACHE" python3 "$ROOT/scripts/build-gamecube-disc.py" \
+			--dol "$BOOT_DOL" --output "$tmp_iso" --data "$BUILD_DATA" \
+			--gamedir dod --play $([[ $PERF == 1 ]] && echo --perf)
 		if (( PUBLISH )); then
 			publish_free="$(free_bytes "$(dirname "$ISO")")"
 			if [[ "$publish_free" =~ ^[0-9]+$ ]] && (( publish_free < 1000000000 )); then

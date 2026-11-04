@@ -29,6 +29,9 @@ GNU General Public License for more details.
 #include "gamecube/mem_gamecube.h"
 #include "gamecube/dll_gamecube.h"
 void CL_GCRelinkEventHooks( void );
+void Image_GCPurgeDecodeScratch( void );
+void R_GCTrimTextureMips( void );
+void R_GXReleaseHudPoolForMapLoad( void );
 #endif
 
 // GameAPI functions declarations
@@ -1602,13 +1605,13 @@ static edict_t* SV_AllocPrivateData( edict_t *ent, string_t className, qboolean 
 	SpawnEdict( &ent->v );
 
 #if XASH_GAMECUBE
-	/* Tip MEM1: brush furniture can miss a private block without ending the
-	 * whole map. NPCs/triggers still abort — missing AI is not playable HL1. */
-	if( GC_MapLoadMemoryOpt() && !ent->pvPrivateData )
+	/* Tip MEM1: brush furniture / pickups can miss a private block without
+	 * ending the whole map. Boss/combat NPCs still abort after reclaim. */
+	if( ( GC_MapLoadMemoryOpt() || Sys_CheckParm( "-gcmap" ) || Sys_CheckParm( "-gcnewgame" ))
+		&& !ent->pvPrivateData )
 	{
 		const char *cn = pszClassName ? pszClassName : "";
-
-		if( !Q_strnicmp( cn, "func_", 5 )
+		const qboolean skippable = !Q_strnicmp( cn, "func_", 5 )
 			|| !Q_strnicmp( cn, "env_", 4 )
 			|| !Q_strnicmp( cn, "light", 5 )
 			|| !Q_strnicmp( cn, "info_", 5 )
@@ -1616,12 +1619,34 @@ static edict_t* SV_AllocPrivateData( edict_t *ent, string_t className, qboolean 
 			|| !Q_strnicmp( cn, "multi_", 6 )
 			|| !Q_strnicmp( cn, "trigger_", 8 )
 			|| !Q_strnicmp( cn, "path_", 5 )
-			|| !Q_strnicmp( cn, "speaker", 7 ))
+			|| !Q_strnicmp( cn, "speaker", 7 )
+			|| !Q_strnicmp( cn, "item_", 5 )
+			|| !Q_strnicmp( cn, "weapon", 6 )
+			|| !Q_strnicmp( cn, "ammo_", 5 )
+			|| !Q_strnicmp( cn, "xen_", 4 )
+			|| !Q_strnicmp( cn, "cycler", 6 )
+			|| !Q_strnicmp( cn, "scripted_", 9 )
+			|| !Q_strnicmp( cn, "aiscripted_", 11 )
+			|| !Q_strnicmp( cn, "monstermaker", 12 )
+			|| !Q_strnicmp( cn, "gibshooter", 10 )
+			|| !Q_strnicmp( cn, "spark_shower", 12 )
+			|| !Q_stricmp( cn, "monster_hevsuit_dead" )
+			|| !Q_stricmp( cn, "monster_generic" );
+
+		if( skippable )
 		{
 			Con_Reportf( S_WARN "Xash3D GameCube: private-data miss %s — skipping entity\n", cn );
 			SV_FreeEdict( ent );
 			return NULL;
 		}
+
+		/* One reclaim pass before aborting a combat NPC — HUD/menu slabs and
+		 * decode scratch often still own the tip after G326 client ensure. */
+		Image_GCPurgeDecodeScratch();
+		R_GCTrimTextureMips();
+		R_GXReleaseHudPoolForMapLoad();
+		Con_Reportf( S_ERROR "Xash3D GameCube: private-data miss critical %s (heap_free=%s)\n",
+			cn, Q_memprint( GC_MemHeapFreeBytes() ));
 		SV_FreeEdict( ent );
 		Host_Error( "%s: private-data allocation failed for entity %s; aborting map load without omitting it\n",
 			__func__, pszClassName );

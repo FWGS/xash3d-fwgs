@@ -346,11 +346,10 @@ qboolean SCR_DrawCinematic( void )
 		return false;
 
 	ref.dllFuncs.GL_SetRenderMode( kRenderNormal );
-#if !XASH_GAMECUBE
-	/* Desktop keeps letterbox clear; GameCube skips the extra fullscreen pass
-	 * so intro presents stay lean on real hardware. */
+	/* Always clear letterbox. Skipping this on GameCube left stale EFB tiles
+	 * (sepia chunks) around the intro video. One black fullscreen blit is
+	 * cheap next to the GCVID upload. */
 	ref.dllFuncs.R_DrawStretchPic( 0, 0, refState.width, refState.height, 0, 0, 1, 1, R_GetBuiltinTexture( REF_BLACK_TEXTURE ));
-#endif
 
 	if( !AVI_Think( cin_state ))
 		return SCR_NextMovie();
@@ -474,8 +473,12 @@ void SCR_StopCinematic( void )
 	cls.signon = 0;
 
 #if XASH_GAMECUBE
+	/* Drop intro decode scratch before menu localization / font atlases
+	 * contend for the same MEM1 headroom (gameui_english.txt is 26 KiB). */
 	Image_GCPurgeDecodeScratch();
 	Con_Reportf( "Xash3D GameCube: activating menu after cinematic\n" );
+	Con_Reportf( "Xash3D GameCube: mem after cinematic purge (menu handoff)\n" );
+	Mem_PrintStats();
 #endif
 	UI_SetActiveMenu( true );
 }

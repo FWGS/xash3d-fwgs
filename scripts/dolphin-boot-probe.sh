@@ -194,7 +194,11 @@ SKIP_ENGINE=0
 SKIP_DISC=0
 if [[ "${DOLPHIN_SKIP_BUILD:-0}" == "1" && -f "$PREBUILT_ISO" ]]; then
 	SKIP_ENGINE=1
-	if (( DOLPHIN_NEWGAME )); then
+	if (( DOLPHIN_NEWGAME )) && [[ "${DOLPHIN_REUSE_ISO:-0}" == "1" ]]; then
+		# Explicit reuse means the caller supplied a disc with the desired
+		# New Game configuration already baked into gamecube.cfg.
+		SKIP_DISC=1
+	elif (( DOLPHIN_NEWGAME )); then
 		SKIP_DISC=0
 	elif [[ "${DOLPHIN_MENU_NEWGAME:-0}" == "1" && "${DOLPHIN_REUSE_ISO:-0}" == "1" ]]; then
 		SKIP_DISC=1

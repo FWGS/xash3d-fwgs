@@ -163,8 +163,11 @@ static void UI_GCLoadFallbackMenuTextures( void )
 		gc_menu_logo = ref.dllFuncs.GL_LoadTexture( "resource/logo_game.tga", NULL, 0, TF_IMAGE|TF_NOMIPMAP|TF_CLAMP );
 
 	{
-		int baked_bg = ref.dllFuncs.GL_LoadTexture( "resource/gc_menu/background.bmp", NULL, 0,
+		int baked_bg = ref.dllFuncs.GL_LoadTexture( "resource/gc_menu/background.tga", NULL, 0,
 			TF_IMAGE|TF_NOMIPMAP|TF_CLAMP );
+		if( baked_bg <= 0 )
+			baked_bg = ref.dllFuncs.GL_LoadTexture( "resource/gc_menu/background.bmp", NULL, 0,
+				TF_IMAGE|TF_NOMIPMAP|TF_CLAMP );
 		if( baked_bg > 0 )
 		{
 			gc_menu_bg_piece_t *piece = &gc_menu_background[0];
@@ -173,9 +176,9 @@ static void UI_GCLoadFallbackMenuTextures( void )
 
 			R_GetTextureParms( &baked_w, &baked_h, baked_bg );
 			if( baked_w <= 0 )
-				baked_w = 128;
+				baked_w = 640;
 			if( baked_h <= 0 )
-				baked_h = 96;
+				baked_h = 480;
 
 			gc_menu_use_baked_retail = true;
 			gc_menu_background_width = baked_w;
@@ -1367,6 +1370,53 @@ static void GAME_EXPORT pfnDrawCharacter( int ix, int iy, int iwidth, int iheigh
 	color[1] = (ulRGBA & 0xFF00) >> 8;
 	color[2] = (ulRGBA & 0xFF) >> 0;
 	ref.dllFuncs.Color4ub( color[0], color[1], color[2], color[3] );
+
+#if XASH_GAMECUBE
+	/* hFont==0: scale the resident credits HUD font to the requested cell.
+	 * Used by mainui BitmapFont when the embedded menufont atlas cannot load. */
+	if( !hFont )
+	{
+		cl_font_t *font = &cls.creditsFont;
+		wrect_t *rc;
+		int texw, texh;
+		float src_w, src_h, scale;
+
+		if( !font->valid )
+			font = Con_GetFont( 0 );
+		if( !font || !font->valid || !font->hFontTexture )
+			return;
+		if( ch <= 32 || !font->charWidths[ch] )
+			return;
+
+		rc = &font->fontRc[ch];
+		src_w = (float)( rc->right - rc->left );
+		src_h = (float)( rc->bottom - rc->top );
+		if( src_w < 1.0f || src_h < 1.0f )
+			return;
+
+		R_GetTextureParms( &texw, &texh, font->hFontTexture );
+		if( !texw || !texh )
+			return;
+
+		scale = height / src_h;
+		width = src_w * scale;
+		height = src_h * scale;
+		s1 = (float)rc->left / (float)texw;
+		t1 = (float)rc->top / (float)texh;
+		s2 = (float)rc->right / (float)texw;
+		t2 = (float)rc->bottom / (float)texh;
+
+		if( !CL_Scissor( &gameui.ds.scissor, &x, &y, &width, &height, &s1, &t1, &s2, &t2 ))
+			return;
+
+		/* Credits font is white-on-black without TRANSPARENT_COLOR; additive
+		 * drops the black cell background while keeping the glyph. */
+		ref.dllFuncs.GL_SetRenderMode( kRenderTransAdd );
+		ref.dllFuncs.R_DrawStretchPic( x, y, width, height, s1, t1, s2, t2, font->hFontTexture );
+		ref.dllFuncs.Color4ub( 255, 255, 255, 255 );
+		return;
+	}
+#endif
 
 	col = (ch & 15) * 0.0625f + (0.5f / 256.0f);
 	row = (ch >> 4) * 0.0625f + (0.5f / 256.0f);

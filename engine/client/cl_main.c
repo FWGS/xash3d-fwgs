@@ -41,6 +41,9 @@ qboolean GC_RenderNewGameWorldFrames( int count );
 qboolean GC_UseGxWorldDraw( void );
 qboolean CL_GameCubeClientProgsReady( void );
 qboolean CL_GameCubeEnsureClientReady( void );
+void R_GcFreeMenuImages( void );
+void R_GXReleaseHudPoolForMapLoad( void );
+void Image_GCPurgeDecodeScratch( void );
 static qboolean gc_g159_reconnect_active_pending;
 static qboolean gc_g158_reconnect_seen;
 static int CL_GetFragmentSize( void *unused, fragsize_t mode );
@@ -67,7 +70,8 @@ static void CL_GameCubeArmLeanPlayActive( void )
 
 	if( armed )
 		return;
-	if( !Sys_CheckParm( "-gcnewgame" ) || Sys_CheckParm( "-gcfullphysics" ))
+	if( !( Sys_CheckParm( "-gcnewgame" ) || Sys_CheckParm( "-gcmenuplaystart" ))
+		|| Sys_CheckParm( "-gcfullphysics" ))
 		return;
 	if( !GC_IsNewGameG36Done() || !GC_IsNewGameWorldReady() )
 		return;
@@ -3980,7 +3984,10 @@ void Host_ClientFrame( void )
 	if( !CL_GameCubeClientProgsReady() )
 	{
 #if XASH_GAMECUBE
-		if( Sys_CheckParm( "-gcmap" ))
+		/* Pure -gcmap smoke keeps client progs deferred. Menu New Game with
+		 * -gcmap still needs the client so post-smoke Prepare / lean play can
+		 * arm (otherwise Host_Frame stalls at ready=0). */
+		if( Sys_CheckParm( "-gcmap" ) && !Sys_CheckParm( "-gcmenuplaystart" ))
 		{
 			/* Map-load smoke keeps client progs deferred; avoid renderer/texture
 			 * work that allocates from the filesystem pool while BSP data
@@ -3989,18 +3996,33 @@ void Host_ClientFrame( void )
 				host.renderinfo_changed = false;
 			return;
 		}
+		if( Sys_CheckParm( "-gcmenuplaystart" ))
+		{
+			Image_GCPurgeDecodeScratch();
+			FS_ClearFindMissCache();
+			if( !CL_GameCubeEnsureClientReady() )
+			{
+				if( host.renderinfo_changed )
+					host.renderinfo_changed = false;
+				return;
+			}
+		}
+		else
 #endif
-		VID_CheckChanges();
-		if( GC_BootDrawAllowed() )
-			SCR_UpdateScreen();
-		SCR_RunCinematic();
-		return;
+		{
+			VID_CheckChanges();
+			if( GC_BootDrawAllowed() )
+				SCR_UpdateScreen();
+			SCR_RunCinematic();
+			return;
+		}
 	}
 
 	/* G85: after New Game world present is armed, present via SCR first and
 	 * skip pfnFrame/EmitEntities that can stall Host_Frame before sustained frames.
 	 * G278: drain net so ride SFX can reach the mixer; stream intro VO. */
-	if( Sys_CheckParm( "-gcnewgame" ) && GC_IsNewGameG36Done()
+	if( ( Sys_CheckParm( "-gcnewgame" ) || Sys_CheckParm( "-gcmenuplaystart" ))
+		&& GC_IsNewGameG36Done()
 		&& GC_IsNewGameWorldReady() && !Sys_CheckParm( "-gcfullphysics" ))
 	{
 		static int gc_scr_sustain_log;
@@ -4284,6 +4306,14 @@ qboolean CL_GameCubeEnsureClientReady( void )
 	Con_Reportf( "Xash3D GameCube: deferred client init begin\n" );
 	GC_SetLoadingProgress( 0.90f );
 	GC_DrawLoadingStatus( "CLIENT INIT", "half-life" );
+
+	/* Drop Flipper menu/HUD slabs before CL_LoadProgs → InitInput →
+	 * pfnAddCommand. Trim at play-start may have run earlier, but a retail
+	 * menu session can re-upload tiles/fonts before this point and leave the
+	 * tip too fragmented for a 19-byte BaseCmd name. */
+	R_GcFreeMenuImages();
+	R_GXReleaseHudPoolForMapLoad();
+	Image_GCPurgeDecodeScratch();
 
 	/* The fallback-menu New Game transition is still inside the tightest
 	 * MEM1 window.  Starting the DSP/voice backend here can retain decode
