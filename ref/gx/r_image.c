@@ -182,7 +182,20 @@ acess to array elem
 */
 image_t *R_GetTexture( unsigned int texnum )
 {
+#if XASH_GAMECUBE
+	/* Studio/world paths can transiently hand a raw MDL offset or a stomped
+	 * index (c4a3 CapFaces after aliased surfedges). Never Host_Error here. */
+	if( texnum >= MAX_TEXTURES )
+	{
+		static int bad_tex_reports;
+		if( bad_tex_reports++ < 5 )
+			gEngfuncs.Con_Reportf( "Xash3D GameCube: R_GetTexture bad texnum=%u (max=%d)\n",
+				texnum, MAX_TEXTURES );
+		return &r_images[0];
+	}
+#else
 	ASSERT( texnum >= 0 && texnum < MAX_TEXTURES );
+#endif
 	return &r_images[texnum];
 }
 

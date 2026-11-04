@@ -14131,6 +14131,12 @@ qboolean GC_PrepareNewGameWorldPresent( void )
 			gc_gameplay_present_skip_logged = true;
 			Con_Reportf( "Xash3D GameCube: gameplay probe post-G36 render skipped\n" );
 		}
+		/* Fullphysics queues hop1 in Host_Main before Prepare. On hop1 dest,
+		 * still arm G356 hop2 — denser_am owns that call and is skipped here
+		 * (dual-hop 20261104-072917: G68 c1a0d ready, never changelevel2 armed). */
+		if( Sys_CheckParm( "-gcchangelevel2" ) && GC_IsNewGameG36Done()
+			&& GC_IsProbeChangelevelDest() )
+			GC_ProbeMaybeQueueChangelevel2();
 	}
 	else if( denser_am_early )
 	{

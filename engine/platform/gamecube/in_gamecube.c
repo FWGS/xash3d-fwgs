@@ -676,8 +676,26 @@ static u16 GC_ProbeSyntheticHeldButtons( void )
 		if( gc_probe_action_stage == 3
 			&& GC_ProbeMenuStageReady( GC_PROBE_MENU_STEP_DELAY, GC_PROBE_MENU_STEP_FRAMES ))
 		{
-			gc_probe_action_stage = 7;
+			gc_probe_action_stage = 4;
+			gc_probe_action_time = host.realtime;
 			Con_Reportf( "Xash3D GameCube: probe difficulty menu final release\n" );
+			return 0;
+		}
+		/* Real mainui may swallow the difficulty A without running StartGame
+		 * (fallback=0 probes 20261104-040628). After a short settle, force the
+		 * Flipper-safe play start so menu New Game still reaches c0a0. */
+		if( gc_probe_action_stage == 4
+			&& host.realtime - gc_probe_action_time >= 0.75 )
+		{
+			gc_probe_action_stage = 7;
+			if( !CL_Active() && !SV_Active() )
+			{
+				/* Queue only — executing play-start inside the input probe
+				 * nested mid-frame and hung after client trim (probe
+				 * 20261104-043204). Host Cbuf runs it on the next frame. */
+				Con_Reportf( "Xash3D GameCube: probe menu New Game force gc_playstart\n" );
+				Cbuf_AddText( "gc_playstart\n" );
+			}
 		}
 		return 0;
 	}

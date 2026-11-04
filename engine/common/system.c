@@ -112,9 +112,34 @@ static void Sys_GameCubeFatalBreadcrumb( const char *message )
 	SYS_Report( "Xash3D GameCube: fatal breadcrumb end\n" );
 	/* Keep FILE:LINE on its own short line — the soft panel wraps at ~25 cols
 	 * and was truncating "at path/file.c:123" down to "AT ." */
-	Q_snprintf( details, sizeof( details ),
-		"SUB %s\n%s\nMAP %s\nROUTE %s\nMEM %s\nFRAME %u",
-		subsystem, g_buildcommit, gcmap[0] ? gcmap : "NONE", route, mem, host.framecount );
+	/* Keep FILE:LINE on its own short line — the soft panel wraps at ~25 cols
+	 * and was truncating "at path/file.c:123" out of the yellow message. */
+	{
+		const char *at = message ? Q_stristr( message, " at " ) : NULL;
+		char where[96];
+
+		where[0] = '\0';
+		if( at && at[4] )
+		{
+			Q_strncpy( where, at + 4, sizeof( where ));
+			/* Drop trailing ')' / newline from Sys_Error formatting. */
+			{
+				char *p;
+				for( p = where; *p; p++ )
+				{
+					if( *p == ')' || *p == '\n' || *p == '\r' )
+					{
+						*p = '\0';
+						break;
+					}
+				}
+			}
+		}
+		Q_snprintf( details, sizeof( details ),
+			"SUB %s\n%s\nAT %s\nMAP %s\nROUTE %s\nMEM %s\nFRAME %u",
+			subsystem, g_buildcommit, where[0] ? where : "?",
+			gcmap[0] ? gcmap : "NONE", route, mem, host.framecount );
+	}
 	GC_DrawFatalBreadcrumb( message, details );
 }
 #endif

@@ -549,6 +549,54 @@ void *_Mem_Alloc( poolhandle_t poolptr, size_t size, qboolean clear, const char 
 				pool->name, Q_memprint( size ), filename, fileline );
 			return NULL;
 		}
+		/* Retail menu → New Game (map still NONE) can tip-OOM on a ~164 KiB
+		 * content load (studio/sprite/sound) and paint a fatal magenta panel
+		 * (hardware 20261104, frame ~775). Reclaim once, then soft-fail
+		 * recoverable content pools so Host can continue into map load. */
+		{
+			qboolean content_pool = false;
+			qboolean content_file = false;
+
+			Image_GCPurgeDecodeScratch();
+			R_GCTrimTextureMips();
+			R_GXReleaseHudPoolForMapLoad();
+			ptr = _Mem_TryAlloc( poolptr, size, clear, filename, fileline );
+			if( ptr )
+				return ptr;
+
+			if( pool && pool->name )
+			{
+				content_pool = !Q_stricmp( pool->name, "Client Static Pool" )
+					|| !Q_stricmp( pool->name, "Client Edicts Zone" )
+					|| !Q_stricmp( pool->name, "SoundLib Pool" )
+					|| Q_stristr( pool->name, ".mdl" )
+					|| Q_stristr( pool->name, ".spr" )
+					|| Q_stristr( pool->name, "models/" )
+					|| Q_stristr( pool->name, "sprites/" );
+			}
+			if( filename )
+			{
+				/* Do NOT match mod_bmodel.c — its basename contains "model.c"
+				 * and BSP submodel/lump allocs must stay fatal-or-arena, not
+				 * soft-NULL (c1a0d 20261104-065659 hung after 5.94 Kb tip fail). */
+				content_file = Q_stristr( filename, "mod_studio.c" )
+					|| (( Q_stristr( filename, "/model.c" )
+						|| Q_stristr( filename, "\\model.c" )
+						|| ( filename[0] && !Q_stricmp( filename, "model.c" )))
+						&& !Q_stristr( filename, "mod_bmodel.c" ))
+					|| Q_stristr( filename, "cl_game.c" )
+					|| Q_stristr( filename, "cl_efx.c" )
+					|| Q_stristr( filename, "s_load.c" )
+					|| Q_stristr( filename, "s_main.c" );
+			}
+			if( content_pool || content_file || size >= ( 48 * 1024 ))
+			{
+				Con_Reportf( "Xash3D GameCube: soft-fail tip content alloc size=%s pool=%s at %s:%i\n",
+					Q_memprint( size ), pool && pool->name ? pool->name : "?",
+					filename ? filename : "?", fileline );
+				return NULL;
+			}
+		}
 #endif
 		Sys_Error( "%s: out of memory (alloc size %s at %s:%i)\n", __func__, Q_memprint( size ), filename, fileline );
 		return NULL;

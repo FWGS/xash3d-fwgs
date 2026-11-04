@@ -110,7 +110,17 @@ void R_GcmapReleaseDynamicScreenBuffers( void )
 	if( vid.buffer )
 	{
 		if( vid.buffer != gc_gcmap_static_viewbuffer )
-			free( vid.buffer );
+		{
+			void *soft = NULL;
+
+			/* -gcdumpframes / -gcdump latch the platform soft FB (gc.buffer)
+			 * into vid.buffer via SW_LockBuffer. Freeing that pointer hangs
+			 * the heap during play-start trim (probe 20261104-043806). */
+			if( gEngfuncs.SW_LockBuffer )
+				soft = gEngfuncs.SW_LockBuffer();
+			if( vid.buffer != (pixel_t *)soft )
+				free( vid.buffer );
+		}
 		vid.buffer = NULL;
 	}
 }
@@ -181,7 +191,9 @@ void R_GcmapTrimForMapLoad( void )
 	if( gc_renderer_trimmed )
 		return;
 
+	gEngfuncs.Con_Reportf( "Xash3D GameCube: renderer trim surface begin\n" );
 	R_GcmapTrimSurfaceCache();
+	gEngfuncs.Con_Reportf( "Xash3D GameCube: renderer trim screen begin\n" );
 	R_GcmapTrimScreenBuffers();
 	gc_renderer_trimmed = true;
 	gEngfuncs.Con_Reportf( "Xash3D GameCube: renderer trim for map load\n" );

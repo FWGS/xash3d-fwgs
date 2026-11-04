@@ -384,7 +384,24 @@ CL_InitViewBeams
 */
 void CL_InitViewBeams( void )
 {
+#if XASH_GAMECUBE
+	/* Tip can be <1 KiB after dense Xen maps (c4a3). Soft-fail beams rather
+	 * than _Mem_Alloc fatal during client ensure (probe 20261104-035124). */
+	{
+		const size_t need = sizeof( BEAM ) * (size_t)GI->max_beams;
+		cl_viewbeams = (BEAM *)Mem_TryCalloc( cls.mempool, need );
+		if( !cl_viewbeams )
+		{
+			Con_Reportf( S_WARN "Xash3D GameCube: view beams deferred (need %s tip)\n",
+				Q_memprint( need ));
+			cl_free_beams = NULL;
+			cl_active_beams = NULL;
+			return;
+		}
+	}
+#else
 	cl_viewbeams = Mem_Calloc( cls.mempool, sizeof( BEAM ) * GI->max_beams );
+#endif
 	CL_ClearViewBeams();
 }
 

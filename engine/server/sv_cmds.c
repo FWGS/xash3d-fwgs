@@ -34,9 +34,17 @@ void FS_ClearFindMissCache( void );
 void R_GcFreeMenuImages( void );
 void R_GXReleaseHudPoolForMapLoad( void );
 
+/* Optional map override for newgame <map> → play-start (GI->startmap is const). */
+static char sv_gc_playstart_map_override[64];
+
 static void SV_GameCubePlayStart_f( void )
 {
-	const char *map = ( GI && !COM_StringEmpty( GI->startmap )) ? GI->startmap : "c0a0";
+	const char *map;
+
+	if( !COM_StringEmpty( sv_gc_playstart_map_override ))
+		map = sv_gc_playstart_map_override;
+	else
+		map = ( GI && !COM_StringEmpty( GI->startmap )) ? GI->startmap : "c0a0";
 
 	Con_Reportf( "Xash3D GameCube: play start begin %s\n", map );
 	/* Lean path before any texture/BSP work — retail menu boots quality=1 and
@@ -47,10 +55,15 @@ static void SV_GameCubePlayStart_f( void )
 	GC_BeginMapLoadMemoryOpt();
 	/* Reserve the BSP buffer at the lowest-memory point we can reach. */
 	GC_TrimClientSubsystemsForMapLoad();
+	Con_Reportf( "Xash3D GameCube: play start after client trim %s\n", map );
 	Mod_FreeUnused();
+	Con_Reportf( "Xash3D GameCube: play start after Mod_FreeUnused %s\n", map );
 	R_GcmapTrimForMapLoad();
+	Con_Reportf( "Xash3D GameCube: play start after GcmapTrim %s\n", map );
 	GC_TrimVideoMemoryForMapLoad();
+	Con_Reportf( "Xash3D GameCube: play start after video trim %s\n", map );
 	GC_PrepareMapLoadBufferForMap( map );
+	Con_Reportf( "Xash3D GameCube: play start map buffer ready %s\n", map );
 	GC_DeltaCheckTables( "play start pre-spawn" );
 	if( SV_SpawnServer( map, NULL, false ))
 	{
@@ -477,12 +490,36 @@ SV_NewGame_f
 */
 static void SV_NewGame_f( void )
 {
+#if XASH_GAMECUBE
+	/* Retail mainui StartGame issues "newgame"; the builtin fallback uses
+	 * gc_playstart. Both must take the tip-trim + SpawnServer play-start path
+	 * or New Game hangs/OOMs on MEM1 (probe 20261104-040628: difficulty A
+	 * with fallback=0 never reached play start / MAP_READY). */
+	if( Cmd_Argc() == 1 || Cmd_Argc() == 2 )
+	{
+		sv_gc_playstart_map_override[0] = '\0';
+		if( Cmd_Argc() == 2 )
+		{
+			Q_strncpy( sv_gc_playstart_map_override, Cmd_Argv( 1 ),
+				sizeof( sv_gc_playstart_map_override ));
+			Con_Reportf( "Xash3D GameCube: newgame → play start map=%s\n",
+				sv_gc_playstart_map_override );
+		}
+		else
+			Con_Reportf( "Xash3D GameCube: newgame → play start\n" );
+		SV_GameCubePlayStart_f();
+		sv_gc_playstart_map_override[0] = '\0';
+		return;
+	}
+	Con_Printf( S_USAGE "newgame\n" );
+#else
 	if( Cmd_Argc() == 1 )
 		COM_NewGame( GI->startmap );
 	else if( Cmd_Argc() == 2 )
 		COM_NewGame( Cmd_Argv( 1 ));
 	else
 		Con_Printf( S_USAGE "newgame\n" );
+#endif
 }
 
 /*

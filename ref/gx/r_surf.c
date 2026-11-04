@@ -1334,7 +1334,8 @@ void R_GcmapTrimSurfaceCache( void )
 {
 	if( sc_base )
 	{
-		D_FlushCaches();
+		/* Skip D_FlushCaches rover walk: after retail mainui soft-fails the
+		 * owner chain can be stale, and map-load discards surfaces anyway. */
 		R_FreeGameCubeSurfaceCache();
 		sc_base = sc_rover = NULL;
 		gc_sc_static = false;

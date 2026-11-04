@@ -1799,8 +1799,13 @@ int EXPORT Host_Main( int argc, char **argv, const char *progname, int bChangeGa
 								&& Q_stricmp( dest, sv.name ))
 							{
 								const qboolean tram_tip = !Q_strnicmp( sv.name, "c0a0", 4 );
+								/* Fullphysics never reaches Flipper post-G36 present, so
+								 * denser maps cannot rely on the deferred G68 hop. Queue
+								 * like tram tips; do it before Prepare claims tip scratch
+								 * (c1a0→c1a0d 20261104-064953 soft-failed 5.94 Kb submodels). */
+								const qboolean fullphys_early = Sys_CheckParm( "-gcfullphysics" ) ? true : false;
 
-								if( sv.name[0] && !tram_tip )
+								if( sv.name[0] && !tram_tip && !fullphys_early )
 								{
 									Con_Reportf( "Xash3D GameCube: changelevel defer post-G36 map=%s from=%s\n",
 										dest, sv.name );
@@ -1883,11 +1888,14 @@ int EXPORT Host_Main( int argc, char **argv, const char *progname, int bChangeGa
 	#if XASH_GAMECUBE
 		/* Tram tip (c0a0*) G68 early hops skip smoke/prepare — that path hangs
 		 * in G320 prepare before the main loop can drain the queued changelevel.
-		 * Reactor hops still prepare on the source map (post-G36 defer). */
+		 * Fullphysics denser hops now also queue early (above); skip smoke so
+		 * tip stays free for the dest BSP. Non-fullphysics reactor hops still
+		 * prepare on the source map (post-G36 defer). */
 		if( Sys_CheckParm( "-gcmap" ) && SV_Active()
 			&& ( !Sys_CheckParm( "-gcchangelevel" )
 				|| ( Sys_CheckParm( "-gcnewgame" ) && sv.name[0]
-					&& Q_strnicmp( sv.name, "c0a0", 4 ) )) )
+					&& Q_strnicmp( sv.name, "c0a0", 4 )
+					&& !Sys_CheckParm( "-gcfullphysics" )) ) )
 		{
 			qboolean force_status_panel = Sys_CheckParm( "-gcstatuspanel" ) ? true : false;
 
@@ -1922,6 +1930,9 @@ int EXPORT Host_Main( int argc, char **argv, const char *progname, int bChangeGa
 			 * SV_ActivateServer defers Prepare until client progs exist, but
 			 * the -gcmap ClientFrame path never loads them and never queues
 			 * gc_playstart (probe 20261103-235225: ready=0 forever). */
+			/* Fullphysics + changelevel queues the hop above before Prepare;
+			 * skip Prepare so tip scratch stays free for the destination BSP
+			 * (c1a0→c1a0d 20261104-064953). */
 			if( ( Sys_CheckParm( "-gcnewgame" ) || Sys_CheckParm( "-gcmenuplaystart" ))
 				&& !Sys_CheckParm( "-gcfullphysics" )
 				&& !GC_IsNewGameWorldReady() )

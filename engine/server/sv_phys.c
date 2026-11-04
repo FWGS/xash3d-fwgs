@@ -2686,6 +2686,16 @@ void SV_Physics( void )
 #if XASH_GAMECUBE
 	if( gc_fullphysics_trace )
 		Con_Reportf( "Xash3D GameCube: full physics begin entities=%d\n", svgame.numEntities );
+	/* Changelevel already queued: skip the full entity walk. c0a0c hung in
+	 * TrackTrain PUSH (055122); c0a0d still hung after PUSH was skipped
+	 * (055941) — StartFrame/think can re-enter the same stall. Host must
+	 * process STATE_CHANGELEVEL on this frame instead. */
+	if( GameState->nextstate == STATE_CHANGELEVEL )
+	{
+		Con_Reportf( "Xash3D GameCube: full physics skipped pending changelevel ents=%d\n",
+			svgame.numEntities );
+		return;
+	}
 #endif
 	SV_CheckAllEnts ();
 #if XASH_GAMECUBE

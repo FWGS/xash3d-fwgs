@@ -3154,11 +3154,12 @@ def main() -> None:
 					print(f"  - {error}", file=sys.stderr)
 				sys.exit(1)
 			if args.probe_menu_newgame:
-				# Lean menu→New Game: keep smoke assets, but boot the fallback
-				# menu and press New Game instead of auto-executing `map`.
-				# The fallback menu otherwise defaults to c0a0, which is not
-				# necessarily the staged smoke BSP (for example c0a0e).
-				menu_lines = ["menunewgame", f"map {Path(args.smoke_map).stem}"]
+				# Lean menu→New Game: keep smoke assets, but boot the menu and
+				# press New Game. Do NOT stage `map <smoke>` — that becomes
+				# -gcmap and auto-loads, bypassing the menu path entirely
+				# (probe 20261104-042155). GI->startmap still defaults to c0a0;
+				# stage the smoke BSP under that name when needed.
+				menu_lines = ["menunewgame"]
 				if args.probe_fullphysics:
 					menu_lines.append("fullphysics")
 				if args.probe_dumpframes:

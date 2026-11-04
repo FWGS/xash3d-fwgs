@@ -59,16 +59,28 @@ static qboolean gc_nodes_arena_tail;
 static void *gc_clipnodes_malloc_block;
 static qboolean gc_clipnodes_pool_block;
 #if XASH_GAMECUBE
-/* c0a0 has 7,568 compact nodes.  Keep a bounded normalized fallback outside
- * fragmented MEM1 heaps; larger maps continue to require a real allocation. */
-#define GC_STATIC_CLIPNODE_CAPACITY 16384
+/* Compact hull 1–3 clipnodes: campaign peak is c5a1 / rocket_frenzy ~32.3k
+ * (c0a0c is already 16,698). Grow ONLY this table — dual 32k reserves
+ * (+256 KiB BSS) starved the 853 KiB BSP tip on c0a0b (probe 20261104-051425).
+ * Hull 0 stays on the smaller reserve (node count << clipnode peak). */
+#define GC_STATIC_CLIPNODE_CAPACITY 32768
+#define GC_STATIC_HULL0_CAPACITY    16384
 static mclipnode16_t gc_static_clipnodes[GC_STATIC_CLIPNODE_CAPACITY]
 	__attribute__((aligned( 32 )));
 /* Hull 0 is a separate normalized node table; keep a second bounded reserve
  * so large retail BSPs can finish world setup when MEM1 is fragmented. */
-static mclipnode16_t gc_static_hull0[GC_STATIC_CLIPNODE_CAPACITY]
+static mclipnode16_t gc_static_hull0[GC_STATIC_HULL0_CAPACITY]
 	__attribute__((aligned( 32 )));
 static qboolean gc_clipnodes_static_block;
+static qboolean gc_clipnodes_scratch_block; /* in-place normalized scratch lump */
+/* Submodel table is tiny (~64 B each) but tip-fatal / fragmented after denser
+ * hops (c1a0→c1a0d 20261104-070402; dual-hop 080408 heap_free=55 Kb still tip
+ * FAIL). Prefer malloc; 128-entry BSS last (~8 KiB). Never arena tail. */
+#define GC_STATIC_SUBMODEL_CAPACITY 128
+static dmodel_t gc_static_submodels[GC_STATIC_SUBMODEL_CAPACITY]
+	__attribute__((aligned( 32 )));
+static void *gc_submodels_malloc_block;
+static qboolean gc_submodels_static_block;
 #endif
 static void *gc_planes_malloc_block;
 static qboolean gc_planes_arena_tail;
@@ -308,6 +320,7 @@ typedef struct
 #if XASH_GAMECUBE
 static void *Mod_GCAllocWorldScratch( model_t *mod, dbspmodel_t *bmod, const gc_bsp_busy_range_t *busy, size_t busy_count, size_t alloc_size, size_t align );
 #endif
+static void *Mod_GCWorldArrayAlloc( model_t *mod, dbspmodel_t *bmod, size_t bytes, const char *what );
 
 #if XASH_GAMECUBE
 static void Mod_GCFreeGcmapPreSurfaceLumps( dbspmodel_t *bmod )
@@ -2581,7 +2594,7 @@ static void Mod_MakeHull0( model_t *mod, const dbspmodel_t *bmod )
 		if( !out )
 		{
 #if XASH_GAMECUBE
-			if( mod->numnodes <= GC_STATIC_CLIPNODE_CAPACITY )
+			if( mod->numnodes <= GC_STATIC_HULL0_CAPACITY )
 			{
 				out = gc_static_hull0;
 				Con_Reportf( "Xash3D GameCube: world hull0 using static normalized reserve %s\n",
@@ -2916,8 +2929,48 @@ Mod_LoadSubmodels
 */
 static void Mod_LoadSubmodels( model_t *mod, dbspmodel_t *bmod )
 {
-	// allocate extradata for each dmodel_t
-	dmodel_t *out = Mem_Malloc( mod->mempool, bmod->numsubmodels * sizeof( *out ));
+	dmodel_t *out;
+	size_t sub_bytes = bmod->numsubmodels * sizeof( *out );
+
+#if XASH_GAMECUBE
+	/* Tip is often dry/fragmented after a denser changelevel. Prefer system
+	 * malloc; fall back to static BSS — skip tip Mem_Malloc (080408 fatal). */
+	out = NULL;
+	gc_submodels_static_block = false;
+	if( gc_submodels_malloc_block )
+	{
+		free( gc_submodels_malloc_block );
+		gc_submodels_malloc_block = NULL;
+	}
+	if( GC_MapLoadMemoryOpt() && bmod->isworld && sub_bytes > 0 )
+	{
+		out = (dmodel_t *)malloc( sub_bytes );
+		if( !out )
+		{
+			Image_GCPurgeDecodeScratch();
+			out = (dmodel_t *)malloc( sub_bytes );
+		}
+		if( out )
+		{
+			gc_submodels_malloc_block = out;
+			gc_world_blocks_owner = mod;
+			Con_Reportf( "Xash3D GameCube: world submodels using malloc %s\n",
+				Q_memprint( sub_bytes ));
+		}
+		else if( bmod->numsubmodels <= GC_STATIC_SUBMODEL_CAPACITY )
+		{
+			out = gc_static_submodels;
+			gc_submodels_static_block = true;
+			gc_world_blocks_owner = mod;
+			Con_Reportf( "Xash3D GameCube: world submodels using static BSS %s count=%d\n",
+				Q_memprint( sub_bytes ), bmod->numsubmodels );
+		}
+	}
+	if( !out )
+#endif
+	{
+		out = Mem_Malloc( mod->mempool, sub_bytes );
+	}
 
 	mod->numsubmodels = bmod->numsubmodels;
 	mod->submodels = out;
@@ -3434,12 +3487,15 @@ static void Mod_LoadSurfEdges( model_t *mod, dbspmodel_t *bmod )
 		&& gc_bsp_scratch_base && Mod_GCPointerInBuffer( bmod->surfedges,
 			gc_bsp_scratch_base, gc_bsp_scratch_size ))
 	{
+		/* Alias the retained BSP lump — a forced WorldArray copy of c4a3's
+		 * 87 KiB table spilled onto the tip heap and fatal'd CL_InitViewBeams
+		 * (probe 20261104-035124). R_GXEmitFace now bounds-checks bad indices
+		 * if the alias is ever stomped (hardware Guru Meditation 0x04040404). */
 		mod->surfedges = bmod->surfedges;
 		gc_surfedges_source_alias = true;
 		mod->numsurfedges = bmod->numsurfedges;
 		gc_retain_bsp_source_buffer = true;
-		Con_Reportf( "Xash3D GameCube: world surfedges %s %s\n",
-			gc_surfedges_source_alias ? "alias retained BSP source" : "copied to map tail",
+		Con_Reportf( "Xash3D GameCube: world surfedges alias retained BSP source %s\n",
 			Q_memprint( bmod->numsurfedges * sizeof( dsurfedge_t )));
 		return;
 	}
@@ -4044,7 +4100,10 @@ static void Mod_GCWorldPackLoad( const char *modelname, size_t surface_reserve )
 		 * surface cache here prevents dense maps from using their remaining
 		 * map-arena tail at all. Keep only a guard and let later surface
 		 * allocation fall back to the heap if needed. */
-		reserve = GC_WT_TAIL_GUARD_BYTES;
+		/* Keep room for the dface_t tail copy (~100 KiB on c4a3). Spending the
+		 * whole pre-surface remainder on the pack forced faces to alias BSP and
+		 * left CapFaces walking stomped surfedges (0x04/0x24 fill → EmitFace DSI). */
+		reserve = GC_WT_TAIL_GUARD_BYTES + ( 128 * 1024 );
 		tail_pool = GC_WT_POOL_BYTES;
 		/* On maps whose world-array conversion already consumed the tail, keep
 		 * a minimal streaming pool rather than falling back to a 458 KiB heap
@@ -5917,7 +5976,7 @@ free_clipnodes:
 		}
 	}
 
-	if( gc_clipnodes_static_block )
+	if( gc_clipnodes_static_block || gc_clipnodes_scratch_block )
 		;
 	else if( gc_clipnodes_pool_block )
 		Mem_Free( gc_clipnodes_malloc_block );
@@ -5926,6 +5985,21 @@ free_clipnodes:
 	gc_clipnodes_malloc_block = NULL;
 	gc_clipnodes_pool_block = false;
 	gc_clipnodes_static_block = false;
+	gc_clipnodes_scratch_block = false;
+
+	if( gc_submodels_malloc_block )
+	{
+		if( mod && mod->submodels == (dmodel_t *)gc_submodels_malloc_block )
+			mod->submodels = NULL;
+		free( gc_submodels_malloc_block );
+		gc_submodels_malloc_block = NULL;
+	}
+	if( gc_submodels_static_block )
+	{
+		if( mod && mod->submodels == gc_static_submodels )
+			mod->submodels = NULL;
+		gc_submodels_static_block = false;
+	}
 }
 
 static void Mod_GCRestoreDeferredMarkfaces( dbspmodel_t *bmod )
@@ -7078,6 +7152,7 @@ static void Mod_LoadClipnodes( model_t *mod, dbspmodel_t *bmod )
 			mclipnode16_t *owned;
 			if( !bmod->clipnodes )
 				Host_Error( "%s: missing clipnodes for newgame %s\n", __func__, mod->name );
+			gc_clipnodes_scratch_block = false;
 			owned = (mclipnode16_t *)malloc( clip_sz );
 			if( !owned )
 			{
@@ -7121,6 +7196,20 @@ static void Mod_LoadClipnodes( model_t *mod, dbspmodel_t *bmod )
 				Con_Reportf( "Xash3D GameCube: fullphysics clipnodes using static normalized reserve %s\n",
 					Q_memprint( clip_sz ));
 			}
+			/* Normalize the resident lump in place when a second MEM1 copy
+			 * cannot be owned. c0a0c's 16,698 nodes exceed the 16,384 BSS
+			 * reserve (probe 20261104-050708); growing BSS starved the BSP tip.
+			 * Scratch-backed lumps are busy-protected once assigned to
+			 * mod->clipnodes16 (Mod_GCCollectWorldScratchBusy). */
+			if( !owned && bmod->clipnodes )
+			{
+				owned = (mclipnode16_t *)bmod->clipnodes;
+				if( Mod_GCPointerInScratchArena( bmod->clipnodes )
+					|| GC_IsMapLoadBufferAddress( bmod->clipnodes ))
+					gc_clipnodes_scratch_block = true;
+				Con_Reportf( "Xash3D GameCube: fullphysics clipnodes normalize in-place %s scratch=%d\n",
+					Q_memprint( clip_sz ), gc_clipnodes_scratch_block ? 1 : 0 );
+			}
 		#endif
 			if( !owned )
 			{
@@ -7152,6 +7241,47 @@ static void Mod_LoadClipnodes( model_t *mod, dbspmodel_t *bmod )
 					owned[i].children[0] = (short)c0;
 					owned[i].children[1] = (short)c1;
 				}
+#if XASH_GAMECUBE
+				/* Scratch dies on changelevel arena discard (probe
+				 * 20261104-052747 hung after queuing c0a0c→c0a0d). Promote
+				 * to a durable heap block while MEM1 can still be reclaimed. */
+				if( gc_clipnodes_scratch_block )
+				{
+					mclipnode16_t *promoted;
+					qboolean from_pool = false;
+					extern void R_GCPackedRelease( void );
+
+					if( gc_wt.block )
+						R_GCPackedRelease();
+					if( gc_wt_pool && !gc_wt_pool_mapload_tail )
+					{
+						free( gc_wt_pool );
+						gc_wt_pool = NULL;
+						gc_wt_pool_bytes = 0;
+					}
+					memset( &gc_wt, 0, sizeof( gc_wt ));
+					Image_GCPurgeDecodeScratch();
+					promoted = (mclipnode16_t *)malloc( clip_sz );
+					if( !promoted )
+					{
+						promoted = (mclipnode16_t *)Mem_TryMalloc( mod->mempool, clip_sz );
+						if( promoted )
+							from_pool = true;
+					}
+					if( promoted )
+					{
+						memcpy( promoted, owned, clip_sz );
+						owned = promoted;
+						gc_clipnodes_scratch_block = false;
+						gc_clipnodes_pool_block = from_pool;
+						Con_Reportf( "Xash3D GameCube: promoted scratch clipnodes to heap %s\n",
+							Q_memprint( clip_sz ));
+					}
+					else
+						Con_Reportf( S_WARN "Xash3D GameCube: scratch clipnodes promote failed %s\n",
+							Q_memprint( clip_sz ));
+				}
+#endif
 				mod->clipnodes16 = owned;
 				gc_clipnodes_malloc_block = owned;
 				for( h = 1; h < 4; h++ )
