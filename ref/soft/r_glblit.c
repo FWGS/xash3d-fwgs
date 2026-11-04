@@ -744,8 +744,8 @@ qboolean GAME_EXPORT VID_ScreenShot( const char *filename, int shot_type )
 	int  width = 0, height = 0;
 
 	rgbdata_t *r_shot = Mem_Calloc( r_temppool, sizeof( rgbdata_t ));
-	r_shot->width = ( vid.width + 3 ) & ~3;
-	r_shot->height = ( vid.height + 3 ) & ~3;
+	r_shot->width = vid.width;
+	r_shot->height = vid.height;
 	r_shot->flags = IMAGE_HAS_COLOR;
 	r_shot->type = PF_BGRA_32; // was RGBA
 	r_shot->size = r_shot->width * r_shot->height * gEngfuncs.Image_GetPFDesc( r_shot->type )->bpp;
