@@ -1,34 +1,49 @@
-## PlayStation 4 port
+# PlayStation 4 port
 
 Experimental port for jailbroken PS4 consoles, built with [OpenOrbis PS4 Toolchain](https://github.com/OpenOrbis/OpenOrbis-PS4-Toolchain).
 
-### Building
+## Prerequisites
 
-Requirements: OpenOrbis toolchain (LLVM 18 build), `clang-18`, `lld-18`, `python3` with `mako` and `yaml`
-modules, C and C++ compilers for the build machine.
+1. Install LLVM/Clang 18 with lld 18 (OpenOrbis libraries are built with LLVM 18, newer versions don't work),
+Python 3 with Mako and YAML modules, and C and C++ compilers for the build machine (shaders are compiled
+with tools built from the submodules).
+
+### Ubuntu/Debian:
+```
+sudo apt install clang-18 lld-18 llvm-18 python3 python3-mako python3-yaml gcc g++
+```
+### RedHat/Fedora/CentOS:
+```
+sudo dnf install clang18 lld18 llvm18 python3 python3-mako python3-pyyaml gcc gcc-c++
+```
+2. Download [OpenOrbis PS4 Toolchain](https://github.com/OpenOrbis/OpenOrbis-PS4-Toolchain) built for LLVM 18 and unpack it.
 `PkgTool.Core` from the toolchain makes the package and needs OpenSSL 1.1 (`libssl1.1`), without it
 only the signed images are built.
-
-```
-export OO_PS4_TOOLCHAIN=/path/to/OpenOrbis/PS4Toolchain
-./waf configure -T release --ps4
-./waf build # build/engine/IV0000-XASH00001_00-XASH3DFWGSPS4000.pkg
-```
-
-Game libraries built from [hlsdk-portable](https://github.com/FWGS/hlsdk-portable) are put into the
-package, configure looks for them in `../hlsdk-portable/build/ps4/valve` (where its
-`./waf install --destdir=build/ps4` puts them), `--ps4-gamelibs` selects another directory.
-
-The package can be uploaded to the console with GoldHEN FTP, e.g.
-`curl -T build/engine/IV0000-XASH00001_00-XASH3DFWGSPS4000.pkg ftp://<console IP>:2121/data/pkg/`.
-
-`scripts/gha/deps_ps4.sh` is what CI does to get the toolchain and the game libraries.
-
-Submodules used only by the PS4 port aren't checked out by default:
-
+3. Check out the submodules used only by the PS4 port, they aren't checked out by default:
 ```
 git submodule update --init --checkout --recursive 3rdparty/opengnm/opengnm 3rdparty/opengnm-psbc 3rdparty/glslang
 ```
+
+## Building
+
+The compilers and the path to the `PS4Toolchain` directory are given at the configuration stage:
+```
+OO_PS4_TOOLCHAIN=/path/to/OpenOrbis/PS4Toolchain CC=clang-18 CXX=clang++-18 ./waf configure -T release --ps4
+./waf build
+```
+The toolchain can be passed with `--ps4-toolchain=/path/to/OpenOrbis/PS4Toolchain` as well.
+The package is `build/engine/IV0000-XASH00001_00-XASH3DFWGSPS4000.pkg`.
+
+Game libraries built from [hlsdk-portable](https://github.com/FWGS/hlsdk-portable) for PS4 are put into the
+package, `--ps4-gamelibs=<your installation path>/<gamedir>` selects the game directory where its
+`./waf install --destdir=<your installation path>` put them.
+
+The package can be uploaded to the console with GoldHEN FTP:
+```
+curl -T build/engine/IV0000-XASH00001_00-XASH3DFWGSPS4000.pkg ftp://<console IP>:2121/data/pkg/
+```
+
+`scripts/gha/deps_ps4.sh` and `scripts/gha/build_ps4.sh` are what CI does.
 
 [opengnm](https://github.com/PS4-OpenGNM/opengnm) is built into the engine for the GPU renderer.
 
@@ -36,7 +51,7 @@ Shaders of the GPU renderer (`ref/gl/gnm_shim/shaders`) are compiled during the 
 [opengnm-psbc](https://github.com/PS4-OpenGNM/opengnm-psbc), both are built from the submodules for the
 build machine. `--host-cc` and `--host-cxx` configure options select its compilers.
 
-### Running
+## Running
 
 * Game data goes to `/data/xash/valve` (or `/mnt/usbN/xash/valve` on USB storage).
 * Libraries in `valve/cl_dlls` and `valve/dlls` on the console override packaged ones.
@@ -48,7 +63,7 @@ build machine. `--host-cc` and `--host-cxx` configure options select its compile
   corner of the screen.
 * Output is written to `/data/xash/stdout.txt` and `/data/xash/engine.log`.
 
-### Status
+## Status
 
 Half-Life runs: menu, gameplay, sound, DualShock 4, level changes, save/load, exit.
 
@@ -65,7 +80,7 @@ Half-Life runs: menu, gameplay, sound, DualShock 4, level changes, save/load, ex
 * Function names for savegames come from `<library>.prx.sym` files made by the build scripts of
   the game libraries (`llvm-nm` of the ELF image), the loader of the console has no symbol names.
 
-### GPU renderer
+## GPU renderer
 
 PS4 has no OpenGL driver usable by homebrew: Piglet (system GLES2) can't compile shaders
 at runtime. The GPU device lives in the engine and the renderer only draws, like with the
@@ -99,7 +114,7 @@ Command line options (`xash3d.cmdline`):
 * `-gnmmips 0|1|2`: no mipmaps, power of two textures only, all textures (default).
 * `-gnmnoflip`: don't swap front face winding (only for debugging culling).
 
-### Implementation notes
+## Implementation notes
 
 OpenOrbis toolchain needed several workarounds, all in `3rdparty/ps4compat` (public domain)
 and linked into every image by `scripts/waifulib/ps4.py`:
@@ -112,7 +127,7 @@ and linked into every image by `scripts/waifulib/ps4.py`:
 * Images must be linked with `ld.lld` of the same version as clang (18), newer lld picks
   musl's `lite_malloc`.
 
-### Debugging
+## Debugging
 
 * `stdout.txt` survives crashes. Crashes print registers and stack as `module+offset`,
   resolve them with `scripts/ps4/symbolize.sh <console IP> [hlsdk build dir]`.
