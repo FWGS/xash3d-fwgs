@@ -119,8 +119,8 @@ void GC_TrimClientSubsystemsForMapLoad( void )
 	 * OOM at cl_game.c after G333 unload). Keep an already-ready client across
 	 * lean New Game map load; G334 truncates the entity tail so spawn still
 	 * fits beside the kept client.
-	 * Xen boss maps (c4a*/c5a*) need the tip for entity private data during
-	 * full-physics spawn — unload here and re-ensure after MAP_READY. */
+	 * Xen boss maps (c4a / c5a) need the tip for entity private data during
+	 * full-physics spawn - unload here and re-ensure after MAP_READY. */
 	{
 		char gcmap[MAX_QPATH];
 		const qboolean xen_boss = Sys_GetParmFromCmdLine( "-gcmap", gcmap )

@@ -1699,9 +1699,16 @@ int EXPORT Host_Main( int argc, char **argv, const char *progname, int bChangeGa
 				if( Sys_CheckParm( "-gcnewgame" ))
 					GC_BeginMapLoadMemoryOpt();
 				/* G326: bring client up before BSP while MEM1 still has
-				 * headroom; Trim will keep it across New Game map load. */
+				 * headroom; Trim will keep it across New Game map load.
+				 * Xen boss maps (c4a / c5a): skip pre-map ensure entirely —
+				 * load+unload before BSP fragments the tip, then post-MAP_READY
+				 * HUD_Init hangs with the world resident (probe 20261104-024555).
+				 * Bring the client up once after spawn instead. */
 				if( Sys_CheckParm( "-gcnewgame" ))
 				{
+					const qboolean xen_boss = !Q_strnicmp( gcmap, "c4a", 3 )
+						|| !Q_strnicmp( gcmap, "c5a", 3 );
+
 					/* G336: denser AM cold New Game stalls mid full HUD_Init after
 					 * StatusIcon (probe 20260810-035405/040141) before MOTD hook.
 					 * Force lean HUD for those maps before G326 ensure; c1a0d and
@@ -1715,18 +1722,25 @@ int EXPORT Host_Main( int argc, char **argv, const char *progname, int bChangeGa
 						|| !Q_strnicmp( gcmap, "c1a4", 4 )
 						|| !Q_strnicmp( gcmap, "c2a", 3 )
 						|| !Q_strnicmp( gcmap, "c3a", 3 )
-						|| !Q_strnicmp( gcmap, "c4a", 3 )
-						|| !Q_strnicmp( gcmap, "c5a", 3 ))
+						|| xen_boss )
 					{
 						Cvar_Set( "gc_quality", "0" );
 						Con_Reportf( "Xash3D GameCube: G336 lean HUD for denser map %s\n",
 							gcmap );
 					}
-					Con_Reportf( "Xash3D GameCube: G326 pre-map client ensure begin\n" );
-					if( !CL_GameCubeEnsureClientReady() )
-						Con_Reportf( "Xash3D GameCube: G326 pre-map client ensure failed\n" );
+					if( xen_boss )
+					{
+						Con_Reportf( "Xash3D GameCube: G326 skip pre-map client for Xen map %s\n",
+							gcmap );
+					}
 					else
-						Con_Reportf( "Xash3D GameCube: G326 pre-map client ensure ready\n" );
+					{
+						Con_Reportf( "Xash3D GameCube: G326 pre-map client ensure begin\n" );
+						if( !CL_GameCubeEnsureClientReady() )
+							Con_Reportf( "Xash3D GameCube: G326 pre-map client ensure failed\n" );
+						else
+							Con_Reportf( "Xash3D GameCube: G326 pre-map client ensure ready\n" );
+					}
 				}
 				GC_TrimClientSubsystemsForMapLoad();
 				GC_SetLoadingProgress( 0.25f );
@@ -1757,6 +1771,12 @@ int EXPORT Host_Main( int argc, char **argv, const char *progname, int bChangeGa
 					{
 						Con_Reportf( "Xash3D GameCube: gcmap+newgame client ensure begin\n" );
 						Cvar_Set( "gc_quality", "0" );
+						/* Xen: tip is tight after 600+ entity privates — drop
+						 * Flipper slabs / decode scratch before the sole client
+						 * bring-up (pre-map ensure was skipped for c4a/c5a). */
+						R_GcFreeMenuImages();
+						R_GXReleaseHudPoolForMapLoad();
+						Image_GCPurgeDecodeScratch();
 						if( !CL_GameCubeEnsureClientReady() )
 							Con_Reportf( "Xash3D GameCube: gcmap+newgame client ensure failed\n" );
 						else

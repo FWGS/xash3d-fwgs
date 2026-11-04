@@ -1648,8 +1648,8 @@ static edict_t* SV_AllocPrivateData( edict_t *ent, string_t className, qboolean 
 		Con_Reportf( S_ERROR "Xash3D GameCube: private-data miss critical %s (heap_free=%s)\n",
 			cn, Q_memprint( GC_MemHeapFreeBytes() ));
 		SV_FreeEdict( ent );
-		Host_Error( "%s: private-data allocation failed for entity %s; aborting map load without omitting it\n",
-			__func__, pszClassName );
+		/* Short fatal text — soft panel wraps ~25 cols and was hiding the classname. */
+		Host_Error( "private-data OOM: %s\n", pszClassName );
 		return NULL;
 	}
 #endif
@@ -5972,7 +5972,13 @@ static void SV_LoadFromFile( const char *mapname, char *entities )
 					entity_index - 1, SV_ClassName( ent ));
 
 #if XASH_GAMECUBE
+			if( SV_GCMapSmokeRoute() && entity_index >= 400 )
+				Con_Reportf( "Xash3D GameCube: entity loading pulse begin=%d class=%s\n",
+					entity_index - 1, SV_ClassName( ent ));
 			GC_LoadingOverlayPulse();
+			if( SV_GCMapSmokeRoute() && entity_index >= 400 )
+				Con_Reportf( "Xash3D GameCube: entity loading pulse end=%d class=%s\n",
+					entity_index - 1, SV_ClassName( ent ));
 			if( SV_GCMapSmokeRoute() )
 			{
 				const char *spawn_class = SV_ClassName( ent );
