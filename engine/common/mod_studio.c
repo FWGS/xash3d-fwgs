@@ -18,6 +18,8 @@ GNU General Public License for more details.
 #include "gamecube/mem_gamecube.h"
 qboolean GC_IsNewGameWorldReady( void );
 qboolean Mod_GCIsStudioBssCache( const void *ptr );
+void Mod_GCStudioBssTrimLast( void *ptr, size_t kept );
+byte *Mod_GCStudioBssGrowLast( void *ptr, size_t old_size, size_t new_size );
 #endif
 #include "server.h"
 #include "studio.h"
@@ -1376,9 +1378,22 @@ void Mod_LoadStudioModel( model_t *mod, void *buffer, size_t buffersize, qboolea
 			|| GC_MenuRunsServer()))
 	{
 		/* Keep skins when quality > 0; never demote the session just to load.
-		 * Pre-entity promote forces mesh-only so G376 uploads do not tip spawn. */
-		skip_studio_textures = ( GC_GetVisualQuality() == 0 )
-			|| Mod_GCStudioPreEntityMeshOnly();
+		 * Pre-entity promote forces mesh-only so G376 uploads do not tip spawn.
+		 * Boss / Xen leads keep Flipper skins even at gc_quality=0 — mesh-only
+		 * Nihilanth is a fidelity compromise the full-campaign goal rejects. */
+		{
+			char bare[64];
+			qboolean boss_skins = false;
+
+			COM_FileBase( mod->name, bare, sizeof( bare ));
+			/* Only the chapter boss during spawn — uploading controller/islave
+			 * atlases mid-entity-lump hung c4a3 (probe 20261104-025929). */
+			if( !Q_stricmp( bare, "nihilanth" ) || !Q_stricmp( bare, "big_mom" ))
+				boss_skins = true;
+
+			skip_studio_textures = Mod_GCStudioPreEntityMeshOnly()
+				|| (( GC_GetVisualQuality() == 0 ) && !boss_skins );
+		}
 		gc_real_studio = true;
 		gc_mesh_only = true;
 	}
@@ -1599,6 +1614,13 @@ void Mod_LoadStudioModel( model_t *mod, void *buffer, size_t buffersize, qboolea
 				Con_Reportf( "Xash3D GameCube: lean studio cache '%s' %s\n",
 					mod->name, Q_memprint( mesh ));
 gc_mesh_only_done: ;
+			/* Release unused BSS tail after mesh truncate (embedded skin upload). */
+			if( mod->cache.data && Mod_GCIsStudioBssCache( mod->cache.data ))
+			{
+				studiohdr_t *kept_hdr = (studiohdr_t *)mod->cache.data;
+				if( kept_hdr->length > 0 && (size_t)kept_hdr->length < buffersize )
+					Mod_GCStudioBssTrimLast( mod->cache.data, (size_t)kept_hdr->length );
+			}
 		}
 		else
 #endif
@@ -1652,6 +1674,190 @@ gc_mesh_only_done: ;
 
 	if( loaded ) *loaded = true;
 }
+
+#if XASH_GAMECUBE
+extern void Image_GCPurgeDecodeScratch( void );
+extern void R_GXStudioInvalidateBindings( void );
+qboolean Mod_GCPromoteStudioPath( const char *path );
+
+static qboolean Mod_GCStudioSkinsBound( const studiohdr_t *phdr )
+{
+	const mstudiotexture_t *t;
+
+	if( !phdr || phdr->numtextures <= 0 || phdr->textureindex <= 0 )
+		return false;
+	if( (size_t)phdr->textureindex + sizeof( mstudiotexture_t ) > (size_t)phdr->length )
+		return false;
+	t = (const mstudiotexture_t *)((const byte *)phdr + phdr->textureindex );
+	return t[0].index != 0;
+}
+
+/* Post-MAP_READY: upload skins skipped at gc_quality=0 during spawn. */
+static qboolean Mod_GCAttachStudioSkins( model_t *mod )
+{
+	studiohdr_t *phdr;
+	void *buf = NULL;
+	fs_offset_t buf_len = 0;
+	studiohdr_t *src_hdr;
+	int i;
+
+	if( !mod || !mod->cache.data || Host_IsDedicated() )
+		return false;
+	phdr = (studiohdr_t *)mod->cache.data;
+	if( Mod_GCStudioSkinsBound( phdr ))
+		return true;
+
+	Image_GCPurgeDecodeScratch();
+
+	if( phdr->numtextures > 0 && phdr->textureindex > 0 )
+	{
+		/* Quality-0 spawn often keeps the full MDL resident but skips GX upload.
+		 * Try in-place first; fall back to a scratch reload if pixels were cut. */
+		Image_GCPurgeDecodeScratch();
+		ref.dllFuncs.Mod_StudioLoadTextures( mod, phdr );
+		if( Mod_GCStudioSkinsBound( phdr ))
+		{
+			Con_Reportf( "Xash3D GameCube: deferred resident skins '%s' n=%d\n",
+				mod->name, phdr->numtextures );
+			return true;
+		}
+		{
+			char bare[64];
+			char mirror[MAX_QPATH];
+			mstudiotexture_t *src_tex, *dst_tex;
+
+			COM_FileBase( mod->name, bare, sizeof( bare ));
+			Q_snprintf( mirror, sizeof( mirror ), "gc_studio/%s.mdl", bare );
+			buf = Mod_GCLoadFileToStudioTexScratch( mirror, &buf_len );
+			if( !buf )
+				buf = Mod_GCLoadFileToStudioTexScratch( mod->name, &buf_len );
+			if( !buf )
+			{
+				Con_Reportf( S_WARN "Xash3D GameCube: deferred embedded skins miss '%s' n=%d len=%d tdi=%d\n",
+					mod->name, phdr->numtextures, phdr->length, phdr->texturedataindex );
+				return false;
+			}
+			src_hdr = R_StudioLoadHeader( mod, buf, (size_t)buf_len );
+			if( !src_hdr || src_hdr->numtextures <= 0 )
+			{
+				Mod_GCReleaseStudioTexBuf( buf );
+				return false;
+			}
+			ref.dllFuncs.Mod_StudioLoadTextures( mod, src_hdr );
+			src_tex = (mstudiotexture_t *)((byte *)src_hdr + src_hdr->textureindex );
+			dst_tex = (mstudiotexture_t *)((byte *)phdr + phdr->textureindex );
+			for( i = 0; i < phdr->numtextures && i < src_hdr->numtextures; i++ )
+				dst_tex[i].index = src_tex[i].index;
+			Mod_GCReleaseStudioTexBuf( buf );
+			Con_Reportf( "Xash3D GameCube: deferred embedded skins '%s' n=%d\n",
+				mod->name, phdr->numtextures );
+			return Mod_GCStudioSkinsBound( phdr );
+		}
+	}
+
+	/* Separate *t.mdl atlas (controller, islave, …). */
+	buf = Mod_GCLoadStudioTexFile( mod->name, &buf_len );
+	src_hdr = R_StudioLoadHeader( mod, buf, (size_t)buf_len );
+	if( !src_hdr || src_hdr->numtextures <= 0 )
+	{
+		if( buf )
+			Mod_GCReleaseStudioTexBuf( buf );
+		return false;
+	}
+	{
+		size_t mesh = phdr->length > 0 ? (size_t)phdr->length : 0;
+		size_t size1 = src_hdr->numtextures * sizeof( mstudiotexture_t );
+		size_t size2 = src_hdr->numskinfamilies * src_hdr->numskinref * sizeof( short );
+		size_t merged = mesh + size1 + size2;
+		byte *slot = NULL;
+		mstudiotexture_t *src_tex, *dst_tex;
+
+		if( Mod_GCIsStudioBssCache( mod->cache.data ))
+			slot = Mod_GCStudioBssGrowLast( mod->cache.data, mesh, merged );
+		Image_GCPurgeDecodeScratch();
+		ref.dllFuncs.Mod_StudioLoadTextures( mod, src_hdr );
+		if( !slot )
+			slot = (byte *)calloc( 1, merged );
+		if( slot )
+		{
+			byte *in, *out;
+
+			if( slot != (byte *)mod->cache.data )
+				memcpy( slot, mod->cache.data, mesh );
+			mod->cache.data = slot;
+			phdr = (studiohdr_t *)slot;
+			phdr->length = (int)merged;
+			phdr->numskinfamilies = src_hdr->numskinfamilies;
+			phdr->numtextures = src_hdr->numtextures;
+			phdr->numskinref = src_hdr->numskinref;
+			phdr->textureindex = (int)mesh;
+			phdr->skinindex = phdr->textureindex + (int)size1;
+			in = (byte *)src_hdr + src_hdr->textureindex;
+			out = (byte *)phdr + phdr->textureindex;
+			memcpy( out, in, size1 + size2 );
+			src_tex = (mstudiotexture_t *)((byte *)src_hdr + src_hdr->textureindex );
+			dst_tex = (mstudiotexture_t *)out;
+			for( i = 0; i < phdr->numtextures; i++ )
+				dst_tex[i].index = src_tex[i].index;
+			Con_Reportf( "Xash3D GameCube: deferred T.mdl skins '%s' n=%d kept=%s\n",
+				mod->name, phdr->numtextures, Q_memprint( merged ));
+		}
+	}
+	Mod_GCReleaseStudioTexBuf( buf );
+	return Mod_GCStudioSkinsBound( (studiohdr_t *)mod->cache.data );
+}
+
+void Mod_GCUploadDeferredStudioSkins( void )
+{
+	static const char *paths[] = {
+		/* Companions first: T.mdl header merge needs BSS GrowLast / tip calloc
+		 * before viewmodel soft-skin uploads tighten MEM1. Viewmodels upload
+		 * in place from their resident full MDL. */
+		"models/controller.mdl",
+		"models/islave.mdl",
+		"models/v_crowbar.mdl",
+		"models/v_9mmhandgun.mdl",
+		NULL
+	};
+	static char last_map[64];
+	int i, ready = 0;
+
+	if( Host_IsDedicated() )
+		return;
+	if( !GC_IsNewGameWorldReady() && !Sys_CheckParm( "-gcnewgame" ))
+		return;
+	if( sv.name[0] && Q_stricmp( last_map, sv.name ))
+	{
+		Q_strncpy( last_map, sv.name, sizeof( last_map ));
+	}
+
+	for( i = 0; paths[i]; i++ )
+	{
+		model_t *mod = Mod_FindName( paths[i], false );
+		qboolean ok;
+
+		if( !mod || !mod->cache.data )
+			Mod_GCPromoteStudioPath( paths[i] );
+		mod = Mod_FindName( paths[i], false );
+		if( !mod || !mod->cache.data )
+		{
+			Con_Reportf( S_WARN "Xash3D GameCube: deferred skins skip '%s' (no cache)\n",
+				paths[i] );
+			continue;
+		}
+		ok = Mod_GCAttachStudioSkins( mod );
+		Con_Reportf( "Xash3D GameCube: deferred skins try '%s' ok=%d n=%d\n",
+			paths[i], ok ? 1 : 0,
+			mod->cache.data ? ((studiohdr_t *)mod->cache.data)->numtextures : -1 );
+		if( ok )
+			ready++;
+	}
+	Con_Reportf( "Xash3D GameCube: deferred studio skins ready=%d/%d map=%s\n",
+		ready, 4, sv.name[0] ? sv.name : "?" );
+	if( ready > 0 )
+		R_GXStudioInvalidateBindings();
+}
+#endif
 
 static sv_blending_interface_t gBlendAPI =
 {

@@ -188,6 +188,8 @@ byte *Mod_GCStudioBssAlloc( size_t size );
 byte *Mod_GCStudioArenaLoadFile( const char *path, fs_offset_t *length );
 byte *Mod_GCSeqGroupLoad( const char *path, cache_user_t *cu, fs_offset_t *length );
 byte *Mod_GCStudioBssGrowLast( void *ptr, size_t old_size, size_t new_size );
+void Mod_GCStudioBssTrimLast( void *ptr, size_t kept );
+void Mod_GCUploadDeferredStudioSkins( void ); /* post-MAP_READY companion/view skins */
 #endif
 
 //

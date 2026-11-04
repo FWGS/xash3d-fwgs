@@ -275,6 +275,27 @@ byte *Mod_GCStudioBssGrowLast( void *ptr, size_t old_size, size_t new_size )
 	return p;
 }
 
+/* After embedded soft-skin upload, only the mesh+texhdr slice stays live.
+ * Shrink the bump so Xen companions (islave ~145 KiB) still fit — c4a3 left
+ * nihilanth's 420 KiB read pinned and starved the arena (probe 030354). */
+void Mod_GCStudioBssTrimLast( void *ptr, size_t kept )
+{
+	byte *p = (byte *)ptr;
+	size_t off, new_bump;
+
+	if( !ptr || kept == 0 || !Mod_GCIsStudioBssCache( ptr ))
+		return;
+	off = (size_t)( p - gc_studio_bss );
+	if( off >= gc_studio_bss_bump || off + kept > gc_studio_bss_bump )
+		return;
+	new_bump = ( off + kept + 31u ) & ~31u;
+	if( new_bump >= gc_studio_bss_bump )
+		return;
+	Con_Reportf( "Xash3D GameCube: studio BSS trim kept=%s bump %s -> %s\n",
+		Q_memprint( kept ), Q_memprint( gc_studio_bss_bump ), Q_memprint( new_bump ));
+	gc_studio_bss_bump = new_bump;
+}
+
 static qboolean Mod_GCIsPinnedViewModel( const model_t *mod )
 {
 	int i;
@@ -832,6 +853,7 @@ void Mod_GCTryDeferredStudios( void )
 			gc_real_studio_npc, gc_real_studio_view, Q_memprint( gc_real_studio_bytes ),
 			presents );
 		Mod_GCRebindPromotedStudios();
+		Mod_GCUploadDeferredStudioSkins();
 		return;
 	}
 
@@ -843,6 +865,8 @@ void Mod_GCTryDeferredStudios( void )
 	Con_Reportf( "Xash3D GameCube: deferred studios try npc=%d view=%d budget=%s\n",
 		gc_real_studio_npc, gc_real_studio_view, Q_memprint( gc_real_studio_bytes ));
 	Mod_GCRebindPromotedStudios();
+	/* Quality-0 spawn skips companion/view soft skins — upload once tip recovers. */
+	Mod_GCUploadDeferredStudioSkins();
 }
 
 /*

@@ -4057,8 +4057,9 @@ static void Mod_GCWorldPackLoad( const char *modelname, size_t surface_reserve )
 				tail_pool = budgeted;
 		}
 		pool_bytes = tail_pool;
-		if( surface_reserve > 0 && remaining < surface_reserve + GC_WT_MIN_POOL_BYTES )
-			pool_bytes = GC_WT_MIN_POOL_BYTES;
+		/* remaining already excludes surface_reserve (Mod_GCPreSurfaceCapacity).
+		 * Comparing against surface_reserve again forced a 16 KiB pool on c4a3
+		 * despite ~500 KiB of free pre-surface tail (probe 20261104-030354). */
 		if( remaining < pool_bytes )
 			pool_bytes = remaining >= GC_WT_MIN_POOL_BYTES ? ( remaining & ~(size_t)31 ) : 0;
 		gc_wt_pool = pool_bytes ? (byte *)Mod_GCPreSurfaceTailAlloc( after, pool_bytes ) : NULL;
