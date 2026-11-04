@@ -2581,6 +2581,14 @@ static int R_GXEmitFace( const msurface_t *surf, model_t *world, int slot )
 		}
 		if( surf->numedges < 3 || surf->numedges > 32 )
 			return 0;
+		/* G380 synthetic floors use firstedge < 0; never index surfedges with them.
+		 * Hardware Guru Meditation (PC R_GXEmitFace lhzx): dangling brush faces
+		 * walked edges with lindex=0x04040404 after a corrupt/alias surfedges hit. */
+		if( surf->firstedge < 0
+			|| world->numsurfedges <= 0
+			|| world->numedges <= 0
+			|| surf->firstedge + surf->numedges > world->numsurfedges )
+			return 0;
 		if( !world->edges16 && !world->edges32 )
 		{
 			if( slot == -1 && gx_live_emit_guard_reports++ < 3 )
@@ -2595,12 +2603,22 @@ static int R_GXEmitFace( const msurface_t *surf, model_t *world, int slot )
 		{
 			int lindex = world->surfedges[surf->firstedge + i];
 			int v;
+			int abs_e;
+
+			abs_e = ( lindex >= 0 ) ? lindex : -lindex;
+			if( abs_e <= 0 || abs_e >= world->numedges )
+			{
+				if( slot == -1 && gx_live_emit_guard_reports++ < 3 )
+					gEngfuncs.Con_Reportf( "Xash3D GameCube: live BSP emit bad edge=%d max=%d first=%d\n",
+						lindex, world->numedges, surf->firstedge );
+				return 0;
+			}
 
 			/* Retail HL1 BSPs use the 16-bit edge representation.  `edges16`
 			 * and `edges32` are a union, so a non-NULL `edges32` cannot be used
 			 * as a format test here. */
 			{
-				medge16_t *e = ( lindex > 0 ) ? &world->edges16[lindex] : &world->edges16[-lindex];
+				medge16_t *e = &world->edges16[abs_e];
 				v = ( lindex > 0 ) ? e->v[0] : e->v[1];
 			}
 			if( v < 0 || v >= world->numvertexes )
@@ -5369,6 +5387,12 @@ int R_GXDrawBrushModel( cl_entity_t *e )
 			continue;
 		}
 		if( psurf->numedges > 32 )
+		{
+			skip_edges++;
+			continue;
+		}
+		if( !geom || psurf->firstedge < 0
+			|| psurf->firstedge + psurf->numedges > geom->numsurfedges )
 		{
 			skip_edges++;
 			continue;

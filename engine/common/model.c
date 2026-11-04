@@ -265,11 +265,15 @@ byte *Mod_GCStudioBssGrowLast( void *ptr, size_t old_size, size_t new_size )
 		return NULL;
 	off = (size_t)( p - gc_studio_bss );
 	old_end = off + old_size;
+	if( off + new_size > GC_STUDIO_BSS_BYTES )
+		return NULL;
+	/* Deferred T.mdl headers: lean load reserved a pad so bump > old_end and
+	 * later companions (scientist) sit above that pad. Fit in-place. */
+	if( off + new_size <= gc_studio_bss_bump )
+		return p;
 	/* Accept either exact bump or 32-byte padded bump from Alloc. */
 	if( gc_studio_bss_bump != old_end
 		&& gc_studio_bss_bump != (( old_end + 31u ) & ~31u ))
-		return NULL;
-	if( off + new_size > GC_STUDIO_BSS_BYTES )
 		return NULL;
 	gc_studio_bss_bump = off + new_size;
 	return p;

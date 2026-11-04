@@ -1620,6 +1620,17 @@ gc_mesh_only_done: ;
 				studiohdr_t *kept_hdr = (studiohdr_t *)mod->cache.data;
 				if( kept_hdr->length > 0 && (size_t)kept_hdr->length < buffersize )
 					Mod_GCStudioBssTrimLast( mod->cache.data, (size_t)kept_hdr->length );
+				/* Mesh-only / quality-0: reserve header room for post-MAP_READY
+				 * T.mdl merge so GrowLast still works after later BSS companions. */
+				if( skip_studio_textures && kept_hdr->length > 0
+					&& kept_hdr->numtextures == 0 )
+				{
+					const size_t pad = 4 * 1024;
+					const size_t kept = (size_t)kept_hdr->length;
+					if( Mod_GCStudioBssGrowLast( mod->cache.data, kept, kept + pad ))
+						Con_Reportf( "Xash3D GameCube: studio BSS skin-pad '%s' +%s\n",
+							mod->name, Q_memprint( pad ));
+				}
 			}
 		}
 		else
@@ -1778,6 +1789,9 @@ static qboolean Mod_GCAttachStudioSkins( model_t *mod )
 		ref.dllFuncs.Mod_StudioLoadTextures( mod, src_hdr );
 		if( !slot )
 			slot = (byte *)calloc( 1, merged );
+		if( !slot )
+			Con_Reportf( S_WARN "Xash3D GameCube: deferred T.mdl merge OOM '%s' need=%s\n",
+				mod->name, Q_memprint( merged ));
 		if( slot )
 		{
 			byte *in, *out;
