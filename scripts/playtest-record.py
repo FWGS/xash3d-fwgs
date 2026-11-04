@@ -121,13 +121,23 @@ def record(args):
 		print("playtest-record: no Dolphin render window, not recording", file=sys.stderr)
 		return 0
 
+	# Window IDs can vanish between discovery and ffmpeg open (short boots,
+	# render-window recreate). Re-check, and re-find once if needed.
+	if not window_exists(win):
+		win = find_render_window(min(args.window_timeout, 30))
+		if not win or not alive(args.pid):
+			print("playtest-record: render window gone before capture, not recording", file=sys.stderr)
+			return 0
+
 	stamp = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
 	sha = git_sha()
 	base = os.path.join(OUT_DIR, f"{stamp}-{args.route}-{sha}")
 	mkv = base + ".mkv"
+	# Pad to even WxH: libx264/yuv420p rejects odd sizes (e.g. 640x481).
 	ff = subprocess.Popen(["ffmpeg", "-hide_banner", "-loglevel", "error", "-y",
 		"-thread_queue_size", "512", "-f", "x11grab", "-draw_mouse", "0", "-framerate", str(args.fps), "-window_id", win, "-i", os.environ.get("DISPLAY", ":0"),
 		"-thread_queue_size", "512", "-f", "pulse", "-i", f"{args.sink}.monitor",
+		"-vf", "pad=ceil(iw/2)*2:ceil(ih/2)*2",
 		"-c:v", "libx264", "-preset", "veryfast", "-crf", "30", "-pix_fmt", "yuv420p", "-g", str(args.fps * 2),
 		"-c:a", "aac", "-b:a", "96k", "-f", "matroska", mkv],
 		stdin=subprocess.PIPE, stderr=open(base + ".ffmpeg.log", "w"))
@@ -147,18 +157,31 @@ def record(args):
 			ff.wait(timeout=10)
 
 	out = base + ".mp4"
-	if sh("ffmpeg", "-hide_banner", "-loglevel", "error", "-y", "-i", mkv, "-c", "copy",
-			"-movflags", "+faststart", out).returncode == 0 and os.path.getsize(out) > 0:
+	mkv_ok = os.path.isfile(mkv) and os.path.getsize(mkv) > 0
+	if mkv_ok and sh("ffmpeg", "-hide_banner", "-loglevel", "error", "-y", "-i", mkv, "-c", "copy",
+			"-movflags", "+faststart", out).returncode == 0 and os.path.isfile(out) and os.path.getsize(out) > 0:
 		os.remove(mkv)
 		# Only x11grab's "window closed" note ends up here on a good run.
 		if os.path.exists(base + ".ffmpeg.log"):
 			os.remove(base + ".ffmpeg.log")
-	else:
+	elif mkv_ok:
 		out = mkv  # keep the Matroska file if the remux failed
+	else:
+		# ffmpeg never produced output (window gone, encoder reject, etc.).
+		if os.path.isfile(mkv):
+			os.remove(mkv)
+		ffl = base + ".ffmpeg.log"
+		hint = ""
+		if os.path.isfile(ffl) and os.path.getsize(ffl) > 0:
+			with open(ffl) as f:
+				hint = " — " + f.read().strip().splitlines()[-1]
+		print(f"playtest-record: capture failed, no media written{hint}", file=sys.stderr)
+		return 1
 	ffl = base + ".ffmpeg.log"
 	if os.path.exists(ffl) and os.path.getsize(ffl) == 0:
 		os.remove(ffl)
 
+	size_mb = round(os.path.getsize(out) / 1e6, 1)
 	duration, streams = probe_media(out)
 	mean_db, peak_db = audio_levels(out)
 	meta = {
@@ -172,8 +195,8 @@ def record(args):
 		"streams": streams,
 		"audio_mean_db": mean_db,
 		"audio_peak_db": peak_db,
-		"size_mb": round(os.path.getsize(out) / 1e6, 1),
-		"mb_per_min": round(os.path.getsize(out) / 1e6 / max(duration / 60.0, 1e-6), 1),
+		"size_mb": size_mb,
+		"mb_per_min": round(size_mb / max(duration / 60.0, 1e-6), 1),
 		"keep": False,
 	}
 	with open(base + ".json", "w") as f:
