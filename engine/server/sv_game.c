@@ -42,6 +42,45 @@ static byte fatphs[(MAX_MAP_LEAFS+7)/8];
 static byte clientpvs[(MAX_MAP_LEAFS+7)/8];	// for find client in PVS
 
 #if XASH_GAMECUBE
+/* Tip Server Strings pool dies on denser Office maps (c1a1f SV_AllocString
+ * 14-byte Host_Error, hardware 20261104). Deduped bump arena keeps class/
+ * target/model names off the tip after reclaim fails. */
+#define GC_STRING_ARENA_SIZE (96 * 1024)
+static char gc_string_arena[GC_STRING_ARENA_SIZE] __attribute__((aligned( 16 )));
+static size_t gc_string_arena_used;
+static int gc_string_arena_overflows;
+
+static char *GC_StringArenaAlloc( const char *value, uint len )
+{
+	size_t i;
+	char *dst;
+
+	if( !value || len == 0 || len > GC_STRING_ARENA_SIZE )
+		return NULL;
+	/* Dedup scan — classnames/model paths dominate AllocString traffic. */
+	for( i = 0; i + len <= gc_string_arena_used; )
+	{
+		const char *s = &gc_string_arena[i];
+		size_t slen = Q_strlen( s ) + 1;
+
+		if( slen == len && !memcmp( s, value, len ))
+			return (char *)s;
+		i += slen ? slen : 1;
+	}
+	if( gc_string_arena_used + len > GC_STRING_ARENA_SIZE )
+	{
+		/* Wrap like the 64-bit str64 pool — prefer live names over fatal. */
+		gc_string_arena_used = 0;
+		gc_string_arena_overflows++;
+		Con_Reportf( "Xash3D GameCube: string arena wrap overflows=%d need=%u\n",
+			gc_string_arena_overflows, len );
+	}
+	dst = &gc_string_arena[gc_string_arena_used];
+	memcpy( dst, value, len );
+	gc_string_arena_used += len;
+	return dst;
+}
+
 /* Player CBasePlayer private block when MEM1 malloc fails during -gcnewgame. */
 static byte gc_player_private_fallback[4096];
 /* G329: CSoundEnt (~2176) is the first large non-player private block
@@ -3696,6 +3735,11 @@ void SV_EmptyStringPool( qboolean clear_stats )
 		str64.numoverflows = 0;
 	}
 #endif // !XASH_64BIT
+#if XASH_GAMECUBE && !XASH_64BIT
+	gc_string_arena_used = 0;
+	if( clear_stats )
+		gc_string_arena_overflows = 0;
+#endif
 }
 
 /*
@@ -3917,8 +3961,19 @@ string_t GAME_EXPORT SV_AllocString( const char *szValue )
 	if( !svgame.physFuncs.pfnAllocString && !strchr( szValue, '\\' ))
 	{
 		const char *existing = Mem_FindPoolString( svgame.stringspool, szValue );
+		size_t i;
+
 		if( existing )
 			return existing - svgame.globals->pStringBase;
+		for( i = 0; i < gc_string_arena_used; )
+		{
+			const char *s = &gc_string_arena[i];
+			size_t slen = Q_strlen( s ) + 1;
+
+			if( !Q_strcmp( s, szValue ))
+				return s - svgame.globals->pStringBase;
+			i += slen ? slen : 1;
+		}
 	}
 #endif
 	uint len = SV_ProcessString( NULL, szValue );
@@ -3930,7 +3985,27 @@ string_t GAME_EXPORT SV_AllocString( const char *szValue )
 	(void)found_dupe;
 	if( !processed_string )
 	{
-#if XASH_GAMECUBE
+#if XASH_GAMECUBE && !XASH_64BIT
+		/* Tip soft-NULL after reclaim — stage into BSS arena (c1a1f 14-byte
+		 * Host_Error, hardware 20261104). Process into a stack temp first. */
+		{
+			char temp[512];
+			uint use_len = len;
+
+			if( use_len > sizeof( temp ))
+				use_len = sizeof( temp );
+			memset( temp, 0, use_len );
+			SV_ProcessString( temp, szValue );
+			processed_string = GC_StringArenaAlloc( temp, (uint)( Q_strlen( temp ) + 1 ));
+			if( processed_string )
+			{
+				Con_Reportf( "Xash3D GameCube: AllocString arena fallback '%s' len=%u used=%zu\n",
+					temp, (uint)( Q_strlen( temp ) + 1 ), gc_string_arena_used );
+				return processed_string - svgame.globals->pStringBase;
+			}
+			Host_Error( "%s: unable to allocate %u bytes for server string '%s'\n", __func__, len, szValue );
+		}
+#elif XASH_GAMECUBE
 		Host_Error( "%s: unable to allocate %u bytes for server string '%s'\n", __func__, len, szValue );
 #endif
 		return 0;

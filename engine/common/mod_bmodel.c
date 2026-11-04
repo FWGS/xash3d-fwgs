@@ -3291,6 +3291,11 @@ static void Mod_LoadPlanes( model_t *mod, const dbspmodel_t *bmod )
 	if( GC_MapLoadMemoryOpt() && bmod->isworld && bmod->numplanes > 0 )
 	{
 		out = (mplane_t *)malloc( plane_bytes );
+		if( !out )
+		{
+			Image_GCPurgeDecodeScratch();
+			out = (mplane_t *)malloc( plane_bytes );
+		}
 		if( out )
 		{
 			gc_planes_malloc_block = out;
@@ -3298,39 +3303,20 @@ static void Mod_LoadPlanes( model_t *mod, const dbspmodel_t *bmod )
 			Con_Reportf( "Xash3D GameCube: world planes using malloc %s\n",
 				Q_memprint( plane_bytes ));
 		}
-		else if( sizeof( mplane_t ) == sizeof( dplane_t ) && bmod->planes
-			&& Mod_GCPointerInScratchArena( bmod->planes ))
-		{
-			/* Same 20-byte layout as dplane_t. Convert in place so dense maps
-			 * (c2a4e/c5a1) keep the high arena free for the surface table. */
-			out = (mplane_t *)bmod->planes;
-			gc_planes_arena_tail = true;
-			Con_Reportf( "Xash3D GameCube: world planes converted in place %s\n",
-				Q_memprint( plane_bytes ));
-		}
 		else if( gc_bsp_scratch_base && GC_IsMapLoadBuffer( gc_bsp_scratch_base ))
 		{
 			size_t after = Q_max( gc_bsp_scratch_size + gc_bsp_scratch_carve_high,
 				GC_MapLoadBufferTailHighwater() );
 
-			/* Prefer a released-lump hole over the tail. The tail is reserved
-			 * for surfaces on maps whose face table exceeds the leftover. */
-			out = (mplane_t *)Mod_GCAllocWorldScratch( mod, (dbspmodel_t *)bmod, NULL, 0, plane_bytes, 32 );
+			/* Prefer arena tail over in-place / scratch holes: later hole
+			 * carves reused the plane lump and left node->plane dangling
+			 * (SV_FindTouchedLeafs DSI, hardware 20261104, DAR=0x4A804AD0). */
+			out = (mplane_t *)Mod_GCPreSurfaceTailAlloc( after, plane_bytes );
 			if( out )
 			{
 				gc_planes_arena_tail = true;
-				Con_Reportf( "Xash3D GameCube: world planes using BSP scratch hole %s\n",
-					Q_memprint( plane_bytes ));
-			}
-			else
-			{
-				out = (mplane_t *)Mod_GCPreSurfaceTailAlloc( after, plane_bytes );
-				if( out )
-				{
-					gc_planes_arena_tail = true;
-					Con_Reportf( "Xash3D GameCube: world planes using map-load arena tail %s (after %s)\n",
-						Q_memprint( plane_bytes ), Q_memprint( after ));
-				}
+				Con_Reportf( "Xash3D GameCube: world planes using map-load arena tail %s (after %s)\n",
+					Q_memprint( plane_bytes ), Q_memprint( after ));
 			}
 		}
 	}

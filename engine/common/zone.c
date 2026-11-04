@@ -513,6 +513,15 @@ void *_Mem_Alloc( poolhandle_t poolptr, size_t size, qboolean clear, const char 
 		}
 		if( pool && !Q_stricmp( pool->name, "Server Strings" ))
 		{
+			/* Reclaim once before soft-NULL — denser maps (c1a1f) tip-OOM on
+			 * 14-byte classname allocs and SV_AllocString Host_Error'd
+			 * (hardware 20261104). Callers may still recover via BSS arena. */
+			Image_GCPurgeDecodeScratch();
+			R_GCTrimTextureMips();
+			R_GXReleaseHudPoolForMapLoad();
+			ptr = _Mem_TryAlloc( poolptr, size, clear, filename, fileline );
+			if( ptr )
+				return ptr;
 			Con_Reportf( "Xash3D GameCube: soft-fail server string alloc size=%s at %s:%i\n",
 				Q_memprint( size ), filename, fileline );
 			return NULL;

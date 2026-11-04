@@ -624,6 +624,17 @@ static void SV_FindTouchedLeafs( edict_t *ent, model_t *mod, mnode_t *node, int 
 	}
 
 	// NODE_MIXED
+#if XASH_GAMECUBE
+	/* In-place BSP planes can be carved by later scratch-hole allocs; the
+	 * node still holds the dangling plane pointer (DSI in BOX_ON_PLANE_SIDE
+	 * via lbz type, DAR=0x4A804AD0, hardware 20261104 during SV_LinkEdict). */
+	{
+		const uintptr_t pp = (uintptr_t)node->plane;
+
+		if( !node->plane || pp < 0x80000000u || pp >= 0x81800000u )
+			return;
+	}
+#endif
 	sides = BOX_ON_PLANE_SIDE( ent->v.absmin, ent->v.absmax, node->plane );
 
 	if(( sides == 3 ) && ( *headnode == -1 ))
