@@ -4182,11 +4182,13 @@ void CL_Init( void )
 	CL_InitLocal();
 #if XASH_GAMECUBE
 	Con_Reportf( "Xash3D GameCube: client local init ready\n" );
+	GC_MemHeapMark( "client_local_init_ready" );
 #endif
 
 	VID_Init();	// init video
 #if XASH_GAMECUBE
 	Con_Reportf( "Xash3D GameCube: client video init ready\n" );
+	GC_MemHeapMark( "client_video_init_ready" );
 #endif
 
 	// unreliable buffer. unsed for unreliable commands and voice stream
@@ -4329,6 +4331,7 @@ qboolean CL_GameCubeEnsureClientReady( void )
 		UI_GameCubeLeaveMenuOnlyBootstrap();
 	gc_cl_deferred_init_done = true;
 	Con_Reportf( "Xash3D GameCube: deferred client init ready\n" );
+	GC_MemHeapMark( "deferred_client_init_ready" );
 	return true;
 }
 

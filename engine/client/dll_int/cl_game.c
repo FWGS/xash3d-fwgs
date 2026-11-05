@@ -4925,6 +4925,7 @@ qboolean CL_LoadProgs( const char *name )
 	S_InitSoundAPI();
 #if XASH_GAMECUBE
 	Con_Reportf( "Xash3D GameCube: client module ready\n" );
+	GC_MemHeapMark( "client_module_ready" );
 #endif
 
 	return true;

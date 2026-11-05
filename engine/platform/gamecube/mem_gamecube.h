@@ -27,6 +27,12 @@ typedef struct {
 void GC_MemSetMap( const char *mapname );
 void GC_MemSample( const char *stage );
 void GC_MemBreadcrumb( const char *stage );
+void GC_MemHeapMark( const char *stage );
+/* Boot arena over the idle map-load pad (before the first map load only). */
+void *GC_BootArenaAlloc( size_t size );
+qboolean GC_BootArenaFree( void *ptr );
+qboolean GC_BootArenaOwns( const void *ptr );
+size_t GC_BootArenaClose( void );
 void GC_MemFail( const char *subsystem, size_t size, const char *file, int line );
 void GC_MemReportPoolPressure( const char *subsystem, size_t requested );
 void GC_MemPoolReport( const char *stage );
@@ -122,6 +128,11 @@ unsigned GC_JobPending( void );
 static inline void GC_MemSetMap( const char *mapname ) { (void)mapname; }
 static inline void GC_MemSample( const char *stage ) { (void)stage; }
 static inline void GC_MemBreadcrumb( const char *stage ) { (void)stage; }
+static inline void GC_MemHeapMark( const char *stage ) { (void)stage; }
+static inline void *GC_BootArenaAlloc( size_t size ) { (void)size; return NULL; }
+static inline qboolean GC_BootArenaFree( void *ptr ) { (void)ptr; return false; }
+static inline qboolean GC_BootArenaOwns( const void *ptr ) { (void)ptr; return false; }
+static inline size_t GC_BootArenaClose( void ) { return 0; }
 static inline void GC_MemFail( const char *subsystem, size_t size, const char *file, int line )
 {
 	(void)subsystem;

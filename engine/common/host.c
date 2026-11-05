@@ -1588,6 +1588,7 @@ int EXPORT Host_Main( int argc, char **argv, const char *progname, int bChangeGa
 #endif
 #if XASH_GAMECUBE
 	Con_Reportf( "Xash3D GameCube: engine subsystems ready\n" );
+	GC_MemHeapMark( "engine_subsystems_ready" );
 	/* Retail startup goes from the logos directly into the menu. The generic
 	 * status panel is useful for headless/map diagnostics, but showing it on
 	 * the normal route briefly exposes the pre-menu bootstrap buffer and does
@@ -1997,6 +1998,7 @@ int EXPORT Host_Main( int argc, char **argv, const char *progname, int bChangeGa
 		Con_Reportf( "Xash3D GameCube: HPAK integrity check ready\n" );
 	}
 	Con_Reportf( "Xash3D GameCube: host main loop begin status=%d\n", host.status );
+	GC_MemHeapMark( "host_main_loop_begin_status" );
 #else
 	HPAK_CheckIntegrity( hpk_custom_file.string );
 #endif

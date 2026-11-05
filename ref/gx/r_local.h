@@ -1291,6 +1291,8 @@ void R_GcmapMarkMapLoadComplete( void );
 void *R_GCBorrowMapLoadStaticArena( size_t size, size_t *capacity );
 qboolean R_GCReleaseMapLoadStaticArena( void *ptr );
 qboolean R_GCIsMapLoadStaticArena( const void *ptr );
+byte *R_GcmapBootPadRegion( size_t *capacity );
+void R_GXDropBootPadCinematic( void );
 qboolean R_GCIsStaticCinematicPixels( const pixel_t *pixels );
 void R_BlitScreen( void );
 qboolean R_InitBlit( qboolean gl );

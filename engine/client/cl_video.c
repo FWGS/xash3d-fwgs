@@ -15,6 +15,9 @@ GNU General Public License for more details.
 
 #include "common.h"
 #include "client.h"
+#if XASH_GAMECUBE
+#include "gamecube/mem_gamecube.h"
+#endif
 
 /*
 =================================================================
@@ -388,6 +391,7 @@ qboolean SCR_PlayCinematic( const char *arg )
 	if( option )
 		*option = '\0';
 	Con_Reportf( "Xash3D GameCube: intro AVI play %s\n", movie_path );
+	GC_MemHeapMark( "intro_avi_play" );
 	/* The startup movie's 150 KiB GX upload surface is deliberately released
 	 * at menu handoff. Recreate the lightweight handle only when another
 	 * cinematic is actually requested. */
@@ -477,6 +481,7 @@ void SCR_StopCinematic( void )
 	 * contend for the same MEM1 headroom (gameui_english.txt is 26 KiB). */
 	Image_GCPurgeDecodeScratch();
 	Con_Reportf( "Xash3D GameCube: activating menu after cinematic\n" );
+	GC_MemHeapMark( "menu_handoff" );
 	Con_Reportf( "Xash3D GameCube: mem after cinematic purge (menu handoff)\n" );
 	Mem_PrintStats();
 #endif

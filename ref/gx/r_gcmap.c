@@ -5,9 +5,18 @@ r_gcmap.c - GameCube smoke boot memory trims
 #include <stdint.h>
 
 #if XASH_GAMECUBE
+size_t GC_BootArenaClose( void );
+qboolean Mod_GCEnsureStaticReserves( void );
+qboolean SV_GCEnsureStringArena( void );
 static qboolean gc_renderer_trimmed;
 static qboolean gc_static_map_arena_in_use;
 static qboolean gc_static_map_arena_dirty;
+/* Set once any map load has trimmed the renderer or borrowed the arena.  From
+ * then on world data may stay resident in vid.mapload_pad even while the
+ * renderer is untrimmed, so the boot lend below is closed for the session. */
+static qboolean gc_static_map_arena_ever_used;
+/* Boot arena still had live blocks at the first map load: keep the pad out. */
+static qboolean gc_boot_pad_pinned;
 /* Sized for New Game GX presents (and smaller gcmap probes).
  * G93: 320×240 is the default New Game world path; -gcnewgame160 keeps 160×120. */
 #define GC_GCMAP_STATIC_MAX_W 320
@@ -145,6 +154,8 @@ void *R_GCBorrowMapLoadStaticArena( size_t size, size_t *capacity )
 		+ sizeof( vid.addmap ) + sizeof( vid.modmap ) + sizeof( vid.alphamap )
 		+ sizeof( vid.mapload_pad );
 	arena_size -= (size_t)( base - raw );
+	if( gc_boot_pad_pinned )
+		arena_size -= sizeof( vid.mapload_pad );
 
 	if( capacity )
 		*capacity = arena_size;
@@ -160,6 +171,7 @@ void *R_GCBorrowMapLoadStaticArena( size_t size, size_t *capacity )
 	}
 
 	gc_static_map_arena_in_use = true;
+	gc_static_map_arena_ever_used = true;
 	gEngfuncs.Con_Reportf( "Xash3D GameCube: map-load buffer using renderer static arena size_bytes=%lu capacity_bytes=%lu\n",
 		(unsigned long)size, (unsigned long)arena_size );
 	if( arena_size > size )
@@ -181,6 +193,30 @@ qboolean R_GCReleaseMapLoadStaticArena( void *ptr )
 	return true;
 }
 
+/*
+ * Boot arena region (engine/platform/gamecube/mem_gamecube.c owns the
+ * allocator).  vid.mapload_pad is idle BSS until the first map load trims the
+ * renderer, so the engine may serve boot/intro/menu allocations from it.
+ */
+static byte *R_GcmapBootPadBase( void )
+{
+	const uintptr_t raw = (uintptr_t)&vid.mapload_pad[0];
+	return (byte *)(( raw + 31u ) & ~(uintptr_t)31u );
+}
+
+byte *R_GcmapBootPadRegion( size_t *capacity )
+{
+	byte *base = R_GcmapBootPadBase();
+
+	if( capacity )
+		*capacity = 0;
+	if( gc_static_map_arena_ever_used || gc_renderer_trimmed || gc_static_map_arena_in_use )
+		return NULL;
+	if( capacity )
+		*capacity = sizeof( vid.mapload_pad ) - (size_t)( base - &vid.mapload_pad[0] );
+	return base;
+}
+
 qboolean R_GCIsMapLoadStaticArena( const void *ptr )
 {
 	return ptr != NULL && ptr == (const void *)R_GcmapStaticArenaBase();
@@ -190,6 +226,26 @@ void R_GcmapTrimForMapLoad( void )
 {
 	if( gc_renderer_trimmed )
 		return;
+
+	/* Session world reserves come first, while the heap is still roomy. */
+	Mod_GCEnsureStaticReserves();
+	SV_GCEnsureStringArena();
+
+	/* The map load is about to reuse the pad: close the boot arena first. */
+	if( !gc_static_map_arena_ever_used )
+	{
+		size_t live;
+
+		R_GXDropBootPadCinematic();
+		live = GC_BootArenaClose();
+		if( live )
+		{
+			gc_boot_pad_pinned = true;
+			gEngfuncs.Con_Reportf( S_WARN "Xash3D GameCube: boot arena still holds %lu bytes; map-load arena excludes the pad\n",
+				(unsigned long)live );
+		}
+	}
+	gc_static_map_arena_ever_used = true;
 
 	gEngfuncs.Con_Reportf( "Xash3D GameCube: renderer trim surface begin\n" );
 	R_GcmapTrimSurfaceCache();

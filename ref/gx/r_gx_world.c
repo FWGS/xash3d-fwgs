@@ -770,6 +770,25 @@ static int R_GXSnapDim( int n )
 	return R_GXSnapDimMax( n, GC_GX_TEX_WORLD_MAX_DIM );
 }
 
+/* Boot-time display caches: idle boot arena first, heap otherwise (arena
+ * copies are dropped at the first map load, see R_GXDropBootPadCinematic). */
+static u16 *R_GXAllocBootCache( size_t bytes )
+{
+	/* Arena first: keeps the heap contiguous for the first map load's
+	 * world reserves (Mod_GCEnsureStaticReserves). */
+	u16 *p = (u16 *)GC_BootArenaAlloc( bytes );
+
+	if( !p )
+		p = (u16 *)memalign( 32, bytes );
+	return p;
+}
+
+static void R_GXFreeBootCache( void *p )
+{
+	if( p && !GC_BootArenaFree( p ))
+		free( p );
+}
+
 static u16 *R_GXEnsureLinearScratch( size_t pixels )
 {
 	if( pixels <= r_gx_tex_linear_cap )
@@ -777,11 +796,11 @@ static u16 *R_GXEnsureLinearScratch( size_t pixels )
 	if( pixels > (size_t)GC_GX_TEX_HUD_MAX_DIM * (size_t)GC_GX_TEX_HUD_MAX_DIM )
 		pixels = (size_t)GC_GX_TEX_HUD_MAX_DIM * (size_t)GC_GX_TEX_HUD_MAX_DIM;
 	{
-		u16 *neu = (u16 *)memalign( 32, pixels * sizeof( u16 ));
+		u16 *neu = R_GXAllocBootCache( pixels * sizeof( u16 ));
 		if( !neu )
 			return NULL;
 		if( r_gx_tex_linear != r_gx_tex_linear_small )
-			free( r_gx_tex_linear );
+			R_GXFreeBootCache( r_gx_tex_linear );
 		r_gx_tex_linear = neu;
 		r_gx_tex_linear_cap = pixels;
 		gEngfuncs.Con_Reportf( "Xash3D GameCube: GX linear scratch grown to %u pixels\n",
@@ -816,11 +835,11 @@ static gc_gx_tex_t *R_GXBindMenuBackground( image_t *img, unsigned texnum )
 
 	if( !r_gx_menu_bg_tex.tiled || r_gx_menu_bg_tex.alloc_bytes < bytes )
 	{
-		u16 *neu = (u16 *)memalign( 32, bytes > GC_GX_MENU_BG_BYTES ? bytes : GC_GX_MENU_BG_BYTES );
+		u16 *neu = R_GXAllocBootCache( bytes > GC_GX_MENU_BG_BYTES ? bytes : GC_GX_MENU_BG_BYTES );
 		if( !neu )
 			return NULL;
 		if( r_gx_menu_bg_tex.tiled )
-			free( r_gx_menu_bg_tex.tiled );
+			R_GXFreeBootCache( r_gx_menu_bg_tex.tiled );
 		r_gx_menu_bg_tex.tiled = neu;
 		r_gx_menu_bg_tex.alloc_bytes = bytes > GC_GX_MENU_BG_BYTES ? bytes : GC_GX_MENU_BG_BYTES;
 		gEngfuncs.Con_Reportf( "Xash3D GameCube: menu background GX alloc %ux%u (%u KiB)\n",
@@ -885,7 +904,7 @@ void R_GXReleaseMenuBackgroundTexture( unsigned int texnum )
 {
 	if( r_gx_menu_bg_tex.tiled && ( texnum == 0 || r_gx_menu_bg_tex.texnum == texnum ))
 	{
-		free( r_gx_menu_bg_tex.tiled );
+		R_GXFreeBootCache( r_gx_menu_bg_tex.tiled );
 		memset( &r_gx_menu_bg_tex, 0, sizeof( r_gx_menu_bg_tex ));
 		r_gx_menu_bg_ready = false;
 		if( r_gx_bound_texnum == texnum || texnum == 0 )
@@ -897,10 +916,64 @@ void R_GXReleaseMenuBackgroundTexture( unsigned int texnum )
 	/* Drop the grown linear scratch when the whole menu is purged. */
 	if( texnum == 0 && r_gx_tex_linear != r_gx_tex_linear_small )
 	{
-		free( r_gx_tex_linear );
+		R_GXFreeBootCache( r_gx_tex_linear );
 		r_gx_tex_linear = r_gx_tex_linear_small;
 		r_gx_tex_linear_cap = GC_GX_TEX_WORLD_MAX_DIM * GC_GX_TEX_WORLD_MAX_DIM;
 	}
+}
+
+/* Startup cinematic storage: idle boot pad first (no heap), heap otherwise. */
+static u16 *R_GXAllocCinematicStorage( void )
+{
+	u16 *tiled = (u16 *)GC_BootArenaAlloc( GC_GX_CINEMATIC_BYTES );
+
+	if( !tiled )
+		tiled = (u16 *)memalign( 32, GC_GX_CINEMATIC_BYTES );
+	return tiled;
+}
+
+static void R_GXFreeCinematicStorage( u16 *tiled )
+{
+	if( !tiled )
+		return;
+	if( !GC_BootArenaFree( tiled ))
+		free( tiled );
+}
+
+/* Map load is closing the boot arena: release display caches living there.
+ * They are rebuilt from the heap on next use. */
+void R_GXDropBootPadCinematic( void )
+{
+	if( GC_BootArenaOwns( r_gx_menu_bg_tex.tiled ))
+	{
+		const unsigned texnum = r_gx_menu_bg_tex.texnum;
+
+		R_GXFreeBootCache( r_gx_menu_bg_tex.tiled );
+		memset( &r_gx_menu_bg_tex, 0, sizeof( r_gx_menu_bg_tex ));
+		r_gx_menu_bg_ready = false;
+		if( r_gx_bound_texnum == texnum )
+		{
+			r_gx_bound_texnum = 0;
+			r_gx_bound_fmt = 0;
+		}
+	}
+	if( GC_BootArenaOwns( r_gx_tex_linear ))
+	{
+		R_GXFreeBootCache( r_gx_tex_linear );
+		r_gx_tex_linear = r_gx_tex_linear_small;
+		r_gx_tex_linear_cap = GC_GX_TEX_WORLD_MAX_DIM * GC_GX_TEX_WORLD_MAX_DIM;
+	}
+	if( !GC_BootArenaOwns( r_gx_cinematic_tex.tiled ))
+		return;
+	R_GXReleaseCinematicSoftwarePixels();
+	GC_BootArenaFree( r_gx_cinematic_tex.tiled );
+	if( r_gx_bound_texnum == r_gx_cinematic_tex.texnum )
+	{
+		r_gx_bound_texnum = 0;
+		r_gx_bound_fmt = 0;
+	}
+	memset( &r_gx_cinematic_tex, 0, sizeof( r_gx_cinematic_tex ));
+	r_gx_cinematic_ready = false;
 }
 
 void GL_UpdateCinematicTexture( int texnum, int width, int height, const byte *buffer,
@@ -916,7 +989,7 @@ void GL_UpdateCinematicTexture( int texnum, int width, int height, const byte *b
 	/* Allocated on first use: a game without videos keeps the 150 KB. */
 	if( !r_gx_cinematic_tex.tiled )
 	{
-		r_gx_cinematic_tex.tiled = (u16 *)memalign( 32, GC_GX_CINEMATIC_BYTES );
+		r_gx_cinematic_tex.tiled = R_GXAllocCinematicStorage();
 		if( !r_gx_cinematic_tex.tiled )
 		{
 			static qboolean logged_fail;
@@ -986,7 +1059,7 @@ void R_GXReleaseCinematicTexture( unsigned int texnum )
 	if( !r_gx_cinematic_tex.tiled || r_gx_cinematic_tex.texnum != texnum )
 		return;
 	R_GXReleaseCinematicSoftwarePixels();
-	free( r_gx_cinematic_tex.tiled );
+	R_GXFreeCinematicStorage( r_gx_cinematic_tex.tiled );
 	memset( &r_gx_cinematic_tex, 0, sizeof( r_gx_cinematic_tex ));
 	r_gx_cinematic_ready = false;
 	if( r_gx_bound_texnum == texnum )
@@ -1002,7 +1075,7 @@ pixel_t *R_GXAcquireCinematicSoftwarePixels( size_t bytes )
 		return NULL;
 	if( !r_gx_cinematic_tex.tiled )
 	{
-		r_gx_cinematic_tex.tiled = (u16 *)memalign( 32, GC_GX_CINEMATIC_BYTES );
+		r_gx_cinematic_tex.tiled = R_GXAllocCinematicStorage();
 		if( !r_gx_cinematic_tex.tiled )
 			return NULL;
 		r_gx_cinematic_tex.alloc_bytes = GC_GX_CINEMATIC_BYTES;

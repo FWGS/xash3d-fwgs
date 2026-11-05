@@ -61,8 +61,10 @@ static qboolean gc_nodes_static_block;
  * often full of in-place planes + reserved surfaces + leafs; tip/malloc are
  * dry after changelevel. Keep a BSS last resort. */
 #define GC_STATIC_NODES_BYTES ( 384u * 1024u )
-static byte gc_static_nodes[GC_STATIC_NODES_BYTES]
-	__attribute__((aligned( 32 )));
+/* Allocated once at the first map load (Mod_GCEnsureStaticReserves): as BSS
+ * this and the reserves below took ~650 KiB of heap away from the startup
+ * video and the main menu, which never use them. */
+static byte *gc_static_nodes;
 static void *gc_clipnodes_malloc_block;
 static qboolean gc_clipnodes_pool_block;
 #if XASH_GAMECUBE
@@ -76,8 +78,7 @@ static mclipnode16_t gc_static_clipnodes[GC_STATIC_CLIPNODE_CAPACITY]
 	__attribute__((aligned( 32 )));
 /* Hull 0 is a separate normalized node table; keep a second bounded reserve
  * so large retail BSPs can finish world setup when MEM1 is fragmented. */
-static mclipnode16_t gc_static_hull0[GC_STATIC_HULL0_CAPACITY]
-	__attribute__((aligned( 32 )));
+static mclipnode16_t *gc_static_hull0;
 static qboolean gc_clipnodes_static_block;
 static qboolean gc_clipnodes_scratch_block; /* in-place normalized scratch lump */
 /* Submodel table is tiny (~64 B each) but tip-fatal / fragmented after denser
@@ -85,8 +86,7 @@ static qboolean gc_clipnodes_scratch_block; /* in-place normalized scratch lump 
  * FAIL; c1a3d→c1a3a needs ~163 entries). Prefer malloc; 256-entry BSS last
  * (~16 KiB). Never arena tail (surface reserve). */
 #define GC_STATIC_SUBMODEL_CAPACITY 256
-static dmodel_t gc_static_submodels[GC_STATIC_SUBMODEL_CAPACITY]
-	__attribute__((aligned( 32 )));
+static dmodel_t *gc_static_submodels;
 static void *gc_submodels_malloc_block;
 static qboolean gc_submodels_static_block;
 static void *gc_entities_malloc_block;
@@ -94,9 +94,51 @@ static qboolean gc_entities_arena_tail;
 /* Dense Residue maps (c2a4e ~68 KiB) can miss both malloc and tip after a
  * changelevel (heap_free=149 Kb still fragmented). Keep a BSS last resort. */
 #define GC_STATIC_ENTITIES_BYTES ( 128u * 1024u )
-static char gc_static_entities[GC_STATIC_ENTITIES_BYTES]
-	__attribute__((aligned( 32 )));
+static char *gc_static_entities;
 static qboolean gc_entities_static_block;
+
+#define GC_RESERVE_ALIGN( x ) ((( x ) + 31u ) & ~(size_t)31u )
+#define GC_STATIC_RESERVES_BYTES ( GC_RESERVE_ALIGN( GC_STATIC_NODES_BYTES ) \
+	+ GC_RESERVE_ALIGN( sizeof( mclipnode16_t ) * GC_STATIC_HULL0_CAPACITY ) \
+	+ GC_RESERVE_ALIGN( sizeof( dmodel_t ) * GC_STATIC_SUBMODEL_CAPACITY ) \
+	+ GC_RESERVE_ALIGN( GC_STATIC_ENTITIES_BYTES ))
+
+/*
+ * Last-resort world-table reserves, one contiguous block for the session.
+ * Taken at the start of the first map load, before BSP staging fills the
+ * heap, and never freed, so later loads see the same guarantee the BSS
+ * arrays gave without charging boot, the startup video or the menu.
+ */
+qboolean Mod_GCEnsureStaticReserves( void )
+{
+	static qboolean attempted;
+	byte *block, *cursor;
+
+	if( gc_static_nodes )
+		return true;
+	if( attempted )
+		return false;
+	attempted = true;
+
+	block = (byte *)memalign( 32, GC_STATIC_RESERVES_BYTES );
+	if( !block )
+	{
+		Con_Reportf( S_WARN "Xash3D GameCube: world reserves unavailable need=%s free=%s\n",
+			Q_memprint( GC_STATIC_RESERVES_BYTES ), Q_memprint( GC_MemHeapFreeBytes() ));
+		return false;
+	}
+	cursor = block;
+	gc_static_nodes = cursor;
+	cursor += GC_RESERVE_ALIGN( GC_STATIC_NODES_BYTES );
+	gc_static_hull0 = (mclipnode16_t *)cursor;
+	cursor += GC_RESERVE_ALIGN( sizeof( mclipnode16_t ) * GC_STATIC_HULL0_CAPACITY );
+	gc_static_submodels = (dmodel_t *)cursor;
+	cursor += GC_RESERVE_ALIGN( sizeof( dmodel_t ) * GC_STATIC_SUBMODEL_CAPACITY );
+	gc_static_entities = (char *)cursor;
+	Con_Reportf( "Xash3D GameCube: world reserves ready bytes=%s\n",
+		Q_memprint( GC_STATIC_RESERVES_BYTES ));
+	return true;
+}
 #endif
 static void *gc_planes_malloc_block;
 static qboolean gc_planes_arena_tail;
@@ -2624,7 +2666,7 @@ static void Mod_MakeHull0( model_t *mod, const dbspmodel_t *bmod )
 		if( !out )
 		{
 #if XASH_GAMECUBE
-			if( mod->numnodes <= GC_STATIC_HULL0_CAPACITY )
+			if( gc_static_hull0 && mod->numnodes <= GC_STATIC_HULL0_CAPACITY )
 			{
 				out = gc_static_hull0;
 				Con_Reportf( "Xash3D GameCube: world hull0 using static normalized reserve %s\n",
@@ -2987,7 +3029,7 @@ static void Mod_LoadSubmodels( model_t *mod, dbspmodel_t *bmod )
 			Con_Reportf( "Xash3D GameCube: world submodels using malloc %s\n",
 				Q_memprint( sub_bytes ));
 		}
-		else if( bmod->numsubmodels <= GC_STATIC_SUBMODEL_CAPACITY )
+		else if( gc_static_submodels && bmod->numsubmodels <= GC_STATIC_SUBMODEL_CAPACITY )
 		{
 			out = gc_static_submodels;
 			gc_submodels_static_block = true;
@@ -3187,7 +3229,7 @@ static void Mod_LoadEntities( model_t *mod, const dbspmodel_t *bmod )
 					Q_memprint( need ));
 			}
 		}
-		if( !mod->entities && need <= GC_STATIC_ENTITIES_BYTES )
+		if( !mod->entities && gc_static_entities && need <= GC_STATIC_ENTITIES_BYTES )
 		{
 			mod->entities = gc_static_entities;
 			gc_entities_static_block = true;
@@ -5626,7 +5668,7 @@ static void Mod_LoadNodes( model_t *mod, dbspmodel_t *bmod )
 					Con_Reportf( "Xash3D GameCube: world nodes via malloc %s\n", Q_memprint( node_bytes ));
 				}
 			}
-			if( !out && node_bytes <= GC_STATIC_NODES_BYTES )
+			if( !out && gc_static_nodes && node_bytes <= GC_STATIC_NODES_BYTES )
 			{
 				out = (mnode_t *)gc_static_nodes;
 				gc_nodes_static_block = true;
@@ -6226,7 +6268,7 @@ free_clipnodes:
 	}
 	if( gc_submodels_static_block )
 	{
-		if( mod && mod->submodels == gc_static_submodels )
+		if( mod && gc_static_submodels && mod->submodels == gc_static_submodels )
 			mod->submodels = NULL;
 		gc_submodels_static_block = false;
 	}

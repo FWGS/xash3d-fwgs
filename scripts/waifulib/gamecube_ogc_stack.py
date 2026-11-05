@@ -214,6 +214,9 @@ def engine_extra_ldflags(info: Optional[Dict[str, Any]] = None) -> List[str]:
 	else:
 		flags.append("-lfat")
 	flags.append("-Wl,--allow-multiple-definition")
+	# Boot arena (mem_gamecube.c): free/realloc must accept blocks lent from
+	# the idle map-load pad, whoever releases them.
+	flags.append("-Wl,--wrap=free,--wrap=realloc")
 	return flags
 
 

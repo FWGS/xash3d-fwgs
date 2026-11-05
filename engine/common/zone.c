@@ -449,6 +449,13 @@ void *_Mem_TryAlloc( poolhandle_t poolptr, size_t size, qboolean clear, const ch
 #endif
 		if( !mem )
 			mem = Q_malloc( blocksize );
+#if XASH_GAMECUBE
+		/* Boot/intro/menu: transient image/file blocks the heap cannot fit
+		 * borrow the idle map-load pad until the first map load. */
+		if( !mem && ( !Q_stricmp( pool->name, "ImageLib Pool" )
+			|| !Q_stricmp( pool->name, "FileSystem Pool" )))
+			mem = (memheader_t *)GC_BootArenaAlloc( blocksize );
+#endif
 
 		if( mem == NULL )
 			return NULL;
@@ -685,6 +692,8 @@ static void Mem_FreeBlockBig( memheader_t *mem, const char *filename, int fileli
 			pool->gc_arena_offset = start;
 		return;
 	}
+	if( GC_BootArenaFree( mem ))
+		return;
 #endif
 	Q_free( mem );
 }
@@ -851,7 +860,7 @@ void *_Mem_Realloc( poolhandle_t poolptr, void *data, size_t size, qboolean clea
 		if( size == oldsize )
 			return data;
 		#if XASH_GAMECUBE
-		if( Mem_IsArenaBlock( pool, mem ))
+		if( Mem_IsArenaBlock( pool, mem ) || GC_BootArenaOwns( mem ))
 		{
 			void *newdata = _Mem_Alloc( poolptr, size, false, filename, fileline );
 			if( !newdata )

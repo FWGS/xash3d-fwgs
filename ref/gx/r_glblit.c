@@ -1,4 +1,7 @@
 #include "r_local.h"
+#if XASH_GAMECUBE
+#include "../../engine/platform/gamecube/mem_gamecube.h"
+#endif
 
 #if XASH_GAMECUBE
 void GL_SetupAttributes( int safegl )
@@ -734,6 +737,7 @@ qboolean R_AllocScreen( void )
 
 #if XASH_GAMECUBE
 	gEngfuncs.Con_Reportf( "Xash3D GameCube: renderer screen alloc ready\n" );
+	GC_MemHeapMark( "renderer_screen_alloc_ready" );
 #endif
 
 	return true;

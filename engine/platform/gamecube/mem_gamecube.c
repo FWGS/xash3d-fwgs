@@ -164,6 +164,190 @@ void GC_MemSample( const char *stage )
 	}
 }
 
+/*
+ * Boot arena: first-fit allocator over the renderer's vid.mapload_pad.
+ *
+ * Before the first map load that 1 MiB of BSS is idle, while the libc heap is
+ * already short (two 640x480 XFBs plus the map-time static tables).  Large
+ * allocations that the heap cannot satisfy during boot, the startup video and
+ * the main menu are served here instead.  The first map load closes the arena
+ * for the session; if anything is still live then, the renderer keeps the pad
+ * out of the map-load arena rather than overwrite it.
+ */
+byte *R_GcmapBootPadRegion( size_t *capacity );
+
+#define GC_BOOT_ARENA_ALIGN 32u
+#define GC_BOOT_ARENA_MIN_ALLOC ( 8u * 1024u )
+
+typedef struct gc_boot_blk_s
+{
+	uint32_t size;	/* whole block incl. header, multiple of GC_BOOT_ARENA_ALIGN */
+	uint32_t used;
+	uint32_t pad[6];	/* keep the payload 32-byte aligned */
+} gc_boot_blk_t;
+
+static byte *gc_boot_base;
+static size_t gc_boot_cap;
+static qboolean gc_boot_ready, gc_boot_closed;
+static unsigned int gc_boot_live;
+static size_t gc_boot_live_bytes, gc_boot_peak_bytes;
+
+static qboolean GC_BootArenaInit( void )
+{
+	gc_boot_blk_t *first;
+
+	if( gc_boot_ready )
+		return gc_boot_base != NULL;
+	gc_boot_ready = true;
+	gc_boot_base = R_GcmapBootPadRegion( &gc_boot_cap );
+	gc_boot_cap &= ~(size_t)( GC_BOOT_ARENA_ALIGN - 1u );
+	if( !gc_boot_base || gc_boot_cap < 2u * sizeof( gc_boot_blk_t ))
+	{
+		gc_boot_base = NULL;
+		return false;
+	}
+	first = (gc_boot_blk_t *)gc_boot_base;
+	first->size = (uint32_t)gc_boot_cap;
+	first->used = 0;
+	Con_Reportf( "Xash3D GameCube: boot arena ready capacity=%s\n", Q_memprint( gc_boot_cap ));
+	return true;
+}
+
+qboolean GC_BootArenaOwns( const void *ptr )
+{
+	const byte *p = (const byte *)ptr;
+	return gc_boot_base && p >= gc_boot_base && p < gc_boot_base + gc_boot_cap;
+}
+
+void *GC_BootArenaAlloc( size_t size )
+{
+	size_t need;
+	byte *cursor;
+
+	if( gc_boot_closed || size < GC_BOOT_ARENA_MIN_ALLOC || !GC_BootArenaInit() )
+		return NULL;
+	need = ( sizeof( gc_boot_blk_t ) + size + GC_BOOT_ARENA_ALIGN - 1u ) & ~(size_t)( GC_BOOT_ARENA_ALIGN - 1u );
+
+	for( cursor = gc_boot_base; cursor < gc_boot_base + gc_boot_cap; cursor += ((gc_boot_blk_t *)cursor)->size )
+	{
+		gc_boot_blk_t *blk = (gc_boot_blk_t *)cursor;
+
+		if( blk->used || blk->size < need )
+			continue;
+		if( blk->size - need >= 2u * sizeof( gc_boot_blk_t ))
+		{
+			gc_boot_blk_t *rest = (gc_boot_blk_t *)( cursor + need );
+			rest->size = blk->size - (uint32_t)need;
+			rest->used = 0;
+			blk->size = (uint32_t)need;
+		}
+		blk->used = 1;
+		gc_boot_live++;
+		gc_boot_live_bytes += blk->size;
+		if( gc_boot_live_bytes > gc_boot_peak_bytes )
+			gc_boot_peak_bytes = gc_boot_live_bytes;
+		return cursor + sizeof( gc_boot_blk_t );
+	}
+	Con_Reportf( "Xash3D GameCube: boot arena full need=%s live=%s\n",
+		Q_memprint( need ), Q_memprint( gc_boot_live_bytes ));
+	return NULL;
+}
+
+qboolean GC_BootArenaFree( void *ptr )
+{
+	gc_boot_blk_t *blk;
+	byte *cursor;
+
+	if( !ptr || !GC_BootArenaOwns( ptr ))
+		return false;
+	blk = (gc_boot_blk_t *)((byte *)ptr - sizeof( gc_boot_blk_t ));
+	if( !blk->used )
+	{
+		Con_Reportf( S_ERROR "Xash3D GameCube: boot arena double free %p\n", ptr );
+		return true;
+	}
+	blk->used = 0;
+	gc_boot_live--;
+	gc_boot_live_bytes -= blk->size;
+
+	/* Coalesce every run of free neighbours (few blocks; a full walk is cheap). */
+	for( cursor = gc_boot_base; cursor < gc_boot_base + gc_boot_cap; cursor += ((gc_boot_blk_t *)cursor)->size )
+	{
+		gc_boot_blk_t *cur = (gc_boot_blk_t *)cursor;
+
+		while( !cur->used && cursor + cur->size < gc_boot_base + gc_boot_cap )
+		{
+			gc_boot_blk_t *next = (gc_boot_blk_t *)( cursor + cur->size );
+			if( next->used )
+				break;
+			cur->size += next->size;
+		}
+	}
+	return true;
+}
+
+/* Linked with -Wl,--wrap=free,--wrap=realloc: any boot-arena block can be
+ * released or resized through the C library entry points. */
+void __real_free( void *ptr );
+void *__real_realloc( void *ptr, size_t size );
+
+void __wrap_free( void *ptr )
+{
+	if( GC_BootArenaFree( ptr ))
+		return;
+	__real_free( ptr );
+}
+
+void *__wrap_realloc( void *ptr, size_t size )
+{
+	gc_boot_blk_t *blk;
+	size_t have;
+	void *neu;
+
+	if( !ptr || !GC_BootArenaOwns( ptr ))
+		return __real_realloc( ptr, size );
+	if( size == 0 )
+	{
+		GC_BootArenaFree( ptr );
+		return NULL;
+	}
+	blk = (gc_boot_blk_t *)((byte *)ptr - sizeof( gc_boot_blk_t ));
+	have = blk->size - sizeof( gc_boot_blk_t );
+	if( size <= have )
+		return ptr;
+	neu = malloc( size );
+	if( !neu )
+		neu = GC_BootArenaAlloc( size );
+	if( !neu )
+		return NULL;
+	memcpy( neu, ptr, have );
+	GC_BootArenaFree( ptr );
+	return neu;
+}
+
+/* First map load: no new boot allocations.  Returns the bytes still live. */
+size_t GC_BootArenaClose( void )
+{
+	if( !gc_boot_closed )
+	{
+		gc_boot_closed = true;
+		if( gc_boot_base )
+			Con_Reportf( "Xash3D GameCube: boot arena closed live=%u bytes=%s peak=%s\n",
+				gc_boot_live, Q_memprint( gc_boot_live_bytes ), Q_memprint( gc_boot_peak_bytes ));
+	}
+	return gc_boot_live ? gc_boot_live_bytes : 0;
+}
+
+/* Unconditional heap mark at fixed boot stages (MEM1 headroom telemetry). */
+void GC_MemHeapMark( const char *stage )
+{
+	size_t heap_used, heap_free, heap_unclaimed;
+	GC_MemHeapStats( &heap_used, &heap_free, &heap_unclaimed );
+	Con_Reportf( "Xash3D GameCube: heap mark stage=%s used=%u free=%u unclaimed=%u avail=%u\n",
+		stage, (unsigned)heap_used, (unsigned)heap_free, (unsigned)heap_unclaimed,
+		(unsigned)( heap_free + heap_unclaimed ));
+}
+
 void GC_MemBreadcrumb( const char *stage )
 {
 	size_t heap_used, heap_free, heap_unclaimed;
@@ -664,8 +848,14 @@ void GC_DiscardMapLoadBuffer( void )
 	}
 }
 
+qboolean Mod_GCEnsureStaticReserves( void );
+qboolean SV_GCEnsureStringArena( void );
+
 void GC_BeginMapLoadMemoryOpt( void )
 {
+	/* First map load: take the session's world reserves before BSP staging. */
+	Mod_GCEnsureStaticReserves();
+	SV_GCEnsureStringArena();
 	gc_mapload_memopt_depth++;
 	gc_mapload_memopt_session = true;
 	gc_newgame_bootstrap_memopt = false;

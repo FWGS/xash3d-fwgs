@@ -2846,6 +2846,7 @@ qboolean GAME_EXPORT R_Init( void )
 		return false;
 	}
 	gEngfuncs.Con_Reportf( "Xash3D GameCube: renderer video init ready\n" );
+	GC_MemHeapMark( "renderer_video_init_ready" );
 #else
 	glblit = !!gEngfuncs.Sys_CheckParm( "-glblit" );
 
@@ -2894,6 +2895,7 @@ qboolean GAME_EXPORT R_Init( void )
 		{
 			R_InitImages();
 			gEngfuncs.Con_Reportf( "Xash3D GameCube: renderer images ready\n" );
+	GC_MemHeapMark( "renderer_images_ready" );
 #if defined(GC_MEMSAMPLE_AVAILABLE)
 			GC_MemSample( "textures" );
 #endif
@@ -2931,6 +2933,7 @@ qboolean GAME_EXPORT R_Init( void )
 		R_GXReserveHudPoolEarly();
 	}
 	gEngfuncs.Con_Reportf( "Xash3D GameCube: renderer init ready (quality=%d)\n", GC_GetVisualQuality() );
+	GC_MemHeapMark( "renderer_init_ready" );
 #endif
 
 	return true;

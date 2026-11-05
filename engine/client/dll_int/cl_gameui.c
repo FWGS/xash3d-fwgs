@@ -15,6 +15,9 @@ GNU General Public License for more details.
 
 #include "common.h"
 #include "client.h"
+#if XASH_GAMECUBE
+#include "gamecube/mem_gamecube.h"
+#endif
 #include "const.h"
 #include "library.h"
 #include "input.h"
@@ -686,6 +689,7 @@ void UI_SetActiveMenu( qboolean fActive )
 		Con_Reportf( "Xash3D GameCube: gameui deferred vidinit begin\n" );
 		gameui.dllFuncs.pfnVidInit();
 		Con_Reportf( "Xash3D GameCube: gameui deferred vidinit ready\n" );
+	GC_MemHeapMark( "gameui_deferred_vidinit_ready" );
 	}
 #endif
 
@@ -2068,6 +2072,7 @@ qboolean UI_LoadProgs( void )
 
 #if XASH_GAMECUBE
 	Con_Reportf( "Xash3D GameCube: gameui library handle ready\n" );
+	GC_MemHeapMark( "gameui_library_handle_ready" );
 #endif
 	if(( GetMenuAPI = (MENUAPI)COM_GetProcAddress( gameui.hInstance, "GetMenuAPI" )) == NULL )
 	{
@@ -2150,6 +2155,7 @@ qboolean UI_LoadProgs( void )
 gameui.dllFuncs.pfnInit();
 #if XASH_GAMECUBE
 	Con_Reportf( "Xash3D GameCube: gameui pfnInit ready\n" );
+	GC_MemHeapMark( "gameui_pfninit_ready" );
 	gc_menu_vidinit_pending = true;
 #endif
 

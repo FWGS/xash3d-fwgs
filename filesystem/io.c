@@ -741,9 +741,27 @@ FS_LoadFileFromArchive
 
 ============
 */
+#if XASH_GAMECUBE
+/* File load buffers are transient (read, decode, free).  When the heap is
+ * short before the first map load, borrow the idle boot arena; the linker
+ * wraps free() so callers release it as usual. */
+void *GC_BootArenaAlloc( size_t size );
+static void *FS_SysMalloc( size_t size )
+{
+	void *p = malloc( size );
+
+	if( !p )
+		p = GC_BootArenaAlloc( size );
+	return p;
+}
+#define FS_SYS_MALLOC FS_SysMalloc
+#else
+#define FS_SYS_MALLOC malloc
+#endif
+
 byte *FS_LoadFileFromArchive( searchpath_t *sp, const char *path, int pack_ind, fs_offset_t *filesizeptr, const qboolean sys_malloc )
 {
-	void *( *pfnAlloc )( size_t ) = sys_malloc ? malloc : FS_CustomAlloc;
+	void *( *pfnAlloc )( size_t ) = sys_malloc ? FS_SYS_MALLOC : FS_CustomAlloc;
 	void ( *pfnFree )( void * ) = sys_malloc ? free : FS_CustomFree;
 	fs_offset_t filesize;
 	file_t *file;

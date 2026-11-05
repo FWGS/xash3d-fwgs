@@ -42,20 +42,43 @@ static byte fatphs[(MAX_MAP_LEAFS+7)/8];
 static byte clientpvs[(MAX_MAP_LEAFS+7)/8];	// for find client in PVS
 
 #if XASH_GAMECUBE
+#include <malloc.h>
 /* Tip Server Strings pool dies on denser Office maps (c1a1f SV_AllocString
  * 14-byte Host_Error, hardware 20261104). Deduped bump arena keeps class/
  * target/model names off the tip after reclaim fails. */
 #define GC_STRING_ARENA_SIZE (96 * 1024)
-static char gc_string_arena[GC_STRING_ARENA_SIZE] __attribute__((aligned( 16 )));
+/* Heap block taken once at the first map load (SV_GCEnsureStringArena), not
+ * BSS: boot, the startup video and the menu never allocate server strings. */
+static char *gc_string_arena;
 static size_t gc_string_arena_used;
 static int gc_string_arena_overflows;
+
+qboolean SV_GCEnsureStringArena( void )
+{
+	static qboolean attempted;
+
+	if( gc_string_arena )
+		return true;
+	if( attempted )
+		return false;
+	attempted = true;
+	gc_string_arena = (char *)memalign( 16, GC_STRING_ARENA_SIZE );
+	if( !gc_string_arena )
+	{
+		Con_Reportf( S_WARN "Xash3D GameCube: server string arena unavailable (%s)\n",
+			Q_memprint( GC_STRING_ARENA_SIZE ));
+		return false;
+	}
+	Con_Reportf( "Xash3D GameCube: server string arena ready %s\n", Q_memprint( GC_STRING_ARENA_SIZE ));
+	return true;
+}
 
 static char *GC_StringArenaAlloc( const char *value, uint len )
 {
 	size_t i;
 	char *dst;
 
-	if( !value || len == 0 || len > GC_STRING_ARENA_SIZE )
+	if( !gc_string_arena || !value || len == 0 || len > GC_STRING_ARENA_SIZE )
 		return NULL;
 	/* Dedup scan — classnames/model paths dominate AllocString traffic. */
 	for( i = 0; i + len <= gc_string_arena_used; )
@@ -3994,7 +4017,7 @@ string_t GAME_EXPORT SV_AllocString( const char *szValue )
 
 		if( existing )
 			return existing - svgame.globals->pStringBase;
-		for( i = 0; i < gc_string_arena_used; )
+		for( i = 0; gc_string_arena && i < gc_string_arena_used; )
 		{
 			const char *s = &gc_string_arena[i];
 			size_t slen = Q_strlen( s ) + 1;
