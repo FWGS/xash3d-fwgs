@@ -181,7 +181,25 @@ client_textmessage_t *CL_TextMessageParse( poolhandle_t mempool, char *pfile, in
 				size_t textoffset = nameoffset + namelen + 1;
 
 				bufsize = textoffset + textlen + 1;
-				out = Mem_Realloc( mempool, out, bufsize );
+				{
+					client_textmessage_t *grown = Mem_Realloc( mempool, out, bufsize );
+
+					if( !grown )
+					{
+#if XASH_GAMECUBE
+						/* Soft-fail realloc leaves `out` intact; ship the titles
+						 * already parsed so env_message credits still play. */
+						Con_Reportf( "Xash3D GameCube: titles truncated at %d of %d (OOM grow)\n",
+							count, total );
+						goto titles_done;
+#else
+						Mem_Free( out );
+						*numTitles = 0;
+						return NULL;
+#endif
+					}
+					out = grown;
+				}
 
 				char *p = (char *)out;
 
@@ -199,6 +217,7 @@ client_textmessage_t *CL_TextMessageParse( poolhandle_t mempool, char *pfile, in
 		}
 	}
 
+titles_done:
 	if( unlikely( count != total ))
 		Con_DPrintf( S_ERROR "%s: expected %d messages, parsed %d\n", __func__, total, count );
 

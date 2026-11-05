@@ -69,6 +69,12 @@ elif [[ "${DOLPHIN_MENU_NEWGAME:-0}" == "1" ]]; then
 	G278_DONE_MARKER="Xash3D GameCube: newgame world render ready"
 	echo "==> Menu New Game will sample ${FRAME_SAMPLE_SEC}s after map loaded"
 	echo "==> Waiting for newgame world render ready before post-CapFaces sample"
+	# Intro15 proof: hold the harness through the tram ladder until c1a0
+	# (default MENU_NEWGAME exits after c0a0 G36/input readiness).
+	if [[ -n "${DOLPHIN_INTRO_DONE_MARKER:-}" ]]; then
+		G68_DONE_MARKER="$DOLPHIN_INTRO_DONE_MARKER"
+		echo "==> Intro proof waiting for: ${G68_DONE_MARKER}"
+	fi
 else
 	SMOKE_MAP="${DOLPHIN_SMOKE_MAP:-c0a0e}"
 fi

@@ -492,6 +492,11 @@ Netchan_AllocFragbuf
 static fragbuf_t *Netchan_AllocFragbuf( int fragment_size )
 {
 	fragbuf_t *buf = (fragbuf_t *)Mem_Calloc( net_mempool, sizeof( fragbuf_t ) + fragment_size );
+#if XASH_GAMECUBE
+	/* Network Pool soft-fails under tip (zone.c); callers must tolerate NULL. */
+	if( !buf )
+		return NULL;
+#endif
 	MSG_Init( &buf->frag_message, "Frag Message", buf->frag_message_buf, fragment_size );
 
 	return buf;
@@ -651,6 +656,15 @@ static void Netchan_CreateFragments_( netchan_t *chan, sizebuf_t *msg )
 	int chunksize = chan->pfnBlockSize( chan->client, FRAGSIZE_FRAG );
 
 	fragbufwaiting_t *wait = (fragbufwaiting_t *)Mem_Calloc( net_mempool, sizeof( fragbufwaiting_t ));
+#if XASH_GAMECUBE
+	if( !wait )
+	{
+		Con_Reportf( "Xash3D GameCube: dropping fragmented reliable (waitlist OOM, %d bytes)\n",
+			MSG_GetNumBytesWritten( msg ));
+		MSG_Clear( msg );
+		return;
+	}
+#endif
 
 #if XASH_GAMECUBE
 	/* The 64 KiB BZ2 output array below lives in this function's stack
@@ -707,6 +721,17 @@ static void Netchan_CreateFragments_( netchan_t *chan, sizebuf_t *msg )
 		remaining -= bytes;
 
 		fragbuf_t *buf = Netchan_AllocFragbuf( bytes );
+#if XASH_GAMECUBE
+		if( !buf )
+		{
+			Con_Reportf( "Xash3D GameCube: dropping fragmented reliable (fragbuf OOM, need %d)\n",
+				bytes );
+			Netchan_ClearFragbufs( &wait->fragbufs );
+			Mem_Free( wait );
+			MSG_Clear( msg );
+			return;
+		}
+#endif
 		buf->bufferid = bufferid++;
 
 		// Copy in data
@@ -781,6 +806,10 @@ static fragbuf_t *Netchan_FindBufferById( fragbuf_t **pplist, int id, qboolean a
 
 	// create new entry
 	fragbuf_t *pnewbuf = Netchan_AllocFragbuf( NET_MAX_FRAGMENT );
+#if XASH_GAMECUBE
+	if( !pnewbuf )
+		return NULL;
+#endif
 	pnewbuf->bufferid = id;
 	Netchan_AddBufferToList( pplist, pnewbuf );
 
@@ -874,6 +903,10 @@ void Netchan_CreateFileFragmentsFromBuffer( netchan_t *chan, const char *filenam
 	}
 
 	fragbufwaiting_t *wait = (fragbufwaiting_t *)Mem_Calloc( net_mempool, sizeof( fragbufwaiting_t ));
+#if XASH_GAMECUBE
+	if( !wait )
+		return;
+#endif
 	int remaining = size;
 	int pos = 0;
 
@@ -882,6 +915,14 @@ void Netchan_CreateFileFragmentsFromBuffer( netchan_t *chan, const char *filenam
 		int send = Q_min( remaining, chunksize );
 
 		fragbuf_t *buf = Netchan_AllocFragbuf( send );
+#if XASH_GAMECUBE
+		if( !buf )
+		{
+			Netchan_ClearFragbufs( &wait->fragbufs );
+			Mem_Free( wait );
+			return;
+		}
+#endif
 		buf->bufferid = bufferid++;
 
 		// copy in data
@@ -1032,6 +1073,10 @@ int Netchan_CreateFileFragments( netchan_t *chan, const char *filename )
 	}
 
 	fragbufwaiting_t *wait = (fragbufwaiting_t *)Mem_Calloc( net_mempool, sizeof( fragbufwaiting_t ));
+#if XASH_GAMECUBE
+	if( !wait )
+		return 0;
+#endif
 	int remaining = filesize;
 	int pos = 0;
 
@@ -1043,6 +1088,14 @@ int Netchan_CreateFileFragments( netchan_t *chan, const char *filename )
 			send = Q_min( header_size + remaining, chunksize );
 
 		buf = Netchan_AllocFragbuf( send );
+#if XASH_GAMECUBE
+		if( !buf )
+		{
+			Netchan_ClearFragbufs( &wait->fragbufs );
+			Mem_Free( wait );
+			return 0;
+		}
+#endif
 		buf->bufferid = bufferid++;
 
 		// copy in data

@@ -3424,12 +3424,19 @@ def main() -> None:
 				menu_lines = ["menunewgame"]
 				if args.probe_video_mode:
 					menu_lines.append(f"video {args.probe_video_mode}")
+				else:
+					# Match play ISO: progressive so menu/LOADING CopyDisp
+					# skips the CRT vfilter path.
+					menu_lines.append("video prog")
 				if args.probe_fullphysics:
 					menu_lines.append("fullphysics")
 				if args.probe_tas:
 					menu_lines.append(f"tas {args.probe_tas}")
 				if args.probe_dumpframes:
 					menu_lines.append("dumpframes")
+				if os.environ.get("XASH_GC_PROBE_AUTOHOP") == "1":
+					# Walk out of the tram on c0a0e into c1a0 (intro proof).
+					menu_lines.append("autohop")
 				if os.environ.get("XASH_GC_PROBE_MEMREPORT") == "1":
 					menu_lines.append("memreport")
 				if os.environ.get("XASH_GC_PROBE_PROFILE") == "1":
