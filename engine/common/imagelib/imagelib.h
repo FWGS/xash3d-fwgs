@@ -48,6 +48,7 @@ typedef struct loadformat_s
 	const char *ext;
 	qboolean (*loadfunc)( const char *name, const byte *buffer, fs_offset_t filesize );
 	image_hint_t hint;
+	qboolean explicit_only; // never probed for names without extension
 } loadpixformat_t;
 
 typedef struct saveformat_s

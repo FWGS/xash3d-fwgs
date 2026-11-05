@@ -296,6 +296,9 @@ static qboolean Image_ProbeLoadBuffer( const loadpixformat_t *fmt, const char *n
 	{
 		for( fmt = image.loadformats; fmt->ext; fmt++ )
 		{
+			if( fmt->explicit_only )
+				continue;
+
 			if( Image_ProbeLoadBuffer_( fmt, name, buf, size, override_hint ))
 				 return true;
 		}
@@ -345,6 +348,9 @@ static qboolean Image_ProbeLoad2( const char *name, const char *suffix, int over
 		fs_offset_t filesize;
 		int i;
 
+		if( fmt->explicit_only )
+			continue;
+
 		for( i = 0; i < t->numfilenames; i++ )
 		{
 			const char *ext = COM_FileExtension( t->filenames[i] );
@@ -386,6 +392,9 @@ static qboolean Image_ProbeLoad( const loadpixformat_t *fmt, const char *name, c
 		// bruteforce all formats to allow implicit extension
 		for( fmt = image.loadformats; fmt->ext; fmt++ )
 		{
+			if( fmt->explicit_only )
+				continue;
+
 			if( Image_ProbeLoad_( fmt, name, suffix, override_hint ))
 				return true;
 		}
