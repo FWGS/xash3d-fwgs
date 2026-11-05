@@ -23,8 +23,11 @@ static byte gc_tiny_pixels[8][8192] __attribute__((aligned(32)));
 static unsigned gc_tiny_pixels_used;
 /* Late native studio skins can arrive after the compact studio arena has
  * become contiguous-full.  Keep a bounded overflow window for base planes;
- * this avoids pushing small skin allocations back through fragmented MEM1. */
-#define GC_STUDIO_SKIN_OVERFLOW_BYTES (64 * 1024)
+ * this avoids pushing small skin allocations back through fragmented MEM1.
+ * Sized for a boss cast (nihilanth 12×96² RGB565 ≈ 221 KiB): skins must NOT
+ * live in gc_studio_bss — Mod_GCStudioBssTrimLast rewinds that bump and was
+ * leaving ptexture indices dangling into recycled slots (*gc_sky_proc). */
+#define GC_STUDIO_SKIN_OVERFLOW_BYTES (256 * 1024)
 static byte gc_studio_skin_overflow[GC_STUDIO_SKIN_OVERFLOW_BYTES] __attribute__((aligned(32)));
 static size_t gc_studio_skin_overflow_bump;
 static unsigned gc_studio_skin_overflow_live;
@@ -518,20 +521,17 @@ static qboolean GL_UploadTexture( image_t *tex, rgbdata_t *pic )
 		// it seems to assume memory readable. maybe it was pointed to WAD?
 #if XASH_GAMECUBE
 		tex->pixels[j] = NULL;
-		/* Menu New Game studio skins live beside their meshes in the static
-		 * studio arena: the MEM1 heap had no room for the intro cast's skins
-		 * (~94 KiB) once the whole c0a0 BSP was resident. */
-		if( r_gc_studio_skins_in_arena && j == 0 )
-		{
-			tex->pixels[j] = (pixel_t *)Mod_GCStudioBssAlloc( width * height * sizeof( pixel_t ));
-			if( tex->pixels[j] )
-				memset( tex->pixels[j], 0, width * height * sizeof( pixel_t ));
-		}
 		if( j == 0 )
 		{
 			tex->gc_pixels_base = NULL;
 			tex->gc_gx_native = false;
 		}
+		/* Studio skins stay in the overflow/heap window — never gc_studio_bss.
+		 * Mesh TrimLast rewinds that bump after soft-skin upload; BSS-resident
+		 * skin pixels were then overwritten and texnums reused (c4a3 nihilanth
+		 * bound *gc_sky_proc as back.bmp, probe 20261105-083835). */
+		if( r_gc_studio_skins_in_arena && j == 0 )
+			tex->pixels[j] = R_GCAllocStudioSkinOverflow( tex, width * height * sizeof( pixel_t ));
 		if( !tex->pixels[j] )
 			tex->pixels[j] = R_GCAllocMip( tex, j, width * height * sizeof( pixel_t ));
 		/* Decode scratch is transient and may be the last reclaimable MEM1
@@ -1476,14 +1476,31 @@ void R_GcFreeMenuImages( void )
 
 	for( i = 1, tex = r_images + 1; i < (int)r_numImages; i++, tex++ )
 	{
+		qboolean is_menu = false;
+
 		if( !tex->pixels[0] && !tex->name[0] )
 			continue;
 		if( tex->name[0] == '*' )
 			continue; /* builtin / cinematic slots */
-		if( !( FBitSet( tex->flags, TF_IMAGE ) || FBitSet( tex->flags, TF_FONT )
-			|| ( tex->name[0] == '#' && Q_strstr( tex->name, "_stb_font" ))
-			|| !Q_strnicmp( tex->name, "resource/", 9 )
-			|| !Q_strnicmp( tex->name, "gfx/shell/", 10 )))
+		/* Studio soft skins are "#models/.../*.mdl" with TF_NOMIPMAP. TF_IMAGE
+		 * is (TF_NOMIPMAP|TF_CLAMP), so FBitSet(flags, TF_IMAGE) is true for
+		 * NOMIPMAP alone and previously deleted nihilanth skins — sky/HUD then
+		 * reused tex=31.. (probe 20261105-084745). */
+		if( tex->name[0] == '#' && !Q_strnicmp( tex->name + 1, "models/", 7 ))
+			continue;
+		if( tex->name[0] == '#' && Q_strstr( tex->name, "_stb_font" ))
+			is_menu = true;
+		else if( FBitSet( tex->flags, TF_FONT ))
+			is_menu = true;
+		else if( !Q_strnicmp( tex->name, "resource/", 9 )
+			|| !Q_strnicmp( tex->name, "gfx/shell/", 10 ))
+			is_menu = true;
+		else if(( tex->flags & (TF_NOMIPMAP | TF_CLAMP) ) == (TF_NOMIPMAP | TF_CLAMP)
+			&& ( !Q_strnicmp( tex->name, "gfx/", 4 )
+				|| !Q_strnicmp( tex->name, "resource/", 9 )
+				|| tex->name[0] == '#' ))
+			is_menu = true;
+		if( !is_menu )
 			continue;
 
 		GL_DeleteTexture( tex );

@@ -1418,10 +1418,15 @@ void CL_GameCubeLeanEmitBrushEntities( void )
 	const int budget = (int)( sizeof( lean_brush_ents ) / sizeof( lean_brush_ents[0] ));
 	const int studio_budget = (int)( sizeof( lean_studio_ents ) / sizeof( lean_studio_ents[0] ));
 	const float max_dist = 8000.0f;
-	const float studio_max_dist = 1600.0f; /* G371: denser AM NPC near dump/landmark eye */
+	/* G371: denser AM NPC near dump/landmark eye. Xen bake eye→Nihilanth is
+	 * ~450u; keep headroom for companions. */
+	const float studio_max_dist = Sys_CheckParm( "-gcfullphysics" ) ? 4800.0f : 1600.0f;
 
-	if( !Sys_CheckParm( "-gcnewgame" ) || Sys_CheckParm( "-gcfullphysics" ))
+	if( !Sys_CheckParm( "-gcnewgame" ))
 		return;
+	/* Fullphysics direct-map still uses bootstrap tables (maxEntities=2) so
+	 * CL_EmitEntities never fills the Flipper list (c4a3 20261105-082525:
+	 * G315/G318 solid=0). Keep lean emit so Xen bosses can draw. */
 	if( !SV_Active() || !GC_IsNewGameWorldReady() )
 		return;
 	if( cls.state != ca_active )
@@ -1430,7 +1435,13 @@ void CL_GameCubeLeanEmitBrushEntities( void )
 	ref.dllFuncs.R_ClearScene();
 
 	player = ( svs.maxclients >= 1 ) ? SV_EdictNum( 1 ) : NULL;
-	if( player && SV_IsValidEdict( player ) && !VectorIsNull( player->v.origin ))
+	/* Prefer dump/bake eye so Xen boss picks use the CapFaces camera, not
+	 * info_player_start (c4a3 EmitBrush view=(436,-376) while dump eye was
+	 * (240,-396)). */
+	if( !VectorIsNull( refState.vieworg )
+		&& ( Sys_CheckParm( "-gcdumpframes" ) || Sys_CheckParm( "-gcdump" )))
+		VectorCopy( refState.vieworg, view_org );
+	else if( player && SV_IsValidEdict( player ) && !VectorIsNull( player->v.origin ))
 		VectorCopy( player->v.origin, view_org );
 	else
 		VectorCopy( refState.vieworg, view_org );
@@ -1511,8 +1522,13 @@ void CL_GameCubeLeanEmitBrushEntities( void )
 	}
 
 	/* Already-resident world studios (w_* weapons + allowlisted NPCs).
-	 * No Mod_ForName — G371 promotes scientist/barney after present≥24. */
-	if( GC_GetNewGamePresentCount() >= 16 && studio_budget > 0 )
+	 * No Mod_ForName — G371 promotes scientist/barney after present≥24.
+	 * Fullphysics DumpFrames need studios on the first CapFaces present
+	 * (c4a3 bake-eye dump had studios=0 while present<16). */
+	if( ( GC_GetNewGamePresentCount() >= 16
+			|| ( Sys_CheckParm( "-gcfullphysics" )
+				&& ( Sys_CheckParm( "-gcdumpframes" ) || Sys_CheckParm( "-gcdump" ))))
+		&& studio_budget > 0 )
 	{
 		int studio_slots = 0;
 		int picks[4];
@@ -1542,7 +1558,7 @@ void CL_GameCubeLeanEmitBrushEntities( void )
 				scan_studio_skip++;
 				continue;
 			}
-			/* Weapons + lean NPCs. Skip v_* / player. */
+			/* Weapons + lean NPCs + Xen bosses. Skip v_* / player. */
 			allow = false;
 			if( Q_stristr( mod->name, "w_" ) && !Q_stristr( mod->name, "v_" ))
 				allow = true;
@@ -1550,7 +1566,10 @@ void CL_GameCubeLeanEmitBrushEntities( void )
 				|| Q_stristr( mod->name, "barney" )
 				|| Q_stristr( mod->name, "headcrab" )
 				|| Q_stristr( mod->name, "zombie" )
-				|| Q_stristr( mod->name, "roach" ))
+				|| Q_stristr( mod->name, "roach" )
+				|| Q_stristr( mod->name, "nihilanth" )
+				|| Q_stristr( mod->name, "controller" )
+				|| Q_stristr( mod->name, "islave" ))
 				allow = true;
 			if( !allow || Q_stristr( mod->name, "player.mdl" ))
 			{

@@ -6519,6 +6519,31 @@ qboolean SV_LoadProgs( const char *name )
 	svgame.edicts = Mem_Calloc( svgame.mempool, sizeof( edict_t ) * GI->max_edicts );
 	svs.static_entities = Z_Calloc( sizeof( entity_state_t ) * MAX_STATIC_ENTITIES );
 	svs.baselines = Z_Calloc( sizeof( entity_state_t ) * GI->max_edicts );
+	/* Soft-fail tip OOM (size>=48 KiB) can return NULL here; writing
+	 * edicts[i].free then DSI's (DAR=0, Guru Meditation). */
+	if( !svgame.edicts || !svs.static_entities || !svs.baselines )
+	{
+		Con_Printf( S_ERROR "%s: out of memory allocating edicts/baselines\n", __func__ );
+		if( svgame.edicts )
+		{
+			Mem_Free( svgame.edicts );
+			svgame.edicts = NULL;
+		}
+		if( svs.static_entities )
+		{
+			Z_Free( svs.static_entities );
+			svs.static_entities = NULL;
+		}
+		if( svs.baselines )
+		{
+			Z_Free( svs.baselines );
+			svs.baselines = NULL;
+		}
+		COM_FreeLibrary( svgame.hInstance );
+		svgame.hInstance = NULL;
+		Mem_FreePool( &svgame.mempool );
+		return false;
+	}
 	svgame.numEntities = svs.maxclients + 1; // clients + world
 
 	for( int i = 0; i < GI->max_edicts; i++ )

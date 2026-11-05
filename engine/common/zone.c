@@ -640,9 +640,13 @@ void *_Mem_Alloc( poolhandle_t poolptr, size_t size, qboolean clear, const char 
 			 * result (Mod_LoadEntities DSI at dest+4, hardware 20261104,
 			 * DAR=0x4 / PC=memcpy). Size>=48 KiB used to catch menu content,
 			 * but denser entity lumps are 34–80 KiB in the map pool. */
+			/* Never soft-NULL Server Edicts Zone — SV_LoadProgs writes
+			 * edicts[i].free without a prior NULL check (Guru DSI DAR=0). */
 			if( filename && Q_stristr( filename, "mod_bmodel.c" ))
 				;
 			else if( pool && pool->name && Q_stristr( pool->name, ".bsp" ))
+				;
+			else if( pool && pool->name && !Q_stricmp( pool->name, "Server Edicts Zone" ))
 				;
 			else if( content_pool || content_file || size >= ( 48 * 1024 ))
 			{

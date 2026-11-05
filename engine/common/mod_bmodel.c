@@ -4042,24 +4042,18 @@ static struct
 
 /* Transient table/hot-mip pool: prefer unused map-load arena tail to avoid a
  * large contiguous MEM1 allocation. Boot/map load leaves little headroom; the
- * full texture chains live in ARAM and this pool only holds active low mips. */
+ * full texture chains live in ARAM and this pool only holds active low mips.
+ * Do NOT park this pool in DOL BSS — 96–320 KiB permanently steals MEM1 and
+ * tips c4a3 into InitInput cvar OOM / edicts DSI (probes 20261105-075457 /
+ * 20261105-080044). */
 #define GC_WT_POOL_BYTES ( 448 * 1024 )
 #define GC_WT_MIN_POOL_BYTES ( 16 * 1024 )
-/* 320 KiB BSS starved MEM1 (~320 KiB less unclaimed) and hung c4a3 before
- * "spawn server ready" (probe 20261105-075457). 96 KiB still beats the 16 KiB
- * tip pack while leaving tip for ClearWorld / entity spawn. */
-#define GC_WT_DURABLE_BSS_BYTES ( 96 * 1024 )
 #define GC_WT_TAIL_GUARD_BYTES ( 96 * 1024 )
 #define GC_WT_SPLIT_DIM  64
 #define GC_WT_MIN_HOT_BYTES ( 32 * 1024 )
 static byte *gc_wt_pool;
 static size_t gc_wt_pool_bytes;
 static qboolean gc_wt_pool_mapload_tail;
-/* Fullphysics CapFaces: tip malloc cannot hold a sharp pack at load time
- * (c4a3 20261105-075103: only 16 KiB heap succeeded). BSS survives without
- * competing with the MEM1 tip freelist. */
-static byte gc_wt_durable_bss[GC_WT_DURABLE_BSS_BYTES] __attribute__((aligned( 32 )));
-static qboolean gc_wt_pool_durable_bss;
 
 /*
  * Move scratch-/tail-backed world planes onto malloc and rebase every
@@ -4310,12 +4304,6 @@ static void Mod_GCWorldPackLoad( const char *modelname, size_t surface_reserve )
 		gc_wt_pool_bytes = 0;
 		gc_wt_pool_mapload_tail = false;
 	}
-	if( gc_wt_pool_durable_bss )
-	{
-		gc_wt_pool = NULL;
-		gc_wt_pool_bytes = 0;
-		gc_wt_pool_durable_bss = false;
-	}
 	/* Smoke/New Game boots use -gcnewgame without the retail menu-start
 	 * switch. They still need the same ARAM world-pack path; otherwise the
 	 * BSP's embedded textures are decoded into MEM1 and produce misleading
@@ -4374,19 +4362,6 @@ static void Mod_GCWorldPackLoad( const char *modelname, size_t surface_reserve )
 		 * despite ~500 KiB of free pre-surface tail (probe 20261104-030354). */
 		if( remaining < pool_bytes )
 			pool_bytes = remaining >= GC_WT_MIN_POOL_BYTES ? ( remaining & ~(size_t)31 ) : 0;
-		/* Fullphysics CapFaces need the CMPR pack to survive surface/scratch
-		 * reclaim. Prefer the durable BSS slab — tip malloc only yields 16 KiB
-		 * at pack time on c4a3 (20261105-075103). */
-		if( Sys_CheckParm( "-gcfullphysics" ))
-		{
-			pool_bytes = GC_WT_DURABLE_BSS_BYTES;
-			gc_wt_pool = gc_wt_durable_bss;
-			gc_wt_pool_bytes = pool_bytes;
-			gc_wt_pool_mapload_tail = false;
-			gc_wt_pool_durable_bss = true;
-			Con_Reportf( "Xash3D GameCube: world texture pack pool using BSS %s (fullphysics durable)\n",
-				Q_memprint( pool_bytes ));
-		}
 		if( !gc_wt_pool )
 		{
 			gc_wt_pool = pool_bytes ? (byte *)Mod_GCPreSurfaceTailAlloc( after, pool_bytes ) : NULL;
@@ -7587,17 +7562,11 @@ static void Mod_LoadClipnodes( model_t *mod, dbspmodel_t *bmod )
 					if( !promoted && gc_wt.block )
 					{
 						R_GCPackedRelease();
-						if( gc_wt_pool && !gc_wt_pool_mapload_tail && !gc_wt_pool_durable_bss )
+						if( gc_wt_pool && !gc_wt_pool_mapload_tail )
 						{
 							free( gc_wt_pool );
 							gc_wt_pool = NULL;
 							gc_wt_pool_bytes = 0;
-						}
-						else if( gc_wt_pool_durable_bss )
-						{
-							gc_wt_pool = NULL;
-							gc_wt_pool_bytes = 0;
-							gc_wt_pool_durable_bss = false;
 						}
 						memset( &gc_wt, 0, sizeof( gc_wt ));
 						pack_reclaimed = true;

@@ -604,6 +604,7 @@ static qboolean gc_g376_npc_dump_active; /* dump eye is NPC standoff — skip cl
 static vec3_t gc_g376_npc_origin;
 static vec3_t gc_g376_npc_eye;
 static vec3_t gc_newgame_capture_origin; /* G132/G201e: bake + dump camera eye */
+static vec3_t gc_newgame_bake_origin; /* CapFaces bake eye — wall-aim must not stomp */
 static vec3_t gc_newgame_capture_forward; /* G217: dump look for live frustum rank */
 /* G213: compact PVS faces on heap (full msurface promote is 662 KiB OOM).
  * Emit walks mempool edges16/surfedges; planes/texinfo are copied here. */
@@ -10078,14 +10079,11 @@ static void GC_TryDeferredStudios( void )
 	/* G297: MDL promote mid-G36 sample window spikes present hitch. */
 	if( GC_IsFrameBudgetProbeActive() )
 		return;
-	/* Lean: present=1 for view/crowbar (G105). present=32/40 for NPC meshes
-	 * (G371) after CapFaces/presents coalesce freelist. */
-	if( Sys_CheckParm( "-gcnewgame" ) && !Sys_CheckParm( "-gcfullphysics" ))
+	/* Exact present==N slots are permanently missed when G36 spans those
+	 * presents (c4a3 fullphysics 20261105-080844: only G290@24 after arm).
+	 * Use once-per-threshold for both lean and fullphysics -gcnewgame. */
+	if( Sys_CheckParm( "-gcnewgame" ))
 	{
-		/* The G36 budget window can span present 1, so exact-count scheduling
-		 * permanently missed the viewmodel on dense maps. Reset when a new map
-		 * restarts the counter and run each threshold once at its first eligible
-		 * post-budget present. */
 		if( gc_present_count < last_present_count )
 		{
 			lean_view_attempted = false;
@@ -12351,6 +12349,7 @@ void GC_CaptureNewGamePVSFromModel( model_t *wmodel )
 		gc_newgame_viewcluster, viewleaf ? viewleaf->contents : 0,
 		vieworigin[0], vieworigin[1], vieworigin[2] );
 	VectorCopy( vieworigin, gc_newgame_capture_origin );
+	VectorCopy( vieworigin, gc_newgame_bake_origin );
 
 	if( !wmodel->visdata || world.visbytes <= 0 )
 	{
@@ -13077,12 +13076,25 @@ static qboolean GC_G376AimDumpAtLeanNpc( const float *ref_org )
 	best_i = -1;
 	best_dist = 1e12f;
 	best_mod = NULL;
+	{
+		/* Xen boss maps: aim DumpFrames at Nihilanth (scientist/barney filter
+		 * left c4a3 on wall-aim crystal pillars only — probe 20261105-081144).
+		 * Nearest-controller also dragged the eye to z≈-3700 (20261105-081503). */
+		const qboolean xen_boss = !Q_strnicmp( sv.name, "c4a", 3 )
+			|| !Q_strnicmp( sv.name, "c5a", 3 );
+		const float standoff = xen_boss ? 384.0f : 128.0f;
+		const float eye_z = xen_boss ? 64.0f : 36.0f;
+		const float radii[4] = { 256.0f, 384.0f, 512.0f, 192.0f };
+		int r;
+
 	for( i = 1; i < svgame.numEntities; i++ )
 	{
 		const char *mod = NULL;
+		const char *cls = NULL;
 		int mi;
 		vec3_t delta;
 		float dist;
+		qboolean is_boss, is_xen_npc;
 
 		ed = SV_EdictNum( i );
 		if( !ed || ed->free )
@@ -13090,23 +13102,48 @@ static qboolean GC_G376AimDumpAtLeanNpc( const float *ref_org )
 		mi = ed->v.modelindex;
 		if( mi > 0 && mi < MAX_MODELS && sv.model_precache[mi][0] )
 			mod = sv.model_precache[mi];
-		if( !mod || !mod[0] )
-			continue;
-		if( !Q_stristr( mod, "scientist" ) && !Q_stristr( mod, "barney" ))
-			continue;
-		if( VectorIsNull( ed->v.origin ))
-			continue;
+		if( ed->v.classname )
+			cls = SV_GetString( ed->v.classname );
+		is_boss = ( mod && Q_stristr( mod, "nihilanth" ))
+			|| ( cls && Q_stristr( cls, "nihilanth" ));
+		is_xen_npc = is_boss
+			|| ( mod && ( Q_stristr( mod, "controller" ) || Q_stristr( mod, "islave" )))
+			|| ( cls && ( Q_stristr( cls, "controller" ) || Q_stristr( cls, "alien_slave" )));
+		if( xen_boss )
+		{
+			if( !is_xen_npc )
+				continue;
+		}
+		else
+		{
+			if( !mod || !mod[0] )
+				continue;
+			if( !Q_stristr( mod, "scientist" ) && !Q_stristr( mod, "barney" ))
+				continue;
+			if( VectorIsNull( ed->v.origin ))
+				continue;
+		}
 		VectorSubtract( ed->v.origin, ref, delta );
 		dist = DotProduct( delta, delta );
-		/* Prefer scientist for DumpFrames proof (T.mdl skins + hallway).
-		 * Nearest-to-ref picked barney ~1200u from the textured scientist. */
-		if( Q_stristr( mod, "barney" ))
+		if( xen_boss )
+		{
+			/* Hard-prefer Nihilanth; companions only if the boss is missing. */
+			if( is_boss )
+				dist = 0.0f;
+			else
+				dist += 1.0e9f;
+		}
+		else if( Q_stristr( mod, "barney" ))
+		{
+			/* Prefer scientist for DumpFrames proof (T.mdl skins + hallway).
+			 * Nearest-to-ref picked barney ~1200u from the textured scientist. */
 			dist += 1.0e6f;
+		}
 		if( dist < best_dist )
 		{
 			best_dist = dist;
 			best_i = i;
-			best_mod = mod;
+			best_mod = mod ? mod : ( cls ? cls : "?" );
 		}
 	}
 	if( best_i < 0 )
@@ -13114,19 +13151,52 @@ static qboolean GC_G376AimDumpAtLeanNpc( const float *ref_org )
 
 	ed = SV_EdictNum( best_i );
 	VectorCopy( ed->v.origin, gc_g376_npc_origin );
-	gc_g376_npc_eye[0] = gc_g376_npc_origin[0] + 128.0f;
+	gc_g376_npc_eye[0] = gc_g376_npc_origin[0] + standoff;
 	gc_g376_npc_eye[1] = gc_g376_npc_origin[1];
-	gc_g376_npc_eye[2] = gc_g376_npc_origin[2] + 36.0f;
-	for( i = 0; i < 8; i++ )
+	gc_g376_npc_eye[2] = gc_g376_npc_origin[2] + eye_z;
+	for( r = 0; r < 4; r++ )
 	{
-		probe[0] = gc_g376_npc_origin[0] + dirs[i][0] * 128.0f;
-		probe[1] = gc_g376_npc_origin[1] + dirs[i][1] * 128.0f;
-		probe[2] = gc_g376_npc_origin[2] + 36.0f;
-		if( GC_DumpOriginInHull( probe ))
+		qboolean placed = false;
+
+		for( i = 0; i < 8; i++ )
 		{
-			VectorCopy( probe, gc_g376_npc_eye );
-			break;
+			probe[0] = gc_g376_npc_origin[0] + dirs[i][0] * radii[r];
+			probe[1] = gc_g376_npc_origin[1] + dirs[i][1] * radii[r];
+			probe[2] = gc_g376_npc_origin[2] + eye_z;
+			if( GC_DumpOriginInHull( probe ))
+			{
+				VectorCopy( probe, gc_g376_npc_eye );
+				placed = true;
+				break;
+			}
 		}
+		if( placed )
+			break;
+	}
+	/* Leafboxes often omit the Xen chamber after CapFaces NoPVS reclaim.
+	 * Wall-aim stomps gc_newgame_capture_origin (G220) onto far slabs — keep
+	 * the CapFaces bake eye for Xen boss framing (c4a3 ≈240,-396,23). */
+	if( xen_boss && !GC_DumpOriginInHull( gc_g376_npc_eye )
+		&& !VectorIsNull( gc_newgame_bake_origin ))
+		VectorCopy( gc_newgame_bake_origin, gc_g376_npc_eye );
+	/* Bake eye ~470u fills the Nihilanth mesh (probe 084946 looked inside
+	 * the torso). Push along bake→origin to a wider portrait standoff and
+	 * aim at chest height so DumpFrames shows the boss, not clipped guts. */
+	if( xen_boss && !VectorIsNull( gc_g376_npc_eye )
+		&& !VectorIsNull( gc_g376_npc_origin ))
+	{
+		vec3_t away;
+		float dist, want = 1100.0f;
+
+		VectorSubtract( gc_g376_npc_eye, gc_g376_npc_origin, away );
+		dist = VectorLength( away );
+		if( dist > 1.0f && dist < want )
+		{
+			VectorScale( away, want / dist, away );
+			VectorAdd( gc_g376_npc_origin, away, gc_g376_npc_eye );
+		}
+		gc_g376_npc_origin[2] += 120.0f; /* chest / head aim */
+	}
 	}
 	gc_g376_npc_aim_valid = true;
 	{
@@ -13363,8 +13433,14 @@ qboolean GC_RenderNewGameWorldFrames( int count )
 
 			VectorCopy( center, npc_ref );
 			(void)GC_DumpEyeInFrontOfBestWall( npc_ref, dummy_ang );
+			/* Xen boss: Aim retargets look at Nihilanth from the CapFaces
+			 * capture eye when leafbox hull misses the chamber. */
 			if( GC_G376AimDumpAtLeanNpc( npc_ref )
-				&& GC_DumpOriginInHull( gc_g376_npc_eye ))
+				&& ( GC_DumpOriginInHull( gc_g376_npc_eye )
+					|| (( !Q_strnicmp( sv.name, "c4a", 3 )
+						|| !Q_strnicmp( sv.name, "c5a", 3 ))
+						&& !VectorIsNull( gc_g376_npc_eye )
+						&& !VectorIsNull( gc_g376_npc_origin ))))
 			{
 				vec3_t npc_look, npc_right, npc_up;
 
@@ -13376,8 +13452,11 @@ qboolean GC_RenderNewGameWorldFrames( int count )
 					rvp.viewangles[0] = 40.0f;
 				if( rvp.viewangles[0] < -12.0f )
 					rvp.viewangles[0] = -12.0f;
-				/* Quake pitch: + looks down. 20 shows more NPC than 32. */
-				rvp.viewangles[0] = 20.0f;
+				/* Scientist hallway dumps prefer pitch 20. Xen boss: keep the
+				 * computed look at Nihilanth — forced 20 from bake eye drew
+				 * CapFaces=16 / sky (20261105-082403) and G36 samples=0. */
+				if( Q_strnicmp( sv.name, "c4a", 3 ) && Q_strnicmp( sv.name, "c5a", 3 ))
+					rvp.viewangles[0] = 20.0f;
 				gc_g376_npc_dump_active = true;
 				VectorCopy( center, gc_newgame_capture_origin );
 				AngleVectors( rvp.viewangles, gc_newgame_capture_forward,
@@ -13574,10 +13653,10 @@ qboolean GC_RenderNewGameWorldFrames( int count )
 		ref.dllFuncs.R_BeginFrame( false );
 		VectorCopy( rvp.vieworigin, refState.vieworg );
 		VectorCopy( rvp.viewangles, refState.viewangles );
-		/* Lean: fill brush draw list before GL_RenderFrame. That path clears
-		 * the scene for -gcnewgame unless lean GX keeps a non-empty list. */
-		if( Sys_CheckParm( "-gcnewgame" ) && !Sys_CheckParm( "-gcfullphysics" )
-			&& GC_UseGxWorldDraw() )
+		/* Lean/bootstrap: fill brush+studio draw list before GL_RenderFrame.
+		 * Fullphysics gcmap still needs this — netchan EmitEntities stays empty
+		 * with maxEntities=2 (c4a3 solid=0, 20261105-082525). */
+		if( Sys_CheckParm( "-gcnewgame" ) && GC_UseGxWorldDraw() )
 			CL_GameCubeLeanEmitBrushEntities();
 		ref.dllFuncs.GL_RenderFrame( &rvp );
 		GC_WatchdogMark( "newgame frame after GL_RenderFrame" );

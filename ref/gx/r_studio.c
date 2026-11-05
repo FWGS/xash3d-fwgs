@@ -3119,7 +3119,11 @@ static int R_StudioDrawPlayer( int flags, entity_state_t *pplayer )
 		if( RI.currententity->index > 0 )
 		{
 			cl_entity_t *ent = CL_GetEntityByIndex( RI.currententity->index );
-			memcpy( ent->attachment, RI.currententity->attachment, sizeof( vec3_t ) * 4 );
+			/* Lean EmitBrush uses server edict indices; gcmap bootstrap
+			 * maxEntities=2 → GetEntityByIndex NULL → memcpy DAR=0x620
+			 * (attachment ofs) drawing nihilanth (20261105-082924). */
+			if( ent )
+				memcpy( ent->attachment, RI.currententity->attachment, sizeof( vec3_t ) * 4 );
 		}
 	}
 
@@ -3264,7 +3268,9 @@ static int R_StudioDrawModel( int flags )
 		if( RI.currententity->index > 0 )
 		{
 			cl_entity_t *ent = CL_GetEntityByIndex( RI.currententity->index );
-			memcpy( ent->attachment, RI.currententity->attachment, sizeof( vec3_t ) * 4 );
+			/* See R_StudioDrawPlayer: lean/bootstrap indices can be NULL. */
+			if( ent )
+				memcpy( ent->attachment, RI.currententity->attachment, sizeof( vec3_t ) * 4 );
 		}
 	}
 
@@ -3808,7 +3814,20 @@ void GAME_EXPORT Mod_StudioLoadTextures( model_t *mod, void *data )
 			R_StudioLoadTexture( mod, phdr, &ptexture[i] );
 #if XASH_GAMECUBE
 			if( ptexture[i].index && ptexture[i].index != tr.defaultTexture )
+			{
 				loaded++;
+				if( gEngfuncs.Sys_CheckParm( "-gcnewgame" ) && i < 4 )
+				{
+					image_t *img = R_GetTexture( (unsigned)ptexture[i].index );
+
+					gEngfuncs.Con_Reportf(
+						"Xash3D GameCube: studio soft skin '%s'[%d] -> tex=%d img=%s px=%p %dx%d\n",
+						mod->name, i, ptexture[i].index,
+						( img && img->name[0] ) ? img->name : "?",
+						img ? (void *)img->pixels[0] : NULL,
+						img ? img->width : 0, img ? img->height : 0 );
+				}
+			}
 			else if( ptexture[i].index == tr.defaultTexture )
 				fallback++;
 #else

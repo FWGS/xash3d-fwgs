@@ -281,7 +281,9 @@ byte *Mod_GCStudioBssGrowLast( void *ptr, size_t old_size, size_t new_size )
 
 /* After embedded soft-skin upload, only the mesh+texhdr slice stays live.
  * Shrink the bump so Xen companions (islave ~145 KiB) still fit — c4a3 left
- * nihilanth's 420 KiB read pinned and starved the arena (probe 030354). */
+ * nihilanth's 420 KiB read pinned and starved the arena (probe 030354).
+ * Soft-skin pixels must live in the studio skin overflow (r_image.c), not
+ * this bump — TrimLast would otherwise clobber them. */
 void Mod_GCStudioBssTrimLast( void *ptr, size_t kept )
 {
 	byte *p = (byte *)ptr;

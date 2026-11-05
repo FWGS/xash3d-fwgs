@@ -2537,17 +2537,16 @@ void GAME_EXPORT R_RenderFrame( const ref_viewpass_t *rvp )
 		}
 
 		/* Lean EmitBrush already cleared+filled the list; do not wipe it.
-		 * The same holds for CL_EmitEntities on the menu New Game route, whose
-		 * brush movers (the c0a0 tram *12) land in edge_entities, not solid. */
+		 * Fullphysics gcmap also uses EmitBrush (bootstrap maxEntities=2) —
+		 * clearing here left G315 solid=0 after studios=4 (c4a3 20261105-082716).
+		 * Menu New Game brush movers (c0a0 tram *12) land in edge_entities. */
 		if( !( ( gEngfuncs.Sys_CheckParm( "-gcnewgame" )
 				|| gEngfuncs.Sys_CheckParm( "-gcmenuplaystart" ))
-			&& !gEngfuncs.Sys_CheckParm( "-gcfullphysics" )
 			&& GC_UseGxWorldDraw()
 			&& tr.draw_list
 			&& ( tr.draw_list->num_solid_entities > 0
-				|| ( gEngfuncs.Sys_CheckParm( "-gcmenuplaystart" )
-					&& ( tr.draw_list->num_edge_entities > 0
-						|| tr.draw_list->num_trans_entities > 0 )))))
+				|| tr.draw_list->num_edge_entities > 0
+				|| tr.draw_list->num_trans_entities > 0 )))
 			R_ClearScene();
 		R_SetupRefParams( rvp );
 		tr.fCustomRendering = false;
