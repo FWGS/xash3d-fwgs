@@ -337,9 +337,18 @@ static void GL_SetupFogColorForSurfacesEx( int passes, float density, qboolean b
 }
 
 
+static int GL_FogPassesForSurfaces( void )
+{
+	// alpha tested surfaces have no detail pass in fog, see R_RenderDetailsForSurface
+	if( RI.currententity && RI.currententity->curstate.rendermode == kRenderTransAlpha )
+		return 2;
+
+	return r_detailtextures.value ? 3 : 2;
+}
+
 void GL_SetupFogColorForSurfaces( void )
 {
-	GL_SetupFogColorForSurfacesEx( r_detailtextures.value ? 3 : 2, 1.0f, false );
+	GL_SetupFogColorForSurfacesEx( GL_FogPassesForSurfaces( ), 1.0f, false );
 }
 
 void GL_ResetFogColor( void )
@@ -1151,7 +1160,7 @@ static void R_BlendLightmaps( void )
 	if( !R_HasLightmap() )
 		return;
 
-	GL_SetupFogColorForSurfacesEx( r_detailtextures.value ? 3 : 2, 1.0f, true );
+	GL_SetupFogColorForSurfacesEx( GL_FogPassesForSurfaces( ), 1.0f, true );
 
 	if( !r_lightmap->value )
 		pglEnable( GL_BLEND );
@@ -1394,7 +1403,9 @@ static void R_RenderDetailsForSurface( msurface_t *fa, texture_t *t )
 	if( glState.isFogEnabled )
 	{
 		// don't apply detail textures for windows in the fog
-		if( RI.currententity->curstate.rendermode != kRenderTransTexture )
+		// nor on alpha tested surfaces: the pass runs without alpha test and paints their holes
+		if( RI.currententity->curstate.rendermode != kRenderTransTexture
+			&& RI.currententity->curstate.rendermode != kRenderTransAlpha )
 		{
 			// draw stub detail texture for underwater surfaces
 			int texturenum = t->dt_texturenum ? t->dt_texturenum : tr.grayTexture;
@@ -1615,12 +1626,12 @@ void R_DrawAlphaTextureChains( void )
 	pglEnable( GL_ALPHA_TEST );
 	pglAlphaFunc( GL_GREATER, 0.25f );
 
-	GL_SetupFogColorForSurfaces();
-
 	// restore worldmodel
 	RI.currententity = CL_GetEntityByIndex( 0 );
 	RI.currentmodel = RI.currententity->model;
 	RI.currententity->curstate.rendermode = kRenderTransAlpha;
+
+	GL_SetupFogColorForSurfaces();
 
 	for( int i = draw_alpha_surfaces.first; i <= draw_alpha_surfaces.last; i++ )
 	{
