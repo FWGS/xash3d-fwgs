@@ -20,3 +20,10 @@ Refresh after new commits in the checkout:
 rm patches/hlsdk-portable/*.patch
 git -C 3rdparty/hlsdk-portable format-patch origin/mobile_hacks..HEAD -o ../../patches/hlsdk-portable
 ```
+
+The same commits are pushed as branch `gamecube-port` of
+https://github.com/timfox/hlsdk-portable, so a checkout can also be made with:
+
+```
+git clone -b gamecube-port https://github.com/timfox/hlsdk-portable.git 3rdparty/hlsdk-portable
+```

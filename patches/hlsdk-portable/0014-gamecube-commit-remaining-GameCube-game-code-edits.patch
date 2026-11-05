@@ -1,0 +1,238 @@
+From c7f93ada469e2518b0de48d7926f9d20147ee1db Mon Sep 17 00:00:00 2001
+From: timfox <timfox@outlook.com>
+Date: Wed, 4 Nov 2026 18:37:15 -0800
+Subject: [PATCH 14/14] gamecube: commit remaining GameCube game-code edits
+
+Commit the uncommitted client/monsters/sound/world/pm_shared edits from
+the Expansion drive working tree.
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+---
+ dlls/client.cpp       | 10 ++++-----
+ dlls/enginecallback.h | 11 +++++++---
+ dlls/monsters.cpp     | 32 ++++++++++++++++++++++++++++-
+ dlls/sound.cpp        | 12 +++++------
+ dlls/world.cpp        | 48 +++++++++++++++++++++++++------------------
+ pm_shared/pm_shared.c | 10 +++++++--
+ 6 files changed, 85 insertions(+), 38 deletions(-)
+
+diff --git a/dlls/client.cpp b/dlls/client.cpp
+index b7e85287..c3bb5389 100644
+--- a/dlls/client.cpp
++++ b/dlls/client.cpp
+@@ -216,12 +216,10 @@ void ClientPutInServer( edict_t *pEntity )
+ 	if( g_engfuncs.CheckParm( (char *)"-gcnewgame", NULL )
+ 		|| g_engfuncs.CheckParm( (char *)"-gcmenuplaystart", NULL ))
+ 	{
+-		/* The normal PlayerSpawn gamerules dispatch is unsafe on the static
+-		 * GameCube ABI. Crowbar GiveNamedItem softlocks after G326 pre-map
+-		 * client keep (20260810-002542: hang before SV_SetModel w_crowbar).
+-		 * Inventory is planted later via G103/G120 landmark path.
+-		 * Menu New Game (-gcmenuplaystart) hits the same softlock. */
+-		ALERT( at_console, "*GameCube: ClientPutInServer stage=crowbar skipped (G326)\n" );
++		/* The early PlayerSpawn gamerules dispatch is unsafe on the static
++		 * GameCube ABI. The engine re-arms the retail crowbar immediately
++		 * after this callback through its safe post-spawn create/touch path. */
++		ALERT( at_console, "*GameCube: ClientPutInServer stage=crowbar deferred (G326)\n" );
+ 	}
+ 	#endif
+ 
+diff --git a/dlls/enginecallback.h b/dlls/enginecallback.h
+index dd38cb4d..a11e398a 100644
+--- a/dlls/enginecallback.h
++++ b/dlls/enginecallback.h
+@@ -166,9 +166,14 @@ inline void *GET_PRIVATE( edict_t *pent )
+ // keep the lean static actors.
+ inline BOOL GC_FullActors( void )
+ {
+-	return g_engfuncs.CheckParm( (char *)"-gcmenuplaystart", NULL )
+-		&& !g_engfuncs.CheckParm( (char *)"-gcmenunoserver", NULL )
+-		&& !g_engfuncs.CheckParm( (char *)"-gcfullphysics", NULL );
++	if( g_engfuncs.CheckParm( (char *)"-gcmenunoserver", NULL ))
++		return FALSE;
++
++	/* An explicit full-actors request is authoritative even when paired with
++	 * full physics. The old final -gcfullphysics veto silently disabled retail
++	 * AI sound, sentence groups, and node graphs in the normal play profile. */
++	return g_engfuncs.CheckParm( (char *)"-gcfullactors", NULL )
++		|| g_engfuncs.CheckParm( (char *)"-gcmenuplaystart", NULL );
+ }
+ #endif
+ 
+diff --git a/dlls/monsters.cpp b/dlls/monsters.cpp
+index 512d3647..a43ae2a9 100644
+--- a/dlls/monsters.cpp
++++ b/dlls/monsters.cpp
+@@ -1906,7 +1906,37 @@ void CBaseMonster::Move( float flInterval )
+ 				else
+ 				{
+ 					TaskFail();
+-					ALERT( at_aiconsole, "%s Failed to move (%d)!\n", STRING( pev->classname ), HasMemory( bits_MEMORY_MOVE_FAILED ) );
++					static int gc_move_blocker_logs;
++					if( gc_move_blocker_logs < 8 )
++					{
++						edict_t *blocker = gpGlobals->trace_ent;
++						const char *blocker_class = blocker && blocker->v.classname
++							? STRING( blocker->v.classname ) : "(none)";
++						const char *blocker_name = blocker && blocker->v.targetname
++							? STRING( blocker->v.targetname ) : "";
++						ALERT( at_aiconsole,
++							"%s GC movement blocker=%s targetname=%s at=(%.0f %.0f %.0f) solid=%d flags=0x%x ground=%d\n",
++							STRING( pev->classname ), blocker_class, blocker_name,
++							blocker ? blocker->v.origin[0] : 0.0f,
++							blocker ? blocker->v.origin[1] : 0.0f,
++							blocker ? blocker->v.origin[2] : 0.0f,
++							blocker ? (int)blocker->v.solid : -1,
++							blocker ? (unsigned int)blocker->v.flags : 0u,
++							blocker ? ENTINDEX( blocker ) : -1 );
++						gc_move_blocker_logs++;
++					}
++					ALERT( at_aiconsole,
++						"%s Failed to move (%d)! target=%s schedule=%s task=%d origin=(%.0f %.0f %.0f) goal=(%.0f %.0f %.0f) waypoint=%d/%d next=(%.0f %.0f %.0f)\n",
++						STRING( pev->classname ), HasMemory( bits_MEMORY_MOVE_FAILED ),
++						STRING( pev->targetname ),
++						m_pSchedule && m_pSchedule->pName ? m_pSchedule->pName : "none",
++						GetTask() ? GetTask()->iTask : -1,
++						pev->origin.x, pev->origin.y, pev->origin.z,
++						m_vecMoveGoal.x, m_vecMoveGoal.y, m_vecMoveGoal.z,
++						m_iRouteIndex, ROUTE_SIZE,
++						m_iRouteIndex >= 0 && m_iRouteIndex < ROUTE_SIZE ? m_Route[m_iRouteIndex].vecLocation.x : 0.0f,
++						m_iRouteIndex >= 0 && m_iRouteIndex < ROUTE_SIZE ? m_Route[m_iRouteIndex].vecLocation.y : 0.0f,
++						m_iRouteIndex >= 0 && m_iRouteIndex < ROUTE_SIZE ? m_Route[m_iRouteIndex].vecLocation.z : 0.0f );
+ 					//ALERT( at_aiconsole, "%f, %f, %f\n", pev->origin.z, ( pev->origin + ( vecDir * flCheckDist ) ).z, m_Route[m_iRouteIndex].vecLocation.z );
+ 				}
+ 				return;
+diff --git a/dlls/sound.cpp b/dlls/sound.cpp
+index db3a56f5..bc146a73 100644
+--- a/dlls/sound.cpp
++++ b/dlls/sound.cpp
+@@ -1247,11 +1247,9 @@ void SENTENCEG_Init()
+ 		return;
+ 
+ #if XASH_GAMECUBE
+-	/* G381: sentences.txt load/parse + large name-table clear hangs on cold
+-	 * tram→AM changelevel discs (c0a0e→c1a0, post-bodyque). Sentence groups
+-	 * are optional for campaign continuity bring-up. The menu New Game route
+-	 * runs the full cast, and calls this from GameDLLInit while the heap has
+-	 * room for the file. */
++	/* The retail play profile explicitly requests full actors. Keep sentence
++	 * playback available there; the lean diagnostic route has no sentence
++	 * consumers and can defer its table initialization. */
+ 	if( !GC_FullActors())
+ 	{
+ 		fSentencesInit = TRUE;
+@@ -1261,7 +1259,9 @@ void SENTENCEG_Init()
+ 	}
+ #endif
+ 
+-	memset( gszallsentencenames, 0, CVOXFILESENTENCEMAX * CBSENTENCENAME_MAX );
++	/* gszallsentencenames is static storage and starts zeroed. Parsed entries
++	 * are bounded by gcallsentences, so clearing the entire 4096-name table on
++	 * every map adds a large avoidable MEM1 write without changing semantics. */
+ 	gcallsentences = 0;
+ 
+ 	memset( rgsentenceg, 0, CSENTENCEG_MAX * sizeof(SENTENCEG) );
+diff --git a/dlls/world.cpp b/dlls/world.cpp
+index 5247bfcb..66c13fa0 100644
+--- a/dlls/world.cpp
++++ b/dlls/world.cpp
+@@ -205,13 +205,14 @@ LINK_ENTITY_TO_CLASS( bodyque, CCorpse )
+ static void InitBodyQue( void )
+ {
+ #if XASH_GAMECUBE
+-	/* G381 follow-up: CREATE_NAMED_ENTITY(bodyque)×4 can hang under MEM1
+-	 * tip pressure on cold tram→AM changelevel discs (c0a0e→c1a0). Corpses
+-	 * are optional for campaign continuity bring-up. */
+-	g_pBodyQueueHead = NULL;
+-	ALERT( at_console, "*GameCube: skipping InitBodyQue during port bring-up\n" );
+-	return;
+-#else
++	/* Lean diagnostic routes can omit corpse slots; the retail full-actor route
++	 * keeps the standard four body-queue edicts. */
++	if( !GC_FullActors() )
++	{
++		g_pBodyQueueHead = NULL;
++		return;
++	}
++#endif
+ 	string_t istrClassname = MAKE_STRING( "bodyque" );
+ 
+ 	g_pBodyQueueHead = CREATE_NAMED_ENTITY( istrClassname );
+@@ -225,7 +226,6 @@ static void InitBodyQue( void )
+ 	}
+ 
+ 	pev->owner = g_pBodyQueueHead;
+-#endif
+ }
+ 
+ //
+@@ -493,23 +493,31 @@ void CWorld::Precache( void )
+ 	///!!!LATER - do we want a sound ent in deathmatch? (sjb)
+ 	//pSoundEnt = CBaseEntity::Create( "soundent", g_vecZero, g_vecZero, edict() );
+ #if XASH_GAMECUBE
+-	/* G381: GetClassPtr(CSoundEnt) hangs on cold tram tip under MEM1 pressure
+-	 * (c0a0e Dolphin probes). AI sound queue is optional for bring-up; ambient
+-	 * still uses ambient_generic. */
+-	pSoundEnt = NULL;
+-	ALERT( at_console, "*GameCube: skipping CSoundEnt create during port bring-up\n" );
+-#else
+-	pSoundEnt = GetClassPtr( ( CSoundEnt *)NULL );
+-
+-	if( pSoundEnt )
++	BOOL gc_full_actors = GC_FullActors();
++	ALERT( at_console, "*GameCube: world Precache full-actors=%d menuplaystart=%d fullactors=%d\n",
++		gc_full_actors,
++		g_engfuncs.CheckParm( (char *)"-gcmenuplaystart", NULL ) != 0,
++		g_engfuncs.CheckParm( (char *)"-gcfullactors", NULL ) != 0 );
++	if( !gc_full_actors )
+ 	{
+-		pSoundEnt->Spawn();
++		pSoundEnt = NULL;
+ 	}
+ 	else
++#endif
+ 	{
+-		ALERT ( at_console, "**COULD NOT CREATE SOUNDENT**\n" );
++		pSoundEnt = GetClassPtr( ( CSoundEnt *)NULL );
++
++		if( pSoundEnt )
++		{
++			pSoundEnt->Spawn();
++			ALERT( at_console, "*GameCube: world Precache soundent ready ent=%d private=%p\n",
++				ENTINDEX( pSoundEnt->edict() ), pSoundEnt );
++		}
++		else
++		{
++			ALERT ( at_console, "**COULD NOT CREATE SOUNDENT**\n" );
++		}
+ 	}
+-#endif
+ 
+ #if XASH_GAMECUBE
+ 	ALERT( at_console, "*GameCube: world Precache post-soundent\n" );
+diff --git a/pm_shared/pm_shared.c b/pm_shared/pm_shared.c
+index 925d040c..3cc1e90a 100644
+--- a/pm_shared/pm_shared.c
++++ b/pm_shared/pm_shared.c
+@@ -3420,10 +3420,16 @@ int PM_GetPhysEntInfo( int ent )
+ 
+ void PM_Init( struct playermove_s *ppmove )
+ {
+-	assert( !pm_shared_initialized );
+-
+ 	pmove = ppmove;
+ 
++	/* GameCube statically links client+server into one DOL. COM_FreeLibrary
++	 * does not reset BSS, so a second HUD_PlayerMoveInit (menu New Game
++	 * unload→reload) would trip assert(!pm_shared_initialized) and hang after
++	 * hull setup (probe 20261104-044439). Re-bind pmove and skip one-shot
++	 * tables when already initialized. */
++	if( pm_shared_initialized )
++		return;
++
+ 	PM_CreateStuckTable();
+ 	PM_InitTextureTypes();
+ 
+-- 
+2.53.0
+

@@ -1,7 +1,7 @@
 From 8e755e982900541a43b05697c2780e693da3f932 Mon Sep 17 00:00:00 2001
 From: timfox <timfox@outlook.com>
 Date: Thu, 29 Oct 2026 16:22:09 -0700
-Subject: [PATCH 10/10] gamecube: full intro actors on the menu New Game route
+Subject: [PATCH 10/14] gamecube: full intro actors on the menu New Game route
 
 The GameCube spawn paths made every scientist, sitting scientist, Barney
 and monster_generic a static actor with no AI, so the c0a0 walkers never

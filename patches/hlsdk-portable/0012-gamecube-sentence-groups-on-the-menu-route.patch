@@ -1,7 +1,7 @@
 From 3111bf83c619649b65ad689b608fb49b7a8775d5 Mon Sep 17 00:00:00 2001
 From: timfox <timfox@outlook.com>
 Date: Fri, 30 Oct 2026 15:10:53 -0700
-Subject: [PATCH] gamecube: sentence groups on the menu route
+Subject: [PATCH 12/14] gamecube: sentence groups on the menu route
 
 SENTENCEG_Init runs from GameDLLInit while the heap has room for the file.
 
