@@ -664,6 +664,10 @@ static u16 GC_ProbeSyntheticHeldButtons( void )
 			Con_Reportf( "Xash3D GameCube: probe difficulty menu release\n" );
 			return 0;
 		}
+		/* Dwell on Easy/Medium/Hard so DumpFrames can capture retail strips. */
+		if( gc_probe_action_stage == 2
+			&& host.realtime - gc_probe_action_time < 2.0 )
+			return 0;
 		if( gc_probe_action_stage == 2
 			&& GC_ProbeMenuStageReady( GC_PROBE_MENU_STEP_DELAY, GC_PROBE_MENU_STEP_FRAMES ))
 		{

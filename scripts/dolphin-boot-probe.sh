@@ -560,6 +560,10 @@ if (( DOLPHIN_NEWGAME )); then
 	probe_append_config_roundtrip_guest_args
 	probe_append_video_mode_guest_args
 fi
+# Retail menu boots skip the New Game block above — still honor VIDEO-022.
+if [[ "$DOLPHIN_RETAIL" == "1" && "${DOLPHIN_NEWGAME:-0}" != "1" ]]; then
+	probe_append_video_mode_guest_args
+fi
 append_guest_args() {
 	local -n _cmd="$1"
 	if ((${#GUEST_ARGS[@]})); then

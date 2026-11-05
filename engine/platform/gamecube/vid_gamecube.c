@@ -6714,6 +6714,15 @@ static GXRModeObj *GC_ResolveVideoMode( const char **out_tag )
 	return pref;
 }
 
+/* VI_PROGRESSIVE (2) does not set VI_NON_INTERLACE (1). Treating progressive
+ * as interlaced left CRT vfilter on 480p and combed DumpFrames/playtests. */
+static qboolean GC_VideoModeIsInterlaced( void )
+{
+	if( !rmode )
+		return true;
+	return (( rmode->viTVMode & 3 ) == VI_INTERLACE );
+}
+
 static void GC_InitVideoHardware( void )
 {
 #if XASH_GAMECUBE
@@ -6778,7 +6787,10 @@ static void GC_InitVideoHardware( void )
 
 	GX_Init( gx_fifo, sizeof( gx_fifo ));
 	GX_SetDispCopyGamma( GX_GM_1_0 );
-	GX_SetCopyFilter( rmode->aa, rmode->sample_pattern, GX_TRUE, rmode->vfilter );
+	if( GC_VideoModeIsInterlaced())
+		GX_SetCopyFilter( rmode->aa, rmode->sample_pattern, GX_TRUE, rmode->vfilter );
+	else
+		GX_SetCopyFilter( GX_FALSE, NULL, GX_FALSE, NULL );
 	GX_SetFieldMode( rmode->field_rendering, (( rmode->viHeight == 2 * rmode->xfbHeight ) ? GX_ENABLE : GX_DISABLE ));
 
 	/* Pure Flipper: 24-bit colour and depth EFB + explicit copy-clear (sky/black). */
@@ -7016,10 +7028,10 @@ static void GC_PresentBufferViaGX( void )
 		GX_SetDispCopyDst( rmode->fbWidth, rmode->xfbHeight );
 		GX_SetDispCopyYScale((f32)rmode->xfbHeight / (f32)rmode->efbHeight );
 		/* Match Flipper present: CRT vfilter on 480i, lean on progressive. */
-		if( rmode->viTVMode & VI_NON_INTERLACE )
-			GX_SetCopyFilter( GX_FALSE, NULL, GX_FALSE, NULL );
-		else
+		if( GC_VideoModeIsInterlaced())
 			GX_SetCopyFilter( rmode->aa, rmode->sample_pattern, GX_TRUE, rmode->vfilter );
+		else
+			GX_SetCopyFilter( GX_FALSE, NULL, GX_FALSE, NULL );
 		GX_SetDispCopyGamma( GX_GM_1_0 );
 
 		/* libogc guOrtho takes (top, bottom, left, right). The software
@@ -7405,13 +7417,13 @@ static void GC_PresentBuffer( void )
 				(unsigned)copy_w_u, (unsigned)copy_h_u, (unsigned)xfb_h_u,
 				(unsigned)rmode->fbWidth,
 				( xfb[which_fb] && ((u32)xfb[which_fb] & 0xC0000000u ) == 0xC0000000u ) ? 1 : 0,
-				( rmode->viTVMode & VI_NON_INTERLACE ) ? 0 : 1 );
+				GC_VideoModeIsInterlaced() ? 1 : 0 );
 		}
 
 		{
 			static u16 last_copy_w, last_copy_h, last_xfb_h;
 			static qboolean last_interlaced;
-			const qboolean interlaced = !( rmode->viTVMode & VI_NON_INTERLACE );
+			const qboolean interlaced = GC_VideoModeIsInterlaced();
 
 			if( last_copy_w != copy_w_u || last_copy_h != copy_h_u || last_xfb_h != xfb_h_u
 				|| last_interlaced != interlaced )
