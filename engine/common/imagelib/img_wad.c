@@ -688,10 +688,9 @@ qboolean Image_LoadWAD( const char *name, const byte *buffer, fs_offset_t filesi
 			frontB = frontColorPtr[2];
 			for( int j = 0; j < 256; ++j )
 			{
-				float t = j / 255.0f;
-				grad_palette[j * 3 + 0] = (unsigned char)( frontR * t );
-				grad_palette[j * 3 + 1] = (unsigned char)( frontG * t );
-				grad_palette[j * 3 + 2] = (unsigned char)( frontB * t );
+				grad_palette[j * 3 + 0] = frontR;
+				grad_palette[j * 3 + 1] = frontG;
+				grad_palette[j * 3 + 2] = frontB;
 			}
 			use_palette = grad_palette;
 			alpha_mode = true; // gradient
@@ -703,6 +702,8 @@ qboolean Image_LoadWAD( const char *name, const byte *buffer, fs_offset_t filesi
 		image.height = height;
 		image.type = PF_RGBA_32;
 		image.flags = IMAGE_HAS_COLOR | IMAGE_HAS_ALPHA;
+		if( alpha_mode )
+			SetBits( image.flags, IMAGE_COLORINDEX );
 		image.size = width * height * 4;
 		image.rgba = Mem_Malloc( host.imagepool, image.size );
 		image.palette = NULL;

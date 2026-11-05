@@ -1152,7 +1152,7 @@ static void GL_ProcessImage( gl_texture_t *tex, rgbdata_t *pic )
 		if( pic->buffer ) gEngfuncs.Image_Process( &pic, 0, 0, img_flags, 0 );
 
 		if( FBitSet( pic->flags, IMAGE_PLAYERDECAL ) && pic->buffer && pic->type == PF_RGBA_32 && FBitSet( pic->flags, IMAGE_HAS_ALPHA )
-		    && !FBitSet( pic->flags, IMAGE_PREMULTIPLIED ))
+		    && !FBitSet( pic->flags, IMAGE_PREMULTIPLIED | IMAGE_COLORINDEX ))
 		{
 			int cnt = (int)( pic->width * pic->height );
 			byte *p = pic->buffer;
