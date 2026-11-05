@@ -815,6 +815,15 @@ static bool init_display( void )
 		return false;
 	}
 
+	GNM_LOG( "display reports %ux%u\n", status.width, status.height );
+
+	// the display may report 4K or a low SD mode that is rejected, buffers are always 1080p and scaled by the system
+	if( status.width > 1920 || status.height > 1080 || status.width < 1280 || status.height < 720 )
+	{
+		status.width = 1920;
+		status.height = 1080;
+	}
+
 	gnm_dev.width = status.width;
 	gnm_dev.height = status.height;
 
