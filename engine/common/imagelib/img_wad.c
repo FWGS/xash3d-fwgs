@@ -630,99 +630,97 @@ qboolean Image_LoadWAD( const char *name, const byte *buffer, fs_offset_t filesi
 {
 	dwadinfo_t whdr;
 
+	// only used for player decals in tempdecal.wad: a single lump laid out like Image_SaveWAD and GoldSrc write it, reject anything else
+	if( !Image_CheckFlag( IL_LOAD_PLAYER_DECAL ))
+		return false;
+
 	if( !buffer || filesize < sizeof( dwadinfo_t ))
 		return false;
 
 	memcpy( &whdr, buffer, sizeof( whdr ));
 	le_struct_swap( dwadinfo_swap, &whdr );
-	if( whdr.numlumps <= 0 || whdr.infotableofs <= 0 || whdr.infotableofs >= (int)filesize )
+	if( whdr.ident != IDWAD3HEADER || whdr.numlumps != 1 )
 		return false;
 
-	for( int i = 0; i < whdr.numlumps; ++i )
+	if( whdr.infotableofs < (int)sizeof( dwadinfo_t ) || whdr.infotableofs > filesize - (fs_offset_t)sizeof( dlumpinfo_t ))
+		return false;
+
+	dlumpinfo_t lump;
+	memcpy( &lump, buffer + whdr.infotableofs, sizeof( lump ));
+	le_struct_swap( dlumpinfo_swap, &lump );
+
+	if( lump.type != TYP_MIPTEX && lump.type != TYP_PALETTE )
+		return false;
+
+	if( lump.filepos < 0 || lump.disksize < (int)sizeof( mip_t ) || lump.filepos > filesize - lump.disksize )
+		return false;
+
+	const byte *mipdata = buffer + lump.filepos;
+
+	mip_t mip;
+	memcpy( &mip, mipdata, sizeof( mip ));
+	le_struct_swap( mip_swap, &mip );
+	uint32_t width = mip.width;
+	uint32_t height = mip.height;
+
+	if( width <= 0 || height <= 0 || width > 256 || height > 256 )
+		return false;
+
+	// four mips right after the header, then palette size and the palette itself
+	uint32_t m0size = width * height;
+	uint32_t mipsize = m0size + m0size / 4 + m0size / 16 + m0size / 64;
+
+	if( mip.offsets[0] != sizeof( mip_t ) || (uint32_t)lump.disksize < sizeof( mip_t ) + mipsize + sizeof( short ) + 768 )
+		return false;
+
+	const byte *pixels = mipdata + sizeof( mip_t );
+	const byte *palette = pixels + mipsize + sizeof( short );
+	int numcolors = pixels[mipsize] | ( pixels[mipsize + 1] << 8 );
+
+	if( numcolors != 256 )
+		return false;
+
+	Image_Reset();
+	image.width = width;
+	image.height = height;
+	image.type = PF_RGBA_32;
+	image.flags = IMAGE_HAS_COLOR | IMAGE_HAS_ALPHA;
+	image.size = m0size * 4;
+	image.rgba = Mem_Malloc( host.imagepool, image.size );
+	image.palette = NULL;
+
+	if( lump.type == TYP_PALETTE )
 	{
-		unsigned char grad_palette[256 * 3];
-		dlumpinfo_t lump;
-		mip_t mip;
-		qboolean      alpha_mode = false;
-		unsigned char frontR = 0, frontG = 0, frontB = 0;
+		// gradient decal: last palette color, index is alpha
+		SetBits( image.flags, IMAGE_COLORINDEX );
 
-		memcpy( &lump, buffer + whdr.infotableofs + i * sizeof( dlumpinfo_t ), sizeof( lump ));
-		le_struct_swap( dlumpinfo_swap, &lump );
+		image.fogParams[0] = palette[255 * 3 + 0];
+		image.fogParams[1] = palette[255 * 3 + 1];
+		image.fogParams[2] = palette[255 * 3 + 2];
+		image.fogParams[3] = VectorAvg( image.fogParams );
 
-		if( lump.type != TYP_MIPTEX && lump.type != TYP_PALETTE )
-			continue;
-
-		// get lump data and validate
-		const unsigned char *mipdata = (const unsigned char *)buffer + lump.filepos;
-		int mip_size = lump.disksize;
-		if( lump.filepos < 0 || lump.filepos + mip_size > (int)filesize )
-			continue;
-
-		memcpy( &mip, mipdata, sizeof( mip ));
-		le_struct_swap( mip_swap, &mip );
-		uint32_t width = mip.width;
-		uint32_t height = mip.height;
-
-		if( width <= 0 || height <= 0 || width > 256 || height > 256 )
-			continue;
-
-		uint32_t offset0 = mip.offsets[0];
-		if( offset0 == 0 || offset0 + width * height > (uint32_t)mip_size )
-			continue;
-
-		const unsigned char *pixels = mipdata + offset0;
-		uint32_t m0size = width * height;
-		uint32_t m1size = m0size / 4;
-		uint32_t m2size = m0size / 16;
-		uint32_t m3size = m0size / 64;
-		const unsigned char *palette = mipdata + 0x28 + m0size + m1size + m2size + m3size + 2;
-		const unsigned char *use_palette = palette;
-
-		// handle gradient palette
-		if( lump.type == TYP_PALETTE )
+		for( uint32_t j = 0; j < m0size; j++ )
 		{
-			// gradient palette
-			const unsigned char *frontColorPtr = palette + 255 * 3;
-			frontR = frontColorPtr[0];
-			frontG = frontColorPtr[1];
-			frontB = frontColorPtr[2];
-			for( int j = 0; j < 256; ++j )
-			{
-				grad_palette[j * 3 + 0] = frontR;
-				grad_palette[j * 3 + 1] = frontG;
-				grad_palette[j * 3 + 2] = frontB;
-			}
-			use_palette = grad_palette;
-			alpha_mode = true; // gradient
+			image.rgba[j * 4 + 0] = image.fogParams[0];
+			image.rgba[j * 4 + 1] = image.fogParams[1];
+			image.rgba[j * 4 + 2] = image.fogParams[2];
+			image.rgba[j * 4 + 3] = pixels[j];
 		}
-
-		// prepare image structure
-		Image_Reset();
-		image.width = width;
-		image.height = height;
-		image.type = PF_RGBA_32;
-		image.flags = IMAGE_HAS_COLOR | IMAGE_HAS_ALPHA;
-		if( alpha_mode )
-			SetBits( image.flags, IMAGE_COLORINDEX );
-		image.size = width * height * 4;
-		image.rgba = Mem_Malloc( host.imagepool, image.size );
-		image.palette = NULL;
-
-		// convert indexed pixels to RGBA
-		for( int j = 0; j < (int)( width * height ); ++j )
+	}
+	else
+	{
+		for( uint32_t j = 0; j < m0size; j++ )
 		{
 			byte idx = pixels[j];
-			image.rgba[j * 4 + 0] = use_palette[idx * 3 + 0];
-			image.rgba[j * 4 + 1] = use_palette[idx * 3 + 1];
-			image.rgba[j * 4 + 2] = use_palette[idx * 3 + 2];
-			if( alpha_mode )
-				image.rgba[j * 4 + 3] = idx; // soft transparency
-			else
-				image.rgba[j * 4 + 3] = ( idx == 255 ) ? 0 : 255; // classic
+
+			image.rgba[j * 4 + 0] = palette[idx * 3 + 0];
+			image.rgba[j * 4 + 1] = palette[idx * 3 + 1];
+			image.rgba[j * 4 + 2] = palette[idx * 3 + 2];
+			image.rgba[j * 4 + 3] = ( idx == 255 ) ? 0 : 255;
 		}
-		return true;
 	}
-	return false;
+
+	return true;
 }
 
 /*
