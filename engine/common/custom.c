@@ -65,7 +65,7 @@ void COM_ClearCustomizationList( customization_t *pHead, qboolean bCleanDecals )
 #if !XASH_DEDICATED
 			if( pCurrent->resource.type == t_decal )
 			{
-				if( bCleanDecals && CL_Active( ))
+				if( bCleanDecals && CL_Active( ) && pCurrent->nUserData1 )
 					ref.dllFuncs.R_DecalRemoveAll( pCurrent->nUserData1 );
 			}
 #endif

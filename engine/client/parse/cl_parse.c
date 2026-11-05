@@ -578,7 +578,7 @@ static void CL_RemoveCustomization( int nPlayerNum, customization_t *pRemove )
 		{
 			if( pList->resource.type == t_decal )
 			{
-				if( cls.state == ca_active )
+				if( cls.state == ca_active && pList->nUserData1 )
 					ref.dllFuncs.R_DecalRemoveAll( pList->nUserData1 );
 				FS_FreeImage( pList->pInfo );
 			}
