@@ -12,10 +12,6 @@ with tools built from the submodules).
 ```
 sudo apt install clang-18 lld-18 llvm-18 python3 python3-mako python3-yaml gcc g++
 ```
-### RedHat/Fedora/CentOS:
-```
-sudo dnf install clang18 lld18 llvm18 python3 python3-mako python3-pyyaml gcc gcc-c++
-```
 2. Download [OpenOrbis PS4 Toolchain](https://github.com/OpenOrbis/OpenOrbis-PS4-Toolchain) built for LLVM 18 and unpack it.
 `PkgTool.Core` from the toolchain makes the package and needs OpenSSL 1.1 (`libssl1.1`), without it
 only the signed images are built.
@@ -32,6 +28,8 @@ OO_PS4_TOOLCHAIN=/path/to/OpenOrbis/PS4Toolchain CC=clang-18 CXX=clang++-18 ./wa
 ./waf build
 ```
 The toolchain can be passed with `--ps4-toolchain=/path/to/OpenOrbis/PS4Toolchain` as well.
+Without `CC` and `CXX`, `clang-18` and `clang++-18` from `PATH` are used, configure fails if they aren't Clang 18.
+`llvm-ar-18` and `llvm-strip-18` are taken from `PATH`, `ld.lld` from the Clang installation.
 The package is `build/engine/IV0000-XASH00001_00-XASH3DFWGSPS4000.pkg`.
 
 Game libraries built from [hlsdk-portable](https://github.com/FWGS/hlsdk-portable) for PS4 are put into the

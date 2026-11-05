@@ -13,11 +13,12 @@
 
 try: from fwgslib import get_flags_by_compiler
 except: from waflib.extras.fwgslib import get_flags_by_compiler
+try: from host_tool_compiler import HOST_ENV
+except: from waflib.extras.host_tool_compiler import HOST_ENV
 from waflib import Logs, TaskGen
 from waflib.Tools import c_config
 from collections import OrderedDict
 import os
-import shutil
 import sys
 
 ANDROID_NDK_ENVVARS = ['ANDROID_NDK_HOME', 'ANDROID_NDK']
@@ -47,6 +48,7 @@ NSWITCH_ENVVARS = ['DEVKITPRO']
 PSVITA_ENVVARS = ['VITASDK']
 
 PS4_ENVVARS = ['OO_PS4_TOOLCHAIN']
+PS4_LLVM_VERSION = '18' # OpenOrbis libraries are built with it, newer lld picks musl's lite_malloc
 
 PSP_ENVVARS = ['PSPDEV', 'PSPSDK', 'PSPTOOLCHAIN']
 
@@ -596,25 +598,14 @@ class PS4:
 		if not os.path.exists(os.path.join(self.toolchain, 'link.x')):
 			ctx.fatal('OpenOrbis toolchain not found in `%s`!' % self.toolchain)
 
-		# compilers are given as usual: CC=clang-18 CXX=clang++-18 ./waf configure --ps4
-		self.cc_cmd = os.getenv('CC', 'clang')
-		self.cxx_cmd = os.getenv('CXX', 'clang++')
-		self.llvm_bin = self.installed_dir()
+		# compilers can be overridden as usual, the clang driver takes ld.lld from its own installation
+		self.cc_cmd = ctx.environ.get('CC', 'clang-' + PS4_LLVM_VERSION)
+		self.cxx_cmd = ctx.environ.get('CXX', 'clang++-' + PS4_LLVM_VERSION)
 
-	def installed_dir(self):
-		# LLVM tools of the same version as the compiler are installed next to it,
-		# distributions link versioned binaries to /usr/bin, so the link is resolved
-		cc = shutil.which(self.cc_cmd.split()[0])
-		if not cc:
-			self.ctx.fatal('C compiler `%s` not found, set it with CC environment variable!' % self.cc_cmd)
-		return os.path.dirname(os.path.realpath(cc))
-
-	def llvm_tool(self, name):
-		# OpenOrbis libraries are built with LLVM 18, tools must match the compiler
-		# (newer lld picks musl's lite_malloc), the clang driver itself takes ld.lld from PATH
-		if self.llvm_bin and os.path.exists(os.path.join(self.llvm_bin, name)):
-			return os.path.join(self.llvm_bin, name)
-		return name
+	def check_compiler(self, var):
+		env = self.ctx.env
+		if env[var + '_NAME'] != 'clang' or env.CC_VERSION[0] != PS4_LLVM_VERSION:
+			self.ctx.fatal('OpenOrbis libraries need Clang %s, %s is %s %s!' % (PS4_LLVM_VERSION, var, env[var + '_NAME'], '.'.join(env.CC_VERSION)))
 
 	# target and __ORBIS__ are part of compiler command, so waf detects DEST_OS correctly
 	def cc(self):
@@ -624,10 +615,10 @@ class PS4:
 		return '%s --target=%s -D__ORBIS__' % (self.cxx_cmd, self.target)
 
 	def ar(self):
-		return os.getenv('AR', self.llvm_tool('llvm-ar'))
+		return 'llvm-ar-' + PS4_LLVM_VERSION
 
 	def strip(self):
-		return os.getenv('STRIP', self.llvm_tool('llvm-strip'))
+		return 'llvm-strip-' + PS4_LLVM_VERSION
 
 	def cflags(self, cxx = False):
 		cflags = ['--target=%s' % self.target, '--sysroot=%s' % self.toolchain]
@@ -642,9 +633,6 @@ class PS4:
 	# they go before object list
 	def linkflags(self):
 		linkflags = ['--target=%s' % self.target, '--sysroot=%s' % self.toolchain, '-fuse-ld=lld', '-nostdlib']
-		lld = self.llvm_tool('ld.lld')
-		if os.path.isabs(lld):
-			linkflags += ['--ld-path=%s' % lld]
 		# OpenOrbis images are PIE, use toolchain linker script and no ELF interpreter
 		linkflags += ['-Wl,--no-dynamic-linker', '-Wl,-m,elf_x86_64', '-Wl,--eh-frame-hdr']
 		linkflags += ['-Wl,--script,%s' % os.path.join(self.toolchain, 'link.x')]
@@ -928,6 +916,9 @@ def post_compiler_cxx_configure(conf):
 	conf.msg('Target CPU', conf.env.DEST_CPU)
 	conf.msg('Target binfmt', conf.env.DEST_BINFMT)
 
+	if conf.options.PS4 and conf.variant != HOST_ENV:
+		conf.ps4.check_compiler('CXX')
+
 	if conf.options.ANDROID_OPTS:
 		if conf.android.ndk_rev == 19:
 			conf.env.CXXFLAGS_cxxshlib += ['-static-libstdc++']
@@ -942,6 +933,9 @@ def post_compiler_c_configure(conf):
 	conf.msg('Target OS', conf.env.DEST_OS)
 	conf.msg('Target CPU', conf.env.DEST_CPU)
 	conf.msg('Target binfmt', conf.env.DEST_BINFMT)
+
+	if conf.options.PS4 and conf.variant != HOST_ENV:
+		conf.ps4.check_compiler('CC')
 
 	return
 
