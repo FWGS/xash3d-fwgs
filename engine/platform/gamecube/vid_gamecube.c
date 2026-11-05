@@ -13186,7 +13186,7 @@ static qboolean GC_G376AimDumpAtLeanNpc( const float *ref_org )
 		&& !VectorIsNull( gc_g376_npc_origin ))
 	{
 		vec3_t away;
-		float dist, want = 1100.0f;
+		float dist, want = 720.0f; /* 1100u starved CapFaces (drawn≈18 vs ~195) */
 
 		VectorSubtract( gc_g376_npc_eye, gc_g376_npc_origin, away );
 		dist = VectorLength( away );

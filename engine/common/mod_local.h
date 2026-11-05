@@ -177,6 +177,7 @@ qboolean Mod_GCEnsureLandmarkViewModel( const char *model_path );
 const char *Mod_GCLandmarkViewModelPath( void );
 void Mod_ReleaseBrushSourceBuffer( void *buf );
 void Mod_GameCubeFreeMallocSurfaces( model_t *mod );
+void Mod_GCReleaseUnusedWorldReserves( void ); /* tip back before InitInput */
 qboolean Mod_GCPromoteWorldSurfaces( model_t *mod ); /* G132: scratch → malloc before present */
 qboolean Mod_GCWorldSurfacesPinned( model_t *mod ); /* G213: surfaces outside scratch (live Flipper) */
 qboolean Mod_GCWorldSurfacesScratchRetained( model_t *mod ); /* G283: scratch retain-pin */

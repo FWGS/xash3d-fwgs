@@ -95,7 +95,8 @@ static qboolean gc_submodels_static_block;
 static void *gc_entities_malloc_block;
 static qboolean gc_entities_arena_tail;
 /* Dense Residue maps (c2a4e ~68 KiB) can miss both malloc and tip after a
- * changelevel (heap_free=149 Kb still fragmented). Keep a BSS last resort. */
+ * changelevel (heap_free=149 Kb still fragmented). Keep a heap last resort
+ * via Mod_GCTakeReserve — true BSS here (128 KiB) tipped c4a3 boot (085734). */
 #define GC_STATIC_ENTITIES_BYTES ( 128u * 1024u )
 static char *gc_static_entities;
 static qboolean gc_entities_static_block;
@@ -128,6 +129,35 @@ qboolean Mod_GCEnsureStaticReserves( void )
 	/* hull0 is BSS (gc_static_hull0_storage) — no heap reserve. */
 	Mod_GCTakeReserve( (void **)&gc_static_nodes, GC_STATIC_NODES_BYTES, "nodes" );
 	return gc_static_submodels && gc_static_entities && gc_static_hull0 && gc_static_nodes;
+}
+
+/*
+ * Eager reserves keep Surface Tension / dense hops from tip-OOMing when
+ * scratch is full. Maps that settle nodes/submodels elsewhere (c5a1: nodes
+ * in BSP scratch) would otherwise leave ~400 KiB idle and hang InitInput /
+ * HUD ZIP at free≈4 KiB (probe 090911). Return unused blocks once we know
+ * this map does not need them; EnsureStaticReserves retakes on the next load.
+ *
+ * Call this immediately before deferred client InitInput — releasing during
+ * BSP load let the 384 KiB get fragmented/consumed before CL_LoadProgs
+ * (probe 091844: free only rose to 9 KiB and InitInput still hung).
+ */
+void Mod_GCReleaseUnusedWorldReserves( void )
+{
+	if( gc_static_nodes && !gc_nodes_static_block )
+	{
+		free( gc_static_nodes );
+		gc_static_nodes = NULL;
+		Con_Reportf( "Xash3D GameCube: released unused nodes reserve %s\n",
+			Q_memprint( GC_STATIC_NODES_BYTES ));
+	}
+	if( gc_static_submodels && !gc_submodels_static_block )
+	{
+		free( gc_static_submodels );
+		gc_static_submodels = NULL;
+		Con_Reportf( "Xash3D GameCube: released unused submodels reserve %s\n",
+			Q_memprint( sizeof( dmodel_t ) * GC_STATIC_SUBMODEL_CAPACITY ));
+	}
 }
 #endif
 static void *gc_planes_malloc_block;
@@ -3087,8 +3117,21 @@ static void Mod_LoadSubmodels( model_t *mod, dbspmodel_t *bmod )
 	// these array used to sort translucent faces in bmodels
 	if( oldmaxfaces > refState.max_surfaces )
 	{
-		refState.draw_surfaces = (sortedface_t *)Z_Realloc( refState.draw_surfaces, oldmaxfaces * sizeof( sortedface_t ));
-		refState.max_surfaces = oldmaxfaces;
+#if XASH_GAMECUBE
+		/* c5a1: tip is dry after entities/submodels (heap_free≈3.8 Kb) — a
+		 * 3 KiB Z_Realloc here was fatal (probe 085428). Keep prior capacity;
+		 * translucent bmodel sort degrades gracefully when over cap. */
+		if( GC_MapLoadMemoryOpt() )
+		{
+			Con_Reportf( "Xash3D GameCube: draw_surfaces grow skipped need=%s keep=%d\n",
+				Q_memprint( oldmaxfaces * sizeof( sortedface_t )), refState.max_surfaces );
+		}
+		else
+#endif
+		{
+			refState.draw_surfaces = (sortedface_t *)Z_Realloc( refState.draw_surfaces, oldmaxfaces * sizeof( sortedface_t ));
+			refState.max_surfaces = oldmaxfaces;
+		}
 	}
 }
 
@@ -3194,24 +3237,38 @@ static void Mod_LoadEntities( model_t *mod, const dbspmodel_t *bmod )
 	{
 		const size_t need = entdatasize + 1;
 
-		mod->entities = (char *)malloc( need );
-		if( !mod->entities )
+		/* Prefer the boot-time heap reserve so tip is not double-charged
+		 * (c5a1: reserve 128 KiB + malloc 73 KiB left free≈1.6 KiB and HUD
+		 * ZIP alloc failed — probe 090419). */
+		if( gc_static_entities && need <= GC_STATIC_ENTITIES_BYTES )
 		{
-			Image_GCPurgeDecodeScratch();
-			mod->entities = (char *)malloc( need );
-		}
-		if( mod->entities )
-		{
-			gc_entities_malloc_block = mod->entities;
-			Con_Reportf( "Xash3D GameCube: world entities using malloc %s\n",
+			mod->entities = gc_static_entities;
+			gc_entities_static_block = true;
+			Con_Reportf( "Xash3D GameCube: world entities using static reserve %s\n",
 				Q_memprint( need ));
 		}
-		else if( gc_bsp_scratch_base && GC_IsMapLoadBuffer( gc_bsp_scratch_base ))
+		if( !mod->entities && gc_bsp_scratch_base && GC_IsMapLoadBuffer( gc_bsp_scratch_base ))
 		{
 			size_t after = Q_max( gc_bsp_scratch_size + gc_bsp_scratch_carve_high,
 				GC_MapLoadBufferTailHighwater() );
 
 			mod->entities = (char *)Mod_GCPreSurfaceTailAlloc( after, need );
+			/* c5a1: surface high-slot (~1.4 MiB) + BSP image leave no normal
+			 * tail. Sit under the surface reserve like private overflow. */
+			if( !mod->entities && gc_bsp_surface_reserve )
+			{
+				const size_t cap = GC_MapLoadBufferCapacity();
+				const size_t hw = GC_MapLoadBufferTailHighwater();
+				size_t under;
+
+				if( cap > gc_bsp_surface_reserve + need )
+				{
+					under = cap - gc_bsp_surface_reserve - need;
+					under &= ~(size_t)31u;
+					if( under >= hw )
+						mod->entities = (char *)GC_MapLoadBufferTailAlloc( under, need );
+				}
+			}
 			if( mod->entities )
 			{
 				gc_entities_arena_tail = true;
@@ -3219,12 +3276,20 @@ static void Mod_LoadEntities( model_t *mod, const dbspmodel_t *bmod )
 					Q_memprint( need ));
 			}
 		}
-		if( !mod->entities && gc_static_entities && need <= GC_STATIC_ENTITIES_BYTES )
+		if( !mod->entities )
 		{
-			mod->entities = gc_static_entities;
-			gc_entities_static_block = true;
-			Con_Reportf( "Xash3D GameCube: world entities using static BSS %s\n",
-				Q_memprint( need ));
+			mod->entities = (char *)malloc( need );
+			if( !mod->entities )
+			{
+				Image_GCPurgeDecodeScratch();
+				mod->entities = (char *)malloc( need );
+			}
+			if( mod->entities )
+			{
+				gc_entities_malloc_block = mod->entities;
+				Con_Reportf( "Xash3D GameCube: world entities using malloc %s\n",
+					Q_memprint( need ));
+			}
 		}
 	}
 	if( !mod->entities )

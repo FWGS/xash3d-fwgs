@@ -28,6 +28,7 @@ GNU General Public License for more details.
 #if XASH_GAMECUBE
 #include "gamecube/mem_gamecube.h"
 #include "gamecube/storage_gamecube.h"
+#include "mod_local.h"
 #include <ogc/system.h>
 extern int gc_menu_step_frames;
 extern qboolean UI_UsingBuiltInFallbackMenu( void );
@@ -4307,6 +4308,12 @@ qboolean CL_GameCubeEnsureClientReady( void )
 	Con_Reportf( "Xash3D GameCube: deferred client init begin\n" );
 	GC_SetLoadingProgress( 0.90f );
 	GC_DrawLoadingStatus( "CLIENT INIT", "half-life" );
+
+	/* c5a1: nodes/submodels often sit in scratch while 400 KiB of eager
+	 * reserves stay idle. Free them as one contiguous tip block right here
+	 * so Client Static / InitInput / HUD ZIP do not soft-fail into a hang. */
+	Mod_GCReleaseUnusedWorldReserves();
+	GC_MemSample( "pre-client unused-reserve release" );
 
 	/* Drop Flipper menu/HUD slabs before CL_LoadProgs → InitInput →
 	 * pfnAddCommand. Trim at play-start may have run earlier, but a retail

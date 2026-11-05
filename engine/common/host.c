@@ -1562,6 +1562,15 @@ int EXPORT Host_Main( int argc, char **argv, const char *progname, int bChangeGa
 	Mod_Init();
 #if XASH_GAMECUBE
 	GC_MemWatch( "init Mod_Init" );
+	/* Take world entities/submodels/nodes reserves while MEM1 is still fat.
+	 * Waiting until first map load (c5a1 free≈74 Kb) deferred the 128 KiB
+	 * entities slot and fell through to tip Mem_Malloc OOM. Heap reserve at
+	 * boot is fine — unlike BSS it does not shrink the .bss arena. */
+	{
+		qboolean Mod_GCEnsureStaticReserves( void );
+
+		Mod_GCEnsureStaticReserves();
+	}
 #endif
 	NET_Init();
 #if XASH_GAMECUBE
