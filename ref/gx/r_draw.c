@@ -360,12 +360,13 @@ void GAME_EXPORT R_DrawStretchPic( float x, float y, float w, float h, float s1,
 		const qboolean dump_soft = ( gEngfuncs.Sys_CheckParm( "-gcdumpframes" )
 			|| gEngfuncs.Sys_CheckParm( "-gcdump" ));
 
-		/* Retail / play: Flipper CopyDisp presents the EFB. Probe DumpFrames with
-		 * DisableCopyToVRAM soft-latch XFB RAM, so mirror HUD into the soft buffer
-		 * and skip the EFB-ready mark — soft present then encodes readable stills. */
-		if( !dump_soft )
-			GC_MarkGxWorldEfbReady();
-		else
+		/* Always Flipper-present the GX HUD. Probe 20261105-000057 showed that
+		 * skipping EFB-ready under -gcdumpframes forced soft RGB565 present over
+		 * the crisp NEAR-filtered menu (chroma-fringed buttons / striped bg).
+		 * G191/G193 soft-lock still overrides CopyDisp when world soft latch
+		 * needs the CPU buffer. Optional soft mirror keeps RAM dumps populated. */
+		GC_MarkGxWorldEfbReady();
+		if( dump_soft )
 		{
 			pic = R_GetTexture( texnum );
 			if( pic && pic->pixels[0] && !pic->gc_gx_native

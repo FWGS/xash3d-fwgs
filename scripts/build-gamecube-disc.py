@@ -737,13 +737,29 @@ def _gc_menu_nonblack_ratio(image) -> float:
 
 
 def _gc_menu_preserve_retail_tone(image):
-	"""Keep the retail menu moody and dark instead of over-brightening it."""
-	from PIL import ImageEnhance
+	"""Lift crushed HD steam tiles so the lambda/lab backdrop reads on TV.
+
+	HD_BackgroundLayout composites sit near mean≈15 / p95≈30 (near-black on
+	a 320×240 soft HUD). Probe 20261104-235523 showed 4 dark quadrants with
+	no readable backdrop. Stretch midtones toward a retail-visible p95 while
+	keeping the moody industrial look.
+	"""
+	from PIL import Image
+	from PIL import ImageEnhance, ImageOps
+	import numpy as np
 
 	rgba = image.convert("RGBA")
 	rgb = rgba.convert("RGB")
-	# Very small contrast lift so the 16x16 GX menu decode survives RGB565 without blowing out the art.
-	rgb = ImageEnhance.Contrast(rgb).enhance(1.04)
+	arr = np.asarray(rgb, dtype=np.float32)
+	p95 = float(np.percentile(arr, 95))
+	# Target a readable soft-HUD backdrop without clipping the lambda emblem.
+	target_p95 = 168.0
+	if p95 > 1.0 and p95 < target_p95:
+		arr = np.clip(arr * (target_p95 / p95), 0, 255)
+	rgb = Image.fromarray(arr.astype(np.uint8), mode="RGB")
+	rgb = ImageEnhance.Contrast(rgb).enhance(1.12)
+	# Mild autocontrast keeps crushed blacks from swallowing the whole sheet.
+	rgb = ImageOps.autocontrast(rgb, cutoff=1)
 	return rgb.convert("RGBA")
 
 
@@ -938,7 +954,10 @@ def _stage_gc_menu_btn_strips(source: Path, menu_dir: Path) -> None:
 		print("Warning: btns_main.bmp not found; GC menu keeps text buttons.", file=sys.stderr)
 		return
 
-	im = Image.open(btns_path)
+	# Convert off indexed BMP first — paste into a fresh P image drops the
+	# palette and baked solid-black strips (probe 20261104-234653: status
+	# text only, no New Game/Hazard/Quit art). Pillow already tops BMP rows.
+	im = Image.open(btns_path).convert("RGB")
 	w, h = im.size
 	btn_h = 26
 	cell = btn_h * 3
@@ -951,31 +970,87 @@ def _stage_gc_menu_btn_strips(source: Path, menu_dir: Path) -> None:
 		4: "load_game",
 		5: "save_load_game",
 		7: "quit",
+		9: "easy",
+		10: "medium",
+		11: "hard",
+		14: "cancel",
 		56: "disconnect",
 	}
 
 	def extract_btn(btn_id: int) -> "Image.Image":
 		states = []
 		for state in range(3):
-			st = Image.new(im.mode, (w, btn_h))
+			st = Image.new("RGB", (w, btn_h))
 			for line in range(btn_h):
-				src_visual_y = btn_id * cell + state * btn_h + line
-				src_row = h - 1 - src_visual_y
+				src_row = btn_id * cell + state * btn_h + line
 				st.paste(im.crop((0, src_row, w, src_row + 1)), (0, line))
 			states.append(st)
-		out = Image.new(im.mode, (w, cell))
+		out = Image.new("RGB", (w, cell))
 		for i, st in enumerate(states):
 			out.paste(st, (0, i * btn_h))
-		return out.convert("RGB")
+		return out
+
+	def _thicken_orange(strip: "Image.Image") -> "Image.Image":
+		"""1px dilate of non-black ink so soft/YUV chroma keeps glyphs readable."""
+		px = strip.load()
+		w0, h0 = strip.size
+		ink = [[False] * w0 for _ in range(h0)]
+		for y in range(h0):
+			for x in range(w0):
+				r, g, b = px[x, y]
+				ink[y][x] = (r > 24) or (g > 24) or (b > 16)
+		out = strip.copy()
+		opx = out.load()
+		for y in range(h0):
+			for x in range(w0):
+				if ink[y][x]:
+					continue
+				# Neighbor ink → copy brightest neighbor (keeps orange, fills holes).
+				best = None
+				best_luma = -1
+				for dy in (-1, 0, 1):
+					for dx in (-1, 0, 1):
+						nx, ny = x + dx, y + dy
+						if nx < 0 or ny < 0 or nx >= w0 or ny >= h0 or not ink[ny][nx]:
+							continue
+						r, g, b = px[nx, ny]
+						luma = (r * 3 + g * 6 + b) // 10
+						if luma > best_luma:
+							best_luma = luma
+							best = (r, g, b)
+				if best is not None:
+					opx[x, y] = best
+		return out
 
 	written = 0
 	for btn_id, stem in wanted.items():
 		if (btn_id + 1) * cell > h:
 			continue
-		strip = extract_btn(btn_id)
+		strip = _thicken_orange(extract_btn(btn_id))
 		strip.save(menu_dir / f"btn_{stem}.tga", format="TGA")
 		written += 1
 	print(f"GameCube menu buttons: baked {written} retail strips from {btns_path.name}")
+
+	# Slim New Game banner (extras head_newgame.tga is 460×80 — fine for MEM1).
+	banner_candidates = [
+		source / "gfx" / "shell" / "head_newgame.tga",
+		Path(__file__).resolve().parents[1]
+		/ "3rdparty"
+		/ "extras"
+		/ "xash-extras"
+		/ "gfx"
+		/ "shell"
+		/ "head_newgame.tga",
+	]
+	banner_src = next((p for p in banner_candidates if p.is_file()), None)
+	if banner_src is not None:
+		# Convert off indexed/P first — palette paste onto RGB drops the
+		# palette and baked a black banner (same trap as btn strips).
+		banner = Image.open(banner_src).convert("RGBA")
+		banner_rgb = Image.new("RGB", banner.size, (0, 0, 0))
+		banner_rgb.paste(banner, (0, 0), banner)
+		banner_rgb.save(menu_dir / "head_newgame.tga", format="TGA")
+		print(f"GameCube menu banner: baked head_newgame.tga {banner_rgb.size[0]}x{banner_rgb.size[1]}")
 
 
 def stage_gc_loading_assets(source: Path, output: Path) -> bool:
@@ -3329,6 +3404,11 @@ def main() -> None:
 				# baked background and presents only its solid-colour fallback.
 				# Normal New Game from MainUI still uses the full physics path.
 				play_lines = []
+				# Prefer progressive so menu/HUD CopyDisp skips CRT vfilter
+				# (VI_PROGRESSIVE was misclassified as interlaced before).
+				play_lines.append(
+					f"video {args.probe_video_mode}" if args.probe_video_mode else "video prog"
+				)
 				if args.perf:
 					play_lines.extend(["profile", "gc_perf_enable 1", "gc_perf_draw 1"])
 				if os.environ.get("XASH_GC_PROBE_AUTOHOP") == "1":
@@ -3342,6 +3422,8 @@ def main() -> None:
 				)
 			elif args.probe_menu_newgame:
 				menu_lines = ["menunewgame"]
+				if args.probe_video_mode:
+					menu_lines.append(f"video {args.probe_video_mode}")
 				if args.probe_fullphysics:
 					menu_lines.append("fullphysics")
 				if args.probe_tas:
@@ -3365,8 +3447,17 @@ def main() -> None:
 				write_probe_phasetest_override(staged_data, args.probe_phasetest)
 			elif args.probe_dumpframes:
 				# Plain retail menu + soft DumpFrames evidence (no New Game).
-				(staged_data / "gamecube.cfg").write_text("dumpframes\n", encoding="ascii")
-				print("Retail menu: staged gamecube.cfg dumpframes for soft DumpFrames")
+				menu_lines = ["dumpframes"]
+				if args.probe_video_mode:
+					menu_lines.append(f"video {args.probe_video_mode}")
+				(staged_data / "gamecube.cfg").write_text(
+					"\n".join(menu_lines) + "\n", encoding="ascii"
+				)
+				print(
+					"Retail menu: staged gamecube.cfg dumpframes"
+					+ (f" video {args.probe_video_mode}" if args.probe_video_mode else "")
+					+ " for soft DumpFrames"
+				)
 
 			overlay_root = Path(temp) / "overlay" / primary_gamedir
 			overlays = create_startup_vids_overlay(

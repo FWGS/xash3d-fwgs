@@ -1107,14 +1107,22 @@ void SV_Init( void )
 	Con_Reportf( "Xash3D GameCube: server game info pointer=%p\n", (void *)GI );
 	server_game_silent = GI->gamemode != GAME_SINGLEPLAYER_ONLY;
 	Con_Reportf( "Xash3D GameCube: server game init argument ready silent=%d\n", server_game_silent );
+	/* Pure retail menu boots leave only ~38 KiB tip after SV_LoadProgs, so the
+	 * baked gc_menu bg tiles (~57 KiB) soft-fail and the backdrop falls back to
+	 * flat color (probe 20261104-172810). Defer server.dll until map/New Game;
+	 * SV_SpawnServer already calls SV_InitGame. */
+	if( Sys_CheckParm( "-gcmap" ) || Sys_CheckParm( "-gcnewgame" )
+		|| Sys_CheckParm( "-gcmenuplaystart" ))
+	{
+		SV_InitGame( server_game_silent );
+		Con_Reportf( "Xash3D GameCube: server game init ready\n" );
+	}
+	else
+	{
+		Con_Reportf( "Xash3D GameCube: server game init deferred until map load\n" );
+	}
 #else
 	SV_InitGame( GI->gamemode != GAME_SINGLEPLAYER_ONLY );
-#endif
-#if XASH_GAMECUBE
-	SV_InitGame( server_game_silent );
-#endif
-#if XASH_GAMECUBE
-	Con_Reportf( "Xash3D GameCube: server game init ready\n" );
 #endif
 }
 

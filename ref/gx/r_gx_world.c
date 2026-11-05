@@ -407,6 +407,22 @@ static u16 R_GXSoftToRGB5A3( pixel_t soft )
 	return (u16)( 0x8000u | ( r5 << 10 ) | ( g5 << 5 ) | b5 );
 }
 
+/* WON btn strips are orange on black; TransAlpha needs black → alpha0. */
+static u16 R_GXSoftToRGB5A3PunchBlack( pixel_t soft )
+{
+	u16 rgb5a3 = R_GXSoftToRGB5A3( soft );
+	u32 r5, g5, b5;
+
+	if( rgb5a3 == 0 )
+		return 0;
+	r5 = ( rgb5a3 >> 10 ) & 31u;
+	g5 = ( rgb5a3 >> 5 ) & 31u;
+	b5 = rgb5a3 & 31u;
+	if( r5 <= 1u && g5 <= 1u && b5 <= 1u )
+		return 0;
+	return rgb5a3;
+}
+
 /*
  * Reserve HUD TEXMAP0 slabs before world fills MEM1. Textures share them
  * through the fenced LRU; reserving nine full 128×128 slabs exhausts the
@@ -1627,7 +1643,14 @@ static gc_gx_tex_t *R_GXBindTexnum( unsigned texnum, qboolean hud_bind )
 				sx = src_w - 1;
 			soft = img->pixels[0][sy * src_w + sx];
 			if( hud_bind )
-				r_gx_tex_linear[y * dst_w + x] = R_GXSoftToRGB5A3( soft );
+			{
+				/* Pic strips: punch black so TransAlpha leaves only orange ink.
+				 * Background tiles must keep near-black opaque (retail steam art). */
+				if( img->name[0] && Q_stristr( img->name, "gc_menu/btn_" ))
+					r_gx_tex_linear[y * dst_w + x] = R_GXSoftToRGB5A3PunchBlack( soft );
+				else
+					r_gx_tex_linear[y * dst_w + x] = R_GXSoftToRGB5A3( soft );
+			}
 			else if( soft == TRANSPARENT_COLOR )
 				r_gx_tex_linear[y * dst_w + x] = 0;
 			else
@@ -1686,8 +1709,9 @@ static gc_gx_tex_t *R_GXBindTexnum( unsigned texnum, qboolean hud_bind )
 	/* G203: LINEAR on world diffuse; HUD stays NEAR for crisp sprites,
 	 * except fonts created without TF_NEAREST (drawn minified 2:1) and the
 	 * high-res title logo which is stretched across the menu. */
-	if( hud_bind && img->name[0] && ( Q_stristr( img->name, "gc_menu/logo" )
-		|| Q_stristr( img->name, "gc_menu/bg_" )))
+	/* Logo can stay soft-filtered; bg tiles + btn strips need NEAR so the
+	 * 160×120 / 156×26 art does not smear into chroma noise on TV. */
+	if( hud_bind && img->name[0] && Q_stristr( img->name, "gc_menu/logo" ))
 		GX_InitTexObjFilterMode( &t->obj, GX_LINEAR, GX_LINEAR );
 	else if( hud_bind && !( FBitSet( img->flags, TF_FONT ) && !FBitSet( img->flags, TF_NEAREST )))
 		GX_InitTexObjFilterMode( &t->obj, GX_NEAR, GX_NEAR );
