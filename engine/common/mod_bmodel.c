@@ -97,47 +97,34 @@ static qboolean gc_entities_arena_tail;
 static char *gc_static_entities;
 static qboolean gc_entities_static_block;
 
-#define GC_RESERVE_ALIGN( x ) ((( x ) + 31u ) & ~(size_t)31u )
-#define GC_STATIC_RESERVES_BYTES ( GC_RESERVE_ALIGN( GC_STATIC_NODES_BYTES ) \
-	+ GC_RESERVE_ALIGN( sizeof( mclipnode16_t ) * GC_STATIC_HULL0_CAPACITY ) \
-	+ GC_RESERVE_ALIGN( sizeof( dmodel_t ) * GC_STATIC_SUBMODEL_CAPACITY ) \
-	+ GC_RESERVE_ALIGN( GC_STATIC_ENTITIES_BYTES ))
-
 /*
- * Last-resort world-table reserves, one contiguous block for the session.
- * Taken at the start of the first map load, before BSP staging fills the
- * heap, and never freed, so later loads see the same guarantee the BSS
- * arrays gave without charging boot, the startup video or the menu.
+ * Last-resort world-table reserves.  Each is a separate heap block taken at
+ * the start of a map load (before BSP staging) and kept for the session; a
+ * reserve that does not fit yet is retried on the next map load.  As BSS they
+ * charged ~650 KiB to boot, the startup video and the menu, which never use
+ * them.  Returns true once every reserve is held.
  */
+static void *Mod_GCTakeReserve( void **slot, size_t bytes, const char *name )
+{
+	if( *slot )
+		return *slot;
+	*slot = memalign( 32, bytes );
+	if( *slot )
+		Con_Reportf( "Xash3D GameCube: world reserve %s ready %s\n", name, Q_memprint( bytes ));
+	else
+		Con_Reportf( "Xash3D GameCube: world reserve %s deferred need=%s free=%s\n",
+			name, Q_memprint( bytes ), Q_memprint( GC_MemHeapFreeBytes() ));
+	return *slot;
+}
+
 qboolean Mod_GCEnsureStaticReserves( void )
 {
-	static qboolean attempted;
-	byte *block, *cursor;
-
-	if( gc_static_nodes )
-		return true;
-	if( attempted )
-		return false;
-	attempted = true;
-
-	block = (byte *)memalign( 32, GC_STATIC_RESERVES_BYTES );
-	if( !block )
-	{
-		Con_Reportf( S_WARN "Xash3D GameCube: world reserves unavailable need=%s free=%s\n",
-			Q_memprint( GC_STATIC_RESERVES_BYTES ), Q_memprint( GC_MemHeapFreeBytes() ));
-		return false;
-	}
-	cursor = block;
-	gc_static_nodes = cursor;
-	cursor += GC_RESERVE_ALIGN( GC_STATIC_NODES_BYTES );
-	gc_static_hull0 = (mclipnode16_t *)cursor;
-	cursor += GC_RESERVE_ALIGN( sizeof( mclipnode16_t ) * GC_STATIC_HULL0_CAPACITY );
-	gc_static_submodels = (dmodel_t *)cursor;
-	cursor += GC_RESERVE_ALIGN( sizeof( dmodel_t ) * GC_STATIC_SUBMODEL_CAPACITY );
-	gc_static_entities = (char *)cursor;
-	Con_Reportf( "Xash3D GameCube: world reserves ready bytes=%s\n",
-		Q_memprint( GC_STATIC_RESERVES_BYTES ));
-	return true;
+	/* Smallest first so a tight heap still gets the cheap guarantees. */
+	Mod_GCTakeReserve( (void **)&gc_static_submodels, sizeof( dmodel_t ) * GC_STATIC_SUBMODEL_CAPACITY, "submodels" );
+	Mod_GCTakeReserve( (void **)&gc_static_entities, GC_STATIC_ENTITIES_BYTES, "entities" );
+	Mod_GCTakeReserve( (void **)&gc_static_hull0, sizeof( mclipnode16_t ) * GC_STATIC_HULL0_CAPACITY, "hull0" );
+	Mod_GCTakeReserve( (void **)&gc_static_nodes, GC_STATIC_NODES_BYTES, "nodes" );
+	return gc_static_submodels && gc_static_entities && gc_static_hull0 && gc_static_nodes;
 }
 #endif
 static void *gc_planes_malloc_block;

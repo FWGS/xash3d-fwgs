@@ -55,13 +55,9 @@ static int gc_string_arena_overflows;
 
 qboolean SV_GCEnsureStringArena( void )
 {
-	static qboolean attempted;
-
 	if( gc_string_arena )
 		return true;
-	if( attempted )
-		return false;
-	attempted = true;
+	/* Retried at every map load until it fits. */
 	gc_string_arena = (char *)memalign( 16, GC_STRING_ARENA_SIZE );
 	if( !gc_string_arena )
 	{

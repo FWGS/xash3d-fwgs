@@ -227,7 +227,8 @@ void R_GcmapTrimForMapLoad( void )
 	if( gc_renderer_trimmed )
 		return;
 
-	/* Session world reserves come first, while the heap is still roomy. */
+	/* Every map load (incl. changelevel) retries any deferred world reserve
+	 * before BSP staging takes the heap. */
 	Mod_GCEnsureStaticReserves();
 	SV_GCEnsureStringArena();
 

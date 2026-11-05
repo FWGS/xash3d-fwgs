@@ -4217,12 +4217,18 @@ void CL_Init( void )
 
 	COM_GetCommonLibraryPath( LIBRARY_CLIENT, libpath, sizeof( libpath ));
 #if XASH_GAMECUBE
-	/* Keep sound/voice/client.dll off the tip until New Game / map load.
-	 * Eager S_Init here left <57 KiB free so FS_LoadFile could not pull the
-	 * baked gc_menu bg tiles (probe 20261104-172432), falling back to a flat
-	 * color main menu that does not match retail. */
+	/* Keep client.dll off the tip until New Game / map load. */
 	Con_Reportf( "Xash3D GameCube: client library path %s\n", libpath );
-	Con_Reportf( "Xash3D GameCube: client sound deferred until needed\n" );
+	/* Sound comes up at boot again so the startup video plays its audio, as
+	 * retail does (the menu-bg OOM that motivated deferring it was the BSS
+	 * world reserves, now taken at the first map load).  The client DLL stays
+	 * deferred; its New Game path keeps an already-initialized backend. */
+	if( !Sys_CheckParm( "-nosound" ) && !snd.initialized )
+	{
+		S_Init();
+		Voice_Init( VOICE_DEFAULT_CODEC, 3, true );
+		Con_Reportf( "Xash3D GameCube: client sound init ready\n" );
+	}
 	Con_Reportf( "Xash3D GameCube: client identity skipped\n" );
 	Con_Reportf( "Xash3D GameCube: steam broker skipped\n" );
 	memset( &clgame.drawFuncs, 0, sizeof( clgame.drawFuncs ));
