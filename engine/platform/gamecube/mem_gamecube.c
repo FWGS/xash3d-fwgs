@@ -563,6 +563,12 @@ qboolean GC_ReleaseMapLoadBuffer( void *ptr )
 	return true;
 }
 
+void GC_RetainMapLoadBufferBorrow( void )
+{
+	if( gc_mapload_buf )
+		gc_mapload_buf_in_use = true;
+}
+
 qboolean GC_IsMapLoadBuffer( const void *ptr )
 {
 	return ptr != NULL && ptr == gc_mapload_buf;

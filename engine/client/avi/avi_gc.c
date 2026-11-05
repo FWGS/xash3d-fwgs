@@ -54,7 +54,10 @@ static void AVI_ParseAudioFormat( movie_state_t *Avi, fs_offset_t file_size );
 #define GC_AVI_UPLOAD_MAX_W		320
 #define GC_AVI_UPLOAD_MAX_H		240
 #define GC_AVI_STATIC_FRAME_MAX_BYTES	( 320 * 240 * 2 )
+#define GC_AVI_STATIC_OFFSETS_MAX	256
 static byte gc_avi_static_frame[GC_AVI_STATIC_FRAME_MAX_BYTES] __attribute__((aligned( 32 )));
+static uint32_t gc_avi_static_offsets[GC_AVI_STATIC_OFFSETS_MAX];
+static qboolean gc_avi_static_offsets_busy;
 static byte gc_avi_prefetch_stage[16384] __attribute__((aligned( 32 )));
 static byte gc_avi_aram_cache[4096] __attribute__((aligned( 32 )));
 
@@ -230,6 +233,16 @@ static qboolean AVI_OpenGCVID( movie_state_t *Avi, const char *filename, qboolea
 	}
 
 	offset_table_bytes = (size_t)Avi->frame_count * sizeof( uint32_t );
+#if XASH_GAMECUBE
+	if( !gc_avi_static_offsets_busy
+		&& Avi->frame_count > 0
+		&& Avi->frame_count <= GC_AVI_STATIC_OFFSETS_MAX )
+	{
+		Avi->raw_frame_offsets = gc_avi_static_offsets;
+		gc_avi_static_offsets_busy = true;
+	}
+	else
+#endif
 	Avi->raw_frame_offsets = Mem_Malloc( avi_mempool, offset_table_bytes );
 	if( !Avi->raw_frame_offsets )
 	{
@@ -1440,7 +1453,15 @@ void AVI_CloseVideo( movie_state_t *Avi )
 	if( Avi->raw_prefetch_aram )
 		GC_AramVideoRelease();
 	if( Avi->raw_frame_offsets )
-		Mem_Free( Avi->raw_frame_offsets );
+	{
+		if( Avi->raw_frame_offsets == gc_avi_static_offsets )
+		{
+			gc_avi_static_offsets_busy = false;
+			Avi->raw_frame_offsets = NULL;
+		}
+		else
+			Mem_Free( Avi->raw_frame_offsets );
+	}
 #endif
 	if( Avi->frame )
 	{

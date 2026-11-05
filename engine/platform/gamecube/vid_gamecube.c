@@ -14141,12 +14141,55 @@ qboolean GC_PrepareNewGameWorldPresent( void )
 	else if( denser_am_early )
 	{
 		int i;
+		const qboolean pending_cl_hop = Sys_CheckParm( "-gcchangelevel" )
+			&& GC_IsNewGameG36Done()
+			&& !GC_IsProbeChangelevelDest();
 
 		/* G335: first Flipper world frame already tips/hangs the present path
 		 * on denser AM cold boots (c1a0d 20260810-034042 stuck after CapFaces
-		 * drawn=0). Light-fill probe frames, then fall through to G68 hop. */
+		 * drawn=0). Light-fill probe frames, then fall through to G68 hop.
+		 * Surface Tension (c2a5e→c2a5f): PresentBudget softlocks after G147
+		 * scrub before changelevel begin — hop first when a dest is armed. */
 		Con_Reportf( "Xash3D GameCube: G335 skip Flipper present pump map=%s\n",
 			sv.name );
+		if( pending_cl_hop )
+		{
+			static qboolean gc_g335_cl_queued_early;
+			char dest[MAX_QPATH];
+			char landmark[MAX_QPATH];
+
+			Con_Reportf( "Xash3D GameCube: post-G36 world present\n" );
+			if( !gc_g335_cl_queued_early
+				&& Sys_GetParmFromCmdLine( "-gcchangelevel", dest )
+				&& dest[0] && Q_stricmp( sv.name, dest ))
+			{
+				gc_g335_cl_queued_early = true;
+				landmark[0] = '\0';
+				Sys_GetParmFromCmdLine( "-gclandmark", landmark );
+				if( landmark[0] )
+					GC_LeanLandmarkProbePlantAmmo();
+				if( Sys_CheckParm( "-gctas" ))
+				{
+					Q_strncpy( gc_tas_deferred_cl_dest, dest, sizeof( gc_tas_deferred_cl_dest ));
+					Q_strncpy( gc_tas_deferred_cl_landmark, landmark,
+						sizeof( gc_tas_deferred_cl_landmark ));
+					gc_tas_deferred_cl_pending = true;
+					Con_Reportf( "Xash3D GameCube: TAS defer changelevel to=%s until complete\n",
+						dest );
+				}
+				else
+				{
+					SYS_Report( "Xash3D GameCube: changelevel begin map=%s from=%s landmark=%s\n",
+						dest, sv.name, landmark[0] ? landmark : "(none)" );
+					COM_ChangeLevel( dest, landmark[0] ? landmark : NULL, false );
+					/* Skip PresentBudget — ST source maps softlock there before
+					 * Host_Frame can finish the queued changelevel. */
+					return true;
+				}
+			}
+		}
+		else
+		{
 		for( i = 0; i < 4; i++ )
 		{
 			GC_FillBudgetProbeFrameBuffer();
@@ -14214,6 +14257,7 @@ qboolean GC_PrepareNewGameWorldPresent( void )
 			else
 				GC_ProbeMaybeQueueChangelevel2();
 		}
+		} /* !pending_cl_hop */
 		/* G357/G358/G359: denser G335 skips Flipper CapFaces; G105 often takes
 		 * G159 (Flipper already live). One bounded Flipper sample restores
 		 * CapFaces; with -gcdumpframes hold EFB + present so DumpFrames stills

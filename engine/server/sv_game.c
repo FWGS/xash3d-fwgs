@@ -92,6 +92,8 @@ static qboolean gc_soundent_fallback_used;
 /* G330: bounded bump slab for map-private blocks. Keep static BSS ≤108 KiB —
  * growing it to 192 KiB OOM'd Zone Engine before c1a1f BSP open. Larger
  * (>1 KiB) privates go to map-arena overflow (GC_ENTITY_OVERFLOW_BYTES). */
+/* Keep ≤~108 KiB BSS — 160 KiB starved tip MEM1 and hung c2a5e mid-spawn.
+ * Dense ST maps (c2a5f) spill into map-arena overflow once reserved. */
 static byte gc_ent_priv_slab[110592] __attribute__((aligned(16)));
 /* One bit per aligned block allows arbitrary entity destruction to reclaim
  * space without allocating heap headers or moving live game-DLL objects. */
@@ -226,15 +228,18 @@ static char *SV_GCCopyKeyValue( const char *s )
 
 	if( !s )
 		return NULL;
-	dst = copystring( s );
-	if( dst )
-		return dst;
 	size = Q_strlen( s ) + 1;
-	if( gc_kv_slab_used + size > sizeof( gc_kv_slab ))
-		return NULL;
-	dst = (char *)( gc_kv_slab + gc_kv_slab_used );
-	gc_kv_slab_used += size;
-	memcpy( dst, s, size );
+	/* Prefer the per-entity slab first. copystring → Q_malloc can stall
+	 * indefinitely on a fragmented tip MEM1 heap during dense spawn
+	 * (c2a5f hung at entity 716 func_wall with heap_free already ~8 KiB). */
+	if( gc_kv_slab_used + size <= sizeof( gc_kv_slab ))
+	{
+		dst = (char *)( gc_kv_slab + gc_kv_slab_used );
+		gc_kv_slab_used += size;
+		memcpy( dst, s, size );
+		return dst;
+	}
+	dst = copystring( s );
 	return dst;
 }
 
@@ -533,6 +538,24 @@ void GAME_EXPORT SV_SetModel( edict_t *ent, const char *modelname )
 		VectorClear( ent->v.maxs );
 		VectorClear( ent->v.size );
 		Con_Reportf( "Xash3D GameCube: SV_SetModel weapon stub %s\n", name );
+		return;
+	}
+
+	/* Dense Surface Tension maps (c2a5e) reclaim MEM1 mid-spawn then hang in
+	 * Mod_ForName for env_explosion sprites (fexplo.spr edict=271, probe
+	 * 20261104-132535). Bind empty — explosions are not needed for physics
+	 * continuity / CHANGELEVEL_READY. */
+	if( ( Sys_CheckParm( "-gcnewgame" ) || Sys_CheckParm( "-gcchangelevel" )
+		|| Sys_CheckParm( "-gcmenuplaystart" ))
+		&& !Q_strnicmp( name, "sprites/", 8 )
+		&& Sys_CheckParm( "-gcfullphysics" ))
+	{
+		ent->v.modelindex = 0;
+		ent->v.model = 0;
+		VectorClear( ent->v.mins );
+		VectorClear( ent->v.maxs );
+		VectorClear( ent->v.size );
+		Con_Reportf( "Xash3D GameCube: SV_SetModel sprite stub %s\n", name );
 		return;
 	}
 #endif
@@ -3630,8 +3653,14 @@ static void *GAME_EXPORT pfnPvAllocEntPrivateData( edict_t *pEdict, long cb )
 					Con_Reportf( "Xash3D GameCube: G330 ent private slab size=%zu edict=%d hits=%d used=%zu overflow=%zu\n",
 						size, edict_index, gc_ent_priv_slab_hits, gc_ent_priv_slab_used, gc_ent_priv_overflow_used );
 			}
+			/* Never fall back to libc malloc here: tip MEM1 Q_malloc can
+			 * spin forever once the heap is fragmented (c0a0 / c2a5f). Soft
+			 * NULL lets SV_AllocPrivateData skip skippable classes. */
 			if( !pEdict->pvPrivateData )
-				pEdict->pvPrivateData = Mem_TryCalloc( svgame.mempool, size );
+			{
+				Con_Reportf( S_WARN "Xash3D GameCube: ent private slab+overflow miss size=%zu edict=%d classname=%s\n",
+					size, NUM_FOR_EDICT( pEdict ), SV_ClassName( pEdict ));
+			}
 			/* Player spawn must not return NULL — GetClassPtr crashes. Keep a
 			 * static fallback for the single-player client edict under New Game. */
 			if( !pEdict->pvPrivateData
@@ -3977,12 +4006,31 @@ string_t GAME_EXPORT SV_AllocString( const char *szValue )
 	}
 #endif
 	uint len = SV_ProcessString( NULL, szValue );
-	char *processed_string = Mem_Calloc( svgame.stringspool, len );
+	char *processed_string = NULL;
 	char *dupe_string = NULL;
 	qboolean found_dupe = false;
 
 	(void)dupe_string;
 	(void)found_dupe;
+#if XASH_GAMECUBE && !XASH_64BIT
+	/* Prefer the BSS arena whenever tip MEM1 is already thin. Mem_Calloc →
+	 * Q_malloc can spin forever on a fragmented heap before soft-NULL
+	 * (c2a5e hung at entity 256 path_track after reclaim with ~13 KiB free). */
+	if( GC_MapLoadMemoryOpt() && GC_MemHeapFreeBytes() < ( 48u * 1024u ) && len <= 512 )
+	{
+		char temp[512];
+		uint use_len = len;
+
+		if( use_len > sizeof( temp ))
+			use_len = sizeof( temp );
+		memset( temp, 0, use_len );
+		SV_ProcessString( temp, szValue );
+		processed_string = GC_StringArenaAlloc( temp, (uint)( Q_strlen( temp ) + 1 ));
+		if( processed_string )
+			return processed_string - svgame.globals->pStringBase;
+	}
+#endif
+	processed_string = Mem_Calloc( svgame.stringspool, len );
 	if( !processed_string )
 	{
 #if XASH_GAMECUBE && !XASH_64BIT
@@ -5787,6 +5835,12 @@ static qboolean SV_ParseEdict( char **pfile, edict_t *ent, int entity_index )
 		if( value[0] == '}' )
 			Host_Error( "%s: closing brace without data\n", __func__ );
 
+#if XASH_GAMECUBE
+		if( SV_GCMapSmokeRoute() && entity_index >= 700 && ( numpairs & 3 ) == 0 )
+			Con_Reportf( "Xash3D GameCube: entity kv pair=%d entity=%d key=%s\n",
+				numpairs, entity_index, keyname );
+#endif
+
 		// ignore attempts to set empty key or value
 		// "wad" field is already handled
 		if( !keyname[0] || !value[0] || !Q_strcmp( keyname, "wad" ))
@@ -5871,7 +5925,17 @@ static qboolean SV_ParseEdict( char **pfile, edict_t *ent, int entity_index )
 			entity_index, classname );
 #endif
 
+#if XASH_GAMECUBE
+	if( SV_GCMapSmokeRoute() && entity_index >= 700 )
+		Con_Reportf( "Xash3D GameCube: entity private begin=%d class=%s pairs=%d\n",
+			entity_index, classname, numpairs );
+#endif
 	ent = SV_AllocPrivateData( ent, ent->v.classname, &customentity );
+#if XASH_GAMECUBE
+	if( SV_GCMapSmokeRoute() && entity_index >= 700 )
+		Con_Reportf( "Xash3D GameCube: entity private end=%d class=%s ok=%d\n",
+			entity_index, classname, SV_IsValidEdict( ent ) && !FBitSet( ent->v.flags, FL_KILLME ));
+#endif
 
 	if( !SV_IsValidEdict( ent ) || FBitSet( ent->v.flags, FL_KILLME ))
 	{
@@ -6027,6 +6091,9 @@ static void SV_LoadFromFile( const char *mapname, char *entities )
 			}
 			else ent = SV_AllocEdict();
 #if XASH_GAMECUBE
+			if( SV_GCMapSmokeRoute() && entity_index >= 400 )
+				Con_Reportf( "Xash3D GameCube: entity alloc end=%d edict=%d\n",
+					entity_index, NUM_FOR_EDICT( ent ));
 			if( SV_GCMapSmokeRoute() && (( entity_index >= 200 && entity_index <= 210 ) || entity_index <= 20 ))
 				Con_Reportf( "Xash3D GameCube: entity loop edict done=%d edict=%d\n", entity_index, NUM_FOR_EDICT( ent ));
 #endif
@@ -6036,12 +6103,17 @@ static void SV_LoadFromFile( const char *mapname, char *entities )
 				Con_Reportf( "Xash3D GameCube: entity spawn progress=%d\n", entity_index );
 #endif
 
+			if( SV_GCMapSmokeRoute() && entity_index >= 400 )
+				Con_Reportf( "Xash3D GameCube: entity parse begin=%d\n", entity_index );
 			if( !SV_ParseEdict( &entities, ent, entity_index++ ))
 			{
 				Host_Error( "%s: entity %d failed to parse or initialize; aborting map load instead of silently omitting it\n",
 					__func__, entity_index - 1 );
 				return;
 			}
+			if( SV_GCMapSmokeRoute() && entity_index >= 400 )
+				Con_Reportf( "Xash3D GameCube: entity parse end=%d class=%s\n",
+					entity_index - 1, SV_ClassName( ent ));
 			if( SV_GCMapSmokeRoute() && (( entity_index - 1 ) & 31 ) == 0 )
 				Con_Reportf( "Xash3D GameCube: entity parsed=%d classname=%s\n",
 					entity_index - 1, SV_ClassName( ent ));

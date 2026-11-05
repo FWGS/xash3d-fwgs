@@ -905,11 +905,77 @@ def stage_gc_menu_assets(source: Path, output: Path) -> bool:
 			tile = composite.crop((col * 32, row * 32, (col + 1) * 32, (row + 1) * 32))
 			tile.save(menu_dir / f"menu_{row * 3 + col}.tga", format="TGA")
 
+	# Slim retail picbutton strips — full btns_main.bmp (~865 KiB) tip-hangs
+	# after intro. Extract only the main-menu rows into ~36 KiB RGB TGAs.
+	_stage_gc_menu_btn_strips(source, menu_dir)
+
 	print(
 		f"GameCube menu assets: baked {background_path.relative_to(output)} "
 		f"{gc_menu_bg_size[0]}x{gc_menu_bg_size[1]} from {source_note}"
 	)
 	return True
+
+
+def _stage_gc_menu_btn_strips(source: Path, menu_dir: Path) -> None:
+	"""Bake WON/Steam btns_main rows used by the GameCube main menu."""
+	try:
+		from PIL import Image
+	except ImportError:
+		return
+
+	candidates = [
+		source / "gfx" / "shell" / "btns_main.bmp",
+		Path(__file__).resolve().parents[1]
+		/ "3rdparty"
+		/ "extras"
+		/ "xash-extras"
+		/ "gfx"
+		/ "shell"
+		/ "btns_main.bmp",
+	]
+	btns_path = next((p for p in candidates if p.is_file()), None)
+	if btns_path is None:
+		print("Warning: btns_main.bmp not found; GC menu keeps text buttons.", file=sys.stderr)
+		return
+
+	im = Image.open(btns_path)
+	w, h = im.size
+	btn_h = 26
+	cell = btn_h * 3
+	# EDefaultBtns indices → output stem (resource/gc_menu/btn_<stem>.tga)
+	wanted = {
+		0: "new_game",
+		1: "resume_game",
+		2: "hazard_course",
+		3: "config",
+		4: "load_game",
+		5: "save_load_game",
+		7: "quit",
+		56: "disconnect",
+	}
+
+	def extract_btn(btn_id: int) -> "Image.Image":
+		states = []
+		for state in range(3):
+			st = Image.new(im.mode, (w, btn_h))
+			for line in range(btn_h):
+				src_visual_y = btn_id * cell + state * btn_h + line
+				src_row = h - 1 - src_visual_y
+				st.paste(im.crop((0, src_row, w, src_row + 1)), (0, line))
+			states.append(st)
+		out = Image.new(im.mode, (w, cell))
+		for i, st in enumerate(states):
+			out.paste(st, (0, i * btn_h))
+		return out.convert("RGB")
+
+	written = 0
+	for btn_id, stem in wanted.items():
+		if (btn_id + 1) * cell > h:
+			continue
+		strip = extract_btn(btn_id)
+		strip.save(menu_dir / f"btn_{stem}.tga", format="TGA")
+		written += 1
+	print(f"GameCube menu buttons: baked {written} retail strips from {btns_path.name}")
 
 
 def stage_gc_loading_assets(source: Path, output: Path) -> bool:
@@ -3257,11 +3323,12 @@ def main() -> None:
 				if args.probe_tas:
 					stage_probe_tas(staged_data, args.probe_tas, scripts_root=script_dir)
 			elif args.play:
-				# The interactive play disc is a full retail simulation.  Keep
-				# reduced physics confined to explicit probe routes; NPC thinks,
-				# scripted sequences, effects, decals, and viewmodels must remain
-				# enabled during normal play.
-				play_lines = ["retailnewgame", "fullphysics"]
+				# Interactive play must enter the retail intro and menu before it
+				# starts a server.  retailnewgame preloads c0a0 for an automated
+				# menu→New Game route; that leaves too little MEM1 for the menu's
+				# baked background and presents only its solid-colour fallback.
+				# Normal New Game from MainUI still uses the full physics path.
+				play_lines = []
 				if args.perf:
 					play_lines.extend(["profile", "gc_perf_enable 1", "gc_perf_draw 1"])
 				if os.environ.get("XASH_GC_PROBE_AUTOHOP") == "1":

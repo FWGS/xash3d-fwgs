@@ -4215,68 +4215,47 @@ void CL_Init( void )
 
 	COM_GetCommonLibraryPath( LIBRARY_CLIENT, libpath, sizeof( libpath ));
 #if XASH_GAMECUBE
+	/* Keep sound/voice/client.dll off the tip until New Game / map load.
+	 * Eager S_Init here left <57 KiB free so FS_LoadFile could not pull the
+	 * baked gc_menu bg tiles (probe 20261104-172432), falling back to a flat
+	 * color main menu that does not match retail. */
 	Con_Reportf( "Xash3D GameCube: client library path %s\n", libpath );
-	Con_Reportf( "Xash3D GameCube: client sound init begin\n" );
-#endif
-
+	Con_Reportf( "Xash3D GameCube: client sound deferred until needed\n" );
+	Con_Reportf( "Xash3D GameCube: client identity skipped\n" );
+	Con_Reportf( "Xash3D GameCube: steam broker skipped\n" );
+	memset( &clgame.drawFuncs, 0, sizeof( clgame.drawFuncs ));
+	cls.build_num = 0;
+	cls.initialized = true;
+	cl.maxclients = 1; /* allow drawing player in menu once client loads */
+	cls.olddemonum = -1;
+	cls.demonum = -1;
+	Con_Reportf( "Xash3D GameCube: client init deferred until needed\n" );
+	GC_ReportBootPhase( GC_BOOT_CLIENT );
+	return;
+#else
 	if( Sys_CheckParm( "-nosound" ))
 	{
-#if XASH_GAMECUBE
-		Con_Reportf( "Xash3D GameCube: client sound disabled\n" );
-#endif
 	}
 	else
 	{
 		S_Init();	// init sound
-#if XASH_GAMECUBE
-		Con_Reportf( "Xash3D GameCube: client sound init ready\n" );
-#endif
 		Voice_Init( VOICE_DEFAULT_CODEC, 3, true ); // init voice (do not open the device)
-#if XASH_GAMECUBE
-		Con_Reportf( "Xash3D GameCube: client voice init ready\n" );
-#endif
 	}
 
-#if XASH_GAMECUBE
-	Con_Reportf( "Xash3D GameCube: client identity skipped\n" );
-	Con_Reportf( "Xash3D GameCube: steam broker skipped\n" );
-#else
 	{
 		ID_Init();
 		SteamBroker_Init();
 	}
-#endif
 
-#if XASH_GAMECUBE
-	if( Sys_CheckParm( "-gcmap" ) || Sys_CheckParm( "-gcnewgame" ))
-	{
-		memset( &clgame.drawFuncs, 0, sizeof( clgame.drawFuncs ));
-		cls.build_num = 0;
-		cls.initialized = true;
-		cl.maxclients = 1;
-		cls.olddemonum = -1;
-		cls.demonum = -1;
-		Con_Reportf( "Xash3D GameCube: map-load client init deferred\n" );
-		return;
-	}
-#endif
-
-	// client must be always initialized last so it can fetch all cvars
+	/* client must be always initialized last so it can fetch all cvars */
 	if( !CL_LoadProgs( libpath ))
 		Host_Error( "can't initialize %s: %s\n", libpath, COM_GetLibraryError( ));
-#if XASH_GAMECUBE
-	Con_Reportf( "Xash3D GameCube: client progs ready\n" );
-	gc_cl_deferred_init_done = true;
-#endif
 
 	cls.build_num = 0;
 	cls.initialized = true;
 	cl.maxclients = 1; // allow to drawing player in menu
 	cls.olddemonum = -1;
 	cls.demonum = -1;
-#if XASH_GAMECUBE
-	Con_Reportf( "Xash3D GameCube: client init ready\n" );
-	GC_ReportBootPhase( GC_BOOT_CLIENT );
 #endif
 }
 

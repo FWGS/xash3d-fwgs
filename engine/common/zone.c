@@ -23,6 +23,22 @@ void R_GCTrimTextureMips( void );
 void Image_GCPurgeDecodeScratch( void );
 void R_GXReleaseHudPoolForMapLoad( void );
 #define Mem_ReportOOM( pool, sz ) GC_MemFail( (pool)->name, (sz), filename, fileline )
+
+/* Tip reclaim must not blank the live retail main menu. HUD Init after
+ * mainui vidinit still tips MEM1; releasing Flipper menu slabs there left a
+ * magenta fatal panel (probe 20261104-171406) instead of New Game/Hazard/Quit. */
+static void Mem_GCReclaimTipForRetry( void )
+{
+	Image_GCPurgeDecodeScratch();
+	R_GCTrimTextureMips();
+	if( GC_MapLoadMemoryOpt() || Cvar_VariableValue( "gc_menu_ready" ) < 1.0f )
+		R_GXReleaseHudPoolForMapLoad();
+}
+
+static qboolean Mem_GCMenuIdleSoftFail( void )
+{
+	return !GC_MapLoadMemoryOpt() && Cvar_VariableValue( "gc_menu_ready" ) >= 1.0f;
+}
 #else
 #define Mem_ReportOOM( pool, sz ) ((void)0)
 #endif
@@ -503,6 +519,15 @@ void *_Mem_Alloc( poolhandle_t poolptr, size_t size, qboolean clear, const char 
 				Q_memprint( size ), filename, fileline );
 			return NULL;
 		}
+		/* Intro GCVID offset table (~600 B for valve.gcvid) — tip can already
+		 * be dry after client/HUD slabs; soft-NULL skips the cinematic so the
+		 * retail main menu can still open (probe 20261104-170616). */
+		if( pool && !Q_stricmp( pool->name, "AVI Zone" ))
+		{
+			Con_Reportf( "Xash3D GameCube: soft-fail AVI Zone alloc size=%s at %s:%i\n",
+				Q_memprint( size ), filename, fileline );
+			return NULL;
+		}
 		/* G285: lean sky BMP decode must soft-fail under tip instead of
 		 * Host_Error; callers treat NULL as missing content. */
 		if( pool && !Q_stricmp( pool->name, "ImageLib Pool" ))
@@ -516,9 +541,7 @@ void *_Mem_Alloc( poolhandle_t poolptr, size_t size, qboolean clear, const char 
 			/* Reclaim once before soft-NULL — denser maps (c1a1f) tip-OOM on
 			 * 14-byte classname allocs and SV_AllocString Host_Error'd
 			 * (hardware 20261104). Callers may still recover via BSS arena. */
-			Image_GCPurgeDecodeScratch();
-			R_GCTrimTextureMips();
-			R_GXReleaseHudPoolForMapLoad();
+			Mem_GCReclaimTipForRetry();
 			ptr = _Mem_TryAlloc( poolptr, size, clear, filename, fileline );
 			if( ptr )
 				return ptr;
@@ -548,9 +571,7 @@ void *_Mem_Alloc( poolhandle_t poolptr, size_t size, qboolean clear, const char 
 		if( pool && ( !Q_stricmp( pool->name, "Console Commands" )
 			|| !Q_stricmp( pool->name, "BaseCmd" )))
 		{
-			Image_GCPurgeDecodeScratch();
-			R_GCTrimTextureMips();
-			R_GXReleaseHudPoolForMapLoad();
+			Mem_GCReclaimTipForRetry();
 			ptr = _Mem_TryAlloc( poolptr, size, clear, filename, fileline );
 			if( ptr )
 				return ptr;
@@ -566,9 +587,7 @@ void *_Mem_Alloc( poolhandle_t poolptr, size_t size, qboolean clear, const char 
 			qboolean content_pool = false;
 			qboolean content_file = false;
 
-			Image_GCPurgeDecodeScratch();
-			R_GCTrimTextureMips();
-			R_GXReleaseHudPoolForMapLoad();
+			Mem_GCReclaimTipForRetry();
 			ptr = _Mem_TryAlloc( poolptr, size, clear, filename, fileline );
 			if( ptr )
 				return ptr;
@@ -609,6 +628,15 @@ void *_Mem_Alloc( poolhandle_t poolptr, size_t size, qboolean clear, const char 
 			else if( content_pool || content_file || size >= ( 48 * 1024 ))
 			{
 				Con_Reportf( "Xash3D GameCube: soft-fail tip content alloc size=%s pool=%s at %s:%i\n",
+					Q_memprint( size ), pool && pool->name ? pool->name : "?",
+					filename ? filename : "?", fileline );
+				return NULL;
+			}
+			/* Idle retail menu: soft-fail leftover tip OOMs so HUD Init cannot
+			 * paint a fatal panel over New Game / Hazard Course / Quit. */
+			if( Mem_GCMenuIdleSoftFail() )
+			{
+				Con_Reportf( "Xash3D GameCube: soft-fail menu-idle tip alloc size=%s pool=%s at %s:%i\n",
 					Q_memprint( size ), pool && pool->name ? pool->name : "?",
 					filename ? filename : "?", fileline );
 				return NULL;

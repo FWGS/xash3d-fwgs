@@ -56,6 +56,10 @@ unsigned int GC_MapFaceBatchKey( int face_index );
 void GC_MapBatchStats( unsigned int *batches, unsigned int *faces );
 void *GC_BorrowMapLoadBuffer( size_t size );
 qboolean GC_ReleaseMapLoadBuffer( void *ptr );
+/* Re-assert the borrow after GC_ReleaseMapLoadBuffer so TailAlloc can place
+ * the reserved surface table without a fresh Borrow (which would reset the
+ * high-water mark and collide with live texture-pack / face tail carves). */
+void GC_RetainMapLoadBufferBorrow( void );
 void GC_DiscardMapLoadBuffer( void );
 qboolean GC_IsMapLoadBuffer( const void *ptr );
 qboolean GC_IsMapLoadBufferAddress( const void *ptr );
@@ -146,6 +150,7 @@ static inline void GC_MapBatchStats( unsigned int *batches, unsigned int *faces 
 { if( batches ) *batches = 0; if( faces ) *faces = 0; }
 static inline void *GC_BorrowMapLoadBuffer( size_t size ) { (void)size; return NULL; }
 static inline qboolean GC_ReleaseMapLoadBuffer( void *ptr ) { (void)ptr; return false; }
+static inline void GC_RetainMapLoadBufferBorrow( void ) {}
 static inline void GC_DiscardMapLoadBuffer( void ) { }
 static inline qboolean GC_IsMapLoadBuffer( const void *ptr ) { (void)ptr; return false; }
 static inline qboolean GC_IsMapLoadBufferAddress( const void *ptr ) { (void)ptr; return false; }

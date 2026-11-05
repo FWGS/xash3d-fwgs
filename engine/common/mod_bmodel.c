@@ -56,6 +56,13 @@ static void *gc_surfaces_malloc_block;
 static void *gc_texinfo_malloc_block;
 static void *gc_nodes_malloc_block;
 static qboolean gc_nodes_arena_tail;
+static qboolean gc_nodes_static_block;
+/* Surface Tension peaks need ~270 KiB of mnode_t (c2a5e→c2a5f). Scratch is
+ * often full of in-place planes + reserved surfaces + leafs; tip/malloc are
+ * dry after changelevel. Keep a BSS last resort. */
+#define GC_STATIC_NODES_BYTES ( 384u * 1024u )
+static byte gc_static_nodes[GC_STATIC_NODES_BYTES]
+	__attribute__((aligned( 32 )));
 static void *gc_clipnodes_malloc_block;
 static qboolean gc_clipnodes_pool_block;
 #if XASH_GAMECUBE
@@ -75,13 +82,21 @@ static qboolean gc_clipnodes_static_block;
 static qboolean gc_clipnodes_scratch_block; /* in-place normalized scratch lump */
 /* Submodel table is tiny (~64 B each) but tip-fatal / fragmented after denser
  * hops (c1a0→c1a0d 20261104-070402; dual-hop 080408 heap_free=55 Kb still tip
- * FAIL). Prefer malloc; 128-entry BSS last (~8 KiB). Never arena tail. */
-#define GC_STATIC_SUBMODEL_CAPACITY 128
+ * FAIL; c1a3d→c1a3a needs ~163 entries). Prefer malloc; 256-entry BSS last
+ * (~16 KiB). Never arena tail (surface reserve). */
+#define GC_STATIC_SUBMODEL_CAPACITY 256
 static dmodel_t gc_static_submodels[GC_STATIC_SUBMODEL_CAPACITY]
 	__attribute__((aligned( 32 )));
 static void *gc_submodels_malloc_block;
 static qboolean gc_submodels_static_block;
 static void *gc_entities_malloc_block;
+static qboolean gc_entities_arena_tail;
+/* Dense Residue maps (c2a4e ~68 KiB) can miss both malloc and tip after a
+ * changelevel (heap_free=149 Kb still fragmented). Keep a BSS last resort. */
+#define GC_STATIC_ENTITIES_BYTES ( 128u * 1024u )
+static char gc_static_entities[GC_STATIC_ENTITIES_BYTES]
+	__attribute__((aligned( 32 )));
+static qboolean gc_entities_static_block;
 #endif
 static void *gc_planes_malloc_block;
 static qboolean gc_planes_arena_tail;
@@ -2980,6 +2995,20 @@ static void Mod_LoadSubmodels( model_t *mod, dbspmodel_t *bmod )
 			Con_Reportf( "Xash3D GameCube: world submodels using static BSS %s count=%d\n",
 				Q_memprint( sub_bytes ), bmod->numsubmodels );
 		}
+		else if( gc_bsp_scratch_base && GC_IsMapLoadBuffer( gc_bsp_scratch_base ))
+		{
+			/* Dense Hostiles maps exceed BSS; a busy-protected scratch hole is
+			 * safer than tip Mem_Malloc on a fragmented heap (c1a3a 10.19 Kb
+			 * fatal with heap_free=19 Kb). */
+			out = (dmodel_t *)Mod_GCAllocWorldScratch( mod, (dbspmodel_t *)bmod,
+				NULL, 0, sub_bytes, 32 );
+			if( out )
+			{
+				gc_world_blocks_owner = mod;
+				Con_Reportf( "Xash3D GameCube: world submodels using BSP scratch hole %s count=%d\n",
+					Q_memprint( sub_bytes ), bmod->numsubmodels );
+			}
+		}
 	}
 	if( !out )
 #endif
@@ -3118,9 +3147,12 @@ static void Mod_LoadEntities( model_t *mod, const dbspmodel_t *bmod )
 
 	/* Tip soft-NULL on denser entity lumps (≥48 KiB catch-all) used to return
 	 * NULL here; memcpy then DSI'd at dest+4 (PC=memcpy, DAR=0x4, LR=Mod_LoadEntities
-	 * hardware 20261104). Prefer system malloc under map-load opt. */
+	 * hardware 20261104). Prefer system malloc under map-load opt; fall back to
+	 * arena tail / static BSS when both malloc and tip are dry (c2a4d→c2a4e). */
 #if XASH_GAMECUBE
 	mod->entities = NULL;
+	gc_entities_arena_tail = false;
+	gc_entities_static_block = false;
 	if( gc_entities_malloc_block )
 	{
 		free( gc_entities_malloc_block );
@@ -3128,17 +3160,39 @@ static void Mod_LoadEntities( model_t *mod, const dbspmodel_t *bmod )
 	}
 	if( GC_MapLoadMemoryOpt() && bmod->isworld && entdatasize > 0 )
 	{
-		mod->entities = (char *)malloc( entdatasize + 1 );
+		const size_t need = entdatasize + 1;
+
+		mod->entities = (char *)malloc( need );
 		if( !mod->entities )
 		{
 			Image_GCPurgeDecodeScratch();
-			mod->entities = (char *)malloc( entdatasize + 1 );
+			mod->entities = (char *)malloc( need );
 		}
 		if( mod->entities )
 		{
 			gc_entities_malloc_block = mod->entities;
 			Con_Reportf( "Xash3D GameCube: world entities using malloc %s\n",
-				Q_memprint( entdatasize + 1 ));
+				Q_memprint( need ));
+		}
+		else if( gc_bsp_scratch_base && GC_IsMapLoadBuffer( gc_bsp_scratch_base ))
+		{
+			size_t after = Q_max( gc_bsp_scratch_size + gc_bsp_scratch_carve_high,
+				GC_MapLoadBufferTailHighwater() );
+
+			mod->entities = (char *)Mod_GCPreSurfaceTailAlloc( after, need );
+			if( mod->entities )
+			{
+				gc_entities_arena_tail = true;
+				Con_Reportf( "Xash3D GameCube: world entities using map-load arena tail %s\n",
+					Q_memprint( need ));
+			}
+		}
+		if( !mod->entities && need <= GC_STATIC_ENTITIES_BYTES )
+		{
+			mod->entities = gc_static_entities;
+			gc_entities_static_block = true;
+			Con_Reportf( "Xash3D GameCube: world entities using static BSS %s\n",
+				Q_memprint( need ));
 		}
 	}
 	if( !mod->entities )
@@ -3267,6 +3321,10 @@ static void Mod_LoadEntities( model_t *mod, const dbspmodel_t *bmod )
 	}
 }
 
+#if XASH_GAMECUBE
+static qboolean Mod_GCPromoteWorldPlanes( model_t *mod );
+#endif
+
 /*
 =================
 Mod_LoadPlanes
@@ -3282,11 +3340,12 @@ static void Mod_LoadPlanes( model_t *mod, const dbspmodel_t *bmod )
 	/*
 	 * Changelevel after a full Prepare (c0a0a→c0a0b, probe 20260809-131759 /
 	 * 20260809-184420) exhausts both SWAP/zone and system malloc for a 308 Kb
-	 * plane table. Prefer system malloc; if that fails, place planes in the
-	 * unused tail of the static map-load arena (capacity 3.5 Mb, BSP image is
-	 * often ~1.5 Mb). Never carve into the retained BSP image itself.
+	 * plane table. Prefer system malloc; if that fails, convert the disc lump
+	 * in place (same 20-byte layout) or place a busy-protected scratch/tail
+	 * copy. Scratch-backed planes are promoted to malloc before present can
+	 * reuse the arena (see Mod_GCPromoteWorldPlanes).
 	 */
-		out = NULL;
+	out = NULL;
 	gc_planes_arena_tail = false;
 	if( GC_MapLoadMemoryOpt() && bmod->isworld && bmod->numplanes > 0 )
 	{
@@ -3303,20 +3362,38 @@ static void Mod_LoadPlanes( model_t *mod, const dbspmodel_t *bmod )
 			Con_Reportf( "Xash3D GameCube: world planes using malloc %s\n",
 				Q_memprint( plane_bytes ));
 		}
+		else if( sizeof( mplane_t ) == sizeof( dplane_t ) && bmod->planes
+			&& Mod_GCPointerInScratchArena( bmod->planes ))
+		{
+			/* Dense maps (c1a1f/c2a4e/c5a1) need the high arena for surfaces.
+			 * Convert in place; CollectAll busy-marks this lump permanently. */
+			out = (mplane_t *)bmod->planes;
+			Con_Reportf( "Xash3D GameCube: world planes converted in place %s\n",
+				Q_memprint( plane_bytes ));
+		}
 		else if( gc_bsp_scratch_base && GC_IsMapLoadBuffer( gc_bsp_scratch_base ))
 		{
 			size_t after = Q_max( gc_bsp_scratch_size + gc_bsp_scratch_carve_high,
 				GC_MapLoadBufferTailHighwater() );
 
-			/* Prefer arena tail over in-place / scratch holes: later hole
-			 * carves reused the plane lump and left node->plane dangling
-			 * (SV_FindTouchedLeafs DSI, hardware 20261104, DAR=0x4A804AD0). */
-			out = (mplane_t *)Mod_GCPreSurfaceTailAlloc( after, plane_bytes );
+			/* Hole first: Mod_GCAllocWorldScratch merges CollectAll so existing
+			 * world-owned ranges (and the raw plane lump) stay protected. */
+			out = (mplane_t *)Mod_GCAllocWorldScratch( mod, (dbspmodel_t *)bmod, NULL, 0, plane_bytes, 32 );
 			if( out )
 			{
 				gc_planes_arena_tail = true;
-				Con_Reportf( "Xash3D GameCube: world planes using map-load arena tail %s (after %s)\n",
-					Q_memprint( plane_bytes ), Q_memprint( after ));
+				Con_Reportf( "Xash3D GameCube: world planes using BSP scratch hole %s\n",
+					Q_memprint( plane_bytes ));
+			}
+			else
+			{
+				out = (mplane_t *)Mod_GCPreSurfaceTailAlloc( after, plane_bytes );
+				if( out )
+				{
+					gc_planes_arena_tail = true;
+					Con_Reportf( "Xash3D GameCube: world planes using map-load arena tail %s (after %s)\n",
+						Q_memprint( plane_bytes ), Q_memprint( after ));
+				}
 			}
 		}
 	}
@@ -3923,6 +4000,97 @@ static struct
 static byte *gc_wt_pool;
 static size_t gc_wt_pool_bytes;
 static qboolean gc_wt_pool_mapload_tail;
+
+/*
+ * Move scratch-/tail-backed world planes onto malloc and rebase every
+ * surface/node/hull pointer that already captured the old base. Hole carves
+ * and Flipper present reuse can otherwise leave node->plane dangling
+ * (SV_FindTouchedLeafs DSI, hardware 20261104, DAR=0x4A804AD0).
+ */
+static qboolean Mod_GCPromoteWorldPlanes( model_t *mod )
+{
+	mplane_t *old_planes;
+	mplane_t *promoted;
+	size_t bytes;
+	int i, h;
+
+	if( !mod || !mod->planes || mod->numplanes <= 0 )
+		return true;
+	if( gc_planes_malloc_block && (mplane_t *)gc_planes_malloc_block == mod->planes )
+		return true;
+	if( !Mod_GCPointerInScratchArena( mod->planes ))
+		return true;
+
+	bytes = (size_t)mod->numplanes * sizeof( mplane_t );
+	old_planes = mod->planes;
+
+	{
+		extern void R_GCPackedRelease( void );
+
+		if( gc_wt.block )
+			R_GCPackedRelease();
+		if( gc_wt_pool && !gc_wt_pool_mapload_tail )
+		{
+			free( gc_wt_pool );
+			gc_wt_pool = NULL;
+			gc_wt_pool_bytes = 0;
+		}
+		memset( &gc_wt, 0, sizeof( gc_wt ));
+		Image_GCPurgeDecodeScratch();
+	}
+
+	promoted = (mplane_t *)malloc( bytes );
+	if( !promoted )
+	{
+		Con_Reportf( S_WARN "Xash3D GameCube: world planes promote failed %s\n",
+			Q_memprint( bytes ));
+		return false;
+	}
+
+	memcpy( promoted, old_planes, bytes );
+
+	if( mod->surfaces )
+	{
+		for( i = 0; i < mod->numsurfaces; i++ )
+		{
+			if( !mod->surfaces[i].plane )
+				continue;
+			{
+				const ptrdiff_t idx = mod->surfaces[i].plane - old_planes;
+
+				if( idx >= 0 && idx < mod->numplanes )
+					mod->surfaces[i].plane = promoted + idx;
+			}
+		}
+	}
+	if( mod->nodes )
+	{
+		for( i = 0; i < mod->numnodes; i++ )
+		{
+			if( !mod->nodes[i].plane )
+				continue;
+			{
+				const ptrdiff_t idx = mod->nodes[i].plane - old_planes;
+
+				if( idx >= 0 && idx < mod->numplanes )
+					mod->nodes[i].plane = promoted + idx;
+			}
+		}
+	}
+	for( h = 0; h < MAX_MAP_HULLS; h++ )
+	{
+		if( mod->hulls[h].planes == old_planes )
+			mod->hulls[h].planes = promoted;
+	}
+
+	mod->planes = promoted;
+	gc_planes_malloc_block = promoted;
+	gc_planes_arena_tail = false;
+	gc_world_blocks_owner = mod;
+	Con_Reportf( "Xash3D GameCube: promoted world planes off scratch %s\n",
+		Q_memprint( bytes ));
+	return true;
+}
 
 /*
 ARAM keeps every texture a pack has loaded, by name and content, so a
@@ -5311,6 +5479,7 @@ static void Mod_LoadNodes( model_t *mod, dbspmodel_t *bmod )
 	mnode_t	*out = NULL;
 
 	#if XASH_GAMECUBE
+		gc_nodes_static_block = false;
 		if( GC_MapLoadMemoryOpt() && mod->type == mod_brush && bmod->isworld && bmod->numnodes > 0 )
 		{
 			size_t node_bytes = bmod->numnodes * sizeof( *out );
@@ -5422,8 +5591,10 @@ static void Mod_LoadNodes( model_t *mod, dbspmodel_t *bmod )
 				}
 
 				out = (mnode_t *)Mod_GCAllocWorldScratch( mod, bmod, busy, busy_count, node_bytes, 32 );
-				if( !out && SV_GCPrivateOverflowReserved() )
+				if( !out )
 				{
+					/* Prefer any remaining arena tail — do not require entity
+					 * overflow (c2a5f 270 Kb nodes after reserved surfaces). */
 					out = (mnode_t *)GC_MapLoadBufferTailAlloc( GC_MapLoadBufferTailHighwater(), node_bytes );
 					if( out )
 					{
@@ -5441,15 +5612,29 @@ static void Mod_LoadNodes( model_t *mod, dbspmodel_t *bmod )
 			}
 
 			if( !out )
-		{
-			out = (mnode_t *)malloc( node_bytes );
-			if( out )
 			{
-				memset( out, 0, node_bytes );
-				gc_nodes_malloc_block = out;
-				Con_Reportf( "Xash3D GameCube: world nodes via malloc %s\n", Q_memprint( node_bytes ));
+				out = (mnode_t *)malloc( node_bytes );
+				if( !out )
+				{
+					Image_GCPurgeDecodeScratch();
+					out = (mnode_t *)malloc( node_bytes );
+				}
+				if( out )
+				{
+					memset( out, 0, node_bytes );
+					gc_nodes_malloc_block = out;
+					Con_Reportf( "Xash3D GameCube: world nodes via malloc %s\n", Q_memprint( node_bytes ));
+				}
 			}
-		}
+			if( !out && node_bytes <= GC_STATIC_NODES_BYTES )
+			{
+				out = (mnode_t *)gc_static_nodes;
+				gc_nodes_static_block = true;
+				gc_world_blocks_owner = mod;
+				memset( out, 0, node_bytes );
+				Con_Reportf( "Xash3D GameCube: world nodes using static BSS %s\n",
+					Q_memprint( node_bytes ));
+			}
 		}
 	#endif
 	if( !out )
@@ -5801,6 +5986,11 @@ static void Mod_GCInvalidateScratchOverlap( dbspmodel_t *bmod, byte *mod_base, s
 		&& (const byte *)bmod->clipnodes32 < scratch_end
 		&& (const byte *)bmod->clipnodes32 + bmod->numclipnodes * sizeof( dclipnode32_t ) > scratch )
 		bmod->clipnodes32 = NULL;
+
+	if( Mod_GCPointerInBuffer( bmod->planes, mod_base, bufferlen )
+		&& (const byte *)bmod->planes < scratch_end
+		&& (const byte *)bmod->planes + bmod->numplanes * sizeof( dplane_t ) > scratch )
+		bmod->planes = NULL;
 }
 
 static void Mod_GCStashDeferredLump( void **slot, const byte *src, size_t size )
@@ -5983,10 +6173,11 @@ void Mod_GameCubeFreeMallocSurfaces( model_t *mod )
 	gc_texinfo_malloc_block = NULL;
 
 free_nodes:
-	if( gc_nodes_arena_tail )
+	if( gc_nodes_arena_tail || gc_nodes_static_block )
 	{
 		if( mod ) mod->nodes = NULL;
 		gc_nodes_arena_tail = false;
+		gc_nodes_static_block = false;
 	}
 	if( !gc_nodes_malloc_block )
 		goto free_clipnodes;
@@ -6045,6 +6236,13 @@ free_clipnodes:
 			mod->entities = NULL;
 		free( gc_entities_malloc_block );
 		gc_entities_malloc_block = NULL;
+	}
+	if( gc_entities_arena_tail || gc_entities_static_block )
+	{
+		if( mod )
+			mod->entities = NULL;
+		gc_entities_arena_tail = false;
+		gc_entities_static_block = false;
 	}
 }
 
@@ -6557,6 +6755,11 @@ static void Mod_GCReleaseGcmapPreSurfaceStaging( model_t *mod, dbspmodel_t *bmod
 		? scratch_capacity - gc_bsp_scratch_carve_high
 		: scratch_capacity;
 	gc_retain_bsp_source_buffer = true;
+	/* Release cleared the borrow flag; TailAlloc for the reserved surface
+	 * slot (c1a3→c1a4 786 Kb) requires in-use or entity-overflow. Re-arm
+	 * without resetting highwater so earlier texture-pack carves stay valid. */
+	if( GC_IsMapLoadBuffer( mod_base ))
+		GC_RetainMapLoadBufferBorrow();
 	Con_Reportf( "Xash3D GameCube: rearmed BSP scratch for surfaces %s%s\n",
 		Q_memprint( gc_bsp_scratch_size ),
 		gc_bsp_scratch_carve_high ? " (clipnodes carved high)" : "" );
@@ -7595,13 +7798,22 @@ const unsigned short *GC_GetLiveLightmapAtlas( int *w, int *h, int *generation )
 static void Mod_GCBusyAdd( gc_bsp_busy_range_t *busy, size_t *count, size_t cap, const void *ptr, size_t bytes )
 {
 	size_t start;
+	size_t end;
+	const size_t arena = gc_bsp_scratch_size + gc_bsp_scratch_carve_high;
 
-	if( !ptr || !bytes || *count >= cap
-		|| !Mod_GCPointerInBuffer( ptr, gc_bsp_scratch_base, gc_bsp_scratch_size ))
+	if( !ptr || !bytes || *count >= cap || !gc_bsp_scratch_base || arena == 0
+		|| !Mod_GCPointerInBuffer( ptr, gc_bsp_scratch_base, arena ))
 		return;
 	start = (const byte *)ptr - gc_bsp_scratch_base;
+	/* Hole carves only run inside scratch_size; residents entirely above that
+	 * (arena-tail planes) cannot be overwritten by Mod_GCAllocBspScratch. */
+	if( start >= gc_bsp_scratch_size )
+		return;
+	end = Q_min( start + bytes, gc_bsp_scratch_size );
+	if( end <= start )
+		return;
 	busy[*count].start = start;
-	busy[*count].end = Q_min( start + bytes, gc_bsp_scratch_size );
+	busy[*count].end = end;
 	( *count )++;
 }
 
@@ -8738,6 +8950,21 @@ static qboolean Mod_LoadBmodelLumps( model_t *mod, byte *mod_base, size_t buffer
 	Mod_MakeHull0( mod, bmod );
 #if XASH_GAMECUBE
 	Con_Reportf( "Xash3D GameCube: bmodel hull0 ready\n" );
+	/* Surfaces/nodes/hulls now hold plane pointers. Lift scratch-backed
+	 * planes onto malloc before lighting or present can reuse the arena.
+	 * If malloc is still dry, pin the BSP scratch so Flipper cannot stomp
+	 * in-place planes (hardware DSI DAR=0x4A804AD0). */
+	if( isworld && GC_MapLoadMemoryOpt()
+		&& Mod_GCPointerInScratchArena( mod->planes ))
+	{
+		if( !Mod_GCPromoteWorldPlanes( mod ))
+		{
+			gc_retain_bsp_source_buffer = true;
+			retain_bsp_buffer = true;
+			Con_Reportf( S_WARN "Xash3D GameCube: retaining BSP scratch to protect in-place planes %s\n",
+				Q_memprint( (size_t)mod->numplanes * sizeof( mplane_t )));
+		}
+	}
 	Con_Reportf( "Xash3D GameCube: bmodel submodels begin\n" );
 	GC_LoadingOverlayPulse();
 #endif
