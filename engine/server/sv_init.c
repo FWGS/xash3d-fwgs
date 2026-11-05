@@ -17,6 +17,7 @@ GNU General Public License for more details.
 #include "server.h"
 #if XASH_GAMECUBE
 #include "gamecube/mem_gamecube.h"
+#include <ogc/system.h> /* SYS_Report — MAP_READY must survive Con_ flood */
 #endif
 #include "net_encode.h"
 #include "library.h"
@@ -868,8 +869,11 @@ void SV_ActivateServer( int runPhysics )
 	/* Always emit MAP_READY once ActivateServer finishes. Gating on
 	 * GC_MapLoadMemoryOpt() skipped the marker on tram→AM changelevel
 	 * (G68+G100 present, no MAP_READY c1a0 — probe 20260829-055848), so
-	 * the harness never reached CHANGELEVEL_READY. */
+	 * the harness never reached CHANGELEVEL_READY.
+	 * SYS_Report too: c5a1 entity-spawn Con_Reportf flood can drop the
+	 * Con_ path so G36 sees map_loaded=no despite a live world (095420). */
 	Con_Reportf( "Xash3D GameCube: MAP_READY %s\n", sv.name );
+	SYS_Report( "Xash3D GameCube: MAP_READY %s\n", sv.name );
 	GC_ReportBootPhase( GC_BOOT_MAP );
 #endif
 }

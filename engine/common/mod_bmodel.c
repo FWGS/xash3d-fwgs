@@ -185,6 +185,48 @@ static file_t *gc_bsp_reload_file;
 static char gc_bsp_reload_path[MAX_QPATH];
 static dheader_t gc_bsp_reload_header;
 static qboolean gc_bsp_reload_header_ok;
+/* G154 c5a1: full LUMP_LIGHTING (~1 MiB) will not fit tip or fragmented scratch
+ * after the surface high-slot claim. Stage the lump in ARAM and hydrate one
+ * face at a time into gc_lm_hydrate_buf for CapFaces/G180 bake.
+ * lightofs lives in gc_surf_lightofs[] — mextrasurf.reserved[] is CACHESPOT. */
+static byte gc_lm_aram_marker;
+static unsigned int gc_lm_aram_base;
+static size_t gc_lm_aram_bytes;
+/* Session-owned lighting ARAM window — reused across changelevels so each
+ * large map does not AR_Alloc another 1 MiB (campaign ARAM exhaustion). */
+static unsigned int gc_lm_aram_pool;
+static size_t gc_lm_aram_pool_cap;
+/* Keep BSS tiny — 96 KiB here fatal'd c4a3 at sv_init 42 KiB (probe 143315).
+ * 32 KiB covers 64×64×2 styles; larger faces skip to mid-grey. */
+#define GC_LM_HYDRATE_MAX ( 32u * 1024u )
+#define GC_LM_ARAM_POOL_MIN ( 1280u * 1024u )
+static byte gc_lm_hydrate_buf[GC_LM_HYDRATE_MAX] __attribute__(( aligned( 32 )));
+/* Full int — lightofs is a byte offset into LUMP_LIGHTING (up to ~1 MiB). */
+static int *gc_surf_lightofs;
+static int gc_surf_lightofs_count;
+static model_t *gc_surf_lightofs_model;
+
+static void Mod_GCClearSurfLightofs( void )
+{
+	if( gc_surf_lightofs )
+		free( gc_surf_lightofs );
+	gc_surf_lightofs = NULL;
+	gc_surf_lightofs_count = 0;
+	gc_surf_lightofs_model = NULL;
+}
+
+static int Mod_GCSurfaceLightofs( const msurface_t *surf )
+{
+	int idx;
+
+	if( !surf || !gc_surf_lightofs || !gc_surf_lightofs_model
+		|| !gc_surf_lightofs_model->surfaces )
+		return -1;
+	idx = (int)( surf - gc_surf_lightofs_model->surfaces );
+	if( idx < 0 || idx >= gc_surf_lightofs_count )
+		return -1;
+	return gc_surf_lightofs[idx];
+}
 
 typedef struct gc_bsp_busy_range_s
 {
@@ -216,7 +258,62 @@ void Mod_GCClearRetainedBspScratch( void )
 	gc_faces_source_alias = false;
 	gc_faces_tail_copy = NULL;
 	gc_world_msurface_retained = false;
+	gc_lm_aram_base = 0;
+	gc_lm_aram_bytes = 0;
+	Mod_GCClearSurfLightofs();
 }
+
+#if XASH_GAMECUBE
+qboolean Mod_GCAramLightmapActive( void )
+{
+	return gc_lm_aram_base != 0 && gc_lm_aram_bytes > 0;
+}
+
+color24 *Mod_GCHydrateSurfaceLightmap( const msurface_t *surf )
+{
+	int lightofs;
+	int sample_size;
+	int smax, tmax;
+	int styles = 0;
+	int map;
+	size_t bytes;
+
+	if( !surf )
+		return NULL;
+	if( surf->samples )
+		return surf->samples;
+	if( !gc_lm_aram_base || !surf->info )
+		return NULL;
+
+	lightofs = Mod_GCSurfaceLightofs( surf );
+	if( lightofs < 0 )
+		return NULL;
+
+	sample_size = Mod_SampleSizeForFace( surf );
+	if( sample_size < 1 )
+		sample_size = 16;
+	smax = ( surf->info->lightextents[0] / sample_size ) + 1;
+	tmax = ( surf->info->lightextents[1] / sample_size ) + 1;
+	if( smax < 1 )
+		smax = 1;
+	if( tmax < 1 )
+		tmax = 1;
+	for( map = 0; map < MAXLIGHTMAPS && surf->styles[map] != 255; map++ )
+		styles++;
+	if( styles < 1 )
+		styles = 1;
+
+	bytes = (size_t)smax * (size_t)tmax * (size_t)styles * sizeof( color24 );
+	if( bytes == 0 || bytes > GC_LM_HYDRATE_MAX )
+		return NULL;
+	if((size_t)lightofs + bytes > gc_lm_aram_bytes )
+		return NULL;
+
+	GC_AramCopy( gc_lm_aram_base + (unsigned int)lightofs, gc_lm_hydrate_buf,
+		(unsigned int)bytes, false );
+	return (color24 *)gc_lm_hydrate_buf;
+}
+#endif /* XASH_GAMECUBE */
 
 static qboolean Mod_GCPointerInScratchArena( const void *ptr )
 {
@@ -268,6 +365,14 @@ static void Mod_GCFreeBspPin( void **ptr )
 {
 	if( !ptr || !*ptr )
 		return;
+
+	if( *ptr == &gc_lm_aram_marker )
+	{
+		gc_lm_aram_base = 0;
+		gc_lm_aram_bytes = 0;
+		*ptr = NULL;
+		return;
+	}
 
 	if( Mod_GCPointerInScratchArena( *ptr ))
 	{
@@ -5434,6 +5539,26 @@ static void Mod_LoadSurfaces( model_t *mod, dbspmodel_t *bmod )
 	info = Mem_Calloc( mod->mempool, bmod->numsurfaces * sizeof( mextrasurf_t ));
 #endif
 	mod->numsurfaces = bmod->numsurfaces;
+#if XASH_GAMECUBE
+	Mod_GCClearSurfLightofs();
+	if( bmod->isworld && bmod->numsurfaces > 0 )
+	{
+		const size_t bytes = bmod->numsurfaces * sizeof( int );
+		int li;
+
+		gc_surf_lightofs = (int *)malloc( bytes );
+		if( gc_surf_lightofs )
+		{
+			gc_surf_lightofs_count = (int)bmod->numsurfaces;
+			gc_surf_lightofs_model = mod;
+			for( li = 0; li < gc_surf_lightofs_count; li++ )
+				gc_surf_lightofs[li] = -1;
+		}
+		else
+			Con_Reportf( S_WARN "Xash3D GameCube: lightofs side-table OOM (%s) — keep faces for G154\n",
+				Q_memprint( bytes ));
+	}
+#endif
 
 	// predict samplecount based on bspversion
 	if( bmod->version == Q1BSP_VERSION || bmod->version == QBSP2_VERSION )
@@ -5491,6 +5616,12 @@ static void Mod_LoadSurfaces( model_t *mod, dbspmodel_t *bmod )
 				out->styles[j] = in->styles[j];
 			lightofs = in->lightofs;
 		}
+#if XASH_GAMECUBE
+		/* Side-table lightofs (reserved[] is CACHESPOT on GC). Lets us drop
+		 * the raw face lump before the lighting reload / ARAM hydrate. */
+		if( gc_surf_lightofs && i < gc_surf_lightofs_count )
+			gc_surf_lightofs[i] = lightofs;
+#endif
 
 		texture_t	*tex = out->texinfo->texture;
 
@@ -6671,6 +6802,69 @@ static qboolean Mod_GCReloadStdBspLump( model_t *mod, dbspmodel_t *bmod, int lum
 			Con_Reportf( "Xash3D GameCube: reloading BSP lump %s via scratch %s\n",
 				info->loadname, Q_memprint( lump.filelen ));
 		}
+	}
+	/* c5a1: tip≈66 KiB and the surface high-slot ate the lighting hole — stage
+	 * LUMP_LIGHTING in ARAM and hydrate per face during CapFaces/G180. */
+	if( !lumpbuf && lumpnum == LUMP_LIGHTING && lump.filelen > 0 )
+	{
+		unsigned int need = (unsigned int)(( lump.filelen + 31u ) & ~31u );
+		unsigned int aram = 0;
+		size_t remaining;
+		size_t offset = 0;
+		qboolean pool_hit = false;
+
+		if( need < GC_LM_ARAM_POOL_MIN )
+			need = GC_LM_ARAM_POOL_MIN;
+		if( gc_lm_aram_pool && need <= gc_lm_aram_pool_cap )
+		{
+			aram = gc_lm_aram_pool;
+			pool_hit = true;
+		}
+		else
+		{
+			aram = GC_AramMapReserve( need );
+			if( !aram )
+				aram = GC_AramReserve( need );
+			if( aram )
+			{
+				gc_lm_aram_pool = aram;
+				gc_lm_aram_pool_cap = need;
+			}
+		}
+		if( aram )
+		{
+			FS_Seek( f, lump.fileofs, SEEK_SET );
+			remaining = lump.filelen;
+			while( remaining > 0 )
+			{
+				const size_t chunk = remaining > GC_LM_HYDRATE_MAX ? GC_LM_HYDRATE_MAX : remaining;
+
+				if( FS_Read( f, gc_lm_hydrate_buf, chunk ) != (fs_offset_t)chunk )
+				{
+					Con_Reportf( S_ERROR "Xash3D GameCube: ARAM lightmap read failed at +%s\n",
+						Q_memprint( offset ));
+					aram = 0;
+					break;
+				}
+				GC_AramCopy( aram + (unsigned int)offset, gc_lm_hydrate_buf,
+					(unsigned int)chunk, true );
+				offset += chunk;
+				remaining -= chunk;
+			}
+		}
+		if( aram && offset == (size_t)lump.filelen )
+		{
+			gc_lm_aram_base = aram;
+			gc_lm_aram_bytes = lump.filelen;
+			*(byte **)((byte *)bmod + info->dataofs) = &gc_lm_aram_marker;
+			*(size_t *)((byte *)bmod + info->countofs) = numelems;
+			Con_Reportf( "Xash3D GameCube: reloaded BSP lump %s (%s) [ARAM%s] from disc\n",
+				info->loadname, Q_memprint( lump.filelen ),
+				pool_hit ? " reuse" : "" );
+			return true;
+		}
+		gc_lm_aram_base = 0;
+		gc_lm_aram_bytes = 0;
 	}
 	if( !lumpbuf )
 	{
@@ -8506,20 +8700,49 @@ static void Mod_LoadLighting( model_t *mod, dbspmodel_t *bmod )
 	if( Sys_CheckParm( "-gcnewgame" ) && bmod->isworld && bmod->lightmap_samples == 3 )
 	{
 		int i;
+		const qboolean had_faces = ( bmod->surfaces || bmod->surfaces32 ) ? true : false;
 
+		/* Prefer keeping faces through the first Ensure attempt; only drop them
+		 * when scratch needs the gap (c5a1) and the lightofs side-table is live. */
 		if( !bmod->lightdata || !bmod->lightdatasize )
 			Mod_GCEnsureBspLump( mod, bmod, LUMP_LIGHTING );
-
-		if( bmod->lightdata && bmod->lightdatasize > 0
-			&& ( bmod->surfaces || bmod->surfaces32 ))
+		if(( !bmod->lightdata || !bmod->lightdatasize ) && gc_surf_lightofs && had_faces )
 		{
+			if( bmod->version == QBSP2_VERSION )
+				Mod_GCFreeBspPin( (void **)&bmod->surfaces32 );
+			else
+				Mod_GCFreeBspPin( (void **)&bmod->surfaces );
+			Con_Reportf( "Xash3D GameCube: G154 freed face lump before lightmap retry\n" );
+			Mod_GCEnsureBspLump( mod, bmod, LUMP_LIGHTING );
+		}
+
+		if( bmod->lightdata && bmod->lightdatasize > 0 )
+		{
+			/* ARAM path: samples stay NULL; CapFaces/G180 hydrate via side table. */
+			if( bmod->lightdata == &gc_lm_aram_marker || gc_lm_aram_base )
+			{
+				mod->lightdata = NULL;
+				SetBits( mod->flags, MODEL_COLORED_LIGHTING );
+				for( i = 0; i < mod->numsurfaces; i++ )
+					mod->surfaces[i].samples = NULL;
+				Con_Reportf( "Xash3D GameCube: G154 ARAM lightmap bind size=%s (bake-only)\n",
+					Q_memprint( bmod->lightdatasize ));
+				return;
+			}
+
 			mod->lightdata = (color24 *)bmod->lightdata;
 			SetBits( mod->flags, MODEL_COLORED_LIGHTING );
 			for( i = 0; i < mod->numsurfaces; i++ )
 			{
-				int lightofs = ( bmod->version == QBSP2_VERSION )
-					? bmod->surfaces32[i].lightofs
-					: bmod->surfaces[i].lightofs;
+				int lightofs = -1;
+
+				/* Prefer still-resident faces (changelevel dests); else side table. */
+				if( bmod->version == QBSP2_VERSION && bmod->surfaces32 )
+					lightofs = bmod->surfaces32[i].lightofs;
+				else if( bmod->surfaces )
+					lightofs = bmod->surfaces[i].lightofs;
+				else
+					lightofs = Mod_GCSurfaceLightofs( &mod->surfaces[i] );
 
 				if( lightofs != -1 )
 					mod->surfaces[i].samples = mod->lightdata + ( lightofs / bmod->lightmap_samples );
@@ -9122,16 +9345,19 @@ static qboolean Mod_LoadBmodelLumps( model_t *mod, byte *mod_base, size_t buffer
 		worldmodel = mod;
 		GC_CaptureNewGamePVSFromModel( mod );
 		/* Drop temporary LM bind; baked tiles live in cap BSS. */
-		if( mod->lightdata
-			&& ( Mod_GCPointerInBuffer( mod->lightdata, gc_bsp_scratch_base, gc_bsp_scratch_size )
-				|| mod->lightdata == (color24 *)bmod->lightdata ))
+		if( gc_lm_aram_base
+			|| ( mod->lightdata
+				&& ( Mod_GCPointerInBuffer( mod->lightdata, gc_bsp_scratch_base, gc_bsp_scratch_size )
+					|| mod->lightdata == (color24 *)bmod->lightdata )))
 		{
 			int i;
 
 			for( i = 0; i < mod->numsurfaces; i++ )
 				mod->surfaces[i].samples = NULL;
 			mod->lightdata = NULL;
-			Con_Reportf( "Xash3D GameCube: G154 released disc lightmap after face bake\n" );
+			Con_Reportf( "Xash3D GameCube: G154 released disc lightmap after face bake%s\n",
+				gc_lm_aram_base ? " [ARAM]" : "" );
+			Mod_GCClearSurfLightofs();
 		}
 		if( bmod->version == QBSP2_VERSION )
 			Mod_GCFreeBspPin( (void **)&bmod->surfaces32 );

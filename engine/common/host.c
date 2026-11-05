@@ -1814,6 +1814,20 @@ int EXPORT Host_Main( int argc, char **argv, const char *progname, int bChangeGa
 								Con_Reportf( S_WARN "Xash3D GameCube: gcmap+newgame post-ensure prepare failed map=%s\n",
 									sv.name[0] ? sv.name : "?" );
 						}
+						/* Re-emit after ensure: entity-spawn Con_ flood can drop
+						 * ActivateServer's MAP_READY / map loaded (c5a1 probe
+						 * 20261105-100000: 1349 entity OSReports, 0 MAP_READY,
+						 * but post-ensure prepare still landed). Analyzer keys
+						 * G36 map_loaded off "map loaded". Ladder entity_spawn
+						 * also drops "entity lump spawn ready" (probe 100854). */
+						if( sv.name[0] )
+						{
+							Con_Reportf( "Xash3D GameCube: entity lump spawn ready\n" );
+							SYS_Report( "Xash3D GameCube: entity lump spawn ready\n" );
+							Con_Reportf( "Xash3D GameCube: map loaded %s\n", sv.name );
+							Con_Reportf( "Xash3D GameCube: MAP_READY %s\n", sv.name );
+							SYS_Report( "Xash3D GameCube: MAP_READY %s\n", sv.name );
+						}
 						/* Promote ca_active before the first heavy fullphysics
 						 * ServerFrame can starve ClientFrame SCR CapFaces. */
 						CL_GameCubeArmLeanPlayActive();

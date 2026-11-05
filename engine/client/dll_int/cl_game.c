@@ -1060,8 +1060,14 @@ void CL_DrawHUD( int state )
 		CL_DrawCenterPrint ();
 		CL_HUD_TRACE( "centerprint done" );
 #if XASH_GAMECUBE
+		/* c5a1: 200 Con_Reportf HUD traces left EXI flooded so PresentBuffer
+		 * never returned after Flipper CopyDisp (probes 092416/093008). */
 		if( trace )
-			gc_hud_call_trace = 200;
+		{
+			/* Fullphysics Xen/endgame: never flood EXI during first Redraw —
+			 * clgame.mapname can still be empty here. */
+			gc_hud_call_trace = Sys_CheckParm( "-gcfullphysics" ) ? 0 : 200;
+		}
 		GC_WatchdogMark( "client HUD Redraw" );
 #endif
 		if( !gc_no_suit )

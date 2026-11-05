@@ -64,6 +64,7 @@ extern qboolean GC_FillLiveDrawSurf( int index, msurface_t *out, mtexinfo_t *tex
 extern qboolean GC_LiveFaceIsCapped( int index );
 extern qboolean GC_WantLiveCapOverlap( void ); /* G361 */
 extern qboolean GC_IsG36SampleFaceCap( void ); /* G374/GX-016 */
+extern qboolean GC_WantTightXenG36FaceCap( void );
 extern qboolean GC_CapFaceIsLive( int slot ); /* G361 */
 extern qboolean GC_G378DumpSkipFarPoint( const float *p );
 extern qboolean GC_G378DumpSkipFarVerts( const float pts[][3], int nverts );
@@ -290,7 +291,13 @@ static int R_GXFrameFaceBudget( void )
 	if( GC_IsG36SampleFaceCap() )
 	{
 		if( GC_WantLiveCapOverlap() )
+		{
+			/* Xen hop kept 115 faces and scored avg≈63ms WEAK (c4a3→c5a1
+			 * probe 20261105-104538). G374 needed a tight band for ≈61ms→PASS. */
+			if( GC_WantTightXenG36FaceCap() )
+				return 16;
 			return GC_GX_G36_DENSER_FACE_BUDGET;
+		}
 		return GC_GX_G36_SAMPLE_FACE_BUDGET;
 	}
 	return GC_GX_FRAME_FACE_BUDGET;

@@ -24,6 +24,7 @@ GNU General Public License for more details.
 #include "render_api.h"	// modelstate_t
 #include "ref_common.h" // decals
 #if XASH_GAMECUBE
+#include <ogc/system.h> /* SYS_Report — entity-spawn complete must survive EXI flood */
 #include "imagelib.h"
 #include "platform.h"
 #include "gamecube/mem_gamecube.h"
@@ -5779,6 +5780,16 @@ static qboolean SV_GCMapSmokeRoute( void )
 	return GC_MapLoadMemoryOpt();
 }
 
+/* Per-entity spawn breadcrumbs. Fullphysics denser maps (c5a1 ~600 ents)
+ * emit ~1300 OSReports and drop MAP_READY / entity lump spawn ready from the
+ * EXI FIFO (probe 20261105-100000). Keep sparse progress only. */
+static qboolean SV_GCMapEntityDiagVerbose( void )
+{
+	if( Sys_CheckParm( "-gcfullphysics" ))
+		return false;
+	return SV_GCMapSmokeRoute();
+}
+
 /* G433: Replace policy-based entity inhibition with measured budgeting
  * Check if entity should be inhibited based on memory budget.
  * Returns true if entity should be inhibited. */
@@ -5855,7 +5866,7 @@ static qboolean SV_ParseEdict( char **pfile, edict_t *ent, int entity_index )
 			Host_Error( "%s: closing brace without data\n", __func__ );
 
 #if XASH_GAMECUBE
-		if( SV_GCMapSmokeRoute() && entity_index >= 700 && ( numpairs & 3 ) == 0 )
+		if( SV_GCMapEntityDiagVerbose() && entity_index >= 700 && ( numpairs & 3 ) == 0 )
 			Con_Reportf( "Xash3D GameCube: entity kv pair=%d entity=%d key=%s\n",
 				numpairs, entity_index, keyname );
 #endif
@@ -5945,13 +5956,13 @@ static qboolean SV_ParseEdict( char **pfile, edict_t *ent, int entity_index )
 #endif
 
 #if XASH_GAMECUBE
-	if( SV_GCMapSmokeRoute() && entity_index >= 700 )
+	if( SV_GCMapEntityDiagVerbose() && entity_index >= 700 )
 		Con_Reportf( "Xash3D GameCube: entity private begin=%d class=%s pairs=%d\n",
 			entity_index, classname, numpairs );
 #endif
 	ent = SV_AllocPrivateData( ent, ent->v.classname, &customentity );
 #if XASH_GAMECUBE
-	if( SV_GCMapSmokeRoute() && entity_index >= 700 )
+	if( SV_GCMapEntityDiagVerbose() && entity_index >= 700 )
 		Con_Reportf( "Xash3D GameCube: entity private end=%d class=%s ok=%d\n",
 			entity_index, classname, SV_IsValidEdict( ent ) && !FBitSet( ent->v.flags, FL_KILLME ));
 #endif
@@ -6110,19 +6121,18 @@ static void SV_LoadFromFile( const char *mapname, char *entities )
 			}
 			else ent = SV_AllocEdict();
 #if XASH_GAMECUBE
-			if( SV_GCMapSmokeRoute() && entity_index >= 400 )
+			if( SV_GCMapEntityDiagVerbose() && entity_index >= 400 )
 				Con_Reportf( "Xash3D GameCube: entity alloc end=%d edict=%d\n",
 					entity_index, NUM_FOR_EDICT( ent ));
-			if( SV_GCMapSmokeRoute() && (( entity_index >= 200 && entity_index <= 210 ) || entity_index <= 20 ))
+			if( SV_GCMapEntityDiagVerbose() && (( entity_index >= 200 && entity_index <= 210 ) || entity_index <= 20 ))
 				Con_Reportf( "Xash3D GameCube: entity loop edict done=%d edict=%d\n", entity_index, NUM_FOR_EDICT( ent ));
-#endif
-
-#if XASH_GAMECUBE
-			if( SV_GCMapSmokeRoute() && ( entity_index & 31 ) == 0 )
+			/* Sparse under fullphysics (every 64) so MAP_READY can clear EXI. */
+			if( SV_GCMapSmokeRoute()
+				&& ( entity_index & ( Sys_CheckParm( "-gcfullphysics" ) ? 63 : 31 )) == 0 )
 				Con_Reportf( "Xash3D GameCube: entity spawn progress=%d\n", entity_index );
 #endif
 
-			if( SV_GCMapSmokeRoute() && entity_index >= 400 )
+			if( SV_GCMapEntityDiagVerbose() && entity_index >= 400 )
 				Con_Reportf( "Xash3D GameCube: entity parse begin=%d\n", entity_index );
 			if( !SV_ParseEdict( &entities, ent, entity_index++ ))
 			{
@@ -6130,22 +6140,22 @@ static void SV_LoadFromFile( const char *mapname, char *entities )
 					__func__, entity_index - 1 );
 				return;
 			}
-			if( SV_GCMapSmokeRoute() && entity_index >= 400 )
+			if( SV_GCMapEntityDiagVerbose() && entity_index >= 400 )
 				Con_Reportf( "Xash3D GameCube: entity parse end=%d class=%s\n",
 					entity_index - 1, SV_ClassName( ent ));
-			if( SV_GCMapSmokeRoute() && (( entity_index - 1 ) & 31 ) == 0 )
+			if( SV_GCMapEntityDiagVerbose() && (( entity_index - 1 ) & 31 ) == 0 )
 				Con_Reportf( "Xash3D GameCube: entity parsed=%d classname=%s\n",
 					entity_index - 1, SV_ClassName( ent ));
 
 #if XASH_GAMECUBE
-			if( SV_GCMapSmokeRoute() && entity_index >= 400 )
+			if( SV_GCMapEntityDiagVerbose() && entity_index >= 400 )
 				Con_Reportf( "Xash3D GameCube: entity loading pulse begin=%d class=%s\n",
 					entity_index - 1, SV_ClassName( ent ));
 			GC_LoadingOverlayPulse();
-			if( SV_GCMapSmokeRoute() && entity_index >= 400 )
+			if( SV_GCMapEntityDiagVerbose() && entity_index >= 400 )
 				Con_Reportf( "Xash3D GameCube: entity loading pulse end=%d class=%s\n",
 					entity_index - 1, SV_ClassName( ent ));
-			if( SV_GCMapSmokeRoute() )
+			if( SV_GCMapEntityDiagVerbose() )
 			{
 				const char *spawn_class = SV_ClassName( ent );
 				if( entity_index == 257 )
@@ -6164,22 +6174,31 @@ static void SV_LoadFromFile( const char *mapname, char *entities )
 					Con_Reportf( "Xash3D GameCube: entity budget check end=%d class=%s\n",
 						entity_index - 1, spawn_class );
 			}
+			else if( SV_GCMapSmokeRoute() && Sys_CheckParm( "-gcfullphysics" ))
+			{
+				const char *spawn_class = SV_ClassName( ent );
+
+				if( SV_GCMapCannotFitEntity( spawn_class, entity_index )
+					&& ( entity_index & 63 ) == 0 )
+					Con_Reportf( S_WARN "Xash3D GameCube: spawn budget pressure entity=%d class=%s\n",
+						entity_index - 1, spawn_class );
+			}
 #endif
 
 #if XASH_GAMECUBE
-			if( SV_GCMapSmokeRoute() && entity_index >= 64 && entity_index <= 90 )
+			if( SV_GCMapEntityDiagVerbose() && entity_index >= 64 && entity_index <= 90 )
 				Con_Reportf( "Xash3D GameCube: entity spawn call begin=%d class=%s\n",
 					entity_index - 1, SV_ClassName( ent ));
-			if( SV_GCMapSmokeRoute() && entity_index == 257 )
+			if( SV_GCMapEntityDiagVerbose() && entity_index == 257 )
 				Con_Reportf( "Xash3D GameCube: entity spawn call begin=%d class=%s\n",
 					entity_index - 1, SV_ClassName( ent ));
 #endif
 			spawn_result = svgame.dllFuncs.pfnSpawn( ent );
 #if XASH_GAMECUBE
-			if( SV_GCMapSmokeRoute() && entity_index >= 64 && entity_index <= 90 )
+			if( SV_GCMapEntityDiagVerbose() && entity_index >= 64 && entity_index <= 90 )
 				Con_Reportf( "Xash3D GameCube: entity spawn call end=%d class=%s result=%d\n",
 					entity_index - 1, SV_ClassName( ent ), spawn_result );
-			if( SV_GCMapSmokeRoute() && entity_index == 257 )
+			if( SV_GCMapEntityDiagVerbose() && entity_index == 257 )
 				Con_Reportf( "Xash3D GameCube: entity spawn call end=%d class=%s result=%d\n",
 					entity_index - 1, SV_ClassName( ent ), spawn_result );
 #endif
@@ -6193,12 +6212,12 @@ static void SV_LoadFromFile( const char *mapname, char *entities )
 				}
 			}
 #if XASH_GAMECUBE
-			else if( SV_GCMapSmokeRoute() && entity_index >= 90 && ( entity_index & 15 ) == 0 )
+			else if( SV_GCMapEntityDiagVerbose() && entity_index >= 90 && ( entity_index & 15 ) == 0 )
 			{
 				Con_Reportf( "Xash3D GameCube: entity spawn done=%d classname=%s\n",
 					entity_index - 1, SV_ClassName( ent ));
 			}
-			else if( SV_GCMapSmokeRoute() && entity_index >= 400 )
+			else if( SV_GCMapEntityDiagVerbose() && entity_index >= 400 )
 			{
 				Con_Reportf( "Xash3D GameCube: entity spawn done=%d classname=%s\n",
 					entity_index - 1, SV_ClassName( ent ));
@@ -6234,6 +6253,7 @@ static void SV_LoadFromFile( const char *mapname, char *entities )
 			}
 		}
 		Con_Reportf( "Xash3D GameCube: entity spawn complete; game-rejected=%d\n", inhibited );
+		SYS_Report( "Xash3D GameCube: entity spawn complete; game-rejected=%d\n", inhibited );
 #endif
 	}
 
@@ -6307,6 +6327,7 @@ void SV_SpawnEntities( const char *mapname )
 	SV_LoadFromFile( mapname, sv.worldmodel->entities );
 #if XASH_GAMECUBE
 	Con_Reportf( "Xash3D GameCube: entity lump spawn ready\n" );
+	SYS_Report( "Xash3D GameCube: entity lump spawn ready\n" );
 	GCube_AppendSwissEvidence( "entity lump spawn ready" );
 	GCube_ArmSwissQuit();
 	if( Sys_CheckParm( "-gcnewgame" ))

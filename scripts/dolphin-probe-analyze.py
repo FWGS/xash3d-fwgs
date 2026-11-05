@@ -46,7 +46,9 @@ def load_evaluate_ladder():
 
 FRAME_TIME_RE = re.compile(r"frame time=([\d.]+)ms")
 GCMAP_RENDER_TIME_RE = re.compile(r"gcmap render time=([\d.]+)ms")
-MAP_LOADED_RE = re.compile(r"Xash3D GameCube: map loaded (\S+)")
+MAP_LOADED_RE = re.compile(
+	r"Xash3D GameCube: (?:map loaded|MAP_READY) (\S+)"
+)
 BOOT_PHASE_RE = re.compile(r"Xash3D GameCube: boot phase=(\S+)")
 GUEST_ERROR_RE = re.compile(
 	r"(Host_Error|Sys_Error|Xash Error|_Mem_Alloc: out of memory|fatal error|guest.*(crash|abort)|"
@@ -424,7 +426,10 @@ def main() -> int:
 	loaded_map = detect_loaded_map(text)
 	world_render_ready = MARKERS["world_render_ready"] in text
 	frame_times = extract_frame_times(text, world_render=world_render_ready)
-	map_loaded = map_marker(args.smoke_map) in text
+	map_loaded = (
+		map_marker(args.smoke_map) in text
+		or f"Xash3D GameCube: MAP_READY {args.smoke_map}" in text
+	)
 	if not map_loaded and loaded_map is not None:
 		map_loaded = True
 	input_active = MARKERS["input"] in text

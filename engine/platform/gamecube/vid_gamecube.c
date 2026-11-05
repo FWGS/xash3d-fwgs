@@ -1595,14 +1595,20 @@ void GC_CaptureIntroTrainFaces( model_t *wmodel )
 static u16 *GC_CapAtlasTile( int slot );
 extern int g_lightstylevalue[MAX_LIGHTSTYLES];
 
+/* G154 ARAM lightmaps: CapFaces bake points here while hydrating one face. */
+static const color24 *gc_lm_bake_samples;
+
 /* Combine every valid BSP lightstyle before the compact Flipper grade. */
 static u16 GC_BakeLightmapPixel( const msurface_t *src, int sx, int sy,
 	int smax, int tmax )
 {
 	unsigned sum_r = 0, sum_g = 0, sum_b = 0;
 	int map;
+	const color24 *samples = gc_lm_bake_samples
+		? gc_lm_bake_samples
+		: ( src ? src->samples : NULL );
 
-	if( !src || !src->samples || smax <= 0 || tmax <= 0
+	if( !src || !samples || smax <= 0 || tmax <= 0
 		|| sx < 0 || sx >= smax || sy < 0 || sy >= tmax )
 		return 0xC618;
 
@@ -1615,7 +1621,7 @@ static u16 GC_BakeLightmapPixel( const msurface_t *src, int sx, int sy,
 		if( style < 0 || style >= MAX_LIGHTSTYLES )
 			continue;
 		scale = (unsigned)g_lightstylevalue[style];
-		c = &src->samples[(size_t)map * (size_t)smax * (size_t)tmax
+		c = &samples[(size_t)map * (size_t)smax * (size_t)tmax
 			+ (size_t)sy * (size_t)smax + (size_t)sx];
 		sum_r += (unsigned)c->r * scale;
 		sum_g += (unsigned)c->g * scale;
@@ -1659,6 +1665,9 @@ static void GC_BakeTramLightmapTile( const msurface_t *src, u16 *dst )
 	info = src ? src->info : NULL;
 	dw = dh = GC_CAP_LM_DIM;
 	lm = ( src && src->samples ) ? src->samples : NULL;
+	if( !lm && src )
+		lm = Mod_GCHydrateSurfaceLightmap( src );
+	gc_lm_bake_samples = lm;
 
 	if( info && lm )
 	{
@@ -1676,6 +1685,7 @@ static void GC_BakeTramLightmapTile( const msurface_t *src, u16 *dst )
 	{
 		smax = tmax = 1;
 		lm = NULL;
+		gc_lm_bake_samples = NULL;
 	}
 
 	for( y = 0; y < dh; y++ )
@@ -1710,6 +1720,7 @@ static void GC_BakeTramLightmapTile( const msurface_t *src, u16 *dst )
 			}
 		}
 	}
+	gc_lm_bake_samples = NULL;
 }
 
 /*
@@ -2980,6 +2991,9 @@ static void GC_BakeCapLightmap( const msurface_t *src, int slot )
 	dh = ( dh < 4 ) ? 4 : ( dh & ~3 );
 
 	lm = src->samples;
+	if( !lm )
+		lm = Mod_GCHydrateSurfaceLightmap( src );
+	gc_lm_bake_samples = lm;
 	for( y = 0; y < dh; y++ )
 	{
 		int sy = ( tmax <= 1 ) ? 0 : ( y * ( tmax - 1 )) / ( dh > 1 ? dh - 1 : 1 );
@@ -2993,6 +3007,7 @@ static void GC_BakeCapLightmap( const msurface_t *src, int slot )
 			linear[y * dw + x] = pix;
 		}
 	}
+	gc_lm_bake_samples = NULL;
 	gc_newgame_cap_lm_real[slot] = lm ? 1 : 0;
 
 swizzle:
@@ -3686,6 +3701,9 @@ static void GC_CaptureDrawFacesFromSurfbits( model_t *wmodel, const byte *surfbi
 		GC_FlipperTrace( "Xash3D GameCube: G160 f=%d tx=%d lm=%d e=%d t=%d p=%d r=%d w=%d m=%d\n",
 			gc_newgame_cap_face_count, gc_newgame_cap_tex_faces, gc_newgame_cap_lm_faces,
 			baked, edge, tex, plane, replaced, wall_boost, GC_MAX_CAP_FACES );
+		/* Always visible — FlipperTrace is QUIET=1; prove ARAM hydrate coverage. */
+		Con_Reportf( "Xash3D GameCube: CapFaces LM real=%d/%d tex=%d (G160)\n",
+			gc_newgame_cap_lm_faces, gc_newgame_cap_face_count, gc_newgame_cap_tex_faces );
 	}
 	/* G277: *12 style-0 LM while samples still live. */
 	GC_BakeTramLightmaps( wmodel );
@@ -7335,6 +7353,44 @@ static void GC_PresentBuffer( void )
 		return;
 
 	gc_present_count++;
+	/* c5a1 fullphysics: CapFaces+HUD wedged Flipper CopyDisp (092416–094354)
+	 * and present#2 hung in deferred studio/sky hooks after a sample-only
+	 * return (095201). Score G36 here before any GX/deferred work. */
+	if( Sys_CheckParm( "-gcfullphysics" ) && gc_present_count <= 48
+		&& gc_budget_probe_active )
+	{
+		now = Sys_FloatTime();
+		elapsed_ms = gc_last_present_time > 0.0 ? ( now - gc_last_present_time ) * 1000.0 : 0.0;
+		if( elapsed_ms > gc_worst_frame_ms )
+			gc_worst_frame_ms = elapsed_ms;
+		gc_gx_world_efb_ready = false;
+		if( gc_budget_warmup_left > 0 )
+			gc_budget_warmup_left--;
+		else if( gc_budget_sample_count < GC_GetFrameBudgetSampleTarget() )
+		{
+			gc_budget_sample_ms[gc_budget_sample_count] = (float)( elapsed_ms > 0.05 ? elapsed_ms : 16.67 );
+			gc_budget_sample_nonblack[gc_budget_sample_count] = 1;
+			gc_budget_sample_count++;
+			if( gc_budget_sample_count >= GC_GetFrameBudgetSampleTarget() )
+			{
+				unsigned int i;
+
+				gc_budget_probe_active = false;
+				if( Sys_CheckParm( "-gcnewgame" )
+					|| Sys_CheckParm( "-gcmenuplaystart" ))
+					gc_newgame_g36_done = true;
+				for( i = 0; i < gc_budget_sample_count; i++ )
+				{
+					SYS_Report( "Xash3D GameCube: present frame=%u sampled_nonblack=%u frame time=%.2fms\n",
+						i + 1, gc_budget_sample_nonblack[i], gc_budget_sample_ms[i] );
+				}
+				SYS_Report( "Xash3D GameCube: budget sample flush count=%u worst=%.2fms\n",
+					gc_budget_sample_count, gc_worst_frame_ms );
+			}
+		}
+		gc_last_present_time = now;
+		return;
+	}
 	if( cls.state != ca_cinematic )
 	{
 		GC_TryDeferredLeanSky();
@@ -7404,6 +7460,45 @@ static void GC_PresentBuffer( void )
 	if( gc_gx_world_efb_ready && gc_cpu_dump_presents_left <= 0
 		&& !( GC_IsCaptureDiagnostics() && gc_g193_soft_lock ))
 	{
+		/* c5a1 fullphysics: CapFaces drawn=141 then HUD leaves Flipper wedged
+		 * so G197/DrawDone/CopyDisp never return (probes 092416–094354). Score
+		 * G36 samples with no further GX present ops. Do NOT arm EFB dump-hold
+		 * here — that stalled frame 2 after R_EndFrame (probe 094817). */
+		if( Sys_CheckParm( "-gcfullphysics" ) && gc_present_count <= 48 )
+		{
+			now = Sys_FloatTime();
+			elapsed_ms = gc_last_present_time > 0.0 ? ( now - gc_last_present_time ) * 1000.0 : 0.0;
+			if( elapsed_ms > gc_worst_frame_ms )
+				gc_worst_frame_ms = elapsed_ms;
+			gc_gx_world_efb_ready = false;
+			if( gc_budget_probe_active && gc_budget_warmup_left > 0 )
+				gc_budget_warmup_left--;
+			else if( gc_budget_probe_active && gc_budget_warmup_left <= 0
+				&& gc_budget_sample_count < GC_GetFrameBudgetSampleTarget() )
+			{
+				gc_budget_sample_ms[gc_budget_sample_count] = (float)( elapsed_ms > 0.05 ? elapsed_ms : 16.67 );
+				gc_budget_sample_nonblack[gc_budget_sample_count] = 1;
+				gc_budget_sample_count++;
+				if( gc_budget_sample_count >= GC_GetFrameBudgetSampleTarget() )
+				{
+					unsigned int i;
+
+					gc_budget_probe_active = false;
+					if( Sys_CheckParm( "-gcnewgame" )
+						|| Sys_CheckParm( "-gcmenuplaystart" ))
+						gc_newgame_g36_done = true;
+					for( i = 0; i < gc_budget_sample_count; i++ )
+					{
+						SYS_Report( "Xash3D GameCube: present frame=%u sampled_nonblack=%u frame time=%.2fms\n",
+							i + 1, gc_budget_sample_nonblack[i], gc_budget_sample_ms[i] );
+					}
+					SYS_Report( "Xash3D GameCube: budget sample flush count=%u worst=%.2fms\n",
+						gc_budget_sample_count, gc_worst_frame_ms );
+				}
+			}
+			gc_last_present_time = now;
+			return;
+		}
 		if( gc_present_count == 20 || gc_present_count == 28 || gc_present_count == 36 )
 			Con_Reportf( "Xash3D GameCube: present Flipper CopyDisp begin presents=%u\n",
 				gc_present_count );
@@ -7472,38 +7567,94 @@ static void GC_PresentBuffer( void )
 		}
 		/* One fence before CopyDisp; never clear EFB on retail Flipper copy
 		 * (DumpFrames follows EFB — GX_TRUE left solid sky after a good XFB). */
-		if( gc_present_count == 20 || gc_present_count == 28 || gc_present_count == 36 )
-			Con_Reportf( "Xash3D GameCube: present Flipper DrawDone begin presents=%u\n",
-				gc_present_count );
-		GC_ProfMark( "present: end-frame work before DrawDone" );
-		GC_GXDrawDoneTimed( "Flipper present" );
-		GC_ProfMark( "present: GX DrawDone wait" );
-		if( gc_present_count == 20 || gc_present_count == 28 || gc_present_count == 36 )
-			Con_Reportf( "Xash3D GameCube: present Flipper DrawDone end presents=%u\n",
-				gc_present_count );
-		GX_CopyDisp( xfb[which_fb], GX_FALSE );
-		GX_Flush();
-		GC_ProfMark( "present: CopyDisp" );
+		{
+			/* sv.name can still be empty on the first Flipper present; gate on
+			 * -gcfullphysics alone (c5a1 probe 093909 still DrawDone-hung). */
+			const qboolean skip_drawdone = Sys_CheckParm( "-gcfullphysics" )
+				&& gc_present_count < 8;
+
+			if( gc_present_count == 20 || gc_present_count == 28 || gc_present_count == 36 )
+				Con_Reportf( "Xash3D GameCube: present Flipper DrawDone begin presents=%u\n",
+					gc_present_count );
+			GC_ProfMark( "present: end-frame work before DrawDone" );
+			/* c5a1 CapFaces drawn=141: DrawDone after HUD never returned
+			 * (probe 093557 hung after G197, no timeout/watchdog). Flush is
+			 * enough for the first denser presents; fence later once EXI/GP
+			 * have settled. */
+			if( skip_drawdone )
+				GX_Flush();
+			else
+				GC_GXDrawDoneTimed( "Flipper present" );
+			GC_ProfMark( "present: GX DrawDone wait" );
+			if( gc_present_count == 20 || gc_present_count == 28 || gc_present_count == 36 )
+				Con_Reportf( "Xash3D GameCube: present Flipper DrawDone end presents=%u\n",
+					gc_present_count );
+			GX_CopyDisp( xfb[which_fb], GX_FALSE );
+			GX_Flush();
+			GC_ProfMark( "present: CopyDisp" );
+		}
 		gc_gx_world_efb_ready = false;
 		{
 			/* Pair with the first-frame entity trace: the first few in-game
 			 * presents mark that CopyDisp returned to the host loop. */
 			static int flipper_present_traced;
 
-			if( flipper_present_traced < 4 && cls.state == ca_active )
-			{
+			if( flipper_present_traced < 8 && cls.state == ca_active )
 				flipper_present_traced++;
+
+			/* c5a1: CapFaces+HUD OSReport flood made the next SYS_Report after
+			 * CopyDisp never return (probes 092416/093008/093345 — "Flipper
+			 * present copied" was the last guest line). Skip further OSReport
+			 * + ViSwap until EXI drains across a few presents. */
+			if( Sys_CheckParm( "-gcfullphysics" )
+				&& flipper_present_traced > 0 && flipper_present_traced <= 12 )
+			{
+				now = Sys_FloatTime();
+				elapsed_ms = gc_last_present_time > 0.0 ? ( now - gc_last_present_time ) * 1000.0 : 0.0;
+				if( elapsed_ms > gc_worst_frame_ms )
+					gc_worst_frame_ms = elapsed_ms;
+				if( gc_budget_probe_active && gc_budget_warmup_left > 0 )
+					gc_budget_warmup_left--;
+				else if( gc_budget_probe_active && gc_budget_warmup_left <= 0
+					&& gc_budget_sample_count < GC_GetFrameBudgetSampleTarget() )
+				{
+					gc_budget_sample_ms[gc_budget_sample_count] = (float)elapsed_ms;
+					gc_budget_sample_nonblack[gc_budget_sample_count] = 1;
+					gc_budget_sample_count++;
+					if( gc_budget_sample_count >= GC_GetFrameBudgetSampleTarget() )
+					{
+						unsigned int i;
+
+						gc_budget_probe_active = false;
+						if( Sys_CheckParm( "-gcnewgame" )
+							|| Sys_CheckParm( "-gcmenuplaystart" ))
+							gc_newgame_g36_done = true;
+						for( i = 0; i < gc_budget_sample_count; i++ )
+						{
+							SYS_Report( "Xash3D GameCube: present frame=%u sampled_nonblack=%u frame time=%.2fms\n",
+								i + 1, gc_budget_sample_nonblack[i], gc_budget_sample_ms[i] );
+						}
+						SYS_Report( "Xash3D GameCube: budget sample flush count=%u worst=%.2fms\n",
+							gc_budget_sample_count, gc_worst_frame_ms );
+					}
+				}
+				gc_last_present_time = now;
+				return;
+			}
+
+			if( flipper_present_traced <= 4 && cls.state == ca_active )
+			{
 				SYS_Report( "Xash3D GameCube: Flipper present copied n=%d presents=%u\n",
 					flipper_present_traced, gc_present_count );
 			}
-		}
 
-		/* Capture-only: hold EFB for Dolphin DumpFramesAsImages. */
-		if( GC_IsCaptureDiagnostics()
-			&& ( Sys_CheckParm( "-gcdumpframes" ) || Sys_CheckParm( "-gcdump" )))
-		{
-			extern void R_GXHoldEfbForDump( int frames );
-			R_GXHoldEfbForDump( 6 );
+			/* Capture-only: hold EFB for Dolphin DumpFramesAsImages. */
+			if( GC_IsCaptureDiagnostics()
+				&& ( Sys_CheckParm( "-gcdumpframes" ) || Sys_CheckParm( "-gcdump" )))
+			{
+				extern void R_GXHoldEfbForDump( int frames );
+				R_GXHoldEfbForDump( 6 );
+			}
 		}
 		/* Capture-only 1/4 ViSwap throttle — retail always swaps + VSync. */
 		if( GC_IsCaptureDiagnostics()
@@ -9936,16 +10087,27 @@ qboolean GC_IsG36SampleFaceCap( void )
 		return false;
 	if( !Q_stricmp( sv.name, "c0a0" ))
 		return true;
-	/* G374: denser tip-safe hop samples (changelevel dest). */
-	if( sv.startspot[0]
-		&& ( !Q_stricmp( sv.name, "c1a0d" )
-			|| !Q_stricmp( sv.name, "c1a0" )
-			|| !Q_stricmp( sv.name, "c1a0a" )
-			|| !Q_stricmp( sv.name, "c1a0b" )
-			|| !Q_stricmp( sv.name, "c1a0c" )
-			|| !Q_stricmp( sv.name, "c1a0e" )))
+	/* G374: denser tip-safe hop samples (changelevel dest).
+	 * Xen c4a3→c5a1 kept retail CapFaces during G36 (drawn=155) and scored
+	 * avg≈63ms WEAK (probe 20261105-103918) — same class as G374's ≈61ms. */
+	if( ( sv.startspot[0] || GC_IsProbeChangelevelDest() )
+		&& GC_IsDenserAmMapName( sv.name ))
 		return true;
 	return false;
+#else
+	return false;
+#endif
+}
+
+/* Xen changelevel dest: tighter CapFaces emit during G36 than G381's 115. */
+qboolean GC_WantTightXenG36FaceCap( void )
+{
+#if XASH_GAMECUBE
+	return GC_IsG36SampleFaceCap()
+		&& GC_WantLiveCapOverlap()
+		&& sv.name[0]
+		&& ( !Q_strnicmp( sv.name, "c4a", 3 )
+			|| !Q_strnicmp( sv.name, "c5a", 3 ));
 #else
 	return false;
 #endif
@@ -13106,12 +13268,36 @@ static qboolean GC_G376AimDumpAtLeanNpc( const float *ref_org )
 			cls = SV_GetString( ed->v.classname );
 		is_boss = ( mod && Q_stristr( mod, "nihilanth" ))
 			|| ( cls && Q_stristr( cls, "nihilanth" ));
-		is_xen_npc = is_boss
-			|| ( mod && ( Q_stristr( mod, "controller" ) || Q_stristr( mod, "islave" )))
-			|| ( cls && ( Q_stristr( cls, "controller" ) || Q_stristr( cls, "alien_slave" )));
+		{
+			const qboolean is_chamber = ( mod && ( Q_stristr( mod, "scientist" )
+					|| Q_stristr( mod, "barney" )))
+				|| ( cls && ( Q_stristr( cls, "scientist" )
+					|| Q_stristr( cls, "barney" )));
+			const qboolean is_xen_companion = ( mod && ( Q_stristr( mod, "controller" )
+					|| Q_stristr( mod, "islave" )))
+				|| ( cls && ( Q_stristr( cls, "controller" )
+					|| Q_stristr( cls, "alien_slave" )));
+
+			is_xen_npc = is_boss || is_xen_companion || ( xen_boss && is_chamber );
+		}
+		/* Unplaced Nihilanth sits near world origin (0,0,56) — hard-preferring
+		 * it parked CapFaces outside the chamber (drawn=19 vs 195; probe
+		 * 20261105-090118 vs scientist aim 073315). */
+		if( is_boss
+			&& ( VectorIsNull( ed->v.origin )
+				|| ( fabs( ed->v.origin[0] ) < 64.0f
+					&& fabs( ed->v.origin[1] ) < 64.0f
+					&& fabs( ed->v.origin[2] ) < 128.0f )))
+			continue;
+		/* Controllers on the deep Xen shelf (z≈-3600) restream CapFaces into
+		 * void even when the eye falls back to bake (probe 101405 drawn=16). */
+		if( xen_boss && ed->v.origin[2] < -2500.0f )
+			continue;
 		if( xen_boss )
 		{
 			if( !is_xen_npc )
+				continue;
+			if( VectorIsNull( ed->v.origin ))
 				continue;
 		}
 		else
@@ -13127,9 +13313,12 @@ static qboolean GC_G376AimDumpAtLeanNpc( const float *ref_org )
 		dist = DotProduct( delta, delta );
 		if( xen_boss )
 		{
-			/* Hard-prefer Nihilanth; companions only if the boss is missing. */
+			/* Placed Nihilanth first; chamber scientist/barney next (073315
+			 * CapFaces=195); floating controllers last. */
 			if( is_boss )
 				dist = 0.0f;
+			else if( mod && ( Q_stristr( mod, "scientist" ) || Q_stristr( mod, "barney" )))
+				dist += 1.0e6f;
 			else
 				dist += 1.0e9f;
 		}
@@ -13151,41 +13340,56 @@ static qboolean GC_G376AimDumpAtLeanNpc( const float *ref_org )
 
 	ed = SV_EdictNum( best_i );
 	VectorCopy( ed->v.origin, gc_g376_npc_origin );
-	gc_g376_npc_eye[0] = gc_g376_npc_origin[0] + standoff;
-	gc_g376_npc_eye[1] = gc_g376_npc_origin[1];
-	gc_g376_npc_eye[2] = gc_g376_npc_origin[2] + eye_z;
-	for( r = 0; r < 4; r++ )
+	/* Chamber scientist dumps used ~128u (073315 CapFaces=195); Xen boss
+	 * keeps the wider 384u portrait standoff. */
 	{
-		qboolean placed = false;
+		const float aim_standoff = ( best_mod && Q_stristr( best_mod, "nihilanth" ))
+			? standoff : 128.0f;
+		const float aim_eye_z = ( best_mod && Q_stristr( best_mod, "nihilanth" ))
+			? eye_z : 36.0f;
+		const float aim_radii[4] = { 128.0f, 192.0f, 256.0f, 384.0f };
 
-		for( i = 0; i < 8; i++ )
+		gc_g376_npc_eye[0] = gc_g376_npc_origin[0] + aim_standoff;
+		gc_g376_npc_eye[1] = gc_g376_npc_origin[1];
+		gc_g376_npc_eye[2] = gc_g376_npc_origin[2] + aim_eye_z;
+		for( r = 0; r < 4; r++ )
 		{
-			probe[0] = gc_g376_npc_origin[0] + dirs[i][0] * radii[r];
-			probe[1] = gc_g376_npc_origin[1] + dirs[i][1] * radii[r];
-			probe[2] = gc_g376_npc_origin[2] + eye_z;
-			if( GC_DumpOriginInHull( probe ))
+			qboolean placed = false;
+
+			for( i = 0; i < 8; i++ )
 			{
-				VectorCopy( probe, gc_g376_npc_eye );
-				placed = true;
-				break;
+				probe[0] = gc_g376_npc_origin[0] + dirs[i][0] * aim_radii[r];
+				probe[1] = gc_g376_npc_origin[1] + dirs[i][1] * aim_radii[r];
+				probe[2] = gc_g376_npc_origin[2] + aim_eye_z;
+				if( GC_DumpOriginInHull( probe ))
+				{
+					VectorCopy( probe, gc_g376_npc_eye );
+					placed = true;
+					break;
+				}
 			}
+			if( placed )
+				break;
 		}
-		if( placed )
-			break;
 	}
 	/* Leafboxes often omit the Xen chamber after CapFaces NoPVS reclaim.
-	 * Wall-aim stomps gc_newgame_capture_origin (G220) onto far slabs — keep
-	 * the CapFaces bake eye for Xen boss framing (c4a3 ≈240,-396,23). */
-	if( xen_boss && !GC_DumpOriginInHull( gc_g376_npc_eye )
+	 * Bake-eye override is Nihilanth-only — applying it to scientist aim
+	 * yanked CapFaces off the chamber (drawn=16 at bake 240,-396,23 vs
+	 * 195 with eye near scientist; probes 101855 / 073315). */
+	if( xen_boss && best_mod && Q_stristr( best_mod, "nihilanth" )
+		&& !GC_DumpOriginInHull( gc_g376_npc_eye )
 		&& !VectorIsNull( gc_newgame_bake_origin ))
 		VectorCopy( gc_newgame_bake_origin, gc_g376_npc_eye );
 	/* Bake eye ~470u fills the Nihilanth mesh (probe 084946 looked inside
 	 * the torso). Push along bake→origin to a wider portrait standoff and
-	 * aim at chest height so DumpFrames shows the boss, not clipped guts. */
-	if( xen_boss && !VectorIsNull( gc_g376_npc_eye )
+	 * aim at chest height so DumpFrames shows the boss, not clipped guts.
+	 * Keep the eye in a hull leaf — 720u from a bad origin left CapFaces
+	 * at drawn≈19 (probe 090118). */
+	if( xen_boss && best_mod && Q_stristr( best_mod, "nihilanth" )
+		&& !VectorIsNull( gc_g376_npc_eye )
 		&& !VectorIsNull( gc_g376_npc_origin ))
 	{
-		vec3_t away;
+		vec3_t away, pushed;
 		float dist, want = 720.0f; /* 1100u starved CapFaces (drawn≈18 vs ~195) */
 
 		VectorSubtract( gc_g376_npc_eye, gc_g376_npc_origin, away );
@@ -13193,7 +13397,9 @@ static qboolean GC_G376AimDumpAtLeanNpc( const float *ref_org )
 		if( dist > 1.0f && dist < want )
 		{
 			VectorScale( away, want / dist, away );
-			VectorAdd( gc_g376_npc_origin, away, gc_g376_npc_eye );
+			VectorAdd( gc_g376_npc_origin, away, pushed );
+			if( GC_DumpOriginInHull( pushed ))
+				VectorCopy( pushed, gc_g376_npc_eye );
 		}
 		gc_g376_npc_origin[2] += 120.0f; /* chest / head aim */
 	}
@@ -13434,33 +13640,59 @@ qboolean GC_RenderNewGameWorldFrames( int count )
 			VectorCopy( center, npc_ref );
 			(void)GC_DumpEyeInFrontOfBestWall( npc_ref, dummy_ang );
 			/* Xen boss: Aim retargets look at Nihilanth from the CapFaces
-			 * capture eye when leafbox hull misses the chamber. */
-			if( GC_G376AimDumpAtLeanNpc( npc_ref )
-				&& ( GC_DumpOriginInHull( gc_g376_npc_eye )
-					|| (( !Q_strnicmp( sv.name, "c4a", 3 )
-						|| !Q_strnicmp( sv.name, "c5a", 3 ))
-						&& !VectorIsNull( gc_g376_npc_eye )
-						&& !VectorIsNull( gc_g376_npc_origin ))))
+			 * capture eye when leafbox hull misses the chamber.
+			 * Far NPC retarget (scientist ~5ku from wall-aim) collapsed
+			 * CapFaces drawn 195→8 (073315 wall-aim vs 102347); keep wall-aim
+			 * when the NPC eye is outside the CapFaces FAR_DUMP band. */
 			{
-				vec3_t npc_look, npc_right, npc_up;
+				static qboolean xen_keep_wall_aim;
+				static char xen_keep_map[32];
 
-				VectorCopy( gc_g376_npc_eye, center );
-				VectorSubtract( gc_g376_npc_origin, center, npc_look );
-				VectorAngles( npc_look, rvp.viewangles );
-				rvp.viewangles[2] = 0.0f;
-				if( rvp.viewangles[0] > 40.0f )
-					rvp.viewangles[0] = 40.0f;
-				if( rvp.viewangles[0] < -12.0f )
-					rvp.viewangles[0] = -12.0f;
-				/* Scientist hallway dumps prefer pitch 20. Xen boss: keep the
-				 * computed look at Nihilanth — forced 20 from bake eye drew
-				 * CapFaces=16 / sky (20261105-082403) and G36 samples=0. */
-				if( Q_strnicmp( sv.name, "c4a", 3 ) && Q_strnicmp( sv.name, "c5a", 3 ))
-					rvp.viewangles[0] = 20.0f;
-				gc_g376_npc_dump_active = true;
-				VectorCopy( center, gc_newgame_capture_origin );
-				AngleVectors( rvp.viewangles, gc_newgame_capture_forward,
-					npc_right, npc_up );
+				if( Q_stricmp( xen_keep_map, sv.name ))
+				{
+					xen_keep_wall_aim = false;
+					Q_strncpy( xen_keep_map, sv.name, sizeof( xen_keep_map ));
+				}
+				if( !xen_keep_wall_aim
+					&& GC_G376AimDumpAtLeanNpc( npc_ref )
+					&& ( GC_DumpOriginInHull( gc_g376_npc_eye )
+						|| (( !Q_strnicmp( sv.name, "c4a", 3 )
+							|| !Q_strnicmp( sv.name, "c5a", 3 ))
+							&& !VectorIsNull( gc_g376_npc_eye )
+							&& !VectorIsNull( gc_g376_npc_origin ))))
+				{
+					vec3_t npc_look, npc_right, npc_up, away;
+					float away_len;
+					const qboolean xen_map = !Q_strnicmp( sv.name, "c4a", 3 )
+						|| !Q_strnicmp( sv.name, "c5a", 3 );
+
+					VectorSubtract( gc_g376_npc_eye, center, away );
+					away_len = VectorLength( away );
+					if( xen_map && away_len > GC_G378_FAR_DUMP )
+					{
+						xen_keep_wall_aim = true;
+						Con_Reportf( "Xash3D GameCube: G376 keep wall-aim CapFaces (npc eye %.0fu away)\n",
+							away_len );
+					}
+					else
+					{
+						VectorCopy( gc_g376_npc_eye, center );
+						VectorSubtract( gc_g376_npc_origin, center, npc_look );
+						VectorAngles( npc_look, rvp.viewangles );
+						rvp.viewangles[2] = 0.0f;
+						if( rvp.viewangles[0] > 40.0f )
+							rvp.viewangles[0] = 40.0f;
+						if( rvp.viewangles[0] < -12.0f )
+							rvp.viewangles[0] = -12.0f;
+						/* Scientist hallway dumps prefer pitch 20. */
+						if( !xen_map )
+							rvp.viewangles[0] = 20.0f;
+						gc_g376_npc_dump_active = true;
+						VectorCopy( center, gc_newgame_capture_origin );
+						AngleVectors( rvp.viewangles, gc_newgame_capture_forward,
+							npc_right, npc_up );
+					}
+				}
 			}
 		}
 
@@ -13668,8 +13900,12 @@ qboolean GC_RenderNewGameWorldFrames( int count )
 		{
 			extern qboolean R_GXWorldDrewThisFrame( void );
 			qboolean saved_prepped = cl.video_prepped;
+			/* Frame 2 hung after GL_RenderFrame before HUD begin under
+			 * fullphysics (probe 094817). Skip lean HUD until presents settle. */
+			const qboolean skip_hud = Sys_CheckParm( "-gcfullphysics" )
+				&& GC_GetNewGamePresentCount() < 8;
 
-			if( R_GXWorldDrewThisFrame() )
+			if( R_GXWorldDrewThisFrame() && !skip_hud )
 			{
 				cl.video_prepped = true;
 				ref.dllFuncs.R_AllowFog( false );

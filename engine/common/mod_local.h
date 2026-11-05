@@ -184,6 +184,12 @@ qboolean Mod_GCWorldSurfacesScratchRetained( model_t *mod ); /* G283: scratch re
 /* G92: retained BSP scratch is not a Mem_ block — skip Mem_Free on changelevel. */
 qboolean Mod_GCIsRetainedBspScratch( const void *buf );
 void Mod_GCClearRetainedBspScratch( void );
+#if XASH_GAMECUBE
+/* G154: when LUMP_LIGHTING lives in ARAM (c5a1 tip/scratch OOM), CapFaces/G180
+ * hydrate one face's samples into a static MEM1 window via gc_surf_lightofs[]. */
+color24 *Mod_GCHydrateSurfaceLightmap( const msurface_t *surf );
+qboolean Mod_GCAramLightmapActive( void );
+#endif
 qboolean Mod_GCIsStudioBssCache( const void *ptr );
 byte *Mod_GCStudioBssAlloc( size_t size );
 byte *Mod_GCStudioArenaLoadFile( const char *path, fs_offset_t *length );

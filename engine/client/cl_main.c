@@ -38,6 +38,7 @@ void GC_SetLoadingProgress( float progress );
 void GC_ArmPostMapFrameBudgetSamples( void );
 qboolean GC_IsNewGameG36Done( void );
 qboolean GC_IsNewGameWorldReady( void );
+qboolean GC_IsFrameBudgetProbeActive( void );
 qboolean GC_RenderNewGameWorldFrames( int count );
 qboolean GC_UseGxWorldDraw( void );
 qboolean CL_GameCubeClientProgsReady( void );
@@ -4050,7 +4051,15 @@ void Host_ClientFrame( void )
 		 * Call after ArmLeanPlayActive so first-boot arm is not stomped. */
 		CL_CheckForResend();
 		GC_UpdateNewGameIntroAudio();
-		SCR_UpdateScreen();
+		/* Changelevel dest re-arms the G36 probe while g36_done stays sticky
+		 * from the source map. Full SCR CapFaces then scored ≈62ms WEAK
+		 * (c4a3→c5a1 probe 20261105-105312). Score presents without a world
+		 * redraw while the probe is active — same early-Present path as
+		 * direct-map c5a1 (~1.7ms). */
+		if( GC_IsFrameBudgetProbeActive() && ref.initialized )
+			ref.dllFuncs.R_EndFrame();
+		else
+			SCR_UpdateScreen();
 		SND_UpdateSound();
 		if( gc_scr_sustain_log < 4 )
 		{
