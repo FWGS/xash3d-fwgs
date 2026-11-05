@@ -76,9 +76,12 @@ static qboolean gc_clipnodes_pool_block;
 #define GC_STATIC_HULL0_CAPACITY    16384
 static mclipnode16_t gc_static_clipnodes[GC_STATIC_CLIPNODE_CAPACITY]
 	__attribute__((aligned( 32 )));
-/* Hull 0 is a separate normalized node table; keep a second bounded reserve
- * so large retail BSPs can finish world setup when MEM1 is fragmented. */
-static mclipnode16_t *gc_static_hull0;
+/* Hull 0 as BSS (like clipnodes): heap memalign of even 26 KiB fails under
+ * c4a3 smoke fragmentation (free≈50 Kb, probe 20261105-065947) after the
+ * durable surfedges tail copy. 128 KiB fixed cost; never tip-fatal. */
+static mclipnode16_t gc_static_hull0_storage[GC_STATIC_HULL0_CAPACITY]
+	__attribute__((aligned( 32 )));
+static mclipnode16_t *gc_static_hull0 = gc_static_hull0_storage;
 static qboolean gc_clipnodes_static_block;
 static qboolean gc_clipnodes_scratch_block; /* in-place normalized scratch lump */
 /* Submodel table is tiny (~64 B each) but tip-fatal / fragmented after denser
@@ -122,7 +125,7 @@ qboolean Mod_GCEnsureStaticReserves( void )
 	/* Smallest first so a tight heap still gets the cheap guarantees. */
 	Mod_GCTakeReserve( (void **)&gc_static_submodels, sizeof( dmodel_t ) * GC_STATIC_SUBMODEL_CAPACITY, "submodels" );
 	Mod_GCTakeReserve( (void **)&gc_static_entities, GC_STATIC_ENTITIES_BYTES, "entities" );
-	Mod_GCTakeReserve( (void **)&gc_static_hull0, sizeof( mclipnode16_t ) * GC_STATIC_HULL0_CAPACITY, "hull0" );
+	/* hull0 is BSS (gc_static_hull0_storage) — no heap reserve. */
 	Mod_GCTakeReserve( (void **)&gc_static_nodes, GC_STATIC_NODES_BYTES, "nodes" );
 	return gc_static_submodels && gc_static_entities && gc_static_hull0 && gc_static_nodes;
 }
@@ -3591,6 +3594,48 @@ Mod_LoadSurfEdges
 static void Mod_LoadSurfEdges( model_t *mod, dbspmodel_t *bmod )
 {
 #if XASH_GAMECUBE
+	/* Surfedges BEFORE faces: c4a3's pre-surface window is ~160 KiB after the
+	 * pack pool. Faces (103 KiB) first left no room for surfedges (87 KiB),
+	 * forcing an alias that CapFaces later walked as 0x04/0x24 fill (Guru
+	 * 0x04040404). Prefer durable surfedges; faces may alias if the tail is
+	 * spent. Never take a BSP scratch hole (hull0 needs it) or tip heap
+	 * (CL_InitViewBeams fatal, probe 20261104-035124). */
+	if( GC_MapLoadMemoryOpt() && bmod->isworld && bmod->surfedges
+		&& gc_bsp_scratch_base && Mod_GCPointerInBuffer( bmod->surfedges,
+			gc_bsp_scratch_base, gc_bsp_scratch_size ))
+	{
+		const size_t bytes = bmod->numsurfedges * sizeof( dsurfedge_t );
+		void *copy = Mod_GCPreSurfaceTailAlloc(
+			GC_MapLoadBufferTailHighwater( ), bytes );
+
+		if( copy )
+		{
+			memcpy( copy, bmod->surfedges, bytes );
+			mod->surfedges = copy;
+			mod->numsurfedges = bmod->numsurfedges;
+			gc_surfedges_source_alias = false;
+			Con_Reportf( "Xash3D GameCube: world surfedges copied to map tail %s\n",
+				Q_memprint( bytes ));
+		}
+		else
+		{
+			mod->surfedges = bmod->surfedges;
+			gc_surfedges_source_alias = true;
+			mod->numsurfedges = bmod->numsurfedges;
+			gc_retain_bsp_source_buffer = true;
+			Con_Reportf( "Xash3D GameCube: world surfedges alias retained BSP source %s\n",
+				Q_memprint( bytes ));
+		}
+	}
+	else
+#endif
+	{
+		mod->surfedges = Mod_GCWorldArrayAlloc( mod, bmod, bmod->numsurfedges * sizeof( dsurfedge_t ), "surfedges" );
+		memcpy( mod->surfedges, bmod->surfedges, bmod->numsurfedges * sizeof( dsurfedge_t ));
+		mod->numsurfedges = bmod->numsurfedges;
+	}
+
+#if XASH_GAMECUBE
 	if( GC_MapLoadMemoryOpt() && bmod->isworld && bmod->version != QBSP2_VERSION
 		&& bmod->surfaces && gc_bsp_scratch_base
 		&& Mod_GCPointerInBuffer( bmod->surfaces, gc_bsp_scratch_base, gc_bsp_scratch_size ))
@@ -3614,30 +3659,7 @@ static void Mod_LoadSurfEdges( model_t *mod, dbspmodel_t *bmod )
 				Q_memprint( bytes ));
 		}
 	}
-	/* Surfedges are already a flat int32 table in the BSP image. On the
-	 * fragmented c1a1f route, alias that retained source lump instead of
-	 * allocating a second 102 KiB copy; the source arena is pinned through
-	 * surface conversion and released with the map as a whole. */
-	if( GC_MapLoadMemoryOpt() && bmod->isworld && bmod->surfedges
-		&& gc_bsp_scratch_base && Mod_GCPointerInBuffer( bmod->surfedges,
-			gc_bsp_scratch_base, gc_bsp_scratch_size ))
-	{
-		/* Alias the retained BSP lump — a forced WorldArray copy of c4a3's
-		 * 87 KiB table spilled onto the tip heap and fatal'd CL_InitViewBeams
-		 * (probe 20261104-035124). R_GXEmitFace now bounds-checks bad indices
-		 * if the alias is ever stomped (hardware Guru Meditation 0x04040404). */
-		mod->surfedges = bmod->surfedges;
-		gc_surfedges_source_alias = true;
-		mod->numsurfedges = bmod->numsurfedges;
-		gc_retain_bsp_source_buffer = true;
-		Con_Reportf( "Xash3D GameCube: world surfedges alias retained BSP source %s\n",
-			Q_memprint( bmod->numsurfedges * sizeof( dsurfedge_t )));
-		return;
-	}
 #endif
-	mod->surfedges = Mod_GCWorldArrayAlloc( mod, bmod, bmod->numsurfedges * sizeof( dsurfedge_t ), "surfedges" );
-	memcpy( mod->surfedges, bmod->surfedges, bmod->numsurfedges * sizeof( dsurfedge_t ));
-	mod->numsurfedges = bmod->numsurfedges;
 }
 
 /*
@@ -4023,12 +4045,21 @@ static struct
  * full texture chains live in ARAM and this pool only holds active low mips. */
 #define GC_WT_POOL_BYTES ( 448 * 1024 )
 #define GC_WT_MIN_POOL_BYTES ( 16 * 1024 )
+/* 320 KiB BSS starved MEM1 (~320 KiB less unclaimed) and hung c4a3 before
+ * "spawn server ready" (probe 20261105-075457). 96 KiB still beats the 16 KiB
+ * tip pack while leaving tip for ClearWorld / entity spawn. */
+#define GC_WT_DURABLE_BSS_BYTES ( 96 * 1024 )
 #define GC_WT_TAIL_GUARD_BYTES ( 96 * 1024 )
 #define GC_WT_SPLIT_DIM  64
 #define GC_WT_MIN_HOT_BYTES ( 32 * 1024 )
 static byte *gc_wt_pool;
 static size_t gc_wt_pool_bytes;
 static qboolean gc_wt_pool_mapload_tail;
+/* Fullphysics CapFaces: tip malloc cannot hold a sharp pack at load time
+ * (c4a3 20261105-075103: only 16 KiB heap succeeded). BSS survives without
+ * competing with the MEM1 tip freelist. */
+static byte gc_wt_durable_bss[GC_WT_DURABLE_BSS_BYTES] __attribute__((aligned( 32 )));
+static qboolean gc_wt_pool_durable_bss;
 
 /*
  * Move scratch-/tail-backed world planes onto malloc and rebase every
@@ -4053,25 +4084,15 @@ static qboolean Mod_GCPromoteWorldPlanes( model_t *mod )
 	bytes = (size_t)mod->numplanes * sizeof( mplane_t );
 	old_planes = mod->planes;
 
-	{
-		extern void R_GCPackedRelease( void );
-
-		if( gc_wt.block )
-			R_GCPackedRelease();
-		if( gc_wt_pool && !gc_wt_pool_mapload_tail )
-		{
-			free( gc_wt_pool );
-			gc_wt_pool = NULL;
-			gc_wt_pool_bytes = 0;
-		}
-		memset( &gc_wt, 0, sizeof( gc_wt ));
-		Image_GCPurgeDecodeScratch();
-	}
-
+	/* Never reclaim the world CMPR pack for planes promote. Prior builds
+	 * freed the pack, failed the ~450 KiB malloc anyway, and left CapFaces
+	 * with pixels=0 (c4a3 20261105-074419). Scratch/pinned planes remain
+	 * usable for CapFaces; pack retention matters more for Flipper stills. */
+	Image_GCPurgeDecodeScratch();
 	promoted = (mplane_t *)malloc( bytes );
 	if( !promoted )
 	{
-		Con_Reportf( S_WARN "Xash3D GameCube: world planes promote failed %s\n",
+		Con_Reportf( S_WARN "Xash3D GameCube: world planes promote failed %s (pack retained)\n",
 			Q_memprint( bytes ));
 		return false;
 	}
@@ -4289,6 +4310,12 @@ static void Mod_GCWorldPackLoad( const char *modelname, size_t surface_reserve )
 		gc_wt_pool_bytes = 0;
 		gc_wt_pool_mapload_tail = false;
 	}
+	if( gc_wt_pool_durable_bss )
+	{
+		gc_wt_pool = NULL;
+		gc_wt_pool_bytes = 0;
+		gc_wt_pool_durable_bss = false;
+	}
 	/* Smoke/New Game boots use -gcnewgame without the retail menu-start
 	 * switch. They still need the same ARAM world-pack path; otherwise the
 	 * BSP's embedded textures are decoded into MEM1 and produce misleading
@@ -4347,19 +4374,35 @@ static void Mod_GCWorldPackLoad( const char *modelname, size_t surface_reserve )
 		 * despite ~500 KiB of free pre-surface tail (probe 20261104-030354). */
 		if( remaining < pool_bytes )
 			pool_bytes = remaining >= GC_WT_MIN_POOL_BYTES ? ( remaining & ~(size_t)31 ) : 0;
-		gc_wt_pool = pool_bytes ? (byte *)Mod_GCPreSurfaceTailAlloc( after, pool_bytes ) : NULL;
-		if( gc_wt_pool )
+		/* Fullphysics CapFaces need the CMPR pack to survive surface/scratch
+		 * reclaim. Prefer the durable BSS slab — tip malloc only yields 16 KiB
+		 * at pack time on c4a3 (20261105-075103). */
+		if( Sys_CheckParm( "-gcfullphysics" ))
 		{
-			gc_wt_pool_mapload_tail = true;
+			pool_bytes = GC_WT_DURABLE_BSS_BYTES;
+			gc_wt_pool = gc_wt_durable_bss;
 			gc_wt_pool_bytes = pool_bytes;
-			Con_Reportf( "Xash3D GameCube: world texture pack pool using map-load arena tail %s%s\n",
-				Q_memprint( pool_bytes ), pool_bytes < GC_WT_POOL_BYTES ? " (surface-reserved)" : "" );
+			gc_wt_pool_mapload_tail = false;
+			gc_wt_pool_durable_bss = true;
+			Con_Reportf( "Xash3D GameCube: world texture pack pool using BSS %s (fullphysics durable)\n",
+				Q_memprint( pool_bytes ));
 		}
-		else
+		if( !gc_wt_pool )
 		{
-			pool_bytes = gc_bsp_surface_reserve ? GC_WT_MIN_POOL_BYTES : GC_WT_POOL_BYTES;
-			gc_wt_pool = memalign( 32, pool_bytes );
-			if( gc_wt_pool ) gc_wt_pool_bytes = pool_bytes;
+			gc_wt_pool = pool_bytes ? (byte *)Mod_GCPreSurfaceTailAlloc( after, pool_bytes ) : NULL;
+			if( gc_wt_pool )
+			{
+				gc_wt_pool_mapload_tail = true;
+				gc_wt_pool_bytes = pool_bytes;
+				Con_Reportf( "Xash3D GameCube: world texture pack pool using map-load arena tail %s%s\n",
+					Q_memprint( pool_bytes ), pool_bytes < GC_WT_POOL_BYTES ? " (surface-reserved)" : "" );
+			}
+			else
+			{
+				pool_bytes = gc_bsp_surface_reserve ? GC_WT_MIN_POOL_BYTES : GC_WT_POOL_BYTES;
+				gc_wt_pool = memalign( 32, pool_bytes );
+				if( gc_wt_pool ) gc_wt_pool_bytes = pool_bytes;
+			}
 		}
 	}
 	if( !gc_wt_pool )
@@ -7527,17 +7570,12 @@ static void Mod_LoadClipnodes( model_t *mod, dbspmodel_t *bmod )
 				{
 					mclipnode16_t *promoted;
 					qboolean from_pool = false;
+					qboolean pack_reclaimed = false;
 					extern void R_GCPackedRelease( void );
 
-					if( gc_wt.block )
-						R_GCPackedRelease();
-					if( gc_wt_pool && !gc_wt_pool_mapload_tail )
-					{
-						free( gc_wt_pool );
-						gc_wt_pool = NULL;
-						gc_wt_pool_bytes = 0;
-					}
-					memset( &gc_wt, 0, sizeof( gc_wt ));
+					/* Prefer keeping the world CMPR pack resident. Eager pack
+					 * reclaim left CapFaces with pixels=0 / no gc_packed
+					 * (c4a3 20261105-074025: G198 xeno_16e bind fail → flat). */
 					Image_GCPurgeDecodeScratch();
 					promoted = (mclipnode16_t *)malloc( clip_sz );
 					if( !promoted )
@@ -7546,14 +7584,41 @@ static void Mod_LoadClipnodes( model_t *mod, dbspmodel_t *bmod )
 						if( promoted )
 							from_pool = true;
 					}
+					if( !promoted && gc_wt.block )
+					{
+						R_GCPackedRelease();
+						if( gc_wt_pool && !gc_wt_pool_mapload_tail && !gc_wt_pool_durable_bss )
+						{
+							free( gc_wt_pool );
+							gc_wt_pool = NULL;
+							gc_wt_pool_bytes = 0;
+						}
+						else if( gc_wt_pool_durable_bss )
+						{
+							gc_wt_pool = NULL;
+							gc_wt_pool_bytes = 0;
+							gc_wt_pool_durable_bss = false;
+						}
+						memset( &gc_wt, 0, sizeof( gc_wt ));
+						pack_reclaimed = true;
+						Image_GCPurgeDecodeScratch();
+						promoted = (mclipnode16_t *)malloc( clip_sz );
+						if( !promoted )
+						{
+							promoted = (mclipnode16_t *)Mem_TryMalloc( mod->mempool, clip_sz );
+							if( promoted )
+								from_pool = true;
+						}
+					}
 					if( promoted )
 					{
 						memcpy( promoted, owned, clip_sz );
 						owned = promoted;
 						gc_clipnodes_scratch_block = false;
 						gc_clipnodes_pool_block = from_pool;
-						Con_Reportf( "Xash3D GameCube: promoted scratch clipnodes to heap %s\n",
-							Q_memprint( clip_sz ));
+						Con_Reportf( "Xash3D GameCube: promoted scratch clipnodes to heap %s%s\n",
+							Q_memprint( clip_sz ),
+							pack_reclaimed ? " (pack reclaimed)" : " (pack retained)" );
 					}
 					else
 						Con_Reportf( S_WARN "Xash3D GameCube: scratch clipnodes promote failed %s\n",

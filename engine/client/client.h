@@ -1297,6 +1297,7 @@ extern net_api_t gNetApi;
 #if XASH_GAMECUBE
 qboolean CL_GameCubeClientProgsReady( void );
 qboolean CL_GameCubeEnsureClientReady( void );
+void CL_GameCubeArmLeanPlayActive( void );
 void CL_GameCubeUnloadClientForMapLoad( void );
 void UI_GameCubeLeaveMenuOnlyBootstrap( void );
 void UI_GameCubeReleaseMenuTextures( void );

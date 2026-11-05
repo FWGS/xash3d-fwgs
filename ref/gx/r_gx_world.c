@@ -781,6 +781,23 @@ static int R_GXSnapDimMax( int n, int max_dim )
 	return d < 4 ? 4 : d;
 }
 
+/* HUD/menu art: round up so 156×78 btn strips keep all three 26px states.
+ * Rounding down (78→76) made PIC rects for PRESSED sample past the tiled
+ * height and wrap/fringe into chroma noise under GX_REPEAT. */
+static int R_GXSnapDimUpMax( int n, int max_dim )
+{
+	int d;
+
+	if( n < 4 )
+		return 4;
+	if( n > max_dim )
+		n = max_dim;
+	d = ( n + 3 ) & ~3;
+	if( d > max_dim )
+		d = max_dim & ~3;
+	return d < 4 ? 4 : d;
+}
+
 static int R_GXSnapDim( int n )
 {
 	return R_GXSnapDimMax( n, GC_GX_TEX_WORLD_MAX_DIM );
@@ -1601,8 +1618,8 @@ static gc_gx_tex_t *R_GXBindTexnum( unsigned texnum, qboolean hud_bind )
 	src_h = img->height;
 	if( hud_bind )
 	{
-		dst_w = R_GXSnapDimMax( src_w, GC_GX_TEX_HUD_MAX_DIM );
-		dst_h = R_GXSnapDimMax( src_h, GC_GX_TEX_HUD_MAX_DIM );
+		dst_w = R_GXSnapDimUpMax( src_w, GC_GX_TEX_HUD_MAX_DIM );
+		dst_h = R_GXSnapDimUpMax( src_h, GC_GX_TEX_HUD_MAX_DIM );
 		/* Wide HUD sheets (credits font / title logo) keep source width when
 		 * the area fits the HUD tile budget. */
 		if( src_w > GC_GX_TEX_WORLD_MAX_DIM && src_w <= GC_GX_TEX_HUD_MAX_DIM
@@ -1704,8 +1721,15 @@ static gc_gx_tex_t *R_GXBindTexnum( unsigned texnum, qboolean hud_bind )
 	R_GXSwizzleRGB565( r_gx_tex_linear, dst_w, dst_w, dst_h, t->tiled );
 	DCFlushRange( t->tiled, (u32)bytes );
 
-	GX_InitTexObj( &t->obj, t->tiled, (u16)dst_w, (u16)dst_h,
-		want_fmt, GX_REPEAT, GX_REPEAT, GX_FALSE );
+	{
+		/* Menu tiles are full-bleed sheets; REPEAT wraps edge UVs into the
+		 * opposite side (chroma fringe). Match dedicated background CLAMP. */
+		const u8 wrap = ( hud_bind && img->name[0]
+			&& Q_stristr( img->name, "gc_menu/" )) ? (u8)GX_CLAMP : (u8)GX_REPEAT;
+
+		GX_InitTexObj( &t->obj, t->tiled, (u16)dst_w, (u16)dst_h,
+			want_fmt, wrap, wrap, GX_FALSE );
+	}
 	/* G203: LINEAR on world diffuse; HUD stays NEAR for crisp sprites,
 	 * except fonts created without TF_NEAREST (drawn minified 2:1) and the
 	 * high-res title logo which is stretched across the menu. */

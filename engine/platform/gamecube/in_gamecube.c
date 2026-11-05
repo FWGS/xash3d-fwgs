@@ -801,6 +801,44 @@ static u16 GC_ProbeSyntheticHeldButtons( void )
 	}
 }
 
+/* Walk out of the tram on c0a0e into the c1a0 trigger. Shared by real-pad
+ * and synthetic probe paths — synthetic used to return before this ran
+ * (probe 20261105-060454 stuck at org≈-1073,-490). */
+static qboolean GC_AutohopC0a0eWalkAxes( short *forward, short *side, short *yaw )
+{
+	static const float route[][2] = {
+		{ -1073, -530 }, { -1073, -735 }, { -1500, -620 }, { -2000, -590 }, { -2520, -590 }
+	};
+	static int leg;
+	static qboolean logged;
+	float dx, dy;
+
+	if( Q_stricmp( sv.name, "c0a0e" ) || sv.time <= 28.0 || !Sys_CheckParm( "-gcautohop" ))
+		return false;
+	if( cls.state != ca_active || cls.signon != SIGNONS )
+		return false;
+
+	dx = route[leg][0] - cl.simorg[0];
+	dy = route[leg][1] - cl.simorg[1];
+	if( dx * dx + dy * dy < 40.0f * 40.0f && leg + 1 < (int)( sizeof( route ) / sizeof( route[0] )))
+		leg++;
+	dx = route[leg][0] - cl.simorg[0];
+	dy = route[leg][1] - cl.simorg[1];
+	cl.viewangles[YAW] = anglemod( atan2( dy, dx ) * ( 180.0f / M_PI_F ));
+	*forward = GC_StickToShort( -127 );
+	*side = 0;
+	*yaw = 0;
+	gc_pad[GC_PAD_PREFERRED].stickX = 0;
+	gc_pad[GC_PAD_PREFERRED].stickY = 127;
+	if( !logged )
+	{
+		logged = true;
+		Con_Reportf( "Xash3D GameCube: autohop c0a0e walk begin org=%.0f,%.0f,%.0f\n",
+			cl.simorg[0], cl.simorg[1], cl.simorg[2] );
+	}
+	return true;
+}
+
 static void GC_UpdateProbeSyntheticAxes( void )
 {
 	short forward = 0;
@@ -809,7 +847,11 @@ static void GC_UpdateProbeSyntheticAxes( void )
 	short pitch = 0;
 	signed char stick_x = 0, stick_y = 0, cstick_x = 0, cstick_y = 0;
 
-	if( GC_TasActive() || GC_TasComplete() )
+	if( GC_AutohopC0a0eWalkAxes( &forward, &side, &yaw ))
+	{
+		/* Prefer tram-exit walk over TAS/native-move filler on c0a0e. */
+	}
+	else if( GC_TasActive() || GC_TasComplete() )
 	{
 		GC_TasGetSticks( &stick_x, &stick_y, &cstick_x, &cstick_y );
 		gc_pad[GC_PAD_PREFERRED].stickX = stick_x;
@@ -1016,19 +1058,16 @@ void Platform_RunEvents( void )
 	if( !connected )
 		return;
 
-	/* Probe: walk out of the tram at c0a0e as a held stick would, through the
-	 * real usercmd and player movement, once the door has opened. */
-	if( !Q_stricmp( sv.name, "c0a0e" ) && sv.time > 28.0 && Sys_CheckParm( "-gcautohop" ))
+	/* Probe: walk out of the tram at c0a0e (also runs on synthetic path via
+	 * GC_UpdateProbeSyntheticAxes). */
 	{
-		static const float route[][2] = { { -1073, -530 }, { -1073, -735 }, { -1500, -620 }, { -2000, -590 }, { -2520, -590 } };
-		static int leg;
-		const float dx = route[leg][0] - cl.simorg[0], dy = route[leg][1] - cl.simorg[1];
+		short fwd = 0, side = 0, yaw = 0;
 
-		if( dx * dx + dy * dy < 40.0f * 40.0f && leg + 1 < (int)( sizeof( route ) / sizeof( route[0] )))
-			leg++;
-		gc_pad[port].stickX = 0;
-		gc_pad[port].stickY = 127;
-		cl.viewangles[YAW] = anglemod( atan2( dy, dx ) * ( 180.0f / M_PI_F ));
+		if( GC_AutohopC0a0eWalkAxes( &fwd, &side, &yaw ))
+		{
+			gc_pad[port].stickX = 0;
+			gc_pad[port].stickY = 127;
+		}
 	}
 
 	held = gc_pad[port].button;

@@ -747,9 +747,17 @@ static void GL_ProcessImage( image_t *tex, rgbdata_t *pic )
 				tex->original = gEngfuncs.FS_CopyImage( pic ); // because current pic will be expanded to rgba
 		}
 
-		// we need to expand image into RGBA buffer
-		if( pic->type == PF_INDEXED_24 || pic->type == PF_INDEXED_32 )
+		/* Soft pack in GL_UploadTexture always samples RGBA (data[i*4+…]).
+		 * Indexed and packed RGB24/BGR24 (retail gc_menu bg_/btn_ TGAs) must
+		 * expand first — otherwise soft majors mis-align into horizontal
+		 * chroma noise on every HUD tile. */
+		if( pic->type == PF_INDEXED_24 || pic->type == PF_INDEXED_32
+			|| pic->type == PF_RGB_24 || pic->type == PF_BGR_24 )
 			img_flags |= IMAGE_FORCE_RGBA;
+
+		/* Match ref_gl: apply MAKE_LUMA / FORCE_RGBA before upload. */
+		if( pic->buffer && img_flags )
+			gEngfuncs.Image_Process( &pic, 0, 0, img_flags, 0.0f );
 
 		if( FBitSet( tex->flags, TF_LUMINANCE ))
 			ClearBits( pic->flags, IMAGE_HAS_COLOR );

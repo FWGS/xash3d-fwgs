@@ -272,5 +272,8 @@ qboolean Netchan_IsLocal( netchan_t *chan );
 void Netchan_ReportFlow( netchan_t *chan );
 void Netchan_FragSend( netchan_t *chan );
 void Netchan_Clear( netchan_t *chan );
+#if XASH_GAMECUBE
+void Netchan_GCResetEmergency( void );
+#endif
 
 #endif//NET_MSG_H

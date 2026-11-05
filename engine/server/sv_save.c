@@ -2518,6 +2518,9 @@ void SV_ChangeLevel( qboolean loadfromsavedgame, const char *mapname, const char
 	Con_Reportf( "Xash3D GameCube: SV_ChangeLevel begin map=%s start=%s loadsave=%d\n",
 		mapname ? mapname : "?", start ? start : "(none)", loadfromsavedgame ? 1 : 0 );
 	SV_GCReportHopRider( "before transition" );
+	/* Mid-tram emergency fragbufs must not stay busy across reconnect —
+	 * probe 20261105-054353 never received Serverdata after c0a0→c0a0a. */
+	Netchan_GCResetEmergency();
 	/* G92: drop New Game PVS pins before the world model is unloaded. */
 	GC_ResetNewGameWorldForChangelevel();
 	Con_Reportf( "Xash3D GameCube: SV_ChangeLevel after teardown\n" );

@@ -1364,8 +1364,12 @@ qboolean SV_SpawnServer( const char *mapname, const char *startspot, qboolean ba
 		extern void Mod_GCReleaseStudioArena( void );
 		extern void S_GCReleaseIdleSounds( void );
 
+		Con_Reportf( "Xash3D GameCube: pre-spawn studio arena release begin\n" );
 		Mod_GCReleaseStudioArena();
+		Con_Reportf( "Xash3D GameCube: pre-spawn studio arena release ready\n" );
+		Con_Reportf( "Xash3D GameCube: pre-spawn idle sounds release begin\n" );
 		S_GCReleaseIdleSounds();
+		Con_Reportf( "Xash3D GameCube: pre-spawn idle sounds release ready\n" );
 	}
 	/* GC_DrawLoadingStatus / progress hung tram→AM changelevel after FreeUnused
 	 * (probe 20260829-054115). Skip draws on probe hops; keep trim/purge. */

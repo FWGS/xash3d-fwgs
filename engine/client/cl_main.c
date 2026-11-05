@@ -63,16 +63,18 @@ signon=0/2). Promote to ca_active after Flipper Prepare so SCR emits
 post-G36 sustained markers and G45 synthetic actions can run.
 ===========
 */
-static void CL_GameCubeArmLeanPlayActive( void )
+void CL_GameCubeArmLeanPlayActive( void )
 {
 	static qboolean armed;
 	netadr_t loopback;
 
 	if( armed )
 		return;
-	if( !( Sys_CheckParm( "-gcnewgame" ) || Sys_CheckParm( "-gcmenuplaystart" ))
-		|| Sys_CheckParm( "-gcfullphysics" ))
+	if( !( Sys_CheckParm( "-gcnewgame" ) || Sys_CheckParm( "-gcmenuplaystart" )))
 		return;
+	/* Fullphysics still primes the server player without a client handshake
+	 * (c4a3 probe 20261105-070116: state=0 after ensure). Promote ca_active
+	 * so SCR CapFaces / G36 presents can run; ServerFrame keeps full physics. */
 	if( !GC_IsNewGameG36Done() || !GC_IsNewGameWorldReady() )
 		return;
 	if( !SV_Active() )
@@ -114,7 +116,12 @@ static void CL_GameCubeArmLeanPlayActive( void )
 		char worldbase[MAX_QPATH];
 
 		/* Direct-map / reconnect can leave clgame.mapname empty; harness
-		 * matches play start ready <SMOKE_MAP> (c3a2 logged c0a0 fallback). */
+		 * matches play start ready <SMOKE_MAP> (c3a2 logged c0a0 fallback).
+		 * Fullphysics c4a3 primed ca_active before cl.worldmodel (20261105-071908
+		 * logged "unknown") — prefer -gcmap / worldmodel / servername. */
+		if( !map[0] && Sys_GetParmFromCmdLine( "-gcmap", worldbase )
+			&& worldbase[0] )
+			map = worldbase;
 		if( !map[0] && cl.worldmodel && cl.worldmodel->name[0] )
 		{
 			COM_FileBase( cl.worldmodel->name, worldbase, sizeof( worldbase ));
@@ -4023,7 +4030,7 @@ void Host_ClientFrame( void )
 	 * G278: drain net so ride SFX can reach the mixer; stream intro VO. */
 	if( ( Sys_CheckParm( "-gcnewgame" ) || Sys_CheckParm( "-gcmenuplaystart" ))
 		&& GC_IsNewGameG36Done()
-		&& GC_IsNewGameWorldReady() && !Sys_CheckParm( "-gcfullphysics" ))
+		&& GC_IsNewGameWorldReady() )
 	{
 		static int gc_scr_sustain_log;
 
@@ -4031,9 +4038,16 @@ void Host_ClientFrame( void )
 		CL_ReadPackets();
 		/* Lean sustain used to return before CheckClientState, so reconnect
 		 * never promoted connected+SIGNONS → ca_active. Direct-map also stays
-		 * disconnected after server-only player prime — arm lean play active. */
+		 * disconnected after server-only player prime — arm lean play active.
+		 * Fullphysics uses the same SCR sustain so CapFaces/G36 can present
+		 * before pfnFrame stalls denser Xen maps (c4a3 20261105-070116). */
 		CL_CheckClientState();
 		CL_GameCubeArmLeanPlayActive();
+		/* svc_changing sets ca_disconnected; lean early-return used to skip
+		 * CheckForResend so reconnect never ran (probe 20261105-055838:
+		 * MAP_READY c0a0a then no Serverdata / "Trying to connect").
+		 * Call after ArmLeanPlayActive so first-boot arm is not stomped. */
+		CL_CheckForResend();
 		GC_UpdateNewGameIntroAudio();
 		SCR_UpdateScreen();
 		SND_UpdateSound();

@@ -3373,6 +3373,7 @@ static void GC_CaptureDrawFacesNoPVS( model_t *wmodel )
 	for( i = 0; i < wmodel->numsurfaces; i++ )
 	{
 		msurface_t *src = &wmodel->surfaces[i];
+		texture_t *mt;
 		int area;
 		qboolean is_wall;
 
@@ -3380,18 +3381,31 @@ static void GC_CaptureDrawFacesNoPVS( model_t *wmodel )
 			continue;
 		if( src->flags & ( SURF_DRAWSKY | SURF_DRAWTURB | SURF_TRANSPARENT ))
 			continue;
+		/* Skip non-world/tool textures that bind with pixels=0 and force flat
+		 * CapFaces (c4a3 20261105-073315: G198 aaatrigger → purple stills). */
+		mt = ( src->texinfo && src->texinfo->texture ) ? src->texinfo->texture : NULL;
+		if( mt && ( mt->name[0] == '!' || !Q_strnicmp( mt->name, "aaatrigger", 10 )
+			|| !Q_strnicmp( mt->name, "clip", 4 )
+			|| !Q_strnicmp( mt->name, "origin", 6 )
+			|| !Q_strnicmp( mt->name, "skip", 4 )
+			|| !Q_strnicmp( mt->name, "hint", 4 )
+			|| !Q_strnicmp( mt->name, "null", 4 )))
+			continue;
 		area = (int)src->extents[0] * (int)src->extents[1];
 		if( area <= 0 )
 			continue;
 		is_wall = ( fabs( src->plane->normal[2] ) < 0.35f );
 		area = GC_CapNearEyeSurfScore( wmodel, src, area, is_wall );
+		/* Prefer faces that already have a gl_texturenum (pack-loaded). */
+		if( mt && mt->gl_texturenum > 0 )
+			area += area / 4;
 
 		if( gc_newgame_cap_face_count < area_slots )
 		{
 			if( !GC_CaptureOneDrawFaceAtEx( wmodel, i, gc_newgame_cap_face_count, true ))
 				continue;
 			gc_newgame_cap_areas[gc_newgame_cap_face_count] = area;
-			if( src->texinfo && src->texinfo->texture )
+			if( mt )
 				gc_newgame_cap_tex_faces++;
 			gc_newgame_cap_face_count++;
 			continue;
@@ -3545,6 +3559,7 @@ static void GC_CaptureDrawFacesFromSurfbits( model_t *wmodel, const byte *surfbi
 	for( i = 0; i < wmodel->numsurfaces; i++ )
 	{
 		msurface_t *src;
+		texture_t *mt;
 		int area;
 		int score;
 		qboolean is_wall;
@@ -3556,6 +3571,14 @@ static void GC_CaptureDrawFacesFromSurfbits( model_t *wmodel, const byte *surfbi
 			continue;
 		if( src->flags & ( SURF_DRAWSKY | SURF_DRAWTURB | SURF_TRANSPARENT ))
 			continue;
+		mt = ( src->texinfo && src->texinfo->texture ) ? src->texinfo->texture : NULL;
+		if( mt && ( mt->name[0] == '!' || !Q_strnicmp( mt->name, "aaatrigger", 10 )
+			|| !Q_strnicmp( mt->name, "clip", 4 )
+			|| !Q_strnicmp( mt->name, "origin", 6 )
+			|| !Q_strnicmp( mt->name, "skip", 4 )
+			|| !Q_strnicmp( mt->name, "hint", 4 )
+			|| !Q_strnicmp( mt->name, "null", 4 )))
+			continue;
 		area = (int)src->extents[0] * (int)src->extents[1];
 		if( area <= 0 )
 			continue;
@@ -3564,6 +3587,8 @@ static void GC_CaptureDrawFacesFromSurfbits( model_t *wmodel, const byte *surfbi
 			wall_boost++;
 		/* AABB-to-eye when capture origin is set (menu tram bake / restream). */
 		score = GC_CapNearEyeSurfScore( wmodel, src, area, is_wall );
+		if( mt && mt->gl_texturenum > 0 )
+			score += score / 4;
 		/* Menu: skip eye-back faces entirely (score was crushed to area/32). */
 		if( Sys_CheckParm( "-gcmenuplaystart" ) && score <= ( area / 16 ) )
 			continue;
@@ -12332,6 +12357,19 @@ void GC_CaptureNewGamePVSFromModel( model_t *wmodel )
 		SYS_Report( "Xash3D GameCube: Capture FatPVS skipped vis=%d\n",
 			wmodel->visdata ? 1 : 0 );
 		gc_newgame_capture_novis = true;
+		/* Fullphysics reclaims retained vis for clipnodes on dense Xen
+		 * (c4a3 probe 20261105-071908: CapFaces surfs n=0 / stable_frame
+		 * FAIL). Bake NoPVS CapFaces while world surfaces are still live. */
+		if( wmodel->surfaces && wmodel->numsurfaces > 0
+			&& gc_newgame_cap_face_count <= 0 )
+		{
+			Image_GCPurgeDecodeScratch();
+			Con_Reportf( "Xash3D GameCube: CapFaces NoPVS after vis reclaim surfs=%d\n",
+				wmodel->numsurfaces );
+			GC_CaptureDrawFacesNoPVS( wmodel );
+			Con_Reportf( "Xash3D GameCube: CapFaces NoPVS after vis reclaim done n=%d\n",
+				gc_newgame_cap_face_count );
+		}
 		return;
 	}
 
@@ -13909,7 +13947,6 @@ qboolean GC_PrepareNewGameWorldPresent( void )
 		 * at samples=0 / MAP_LOADED_RENDER_UNKNOWN (c3a2 20260809-010537). */
 		if( !already_g36
 			&& ( Sys_CheckParm( "-gcnewgame" ) || Sys_CheckParm( "-gcmenuplaystart" ))
-			&& !Sys_CheckParm( "-gcfullphysics" )
 			&& !Sys_CheckParm( "-gcsoftworld" ))
 		{
 			qboolean arm_g36 = true;
@@ -13918,7 +13955,10 @@ qboolean GC_PrepareNewGameWorldPresent( void )
 
 			/* G374: with an explicit changelevel hop, only sample the final dest.
 			 * Source-map CapFaces spikes (c1a0a ≈92ms) were poisoning harness avg
-			 * alongside denser dest samples. */
+			 * alongside denser dest samples.
+			 * Fullphysics previously skipped this arm (c4a3 20261105-070116:
+			 * g36_done with samples=0 / no CapFaces) — open the window so SCR
+			 * sustain can score stable_frame after post-ensure Prepare. */
 			if( Sys_CheckParm( "-gcchangelevel2" )
 				&& Sys_GetParmFromCmdLine( "-gcchangelevel2", dest2 )
 				&& dest2[0] )

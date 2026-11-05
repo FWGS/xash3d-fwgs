@@ -905,16 +905,25 @@ void Host_Frame( double time )
 		 * disconnected (c3a2 20260809-004840). ServerFrame in that state
 		 * hung Host_Frame; ClientFrame drives local reconnect first.
 		 * Menu New Game after play-start ready hits the same hang when
-		 * ServerFrame runs first (probe 20260813-182532). */
+		 * ServerFrame runs first (probe 20260813-182532).
+		 * Fullphysics after post-ensure Prepare (c4a3): ClientFrame first so
+		 * SCR CapFaces/G36 can present before denser Xen ServerFrame work. */
 		if( ( Sys_CheckParm( "-gcnewgame" ) || Sys_CheckParm( "-gcmenuplaystart" ))
-			&& !Sys_CheckParm( "-gcfullphysics" )
+			&& ( !Sys_CheckParm( "-gcfullphysics" ) || GC_IsNewGameWorldReady() )
 			&& ( GC_IsNewGameWorldReady()
 				|| cls.state != ca_active
 				|| cls.signon != SIGNONS ))
 		{
 			Host_ClientFrame ();
 			if( !GC_ShouldUseLightPresent() )
-				Host_ServerFrame ();
+			{
+				/* c4a3 20261105-072652: CapFaces drawn=195 then ServerFrame
+				 * stalled in sprite/edict work before any G36 sample flushed.
+				 * Keep presenting while the post-map budget probe is armed. */
+				if( !( Sys_CheckParm( "-gcfullphysics" )
+					&& GC_IsFrameBudgetProbeActive() ))
+					Host_ServerFrame ();
+			}
 		}
 		else
 		{
@@ -1783,6 +1792,22 @@ int EXPORT Host_Main( int argc, char **argv, const char *progname, int bChangeGa
 						else
 							Con_Reportf( "Xash3D GameCube: gcmap+newgame client ensure ready\n" );
 						Cvar_Set( "gc_quality", "0" );
+						/* ActivateServer deferred Prepare while client progs
+						 * were missing (c4a3 probe 20261105-070116: MAP_READY
+						 * then ready=0 / no CapFaces / G36 samples=0). Finish
+						 * it here for fullphysics too — lean post-smoke
+						 * prepare intentionally skipped -gcfullphysics. */
+						if( !GC_IsNewGameWorldReady() )
+						{
+							Con_Reportf( "Xash3D GameCube: gcmap+newgame post-ensure prepare map=%s\n",
+								sv.name[0] ? sv.name : "?" );
+							if( !GC_PrepareNewGameWorldPresent() )
+								Con_Reportf( S_WARN "Xash3D GameCube: gcmap+newgame post-ensure prepare failed map=%s\n",
+									sv.name[0] ? sv.name : "?" );
+						}
+						/* Promote ca_active before the first heavy fullphysics
+						 * ServerFrame can starve ClientFrame SCR CapFaces. */
+						CL_GameCubeArmLeanPlayActive();
 						GC_EndMapLoadMemoryOpt();
 						/* G68: changelevel before the main loop. Large maps
 						 * (c1a0+) can hang in post-signon New Game present;

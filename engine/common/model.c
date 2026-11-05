@@ -1793,8 +1793,18 @@ void Mod_GCReleaseStudioArena( void )
 		if( mod->needload != NL_UNREFERENCED && mod->type == mod_studio
 			&& mod->cache.data && Mod_GCIsStudioBssCache( mod->cache.data ))
 		{
-			mod->submodels = NULL;	/* its sequence group table is in the arena */
-			Mod_FreeModel( mod );
+			/* Mod_FreeModel → UnloadRenderData hangs on the first mid-tram
+			 * BSS studio (v_crowbar, probe 20261105-053602) even with
+			 * texture-table bounds checks. Abandon the BSS payload and keep
+			 * the mod slot (name/type) so the next map can reload it;
+			 * memset'ing the slot left c0a0a silent after MAP_READY. */
+			Con_Reportf( "Xash3D GameCube: studio arena abandon '%s'\n",
+				mod->name[0] ? mod->name : "?" );
+			mod->submodels = NULL;
+			mod->cache.data = NULL;
+			if( mod->mempool )
+				Mem_FreePool( &mod->mempool );
+			mod->needload = NL_UNREFERENCED;
 			freed++;
 		}
 	}

@@ -3832,16 +3832,27 @@ Mod_StudioUnloadTextures
 void Mod_StudioUnloadTextures( void *data )
 {
 	studiohdr_t *phdr = (studiohdr_t *)data;
+	int i, ntex;
+	size_t off;
 
 	if( !phdr )
 		return;
 
-	mstudiotexture_t *ptexture = (mstudiotexture_t *)(((byte *)phdr ) + phdr->textureindex );
+	/* Mid-tram changelevel can see a BSS studio whose texture table was
+	 * already stomped; unbounded numtextures hung FreeModel on
+	 * v_9mmhandgun (probe 20261105-051300). */
+	ntex = phdr->numtextures;
+	off = (size_t)phdr->textureindex;
+	if( ntex <= 0 || ntex > 512 || off < sizeof( studiohdr_t ))
+		return;
 
-	// release all textures
-	for( int i = 0; i < phdr->numtextures; i++ )
+	mstudiotexture_t *ptexture = (mstudiotexture_t *)(((byte *)phdr ) + off );
+
+	for( i = 0; i < ntex; i++ )
 	{
 		if( ptexture[i].index == tr.defaultTexture )
+			continue;
+		if( ptexture[i].index <= 0 )
 			continue;
 		GL_FreeTexture( ptexture[i].index );
 	}

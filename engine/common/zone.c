@@ -567,16 +567,12 @@ void *_Mem_Alloc( poolhandle_t poolptr, size_t size, qboolean clear, const char 
 		}
 		/* Intro tram (c0a0 fade_out/cr8) can tip-OOM a ~32 KiB netchan
 		 * fragbuf with heap_free≈39 KiB fragmented (probe 20261105-024825).
-		 * Soft-NULL lets Netchan drop that fragment instead of fatal.
-		 * Do NOT Mem_GCReclaimTipForRetry here — releasing the live HUD pool
-		 * mid-tram trashed ImageLib sentinels on the following c0a0→c0a0a
-		 * load (probe 20261105-031439 Mem_FreeBlockBig at img_main.c:684). */
+		 * Soft-NULL immediately — Netchan_AllocFragbuf falls back to BSS
+		 * emergency slots. Do NOT reclaim here: HUD release trashed ImageLib
+		 * (probe 20261105-031439) and even R_GCTrimTextureMips mid-tram left
+		 * Dolphin SIGTRAP on the following c0a0→c0a0a load (041454). */
 		if( pool && !Q_stricmp( pool->name, "Network Pool" ))
 		{
-			R_GCTrimTextureMips();
-			ptr = _Mem_TryAlloc( poolptr, size, clear, filename, fileline );
-			if( ptr )
-				return ptr;
 			Con_Reportf( "Xash3D GameCube: soft-fail Network Pool alloc size=%s at %s:%i\n",
 				Q_memprint( size ), filename, fileline );
 			return NULL;

@@ -1,5 +1,25 @@
 # Xash3D GameCube Port Status
 
+## c4a3 CapFaces / G36 / textured world — 2026-11-05
+
+Full-physics direct-map `c4a3` reaches CapFaces + G36 + textured stills:
+
+- G36/ladder probe: `.ai/logs/dolphin-probe-20261105-073315/`
+  (`MAP_READY`, CapFaces drawn=195, G36 PASS ~19ms, ladder 10/10, Nihilanth skins 12/12)
+- Textured CapFaces: `.ai/logs/dolphin-probe-20261105-075103/`
+  (durable heap pack retained; still uq≈651 with low-mip CMPR —
+  screenshot `.ai/screenshots/c4a3-heap320.png`)
+- Play ISO: `OUT/xash3d-gc-play.iso`; Swiss smoke: `OUT/xash3d-gc-swiss-smoke.img`
+
+Fixes stacked: post-ensure Prepare + lean ca_active; G36 arm under fullphysics;
+NoPVS CapFaces after vis reclaim; defer ServerFrame during budget probe; keep
+world CMPR pack through failed planes promote; prefer heap pack under
+fullphysics so CapFaces bind real texels.
+
+Still open: grow durable pack beyond tip-safe 16 KiB (320/160 KiB malloc fails
+at pack time); on-screen Nihilanth after G287; Swiss SD soak
+(`rsync -a .ai/logs/swiss-smoke-stage/ <sd>/`).
+
 ## Xen actor loading — 2026-11-04
 
 The GameCube studio allowlist and bootstrap mirror now include Nihilanth,

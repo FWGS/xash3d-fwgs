@@ -39,6 +39,72 @@ GNU General Public License for more details.
 void Netchan_FlushIncoming( netchan_t *chan, int stream );
 void Netchan_AddBufferToList( fragbuf_t **pplist, fragbuf_t *pbuf );
 
+#if XASH_GAMECUBE
+/* Tip-soft Network Pool cannot always host the mid-tram ~32 KiB fragbuf
+ * (probe 20261105-041454 need 32816). Dropping that reliable then
+ * changeleveling left Dolphin SIGTRAP on c0a0a. One modest BSS slot covers
+ * that restore message; 2x FRAGMENT_LOCAL_SIZE (128 KiB) ate tip margin and
+ * soft-failed svs.clients (~89 KiB) so New Game hung after submodel precache
+ * (probe 20261105-043340). */
+/* Two ~34 KiB slots (~70 KiB BSS): tram restore + post-changelevel reconnect.
+ * Probe 20261105-054353 used slot 0 mid-tram then never got Serverdata on
+ * c0a0a — reconnect likely needed a second frag while the first was busy. */
+#define NETCHAN_GC_EMERGENCY_SLOTS 2
+#define NETCHAN_GC_EMERGENCY_PAYLOAD 34816
+
+typedef struct
+{
+	qboolean in_use;
+	byte storage[sizeof( fragbuf_t ) + NETCHAN_GC_EMERGENCY_PAYLOAD];
+} netchan_gc_emergency_t;
+
+static netchan_gc_emergency_t s_gc_fragbuf_emergency[NETCHAN_GC_EMERGENCY_SLOTS];
+static fragbufwaiting_t s_gc_waitlist_emergency;
+static qboolean s_gc_waitlist_emergency_in_use;
+
+void Netchan_GCResetEmergency( void )
+{
+	int i;
+
+	for( i = 0; i < NETCHAN_GC_EMERGENCY_SLOTS; i++ )
+		s_gc_fragbuf_emergency[i].in_use = false;
+	s_gc_waitlist_emergency_in_use = false;
+	memset( &s_gc_waitlist_emergency, 0, sizeof( s_gc_waitlist_emergency ));
+	Con_Reportf( "Xash3D GameCube: netchan emergency reset\n" );
+}
+
+static void Netchan_FreeFragbuf( fragbuf_t *buf )
+{
+	int i;
+
+	if( !buf )
+		return;
+
+	for( i = 0; i < NETCHAN_GC_EMERGENCY_SLOTS; i++ )
+	{
+		if( (void *)buf == (void *)s_gc_fragbuf_emergency[i].storage )
+		{
+			s_gc_fragbuf_emergency[i].in_use = false;
+			return;
+		}
+	}
+	Mem_Free( buf );
+}
+
+static void Netchan_FreeWaitlist( fragbufwaiting_t *wait )
+{
+	if( !wait )
+		return;
+	if( wait == &s_gc_waitlist_emergency )
+	{
+		s_gc_waitlist_emergency_in_use = false;
+		memset( &s_gc_waitlist_emergency, 0, sizeof( s_gc_waitlist_emergency ));
+		return;
+	}
+	Mem_Free( wait );
+}
+#endif
+
 /*
 packet header ( size in bits )
 -------------
@@ -330,7 +396,11 @@ static void Netchan_UnlinkFragment( fragbuf_t *buf, fragbuf_t **list )
 		*list = buf->next;
 
 		// destroy remnant
+#if XASH_GAMECUBE
+		Netchan_FreeFragbuf( buf );
+#else
 		Mem_Free( buf );
+#endif
 		return;
 	}
 
@@ -342,7 +412,11 @@ static void Netchan_UnlinkFragment( fragbuf_t *buf, fragbuf_t **list )
 			search->next = buf->next;
 
 			// destroy remnant
+#if XASH_GAMECUBE
+			Netchan_FreeFragbuf( buf );
+#else
 			Mem_Free( buf );
+#endif
 			return;
 		}
 		search = search->next;
@@ -365,7 +439,11 @@ static void Netchan_ClearFragbufs( fragbuf_t **ppbuf )
 	while( buf )
 	{
 		fragbuf_t *n = buf->next;
+#if XASH_GAMECUBE
+		Netchan_FreeFragbuf( buf );
+#else
 		Mem_Free( buf );
+#endif
 		buf = n;
 	}
 
@@ -388,7 +466,11 @@ static void Netchan_ClearFragments( netchan_t *chan )
 		{
 			fragbufwaiting_t *next = wait->next;
 			Netchan_ClearFragbufs( &wait->fragbufs );
+#if XASH_GAMECUBE
+			Netchan_FreeWaitlist( wait );
+#else
 			Mem_Free( wait );
+#endif
 			wait = next;
 		}
 		chan->waitlist[i] = NULL;
@@ -493,14 +575,53 @@ static fragbuf_t *Netchan_AllocFragbuf( int fragment_size )
 {
 	fragbuf_t *buf = (fragbuf_t *)Mem_Calloc( net_mempool, sizeof( fragbuf_t ) + fragment_size );
 #if XASH_GAMECUBE
-	/* Network Pool soft-fails under tip (zone.c); callers must tolerate NULL. */
+	/* Prefer Network Pool; on tip soft-NULL fall back to BSS so changelevel
+	 * restore messages are never dropped (probe 20261105-041454). */
 	if( !buf )
-		return NULL;
+	{
+		int i;
+
+		if( fragment_size > NETCHAN_GC_EMERGENCY_PAYLOAD )
+		{
+			Con_Reportf( "Xash3D GameCube: fragbuf OOM need %d (emergency max %d)\n",
+				fragment_size, NETCHAN_GC_EMERGENCY_PAYLOAD );
+			return NULL;
+		}
+		for( i = 0; i < NETCHAN_GC_EMERGENCY_SLOTS; i++ )
+		{
+			if( s_gc_fragbuf_emergency[i].in_use )
+				continue;
+			s_gc_fragbuf_emergency[i].in_use = true;
+			buf = (fragbuf_t *)s_gc_fragbuf_emergency[i].storage;
+			memset( buf, 0, sizeof( fragbuf_t ) + fragment_size );
+			Con_Reportf( "Xash3D GameCube: emergency fragbuf slot %d size=%d\n",
+				i, fragment_size );
+			break;
+		}
+		if( !buf )
+			return NULL;
+	}
 #endif
 	MSG_Init( &buf->frag_message, "Frag Message", buf->frag_message_buf, fragment_size );
 
 	return buf;
 }
+
+#if XASH_GAMECUBE
+static fragbufwaiting_t *Netchan_AllocWaitlist( void )
+{
+	fragbufwaiting_t *wait = (fragbufwaiting_t *)Mem_Calloc( net_mempool, sizeof( fragbufwaiting_t ));
+
+	if( wait )
+		return wait;
+	if( s_gc_waitlist_emergency_in_use )
+		return NULL;
+	s_gc_waitlist_emergency_in_use = true;
+	memset( &s_gc_waitlist_emergency, 0, sizeof( s_gc_waitlist_emergency ));
+	Con_Reportf( "Xash3D GameCube: emergency frag waitlist\n" );
+	return &s_gc_waitlist_emergency;
+}
+#endif
 
 /*
 ==============================
@@ -591,7 +712,11 @@ void Netchan_FragSend( netchan_t *chan )
 		chan->fragbufcount[i] = wait->fragbufcount;
 
 		// throw away wait list
+#if XASH_GAMECUBE
+		Netchan_FreeWaitlist( wait );
+#else
 		Mem_Free( wait );
+#endif
 	}
 }
 
@@ -655,8 +780,8 @@ static void Netchan_CreateFragments_( netchan_t *chan, sizebuf_t *msg )
 
 	int chunksize = chan->pfnBlockSize( chan->client, FRAGSIZE_FRAG );
 
-	fragbufwaiting_t *wait = (fragbufwaiting_t *)Mem_Calloc( net_mempool, sizeof( fragbufwaiting_t ));
 #if XASH_GAMECUBE
+	fragbufwaiting_t *wait = Netchan_AllocWaitlist();
 	if( !wait )
 	{
 		Con_Reportf( "Xash3D GameCube: dropping fragmented reliable (waitlist OOM, %d bytes)\n",
@@ -664,6 +789,8 @@ static void Netchan_CreateFragments_( netchan_t *chan, sizebuf_t *msg )
 		MSG_Clear( msg );
 		return;
 	}
+#else
+	fragbufwaiting_t *wait = (fragbufwaiting_t *)Mem_Calloc( net_mempool, sizeof( fragbufwaiting_t ));
 #endif
 
 #if XASH_GAMECUBE
@@ -727,7 +854,7 @@ static void Netchan_CreateFragments_( netchan_t *chan, sizebuf_t *msg )
 			Con_Reportf( "Xash3D GameCube: dropping fragmented reliable (fragbuf OOM, need %d)\n",
 				bytes );
 			Netchan_ClearFragbufs( &wait->fragbufs );
-			Mem_Free( wait );
+			Netchan_FreeWaitlist( wait );
 			MSG_Clear( msg );
 			return;
 		}
@@ -902,10 +1029,12 @@ void Netchan_CreateFileFragmentsFromBuffer( netchan_t *chan, const char *filenam
 			free( pbOut );
 	}
 
-	fragbufwaiting_t *wait = (fragbufwaiting_t *)Mem_Calloc( net_mempool, sizeof( fragbufwaiting_t ));
 #if XASH_GAMECUBE
+	fragbufwaiting_t *wait = Netchan_AllocWaitlist();
 	if( !wait )
 		return;
+#else
+	fragbufwaiting_t *wait = (fragbufwaiting_t *)Mem_Calloc( net_mempool, sizeof( fragbufwaiting_t ));
 #endif
 	int remaining = size;
 	int pos = 0;
@@ -919,7 +1048,7 @@ void Netchan_CreateFileFragmentsFromBuffer( netchan_t *chan, const char *filenam
 		if( !buf )
 		{
 			Netchan_ClearFragbufs( &wait->fragbufs );
-			Mem_Free( wait );
+			Netchan_FreeWaitlist( wait );
 			return;
 		}
 #endif
@@ -1072,10 +1201,12 @@ int Netchan_CreateFileFragments( netchan_t *chan, const char *filename )
 		return 0;
 	}
 
-	fragbufwaiting_t *wait = (fragbufwaiting_t *)Mem_Calloc( net_mempool, sizeof( fragbufwaiting_t ));
 #if XASH_GAMECUBE
+	fragbufwaiting_t *wait = Netchan_AllocWaitlist();
 	if( !wait )
 		return 0;
+#else
+	fragbufwaiting_t *wait = (fragbufwaiting_t *)Mem_Calloc( net_mempool, sizeof( fragbufwaiting_t ));
 #endif
 	int remaining = filesize;
 	int pos = 0;
@@ -1092,7 +1223,7 @@ int Netchan_CreateFileFragments( netchan_t *chan, const char *filename )
 		if( !buf )
 		{
 			Netchan_ClearFragbufs( &wait->fragbufs );
-			Mem_Free( wait );
+			Netchan_FreeWaitlist( wait );
 			return 0;
 		}
 #endif
