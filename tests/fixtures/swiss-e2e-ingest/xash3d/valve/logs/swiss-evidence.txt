@@ -1,0 +1,9 @@
+Xash3D GameCube: OGC stack=libogc2 fat=libdvm (Swiss)
+Xash3D GameCube: linked gamedir=valve
+Xash3D GameCube: hardware evidence route ready
+Xash3D GameCube: FAT volume ready sd:/
+Xash3D GameCube: FAT preferred volume sd:/ (count=1)
+Xash3D GameCube: map loaded c0a0e
+Xash3D GameCube: entity lump spawn ready
+Xash3D GameCube: playable present map=c0a0e frame=120 nonblack=1
+Xash3D GameCube: FAT shutdown (return to Swiss loader via exit stub)

@@ -1504,9 +1504,11 @@ probe_collect_exit_status "$child"
 		self.assertIn("GC_RefreshBootSplash()", sys_gc)
 		self.assertGreaterEqual(sys_gc.count("GC_RefreshBootSplash()"), 2)
 		self.assertIn("half-staged cards", sys_gc)
-		self.assertIn(".bsp", sys_gc[sys_gc.index("GCube_HasValveAssets"):sys_gc.index("GCube_PathAccessible")])
-		self.assertIn("media/valve.gcvid", sys_gc[sys_gc.index("GCube_HasValveAssets"):sys_gc.index("GCube_PathAccessible")])
-		self.assertIn("GCube_HasValveAssets( candidate )", sys_gc)
+		gate = sys_gc[sys_gc.index("static qboolean GCube_HasGameAssets"):sys_gc.index("static qboolean GCube_PathAccessible")]
+		self.assertIn(".bsp", gate)
+		self.assertIn("media/valve.gcvid", gate)
+		self.assertIn("return GCube_HasGameAssets( xashdir, GC_ACTIVE_GAMEDIR );", gate)
+		self.assertIn("GCube_HasActiveGameAssets( candidate )", sys_gc)
 		wait = (ROOT / "scripts/gamecube-swiss-sd-wait.sh").read_text(encoding="utf-8")
 		self.assertIn("--rsync", wait)
 		self.assertIn("swiss-smoke-stage", wait)
@@ -1640,7 +1642,8 @@ probe_collect_exit_status "$child"
 		sys_gc = (ROOT / "engine/platform/gamecube/sys_gamecube.c").read_text(encoding="utf-8")
 		self.assertIn("GCube_EnsureFatMounted", sys_gc)
 		self.assertIn("FAT boot cfg", sys_gc)
-		self.assertIn("%s%s/valve/gamecube.cfg", sys_gc)
+		# Per-game DOLs: the cfg path is built from GC_ACTIVE_GAMEDIR, not "valve".
+		self.assertIn('"%s%s/%s/gamecube.cfg",\n\t\t\tgc_fat_write_root, GC_DATA_PATH, GC_ACTIVE_GAMEDIR', sys_gc)
 		self.assertIn("GCube_ArmSwissQuit", sys_gc)
 		self.assertIn("-gcswissquit", sys_gc)
 		# Swiss .cli extras are appended to the built argv, not substituted for it.
@@ -1649,7 +1652,7 @@ probe_collect_exit_status "$child"
 		self.assertIn("FAT has game data, skipping DVD mount", sys_gc)
 		# Prefer FAT gamecube.cfg over DVD so an inserted disc cannot shadow swissquit.
 		fat_idx = sys_gc.find("GCube_FatRootReady()")
-		dvd_fopen = sys_gc.find('fopen( GC_DVD_DEVICE ":/" GC_DATA_PATH "/valve/gamecube.cfg"')
+		dvd_fopen = sys_gc.find('GC_DVD_DEVICE ":/" GC_DATA_PATH "/%s/gamecube.cfg", GC_ACTIVE_GAMEDIR')
 		self.assertGreater(fat_idx, 0)
 		self.assertGreater(dvd_fopen, fat_idx)
 		self.assertIn("cannot shadow sd:/ map/swissquit", sys_gc)
@@ -1697,6 +1700,40 @@ probe_collect_exit_status "$child"
 		# meta.xml heredoc must expand SMOKE_MAP (unquoted delimiter).
 		self.assertIn('cat >"$STAGE_DIR/apps/xash3d-gc/meta.xml" <<META', smoke_sh)
 		self.assertNotIn("<<'META'", smoke_sh)
+	def _assert_resolve_soak_dir(self, evidence: str) -> None:
+		import subprocess
+
+		start = evidence.index("resolve_soak_dir() {")
+		end = evidence.index("\n}\n", start) + 3
+		func = evidence[start:end]
+
+		def resolve(root: Path, reuse: str | None = None) -> subprocess.CompletedProcess[str]:
+			env = {k: v for k, v in os.environ.items() if k != "SWISS_REUSE_SOAK"}
+			if reuse is not None:
+				env["SWISS_REUSE_SOAK"] = reuse
+			return subprocess.run(
+				["bash", "-c", func + '\nresolve_soak_dir "$1"', "resolve", str(root)],
+				capture_output=True, text=True, env=env, check=False,
+			)
+
+		with tempfile.TemporaryDirectory() as tmp:
+			root = Path(tmp)
+			self.assertNotEqual(resolve(root).returncode, 0, "no soak dir must fail")
+			g509 = root / ".ai/logs/soak-g509-20260827-193411"
+			g509.mkdir(parents=True)
+			(g509 / "report.json").write_text("{}", encoding="utf-8")
+			res = resolve(root)
+			self.assertEqual(res.returncode, 0, res.stderr)
+			self.assertEqual(res.stdout.strip(), str(g509))
+			fresh = root / ".ai/logs/soak-later"
+			fresh.mkdir()
+			(fresh / "report.json").write_text("{}", encoding="utf-8")
+			res = resolve(root, ".ai/logs/soak-later")
+			self.assertEqual(res.stdout.strip(), str(fresh))
+			bad = resolve(root, ".ai/logs/missing")
+			self.assertNotEqual(bad.returncode, 0)
+			self.assertIn("SWISS_REUSE_SOAK missing report.json", bad.stderr)
+
 	def test_swiss_evidence_engine_markers_parse(self) -> None:
 		"""Markers written by GCube_WriteSwissEvidenceLog must satisfy --require-swiss."""
 		gs = load_script("gc_storage_swiss_markers", "scripts/waifulib/gamecube_storage.py")
@@ -1721,8 +1758,9 @@ probe_collect_exit_status "$child"
 		# soak resolver must find a live report.json (stale 20260808 path is gone)
 		evidence = (ROOT / "scripts/gamecube-swiss-evidence.sh").read_text(encoding="utf-8")
 		self.assertIn("resolve_soak_dir", evidence)
-		soak = ROOT / ".ai/logs/soak-g509-20260827-193411/report.json"
-		self.assertTrue(soak.is_file(), "expected fallback G509 soak report on disk")
+		# Exercise the resolver itself instead of depending on a gitignored run
+		# directory surviving on this machine.
+		self._assert_resolve_soak_dir(evidence)
 		sys_gc = (ROOT / "engine/platform/gamecube/sys_gamecube.c").read_text(encoding="utf-8")
 		self.assertIn("GCube_AppendSwissEvidence", sys_gc)
 		self.assertIn("GCube_AppendSwissEvidence", (ROOT / "engine/platform/platform.h").read_text(encoding="utf-8"))
@@ -1744,7 +1782,7 @@ probe_collect_exit_status "$child"
 		self.assertIn("udisksctl mount", oneshot)
 		self.assertIn("auto map c0a0e", oneshot)
 		# Fixture used for host dry-run of the same marker set.
-		fix = ROOT / ".ai/logs/swiss-e2e-ingest-fixture/xash3d/valve/logs/swiss-evidence.txt"
+		fix = ROOT / "tests/fixtures/swiss-e2e-ingest/xash3d/valve/logs/swiss-evidence.txt"
 		self.assertTrue(fix.is_file(), "expected swiss-e2e-ingest-fixture on disk")
 		body = fix.read_text(encoding="utf-8")
 		for needle in (
@@ -1757,6 +1795,10 @@ probe_collect_exit_status "$child"
 			"nonblack=1",
 		):
 			self.assertIn(needle, body)
+		gs = load_script("gc_storage_swiss_fixture", "scripts/waifulib/gamecube_storage.py")
+		self.assertTrue(gs.parse_fat_volume_status(body)["ok"])
+		self.assertTrue(gs.parse_loader_status(body)["fat_shutdown"])
+		self.assertTrue(gs.parse_playable_status(body)["ok"])
 
 	def test_rc_check_wires_g509_and_g508(self) -> None:
 		rc = (ROOT / "scripts/gamecube-rc-check.sh").read_text(encoding="utf-8")
