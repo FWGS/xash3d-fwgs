@@ -337,18 +337,9 @@ static void GL_SetupFogColorForSurfacesEx( int passes, float density, qboolean b
 }
 
 
-static int GL_FogPassesForSurfaces( void )
-{
-	// alpha tested surfaces have no detail pass in fog, see R_RenderDetailsForSurface
-	if( RI.currententity && RI.currententity->curstate.rendermode == kRenderTransAlpha )
-		return 2;
-
-	return r_detailtextures.value ? 3 : 2;
-}
-
 void GL_SetupFogColorForSurfaces( void )
 {
-	GL_SetupFogColorForSurfacesEx( GL_FogPassesForSurfaces( ), 1.0f, false );
+	GL_SetupFogColorForSurfacesEx( r_detailtextures.value ? 3 : 2, 1.0f, false );
 }
 
 void GL_ResetFogColor( void )
@@ -1160,7 +1151,7 @@ static void R_BlendLightmaps( void )
 	if( !R_HasLightmap() )
 		return;
 
-	GL_SetupFogColorForSurfacesEx( GL_FogPassesForSurfaces( ), 1.0f, true );
+	GL_SetupFogColorForSurfacesEx( r_detailtextures.value ? 3 : 2, 1.0f, true );
 
 	if( !r_lightmap->value )
 		pglEnable( GL_BLEND );
@@ -1355,6 +1346,8 @@ static void R_RenderDetails( int passes )
 		pglEnable( GL_POLYGON_OFFSET_FILL );
 	}
 
+	qboolean equal = passes == 3;
+
 	for( int i = draw_details.first; i <= draw_details.last; i++ )
 	{
 		mextrasurf_t *es = detail_surfaces[i];
@@ -1367,6 +1360,25 @@ static void R_RenderDetails( int passes )
 		{
 			msurface_t *fa = p->surf;
 			gl_texture_t *glt = R_GetTexture( fa->texinfo->texture->gl_texturenum ); // get texture scale
+
+			// transparent surfaces aren't in VBO, match their depth exactly to keep alpha tested holes untouched
+			if( passes != 3 && equal != !!FBitSet( fa->flags, SURF_TRANSPARENT ))
+			{
+				equal = !equal;
+
+				if( equal )
+				{
+					pglDepthFunc( GL_EQUAL );
+					if( !glState.num_polyoffsets )
+						pglDisable( GL_POLYGON_OFFSET_FILL );
+				}
+				else
+				{
+					pglDepthFunc( GL_LEQUAL );
+					pglEnable( GL_POLYGON_OFFSET_FILL );
+				}
+			}
+
 			DrawGLPoly( fa->polys, glt->xscale, glt->yscale );
 		}
 
@@ -1403,9 +1415,7 @@ static void R_RenderDetailsForSurface( msurface_t *fa, texture_t *t )
 	if( glState.isFogEnabled )
 	{
 		// don't apply detail textures for windows in the fog
-		// nor on alpha tested surfaces: the pass runs without alpha test and paints their holes
-		if( RI.currententity->curstate.rendermode != kRenderTransTexture
-			&& RI.currententity->curstate.rendermode != kRenderTransAlpha )
+		if( RI.currententity->curstate.rendermode != kRenderTransTexture )
 		{
 			// draw stub detail texture for underwater surfaces
 			int texturenum = t->dt_texturenum ? t->dt_texturenum : tr.grayTexture;
