@@ -49,4 +49,4 @@
 [submodule "3rdparty/dolphin"]
 	path = 3rdparty/dolphin
 	url = https://github.com/timfox/dolphin
-	ignore = untracked
+	ignore = dirty

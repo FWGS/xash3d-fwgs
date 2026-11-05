@@ -397,7 +397,9 @@ static void GC_LoadingOverlayBegin( void )
 	gc_loading_phase = 0;
 	/* Menu New Game has no previous gameplay frame to preserve. Cover the
 	 * transition in black while the server, BSP and first Flipper frame settle;
-	 * changelevels retain the retail behavior of holding the prior frame. */
+	 * changelevels retain the retail behavior of holding the prior frame.
+	 * Either way, keep gc_loading_fb and draw "LOADING…" (with pulsing dots)
+	 * — retail shows that overlay on the first New Game load too. */
 	if( !gc_transition_hold_changelevel )
 	{
 		GX_SetCopyClear((GXColor){ 0, 0, 0, 255 }, 0x00ffffff );
@@ -412,9 +414,7 @@ static void GC_LoadingOverlayBegin( void )
 		GX_SetDispCopyDst( rmode->fbWidth, rmode->xfbHeight );
 		GX_SetDispCopyYScale((f32)rmode->xfbHeight / (f32)rmode->efbHeight );
 		gc_gx_present_pipe_ready = false;
-		gc_loading_fb = NULL;
 		Con_Reportf( "Xash3D GameCube: New Game black cover presented\n" );
-		return;
 	}
 	GC_LoadingOverlayDraw();
 	gc_loading_next = Sys_FloatTime() + GC_LOADING_PULSE_SEC;
@@ -9465,10 +9465,18 @@ void GC_DrawLoadingStatus( const char *message, const char *details )
 		}
 	}
 
-	/* Changelevel hold: the last world frame stays up instead. The first
-	 * New Game load on this route holds the menu frame the same way (the
-	 * status panel drew garbled over the borrowed soft buffer). */
-	if( host.status != HOST_INIT && GC_MenuRunsServer())
+	/* Changelevel / New Game hold: keep the last frame (or a black cover)
+	 * with the "LOADING…" text overlay. Do not start that hold for early
+	 * boot statuses like CLIENT INIT — those were blanking the intro AVI. */
+	if( host.status != HOST_INIT && GC_MenuRunsServer() && message
+		&& ( !Q_stricmp( message, "NEW GAME" )
+			|| !Q_stricmp( message, "PREPARING MAP" )
+			|| !Q_stricmp( message, "LOADING BSP" )
+			|| !Q_stricmp( message, "DIRECT MAP LOAD" )
+			|| !Q_stricmp( message, "SPAWNING WORLD" )
+			|| !Q_stricmp( message, "SPAWNING ENTITIES" )
+			|| !Q_stricmp( message, "MAP READY" )
+			|| !Q_stricmp( message, "MAP LOADED" )))
 		GC_BeginTransitionHold();
 	if( GC_TransitionHoldActive())
 	{
