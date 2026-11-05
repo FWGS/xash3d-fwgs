@@ -6641,7 +6641,9 @@ void GC_EarlyBootSplash( void )
 		return;
 
 	dst = (unsigned short *)xfb[0];
-	VIDEO_ClearFrameBuffer( rmode, dst, 0x0010 ); /* dark blue boot frame */
+	/* Retail parity: boot shows black until the startup video. The XFB is
+	 * YUYV, so the old 0x0010 "dark blue" actually displayed as green. */
+	VIDEO_ClearFrameBuffer( rmode, dst, COLOR_BLACK );
 	VIDEO_SetNextFramebuffer( xfb[0] );
 	VIDEO_SetBlack( false );
 	VIDEO_Flush();
@@ -6651,7 +6653,7 @@ void GC_EarlyBootSplash( void )
 #endif
 }
 
-/* Keep the dark-blue frame on-screen while FAT/DVD I/O runs (HW black hang). */
+/* Keep the boot frame presented while FAT/DVD I/O runs. */
 void GC_RefreshBootSplash( void )
 {
 #if XASH_GAMECUBE
@@ -6661,7 +6663,7 @@ void GC_RefreshBootSplash( void )
 		return;
 
 	dst = (unsigned short *)xfb[0];
-	VIDEO_ClearFrameBuffer( rmode, dst, 0x0010 );
+	VIDEO_ClearFrameBuffer( rmode, dst, COLOR_BLACK );
 	VIDEO_SetNextFramebuffer( xfb[0] );
 	VIDEO_SetBlack( false );
 	VIDEO_Flush();
@@ -8063,7 +8065,7 @@ qboolean SW_CreateBuffer( int width, int height, uint *stride, uint *bpp, uint *
 	gc.bpp = 2;
 
 	for( size_t i = 0; i < needed_pixels; i++ )
-		gc.buffer[i] = 0x0010; /* dark blue boot backdrop */
+		gc.buffer[i] = 0x0000; /* black, as retail, until the first real frame */
 #else
 	if( gc.buffer )
 		free( gc.buffer );

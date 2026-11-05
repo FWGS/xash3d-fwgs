@@ -184,7 +184,7 @@ routes:
   A) Swiss → apps/xash3d-gc/boot.dol  (FAT valve at xash3d/valve/)
   B) Swiss → xash3d-gc.iso            (disc-only; no FAT valve required)
 
-Expect dark-blue splash within ~1s, then auto map load. With swissquit the DOL
+Expect a black screen within ~1s, then auto map load. With swissquit the DOL
 returns to Swiss after playable markers (~6s). Z+Start also quits.
 
 If swiss.dol / apps/swiss/boot.dol is present, boot that first (or AUTOEXEC.DOL
