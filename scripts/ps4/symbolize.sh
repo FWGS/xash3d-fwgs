@@ -24,11 +24,15 @@ find_elf()
 	libmenu.prx) echo "$BUILD/3rdparty/mainui/libmenu.so" ;;
 	libref_*.prx) ls "$BUILD"/ref/*/"$(basename "$1" .prx).so" 2>/dev/null | head -n 1 ;;
 	*)
-		# game libraries: look in extra directories by name without extension
-		name=$(basename "$1" .prx)
+		# game libraries: look in extra directories by name without extension,
+		# bshift server library is a copy of hl one
+		name=$(basename "$1" .prx | sed 's/^bshift_/hl_/')
 		for dir in $EXTRA_DIRS; do
 			f=$(find "$dir" -name "$name.so" 2>/dev/null | head -n 1)
-			[ -n "$f" ] && echo "$f" && return
+			if [ -n "$f" ]; then
+				echo "$f"
+				return
+			fi
 		done
 		;;
 	esac
