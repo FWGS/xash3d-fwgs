@@ -3288,6 +3288,61 @@ geometry, only emit water/translucents here. When no cap is available, emit
 all marked opaque surfaces textured (no LM atlas).
 ================
 */
+/*
+ * View-frustum test for the live BSP pass.  PVS (surf->visframe) already
+ * limits the walk to potentially visible leaves; this drops the PVS faces
+ * behind or beside the camera before their edge walk and GX emit.  Planes
+ * come from the cull vectors and FOV (the soft clip planes are not built on
+ * the GX path), widened by 5 degrees and 16 units so wall edges never pop
+ * (G228 lost tram side walls to a too-tight cull).
+ */
+static vec3_t r_gx_frustum_n[4];
+static float r_gx_frustum_d[4];
+static qboolean r_gx_frustum_ok;
+
+static void R_GXBuildFrustum( void )
+{
+	const float hx = DEG2RAD( Q_min( 89.0f, RI.rvp.fov_x * 0.5f + 5.0f ));
+	const float hy = DEG2RAD( Q_min( 89.0f, RI.rvp.fov_y * 0.5f + 5.0f ));
+	const float cx = cosf( hx ), sx = sinf( hx ), cy = cosf( hy ), sy = sinf( hy );
+	int i;
+
+	r_gx_frustum_ok = RI.rvp.fov_x > 1.0f && RI.rvp.fov_y > 1.0f;
+	if( !r_gx_frustum_ok )
+		return;
+	for( i = 0; i < 3; i++ )
+	{
+		r_gx_frustum_n[0][i] =  RI.cull_vright[i] * cx + RI.cull_vforward[i] * sx; /* left */
+		r_gx_frustum_n[1][i] = -RI.cull_vright[i] * cx + RI.cull_vforward[i] * sx; /* right */
+		r_gx_frustum_n[2][i] =  RI.cull_vup[i] * cy + RI.cull_vforward[i] * sy;    /* bottom */
+		r_gx_frustum_n[3][i] = -RI.cull_vup[i] * cy + RI.cull_vforward[i] * sy;    /* top */
+	}
+	for( i = 0; i < 4; i++ )
+		r_gx_frustum_d[i] = DotProduct( RI.cullorigin, r_gx_frustum_n[i] ) - 16.0f;
+}
+
+static qboolean R_GXBoxOutsideFrustum( const vec3_t mins, const vec3_t maxs )
+{
+	int i;
+
+	if( !r_gx_frustum_ok )
+		return false;
+	for( i = 0; i < 4; i++ )
+	{
+		const float *n = r_gx_frustum_n[i];
+		vec3_t p;
+
+		/* Corner furthest along the plane normal: if even it is behind,
+		 * the whole box is outside. */
+		p[0] = n[0] >= 0.0f ? maxs[0] : mins[0];
+		p[1] = n[1] >= 0.0f ? maxs[1] : mins[1];
+		p[2] = n[2] >= 0.0f ? maxs[2] : mins[2];
+		if( DotProduct( p, n ) < r_gx_frustum_d[i] )
+			return true;
+	}
+	return false;
+}
+
 static int R_GXDrawWorldLiveSurfaces( model_t *world, qboolean opaque_too )
 {
 	msurface_t *surf;
@@ -3295,6 +3350,7 @@ static int R_GXDrawWorldLiveSurfaces( model_t *world, qboolean opaque_too )
 	int opaque_drawn = 0;
 	int trans_drawn = 0;
 	int skip_vis = 0, skip_plane = 0, skip_back = 0, skip_area = 0, emit_zero = 0;
+	int skip_frustum = 0;
 	int nsort = 0;
 	const qboolean newgame = gEngfuncs.Sys_CheckParm( "-gcnewgame" );
 	qboolean surfaces_live;
@@ -3326,6 +3382,7 @@ static int R_GXDrawWorldLiveSurfaces( model_t *world, qboolean opaque_too )
 				emit_budget = 96;
 		}
 
+		R_GXBuildFrustum();
 		for( i = 0; i < world->numsurfaces && emit_budget > 0; i++ )
 		{
 			float dot;
@@ -3336,6 +3393,11 @@ static int R_GXDrawWorldLiveSurfaces( model_t *world, qboolean opaque_too )
 			if( surf->visframe != tr.framecount )
 			{
 				skip_vis++;
+				continue;
+			}
+			if( surf->info && R_GXBoxOutsideFrustum( surf->info->mins, surf->info->maxs ))
+			{
+				skip_frustum++;
 				continue;
 			}
 			if( !surf->plane || surf->numedges < 3 || surf->numedges > 32 )
@@ -3493,9 +3555,9 @@ static int R_GXDrawWorldLiveSurfaces( model_t *world, qboolean opaque_too )
 	{
 		live_logged = true;
 		gEngfuncs.Con_Reportf(
-			"Xash3D GameCube: pure GX live BSP faces opaque=%d trans=%d frame=%d vis=%d plane=%d back=%d area=%d emit0=%d\n",
+			"Xash3D GameCube: pure GX live BSP faces opaque=%d trans=%d frame=%d vis=%d frustum=%d plane=%d back=%d area=%d emit0=%d\n",
 			opaque_drawn, trans_drawn, tr.framecount,
-			skip_vis, skip_plane, skip_back, skip_area, emit_zero );
+			skip_vis, skip_frustum, skip_plane, skip_back, skip_area, emit_zero );
 	}
 	{
 		extern qboolean GC_IsFrameBudgetProbeActive( void );
