@@ -57,6 +57,10 @@ static void *gc_texinfo_malloc_block;
 static void *gc_nodes_malloc_block;
 static qboolean gc_nodes_arena_tail;
 static qboolean gc_nodes_static_block;
+/* Filled by Mod_GCPreallocWorldNodes before leafs consume contiguous scratch
+ * (c2a4d→c2a4e: 294 KiB nodes lost after leafs took 189 KiB, tip FATAL). */
+static mnode_t *gc_nodes_prealloc;
+static qboolean gc_nodes_prealloc_scratch;
 /* Surface Tension peaks need ~270 KiB of mnode_t (c2a5e→c2a5f). Scratch is
  * often full of in-place planes + reserved surfaces + leafs; tip/malloc are
  * dry after changelevel. Keep a BSS last resort. */
@@ -123,12 +127,21 @@ static void *Mod_GCTakeReserve( void **slot, size_t bytes, const char *name )
 
 qboolean Mod_GCEnsureStaticReserves( void )
 {
-	/* Smallest first so a tight heap still gets the cheap guarantees. */
+	/* Submodels first (tiny). Nodes before entities: taking entities (128 KiB)
+	 * first left free=380 on c2a4c boot (nodes need 384) and free≈83 on
+	 * Residue→QE hops — Mod_LoadNodes then tip-FATAL at 294 KiB. */
 	Mod_GCTakeReserve( (void **)&gc_static_submodels, sizeof( dmodel_t ) * GC_STATIC_SUBMODEL_CAPACITY, "submodels" );
-	Mod_GCTakeReserve( (void **)&gc_static_entities, GC_STATIC_ENTITIES_BYTES, "entities" );
 	/* hull0 is BSS (gc_static_hull0_storage) — no heap reserve. */
 	Mod_GCTakeReserve( (void **)&gc_static_nodes, GC_STATIC_NODES_BYTES, "nodes" );
-	return gc_static_submodels && gc_static_entities && gc_static_hull0 && gc_static_nodes;
+	/* Hold entities only when nodes are already secured, or tip can still fund
+	 * a dense node tree after the 128 KiB take. Entities have malloc/arena
+	 * fallbacks; nodes falling through to Mem_Calloc abort the map. */
+	if( gc_static_nodes || GC_MemHeapFreeBytes() >= GC_STATIC_ENTITIES_BYTES + 300u * 1024u )
+		Mod_GCTakeReserve( (void **)&gc_static_entities, GC_STATIC_ENTITIES_BYTES, "entities" );
+	else
+		Con_Reportf( "Xash3D GameCube: world reserve entities deferred (preserve tip for nodes) free=%s\n",
+			Q_memprint( GC_MemHeapFreeBytes() ));
+	return gc_static_submodels && gc_static_hull0 && ( gc_static_nodes || gc_static_entities );
 }
 
 /*
@@ -5840,6 +5853,128 @@ static void Mod_LoadSurfaces( model_t *mod, dbspmodel_t *bmod )
 #endif
 }
 
+#if XASH_GAMECUBE
+/*
+=================
+Mod_GCPreallocWorldNodes
+
+Grab contiguous node storage BEFORE Mod_LoadLeafs parks ~100–200 KiB of
+leafs in BSP scratch. On c2a4d→c2a4e the post-leafs scratch/arena/tip path
+could not place 294 KiB of mnode_t (mem FAIL at Mod_LoadNodes Mem_Calloc).
+=================
+*/
+static void Mod_GCPreallocWorldNodes( model_t *mod, dbspmodel_t *bmod )
+{
+	size_t node_bytes;
+	gc_bsp_busy_range_t busy[8];
+	size_t busy_count = 0;
+	mnode_t *out = NULL;
+
+	gc_nodes_prealloc = NULL;
+	gc_nodes_prealloc_scratch = false;
+
+	if( !GC_MapLoadMemoryOpt() || !mod || mod->type != mod_brush || !bmod
+		|| !bmod->isworld || bmod->numnodes <= 0 )
+		return;
+
+	node_bytes = (size_t)bmod->numnodes * sizeof( mnode_t );
+
+	/* Publish mod->nodes early so Mod_GCCollectAllWorldScratchBusy protects
+	 * the block while Mod_LoadLeafs carves scratch. */
+#define GC_NODES_PREALLOC_PUBLISH( ptr ) \
+	do { \
+		memset( (ptr), 0, node_bytes ); \
+		mod->nodes = (ptr); \
+		mod->numnodes = bmod->numnodes; \
+		gc_nodes_prealloc = (ptr); \
+	} while( 0 )
+
+	if( gc_static_nodes && node_bytes <= GC_STATIC_NODES_BYTES )
+	{
+		out = (mnode_t *)gc_static_nodes;
+		gc_nodes_static_block = true;
+		gc_world_blocks_owner = mod;
+		GC_NODES_PREALLOC_PUBLISH( out );
+		Con_Reportf( "Xash3D GameCube: world nodes prealloc static reserve %s\n",
+			Q_memprint( node_bytes ));
+		return;
+	}
+
+	/* Prefer a full 384 KiB session reserve when tip allows; otherwise an
+	 * exact-size malloc for this map only (do not shrink gc_static_nodes). */
+	if( !gc_static_nodes && GC_MemHeapFreeBytes() >= GC_STATIC_NODES_BYTES + 8192u )
+	{
+		out = (mnode_t *)memalign( 32, GC_STATIC_NODES_BYTES );
+		if( out )
+		{
+			gc_static_nodes = (byte *)out;
+			gc_nodes_static_block = true;
+			gc_world_blocks_owner = mod;
+			GC_NODES_PREALLOC_PUBLISH( out );
+			Con_Reportf( "Xash3D GameCube: world nodes prealloc session reserve %s\n",
+				Q_memprint( GC_STATIC_NODES_BYTES ));
+			return;
+		}
+	}
+
+	if( gc_retain_bsp_source_buffer && gc_bsp_scratch_base && gc_bsp_scratch_size )
+	{
+		if( mod->surfaces && Mod_GCPointerInBuffer( mod->surfaces, gc_bsp_scratch_base, gc_bsp_scratch_size ))
+		{
+			const byte *p = (const byte *)mod->surfaces;
+			busy[busy_count].start = p - gc_bsp_scratch_base;
+			busy[busy_count].end = busy[busy_count].start
+				+ bmod->numsurfaces * ( sizeof( msurface_t ) + sizeof( mextrasurf_t ));
+			busy_count++;
+		}
+		if( mod->texinfo && Mod_GCPointerInBuffer( mod->texinfo, gc_bsp_scratch_base, gc_bsp_scratch_size ))
+		{
+			const byte *p = (const byte *)mod->texinfo;
+			busy[busy_count].start = p - gc_bsp_scratch_base;
+			busy[busy_count].end = busy[busy_count].start + mod->numtexinfo * sizeof( mtexinfo_t );
+			busy_count++;
+		}
+		if( mod->marksurfaces && Mod_GCPointerInBuffer( mod->marksurfaces, gc_bsp_scratch_base, gc_bsp_scratch_size ))
+		{
+			const byte *p = (const byte *)mod->marksurfaces;
+			busy[busy_count].start = p - gc_bsp_scratch_base;
+			busy[busy_count].end = busy[busy_count].start + mod->nummarksurfaces * sizeof( *mod->marksurfaces );
+			busy_count++;
+		}
+		/* Intentionally omit leafs — this runs before Mod_LoadLeafs. */
+
+		out = (mnode_t *)Mod_GCAllocWorldScratch( mod, bmod, busy, busy_count, node_bytes, 32 );
+		if( out )
+		{
+			Mod_GCInvalidateScratchOverlap( bmod, gc_bsp_scratch_base, gc_bsp_scratch_size, (byte *)out, node_bytes );
+			gc_nodes_prealloc_scratch = true;
+			GC_NODES_PREALLOC_PUBLISH( out );
+			Con_Reportf( "Xash3D GameCube: world nodes prealloc BSP scratch %s\n",
+				Q_memprint( node_bytes ));
+			return;
+		}
+	}
+
+	out = (mnode_t *)malloc( node_bytes );
+	if( !out )
+	{
+		Image_GCPurgeDecodeScratch();
+		out = (mnode_t *)malloc( node_bytes );
+	}
+	if( out )
+	{
+		gc_nodes_malloc_block = out;
+		GC_NODES_PREALLOC_PUBLISH( out );
+		Con_Reportf( "Xash3D GameCube: world nodes prealloc malloc %s\n",
+			Q_memprint( node_bytes ));
+	}
+	else
+		Con_Reportf( "Xash3D GameCube: world nodes prealloc miss need=%s free=%s\n",
+			Q_memprint( node_bytes ), Q_memprint( GC_MemHeapFreeBytes() ));
+#undef GC_NODES_PREALLOC_PUBLISH
+}
+#endif
+
 /*
 =================
 Mod_LoadNodes
@@ -5858,11 +5993,25 @@ static void Mod_LoadNodes( model_t *mod, dbspmodel_t *bmod )
 			size_t busy_count = 0;
 			const qboolean use_bsp_node_scratch = true;
 
+			/* Prealloc won the contiguous scratch race against leafs. */
+			if( gc_nodes_prealloc )
+			{
+				out = gc_nodes_prealloc;
+				if( out == (mnode_t *)gc_static_nodes )
+					gc_nodes_static_block = true;
+				else if( gc_nodes_prealloc_scratch )
+					gc_nodes_arena_tail = false; /* scratch, not arena tail */
+				gc_nodes_prealloc = NULL;
+				gc_nodes_prealloc_scratch = false;
+				Con_Reportf( "Xash3D GameCube: world nodes using prealloc %s\n",
+					Q_memprint( node_bytes ));
+			}
+
 			/* Nodes are one of the last world lumps still stressing MEM1 on large
 			 * retained-staging maps. Keep them on BSP scratch when we can, while
 			 * explicitly avoiding deferred lighting lumps that will be needed later.
 			 * New Game relocates nodes to the model pool after load (G83). */
-			if( use_bsp_node_scratch && gc_retain_bsp_source_buffer
+			if( !out && use_bsp_node_scratch && gc_retain_bsp_source_buffer
 				&& gc_bsp_scratch_base && gc_bsp_scratch_size )
 			{
 				if( mod->surfaces && Mod_GCPointerInBuffer( mod->surfaces, gc_bsp_scratch_base, gc_bsp_scratch_size ))
@@ -6544,6 +6693,8 @@ void Mod_GameCubeFreeMallocSurfaces( model_t *mod )
 	gc_texinfo_malloc_block = NULL;
 
 free_nodes:
+	gc_nodes_prealloc = NULL;
+	gc_nodes_prealloc_scratch = false;
 	if( gc_nodes_arena_tail || gc_nodes_static_block )
 	{
 		if( mod ) mod->nodes = NULL;
@@ -9392,6 +9543,9 @@ static qboolean Mod_LoadBmodelLumps( model_t *mod, byte *mod_base, size_t buffer
 	Mod_LoadMarkSurfaces( mod, bmod );
 #if XASH_GAMECUBE
 	Con_Reportf( "Xash3D GameCube: bmodel marksurfaces ready\n" );
+	/* Park nodes before leafs fill the last contiguous scratch holes
+	 * (c2a4e dual-hop tip-OOM after leafs claimed 189 KiB). */
+	Mod_GCPreallocWorldNodes( mod, bmod );
 	Mod_GCEnsureBspLump( mod, bmod, LUMP_LEAFS );
 #endif
 	Mod_LoadLeafs( mod, bmod );

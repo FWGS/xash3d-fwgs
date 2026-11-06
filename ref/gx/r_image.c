@@ -706,7 +706,7 @@ GL_ProcessImage
 do specified actions on pixels
 ===============
 */
-static void GL_ProcessImage( image_t *tex, rgbdata_t *pic )
+static qboolean GL_ProcessImage( image_t *tex, rgbdata_t *pic )
 {
 	uint img_flags = 0;
 
@@ -782,13 +782,17 @@ static void GL_ProcessImage( image_t *tex, rgbdata_t *pic )
 			|| pic->type == PF_RGB_24 || pic->type == PF_BGR_24 )
 			img_flags |= IMAGE_FORCE_RGBA;
 
-		/* Match ref_gl: apply MAKE_LUMA / FORCE_RGBA before upload. */
-		if( pic->buffer && img_flags )
-			gEngfuncs.Image_Process( &pic, 0, 0, img_flags, 0.0f );
+		/* Match ref_gl: apply MAKE_LUMA / FORCE_RGBA before upload.
+		 * A soft-failed RGBA expansion (low MEM1) must not reach the upload:
+		 * the soft packer reads the buffer as RGBA. */
+		if( pic->buffer && img_flags && !gEngfuncs.Image_Process( &pic, 0, 0, img_flags, 0.0f )
+			&& FBitSet( img_flags, IMAGE_FORCE_RGBA ) && pic->type != PF_RGBA_32 )
+			return false;
 
 		if( FBitSet( tex->flags, TF_LUMINANCE ))
 			ClearBits( pic->flags, IMAGE_HAS_COLOR );
 	}
+	return true;
 }
 
 /*
@@ -1008,9 +1012,7 @@ int GAME_EXPORT GL_LoadTexture( const char *name, const byte *buf, size_t size, 
 
 	// allocate the new one
 	tex = GL_AllocTexture( name, flags );
-	GL_ProcessImage( tex, pic );
-
-	if( !GL_UploadTexture( tex, pic ))
+	if( !GL_ProcessImage( tex, pic ) || !GL_UploadTexture( tex, pic ))
 	{
 		GL_DeleteTexture( tex );
 		gEngfuncs.FS_FreeImage( pic ); // release source texture
@@ -1118,8 +1120,7 @@ int GAME_EXPORT GL_LoadTextureFromBuffer( const char *name, rgbdata_t *pic, texF
 		tex = GL_AllocTexture( name, flags );
 	}
 
-	GL_ProcessImage( tex, pic );
-	if( !GL_UploadTexture( tex, pic ))
+	if( !GL_ProcessImage( tex, pic ) || !GL_UploadTexture( tex, pic ))
 	{
 		memset( tex, 0, sizeof( image_t ));
 		return 0;

@@ -1495,10 +1495,20 @@ static rgbdata_t *Image_DecompressInternal( rgbdata_t *pic )
 
 	Image_Decompress( pic->buffer );
 
+	{
+		/* Low-memory consoles soft-fail ImageLib reallocs (NULL, original
+		 * buffer kept).  Leave the picture untouched and report failure
+		 * instead of copying into NULL (menu banner DSI, DAR 0x4). */
+		byte *grown = (byte *)Mem_Realloc( host.imagepool, pic->buffer, image.size );
+
+		if( !grown || !image.tempbuffer )
+			return NULL;
+		pic->buffer = grown;
+	}
+
 	// now we can change type to RGBA
 	pic->type = PF_RGBA_32;
 
-	pic->buffer = Mem_Realloc( host.imagepool, pic->buffer, image.size );
 	memcpy( pic->buffer, image.tempbuffer, image.size );
 	if( pic->palette ) Mem_Free( pic->palette );
 	pic->flags = image.flags;
@@ -1584,13 +1594,20 @@ qboolean Image_Process( rgbdata_t **pix, int width, int height, uint flags, floa
 	if( FBitSet( flags, IMAGE_REMAP ))
 	{
 		// NOTE: user should keep copy of indexed image manually for new changes
-		if( Image_RemapInternal( pic, width, height ))
-			pic = Image_DecompressInternal( pic );
+		if( Image_RemapInternal( pic, width, height )
+			&& !Image_DecompressInternal( pic ))
+		{
+			image.force_flags = 0;
+			return false;
+		}
 	}
 
-	// update format to RGBA if any
-	if( FBitSet( flags, IMAGE_FORCE_RGBA ))
-		pic = Image_DecompressInternal( pic );
+	/* Soft-fail decompress under tip must not NULL out pic (banner load). */
+	if( FBitSet( flags, IMAGE_FORCE_RGBA ) && !Image_DecompressInternal( pic ))
+	{
+		image.force_flags = 0;
+		return false;
+	}
 
 	if( FBitSet( flags, IMAGE_LIGHTGAMMA ))
 		pic = Image_LightGamma( pic );
