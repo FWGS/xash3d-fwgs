@@ -1737,7 +1737,13 @@ int EXPORT Host_Main( int argc, char **argv, const char *progname, int bChangeGa
 				 * fuller client bring-up (fidelity: no blanket c4a compromise). */
 				if( Sys_CheckParm( "-gcnewgame" ))
 				{
-					const qboolean xen_dense = !Q_strnicmp( gcmap, "c4a", 3 )
+					/* Late Interloper / Gonarch / boss / end — not early c4a1a–d
+					 * (those keep quality=1 cold; chip list 20261106). */
+					const qboolean g336_xen_lean =
+						!Q_stricmp( gcmap, "c4a1e" )
+						|| !Q_stricmp( gcmap, "c4a1f" )
+						|| !Q_strnicmp( gcmap, "c4a2", 4 )
+						|| !Q_stricmp( gcmap, "c4a3" )
 						|| !Q_strnicmp( gcmap, "c5a", 3 );
 					const qboolean xen_boss_skip_premap =
 						!Q_stricmp( gcmap, "c4a3" )
@@ -1745,8 +1751,8 @@ int EXPORT Host_Main( int argc, char **argv, const char *progname, int bChangeGa
 
 					/* G336: denser AM cold New Game stalls mid full HUD_Init after
 					 * StatusIcon (probe 20260810-035405/040141) before MOTD hook.
-					 * Force lean HUD for those maps before G326 ensure; c1a0d and
-					 * earlier tram hops keep quality=1. */
+					 * Force lean HUD for those maps before G326 ensure; c1a0d,
+					 * tram hops, and early Interloper (c4a1a–d) keep quality=1. */
 					if( !Q_stricmp( gcmap, "c1a0a" )
 						|| !Q_stricmp( gcmap, "c1a0b" )
 						|| !Q_stricmp( gcmap, "c1a0c" )
@@ -1756,7 +1762,7 @@ int EXPORT Host_Main( int argc, char **argv, const char *progname, int bChangeGa
 						|| !Q_strnicmp( gcmap, "c1a4", 4 )
 						|| !Q_strnicmp( gcmap, "c2a", 3 )
 						|| !Q_strnicmp( gcmap, "c3a", 3 )
-						|| xen_dense )
+						|| g336_xen_lean )
 					{
 						Cvar_Set( "gc_quality", "0" );
 						Con_Reportf( "Xash3D GameCube: G336 lean HUD for denser map %s\n",
@@ -1815,7 +1821,22 @@ int EXPORT Host_Main( int argc, char **argv, const char *progname, int bChangeGa
 							Con_Reportf( "Xash3D GameCube: gcmap+newgame client ensure failed\n" );
 						else
 							Con_Reportf( "Xash3D GameCube: gcmap+newgame client ensure ready\n" );
-						Cvar_Set( "gc_quality", "0" );
+						/* Lean only while ensure/prepare run. Restore standard
+						 * quality when tip can fund real HUD. CapFaces-384
+						 * c4a1e had tip≈87 KiB (probe 101609) — 96 KiB left
+						 * quality=0; 80 KiB restores release HUD there. */
+						if( GC_MemHeapFreeBytes() >= 80u * 1024u )
+						{
+							Cvar_Set( "gc_quality", "1" );
+							Con_Reportf( "Xash3D GameCube: post-MAP_READY quality=1 tip=%s\n",
+								Q_memprint( GC_MemHeapFreeBytes() ));
+						}
+						else
+						{
+							Cvar_Set( "gc_quality", "0" );
+							Con_Reportf( "Xash3D GameCube: post-MAP_READY keep quality=0 tip=%s\n",
+								Q_memprint( GC_MemHeapFreeBytes() ));
+						}
 						/* ActivateServer deferred Prepare while client progs
 						 * were missing (c4a3 probe 20261105-070116: MAP_READY
 						 * then ready=0 / no CapFaces / G36 samples=0). Finish
