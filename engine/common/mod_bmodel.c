@@ -163,13 +163,18 @@ qboolean Mod_GCEnsureStaticReserves( void )
 			Con_Reportf( "Xash3D GameCube: world reserve nodes deferred need=%s free=%s\n",
 				Q_memprint( GC_STATIC_NODES_BYTES ), Q_memprint( GC_MemHeapFreeBytes() ));
 	}
-	/* Tight hop (free < nodes 384): prefer high-slot leafs carve over a tip
-	 * memalign that fragments away (c2a5f free≈281, memalign 208 miss). */
-	gc_leafs_highslot_carve = ( !gc_static_nodes
-		&& GC_MemHeapFreeBytes() < GC_STATIC_NODES_BYTES );
-	if( gc_leafs_highslot_carve && !gc_static_leafs
+	/* c2a5f high-slot leafs carve DISABLED: TailAlloc into the surface slot
+	 * stalls CapFaces/PVS on changelevel (c3a1→a, c2a5e→f). When nodes 384
+	 * cannot be taken (c2a5e→f free≈281), seize a contiguous leafs block now
+	 * so tip-park before entities can use it. Purge decode scratch first. */
+	gc_leafs_highslot_carve = false;
+	if( !gc_static_nodes && !gc_static_leafs
+		&& GC_MemHeapFreeBytes() < GC_STATIC_NODES_BYTES
 		&& GC_MemHeapFreeBytes() >= GC_STATIC_LEAFS_BYTES + 8192u )
+	{
+		Image_GCPurgeDecodeScratch();
 		Mod_GCTakeReserve( (void **)&gc_static_leafs, GC_STATIC_LEAFS_BYTES, "leafs" );
+	}
 	/* Hold entities only when nodes are already secured, or tip can still fund
 	 * a dense node tree after the 128 KiB take. Entities have malloc/arena
 	 * fallbacks; nodes falling through to Mem_Calloc abort the map. */
@@ -9730,6 +9735,78 @@ static qboolean Mod_LoadBmodelLumps( model_t *mod, byte *mod_base, size_t buffer
 	 * free≈281 before entities; by pre-surfaces tip≈66 and the only scratch
 	 * hole goes to nodes 270 — leafs 202 then tip-OOM). Leave a little tip
 	 * for entities malloc; entities can fall back to arena if thin. */
+	if( GC_MapLoadMemoryOpt() && bmod->isworld && !gc_leafs_prealloc )
+	{
+		const size_t leaf_bytes = ( bmod->numleafs > 0 )
+			? (size_t)bmod->numleafs * sizeof( mleaf_t )
+			: 0;
+		/* Keep ≥48 KiB tip for entities malloc-before-arena. */
+		const size_t tip_floor = 48u * 1024u;
+
+		if( leaf_bytes > 0 && gc_static_leafs && leaf_bytes <= GC_STATIC_LEAFS_BYTES )
+		{
+			memset( gc_static_leafs, 0, leaf_bytes );
+			gc_leafs_prealloc = (mleaf_t *)gc_static_leafs;
+			gc_leafs_static_block = true;
+			gc_world_blocks_owner = mod;
+			Con_Reportf( "Xash3D GameCube: world leafs tip-parked via static reserve %s\n",
+				Q_memprint( leaf_bytes ));
+		}
+		else if( leaf_bytes > 0 )
+		{
+			mleaf_t *leafs = NULL;
+
+			if( GC_MemHeapFreeBytes() >= leaf_bytes + tip_floor )
+			{
+				Image_GCPurgeDecodeScratch();
+				leafs = (mleaf_t *)memalign( 32, leaf_bytes );
+				if( !leafs )
+					leafs = (mleaf_t *)malloc( leaf_bytes );
+				if( leafs )
+				{
+					memset( leafs, 0, leaf_bytes );
+					gc_leafs_prealloc = leafs;
+					gc_leafs_malloc_block = leafs;
+					gc_world_blocks_owner = mod;
+					Con_Reportf( "Xash3D GameCube: world leafs tip-parked %s (free now %s)\n",
+						Q_memprint( leaf_bytes ), Q_memprint( GC_MemHeapFreeBytes() ));
+				}
+			}
+			/* Fragmentation: free bytes ≥ need but memalign misses (c2a5e→f
+			 * free≈281 need≈202). Sit under the already-reserved surface
+			 * high-slot — do NOT grow the slot (high-slot leaf_pad carve
+			 * hung CapFaces/NoPVS). Early highwater leaves room. */
+			if( !gc_leafs_prealloc && gc_bsp_surface_reserve
+				&& gc_bsp_scratch_base && GC_IsMapLoadBuffer( gc_bsp_scratch_base ))
+			{
+				const size_t cap = GC_MapLoadBufferCapacity();
+				const size_t hw = GC_MapLoadBufferTailHighwater();
+				size_t under;
+
+				if( cap > gc_bsp_surface_reserve + leaf_bytes )
+				{
+					under = cap - gc_bsp_surface_reserve - leaf_bytes;
+					under &= ~(size_t)31u;
+					if( under >= hw )
+					{
+						leafs = (mleaf_t *)GC_MapLoadBufferTailAlloc( under, leaf_bytes );
+						if( leafs )
+						{
+							memset( leafs, 0, leaf_bytes );
+							gc_leafs_prealloc = leafs;
+							gc_leafs_arena_tail = true;
+							gc_world_blocks_owner = mod;
+							Con_Reportf( "Xash3D GameCube: world leafs under-slot parked %s (surf keep %s)\n",
+								Q_memprint( leaf_bytes ), Q_memprint( gc_bsp_surface_reserve ));
+						}
+					}
+				}
+			}
+			if( !gc_leafs_prealloc )
+				Con_Reportf( "Xash3D GameCube: world leafs tip-park missed need=%s free=%s\n",
+					Q_memprint( leaf_bytes ), Q_memprint( GC_MemHeapFreeBytes() ));
+		}
+	}
 	Con_Reportf( "Xash3D GameCube: bmodel entities begin\n" );
 	GC_LoadingOverlayPulse();
 #endif
