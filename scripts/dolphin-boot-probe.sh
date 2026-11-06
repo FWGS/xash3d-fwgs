@@ -129,7 +129,9 @@ mkdir -p "$USER_DIR/Config"; DUMP_FRAMES=0
 # allowing an explicit zero for timing/audio validation.
 if [[ "${DOLPHIN_DUMP_FRAMES:-}" == "0" ]]; then
 	DUMP_FRAMES=0
-elif [[ "$DOLPHIN_RETAIL" == "1" || "${DOLPHIN_DUMP_FRAMES:-0}" == "1" ]]; then
+elif [[ "$DOLPHIN_RETAIL" == "1" || "${DOLPHIN_DUMP_FRAMES:-0}" == "1" || "${DOLPHIN_HOST_DUMP:-0}" == "1" ]]; then
+	# DOLPHIN_HOST_DUMP=1: Dolphin dumps what the console presents without
+	# switching the guest into its -gcdumpframes capture path.
 	DUMP_FRAMES=1
 fi
 # Retail timing evidence must use Dolphin's JIT and CPU thread unless a
