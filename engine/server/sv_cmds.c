@@ -123,11 +123,11 @@ static void SV_GameCubePlayStart_f( void )
 		}
 		/* Lean through ensure; restore standard quality when tip allows
 		 * (menu New Game fidelity — avoid permanent quality=0 demotion).
-		 * Match post-MAP_READY 48 KiB threshold (AM tip≈55 KiB). */
+		 * Match post-MAP_READY 40 KiB threshold (FAF c3a1 tip≈48). */
 		R_GcFreeMenuImages();
 		R_GXReleaseHudPoolForMapLoad();
 		Image_GCPurgeDecodeScratch();
-		if( GC_MemHeapFreeBytes() >= 48u * 1024u )
+		if( GC_MemHeapFreeBytes() >= 40u * 1024u )
 		{
 			Cvar_Set( "gc_quality", "1" );
 			Con_Reportf( "Xash3D GameCube: play start quality=1 tip=%s\n",

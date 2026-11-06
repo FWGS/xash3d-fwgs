@@ -263,25 +263,31 @@ void Mod_GCReleaseWorldReservesForChangelevel( void )
 }
 
 /* Call after Mod_PurgeForMapLoad on changelevel — tip is contiguous then.
- * Keep ≥96 KiB free after the take so c2a5f entity privates / CapFaces still
- * fit (pre-purge seize left tip≈57 and starved monster_alien_grunt). */
+ * c2a5f tip-fragments a 202 KiB leafs malloc (free≈281). Also seize on
+ * predecessor c2a5e so the hop releases a contiguous 208 KiB hole (gated
+ * c2a5f-only left free≈247 < headroom). Do NOT seize on Lambda/Xen colds
+ * (c3a2b tip≈28 when every hop seized). Keep ≥96 KiB after the take. */
 void *Mod_GCTakeLeafsReserveForChangelevel( void )
 {
 	const size_t headroom = 96u * 1024u;
+	const qboolean st_leafs_hop = sv.name[0]
+		&& ( !Q_stricmp( sv.name, "c2a5f" ) || !Q_stricmp( sv.name, "c2a5e" ));
 
 	if( gc_static_leafs )
 		return gc_static_leafs;
+	if( !st_leafs_hop )
+		return NULL;
 	Image_GCPurgeDecodeScratch();
 	if( GC_MemHeapFreeBytes() < GC_STATIC_LEAFS_BYTES + headroom )
 	{
-		Con_Reportf( "Xash3D GameCube: changelevel leafs seize skipped need=%s+96k free=%s\n",
-			Q_memprint( GC_STATIC_LEAFS_BYTES ), Q_memprint( GC_MemHeapFreeBytes() ));
+		Con_Reportf( "Xash3D GameCube: changelevel leafs seize skipped need=%s+96k free=%s map=%s\n",
+			Q_memprint( GC_STATIC_LEAFS_BYTES ), Q_memprint( GC_MemHeapFreeBytes() ), sv.name );
 		return NULL;
 	}
 	Mod_GCTakeReserve( (void **)&gc_static_leafs, GC_STATIC_LEAFS_BYTES, "leafs" );
 	if( gc_static_leafs )
-		Con_Reportf( "Xash3D GameCube: changelevel post-purge seized leafs %s (free now %s)\n",
-			Q_memprint( GC_STATIC_LEAFS_BYTES ), Q_memprint( GC_MemHeapFreeBytes() ));
+		Con_Reportf( "Xash3D GameCube: changelevel post-purge seized leafs %s for %s (free now %s)\n",
+			Q_memprint( GC_STATIC_LEAFS_BYTES ), sv.name, Q_memprint( GC_MemHeapFreeBytes() ));
 	return gc_static_leafs;
 }
 #endif
