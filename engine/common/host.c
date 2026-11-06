@@ -1824,10 +1824,13 @@ int EXPORT Host_Main( int argc, char **argv, const char *progname, int bChangeGa
 						else
 							Con_Reportf( "Xash3D GameCube: gcmap+newgame client ensure ready\n" );
 						/* Lean only while ensure/prepare run. Restore standard
-						 * quality when tip can fund real HUD. CapFaces-384
-						 * c4a1e had tip≈87 KiB (probe 101609) — 96 KiB left
-						 * quality=0; 80 KiB restores release HUD there. */
-						if( GC_MemHeapFreeBytes() >= 80u * 1024u )
+						 * quality when tip can fund real HUD. Floors: 96→80→64
+						 * covered UC tip≈73; AM c1a0a tip≈55 needs 48 KiB.
+						 * Reclaim ensure scratch first. */
+						R_GcFreeMenuImages();
+						R_GXReleaseHudPoolForMapLoad();
+						Image_GCPurgeDecodeScratch();
+						if( GC_MemHeapFreeBytes() >= 48u * 1024u )
 						{
 							Cvar_Set( "gc_quality", "1" );
 							Con_Reportf( "Xash3D GameCube: post-MAP_READY quality=1 tip=%s\n",
