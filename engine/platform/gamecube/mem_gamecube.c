@@ -325,6 +325,15 @@ void *__wrap_realloc( void *ptr, size_t size )
 	return neu;
 }
 
+/* Menu/UI texture uploads may borrow the boot arena through the renderer's
+ * zone pool; other ref_gx zone traffic (world/HUD/fonts that outlive the
+ * menu) never does.  Set by the renderer around resource/ and gfx/shell/
+ * uploads only. */
+static qboolean gc_boot_menu_scope;
+void GC_BootArenaSetMenuScope( qboolean on ) { gc_boot_menu_scope = on; }
+qboolean GC_BootArenaMenuScope( void ) { return gc_boot_menu_scope && !gc_boot_closed; }
+size_t GC_BootArenaLiveBytes( void ) { return gc_boot_live ? gc_boot_live_bytes : 0; }
+
 /* First map load: no new boot allocations.  Returns the bytes still live. */
 size_t GC_BootArenaClose( void )
 {

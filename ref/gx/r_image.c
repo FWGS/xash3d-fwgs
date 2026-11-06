@@ -14,6 +14,9 @@ GNU General Public License for more details.
 */
 
 #include "r_local.h"
+#if XASH_GAMECUBE
+#include "../../engine/platform/gamecube/mem_gamecube.h"
+#endif
 
 #if XASH_GAMECUBE
 /* Keep a few 64x64 HUD/effect sprites resident when the general MEM1 heap
@@ -422,7 +425,31 @@ GL_UploadTexture
 upload texture into video memory
 ===============
 */
+static qboolean GL_UploadTextureBody( image_t *tex, rgbdata_t *pic );
+
+/* GameCube: menu/UI images (resource/, gfx/shell/) may take their pixel and
+ * alpha planes from the boot arena when the heap is short before the first
+ * map load.  They are released by R_GcFreeMenuImages, which the first map
+ * load runs before closing the arena. */
 static qboolean GL_UploadTexture( image_t *tex, rgbdata_t *pic )
+{
+#if XASH_GAMECUBE
+	const qboolean menu_image = tex && ( !Q_strnicmp( tex->name, "resource/", 9 )
+		|| !Q_strnicmp( tex->name, "gfx/shell/", 10 ));
+	qboolean ok;
+
+	if( menu_image )
+		GC_BootArenaSetMenuScope( true );
+	ok = GL_UploadTextureBody( tex, pic );
+	if( menu_image )
+		GC_BootArenaSetMenuScope( false );
+	return ok;
+#else
+	return GL_UploadTextureBody( tex, pic );
+#endif
+}
+
+static qboolean GL_UploadTextureBody( image_t *tex, rgbdata_t *pic )
 {
 	byte     *data;
 	qboolean normalMap = false;
