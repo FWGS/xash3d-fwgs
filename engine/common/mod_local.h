@@ -178,6 +178,7 @@ const char *Mod_GCLandmarkViewModelPath( void );
 void Mod_ReleaseBrushSourceBuffer( void *buf );
 void Mod_GameCubeFreeMallocSurfaces( model_t *mod );
 void Mod_GCReleaseUnusedWorldReserves( void ); /* tip back before InitInput */
+void Mod_GCReleaseWorldReservesForChangelevel( void ); /* tip back before dest spawn */
 qboolean Mod_GCPromoteWorldSurfaces( model_t *mod ); /* G132: scratch → malloc before present */
 qboolean Mod_GCWorldSurfacesPinned( model_t *mod ); /* G213: surfaces outside scratch (live Flipper) */
 qboolean Mod_GCWorldSurfacesScratchRetained( model_t *mod ); /* G283: scratch retain-pin */
@@ -189,6 +190,8 @@ void Mod_GCClearRetainedBspScratch( void );
  * hydrate one face's samples into a static MEM1 window via gc_surf_lightofs[]. */
 color24 *Mod_GCHydrateSurfaceLightmap( const msurface_t *surf );
 qboolean Mod_GCAramLightmapActive( void );
+/* Drop temporary G154 LM bind after CapFaces (immediate or deferred G369). */
+void Mod_GCReleaseTempNewGameLightmaps( model_t *mod );
 #endif
 qboolean Mod_GCIsStudioBssCache( const void *ptr );
 byte *Mod_GCStudioBssAlloc( size_t size );

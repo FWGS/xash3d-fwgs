@@ -11522,6 +11522,15 @@ void GC_ReclaimFatPVSBeforeEntitySpawn( void )
 	Con_Reportf( "Xash3D GameCube: G369 reclaim FatPVS extras before entity spawn\n" );
 }
 
+qboolean GC_IsCapFacesBakeDeferred( void )
+{
+#if XASH_GAMECUBE
+	return gc_capfaces_bake_deferred;
+#else
+	return false;
+#endif
+}
+
 void GC_BakeDeferredNewGameCapFaces( void )
 {
 	model_t *wmodel;
@@ -11595,6 +11604,10 @@ void GC_BakeDeferredNewGameCapFaces( void )
 	}
 	else
 		Con_Reportf( "Xash3D GameCube: G369 post-spawn CapFaces skipped (no surfbits)\n" );
+
+	/* CapFaces (immediate path) used to free the temporary G154 bind in
+	 * Mod_LoadBrushModel. Deferred maps keep samples/ARAM until here. */
+	Mod_GCReleaseTempNewGameLightmaps( wmodel );
 }
 
 static int GC_LeafIndexForClusterVis( model_t *wmodel, int cluster )
@@ -12196,6 +12209,8 @@ void GC_ResetNewGameWorldForChangelevel( void )
 	SYS_Report( "Xash3D GameCube: changelevel teardown map=%s world_ready=%d pvs=%d\n",
 		sv.name[0] ? sv.name : "?", gc_newgame_world_ready ? 1 : 0,
 		gc_newgame_pvs_ready ? 1 : 0 );
+	/* World reserves are released after Mod_PurgeForMapLoad (sv_init) once the
+	 * old entity lump no longer borrows gc_static_entities. */
 	GC_FreeLiveFaces();
 	GC_FreeTramFaces();
 	GC_FreeNewGamePVSCache();
@@ -12206,6 +12221,10 @@ void GC_ResetNewGameWorldForChangelevel( void )
 	gc_lean_sky_attempts = 0;
 	gc_gx_world_live = false;
 	gc_gx_world_efb_ready = false;
+	/* Drop any mid-hop G36 window; final dest re-arms in Prepare (G374/G509). */
+	gc_budget_probe_active = false;
+	gc_budget_sample_count = 0;
+	gc_budget_warmup_left = 0;
 	gc_g192_post_changelevel = true;
 	gc_g193_defer_flipper_left = 0;
 	gc_g193_draining = false;
@@ -14304,17 +14323,27 @@ qboolean GC_PrepareNewGameWorldPresent( void )
 			}
 		}
 	}
-	/* G509: changelevel without -gcnewgame still needs the same arm before
-	 * the present pump (trailing Host_ServerFrame can hang on audiomm). */
+	/* G509: changelevel after g36_done (sticky across hops) still needs an
+	 * arm on the *final* dest before the present pump. Dual-hop must not arm
+	 * on hop1 (c1a0d) — that opened the window then immediately tore it down
+	 * for changelevel2 (160630/161433: samples=0 on c1a0a). */
 	if( Sys_CheckParm( "-gcchangelevel" )
 		&& !gc_budget_probe_active )
 	{
 		static qboolean gc_cl_budget_armed;
 		char dest[MAX_QPATH];
+		char dest2[MAX_QPATH];
+		qboolean on_final = false;
 
-		if( !gc_cl_budget_armed
-			&& Sys_GetParmFromCmdLine( "-gcchangelevel", dest )
-			&& dest[0] && !Q_stricmp( sv.name, dest ))
+		if( Sys_CheckParm( "-gcchangelevel2" )
+			&& Sys_GetParmFromCmdLine( "-gcchangelevel2", dest2 )
+			&& dest2[0] )
+			on_final = !Q_stricmp( sv.name, dest2 );
+		else if( Sys_GetParmFromCmdLine( "-gcchangelevel", dest )
+			&& dest[0] )
+			on_final = !Q_stricmp( sv.name, dest );
+
+		if( !gc_cl_budget_armed && on_final )
 		{
 			gc_cl_budget_armed = true;
 			gc_budget_sample_count = 0;

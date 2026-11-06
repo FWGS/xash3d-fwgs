@@ -227,10 +227,14 @@ void R_GcmapTrimForMapLoad( void )
 	if( gc_renderer_trimmed )
 		return;
 
-	/* Every map load (incl. changelevel) retries any deferred world reserve
-	 * before BSP staging takes the heap. */
-	Mod_GCEnsureStaticReserves();
-	SV_GCEnsureStringArena();
+	/* Fresh loads retry deferred world reserves before BSP staging. On
+	 * changelevel the old world still owns tip (entities reserve / textures);
+	 * Ensure runs after Mod_PurgeForMapLoad instead (c1a0d→c1a0a tip hang). */
+	if( !gEngfuncs.Sys_CheckParm( "-gcchangelevel" ))
+	{
+		Mod_GCEnsureStaticReserves();
+		SV_GCEnsureStringArena();
+	}
 
 	/* The map load is about to reuse the pad: close the boot arena first. */
 	if( !gc_static_map_arena_ever_used )

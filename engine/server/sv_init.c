@@ -1389,8 +1389,33 @@ qboolean SV_SpawnServer( const char *mapname, const char *startspot, qboolean ba
 	Con_Reportf( "Xash3D GameCube: pre-spawn video trim begin\n" );
 	GC_TrimVideoMemoryForMapLoad();
 	Con_Reportf( "Xash3D GameCube: pre-spawn video trim ready\n" );
-	Mod_PurgeForMapLoad();
-	Con_Reportf( "Xash3D GameCube: pre-spawn old world purged\n" );
+	/* Reclaim world reserves *before* FreeModel texture unload — tip≈37 KiB
+	 * with the 128 KiB entities reserve still held hung Mod_FreeModel
+	 * ("Unloading world", probe 174651). Entity string is unused during
+	 * texture teardown. */
+	if( Sys_CheckParm( "-gcchangelevel" ))
+	{
+		extern void Mod_GCReleaseWorldReservesForChangelevel( void );
+		extern qboolean Mod_GCEnsureStaticReserves( void );
+		extern qboolean SV_GCEnsureStringArena( void );
+
+		if( sv.worldmodel )
+			sv.worldmodel->entities = NULL;
+		Mod_GCReleaseWorldReservesForChangelevel();
+		Con_Reportf( "Xash3D GameCube: pre-purge world reserves released free=%s\n",
+			Q_memprint( GC_MemHeapFreeBytes() ));
+		Mod_PurgeForMapLoad();
+		Con_Reportf( "Xash3D GameCube: pre-spawn old world purged\n" );
+		Mod_GCEnsureStaticReserves();
+		SV_GCEnsureStringArena();
+		Con_Reportf( "Xash3D GameCube: pre-spawn world reserves retaken free=%s\n",
+			Q_memprint( GC_MemHeapFreeBytes() ));
+	}
+	else
+	{
+		Mod_PurgeForMapLoad();
+		Con_Reportf( "Xash3D GameCube: pre-spawn old world purged\n" );
+	}
 	/* Changelevel enters through SV_InitGame rather than the host gcmap
 	 * bootstrap path.  Reserve the destination-sized contiguous BSP buffer
 	 * here, after the old world has been purged, so FS_LoadFile does not fall
