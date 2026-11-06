@@ -1599,6 +1599,17 @@ int EXPORT Host_Main( int argc, char **argv, const char *progname, int bChangeGa
 	Con_Reportf( "Xash3D GameCube: server init ready\n" );
 	/* Report engine before CL_Init so renderer/sw_fb/menu/client can advance. */
 	GC_ReportBootPhase( GC_BOOT_ENGINE );
+	/* Boot may have parked a 384 KiB nodes reserve while MEM1 looked fat;
+	 * with SP BSS edicts that leaves tip too thin for CL_InitLocal (hung at
+	 * boot phase=engine, probe 20261106-085739). Release idle heap reserves
+	 * here — GC_BeginMapLoadMemoryOpt retakes before BSP. */
+	if( GC_MemHeapFreeBytes() < 48u * 1024u )
+	{
+		extern void Mod_GCReleaseUnusedWorldReserves( void );
+
+		Mod_GCReleaseUnusedWorldReserves();
+		GC_MemSample( "pre-client boot reserve release" );
+	}
 #endif
 	CL_Init();
 #if XASH_GAMECUBE
