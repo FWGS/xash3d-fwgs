@@ -10,6 +10,9 @@ fi
 
 cd "$GITHUB_WORKSPACE" || exit 1
 
+# not checked out by default, needed for --enable-all-renderers and --enable-tui
+git submodule update --init --checkout 3rdparty/nanogl 3rdparty/gl-wes-v2 3rdparty/gl4es/gl4es 3rdparty/maintui || die
+
 # "booo, bash feature!", -- posix sh users, probably
 declare -A BASE_BUILD_PACKAGES SDL_BUILD_PACKAGES APPIMAGETOOL RUST_TARGET
 

@@ -2,6 +2,9 @@
 
 cd "$GITHUB_WORKSPACE" || exit 1
 
+# not checked out by default, iOS builds ref_gles1
+git submodule update --init --checkout 3rdparty/nanogl || exit 1
+
 git clone https://github.com/libsdl-org/SDL -b "release-$SDL_VERSION"
 
 cd SDL/Xcode/SDL || exit 1

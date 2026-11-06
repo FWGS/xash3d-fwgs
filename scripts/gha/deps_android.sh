@@ -4,6 +4,9 @@
 
 cd "$GITHUB_WORKSPACE" || exit 1
 
+# not checked out by default, Android builds ref_gles1 and ref_gl4es
+git submodule update --init --checkout 3rdparty/nanogl 3rdparty/gl4es/gl4es || exit 1
+
 ANDROID_COMMANDLINE_TOOLS_VER="14742923"
 ANDROID_BUILD_TOOLS_VER="36.0.0"
 ANDROID_PLATFORM_VER="android-35"

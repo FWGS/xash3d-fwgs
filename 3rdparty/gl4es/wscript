@@ -8,7 +8,7 @@ def options(opt):
 
 def configure(conf):
 	if not conf.path.find_dir('gl4es') or not conf.path.find_dir('gl4es/src'):
-		conf.fatal('Can\'t find gl4es submodule. Run `git submodule update --init --recursive`.')
+		conf.fatal('Can\'t find gl4es submodule. Run `git submodule update --init --checkout 3rdparty/gl4es/gl4es`.')
 		return
 
 def build(bld):

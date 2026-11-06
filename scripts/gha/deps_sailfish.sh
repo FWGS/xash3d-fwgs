@@ -4,6 +4,9 @@
 
 cd "$BUILDDIR" || die
 
+# not checked out by default, Sailfish builds ref_gles1 and ref_gl4es
+git submodule update --init --checkout 3rdparty/nanogl 3rdparty/gl4es/gl4es || die
+
 SDK_URL=https://releases.sailfishos.org/sdk
 CHROOT=Sailfish_OS-$SAILFISH_TARGET_VERSION-Platform_SDK_Chroot-i486.tar.bz2
 TOOLING=Sailfish_OS-$SAILFISH_TARGET_VERSION-Sailfish_SDK_Tooling-i486.tar.7z

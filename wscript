@@ -55,9 +55,11 @@ def use_xash_clang_format(self):
 
 
 class Subproject:
-	def __init__(self, name, fnFilter = None):
+	# manual_checkout: subproject is a submodule with update = none, its wscript is missing until it's checked out
+	def __init__(self, name, fnFilter = None, manual_checkout = False):
 		self.name = name
 		self.fnFilter = fnFilter
+		self.manual_checkout = manual_checkout
 
 	def is_exists(self, ctx):
 		return ctx.path.find_node(self.name + '/wscript')
@@ -114,8 +116,8 @@ SUBDIRS = [
 
 	# disable only by engine feature, makes no sense to even parse subprojects in dedicated mode
 	Subproject('3rdparty/extras',       lambda x: x.env.CLIENT and x.env.DEST_OS != 'android'),
-	Subproject('3rdparty/nanogl',       lambda x: x.env.CLIENT and x.env.NANOGL),
-	Subproject('3rdparty/gl-wes-v2',    lambda x: x.env.CLIENT and x.env.GLWES),
+	Subproject('3rdparty/nanogl',       lambda x: x.env.CLIENT and x.env.NANOGL, manual_checkout = True),
+	Subproject('3rdparty/gl-wes-v2',    lambda x: x.env.CLIENT and x.env.GLWES, manual_checkout = True),
 	Subproject('3rdparty/gl4es',        lambda x: x.env.CLIENT and x.env.GL4ES),
 	Subproject('ref/common',            lambda x: x.env.CLIENT),
 	Subproject('ref/gl',                lambda x: x.env.CLIENT and (x.env.GL or x.env.NANOGL or x.env.GLWES or x.env.GL4ES or x.env.GLES3COMPAT)),
@@ -130,7 +132,7 @@ SUBDIRS = [
 	Subproject('3rdparty/libogg',       lambda x: x.env.CLIENT and not x.env.HAVE_SYSTEM_OGG),
 	Subproject('3rdparty/vorbis',       lambda x: x.env.CLIENT and (not x.env.HAVE_SYSTEM_VORBIS or not x.env.HAVE_SYSTEM_VORBISFILE)),
 	Subproject('3rdparty/opusfile',     lambda x: x.env.CLIENT and not x.env.HAVE_SYSTEM_OPUSFILE),
-	Subproject('3rdparty/maintui',      lambda x: x.env.CLIENT and x.env.TUI),
+	Subproject('3rdparty/maintui',      lambda x: x.env.CLIENT and x.env.TUI, manual_checkout = True),
 	Subproject('3rdparty/mainui',       lambda x: x.env.CLIENT and x.env.DEST_OS != 'android'),
 
 	# engine is obligated to provide VGUI interface in 32-bit builds on Windows/Linux/Mac as shared library
@@ -695,6 +697,9 @@ def configure(conf):
 	conf.define('XASH_LOW_MEMORY', conf.options.LOW_MEMORY)
 
 	for i in SUBDIRS:
+		if i.manual_checkout and not i.is_exists(conf) and i.fnFilter(conf):
+			conf.fatal('Can\'t find %s submodule. Run `git submodule update --init --checkout %s`.' % (i.name, i.name))
+
 		if not i.is_enabled(conf):
 			continue
 

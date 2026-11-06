@@ -66,6 +66,10 @@ The RPM can be built on the phone itself, no Sailfish SDK needed. It takes a few
    git clone --depth 1 --recursive --shallow-submodules https://github.com/FWGS/xash3d-fwgs
    git clone --depth 1 --recursive --shallow-submodules -b mobile_hacks https://github.com/FWGS/hlsdk-portable
    ```
+   nanogl and gl4es aren't checked out by default, check them out in `xash3d-fwgs`:
+   ```
+   git submodule update --init --checkout --depth 1 3rdparty/nanogl 3rdparty/gl4es/gl4es
+   ```
 3. Pack them the way the spec file expects, without a top-level directory. Keep `.git` in the archive: the engine gets its commit and build number from it.
    ```
    version=$(sed -n 's/^Version:[[:space:]]*//p' xash3d-fwgs/sailfish/harbour-xash3d-fwgs.spec)

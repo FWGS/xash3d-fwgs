@@ -2,6 +2,9 @@
 
 . scripts/lib.sh
 
+# not checked out by default, needed for --enable-tui
+git submodule update --init --checkout 3rdparty/maintui || die
+
 curl -L "http://libsdl.org/release/SDL2-devel-$SDL_VERSION-VC.zip" -o SDL2.zip
 unzip -q SDL2.zip
 mv "SDL2-$SDL_VERSION" SDL2_VC

@@ -102,6 +102,7 @@ This repository contains our fork of HLSDK and restored source code for Half-Lif
 * Install [CMake](https://cmake.org/) (for some dependencies).
 
 * Clone this repostory: `$ git clone --recursive https://github.com/FWGS/xash3d-fwgs`.
+* Check out nanogl and gl4es, they aren't checked out by default: `$ git submodule update --init --checkout 3rdparty/nanogl 3rdparty/gl4es/gl4es`.
 
 #### iOS/iPadOS
 * Install Xcode from the appstore.
@@ -112,6 +113,7 @@ This repository contains our fork of HLSDK and restored source code for Half-Lif
 * Clone the SDL2 repo `$ git clone --recursive https://github.com/libsdl-org/SDL.git -b SDL2` and compile the iOS framework by navigating to SDL/Xcode/SDL and opening the Xcode project.
 
 * Clone this repository: `$ git clone --recursive https://github.com/FWGS/xash3d-fwgs`.
+* Check out nanogl, it isn't checked out by default: `$ git submodule update --init --checkout 3rdparty/nanogl`.
 
 ### Building
 #### Windows (Visual Studio)
