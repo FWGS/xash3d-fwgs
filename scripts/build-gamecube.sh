@@ -90,6 +90,14 @@ fi
 
 echo "GameCube build profile: gamedir=$HLSDK_GAMEDIR dol=$DOL_NAME"
 
+# dll_gamecube.c includes these wrappers next to the HLSDK archives; their old
+# generator is gone, so install the tracked copies (fresh clones need them).
+for gc_exp in dlls/gamecube_server_exports.inc cl_dlls/gamecube_client_exports.inc; do
+	if [ -d "$HLSDK_DESTDIR/$HLSDK_GAMEDIR/$(dirname "$gc_exp")" ]; then
+		cp -f "$ROOT/scripts/gamecube-exports/$(basename "$gc_exp")" "$HLSDK_DESTDIR/$HLSDK_GAMEDIR/$gc_exp"
+	fi
+done
+
 if [ -s "$HLSDK_SERVER_ARCHIVE" ] && [ -d "$HLSDK_DIR/dlls" ] && [ -x "$NM" ]; then
 	python3 "$ROOT/scripts/generate-hlsdk-gamecube-exports.py" \
 		--hlsdk-dir "$HLSDK_DIR" \
