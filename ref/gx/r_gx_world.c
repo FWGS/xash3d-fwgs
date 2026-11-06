@@ -456,6 +456,12 @@ static void R_GXReserveHudPool( void )
 			r_gx_tex[slot].valid = false;
 		}
 		r_gx_tex[slot].tiled = (u16 *)memalign( 32, bytes );
+		/* Boot/menu: the heap is at its tightest while the menu chrome is up.
+		 * Borrow the idle boot arena rather than run the menu on fewer slabs
+		 * (garbled button strips, G184).  The first map load releases the
+		 * HUD pool before it takes the pad back (R_GcmapTrimForMapLoad). */
+		if( !r_gx_tex[slot].tiled )
+			r_gx_tex[slot].tiled = (u16 *)GC_BootArenaAlloc( bytes );
 		if( !r_gx_tex[slot].tiled )
 		{
 			gEngfuncs.Con_Reportf(

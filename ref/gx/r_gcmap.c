@@ -246,7 +246,10 @@ void R_GcmapTrimForMapLoad( void )
 		/* Menu/UI images may hold boot-arena blocks; the menu is hidden for
 		 * the load and reloads its art on return. */
 		if( GC_BootArenaLiveBytes() )
+		{
 			R_GcFreeMenuImages();
+			R_GXReleaseHudPoolForMapLoad();
+		}
 		live = GC_BootArenaClose();
 		if( live )
 		{
