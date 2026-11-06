@@ -143,9 +143,11 @@ static qboolean gc_soundent_fallback_used;
 /* G330: bounded bump slab for map-private blocks. Keep static BSS ≤108 KiB —
  * growing it to 192 KiB OOM'd Zone Engine before c1a1f BSP open. Larger
  * (>1 KiB) privates go to map-arena overflow (GC_ENTITY_OVERFLOW_BYTES). */
-/* Keep ≤~108 KiB BSS — 160 KiB starved tip MEM1 and hung c2a5e mid-spawn.
- * Dense ST maps (c2a5f) spill into map-arena overflow once reserved. */
-static byte gc_ent_priv_slab[110592] __attribute__((aligned(16)));
+/* Keep BSS modest — 160 KiB starved tip and hung c2a5e mid-spawn.
+ * 108 KiB + tip-fragment leafs seize left c2a5f slab exhausted at
+ * monster_alien_grunt (768) with arena overflow skipped (tail=0).
+ * 128 KiB covers that dense ST spawn without re-entering the 160 hang. */
+static byte gc_ent_priv_slab[131072] __attribute__((aligned(16)));
 /* One bit per aligned block allows arbitrary entity destruction to reclaim
  * space without allocating heap headers or moving live game-DLL objects. */
 static byte gc_ent_priv_slab_bits[sizeof( gc_ent_priv_slab ) / 16 / 8];
@@ -153,6 +155,7 @@ static size_t gc_ent_priv_slab_used;
 static int gc_ent_priv_slab_hits;
 static uint16_t gc_ent_priv_slab_size[MAX_EDICTS];
 static byte *gc_ent_priv_overflow;
+static qboolean gc_ent_priv_overflow_from_tip;
 static byte gc_ent_priv_overflow_bits[GC_ENTITY_OVERFLOW_BYTES / 16 / 8];
 static size_t gc_ent_priv_overflow_capacity;
 static size_t gc_ent_priv_overflow_used;
@@ -166,14 +169,31 @@ void SV_GCReservePrivateOverflow( size_t after, size_t bytes )
 	if( bytes > GC_ENTITY_OVERFLOW_BYTES ) bytes = GC_ENTITY_OVERFLOW_BYTES;
 	bytes &= ~(size_t)31;
 	if( !bytes ) return;
+	gc_ent_priv_overflow_from_tip = false;
 	gc_ent_priv_overflow = GC_MapLoadBufferTailAlloc( after, bytes );
+	if( !gc_ent_priv_overflow && GC_MemHeapFreeBytes() >= bytes + 48u * 1024u )
+	{
+		/* c2a5f: arena mid-tail is 0 with leafs tip-parked — fall back to a
+		 * contiguous tip block so dense monster privates still allocate. */
+		Image_GCPurgeDecodeScratch();
+		gc_ent_priv_overflow = (byte *)memalign( 32, bytes );
+		if( !gc_ent_priv_overflow )
+			gc_ent_priv_overflow = (byte *)malloc( bytes );
+		if( gc_ent_priv_overflow )
+		{
+			gc_ent_priv_overflow_from_tip = true;
+			Con_Reportf( "Xash3D GameCube: entity overflow reserved %u bytes from tip\n",
+				(unsigned)bytes );
+		}
+	}
 	if( gc_ent_priv_overflow )
 	{
 		gc_ent_priv_overflow_capacity = bytes;
 		memset( gc_ent_priv_overflow_bits, 0, sizeof( gc_ent_priv_overflow_bits ));
 		gc_ent_priv_overflow_used = 0;
-		Con_Reportf( "Xash3D GameCube: entity overflow reserved %u bytes in map arena\n",
-			(unsigned)bytes );
+		if( !gc_ent_priv_overflow_from_tip )
+			Con_Reportf( "Xash3D GameCube: entity overflow reserved %u bytes in map arena\n",
+				(unsigned)bytes );
 	}
 }
 
@@ -1805,7 +1825,10 @@ void SV_FreeEdicts( void )
 			(unsigned)gc_ent_priv_overflow_used );
 	else
 	{
+		if( gc_ent_priv_overflow_from_tip && gc_ent_priv_overflow )
+			free( gc_ent_priv_overflow );
 		gc_ent_priv_overflow = NULL;
+		gc_ent_priv_overflow_from_tip = false;
 		gc_ent_priv_overflow_capacity = 0;
 	}
 #endif

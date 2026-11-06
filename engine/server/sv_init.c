@@ -1458,6 +1458,13 @@ qboolean SV_SpawnServer( const char *mapname, const char *startspot, qboolean ba
 			Q_memprint( GC_MemHeapFreeBytes() ));
 		Mod_PurgeForMapLoad();
 		Con_Reportf( "Xash3D GameCube: pre-spawn old world purged\n" );
+		/* c2a5e→f: after purge tip is contiguous — seize leafs with headroom
+		 * so destination LoadLeafs avoids tip-fragment OOM without high-slot
+		 * CapFaces hangs. Require ≥96 KiB tip after the take for ent privates. */
+		{
+			extern void *Mod_GCTakeLeafsReserveForChangelevel( void );
+			(void)Mod_GCTakeLeafsReserveForChangelevel();
+		}
 		Mod_GCEnsureStaticReserves();
 		SV_GCEnsureStringArena();
 		Con_Reportf( "Xash3D GameCube: pre-spawn world reserves retaken free=%s\n",
