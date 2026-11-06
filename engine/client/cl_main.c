@@ -4005,7 +4005,13 @@ void Host_ClientFrame( void )
 				host.renderinfo_changed = false;
 			return;
 		}
-		if( Sys_CheckParm( "-gcmenuplaystart" ))
+		/* Only the -gcmap + -gcmenuplaystart smoke combination needs the
+		 * client before play start.  The plain menu route used to load the
+		 * client DLL on the first frame, during the startup video, with
+		 * ~32 KiB of heap left; it hung at "deferred client init begin"
+		 * and the menu never came up.  SV_GameCubePlayStart_f ensures the
+		 * client itself after its MEM1 trims, as on the retail cold route. */
+		if( Sys_CheckParm( "-gcmenuplaystart" ) && Sys_CheckParm( "-gcmap" ))
 		{
 			Image_GCPurgeDecodeScratch();
 			FS_ClearFindMissCache();
