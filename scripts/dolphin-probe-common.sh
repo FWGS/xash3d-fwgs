@@ -144,6 +144,23 @@ probe_report_g45() {
 	fi
 }
 
+# MEM1 headroom gate: the engine logs "heap mark stage=menu_handoff ...
+# avail=<bytes>" when the menu takes over from the startup video.  Boot and
+# menu regressions (statics/reserves charged at boot) showed up there first:
+# 401 KiB when New Game worked, 30 KiB when it hung.  Fail below the floor
+# (DOLPHIN_MENU_HEAP_FLOOR_KB, default 200; 0 disables).
+probe_check_menu_heap_floor() {
+	local floor_kb="${DOLPHIN_MENU_HEAP_FLOOR_KB:-200}" avail
+	(( floor_kb > 0 )) || return 0
+	avail=$(grep -aohsE "heap mark stage=menu_handoff .*avail=[0-9]+" "$LOG_DIR/stderr.log" \
+		"$LOG_DIR"/dolphin-user/Logs/*.log 2>/dev/null | tail -1 | grep -oE "avail=[0-9]+" | cut -d= -f2)
+	[[ -n "$avail" ]] || { echo "HEAP_FLOOR: no menu_handoff heap mark"; return 0; }
+	echo "HEAP_FLOOR: menu_handoff avail=$(( avail / 1024 )) KiB floor=${floor_kb} KiB"
+	if (( avail / 1024 < floor_kb )); then
+		probe_fail_guest heap_floor "HEAP_FLOOR_FAIL: only $(( avail / 1024 )) KiB of heap free when the menu took over (floor ${floor_kb} KiB)."
+	fi
+}
+
 probe_fail_guest() {
 	local status="$1"
 	local message="$2"
@@ -906,6 +923,7 @@ fi
 if (( RETAIL_MENU_READY )) && [[ "$DOLPHIN_RETAIL" == "1" ]] && (( ! DOLPHIN_NEWGAME )) \
 	&& [[ "${DOLPHIN_MENU_NEWGAME:-0}" != "1" ]]; then
 		probe_guest_error && probe_fail_guest guest_failure "GUEST_FAILURE: Retail boot reached menu, followed by a guest error."
+		probe_check_menu_heap_floor
 		if probe_log_has "$INTRO_MARKER"; then
 			echo "RETAIL_READY: Half-Life retail boot played intro AVI and reached the interactive menu on GameCube."
 	else
