@@ -10542,12 +10542,14 @@ qboolean GC_IsNewGameG36Done( void )
 
 #if XASH_GAMECUBE
 static void GC_ProbeTryDeferredChangelevel2( void );
+static void GC_ProbeTryDeferredChangelevel3( void );
 #endif
 
 void GC_TryDeferredTasChangelevel( void )
 {
 #if XASH_GAMECUBE
 	GC_ProbeTryDeferredChangelevel2();
+	GC_ProbeTryDeferredChangelevel3();
 
 	if( !gc_tas_deferred_cl_pending || !gc_tas_deferred_cl_dest[0] )
 		return;
@@ -10584,6 +10586,10 @@ static qboolean GC_IsProbeChangelevelDest( void )
 		return true;
 	if( Sys_CheckParm( "-gcchangelevel2" )
 		&& Sys_GetParmFromCmdLine( "-gcchangelevel2", dest )
+		&& dest[0] && !Q_stricmp( sv.name, dest ))
+		return true;
+	if( Sys_CheckParm( "-gcchangelevel3" )
+		&& Sys_GetParmFromCmdLine( "-gcchangelevel3", dest )
 		&& dest[0] && !Q_stricmp( sv.name, dest ))
 		return true;
 	return false;
@@ -10643,8 +10649,61 @@ static void GC_ProbeTryDeferredChangelevel2( void )
 		dest2, sv.name, landmark[0] ? landmark : "(none)" );
 	COM_ChangeLevel( dest2, landmark[0] ? landmark : NULL, false );
 }
-#endif
 
+/* G357: third probe hop after G356 lands on -gcchangelevel2 dest. */
+static qboolean gc_g357_cl3_pending;
+
+static void GC_ProbeMaybeQueueChangelevel3( void )
+{
+	static qboolean gc_g357_cl3_armed;
+	char dest2[MAX_QPATH];
+	char dest3[MAX_QPATH];
+
+	if( gc_g357_cl3_armed || gc_g357_cl3_pending || !Sys_CheckParm( "-gcchangelevel3" ))
+		return;
+	if( !Sys_GetParmFromCmdLine( "-gcchangelevel2", dest2 )
+		|| !Sys_GetParmFromCmdLine( "-gcchangelevel3", dest3 )
+		|| !dest2[0] || !dest3[0] )
+		return;
+	if( Q_stricmp( sv.name, dest2 ) || !Q_stricmp( sv.name, dest3 ))
+		return;
+
+	gc_g357_cl3_armed = true;
+	gc_g357_cl3_pending = true;
+	SYS_Report( "Xash3D GameCube: G357 changelevel3 armed map=%s from=%s\n",
+		dest3, sv.name );
+}
+
+static void GC_ProbeTryDeferredChangelevel3( void )
+{
+	char dest2[MAX_QPATH];
+	char dest3[MAX_QPATH];
+	char landmark[MAX_QPATH];
+
+	if( !gc_g357_cl3_pending )
+		return;
+	if( !Sys_GetParmFromCmdLine( "-gcchangelevel2", dest2 )
+		|| !Sys_GetParmFromCmdLine( "-gcchangelevel3", dest3 )
+		|| !dest2[0] || !dest3[0] )
+	{
+		gc_g357_cl3_pending = false;
+		return;
+	}
+	if( Q_stricmp( sv.name, dest2 ))
+		return;
+	if( sv.state != ss_active || !GC_IsNewGameWorldReady() )
+		return;
+
+	gc_g357_cl3_pending = false;
+	landmark[0] = '\0';
+	Sys_GetParmFromCmdLine( "-gclandmark3", landmark );
+	if( landmark[0] )
+		GC_LeanLandmarkProbePlantAmmo();
+	SYS_Report( "Xash3D GameCube: G357 changelevel3 begin map=%s from=%s landmark=%s\n",
+		dest3, sv.name, landmark[0] ? landmark : "(none)" );
+	COM_ChangeLevel( dest3, landmark[0] ? landmark : NULL, false );
+}
+#endif
 /*
 =============
 GC_GXDrawIntroTrain
@@ -14543,6 +14602,7 @@ qboolean GC_PrepareNewGameWorldPresent( void )
 		if( Sys_CheckParm( "-gcchangelevel2" ) && GC_IsNewGameG36Done()
 			&& GC_IsProbeChangelevelDest() )
 			GC_ProbeMaybeQueueChangelevel2();
+			GC_ProbeMaybeQueueChangelevel3();
 	}
 	else if( denser_am_early )
 	{
@@ -14662,6 +14722,7 @@ qboolean GC_PrepareNewGameWorldPresent( void )
 			}
 			else
 				GC_ProbeMaybeQueueChangelevel2();
+				GC_ProbeMaybeQueueChangelevel3();
 		}
 		} /* !pending_cl_hop */
 		/* G357/G358/G359: denser G335 skips Flipper CapFaces; G105 often takes
@@ -15384,6 +15445,7 @@ qboolean GC_PrepareNewGameWorldPresent( void )
 						gc_cl_from[0] ? gc_cl_from : "?", sv.name );
 				}
 				GC_ProbeMaybeQueueChangelevel2();
+				GC_ProbeMaybeQueueChangelevel3();
 			}
 		}
 		else if( Sys_CheckParm( "-gcnewgame" ) && !Sys_CheckParm( "-gcchangelevel" ))

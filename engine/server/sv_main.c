@@ -1196,7 +1196,10 @@ static void SV_FreeClients( void )
 
 		if( svs.packet_entities )
 		{
-			Z_Free( svs.packet_entities );
+#if XASH_GAMECUBE
+			if( !SV_IsStaticPacketEntities( svs.packet_entities ))
+#endif
+				Z_Free( svs.packet_entities );
 			svs.packet_entities = NULL;
 			svs.num_client_entities = 0;
 			svs.next_client_entities = 0;

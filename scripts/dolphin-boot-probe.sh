@@ -83,6 +83,7 @@ GC_FATAL_TEST="${GC_FATAL_TEST:-0}"
 GC_PHASE_TEST="${GC_PHASE_TEST:-}"
 DOLPHIN_CHANGELEVEL="${DOLPHIN_CHANGELEVEL:-}"
 DOLPHIN_CHANGELEVEL2="${DOLPHIN_CHANGELEVEL2:-}"
+DOLPHIN_CHANGELEVEL3="${DOLPHIN_CHANGELEVEL3:-}"
 DOLPHIN_TAS="${DOLPHIN_TAS:-}"
 # Default landmarks for proven probe hops when unset.
 if [[ -z "${DOLPHIN_LANDMARK:-}" && -n "$DOLPHIN_CHANGELEVEL" ]]; then
@@ -321,6 +322,14 @@ else
 				echo "==> G356 landmark2 probe (${DOLPHIN_LANDMARK2})"
 			fi
 		fi
+		if [[ -n "$DOLPHIN_CHANGELEVEL3" ]]; then
+			BUILD_ARGS+=(--probe-changelevel3 "$DOLPHIN_CHANGELEVEL3")
+			echo "==> G357 changelevel3 probe (to ${DOLPHIN_CHANGELEVEL3})"
+			if [[ -n "${DOLPHIN_LANDMARK3:-}" ]]; then
+				BUILD_ARGS+=(--probe-landmark3 "$DOLPHIN_LANDMARK3")
+				echo "==> G357 landmark3 probe (${DOLPHIN_LANDMARK3})"
+			fi
+		fi
 		if [[ "${DOLPHIN_G101:-0}" == "1" ]]; then
 			BUILD_ARGS+=(--probe-leanpvs)
 			echo "==> G101 lean-N PVS probe (leanpvs in gamecube.cfg)"
@@ -369,15 +378,31 @@ if [[ -n "$DOLPHIN_CHANGELEVEL" ]]; then
 			GUEST_ARGS+=("-gclandmark2" "$DOLPHIN_LANDMARK2")
 			echo "==> G356 landmark2 guest arg (-gclandmark2 ${DOLPHIN_LANDMARK2})"
 		fi
-		# Wait for the final hop (campaign dual-hop).
-		G68_DONE_MARKER="Xash3D GameCube: G68 changelevel ready from=${DOLPHIN_CHANGELEVEL} to=${DOLPHIN_CHANGELEVEL2}"
-		# G359: DumpFrames needs extra post-MAP_READY window for EFB stills.
-		if [[ "${DOLPHIN_DUMP_FRAMES:-0}" == "1" ]]; then
-			FRAME_SAMPLE_SEC="${DOLPHIN_FRAME_SAMPLE_SEC:-20}"
+		if [[ -n "$DOLPHIN_CHANGELEVEL3" ]]; then
+			GUEST_ARGS+=("-gcchangelevel3" "$DOLPHIN_CHANGELEVEL3")
+			if [[ -n "${DOLPHIN_LANDMARK3:-}" ]]; then
+				GUEST_ARGS+=("-gclandmark3" "$DOLPHIN_LANDMARK3")
+				echo "==> G357 landmark3 guest arg (-gclandmark3 ${DOLPHIN_LANDMARK3})"
+			fi
+			# Wait for the final hop (campaign triple-hop).
+			G68_DONE_MARKER="Xash3D GameCube: G68 changelevel ready from=${DOLPHIN_CHANGELEVEL2} to=${DOLPHIN_CHANGELEVEL3}"
+			if [[ "${DOLPHIN_DUMP_FRAMES:-0}" == "1" ]]; then
+				FRAME_SAMPLE_SEC="${DOLPHIN_FRAME_SAMPLE_SEC:-24}"
+			else
+				FRAME_SAMPLE_SEC="${DOLPHIN_FRAME_SAMPLE_SEC:-16}"
+			fi
+			echo "==> Waiting for G357 triple-hop G68 ${DOLPHIN_CHANGELEVEL2}→${DOLPHIN_CHANGELEVEL3}"
 		else
-			FRAME_SAMPLE_SEC="${DOLPHIN_FRAME_SAMPLE_SEC:-12}"
+			# Wait for the final hop (campaign dual-hop).
+			G68_DONE_MARKER="Xash3D GameCube: G68 changelevel ready from=${DOLPHIN_CHANGELEVEL} to=${DOLPHIN_CHANGELEVEL2}"
+			# G359: DumpFrames needs extra post-MAP_READY window for EFB stills.
+			if [[ "${DOLPHIN_DUMP_FRAMES:-0}" == "1" ]]; then
+				FRAME_SAMPLE_SEC="${DOLPHIN_FRAME_SAMPLE_SEC:-20}"
+			else
+				FRAME_SAMPLE_SEC="${DOLPHIN_FRAME_SAMPLE_SEC:-12}"
+			fi
+			echo "==> Waiting for G356 dual-hop G68 ${DOLPHIN_CHANGELEVEL}→${DOLPHIN_CHANGELEVEL2}"
 		fi
-		echo "==> Waiting for G356 dual-hop G68 ${DOLPHIN_CHANGELEVEL}→${DOLPHIN_CHANGELEVEL2}"
 	else
 		G68_DONE_MARKER="Xash3D GameCube: G68 changelevel ready from=${SMOKE_MAP} to=${DOLPHIN_CHANGELEVEL}"
 		if [[ "${DOLPHIN_DUMP_FRAMES:-0}" == "1" ]]; then
@@ -511,7 +536,9 @@ if (( DOLPHIN_NEWGAME )); then
 	echo "==> New Game probe mode (expect map ${SMOKE_MAP})"
 	echo "==> Waiting for G281 Flipper map restream (GPU faces follow tram)"
 	if [[ -n "$DOLPHIN_CHANGELEVEL" ]]; then
-		if [[ -n "$DOLPHIN_CHANGELEVEL2" ]]; then
+		if [[ -n "$DOLPHIN_CHANGELEVEL3" && -n "$DOLPHIN_CHANGELEVEL2" ]]; then
+			G68_DONE_MARKER="Xash3D GameCube: G68 changelevel ready from=${DOLPHIN_CHANGELEVEL2} to=${DOLPHIN_CHANGELEVEL3}"
+		elif [[ -n "$DOLPHIN_CHANGELEVEL2" ]]; then
 			G68_DONE_MARKER="Xash3D GameCube: G68 changelevel ready from=${DOLPHIN_CHANGELEVEL} to=${DOLPHIN_CHANGELEVEL2}"
 		else
 			G68_DONE_MARKER="Xash3D GameCube: G68 changelevel ready from=${SMOKE_MAP} to=${DOLPHIN_CHANGELEVEL}"

@@ -1719,13 +1719,17 @@ int EXPORT Host_Main( int argc, char **argv, const char *progname, int bChangeGa
 					GC_BeginMapLoadMemoryOpt();
 				/* G326: bring client up before BSP while MEM1 still has
 				 * headroom; Trim will keep it across New Game map load.
-				 * Xen boss maps (c4a / c5a): skip pre-map ensure entirely —
+				 * True Xen boss/end (c4a3 / c5a*): skip pre-map ensure —
 				 * load+unload before BSP fragments the tip, then post-MAP_READY
 				 * HUD_Init hangs with the world resident (probe 20261104-024555).
-				 * Bring the client up once after spawn instead. */
+				 * Interloper/Gonarch (c4a1/c4a2 family) keep pre-map ensure for
+				 * fuller client bring-up (fidelity: no blanket c4a compromise). */
 				if( Sys_CheckParm( "-gcnewgame" ))
 				{
-					const qboolean xen_boss = !Q_strnicmp( gcmap, "c4a", 3 )
+					const qboolean xen_dense = !Q_strnicmp( gcmap, "c4a", 3 )
+						|| !Q_strnicmp( gcmap, "c5a", 3 );
+					const qboolean xen_boss_skip_premap =
+						!Q_stricmp( gcmap, "c4a3" )
 						|| !Q_strnicmp( gcmap, "c5a", 3 );
 
 					/* G336: denser AM cold New Game stalls mid full HUD_Init after
@@ -1741,13 +1745,13 @@ int EXPORT Host_Main( int argc, char **argv, const char *progname, int bChangeGa
 						|| !Q_strnicmp( gcmap, "c1a4", 4 )
 						|| !Q_strnicmp( gcmap, "c2a", 3 )
 						|| !Q_strnicmp( gcmap, "c3a", 3 )
-						|| xen_boss )
+						|| xen_dense )
 					{
 						Cvar_Set( "gc_quality", "0" );
 						Con_Reportf( "Xash3D GameCube: G336 lean HUD for denser map %s\n",
 							gcmap );
 					}
-					if( xen_boss )
+					if( xen_boss_skip_premap )
 					{
 						Con_Reportf( "Xash3D GameCube: G326 skip pre-map client for Xen map %s\n",
 							gcmap );
@@ -1791,8 +1795,8 @@ int EXPORT Host_Main( int argc, char **argv, const char *progname, int bChangeGa
 						Con_Reportf( "Xash3D GameCube: gcmap+newgame client ensure begin\n" );
 						Cvar_Set( "gc_quality", "0" );
 						/* Xen: tip is tight after 600+ entity privates — drop
-						 * Flipper slabs / decode scratch before the sole client
-						 * bring-up (pre-map ensure was skipped for c4a/c5a). */
+						 * Flipper slabs / decode scratch before client bring-up
+						 * (pre-map ensure skipped only for c4a3/c5a*). */
 						R_GcFreeMenuImages();
 						R_GXReleaseHudPoolForMapLoad();
 						Image_GCPurgeDecodeScratch();

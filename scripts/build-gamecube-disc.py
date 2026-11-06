@@ -2051,6 +2051,8 @@ def write_smoke_overrides(
 	landmark: str | None = None,
 	changelevel2: str | None = None,
 	landmark2: str | None = None,
+	changelevel3: str | None = None,
+	landmark3: str | None = None,
 	leanpvs: bool = False,
 	fullphysics: bool = False,
 	tas: str | None = None,
@@ -2102,6 +2104,12 @@ def write_smoke_overrides(
 		lines.append(f"changelevel2 {Path(changelevel2).stem}")
 	elif landmark2:
 		lines.append(f"landmark2 {landmark2}")
+	if changelevel3 and landmark3:
+		lines.append(f"changelevel3 {Path(changelevel3).stem} {landmark3}")
+	elif changelevel3:
+		lines.append(f"changelevel3 {Path(changelevel3).stem}")
+	elif landmark3:
+		lines.append(f"landmark3 {landmark3}")
 	(output / "gamecube.cfg").write_text("\n".join(lines) + "\n", encoding="ascii")
 	media = output / "media"
 	media.mkdir(exist_ok=True)
@@ -2119,6 +2127,8 @@ def write_probe_newgame_override(
 	landmark: str | None = None,
 	changelevel2: str | None = None,
 	landmark2: str | None = None,
+	changelevel3: str | None = None,
+	landmark3: str | None = None,
 	smoke_map: str | None = None,
 	leanpvs: bool = False,
 	fullphysics: bool = False,
@@ -2160,6 +2170,12 @@ def write_probe_newgame_override(
 		lines.append(f"changelevel2 {Path(changelevel2).stem}")
 	elif landmark2:
 		lines.append(f"landmark2 {landmark2}")
+	if changelevel3 and landmark3:
+		lines.append(f"changelevel3 {Path(changelevel3).stem} {landmark3}")
+	elif changelevel3:
+		lines.append(f"changelevel3 {Path(changelevel3).stem}")
+	elif landmark3:
+		lines.append(f"landmark3 {landmark3}")
 	(output / "gamecube.cfg").write_text("\n".join(lines) + "\n", encoding="ascii")
 
 
@@ -2548,6 +2564,8 @@ def stage_smoke_data(
 	landmark: str | None = None,
 	changelevel2: str | None = None,
 	landmark2: str | None = None,
+	changelevel3: str | None = None,
+	landmark3: str | None = None,
 	leanpvs: bool = False,
 	fullphysics: bool = False,
 	tas: str | None = None,
@@ -2572,6 +2590,14 @@ def stage_smoke_data(
 			raise FileNotFoundError(
 				f"changelevel2 destination map does not exist: {source / destination2_map_relative}"
 			)
+	destination3_map_relative = None
+	if changelevel3:
+		destination3_map_name = changelevel3 if changelevel3.endswith(".bsp") else f"{changelevel3}.bsp"
+		destination3_map_relative = f"maps/{destination3_map_name}"
+		if not (source / destination3_map_relative).is_file():
+			raise FileNotFoundError(
+				f"changelevel3 destination map does not exist: {source / destination3_map_relative}"
+			)
 
 	output.mkdir(parents=True, exist_ok=True)
 	for relative in SMOKE_CONFIG_FILES:
@@ -2584,6 +2610,8 @@ def stage_smoke_data(
 		copy_if_present(source, output, destination_map_relative)
 	if destination2_map_relative:
 		copy_if_present(source, output, destination2_map_relative)
+	if destination3_map_relative:
+		copy_if_present(source, output, destination3_map_relative)
 	for relative in MENU_RESOURCE_ASSETS:
 		copy_if_present(source, output, relative)
 	for relative in MENU_RESOURCE_DIRS:
@@ -2607,6 +2635,8 @@ def stage_smoke_data(
 		landmark=landmark,
 		changelevel2=changelevel2,
 		landmark2=landmark2,
+		changelevel3=changelevel3,
+		landmark3=landmark3,
 		leanpvs=leanpvs,
 		fullphysics=fullphysics,
 		tas=tas,
@@ -3145,6 +3175,16 @@ def main() -> None:
 		help="with --probe-changelevel2, stage landmark2 <NAME>",
 	)
 	parser.add_argument(
+		"--probe-changelevel3",
+		metavar="MAP",
+		help="G357: stage gamecube.cfg changelevel3 <MAP> for triple-hop campaign probes",
+	)
+	parser.add_argument(
+		"--probe-landmark3",
+		metavar="NAME",
+		help="with --probe-changelevel3, stage landmark3 <NAME>",
+	)
+	parser.add_argument(
 		"--probe-leanpvs",
 		action="store_true",
 		help="stage gamecube.cfg leanpvs to force G101 lean-N FatPVS (skip full multi-cluster)",
@@ -3283,6 +3323,8 @@ def main() -> None:
 				landmark=args.probe_landmark,
 				changelevel2=args.probe_changelevel2,
 				landmark2=args.probe_landmark2,
+				changelevel3=args.probe_changelevel3,
+				landmark3=args.probe_landmark3,
 				leanpvs=args.probe_leanpvs,
 				fullphysics=args.probe_fullphysics,
 				tas=args.probe_tas,
@@ -3388,6 +3430,8 @@ def main() -> None:
 					landmark=args.probe_landmark,
 					changelevel2=args.probe_changelevel2,
 					landmark2=args.probe_landmark2,
+					changelevel3=args.probe_changelevel3,
+					landmark3=args.probe_landmark3,
 					# G68/G100: start map for -gcmap early changelevel + landmark plant.
 					smoke_map="c0a0" if args.probe_changelevel else None,
 					leanpvs=args.probe_leanpvs,

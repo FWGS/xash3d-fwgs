@@ -979,6 +979,8 @@ static char gc_changelevel_map[MAX_QPATH];
 static char gc_landmark_name[MAX_QPATH];
 static char gc_changelevel2_map[MAX_QPATH];
 static char gc_landmark2_name[MAX_QPATH];
+static char gc_changelevel3_map[MAX_QPATH];
+static char gc_landmark3_name[MAX_QPATH];
 static char gc_tas_name[32];
 static qboolean gc_smoke_map_configured;
 static qboolean gc_newgame_configured;
@@ -989,6 +991,8 @@ static qboolean gc_changelevel_configured;
 static qboolean gc_landmark_configured;
 static qboolean gc_changelevel2_configured;
 static qboolean gc_landmark2_configured;
+static qboolean gc_changelevel3_configured;
+static qboolean gc_landmark3_configured;
 static qboolean gc_leanpvs_configured;
 static qboolean gc_fullphysics_configured;
 static qboolean gc_worldrender_configured;
@@ -1048,6 +1052,8 @@ static void GCube_LoadDiscBootOverrides( void )
 	gc_landmark_configured = false;
 	gc_changelevel2_configured = false;
 	gc_landmark2_configured = false;
+	gc_changelevel3_configured = false;
+	gc_landmark3_configured = false;
 	gc_leanpvs_configured = false;
 	gc_fullphysics_configured = false;
 	gc_worldrender_configured = false;
@@ -1066,6 +1072,8 @@ static void GCube_LoadDiscBootOverrides( void )
 	gc_landmark_name[0] = '\0';
 	gc_changelevel2_map[0] = '\0';
 	gc_landmark2_name[0] = '\0';
+	gc_changelevel3_map[0] = '\0';
+	gc_landmark3_name[0] = '\0';
 	gc_tas_name[0] = '\0';
 
 	/* DVD is optional. Prefer FAT gamecube.cfg when a Swiss volume is ready so
@@ -1362,6 +1370,49 @@ static void GCube_LoadDiscBootOverrides( void )
 			}
 		}
 
+		/* G357: parse changelevel3 before changelevel2 (prefix overlap). */
+		if( !Q_strnicmp( cursor, "changelevel3", 12 ) && ( cursor[12] == ' ' || cursor[12] == '\t' ))
+		{
+			mapname = cursor + 12;
+			while( *mapname == ' ' || *mapname == '\t' )
+				mapname++;
+			len = strlen( mapname );
+			while( len > 0 && ( mapname[len - 1] == '\r' || mapname[len - 1] == '\n' ))
+			{
+				mapname[--len] = '\0';
+			}
+			if( len > 0 && len < sizeof( gc_changelevel3_map ) + sizeof( gc_landmark3_name ))
+			{
+				char *sp = strchr( mapname, ' ' );
+				if( !sp )
+					sp = strchr( mapname, '\t' );
+				if( sp )
+				{
+					*sp++ = '\0';
+					while( *sp == ' ' || *sp == '\t' )
+						sp++;
+					len = strlen( mapname );
+					if( *sp && strlen( sp ) < sizeof( gc_landmark3_name )
+						&& !strchr( sp, '\\' ))
+					{
+						Q_strncpy( gc_landmark3_name, sp, sizeof( gc_landmark3_name ));
+						gc_landmark3_configured = true;
+						SYS_Report( "Xash3D GameCube: disc boot override landmark3 %s\n",
+							gc_landmark3_name );
+					}
+				}
+				if( len > 0 && len < sizeof( gc_changelevel3_map )
+					&& !strchr( mapname, '/' ) && !strchr( mapname, '\\' ))
+				{
+					Q_strncpy( gc_changelevel3_map, mapname, sizeof( gc_changelevel3_map ));
+					gc_changelevel3_configured = true;
+					SYS_Report( "Xash3D GameCube: disc boot override changelevel3 %s\n",
+						gc_changelevel3_map );
+				}
+			}
+			continue;
+		}
+
 		/* G356: parse changelevel2 before changelevel (prefix overlap). */
 		if( !Q_strnicmp( cursor, "changelevel2", 12 ) && ( cursor[12] == ' ' || cursor[12] == '\t' ))
 		{
@@ -1450,6 +1501,27 @@ static void GCube_LoadDiscBootOverrides( void )
 					SYS_Report( "Xash3D GameCube: disc boot override changelevel %s\n",
 						gc_changelevel_map );
 				}
+			}
+			continue;
+		}
+
+		if( !Q_strnicmp( cursor, "landmark3", 9 ) && ( cursor[9] == ' ' || cursor[9] == '\t' ))
+		{
+			mapname = cursor + 9;
+			while( *mapname == ' ' || *mapname == '\t' )
+				mapname++;
+			len = strlen( mapname );
+			while( len > 0 && ( mapname[len - 1] == '\r' || mapname[len - 1] == '\n' ))
+			{
+				mapname[--len] = '\0';
+			}
+			if( len > 0 && len < sizeof( gc_landmark3_name )
+				&& !strchr( mapname, '\\' ))
+			{
+				Q_strncpy( gc_landmark3_name, mapname, sizeof( gc_landmark3_name ));
+				gc_landmark3_configured = true;
+				SYS_Report( "Xash3D GameCube: disc boot override landmark3 %s\n",
+					gc_landmark3_name );
 			}
 			continue;
 		}
@@ -1658,6 +1730,16 @@ int GCube_GetArgv( int in_argc, char **in_argv, char ***out_argv )
 	{
 		gc_argv[fake_argc++] = "-gclandmark2";
 		gc_argv[fake_argc++] = gc_landmark2_name;
+	}
+	if( gc_changelevel3_configured )
+	{
+		gc_argv[fake_argc++] = "-gcchangelevel3";
+		gc_argv[fake_argc++] = gc_changelevel3_map;
+	}
+	if( gc_landmark3_configured )
+	{
+		gc_argv[fake_argc++] = "-gclandmark3";
+		gc_argv[fake_argc++] = gc_landmark3_name;
 	}
 	if( gc_tas_configured )
 	{

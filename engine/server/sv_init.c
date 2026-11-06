@@ -52,6 +52,17 @@ server_t		sv;	// local server
 server_static_t	svs;	// persistant server info
 svgame_static_t	svgame;	// persistant game info
 
+#if XASH_GAMECUBE
+/* SP packet entity ring — zone Z_Realloc tip-FATALS under Xen cold New Game
+ * fragmentation (c4a2 20261106-055215: need 42.5 KiB, free≈60 KiB non-contig). */
+static entity_state_t gc_singleplayer_packet_entities[SINGLEPLAYER_BACKUP * NUM_PACKET_ENTITIES]
+	__attribute__((aligned( 32 )));
+
+qboolean SV_IsStaticPacketEntities( const entity_state_t *ents )
+{
+	return ents == gc_singleplayer_packet_entities;
+}
+#endif
 /*
 ==================
 Host_SetServerState
@@ -814,6 +825,19 @@ void SV_ActivateServer( int runPhysics )
 			Con_Reportf( "Xash3D GameCube: MAP_READY %s\n", sv.name );
 			GC_ReportBootPhase( GC_BOOT_MAP );
 		}
+		else if( gc_cl_prev[0] && Sys_CheckParm( "-gcchangelevel3" )
+			&& Sys_GetParmFromCmdLine( "-gcchangelevel3", dest )
+			&& !Q_stricmp( dest, sv.name ))
+		{
+			/* G357: hop3 destination. */
+			second_map = true;
+			Con_Reportf( "Xash3D GameCube: G68 changelevel ready from=%s to=%s\n",
+				gc_cl_prev, sv.name );
+			GCube_AppendSwissEvidence( "G68 changelevel ready from=%s to=%s",
+				gc_cl_prev, sv.name );
+			Con_Reportf( "Xash3D GameCube: MAP_READY %s\n", sv.name );
+			GC_ReportBootPhase( GC_BOOT_MAP );
+		}
 		Q_strncpy( gc_cl_prev, sv.name, sizeof( gc_cl_prev ));
 
 		/* G97–G100: apply lean landmark before world present. */
@@ -1062,9 +1086,37 @@ static void SV_SetupClients( void )
 
 	svs.clients = Z_Realloc( svs.clients, sizeof( sv_client_t ) * svs.maxclients );
 	svs.num_client_entities = svs.maxclients * SV_UPDATE_BACKUP * NUM_PACKET_ENTITIES;
+#if XASH_GAMECUBE
+	/* c4a2 cold New Game (probe 20261106-055215): zone free≈60 KiB but
+	 * fragmented (unclaimed≈4 KiB) — Z_Realloc of 42.5 KiB packet_entities
+	 * tip-FATAL mid LOADING BSP. Mirror client frames: SP table is BSS. */
+	{
+		const size_t packet_bytes = sizeof( entity_state_t ) * (size_t)svs.num_client_entities;
+		const size_t static_cap = sizeof( gc_singleplayer_packet_entities );
+
+		if( svs.maxclients == 1
+			&& SV_UPDATE_BACKUP == SINGLEPLAYER_BACKUP
+			&& packet_bytes <= static_cap )
+		{
+			if( svs.packet_entities && !SV_IsStaticPacketEntities( svs.packet_entities ))
+				Z_Free( svs.packet_entities );
+			memset( gc_singleplayer_packet_entities, 0, packet_bytes );
+			svs.packet_entities = gc_singleplayer_packet_entities;
+			Con_Reportf( "Xash3D GameCube: server packet entities BSS %s\n",
+				Q_memprint( packet_bytes ));
+		}
+		else
+		{
+			if( SV_IsStaticPacketEntities( svs.packet_entities ))
+				svs.packet_entities = NULL;
+			svs.packet_entities = Z_Realloc( svs.packet_entities, packet_bytes );
+			Con_Reportf( "%s alloced by server packet entities\n", Q_memprint( packet_bytes ));
+		}
+	}
+#else
 	svs.packet_entities = Z_Realloc( svs.packet_entities, sizeof( entity_state_t ) * svs.num_client_entities );
 	Con_Reportf( "%s alloced by server packet entities\n", Q_memprint( sizeof( entity_state_t ) * svs.num_client_entities ));
-
+#endif
 	// init network stuff
 #if XASH_GAMECUBE
 	if( svs.maxclients > 1 )
