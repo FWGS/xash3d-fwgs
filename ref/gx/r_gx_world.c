@@ -1199,15 +1199,41 @@ static unsigned r_gx_tex_native_conversions;
 static int r_gx_tex_native_route = -1;
 extern qboolean GC_MenuRunsServer( void );
 
+/* Alpha test for 1-bit-alpha textures (masked CMPR packs, masked native
+ * skins); off for opaque ones.  Shared latch so either path resets it. */
+static qboolean r_gx_packed_alpha_test;
+
+static void R_GXSetTexAlphaTest( qboolean on )
+{
+	if( r_gx_packed_alpha_test == on )
+		return;
+	r_gx_packed_alpha_test = on;
+	if( on )
+		GX_SetAlphaCompare( GX_GREATER, 127, GX_AOP_AND, GX_ALWAYS, 0 );
+	else
+		GX_SetAlphaCompare( GX_ALWAYS, 0, GX_AOP_AND, GX_ALWAYS, 0 );
+	GX_SetZCompLoc( on ? GX_FALSE : GX_TRUE );
+}
+
+/* Viewmodel skins ("#models/v_*.mdl") are always drawn close to the camera:
+ * keep their source resolution instead of the 128-texel box filter, which is
+ * there to stand in for the missing mipmaps on distant geometry. */
+static qboolean R_GXNativeFullRes( const image_t *img )
+{
+	return img->name[0] == '#' && Q_stristr( img->name, "models/v_" ) != NULL;
+}
+
 static gc_gx_tex_t *R_GXNativeTexture( image_t *img, unsigned texnum )
 {
 	gc_gx_tex_t *t = &r_gx_tex_native;
+	const int cap = R_GXNativeFullRes( img ) ? 1024 : GC_GX_TEX_MAX_DIM;
 	int step_x = 1, step_y = 1, w, h;
+	u8 fmt;
 
 	/* Larger sides are box filtered down: without mipmaps they shimmer. */
-	while( img->width / step_x > GC_GX_TEX_MAX_DIM )
+	while( img->width / step_x > cap )
 		step_x *= 2;
-	while( img->height / step_y > GC_GX_TEX_MAX_DIM )
+	while( img->height / step_y > cap )
 		step_y *= 2;
 	w = ( img->width / step_x ) & ~3;
 	h = ( img->height / step_y ) & ~3;
@@ -1216,10 +1242,24 @@ static gc_gx_tex_t *R_GXNativeTexture( image_t *img, unsigned texnum )
 	if( !img->gc_gx_native )
 	{
 		u16 *dst = (u16 *)img->pixels[0];
+		const int n = img->width * img->height;
+		qboolean masked = false;
 		int y, x, sx, sy;
 
-		if( gEngfuncs.Sys_CheckParm( "-gcmodeltrace" ))
-			gEngfuncs.Con_Reportf( "modeltrace convert %s %dx%d -> %dx%d ptr=%p first=%04x %04x\n", img->name, img->width, img->height, w, h, img->pixels[0], img->pixels[0][0], img->pixels[0][1] );
+		/* Masked skins (STUDIO_NF_MASKED, '{' textures) carry
+		 * TRANSPARENT_COLOR texels: RGB565 drew them as opaque black.
+		 * RGB5A3 is the same 16 bits per texel and keeps a 1-bit alpha. */
+		for( x = 0; x < n; x++ )
+		{
+			if( img->pixels[0][x] == TRANSPARENT_COLOR )
+			{
+				masked = true;
+				break;
+			}
+		}
+
+		if( gEngfuncs.Sys_CheckParm( "-gcmodeltrace" ) || gEngfuncs.Sys_CheckParm( "-gcprofile" ))
+			gEngfuncs.Con_Reportf( "modeltrace convert %s %dx%d -> %dx%d masked=%d ptr=%p first=%04x %04x\n", img->name, img->width, img->height, w, h, masked, img->pixels[0], img->pixels[0][0], img->pixels[0][1] );
 
 		/* Reads stay ahead of the writes: the output is never larger. */
 		for( y = 0; y < h; y += 4, dst += w * 4 )
@@ -1227,24 +1267,43 @@ static gc_gx_tex_t *R_GXNativeTexture( image_t *img, unsigned texnum )
 			for( x = 0; x < w * 4; x++ )
 			{
 				const pixel_t *src = img->pixels[0] + ( y + x / w ) * step_y * img->width + ( x % w ) * step_x;
-				unsigned r = 0, g = 0, b = 0;
+				unsigned r = 0, g = 0, b = 0, solid = 0;
 
 				for( sy = 0; sy < step_y; sy++ )
 				{
 					for( sx = 0; sx < step_x; sx++ )
 					{
 						const pixel_t soft = src[sy * img->width + sx];
-						const unsigned c = soft == TRANSPARENT_COLOR ? 0 : (u16)R_GCSoftToRGB565( soft );
+						unsigned c;
 
+						if( soft == TRANSPARENT_COLOR )
+							continue;
+						c = (u16)R_GCSoftToRGB565( soft );
 						r += c >> 11;
 						g += ( c >> 5 ) & 63;
 						b += c & 31;
+						solid++;
 					}
 				}
-				r /= step_x * step_y;
-				g /= step_x * step_y;
-				b /= step_x * step_y;
-				r_gx_tex_linear[x] = (u16)(( r << 11 ) | ( g << 5 ) | b );
+				if( !masked )
+				{
+					/* Opaque: transparent texels count as black, as before. */
+					const unsigned cnt = step_x * step_y;
+					r /= cnt;
+					g /= cnt;
+					b /= cnt;
+					r_gx_tex_linear[x] = (u16)(( r << 11 ) | ( g << 5 ) | b );
+				}
+				else if( solid * 2 <= (unsigned)( step_x * step_y ))
+					r_gx_tex_linear[x] = 0; /* alpha 0 */
+				else
+				{
+					r /= solid;
+					g /= solid;
+					b /= solid;
+					/* RGB5A3 opaque: 1rrrrrgggggbbbbb */
+					r_gx_tex_linear[x] = (u16)( 0x8000u | ( r << 10 ) | (( g >> 1 ) << 5 ) | b );
+				}
 			}
 			R_GXSwizzleRGB565( r_gx_tex_linear, w, w, 4, dst );
 		}
@@ -1252,25 +1311,28 @@ static gc_gx_tex_t *R_GXNativeTexture( image_t *img, unsigned texnum )
 		GX_InvalidateTexAll();
 		r_gx_tex_invalidates++;
 		img->gc_gx_native = true;
+		img->gc_gx_native_alpha = masked;
 		r_gx_tex_native_conversions++;
 		r_gx_bound_texnum = 0;
 	}
-	if( r_gx_bound_texnum != texnum || r_gx_bound_fmt != GX_TF_RGB565 )
+	fmt = img->gc_gx_native_alpha ? (u8)GX_TF_RGB5A3 : (u8)GX_TF_RGB565;
+	if( r_gx_bound_texnum != texnum || r_gx_bound_fmt != fmt )
 	{
-		GX_InitTexObj( &t->obj, img->pixels[0], (u16)w, (u16)h, GX_TF_RGB565, GX_REPEAT, GX_REPEAT, GX_FALSE );
+		GX_InitTexObj( &t->obj, img->pixels[0], (u16)w, (u16)h, fmt, GX_REPEAT, GX_REPEAT, GX_FALSE );
 		GX_InitTexObjFilterMode( &t->obj, GX_LINEAR, GX_LINEAR );
 		t->texnum = texnum;
 		t->w = w;
 		t->h = h;
-		t->fmt = GX_TF_RGB565;
+		t->fmt = fmt;
 		t->valid = true;
 		GX_LoadTexObj( &t->obj, GX_TEXMAP0 );
 		r_gx_bound_texnum = texnum;
-		r_gx_bound_fmt = GX_TF_RGB565;
+		r_gx_bound_fmt = fmt;
 		r_gx_tex_loads++;
 	}
 	else
 		r_gx_tex_reuses++;
+	R_GXSetTexAlphaTest( img->gc_gx_native_alpha );
 	return t;
 }
 
@@ -1300,7 +1362,6 @@ static struct
 	int      queued;
 	unsigned uploads, bytes, evictions, deferred;
 } r_gx_hot;
-static qboolean r_gx_packed_alpha_test;
 
 /* The hot window of this map; resets everything in it. */
 void R_GCHotWindow( void *base, unsigned size )
@@ -1458,15 +1519,7 @@ static gc_gx_tex_t *R_GXPackedTexture( image_t *img, unsigned texnum )
 	}
 	else
 		r_gx_tex_reuses++;
-	if( r_gx_packed_alpha_test != (qboolean)img->gc_packed_alpha )
-	{
-		r_gx_packed_alpha_test = img->gc_packed_alpha;
-		if( r_gx_packed_alpha_test )
-			GX_SetAlphaCompare( GX_GREATER, 127, GX_AOP_AND, GX_ALWAYS, 0 );
-		else
-			GX_SetAlphaCompare( GX_ALWAYS, 0, GX_AOP_AND, GX_ALWAYS, 0 );
-		GX_SetZCompLoc( r_gx_packed_alpha_test ? GX_FALSE : GX_TRUE );
-	}
+	R_GXSetTexAlphaTest( img->gc_packed_alpha ? true : false );
 	return t;
 }
 
@@ -1514,7 +1567,8 @@ static gc_gx_tex_t *R_GXBindTexnum( unsigned texnum, qboolean hud_bind )
 		return NULL;
 	/* Sys_CheckParm walks argv: this runs for every bind. */
 	if( r_gx_tex_native_route < 0 )
-		r_gx_tex_native_route = GC_MenuRunsServer() && !gEngfuncs.Sys_CheckParm( "-gcnonativetex" );
+		r_gx_tex_native_route = ( GC_MenuRunsServer() || gEngfuncs.Sys_CheckParm( "-gcnativetex" ))
+			&& !gEngfuncs.Sys_CheckParm( "-gcnonativetex" );
 	if( !hud_bind && r_gx_tex_native_route )
 	{
 		gc_gx_tex_t *native = R_GXNativeTexture( img, texnum );
@@ -5164,6 +5218,7 @@ static void R_GXPrepareHud2DState( void )
 	GX_SetTevOp( GX_TEVSTAGE0, GX_MODULATE );
 	/* Default: no hole punch until a holes/alpha StretchPic. */
 	GX_SetAlphaCompare( GX_ALWAYS, 0, GX_AOP_AND, GX_ALWAYS, 0 );
+	r_gx_packed_alpha_test = false; /* latch: state set directly here */
 	GX_ClearVtxDesc();
 	GX_SetVtxDesc( GX_VA_POS, GX_DIRECT );
 	GX_SetVtxDesc( GX_VA_CLR0, GX_DIRECT );
@@ -5211,6 +5266,7 @@ qboolean R_GXFillRGBA( float x, float y, float w, float h, int r, int g, int b, 
 	GX_SetVtxDesc( GX_VA_POS, GX_DIRECT );
 	GX_SetVtxDesc( GX_VA_CLR0, GX_DIRECT );
 	GX_SetAlphaCompare( GX_ALWAYS, 0, GX_AOP_AND, GX_ALWAYS, 0 );
+	r_gx_packed_alpha_test = false; /* latch: state set directly here */
 	if( rendermode == kRenderTransAdd )
 		GX_SetBlendMode( GX_BM_BLEND, GX_BL_SRCALPHA, GX_BL_ONE, GX_LO_NOOP );
 	else if( a < 255 )
@@ -5279,6 +5335,7 @@ qboolean R_GXDrawStretchPic( float x, float y, float w, float h,
 		GX_SetAlphaCompare( GX_GREATER, 0, GX_AOP_AND, GX_ALWAYS, 0 );
 	else
 		GX_SetAlphaCompare( GX_ALWAYS, 0, GX_AOP_AND, GX_ALWAYS, 0 );
+	r_gx_packed_alpha_test = false; /* latch: state set directly here */
 
 	if( vid.rendermode == kRenderTransAdd )
 		GX_SetBlendMode( GX_BM_BLEND, GX_BL_SRCALPHA, GX_BL_ONE, GX_LO_NOOP );

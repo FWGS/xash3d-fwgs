@@ -504,7 +504,8 @@ typedef struct image_s
 	byte           gc_packed_levels;
 	byte           gc_packed_alpha;
 	byte           gc_packed_queued;
-	qboolean       gc_gx_native;                            // pixels[0] now holds GX tiled RGB565, not soft pixels
+	qboolean       gc_gx_native;                            // pixels[0] now holds GX tiled RGB565 (or RGB5A3), not soft pixels
+	byte           gc_gx_native_alpha;                      // native texels are RGB5A3 with 1-bit alpha (masked skins)
 #endif
 
 	uint           hashValue;

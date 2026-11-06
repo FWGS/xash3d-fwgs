@@ -2112,6 +2112,8 @@ def write_smoke_overrides(
 		lines.append(f"landmark3 {landmark3}")
 	if os.environ.get("XASH_GC_PROBE_PROFILE") == "1":
 		lines.append("profile")
+	if os.environ.get("XASH_GC_PROBE_NATIVETEX") == "1":
+		lines.append("nativetex")
 	(output / "gamecube.cfg").write_text("\n".join(lines) + "\n", encoding="ascii")
 	media = output / "media"
 	media.mkdir(exist_ok=True)
@@ -2180,6 +2182,8 @@ def write_probe_newgame_override(
 		lines.append(f"landmark3 {landmark3}")
 	if os.environ.get("XASH_GC_PROBE_PROFILE") == "1":
 		lines.append("profile")
+	if os.environ.get("XASH_GC_PROBE_NATIVETEX") == "1":
+		lines.append("nativetex")
 	(output / "gamecube.cfg").write_text("\n".join(lines) + "\n", encoding="ascii")
 
 

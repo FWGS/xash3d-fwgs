@@ -1027,6 +1027,7 @@ static qboolean gc_memreport_configured;
 static qboolean gc_profile_configured;
 static qboolean gc_nolivepvs_configured;
 static qboolean gc_nonativetex_configured;
+static qboolean gc_nativetex_configured;
 static qboolean gc_notexpacks_configured;
 static qboolean gc_autohop_configured;
 static qboolean gc_modeltrace_configured;
@@ -1064,6 +1065,7 @@ static void GCube_LoadDiscBootOverrides( void )
 	gc_profile_configured = false;
 	gc_nolivepvs_configured = false;
 	gc_nonativetex_configured = false;
+	gc_nativetex_configured = false;
 	gc_notexpacks_configured = false;
 	gc_autohop_configured = false;
 	gc_modeltrace_configured = false;
@@ -1150,6 +1152,13 @@ static void GCube_LoadDiscBootOverrides( void )
 		{
 			gc_autohop_configured = true;
 			SYS_Report( "Xash3D GameCube: disc boot override autohop\n" );
+			continue;
+		}
+
+		if( !Q_strnicmp( cursor, "nativetex", 9 ))
+		{
+			gc_nativetex_configured = true;
+			SYS_Report( "Xash3D GameCube: disc boot override nativetex\n" );
 			continue;
 		}
 
@@ -1766,6 +1775,8 @@ int GCube_GetArgv( int in_argc, char **in_argv, char ***out_argv )
 		gc_argv[fake_argc++] = "-gcnolivepvs";
 	if( gc_nonativetex_configured )
 		gc_argv[fake_argc++] = "-gcnonativetex";
+	if( gc_nativetex_configured )
+		gc_argv[fake_argc++] = "-gcnativetex";
 	if( gc_notexpacks_configured )
 		gc_argv[fake_argc++] = "-gcnotexpacks";
 	if( gc_autohop_configured )
