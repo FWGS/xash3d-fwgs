@@ -3514,12 +3514,37 @@ static void Mod_LoadEntities( model_t *mod, const dbspmodel_t *bmod )
 		/* Prefer the boot-time heap reserve so tip is not double-charged
 		 * (c5a1: reserve 128 KiB + malloc 73 KiB left free≈1.6 KiB and HUD
 		 * ZIP alloc failed — probe 090419). */
+		if( !gc_static_entities && need <= GC_STATIC_ENTITIES_BYTES
+			&& GC_MemHeapFreeBytes() >= GC_STATIC_ENTITIES_BYTES + 64u * 1024u )
+		{
+			/* Changelevel may have deferred the reserve for nodes; re-take
+			 * before arena (AM c1a0c: arena-tail entities aliased LUMP_TEXTURES
+			 * → wad-miss garbage + ParseEdict Host_Error, probe xash-am-spine). */
+			Mod_GCTakeReserve( (void **)&gc_static_entities, GC_STATIC_ENTITIES_BYTES, "entities" );
+		}
 		if( gc_static_entities && need <= GC_STATIC_ENTITIES_BYTES )
 		{
 			mod->entities = gc_static_entities;
 			gc_entities_static_block = true;
 			Con_Reportf( "Xash3D GameCube: world entities using static reserve %s\n",
 				Q_memprint( need ));
+		}
+		/* Malloc before arena: retained BSP scratch shares the map-load
+		 * buffer — arena-tail entities can stomp LUMP_TEXTURES / entdata. */
+		if( !mod->entities )
+		{
+			mod->entities = (char *)malloc( need );
+			if( !mod->entities )
+			{
+				Image_GCPurgeDecodeScratch();
+				mod->entities = (char *)malloc( need );
+			}
+			if( mod->entities )
+			{
+				gc_entities_malloc_block = mod->entities;
+				Con_Reportf( "Xash3D GameCube: world entities using malloc %s\n",
+					Q_memprint( need ));
+			}
 		}
 		if( !mod->entities && gc_bsp_scratch_base && GC_IsMapLoadBuffer( gc_bsp_scratch_base ))
 		{
@@ -3547,21 +3572,6 @@ static void Mod_LoadEntities( model_t *mod, const dbspmodel_t *bmod )
 			{
 				gc_entities_arena_tail = true;
 				Con_Reportf( "Xash3D GameCube: world entities using map-load arena tail %s\n",
-					Q_memprint( need ));
-			}
-		}
-		if( !mod->entities )
-		{
-			mod->entities = (char *)malloc( need );
-			if( !mod->entities )
-			{
-				Image_GCPurgeDecodeScratch();
-				mod->entities = (char *)malloc( need );
-			}
-			if( mod->entities )
-			{
-				gc_entities_malloc_block = mod->entities;
-				Con_Reportf( "Xash3D GameCube: world entities using malloc %s\n",
 					Q_memprint( need ));
 			}
 		}
