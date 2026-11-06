@@ -121,9 +121,20 @@ static void SV_GameCubePlayStart_f( void )
 			if( !GC_PrepareNewGameWorldPresent() )
 				Con_Reportf( S_WARN "Xash3D GameCube: menu post-client prepare failed map=%s\n", map );
 		}
-		/* Keep quality 0 through client connect so R_NewMap stays on the
-		 * low-memory renderer path. Re-arm G36 presents after ca_active. */
-		Cvar_Set( "gc_quality", "0" );
+		/* Lean through ensure; restore standard quality when tip allows
+		 * (menu New Game fidelity — avoid permanent quality=0 demotion). */
+		if( GC_MemHeapFreeBytes() >= 96u * 1024u )
+		{
+			Cvar_Set( "gc_quality", "1" );
+			Con_Reportf( "Xash3D GameCube: play start quality=1 tip=%s\n",
+				Q_memprint( GC_MemHeapFreeBytes() ));
+		}
+		else
+		{
+			Cvar_Set( "gc_quality", "0" );
+			Con_Reportf( "Xash3D GameCube: play start keep quality=0 tip=%s\n",
+				Q_memprint( GC_MemHeapFreeBytes() ));
+		}
 		if( Sys_CheckParm( "-gcmap" ) && !Sys_CheckParm( "-gcnewgame" ))
 			GC_ArmPostMapFrameBudgetSamples();
 		/* Menu New Game: do not Arm here — CaptureNewGamePVS/PointInLeaf hangs

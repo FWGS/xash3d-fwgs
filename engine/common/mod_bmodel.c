@@ -9649,10 +9649,15 @@ static qboolean Mod_LoadBmodelLumps( model_t *mod, byte *mod_base, size_t buffer
 	Mod_LoadMarkSurfaces( mod, bmod );
 #if XASH_GAMECUBE
 	Con_Reportf( "Xash3D GameCube: bmodel marksurfaces ready\n" );
+	/* Materialize leafs BEFORE nodes+leafs co-prealloc so the pin/carve path
+	 * sees a live dleaf pointer (and Ensure after Invalidate can reload). */
+	Mod_GCEnsureBspLump( mod, bmod, LUMP_LEAFS );
 	/* Park nodes before leafs fill the last contiguous scratch holes
 	 * (c2a4e dual-hop tip-OOM after leafs claimed 189 KiB). */
 	Mod_GCPreallocWorldNodes( mod, bmod );
-	Mod_GCEnsureBspLump( mod, bmod, LUMP_LEAFS );
+	/* Carve/Invalidate may have dropped the source — restore before LoadLeafs. */
+	if( bmod->version == QBSP2_VERSION ? !bmod->leafs32 : !bmod->leafs )
+		Mod_GCEnsureBspLump( mod, bmod, LUMP_LEAFS );
 #endif
 	Mod_LoadLeafs( mod, bmod );
 #if XASH_GAMECUBE
