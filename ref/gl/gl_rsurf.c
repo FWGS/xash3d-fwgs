@@ -3441,9 +3441,15 @@ qboolean R_AddSurfToVBO( msurface_t *surf, qboolean buildlightmap )
 		// fullbright textures are rare, no sense to build VBO for them
 		R_RenderFullbrightForSurface( surf, surf->texinfo->texture );
 
-		// draw details in regular way
-		if( r_vbo_detail.value )
-			R_RenderDetailsForSurface( surf, surf->texinfo->texture );
+		texture_t *t = R_TextureAnim( WORLDMODEL->textures[texturenum] );
+		// mode 1 needs lightmaps; mode 2 needs a third texture unit
+		qboolean vbo_detail_pass = t->dt_texturenum &&
+			(( r_vbo_detail.value == 1 && buildlightmap ) ||
+			( r_vbo_detail.value == 2 && glConfig.max_texture_units > 2 ));
+
+		// keep the regular pass when VBO cannot draw the detail texture
+		if( !vbo_detail_pass )
+			R_RenderDetailsForSurface( surf, t );
 	}
 
 	if( buildlightmap && R_CheckLightMap( surf ))
