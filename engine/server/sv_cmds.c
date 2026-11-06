@@ -122,8 +122,9 @@ static void SV_GameCubePlayStart_f( void )
 				Con_Reportf( S_WARN "Xash3D GameCube: menu post-client prepare failed map=%s\n", map );
 		}
 		/* Lean through ensure; restore standard quality when tip allows
-		 * (menu New Game fidelity — avoid permanent quality=0 demotion). */
-		if( GC_MemHeapFreeBytes() >= 96u * 1024u )
+		 * (menu New Game fidelity — avoid permanent quality=0 demotion).
+		 * Match post-MAP_READY 80 KiB threshold (CapFaces-384 tip≈87 KiB). */
+		if( GC_MemHeapFreeBytes() >= 80u * 1024u )
 		{
 			Cvar_Set( "gc_quality", "1" );
 			Con_Reportf( "Xash3D GameCube: play start quality=1 tip=%s\n",
