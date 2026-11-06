@@ -6004,28 +6004,56 @@ static void Mod_GCPreallocWorldNodes( model_t *mod, dbspmodel_t *bmod )
 		/* Prefer one carve for nodes+leafs so a later leaf alloc cannot miss
 		 * after nodes take the last contiguous hole (end-triple→c5a1). Skip
 		 * when the dleaf source is still arena-backed — aliasing is fatal. */
-		if( leaf_bytes > 0 )
 		{
-			const qboolean leafs_still_arena =
+			const qboolean leafs_still_arena = ( leaf_bytes > 0 ) && (
 				( bmod->version == QBSP2_VERSION )
 					? ( bmod->leafs32 && Mod_GCPointerInScratchArena( bmod->leafs32 ))
-					: ( bmod->leafs && Mod_GCPointerInScratchArena( bmod->leafs ));
+					: ( bmod->leafs && Mod_GCPointerInScratchArena( bmod->leafs )));
 
-			if( !leafs_still_arena )
-				combined = (byte *)Mod_GCAllocWorldScratch( mod, bmod, busy, busy_count, combined_bytes, 32 );
-			else
-				Con_Reportf( "Xash3D GameCube: nodes+leafs combined carve skipped (leafs lump still in arena)\n" );
-		}
-		if( combined )
-		{
-			out = (mnode_t *)combined;
-			gc_leafs_prealloc = (mleaf_t *)( combined + node_bytes );
-			Mod_GCInvalidateScratchOverlap( bmod, gc_bsp_scratch_base, gc_bsp_scratch_size, combined, combined_bytes );
-			gc_nodes_prealloc_scratch = true;
-			GC_NODES_PREALLOC_PUBLISH( out );
-			Con_Reportf( "Xash3D GameCube: world nodes+leafs prealloc BSP scratch nodes=%s leafs=%s\n",
-				Q_memprint( node_bytes ), Q_memprint( leaf_bytes ));
-			return;
+			if( leaf_bytes > 0 )
+			{
+				if( !leafs_still_arena )
+					combined = (byte *)Mod_GCAllocWorldScratch( mod, bmod, busy, busy_count, combined_bytes, 32 );
+				else
+					Con_Reportf( "Xash3D GameCube: nodes+leafs combined carve skipped (leafs lump still in arena)\n" );
+			}
+			if( combined )
+			{
+				out = (mnode_t *)combined;
+				gc_leafs_prealloc = (mleaf_t *)( combined + node_bytes );
+				Mod_GCInvalidateScratchOverlap( bmod, gc_bsp_scratch_base, gc_bsp_scratch_size, combined, combined_bytes );
+				gc_nodes_prealloc_scratch = true;
+				GC_NODES_PREALLOC_PUBLISH( out );
+				Con_Reportf( "Xash3D GameCube: world nodes+leafs prealloc BSP scratch nodes=%s leafs=%s\n",
+					Q_memprint( node_bytes ), Q_memprint( leaf_bytes ));
+				return;
+			}
+
+			/* CapFaces-384 end-triple→c5a1: pin succeeded (93 KiB) but combined
+			 * 456 KiB miss; nodes-only 270 then starved leafs 186 into tip-OOM.
+			 * With dleaf pinned out, carve leafs first so two holes beat one. */
+			if( leaf_bytes > 0 && !leafs_still_arena )
+			{
+				mleaf_t *leafs = (mleaf_t *)Mod_GCAllocWorldScratch( mod, bmod, busy, busy_count, leaf_bytes, 32 );
+
+				if( leafs )
+				{
+					Mod_GCInvalidateScratchOverlap( bmod, gc_bsp_scratch_base, gc_bsp_scratch_size,
+						(byte *)leafs, leaf_bytes );
+					gc_leafs_prealloc = leafs;
+					/* CollectAll does not see gc_leafs_prealloc yet — mark busy
+					 * so the nodes carve cannot alias it. */
+					if( busy_count < sizeof( busy ) / sizeof( busy[0] ))
+					{
+						const byte *p = (const byte *)leafs;
+						busy[busy_count].start = p - gc_bsp_scratch_base;
+						busy[busy_count].end = busy[busy_count].start + leaf_bytes;
+						busy_count++;
+					}
+					Con_Reportf( "Xash3D GameCube: world leafs prealloc BSP scratch (split) %s\n",
+						Q_memprint( leaf_bytes ));
+				}
+			}
 		}
 
 		out = (mnode_t *)Mod_GCAllocWorldScratch( mod, bmod, busy, busy_count, node_bytes, 32 );
@@ -6034,8 +6062,12 @@ static void Mod_GCPreallocWorldNodes( model_t *mod, dbspmodel_t *bmod )
 			Mod_GCInvalidateScratchOverlap( bmod, gc_bsp_scratch_base, gc_bsp_scratch_size, (byte *)out, node_bytes );
 			gc_nodes_prealloc_scratch = true;
 			GC_NODES_PREALLOC_PUBLISH( out );
-			Con_Reportf( "Xash3D GameCube: world nodes prealloc BSP scratch %s\n",
-				Q_memprint( node_bytes ));
+			if( gc_leafs_prealloc )
+				Con_Reportf( "Xash3D GameCube: world nodes+leafs prealloc BSP scratch (split) nodes=%s leafs=%s\n",
+					Q_memprint( node_bytes ), Q_memprint( leaf_bytes ));
+			else
+				Con_Reportf( "Xash3D GameCube: world nodes prealloc BSP scratch %s\n",
+					Q_memprint( node_bytes ));
 			return;
 		}
 	}
