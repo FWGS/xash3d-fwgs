@@ -47,8 +47,10 @@ static byte clientpvs[(MAX_MAP_LEAFS+7)/8];	// for find client in PVS
 /* SP edict / baseline / static tables — tip Mem_Calloc of ~707 KiB fatals
  * at SV_LoadProgs before map (HW 20261106: map=NONE route=disc,
  * sv_game.c:6540). Same pattern as gc_singleplayer_packet_entities. */
+/* Valve GI max_edicts is 900; sizing BSS for 1200 wasted ~335 KiB of MEM1
+ * after SP BSS edicts (end-triple c5a1 leaf tip-OOM 20261106-090852). */
 #ifndef GC_SP_EDICT_CAP
-#define GC_SP_EDICT_CAP 1200
+#define GC_SP_EDICT_CAP 900
 #endif
 static edict_t gc_singleplayer_edicts[GC_SP_EDICT_CAP]
 	__attribute__((aligned( 32 )));

@@ -37,6 +37,7 @@ void GC_CaptureNewGamePVSFromModel( model_t *wmodel );
 void GC_CaptureIntroTrainFaces( model_t *wmodel ); /* G277 */
 
 static void Mod_GCFreeBspPin( void **ptr );
+static byte *Mod_GCPinBspLump( poolhandle_t pool, const byte *src, size_t size );
 
 typedef struct gc_bsp_deferred_s
 {
@@ -60,7 +61,7 @@ static qboolean gc_nodes_static_block;
 /* Filled by Mod_GCPreallocWorldNodes before leafs consume contiguous scratch
  * (c2a4d→c2a4e: 294 KiB nodes lost after leafs took 189 KiB, tip FATAL).
  * When both fit, park leafs in the same scratch carve (c4a1e→…→c5a1: nodes
- * alone left no 186 KiB leaf hole — probe 20261106-072643). */
+ * alone left no 186 KiB leaf hole — probe 20261106-072643 / 090852). */
 static mnode_t *gc_nodes_prealloc;
 static qboolean gc_nodes_prealloc_scratch;
 static mleaf_t *gc_leafs_prealloc;
@@ -135,7 +136,22 @@ qboolean Mod_GCEnsureStaticReserves( void )
 	 * Residue→QE hops — Mod_LoadNodes then tip-FATAL at 294 KiB. */
 	Mod_GCTakeReserve( (void **)&gc_static_submodels, sizeof( dmodel_t ) * GC_STATIC_SUBMODEL_CAPACITY, "submodels" );
 	/* hull0 is BSS (gc_static_hull0_storage) — no heap reserve. */
-	Mod_GCTakeReserve( (void **)&gc_static_nodes, GC_STATIC_NODES_BYTES, "nodes" );
+	/* SP BSS edicts (~1 MiB) shrink MEM1. memalign can still pull the 384 KiB
+	 * nodes block from the arena and leave tip≈2 KiB — CL_InitLocal then hangs
+	 * with no further OSReport (end-triple reprove 20261106-085739). At boot
+	 * require tip headroom for client init; during map load only keep a small
+	 * floor so c5a1 can still take the session reserve. */
+	{
+		const size_t nodes_headroom = GC_MapLoadMemoryOpt()
+			? 8192u
+			: ( 48u * 1024u );
+
+		if( GC_MemHeapFreeBytes() >= GC_STATIC_NODES_BYTES + nodes_headroom )
+			Mod_GCTakeReserve( (void **)&gc_static_nodes, GC_STATIC_NODES_BYTES, "nodes" );
+		else
+			Con_Reportf( "Xash3D GameCube: world reserve nodes deferred need=%s free=%s\n",
+				Q_memprint( GC_STATIC_NODES_BYTES ), Q_memprint( GC_MemHeapFreeBytes() ));
+	}
 	/* Hold entities only when nodes are already secured, or tip can still fund
 	 * a dense node tree after the 128 KiB take. Entities have malloc/arena
 	 * fallbacks; nodes falling through to Mem_Calloc abort the map. */
@@ -5951,33 +5967,55 @@ static void Mod_GCPreallocWorldNodes( model_t *mod, dbspmodel_t *bmod )
 			busy[busy_count].end = busy[busy_count].start + mod->nummarksurfaces * sizeof( *mod->marksurfaces );
 			busy_count++;
 		}
-		/* Keep the on-disk leafs lump out of the combined carve — overlapping
-		 * it then memset'ing the mleaf_t half wiped CONTENTS_SOLID on leaf 0
-		 * (c0a0e probe 20261106-084131 after nodes+leafs prealloc). */
-		if( leaf_bytes > 0 && busy_count < 8 )
+		/* Always pin on-disk leafs out of the scratch arena before a combined
+		 * carve. CollectAllWorldScratchBusy can drop the leafs range when the
+		 * busy cap fills earlier — carve then aliases dleaf_t, memset yields
+		 * leaf0 contents=0 (CONTENTS_SOLID Host_Error, probes 084131/091415/091651). */
+		if( leaf_bytes > 0 )
 		{
 			if( bmod->version == QBSP2_VERSION )
 			{
-				if( bmod->leafs32 && Mod_GCPointerInBuffer( bmod->leafs32, gc_bsp_scratch_base, gc_bsp_scratch_size ))
+				if( bmod->leafs32 && Mod_GCPointerInScratchArena( bmod->leafs32 ))
 				{
-					const byte *p = (const byte *)bmod->leafs32;
-					busy[busy_count].start = p - gc_bsp_scratch_base;
-					busy[busy_count].end = busy[busy_count].start + bmod->numleafs * sizeof( dleaf32_t );
-					busy_count++;
+					const size_t sz = (size_t)bmod->numleafs * sizeof( dleaf32_t );
+					byte *pin = Mod_GCPinBspLump( 0, (const byte *)bmod->leafs32, sz );
+
+					if( pin )
+					{
+						bmod->leafs32 = (dleaf32_t *)pin;
+						Con_Reportf( "Xash3D GameCube: pinned leafs lump before nodes+leafs carve %s\n",
+							Q_memprint( sz ));
+					}
 				}
 			}
-			else if( bmod->leafs && Mod_GCPointerInBuffer( bmod->leafs, gc_bsp_scratch_base, gc_bsp_scratch_size ))
+			else if( bmod->leafs && Mod_GCPointerInScratchArena( bmod->leafs ))
 			{
-				const byte *p = (const byte *)bmod->leafs;
-				busy[busy_count].start = p - gc_bsp_scratch_base;
-				busy[busy_count].end = busy[busy_count].start + bmod->numleafs * sizeof( dleaf_t );
-				busy_count++;
+				const size_t sz = (size_t)bmod->numleafs * sizeof( dleaf_t );
+				byte *pin = Mod_GCPinBspLump( 0, (const byte *)bmod->leafs, sz );
+
+				if( pin )
+				{
+					bmod->leafs = (dleaf_t *)pin;
+					Con_Reportf( "Xash3D GameCube: pinned leafs lump before nodes+leafs carve %s\n",
+						Q_memprint( sz ));
+				}
 			}
 		}
 		/* Prefer one carve for nodes+leafs so a later leaf alloc cannot miss
-		 * after nodes take the last contiguous hole (end-triple→c5a1). */
+		 * after nodes take the last contiguous hole (end-triple→c5a1). Skip
+		 * when the dleaf source is still arena-backed — aliasing is fatal. */
 		if( leaf_bytes > 0 )
-			combined = (byte *)Mod_GCAllocWorldScratch( mod, bmod, busy, busy_count, combined_bytes, 32 );
+		{
+			const qboolean leafs_still_arena =
+				( bmod->version == QBSP2_VERSION )
+					? ( bmod->leafs32 && Mod_GCPointerInScratchArena( bmod->leafs32 ))
+					: ( bmod->leafs && Mod_GCPointerInScratchArena( bmod->leafs ));
+
+			if( !leafs_still_arena )
+				combined = (byte *)Mod_GCAllocWorldScratch( mod, bmod, busy, busy_count, combined_bytes, 32 );
+			else
+				Con_Reportf( "Xash3D GameCube: nodes+leafs combined carve skipped (leafs lump still in arena)\n" );
+		}
 		if( combined )
 		{
 			out = (mnode_t *)combined;
@@ -8483,6 +8521,18 @@ static size_t Mod_GCCollectAllWorldScratchBusy( model_t *mod, dbspmodel_t *bmod,
 	size_t n = 0, i, j, out;
 	int h;
 
+	/* Leafs/nodes lumps first — combined nodes+leafs carve aliases these if
+	 * the busy cap fills before they are recorded (CONTENTS_SOLID wipe). */
+	if( bsp2 )
+	{
+		Mod_GCBusyAdd( busy, &n, cap, bmod->leafs32, bmod->numleafs * sizeof( dleaf32_t ));
+		Mod_GCBusyAdd( busy, &n, cap, bmod->nodes32, bmod->numnodes * sizeof( dnode32_t ));
+	}
+	else
+	{
+		Mod_GCBusyAdd( busy, &n, cap, bmod->leafs, bmod->numleafs * sizeof( dleaf_t ));
+		Mod_GCBusyAdd( busy, &n, cap, bmod->nodes, bmod->numnodes * sizeof( dnode_t ));
+	}
 	Mod_GCBusyAdd( busy, &n, cap, mod->planes, mod->numplanes * sizeof( mplane_t ));
 	Mod_GCBusyAdd( busy, &n, cap, mod->leafs, ( mod->numleafs + 1 ) * sizeof( mleaf_t ));
 	Mod_GCBusyAdd( busy, &n, cap, mod->vertexes, mod->numvertexes * sizeof( mvertex_t ));
