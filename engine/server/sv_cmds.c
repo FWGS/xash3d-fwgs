@@ -541,8 +541,20 @@ static void SV_HazardCourse_f( void )
 	{
 		Cbuf_AddTextf( "wait; movie %s\n", GI->trainmap );
 		Host_EndGame( true, DEFAULT_ENDGAME_MESSAGE );
+		return;
 	}
-	else COM_NewGame( GI->trainmap );
+#if XASH_GAMECUBE
+	/* The menu's Hazard Course must take the same tip-trim play-start path as
+	 * New Game.  Plain COM_NewGame reached SV_InitGame with the menu still
+	 * holding MEM1: client tables (89 KiB) soft-failed and the console halted
+	 * on an empty "can't initialize server" (cold-start probe 20261105-221428). */
+	Q_strncpy( sv_gc_playstart_map_override, GI->trainmap, sizeof( sv_gc_playstart_map_override ));
+	Con_Reportf( "Xash3D GameCube: hazardcourse → play start map=%s\n", sv_gc_playstart_map_override );
+	SV_GameCubePlayStart_f();
+	sv_gc_playstart_map_override[0] = '\0';
+#else
+	COM_NewGame( GI->trainmap );
+#endif
 }
 
 /*
