@@ -6,6 +6,7 @@ r_gcmap.c - GameCube smoke boot memory trims
 
 #if XASH_GAMECUBE
 size_t GC_BootArenaClose( void );
+size_t GC_BootArenaLiveBytes( void );
 qboolean Mod_GCEnsureStaticReserves( void );
 qboolean SV_GCEnsureStringArena( void );
 static qboolean gc_renderer_trimmed;
@@ -242,6 +243,10 @@ void R_GcmapTrimForMapLoad( void )
 		size_t live;
 
 		R_GXDropBootPadCinematic();
+		/* Menu/UI images may hold boot-arena blocks; the menu is hidden for
+		 * the load and reloads its art on return. */
+		if( GC_BootArenaLiveBytes() )
+			R_GcFreeMenuImages();
 		live = GC_BootArenaClose();
 		if( live )
 		{

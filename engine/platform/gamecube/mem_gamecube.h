@@ -33,6 +33,9 @@ void *GC_BootArenaAlloc( size_t size );
 qboolean GC_BootArenaFree( void *ptr );
 qboolean GC_BootArenaOwns( const void *ptr );
 size_t GC_BootArenaClose( void );
+void GC_BootArenaSetMenuScope( qboolean on );
+qboolean GC_BootArenaMenuScope( void );
+size_t GC_BootArenaLiveBytes( void );
 void GC_MemFail( const char *subsystem, size_t size, const char *file, int line );
 void GC_MemReportPoolPressure( const char *subsystem, size_t requested );
 void GC_MemPoolReport( const char *stage );
@@ -133,6 +136,9 @@ static inline void *GC_BootArenaAlloc( size_t size ) { (void)size; return NULL; 
 static inline qboolean GC_BootArenaFree( void *ptr ) { (void)ptr; return false; }
 static inline qboolean GC_BootArenaOwns( const void *ptr ) { (void)ptr; return false; }
 static inline size_t GC_BootArenaClose( void ) { return 0; }
+static inline void GC_BootArenaSetMenuScope( qboolean on ) { (void)on; }
+static inline qboolean GC_BootArenaMenuScope( void ) { return false; }
+static inline size_t GC_BootArenaLiveBytes( void ) { return 0; }
 static inline void GC_MemFail( const char *subsystem, size_t size, const char *file, int line )
 {
 	(void)subsystem;

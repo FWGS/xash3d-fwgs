@@ -453,7 +453,8 @@ void *_Mem_TryAlloc( poolhandle_t poolptr, size_t size, qboolean clear, const ch
 		/* Boot/intro/menu: transient image/file blocks the heap cannot fit
 		 * borrow the idle map-load pad until the first map load. */
 		if( !mem && ( !Q_stricmp( pool->name, "ImageLib Pool" )
-			|| !Q_stricmp( pool->name, "FileSystem Pool" )))
+			|| !Q_stricmp( pool->name, "FileSystem Pool" )
+			|| ( GC_BootArenaMenuScope() && !Q_stricmp( pool->name, "ref_gx zone" ))))
 			mem = (memheader_t *)GC_BootArenaAlloc( blocksize );
 #endif
 
