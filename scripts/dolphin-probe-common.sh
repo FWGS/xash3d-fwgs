@@ -173,6 +173,15 @@ probe_fail_guest() {
 # legacy server-side play-start/frame-arm pair.  Require independent runtime
 # evidence instead: a sustained presented world, gameplay input, and all three
 # scripted gameplay actions. This is intentionally stricter than map-loaded.
+# DOLPHIN_PROFILE_HOLD_SEC: keep the guest running that many seconds after
+# New Game readiness (so -gcprofile logs in-map frame timing blocks of 64
+# frames).  Returns success while the hold is still pending.
+probe_profile_hold_pending() {
+	(( ${DOLPHIN_PROFILE_HOLD_SEC:-0} > 0 )) || return 1
+	(( ${profile_hold_at:-0} == 0 )) && profile_hold_at=$(date +%s)
+	(( $(date +%s) < profile_hold_at + DOLPHIN_PROFILE_HOLD_SEC ))
+}
+
 probe_newgame_progress_ready() {
 	(( DOLPHIN_NEWGAME )) || return 1
 	# Specialized probes must reach their own terminal marker before the
@@ -211,6 +220,7 @@ probe_wait_flatpak() {
 		if probe_log_has "$MAP_MARKER" && probe_log_has "$INPUT_MARKER"; then
 			if probe_newgame_progress_ready; then
 				if probe_guest_error; then DOLPHIN_EXIT=3; break; fi
+				if probe_profile_hold_pending; then sleep 2; continue; fi
 				DOLPHIN_EXIT=0; break
 			fi
 			if (( DOLPHIN_NEWGAME )) || [[ "${DOLPHIN_MENU_NEWGAME:-0}" == "1" ]]; then
@@ -519,6 +529,7 @@ probe_wait_flatpak() {
 			if (( DOLPHIN_NEWGAME )); then
 				if probe_newgame_progress_ready; then
 					if probe_guest_error; then DOLPHIN_EXIT=3; break; fi
+					if probe_profile_hold_pending; then sleep 2; continue; fi
 					DOLPHIN_EXIT=0; break
 				fi
 				sleep 2
@@ -566,6 +577,7 @@ probe_wait_native() {
 		if probe_log_has "$MAP_MARKER" && probe_log_has "$INPUT_MARKER"; then
 			if probe_newgame_progress_ready; then
 				if probe_guest_error; then DOLPHIN_EXIT=3; break; fi
+				if probe_profile_hold_pending; then sleep 2; continue; fi
 				DOLPHIN_EXIT=0; break
 			fi
 			if (( DOLPHIN_NEWGAME )) || [[ "${DOLPHIN_MENU_NEWGAME:-0}" == "1" ]]; then
@@ -841,6 +853,7 @@ probe_wait_native() {
 			if (( DOLPHIN_NEWGAME )); then
 				if probe_newgame_progress_ready; then
 					if probe_guest_error; then DOLPHIN_EXIT=3; break; fi
+					if probe_profile_hold_pending; then sleep 2; continue; fi
 					DOLPHIN_EXIT=0; break
 				fi
 				sleep 2

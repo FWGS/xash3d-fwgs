@@ -1470,6 +1470,7 @@ static gc_gx_tex_t *R_GXPackedTexture( image_t *img, unsigned texnum )
 	return t;
 }
 
+static int r_gx_prof_hud_uploads_logged;
 static gc_gx_tex_t *R_GXBindTexnum( unsigned texnum, qboolean hud_bind )
 {
 	image_t *img;
@@ -1478,6 +1479,7 @@ static gc_gx_tex_t *R_GXBindTexnum( unsigned texnum, qboolean hud_bind )
 	size_t bytes;
 	gc_gx_tex_t *t;
 	const u8 want_fmt = hud_bind ? (u8)GX_TF_RGB5A3 : (u8)GX_TF_RGB565;
+	int hud_evict = -1;
 
 	if( texnum == 0 )
 		return NULL;
@@ -1580,11 +1582,26 @@ static gc_gx_tex_t *R_GXBindTexnum( unsigned texnum, qboolean hud_bind )
 			}
 			if( victim < 0 )
 				victim = font_victim;
+			/* Unreserved slabs (G184 alloc fail at map load): back a free
+			 * slot on demand with a buffer sized to this texture before
+			 * evicting.  With every slab missing, all HUD sprites shared one
+			 * slot and re-converted each other every frame (c0a0e: pain and
+			 * train icons, 2 uploads/frame). */
+			for( i = GC_GX_TEX_HUD_SLOT0; i < GC_GX_TEX_SLOTS; i++ )
+			{
+				if( !r_gx_tex[i].tiled && !r_gx_tex[i].valid )
+				{
+					hud_evict = victim; /* fallback if the heap says no */
+					slot = i;
+					break;
+				}
+			}
 			/* Reuse a reserved slab before trying an unbacked slot. Otherwise
 			 * a partial reservation makes every subsequent HUD bind fail even
 			 * though an older HUD texture could be safely evicted. */
-			slot = victim >= 0 ? victim : GC_GX_TEX_HUD_SLOT0;
-			if( victim >= 0 )
+			if( slot < 0 )
+				slot = victim >= 0 ? victim : GC_GX_TEX_HUD_SLOT0;
+			if( slot == victim && victim >= 0 )
 			{
 				static qboolean logged;
 
@@ -1659,33 +1676,47 @@ static gc_gx_tex_t *R_GXBindTexnum( unsigned texnum, qboolean hud_bind )
 		return NULL;
 	}
 
-	for( y = 0; y < dst_h; y++ )
 	{
-		int sy = y * step_y;
-		if( sy >= src_h )
-			sy = src_h - 1;
-		for( x = 0; x < dst_w; x++ )
-		{
-			int sx = x * step_x;
-			pixel_t soft;
+		/* Pic strips: punch black so TransAlpha leaves only orange ink.
+		 * Background tiles must keep near-black opaque (retail steam art).
+		 * The name test is per upload, not per texel (it was a string scan
+		 * for every texel of every HUD/menu conversion). */
+		const qboolean punch_black = hud_bind && img->name[0]
+			&& Q_stristr( img->name, "gc_menu/btn_" ) != NULL;
+		u16 *out = r_gx_tex_linear;
 
-			if( sx >= src_w )
-				sx = src_w - 1;
-			soft = img->pixels[0][sy * src_w + sx];
-			if( hud_bind )
+		for( y = 0; y < dst_h; y++ )
+		{
+			int sy = y * step_y;
+			const pixel_t *row;
+
+			if( sy >= src_h )
+				sy = src_h - 1;
+			row = &img->pixels[0][sy * src_w];
+			for( x = 0; x < dst_w; x++ )
 			{
-				/* Pic strips: punch black so TransAlpha leaves only orange ink.
-				 * Background tiles must keep near-black opaque (retail steam art). */
-				if( img->name[0] && Q_stristr( img->name, "gc_menu/btn_" ))
-					r_gx_tex_linear[y * dst_w + x] = R_GXSoftToRGB5A3PunchBlack( soft );
+				int sx = x * step_x;
+				pixel_t soft;
+
+				if( sx >= src_w )
+					sx = src_w - 1;
+				soft = row[sx];
+				if( punch_black )
+					*out++ = R_GXSoftToRGB5A3PunchBlack( soft );
+				else if( hud_bind )
+					*out++ = R_GXSoftToRGB5A3( soft );
+				else if( soft == TRANSPARENT_COLOR )
+					*out++ = 0;
 				else
-					r_gx_tex_linear[y * dst_w + x] = R_GXSoftToRGB5A3( soft );
+					*out++ = (u16)R_GCSoftToRGB565( soft );
 			}
-			else if( soft == TRANSPARENT_COLOR )
-				r_gx_tex_linear[y * dst_w + x] = 0;
-			else
-				r_gx_tex_linear[y * dst_w + x] = (u16)R_GCSoftToRGB565( soft );
 		}
+	}
+	if( hud_bind && r_gx_prof_hud_uploads_logged < 40 && gEngfuncs.Sys_CheckParm( "-gcprofile" ))
+	{
+		r_gx_prof_hud_uploads_logged++;
+		gEngfuncs.Con_Reportf( "Xash3D GameCube: profile HUD upload slot=%d tex=%u %s %dx%d -> %dx%d\n",
+			slot, texnum, img->name, src_w, src_h, dst_w, dst_h );
 	}
 
 	bytes = (size_t)dst_w * (size_t)dst_h * sizeof( u16 );
@@ -1699,8 +1730,11 @@ static gc_gx_tex_t *R_GXBindTexnum( unsigned texnum, qboolean hud_bind )
 			: (size_t)GC_GX_TEX_WORLD_MAX_DIM * (size_t)GC_GX_TEX_WORLD_MAX_DIM * sizeof( u16 );
 		size_t want = bytes;
 
-		/* HUD uploads prefer a reusable staging slab so later sheets reuse. */
-		if( hud_bind && want < (size_t)GC_GX_TEX_WORLD_MAX_DIM * (size_t)GC_GX_TEX_WORLD_MAX_DIM * sizeof( u16 ))
+		/* HUD uploads prefer a reusable staging slab so later sheets reuse;
+		 * a slot backed on demand (no reserved slab) takes only what this
+		 * texture needs, so the heap is not asked for 32 KiB per icon. */
+		if( hud_bind && t->tiled
+			&& want < (size_t)GC_GX_TEX_WORLD_MAX_DIM * (size_t)GC_GX_TEX_WORLD_MAX_DIM * sizeof( u16 ))
 			want = (size_t)GC_GX_TEX_WORLD_MAX_DIM * (size_t)GC_GX_TEX_WORLD_MAX_DIM * sizeof( u16 );
 
 		if( slot < GC_GX_TEX_WORLD_POOL )
@@ -1713,7 +1747,16 @@ static gc_gx_tex_t *R_GXBindTexnum( unsigned texnum, qboolean hud_bind )
 		{
 			u16 *neu = (u16 *)memalign( 32, want );
 
-			if( !neu )
+			if( !neu && hud_evict >= 0 && r_gx_tex[hud_evict].tiled
+				&& r_gx_tex[hud_evict].alloc_bytes >= bytes )
+			{
+				/* No heap for an on-demand slot: evict as before. */
+				slot = hud_evict;
+				t = &r_gx_tex[slot];
+				if( t->valid && GC_GXFenceWait( r_gx_tex_fence[slot] ))
+					r_gx_tex_fence_stalls++;
+			}
+			else if( !neu )
 			{
 				if( !t->tiled || t->alloc_bytes < bytes )
 				{
