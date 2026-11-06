@@ -1737,8 +1737,10 @@ int EXPORT Host_Main( int argc, char **argv, const char *progname, int bChangeGa
 				 * fuller client bring-up (fidelity: no blanket c4a compromise). */
 				if( Sys_CheckParm( "-gcnewgame" ))
 				{
-					/* Late Interloper / Gonarch / boss / end — not early c4a1a–d
-					 * (those keep quality=1 cold; chip list 20261106). */
+					/* Late Interloper / Gonarch / boss / end — not early c4a1a–d.
+					 * c4a1e cold quality=1 ate tip (87→18 KiB) and stalled the
+					 * end-triple (probe g336-c4a1e); keep lean cold, restore
+					 * quality=1 post-MAP_READY when tip≥80 KiB. */
 					const qboolean g336_xen_lean =
 						!Q_stricmp( gcmap, "c4a1e" )
 						|| !Q_stricmp( gcmap, "c4a1f" )
