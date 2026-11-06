@@ -1,0 +1,237 @@
+diff --git a/engine/platform/gamecube/sys_gamecube.c b/engine/platform/gamecube/sys_gamecube.c
+index f277419021..2db93fff26 100644
+--- a/engine/platform/gamecube/sys_gamecube.c
++++ b/engine/platform/gamecube/sys_gamecube.c
+@@ -1028,6 +1028,7 @@ static qboolean gc_profile_configured;
+ static qboolean gc_nolivepvs_configured;
+ static qboolean gc_nonativetex_configured;
+ static qboolean gc_nativetex_configured;
++static qboolean gc_overlap_configured;
+ static qboolean gc_notexpacks_configured;
+ static qboolean gc_autohop_configured;
+ static qboolean gc_modeltrace_configured;
+@@ -1066,6 +1067,7 @@ static void GCube_LoadDiscBootOverrides( void )
+ 	gc_nolivepvs_configured = false;
+ 	gc_nonativetex_configured = false;
+ 	gc_nativetex_configured = false;
++	gc_overlap_configured = false;
+ 	gc_notexpacks_configured = false;
+ 	gc_autohop_configured = false;
+ 	gc_modeltrace_configured = false;
+@@ -1155,6 +1157,13 @@ static void GCube_LoadDiscBootOverrides( void )
+ 			continue;
+ 		}
+ 
++		if( !Q_strnicmp( cursor, "overlap", 7 ))
++		{
++			gc_overlap_configured = true;
++			SYS_Report( "Xash3D GameCube: disc boot override overlap\n" );
++			continue;
++		}
++
+ 		if( !Q_strnicmp( cursor, "nativetex", 9 ))
+ 		{
+ 			gc_nativetex_configured = true;
+@@ -1777,6 +1786,8 @@ int GCube_GetArgv( int in_argc, char **in_argv, char ***out_argv )
+ 		gc_argv[fake_argc++] = "-gcnonativetex";
+ 	if( gc_nativetex_configured )
+ 		gc_argv[fake_argc++] = "-gcnativetex";
++	if( gc_overlap_configured )
++		gc_argv[fake_argc++] = "-gcoverlap";
+ 	if( gc_notexpacks_configured )
+ 		gc_argv[fake_argc++] = "-gcnotexpacks";
+ 	if( gc_autohop_configured )
+diff --git a/engine/platform/gamecube/vid_gamecube.c b/engine/platform/gamecube/vid_gamecube.c
+index f41a5a446d..d67138680d 100644
+--- a/engine/platform/gamecube/vid_gamecube.c
++++ b/engine/platform/gamecube/vid_gamecube.c
+@@ -44,6 +44,7 @@ void Mod_GCClearRetainedBspScratch( void );
+ #include <ogc/gx.h>
+ #include <ogc/gu.h>
+ #include <ogc/video.h>
++#include <ogc/machine/processor.h>
+ #include <ogc/color.h>
+ #include <ogc/system.h>
+ #include <ogc/cache.h>
+@@ -150,6 +151,47 @@ static u16 GC_GXFenceIssue( void )
+ 	return gc_gx_fence_issued;
+ }
+ 
++/*
++ * CPU/GPU overlap (-gcoverlap, gamecube.cfg "overlap"; off by default).
++ *
++ * The retail present was serial: DrawDone (the CPU waits for Flipper to
++ * finish frame N), CopyDisp, then VIDEO_WaitVSync, so game logic for frame
++ * N+1 only started after Flipper was done with frame N.  With overlap the
++ * present queues frame N's CopyDisp plus a draw-sync token and returns at
++ * once.  The next present (or any synchronous present path, via
++ * GC_OverlapDrain) waits for that token, which Flipper normally passed long
++ * before, shows that XFB on the next vsync, and only then copies into the
++ * other XFB, so a buffer on screen is never overwritten.  Cost: one frame
++ * more latency.  CPU writes to memory Flipper may still sample (hot texture
++ * ring, light style atlas) call GC_GXOverlapWaitGpu first.
++ */
++static int gc_overlap = -1;
++static int gc_ov_pending_fb = -1;
++static u16 gc_ov_pending_token;
++static unsigned int gc_ov_trace = 4; /* breadcrumbs for the first frames */
++static qboolean GC_GXFenceReached( u16 token );
++qboolean GC_GXFenceWait( u16 token );
++
++qboolean GC_OverlapEnabled( void )
++{
++	if( gc_overlap < 0 )
++		gc_overlap = Sys_CheckParm( "-gcoverlap" ) ? 1 : 0;
++	return gc_overlap > 0;
++}
++
++/* Show the queued overlap frame: wait for its copy, swap on the vsync. */
++static void GC_OverlapDrain( void )
++{
++	if( gc_ov_pending_fb < 0 )
++		return;
++	if( !GC_GXFenceReached( gc_ov_pending_token ))
++		GC_GXFenceWait( gc_ov_pending_token );
++	VIDEO_SetNextFramebuffer( xfb[gc_ov_pending_fb] );
++	VIDEO_Flush();
++	VIDEO_WaitVSync();
++	gc_ov_pending_fb = -1;
++}
++
+ static qboolean GC_GXDrawDoneTimed( const char *where )
+ {
+ 	u16 token;
+@@ -157,6 +199,7 @@ static qboolean GC_GXDrawDoneTimed( const char *where )
+ 	u8 overhi = 0, underlo = 0, read_idle = 0, cmd_idle = 0, brkpt = 0;
+ 
+ 	GC_WatchdogMark( where );
++	GC_OverlapDrain();
+ 	token = GC_GXFenceIssue();
+ 	start = gettime();
+ 
+@@ -248,6 +291,14 @@ qboolean GC_GXFenceWait( u16 token )
+ 	return true;
+ }
+ 
++/* Renderer hook: before rewriting memory Flipper samples (hot texture ring,
++ * light style atlas), wait until the previous overlapped frame is drawn. */
++void GC_GXOverlapWaitGpu( void )
++{
++	if( gc_ov_pending_fb >= 0 && !GC_GXFenceReached( gc_ov_pending_token ))
++		GC_GXFenceWait( gc_ov_pending_token );
++}
++
+ /* Menu New Game changelevel: GoldSrc keeps the last frame on screen while the
+  * next map loads. Without this the switch flashed the loading status panel
+  * (drawn over the soft buffer the map load borrows, so garbled) and the
+@@ -7355,6 +7406,7 @@ static void GC_PresentBuffer( void )
+ 	if( !rmode || !xfb[which_fb] )
+ 		return;
+ 
++	GC_OverlapDrain();
+ 	gc_present_count++;
+ 	/* c5a1 fullphysics: CapFaces+HUD wedged Flipper CopyDisp (092416–094354)
+ 	 * and present#2 hung in deferred studio/sky hooks after a sample-only
+@@ -7584,6 +7636,37 @@ static void GC_PresentBuffer( void )
+ 			 * (probe 093557 hung after G197, no timeout/watchdog). Flush is
+ 			 * enough for the first denser presents; fence later once EXI/GP
+ 			 * have settled. */
++			/* Frame-dump captures need the synchronous copy (EFB hold). */
++			/* Not in the first presents: -gcfullphysics skips the VI swap
++			 * and OSReport there while EXI drains (see below). */
++			if( GC_OverlapEnabled() && !skip_drawdone && gc_present_count > 64
++				&& !Sys_CheckParm( "-gcdumpframes" ) && !Sys_CheckParm( "-gcdump" )
++				&& !gc_budget_probe_active && cls.state == ca_active )
++			{
++				u16 token;
++
++				/* GC_OverlapDrain at the top of this function put the previous
++				 * frame on screen, so which_fb is not being scanned out. */
++				GC_ProfMark( "present: end-frame work before DrawDone" );
++				GX_CopyDisp( xfb[which_fb], GX_FALSE );
++				token = GC_GXFenceIssue();
++				gc_ov_pending_token = token;
++				gc_ov_pending_fb = which_fb;
++				which_fb ^= 1;
++				gc_gx_world_efb_ready = false;
++				if( gc_ov_trace )
++				{
++					gc_ov_trace = 0;
++					Con_Reportf( "Xash3D GameCube: CPU/GPU overlap active presents=%u\n", gc_present_count );
++				}
++				GC_ProfMark( "present: overlap queued" );
++				now = Sys_FloatTime();
++				elapsed_ms = gc_last_present_time > 0.0 ? ( now - gc_last_present_time ) * 1000.0 : 0.0;
++				if( elapsed_ms > gc_worst_frame_ms )
++					gc_worst_frame_ms = elapsed_ms;
++				gc_last_present_time = now;
++				return;
++			}
+ 			if( skip_drawdone )
+ 				GX_Flush();
+ 			else
+@@ -9620,6 +9703,7 @@ static void GC_SoftDumpCompositeHUD( void )
+  */
+ void GC_DrawLoadingStatus( const char *message, const char *details )
+ {
++	GC_OverlapDrain();
+ #if XASH_GAMECUBE
+ 	size_t xfb_size;
+ 
+diff --git a/ref/gx/r_gx_world.c b/ref/gx/r_gx_world.c
+index 12d8d23d34..8db6164593 100644
+--- a/ref/gx/r_gx_world.c
++++ b/ref/gx/r_gx_world.c
+@@ -4040,6 +4040,12 @@ static int R_GXDrawNewGameCapFacesImpl( void )
+ 		gEngfuncs.Con_Reportf( "Xash3D GameCube: CapFaces begin map=%s f=%d\n",
+ 			map_name, tr.framecount );
+ 	}
++	{
++		/* -gcoverlap: the previous frame may still be on Flipper; the hot
++		 * ring and the light style atlas are rewritten just below. */
++		extern void GC_GXOverlapWaitGpu( void );
++		GC_GXOverlapWaitGpu();
++	}
+ 	R_GXHotService();
+ 	R_GXSetupWorld3DState();
+ 
+diff --git a/scripts/build-gamecube-disc.py b/scripts/build-gamecube-disc.py
+index 47a8d17622..d7ef55d5b9 100755
+--- a/scripts/build-gamecube-disc.py
++++ b/scripts/build-gamecube-disc.py
+@@ -2114,6 +2114,8 @@ def write_smoke_overrides(
+ 		lines.append("profile")
+ 	if os.environ.get("XASH_GC_PROBE_NATIVETEX") == "1":
+ 		lines.append("nativetex")
++	if os.environ.get("XASH_GC_PROBE_OVERLAP") == "1":
++		lines.append("overlap")
+ 	(output / "gamecube.cfg").write_text("\n".join(lines) + "\n", encoding="ascii")
+ 	media = output / "media"
+ 	media.mkdir(exist_ok=True)
+@@ -2184,6 +2186,8 @@ def write_probe_newgame_override(
+ 		lines.append("profile")
+ 	if os.environ.get("XASH_GC_PROBE_NATIVETEX") == "1":
+ 		lines.append("nativetex")
++	if os.environ.get("XASH_GC_PROBE_OVERLAP") == "1":
++		lines.append("overlap")
+ 	(output / "gamecube.cfg").write_text("\n".join(lines) + "\n", encoding="ascii")
+ 
+ 
+@@ -3469,6 +3473,8 @@ def main() -> None:
+ 					play_lines.append("modeltrace")
+ 				if os.environ.get("XASH_GC_PROBE_PROFILE") == "1":
+ 					play_lines.append("profile")
++				if os.environ.get("XASH_GC_PROBE_OVERLAP") == "1":
++					play_lines.append("overlap")
+ 				(staged_data / "gamecube.cfg").write_text(
+ 					"\n".join(play_lines) + "\n", encoding="ascii"
+ 				)
+@@ -3493,6 +3499,8 @@ def main() -> None:
+ 					menu_lines.append("memreport")
+ 				if os.environ.get("XASH_GC_PROBE_PROFILE") == "1":
+ 					menu_lines.append("profile")
++				if os.environ.get("XASH_GC_PROBE_OVERLAP") == "1":
++					menu_lines.append("overlap")
+ 				if os.environ.get("XASH_GC_PROBE_NOLIVEPVS") == "1":
+ 					menu_lines.append("nolivepvs")
+ 				if os.environ.get("XASH_GC_PROBE_NONATIVETEX") == "1":
