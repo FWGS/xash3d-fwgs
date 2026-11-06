@@ -58,9 +58,12 @@ static void *gc_nodes_malloc_block;
 static qboolean gc_nodes_arena_tail;
 static qboolean gc_nodes_static_block;
 /* Filled by Mod_GCPreallocWorldNodes before leafs consume contiguous scratch
- * (c2a4d→c2a4e: 294 KiB nodes lost after leafs took 189 KiB, tip FATAL). */
+ * (c2a4d→c2a4e: 294 KiB nodes lost after leafs took 189 KiB, tip FATAL).
+ * When both fit, park leafs in the same scratch carve (c4a1e→…→c5a1: nodes
+ * alone left no 186 KiB leaf hole — probe 20261106-072643). */
 static mnode_t *gc_nodes_prealloc;
 static qboolean gc_nodes_prealloc_scratch;
+static mleaf_t *gc_leafs_prealloc;
 /* Surface Tension peaks need ~270 KiB of mnode_t (c2a5e→c2a5f). Scratch is
  * often full of in-place planes + reserved surfaces + leafs; tip/malloc are
  * dry after changelevel. Keep a BSS last resort. */
@@ -5917,8 +5920,15 @@ static void Mod_GCPreallocWorldNodes( model_t *mod, dbspmodel_t *bmod )
 		}
 	}
 
+	gc_leafs_prealloc = NULL;
 	if( gc_retain_bsp_source_buffer && gc_bsp_scratch_base && gc_bsp_scratch_size )
 	{
+		const size_t leaf_bytes = ( bmod->numleafs > 0 )
+			? (size_t)bmod->numleafs * sizeof( mleaf_t )
+			: 0;
+		const size_t combined_bytes = node_bytes + leaf_bytes;
+		byte *combined = NULL;
+
 		if( mod->surfaces && Mod_GCPointerInBuffer( mod->surfaces, gc_bsp_scratch_base, gc_bsp_scratch_size ))
 		{
 			const byte *p = (const byte *)mod->surfaces;
@@ -5941,7 +5951,21 @@ static void Mod_GCPreallocWorldNodes( model_t *mod, dbspmodel_t *bmod )
 			busy[busy_count].end = busy[busy_count].start + mod->nummarksurfaces * sizeof( *mod->marksurfaces );
 			busy_count++;
 		}
-		/* Intentionally omit leafs — this runs before Mod_LoadLeafs. */
+		/* Prefer one carve for nodes+leafs so a later leaf alloc cannot miss
+		 * after nodes take the last contiguous hole (end-triple→c5a1). */
+		if( leaf_bytes > 0 )
+			combined = (byte *)Mod_GCAllocWorldScratch( mod, bmod, busy, busy_count, combined_bytes, 32 );
+		if( combined )
+		{
+			out = (mnode_t *)combined;
+			gc_leafs_prealloc = (mleaf_t *)( combined + node_bytes );
+			Mod_GCInvalidateScratchOverlap( bmod, gc_bsp_scratch_base, gc_bsp_scratch_size, combined, combined_bytes );
+			gc_nodes_prealloc_scratch = true;
+			GC_NODES_PREALLOC_PUBLISH( out );
+			Con_Reportf( "Xash3D GameCube: world nodes+leafs prealloc BSP scratch nodes=%s leafs=%s\n",
+				Q_memprint( node_bytes ), Q_memprint( leaf_bytes ));
+			return;
+		}
 
 		out = (mnode_t *)Mod_GCAllocWorldScratch( mod, bmod, busy, busy_count, node_bytes, 32 );
 		if( out )
@@ -7593,10 +7617,19 @@ static void Mod_LoadLeafs( model_t *mod, dbspmodel_t *bmod )
 			size_t busy_count = 0;
 			const qboolean use_bsp_leaf_scratch = true;
 
+			if( gc_leafs_prealloc )
+			{
+				out = gc_leafs_prealloc;
+				gc_leafs_prealloc = NULL;
+				memset( out, 0, leaf_bytes );
+				Con_Reportf( "Xash3D GameCube: world leafs using nodes+leafs prealloc %s\n",
+					Q_memprint( leaf_bytes ));
+			}
+
 			/* Retained-staging maps need scratch-backed leaf storage to stay
 			 * within MEM1; the parent walk now guards against overlap fallout.
 			 * New Game relocates leafs to the model pool after load (G83). */
-			if( use_bsp_leaf_scratch && GC_MapLoadMemoryOpt()
+			if( !out && use_bsp_leaf_scratch && GC_MapLoadMemoryOpt()
 				&& gc_retain_bsp_source_buffer && gc_bsp_scratch_base && gc_bsp_scratch_size )
 			{
 			if( mod->surfaces && Mod_GCPointerInBuffer( mod->surfaces, gc_bsp_scratch_base, gc_bsp_scratch_size ))

@@ -514,6 +514,11 @@ static u16 GC_ProbeSyntheticHeldButtons( void )
 		}
 		if( !SV_Active() )
 			return 0;
+		/* G356/G357: fire deferred hops once dest is ss_active + world-ready.
+		 * Must run before the sign-on gate — hop3 arms on denser dests
+		 * (c4a3→c5a1) while ClientFrame is still signon=0/2, so waiting for
+		 * SIGNONS leaves changelevel3 pending forever (20261106-070459). */
+		GC_TryDeferredTasChangelevel();
 		if( cls.state != ca_active || cls.signon != SIGNONS )
 		{
 			/* The direct-map bootstrap becomes active before the real loopback
@@ -529,9 +534,6 @@ static u16 GC_ProbeSyntheticHeldButtons( void )
 			GC_UpdateButtons( 0 );
 			return 0;
 		}
-
-		/* G356: fire deferred hop2 once dest1 is ss_active (no TAS required). */
-		GC_TryDeferredTasChangelevel();
 
 		/* Replay-only TAS (-gctas): replace the hardcoded attack/jump/use burst. */
 		if( Sys_CheckParm( "-gctas" ))
