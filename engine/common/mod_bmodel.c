@@ -432,6 +432,7 @@ color24 *Mod_GCHydrateSurfaceLightmap( const msurface_t *surf )
 void Mod_GCReleaseTempNewGameLightmaps( model_t *mod )
 {
 	int i;
+	const qboolean had_aram = ( gc_lm_aram_base != 0 );
 
 	if( !mod || !mod->surfaces )
 		return;
@@ -442,7 +443,11 @@ void Mod_GCReleaseTempNewGameLightmaps( model_t *mod )
 		mod->surfaces[i].samples = NULL;
 	mod->lightdata = NULL;
 	Con_Reportf( "Xash3D GameCube: G154 released disc lightmap after face bake%s\n",
-		gc_lm_aram_base ? " [ARAM]" : "" );
+		had_aram ? " [ARAM]" : "" );
+	/* Drop the ARAM bind here — Mod_GCFreeBspPin(lightdata) is skipped while
+	 * CapFaces is deferred, otherwise hydrate sees base=0 (c1a2b lm_real=0/320). */
+	gc_lm_aram_base = 0;
+	gc_lm_aram_bytes = 0;
 	Mod_GCClearSurfLightofs();
 }
 #endif /* XASH_GAMECUBE */
@@ -6912,22 +6917,9 @@ static qboolean Mod_GCReloadStdBspLump( model_t *mod, dbspmodel_t *bmod, int lum
 
 	numelems = lump.filelen / real_entrysize;
 	lumpbuf = (byte *)malloc( lump.filelen );
-	if( !lumpbuf && gc_retain_bsp_source_buffer && gc_bsp_scratch_base && gc_bsp_scratch_size )
-	{
-		gc_bsp_busy_range_t busy[32];
-		size_t busy_count = Mod_GCCollectWorldScratchBusy( mod, bmod, busy, ARRAYSIZE( busy ));
-
-		lumpbuf = (byte *)Mod_GCAllocBspScratch( gc_bsp_scratch_base, gc_bsp_scratch_size,
-			busy, busy_count, lump.filelen, 32 );
-		if( lumpbuf )
-		{
-			scratch_backed = true;
-			Con_Reportf( "Xash3D GameCube: reloading BSP lump %s via scratch %s\n",
-				info->loadname, Q_memprint( lump.filelen ));
-		}
-	}
-	/* c5a1: tip≈66 KiB and the surface high-slot ate the lighting hole — stage
-	 * LUMP_LIGHTING in ARAM and hydrate per face during CapFaces/G180. */
+	/* Prefer ARAM for LUMP_LIGHTING before carving scratch. A 600 KiB scratch
+	 * win on tip-tight changelevel dests (c1a3a after c1a3→c1a3d) left the
+	 * guest hung mid-reload while CapFaces still needed headroom. */
 	if( !lumpbuf && lumpnum == LUMP_LIGHTING && lump.filelen > 0 )
 	{
 		unsigned int need = (unsigned int)(( lump.filelen + 31u ) & ~31u );
@@ -6988,6 +6980,20 @@ static qboolean Mod_GCReloadStdBspLump( model_t *mod, dbspmodel_t *bmod, int lum
 		}
 		gc_lm_aram_base = 0;
 		gc_lm_aram_bytes = 0;
+	}
+	if( !lumpbuf && gc_retain_bsp_source_buffer && gc_bsp_scratch_base && gc_bsp_scratch_size )
+	{
+		gc_bsp_busy_range_t busy[32];
+		size_t busy_count = Mod_GCCollectWorldScratchBusy( mod, bmod, busy, ARRAYSIZE( busy ));
+
+		lumpbuf = (byte *)Mod_GCAllocBspScratch( gc_bsp_scratch_base, gc_bsp_scratch_size,
+			busy, busy_count, lump.filelen, 32 );
+		if( lumpbuf )
+		{
+			scratch_backed = true;
+			Con_Reportf( "Xash3D GameCube: reloading BSP lump %s via scratch %s\n",
+				info->loadname, Q_memprint( lump.filelen ));
+		}
 	}
 	if( !lumpbuf )
 	{
@@ -9482,7 +9488,12 @@ static qboolean Mod_LoadBmodelLumps( model_t *mod, byte *mod_base, size_t buffer
 		else
 			Mod_GCFreeBspPin( (void **)&bmod->surfaces );
 	}
-	Mod_GCFreeBspPin( (void **)&bmod->lightdata );
+	/* FreeBspPin on the ARAM marker zeroes gc_lm_aram_base. Deferred CapFaces
+	 * still needs that bind (and disc samples) until post-spawn bake. */
+	if( !( isworld && Sys_CheckParm( "-gcnewgame" ) && GC_IsCapFacesBakeDeferred() ))
+		Mod_GCFreeBspPin( (void **)&bmod->lightdata );
+	else
+		bmod->lightdata = NULL;
 #endif
 
 	if( isworld )
