@@ -544,9 +544,12 @@ static int gc_newgame_vis_leafs;
 static int gc_newgame_vis_nodes;
 /* G132/G148/G150/G160/G176: compact face records captured while msurface_t is still valid.
  * G176: trade lightmap tile 8→4 (GX 4×4 RGB565) to raise face cap 256→320
- * without BSS growth (~−4 KiB net: LM save outweighs +64 face structs). */
-#define GC_MAX_CAP_FACES 320
-#define GC_CAP_AREA_SLOTS (( GC_MAX_CAP_FACES * 7 ) / 8) /* 280 top-K by area */
+ * without BSS growth (~−4 KiB net: LM save outweighs +64 face structs).
+ * 320→384: end-triple maps saturated CapFaces LM real=320/320 (probe 093817);
+ * atlas 128²/4 still holds 1024 tiles. ~+21 KiB BSS — tip after MAP_READY
+ * still ≥100 KiB on c4a3/c5a1 with SP BSS edicts. */
+#define GC_MAX_CAP_FACES 384
+#define GC_CAP_AREA_SLOTS (( GC_MAX_CAP_FACES * 7 ) / 8) /* top-K by area */
 /* G153/G176: bake style-0 lightmap to RGB565 at capture (must be multiple of 4). */
 #define GC_CAP_LM_DIM 4
 /* G180/G281: one Flipper atlas for world caps plus the intro tram (32×32 tiles). */
@@ -3709,7 +3712,7 @@ static void GC_CaptureDrawFacesFromSurfbits( model_t *wmodel, const byte *surfbi
 	GC_BakeTramLightmaps( wmodel );
 	/* G286: bake visible turb sheets while edges/planes are still valid. */
 	GC_CaptureWaterFacesFromSurfbits( wmodel, surfbits );
-	/* G176: prove LM 8→4 funded face cap 256→320 without BSS growth. */
+	/* G176: prove LM 8→4 funded face cap growth; 384 ceiling after 320 saturate. */
 	if( !gc_g176_logged && gc_newgame_cap_face_count >= 300
 		&& GC_MAX_CAP_FACES >= 320 && GC_CAP_LM_DIM == 4 )
 	{

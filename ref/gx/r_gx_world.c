@@ -262,10 +262,10 @@ static qboolean r_gx_tex_band_logged;
  * G297 cut for headroom; unmasked G36 ~1ms so G302 restores live toward pool size.
  * G348: live 124→192 + frame 248→280 — G347 late DumpFrames still void at 124. */
 #ifndef GC_GX_FRAME_FACE_BUDGET
-#define GC_GX_FRAME_FACE_BUDGET 384	/* G381: was 320 — CapFaces 320 + fill 64 */
+#define GC_GX_FRAME_FACE_BUDGET 448	/* CapFaces 384 + fill; was 384 @ 320-cap */
 #endif
 #ifndef GC_GX_LIVE_FACE_BUDGET
-#define GC_GX_LIVE_FACE_BUDGET 192	/* G348: was 124 — draw more of lean pool 248 */
+#define GC_GX_LIVE_FACE_BUDGET 256	/* was 192 — draw more of live PVS pool */
 #endif
 /* G36 sample window: c0a0 tram capture draws ~320 LM faces → ~52ms/present
  * (probe 20260809-124458 WEAK). Cap Flipper emit during the armed probe so
@@ -3843,7 +3843,7 @@ static int R_GXDrawNewGameCapFacesImpl( void )
 	model_t *world;
 	int n, i, drawn = 0;
 	int gen;
-	int order[320];
+	int order[384]; /* matches GC_MAX_CAP_FACES */
 	const char *map_name = "";
 	qboolean newgame_probe;
 	qboolean menu_playstart;
