@@ -1,0 +1,192 @@
+diff --git a/engine/client/cl_video.c b/engine/client/cl_video.c
+index eb1a8af3a0..e8b7dddd14 100644
+--- a/engine/client/cl_video.c
++++ b/engine/client/cl_video.c
+@@ -482,6 +482,11 @@ void SCR_StopCinematic( void )
+ 	Image_GCPurgeDecodeScratch();
+ 	Con_Reportf( "Xash3D GameCube: activating menu after cinematic\n" );
+ 	GC_MemHeapMark( "menu_handoff" );
++	/* The startup video is gone and the heap top is one ~950 KiB span; the
++	 * menu would carve it up before New Game.  Hold the edict table here
++	 * (menu art goes to the boot arena) and release it in SV_LoadProgs. */
++	if( GI )
++		GC_HoldEdictTable( sizeof( edict_t ) * GI->max_edicts );
+ 	Con_Reportf( "Xash3D GameCube: mem after cinematic purge (menu handoff)\n" );
+ 	Mem_PrintStats();
+ #endif
+diff --git a/engine/common/zone.c b/engine/common/zone.c
+index f74e38a8d6..29e01fbc02 100644
+--- a/engine/common/zone.c
++++ b/engine/common/zone.c
+@@ -446,6 +446,12 @@ void *_Mem_TryAlloc( poolhandle_t poolptr, size_t size, qboolean clear, const ch
+ 				pool->gc_arena_live++;
+ 			}
+ 		}
++#endif
++#if XASH_GAMECUBE
++		/* Menu art lives in the boot arena first: it is freed at the first
++		 * map load, and the heap it would take is what New Game needs. */
++		if( !mem && GC_BootArenaMenuScope() && !Q_stricmp( pool->name, "ref_gx zone" ))
++			mem = (memheader_t *)GC_BootArenaAlloc( blocksize );
+ #endif
+ 		if( !mem )
+ 			mem = Q_malloc( blocksize );
+diff --git a/engine/platform/gamecube/mem_gamecube.c b/engine/platform/gamecube/mem_gamecube.c
+index bb82207c5e..715f68da1c 100644
+--- a/engine/platform/gamecube/mem_gamecube.c
++++ b/engine/platform/gamecube/mem_gamecube.c
+@@ -860,6 +860,40 @@ void GC_DiscardMapLoadBuffer( void )
+ qboolean Mod_GCEnsureStaticReserves( void );
+ qboolean SV_GCEnsureStringArena( void );
+ 
++/*
++ * Retail New Game needs one contiguous edict table (900 edicts, ~706 KiB)
++ * in SV_LoadProgs.  At the menu the heap top still has ~1 MiB unclaimed in
++ * one piece, but the play-start trims and map-load allocations leave the same
++ * amount free only in fragments ("out of memory 706.64 Kb at sv_game.c").
++ * Hold the hole: take the block when play start begins, and free it just
++ * before the edict allocation, which then gets the same coalesced span.
++ */
++static void *gc_edict_hold;
++static size_t gc_edict_hold_bytes;
++
++void GC_HoldEdictTable( size_t bytes )
++{
++	if( gc_edict_hold || bytes == 0 )
++		return;
++	/* slack for the zone block header and pool bookkeeping */
++	bytes += 4096;
++	GC_MemHeapMark( "edict_hold" );
++	gc_edict_hold = malloc( bytes );
++	gc_edict_hold_bytes = gc_edict_hold ? bytes : 0;
++	Con_Reportf( "Xash3D GameCube: edict table hold %s %s\n", Q_memprint( bytes ),
++		gc_edict_hold ? "taken" : "unavailable" );
++}
++
++void GC_ReleaseEdictHold( void )
++{
++	if( !gc_edict_hold )
++		return;
++	free( gc_edict_hold );
++	gc_edict_hold = NULL;
++	Con_Reportf( "Xash3D GameCube: edict table hold released %s\n", Q_memprint( gc_edict_hold_bytes ));
++	gc_edict_hold_bytes = 0;
++}
++
+ void GC_BeginMapLoadMemoryOpt( void )
+ {
+ 	/* First map load: take the session's world reserves before BSP staging. */
+diff --git a/engine/platform/gamecube/mem_gamecube.h b/engine/platform/gamecube/mem_gamecube.h
+index 16145134aa..24fe97cc3f 100644
+--- a/engine/platform/gamecube/mem_gamecube.h
++++ b/engine/platform/gamecube/mem_gamecube.h
+@@ -36,6 +36,8 @@ size_t GC_BootArenaClose( void );
+ void GC_BootArenaSetMenuScope( qboolean on );
+ qboolean GC_BootArenaMenuScope( void );
+ size_t GC_BootArenaLiveBytes( void );
++void GC_HoldEdictTable( size_t bytes );
++void GC_ReleaseEdictHold( void );
+ void GC_MemFail( const char *subsystem, size_t size, const char *file, int line );
+ void GC_MemReportPoolPressure( const char *subsystem, size_t requested );
+ void GC_MemPoolReport( const char *stage );
+@@ -139,6 +141,8 @@ static inline size_t GC_BootArenaClose( void ) { return 0; }
+ static inline void GC_BootArenaSetMenuScope( qboolean on ) { (void)on; }
+ static inline qboolean GC_BootArenaMenuScope( void ) { return false; }
+ static inline size_t GC_BootArenaLiveBytes( void ) { return 0; }
++static inline void GC_HoldEdictTable( size_t bytes ) { (void)bytes; }
++static inline void GC_ReleaseEdictHold( void ) { }
+ static inline void GC_MemFail( const char *subsystem, size_t size, const char *file, int line )
+ {
+ 	(void)subsystem;
+diff --git a/engine/platform/gamecube/vid_gamecube.c b/engine/platform/gamecube/vid_gamecube.c
+index 0c1c4a94fb..3dd715e436 100644
+--- a/engine/platform/gamecube/vid_gamecube.c
++++ b/engine/platform/gamecube/vid_gamecube.c
+@@ -103,11 +103,11 @@ static void GC_AllocXFB( int i, GXRModeObj *mode )
+ }
+ static int which_fb = 0;
+ static GXRModeObj *rmode = NULL;
+-/* A larger FIFO lets Broadway queue the next world/effects batch while
+- * Flipper is still consuming the previous one.  This is especially useful
+- * for HL1's particle-heavy scenes; the buffer is MEM1-resident and remains
+- * well below the GameCube's available low-memory budget. */
+-static uint8_t gx_fifo[512 * 1024] __attribute__((aligned(32)));
++/* 256 KiB is the libogc default and what retail titles shipped with; it
++ * holds several frames of HL1 world + particle batches.  The old 512 KiB
++ * FIFO cost 256 KiB of MEM1 BSS that the retail New Game path needs for its
++ * single 706 KiB edict table (900 edicts) at play start. */
++static uint8_t gx_fifo[256 * 1024] __attribute__((aligned(32)));
+ static unsigned int gc_present_count;
+ 
+ /* The direct GameCube presentation paths can run before the ref DLL has
+diff --git a/engine/server/sv_cmds.c b/engine/server/sv_cmds.c
+index b3e64624fe..1d6d2a7fe4 100644
+--- a/engine/server/sv_cmds.c
++++ b/engine/server/sv_cmds.c
+@@ -52,6 +52,9 @@ static void SV_GameCubePlayStart_f( void )
+ 	Cvar_Set( "gc_quality", "0" );
+ 	GC_SetLoadingProgress( 0.05f );
+ 	GC_DrawLoadingStatus( "NEW GAME", map );
++	/* Before the trims fragment the heap top (see GC_HoldEdictTable). */
++	if( !svgame.edicts && GI )
++		GC_HoldEdictTable( sizeof( edict_t ) * GI->max_edicts );
+ 	GC_BeginMapLoadMemoryOpt();
+ 	/* Reserve the BSP buffer at the lowest-memory point we can reach. */
+ 	GC_TrimClientSubsystemsForMapLoad();
+diff --git a/engine/server/sv_game.c b/engine/server/sv_game.c
+index f0a20fe081..c4f47d0618 100644
+--- a/engine/server/sv_game.c
++++ b/engine/server/sv_game.c
+@@ -6536,6 +6536,7 @@ qboolean SV_LoadProgs( const char *name )
+ 	svgame.globals->maxClients = svs.maxclients;
+ #if XASH_GAMECUBE
+ 	Con_Reportf( "Xash3D GameCube: server progs edicts alloc begin\n" );
++	GC_ReleaseEdictHold();
+ #endif
+ 	svgame.edicts = Mem_Calloc( svgame.mempool, sizeof( edict_t ) * GI->max_edicts );
+ 	svs.static_entities = Z_Calloc( sizeof( entity_state_t ) * MAX_STATIC_ENTITIES );
+diff --git a/ref/gx/r_gx_world.c b/ref/gx/r_gx_world.c
+index 53ff6a5137..e02bebc740 100644
+--- a/ref/gx/r_gx_world.c
++++ b/ref/gx/r_gx_world.c
+@@ -455,13 +455,13 @@ static void R_GXReserveHudPool( void )
+ 			r_gx_tex[slot].alloc_bytes = 0;
+ 			r_gx_tex[slot].valid = false;
+ 		}
+-		r_gx_tex[slot].tiled = (u16 *)memalign( 32, bytes );
+-		/* Boot/menu: the heap is at its tightest while the menu chrome is up.
+-		 * Borrow the idle boot arena rather than run the menu on fewer slabs
+-		 * (garbled button strips, G184).  The first map load releases the
+-		 * HUD pool before it takes the pad back (R_GcmapTrimForMapLoad). */
++		/* Boot/menu: arena first (the heap is at its tightest while the menu
++		 * chrome is up, and New Game needs it); heap after the first map load
++		 * when the arena is closed.  The map-load trim releases the HUD pool
++		 * before it takes the arena back (R_GcmapTrimForMapLoad). */
++		r_gx_tex[slot].tiled = (u16 *)GC_BootArenaAlloc( bytes );
+ 		if( !r_gx_tex[slot].tiled )
+-			r_gx_tex[slot].tiled = (u16 *)GC_BootArenaAlloc( bytes );
++			r_gx_tex[slot].tiled = (u16 *)memalign( 32, bytes );
+ 		if( !r_gx_tex[slot].tiled )
+ 		{
+ 			gEngfuncs.Con_Reportf(
+diff --git a/ref/gx/r_surf.c b/ref/gx/r_surf.c
+index 6299e53bdf..f7157d8578 100644
+--- a/ref/gx/r_surf.c
++++ b/ref/gx/r_surf.c
+@@ -1178,6 +1178,16 @@ void R_InitCaches( void )
+ #endif
+ 
+ #if XASH_GAMECUBE
++	/* Retail Flipper renders the world and 2D in GX; the soft surface cache
++	 * is only used once a map is up (or with -gcsoftworld).  Before the first
++	 * map load it held 128-256 KiB of heap the startup video, menu and New
++	 * Game need.  R_GcmapRestoreAfterMapLoad calls back here. */
++	if( !sc_base && !gEngfuncs.Sys_CheckParm( "-gcsoftworld" )
++		&& !gEngfuncs.Sys_CheckParm( "-gcmap" ) && R_GcmapBootPadRegion( NULL ))
++	{
++		gEngfuncs.Con_Reportf( "Xash3D GameCube: surface cache deferred until first map load\n" );
++		return;
++	}
+ 	if( gEngfuncs.Sys_CheckParm( "-gcmap" ))
+ 	{
+ 		if( sc_base )
