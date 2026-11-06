@@ -5951,6 +5951,29 @@ static void Mod_GCPreallocWorldNodes( model_t *mod, dbspmodel_t *bmod )
 			busy[busy_count].end = busy[busy_count].start + mod->nummarksurfaces * sizeof( *mod->marksurfaces );
 			busy_count++;
 		}
+		/* Keep the on-disk leafs lump out of the combined carve — overlapping
+		 * it then memset'ing the mleaf_t half wiped CONTENTS_SOLID on leaf 0
+		 * (c0a0e probe 20261106-084131 after nodes+leafs prealloc). */
+		if( leaf_bytes > 0 && busy_count < 8 )
+		{
+			if( bmod->version == QBSP2_VERSION )
+			{
+				if( bmod->leafs32 && Mod_GCPointerInBuffer( bmod->leafs32, gc_bsp_scratch_base, gc_bsp_scratch_size ))
+				{
+					const byte *p = (const byte *)bmod->leafs32;
+					busy[busy_count].start = p - gc_bsp_scratch_base;
+					busy[busy_count].end = busy[busy_count].start + bmod->numleafs * sizeof( dleaf32_t );
+					busy_count++;
+				}
+			}
+			else if( bmod->leafs && Mod_GCPointerInBuffer( bmod->leafs, gc_bsp_scratch_base, gc_bsp_scratch_size ))
+			{
+				const byte *p = (const byte *)bmod->leafs;
+				busy[busy_count].start = p - gc_bsp_scratch_base;
+				busy[busy_count].end = busy[busy_count].start + bmod->numleafs * sizeof( dleaf_t );
+				busy_count++;
+			}
+		}
 		/* Prefer one carve for nodes+leafs so a later leaf alloc cannot miss
 		 * after nodes take the last contiguous hole (end-triple→c5a1). */
 		if( leaf_bytes > 0 )

@@ -44,6 +44,35 @@ static byte clientpvs[(MAX_MAP_LEAFS+7)/8];	// for find client in PVS
 
 #if XASH_GAMECUBE
 #include <malloc.h>
+/* SP edict / baseline / static tables — tip Mem_Calloc of ~707 KiB fatals
+ * at SV_LoadProgs before map (HW 20261106: map=NONE route=disc,
+ * sv_game.c:6540). Same pattern as gc_singleplayer_packet_entities. */
+#ifndef GC_SP_EDICT_CAP
+#define GC_SP_EDICT_CAP 1200
+#endif
+static edict_t gc_singleplayer_edicts[GC_SP_EDICT_CAP]
+	__attribute__((aligned( 32 )));
+static entity_state_t gc_singleplayer_baselines[GC_SP_EDICT_CAP]
+	__attribute__((aligned( 32 )));
+static entity_state_t gc_singleplayer_static_entities[MAX_STATIC_ENTITIES]
+	__attribute__((aligned( 32 )));
+static qboolean gc_using_static_edicts;
+
+static qboolean SV_IsStaticEdicts( const edict_t *e )
+{
+	return e == gc_singleplayer_edicts;
+}
+
+static qboolean SV_IsStaticBaselines( const entity_state_t *b )
+{
+	return b == gc_singleplayer_baselines;
+}
+
+static qboolean SV_IsStaticStaticEntities( const entity_state_t *s )
+{
+	return s == gc_singleplayer_static_entities;
+}
+
 /* Tip Server Strings pool dies on denser Office maps (c1a1f SV_AllocString
  * 14-byte Host_Error, hardware 20261104). Deduped bump arena keeps class/
  * target/model names off the tip after reclaim fails. */
@@ -6369,10 +6398,21 @@ void SV_UnloadProgs( void )
 	// now we can unload cvars
 	Cvar_FullSet( "host_gameloaded", "0", FCVAR_READ_ONLY );
 
-	// free entity baselines
-	Z_Free( svs.static_entities );
-	Z_Free( svs.baselines );
-	svs.baselines = NULL;
+	// free entity baselines (GameCube SP may own BSS — never Z_Free those)
+#if XASH_GAMECUBE
+	if( gc_using_static_edicts )
+	{
+		gc_using_static_edicts = false;
+		svs.static_entities = NULL;
+		svs.baselines = NULL;
+	}
+	else
+#endif
+	{
+		Z_Free( svs.static_entities );
+		Z_Free( svs.baselines );
+		svs.baselines = NULL;
+	}
 
 	// remove server cmds
 	SV_KillOperatorCommands();
@@ -6536,10 +6576,32 @@ qboolean SV_LoadProgs( const char *name )
 	svgame.globals->maxClients = svs.maxclients;
 #if XASH_GAMECUBE
 	Con_Reportf( "Xash3D GameCube: server progs edicts alloc begin\n" );
+	gc_using_static_edicts = false;
+	/* SP BSS when max_edicts fits the cap (valve gameinfo is typically
+	 * 900–1200). Avoid tip Mem_Calloc of ~707 KiB (HW 20261106 map=NONE). */
+	if( svs.maxclients <= 1 && GI->max_edicts > 0
+		&& GI->max_edicts <= GC_SP_EDICT_CAP )
+	{
+		memset( gc_singleplayer_edicts, 0, sizeof( edict_t ) * (size_t)GI->max_edicts );
+		memset( gc_singleplayer_baselines, 0, sizeof( entity_state_t ) * (size_t)GI->max_edicts );
+		memset( gc_singleplayer_static_entities, 0, sizeof( gc_singleplayer_static_entities ));
+		svgame.edicts = gc_singleplayer_edicts;
+		svs.baselines = gc_singleplayer_baselines;
+		svs.static_entities = gc_singleplayer_static_entities;
+		gc_using_static_edicts = true;
+		Con_Reportf( "Xash3D GameCube: SP BSS edicts max=%d bytes=%s baselines=%s statics=%s\n",
+			GI->max_edicts,
+			Q_memprint( sizeof( edict_t ) * (size_t)GI->max_edicts ),
+			Q_memprint( sizeof( entity_state_t ) * (size_t)GI->max_edicts ),
+			Q_memprint( sizeof( gc_singleplayer_static_entities )));
+	}
+	else
 #endif
+	{
 	svgame.edicts = Mem_Calloc( svgame.mempool, sizeof( edict_t ) * GI->max_edicts );
 	svs.static_entities = Z_Calloc( sizeof( entity_state_t ) * MAX_STATIC_ENTITIES );
 	svs.baselines = Z_Calloc( sizeof( entity_state_t ) * GI->max_edicts );
+	}
 	/* Soft-fail tip OOM (size>=48 KiB) can return NULL here; writing
 	 * edicts[i].free then DSI's (DAR=0, Guru Meditation). */
 	if( !svgame.edicts || !svs.static_entities || !svs.baselines )
@@ -6547,19 +6609,31 @@ qboolean SV_LoadProgs( const char *name )
 		Con_Printf( S_ERROR "%s: out of memory allocating edicts/baselines\n", __func__ );
 		if( svgame.edicts )
 		{
+#if XASH_GAMECUBE
+			if( !SV_IsStaticEdicts( svgame.edicts ))
+#endif
 			Mem_Free( svgame.edicts );
 			svgame.edicts = NULL;
 		}
 		if( svs.static_entities )
 		{
+#if XASH_GAMECUBE
+			if( !SV_IsStaticStaticEntities( svs.static_entities ))
+#endif
 			Z_Free( svs.static_entities );
 			svs.static_entities = NULL;
 		}
 		if( svs.baselines )
 		{
+#if XASH_GAMECUBE
+			if( !SV_IsStaticBaselines( svs.baselines ))
+#endif
 			Z_Free( svs.baselines );
 			svs.baselines = NULL;
 		}
+#if XASH_GAMECUBE
+		gc_using_static_edicts = false;
+#endif
 		COM_FreeLibrary( svgame.hInstance );
 		svgame.hInstance = NULL;
 		Mem_FreePool( &svgame.mempool );
