@@ -3777,7 +3777,21 @@ emit_pool:
 	return emitted > 0 ? 1 : 0;
 }
 
+static int R_GXDrawNewGameCapFacesImpl( void );
+
+/* -gcprofile: charge the GX world pass to its own stage (no-op otherwise). */
 int R_GXDrawNewGameCapFaces( void )
+{
+	extern void GC_ProfMark( const char *name );
+	int drawn;
+
+	GC_ProfMark( "render: before GX world" );
+	drawn = R_GXDrawNewGameCapFacesImpl();
+	GC_ProfMark( "render: GX world faces" );
+	return drawn;
+}
+
+static int R_GXDrawNewGameCapFacesImpl( void )
 {
 	extern int GC_GetNewGameCapFaceCount( void );
 	extern int GC_GetNewGameCapGeneration( void );
