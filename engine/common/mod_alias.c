@@ -22,9 +22,6 @@ GNU General Public License for more details.
 #include "mod_local.h"
 #include "xash3d_mathlib.h"
 
-static int g_posenum = 0;
-static const trivertex_t *g_poseverts[MAXALIASFRAMES];
-
 static qboolean Mod_AliasFits( const void *p, const byte *end, uint64_t count, uint64_t size )
 {
 	const uint64_t remaining = end - (const byte *)p;
@@ -32,13 +29,13 @@ static qboolean Mod_AliasFits( const void *p, const byte *end, uint64_t count, u
 	return size == 0 || count <= remaining / size;
 }
 
-static const void *Mod_LoadAliasFrame( const daliasframe_t *pdaliasframe, const byte *end, maliasframedesc_t *frame, const aliashdr_t *aliashdr )
+static const void *Mod_LoadAliasFrame( const daliasframe_t *pdaliasframe, const byte *end, maliasframedesc_t *frame, aliashdr_t *aliashdr )
 {
 	if( !Mod_AliasFits( pdaliasframe, end, 1, sizeof( *pdaliasframe ) + aliashdr->numverts * sizeof( trivertex_t )))
 		return NULL;
 
 	Q_strncpy( frame->name, pdaliasframe->name, sizeof( frame->name ));
-	frame->firstpose = g_posenum;
+	frame->firstpose = aliashdr->numposes;
 	frame->numposes = 1;
 
 	for( int i = 0; i < 3; i++ )
@@ -49,15 +46,16 @@ static const void *Mod_LoadAliasFrame( const daliasframe_t *pdaliasframe, const 
 
 	const trivertex_t *pinframe = (const trivertex_t *)(pdaliasframe + 1);
 
-	g_poseverts[g_posenum] = pinframe;
-	g_posenum++;
+	if( aliashdr->pposeverts )
+		aliashdr->pposeverts[aliashdr->numposes] = pinframe;
+	aliashdr->numposes++;
 
 	pinframe += aliashdr->numverts;
 
 	return (void *)pinframe;
 }
 
-static const void *Mod_LoadAliasGroup( const daliasgroup_t *pingroup, const byte *end, maliasframedesc_t *frame, const aliashdr_t *aliashdr )
+static const void *Mod_LoadAliasGroup( const daliasgroup_t *pingroup, const byte *end, maliasframedesc_t *frame, aliashdr_t *aliashdr )
 {
 	if( !Mod_AliasFits( pingroup, end, 1, sizeof( *pingroup )))
 		return NULL;
@@ -73,7 +71,7 @@ static const void *Mod_LoadAliasGroup( const daliasgroup_t *pingroup, const byte
 	if( !Mod_AliasFits( pingroup + 1, end, numframes, sizeof( daliasinterval_t ) + sizeof( daliasframe_t ) + aliashdr->numverts * sizeof( trivertex_t )))
 		return NULL;
 
-	frame->firstpose = g_posenum;
+	frame->firstpose = aliashdr->numposes;
 	frame->numposes = numframes;
 
 	for( int i = 0; i < 3; i++ )
@@ -93,12 +91,47 @@ static const void *Mod_LoadAliasGroup( const daliasgroup_t *pingroup, const byte
 
 	for( int i = 0; i < numframes; i++ )
 	{
-		g_poseverts[g_posenum] = (const trivertex_t *)((const daliasframe_t *)ptemp + 1);
-		ptemp = g_poseverts[g_posenum] + aliashdr->numverts;
-		g_posenum++;
+		const trivertex_t *pinframe = (const trivertex_t *)((const daliasframe_t *)ptemp + 1);
+
+		if( aliashdr->pposeverts )
+			aliashdr->pposeverts[aliashdr->numposes] = pinframe;
+		aliashdr->numposes++;
+
+		ptemp = pinframe + aliashdr->numverts;
 	}
 
 	return ptemp;
+}
+
+/*
+====================
+Mod_LoadAliasFrames
+
+stores the poses only once pposeverts is allocated, so run it to count them first
+====================
+*/
+static const void *Mod_LoadAliasFrames( const daliasframetype_t *pframetype, const byte *end, aliashdr_t *aliashdr )
+{
+	aliashdr->numposes = 0;
+
+	for( int i = 0; i < aliashdr->numframes; i++ )
+	{
+		daliasframetype_t frametype;
+
+		if( !Mod_AliasFits( pframetype, end, 1, sizeof( frametype )))
+			return NULL;
+
+		memcpy( &frametype, pframetype, sizeof( frametype ));
+
+		if( frametype.type == ALIAS_SINGLE )
+			pframetype = (const daliasframetype_t *)Mod_LoadAliasFrame((const daliasframe_t *)&pframetype[1], end, &aliashdr->frames[i], aliashdr );
+		else pframetype = (const daliasframetype_t *)Mod_LoadAliasGroup(( const daliasgroup_t *)&pframetype[1], end, &aliashdr->frames[i], aliashdr );
+
+		if( !pframetype )
+			return NULL;
+	}
+
+	return pframetype;
 }
 
 static void Mod_CalcAliasBounds( model_t *mod, const aliashdr_t *aliashdr )
@@ -113,7 +146,7 @@ static void Mod_CalcAliasBounds( model_t *mod, const aliashdr_t *aliashdr )
 		{
 			vec3_t	v;
 			for( int k = 0; k < 3; k++ )
-				v[k] = g_poseverts[i][j].v[k] * aliashdr->scale[k] + aliashdr->scale_origin[k];
+				v[k] = aliashdr->pposeverts[i][j].v[k] * aliashdr->scale[k] + aliashdr->scale_origin[k];
 
 			AddPointToBounds( v, mod->mins, mod->maxs );
 			float	dist = DotProduct( v, v );
@@ -281,26 +314,13 @@ void Mod_LoadAliasModel( model_t *mod, const void *buffer, size_t buffersize, qb
 	if( pskintype )
 		pframetype = Mod_CheckAliasMesh((const stvert_t *)pskintype, end, m_pAliasHeader );
 
-	// load the frames
-	m_pAliasHeader->pposeverts = g_poseverts; // store the pointer to be accessed by renderer
-	g_posenum = 0;
-
-	for( int i = 0; pframetype && i < m_pAliasHeader->numframes; i++ )
+	// load the frames, the renderer builds its mesh from pposeverts
+	if( pframetype && Mod_LoadAliasFrames( pframetype, end, m_pAliasHeader ))
 	{
-		daliasframetype_t frametype;
-
-		if( !Mod_AliasFits( pframetype, end, 1, sizeof( frametype )))
-		{
-			pframetype = NULL;
-			break;
-		}
-
-		memcpy( &frametype, pframetype, sizeof( frametype ));
-
-		if( frametype.type == ALIAS_SINGLE )
-			pframetype = (const daliasframetype_t *)Mod_LoadAliasFrame((const daliasframe_t *)&pframetype[1], end, &m_pAliasHeader->frames[i], m_pAliasHeader );
-		else pframetype = (const daliasframetype_t *)Mod_LoadAliasGroup(( const daliasgroup_t *)&pframetype[1], end, &m_pAliasHeader->frames[i], m_pAliasHeader );
+		m_pAliasHeader->pposeverts = Mem_Malloc( mod->mempool, m_pAliasHeader->numposes * sizeof( *m_pAliasHeader->pposeverts ));
+		pframetype = Mod_LoadAliasFrames( pframetype, end, m_pAliasHeader );
 	}
+	else pframetype = NULL;
 
 	if( !pframetype )
 	{
@@ -308,7 +328,6 @@ void Mod_LoadAliasModel( model_t *mod, const void *buffer, size_t buffersize, qb
 		return;
 	}
 
-	m_pAliasHeader->numposes = g_posenum;
 	Mod_CalcAliasBounds( mod, m_pAliasHeader );
 	mod->type = mod_alias;
 
