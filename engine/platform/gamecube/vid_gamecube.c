@@ -14604,8 +14604,22 @@ qboolean GC_PrepareNewGameWorldPresent( void )
 		 * (dual-hop 20261104-072917: G68 c1a0d ready, never changelevel2 armed). */
 		if( Sys_CheckParm( "-gcchangelevel2" ) && GC_IsNewGameG36Done()
 			&& GC_IsProbeChangelevelDest() )
+		{
 			GC_ProbeMaybeQueueChangelevel2();
 			GC_ProbeMaybeQueueChangelevel3();
+		}
+		/* ST c2a5e→f (and denser sources): PresentBudget softlocks after G147
+		 * with tip≈26 when leafs are seized, so Host_Frame never drains the
+		 * queued changelevel. Skip Flipper present until the hop lands. */
+		if( denser_am_early
+			&& Sys_CheckParm( "-gcchangelevel" )
+			&& GC_IsNewGameG36Done()
+			&& !GC_IsProbeChangelevelDest() )
+		{
+			Con_Reportf( "Xash3D GameCube: fullphysics skip Flipper present pending hop map=%s\n",
+				sv.name );
+			return true;
+		}
 	}
 	else if( denser_am_early )
 	{
