@@ -885,7 +885,7 @@ static qboolean R_GXIsMenuBackgroundName( const char *name )
  * did.  Loaded on first bind into the boot arena (menu only; released with
  * the HUD pool at map load), else the heap.
  */
-#define GC_GX_MENU_CMPR_TILES	4
+#define GC_GX_MENU_CMPR_TILES	5 /* 4 background quadrants + the title banner */
 typedef struct
 {
 	unsigned  texnum;
@@ -897,7 +897,8 @@ static gc_gx_menu_cmpr_t r_gx_menu_cmpr[GC_GX_MENU_CMPR_TILES];
 
 static qboolean R_GXIsMenuTileName( const char *name )
 {
-	return name && Q_stristr( name, "gc_menu/bg_" ) != NULL;
+	return name && ( Q_stristr( name, "gc_menu/bg_" ) != NULL
+		|| Q_stristr( name, "gc_menu/logo_banner" ) != NULL );
 }
 
 static gc_gx_tex_t *R_GXBindMenuTileCmpr( image_t *img, unsigned texnum )
