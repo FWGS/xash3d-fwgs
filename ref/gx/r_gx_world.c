@@ -392,6 +392,15 @@ static u16 *r_gx_tex_linear = r_gx_tex_linear_small;
 static size_t r_gx_tex_linear_cap = GC_GX_TEX_WORLD_MAX_DIM * GC_GX_TEX_WORLD_MAX_DIM;
 
 #define GC_GX_TEX_HUD_SLOT0	( GC_GX_TEX_SLOTS - GC_GX_TEX_HUD_RESERVE )
+/* HUD/menu textures may also take the slots between the world pool and the
+ * reserved slabs, backed on demand: the retail menu binds ~10 distinct
+ * textures (button strips, logo, fonts) per frame, and three slots made them
+ * evict and re-convert each other every frame (~5 fps menu).  Backing comes
+ * from the boot arena while it is open (menu), else from the heap within
+ * GC_GX_TEX_HUD_HEAP_BUDGET. */
+#define GC_GX_TEX_HUD_ONDEMAND0	GC_GX_TEX_WORLD_POOL
+#define GC_GX_TEX_HUD_HEAP_BUDGET	( 64u * 1024u )
+static size_t r_gx_hud_ondemand_heap;
 
 /* G184: soft TRANSPARENT_COLOR → RGB5A3 with alpha 0 (not opaque black).
  * Do not infer transparency from RGB darkness: the retail menu background
@@ -491,7 +500,9 @@ void R_GXReleaseHudPoolForMapLoad( void )
 {
 	int i;
 
-	for( i = GC_GX_TEX_HUD_SLOT0; i < GC_GX_TEX_SLOTS; i++ )
+	/* Reserved slabs and on-demand HUD slots (boot arena or heap; free()
+	 * releases either) — all before the map load takes the arena back. */
+	for( i = GC_GX_TEX_HUD_ONDEMAND0; i < GC_GX_TEX_SLOTS; i++ )
 	{
 		if( r_gx_tex[i].tiled )
 		{
@@ -500,6 +511,7 @@ void R_GXReleaseHudPoolForMapLoad( void )
 		}
 		memset( &r_gx_tex[i], 0, sizeof( r_gx_tex[i] ));
 	}
+	r_gx_hud_ondemand_heap = 0;
 	r_gx_hud_pool_ready = false;
 	R_GXReleaseMenuBackgroundTexture( 0 );
 	R_GXReleaseCinematicTexture( 0 );
@@ -864,6 +876,125 @@ static qboolean R_GXIsMenuBackgroundName( const char *name )
 		&& Q_stristr( name, "gc_menu/bg_" ) == NULL;
 }
 
+/*
+ * Retail menu background tiles at full resolution.  The disc build writes
+ * each resource/gc_menu/bg_<r>_<c>.tga quadrant again as GX CMPR
+ * (bg_<r>_<c>.cmp: 32-byte header "GCMP", u16 width, u16 height, then the
+ * texels), 320x240 per quadrant for a 640x480 sheet.  CMPR is 4 bpp, so the
+ * four quadrants take the same ~150 KiB the stretched 320x240 RGB5A3 sheet
+ * did.  Loaded on first bind into the boot arena (menu only; released with
+ * the HUD pool at map load), else the heap.
+ */
+#define GC_GX_MENU_CMPR_TILES	4
+typedef struct
+{
+	unsigned  texnum;
+	byte      *data;
+	qboolean  missing;
+	gc_gx_tex_t t;
+} gc_gx_menu_cmpr_t;
+static gc_gx_menu_cmpr_t r_gx_menu_cmpr[GC_GX_MENU_CMPR_TILES];
+
+static qboolean R_GXIsMenuTileName( const char *name )
+{
+	return name && Q_stristr( name, "gc_menu/bg_" ) != NULL;
+}
+
+static gc_gx_tex_t *R_GXBindMenuTileCmpr( image_t *img, unsigned texnum )
+{
+	gc_gx_menu_cmpr_t *e = NULL;
+	int i;
+
+	for( i = 0; i < GC_GX_MENU_CMPR_TILES; i++ )
+	{
+		if( r_gx_menu_cmpr[i].texnum == texnum )
+		{
+			e = &r_gx_menu_cmpr[i];
+			break;
+		}
+	}
+	if( !e )
+	{
+		char path[96], *dot;
+		fs_offset_t len = 0;
+		byte *buf;
+
+		for( i = 0; i < GC_GX_MENU_CMPR_TILES && r_gx_menu_cmpr[i].texnum; i++ );
+		if( i == GC_GX_MENU_CMPR_TILES )
+			return NULL;
+		e = &r_gx_menu_cmpr[i];
+		memset( e, 0, sizeof( *e ));
+		e->texnum = texnum;
+		Q_strncpy( path, img->name, sizeof( path ));
+		dot = Q_strrchr( path, '.' );
+		if( !dot || dot - path > (int)sizeof( path ) - 5 )
+		{
+			e->missing = true;
+			return NULL;
+		}
+		Q_strncpy( dot, ".cmp", sizeof( path ) - ( dot - path ));
+		buf = gEngfuncs.fsapi->LoadFileMalloc( path, &len, false );
+		if( buf && len > 32 && !memcmp( buf, "GCMP", 4 ))
+		{
+			const int w = ( buf[4] << 8 ) | buf[5], h = ( buf[6] << 8 ) | buf[7];
+			const size_t bytes = (size_t)w * (size_t)h / 2;
+
+			if( w >= 8 && h >= 8 && !( w & 7 ) && !( h & 7 ) && (size_t)len >= 32 + bytes )
+			{
+				e->data = (byte *)GC_BootArenaAlloc( bytes );
+				if( !e->data )
+					e->data = (byte *)memalign( 32, bytes );
+				if( e->data )
+				{
+					memcpy( e->data, buf + 32, bytes );
+					DCFlushRange( e->data, (u32)bytes );
+					GX_InvalidateTexAll();
+					GX_InitTexObj( &e->t.obj, e->data, (u16)w, (u16)h, GX_TF_CMPR,
+						GX_CLAMP, GX_CLAMP, GX_FALSE );
+					GX_InitTexObjFilterMode( &e->t.obj, GX_LINEAR, GX_LINEAR );
+					e->t.texnum = texnum;
+					e->t.w = w;
+					e->t.h = h;
+					e->t.fmt = GX_TF_CMPR;
+					e->t.valid = true;
+					gEngfuncs.Con_Reportf( "Xash3D GameCube: menu tile %s CMPR %dx%d\n", path, w, h );
+				}
+			}
+		}
+		free( buf );
+		if( !e->data )
+		{
+			e->missing = true;
+			gEngfuncs.Con_Reportf( "Xash3D GameCube: menu tile %s has no CMPR, using %dx%d TGA\n",
+				path, img->width, img->height );
+		}
+	}
+	if( e->missing || !e->data )
+		return NULL;
+	if( r_gx_bound_texnum != texnum || r_gx_bound_fmt != GX_TF_CMPR )
+	{
+		GX_LoadTexObj( &e->t.obj, GX_TEXMAP0 );
+		r_gx_bound_texnum = texnum;
+		r_gx_bound_fmt = GX_TF_CMPR;
+		r_gx_tex_loads++;
+	}
+	else
+		r_gx_tex_reuses++;
+	return &e->t;
+}
+
+static void R_GXReleaseMenuTilesCmpr( void )
+{
+	int i;
+
+	for( i = 0; i < GC_GX_MENU_CMPR_TILES; i++ )
+	{
+		if( r_gx_menu_cmpr[i].data )
+			free( r_gx_menu_cmpr[i].data ); /* boot arena or heap */
+		memset( &r_gx_menu_cmpr[i], 0, sizeof( r_gx_menu_cmpr[i] ));
+	}
+}
+
 static gc_gx_tex_t *R_GXBindMenuBackground( image_t *img, unsigned texnum )
 {
 	int src_w, src_h, dst_w, dst_h, x, y, step_x, step_y;
@@ -948,6 +1079,22 @@ static gc_gx_tex_t *R_GXBindMenuBackground( image_t *img, unsigned texnum )
 
 void R_GXReleaseMenuBackgroundTexture( unsigned int texnum )
 {
+	if( texnum == 0 )
+		R_GXReleaseMenuTilesCmpr();
+	else
+	{
+		int i;
+
+		for( i = 0; i < GC_GX_MENU_CMPR_TILES; i++ )
+		{
+			if( r_gx_menu_cmpr[i].texnum == texnum )
+			{
+				if( r_gx_menu_cmpr[i].data )
+					free( r_gx_menu_cmpr[i].data );
+				memset( &r_gx_menu_cmpr[i], 0, sizeof( r_gx_menu_cmpr[i] ));
+			}
+		}
+	}
 	if( r_gx_menu_bg_tex.tiled && ( texnum == 0 || r_gx_menu_bg_tex.texnum == texnum ))
 	{
 		R_GXFreeBootCache( r_gx_menu_bg_tex.tiled );
@@ -1162,6 +1309,7 @@ static void R_GXTexCacheReset( void )
 		}
 	}
 	r_gx_tex_clock = 0;
+	r_gx_hud_ondemand_heap = 0;
 	{
 		u16 *tiled = r_gx_cinematic_tex.tiled;
 		const size_t alloc_bytes = r_gx_cinematic_tex.alloc_bytes;
@@ -1555,6 +1703,12 @@ static gc_gx_tex_t *R_GXBindTexnum( unsigned texnum, qboolean hud_bind )
 			r_gx_tex_reuses++;
 		return &r_gx_cinematic_tex;
 	}
+	if( hud_bind && img && R_GXIsMenuTileName( img->name ))
+	{
+		gc_gx_tex_t *tile = R_GXBindMenuTileCmpr( img, texnum );
+		if( tile )
+			return tile;
+	}
 	if( hud_bind && img && R_GXIsMenuBackgroundName( img->name ) && img->pixels[0] )
 	{
 		gc_gx_tex_t *menu_bg = R_GXBindMenuBackground( img, texnum );
@@ -1618,8 +1772,10 @@ static gc_gx_tex_t *R_GXBindTexnum( unsigned texnum, qboolean hud_bind )
 			qboolean partial = false;
 			int font_victim = -1;
 
-			for( i = GC_GX_TEX_HUD_SLOT0; i < GC_GX_TEX_SLOTS; i++ )
+			for( i = GC_GX_TEX_HUD_ONDEMAND0; i < GC_GX_TEX_SLOTS; i++ )
 			{
+				if( i < GC_GX_TEX_HUD_SLOT0 && !r_gx_tex[i].hud_pin )
+					continue;
 				if( !r_gx_tex[i].tiled )
 					partial = true;
 				if( !r_gx_tex[i].tiled )
@@ -1641,7 +1797,7 @@ static gc_gx_tex_t *R_GXBindTexnum( unsigned texnum, qboolean hud_bind )
 			 * evicting.  With every slab missing, all HUD sprites shared one
 			 * slot and re-converted each other every frame (c0a0e: pain and
 			 * train icons, 2 uploads/frame). */
-			for( i = GC_GX_TEX_HUD_SLOT0; i < GC_GX_TEX_SLOTS; i++ )
+			for( i = GC_GX_TEX_HUD_ONDEMAND0; i < GC_GX_TEX_SLOTS; i++ )
 			{
 				if( !r_gx_tex[i].tiled && !r_gx_tex[i].valid )
 				{
@@ -1742,11 +1898,15 @@ static gc_gx_tex_t *R_GXBindTexnum( unsigned texnum, qboolean hud_bind )
 		for( y = 0; y < dst_h; y++ )
 		{
 			int sy = y * step_y;
-			const pixel_t *row;
+			const pixel_t *row, *alpha_row = NULL;
 
 			if( sy >= src_h )
 				sy = src_h - 1;
 			row = &img->pixels[0][sy * src_w];
+			/* Translucent HUD/menu art (title logo, TGA alpha) keeps its alpha
+			 * instead of drawing its clear areas as an opaque black box. */
+			if( hud_bind && !punch_black && img->alpha_pixels )
+				alpha_row = &img->alpha_pixels[sy * src_w];
 			for( x = 0; x < dst_w; x++ )
 			{
 				int sx = x * step_x;
@@ -1757,6 +1917,23 @@ static gc_gx_tex_t *R_GXBindTexnum( unsigned texnum, qboolean hud_bind )
 				soft = row[sx];
 				if( punch_black )
 					*out++ = R_GXSoftToRGB5A3PunchBlack( soft );
+				else if( alpha_row )
+				{
+					/* 3-bit alpha plane (GL_UploadTexture) -> RGB5A3's own
+					 * translucent mode (0AAARRRRGGGGBBBB). */
+					const unsigned a3 = (unsigned)alpha_row[sx] >> 13;
+
+					if( a3 >= 7 )
+						*out++ = R_GXSoftToRGB5A3( soft );
+					else if( a3 == 0 || soft == TRANSPARENT_COLOR )
+						*out++ = 0;
+					else
+					{
+						const unsigned c = (u16)R_GCSoftToRGB565( soft );
+						*out++ = (u16)(( a3 << 12 ) | (( c >> 12 ) << 8 )
+							| ((( c >> 7 ) & 15u ) << 4 ) | (( c >> 1 ) & 15u ));
+					}
+				}
 				else if( hud_bind )
 					*out++ = R_GXSoftToRGB5A3( soft );
 				else if( soft == TRANSPARENT_COLOR )
@@ -1799,7 +1976,24 @@ static gc_gx_tex_t *R_GXBindTexnum( unsigned texnum, qboolean hud_bind )
 		}
 		else if( !t->tiled || t->alloc_bytes < bytes )
 		{
-			u16 *neu = (u16 *)memalign( 32, want );
+			u16 *neu = NULL;
+			qboolean from_heap = false;
+
+			/* On-demand HUD slot: boot arena while open (menu), else a
+			 * bounded heap share. */
+			if( hud_bind && slot < GC_GX_TEX_HUD_SLOT0 )
+			{
+				neu = (u16 *)GC_BootArenaAlloc( want );
+				if( !neu && r_gx_hud_ondemand_heap + want <= GC_GX_TEX_HUD_HEAP_BUDGET )
+				{
+					neu = (u16 *)memalign( 32, want );
+					from_heap = neu != NULL;
+				}
+			}
+			else
+				neu = (u16 *)memalign( 32, want );
+			if( from_heap )
+				r_gx_hud_ondemand_heap += want;
 
 			if( !neu && hud_evict >= 0 && r_gx_tex[hud_evict].tiled
 				&& r_gx_tex[hud_evict].alloc_bytes >= bytes )

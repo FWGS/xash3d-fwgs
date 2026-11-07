@@ -859,8 +859,11 @@ def stage_gc_menu_assets(source: Path, output: Path) -> bool:
 	gc_menu_bg_size = (320, 240)
 	bake_src_size = (640, 480)
 	if best is not None and best_ratio >= 0.02:
-		hires = _gc_menu_preserve_retail_tone(
-			_gc_menu_fit_aspect(best, bake_src_size))
+		# Retail tone: the HD steam tiles as drawn by the PC menu (mean ~15,
+		# p95 ~31, the same as the retail screenshot).  The old lift to p95 168
+		# made up for an unreadable 320x240 soft HUD and washed the sheet out
+		# on the full-resolution GX menu.
+		hires = _gc_menu_fit_aspect(best, bake_src_size).convert("RGBA")
 		background = hires.resize(gc_menu_bg_size, Image.Resampling.LANCZOS)
 		source_note = best_label
 	else:
@@ -884,6 +887,25 @@ def stage_gc_menu_assets(source: Path, output: Path) -> bool:
 				f"resource/gc_menu/{tile_name}\tfit\t{x}\t{y}"
 			)
 	(menu_dir / "BackgroundLayout.txt").write_text("\n".join(layout_lines) + "\n")
+
+	# Full-resolution quadrants for the GX menu: the same layout tile names as
+	# 320x240 GX CMPR (bg_<r>_<c>.cmp, 32-byte "GCMP" header with big-endian
+	# width/height).  The renderer binds these instead of stretching the
+	# 160x120 TGAs; 4 bpp keeps the 640x480 sheet at the same ~150 KiB.
+	try:
+		import numpy as np
+		full = (hires if best is not None and best_ratio >= 0.02
+			else _gc_menu_synthetic_background(bake_src_size)).convert("RGB")
+		if full.size != bake_src_size:
+			full = full.resize(bake_src_size, Image.Resampling.LANCZOS)
+		cw, ch = bake_src_size[0] // 2, bake_src_size[1] // 2
+		for row, y in enumerate((0, ch)):
+			for col, x in enumerate((0, cw)):
+				quad = np.asarray(full.crop((x, y, x + cw, y + ch)))
+				header = b"GCMP" + struct.pack(">HH", cw, ch) + bytes(24)
+				(menu_dir / f"bg_{row}_{col}.cmp").write_bytes(header + gx_cmpr_encode(quad))
+	except ImportError:
+		print("Warning: numpy missing; menu background stays at 320x240.", file=sys.stderr)
 
 	# Prefer the original white retail title logo so the baked menu matches the
 	# real menu composition instead of the earlier orange fallback treatment.
