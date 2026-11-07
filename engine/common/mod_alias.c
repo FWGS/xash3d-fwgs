@@ -124,7 +124,7 @@ static const void *Mod_LoadAllSkins( model_t *mod, int numskins, const daliasski
 			const daliasskininterval_t *pinskinintervals = (const daliasskininterval_t *)&pinskingroup[1];
 			const byte *ptexture = (const byte *)&pinskinintervals[pinskingroup->numskins];
 
-			pskintype = (const daliasskintype_t *)( ptexture + size );
+			pskintype = (const daliasskintype_t *)( ptexture + pinskingroup->numskins * size );
 		}
 	}
 
