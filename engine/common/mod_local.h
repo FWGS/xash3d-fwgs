@@ -164,7 +164,7 @@ void Mod_LoadDetailTextures( model_t *mod );
 //
 // mod_alias.c
 //
-void Mod_LoadAliasModel( model_t *mod, const void *buffer, qboolean *loaded );
+void Mod_LoadAliasModel( model_t *mod, const void *buffer, size_t buffersize, qboolean *loaded );
 
 //
 // mod_bmodel.c
