@@ -1737,13 +1737,14 @@ int EXPORT Host_Main( int argc, char **argv, const char *progname, int bChangeGa
 				 * fuller client bring-up (fidelity: no blanket c4a compromise). */
 				if( Sys_CheckParm( "-gcnewgame" ))
 				{
-					/* Late Interloper / Gonarch / boss / end — not early c4a1a–d.
-					 * c4a1e cold quality=1 ate tip (87→18 KiB) and stalled the
-					 * end-triple (probe g336-c4a1e); keep lean cold, restore
-					 * quality=1 post-MAP_READY when tip≥80 KiB. */
+					/* All Interloper / Gonarch / boss / end cold New Games.
+					 * Early c4a1 / c4a1c cold without lean left tip≈17 KiB
+					 * (post-MAP_READY keep quality=0). c4a1e quality=1 cold
+					 * ate tip (87→18) and stalled end-triple — keep lean
+					 * cold for every c4a1*, restore quality=1 post-MAP_READY
+					 * when tip≥48 KiB (c4a1e often ≥80). */
 					const qboolean g336_xen_lean =
-						!Q_stricmp( gcmap, "c4a1e" )
-						|| !Q_stricmp( gcmap, "c4a1f" )
+						!Q_strnicmp( gcmap, "c4a1", 4 )
 						|| !Q_strnicmp( gcmap, "c4a2", 4 )
 						|| !Q_stricmp( gcmap, "c4a3" )
 						|| !Q_strnicmp( gcmap, "c5a", 3 );
@@ -1824,10 +1825,13 @@ int EXPORT Host_Main( int argc, char **argv, const char *progname, int bChangeGa
 						else
 							Con_Reportf( "Xash3D GameCube: gcmap+newgame client ensure ready\n" );
 						/* Lean only while ensure/prepare run. Restore standard
-						 * quality when tip can fund real HUD. CapFaces-384
-						 * c4a1e had tip≈87 KiB (probe 101609) — 96 KiB left
-						 * quality=0; 80 KiB restores release HUD there. */
-						if( GC_MemHeapFreeBytes() >= 80u * 1024u )
+						 * quality when tip can fund real HUD. Floors: 96→80→64→48
+						 * covered UC/AM; FAF c3a1 tip≈47.98 needs 40 KiB.
+						 * Reclaim ensure scratch first. */
+						R_GcFreeMenuImages();
+						R_GXReleaseHudPoolForMapLoad();
+						Image_GCPurgeDecodeScratch();
+						if( GC_MemHeapFreeBytes() >= 40u * 1024u )
 						{
 							Cvar_Set( "gc_quality", "1" );
 							Con_Reportf( "Xash3D GameCube: post-MAP_READY quality=1 tip=%s\n",
