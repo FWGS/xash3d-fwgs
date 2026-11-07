@@ -1147,6 +1147,37 @@ MAYBE_UNUSED static qboolean Mod_StudioTexSizes( studiohdr_t *thdr, size_t texsi
 
 /*
 =================
+Mod_StudioValidTextures
+
+=================
+*/
+MAYBE_UNUSED static qboolean Mod_StudioValidTextures( const studiohdr_t *phdr, size_t size )
+{
+	if( phdr->numtextures == 0 )
+		return true;
+
+	if( phdr->numtextures < 0 || phdr->textureindex < 0 )
+		return false;
+
+	if((uint64_t)phdr->textureindex + (uint64_t)phdr->numtextures * sizeof( mstudiotexture_t ) > size )
+		return false;
+
+	const mstudiotexture_t *ptexture = (const mstudiotexture_t *)((const byte *)phdr + phdr->textureindex );
+
+	for( int i = 0; i < phdr->numtextures; i++ )
+	{
+		if( ptexture[i].width < 0 || ptexture[i].height < 0 || ptexture[i].index < 0 )
+			return false;
+
+		if((uint64_t)ptexture[i].index + (uint64_t)ptexture[i].width * ptexture[i].height + 768 > size )
+			return false;
+	}
+
+	return true;
+}
+
+/*
+=================
 Mod_LoadStudioModel
 =================
 */
@@ -1176,6 +1207,7 @@ void Mod_LoadStudioModel( model_t *mod, void *buffer, size_t buffersize, qboolea
 
 		// NOTE: keep phdr->length + size1 + size2 from wrapping
 		if( thdr != NULL && Mod_StudioTexSizes( thdr, size2_len, &size1, &size2 ) &&
+			Mod_StudioValidTextures( thdr, size2_len ) &&
 			size1 + size2 <= SIZE_MAX - (size_t)phdr->length )
 		{
 			// TODO: Mod_StudioLoadTextures will crash if passed a merged studio model!
@@ -1197,7 +1229,9 @@ void Mod_LoadStudioModel( model_t *mod, void *buffer, size_t buffersize, qboolea
 			memcpy( out, in, size1 + size2 );	// copy textures + skinrefs
 			phdr->length += size1 + size2;
 		}
-		else Con_Printf( S_WARN "%s: %s missing textures file\n", __func__, mod->name );
+		else if( !buffer2 )
+			Con_Printf( S_WARN "%s: %s missing textures file\n", __func__, mod->name );
+		else Con_Printf( S_ERROR "%s: %s has invalid textures, ignoring it\n", __func__, Mod_StudioTexName( mod->name ));
 
 		if( buffer2 )
 			Mem_Free( buffer2 ); // release T.mdl
@@ -1206,6 +1240,14 @@ void Mod_LoadStudioModel( model_t *mod, void *buffer, size_t buffersize, qboolea
 
 	if( !textures_loaded )
 	{
+#if !XASH_DEDICATED
+		if( !Host_IsDedicated( ) && !Mod_StudioValidTextures( phdr, phdr->length ))
+		{
+			Con_Printf( S_ERROR "%s: %s has invalid textures\n", __func__, mod->name );
+			return;
+		}
+#endif
+
 		// NOTE: don't modify source buffer because it's used for CRC computing
 		mod->cache.data = Mem_Calloc( mod->mempool, phdr->length );
 		memcpy( mod->cache.data, buffer, phdr->length );
