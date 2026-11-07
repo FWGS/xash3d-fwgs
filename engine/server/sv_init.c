@@ -43,6 +43,8 @@ void GC_ArmPostMapFrameBudgetSamples( void );
 void GC_LeanLandmarkRestore( void );
 void GC_LeanLandmarkGrantWeapons( void );
 void GC_PresentLandmarkViewModel( void );
+void R_GcFreeMenuImages( void );
+void R_GXReleaseHudPoolForMapLoad( void );
 #endif
 
 #if XASH_LOW_MEMORY != 2
@@ -899,6 +901,30 @@ void SV_ActivateServer( int runPhysics )
 	Con_Reportf( "Xash3D GameCube: MAP_READY %s\n", sv.name );
 	SYS_Report( "Xash3D GameCube: MAP_READY %s\n", sv.name );
 	GC_ReportBootPhase( GC_BOOT_MAP );
+	/* Changelevel hops lean gc_quality=0 through CapFaces/prepare and never
+	 * hit host.c's cold -gcmap post-MAP_READY restore. End-triple c4a3 then
+	 * rendered quality=0 after Nihilanth despite tip≈113. Restore only on
+	 * Xen/boss/end maps — blanket reclaim+restore on every ActivateServer
+	 * MAP_READY regressed AM c1a0b→c (SV_ParseEdict brace Host_Error) even
+	 * when keeping quality=0. Floor 80 KiB leaves hop headroom. */
+	if( !Q_strnicmp( sv.name, "c4a", 3 ) || !Q_strnicmp( sv.name, "c5a", 3 ))
+	{
+		R_GcFreeMenuImages();
+		R_GXReleaseHudPoolForMapLoad();
+		Image_GCPurgeDecodeScratch();
+		if( GC_MemHeapFreeBytes() >= 80u * 1024u )
+		{
+			Cvar_Set( "gc_quality", "1" );
+			Con_Reportf( "Xash3D GameCube: post-MAP_READY quality=1 tip=%s\n",
+				Q_memprint( GC_MemHeapFreeBytes() ));
+		}
+		else
+		{
+			Cvar_Set( "gc_quality", "0" );
+			Con_Reportf( "Xash3D GameCube: post-MAP_READY keep quality=0 tip=%s\n",
+				Q_memprint( GC_MemHeapFreeBytes() ));
+		}
+	}
 #endif
 }
 
@@ -1458,13 +1484,10 @@ qboolean SV_SpawnServer( const char *mapname, const char *startspot, qboolean ba
 			Q_memprint( GC_MemHeapFreeBytes() ));
 		Mod_PurgeForMapLoad();
 		Con_Reportf( "Xash3D GameCube: pre-spawn old world purged\n" );
-		/* c2a5e→f: after purge tip is contiguous — seize leafs with headroom
-		 * so destination LoadLeafs avoids tip-fragment OOM without high-slot
-		 * CapFaces hangs. Require ≥96 KiB tip after the take for ent privates. */
-		{
-			extern void *Mod_GCTakeLeafsReserveForChangelevel( void );
-			(void)Mod_GCTakeLeafsReserveForChangelevel();
-		}
+		/* Do NOT seize leafs here — c2a5f entities (≈104 KiB) need the
+		 * contiguous post-purge tip first; pre-entity seize left free≈199
+		 * fragmented → tip-miss + Mem_Alloc OOM (no arena-tail). Leafs seize
+		 * runs after Mod_LoadEntities in mod_bmodel tip-park. */
 		Mod_GCEnsureStaticReserves();
 		SV_GCEnsureStringArena();
 		Con_Reportf( "Xash3D GameCube: pre-spawn world reserves retaken free=%s\n",
