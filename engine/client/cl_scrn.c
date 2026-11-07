@@ -886,6 +886,10 @@ void SCR_VidInit( void )
 		gameui.globals->scrHeight = refState.height;
 	}
 
+	// FIXME: while the engine uses clgame.scrInfo for its 2D drawing, call this here.
+	// Remove when clgame.scrInfo is refactored out.
+	CL_GetScreenInfo( NULL );
+
 	// notify vgui about screen size change
 	if( clgame.hInstance )
 	{
