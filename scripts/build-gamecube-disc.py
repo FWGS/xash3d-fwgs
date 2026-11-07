@@ -817,6 +817,38 @@ def _gc_menu_font(source: Path, image_font, size: int, medium: bool = False):
 	return image_font.load_default()
 
 
+GC_MENU_BANNER_SIZE = (640, 104)
+GC_MENU_BANNER_FRAME_SEC = 2.0
+
+
+def _stage_gc_menu_logo_banner(source: Path, menu_dir: Path) -> bool:
+	"""resource/gc_menu/logo_banner.{cmp,tga} from a frame of media/logo.avi."""
+	avi = source / "media" / "logo.avi"
+	if not avi.is_file() or not shutil.which("ffmpeg"):
+		return False
+	try:
+		import numpy as np
+		from PIL import Image
+	except ImportError:
+		return False
+	with tempfile.TemporaryDirectory(prefix="xash3d-gc-banner-") as tmp:
+		frame = Path(tmp) / "frame.png"
+		result = subprocess.run(
+			["ffmpeg", "-loglevel", "error", "-y", "-ss", str(GC_MENU_BANNER_FRAME_SEC),
+			 "-i", str(avi), "-frames:v", "1", str(frame)],
+			capture_output=True)
+		if result.returncode != 0 or not frame.is_file():
+			print("Warning: logo.avi frame extract failed; menu keeps the static logo.", file=sys.stderr)
+			return False
+		banner = Image.open(frame).convert("RGB").resize(GC_MENU_BANNER_SIZE, Image.Resampling.LANCZOS)
+	w, h = GC_MENU_BANNER_SIZE
+	header = b"GCMP" + struct.pack(">HH", w, h) + bytes(24)
+	(menu_dir / "logo_banner.cmp").write_bytes(header + gx_cmpr_encode(np.asarray(banner)))
+	banner.resize((w // 4, h // 4), Image.Resampling.LANCZOS).save(menu_dir / "logo_banner.tga", format="TGA")
+	print("GameCube menu banner: logo.avi frame baked as logo_banner.cmp 640x104")
+	return True
+
+
 def stage_gc_menu_assets(source: Path, output: Path) -> bool:
 	"""Bake a single MEM1-friendly retail menu background and title logo."""
 	try:
@@ -859,8 +891,11 @@ def stage_gc_menu_assets(source: Path, output: Path) -> bool:
 	gc_menu_bg_size = (320, 240)
 	bake_src_size = (640, 480)
 	if best is not None and best_ratio >= 0.02:
-		hires = _gc_menu_preserve_retail_tone(
-			_gc_menu_fit_aspect(best, bake_src_size))
+		# Retail tone: the HD steam tiles as drawn by the PC menu (mean ~15,
+		# p95 ~31, the same as the retail screenshot).  The old lift to p95 168
+		# made up for an unreadable 320x240 soft HUD and washed the sheet out
+		# on the full-resolution GX menu.
+		hires = _gc_menu_fit_aspect(best, bake_src_size).convert("RGBA")
 		background = hires.resize(gc_menu_bg_size, Image.Resampling.LANCZOS)
 		source_note = best_label
 	else:
@@ -885,6 +920,25 @@ def stage_gc_menu_assets(source: Path, output: Path) -> bool:
 			)
 	(menu_dir / "BackgroundLayout.txt").write_text("\n".join(layout_lines) + "\n")
 
+	# Full-resolution quadrants for the GX menu: the same layout tile names as
+	# 320x240 GX CMPR (bg_<r>_<c>.cmp, 32-byte "GCMP" header with big-endian
+	# width/height).  The renderer binds these instead of stretching the
+	# 160x120 TGAs; 4 bpp keeps the 640x480 sheet at the same ~150 KiB.
+	try:
+		import numpy as np
+		full = (hires if best is not None and best_ratio >= 0.02
+			else _gc_menu_synthetic_background(bake_src_size)).convert("RGB")
+		if full.size != bake_src_size:
+			full = full.resize(bake_src_size, Image.Resampling.LANCZOS)
+		cw, ch = bake_src_size[0] // 2, bake_src_size[1] // 2
+		for row, y in enumerate((0, ch)):
+			for col, x in enumerate((0, cw)):
+				quad = np.asarray(full.crop((x, y, x + cw, y + ch)))
+				header = b"GCMP" + struct.pack(">HH", cw, ch) + bytes(24)
+				(menu_dir / f"bg_{row}_{col}.cmp").write_bytes(header + gx_cmpr_encode(quad))
+	except ImportError:
+		print("Warning: numpy missing; menu background stays at 320x240.", file=sys.stderr)
+
 	# Prefer the original white retail title logo so the baked menu matches the
 	# real menu composition instead of the earlier orange fallback treatment.
 	logo = None
@@ -906,6 +960,12 @@ def stage_gc_menu_assets(source: Path, output: Path) -> bool:
 				if a:
 					logo_pixels[px, py] = (214, 138, 26, a)
 		logo.save(menu_dir / "logo.tga", format="TGA")
+
+	# WON title banner: retail media/logo.avi is a 640x100 strip (white
+	# HALF-LIFE over its own animated band) drawn full width at y=70 of the
+	# 640x480 menu.  Bake one frame as GX CMPR (640x104, CMPR needs multiples
+	# of 8) for the GX menu, plus a small TGA so mainui can load the picture.
+	_stage_gc_menu_logo_banner(source, menu_dir)
 
 	# Optional low-memory 3×3 preview tiles for probes that cannot hold the
 	# full 640×480 sheet; the live menu uses background.tga + logo.tga.
