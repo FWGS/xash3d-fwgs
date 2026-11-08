@@ -185,7 +185,9 @@ static qboolean Cmd_GetMapList( const char *s, char *completedname, int length, 
 {
 	string matchbuf;
 
-	search_t *t = FS_Search( va( "maps/%s*.bsp", s ), true, con_gamemaps.value );
+	// apply con_mapfilter and skip basedir mounted folders when filtering is enabled
+	int search_flags = con_gamemaps.value ? FS_SEARCH_GAMEDIRONLY | FS_SEARCH_SKIP_MOUNTED : 0;
+	search_t *t = FS_Search( va( "maps/%s*.bsp", s ), true, search_flags );
 	if( !t ) return false;
 
 	COM_FileBase( t->filenames[0], matchbuf, sizeof( matchbuf ));
@@ -857,7 +859,9 @@ static qboolean Cmd_CheckMapsList_R( qboolean fRefresh, qboolean onlyingamedir )
 
 	// setup mpfilter
 	Q_snprintf( mpfilter, sizeof( mpfilter ), "maps/%s", GI->mp_filter );
-	search_t *t = FS_Search( "maps/*.bsp", false, onlyingamedir );
+	// don't list maps from basedir's mounted folders (_hd, _lv, _addon, localization)
+	int search_flags = FS_SEARCH_SKIP_MOUNTED | ( onlyingamedir ? FS_SEARCH_GAMEDIRONLY : 0 );
+	search_t *t = FS_Search( "maps/*.bsp", false, search_flags );
 
 	if( !t )
 	{

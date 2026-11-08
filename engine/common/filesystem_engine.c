@@ -43,9 +43,9 @@ fs_globals_t *FI;
 static pfnCreateInterface_t fs_pfnCreateInterface;
 static HINSTANCE fs_hInstance;
 
-search_t *FS_Search( const char *pattern, int caseinsensitive, int gamedironly )
+search_t *FS_Search( const char *pattern, int caseinsensitive, int search_flags )
 {
-	return g_fsapi.Search( pattern, caseinsensitive, gamedironly );
+	return g_fsapi.Search( pattern, caseinsensitive, search_flags );
 }
 
 int FS_Close( file_t *file )
