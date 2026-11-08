@@ -42,7 +42,7 @@ static void SDLash_KeyEvent( SDL_KeyboardEvent key )
 	}
 #endif
 
-	if( SDL_IsTextInputActive( ) && down )
+	if( host.textmode && down )
 	{
 		// this is how engine understands ctrl+c, ctrl+v and other hotkeys
 		if( cls.key_dest != key_game && FBitSet( SDL_GetModState(), KMOD_CTRL ))
@@ -56,10 +56,15 @@ static void SDLash_KeyEvent( SDL_KeyboardEvent key )
 			return;
 		}
 
+		// the console key closes the console regardless of the layout, everywhere else it's a character
+		qboolean console_key = keynum == SDL_SCANCODE_GRAVE && cls.key_dest == key_console;
+
 		// ignore printable keys, they are coming through SDL_TEXTINPUT
-		if(( keynum >= SDL_SCANCODE_A && keynum <= SDL_SCANCODE_Z )
-			|| ( keynum >= SDL_SCANCODE_1 && keynum <= SDL_SCANCODE_0 )
-			|| ( keynum >= SDL_SCANCODE_KP_1 && keynum <= SDL_SCANCODE_KP_0 ))
+		// printable keys have keycode equal to their Unicode value, others have SDLK_SCANCODE_MASK set
+		if( !console_key && !FBitSet( key.keysym.sym, SDLK_SCANCODE_MASK ) && key.keysym.sym >= 32 && key.keysym.sym != 127 )
+			return;
+
+		if( keynum >= SDL_SCANCODE_KP_1 && keynum <= SDL_SCANCODE_KP_0 )
 			return;
 	}
 
@@ -234,6 +239,10 @@ static void SDLash_InputEvent( SDL_TextInputEvent input )
 
 static void SDLash_ActiveEvent( int gain )
 {
+#if XASH_SAILFISH
+	Sailfish_SetActive( gain );
+#endif
+
 	if( gain )
 	{
 		host.status = HOST_FRAME;
@@ -287,7 +296,7 @@ static void SDLash_EventHandler( SDL_Event *event )
 		break;
 
 	case SDL_QUIT:
-		Sys_Quit( "caught SDL_QUIT" );
+		CL_RequestQuit( "caught SDL_QUIT" );
 		break;
 	case SDL_MOUSEWHEEL:
 		IN_MWheelEvent( event->wheel.y );
@@ -342,6 +351,10 @@ static void SDLash_EventHandler( SDL_Event *event )
 			dx /= (float)refState.width;
 			dy /= (float)refState.height;
 		}
+
+#if XASH_SAILFISH
+		Sailfish_MapTouch( event->tfinger.touchId, &x, &y, &dx, &dy );
+#endif
 
 		IN_TouchEvent( type, event->tfinger.fingerId, x, y, dx, dy );
 		break;
@@ -430,6 +443,10 @@ void Platform_RunEvents( void )
 
 #if XASH_PSVITA
 	PSVita_InputUpdate();
+#endif
+
+#if XASH_SAILFISH
+	Sailfish_RunEvents();
 #endif
 }
 

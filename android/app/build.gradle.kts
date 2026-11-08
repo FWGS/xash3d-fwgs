@@ -135,6 +135,7 @@ dependencies {
 	implementation(libs.navigation.fragment.ktx)
 	implementation(libs.navigation.ui.ktx)
 	implementation(libs.preference.ktx)
+	implementation(libs.recyclerview)
 	implementation(libs.swiperefreshlayout)
 
 	implementation(libs.acra.http)

@@ -25,12 +25,16 @@ def configure(conf):
 		conf.check_cc(lib='log')
 
 def build(bld):
-	libs = [ 'ref_common', 'engine_includes', 'werror' ]
+	libs = [ 'ref_common', 'engine_includes', 'werror', 'yy_thunks' ]
 	# on PSVita do not link any libraries that are already in the main executable, but add the includes target
 	if bld.env.DEST_OS == 'psvita':
 		libs += [ 'sdk_includes', 'vgl_shim' ]
 	else:
 		libs += [ 'public', 'M' ]
+
+	# OpenGL over GNM, see ref/gl/gnm_shim
+	if bld.env.DEST_OS == 'ps4':
+		libs += [ 'gnm_shim' ]
 
 	source = bld.path.ant_glob(['*.c', 'gl2_shim/*.c'])
 	includes = '.'
@@ -70,6 +74,7 @@ def build(bld):
 		bld.shlib(source = source,
 			target = k,
 			includes = includes,
+			features = 'format',
 			use = libs + v['libs'],
 			defines = v['defines'] + ['REF_DLL=1'],
 			install_path = bld.env.LIBDIR)

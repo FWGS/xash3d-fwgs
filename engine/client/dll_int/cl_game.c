@@ -111,6 +111,15 @@ static void CL_GameCubeApplySmokeClientBudgets( void )
 #define MAX_LINELENGTH	80
 #define TEXT_MSGNAME	"TextMessage"
 
+// how SDL2 appears in dependency lists of Valve's game libraries
+#if XASH_WIN32
+#define CLIENT_SDL2_LIBRARY "SDL2.dll"
+#elif XASH_APPLE
+#define CLIENT_SDL2_LIBRARY "libSDL2-2.0.0.dylib"
+#else
+#define CLIENT_SDL2_LIBRARY "libSDL2-2.0.so.0"
+#endif
+
 static char cl_textbuffer[MAX_TEXTCHANNELS][2048];
 client_textmessage_t cl_textmessage[MAX_TEXTCHANNELS] =
 {
@@ -2894,6 +2903,7 @@ static void GAME_EXPORT pfnCalcShake( void )
 			shake->time = 0;
 			shake->applied_angle = 0;
 			VectorClear( shake->applied_offset );
+			Mobile_StopVibration();
 		}
 
 		return;
@@ -2915,6 +2925,9 @@ static void GAME_EXPORT pfnCalcShake( void )
 	// get initial fraction and frequency values over the duration
 	float fraction = ((float)cl.time - shake->time ) / shake->duration;
 	float freq = fraction != 0.0f ? ( shake->frequency / fraction ) * shake->frequency : 0.0f;
+
+	// keep motors running slightly past the frame so they stop by themselves if the shake is never updated again
+	Mobile_ShakeVibrate( shake->amplitude * fraction * fraction, shake->frequency, 100.0f );
 
 	// quickly approach zero but apply time over sine wave
 	fraction *= fraction * sin( cl.time * freq );
@@ -3152,15 +3165,14 @@ pfnIndexFromTrace
 */
 static int GAME_EXPORT pfnIndexFromTrace( struct pmtrace_s *pTrace )
 {
-#if 0 // Velaron: breaks compatibility with mods that call the function after CL_PopPMStates
-	if( pTrace->ent >= 0 && pTrace->ent < clgame.pmove->numphysent )
+	// Velaron: pTrace->ent < clgame.pmove->numphysent breaks compatibility with mods that call the function after CL_PopPMStates
+	if( pTrace->ent >= 0 && pTrace->ent < ARRAYSIZE( clgame.pmove->physents ))
 	{
 		// return cl.entities number
 		return clgame.pmove->physents[pTrace->ent].info;
 	}
+
 	return -1;
-#endif
-	return clgame.pmove->physents[pTrace->ent].info;
 }
 
 /*
@@ -4080,44 +4092,60 @@ NetAPI_SendRequest
 */
 static void GAME_EXPORT NetAPI_SendRequest( int context, int request, int flags, double timeout, netadr_t *remote_address, net_api_response_func_t response )
 {
-	net_request_t	*nr = NULL;
-	int		i;
-
 	if( !response )
 	{
-		Con_DPrintf( S_ERROR "%s: no callbcak specified for request with context %i!\n", __func__, context );
+		Con_DPrintf( S_ERROR "%s: no callback specified for request with context %i!\n", __func__, context );
 		return;
 	}
+
+	// FIXME: call pfnFunc and tell client.dll about errors?
 
 	if( NET_NetadrType( remote_address ) == NA_IPX || NET_NetadrType( remote_address ) == NA_BROADCAST_IPX )
 		return; // IPX no longer support
 
-	if( request == NETAPI_REQUEST_SERVERLIST )
+	switch( request )
+	{
+	case NETAPI_REQUEST_SERVERLIST:
 		return; // no support for server list requests
+	case NETAPI_REQUEST_PING:
+	case NETAPI_REQUEST_RULES:
+	case NETAPI_REQUEST_PLAYERS:
+	case NETAPI_REQUEST_DETAILS:
+		break;
+	default:
+		Con_Printf( S_ERROR "%s: unknown request type %d, context %i\n", __func__, request, context );
+		return;
+	}
 
 	// find a free request
-	for( i = 0; i < MAX_REQUESTS; i++ )
+	net_request_t *nr = NULL, *oldest_nr = NULL;
+	int i;
+	double max_timeout = 0;
+	for( i = 0; i < ARRAYSIZE( clgame.net_requests ); i++ )
 	{
 		nr = &clgame.net_requests[i];
-		if( !nr->pfnFunc ) break;
-	}
 
-	if( i == MAX_REQUESTS )
-	{
-		double	max_timeout = 0;
-
-		// no free requests? use oldest
-		for( i = 0, nr = NULL; i < MAX_REQUESTS; i++ )
+		if(( host.realtime - nr->timesend ) > max_timeout )
 		{
-			if(( host.realtime - clgame.net_requests[i].timesend ) > max_timeout )
-			{
-				max_timeout = host.realtime - clgame.net_requests[i].timesend;
-				nr = &clgame.net_requests[i];
-			}
+			max_timeout = host.realtime - nr->timesend;
+			oldest_nr = nr;
 		}
+
+		if( !nr->pfnFunc )
+			break;
 	}
 
-	Assert( nr != NULL );
+	if( i == ARRAYSIZE( clgame.net_requests ))
+	{
+		// no free requests? use oldest
+		nr = oldest_nr;
+	}
+
+	if( !nr )
+	{
+		Con_Printf( S_ERROR "%s: no free requests\n", __func__ );
+		return;
+	}
 
 	// clear slot
 	memset( nr, 0, sizeof( *nr ));
@@ -4130,9 +4158,10 @@ static void GAME_EXPORT NetAPI_SendRequest( int context, int request, int flags,
 	nr->resp.type = request;
 	nr->resp.remote_address = *remote_address;
 	nr->flags = flags;
+	nr->challenge = -1;
 
-	// local servers request
-	Netchan_OutOfBandPrint( NS_CLIENT, nr->resp.remote_address, A2A_NETINFO" %i %i %i", PROTOCOL_VERSION, context, request );
+	if( !CL_NetRequestSend( nr ))
+		Con_Printf( S_ERROR "%s: failed to send net request for type %d with context %i\n", __func__, request, context );
 }
 
 /*
@@ -4144,7 +4173,7 @@ NetAPI_CancelRequest
 static void GAME_EXPORT NetAPI_CancelRequest( int context )
 {
 	// find a specified request
-	for( int i = 0; i < MAX_REQUESTS; i++ )
+	for( int i = 0; i < ARRAYSIZE( clgame.net_requests ); i++ )
 	{
 		net_request_t *nr = &clgame.net_requests[i];
 
@@ -4172,7 +4201,7 @@ NetAPI_CancelAllRequests
 void GAME_EXPORT NetAPI_CancelAllRequests( void )
 {
 	// tell the user about cancel
-	for( int i = 0; i < MAX_REQUESTS; i++ )
+	for( int i = 0; i < ARRAYSIZE( clgame.net_requests ); i++ )
 	{
 		net_request_t *nr = &clgame.net_requests[i];
 		if( !nr->pfnFunc ) continue;	// not used
@@ -4628,7 +4657,9 @@ void CL_UnloadProgs( void )
 	if( Q_stricmp( GI->gamefolder, "hlfx" ) || GI->version != 0.5f )
 		clgame.dllFuncs.pfnShutdown();
 
-	if( GI->internal_vgui_support )
+	// if vgui_support API was provided by the client library, it must be
+	// shut down before the library is unloaded, regardless of what gameinfo says
+	if( VGui_IsProvidedByClientDll( ))
 		VGui_Shutdown();
 
 	Cvar_DirectFullSet( &cl_background, "0", FCVAR_READ_ONLY );
@@ -4708,6 +4739,35 @@ static void CL_InitStudioAPI( void )
 	ref.dllFuncs.R_StudioSetDrawInterface( pStudioDraw );
 }
 
+#if XASH_SDL == 3
+typedef struct
+{
+	uint8_t major;
+	uint8_t minor;
+	uint8_t patch;
+} sdl2_version_t;
+
+typedef void (*pfnSDL2_GetVersion_t)( sdl2_version_t *ver );
+
+// TODO: drop this once we ship an SDL2 shim that forwards into SDL3
+static void CL_CheckLoadedSDL2( const char *name )
+{
+	pfnSDL2_GetVersion_t pfnGetVersion = COM_GetProcAddressFromDependency( clgame.hInstance, CLIENT_SDL2_LIBRARY, "SDL_GetVersion" );
+	sdl2_version_t ver = { 0 };
+
+	if( !pfnGetVersion )
+		Sys_Error( "%s depends on " CLIENT_SDL2_LIBRARY " but the engine can't tell which SDL2 got loaded next to its SDL3.\nRun an SDL2 build of the engine to play this game.", name );
+
+	pfnGetVersion( &ver );
+
+	// sdl2-compat deliberately reports a patch level far above any real SDL2 release so applications can tell it apart
+	if( ver.patch < 50 )
+		Sys_Error( "%s loaded SDL2 %u.%u.%u next to the engine's SDL3, two SDL major versions can't share a process.\nRun an SDL2 build of the engine to play this game.", name, ver.major, ver.minor, ver.patch );
+
+	Con_Printf( S_WARN "%s runs through sdl2-compat %u.%u.%u. This setup is unsupported and prone to bugs, use an SDL2 build of the engine if something misbehaves.\n", name, ver.major, ver.minor, ver.patch );
+}
+#endif // XASH_SDL == 3
+
 qboolean CL_LoadProgs( const char *name )
 {
 	static playermove_t		gpMove;
@@ -4720,6 +4780,17 @@ qboolean CL_LoadProgs( const char *name )
 #endif
 
 	if( clgame.hInstance ) CL_UnloadProgs();
+
+#if ( XASH_WIN32 && !XASH_64BIT ) || XASH_SDL == 3
+	const qboolean uses_sdl2 = COM_CheckLibraryDirectDependency( name, CLIENT_SDL2_LIBRARY, false );
+#endif
+
+	// a1ba: we need to check if client.dll has direct dependency on SDL2
+	// and if so, disable relative mouse mode
+#if XASH_WIN32 && !XASH_64BIT
+	clgame.client_dll_uses_sdl = uses_sdl2;
+	Con_Printf( S_NOTE "%s uses %s for mouse input\n", name, uses_sdl2 ? "SDL2" : "Windows API" );
+#endif
 
 	// initialize PlayerMove
 	clgame.pmove = &gpMove;
@@ -4736,13 +4807,6 @@ qboolean CL_LoadProgs( const char *name )
 	#endif
 	clgame.entities = NULL;
 
-	// a1ba: we need to check if client.dll has direct dependency on SDL2
-	// and if so, disable relative mouse mode
-#if XASH_WIN32 && !XASH_64BIT
-	clgame.client_dll_uses_sdl = COM_CheckLibraryDirectDependency( name, OS_LIB_PREFIX "SDL2." OS_LIB_EXT, false );
-	Con_Printf( S_NOTE "%s uses %s for mouse input\n", name, clgame.client_dll_uses_sdl ? "SDL2" : "Windows API" );
-#endif
-
 	// NOTE: important stuff!
 	// vgui must startup BEFORE loading client.dll to avoid get error ERROR_NOACESS during LoadLibrary
 #if XASH_GAMECUBE
@@ -4754,7 +4818,7 @@ qboolean CL_LoadProgs( const char *name )
 	else
 #endif
 	if( !try_internal_vgui_support && VGui_LoadProgs( NULL ))
-		VGui_Startup( refState.width, refState.height );
+		VGui_Startup( NULL, refState.width, refState.height );
 	else
 		try_internal_vgui_support = true; // we failed to load vgui_support, but let's probe client.dll for support anyway
 
@@ -4767,14 +4831,25 @@ qboolean CL_LoadProgs( const char *name )
 #endif
 
 	if( !clgame.hInstance )
+	{
+#if XASH_SDL == 3
+		if( uses_sdl2 )
+			COM_PushLibraryError( "The client library needs " CLIENT_SDL2_LIBRARY " which this SDL3 build of the engine doesn't ship. Install sdl2-compat or run an SDL2 build of the engine." );
+#endif
 		return false;
+	}
+
+#if XASH_SDL == 3
+	if( uses_sdl2 )
+		CL_CheckLoadedSDL2( name );
+#endif
 
 	// delayed vgui initialization for internal support
 #if XASH_GAMECUBE
 	if( !skip_vgui )
 #endif
 	if( try_internal_vgui_support && VGui_LoadProgs( clgame.hInstance ))
-		VGui_Startup( refState.width, refState.height );
+		VGui_Startup( NULL, refState.width, refState.height );
 
 	// clear exports
 	ClearExports( cdll_exports, ARRAYSIZE( cdll_exports ));
@@ -4852,6 +4927,9 @@ qboolean CL_LoadProgs( const char *name )
 #if XASH_GAMECUBE
 	Con_Reportf( "Xash3D GameCube: client pfnInitialize ready\n" );
 #endif
+
+	// let the support library know about the client library
+	VGui_Startup( clgame.hInstance, refState.width, refState.height );
 
 	Cvar_FullSet( "host_clientloaded", "1", FCVAR_READ_ONLY );
 

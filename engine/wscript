@@ -27,7 +27,12 @@ int main(int argc, char **argv)
 }
 '''
 
-frameworks = ['Foundation', 'UIKit', 'QuartzCore', 'GameController', 'SystemConfiguration', 'CFNetwork', 'AVFoundation', 'CoreGraphics']
+def get_frameworks(env):
+	if env.IOS:
+		return ['Foundation', 'UIKit', 'QuartzCore', 'GameController', 'SystemConfiguration', 'CFNetwork', 'AVFoundation', 'CoreGraphics']
+	if env.DEST_OS == 'darwin':
+		return ['IOKit', 'CoreFoundation']
+	return []
 
 @TaskGen.extension('.m')
 def m_hook(self, node):
@@ -48,14 +53,14 @@ def options(opt):
 	grp.add_option('--enable-static-binary', action = 'store_true', dest = 'STATIC', default = False,
 		help = 'build static binary(not recommended, --single-binary required) [default: %(default)s]')
 
-	grp.add_option('--enable-engine-fuzz', action = 'store_true', dest = 'ENGINE_FUZZ', default = False,
-		help = 'add LLVM libFuzzer [default: %(default)s]' )
-
 	grp.add_option('--enable-ffmpeg', action = 'store_true', dest = 'FFMPEG', default = False,
 		help = 'enable ffmpeg based movie playback [default: %(default)s')
 
 	grp.add_option('--enable-ffmpeg-dlopen', action = 'store_true', dest = 'FFMPEG_DLOPEN', default = False,
 		help = 'load ffmpeg libraries in runtime [default: %(default)s]')
+
+	grp.add_option('--ffmpeg-dir', action = 'store', dest = 'FFMPEG_DIR', default = None,
+		help = 'ffmpeg installation prefix, use instead of pkg-config [default: %(default)s]')
 
 	opt.load('sdl2')
 
@@ -90,9 +95,17 @@ def configure(conf):
 	elif conf.env.DEST_OS == 'dos':
 		conf.options.STATIC = True
 
-	if conf.options.ENGINE_FUZZ:
+	if conf.env.DEST_OS != 'win32':
+		conf.check(features='c cprogram',
+			fragment='#include <sys/resource.h>\nint main( void ) { struct rusage r; return getrusage( RUSAGE_SELF, &r ); }',
+			msg='Checking for getrusage',
+			define_name='HAVE_GETRUSAGE',
+			mandatory=False)
+
+	if conf.options.ENABLE_FUZZER:
+		conf.define('XASH_LLVM_LIBFUZZER', 1)
 		conf.env.append_unique('CFLAGS', '-fsanitize=fuzzer-no-link')
-		conf.env.append_unique('LINKFLAGS', '-fsanitize=fuzzer')
+		conf.env.append_unique('LINKFLAGS', '-fsanitize=fuzzer-no-link')
 
 	# Client-only dependencies
 	if conf.env.CLIENT:
@@ -111,6 +124,9 @@ def configure(conf):
 
 			if conf.env.DEST_OS == 'nswitch': # remove libstdc++ linking from SDL2, we link it later
 				conf.env.LIB_SDL2.remove('stdc++')
+		elif conf.env.DEST_OS == 'ps4':
+			# no SDL, video, sound and input are in platform/ps4
+			conf.env.LIB_PS4CLIENT_SYS = ['SceImeDialog', 'SceCommonDialog', 'SceAudioIn', 'SceAudioOut', 'ScePad', 'SceUserService', 'SceSysmodule', 'SceKeyboard', 'SceMouse']
 		elif conf.env.DEST_OS == 'linux' and conf.options.FBDEV_SW:
 			conf.check_cc(lib='asound')
 		elif conf.options.SDL12: # TODO: move to sdl2.py
@@ -120,6 +136,11 @@ def configure(conf):
 		else:
 			find_sdl(conf)
 
+		if conf.env.SAILFISH:
+			conf.check_cfg(package='gio-2.0', uselib_store='GIO', args='--cflags --libs')
+			conf.check_cfg(package='audioresource', uselib_store='AUDIORESOURCE', args='--cflags --libs')
+			conf.check_cfg(package='wayland-client', uselib_store='WAYLAND_CLIENT', args='--cflags --libs')
+
 
 	if conf.options.STATIC:
 		conf.env.STATIC = True
@@ -128,9 +149,8 @@ def configure(conf):
 	if not conf.env.DEST_OS in ['win32', 'android']:
 		conf.check_pthreads(mode='c')
 	
-	if conf.env.IOS:
-		for i in frameworks :
-			conf.check(features='c cprogram', framework=i, uselib_store=i, msg='Checking for %s framework' % i)
+	for i in get_frameworks(conf.env):
+		conf.check(features='c cprogram', framework=i, uselib_store=i, msg='Checking for %s framework' % i)
 
 	conf.define('ENGINE_DLL', 1)
 
@@ -138,12 +158,19 @@ def configure(conf):
 		pkgconf_args = '--cflags' if conf.options.FFMPEG_DLOPEN else '--cflags --libs'
 		features = 'c' if conf.options.FFMPEG_DLOPEN else 'c cprogram'
 
+		ffmpeg_libs = [('swresample', 'SWRESAMPLE'), ('avformat', 'AVFORMAT'), ('avcodec', 'AVCODEC'), ('swscale', 'SWSCALE'), ('avutil', 'AVUTIL')]
+
 		# add ffmpeg libraries into single uselib package
-		conf.check_cfg(package='libswresample', uselib_store='SWRESAMPLE', args=pkgconf_args)
-		conf.check_cfg(package='libavformat', uselib_store='AVFORMAT', args=pkgconf_args)
-		conf.check_cfg(package='libavcodec', uselib_store='AVCODEC', args=pkgconf_args)
-		conf.check_cfg(package='libswscale', uselib_store='SWSCALE', args=pkgconf_args)
-		conf.check_cfg(package='libavutil', uselib_store='AVUTIL', args=pkgconf_args)
+		if conf.options.FFMPEG_DIR:
+			ffmpeg_dir = os.path.abspath(conf.options.FFMPEG_DIR)
+			for lib, uselib in ffmpeg_libs:
+				conf.env['INCLUDES_' + uselib] = [os.path.join(ffmpeg_dir, 'include')]
+				if not conf.options.FFMPEG_DLOPEN:
+					conf.env['LIBPATH_' + uselib] = [os.path.join(ffmpeg_dir, 'lib')]
+					conf.env['LIB_' + uselib] = [lib]
+		else:
+			for lib, uselib in ffmpeg_libs:
+				conf.check_cfg(package='lib' + lib, uselib_store=uselib, args=pkgconf_args)
 
 		# validate ffmpeg libs installation
 		conf.check(features=features, fragment=FFMPEG_CHECK_FRAGMENT, use='SWRESAMPLE AVCODEC AVFORMAT AVUTIL SWSCALE', msg='Checking for ffmpeg sanity')
@@ -163,7 +190,7 @@ def build(bld):
 	# public includes for renderers and utils use
 	bld(name = 'engine_includes', export_includes = '. common common/imagelib', use = 'filesystem_includes')
 
-	libs = ['engine_includes', 'public', 'werror', 'backtrace_custom', 'library_suffix', 'build_vcs', 'mbedtls']
+	libs = ['engine_includes', 'public', 'zlib', 'werror', 'backtrace_custom', 'library_suffix', 'build_vcs', 'mbedtls', 'yy_thunks']
 	if bld.env.DISABLE_LIBBACKTRACE:
 		libs.remove( 'backtrace_custom' )
 	includes = ['server', 'client', 'client/vgui', 'common/soundlib', 'platform']
@@ -186,12 +213,17 @@ def build(bld):
 		source += bld.path.ant_glob('platform/linux/*.c')
 
 	# include common POSIX conformant code
-	if bld.env.DEST_OS not in ['win32', 'dos', 'gamecube']:
+	if bld.env.DEST_OS == 'ps4':
+		# kernel loads modules, see platform/ps4/lib_ps4.c
+		source += bld.path.ant_glob('platform/posix/*.c', excl='platform/posix/lib_posix.c')
+	elif bld.env.DEST_OS not in ['win32', 'dos', 'gamecube']:
 		source += bld.path.ant_glob('platform/posix/*.c')
 	if bld.env.IOS:
 		source += bld.path.ant_glob('platform/ios/*.c')
 		source += bld.path.ant_glob('platform/ios/*.m')
 		includes += bld.path.ant_glob('platform/ios')
+	elif bld.env.DEST_OS == 'darwin':
+		source += bld.path.ant_glob('platform/apple/*.c')
 	
 	# include sources for optional features
 	if bld.get_define('XASH_CUSTOM_SWAP'):
@@ -305,6 +337,7 @@ def build(bld):
 		]
 	else: # POSIX
 		libs += ['M', 'RT', 'PTHREAD', 'ASOUND', 'HAIKU', 'MAGX', 'LOG', 'SOCKET']
+		libs += get_frameworks(bld.env)
 		if not bld.env.STATIC:
 			libs += ['DL']
 
@@ -352,6 +385,11 @@ def build(bld):
 			source += bld.path.ant_glob(['platform/sdl%d/*.c' % bld.env.XASH_SDL])
 			defines += ['XASH_SDL=%d' % bld.env.XASH_SDL]
 
+		# GPU device for the OpenGL layer in ref_gl, see ref/gl/gnm_shim
+		if bld.env.DEST_OS == 'ps4':
+			libs += ['opengnm', 'PS4CLIENT_SYS']
+			source += bld.path.ant_glob('platform/ps4/gnm/*.c')
+
 		if bld.get_define('HAVE_FFMPEG'):
 			libs.append('SWRESAMPLE')
 			libs.append('AVCODEC')
@@ -368,7 +406,14 @@ def build(bld):
 					# GameCube uses the lightweight retail AVI/Cinepak backend instead
 					# of ffmpeg or preconverted movie streams.
 					source = [node for node in source if (node.path_from(bld.path) if hasattr(node, 'path_from') else node) != 'client/avi/avi_ffmpeg.c']
-			libs += ['bzip2', 'MultiEmulator', 'opus', 'opusfile', 'vorbis', 'vorbisfile']
+			if bld.env.DEST_OS == 'gamecube':
+				libs += ['bzip2', 'MultiEmulator', 'opus', 'opusfile', 'vorbis', 'vorbisfile']
+			else:
+				libs += ['bzip2', 'mpg123', 'MultiEmulator', 'opus', 'opusfile', 'vorbis', 'vorbisfile']
+
+			if bld.env.SAILFISH:
+				source += bld.path.ant_glob('platform/sailfish/*.c')
+				libs += ['GIO', 'AUDIORESOURCE', 'WAYLAND_CLIENT']
 
 		# Android port is linked differently
 		if bld.env.DEST_OS == 'android':
@@ -384,7 +429,6 @@ def build(bld):
 			install_path = bld.env.LIBDIR
 
 		if bld.env.IOS:
-			libs += frameworks
 			defines += ['XASH_SDLMAIN=1']
 
 		if bld.env.DEST_OS in ['nswitch', 'psvita', 'gamecube', 'emscripten']:
@@ -428,9 +472,11 @@ def build(bld):
 			special_install_path = bld.env.BINDIR,
 			nacp = 'platform/nswitch/xash3d-fwgs.nacp',
 			icon = 'platform/nswitch/icon.jpg',
-			sce_sys = 'platform/psvita/sce_sys',
+			sce_sys = 'platform/%s/sce_sys' % bld.env.DEST_OS,
 			title_id = 'XASH10000',
 			app_name = 'xash3d-fwgs',
+			ps4_content_id = 'IV0000-XASH00001_00-XASH3DFWGSPS4000',
+			ps4_title = 'Xash3D FWGS',
 			rpath = bld.env.DEFAULT_RPATH,
 			libpath = client_libpath,
 			linkflags = linkflags,

@@ -417,6 +417,33 @@ void COM_StripColors( const char *in, char *out )
 	*out = '\0';
 }
 
+void COM_StripControlChars( char *dst, const char *src, size_t size )
+{
+	size_t len = 0;
+
+	if( !dst || !src || !size )
+		return;
+
+	for( size_t i = 0; src[i] && len < size - 1; i++ )
+	{
+		byte c = src[i];
+
+		if(( c < ' ' && c != '\t' && c != '\n' ) || c == 0x7f )
+			continue;
+
+		// U+0080..U+009F, CSI and OSC among them
+		if( c == 0xc2 && (byte)src[i + 1] >= 0x80 && (byte)src[i + 1] <= 0x9f )
+		{
+			i++;
+			continue;
+		}
+
+		dst[len++] = c;
+	}
+
+	dst[len] = '\0';
+}
+
 char *Q_pretifymem( float value, int digitsafterdecimal )
 {
 	static char output[8][32];

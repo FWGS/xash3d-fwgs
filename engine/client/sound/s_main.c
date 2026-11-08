@@ -69,14 +69,15 @@ qboolean     snd_fade_sequence = false;
 // and good luck if you rely on shitty old msvc
 snd_globals_t snd =
 {
-	.channels         = (channel_t[MAX_CHANNELS]){},
+	.channels         = (channel_t[MAX_CHANNELS]){ 0 },
 	.max_channels     = MAX_CHANNELS,
-	.raw_channels     = (rawchan_t*[MAX_RAW_CHANNELS]){},
+	.raw_channels     = (rawchan_t*[MAX_RAW_CHANNELS]){ 0 },
 	.max_raw_channels = MAX_RAW_CHANNELS,
 };
 
 static CVAR_DEFINE( s_volume, "volume", "0.7", FCVAR_ARCHIVE|FCVAR_FILTERABLE, "sound volume" );
 CVAR_DEFINE( s_musicvolume, "MP3Volume", "1.0", FCVAR_ARCHIVE|FCVAR_FILTERABLE, "background music volume" );
+CVAR_DEFINE( s_musicfadetime, "MP3FadeTime", "2.0", FCVAR_ARCHIVE|FCVAR_FILTERABLE, "background music fade out time in seconds for \"cd fadeout\" command" );
 static CVAR_DEFINE( s_mixahead, "_snd_mixahead", "0.12", FCVAR_FILTERABLE, "how much sound to mix ahead of time" );
 static CVAR_DEFINE_AUTO( s_show, "0", FCVAR_ARCHIVE|FCVAR_FILTERABLE, "show playing sounds" );
 CVAR_DEFINE_AUTO( s_lerping, "0", FCVAR_ARCHIVE|FCVAR_FILTERABLE, "apply interpolation to sound output" );
@@ -99,13 +100,14 @@ static int S_AdjustLoopedSamplePosition( const wavdata_t *source, int current_sa
 	// check if looping is enabled and we've exceeeded the sample boundary
 	if( enable_looping && FBitSet( source->flags, SOUND_LOOPED ) && current_sample >= source->samples )
 	{
-		// adjust position relative to loop start
-		current_sample -= source->loop_start;
+		int loop_start = Q_min( source->loop_start, source->samples );
+		int loop_range = source->samples - loop_start;
 
 		// apply modulo to wrap within loop bounds
-		int loop_range = source->samples - source->loop_start;
 		if( loop_range > 0 )
-			current_sample = source->loop_start + ( current_sample % loop_range );
+			current_sample = loop_start + (( current_sample - loop_start ) % loop_range );
+		else
+			current_sample = source->samples;
 	}
 
 	return current_sample;
@@ -2184,6 +2186,7 @@ qboolean S_Init( void )
 #endif
 	Cvar_RegisterVariable( &s_volume );
 	Cvar_RegisterVariable( &s_musicvolume );
+	Cvar_RegisterVariable( &s_musicfadetime );
 	Cvar_RegisterVariable( &s_mixahead );
 	Cvar_RegisterVariable( &s_show );
 	Cvar_RegisterVariable( &s_lerping );

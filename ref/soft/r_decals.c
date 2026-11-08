@@ -283,7 +283,7 @@ static void R_ClipIntersect( float *one, float *two, float *out, int edge )
 		}
 
 		out[3] = one[3] + ( two[3] - one[3] ) * t;
-		out[5] = one[5] + ( two[4] - one[5] ) * t;
+		out[5] = one[5] + ( two[5] - one[5] ) * t;
 	}
 
 	VectorLerp( one, t, two, out );
@@ -456,7 +456,7 @@ static decal_t *R_DecalIntersect( decalinfo_t *decalinfo, msurface_t *surf, int 
 			if( vUnionMin[0] < 1 && vUnionMin[1] < 1 && vUnionMax[0] > 0 && vUnionMax[1] > 0 )
 			{
 				// Figure out how much of this intersects the (0,0) - (1,1) bbox.
-				float flArea = ( vUnionMax[0] - vUnionMin[1] ) * ( vUnionMax[1] - vUnionMin[1] );
+				float flArea = ( vUnionMax[0] - vUnionMin[0] ) * ( vUnionMax[1] - vUnionMin[1] );
 
 				if( flArea > 0.6f )
 				{
@@ -470,6 +470,8 @@ static decal_t *R_DecalIntersect( decalinfo_t *decalinfo, msurface_t *surf, int 
 				}
 			}
 		}
+
+		if( pDecal == pDecal->pnext ) break;
 		pDecal = pDecal->pnext;
 	}
 	return plast;
@@ -523,7 +525,10 @@ static void R_AddDecalToSurface( decal_t *pdecal, msurface_t *surf, decalinfo_t 
 	if( pold )
 	{
 		while( pold->pnext )
+		{
+			if( pold == pold->pnext ) break;
 			pold = pold->pnext;
+		}
 		pold->pnext = pdecal;
 	}
 	else
@@ -599,8 +604,10 @@ static void R_DecalSurface( msurface_t *surf, decalinfo_t *decalinfo )
 	{
 		// NOTE: we may have the decal on this surface that come from another level.
 		// check duplicate with same position and texture
-		while( decal != NULL && decal != decal->pnext )
+		while( decal != NULL )
 		{
+			if( decal == decal->pnext ) break;
+
 			if( VectorCompare( decal->position, decalinfo->m_Position ) && decal->texture == decalinfo->m_iTexture )
 				return; // decal already exists, don't place it again
 			decal = decal->pnext;
@@ -1014,12 +1021,17 @@ remove all decals from anything
 used for full decals restart
 ===============
 */
-void GAME_EXPORT R_ClearAllDecals( void )
+void GAME_EXPORT R_ClearAllDecals( qboolean includePermanent )
 {
 	// because gDecalCount may be zeroed after recach the decal limit
 	for( int i = 0; i < MAX_RENDER_DECALS; i++ )
 	{
 		decal_t *pdecal = &gDecalPool[i];
+
+		// don't remove permanent decals unless explicitly requested
+		if( !includePermanent && FBitSet( pdecal->flags, FDECAL_PERMANENT ))
+			continue;
+
 		R_DecalUnlink( pdecal );
 	}
 

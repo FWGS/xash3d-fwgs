@@ -61,7 +61,7 @@ void CL_RunLightStyles( lightstyle_t *ls )
 			continue;
 		}
 
-		int flight = (int)Q_floor( ls[i].time * 10 );
+		int flight = (int)floor( ls[i].time * 10 );
 
 		if( !ls[i].interp || !cl_lightstyle_lerping->value )
 		{
@@ -69,7 +69,7 @@ void CL_RunLightStyles( lightstyle_t *ls )
 			continue;
 		}
 
-		int clight = (int)Q_ceil( ls[i].time * 10 );
+		int clight = (int)ceil( ls[i].time * 10 );
 		float lerpfrac = ( ls[i].time * 10 ) - flight;
 		float backlerp = 1.0f - lerpfrac;
 
@@ -299,7 +299,7 @@ start:
 
 		const color24 *lm = surf->samples + Q_rint( dt ) * smax + Q_rint( ds );
 		const color24 *dm = NULL;
-		matrix3x4 tbn;
+		matrix3x4 tbn = { 0 };
 
 		if( surf->info->deluxemap )
 		{

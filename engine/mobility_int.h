@@ -51,6 +51,12 @@ extern "C" {
 #define TOUCH_FL_STROKE			(1U << 8)
 #define TOUCH_FL_PRECISION		(1U << 9)
 
+// Opt-in circular movement stick and thumb rendering for _joy.
+#define TOUCH_FL_STICK			(1U << 11)
+
+// +command alternates between +command and -command on each press
+#define TOUCH_FL_COMMAND_LATCH	(1U << 12)
+
 // flags for COM_ParseFileSafe
 #define PFILE_IGNOREBRACKET (1<<0)
 #define PFILE_HANDLECOLON   (1<<1)

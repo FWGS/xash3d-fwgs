@@ -154,6 +154,36 @@ static void SDLash_GameControllerAddMappings( const char *name )
 	Mem_Free( p );
 }
 
+static const char *SDLash_GameControllerPreset( SDL_GameController *gc )
+{
+#if XASH_PSVITA
+	return "psvita";
+#elif SDL_VERSION_ATLEAST( 2, 0, 14 )
+#if SDL_VERSION_ATLEAST( 2, 30, 0 )
+	// Steam Input virtual gamepad reports the real controller's IDs and type, but its buttons are remapped to the Xbox layout
+	if( SDL_GameControllerGetSteamHandle( gc ))
+		return "xbox";
+#endif // SDL_VERSION_ATLEAST( 2, 30, 0 )
+
+	const char *preset = Joy_SteamControllerPreset( SDL_GameControllerGetVendor( gc ), SDL_GameControllerGetProduct( gc ));
+
+	if( preset )
+		return preset;
+
+	switch( SDL_GameControllerGetType( gc ))
+	{
+	case SDL_CONTROLLER_TYPE_PS3:
+	case SDL_CONTROLLER_TYPE_PS4:
+	case SDL_CONTROLLER_TYPE_PS5:
+		return "playstation";
+	default:
+		return "xbox";
+	}
+#else
+	return NULL;
+#endif
+}
+
 static void SDLash_SetActiveGameController( SDL_JoystickID id )
 {
 	if( g_current_gamepad_id == id )
@@ -170,17 +200,19 @@ static void SDLash_SetActiveGameController( SDL_JoystickID id )
 	if( id < 0 )
 	{
 		g_current_gamepad = NULL;
-		Joy_SetCapabilities( false );
+		Joy_SetCapabilities( false, 0, NULL );
 		Joy_SetCalibrationState( JOY_NOT_CALIBRATED );
 	}
 	else
 	{
 		qboolean have_gyro = false;
+		int num_touchpads = 0;
 
 		g_current_gamepad = SDL_GameControllerFromInstanceID( id );
 
 #if SDL_VERSION_ATLEAST( 2, 0, 14 )
 		have_gyro = SDL_GameControllerHasSensor( g_current_gamepad, SDL_SENSOR_GYRO );
+		num_touchpads = SDL_GameControllerGetNumTouchpads( g_current_gamepad );
 
 		if( have_gyro )
 		{
@@ -189,7 +221,7 @@ static void SDLash_SetActiveGameController( SDL_JoystickID id )
 		}
 #endif // SDL_VERSION_ATLEAST( 2, 0, 14 )
 
-		Joy_SetCapabilities( have_gyro );
+		Joy_SetCapabilities( have_gyro, num_touchpads, SDLash_GameControllerPreset( g_current_gamepad ));
 	}
 }
 
@@ -287,6 +319,20 @@ static void SDLash_GameControllerSensorUpdate( SDL_ControllerSensorEvent sensor 
 }
 #endif
 
+#if SDL_VERSION_ATLEAST( 2, 0, 14 )
+static void SDLash_GameControllerTouchpadEvent( const SDL_ControllerTouchpadEvent *tpad, qboolean down )
+{
+	// SDL orders touchpads the way the driver reports them, for two pad devices that's left first, then right.
+	// FIXME: DualShock 4 and DualSense track two fingers on their single pad but we only care about the first one
+	if( tpad->touchpad < 0 || tpad->touchpad >= MAX_TOUCHPADS || tpad->finger != 0 )
+		return;
+
+	SDLash_SetActiveGameController( tpad->which );
+
+	Joy_TouchpadEvent( tpad->touchpad, down, tpad->x, tpad->y, tpad->pressure );
+}
+#endif // SDL_VERSION_ATLEAST( 2, 0, 14 )
+
 void SDLash_HandleGameControllerEvent( SDL_Event *ev )
 {
 	int x;
@@ -315,6 +361,13 @@ void SDLash_HandleGameControllerEvent( SDL_Event *ev )
 #if SDL_VERSION_ATLEAST( 2, 0, 14 )
 	case SDL_CONTROLLERSENSORUPDATE:
 		SDLash_GameControllerSensorUpdate( ev->csensor );
+		break;
+	case SDL_CONTROLLERTOUCHPADDOWN:
+	case SDL_CONTROLLERTOUCHPADMOTION:
+		SDLash_GameControllerTouchpadEvent( &ev->ctouchpad, true );
+		break;
+	case SDL_CONTROLLERTOUCHPADUP:
+		SDLash_GameControllerTouchpadEvent( &ev->ctouchpad, false );
 		break;
 #endif
 	}

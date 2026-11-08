@@ -26,7 +26,7 @@ def options(opt):
 	grp.add_option('-s', '--sdl2', action='store', dest = 'SDL_PATH', default = None,
 		help = 'path to precompiled SDL library (required for Windows)')
 
-	grp.add_option('--use-sdl3', action='store_true', dest='SDL3', default = False, help = 'configure for SDL3 [default: %(default)s]')
+	grp.add_option('-3', '--use-sdl3', action='store_true', dest='SDL3', default = False, help = 'configure for SDL3 [default: %(default)s]')
 
 	grp.add_option('--skip-sdl2-sanity-check', action='store_false', default = True, dest='SDL_SANITY_CHECK',
 		help = 'skip checking SDL sanity [default: %(default)s]')

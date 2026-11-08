@@ -45,7 +45,7 @@ static void GAME_EXPORT CL_FillRGBA( int rendermode, float _x, float _y, float _
 {
 	vid.rendermode = rendermode;
 	_TriColor4ub( r, g, b, a );
-	Draw_Fill( _x, _y, _w, _h );
+	Draw_Fill( _x + vid.offset2d[0], _y + vid.offset2d[1], _w, _h );
 }
 
 static void Mod_BrushUnloadTextures( model_t *mod )
@@ -81,7 +81,12 @@ static void Mod_UnloadTextures( model_t *mod )
 		break;
 	case mod_sprite:
 		break;
-	default: gEngfuncs.Host_Error( "%s: unsupported type %d\n", __func__, mod->type );
+	case mod_bad:
+		// model was never loaded, the engine frees it right after the loader has rejected it
+		break;
+	default:
+		gEngfuncs.Con_Printf( S_ERROR "%s: unsupported type %d\n", __func__, mod->type );
+		break;
 	}
 }
 
@@ -177,7 +182,7 @@ static intptr_t GL_RefGetParm( int parm, int arg )
 	case PARM_REBUILD_GAMMA:
 		return 0;
 	case PARM_GL_CONTEXT_TYPE:
-		return 0; // glConfig.context;
+		return CONTEXT_TYPE_SOFTWARE;
 	case PARM_GLES_WRAPPER:
 		return 0; // glConfig.wrapper;
 	case PARM_STENCIL_ACTIVE:
@@ -297,10 +302,15 @@ static void GAME_EXPORT R_SetupSky( int *skyboxTextures )
 {
 	// TODO: R_UnloadSkybox();
 	if( !skyboxTextures )
+	{
+		memset( tr.skyboxTextures, 0, sizeof( tr.skyboxTextures ));
 		return;
+	}
 
 	for( int i = 0; i < SKYBOX_MAX_SIDES; i++ )
+	{
 		tr.skyboxTextures[i] = skyboxTextures[i];
+	}
 }
 
 qboolean GAME_EXPORT VID_CubemapShot( const char *base, uint size, const float *vieworg, qboolean skyshot )
@@ -462,6 +472,7 @@ const ref_interface_t gReffuncs =
 	R_SetupSky,
 
 	R_Set2DMode,
+	R_Set2DOffset,
 	R_DrawStretchPic,
 	CL_FillRGBA,
 	R_WorldToScreen,

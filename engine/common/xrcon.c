@@ -17,31 +17,7 @@ GNU General Public License for more details.
 #include "net_ws.h"
 #include "net_ws_private.h"
 #include "net_buffer.h"
-
-#define XRCON_TYPE_CMND          HostFourCC( 'C', 'M', 'N', 'D' )
-#define XRCON_TYPE_CHAN          HostFourCC( 'C', 'H', 'A', 'N' )
-#define XRCON_TYPE_AINF          HostFourCC( 'A', 'I', 'N', 'F' )
-#define XRCON_TYPE_ADON          HostFourCC( 'A', 'D', 'O', 'N' )
-#define XRCON_TYPE_PRNT          HostFourCC( 'P', 'R', 'N', 'T' )
-
-#define XRCON_CMND_VERSION       0x000000D4
-#define XRCON_CMND_VERSION_CS2RC 0x00D40000 // CS2RemoteConsole <= 1.3.0 byte-slot bug
-
-// type (u32) + version (u32) + length (u16) + handle (u16)
-#define XRCON_HEADER_SIZE        ( sizeof( uint32_t ) * 2 + sizeof( uint16_t ) * 2 )
-// hardcoded size for channel name, including null terminator
-#define XRCON_CHAN_NAME_SIZE     34
-// unknowns[19] (u32) + padding (u8)
-#define XRCON_AINF_PACKET_SIZE   ( sizeof( uint32_t ) * 19 + sizeof( uint8_t ) )
-// channel_id (u32) + padding (u32[5]) + RGBA (u32)
-#define XRCON_PRNT_HEADER_SIZE   ( sizeof( uint32_t ) * 7 )
-
-#define XRCON_MAX_FRAME_SIZE     4096 // an arbitrary number, should be enough for everything
-#define XRCON_PRINT_BUFFER_SIZE  4096
-#define XRCON_MAX_PACKET_SIZE    ( XRCON_HEADER_SIZE + XRCON_PRNT_HEADER_SIZE + XRCON_PRINT_BUFFER_SIZE )
-
-#define XRCON_TX_BUFFER_SIZE     ( XRCON_MAX_FRAME_SIZE * 4 )
-#define XRCON_RX_BUFFER_SIZE     ( XRCON_MAX_FRAME_SIZE + 64 )
+#include "xrcon_protocol.h"
 
 static CVAR_DEFINE_AUTO( xrcon_enable, "0", FCVAR_PRIVILEGED, "enable remote console access server" );
 static CVAR_DEFINE_AUTO( xrcon_address, "127.0.0.1:27000", FCVAR_PRIVILEGED, "XRCON server bind address and port" );
@@ -63,14 +39,6 @@ typedef enum
 
 typedef struct
 {
-	uint32_t type;
-	uint32_t version;
-	uint16_t length;
-	uint16_t handle;
-} xrcon_frame_header_t;
-
-typedef struct
-{
 	netadr_t bindadr;
 	SOCKET listen_socket;
 	SOCKET client_socket;
@@ -89,7 +57,7 @@ typedef struct
 	struct
 	{
 		xrcon_parser_state_t state;
-		xrcon_frame_header_t frame;
+		xrcon_header_t frame;
 	} parser;
 } xrcon_t;
 
@@ -148,18 +116,12 @@ static qboolean XRcon_SendPacket( uint32_t type, const void *body, size_t body_l
 		return false;
 	}
 
-	sizebuf_t sb;
-	MSG_Init( &sb, __func__, frame, sizeof( frame ));
-	MSG_WriteBytes( &sb, &type, 4 );
-	MSG_WriteDword( &sb, htonl( XRCON_CMND_VERSION ));
-	MSG_WriteWord( &sb, htons((short)total_len ));
-	MSG_WriteWord( &sb, 0 ); // handle
+	XRcon_WriteHeader( frame, type, total_len );
 
 	if( body && body_len > 0 )
-		MSG_WriteBytes( &sb, body, body_len );
+		memcpy( frame + XRCON_HEADER_SIZE, body, body_len );
 
-	size_t frame_size = MSG_GetRealBytesWritten( &sb );
-	int sent = send( xrcon.client_socket, (const char *)frame, frame_size, 0 );
+	int sent = send( xrcon.client_socket, (const char *)frame, total_len, 0 );
 	if( NET_IsSocketError( sent ))
 	{
 		int err = WSAGetLastError();
@@ -173,7 +135,7 @@ static qboolean XRcon_SendPacket( uint32_t type, const void *body, size_t body_l
 		sent = 0;
 	}
 
-	size_t unsent = frame_size - sent;
+	size_t unsent = total_len - sent;
 	if( unsent > 0 )
 	{
 		size_t available = sizeof( xrcon.tx_buffer ) - xrcon.tx_pos;
@@ -318,34 +280,25 @@ static void XRcon_ProcessRxData( void )
 			if( xrcon.rx_pos < XRCON_HEADER_SIZE )
 				return;
 
-			sizebuf_t sb;
-			uint32_t type = 0;
+			xrcon_header_t hdr;
 
-			MSG_Init( &sb, __func__, xrcon.rx_buffer, xrcon.rx_pos );
-			MSG_ReadBytes( &sb, &type, sizeof( type ), 4 );
-			uint32_t version = ntohl( MSG_ReadDword( &sb ));
-			uint16_t total_len = ntohs( MSG_ReadWord( &sb ));
-			uint16_t handle = ntohs( MSG_ReadWord( &sb ));
+			XRcon_ReadHeader( xrcon.rx_buffer, &hdr );
 
-			if( total_len <= XRCON_HEADER_SIZE || total_len > sizeof( xrcon.rx_buffer ))
+			if( hdr.length <= XRCON_HEADER_SIZE || hdr.length > sizeof( xrcon.rx_buffer ))
 			{
-				Con_Printf( S_WARN "%s: invalid frame size %u, disconnecting\n", __func__, total_len );
+				Con_Printf( S_WARN "%s: invalid frame size %u, disconnecting\n", __func__, hdr.length );
 				XRcon_DisconnectClient();
 				return;
 			}
 
-			if( version != XRCON_CMND_VERSION && version != XRCON_CMND_VERSION_CS2RC )
-				Con_Printf( S_WARN "%s: unexpected version 0x%08X\n", __func__, version );
+			if( hdr.version != XRCON_CMND_VERSION && hdr.version != XRCON_CMND_VERSION_CS2RC )
+				Con_Printf( S_WARN "%s: unexpected version 0x%08X\n", __func__, hdr.version );
 
-			xrcon.parser.frame.type = type;
-			xrcon.parser.frame.version = version;
-			xrcon.parser.frame.length = total_len;
-			xrcon.parser.frame.handle = handle;
+			xrcon.parser.frame = hdr;
 			xrcon.parser.state = XRCON_PARSER_WAIT_PAYLOAD;
 
-			size_t bytes_read = MSG_GetNumBytesRead( &sb );
-			memmove( xrcon.rx_buffer, xrcon.rx_buffer + bytes_read, xrcon.rx_pos - bytes_read );
-			xrcon.rx_pos -= bytes_read;
+			memmove( xrcon.rx_buffer, xrcon.rx_buffer + XRCON_HEADER_SIZE, xrcon.rx_pos - XRCON_HEADER_SIZE );
+			xrcon.rx_pos -= XRCON_HEADER_SIZE;
 		}
 		else if( xrcon.parser.state == XRCON_PARSER_WAIT_PAYLOAD )
 		{

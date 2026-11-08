@@ -12,17 +12,23 @@ echo "Downloading vitasdk..."
 
 export VITASDK=/usr/local/vitasdk
 
+# vdpm is a pacman frontend now, it asks for confirmation unless told otherwise
+export VDPM_NONINTERACTIVE=1
+
 VITAGL_SRCREV="4d3ab1053424abe3b2164a50d15c5e355e33ed99" # lock vitaGL version to avoid compilation errors
 SDL_SRCREV="28a709718422915dab13b6984e6ff8c8e37447c8" # lock vitaGL fork of SDL2 to a known-good revision
 
 install_package()
 {
-	./vdpm "$1" || exit 1
+	# use vdpm installed into the SDK by bootstrap, the one in the checkout
+	# expects pacman at a different path and can't be used after bootstrap
+	"$VITASDK/bin/vdpm" install "$1" || exit 1
 }
 
 git clone https://github.com/vitasdk/vdpm.git --depth=1 || exit 1
 pushd vdpm || exit 1
 ./bootstrap-vitasdk.sh || exit 1
+export PATH="$VITASDK/bin:$PATH"
 install_package taihen
 install_package kubridge
 install_package zlib

@@ -580,7 +580,7 @@ void CL_BatchResourceRequest( qboolean initialize )
 #endif
 		if( done_downloading && precache_ready )
 		{
-			CL_RegisterResources( &msg, cls.legacymode );
+			CL_RegisterResources( &msg, cls.net_protocol );
 #if XASH_GAMECUBE
 			if( CL_GameCubeMapRoute())
 				Con_Reportf( "Xash3D GameCube: resource batch register sent\n" );
@@ -621,26 +621,22 @@ int CL_EstimateNeededResources( void )
 
 	for( resource_t *p = cl.resourcesneeded.pNext; p != &cl.resourcesneeded; p = p->pNext )
 	{
+		char filepath[MAX_QPATH];
+
 		switch( p->type )
 		{
 		case t_sound:
-			if( p->szFileName[0] != '*' && !FS_FileExists( va( DEFAULT_SOUNDPATH "%s", p->szFileName ), false ) )
-			{
-				SetBits( p->ucFlags, RES_WASMISSING );
-				nTotalSize += p->nDownloadSize;
-			}
-			break;
 		case t_model:
-			if( p->szFileName[0] != '*' && !FS_FileExists( p->szFileName, false ) )
-			{
-				SetBits( p->ucFlags, RES_WASMISSING );
-				nTotalSize += p->nDownloadSize;
-			}
-			break;
 		case t_skin:
 		case t_generic:
 		case t_eventscript:
-			if( !FS_FileExists( p->szFileName, false ) )
+			// inline models and sentences aren't real files
+			if( p->szFileName[0] == '*' )
+				break;
+
+			CL_ResourcePath( filepath, sizeof( filepath ), p );
+
+			if( !CL_HasResourceFile( p, filepath ))
 			{
 				SetBits( p->ucFlags, RES_WASMISSING );
 				nTotalSize += p->nDownloadSize;
@@ -731,7 +727,7 @@ static void CL_RemoveCustomization( int nPlayerNum, customization_t *pRemove )
 		{
 			if( pList->resource.type == t_decal )
 			{
-				if( cls.state == ca_active )
+				if( cls.state == ca_active && pList->nUserData1 )
 					ref.dllFuncs.R_DecalRemoveAll( pList->nUserData1 );
 				FS_FreeImage( pList->pInfo );
 			}
@@ -854,6 +850,10 @@ void CL_SendResourceList( const resource_t *list, int count )
 
 	Netchan_CreateFragments( &cls.netchan, &sbuf );
 	Netchan_FragSend( &cls.netchan );
+
+	cl.num_sent_resources = count;
+	if( count > 0 )
+		memcpy( cl.sent_resources_hash, list[0].rgucMD5_hash, sizeof( cl.sent_resources_hash ));
 }
 
 static void CL_ParseResourceRequest( sizebuf_t *msg )
@@ -981,7 +981,12 @@ static void CL_ParseServerData( sizebuf_t *msg, connprotocol_t proto )
 
 		Q_strncpy( gamefolder, MSG_ReadString( msg ), sizeof( gamefolder ));
 		Con_Printf( "Remote host: %s\n", MSG_ReadString( msg ));
-		Q_strncpy( clgame.mapname, COM_FileWithoutPath( MSG_ReadString( msg )), sizeof( clgame.mapname ));
+		// map name is sent as maps/<name>.bsp, only strip the maps/ prefix to keep subdirectories intact
+		s = MSG_ReadString( msg );
+		if( !Q_strnicmp( s, "maps/", 5 ))
+			s += 5;
+		else s = COM_FileWithoutPath( s );
+		Q_strncpy( clgame.mapname, s, sizeof( clgame.mapname ));
 		COM_StripExtension( clgame.mapname );
 
 		s = MSG_ReadString( msg );
@@ -1223,6 +1228,7 @@ static void CL_ParseServerData( sizebuf_t *msg, connprotocol_t proto )
 	if( CL_GameCubeLocalMapRoute() )
 		Con_Reportf( "Xash3D GameCube: serverdata customization ready\n" );
 #endif
+	cl.num_sent_resources = 0;
 
 #if XASH_GAMECUBE
 	/* Peer BBA join stages stalkyard on disc; sendres→download stalls with
@@ -1503,8 +1509,8 @@ void CL_ParseBaseline( sizebuf_t *msg, connprotocol_t proto )
 			int type = MSG_ReadUBitLong( msg, 2 );
 			int delta_type;
 
-			if( player ) delta_type = DT_ENTITY_STATE_PLAYER_T;
-			else if( type != ENTITY_NORMAL ) delta_type = DT_CUSTOM_ENTITY_STATE_T;
+			if( FBitSet( type, ENTITY_BEAM )) delta_type = DT_CUSTOM_ENTITY_STATE_T;
+			else if( player ) delta_type = DT_ENTITY_STATE_PLAYER_T;
 			else delta_type = DT_ENTITY_STATE_T;
 
 			Delta_ReadGSFields( msg, delta_type, &ent->prevstate, &ent->baseline, 1.0f );
@@ -2782,12 +2788,6 @@ qboolean CL_ParseCommonHLMessage( sizebuf_t *msg, connprotocol_t proto, int svc_
 			size_t len = Q_strlen( s );
 			Con_Printf( "Stufftext: %s%c", s, len && s[len-1] == '\n' ? '\0' : '\n' );
 		}
-
-#ifdef HACKS_RELATED_HLMODS
-		// disable Cry Of Fear antisave protection
-		if( !Q_strnicmp( s, "disconnect", 10 ) && cls.signon != SIGNONS )
-			break; // too early
-#endif
 
 		Cbuf_AddFilteredText( s );
 		break;

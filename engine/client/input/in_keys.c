@@ -42,6 +42,19 @@ typedef struct keyname_s
 // if needed
 static enginekey_t keys[265];
 
+// where the menu or the client edits the text, in render coordinates
+static struct
+{
+	int x, y, w, h;
+} key_textinput_rect;
+
+// real platform text input state, might differ from host.textmode with BUGCOMP_ALWAYS_ENABLE_TEXT_INPUT
+static qboolean key_textinput_enabled;
+
+// text of the menu field, system keyboard opens with it on the next text input enable
+static char key_textinput_buffer[1024];
+static qboolean key_textinput_buffer_set;
+
 static const keyname_t keynames[] =
 {
 { "TAB",            K_TAB,                 ""                },
@@ -135,8 +148,8 @@ static const keyname_t keynames[] =
 { "PADDLE3",        K_PADDLE3_BUTTON,      ""                },
 { "PADDLE4",        K_PADDLE4_BUTTON,      ""                },
 { "TOUCHPAD",       K_TOUCHPAD,            ""                },
-{ "AUX26",          K_AUX26,               ""                }, // generic
-{ "AUX27",          K_AUX27,               ""                },
+{ "MISC2_BUTTON",   K_MISC2_BUTTON,        ""                },
+{ "AUX27",          K_AUX27,               ""                }, // generic
 { "AUX28",          K_AUX28,               ""                },
 { "AUX29",          K_AUX29,               ""                },
 { "AUX30",          K_AUX30,               ""                },
@@ -282,6 +295,23 @@ const char *Key_GetBinding( int keynum )
 	if( keynum == -1 )
 		return NULL;
 	return keys[keynum].binding;
+}
+
+/*
+===================
+Key_GetDefaultBinding
+
+===================
+*/
+const char *Key_GetDefaultBinding( int keynum )
+{
+	for( int i = 0; i < ARRAYSIZE( keynames ); i++ )
+	{
+		if( keynames[i].keynum == keynum )
+			return keynames[i].binding;
+	}
+
+	return "";
 }
 
 /*
@@ -579,6 +609,26 @@ static void Key_AddKeyCommands( int key, const char *kb, qboolean down )
 	char button[1024];
 	char *buttonPtr = button;
 
+	// GoldSrc doesn't split bindings, the key number goes after the whole string
+	// and "+cmd;-cmd" relies on that, as only the "-cmd" half carries the key number
+	if( FBitSet( host.bugcomp, BUGCOMP_BIND_NOSPLIT ))
+	{
+		char cmd[1024];
+
+		if( kb[0] == '+' )
+		{
+			if( down ) Q_snprintf( cmd, sizeof( cmd ), "%s %i\n", kb, key );
+			else Q_snprintf( cmd, sizeof( cmd ), "-%s %i\n", kb + 1, key );
+			Cbuf_AddText( cmd );
+		}
+		else if( down )
+		{
+			Q_snprintf( cmd, sizeof( cmd ), "%s\n", kb );
+			Cbuf_AddText( cmd );
+		}
+		return;
+	}
+
 	for( int i = 0; ; i++ )
 	{
 		if( kb[i] == ';' || !kb[i] )
@@ -733,7 +783,12 @@ void GAME_EXPORT Key_Event( int key, int down )
 				keys[key].gamedown = false;
 				keys[key].repeats = 0;
 			}
-			return; // handled in client.dll
+
+			// deliver keys regardless of whether the client.dll handled them or not
+			// reproduces GoldSrc behavior, where keys are passed even if the client.dll claims to have handled them
+			// this is needed for Cry of fear's Computer interface input, for more context, see https://github.com/FWGS/xash3d-fwgs/issues/1923
+			VGui_KeyEvent( key, down );
+			return;
 		}
 	}
 
@@ -782,12 +837,12 @@ void GAME_EXPORT Key_Event( int key, int down )
 				Cvar_DirectSet( &r_showtextures, "0" );
 				return;
 			}
-			else if( host.mouse_visible && cls.state != ca_cinematic )
-			{
-				clgame.dllFuncs.pfnKey_Event( down, key, keys[key].binding );
-				return; // handled in client.dll
-			}
-			break;
+			// Note: we don't offer the client key handling here since reaching this line proves the client already declined handling it.
+			// this prevents accidentally declining a key the client asked the engine to handle. For more context, see https://github.com/FWGS/xash3d-fwgs/issues/1943
+			
+			// call escape immediately within the engine, since the client may not handle it (Natural Selection doesn't. See https://github.com/FWGS/xash3d-fwgs/issues/528)
+			CL_Escape_f();
+			return;
 		default:
 			break;
 		}
@@ -844,6 +899,81 @@ void GAME_EXPORT Key_Event( int key, int down )
 
 /*
 ================
+Key_GetTextInputRect
+
+================
+*/
+static void Key_GetTextInputRect( int *x, int *y, int *w, int *h )
+{
+	if( Con_GetInputRect( x, y, w, h ))
+		return;
+
+	if( key_textinput_rect.w > 0 && key_textinput_rect.h > 0 )
+	{
+		*x = key_textinput_rect.x;
+		*y = key_textinput_rect.y;
+		*w = key_textinput_rect.w;
+		*h = key_textinput_rect.h;
+		return;
+	}
+
+	// nobody told us where the text is edited, keep the whole screen visible
+	*x = *y = 0;
+	*w = refState.width;
+	*h = refState.height;
+}
+
+/*
+================
+Key_SetTextInputRect
+
+================
+*/
+void Key_SetTextInputRect( int x, int y, int w, int h )
+{
+	if( key_textinput_rect.x == x && key_textinput_rect.y == y && key_textinput_rect.w == w && key_textinput_rect.h == h )
+		return;
+
+	key_textinput_rect.x = x;
+	key_textinput_rect.y = y;
+	key_textinput_rect.w = w;
+	key_textinput_rect.h = h;
+
+	// text is already edited somewhere else now, let the platform know immediately
+	if( key_textinput_enabled && !osk_enable.value )
+	{
+		Key_GetTextInputRect( &x, &y, &w, &h );
+		Platform_EnableTextInput( true, x, y, w, h );
+	}
+}
+
+/*
+================
+Key_SetTextInputBuffer
+
+================
+*/
+void Key_SetTextInputBuffer( const char *text )
+{
+	key_textinput_buffer_set = text != NULL;
+	Q_strncpy( key_textinput_buffer, text ? text : "", sizeof( key_textinput_buffer ));
+}
+
+/*
+================
+Key_GetTextInputBuffer
+
+text for the system keyboard while Platform_EnableTextInput( true ) is called,
+NULL if the system keyboard isn't requested
+================
+*/
+const char *Key_GetTextInputBuffer( void )
+{
+	return key_textinput_buffer_set ? key_textinput_buffer : NULL;
+}
+
+/*
+================
 Key_EnableTextInput
 
 ================
@@ -853,14 +983,42 @@ void Key_EnableTextInput( qboolean enable, qboolean force )
 	if( osk_enable.value )
 	{
 		OSK_EnableTextInput( enable, force );
+		Key_SetTextInputBuffer( NULL );
 		return;
 	}
-	if( enable && ( !host.textmode || force ))
-		Platform_EnableTextInput( true );
-	else if( !enable && ( host.textmode || force ))
-		Platform_EnableTextInput( false );
 
+	// the menu asks to open the system keyboard with its text, even if text input is enabled already
+	if( enable && key_textinput_buffer_set )
+		force = true;
+
+	// some mods (like Natural Selection) pull text events out of the platform event queue on their own and expect them to always arrive during the gameplay, like they do in GoldSrc
+	qboolean enable_platform = enable || ( cls.key_dest == key_game && FBitSet( host.bugcomp, BUGCOMP_ALWAYS_ENABLE_TEXT_INPUT ));
+
+	if( !enable && ( host.textmode || force ))
+	{
+		// don't reuse this rect for whoever enables the text input next
+		memset( &key_textinput_rect, 0, sizeof( key_textinput_rect ));
+	}
+
+	// host.textmode is compared against here to pick up the new rect when the engine
+	// leaves the text mode but the platform text input is kept running
+	if( enable_platform && ( !key_textinput_enabled || host.textmode != enable || force ))
+	{
+		int x, y, w, h;
+
+		Key_GetTextInputRect( &x, &y, &w, &h );
+		Platform_EnableTextInput( true, x, y, w, h );
+	}
+	else if( !enable_platform && ( key_textinput_enabled || force ))
+	{
+		Platform_EnableTextInput( false, 0, 0, 0, 0 );
+	}
+
+	key_textinput_enabled = enable_platform;
 	host.textmode = enable;
+
+	// only for this request
+	Key_SetTextInputBuffer( NULL );
 }
 
 /*
@@ -875,22 +1033,22 @@ void GAME_EXPORT Key_SetKeyDest( int key_dest )
 	switch( key_dest )
 	{
 	case key_game:
-		Key_EnableTextInput( false, false );
 		cls.key_dest = key_game;
+		Key_EnableTextInput( false, false );
 		break;
 	case key_menu:
-		Key_EnableTextInput( false, false );
 		cls.key_dest = key_menu;
+		Key_EnableTextInput( false, false );
 		break;
 	case key_console:
+		cls.key_dest = key_console;
 #if !XASH_NSWITCH && !XASH_PSVITA // if we don't disable this, pops up the keyboard during load
 		Key_EnableTextInput( true, false );
 #endif
-		cls.key_dest = key_console;
 		break;
 	case key_message:
-		Key_EnableTextInput( true, false );
 		cls.key_dest = key_message;
+		Key_EnableTextInput( true, false );
 		break;
 	default:
 		Host_Error( "%s: wrong destination (%i)\n", __func__, key_dest );
@@ -911,15 +1069,16 @@ void GAME_EXPORT Key_ClearStates( void )
 
 	for( int i = 0; i < ARRAYSIZE( keys ); i++ )
 	{
-		if( i >= K_MOUSE1 && i <= K_MOUSE5 )
-			IN_MouseEvent( i - K_MOUSE1, false );
-		else
-			Key_Event( i, false );
+		if( i < K_MOUSE1 || i > K_MOUSE5 )
+			Key_Event( i, false ); // checks internally whether a key has been pressed or not
 
 		keys[i].down = 0;
 		keys[i].repeats = 0;
 		keys[i].gamedown = 0;
 	}
+
+	// ensure that only actual mouse buttons are released
+	IN_ClearMouseState();
 
 	if( clgame.hInstance )
 		clgame.dllFuncs.IN_ClearStates();
@@ -934,9 +1093,6 @@ Normal keyboard characters, already shifted / capslocked / etc
 */
 void CL_CharEvent( int key )
 {
-	// the console key should never be used as a char
-	if( key == '`' || key == '~' ) return;
-
 	if( cls.key_dest == key_console && !Con_Visible( ))
 	{
 		if((char)key == '`' || (char)key == '?' )

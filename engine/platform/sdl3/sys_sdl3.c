@@ -38,6 +38,7 @@ void Platform_Sleep( int msec )
 {
 	SDL_Delay( msec );
 }
+
 #endif // XASH_TIMER == TIMER_SDL
 
 #if XASH_MESSAGEBOX == MSGBOX_SDL
@@ -45,6 +46,7 @@ void Platform_MessageBox( const char *title, const char *message, qboolean paren
 {
 	SDL_ShowSimpleMessageBox( SDL_MESSAGEBOX_ERROR, title, message, parentMainWindow ? host.hWnd : NULL );
 }
+
 #endif
 
 void SDLash_NanoSleep( int nsec )
@@ -90,9 +92,18 @@ static void SDLCALL SDLash_LogOutputFunction( void *userdata, int category, SDL_
 	}
 }
 
-void SDLash_Init( const char *basedir )
+void SDLash_Init( void )
 {
-	(void)basedir;
+#if XASH_IOS
+	const char *path = SDL_GetBasePath();
+	if( path != NULL )
+	{
+		char buf[MAX_VA_STRING];
+
+		Q_snprintf( buf, sizeof( buf ), "%s%s/extras.pk3", path, host.default_gamedir );
+		setenv( "XASH3D_EXTRAS_PAK1", buf, true );
+	}
+#endif
 
 	// TODO: initial state, to be filled from gameinfo!
 	SDL_SetAppMetadata( XASH_ENGINE_NAME, XASH_VERSION, "su.xash.engine" );
@@ -107,20 +118,40 @@ void SDLash_Init( const char *basedir )
 	else
 		SDL_SetLogPriorities( SDL_LOG_PRIORITY_ERROR );
 
+	SDL_SetHint( SDL_HINT_ANDROID_BLOCK_ON_PAUSE, "0" );
+
+	// when launched through Steam (notably on Steam Deck) Steam Input hides the
+	// real controller and exposes a virtual gamepad without gyro/touchpad access
+	// undo the env-var filter and ignore the virtual pad instead
+	if( Sys_CheckParm( "-nosteaminput" ))
+	{
+		SDL_setenv_unsafe( "SDL_GAMECONTROLLER_IGNORE_DEVICES_EXCEPT", "", 1 );
+		SDL_setenv_unsafe( "SDL_GAMECONTROLLER_IGNORE_DEVICES", "0x28DE/0x11FF", 1 );
+	}
+
 	if( !SDL_Init( SDL_INIT_VIDEO | SDL_INIT_EVENTS ))
 	{
 		Sys_Warn( "SDL_Init failed: %s", SDL_GetError( ));
 		host.type = HOST_DEDICATED;
 	}
 
+	SDL_SetHint( SDL_HINT_JOYSTICK_HIDAPI_STEAM, "1" );
+	SDL_SetHint( SDL_HINT_ANDROID_TRAP_BACK_BUTTON, "1" );
+	SDL_SetHint( SDL_HINT_ORIENTATIONS, "LandscapeLeft LandscapeRight" );
+
 	SDL_SetHint( SDL_HINT_MOUSE_TOUCH_EVENTS, "0" );
 	SDL_SetHint( SDL_HINT_TOUCH_MOUSE_EVENTS, "0" );
 
+	SDL_SetHint( SDL_HINT_MOUSE_RELATIVE_SYSTEM_SCALE, "0" );
+
 	SDLash_InitCursors();
+	SDLash_InitSensors();
 }
 
 void SDLash_Shutdown( void )
 {
+	SDLash_ShutdownSensors();
 	SDLash_FreeCursors();
+
 	SDL_Quit();
 }

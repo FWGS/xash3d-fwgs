@@ -1,4 +1,5 @@
 #include <dlfcn.h>
+#include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 
@@ -6,12 +7,13 @@
 #error
 #endif
 
-typedef int (*FuzzFunc)(const char *Data, size_t Size);
+typedef int (*FuzzFunc)(const uint8_t *Data, size_t Size);
 
-void *handle = NULL;
-FuzzFunc f = NULL;
+static void *handle = NULL;
+static FuzzFunc f = NULL;
 
-int LLVMFuzzerTestOneInput( const char *Data, size_t Size )
+int LLVMFuzzerTestOneInput( const uint8_t *Data, size_t Size );
+int LLVMFuzzerTestOneInput( const uint8_t *Data, size_t Size )
 {
 	if( !handle )
 		handle = dlopen( LIB, RTLD_NOW );

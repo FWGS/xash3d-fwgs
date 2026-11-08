@@ -98,10 +98,10 @@ void GAME_EXPORT Platform_GetMousePos( int *x, int *y )
 	SDL_GetMouseState( &p.x, &p.y );
 
 	if( x )
-		*x = p.x;
+		*x = p.x * refState.scale_x;
 
 	if( y )
-		*y = p.y;
+		*y = p.y * refState.scale_y;
 }
 
 void Platform_SetCursorType( VGUI_DefaultCursor type )
@@ -143,9 +143,88 @@ void Platform_SetCursorType( VGUI_DefaultCursor type )
 	}
 }
 
-void Platform_EnableTextInput( qboolean enable )
+/*
+=============
+Platform_TranslateKeyLayout
+
+=============
+*/
+int Platform_TranslateKeyLayout( int keynum )
 {
-	enable ? SDL_StartTextInput( host.hWnd ) : SDL_StopTextInput( host.hWnd );
+	SDL_Scancode scancode;
+	SDL_Keycode keycode;
+
+	if( keynum >= 'a' && keynum <= 'z' )
+		scancode = SDL_SCANCODE_A + ( keynum - 'a' );
+	else if( keynum >= '1' && keynum <= '9' )
+		scancode = SDL_SCANCODE_1 + ( keynum - '1' );
+	else switch( keynum )
+	{
+	case '0':  scancode = SDL_SCANCODE_0; break;
+	case '`':  scancode = SDL_SCANCODE_GRAVE; break;
+	case '-':  scancode = SDL_SCANCODE_MINUS; break;
+	case '=':  scancode = SDL_SCANCODE_EQUALS; break;
+	case '[':  scancode = SDL_SCANCODE_LEFTBRACKET; break;
+	case ']':  scancode = SDL_SCANCODE_RIGHTBRACKET; break;
+	case '\\': scancode = SDL_SCANCODE_BACKSLASH; break;
+	case ';':  scancode = SDL_SCANCODE_SEMICOLON; break;
+	case '\'': scancode = SDL_SCANCODE_APOSTROPHE; break;
+	case ',':  scancode = SDL_SCANCODE_COMMA; break;
+	case '.':  scancode = SDL_SCANCODE_PERIOD; break;
+	case '/':  scancode = SDL_SCANCODE_SLASH; break;
+	default:
+		return keynum; // not a layout dependent key
+	}
+
+	keycode = SDL_GetKeyFromScancode( scancode, SDL_KMOD_NONE, false );
+
+	// only accept characters the engine uses as keynums, so non-latin layouts
+	// and keys with unusual unshifted characters (like AZERTY digit row) fall
+	// back to the positional QWERTY keynum
+	if( keycode >= 'a' && keycode <= 'z' )
+		return keycode;
+	if( keycode >= '0' && keycode <= '9' )
+		return keycode;
+
+	switch( keycode )
+	{
+	case '`':
+	case '-':
+	case '=':
+	case '[':
+	case ']':
+	case '\\':
+	case ';':
+	case '\'':
+	case ',':
+	case '.':
+	case '/':
+		return keycode;
+	}
+
+	return keynum;
+}
+
+void Platform_EnableTextInput( qboolean enable, int x, int y, int w, int h )
+{
+	if( !enable )
+	{
+		SDL_StopTextInput( host.hWnd );
+		return;
+	}
+
+	float scale_x = refState.scale_x > 0.0f ? refState.scale_x : 1.0f;
+	float scale_y = refState.scale_y > 0.0f ? refState.scale_y : 1.0f;
+	SDL_Rect rect = {
+		.x = x / scale_x,
+		.y = y / scale_y,
+		.w = w / scale_x,
+		.h = h / scale_y,
+	};
+
+	// Android reads the rect when the on-screen keyboard is shown, so set it before starting
+	SDL_SetTextInputArea( host.hWnd, &rect, 0 );
+	SDL_StartTextInput( host.hWnd );
 }
 
 int Platform_GetClipboardText( char *buffer, size_t size )

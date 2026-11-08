@@ -1,0 +1,834 @@
+/*
+megabuild.cpp - hlsdk-mega-build client
+Copyright (C) 2026 Alibek Omarov
+
+This program is free software: you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation, either version 3 of the License, or
+(at your option) any later version.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
+*/
+#include <algorithm>
+#include <errno.h>
+#include <stdio.h>
+#include <string.h>
+#include <QDir>
+#include <QFile>
+#include <QFileInfo>
+#include <QJsonArray>
+#include <QJsonDocument>
+#include <QNetworkReply>
+#include <QNetworkRequest>
+#include <QSaveFile>
+#include <QSet>
+#include <QStandardPaths>
+#include <QTimer>
+#include <library_suffix.h>
+#include <miniz.h>
+#include "launcher.h"
+#include "megabuild.h"
+
+#define RELEASE_URL "https://github.com/FWGS/hlsdk-mega-build/releases/download/continuous/"
+#define MANIFEST_URL RELEASE_URL "manifest.json"
+#define MANIFEST_VERSION 1
+
+// inside the game folder, so moving files out of it never crosses file systems
+#define STAGING_DIR ".mod_build_staging"
+#define BACKUP_DIR ".mod_build_backup"
+
+/*
+========================
+Platform
+
+hlsdk-mega-build platform keys, the library suffix inside is decided by the build
+========================
+*/
+static QString Platform()
+{
+	return QString( "%1-%2" ).arg( QString::fromLatin1( Q_buildos( ))).arg( QString::fromLatin1( Q_buildarch( )));
+}
+
+/*
+========================
+CachePath
+
+========================
+*/
+static QString CachePath( const char *name )
+{
+	const QString dir = QStandardPaths::writableLocation( QStandardPaths::CacheLocation );
+
+	QDir().mkpath( dir );
+	return dir + '/' + name;
+}
+
+/*
+========================
+IsValidManifest
+
+========================
+*/
+static bool IsValidManifest( const QJsonDocument &doc )
+{
+	return doc.isObject() && doc.object().value( "version" ).toInt( -1 ) == MANIFEST_VERSION;
+}
+
+/*
+========================
+FileSHA256
+
+========================
+*/
+static QString FileSHA256( const QString &path )
+{
+	QFile file( path );
+
+	if( !file.open( QIODevice::ReadOnly ))
+		return QString();
+
+	QCryptographicHash hash( QCryptographicHash::Sha256 );
+
+	hash.addData( &file );
+	return QString::fromLatin1( hash.result().toHex( ));
+}
+
+/*
+========================
+IsInside
+
+a path that doesn't exist yet is checked by its closest existing parent
+========================
+*/
+static bool IsInside( const QString &root, const QString &path )
+{
+	QFileInfo info( path );
+
+	while( !info.exists( ))
+		info.setFile( info.absolutePath( ));
+
+	const QString canonical = info.canonicalFilePath();
+
+	return !root.isEmpty() && ( canonical == root || canonical.startsWith( root + '/' ));
+}
+
+/*
+========================
+GameRoot
+
+========================
+*/
+static QString GameRoot( const QDir &base, const QString &gamedir )
+{
+	return QDir( base.filePath( gamedir )).canonicalPath();
+}
+
+/*
+========================
+ExtractZip
+
+files are recorded with their final paths in the game folder
+========================
+*/
+static bool ExtractZip( const QString &zip_path, const QDir &staging, const QString &gamedir, QJsonArray &files, QString &error )
+{
+	mz_zip_archive zip;
+
+	memset( &zip, 0, sizeof( zip ));
+
+	if( !mz_zip_reader_init_file( &zip, QFile::encodeName( zip_path ).constData(), 0 ))
+	{
+		error = MegaBuild::tr( "Can't open the downloaded archive" );
+		return false;
+	}
+
+	const mz_uint count = mz_zip_reader_get_num_files( &zip );
+	bool ok = true;
+
+	for( mz_uint i = 0; i < count && ok; i++ )
+	{
+		mz_zip_archive_file_stat stat;
+
+		if( !mz_zip_reader_file_stat( &zip, i, &stat ))
+		{
+			error = MegaBuild::tr( "Can't read the downloaded archive" );
+			ok = false;
+			break;
+		}
+
+		if( mz_zip_reader_is_file_a_directory( &zip, i ))
+			continue;
+
+		// archives have the mod folder at the top, its contents go into the game folder the user has
+		const QString name = QString::fromUtf8( stat.m_filename );
+		const int slash = name.indexOf( '/' );
+		const QString rel = slash > 0 ? name.mid( slash + 1 ) : QString();
+
+		if( rel.isEmpty() || rel.startsWith( '/' ) || rel.split( '/' ).contains( ".." ))
+		{
+			error = MegaBuild::tr( "Unsafe path in the downloaded archive: %1" ).arg( name );
+			ok = false;
+			break;
+		}
+
+		size_t size = 0;
+		void *data = mz_zip_reader_extract_to_heap( &zip, i, &size, 0 );
+
+		if( !data )
+		{
+			error = MegaBuild::tr( "Can't unpack %1" ).arg( name );
+			ok = false;
+			break;
+		}
+
+		const QByteArray bytes = QByteArray::fromRawData( (const char *)data, (int)size );
+		const QString target_rel = gamedir + '/' + rel;
+		const QString target = staging.filePath( rel );
+		QSaveFile file( target );
+
+		QDir().mkpath( QFileInfo( target ).absolutePath( ));
+
+		if( file.open( QIODevice::WriteOnly ) && file.write( bytes ) == bytes.size() && file.commit( ))
+		{
+			QFileDevice::Permissions perms = QFileDevice::ReadOwner | QFileDevice::WriteOwner | QFileDevice::ReadGroup | QFileDevice::ReadOther;
+
+			if( rel.endsWith( ".so" ))
+				perms |= QFileDevice::ExeOwner | QFileDevice::ExeGroup | QFileDevice::ExeOther;
+
+			QFile::setPermissions( target, perms );
+
+			QJsonObject entry;
+			entry["path"] = target_rel;
+			entry["sha256"] = QString::fromLatin1( QCryptographicHash::hash( bytes, QCryptographicHash::Sha256 ).toHex( ));
+			files.append( entry );
+		}
+		else
+		{
+			error = file.errorString();
+			ok = false;
+		}
+
+		mz_free( data );
+	}
+
+	mz_zip_reader_end( &zip );
+	return ok;
+}
+
+/*
+========================
+MoveStaged
+
+the replaced files go into the backup folder first, so a failed install can put them back
+========================
+*/
+static bool MoveStaged( const QDir &staging, const QDir &backup, const QDir &base, const QString &gamedir, const QJsonArray &files, QString &error )
+{
+	const QString root = GameRoot( base, gamedir );
+	QStringList backed_up, moved;
+	bool ok = true;
+
+	// a symlinked folder would take the files out of the game folder
+	for( const QJsonValue &value : files )
+	{
+		const QString target_rel = value.toObject().value( "path" ).toString();
+
+		if( !IsInside( root, QFileInfo( base.filePath( target_rel )).absolutePath( )))
+		{
+			error = MegaBuild::tr( "Can't install %1: its folder leads outside of the game folder" ).arg( target_rel );
+			return false;
+		}
+	}
+
+	for( const QJsonValue &value : files )
+	{
+		const QString target_rel = value.toObject().value( "path" ).toString();
+		const QString name = target_rel.mid( gamedir.size() + 1 );
+		const QString target = base.filePath( target_rel );
+		const QFileInfo info( target );
+
+		if( info.exists() || info.isSymLink( ))
+		{
+			QDir().mkpath( QFileInfo( backup.filePath( name )).absolutePath( ));
+
+			if( rename( QFile::encodeName( target ).constData(), QFile::encodeName( backup.filePath( name )).constData( )))
+			{
+				error = MegaBuild::tr( "Can't install %1: %2" ).arg( target_rel ).arg( QString::fromLocal8Bit( strerror( errno )));
+				ok = false;
+				break;
+			}
+
+			backed_up.append( name );
+		}
+
+		QDir().mkpath( info.absolutePath( ));
+
+		// QFile::rename refuses to overwrite
+		if( rename( QFile::encodeName( staging.filePath( name )).constData(), QFile::encodeName( target ).constData( )))
+		{
+			error = MegaBuild::tr( "Can't install %1: %2" ).arg( target_rel ).arg( QString::fromLocal8Bit( strerror( errno )));
+			ok = false;
+			break;
+		}
+
+		moved.append( name );
+	}
+
+	if( ok )
+		return true;
+
+	for( const QString &name : moved )
+		QFile::remove( base.filePath( gamedir + '/' + name ));
+
+	for( const QString &name : backed_up )
+		rename( QFile::encodeName( backup.filePath( name )).constData(), QFile::encodeName( base.filePath( gamedir + '/' + name )).constData( ));
+
+	return false;
+}
+
+/*
+========================
+MegaBuild::MegaBuild
+
+========================
+*/
+MegaBuild::MegaBuild( const Launcher *launcher, QObject *parent ) : QObject( parent ),
+	m_launcher( launcher ),
+	m_hash( QCryptographicHash::Sha256 )
+{
+}
+
+/*
+========================
+MegaBuild::setBusy
+
+========================
+*/
+void MegaBuild::setBusy( bool busy )
+{
+	if( m_busy == busy )
+		return;
+
+	m_busy = busy;
+	emit busyChanged();
+}
+
+/*
+========================
+MegaBuild::readBuildInfo
+
+========================
+*/
+QJsonObject MegaBuild::readBuildInfo( const QString &gamedir ) const
+{
+	QFile file( QDir( m_launcher->baseDir( )).filePath( gamedir + "/" MEGABUILD_INFO_FILE ));
+
+	if( !file.open( QIODevice::ReadOnly ))
+		return QJsonObject();
+
+	return QJsonDocument::fromJson( file.readAll( )).object();
+}
+
+/*
+========================
+MegaBuild::isInstalled
+
+========================
+*/
+bool MegaBuild::isInstalled( const QString &gamedir ) const
+{
+	return QFile::exists( QDir( m_launcher->baseDir( )).filePath( gamedir + "/" MEGABUILD_INFO_FILE ));
+}
+
+/*
+========================
+MegaBuild::installedInfo
+
+========================
+*/
+QVariantMap MegaBuild::installedInfo( const QString &gamedir ) const
+{
+	const QJsonObject info = readBuildInfo( gamedir );
+
+	if( info.isEmpty( ))
+		return QVariantMap();
+
+	QVariantMap map = info.toVariantMap();
+	map.remove( "files" );
+	map["downloaded"] = QFileInfo( QDir( m_launcher->baseDir( )).filePath( gamedir + "/" MEGABUILD_INFO_FILE )).lastModified();
+	return map;
+}
+
+/*
+========================
+MegaBuild::findBuild
+
+========================
+*/
+QJsonObject MegaBuild::findBuild( const QString &gamedir ) const
+{
+	const QJsonObject mods = m_manifest.value( "mods" ).toObject();
+
+	for( const QString &key : mods.keys( ))
+	{
+		if( key.compare( gamedir, Qt::CaseInsensitive ))
+			continue;
+
+		const QJsonObject build = mods.value( key ).toObject().value( "builds" ).toObject().value( Platform( )).toObject();
+
+		if( build.value( "filename" ).toString().isEmpty() || build.value( "sha256" ).toString().isEmpty( ))
+			return QJsonObject();
+
+		return build;
+	}
+
+	return QJsonObject();
+}
+
+/*
+========================
+MegaBuild::updateAvailable
+
+========================
+*/
+bool MegaBuild::updateAvailable( const QString &gamedir ) const
+{
+	const QJsonObject local = readBuildInfo( gamedir );
+	const QJsonObject remote = findBuild( gamedir );
+
+	if( local.isEmpty() || remote.isEmpty( ))
+		return false;
+
+	if( local.value( "platform" ).toString() != Platform( ))
+		return true;
+
+	// rebuilt every couple of days with a new hash, the source tree tells if anything changed
+	const QString remote_tree = remote.value( "source" ).toObject().value( "tree" ).toString();
+
+	if( !remote_tree.isEmpty( ))
+		return remote_tree != local.value( "source" ).toObject().value( "tree" ).toString();
+
+	return remote.value( "sha256" ).toString().compare( local.value( "sha256" ).toString(), Qt::CaseInsensitive ) != 0;
+}
+
+/*
+========================
+MegaBuild::verify
+
+========================
+*/
+QVariantMap MegaBuild::verify( const QString &gamedir ) const
+{
+	const QDir base( m_launcher->baseDir( ));
+	const QJsonObject info = readBuildInfo( gamedir );
+	const QJsonArray files = info.value( "files" ).toArray();
+	const QString platform = info.value( "platform" ).toString();
+	QStringList missing, modified, problems;
+
+	for( const QJsonValue &value : files )
+	{
+		const QJsonObject entry = value.toObject();
+		const QString rel = entry.value( "path" ).toString();
+		const QString path = base.filePath( rel );
+		const QString name = rel.startsWith( gamedir + '/' ) ? rel.mid( gamedir.size() + 1 ) : rel;
+
+		if( !QFileInfo( path ).isFile( ))
+			missing.append( name );
+		else if( FileSHA256( path ).compare( entry.value( "sha256" ).toString(), Qt::CaseInsensitive ))
+			modified.append( name );
+	}
+
+	// a game folder copied from a PC keeps the record of libraries downloaded there
+	if( platform != Platform( ))
+		problems.append( tr( "These libraries are built for %1, this device needs %2" ).arg( platform ).arg( Platform( )));
+
+	if( files.isEmpty( ))
+		problems.append( tr( "The list of installed files is missing or damaged" ));
+
+	if( !missing.isEmpty( ))
+		problems.append( tr( "Missing: %1" ).arg( missing.join( ", " )));
+
+	if( !modified.isEmpty( ))
+		problems.append( tr( "Changed: %1" ).arg( modified.join( ", " )));
+
+	QVariantMap result;
+	result["ok"] = problems.isEmpty();
+	result["message"] = problems.isEmpty() ? tr( "All files are intact" ) : problems.join( '\n' );
+	return result;
+}
+
+/*
+========================
+MegaBuild::fetchManifest
+
+========================
+*/
+void MegaBuild::fetchManifest( std::function<void( bool reachable )> done )
+{
+	QNetworkRequest request( QUrl( MANIFEST_URL ));
+
+	request.setAttribute( QNetworkRequest::FollowRedirectsAttribute, true );
+
+	QNetworkReply *reply = m_network.get( request );
+
+	// Qt 5.6 has no transfer timeout
+	QTimer::singleShot( 15000, reply, [reply]() { reply->abort(); } );
+
+	connect( reply, &QNetworkReply::finished, this, [this, reply, done]()
+	{
+		reply->deleteLater();
+
+		const QByteArray data = reply->error() == QNetworkReply::NoError ? reply->readAll() : QByteArray();
+		const QJsonDocument doc = QJsonDocument::fromJson( data );
+
+		if( IsValidManifest( doc ))
+		{
+			QSaveFile cache( CachePath( "hlsdk-manifest.json" ));
+
+			m_manifest = doc.object();
+
+			if( cache.open( QIODevice::WriteOnly ))
+			{
+				cache.write( data );
+				cache.commit();
+			}
+
+			done( true );
+			return;
+		}
+
+		// a fetched manifest of an unknown version is an error even when there's a cached one
+		if( data.isEmpty( ))
+		{
+			QFile cache( CachePath( "hlsdk-manifest.json" ));
+
+			if( cache.open( QIODevice::ReadOnly ))
+			{
+				const QJsonDocument cached = QJsonDocument::fromJson( cache.readAll( ));
+
+				if( IsValidManifest( cached ))
+				{
+					m_manifest = cached.object();
+					done( true );
+					return;
+				}
+			}
+		}
+
+		done( false );
+	});
+}
+
+/*
+========================
+MegaBuild::query
+
+========================
+*/
+void MegaBuild::query( const QString &gamedir )
+{
+	fetchManifest( [this, gamedir]( bool reachable )
+	{
+		if( !reachable )
+			emit queryFinished( gamedir, "unreachable" );
+		else
+			emit queryFinished( gamedir, findBuild( gamedir ).isEmpty() ? "missing" : "available" );
+	});
+}
+
+/*
+========================
+MegaBuild::install
+
+========================
+*/
+void MegaBuild::install( const QString &gamedir )
+{
+	if( m_busy )
+		return;
+
+	m_cancelled = false;
+	setBusy( true );
+	emit progress( 0, -1 );
+
+	fetchManifest( [this, gamedir]( bool reachable )
+	{
+		if( m_cancelled )
+			fail( gamedir, QString( ));
+		else if( !reachable )
+			fail( gamedir, tr( "Can't reach the game library server" ));
+		else
+			download( gamedir, true );
+	});
+}
+
+/*
+========================
+MegaBuild::download
+
+========================
+*/
+void MegaBuild::download( const QString &gamedir, bool retry )
+{
+	const QJsonObject build = findBuild( gamedir );
+
+	if( build.isEmpty( ))
+	{
+		fail( gamedir, tr( "There are no game libraries for this device" ));
+		return;
+	}
+
+	m_download = new QFile( CachePath( "download.zip" ), this );
+
+	if( !m_download->open( QIODevice::WriteOnly | QIODevice::Truncate ))
+	{
+		const QString error = m_download->errorString();
+
+		delete m_download;
+		m_download = nullptr;
+		fail( gamedir, error );
+		return;
+	}
+
+	QNetworkRequest request( QUrl( RELEASE_URL + build.value( "filename" ).toString( )));
+
+	request.setAttribute( QNetworkRequest::FollowRedirectsAttribute, true );
+	m_hash.reset();
+	m_writeError.clear();
+	m_reply = m_network.get( request );
+
+	connect( m_reply, &QNetworkReply::downloadProgress, this, &MegaBuild::progress );
+
+	connect( m_reply, &QNetworkReply::readyRead, this, [this]()
+	{
+		const QByteArray chunk = m_reply->readAll();
+
+		if( !m_writeError.isEmpty( ))
+			return;
+
+		m_hash.addData( chunk );
+
+		// a full disk would otherwise show up later as a broken archive or a network error,
+		// QFile forgets the error on the next write
+		if( m_download->write( chunk ) != chunk.size( ))
+		{
+			m_writeError = m_download->errorString();
+			m_reply->abort();
+		}
+	});
+
+	connect( m_reply, &QNetworkReply::finished, this, [this, gamedir, build, retry]()
+	{
+		QNetworkReply *reply = m_reply;
+		const QByteArray rest = reply->readAll();
+		const QString zip_path = m_download->fileName();
+
+		reply->deleteLater();
+		m_hash.addData( rest );
+
+		if( m_writeError.isEmpty() && ( m_download->write( rest ) != rest.size() || !m_download->flush( )))
+			m_writeError = m_download->errorString();
+
+		m_download->close();
+		delete m_download;
+		m_download = nullptr;
+
+		if( m_cancelled )
+		{
+			QFile::remove( zip_path );
+			fail( gamedir, QString( ));
+			return;
+		}
+
+		if( !m_writeError.isEmpty( ))
+		{
+			QFile::remove( zip_path );
+			fail( gamedir, m_writeError );
+			return;
+		}
+
+		const bool downloaded = reply->error() == QNetworkReply::NoError;
+		const bool verified = downloaded && QString::fromLatin1( m_hash.result().toHex( )) == build.value( "sha256" ).toString().toLower();
+
+		if( verified )
+		{
+			finishInstall( gamedir, zip_path );
+			return;
+		}
+
+		QFile::remove( zip_path );
+
+		// the release is deleted and uploaded again every couple of days, a stale manifest points to missing or other files
+		if( retry )
+		{
+			fetchManifest( [this, gamedir]( bool reachable )
+			{
+				if( m_cancelled )
+					fail( gamedir, QString( ));
+				else if( !reachable )
+					fail( gamedir, tr( "Can't reach the game library server" ));
+				else
+					download( gamedir, false );
+			});
+			return;
+		}
+
+		fail( gamedir, downloaded ? tr( "The downloaded file is corrupted" ) : reply->errorString( ));
+	});
+}
+
+/*
+========================
+MegaBuild::finishInstall
+
+========================
+*/
+void MegaBuild::finishInstall( const QString &gamedir, const QString &zip_path )
+{
+	const QDir base( m_launcher->baseDir( ));
+	const QJsonObject build = findBuild( gamedir );
+	const QJsonObject previous = readBuildInfo( gamedir );
+	QDir staging( base.filePath( gamedir + "/" STAGING_DIR ));
+	QDir backup( base.filePath( gamedir + "/" BACKUP_DIR ));
+	QJsonArray files;
+	QString error;
+
+	// leftovers from an interrupted update
+	staging.removeRecursively();
+	backup.removeRecursively();
+
+	// the old libraries stay untouched until the whole archive is unpacked
+	const bool installed = ExtractZip( zip_path, staging, gamedir, files, error ) && MoveStaged( staging, backup, base, gamedir, files, error );
+
+	QFile::remove( zip_path );
+	staging.removeRecursively();
+	backup.removeRecursively();
+
+	if( !installed )
+	{
+		fail( gamedir, error );
+		return;
+	}
+
+	// only after the new build is in place, so a failed update keeps the old libraries
+	if( !previous.isEmpty( ))
+		removeRecordedFiles( gamedir, previous, files );
+
+	QJsonObject info;
+	info["gamedir"] = gamedir;
+	info["platform"] = Platform();
+	info["filename"] = build.value( "filename" );
+	info["sha256"] = build.value( "sha256" );
+	info["source"] = build.value( "source" ).isObject() ? build.value( "source" ) : QJsonObject();
+	info["manifest_build"] = m_manifest.value( "build" );
+	info["files"] = files;
+
+	QSaveFile file( base.filePath( gamedir + "/" MEGABUILD_INFO_FILE ));
+
+	if( !file.open( QIODevice::WriteOnly ) || file.write( QJsonDocument( info ).toJson( )) < 0 || !file.commit( ))
+	{
+		fail( gamedir, file.errorString( ));
+		return;
+	}
+
+	setBusy( false );
+	emit installedChanged( gamedir );
+	emit installFinished( gamedir, true, QString( ));
+}
+
+/*
+========================
+MegaBuild::fail
+
+========================
+*/
+void MegaBuild::fail( const QString &gamedir, const QString &error )
+{
+	setBusy( false );
+	emit installFinished( gamedir, false, error );
+}
+
+/*
+========================
+MegaBuild::cancel
+
+========================
+*/
+void MegaBuild::cancel()
+{
+	m_cancelled = true;
+
+	if( m_reply )
+		m_reply->abort();
+}
+
+/*
+========================
+MegaBuild::removeRecordedFiles
+
+========================
+*/
+bool MegaBuild::removeRecordedFiles( const QString &gamedir, const QJsonObject &info, const QJsonArray &keep ) const
+{
+	const QDir base( m_launcher->baseDir( ));
+	const QString root = GameRoot( base, gamedir );
+	QSet<QString> dirs;
+	QSet<QString> kept;
+
+	for( const QJsonValue &value : keep )
+		kept.insert( value.toObject().value( "path" ).toString( ));
+
+	for( const QJsonValue &value : info.value( "files" ).toArray( ))
+	{
+		const QJsonObject entry = value.toObject();
+		const QString rel = entry.value( "path" ).toString();
+		const QString sha = entry.value( "sha256" ).toString();
+
+		if( rel.isEmpty() || sha.isEmpty() || kept.contains( rel ))
+			continue;
+
+		const QFileInfo target( base.filePath( rel ));
+
+		// refuse to follow paths that escape the game folder
+		if( !target.isFile() || !IsInside( root, target.filePath( )))
+			continue;
+
+		// keep files modified by the user
+		if( FileSHA256( target.filePath( )).compare( sha, Qt::CaseInsensitive ))
+			continue;
+
+		if( QFile::remove( target.filePath( )))
+			dirs.insert( target.absolutePath( ));
+	}
+
+	QStringList sorted = dirs.toList();
+
+	std::sort( sorted.begin(), sorted.end(), []( const QString &a, const QString &b ) { return a.count( '/' ) > b.count( '/' ); } );
+
+	for( const QString &dir : sorted )
+		QDir().rmdir( dir );
+
+	return true;
+}
+
+/*
+========================
+MegaBuild::uninstall
+
+========================
+*/
+bool MegaBuild::uninstall( const QString &gamedir )
+{
+	const QJsonObject info = readBuildInfo( gamedir );
+
+	if( info.isEmpty( ))
+		return false;
+
+	removeRecordedFiles( gamedir, info );
+	QFile::remove( QDir( m_launcher->baseDir( )).filePath( gamedir + "/" MEGABUILD_INFO_FILE ));
+	emit installedChanged( gamedir );
+	return true;
+}

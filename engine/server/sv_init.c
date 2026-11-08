@@ -702,8 +702,17 @@ void SV_ActivateServer( int runPhysics )
 #endif
 	if( runPhysics )
 	{
-		numFrames = (svs.maxclients <= 1) ? 2 : 8;
-		sv.frametime = SV_SPAWN_TIME;
+		// GoldSrc gives the world more time to prepare in multiplayer
+		if( svs.maxclients <= 1 )
+		{
+			numFrames = 2;
+			sv.frametime = SV_SPAWN_TIME;
+		}
+		else
+		{
+			numFrames = 16;
+			sv.frametime = SV_SPAWN_TIME_MP;
+		}
 	}
 	else
 	{
@@ -1421,7 +1430,7 @@ qboolean SV_SpawnServer( const char *mapname, const char *startspot, qboolean ba
 
 	// force normal player collisions for single player
 	if( svs.maxclients == 1 )
-		Cvar_SetValue( "sv_clienttrace", 1 );
+		Cvar_DirectSet( &sv_clienttrace, "1" );
 
 	// copy gamemode into svgame.globals
 	svgame.globals->deathmatch = deathmatch.value;
@@ -1431,9 +1440,6 @@ qboolean SV_SpawnServer( const char *mapname, const char *startspot, qboolean ba
 	// tell the game parts about background state
 	Cvar_DirectFullSet( &sv_background, sv.background ? "1" : "0", FCVAR_READ_ONLY );
 	Cvar_DirectFullSet( &cl_background, sv.background ? "1" : "0", FCVAR_READ_ONLY );
-
-	// force normal player collisions for single player
-	if( svs.maxclients == 1 ) Cvar_SetValue( "sv_clienttrace", 1 );
 
 	// allow loading maps from subdirectories, strip extension anyway
 	Q_strncpy( sv.name, mapname, sizeof( sv.name ));

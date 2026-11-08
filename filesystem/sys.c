@@ -111,7 +111,7 @@ void GC_BspFileRelease( file_t *f )
 	#define S_ISDIR( m ) ( FBitSet( m, S_IFMT ) == S_IFDIR )
 #endif
 
-#if !XASH_PSVITA && !XASH_NSWITCH
+#if !XASH_PSVITA && !XASH_NSWITCH && !XASH_PS4
 	#define HAVE_DUP
 #endif
 
@@ -255,8 +255,9 @@ MAYBE_UNUSED static const wchar_t *FS_PathToWideChar( const char *path )
 	static wchar_t pathBuffer[MAX_PATH];
 	MultiByteToWideChar( CP_UTF8, 0, path, -1, pathBuffer, MAX_PATH );
 	return pathBuffer;
+#else
+	return NULL;
 #endif
-	return L"";
 }
 
 /*
@@ -585,6 +586,7 @@ file_t *FS_OpenHandle( searchpath_t *searchpath, int handle, fs_offset_t offset,
 
 	if( lseek( file->handle, offset, SEEK_SET ) == -1 )
 	{
+		close( file->handle );
 		Mem_Free( file );
 		return NULL;
 	}

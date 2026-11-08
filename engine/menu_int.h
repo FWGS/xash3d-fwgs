@@ -229,6 +229,16 @@ typedef struct ui_extendedfuncs_s {
 	// returns 1 if cvar has read-only flag
 	// or -1 if cvar not found
 	int (*pfnIsCvarReadOnly)( const char *name );
+
+	// tells the engine where the menu edits the text, in screen coordinates
+	// engine tries to keep this rect visible, when the on-screen keyboard covers the screen
+	// must be called before pfnEnableTextInput( true ), empty rect means the whole screen
+	void (*pfnSetTextInputRect)( int x, int y, int w, int h );
+
+	// asks the engine to open the system keyboard with this text, on platforms that have one,
+	// on the next pfnEnableTextInput( true ), even if text input is enabled already
+	// it's used when user activates the text field, for example with gamepad
+	void (*pfnSetTextInputBuffer)( const char *text );
 } ui_extendedfuncs_t;
 
 // deprecated export from old engine

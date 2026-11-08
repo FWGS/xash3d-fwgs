@@ -4,15 +4,15 @@
 [submodule "ref_gl/nanogl"]
 	path = 3rdparty/nanogl
 	url = https://github.com/FWGS/nanogl
+	update = none
 [submodule "ref_gl/gl-wes-v2"]
 	path = 3rdparty/gl-wes-v2
 	url = https://github.com/FWGS/gl-wes-v2
+	update = none
 [submodule "ref_gl/gl4es"]
 	path = 3rdparty/gl4es/gl4es
 	url = https://github.com/ptitSeb/gl4es
-[submodule "vgui_support"]
-	path = 3rdparty/vgui_support
-	url = https://github.com/FWGS/vgui_support
+	update = none
 [submodule "opus"]
 	path = 3rdparty/opus/opus
 	url = https://github.com/xiph/opus
@@ -40,6 +40,7 @@
 [submodule "3rdparty/maintui"]
 	path = 3rdparty/maintui
 	url = https://github.com/FWGS/xash3d-maintui.git
+	update = none
 [submodule "3rdparty/library_suffix"]
 	path = 3rdparty/library_suffix
 	url = https://github.com/timfox/library-suffix.git
@@ -50,3 +51,25 @@
 	path = 3rdparty/dolphin
 	url = https://github.com/timfox/dolphin
 	ignore = dirty
+[submodule "3rdparty/freevgui"]
+	path = 3rdparty/freevgui
+	url = https://github.com/FWGS/freevgui
+[submodule "3rdparty/mpg123/mpg123"]
+	path = 3rdparty/mpg123/mpg123
+	url = https://github.com/libsdl-org/mpg123
+[submodule "3rdparty/opengnm/opengnm"]
+	path = 3rdparty/opengnm/opengnm
+	url = https://github.com/PS4-OpenGNM/opengnm
+	update = none
+[submodule "3rdparty/glslang/glslang"]
+	path = 3rdparty/glslang/glslang
+	url = https://github.com/KhronosGroup/glslang
+	update = none
+[submodule "3rdparty/opengnm-psbc/opengnm-psbc"]
+	path = 3rdparty/opengnm-psbc/opengnm-psbc
+	url = https://github.com/PS4-OpenGNM/opengnm-psbc
+	update = none
+[submodule "3rdparty/opengnm-psbc/Vulkan-Headers"]
+	path = 3rdparty/opengnm-psbc/Vulkan-Headers
+	url = https://github.com/KhronosGroup/Vulkan-Headers
+	update = none

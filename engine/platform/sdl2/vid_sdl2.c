@@ -399,6 +399,9 @@ void VID_SaveWindowSize( int width, int height )
 	int render_w = width, render_h = height;
 
 	VID_GetWindowSizeInPixels( host.hWnd, sw.renderer, &render_w, &render_h );
+#if XASH_SAILFISH
+	Sailfish_KeepWindowSize( &width, &height, &render_w, &render_h );
+#endif
 	VID_SetDisplayTransform( &render_w, &render_h );
 	R_SaveVideoMode( width, height, render_w, render_h, maximized );
 }
@@ -912,7 +915,6 @@ qboolean R_Init_Video( ref_graphic_apis_t type )
 		SDL_SetHint( SDL_HINT_VIDEO_X11_FORCE_EGL, "1" );
 	}
 
-	SDL_SetHint( SDL_HINT_QTWAYLAND_WINDOW_FLAGS, "OverridesSystemGestures" );
 	SDL_SetHint( SDL_HINT_QTWAYLAND_CONTENT_ORIENTATION, "landscape" );
 	SDL_SetHint( SDL_HINT_VIDEO_X11_XRANDR, "1" );
 	SDL_SetHint( SDL_HINT_VIDEO_X11_XVIDMODE, "1" );

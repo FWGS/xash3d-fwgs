@@ -54,6 +54,19 @@ CVAR_DEFINE_AUTO( touch_enable, DEFAULT_TOUCH_ENABLE, FCVAR_ARCHIVE | FCVAR_FILT
 
 /*
 ================
+IN_MouseConnected
+================
+*/
+qboolean IN_MouseConnected( void )
+{
+	if( m_ignore.value )
+		return false;
+
+	return Platform_MouseConnected();
+}
+
+/*
+================
 IN_CollectInputDevices
 
 Returns a bit mask representing connected devices or, at least, enabled
@@ -63,7 +76,7 @@ uint IN_CollectInputDevices( void )
 {
 	uint ret = 0;
 
-	if( !m_ignore.value ) // no way to check is mouse connected, so use cvar only
+	if( IN_MouseConnected( ))
 		ret |= INPUT_DEVICE_MOUSE;
 
 	if( touch_enable.value )
@@ -144,6 +157,7 @@ void IN_MouseSavePos( void )
 		return;
 
 	Platform_GetMousePos( &in_lastvalidpos.x, &in_lastvalidpos.y );
+
 	in_mouse_savedpos = true;
 }
 
@@ -337,6 +351,8 @@ IN_MouseMove
 */
 static void IN_MouseMove( void )
 {
+	static int oldx, oldy;
+
 	if( !in_mouseinitialized )
 		return;
 
@@ -351,7 +367,17 @@ static void IN_MouseMove( void )
 	int x, y;
 	Platform_GetMousePos( &x, &y );
 
+	// touchscreen moves the cursor on its own, don't drag it back to where the mouse is left
+	if( x == oldx && y == oldy )
+		return;
+
+	oldx = x;
+	oldy = y;
+
 	VGui_MouseMove( x, y );
+
+	if( cls.key_dest == key_console )
+		Con_MouseMove( x, y );
 
 	// if the menu is visible, move the menu cursor
 	UI_MouseMove( x, y );
@@ -391,6 +417,22 @@ void IN_MouseEvent( int key, int down )
 	{
 		// perform button actions
 		Key_Event( K_MOUSE1 + key, down );
+	}
+}
+
+/*
+===========
+IN_ClearMouseState
+
+mouse button releases are handled here to ensure that only actual mouse button clicks are released
+===========
+*/
+void IN_ClearMouseState( void )
+{
+	for( int i = 0; i <= K_MOUSE5 - K_MOUSE1; i++ )
+	{
+		if( FBitSet( in_mstate, BIT( i ))) // is this an actual mouse button click?
+			IN_MouseEvent( i, false );
 	}
 }
 
@@ -575,6 +617,22 @@ static void IN_CollectInput( float *forward, float *side, float *pitch, float *y
 	}
 
 }
+
+#if XASH_ENGINE_TESTS && !XASH_NO_TOUCH
+#include "tests.h"
+
+void Test_CollectTouchInput( float *pitch, float *yaw, qboolean filter )
+{
+	float forward = 0, side = 0, old_filter = look_filter.value;
+	struct inputstate_s saved = inputstate;
+
+	inputstate.lastpitch = inputstate.lastyaw = 0;
+	look_filter.value = filter;
+	IN_CollectInput( &forward, &side, pitch, yaw, false );
+	inputstate = saved;
+	look_filter.value = old_filter;
+}
+#endif
 
 /*
 ================

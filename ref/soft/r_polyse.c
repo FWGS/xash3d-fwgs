@@ -857,9 +857,12 @@ void R_PolysetDrawSpansAdditive( spanpackage_t *pspanpackage )
 #endif
 
 					pixel_t temp = *lptex; // vid.colormap[*lptex + ( llight & 0xFF00 )];
-					temp = BLEND_COLOR( temp, vid.color );
+					if( temp != TRANSPARENT_COLOR )
+					{
+						temp = BLEND_COLOR( temp, vid.color );
 
-					*lpdest = BLEND_ADD( temp, *lpdest );
+						*lpdest = BLEND_ADD( temp, *lpdest );
+					}
 
 				}
 				lpdest++;
@@ -939,9 +942,12 @@ void R_PolysetDrawSpansGlow( spanpackage_t *pspanpackage )
 						return;
 #endif
 					pixel_t temp = *lptex; // vid.colormap[*lptex + ( llight & 0xFF00 )];
-					temp = BLEND_COLOR( temp, vid.color );
+					if( temp != TRANSPARENT_COLOR )
+					{
+						temp = BLEND_COLOR( temp, vid.color );
 
-					*lpdest = BLEND_ADD( temp, *lpdest );
+						*lpdest = BLEND_ADD( temp, *lpdest );
+					}
 
 				}
 				lpdest++;
@@ -1102,11 +1108,14 @@ void R_PolysetDrawSpans8_33( spanpackage_t *pspanpackage )
 				{
 					pixel_t temp = *lptex; // vid.colormap[*lptex + ( llight & 0xFF00 )];
 
-					int     alpha = tr.blend * 7;
-					if( alpha == 7 )
-						*lpdest = temp;
-					else if( alpha )
-						*lpdest = BLEND_ALPHA( alpha, temp, *lpdest ); // vid.alphamap[temp+ *lpdest*256];
+					if( temp != TRANSPARENT_COLOR )
+					{
+						int     alpha = tr.blend * 7;
+						if( alpha == 7 )
+							*lpdest = temp;
+						else if( alpha )
+							*lpdest = BLEND_ALPHA( alpha, temp, *lpdest ); // vid.alphamap[temp+ *lpdest*256];
+					}
 				}
 				lpdest++;
 				lzi += r_zistepx;
@@ -1187,8 +1196,11 @@ void R_PolysetFillSpans8( spanpackage_t *pspanpackage )
 						return;
 #endif
 					pixel_t src = *lptex;
-					*lpdest = vid.colormap[( src >> 3 ) | (( llight & 0x1F00 ) << 5 )] | ( src & 7 );
-					*lpz = lzi >> 16;
+					if( src != TRANSPARENT_COLOR )
+					{
+						*lpdest = vid.colormap[( src >> 3 ) | (( llight & 0x1F00 ) << 5 )] | ( src & 7 );
+						*lpz = lzi >> 16;
+					}
 				}
 				lpdest++;
 				lzi += r_zistepx;

@@ -417,7 +417,8 @@ static qboolean Cmd_GetConfigList( const char *s, char *completedname, int lengt
 	search_t *t = FS_Search( va( "%s*.cfg", s ), true, false );
 	if( !t ) return false;
 
-	COM_FileBase( t->filenames[0], matchbuf, sizeof( matchbuf ));
+	Q_strncpy( matchbuf, t->filenames[0], sizeof( matchbuf ));
+	COM_StripExtension( matchbuf );
 	if( completedname && length )
 		Q_strncpy( completedname, matchbuf, length );
 	if( t->numfilenames == 1 ) return true;
@@ -428,7 +429,8 @@ static qboolean Cmd_GetConfigList( const char *s, char *completedname, int lengt
 		if( Q_stricmp( COM_FileExtension( t->filenames[i] ), "cfg" ))
 			continue;
 
-		COM_FileBase( t->filenames[i], matchbuf, sizeof( matchbuf ));
+		Q_strncpy( matchbuf, t->filenames[i], sizeof( matchbuf ));
+		COM_StripExtension( matchbuf );
 		if( print_suggestions )
 			Con_Printf( "%16s\n", matchbuf );
 		numconfigs++;
@@ -1388,31 +1390,26 @@ void Host_FinalizeConfig( file_t *f, const char *config )
 	FS_Printf( f, "// end of %s\n", config );
 	FS_Close( f );
 	FS_Delete( backup );
-	FS_Rename( config, backup );
-	/* SAVE-022: one-shot rename faults leave .new intact. Retry once, then
-	 * restore the previous .bak so config is never truncated away. */
-	if( !FS_Rename( newcfg, config ))
+qboolean backed_up = FS_Rename( config, backup ); // might not exist yet
+
+	if( FS_Rename( newcfg, config ))
+		return;
+
+	if( !backed_up )
 	{
-		if( FS_Rename( newcfg, config ))
-		{
-#if XASH_GAMECUBE
-			Con_Reportf( "Xash3D GameCube: SAVE-022 recovered config from .new name=%s\n", config );
-#endif
-		}
-		else if( FS_Rename( backup, config ))
-		{
-#if XASH_GAMECUBE
-			Con_Reportf( "Xash3D GameCube: SAVE-022 restored config from .bak name=%s\n", config );
-#endif
-		}
-		else
-		{
-#if XASH_GAMECUBE
-			Con_Reportf( S_ERROR "Xash3D GameCube: SAVE-022 config finalize unrecovered name=%s\n", config );
-#else
-			Con_DPrintf( S_ERROR "Couldn't finalize %s.\n", config );
-#endif
-		}
+		Con_Printf( S_ERROR "%s: can't replace %s with %s, keeping old config
+", __func__, config, newcfg );
+		return;
+	}
+
+	if( FS_Rename( backup, config ))
+		Con_Printf( S_ERROR "%s: can't replace %s with %s, restored %s
+", __func__, config, newcfg, backup );
+	else
+	{
+		Con_Printf( S_ERROR "%s: can't replace %s with %s and can't restore %s, %s is lost! Rename %s or %s to %s manually
+",
+			__func__, config, newcfg, backup, config, backup, newcfg, config );
 	}
 }
 
@@ -1571,3 +1568,127 @@ void Key_EnumCmds_f( void )
 	else Con_Printf( S_ERROR "couldn't write help.txt.\n");
 	FS_AllowDirectPaths( false );
 }
+
+#if XASH_ENGINE_TESTS
+#include "tests.h"
+
+enum
+{
+	MOCK_CONFIG,
+	MOCK_BACKUP,
+	MOCK_NEWCFG,
+	MOCK_COUNT
+};
+
+static struct
+{
+	qboolean exists[MOCK_COUNT];
+	uint fail_renames; // bit per rename call
+	int renames;
+	fs_api_t orig;
+} mock_fs; // FIXME: make mocked filesystem generic
+
+static int Mock_NameToIndex( const char *name )
+{
+	if( !Q_strcmp( name, "config.cfg" ))
+		return MOCK_CONFIG;
+	if( !Q_strcmp( name, "config.cfg.bak" ))
+		return MOCK_BACKUP;
+	if( !Q_strcmp( name, "config.cfg.new" ))
+		return MOCK_NEWCFG;
+	return -1;
+}
+
+static file_t *Mock_Open( const char *filepath, const char *mode, qboolean gamedironly )
+{
+	static int dummy;
+
+	TASSERT_EQi( Mock_NameToIndex( filepath ), MOCK_NEWCFG );
+	mock_fs.exists[MOCK_NEWCFG] = true;
+	return (file_t *)&dummy;
+}
+
+static int Mock_Close( file_t *file )
+{
+	return 0;
+}
+
+static int Mock_Printf( file_t *file, const char *format, ... )
+{
+	return 0;
+}
+
+static qboolean Mock_Rename( const char *oldname, const char *newname )
+{
+	int old_idx = Mock_NameToIndex( oldname );
+	int new_idx = Mock_NameToIndex( newname );
+
+	TASSERT( old_idx >= 0 && new_idx >= 0 );
+
+	if( FBitSet( mock_fs.fail_renames, BIT( mock_fs.renames++ )))
+		return false;
+
+	if( old_idx < 0 || new_idx < 0 || !mock_fs.exists[old_idx] )
+		return false;
+
+	mock_fs.exists[old_idx] = false;
+	mock_fs.exists[new_idx] = true;
+	return true;
+}
+
+static qboolean Mock_Delete( const char *path )
+{
+	int idx = Mock_NameToIndex( path );
+
+	TASSERT( idx >= 0 );
+
+	if( idx >= 0 )
+		mock_fs.exists[idx] = false;
+	return true;
+}
+
+static void Test_FinalizeConfig( qboolean has_config, qboolean has_backup, uint fail_renames, int expected_renames, qboolean expect_config, qboolean expect_backup, qboolean expect_newcfg )
+{
+	Msg( "config = %d, backup = %d, fail_renames = 0x%x\n", has_config, has_backup, fail_renames );
+
+	memset( &mock_fs.exists, 0, sizeof( mock_fs.exists ));
+	mock_fs.exists[MOCK_CONFIG] = has_config;
+	mock_fs.exists[MOCK_BACKUP] = has_backup;
+	mock_fs.fail_renames = fail_renames;
+	mock_fs.renames = 0;
+
+	Host_FinalizeConfig( FS_Open( "config.cfg.new", "w", false ), "config.cfg" );
+
+	TASSERT_EQi( mock_fs.renames, expected_renames );
+	TASSERT_EQi( mock_fs.exists[MOCK_CONFIG], expect_config );
+	TASSERT_EQi( mock_fs.exists[MOCK_BACKUP], expect_backup );
+	TASSERT_EQi( mock_fs.exists[MOCK_NEWCFG], expect_newcfg );
+}
+
+void Test_RunConfig( void )
+{
+	mock_fs.orig = g_fsapi;
+	g_fsapi.Open = Mock_Open;
+	g_fsapi.Close = Mock_Close;
+	g_fsapi.Printf = Mock_Printf;
+	g_fsapi.Rename = Mock_Rename;
+	g_fsapi.Delete = Mock_Delete;
+
+	// normal write, previous backup gets replaced
+	TRUN( Test_FinalizeConfig( true, true, 0, 2, true, true, false ));
+
+	// first run, nothing to backup
+	TRUN( Test_FinalizeConfig( false, false, 0, 2, true, false, false ));
+
+	// can't move new config into place, backup gets restored
+	TRUN( Test_FinalizeConfig( true, true, BIT( 1 ), 3, true, false, true ));
+
+	// can't backup and can't overwrite, old config is kept, no restore attempt
+	TRUN( Test_FinalizeConfig( true, true, BIT( 0 ) | BIT( 1 ), 2, true, false, true ));
+
+	// can't move new config into place and can't restore backup, both are left on disk
+	TRUN( Test_FinalizeConfig( true, true, BIT( 1 ) | BIT( 2 ), 3, false, true, true ));
+
+	g_fsapi = mock_fs.orig;
+}
+#endif // XASH_ENGINE_TESTS

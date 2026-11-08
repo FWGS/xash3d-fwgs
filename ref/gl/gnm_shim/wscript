@@ -1,0 +1,88 @@
+#! /usr/bin/env python
+# encoding: utf-8
+
+def options(opt):
+	pass
+
+def configure(conf):
+	pass
+
+def gnm_shaders_c(task):
+	out = ['// Generated from ref/gl/gnm_shim/shaders, see ref/gl/gnm_shim/wscript', '#include <stdint.h>', '#include "gnm_shaders.h"', '']
+	names = []
+
+	for node in task.inputs:
+		data = node.read('rb')
+		name = node.name[:-len('.sb')]
+		lines = ['static const uint8_t %s[%d] __attribute__((aligned(16))) =\n{' % (name, len(data))]
+		lines += ['\t' + ', '.join('0x%02x' % b for b in data[i:i + 16]) + ',' for i in range(0, len(data), 16)]
+		lines.append('};\n')
+		out.append('\n'.join(lines))
+		names.append(name)
+
+	vs = [i for i in names if i.startswith('ff_vs_')]
+	ps = [i for i in names if i.startswith('ff_ps_')]
+
+	out.append('const gnm_shader_blob_t gnm_shader_clear_vs = { clear_vs, sizeof( clear_vs ) };')
+	out.append('const gnm_shader_blob_t gnm_shader_clear_ps = { clear_ps, sizeof( clear_ps ) };')
+	out.append('')
+	out.append('const gnm_shader_blob_t gnm_shader_ff_vs[GNM_FF_VS_COUNT] =\n{')
+	out += ['\t{ %s, sizeof( %s ) },' % (i, i) for i in vs]
+	out.append('};')
+	out.append('')
+	out.append('const gnm_shader_blob_t gnm_shader_ff_ps[GNM_FF_PS_COUNT] =\n{')
+	out += ['\t{ %s, sizeof( %s ) },' % (i, i) for i in ps]
+	out.append('};')
+
+	task.outputs[0].write('\n'.join(out) + '\n')
+
+def build(bld):
+	def tool(name):
+		tg = bld.get_tgen_by_name(name)
+		tg.post()
+		return tg.link_task.outputs[0]
+
+	glslang = tool('glslang-standalone')
+	psbc = tool('psbc')
+	shaders = []
+	names = []
+
+	# GLSL -> SPIR-V -> PS4 shader binary, -4 is the base PS4 GPU (GFX7), it also runs on PS4 Pro
+	def shader(source, stage, name, defines = []):
+		spv = bld.path.get_bld().make_node('shaders/%s.spv' % name)
+		sb = bld.path.get_bld().make_node('shaders/%s.sb' % name)
+
+		bld(rule = '${SRC[0].abspath()} --quiet -V -S %s %s ${SRC[1].abspath()} -o ${TGT}' % (stage, ' '.join(defines)),
+			source = [glslang, 'shaders/' + source],
+			target = spv,
+			name = name + '-spv')
+
+		bld(rule = '${SRC[0].abspath()} -s %s -f ${SRC[1].abspath()} -o ${TGT} -4' % ('vertex' if stage == 'vert' else 'fragment'),
+			source = [psbc, spv],
+			target = sb,
+			name = name + '-sb')
+
+		shaders.append(sb)
+		names.extend([name + '-spv', name + '-sb'])
+
+	shader('clear.vert.glsl', 'vert', 'clear_vs')
+	shader('clear.frag.glsl', 'frag', 'clear_ps')
+
+	# variant bits, see gnm_shaders.h
+	for i in range(8):
+		shader('ff.vert.glsl', 'vert', 'ff_vs_%d' % i, ['-DATTR_COLOR=%d' % (i & 1), '-DATTR_TEXCOORD0=%d' % ((i >> 1) & 1), '-DATTR_TEXCOORD1=%d' % ((i >> 2) & 1)])
+
+	for i in range(32):
+		shader('ff.frag.glsl', 'frag', 'ff_ps_%d' % i, ['-DATTR_COLOR=%d' % (i & 1), '-DATTR_TEXCOORD0=%d' % ((i >> 1) & 1), '-DATTR_TEXCOORD1=%d' % ((i >> 2) & 1),
+			'-DFEAT_ALPHA_TEST=%d' % ((i >> 3) & 1), '-DFEAT_FOG=%d' % ((i >> 4) & 1)])
+
+	gnm_shaders = bld.path.get_bld().make_node('gnm_shaders.c')
+	bld(rule = gnm_shaders_c, source = shaders, target = gnm_shaders, name = 'gnm-shaders')
+
+	bld.stlib(source = bld.path.ant_glob('*.c') + [gnm_shaders],
+		target = 'gnm_shim',
+		features = 'c',
+		includes = ['.', '..', bld.srcnode.find_dir('engine/platform/ps4/gnm')],
+		cflags = ['-std=gnu11', '-Wno-unused-parameter'],
+		use = ['opengnm', 'gnm-shaders', 'engine_includes', 'sdk_includes'] + names,
+		install_path = None)

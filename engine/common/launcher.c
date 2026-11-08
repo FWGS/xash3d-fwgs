@@ -33,6 +33,13 @@ static void Sys_ChangeGame( const char *progname )
 	// stub
 }
 
+#if XASH_PS4
+static int PS4_HostMain( void *unused )
+{
+	return Host_Main( szArgc, szArgv, XASH_GAMEDIR, 0, Sys_ChangeGame );
+}
+#endif // XASH_PS4
+
 int main( int argc, char **argv )
 {
 #if XASH_PSVITA
@@ -41,14 +48,16 @@ int main( int argc, char **argv )
 #elif XASH_GAMECUBE
 	GCube_EarlyInit();
 	szArgc = GCube_GetArgv( argc, argv, &szArgv );
-#else
-#if XASH_IOS
+#elif XASH_PS4
+	// read command line from file
+	szArgc = PS4_GetArgv( argc, argv, &szArgv );
+	return PS4_RunOnBigStack( PS4_HostMain, NULL );
+#elif XASH_IOS
 	IOS_LaunchDialog();
 	szArgc = IOS_GetArgs( &szArgv );
 #else
 	szArgc = argc;
 	szArgv = argv;
-#endif
 #endif
 	{
 		int rc = Host_Main( szArgc, szArgv, XASH_GAMEDIR, 0, Sys_ChangeGame );

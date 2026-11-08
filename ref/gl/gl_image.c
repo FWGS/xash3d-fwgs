@@ -795,9 +795,9 @@ static void GL_BuildMipMap( byte *in, int srcWidth, int srcHeight, int srcDepth,
 					if( !VectorNormalizeLength( normal ))
 						VectorSet( normal, 0.5f, 0.5f, 1.0f );
 
-					out[0] = 128 + (byte)(127.0f * normal[0]);
-					out[1] = 128 + (byte)(127.0f * normal[1]);
-					out[2] = 128 + (byte)(127.0f * normal[2]);
+					out[0] = (byte)( 128 + (int)( 127.0f * normal[0] ));
+					out[1] = (byte)( 128 + (int)( 127.0f * normal[1] ));
+					out[2] = (byte)( 128 + (int)( 127.0f * normal[2] ));
 					out[3] = 255;
 				}
 			}
@@ -1152,7 +1152,7 @@ static void GL_ProcessImage( gl_texture_t *tex, rgbdata_t *pic )
 		if( pic->buffer ) gEngfuncs.Image_Process( &pic, 0, 0, img_flags, 0 );
 
 		if( FBitSet( pic->flags, IMAGE_PLAYERDECAL ) && pic->buffer && pic->type == PF_RGBA_32 && FBitSet( pic->flags, IMAGE_HAS_ALPHA )
-		    && !FBitSet( pic->flags, IMAGE_PREMULTIPLIED ))
+		    && !FBitSet( pic->flags, IMAGE_PREMULTIPLIED | IMAGE_COLORINDEX ))
 		{
 			int cnt = (int)( pic->width * pic->height );
 			byte *p = pic->buffer;
@@ -2149,14 +2149,11 @@ void R_ShowTextures( void )
 
 	if( showHelp )
 	{
-		gEngfuncs.CL_CenterPrint( "use '<-' and '->' keys to change atlas page, ESC to quit", 0.25f );
+		gEngfuncs.CL_CenterPrint( "use '<-' and '->' keys to change atlas page, '^' and 'v' to zoom, ESC to quit", 0.25f );
 		showHelp = false;
 	}
 
 	pglClear( GL_COLOR_BUFFER_BIT );
-
-	float w = 200;
-	float h = 200;
 
 	float time = gp_cl->time * 0.5f;
 	time -= floor( time );
@@ -2169,8 +2166,16 @@ void R_ShowTextures( void )
 	int charHeight;
 	gEngfuncs.Con_DrawStringLen( NULL, NULL, &charHeight );
 
-	int base_w = gpGlobals->width / w;
-	int base_h = gpGlobals->height / ( h + charHeight * 2 );
+	// keep a tile square and fitting on screen
+	float zoom = bound( SHOWTEXTURES_ZOOM_MIN, r_showtextures_zoom->value, SHOWTEXTURES_ZOOM_MAX );
+	float w = Q_min( 200.0f * zoom, gpGlobals->width );
+	float h = Q_min( 200.0f * zoom, Q_max( 1.0f, gpGlobals->height - charHeight * 2.0f ));
+
+	w = h = Q_max( 32.0f, Q_min( w, h ));
+
+	// per_page must never be zero, the empty page skip loop below would spin forever
+	int base_w = Q_max( 1, (int)( gpGlobals->width / w ));
+	int base_h = Q_max( 1, (int)( gpGlobals->height / ( h + charHeight * 2 )));
 	int per_page = base_w * base_h;
 	int start = per_page * ( r_showtextures->value - 1 ) + 1; // skip empty null texture
 

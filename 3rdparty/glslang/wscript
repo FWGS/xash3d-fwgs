@@ -1,0 +1,59 @@
+#! /usr/bin/env python
+# encoding: utf-8
+
+# glslang standalone compiler for the build machine, compiles GLSL shaders to SPIR-V
+import re, sys
+
+def options(opt):
+	pass
+
+def configure(conf):
+	if not conf.path.find_node('glslang/StandAlone/StandAlone.cpp'):
+		conf.fatal('Can\'t find glslang submodule. Run `git submodule update --init --checkout 3rdparty/glslang`.')
+
+	conf.load('host_tool_compiler')
+	conf.setup_host_env()
+
+def build(bld):
+	src = bld.path.find_dir('glslang')
+	gen = bld.path.get_bld().make_node('include')
+
+	# latest version in CHANGES.md, same as build_info.py finds it
+	version = re.search(r'^#* +(\d+)\.(\d+)\.(\d+)(?:-(\w+))? (?:\d{4}-\d\d-\d\d)? *$', src.find_node('CHANGES.md').read(), re.M)
+
+	bld(features = 'subst',
+		source = src.find_node('build_info.h.tmpl'),
+		target = gen.make_node('glslang/build_info.h'),
+		major = version.group(1),
+		minor = version.group(2),
+		patch = version.group(3),
+		flavor = version.group(4) or '',
+		name = 'glslang-build-info',
+		ext_out = ['.h'])
+
+	bld(rule = '"%s" ${SRC[0].abspath()} -i %s -o ${TGT}' % (sys.executable, src.find_dir('glslang/ExtensionHeaders').abspath()),
+		source = src.find_node('gen_extension_headers.py'),
+		target = gen.make_node('glslang/glsl_intrinsic_header.h'),
+		name = 'glslang-intrinsic-header',
+		ext_out = ['.h'])
+
+	sources = src.ant_glob([
+		'glslang/GenericCodeGen/*.cpp',
+		'glslang/MachineIndependent/*.cpp',
+		'glslang/MachineIndependent/preprocessor/*.cpp',
+		'glslang/OSDependent/Unix/ossource.cpp',
+		'glslang/ResourceLimits/*.cpp',
+		'SPIRV/*.cpp',
+		'StandAlone/StandAlone.cpp',
+	])
+
+	bld.program(source = sources,
+		target = 'glslang-standalone',
+		features = 'cxx',
+		includes = [src, gen],
+		defines = ['ENABLE_SPIRV', 'ENABLE_OPT=0', 'GLSLANG_OSINCLUDE_UNIX'],
+		cxxflags = ['-std=c++17'],
+		lib = ['pthread'],
+		use = 'glslang-build-info glslang-intrinsic-header',
+		env = bld.all_envs['host'].derive(),
+		install_path = None)

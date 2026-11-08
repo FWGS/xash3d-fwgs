@@ -33,6 +33,7 @@ void IN_Init( void );
 void Host_InputFrame( void );
 void IN_Shutdown( void );
 void IN_MouseEvent( int key, int down );
+void IN_ClearMouseState( void );
 void IN_MWheelEvent( int direction );
 void IN_ActivateMouse( void );
 void IN_DeactivateMouse( void );
@@ -45,6 +46,7 @@ void IN_GyroEvent( vec3_t data );
 void IN_GyroFinalizeMove( float *fw, float *side, float *dpitch, float *dyaw );
 void IN_GyroDrawDebug( void );
 
+qboolean IN_MouseConnected( void );
 uint IN_CollectInputDevices( void );
 void IN_LockInputDevices( qboolean lock );
 void IN_EngineAppendMove( float frametime, usercmd_t *cmd, qboolean active );
@@ -136,6 +138,13 @@ typedef enum engineAxis_e
 	MAX_AXES,
 } engineAxis_t;
 
+typedef enum engineTouchpad_e
+{
+	JOY_TOUCHPAD_LEFT = 0,
+	JOY_TOUCHPAD_RIGHT,
+	MAX_TOUCHPADS,
+} engineTouchpad_t;
+
 typedef enum joy_calibration_state_s
 {
 	JOY_NOT_CALIBRATED = 0,
@@ -145,10 +154,13 @@ typedef enum joy_calibration_state_s
 } joy_calibration_state_t;
 
 qboolean Joy_IsActive( void );
-void Joy_SetCapabilities( qboolean have_gyro );
+void Joy_AutoPreset( void );
+const char *Joy_SteamControllerPreset( int vendor, int product );
+void Joy_SetCapabilities( qboolean have_gyro, int num_touchpads, const char *preset );
 void Joy_SetCalibrationState( joy_calibration_state_t state );
 void Joy_AxisMotionEvent( engineAxis_t engineAxis, short value );
 void Joy_GyroEvent( vec3_t data );
+void Joy_TouchpadEvent( engineTouchpad_t pad, qboolean down, float x, float y, float pressure );
 void Joy_FinalizeMove( float *fw, float *side, float *dpitch, float *dyaw );
 void Joy_DrawDebug( void );
 void Joy_Init( void );

@@ -1931,6 +1931,16 @@ static void pfnEnableTextInput( int enable )
 	Key_EnableTextInput( enable, false );
 }
 
+static void pfnSetTextInputRect( int x, int y, int w, int h )
+{
+	Key_SetTextInputRect( x, y, w, h );
+}
+
+static void pfnSetTextInputBuffer( const char *text )
+{
+	Key_SetTextInputBuffer( text );
+}
+
 static int pfnGetRenderers( unsigned int num, char *short_name, size_t size1, char *long_name, size_t size2 )
 {
 	if( num >= ref.num_renderers )
@@ -1998,6 +2008,8 @@ static ui_extendedfuncs_t gExtendedfuncs =
 	pfnGetGameInfo,
 	pfnGetModInfo,
 	pfnIsCvarReadOnly,
+	pfnSetTextInputRect,
+	pfnSetTextInputBuffer,
 };
 
 void UI_UnloadProgs( void )

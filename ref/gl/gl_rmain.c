@@ -543,19 +543,29 @@ void R_SetupGL( qboolean set_gl_state )
 
 	if( !FBitSet( RI.rvp.flags, RF_DRAW_CUBEMAP ))
 	{
+		int scene_width, scene_height;
+
+		GL_BindSceneTarget();
+		GL_GetSceneTargetSize( &scene_width, &scene_height );
+
 		// set up viewport (main, playersetup)
-		int x = floor( RI.rvp.viewport[0] * gpGlobals->width / gpGlobals->width );
-		int x2 = ceil(( RI.rvp.viewport[0] + RI.rvp.viewport[2] ) * gpGlobals->width / gpGlobals->width );
-		int y = floor( gpGlobals->height - RI.rvp.viewport[1] * gpGlobals->height / gpGlobals->height );
-		int y2 = ceil( gpGlobals->height - ( RI.rvp.viewport[1] + RI.rvp.viewport[3] ) * gpGlobals->height / gpGlobals->height );
+		int x = RI.rvp.viewport[0] * scene_width / gpGlobals->width;
+		int x2 = (( RI.rvp.viewport[0] + RI.rvp.viewport[2] ) * scene_width + gpGlobals->width - 1 ) / gpGlobals->width;
+		int y = scene_height - RI.rvp.viewport[1] * scene_height / gpGlobals->height;
+		int y2 = scene_height - (( RI.rvp.viewport[1] + RI.rvp.viewport[3] ) * scene_height + gpGlobals->height - 1 ) / gpGlobals->height;
+
+		// the screen target is moved into place when it's presented
+		int ox = GL_RenderTargetsActive() ? 0 : tr.offset_x;
+		int oy = GL_RenderTargetsActive() ? 0 : tr.offset_y;
 
 		if( tr.rotation & 1 )
-			pglViewport( y2, x, y - y2, x2 - x );
-		else pglViewport( x, y2, x2 - x, y - y2 );
+			pglViewport( ox + y2, oy + x, y - y2, x2 - x );
+		else pglViewport( ox + x, oy + y2, x2 - x, y - y2 );
 	}
 	else
 	{
 		// envpass, mirrorpass
+		GL_BindWindowTarget();
 		pglViewport( RI.rvp.viewport[0], RI.rvp.viewport[1], RI.rvp.viewport[2], RI.rvp.viewport[3] );
 	}
 
@@ -868,6 +878,13 @@ static void R_DrawEntitiesOnList( void )
 
 	GL_CheckForErrors();
 
+#ifdef HACKS_RELATED_HLMODS
+	// Vampire Slayer leave GL_LINEAR fog with their own start/end after
+	// pfnDrawNormalTriangles; restore engine fog for the translucent
+	// entities and viewmodel drawn below.
+	R_DrawFog();
+#endif
+
 	// then draw translucent entities
 	for( int i = 0; i < tr.draw_list->num_trans_entities && !FBitSet( RI.rvp.flags, RF_ONLY_CLIENTDRAW ); i++ )
 	{
@@ -1034,6 +1051,8 @@ void R_BeginFrame( qboolean clearScene )
 {
 	glConfig.softwareGammaUpdate = false;	// in case of possible fails
 
+	GL_CheckRenderTargets();
+
 	if(( gl_clear->value || ENGINE_GET_PARM( PARM_DEV_OVERVIEW )) &&
 		clearScene && ENGINE_GET_PARM( PARM_CONNSTATE ) != ca_cinematic )
 	{
@@ -1045,7 +1064,8 @@ void R_BeginFrame( qboolean clearScene )
 	R_Set2DMode( true );
 
 	// draw buffer stuff
-	pglDrawBuffer( GL_BACK );
+	if( !GL_RenderTargetsActive( ))
+		pglDrawBuffer( GL_BACK );
 
 	// update texture parameters
 	if( FBitSet( gl_texture_nearest.flags|gl_lightmap_nearest.flags|gl_texture_anisotropy.flags|gl_texture_lodbias.flags, FCVAR_CHANGED ))
@@ -1115,14 +1135,19 @@ R_EndFrame
 */
 void R_EndFrame( void )
 {
+	GL_PresentScreenTarget();
 #if XASH_PSVITA
 	VGL_ShimEndFrame();
 #endif
 #if !defined( XASH_GL_STATIC )
 	GL2_ShimEndFrame();
 #endif
+
 	// flush any remaining 2D bits
 	R_Set2DMode( false );
+#if XASH_PS4
+	GNM_ShimEndFrame();
+#endif
 	gEngfuncs.GL_SwapBuffers();
 }
 

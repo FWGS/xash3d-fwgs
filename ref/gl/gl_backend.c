@@ -421,6 +421,16 @@ void GL_Cull( GLenum cull )
 	glState.faceCull = cull;
 }
 
+void GL_DrawRangeElements( GLenum mode, GLuint start, GLuint end, GLsizei count, GLenum type, const GLvoid *indices )
+{
+#if !defined( XASH_NANOGL )
+	if( pglDrawRangeElements )
+		pglDrawRangeElements( mode, start, end, count, type, indices );
+	else
+#endif
+		pglDrawElements( mode, count, type, indices );
+}
+
 void GL_SetRenderMode( int mode )
 {
 	pglTexEnvi( GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_MODULATE );
@@ -551,8 +561,8 @@ qboolean VID_ScreenShot( const char *filename, int shot_type )
 	int width = 0, height = 0;
 
 	rgbdata_t *r_shot = Mem_Calloc( r_temppool, sizeof( rgbdata_t ));
-	r_shot->width = (gpGlobals->width + 3) & ~3;
-	r_shot->height = (gpGlobals->height + 3) & ~3;
+	r_shot->width = gpGlobals->width;
+	r_shot->height = gpGlobals->height;
 	r_shot->flags = IMAGE_HAS_COLOR;
 	r_shot->type = PF_RGBA_32;
 	r_shot->size = r_shot->width * r_shot->height * gEngfuncs.Image_GetPFDesc( r_shot->type )->bpp;

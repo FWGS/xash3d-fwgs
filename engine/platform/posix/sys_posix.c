@@ -16,13 +16,14 @@ GNU General Public License for more details.
 #include <unistd.h> // fork
 #include <sys/types.h>
 #include <sys/stat.h>
+#include <sys/time.h>
 #include <fcntl.h>
 #include <errno.h>
 #include <signal.h>
 #include "platform/platform.h"
 #include "menu_int.h"
 
-#if !XASH_ANDROID && !XASH_NSWITCH && !XASH_PSVITA
+#if !XASH_ANDROID && !XASH_NSWITCH && !XASH_PSVITA && !XASH_PS4
 void Platform_ShellExecute( const char *path, const char *parms )
 {
 	const char *argv[] = { OPEN_COMMAND, path, NULL };
@@ -35,7 +36,7 @@ void Platform_ShellExecute( const char *path, const char *parms )
 		exit( 1 );
 	}
 }
-#endif // !XASH_ANDROID && !XASH_NSWITCH && !XASH_PSVITA
+#endif // !XASH_ANDROID && !XASH_NSWITCH && !XASH_PSVITA && !XASH_PS4
 
 void Posix_Daemonize( void )
 {
@@ -106,13 +107,27 @@ void Posix_SetupSigtermHandling( void )
 #if XASH_TIMER == TIMER_POSIX
 double Platform_DoubleTime( void )
 {
+	static qboolean s_ClockInit;
+	static time_t s_ClockStart;
 	struct timespec ts;
 #if XASH_IRIX
 	clock_gettime( CLOCK_SGI_CYCLE, &ts );
-#else
+#elif defined( CLOCK_MONOTONIC )
 	clock_gettime( CLOCK_MONOTONIC, &ts );
+#else
+	struct timeval tv;
+	gettimeofday( &tv, NULL );
+	ts.tv_sec  = tv.tv_sec;
+	ts.tv_nsec = tv.tv_usec * 1000;
 #endif
-	return (double) ts.tv_sec + (double) ts.tv_nsec/1000000000.0;
+
+	if( !s_ClockInit )
+	{
+		s_ClockStart = ts.tv_sec;
+		s_ClockInit = true;
+	}
+
+	return (double)( ts.tv_sec - s_ClockStart ) + (double) ts.tv_nsec/1000000000.0;
 }
 
 void Platform_Sleep( int msec )
@@ -120,4 +135,19 @@ void Platform_Sleep( int msec )
 	usleep( msec * 1000 );
 }
 #endif // XASH_TIMER == TIMER_POSIX
+
+#if defined( HAVE_GETRUSAGE )
+#include <sys/resource.h>
+
+double Posix_GetCPUTime( void )
+{
+	struct rusage usage;
+
+	if( getrusage( RUSAGE_SELF, &usage ) != 0 )
+		return 0.0;
+
+	return usage.ru_utime.tv_sec + usage.ru_utime.tv_usec * 1e-6
+		+ usage.ru_stime.tv_sec + usage.ru_stime.tv_usec * 1e-6;
+}
+#endif // HAVE_GETRUSAGE
 

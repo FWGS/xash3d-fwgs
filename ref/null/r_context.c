@@ -91,7 +91,7 @@ static const char *R_GetConfigName( void )
 	return NULL;
 }
 
-static qboolean R_SetDisplayTransform( ref_screen_rotation_t rotate, int x, int y, float scale_x, float scale_y )
+static qboolean R_SetDisplayTransform( ref_screen_rotation_t rotate, int x, int y, float unused1_default_at_1, float unused2_default_at_1 )
 {
 	return true;
 }
@@ -127,6 +127,11 @@ static void GL_ProcessTexture( int texnum, float gamma, int topColor, int bottom
 }
 
 static void R_SetupSky( int *skytextures )
+{
+	;
+}
+
+static void R_Set2DOffset( float x, float y )
 {
 	;
 }
@@ -226,6 +231,9 @@ static void CL_DrawBeams( int fTrans, BEAM *beams )
 
 static intptr_t RefGetParm( int parm, int arg )
 {
+	if( parm == PARM_GL_CONTEXT_TYPE )
+		return CONTEXT_TYPE_SOFTWARE;
+
 	return 0;
 }
 
@@ -354,6 +362,7 @@ static const ref_interface_t gReffuncs =
 	.R_SetupSky                 = R_SetupSky,
 
 	.R_Set2DMode      = R_SimpleStubBool,
+	.R_Set2DOffset    = R_Set2DOffset,
 	.R_DrawStretchPic = R_DrawStretchPic,
 	.FillRGBA         = FillRGBA,
 	.WorldToScreen    = WorldToScreen,
@@ -366,7 +375,7 @@ static const ref_interface_t gReffuncs =
 	.R_DecalShoot      = R_DecalShoot,
 	.R_DecalRemoveAll  = R_SimpleStubInt,
 	.R_CreateDecalList = R_CreateDecalList,
-	.R_ClearAllDecals  = R_SimpleStub,
+	.R_ClearAllDecals  = R_SimpleStubBool,
 
 	.R_StudioEstimateFrame = R_StudioEstimateFrame,
 	.R_StudioLerpMovement  = R_StudioLerpMovement,

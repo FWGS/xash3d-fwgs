@@ -319,7 +319,6 @@ extern const char *const svc_goldsrc_strings[svc_lastmsg+1];
 #define A2A_PING         "ping" // reply with A2A_ACK
 #define A2A_ACK          "ack" // no-op
 #define A2A_INFO         "info" // different format for client and server, see code
-#define A2A_NETINFO      "netinfo" // different format for client and server, see code
 #define A2A_GOLDSRC_PING "i" // reply with A2A_GOLDSRC_ACK
 #define A2A_GOLDSRC_ACK  "j" // no-op
 

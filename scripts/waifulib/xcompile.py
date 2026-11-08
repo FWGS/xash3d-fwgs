@@ -13,6 +13,8 @@
 
 try: from fwgslib import get_flags_by_compiler
 except: from waflib.extras.fwgslib import get_flags_by_compiler
+try: from host_tool_compiler import HOST_ENV
+except: from waflib.extras.host_tool_compiler import HOST_ENV
 from waflib import Logs, TaskGen
 from waflib.Tools import c_config
 from collections import OrderedDict
@@ -45,6 +47,9 @@ NSWITCH_ENVVARS = ['DEVKITPRO']
 GAMECUBE_ENVVARS = ['DEVKITPRO']
 
 PSVITA_ENVVARS = ['VITASDK']
+
+PS4_ENVVARS = ['OO_PS4_TOOLCHAIN']
+PS4_LLVM_VERSION = '18' # OpenOrbis libraries are built with it, newer lld picks musl's lite_malloc
 
 PSP_ENVVARS = ['PSPDEV', 'PSPSDK', 'PSPTOOLCHAIN']
 
@@ -551,7 +556,8 @@ class NintendoSwitch:
 		# help the linker out
 		cflags += ['-ffunction-sections', '-fdata-sections']
 		# base include dirs
-		cflags += ['-isystem %s/include' % self.libnx_dir, '-I%s/include' % self.portlibs_dir]
+		# portlibs must be -isystem too, so bundled libraries headers (e.g. mpg123) take precedence over portlibs ones
+		cflags += ['-isystem %s/include' % self.libnx_dir, '-isystem %s/include' % self.portlibs_dir]
 		# the game wants GNU extensions
 		if cxx:
 			cflags += ['-std=gnu++17', '-D_GNU_SOURCE']
@@ -632,13 +638,81 @@ class PSVita:
 		linkflags = ['-Wl,--hash-style=sysv', '-Wl,-q', '-Wl,-z,nocopyreloc', '-mtune=cortex-a9', '-mfpu=neon']
 		# enforce no-short-enums again
 		linkflags += ['-Wl,-no-enum-size-warning', '-fno-short-enums']
-		# try to avoid the "vita-elf-create: Cannot allocate 20084 bytes for SCE data at end of segment 0; segment 1 overlaps" error
-		linkflags += ['-Wl,-z,max-page-size=0x10000']
+		# vitasdk's ld script reserves __sce_headroom bytes after the RX segment for the SCE metadata that vita-elf-create appends there,
+		# otherwise "Cannot allocate N bytes for SCE data at end of segment 0; segment 1 overlaps" depends on the layout, see vitasdk/buildscripts#144
+		linkflags += ['-Wl,-z,max-page-size=0x10000', '-Wl,--defsym,__sce_headroom=0x10000']
 		return linkflags
 
 	def ldflags(self):
 		ldflags = []
 		return ldflags
+
+class PS4:
+	ctx       = None # waf context
+	toolchain = None
+	target    = 'x86_64-pc-freebsd12-elf'
+
+	def __init__(self, ctx):
+		self.ctx = ctx
+
+		self.toolchain = ctx.options.PS4_TOOLCHAIN
+		for i in PS4_ENVVARS:
+			if self.toolchain:
+				break
+			self.toolchain = os.getenv(i)
+
+		if not self.toolchain:
+			ctx.fatal('Set the OpenOrbis PS4 toolchain path with --ps4-toolchain or %s environment variable!' %
+				' or '.join(PS4_ENVVARS))
+
+		self.toolchain = os.path.abspath(self.toolchain)
+
+		if not os.path.exists(os.path.join(self.toolchain, 'link.x')):
+			ctx.fatal('OpenOrbis toolchain not found in `%s`!' % self.toolchain)
+
+		# compilers can be overridden as usual, the clang driver takes ld.lld from its own installation
+		self.cc_cmd = ctx.environ.get('CC', 'clang-' + PS4_LLVM_VERSION)
+		self.cxx_cmd = ctx.environ.get('CXX', 'clang++-' + PS4_LLVM_VERSION)
+
+	def check_compiler(self, var):
+		env = self.ctx.env
+		if env[var + '_NAME'] != 'clang' or env.CC_VERSION[0] != PS4_LLVM_VERSION:
+			self.ctx.fatal('OpenOrbis libraries need Clang %s, %s is %s %s!' % (PS4_LLVM_VERSION, var, env[var + '_NAME'], '.'.join(env.CC_VERSION)))
+
+	# target and __ORBIS__ are part of compiler command, so waf detects DEST_OS correctly
+	def cc(self):
+		return '%s --target=%s -D__ORBIS__' % (self.cc_cmd, self.target)
+
+	def cxx(self):
+		return '%s --target=%s -D__ORBIS__' % (self.cxx_cmd, self.target)
+
+	def ar(self):
+		return 'llvm-ar-' + PS4_LLVM_VERSION
+
+	def strip(self):
+		return 'llvm-strip-' + PS4_LLVM_VERSION
+
+	def cflags(self, cxx = False):
+		cflags = ['--target=%s' % self.target, '--sysroot=%s' % self.toolchain]
+		# __ORBIS__ selects PS4 in OpenOrbis SDL2 and XASH_PS4 in build.h
+		cflags += ['-D__ORBIS__', '-fPIC', '-funwind-tables']
+		cflags += ['-isysroot', self.toolchain]
+		if cxx:
+			cflags += ['-isystem', os.path.join(self.toolchain, 'include', 'c++', 'v1')]
+		cflags += ['-isystem', os.path.join(self.toolchain, 'include')]
+		return cflags
+
+	# they go before object list
+	def linkflags(self):
+		linkflags = ['--target=%s' % self.target, '--sysroot=%s' % self.toolchain, '-fuse-ld=lld', '-nostdlib']
+		# OpenOrbis images are PIE, use toolchain linker script and no ELF interpreter
+		linkflags += ['-Wl,--no-dynamic-linker', '-Wl,-m,elf_x86_64', '-Wl,--eh-frame-hdr']
+		linkflags += ['-Wl,--script,%s' % os.path.join(self.toolchain, 'link.x')]
+		linkflags += ['-L%s' % os.path.join(self.toolchain, 'lib')]
+		return linkflags
+
+	def ldflags(self):
+		return []
 
 class PSP:
 	ctx               = None # waf context
@@ -712,6 +786,14 @@ def options(opt):
 		help='enable building for Nintendo Switch [default: %(default)s]')
 	xc.add_option('--psvita', action='store_true', dest='PSVITA', default = False,
 		help='enable building for PlayStation Vita [default: %(default)s]')
+	xc.add_option('--ps4', action='store_true', dest='PS4', default = False,
+		help='enable building for PlayStation 4 with OpenOrbis toolchain [default: %(default)s]')
+	xc.add_option('--ps4-toolchain', action='store', dest='PS4_TOOLCHAIN', default = None,
+		help='path to OpenOrbis PS4Toolchain directory [default: OO_PS4_TOOLCHAIN environment variable]')
+	xc.add_option('--ps4-gamelibs', action='store', dest='PS4_GAMELIBS', default = None,
+		help='game directory with PS4 game libraries from hlsdk-portable to put into the package')
+	xc.add_option('--ps4-sce-sys', action='store', dest='PS4_SCE_SYS', default = None,
+		help='directory with custom icon0.png, pic0.png and pic1.png for the PS4 package [default: ./ps4_sce_sys]')
 	xc.add_option('--sailfish', action='store_true', dest='SAILFISH', default = False,
 		help='enable building for Sailfish')
 	xc.add_option('--emscripten', action='store_true', dest='EMSCRIPTEN', default = None,
@@ -830,6 +912,22 @@ def configure(conf):
 		conf.env.LIB_M = ['m']
 		conf.env.VRTLD = ['vrtld']
 		conf.env.DEST_OS = 'psvita'
+	elif conf.options.PS4:
+		conf.ps4 = ps4 = PS4(conf)
+		conf.environ['CC'] = ps4.cc()
+		conf.environ['CXX'] = ps4.cxx()
+		conf.environ['AR'] = ps4.ar()
+		conf.environ['STRIP'] = ps4.strip()
+		conf.env.CFLAGS += ps4.cflags()
+		conf.env.CXXFLAGS += ps4.cflags(True)
+		conf.env.LINKFLAGS += ps4.linkflags()
+		conf.env.LDFLAGS += ps4.ldflags()
+		conf.env.PS4_TOOLCHAIN = ps4.toolchain
+		conf.env.HAVE_M = True
+		conf.env.LIB_M = [] # libm is part of OpenOrbis libc
+		conf.env.DEST_OS = 'ps4'
+		conf.env.DEST_CPU = 'x86_64'
+		conf.msg('Selected OpenOrbis toolchain', ps4.toolchain)
 	elif conf.options.PSP_OPTS:
 		values = conf.options.PSP_OPTS.split(',')
 		if len(values) != 3:
@@ -895,7 +993,7 @@ def configure(conf):
 	conf.env.MAGX = conf.options.MAGX
 	conf.env.MSVC_WINE = conf.options.MSVC_WINE
 	conf.env.SAILFISH = conf.options.SAILFISH
-	MACRO_TO_DESTOS = OrderedDict({ '__ANDROID__' : 'android', '__GAMECUBE__' : 'gamecube', '__SWITCH__' : 'nswitch', '__vita__' : 'psvita', '__wasi__': 'wasi', '__EMSCRIPTEN__' : 'emscripten', '__psp__': 'psp' })
+	MACRO_TO_DESTOS = OrderedDict({ '__ORBIS__' : 'ps4', '__ANDROID__' : 'android', '__GAMECUBE__' : 'gamecube', '__SWITCH__' : 'nswitch', '__vita__' : 'psvita', '__wasi__': 'wasi', '__EMSCRIPTEN__' : 'emscripten', '__psp__': 'psp' })
 	for k in c_config.MACRO_TO_DESTOS:
 		MACRO_TO_DESTOS[k] = c_config.MACRO_TO_DESTOS[k] # ordering is important
 	c_config.MACRO_TO_DESTOS  = MACRO_TO_DESTOS
@@ -904,6 +1002,9 @@ def post_compiler_cxx_configure(conf):
 	conf.msg('Target OS', conf.env.DEST_OS)
 	conf.msg('Target CPU', conf.env.DEST_CPU)
 	conf.msg('Target binfmt', conf.env.DEST_BINFMT)
+
+	if conf.options.PS4 and conf.variant != HOST_ENV:
+		conf.ps4.check_compiler('CXX')
 
 	if conf.options.ANDROID_OPTS:
 		if conf.android.ndk_rev == 19:
@@ -919,6 +1020,9 @@ def post_compiler_c_configure(conf):
 	conf.msg('Target OS', conf.env.DEST_OS)
 	conf.msg('Target CPU', conf.env.DEST_CPU)
 	conf.msg('Target binfmt', conf.env.DEST_BINFMT)
+
+	if conf.options.PS4 and conf.variant != HOST_ENV:
+		conf.ps4.check_compiler('CC')
 
 	return
 

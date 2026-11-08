@@ -306,7 +306,7 @@ static void SDLash_EventHandler( SDL_Event *event )
 		break;
 
 	case SDL_QUIT:
-		Sys_Quit( "caught SDL_QUIT" );
+		CL_RequestQuit( "caught SDL_QUIT" );
 		break;
 	case SDL_VIDEORESIZE:
 		VID_SaveWindowSize( event->resize.w, event->resize.h, false );

@@ -74,6 +74,12 @@ def main():
 		run_cmake(hlsdk_bin_path, None, inst_path)
 		run_cmake(mainui_bin_path, None, inst_path)
 
+		ffmpeg_lib_path = os.path.join(args.top_dir, "3rdparty", "ffmpeg", abi, "lib")
+		if os.path.isdir(ffmpeg_lib_path):
+			for lib in os.listdir(ffmpeg_lib_path):
+				if lib.endswith(".so"):
+					shutil.copyfile(os.path.join(ffmpeg_lib_path, lib), os.path.join(inst_path, lib))
+
 	process = subprocess.Popen(waf_exec, env=env)
 	process.communicate()
 

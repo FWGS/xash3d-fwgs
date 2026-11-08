@@ -113,6 +113,68 @@ void Platform_SetClipboardText( const char *buffer )
 	SDL_SetClipboardText( buffer );
 }
 
+/*
+=============
+Platform_TranslateKeyLayout
+
+=============
+*/
+int Platform_TranslateKeyLayout( int keynum )
+{
+	SDL_Scancode scancode;
+	SDL_Keycode keycode;
+
+	if( keynum >= 'a' && keynum <= 'z' )
+		scancode = SDL_SCANCODE_A + ( keynum - 'a' );
+	else if( keynum >= '1' && keynum <= '9' )
+		scancode = SDL_SCANCODE_1 + ( keynum - '1' );
+	else switch( keynum )
+	{
+	case '0':  scancode = SDL_SCANCODE_0; break;
+	case '`':  scancode = SDL_SCANCODE_GRAVE; break;
+	case '-':  scancode = SDL_SCANCODE_MINUS; break;
+	case '=':  scancode = SDL_SCANCODE_EQUALS; break;
+	case '[':  scancode = SDL_SCANCODE_LEFTBRACKET; break;
+	case ']':  scancode = SDL_SCANCODE_RIGHTBRACKET; break;
+	case '\\': scancode = SDL_SCANCODE_BACKSLASH; break;
+	case ';':  scancode = SDL_SCANCODE_SEMICOLON; break;
+	case '\'': scancode = SDL_SCANCODE_APOSTROPHE; break;
+	case ',':  scancode = SDL_SCANCODE_COMMA; break;
+	case '.':  scancode = SDL_SCANCODE_PERIOD; break;
+	case '/':  scancode = SDL_SCANCODE_SLASH; break;
+	default:
+		return keynum; // not a layout dependent key
+	}
+
+	keycode = SDL_GetKeyFromScancode( scancode );
+
+	// only accept characters the engine uses as keynums, so non-latin layouts
+	// and keys with unusual unshifted characters (like AZERTY digit row) fall
+	// back to the positional QWERTY keynum
+	if( keycode >= 'a' && keycode <= 'z' )
+		return keycode;
+	if( keycode >= '0' && keycode <= '9' )
+		return keycode;
+
+	switch( keycode )
+	{
+	case '`':
+	case '-':
+	case '=':
+	case '[':
+	case ']':
+	case '\\':
+	case ';':
+	case '\'':
+	case ',':
+	case '.':
+	case '/':
+		return keycode;
+	}
+
+	return keynum;
+}
+
 #if !XASH_PSVITA
 
 /*
@@ -121,9 +183,31 @@ SDLash_EnableTextInput
 
 =============
 */
-void Platform_EnableTextInput( qboolean enable )
+void Platform_EnableTextInput( qboolean enable, int x, int y, int w, int h )
 {
-	enable ? SDL_StartTextInput() : SDL_StopTextInput();
+#if XASH_SAILFISH
+	// SDL can't show the on-screen keyboard there
+	Sailfish_EnableTextInput( enable, x, y, w, h );
+#endif
+
+	if( !enable )
+	{
+		SDL_StopTextInput();
+		return;
+	}
+
+	float scale_x = refState.scale_x > 0.0f ? refState.scale_x : 1.0f;
+	float scale_y = refState.scale_y > 0.0f ? refState.scale_y : 1.0f;
+	SDL_Rect rect = {
+		.x = x / scale_x,
+		.y = y / scale_y,
+		.w = w / scale_x,
+		.h = h / scale_y,
+	};
+
+	// Android reads the rect when the on-screen keyboard is shown, so set it before starting
+	SDL_SetTextInputRect( &rect );
+	SDL_StartTextInput();
 }
 
 #endif // !XASH_PSVITA

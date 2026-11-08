@@ -99,9 +99,9 @@ static const loadpixformat_t load_game[] =
 { "bmp", Image_LoadBMP, IL_HINT_NO },   // WON menu images
 { "tga", Image_LoadTGA, IL_HINT_NO },   // hl vgui menus
 { "png", Image_LoadPNG, IL_HINT_NO },   // NightFire 007 menus
-{ "wad", Image_LoadWAD, IL_HINT_NO },   // hl wad files
+{ "wad", Image_LoadWAD, IL_HINT_NO, true }, // player logo in tempdecal.wad
 { "mip", Image_LoadMIP, IL_HINT_NO },   // hl textures from wad or buffer
-{ "mdl", Image_LoadMDL, IL_HINT_HL },   // hl studio model skins
+{ "mdl", Image_LoadMDL, IL_HINT_HL, true }, // hl studio model skins
 { "spr", Image_LoadSPR, IL_HINT_HL },   // hl sprite frames
 { "lmp", Image_LoadLMP, IL_HINT_NO },   // hl menu images (cached.wad etc)
 { "fnt", Image_LoadFNT, IL_HINT_HL },   // hl console font (fonts.wad etc)

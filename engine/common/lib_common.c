@@ -444,6 +444,35 @@ const char *COM_GetPlatformNeutralName( const char *in_name )
 	}
 }
 
+qboolean COM_CheckLibraryDirectDependency( const char *name, const char *depname, qboolean directpath )
+{
+	dll_user_t *hInst = FS_FindLibrary( name, directpath );
+
+	if( !hInst )
+		return false;
+
+	fs_offset_t filesize = 0;
+	byte *data;
+
+	// FS_LoadFile could resolve shortPath through a search path FS_FindLibrary skipped
+	if( hInst->custom_loader )
+		data = FS_LoadFile( hInst->shortPath, &filesize, false );
+	else
+		data = FS_LoadDirectFile( hInst->fullPath, &filesize );
+
+	// FS_FindLibrary only looks the library up, there's nothing to unload here
+	Mem_Free( hInst );
+
+	if( !data )
+		return false;
+
+	const qboolean ret = Platform_CheckLibraryDirectDependency( data, (size_t)filesize, depname );
+
+	Mem_Free( data );
+
+	return ret;
+}
+
 #if XASH_ENGINE_TESTS
 #include "tests.h"
 

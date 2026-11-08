@@ -105,6 +105,7 @@ typedef struct
 
 // studio-related cvars
 CVAR_DEFINE_AUTO( r_studio_sort_textures, "0", FCVAR_GLCONFIG, "change draw order for additive meshes" );
+CVAR_DEFINE_AUTO( r_studio_builtin_renderer, "0", 0, "use built-in studio model renderer instead of the one provided by client library (debugging)" );
 static cvar_t *cl_righthand = NULL;
 
 static r_studio_interface_t *pStudioDraw;
@@ -365,7 +366,7 @@ pfnGetPlayerState
 */
 static entity_state_t *R_StudioGetPlayerState( int index )
 {
-	if( !FBitSet( RI.rvp.flags, RF_DRAW_WORLD ))
+	if( !FBitSet( RI.rvp.flags, RF_DRAW_WORLD ) && RI.currententity )
 		return &RI.currententity->curstate;
 
 	return gEngfuncs.pfnGetPlayerState( index );
@@ -2819,6 +2820,13 @@ static void R_StudioDrawModelInternal( cl_entity_t *e, int flags )
 	{
 		if( e->player )
 			R_StudioDrawPlayer( flags, &e->curstate );
+		else
+			R_StudioDrawModel( flags );
+	}
+	else if( unlikely( r_studio_builtin_renderer.value ))
+	{
+		if( e->player )
+			R_StudioDrawPlayer( flags, R_StudioGetPlayerState( e->index - 1 ));
 		else
 			R_StudioDrawModel( flags );
 	}

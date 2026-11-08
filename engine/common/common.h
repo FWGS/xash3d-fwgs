@@ -276,6 +276,18 @@ typedef enum bugcomp_e
 
 	// returns full path to the game directory in server's pfnGetGameDir call
 	BUGCOMP_GET_GAME_DIR_FULL_PATH = BIT( 3 ),
+
+	// don't spawn entities with "Not in Deathmatch" spawnflag in deathmatch, like in GoldSrc
+	BUGCOMP_SPAWNFLAG_NOT_DEATHMATCH = BIT( 4 ),
+
+	// keep platform text input enabled during gameplay, for mods that read text events on their own
+	BUGCOMP_ALWAYS_ENABLE_TEXT_INPUT = BIT( 5 ),
+
+	// keep BSP texture names in their original case, like in GoldSrc
+	BUGCOMP_PRESERVE_TEXTURE_NAME_CASE = BIT( 6 ),
+
+	// don't split key bindings by semicolon, like in GoldSrc
+	BUGCOMP_BIND_NOSPLIT = BIT( 7 ),
 } bugcomp_t;
 
 typedef struct host_parm_s
@@ -298,6 +310,7 @@ typedef struct host_parm_s
 
 	host_redirect_t rd; // remote console
 
+	float window_insets[4]; // safe area insets: left, top, right, bottom fractions of the window
 	void   *hWnd;          // main window
 
 	// command line parms
@@ -721,6 +734,7 @@ int CSCR_LoadDefaultCVars( const char *scriptfilename );
 // hpak.c
 //
 const char *COM_ResourceTypeFromIndex( int index );
+const char *COM_DownloadCachePath( char *buf, size_t size, const char *path, qboolean incomplete );
 void HPAK_Init( void );
 qboolean HPAK_GetDataPointer( const char *filename, struct resource_s *pRes, byte **buffer, int *size );
 qboolean HPAK_ResourceForHash( const char *filename, byte *hash, struct resource_s *pRes );
@@ -846,6 +860,7 @@ byte *LZSS_Compress( byte *pInput, int inputLength, uint *pOutputSize );
 uint LZSS_Decompress( const byte *pInput, byte *pOutput, size_t input_len, size_t output_len );
 void GL_FreeImage( const char *name );
 void VID_Init( void );
+void VID_UpdateWindowInsets( void );
 void UI_SetActiveMenu( qboolean fActive );
 void UI_ShowConnectionWarning( void );
 void Cmd_Null_f( void );

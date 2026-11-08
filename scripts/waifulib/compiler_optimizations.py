@@ -159,6 +159,11 @@ PROFILE_USE_LINKFLAGS = {
 	'gcc':   ['-fprofile-use=%s'],
 }
 
+OPT_REPORT_CFLAGS = {
+	'gcc':   ['-fopt-info-vec-optimized-missed'],
+	'clang': ['-Rpass=loop-vectorize', '-Rpass-missed=loop-vectorize', '-Rpass-analysis=loop-vectorize'],
+}
+
 def options(opt):
 	grp = opt.add_option_group('Compiler optimization options')
 
@@ -183,6 +188,9 @@ def options(opt):
 	grp.add_option('--use-profile', action = 'store', dest = 'PROFILE_USE', default = None,
 		help = 'use profile during build [default: %(default)s]')
 
+	grp.add_option('--enable-opt-report', action = 'store_true', dest = 'OPT_REPORT', default = False,
+		help = 'report vectorizer decisions while compiling [default: %(default)s]')
+
 def configure(conf):
 	conf.start_msg('Build type')
 
@@ -204,6 +212,10 @@ def configure(conf):
 	conf.msg('OpenMP build', 'yes' if conf.options.OPENMP else 'no')
 	conf.msg('Generate profile', 'yes' if conf.options.PROFILE_GENERATE else 'no')
 	conf.msg('Use profile', conf.options.PROFILE_USE if not conf.options.PROFILE_GENERATE else 'no')
+
+	# do not print that in the configuration log, it's purely a development option
+	if conf.options.OPT_REPORT:
+		conf.msg('Vectorizer report', 'yes')
 
 	# -march=native should not be used
 	if conf.options.BUILD_TYPE.startswith('fast'):
@@ -233,6 +245,9 @@ def get_optimization_flags(conf):
 
 	if conf.options.POLLY:
 		cflags   += conf.get_flags_by_compiler(POLLY_CFLAGS, conf.env.COMPILER_CC)
+
+	if conf.options.OPT_REPORT:
+		cflags   += conf.get_flags_by_compiler(OPT_REPORT_CFLAGS, conf.env.COMPILER_CC)
 
 	if conf.options.OPENMP:
 		linkflags+= conf.get_flags_by_compiler(OPENMP_LINKFLAGS, conf.env.COMPILER_CC)

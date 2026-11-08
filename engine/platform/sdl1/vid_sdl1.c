@@ -226,9 +226,16 @@ void VID_RestoreScreenResolution( void )
 
 static qboolean VID_CreateWindowWithSafeGL( const char *wndname, int xpos, int ypos, int w, int h, uint32_t flags )
 {
+	int bpp = 16;
+
+#if XASH_APPLE // Quartz SDL 1.2: fixed 16bpp GL modes often fail NSWindow creation (CGSWindow error 1002).
+	if( FBitSet( flags, SDL_OPENGL ))
+		bpp = 0;
+#endif // XASH_APPLE
+
 	while( glw_state.safe >= SAFE_NO && glw_state.safe < SAFE_LAST )
 	{
-		host.hWnd = sw.surf = SDL_SetVideoMode( w, h, 16, flags );
+		host.hWnd = sw.surf = SDL_SetVideoMode( w, h, bpp, flags );
 		// we have window, exit loop
 		if( host.hWnd )
 			break;
@@ -283,7 +290,12 @@ qboolean VID_CreateWindow( int width, int height, window_mode_t window_mode )
 	Q_strncpy( wndname, GI->title, sizeof( wndname ));
 
 	if( window_mode != WINDOW_MODE_WINDOWED )
-		SetBits( flags, SDL_FULLSCREEN|SDL_HWSURFACE );
+	{
+		SetBits( flags, SDL_FULLSCREEN );
+#if !XASH_APPLE // SDL docs: do not combine SDL_HWSURFACE with SDL_FULLSCREEN on macOS Quartz.
+		SetBits( flags, SDL_HWSURFACE );
+#endif // !XASH_APPLE
+	}
 
 	if( !glw_state.software )
 		SetBits( flags, SDL_OPENGL );
@@ -309,8 +321,7 @@ void VID_DestroyWindow( void )
 	if( host.hWnd )
 		host.hWnd = NULL;
 
-	if( refState.fullScreen )
-		refState.fullScreen = false;
+	refState.window_mode = WINDOW_MODE_WINDOWED;
 }
 
 /*
@@ -325,7 +336,7 @@ static void GL_SetupAttributes( void )
 
 void GL_SwapBuffers( void )
 {
-	SDL_Flip( host.hWnd );
+	SDL_GL_SwapBuffers();
 }
 
 int GL_SetAttribute( int attr, int val )
@@ -379,14 +390,15 @@ qboolean R_Init_Video( ref_graphic_apis_t type )
 {
 	string safe;
 
-	refState.desktopBitsPixel = 16;
-
 	switch( type )
 	{
 	case REF_SOFTWARE:
+		refState.desktopBitsPixel = 16;
 		glw_state.software = true;
 		break;
 	case REF_GL:
+		refState.desktopBitsPixel = 32; // assume true color for opengl
+
 		if( !glw_state.safe && Sys_GetParmFromCmdLine( "-safegl", safe ) )
 			glw_state.safe = bound( SAFE_NO, Q_atoi( safe ), SAFE_DONTCARE );
 
@@ -406,16 +418,36 @@ qboolean R_Init_Video( ref_graphic_apis_t type )
 
 	qboolean retval = VID_SetMode();
 	if( !retval )
-	{
 		return retval;
-	}
 
 	switch( type )
 	{
 	case REF_GL:
+	{
+		int red = 0, green = 0, blue = 0;
+
+		// do not hardcode 16bpp, wrong depth breaks additive blending and can corrupt uploads
+		if( !SDL_GL_GetAttribute( SDL_GL_RED_SIZE, &red )
+			&& !SDL_GL_GetAttribute( SDL_GL_GREEN_SIZE, &green )
+			&& !SDL_GL_GetAttribute( SDL_GL_BLUE_SIZE, &blue )
+			&& ( red + green + blue ) > 0 )
+		{
+			refState.desktopBitsPixel = red + green + blue;
+		}
+		else
+		{
+			SDL_VideoInfo *vi = SDL_GetVideoInfo();
+
+			if( vi && vi->vfmt && vi->vfmt->BitsPerPixel >= 16 )
+				refState.desktopBitsPixel = vi->vfmt->BitsPerPixel;
+			else
+				refState.desktopBitsPixel = 32;
+		}
+
 		// refdll also can check extensions
 		ref.dllFuncs.GL_InitExtensions();
 		break;
+	}
 	case REF_SOFTWARE:
 	default:
 		break;
@@ -430,15 +462,15 @@ qboolean R_Init_Video( ref_graphic_apis_t type )
 
 rserr_t R_ChangeDisplaySettings( int width, int height, window_mode_t window_mode )
 {
-	refState.fullScreen = window_mode != WINDOW_MODE_WINDOWED;
-	Con_Reportf( "%s: Setting video mode to %dx%d %s\n", __func__, width, height, refState.fullScreen ? "fullscreen" : "windowed" );
+	const qboolean fullscreen = window_mode != WINDOW_MODE_WINDOWED;
+	Con_Reportf( "%s: Setting video mode to %dx%d %s\n", __func__, width, height, fullscreen ? "fullscreen" : "windowed" );
 
 	if( !host.hWnd )
 	{
 		if( !VID_CreateWindow( width, height, window_mode ))
 			return rserr_invalid_mode;
 	}
-	else if( refState.fullScreen )
+	else if( fullscreen )
 	{
 		if( !VID_SetScreenResolution( width, height, window_mode ))
 			return rserr_invalid_fullscreen;
@@ -449,6 +481,7 @@ rserr_t R_ChangeDisplaySettings( int width, int height, window_mode_t window_mod
 		VID_SaveWindowSize( width, height, true );
 	}
 
+	refState.window_mode = window_mode;
 	return rserr_ok;
 }
 
@@ -528,4 +561,24 @@ void R_Free_Video( void )
 	R_FreeVideoModes();
 
 	ref.dllFuncs.GL_ClearExtensions();
+}
+
+/*
+==========
+VID_Info_f
+==========
+*/
+void VID_Info_f( void )
+{
+	const SDL_VideoInfo *vi = SDL_GetVideoInfo();
+	const char *driver = SDL_VideoDriverName( NULL, 0 );
+	const char *mode = refState.window_mode != WINDOW_MODE_WINDOWED ? "fullscreen" : "windowed";
+
+	Con_Printf( "Video: " S_GREEN "SDL1" S_DEFAULT "\n" );
+	Con_Printf( "Video driver: " S_GREEN "%s" S_DEFAULT "\n", driver ? driver : "unknown" );
+	Con_Printf( "Window size: " S_GREEN "%dx%d" S_DEFAULT "\n", refState.width, refState.height );
+	Con_Printf( "Window mode: " S_GREEN "%s" S_DEFAULT "\n", mode );
+
+	if( vi )
+		Con_Printf( "Desktop: " S_GREEN "%dbpp" S_DEFAULT "\n", vi->vfmt ? vi->vfmt->BitsPerPixel : 0 );
 }

@@ -1064,6 +1064,10 @@ static void Mod_Modellist_f( void )
 static void Mod_UnloadRenderData( model_t *mod )
 {
 #if !XASH_DEDICATED
+	// loader failed before renderer got a chance to process this model
+	if( mod->type == mod_bad )
+		return;
+
 	switch( mod->type )
 	{
 	case mod_sprite:
@@ -2110,7 +2114,7 @@ void Mod_NeedCRC( const char *name, qboolean needCRC )
 	else ClearBits( p->flags, FCRC_SHOULD_CHECKSUM );
 }
 
-#if XASH_ENGINE_TESTS
+#if XASH_LLVM_LIBFUZZER
 
 static const uint8_t *fuzz_data;
 static size_t fuzz_size;
@@ -2146,4 +2150,4 @@ int EXPORT Fuzz_Mod_LoadModel( const uint8_t *Data, size_t Size )
 	return 0;
 }
 
-#endif // XASH_ENGINE_TESTS
+#endif // XASH_LLVM_LIBFUZZER

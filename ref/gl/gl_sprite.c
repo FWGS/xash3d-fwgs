@@ -111,7 +111,7 @@ static float R_GetSpriteFrameInterpolant( cl_entity_t *ent, mspriteframe_t **old
 		// are positive, so we don't have to worry about division by zero
 		float targettime = time - ((int)(time / fullinterval)) * fullinterval;
 
-		// LordHavoc: since I can't measure the time properly when it loops from numframes - 1 to 0,
+		// LadyHavoc: since I can't measure the time properly when it loops from numframes - 1 to 0,
 		// i instead measure the time of the first frame, hoping it is consistent
 		int i, j;
 		for( i = 0, j = numframes - 1; i < (numframes - 1); i++ )

@@ -50,7 +50,7 @@ const char *CL_MsgInfo( int cmd )
 		// get engine message name
 		const char *svc_string = NULL;
 
-		switch( cls.legacymode )
+		switch( cls.net_protocol )
 		{
 		case PROTO_CURRENT:
 			svc_string = svc_strings[cmd];
@@ -146,7 +146,7 @@ static void CL_WriteErrorMessage( int current_count, sizebuf_t *msg )
 
 	FS_Write( fp, &cls.starting_count, sizeof( int ));
 	FS_Write( fp, &current_count, sizeof( int ));
-	FS_Write( fp, &cls.legacymode, sizeof( cls.legacymode ));
+	FS_Write( fp, &cls.net_protocol, sizeof( cls.net_protocol ));
 	FS_Write( fp, MSG_GetData( msg ), MSG_GetMaxBytes( msg ));
 	FS_Close( fp );
 
@@ -186,7 +186,7 @@ void CL_WriteMessageHistory( void )
 		thecmd++;
 	}
 
-	old = &cls_message_debug.oldcmd[thecmd];
+	old = &cls_message_debug.oldcmd[thecmd & MSG_MASK];
 	Con_Printf( S_RED "BAD: " S_DEFAULT "%i %04i %s\n", old->frame_number, old->starting_offset, CL_MsgInfo( old->command ));
 	CL_WriteErrorMessage( old->starting_offset, msg );
 	cls_message_debug.parsing = false;
@@ -207,7 +207,7 @@ void CL_ReplayBufferDat_f( void )
 	FS_Read( f, &current_count, sizeof( current_count ));
 	FS_Read( f, &protocol, sizeof( protocol ));
 
-	cls.legacymode = protocol;
+	cls.net_protocol = protocol;
 
 	len = FS_Read( f, buffer, sizeof( buffer ));
 	FS_Close( f );

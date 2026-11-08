@@ -52,24 +52,36 @@ jobs:
           - os: ubuntu-latest
             targetos: psvita
             targetarch: armv7hf
+          - os: ubuntu-latest
+            targetos: ps4
+            targetarch: amd64
+          - os: ubuntu-latest # Platform SDK tooling is i486
+            targetos: sailfish
+            targetarch: aarch64
+          - os: ubuntu-latest
+            targetos: sailfish
+            targetarch: armv7hl
           - os: windows-latest
             targetos: win32
             targetarch: amd64
           - os: windows-2022 # always use the oldest possible for 32-bit because of older compilers, and better support of certain legacy OSes
             targetos: win32
             targetarch: i386
-          - os: macos-14 # arm64 as per github documentation
+          - os: macos-26 # arm64 as per github documentation
             targetos: apple
             targetarch: arm64
           - os: macos-latest
             targetos: ios
             targetarch: arm64
-          - os: macos-15-intel
+          - os: macos-26-intel
             targetos: apple
             targetarch: amd64
     env:
       SDL_VERSION: 2.32.10
-      FFMPEG_VERSION: 8.1
+      FFMPEG_VERSION: '9.0'
+      YY_THUNKS_VERSION: v1.2.1
+      SAILFISH_SDK_VERSION: 3.13.5
+      SAILFISH_TARGET_VERSION: 5.1.0.11
       GH_CPU_ARCH: ${{ matrix.targetarch }}
       GH_CPU_OS: ${{ matrix.targetos }}
       GH_CROSSCOMPILING: ${{ matrix.cross }}
@@ -78,6 +90,12 @@ jobs:
       uses: actions/checkout@v6
       with:
         submodules: recursive
+    - name: Cache Sailfish SDK images
+      if: matrix.targetos == 'sailfish'
+      uses: actions/cache@v6
+      with:
+        path: ${{ runner.temp }}/sailfish-sdk
+        key: sailfish-sdk-${{ env.SAILFISH_SDK_VERSION }}-${{ env.SAILFISH_TARGET_VERSION }}-${{ matrix.targetarch }}
     - name: Install dependencies
       run: bash scripts/gha/deps_${{ matrix.targetos }}.sh
     - name: Build engine
@@ -89,6 +107,9 @@ jobs:
       with:
         name: artifact-${{ matrix.targetos }}-${{ matrix.targetarch }}
         path: artifacts/*
+    - name: Validate package for Harbour
+      if: matrix.targetos == 'sailfish'
+      run: bash scripts/gha/validate_sailfish.sh
   flatpak:
     runs-on: ubuntu-latest
     continue-on-error: true
@@ -104,6 +125,10 @@ jobs:
       uses: actions/checkout@v6
       with:
         submodules: recursive
+    - name: Checkout optional submodules
+      run: |
+        git config --global --add safe.directory "$GITHUB_WORKSPACE"
+        git submodule update --init --checkout 3rdparty/nanogl 3rdparty/gl-wes-v2 3rdparty/gl4es/gl4es
     - name: Build flatpak (Compat.i386)
       uses: FWGS/flatpak-github-actions/flatpak-builder@v6.5
       with:

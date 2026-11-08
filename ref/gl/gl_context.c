@@ -75,7 +75,7 @@ static qboolean Mod_LooksLikeWaterTexture( const char *name )
 
 	if( !FBitSet( gp_host->features, ENGINE_QUAKE_COMPATIBLE ))
 	{
-		if( !Q_strncmp( name, "water", 5 ) || !Q_strnicmp( name, "laser", 5 ))
+		if( !Q_strnicmp( name, "water", 5 ) || !Q_strnicmp( name, "laser", 5 ))
 			return true;
 	}
 
@@ -118,8 +118,11 @@ static void Mod_UnloadTextures( model_t *mod )
 		break;
 	case mod_sprite:
 		break;
+	case mod_bad:
+		// model was never loaded, the engine frees it right after the loader has rejected it
+		break;
 	default:
-		Assert( 0 );
+		gEngfuncs.Con_Printf( S_ERROR "%s: unsupported type %d\n", __func__, mod->type );
 		break;
 	}
 }
@@ -336,25 +339,13 @@ static void GAME_EXPORT R_SetupSky( int *skyboxTextures )
 		tr.skyboxTextures[i] = skyboxTextures[i];
 }
 
-static qboolean R_SetDisplayTransform( ref_screen_rotation_t rotate, int offset_x, int offset_y, float scale_x, float scale_y )
+static qboolean R_SetDisplayTransform( ref_screen_rotation_t rotate, int offset_x, int offset_y, float unused1_default_at_1, float unused2_default_at_1 )
 {
-	qboolean ret = true;
-
 	tr.rotation = rotate;
+	tr.offset_x = offset_x;
+	tr.offset_y = offset_y;
 
-	if( offset_x || offset_y )
-	{
-		gEngfuncs.Con_Printf("offset transform not supported\n");
-		ret = false;
-	}
-
-	if( scale_x != 1.0f || scale_y != 1.0f )
-	{
-		gEngfuncs.Con_Printf("scale transform not supported\n");
-		ret = false;
-	}
-
-	return ret;
+	return true;
 }
 
 static void GAME_EXPORT VGUI_SetupDrawing( qboolean rect )
@@ -387,7 +378,7 @@ static void* GAME_EXPORT R_GetProcAddress( const char *name )
 #if XASH_GL4ES
 	return gl4es_GetProcAddress( name );
 #else // TODO: other wrappers
-	return gEngfuncs.GL_GetProcAddress( name );
+	return GL_GetProcAddress( name );
 #endif
 }
 
@@ -507,6 +498,7 @@ const ref_interface_t gReffuncs =
 	R_SetupSky,
 
 	R_Set2DMode,
+	R_Set2DOffset,
 	R_DrawStretchPic,
 	CL_FillRGBA,
 	R_WorldToScreen,

@@ -76,7 +76,12 @@ GNU General Public License for more details.
 // 17. _Mem_AllocPool now takes a flags argument (see MEM_SMALL_ALLOC_OPT in engine/common/common.h).
 //     Pools that opt into MEM_SMALL_ALLOC_OPT use a compact 16/24-byte header for allocations
 //     <= 255 bytes, dropping per-allocation filename/fileline tracking.
-#define REF_API_VERSION 17
+// 18. PARM_GET_{LIGHT,SCREEN,LINEAR}GAMMATABLE_PTR now point to uint16_t arrays instead of uint.
+//     Their entries never exceed 1023, so the narrowing is lossless.
+// 19. Added R_Set2DOffset. Translates everything drawn in 2D mode, including TriAPI, by the given
+//     screen-space offset until it's changed again. Used to draw VGUI panels in their own coordinates.
+// 20. R_ClearAllDecals now accepts includePermanent argument.
+#define REF_API_VERSION 20
 
 #define TF_SKY		(TF_SKYSIDE|TF_NOMIPMAP|TF_ALLOW_NEAREST)
 #define TF_FONT		(TF_NOMIPMAP|TF_CLAMP|TF_ALLOW_NEAREST)
@@ -92,6 +97,11 @@ GNU General Public License for more details.
 #define VID_MINISHOT	2
 #define VID_MAPSHOT		3	// special case for overview layer
 #define VID_SNAPSHOT	4	// save screenshot into root dir and no gamma correction
+
+// r_showtextures_zoom limits, engine steps the cvar on +forward/+back
+#define SHOWTEXTURES_ZOOM_MIN	0.25f
+#define SHOWTEXTURES_ZOOM_MAX	4.0f
+#define SHOWTEXTURES_ZOOM_STEP	0.25f
 
 // model flags (stored in model_t->flags)
 #define MODEL_CONVEYOR		BIT( 0 )
@@ -140,6 +150,7 @@ typedef enum ref_window_type_e
 	REF_WINDOW_TYPE_MACOS, // NSWindow*
 	REF_WINDOW_TYPE_SDL2, // SDL2 SDL_Window*
 	REF_WINDOW_TYPE_SDL3, // SDL3 SDL_Window*
+	REF_WINDOW_TYPE_GNM, // PS4 gnm_dev_api_t*
 } ref_window_type_t;
 
 typedef struct
@@ -530,7 +541,8 @@ typedef struct ref_interface_s
 	// const char *(*R_GetInitError)( void );
 	void (*R_Shutdown)( void );
 	const char *(*R_GetConfigName)( void ); // returns config name without extension
-	qboolean (*R_SetDisplayTransform)( ref_screen_rotation_t rotate, int x, int y, float scale_x, float scale_y );
+	// x and y are the picture's bottom left corner in the window, in pixels, counted from the window's bottom left corner
+	qboolean (*R_SetDisplayTransform)( ref_screen_rotation_t rotate, int x, int y, float unused1_default_at_1, float unused2_default_at_1 );
 
 	// only called for GL contexts
 	void (*GL_SetupAttributes)( int safegl );
@@ -564,6 +576,7 @@ typedef struct ref_interface_s
 
 	// 2D
 	void (*R_Set2DMode)( qboolean enable );
+	void (*R_Set2DOffset)( float x, float y ); // in screen space, applies to every 2D draw including TriAPI
 	void (*R_DrawStretchPic)( float x, float y, float w, float h, float s1, float t1, float s2, float t2, int texnum );
 	void (*FillRGBA)( int rendermode, float x, float y, float w, float h, byte r, byte g, byte b, byte a ); // in screen space
 	int  (*WorldToScreen)( const vec3_t world, vec3_t screen );  // Returns 1 if it's z clipped
@@ -580,7 +593,7 @@ typedef struct ref_interface_s
 	void (*R_DecalShoot)( int textureIndex, int entityIndex, int modelIndex, vec3_t pos, int flags, float scale );
 	void (*R_DecalRemoveAll)( int texture );
 	int (*R_CreateDecalList)( struct decallist_s *pList );
-	void (*R_ClearAllDecals)( void );
+	void (*R_ClearAllDecals)( qboolean includePermanent );
 
 	// studio interface
 	float (*R_StudioEstimateFrame)( cl_entity_t *e, mstudioseqdesc_t *pseqdesc, double time );
@@ -689,6 +702,7 @@ int EXPORT GetRefAPI( int version, ref_interface_t *funcs, ref_api_t *engfuncs, 
 	ENGINE_SHARED_CVAR_NAME( f, v_lightgamma, lightgamma ) \
 	ENGINE_SHARED_CVAR_NAME( f, v_direct, direct ) \
 	ENGINE_SHARED_CVAR( f, r_showtextures ) \
+	ENGINE_SHARED_CVAR( f, r_showtextures_zoom ) \
 	ENGINE_SHARED_CVAR( f, r_speeds ) \
 	ENGINE_SHARED_CVAR( f, r_fullbright ) \
 	ENGINE_SHARED_CVAR( f, r_norefresh ) \

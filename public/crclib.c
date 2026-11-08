@@ -444,10 +444,81 @@ uint COM_HashKey( const char *string, uint hashSize )
 	unsigned char i;
 
 	while(( i = *string++ ))
-	{
-		i = Q_tolower( i );
-		hashKey = ( hashKey << 5 ) + hashKey + ( i & 0xDF );
-	}
+		hashKey = ( hashKey << 5 ) + hashKey + ( i & 0xDF ); // 0xDF folds ASCII case
 
 	return hashKey & ( hashSize - 1 );
 }
+
+/*
+=============================================================================
+
+SipHash-2-4, adapted from the CC0 reference implementation:
+https://github.com/veorq/SipHash
+Copyright (c) 2012-2022 Jean-Philippe Aumasson
+Copyright (c) 2012-2014 Daniel J. Bernstein
+
+To the extent possible under law, the authors have dedicated all copyright
+and related and neighboring rights to this software to the public domain
+worldwide. This software is distributed without any warranty.
+See https://creativecommons.org/publicdomain/zero/1.0/.
+
+=============================================================================
+*/
+static uint64_t SipHash_Load64( const byte *p )
+{
+	uint64_t value = 0;
+
+	for( int i = 0; i < 8; i++ )
+		value |= (uint64_t)p[i] << ( 8 * i );
+
+	return value;
+}
+
+#define SIPHASH_ROTL( x, n ) (((x) << (n)) | ((x) >> (64 - (n))))
+#define SIPHASH_ROUND() { \
+	v0 += v1; v1 = SIPHASH_ROTL( v1, 13 ); v1 ^= v0; \
+	v0 = SIPHASH_ROTL( v0, 32 ); \
+	v2 += v3; v3 = SIPHASH_ROTL( v3, 16 ); v3 ^= v2; \
+	v0 += v3; v3 = SIPHASH_ROTL( v3, 21 ); v3 ^= v0; \
+	v2 += v1; v1 = SIPHASH_ROTL( v1, 17 ); v1 ^= v2; \
+	v2 = SIPHASH_ROTL( v2, 32 ); \
+}
+
+uint64_t SipHash24( const void *data, size_t len, const byte key[16] )
+{
+	const byte *p = data;
+	uint64_t k0 = SipHash_Load64( key );
+	uint64_t k1 = SipHash_Load64( key + 8 );
+	uint64_t v0 = 0x736f6d6570736575ULL ^ k0;
+	uint64_t v1 = 0x646f72616e646f6dULL ^ k1;
+	uint64_t v2 = 0x6c7967656e657261ULL ^ k0;
+	uint64_t v3 = 0x7465646279746573ULL ^ k1;
+	uint64_t tail = (uint64_t)len << 56;
+
+	for( ; len >= 8; len -= 8, p += 8 )
+	{
+		uint64_t word = SipHash_Load64( p );
+		v3 ^= word;
+		SIPHASH_ROUND();
+		SIPHASH_ROUND();
+		v0 ^= word;
+	}
+
+	for( size_t i = 0; i < len; i++ )
+		tail |= (uint64_t)p[i] << ( 8 * i );
+
+	v3 ^= tail;
+	SIPHASH_ROUND();
+	SIPHASH_ROUND();
+	v0 ^= tail;
+	v2 ^= 0xff;
+	for( int i = 0; i < 4; i++ )
+	{
+		SIPHASH_ROUND();
+	}
+
+	return v0 ^ v1 ^ v2 ^ v3;
+}
+
+#undef SIPHASH_ROUND
+#undef SIPHASH_ROTL

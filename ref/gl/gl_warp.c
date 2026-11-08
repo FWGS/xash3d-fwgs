@@ -20,8 +20,6 @@ GNU General Public License for more details.
 #define SKYCLOUDS_QUALITY	12
 #define MAX_CLIP_VERTS	128 // skybox clip vertices
 
-static const int r_skyTexOrder[SKYBOX_MAX_SIDES] = { 0, 2, 1, 3, 4, 5 };
-
 static const vec3_t skyclip[SKYBOX_MAX_SIDES] =
 {
 {  1,  1,  0 },
@@ -41,17 +39,6 @@ static const int st_to_vec[SKYBOX_MAX_SIDES][3] =
 { -1, -3,  2 },
 { -2, -1,  3 },  // 0 degrees yaw, look straight up
 {  2, -1, -3 }   // look straight down
-};
-
-// s = [0]/[2], t = [1]/[2]
-static const int vec_to_st[SKYBOX_MAX_SIDES][3] =
-{
-{ -2,  3,  1 },
-{  2,  3, -1 },
-{  1,  3,  2 },
-{ -1,  3, -2 },
-{ -2, -1,  3 },
-{ -2,  1, -3 }
 };
 
 #define RIPPLES_CACHEWIDTH_BITS 7
@@ -85,31 +72,15 @@ static void DrawSkyPolygon( int nump, vec3_t vecs )
 	for( int i = 0; i < nump; i++, vp += 3 )
 		VectorAdd( vp, v, v );
 
-	vec3_t av;
-	av[0] = fabs( v[0] );
-	av[1] = fabs( v[1] );
-	av[2] = fabs( v[2] );
-
-	int axis;
-	if( av[0] > av[1] && av[0] > av[2] )
-		axis = (v[0] < 0) ? 1 : 0;
-	else if( av[1] > av[2] && av[1] > av[0] )
-		axis = (v[1] < 0) ? 3 : 2;
-	else axis = (v[2] < 0) ? 5 : 4;
+	const int axis = R_SkyboxAxisFromDir( v );
 
 	// project new texture coords
 	for( int i = 0; i < nump; i++, vecs += 3 )
 	{
-		int j = vec_to_st[axis][2];
-		float dv = (j > 0) ? vecs[j-1] : -vecs[-j-1];
+		float s, t;
 
-		if( dv == 0.0f ) continue;
-
-		j = vec_to_st[axis][0];
-		float s = (j < 0) ? -vecs[-j-1] / dv : vecs[j-1] / dv;
-
-		j = vec_to_st[axis][1];
-		float t = (j < 0) ? -vecs[-j-1] / dv : vecs[j-1] / dv;
+		if( !R_SkyboxProject( vecs, axis, &s, &t ))
+			continue;
 
 		if( s < RI.skyMins[0][axis] ) RI.skyMins[0][axis] = s;
 		if( t < RI.skyMins[1][axis] ) RI.skyMins[1][axis] = t;

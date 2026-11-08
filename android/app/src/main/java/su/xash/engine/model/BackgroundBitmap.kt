@@ -14,49 +14,36 @@ object BackgroundBitmap {
 	private const val BACKGROUND_WIDTH = 800
 	private const val BACKGROUND_HEIGHT = 600
 
-	fun createBackground(file: File): Bitmap {
-		var bitmap =
-			Bitmap.createBitmap(BACKGROUND_WIDTH, BACKGROUND_HEIGHT, Bitmap.Config.ARGB_8888)
-		var canvas = Canvas(bitmap)
-		var x: Int
-		var y = 0
-		var width: Int
-		var height = 0
+	private class Tile(val file: File, val x: Int, val y: Int)
 
+	private class Layout(var width: Int, var height: Int, val tiles: MutableList<Tile>)
+
+	private fun findLayoutFile(file: File): File? {
 		val resourceFolder = File(file, "resource")
-		var bgLayout = File(resourceFolder, "HD_BackgroundLayout.txt")
-		if (!bgLayout.exists()) {
-			bgLayout = File(resourceFolder, "BackgroundLayout.txt")
-		}
 
-		if (!bgLayout.exists()) {
-			val dir = File(resourceFolder, "background")
-			for (i in 0 until BACKGROUND_ROWS) {
-				x = 0
-				for (j in 0 until BACKGROUND_COLUMNS) {
-					val filename = "${BACKGROUND_WIDTH}_${i + 1}_${'a' + j}_loading.tga"
-					val bmpFile = File(dir, filename)
-					val bmpImage = loadTga(bmpFile)
+		return sequenceOf("HD_BackgroundLayout.txt", "BackgroundLayout.txt")
+			.map { File(resourceFolder, it) }
+			.firstOrNull { it.exists() }
+	}
 
-					canvas.drawBitmap(bmpImage, x.toFloat(), y.toFloat(), null)
-					x += bmpImage.width
-					height = bmpImage.height
+	private fun defaultTile(file: File, row: Int, column: Int): File {
+		val dir = File(File(file, "resource"), "background")
 
-				}
-				y += height
-			}
-			return bitmap
-		}
+		return File(dir, "${BACKGROUND_WIDTH}_${row + 1}_${'a' + column}_loading.tga")
+	}
+
+	private fun parseLayout(file: File, bgLayout: File): Layout {
+		val layout = Layout(BACKGROUND_WIDTH, BACKGROUND_HEIGHT, mutableListOf())
 
 		FileInputStream(bgLayout).use { inputStream ->
 			Scanner(inputStream).use { scanner ->
 				while (scanner.hasNext()) {
 					when (val str = scanner.next()) {
 						"resolution" -> {
-							width = scanner.nextInt()
-							height = scanner.nextInt()
-							bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
-							canvas = Canvas(bitmap)
+							layout.width = scanner.nextInt()
+							layout.height = scanner.nextInt()
+							// the bitmap is recreated, what was placed before is lost
+							layout.tiles.clear()
 						}
 
 						else -> {
@@ -64,14 +51,65 @@ object BackgroundBitmap {
 							str.split("/").forEach { bmpFile = File(bmpFile, it) }
 							//skip
 							scanner.next()
-							x = scanner.nextInt()
-							y = scanner.nextInt()
-							val bmp = loadTga(bmpFile)
-							canvas.drawBitmap(bmp, x.toFloat(), y.toFloat(), null)
+							val x = scanner.nextInt()
+							val y = scanner.nextInt()
+							layout.tiles.add(Tile(bmpFile, x, y))
 						}
 					}
 				}
 			}
+		}
+
+		return layout
+	}
+
+	// Fingerprint background source files to detect artwork changes without decoding.
+	fun getBackgroundSignature(file: File): String {
+		val bgLayout = findLayoutFile(file)
+		val sources = if (bgLayout == null) {
+			(0 until BACKGROUND_ROWS).flatMap { i ->
+				(0 until BACKGROUND_COLUMNS).map { j -> defaultTile(file, i, j) }
+			}
+		} else {
+			listOf(bgLayout) + parseLayout(file, bgLayout).tiles.map { it.file }
+		}
+
+		return sources.joinToString("|") {
+			"${it.absolutePath}:${it.exists()}:${it.length()}:${it.lastModified()}"
+		}
+	}
+
+	fun createBackground(file: File): Bitmap {
+		val bgLayout = findLayoutFile(file)
+
+		if (bgLayout == null) {
+			val bitmap =
+				Bitmap.createBitmap(BACKGROUND_WIDTH, BACKGROUND_HEIGHT, Bitmap.Config.ARGB_8888)
+			val canvas = Canvas(bitmap)
+			var y = 0
+
+			for (i in 0 until BACKGROUND_ROWS) {
+				var x = 0
+				var height = 0
+
+				for (j in 0 until BACKGROUND_COLUMNS) {
+					val bmpImage = loadTga(defaultTile(file, i, j))
+
+					canvas.drawBitmap(bmpImage, x.toFloat(), y.toFloat(), null)
+					x += bmpImage.width
+					height = bmpImage.height
+				}
+				y += height
+			}
+			return bitmap
+		}
+
+		val layout = parseLayout(file, bgLayout)
+		val bitmap = Bitmap.createBitmap(layout.width, layout.height, Bitmap.Config.ARGB_8888)
+		val canvas = Canvas(bitmap)
+
+		for (tile in layout.tiles) {
+			canvas.drawBitmap(loadTga(tile.file), tile.x.toFloat(), tile.y.toFloat(), null)
 		}
 		return bitmap
 	}

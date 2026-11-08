@@ -886,14 +886,8 @@ static int SV_Multicast( int dest, const vec3_t origin, const edict_t *ent, qboo
 		if( filter && cl == sv.current_client && FBitSet( sv.current_client->flags, FCL_PREDICT_MOVEMENT ))
 			continue;
 
-		if( SV_IsValidEdict( ent ) && ent->v.groupinfo && cl->edict->v.groupinfo )
-		{
-			if( svs.groupop == GROUP_OP_AND && !FBitSet( cl->edict->v.groupinfo, ent->v.groupinfo ))
-				continue;
-
-			if( svs.groupop == GROUP_OP_NAND && FBitSet( cl->edict->v.groupinfo, ent->v.groupinfo ))
-				continue;
-		}
+		if( SV_IsValidEdict( ent ) && !SV_CheckGroupTrace( ent, cl->edict ))
+			continue;
 
 		if( !SV_CheckClientVisiblity( cl, mask ))
 			continue;
@@ -1113,8 +1107,8 @@ void SV_RestartDecals( void )
 
 	numdecals = ref.dllFuncs.R_CreateDecalList( list );
 
-	// remove decals from map
-	ref.dllFuncs.R_ClearAllDecals();
+	// remove decals from map for clean demo recording state (keep permanent)
+	ref.dllFuncs.R_ClearAllDecals( false );
 
 	// write decals into reliable datagram
 	msg = SV_GetReliableDatagram();
@@ -1123,6 +1117,11 @@ void SV_RestartDecals( void )
 	for( int i = 0; i < numdecals; i++ )
 	{
 		decallist_t *entry = &list[i];
+
+		// skip permanent decals - they're map data sent via svc_bspdecal on map load
+		if( FBitSet( entry->flags, FDECAL_PERMANENT ))
+			continue;
+
 		int modelIndex = SV_PEntityOfEntIndex( entry->entityIndex, true )->v.modelindex;
 
 		// game override
@@ -3901,9 +3900,9 @@ static void SV_AllocStringPool( void )
 	{
 		str64.maxstringarray = Q_atoi( lenstr );
 		if( str64.maxstringarray < 1024 || str64.maxstringarray >= INT_MAX )
-			str64.maxstringarray = 65536 * Q_ceil( GI->max_edicts / 1024.0f );
+			str64.maxstringarray = 65536 * ceil( GI->max_edicts / 1024.0f );
 	}
-	else str64.maxstringarray = 65536 * Q_ceil( GI->max_edicts / 1024.0f );
+	else str64.maxstringarray = 65536 * ceil( GI->max_edicts / 1024.0f );
 	if( Sys_CheckParm( "-str64dup" ) )
 		str64.allowdup = true;
 
@@ -4201,11 +4200,11 @@ void SV_PrintStr64Stats_f( void )
 	Con_Printf( "====================\n" );
 	Con_Printf( "64 bit string pool statistics\n" );
 	Con_Printf( "====================\n" );
-	Con_Printf( "string array size: %lu\n", str64.maxstringarray );
-	Con_Printf( "total alloc %lu\n", str64.totalalloc );
-	Con_Printf( "maximum array usage: %lu\n", str64.maxalloc );
-	Con_Printf( "overflow counter: %lu\n", str64.numoverflows );
-	Con_Printf( "dup string counter: %lu\n", str64.numdups );
+	Con_Printf( "string array size: %zu\n", str64.maxstringarray );
+	Con_Printf( "total alloc %zu\n", str64.totalalloc );
+	Con_Printf( "maximum array usage: %zu\n", str64.maxalloc );
+	Con_Printf( "overflow counter: %zu\n", str64.numoverflows );
+	Con_Printf( "dup string counter: %zu\n", str64.numdups );
 #else // !XASH_64BIT
 	Con_Printf( "Not implemented\n" );
 #endif // !XASH_64BIT
@@ -4710,7 +4709,9 @@ static void GAME_EXPORT pfnSetClientMaxspeed( const edict_t *pEdict, float fNewM
 	// There isn't any reference to "maxspd" anywhere except some commented-out code in SDK
 	Info_SetValueForKeyf( cl->physinfo, "maxspd", MAX_INFO_STRING, "%.f", fNewMaxspeed );
 
-	cl->edict->v.maxspeed = fNewMaxspeed;
+	// cl->edict is NULL once the client has dropped, but game dlls (e.g. Marine Bot)
+	// may still call this for its edict, so write to the edict we've been given
+	((edict_t *)pEdict)->v.maxspeed = fNewMaxspeed;
 }
 
 /*
@@ -5054,14 +5055,8 @@ void GAME_EXPORT SV_PlaybackEventFull( int flags, const edict_t *pInvoker, word 
 		if( cl->state != cs_spawned || !cl->edict || FBitSet( cl->flags, FCL_FAKECLIENT ))
 			continue;
 
-		if( SV_IsValidEdict( pInvoker ) && pInvoker->v.groupinfo && cl->edict->v.groupinfo )
-		{
-			if( svs.groupop == GROUP_OP_AND && !FBitSet( cl->edict->v.groupinfo, pInvoker->v.groupinfo ))
-				continue;
-
-			if( svs.groupop == GROUP_OP_NAND && FBitSet( cl->edict->v.groupinfo, pInvoker->v.groupinfo ))
-				continue;
-		}
+		if( SV_IsValidEdict( pInvoker ) && !SV_CheckGroupTrace( pInvoker, cl->edict ))
+			continue;
 
 		if( SV_IsValidEdict( pInvoker ))
 		{
@@ -5734,8 +5729,8 @@ static enginefuncs_t gEngfuncs =
 	pfnRegUserMsg,
 	pfnAnimationAutomove,
 	pfnGetBonePosition,
-	(void*)pfnFunctionFromName,
-	(void*)pfnNameForFunction,
+	pfnFunctionFromName,
+	pfnNameForFunction,
 	pfnClientPrintf,
 	pfnServerPrint,
 	Cmd_Args,
@@ -6246,6 +6241,13 @@ static void SV_LoadFromFile( const char *mapname, char *entities )
 						entity_index - 1, spawn_class );
 			}
 #endif
+
+			if( deathmatch.value && FBitSet( host.bugcomp, BUGCOMP_SPAWNFLAG_NOT_DEATHMATCH ) && FBitSet( ent->v.spawnflags, SF_NOT_DEATHMATCH ))
+			{
+				SV_FreeEdict( ent );
+				inhibited++;
+				continue;
+			}
 
 #if XASH_GAMECUBE
 			if( SV_GCMapEntityDiagVerbose() && entity_index >= 64 && entity_index <= 90 )

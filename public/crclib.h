@@ -64,6 +64,7 @@ static inline void MD5Init( MD5Context_t *ctx )
 void MD5Update( MD5Context_t *ctx, const byte *buf, uint len );
 void MD5Final( byte digest[16], MD5Context_t *ctx );
 uint COM_HashKey( const char *string, uint hashSize );
+uint64_t SipHash24( const void *data, size_t len, const byte key[16] );
 char *MD5_Print( byte hash[16] ) RETURNS_NONNULL;
 
 #endif // CRCLIB_H

@@ -71,9 +71,9 @@ byte *GL_ResampleTexture( const byte *source, int inWidth, int inHeight, int out
 				if( !VectorNormalizeLength( normal ))
 					VectorSet( normal, 0.5f, 0.5f, 1.0f );
 
-				((byte *)(out+x))[0] = 128 + (byte)(127.0f * normal[0]);
-				((byte *)(out+x))[1] = 128 + (byte)(127.0f * normal[1]);
-				((byte *)(out+x))[2] = 128 + (byte)(127.0f * normal[2]);
+				((byte *)(out+x))[0] = (byte)( 128 + (int)( 127.0f * normal[0] ));
+				((byte *)(out+x))[1] = (byte)( 128 + (int)( 127.0f * normal[1] ));
+				((byte *)(out+x))[2] = (byte)( 128 + (int)( 127.0f * normal[2] ));
 				((byte *)(out+x))[3] = 255;
 			}
 		}

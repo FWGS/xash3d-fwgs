@@ -5,4 +5,4 @@ This information important in case you are using codebase like XashXT, Paranoia 
 |----------------|-----------------|-------------------------|------------------------|
 |`mfaceinfo_t` | `common/com_model.h` | 176 bytes |  304 bytes |
 |`decal_s` | `common/com_model.h` | 72 bytes |  88 bytes |
-|`mextrasurf_t` | `common/com_model.h` | 376 bytes |  504 bytes |
+|`mextrasurf_t` | `common/com_model.h` | 368 bytes |  496 bytes |

@@ -108,6 +108,7 @@ typedef struct
 	pixel_t      alphamap[3 * 1024 * 256];
 	pixel_t      color;
 	qboolean     is2d;
+	float        offset2d[2];
 	byte         alpha;
 
 	// maybe compute colormask for minor byte?
@@ -250,9 +251,9 @@ typedef struct
 	lightstyle_t *lightstyles;
 	dlight_t     *elights;
 	byte         *texgammatable;
-	uint         *lightgammatable;
-	uint         *lineargammatable;
-	uint         *screengammatable;
+	uint16_t     *lightgammatable;
+	uint16_t     *lineargammatable;
+	uint16_t     *screengammatable;
 
 	uint         max_entities;
 } gl_globals_t;
@@ -333,6 +334,7 @@ void GL_Bind( int tmu, unsigned int texnum );
 // gl_draw.c
 //
 void R_Set2DMode( qboolean enable );
+void R_Set2DOffset( float x, float y );
 void GL_UpdateTexture( int texnum, int cols, int rows, int width, int height, const byte *buffer, pixformat_t fmt );
 void GL_UpdateCinematicTexture( int texnum, int width, int height, const byte *buffer,
 	const uint16_t *dirty_tiles, uint dirty_count, qboolean full_upload );
@@ -465,7 +467,7 @@ void R_DrawViewModel( void );
 void R_DecalShoot( int textureIndex, int entityIndex, int modelIndex, vec3_t pos, int flags, float scale );
 void R_DecalRemoveAll( int texture );
 int R_CreateDecalList( decallist_t *pList );
-void R_ClearAllDecals( void );
+void R_ClearAllDecals( qboolean includePermanent );
 byte *Mod_GetCurrentVis( void );
 void Mod_SetOrthoBounds( const float *mins, const float *maxs );
 void R_NewMap( void );
@@ -957,6 +959,7 @@ extern convar_t sw_texfilt;
 extern convar_t r_traceglow;
 extern convar_t sw_noalphabrushes;
 extern convar_t r_studio_sort_textures;
+extern convar_t r_studio_builtin_renderer;
 
 extern struct qfrustum_s
 {
@@ -1015,7 +1018,7 @@ void R_DrawBrushModel( cl_entity_t *pent );
 void R_InitCaches( void );
 void R_BlitScreen( void );
 qboolean R_InitBlit( qboolean gl );
-qboolean R_SetDisplayTransform( ref_screen_rotation_t rotate, int offset_x, int offset_y, float scale_x, float scale_y );
+qboolean R_SetDisplayTransform( ref_screen_rotation_t rotate, int offset_x, int offset_y, float unused1_default_at_1, float unused2_default_at_1 );
 
 //
 // r_edge.c

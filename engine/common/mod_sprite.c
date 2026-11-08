@@ -65,14 +65,19 @@ static byte *Mod_SwapSpriteFrame( byte *p, byte *end, int bytes )
 	p += sizeof( frame );
 
 	// skip pixel data
-	if( p + frame.width * frame.height * bytes > end )
+	if( frame.width < 0 || frame.height < 0 )
 		return NULL;
 
-	p += frame.width * frame.height * bytes;
+	uint64_t pixels = (uint64_t)frame.width * frame.height * bytes;
+
+	if( pixels > (size_t)( end - p ))
+		return NULL;
+
+	p += pixels;
 	return p;
 }
 
-static byte *Mod_SwapSpriteGroup( byte *p, byte *end, int bytes )
+static byte *Mod_SwapSpriteGroup( byte *p, byte *end, int bytes, int min_frames )
 {
 	dspritegroup_t group;
 
@@ -87,7 +92,7 @@ static byte *Mod_SwapSpriteGroup( byte *p, byte *end, int bytes )
 	// swap intervals
 	int numframes = group.numframes;
 
-	if( p + numframes * sizeof( dspriteinterval_t ) > end )
+	if( numframes < min_frames || (size_t)numframes > (size_t)( end - p ) / sizeof( dspriteinterval_t ))
 		return NULL;
 
 	for( int i = 0; i < numframes; i++ )
@@ -147,18 +152,26 @@ static qboolean Mod_SwapSprite( void *buffer, size_t buffersize, int *out_versio
 
 		short numi = LittleShort( *(short *)p );
 		*(short *)p = numi;
-		p += sizeof( short ) + numi * 3;
+		p += sizeof( short );
+
+		if( numi < 0 || p + numi * 3 > end )
+			return false;
+
+		p += numi * 3;
 		break;
 	}
 	default:
 		return false;
 	}
 
+	if( numframes < 0 )
+		return false;
+
 	*out_version = version;
 	int bytes = ( version == SPRITE_VERSION_32 ) ? 4 : 1;
 
 	// swap all frames
-	for( int i = 0; i < numframes && p && p < end; i++ )
+	for( int i = 0; i < numframes; i++ )
 	{
 		dframetype_t frametype;
 
@@ -176,12 +189,18 @@ static qboolean Mod_SwapSprite( void *buffer, size_t buffersize, int *out_versio
 			p = Mod_SwapSpriteFrame( p, end, bytes );
 			break;
 		case FRAME_GROUP:
+			p = Mod_SwapSpriteGroup( p, end, bytes, 1 );
+			break;
 		case FRAME_ANGLED:
-			p = Mod_SwapSpriteGroup( p, end, bytes );
+			// angled groups are indexed by 0..7 at render time
+			p = Mod_SwapSpriteGroup( p, end, bytes, 8 );
 			break;
 		default:
 			return false;
 		}
+
+		if( !p )
+			return false;
 	}
 
 	return true;
@@ -258,17 +277,23 @@ void Mod_LoadSpriteModel( model_t *mod, void *buffer, size_t buffersize, qboolea
 		psprite->texFormat = SPR_ADDITIVE;
 		psprite->numframes = mod->numframes = pinq1->numframes;
 		psprite->facecull = SPR_CULL_FRONT;
-		psprite->radius = pinq1->boundingradius;
+		float radius = floorf( pinq1->boundingradius );
+		if( radius >= (float)INT_MAX )
+			psprite->radius = INT_MAX;
+		else if( radius < 0.0f || IS_NAN( radius ))
+			psprite->radius = 0;
+		else
+			psprite->radius = (int)radius;
 		psprite->synctype = pinq1->synctype;
 
 		// LadyHavoc: hack to allow sprites to be non-fullbright
 		if( Q_strchr( mod->name, '!' ))
 			psprite->texFormat = SPR_ALPHTEST;
 
-		mod->mins[0] = mod->mins[1] = -pinq1->bounds[0] * 0.5f;
 		mod->maxs[0] = mod->maxs[1] = pinq1->bounds[0] * 0.5f;
-		mod->mins[2] = -pinq1->bounds[1] * 0.5f;
+		mod->mins[0] = mod->mins[1] = -mod->maxs[0];
 		mod->maxs[2] = pinq1->bounds[1] * 0.5f;
+		mod->mins[2] = -mod->maxs[2];
 	}
 	else // if( version == SPRITE_VERSION_HL )
 	{
@@ -292,10 +317,10 @@ void Mod_LoadSpriteModel( model_t *mod, void *buffer, size_t buffersize, qboolea
 		psprite->radius = pinhl->boundingradius;
 		psprite->synctype = pinhl->synctype;
 
-		mod->mins[0] = mod->mins[1] = -pinhl->bounds[0] * 0.5f;
 		mod->maxs[0] = mod->maxs[1] = pinhl->bounds[0] * 0.5f;
-		mod->mins[2] = -pinhl->bounds[1] * 0.5f;
+		mod->mins[0] = mod->mins[1] = -mod->maxs[0];
 		mod->maxs[2] = pinhl->bounds[1] * 0.5f;
+		mod->mins[2] = -mod->maxs[2];
 	}
 
 	if( loaded )
@@ -312,3 +337,34 @@ void Mod_LoadSpriteModel( model_t *mod, void *buffer, size_t buffersize, qboolea
 	Mod_SpriteLoadTextures( mod, buffer );
 #endif
 }
+
+#if XASH_LLVM_LIBFUZZER
+int EXPORT Fuzz_Mod_LoadSpriteModel( const uint8_t *Data, size_t Size );
+int EXPORT Fuzz_Mod_LoadSpriteModel( const uint8_t *Data, size_t Size )
+{
+	model_t mod = { .name = "#internal.spr", .needload = NL_NEEDS_LOADED };
+	qboolean loaded = false;
+	byte *buf;
+
+	if( Size == 0 )
+		return 0;
+
+	Memory_Init();
+
+	// dedicated mode exercises the parser/validator without needing a renderer
+	host.type = HOST_DEDICATED;
+	host.mempool = Mem_AllocPool( "fuzzing pool" );
+
+	// the loader byteswaps the buffer in place, so hand it a writable copy
+	buf = Mem_Malloc( host.mempool, Size );
+	memcpy( buf, Data, Size );
+
+	Mod_LoadSpriteModel( &mod, buf, Size, &loaded );
+
+	if( mod.mempool )
+		Mem_FreePool( &mod.mempool );
+	Mem_FreePool( &host.mempool );
+
+	return 0;
+}
+#endif // XASH_LLVM_LIBFUZZER

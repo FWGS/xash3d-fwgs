@@ -49,13 +49,17 @@ SETUP BACKENDS DEFINITIONS
 		#define XASH_REDUCE_FD 1
 		#define XASH_NO_TOUCH  1
 		#define XASH_NO_ZIP    1
-	#elif XASH_GAMECUBE
+	elif XASH_GAMECUBE
 		#define XASH_VIDEO     VIDEO_GX
 		#define XASH_INPUT     INPUT_GAMECUBE
 		#define XASH_SOUND     SOUND_NULL
 		/* Real UDP via libogc/libogc2 (BBA + Swiss eth2sp1). Soft-fail offline. */
 		#define XASH_REDUCE_FD 1
 		#define XASH_NO_TOUCH  1
+	elif XASH_PS4 // the video, sound and input are ours, see engine/platform/ps4
+		#define XASH_VIDEO     VIDEO_PS4
+		#define XASH_INPUT     INPUT_PS4
+		#define XASH_SOUND     SOUND_PS4
 	#endif
 #endif // !XASH_DEDICATED
 
@@ -63,7 +67,9 @@ SETUP BACKENDS DEFINITIONS
 // select messagebox implementation
 //
 #ifndef XASH_MESSAGEBOX
-	#if XASH_SDL >= 2 && !XASH_NSWITCH // SDL2 messageboxes are not available on NSW
+	#if XASH_SAILFISH && !XASH_DEDICATED // SDL2 needs zenity or kdialog there
+		#define XASH_MESSAGEBOX MSGBOX_SAILFISH
+	#elif XASH_SDL >= 2 && !XASH_NSWITCH // SDL2 messageboxes are not available on NSW
 		#define XASH_MESSAGEBOX MSGBOX_SDL
 	#elif XASH_WIN32
 		#define XASH_MESSAGEBOX MSGBOX_WIN32
@@ -90,6 +96,8 @@ SETUP BACKENDS DEFINITIONS
 		#define XASH_TIMER TIMER_DOS
 	#elif XASH_PSP
 		#define XASH_TIMER TIMER_PSP
+	#elif XASH_PS4
+		#define XASH_TIMER TIMER_PS4
 	#else // !XASH_WIN32
 		#define XASH_TIMER TIMER_POSIX
 	#endif // !XASH_WIN32
@@ -168,8 +176,14 @@ Default build-depended cvar and constant values
 	#define DEFAULT_MODE_WIDTH   960
 	#define DEFAULT_MODE_HEIGHT  544
 	#define DEFAULT_ALLOWCONSOLE 1
+#elif XASH_PS4
+	#define DEFAULT_ALLOWCONSOLE 1
 #elif XASH_ANDROID
 	#define DEFAULT_TOUCH_ENABLE "1"
+#elif XASH_SAILFISH
+	#define DEFAULT_TOUCH_ENABLE "1"
+	#define DEFAULT_M_IGNORE     "1"
+	#define DEFAULT_VID_ROTATE   "1" // picks the landscape orientation the compositor rotates our window to
 #elif XASH_MOBILE_PLATFORM
 	#define DEFAULT_TOUCH_ENABLE "1"
 	#define DEFAULT_M_IGNORE     "1"
@@ -183,6 +197,10 @@ Default build-depended cvar and constant values
 #ifndef DEFAULT_M_IGNORE
 	#define DEFAULT_M_IGNORE "0"
 #endif // DEFAULT_M_IGNORE
+
+#ifndef DEFAULT_VID_ROTATE
+	#define DEFAULT_VID_ROTATE "0"
+#endif // DEFAULT_VID_ROTATE
 
 #ifndef DEFAULT_JOY_DEADZONE
 	#define DEFAULT_JOY_DEADZONE "4096"

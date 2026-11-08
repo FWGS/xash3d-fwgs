@@ -20,14 +20,91 @@ GNU General Public License for more details.
 #include "xash3d_mathlib.h"
 #include "net_ws_private.h"
 #include "net_http_tls.h"
-#include "miniz.h"
+#include "zlib_wrapper.h"
 
 /*
-=================================================
+HTTP client state machine
 
-HTTP downloader
+Every httpfile_t is driven by its pfn_process function pointer, HTTP_Run calls
+it each frame. Returning 1 runs the next state in the same frame, returning 0
+yields until the next frame. While waiting on the network, blocktime grows and
+the file fails once it exceeds http_timeout.
 
-=================================================
+Any state can fail with HTTP_FreeFile( file, true ). A disk download then moves
+to the next fastdl server and restarts from HTTP_FileQueue, an in-memory request
+or a download with no servers left goes to HTTP_FileFree.
+
+               HTTP_AddDownload / HTTP_GetToMemory
+                               |
+                               v
+               +-------------------------------+
+               | HTTP_FileQueue                |<----- error, next fastdl server
+               +-------------------------------+
+                               |
+                               v
+               +-------------------------------+
+               | HTTP_FileResolveNS            |<----------+
+               +-------------------------------+           |
+                               |                           |
+                               v                           |
+               +-------------------------------+           |
+               | HTTP_FileCreateSocket         |           |
+               +-------------------------------+           |
+                               |                           |
+                               v                           |
+               +-------------------------------+           |
+               | HTTP_FileConnect              |           |
+               +-------------------------------+           |
+                    |                     |                |
+                    | connected at once   | in progress    |
+                    |                     v                |
+                    |      +----------------------------+  |
+                    |      | HTTP_FileWaitConnect       |  |
+                    |      +----------------------------+  |
+                    |                     |                |
+                    v                     v                |
+               +-------------------------------+           |
+               | HTTP_FilePrepareRequest       |           |
+               +-------------------------------+           |
+                    |                     |                |
+                    | http://             | https://       |
+                    |                     v                |
+                    |      +----------------------------+  |
+                    |      | HTTP_FileTlsHandshake      |  |
+                    |      +----------------------------+  |
+                    |                     |                |
+                    v                     v                |
+               +-------------------------------+           |
+               | HTTP_FileSendRequest          |           |
+               +-------------------------------+           |
+                               |                           |
+                               v                           |
+               +-------------------------------+  redirect |
+               | HTTP_FileProcessStream        |-----------+
+               +-------------------------------+
+                    |                     |
+                    | compressed          | plain
+                    v                     |
+     +----------------------------+       |
+     | HTTP_FileDecompress        |       |
+     +----------------------------+       |
+                    |                     |
+                    v                     v
+               +-------------------------------+
+               | HTTP_FileFree                 |<----- done, failed or no servers left
+               +-------------------------------+
+                               |
+                               v
+                   unlinked by HTTP_AutoClean
+
+States that yield:
+  HTTP_FileResolveNS     another file is resolving, getaddrinfo is pending
+  HTTP_FileCreateSocket  http_maxconnections reached
+  HTTP_FileWaitConnect   select() reports the socket isn't connected yet
+  HTTP_FileTlsHandshake  TLS library wants more I/O
+  HTTP_FileSendRequest   request partially sent, send() would block
+  HTTP_FileProcessStream recv() would block
+  HTTP_FileFree          always, until HTTP_AutoClean removes the file
 */
 
 #define MAX_HTTP_BUFFER_SIZE (BIT( 16 ))
@@ -124,13 +201,6 @@ static int HTTP_FileDecompress( httpfile_t *file );
 static httpserver_t *HTTP_ParseURL( const char *url_, qboolean full_path );
 static qboolean HTTP_FileRedirect( httpfile_t *file, const char *location );
 
-static const char *HTTP_DownloadPath( char *buf, size_t buflen, const char *path, qboolean incomplete )
-{
-	Q_snprintf( buf, buflen, "../%s" DEFAULT_DOWNLOADED_DIRECTORY_SUFFIX "/%s%s",
-		GI->gamefolder, path, incomplete ? ".incomplete" : "" );
-	return buf;
-}
-
 /*
 ==============
 HTTP_FreeFile
@@ -141,16 +211,12 @@ Skip to next server/file
 static void HTTP_FreeFile( httpfile_t *file, qboolean error )
 {
 	char incname[MAX_SYSPATH + 64]; // plus ../{gamedir}_downloads/ plus .incomplete
-	qboolean was_open = false;
 
 	file->blocktime = 0;
 
 	// Allways close file and socket
 	if( file->file )
-	{
 		FS_Close( file->file );
-		was_open = true;
-	}
 
 	file->file = NULL;
 
@@ -196,12 +262,12 @@ static void HTTP_FreeFile( httpfile_t *file, qboolean error )
 		return;
 	}
 
-	HTTP_DownloadPath( incname, sizeof( incname ), file->path, true );
+	COM_DownloadCachePath( incname, sizeof( incname ), file->path, true );
 
 	if( error )
 	{
 		// switch to next fastdl server if present
-		if( file->server && was_open )
+		if( file->server )
 		{
 			httpserver_t *next = file->server->next;
 
@@ -242,7 +308,7 @@ static void HTTP_FreeFile( httpfile_t *file, qboolean error )
 		{
 			// Success, rename and process file
 			char name[MAX_SYSPATH];
-			HTTP_DownloadPath( name, sizeof( name ), file->path, false );
+			COM_DownloadCachePath( name, sizeof( name ), file->path, false );
 			FS_AllowDirectPaths( true );
 			FS_Rename( incname, name );
 			FS_AllowDirectPaths( false );
@@ -351,34 +417,9 @@ static int HTTP_FileCreateSocket( httpfile_t *file )
 	return 1;
 }
 
-static int HTTP_FileConnect( httpfile_t *file )
+static int HTTP_FilePrepareRequest( httpfile_t *file )
 {
 	string useragent;
-	int res = connect( file->socket, (struct sockaddr *)&file->addr, NET_SockAddrLen( &file->addr ));
-
-	if( res < 0 )
-	{
-		int err = WSAGetLastError();
-
-		switch( err )
-		{
-		case WSAEISCONN:
-			// we're connected, proceed
-			break;
-		case WSAEWOULDBLOCK:
-		case WSAEINPROGRESS:
-		case WSAEALREADY:
-			// add to the timeout
-			file->blocktime += host.frametime;
-			file->blockreason = "request send";
-			return 0;
-		default:
-			// error, exit
-			Con_Printf( S_ERROR "cannot connect to server: %s\n", NET_ErrorString( ));
-			HTTP_FreeFile( file, true );
-			return 0;
-		}
-	}
 
 	file->blocktime = 0;
 
@@ -431,6 +472,80 @@ static int HTTP_FileConnect( httpfile_t *file )
 	}
 	else file->pfn_process = HTTP_FileSendRequest;
 
+	return 1;
+}
+
+static int HTTP_FileWaitConnect( httpfile_t *file )
+{
+	fd_set writefds, exceptfds;
+	struct timeval tv = { 0 };
+
+	FD_ZERO( &writefds );
+	FD_ZERO( &exceptfds );
+	FD_SET( file->socket, &writefds );
+	FD_SET( file->socket, &exceptfds );
+
+#if XASH_WIN32
+	int res = select( 0, NULL, &writefds, &exceptfds, &tv );
+#else
+	int res = select( file->socket + 1, NULL, &writefds, &exceptfds, &tv );
+#endif
+
+	if( res < 0 )
+	{
+		Con_Printf( S_ERROR "%s: select() returned %s\n", __func__, NET_ErrorString( ));
+		HTTP_FreeFile( file, true );
+		return 0;
+	}
+
+	if( !FD_ISSET( file->socket, &writefds ) && !FD_ISSET( file->socket, &exceptfds ))
+	{
+		file->blocktime += host.frametime;
+		file->blockreason = "connecting";
+		return 0;
+	}
+
+	int err = 0;
+	socklen_t err_len = sizeof( err );
+
+	if( NET_IsSocketError( getsockopt( file->socket, SOL_SOCKET, SO_ERROR, (char *)&err, &err_len )))
+	{
+		Con_Printf( S_ERROR "%s: getsockopt() returned %s\n", __func__, NET_ErrorString( ));
+		HTTP_FreeFile( file, true );
+		return 0;
+	}
+
+	if( err != 0 )
+	{
+		Con_Printf( S_ERROR "cannot connect to server: error %d\n", err );
+		HTTP_FreeFile( file, true );
+		return 0;
+	}
+
+	file->pfn_process = HTTP_FilePrepareRequest;
+	return 1;
+}
+
+static int HTTP_FileConnect( httpfile_t *file )
+{
+	int res = connect( file->socket, (struct sockaddr *)&file->addr, NET_SockAddrLen( &file->addr ));
+
+	if( res < 0 )
+	{
+		int err = WSAGetLastError();
+
+		if( err != WSAEWOULDBLOCK && err != WSAEINPROGRESS )
+		{
+			Con_Printf( S_ERROR "cannot connect to server: %s\n", NET_ErrorString( ));
+			HTTP_FreeFile( file, true );
+			return 0;
+		}
+
+		file->pfn_process = HTTP_FileWaitConnect;
+		return 1;
+	}
+
+	file->pfn_process = HTTP_FilePrepareRequest;
 	return 1;
 }
 
@@ -605,7 +720,7 @@ static int HTTP_FileDecompress( httpfile_t *file )
 	byte *data_in = Mem_Malloc( http_mempool, compressed_len + 1 );
 	byte *data_out = Mem_Malloc( http_mempool, decompressed_len + 1 );
 
-	HTTP_DownloadPath( name, sizeof( name ), file->path, false );
+	COM_DownloadCachePath( name, sizeof( name ), file->path, false );
 
 	z_stream decompress_stream =
 	{
@@ -762,9 +877,12 @@ static int HTTP_FileSaveReceivedData( httpfile_t *file, int pos, int length )
 				{
 					fs_offset_t filelen = FS_FileLength( file->file );
 
-					if( filelen != file->reported_size )
+					// the chunked terminator is what says the transfer is complete
+					// the size the server reported in the resource list is only good for catching a short file:
+					// it's sent as a signed 24-bit value (see SV_SendResource) so anything above 8 MiB arrives wrapped, and console downloads don't report a size at all
+					if( file->reported_size > 0 && filelen < file->reported_size )
 					{
-						Con_Printf( S_ERROR "downloaded file %s size doesn't match reported size. Got %ld bytes, expected %d bytes\n", file->path, (long)filelen, file->reported_size );
+						Con_Printf( S_ERROR "downloaded file %s is shorter than reported size. Got %ld bytes, expected %d bytes\n", file->path, (long)filelen, file->reported_size );
 						HTTP_FreeFile( file, true );
 					}
 					else
@@ -1018,7 +1136,7 @@ static int HTTP_FileProcessStream( httpfile_t *curfile )
 				{
 					char name[MAX_SYSPATH];
 
-					HTTP_DownloadPath( name, sizeof( name ), curfile->path, true );
+					COM_DownloadCachePath( name, sizeof( name ), curfile->path, true );
 
 					FS_AllowDirectPaths( true );
 					curfile->file = FS_Open( name, "wb+", true );

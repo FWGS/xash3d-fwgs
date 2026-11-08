@@ -16,8 +16,21 @@ GNU General Public License for more details.
 #ifndef RENDER_API_H
 #define RENDER_API_H
 
-#include <stdint.h>
+#include <stdint.h> // intptr_t
+#include <stddef.h> // size_t
 #include "lightstyle.h"
+
+// this header only needs byte, vec3_t, qboolean and colorVec, all of which come
+// from const.h. don't pull in xash3d_types.h for them: it drags in build.h/port.h
+// and its link_t collides with the one in the HL SDK's const.h, which keeps mods
+// from including this header at all
+#ifndef ALLOC_CHECK
+	#if __GNUC__ >= 4 || defined( __clang__ )
+		#define ALLOC_CHECK( x ) __attribute__(( alloc_size( x )))
+	#else
+		#define ALLOC_CHECK( x )
+	#endif
+#endif // ALLOC_CHECK
 
 #define CL_RENDER_INTERFACE_VERSION	37	// Xash3D 1.0
 #define MAX_STUDIO_DECALS		4096	// + unused space of BSP decals
@@ -116,7 +129,8 @@ typedef enum
 	CONTEXT_TYPE_GL = 0, // compatibility profile
 	CONTEXT_TYPE_GLES_1_X,
 	CONTEXT_TYPE_GLES_2_X,
-	CONTEXT_TYPE_GL_CORE
+	CONTEXT_TYPE_GL_CORE,
+	CONTEXT_TYPE_SOFTWARE, // not a context by itself, just software renderer
 } gl_context_type_t;
 
 typedef enum
@@ -262,6 +276,7 @@ typedef struct render_api_s
 	void		(*S_FadeMusicVolume)( float fadePercent );	// fade background track (0-100 percents)
 	// a1ba: changed long to int
 	void		(*SetRandomSeed)( int lSeed );		// set custom seed for RANDOM_FLOAT\RANDOM_LONG for predictable random
+	void		(*R_ClearAllDecals)( qboolean includePermanent );
 	// ONLY ADD NEW FUNCTIONS TO THE END OF THIS STRUCT.  INTERFACE VERSION IS FROZEN AT 37
 } render_api_t;
 

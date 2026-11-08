@@ -15,7 +15,7 @@ struct swblit_s
 } swblit;
 
 
-qboolean R_SetDisplayTransform( ref_screen_rotation_t rotate, int offset_x, int offset_y, float scale_x, float scale_y )
+qboolean R_SetDisplayTransform( ref_screen_rotation_t rotate, int offset_x, int offset_y, float unused1_default_at_1, float unused2_default_at_1 )
 {
 	qboolean ret = true;
 	if( rotate > 1 )
@@ -30,13 +30,6 @@ qboolean R_SetDisplayTransform( ref_screen_rotation_t rotate, int offset_x, int 
 	{
 		// it is possible implement for offset > 0
 		gEngfuncs.Con_Printf( "offset transform not supported\n" );
-		ret = false;
-	}
-
-	if( scale_x != 1.0f || scale_y != 1.0f )
-	{
-		// maybe implement 2x2?
-		gEngfuncs.Con_Printf( "scale transform not supported\n" );
 		ret = false;
 	}
 
@@ -751,8 +744,8 @@ qboolean GAME_EXPORT VID_ScreenShot( const char *filename, int shot_type )
 	int  width = 0, height = 0;
 
 	rgbdata_t *r_shot = Mem_Calloc( r_temppool, sizeof( rgbdata_t ));
-	r_shot->width = ( vid.width + 3 ) & ~3;
-	r_shot->height = ( vid.height + 3 ) & ~3;
+	r_shot->width = vid.width;
+	r_shot->height = vid.height;
 	r_shot->flags = IMAGE_HAS_COLOR;
 	r_shot->type = PF_BGRA_32; // was RGBA
 	r_shot->size = r_shot->width * r_shot->height * gEngfuncs.Image_GetPFDesc( r_shot->type )->bpp;

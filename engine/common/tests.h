@@ -35,6 +35,7 @@ extern struct tests_stats_s tests_stats;
 	_TASSERT( Q_strcmp(( str1 ), ( str2 )), Msg( S_ERROR "assert failed at %s:%i, \"%s\" != \"%s\"\n", __FILE__, __LINE__, ( str1 ), ( str2 )))
 
 void Test_RunImagelib( void );
+void Test_RunPNG( void );
 void Test_RunLibCommon( void );
 void Test_RunCommon( void );
 void Test_RunCmd( void );
@@ -42,11 +43,23 @@ void Test_RunCvar( void );
 void Test_RunCon( void );
 void Test_RunVOX( void );
 void Test_RunIPFilter( void );
+void Test_RunQueryRateLimit( void );
+void Test_RunChallenge( void );
 void Test_RunGamma( void );
 void Test_RunDelta( void );
 void Test_RunBuffer( void );
 void Test_RunMunge( void );
+void Test_RunModBmodel( void );
 void Test_RunTitles( void );
+void Test_RunConfig( void );
+void Test_RunSystem( void );
+#if XASH_NO_TOUCH
+#define Test_RunTouch() ((void)0)
+#else
+void Test_RunTouch( void );
+void Test_CollectTouchInput( float *pitch, float *yaw, qboolean filter );
+#endif
+void Test_RunWindowInsets( void );
 
 #define TEST_LIST_0 \
 	Test_RunLibCommon(); \
@@ -54,16 +67,24 @@ void Test_RunTitles( void );
 	Test_RunCmd(); \
 	Test_RunCvar(); \
 	Test_RunIPFilter(); \
+	Test_RunQueryRateLimit(); \
+	Test_RunChallenge(); \
 	Test_RunBuffer(); \
 	Test_RunDelta(); \
-	Test_RunMunge();
+	Test_RunMunge(); \
+	Test_RunModBmodel(); \
+	Test_RunSystem();
 
 #define TEST_LIST_0_CLIENT \
 	Test_RunCon(); \
-	Test_RunGamma();
+	Test_RunWindowInsets(); \
+	Test_RunGamma(); \
+	Test_RunTouch();
 
 #define TEST_LIST_1 \
-	Test_RunImagelib();
+	Test_RunImagelib(); \
+	Test_RunPNG(); \
+	Test_RunConfig();
 
 #define TEST_LIST_1_CLIENT \
 	Test_RunVOX(); \

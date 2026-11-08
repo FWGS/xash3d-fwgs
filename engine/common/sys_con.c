@@ -31,7 +31,7 @@ GNU General Public License for more details.
 #endif
 
 // do not waste precious CPU cycles on mobiles or low memory devices
-#if !XASH_WIN32 && !XASH_MOBILE_PLATFORM && !XASH_LOW_MEMORY && !XASH_EMSCRIPTEN
+#if !XASH_WIN32 && ( !XASH_MOBILE_PLATFORM || XASH_SAILFISH ) && !XASH_LOW_MEMORY && !XASH_EMSCRIPTEN
 #define XASH_COLORIZE_CONSOLE 1
 #else
 #define XASH_COLORIZE_CONSOLE 0
@@ -75,7 +75,8 @@ static void Sys_FlushStdout( void )
 	/* libogc leaves stdout NULL until console init; fileno(NULL) faults at +0x6c */
 	if( stdout )
 		fflush( stdout );
-#elif !XASH_MOBILE_PLATFORM
+	// never printing anything to stdout on mobiles, except Sailfish, where it goes to the journal
+#elif !XASH_MOBILE_PLATFORM || XASH_SAILFISH
 	fflush( stdout );
 #endif
 }
@@ -191,6 +192,7 @@ void Sys_CloseLog( const char *finalmsg )
 	fputs( "================================================================================\n", s_ld.logfile );
 	fclose( s_ld.logfile );
 	s_ld.logfile = NULL;
+	s_ld.logfileno = -1;
 }
 
 static qboolean Sys_WriteEscapeSequenceForColorcode( int fd, int c )
@@ -308,6 +310,9 @@ static void Sys_PrintStdout( const char *logtime, size_t logtime_len, const char
 	{
 		fprintf( stderr, "%s %s", logtime, stripped );
 	}
+#elif XASH_PS4
+	// no console, written directly to file to survive crashes
+	PS4_Log( "%s %s", logtime, stripped );
 #endif
 
 #if XASH_GAMECUBE
@@ -318,9 +323,11 @@ static void Sys_PrintStdout( const char *logtime, size_t logtime_len, const char
 		else
 			SYS_Report( "%s", stripped );
 	}
-#elif !XASH_MOBILE_PLATFORM && !XASH_WIN32 // Wcon does the job
+#elif ( !XASH_MOBILE_PLATFORM || XASH_SAILFISH ) && !XASH_WIN32 // Wcon does the job
+	Platform_ConsolePrintBegin();
 	Sys_PrintLogfile( STDOUT_FILENO, logtime, logtime_len, XASH_COLORIZE_CONSOLE ? msg : stripped, XASH_COLORIZE_CONSOLE );
 	Sys_FlushStdout();
+	Platform_ConsolePrintEnd( msg );
 #endif
 
 	XRcon_Print( stripped );
@@ -329,6 +336,10 @@ static void Sys_PrintStdout( const char *logtime, size_t logtime_len, const char
 void Sys_PrintLog( const char *pMsg )
 {
 	static char lastchar;
+	static char clean[MAX_PRINT_MSG];
+
+	COM_StripControlChars( clean, pMsg, sizeof( clean ));
+	pMsg = clean;
 
 	const struct tm *crt_tm = NULL;
 	if( !lastchar || lastchar == '\n' )

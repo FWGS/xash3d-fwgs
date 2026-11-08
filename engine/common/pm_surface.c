@@ -37,8 +37,9 @@ converts the reletive tex coords to absolute
 */
 static uint fix_coord( vec_t in, uint width )
 {
-	if( in > 0 ) return (uint)in % width;
-	return width - ((uint)fabs( in ) % width);
+	int x = (int)floor( in ) % (int)width;
+
+	return x < 0 ? x + width : x;
 }
 
 /*
@@ -80,8 +81,8 @@ static int PM_SampleMiptex( const msurface_t *surf, const vec3_t point )
 		vec_t dt = DotProduct( point, tx->vecs[1] ) + tx->vecs[1][3];
 
 		// convert ST to real pixels position
-		int x = fix_coord( ds, mt->width - 1 );
-		int y = fix_coord( dt, mt->height - 1 );
+		int x = fix_coord( ds, mt->width );
+		int y = fix_coord( dt, mt->height );
 
 		ASSERT( x >= 0 && y >= 0 );
 

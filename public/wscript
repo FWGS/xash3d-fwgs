@@ -105,7 +105,9 @@ def configure(conf):
 	# save some time on Windows, msvc is too slow
 	# these calls must be available with both msvc and mingw
 	if conf.env.DEST_OS == 'win32':
-		conf.export_define('HAVE_TGMATH_H', conf.simple_check(TGMATH_H_TEST, 'tgmath.h', use='M werror export'))
+		# on MinGW tgmath.h macros expand over the function declarations in intrin.h, which SDL_cpuinfo.h includes
+		if conf.env.COMPILER_CC == 'msvc':
+			conf.export_define('HAVE_TGMATH_H', conf.simple_check(TGMATH_H_TEST, 'tgmath.h', use='M werror export'))
 		conf.export_define('HAVE_STRNICMP')
 		conf.export_define('HAVE_STRICMP')
 	else:
@@ -115,8 +117,7 @@ def configure(conf):
 			exports_list.append(define)
 			return {'fragment': frag, 'msg': 'Checking for ' + msg, 'define_name': define, 'mandatory': False, 'use': 'M werror export', 'compiler': 'c'}
 
-		conf.multicheck(
-			check_libc_extension(TGMATH_H_TEST, 'tgmath.h', 'HAVE_TGMATH_H'),
+		checks = [
 			check_libc_extension(STRNCASECMP_TEST, 'strncasecmp', 'HAVE_STRNCASECMP'),
 			check_libc_extension(STRCASECMP_TEST, 'strcasecmp', 'HAVE_STRCASECMP'),
 			check_libc_extension(STRCASESTR_TEST, 'strcasestr', 'HAVE_STRCASESTR'),
@@ -124,7 +125,13 @@ def configure(conf):
 			check_libc_extension(STRLCPY_TEST, 'strlcpy', 'HAVE_STRLCPY'),
 			check_libc_extension(STRLCAT_TEST, 'strlcat', 'HAVE_STRLCAT'),
 			check_libc_extension(STRNLEN_TEST, 'strnlen', 'HAVE_STRNLEN'),
-		)
+		]
+
+		# musl's tgmath.h from OpenOrbis toolchain makes clang pick complex functions
+		if conf.env.DEST_OS != 'ps4':
+			checks.insert(0, check_libc_extension(TGMATH_H_TEST, 'tgmath.h', 'HAVE_TGMATH_H'))
+
+		conf.multicheck(*checks)
 
 		for export in exports_list:
 			if conf.env[export]:
@@ -142,10 +149,12 @@ def build(bld):
 	# build it separately to slightly improve rebuild times
 	bld.stlib(source = 'build_vcs.c',
 		target = 'build_vcs',
+		features = 'format',
 		defines = ['XASH_BUILD_COMMIT=\"%s\"' % bld.env.GIT_VERSION, 'XASH_BUILD_BRANCH=\"%s\"' % bld.env.GIT_BRANCH, 'XASH_BUILD_COMMIT_DATE=\"%s\"' % bld.env.GIT_COMMIT_DATE])
 
 	bld.stlib(source = bld.path.ant_glob('*.c', excl='build_vcs.c'),
 		target = 'public',
+		features = 'format',
 		use = 'sdk_includes werror')
 
 	# Note: xash3d_mathlib.c is NOT skipped because it provides essential math functions
@@ -163,11 +172,14 @@ def build(bld):
 			'parsefile': 'tests/test_parsefile.c',
 			'atlas': 'tests/test_atlas.c',
 			'swapstruct': 'tests/test_swapstruct.c',
+			'siphash': 'tests/test_siphash.c',
+			'hullsize': 'tests/test_hullsize.c',
+			'utflib': 'tests/test_utflib.c',
 		}
 
 		for i in tests:
-			bld.program(features = 'test',
+			bld.program(features = 'test format',
 				source = tests[i],
 				target = 'test_%s' % i,
-				use = 'public build_vcs',
+				use = 'public build_vcs M',
 				install_path = None)

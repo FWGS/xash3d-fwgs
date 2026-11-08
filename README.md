@@ -83,7 +83,7 @@ This repository contains our fork of HLSDK and restored source code for Half-Lif
 
 ##### RedHat/Fedora
 * Only for 32-bit engine on 64-bit x86 operating system:
-  * Install development tools: `$ sudo dnf install git gcc gcc-c++ glibc-devel.i686 SDL3-devel.i686 sdl2-compat-devel.i686 opus-devel.i686 freetype-devel.i686 bzip2-devel.i686 libvorbis-devel.i686 opusfile-devel.i686 libogg-devel.i686`.
+  * Install development tools: `$ sudo dnf install git gcc gcc-c++ glibc-devel.i686 SDL3-devel.i686 sdl2-compat-devel.i686 opus-devel.i686 freetype-devel.i686 bzip2-devel.i686 libvorbis-devel.i686 opusfile-devel.i686 libogg-devel.i686 libatomic.i686`.
   * Set PKG_CONFIG_PATH environment variable to point at 32-bit libraries: `$ export PKG_CONFIG_PATH=/usr/lib/pkgconfig`.
 
 * For 64-bit engine on 64-bit x86 and other non-x86 systems:
@@ -99,6 +99,7 @@ This repository contains our fork of HLSDK and restored source code for Half-Lif
 * Install [CMake](https://cmake.org/) (for some dependencies).
 
 * Clone this repostory: `$ git clone --recursive https://github.com/FWGS/xash3d-fwgs`.
+* Check out nanogl and gl4es, they aren't checked out by default: `$ git submodule update --init --checkout 3rdparty/nanogl 3rdparty/gl4es/gl4es`.
 
 #### iOS/iPadOS
 * Install Xcode from the appstore.
@@ -109,6 +110,7 @@ This repository contains our fork of HLSDK and restored source code for Half-Lif
 * Clone the SDL2 repo `$ git clone --recursive https://github.com/libsdl-org/SDL.git -b SDL2` and compile the iOS framework by navigating to SDL/Xcode/SDL and opening the Xcode project.
 
 * Clone this repository: `$ git clone --recursive https://github.com/FWGS/xash3d-fwgs`.
+* Check out nanogl, it isn't checked out by default: `$ git submodule update --init --checkout 3rdparty/nanogl`.
 
 ### Building
 #### Windows (Visual Studio)

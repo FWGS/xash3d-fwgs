@@ -86,8 +86,6 @@ CONSTANTS AND HELPER MACROS
 #endif
 #define Q_equal_e( a, b, e ) (((a) >= ((b) - (e))) && ((a) <= ((b) + (e))))
 #define Q_equal( a, b ) Q_equal_e( a, b, EQUAL_EPSILON )
-#define Q_floor( a )    ((float)(int)(a))
-#define Q_ceil( a )     ((float)(int)((a) + 1))
 #define Q_round( x, y ) (floor( x / y + 0.5f ) * y )
 #define Q_rint(x)       ((x) < 0.0f ? ((int)((x)-0.5f)) : ((int)((x)+0.5f)))
 #define ALIGN( x, a )   ((( x ) + (( size_t )( a ) - 1 )) & ~(( size_t )( a ) - 1 ))
@@ -184,7 +182,7 @@ typedef struct mstudioanim_s mstudioanim_t;
 float Q_rsqrt( float number );
 uint16_t FloatToHalf( float v );
 float HalfToFloat( uint16_t h );
-void RoundUpHullSize( vec3_t size );
+void RoundUpHullSize( vec3_t mins, vec3_t maxs );
 void VectorVectors( const vec3_t forward, vec3_t right, vec3_t up );
 void VectorAngles( const float *forward, float *angles );
 void VectorsAngles( const vec3_t forward, const vec3_t right, const vec3_t up, vec3_t angles );
@@ -230,32 +228,90 @@ static inline void PlaneIntersect( const mplane_t *plane, const vec3_t p0, const
 //
 // matrixlib.c
 //
+#define Matrix3x4_Copy( out, in ) memcpy( out, in, sizeof( matrix3x4 ))
+
 static inline void Matrix3x4_LoadIdentity( matrix3x4 m )
 {
 	memset( m, 0, sizeof( matrix3x4 ));
 	m[0][0] = m[1][1] = m[2][2] = 1.0f;
 }
-#define Matrix3x4_Copy( out, in )		memcpy( out, in, sizeof( matrix3x4 ))
-void Matrix3x4_VectorTransform( const matrix3x4 in, const float v[3], float out[3] );
-void Matrix3x4_VectorITransform( const matrix3x4 in, const float v[3], float out[3] );
-void Matrix3x4_VectorRotate( const matrix3x4 in, const float v[3], float out[3] );
-void Matrix3x4_VectorIRotate( const matrix3x4 in, const float v[3], float out[3] );
+
+static inline void Matrix3x4_VectorRotate( const matrix3x4 in, const float v[3], float out[3] )
+{
+	out[0] = v[0] * in[0][0] + v[1] * in[0][1] + v[2] * in[0][2];
+	out[1] = v[0] * in[1][0] + v[1] * in[1][1] + v[2] * in[1][2];
+	out[2] = v[0] * in[2][0] + v[1] * in[2][1] + v[2] * in[2][2];
+}
+
+static inline void Matrix3x4_VectorIRotate( const matrix3x4 in, const float v[3], float out[3] )
+{
+	out[0] = v[0] * in[0][0] + v[1] * in[1][0] + v[2] * in[2][0];
+	out[1] = v[0] * in[0][1] + v[1] * in[1][1] + v[2] * in[2][1];
+	out[2] = v[0] * in[0][2] + v[1] * in[1][2] + v[2] * in[2][2];
+}
+
+static inline void Matrix3x4_VectorTransform( const matrix3x4 in, const float v[3], float out[3] )
+{
+	out[0] = v[0] * in[0][0] + v[1] * in[0][1] + v[2] * in[0][2] + in[0][3];
+	out[1] = v[0] * in[1][0] + v[1] * in[1][1] + v[2] * in[1][2] + in[1][3];
+	out[2] = v[0] * in[2][0] + v[1] * in[2][1] + v[2] * in[2][2] + in[2][3];
+}
+
+static inline void Matrix3x4_VectorITransform( const matrix3x4 in, const float v[3], float out[3] )
+{
+	vec3_t dir;
+	dir[0] = v[0] - in[0][3];
+	dir[1] = v[1] - in[1][3];
+	dir[2] = v[2] - in[2][3];
+
+	Matrix3x4_VectorIRotate( in, dir, out );
+}
+
 void Matrix3x4_ConcatTransforms( matrix3x4 out, const matrix3x4 in1, const matrix3x4 in2 );
 void Matrix3x4_FromOriginQuat( matrix3x4 out, const vec4_t quaternion, const vec3_t origin );
 void Matrix3x4_CreateFromEntity( matrix3x4 out, const vec3_t angles, const vec3_t origin, float scale );
 void Matrix3x4_TransformAABB( const matrix3x4 world, const vec3_t mins, const vec3_t maxs, vec3_t absmin, vec3_t absmax );
 void Matrix3x4_AnglesFromMatrix( const matrix3x4 in, vec3_t out );
 
+#define Matrix4x4_Copy( out, in ) memcpy( out, in, sizeof( matrix4x4 ))
+
 static inline void Matrix4x4_LoadIdentity( matrix4x4 m )
 {
 	memset( m, 0, sizeof( matrix4x4 ));
 	m[0][0] = m[1][1] = m[2][2] = m[3][3] = 1.0f;
 }
-#define Matrix4x4_Copy( out, in )	memcpy( out, in, sizeof( matrix4x4 ))
-void Matrix4x4_VectorTransform( const matrix4x4 in, const float v[3], float out[3] );
-void Matrix4x4_VectorITransform( const matrix4x4 in, const float v[3], float out[3] );
-void Matrix4x4_VectorRotate( const matrix4x4 in, const float v[3], float out[3] );
-void Matrix4x4_VectorIRotate( const matrix4x4 in, const float v[3], float out[3] );
+
+static inline void Matrix4x4_VectorRotate( const matrix4x4 in, const float v[3], float out[3] )
+{
+	out[0] = v[0] * in[0][0] + v[1] * in[0][1] + v[2] * in[0][2];
+	out[1] = v[0] * in[1][0] + v[1] * in[1][1] + v[2] * in[1][2];
+	out[2] = v[0] * in[2][0] + v[1] * in[2][1] + v[2] * in[2][2];
+}
+
+static inline void Matrix4x4_VectorIRotate( const matrix4x4 in, const float v[3], float out[3] )
+{
+	out[0] = v[0] * in[0][0] + v[1] * in[1][0] + v[2] * in[2][0];
+	out[1] = v[0] * in[0][1] + v[1] * in[1][1] + v[2] * in[2][1];
+	out[2] = v[0] * in[0][2] + v[1] * in[1][2] + v[2] * in[2][2];
+}
+
+static inline void Matrix4x4_VectorTransform( const matrix4x4 in, const float v[3], float out[3] )
+{
+	out[0] = v[0] * in[0][0] + v[1] * in[0][1] + v[2] * in[0][2] + in[0][3];
+	out[1] = v[0] * in[1][0] + v[1] * in[1][1] + v[2] * in[1][2] + in[1][3];
+	out[2] = v[0] * in[2][0] + v[1] * in[2][1] + v[2] * in[2][2] + in[2][3];
+}
+
+static inline void Matrix4x4_VectorITransform( const matrix4x4 in, const float v[3], float out[3] )
+{
+	vec3_t dir;
+	dir[0] = v[0] - in[0][3];
+	dir[1] = v[1] - in[1][3];
+	dir[2] = v[2] - in[2][3];
+
+	Matrix4x4_VectorIRotate( in, dir, out );
+}
+
 void Matrix4x4_ConcatTransforms( matrix4x4 out, const matrix4x4 in1, const matrix4x4 in2 );
 void Matrix4x4_CreateFromEntity( matrix4x4 out, const vec3_t angles, const vec3_t origin, float scale );
 void Matrix4x4_TransformPositivePlane( const matrix4x4 in, const vec3_t normal, float d, vec3_t out, float *dist );
@@ -307,22 +363,19 @@ static inline float SwapFloat( float bf )
 	return UintAsFloat( li );
 }
 
-// isnan implementation is broken on IRIX as reported in https://github.com/FWGS/xash3d-fwgs/pull/1211
-#if defined( XASH_IRIX ) || !defined( isnan )
+// don't use isnan: it's broken on IRIX as reported in https://github.com/FWGS/xash3d-fwgs/pull/1211
+// and it's optimized out to false under -ffinite-math-only (-Ofast)
 static inline int IS_NAN( float x )
 {
-	int32_t i = FloatAsInt( x ); // only C
-	return ( i & ( 255 << 23 ) ) == ( 255 << 23 );
+	return ( FloatAsUint( x ) & 0x7fffffff ) > 0x7f800000;
 }
-#else
-#define IS_NAN isnan
-#endif
 #endif // __cplusplus
 
 
 static inline float anglemod( float a )
 {
-	a = (360.0f / 65536) * ((int)(a*(65536/360.0f)) & 65535);
+	// GoldSrc uses double here, so we do too
+	a = (360.0 / 65536) * ((int)(a*(65536/360.0)) & 65535);
 	return a;
 }
 

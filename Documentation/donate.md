@@ -29,9 +29,7 @@ Initial Xash3D SDL2/Linux port author, Xash3D FWGS engine maintainer, creator of
 
 ## [$_Vladislav](https://github.com/Vladislav4KZ)
 
-[YaPB Project](https://github.com/yapb) member, [Xash3D FWGS](https://github.com/FWGS/xash3d-fwgs) tester,
-editor of the [Official YaPB Documentation](https://github.com/yapb/docs) (in English and Russian), curator of the [YaPB Graph Database](https://github.com/yapb/graph) and author of [YaPB Waypoint/Graph Pack](https://gamebanana.com/mods/40087).
-
-Also does the Russian localization of text, images (gfx/shell), as well as additional menu buttons in English used in Xash3D FWGS for various mods.
+[YaPB Project](https://github.com/yapb) member and [contributor](https://github.com/yapb/yapb/commits?author=Vladislav4KZ) ([Docs](https://github.com/yapb/docs), [Nav Graphs](https://github.com/yapb/graph), [RU translation](https://github.com/yapb/yapb/blob/master/cfg/addons/yapb/conf/lang/ru_lang.cfg)), Xash3D FWGS [tester](https://github.com/FWGS/xash3d-fwgs/issues?q=is%3Aissue%20state%3Aopen%20author%3AVladislav4KZ) and [contributor](https://github.com/FWGS/xash3d-fwgs/commits?author=Vladislav4KZ) (gyro-aim support, scr-parser, etc.), [CS16Client](https://github.com/Velaron/cs16-client) [contributor](https://github.com/Velaron/cs16-client/commits?author=Vladislav4KZ).
 
 * [Boosty page](https://boosty.to/rasstaman1337)
+* [PayPal link](https://paypal.me/rasstaman1337)

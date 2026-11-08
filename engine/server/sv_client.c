@@ -21,7 +21,6 @@ GNU General Public License for more details.
 #include "const.h"
 #include "server.h"
 #include "net_encode.h"
-#include "net_api.h"
 
 // challenges are valid for two consecutive windows of this size (max lifetime ~10s).
 #define CHALLENGE_WINDOW_SECONDS 5
@@ -240,6 +239,18 @@ void SV_GetPlayerCount( int *players, int *bots )
 
 /*
 =================
+SV_GetUserIDCount
+
+returns how many userids were assigned since server start
+=================
+*/
+int SV_GetUserIDCount( void )
+{
+	return g_userid - 1;
+}
+
+/*
+=================
 SV_GetChallenge
 
 Returns a challenge number that can be used
@@ -252,28 +263,28 @@ challenge, they must give a valid IP address.
 static int SV_GetChallenge( netadr_t from, uint32_t time_window, qboolean *error )
 {
 	const netadrtype_t type = NET_NetadrType( &from );
-	MD5Context_t ctx;
-	byte digest[16];
+	byte data[2 + 16 + 4]; // purpose, address type, address, time window
+	int len = 2;
 
 	*error = false;
 
-	MD5Init( &ctx );
+	data[0] = 'C'; // separate challenge hashes from rate-limit bucket hashes
+	data[1] = type;
 
 	switch( type )
 	{
 	case NA_IP:
-		MD5Update( &ctx, from.ip, sizeof( from.ip ));
+		memcpy( data + len, from.ip, sizeof( from.ip ));
+		len += sizeof( from.ip );
 		break;
 	case NA_IPX:
-		MD5Update( &ctx, from.ipx, sizeof( from.ipx ));
+		memcpy( data + len, from.ipx, sizeof( from.ipx ));
+		len += sizeof( from.ipx );
 		break;
 	case NA_IP6:
-	{
-		byte ip6[16];
-		NET_NetadrToIP6Bytes( ip6, &from );
-		MD5Update( &ctx, ip6, sizeof( ip6 ));
+		NET_NetadrToIP6Bytes( data + len, &from );
+		len += 16;
 		break;
-	}
 	case NA_LOOPBACK:
 		return 0;
 	default:
@@ -281,18 +292,49 @@ static int SV_GetChallenge( netadr_t from, uint32_t time_window, qboolean *error
 		return 0;
 	}
 
-	MD5Update( &ctx, (byte *)svs.challenge_salt, sizeof( svs.challenge_salt ));
-	MD5Update( &ctx, (byte *)&time_window, sizeof( time_window ));
-	MD5Final( digest, &ctx );
+	for( int i = 0; i < 4; i++ )
+		data[len++] = time_window >> ( 8 * i );
 
-	return digest[0] | digest[1] << 8 | digest[2] << 16 | digest[3] << 24;
+	return (int32_t)SipHash24( data, len, (const byte *)svs.challenge_salt );
+}
+
+/*
+=================
+SV_CreateChallenge
+=================
+*/
+int SV_CreateChallenge( netadr_t from, qboolean *error )
+{
+	uint32_t time_window = (uint32_t)( host.realtime / CHALLENGE_WINDOW_SECONDS );
+
+	return SV_GetChallenge( from, time_window, error );
+}
+
+/*
+=================
+SV_ValidateChallenge
+=================
+*/
+qboolean SV_ValidateChallenge( netadr_t from, int challenge )
+{
+	qboolean error = false;
+	uint32_t time_window = (uint32_t)( host.realtime / CHALLENGE_WINDOW_SECONDS );
+
+	// accept the current window and the previous one so challenges issued just
+	// before a window boundary remain valid for the full expected lifetime
+	if( SV_GetChallenge( from, time_window, &error ) == challenge && !error )
+		return true;
+
+	if( SV_GetChallenge( from, time_window - 1, &error ) == challenge && !error )
+		return true;
+
+	return false;
 }
 
 static void SV_SendChallenge( netadr_t from, qboolean skip_bandwidth_test )
 {
 	qboolean error = false;
-	uint32_t time_window = (uint32_t)( host.realtime / CHALLENGE_WINDOW_SECONDS );
-	int challenge = SV_GetChallenge( from, time_window, &error );
+	int challenge = SV_CreateChallenge( from, &error );
 
 	if( error )
 		return;
@@ -392,19 +434,7 @@ Make sure connecting client is not spoofing
 */
 static int SV_CheckChallenge( netadr_t from, int challenge )
 {
-	qboolean error = false;
-	uint32_t time_window = (uint32_t)( host.realtime / CHALLENGE_WINDOW_SECONDS );
-
-	// accept the current window and the previous one so challenges issued just
-	// before a window boundary remain valid for the full expected lifetime
-	if( SV_GetChallenge( from, time_window, &error ) == challenge && !error )
-		return true;
-
-	if( SV_GetChallenge( from, time_window - 1, &error ) == challenge && !error )
-		return true;
-
-	SV_RejectConnection( from, "no challenge for your address\n" );
-	return false;
+	return SV_ValidateChallenge( from, challenge );
 }
 
 /*
@@ -441,6 +471,29 @@ static sv_client_t *SV_FindEmptySlot( void )
 	}
 
 	return NULL;
+}
+
+/*
+================
+SV_CountConnectingClients
+================
+*/
+static int SV_CountConnectingClients( netadr_t from )
+{
+	int count = 0;
+
+	for( int i = 0; i < svs.maxclients; i++ )
+	{
+		const sv_client_t *cl = &svs.clients[i];
+
+		if( cl->state != cs_connected && cl->state != cs_spawning )
+			continue;
+
+		if( NET_CompareBaseAdr( from, cl->netchan.remote_address ))
+			count++;
+	}
+
+	return count;
 }
 
 static void SV_MaybeNotifyPlayerCountChange( const sv_client_t *cl, const char *address )
@@ -486,31 +539,33 @@ static void SV_ConnectClient( netadr_t from )
 	uint64_t netchan_cookie = 0;
 
 	if( Cmd_Argc() < 5 )
-	{
-		SV_RejectConnection( from, "insufficient connection info\n" );
 		return;
-	}
 
+	// LAN servers restrict to class b IP addresses
+	if( !SV_CheckIPRestrictions( from ))
+		return;
+
+	s = Cmd_Argv( 2 );
+	if( !Q_isdigit( s[0] == '-' ? s + 1 : s ))
+		return;
+
+	challenge = Q_atoi( s ); // get challenge
+
+	// see if the challenge is valid (local clients don't need to challenge)
+	if( !SV_CheckChallenge( from, challenge ))
+		return;
+
+	// challenge stays valid for a while, don't let it be replayed at line rate
+	if( SV_RateLimited( from, SV_RATELIMIT_CONNECT ))
+		return;
+
+	// reply about protocol mismatch only after the challenge is validated
 	version = Q_atoi( Cmd_Argv( 1 ));
-
 	if( version != PROTOCOL_VERSION )
 	{
 		SV_RejectConnection( from, "unsupported protocol (%i should be %i)\n", version, PROTOCOL_VERSION );
 		return;
 	}
-
-	// LAN servers restrict to class b IP addresses
-	if( !SV_CheckIPRestrictions( from ))
-	{
-		SV_RejectConnection( from, "LAN servers are restricted to local clients (class C)\n" );
-		return;
-	}
-
-	challenge = Q_atoi( Cmd_Argv( 2 )); // get challenge
-
-	// see if the challenge is valid (local clients don't need to challenge)
-	if( !SV_CheckChallenge( from, challenge ))
-		return;
 
 	s = Cmd_Argv( 3 );
 	if( Q_strlen( s ) > sizeof( protinfo ) || !Info_IsValid( s ))
@@ -589,6 +644,12 @@ static void SV_ConnectClient( netadr_t from )
 	// the slot will be wiped clean.
 	if( !newcl )
 	{
+		if( sv_connect_max_per_ip.value > 0.0f && !NET_IsLocalAddress( from ) && SV_CountConnectingClients( from ) >= sv_connect_max_per_ip.value )
+		{
+			SV_RejectConnection( from, "too many connections from your address\n" );
+			return;
+		}
+
 		// connect the client if there are empty slots.
 		newcl = SV_FindEmptySlot();
 
@@ -703,6 +764,7 @@ static void SV_ConnectClient( netadr_t from )
 	protinfo[0] = '\0';
 	Info_SetValueForKeyf( protinfo, "ext", sizeof( protinfo ), "%d", newcl->extensions );
 	Info_SetValueForKey( protinfo, "cheats", sv_cheats.value ? "1" : "0", sizeof( protinfo ));
+	Info_SetValueForKeyf( protinfo, "challenge", sizeof( protinfo ), "%d", challenge );
 	if( FBitSet( newcl->extensions, NET_EXT_NETCHAN_COOKIE ))
 		Info_SetValueForKeyf( protinfo, "cookie", sizeof( protinfo ), "%016"PRIx64, netchan_cookie );
 
@@ -1077,12 +1139,8 @@ static void SV_TestBandWidth( netadr_t from )
 	const int version = Q_atoi( Cmd_Argv( 1 ));
 	const int packetsize = Q_atoi( Cmd_Argv( 2 ));
 
-	// don't waste time of protocol mismatched
-	if( version != PROTOCOL_VERSION )
-	{
-		SV_RejectConnection( from, "unsupported protocol (%i should be %i)\n", version, PROTOCOL_VERSION );
+	if( SV_RateLimited( from, SV_RATELIMIT_CHALLENGE ))
 		return;
-	}
 
 	// third argument is the challenge, if it's empty, it means this is an
 	// old client that do not have challenge and testbandwidth swapped
@@ -1095,6 +1153,13 @@ static void SV_TestBandWidth( netadr_t from )
 	// require challenge for testpacket
 	if( !SV_CheckChallenge( from, Q_atoi( Cmd_Argv( 3 ))))
 		return;
+
+	// reply about protocol mismatch only after the challenge is validated
+	if( version != PROTOCOL_VERSION )
+	{
+		SV_RejectConnection( from, "unsupported protocol (%i should be %i)\n", version, PROTOCOL_VERSION );
+		return;
+	}
 
 	// quickly reject invalid packets
 	if( !sv_allow_testpacket.value || !svs.testpacket_buf || packetsize <= FRAGMENT_MIN_SIZE || packetsize > 1400 )
@@ -1120,13 +1185,78 @@ static void SV_TestBandWidth( netadr_t from )
 
 /*
 ================
-SV_Ack
-
+SV_CheckRateLimit
 ================
 */
-static void SV_Ack( netadr_t from )
+static qboolean SV_CheckRateLimit( netadr_t from MAYBE_UNUSED, sv_ratelimit_t kind MAYBE_UNUSED, qboolean take MAYBE_UNUSED )
 {
-	Con_Printf( "ping %s\n", NET_AdrToString( from ));
+#if !XASH_LOW_MEMORY // these targets don't host public servers, always allow
+	enum { CACHE_SIZE = 8192 };
+	// a table per kind, so flooding with one kind of request can't deplete the others
+	static struct { uint32_t last; float tokens; } cache[SV_RATELIMIT_COUNT][CACHE_SIZE];
+
+	// real clients never come close to 1 per second for anything but queries
+	const float rate = kind == SV_RATELIMIT_QUERY ? sv_query_rate_limit.value : 1.0f;
+
+	if( rate <= 0.0f )
+		return false;
+
+	byte data[2 + 16]; // purpose, address type, address
+	const netadrtype_t type = NET_NetadrType( &from );
+	int len;
+
+	data[0] = 'R';
+	data[1] = type;
+	switch( type )
+	{
+	case NA_IP:
+		memcpy( data + 2, from.ip, 4 );
+		len = 2 + 4;
+		break;
+	case NA_IP6:
+		NET_NetadrToIP6Bytes( data + 2, &from );
+		len = 2 + 16;
+		break;
+	default:
+		return false;
+	}
+
+	// mix the secret salt with the address so collisions cannot be computed
+	// independently of the salt, as they can with an additive hash.
+	int slot = SipHash24( data, len, (const byte *)svs.challenge_salt ) & ( CACHE_SIZE - 1 );
+
+	// millisecond tick; unsigned subtraction stays correct across the ~49 day wrap
+	uint32_t now = (uint32_t)(uint64_t)( host.realtime * 1000.0 );
+	uint32_t elapsed = now - cache[kind][slot].last;
+
+	// the bucket is shared by every address hashing here, so it can't be evicted,
+	// only depleted, which bounds how much we amplify no matter how sources are spoofed
+	float tokens = cache[kind][slot].tokens + elapsed * 0.001f * rate;
+	const float burst = 5.0f;
+
+	if( tokens > burst )
+		tokens = burst;
+	cache[kind][slot].last = now;
+
+	if( tokens < 1.0f )
+	{
+		cache[kind][slot].tokens = tokens;
+		return true;
+	}
+
+	cache[kind][slot].tokens = take ? tokens - 1.0f : tokens;
+#endif
+	return false;
+}
+
+/*
+================
+SV_RateLimited
+================
+*/
+qboolean SV_RateLimited( netadr_t from, sv_ratelimit_t kind )
+{
+	return SV_CheckRateLimit( from, kind, true );
 }
 
 /*
@@ -1143,6 +1273,9 @@ static void SV_Info( netadr_t from, int protocolVersion )
 
 	// ignore in single player
 	if( svs.maxclients == 1 || !svs.initialized )
+		return;
+
+	if( SV_RateLimited( from, SV_RATELIMIT_QUERY ))
 		return;
 
 	s[0] = '\0';
@@ -1205,111 +1338,6 @@ static void SV_ConnectNatClient( netadr_t from )
 
 /*
 ================
-SV_BuildNetAnswer
-
-Responds with long info for local and broadcast requests
-================
-*/
-static void SV_BuildNetAnswer( netadr_t from )
-{
-	const cvar_t *cv;
-	char string[4096];
-	int  version;
-	int  context;
-	int  type;
-	int  count = 0;
-	int  i;
-
-	// ignore in single player
-	if( svs.maxclients == 1 || !svs.initialized )
-		return;
-
-	version = Q_atoi( Cmd_Argv( 1 ));
-	context = Q_atoi( Cmd_Argv( 2 ));
-	type = Q_atoi( Cmd_Argv( 3 ));
-
-	string[0] = 0;
-
-	if( version != PROTOCOL_VERSION )
-	{
-		// send error unsupported protocol
-		Info_SetValueForKey( string, "neterror", "protocol", sizeof( string ));
-		Netchan_OutOfBandPrint( NS_SERVER, from, A2A_NETINFO" %i %i %s\n", context, type, string );
-		return;
-	}
-
-	switch( type )
-	{
-	case NETAPI_REQUEST_PING:
-		break;
-	case NETAPI_REQUEST_RULES:
-		for( cv = Cvar_GetList( ); cv; cv = cv->next )
-		{
-			if( !FBitSet( cv->flags, FCVAR_SERVER ))
-				continue;
-
-			if( FBitSet( cv->flags, FCVAR_PROTECTED ))
-			{
-				if( !COM_StringEmpty( cv->string ) && Q_stricmp( cv->string, "none" ))
-					Info_SetValueForKey( string, cv->name, "1", sizeof( string ));
-				else Info_SetValueForKey( string, cv->name, "0", sizeof( string ));
-			}
-			else Info_SetValueForKey( string, cv->name, cv->string, sizeof( string ));
-
-			count++;
-		}
-
-		Info_SetValueForKeyf( string, "rules", sizeof( string ), "%i", count );
-		break;
-	case NETAPI_REQUEST_PLAYERS:
-		if( !sv_expose_player_list.value || SV_HavePassword( ))
-		{
-			Info_SetValueForKey( string, "neterror", "forbidden", sizeof( string ));
-		}
-		else
-		{
-			for( i = 0; i < svs.maxclients; i++ )
-			{
-				const sv_client_t *cl = &svs.clients[i];
-
-				if( cl->state < cs_connected )
-					continue;
-
-				Info_SetValueForKey( string, va( "p%iname", count ), cl->name, sizeof( string ));
-				Info_SetValueForKeyf( string, va( "p%ifrags", count ), sizeof( string ), "%i", (int)cl->edict->v.frags );
-				Info_SetValueForKeyf( string, va( "p%itime", count ), sizeof( string ), "%f", host.realtime - cl->connection_started );
-
-				count++;
-			}
-
-			Info_SetValueForKeyf( string, "players", sizeof( string ), "%i", count );
-		}
-		break;
-	case NETAPI_REQUEST_DETAILS:
-		for( i = 0; i < svs.maxclients; i++ )
-		{
-			if( svs.clients[i].state >= cs_connected )
-				count++;
-		}
-
-		// should match SV_SourceQuery_Details
-		Info_SetValueForKey( string, "hostname", hostname.string, sizeof( string ));
-		Info_SetValueForKey( string, "gamedir", GI->gamefolder, sizeof( string ));
-		Info_SetValueForKeyf( string, "current", sizeof( string ), "%i", count );
-		Info_SetValueForKeyf( string, "max", sizeof( string ), "%i", svs.maxclients );
-		Info_SetValueForKey( string, "map", sv.name, sizeof( string ));
-		break;
-	default:
-		// send error undefined request type
-		Info_SetValueForKey( string, "neterror", "undefined", sizeof( string ));
-		break;
-	}
-
-	Netchan_OutOfBandPrint( NS_SERVER, from, A2A_NETINFO" %i %i %s\n", context, type, string );
-}
-
-/*
-================
 Rcon_Validate
 ================
 */
@@ -1338,34 +1366,37 @@ void SV_RemoteCommand( netadr_t from, sizebuf_t *msg )
 	if( !rcon_enable.value || COM_StringEmpty( rcon_password.string ))
 		return;
 
+	// only failed attempts take tokens, so password guessing is throttled
+	// but an admin who knows the password isn't
+	if( SV_CheckRateLimit( from, SV_RATELIMIT_RCON, false ))
+		return;
+
+	if( !Rcon_Validate( ))
+	{
+		SV_RateLimited( from, SV_RATELIMIT_RCON );
+		return;
+	}
+
+	static char outputbuf[2048];
+	char remaining[1024];
+	char *p = remaining;
+
 	adr = NET_AdrToString( from );
 
-	if( Rcon_Validate( ))
+	Con_Printf( "Rcon from %s:\n%s\n", adr, MSG_GetData( msg ) + 4 );
+	Log_Printf( "Rcon: \"%s\" from \"%s\"\n", MSG_GetData( msg ) + 4, adr );
+
+	remaining[0] = 0;
+	for( int i = 2; i < Cmd_Argc(); i++ )
 	{
-		static char	outputbuf[2048];
-		char remaining[1024];
-		char *p = remaining;
-
-		Con_Printf( "Rcon from %s:\n%s\n", adr, MSG_GetData( msg ) + 4 );
-		Log_Printf( "Rcon: \"%s\" from \"%s\"\n", MSG_GetData( msg ) + 4, adr );
-
-		remaining[0] = 0;
-		for( int i = 2; i < Cmd_Argc(); i++ )
-		{
-			p += Q_strncpy( p, "\"", sizeof( remaining ) - ( p - remaining ));
-			p += Q_strncpy( p, Cmd_Argv( i ), sizeof( remaining ) - ( p - remaining ));
-			p += Q_strncpy( p, "\" ", sizeof( remaining ) - ( p - remaining ));
-		}
-
-		SV_BeginRedirect( &host.rd, from, RD_PACKET, outputbuf, sizeof( outputbuf ) - 16, SV_FlushRedirect );
-		Cmd_ExecuteString( remaining );
-		SV_EndRedirect( &host.rd );
+		p += Q_strncpy( p, "\"", sizeof( remaining ) - ( p - remaining ));
+		p += Q_strncpy( p, Cmd_Argv( i ), sizeof( remaining ) - ( p - remaining ));
+		p += Q_strncpy( p, "\" ", sizeof( remaining ) - ( p - remaining ));
 	}
-	else
-	{
-		Con_Printf( S_ERROR "Bad rcon_password from %s\n", adr );
-		Log_Printf( "Bad Rcon from \"%s\"\n", adr );
-	}
+
+	SV_BeginRedirect( &host.rd, from, RD_PACKET, outputbuf, sizeof( outputbuf ) - 16, SV_FlushRedirect );
+	Cmd_ExecuteString( remaining );
+	SV_EndRedirect( &host.rd );
 }
 
 /*
@@ -1836,7 +1867,8 @@ SV_TogglePause
 */
 void SV_TogglePause( const char *msg )
 {
-	if( sv.background ) return;
+	// allow pause in background mode
+//	if( sv.background ) return;
 
 	sv.paused ^= 1;
 
@@ -2561,6 +2593,7 @@ static qboolean SV_Begin_f( sv_client_t *cl )
 	// now client is spawned
 	cl->state = cs_spawned;
 	cl->connecttime = host.realtime;
+	SetBits( cl->flags, FCL_HOLD_FIRST_DATAGRAM );
 
 #if XASH_GAMECUBE
 	if( Sys_CheckParm( "-gcnewgame" ))
@@ -2967,7 +3000,7 @@ static qboolean SV_EntFire_f( sv_client_t *cl )
 		return false;
 	}
 
-	if( ( single = Q_isdigit( Cmd_Argv( 1 ) ) ) )
+	if(( single = Q_isdigit( Cmd_Argv( 1 ))))
 	{
 		i = Q_atoi( Cmd_Argv( 1 ) );
 
@@ -2976,7 +3009,7 @@ static qboolean SV_EntFire_f( sv_client_t *cl )
 
 		ent = SV_EdictNum( i );
 	}
-	else if( ( single = !Q_stricmp( Cmd_Argv( 1 ), "!cross" ) ) )
+	else if(( single = !Q_stricmp( Cmd_Argv( 1 ), "!cross" )))
 	{
 		ent = SV_GetCrossEnt( cl->edict );
 
@@ -2985,7 +3018,7 @@ static qboolean SV_EntFire_f( sv_client_t *cl )
 
 		i = NUM_FOR_EDICT( ent );
 	}
-	else if( ( single = ( Cmd_Argv( 1 )[0] == '!') ) ) // check for correct instance with !(num)_(serial)
+	else if(( single = ( Cmd_Argv( 1 )[0] == '!' ))) // check for correct instance with !(num)_(serial)
 	{
 		const char *cmd = Cmd_Argv( 1 ) + 1;
 		i = Q_atoi( cmd );
@@ -3603,11 +3636,7 @@ void SV_ConnectionlessPacket( netadr_t from, sizebuf_t *msg )
 	// `pcmd` points only to the first word from the query string.
 	if( !Q_strcmp( args, A2S_GOLDSRC_INFO ) || pcmd[0] == A2S_GOLDSRC_PLAYERS || pcmd[0] == A2S_GOLDSRC_RULES )
 	{
-		SV_SourceQuery_HandleConnnectionlessPacket( args, from );
-	}
-	else if( !Q_strcmp( pcmd, A2A_NETINFO ))
-	{
-		SV_BuildNetAnswer( from );
+		SV_SourceQuery_HandleConnnectionlessPacket( args, from, msg );
 	}
 	else if( !Q_strcmp( pcmd, A2A_INFO ))
 	{
@@ -3619,7 +3648,8 @@ void SV_ConnectionlessPacket( netadr_t from, sizebuf_t *msg )
 	}
 	else if( !Q_strcmp( pcmd, C2S_GETCHALLENGE ))
 	{
-		SV_SendChallenge( from, !sv_allow_testpacket.value || !svs.testpacket_buf );
+		if( !SV_RateLimited( from, SV_RATELIMIT_CHALLENGE ))
+			SV_SendChallenge( from, !sv_allow_testpacket.value || !svs.testpacket_buf );
 	}
 	else if( !Q_strcmp( pcmd, C2S_CONNECT ))
 	{
@@ -3627,11 +3657,13 @@ void SV_ConnectionlessPacket( netadr_t from, sizebuf_t *msg )
 	}
 	else if( !Q_strcmp( pcmd, A2A_PING ))
 	{
-		Netchan_OutOfBandPrint( NS_SERVER, from, A2A_ACK );
+		if( !SV_RateLimited( from, SV_RATELIMIT_QUERY ))
+			Netchan_OutOfBandPrint( NS_SERVER, from, A2A_ACK );
 	}
 	else if( !Q_strcmp( pcmd, A2A_GOLDSRC_PING ))
 	{
-		Netchan_OutOfBandPrint( NS_SERVER, from, A2A_GOLDSRC_ACK );
+		if( !SV_RateLimited( from, SV_RATELIMIT_QUERY ))
+			Netchan_OutOfBandPrint( NS_SERVER, from, A2A_GOLDSRC_ACK );
 	}
 	else if( !Q_strcmp( pcmd, C2S_RCON ))
 	{
@@ -3639,7 +3671,7 @@ void SV_ConnectionlessPacket( netadr_t from, sizebuf_t *msg )
 	}
 	else if( !Q_strcmp( pcmd, A2A_ACK ) || !Q_strcmp( pcmd, A2A_GOLDSRC_ACK ))
 	{
-		SV_Ack( from );
+		// consume acks so they don't reach the game dll; they're replies to our pings
 	}
 	else
 	{
@@ -4095,3 +4127,130 @@ void SV_ExecuteClientMessage( sv_client_t *cl, sizebuf_t *msg )
 		}
 	}
  }
+
+#if XASH_ENGINE_TESTS
+
+#include "tests.h"
+
+void Test_RunChallenge( void )
+{
+	uint32_t saved_salt[ARRAYSIZE( svs.challenge_salt )];
+	double saved_time = host.realtime;
+	qboolean error;
+	netadr_t addresses[] = {
+		{ .type = NA_IP, .ip = { 1, 2, 3, 40 } },
+		{ .type = NA_IPX, .ipx = { 1, 2, 3, 4, 5, 6, 7, 8, 9, 10 } },
+		{ .type = NA_IP6, .ip6_0 = { 0x20, 0x01 }, .ip6_1 = { 0x0d, 0xb8 } },
+	};
+
+	memcpy( saved_salt, svs.challenge_salt, sizeof( saved_salt ));
+	memset( svs.challenge_salt, 0, sizeof( svs.challenge_salt ));
+
+	for( int i = 0; i < ARRAYSIZE( addresses ); i++ )
+	{
+		host.realtime = 100 * CHALLENGE_WINDOW_SECONDS;
+		int challenge = SV_CreateChallenge( addresses[i], &error );
+		TASSERT( !error );
+		TASSERT( SV_ValidateChallenge( addresses[i], challenge ));
+		TASSERT( !SV_ValidateChallenge( addresses[( i + 1 ) % ARRAYSIZE( addresses )], challenge ));
+
+		// Challenges bind to the address, not its UDP port.
+		addresses[i].port = 12345;
+		TASSERT( SV_ValidateChallenge( addresses[i], challenge ));
+		svs.challenge_salt[0] ^= 1;
+		TASSERT( !SV_ValidateChallenge( addresses[i], challenge ));
+		svs.challenge_salt[0] ^= 1;
+
+		host.realtime += CHALLENGE_WINDOW_SECONDS;
+		TASSERT( SV_ValidateChallenge( addresses[i], challenge ));
+		host.realtime += CHALLENGE_WINDOW_SECONDS;
+		TASSERT( !SV_ValidateChallenge( addresses[i], challenge ));
+	}
+
+	TASSERT_EQi( SV_CreateChallenge(( netadr_t ){ .type = NA_LOOPBACK }, &error ), 0 );
+	TASSERT( !error );
+	SV_CreateChallenge(( netadr_t ){ .type = NA_UNDEFINED }, &error );
+	TASSERT( error );
+
+	memcpy( svs.challenge_salt, saved_salt, sizeof( saved_salt ));
+	host.realtime = saved_time;
+}
+
+void Test_RunQueryRateLimit( void )
+{
+#if !XASH_LOW_MEMORY
+	netadr_t victim = { .type = NA_IP, .ip = { 1, 2, 3, 40 } };
+	float saved_rate = sv_query_rate_limit.value;
+	double saved_time = host.realtime;
+	uint32_t saved_salt[ARRAYSIZE( svs.challenge_salt )];
+
+	// fixed salt and time so bucket placement and refill are deterministic
+	memcpy( saved_salt, svs.challenge_salt, sizeof( saved_salt ));
+	memset( svs.challenge_salt, 0, sizeof( svs.challenge_salt ));
+	host.realtime = 100000.0;
+
+	// disabled by cvar: nothing is ever throttled
+	sv_query_rate_limit.value = 0.0f;
+	for( int i = 0; i < 32; i++ )
+		TASSERT( SV_RateLimited( victim, SV_RATELIMIT_QUERY ) == false );
+
+	// enabled: a fresh bucket lets a burst of 5 through, then throttles
+	sv_query_rate_limit.value = 1.0f;
+
+	int burst_allowed = 0;
+	for( int i = 0; i < 32; i++ )
+	{
+		if( !SV_RateLimited( victim, SV_RATELIMIT_QUERY ))
+			burst_allowed++;
+	}
+	TASSERT_EQi( burst_allowed, 5 );
+
+	// these addresses collide under the old additive hash for every salt
+	// depleting one must not deplete the other with our fixed test salt
+	netadr_t collision = { .type = NA_IP, .ip = { 1, 2, 4, 7 } };
+	for( int i = 0; i < 5; i++ )
+		TASSERT( SV_RateLimited( collision, SV_RATELIMIT_QUERY ) == false );
+	TASSERT( SV_RateLimited( victim, SV_RATELIMIT_QUERY ) == true );
+
+	// a spoofed flood from other sources can only deplete buckets, never refill the
+	// victim's, so with no time elapsed the victim can't be evicted and stays throttled
+	for( int i = 0; i < 30000; i++ )
+		SV_RateLimited(( netadr_t ){ .type = NA_IP, .ip4 = 0x10000000 + i }, SV_RATELIMIT_QUERY );
+	TASSERT( SV_RateLimited( victim, SV_RATELIMIT_QUERY ) == true );
+
+	// tokens refill with time: 3 seconds at 1/s lets exactly 3 more replies through
+	host.realtime += 3.0;
+
+	int refill_allowed = 0;
+	for( int i = 0; i < 32; i++ )
+	{
+		if( !SV_RateLimited( victim, SV_RATELIMIT_QUERY ))
+			refill_allowed++;
+	}
+	TASSERT_EQi( refill_allowed, 3 );
+
+	// other kinds have their own tables and aren't disabled by the query cvar
+	sv_query_rate_limit.value = 0.0f;
+
+	int connect_allowed = 0;
+	for( int i = 0; i < 32; i++ )
+	{
+		if( !SV_RateLimited( victim, SV_RATELIMIT_CONNECT ))
+			connect_allowed++;
+	}
+	TASSERT_EQi( connect_allowed, 5 );
+
+	// peeking doesn't take tokens, so only failed rcon attempts deplete the bucket
+	for( int i = 0; i < 32; i++ )
+		TASSERT( SV_CheckRateLimit( victim, SV_RATELIMIT_RCON, false ) == false );
+	for( int i = 0; i < 5; i++ )
+		TASSERT( SV_RateLimited( victim, SV_RATELIMIT_RCON ) == false );
+	TASSERT( SV_CheckRateLimit( victim, SV_RATELIMIT_RCON, false ) == true );
+
+	sv_query_rate_limit.value = saved_rate;
+	host.realtime = saved_time;
+	memcpy( svs.challenge_salt, saved_salt, sizeof( saved_salt ));
+#endif // !XASH_LOW_MEMORY
+}
+
+#endif // XASH_ENGINE_TESTS
