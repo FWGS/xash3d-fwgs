@@ -68,10 +68,13 @@ def main() -> int:
 		"PASS" if contains_all(video_source, ("static const unsigned char digit", "static const unsigned char alpha", "GC_FatalPutPixel", "GC_DrawFatalBreadcrumb( const char *message, const char *details )")) else "FAIL",
 		"uses built-in glyphs and direct XFB pixels so missing assets/filesystem failures remain visible",
 	))
+	# Fatal holds the XFB forever (power-cycle/reset) — stronger than a 3-field flash.
 	checks.append(Check(
 		"bounded halt visibility",
-		"PASS" if contains_all(video_source, ("VIDEO_SetNextFramebuffer", "VIDEO_Flush", "VIDEO_WaitVSync", "for( i = 0; i < 3; i++ )")) else "FAIL",
-		"flushes the fatal frame and waits a bounded number of VSyncs",
+		"PASS" if contains_all(video_source, ("VIDEO_SetNextFramebuffer", "VIDEO_Flush", "VIDEO_WaitVSync", "for( ;; )"))
+			and ("HALTED: POWER CYCLE OR RESET" in video_source or "boot fatal panel" in video_source)
+			else "FAIL",
+		"flushes the fatal frame and holds VSync until power-cycle/reset",
 	))
 	checks.append(Check(
 		"intentional fatal probe route",

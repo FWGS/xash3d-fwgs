@@ -170,13 +170,19 @@ try_mount_raw_fat() {
 		findmnt -n "$part" >/dev/null 2>&1 && continue
 		disk="$(lsblk -no PKNAME "$part" 2>/dev/null || true)"
 		[[ -n "$disk" ]] || continue
+		# Never touch NVMe system disks; USB/removable SD readers may be sda+.
 		case "$disk" in
-			nvme*|sda|sdb|sdc) continue ;;
+			nvme*) continue ;;
 		esac
 		tran="$(lsblk -dn -o TRAN "/dev/$disk" 2>/dev/null || true)"
 		rm="$(lsblk -dn -o RM "/dev/$disk" 2>/dev/null || true)"
 		hotplug="$(lsblk -dn -o HOTPLUG "/dev/$disk" 2>/dev/null || true)"
 		if [[ "$tran" != "usb" && "$rm" != "1" && "$hotplug" != "1" ]]; then
+			continue
+		fi
+		# Refuse huge host volumes mislabeled as FAT (Expansion ESP etc.).
+		size_bytes="$(lsblk -dbn -o SIZE "/dev/$disk" 2>/dev/null || echo 0)"
+		if (( size_bytes > MAX_GIB * 1024 * 1024 * 1024 )); then
 			continue
 		fi
 		# Refuse EFI system partitions.
@@ -196,9 +202,9 @@ notify_raw_flash_once() {
 		if [[ "$tran" != "usb" && "$rm" != "1" && "$hotplug" != "1" ]]; then
 			continue
 		fi
-		# Skip host / Expansion-class drives.
+		# Never notify for NVMe system disks; USB SD readers may enumerate as sda+.
 		case "$name" in
-			nvme*|sda|sdb|sdc) continue ;;
+			nvme*) continue ;;
 		esac
 		if (( size > MAX_GIB * 1024 * 1024 * 1024 )); then
 			continue
@@ -329,7 +335,7 @@ if (( ! phase1_skip_stage )); then
 	echo "== Next on GameCube =="
 	echo "1. Insert card into SD2SP2 / SD Gecko"
 	echo "2. Swiss → apps/xash3d-gc/boot.dol"
-	echo "3. Expect splash → auto map c0a0e (gamecube.cfg + swissquit) → return to Swiss"
+	echo "3. Expect splash → auto map from gamecube.cfg (swissquit) → return to Swiss"
 	echo "   (backup: hold Z+Start to quit)"
 	echo "4. Reinsert card on this PC"
 	echo
@@ -347,6 +353,22 @@ evidence_complete() {
 	grep -q "FAT shutdown (return to Swiss loader via exit stub)" "$f" || return 1
 	grep -q "map loaded " "$f" || return 1
 	grep -qE "entity lump spawn ready|playable present .*nonblack=1" "$f" || return 1
+	# Current Swiss smoke bakes c0a0→c0a0a; require dest continuity when present.
+	if grep -qE "changelevel begin|G68 changelevel ready|map loaded c0a0a" "$f"; then
+		grep -qE "playable present map=c0a0a|G68 changelevel ready.*c0a0a|map loaded c0a0a" "$f" || return 1
+	fi
+	# Enrichment (G38/G66): log presence; do not hard-fail older DOLs.
+	for marker in \
+		"G45 controller ready" \
+		"audio voice started" \
+		"save probe ready" \
+		"playable present map=c0a0a" \
+		"G68 changelevel ready"
+	do
+		if grep -q "$marker" "$f"; then
+			echo "    evidence+ $marker" >&2
+		fi
+	done
 	return 0
 }
 

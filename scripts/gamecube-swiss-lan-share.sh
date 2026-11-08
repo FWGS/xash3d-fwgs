@@ -22,13 +22,22 @@ LOG="$DIR/http.log"
 mkdir -p "$DIR"
 
 # Prefer OUT/ (canonical); Desktop copies override when present.
+# Repo may live on exFAT (no symlinks); prefer symlink, else hardlink, else skip missing.
 link_pref() {
 	local name="$1"; shift
-	local src
+	local src real
 	for src in "$@"; do
 		if [[ -f "$src" ]]; then
-			ln -sfn "$(realpath "$src")" "$DIR/$name"
-			return 0
+			real="$(realpath "$src")"
+			rm -f "$DIR/$name"
+			if ln -sfn "$real" "$DIR/$name" 2>/dev/null; then
+				return 0
+			fi
+			if ln -f "$real" "$DIR/$name" 2>/dev/null; then
+				return 0
+			fi
+			echo "WARN: cannot link $name onto $(df -T "$DIR" | awk 'NR==2{print $2}') — use SWISS_LAN_SHARE_DIR on ext4" >&2
+			return 1
 		fi
 	done
 	return 1
@@ -40,13 +49,14 @@ link_pref "xash3d-gc-swiss-smoke.img" \
 link_pref "boot.dol" \
 	"$HOME/Desktop/xash3d-gc-swiss-boot.dol" \
 	"OUT/bin/boot.dol"
+# Optional artifacts — missing is fine under set -e.
 link_pref "xash3d-gc-swiss-stage.tar.gz" \
-	"$HOME/Desktop/xash3d-gc-swiss-stage.tar.gz"
+	"$HOME/Desktop/xash3d-gc-swiss-stage.tar.gz" || true
 link_pref "xash3d-gc-swiss-disc.iso" \
-	"OUT/xash3d-gc-swiss-disc.iso"
+	"OUT/xash3d-gc-swiss-disc.iso" || true
 link_pref "OFFHOST.txt" \
 	"$HOME/Desktop/XASH3D-GC-OFFHOST.txt" \
-	"/run/media/tim/Expansion/01_GAME_DEV/xash3d-gc-swiss-hw-20260829/OFFHOST.txt"
+	"/run/media/tim/Expansion/01_GAME_DEV/xash3d-gc-swiss-hw-20260829/OFFHOST.txt" || true
 
 if [[ ! -e "$DIR/xash3d-gc-swiss-smoke.img" || ! -e "$DIR/boot.dol" ]]; then
 	echo "FAIL: missing smoke.img or boot.dol for LAN share" >&2

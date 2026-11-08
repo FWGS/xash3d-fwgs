@@ -1247,6 +1247,15 @@ qboolean R_TryInitGcmapSurfaceCache( void )
 	size = GC_SURFACE_CACHE_DEFAULT;
 	if( size > GC_SURFACE_CACHE_MAX )
 		size = GC_SURFACE_CACHE_MAX;
+	/* Compact listen/worldrender CapFaces: malloc(128 KiB) succeeds when
+	 * unclaimed≈870 and leaves unclaimed=0 before Mod_LoadWorld (dod_donner
+	 * probe 115922). 64 KiB matched working tip-donner 114822. */
+	if( gEngfuncs.Sys_CheckParm( "-gcworldrender" )
+		|| gEngfuncs.Sys_CheckParm( "-gclistenserver" ))
+	{
+		if( size > 65536 )
+			size = 65536;
+	}
 
 	/* G140: New Game must not take a 32/64 KiB crumb here — that starved
 	 * materials.txt / HUD_Init. Prefer defer until landmark/static 128 KiB. */

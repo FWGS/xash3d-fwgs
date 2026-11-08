@@ -61,9 +61,11 @@ static int     gc_deferred_studio_attempts;
 /* Keep the complete lean c0a0 set and its resident T.mdl headers out of the
  * fragmented MEM1 heap.  The meshes alone are ~384 KiB; their retained skin
  * metadata brings the live set to roughly 0.75 MiB. */
-/* Was 1 MiB; 256 KiB → mapload_pad, 456 KiB → world-array spill (texinfo +
- * leafs on compact dod_flash BBA join) — keep total BSS flat. */
-#define GC_STUDIO_BSS_BYTES (312 * 1024)
+/* Was 1 MiB; 256 KiB → mapload_pad, then world-array spill grew for donner
+ * CapFaces (456→800). Spill +344 from HEAD needs matching studio cuts so
+ * cold boot clears bootstrap.pk3 CDF realloc (~78 KiB / 76 names×1 KiB;
+ * probes 115257/115628 died at unclaimed 808/840 — need ≥860). */
+#define GC_STUDIO_BSS_BYTES (184 * 1024)
 static byte    gc_studio_bss[GC_STUDIO_BSS_BYTES] __attribute__((aligned( 32 )));
 static size_t  gc_studio_bss_bump;
 static int     gc_studio_bss_owners; /* resident cache.data slices */

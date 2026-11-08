@@ -58,6 +58,9 @@ void S_GCGetAudioTelemetry( unsigned int *chunks, unsigned int *nonzero_chunks,
 	}
 }
 
+static qboolean GCube_NullAudioInit( void );
+static qboolean GCube_StartVoice( void );
+
 void S_GCLogAudioTelemetry( const char *tag )
 {
 	unsigned int chunks, nonzero, counter, callbacks, add_failures;
@@ -70,7 +73,36 @@ void S_GCLogAudioTelemetry( const char *tag )
 		peak, max_peak, counter, gc_voice_started ? 1 : 0, snd.initialized ? 1 : 0 );
 }
 
-static qboolean GCube_NullAudioInit( void );
+/*
+===========
+S_GCAudioRestartVoice
+
+Main-thread recovery after an IRQ AddVoice stall: stop + SetVoice so gameplay
+mixes can still prove nonzero PCM for retail/Swiss gates.
+===========
+*/
+void S_GCAudioRestartVoice( void )
+{
+	if( !gc_audio_real || !snd.initialized )
+		return;
+
+	if( gc_voice_started )
+		ASND_StopVoice( GC_AUDIO_VOICE );
+	gc_voice_started = false;
+	gc_audio_ramp_pending = false;
+
+	if( !GCube_StartVoice( ))
+	{
+		Con_Reportf( "Xash3D GameCube: audio voice restart failed\n" );
+		return;
+	}
+
+	ASND_Pause( 0 );
+	gc_audio_unpaused = true;
+	ASND_ChangeVolumeVoice( GC_AUDIO_VOICE, MAX_VOLUME, MAX_VOLUME );
+	gc_audio_ramp_pending = false;
+	Con_Reportf( "Xash3D GameCube: audio voice restarted after gameplay mix\n" );
+}
 
 static qboolean GCube_AudioShouldStartVoice( void )
 {
@@ -184,6 +216,18 @@ static void GC_AudioVoiceCallback( s32 voice )
 		 * Restore it so a transient SND_BUSY/SND_INVALID does not drop one
 		 * whole 1024-frame block or expose stale ring data on the retry. */
 		snd.samplepos = old_samplepos;
+		/* A failed AddVoice breaks the callback chain (one-shot stall). Re-arm
+		 * with SetVoice so later mixes can still prove nonzero PCM. */
+		/* IRQ context: no Con_Reportf. Re-arm at full volume so a later
+		 * gameplay mix can still land nonzero PCM after a transient Add fail. */
+		status = ASND_SetVoice( GC_AUDIO_VOICE, VOICE_STEREO_16BIT_BE, SOUND_DMA_SPEED, 0,
+			gc_audio_chunk[chunk], GC_AUDIO_CHUNK_BYTES, MAX_VOLUME, MAX_VOLUME,
+			GC_AudioVoiceCallback );
+		if( status == SND_OK || status == SND_BUSY )
+		{
+			gc_audio_play_chunk = chunk;
+			gc_audio_ramp_pending = false;
+		}
 		return;
 	}
 	gc_audio_play_chunk = chunk;
@@ -364,6 +408,9 @@ void SNDDMA_Submit( void )
 		ASND_Pause( 0 );
 		gc_audio_unpaused = true;
 		Con_Reportf( "Xash3D GameCube: audio voice started state=%d painted=%d sound=%d\n",
+			cls.state, snd.paintedtime, snd.soundtime );
+		/* Swiss SD: prove ASND voice without USB Gecko (G38 audio criterion). */
+		GCube_AppendSwissEvidence( "audio voice started state=%d painted=%d sound=%d",
 			cls.state, snd.paintedtime, snd.soundtime );
 	}
 

@@ -69,8 +69,8 @@ static const char *const gc_fat_volume_roots[] =
 };
 
 #define GC_DEFAULT_SMOKE_MAP "c0a0e"
-/* ~6s @60Hz after map/entity so playable-present + slow SD flush can finish. */
-#define GC_SWISSQUIT_FRAMES 360
+/* ~10s @60Hz after dest playable so slow SD changelevel + save probe can finish. */
+#define GC_SWISSQUIT_FRAMES 600
 
 static qboolean gc_fat_mounted;
 static qboolean gc_dvd_mounted;
@@ -819,6 +819,39 @@ void GCube_AppendSwissEvidence( const char *fmt, ... )
 		fprintf( f, "Xash3D GameCube: %s\n", line );
 	GCube_FsyncEvidenceFile( f );
 	fclose( f );
+}
+
+/*
+ * G66 / Swiss HW: write a tiny marker under save/ on the FAT volume so a
+ * real console run proves writable save storage without a full MEM1 savegame.
+ */
+void GCube_SwissSaveProbe( const char *mapname )
+{
+	char path[MAX_SYSPATH];
+	FILE *f;
+
+	if( !GCube_FatRootReady() )
+	{
+		GCube_AppendSwissEvidence( "save probe skipped (no FAT root)" );
+		return;
+	}
+
+	Q_snprintf( path, sizeof( path ), "%s%s/%s/save",
+		gc_fat_write_root, GC_DATA_PATH, GC_ACTIVE_GAMEDIR );
+	GCube_MkdirIgnoreExists( path );
+	Q_snprintf( path, sizeof( path ), "%s%s/%s/save/swisshw.marker",
+		gc_fat_write_root, GC_DATA_PATH, GC_ACTIVE_GAMEDIR );
+	f = fopen( path, "w" );
+	if( !f )
+	{
+		GCube_AppendSwissEvidence( "save probe failed path=save/swisshw.marker" );
+		return;
+	}
+	fprintf( f, "swisshw save probe map=%s\n", mapname && mapname[0] ? mapname : "?" );
+	GCube_FsyncEvidenceFile( f );
+	fclose( f );
+	GCube_AppendSwissEvidence( "save probe ready name=swisshw.marker map=%s",
+		mapname && mapname[0] ? mapname : "?" );
 }
 
 void GCube_Init( void )

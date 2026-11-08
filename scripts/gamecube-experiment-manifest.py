@@ -28,6 +28,11 @@ def repo_root() -> Path:
 		return Path(__file__).resolve().parents[1]
 
 
+# Expansion USB worktrees can stall `git status` for minutes; never block
+# Swiss/operator evidence ingest on a dirty-bit probe.
+_GIT_TIMEOUT_SEC = float(os.environ.get("GC_EXPERIMENT_GIT_TIMEOUT", "8"))
+
+
 def git_value(root: Path, *args: str, default: str = "UNAVAILABLE") -> str:
 	try:
 		return subprocess.check_output(
@@ -35,8 +40,9 @@ def git_value(root: Path, *args: str, default: str = "UNAVAILABLE") -> str:
 			cwd=root,
 			text=True,
 			stderr=subprocess.DEVNULL,
+			timeout=_GIT_TIMEOUT_SEC,
 		).strip() or default
-	except (subprocess.CalledProcessError, FileNotFoundError):
+	except (subprocess.CalledProcessError, FileNotFoundError, subprocess.TimeoutExpired):
 		return default
 
 
@@ -69,10 +75,12 @@ def worktree_dirty(root: Path) -> bool:
 			["git", "status", "--porcelain", "--ignore-submodules=untracked"],
 			cwd=root,
 			text=True,
+			timeout=_GIT_TIMEOUT_SEC,
 		)
 		return bool(status.strip())
-	except (subprocess.CalledProcessError, FileNotFoundError):
-		return False
+	except (subprocess.CalledProcessError, FileNotFoundError, subprocess.TimeoutExpired):
+		# Treat timed-out dirty probes as dirty=unknown→True so packets still note WIP.
+		return True
 
 
 def build_manifest(

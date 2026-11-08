@@ -215,6 +215,7 @@ qboolean GCube_HasWritableStorage( void );
 qboolean GCube_HasPersistentWritableStorage( void );
 void GCube_EnsureWritableLayout( void );
 void GCube_AppendSwissEvidence( const char *fmt, ... );
+void GCube_SwissSaveProbe( const char *mapname );
 void GCube_ArmSwissQuit( void );
 void GCube_PollSwissQuit( void );
 int GCube_GetArgv( int in_argc, char **in_argv, char ***out_argv );
@@ -314,6 +315,9 @@ qboolean GC_UpdateNewGamePVSForOrigin( const float *org ); /* G89: select cluste
 qboolean GC_RenderNewGameWorldPassNoFrame( qboolean draw_viewmodel );
 /* G91: play one local gameplay SFX after New Game world present. */
 void GC_PlayNewGameGameplaySound( void );
+/* G94: arm in Prepare; run save→load once CL is ca_active. */
+void GC_ArmG94SaveLoad( void );
+void GC_TryG94SaveLoad( void );
 /* G278: stream c0a0 tram VO (tride/*.wav) — too large for SFX budget. */
 void GC_UpdateNewGameIntroAudio( void );
 qboolean GC_MenuRunsServer( void ); /* menu New Game runs the real map logic */

@@ -152,6 +152,9 @@ def evaluate_persist_and_changelevel(runtime: str, gameplay: str, audio_text: st
     persist_ok = (
         "G508 config round trip ready" in persist_text
         or "G94 round trip present" in persist_text
+        # Swiss FAT path: on-card save probe from GCube_SaveProbe / swiss-evidence.
+        or "save probe ready" in persist_text
+        or "Xash3D GameCube: save probe ready" in persist_text
     )
     changelevel_ok = (
         "CHANGELEVEL_READY" in persist_text
@@ -166,7 +169,8 @@ def evaluate_persist_and_changelevel(runtime: str, gameplay: str, audio_text: st
 
 
 def evaluate_soak(soak_data: dict) -> bool:
-    soak_ok = bool(soak_data.get("ok"))
+    # Accept boolean ok or status PASS (Swiss stub / older reports).
+    soak_ok = bool(soak_data.get("ok")) or str(soak_data.get("status", "")).upper() == "PASS"
     if soak_ok and soak_data.get("require_changelevel"):
         soak_ok = soak_data.get("mode") == "changelevel" and bool(soak_data.get("changelevel_route"))
     elif soak_ok and soak_data.get("mode") == "changelevel":

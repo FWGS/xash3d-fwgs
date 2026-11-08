@@ -65,9 +65,20 @@ svgame_static_t	svgame;	// persistant game info
 static entity_state_t gc_singleplayer_packet_entities[SINGLEPLAYER_BACKUP * NUM_PACKET_ENTITIES]
 	__attribute__((aligned( 32 )));
 
+/* 2P listen sv_client_t table — Z_Realloc of ~178 KiB soft-fails after renderer
+ * init (unclaimed≈36 KiB) and leaves svs.clients=NULL; SpawnServer then DSI's
+ * on clients[0] (dod_donner probe 121415). Paired with mapload_pad cut. */
+#define GC_LISTEN_CLIENTS_BSS 2
+static sv_client_t gc_listen_clients[GC_LISTEN_CLIENTS_BSS] __attribute__((aligned( 32 )));
+
 qboolean SV_IsStaticPacketEntities( const entity_state_t *ents )
 {
 	return ents == gc_singleplayer_packet_entities;
+}
+
+static qboolean SV_IsStaticListenClients( const sv_client_t *clients )
+{
+	return clients == gc_listen_clients;
 }
 #endif
 /*
@@ -1124,6 +1135,18 @@ static void SV_SetupClients( void )
 	SV_UPDATE_BACKUP = ( svs.maxclients == 1 ) ? SINGLEPLAYER_BACKUP : MULTIPLAYER_BACKUP;
 #endif
 
+#if XASH_GAMECUBE
+	if( svs.maxclients > 0 && svs.maxclients <= GC_LISTEN_CLIENTS_BSS )
+	{
+		if( svs.clients && !SV_IsStaticListenClients( svs.clients ))
+			Z_Free( svs.clients );
+		memset( gc_listen_clients, 0, sizeof( sv_client_t ) * (size_t)svs.maxclients );
+		svs.clients = gc_listen_clients;
+		Con_Reportf( "Xash3D GameCube: server clients BSS %s maxclients=%d\n",
+			Q_memprint( sizeof( sv_client_t ) * (size_t)svs.maxclients ), svs.maxclients );
+	}
+	else
+#endif
 	svs.clients = Z_Realloc( svs.clients, sizeof( sv_client_t ) * svs.maxclients );
 	svs.num_client_entities = svs.maxclients * SV_UPDATE_BACKUP * NUM_PACKET_ENTITIES;
 #if XASH_GAMECUBE
@@ -1235,6 +1258,16 @@ static void SV_GenerateTestPacket( void )
 	// don't need in singleplayer with full client
 	if( svs.maxclients <= 1 )
 		return;
+#if XASH_GAMECUBE
+	/* Compact listen CapFaces (dod_donner): after BSP the tip is ~13 KiB.
+	 * Building the ~300 KiB bandwidth testpacket here never returns
+	 * "spawn server ready" (probe 120210 hung after submodel precache). */
+	if( GC_MapLoadMemoryOpt())
+	{
+		SV_FreeTestPacket();
+		return;
+	}
+#endif
 
 	file = FS_Open( "gfx.wad", "rb", false );
 	if( FS_FileLength( file ) < maxsize )
@@ -1593,30 +1626,60 @@ qboolean SV_SpawnServer( const char *mapname, const char *startspot, qboolean ba
 		SetBits( sv.model_precache_flags[i+1], RES_FATALIFMISSING );
 	}
 
+#if XASH_GAMECUBE
+	if( GC_MapLoadMemoryOpt())
+		Con_Reportf( "Xash3D GameCube: spawn server client-edicts begin maxclients=%d clients=%p edicts=%p\n",
+			svs.maxclients, (void *)svs.clients, (void *)svgame.edicts );
+#endif
 	// leave slots at start for clients only
 	for( i = 0; i < svs.maxclients; i++ )
 	{
 		edict_t		*ent;
 
+#if XASH_GAMECUBE
+		if( GC_MapLoadMemoryOpt())
+			Con_Reportf( "Xash3D GameCube: spawn server client-edict i=%d\n", i );
+#endif
 		// needs to reconnect
 		if( svs.clients[i].state > cs_connected )
 			svs.clients[i].state = cs_connected;
 
 		ent = SV_EdictNum( i + 1 );
+#if XASH_GAMECUBE
+		if( GC_MapLoadMemoryOpt())
+			Con_Reportf( "Xash3D GameCube: spawn server client-edict i=%d ent=%p\n", i, (void *)ent );
+#endif
 		svs.clients[i].pViewEntity = NULL;
 		svs.clients[i].edict = ent;
-		SV_InitEdict( ent );
+		if( ent )
+			SV_InitEdict( ent );
+#if XASH_GAMECUBE
+		if( GC_MapLoadMemoryOpt())
+			Con_Reportf( "Xash3D GameCube: spawn server client-edict i=%d ready\n", i );
+#endif
 	}
 
+#if XASH_GAMECUBE
+	if( GC_MapLoadMemoryOpt())
+		Con_Reportf( "Xash3D GameCube: spawn server movevars begin\n" );
+#endif
 	// heartbeats will always be sent to the id master
 	NET_MasterClear();
 
 	// get actual movevars
 	SV_UpdateMovevars( true );
 
+#if XASH_GAMECUBE
+	if( GC_MapLoadMemoryOpt())
+		Con_Reportf( "Xash3D GameCube: spawn server ClearWorld begin\n" );
+#endif
 	// clear physics interaction links
 	SV_ClearWorld();
 
+#if XASH_GAMECUBE
+	if( GC_MapLoadMemoryOpt())
+		Con_Reportf( "Xash3D GameCube: spawn server testpacket begin\n" );
+#endif
 	// pregenerate test packet
 	SV_GenerateTestPacket();
 
@@ -1687,9 +1750,13 @@ State machine exec changelevel path
 void SV_ExecChangeLevel( void )
 {
 #if XASH_GAMECUBE
-	Con_Reportf( "Xash3D GameCube: ExecChangeLevel begin map=%s landmark=%s load=%d\n",
+	Con_Reportf( "Xash3D GameCube: ExecChangeLevel begin map=%s landmark=%s load=%d tip=%s\n",
 		GameState->levelName, GameState->landmarkName[0] ? GameState->landmarkName : "(none)",
-		GameState->loadGame ? 1 : 0 );
+		GameState->loadGame ? 1 : 0, Q_memprint( GC_MemHeapFreeBytes() ));
+	/* Tip-safe hops: purge decode scratch + FatPVS extras before dest BSP
+	 * entities malloc (tram c0a0e→c1a0 need≈38 KiB; probe 20261108-114756). */
+	Image_GCPurgeDecodeScratch();
+	GC_ReclaimFatPVSBeforeEntitySpawn();
 #endif
 	SV_ChangeLevel( GameState->loadGame, GameState->levelName, GameState->landmarkName, GameState->backgroundMap );
 #if XASH_GAMECUBE

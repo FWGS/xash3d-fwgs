@@ -76,10 +76,11 @@ def main() -> int:
 		"PASS" if contains_all(audio, ("cls.state == ca_active", "audio voice started", "ASND_Pause( 0 )")) else "FAIL",
 		"defers voice start until active gameplay to avoid boot/map-load stalls",
 	))
+	# Ring lives outside the Sound Zone (map-load purge); malloc/free pair.
 	checks.append(Check(
 		"shutdown cleanup",
-		"PASS" if contains_all(audio, ("SNDDMA_Shutdown", "ASND_StopVoice", "audio shutdown chunks=", "ASND_End", "Mem_Free( snd.buffer )")) else "FAIL",
-		"stops ASND, reports telemetry, and frees the ring buffer on shutdown",
+		"PASS" if contains_all(audio, ("SNDDMA_Shutdown", "ASND_StopVoice", "audio shutdown chunks=", "ASND_End", "free( snd.buffer )")) else "FAIL",
+		"stops ASND, reports telemetry, and frees the malloc'd ring buffer on shutdown",
 	))
 	checks.append(Check(
 		"docs and ledger sync",

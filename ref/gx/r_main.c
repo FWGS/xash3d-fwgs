@@ -1245,9 +1245,9 @@ static void R_DrawEntitiesOnList( void )
 			static qboolean lean_efx_draw_logged;
 			extern int R_GXEfbDumpHoldLeft( void );
 
-			/* Viewmodel still needs a live studio; additive beams (G320) do not. */
-			if( lean_studios > 0
-				&& tr.viewent && tr.viewent->model
+			/* Landmark crowbar is bound on viewent; do not require world NPC
+			 * studios (lean_studios) or tip-safe maps never reach G155/G164. */
+			if( tr.viewent && tr.viewent->model
 				&& tr.viewent->model->type == mod_studio
 				&& tr.viewent->model->cache.data
 				&& !( r_drawviewmodel && r_drawviewmodel->value == 0
@@ -1825,6 +1825,22 @@ static void R_EdgeDrawingGcmapProbe( void )
 				extern void GCube_AppendSwissEvidence( const char *fmt, ... );
 				cap_drawn_evidence = true;
 				GCube_AppendSwissEvidence( "CapFaces drawn=%d", cap_drawn );
+			}
+		}
+		/* Tip-safe dense changelevel dest: CapFaces NoPVS skipped + edges in
+		 * stomped scratch (c3a1a). Brush-mover emit walks nummodelsurfaces /
+		 * world surfedges and never reaches "R_RenderScene after edges"
+		 * (probe 20261108-131003). Skip movers when CapFaces drew nothing. */
+		{
+			extern qboolean GC_WorldSurfacesScratchRetained( void );
+
+			if( cap_drawn <= 0 && gEngfuncs.Sys_CheckParm( "-gcchangelevel" )
+				&& GC_WorldSurfacesScratchRetained() )
+			{
+				if( tr.framecount <= 1 )
+					gEngfuncs.Con_Reportf(
+						"Xash3D GameCube: tip-safe skip brush movers after empty CapFaces\n" );
+				return;
 			}
 		}
 		/* G235: opaque brush movers were skipped by this early return —

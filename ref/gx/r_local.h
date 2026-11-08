@@ -115,10 +115,12 @@ typedef struct
 	pixel_t      alphamap[3 * 1024 * 256];
 #if XASH_GAMECUBE
 	/* Contiguous with tables above; staging arena while the renderer is trimmed
-	 * for BSP loading. 1280 KiB pad → ~3.75 MiB arena so dod_avalanche (3.60)
-	 * fits without compact-load. Paired with a 256 KiB cut to studio BSS so
-	 * total MEM1 BSS (and boot FileSystem Pool headroom) stays flat. */
-	byte         mapload_pad[1280 * 1024];
+	 * for BSP loading. Was 1280 KiB; cut 128 for listen clients BSS (paired
+	 * with studio/changelevel cuts). Keep ≥3.62 MiB arena so dod_donner
+	 * surface-slot refresh (floor 1.50 + need 2.05) still opens (probe 121655
+	 * died at cap=3.56). Restoring 1280 with listen BSS still present OOMs
+	 * entities at tip-flash-fix4 (unclaimed≈768). */
+	byte         mapload_pad[1152 * 1024];
 #endif
 	pixel_t      color;
 	qboolean     is2d;

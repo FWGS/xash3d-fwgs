@@ -36,6 +36,7 @@ void GC_CaptureNewGamePVS( void );
 void GC_CaptureNewGamePVSFromModel( model_t *wmodel );
 void GC_CaptureIntroTrainFaces( model_t *wmodel ); /* G277 */
 qboolean GC_PrefetchCapFacesWhileEdgesLive( model_t *mod );
+void GC_RebakeCapFaceLightmaps( model_t *mod );
 
 static void Mod_GCFreeBspPin( void **ptr );
 static byte *Mod_GCPinBspLump( poolhandle_t pool, const byte *src, size_t size );
@@ -109,11 +110,25 @@ static qboolean gc_entities_arena_tail;
 #define GC_STATIC_ENTITIES_BYTES ( 128u * 1024u )
 static char *gc_static_entities;
 static qboolean gc_entities_static_block;
+/* Tip-safe HL1 changelevel: dense dest entity lumps miss fragmented tip
+ * (c3a2a≈75 KiB, c4a3≈98 KiB). DoD listen CapFaces needs that tip back
+ * (tip-donner OOM when BSS was linked) — valve builds omit LIBBBA, so
+ * gate the BSS on that. Call site already requires BYTES > 0. */
+#if !defined(XASH_GAMECUBE_HAVE_LIBBBA) || !XASH_GAMECUBE_HAVE_LIBBBA
+#define GC_CHANGELEVEL_ENTITIES_FALLBACK_BYTES ( 112u * 1024u )
+static char gc_changelevel_entities_fallback_bss[GC_CHANGELEVEL_ENTITIES_FALLBACK_BYTES];
+static char *gc_changelevel_entities_fallback = gc_changelevel_entities_fallback_bss;
+#else
+#define GC_CHANGELEVEL_ENTITIES_FALLBACK_BYTES 0
+static char *gc_changelevel_entities_fallback = NULL;
+#endif
+static qboolean gc_changelevel_entities_fallback_used;
 /* Surface Tension c2a5f: tip reports ≥280 KiB free but malloc/memalign of
  * 202 KiB mleaf_t misses (fragmentation) after BSP staging. Hold a contiguous
  * session block when nodes 384 cannot be taken (free≈281 on that hop). */
 /* Peak materialized leafs ~202 KiB (c2a5f); keep a little align pad. */
-#define GC_STATIC_LEAFS_BYTES ( 208u * 1024u )
+/* dod_donner mleaf_t table is ~242 KiB (probe 114602). */
+#define GC_STATIC_LEAFS_BYTES ( 256u * 1024u )
 static byte *gc_static_leafs;
 static qboolean gc_leafs_static_block;
 /* Set when EnsureStaticReserves sees free < nodes 384 — carve mleaf_t from
@@ -250,6 +265,8 @@ void Mod_GCReleaseWorldReservesForChangelevel( void )
 		Con_Reportf( "Xash3D GameCube: changelevel released entities reserve %s\n",
 			Q_memprint( GC_STATIC_ENTITIES_BYTES ));
 	}
+	/* BSS fallback is not heap — just allow the next dest to reuse it. */
+	gc_changelevel_entities_fallback_used = false;
 	if( gc_static_leafs && !gc_leafs_static_block )
 	{
 		free( gc_static_leafs );
@@ -327,9 +344,25 @@ static qboolean gc_bsp_surface_reserve_clamped;
 /* Compact DoD: edges take the clipnodes+markfaces hole; texinfo (~196 KiB)
  * and leafs (~249 KiB on dod_flash) spill here when BSP holes are spent.
  * Paired with a matching cut to studio BSS so total MEM1 stays flat. */
-#define GC_WORLD_ARRAY_SPILL_BYTES (456u * 1024u)
+/* Flash fits in ~456 KiB. Clamped maps (donner) also park edges + surfedges +
+ * faces + planes here so the surface high-slot can open (~2 Mb). */
+/* Flash historically fit in 456 KiB. Clamped maps need edges + surfedges +
+ * faces (~232+214+228 KiB) parked here so the faces range at EOF cannot pin
+ * the surface high-slot floor (donner busy [2.04..2.26) Mb). */
+/* After faces reclaim: edges+surfedges(~446)+markfaces(31)+marksurfaces(62)
+ * +leafs(242) = ~781 KiB (probe 113318). 768 left leafs ~14 KiB short when
+ * marksurfaces also spills; scratch-only marksurfaces OOMs (probe 114822). */
+/* 800 KiB total: last 32 KiB reserved for CapFaces CMPR bounce so tip-tight
+ * maps (dod_donner) still texture CapFaces after listen spawn. */
+#define GC_WORLD_ARRAY_SPILL_BYTES (800u * 1024u)
+#define GC_WORLD_ARRAY_SPILL_BOUNCE_RESERVE (32u * 1024u)
+#define GC_WORLD_ARRAY_SPILL_USABLE \
+	( GC_WORLD_ARRAY_SPILL_BYTES - GC_WORLD_ARRAY_SPILL_BOUNCE_RESERVE )
 static byte gc_world_array_spill[GC_WORLD_ARRAY_SPILL_BYTES] __attribute__((aligned( 32 )));
+static qboolean gc_world_array_spill_bounce_taken;
 static size_t gc_world_array_spill_used;
+/* Permanent base reservation (e.g. server string arena). Survives ClearRetained. */
+static size_t gc_world_array_spill_pin;
 static qboolean gc_texinfo_carve_pending;
 static file_t *gc_bsp_reload_file;
 static char gc_bsp_reload_path[MAX_QPATH];
@@ -493,7 +526,18 @@ void Mod_GCClearRetainedBspScratch( void )
 	gc_world_msurface_retained = false;
 	gc_lm_aram_base = 0;
 	gc_lm_aram_bytes = 0;
-	gc_world_array_spill_used = 0;
+	/* Drop spill-parked string arena, rewind, then re-park at base WHILE
+	 * used==0. Waiting until faces reclaim leaves used>0 so Ensure skips
+	 * and entity spawn Host_Errors (tip-flash-strbase). */
+	{
+		extern void SV_GCDropSpillStringArena( void );
+		extern qboolean SV_GCEnsureStringArena( void );
+		SV_GCDropSpillStringArena();
+		gc_world_array_spill_pin = 0;
+		gc_world_array_spill_used = 0;
+		SV_GCEnsureStringArena();
+	}
+	/* Bounce carve stays for the session — CapFaces may still hold the ptr. */
 	Mod_GCClearSurfLightofs();
 }
 
@@ -642,6 +686,14 @@ static void Mod_GCFreeBspPin( void **ptr )
 		return;
 	}
 
+	/* Spill BSS is not malloc — freeing it Guru's (dod_donner markfaces). */
+	if( (const byte *)*ptr >= gc_world_array_spill
+		&& (const byte *)*ptr < gc_world_array_spill + GC_WORLD_ARRAY_SPILL_BYTES )
+	{
+		*ptr = NULL;
+		return;
+	}
+
 	free( *ptr );
 	*ptr = NULL;
 }
@@ -764,6 +816,8 @@ typedef struct
 } dbspmodel_t;
 #if XASH_GAMECUBE
 static void *Mod_GCAllocWorldScratch( model_t *mod, dbspmodel_t *bmod, const gc_bsp_busy_range_t *busy, size_t busy_count, size_t alloc_size, size_t align );
+static size_t Mod_GCCollectAllWorldScratchBusy( model_t *mod, dbspmodel_t *bmod, gc_bsp_busy_range_t *busy, size_t cap );
+static void Mod_GCRefreshClampedSurfaceSlot( model_t *mod, dbspmodel_t *bmod );
 #endif
 static void *Mod_GCWorldArrayAlloc( model_t *mod, dbspmodel_t *bmod, size_t bytes, const char *what );
 
@@ -798,7 +852,9 @@ static void Mod_GCReleasePreEdgeScratchLumps( dbspmodel_t *bmod )
 		Mod_GCFreeBspPin( (void **)&bmod->clipnodes );
 	}
 	/* marksurfaces sits immediately after clipnodes in HL BSPs — free both
-	 * so edges (~186 KiB) get one contiguous hole (clip alone is ~181 KiB). */
+	 * so edges (~186 KiB) get one contiguous hole (clip alone is ~181 KiB).
+	 * Also free on clamped maps: nodes need that hole; markfaces reload into
+	 * spill after surfaces (probe 112813). */
 	if( bmod->version == QBSP2_VERSION )
 	{
 		if( bmod->markfaces32 && Mod_GCPointerInBuffer( bmod->markfaces32, gc_bsp_scratch_base, gc_bsp_scratch_size ))
@@ -823,18 +879,151 @@ static void Mod_GCReleasePreEdgeScratchLumps( dbspmodel_t *bmod )
 			Q_memprint( freed ));
 }
 
+/* During BSP load use the full 800 KiB. CapFaces CMPR borrow only reserves
+ * the high 32 KiB once taken — locking it earlier starved dod_flash leafs
+ * (tip-flash-regress 130709: spill left 157 < mleaf 248). */
+static size_t Mod_GCWorldArraySpillCap( void )
+{
+	return gc_world_array_spill_bounce_taken
+		? GC_WORLD_ARRAY_SPILL_USABLE
+		: GC_WORLD_ARRAY_SPILL_BYTES;
+}
+
 static void *Mod_GCWorldArraySpillAlloc( size_t bytes, const char *what )
 {
 	size_t aligned = ALIGN( bytes, 32 );
+	size_t cap = Mod_GCWorldArraySpillCap();
 	byte *out;
 
-	if( aligned > GC_WORLD_ARRAY_SPILL_BYTES - gc_world_array_spill_used )
+	if( aligned > cap - gc_world_array_spill_used )
 		return NULL;
 	out = gc_world_array_spill + gc_world_array_spill_used;
 	gc_world_array_spill_used += aligned;
 	Con_Reportf( "Xash3D GameCube: world %s using array spill %s (spill used %s)\n",
 		what, Q_memprint( bytes ), Q_memprint( gc_world_array_spill_used ));
 	return out;
+}
+
+void *Mod_GCWorldArraySpillTryAlloc( size_t bytes, const char *what )
+{
+	return Mod_GCWorldArraySpillAlloc( bytes, what );
+}
+
+size_t Mod_GCWorldArraySpillUsed( void )
+{
+	return gc_world_array_spill_used;
+}
+
+/* Pin through a spill allocation so ClearRetained cannot rewind over it. */
+void Mod_GCWorldArraySpillPinBase( const void *ptr, size_t bytes )
+{
+	size_t end;
+	size_t off;
+
+	if( !ptr || bytes == 0 )
+		return;
+	if((const byte *)ptr < gc_world_array_spill
+		|| (const byte *)ptr >= gc_world_array_spill + GC_WORLD_ARRAY_SPILL_USABLE )
+		return;
+	off = (size_t)((const byte *)ptr - gc_world_array_spill );
+	end = ALIGN( off + bytes, 32 );
+	if( end > GC_WORLD_ARRAY_SPILL_USABLE )
+		end = GC_WORLD_ARRAY_SPILL_USABLE;
+	if( end > gc_world_array_spill_pin )
+		gc_world_array_spill_pin = end;
+	if( gc_world_array_spill_used < gc_world_array_spill_pin )
+		gc_world_array_spill_used = gc_world_array_spill_pin;
+	Con_Reportf( "Xash3D GameCube: world spill pin through %s (pin %s)\n",
+		Q_memprint( end ), Q_memprint( gc_world_array_spill_pin ));
+}
+
+/* CapFaces CMPR bounce: high-end carve after map tables settle. */
+byte *Mod_GCWorldArraySpillBorrow( size_t bytes, const char *what )
+{
+	size_t aligned = ALIGN( bytes, 32 );
+
+	if( aligned == 0 || aligned > GC_WORLD_ARRAY_SPILL_BOUNCE_RESERVE )
+		return NULL;
+	if( gc_world_array_spill_bounce_taken )
+		return gc_world_array_spill + GC_WORLD_ARRAY_SPILL_USABLE;
+	/* Refuse if load already ate into the high 32 KiB. */
+	if( gc_world_array_spill_used > GC_WORLD_ARRAY_SPILL_USABLE )
+		return NULL;
+	gc_world_array_spill_bounce_taken = true;
+	Con_Reportf( "Xash3D GameCube: world spill borrow %s %s (reserve %s)\n",
+		what, Q_memprint( aligned ), Q_memprint( GC_WORLD_ARRAY_SPILL_BOUNCE_RESERVE ));
+	return gc_world_array_spill + GC_WORLD_ARRAY_SPILL_USABLE;
+}
+
+/* After Mod_LoadSurfaces the dface_t spill copy is dead. Rewind the spill tip
+ * so markfaces/marksurfaces can reuse it without growing BSS (dod_donner). */
+static void Mod_GCReclaimSpillFaces( model_t *mod, dbspmodel_t *bmod )
+{
+	byte *p;
+	size_t off, bytes;
+
+	(void)mod;
+	if( !gc_faces_tail_copy || !bmod || bmod->numsurfaces <= 0 )
+		return;
+	p = (byte *)gc_faces_tail_copy;
+	if( p < gc_world_array_spill
+		|| p >= gc_world_array_spill + GC_WORLD_ARRAY_SPILL_BYTES )
+		return;
+	off = (size_t)( p - gc_world_array_spill );
+	bytes = ALIGN( (size_t)bmod->numsurfaces * sizeof( dface_t ), 32 );
+	if( off + bytes > gc_world_array_spill_used )
+		return;
+	/* Faces must be the spill tip (edges+surfedges then faces). */
+	if( off + bytes != gc_world_array_spill_used )
+		return;
+	if( bmod->surfaces == gc_faces_tail_copy )
+		bmod->surfaces = NULL;
+	gc_faces_tail_copy = NULL;
+	gc_world_array_spill_used = off;
+	Con_Reportf( "Xash3D GameCube: reclaimed faces spill %s (spill used %s)\n",
+		Q_memprint( bytes ), Q_memprint( gc_world_array_spill_used ));
+	/* Tip memalign(96K) fails at boot; park Server Strings in the hole
+	 * faces just freed so CapFaces LM rebake + entity spawn can't Host_Error
+	 * on SV_AllocString (tip-flash-lmrebake magenta fatal). */
+	{
+		extern qboolean SV_GCEnsureStringArena( void );
+		SV_GCEnsureStringArena();
+	}
+}
+
+/* After LoadMarkSurfaces the raw dmarkface spill copy is dead. If marksurfaces
+ * sit immediately after it, slide them down and free 31 KiB for leafs (needed
+ * once the CMPR bounce reserves the spill high 32 KiB). */
+static void Mod_GCReclaimSpillMarkfaces( model_t *mod, dbspmodel_t *bmod )
+{
+	byte *mf;
+	size_t mf_off, mf_bytes, ms_bytes;
+
+	if( !mod || !bmod || bmod->nummarkfaces <= 0 )
+		return;
+	if( bmod->version == QBSP2_VERSION )
+		return; /* 32-bit markfaces not on the dod_donner spill path */
+	if( !bmod->markfaces )
+		return;
+	mf = (byte *)bmod->markfaces;
+	if( mf < gc_world_array_spill
+		|| mf >= gc_world_array_spill + GC_WORLD_ARRAY_SPILL_USABLE )
+		return;
+	mf_off = (size_t)( mf - gc_world_array_spill );
+	mf_bytes = ALIGN( (size_t)bmod->nummarkfaces * sizeof( dmarkface_t ), 32 );
+	ms_bytes = ALIGN( (size_t)mod->nummarksurfaces * sizeof( *mod->marksurfaces ), 32 );
+	if( !mod->marksurfaces )
+		return;
+	if((byte *)mod->marksurfaces != mf + mf_bytes )
+		return; /* marksurfaces not packed against markfaces tip */
+	if( mf_off + mf_bytes + ms_bytes != gc_world_array_spill_used )
+		return;
+	memmove( mf, mod->marksurfaces, ms_bytes );
+	mod->marksurfaces = (msurface_t **)mf;
+	bmod->markfaces = NULL;
+	gc_world_array_spill_used = mf_off + ms_bytes;
+	Con_Reportf( "Xash3D GameCube: reclaimed markfaces spill %s (spill used %s)\n",
+		Q_memprint( mf_bytes ), Q_memprint( gc_world_array_spill_used ));
 }
 
 static void Mod_GCFreeGcmapPreSurfaceLumps( dbspmodel_t *bmod )
@@ -859,6 +1048,129 @@ static void Mod_GCFreeGcmapPreSurfaceLumps( dbspmodel_t *bmod )
 	if( bmod->visdata )
 		Mod_GCFreeBspPin( (void **)&bmod->visdata );
 	Con_Reportf( "Xash3D GameCube: freed pre-surface BSP scratch lumps\n" );
+}
+
+/*
+ * DoD maps with more faces than dod_flash (e.g. dod_donner 11699) need a ~2.05 Mb
+ * surface block, but the early high-slot clamp runs while the BSP image still
+ * spans ~2.04 Mb — leaving only ~1.43 Mb. After pre-surface lump frees, relocate
+ * aliased faces out of the image, shrink the scratch high-water, and reopen the
+ * full surface slot so CapFaces can load without Mem_Calloc FATAL.
+ */
+static void Mod_GCRefreshClampedSurfaceSlot( model_t *mod, dbspmodel_t *bmod )
+{
+	const size_t surf_bytes = Mod_GCSurfaceBlockBytes( bmod->numsurfaces );
+	const size_t need = surf_bytes ? ALIGN( surf_bytes, 32 ) + 32 : 0;
+	gc_bsp_busy_range_t busy[64];
+	size_t busy_count, i, busy_end = 0;
+	size_t cap, floor, hw;
+
+	if( !GC_MapLoadMemoryOpt() || !bmod->isworld || !need )
+		return;
+	if( !gc_bsp_scratch_base || !GC_IsMapLoadBuffer( gc_bsp_scratch_base ))
+		return;
+	if( !gc_bsp_surface_reserve_clamped || gc_bsp_surface_reserve >= need )
+		return;
+
+	/* dod_donner: texinfo in scratch pins busy_end into the surface window.
+	 * Rescue texinfo BEFORE faces so faces land at the spill tip and
+	 * Mod_GCReclaimSpillFaces can rewind after Mod_LoadSurfaces.
+	 * If faces already occupy spill tip (clamped early spill), do NOT park
+	 * texinfo on top — that blocks reclaim and starves leafs on dod_flash
+	 * (tip-flash-fix12: spill 561 after texinfo-rescue, leafs miss). */
+	if( !gc_faces_tail_copy && mod->texinfo
+		&& Mod_GCPointerInBuffer( mod->texinfo, gc_bsp_scratch_base,
+			gc_bsp_scratch_size + gc_bsp_scratch_carve_high ))
+	{
+		const size_t tex_bytes = mod->numtexinfo * sizeof( mtexinfo_t );
+		void *copy = Mod_GCWorldArraySpillAlloc( tex_bytes, "texinfo-rescue" );
+
+		if( copy )
+		{
+			memcpy( copy, mod->texinfo, tex_bytes );
+			mod->texinfo = (mtexinfo_t *)copy;
+			Con_Reportf( "Xash3D GameCube: rescued texinfo from map arena %s (surface-slot refresh)\n",
+				Q_memprint( tex_bytes ));
+		}
+	}
+	else if( gc_faces_tail_copy && mod->texinfo
+		&& Mod_GCPointerInBuffer( mod->texinfo, gc_bsp_scratch_base,
+			gc_bsp_scratch_size + gc_bsp_scratch_carve_high ))
+	{
+		Con_Reportf( "Xash3D GameCube: texinfo rescue skipped; faces hold spill tip for reclaim\n" );
+	}
+	/* Pull faces out of the BSP image — they usually sit near EOF and pin the
+	 * scratch high-water above the surface slot. Spill has room for DoD face
+	 * lumps (~230 KiB); heap is typically exhausted here. */
+	if( bmod->version != QBSP2_VERSION && bmod->surfaces
+		&& Mod_GCPointerInBuffer( bmod->surfaces, gc_bsp_scratch_base, gc_bsp_scratch_size ))
+	{
+		const size_t faces_bytes = bmod->numsurfaces * sizeof( dface_t );
+		void *copy = Mod_GCWorldArraySpillAlloc( faces_bytes, "faces-rescue" );
+
+		if( copy )
+		{
+			memcpy( copy, bmod->surfaces, faces_bytes );
+			bmod->surfaces = (dface_t *)copy;
+			gc_faces_tail_copy = (dface_t *)copy;
+			gc_faces_source_alias = false;
+			Con_Reportf( "Xash3D GameCube: rescued faces from BSP image %s (surface-slot refresh)\n",
+				Q_memprint( faces_bytes ));
+		}
+	}
+
+	busy_count = Mod_GCCollectAllWorldScratchBusy( mod, bmod, busy, ARRAYSIZE( busy ));
+	for( i = 0; i < busy_count; i++ )
+	{
+		if( busy[i].end > busy_end )
+			busy_end = busy[i].end;
+		/* Top offenders for the surface-slot floor (donner tip-OOM). */
+		if( busy[i].end > 1024u * 1024u )
+			Con_Reportf( "Xash3D GameCube: surface-slot busy [%s .. %s) span=%s\n",
+				Q_memprint( busy[i].start ), Q_memprint( busy[i].end ),
+				Q_memprint( busy[i].end - busy[i].start ));
+	}
+
+	if( busy_end < gc_bsp_scratch_size )
+	{
+		const size_t shrunk = busy_end ? ALIGN( busy_end, 32 ) : 0;
+
+		Con_Reportf( "Xash3D GameCube: shrink BSP scratch image %s → %s for surfaces\n",
+			Q_memprint( gc_bsp_scratch_size ), Q_memprint( shrunk ));
+		gc_bsp_scratch_size = shrunk;
+	}
+
+	cap = GC_MapLoadBufferCapacity();
+	hw = GC_MapLoadBufferTailHighwater();
+	/* Spilled tail residents no longer need highwater protection. Drop the mark
+	 * so floor can sit on live scratch busy ranges instead of abandoned carves. */
+	if( hw > busy_end )
+	{
+		Con_Reportf( "Xash3D GameCube: rewind TailHighwater %s → %s after surface-slot rescue\n",
+			Q_memprint( hw ), Q_memprint( busy_end ));
+		GC_MapLoadBufferLowerTailHighwater( busy_end );
+		hw = busy_end;
+	}
+	floor = gc_bsp_scratch_size + gc_bsp_scratch_carve_high;
+	if( hw > floor )
+		floor = hw;
+
+	Con_Reportf( "Xash3D GameCube: surface-slot floor parts scratch=%s carve=%s hw=%s busy_end=%s need=%s cap=%s\n",
+		Q_memprint( gc_bsp_scratch_size ), Q_memprint( gc_bsp_scratch_carve_high ),
+		Q_memprint( hw ), Q_memprint( busy_end ), Q_memprint( need ), Q_memprint( cap ));
+
+	if( cap >= floor + need + 32u * 1024u )
+	{
+		gc_bsp_surface_reserve = need;
+		gc_bsp_surface_reserve_clamped = false;
+		Con_Reportf( "Xash3D GameCube: refreshed surface high slot %s (was clamped; floor=%s cap=%s)\n",
+			Q_memprint( need ), Q_memprint( floor ), Q_memprint( cap ));
+	}
+	else
+	{
+		Con_Reportf( "Xash3D GameCube: surface-slot refresh short need=%s floor=%s cap=%s\n",
+			Q_memprint( need ), Q_memprint( floor ), Q_memprint( cap ));
+	}
 }
 #endif
 
@@ -3519,6 +3831,12 @@ static void Mod_LoadSubmodels( model_t *mod, dbspmodel_t *bmod )
 					Q_memprint( sub_bytes ), bmod->numsubmodels );
 			}
 		}
+		if( !out )
+		{
+			out = (dmodel_t *)Mod_GCWorldArraySpillAlloc( sub_bytes, "submodels" );
+			if( out )
+				gc_world_blocks_owner = mod;
+		}
 	}
 	if( !out )
 #endif
@@ -3721,6 +4039,35 @@ static void Mod_LoadEntities( model_t *mod, const dbspmodel_t *bmod )
 				mod->entities = gc_static_entities;
 				gc_entities_static_block = true;
 				Con_Reportf( "Xash3D GameCube: world entities using static reserve %s\n",
+					Q_memprint( need ));
+			}
+		}
+		/* Tip-safe probe changelevel: fragmented tip reports free < need but
+		 * a contiguous BSS fallback still fits (c0a0e→c1a0 37.63/30.32). */
+		if( !mod->entities
+			&& gc_changelevel_entities_fallback
+			&& GC_CHANGELEVEL_ENTITIES_FALLBACK_BYTES > 0
+			&& Sys_CheckParm( "-gcchangelevel" )
+			&& need <= GC_CHANGELEVEL_ENTITIES_FALLBACK_BYTES
+			&& !gc_changelevel_entities_fallback_used )
+		{
+			mod->entities = gc_changelevel_entities_fallback;
+			gc_changelevel_entities_fallback_used = true;
+			Con_Reportf( "Xash3D GameCube: world entities using changelevel BSS fallback %s\n",
+				Q_memprint( need ));
+		}
+		/* denser DoD (avalanche 49.75 Kb): tip often < need after CapFaces
+		 * string-arena spill pin + listen BSS. Park in world spill — lives
+		 * below surfedges/faces so faces reclaim won't rewind over it. */
+		if( !mod->entities )
+		{
+			mod->entities = (char *)Mod_GCWorldArraySpillTryAlloc( need, "entities" );
+			if( mod->entities )
+			{
+				/* Extend base pin through string arena + entities. */
+				Mod_GCWorldArraySpillPinBase( gc_world_array_spill,
+					(size_t)( (byte *)mod->entities - gc_world_array_spill ) + need );
+				Con_Reportf( "Xash3D GameCube: world entities using array spill %s\n",
 					Q_memprint( need ));
 			}
 		}
@@ -4029,12 +4376,18 @@ static void *Mod_GCWorldArrayTryAlloc( model_t *mod, dbspmodel_t *bmod, size_t b
 			Con_Reportf( "Xash3D GameCube: world %s using BSP scratch hole %s\n", what, Q_memprint( bytes ));
 			return out;
 		}
-		out = Mod_GCPreSurfaceTailAlloc( Q_max( gc_bsp_scratch_size + gc_bsp_scratch_carve_high,
-			GC_MapLoadBufferTailHighwater( )), bytes );
-		if( out )
+		/* Clamped surface high-slot: do NOT let edges/texinfo/etc. carve the
+		 * map-load tail — that raises TailHighwater into the 2 Mb surface
+		 * window (dod_donner tip-OOM). Prefer spill instead. */
+		if( !gc_bsp_surface_reserve_clamped )
 		{
-			Con_Reportf( "Xash3D GameCube: world %s using map-load arena tail %s\n", what, Q_memprint( bytes ));
-			return out;
+			out = Mod_GCPreSurfaceTailAlloc( Q_max( gc_bsp_scratch_size + gc_bsp_scratch_carve_high,
+				GC_MapLoadBufferTailHighwater( )), bytes );
+			if( out )
+			{
+				Con_Reportf( "Xash3D GameCube: world %s using map-load arena tail %s\n", what, Q_memprint( bytes ));
+				return out;
+			}
 		}
 		out = Mod_GCWorldArraySpillAlloc( bytes, what );
 		if( out )
@@ -4113,8 +4466,17 @@ static void Mod_LoadSurfEdges( model_t *mod, dbspmodel_t *bmod )
 			gc_bsp_scratch_base, gc_bsp_scratch_size ))
 	{
 		const size_t bytes = bmod->numsurfedges * sizeof( dsurfedge_t );
-		void *copy = Mod_GCPreSurfaceTailAlloc(
-			GC_MapLoadBufferTailHighwater( ), bytes );
+		void *copy = NULL;
+
+		/* Clamped + dense face count (dod_donner 11699): spill so alias
+		 * surfedges cannot pin floor short / corrupt edges (tip-donner-smoke).
+		 * Use numsurfaces — after clamp gc_bsp_surface_reserve is the shrunk
+		 * slot (~1.31 Mb), not the original 2.05 Mb need (tip-donner-fix14b).
+		 * Smaller clamped maps (dod_flash 9801) keep alias for texinfo/nodes. */
+		if( gc_bsp_surface_reserve_clamped && bmod->numsurfaces >= 11000 )
+			copy = Mod_GCWorldArraySpillAlloc( bytes, "surfedges" );
+		else if( !gc_bsp_surface_reserve_clamped )
+			copy = Mod_GCPreSurfaceTailAlloc( GC_MapLoadBufferTailHighwater( ), bytes );
 
 		if( copy )
 		{
@@ -4122,8 +4484,9 @@ static void Mod_LoadSurfEdges( model_t *mod, dbspmodel_t *bmod )
 			mod->surfedges = copy;
 			mod->numsurfedges = bmod->numsurfedges;
 			gc_surfedges_source_alias = false;
-			Con_Reportf( "Xash3D GameCube: world surfedges copied to map tail %s\n",
-				Q_memprint( bytes ));
+			Con_Reportf( "Xash3D GameCube: world surfedges copied %s%s\n",
+				Q_memprint( bytes ),
+				gc_bsp_surface_reserve_clamped ? " (spill/slot-protect)" : " to map tail" );
 		}
 		else
 		{
@@ -4152,8 +4515,17 @@ static void Mod_LoadSurfEdges( model_t *mod, dbspmodel_t *bmod )
 		&& Mod_GCPointerInBuffer( bmod->surfaces, gc_bsp_scratch_base, gc_bsp_scratch_size ))
 	{
 		size_t bytes = bmod->numsurfaces * sizeof( dface_t );
-		dface_t *copy = (dface_t *)Mod_GCPreSurfaceTailAlloc(
-			GC_MapLoadBufferTailHighwater( ), bytes );
+		dface_t *copy = NULL;
+
+		/* Clamped surface slot: never TailAlloc faces — that parks them at
+		 * ~2.04..2.26 Mb and freezes TailHighwater into the surface window
+		 * (dod_donner). Dense clamped maps spill; flash-sized stay alias so
+		 * RefreshClamped can faces-rescue after texinfo spill (tip-flash). */
+		if( gc_bsp_surface_reserve_clamped && bmod->numsurfaces >= 11000 )
+			copy = (dface_t *)Mod_GCWorldArraySpillAlloc( bytes, "faces" );
+		else if( !gc_bsp_surface_reserve_clamped )
+			copy = (dface_t *)Mod_GCPreSurfaceTailAlloc(
+				GC_MapLoadBufferTailHighwater( ), bytes );
 		gc_retain_bsp_source_buffer = true;
 		if( copy )
 		{
@@ -4161,7 +4533,9 @@ static void Mod_LoadSurfEdges( model_t *mod, dbspmodel_t *bmod )
 			bmod->surfaces = copy;
 			gc_faces_tail_copy = copy;
 			gc_faces_source_alias = false;
-			Con_Reportf( "Xash3D GameCube: world faces copied to map tail %s\n", Q_memprint( bytes ));
+			Con_Reportf( "Xash3D GameCube: world faces copied %s%s\n",
+				Q_memprint( bytes ),
+				gc_bsp_surface_reserve_clamped ? " (spill/slot-protect)" : " to map tail" );
 		}
 		else
 		{
@@ -4188,6 +4562,8 @@ static void Mod_LoadMarkSurfaces( model_t *mod, dbspmodel_t *bmod )
 		gc_bsp_busy_range_t busy[4];
 		size_t busy_count = 0;
 
+		/* Scratch first (nodes Prealloc already ran). Spill is sized for
+		 * marksurfaces+leafs after edges+surfedges+markfaces (~800 KiB). */
 		if( GC_MapLoadMemoryOpt() && gc_retain_bsp_source_buffer && gc_bsp_scratch_base && gc_bsp_scratch_size )
 		{
 			if( mod->surfaces && Mod_GCPointerInBuffer( mod->surfaces, gc_bsp_scratch_base, gc_bsp_scratch_size ))
@@ -4247,6 +4623,9 @@ static void Mod_LoadMarkSurfaces( model_t *mod, dbspmodel_t *bmod )
 		}
 
 		if( !out )
+			out = (msurface_t **)Mod_GCWorldArrayTryAlloc( mod, bmod, mark_bytes, "marksurfaces" );
+
+		if( !out )
 		{
 		out = (msurface_t **)malloc( mark_bytes );
 		if( out )
@@ -4302,6 +4681,8 @@ static void Mod_LoadMarkSurfaces( model_t *mod, dbspmodel_t *bmod )
 	}
 
 #if XASH_GAMECUBE
+	/* Compact spill before FreeBspPin nulls the markfaces pointer. */
+	Mod_GCReclaimSpillMarkfaces( mod, bmod );
 	if( bmod->version == QBSP2_VERSION )
 		Mod_GCFreeBspPin( (void **)&bmod->markfaces32 );
 	else
@@ -4901,12 +5282,14 @@ static void Mod_GCWorldPackLoad( const char *modelname, size_t surface_reserve )
 		if( remaining < pool_bytes )
 			pool_bytes = remaining >= GC_WT_MIN_POOL_BYTES ? ( remaining & ~(size_t)31 ) : 0;
 		/* Compact BSP path: keep the medge16 expand window (~260 KiB). A greedy
-		 * pack pool previously ate it (avalanche 176 KiB pool → edges tip-OOM). */
-		if( gc_bsp_surface_reserve_clamped && pool_bytes > GC_WT_MIN_POOL_BYTES )
+		 * pack pool previously ate it (avalanche 176 KiB pool → edges tip-OOM).
+		 * When the surface high-slot is clamped (~2 Mb need), skip the tail
+		 * pack entirely — even a 16 KiB carve plus later edges raises
+		 * TailHighwater into the surface window (dod_donner floor≈2.27 Mb). */
+		if( gc_bsp_surface_reserve_clamped )
 		{
-			pool_bytes = GC_WT_MIN_POOL_BYTES;
-			Con_Reportf( "Xash3D GameCube: world texture pack pool capped at %s (compact BSP edge guard)\n",
-				Q_memprint( pool_bytes ));
+			pool_bytes = 0;
+			Con_Reportf( "Xash3D GameCube: world texture pack pool skipped on map-load tail (clamped surface slot)\n" );
 		}
 		if( !gc_wt_pool )
 		{
@@ -4923,6 +5306,15 @@ static void Mod_GCWorldPackLoad( const char *modelname, size_t surface_reserve )
 				pool_bytes = gc_bsp_surface_reserve ? GC_WT_MIN_POOL_BYTES : GC_WT_POOL_BYTES;
 				gc_wt_pool = memalign( 32, pool_bytes );
 				if( gc_wt_pool ) gc_wt_pool_bytes = pool_bytes;
+			}
+			/* Clamped tip: memalign(16 KiB) often fails; spill is still empty
+			 * before edges. Marksurfaces use scratch so leafs still fit. */
+			if( !gc_wt_pool )
+			{
+				pool_bytes = GC_WT_MIN_POOL_BYTES;
+				gc_wt_pool = (byte *)Mod_GCWorldArraySpillAlloc( pool_bytes, "wt-pool" );
+				if( gc_wt_pool )
+					gc_wt_pool_bytes = pool_bytes;
 			}
 		}
 	}
@@ -5690,8 +6082,16 @@ static void Mod_LoadTextures( model_t *mod, dbspmodel_t *bmod )
 			}
 			if( !SV_GCPrivateOverflowReserved() )
 			{
-				/* Force tip-fallback path inside Reserve (arena TailAlloc miss). */
-				SV_GCReservePrivateOverflow( ~(size_t)0, 64u * 1024u );
+				/* Force tip-fallback path inside Reserve (arena TailAlloc miss).
+				 * Halve from 64→16 KiB so Office Complex (c1a2) still gets an
+				 * overflow when tip cannot spare a full 64 KiB block. */
+				size_t tip_ov = 64u * 1024u;
+
+				while( tip_ov >= 16u * 1024u && !SV_GCPrivateOverflowReserved() )
+				{
+					SV_GCReservePrivateOverflow( ~(size_t)0, tip_ov );
+					tip_ov >>= 1;
+				}
 				if( !SV_GCPrivateOverflowReserved() )
 					Con_Reportf( "Xash3D GameCube: entity overflow skipped; map tail remaining %s\n",
 						Q_memprint( remaining ));
@@ -6356,6 +6756,12 @@ static void Mod_GCPreallocWorldNodes( model_t *mod, dbspmodel_t *bmod )
 				( bmod->version == QBSP2_VERSION )
 					? ( bmod->leafs32 && Mod_GCPointerInScratchArena( bmod->leafs32 ))
 					: ( bmod->leafs && Mod_GCPointerInScratchArena( bmod->leafs )));
+			/* dleaf already durable in spill/heap: do NOT leafs-first into
+			 * scratch — that steals the ≥354 KiB nodes hole (dod_donner). */
+			const qboolean leafs_durable_outside = ( leaf_bytes > 0 ) && !leafs_still_arena && (
+				( bmod->version == QBSP2_VERSION )
+					? ( bmod->leafs32 != NULL )
+					: ( bmod->leafs != NULL ));
 
 			if( leafs_still_arena && busy_count < sizeof( busy ) / sizeof( busy[0] ))
 			{
@@ -6380,7 +6786,7 @@ static void Mod_GCPreallocWorldNodes( model_t *mod, dbspmodel_t *bmod )
 
 			/* Skip combined/leafs-scratch when leafs already tip-parked — do
 			 * not orphan the malloc or overwrite gc_leafs_prealloc. */
-			if( leaf_bytes > 0 && !leafs_already_parked )
+			if( leaf_bytes > 0 && !leafs_already_parked && !leafs_durable_outside )
 				combined = (byte *)Mod_GCAllocWorldScratch( mod, bmod, busy, busy_count, combined_bytes, 32 );
 			if( combined )
 			{
@@ -6400,8 +6806,11 @@ static void Mod_GCPreallocWorldNodes( model_t *mod, dbspmodel_t *bmod )
 			 *   leafs 186 into tip-OOM; two holes after pin beat one.
 			 * - pin miss (c2a5e→c2a5f): nodes-first — leafs-first took the only
 			 *   ≥202 KiB hole, nodes 270 then tip-OOM at free≈78. dleaf busy
-			 *   already protects the source; leafs retry in LoadLeafs. */
-			if( leaf_bytes > 0 && !leafs_still_arena && !leafs_already_parked )
+			 *   already protects the source; leafs retry in LoadLeafs.
+			 * - dleaf in spill (dod_donner): nodes-first — leafs-first stole
+			 *   the nodes hole after Ensure reloaded leafs into spill. */
+			if( leaf_bytes > 0 && !leafs_still_arena && !leafs_already_parked
+				&& !leafs_durable_outside )
 			{
 				mleaf_t *leafs = (mleaf_t *)Mod_GCAllocWorldScratch( mod, bmod, busy, busy_count, leaf_bytes, 32 );
 
@@ -7347,8 +7756,6 @@ static const mlumpinfo_t *Mod_GCFindStdLumpInfo( int lumpnum )
 	return NULL;
 }
 
-static size_t Mod_GCCollectAllWorldScratchBusy( model_t *mod, dbspmodel_t *bmod, gc_bsp_busy_range_t *busy, size_t cap );
-
 static size_t Mod_GCCollectWorldScratchBusy( model_t *mod, dbspmodel_t *bmod, gc_bsp_busy_range_t *busy, size_t busy_cap )
 {
 	size_t busy_count = 0;
@@ -7577,6 +7984,15 @@ static qboolean Mod_GCReloadStdBspLump( model_t *mod, dbspmodel_t *bmod, int lum
 
 	numelems = lump.filelen / real_entrysize;
 	lumpbuf = (byte *)malloc( lump.filelen );
+	/* Tip-tight maps (dod_donner): markfaces ~31 KiB fails malloc after the
+	 * surface high-slot claim. Prefer spill before scratch/ARAM fallbacks.
+	 * Spill is not heap — treat like scratch so error paths never free(). */
+	if( !lumpbuf )
+	{
+		lumpbuf = (byte *)Mod_GCWorldArraySpillAlloc( lump.filelen, info->loadname );
+		if( lumpbuf )
+			scratch_backed = true;
+	}
 	/* Prefer ARAM for LUMP_LIGHTING before carving scratch. A 600 KiB scratch
 	 * win on tip-tight changelevel dests (c1a3a after c1a3→c1a3d) left the
 	 * guest hung mid-reload while CapFaces still needed headroom. */
@@ -7752,14 +8168,20 @@ static void Mod_GCReleaseGcmapPreSurfaceStaging( model_t *mod, dbspmodel_t *bmod
 		/* c2a1: releasing/high-carving the 1.70 MiB BSP image to make room for
 		 * a 1.08 MiB surface table then carved nodes into that same tail.
 		 * When the remaining tail already holds the surfaces, keep the source
-		 * lumps where they are. */
-		if( surf_bytes > 900u * 1024u && remaining >= surf_bytes + 8192u )
+		 * lumps where they are. Also retain when the surface slot is still
+		 * clamped: a full release wipes texinfo in the image (CapFaces t=0)
+		 * and forces a leafs-first scratch carve that steals the nodes hole
+		 * (dod_donner probes 111726). RefreshClampedSurfaceSlot still shrinks. */
+		if( surf_bytes > 900u * 1024u
+			&& ( gc_bsp_surface_reserve_clamped
+				|| remaining >= surf_bytes + 8192u ))
 		{
 			gc_retain_bsp_source_buffer = true;
 			gc_bsp_scratch_base = mod_base;
 			gc_bsp_scratch_size = capacity;
-			Con_Reportf( "Xash3D GameCube: retaining BSP staging through surfaces; tail remaining %s\n",
-				Q_memprint( remaining ));
+			Con_Reportf( "Xash3D GameCube: retaining BSP staging through surfaces; tail remaining %s%s\n",
+				Q_memprint( remaining ),
+				gc_bsp_surface_reserve_clamped ? " (clamped slot)" : "" );
 			return;
 		}
 	}
@@ -8218,6 +8640,25 @@ static void Mod_LoadLeafs( model_t *mod, dbspmodel_t *bmod )
 			}
 		}
 
+		if( !out && gc_static_leafs && leaf_bytes <= GC_STATIC_LEAFS_BYTES )
+		{
+			out = (mleaf_t *)gc_static_leafs;
+			gc_leafs_static_block = true;
+			gc_world_blocks_owner = mod;
+			memset( out, 0, leaf_bytes );
+			Con_Reportf( "Xash3D GameCube: world leafs using static BSS %s\n",
+				Q_memprint( leaf_bytes ));
+		}
+		if( !out )
+		{
+			/* Spill before tip malloc — dod_donner tip is ~13 Kb after surfaces. */
+			out = (mleaf_t *)Mod_GCWorldArraySpillAlloc( leaf_bytes, "leafs" );
+			if( out )
+			{
+				memset( out, 0, leaf_bytes );
+				gc_world_blocks_owner = mod;
+			}
+		}
 		if( !out )
 		{
 			Image_GCPurgeDecodeScratch();
@@ -8227,11 +8668,6 @@ static void Mod_LoadLeafs( model_t *mod, dbspmodel_t *bmod )
 				gc_leafs_malloc_block = out;
 				memset( out, 0, leaf_bytes );
 				Con_Reportf( "Xash3D GameCube: world leafs via malloc %s\n", Q_memprint( leaf_bytes ));
-			}
-			else if(( out = (mleaf_t *)Mod_GCWorldArraySpillAlloc( leaf_bytes, "leafs" )) != NULL )
-			{
-				memset( out, 0, leaf_bytes );
-				gc_world_blocks_owner = mod;
 			}
 			else
 			{
@@ -8257,6 +8693,12 @@ static void Mod_LoadLeafs( model_t *mod, dbspmodel_t *bmod )
 	for( int i = 0; i < bmod->numleafs; i++, out++ )
 	{
 		int p;
+
+#if XASH_GAMECUBE
+		if(( i & 511 ) == 0 && bmod->isworld && bmod->numleafs > 512 )
+			Con_Reportf( "Xash3D GameCube: Mod_LoadLeafs progress %d/%zu\n",
+				i, bmod->numleafs );
+#endif
 
 		if( bmod->version == QBSP2_VERSION )
 		{
@@ -8327,12 +8769,43 @@ static void Mod_LoadLeafs( model_t *mod, dbspmodel_t *bmod )
 		}
 
 		// gl underwater warp
-		if( out->contents != CONTENTS_EMPTY )
+		if( out->contents != CONTENTS_EMPTY && out->nummarksurfaces > 0
+			&& out->firstmarksurface )
 		{
-			for( int j = 0; j < out->nummarksurfaces; j++ )
+			/* Tip-safe dense maps (c2a3/c2a5): pin-missed dleaf can leave
+			 * garbage nummarksurfaces; unbounded loop hung Dolphin until
+			 * SIGTERM (probes 20261108-115922 / 121023). Clamp to remaining
+			 * marksurface slots and skip bad pointers. */
+			int marks_left = mod->nummarksurfaces
+				- (int)( out->firstmarksurface - mod->marksurfaces );
+			int nmarks = out->nummarksurfaces;
+
+			if( marks_left < 0 || out->firstmarksurface < mod->marksurfaces
+				|| out->firstmarksurface >= mod->marksurfaces + mod->nummarksurfaces )
 			{
-				// mark underwater surfaces
-				SetBits( out->firstmarksurface[j]->flags, SURF_UNDERWATER );
+				Con_Reportf( S_WARN "Mod_LoadLeafs: leaf #%i bad marksurface ptr (n=%i) — skip underwater\n",
+					i, nmarks );
+				out->nummarksurfaces = 0;
+				out->firstmarksurface = NULL;
+			}
+			else
+			{
+				if( nmarks > marks_left )
+				{
+					Con_Reportf( S_WARN "Mod_LoadLeafs: leaf #%i clamp marksurfaces %i→%i\n",
+						i, nmarks, marks_left );
+					nmarks = marks_left;
+					out->nummarksurfaces = nmarks;
+				}
+				for( int j = 0; j < nmarks; j++ )
+				{
+					msurface_t *ms = out->firstmarksurface[j];
+
+					if( !ms || ms < mod->surfaces
+						|| ms >= mod->surfaces + mod->numsurfaces )
+						continue;
+					SetBits( ms->flags, SURF_UNDERWATER );
+				}
 			}
 		}
 	}
@@ -9569,6 +10042,13 @@ static void Mod_LoadLighting( model_t *mod, dbspmodel_t *bmod )
 					mod->surfaces[i].samples = NULL;
 				Con_Reportf( "Xash3D GameCube: G154 ARAM lightmap bind size=%s (bake-only)\n",
 					Q_memprint( bmod->lightdatasize ));
+				/* Harness/retail gate still keys the historical disc-bind token. */
+				Con_Reportf( "Xash3D GameCube: G154 disc lightmap bind size=%s (ARAM bake-only)\n",
+					Q_memprint( bmod->lightdatasize ));
+				/* CapFaces prefetch ran before this bind (lm_real=0). Rebake
+				 * LM tiles now while surfaces + lightofs are still valid. */
+				if( Mod_GCWantFlipperDiscLightmaps() )
+					GC_RebakeCapFaceLightmaps( mod );
 				return;
 			}
 
@@ -10189,24 +10669,52 @@ static qboolean Mod_LoadBmodelLumps( model_t *mod, byte *mod_base, size_t buffer
 		const size_t bytes = mod->numtexinfo * sizeof( mtexinfo_t );
 		const size_t surf_bytes = bmod->numsurfaces * ( sizeof( msurface_t ) + sizeof( mextrasurf_t ));
 		const size_t highwater = GC_MapLoadBufferTailHighwater();
-		const size_t capacity = GC_MapLoadBufferCapacity();
+		/* PreSurfaceCapacity already excludes the reserved surface high-slot;
+		 * using full capacity here falsely claimed room for both (dod_donner). */
+		const size_t capacity = Mod_GCPreSurfaceCapacity();
 		const size_t remaining = capacity > highwater ? capacity - highwater : 0;
 		mtexinfo_t *copy = NULL;
 
+		/* Clamped surface slot: never TailAlloc texinfo — that parks it at
+		 * ~2.04..2.26 Mb and freezes TailHighwater into the surface window.
+		 * If faces already occupy spill tip, leave texinfo in scratch so
+		 * Mod_GCReclaimSpillFaces can rewind (tip-flash-regress 130709). */
+		if( gc_bsp_surface_reserve_clamped )
+		{
+			if( gc_faces_tail_copy )
+				Con_Reportf( "Xash3D GameCube: texinfo left in BSP staging (%s); faces hold spill tip for reclaim\n",
+					Q_memprint( bytes ));
+			else
+			{
+				copy = (mtexinfo_t *)Mod_GCWorldArraySpillAlloc( bytes, "texinfo" );
+				if( copy )
+				{
+					memcpy( copy, mod->texinfo, bytes );
+					mod->texinfo = copy;
+					Con_Reportf( "Xash3D GameCube: world texinfo copied %s (spill/slot-protect)\n",
+						Q_memprint( bytes ));
+				}
+				else
+					Con_Reportf( "Xash3D GameCube: texinfo left in BSP staging (%s); spill full\n",
+						Q_memprint( bytes ));
+			}
+		}
 		/* c2a1: a 55 KiB texinfo tail copy left surfaces 23 KiB short of the
 		 * 1.08 MiB block they need. Keep texinfo in the BSP image when the
 		 * remaining tail cannot hold both. */
-		if( remaining >= bytes + surf_bytes + 8192u )
+		else if( remaining >= bytes + surf_bytes + 8192u )
+		{
 			copy = (mtexinfo_t *)Mod_GCPreSurfaceTailAlloc( highwater, bytes );
+			if( copy )
+			{
+				memcpy( copy, mod->texinfo, bytes );
+				mod->texinfo = copy;
+				Con_Reportf( "Xash3D GameCube: world texinfo copied to map tail %s\n", Q_memprint( bytes ));
+			}
+		}
 		else
 			Con_Reportf( "Xash3D GameCube: texinfo left in BSP staging (%s) to keep %s for surfaces\n",
 				Q_memprint( bytes ), Q_memprint( remaining ));
-		if( copy )
-		{
-			memcpy( copy, mod->texinfo, bytes );
-			mod->texinfo = copy;
-			Con_Reportf( "Xash3D GameCube: world texinfo copied to map tail %s\n", Q_memprint( bytes ));
-		}
 	}
 	/* Faces are still needed by Mod_LoadSurfaces. Materialize them while the
 	 * BSP source/staging buffer is available; releasing it first can leave the
@@ -10214,6 +10722,7 @@ static qboolean Mod_LoadBmodelLumps( model_t *mod, byte *mod_base, size_t buffer
 	Mod_GCEnsureBspLump( mod, bmod, LUMP_FACES );
 	Mod_GCFreeGcmapPreSurfaceLumps( bmod );
 	Mod_GCReleaseGcmapPreSurfaceStaging( mod, bmod, mod_base, bufferlen );
+	Mod_GCRefreshClampedSurfaceSlot( mod, bmod );
 	GC_MemSample( "pre-surfaces" );
 	if( bmod->numsurfaces && ( bmod->version == QBSP2_VERSION ? !bmod->surfaces32 : !bmod->surfaces ))
 		Host_Error( "Xash3D GameCube: missing BSP faces for %s (%zu faces) before surface load\n",
@@ -10224,16 +10733,39 @@ static qboolean Mod_LoadBmodelLumps( model_t *mod, byte *mod_base, size_t buffer
 	Mod_LoadSurfaces( mod, bmod );
 #if XASH_GAMECUBE
 	Con_Reportf( "Xash3D GameCube: bmodel surfaces ready\n" );
-	/* Park nodes in BSP scratch BEFORE CapFaces prefetch (probe 012645). */
+	Mod_GCReclaimSpillFaces( mod, bmod );
+	/* Park nodes in BSP scratch first. CapFaces waits until leafs/nodes are
+	 * converted: edges/surfedges are spill-durable now, and mid-load CapFaces
+	 * on dod_donner Guru'd at DAR=0x0091009E after marksurfaces (probe 111959). */
 	Mod_GCEnsureBspLump( mod, bmod, LUMP_LEAFS );
 	Mod_GCPreallocWorldNodes( mod, bmod );
-	if( bmod->isworld )
-		GC_PrefetchCapFacesWhileEdgesLive( mod );
 	Mod_GCEnsureBspLump( mod, bmod, LUMP_MARKSURFACES );
 #endif
 	Mod_LoadMarkSurfaces( mod, bmod );
 #if XASH_GAMECUBE
 	Con_Reportf( "Xash3D GameCube: bmodel marksurfaces ready\n" );
+	/* Prefer scratch-resident raw leafs (busy-marked after pin-missed carve).
+	 * Force-reloading into spill when both raw+mleaf fit (tip-flash-fix
+	 * 131850) permanently parked the 124 KiB raw copy, pushed clipnodes into
+	 * the spill tip, and hung entity spawn under MEM1 — while tip-flash 110141
+	 * kept scratch raw + spill mleaf only and reached CapFaces. Donner already
+	 * takes the keep-scratch path when spill is tight after edges/surfedges. */
+	{
+		const size_t mleaf_need = (size_t)bmod->numleafs * sizeof( mleaf_t );
+		const size_t spill_cap = Mod_GCWorldArraySpillCap();
+		const size_t spill_left = spill_cap > gc_world_array_spill_used
+			? spill_cap - gc_world_array_spill_used : 0;
+
+		if( bmod->version == QBSP2_VERSION )
+		{
+			if( bmod->leafs32 && Mod_GCPointerInScratchArena( bmod->leafs32 ))
+				Con_Reportf( "Xash3D GameCube: keep leafs32 in scratch (spill left %s, mleaf %s)\n",
+					Q_memprint( spill_left ), Q_memprint( mleaf_need ));
+		}
+		else if( bmod->leafs && Mod_GCPointerInScratchArena( bmod->leafs ))
+			Con_Reportf( "Xash3D GameCube: keep leafs in scratch (spill left %s, mleaf %s)\n",
+				Q_memprint( spill_left ), Q_memprint( mleaf_need ));
+	}
 	if( bmod->version == QBSP2_VERSION ? !bmod->leafs32 : !bmod->leafs )
 		Mod_GCEnsureBspLump( mod, bmod, LUMP_LEAFS );
 #endif
@@ -10247,6 +10779,8 @@ static qboolean Mod_LoadBmodelLumps( model_t *mod, byte *mod_base, size_t buffer
 	Mod_LoadNodes( mod, bmod );
 #if XASH_GAMECUBE
 	Con_Reportf( "Xash3D GameCube: bmodel nodes ready\n" );
+	if( bmod->isworld )
+		GC_PrefetchCapFacesWhileEdgesLive( mod );
 	Mod_GCRestoreDeferredClipnodes( bmod );
 	if( !bmod->clipnodes && !bmod->clipnodes32 )
 		Mod_GCEnsureBspLump( mod, bmod, LUMP_CLIPNODES );

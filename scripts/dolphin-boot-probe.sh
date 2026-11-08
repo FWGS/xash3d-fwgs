@@ -197,6 +197,10 @@ if (( DUMP_FRAMES )) && [[ "${DOLPHIN_DUMP_VIDEO:-0}" == "1" ]]; then
 fi
 source scripts/dolphin-probe-config.sh || exit $?
 echo "==> Building GameCube engine and DOL..."
+# HL1 tip-safe probes: keep valve DOL; never inherit a dod+libbba waf cache.
+export HLSDK_GAMECUBE_GAMEDIR="${HLSDK_GAMECUBE_GAMEDIR:-valve}"
+export XASH_GAMECUBE_LINK_BBA="${XASH_GAMECUBE_LINK_BBA:-0}"
+
 SKIP_ENGINE=0
 SKIP_DISC=0
 if [[ "${DOLPHIN_SKIP_BUILD:-0}" == "1" && -f "$PREBUILT_ISO" ]]; then
@@ -525,8 +529,13 @@ if (( DOLPHIN_NEWGAME )); then
 	MAP_MARKER="Xash3D GameCube: map loaded ${SMOKE_MAP}"
 	# Prefer G281 ride restream (map reading along tram).
 	G278_DONE_MARKER="G281 cl="
+	# Retail/Swiss packet needs G172 + lean HUD even without changelevel.
+	G172_DONE_MARKER="Xash3D GameCube: G172 HUD sheets loaded"
+	G164_DONE_MARKER="${G164_DONE_MARKER:-Xash3D GameCube: G164 studio gouraud shades=}"
+	FRAME_SAMPLE_SEC="${DOLPHIN_FRAME_SAMPLE_SEC:-45}"
 	echo "==> New Game probe mode (expect map ${SMOKE_MAP})"
 	echo "==> Waiting for G281 Flipper map restream (GPU faces follow tram)"
+	echo "==> Waiting for G172 HUD sheets + G164 studio gouraud (retail mirroring)"
 	if [[ -n "$DOLPHIN_CHANGELEVEL" ]]; then
 		if [[ -n "$DOLPHIN_CHANGELEVEL3" && -n "$DOLPHIN_CHANGELEVEL2" ]]; then
 			G68_DONE_MARKER="Xash3D GameCube: G68 changelevel ready from=${DOLPHIN_CHANGELEVEL2} to=${DOLPHIN_CHANGELEVEL3}"
@@ -601,8 +610,22 @@ if [[ "${DOLPHIN_EXECUTABLE:-}" == flatpak:* ]]; then
 	append_guest_args DOLPHIN_CMD
 	DOLPHIN_IS_FLATPAK=1
 elif [[ -n "${DOLPHIN_EXECUTABLE:-}" ]]; then
+	# Sibling DoD tooling pkill -f dolphin-emu; rewrite sticky env to the alias.
+	if [[ "$(basename "$DOLPHIN_EXECUTABLE")" == "dolphin-emu" \
+		&& -x "$ROOT/3rdparty/dolphin/build/Binaries/xash-gc-dolphin" ]]; then
+		DOLPHIN_EXECUTABLE="$ROOT/3rdparty/dolphin/build/Binaries/xash-gc-dolphin"
+		echo "==> Rewrote DOLPHIN_EXECUTABLE to pkill-safe alias: $DOLPHIN_EXECUTABLE"
+	fi
 	DOLPHIN_CMD=("$DOLPHIN_EXECUTABLE" -u "$USER_DIR" "${DOLPHIN_MODE_ARGS[@]}" -e "$ISO_PATH" -v "$DOLPHIN_VIDEO_BACKEND")
 	append_guest_args DOLPHIN_CMD
+	echo "==> Using DOLPHIN_EXECUTABLE: ${DOLPHIN_CMD[0]}"
+elif [[ -x "$ROOT/3rdparty/dolphin/build/Binaries/xash-gc-dolphin" ]]; then
+	# Prefer the rename alias: sibling DoD tooling sometimes `pkill -f dolphin-emu`
+	# and would SIGKILL HL1 probes mid-boot (status=137).
+	DOLPHIN_CMD=("$ROOT/3rdparty/dolphin/build/Binaries/xash-gc-dolphin" -u "$USER_DIR"
+		"${DOLPHIN_MODE_ARGS[@]}" -e "$ISO_PATH" -v "$DOLPHIN_VIDEO_BACKEND")
+	append_guest_args DOLPHIN_CMD
+	echo "==> Using local Dolphin: ${DOLPHIN_CMD[0]}"
 elif [[ -x "$ROOT/3rdparty/dolphin/build/Binaries/dolphin-emu" ]]; then
 	# G192: local tree build includes XFB RAM re-decode when DisableCopyToVRAM
 	# is set; Flatpak/stock Dolphin DumpFrames stay on a stale sky XFB.

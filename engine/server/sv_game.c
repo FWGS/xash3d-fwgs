@@ -84,6 +84,17 @@ static qboolean SV_IsStaticStaticEntities( const entity_state_t *s )
 static char *gc_string_arena;
 static size_t gc_string_arena_used;
 static int gc_string_arena_overflows;
+static qboolean gc_string_arena_in_spill;
+
+void SV_GCDropSpillStringArena( void )
+{
+	if( !gc_string_arena || !gc_string_arena_in_spill )
+		return;
+	gc_string_arena = NULL;
+	gc_string_arena_used = 0;
+	gc_string_arena_in_spill = false;
+	Con_Reportf( "Xash3D GameCube: server string arena spill dropped for map reload\n" );
+}
 
 qboolean SV_GCEnsureStringArena( void )
 {
@@ -91,14 +102,41 @@ qboolean SV_GCEnsureStringArena( void )
 		return true;
 	/* Retried at every map load until it fits. */
 	gc_string_arena = (char *)memalign( 16, GC_STRING_ARENA_SIZE );
-	if( !gc_string_arena )
+	if( gc_string_arena )
 	{
-		Con_Reportf( S_WARN "Xash3D GameCube: server string arena unavailable (%s)\n",
+		gc_string_arena_in_spill = false;
+		Con_Reportf( "Xash3D GameCube: server string arena ready %s\n",
 			Q_memprint( GC_STRING_ARENA_SIZE ));
-		return false;
+		return true;
 	}
-	Con_Reportf( "Xash3D GameCube: server string arena ready %s\n", Q_memprint( GC_STRING_ARENA_SIZE ));
-	return true;
+	/* Tip MEM1 too thin at boot (listen flash/donner). Park at spill BASE and
+	 * pin so ClearRetained cannot let surfedges stomp it (avalanche Guru).
+	 * Do NOT append after faces reclaim — that ate donner leafs room
+	 * (spill left 195 < mleaf 242, tip-donner-tip128). */
+	{
+		extern size_t Mod_GCWorldArraySpillUsed( void );
+		extern void *Mod_GCWorldArraySpillTryAlloc( size_t bytes, const char *what );
+		extern void Mod_GCWorldArraySpillPinBase( const void *ptr, size_t bytes );
+
+		/* Only claim the base slot (used==pin, typically 0 at boot). */
+		if( Mod_GCWorldArraySpillUsed() == 0 )
+		{
+			gc_string_arena = (char *)Mod_GCWorldArraySpillTryAlloc( GC_STRING_ARENA_SIZE,
+				"string arena" );
+			if( gc_string_arena )
+			{
+				Mod_GCWorldArraySpillPinBase( gc_string_arena, GC_STRING_ARENA_SIZE );
+				gc_string_arena_used = 0;
+				gc_string_arena_in_spill = true;
+				Con_Reportf( "Xash3D GameCube: server string arena spill %s\n",
+					Q_memprint( GC_STRING_ARENA_SIZE ));
+				return true;
+			}
+		}
+	}
+	Con_Reportf( S_WARN "Xash3D GameCube: server string arena unavailable (%s)\n",
+		Q_memprint( GC_STRING_ARENA_SIZE ));
+	return false;
 }
 
 static char *GC_StringArenaAlloc( const char *value, uint len )
@@ -171,19 +209,34 @@ void SV_GCReservePrivateOverflow( size_t after, size_t bytes )
 	if( !bytes ) return;
 	gc_ent_priv_overflow_from_tip = false;
 	gc_ent_priv_overflow = GC_MapLoadBufferTailAlloc( after, bytes );
-	if( !gc_ent_priv_overflow && GC_MemHeapFreeBytes() >= bytes + 48u * 1024u )
+	if( !gc_ent_priv_overflow )
 	{
-		/* c2a5f: arena mid-tail is 0 with leafs tip-parked — fall back to a
-		 * contiguous tip block so dense monster privates still allocate. */
+		/* c1a2 / c2a5f: arena mid-tail can be ~0 with leafs tip-parked.
+		 * Shrink tip reservation (64→16 KiB) with a modest free-heap guard so
+		 * dense monster privates (headcrab 688) still allocate when 64+48 KiB
+		 * is unavailable (Office Complex overflow-skip at tip~slab-full). */
+		size_t try_bytes = bytes;
+
 		Image_GCPurgeDecodeScratch();
-		gc_ent_priv_overflow = (byte *)memalign( 32, bytes );
-		if( !gc_ent_priv_overflow )
-			gc_ent_priv_overflow = (byte *)malloc( bytes );
-		if( gc_ent_priv_overflow )
+		while( try_bytes >= 16u * 1024u && !gc_ent_priv_overflow )
 		{
-			gc_ent_priv_overflow_from_tip = true;
-			Con_Reportf( "Xash3D GameCube: entity overflow reserved %u bytes from tip\n",
-				(unsigned)bytes );
+			const size_t guard = 16u * 1024u;
+
+			if( GC_MemHeapFreeBytes() >= try_bytes + guard )
+			{
+				gc_ent_priv_overflow = (byte *)memalign( 32, try_bytes );
+				if( !gc_ent_priv_overflow )
+					gc_ent_priv_overflow = (byte *)malloc( try_bytes );
+				if( gc_ent_priv_overflow )
+				{
+					bytes = try_bytes;
+					gc_ent_priv_overflow_from_tip = true;
+					Con_Reportf( "Xash3D GameCube: entity overflow reserved %u bytes from tip\n",
+						(unsigned)bytes );
+					break;
+				}
+			}
+			try_bytes >>= 1;
 		}
 	}
 	if( gc_ent_priv_overflow )
@@ -280,9 +333,11 @@ static void SV_GCPrivateSlabFree( void *ptr, size_t size )
 		gc_ent_priv_slab_bits[i / 8] &= ~( 1u << ( i & 7 ));
 	gc_ent_priv_slab_used -= need * 16;
 }
-/* Entity key/value copies are short-lived during spawn.  A tiny fallback
- * avoids losing the whole map to a final fragmented 11-byte allocation. */
-static byte gc_kv_slab[8192];
+/* Entity key/value copies are short-lived during spawn (rewound per ParseEdict).
+ * 8 KiB filled mid-flash (entity≈175) — tip-flash-fix7. 32 KiB left
+ * host_main_loop unclaimed=0 and hung CHud extended cvars (tip-donner-fix10).
+ * 16 KiB covers dense ents; changelevel entities BSS stays 0 for tip. */
+static byte gc_kv_slab[16384];
 static size_t gc_kv_slab_used;
 
 static qboolean SV_GCPrivateDataIsSlab( const void *ptr )
@@ -310,8 +365,23 @@ static char *SV_GCCopyKeyValue( const char *s )
 		memcpy( dst, s, size );
 		return dst;
 	}
-	dst = copystring( s );
-	return dst;
+	/* Never fall through to copystring under tip — it can hang rather than
+	 * return NULL. Truncate into the remaining slab or drop the value. */
+	{
+		const size_t left = sizeof( gc_kv_slab ) - gc_kv_slab_used;
+
+		Con_Reportf( "Xash3D GameCube: kv slab full need=%u left=%u — truncating\n",
+			(unsigned)size, (unsigned)left );
+		if( left >= 2 )
+		{
+			dst = (char *)( gc_kv_slab + gc_kv_slab_used );
+			memcpy( dst, s, left - 1 );
+			dst[left - 1] = '\0';
+			gc_kv_slab_used = sizeof( gc_kv_slab );
+			return dst;
+		}
+	}
+	return "";
 }
 
 static qboolean SV_GCKeyValueIsSlab( const void *ptr )
@@ -6171,6 +6241,13 @@ static void SV_LoadFromFile( const char *mapname, char *entities )
 			if( token[0] != '{' )
 				Host_Error( "%s: found %s when expecting {\n", __func__, token );
 
+#if XASH_GAMECUBE
+			/* Key/value copies are only live for this entity's parse+spawn.
+			 * Without a per-entity rewind the 8 KiB slab fills mid-map and
+			 * copystring stalls forever on fragmented tip (tip-flash-fix2
+			 * hung after edict≈186 / mip trim; dod_donner finished earlier). */
+			gc_kv_slab_used = 0;
+#endif
 			if( create_world )
 			{
 				create_world = false;
@@ -6187,6 +6264,9 @@ static void SV_LoadFromFile( const char *mapname, char *entities )
 			if( SV_GCMapSmokeRoute()
 				&& ( entity_index & ( Sys_CheckParm( "-gcfullphysics" ) ? 63 : 31 )) == 0 )
 				Con_Reportf( "Xash3D GameCube: entity spawn progress=%d\n", entity_index );
+			if( SV_GCMapSmokeRoute() && entity_index >= 160 && entity_index <= 220 )
+				Con_Reportf( "Xash3D GameCube: entity alloc/parse begin=%d edict=%d heap_free=%s\n",
+					entity_index, NUM_FOR_EDICT( ent ), Q_memprint( GC_MemHeapFreeBytes() ));
 #endif
 
 			if( SV_GCMapEntityDiagVerbose() && entity_index >= 400 )
@@ -6256,6 +6336,10 @@ static void SV_LoadFromFile( const char *mapname, char *entities )
 			if( SV_GCMapEntityDiagVerbose() && entity_index == 257 )
 				Con_Reportf( "Xash3D GameCube: entity spawn call begin=%d class=%s\n",
 					entity_index - 1, SV_ClassName( ent ));
+			/* tip-flash hang window after func_tank / mip-trim (~160–190). */
+			if( SV_GCMapSmokeRoute() && entity_index >= 160 && entity_index <= 220 )
+				Con_Reportf( "Xash3D GameCube: entity spawn call begin=%d class=%s heap_free=%s\n",
+					entity_index - 1, SV_ClassName( ent ), Q_memprint( GC_MemHeapFreeBytes() ));
 #endif
 			spawn_result = svgame.dllFuncs.pfnSpawn( ent );
 #if XASH_GAMECUBE
@@ -6263,6 +6347,9 @@ static void SV_LoadFromFile( const char *mapname, char *entities )
 				Con_Reportf( "Xash3D GameCube: entity spawn call end=%d class=%s result=%d\n",
 					entity_index - 1, SV_ClassName( ent ), spawn_result );
 			if( SV_GCMapEntityDiagVerbose() && entity_index == 257 )
+				Con_Reportf( "Xash3D GameCube: entity spawn call end=%d class=%s result=%d\n",
+					entity_index - 1, SV_ClassName( ent ), spawn_result );
+			if( SV_GCMapSmokeRoute() && entity_index >= 160 && entity_index <= 220 )
 				Con_Reportf( "Xash3D GameCube: entity spawn call end=%d class=%s result=%d\n",
 					entity_index - 1, SV_ClassName( ent ), spawn_result );
 #endif

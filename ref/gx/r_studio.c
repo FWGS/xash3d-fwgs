@@ -1782,9 +1782,11 @@ static void R_StudioSetupSkin( studiohdr_t *ptexturehdr, int index )
 #endif
 	}
 #if XASH_GAMECUBE
-	else if( !ptexture[index].index )
+	else if( !ptexture[index].index
+		|| (unsigned)ptexture[index].index >= (unsigned)MAX_TEXTURES )
 	{
-		GL_Bind( XASH_TEXTURE0, tr.whiteTexture ); /* New Game mesh-only studios */
+		/* Mesh-only / tip-skipped skins leave raw MDL offsets in .index. */
+		GL_Bind( XASH_TEXTURE0, tr.whiteTexture );
 		R_GXStudioBindTexnum( (unsigned)tr.whiteTexture );
 	}
 #endif
@@ -3837,8 +3839,16 @@ void GAME_EXPORT Mod_StudioLoadTextures( model_t *mod, void *data )
 		}
 #if XASH_GAMECUBE
 		if( gEngfuncs.Sys_CheckParm( "-gcnewgame" ))
-			gEngfuncs.Con_Reportf( "Xash3D GameCube: studio soft skins '%s' %d/%d fallback=%d\n",
-				mod->name, loaded, phdr->numtextures, fallback );
+		{
+			extern size_t R_GCStudioSkinOverflowUsed( void );
+			extern size_t R_GCStudioSkinOverflowCapacity( void );
+
+			gEngfuncs.Con_Reportf(
+				"Xash3D GameCube: studio soft skins '%s' %d/%d fallback=%d overflow=%u/%u\n",
+				mod->name, loaded, phdr->numtextures, fallback,
+				(uint)R_GCStudioSkinOverflowUsed(),
+				(uint)R_GCStudioSkinOverflowCapacity() );
+		}
 #endif
 	}
 }

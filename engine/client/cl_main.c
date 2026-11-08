@@ -4443,6 +4443,7 @@ void Host_ClientFrame( void )
 		 * Call after ArmLeanPlayActive so first-boot arm is not stomped. */
 		CL_CheckForResend();
 		GC_UpdateNewGameIntroAudio();
+		GC_TryG94SaveLoad();
 		/* Changelevel dest re-arms the G36 probe while g36_done stays sticky
 		 * from the source map. Full SCR CapFaces then scored ≈62ms WEAK
 		 * (c4a3→c5a1 probe 20261105-105312). Score presents without a world
@@ -4555,6 +4556,7 @@ void Host_ClientFrame( void )
 	 * route; stream the tram announcer/rumble here (it gates itself). */
 	if( Sys_CheckParm( "-gcmenuplaystart" ))
 		GC_UpdateNewGameIntroAudio();
+	GC_TryG94SaveLoad();
 #endif
 	SND_UpdateSound ();
 #if XASH_GAMECUBE
@@ -4714,6 +4716,26 @@ qboolean CL_GameCubeEnsureClientReady( void )
 	Con_Reportf( "Xash3D GameCube: deferred client init begin\n" );
 	GC_SetLoadingProgress( 0.90f );
 	GC_DrawLoadingStatus( "CLIENT INIT", "half-life" );
+
+	/* DoD listen CapFaces leaves host_main_loop with unclaimed≈0–8 KiB
+	 * (tip-donner-fix10/11). Full CHud element Init stalls after cvars
+	 * (Ammo→StatusIcons). Lean HUD still reaches CapFaces draw. */
+	{
+		const char *map = clgame.mapname;
+		char worldbase[64];
+
+		if(( !map || !map[0] ) && cl.worldmodel && cl.worldmodel->name[0] )
+		{
+			COM_FileBase( cl.worldmodel->name, worldbase, sizeof( worldbase ));
+			map = worldbase;
+		}
+		if(( map && map[0] && !Q_strnicmp( map, "dod_", 4 ))
+			|| ( FI && FI->GameInfo && !Q_stricmp( FI->GameInfo->gamefolder, "dod" )))
+		{
+			Cvar_Set( "gc_quality", "0" );
+			Con_Reportf( "Xash3D GameCube: DoD deferred client lean HUD (tip-safe)\n" );
+		}
+	}
 
 	/* c5a1: nodes/submodels often sit in scratch while 400 KiB of eager
 	 * reserves stay idle. Free them as one contiguous tip block right here

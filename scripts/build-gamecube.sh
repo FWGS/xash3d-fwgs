@@ -95,6 +95,18 @@ fi
 
 echo "GameCube build profile: gamedir=$HLSDK_GAMEDIR dol=$DOL_NAME"
 
+# dod-gc symlinks engine→this tree and races waf cache (XASH_GAMEDIR flips
+# mid-link). Serialize all GameCube engine builds on one flock.
+mkdir -p "$ROOT/.ai"
+BUILD_LOCK="${XASH_GAMECUBE_BUILD_LOCK:-$ROOT/.ai/build-gamecube.lock}"
+exec 9>"$BUILD_LOCK"
+if ! flock -n 9; then
+	echo "error: another GameCube build holds $BUILD_LOCK (dod-gc/HL1 race)" >&2
+	echo "  wait for it to finish, or set XASH_GAMECUBE_BUILD_LOCK to a private path" >&2
+	exit 1
+fi
+echo "GameCube build lock: $BUILD_LOCK"
+
 # dll_gamecube.c includes these wrappers next to the HLSDK archives; their old
 # generator is gone, so install the tracked copies (fresh clones need them).
 for gc_exp in dlls/gamecube_server_exports.inc cl_dlls/gamecube_client_exports.inc; do
@@ -124,7 +136,15 @@ fi
 	--gamedir "$HLSDK_GAMEDIR" \
 	"$@"
 
-./waf build
+# Catch mid-flight cache poisoning (shared engine tree with dod-gc).
+if ! grep -q "XASH_GAMEDIR=\"${HLSDK_GAMEDIR}\"" build/c4che/_cache.py 2>/dev/null; then
+	echo "error: waf cache gamedir mismatch after configure (want ${HLSDK_GAMEDIR})" >&2
+	grep -n 'XASH_GAMEDIR' build/c4che/_cache.py 2>/dev/null | head -3 >&2 || true
+	exit 1
+fi
+
+# Serial -j1 avoids exFAT .conf_check_/object races on Expansion drives.
+./waf build -j1
 
 # Installation can relink the engine while updating static dependencies.
 # Convert only the final installed build, otherwise the disc freshness gate

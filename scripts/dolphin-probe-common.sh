@@ -259,6 +259,11 @@ probe_newgame_progress_ready() {
 	if [[ -n "${TAS_DONE_MARKER:-}" ]] && ! probe_log_has "$TAS_DONE_MARKER"; then
 		return 1
 	fi
+	# Ladder stable_frame: Flipper CapFaces prove nonblack after soft RGB565
+	# samples stay black on pure Flipper. Do not stop early without it.
+	if ! probe_log_has "sampled_nonblack=1"; then
+		return 1
+	fi
 	# Prefer frames=32 (tram). Reactor maps tip-safe-stop around SCR 16 after
 	# post-G36 sustain (c3a2 20260809-012506) — accept 16 when actions landed.
 	probe_log_has "Xash3D GameCube: post-G36 sustained world present" \

@@ -2,7 +2,14 @@ Auto-port task for Xash3D GameCube
 =================================
 
 Current goal:
-**Hardware gate:** Dolphin CAM018 PASS; need real swiss-evidence.txt from GameCube.
+**Hardware gate (2026-11-08):** need real `swiss-evidence.txt` from GameCube (G38–G66). Host path is armed.
+
+**Host-ready now:**
+- DOL `3a86e806…` / smoke `b4bd8697…` — Dolphin retail + `c0a0→c0a0a` changelevel PASS
+- Synth Swiss ingest **RELEASE_PACKET COMPLETE** (`.ai/logs/goal-evidence/g4v-swiss-ingest/`)
+- systemd oneshot 86400s + sd-watch + agent-wake + quiet + usb-arrive + lan-share `:8765` (units on Expansion1; LAN share dir `~/.cache/…`)
+- Desktop: `XASH3D-GC-NEXT.txt`, `xash3d-gc-swiss-handoff/`
+- **NEXT (moved past HW wait):** tip-safe spine 5/6 chapter hops PASS on tip-overflow DOL; unblock tram `c0a0e→c1a0`; continue Power Up→Nihilanth; G381 skins; Swiss non-blocking
 
 **Dolphin progress (2026-08-29):**
 - Tip-safe `c1a0a→c1a0d` **CHANGELEVEL_READY** PASS
@@ -15,12 +22,7 @@ Current goal:
 - **CAM018_VERIFY: PASS** (16/16 CHANGELEVEL_READY + nonblack) — `.ai/logs/campaign-visual-20260829-063311`
 - **Fix**: `GCube_HasValveAssets` spot-check expanded for CAM-018 lean discs (c1a1+ were MISSING GAME DATA)
 - Emulation campaign spine complete through Nihilanth; HW blocked on FAT32 Swiss SD (`swiss-evidence.txt`)
-- **HW fix**: FAT `gamecube.cfg` preferred over DVD (disc cannot shadow swissquit); DOL `9d35a276…` / smoke `013db466…`
-- Swiss packet current (DOL `9d35a276…`, smoke `013db466…`, disc `82cb0e79…`); oneshot USR1-under-`$(wait)` fixed; Desktop evidence drop supported
-- Watchers: `xash3d-gc-swiss-hw-oneshot` (flock singleton) + sd-watch + agent-wake + path-kick(`/run/media`) + quiet-media-wait + lan-share `:8765`
-- Off-host: `Desktop/XASH3D-GC-OFFHOST.txt`, QR `XASH3D-GC-LAN-SHARE-QR.png` → `http://192.168.1.244:8765/`
 - Operator: plug FAT32 SD / flash dropfile / flash off-host / or copy `swiss-evidence.txt` → Desktop `XASH3D-GC-SWISS-EVIDENCE.txt`
-- Goal incomplete until real `swiss-evidence.txt` from hardware — **pause this Cursor goal until media/evidence** (host keep-alives cannot finish G38)
 
 
 Tighten G36 frame budget / restore fuller entity spawn when MEM allows.

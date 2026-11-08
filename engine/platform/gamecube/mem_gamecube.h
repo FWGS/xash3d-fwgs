@@ -76,6 +76,8 @@ size_t GC_MapLoadBufferCapacity( void );
 /* Unused bytes after a borrowed BSP image inside the static map-load arena. */
 void *GC_MapLoadBufferTailAlloc( size_t after_offset, size_t need );
 size_t GC_MapLoadBufferTailHighwater( void );
+/* Only lowers the mark (spilled/abandoned tail residents). Never raises it. */
+void GC_MapLoadBufferLowerTailHighwater( size_t highwater );
 unsigned int GC_AramReserve( unsigned int size );
 /* Session-owned audio/DSP budget; established before map streaming. */
 unsigned int GC_AramAudioReserve( unsigned int size );
@@ -181,6 +183,8 @@ static inline void *GC_MapLoadBufferTailAlloc( size_t after_offset, size_t need 
 	(void)need;
 	return NULL;
 }
+static inline size_t GC_MapLoadBufferTailHighwater( void ) { return 0; }
+static inline void GC_MapLoadBufferLowerTailHighwater( size_t highwater ) { (void)highwater; }
 static inline void GC_BeginMapLoadMemoryOpt( void ) { }
 static inline void GC_EndMapLoadMemoryOpt( void ) { }
 static inline void GC_ClearMapLoadMemoryOpt( void ) { }

@@ -491,6 +491,7 @@ static unsigned int gc_budget_warmup_left;
 static unsigned int gc_light_present_left;
 static qboolean gc_newgame_world_ready;
 static qboolean gc_newgame_g36_done; /* sticky: never re-arm probe after first flush */
+static qboolean gc_newgame_prepare_finished; /* Prepare returned; safe for G164 crowbar */
 static qboolean gc_tas_deferred_cl_pending;
 static char gc_tas_deferred_cl_dest[MAX_QPATH];
 static char gc_tas_deferred_cl_landmark[MAX_QPATH];
@@ -596,6 +597,7 @@ typedef struct
 /* G199: bake ≤8 verts per cap so Flipper emit survives scratch edge reuse. */
 static gc_cap_face_t gc_newgame_cap_faces[GC_MAX_CAP_FACES];
 static msurface_t gc_newgame_draw_surfs[GC_MAX_CAP_FACES];
+static int gc_newgame_cap_surf_index[GC_MAX_CAP_FACES]; /* world surf idx for LM hydrate */
 static int gc_newgame_cap_areas[GC_MAX_CAP_FACES]; /* extents product per slot */
 /* Snapshot gl_texturenum at bake — model-pool texture_t can be stomped after
  * scratch reuse / pack trim (dod_flash: R_GetTexture bad texnum=62256).
@@ -3309,7 +3311,7 @@ static void GC_SwapCapSlots( int a, int b )
 {
 	gc_cap_face_t face;
 	msurface_t draw;
-	int area;
+	int area, surf_idx, tex_tmp;
 	u16 lm[GC_CAP_LM_DIM * GC_CAP_LM_DIM];
 	u16 *tile_a, *tile_b;
 	byte lmw, lmh, lmr, nv, bsrc;
@@ -3319,6 +3321,7 @@ static void GC_SwapCapSlots( int a, int b )
 		return;
 	face = gc_newgame_cap_faces[a];
 	draw = gc_newgame_draw_surfs[a];
+	surf_idx = gc_newgame_cap_surf_index[a];
 	area = gc_newgame_cap_areas[a];
 	tile_a = GC_CapAtlasTile( a );
 	tile_b = GC_CapAtlasTile( b );
@@ -3333,6 +3336,7 @@ static void GC_SwapCapSlots( int a, int b )
 
 	gc_newgame_cap_faces[a] = gc_newgame_cap_faces[b];
 	gc_newgame_draw_surfs[a] = gc_newgame_draw_surfs[b];
+	gc_newgame_cap_surf_index[a] = gc_newgame_cap_surf_index[b];
 	gc_newgame_cap_areas[a] = gc_newgame_cap_areas[b];
 	if( tile_a && tile_b )
 		memcpy( tile_a, tile_b, sizeof( lm ));
@@ -3345,6 +3349,7 @@ static void GC_SwapCapSlots( int a, int b )
 
 	gc_newgame_cap_faces[b] = face;
 	gc_newgame_draw_surfs[b] = draw;
+	gc_newgame_cap_surf_index[b] = surf_idx;
 	gc_newgame_cap_areas[b] = area;
 	if( tile_b )
 		memcpy( tile_b, lm, sizeof( lm ));
@@ -3354,13 +3359,11 @@ static void GC_SwapCapSlots( int a, int b )
 	gc_cap_nverts[b] = nv;
 	gc_cap_bake_src[b] = bsrc;
 	memcpy( gc_cap_pts_s16[b], pts, sizeof( pts ));
-	{
-		int tex_tmp = gc_cap_texnum[a];
-		gc_cap_texnum[a] = gc_cap_texnum[b];
-		gc_cap_texnum[b] = tex_tmp;
-		GC_CapRelinkTextureStub( a );
-		GC_CapRelinkTextureStub( b );
-	}
+	tex_tmp = gc_cap_texnum[a];
+	gc_cap_texnum[a] = gc_cap_texnum[b];
+	gc_cap_texnum[b] = tex_tmp;
+	GC_CapRelinkTextureStub( a );
+	GC_CapRelinkTextureStub( b );
 }
 
 /* Geometry + optional sample bake. bake_lm=false → mid tile only (G163). */
@@ -3462,6 +3465,7 @@ static qboolean GC_CaptureOneDrawFaceAtEx( model_t *wmodel, int surf_index, int 
 			return false;
 		GC_FillCapLightmapMid( slot );
 	}
+	gc_newgame_cap_surf_index[slot] = surf_index;
 	return true;
 }
 
@@ -7441,6 +7445,7 @@ static void GC_SwizzleRGB565ToTiled( const unsigned short *src, int src_stride,
 static void GC_PresentBufferViaGX( void );
 static void GC_TryDeferredLeanSky( void );
 static void GC_TryDeferredHudSheets( void );
+static void GC_TryDeferredViewmodel( void );
 static void GC_TryDeferredStudios( void );
 static void GC_TryLeanPlayerPhysPrime( void );
 static void GC_TryDeferredEfxProof( void );
@@ -7809,6 +7814,10 @@ static void GC_PresentBuffer( void )
 	{
 		GC_TryDeferredLeanSky();
 		GC_TryDeferredHudSheets();
+		/* G164: only after Prepare returns. Nested crowbar during prepare hung
+		 * on tip-skipped skins (20261108-070000); post-reset present≈1..N is OK. */
+		if( gc_newgame_prepare_finished )
+			GC_TryDeferredViewmodel();
 		GC_TryDeferredStudios();
 		GC_TryLeanPlayerPhysPrime();
 		GC_TryDeferredEfxProof();
@@ -8060,6 +8069,19 @@ static void GC_PresentBuffer( void )
 			{
 				SYS_Report( "Xash3D GameCube: Flipper present copied n=%d presents=%u\n",
 					flipper_present_traced, gc_present_count );
+			}
+			/* CapFaces drew into EFB then CopyDisp — soft RGB565 stays black on
+			 * pure Flipper, so soft-buffer samples never prove stable_frame.
+			 * Emit the ladder marker once from the Flipper path itself. */
+			{
+				static qboolean flipper_nonblack_logged;
+
+				if( !flipper_nonblack_logged && cls.state == ca_active )
+				{
+					flipper_nonblack_logged = true;
+					SYS_Report( "Xash3D GameCube: present frame=%u sampled_nonblack=1 frame time=0.00ms\n",
+						gc_present_count );
+				}
 			}
 
 			/* Capture-only: hold EFB for Dolphin DumpFramesAsImages. */
@@ -8315,7 +8337,9 @@ static void GC_PresentBuffer( void )
 		}
 
 		/* Sample non-black for evidence. Do not scan the full RGB565 buffer
-		 * every New Game world present — that alone was several ms/frame. */
+		 * every New Game world present — that alone was several ms/frame.
+		 * Pure Flipper CapFaces never fill soft RGB565; Flipper CopyDisp
+		 * reports sampled_nonblack=1 after CapFaces (do not trust soft here). */
 		if( src_h > 0 && src_w > 0 )
 		{
 			qboolean should_sample = false;
@@ -8325,6 +8349,11 @@ static void GC_PresentBuffer( void )
 			{
 				sampled_nonblack = true;
 			}
+			else if( gc_newgame_world_ready && gc_gx_world_live )
+			{
+				/* Soft buffer stays black; Flipper path owns nonblack proof. */
+				should_sample = false;
+			}
 			else if( gc_budget_probe_active || gc_present_count <= 4
 				|| ( gc_newgame_world_ready && (( gc_present_count & 31 ) == 1 )))
 			{
@@ -8333,8 +8362,8 @@ static void GC_PresentBuffer( void )
 
 			if( should_sample )
 				GC_SampleBufferNonBlack( src, src_w, src_h, gc.stride, &sampled_nonblack );
-			else if( gc_newgame_world_ready )
-				sampled_nonblack = true; /* world path already proved nonblack */
+			else if( gc_newgame_world_ready && !gc_gx_world_live )
+				sampled_nonblack = true; /* soft-world path already proved nonblack */
 		}
 	}
 	else
@@ -8360,26 +8389,41 @@ static void GC_PresentBuffer( void )
 		}
 	}
 
-	/* One-shot FAT evidence: first nonblack active present proves Flipper output
-	 * on Swiss SD without USB Gecko (swiss-evidence.txt). */
+	/* FAT evidence: nonblack active present proves Flipper output on Swiss SD
+	 * without USB Gecko (swiss-evidence.txt). With -gcchangelevel, defer
+	 * swissquit until the destination map is playable so HW runs can prove
+	 * changelevel continuity before returning to the loader. */
 	if( sampled_nonblack
 		&& cls.state == ca_active
 		&& cls.signon == SIGNONS
 		&& clgame.mapname[0]
 		&& GCube_HasWritableStorage() )
 	{
-		static qboolean gc_swiss_playable_present_logged;
+		static char gc_swiss_playable_map[MAX_QPATH];
+		char cl_dest[MAX_QPATH];
+		qboolean waiting_changelevel = false;
 
-		if( !gc_swiss_playable_present_logged )
+		if( Sys_CheckParm( "-gcswissquit" )
+			&& Sys_GetParmFromCmdLine( "-gcchangelevel", cl_dest )
+			&& cl_dest[0]
+			&& Q_stricmp( clgame.mapname, cl_dest ))
+			waiting_changelevel = true;
+
+		if( Q_stricmp( gc_swiss_playable_map, clgame.mapname ))
 		{
-			gc_swiss_playable_present_logged = true;
+			Q_strncpy( gc_swiss_playable_map, clgame.mapname, sizeof( gc_swiss_playable_map ));
 			GCube_AppendSwissEvidence( "playable present map=%s frame=%u nonblack=1",
 				clgame.mapname, gc_present_count );
 			Con_Reportf( "Xash3D GameCube: playable present map=%s frame=%u\n",
 				clgame.mapname, gc_present_count );
-			/* Refresh swissquit window from first playable frame so slow SD
-			 * map/entity load cannot exhaust the countdown early. */
-			GCube_ArmSwissQuit();
+			if( Sys_CheckParm( "-gcswissquit" ) && !waiting_changelevel )
+			{
+				/* G66: prove FAT save/ on the final map before loader return. */
+				GCube_SwissSaveProbe( clgame.mapname );
+				/* Refresh swissquit from dest playable so changelevel/SD load
+				 * cannot exhaust the countdown on the source map. */
+				GCube_ArmSwissQuit();
+			}
 		}
 	}
 	GCube_PollSwissQuit();
@@ -8583,6 +8627,7 @@ void R_Free_Video( void )
 	gc_lean_sky_attempts = 0;
 	gc_newgame_viewcluster = -1;
 	gc_newgame_g36_done = false;
+	gc_newgame_prepare_finished = false;
 	gc_budget_probe_active = false;
 	gc_light_present_left = 0;
 	gc_present_count = 0;
@@ -10263,6 +10308,39 @@ void GC_EnableGxWorldLive( void ); /* defined below — used by CapFaces arm */
  * Mod_LoadSurfaces). Later marksurfaces/nodes carve stomps aliased surfedges
  * (EDGE sample se0 garbage → solo e=0 TEX quads, 20261107-152530).
  */
+/* Rebake CapFaces RGB565 LM tiles once G154 ARAM lighting is bound.
+ * Prefetch runs after nodes (edges live) but before Mod_LoadLighting, so the
+ * first GC_BakeCapLightmap always sees lm_real=0 (tip-flash-fix15). Safe here:
+ * surfaces high-slot + lightofs side-table are still intact; EDGE verts stay
+ * in CapFaces BSS (no post-clipnodes geom touch). */
+void GC_RebakeCapFaceLightmaps( model_t *mod )
+{
+	int	si;
+	int	got = 0;
+
+	if( !mod || !mod->surfaces || gc_newgame_cap_face_count <= 0 )
+		return;
+	if( !Mod_GCAramLightmapActive() )
+		return;
+
+	for( si = 0; si < gc_newgame_cap_face_count; si++ )
+	{
+		const int surf_index = gc_newgame_cap_surf_index[si];
+
+		if( surf_index < 0 || surf_index >= mod->numsurfaces )
+			continue;
+		GC_BakeCapLightmap( &mod->surfaces[surf_index], si );
+		if( gc_newgame_cap_lm_real[si] )
+			got++;
+	}
+	gc_newgame_cap_lm_faces = got;
+	GC_PackCapLightmapAtlas();
+	Con_Reportf( "Xash3D GameCube: CapFaces LM rebake after G154 real=%d/%d\n",
+		got, gc_newgame_cap_face_count );
+	GCube_AppendSwissEvidence( "CapFaces LM rebake real=%d/%d",
+		got, gc_newgame_cap_face_count );
+}
+
 qboolean GC_PrefetchCapFacesWhileEdgesLive( model_t *mod )
 {
 #if XASH_GAMECUBE
@@ -10277,6 +10355,20 @@ qboolean GC_PrefetchCapFacesWhileEdgesLive( model_t *mod )
 	if( gc_newgame_cap_face_count > 0 )
 		return true;
 
+	/* Prefer -gcdumpeye so CapFaces are near-eye for atlas stills (dod_donner
+	 * tip-donner 125836 drew 379 caps but only sky clear — bake used map
+	 * center while wall-aim looked from Axis spawn). */
+	{
+		vec3_t	eye, angles;
+
+		if( GC_DumpEyeFromParm( eye, angles ))
+		{
+			VectorCopy( eye, gc_newgame_bake_origin );
+			VectorCopy( eye, gc_newgame_capture_origin );
+			Con_Reportf( "Xash3D GameCube: CapFaces prefetch eye from -gcdumpeye (%.0f,%.0f,%.0f)\n",
+				eye[0], eye[1], eye[2] );
+		}
+	}
 	if( VectorIsNull( gc_newgame_bake_origin ))
 	{
 		vec3_t	mid;
@@ -10290,6 +10382,7 @@ qboolean GC_PrefetchCapFacesWhileEdgesLive( model_t *mod )
 		"Xash3D GameCube: CapFaces prefetch (edges live) surfs=%d se0=%d edges16=%p\n",
 		mod->numsurfaces, mod->surfedges[0], (void *)mod->edges16 );
 	GC_CaptureDrawFacesNoPVS( mod );
+	GC_RerankCapFacesNearDumpEye();
 	for( si = 0; si < gc_newgame_cap_face_count; si++ )
 	{
 		if( gc_cap_bake_src[si] == GC_CAP_BAKE_EDGE )
@@ -10339,37 +10432,23 @@ qboolean GC_BakeGcmapWorldRenderCapFaces( void )
 	prefetched = ( gc_newgame_cap_face_count > 0 );
 	if( prefetched )
 	{
-		int	si, hydrated = 0;
+		int	si;
 
-		/* Prefetch ran before Mod_LoadLighting — rehydrate real LM now. */
-		for( si = 0; si < gc_newgame_cap_face_count; si++ )
-		{
-			const int fe = gc_newgame_draw_surfs[si].firstedge;
-			const int ne = gc_newgame_draw_surfs[si].numedges;
-			int	surf_i;
-
-			for( surf_i = 0; surf_i < wmodel->numsurfaces; surf_i++ )
-			{
-				msurface_t *ps = &wmodel->surfaces[surf_i];
-
-				if( ps->firstedge != fe || ps->numedges != ne )
-					continue;
-				GC_BakeCapLightmap( ps, si );
-				if( gc_newgame_cap_lm_real[si] )
-					hydrated++;
-				break;
-			}
-		}
+		/* EDGE verts were snapshotted at prefetch. LM tiles should already
+		 * have been rebaked right after G154 ARAM bind; recount only. */
 		gc_newgame_cap_lm_faces = 0;
 		for( si = 0; si < gc_newgame_cap_face_count; si++ )
 		{
 			if( gc_newgame_cap_lm_real[si] )
 				gc_newgame_cap_lm_faces++;
 		}
-		GC_PackCapLightmapAtlas();
+		if( gc_newgame_cap_lm_faces <= 0 && Mod_GCAramLightmapActive() )
+			GC_RebakeCapFaceLightmaps( wmodel );
+		else
+			GC_PackCapLightmapAtlas();
 		Con_Reportf(
-			"Xash3D GameCube: CapFaces using edges-live prefetch n=%d lm_hydrated=%d/%d\n",
-			gc_newgame_cap_face_count, hydrated, gc_newgame_cap_face_count );
+			"Xash3D GameCube: CapFaces using edges-live prefetch n=%d lm_real=%d\n",
+			gc_newgame_cap_face_count, gc_newgame_cap_lm_faces );
 		goto capfaces_arm;
 	}
 
@@ -10494,7 +10573,10 @@ capfaces_arm:
 	GCube_AppendSwissEvidence( "CapFaces bake done n=%d lm_real=%d tex=%d",
 		gc_newgame_cap_face_count, gc_newgame_cap_lm_faces, gc_newgame_cap_tex_faces );
 	if( gc_newgame_cap_face_count <= 0 )
+	{
+		Con_Reportf( "Xash3D GameCube: CapFaces bake empty — skip GX world arm\n" );
 		return false;
+	}
 #if !XASH_DEDICATED
 	cl.models[1] = wmodel;
 	cl.worldmodel = wmodel;
@@ -10888,15 +10970,106 @@ G290: retry stubbed lean HUD (crosshairs) before studio bump steals residual hea
 static void GC_TryDeferredHudSheets( void )
 {
 #if XASH_GAMECUBE
+	static unsigned last_present_count;
+	static qboolean hud_attempted;
+	static qboolean hud_retry_attempted;
+
 	if( !gc_newgame_world_ready )
 		return;
-	/* HUD-021: promote optional 320 sheets after presents coalesce.
-	 * Early 6/12 stalled lean c1a0 (20260810-004224); lean no longer skips. */
-	if( gc_present_count != 24 && gc_present_count != 48 )
+	/* Short Dolphin/Swiss probes exit near present≈12 (G36 MAP+input). Exact
+	 * present==24/48 slots never run there, so arm once past present≥4 and
+	 * retry once past ≥24 for tip-coalesce. */
+	if( gc_present_count < last_present_count )
+	{
+		hud_attempted = false;
+		hud_retry_attempted = false;
+	}
+	last_present_count = gc_present_count;
+	if( !hud_attempted && gc_present_count >= 4 )
+		hud_attempted = true;
+	else if( !hud_retry_attempted && gc_present_count >= 24 )
+		hud_retry_attempted = true;
+	else
 		return;
 	Con_Reportf( "Xash3D GameCube: G290 deferred HUD sheets present=%u\n",
 		gc_present_count );
+	/* G327 deferred VidInit with the sheets; bring both up together. */
+	if( Sys_CheckParm( "-gcnewgame" ) && !Sys_CheckParm( "-gcfullphysics" ))
+	{
+		SCR_LoadCreditsFont();
+		if( clgame.dllFuncs.pfnVidInit )
+		{
+			clgame.dllFuncs.pfnVidInit();
+			Con_Reportf( "Xash3D GameCube: newgame lean HUD VidInit after world present\n" );
+		}
+	}
 	CL_GCPreloadNewGameHudSpritesLate();
+#endif
+}
+
+/*
+===========
+GC_TryDeferredViewmodel
+
+G164: after HUD coalesce, bind landmark crowbar and force one Flipper
+viewmodel frame. Skins may still be tip-skipped; GX falls back to white.
+===========
+*/
+static void GC_TryDeferredViewmodel( void )
+{
+#if XASH_GAMECUBE
+	static qboolean attempted;
+	const char *vpath;
+	model_t *vm;
+	char old_vm[16];
+
+	if( !gc_newgame_world_ready )
+		return;
+	if( !( Sys_CheckParm( "-gcnewgame" ) || Sys_CheckParm( "-gcmenuplaystart" )) )
+		return;
+	if( Sys_CheckParm( "-gcfullphysics" ))
+		return;
+	if( attempted || gc_present_count < 2 )
+		return;
+	attempted = true;
+
+	vpath = Mod_GCLandmarkViewModelPath();
+	if( !vpath || !vpath[0] )
+		vpath = "models/v_crowbar.mdl";
+	if( !Mod_GCEnsureLandmarkViewModel( vpath ))
+	{
+		Con_Reportf( "Xash3D GameCube: G164 deferred viewmodel ensure failed %s\n", vpath );
+		return;
+	}
+	vm = Mod_FindName( vpath, false );
+	if( !( vm && vm->type == mod_studio && vm->cache.data ))
+	{
+		Con_Reportf( "Xash3D GameCube: G164 deferred viewmodel missing %s\n", vpath );
+		return;
+	}
+
+	clgame.viewent.model = vm;
+	VectorCopy( refState.vieworg, clgame.viewent.origin );
+	VectorCopy( refState.viewangles, clgame.viewent.angles );
+	VectorCopy( clgame.viewent.origin, clgame.viewent.curstate.origin );
+	VectorCopy( clgame.viewent.angles, clgame.viewent.curstate.angles );
+	clgame.viewent.curstate.animtime = (float)cl.time;
+	clgame.viewent.curstate.framerate = 1.0f;
+	clgame.viewent.curstate.sequence = 0;
+	clgame.viewent.curstate.rendermode = kRenderNormal;
+	gc_force_draw_viewmodel = true;
+	GC_EnsureDrawViewmodelCvar();
+	Q_snprintf( old_vm, sizeof( old_vm ), "%s", Cvar_VariableString( "r_drawviewmodel" ));
+	Cvar_Set( "r_drawviewmodel", "1" );
+	Con_Reportf( "Xash3D GameCube: G164 deferred viewmodel present=%u %s\n",
+		gc_present_count, vpath );
+	if( GC_RenderNewGameWorldFrames( 1 ))
+		Con_Reportf( "Xash3D GameCube: G164 deferred viewmodel draw ok\n" );
+	else
+		Con_Reportf( "Xash3D GameCube: G164 deferred viewmodel draw fail\n" );
+	GC_EnsureDrawViewmodelCvar();
+	Cvar_Set( "r_drawviewmodel", old_vm );
+	gc_force_draw_viewmodel = false;
 #endif
 }
 
@@ -11195,6 +11368,13 @@ qboolean GC_AllowFlipperCapFaces( void )
 	if( !GC_UseGxWorldDraw() )
 		return false;
 	if( GC_IsG36SampleFaceCap() && GC_IsTramIntroMap() )
+		return false;
+	/* Tip-safe campaign hop: CapFaces on c0a0e draw ~300 faces then leave tip
+	 * ~39 Kb — HUD SPR path hangs and -gcchangelevel never queues (probe
+	 * 20261108-104120). Skip CapFaces when a probe changelevel is pending so
+	 * tram→AM continuity can complete (matches historical tip-safe-skip). */
+	if( GC_IsTramIntroMap() && Sys_CheckParm( "-gcchangelevel" )
+		&& GC_MemHeapFreeBytes() < 128u * 1024u )
 		return false;
 	return true;
 #else
@@ -12259,6 +12439,11 @@ void GC_ReclaimFatPVSBeforeEntitySpawn( void )
 	gc_newgame_surf_cache_slots = 0;
 	memset( gc_refresh_ncands, 0, sizeof( gc_refresh_ncands ));
 	Con_Reportf( "Xash3D GameCube: G369 reclaim FatPVS extras before entity spawn\n" );
+	/* Last chance before entity spawn AllocString traffic. */
+	{
+		extern qboolean SV_GCEnsureStringArena( void );
+		SV_GCEnsureStringArena();
+	}
 }
 
 qboolean GC_IsCapFacesBakeDeferred( void )
@@ -13308,9 +13493,14 @@ void GC_CaptureNewGamePVSFromModel( model_t *wmodel )
 		gc_newgame_capture_novis = true;
 		/* Fullphysics reclaims retained vis for clipnodes on dense Xen
 		 * (c4a3 probe 20261105-071908: CapFaces surfs n=0 / stable_frame
-		 * FAIL). Bake NoPVS CapFaces while world surfaces are still live. */
+		 * FAIL). Bake NoPVS CapFaces while world surfaces are still live.
+		 * Tip-safe tram→AM hop: NoPVS CapFaces (384 faces) leaves tip≈6 KiB
+		 * so c1a0 entities (≈38 KiB) Host_Error (probe 20261108-114756). Skip
+		 * when a probe changelevel is armed and tip is already tight. */
 		if( wmodel->surfaces && wmodel->numsurfaces > 0
-			&& gc_newgame_cap_face_count <= 0 )
+			&& gc_newgame_cap_face_count <= 0
+			&& !( Sys_CheckParm( "-gcchangelevel" )
+				&& GC_MemHeapFreeBytes() < 96u * 1024u ))
 		{
 			Image_GCPurgeDecodeScratch();
 			Con_Reportf( "Xash3D GameCube: CapFaces NoPVS after vis reclaim surfs=%d\n",
@@ -13319,6 +13509,13 @@ void GC_CaptureNewGamePVSFromModel( model_t *wmodel )
 			Con_Reportf( "Xash3D GameCube: CapFaces NoPVS after vis reclaim done n=%d\n",
 				gc_newgame_cap_face_count );
 			/* G154: -gcworldrender keeps disc LM until this bake. */
+			Mod_GCReleaseTempNewGameLightmaps( wmodel );
+		}
+		else if( Sys_CheckParm( "-gcchangelevel" )
+			&& GC_MemHeapFreeBytes() < 96u * 1024u )
+		{
+			Con_Reportf( "Xash3D GameCube: CapFaces NoPVS skipped tip-safe changelevel tip=%s\n",
+				Q_memprint( GC_MemHeapFreeBytes() ));
 			Mod_GCReleaseTempNewGameLightmaps( wmodel );
 		}
 		return;
@@ -14251,7 +14448,8 @@ qboolean GC_RenderNewGameWorldFrames( int count )
 	/* Full-physics TAS reaches this bounded renderer without the normal client
 	 * view setup. Bind the already mirrored landmark mesh here, after the
 	 * renderer/world guards above, and allow the existing GX viewmodel pass to
-	 * submit it. Ordinary full-physics and lean routes remain unchanged. */
+	 * submit it. Lean New Game must not arm here — crowbar skins are often
+	 * skipped under tip and hung Flipper (20261108-065316). */
 	if( Sys_CheckParm( "-gctas" ) && Sys_CheckParm( "-gcfullphysics" ))
 	{
 		static qboolean gc_tas_viewmodel_armed;
@@ -15170,8 +15368,11 @@ qboolean GC_PrepareNewGameWorldPresent( void )
 				 * EFB back to GX and promoting the first viewmodel/NPC studios.
 				 * Keep those one-time transition frames out of the steady-state
 				 * 30 FPS sample window, while gc_worst_frame_ms still records them
-				 * for transition diagnostics. */
-				gc_budget_warmup_left = 8;
+				 * for transition diagnostics.
+				 * 20261108: c0a0→c0a0a G36 still spiked at warmup=8/16 (p95≈71–77ms
+				 * with avg≈14–26). CapFaces/studio promote can land after the
+				 * first second — hold 32 presents before the 16-sample window. */
+				gc_budget_warmup_left = 32;
 				gc_worst_frame_ms = 0.0;
 				gc_last_present_time = 0.0;
 				gc_budget_probe_active = true;
@@ -15206,7 +15407,7 @@ qboolean GC_PrepareNewGameWorldPresent( void )
 			gc_budget_sample_count = 0;
 			/* G509 can arm after an earlier probe hop has already completed.
 			 * Give this destination the same transition grace as the first hop. */
-			gc_budget_warmup_left = 8;
+			gc_budget_warmup_left = 32;
 			gc_worst_frame_ms = 0.0;
 			gc_last_present_time = 0.0;
 			gc_budget_probe_active = true;
@@ -15743,8 +15944,9 @@ qboolean GC_PrepareNewGameWorldPresent( void )
 				Con_Reportf( "Xash3D GameCube: V_RenderView path present\n" );
 			if( i == 1 )
 			{
-				/* Lean: viewmodel draw re-enters DrawEntities and hung
-				 * Prepare (probe 20260807-163236). Keep world-only. */
+				/* Lean: viewmodel draw re-enters DrawEntities and hung Prepare
+				 * (20260807-163236) or tip-skipped crowbar skins (20261108-065316).
+				 * G164 is deferred until skins are resident (GC_TryDeferredViewmodel). */
 				if( ( Sys_CheckParm( "-gcnewgame" ) || Sys_CheckParm( "-gcmenuplaystart" ))
 					&& !Sys_CheckParm( "-gcfullphysics" ))
 					Con_Reportf( "Xash3D GameCube: V_RenderView viewmodel draw skipped lean\n" );
@@ -16180,41 +16382,12 @@ qboolean GC_PrepareNewGameWorldPresent( void )
 			}
 		}
 
-		/* G94: same-boot save→load before G92 changelevel (needs -gcnewsaveload).
-		 * Probe RAM bank satisfies GCube_HasWritableStorage without SD. */
+		/* G94: arm same-boot save→load; CL must be ca_active (SV_SaveGame).
+		 * Prepare runs before reconnect — GC_TryG94SaveLoad does the work. */
 		if( Sys_CheckParm( "-gcnewsaveload" ))
 		{
-			static qboolean gc_saveload_queued;
-			edict_t *pl;
-
-			if( !gc_saveload_queued )
-			{
-				gc_saveload_queued = true;
-				pl = ( svs.clients && svs.clients[0].edict ) ? svs.clients[0].edict : NULL;
-				SYS_Report( "Xash3D GameCube: G94 save/load begin map=%s\n",
-					sv.name[0] ? sv.name : "?" );
-				if( pl )
-				{
-					SYS_Report( "Xash3D GameCube: G94 save origin=(%.0f,%.0f,%.0f)\n",
-						pl->v.origin[0], pl->v.origin[1], pl->v.origin[2] );
-				}
-				/* Keep PVS — lean RAM save is tiny; freeing PVS then reallocating
-				 * the probe bank starved Capture on the re-Prepare. */
-				if( SV_SaveGame( "g94test" ))
-				{
-					SYS_Report( "Xash3D GameCube: G94 save ready name=g94test\n" );
-					if( SV_LoadGame( "save/g94test.sav" ))
-					{
-						SYS_Report( "Xash3D GameCube: G94 load ready name=g94test\n" );
-						return GC_PrepareNewGameWorldPresent();
-					}
-					SYS_Report( "Xash3D GameCube: G94 load failed name=g94test\n" );
-				}
-				else
-				{
-					SYS_Report( "Xash3D GameCube: G94 save failed name=g94test\n" );
-				}
-			}
+			extern void GC_ArmG94SaveLoad( void );
+			GC_ArmG94SaveLoad();
 		}
 		/* G92/G68: force changelevel after first-map world present.
 		 * Tram early hop still runs in Host_Main. Reactor -gcmap hops are
@@ -16273,6 +16446,7 @@ qboolean GC_PrepareNewGameWorldPresent( void )
 
 	} /* denser_am_early scope */
 
+	gc_newgame_prepare_finished = true;
 	return true;
 #else
 	return false;
@@ -16408,6 +16582,73 @@ void GC_UpdateNewGameIntroAudio( void )
 
 /*
 ===========
+GC_ArmG94SaveLoad / GC_TryG94SaveLoad
+
+G94: Prepare used to call SV_SaveGame before CL_Active (Can't save if not
+active). Arm in Prepare; run once Host_Frame reaches ca_active + SIGNONS.
+===========
+*/
+static qboolean gc_g94_saveload_armed;
+static qboolean gc_g94_saveload_done;
+
+void GC_ArmG94SaveLoad( void )
+{
+#if XASH_GAMECUBE
+	if( !Sys_CheckParm( "-gcnewsaveload" ))
+		return;
+	if( gc_g94_saveload_done )
+		return;
+	gc_g94_saveload_armed = true;
+	SYS_Report( "Xash3D GameCube: G94 save/load armed (wait ca_active)\n" );
+#endif
+}
+
+void GC_TryG94SaveLoad( void )
+{
+#if XASH_GAMECUBE
+	edict_t *pl;
+
+	if( !gc_g94_saveload_armed || gc_g94_saveload_done )
+		return;
+	if( !Sys_CheckParm( "-gcnewsaveload" ))
+		return;
+	if( !CL_Active() || cls.signon != SIGNONS )
+		return;
+
+	gc_g94_saveload_done = true;
+	gc_g94_saveload_armed = false;
+	pl = ( svs.clients && svs.clients[0].edict ) ? svs.clients[0].edict : NULL;
+	SYS_Report( "Xash3D GameCube: G94 save/load begin map=%s\n",
+		sv.name[0] ? sv.name : "?" );
+	if( pl )
+	{
+		SYS_Report( "Xash3D GameCube: G94 save origin=(%.0f,%.0f,%.0f)\n",
+			pl->v.origin[0], pl->v.origin[1], pl->v.origin[2] );
+	}
+	/* Keep PVS — lean RAM save is tiny; freeing PVS then reallocating
+	 * the probe bank starved Capture on the re-Prepare. */
+	if( SV_SaveGame( "g94test" ))
+	{
+		SYS_Report( "Xash3D GameCube: G94 save ready name=g94test\n" );
+		if( SV_LoadGame( "save/g94test.sav" ))
+		{
+			SYS_Report( "Xash3D GameCube: G94 load ready name=g94test\n" );
+			GC_PrepareNewGameWorldPresent();
+			return;
+		}
+		SYS_Report( "Xash3D GameCube: G94 load failed name=g94test\n" );
+	}
+	else
+	{
+		SYS_Report( "Xash3D GameCube: G94 save failed name=g94test\n" );
+	}
+#else
+	(void)0;
+#endif
+}
+
+/*
+===========
 GC_PlayNewGameGameplaySound
 
 G91/G117: post-G36 gameplay SFX via S_StartLocalSound (not streaming music).
@@ -16486,11 +16727,25 @@ void GC_PlayNewGameGameplaySound( void )
 	for( i = 0; i < 8; i++ )
 		SND_UpdateSound();
 
+	/* IRQ AddVoice often stalls once under tip-safe New Game; re-arm from
+	 * the main thread so the mixed button10 PCM can still submit. */
+	S_GCAudioRestartVoice();
+	for( i = 0; i < 8; i++ )
+		SND_UpdateSound();
+
 	Con_Reportf( "Xash3D GameCube: gameplay snd ready %s\n", name );
 	S_GCLogAudioTelemetry( "gameplay-start" );
 }
 #else
 void GC_UpdateNewGameIntroAudio( void )
+{
+}
+
+void GC_ArmG94SaveLoad( void )
+{
+}
+
+void GC_TryG94SaveLoad( void )
 {
 }
 

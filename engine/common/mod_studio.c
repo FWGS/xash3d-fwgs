@@ -1846,9 +1846,12 @@ static qboolean Mod_GCAttachStudioSkins( model_t *mod )
 void Mod_GCUploadDeferredStudioSkins( void )
 {
 	static const char *paths[] = {
-		/* Companions first: T.mdl header merge needs BSS GrowLast / tip calloc
-		 * before viewmodel soft-skin uploads tighten MEM1. Viewmodels upload
-		 * in place from their resident full MDL. */
+		/* Hallway cast first (G381): scientistT+barneyT soft skins were the
+		 * 22/31 defaultTexture case — attach after tip recovers so the 384 KiB
+		 * overflow + adaptive 96→64 cap can hold both. Controller/islave next;
+		 * viewmodels last (in-place full MDL, tightens MEM1). */
+		"models/scientist.mdl",
+		"models/barney.mdl",
 		"models/controller.mdl",
 		"models/islave.mdl",
 		"models/v_crowbar.mdl",
@@ -1856,7 +1859,7 @@ void Mod_GCUploadDeferredStudioSkins( void )
 		NULL
 	};
 	static char last_map[64];
-	int i, ready = 0;
+	int i, ready = 0, attempted = 0;
 
 	if( Host_IsDedicated() )
 		return;
@@ -1881,6 +1884,7 @@ void Mod_GCUploadDeferredStudioSkins( void )
 				paths[i] );
 			continue;
 		}
+		attempted++;
 		ok = Mod_GCAttachStudioSkins( mod );
 		Con_Reportf( "Xash3D GameCube: deferred skins try '%s' ok=%d n=%d\n",
 			paths[i], ok ? 1 : 0,
@@ -1889,7 +1893,7 @@ void Mod_GCUploadDeferredStudioSkins( void )
 			ready++;
 	}
 	Con_Reportf( "Xash3D GameCube: deferred studio skins ready=%d/%d map=%s\n",
-		ready, 4, sv.name[0] ? sv.name : "?" );
+		ready, attempted, sv.name[0] ? sv.name : "?" );
 	if( ready > 0 )
 		R_GXStudioInvalidateBindings();
 }

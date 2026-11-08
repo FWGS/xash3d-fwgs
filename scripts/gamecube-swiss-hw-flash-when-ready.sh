@@ -86,7 +86,7 @@ cat <<'EOF'
 == Next on GameCube ==
 1. Insert card into SD2SP2 / SD Gecko
 2. Swiss → apps/xash3d-gc/boot.dol
-3. Expect splash → auto map c0a0e (gamecube.cfg + swissquit) → return to Swiss
+3. Expect splash → auto map from gamecube.cfg (swissquit) → return to Swiss
    (backup: hold Z+Start to quit)
 
 == Then on this PC ==

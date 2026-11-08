@@ -1687,14 +1687,15 @@ static void R_GXHotService( void )
 
 /* ARAM→MEM1 bounce for packed CMPR. Arena-tail low-mips are stomped after
  * map-load buffer reuse; CapFaces must not sample that memory. Max dod_flash
- * chain is 43680 bytes. Prealloc via R_GXPreallocCmprBounce while MEM1 is
- * free — late memalign under listen spawn failed (solo 20261107-125810
- * bounce=0 rainbow). No BSS fallback: 48 Kb static tipped GameDLL init. */
+ * chain is 43680 bytes. Prefer heap; on tip-tight maps (dod_donner) borrow
+ * the world-array spill tail reserved for CapFaces textures. */
 #define GC_CMPR_BOUNCE_BYTES ( 48u * 1024u )
 static byte *r_gx_cmpr_bounce;
 static unsigned r_gx_cmpr_bounce_cap;
 static unsigned r_gx_cmpr_bounce_texnum;
 static unsigned r_gx_cmpr_bounce_skip;
+
+extern byte *Mod_GCWorldArraySpillBorrow( size_t bytes, const char *what );
 
 static byte *R_GXCmprBounce( void )
 {
@@ -1713,6 +1714,13 @@ static byte *R_GXCmprBounce( void )
 				r_gx_cmpr_bounce_cap = try_sizes[i];
 				break;
 			}
+		}
+		if( !r_gx_cmpr_bounce )
+		{
+			/* Spill tail is reserved at boot — does not compete with tip. */
+			r_gx_cmpr_bounce = Mod_GCWorldArraySpillBorrow( 32u * 1024u, "cmpr-bounce" );
+			if( r_gx_cmpr_bounce )
+				r_gx_cmpr_bounce_cap = 32u * 1024u;
 		}
 		if( r_gx_cmpr_bounce )
 		{
@@ -1865,6 +1873,8 @@ static gc_gx_tex_t *R_GXBindTexnum( unsigned texnum, qboolean hud_bind )
 	int hud_evict = -1;
 
 	if( texnum == 0 )
+		return NULL;
+	if( texnum >= (unsigned)MAX_TEXTURES )
 		return NULL;
 
 	img = R_GetTexture( texnum );
@@ -4489,8 +4499,13 @@ static int R_GXDrawNewGameCapFacesImpl( void )
 		int live_n = GC_GetLiveFaceCount();
 
 		/* G283: malloc-pinned → live BSP. Scratch retain: LM-caps + G298 lean
-		 * baked verts (no edge-walk of retained scratch after present reuse). */
-		if( surfaces_pinned && !scratch_retained )
+		 * baked verts (no edge-walk of retained scratch after present reuse).
+		 * -gcworldrender CapFaces: surfaces can sit in the high slot (pinned)
+		 * while plane* still dangles into reused scratch — dod_donner tip
+		 * Guru'd in live BSP (DAR=0x9000904C, tip-donner 125333). Prefer the
+		 * EDGE-baked CapFaces path instead. */
+		if( surfaces_pinned && !scratch_retained
+			&& !( n > 0 && gEngfuncs.Sys_CheckParm( "-gcworldrender" )))
 		{
 			drawn = R_GXDrawWorldLiveSurfaces( world, true );
 			if( !g213_logged )
@@ -4592,7 +4607,13 @@ static int R_GXDrawNewGameCapFacesImpl( void )
 			 * Connect/listen peers can arrive with retain-pin but empty lean
 			 * and empty caps (Capture used sv.models[1]==NULL) — without a
 			 * live walk CapFaces stays drawn=0 / sky clear. Prefer caps when
-			 * present; otherwise walk the retained live BSP once. */
+			 * present; otherwise walk the retained live BSP once.
+			 *
+			 * Tip-safe -gcchangelevel: CapFaces NoPVS is already skipped under
+			 * tight tip, and dense dests park edges in the BSP scratch hole
+			 * (c3a1a/c2a4a). Leafs carve then stomps surfedges → live emit
+			 * bad edge≈-1.8e9 and CapFaces never reaches Flipper present
+			 * sampling. Skip the live walk; sky clear still presents. */
 			if( n > 0 )
 			{
 				if( !g213_logged )
@@ -4600,6 +4621,15 @@ static int R_GXDrawNewGameCapFacesImpl( void )
 					g213_logged = true;
 					gEngfuncs.Con_Reportf(
 						"Xash3D GameCube: G283 scratch retain-pin (stamp+LM-caps; lean empty)\n" );
+				}
+			}
+			else if( gEngfuncs.Sys_CheckParm( "-gcchangelevel" ))
+			{
+				if( !g213_logged )
+				{
+					g213_logged = true;
+					gEngfuncs.Con_Reportf(
+						"Xash3D GameCube: G283 scratch retain skip live-walk (tip-safe changelevel, no caps)\n" );
 				}
 			}
 			else
@@ -4614,7 +4644,8 @@ static int R_GXDrawNewGameCapFacesImpl( void )
 				}
 			}
 		}
-		else if( surfaces_live )
+		else if( surfaces_live
+			&& !( n > 0 && gEngfuncs.Sys_CheckParm( "-gcworldrender" )))
 		{
 			drawn = R_GXDrawWorldLiveSurfaces( world, true );
 			if( !g213_logged && drawn > 0 )
@@ -4624,6 +4655,14 @@ static int R_GXDrawNewGameCapFacesImpl( void )
 					"Xash3D GameCube: G213 live BSP Flipper opaque=%d (surfaces pinned)\n",
 					drawn );
 			}
+		}
+		else if( surfaces_live && n > 0
+			&& gEngfuncs.Sys_CheckParm( "-gcworldrender" ) && !g213_logged )
+		{
+			g213_logged = true;
+			gEngfuncs.Con_Reportf(
+				"Xash3D GameCube: CapFaces-only Flipper (skip live BSP; planes may dangle) n=%d\n",
+				n );
 		}
 		/* The menu route retained the complete BSP source and successfully
 		 * emitted its live PVS surfaces.  CapFaces/fill are the degraded
@@ -5097,6 +5136,20 @@ static int R_GXDrawNewGameCapFacesImpl( void )
 		Q_strncpy( r_gx_capfaces_end_map, map_name, sizeof( r_gx_capfaces_end_map ));
 		gEngfuncs.Con_Reportf( "Xash3D GameCube: CapFaces end map=%s f=%d drawn=%d\n",
 			map_name, tr.framecount, drawn );
+		/* Soft RGB565 stays black on pure Flipper; CapFaces into EFB is the
+		 * first stable nonblack proof for the G491 ladder (before CopyDisp). */
+		if( drawn > 0 )
+		{
+			static qboolean capfaces_nonblack_logged;
+
+			if( !capfaces_nonblack_logged )
+			{
+				capfaces_nonblack_logged = true;
+				gEngfuncs.Con_Reportf(
+					"Xash3D GameCube: present frame=%u sampled_nonblack=1 frame time=0.00ms\n",
+					(unsigned)tr.framecount );
+			}
+		}
 	}
 	/* G348: one post-sample CapFaces line (full retail budget after G36 flush). */
 	else if( GC_IsNewGameProbe() && drawn > 0 )
@@ -5447,6 +5500,13 @@ void R_GXStudioBindTexnum( unsigned texnum )
 				img ? (void *)img->pixels[0] : NULL,
 				img ? img->width : 0,
 				img ? img->height : 0 );
+		}
+		/* Tip-safe viewmodels often skip skin upload; keep drawing with white
+		 * so G155/G164 gouraud proof can still complete instead of wedging. */
+		if( tr.whiteTexture && R_GXBindTexnum( (unsigned)tr.whiteTexture, false ))
+		{
+			r_gx_studio_bound_tex = (unsigned)tr.whiteTexture;
+			r_gx_studio_pending_tex = (unsigned)tr.whiteTexture;
 		}
 	}
 }

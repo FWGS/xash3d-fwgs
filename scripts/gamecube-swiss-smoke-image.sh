@@ -1,13 +1,17 @@
 #!/usr/bin/env bash
 # Build a flashable FAT32 Swiss smoke image (boot.dol + smoke-map valve subset).
-# Default map c0a0e (MAP_READY on Dolphin after G334 tram essentials + G381).
+# Default map c0a0 (Dolphin G36 LADDER + current Swiss smoke card).
+# Override with G38_SMOKE_MAP=c0a0e for tram-essentials experiments.
 # Operator can dd/cp the image onto an SD card, or mount it and rsync the tree.
 set -euo pipefail
 
 ROOT="$(git rev-parse --show-toplevel)"
 cd "$ROOT"
 
-SMOKE_MAP="${G38_SMOKE_MAP:-c0a0e}"
+SMOKE_MAP="${G38_SMOKE_MAP:-c0a0}"
+# HW continuity: default one changelevel hop (override with empty to disable).
+SMOKE_CHANGELEVEL="${G38_SMOKE_CHANGELEVEL:-c0a0a}"
+SMOKE_LANDMARK="${G38_SMOKE_LANDMARK:-c0a0toa}"
 STAGE_DIR="${SWISS_SMOKE_STAGE:-.ai/logs/swiss-smoke-stage}"
 IMG_OUT="${SWISS_SMOKE_IMG:-OUT/xash3d-gc-swiss-smoke.img}"
 IMG_MIB="${SWISS_SMOKE_IMG_MIB:-}"
@@ -106,15 +110,26 @@ sys.modules[spec.name] = mod
 spec.loader.exec_module(mod)
 src = root / "Half-Life" / "valve"
 dst = root / "$STAGE_DIR" / "xash3d" / "valve"
-staged = mod.stage_smoke_data(src, dst, "$SMOKE_MAP")
+cl = "$SMOKE_CHANGELEVEL".strip()
+lm = "$SMOKE_LANDMARK".strip()
+staged = mod.stage_smoke_data(
+	src, dst, "$SMOKE_MAP",
+	newgame=True,
+	changelevel=cl or None,
+	landmark=lm or None,
+)
 errs = mod.validate_smoke_assets(staged, "$SMOKE_MAP")
 if errs:
 	raise SystemExit("smoke validation failed: " + "; ".join(errs))
 print("staged", staged)
-# Ensure Swiss HW auto-quit token is present (stage_smoke_data may omit it).
+# Swiss HW: map + newgame + optional changelevel + swissquit (quit after dest).
 cfg = dst / "gamecube.cfg"
-cfg.write_text("map $SMOKE_MAP\nswissquit\n", encoding="ascii")
-print("wrote", cfg, "swissquit")
+lines = [f"map $SMOKE_MAP", "newgame"]
+if cl:
+	lines.append(f"changelevel {cl}" + (f" {lm}" if lm else ""))
+lines.append("swissquit")
+cfg.write_text("\n".join(lines) + "\n", encoding="ascii")
+print("wrote", cfg, "lines=", lines)
 PY
 	if [[ -f OUT/valve/extras.pk3 ]]; then
 		cp -f OUT/valve/extras.pk3 "$STAGE_DIR/xash3d/valve/extras.pk3"

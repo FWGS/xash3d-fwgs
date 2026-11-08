@@ -25,7 +25,7 @@ REQUIRED = (
     "Xash3D GameCube: lean HUD sprites drawn",
     "Xash3D GameCube: G105 landmark viewmodel ready",
     "Xash3D GameCube: G164 studio gouraud shades=",
-    "Xash3D GameCube: G154 disc lightmap bind",
+	"Xash3D GameCube: G154 disc lightmap bind",  # also emitted for ARAM bake-only binds
     "Xash3D GameCube: G180 lightmap atlas",
     "Xash3D GameCube: G219 Flipper LM on EDGE/TEX",
     "audio backend ready",
@@ -40,10 +40,12 @@ ORDERED_PHASES = (
         "Xash3D GameCube: retail Flipper policy capture=1 softworld=0",
     ),
     (
+        # Tip-safe New Game loads the landmark viewmodel during map bring-up,
+        # then defers lean HUD sheets until post-present (G290).
+        "Xash3D GameCube: G105 landmark viewmodel ready",
         "Xash3D GameCube: MAP_READY ",
         "Xash3D GameCube: G172 HUD sheets loaded",
         "Xash3D GameCube: lean HUD sprites drawn",
-        "Xash3D GameCube: G105 landmark viewmodel ready",
     ),
 )
 

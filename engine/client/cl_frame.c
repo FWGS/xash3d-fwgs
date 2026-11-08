@@ -1732,11 +1732,12 @@ void CL_GameCubeLeanEmitBrushEntities( void )
 			}
 		}
 
-		/* Landmark viewmodel for Flipper G155 gun pass (G105 crowbar). */
-		if( studios > 0
-			&& ( !clgame.viewent.model
-				|| clgame.viewent.model->type != mod_studio
-				|| !clgame.viewent.model->cache.data ))
+		/* Landmark viewmodel for Flipper G155 gun pass (G105 crowbar).
+		 * Bind even when no world NPC studios made the lean list — tip-safe
+		 * c0a0 often has studios=0 while crowbar is already G105-ready. */
+		if( !clgame.viewent.model
+			|| clgame.viewent.model->type != mod_studio
+			|| !clgame.viewent.model->cache.data )
 		{
 			const char *vpath = Mod_GCLandmarkViewModelPath();
 			model_t *vm = NULL;

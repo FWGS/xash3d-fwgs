@@ -191,6 +191,10 @@ void Mod_GCClearRetainedBspScratch( void );
  * hydrate one face's samples into a static MEM1 window via gc_surf_lightofs[]. */
 color24 *Mod_GCHydrateSurfaceLightmap( const msurface_t *surf );
 qboolean Mod_GCAramLightmapActive( void );
+byte *Mod_GCWorldArraySpillBorrow( size_t bytes, const char *what );
+void *Mod_GCWorldArraySpillTryAlloc( size_t bytes, const char *what );
+size_t Mod_GCWorldArraySpillUsed( void );
+void Mod_GCWorldArraySpillPinBase( const void *ptr, size_t bytes );
 /* Drop temporary G154 LM bind after CapFaces (immediate or deferred G369). */
 void Mod_GCReleaseTempNewGameLightmaps( model_t *mod );
 #endif

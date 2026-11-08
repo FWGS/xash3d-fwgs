@@ -1944,6 +1944,11 @@ int EXPORT Host_Main( int argc, char **argv, const char *progname, int bChangeGa
 							Con_Reportf( "Xash3D GameCube: map loaded %s\n", sv.name );
 							Con_Reportf( "Xash3D GameCube: MAP_READY %s\n", sv.name );
 							SYS_Report( "Xash3D GameCube: MAP_READY %s\n", sv.name );
+							/* Swiss SD: re-append after Con_ flood so FAT
+							 * swiss-evidence.txt still carries G38 markers. */
+							GCube_AppendSwissEvidence( "entity lump spawn ready" );
+							GCube_AppendSwissEvidence( "map loaded %s", sv.name );
+							GCube_AppendSwissEvidence( "MAP_READY %s", sv.name );
 						}
 						/* Promote ca_active before the first heavy fullphysics
 						 * ServerFrame can starve ClientFrame SCR CapFaces. */

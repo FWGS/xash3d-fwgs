@@ -397,6 +397,9 @@ static void GC_LogControllerState( int port, u32 type, qboolean connected )
 			human_port, type_name );
 		Con_Reportf( "Xash3D GameCube: G45 controller ready port=%d port_index=%d type=%s\n",
 			human_port, port, type_name );
+		/* Swiss SD: prove PAD without USB Gecko (G38 controller criterion). */
+		GCube_AppendSwissEvidence( "G45 controller ready port=%d type=%s",
+			human_port, type_name );
 	}
 	else
 	{

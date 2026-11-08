@@ -51,10 +51,12 @@ def main() -> int:
 	compliance = read(compliance_path)
 	checks: list[Check] = []
 
+	# PAD_ScanPads() already performs the frame's PAD_Read + Clamp. A second
+	# PAD_Read after ScanPads returns PAD_ERR_TRANSFER on real hardware.
 	checks.append(Check(
 		"PAD polling",
-		"PASS" if contains_all(source, ("PAD_Init();", "PAD_ScanPads();", "PAD_Read( gc_pad );", "PAD_Clamp( gc_pad );")) else "FAIL",
-		"uses libogc PAD init/scan/read/clamp path",
+		"PASS" if contains_all(source, ("PAD_Init();", "PAD_ScanPads();", "PAD_ButtonsHeld", "PAD_StickX")) else "FAIL",
+		"uses libogc PAD_Init + PAD_ScanPads (read/clamp via scan)",
 	))
 	checks.append(Check(
 		"no-controller-at-boot",

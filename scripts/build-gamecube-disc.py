@@ -1428,6 +1428,8 @@ def inject_gc_sky_into_bootstrap(archive: "zipfile.ZipFile", data: Path) -> int:
 	"""Add lean 16×16 desert sky BMPs into bootstrap under gc_desert* names.
 
 	G300: 64→16 so ImageLib decode is ≤1 KiB (32² soft-failed under tip).
+	Also mirror media/sky_*.cmp (GX CMPR Flipper skies) into the bootstrap
+	pk3 — ISO9660 directory find misses these long names on some grafts.
 	"""
 	staged = 0
 	for src_rel, arc_rel in GC_SKY_SIDES:
@@ -1440,6 +1442,16 @@ def inject_gc_sky_into_bootstrap(archive: "zipfile.ZipFile", data: Path) -> int:
 			continue
 		archive.writestr(arcname, payload, compress_type=zipfile.ZIP_STORED)
 		staged += 1
+	media = data / "media"
+	if media.is_dir():
+		for cmp in sorted(media.glob("sky_*.cmp")):
+			if cmp.stat().st_size <= 0:
+				continue
+			arcname = f"media/{cmp.name}".lower()
+			if arcname in archive.NameToInfo:
+				continue
+			archive.write(cmp, arcname, compress_type=zipfile.ZIP_STORED)
+			staged += 1
 	return staged
 
 

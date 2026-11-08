@@ -173,7 +173,11 @@ list_flash_candidates() {
 		[[ "$type" == "disk" ]] || continue
 		dev="/dev/$name"
 		case "$dev" in
-			/dev/nvme*|/dev/sda|/dev/sdb|/dev/sdc) continue ;;
+			/dev/nvme*) continue ;;
+			/dev/sda|/dev/sdb|/dev/sdc)
+				# USB SD readers often land on sd[abc]; keep fixed disks out.
+				[[ "$rm" == "1" && "$tran" == "usb" ]] || continue
+				;;
 		esac
 		if [[ "$rm" == "1" || "$tran" == "usb" ]]; then
 			printf '  %s  tran=%s rm=%s size=%s model=%s\n' "$dev" "$tran" "$rm" "$size" "${model:-?}" >&2
@@ -189,12 +193,19 @@ is_safe_flash_disk() {
 	local dev="$1" tran="" rm="" size_b=0 max_bytes
 	[[ -b "$dev" ]] || return 1
 	case "$dev" in
-		/dev/nvme*|/dev/sda|/dev/sdb|/dev/sdc) return 1 ;;
+		/dev/nvme*) return 1 ;;
 		/dev/loop*) return 1 ;;
 	esac
 	tran="$(lsblk -dn -o TRAN "$dev" 2>/dev/null || true)"
 	rm="$(lsblk -dn -o RM "$dev" 2>/dev/null || true)"
 	size_b="$(lsblk -dn -b -o SIZE "$dev" 2>/dev/null || echo 0)"
+	# /dev/sd[abc] are often fixed disks, but USB SD readers also enumerate
+	# there — allow only when both USB transport and removable bit are set.
+	case "$dev" in
+		/dev/sda|/dev/sdb|/dev/sdc)
+			[[ "$rm" == "1" && "$tran" == "usb" ]] || return 1
+			;;
+	esac
 	# Refuse multi-TB USB HDDs; allow common Swiss SD sizes (≤512GiB default).
 	max_bytes=$(( MAX_GIB * 1024 * 1024 * 1024 ))
 	if (( size_b > max_bytes )); then

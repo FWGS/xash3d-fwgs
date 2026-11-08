@@ -27,14 +27,30 @@ static unsigned gc_tiny_pixels_used;
 /* Late native studio skins can arrive after the compact studio arena has
  * become contiguous-full.  Keep a bounded overflow window for base planes;
  * this avoids pushing small skin allocations back through fragmented MEM1.
- * Sized for a boss cast (nihilanth 12×96² RGB565 ≈ 221 KiB): skins must NOT
- * live in gc_studio_bss — Mod_GCStudioBssTrimLast rewinds that bump and was
- * leaving ptexture indices dangling into recycled slots (*gc_sky_proc). */
+ * G381: scientistT (31×≤96² ≈ 191 KiB) + barneyT (≈ 152 KiB) = 343 KiB at
+ * the 96 cap — the prior 256 KiB window left ~9 scientist skins on
+ * defaultTexture.  384 KiB covers that hallway cast; upload still adapts
+ * down to 64/48 when the bump is nearly full.  Skins must NOT live in
+ * gc_studio_bss — Mod_GCStudioBssTrimLast rewinds that bump and was leaving
+ * ptexture indices dangling into recycled slots (*gc_sky_proc). */
+/* 384 KiB stole 128 KiB tip and broke listen CapFaces (flash entities
+ * tip-miss / magenta fatal tip-flash-deferstr2). Keep 256; hallway soft
+ * skins stay on the adaptive overflow path. */
 #define GC_STUDIO_SKIN_OVERFLOW_BYTES (256 * 1024)
 static byte gc_studio_skin_overflow[GC_STUDIO_SKIN_OVERFLOW_BYTES] __attribute__((aligned(32)));
 static size_t gc_studio_skin_overflow_bump;
 static unsigned gc_studio_skin_overflow_live;
 extern qboolean r_gc_studio_skins_in_arena;
+
+size_t R_GCStudioSkinOverflowUsed( void )
+{
+	return gc_studio_skin_overflow_bump;
+}
+
+size_t R_GCStudioSkinOverflowCapacity( void )
+{
+	return sizeof( gc_studio_skin_overflow );
+}
 
 static pixel_t *R_GCAllocStudioSkinOverflow( image_t *tex, size_t bytes )
 {
@@ -510,11 +526,28 @@ static qboolean GL_UploadTextureBody( image_t *tex, rgbdata_t *pic )
 	}
 	/* Native studio skins have no soft-renderer consumer after upload.  Keep
 	 * every retail texture entry, but bound decoded residency so the complete
-	 * tram cast fits beside the compact MDLs in the fixed studio arena. */
+	 * tram cast fits beside the compact MDLs in the fixed studio arena.
+	 * Prefer 96²; when the overflow bump cannot hold this plane, step down
+	 * so later scientist/barney skins stay off defaultTexture (G381). */
 	if( r_gc_studio_skins_in_arena && !FBitSet( tex->flags, TF_FONT ))
 	{
-		resampleWidth = Q_min( resampleWidth, 96 );
-		resampleHeight = Q_min( resampleHeight, 96 );
+		int cap = 96;
+		size_t off = ( gc_studio_skin_overflow_bump + 31u ) & ~(size_t)31u;
+		size_t rem = ( off < sizeof( gc_studio_skin_overflow ))
+			? ( sizeof( gc_studio_skin_overflow ) - off ) : 0;
+
+		while( cap >= 48 )
+		{
+			uint cw = (uint)Q_min( resampleWidth, cap );
+			uint ch = (uint)Q_min( resampleHeight, cap );
+			size_t need = (size_t)cw * (size_t)ch * sizeof( pixel_t ) + 31u;
+
+			if( rem == 0 || need <= rem )
+				break;
+			cap -= 16;
+		}
+		resampleWidth = Q_min( resampleWidth, cap );
+		resampleHeight = Q_min( resampleHeight, cap );
 		tex->width = resampleWidth;
 		tex->height = resampleHeight;
 	}

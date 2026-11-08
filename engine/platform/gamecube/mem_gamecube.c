@@ -801,6 +801,12 @@ size_t GC_MapLoadBufferTailHighwater( void )
 	return gc_mapload_tail_highwater;
 }
 
+void GC_MapLoadBufferLowerTailHighwater( size_t highwater )
+{
+	if( highwater < gc_mapload_tail_highwater )
+		gc_mapload_tail_highwater = highwater;
+}
+
 void *GC_MapLoadBufferTailAlloc( size_t after_offset, size_t need )
 {
 	size_t off;
