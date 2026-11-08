@@ -22,7 +22,7 @@ GNU General Public License for more details.
 #include <stdlib.h>
 #include "xash3d_types.h"
 #include "filesystem.h"
-#include "zlib_wrapper.h"
+#include "miniz.h"
 
 #if XASH_ANDROID
 #include <android/asset_manager.h>

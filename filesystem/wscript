@@ -26,8 +26,7 @@ def configure(conf):
 		if conf.env.cxxshlib_PATTERN.startswith('lib'):
 			conf.env.cxxshlib_PATTERN = conf.env.cxxshlib_PATTERN[3:]
 
-	# PS4 libc has memfd_create, but the kernel doesn't
-	if conf.env.DEST_OS != 'ps4' and conf.check_cc(fragment=MEMFD_CREATE_TEST, msg='Checking for memfd_create', mandatory=False):
+	if conf.check_cc(fragment=MEMFD_CREATE_TEST, msg='Checking for memfd_create', mandatory=False):
 		conf.define('HAVE_MEMFD_CREATE', 1)
 
 	if conf.check_cc(fragment=DIRENT_D_TYPE_TEST, msg='Checking for d_type field in struct dirent', mandatory=False):
@@ -36,7 +35,7 @@ def configure(conf):
 def build(bld):
 	bld(name = 'filesystem_includes', export_includes = '.')
 
-	libs = [ 'filesystem_includes', 'sdk_includes', 'werror', 'yy_thunks' ]
+	libs = [ 'filesystem_includes', 'sdk_includes', 'werror' ]
 	defines = []
 
 	# GameCube homebrew links one DOL; filesystem is built into the engine binary.
@@ -62,14 +61,13 @@ def build(bld):
 	else:
 		f = bld.shlib
 
-	# on PSVita/GameCube do not link libraries that are already in the main executable
 	if bld.env.DEST_OS not in ['psvita', 'gamecube']:
-		libs += [ 'public', 'zlib', 'ANDROID', 'library_suffix', 'build_vcs' ]
+		libs += [ 'public', 'ANDROID', 'library_suffix', 'build_vcs' ]
 
 	source = bld.path.ant_glob(['*.c', '*.cpp'])
 
 	f(target = 'filesystem_stdio',
-		features = 'seq format',
+		features = 'seq',
 		source = source,
 		use = libs,
 		defines = defines,
@@ -86,7 +84,7 @@ def build(bld):
 		}
 
 		for i in tests:
-			bld.program(features = 'test seq format',
+			bld.program(features = 'test seq',
 				source = tests[i],
 				target = 'test_%s' % i,
 				use = libs + ['DL'],
