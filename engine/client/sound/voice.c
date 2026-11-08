@@ -32,7 +32,14 @@ qboolean VoiceCapture_Lock( qboolean lock ) { (void)lock; return false; }
 
 voice_state_t voice = { 0 };
 
+#if XASH_GAMECUBE
+/* Single-player console: no voice chat.  Creating the Opus decoders at the
+ * first in-game client frame either failed for lack of heap (and disabled
+ * voice anyway) or hung the guest there (c1a0 -> c1a0d, c1a0d -> c1a0a). */
+static CVAR_DEFINE_AUTO( voice_enable, "0", FCVAR_PRIVILEGED | FCVAR_ARCHIVE, "enable voice chat" );
+#else
 static CVAR_DEFINE_AUTO( voice_enable, "1", FCVAR_PRIVILEGED | FCVAR_ARCHIVE, "enable voice chat" );
+#endif
 CVAR_DEFINE_AUTO( voice_loopback, "0", FCVAR_PRIVILEGED, "loopback voice back to the speaker" );
 static CVAR_DEFINE_AUTO( voice_scale, "1.0", FCVAR_PRIVILEGED | FCVAR_ARCHIVE, "incoming voice volume scale" );
 static CVAR_DEFINE_AUTO( voice_transmit_scale, "1.0", FCVAR_PRIVILEGED | FCVAR_ARCHIVE, "outcoming voice volume scale" );
