@@ -1297,6 +1297,12 @@ static httpserver_t *HTTP_ParseURL( const char *url_, qboolean full_path )
 		return NULL;
 	}
 
+	if( !http_mempool )
+	{
+		Con_Printf( S_ERROR "HTTP not initialized, can't parse %s\n", url_ );
+		return NULL;
+	}
+
 	httpserver_t *server = Mem_Calloc( http_mempool, sizeof( httpserver_t ));
 	int i = 0;
 

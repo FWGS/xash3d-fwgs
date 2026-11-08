@@ -1345,15 +1345,68 @@ static qboolean NET_QueuePacket( int net_socket, netsrc_t sock, netadr_t *from, 
 	*length = 0;
 
 	if( !NET_IsSocketValid( net_socket ))
+#if XASH_GAMECUBE
+		return false;
+#else
 		return NET_LagPacket( false, sock, from, length, data );
+#endif
 
 	WSAsize_t addr_len = sizeof( addr );
+#if XASH_GAMECUBE
+	/* Never block the Host_Frame connect path on BBA/lwIP recv. */
+	{
+		fd_set rfds;
+		struct timeval tv;
+		int sel;
+		static int gc_recv_trace;
+
+		FD_ZERO( &rfds );
+		FD_SET( net_socket, &rfds );
+		tv.tv_sec = 0;
+		tv.tv_usec = 0;
+		sel = select( net_socket + 1, &rfds, NULL, NULL, &tv );
+		if( gc_recv_trace < 12 )
+		{
+			Con_Reportf( "Xash3D GameCube: recv poll fd=%d sel=%d\n", net_socket, sel );
+			gc_recv_trace++;
+		}
+		/* Empty / error poll: return immediately. Do not fall into recvfrom or
+		 * NET_LagPacket→ClearLagData (probe 20261106-234921 softlock). Skip
+		 * select==-1 the same way — a hard error must not block Host_Frame. */
+		if( sel <= 0 )
+		{
+			*length = 0;
+			return false;
+		}
+	}
+#endif
+#if XASH_GAMECUBE
+	/* MSG_DONTWAIT even when select said ready — flags=0 softlocked after
+	 * C2S_CONNECT on BBA IPC (probe 20261106-234439). */
+	int ret = recvfrom( net_socket, buf, sizeof( buf ), MSG_DONTWAIT,
+		(struct sockaddr *)&addr, &addr_len );
+	{
+		static int gc_recv_leave;
+		if( gc_recv_leave < 8 )
+		{
+			Con_Reportf( "Xash3D GameCube: recvfrom leave fd=%d ret=%d\n", net_socket, ret );
+			gc_recv_leave++;
+		}
+	}
+#else
 	int ret = recvfrom( net_socket, buf, sizeof( buf ), 0, (struct sockaddr *)&addr, &addr_len );
+#endif
 
 	NET_SockadrToNetadr( &addr, from );
 
 	if( !NET_IsSocketError( ret ))
 	{
+#if XASH_GAMECUBE
+		/* libogc can report ret==0 without error; treating that as a packet
+		 * makes CL_ReadNetMessage spin forever (peer-connect softlock). */
+		if( ret <= 0 )
+			return NET_LagPacket( false, sock, from, length, data );
+#endif
 		if( ret < NET_MAX_FRAGMENT )
 		{
 			// Transfer data
@@ -1382,6 +1435,14 @@ static qboolean NET_QueuePacket( int net_socket, netsrc_t sock, netadr_t *from, 
 	{
 		int err = WSAGetLastError();
 
+#if XASH_GAMECUBE
+		/* lwip ENOBUFS under TapServer/BBA flood — do not spam OSReport
+		 * (500k+ lines) or we drown connect/challenge evidence.
+		 * if-form avoids duplicate-case when errno aliases WSA* on newlib. */
+		if( err == ENOBUFS || err == ENOMEM || err == ENOENT )
+			;
+		else
+#endif
 		switch( err )
 		{
 		case WSAEWOULDBLOCK:
@@ -1419,6 +1480,11 @@ qboolean NET_GetPacket( netsrc_t sock, netadr_t *from, byte *data, size_t *lengt
 	}
 	else
 	{
+#if XASH_GAMECUBE
+		/* BBA/eth2sp1 is IPv4-only — skip IPv6 round-robin (empty AF_INET6
+		 * sockets were part of the peer ReadPackets softlock path). */
+		return NET_QueuePacket( net.ip_sockets[sock], sock, from, data, length );
+#else
 		// Round-robin the socket to prevent constant activity on one starving the other.
 		int i = net.rr_state[sock];
 		int net_socket = i ? net.ip_sockets[sock] : net.ip6_sockets[sock];
@@ -1433,6 +1499,7 @@ qboolean NET_GetPacket( netsrc_t sock, netadr_t *from, byte *data, size_t *lengt
 		net_socket = i ? net.ip6_sockets[sock] : net.ip_sockets[sock];
 		net.rr_state[sock] = !i;
 		return NET_QueuePacket( net_socket, sock, from, data, length );
+#endif
 	}
 }
 
@@ -1604,8 +1671,15 @@ static int NET_IPSocket( const char *net_iface, int port, int family )
 		struct timeval timeout;
 
 		Con_DPrintf( S_WARN "%s: port: %d ioctl FIONBIO: %s\n", __func__, port, NET_ErrorString( ));
+#if XASH_GAMECUBE
+		/* lwIP treats SO_RCVTIMEO 0 as "wait forever". Use 1ms; GC_RecvFrom
+		 * also ORs MSG_DONTWAIT so peer-connect cannot softlock Host_Frame. */
+		timeout.tv_sec = 0;
+		timeout.tv_usec = 1000;
+#else
 		// try timeout instead of NBIO
 		timeout.tv_sec = timeout.tv_usec = 0;
+#endif
 		setsockopt( net_socket, SOL_SOCKET, SO_RCVTIMEO, (char *)&timeout, sizeof(timeout));
 	}
 
@@ -1858,6 +1932,17 @@ void NET_Config( qboolean multiplayer, qboolean changeport )
 
 	if( multiplayer )
 	{
+#if XASH_GAMECUBE && defined(XASH_GAMECUBE_HAVE_LIBBBA) && XASH_GAMECUBE_HAVE_LIBBBA
+		/* Bring up BBA / Swiss eth2sp1 before binding UDP. Soft-fail keeps SP offline. */
+		if( !GC_NetEnsureReady( ))
+		{
+			Con_Printf( S_WARN "GameCube net unavailable (no BBA/eth2sp1) — multiplayer sockets skipped\n" );
+			old_config = false;
+			return;
+		}
+		if( COM_StringEmpty( net_ipname.string ) || !Q_stricmp( net_ipname.string, "localhost" ))
+			Cvar_DirectSet( &net_ipname, GC_NetLocalIP( ));
+#endif
 		// open sockets
 		if( net.allow_ip )
 			NET_OpenIP( changeport, net.ip_sockets, net_ipname.string, net_iphostport.value, net_ipclientport.value, AF_INET );
@@ -2011,7 +2096,12 @@ void NET_Init( void )
 	NET_InitializeCriticalSections();
 
 	net.allow_ip = !Sys_CheckParm( "-noip" );
+#if XASH_GAMECUBE
+	/* libogc BBA/eth2sp1 stack is IPv4-only. */
+	net.allow_ip6 = false;
+#else
 	net.allow_ip6 = !Sys_CheckParm( "-noip6" );
+#endif
 
 	// specify custom host port
 	if( Sys_GetParmFromCmdLine( "-port", cmd ) && Q_isdigit( cmd ))

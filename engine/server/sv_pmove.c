@@ -19,6 +19,9 @@ GNU General Public License for more details.
 #include "pm_local.h"
 #include "event_flags.h"
 #include "studio.h"
+#if XASH_GAMECUBE
+#include "platform/platform.h"
+#endif
 
 static qboolean has_update = false;
 static void SV_GetTrueOrigin( sv_client_t *cl, int edictnum, vec3_t origin );
@@ -1141,10 +1144,31 @@ void SV_RunCmd( sv_client_t *cl, usercmd_t *ucmd, int random_seed )
 		}
 	}
 #endif
-	svgame.dllFuncs.pfnPM_Move( svgame.pmove, true );
+#if XASH_GAMECUBE
+	/* CapFaces remaps world clipnodes; PM_CatagorizePosition → PlayerTrace →
+	 * RecursiveHullCheck DSI after spawn (solo listen 20261107-123152). Keep
+	 * viewangles from the usercmd; skip hull walks until clipnodes are durable. */
+	if( Sys_CheckParm( "-gcworldrender" ) && GC_UseGxWorldDraw() )
+	{
+		static qboolean gc_pm_skip_logged;
 
-	// copy results back to client
-	SV_FinishPMove( svgame.pmove, cl );
+		if( !gc_pm_skip_logged )
+		{
+			gc_pm_skip_logged = true;
+			Con_Reportf( "Xash3D GameCube: server PM_Move skipped (CapFaces clipnodes remapped)\n" );
+		}
+		VectorCopy( ucmd->viewangles, clent->v.v_angle );
+		VectorCopy( ucmd->viewangles, clent->v.angles );
+		clent->v.angles[PITCH] /= -3.0f;
+	}
+	else
+#endif
+	{
+		svgame.dllFuncs.pfnPM_Move( svgame.pmove, true );
+
+		// copy results back to client
+		SV_FinishPMove( svgame.pmove, cl );
+	}
 #if XASH_GAMECUBE
 	if( Sys_CheckParm( "-gcnewgame" ) && Sys_CheckParm( "-gcfullphysics" )
 		&& ( ucmd->buttons & IN_JUMP ) && !gc_probe_jump_logged )

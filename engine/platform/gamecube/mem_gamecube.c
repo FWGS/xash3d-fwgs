@@ -138,6 +138,18 @@ size_t GC_MemHeapFreeBytes( void )
 	return free_in_heap + unclaimed;
 }
 
+/* Tip pressure for menu/client bring-up — unclaimed MEM1 above the arena can
+ * look "fat" while fordblks is already < few KiB (DoD menu boot). */
+size_t GC_MemArenaFreeBytes( void )
+{
+	size_t used, free_in_heap, unclaimed;
+
+	GC_MemHeapStats( &used, &free_in_heap, &unclaimed );
+	(void)used;
+	(void)unclaimed;
+	return free_in_heap;
+}
+
 void GC_MemSample( const char *stage )
 {
 	size_t total = Mem_TotalRealSize();
@@ -550,7 +562,9 @@ void GC_PrepareMapLoadBufferForMap( const char *mapname )
 
 	Q_snprintf( path, sizeof( path ), "maps/%s.bsp", mapname );
 	filesize = FS_FileSize( path, false );
-	if( filesize > 0 )
+	/* Warm the static arena without requiring the full BSP to fit — oversized
+	 * DoD maps compact-load without LUMP_LIGHTING in Mod_LoadModel. */
+	if( filesize > 0 && filesize <= (fs_offset_t)GC_MAPLOAD_BUFFER_DEFAULT )
 		GC_PrepareMapLoadBuffer( (size_t)filesize );
 	else
 		GC_PrepareMapLoadBuffer( GC_MAPLOAD_BUFFER_DEFAULT );

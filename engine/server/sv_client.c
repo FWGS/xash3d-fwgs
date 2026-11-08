@@ -38,7 +38,17 @@ static void SV_UserinfoChanged( sv_client_t *cl );
 static void SV_ExecuteClientCommand( sv_client_t *cl, const char *s );
 
 #if XASH_GAMECUBE
-static client_frame_t gc_singleplayer_frames[SINGLEPLAYER_BACKUP];
+/* Dual BBA listen needs maxplayers=2; zone/malloc for MULTIPLAYER_BACKUP
+ * client frames tip-FATALS after map load (~24 KiB, heap_free≈14 KiB). Keep
+ * both seats in BSS (LM2: BACKUP=4). Slot 0 also covers singleplayer. */
+#if XASH_LOW_MEMORY == 2
+#define GC_SV_STATIC_CLIENTS 2
+#else
+#define GC_SV_STATIC_CLIENTS 1
+#endif
+static client_frame_t gc_client_frames[GC_SV_STATIC_CLIENTS][MULTIPLAYER_BACKUP]
+	__attribute__((aligned( 32 )));
+#define gc_singleplayer_frames (gc_client_frames[0])
 static int SV_GetFragmentSize( void *pcl, fragsize_t mode );
 
 edict_t *SV_GCFindIntroTrain( void )
@@ -65,7 +75,17 @@ edict_t *SV_GCFindIntroTrain( void )
 
 qboolean SV_IsStaticClientFrames( const client_frame_t *frames )
 {
-	return frames == gc_singleplayer_frames;
+	const client_frame_t *base = &gc_client_frames[0][0];
+	const client_frame_t *end = &gc_client_frames[GC_SV_STATIC_CLIENTS][0];
+
+	return frames >= base && frames < end;
+}
+
+static client_frame_t *SV_GCStaticClientFramesForSlot( int slot )
+{
+	if( slot < 0 || slot >= GC_SV_STATIC_CLIENTS )
+		return NULL;
+	return gc_client_frames[slot];
 }
 
 /*
@@ -180,7 +200,7 @@ static void SV_FreeClientFrames( sv_client_t *cl )
 
 	if( SV_IsStaticClientFrames( cl->frames ))
 	{
-		memset( gc_singleplayer_frames, 0, sizeof( gc_singleplayer_frames ));
+		memset( cl->frames, 0, sizeof( client_frame_t ) * (size_t)SV_UPDATE_BACKUP );
 	}
 	else if( cl->frames_malloced )
 		free( cl->frames );
@@ -588,36 +608,45 @@ static void SV_ConnectClient( netadr_t from )
 				void *old_frames = newcl->frames;
 				const qboolean old_frames_malloced = newcl->frames_malloced;
 
-				if( svs.maxclients == 1 && SV_UPDATE_BACKUP == SINGLEPLAYER_BACKUP )
 				{
-					frames = gc_singleplayer_frames;
-					memset( frames, 0, sizeof( gc_singleplayer_frames ));
-					Con_Reportf( "Xash3D GameCube: client frames using static singleplayer buffer %s\n",
-						Q_memprint( sizeof( gc_singleplayer_frames )));
-				}
-				else
-				{
-					frames = (client_frame_t *)malloc( frame_bytes );
-					if( frames )
+					const int slot = (int)( newcl - svs.clients );
+					client_frame_t *static_frames = NULL;
+
+					if( svs.maxclients <= GC_SV_STATIC_CLIENTS
+						&& SV_UPDATE_BACKUP <= MULTIPLAYER_BACKUP )
+						static_frames = SV_GCStaticClientFramesForSlot( slot );
+
+					if( static_frames )
 					{
+						frames = static_frames;
 						memset( frames, 0, frame_bytes );
-						frames_malloced = true;
-						Con_Reportf( "Xash3D GameCube: client frames via malloc %s\n", Q_memprint( frame_bytes ));
+						Con_Reportf( "Xash3D GameCube: client frames BSS slot=%d %s\n",
+							slot, Q_memprint( frame_bytes ));
 					}
 					else
 					{
-						if( old_frames && !old_frames_malloced && !SV_IsStaticClientFrames( old_frames ))
-							frames = Mem_Realloc( host.mempool, old_frames, frame_bytes );
+						frames = (client_frame_t *)malloc( frame_bytes );
+						if( frames )
+						{
+							memset( frames, 0, frame_bytes );
+							frames_malloced = true;
+							Con_Reportf( "Xash3D GameCube: client frames via malloc %s\n", Q_memprint( frame_bytes ));
+						}
 						else
-							frames = Mem_Malloc( host.mempool, frame_bytes );
-						memset( frames, 0, frame_bytes );
+						{
+							if( old_frames && !old_frames_malloced && !SV_IsStaticClientFrames( old_frames ))
+								frames = Mem_Realloc( host.mempool, old_frames, frame_bytes );
+							else
+								frames = Mem_Malloc( host.mempool, frame_bytes );
+							memset( frames, 0, frame_bytes );
+						}
 					}
 				}
 
 				if( old_frames && frames != old_frames )
 				{
 					if( SV_IsStaticClientFrames( old_frames ))
-						memset( old_frames, 0, sizeof( gc_singleplayer_frames ));
+						memset( old_frames, 0, sizeof( client_frame_t ) * (size_t)SV_UPDATE_BACKUP );
 					else if( old_frames_malloced )
 						SV_FreeClientFrames( newcl );
 					else

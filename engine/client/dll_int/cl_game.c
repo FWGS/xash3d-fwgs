@@ -1177,17 +1177,22 @@ remap_info_t *gc_gcmap_bootstrap_remap_info[GC_GCMAP_STATIC_CLIENT_EDICTS + 1];
 
 static qboolean CL_GameCubeUseStaticGcmapBootstrapEdicts( int maxclients )
 {
-	if( maxclients > 1 || clgame.maxEntities > GC_GCMAP_STATIC_CLIENT_EDICTS )
+	/* Dual BBA listen needs maxplayers=2; heap Client Edicts (~1.42 Mb) soft-
+	 * NULLs and hangs mid-serverdata. Bootstrap tables still fit LM2 (128
+	 * packet ents). Cap stays at 2 so larger MP cannot silently under-alloc. */
+	if( maxclients > 2 || clgame.maxEntities > GC_GCMAP_STATIC_CLIENT_EDICTS )
 		return false;
 
-	if( GC_MapLoadMemoryOpt() )
+	if( GC_MapLoadMemoryOpt()
+		|| Sys_CheckParm( "-gcmap" )
+		|| Sys_CheckParm( "-gcconnect" )
+		|| Sys_CheckParm( "-gclistenserver" ))
 		return true;
 
 	/* Retail read-only menu boots do not need heap-backed packet/entity tables
 	 * before gameplay. Reuse the smoke bootstrap storage so the main menu can
 	 * survive without SD-backed writable storage. */
-	if( !GCube_HasWritableStorage() && !Sys_CheckParm( "-gcnewgame" )
-		&& !Sys_CheckParm( "-gcmap" ))
+	if( !GCube_HasWritableStorage() && !Sys_CheckParm( "-gcnewgame" ))
 		return true;
 
 	return false;
@@ -1204,7 +1209,7 @@ void CL_InitEdicts( int maxclients )
 #endif
 	cls.num_client_entities = CL_UPDATE_BACKUP * NUM_PACKET_ENTITIES;
 #if XASH_GAMECUBE
-	if( maxclients <= 1 )
+	if( maxclients <= 2 )
 		cls.num_client_entities = 128;
 	Con_Reportf( "Xash3D GameCube: client edicts alloc request max=%d bytes=%u packet_entities=%d\n",
 		clgame.maxEntities, (uint)( sizeof( cl_entity_t ) * clgame.maxEntities ),
@@ -1998,6 +2003,15 @@ HSPRITE EXPORT pfnSPR_Load( const char *szPicName )
 	model_t *spr;
 
 	GC_HUD_CALL( "SPR_Load begin %s", szPicName ? szPicName : "(null)" );
+#if XASH_GAMECUBE
+	/* CapFaces Flipper listen is MEM1-tight; HUD SPR_Load after frame 1
+	 * Gurus (solo 20261107-123341 mid 320_pain.spr). CapFaces already drew. */
+	if( Sys_CheckParm( "-gcworldrender" ) && GC_UseGxWorldDraw() )
+	{
+		GC_HUD_CALL( "SPR_Load skip CapFaces %s", szPicName ? szPicName : "(null)" );
+		return 0;
+	}
+#endif
 	spr = CL_LoadSpriteModel( szPicName, SPR_HUDSPRITE, 0 );
 	GC_HUD_CALL( "SPR_Load done %s ok=%d", szPicName ? szPicName : "(null)", spr != NULL );
 

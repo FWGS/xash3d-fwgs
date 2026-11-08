@@ -61,7 +61,9 @@ static int     gc_deferred_studio_attempts;
 /* Keep the complete lean c0a0 set and its resident T.mdl headers out of the
  * fragmented MEM1 heap.  The meshes alone are ~384 KiB; their retained skin
  * metadata brings the live set to roughly 0.75 MiB. */
-#define GC_STUDIO_BSS_BYTES (1024 * 1024)
+/* Was 1 MiB; 256 KiB → mapload_pad, 456 KiB → world-array spill (texinfo +
+ * leafs on compact dod_flash BBA join) — keep total BSS flat. */
+#define GC_STUDIO_BSS_BYTES (312 * 1024)
 static byte    gc_studio_bss[GC_STUDIO_BSS_BYTES] __attribute__((aligned( 32 )));
 static size_t  gc_studio_bss_bump;
 static int     gc_studio_bss_owners; /* resident cache.data slices */
@@ -1437,40 +1439,136 @@ static model_t *Mod_LoadModel( model_t *mod, qboolean crash )
 	byte *buf = NULL;
 #if XASH_GAMECUBE
 	/* Prefer the early-reserved contiguous buffer for world BSPs so retail New
-	 * Game is not blocked by heap fragmentation after menu/client churn. */
+	 * Game is not blocked by heap fragmentation after menu/client churn.
+	 * DoD retail maps keep a large LUMP_LIGHTING (~1 MiB). Loading the full BSP
+	 * into the 3.75 MiB arena leaves too little high-slot for msurface blocks
+	 * (dod_flash 9801 surfs ≈1.72 MiB → Mem_Alloc fatal with BBA). Always
+	 * compact-load without LUMP_LIGHTING when present — G154 reloads samples
+	 * from disc into ARAM for CapFaces. Full image only when there is no LM. */
 	if( !Q_strnicmp( loadname, "maps/", 5 ))
 	{
 		fs_offset_t filesize = FS_FileSize( loadname, false );
 
 		if( filesize > (fs_offset_t)sizeof( uint ))
 		{
-			buf = GC_BorrowMapLoadBuffer( (size_t)filesize );
-			if( buf )
-			{
-				file_t *f = FS_Open( loadname, "rb", false );
+			file_t *f = FS_Open( loadname, "rb", false );
+			dheader_t hdr;
+			int light_ofs = 0, light_len = 0;
+			size_t compact_need = (size_t)filesize;
+			qboolean prefer_compact = false;
 
-				if( f )
+			if( f && FS_Read( f, &hdr, sizeof( hdr )) == (fs_offset_t)sizeof( hdr ))
+			{
+				const int ver = LittleLong( hdr.version );
+
+				if( ver == HLBSP_VERSION || ver == Q1BSP_VERSION )
 				{
-					length = FS_Read( f, buf, filesize );
-					FS_Close( f );
-					if( length == filesize )
+					light_ofs = LittleLong( hdr.lumps[LUMP_LIGHTING].fileofs );
+					light_len = LittleLong( hdr.lumps[LUMP_LIGHTING].filelen );
+				}
+			}
+
+			if( light_len > 0 && light_ofs > 0
+				&& (size_t)light_ofs + (size_t)light_len <= (size_t)filesize )
+			{
+				compact_need = (size_t)filesize - (size_t)light_len;
+				prefer_compact = compact_need < (size_t)filesize;
+			}
+
+			if( f && prefer_compact
+				&& ( buf = GC_BorrowMapLoadBuffer( compact_need )) != NULL )
+			{
+				size_t out = 0;
+				byte chunk[4096];
+				fs_offset_t pos = 0;
+				qboolean ok = true;
+				int i;
+
+				FS_Seek( f, 0, SEEK_SET );
+				while( pos < filesize && ok )
+				{
+					size_t want;
+					fs_offset_t got;
+
+					if( light_len > 0 && pos >= light_ofs
+						&& pos < (fs_offset_t)( light_ofs + light_len ))
 					{
-						Con_Reportf( "Xash3D GameCube: map load using reserved buffer %s\n",
-							Q_memprint( (size_t)filesize ));
+						pos = (fs_offset_t)( light_ofs + light_len );
+						FS_Seek( f, pos, SEEK_SET );
+						continue;
 					}
-					else
+
+					want = sizeof( chunk );
+					if( light_len > 0 && pos < light_ofs
+						&& pos + (fs_offset_t)want > light_ofs )
+						want = (size_t)( light_ofs - pos );
+					if( pos + (fs_offset_t)want > filesize )
+						want = (size_t)( filesize - pos );
+					if( out + want > compact_need )
 					{
-						GC_ReleaseMapLoadBuffer( buf );
-						buf = NULL;
-						length = 0;
+						ok = false;
+						break;
 					}
+
+					got = FS_Read( f, chunk, want );
+					if( got != (fs_offset_t)want )
+					{
+						ok = false;
+						break;
+					}
+					memcpy( buf + out, chunk, want );
+					out += want;
+					pos += (fs_offset_t)want;
+				}
+
+				if( ok && out == compact_need && out >= sizeof( dheader_t ))
+				{
+					dheader_t *dh = (dheader_t *)buf;
+
+					dh->lumps[LUMP_LIGHTING].fileofs = 0;
+					dh->lumps[LUMP_LIGHTING].filelen = 0;
+					for( i = 0; i < HEADER_LUMPS; i++ )
+					{
+						const int ofs = LittleLong( dh->lumps[i].fileofs );
+						const int len = LittleLong( dh->lumps[i].filelen );
+
+						if( i == LUMP_LIGHTING || len <= 0 )
+							continue;
+						if( ofs > light_ofs )
+							dh->lumps[i].fileofs = LittleLong( ofs - light_len );
+					}
+					length = (fs_offset_t)out;
+					Con_Reportf( "Xash3D GameCube: map load compact (no lighting) %s → %s (G154 disc LM)\n",
+						Q_memprint( (size_t)filesize ), Q_memprint( out ));
 				}
 				else
 				{
 					GC_ReleaseMapLoadBuffer( buf );
 					buf = NULL;
+					length = 0;
+					Con_Reportf( S_ERROR "Xash3D GameCube: compact map load failed need=%s out=%lu\n",
+						Q_memprint( compact_need ), (unsigned long)out );
 				}
 			}
+			else if( f && ( buf = GC_BorrowMapLoadBuffer( (size_t)filesize )) != NULL )
+			{
+				FS_Seek( f, 0, SEEK_SET );
+				length = FS_Read( f, buf, filesize );
+				if( length == filesize )
+				{
+					Con_Reportf( "Xash3D GameCube: map load using reserved buffer %s\n",
+						Q_memprint( (size_t)filesize ));
+				}
+				else
+				{
+					GC_ReleaseMapLoadBuffer( buf );
+					buf = NULL;
+					length = 0;
+				}
+			}
+
+			if( f )
+				FS_Close( f );
 		}
 	}
 	if( !buf )

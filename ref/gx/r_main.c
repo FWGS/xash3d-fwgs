@@ -544,6 +544,13 @@ void R_FindViewLeaf( void )
 		RI.viewleaf = NULL;
 		return;
 	}
+	/* CapFaces Flipper (-gcworldrender listen): remapped nodes hang PointInLeaf
+	 * in R_SetupFrame after SignonReply (solo 20261107-121947). */
+	if( GC_UseGxWorldDraw() )
+	{
+		RI.viewleaf = NULL;
+		return;
+	}
 #endif
 	RI.viewleaf = gEngfuncs.Mod_PointInLeaf( RI.rvp.vieworigin, WORLDMODEL->nodes, WORLDMODEL );
 }
@@ -1774,23 +1781,9 @@ static void R_EdgeDrawingGcmapProbe( void )
 {
 	if( !FBitSet( RI.rvp.flags, RF_DRAW_WORLD ))
 		return;
-	/* New Game may enter this compatibility edge path before the soft framebuffer
-	 * has been allocated (the normal GameCube path is Flipper). Do not let sky
-	 * spans write through a null d_viewbuffer during that window. */
-	if( !vid.buffer || vid.width <= 0 || vid.height <= 0 || vid.rowbytes <= 0 )
-	{
-		static qboolean missing_buffer_logged;
-		if( !missing_buffer_logged )
-		{
-			missing_buffer_logged = true;
-			gEngfuncs.Con_Reportf( "Xash3D GameCube: skipping edge probe without soft framebuffer\n" );
-		}
-		return;
-	}
-	d_viewbuffer = (pixel_t *)vid.buffer;
-	r_screenwidth = vid.rowbytes;
 
-	/* G151: Flipper GX world — no soft edges/spans. */
+	/* G151: Flipper CapFaces need no soft framebuffer. Soft FB gate used to
+	 * return first and skip CapFaces on solo listen (20261107-122118). */
 	if( GC_UseGxWorldDraw() )
 	{
 		extern int R_GXDrawNewGameCapFaces( void );
@@ -1822,6 +1815,18 @@ static void R_EdgeDrawingGcmapProbe( void )
 		if( tr.framecount <= 1 )
 			gEngfuncs.Con_Reportf( "Xash3D GameCube: R_EdgeDrawing GX CapFaces drawn=%d\n",
 				cap_drawn );
+		/* One Swiss FAT evidence line when CapFaces first produce geometry. */
+		if( cap_drawn > 0 )
+		{
+			static qboolean cap_drawn_evidence;
+
+			if( !cap_drawn_evidence )
+			{
+				extern void GCube_AppendSwissEvidence( const char *fmt, ... );
+				cap_drawn_evidence = true;
+				GCube_AppendSwissEvidence( "CapFaces drawn=%d", cap_drawn );
+			}
+		}
 		/* G235: opaque brush movers were skipped by this early return —
 		 * soft path called R_DrawBEntitiesOnList; Flipper never did. */
 		bn = (int)tr.draw_list->num_edge_entities;
@@ -1887,6 +1892,20 @@ static void R_EdgeDrawingGcmapProbe( void )
 		}
 		return;
 	}
+
+	/* Soft edge probe only — CapFaces already returned above. */
+	if( !vid.buffer || vid.width <= 0 || vid.height <= 0 || vid.rowbytes <= 0 )
+	{
+		static qboolean missing_buffer_logged;
+		if( !missing_buffer_logged )
+		{
+			missing_buffer_logged = true;
+			gEngfuncs.Con_Reportf( "Xash3D GameCube: skipping edge probe without soft framebuffer\n" );
+		}
+		return;
+	}
+	d_viewbuffer = (pixel_t *)vid.buffer;
+	r_screenwidth = vid.rowbytes;
 
 	if( !R_GcmapEnsureWorldRenderScratch() )
 		return;

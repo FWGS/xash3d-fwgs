@@ -992,6 +992,15 @@ static qboolean Cmd_CheckMapsList_R( qboolean fRefresh, qboolean onlyingamedir )
 		if( buffer ) Mem_Free( buffer );
 		return true;
 	}
+	/* GameCube disc-only (and other read-only basedirs): refresh still
+	 * scanned maps/*.bsp, but cannot rewrite maps.lst. Keep a pre-staged
+	 * maps.lst so Create Game can start a local listen server. */
+	if( buffer ) Mem_Free( buffer );
+	if( FS_FileSize( "maps.lst", onlyingamedir ) > 0 )
+	{
+		Con_Reportf( "Xash3D GameCube: maps.lst refresh kept staged file (write denied)\n" );
+		return true;
+	}
 	return false;
 }
 

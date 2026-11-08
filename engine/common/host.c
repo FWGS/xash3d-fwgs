@@ -60,6 +60,8 @@ qboolean GC_AttemptGcmapWorldRender( int count );
 qboolean R_GcmapEnsureSurfaceCache( void );
 qboolean GC_ShouldUseLightPresent( void );
 qboolean GC_IsFrameBudgetProbeActive( void );
+int GC_NetEnsureReady( void );
+const char *GC_NetLocalIP( void );
 #endif
 
 host_parm_t		host;	// host parms
@@ -800,6 +802,23 @@ void Host_Frame( double time )
 		Con_Reportf( "Xash3D GameCube: post-commands Host_Frame=%u\n", host.framecount );
 #if XASH_GAMECUBE
 	GC_ProfMark( "host input+commands" );
+	/* Host_GetCommands may have run changelevel2 → COM_ChangeLevel →
+	 * STATE_CHANGELEVEL. CapFaces/present softlocks on tip-tight denser maps
+	 * (c1a1 tip≈12 KiB, c2a2a tip≈22 KiB) before Host_RunFrame can drain the
+	 * hop — Host_Frame never returns, plaque never starts. Bail the rest of
+	 * this frame so CHANGELEVEL runs next. */
+	if( GameState->nextstate == STATE_CHANGELEVEL
+		|| GameState->nextstate == STATE_LOAD_LEVEL
+		|| GameState->nextstate == STATE_LOAD_GAME
+		|| GameState->nextstate == STATE_GAME_SHUTDOWN )
+	{
+		Con_Reportf( "Xash3D GameCube: Host_Frame early-out pending nextstate=%d map=%s tip=%s\n",
+			(int)GameState->nextstate, sv.name[0] ? sv.name : "?",
+			Q_memprint( GC_MemHeapFreeBytes() ));
+		host.framecount++;
+		host.pureframetime = Platform_DoubleTime() - t1;
+		return;
+	}
 	{
 		static qboolean gc_host_frame0_logged;
 
@@ -1602,8 +1621,12 @@ int EXPORT Host_Main( int argc, char **argv, const char *progname, int bChangeGa
 	/* Boot may have parked a 384 KiB nodes reserve while MEM1 looked fat;
 	 * with SP BSS edicts that leaves tip too thin for CL_InitLocal (hung at
 	 * boot phase=engine, probe 20261106-085739). Release idle heap reserves
-	 * here — GC_BeginMapLoadMemoryOpt retakes before BSP. */
-	if( GC_MemHeapFreeBytes() < 48u * 1024u )
+	 * here — GC_BeginMapLoadMemoryOpt retakes before BSP.
+	 * Use arena free (not arena+unclaimed): DoD menu boots can show
+	 * unclaimed≈700 KiB while fordblks≈4 KiB, so the old total-free check
+	 * skipped the release and menu Flipper stayed blank (visible=0). */
+	if( GC_MemArenaFreeBytes() < 48u * 1024u
+		|| GC_MemHeapFreeBytes() < 48u * 1024u )
 	{
 		extern void Mod_GCReleaseUnusedWorldReserves( void );
 
@@ -1626,12 +1649,24 @@ int EXPORT Host_Main( int argc, char **argv, const char *progname, int bChangeGa
 		GC_DrawLoadingStatus( "XASH3D GAMECUBE", "LOADING MENU..." );
 #endif
 
-#if !XASH_GAMECUBE
+#if XASH_GAMECUBE
+	/* Keep a lean HTTP pool so Find servers / fastdl don't fatal with
+	 * POOL IS NULL. With -net (BBA/eth2sp1 already brought up in GCube_Init),
+	 * open multiplayer UDP; otherwise stay deferred/offline. */
+	HTTP_Init();
+	if( Sys_CheckParm( "-net" ))
+	{
+		Con_Reportf( "Xash3D GameCube: HTTP pool ready; enabling multiplayer sockets (-net)\n" );
+		NET_Config( true, true );
+	}
+	else
+	{
+		Con_Reportf( "Xash3D GameCube: HTTP pool ready (sockets deferred)\n" );
+		NET_Config( false, false );
+	}
+#else
 	HTTP_Init();
 	NET_Config( true, true );
-#else
-	Con_Reportf( "Xash3D GameCube: HTTP disabled\n" );
-	NET_Config( false, false );
 #endif
 #if XASH_GAMECUBE
 	if( Sys_CheckParm( "-gcmap" ))
@@ -1794,6 +1829,16 @@ int EXPORT Host_Main( int argc, char **argv, const char *progname, int bChangeGa
 				GC_PrepareMapLoadBufferForMap( gcmap );
 				GC_SetLoadingProgress( 0.50f );
 				GC_DrawLoadingStatus( "LOADING BSP", gcmap );
+				/* -gclistenserver + -gcmap tip-spawns before the main-loop
+				 * maxplayers latch. Default maxplayers=1 fills with the local
+				 * client and rejects BBA peers ("server is full"). Apply MP
+				 * capacity before SpawnServer. Cap at 2 for MEM1 (local+peer). */
+				if( Sys_CheckParm( "-gclistenserver" ))
+				{
+					Con_Reportf( "Xash3D GameCube: listenserver pre-spawn maxplayers=2\n" );
+					Cbuf_AddText( "deathmatch 1\nmaxplayers 2\n" );
+					Cbuf_Execute();
+				}
 				if( SV_SpawnServer( gcmap, NULL, false ))
 				{
 					GC_SetLoadingProgress( 0.80f );
@@ -2077,9 +2122,10 @@ int EXPORT Host_Main( int argc, char **argv, const char *progname, int bChangeGa
 #if XASH_GAMECUBE
 	/* Tram→AM early changelevel queues before the main loop; HPAK_CheckIntegrity
 	 * hangs on disc-only New Game (c0a0e→c1a0 probes). Skip for map probes. */
-	if( Sys_CheckParm( "-gcmap" ) || Sys_CheckParm( "-gcnewgame" ))
+	if( Sys_CheckParm( "-gcmap" ) || Sys_CheckParm( "-gcnewgame" )
+		|| Sys_CheckParm( "-gclistenserver" ) || Sys_CheckParm( "-gcconnect" ))
 	{
-		Con_Reportf( "Xash3D GameCube: HPAK integrity check skipped (gcmap/newgame)\n" );
+		Con_Reportf( "Xash3D GameCube: HPAK integrity check skipped (gcmap/newgame/listenserver/connect)\n" );
 	}
 	else
 	{
@@ -2089,6 +2135,46 @@ int EXPORT Host_Main( int argc, char **argv, const char *progname, int bChangeGa
 	}
 	Con_Reportf( "Xash3D GameCube: host main loop begin status=%d\n", host.status );
 	GC_MemHeapMark( "host_main_loop_begin_status" );
+	/* Solo local match: Create Game equivalent without UI / peers.
+	 * deathmatch + maxplayers latch then map (not -gcmap smoke). */
+	{
+		string listenmap;
+		string connectaddr;
+
+		if( Sys_GetParmFromCmdLine( "-gclistenserver", listenmap ) && listenmap[0] )
+		{
+			/* When argv also carries -gcmap (MEM1 tip path), the map is already
+			 * SpawnServer'd before the main loop — do not restart (OOM/crash). */
+			if( Sys_CheckParm( "-gcmap" ) && SV_Active() )
+			{
+				Con_Reportf( "Xash3D GameCube: solo listenserver active map=%s (gcmap tip)\n",
+					sv.name[0] ? sv.name : listenmap );
+			}
+			else
+			{
+				Con_Reportf( "Xash3D GameCube: solo listenserver queue map=%s maxplayers=2\n",
+					listenmap );
+				Cbuf_AddText( "deathmatch 1\nmaxplayers 2\nlatch\n" );
+				Cbuf_AddTextf( "map %s\n", listenmap );
+				Cbuf_Execute();
+			}
+		}
+		/* Peer client: BBA/eth2sp1 then connect <ip[:port]> (no listen). */
+		if( Sys_GetParmFromCmdLine( "-gcconnect", connectaddr ) && connectaddr[0] )
+		{
+			if( GC_NetEnsureReady( ))
+			{
+				Con_Reportf( "Xash3D GameCube: peer connect queue %s (ip=%s)\n",
+					connectaddr, GC_NetLocalIP( ));
+				Cbuf_AddTextf( "connect %s\n", connectaddr );
+				Cbuf_Execute();
+			}
+			else
+			{
+				Con_Reportf( S_WARN "Xash3D GameCube: peer connect skipped — net not ready\n" );
+			}
+		}
+	}
 #else
 	HPAK_CheckIntegrity( hpk_custom_file.string );
 #endif

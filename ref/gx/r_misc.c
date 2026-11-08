@@ -296,6 +296,14 @@ void R_SetupFrameQ( void )
 			RI.viewleaf = NULL;
 			r_viewcluster = GC_GetNewGameViewCluster();
 		}
+		/* CapFaces Flipper path (-gcworldrender listen/smoke): nodes are
+		 * remapped after early bake; PointInLeaf hangs in R_SetupFrame after
+		 * SignonReply (solo 20261107-121814). CapFaces ignore viewleaf. */
+		else if( GC_UseGxWorldDraw() )
+		{
+			RI.viewleaf = NULL;
+			r_viewcluster = GC_GetNewGameViewCluster();
+		}
 		else
 #endif
 		{

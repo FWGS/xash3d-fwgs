@@ -35,6 +35,7 @@ GNU General Public License for more details.
 void GC_CaptureNewGamePVS( void );
 void GC_CaptureNewGamePVSFromModel( model_t *wmodel );
 void GC_CaptureIntroTrainFaces( model_t *wmodel ); /* G277 */
+qboolean GC_PrefetchCapFacesWhileEdgesLive( model_t *mod );
 
 static void Mod_GCFreeBspPin( void **ptr );
 static byte *Mod_GCPinBspLump( poolhandle_t pool, const byte *src, size_t size );
@@ -323,6 +324,15 @@ static size_t gc_bsp_scratch_carve_high;
  * consume this region: c2a4e/c5a1 need the lighting-through-EOF hole plus
  * the unused tail as one contiguous block. */
 static size_t gc_bsp_surface_reserve;
+/* Set when the high slot is clamped for a compact (oversized) BSP image —
+ * world-tex pack must not eat the medge16 expand window. */
+static qboolean gc_bsp_surface_reserve_clamped;
+/* Compact DoD: edges take the clipnodes+markfaces hole; texinfo (~196 KiB)
+ * and leafs (~249 KiB on dod_flash) spill here when BSP holes are spent.
+ * Paired with a matching cut to studio BSS so total MEM1 stays flat. */
+#define GC_WORLD_ARRAY_SPILL_BYTES (456u * 1024u)
+static byte gc_world_array_spill[GC_WORLD_ARRAY_SPILL_BYTES] __attribute__((aligned( 32 )));
+static size_t gc_world_array_spill_used;
 static qboolean gc_texinfo_carve_pending;
 static file_t *gc_bsp_reload_file;
 static char gc_bsp_reload_path[MAX_QPATH];
@@ -486,10 +496,17 @@ void Mod_GCClearRetainedBspScratch( void )
 	gc_world_msurface_retained = false;
 	gc_lm_aram_base = 0;
 	gc_lm_aram_bytes = 0;
+	gc_world_array_spill_used = 0;
 	Mod_GCClearSurfLightofs();
 }
 
 #if XASH_GAMECUBE
+/* Disc LM bake for Flipper CapFaces — New Game and listen/connect world render. */
+static qboolean Mod_GCWantFlipperDiscLightmaps( void )
+{
+	return Sys_CheckParm( "-gcnewgame" ) || Sys_CheckParm( "-gcworldrender" );
+}
+
 qboolean Mod_GCAramLightmapActive( void )
 {
 	return gc_lm_aram_base != 0 && gc_lm_aram_bytes > 0;
@@ -754,6 +771,75 @@ static void *Mod_GCAllocWorldScratch( model_t *mod, dbspmodel_t *bmod, const gc_
 static void *Mod_GCWorldArrayAlloc( model_t *mod, dbspmodel_t *bmod, size_t bytes, const char *what );
 
 #if XASH_GAMECUBE
+/* Compact (no-lighting) DoD BSPs have no deferred-LM scratch hole. Drop
+ * lumps EnsureBspLump / soft-skip can restore so edges (~186 KiB) and
+ * texinfo (~196 KiB) land in BSP holes instead of the surface high-slot. */
+static void Mod_GCReleasePreEdgeScratchLumps( dbspmodel_t *bmod )
+{
+	size_t freed = 0;
+
+	if( !GC_MapLoadMemoryOpt() || !bmod || !bmod->isworld || !gc_bsp_scratch_base )
+		return;
+
+	if( bmod->visdata && Mod_GCPointerInBuffer( bmod->visdata, gc_bsp_scratch_base, gc_bsp_scratch_size ))
+	{
+		freed += bmod->visdatasize;
+		Mod_GCFreeBspPin( (void **)&bmod->visdata );
+		bmod->visdatasize = 0;
+	}
+	if( bmod->version == QBSP2_VERSION )
+	{
+		if( bmod->clipnodes32 && Mod_GCPointerInBuffer( bmod->clipnodes32, gc_bsp_scratch_base, gc_bsp_scratch_size ))
+		{
+			freed += (size_t)bmod->numclipnodes * sizeof( *bmod->clipnodes32 );
+			Mod_GCFreeBspPin( (void **)&bmod->clipnodes32 );
+		}
+	}
+	else if( bmod->clipnodes && Mod_GCPointerInBuffer( bmod->clipnodes, gc_bsp_scratch_base, gc_bsp_scratch_size ))
+	{
+		freed += (size_t)bmod->numclipnodes * sizeof( *bmod->clipnodes );
+		Mod_GCFreeBspPin( (void **)&bmod->clipnodes );
+	}
+	/* marksurfaces sits immediately after clipnodes in HL BSPs — free both
+	 * so edges (~186 KiB) get one contiguous hole (clip alone is ~181 KiB). */
+	if( bmod->version == QBSP2_VERSION )
+	{
+		if( bmod->markfaces32 && Mod_GCPointerInBuffer( bmod->markfaces32, gc_bsp_scratch_base, gc_bsp_scratch_size ))
+		{
+			freed += (size_t)bmod->nummarkfaces * sizeof( *bmod->markfaces32 );
+			Mod_GCFreeBspPin( (void **)&bmod->markfaces32 );
+		}
+	}
+	else if( bmod->markfaces && Mod_GCPointerInBuffer( bmod->markfaces, gc_bsp_scratch_base, gc_bsp_scratch_size ))
+	{
+		freed += (size_t)bmod->nummarkfaces * sizeof( *bmod->markfaces );
+		Mod_GCFreeBspPin( (void **)&bmod->markfaces );
+	}
+	if( bmod->entdata && Mod_GCPointerInBuffer( bmod->entdata, gc_bsp_scratch_base, gc_bsp_scratch_size ))
+	{
+		freed += bmod->entdatasize;
+		Mod_GCFreeBspPin( (void **)&bmod->entdata );
+		bmod->entdatasize = 0;
+	}
+	if( freed )
+		Con_Reportf( "Xash3D GameCube: pre-edge scratch reclaim %s (vis/clipnodes/markfaces/ents)\n",
+			Q_memprint( freed ));
+}
+
+static void *Mod_GCWorldArraySpillAlloc( size_t bytes, const char *what )
+{
+	size_t aligned = ALIGN( bytes, 32 );
+	byte *out;
+
+	if( aligned > GC_WORLD_ARRAY_SPILL_BYTES - gc_world_array_spill_used )
+		return NULL;
+	out = gc_world_array_spill + gc_world_array_spill_used;
+	gc_world_array_spill_used += aligned;
+	Con_Reportf( "Xash3D GameCube: world %s using array spill %s (spill used %s)\n",
+		what, Q_memprint( bytes ), Q_memprint( gc_world_array_spill_used ));
+	return out;
+}
+
 static void Mod_GCFreeGcmapPreSurfaceLumps( dbspmodel_t *bmod )
 {
 	if( !GC_MapLoadMemoryOpt() || !bmod->isworld || !gc_bsp_scratch_base )
@@ -763,7 +849,11 @@ static void Mod_GCFreeGcmapPreSurfaceLumps( dbspmodel_t *bmod )
 	Mod_GCFreeBspPin( (void **)&bmod->planes );
 	Mod_GCFreeBspPin( (void **)&bmod->vertexes );
 	Mod_GCFreeBspPin( (void **)&bmod->submodels );
-	Mod_GCFreeBspPin( (void **)&bmod->surfedges );
+	/* Keep aliased surfedges live until CapFaces EDGE bake (mod->surfedges
+	 * may still point here). Nulling only the bmod pin is safe for copies;
+	 * for aliases, skip so CollectAll busy-protects the range. */
+	if( !gc_surfedges_source_alias )
+		Mod_GCFreeBspPin( (void **)&bmod->surfedges );
 	if( bmod->version == QBSP2_VERSION )
 		Mod_GCFreeBspPin( (void **)&bmod->edges32 );
 	else
@@ -1776,9 +1866,16 @@ mleaf_t *Mod_PointInLeaf( const vec3_t p, mnode_t *node, model_t *mod )
 
 		while( node && depth++ < depth_limit )
 		{
+			uintptr_t plane_addr;
+
 			if( node->contents < 0 )
 				return (mleaf_t *)node;
 			if( !node->plane )
+				break;
+			/* CapFaces / scratch remap leaves plane* outside MEM1 — PlaneDiff
+			 * DSI (solo listen spawn 20261107-122912 DAR=718071D0). */
+			plane_addr = (uintptr_t)node->plane;
+			if( plane_addr < 0x80000000u || plane_addr >= 0x81800000u )
 				break;
 			node = node_child( node, PlaneDiff( p, node->plane ) <= 0, mod );
 		}
@@ -3941,6 +4038,9 @@ static void *Mod_GCWorldArrayTryAlloc( model_t *mod, dbspmodel_t *bmod, size_t b
 			Con_Reportf( "Xash3D GameCube: world %s using map-load arena tail %s\n", what, Q_memprint( bytes ));
 			return out;
 		}
+		out = Mod_GCWorldArraySpillAlloc( bytes, what );
+		if( out )
+			return out;
 	}
 #endif
 	(void)what;
@@ -3981,6 +4081,10 @@ static void Mod_LoadEdges( model_t *mod, dbspmodel_t *bmod )
 	{
 		dedge_t	*in = bmod->edges;
 		medge16_t *out;
+		/* CapFaces EDGE bake wants durable edges, but parking 186 Kb in the
+		 * array spill before texinfo/leafs tipped solo MEM1 and hung the
+		 * 9801-surf bake (20261107-133925). Prefer scratch; TEX/PLANE verts
+		 * remain durable after CapFaces snapshot. */
 		mod->edges16 = out = Mod_GCWorldArrayAlloc( mod, bmod, bmod->numedges * sizeof( *out ), "edges" );
 
 		for( int i = 0; i < bmod->numedges; i++, in++, out++ )
@@ -4025,6 +4129,9 @@ static void Mod_LoadSurfEdges( model_t *mod, dbspmodel_t *bmod )
 		}
 		else
 		{
+			/* Alias BSP source; Mod_GCFreeGcmapPreSurfaceLumps must NOT drop
+			 * the pin while CapFaces still EDGE-walks mod->surfedges (solo
+			 * spill copy OOMed leafs — keep alias + busy-protect). */
 			mod->surfedges = bmod->surfedges;
 			gc_surfedges_source_alias = true;
 			mod->numsurfedges = bmod->numsurfedges;
@@ -4457,9 +4564,35 @@ static struct
 #define GC_WT_TAIL_GUARD_BYTES ( 96 * 1024 )
 #define GC_WT_SPLIT_DIM  64
 #define GC_WT_MIN_HOT_BYTES ( 32 * 1024 )
+/* Sentinel e->offset: bind shared 8×8 CMPR stub until ARAM hot-window stream. */
+#define GC_WT_STUB_OFFSET 0xffffffffu
 static byte *gc_wt_pool;
 static size_t gc_wt_pool_bytes;
 static qboolean gc_wt_pool_mapload_tail;
+static byte gc_wt_cmpr_stub[32] __attribute__(( aligned( 32 )));
+/* One valid 8×8 CMPR tile (flat mid-grey) — never bind an uninitialized stub. */
+static void Mod_GCWorldPackInitStub( void )
+{
+	static qboolean ready;
+	int i;
+
+	if( ready )
+		return;
+	/* 4 sub-blocks: RGB565 endpoints 0x8410/0x8410 + zero indices. */
+	for( i = 0; i < 4; i++ )
+	{
+		gc_wt_cmpr_stub[i * 8 + 0] = 0x84;
+		gc_wt_cmpr_stub[i * 8 + 1] = 0x10;
+		gc_wt_cmpr_stub[i * 8 + 2] = 0x84;
+		gc_wt_cmpr_stub[i * 8 + 3] = 0x10;
+		gc_wt_cmpr_stub[i * 8 + 4] = 0;
+		gc_wt_cmpr_stub[i * 8 + 5] = 0;
+		gc_wt_cmpr_stub[i * 8 + 6] = 0;
+		gc_wt_cmpr_stub[i * 8 + 7] = 0;
+	}
+	DCFlushRange( gc_wt_cmpr_stub, sizeof( gc_wt_cmpr_stub ));
+	ready = true;
+}
 
 /*
  * Move scratch-/tail-backed world planes onto malloc and rebase every
@@ -4724,6 +4857,7 @@ static void Mod_GCWorldPackLoad( const char *modelname, size_t surface_reserve )
 	f = FS_Open( path, "rb", false );
 	if( !f )
 		return;
+	Mod_GCWorldPackInitStub();
 	start = Sys_DoubleTime( );
 	size = FS_FileLength( f );
 	if( !gc_wt_store_base )
@@ -4768,6 +4902,14 @@ static void Mod_GCWorldPackLoad( const char *modelname, size_t surface_reserve )
 		 * despite ~500 KiB of free pre-surface tail (probe 20261104-030354). */
 		if( remaining < pool_bytes )
 			pool_bytes = remaining >= GC_WT_MIN_POOL_BYTES ? ( remaining & ~(size_t)31 ) : 0;
+		/* Compact BSP path: keep the medge16 expand window (~260 KiB). A greedy
+		 * pack pool previously ate it (avalanche 176 KiB pool → edges tip-OOM). */
+		if( gc_bsp_surface_reserve_clamped && pool_bytes > GC_WT_MIN_POOL_BYTES )
+		{
+			pool_bytes = GC_WT_MIN_POOL_BYTES;
+			Con_Reportf( "Xash3D GameCube: world texture pack pool capped at %s (compact BSP edge guard)\n",
+				Q_memprint( pool_bytes ));
+		}
 		if( !gc_wt_pool )
 		{
 			gc_wt_pool = pool_bytes ? (byte *)Mod_GCPreSurfaceTailAlloc( after, pool_bytes ) : NULL;
@@ -4826,6 +4968,26 @@ static void Mod_GCWorldPackLoad( const char *modelname, size_t surface_reserve )
 			(unsigned)gc_wt.table[gc_wt.count - 2].offset, (unsigned)data_bytes );
 	split_dim = Mod_GCWorldPackSplitDim( gc_wt.table, gc_wt.count, data_bytes, pool_bytes, first );
 
+	{
+	/* Tiny pools start ARAM-only. Larger map-load tails still fill MEM1 staging
+	 * first; when the hot window runs out, flip to ARAM-stream-only for the rest
+	 * (stub MEM1 bind + full chain in ARAM) instead of truncating gc_wt.count
+	 * (dod_flash packed=20/76 → magenta CapFaces) or stuffing every remaining
+	 * resident into MEM1 (packed=77 then OOM at nodes, dual IPC 20261107-094503). */
+	qboolean aram_only = pool_bytes < 64u * 1024u;
+	qboolean stream_only = false; /* after staging fills: ARAM + stub, no MEM1 grow */
+	qboolean logged_aram_continue = false;
+	/* Cap stub+ARAM extras: packing all remaining chains (dod_flash +57)
+	 * left the connect reload with free≈76 Kb and nodes prealloc miss/OOM
+	 * (dual IPC 20261107-094845). Solo -gcworldrender CapFaces need more than
+	 * the MEM1 staging window (~20) or Flipper draws grey (20261107-132200).
+	 * Stub+ARAM uses no extra low-mips — safe for offline listen. */
+	unsigned stream_only_count = 0;
+	/* Offline CapFaces: pack the full dod_flash table (77) via stub+ARAM;
+	 * 48 left 9 unbound → grey/missing slabs (20261107-133054). */
+	const unsigned stream_only_max = Sys_CheckParm( "-gcworldrender" )
+		&& !Sys_CheckParm( "-gcconnect" ) ? 64u : 0u;
+
 	for( i = 0; i < gc_wt.count; i++ )
 	{
 		gc_wt_entry_t *e = &gc_wt.table[i];
@@ -4835,7 +4997,6 @@ static void Mod_GCWorldPackLoad( const char *modelname, size_t surface_reserve )
 		uint32_t skip = split ? (uint32_t)e->width * e->height / 2 : 0;
 		unsigned low_shift = split ? 1 : 0;
 		const uint32_t room = (uint32_t)pool_bytes - first - low;
-		const qboolean aram_only = pool_bytes < 64u * 1024u;
 		const gc_wt_stored_t *s;
 		if( end <= e->offset || end > data_bytes || skip > bytes )
 		{
@@ -4855,13 +5016,17 @@ static void Mod_GCWorldPackLoad( const char *modelname, size_t surface_reserve )
 			/* Through the top of the pool, on its way to ARAM. */
 			byte *through;
 
-			if( !aram_only && bytes > room )
+			if( !aram_only && !stream_only && bytes > room )
 			{
-				Con_Reportf( S_WARN "Xash3D GameCube: texture pack stop map=%s index=%u reason=staging-budget bytes=%u room=%u\n",
-					stem, (unsigned)i, (unsigned)bytes, (unsigned)room );
-				break;
+				if( !logged_aram_continue )
+				{
+					logged_aram_continue = true;
+					Con_Reportf( "Xash3D GameCube: texture pack continue ARAM-stream map=%s from=%u bytes=%u room=%u\n",
+						stem, (unsigned)i, (unsigned)bytes, (unsigned)room );
+				}
+				stream_only = true;
 			}
-			if( aram_only )
+			if( aram_only || stream_only )
 			{
 				s = Mod_GCWorldStorePutFile( e, f, first + e->offset, bytes );
 				if( !s )
@@ -4876,9 +5041,23 @@ static void Mod_GCWorldPackLoad( const char *modelname, size_t surface_reserve )
 			through = gc_wt_pool + (( (uint32_t)pool_bytes - bytes ) & ~(uint32_t)31 );
 			if( through < gc_wt.data + low )
 			{
-				Con_Reportf( S_WARN "Xash3D GameCube: texture pack stop map=%s index=%u reason=staging-alignment\n", stem, (unsigned)i );
-				break;
+				if( !logged_aram_continue )
+				{
+					logged_aram_continue = true;
+					Con_Reportf( "Xash3D GameCube: texture pack continue ARAM-stream map=%s from=%u reason=staging-alignment\n",
+						stem, (unsigned)i );
+				}
+				stream_only = true;
+				s = Mod_GCWorldStorePutFile( e, f, first + e->offset, bytes );
+				if( !s )
+				{
+					Con_Reportf( S_WARN "Xash3D GameCube: texture pack stop map=%s index=%u reason=stream-read\n", stem, (unsigned)i );
+					break;
+				}
+				misses++; miss_bytes += bytes;
 			}
+			else
+			{
 			FS_Seek( f, first + e->offset, SEEK_SET );
 			if( FS_Read( f, through, bytes ) != bytes )
 			{
@@ -4889,6 +5068,32 @@ static void Mod_GCWorldPackLoad( const char *modelname, size_t surface_reserve )
 			misses++;
 			miss_bytes += bytes;
 			}
+			}
+		}
+		if( stream_only )
+		{
+			/* Full CMPR chain in ARAM; bind a shared 8×8 stub until the hot
+			 * window streams the real chain — never grow MEM1 `low`. */
+			if( stream_only_count >= stream_only_max )
+			{
+				Con_Reportf( "Xash3D GameCube: texture pack stream-only cap map=%s at=%u max=%u\n",
+					stem, (unsigned)i, stream_only_max );
+				break;
+			}
+			if( !s )
+			{
+				Con_Reportf( S_WARN "Xash3D GameCube: texture pack stop map=%s index=%u reason=aram\n", stem, (unsigned)i );
+				break;
+			}
+			e->offset = GC_WT_STUB_OFFSET;
+			e->flags |= 2;
+			gc_wt.aram[i] = gc_wt_store_base + s->aram;
+			gc_wt.bytes[i] = bytes;
+			/* Bit 0x40: MEM1 is the shared 8×8 stub — bind must bounce from
+			 * ARAM (or clamp to 8×8), never InitTexObj stub as WxH. */
+			gc_wt.low_shift[i] = 0x40u;
+			stream_only_count++;
+			continue;
 		}
 		if( aram_only )
 		{
@@ -4910,14 +5115,31 @@ static void Mod_GCWorldPackLoad( const char *modelname, size_t surface_reserve )
 			}
 			if( !s || bytes - skip > room )
 			{
-				Con_Reportf( S_WARN "Xash3D GameCube: texture pack stop map=%s index=%u reason=resident-budget\n", stem, (unsigned)i );
-				break;
+				/* Fall through to stub+ARAM stream instead of truncating. */
+				if( !logged_aram_continue )
+				{
+					logged_aram_continue = true;
+					Con_Reportf( "Xash3D GameCube: texture pack continue ARAM-stream map=%s from=%u reason=resident-budget\n",
+						stem, (unsigned)i );
+				}
+				stream_only = true;
+				if( !s )
+				{
+					Con_Reportf( S_WARN "Xash3D GameCube: texture pack stop map=%s index=%u reason=aram\n", stem, (unsigned)i );
+					break;
+				}
+				e->offset = GC_WT_STUB_OFFSET;
+				e->flags |= 2;
+				gc_wt.aram[i] = gc_wt_store_base + s->aram;
+				gc_wt.bytes[i] = bytes;
+				gc_wt.low_shift[i] = 0x40u;
+				continue;
 			}
 			GC_AramTransfer( gc_wt_store_base + s->aram + skip, gc_wt.data + low, bytes - skip, false );
 			e->offset = low;
 			e->flags |= low_shift ? 2 : 0;
 			gc_wt.aram[i] = gc_wt_store_base + s->aram;
-			gc_wt.bytes[i] = low_shift ? bytes : 0;
+			gc_wt.bytes[i] = bytes; /* ARAM restream after arena reuse */
 			gc_wt.low_shift[i] = low_shift;
 			low += bytes - skip;
 			continue;
@@ -4929,17 +5151,22 @@ static void Mod_GCWorldPackLoad( const char *modelname, size_t surface_reserve )
 			break;
 		}
 		GC_AramTransfer( gc_wt_store_base + s->aram + skip, gc_wt.data + low, bytes - skip, false );
-		/* The entry now says where things are. */
+		/* The entry now says where things are. Always keep full ARAM chain
+		 * size so CapFaces can restream after the map-load arena is reused. */
 		e->offset = low;
 		e->flags |= split ? 2 : 0;
 		gc_wt.aram[i] = gc_wt_store_base + s->aram;
-		gc_wt.bytes[i] = split ? bytes : 0;
+		gc_wt.bytes[i] = bytes;
 		gc_wt.low_shift[i] = low_shift;
 		low += bytes - skip;
 	}
+	} /* aram_only / stream_only scope */
 	gc_wt.count = i;
 	gc_wt.block = gc_wt_pool;
-	DCFlushRange( gc_wt_pool, first );
+	/* Flush table + resident low mips for GX (best-effort until arena reuse).
+	 * CapFaces binds restream from ARAM via a static bounce (r_gx_world) —
+	 * do not memalign a durable hot window here (48 Kb tipped nodes OOM). */
+	DCFlushRange( gc_wt_pool, first + low );
 	GX_InvalidateTexAll( );
 	FS_Close( f );
 	R_GCHotWindow( gc_wt.data + low, (unsigned)( pool_bytes - first - low ));
@@ -4961,7 +5188,13 @@ static int Mod_GCWorldPackTexture( const char *name )
 		const gc_wt_entry_t *e = &gc_wt.table[i];
 
 		if( !Q_strnicmp( e->name, name, sizeof( e->name )))
-			return R_GCPackedTexture( e->name, e->width, e->height, e->levels, e->flags & 1, gc_wt.data + e->offset, gc_wt.aram[i], gc_wt.bytes[i], gc_wt.low_shift[i] );
+		{
+			void *data = ( e->offset == GC_WT_STUB_OFFSET )
+				? (void *)gc_wt_cmpr_stub
+				: (void *)( gc_wt.data + e->offset );
+			return R_GCPackedTexture( e->name, e->width, e->height, e->levels, e->flags & 1,
+				data, gc_wt.aram[i], gc_wt.bytes[i], gc_wt.low_shift[i] );
+		}
 	}
 	/* A few retail BSPs reference an animated frame with a name that differs
 	 * from the packed table only in the frame digit.  Keep the texture on the
@@ -4977,7 +5210,11 @@ static int Mod_GCWorldPackTexture( const char *name )
 			if( e->name[0] == '-' && e->name[1] >= '0' && e->name[1] <= '9' &&
 				!Q_strnicmp( e->name + 2, name + 2, sizeof( e->name ) - 2 ))
 			{
-				return R_GCPackedTexture( e->name, e->width, e->height, e->levels, e->flags & 1, gc_wt.data + e->offset, gc_wt.aram[i], gc_wt.bytes[i], gc_wt.low_shift[i] );
+				void *data = ( e->offset == GC_WT_STUB_OFFSET )
+					? (void *)gc_wt_cmpr_stub
+					: (void *)( gc_wt.data + e->offset );
+				return R_GCPackedTexture( e->name, e->width, e->height, e->levels, e->flags & 1,
+					data, gc_wt.aram[i], gc_wt.bytes[i], gc_wt.low_shift[i] );
 			}
 		}
 	}
@@ -5032,7 +5269,36 @@ static void Mod_LoadTextureData( model_t *mod, dbspmodel_t *bmod, int textureInd
 	texture->gl_texturenum = 0;
 #if XASH_GAMECUBE
 	if( bmod->isworld && !iswater && ( texture->gl_texturenum = Mod_GCWorldPackTexture( mipTex.name )) != 0 )
+	{
+		/* Pack short-circuit used to skip mip width/height. CapFaces ST and
+		 * any live path using texture_t then fell back to 64 while GX bound
+		 * real CMPR sizes → GX_REPEAT slab noise. Prefer GCT entry dims. */
+		uint32_t i;
+		int pw = 0, ph = 0;
+
+		for( i = 0; i < gc_wt.count; i++ )
+		{
+			const gc_wt_entry_t *e = &gc_wt.table[i];
+
+			if( !Q_strnicmp( e->name, mipTex.name, sizeof( e->name )))
+			{
+				pw = e->width;
+				ph = e->height;
+				break;
+			}
+		}
+		if( pw > 0 && ph > 0 )
+		{
+			texture->width = (unsigned)pw;
+			texture->height = (unsigned)ph;
+		}
+		else
+		{
+			texture->width = mipTex.width;
+			texture->height = mipTex.height;
+		}
 		return;
+	}
 #endif
 	Q_strncpy( safemtname, mipTex.name, sizeof( safemtname ));
 	if( safemtname[0] == '*' )
@@ -5050,7 +5316,9 @@ static void Mod_LoadTextureData( model_t *mod, dbspmodel_t *bmod, int textureInd
 #endif // !XASH_DEDICATED
 	}
 
-	// Try WAD texture (force while r_wadtextures is 1)
+	// Try WAD texture (force while r_wadtextures is 1).
+	// Keep -gcmap on the wt_*.gct pack path only — enabling WAD here OOMs the
+	// connect reload (nodes prealloc miss free≈31 Kb, dual IPC 20261107-095440).
 	if( !texture->gl_texturenum && !Sys_CheckParm( "-gcmap" )
 		&& (( r_wadtextures.value && world.wadcount > 0 ) || mipTex.offsets[0] <= 0 ))
 	{
@@ -7795,8 +8063,8 @@ static void Mod_GCReleaseBspSourceBuffer( model_t *mod, dbspmodel_t *bmod, byte 
 	else if( Mod_GCPointerInBuffer( bmod->lightdata, mod_base, bufferlen ))
 	{
 		/* G154: drop large lightmaps from scratch so surfaces can settle there;
-		 * New Game reloads LUMP_LIGHTING from disc for Flipper LM bake only. */
-		if( Sys_CheckParm( "-gcnewgame" ) && bmod->lightdatasize > ( 256 * 1024 ))
+	 * New Game / Flipper world-render reload LUMP_LIGHTING from disc for bake. */
+		if( Mod_GCWantFlipperDiscLightmaps() && bmod->lightdatasize > ( 256 * 1024 ))
 			Con_Reportf( "Xash3D GameCube: G154 deferring large lightmaps for disc bake size=%s\n",
 				Q_memprint( bmod->lightdatasize ));
 		bmod->lightdata = NULL;
@@ -7961,6 +8229,11 @@ static void Mod_LoadLeafs( model_t *mod, dbspmodel_t *bmod )
 				gc_leafs_malloc_block = out;
 				memset( out, 0, leaf_bytes );
 				Con_Reportf( "Xash3D GameCube: world leafs via malloc %s\n", Q_memprint( leaf_bytes ));
+			}
+			else if(( out = (mleaf_t *)Mod_GCWorldArraySpillAlloc( leaf_bytes, "leafs" )) != NULL )
+			{
+				memset( out, 0, leaf_bytes );
+				gc_world_blocks_owner = mod;
 			}
 			else
 			{
@@ -9266,9 +9539,10 @@ static void Mod_LoadLighting( model_t *mod, dbspmodel_t *bmod )
 		return;
 	}
 
-	/* G154: New Game reloads lighting from disc for Flipper LM bake only —
-	 * full Mem_Malloc residency is still skipped for large maps. */
-	if( Sys_CheckParm( "-gcnewgame" ) && bmod->isworld && bmod->lightmap_samples == 3 )
+	/* G154: Flipper CapFaces reload lighting from disc for LM bake only —
+	 * full Mem_Malloc residency is still skipped for large maps. Covers
+	 * -gcnewgame and -gcworldrender (listen/connect CapFaces). */
+	if( Mod_GCWantFlipperDiscLightmaps() && bmod->isworld && bmod->lightmap_samples == 3 )
 	{
 		int i;
 		const qboolean had_faces = ( bmod->surfaces || bmod->surfaces32 ) ? true : false;
@@ -9705,6 +9979,36 @@ static qboolean Mod_LoadBmodelLumps( model_t *mod, byte *mod_base, size_t buffer
 				&& !gc_leafs_prealloc && !gc_static_leafs ) ? leaf_align : 0;
 
 			gc_bsp_surface_reserve = surf_bytes ? ALIGN( surf_bytes, 32 ) + 32 + leaf_pad : leaf_pad;
+			gc_bsp_surface_reserve_clamped = false;
+			/* Compact DoD BSPs (lighting stripped) leave a short free window
+			 * between the resident image and capacity. Prefer a full surface
+			 * high-slot whenever it fits with a small guard — edges/texinfo
+			 * reclaim BSP lump holes (clipnodes/vis/faces) instead of eating
+			 * the surface reserve (dod_flash BBA join 20261107). Only clamp
+			 * when the arena truly cannot hold the surface block. */
+			if( gc_bsp_surface_reserve && GC_IsMapLoadBuffer( gc_bsp_scratch_base ))
+			{
+				const size_t cap = GC_MapLoadBufferCapacity();
+				const size_t image = gc_bsp_scratch_size;
+				const size_t min_guard = 32u * 1024u;
+				/* Legacy guard when surfaces cannot take the full slot. */
+				const size_t fat_guard = 288u * 1024u;
+				size_t edge_guard = fat_guard;
+				size_t max_reserve = 0;
+
+				if( cap >= image + gc_bsp_surface_reserve + min_guard )
+					edge_guard = min_guard;
+				if( cap > image + edge_guard )
+					max_reserve = cap - image - edge_guard;
+				if( gc_bsp_surface_reserve > max_reserve )
+				{
+					Con_Reportf( "Xash3D GameCube: clamping surface high slot %s → %s (image=%s cap=%s)\n",
+						Q_memprint( gc_bsp_surface_reserve ), Q_memprint( max_reserve ),
+						Q_memprint( image ), Q_memprint( cap ));
+					gc_bsp_surface_reserve = max_reserve;
+					gc_bsp_surface_reserve_clamped = true;
+				}
+			}
 			if( gc_bsp_surface_reserve )
 				Con_Reportf( "Xash3D GameCube: reserving map-load high slot %s for %zu surfaces%s\n",
 					Q_memprint( gc_bsp_surface_reserve ), bmod->numsurfaces,
@@ -9848,6 +10152,7 @@ static qboolean Mod_LoadBmodelLumps( model_t *mod, byte *mod_base, size_t buffer
 	Mod_LoadVertexes( mod, bmod );
 #if XASH_GAMECUBE
 	Con_Reportf( "Xash3D GameCube: bmodel vertexes ready\n" );
+	Mod_GCReleasePreEdgeScratchLumps( bmod );
 	Con_Reportf( "Xash3D GameCube: bmodel edges begin\n" );
 	GC_LoadingOverlayPulse();
 #endif
@@ -9922,6 +10227,10 @@ static qboolean Mod_LoadBmodelLumps( model_t *mod, byte *mod_base, size_t buffer
 	Mod_LoadSurfaces( mod, bmod );
 #if XASH_GAMECUBE
 	Con_Reportf( "Xash3D GameCube: bmodel surfaces ready\n" );
+	/* Capture CapFaces EDGE verts while edges16/surfedges still resolve —
+	 * marksurfaces/nodes carve stomps aliased surfedges (solo e=0 TEX). */
+	if( bmod->isworld )
+		GC_PrefetchCapFacesWhileEdgesLive( mod );
 	Mod_GCEnsureBspLump( mod, bmod, LUMP_MARKSURFACES );
 #endif
 	Mod_LoadMarkSurfaces( mod, bmod );
@@ -10011,7 +10320,9 @@ static qboolean Mod_LoadBmodelLumps( model_t *mod, byte *mod_base, size_t buffer
 	 * Menu New Game (-gcmenuplaystart): do NOT capture here — lean FatPVS can
 	 * tip MEM1 before Client Static Pool (probe 20260813-190422). Arm/Prepare
 	 * already skip late Capture; CapFaces bake runs post-spawn when headroom
-	 * exists. */
+	 * exists.
+	 * -gcworldrender (listen/connect): CapFaces bake later at SignonReply
+	 * CaptureNewGamePVS — keep the temporary LM bind until then. */
 	if( isworld && Sys_CheckParm( "-gcnewgame" ))
 	{
 		worldmodel = mod;
@@ -10031,12 +10342,19 @@ static qboolean Mod_LoadBmodelLumps( model_t *mod, byte *mod_base, size_t buffer
 		else
 			Mod_GCFreeBspPin( (void **)&bmod->surfaces );
 	}
+	else if( isworld && Sys_CheckParm( "-gcworldrender" )
+		&& ( gc_lm_aram_base || mod->lightdata ))
+	{
+		Con_Reportf( "Xash3D GameCube: G154 keep lightmap bind for CapFaces (-gcworldrender)\n" );
+	}
 	/* FreeBspPin on the ARAM marker zeroes gc_lm_aram_base. Deferred CapFaces
-	 * still needs that bind (and disc samples) until post-spawn bake. */
-	if( !( isworld && Sys_CheckParm( "-gcnewgame" ) && GC_IsCapFacesBakeDeferred() ))
-		Mod_GCFreeBspPin( (void **)&bmod->lightdata );
+	 * and -gcworldrender SignonReply bake still need that bind until release. */
+	if( isworld && Mod_GCWantFlipperDiscLightmaps()
+		&& ( GC_IsCapFacesBakeDeferred()
+			|| ( Sys_CheckParm( "-gcworldrender" ) && !Sys_CheckParm( "-gcnewgame" ))))
+		bmod->lightdata = NULL; /* keep gc_lm_aram_base / disc samples */
 	else
-		bmod->lightdata = NULL;
+		Mod_GCFreeBspPin( (void **)&bmod->lightdata );
 #endif
 
 	if( isworld )

@@ -18,6 +18,9 @@ GNU General Public License for more details.
 #if XASH_GAMECUBE
 #include "gamecube/mem_gamecube.h"
 #include <ogc/system.h> /* SYS_Report — MAP_READY must survive Con_ flood */
+#if defined(XASH_GAMECUBE_HAVE_LIBBBA) && XASH_GAMECUBE_HAVE_LIBBBA
+#include "platform/gamecube/net_gamecube.h"
+#endif
 #endif
 #include "net_encode.h"
 #include "library.h"
@@ -56,7 +59,9 @@ svgame_static_t	svgame;	// persistant game info
 
 #if XASH_GAMECUBE
 /* SP packet entity ring — zone Z_Realloc tip-FATALS under Xen cold New Game
- * fragmentation (c4a2 20261106-055215: need 42.5 KiB, free≈60 KiB non-contig). */
+ * fragmentation (c4a2 20261106-055215). 2P listen reuses this SP-sized BSS
+ * (capped num_client_entities) — a doubled BSS starved client MEM1 and zone
+ * soft-fail left packet_entities=NULL (dual IPC 20261107-002522 / 002802). */
 static entity_state_t gc_singleplayer_packet_entities[SINGLEPLAYER_BACKUP * NUM_PACKET_ENTITIES]
 	__attribute__((aligned( 32 )));
 
@@ -1117,26 +1122,38 @@ static void SV_SetupClients( void )
 	 * fragmented (unclaimed≈4 KiB) — Z_Realloc of 42.5 KiB packet_entities
 	 * tip-FATAL mid LOADING BSP. Mirror client frames: SP table is BSS. */
 	{
-		const size_t packet_bytes = sizeof( entity_state_t ) * (size_t)svs.num_client_entities;
-		const size_t static_cap = sizeof( gc_singleplayer_packet_entities );
+		const size_t sp_slots = (size_t)SINGLEPLAYER_BACKUP * (size_t)NUM_PACKET_ENTITIES;
+		const size_t sp_cap = sizeof( gc_singleplayer_packet_entities );
 
-		if( svs.maxclients == 1
-			&& SV_UPDATE_BACKUP == SINGLEPLAYER_BACKUP
-			&& packet_bytes <= static_cap )
+		/* Cap 2P listen to the SP ring so we never soft-fail Z_Realloc to NULL. */
+		if( svs.maxclients <= 2 && (size_t)svs.num_client_entities > sp_slots )
 		{
-			if( svs.packet_entities && !SV_IsStaticPacketEntities( svs.packet_entities ))
-				Z_Free( svs.packet_entities );
-			memset( gc_singleplayer_packet_entities, 0, packet_bytes );
-			svs.packet_entities = gc_singleplayer_packet_entities;
-			Con_Reportf( "Xash3D GameCube: server packet entities BSS %s\n",
-				Q_memprint( packet_bytes ));
+			Con_Reportf( "Xash3D GameCube: server packet entities capped %d -> %d for listen BSS\n",
+				svs.num_client_entities, (int)sp_slots );
+			svs.num_client_entities = (int)sp_slots;
 		}
-		else
+
 		{
-			if( SV_IsStaticPacketEntities( svs.packet_entities ))
-				svs.packet_entities = NULL;
-			svs.packet_entities = Z_Realloc( svs.packet_entities, packet_bytes );
-			Con_Reportf( "%s alloced by server packet entities\n", Q_memprint( packet_bytes ));
+			const size_t packet_bytes = sizeof( entity_state_t ) * (size_t)svs.num_client_entities;
+
+			if( svs.maxclients <= 2
+				&& SV_UPDATE_BACKUP <= SINGLEPLAYER_BACKUP
+				&& packet_bytes <= sp_cap )
+			{
+				if( svs.packet_entities && !SV_IsStaticPacketEntities( svs.packet_entities ))
+					Z_Free( svs.packet_entities );
+				memset( gc_singleplayer_packet_entities, 0, packet_bytes );
+				svs.packet_entities = gc_singleplayer_packet_entities;
+				Con_Reportf( "Xash3D GameCube: server packet entities BSS %s maxclients=%d\n",
+					Q_memprint( packet_bytes ), svs.maxclients );
+			}
+			else
+			{
+				if( SV_IsStaticPacketEntities( svs.packet_entities ))
+					svs.packet_entities = NULL;
+				svs.packet_entities = Z_Realloc( svs.packet_entities, packet_bytes );
+				Con_Reportf( "%s alloced by server packet entities\n", Q_memprint( packet_bytes ));
+			}
 		}
 	}
 #else
@@ -1146,7 +1163,17 @@ static void SV_SetupClients( void )
 	// init network stuff
 #if XASH_GAMECUBE
 	if( svs.maxclients > 1 )
-		NET_Config(( svs.maxclients > 1 ), true );
+	{
+#if defined(XASH_GAMECUBE_HAVE_LIBBBA) && XASH_GAMECUBE_HAVE_LIBBBA
+		if( GC_NetEnsureReady( ))
+			NET_Config( true, true );
+		else
+			Con_Reportf( S_WARN "Xash3D GameCube: multiplayer requested but BBA/eth2sp1 net not ready\n" );
+#else
+		Con_Reportf( S_WARN "Xash3D GameCube: multiplayer sockets deferred (DOL built without libbba)\n" );
+		NET_Config( true, true );
+#endif
+	}
 	else
 		Con_Reportf( "Xash3D GameCube: local server network skipped\n" );
 #else

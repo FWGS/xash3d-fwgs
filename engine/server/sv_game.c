@@ -545,8 +545,13 @@ void GAME_EXPORT SV_SetModel( edict_t *ent, const char *modelname )
 	 * Keep a default player hull without studio reload or world relink.
 	 * Use the real precache slot (not world index 1) so entity frames do not
 	 * treat the client as a brush model; clear dangling stub pointers.
-	 * Normal gameplay model binding remains available after this handoff. */
-	if( ( Sys_CheckParm( "-gcnewgame" ) || Sys_CheckParm( "-gcmenuplaystart" ))
+	 * Normal gameplay model binding remains available after this handoff.
+	 * Peer BBA PutInServer on listenserver hits the same OOM: retail
+	 * models/player.mdl is ~4 MiB and FS_LoadFileFromArchive fails under tip
+	 * MEM1 (dual IPC 20261107-091111) — never reach SignonReply 2. */
+	if( ( Sys_CheckParm( "-gcnewgame" ) || Sys_CheckParm( "-gcmenuplaystart" )
+		|| Sys_CheckParm( "-gclistenserver" ) || Sys_CheckParm( "-gcconnect" )
+		|| GC_MapLoadMemoryOpt() )
 		&& !Q_stricmp( name, "models/player.mdl" ))
 	{
 		vec3_t mins = { -16.0f, -16.0f, -36.0f };
@@ -591,6 +596,7 @@ void GAME_EXPORT SV_SetModel( edict_t *ent, const char *modelname )
 	 * Lean -gcnewgame (no -gcfullphysics) hits the same hang on PutInServer
 	 * crowbar grant — probe 20260807-013250 stalled at w_crowbar.mdl. */
 	if( ( gc_lean_weapon_grant_active || Sys_CheckParm( "-gcchangelevel" )
+		|| Sys_CheckParm( "-gclistenserver" ) || Sys_CheckParm( "-gcconnect" )
 		|| ( Sys_CheckParm( "-gcmenuplaystart" ) && !Sys_CheckParm( "-gcfullphysics" ))
 		|| ( Sys_CheckParm( "-gcnewgame" ) && !Sys_CheckParm( "-gcfullphysics" )))
 		&& ( !Q_strnicmp( name, "models/w_", 9 )
@@ -6604,8 +6610,11 @@ qboolean SV_LoadProgs( const char *name )
 	gc_using_static_edicts = false;
 	/* SP BSS when max_edicts fits the cap (valve gameinfo is typically
 	 * 900–1200). Avoid tip Mem_Calloc of ~707 KiB (HW 20261106 map=NONE). */
-	if( svs.maxclients <= 1 && GI->max_edicts > 0
-		&& GI->max_edicts <= GC_SP_EDICT_CAP )
+	/* Solo listen (−gclistenserver, maxclients≤4) reuses the SP BSS pool so
+	 * tip Mem_Calloc of edicts/baselines cannot OOM under menu-skip boots. */
+	if( GI->max_edicts > 0 && GI->max_edicts <= GC_SP_EDICT_CAP
+		&& ( svs.maxclients <= 1
+			|| ( svs.maxclients <= 4 && Sys_CheckParm( "-gclistenserver" )) ) )
 	{
 		memset( gc_singleplayer_edicts, 0, sizeof( edict_t ) * (size_t)GI->max_edicts );
 		memset( gc_singleplayer_baselines, 0, sizeof( entity_state_t ) * (size_t)GI->max_edicts );
@@ -6614,8 +6623,8 @@ qboolean SV_LoadProgs( const char *name )
 		svs.baselines = gc_singleplayer_baselines;
 		svs.static_entities = gc_singleplayer_static_entities;
 		gc_using_static_edicts = true;
-		Con_Reportf( "Xash3D GameCube: SP BSS edicts max=%d bytes=%s baselines=%s statics=%s\n",
-			GI->max_edicts,
+		Con_Reportf( "Xash3D GameCube: SP BSS edicts max=%d clients=%d bytes=%s baselines=%s statics=%s\n",
+			GI->max_edicts, svs.maxclients,
 			Q_memprint( sizeof( edict_t ) * (size_t)GI->max_edicts ),
 			Q_memprint( sizeof( entity_state_t ) * (size_t)GI->max_edicts ),
 			Q_memprint( sizeof( gc_singleplayer_static_entities )));

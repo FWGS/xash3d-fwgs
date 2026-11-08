@@ -72,6 +72,11 @@ fi
 HLSDK_GAMEDIR="$(gamecube_normalize_profile "${GAME_PROFILE:-valve}")"
 export HLSDK_GAMECUBE_GAMEDIR="$HLSDK_GAMEDIR"
 DOL_NAME="$(gamecube_dol_basename "$HLSDK_GAMEDIR")"
+# DoD online / dual-guest path needs libbba (eth2sp1/BBA). Default on for dod.
+if [ "$HLSDK_GAMEDIR" = "dod" ]; then
+	export XASH_GAMECUBE_LINK_BBA="${XASH_GAMECUBE_LINK_BBA:-1}"
+	echo "GameCube BBA link: XASH_GAMECUBE_LINK_BBA=$XASH_GAMECUBE_LINK_BBA"
+fi
 
 HLSDK_SERVER_ARCHIVE="$HLSDK_DESTDIR/$HLSDK_GAMEDIR/dlls/libhl_gamecube_ppc.a"
 HLSDK_EXPORTS="$HLSDK_DESTDIR/$HLSDK_GAMEDIR/dlls/gamecube_server_entity_exports.inc"

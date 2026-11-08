@@ -492,6 +492,10 @@ def configure(conf):
 		conf.define('XASH_GAMECUBE', 1)
 		if os.environ.get('XASH_GAMECUBE_ENABLE_GCMAP_PROBES', '').lower() in ('1', 'yes', 'true', 'on'):
 			conf.define('XASH_GAMECUBE_ENABLE_GCMAP_PROBES', 1)
+		# Broadband / eth2sp1: link -lbba and enable GC net headers when requested.
+		if os.environ.get('XASH_GAMECUBE_LINK_BBA', '').lower() in ('1', 'yes', 'true', 'on'):
+			conf.define('XASH_GAMECUBE_HAVE_LIBBBA', 1)
+			Logs.info('GameCube BBA/eth2sp1: XASH_GAMECUBE_HAVE_LIBBBA=1 (-lbba)')
 		conf.check_cc(lib='m')
 	elif conf.env.DEST_OS == 'nswitch':
 		conf.check_cfg(package='solder', args='--cflags --libs', uselib_store='SOLDER')

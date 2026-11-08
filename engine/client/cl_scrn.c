@@ -900,7 +900,8 @@ void SCR_UpdateScreen( void )
 	 * GC_RenderNewGameWorldFrames. Full V_PreRender still hangs on GC. */
 	if( cls.state == ca_active
 		&& ( GC_IsNewGameG36Done()
-			|| ( GC_IsNewGameWorldReady() && !Sys_CheckParm( "-gcnewgame" ))) )
+			|| ( GC_IsNewGameWorldReady() && !Sys_CheckParm( "-gcnewgame" ))
+			|| Sys_CheckParm( "-gcconnect" )) )
 	{
 		static qboolean gc_post_g36_present_logged;
 		GC_PerfUpdate();
@@ -963,6 +964,15 @@ void SCR_UpdateScreen( void )
 			if( !gc_hud_lean_logged && cls.signon == SIGNONS
 				&& !GC_IsFrameBudgetProbeActive() )
 			{
+				/* CapFaces listen: HUD SPR_Load / lean draw Gurus after sustained
+				 * CapFaces (solo 20261107-123717). Keep Flipper world only. */
+				if( Sys_CheckParm( "-gcworldrender" ) && GC_UseGxWorldDraw() )
+				{
+					gc_hud_lean_logged = true;
+					Con_Reportf( "Xash3D GameCube: lean HUD skipped (CapFaces Flipper)\n" );
+				}
+				else
+				{
 				ref.dllFuncs.R_BeginFrame( false );
 				ref.dllFuncs.R_AllowFog( false );
 				ref.dllFuncs.R_Set2DMode( true );
@@ -979,6 +989,7 @@ void SCR_UpdateScreen( void )
 				Platform_SetTimer( 0.0f );
 				ref.dllFuncs.R_EndFrame();
 				gc_hud_lean_logged = true;
+				}
 			}
 			if( !gc_post_g36_present_logged )
 			{
@@ -1458,10 +1469,21 @@ void SCR_Init( void )
 	Cmd_AddCommand( "sizedown", SCR_SizeDown_f, "screen size down to 10 points" );
 
 #if XASH_GAMECUBE
-	if( Sys_CheckParm( "-gcmap" ))
+	/* Peer join (-gcconnect) must skip retail gameui like listenserver: with
+	 * gameui resident, MEM1 sits at ~18 KiB into the main loop and the first
+	 * redraw after S2C_CONNECTION burns the rest on menu tiles before deferred
+	 * client progs can load (dual IPC 20261106-235834). */
+	if( Sys_CheckParm( "-gcmap" ) || Sys_CheckParm( "-gclistenserver" )
+		|| Sys_CheckParm( "-gcconnect" ))
 	{
+		const char *route = "gcmap smoke";
+
+		if( Sys_CheckParm( "-gcconnect" ))
+			route = "gcconnect peer";
+		else if( Sys_CheckParm( "-gclistenserver" ))
+			route = "listenserver";
 		scr_init = true;
-		Con_Reportf( "Xash3D GameCube: screen init minimal for gcmap smoke route\n" );
+		Con_Reportf( "Xash3D GameCube: screen init minimal for %s route\n", route );
 		return;
 	}
 #endif

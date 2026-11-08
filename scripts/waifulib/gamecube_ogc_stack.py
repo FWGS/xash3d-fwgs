@@ -202,7 +202,12 @@ def engine_extra_ldflags(info: Optional[Dict[str, Any]] = None) -> List[str]:
 		info = resolve_ogc_stack()
 	fat = info.get("fat_provider") or "libfat"
 	lib = info.get("lib") or ""
-	flags = ["-lstdc++", "-liso9660", "-lasnd", "-logc", "-lm"]
+	# Optional BBA link (real EXI ethernet / Swiss eth2sp1). Default off until
+	# Dolphin guest bring-up is stable — set XASH_GAMECUBE_LINK_BBA=1 to enable.
+	flags = ["-lstdc++", "-liso9660", "-lasnd"]
+	if os.environ.get("XASH_GAMECUBE_LINK_BBA", "").lower() in ("1", "yes", "true", "on"):
+		flags.append("-lbba")
+	flags.extend(["-logc", "-lm"])
 	if fat == "libdvm":
 		# libdvm's libfat.a already embeds dvm objects; avoid -lfat -ldvm together.
 		if lib and os.path.isfile(os.path.join(lib, "libfat.a")):

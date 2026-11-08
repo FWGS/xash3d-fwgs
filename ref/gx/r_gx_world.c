@@ -1512,12 +1512,64 @@ static struct
 	unsigned uploads, bytes, evictions, deferred;
 } r_gx_hot;
 
+/* Durable hot window — survives map-load arena reuse that stomps arena-tail
+ * pack low-mips (CapFaces CMPR noise: diag hdr absent from GCT). */
+static byte *r_gx_durable_hot;
+static unsigned r_gx_durable_hot_size;
+static qboolean r_gx_hot_is_durable;
+
 /* The hot window of this map; resets everything in it. */
 void R_GCHotWindow( void *base, unsigned size )
 {
 	memset( &r_gx_hot, 0, sizeof( r_gx_hot ));
 	r_gx_hot.base = (byte *)base;
 	r_gx_hot.size = size;
+	r_gx_hot_is_durable = ( base && r_gx_durable_hot && base == r_gx_durable_hot );
+}
+
+qboolean R_GCHotWindowIsDurable( void )
+{
+	return r_gx_hot_is_durable && r_gx_hot.base != NULL && r_gx_hot.size > 0;
+}
+
+void R_GCEnsureDurableHotWindow( unsigned prefer_bytes )
+{
+	unsigned want = prefer_bytes ? prefer_bytes : ( 48u * 1024u );
+	unsigned try_sz;
+
+	if( want < 32u * 1024u )
+		want = 32u * 1024u;
+	if( want > 96u * 1024u )
+		want = 96u * 1024u;
+	want = ( want + 31u ) & ~31u;
+
+	if( r_gx_durable_hot && r_gx_durable_hot_size >= want )
+	{
+		R_GCHotWindow( r_gx_durable_hot, r_gx_durable_hot_size );
+		return;
+	}
+	if( r_gx_durable_hot )
+	{
+		free( r_gx_durable_hot );
+		r_gx_durable_hot = NULL;
+		r_gx_durable_hot_size = 0;
+	}
+	for( try_sz = want; try_sz >= 32u * 1024u; try_sz = ( try_sz > 48u * 1024u ) ? ( try_sz - 16u * 1024u ) : 0 )
+	{
+		r_gx_durable_hot = (byte *)memalign( 32, try_sz );
+		if( r_gx_durable_hot )
+		{
+			r_gx_durable_hot_size = try_sz;
+			R_GCHotWindow( r_gx_durable_hot, try_sz );
+			gEngfuncs.Con_Reportf( "Xash3D GameCube: durable CMPR hot window %u Kb\n",
+				try_sz / 1024u );
+			return;
+		}
+		if( try_sz <= 32u * 1024u )
+			break;
+	}
+	gEngfuncs.Con_Reportf( "Xash3D GameCube: durable CMPR hot window alloc failed (want %u Kb)\n",
+		want / 1024u );
 }
 
 /* For a moment during a map load: the whole window, emptied. What was resident
@@ -1632,9 +1684,60 @@ static void R_GXHotService( void )
 	}
 }
 
+/* ARAM→MEM1 bounce for packed CMPR. Arena-tail low-mips are stomped after
+ * map-load buffer reuse; CapFaces must not sample that memory. Max dod_flash
+ * chain is 43680 bytes. Prealloc via R_GXPreallocCmprBounce while MEM1 is
+ * free — late memalign under listen spawn failed (solo 20261107-125810
+ * bounce=0 rainbow). No BSS fallback: 48 Kb static tipped GameDLL init. */
+#define GC_CMPR_BOUNCE_BYTES ( 48u * 1024u )
+static byte *r_gx_cmpr_bounce;
+static unsigned r_gx_cmpr_bounce_cap;
+static unsigned r_gx_cmpr_bounce_texnum;
+static unsigned r_gx_cmpr_bounce_skip;
+
+static byte *R_GXCmprBounce( void )
+{
+	if( !r_gx_cmpr_bounce )
+	{
+		static const unsigned try_sizes[] = {
+			GC_CMPR_BOUNCE_BYTES, 40u * 1024u, 32u * 1024u, 24u * 1024u
+		};
+		unsigned i;
+
+		for( i = 0; i < sizeof( try_sizes ) / sizeof( try_sizes[0] ); ++i )
+		{
+			r_gx_cmpr_bounce = (byte *)memalign( 32, try_sizes[i] );
+			if( r_gx_cmpr_bounce )
+			{
+				r_gx_cmpr_bounce_cap = try_sizes[i];
+				break;
+			}
+		}
+		if( r_gx_cmpr_bounce )
+		{
+			extern void GCube_AppendSwissEvidence( const char *fmt, ... );
+			gEngfuncs.Con_Reportf( "Xash3D GameCube: CMPR ARAM bounce %u Kb\n",
+				r_gx_cmpr_bounce_cap / 1024u );
+			GCube_AppendSwissEvidence( "CMPR ARAM bounce %u Kb",
+				r_gx_cmpr_bounce_cap / 1024u );
+		}
+		else
+			gEngfuncs.Con_Reportf( "Xash3D GameCube: CMPR ARAM bounce alloc failed\n" );
+	}
+	return r_gx_cmpr_bounce;
+}
+
+/* Call once after GX init / before map load while MEM1 tip is free. */
+void R_GXPreallocCmprBounce( void )
+{
+	(void)R_GXCmprBounce();
+}
+
 static gc_gx_tex_t *R_GXPackedTexture( image_t *img, unsigned texnum )
 {
 	gc_gx_tex_t *t = &r_gx_tex_native;
+	static qboolean cap_pack_diag;
+	extern void GC_AramTransfer( unsigned int aram, void *buf, unsigned int len, qboolean write );
 
 	img->gc_packed_used = r_gx_hot.frame;
 	if( img->gc_packed_bytes && !img->gc_packed_hot && !img->gc_packed_queued
@@ -1646,10 +1749,87 @@ static gc_gx_tex_t *R_GXPackedTexture( image_t *img, unsigned texnum )
 	if( r_gx_bound_texnum != texnum || r_gx_bound_fmt != GX_TF_CMPR )
 	{
 		const qboolean low = img->gc_packed_bytes && !img->gc_packed_hot;
-		const unsigned shift = low ? img->gc_packed_low_shift : 0;
-		const int levels = img->gc_packed_levels - shift;
-		const int w = Q_max( 1, img->width >> shift ), h = Q_max( 1, img->height >> shift );
+		const qboolean is_stub = ( img->gc_packed_low_shift & 0x40 ) != 0;
+		unsigned shift = low ? ( img->gc_packed_low_shift & 0x3fu ) : 0;
+		int levels = img->gc_packed_levels - (int)shift;
+		int w = Q_max( 1, img->width >> shift ), h = Q_max( 1, img->height >> shift );
 		void *data = img->gc_packed_hot ? img->gc_packed_hot : img->gc_packed;
+		byte *bounce = NULL;
+		const byte *b;
+
+		/*
+		 * Prefer ARAM bounce over stomped/stub MEM1. If the full mip chain
+		 * exceeds the bounce buffer, skip leading mips until the remaining
+		 * chain fits — never InitTexObj a stub/stomped buffer as WxH.
+		 */
+		if( img->gc_packed_aram && img->gc_packed_bytes
+			&& !img->gc_packed_hot
+			&& ( bounce = R_GXCmprBounce()) != NULL
+			&& r_gx_cmpr_bounce_cap > 0 )
+		{
+			unsigned skip = 0;
+			unsigned remain = img->gc_packed_bytes;
+			unsigned use_shift = 0;
+			int use_levels = img->gc_packed_levels;
+			int bw = img->width, bh = img->height;
+			int mi;
+
+			for( mi = 0; mi < img->gc_packed_levels
+				&& remain > r_gx_cmpr_bounce_cap; ++mi )
+			{
+				unsigned mw = (unsigned)Q_max( 1, img->width >> mi );
+				unsigned mh = (unsigned)Q_max( 1, img->height >> mi );
+				unsigned level_bytes = (( mw + 7u ) / 8u ) * (( mh + 7u ) / 8u ) * 32u;
+
+				if( level_bytes >= remain )
+					break;
+				skip += level_bytes;
+				remain -= level_bytes;
+				use_shift = (unsigned)( mi + 1 );
+				use_levels = img->gc_packed_levels - (int)use_shift;
+				bw = Q_max( 1, img->width >> use_shift );
+				bh = Q_max( 1, img->height >> use_shift );
+			}
+			if( remain > 0 && remain <= r_gx_cmpr_bounce_cap && use_levels > 0 )
+			{
+				if( r_gx_cmpr_bounce_texnum != texnum
+					|| r_gx_cmpr_bounce_skip != skip )
+				{
+					GC_AramTransfer( img->gc_packed_aram + skip, bounce,
+						remain, false );
+					r_gx_cmpr_bounce_texnum = texnum;
+					r_gx_cmpr_bounce_skip = skip;
+				}
+				data = bounce;
+				shift = use_shift;
+				levels = use_levels;
+				w = bw;
+				h = bh;
+			}
+		}
+		/* Stub+ARAM without a successful bounce: keep grey 8×8, not rainbow. */
+		if( is_stub && data != bounce && !img->gc_packed_hot )
+		{
+			w = 8;
+			h = 8;
+			levels = 1;
+			shift = 0;
+		}
+
+		b = (const byte *)data;
+		if( !cap_pack_diag && data )
+		{
+			cap_pack_diag = true;
+			gEngfuncs.Con_Reportf(
+				"Xash3D GameCube: CapFaces/pack CMPR diag tex=%u name=%s %dx%d shift=%u levels=%d low=%d hot=%d bounce=%d aram=0x%x data=%p bytes=%u hdr=%02x%02x%02x%02x%02x%02x%02x%02x\n",
+				texnum, img->name[0] ? img->name : "?",
+				img->width, img->height, shift, levels, low ? 1 : 0,
+				img->gc_packed_hot ? 1 : 0,
+				( bounce && data == bounce ) ? 1 : 0,
+				(unsigned)img->gc_packed_aram, data,
+				(unsigned)img->gc_packed_bytes,
+				b[0], b[1], b[2], b[3], b[4], b[5], b[6], b[7] );
+		}
 
 		GX_InitTexObj( &t->obj, data, (u16)w, (u16)h, GX_TF_CMPR, GX_REPEAT, GX_REPEAT, levels > 1 ? GX_TRUE : GX_FALSE );
 		if( levels > 1 )
@@ -2295,13 +2475,19 @@ static void R_GXClearEfbSky( GXRModeObj *rmode )
 	 * A map hole/void is fog-black; blue here made missing geometry look like
 	 * an untextured outdoor sky and was especially visible through tram gaps.
 	 * Textured backdrop draws when lean sides are resident.
-	 * G348: tram tunnel (c0a0*) uses dark concrete — sky blue void fought retail. */
+	 * G348: tram tunnel (c0a0*) uses dark concrete — sky blue void fought retail.
+	 * Solo CapFaces (-gcworldrender, no skybox resident): outdoor sky clear so
+	 * dod_flash voids read as sky, not black letterbox (20261107-133054). */
 	u32 sky = R_GXHasSkyboxSide() ? 0x5A8CD2FFu : 0x000000FFu;
 	GXColor copy_clear;
 	extern qboolean GC_IsTramIntroMap( void );
 
 	if( GC_IsTramIntroMap())
 		sky = 0x2A2E32FFu;
+	else if( !R_GXHasSkyboxSide()
+		&& gEngfuncs.Sys_CheckParm( "-gcworldrender" )
+		&& !gEngfuncs.Sys_CheckParm( "-gcconnect" ))
+		sky = 0x5A8CD2FFu;
 
 	copy_clear.r = (u8)(( sky >> 24 ) & 0xff );
 	copy_clear.g = (u8)(( sky >> 16 ) & 0xff );
@@ -3103,6 +3289,33 @@ static int R_GXEmitFace( const msurface_t *surf, model_t *world, int slot )
 	 * duplicating a texture object. */
 	else if( R_GXIsSyntheticUnderfootPad( surf ))
 		face_texture = R_GXBorrowPadFaceTexture( world, &pad_texture_cache, pad_texture_cache_valid );
+	/* CapFaces bake stores texnum in BSS; refresh the shared stub before bind
+	 * so stomped model-pool texture_t cannot yield bad gl_texturenum.
+	 * Also copy pack image WxH — gc_cap_tex_shared has width=0 so R_GXFaceST
+	 * fell back to 64 while GX_InitTexObj used real CMPR sizes (REPEAT noise). */
+	if( slot >= 0 )
+	{
+		extern int GC_GetCapFaceTexnum( int slot );
+		int cap_tex = GC_GetCapFaceTexnum( slot );
+
+		if( cap_tex > 0 )
+		{
+			static texture_t cap_slot_tex;
+			image_t *cap_img = R_GetTexture( (unsigned)cap_tex );
+
+			memset( &cap_slot_tex, 0, sizeof( cap_slot_tex ));
+			cap_slot_tex.gl_texturenum = cap_tex;
+			if( cap_img && cap_img->width > 0 && cap_img->height > 0 )
+			{
+				cap_slot_tex.width = cap_img->width;
+				cap_slot_tex.height = cap_img->height;
+			}
+			face_texture = &cap_slot_tex;
+			/* ST reads surf->texinfo->texture (shared zeroed stub) — retarget. */
+			if( surf->texinfo )
+				surf->texinfo->texture = &cap_slot_tex;
+		}
+	}
 	if( face_texture )
 	{
 		if( surf->firstedge >= 0 && face_texture->gl_texturenum > 0 )
@@ -3226,16 +3439,17 @@ static int R_GXEmitFace( const msurface_t *surf, model_t *world, int slot )
 		color = R_GXFaceColor( surf );
 	else if( slot >= 0 && nverts == 4 )
 	{
-		/* Plane-fallback quads are eye-centered — diffuse ST 0..1 stretches into
-		 * the right-rail garble blotch. Draw flat concrete instead (menu + retail). */
-		if( bake_src == 2 )
+		/* Plane-fallback quads: menu/tram keep flat concrete (0..1 ST stretched
+		 * into rail garble). Solo -gcworldrender CapFaces need CMPR on those
+		 * quads — otherwise drawn=371 is mostly grey (20261107-131953). */
+		if( bake_src == 2 && !gEngfuncs.Sys_CheckParm( "-gcworldrender" ))
 		{
 			textured = false;
 			lit = false;
 			color = R_GXFaceColor( surf );
 		}
-		/* G203/G205: only force 0..1 ST on plane-fallback quads. */
-		else if( bake_src != 1 && bake_src != 3 )
+		/* G203/G205: force 0..1 ST on plane-fallback quads (and worldrender). */
+		else if( bake_src == 2 || ( bake_src != 1 && bake_src != 3 ))
 		{
 			static const float plane_uv[4][2] = {
 				{ 0.0f, 0.0f }, { 1.0f, 0.0f }, { 1.0f, 1.0f }, { 0.0f, 1.0f }
@@ -3245,6 +3459,11 @@ static int R_GXEmitFace( const msurface_t *surf, model_t *world, int slot )
 			{
 				sts[i][0] = plane_uv[i][0];
 				sts[i][1] = plane_uv[i][1];
+			}
+			if( bake_src == 2 )
+			{
+				/* Keep CMPR bind; ST is unit quad. */
+				lit = false;
 			}
 			if( !g203_logged && r_gx_newgame_route )
 			{
@@ -4240,12 +4459,15 @@ static int R_GXDrawNewGameCapFacesImpl( void )
 
 	/* Stamp marksurfaces only when leaf→surface links are still valid.
 	 * After G132 scratch reuse on New Game / menu New Game, MarkLeaves already
-	 * full-stamped surf->visframe; walking dangling firstmarksurface hangs. */
-	/* Low-res probe mode normally avoids touching retained scratch links.
-	 * When menu New Game has deliberately retained the complete map-load arena,
-	 * those links are live and the full BSP pass needs their visframe stamps. */
-	if( !( newgame_probe && GC_UseLowResWorldProbe() )
-		|| ( surfaces_pinned && !scratch_retained ))
+	 * full-stamped surf->visframe; walking dangling firstmarksurface hangs.
+	 * Connect peers keep surfaces scratch-retained: CapFaces frame1 can draw
+	 * LM-caps, then frame2 DSI's inside R_GXMarkVisibleSurfaces at
+	 * (*mark)->visframe (PC 801EEDF0 / dod_flash dual IPC 20261107-093749).
+	 * Skip the stamp walk whenever scratch is retained — LM-caps/lean do not
+	 * need it, and live-walk uses MarkLeaves stamps already. */
+	if( !scratch_retained
+		&& ( !( newgame_probe && GC_UseLowResWorldProbe() )
+			|| surfaces_pinned ))
 		R_GXMarkVisibleSurfaces( world );
 
 	draw = GC_GetNewGameDrawSurfs();
@@ -4364,15 +4586,31 @@ static int R_GXDrawNewGameCapFacesImpl( void )
 		}
 		else if( scratch_retained )
 		{
-			/* Tip-safe: never fall through to live edge-walk of retained
-			 * scratch after the one-shot G283 log. Xen c4a1 (live=0, water
-			 * bake) hung post-G292 on that path (probe 20260809-131438) —
-			 * LM-caps + G286 water + G292 only. */
-			if( !g213_logged )
+			/* Tip-safe default: LM-caps + G286 water only (Xen c4a1 hung on
+			 * live edge-walk after scratch reuse, probe 20260809-131438).
+			 * Connect/listen peers can arrive with retain-pin but empty lean
+			 * and empty caps (Capture used sv.models[1]==NULL) — without a
+			 * live walk CapFaces stays drawn=0 / sky clear. Prefer caps when
+			 * present; otherwise walk the retained live BSP once. */
+			if( n > 0 )
 			{
-				g213_logged = true;
-				gEngfuncs.Con_Reportf(
-					"Xash3D GameCube: G283 scratch retain-pin (stamp+LM-caps; lean empty)\n" );
+				if( !g213_logged )
+				{
+					g213_logged = true;
+					gEngfuncs.Con_Reportf(
+						"Xash3D GameCube: G283 scratch retain-pin (stamp+LM-caps; lean empty)\n" );
+				}
+			}
+			else
+			{
+				drawn = R_GXDrawWorldLiveSurfaces( world, true );
+				if( !g213_logged )
+				{
+					g213_logged = true;
+					gEngfuncs.Con_Reportf(
+						"Xash3D GameCube: G283 scratch retain live-walk (no caps) opaque=%d\n",
+						drawn );
+				}
 			}
 		}
 		else if( surfaces_live )
@@ -4478,8 +4716,14 @@ static int R_GXDrawNewGameCapFacesImpl( void )
 					emit_fails++;
 					continue;
 				}
-				/* G380: synthetic NPC floor (firstedge -1) skips CPU backface. */
-				if( surf->firstedge >= 0 )
+				/* G380: synthetic NPC floor (firstedge -1) skips CPU backface.
+				 * Solo -gcworldrender CapFaces: repaired planes still leave
+				 * ~316/384 CPU-culled while dual textured stills drew 200+
+				 * (20261107-130650). Skip CPU backface — Flipper/GX culls by
+				 * winding from durable pts_s16. */
+				dot = 0.0f;
+				if( surf->firstedge >= 0
+					&& !gEngfuncs.Sys_CheckParm( "-gcworldrender" ))
 				{
 				dot = DotProduct( tr.modelorg, surf->plane->normal ) - surf->plane->dist;
 				if( surf->flags & SURF_PLANEBACK )
@@ -4506,8 +4750,9 @@ static int R_GXDrawNewGameCapFacesImpl( void )
 				if( GC_G378DumpSkipFarCapSlot( slot ))
 					continue;
 				/* G281: skip far-small cull on New Game — tunnel walls along
-				 * the look path were dropped while dump eye was distant. */
-				if( !newgame_probe
+				 * the look path were dropped while dump eye was distant.
+				 * Solo -gcworldrender CapFaces use the same dump eye. */
+				if( !newgame_probe && !gEngfuncs.Sys_CheckParm( "-gcworldrender" )
 					&& area > 0 && area < GC_GX_FAR_MIN_AREA
 					&& fabsf( dot ) > GC_GX_FAR_FACE_DIST )
 				{
@@ -4522,7 +4767,7 @@ static int R_GXDrawNewGameCapFacesImpl( void )
 					cap_drawn += got;
 			}
 			drawn += cap_drawn;
-			if( menu_playstart )
+			if( menu_playstart || gEngfuncs.Sys_CheckParm( "-gcworldrender" ))
 			{
 				static qboolean menu_cap_filter_logged;
 
@@ -4530,7 +4775,7 @@ static int R_GXDrawNewGameCapFacesImpl( void )
 				{
 					menu_cap_filter_logged = true;
 					gEngfuncs.Con_Reportf(
-						"Xash3D GameCube: menu CapFaces filter drawn=%d backface=%d emit_fail=%d cull=%d of %d\n",
+						"Xash3D GameCube: CapFaces filter drawn=%d backface=%d emit_fail=%d cull=%d of %d\n",
 						cap_drawn, backface_skips, emit_fails, r_gx_face_skips, n );
 				}
 			}

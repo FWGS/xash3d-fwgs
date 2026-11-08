@@ -72,9 +72,9 @@ static int gc_menu_background_height = 600;
 
 static const gc_menu_item_t gc_menu_items[] =
 {
-	{ "New Game", "Start a new single player game.", "gc_playstart" },
-	{ "Load Game", "Load a previously saved game.", "menu_loadgame" },
-	{ "Options", "Change game settings, configure controls.", "menu_options" },
+	{ "New Game", "Create a server or start a multiplayer game.", "menu_creategame" },
+	{ "Find Servers", "Search the internet and local network for games.", "menu_internetgames" },
+	{ "Options", "Change game settings and configure controls.", "menu_options" },
 };
 
 static qboolean UI_GCFallbackMenuCommandsSafe( void )
@@ -322,12 +322,27 @@ static void UI_GCDrawMenuMarker( int x, int y, qboolean selected )
 		255, 190, 48, 220 );
 }
 
+/* A small VGUI-inspired frame for the controller fallback. Keep it primitive
+ * so it costs no additional textures or retained UI allocations on GameCube. */
+static void UI_GCDrawMenuPanel( int x, int y, int w, int h, qboolean selected )
+{
+	ref.dllFuncs.FillRGBA( kRenderTransTexture, x, y, w, h, 12, 15, 16, 218 );
+	ref.dllFuncs.FillRGBA( kRenderTransTexture, x, y, w, ( 2 * refState.height ) / 480,
+		selected ? 190 : 128, selected ? 151 : 112, selected ? 70 : 48, 255 );
+	ref.dllFuncs.FillRGBA( kRenderTransTexture, x, y, ( 3 * refState.width ) / 640, h,
+		selected ? 190 : 128, selected ? 151 : 112, selected ? 70 : 48, 255 );
+}
+
 static void UI_GCDrawFallbackMenu( void )
 {
-	int base_x = ( 70 * refState.width ) / 640;
-	int icon_x = ( 26 * refState.width ) / 640;
-	int base_y = ( 252 * refState.height ) / 480;
-	int row_h = ( 34 * refState.height ) / 480;
+	int panel_x = ( 34 * refState.width ) / 640;
+	int panel_y = ( 210 * refState.height ) / 480;
+	int panel_w = ( 358 * refState.width ) / 640;
+	int panel_h = ( 218 * refState.height ) / 480;
+	int base_x = ( 54 * refState.width ) / 640;
+	int icon_x = ( 43 * refState.width ) / 640;
+	int base_y = ( 260 * refState.height ) / 480;
+	int row_h = ( 32 * refState.height ) / 480;
 	qboolean commands_safe = UI_GCFallbackMenuCommandsSafe();
 	qboolean difficulty_menu = gc_menu_page != 0;
 	const gc_menu_item_t *selected_item = &gc_menu_items[bound( 0, gc_menu_selection,
@@ -354,25 +369,16 @@ static void UI_GCDrawFallbackMenu( void )
 				0.015625f, 0.015625f, 0.984375f, 0.984375f,
 				gc_menu_composite[i] );
 		}
-		/* Keep navigation visible over the baked text. The command and
-		 * selection state remain live even though the artwork is composited. */
-		UI_GCDrawMenuMarker( ( 26 * refState.width ) / 640,
-			( 252 * refState.height ) / 480
-				+ gc_menu_selection * ( 34 * refState.height ) / 480, true );
+		/* Retail composites already include their own lettering and buttons. */
 		if( !gc_menu_reported_retail_ready )
 		{
 			Con_Reportf( "Xash3D GameCube: retail menu steam background ready\n" );
 			gc_menu_reported_retail_ready = true;
 		}
-		if( !gc_menu_reported_button_ready )
-		{
-			Cvar_SetValue( "gc_menu_ready", 1.0f );
-			Con_Reportf( "Xash3D GameCube: retail menu button text ready\n" );
-			gc_menu_reported_button_ready = true;
-		}
 		return;
 	}
 	UI_GCDrawFallbackMenuBackground();
+	UI_GCDrawMenuPanel( panel_x, panel_y, panel_w, panel_h, true );
 
 	if( gc_menu_use_baked_retail && !gc_menu_reported_retail_ready )
 	{
@@ -416,6 +422,11 @@ static void UI_GCDrawFallbackMenu( void )
 		qboolean selected = ( i == gc_menu_selection );
 		int y = base_y + i * row_h;
 
+		/* Individual row plates read like the flat VGUI button stack. */
+		UI_GCDrawMenuPanel( panel_x + ( 8 * refState.width ) / 640,
+			y - ( 5 * refState.height ) / 480,
+			panel_w - ( 16 * refState.width ) / 640,
+			( 29 * refState.height ) / 480, selected );
 		UI_GCDrawMenuMarker( icon_x, y, selected );
 		UI_GCDrawMenuString( base_x, y, item->label,
 			selected ? ( commands_safe ? 255 : 196 ) : ( commands_safe ? 224 : 168 ),
@@ -438,6 +449,10 @@ static void UI_GCDrawFallbackMenu( void )
 		{
 			qboolean selected = ( i == gc_menu_selection );
 			int y = base_y + i * row_h;
+			UI_GCDrawMenuPanel( panel_x + ( 8 * refState.width ) / 640,
+				y - ( 5 * refState.height ) / 480,
+				panel_w - ( 16 * refState.width ) / 640,
+				( 29 * refState.height ) / 480, selected );
 			UI_GCDrawMenuMarker( icon_x, y, selected );
 			UI_GCDrawMenuString( base_x, y, difficulty_names[i],
 				selected ? ( commands_safe ? 255 : 196 ) : ( commands_safe ? 224 : 168 ),
@@ -448,9 +463,13 @@ static void UI_GCDrawFallbackMenu( void )
 			difficulty_help[bound( 0, gc_menu_selection, 2 )], 112, 112, 112, false );
 		return;
 	}
+	UI_GCDrawMenuString( base_x, panel_y + ( 15 * refState.height ) / 480,
+		"DAY OF DEFEAT", 190, 151, 70, false );
 
 	UI_GCDrawMenuString( base_x, base_y + (int)ARRAYSIZE( gc_menu_items ) * row_h + row_h,
-		selected_item->description, 112, 112, 112, false );
+		selected_item->description, 176, 178, 174, false );
+	UI_GCDrawMenuString( base_x, panel_y + panel_h - ( 18 * refState.height ) / 480,
+		"A  SELECT     B  BACK", 132, 137, 132, false );
 
 	if( !commands_safe )
 	{
@@ -493,17 +512,12 @@ static void UI_GCActivateFallbackMenuItem( void )
 	const gc_menu_item_t *item = &gc_menu_items[bound( 0, gc_menu_selection,
 		(int)ARRAYSIZE( gc_menu_items ) - 1 )];
 
-	if( !Q_stricmp( item->command, "gc_playstart" ))
-	{
-		gc_menu_page = 1;
-		gc_menu_selection = 1;
-		Con_Reportf( "Xash3D GameCube: fallback difficulty menu ready\n" );
-		return;
-	}
-
 	if( !COM_StringEmpty( item->command ))
 	{
-		Cbuf_AddText( item->command );
+		if( !Q_stricmp( item->command, "menu_internetgames" ))
+			Cbuf_AddText( "menu_internet\n" );
+		else
+			Cbuf_AddText( item->command );
 		Cbuf_AddText( "\n" );
 		Cbuf_Execute();
 	}

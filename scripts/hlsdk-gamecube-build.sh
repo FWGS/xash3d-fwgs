@@ -46,6 +46,14 @@ echo "Building HLSDK branch $BRANCH for GameCube gamedir=$GAMEDIR → $DOL_HINT 
 	fi
 )
 
+# hlsdk-portable always installs under mod_options.txt GAMEDIR (valve).
+# For alternate profiles (dod, ...), mirror the fresh archives before rename/export.
+if [[ "$GAMEDIR" != "valve" ]]; then
+	mkdir -p "$DESTDIR/$GAMEDIR/dlls" "$DESTDIR/$GAMEDIR/cl_dlls"
+	cp -f "$DESTDIR/valve/dlls/libhl_gamecube_ppc.a" "$DESTDIR/$GAMEDIR/dlls/"
+	cp -f "$DESTDIR/valve/cl_dlls/libclient_gamecube_ppc.a" "$DESTDIR/$GAMEDIR/cl_dlls/"
+fi
+
 SERVER_ARCHIVE="$DESTDIR/$GAMEDIR/dlls/libhl_gamecube_ppc.a"
 CLIENT_ARCHIVE="$DESTDIR/$GAMEDIR/cl_dlls/libclient_gamecube_ppc.a"
 OBJCOPY="${DEVKITPRO:-/opt/devkitpro}/devkitPPC/bin/powerpc-eabi-objcopy"

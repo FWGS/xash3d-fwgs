@@ -303,6 +303,19 @@ static void NET_MasterStaticQuery( void )
 {
 	const char *gamedir = GI ? GI->gamefolder : "valve";
 
+#if XASH_GAMECUBE
+	/* HTTPS masterlist needs DNS + TLS heap the cube tip cannot spare;
+	 * Find servers used to fatal/hang here. Keep UDP masters + LAN. */
+	static qboolean logged;
+
+	if( !logged )
+	{
+		Con_Reportf( "Xash3D GameCube: HTTP masterlist skipped (use LAN/localservers or IP connect)\n" );
+		logged = true;
+	}
+	(void)gamedir;
+	return;
+#else
 	for( masterstatic_t *ms = ml.static_head; ms; ms = ms->next )
 	{
 		char url[1024];
@@ -315,6 +328,7 @@ static void NET_MasterStaticQuery( void )
 		if( HTTP_GetToMemory( url, NET_MasterStaticResponse, ms ))
 			ms->in_flight = true;
 	}
+#endif
 }
 
 /*

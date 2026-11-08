@@ -23,6 +23,10 @@ GNU General Public License for more details.
 #include "eiface.h"
 #if XASH_GAMECUBE
 #include "gamecube/mem_gamecube.h"
+void R_GcFreeMenuImages( void );
+void Image_GCPurgeDecodeScratch( void );
+void R_GXReleaseHudPoolForMapLoad( void );
+void R_GcmapTrimForMapLoad( void );
 #endif
 
 #if XASH_LOW_MEMORY != 2
@@ -34,7 +38,14 @@ int CL_UPDATE_BACKUP = SINGLEPLAYER_BACKUP;
 
 static qboolean CL_GameCubeMapRoute( void )
 {
-	return Sys_CheckParm( "-gcmap" ) != 0 || GC_MapLoadMemoryOpt();
+	/* Peer BBA join (-gcconnect) has no -gcmap on the client ISO args, but
+	 * still needs the lean edict cap + bootstrap tables or Serverdata tries
+	 * to Mem_Calloc ~1.42 Mb Client Edicts and soft-fails (dual IPC
+	 * 20261107-000200). */
+	return Sys_CheckParm( "-gcmap" ) != 0
+		|| Sys_CheckParm( "-gcconnect" ) != 0
+		|| Sys_CheckParm( "-gclistenserver" ) != 0
+		|| GC_MapLoadMemoryOpt();
 }
 
 static qboolean CL_GameCubeLocalMapRoute( void )
@@ -577,9 +588,11 @@ void CL_BatchResourceRequest( qboolean initialize )
 		}
 
 #if XASH_GAMECUBE
-		if( CL_GameCubeLocalMapRoute() && Host_IsLocalClient() )
+		if(( CL_GameCubeLocalMapRoute() && Host_IsLocalClient() )
+			|| Sys_CheckParm( "-gcconnect" ))
 		{
-			/* Avoid Netchan fragment buffers — MEM1 is exhausted after c0a0 precache. */
+			/* Avoid Netchan fragment buffers — MEM1 is exhausted after c0a0
+			 * precache. Peer connect also skips — disc assets only. */
 			if( MSG_GetNumBytesWritten( &msg ) > 0 )
 			{
 				Con_Reportf( "Xash3D GameCube: local spawn shortcut queued bytes=%d servercount=%d\n",
@@ -982,7 +995,8 @@ static void CL_ParseServerData( sizebuf_t *msg, connprotocol_t proto )
 		clgame.maxEntities = GI->max_edicts + (( cl.maxclients - 1 ) * 15 );
 		clgame.maxEntities = Q_min( clgame.maxEntities, MAX_GOLDSRC_EDICTS );
 #if XASH_GAMECUBE
-			if( CL_GameCubeMapRoute() && cl.maxclients <= 1 )
+			/* Allow 2P listen hosts — same MEM1 bootstrap path as SP map route. */
+			if( CL_GameCubeMapRoute() && cl.maxclients <= 2 )
 				clgame.maxEntities = CL_GameCubeClientEdictLimit( clgame.maxEntities );
 #endif
 			clgame.maxModels = 512; // ???
@@ -997,7 +1011,7 @@ static void CL_ParseServerData( sizebuf_t *msg, connprotocol_t proto )
 		clgame.maxEntities = MSG_ReadWord( msg );
 		clgame.maxEntities = bound( MIN_EDICTS, clgame.maxEntities, MAX_EDICTS );
 #if XASH_GAMECUBE
-			if( CL_GameCubeMapRoute() && cl.maxclients <= 1 )
+			if( CL_GameCubeMapRoute() && cl.maxclients <= 2 )
 				clgame.maxEntities = CL_GameCubeClientEdictLimit( clgame.maxEntities );
 #endif
 			clgame.maxModels = MSG_ReadWord( msg );
@@ -1125,17 +1139,55 @@ static void CL_ParseServerData( sizebuf_t *msg, connprotocol_t proto )
 	if( CL_GameCubeLocalMapRoute() )
 		Con_Reportf( "Xash3D GameCube: serverdata edicts entities=%p changelevel=%d\n",
 			(void *)clgame.entities, cls.changelevel ? 1 : 0 );
-	if( CL_GameCubeLocalMapRoute() && clgame.entities && !cls.changelevel && !cls.changedemo )
+	if( ( CL_GameCubeLocalMapRoute() || Sys_CheckParm( "-gcconnect" ))
+		&& clgame.entities && !cls.changelevel && !cls.changedemo )
 	{
 		CL_FreeEdicts();
-		Con_Reportf( "Xash3D GameCube: serverdata freed bootstrap edicts before resize\n" );
+		Con_Reportf( "Xash3D GameCube: serverdata freed bootstrap edicts before resize%s\n",
+			Sys_CheckParm( "-gcconnect" ) ? " (peer)" : "" );
+	}
+	/* Peer must Mod_LoadWorld before CL_InitEdicts — bootstrap 460 edicts
+	 * leave ~24 KiB and BSP planes OOM (dual IPC 20261107-004638). */
+	if( Sys_CheckParm( "-gcconnect" ) && !cl.worldmodel && clgame.mapname[0]
+		&& !cls.changelevel && !cls.changedemo )
+	{
+		char peer_map[MAX_QPATH];
+		model_t *world;
+
+		Q_snprintf( peer_map, sizeof( peer_map ), "maps/%s.bsp", clgame.mapname );
+		/* Host listenserver trims renderer + primes static map-load arena
+		 * before Mod_LoadWorld. Peer without R_GcmapTrimForMapLoad cannot
+		 * borrow that arena (gc_renderer_trimmed=0) and fatals on planes
+		 * (dual IPC 20261107-004807 / 004947). */
+		R_GcFreeMenuImages();
+		R_GXReleaseHudPoolForMapLoad();
+		Image_GCPurgeDecodeScratch();
+		R_GcmapTrimForMapLoad();
+		GC_PrepareMapLoadBufferForMap( clgame.mapname );
+		Con_Reportf( "Xash3D GameCube: peer disc world load %s (pre-edicts)\n", peer_map );
+		world = Mod_LoadWorld( peer_map, true );
+		if( world )
+		{
+			cl.models[1] = world;
+			cl.nummodels = Q_max( cl.nummodels, 2 );
+			cl.worldmodel = world;
+			cl.video_prepped = true;
+			cl.audio_prepped = true;
+			CL_ClearWorld();
+			ref.dllFuncs.R_NewMap();
+			Con_Reportf( "Xash3D GameCube: peer disc world ready %s\n", peer_map );
+		}
+		else
+			Con_Reportf( S_ERROR "Xash3D GameCube: peer disc world failed %s\n", peer_map );
 	}
 #endif
 	if( !cls.changelevel && !cls.changedemo )
 		CL_InitEdicts( cl.maxclients ); // re-arrange edicts
 #if XASH_GAMECUBE
-	if( CL_GameCubeLocalMapRoute() )
+	if( CL_GameCubeLocalMapRoute() || Sys_CheckParm( "-gcconnect" ))
 		Con_Reportf( "Xash3D GameCube: serverdata client edicts ready\n" );
+	if( Sys_CheckParm( "-gcconnect" ) && cl.worldmodel && clgame.entities )
+		clgame.entities->model = cl.worldmodel;
 #endif
 
 	// get splash name
@@ -1173,15 +1225,18 @@ static void CL_ParseServerData( sizebuf_t *msg, connprotocol_t proto )
 #endif
 
 #if XASH_GAMECUBE
-	if( CL_GameCubeLocalMapRoute() )
+	/* Peer BBA join stages stalkyard on disc; sendres→download stalls with
+	 * done=0 over IPC (dual 20261107-001012). Same spawn shortcut as local
+	 * gcmap/listenserver — trust disc assets, skip remote resource verify. */
+	if( CL_GameCubeLocalMapRoute() || Sys_CheckParm( "-gcconnect" ))
 	{
 		cls.state = ca_validate;
 		CL_ServerCommand( true, "spawn %i\n", cl.servercount );
-		Con_Reportf( "Xash3D GameCube: serverdata spawn shortcut queued servercount=%d proto=%d\n",
-			cl.servercount, proto );
+		Con_Reportf( "Xash3D GameCube: serverdata spawn shortcut queued servercount=%d proto=%d peer=%d\n",
+			cl.servercount, proto, Sys_CheckParm( "-gcconnect" ) ? 1 : 0 );
 	}
 	else
-	#endif
+#endif
 	// request resources from server
 	if( proto == PROTO_GOLDSRC )
 	{
@@ -1192,7 +1247,7 @@ static void CL_ParseServerData( sizebuf_t *msg, connprotocol_t proto )
 		CL_ServerCommand( true, "sendres %i\n", cl.servercount );
 	}
 #if XASH_GAMECUBE
-	if( !CL_GameCubeLocalMapRoute() )
+	if( !CL_GameCubeLocalMapRoute() && !Sys_CheckParm( "-gcconnect" ))
 		Con_Reportf( "Xash3D GameCube: serverdata sendres queued servercount=%d proto=%d\n",
 			cl.servercount, proto );
 #endif
@@ -1200,8 +1255,15 @@ static void CL_ParseServerData( sizebuf_t *msg, connprotocol_t proto )
 	memset( &clgame.movevars, 0, sizeof( clgame.movevars ));
 	memset( &clgame.oldmovevars, 0, sizeof( clgame.oldmovevars ));
 	memset( &clgame.centerPrint, 0, sizeof( clgame.centerPrint ));
-	cl.video_prepped = false;
-	cl.audio_prepped = false;
+#if XASH_GAMECUBE
+	/* Peer already loaded disc world above — keep video_prepped so Prepare
+	 * can run at SignonReply 2 (cleared here used to wipe that). */
+	if( !( Sys_CheckParm( "-gcconnect" ) && cl.worldmodel ))
+#endif
+	{
+		cl.video_prepped = false;
+		cl.audio_prepped = false;
+	}
 }
 
 /*

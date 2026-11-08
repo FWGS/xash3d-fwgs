@@ -21,6 +21,15 @@ GNU General Public License for more details.
 #elif XASH_PSVITA
 #include "platform/psvita/net_psvita.h"
 static const struct in6_addr in6addr_any;
+#elif XASH_GAMECUBE
+/* Offline Flipper menu path: stub sockets until BBA/eth2sp1 bring-up is
+ * MEM1-safe (linking libbba / net_gamecube grew .bss and broke XFB k1).
+ * Re-enable platform/gamecube/net_gamecube.h when XASH_GAMECUBE_LINK_BBA=1. */
+#if defined(XASH_GAMECUBE_HAVE_LIBBBA) && XASH_GAMECUBE_HAVE_LIBBBA
+#include "platform/gamecube/net_gamecube.h"
+#else
+#include "platform/stub/net_stub.h"
+#endif
 #else
 #include "platform/posix/net.h"
 #endif

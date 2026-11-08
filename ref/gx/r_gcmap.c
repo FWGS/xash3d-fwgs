@@ -326,7 +326,8 @@ qboolean R_GcmapEnsureSurfaceCache( void )
 qboolean R_GcmapPrepareWorldRender( void )
 {
 	if( !gEngfuncs.Sys_CheckParm( "-gcmap" ) && !gEngfuncs.Sys_CheckParm( "-gcnewgame" )
-		&& !gEngfuncs.Sys_CheckParm( "-gcmenuplaystart" ))
+		&& !gEngfuncs.Sys_CheckParm( "-gcmenuplaystart" )
+		&& !gEngfuncs.Sys_CheckParm( "-gcconnect" ))
 		return false;
 
 	if( vid.buffer && d_pzbuffer && vid.width > 0 && vid.height > 0 )
@@ -366,7 +367,8 @@ qboolean R_GcmapAllocMinimalScreen( void )
 	qboolean use_static_screen = false;
 
 	if( !gEngfuncs.Sys_CheckParm( "-gcmap" ) && !gEngfuncs.Sys_CheckParm( "-gcnewgame" )
-		&& !gEngfuncs.Sys_CheckParm( "-gcmenuplaystart" ))
+		&& !gEngfuncs.Sys_CheckParm( "-gcmenuplaystart" )
+		&& !gEngfuncs.Sys_CheckParm( "-gcconnect" ))
 		return false;
 
 	if( vid.buffer && d_pzbuffer && vid.width > 0 && vid.height > 0 )
@@ -400,10 +402,14 @@ qboolean R_GcmapAllocMinimalScreen( void )
 		use_static_screen = ( w <= GC_GCMAP_STATIC_MAX_W && h <= GC_GCMAP_STATIC_MAX_H ) ? true : false;
 	}
 	else if( gEngfuncs.Sys_CheckParm( "-gcnewgame" )
-		|| gEngfuncs.Sys_CheckParm( "-gcmenuplaystart" ))
+		|| gEngfuncs.Sys_CheckParm( "-gcmenuplaystart" )
+		|| gEngfuncs.Sys_CheckParm( "-gcconnect" )
+		|| gEngfuncs.Sys_CheckParm( "-gcmap" ))
 	{
 		/* G93: default 320×240; -gcnewgame160 restores the G36-safe fallback.
-		 * Menu New Game (-gcmenuplaystart) uses the same static screen path. */
+		 * Menu New Game / peer connect / gcmap use the same static screen path
+		 * (peer malloc z-buffer OOM → missing z → deferred world, dual IPC
+		 * 20261107-005246). */
 		if( gEngfuncs.Sys_CheckParm( "-gcnewgame160" ))
 		{
 			w = 160;

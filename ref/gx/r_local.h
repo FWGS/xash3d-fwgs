@@ -114,11 +114,11 @@ typedef struct
 	byte         modmap[256 * 256];
 	pixel_t      alphamap[3 * 1024 * 256];
 #if XASH_GAMECUBE
-	/* Contiguous with tables above; 3.5 MiB staging arena while the renderer's
-	 * screen buffers and surface cache are trimmed for BSP loading. Dense maps
-	 * reclaim the trailing BSP texture lump (after the CMPR pack loads) instead
-	 * of growing this pad into MEM1 that SV_Init still needs. */
-	byte         mapload_pad[1024 * 1024];
+	/* Contiguous with tables above; staging arena while the renderer is trimmed
+	 * for BSP loading. 1280 KiB pad → ~3.75 MiB arena so dod_avalanche (3.60)
+	 * fits without compact-load. Paired with a 256 KiB cut to studio BSS so
+	 * total MEM1 BSS (and boot FileSystem Pool headroom) stays flat. */
+	byte         mapload_pad[1280 * 1024];
 #endif
 	pixel_t      color;
 	qboolean     is2d;
@@ -392,13 +392,16 @@ static inline qboolean GC_IsLowMemoryMode( void )
 ** GC_UseLowResWorldProbe
 ** Heap-backed edge/span path for -gcworldrender and New Game (-gcnewgame)
 ** low-res world presents. Avoids NUMSTACKEDGES on the GameCube stack.
+** Solo -gclistenserver shares that path so local play is not stuck on the
+** pure -gcmap smoke skip (R_EdgeDrawing early-return).
 */
 static inline qboolean GC_UseLowResWorldProbe( void )
 {
 #if XASH_GAMECUBE
 	return ( gEngfuncs.Sys_CheckParm( "-gcworldrender" )
 		|| gEngfuncs.Sys_CheckParm( "-gcnewgame" )
-		|| gEngfuncs.Sys_CheckParm( "-gcmenuplaystart" )) ? qtrue : qfalse;
+		|| gEngfuncs.Sys_CheckParm( "-gcmenuplaystart" )
+		|| gEngfuncs.Sys_CheckParm( "-gclistenserver" )) ? qtrue : qfalse;
 #else
 	return qfalse;
 #endif

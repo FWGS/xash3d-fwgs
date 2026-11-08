@@ -106,6 +106,8 @@ void GC_EndMapLoadMemoryOpt( void );
 void GC_ClearMapLoadMemoryOpt( void );
 qboolean GC_MapLoadMemoryOpt( void );
 size_t GC_MemHeapFreeBytes( void );
+/* Free bytes inside the current MEM1 arena only (excludes unclaimed top). */
+size_t GC_MemArenaFreeBytes( void );
 
 /* Memory budget telemetry */
 size_t GC_MemBudgetTotal( void );
@@ -132,6 +134,7 @@ static inline void GC_MemSetMap( const char *mapname ) { (void)mapname; }
 static inline void GC_MemSample( const char *stage ) { (void)stage; }
 static inline void GC_MemBreadcrumb( const char *stage ) { (void)stage; }
 static inline void GC_MemHeapMark( const char *stage ) { (void)stage; }
+static inline size_t GC_MemArenaFreeBytes( void ) { return 0; }
 static inline void *GC_BootArenaAlloc( size_t size ) { (void)size; return NULL; }
 static inline qboolean GC_BootArenaFree( void *ptr ) { (void)ptr; return false; }
 static inline qboolean GC_BootArenaOwns( const void *ptr ) { (void)ptr; return false; }

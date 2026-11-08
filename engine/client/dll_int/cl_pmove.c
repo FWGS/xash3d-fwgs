@@ -70,6 +70,13 @@ static qboolean CL_IsPredicted( void )
 	// never predict the quake demos
 	if( cls.demoplayback == DEMO_QUAKE1 )
 		return false;
+#if XASH_GAMECUBE
+	/* CapFaces / -gcworldrender remaps world clipnodes after bake. Client
+	 * PM_CheckStuck then DSIs in PM_RecursiveHullCheck (solo listen
+	 * 20261107-122241 PC=PM_RecursiveHullCheck). Follow server origin. */
+	if( Sys_CheckParm( "-gcworldrender" ) || Sys_CheckParm( "-gclistenserver" ))
+		return false;
+#endif
 	return true;
 }
 

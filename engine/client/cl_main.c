@@ -38,6 +38,7 @@ void GC_SetLoadingProgress( float progress );
 void GC_ArmPostMapFrameBudgetSamples( void );
 qboolean GC_IsNewGameG36Done( void );
 qboolean GC_IsNewGameWorldReady( void );
+qboolean GC_PrepareNewGameWorldPresent( void );
 qboolean GC_IsFrameBudgetProbeActive( void );
 qboolean GC_RenderNewGameWorldFrames( int count );
 qboolean GC_UseGxWorldDraw( void );
@@ -601,9 +602,12 @@ void CL_SignonReply( connprotocol_t proto )
 		/* -dev 2 enables Mem_PrintStats here; GC map routes can have transient
 		 * heap noise during connect — don't abort signon on a stats sweep.
 		 * Menu New Game (-gcmenuplaystart) hits the same hang (probe
-		 * 20260813-183149 stalled after ucmd->begin). */
+		 * 20260813-183149 stalled after ucmd->begin). Peer BBA join
+		 * (-gcconnect) printed pools then softlocked before SignonReply 2
+		 * (dual IPC 20261107-001137). */
 		if( Sys_CheckParm( "-gcmap" ) || Sys_CheckParm( "-gcnewgame" )
-			|| Sys_CheckParm( "-gcmenuplaystart" ) || GC_MapLoadMemoryOpt() )
+			|| Sys_CheckParm( "-gcmenuplaystart" ) || Sys_CheckParm( "-gcconnect" )
+			|| Sys_CheckParm( "-gclistenserver" ) || GC_MapLoadMemoryOpt() )
 			break;
 #endif
 		if( host_developer.value >= DEV_EXTENDED )
@@ -611,6 +615,15 @@ void CL_SignonReply( connprotocol_t proto )
 		break;
 	case 2:
 		SCR_EndLoadingPlaque();
+#if XASH_GAMECUBE
+		/* Peer never ran host-side G36/Prepare; SCR's ca_active present path
+		 * required G36Done||world_ready and stayed dark (dual IPC 20261107-004357). */
+		if( Sys_CheckParm( "-gcconnect" ) && !GC_IsNewGameWorldReady() )
+		{
+			Con_Reportf( "Xash3D GameCube: peer signon2 prepare world\n" );
+			GC_PrepareNewGameWorldPresent();
+		}
+#endif
 		if( cl.proxy_redirect && !cls.spectator )
 			CL_Disconnect();
 		cl.proxy_redirect = false;
@@ -1567,6 +1580,25 @@ static void CL_CheckForResend( void )
 	// if the local server is running and we aren't then connect
 	if( cls.state == ca_disconnected && SV_Active( ))
 	{
+#if XASH_GAMECUBE
+		/* BBA/eth2sp1 listen host: local auto-join with maxplayers=2 hangs
+		 * after ucmd->begin (probe 20261106-234030) before SignonReply 2, so
+		 * the host never services peer getchallenge. Skip local seat — keep
+		 * both slots for remote join. Offline solo listen (no -net) still
+		 * auto-connects. */
+		if( Sys_CheckParm( "-gclistenserver" )
+			&& ( Sys_CheckParm( "-net" ) || Sys_CheckParm( "-netstatic" )))
+		{
+			static qboolean gc_listen_skip_logged;
+
+			if( !gc_listen_skip_logged )
+			{
+				Con_Reportf( "Xash3D GameCube: listen host skips local auto-connect (peer slots)\n" );
+				gc_listen_skip_logged = true;
+			}
+			return;
+		}
+#endif
 		cls.signon = 0;
 		cls.state = ca_connecting;
 		Q_strncpy( cls.servername, "localhost", sizeof( cls.servername ));
@@ -1600,12 +1632,19 @@ static void CL_CheckForResend( void )
 
 	if( res == NET_EAI_NONAME )
 	{
+#if XASH_GAMECUBE
+		Con_Reportf( S_ERROR "Xash3D GameCube: connect resolve NONAME server=%s\n",
+			cls.servername );
+#endif
 		CL_Disconnect();
 		return;
 	}
 
 	if( res == NET_EAI_AGAIN )
 	{
+#if XASH_GAMECUBE
+		Con_Reportf( "Xash3D GameCube: connect resolve AGAIN server=%s\n", cls.servername );
+#endif
 		cls.connect_time = MAX_HEARTBEAT;
 		return;
 	}
@@ -2707,6 +2746,19 @@ static void CL_ClientConnect( connprotocol_t proto, const char *c, netadr_t from
 	}
 
 	CL_Reconnect( true );
+#if XASH_GAMECUBE
+	/* Peer BBA join must stay off the retail menu — UI_SetActiveMenu(true)
+	 * after S2C_CONNECTION starved serverdata (probe 20261106-235508).
+	 * Minimal screen init already skips gameui for -gcconnect; still force
+	 * key_game so the next ClientFrame can EnsureClientReady → serverdata. */
+	if( Sys_CheckParm( "-gcconnect" ))
+	{
+		UI_SetActiveMenu( false );
+		Key_SetKeyDest( key_game );
+		Con_Reportf( "Xash3D GameCube: peer connected — menu held off for signon\n" );
+	}
+	else
+#endif
 	UI_SetActiveMenu( cl.background );
 }
 
@@ -3070,14 +3122,38 @@ static void CL_ReadNetMessage( void )
 		break;
 	}
 
+#if XASH_GAMECUBE
+	/* Bound recv loop — empty/error packet storms must not softlock Host_Frame. */
+	int gc_pkt_budget = 32;
+#endif
 	while( CL_GetMessage( net_message_buffer, &curSize ))
 	{
+#if XASH_GAMECUBE
+		if( --gc_pkt_budget < 0 )
+		{
+			Con_Reportf( S_WARN "Xash3D GameCube: CL_ReadNetMessage packet budget exhausted\n" );
+			break;
+		}
+		if( curSize == 0 )
+			continue;
+#endif
 		MSG_Init( &net_message, "ServerData", net_message_buffer, curSize );
 
 		// check for connectionless packet (0xffffffff) first
 		if( MSG_GetMaxBytes( &net_message ) >= 4 && *(int *)net_message.pData == -1 )
 		{
 			CL_ConnectionlessPacket( net_from, &net_message );
+#if XASH_GAMECUBE
+			/* Peer connect: one OOB per ReadPackets then return. Challenge
+			 * → connect → accept in one while-iteration softlocked before
+			 * "peer ReadPackets leave" (probe 20261106-235202). */
+			if( Sys_CheckParm( "-gcconnect" ))
+			{
+				Con_Reportf( "Xash3D GameCube: peer OOB handled state=%d — end ReadNetMessage\n",
+					cls.state );
+				return;
+			}
+#endif
 			continue;
 		}
 
@@ -3115,6 +3191,28 @@ static void CL_ReadNetMessage( void )
 
 		CL_ParseNetMessage( &net_message, parsefn );
 	}
+
+#if XASH_GAMECUBE
+	/* Peer join must not hit SetSolidEntities until ca_active — clgame.pmove
+	 * is often still NULL after SignonReply 1 and softlocks Host_Frame
+	 * (dual IPC 20261107-001246). Still drain netchan fragments so begin /
+	 * baselines can finish. Pre-accept empty poll had the same fall-through
+	 * softlock (20261107-000744). */
+	if( Sys_CheckParm( "-gcconnect" ) && cls.state < ca_active )
+	{
+		if( cls.state != ca_disconnected && Netchan_IncomingReady( &cls.netchan ))
+		{
+			if( Netchan_CopyNormalFragments( &cls.netchan, &net_message, &curSize ))
+			{
+				MSG_Init( &net_message, "ServerData", net_message_buffer, curSize );
+				CL_ParseNetMessage( &net_message, parsefn );
+			}
+			if( Netchan_CopyFileFragments( &cls.netchan, &net_message ))
+				CL_ProcessFile( true, cls.netchan.incomingfilename );
+		}
+		return;
+	}
+#endif
 
 	// build list of all solid entities per next frame (exclude clients)
 	CL_SetSolidEntities();
@@ -3163,6 +3261,13 @@ static void CL_ReadPackets( void )
 		cls.demotime += host.frametime;
 
 	CL_ReadNetMessage();
+
+#if XASH_GAMECUBE
+	/* Peer connect path: skip post-recv work until ca_active — ApplyAddAngle
+	 * / resource checks are unneeded while still handshaking. */
+	if( Sys_CheckParm( "-gcconnect" ) && cls.state < ca_active )
+		return;
+#endif
 
 	CL_ApplyAddAngle();
 
@@ -3974,6 +4079,7 @@ void Host_ClientFrame( void )
 {
 #if XASH_GAMECUBE
 	static int gc_fullphysics_client_log;
+	static int gc_connect_frame_log;
 	qboolean gc_fullphysics_trace = Sys_CheckParm( "-gcnewgame" )
 		&& Sys_CheckParm( "-gcfullphysics" ) && GC_IsNewGameG36Done()
 		&& gc_fullphysics_client_log < 2;
@@ -3981,6 +4087,14 @@ void Host_ClientFrame( void )
 	// if client is not active, do nothing
 	if( !cls.initialized ) return;
 #if XASH_GAMECUBE
+	if( Sys_CheckParm( "-gcconnect" ) && gc_connect_frame_log < 8 )
+	{
+		Con_Reportf( "Xash3D GameCube: ClientFrame connect boot state=%d init=%d progs=%d fallback=%d\n",
+			cls.state, cls.initialized ? 1 : 0,
+			CL_GameCubeClientProgsReady() ? 1 : 0,
+			UI_UsingBuiltInFallbackMenu() ? 1 : 0 );
+		gc_connect_frame_log++;
+	}
 	if( UI_UsingBuiltInFallbackMenu() )
 	{
 		VID_CheckChanges();
@@ -3995,8 +4109,15 @@ void Host_ClientFrame( void )
 #if XASH_GAMECUBE
 		/* Pure -gcmap smoke keeps client progs deferred. Menu New Game with
 		 * -gcmap still needs the client so post-smoke Prepare / lean play can
-		 * arm (otherwise Host_Frame stalls at ready=0). */
-		if( Sys_CheckParm( "-gcmap" ) && !Sys_CheckParm( "-gcmenuplaystart" ))
+		 * arm (otherwise Host_Frame stalls at ready=0).
+		 * Peer join (-gcconnect) and solo listen (-gclistenserver) also stage
+		 * -gcmap for MEM1; do not starve connect / local present behind smoke.
+		 * Fragbufs must use Netchan_FreeFragbuf — Mem_Free on emergency BSS
+		 * slots was the listen-client Mem_FreeBlockBig fatal. */
+		if( Sys_CheckParm( "-gcmap" ) && !Sys_CheckParm( "-gcmenuplaystart" )
+			&& !Sys_CheckParm( "-gcconnect" )
+			&& !Sys_CheckParm( "-gclistenserver" )
+			&& cls.state != ca_connecting && cls.state != ca_connected )
 		{
 			/* Map-load smoke keeps client progs deferred; avoid renderer/texture
 			 * work that allocates from the filesystem pool while BSP data
@@ -4005,26 +4126,76 @@ void Host_ClientFrame( void )
 				host.renderinfo_changed = false;
 			return;
 		}
-		/* Only the -gcmap + -gcmenuplaystart smoke combination needs the
-		 * client before play start.  The plain menu route used to load the
-		 * client DLL on the first frame, during the startup video, with
-		 * ~32 KiB of heap left; it hung at "deferred client init begin"
-		 * and the menu never came up.  SV_GameCubePlayStart_f ensures the
-		 * client itself after its MEM1 trims, as on the retail cold route. */
-		if( Sys_CheckParm( "-gcmenuplaystart" ) && Sys_CheckParm( "-gcmap" ))
+		/* Net listen host skips local auto-connect — loading HUD here softlocks
+		 * under MEM1 after packet-entity BSS (dual IPC 20261107-003037 hung in
+		 * CHud::Init and never answered getchallenge). Keep SV alive only. */
+		if( Sys_CheckParm( "-gclistenserver" )
+			&& ( Sys_CheckParm( "-net" ) || Sys_CheckParm( "-netstatic" ))
+			&& !CL_GameCubeClientProgsReady() )
+		{
+			static int gc_listen_headless_log;
+			if( gc_listen_headless_log < 4 )
+			{
+				Con_Reportf( "Xash3D GameCube: listen host headless (skip client HUD for peer slots)\n" );
+				gc_listen_headless_log++;
+			}
+			VID_CheckChanges();
+			if( GC_BootDrawAllowed() )
+				SCR_UpdateScreen();
+			return;
+		}
+		/* -gcmap + (-gcmenuplaystart | offline solo listenserver): load client
+		 * so local play can present. Peer accept also needs progs for serverdata. */
+		if( (( Sys_CheckParm( "-gcmenuplaystart" )
+				|| ( Sys_CheckParm( "-gclistenserver" )
+					&& !Sys_CheckParm( "-net" ) && !Sys_CheckParm( "-netstatic" ) ))
+				&& Sys_CheckParm( "-gcmap" ))
+			|| ( Sys_CheckParm( "-gcconnect" ) && cls.state >= ca_connected ))
 		{
 			Image_GCPurgeDecodeScratch();
 			FS_ClearFindMissCache();
 			if( !CL_GameCubeEnsureClientReady() )
 			{
+				if( Sys_CheckParm( "-gcconnect" ))
+					CL_ReadPackets();
 				if( host.renderinfo_changed )
 					host.renderinfo_changed = false;
 				return;
 			}
+			if( Sys_CheckParm( "-gcconnect" ))
+				Con_Reportf( "Xash3D GameCube: peer client progs ready state=%d — normal frame\n",
+					cls.state );
 		}
 		else
 #endif
 		{
+			/* Peer join pre-accept: pump getchallenge without loading client DLL.
+			 * Poll every frame — gate%8 missed the challenge window and left the
+			 * peer softlocked after an empty select (dual IPC 20261107-000336). */
+			if( Sys_CheckParm( "-gcconnect" ) || cls.state == ca_connecting )
+			{
+				static int gc_peer_resend_log;
+				static int gc_peer_recv_gate;
+				VID_CheckChanges();
+				if( gc_peer_resend_log < 8 )
+				{
+					Con_Reportf( "Xash3D GameCube: peer resend path state=%d realtime=%.3f connect_time=%.3f\n",
+						cls.state, host.realtime, cls.connect_time );
+					gc_peer_resend_log++;
+				}
+				CL_CheckForResend();
+				gc_peer_recv_gate++;
+				if( gc_peer_resend_log <= 16 )
+					Con_Reportf( "Xash3D GameCube: peer ReadPackets enter gate=%d\n",
+						gc_peer_recv_gate );
+				CL_ReadPackets();
+				if( gc_peer_resend_log <= 16 )
+					Con_Reportf( "Xash3D GameCube: peer ReadPackets leave gate=%d state=%d\n",
+						gc_peer_recv_gate, cls.state );
+				if( GC_BootDrawAllowed() )
+					SCR_UpdateScreen();
+				return;
+			}
 			VID_CheckChanges();
 			if( GC_BootDrawAllowed() )
 				SCR_UpdateScreen();

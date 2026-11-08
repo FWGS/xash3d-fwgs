@@ -1274,6 +1274,11 @@ qboolean R_TryInitGcmapSurfaceCache( void )
 		}
 	}
 
+	/* Tip after large BSP leaves <32 KiB contiguous heap; static low-res
+	 * store still lets Flipper presents progress instead of GHOST forever. */
+	if( R_TryInitLowResSurfaceCache() )
+		return true;
+
 	gEngfuncs.Con_Reportf( "Xash3D GameCube: surface cache deferred (%s unavailable)\n",
 		Q_memprint( size ));
 	return false;

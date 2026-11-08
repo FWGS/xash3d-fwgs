@@ -20,6 +20,9 @@ GNU General Public License for more details.
 #include "enginefeatures.h"
 #include "studio.h"
 #include "world.h"
+#if XASH_GAMECUBE
+#include "platform/platform.h"
+#endif
 
 #define PM_AllowHitBoxTrace( model, hull ) ( model && model->type == mod_studio && ( FBitSet( model->flags, STUDIO_TRACE_HITBOX ) || hull == 2 ))
 
@@ -767,13 +770,21 @@ int PM_PointContents( playermove_t *pmove, const vec3_t p )
 #if XASH_GAMECUBE
 	/* Hull 0 can reside in reusable BSP scratch on the low-memory route.
 	 * The retained render BSP describes the same point contents and remains
-	 * valid for native movement after world presentation reuses that scratch. */
+	 * valid for native movement after world presentation reuses that scratch.
+	 * CapFaces Flipper (-gcworldrender) remaps those nodes — skip the walk
+	 * (solo listen PM_CatagorizePosition DSI 20261107-122912). */
 	model_t *worldmodel = pmove->physents[0].model;
-	mleaf_t *worldleaf = worldmodel->nodes
-		? Mod_PointInLeaf( p, worldmodel->nodes + worldmodel->hulls[0].firstclipnode, worldmodel )
-		: NULL;
-	int contents = worldleaf ? worldleaf->contents
-		: PM_HullPointContents( &worldmodel->hulls[0], 0, p );
+	int contents;
+	if( Sys_CheckParm( "-gcworldrender" ) && GC_UseGxWorldDraw() )
+		contents = CONTENTS_EMPTY;
+	else
+	{
+		mleaf_t *worldleaf = worldmodel->nodes
+			? Mod_PointInLeaf( p, worldmodel->nodes + worldmodel->hulls[0].firstclipnode, worldmodel )
+			: NULL;
+		contents = worldleaf ? worldleaf->contents
+			: PM_HullPointContents( &worldmodel->hulls[0], 0, p );
+	}
 #else
 	int contents = PM_HullPointContents( &pmove->physents[0].model->hulls[0], 0, p );
 #endif

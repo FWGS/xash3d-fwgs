@@ -789,6 +789,21 @@ static void Netchan_CreateFragments_( netchan_t *chan, sizebuf_t *msg )
 		MSG_Clear( msg );
 		return;
 	}
+	/* Network Pool tip soft-fails leave only NETCHAN_GC_EMERGENCY_SLOTS BSS
+	 * fragbufs. Coalesce any multi-chunk reliable into one emergency-sized
+	 * fragment so a single slot carries peer spawn (~2.5 KiB) instead of
+	 * 3x FRAGSIZE (dual IPC 20261107-003425 / 003751). */
+	{
+		int written = MSG_GetNumBytesWritten( msg );
+
+		if( written > chunksize && chunksize < NETCHAN_GC_EMERGENCY_PAYLOAD
+			&& written <= NETCHAN_GC_EMERGENCY_PAYLOAD )
+		{
+			Con_Reportf( "Xash3D GameCube: coalesce frag chunks %d -> %d (msg=%d)\n",
+				chunksize, written, written );
+			chunksize = written;
+		}
+	}
 #else
 	fragbufwaiting_t *wait = (fragbufwaiting_t *)Mem_Calloc( net_mempool, sizeof( fragbufwaiting_t ));
 #endif
@@ -892,6 +907,31 @@ Netchan_CreateFragments
 */
 void Netchan_CreateFragments( netchan_t *chan, sizebuf_t *msg )
 {
+#if XASH_GAMECUBE
+	/* Pending chan->message + spawn body each took a CreateFragments_ pass;
+	 * the first ate both emergency BSS slots and the spawn remainder (130 B)
+	 * was dropped (dual IPC 20261107-003751). Append body onto pending so
+	 * one waitlist / coalesce uses a single emergency slot. */
+	if( MSG_GetNumBytesWritten( &chan->message ) > 0
+		&& MSG_GetNumBytesWritten( msg ) > 0 )
+	{
+		int pending = MSG_GetNumBytesWritten( &chan->message );
+		int body = MSG_GetNumBytesWritten( msg );
+		int maxbytes = MSG_GetMaxBytes( &chan->message );
+
+		if( pending + body <= maxbytes )
+		{
+			MSG_WriteBits( &chan->message, MSG_GetData( msg ),
+				MSG_GetNumBitsWritten( msg ));
+			Con_Reportf( "Xash3D GameCube: merge pending+body frags %d+%d -> %d\n",
+				pending, body, MSG_GetNumBytesWritten( &chan->message ));
+			MSG_Clear( msg );
+			Netchan_CreateFragments_( chan, &chan->message );
+			MSG_Clear( &chan->message );
+			return;
+		}
+	}
+#endif
 	// always queue any pending reliable data ahead of the fragmentation buffer
 	if( MSG_GetNumBytesWritten( &chan->message ) > 0 )
 	{
@@ -1295,7 +1335,11 @@ void Netchan_FlushIncoming( netchan_t *chan, int stream )
 	while( p )
 	{
 		fragbuf_t *n = p->next;
+#if XASH_GAMECUBE
+		Netchan_FreeFragbuf( p );
+#else
 		Mem_Free( p );
+#endif
 		p = n;
 	}
 	chan->incomingbufs[stream] = NULL;
@@ -1329,7 +1373,11 @@ qboolean Netchan_CopyNormalFragments( netchan_t *chan, sizebuf_t *msg, size_t *l
 
 		// copy it in
 		MSG_WriteBytes( msg, MSG_GetData( &p->frag_message ), MSG_GetNumBytesWritten( &p->frag_message ));
+#if XASH_GAMECUBE
+		Netchan_FreeFragbuf( p );
+#else
 		Mem_Free( p );
+#endif
 		p = n;
 	}
 
@@ -1508,7 +1556,11 @@ qboolean Netchan_CopyFileFragments( netchan_t *chan, sizebuf_t *msg )
 		}
 
 		pos += cursize;
+#if XASH_GAMECUBE
+		Netchan_FreeFragbuf( p );
+#else
 		Mem_Free( p );
+#endif
 		p = n;
 	}
 

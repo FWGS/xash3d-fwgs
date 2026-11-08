@@ -93,24 +93,28 @@ static void SV_AddEntitiesToPacket( edict_t *pViewEnt, edict_t *pClient, client_
 	 * G277: still admit a small near-eye brush-mover budget so the c0a0 tram
 	 * (*submodel) reaches Flipper R_GXDrawBrushModel / edge_entities. */
 	/* GC_MenuRunsServer: the menu route runs the real map logic and packs
-	 * with the game's own AddToFullPack below, like GoldSrc. */
+	 * with the game's own AddToFullPack below, like GoldSrc.
+	 * Dual BBA listen: HLSDK AddToFullPack hung Host_Frame inside
+	 * WriteEntities after peer ucmd->begin (dual IPC 20261107-001710). */
 	if( ( Sys_CheckParm( "-gcnewgame" )
+			|| Sys_CheckParm( "-gclistenserver" )
 			|| ( Sys_CheckParm( "-gcmenuplaystart" ) && !GC_MenuRunsServer() ))
 		&& from_client )
 	{
 		int		e;
 		int		player_e = NUM_FOR_EDICT( pClient );
 		qboolean	post_g36 = GC_IsNewGameG36Done();
+		qboolean	listen_mp = Sys_CheckParm( "-gclistenserver" ) != 0;
 		/* Lean post-G36: after Flipper arms, pack a few *submodel brushes
 		 * (tram/doors/buttons share *N models). Classname string compares
 		 * for door admit hung WriteEntities even when unused — keep this
 		 * path to precache[0]=='*' only. Fullphysics keeps G319 studios. */
-		qboolean	lean_player_only = post_g36
-			&& !Sys_CheckParm( "-gcfullphysics" );
+		qboolean	lean_player_only = ( post_g36 && !Sys_CheckParm( "-gcfullphysics" ))
+			|| listen_mp;
 		qboolean	lean_brush_pack = lean_player_only
-			&& GC_IsLeanPlayerPhysicsArmed();
+			&& ( GC_IsLeanPlayerPhysicsArmed() || listen_mp );
 		int		brush_budget = post_g36 ? 6 : 64;
-		int		lean_brush_budget = 2;
+		int		lean_brush_budget = listen_mp ? 4 : 2;
 		int		brush_added = 0;
 		int		studio_added = 0;
 		vec3_t		view_org;
@@ -135,8 +139,9 @@ static void SV_AddEntitiesToPacket( edict_t *pViewEnt, edict_t *pClient, client_
 
 				if( pcl->state != cs_spawned )
 					continue;
-				if( e != player_e )
-					continue; /* single-player: only the local client */
+				/* SP lean: only the local client. Listen MP: every spawned seat. */
+				if( e != player_e && !listen_mp )
+					continue;
 			}
 			else if( lean_player_only )
 			{
@@ -837,7 +842,28 @@ static void SV_WriteEntitiesToClient( sv_client_t *cl, sizebuf_t *msg )
 
 	// add all the entities directly visible to the eye, which
 	// may include portal entities that merge other viewpoints
+#if XASH_GAMECUBE
+	/* Peer PutInServer can leave pViewEntity NULL; lean pack derefs it for
+	 * view origin (dual IPC 20261107-001957 view=-1). Fall back to edict. */
+	{
+		edict_t *view = cl->pViewEntity ? cl->pViewEntity : cl->edict;
+
+		if( !cl->pViewEntity && cl->edict )
+			cl->pViewEntity = cl->edict;
+		if( Sys_CheckParm( "-gclistenserver" ))
+			Con_Reportf( "Xash3D GameCube: AddEntitiesToPacket begin view=%d client=%d\n",
+				view ? NUM_FOR_EDICT( view ) : -1,
+				cl->edict ? NUM_FOR_EDICT( cl->edict ) : -1 );
+		SV_AddEntitiesToPacket( view, cl->edict, frame, &frame_ents, true );
+	}
+#else
 	SV_AddEntitiesToPacket( cl->pViewEntity, cl->edict, frame, &frame_ents, true );
+#endif
+#if XASH_GAMECUBE
+	if( Sys_CheckParm( "-gclistenserver" ))
+		Con_Reportf( "Xash3D GameCube: AddEntitiesToPacket ready ents=%d\n",
+			frame_ents.num_entities );
+#endif
 
 	if( c_notsend != cl->ignored_ents )
 	{
@@ -851,6 +877,12 @@ static void SV_WriteEntitiesToClient( sv_client_t *cl, sizebuf_t *msg )
 	// to work correctly.  This also catches the error condition
 	// of an entity being included twice.
 	qsort( frame_ents.entities, frame_ents.num_entities, sizeof( frame_ents.entities[0] ), SV_EntityNumbers );
+#if XASH_GAMECUBE
+	if( Sys_CheckParm( "-gclistenserver" ))
+		Con_Reportf( "Xash3D GameCube: WriteEntities sorted ents=%d frames=%p packet=%p num_pe=%d next=%d\n",
+			frame_ents.num_entities, (void *)cl->frames, (void *)svs.packet_entities,
+			svs.num_client_entities, svs.next_client_entities );
+#endif
 
 	// it will break all connected clients, but it takes more than one week to overflow it
 	if(( (uint)svs.next_client_entities ) + frame_ents.num_entities >= 0x7FFFFFFE )
@@ -860,6 +892,16 @@ static void SV_WriteEntitiesToClient( sv_client_t *cl, sizebuf_t *msg )
 		// delta is broken for now, cannot keep connected clients
 		SV_FinalMessage( "Server will restart due delta is outdated\n", true );
 	}
+
+#if XASH_GAMECUBE
+	if( Sys_CheckParm( "-gclistenserver" )
+		&& ( !cl->frames || !svs.packet_entities || svs.num_client_entities <= 0 ))
+	{
+		Con_Reportf( S_ERROR "Xash3D GameCube: WriteEntities abort frames=%p packet=%p num_pe=%d\n",
+			(void *)cl->frames, (void *)svs.packet_entities, svs.num_client_entities );
+		return;
+	}
+#endif
 
 	// copy the entity states out
 	frame->first_entity = svs.next_client_entities;
@@ -873,10 +915,23 @@ static void SV_WriteEntitiesToClient( sv_client_t *cl, sizebuf_t *msg )
 		svs.next_client_entities++;
 		frame->num_entities++;
 	}
+#if XASH_GAMECUBE
+	if( Sys_CheckParm( "-gclistenserver" ))
+		Con_Reportf( "Xash3D GameCube: WriteEntities copied ents=%d next=%d\n",
+			frame->num_entities, svs.next_client_entities );
+#endif
 
 	SV_EmitPacketEntities( cl, frame, msg );
+#if XASH_GAMECUBE
+	if( Sys_CheckParm( "-gclistenserver" ))
+		Con_Reportf( "Xash3D GameCube: EmitPacketEntities ready\n" );
+#endif
 	SV_EmitEvents( cl, frame, msg );
 	if( send_pings ) SV_EmitPings( msg );
+#if XASH_GAMECUBE
+	if( Sys_CheckParm( "-gclistenserver" ))
+		Con_Reportf( "Xash3D GameCube: WriteEntities complete\n" );
+#endif
 }
 
 /*
@@ -897,10 +952,13 @@ static void SV_SendClientDatagram( sv_client_t *cl )
 	sizebuf_t	msg;
 
 #if XASH_GAMECUBE
-	if( Sys_CheckParm( "-gcnewgame" ) && cl->state == cs_spawned )
+	/* Peer BBA listen softlocks after ucmd->begin with no further host logs
+	 * (dual IPC 20261107-001409) — instrument listenserver the same as newgame. */
+	if(( Sys_CheckParm( "-gcnewgame" ) || Sys_CheckParm( "-gclistenserver" ))
+		&& cl->state == cs_spawned )
 	{
 		static int gc_datagram_log;
-		if( gc_datagram_log < 3 )
+		if( gc_datagram_log < 6 )
 		{
 			Con_Reportf( "Xash3D GameCube: SendClientDatagram begin seq=%d model=%d\n",
 				cl->netchan.outgoing_sequence,
@@ -918,10 +976,11 @@ static void SV_SendClientDatagram( sv_client_t *cl )
 	MSG_WriteFloat( &msg, sv.time );
 
 #if XASH_GAMECUBE
-	if( Sys_CheckParm( "-gcnewgame" ) && cl->state == cs_spawned )
+	if(( Sys_CheckParm( "-gcnewgame" ) || Sys_CheckParm( "-gclistenserver" ))
+		&& cl->state == cs_spawned )
 	{
 		static int gc_cd_log;
-		if( gc_cd_log < 3 )
+		if( gc_cd_log < 6 )
 		{
 			Con_Reportf( "Xash3D GameCube: WriteClientdata begin\n" );
 			gc_cd_log++;
@@ -930,10 +989,11 @@ static void SV_SendClientDatagram( sv_client_t *cl )
 #endif
 	SV_WriteClientdataToMessage( cl, &msg );
 #if XASH_GAMECUBE
-	if( Sys_CheckParm( "-gcnewgame" ) && cl->state == cs_spawned )
+	if(( Sys_CheckParm( "-gcnewgame" ) || Sys_CheckParm( "-gclistenserver" ))
+		&& cl->state == cs_spawned )
 	{
 		static int gc_cd_ready_log;
-		if( gc_cd_ready_log < 3 )
+		if( gc_cd_ready_log < 6 )
 		{
 			Con_Reportf( "Xash3D GameCube: WriteClientdata ready\n" );
 			gc_cd_ready_log++;
@@ -941,10 +1001,11 @@ static void SV_SendClientDatagram( sv_client_t *cl )
 	}
 #endif
 #if XASH_GAMECUBE
-	if( Sys_CheckParm( "-gcnewgame" ) && cl->state == cs_spawned )
+	if(( Sys_CheckParm( "-gcnewgame" ) || Sys_CheckParm( "-gclistenserver" ))
+		&& cl->state == cs_spawned )
 	{
 		static int gc_ents_log;
-		if( gc_ents_log < 3 )
+		if( gc_ents_log < 6 )
 		{
 			Con_Reportf( "Xash3D GameCube: WriteEntities begin\n" );
 			gc_ents_log++;
@@ -954,10 +1015,11 @@ static void SV_SendClientDatagram( sv_client_t *cl )
 	SV_WriteEntitiesToClient( cl, &msg );
 
 #if XASH_GAMECUBE
-	if( Sys_CheckParm( "-gcnewgame" ) && cl->state == cs_spawned )
+	if(( Sys_CheckParm( "-gcnewgame" ) || Sys_CheckParm( "-gclistenserver" ))
+		&& cl->state == cs_spawned )
 	{
 		static int gc_datagram_ready_log;
-		if( gc_datagram_ready_log < 6 )
+		if( gc_datagram_ready_log < 8 )
 		{
 			Con_Reportf( "Xash3D GameCube: SendClientDatagram ready bytes=%d%s\n",
 				MSG_GetNumBytesWritten( &msg ),

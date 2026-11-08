@@ -53,7 +53,7 @@ SETUP BACKENDS DEFINITIONS
 		#define XASH_VIDEO     VIDEO_GX
 		#define XASH_INPUT     INPUT_GAMECUBE
 		#define XASH_SOUND     SOUND_NULL
-		#define XASH_NO_NETWORK 1
+		/* Real UDP via libogc/libogc2 (BBA + Swiss eth2sp1). Soft-fail offline. */
 		#define XASH_REDUCE_FD 1
 		#define XASH_NO_TOUCH  1
 	#endif

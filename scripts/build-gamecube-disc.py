@@ -952,13 +952,28 @@ def stage_gc_menu_assets(source: Path, output: Path) -> bool:
 	if logo is not None:
 		# Match on-screen titleLogo size (512×56 menu units) at source density.
 		logo.thumbnail((512, 64), Image.Resampling.LANCZOS)
-		# Retail uses the familiar amber Half-Life wordmark on the menu.
 		logo_pixels = logo.load()
+		# Opaque RGB wordmarks (DoD logo_game) use black as the matte — punch
+		# near-black through to alpha so the splash shows behind the letters.
+		opaque_rgb = []
 		for py in range(logo.height):
 			for px in range(logo.width):
 				r, g, b, a = logo_pixels[px, py]
+				if a >= 250 and (r + g + b) < 24:
+					logo_pixels[px, py] = (r, g, b, 0)
+					continue
 				if a:
-					logo_pixels[px, py] = (214, 138, 26, a)
+					opaque_rgb.append((r, g, b))
+		# Amber remap is for white HL wordmarks only. Coloured logos (DoD olive
+		# stencil) must keep retail palette.
+		if opaque_rgb:
+			mean_luma = sum((r + g + b) / 3 for r, g, b in opaque_rgb) / len(opaque_rgb)
+			if mean_luma >= 180:
+				for py in range(logo.height):
+					for px in range(logo.width):
+						r, g, b, a = logo_pixels[px, py]
+						if a:
+							logo_pixels[px, py] = (214, 138, 26, a)
 		logo.save(menu_dir / "logo.tga", format="TGA")
 
 	# WON title banner: retail media/logo.avi is a 640x100 strip (white
@@ -3529,6 +3544,13 @@ def main() -> None:
 					play_lines.append("modeltrace")
 				if os.environ.get("XASH_GC_PROBE_PROFILE") == "1":
 					play_lines.append("profile")
+				# Early BBA/eth2sp1 via gamecube.cfg → argv -net*.
+				if os.environ.get("XASH_GC_PROBE_NET", "").lower() in ("1", "yes", "true", "on"):
+					# Dolphin BuiltIn: static IP avoids DHCP hangs; netfast caps retries.
+					mode = (os.environ.get("XASH_GC_PROBE_NET_MODE") or "netstatic").strip().lower()
+					if mode not in ("net", "netfast", "netstatic"):
+						mode = "netstatic"
+					play_lines.append(mode)
 				(staged_data / "gamecube.cfg").write_text(
 					"\n".join(play_lines) + "\n", encoding="ascii"
 				)

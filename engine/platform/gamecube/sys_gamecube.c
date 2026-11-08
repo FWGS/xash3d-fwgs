@@ -32,6 +32,14 @@ Platform layer ported from Division-Zero-GX/xash3d-wii.
 #include "mem_gamecube.h"
 #include "storage_gamecube.h"
 #include "perf_gamecube.h"
+#if defined(XASH_GAMECUBE_HAVE_LIBBBA) && XASH_GAMECUBE_HAVE_LIBBBA
+#include "net_gamecube.h"
+#else
+/* Soft decls when DOL is built offline (Flipper menu / DoD assets path). */
+int GC_NetEnsureReady( void );
+const char *GC_NetLocalIP( void );
+void GC_NetShutdown( void );
+#endif
 
 #define GC_DATA_PATH "xash3d"
 #define GC_DVD_DEVICE "gcdisc"
@@ -819,10 +827,16 @@ void GCube_Init( void )
 	char xashdir[MAX_SYSPATH];
 	char writepath[MAX_SYSPATH];
 
-	/* G29: Initialize networking for local loopback single-player.
-	 * Disable external network dependencies (master servers, HTTP)
-	 * to ensure offline boot works without network hardware. */
+	/* Offline-first: keep sockets on loopback until multiplayer / -net.
+	 * BBA and Swiss eth2sp1 are brought up lazily via GC_NetEnsureReady(). */
 	NET_Config( false, false );
+	if( Sys_CheckParm( "-net" ))
+	{
+		if( GC_NetEnsureReady( ))
+			Con_Reportf( "Xash3D GameCube: -net early bring-up ok ip=%s\n", GC_NetLocalIP( ));
+		else
+			Con_Reportf( S_WARN "Xash3D GameCube: -net early bring-up failed (continuing offline)\n" );
+	}
 
 	/* May already be mounted from GetArgv (Swiss SD gamecube.cfg). */
 	GCube_EnsureFatMounted();
@@ -974,6 +988,9 @@ qboolean GCube_GetBasePath( char *buf, size_t buflen )
 
 static char *gc_argv[40];
 static char gc_smoke_map[MAX_QPATH];
+static char gc_listenserver_map[MAX_QPATH];
+static char gc_connect_addr[64];
+static char gc_net_ip_override[16];
 static char gc_phase_test[32];
 static char gc_changelevel_map[MAX_QPATH];
 static char gc_landmark_name[MAX_QPATH];
@@ -983,6 +1000,8 @@ static char gc_changelevel3_map[MAX_QPATH];
 static char gc_landmark3_name[MAX_QPATH];
 static char gc_tas_name[32];
 static qboolean gc_smoke_map_configured;
+static qboolean gc_listenserver_configured;
+static qboolean gc_connect_configured;
 static qboolean gc_newgame_configured;
 static qboolean gc_menu_newgame_configured;
 static qboolean gc_retail_newgame_configured;
@@ -1031,6 +1050,10 @@ static qboolean gc_nativetex_configured;
 static qboolean gc_notexpacks_configured;
 static qboolean gc_autohop_configured;
 static qboolean gc_modeltrace_configured;
+static qboolean gc_net_configured;
+static qboolean gc_netfast_configured;
+static qboolean gc_netstatic_configured;
+static qboolean gc_net_ip_configured;
 
 static void GCube_LoadDiscBootOverrides( void )
 {
@@ -1040,6 +1063,12 @@ static void GCube_LoadDiscBootOverrides( void )
 	char fatcfg[MAX_SYSPATH];
 
 	gc_smoke_map_configured = false;
+	gc_listenserver_configured = false;
+	gc_listenserver_map[0] = '\0';
+	gc_connect_configured = false;
+	gc_connect_addr[0] = '\0';
+	gc_net_ip_configured = false;
+	gc_net_ip_override[0] = '\0';
 	gc_newgame_configured = false;
 	gc_menu_newgame_configured = false;
 	gc_retail_newgame_configured = false;
@@ -1062,6 +1091,9 @@ static void GCube_LoadDiscBootOverrides( void )
 	gc_dumpframes_configured = false;
 	gc_swissquit_configured = false;
 	gc_memreport_configured = false;
+	gc_net_configured = false;
+	gc_netfast_configured = false;
+	gc_netstatic_configured = false;
 	gc_profile_configured = false;
 	gc_nolivepvs_configured = false;
 	gc_nonativetex_configured = false;
@@ -1133,6 +1165,69 @@ static void GCube_LoadDiscBootOverrides( void )
 			gc_memreport_configured = true;
 			SYS_Report( "Xash3D GameCube: disc boot override memreport\n" );
 			continue;
+		}
+
+		/* Early BBA / eth2sp1 bring-up (soft-fail if no adapter).
+		 * Optional: netstatic [a.b.c.d] for dual-guest / TapServer peers. */
+		if( !Q_strnicmp( cursor, "netstatic", 9 ))
+		{
+			char ch = cursor[9];
+			if( ch == '\0' || ch == '\r' || ch == '\n' || ch == ' ' || ch == '\t' )
+			{
+				gc_net_configured = true;
+				gc_netstatic_configured = true;
+				if( ch == ' ' || ch == '\t' )
+				{
+					char *ip = cursor + 9;
+					size_t iplen;
+					while( *ip == ' ' || *ip == '\t' )
+						ip++;
+					iplen = strlen( ip );
+					while( iplen > 0 && ( ip[iplen - 1] == '\r' || ip[iplen - 1] == '\n'
+						|| ip[iplen - 1] == ' ' || ip[iplen - 1] == '\t' ))
+					{
+						ip[--iplen] = '\0';
+					}
+					if( iplen > 0 && iplen < sizeof( gc_net_ip_override )
+						&& !strchr( ip, '/' ) && !strchr( ip, ' ' ))
+					{
+						Q_strncpy( gc_net_ip_override, ip, sizeof( gc_net_ip_override ));
+						gc_net_ip_configured = true;
+						SYS_Report( "Xash3D GameCube: disc boot override netstatic %s\n",
+							gc_net_ip_override );
+					}
+					else
+					{
+						SYS_Report( "Xash3D GameCube: disc boot override netstatic (BBA/eth2sp1)\n" );
+					}
+				}
+				else
+				{
+					SYS_Report( "Xash3D GameCube: disc boot override netstatic (BBA/eth2sp1)\n" );
+				}
+				continue;
+			}
+		}
+		if( !Q_strnicmp( cursor, "netfast", 7 ))
+		{
+			char ch = cursor[7];
+			if( ch == '\0' || ch == '\r' || ch == '\n' || ch == ' ' || ch == '\t' )
+			{
+				gc_net_configured = true;
+				gc_netfast_configured = true;
+				SYS_Report( "Xash3D GameCube: disc boot override netfast (BBA/eth2sp1)\n" );
+				continue;
+			}
+		}
+		if( !Q_strnicmp( cursor, "net", 3 ))
+		{
+			char ch = cursor[3];
+			if( ch == '\0' || ch == '\r' || ch == '\n' || ch == ' ' || ch == '\t' )
+			{
+				gc_net_configured = true;
+				SYS_Report( "Xash3D GameCube: disc boot override net (BBA/eth2sp1)\n" );
+				continue;
+			}
 		}
 
 		if( !Q_strnicmp( cursor, "profile", 7 ))
@@ -1578,6 +1673,53 @@ static void GCube_LoadDiscBootOverrides( void )
 			continue;
 		}
 
+		/* Solo local listen server (Create Game equivalent, no peers required).
+		 * Must be parsed before bare "map" so it does not become -gcmap smoke. */
+		if( !Q_strnicmp( cursor, "listenserver", 12 ) && ( cursor[12] == ' ' || cursor[12] == '\t' ))
+		{
+			mapname = cursor + 12;
+			while( *mapname == ' ' || *mapname == '\t' )
+				mapname++;
+			len = strlen( mapname );
+			while( len > 0 && ( mapname[len - 1] == '\r' || mapname[len - 1] == '\n' ))
+			{
+				mapname[--len] = '\0';
+			}
+			if( len > 0 && len < sizeof( gc_listenserver_map )
+				&& !strchr( mapname, '/' ) && !strchr( mapname, '\\' ))
+			{
+				Q_strncpy( gc_listenserver_map, mapname, sizeof( gc_listenserver_map ));
+				gc_listenserver_configured = true;
+				SYS_Report( "Xash3D GameCube: disc boot override listenserver %s\n",
+					gc_listenserver_map );
+			}
+			continue;
+		}
+
+		/* Peer join: connect <ip[:port]> after BBA/eth2sp1 bring-up. */
+		if( !Q_strnicmp( cursor, "connect", 7 ) && ( cursor[7] == ' ' || cursor[7] == '\t' ))
+		{
+			mapname = cursor + 7;
+			while( *mapname == ' ' || *mapname == '\t' )
+				mapname++;
+			len = strlen( mapname );
+			while( len > 0 && ( mapname[len - 1] == '\r' || mapname[len - 1] == '\n'
+				|| mapname[len - 1] == ' ' || mapname[len - 1] == '\t' ))
+			{
+				mapname[--len] = '\0';
+			}
+			if( len > 0 && len < sizeof( gc_connect_addr )
+				&& !strchr( mapname, '/' ) && !strchr( mapname, '\\' )
+				&& !strchr( mapname, ' ' ) && !strchr( mapname, '\t' ))
+			{
+				Q_strncpy( gc_connect_addr, mapname, sizeof( gc_connect_addr ));
+				gc_connect_configured = true;
+				SYS_Report( "Xash3D GameCube: disc boot override connect %s\n",
+					gc_connect_addr );
+			}
+			continue;
+		}
+
 		if( Q_strnicmp( cursor, "map", 3 ) || ( cursor[3] != ' ' && cursor[3] != '\t' ))
 			continue;
 
@@ -1696,7 +1838,30 @@ int GCube_GetArgv( int in_argc, char **in_argv, char ***out_argv )
 		gc_argv[fake_argc++] = "-gcmap";
 		gc_argv[fake_argc++] = gc_smoke_map;
 	}
-	if( !gc_newgame_configured && !gc_smoke_map_configured && !gc_worldrender_configured )
+	if( gc_listenserver_configured )
+	{
+		gc_argv[fake_argc++] = "-gclistenserver";
+		gc_argv[fake_argc++] = gc_listenserver_map;
+		/* Reuse -gcmap BSP tip path so listen boots do not Mem_Alloc world
+		 * lumps after SP BSS edicts leave <32 KiB heap (solo-listen2 OOM). */
+		if( !gc_smoke_map_configured )
+		{
+			gc_argv[fake_argc++] = "-gcmap";
+			gc_argv[fake_argc++] = gc_listenserver_map;
+		}
+	}
+	if( gc_connect_configured )
+	{
+		gc_argv[fake_argc++] = "-gcconnect";
+		gc_argv[fake_argc++] = gc_connect_addr;
+		/* Peer Mod_LoadWorld needs GC_MapLoadMemoryOpt (-gcmap) for the
+		 * map-load high-slot surface carve; listen already injects -gcmap.
+		 * Prefer disc "map <name>" (smoke override); else keep connect-only. */
+		if( !gc_smoke_map_configured )
+			SYS_Report( "Xash3D GameCube: connect without map — add 'map <bsp>' to gamecube.cfg for peer world tip path\n" );
+	}
+	if( !gc_newgame_configured && !gc_smoke_map_configured && !gc_worldrender_configured
+		&& !gc_listenserver_configured && !gc_connect_configured )
 	{
 		SYS_Report( "Xash3D GameCube: disc boot override menu (retail Flipper)\n" );
 	}
@@ -1769,6 +1934,17 @@ int GCube_GetArgv( int in_argc, char **in_argv, char ***out_argv )
 	}
 	if( gc_memreport_configured )
 		gc_argv[fake_argc++] = "-gcmemreport";
+	if( gc_net_configured )
+		gc_argv[fake_argc++] = "-net";
+	if( gc_netfast_configured )
+		gc_argv[fake_argc++] = "-netfast";
+	if( gc_netstatic_configured )
+		gc_argv[fake_argc++] = "-netstatic";
+	if( gc_net_ip_configured )
+	{
+		gc_argv[fake_argc++] = "-gcnetip";
+		gc_argv[fake_argc++] = gc_net_ip_override;
+	}
 	if( gc_profile_configured )
 		gc_argv[fake_argc++] = "-gcprofile";
 	if( gc_nolivepvs_configured )
@@ -1812,7 +1988,8 @@ void GCube_Shutdown( void )
 #if XASH_GAMECUBE
 	size_t i;
 
-	/* G29: Shutdown networking layer. */
+	/* G29: Shutdown networking layer (BBA/eth2sp1 then engine sockets). */
+	GC_NetShutdown();
 	NET_Shutdown();
 
 	if( gc_dvd_mounted )
