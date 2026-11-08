@@ -1172,7 +1172,8 @@ void SV_QueueChangeLevel( const char *level, const char *landname )
 	/* G208: tram/landmark changelevel OOMs MEM1 (~194 KiB planes) and aborts
 	 * G36 after Flipper walls already present. Hold on c0a0 unless the probe
 	 * explicitly requested -gcchangelevel. */
-	if( Sys_CheckParm( "-gcnewgame" ) && !Sys_CheckParm( "-gcchangelevel" ))
+	if( Sys_CheckParm( "-gcnewgame" ) && !Sys_CheckParm( "-gcchangelevel" )
+		&& !SV_GCAutoCampaignActive( ))
 	{
 		static qboolean logged;
 		if( !logged )
@@ -6152,6 +6153,7 @@ static void SV_LoadFromFile( const char *mapname, char *entities )
 
 	Assert( entities != NULL );
 #if XASH_GAMECUBE
+	SV_GCCampaignScanEntities( mapname, entities );
 	gc_soundent_fallback_used = false;
 	gc_ent_priv_slab_used = 0;
 	memset( gc_ent_priv_slab_bits, 0, sizeof( gc_ent_priv_slab_bits ));

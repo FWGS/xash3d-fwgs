@@ -266,6 +266,20 @@ probe_collect_exit_status "$child"
 			self.assertIn("map c0a0", cfg)
 			self.assertNotIn("fullphysics", cfg)
 
+	def test_autocampaign_override_is_opt_in_and_default_off(self) -> None:
+		disc = load_script("disc_autocampaign", "scripts/build-gamecube-disc.py")
+		with tempfile.TemporaryDirectory() as tmpdir:
+			out = Path(tmpdir)
+			with patch.dict(os.environ, {}, clear=True):
+				disc.write_smoke_overrides(out, "c0a0")
+			self.assertNotIn("autocampaign", (out / "gamecube.cfg").read_text(encoding="ascii"))
+			with patch.dict(os.environ, {"XASH_GC_PROBE_AUTOCAMPAIGN": "20"}, clear=True):
+				disc.write_probe_newgame_override(out, smoke_map="c0a0")
+			self.assertIn("autocampaign 20", (out / "gamecube.cfg").read_text(encoding="ascii"))
+		campaign = (ROOT / "engine/server/sv_gc_campaign.c").read_text(encoding="utf-8")
+		self.assertIn('Sys_CheckParm( "-gcautocampaign" )', campaign)
+		self.assertIn('gc_camp_enabled = -1', campaign)
+
 	def test_filesystem_search_path_contract_checks_directories_and_order(self) -> None:
 		searchpath = (ROOT / "filesystem/searchpath.c").read_text(encoding="utf-8")
 		self.assertIn("FS_SysFolderExists( dir )", searchpath)

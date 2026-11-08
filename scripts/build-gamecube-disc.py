@@ -974,6 +974,16 @@ def stage_gc_menu_assets(source: Path, output: Path) -> bool:
 						r, g, b, a = logo_pixels[px, py]
 						if a:
 							logo_pixels[px, py] = (214, 138, 26, a)
+			elif (source / "liblist.gam").is_file() and "Day of Defeat" in (
+				(source / "liblist.gam").read_text(encoding="latin1", errors="replace")
+			):
+				# Retail DoD's lower-left title mark is warm brass, not the olive
+				# green asset tint. Preserve its thin outline and alpha coverage.
+				for py in range(logo.height):
+					for px in range(logo.width):
+						r, g, b, a = logo_pixels[px, py]
+						if a:
+							logo_pixels[px, py] = (192, 151, 58, a)
 		logo.save(menu_dir / "logo.tga", format="TGA")
 
 	# WON title banner: retail media/logo.avi is a 640x100 strip (white
@@ -2187,6 +2197,8 @@ def write_smoke_overrides(
 		lines.append(f"landmark3 {landmark3}")
 	if os.environ.get("XASH_GC_PROBE_PROFILE") == "1":
 		lines.append("profile")
+	if os.environ.get("XASH_GC_PROBE_AUTOCAMPAIGN"):
+		lines.append("autocampaign " + os.environ["XASH_GC_PROBE_AUTOCAMPAIGN"])
 	if os.environ.get("XASH_GC_PROBE_NATIVETEX") == "1":
 		lines.append("nativetex")
 	(output / "gamecube.cfg").write_text("\n".join(lines) + "\n", encoding="ascii")
@@ -2257,6 +2269,8 @@ def write_probe_newgame_override(
 		lines.append(f"landmark3 {landmark3}")
 	if os.environ.get("XASH_GC_PROBE_PROFILE") == "1":
 		lines.append("profile")
+	if os.environ.get("XASH_GC_PROBE_AUTOCAMPAIGN"):
+		lines.append("autocampaign " + os.environ["XASH_GC_PROBE_AUTOCAMPAIGN"])
 	if os.environ.get("XASH_GC_PROBE_NATIVETEX") == "1":
 		lines.append("nativetex")
 	(output / "gamecube.cfg").write_text("\n".join(lines) + "\n", encoding="ascii")

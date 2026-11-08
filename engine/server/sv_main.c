@@ -756,6 +756,9 @@ void Host_ServerFrame( void )
 
 	// check clients timewindow
 	SV_CheckCmdTimes ();
+#if XASH_GAMECUBE
+	SV_GCCampaignFrame();
+#endif
 
 	// read packets from clients
 	SV_ReadPackets ();

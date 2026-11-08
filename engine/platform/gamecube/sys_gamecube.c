@@ -986,7 +986,7 @@ qboolean GCube_GetBasePath( char *buf, size_t buflen )
 	return false;
 }
 
-static char *gc_argv[40];
+static char *gc_argv[64];
 static char gc_smoke_map[MAX_QPATH];
 static char gc_listenserver_map[MAX_QPATH];
 static char gc_connect_addr[64];
@@ -1049,6 +1049,8 @@ static qboolean gc_nonativetex_configured;
 static qboolean gc_nativetex_configured;
 static qboolean gc_notexpacks_configured;
 static qboolean gc_autohop_configured;
+static qboolean gc_autocampaign_configured;
+static char gc_autocampaign_delay[16];
 static qboolean gc_modeltrace_configured;
 static qboolean gc_net_configured;
 static qboolean gc_netfast_configured;
@@ -1100,6 +1102,7 @@ static void GCube_LoadDiscBootOverrides( void )
 	gc_nativetex_configured = false;
 	gc_notexpacks_configured = false;
 	gc_autohop_configured = false;
+	gc_autocampaign_configured = false;
 	gc_modeltrace_configured = false;
 	gc_phase_test[0] = '\0';
 	gc_changelevel_map[0] = '\0';
@@ -1243,6 +1246,26 @@ static void GCube_LoadDiscBootOverrides( void )
 			SYS_Report( "Xash3D GameCube: disc boot override modeltrace\n" );
 			continue;
 		}
+		if( !Q_strnicmp( cursor, "autocampaign", 12 ))
+		{
+			const char *arg = cursor + 12;
+			int n = 0;
+
+			while( *arg == ' ' || *arg == '\t' )
+				arg++;
+			while( arg[n] >= '0' && arg[n] <= '9' && n < (int)sizeof( gc_autocampaign_delay ) - 1 )
+			{
+				gc_autocampaign_delay[n] = arg[n];
+				n++;
+			}
+			gc_autocampaign_delay[n] = '\0';
+			if( !n )
+				Q_strncpy( gc_autocampaign_delay, "20", sizeof( gc_autocampaign_delay ));
+			gc_autocampaign_configured = true;
+			SYS_Report( "Xash3D GameCube: disc boot override autocampaign %s\n", gc_autocampaign_delay );
+			continue;
+		}
+
 		if( !Q_strnicmp( cursor, "autohop", 7 ))
 		{
 			gc_autohop_configured = true;
@@ -1957,6 +1980,11 @@ int GCube_GetArgv( int in_argc, char **in_argv, char ***out_argv )
 		gc_argv[fake_argc++] = "-gcnotexpacks";
 	if( gc_autohop_configured )
 		gc_argv[fake_argc++] = "-gcautohop";
+	if( gc_autocampaign_configured )
+	{
+		gc_argv[fake_argc++] = "-gcautocampaign";
+		gc_argv[fake_argc++] = gc_autocampaign_delay;
+	}
 	if( gc_modeltrace_configured )
 		gc_argv[fake_argc++] = "-gcmodeltrace";
 	gc_argv[fake_argc++] = "-width";

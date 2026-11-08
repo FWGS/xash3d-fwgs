@@ -51,3 +51,11 @@ WriteToConsole = True
 WriteToFile = True
 WriteToWindow = False
 EOF
+# DOLPHIN_LOG_PPC=1: log PowerPC exceptions and memory-interface errors, so
+# a guest crash that makes batch Dolphin stop (exit 0, no OSReport) says why.
+if [[ "${DOLPHIN_DUMP_VIDEO:-0}" == "1" ]]; then
+	sed -i 's/^\[Logs\]/[Logs]\nFRAMEDUMP = True/' "$USER_DIR/Config/Logger.ini"
+fi
+if [[ "${DOLPHIN_LOG_PPC:-0}" == "1" ]]; then
+	sed -i 's/^PowerPC = False/PowerPC = True\nMI = True\nMEMMAP = True/' "$USER_DIR/Config/Logger.ini"
+fi

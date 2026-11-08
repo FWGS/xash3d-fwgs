@@ -186,6 +186,15 @@ ImmediateXFBEnable = False
 EOF
 	echo "==> DumpFrames GFX DisableCopyToVRAM=${DUMP_COPY_TO_VRAM} (${DUMP_COPY_NOTE})"
 fi
+# DOLPHIN_DUMP_VIDEO=1: Dolphin encodes the presented frames to one video
+# (Dump/Frames/framedump*.mkv, H.264) instead of a TGA per frame, for
+# long recorded playthroughs.  Needs DOLPHIN_HOST_DUMP=1 (frame dump on).
+if (( DUMP_FRAMES )) && [[ "${DOLPHIN_DUMP_VIDEO:-0}" == "1" ]]; then
+	sed -i 's/^DumpFramesAsImages = True/DumpFramesAsImages = False\nDumpFormat = mkv\nDumpEncoder = libx264\nDumpCodec = h264\nBitrateKbps = 6000/' "$USER_DIR/Config/GFX.ini"
+	printf '[DSP]\nDumpAudio = True\n' >> "$USER_DIR/Config/Dolphin.ini"
+	sed -i 's/^\[Logs\]/[Logs]\nFRAMEDUMP = True/' "$USER_DIR/Config/Logger.ini"
+	echo "==> DumpFrames to video (mkv, H.264)"
+fi
 source scripts/dolphin-probe-config.sh || exit $?
 echo "==> Building GameCube engine and DOL..."
 SKIP_ENGINE=0

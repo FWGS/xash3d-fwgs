@@ -623,6 +623,11 @@ void SV_PlaybackEventFull( int flags, const edict_t *pInvoker, word eventindex, 
 int SV_BuildSoundMsg( sizebuf_t *msg, edict_t *ent, int chan, const char *sample, int vol, float attn, int flags, int pitch, const vec3_t pos );
 qboolean SV_BoxInPVS( const vec3_t org, const vec3_t absmin, const vec3_t absmax );
 void SV_QueueChangeLevel( const char *level, const char *landname );
+#if XASH_GAMECUBE
+void SV_GCCampaignScanEntities( const char *mapname, const char *entities );
+void SV_GCCampaignFrame( void );
+qboolean SV_GCAutoCampaignActive( void );
+#endif
 void SV_WriteEntityPatch( const char *filename );
 void SV_SpawnEntities( const char *mapname );
 edict_t* SV_CreateNamedEntity( edict_t *ent, string_t className );

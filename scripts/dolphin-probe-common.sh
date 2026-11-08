@@ -131,6 +131,11 @@ probe_collect_exit_status() {
 	else
 		DOLPHIN_EXIT=$?
 	fi
+	# Dolphin ended on its own before any probe stop condition: say how, and
+	# how long the guest had been silent (>128 = killed by signal N-128).
+	local log="$LOG_DIR/dolphin-user/Logs/dolphin.log" quiet="?"
+	[[ -f "$log" ]] && quiet=$(( $(date +%s) - $(stat -c %Y "$log") ))
+	echo "DOLPHIN_SELF_EXIT: status=${DOLPHIN_EXIT} guest_log_quiet=${quiet}s"
 }
 
 probe_guest_error() {
