@@ -118,7 +118,7 @@ fi
 
 ./waf configure --gamecube \
 	-T release \
-	--disable-gl --disable-soft --enable-gx \
+	--disable-gl --enable-gx \
 	--low-memory-mode=2 \
 	--disable-werror \
 	--gamedir "$HLSDK_GAMEDIR" \

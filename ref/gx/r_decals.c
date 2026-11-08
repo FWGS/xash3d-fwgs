@@ -1053,12 +1053,14 @@ remove all decals from anything
 used for full decals restart
 ===============
 */
-void GAME_EXPORT R_ClearAllDecals( void )
+void GAME_EXPORT R_ClearAllDecals( qboolean includePermanent )
 {
 	// because gDecalCount may be zeroed after recach the decal limit
 	for( int i = 0; i < MAX_RENDER_DECALS; i++ )
 	{
 		decal_t *pdecal = &gDecalPool[i];
+		if( !includePermanent && FBitSet( pdecal->flags, FDECAL_PERMANENT ))
+			continue;
 		R_DecalUnlink( pdecal );
 	}
 

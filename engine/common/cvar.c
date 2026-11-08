@@ -712,17 +712,12 @@ void GAME_EXPORT Cvar_DirectSet( convar_t *var, const char *value )
 	// lookup for registration
 	if( unlikely( CVAR_CHECK_SENTINEL( var ) || ( var->next == NULL && !FBitSet( var->flags, FCVAR_EXTENDED|FCVAR_ALLOCATED ))))
 	{
-		// a short cvar_t with next == NULL may still be registered: the last entry
-		// in the sorted list also has next == NULL, so resolve it by name first
-		if( Cvar_FindVar( var->name ) != var )
-		{
-			// need to registering cvar fisrt
-			Cvar_RegisterVariable( var );	// ok, register it
+		// need to registering cvar fisrt
+		Cvar_RegisterVariable( var );	// ok, register it
 
-			// lookup for registration again
-			if( var != Cvar_FindVar( var->name ))
-				return; // how this possible?
-		}
+		// lookup for registration again
+		if( var != Cvar_FindVar( var->name ))
+			return; // how this possible?
 	}
 
 	if( !Cvar_CanSet( var ))
@@ -1078,7 +1073,7 @@ weren't declared in C code.
 */
 static void Cvar_Set_f( void )
 {
-	char	combined[MAX_STRING];
+	char	combined[MAX_CMD_TOKENS];
 	int	l = 0;
 
 	int c = Cmd_Argc();
@@ -1091,17 +1086,11 @@ static void Cvar_Set_f( void )
 
 	for( int i = 2; i < c; i++ )
 	{
-		const char *arg = Cmd_Argv( i );
-
-		if( COM_StringEmpty( arg ))
-			continue;
-
-		int len = Q_strlen( arg ) + 1;
-		if( l + len >= sizeof( combined ))
+		int len = Q_strlen( Cmd_Argv(i) + 1 );
+		if( l + len >= MAX_CMD_TOKENS - 2 )
 			break;
-
-		Q_strncat( combined, arg, sizeof( combined ));
-		if( i != c - 1 ) Q_strncat( combined, " ", sizeof( combined ));
+		Q_strncat( combined, Cmd_Argv( i ), sizeof( combined ));
+		if( i != c-1 ) Q_strncat( combined, " ", sizeof( combined ));
 		l += len;
 	}
 
@@ -1209,6 +1198,8 @@ pending_cvar_t *Cvar_PrepareToUnlink( uint32_t group )
 
 		size_t namelen = Q_strlen( cv->name ) + 1;
 		pending_cvar_t *p = Mem_Malloc( cvar_pool, sizeof( *list ) + namelen );
+		if( !p )
+			continue;
 		p->next = NULL;
 		p->cv_cur = cv;
 		p->cv_next = cv->next;

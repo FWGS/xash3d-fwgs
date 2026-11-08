@@ -1397,18 +1397,15 @@ qboolean backed_up = FS_Rename( config, backup ); // might not exist yet
 
 	if( !backed_up )
 	{
-		Con_Printf( S_ERROR "%s: can't replace %s with %s, keeping old config
-", __func__, config, newcfg );
+		Con_Printf( S_ERROR "%s: can't replace %s with %s, keeping old config\n", __func__, config, newcfg );
 		return;
 	}
 
 	if( FS_Rename( backup, config ))
-		Con_Printf( S_ERROR "%s: can't replace %s with %s, restored %s
-", __func__, config, newcfg, backup );
+		Con_Printf( S_ERROR "%s: can't replace %s with %s, restored %s\n", __func__, config, newcfg, backup );
 	else
 	{
-		Con_Printf( S_ERROR "%s: can't replace %s with %s and can't restore %s, %s is lost! Rename %s or %s to %s manually
-",
+		Con_Printf( S_ERROR "%s: can't replace %s with %s and can't restore %s, %s is lost! Rename %s or %s to %s manually\n",
 			__func__, config, newcfg, backup, config, backup, newcfg, config );
 	}
 }

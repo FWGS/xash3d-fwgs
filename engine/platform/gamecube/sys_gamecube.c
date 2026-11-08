@@ -989,6 +989,7 @@ qboolean GCube_GetBasePath( char *buf, size_t buflen )
 static char *gc_argv[64];
 static char gc_smoke_map[MAX_QPATH];
 static char gc_listenserver_map[MAX_QPATH];
+static char gc_dumpeye_arg[96]; /* "x,y,z,pitch,yaw" for CapFaces spawn stills */
 static char gc_connect_addr[64];
 static char gc_net_ip_override[16];
 static char gc_phase_test[32];
@@ -1001,6 +1002,7 @@ static char gc_landmark3_name[MAX_QPATH];
 static char gc_tas_name[32];
 static qboolean gc_smoke_map_configured;
 static qboolean gc_listenserver_configured;
+static qboolean gc_dumpeye_configured;
 static qboolean gc_connect_configured;
 static qboolean gc_newgame_configured;
 static qboolean gc_menu_newgame_configured;
@@ -1067,6 +1069,8 @@ static void GCube_LoadDiscBootOverrides( void )
 	gc_smoke_map_configured = false;
 	gc_listenserver_configured = false;
 	gc_listenserver_map[0] = '\0';
+	gc_dumpeye_configured = false;
+	gc_dumpeye_arg[0] = '\0';
 	gc_connect_configured = false;
 	gc_connect_addr[0] = '\0';
 	gc_net_ip_configured = false;
@@ -1696,6 +1700,33 @@ static void GCube_LoadDiscBootOverrides( void )
 			continue;
 		}
 
+		/* CapFaces spawn stills: dumpeye x y z [pitch] [yaw] → -gcdumpeye csv */
+		if( !Q_strnicmp( cursor, "dumpeye", 7 ) && ( cursor[7] == ' ' || cursor[7] == '\t' ))
+		{
+			char	*tok = cursor + 7;
+			float	x = 0, y = 0, z = 0, pitch = 0, yaw = 0;
+			int	n;
+
+			while( *tok == ' ' || *tok == '\t' )
+				tok++;
+			n = sscanf( tok, "%f %f %f %f %f", &x, &y, &z, &pitch, &yaw );
+			if( n == 4 )
+			{
+				/* x y z yaw — pitch defaults to 0 */
+				yaw = pitch;
+				pitch = 0.0f;
+			}
+			if( n >= 3 )
+			{
+				Q_snprintf( gc_dumpeye_arg, sizeof( gc_dumpeye_arg ),
+					"%.0f,%.0f,%.0f,%.0f,%.0f", x, y, z, pitch, yaw );
+				gc_dumpeye_configured = true;
+				SYS_Report( "Xash3D GameCube: disc boot override dumpeye %s\n",
+					gc_dumpeye_arg );
+			}
+			continue;
+		}
+
 		/* Solo local listen server (Create Game equivalent, no peers required).
 		 * Must be parsed before bare "map" so it does not become -gcmap smoke. */
 		if( !Q_strnicmp( cursor, "listenserver", 12 ) && ( cursor[12] == ' ' || cursor[12] == '\t' ))
@@ -1860,6 +1891,11 @@ int GCube_GetArgv( int in_argc, char **in_argv, char ***out_argv )
 	{
 		gc_argv[fake_argc++] = "-gcmap";
 		gc_argv[fake_argc++] = gc_smoke_map;
+	}
+	if( gc_dumpeye_configured && gc_dumpeye_arg[0] )
+	{
+		gc_argv[fake_argc++] = "-gcdumpeye";
+		gc_argv[fake_argc++] = gc_dumpeye_arg;
 	}
 	if( gc_listenserver_configured )
 	{

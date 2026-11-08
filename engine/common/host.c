@@ -1428,12 +1428,19 @@ static void Host_InitCommon( int argc, char **argv, const char *progname, qboole
 		Cvar_DirectSetValue( &sys_ticrate, bound( MIN_FPS, ticrate, MAX_FPS_HARD ));
 
 	Sys_InitLog();
+#if XASH_GAMECUBE
+	GC_MemSample( "pre-Con_Init" );
+#endif
 	Con_Init(); // early console running to catch all the messages
 #if XASH_GAMECUBE
 	GC_MemWatch( "init Con_Init" );
+	GC_MemSample( "post-Con_Init" );
 #endif
 
 	XRcon_Init();
+#if XASH_GAMECUBE
+	GC_MemSample( "post-XRcon_Init" );
+#endif
 
 	if( !Sys_CheckParm( "-noch" ))
 		Sys_SetupCrashHandler( argv[0] );
@@ -1447,12 +1454,13 @@ static void Host_InitCommon( int argc, char **argv, const char *progname, qboole
 	Platform_SetupSigtermHandling();
 #endif
 	Platform_Init( Host_IsDedicated( ) || developer >= DEV_EXTENDED );
+#if XASH_GAMECUBE
+	GC_MemSample( "post-Platform_Init" );
+#endif
 	FS_Init();
 #if XASH_GAMECUBE
 	GC_MemWatch( "init FS_Init" );
 	gc_mem_watch_hot = false;
-#endif
-#if XASH_GAMECUBE
 	GC_MemSample( "searchpaths" );
 #endif
 
@@ -1604,14 +1612,13 @@ int EXPORT Host_Main( int argc, char **argv, const char *progname, int bChangeGa
 	Mod_Init();
 #if XASH_GAMECUBE
 	GC_MemWatch( "init Mod_Init" );
-	/* Take world entities/submodels/nodes reserves while MEM1 is still fat.
-	 * Waiting until first map load (c5a1 free≈74 Kb) deferred the 128 KiB
-	 * entities slot and fell through to tip Mem_Malloc OOM. Heap reserve at
-	 * boot is fine — unlike BSS it does not shrink the .bss arena. */
+	/* Probe reserves while fat, then drop before SV_Init. */
 	{
 		qboolean Mod_GCEnsureStaticReserves( void );
-
+		extern void Mod_GCReleaseUnusedWorldReserves( void );
 		Mod_GCEnsureStaticReserves();
+		Mod_GCReleaseUnusedWorldReserves();
+		GC_MemSample( "pre-SV_Init boot reserve release" );
 	}
 #endif
 	NET_Init();

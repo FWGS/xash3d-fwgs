@@ -501,6 +501,7 @@ const ref_interface_t gReffuncs =
 	R_SetupSky,
 
 	R_Set2DMode,
+	R_Set2DOffset,
 	R_DrawStretchPic,
 	CL_FillRGBA,
 	R_WorldToScreen,

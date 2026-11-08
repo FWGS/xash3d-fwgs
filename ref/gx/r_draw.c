@@ -748,3 +748,14 @@ void GAME_EXPORT R_Set2DMode( qboolean enable )
 		RI.currentmodel = NULL;
 	}
 }
+
+/*
+===============
+R_Set2DOffset
+===============
+*/
+void GAME_EXPORT R_Set2DOffset( float x, float y )
+{
+	vid.offset2d[0] = x;
+	vid.offset2d[1] = y;
+}

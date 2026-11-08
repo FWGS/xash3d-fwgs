@@ -124,7 +124,7 @@ SUBDIRS = [
 	Subproject('ref/gx',                lambda x: x.env.CLIENT and x.env.GX),
 	Subproject('ref/null',              lambda x: x.env.CLIENT and x.env.NULL),
 	Subproject('3rdparty/bzip2',        lambda x: x.env.CLIENT and not x.env.HAVE_SYSTEM_BZ2),
-	Subproject('3rdparty/mpg123',       lambda x: x.env.CLIENT and not x.env.HAVE_SYSTEM_MPG123),
+	Subproject('3rdparty/mpg123',       lambda x: x.env.CLIENT and not x.env.HAVE_SYSTEM_MPG123 and x.env.DEST_OS != 'gamecube'),
 	Subproject('3rdparty/mbedtls'),
 	Subproject('3rdparty/opengnm',      lambda x: x.env.CLIENT and x.env.DEST_OS == 'ps4'),
 	Subproject('3rdparty/ps4compat',    lambda x: x.env.DEST_OS == 'ps4'),

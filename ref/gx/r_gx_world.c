@@ -515,7 +515,8 @@ void R_GXReleaseHudPoolForMapLoad( void )
 	r_gx_hud_pool_ready = false;
 	R_GXReleaseMenuBackgroundTexture( 0 );
 	R_GXReleaseCinematicTexture( 0 );
-	gEngfuncs.Con_Reportf( "Xash3D GameCube: GX HUD/menu slabs released for map load\n" );
+	if( gEngfuncs.Con_Reportf )
+		gEngfuncs.Con_Reportf( "Xash3D GameCube: GX HUD/menu slabs released for map load\n" );
 }
 
 qboolean R_GXWorldDrewThisFrame( void )

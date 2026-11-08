@@ -407,6 +407,9 @@ def build(bld):
 					# of ffmpeg or preconverted movie streams.
 					source = [node for node in source if (node.path_from(bld.path) if hasattr(node, 'path_from') else node) != 'client/avi/avi_ffmpeg.c']
 			if bld.env.DEST_OS == 'gamecube':
+				# No mpg123 on GC — drop snd_mp3.c and use the stub.
+				source = [n for n in source if not str(n).endswith('snd_mp3.c')]
+				source += bld.path.ant_glob('client/soundlib/snd_mp3_stub_gc.c')
 				libs += ['bzip2', 'MultiEmulator', 'opus', 'opusfile', 'vorbis', 'vorbisfile']
 			else:
 				libs += ['bzip2', 'mpg123', 'MultiEmulator', 'opus', 'opusfile', 'vorbis', 'vorbisfile']

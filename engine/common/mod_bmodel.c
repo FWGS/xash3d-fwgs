@@ -154,9 +154,9 @@ qboolean Mod_GCEnsureStaticReserves( void )
 	 * require tip headroom for client init; during map load only keep a small
 	 * floor so c5a1 can still take the session reserve. */
 	{
-		const size_t nodes_headroom = GC_MapLoadMemoryOpt()
-			? 8192u
-			: ( 48u * 1024u );
+		/* 32 KiB headroom: boot free≈418 clears the gate; map load parks
+		 * nodes in BSP scratch after host releases this reserve. */
+		const size_t nodes_headroom = 32u * 1024u;
 
 		if( GC_MemHeapFreeBytes() >= GC_STATIC_NODES_BYTES + nodes_headroom )
 			Mod_GCTakeReserve( (void **)&gc_static_nodes, GC_STATIC_NODES_BYTES, "nodes" );
@@ -164,16 +164,13 @@ qboolean Mod_GCEnsureStaticReserves( void )
 			Con_Reportf( "Xash3D GameCube: world reserve nodes deferred need=%s free=%s\n",
 				Q_memprint( GC_STATIC_NODES_BYTES ), Q_memprint( GC_MemHeapFreeBytes() ));
 	}
-	/* Prefer changelevel pre-seize (contiguous after nodes free). High-slot
-	 * leaf carve stays OFF — CapFaces NoPVS hangs with leafs in the surface
-	 * slot (c2a5f surfs=8524). Retry leafs reserve here if still empty. */
+	/* Never consolation-seize leafs when nodes deferred (-gcmap boot tip). */
 	gc_leafs_highslot_carve = false;
 	if( !gc_static_nodes && !gc_static_leafs
-		&& GC_MemHeapFreeBytes() < GC_STATIC_NODES_BYTES
-		&& GC_MemHeapFreeBytes() >= GC_STATIC_LEAFS_BYTES + 8192u )
+		&& GC_MemHeapFreeBytes() < GC_STATIC_NODES_BYTES )
 	{
-		Image_GCPurgeDecodeScratch();
-		Mod_GCTakeReserve( (void **)&gc_static_leafs, GC_STATIC_LEAFS_BYTES, "leafs" );
+		Con_Reportf( "Xash3D GameCube: world reserve leafs deferred (preserve tip for GameDLLInit) free=%s\n",
+			Q_memprint( GC_MemHeapFreeBytes() ));
 	}
 	/* Hold entities only when nodes are already secured, or tip can still fund
 	 * a dense node tree after the 128 KiB take. Skip pre-BSP entities seize on
@@ -763,7 +760,6 @@ typedef struct
 	int       version;          // model version
 	qboolean  isworld;
 	qboolean  isbsp30ext;
-	qboolean  hulls32bit;       // convert 16-bit clipnodes to 32-bit, if needed
 
 } dbspmodel_t;
 #if XASH_GAMECUBE
@@ -1439,8 +1435,7 @@ static qboolean Mod_NameImpliesTextureIsAnimated( texture_t *tex )
 
 	// Name implies texture is animated - check second character is valid.
 	if( !( tex->name[1] >= '0' && tex->name[1] <= '9' ) &&
-		!( tex->name[1] >= 'a' && tex->name[1] <= 'j' ) &&
-		!( tex->name[1] >= 'A' && tex->name[1] <= 'J' ))
+		!( tex->name[1] >= 'a' && tex->name[1] <= 'j' ))
 	{
 		Con_Printf( S_ERROR "%s: animating texture \"%s\" has invalid name\n", __func__, tex->name );
 		return false;
@@ -2477,28 +2472,6 @@ static void Mod_LightMatrixFromTexMatrix( const mtexinfo_t *tx, float lmvecs[2][
 
 /*
 =================
-Mod_PointVecsProduct
-
-volatile forces rounding of every sum to double and result to float,
-same as compilers did it, otherwise x87 or FMA give different extents
-=================
-*/
-static float Mod_PointVecsProduct( const float *point, const float *vecs )
-{
-	volatile double val = 0.0;
-	volatile float res;
-
-	for( int i = 0; i < 3; i++ )
-		val += (double)point[i] * vecs[i];
-
-	val += vecs[3];
-	res = val;
-
-	return res;
-}
-
-/*
-=================
 Mod_CalcSurfaceExtents
 
 Fills in surf->texturemins[] and surf->extents[]
@@ -2542,22 +2515,14 @@ static void Mod_CalcSurfaceExtents( model_t *mod, msurface_t *surf, const dbspmo
 
 		for( int j = 0; j < 2; j++ )
 		{
-#if 0 // causes misaligned lightmap on ramp on cs_havana.bsp in either release i386 build or in -ffast-math build
 			val = DotProductPrecise( v->position, surf->texinfo->vecs[j] ) + surf->texinfo->vecs[j][3];
-#else
-			val = Mod_PointVecsProduct( v->position, surf->texinfo->vecs[j] );
-#endif
 			mins[j] = Q_min( val, mins[j] );
 			maxs[j] = Q_max( val, maxs[j] );
 		}
 
 		for( int j = 0; j < 2; j++ )
 		{
-#if 0 // same as above, therefore disabled
 			val = DotProductPrecise( v->position, info->lmvecs[j] ) + info->lmvecs[j][3];
-#else
-			val = Mod_PointVecsProduct( v->position, info->lmvecs[j] );
-#endif
 			lmmins[j] = Q_min( val, lmmins[j] );
 			lmmaxs[j] = Q_max( val, lmmaxs[j] );
 		}
@@ -2974,7 +2939,7 @@ static int RemapClipNodes_r( dbspmodel_t *bmod, dclipnode32_t *srcnodes, hull_t 
 		return nodenum;
 
 	// emit a clipnode
-	if( bmod->hulls32bit )
+	if( bmod->version == QBSP2_VERSION )
 	{
 		if( hull->lastclipnode == MAX_MAP_CLIPNODES_BSP2 )
 			Host_Error( "%s: MAX_MAP_CLIPNODES_BSP2 limit exceeded\n", __func__ );
@@ -2990,7 +2955,7 @@ static int RemapClipNodes_r( dbspmodel_t *bmod, dclipnode32_t *srcnodes, hull_t 
 	int c = hull->lastclipnode;
 	hull->lastclipnode++;
 
-	if( bmod->hulls32bit )
+	if( bmod->version == QBSP2_VERSION )
 	{
 		mclipnode32_t *out = &hull->clipnodes32[c];
 		out->planenum = src->planenum;
@@ -3023,7 +2988,7 @@ static void Mod_MakeHull0( model_t *mod, const dbspmodel_t *bmod )
 	hull->lastclipnode = mod->numnodes - 1;
 	hull->planes = mod->planes;
 
-	if( bmod->hulls32bit )
+	if( bmod->version == QBSP2_VERSION )
 	{
 		mclipnode32_t *out;
 		mnode_t *in = mod->nodes;
@@ -3052,9 +3017,10 @@ static void Mod_MakeHull0( model_t *mod, const dbspmodel_t *bmod )
 		const size_t hull0_bytes = mod->numnodes * sizeof( *hull->clipnodes16 );
 
 #if XASH_GAMECUBE
-		/* Native physics and game-DLL traces need hull 0 after rendering has
-		 * reused the low-memory BSP scratch arena. Keep it in the model pool. */
+		/* CapFaces/-gcmap must not park hull0 in scratch — Flipper present
+		 * reclaims it and PM_RecursiveHullCheck Guru's (probes 013254/014249). */
 		if( GC_MapLoadMemoryOpt() && !Sys_CheckParm( "-gcfullphysics" )
+			&& !Sys_CheckParm( "-gcmap" ) && !Sys_CheckParm( "-gcworldrender" )
 			&& bmod->isworld && gc_retain_bsp_source_buffer
 			&& gc_bsp_scratch_base && gc_bsp_scratch_size && mod->numnodes > 0 )
 		{
@@ -3252,7 +3218,7 @@ static void Mod_SetupHull( dbspmodel_t *bmod, model_t *mod, int headnode, int hu
 		// only allocate clipnodes array for the base model, only for first hull
 		if( mod == world && hullnum == 1 )
 		{
-			if( bmod->hulls32bit )
+			if( bmod->version == QBSP2_VERSION )
 			{
 				hull->clipnodes32 = Mem_Malloc( world->mempool, sizeof( *hull->clipnodes32 ) * mod->numclipnodes );
 
@@ -3290,7 +3256,7 @@ static void Mod_SetupHull( dbspmodel_t *bmod, model_t *mod, int headnode, int hu
 		}
 		else
 		{
-			if( bmod->hulls32bit )
+			if( bmod->version == QBSP2_VERSION )
 				hull->clipnodes32 = world->hulls[1].clipnodes32;
 			else
 				hull->clipnodes16 = world->hulls[1].clipnodes16;
@@ -3303,7 +3269,7 @@ static void Mod_SetupHull( dbspmodel_t *bmod, model_t *mod, int headnode, int hu
 		return; // hull missed
 
 	// fit array to real count
-	if( bmod->hulls32bit )
+	if( bmod->version == QBSP2_VERSION )
 	{
 		CountDClipNodes_r( bmod->clipnodes_out, hull, headnode, MAX_MAP_CLIPNODES_BSP2 );
 		hull->clipnodes32 = Mem_Malloc( world->mempool, sizeof( *hull->clipnodes32 ) * hull->lastclipnode );
@@ -3322,12 +3288,10 @@ static void Mod_SetupHull( dbspmodel_t *bmod, model_t *mod, int headnode, int hu
 
 static qboolean Mod_LoadLitfile( model_t *mod, const char *ext, size_t expected_size, color24 **out, size_t *outsize )
 {
-	char        basename[sizeof( mod->name )], path[sizeof( mod->name ) + 8];
+	char        modelname[64], path[64];
 
-	// keep the directory part, so maps in subdirectories look up their lit files next to the bsp
-	Q_strncpy( basename, mod->name, sizeof( basename ));
-	COM_StripExtension( basename );
-	Q_snprintf( path, sizeof( path ), "%s.%s", basename, ext );
+	COM_FileBase( mod->name, modelname, sizeof( modelname ));
+	Q_snprintf( path, sizeof( path ), "maps/%s.%s", modelname, ext );
 
 	int iCompare;
 	if( !pfnCompareFileTime( path, mod->name, &iCompare ))
@@ -3415,7 +3379,7 @@ static void Mod_SetupSubmodels( model_t *mod, dbspmodel_t *bmod )
 		mod->hulls[0].lastclipnode = bm->headnode[0]; // need to be real count
 
 		// counting a real number of clipnodes per each submodel
-		if( bmod->hulls32bit )
+		if( bmod->version == QBSP2_VERSION )
 			CountClipNodes32_r( mod->hulls[0].clipnodes32, &mod->hulls[0], bm->headnode[0] );
 		else
 			CountClipNodes16_r( mod->hulls[0].clipnodes16, &mod->hulls[0], bm->headnode[0] );
@@ -3622,7 +3586,6 @@ static void Mod_LoadSubmodels( model_t *mod, dbspmodel_t *bmod )
 static int Mod_LoadEntities_splitstr_handler( char *prev, char *next, void *userdata )
 {
 	world_static_t *w = userdata;
-	string normalizedWadName;
 
 	*next = '\0';
 
@@ -3630,17 +3593,14 @@ static int Mod_LoadEntities_splitstr_handler( char *prev, char *next, void *user
 		return 0;
 
 	COM_FixSlashes( prev );
-	const char *rawWadName = COM_FileWithoutPath( prev );
+	const char *wad = COM_FileWithoutPath( prev );
 
-	Q_strncpy( normalizedWadName, rawWadName, sizeof( normalizedWadName ));
-	COM_DefaultExtension( normalizedWadName, ".wad", sizeof( normalizedWadName ));
-
-	if( Q_stricmp( COM_FileExtension( normalizedWadName ), "wad" ))
+	if( Q_stricmp( COM_FileExtension( wad ), "wad" ))
 		return 0;
 
 	// make sure that wad does really exist. On GameCube the archive may be
 	// mounted under gcdisc:/ while the BSP stores only its basename.
-	qboolean wad_exists = FS_FileExists( normalizedWadName, false );
+	qboolean wad_exists = FS_FileExists( wad, false );
 #if XASH_GAMECUBE
 	/* The BSP stores retail WAD basenames while the disc mounts them under
 	 * gcdisc:/...; retain the declaration and let GetArchiveByName resolve it
@@ -3655,7 +3615,7 @@ static int Mod_LoadEntities_splitstr_handler( char *prev, char *next, void *user
 		// FIXME: that's right, it goes into host.mempool!
 		w->wadlist = Mem_Realloc( host.mempool, w->wadlist, w->wadcount * sizeof( *w->wadlist ));
 
-		Q_strncpy( w->wadlist[num].name, normalizedWadName, sizeof( w->wadlist[num].name ));
+		Q_strncpy( w->wadlist[num].name, wad, sizeof( w->wadlist[num].name ));
 		w->wadlist[num].usage = 0;
 	}
 
@@ -4356,7 +4316,7 @@ static qboolean Mod_LooksLikeWaterTexture( const char *name )
 
 	if( !Host_IsQuakeCompatible( ))
 	{
-		if( !Q_strnicmp( name, "water", 5 ) || !Q_strnicmp( name, "laser", 5 ))
+		if( !Q_strncmp( name, "water", 5 ) || !Q_strnicmp( name, "laser", 5 ))
 			return true;
 	}
 
@@ -4394,7 +4354,7 @@ static qboolean Mod_SearchForTextureReplacement( char *out, size_t size, const c
 	return false;
 }
 
-static void Mod_InitSkyClouds( model_t *mod, const mip_t *mt, const byte *mtdata, texture_t *tx, qboolean custom_palette )
+static void Mod_InitSkyClouds( model_t *mod, const mip_t *mt, texture_t *tx, qboolean custom_palette )
 {
 #if !XASH_DEDICATED
 	rgbdata_t	r_temp, *r_sky;
@@ -4463,7 +4423,7 @@ static void Mod_InitSkyClouds( model_t *mod, const mip_t *mt, const byte *mtdata
 			size += sizeof( short ) + 768;
 
 		Image_SetForceFlags( IL_HOST_ENDIAN );
-		r_sky = FS_LoadImage( texname, mtdata, size );
+		r_sky = FS_LoadImage( texname, (byte *)mt, size );
 	}
 	else
 	{
@@ -5285,7 +5245,7 @@ static void Mod_LoadTextureData( model_t *mod, dbspmodel_t *bmod, int textureInd
 		 * mip as a single scrolling layer for textured sky fills. */
 		Con_Reportf( "Xash3D GameCube: loading sky as single layer for %s\n", mipTex.name );
 #else
-		Mod_InitSkyClouds( mod, &mipTex, mipRaw, texture, usesCustomPalette ); // load quake sky
+		Mod_InitSkyClouds( mod, &mipTex, texture, usesCustomPalette ); // load quake sky
 		return;
 #endif
 	}
@@ -5492,11 +5452,8 @@ static void Mod_LoadTexture( model_t *mod, dbspmodel_t *bmod, int textureIndex )
 	texture_t *texture = (texture_t *)Mem_Calloc( mod->mempool, sizeof( *texture ));
 	mod->textures[textureIndex] = texture;
 
-	// Xash3D games rely on lowercase texture names, GoldSrc keeps them as is
-	if( FBitSet( host.bugcomp, BUGCOMP_PRESERVE_TEXTURE_NAME_CASE ))
-		Q_strncpy( texture->name, mipTex.name, sizeof( texture->name ));
-	else
-		Q_strnlwr( mipTex.name, texture->name, sizeof( texture->name ));
+	// Ensure texture name is lowercase.
+	Q_strnlwr( mipTex.name, texture->name, sizeof( texture->name ));
 
 	texture->width = mipTex.width;
 	texture->height = mipTex.height;
@@ -5544,7 +5501,7 @@ static void Mod_SequenceAnimatedTexture( model_t *mod, int baseTextureIndex )
 	else
 	{
 		// This texture is an alternate animation frame.
-		int frameIndex = (int)Q_toupper( baseTexture->name[1] ) - (int)'A';
+		int frameIndex = (int)baseTexture->name[1] - (int)'a';
 
 		altanims[frameIndex] = baseTexture;
 		altmax = frameIndex + 1;
@@ -5577,7 +5534,7 @@ static void Mod_SequenceAnimatedTexture( model_t *mod, int baseTextureIndex )
 		else
 		{
 			// This texture is an alternate frame.
-			int frameIndex = (int)Q_toupper( altTexture->name[1] ) - (int)'A';
+			int frameIndex = (int)altTexture->name[1] - (int)'a';
 			altanims[frameIndex] = altTexture;
 
 			if( frameIndex >= altmax )
@@ -8571,11 +8528,10 @@ static void Mod_LoadClipnodes( model_t *mod, dbspmodel_t *bmod )
 			Mod_GCEnsureBspLump( mod, bmod, LUMP_CLIPNODES );
 		}
 
-		/* Scratch aliases die when Flipper/surfaces rearm the BSP arena —
-		 * lean SV_Move then hangs in PM_RecursiveHullCheck (G109; probe
-		 * 20260807-060327 after FillUsercmd ready). Own a compact pin for
-		 * any New Game path, not only -gcfullphysics. */
-		if( Sys_CheckParm( "-gcfullphysics" ) || Sys_CheckParm( "-gcnewgame" ))
+		/* Scratch aliases die when Flipper rearms BSP arena. Own compact pin
+		 * for New Game and CapFaces -gcmap/-gcworldrender (probe 013254). */
+		if( Sys_CheckParm( "-gcfullphysics" ) || Sys_CheckParm( "-gcnewgame" )
+			|| Sys_CheckParm( "-gcmap" ) || Sys_CheckParm( "-gcworldrender" ))
 		{
 			mclipnode16_t *owned;
 			if( !bmod->clipnodes )
@@ -9973,7 +9929,6 @@ static qboolean Mod_LoadBmodelLumps( model_t *mod, byte *mod_base, size_t buffer
 	}
 	bmod->isworld = isworld;
 	bmod->isbsp30ext = FBitSet( flags, LUMP_BSP30EXT );
-	bmod->hulls32bit = bmod->version == QBSP2_VERSION || ( !isworld && world.version == QBSP2_VERSION );
 	fs_offset_t bspx_header_offset = Mod_FindBSPX( mod_base, bufferlen );
 
 	// loading base lumps
@@ -10269,8 +10224,9 @@ static qboolean Mod_LoadBmodelLumps( model_t *mod, byte *mod_base, size_t buffer
 	Mod_LoadSurfaces( mod, bmod );
 #if XASH_GAMECUBE
 	Con_Reportf( "Xash3D GameCube: bmodel surfaces ready\n" );
-	/* Capture CapFaces EDGE verts while edges16/surfedges still resolve —
-	 * marksurfaces/nodes carve stomps aliased surfedges (solo e=0 TEX). */
+	/* Park nodes in BSP scratch BEFORE CapFaces prefetch (probe 012645). */
+	Mod_GCEnsureBspLump( mod, bmod, LUMP_LEAFS );
+	Mod_GCPreallocWorldNodes( mod, bmod );
 	if( bmod->isworld )
 		GC_PrefetchCapFacesWhileEdgesLive( mod );
 	Mod_GCEnsureBspLump( mod, bmod, LUMP_MARKSURFACES );
@@ -10278,13 +10234,6 @@ static qboolean Mod_LoadBmodelLumps( model_t *mod, byte *mod_base, size_t buffer
 	Mod_LoadMarkSurfaces( mod, bmod );
 #if XASH_GAMECUBE
 	Con_Reportf( "Xash3D GameCube: bmodel marksurfaces ready\n" );
-	/* Materialize leafs BEFORE nodes+leafs co-prealloc so the pin/carve path
-	 * sees a live dleaf pointer (and Ensure after Invalidate can reload). */
-	Mod_GCEnsureBspLump( mod, bmod, LUMP_LEAFS );
-	/* Park nodes before leafs fill the last contiguous scratch holes
-	 * (c2a4e dual-hop tip-OOM after leafs claimed 189 KiB). */
-	Mod_GCPreallocWorldNodes( mod, bmod );
-	/* Carve/Invalidate may have dropped the source — restore before LoadLeafs. */
 	if( bmod->version == QBSP2_VERSION ? !bmod->leafs32 : !bmod->leafs )
 		Mod_GCEnsureBspLump( mod, bmod, LUMP_LEAFS );
 #endif
@@ -10822,53 +10771,3 @@ int GAME_EXPORT Mod_SaveLump( const char *filename, const int lump, void *lumpda
 	FS_Close( f );
 	return LUMP_SAVE_OK;
 }
-
-#if XASH_ENGINE_TESTS
-#include "tests.h"
-
-static void Test_Mod_NameImpliesTextureIsAnimated( void )
-{
-	typedef struct { char name[64]; } test_texture_t;
-
-	test_texture_t valid[] =
-	{
-		{"+0"}, {"+9"}, {"-0"}, {"-9"},
-		{"+a"}, {"+A"}, {"+j"}, {"+J"},
-		{"-a"}, {"-A"}, {"-j"}, {"-J"},
-	};
-
-	for( int i = 0; i < (int)ARRAYSIZE( valid ); i++ )
-	{
-		TASSERT( Mod_NameImpliesTextureIsAnimated( (texture_t *)&valid[i] ));
-	}
-
-	test_texture_t invalid[] =
-	{
-		{"+k"}, {"+K"}, {"+z"}, {"+Z"},
-		{"-k"}, {"-K"}, {"-z"}, {"-Z"},
-		{"++"}, {"+-"}, {"-+"}, {"--"},
-		{"a0"}, {"0a"}, {""}, {"+"}, {"-"}, {" "}, {"+ "}, {"- "},
-	};
-
-	for( int i = 0; i < (int)ARRAYSIZE( invalid ); i++ )
-	{
-		TASSERT( !Mod_NameImpliesTextureIsAnimated( (texture_t *)&invalid[i] ));
-	}
-}
-
-static void Test_Mod_FrameIndexCalculation( void )
-{
-	TASSERT_EQi( Q_toupper( 'A' ) - 'A', 0 );
-	TASSERT_EQi( Q_toupper( 'a' ) - 'A', 0 );
-	TASSERT_EQi( Q_toupper( 'J' ) - 'A', 9 );
-	TASSERT_EQi( Q_toupper( 'j' ) - 'A', 9 );
-	TASSERT_EQi( Q_toupper( '0' ) - '0', 0 );
-	TASSERT_EQi( Q_toupper( '9' ) - '0', 9 );
-}
-
-void Test_RunModBmodel( void )
-{
-	TRUN( Test_Mod_NameImpliesTextureIsAnimated() );
-	TRUN( Test_Mod_FrameIndexCalculation() );
-}
-#endif

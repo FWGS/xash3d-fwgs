@@ -35,6 +35,7 @@ void R_GcmapTrimForMapLoad( void );
 int GC_GetNewGameCapFaceVerts( int slot, float out[][3], int maxverts );
 void Mod_GCClearRetainedBspScratch( void );
 #endif
+#include <stdio.h>
 #include <stdlib.h>
 #include <malloc.h>
 #include <string.h>
@@ -685,6 +686,35 @@ typedef struct
 static qboolean GC_CapFaceAlready( int firstedge, int numedges );
 static qboolean GC_DumpOriginInHull( const float *p );
 static qboolean GC_DumpEyeInFrontOfBestWall( float *eye, float *out_angles );
+
+/* -gcdumpeye x,y,z,pitch,yaw — force CapFaces camera to a spawn (map atlas). */
+static qboolean GC_DumpEyeFromParm( float *eye, float *out_angles )
+{
+	char	arg[96];
+	float	x, y, z, pitch, yaw;
+	int	n;
+
+	if( !eye || !out_angles )
+		return false;
+	if( !Sys_GetParmFromCmdLine( "-gcdumpeye", arg ) || !arg[0] )
+		return false;
+	n = sscanf( arg, "%f,%f,%f,%f,%f", &x, &y, &z, &pitch, &yaw );
+	if( n < 3 )
+		return false;
+	if( n < 4 )
+		pitch = 0.0f;
+	if( n < 5 )
+		yaw = 0.0f;
+	eye[0] = x;
+	eye[1] = y;
+	eye[2] = z;
+	out_angles[0] = pitch;
+	out_angles[1] = yaw;
+	out_angles[2] = 0.0f;
+	VectorCopy( eye, gc_newgame_capture_origin );
+	return true;
+}
+
 static qboolean GC_DumpEyeAtTramStart( float *eye, float *out_angles );
 static qboolean GC_IsDenserAmMapName( const char *name );
 static qboolean GC_IsProbeChangelevelDest( void );
@@ -14389,7 +14419,9 @@ qboolean GC_RenderNewGameWorldFrames( int count )
 
 			gc_g196_flipper_dump_aim_left = 8; /* stay armed; sticky path below */
 			gc_dump_look_into_map = true;
-			if( GC_DumpEyeInFrontOfBestWall( center, rvp.viewangles ))
+			/* Spawn atlas: -gcdumpeye overrides sticky wall-aim when present. */
+			if( GC_DumpEyeFromParm( center, rvp.viewangles )
+				|| GC_DumpEyeInFrontOfBestWall( center, rvp.viewangles ))
 			{
 				local_look = true;
 				look_len = 192.0f;
