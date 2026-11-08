@@ -1,6 +1,65 @@
 # Shared helpers for dolphin-boot-probe.sh
 # shellcheck shell=bash
 
+# Defaults for the verified campaign hops, kept out of the bounded probe wrapper.
+probe_set_default_landmarks() {
+	if [[ -z "${DOLPHIN_LANDMARK:-}" && -n "$DOLPHIN_CHANGELEVEL" ]]; then
+		source scripts/dolphin-landmarks.sh
+	fi
+	if [[ -z "${DOLPHIN_LANDMARK2:-}" && -n "$DOLPHIN_CHANGELEVEL" && -n "$DOLPHIN_CHANGELEVEL2" ]]; then
+		case "${DOLPHIN_CHANGELEVEL}:${DOLPHIN_CHANGELEVEL2}" in
+			c1a0:c1a0d) DOLPHIN_LANDMARK2="c1a0toc1a0d" ;;
+			c1a0d:c1a0a) DOLPHIN_LANDMARK2="c1a0dtoa" ;;
+			c1a0a:c1a0b) DOLPHIN_LANDMARK2="c1a0atob" ;;
+			c1a0b:c1a0c) DOLPHIN_LANDMARK2="c1a0btoc" ;;
+			c1a0c:c1a1) DOLPHIN_LANDMARK2="c1a0catoc1a1" ;;
+			c2a4e:c2a4f) DOLPHIN_LANDMARK2="lm2" ;;
+			c2a4e:c2a4g) DOLPHIN_LANDMARK2="c2a4e-c2a4g" ;;
+		esac
+	fi
+}
+
+# Append guest arguments to an argv array, preserving spaces as single args.
+append_guest_args() {
+	local -n _cmd="$1"
+	if ((${#GUEST_ARGS[@]})); then
+		_cmd+=(-- "${GUEST_ARGS[@]}")
+	fi
+}
+
+# Stop only the Flatpak instance that carries this probe's isolated profile.
+cleanup_flatpak_dolphin() {
+	if (( DOLPHIN_IS_FLATPAK )); then
+		cleanup_boot_probe_processes
+	fi
+}
+
+# Select Dolphin backend/window mode after probe arguments and capture options are set.
+probe_configure_dolphin_launch() {
+	DOLPHIN_VIDEO_BACKEND="${DOLPHIN_VIDEO:-Null}"
+	DOLPHIN_BATCH_MODE=1
+	if [[ "$DOLPHIN_RETAIL" == "1" ]]; then
+		DOLPHIN_VIDEO_BACKEND="${DOLPHIN_VIDEO:-OpenGL}"
+		if [[ "${DOLPHIN_CAPTURE_MENU:-0}" == "1" ]]; then
+			DOLPHIN_BATCH_MODE=0
+			TIMEOUT_SEC="${DOLPHIN_TIMEOUT:-120}"
+		fi
+	fi
+	if [[ "${DOLPHIN_MENU_NEWGAME:-0}" == "1" ]]; then
+		if [[ "${DOLPHIN_DUMP_FRAMES:-0}" == "1" ]]; then
+			DOLPHIN_BATCH_MODE=1
+		else
+			DOLPHIN_BATCH_MODE=0
+		fi
+	fi
+	if (( DUMP_FRAMES )) && [[ -z "${DOLPHIN_VIDEO:-}" ]]; then
+		DOLPHIN_VIDEO_BACKEND=OpenGL
+		echo "==> G359 DumpFrames video backend OpenGL (Null stills were black)"
+	fi
+	DOLPHIN_MODE_ARGS=(-l)
+	(( DOLPHIN_BATCH_MODE )) && DOLPHIN_MODE_ARGS=(-l -b)
+}
+
 # Append G508/SAVE-022 disc staging flags. BUILD_ARGS is a global array.
 probe_append_config_roundtrip_build_args() {
 	if [[ "${DOLPHIN_G508:-0}" != "1" && "${DOLPHIN_SAVE_INTERRUPT:-0}" != "1" ]]; then

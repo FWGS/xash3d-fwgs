@@ -85,24 +85,7 @@ DOLPHIN_CHANGELEVEL="${DOLPHIN_CHANGELEVEL:-}"
 DOLPHIN_CHANGELEVEL2="${DOLPHIN_CHANGELEVEL2:-}"
 DOLPHIN_CHANGELEVEL3="${DOLPHIN_CHANGELEVEL3:-}"
 DOLPHIN_TAS="${DOLPHIN_TAS:-}"
-# Default landmarks for proven probe hops when unset.
-if [[ -z "${DOLPHIN_LANDMARK:-}" && -n "$DOLPHIN_CHANGELEVEL" ]]; then
-	# Keep the large campaign landmark table in a data helper so this wrapper
-	# remains below the verifier's bounded-script-size guard.
-	source scripts/dolphin-landmarks.sh
-fi
-# G356: default landmark for hop2 when unset.
-if [[ -z "${DOLPHIN_LANDMARK2:-}" && -n "$DOLPHIN_CHANGELEVEL" && -n "$DOLPHIN_CHANGELEVEL2" ]]; then
-	case "${DOLPHIN_CHANGELEVEL}:${DOLPHIN_CHANGELEVEL2}" in
-		c1a0:c1a0d) DOLPHIN_LANDMARK2="c1a0toc1a0d" ;;
-		c1a0d:c1a0a) DOLPHIN_LANDMARK2="c1a0dtoa" ;;
-		c1a0a:c1a0b) DOLPHIN_LANDMARK2="c1a0atob" ;;
-		c1a0b:c1a0c) DOLPHIN_LANDMARK2="c1a0btoc" ;;
-		c1a0c:c1a1) DOLPHIN_LANDMARK2="c1a0catoc1a1" ;;
-		c2a4e:c2a4f) DOLPHIN_LANDMARK2="lm2" ;;
-		c2a4e:c2a4g) DOLPHIN_LANDMARK2="c2a4e-c2a4g" ;;
-	esac
-fi
+probe_set_default_landmarks
 GUEST_MARKER="Xash3D GameCube: bootstrap"
 READY_MARKER="Xash3D GameCube: engine subsystems ready"
 RETAIL_MENU_MARKER="Xash3D GameCube: retail menu steam background ready"
@@ -601,43 +584,7 @@ fi
 if [[ "$DOLPHIN_RETAIL" == "1" && "${DOLPHIN_NEWGAME:-0}" != "1" ]]; then
 	probe_append_video_mode_guest_args
 fi
-append_guest_args() {
-	local -n _cmd="$1"
-	if ((${#GUEST_ARGS[@]})); then
-		_cmd+=(-- "${GUEST_ARGS[@]}")
-	fi
-}
-DOLPHIN_VIDEO_BACKEND="${DOLPHIN_VIDEO:-Null}"
-DOLPHIN_BATCH_MODE=1
-if [[ "$DOLPHIN_RETAIL" == "1" ]]; then
-	DOLPHIN_VIDEO_BACKEND="${DOLPHIN_VIDEO:-OpenGL}"
-	if [[ "${DOLPHIN_CAPTURE_MENU:-0}" == "1" ]]; then
-		DOLPHIN_BATCH_MODE=0
-		TIMEOUT_SEC="${DOLPHIN_TIMEOUT:-120}"
-	fi
-fi
-# Real-time menu→New Game: show the Dolphin window so the dwell is visible.
-# DumpFrames/post-CapFaces sample needs a stable wrapper PID — batch mode
-# keeps probe_wait_native from exiting early when the GUI process forks.
-if [[ "${DOLPHIN_MENU_NEWGAME:-0}" == "1" ]]; then
-	if [[ "${DOLPHIN_DUMP_FRAMES:-0}" == "1" ]]; then
-		DOLPHIN_BATCH_MODE=1
-	else
-		DOLPHIN_BATCH_MODE=0
-	fi
-fi
-# G359: Null DumpFrames TGAs are all-black after soft latch (20260811-024012/225).
-# OpenGL samples G191 soft EFB stills (framedump uniq≈218 on c0a0e).
-if (( DUMP_FRAMES )) && [[ -z "${DOLPHIN_VIDEO:-}" ]]; then
-	DOLPHIN_VIDEO_BACKEND=OpenGL
-	echo "==> G359 DumpFrames video backend OpenGL (Null stills were black)"
-fi
-DOLPHIN_MODE_ARGS=()
-if (( DOLPHIN_BATCH_MODE )); then
-	DOLPHIN_MODE_ARGS=(-l -b)
-else
-	DOLPHIN_MODE_ARGS=(-l)
-fi
+probe_configure_dolphin_launch
 if [[ "${DOLPHIN_EXECUTABLE:-}" == flatpak:* ]]; then
 	DOLPHIN_FLATPAK_ID="${DOLPHIN_EXECUTABLE#flatpak:}"
 	DOLPHIN_CMD=(flatpak run --filesystem="$ROOT" "$DOLPHIN_FLATPAK_ID"
@@ -670,13 +617,6 @@ else
 	echo "HOST_FAILURE: Dolphin executable or Flatpak was not found."
 	exit 2
 fi
-cleanup_flatpak_dolphin() {
-	if (( DOLPHIN_IS_FLATPAK )); then
-		# The Flatpak application ID may also be used by an interactive
-		# Dolphin session. Only stop processes carrying this probe's profile.
-		cleanup_boot_probe_processes
-	fi
-}
 # Playtest recording (DOLPHIN_RECORD=0 to skip): Dolphin plays into a private
 # null sink (silent), recorded with the render window to .ai/playtests/.
 PLAYTEST_REC_PID=
