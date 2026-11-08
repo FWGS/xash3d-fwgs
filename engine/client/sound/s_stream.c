@@ -119,6 +119,11 @@ void S_StartBackgroundTrack( const char *introTrack, const char *mainTrack, int 
 
 	// open stream
 	s_bgTrack.stream = FS_OpenStream( introTrack );
+#if XASH_GAMECUBE
+	if( introTrack && strstr( introTrack, "gamestartup" ))
+		Con_Reportf( "Xash3D GameCube: DoD music stream open=%d keydest=%d volume=%.2f\n",
+			s_bgTrack.stream ? 1 : 0, cls.key_dest, s_musicvolume.value );
+#endif
 
 	Q_strncpy( s_bgTrack.current, introTrack, sizeof( s_bgTrack.current ));
 	memset( &musicfade, 0, sizeof( musicfade )); // clear any soundfade
@@ -314,6 +319,15 @@ void S_StreamBackgroundTrack( void )
 			int music_vol = (int)(255.0f * S_GetMusicVolume());
 			S_RawEntSamples( S_RAW_SOUND_BACKGROUNDTRACK, fileSamples, info->rate, info->width, info->channels, raw, music_vol, ATTN_NONE );
 #if XASH_GAMECUBE
+			if( !strncmp( s_bgTrack.current, "media/gamestartup", 17 ))
+			{
+				static int gc_music_mix_log;
+				if( gc_music_mix_log < 1 )
+				{
+					Con_Reportf( "Xash3D GameCube: DoD music mixed bytes=%d rate=%d vol=%d\n", r, info->rate, music_vol );
+					gc_music_mix_log++;
+				}
+			}
 			if( Sys_CheckParm( "-gcnewgame" ))
 			{
 				static int gc_intro_mix_log;

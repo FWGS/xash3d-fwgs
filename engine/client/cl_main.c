@@ -15,6 +15,7 @@ GNU General Public License for more details.
 
 #include <inttypes.h>
 #include "common.h"
+#include "fscallback.h"
 #include "client.h"
 #include "net_encode.h"
 #include "cl_tent.h"
@@ -33,6 +34,18 @@ GNU General Public License for more details.
 extern int gc_menu_step_frames;
 extern qboolean UI_UsingBuiltInFallbackMenu( void );
 void UI_GameCubeLeaveMenuOnlyBootstrap( void );
+static qboolean gc_menu_music_started;
+static void CL_GameCubeStartDoDMenuMusic( void )
+{
+	if( gc_menu_music_started || !snd.initialized )
+		return;
+	gc_menu_music_started = true;
+	if( FI && FI->GameInfo && !Q_stricmp( FI->GameInfo->gamefolder, "dod" ))
+	{
+		S_StartBackgroundTrack( "media/gamestartup.wav", "media/gamestartup.wav", 0, false );
+		Con_Reportf( "Xash3D GameCube: DoD main-menu music start requested\n" );
+	}
+}
 void GC_DrawLoadingStatus( const char *message, const char *details );
 void GC_SetLoadingProgress( float progress );
 void GC_ArmPostMapFrameBudgetSamples( void );
@@ -4097,10 +4110,12 @@ void Host_ClientFrame( void )
 	}
 	if( UI_UsingBuiltInFallbackMenu() )
 	{
+		CL_GameCubeStartDoDMenuMusic();
 		VID_CheckChanges();
 		if( GC_BootDrawAllowed() )
 			SCR_UpdateScreen();
 		SCR_RunCinematic();
+		SND_UpdateSound();
 		return;
 	}
 
@@ -4200,6 +4215,8 @@ void Host_ClientFrame( void )
 			if( GC_BootDrawAllowed() )
 				SCR_UpdateScreen();
 			SCR_RunCinematic();
+			CL_GameCubeStartDoDMenuMusic();
+			SND_UpdateSound();
 			return;
 		}
 	}
@@ -4403,6 +4420,11 @@ void CL_Init( void )
 			S_Init();
 			Voice_Init( VOICE_DEFAULT_CODEC, 3, true );
 			Con_Reportf( "Xash3D GameCube: menu-only sound init ready\n" );
+			if( FI && FI->GameInfo && !Q_stricmp( FI->GameInfo->gamefolder, "dod" ))
+			{
+				S_StartBackgroundTrack( "media/gamestartup.wav", "media/gamestartup.wav", 0, false );
+				Con_Reportf( "Xash3D GameCube: DoD main-menu music started\n" );
+			}
 		}
 
 		cls.build_num = 0;

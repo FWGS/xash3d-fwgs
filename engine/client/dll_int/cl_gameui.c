@@ -23,6 +23,7 @@ GNU General Public License for more details.
 #include "input.h"
 #include "server.h" // !!svgame.hInstance
 #include "vid_common.h"
+#include "sound.h"
 
 static void 	UI_UpdateUserinfo( void );
 
@@ -72,9 +73,9 @@ static int gc_menu_background_height = 600;
 
 static const gc_menu_item_t gc_menu_items[] =
 {
-	{ "New Game", "Create a server or start a multiplayer game.", "menu_creategame" },
-	{ "Find Servers", "Search the internet and local network for games.", "menu_internetgames" },
-	{ "Options", "Change game settings and configure controls.", "menu_options" },
+	{ "New game", "", "menu_creategame" },
+	{ "Find servers", "", "menu_internetgames" },
+	{ "Options", "", "menu_options" },
 };
 
 static qboolean UI_GCFallbackMenuCommandsSafe( void )
@@ -300,15 +301,20 @@ static void UI_GCDrawFallbackMenuBackground( void )
 static void UI_GCDrawMenuString( int x, int y, const char *text, int r, int g, int b, qboolean shadow )
 {
 	rgba_t color;
+	int scale = Q_max( 1, ( refState.height + 239 ) / 480 );
 
 	if( shadow )
 	{
 		MakeRGBA( color, 0, 0, 0, 180 );
-		Con_DrawString( x + 2, y + 2, text, color );
+		for( int sy = 0; sy < scale; sy++ )
+			for( int sx = 0; sx < scale; sx++ )
+				Con_DrawString( x + 2 + sx, y + 2 + sy, text, color );
 	}
 
 	MakeRGBA( color, r, g, b, 255 );
-	Con_DrawString( x, y, text, color );
+	for( int sy = 0; sy < scale; sy++ )
+		for( int sx = 0; sx < scale; sx++ )
+			Con_DrawString( x + sx, y + sy, text, color );
 }
 
 static void UI_GCDrawMenuMarker( int x, int y, qboolean selected )
@@ -336,17 +342,14 @@ static void UI_GCDrawMenuPanel( int x, int y, int w, int h, qboolean selected )
 static void UI_GCDrawFallbackMenu( void )
 {
 	int panel_x = ( 34 * refState.width ) / 640;
-	int panel_y = ( 210 * refState.height ) / 480;
-	int panel_w = ( 358 * refState.width ) / 640;
-	int panel_h = ( 218 * refState.height ) / 480;
-	int base_x = ( 54 * refState.width ) / 640;
-	int icon_x = ( 43 * refState.width ) / 640;
+	int safe_x = ( refState.width * 5 ) / 100;
+	int safe_y = ( refState.height * 5 ) / 100;
+	int base_x = ( 58 * refState.width ) / 640;
 	int base_y = ( 260 * refState.height ) / 480;
-	int row_h = ( 32 * refState.height ) / 480;
-	qboolean commands_safe = UI_GCFallbackMenuCommandsSafe();
+	int row_h = ( 35 * refState.height ) / 480;
+	int scale = Q_max( 1, ( refState.height + 239 ) / 480 );
+	int char_h = 8 * scale;
 	qboolean difficulty_menu = gc_menu_page != 0;
-	const gc_menu_item_t *selected_item = &gc_menu_items[bound( 0, gc_menu_selection,
-		(int)ARRAYSIZE( gc_menu_items ) - 1 )];
 
 	UI_GCLoadFallbackMenuTextures();
 	if( !difficulty_menu && gc_menu_composite[0] > 0 && gc_menu_composite[1] > 0
@@ -378,7 +381,7 @@ static void UI_GCDrawFallbackMenu( void )
 		return;
 	}
 	UI_GCDrawFallbackMenuBackground();
-	UI_GCDrawMenuPanel( panel_x, panel_y, panel_w, panel_h, true );
+	/* The retail menu art has no panel behind its plain text column. */
 
 	if( gc_menu_use_baked_retail && !gc_menu_reported_retail_ready )
 	{
@@ -420,18 +423,16 @@ static void UI_GCDrawFallbackMenu( void )
 			break;
 		const gc_menu_item_t *item = &gc_menu_items[i];
 		qboolean selected = ( i == gc_menu_selection );
-		int y = base_y + i * row_h;
+		int y = base_y + i * row_h - char_h / 2;
+		int max_x = ( refState.width * 90 ) / 100 - ( 8 * refState.width ) / 640;
+		int max_y = ( refState.height * 90 ) / 100 - char_h;
+		if( base_x < safe_x ) base_x = safe_x;
+		if( y < safe_y ) y = safe_y;
+		if( y > max_y ) y = max_y;
+		if( max_x < base_x ) base_x = max_x;
 
-		/* Individual row plates read like the flat VGUI button stack. */
-		UI_GCDrawMenuPanel( panel_x + ( 8 * refState.width ) / 640,
-			y - ( 5 * refState.height ) / 480,
-			panel_w - ( 16 * refState.width ) / 640,
-			( 29 * refState.height ) / 480, selected );
-		UI_GCDrawMenuMarker( icon_x, y, selected );
 		UI_GCDrawMenuString( base_x, y, item->label,
-			selected ? ( commands_safe ? 255 : 196 ) : ( commands_safe ? 224 : 168 ),
-			selected ? ( commands_safe ? 214 : 176 ) : ( commands_safe ? 170 : 140 ),
-			selected ? ( commands_safe ? 48 : 64 ) : ( commands_safe ? 16 : 40 ), true );
+			255, selected ? 244 : 184, selected ? 72 : 0, true );
 	}
 	if( difficulty_menu )
 	{
@@ -442,41 +443,20 @@ static void UI_GCDrawFallbackMenu( void )
 			"For experienced players."
 		};
 
-		UI_GCDrawMenuString( base_x, base_y - row_h, "DIFFICULTY",
-			commands_safe ? 255 : 196, commands_safe ? 214 : 176,
-			commands_safe ? 48 : 64, true );
+			UI_GCDrawMenuString( base_x, base_y - row_h, "DIFFICULTY",
+			255, 214, 48, true );
 		for( int i = 0; i < 3; i++ )
 		{
 			qboolean selected = ( i == gc_menu_selection );
 			int y = base_y + i * row_h;
-			UI_GCDrawMenuPanel( panel_x + ( 8 * refState.width ) / 640,
-				y - ( 5 * refState.height ) / 480,
-				panel_w - ( 16 * refState.width ) / 640,
-				( 29 * refState.height ) / 480, selected );
-			UI_GCDrawMenuMarker( icon_x, y, selected );
 			UI_GCDrawMenuString( base_x, y, difficulty_names[i],
-				selected ? ( commands_safe ? 255 : 196 ) : ( commands_safe ? 224 : 168 ),
-				selected ? ( commands_safe ? 214 : 176 ) : ( commands_safe ? 170 : 140 ),
-				selected ? ( commands_safe ? 48 : 64 ) : ( commands_safe ? 16 : 40 ), true );
+				255, selected ? 214 : 184, selected ? 48 : 0, true );
 		}
 		UI_GCDrawMenuString( base_x, base_y + 3 * row_h + row_h,
 			difficulty_help[bound( 0, gc_menu_selection, 2 )], 112, 112, 112, false );
 		return;
 	}
-	UI_GCDrawMenuString( base_x, panel_y + ( 15 * refState.height ) / 480,
-		"DAY OF DEFEAT", 190, 151, 70, false );
-
-	UI_GCDrawMenuString( base_x, base_y + (int)ARRAYSIZE( gc_menu_items ) * row_h + row_h,
-		selected_item->description, 176, 178, 174, false );
-	UI_GCDrawMenuString( base_x, panel_y + panel_h - ( 18 * refState.height ) / 480,
-		"A  SELECT     B  BACK", 132, 137, 132, false );
-
-	if( !commands_safe )
-	{
-		UI_GCDrawMenuString( base_x, base_y + (int)ARRAYSIZE( gc_menu_items ) * row_h + row_h + 18,
-			"Starting up...", 120, 120, 120, false );
-	}
-	else if( !gc_menu_reported_button_ready )
+	if( !gc_menu_reported_button_ready )
 	{
 		/* The baked background path still draws live controller-driven labels
 		 * below it. Publish the same readiness transition as the composite path
