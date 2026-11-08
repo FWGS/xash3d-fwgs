@@ -432,7 +432,8 @@ void FS_Rescan( uint32_t flags, const char *language )
 	// don't let rescan set searchpath flags
 	flags = FBitSet( flags, FS_MOUNT_FLAGS );
 
-	if( FBitSet( flags, FS_MOUNT_L10N ) && !COM_StringEmpty( language ) && Q_isalpha( language ))
+	// english is the default language, there are no localization folders for it
+	if( FBitSet( flags, FS_MOUNT_L10N ) && !COM_StringEmpty( language ) && Q_isalpha( language ) && Q_stricmp( language, "english" ))
 	{
 		Q_strncpy( fs_language, language, sizeof( fs_language ));
 	}
