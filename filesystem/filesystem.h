@@ -44,6 +44,7 @@ enum
 	FS_CUSTOM_PATH    = BIT( 3 ), // gamedir but with custom/mod data
 	FS_GAMERODIR_PATH = BIT( 4 ), // gamedir but read-only
 	FS_EXEC_PATH      = BIT( 5 ), // this directory is allowed to have executable code
+	FS_MOUNTED_PATH   = BIT( 6 ), // _hd, _lv, _addon and localization folders of basedir and falldir
 
 	FS_SKIP_ARCHIVED_WADS = BIT( 16 ), // don't mount wads inside archives automatically
 	FS_LOAD_PACKED_WAD    = BIT( 17 ), // this wad is packed inside other archive
@@ -56,6 +57,13 @@ enum
 	FS_MOUNT_FLAGS = FS_MOUNT_HD | FS_MOUNT_LV | FS_MOUNT_ADDON | FS_MOUNT_L10N,
 
 	FS_GAMEDIRONLY_SEARCH_FLAGS = FS_GAMEDIR_PATH | FS_CUSTOM_PATH | FS_GAMERODIR_PATH
+};
+
+// FS_Search flags, FS_SEARCH_GAMEDIRONLY is the old boolean gamedironly
+enum
+{
+	FS_SEARCH_GAMEDIRONLY  = BIT( 0 ),
+	FS_SEARCH_SKIP_MOUNTED = BIT( 1 ), // skip FS_MOUNTED_PATH searchpaths
 };
 
 typedef struct searchpath_s searchpath_t;
@@ -163,7 +171,7 @@ typedef struct fs_api_t
 	void (*AllowDirectPaths)( qboolean enable );
 	void (*AddGameDirectory)( const char *dir, uint flags );
 	void (*AddGameHierarchy)( const char *dir, uint flags );
-	search_t *(*Search)( const char *pattern, int caseinsensitive, int gamedironly );
+	search_t *(*Search)( const char *pattern, int caseinsensitive, int search_flags );
 	int (*SetCurrentDirectory)( const char *path );
 	qboolean (*FindLibrary)( const char *dllname, qboolean directpath, fs_dllinfo_t *dllinfo );
 	void (*Path_f)( void );

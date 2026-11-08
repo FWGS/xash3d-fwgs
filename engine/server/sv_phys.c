@@ -1955,7 +1955,7 @@ static char **GAME_EXPORT pfnGetFilesList( const char *pattern, int *numFiles, i
 
 	if( t ) Mem_Free( t ); // release prev search
 
-	t = FS_Search( pattern, true, gamedironly );
+	t = FS_Search( pattern, true, gamedironly ? FS_SEARCH_GAMEDIRONLY : 0 );
 
 	if( !t )
 	{

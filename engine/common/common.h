@@ -416,7 +416,7 @@ void FS_Init( void );
 void FS_Shutdown( void );
 void *FS_GetNativeObject( const char *obj );
 int FS_Close( file_t *file );
-search_t *FS_Search( const char *pattern, int caseinsensitive, int gamedironly )
+search_t *FS_Search( const char *pattern, int caseinsensitive, int search_flags )
 	MALLOC_LIKE( _Mem_Free, 1 ) WARN_UNUSED_RESULT;
 file_t *FS_Open( const char *filepath, const char *mode, qboolean gamedironly )
 	MALLOC_LIKE( FS_Close, 1 ) WARN_UNUSED_RESULT;
