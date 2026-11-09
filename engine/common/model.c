@@ -1178,7 +1178,13 @@ void Mod_FreeModel( model_t *mod )
 		Mod_FreeUserData( mod );
 #if XASH_GAMECUBE
 		if( mod->type == mod_brush )
+		{
+			Con_Reportf( "Xash3D GameCube: FreeModel brush userdata done %s tip=%s\n",
+				mod->name[0] ? mod->name : "?", Q_memprint( GC_MemHeapFreeBytes() ));
 			Mod_GameCubeFreeMallocSurfaces( mod );
+			Con_Reportf( "Xash3D GameCube: FreeModel malloc surfaces done %s tip=%s\n",
+				mod->name[0] ? mod->name : "?", Q_memprint( GC_MemHeapFreeBytes() ));
+		}
 		if( mod->type == mod_brush && mod->cache.data )
 		{
 			/* The world BSP may have retained the map-load arena as renderer
@@ -1189,6 +1195,8 @@ void Mod_FreeModel( model_t *mod )
 			Mod_ReleaseBrushSourceBuffer( mod->cache.data );
 			GC_DiscardMapLoadBuffer();
 			mod->cache.data = NULL;
+			Con_Reportf( "Xash3D GameCube: FreeModel brush source released %s tip=%s\n",
+				mod->name[0] ? mod->name : "?", Q_memprint( GC_MemHeapFreeBytes() ));
 		}
 		/* Mesh-only New Game studios keep cache on malloc (mempool == 0).
 		 * G287 BSS-resident crowbar must not be passed to free(). */
@@ -1213,7 +1221,17 @@ void Mod_FreeModel( model_t *mod )
 		}
 #endif
 #if XASH_GAMECUBE
-			if( !( mod->type == mod_sprite && mod->mempool == host.mempool ))
+			/* Retail tram hop tip≈18 KiB (probe 235602): Mem_FreePool walks the
+			 * world zone and never returns after lean tex unload. Drop the pool
+			 * handle without walking — malloc surfaces already freed above. */
+			if( mod->type == mod_brush && FBitSet( mod->flags, MODEL_WORLD )
+				&& GC_MemHeapFreeBytes() < 48u * 1024u )
+			{
+				Con_Reportf( "Xash3D GameCube: FreeModel skip world Mem_FreePool tip=%s\n",
+					Q_memprint( GC_MemHeapFreeBytes() ));
+				mod->mempool = 0;
+			}
+			else if( !( mod->type == mod_sprite && mod->mempool == host.mempool ))
 				Mem_FreePool( &mod->mempool );
 #else
 		Mem_FreePool( &mod->mempool );

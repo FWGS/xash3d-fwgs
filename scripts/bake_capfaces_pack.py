@@ -20,7 +20,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 GC_CF_MAGIC = b"GCcf"
 GC_CF_VERSION = 1
 GC_CF_FLAG_LM_ATLAS = 1
-GC_MAX_CAP_FACES = 384
+GC_MAX_CAP_FACES = 384  # 512 tipped GC MEM1; keep spatial coverage within tip
 GC_CAP_MAX_VERTS = 8
 GC_CAP_LM_DIM = 4
 GC_LM_ATLAS_W = 128
@@ -315,10 +315,43 @@ def bake_map(
 				score += area * fs / (1.0 + d2 * 0.00001)
 		if score <= 0:
 			continue
-		cands.append((score, area, fi, name, texinfo, n, dist, pts))
+		cx = sum(p[0] for p in pts) / len(pts)
+		cy = sum(p[1] for p in pts) / len(pts)
+		cz = sum(p[2] for p in pts) / len(pts)
+		cands.append((score, area, fi, name, texinfo, n, dist, pts, cx, cy, cz))
 
+	# Prefer spatial coverage over pure near-eye score so CapFaces lean can
+	# paint more of the map; PVS+frustum then drop off-screen faces at runtime.
 	cands.sort(key=lambda x: -x[0])
-	cands = cands[:GC_MAX_CAP_FACES]
+	if len(cands) > GC_MAX_CAP_FACES:
+		cell = 512.0
+		buckets: dict[tuple[int, int, int], list] = {}
+		for c in cands:
+			key = (int(c[8] // cell), int(c[9] // cell), int(c[10] // cell))
+			buckets.setdefault(key, []).append(c)
+		per = max(1, GC_MAX_CAP_FACES // max(1, len(buckets)))
+		picked = []
+		# Round-robin: take top-N from each cell, then fill by global score.
+		for _ in range(per):
+			for key in list(buckets.keys()):
+				if len(picked) >= GC_MAX_CAP_FACES:
+					break
+				if buckets[key]:
+					picked.append(buckets[key].pop(0))
+			if len(picked) >= GC_MAX_CAP_FACES:
+				break
+		if len(picked) < GC_MAX_CAP_FACES:
+			have = {id(x) for x in picked}
+			for c in cands:
+				if len(picked) >= GC_MAX_CAP_FACES:
+					break
+				if id(c) not in have:
+					picked.append(c)
+		cands = picked
+	else:
+		cands = cands[:GC_MAX_CAP_FACES]
+	# Drop centroid fields for the emit loop below.
+	cands = [c[:8] for c in cands]
 
 	atlas = bytearray(GC_LM_ATLAS_W * GC_LM_ATLAS_H * 2)
 	# clear to dark
@@ -512,8 +545,8 @@ def build_capfaces_packs(
 		stem = bsp.stem.lower()
 		if map_stems is not None and stem not in map_stems:
 			continue
-		# cache by bsp sha + script version
-		digest = hashlib.sha256(bsp.read_bytes()).hexdigest()[:16]
+		# cache by bsp sha + bake recipe (spatial coverage bump)
+		digest = hashlib.sha256(bsp.read_bytes() + b"|spatial-v1").hexdigest()[:16]
 		cached = cache / f"{stem}-{digest}.gcp"
 		rel = f"media/cf_{stem}.gcp"
 		dest = output / rel

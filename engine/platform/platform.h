@@ -269,6 +269,7 @@ qboolean GC_GXFenceWait( unsigned short token );
 void GC_BeginTransitionHold( void );
 void GC_EnableGxWorldLive( void );
 qboolean GC_AllowFlipperCapFaces( void );
+qboolean GC_CapFacesLeanSurfaces( void ); /* lean map load: pack owns Flipper */
 void *GC_GetGxVideoMode( void );
 int GC_GetNewGameViewCluster( void ); /* G83: load/prepare-time PointInLeaf cluster, or -1 */
 qboolean GC_HasNewGameCachedVis( void ); /* G83: prepare-time FatPVS + parent mark ready */
@@ -298,6 +299,13 @@ qboolean GC_FillLiveDrawSurf( int index, struct msurface_s *out, mtexinfo_t *tex
 int GC_GetNewGameCapFaceCount( void );
 int GC_GetNewGameCapGeneration( void ); /* G179: bumps when cap faces/LMs rewrite */
 int GC_GetNewGameCapBakeSrc( int slot ); /* G204/G205: 1=edge, 2=plane, 3=tex, 0=none */
+/* Lean CapFaces visibility: begin with eye PVS, then test each slot. */
+void GC_BeginCapFaceVis( const float *eye );
+qboolean GC_CapFaceInPVS( int slot );
+qboolean GC_CapFaceBounds( int slot, float mins[3], float maxs[3] );
+int GC_CapFacePVSSkipCount( void );
+int GC_CapFacePVSTestCount( void );
+int GC_CapFaceVisAssigned( void ); /* >0 → per-frame PVS/frustum; skip static DL */
 struct msurface_s *GC_GetNewGameDrawSurfs( void );
 const unsigned short *GC_GetNewGameCapLightmap( int slot, int *w, int *h );
 const unsigned short *GC_GetNewGameCapLightmapAtlas( int *w, int *h ); /* G180 */

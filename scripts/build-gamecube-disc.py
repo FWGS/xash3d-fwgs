@@ -273,11 +273,17 @@ def build_apploader(
 	return result
 
 
-def write_bootstrap_pk3(data: Path, bootstrap: Path, recursive: bool = False) -> None:
+def write_bootstrap_pk3(
+	data: Path,
+	bootstrap: Path,
+	recursive: bool = False,
+	extra_media: list[Path] | None = None,
+) -> None:
 	"""Write gamecube-bootstrap.pk3 (small files plus GC studio/HUD/font/sky mirrors).
 
 	Shared by the disc image and the Swiss SD card stage so both routes boot
-	the same payload.
+	the same payload. extra_media: CapFaces packs / sky CMPR from overlays —
+	ISO9660 directory find misses these on some grafts (charlie exists=0).
 	"""
 	with zipfile.ZipFile(bootstrap, "w", zipfile.ZIP_DEFLATED) as archive:
 		children = data.rglob("*") if recursive else data.iterdir()
@@ -323,6 +329,24 @@ def write_bootstrap_pk3(data: Path, bootstrap: Path, recursive: bool = False) ->
 		sky_count = inject_gc_sky_into_bootstrap(archive, data)
 		if sky_count:
 			print(f"GameCube sky mirror: injected {sky_count} lean BMP(s) into bootstrap pk3")
+		extra_n = 0
+		for path in extra_media or []:
+			if not path.is_file():
+				continue
+			name = path.name.lower()
+			if not (name.startswith("sky_") and name.endswith(".cmp")) and not (
+				name.startswith("cf_") and name.endswith(".gcp")
+			):
+				continue
+			if path.stat().st_size <= 0 or path.stat().st_size > 2 * 1024 * 1024:
+				continue
+			arcname = f"media/{name}"
+			if arcname in archive.NameToInfo:
+				continue
+			archive.write(path, arcname, compress_type=zipfile.ZIP_STORED)
+			extra_n += 1
+		if extra_n:
+			print(f"GameCube media mirror: injected {extra_n} overlay CapFaces/sky file(s) into bootstrap pk3")
 		# G293 disc inject deferred — ISO early-exit while debugging tip-safe path.
 
 
@@ -400,7 +424,15 @@ def build_iso9660(
 
 	with tempfile.TemporaryDirectory(prefix="xash3d-gc-bootstrap-") as temp:
 		bootstrap = Path(temp) / "gamecube-bootstrap.pk3"
-		write_bootstrap_pk3(data, bootstrap, bootstrap_recursive)
+		boot_media = [
+			src
+			for rel, src in overlays
+			if isinstance(rel, str)
+			and (rel.startswith("media/cf_") or rel.startswith("media/sky_"))
+		]
+		write_bootstrap_pk3(
+			data, bootstrap, bootstrap_recursive, extra_media=boot_media
+		)
 
 		if extras is not None:
 			command.append(f"/xash3d/{primary}/extras.pk3={extras}")
@@ -1456,6 +1488,16 @@ def inject_gc_sky_into_bootstrap(archive: "zipfile.ZipFile", data: Path) -> int:
 			if arcname in archive.NameToInfo:
 				continue
 			archive.write(cmp, arcname, compress_type=zipfile.ZIP_STORED)
+			staged += 1
+		# CapFaces packs: same ISO9660 long-name miss as skies (charlie
+		# exists=0 on FST while 7z still lists the file). Keep ≤2 MiB.
+		for gcp in sorted(media.glob("cf_*.gcp")):
+			if gcp.stat().st_size <= 0 or gcp.stat().st_size > 2 * 1024 * 1024:
+				continue
+			arcname = f"media/{gcp.name}".lower()
+			if arcname in archive.NameToInfo:
+				continue
+			archive.write(gcp, arcname, compress_type=zipfile.ZIP_STORED)
 			staged += 1
 	return staged
 

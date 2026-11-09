@@ -2916,6 +2916,17 @@ static void GAME_EXPORT pfnTraceLine( const float *v1, const float *v2, int fNoM
 	trace_t	trace;
 
 #if XASH_GAMECUBE
+	/* CapFaces: hull0/planes may still sit in BSP scratch. UpdateStatusBar →
+	 * SV_Move → PM_RecursiveHullCheck Guru'd after drawn=365 (014249/015156). */
+	if( Sys_CheckParm( "-gcworldrender" ))
+	{
+		memset( &trace, 0, sizeof( trace ));
+		trace.fraction = 1.0f;
+		VectorCopy( v2, trace.endpos );
+		trace.ent = svgame.edicts;
+		SV_ConvertTrace( ptr, &trace );
+		return;
+	}
 	/* Lean: point-sized ClipMove/SV_Move hung (G120). Hull world-only clip
 	 * matches working FillUsercmd aim; entity ClipToLinks still deferred. */
 	if( Sys_CheckParm( "-gcnewgame" ) && !Sys_CheckParm( "-gcfullphysics" ))

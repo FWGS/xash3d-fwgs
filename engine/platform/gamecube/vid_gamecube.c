@@ -595,7 +595,7 @@ static int gc_newgame_vis_nodes;
  * 320→384: end-triple maps saturated CapFaces LM real=320/320 (probe 093817);
  * atlas 128²/4 still holds 1024 tiles. ~+21 KiB BSS — tip after MAP_READY
  * still ≥100 KiB on c4a3/c5a1 with SP BSS edicts. */
-#define GC_MAX_CAP_FACES 384
+#define GC_MAX_CAP_FACES 384 /* 512 tipped MEM1 (caen DSI); coverage via lean+spatial packs */
 #define GC_CAP_AREA_SLOTS (( GC_MAX_CAP_FACES * 7 ) / 8) /* top-K by area */
 /* G153/G176: bake style-0 lightmap to RGB565 at capture (must be multiple of 4). */
 #define GC_CAP_LM_DIM 4
@@ -640,6 +640,13 @@ static byte gc_cap_bake_src[GC_MAX_CAP_FACES];
 /* G199: reclaim former per-face LM staging (~10 KiB) for baked Flipper verts.
  * Lightmaps write straight into the G180 atlas tiles. */
 static signed short gc_cap_pts_s16[GC_MAX_CAP_FACES][GC_CAP_MAX_VERTS][3];
+/* Lean CapFaces: cluster of each face centroid (PointInLeaf at pack load).
+ * Per-frame PVS uses CHECKVISBIT — no marksurfaces / live msurface table. */
+static short gc_cap_cluster[GC_MAX_CAP_FACES];
+static const byte *gc_cap_frame_vis;
+static int gc_cap_vis_assigned;
+static int gc_cap_pvs_skips;
+static int gc_cap_pvs_tests;
 /* G180/G198: BSS atlas — memalign(16 KiB) fails under MEM1 fragmentation. */
 static u16 gc_newgame_cap_lm_atlas_bss[GC_LM_ATLAS_W * GC_LM_ATLAS_H]
 	__attribute__((aligned( 32 )));
@@ -1240,6 +1247,140 @@ static int GC_CapSlotKeepScore( int slot )
 int GC_GetNewGameCapFaceCount( void )
 {
 	return gc_newgame_cap_face_count;
+}
+
+/* Assign CapFace → vis cluster via PointInLeaf (nodes/leafs live).
+ * Wall centroids often sit in solid — nudge along ±plane normal into empty. */
+static void GC_AssignCapFaceClusters( model_t *mod )
+{
+	int i, assigned = 0;
+
+	gc_cap_vis_assigned = 0;
+	if( !mod || !mod->nodes || !mod->leafs || gc_newgame_cap_face_count <= 0 )
+		return;
+	for( i = 0; i < gc_newgame_cap_face_count; i++ )
+	{
+		vec3_t c, nrm;
+		mleaf_t *leaf = NULL;
+		int nv = gc_cap_nverts[i];
+		int v, attempt;
+		const mplane_t *pl = &gc_newgame_cap_faces[i].plane;
+
+		gc_cap_cluster[i] = -1;
+		if( nv < 3 )
+			continue;
+		c[0] = c[1] = c[2] = 0.0f;
+		for( v = 0; v < nv; v++ )
+		{
+			c[0] += (float)gc_cap_pts_s16[i][v][0];
+			c[1] += (float)gc_cap_pts_s16[i][v][1];
+			c[2] += (float)gc_cap_pts_s16[i][v][2];
+		}
+		c[0] /= (float)nv;
+		c[1] /= (float)nv;
+		c[2] /= (float)nv;
+		VectorCopy( pl->normal, nrm );
+		for( attempt = 0; attempt < 5 && ( !leaf || leaf->cluster < 0 ); attempt++ )
+		{
+			vec3_t p;
+			float push = ( attempt == 0 ) ? 0.0f
+				: ( attempt & 1 ) ? 4.0f * (( attempt + 1 ) / 2 )
+				: -4.0f * ( attempt / 2 );
+
+			VectorMA( c, push, nrm, p );
+			leaf = Mod_PointInLeaf( p, mod->nodes, mod );
+		}
+		if( leaf && leaf->cluster >= 0 )
+		{
+			gc_cap_cluster[i] = (short)leaf->cluster;
+			assigned++;
+		}
+	}
+	gc_cap_vis_assigned = assigned;
+	Con_Reportf( "Xash3D GameCube: CapFaces PVS clusters assigned=%d/%d\n",
+		assigned, gc_newgame_cap_face_count );
+}
+
+void GC_BeginCapFaceVis( const float *eye )
+{
+	static qboolean vis_logged;
+
+	gc_cap_frame_vis = NULL;
+	gc_cap_pvs_skips = 0;
+	gc_cap_pvs_tests = 0;
+	if( !eye || gc_cap_vis_assigned <= 0 )
+		return;
+	/* Mod_GetPVSForPoint decompresses into a shared static — safe for one
+	 * CapFaces pass; do not call FatPVS between Begin and CapFaceInPVS. */
+	gc_cap_frame_vis = Mod_GetPVSForPoint( eye );
+	if( !vis_logged )
+	{
+		vis_logged = true;
+		Con_Reportf( "Xash3D GameCube: CapFaces frame PVS %s assigned=%d eye=(%.0f,%.0f,%.0f)\n",
+			gc_cap_frame_vis ? "active" : "NULL(full)",
+			gc_cap_vis_assigned, eye[0], eye[1], eye[2] );
+	}
+}
+
+qboolean GC_CapFaceInPVS( int slot )
+{
+	int cl;
+
+	if( slot < 0 || slot >= gc_newgame_cap_face_count )
+		return false;
+	if( !gc_cap_frame_vis || gc_cap_vis_assigned <= 0 )
+		return true; /* no vis → draw (safe fallback) */
+	gc_cap_pvs_tests++;
+	cl = gc_cap_cluster[slot];
+	if( cl < 0 )
+		return true; /* unknown leaf — keep (sky plugs / outdoor) */
+	if( CHECKVISBIT( gc_cap_frame_vis, cl ))
+		return true;
+	gc_cap_pvs_skips++;
+	return false;
+}
+
+qboolean GC_CapFaceBounds( int slot, float mins[3], float maxs[3] )
+{
+	int nv, v;
+
+	if( !mins || !maxs || slot < 0 || slot >= gc_newgame_cap_face_count )
+		return false;
+	nv = gc_cap_nverts[slot];
+	if( nv < 3 )
+		return false;
+	mins[0] = maxs[0] = (float)gc_cap_pts_s16[slot][0][0];
+	mins[1] = maxs[1] = (float)gc_cap_pts_s16[slot][0][1];
+	mins[2] = maxs[2] = (float)gc_cap_pts_s16[slot][0][2];
+	for( v = 1; v < nv; v++ )
+	{
+		float x = (float)gc_cap_pts_s16[slot][v][0];
+		float y = (float)gc_cap_pts_s16[slot][v][1];
+		float z = (float)gc_cap_pts_s16[slot][v][2];
+
+		if( x < mins[0] ) mins[0] = x;
+		if( y < mins[1] ) mins[1] = y;
+		if( z < mins[2] ) mins[2] = z;
+		if( x > maxs[0] ) maxs[0] = x;
+		if( y > maxs[1] ) maxs[1] = y;
+		if( z > maxs[2] ) maxs[2] = z;
+	}
+	return true;
+}
+
+int GC_CapFacePVSSkipCount( void )
+{
+	return gc_cap_pvs_skips;
+}
+
+int GC_CapFacePVSTestCount( void )
+{
+	return gc_cap_pvs_tests;
+}
+
+int GC_CapFaceVisAssigned( void )
+{
+	return gc_cap_vis_assigned;
 }
 
 /* G213: compact live faces and/or full surface pin. */
@@ -10458,7 +10599,13 @@ static qboolean GC_TryLoadCapFacesPack( model_t *mod )
 	/* Stream the pack — tip cannot FS_LoadFile(~81 KiB) after CapFaces DL BSS. */
 	f = FS_Open( path, "rb", false );
 	if( !f )
+		f = FS_Open( path, "rb", true );
+	if( !f )
+	{
+		Con_Reportf( "Xash3D GameCube: CapFaces pack open miss %s exists=%d map=%s\n",
+			path, FS_FileExists( path, false ), mod->name ? mod->name : "?" );
 		return false;
+	}
 	size = FS_FileLength( f );
 	if( size < 32 || FS_Read( f, hdr, 32 ) != 32 )
 	{
@@ -10632,6 +10779,7 @@ static qboolean GC_TryLoadCapFacesPack( model_t *mod )
 		path, gc_newgame_cap_face_count, eye_n, resolved, face_n, gc_newgame_cap_lm_faces );
 	GCube_AppendSwissEvidence( "CapFaces pack loaded faces=%d eyes=%d tex=%d",
 		gc_newgame_cap_face_count, eye_n, resolved );
+	GC_AssignCapFaceClusters( mod );
 	if( Sys_CheckParm( "-gcworlddl" ))
 	{
 		extern qboolean R_GXReserveCapDispList( void );
@@ -10639,6 +10787,40 @@ static qboolean GC_TryLoadCapFacesPack( model_t *mod )
 		R_GXReserveCapDispList();
 	}
 	return gc_newgame_cap_face_count > 0;
+}
+
+/* Push worldspawn skyname into movevars before CapFaces sky CMPR prefetch.
+ * CWorld::KeyValue runs much later; without this R_GXSkyLoad still sees "desert". */
+static void GC_ApplyWorldspawnSkynameEarly( model_t *mod )
+{
+	const char *ents, *p, *end;
+	char sky[32];
+	size_t n;
+
+	if( !mod || !mod->entities || !mod->entities[0] )
+		return;
+	ents = mod->entities;
+	p = Q_stristr( ents, "\"skyname\"" );
+	if( !p )
+		return;
+	p = Q_strchr( p + 9, '"' );
+	if( !p )
+		return;
+	p++;
+	end = Q_strchr( p, '"' );
+	if( !end || end <= p )
+		return;
+	n = (size_t)( end - p );
+	if( n >= sizeof( sky ))
+		n = sizeof( sky ) - 1;
+	memcpy( sky, p, n );
+	sky[n] = '\0';
+	if( !sky[0] )
+		return;
+	Cvar_Set( "sv_skyname", sky );
+	Q_strncpy( svgame.movevars.skyName, sky, sizeof( svgame.movevars.skyName ));
+	Q_strncpy( clgame.movevars.skyName, sky, sizeof( clgame.movevars.skyName ));
+	Con_Reportf( "Xash3D GameCube: map skyname early %s (before CapFaces)\n", sky );
 }
 
 qboolean GC_PrefetchCapFacesWhileEdgesLive( model_t *mod )
@@ -10650,6 +10832,7 @@ qboolean GC_PrefetchCapFacesWhileEdgesLive( model_t *mod )
 	if( !Sys_CheckParm( "-gcworldrender" ) || Sys_CheckParm( "-gcconnect" ))
 		return false;
 	/* Per-map skybox image first — CapFaces pack second. */
+	GC_ApplyWorldspawnSkynameEarly( mod );
 	R_GXPrefetchMapSkybox();
 	if( gc_newgame_cap_face_count > 0 )
 		return true;
@@ -10887,6 +11070,7 @@ capfaces_arm:
 		gc_newgame_cap_face_count, gc_newgame_cap_lm_faces, gc_newgame_cap_tex_faces );
 	GCube_AppendSwissEvidence( "CapFaces bake done n=%d lm_real=%d tex=%d",
 		gc_newgame_cap_face_count, gc_newgame_cap_lm_faces, gc_newgame_cap_tex_faces );
+	GC_AssignCapFaceClusters( wmodel );
 	if( gc_newgame_cap_face_count <= 0 )
 	{
 		Con_Reportf( "Xash3D GameCube: CapFaces bake empty — skip GX world arm\n" );
@@ -14941,12 +15125,16 @@ qboolean GC_RenderNewGameWorldFrames( int count )
 	 * G211: Flipper DumpFrames prefer indoor enclosed walls (less sky bleed).
 	 * Lock indoor cluster once — UpdatePVS(eye) would thrash back to outdoor. */
 #if XASH_DODGC_NETWORK
-	/* Real pad input owns the camera — except CapFaces solo dumps that need
-	 * sticky -gcdumpeye wall-aim. lean-iso listenserver adds -gcplayerinput;
-	 * with XASH_DODGC_NETWORK=1 that cleared dump_look and left spawn facing
-	 * sky (tip-donner-pmskip stills = gradient, 20261108-161256). */
+	/* Real pad input owns the camera for net / free-look only.
+	 * CapFaces solo (-gcworldrender) MUST keep sticky wall-aim — lean-iso
+	 * always injects -gcplayerinput, and clearing dump_look here left spawn
+	 * facing sky (tip-donner 20261108-161256; finish-port 20261109-002036
+	 * drawn≈104 vs sky77 drawn=371 without -gcplayerinput). Pass
+	 * -gcplayercam to force pad camera ownership during CapFaces. */
 	if( cls.state == ca_active && Sys_CheckParm( "-gcplayerinput" )
-		&& !( Sys_CheckParm( "-gcworldrender" ) && Sys_CheckParm( "-gcdumpeye" )))
+		&& ( Sys_CheckParm( "-gcplayercam" )
+			|| ( !Sys_CheckParm( "-gcworldrender" )
+				&& !( Sys_CheckParm( "-gcdumpeye" ) || Sys_CheckParm( "-gcdumpframes" )))))
 	{
 		gc_dump_look_into_map = false;
 		gc_g196_flipper_dump_aim_left = 0;

@@ -343,6 +343,11 @@ static size_t gc_bsp_surface_reserve;
 static qboolean gc_bsp_surface_reserve_clamped;
 /* CapFaces: live msurface table omitted — offline cf_*.gcp owns Flipper draw. */
 static qboolean gc_capfaces_lean_surfaces;
+
+qboolean GC_CapFacesLeanSurfaces( void )
+{
+	return gc_capfaces_lean_surfaces;
+}
 /* Compact DoD: edges take the clipnodes+markfaces hole; texinfo (~196 KiB)
  * and leafs (~249 KiB on dod_flash) spill here when BSP holes are spent.
  * Paired with a matching cut to studio BSS so total MEM1 stays flat. */
@@ -5975,6 +5980,13 @@ static void Mod_LoadTexture( model_t *mod, dbspmodel_t *bmod, int textureIndex )
 	}
 
 	texture_t *texture = (texture_t *)Mem_Calloc( mod->mempool, sizeof( *texture ));
+	if( !texture )
+	{
+		/* CapFaces lean soft-NULL — keep the slot empty; pack hash resolve
+		 * skips unusable / missing texture_t rows. */
+		mod->textures[textureIndex] = NULL;
+		return;
+	}
 	mod->textures[textureIndex] = texture;
 
 	// Ensure texture name is lowercase.
@@ -7702,11 +7714,81 @@ void Mod_GameCubeFreeMallocSurfaces( model_t *mod )
 	}
 	gc_world_blocks_owner = NULL;
 	gc_world_msurface_retained = false;
+	Con_Reportf( "Xash3D GameCube: FreeMallocSurfaces begin tip=%s planes=%d marks=%d leafs=%d surfs=%d\n",
+		Q_memprint( GC_MemHeapFreeBytes() ),
+		gc_planes_malloc_block ? 1 : 0,
+		gc_marksurfaces_malloc_block ? 1 : 0,
+		gc_leafs_malloc_block ? 1 : 0,
+		gc_surfaces_malloc_block ? 1 : 0 );
+
+	/* Tip-critical changelevels: free() of a mis-tagged arena pointer can
+	 * hard-hang the guest. Detach and abandon the blocks so SpawnServer can
+	 * proceed; the process tip stays low until the next hop's arena release. */
+	if( GC_MemHeapFreeBytes() < ( 48 * 1024 ))
+	{
+		Con_Reportf( "Xash3D GameCube: FreeMallocSurfaces lean abandon tip=%s\n",
+			Q_memprint( GC_MemHeapFreeBytes() ) );
+		if( mod )
+		{
+			if( gc_planes_malloc_block && mod->planes == (mplane_t *)gc_planes_malloc_block )
+				mod->planes = NULL;
+			if( gc_marksurfaces_malloc_block && mod->marksurfaces == (msurface_t **)gc_marksurfaces_malloc_block )
+				mod->marksurfaces = NULL;
+			if( gc_leafs_malloc_block && mod->leafs == (mleaf_t *)gc_leafs_malloc_block )
+				mod->leafs = NULL;
+			if( gc_surfaces_malloc_block && mod->surfaces == (msurface_t *)gc_surfaces_malloc_block )
+				mod->surfaces = NULL;
+			if( gc_texinfo_malloc_block && mod->texinfo == (mtexinfo_t *)gc_texinfo_malloc_block )
+				mod->texinfo = NULL;
+			if( gc_nodes_malloc_block && mod->nodes == (mnode_t *)gc_nodes_malloc_block )
+				mod->nodes = NULL;
+			if( gc_clipnodes_malloc_block )
+			{
+				int h;
+				if( mod->clipnodes16 == (mclipnode16_t *)gc_clipnodes_malloc_block )
+					mod->clipnodes16 = NULL;
+				for( h = 0; h < 4; h++ )
+				{
+					if( mod->hulls[h].clipnodes16 == (mclipnode16_t *)gc_clipnodes_malloc_block )
+						mod->hulls[h].clipnodes16 = NULL;
+				}
+			}
+			if( gc_submodels_malloc_block && mod->submodels == (dmodel_t *)gc_submodels_malloc_block )
+				mod->submodels = NULL;
+			if( gc_entities_malloc_block && mod->entities == (char *)gc_entities_malloc_block )
+				mod->entities = NULL;
+		}
+		gc_planes_malloc_block = NULL;
+		gc_marksurfaces_malloc_block = NULL;
+		gc_leafs_malloc_block = NULL;
+		gc_surfaces_malloc_block = NULL;
+		gc_texinfo_malloc_block = NULL;
+		gc_nodes_malloc_block = NULL;
+		gc_clipnodes_malloc_block = NULL;
+		gc_clipnodes_pool_block = false;
+		gc_clipnodes_static_block = false;
+		gc_clipnodes_scratch_block = false;
+		gc_submodels_malloc_block = NULL;
+		gc_entities_malloc_block = NULL;
+		gc_planes_arena_tail = false;
+		gc_leafs_arena_tail = false;
+		gc_nodes_arena_tail = false;
+		gc_nodes_static_block = false;
+		gc_nodes_prealloc = NULL;
+		gc_nodes_prealloc_scratch = false;
+		gc_submodels_static_block = false;
+		gc_entities_arena_tail = false;
+		gc_entities_static_block = false;
+		Con_Reportf( "Xash3D GameCube: FreeMallocSurfaces lean done tip=%s\n",
+			Q_memprint( GC_MemHeapFreeBytes() ) );
+		return;
+	}
 
 	if( gc_planes_malloc_block )
 	{
 		if( mod && mod->planes == (mplane_t *)gc_planes_malloc_block )
 			mod->planes = NULL;
+		Con_Reportf( "Xash3D GameCube: FreeMallocSurfaces free planes\n" );
 		free( gc_planes_malloc_block );
 		gc_planes_malloc_block = NULL;
 	}
@@ -7722,6 +7804,7 @@ void Mod_GameCubeFreeMallocSurfaces( model_t *mod )
 		if( mod && mod->marksurfaces == (msurface_t **)gc_marksurfaces_malloc_block )
 			mod->marksurfaces = NULL;
 
+		Con_Reportf( "Xash3D GameCube: FreeMallocSurfaces free marksurfaces\n" );
 		free( gc_marksurfaces_malloc_block );
 		gc_marksurfaces_malloc_block = NULL;
 	}
@@ -7731,6 +7814,7 @@ void Mod_GameCubeFreeMallocSurfaces( model_t *mod )
 		if( mod && mod->leafs == (mleaf_t *)gc_leafs_malloc_block )
 			mod->leafs = NULL;
 
+		Con_Reportf( "Xash3D GameCube: FreeMallocSurfaces free leafs\n" );
 		free( gc_leafs_malloc_block );
 		gc_leafs_malloc_block = NULL;
 	}
@@ -7745,6 +7829,7 @@ void Mod_GameCubeFreeMallocSurfaces( model_t *mod )
 		if( mod && mod->surfaces == (msurface_t *)gc_surfaces_malloc_block )
 			mod->surfaces = NULL;
 
+		Con_Reportf( "Xash3D GameCube: FreeMallocSurfaces free surfaces\n" );
 		free( gc_surfaces_malloc_block );
 		gc_surfaces_malloc_block = NULL;
 	}
@@ -7755,6 +7840,7 @@ void Mod_GameCubeFreeMallocSurfaces( model_t *mod )
 	if( mod && mod->texinfo == (mtexinfo_t *)gc_texinfo_malloc_block )
 		mod->texinfo = NULL;
 
+	Con_Reportf( "Xash3D GameCube: FreeMallocSurfaces free texinfo\n" );
 	free( gc_texinfo_malloc_block );
 	gc_texinfo_malloc_block = NULL;
 
@@ -7773,12 +7859,13 @@ free_nodes:
 	if( mod && mod->nodes == (mnode_t *)gc_nodes_malloc_block )
 		mod->nodes = NULL;
 
+	Con_Reportf( "Xash3D GameCube: FreeMallocSurfaces free nodes\n" );
 	free( gc_nodes_malloc_block );
 	gc_nodes_malloc_block = NULL;
 
 free_clipnodes:
 	if( !gc_clipnodes_malloc_block )
-		return;
+		goto free_submodels;
 
 	if( mod )
 	{
@@ -7794,6 +7881,7 @@ free_clipnodes:
 		}
 	}
 
+	Con_Reportf( "Xash3D GameCube: FreeMallocSurfaces free clipnodes\n" );
 	if( gc_clipnodes_static_block || gc_clipnodes_scratch_block )
 		;
 	else if( gc_clipnodes_pool_block )
@@ -7805,10 +7893,12 @@ free_clipnodes:
 	gc_clipnodes_static_block = false;
 	gc_clipnodes_scratch_block = false;
 
+free_submodels:
 	if( gc_submodels_malloc_block )
 	{
 		if( mod && mod->submodels == (dmodel_t *)gc_submodels_malloc_block )
 			mod->submodels = NULL;
+		Con_Reportf( "Xash3D GameCube: FreeMallocSurfaces free submodels\n" );
 		free( gc_submodels_malloc_block );
 		gc_submodels_malloc_block = NULL;
 	}
@@ -7822,6 +7912,7 @@ free_clipnodes:
 	{
 		if( mod && mod->entities == (char *)gc_entities_malloc_block )
 			mod->entities = NULL;
+		Con_Reportf( "Xash3D GameCube: FreeMallocSurfaces free entities\n" );
 		free( gc_entities_malloc_block );
 		gc_entities_malloc_block = NULL;
 	}
@@ -7832,6 +7923,8 @@ free_clipnodes:
 		gc_entities_arena_tail = false;
 		gc_entities_static_block = false;
 	}
+	Con_Reportf( "Xash3D GameCube: FreeMallocSurfaces done tip=%s\n",
+		Q_memprint( GC_MemHeapFreeBytes() ) );
 }
 
 static void Mod_GCRestoreDeferredMarkfaces( dbspmodel_t *bmod )
