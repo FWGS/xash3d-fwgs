@@ -56,6 +56,12 @@ probe_configure_dolphin_launch() {
 		DOLPHIN_VIDEO_BACKEND=OpenGL
 		echo "==> G359 DumpFrames video backend OpenGL (Null stills were black)"
 	fi
+	# Host frame dumps need a real present path; Dolphin batch (-b) often
+	# yields empty Dump/Frames with Vulkan (audio-only). Opt out for video.
+	if [[ "${DOLPHIN_NO_BATCH:-0}" == "1" ]]; then
+		DOLPHIN_BATCH_MODE=0
+		echo "==> Dolphin non-batch (DOLPHIN_NO_BATCH=1) for host frame dump"
+	fi
 	DOLPHIN_MODE_ARGS=(-l)
 	(( DOLPHIN_BATCH_MODE )) && DOLPHIN_MODE_ARGS=(-l -b)
 }
@@ -109,7 +115,10 @@ probe_append_video_mode_guest_args() {
 
 probe_log_has() {
 	local needle="$1"
-	grep -aqsF "$needle" "$LOG_DIR/stderr.log" "$LOG_DIR/stdout.log" \
+	# -a: Dolphin OSREPORT streams can embed a NUL; without it GNU grep may
+	# treat stderr as binary and miss retail-menu / map markers (menu proof
+	# then falls through to ENGINE_READY_MAP_TIMEOUT despite guest success).
+	grep -aqsFa "$needle" "$LOG_DIR/stderr.log" "$LOG_DIR/stdout.log" \
 		"$LOG_DIR"/dolphin-user/Logs/*.log 2>/dev/null
 }
 

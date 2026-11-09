@@ -1536,8 +1536,13 @@ qboolean SV_SpawnServer( const char *mapname, const char *startspot, qboolean ba
 	/* Reclaim world reserves *before* FreeModel texture unload — tip≈37 KiB
 	 * with the 128 KiB entities reserve still held hung Mod_FreeModel
 	 * ("Unloading world", probe 174651). Entity string is unused during
-	 * texture teardown. */
-	if( Sys_CheckParm( "-gcchangelevel" ))
+	 * texture teardown.
+	 *
+	 * Probe hops pass -gcchangelevel. Natural tram/menu New Game hops do not,
+	 * but they still replace an existing world (sv.worldmodel) — same tip hang
+	 * on retail c0a0→c0a0a (probes 20261108-202059/203640). Apply the release
+	 * whenever an old world is present. */
+	if( Sys_CheckParm( "-gcchangelevel" ) || sv.worldmodel )
 	{
 		extern void Mod_GCReleaseWorldReservesForChangelevel( void );
 		extern qboolean Mod_GCEnsureStaticReserves( void );

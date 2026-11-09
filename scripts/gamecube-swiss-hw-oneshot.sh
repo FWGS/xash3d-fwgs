@@ -97,10 +97,6 @@ is_skipped() {
 is_candidate() {
 	local m="$1" fstype size_bytes max_bytes src disk tran rm hotplug
 	[[ -d "$m" && -w "$m" ]] || return 1
-	# Never treat EFI System Partitions as Swiss SD (Extra drive ESP).
-	if [[ -d "$m/EFI" || -d "$m/efi" ]]; then
-		return 1
-	fi
 	src="$(findmnt -n -o SOURCE --target "$m" 2>/dev/null || true)"
 	case "$src" in
 		/dev/loop*|loop\[*\]|*"["loop*) return 1 ;;
@@ -125,7 +121,18 @@ is_candidate() {
 	max_bytes=$(( MAX_GIB * 1024 * 1024 * 1024 ))
 	[[ -n "$size_bytes" && "$size_bytes" -gt 0 && "$size_bytes" -le "$max_bytes" ]] || return 1
 	# Typical SD cards ≤128GiB — refuse huge shared-disk FAT volumes.
-	(( size_bytes <= 128 * 1024 * 1024 * 1024 ))
+	(( size_bytes <= 128 * 1024 * 1024 * 1024 )) || return 1
+	# Refuse host EFI System Partitions (Extra/sata ESP ~100MiB–1GiB).
+	# Multi-boot Swiss cards may also carry an EFI/ folder — accept those when
+	# the volume is SD-sized or already has Swiss/xash layout.
+	if [[ -d "$m/EFI" || -d "$m/efi" ]]; then
+		if [[ -d "$m/apps" || -d "$m/xash3d" || -f "$m/boot.dol" ]]; then
+			:
+		elif (( size_bytes < 2 * 1024 * 1024 * 1024 )); then
+			return 1
+		fi
+	fi
+	return 0
 }
 
 find_candidate() {

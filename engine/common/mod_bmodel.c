@@ -3221,7 +3221,14 @@ static void CountClipNodes16_r( mclipnode16_t *src, hull_t *hull, int nodenum )
 	if( nodenum < 0 ) return;
 
 	if( hull->lastclipnode == MAX_MAP_CLIPNODES_HLBSP )
+	{
+#if XASH_GAMECUBE
+		/* CapFaces tip hull0 can cycle after dangling-child soft skips. */
+		if( Sys_CheckParm( "-gcworldrender" ))
+			return;
+#endif
 		Host_Error( "%s: MAX_MAP_CLIPNODES_HLBSP limit exceeded\n", __func__ );
+	}
 	hull->lastclipnode++;
 
 	CountClipNodes16_r( src, hull, src[nodenum].children[0] );
@@ -3234,7 +3241,13 @@ static void CountClipNodes32_r( mclipnode32_t *src, hull_t *hull, int nodenum )
 	if( nodenum < 0 ) return;
 
 	if( hull->lastclipnode == MAX_MAP_CLIPNODES_BSP2 )
+	{
+#if XASH_GAMECUBE
+		if( Sys_CheckParm( "-gcworldrender" ))
+			return;
+#endif
 		Host_Error( "%s: MAX_MAP_CLIPNODES_BSP2 limit exceeded\n", __func__ );
+	}
 	hull->lastclipnode++;
 
 	CountClipNodes32_r( src, hull, src[nodenum].children[0] );
@@ -3247,7 +3260,13 @@ static void CountDClipNodes_r( dclipnode32_t *src, hull_t *hull, int nodenum, co
 	if( nodenum < 0 ) return;
 
 	if( hull->lastclipnode == max_clipnodes )
+	{
+#if XASH_GAMECUBE
+		if( Sys_CheckParm( "-gcworldrender" ))
+			return;
+#endif
 		Host_Error( "%s: MAX_MAP_CLIPNODES (%d) limit exceeded\n", __func__, max_clipnodes );
+	}
 	hull->lastclipnode++;
 
 	CountDClipNodes_r( src, hull, src[nodenum].children[0], max_clipnodes );
@@ -3269,12 +3288,24 @@ static int RemapClipNodes_r( dbspmodel_t *bmod, dclipnode32_t *srcnodes, hull_t 
 	if( bmod->version == QBSP2_VERSION )
 	{
 		if( hull->lastclipnode == MAX_MAP_CLIPNODES_BSP2 )
+		{
+#if XASH_GAMECUBE
+			if( Sys_CheckParm( "-gcworldrender" ))
+				return CONTENTS_EMPTY;
+#endif
 			Host_Error( "%s: MAX_MAP_CLIPNODES_BSP2 limit exceeded\n", __func__ );
+		}
 	}
 	else
 	{
 		if( hull->lastclipnode == MAX_MAP_CLIPNODES_HLBSP )
+		{
+#if XASH_GAMECUBE
+			if( Sys_CheckParm( "-gcworldrender" ))
+				return CONTENTS_EMPTY;
+#endif
 			Host_Error( "%s: MAX_MAP_CLIPNODES_HLBSP limit exceeded\n", __func__ );
+		}
 	}
 
 	dclipnode32_t *src = srcnodes + nodenum;
@@ -3473,20 +3504,71 @@ static void Mod_MakeHull0( model_t *mod, const dbspmodel_t *bmod )
 			hull->clipnodes16 = out;
 		}
 
+#if XASH_GAMECUBE
+		/* CapFaces denser tip maps leave dangling children_ after parent-walk
+		 * skips; reading child->contents through them hangs Dolphin MMU
+		 * (avalanche ~8k nodes after "static normalized reserve"). */
+		const qboolean gc_hull0_soft = Sys_CheckParm( "-gcworldrender" ) ? true : false;
+		const byte *nodes_begin = (const byte *)mod->nodes;
+		const byte *nodes_end = nodes_begin + mod->numnodes * sizeof( *mod->nodes );
+		const byte *leafs_begin = (const byte *)mod->leafs;
+		const byte *leafs_end = leafs_begin + mod->numleafs * sizeof( *mod->leafs );
+		size_t soft_skipped = 0;
+#endif
 		for( int i = 0; i < mod->numnodes; i++, out++, in++ )
 		{
+#if XASH_GAMECUBE
+			if( gc_hull0_soft && ( i & 1023 ) == 0 )
+			{
+				Con_Reportf( "Xash3D GameCube: hull0 fill %d/%d skipped=%zu\n",
+					i, mod->numnodes, soft_skipped );
+				GC_LoadingOverlayPulse();
+			}
+#endif
 			out->planenum = in->plane - mod->planes;
 
 			for( int j = 0; j < 2; j++ )
 			{
 				mnode_t *child = node_child( in, j, mod );
+#if XASH_GAMECUBE
+				if( gc_hull0_soft )
+				{
+					const byte *p = (const byte *)child;
+					const qboolean in_nodes = ( p >= nodes_begin && p < nodes_end );
+					const qboolean in_leafs = ( p >= leafs_begin && p < leafs_end );
 
+					if( !child || ( !in_nodes && !in_leafs ))
+					{
+						out->children[j] = CONTENTS_EMPTY;
+						soft_skipped++;
+						continue;
+					}
+				}
+#endif
 				if( child->contents < 0 )
 					out->children[j] = child->contents;
 				else
 					out->children[j] = child - mod->nodes;
 			}
 		}
+#if XASH_GAMECUBE
+		if( gc_hull0_soft && soft_skipped )
+			Con_Reportf( "Xash3D GameCube: hull0 soft-skipped %zu dangling children\n", soft_skipped );
+		/* CapFaces: tip-corrupt edges make an 8k-node hull0 thrash entity
+		 * DropToFloor/LinkEdict (avalanche hung ~edict 11). Collapse to a
+		 * single EMPTY clipnode so traces are O(1); offline packs do not
+		 * need world collision for Flipper present. */
+		if( gc_hull0_soft && out == hull->clipnodes16 + mod->numnodes && mod->numnodes > 0 )
+		{
+			mclipnode16_t *root = hull->clipnodes16;
+			root->planenum = 0;
+			root->children[0] = CONTENTS_EMPTY;
+			root->children[1] = CONTENTS_EMPTY;
+			hull->firstclipnode = 0;
+			hull->lastclipnode = 0;
+			Con_Reportf( "Xash3D GameCube: CapFaces hull0 collapsed to EMPTY leaf\n" );
+		}
+#endif
 	}
 
 }
@@ -3705,6 +3787,18 @@ static void Mod_SetupSubmodels( model_t *mod, dbspmodel_t *bmod )
 		mod->hulls[0].firstclipnode = bm->headnode[0];
 		mod->hulls[0].lastclipnode = bm->headnode[0]; // need to be real count
 
+#if XASH_GAMECUBE
+		/* CapFaces: hull0 was collapsed to EMPTY leaf; keep first/last at 0
+		 * so DropToFloor/LinkEdict stay O(1) across all submodels. */
+		if( Sys_CheckParm( "-gcworldrender" ))
+		{
+			mod->hulls[0].firstclipnode = 0;
+			mod->hulls[0].lastclipnode = 0;
+			if( i == 0 )
+				Con_Reportf( "Xash3D GameCube: CapFaces skip hull0 CountClipNodes (collapsed EMPTY)\n" );
+		}
+		else
+#endif
 		// counting a real number of clipnodes per each submodel
 		if( bmod->version == QBSP2_VERSION )
 			CountClipNodes32_r( mod->hulls[0].clipnodes32, &mod->hulls[0], bm->headnode[0] );

@@ -1164,7 +1164,10 @@ void SV_RunCmd( sv_client_t *cl, usercmd_t *ucmd, int random_seed )
 	 * viewangles from the usercmd; skip hull walks until clipnodes are durable.
 	 * Must apply even when XASH_DODGC_NETWORK=1 — tip-donner-markskip drew
 	 * CapFaces then Guru'd on frame 3 without this skip (DAR junk, 20261108). */
-	if( Sys_CheckParm( "-gcworldrender" ) && GC_UseGxWorldDraw() )
+	/* Network sessions must simulate movement; retain the offline capture
+	 * workaround only for routes that do not host or join a match. */
+	if( Sys_CheckParm( "-gcworldrender" ) && GC_UseGxWorldDraw()
+		&& !Sys_CheckParm( "-gclistenserver" ) && !Sys_CheckParm( "-gcconnect" ))
 	{
 		static qboolean gc_pm_skip_logged;
 

@@ -668,7 +668,11 @@ void GAME_EXPORT SV_LinkEdict( edict_t *ent, qboolean touch_triggers )
 	 * Menu New Game (-gcmenuplaystart) needs the same client leaf skip. */
 	if( ( ( Sys_CheckParm( "-gcnewgame" ) || Sys_CheckParm( "-gcmenuplaystart" ))
 		&& FBitSet( ent->v.flags, FL_CLIENT|FL_FAKECLIENT ))
-		|| gc_lean_weapon_grant_active )
+		|| gc_lean_weapon_grant_active
+		/* CapFaces tip node trees leave dangling children after parent-walk
+		 * skips; FindTouchedLeafs hangs on first func_wall (avalanche ~edict 11).
+		 * Offline packs do not need PVS leaf membership for Flipper present. */
+		|| Sys_CheckParm( "-gcworldrender" ))
 	{
 		gc_skip_leafs = true;
 		ent->num_leafs = 0;

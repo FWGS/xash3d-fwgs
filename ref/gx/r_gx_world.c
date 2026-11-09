@@ -4759,10 +4759,14 @@ static int R_GXDrawNewGameCapFacesImpl( void )
 				used_cap_dl = true;
 				if( !dl_call_logged )
 				{
+					extern void GCube_AppendSwissEvidence( const char *fmt, ... );
+
 					dl_call_logged = true;
 					gEngfuncs.Con_Reportf(
 						"Xash3D GameCube: CapFaces display list call bytes=%u drawn=%d gen=%d\n",
 						(unsigned)r_gx_cap_dl_bytes, cap_drawn, gen );
+					GCube_AppendSwissEvidence( "CapFaces display list call bytes=%u drawn=%d",
+						(unsigned)r_gx_cap_dl_bytes, cap_drawn );
 				}
 			}
 

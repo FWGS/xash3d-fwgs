@@ -648,19 +648,21 @@ for guest_log in "$LOG_DIR"/dolphin-user/Logs/*.log; do
 done
 GUEST_FOUND=0 READY_FOUND=0 MAP_FOUND=0 INPUT_FOUND=0
 PLAY_READY_FOUND=0 FRAME_ARMED_FOUND=0 NEWGAME_PROGRESS_FOUND=0
-grep -aqsF "$GUEST_MARKER" "${LOG_FILES[@]}" && GUEST_FOUND=1
-grep -aqsF "$READY_MARKER" "${LOG_FILES[@]}" && READY_FOUND=1
-grep -aqsF "$INPUT_MARKER" "${LOG_FILES[@]}" && INPUT_FOUND=1
-grep -aqsF "$PLAY_READY_MARKER" "${LOG_FILES[@]}" && PLAY_READY_FOUND=1
-grep -aqsF "$FRAME_ARMED_MARKER" "${LOG_FILES[@]}" && FRAME_ARMED_FOUND=1
+# Under set -e, `grep && flag=1` aborts the script when the marker is
+# absent (grep status 1). Use if/then and -a for NULs in OSREPORT streams.
+if grep -aqsFa "$GUEST_MARKER" "${LOG_FILES[@]}"; then GUEST_FOUND=1; fi
+if grep -aqsFa "$READY_MARKER" "${LOG_FILES[@]}"; then READY_FOUND=1; fi
+if grep -aqsFa "$INPUT_MARKER" "${LOG_FILES[@]}"; then INPUT_FOUND=1; fi
+if grep -aqsFa "$PLAY_READY_MARKER" "${LOG_FILES[@]}"; then PLAY_READY_FOUND=1; fi
+if grep -aqsFa "$FRAME_ARMED_MARKER" "${LOG_FILES[@]}"; then FRAME_ARMED_FOUND=1; fi
 if probe_newgame_progress_ready; then
 	NEWGAME_PROGRESS_FOUND=1
 fi
 if [[ -n "$SMOKE_MAP" ]]; then
-	grep -aqsF "$MAP_MARKER" "${LOG_FILES[@]}" && MAP_FOUND=1
+	if grep -aqsFa "$MAP_MARKER" "${LOG_FILES[@]}"; then MAP_FOUND=1; fi
 fi
 if (( ! GUEST_FOUND )); then
-	if grep -aqE 'Could not load the Qt platform plugin|could not connect to display|xcb-cursor' \
+	if grep -aqsEa 'Could not load the Qt platform plugin|could not connect to display|xcb-cursor' \
 		"${LOG_FILES[@]}" 2>/dev/null; then
 		echo "HOST_FAILURE: Dolphin Qt display backend unavailable; set DISPLAY or use a working Dolphin headless build"
 	elif [[ ! -s "$LOG_DIR/dolphin-user/Logs/dolphin.log" ]]; then
