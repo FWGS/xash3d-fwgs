@@ -894,6 +894,28 @@ def stage_gc_menu_assets(source: Path, output: Path) -> bool:
 		print("Warning: Pillow not installed; skipping GameCube menu background bake.", file=sys.stderr)
 		return False
 
+	# Preserve host-prebaked Lost Coast title plates (Source console/background01).
+	# Without this, lean CapFaces stages fall through to the synthetic HL1 sheet.
+	prebaked_menu = source / "resource" / "gc_menu"
+	prebaked_src = prebaked_menu / "SOURCE.txt"
+	if (
+		prebaked_src.is_file()
+		and "Lost Coast" in prebaked_src.read_text(encoding="utf-8", errors="replace")
+		and (prebaked_menu / "background.tga").is_file()
+		and (prebaked_menu / "bg_0_0.tga").is_file()
+	):
+		menu_dir = output / "resource" / "gc_menu"
+		menu_dir.mkdir(parents=True, exist_ok=True)
+		for child in sorted(prebaked_menu.iterdir()):
+			if child.is_file():
+				shutil.copy2(child, menu_dir / child.name)
+		_stage_gc_menu_btn_strips(source, menu_dir)
+		print(
+			f"GameCube menu assets: preserve Lost Coast retail title "
+			f"{(menu_dir / 'background.tga').relative_to(output)}"
+		)
+		return True
+
 	candidates = [
 		source / "resource" / "BackgroundLayout.txt",
 		source / "resource" / "HD_BackgroundLayout.txt",
@@ -1189,6 +1211,25 @@ def stage_gc_loading_assets(source: Path, output: Path) -> bool:
 
 	menu_dir = output / "resource" / "gc_menu"
 	menu_dir.mkdir(parents=True, exist_ok=True)
+
+	# Lost Coast CapFaces title: keep console/background01 loading+intro plates.
+	src_note = menu_dir / "SOURCE.txt"
+	if (
+		src_note.is_file()
+		and "Lost Coast" in src_note.read_text(encoding="utf-8", errors="replace")
+		and (menu_dir / "loading.tga").is_file()
+		and (menu_dir / "background.tga").is_file()
+	):
+		# Ensure intro matches the title plate when the bake omitted a dedicated intro.
+		if not (menu_dir / "intro.tga").is_file():
+			shutil.copy2(menu_dir / "background.tga", menu_dir / "intro.tga")
+		if not (menu_dir / "loading.tga").is_file():
+			shutil.copy2(menu_dir / "background.tga", menu_dir / "loading.tga")
+		print(
+			f"GameCube loading assets: preserve Lost Coast retail title "
+			f"{(menu_dir / 'loading.tga').relative_to(output)}"
+		)
+		return True
 
 	# Distressed lambda wallpaper from HD loading tiles when present.
 	bg = Image.new("RGB", (320, 240), (18, 16, 14))
@@ -1745,7 +1786,7 @@ def build_world_texture_packs(
 		# Preserve host-prebaked GCWT packs (e.g. Lost Coast Source→GX bake).
 		# Re-deriving from a GoldSrc stub BSP would clobber CMPR world textures.
 		prebaked = source / rel
-		if prebaked.is_file() and prebaked.stat().st_size >= 100_000 and prebaked.read_bytes()[:4] == GC_WT_MAGIC:
+		if prebaked.is_file() and prebaked.stat().st_size >= 32_000 and prebaked.read_bytes()[:4] == GC_WT_MAGIC:
 			dest = output / rel
 			dest.parent.mkdir(parents=True, exist_ok=True)
 			shutil.copy2(prebaked, dest)
@@ -2106,12 +2147,17 @@ def inject_gc_font_into_bootstrap(archive: "zipfile.ZipFile", data: Path) -> int
 def inject_gc_hud_into_bootstrap(archive: "zipfile.ZipFile", data: Path) -> int:
 	"""Add allowlisted HUD sprites into bootstrap under their disc paths."""
 	# G173/G174/G288: downsample fat sheets to ~5 KiB under gc_* aliases.
+	# Digit/ammo sheets are multi-frame; lean_hl_spr_bytes keeps only frame 0 and
+	# CapFaces HUD drew empty glyphs (hud6/hud7). Prefer full retail under gc_*
+	# when tip can afford it (~17–66 KiB). Crosshairs stay NN-downsampled.
 	lean_scale = {
-		"gc_320hud1.spr": 4,  # 256→64
-		"gc_crosshairs.spr": 2,  # 128→64
-		"gc_320hud2.spr": 2,  # 128→64 (~17 KiB → ~5 KiB)
-		"gc_320_train.spr": 1,  # 48×48 multi-frame → single lean frame
-		"gc_320_pain.spr": 1,  # 64×64 multi-frame → single lean frame
+		"gc_crosshairs.spr": 2,  # 128→64, single-frame ALPHATEST
+	}
+	full_copy = {
+		"gc_320hud1.spr",
+		"gc_320hud2.spr",
+		"gc_320_train.spr",
+		"gc_320_pain.spr",
 	}
 	staged = 0
 	for entry in GC_HUD_SPRITES:
@@ -2126,7 +2172,9 @@ def inject_gc_hud_into_bootstrap(archive: "zipfile.ZipFile", data: Path) -> int:
 		if arcname in archive.NameToInfo:
 			continue
 		arc_base = Path(arc_rel).name.lower()
-		if arc_base in lean_scale:
+		if arc_base in full_copy:
+			archive.write(src, arcname, compress_type=zipfile.ZIP_STORED)
+		elif arc_base in lean_scale:
 			payload = lean_hl_spr_bytes(src, scale=lean_scale[arc_base])
 			if not payload:
 				continue

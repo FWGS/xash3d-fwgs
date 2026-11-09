@@ -402,6 +402,14 @@ draw hudsprite routine
 */
 void SPR_AdjustSize( float *x, float *y, float *w, float *h )
 {
+	if( clgame.scrInfo.iWidth <= 0 || clgame.scrInfo.iHeight <= 0 )
+	{
+		/* CapFaces lean HUD can redraw before GetScreenInfo seeds scrInfo —
+		 * treat HUD coords as already in refState pixels (probe hud15: inf geom). */
+		clgame.scrInfo.iWidth = refState.width > 0 ? refState.width : 320;
+		clgame.scrInfo.iHeight = refState.height > 0 ? refState.height : 240;
+	}
+
 	if( refState.width == clgame.scrInfo.iWidth && refState.height == clgame.scrInfo.iHeight )
 		return;
 
@@ -508,6 +516,21 @@ static void SPR_DrawGeneric( int frame, float x, float y, float width, float hei
 
 	// scale for screen sizes
 	SPR_AdjustSize( &x, &y, &width, &height );
+#if XASH_GAMECUBE
+	/* CapFaces: SPR_Set tints were modulating punched RGB5A3 glyphs to black. */
+	if( Sys_CheckParm( "-gcworldrender" ) && GC_UseGxWorldDraw() )
+	{
+		static int gc_hud_spr_geom_logs;
+		if( gc_hud_spr_geom_logs < 6 )
+		{
+			Con_Reportf( "Xash3D GameCube: CapFaces SPR geom xy=%.0f,%.0f wh=%.0f,%.0f tex=%d\n",
+				x, y, width, height, texnum );
+			gc_hud_spr_geom_logs++;
+		}
+		ref.dllFuncs.Color4ub( 255, 255, 255, 255 );
+	}
+	else
+#endif
 	ref.dllFuncs.Color4ub( clgame.ds.spriteColor[0], clgame.ds.spriteColor[1], clgame.ds.spriteColor[2], clgame.ds.spriteColor[3] );
 	ref.dllFuncs.R_DrawStretchPic( x, y, width, height, s1, t1, s2, t2, texnum );
 }
@@ -2040,7 +2063,8 @@ HSPRITE EXPORT pfnSPR_Load( const char *szPicName )
 	if( Sys_CheckParm( "-gcworldrender" ) && GC_UseGxWorldDraw() )
 	{
 		const qboolean lean_ok = szPicName && (
-			Q_stristr( szPicName, "gc_320hud2" )
+			Q_stristr( szPicName, "320hud1" )
+			|| Q_stristr( szPicName, "320hud2" )
 			|| Q_stristr( szPicName, "crosshairs" )
 			|| Q_stristr( szPicName, "_pain" )
 			|| Q_stristr( szPicName, "_train" ));
@@ -2213,6 +2237,13 @@ static void GAME_EXPORT pfnSPR_DrawAdditive( int frame, int x, int y, const wrec
 {
 	GC_HUD_CALL( "SPR_DrawAdditive frame=%d x=%d y=%d", frame, x, y );
 #if 1 // REFTODO
+#if XASH_GAMECUBE
+	/* CapFaces Flipper: RGB5A3 HUD uploads keep near-black opaque, so
+	 * TransAdd washes digits into the world. Punch black via TransAlpha. */
+	if( Sys_CheckParm( "-gcworldrender" ) && GC_UseGxWorldDraw() )
+		ref.dllFuncs.GL_SetRenderMode( kRenderTransAlpha );
+	else
+#endif
 	ref.dllFuncs.GL_SetRenderMode( kRenderTransAdd );
 #else
 	pglEnable( GL_BLEND );

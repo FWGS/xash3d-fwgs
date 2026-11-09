@@ -49,6 +49,7 @@ void R_GcmapTrimForMapLoad( void );
 void GC_RestoreVideoMemoryAfterMapLoad( void );
 void GC_TrimVideoMemoryForMapLoad( void );
 void GC_DrawLoadingStatus( const char *message, const char *details );
+void GC_PresentRetailTitlePlate( const char *details );
 void GC_SetLoadingProgress( float progress );
 void GC_TrimClientSubsystemsForMapLoad( void );
 void R_GcFreeMenuImages( void );
@@ -2102,6 +2103,10 @@ int EXPORT Host_Main( int argc, char **argv, const char *progname, int bChangeGa
 
 			Con_Reportf( "Xash3D GameCube: gcmap smoke frames ready\n" );
 			GC_MemSample( "frame render" );
+			/* Lost Coast CapFaces: after the coast map is resident, soft-present
+			 * the retail console/background01 title plate for DumpFrames. */
+			if( Sys_CheckParm( "-gccapfacessmoke" ))
+				GC_PresentRetailTitlePlate( sv.name[0] ? sv.name : "d2_lostcoast" );
 			/* G320: lean New Game Prepare before first ServerFrame. Budget
 			 * samples often never flush on non-c0a0 (g36_done stays false),
 			 * so Host_Frame skipped Prepare and ServerFrame hung

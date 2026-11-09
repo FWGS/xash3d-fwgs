@@ -552,7 +552,7 @@ def build_capfaces_packs(
 		prebaked = source / rel
 		if (
 			prebaked.is_file()
-			and prebaked.stat().st_size >= 40_000
+			and prebaked.stat().st_size >= 20_000
 			and prebaked.read_bytes()[:4] == GC_CF_MAGIC
 		):
 			dest.parent.mkdir(parents=True, exist_ok=True)

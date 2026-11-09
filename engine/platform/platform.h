@@ -331,6 +331,8 @@ void GC_UpdateNewGameIntroAudio( void );
 qboolean GC_MenuRunsServer( void ); /* menu New Game runs the real map logic */
 void GC_LoadingOverlayPulse( void ); /* animate LOADING during a held load */
 void GC_DrawLoadingStatus( const char *message, const char *details );
+/* CapFaces Lost Coast: soft-present retail console/background01 title plaque. */
+void GC_PresentRetailTitlePlate( const char *details );
 void GC_SetLoadingProgress( float progress );
 float GC_GetLoadingProgress( void );
 /* G92: free PVS/screens sticky flags so changelevel can re-capture. */

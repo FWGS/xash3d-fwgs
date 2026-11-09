@@ -10253,6 +10253,38 @@ static void GC_SoftDumpCompositeHUD( void )
  * loads can otherwise look like a hard hang on real hardware or composite
  * capture, especially before the client has a valid loading texture.
  */
+void GC_DrawLoadingStatus( const char *message, const char *details ); /* fwd */
+
+void GC_PresentRetailTitlePlate( const char *details )
+{
+#if XASH_GAMECUBE
+	int i;
+	const char *map = details && details[0] ? details : "d2_lostcoast";
+
+	if( !Sys_CheckParm( "-gccapfacessmoke" ))
+		return;
+
+	if( !GC_LoadLoadingBackground() )
+	{
+		Con_Reportf( "Xash3D GameCube: Lost Coast title plaque missing (resource/gc_menu/loading.tga)\n" );
+		return;
+	}
+
+	Con_Reportf( "Xash3D GameCube: Lost Coast retail title plaque present map=%s\n", map );
+	GCube_AppendSwissEvidence( "Lost Coast retail title plaque map=%s", map );
+
+	/* Soft RGB565 DumpFrames latch — CapFaces stays resident; plaque is the
+	 * retail console/background01 plate staged into gc_menu/loading.tga. */
+	if( gc_cpu_dump_presents_left < 8 )
+		gc_cpu_dump_presents_left = 8;
+
+	for( i = 0; i < 8; i++ )
+		GC_DrawLoadingStatus( "LOST COAST", map );
+#else
+	(void)details;
+#endif
+}
+
 void GC_DrawLoadingStatus( const char *message, const char *details )
 {
 #if XASH_GAMECUBE

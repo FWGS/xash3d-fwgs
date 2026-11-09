@@ -2198,7 +2198,8 @@ static gc_gx_tex_t *R_GXBindTexnum( unsigned texnum, qboolean hud_bind )
 					}
 				}
 				else if( hud_bind )
-					*out++ = R_GXSoftToRGB5A3( soft );
+					/* Punch near-black so TransAlpha HUD digits aren't opaque black. */
+					*out++ = R_GXSoftToRGB5A3PunchBlack( soft );
 				else if( soft == TRANSPARENT_COLOR )
 					*out++ = 0;
 				else
