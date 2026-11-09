@@ -14,6 +14,7 @@ GNU General Public License for more details.
 */
 
 #include "common.h"
+#include "server.h"
 #include "platform/platform.h"
 
 static jmp_buf g_abortframe;
@@ -236,6 +237,25 @@ void COM_Frame( double time )
 		case STATE_CHANGELEVEL:
 			SV_ExecChangeLevel();
 			Host_SetState( STATE_RUNFRAME, true );
+#if XASH_GAMECUBE
+			/* Retail autohop: c1a0c MAP_READY is emitted inside ExecChangeLevel,
+			 * so COM_ChangeLevel from that marker is a no-op (nextstate!=RUNFRAME).
+			 * Host then hangs in deferred studio/ucmd before HopRider t=8
+			 * (probe 20261109-081627). Nest the UC hop before RUNFRAME. */
+			if( Sys_CheckParm( "-gcautohop" ) && sv.name[0]
+				&& !Q_stricmp( sv.name, "c1a0c" ))
+			{
+				Con_Reportf( "Xash3D GameCube: autohop ExecChangeLevel force c1a0c → c1a1\n" );
+				Q_strncpy( GameState->levelName, "c1a1", sizeof( GameState->levelName ));
+				Q_strncpy( GameState->landmarkName, "c1a0catoc1a1", sizeof( GameState->landmarkName ));
+				GameState->loadGame = true;
+				GameState->backgroundMap = false;
+				GameState->newGame = false;
+				Host_SetState( STATE_CHANGELEVEL, false );
+				SV_ExecChangeLevel();
+				Host_SetState( STATE_RUNFRAME, true );
+			}
+#endif
 			break;
 		case STATE_RUNFRAME:
 			Host_RunFrame( time );

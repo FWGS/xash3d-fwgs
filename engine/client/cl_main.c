@@ -477,9 +477,18 @@ static void CL_CheckClientState( void )
 		if( Sys_CheckParm( "-gcmenuplaystart" ))
 		{
 			extern void R_GXArmBeginTrace( int count );
+			static qboolean gc_menu_step_armed;
 
 			R_GXArmBeginTrace( 400 );
-			gc_menu_step_frames = 3;
+			/* Arm STEP breadcrumbs once per boot — re-arming on every
+			 * changelevel ca_active left frames stuck >0 when ClientFrame
+			 * early-returned, flooding OSReport and starving the c0a0e walk
+			 * (probe 20261109-0436: 50k+ STEP pm_move lines). */
+			if( !gc_menu_step_armed )
+			{
+				gc_menu_step_frames = 3;
+				gc_menu_step_armed = true;
+			}
 		}
 #endif
 		cls.changelevel = false;		// changelevel is done

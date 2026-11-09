@@ -23,6 +23,7 @@ GNU General Public License for more details.
 #if XASH_GAMECUBE
 #include <stdlib.h>
 #include "mod_local.h"
+#include "gamecube/mem_gamecube.h"
 #endif
 
 /*
@@ -1872,6 +1873,16 @@ static SAVERESTOREDATA *SaveGameState( int changelevel )
 		return NULL;
 
 #if XASH_GAMECUBE
+	/* Autohop campaign: tip≈13 KiB cannot hold a 113 KiB transition save
+	 * (hung after G94 entity table on c1a0d→c1a0a, 20261109-063710). Skip
+	 * the save; changelevel still loads the dest map with landmark. */
+	if( changelevel && Sys_CheckParm( "-gcautohop" )
+		&& GC_MemHeapFreeBytes() < 64u * 1024u )
+	{
+		Con_Reportf( "Xash3D GameCube: transition save skipped tip-safe tip=%s need=64 Kb\n",
+			Q_memprint( GC_MemHeapFreeBytes() ));
+		return NULL;
+	}
 	/* Transition save: the largest contiguous block MEM1 has right now. */
 	if( GC_MenuRunsServer( ))
 	{
@@ -2672,6 +2683,43 @@ void SV_GCHopRiderTick( void )
 		{
 			given = true;
 			Cbuf_AddText( "sv_cheats 1\ngive weapon_9mmhandgun\ngive weapon_crowbar\n" );
+		}
+	}
+	/* Autohop campaign ladder on the server tick — input-path calls can miss
+	 * after MAP_READY when deferred studio/audio stalls the client pad poll
+	 * (c1a0c never forced → c1a1, 20261109-070000). */
+	if( Sys_CheckParm( "-gcautohop" ) && sv.name[0] )
+	{
+		static struct { char from[16]; qboolean done; } hop;
+		typedef struct { const char *from; const char *to; const char *landmark; float after; } hop_t;
+		static const hop_t ladder[] = {
+			{ "c1a0", "c1a0d", "c1a0toc1a0d", 12.0f },
+			{ "c1a0d", "c1a0a", "c1a0dtoa", 10.0f },
+			{ "c1a0a", "c1a0b", "c1a0atob", 10.0f },
+			{ "c1a0b", "c1a0c", "c1a0btoc", 10.0f },
+			{ "c1a0c", "c1a1", "c1a0catoc1a1", 0.0f },
+		};
+		size_t hi;
+
+		if( Q_stricmp( hop.from, sv.name ))
+		{
+			Q_strncpy( hop.from, sv.name, sizeof( hop.from ));
+			hop.done = false;
+		}
+		if( !hop.done )
+		{
+			for( hi = 0; hi < sizeof( ladder ) / sizeof( ladder[0] ); hi++ )
+			{
+				if( Q_stricmp( sv.name, ladder[hi].from ))
+					continue;
+				if( sv.time <= (double)ladder[hi].after )
+					break;
+				hop.done = true;
+				Con_Reportf( "Xash3D GameCube: autohop force changelevel %s → %s landmark=%s t=%.1f\n",
+					ladder[hi].from, ladder[hi].to, ladder[hi].landmark, sv.time );
+				COM_ChangeLevel( ladder[hi].to, ladder[hi].landmark, false );
+				break;
+			}
 		}
 	}
 	for( i = 0; i < 2; i++ )

@@ -5797,7 +5797,11 @@ static void Mod_LoadTextureData( model_t *mod, dbspmodel_t *bmod, int textureInd
 
 	texture->gl_texturenum = 0;
 #if XASH_GAMECUBE
-	if( bmod->isworld && !iswater && ( texture->gl_texturenum = Mod_GCWorldPackTexture( mipTex.name )) != 0 )
+	/* Prefer the world pack for every world tex — including water. The old
+	 * !iswater gate forced TF_EXPAND_SOURCE WAD/mip loads that hang tip-safe
+	 * changelevels (c1a0→c1a0d at tip≈27 KiB after texture budget, 20261109-052913).
+	 * Ripple loses KEEP_SOURCE here; CapFaces/campaign continuity matters more. */
+	if( bmod->isworld && ( texture->gl_texturenum = Mod_GCWorldPackTexture( mipTex.name )) != 0 )
 	{
 		/* Pack short-circuit used to skip mip width/height. CapFaces ST and
 		 * any live path using texture_t then fell back to 64 while GX bound
@@ -5826,6 +5830,16 @@ static void Mod_LoadTextureData( model_t *mod, dbspmodel_t *bmod, int textureInd
 			texture->width = mipTex.width;
 			texture->height = mipTex.height;
 		}
+		return;
+	}
+	/* Tip-safe: never fall into WAD/EXPAND when the heap cannot hold it. */
+	if( bmod->isworld && GC_MemHeapFreeBytes() < 64u * 1024u )
+	{
+		Con_Reportf( "Xash3D GameCube: texture pack miss tip-safe stub name=%s tip=%s\n",
+			mipTex.name, Q_memprint( GC_MemHeapFreeBytes() ));
+		texture->gl_texturenum = R_GetBuiltinTexture( REF_DEFAULT_TEXTURE );
+		texture->width = mipTex.width;
+		texture->height = mipTex.height;
 		return;
 	}
 #endif
@@ -6001,8 +6015,91 @@ static void Mod_LoadTexture( model_t *mod, dbspmodel_t *bmod, int textureIndex )
 
 static void Mod_LoadAllTextures( model_t *mod, dbspmodel_t *bmod )
 {
+#if XASH_GAMECUBE
+	Con_Reportf( "Xash3D GameCube: Mod_LoadAllTextures begin n=%d tip=%s\n",
+		mod->numtextures, Q_memprint( GC_MemHeapFreeBytes() ));
+	/* Tip-critical changelevels (c0a0c→c0a0d @ tip≈12–14 KiB): Mem_Calloc of
+	 * texture_t from the tip pool hangs mid-loop. One spill block + pack bind. */
+	if( bmod->isworld && GC_MemHeapFreeBytes() < 48u * 1024u )
+	{
+		int packed = 0, stubbed = 0, failed = 0;
+		const size_t block_bytes = (size_t)mod->numtextures * sizeof( texture_t );
+		texture_t *block = (texture_t *)Mod_GCWorldArraySpillAlloc( block_bytes, "tip-lean-textures" );
+
+		if( block )
+		{
+			memset( block, 0, block_bytes );
+			Mod_GCWorldArraySpillPinBase( block, block_bytes );
+		}
+
+		for( int i = 0; i < mod->numtextures; i++ )
+		{
+			mip_t mipTex;
+			const byte *mipRaw;
+			texture_t *texture;
+			int texnum;
+
+			mipRaw = Mod_GetMipTexForTexture( bmod, i, &mipTex );
+			if( !mipRaw )
+			{
+				Mod_CreateDefaultTexture( mod, &mod->textures[i] );
+				stubbed++;
+				continue;
+			}
+			if( mipTex.name[0] == '\0' )
+				Q_snprintf( mipTex.name, sizeof( mipTex.name ), "miptex_%i", i );
+			if( !block )
+			{
+				mod->textures[i] = NULL;
+				failed++;
+				continue;
+			}
+			texture = &block[i];
+			mod->textures[i] = texture;
+			Q_strnlwr( mipTex.name, texture->name, sizeof( texture->name ));
+			texture->width = mipTex.width;
+			texture->height = mipTex.height;
+			texnum = Mod_GCWorldPackTexture( mipTex.name );
+			if( texnum )
+			{
+				uint32_t pi;
+				texture->gl_texturenum = texnum;
+				for( pi = 0; pi < gc_wt.count; pi++ )
+				{
+					const gc_wt_entry_t *e = &gc_wt.table[pi];
+					if( !Q_strnicmp( e->name, mipTex.name, sizeof( e->name )))
+					{
+						texture->width = (unsigned)e->width;
+						texture->height = (unsigned)e->height;
+						break;
+					}
+				}
+				packed++;
+			}
+			else
+			{
+				texture->gl_texturenum = R_GetBuiltinTexture( REF_DEFAULT_TEXTURE );
+				stubbed++;
+			}
+		}
+		Con_Reportf( "Xash3D GameCube: Mod_LoadAllTextures tip-lean n=%d packed=%d stub=%d fail=%d tip=%s\n",
+			mod->numtextures, packed, stubbed, failed, Q_memprint( GC_MemHeapFreeBytes() ));
+		return;
+	}
+#endif
 	for( int i = 0; i < mod->numtextures; i++ )
+	{
 		Mod_LoadTexture( mod, bmod, i );
+#if XASH_GAMECUBE
+		if(( i & 31 ) == 31 )
+			Con_Reportf( "Xash3D GameCube: Mod_LoadAllTextures progress i=%d/%d tip=%s\n",
+				i + 1, mod->numtextures, Q_memprint( GC_MemHeapFreeBytes() ));
+#endif
+	}
+#if XASH_GAMECUBE
+	Con_Reportf( "Xash3D GameCube: Mod_LoadAllTextures end n=%d tip=%s\n",
+		mod->numtextures, Q_memprint( GC_MemHeapFreeBytes() ));
+#endif
 }
 
 static void Mod_SequenceAnimatedTexture( model_t *mod, int baseTextureIndex )

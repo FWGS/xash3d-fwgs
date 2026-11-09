@@ -844,7 +844,10 @@ static u16 GC_ProbeSyntheticHeldButtons( void )
 
 /* Walk out of the tram on c0a0e into the c1a0 trigger. Shared by real-pad
  * and synthetic probe paths — synthetic used to return before this ran
- * (probe 20261105-060454 stuck at org≈-1073,-490). */
+ * (probe 20261105-060454 stuck at org≈-1073,-490).
+ * Tip-safe CapFaces retail (20261109-0436): walk began then froze at
+ * org≈-1177,-697 with onground=0 for 10+ min. If the sim origin stalls,
+ * force the Barney changelevel so the campaign can continue. */
 static qboolean GC_AutohopC0a0eWalkAxes( short *forward, short *side, short *yaw )
 {
 	static const float route[][2] = {
@@ -852,12 +855,43 @@ static qboolean GC_AutohopC0a0eWalkAxes( short *forward, short *side, short *yaw
 	};
 	static int leg;
 	static qboolean logged;
-	float dx, dy;
+	static qboolean forced_cl;
+	static float stuck_since;
+	static vec3_t stuck_org;
+	float dx, dy, dist2;
 
 	if( Q_stricmp( sv.name, "c0a0e" ) || sv.time <= 28.0 || !Sys_CheckParm( "-gcautohop" ))
 		return false;
 	if( cls.state != ca_active || cls.signon != SIGNONS )
 		return false;
+
+	if( !logged )
+	{
+		logged = true;
+		stuck_since = (float)sv.time;
+		VectorCopy( cl.simorg, stuck_org );
+		Con_Reportf( "Xash3D GameCube: autohop c0a0e walk begin org=%.0f,%.0f,%.0f\n",
+			cl.simorg[0], cl.simorg[1], cl.simorg[2] );
+	}
+	else
+	{
+		dx = cl.simorg[0] - stuck_org[0];
+		dy = cl.simorg[1] - stuck_org[1];
+		dist2 = dx * dx + dy * dy;
+		if( dist2 > 24.0f * 24.0f )
+		{
+			stuck_since = (float)sv.time;
+			VectorCopy( cl.simorg, stuck_org );
+		}
+		else if( !forced_cl && ( (float)sv.time - stuck_since ) > 20.0f )
+		{
+			forced_cl = true;
+			Con_Reportf( "Xash3D GameCube: autohop c0a0e walk stall → force changelevel c1a0 org=%.0f,%.0f,%.0f\n",
+				cl.simorg[0], cl.simorg[1], cl.simorg[2] );
+			COM_ChangeLevel( "c1a0", "c0a0toc1a0", false );
+			return false;
+		}
+	}
 
 	dx = route[leg][0] - cl.simorg[0];
 	dy = route[leg][1] - cl.simorg[1];
@@ -871,12 +905,6 @@ static qboolean GC_AutohopC0a0eWalkAxes( short *forward, short *side, short *yaw
 	*yaw = 0;
 	gc_pad[GC_PAD_PREFERRED].stickX = 0;
 	gc_pad[GC_PAD_PREFERRED].stickY = 127;
-	if( !logged )
-	{
-		logged = true;
-		Con_Reportf( "Xash3D GameCube: autohop c0a0e walk begin org=%.0f,%.0f,%.0f\n",
-			cl.simorg[0], cl.simorg[1], cl.simorg[2] );
-	}
 	return true;
 }
 
@@ -887,6 +915,8 @@ static void GC_UpdateProbeSyntheticAxes( void )
 	short yaw = 0;
 	short pitch = 0;
 	signed char stick_x = 0, stick_y = 0, cstick_x = 0, cstick_y = 0;
+
+	/* Campaign force-ladder lives in SV_GCHopRiderTick (server tick). */
 
 	if( GC_AutohopC0a0eWalkAxes( &forward, &side, &yaw ))
 	{
@@ -1100,7 +1130,7 @@ void Platform_RunEvents( void )
 		return;
 
 	/* Probe: walk out of the tram at c0a0e (also runs on synthetic path via
-	 * GC_UpdateProbeSyntheticAxes). */
+	 * GC_UpdateProbeSyntheticAxes). Campaign ladder: SV_GCHopRiderTick. */
 	{
 		short fwd = 0, side = 0, yaw = 0;
 

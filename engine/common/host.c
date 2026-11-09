@@ -744,7 +744,12 @@ void Host_Frame( double time )
 		extern int gc_menu_step_frames;
 
 		if( gc_menu_step_frames > 0 )
+		{
 			SYS_Report( "Xash3D GameCube: STEP host frame time=%.4f\n", time );
+			/* Guarantee countdown even if Host_ClientFrame returns early
+			 * (fallback menu / deferred progs) so STEP cannot stick on. */
+			gc_menu_step_frames--;
+		}
 	}
 #endif
 
@@ -1958,6 +1963,14 @@ int EXPORT Host_Main( int argc, char **argv, const char *progname, int bChangeGa
 							GCube_AppendSwissEvidence( "entity lump spawn ready" );
 							GCube_AppendSwissEvidence( "map loaded %s", sv.name );
 							GCube_AppendSwissEvidence( "MAP_READY %s", sv.name );
+							/* c1a0c stalls after MAP_READY in deferred studio/ucmd
+							 * before SV_GCHopRiderTick reaches t=8 (20261109-074003).
+							 * Force Unforeseen Consequences hop immediately. */
+							if( Sys_CheckParm( "-gcautohop" ) && !Q_stricmp( sv.name, "c1a0c" ))
+							{
+								Con_Reportf( "Xash3D GameCube: autohop MAP_READY force changelevel c1a0c → c1a1\n" );
+								COM_ChangeLevel( "c1a1", "c1a0catoc1a1", false );
+							}
 						}
 						/* Promote ca_active before the first heavy fullphysics
 						 * ServerFrame can starve ClientFrame SCR CapFaces. */
