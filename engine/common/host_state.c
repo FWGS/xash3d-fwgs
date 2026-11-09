@@ -16,6 +16,11 @@ GNU General Public License for more details.
 #include "common.h"
 #include "server.h"
 #include "platform/platform.h"
+#if XASH_GAMECUBE
+#include "gamecube/mem_gamecube.h"
+void R_GcFreeMenuImages( void );
+void R_GXReleaseHudPoolForMapLoad( void );
+#endif
 
 static jmp_buf g_abortframe;
 static qboolean g_abortframe_active;
@@ -258,8 +263,13 @@ void COM_Frame( double time )
 					/* Keep nextstate=CHANGELEVEL across the nest so HopRider
 					 * COM_ChangeLevel cannot Host_SetNextState-assert
 					 * (curstate!=RUNFRAME; probe 20261109-102341). */
-					Con_Reportf( "Xash3D GameCube: autohop ExecChangeLevel force %s → %s\n",
-						sv.name, hop_to );
+					Con_Reportf( "Xash3D GameCube: autohop ExecChangeLevel force %s → %s tip=%s\n",
+						sv.name, hop_to, Q_memprint( GC_MemHeapFreeBytes() ));
+					/* Reclaim Flipper/HUD scratch between nest hops so denser
+					 * UC maps (c1a1c tip≈12 KiB) can parse entities. */
+					R_GcFreeMenuImages();
+					R_GXReleaseHudPoolForMapLoad();
+					Image_GCPurgeDecodeScratch();
 					Q_strncpy( GameState->levelName, hop_to, sizeof( GameState->levelName ));
 					Q_strncpy( GameState->landmarkName, hop_lm, sizeof( GameState->landmarkName ));
 					GameState->loadGame = true;

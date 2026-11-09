@@ -6055,17 +6055,44 @@ static qboolean SV_ParseEdict( char **pfile, edict_t *ent, int entity_index )
 
 		// parse key
 		if(( *pfile = COM_ParseFile( *pfile, keyname, sizeof( keyname ))) == NULL )
+		{
+#if XASH_GAMECUBE
+			/* Tip-starved nest hops can truncate the entities lump (c1a1c
+			 * after UC chain, tip≈12 KiB, probe 20261109-104922). Skip the
+			 * rest of this edict instead of Host_Error'ing the campaign. */
+			Con_Reportf( S_WARN "Xash3D GameCube: %s EOF without closing brace; skip edict tip=%s\n",
+				__func__, Q_memprint( GC_MemHeapFreeBytes() ));
+			return false;
+#else
 			Host_Error( "%s: EOF without closing brace\n", __func__ );
+#endif
+		}
 
 		if( keyname[0] == '}' )
 			break; // end of desc
 
 		// parse value
 		if(( *pfile = COM_ParseFile( *pfile, value, sizeof( value ))) == NULL )
+		{
+#if XASH_GAMECUBE
+			Con_Reportf( S_WARN "Xash3D GameCube: %s EOF without closing brace; skip edict tip=%s\n",
+				__func__, Q_memprint( GC_MemHeapFreeBytes() ));
+			return false;
+#else
 			Host_Error( "%s: EOF without closing brace\n", __func__ );
+#endif
+		}
 
 		if( value[0] == '}' )
+		{
+#if XASH_GAMECUBE
+			Con_Reportf( S_WARN "Xash3D GameCube: %s closing brace without data; skip edict\n",
+				__func__ );
+			return false;
+#else
 			Host_Error( "%s: closing brace without data\n", __func__ );
+#endif
+		}
 
 #if XASH_GAMECUBE
 		if( SV_GCMapEntityDiagVerbose() && entity_index >= 700 && ( numpairs & 3 ) == 0 )

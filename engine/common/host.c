@@ -866,6 +866,7 @@ void Host_Frame( double time )
 	 * if ClientFrame stalls in deferred studios (probe 20260807-034206). */
 	if( ( cls.state == ca_active || cls.signon == SIGNONS )
 		&& ( Sys_CheckParm( "-gcnewgame" ) || Sys_CheckParm( "-gcmenuplaystart" )
+			|| Sys_CheckParm( "-gccapfacessmoke" )
 			|| GC_MapLoadMemoryOpt() )
 		&& !Sys_CheckParm( "-gcfullphysics" ))
 	{
@@ -883,8 +884,12 @@ void Host_Frame( double time )
 			/* Menu New Game: Host_ServerFrame after CapFaces hung the guest
 			 * (probe 20260813-193443 stopped at sustained frames=8). Keep
 			 * ClientFrame/SCR presents for Flipper DumpFrames; skip lean
-			 * server ticks until -gcfullphysics. */
-			if( Sys_CheckParm( "-gcnewgame" ) && !Sys_CheckParm( "-gcfullphysics" ))
+			 * server ticks until -gcfullphysics.
+			 * Lost Coast -gccapfacessmoke: same hang after GHOST frame=2 when
+			 * full ServerFrame ran (tip≈26 KiB) — skip so CapFaces/water GX
+			 * can present DumpFrames. */
+			if( ( Sys_CheckParm( "-gcnewgame" ) || Sys_CheckParm( "-gccapfacessmoke" ))
+				&& !Sys_CheckParm( "-gcfullphysics" ))
 			{
 				/* The direct-map player already has its bounded native physics
 				 * bootstrap. Further full server ticks can re-enter heavy scripted
@@ -960,6 +965,15 @@ void Host_Frame( double time )
 					&& GC_IsFrameBudgetProbeActive() ))
 					Host_ServerFrame ();
 			}
+		}
+		else if( Sys_CheckParm( "-gccapfacessmoke" ) && !Sys_CheckParm( "-gcfullphysics" ))
+		{
+			/* CapFaces smoke: never re-enter heavy ServerFrame — it hung after
+			 * GHOST frame=2 (lostcoast-gc tip≈26 KiB) before SCR CapFaces. */
+			if( host.framecount < 8 )
+				Con_Reportf( "Xash3D GameCube: CapFaces smoke ClientFrame-only frame=%u\n",
+					host.framecount );
+			Host_ClientFrame ();
 		}
 		else
 		{
