@@ -80,6 +80,10 @@ extern int GC_GetFillFaceCount( void );
 extern int GC_GetFillFaceVerts( int index, float out[][3], int maxverts );
 extern int GC_GetWaterFaceCount( void );
 extern int GC_GetWaterFaceVerts( int index, float out[][3], int maxverts );
+extern int GC_GetWaterFaceST( int index, float out_st[][2], int maxverts );
+extern void GC_GetWaterFaceScroll( int index, float *scroll_u, float *scroll_v, u32 *tint );
+extern qboolean GC_WaterTexReady( void );
+extern void *GC_GetWaterTexObj( void );
 extern qboolean GC_WaterFacePlane( int index, mplane_t *out, int *out_flags );
 extern qboolean GC_FillFacePlane( int index, mplane_t *out, int *out_flags );
 extern int GC_GetTramFaceCount( void );
@@ -5248,26 +5252,43 @@ static int R_GXDrawNewGameCapFacesImpl( void )
 				(void)fill_fail;
 			}
 		}
-		/* G286: baked turb sheets (capture-time BSS) — translucent blue, no Z write. */
+		/* G286: baked water sheets — GX scroll CMPR when water_gx.cmp present. */
 		{
 			static qboolean g286_logged;
 			int water_n = GC_GetWaterFaceCount();
 			int wi, water_drawn = 0;
+			const qboolean water_tex = GC_WaterTexReady() && GC_GetWaterTexObj() != NULL;
+			float time_sec = gp_cl ? (float)gp_cl->time : 0.0f;
 
 			if( water_n > 0 )
 			{
 				GX_SetBlendMode( GX_BM_BLEND, GX_BL_SRCALPHA, GX_BL_INVSRCALPHA, GX_LO_NOOP );
 				GX_SetZMode( GX_TRUE, GX_LEQUAL, GX_FALSE );
 				r_gx_face_mode = GC_GX_FACE_MODE_NONE;
+				if( water_tex )
+				{
+					GX_LoadTexObj( (GXTexObj *)GC_GetWaterTexObj(), GX_TEXMAP0 );
+					GX_SetNumTexGens( 1 );
+					GX_SetTexCoordGen( GX_TEXCOORD0, GX_TG_MTX2x4, GX_TG_TEX0, GX_IDENTITY );
+					GX_SetNumTevStages( 1 );
+					GX_SetTevOrder( GX_TEVSTAGE0, GX_TEXCOORD0, GX_TEXMAP0, GX_COLOR0A0 );
+					GX_SetTevOp( GX_TEVSTAGE0, GX_MODULATE );
+					GX_ClearVtxDesc();
+					GX_SetVtxDesc( GX_VA_POS, GX_DIRECT );
+					GX_SetVtxDesc( GX_VA_CLR0, GX_DIRECT );
+					GX_SetVtxDesc( GX_VA_TEX0, GX_DIRECT );
+				}
 			}
 			for( wi = 0; wi < water_n; wi++ )
 			{
 				mplane_t pl;
 				float pts[32][3];
-				int nv;
-				float dot;
+				float st[32][2];
+				int nv, si;
+				float dot, su, sv;
+				u32 tint;
 
-				if( water_drawn >= 8
+				if( water_drawn >= 24
 					|| drawn + water_drawn >= frame_budget )
 					break;
 				if( !GC_WaterFacePlane( wi, &pl, NULL ))
@@ -5279,8 +5300,22 @@ static int R_GXDrawNewGameCapFacesImpl( void )
 				nv = GC_GetWaterFaceVerts( wi, pts, 32 );
 				if( nv < 3 )
 					continue;
-				/* Soft cyan water — alpha ~0.45 so LM walls show through. */
-				if( R_GXEmitFlatFillVerts( pts, nv, 0x4080C078u ) > 0 )
+				GC_GetWaterFaceScroll( wi, &su, &sv, &tint );
+				if( !tint )
+					tint = 0x408C90A8u;
+				if( water_tex && GC_GetWaterFaceST( wi, st, 32 ) == nv )
+				{
+					GX_Begin( GX_TRIANGLEFAN, GX_VTXFMT0, (u16)nv );
+					for( si = 0; si < nv; si++ )
+					{
+						GX_Position3f32( pts[si][0], pts[si][1], pts[si][2] );
+						GX_Color1u32( tint );
+						GX_TexCoord2f32( st[si][0] + time_sec * su, st[si][1] + time_sec * sv );
+					}
+					GX_End();
+					water_drawn++;
+				}
+				else if( R_GXEmitFlatFillVerts( pts, nv, tint ) > 0 )
 					water_drawn++;
 			}
 			if( water_n > 0 )
@@ -5294,8 +5329,8 @@ static int R_GXDrawNewGameCapFacesImpl( void )
 			{
 				g286_logged = true;
 				gEngfuncs.Con_Reportf(
-					"Xash3D GameCube: G286 water emit=%d/%d\n",
-					water_drawn, water_n );
+					"Xash3D GameCube: G286 water emit=%d/%d tex=%d\n",
+					water_drawn, water_n, water_tex ? 1 : 0 );
 			}
 		}
 		/* G292/G297: tip-safe Flipper world decals — skip during G36 samples. */
