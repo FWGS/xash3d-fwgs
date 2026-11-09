@@ -2751,6 +2751,11 @@ qboolean SV_GCAutohopLookupNext( const char *from, const char **to, const char *
 	{
 		if( Q_stricmp( from, gc_autohop_ladder[hi].from ))
 			continue;
+		/* Nest only after==0 entries. after>0 AM hops need HopRider dwell +
+		 * RUNFRAME between maps — nesting c1a0→…→c1a0c hung inside
+		 * ExecChangeLevel soft-present (probe 20261109-085349). */
+		if( gc_autohop_ladder[hi].after > 0.0f )
+			return false;
 		*to = gc_autohop_ladder[hi].to;
 		*landmark = gc_autohop_ladder[hi].landmark;
 		return true;

@@ -659,6 +659,13 @@ static int gc_newgame_cap_face_count;
 static int gc_newgame_cap_tex_faces; /* faces that kept a live texture* */
 static int gc_newgame_cap_lm_faces; /* faces with real sample bake */
 static int gc_newgame_cap_generation; /* bumps when faces/LMs rewrite */
+/* Spatial CapFaces packs (Lost Coast full-geo): stream nearest 384-face chunk. */
+#define GC_CAP_SPATIAL_MAX 96
+static int gc_cap_spatial_n;
+static char gc_cap_spatial_file[GC_CAP_SPATIAL_MAX][32];
+static vec3_t gc_cap_spatial_center[GC_CAP_SPATIAL_MAX];
+static int gc_cap_spatial_active = -1;
+static char gc_cap_spatial_loaded[64];
 static qboolean gc_newgame_cap_lm_atlas_ready;
 static qboolean gc_g176_logged;
 static qboolean gc_g180_logged;
@@ -936,18 +943,29 @@ static void GC_BakeTramSlotST( int slot, const msurface_t *src, const gc_tram_fa
 		gc_tram_st[slot][i][1] = (signed char)ti_i;
 	}
 }
-/* G286: tip-safe Flipper water — baked turb verts (no live-pool tip / no draw walk hang). */
-#define GC_WATER_MAX_FACES 8
+/* G286: tip-safe Flipper water — baked turb verts (no live-pool tip / no draw walk hang).
+ * Lost Coast Source water pack (media/gw_<map>.gcw) raises the sheet budget. */
+#define GC_WATER_MAX_FACES 24
 typedef struct
 {
 	byte		nverts;
-	byte		flags; /* SURF_PLANEBACK */
+	byte		flags; /* SURF_PLANEBACK / WARP */
 	signed short	pts_s16[GC_CAP_MAX_VERTS][3];
+	float		st[GC_CAP_MAX_VERTS][2];
+	float		scroll_u;
+	float		scroll_v;
+	u32		tint; /* RGBA8888 */
 	mplane_t	plane;
 } gc_water_face_t;
 static gc_water_face_t gc_water_faces[GC_WATER_MAX_FACES];
 static int gc_water_face_count;
 static qboolean gc_g286_water_logged;
+/* GX scroll water CMPR (media/water_gx.cmp) — 64×64. */
+#define GC_WATER_TEX_SIZE	64
+#define GC_WATER_TEX_BYTES	( GC_WATER_TEX_SIZE * GC_WATER_TEX_SIZE / 2 )
+static u8 gc_water_tex_data[GC_WATER_TEX_BYTES] __attribute__(( aligned( 32 )));
+static GXTexObj gc_water_tex_obj;
+static qboolean gc_water_tex_ready;
 /* G225: ARAM page + aligned MEM1 DMA stage. */
 static u32 gc_aram_fill_base;
 static int gc_aram_fill_count;
@@ -2165,6 +2183,56 @@ int GC_GetWaterFaceVerts( int index, float out[][3], int maxverts )
 	return n;
 }
 
+int GC_GetWaterFaceST( int index, float out_st[][2], int maxverts )
+{
+	const gc_water_face_t *src;
+	int n, i;
+
+	if( !out_st || maxverts < 3 || index < 0 || index >= gc_water_face_count )
+		return 0;
+	src = &gc_water_faces[index];
+	n = (int)src->nverts;
+	if( n < 3 )
+		return 0;
+	if( n > GC_CAP_MAX_VERTS )
+		n = GC_CAP_MAX_VERTS;
+	if( n > maxverts )
+		n = maxverts;
+	for( i = 0; i < n; i++ )
+	{
+		out_st[i][0] = src->st[i][0];
+		out_st[i][1] = src->st[i][1];
+	}
+	return n;
+}
+
+void GC_GetWaterFaceScroll( int index, float *scroll_u, float *scroll_v, u32 *tint )
+{
+	const gc_water_face_t *src;
+
+	if( index < 0 || index >= gc_water_face_count )
+	{
+		if( scroll_u ) *scroll_u = 0.04f;
+		if( scroll_v ) *scroll_v = 0.02f;
+		if( tint ) *tint = 0x408C90A8u;
+		return;
+	}
+	src = &gc_water_faces[index];
+	if( scroll_u ) *scroll_u = src->scroll_u;
+	if( scroll_v ) *scroll_v = src->scroll_v;
+	if( tint ) *tint = src->tint ? src->tint : 0x408C90A8u;
+}
+
+qboolean GC_WaterTexReady( void )
+{
+	return gc_water_tex_ready;
+}
+
+void *GC_GetWaterTexObj( void )
+{
+	return gc_water_tex_ready ? (void *)&gc_water_tex_obj : NULL;
+}
+
 qboolean GC_WaterFacePlane( int index, mplane_t *out, int *out_flags )
 {
 	if( !out || index < 0 || index >= gc_water_face_count )
@@ -2173,6 +2241,129 @@ qboolean GC_WaterFacePlane( int index, mplane_t *out, int *out_flags )
 	if( out_flags )
 		*out_flags = (int)gc_water_faces[index].flags;
 	return true;
+}
+
+static uint16_t GC_Be16( const byte *p );
+static uint32_t GC_Be32( const byte *p );
+
+/* Load media/gw_<map>.gcw + media/water_gx.cmp for Lost Coast / Source water. */
+static qboolean GC_TryLoadWaterPack( model_t *mod )
+{
+	char mapbase[64];
+	char path[MAX_SYSPATH];
+	file_t *f;
+	byte hdr[32];
+	byte rec[128];
+	fs_offset_t size;
+	uint16_t ver, face_n;
+	uint32_t faces_ofs;
+	int i, v;
+	union { uint32_t u; float f; } u2f;
+
+	gc_water_face_count = 0;
+	gc_water_tex_ready = false;
+	gc_g286_water_logged = false;
+	memset( gc_water_faces, 0, sizeof( gc_water_faces ));
+	if( !mod || !mod->name || !mod->name[0] )
+		return false;
+	COM_FileBase( mod->name, mapbase, sizeof( mapbase ));
+	Q_snprintf( path, sizeof( path ), "media/gw_%s.gcw", mapbase );
+	f = FS_Open( path, "rb", false );
+	if( !f )
+		f = FS_Open( path, "rb", true );
+	if( !f )
+		return false;
+	size = FS_FileLength( f );
+	if( size < 32 || FS_Read( f, hdr, 32 ) != 32 )
+	{
+		FS_Close( f );
+		return false;
+	}
+	if( hdr[0] != 'G' || hdr[1] != 'C' || hdr[2] != 'w' || hdr[3] != 'f' )
+	{
+		FS_Close( f );
+		return false;
+	}
+	ver = GC_Be16( hdr + 4 );
+	face_n = GC_Be16( hdr + 6 );
+	faces_ofs = GC_Be32( hdr + 8 );
+	if( ver != 1 || face_n == 0 || face_n > GC_WATER_MAX_FACES
+		|| faces_ofs + (uint32_t)face_n * 128u > (uint32_t)size )
+	{
+		Con_Reportf( "Xash3D GameCube: water pack reject %s ver=%u faces=%u\n",
+			path, ver, face_n );
+		FS_Close( f );
+		return false;
+	}
+	if( FS_Seek( f, (fs_offset_t)faces_ofs, SEEK_SET ) < 0 )
+	{
+		FS_Close( f );
+		return false;
+	}
+	for( i = 0; i < (int)face_n; i++ )
+	{
+		gc_water_face_t *dst = &gc_water_faces[i];
+		int nv;
+
+		if( FS_Read( f, rec, 128 ) != 128 )
+		{
+			FS_Close( f );
+			gc_water_face_count = 0;
+			return false;
+		}
+		nv = rec[0];
+		if( nv < 3 ) nv = 3;
+		if( nv > GC_CAP_MAX_VERTS ) nv = GC_CAP_MAX_VERTS;
+		dst->nverts = (byte)nv;
+		dst->flags = rec[1];
+		u2f.u = GC_Be32( rec + 8 );
+		dst->scroll_u = u2f.f;
+		u2f.u = GC_Be32( rec + 12 );
+		dst->scroll_v = u2f.f;
+		for( v = 0; v < GC_CAP_MAX_VERTS; v++ )
+		{
+			dst->pts_s16[v][0] = (int16_t)GC_Be16( rec + 16 + v * 6 );
+			dst->pts_s16[v][1] = (int16_t)GC_Be16( rec + 16 + v * 6 + 2 );
+			dst->pts_s16[v][2] = (int16_t)GC_Be16( rec + 16 + v * 6 + 4 );
+			dst->st[v][0] = (float)(int16_t)GC_Be16( rec + 64 + v * 4 ) * ( 1.0f / 64.0f );
+			dst->st[v][1] = (float)(int16_t)GC_Be16( rec + 64 + v * 4 + 2 ) * ( 1.0f / 64.0f );
+		}
+		u2f.u = GC_Be32( rec + 96 );
+		dst->plane.normal[0] = u2f.f;
+		u2f.u = GC_Be32( rec + 100 );
+		dst->plane.normal[1] = u2f.f;
+		u2f.u = GC_Be32( rec + 104 );
+		dst->plane.normal[2] = u2f.f;
+		u2f.u = GC_Be32( rec + 108 );
+		dst->plane.dist = u2f.f;
+		dst->tint = ( (u32)rec[112] << 24 ) | ( (u32)rec[113] << 16 )
+			| ( (u32)rec[114] << 8 ) | (u32)rec[115];
+	}
+	gc_water_face_count = (int)face_n;
+	FS_Close( f );
+
+	/* Scroll CMPR */
+	{
+		file_t *tf = FS_Open( "media/water_gx.cmp", "rb", false );
+		if( !tf )
+			tf = FS_Open( "media/water_gx.cmp", "rb", true );
+		if( tf && FS_FileLength( tf ) == GC_WATER_TEX_BYTES
+			&& FS_Read( tf, gc_water_tex_data, GC_WATER_TEX_BYTES ) == GC_WATER_TEX_BYTES )
+		{
+			DCFlushRange( gc_water_tex_data, sizeof( gc_water_tex_data ));
+			GX_InitTexObj( &gc_water_tex_obj, gc_water_tex_data,
+				GC_WATER_TEX_SIZE, GC_WATER_TEX_SIZE, GX_TF_CMPR,
+				GX_REPEAT, GX_REPEAT, GX_FALSE );
+			GX_InitTexObjLOD( &gc_water_tex_obj, GX_LINEAR, GX_LINEAR,
+				0.0f, 0.0f, 0.0f, GX_FALSE, GX_FALSE, GX_ANISO_1 );
+			gc_water_tex_ready = true;
+		}
+		if( tf )
+			FS_Close( tf );
+	}
+	Con_Reportf( "Xash3D GameCube: water pack loaded %s faces=%d tex=%d\n",
+		path, gc_water_face_count, gc_water_tex_ready ? 1 : 0 );
+	return gc_water_face_count > 0;
 }
 
 int GC_GetTramFaceVerts( int index, float out[][3], int maxverts )
@@ -10605,14 +10796,56 @@ static int GC_FindTexnumByHash( model_t *wmodel, uint32_t hash )
 	return 0;
 }
 
-/*
- * Load media/cf_<map>.gcp into CapFaces BSS + LM atlas. Skips live EDGE bake.
- * Returns true when faces are ready for Flipper / display-list compile.
- */
-static qboolean GC_TryLoadCapFacesPack( model_t *mod )
+static void GC_LoadCapFacesSpatialManifest( const char *mapbase )
 {
-	char mapbase[64];
 	char path[MAX_SYSPATH];
+	char line[128];
+	file_t *f;
+	int n = 0;
+
+	gc_cap_spatial_n = 0;
+	gc_cap_spatial_active = -1;
+	gc_cap_spatial_loaded[0] = '\0';
+	if( !mapbase || !mapbase[0] )
+		return;
+	Q_snprintf( path, sizeof( path ), "media/cf_%s_spatial.txt", mapbase );
+	f = FS_Open( path, "rb", false );
+	if( !f )
+		f = FS_Open( path, "rb", true );
+	if( !f )
+		return;
+	while( n < GC_CAP_SPATIAL_MAX && FS_Gets( f, line, sizeof( line )) )
+	{
+		char file[32];
+		float cx, cy, cz;
+		int faces;
+		char *p = line;
+
+		while( *p == ' ' || *p == '\t' || *p == '\r' )
+			p++;
+		if( !p[0] || p[0] == '#' )
+			continue;
+		if( sscanf( p, "%31s %f %f %f %d", file, &cx, &cy, &cz, &faces ) == 5 )
+		{
+			Q_strncpy( gc_cap_spatial_file[n], file, sizeof( gc_cap_spatial_file[n] ));
+			gc_cap_spatial_center[n][0] = cx;
+			gc_cap_spatial_center[n][1] = cy;
+			gc_cap_spatial_center[n][2] = cz;
+			n++;
+		}
+	}
+	FS_Close( f );
+	gc_cap_spatial_n = n;
+	if( n > 0 )
+		Con_Reportf( "Xash3D GameCube: CapFaces spatial packs=%d (%s)\n", n, path );
+}
+
+/*
+ * Load a CapFaces .gcp path into BSS + LM atlas. Skips live EDGE bake.
+ * force=true reloads even when faces are already resident (spatial swap).
+ */
+static qboolean GC_TryLoadCapFacesPackPath( model_t *mod, const char *path, qboolean force )
+{
 	file_t *f = NULL;
 	byte hdr[32];
 	byte rec[128];
@@ -10622,13 +10855,11 @@ static qboolean GC_TryLoadCapFacesPack( model_t *mod )
 	uint32_t atlas_ofs, faces_ofs, order_ofs;
 	int i, resolved = 0;
 
-	if( !mod || gc_newgame_cap_face_count > 0 )
-		return gc_newgame_cap_face_count > 0;
-	if( !mod->name || !mod->name[0] )
+	if( !mod || !path || !path[0] )
 		return false;
+	if( !force && gc_newgame_cap_face_count > 0 )
+		return true;
 
-	COM_FileBase( mod->name, mapbase, sizeof( mapbase ));
-	Q_snprintf( path, sizeof( path ), "media/cf_%s.gcp", mapbase );
 	/* Stream the pack — tip cannot FS_LoadFile(~81 KiB) after CapFaces DL BSS. */
 	f = FS_Open( path, "rb", false );
 	if( !f )
@@ -10808,6 +11039,7 @@ static qboolean GC_TryLoadCapFacesPack( model_t *mod )
 
 	FS_Close( f );
 	gc_newgame_cap_generation++;
+	Q_strncpy( gc_cap_spatial_loaded, path, sizeof( gc_cap_spatial_loaded ));
 	Con_Reportf( "Xash3D GameCube: CapFaces pack loaded %s faces=%d eyes=%d tex=%d/%d lm=%d\n",
 		path, gc_newgame_cap_face_count, eye_n, resolved, face_n, gc_newgame_cap_lm_faces );
 	GCube_AppendSwissEvidence( "CapFaces pack loaded faces=%d eyes=%d tex=%d",
@@ -10820,6 +11052,63 @@ static qboolean GC_TryLoadCapFacesPack( model_t *mod )
 		R_GXReserveCapDispList();
 	}
 	return gc_newgame_cap_face_count > 0;
+}
+
+/*
+ * Load media/cf_<map>.gcp into CapFaces BSS + LM atlas. Skips live EDGE bake.
+ * Returns true when faces are ready for Flipper / display-list compile.
+ */
+static qboolean GC_TryLoadCapFacesPack( model_t *mod )
+{
+	char mapbase[64];
+	char path[MAX_SYSPATH];
+
+	if( !mod || gc_newgame_cap_face_count > 0 )
+		return gc_newgame_cap_face_count > 0;
+	if( !mod->name || !mod->name[0] )
+		return false;
+
+	COM_FileBase( mod->name, mapbase, sizeof( mapbase ));
+	GC_LoadCapFacesSpatialManifest( mapbase );
+	Q_snprintf( path, sizeof( path ), "media/cf_%s.gcp", mapbase );
+	if( !GC_TryLoadCapFacesPackPath( mod, path, false ))
+		return false;
+	gc_cap_spatial_active = 0;
+	return true;
+}
+
+/* Swap CapFaces BSS to the spatial pack nearest eye (full-geo coverage). */
+static void GC_CapFacesMaybeSwapSpatial( model_t *mod, const vec3_t eye )
+{
+	char path[MAX_SYSPATH];
+	int best = -1, i;
+	float best_d = 1e30f;
+
+	if( !mod || gc_cap_spatial_n <= 1 || !eye )
+		return;
+	for( i = 0; i < gc_cap_spatial_n; i++ )
+	{
+		float dx = eye[0] - gc_cap_spatial_center[i][0];
+		float dy = eye[1] - gc_cap_spatial_center[i][1];
+		float dz = eye[2] - gc_cap_spatial_center[i][2];
+		float d = dx * dx + dy * dy + dz * dz;
+
+		if( d < best_d )
+		{
+			best_d = d;
+			best = i;
+		}
+	}
+	if( best < 0 || best == gc_cap_spatial_active )
+		return;
+	Q_snprintf( path, sizeof( path ), "media/%s", gc_cap_spatial_file[best] );
+	gc_newgame_cap_face_count = 0; /* allow force reload */
+	if( GC_TryLoadCapFacesPackPath( mod, path, true ))
+	{
+		gc_cap_spatial_active = best;
+		Con_Reportf( "Xash3D GameCube: CapFaces spatial swap → %s (pack %d/%d)\n",
+			path, best, gc_cap_spatial_n );
+	}
 }
 
 /* Push worldspawn skyname into movevars before CapFaces sky CMPR prefetch.
@@ -10872,7 +11161,11 @@ qboolean GC_PrefetchCapFacesWhileEdgesLive( model_t *mod )
 		return true;
 	/* Prefer offline CapFaces pack — no EDGE tip dependency. */
 	if( GC_TryLoadCapFacesPack( mod ))
+	{
+		/* Source water sheets (Lost Coast) — independent of GoldSrc turb flags. */
+		(void)GC_TryLoadWaterPack( mod );
 		return true;
+	}
 	if( !mod || !mod->surfaces || mod->numsurfaces <= 0 )
 		return false;
 	if( !mod->edges16 || !mod->surfedges )
@@ -15200,6 +15493,9 @@ qboolean GC_RenderNewGameWorldFrames( int count )
 			{
 				local_look = true;
 				look_len = 192.0f;
+				/* Full-geo: page CapFaces BSS to the spatial pack nearest the view. */
+				if( gc_cap_spatial_n > 1 && cl.worldmodel )
+					GC_CapFacesMaybeSwapSpatial( cl.worldmodel, center );
 				/* Re-face CapFaces toward the sticky eye — bake-origin orient
 				 * left 319/384 backface-culled (solo filter 20261107-130650).
 				 * DumpEye also writes capture_origin; re-rank so near walls
@@ -15208,12 +15504,15 @@ qboolean GC_RenderNewGameWorldFrames( int count )
 				{
 					static qboolean face_eye_done;
 					static char face_eye_map[32];
+					static int face_eye_gen;
 					int	si;
 					vec3_t	saved_bake;
 
-					if( Q_stricmp( face_eye_map, sv.name ))
+					if( Q_stricmp( face_eye_map, sv.name )
+						|| face_eye_gen != gc_newgame_cap_generation )
 					{
 						face_eye_done = false;
+						face_eye_gen = gc_newgame_cap_generation;
 						Q_strncpy( face_eye_map, sv.name, sizeof( face_eye_map ));
 					}
 					if( !face_eye_done )
