@@ -970,10 +970,13 @@ void Host_Frame( double time )
 		{
 			/* CapFaces smoke: never re-enter heavy ServerFrame — it hung after
 			 * GHOST frame=2 (lostcoast-gc tip≈26 KiB) before SCR CapFaces. */
-			if( host.framecount < 8 )
-				Con_Reportf( "Xash3D GameCube: CapFaces smoke ClientFrame-only frame=%u\n",
-					host.framecount );
+			if( host.framecount < 32 )
+				Con_Reportf( "Xash3D GameCube: CapFaces smoke ClientFrame begin frame=%u tip=%s\n",
+					host.framecount, Q_memprint( GC_MemHeapFreeBytes() ));
 			Host_ClientFrame ();
+			if( host.framecount < 32 )
+				Con_Reportf( "Xash3D GameCube: CapFaces smoke ClientFrame end frame=%u\n",
+					host.framecount );
 		}
 		else
 		{

@@ -10455,6 +10455,13 @@ void GC_PresentRetailTitlePlate( const char *details )
 
 	if( !Sys_CheckParm( "-gccapfacessmoke" ))
 		return;
+	/* World Flipper DumpFrames: title plaque soft-latch ate the encode queue
+	 * and hung Host_Frame before CapFaces SCR (lostcoast-gc tip≈26 KiB). */
+	if( Sys_CheckParm( "-gcdumpframes" ) && Sys_CheckParm( "-gcworldrender" ))
+	{
+		Con_Reportf( "Xash3D GameCube: skip title plaque for CapFaces DumpFrames map=%s\n", map );
+		return;
+	}
 
 	if( !GC_LoadLoadingBackground() )
 	{
