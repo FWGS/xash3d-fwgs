@@ -50,6 +50,7 @@ void Mod_GCClearRetainedBspScratch( void );
 #include <ogc/cache.h>
 #include <ogc/aram.h>
 #include <ogc/lwp_watchdog.h>
+#include <ogc/pad.h>
 #endif
 
 typedef struct gc_video_s
@@ -15512,6 +15513,39 @@ qboolean GC_RenderNewGameWorldFrames( int count )
 				&& cls.state == ca_active && cls.signon == SIGNONS );
 
 		Cvar_Set( "r_drawviewmodel", want_vm ? "1" : "0" );
+		/* CapFaces listen skips V_SetupViewModel — bind crowbar so Flipper
+		 * R_DrawViewModel has a studio mesh (probe hud21: loaded but no G155). */
+		if( want_vm )
+		{
+			model_t *vm = clgame.viewent.model;
+
+			if( !vm || vm->type != mod_studio || !vm->cache.data )
+				vm = Mod_FindName( "models/v_crowbar.mdl", false );
+			if( vm && vm->type == mod_studio && vm->cache.data )
+			{
+				static qboolean capfaces_vm_bound_logged;
+
+				clgame.viewent.model = vm;
+				clgame.viewent.index = cl.playernum + 1;
+				clgame.viewent.curstate.number = cl.playernum + 1;
+				clgame.viewent.curstate.modelindex = 0;
+				clgame.viewent.curstate.sequence = 0;
+				clgame.viewent.curstate.framerate = 1.0f;
+				clgame.viewent.curstate.animtime = (float)cl.time;
+				clgame.viewent.curstate.rendermode = kRenderNormal;
+				VectorCopy( rvp.vieworigin, clgame.viewent.origin );
+				VectorCopy( rvp.viewangles, clgame.viewent.angles );
+				VectorCopy( clgame.viewent.origin, clgame.viewent.curstate.origin );
+				VectorCopy( clgame.viewent.angles, clgame.viewent.curstate.angles );
+				gc_force_draw_viewmodel = true;
+				if( !capfaces_vm_bound_logged )
+				{
+					Con_Reportf( "Xash3D GameCube: CapFaces viewmodel bound %s\n",
+						vm->name[0] ? vm->name : "v_crowbar" );
+					capfaces_vm_bound_logged = true;
+				}
+			}
+		}
 	}
 
 	{
@@ -15537,6 +15571,15 @@ qboolean GC_RenderNewGameWorldFrames( int count )
 		ref.dllFuncs.R_BeginFrame( false );
 		VectorCopy( rvp.vieworigin, refState.vieworg );
 		VectorCopy( rvp.viewangles, refState.viewangles );
+		/* Keep viewent posed with the camera each CapFaces present. */
+		if( clgame.viewent.model && clgame.viewent.model->type == mod_studio )
+		{
+			VectorCopy( rvp.vieworigin, clgame.viewent.origin );
+			VectorCopy( rvp.viewangles, clgame.viewent.angles );
+			VectorCopy( clgame.viewent.origin, clgame.viewent.curstate.origin );
+			VectorCopy( clgame.viewent.angles, clgame.viewent.curstate.angles );
+			clgame.viewent.curstate.animtime = (float)cl.time;
+		}
 		/* Lean/bootstrap: fill brush+studio draw list before GL_RenderFrame.
 		 * Fullphysics gcmap still needs this — netchan EmitEntities stays empty
 		 * with maxEntities=2 (c4a3 solid=0, 20261105-082525). */
@@ -15577,6 +15620,97 @@ qboolean GC_RenderNewGameWorldFrames( int count )
 				if( trace )
 					Con_Reportf( "Xash3D GameCube: newgame frame %d HUD begin\n", frame_trace );
 				CL_DrawHUD( CL_ACTIVE );
+				/* VGUI is skipped on GC — CapFaces listen team/class picker
+				 * without VGUI (Allies / Axis / Spectate). */
+				if( Sys_CheckParm( "-gcworldrender" ) && Sys_CheckParm( "-gcplayerinput" )
+					&& cls.state == ca_active && cls.signon == SIGNONS )
+				{
+					static int gc_team_sel = 0; /* 0 Allies, 1 Axis, 2 Spectate */
+					static qboolean gc_team_picked;
+					static qboolean gc_team_ui_logged;
+					static qboolean gc_team_fire_logged;
+					static int gc_team_ui_frames;
+					static u16 gc_team_prev_buttons;
+					rgba_t col_title = { 255, 220, 64, 255 };
+					rgba_t col_item = { 220, 220, 220, 255 };
+					rgba_t col_sel = { 80, 220, 120, 255 };
+					const char *teams[3] = { "1. Allies", "2. Axis", "3. Spectate" };
+					int ti;
+					u16 held = PAD_ButtonsHeld( 0 );
+					u16 pressed = (u16)( held & (u16)~gc_team_prev_buttons );
+
+					gc_team_prev_buttons = held;
+					if( !gc_team_picked )
+						gc_team_ui_frames++;
+					/* Headless probes have no pad — auto-confirm Allies after
+					 * the UI has been painted for a few presents. */
+					if( !gc_team_picked && gc_team_ui_frames >= 45 )
+						pressed |= PAD_BUTTON_A;
+					if( !gc_team_picked )
+					{
+						if( pressed & PAD_BUTTON_UP )
+							gc_team_sel = ( gc_team_sel + 2 ) % 3;
+						if( pressed & PAD_BUTTON_DOWN )
+							gc_team_sel = ( gc_team_sel + 1 ) % 3;
+						if( pressed & PAD_BUTTON_A )
+						{
+							gc_team_picked = true;
+							Con_Reportf( "Xash3D GameCube: team select %s\n",
+								teams[gc_team_sel] );
+							/* Mirror choice into userinfo for deathmatch SDK. */
+							if( gc_team_sel == 0 )
+								Cbuf_AddText( "setinfo team allies\n" );
+							else if( gc_team_sel == 1 )
+								Cbuf_AddText( "setinfo team axis\n" );
+							else
+								Cbuf_AddText( "setinfo team spectator\n" );
+							/* Prove fire path once after team pick (crowbar). */
+							Cbuf_AddText( "+attack;wait;wait;-attack\n" );
+						}
+						/* Flipper CapFaces: Con_DrawString may miss without the
+						 * credits font — paint FillRGBA bars (proven on HUD). */
+						ref.dllFuncs.FillRGBA( kRenderTransAdd, 16, 112, 280, 120,
+							20, 24, 40, 200 );
+						ref.dllFuncs.FillRGBA( kRenderTransAdd, 16, 112, 280, 4,
+							255, 200, 48, 255 );
+						for( ti = 0; ti < 3; ti++ )
+						{
+							const int y = 130 + ti * 28;
+							const qboolean sel = ( ti == gc_team_sel );
+
+							ref.dllFuncs.FillRGBA( kRenderTransAdd, 28, y, 240, 22,
+								sel ? 40 : 28, sel ? 120 : 36, sel ? 60 : 48,
+								sel ? 230 : 160 );
+						}
+						Con_DrawString( 24, 116, "Day of Defeat — Select Team", col_title );
+						for( ti = 0; ti < 3; ti++ )
+						{
+							Con_DrawString( 40, 134 + ti * 28, teams[ti],
+								( ti == gc_team_sel ) ? col_sel : col_item );
+						}
+						Con_DrawString( 24, 220, "D-Pad move / A confirm", col_item );
+						if( !gc_team_ui_logged )
+						{
+							Con_Reportf( "Xash3D GameCube: CapFaces team select UI\n" );
+							gc_team_ui_logged = true;
+						}
+					}
+					else
+					{
+						char picked[64];
+
+						Q_snprintf( picked, sizeof( picked ), "Team: %s",
+							teams[gc_team_sel] + 3 ); /* skip "N. " */
+						ref.dllFuncs.FillRGBA( kRenderTransAdd, 16, 4, 200, 18,
+							20, 24, 40, 200 );
+						Con_DrawString( 24, 6, picked, col_title );
+						if( !gc_team_fire_logged )
+						{
+							Con_Reportf( "Xash3D GameCube: CapFaces gameplay fire armed\n" );
+							gc_team_fire_logged = true;
+						}
+					}
+				}
 				if( !capfaces_hud_logged && Sys_CheckParm( "-gcworldrender" ))
 				{
 					Con_Reportf( "Xash3D GameCube: lean HUD on CapFaces Flipper\n" );

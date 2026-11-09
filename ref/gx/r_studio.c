@@ -3491,11 +3491,15 @@ void R_DrawViewModel( void )
 	cl_entity_t *view = tr.viewent;
 #if XASH_GAMECUBE
 	qboolean gx_studio = false;
-	const qboolean lean_vm = gEngfuncs.Sys_CheckParm( "-gcnewgame" )
-		&& !gEngfuncs.Sys_CheckParm( "-gcfullphysics" )
+	/* CapFaces listen (-gcworldrender+-gcplayerinput) has no -gcnewgame but
+	 * still binds crowbar on viewent for Flipper HUD/gameplay probes. */
+	const qboolean lean_vm = !gEngfuncs.Sys_CheckParm( "-gcfullphysics" )
 		&& view && view->model && view->model->type == mod_studio
 		&& view->model->cache.data
-		&& ( GC_UseLowResWorldProbe() || GC_UseGxWorldDraw() );
+		&& ( GC_UseLowResWorldProbe() || GC_UseGxWorldDraw() )
+		&& ( gEngfuncs.Sys_CheckParm( "-gcnewgame" )
+			|| ( gEngfuncs.Sys_CheckParm( "-gcworldrender" )
+				&& gEngfuncs.Sys_CheckParm( "-gcplayerinput" )));
 #endif
 
 	R_GatherPlayerLight( view );
