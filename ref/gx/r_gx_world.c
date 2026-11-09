@@ -2652,7 +2652,7 @@ static void R_GXSkyLoad( void )
 	char lower[32];
 	int i;
 
-	if( r_gx_sky_name[0] && !Q_stricmp( name, r_gx_sky_name ))
+	if( r_gx_sky_name[0] && !Q_stricmp( name, r_gx_sky_name ) && r_gx_sky_ready )
 		return;
 	Q_strncpy( r_gx_sky_name, name, sizeof( r_gx_sky_name ));
 	Q_strnlwr( name, lower, sizeof( lower ));
@@ -2688,6 +2688,13 @@ static void R_GXSkyLoad( void )
 	gEngfuncs.Con_Reportf( "Xash3D GameCube: sky %s loaded (6 x %dx%d CMPR)\n", name, R_GX_SKY_SIZE, R_GX_SKY_SIZE );
 }
 
+/* CapFaces lean / atlas: load this map's sky CMPR before CapFaces so the
+ * first Flipper presents are the skybox image, not a black/magenta clear. */
+void R_GXPrefetchMapSkybox( void )
+{
+	R_GXSkyLoad();
+}
+
 /* Only maps with sky faces get the box; indoor maps keep the clear colour. */
 static qboolean R_GXSkyVisible( void )
 {
@@ -2702,9 +2709,12 @@ static qboolean R_GXSkyVisible( void )
 
 		r_gx_sky_world = world;
 		Q_strncpy( r_gx_sky_world_name, world->name, sizeof( r_gx_sky_world_name ));
-		/* Surfaces can already be scratch-trimmed: then assume sky. */
-		r_gx_sky_world_has_sky = !world->surfaces;
-		for( i = 0; world->surfaces && i < world->numsurfaces; i++ )
+		/* CapFaces lean omits live surfaces — still draw the map skybox first.
+		 * Otherwise scan for SURF_DRAWSKY. Solo -gcworldrender always wants
+		 * the per-map sky image before CapFaces tris. */
+		r_gx_sky_world_has_sky = !world->surfaces || world->numsurfaces <= 0
+			|| gEngfuncs.Sys_CheckParm( "-gcworldrender" );
+		for( i = 0; !r_gx_sky_world_has_sky && world->surfaces && i < world->numsurfaces; i++ )
 		{
 			if( world->surfaces[i].flags & SURF_DRAWSKY )
 			{
@@ -2712,7 +2722,8 @@ static qboolean R_GXSkyVisible( void )
 				break;
 			}
 		}
-		gEngfuncs.Con_Reportf( "Xash3D GameCube: sky faces=%d on %s\n", r_gx_sky_world_has_sky, world->name );
+		gEngfuncs.Con_Reportf( "Xash3D GameCube: sky faces=%d on %s\n",
+			r_gx_sky_world_has_sky ? 1 : 0, world->name );
 	}
 	if( !r_gx_sky_world_has_sky )
 		return false;
@@ -4512,6 +4523,8 @@ static int R_GXDrawNewGameCapFacesImpl( void )
 		gEngfuncs.Con_Reportf( "Xash3D GameCube: CapFaces begin map=%s f=%d\n",
 			map_name, tr.framecount );
 	}
+	/* Skybox image first — per-map CMPR — then CapFaces world tris. */
+	R_GXPrefetchMapSkybox();
 	R_GXHotService();
 	R_GXSetupWorld3DState();
 
@@ -6466,6 +6479,7 @@ qboolean R_GXDrawStretchPic( float x, float y, float w, float h,
 	return false;
 }
 int R_GXDrawNewGameCapFaces( void ) { return 0; }
+void R_GXPrefetchMapSkybox( void ) {}
 qboolean R_GXStudioIsActive( void ) { return false; }
 qboolean R_GXTriApiIsActive( void ) { return false; }
 void R_GXEffectsTriBegin( void ) {}

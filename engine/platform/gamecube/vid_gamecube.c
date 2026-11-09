@@ -10644,10 +10644,13 @@ static qboolean GC_TryLoadCapFacesPack( model_t *mod )
 qboolean GC_PrefetchCapFacesWhileEdgesLive( model_t *mod )
 {
 #if XASH_GAMECUBE
+	extern void R_GXPrefetchMapSkybox( void );
 	int	si, edge = 0, tex = 0, plane = 0;
 
 	if( !Sys_CheckParm( "-gcworldrender" ) || Sys_CheckParm( "-gcconnect" ))
 		return false;
+	/* Per-map skybox image first — CapFaces pack second. */
+	R_GXPrefetchMapSkybox();
 	if( gc_newgame_cap_face_count > 0 )
 		return true;
 	/* Prefer offline CapFaces pack — no EDGE tip dependency. */
