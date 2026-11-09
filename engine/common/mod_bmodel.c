@@ -341,6 +341,8 @@ static size_t gc_bsp_surface_reserve;
 /* Set when the high slot is clamped for a compact (oversized) BSP image —
  * world-tex pack must not eat the medge16 expand window. */
 static qboolean gc_bsp_surface_reserve_clamped;
+/* CapFaces: live msurface table omitted — offline cf_*.gcp owns Flipper draw. */
+static qboolean gc_capfaces_lean_surfaces;
 /* Compact DoD: edges take the clipnodes+markfaces hole; texinfo (~196 KiB)
  * and leafs (~249 KiB on dod_flash) spill here when BSP holes are spent.
  * Paired with a matching cut to studio BSS so total MEM1 stays flat. */
@@ -1066,6 +1068,9 @@ static void Mod_GCRefreshClampedSurfaceSlot( model_t *mod, dbspmodel_t *bmod )
 	size_t cap, floor, hw;
 
 	if( !GC_MapLoadMemoryOpt() || !bmod->isworld || !need )
+		return;
+	/* CapFaces lean never materializes the live surface block. */
+	if( gc_capfaces_lean_surfaces )
 		return;
 	if( !gc_bsp_scratch_base || !GC_IsMapLoadBuffer( gc_bsp_scratch_base ))
 		return;
@@ -4666,6 +4671,21 @@ static void Mod_LoadMarkSurfaces( model_t *mod, dbspmodel_t *bmod )
 	msurface_t	**out = NULL;
 
 #if XASH_GAMECUBE
+	/* CapFaces lean: no live msurface table → no marksurface pointer table.
+	 * Leafs zero firstmarksurface; Flipper draws from cf_*.gcp. */
+	if( gc_capfaces_lean_surfaces && bmod->isworld )
+	{
+		mod->marksurfaces = NULL;
+		mod->nummarksurfaces = 0;
+		if( bmod->version == QBSP2_VERSION )
+			Mod_GCFreeBspPin( (void **)&bmod->markfaces32 );
+		else
+			Mod_GCFreeBspPin( (void **)&bmod->markfaces );
+		Con_Reportf( "Xash3D GameCube: CapFaces lean marksurfaces — skipped (%zu marks)\n",
+			bmod->nummarkfaces );
+		return;
+	}
+
 	{
 		const size_t mark_bytes = bmod->nummarkfaces * sizeof( *out );
 		gc_bsp_busy_range_t busy[4];
@@ -6414,6 +6434,21 @@ static void Mod_LoadSurfaces( model_t *mod, dbspmodel_t *bmod )
 	const size_t surf_bytes = bmod->numsurfaces * ( sizeof( msurface_t ) + sizeof( mextrasurf_t ));
 	byte         *surf_block = NULL;
 	qboolean     use_bsp_surface_scratch = GC_MapLoadMemoryOpt() && mod->type == mod_brush && bmod->isworld;
+
+	/* CapFaces lean: cf_*.gcp is the prebaked display-list path. Skipping the
+	 * live msurface table frees the map-load arena for leafs/nodes on maps
+	 * whose surface block alone is ~2–3 MiB (caen 16444 faces ≈ 2.89 MiB). */
+	if( gc_capfaces_lean_surfaces && bmod->isworld )
+	{
+		mod->surfaces = NULL;
+		mod->numsurfaces = 0;
+		Con_Reportf( "Xash3D GameCube: CapFaces lean surfaces — skipped live table (%zu faces / %s); pack owns Flipper draw\n",
+			bmod->numsurfaces, Q_memprint( surf_bytes ));
+		GC_MapLoadBufferLowerTailHighwater( 0 );
+		gc_bsp_surface_reserve = 0;
+		gc_bsp_surface_reserve_clamped = false;
+		return;
+	}
 
 	/* Surface output is populated while the original BSP face lump is still
 	 * being read. Keep it off the BSP scratch buffer until overlap handling is
@@ -8260,6 +8295,34 @@ static void Mod_GCEnsureBspLump( model_t *mod, dbspmodel_t *bmod, int lumpnum )
 
 static void Mod_GCReleaseBspSourceBuffer( model_t *mod, dbspmodel_t *bmod, byte *mod_base, size_t bufferlen );
 
+/*
+ * CapFaces preflight: BSP header already knows numsurfaces. When the live
+ * msurface+mextrasurf block cannot coexist with the retained BSP image in the
+ * map-load arena, prefer the offline cf_*.gcp path and free the arena instead
+ * of retain→FAIL→magenta (atlas caen/charlie/… arena_OOM).
+ */
+static qboolean Mod_GCCapFacesSurfacesWontFit( const dbspmodel_t *bmod, size_t capacity, size_t image )
+{
+	const size_t surf_bytes = Mod_GCSurfaceBlockBytes( bmod->numsurfaces );
+	const size_t need = surf_bytes ? ALIGN( surf_bytes, 32 ) + 32 : 0;
+	const size_t guard = 32u * 1024u;
+
+	if( !Sys_CheckParm( "-gcworldrender" ) || !bmod || !bmod->isworld || !need || !capacity )
+		return false;
+	if( image >= capacity )
+		return true;
+	return need + guard > capacity - image;
+}
+
+static void Mod_GCCapFacesPreflightReport( const dbspmodel_t *bmod, size_t capacity, size_t image, const char *decision )
+{
+	const size_t surf_bytes = Mod_GCSurfaceBlockBytes( bmod->numsurfaces );
+
+	Con_Reportf( "Xash3D GameCube: CapFaces BSP preflight surfaces=%zu surf_block=%s image=%s cap=%s → %s\n",
+		bmod->numsurfaces, Q_memprint( surf_bytes ), Q_memprint( image ),
+		Q_memprint( capacity ), decision );
+}
+
 static void Mod_GCReleaseGcmapPreSurfaceStaging( model_t *mod, dbspmodel_t *bmod, byte *mod_base, size_t bufferlen )
 {
 	byte *pinned;
@@ -8273,15 +8336,25 @@ static void Mod_GCReleaseGcmapPreSurfaceStaging( model_t *mod, dbspmodel_t *bmod
 		const size_t capacity = GC_IsMapLoadBuffer( mod_base )
 			? GC_MapLoadBufferCapacity() : bufferlen;
 		const size_t remaining = capacity > highwater ? capacity - highwater : 0;
+		const size_t image = gc_bsp_scratch_size ? gc_bsp_scratch_size : bufferlen;
+		const qboolean capfaces_lean = Mod_GCCapFacesSurfacesWontFit( bmod, capacity, image );
 
+		if( capfaces_lean )
+		{
+			/* Progressive CapFaces: drop live surface rebuild; pack owns Flipper.
+			 * Release staging so leafs/nodes can reuse the arena. */
+			gc_capfaces_lean_surfaces = true;
+			Mod_GCCapFacesPreflightReport( bmod, capacity, image, "LEAN (skip live surfaces, release staging)" );
+			/* Fall through to release — do not retain the 3 MiB image. */
+		}
 		/* c2a1: releasing/high-carving the 1.70 MiB BSP image to make room for
 		 * a 1.08 MiB surface table then carved nodes into that same tail.
 		 * When the remaining tail already holds the surfaces, keep the source
 		 * lumps where they are. Also retain when the surface slot is still
 		 * clamped: a full release wipes texinfo in the image (CapFaces t=0)
 		 * and forces a leafs-first scratch carve that steals the nodes hole
-		 * (dod_donner probes 111726). RefreshClampedSurfaceSlot still shrinks. */
-		if( surf_bytes > 900u * 1024u
+		 * (dod_donner probes 111726). CapFaces lean maps skip retain. */
+		else if( surf_bytes > 900u * 1024u
 			&& ( gc_bsp_surface_reserve_clamped
 				|| remaining >= surf_bytes + 8192u ))
 		{
@@ -8293,13 +8366,18 @@ static void Mod_GCReleaseGcmapPreSurfaceStaging( model_t *mod, dbspmodel_t *bmod
 				gc_bsp_surface_reserve_clamped ? " (clamped slot)" : "" );
 			return;
 		}
+		else
+			Mod_GCCapFacesPreflightReport( bmod, capacity, image, "FIT (normal surface load)" );
 	}
 	/* Retail menu New Game loads from the exact BSP staging buffer that contains
 	 * the validated face and lighting lumps. Keep it resident through surface
 	 * conversion and capture; dropping it here clears bmod->surfaces, then the
 	 * disc-reopen fallback can fail under the fragmented mount/file pool. The
-	 * scratch allocator already accounts for these source ranges. */
-	if(( Sys_CheckParm( "-gcfullphysics" ) || gc_faces_source_alias ) && bmod->surfaces
+	 * scratch allocator already accounts for these source ranges.
+	 * CapFaces lean must never take this retain path — the whole point is to
+	 * free the arena instead of keeping a 3 MiB image that blocks leafs. */
+	if( !gc_capfaces_lean_surfaces
+		&& ( Sys_CheckParm( "-gcfullphysics" ) || gc_faces_source_alias ) && bmod->surfaces
 		&& Mod_GCPointerInBuffer( bmod->surfaces, mod_base, bufferlen ))
 	{
 		gc_retain_bsp_source_buffer = true;
@@ -8310,7 +8388,8 @@ static void Mod_GCReleaseGcmapPreSurfaceStaging( model_t *mod, dbspmodel_t *bmod
 			Q_memprint( bufferlen ));
 		return;
 	}
-	if( !gc_retain_bsp_source_buffer
+	if( !gc_capfaces_lean_surfaces
+		&& !gc_retain_bsp_source_buffer
 		&& !( mod->texinfo && Mod_GCPointerInBuffer( mod->texinfo, mod_base, bufferlen ))
 		&& !( bmod->lightdata && Mod_GCPointerInBuffer( bmod->lightdata, mod_base, bufferlen ))
 		&& !Sys_CheckParm( "-gcfullphysics" ))
@@ -8825,8 +8904,16 @@ static void Mod_LoadLeafs( model_t *mod, dbspmodel_t *bmod )
 			for( int j = 0; j < 4; j++ )
 				out->ambient_sound_level[j] = in->ambient_level[j];
 
-			out->firstmarksurface = mod->marksurfaces + in->firstmarksurface;
-			out->nummarksurfaces = in->nummarksurfaces;
+			if( gc_capfaces_lean_surfaces )
+			{
+				out->firstmarksurface = NULL;
+				out->nummarksurfaces = 0;
+			}
+			else
+			{
+				out->firstmarksurface = mod->marksurfaces + in->firstmarksurface;
+				out->nummarksurfaces = in->nummarksurfaces;
+			}
 		}
 		else
 		{
@@ -8844,8 +8931,16 @@ static void Mod_LoadLeafs( model_t *mod, dbspmodel_t *bmod )
 			for( int j = 0; j < 4; j++ )
 				out->ambient_sound_level[j] = in->ambient_level[j];
 
-			out->firstmarksurface = mod->marksurfaces + in->firstmarksurface;
-			out->nummarksurfaces = in->nummarksurfaces;
+			if( gc_capfaces_lean_surfaces )
+			{
+				out->firstmarksurface = NULL;
+				out->nummarksurfaces = 0;
+			}
+			else
+			{
+				out->firstmarksurface = mod->marksurfaces + in->firstmarksurface;
+				out->nummarksurfaces = in->nummarksurfaces;
+			}
 		}
 
 		if( bmod->isworld )
@@ -10569,6 +10664,7 @@ static qboolean Mod_LoadBmodelLumps( model_t *mod, byte *mod_base, size_t buffer
 	gc_bsp_scratch_size = bufferlen;
 	gc_bsp_scratch_carve_high = 0;
 	gc_bsp_surface_reserve = 0;
+	gc_capfaces_lean_surfaces = false;
 #endif
 	bmod->version = header->version;	// share up global
 	if( isworld )
@@ -10653,6 +10749,13 @@ static qboolean Mod_LoadBmodelLumps( model_t *mod, byte *mod_base, size_t buffer
 						Q_memprint( image ), Q_memprint( cap ));
 					gc_bsp_surface_reserve = max_reserve;
 					gc_bsp_surface_reserve_clamped = true;
+					/* Know sizes now: CapFaces should not retain+FAIL later. */
+					if( Mod_GCCapFacesSurfacesWontFit( bmod, cap, image ))
+					{
+						gc_capfaces_lean_surfaces = true;
+						Mod_GCCapFacesPreflightReport( bmod, cap, image,
+							"LEAN (clamp foresight)" );
+					}
 				}
 			}
 			if( gc_bsp_surface_reserve )
@@ -10887,16 +10990,33 @@ static qboolean Mod_LoadBmodelLumps( model_t *mod, byte *mod_base, size_t buffer
 	}
 	/* Faces are still needed by Mod_LoadSurfaces. Materialize them while the
 	 * BSP source/staging buffer is available; releasing it first can leave the
-	 * New Game path with less free heap than this small lump requires. */
-	Mod_GCEnsureBspLump( mod, bmod, LUMP_FACES );
+	 * New Game path with less free heap than this small lump requires.
+	 * CapFaces lean foresight (clamp) already dropped the live table — skip
+	 * the face pin and surface-slot refresh so the arena stays free. */
+	if( !gc_capfaces_lean_surfaces )
+		Mod_GCEnsureBspLump( mod, bmod, LUMP_FACES );
+	else
+		Con_Reportf( "Xash3D GameCube: CapFaces lean — skip face ensure (%zu faces)\n",
+			bmod->numsurfaces );
 	Mod_GCFreeGcmapPreSurfaceLumps( bmod );
 	Mod_GCReleaseGcmapPreSurfaceStaging( mod, bmod, mod_base, bufferlen );
-	Mod_GCRefreshClampedSurfaceSlot( mod, bmod );
+	if( !gc_capfaces_lean_surfaces )
+		Mod_GCRefreshClampedSurfaceSlot( mod, bmod );
+	else
+	{
+		gc_bsp_surface_reserve = 0;
+		gc_bsp_surface_reserve_clamped = false;
+		GC_MapLoadBufferLowerTailHighwater( 0 );
+		Con_Reportf( "Xash3D GameCube: CapFaces lean — cleared surface high-slot for leafs/nodes\n" );
+	}
 	GC_MemSample( "pre-surfaces" );
-	if( bmod->numsurfaces && ( bmod->version == QBSP2_VERSION ? !bmod->surfaces32 : !bmod->surfaces ))
+	if( !gc_capfaces_lean_surfaces
+		&& bmod->numsurfaces
+		&& ( bmod->version == QBSP2_VERSION ? !bmod->surfaces32 : !bmod->surfaces ))
 		Host_Error( "Xash3D GameCube: missing BSP faces for %s (%zu faces) before surface load\n",
 			mod->name, bmod->numsurfaces );
-	Con_Reportf( "Xash3D GameCube: bmodel surfaces begin\n" );
+	Con_Reportf( "Xash3D GameCube: bmodel surfaces begin%s\n",
+		gc_capfaces_lean_surfaces ? " (CapFaces lean)" : "" );
 	GC_LoadingOverlayPulse();
 #endif
 	Mod_LoadSurfaces( mod, bmod );
