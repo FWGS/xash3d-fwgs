@@ -5365,7 +5365,8 @@ static void Mod_GCWorldPackLoad( const char *modelname, size_t surface_reserve )
 	 * BSP's embedded textures are decoded into MEM1 and produce misleading
 	 * transition-pressure fallbacks. */
 	if(( !GC_MenuRunsServer() && !Sys_CheckParm( "-gcnewgame" )
-		&& !Sys_CheckParm( "-gcmap" ))
+		&& !Sys_CheckParm( "-gcmap" )
+		&& !Sys_CheckParm( "-gccapfacessmoke" ))
 		|| Sys_CheckParm( "-gcnotexpacks" ))
 		return;
 	COM_FileBase( modelname, stem, sizeof( stem ));
@@ -7724,7 +7725,9 @@ void Mod_GameCubeFreeMallocSurfaces( model_t *mod )
 	/* Tip-critical changelevels: free() of a mis-tagged arena pointer can
 	 * hard-hang the guest. Detach and abandon the blocks so SpawnServer can
 	 * proceed; the process tip stays low until the next hop's arena release. */
-	if( GC_MemHeapFreeBytes() < ( 48 * 1024 ))
+	/* c0a0→c0a0a cleared at tip≈50KiB; c0a0a→c0a0b hung after
+	 * "free clipnodes" at tip≈113KiB — abandon earlier. */
+	if( GC_MemHeapFreeBytes() < ( 192 * 1024 ))
 	{
 		Con_Reportf( "Xash3D GameCube: FreeMallocSurfaces lean abandon tip=%s\n",
 			Q_memprint( GC_MemHeapFreeBytes() ) );

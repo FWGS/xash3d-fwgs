@@ -1052,6 +1052,7 @@ static qboolean gc_landmark3_configured;
 static qboolean gc_leanpvs_configured;
 static qboolean gc_fullphysics_configured;
 static qboolean gc_worldrender_configured;
+static qboolean gc_capfacessmoke_configured;
 static qboolean gc_worlddl_configured;
 static qboolean gc_tas_configured;
 static qboolean gc_dumpframes_configured;
@@ -1130,6 +1131,7 @@ static void GCube_LoadDiscBootOverrides( void )
 	gc_leanpvs_configured = false;
 	gc_fullphysics_configured = false;
 	gc_worldrender_configured = false;
+	gc_capfacessmoke_configured = false;
 	gc_worlddl_configured = false;
 	gc_tas_configured = false;
 	gc_dumpframes_configured = false;
@@ -1372,6 +1374,19 @@ static void GCube_LoadDiscBootOverrides( void )
 			{
 				gc_worldrender_configured = true;
 				SYS_Report( "Xash3D GameCube: disc boot override gcworldrender\n" );
+				continue;
+			}
+		}
+
+		/* Lost Coast CapFaces smoke: Source→GX packs, stub BSP loader hook. */
+		if( !Q_strnicmp( cursor, "gccapfacessmoke", 15 ))
+		{
+			char ch = cursor[15];
+			if( ch == '\0' || ch == '\r' || ch == '\n' || ch == ' ' || ch == '\t' )
+			{
+				gc_capfacessmoke_configured = true;
+				gc_worldrender_configured = true;
+				SYS_Report( "Xash3D GameCube: disc boot override gccapfacessmoke\n" );
 				continue;
 			}
 		}
@@ -1924,6 +1939,8 @@ int GCube_GetArgv( int in_argc, char **in_argv, char ***out_argv )
 		gc_argv[fake_argc++] = "-gcfullactors";
 	if( gc_worldrender_configured )
 		gc_argv[fake_argc++] = "-gcworldrender";
+	if( gc_capfacessmoke_configured )
+		gc_argv[fake_argc++] = "-gccapfacessmoke";
 	if( gc_worlddl_configured )
 		gc_argv[fake_argc++] = "-gcworlddl";
 	if( gc_smoke_map_configured )

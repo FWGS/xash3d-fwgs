@@ -435,6 +435,10 @@ static void GC_HandleConnectionChange( int port, u32 type, qboolean connected )
  * when Dolphin reports a connected (idle) controller in port 1. */
 static qboolean GC_ProbeRouteForcesSynthetic( void )
 {
+	/* -gctas owns the pad for automated look/move proofs even when lean-iso
+	 * also injects -gcplayerinput (pad probe 20261109-014719 never armed TAS). */
+	if( Sys_CheckParm( "-gctas" ))
+		return true;
 	/* -gcplayerinput: the menu route on real hardware, with a player. */
 	if( Sys_CheckParm( "-gcplayerinput" ))
 		return false;
@@ -444,6 +448,8 @@ static qboolean GC_ProbeRouteForcesSynthetic( void )
 
 qboolean GC_ShouldUseProbeInputFallback( void )
 {
+	if( Sys_CheckParm( "-gctas" ))
+		return true;
 	if( Sys_CheckParm( "-gcplayerinput" ))
 		return false;
 	/* Automated Dolphin probes do not receive real SI pad packets. */
@@ -505,6 +511,36 @@ static u16 GC_ProbeSyntheticHeldButtons( void )
 
 	if( !gc_probe_synthetic )
 		return 0;
+
+	/* DoD CapFaces listen / gcmap pad proofs: run -gctas without requiring
+	 * -gcnewgame (lean listen argv is -gclistenserver/-gcmap only). */
+	if( Sys_CheckParm( "-gctas" )
+		&& ( Sys_CheckParm( "-gclistenserver" ) || Sys_CheckParm( "-gcmap" )
+			|| Sys_CheckParm( "-gcworldrender" ))
+		&& !Sys_CheckParm( "-gcnewgame" ))
+	{
+		if( !SV_Active() || cls.state != ca_active || cls.signon != SIGNONS )
+		{
+			GC_TasResetPlayback();
+			GC_UpdateButtons( 0 );
+			return 0;
+		}
+		if( GC_TasTryLoad() || GC_TasComplete() )
+		{
+			unsigned short tas_held;
+
+			if( !gc_probe_action_logged )
+			{
+				gc_probe_action_logged = true;
+				Con_Reportf( "Xash3D GameCube: probe gameplay input begin\n" );
+			}
+			tas_held = GC_TasPollButtons();
+			if( GC_TasComplete() && !gc_probe_action_complete_logged )
+				gc_probe_action_complete_logged = true;
+			return tas_held;
+		}
+		return 0;
+	}
 
 	if( Sys_CheckParm( "-gcnewgame" ))
 	{

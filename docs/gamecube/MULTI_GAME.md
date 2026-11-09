@@ -10,6 +10,7 @@ a unique name. Shared media under `xash3d/` can hold multiple asset trees.
 |-------|----------------------------------------------------------|-----|
 | Half-Life 1 | `valve` | `OUT/bin/halflife1.dol` (alias `OUT/bin/boot.dol`) |
 | Day of Defeat | `dod` | `OUT/bin/dodgc.dol` |
+| Lost Coast CapFaces smoke | `lostcoast` | `OUT/bin/lostcoastgc.dol` (see Desktop `lostcoast-gc`) |
 
 Default builds remain HL1. Existing Swiss/ISO docs that mention `boot.dol` keep
 working for Half-Life.

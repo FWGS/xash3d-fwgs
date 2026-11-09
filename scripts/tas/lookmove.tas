@@ -1,0 +1,16 @@
+# DoD CapFaces pad free-look / walk proof (Dolphin-first)
+# Format: frames buttons stickX stickY cstickX cstickY
+# Stick +Y = forward in PADStatus; C-stick X/Y = look.
+
+# Settle after listen sign-on before driving axes.
+8 - 0 0 0 0
+# Walk forward
+48 - 0 96 0 0
+# Look right while walking
+32 - 0 64 80 0
+# Look left + slight pitch down
+32 - 0 48 -80 24
+# Strafe right
+24 - 80 0 0 0
+# Hold still so stills can catch the new eye
+16 - 0 0 0 0

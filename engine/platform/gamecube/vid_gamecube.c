@@ -10829,7 +10829,8 @@ qboolean GC_PrefetchCapFacesWhileEdgesLive( model_t *mod )
 	extern void R_GXPrefetchMapSkybox( void );
 	int	si, edge = 0, tex = 0, plane = 0;
 
-	if( !Sys_CheckParm( "-gcworldrender" ) || Sys_CheckParm( "-gcconnect" ))
+	if( ( !Sys_CheckParm( "-gcworldrender" ) && !Sys_CheckParm( "-gccapfacessmoke" ) )
+		|| Sys_CheckParm( "-gcconnect" ))
 		return false;
 	/* Per-map skybox image first — CapFaces pack second. */
 	GC_ApplyWorldspawnSkynameEarly( mod );
