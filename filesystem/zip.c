@@ -111,9 +111,18 @@ enum
 	ZIP_LOAD_CORRUPTED
 };
 
+#if XASH_GAMECUBE
+/* GameCube tip: bootstrap pk3 paths are short (maxlen ~39). MAX_SYSPATH (1024)
+ * per zip entry burned ~74 KiB for 76 files and pushed searchpaths 188 Kb vs
+ * memfix8 172 Kb — room denser CapFaces maps need. */
+#define GC_ZIP_NAME_LEN MAX_QPATH
+#else
+#define GC_ZIP_NAME_LEN MAX_SYSPATH
+#endif
+
 typedef struct zipfile_s
 {
-	char		name[MAX_SYSPATH];
+	char		name[GC_ZIP_NAME_LEN];
 	fs_offset_t	offset; // offset of local file header
 	fs_offset_t	size; //original file size
 	fs_offset_t	compressed_size; // compressed file size
