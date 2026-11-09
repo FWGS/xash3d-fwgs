@@ -3848,19 +3848,23 @@ static void Mod_SetupSubmodels( model_t *mod, dbspmodel_t *bmod )
 #endif
 		}
 
-		// sets the model flags
-		for( int j = 0; i != 0 && j < mod->nummodelsurfaces; j++ )
+		/* CapFaces lean: world has no live msurface table — skip conveyor /
+		 * transparent / liquid flag walks (pack owns Flipper; physics hulls OK). */
+		if( mod->surfaces )
 		{
-			msurface_t *surf = mod->surfaces + mod->firstmodelsurface + j;
+			for( int j = 0; i != 0 && j < mod->nummodelsurfaces; j++ )
+			{
+				msurface_t *surf = mod->surfaces + mod->firstmodelsurface + j;
 
-			if( FBitSet( surf->flags, SURF_CONVEYOR ))
-				SetBits( mod->flags, MODEL_CONVEYOR );
+				if( FBitSet( surf->flags, SURF_CONVEYOR ))
+					SetBits( mod->flags, MODEL_CONVEYOR );
 
-			if( FBitSet( surf->flags, SURF_TRANSPARENT ))
-				SetBits( mod->flags, MODEL_TRANSPARENT );
+				if( FBitSet( surf->flags, SURF_TRANSPARENT ))
+					SetBits( mod->flags, MODEL_TRANSPARENT );
 
-			if( FBitSet( surf->flags, SURF_DRAWTURB ))
-				SetBits( mod->flags, MODEL_LIQUID );
+				if( FBitSet( surf->flags, SURF_DRAWTURB ))
+					SetBits( mod->flags, MODEL_LIQUID );
+			}
 		}
 
 		if( i < mod->numsubmodels - 1 )

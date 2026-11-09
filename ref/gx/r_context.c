@@ -14,6 +14,9 @@ GNU General Public License for more details.
 */
 
 #include "r_local.h"
+#if XASH_GAMECUBE
+#include "../../engine/platform/gamecube/mem_gamecube.h"
+#endif
 
 gl_globals_t  tr;
 ref_speeds_t  r_stats;
@@ -56,6 +59,26 @@ static void Mod_BrushUnloadTextures( model_t *mod )
 {
 	gEngfuncs.Con_Printf( "Unloading world\n" );
 	tr.map_unload = true;
+
+#if XASH_GAMECUBE
+	/* Retail tram New Game hops arrive with tip≈20 KiB (probe 231709). Per-tex
+	 * GL_FreeTexture stalls there after "Unloading world". Clear slots only —
+	 * destination Mod_LoadWorld replaces the brush textures. */
+	if( GC_MemHeapFreeBytes() < 48u * 1024u )
+	{
+		gEngfuncs.Con_Reportf( "Xash3D GameCube: lean world tex unload tip=%s\n",
+			Q_memprint( GC_MemHeapFreeBytes() ));
+		for( int i = 0; i < mod->numtextures; i++ )
+		{
+			texture_t *tx = mod->textures[i];
+			if( !tx )
+				continue;
+			tx->gl_texturenum = 0;
+			tx->fb_texturenum = 0;
+		}
+		return;
+	}
+#endif
 
 	for( int i = 0; i < mod->numtextures; i++ )
 	{

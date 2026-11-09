@@ -1719,6 +1719,17 @@ edict_t *GAME_EXPORT SV_AllocEdict( void )
 
 	if( i >= GI->max_edicts )
 	{
+#if XASH_GAMECUBE
+		/* CapFaces Flipper: tip edict BSS stays at 460. Dense DoD maps
+		 * (caen ~621 ents) soft-skip decorative classes instead of FATAL —
+		 * pack owns world draw; remaining slots keep players/triggers. */
+		if( Sys_CheckParm( "-gcworldrender" ))
+		{
+			Con_Reportf( "Xash3D GameCube: CapFaces edict tip (%d) — soft-skip further spawns\n",
+				GI->max_edicts );
+			return NULL;
+		}
+#endif
 		Host_Error( "%s: no free edicts (max is %d)\n", __func__, GI->max_edicts );
 		return NULL;
 	}
@@ -5914,6 +5925,62 @@ static qboolean SV_GCMapEntityDiagVerbose( void )
 	return SV_GCMapSmokeRoute();
 }
 
+/* CapFaces progressive spawn: decorative ents are optional when Flipper draws
+ * from cf_*.gcp. Soft-skip them so dense maps fit the 460 tip edict BSS. */
+static qboolean SV_GCCapFacesOptionalEntity( const char *classname )
+{
+	if( COM_StringEmpty( classname ))
+		return false;
+	if( !Q_strcmp( classname, "func_wall" )
+		|| !Q_strcmp( classname, "func_illusionary" )
+		|| !Q_strcmp( classname, "func_wall_toggle" )
+		|| !Q_strcmp( classname, "ambient_generic" )
+		|| !Q_strcmp( classname, "infodecal" )
+		|| !Q_strcmp( classname, "env_sprite" )
+		|| !Q_strcmp( classname, "env_glow" )
+		|| !Q_strcmp( classname, "env_shooter" )
+		|| !Q_strcmp( classname, "env_explosion" )
+		|| !Q_strcmp( classname, "env_shake" )
+		|| !Q_strcmp( classname, "env_fade" )
+		|| !Q_strcmp( classname, "env_message" )
+		|| !Q_strcmp( classname, "env_beam" )
+		|| !Q_strcmp( classname, "env_laser" )
+		|| !Q_strcmp( classname, "env_bubbles" )
+		|| !Q_strcmp( classname, "light" )
+		|| !Q_strcmp( classname, "light_spot" )
+		|| !Q_strcmp( classname, "light_environment" )
+		|| !Q_strcmp( classname, "info_null" )
+		|| !Q_strcmp( classname, "info_target" )
+		|| !Q_strcmp( classname, "info_landmark" )
+		|| !Q_strcmp( classname, "multi_manager" )
+		|| !Q_strcmp( classname, "trigger_auto" )
+		|| !Q_strcmp( classname, "trigger_relay" )
+		|| !Q_strcmp( classname, "trigger_changetarget" )
+		|| !Q_strnicmp( classname, "cycler", 6 ))
+		return true;
+	return false;
+}
+
+/* Consume one `{ ... }` entity block without allocating an edict. */
+static qboolean SV_GCSkipBraceEntity( char **pfile )
+{
+	char token[2048];
+	int depth = 1;
+
+	if( !pfile || !*pfile )
+		return false;
+	while( depth > 0 )
+	{
+		if(( *pfile = COM_ParseFile( *pfile, token, sizeof( token ))) == NULL )
+			return false;
+		if( token[0] == '{' )
+			depth++;
+		else if( token[0] == '}' )
+			depth--;
+	}
+	return true;
+}
+
 /* G433: Replace policy-based entity inhibition with measured budgeting
  * Check if entity should be inhibited based on memory budget.
  * Returns true if entity should be inhibited. */
@@ -6236,6 +6303,9 @@ static void SV_LoadFromFile( const char *mapname, char *entities )
 	{
 		int inhibited = 0;
 		int entity_index = 0;
+#if XASH_GAMECUBE
+		int gc_cf_opt_skip = 0;
+#endif
 
 		// parse ents
 		while(( entities = COM_ParseFile( entities, token, sizeof( token ))) != NULL )
@@ -6259,6 +6329,15 @@ static void SV_LoadFromFile( const char *mapname, char *entities )
 			}
 			else ent = SV_AllocEdict();
 #if XASH_GAMECUBE
+			/* CapFaces tip: no free edict — skip remaining brace blocks. */
+			if( !ent )
+			{
+				if( !SV_GCSkipBraceEntity( &entities ))
+					Host_Error( "%s: CapFaces edict tip mid-entity\n", __func__ );
+				inhibited++;
+				entity_index++;
+				continue;
+			}
 			if( SV_GCMapEntityDiagVerbose() && entity_index >= 400 )
 				Con_Reportf( "Xash3D GameCube: entity alloc end=%d edict=%d\n",
 					entity_index, NUM_FOR_EDICT( ent ));
@@ -6334,6 +6413,21 @@ static void SV_LoadFromFile( const char *mapname, char *entities )
 			}
 
 #if XASH_GAMECUBE
+			/* Progressive CapFaces: drop decorative ents early so players /
+			 * triggers / doors keep tip slots on dense maps (caen 621>460). */
+			if( Sys_CheckParm( "-gcworldrender" )
+				&& SV_GCCapFacesOptionalEntity( SV_ClassName( ent )))
+			{
+				if( gc_cf_opt_skip < 12 )
+				{
+					Con_Reportf( "Xash3D GameCube: CapFaces soft-skip optional entity=%d class=%s\n",
+						entity_index - 1, SV_ClassName( ent ));
+				}
+				gc_cf_opt_skip++;
+				SV_FreeEdict( ent );
+				inhibited++;
+				continue;
+			}
 			if( SV_GCMapEntityDiagVerbose() && entity_index >= 64 && entity_index <= 90 )
 				Con_Reportf( "Xash3D GameCube: entity spawn call begin=%d class=%s\n",
 					entity_index - 1, SV_ClassName( ent ));

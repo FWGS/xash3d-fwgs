@@ -10726,15 +10726,17 @@ qboolean GC_BakeGcmapWorldRenderCapFaces( void )
 	if( !wmodel )
 		wmodel = cl.worldmodel;
 #endif
-	if( !wmodel || !wmodel->surfaces || wmodel->numsurfaces <= 0 )
+	/* CapFaces lean skips the live msurface table; offline pack is enough. */
+	prefetched = ( gc_newgame_cap_face_count > 0 );
+	if( !prefetched && wmodel && GC_TryLoadCapFacesPack( wmodel ))
+		prefetched = true;
+	if( !prefetched && ( !wmodel || !wmodel->surfaces || wmodel->numsurfaces <= 0 ))
 	{
 		Con_Reportf( "Xash3D GameCube: CapFaces bake skipped (no world surfaces)\n" );
 		return false;
 	}
-
-	prefetched = ( gc_newgame_cap_face_count > 0 );
-	if( !prefetched && GC_TryLoadCapFacesPack( wmodel ))
-		prefetched = true;
+	if( !wmodel )
+		return false;
 	if( prefetched )
 	{
 		int	si;
