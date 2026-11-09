@@ -91,6 +91,7 @@ static bool GCube_DVDReadSectors( sec_t sector, sec_t count, void *buffer );
 static qboolean GCube_MountDisc( void );
 static void GCube_EnsureFatMounted( void );
 static void GCube_LoadDiscBootOverrides( void );
+static void GCube_InjectLateDiscArgv( void );
 static qboolean GCube_FatHasGameData( void );
 /* Declared later; used when logging multi-game detection onto FAT. */
 void GCube_AppendSwissEvidence( const char *fmt, ... );
@@ -931,6 +932,10 @@ void GCube_Init( void )
 		Con_Reportf( "GameCube data directory: %s\n", xashdir );
 		GC_MemWatch( "platform chdir" );
 		GCube_LoadDiscBootOverrides();
+		/* GetArgv often runs before nested ISO9660 fopen works, so disc
+		 * overrides land here. Inject missing -gc* flags into host.argv
+		 * (aliases gc_argv) before Host_Init's -gcmap / CapFaces path. */
+		GCube_InjectLateDiscArgv();
 		GC_MemWatch( "platform boot overrides" );
 	}
 	else if( xashdir[0] )
@@ -1174,6 +1179,15 @@ static void GCube_LoadDiscBootOverrides( void )
 		file = fopen( fatcfg, "r" );
 		if( file )
 			SYS_Report( "Xash3D GameCube: FAT boot cfg %s\n", fatcfg );
+	}
+	/* libiso9660 can mount before nested fopen works; warm with the same
+	 * HasActiveGameAssets probe Platform_Init uses, then open gamecube.cfg.
+	 * Without this, GetArgv builds a menu argv and CapFaces smoke never runs. */
+	if( !file && gc_dvd_mounted )
+	{
+		char warm[MAX_SYSPATH];
+		Q_snprintf( warm, sizeof( warm ), GC_DVD_DEVICE ":/" GC_DATA_PATH );
+		(void)GCube_HasActiveGameAssets( warm );
 	}
 	if( !file && gc_dvd_mounted )
 	{
@@ -1919,6 +1933,57 @@ void GCube_PollSwissQuit( void )
 	SYS_Report( "Xash3D GameCube: swissquit → Sys_Quit (evidence complete)\n" );
 	Sys_Quit( "swiss evidence complete" );
 #endif
+}
+
+/*
+ * GetArgv may miss gamecube.cfg when ISO9660 nested fopen is not ready yet.
+ * Platform_Init reloads cfg after GetBasePath; append any missing -gc* tokens
+ * onto host.argv (which aliases gc_argv) before Host_Init consumes -gcmap.
+ */
+static void GCube_InjectLateDiscArgv( void )
+{
+	int n;
+	int cap = (int)( sizeof( gc_argv ) / sizeof( gc_argv[0] ));
+	int injected = 0;
+
+	if( !host.argv || host.argc < 1 )
+		return;
+	/* Only patch when host.argv is our static builder table. */
+	if( host.argv != (const char **)gc_argv && host.argv != (char **)gc_argv )
+		return;
+
+	n = host.argc;
+	if( n < 0 || n >= cap - 1 )
+		return;
+
+	if( gc_capfacessmoke_configured && !Sys_CheckParm( "-gccapfacessmoke" ) && n + 1 < cap )
+	{
+		gc_argv[n++] = "-gccapfacessmoke";
+		injected++;
+	}
+	if( gc_worldrender_configured && !Sys_CheckParm( "-gcworldrender" ) && n + 1 < cap )
+	{
+		gc_argv[n++] = "-gcworldrender";
+		injected++;
+	}
+	if( gc_smoke_map_configured && gc_smoke_map[0] && !Sys_CheckParm( "-gcmap" ) && n + 2 < cap )
+	{
+		gc_argv[n++] = "-gcmap";
+		gc_argv[n++] = gc_smoke_map;
+		injected++;
+	}
+	if( gc_dumpframes_configured && !Sys_CheckParm( "-gcdumpframes" ) && n + 1 < cap )
+	{
+		gc_argv[n++] = "-gcdumpframes";
+		injected++;
+	}
+
+	if( !injected )
+		return;
+
+	gc_argv[n] = NULL;
+	host.argc = n;
+	SYS_Report( "Xash3D GameCube: late disc argv inject argc=%d (+%d)\n", n, injected );
 }
 
 int GCube_GetArgv( int in_argc, char **in_argv, char ***out_argv )

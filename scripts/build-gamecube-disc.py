@@ -1741,6 +1741,18 @@ def build_world_texture_packs(
 	for bsp in sorted((source / "maps").glob("*.bsp")):
 		if map_stems is not None and bsp.stem.lower() not in map_stems:
 			continue
+		rel = f"media/wt_{bsp.stem.lower()}.gct"
+		# Preserve host-prebaked GCWT packs (e.g. Lost Coast Source→GX bake).
+		# Re-deriving from a GoldSrc stub BSP would clobber CMPR world textures.
+		prebaked = source / rel
+		if prebaked.is_file() and prebaked.stat().st_size >= 100_000 and prebaked.read_bytes()[:4] == GC_WT_MAGIC:
+			dest = output / rel
+			dest.parent.mkdir(parents=True, exist_ok=True)
+			shutil.copy2(prebaked, dest)
+			overlays.append((rel, dest))
+			total += dest.stat().st_size
+			print(f"  world textures: preserve prebaked {rel} ({dest.stat().st_size} bytes)")
+			continue
 		data = bsp.read_bytes()
 		off, _size = struct.unpack_from("<ii", data, 4 + 2 * 8)
 		count = struct.unpack_from("<i", data, off)[0]
@@ -1780,7 +1792,6 @@ def build_world_texture_packs(
 		)
 		first = len(head) + len(table)
 		pad = bytes(-first & 31)
-		rel = f"media/wt_{bsp.stem.lower()}.gct"
 		(output / rel).write_bytes(head + table + pad + bytes(blob))
 		overlays.append((rel, output / rel))
 		total += len(blob)

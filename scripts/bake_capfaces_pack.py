@@ -545,11 +545,24 @@ def build_capfaces_packs(
 		stem = bsp.stem.lower()
 		if map_stems is not None and stem not in map_stems:
 			continue
+		rel = f"media/cf_{stem}.gcp"
+		dest = output / rel
+		# Preserve host-prebaked CapFaces (Source→GX Lost Coast smoke, etc.).
+		# GoldSrc re-bake of a stub BSP would emit an empty/near-empty pack.
+		prebaked = source / rel
+		if (
+			prebaked.is_file()
+			and prebaked.stat().st_size >= 40_000
+			and prebaked.read_bytes()[:4] == GC_CF_MAGIC
+		):
+			dest.parent.mkdir(parents=True, exist_ok=True)
+			dest.write_bytes(prebaked.read_bytes())
+			print(f"  CapFaces pack {stem}: preserve prebaked {dest.stat().st_size} bytes")
+			overlays.append((rel, dest))
+			continue
 		# cache by bsp sha + bake recipe (spatial coverage bump)
 		digest = hashlib.sha256(bsp.read_bytes() + b"|spatial-v1").hexdigest()[:16]
 		cached = cache / f"{stem}-{digest}.gcp"
-		rel = f"media/cf_{stem}.gcp"
-		dest = output / rel
 		if cached.is_file():
 			dest.write_bytes(cached.read_bytes())
 		else:

@@ -961,24 +961,24 @@ void SCR_UpdateScreen( void )
 					"Xash3D GameCube: G159 ca_active presents=%u gx=%d\n",
 					g159_ca_active_presents, GC_UseGxWorldDraw() ? 1 : 0 );
 			}
-			if( !gc_hud_lean_logged && cls.signon == SIGNONS
-				&& !GC_IsFrameBudgetProbeActive() )
+			if( cls.signon == SIGNONS && !GC_IsFrameBudgetProbeActive() )
 			{
 				/* CapFaces listen used to skip HUD entirely (solo 20261107-123717).
-				 * Lean quality-0 sheets are whitelisted in pfnSPR_Load — draw them. */
+				 * Lean quality-0 sheets are whitelisted in pfnSPR_Load — draw them
+				 * every Flipper present, not once for the log marker. */
 				if( Sys_CheckParm( "-gcworldrender" ) && GC_UseGxWorldDraw() )
 				{
-					ref.dllFuncs.R_BeginFrame( false );
 					ref.dllFuncs.R_AllowFog( false );
 					ref.dllFuncs.R_Set2DMode( true );
 					CL_DrawHUD( CL_ACTIVE );
-					Con_Reportf( "Xash3D GameCube: lean HUD on CapFaces Flipper\n" );
+					if( !gc_hud_lean_logged )
+					{
+						Con_Reportf( "Xash3D GameCube: lean HUD on CapFaces Flipper\n" );
+						gc_hud_lean_logged = true;
+					}
 					ref.dllFuncs.R_AllowFog( true );
-					Platform_SetTimer( 0.0f );
-					ref.dllFuncs.R_EndFrame();
-					gc_hud_lean_logged = true;
 				}
-				else
+				else if( !gc_hud_lean_logged )
 				{
 				ref.dllFuncs.R_BeginFrame( false );
 				ref.dllFuncs.R_AllowFog( false );

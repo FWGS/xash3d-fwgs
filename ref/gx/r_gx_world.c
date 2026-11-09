@@ -6120,7 +6120,17 @@ qboolean R_GXDrawStretchPic( float x, float y, float w, float h,
 
 	gxt = R_GXBindTexnum( (unsigned)texnum, true );
 	if( !gxt )
+	{
+		static int gc_hud_stretch_bind_fail_logs;
+		if( gc_hud_stretch_bind_fail_logs < 8 )
+		{
+			gEngfuncs.Con_Reportf(
+				"Xash3D GameCube: GX HUD StretchPic bind fail tex=%d size=%.0fx%.0f fails=%d\n",
+				texnum, w, h, r_gx_hud_bind_fails );
+			gc_hud_stretch_bind_fail_logs++;
+		}
 		return false;
+	}
 
 	alpha = vid.alpha;
 	if( alpha < 0 )

@@ -15468,8 +15468,15 @@ qboolean GC_RenderNewGameWorldFrames( int count )
 	SetBits( rvp.flags, RF_DRAW_WORLD );
 	GC_EnsureDrawViewmodelCvar();
 	Q_snprintf( old_drawviewmodel, sizeof( old_drawviewmodel ), "%s", Cvar_VariableString( "r_drawviewmodel" ));
-	/* G149: dump/landmark path may force viewmodel on for DumpFrames evidence. */
-	Cvar_Set( "r_drawviewmodel", gc_force_draw_viewmodel ? "1" : "0" );
+	/* G149: dump/landmark path may force viewmodel on for DumpFrames evidence.
+	 * CapFaces listen gameplay also needs the first-person weapon mesh. */
+	{
+		const qboolean want_vm = gc_force_draw_viewmodel
+			|| ( Sys_CheckParm( "-gcworldrender" ) && Sys_CheckParm( "-gcplayerinput" )
+				&& cls.state == ca_active && cls.signon == SIGNONS );
+
+		Cvar_Set( "r_drawviewmodel", want_vm ? "1" : "0" );
+	}
 
 	{
 		static int render_log;
@@ -15511,20 +15518,26 @@ qboolean GC_RenderNewGameWorldFrames( int count )
 			qboolean saved_prepped = cl.video_prepped;
 			/* Frame 2 hung after GL_RenderFrame before HUD begin under
 			 * fullphysics (probe 094817). Skip lean HUD until presents settle.
-			 * CapFaces listen also Gurus in HUD SPR_Load / redraw after frame 1
-			 * (solo 20261107-123606) — keep Flipper world without HUD. */
+			 * CapFaces listen used to skip entirely (Guru on fat SPR_Load);
+			 * tip-safe gc_* sheets + no-BBA tip headroom make Flipper HUD safe. */
 			const qboolean skip_hud = ( Sys_CheckParm( "-gcfullphysics" )
-					&& GC_GetNewGamePresentCount() < 8 )
-				|| ( Sys_CheckParm( "-gcworldrender" ) && GC_UseGxWorldDraw() );
+					&& GC_GetNewGamePresentCount() < 8 );
 
 			if( R_GXWorldDrewThisFrame() && !skip_hud )
 			{
+				static qboolean capfaces_hud_logged;
+
 				cl.video_prepped = true;
 				ref.dllFuncs.R_AllowFog( false );
 				ref.dllFuncs.R_Set2DMode( true );
 				if( trace )
 					Con_Reportf( "Xash3D GameCube: newgame frame %d HUD begin\n", frame_trace );
 				CL_DrawHUD( CL_ACTIVE );
+				if( !capfaces_hud_logged && Sys_CheckParm( "-gcworldrender" ))
+				{
+					Con_Reportf( "Xash3D GameCube: lean HUD on CapFaces Flipper\n" );
+					capfaces_hud_logged = true;
+				}
 				GC_WatchdogMark( "newgame frame HUD done" );
 				if( trace )
 					Con_Reportf( "Xash3D GameCube: newgame frame %d HUD done\n", frame_trace );
