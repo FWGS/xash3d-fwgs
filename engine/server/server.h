@@ -670,6 +670,8 @@ void GC_LeanLandmarkProbePlantAmmo( void );
 void GC_LeanLandmarkRestore( void );
 void SV_GCReportHopRider( const char *when );
 void SV_GCHopRiderTick( void );
+/* -gcautohop: next campaign hop from current map (immediate ExecChangeLevel nest). */
+qboolean SV_GCAutohopLookupNext( const char *from, const char **to, const char **landmark );
 void GC_LeanLandmarkGrantWeapons( void );
 void GC_LeanLandmarkGrantWeaponsAfterPutInServer( void );
 void GC_LeanEnsureWeaponCombatReady( edict_t *player );

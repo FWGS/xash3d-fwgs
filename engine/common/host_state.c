@@ -235,26 +235,37 @@ void COM_Frame( double time )
 			Host_SetState( STATE_RUNFRAME, true );
 			break;
 		case STATE_CHANGELEVEL:
+#if XASH_GAMECUBE
+			/* Retail autohop: denser maps hang in deferred studio/ucmd after
+			 * MAP_READY before HopRider can COM_ChangeLevel (nextstate guard
+			 * also blocks mid-CHANGELEVEL). Nest the next ladder hop(s) here
+			 * before RUNFRAME — chain until the ladder ends or nest cap. */
+			{
+				int nest;
+
+				for( nest = 0; nest < 64; nest++ )
+				{
+					const char *hop_to = NULL;
+					const char *hop_lm = NULL;
+
+					SV_ExecChangeLevel();
+					Host_SetState( STATE_RUNFRAME, true );
+					if( !Sys_CheckParm( "-gcautohop" ) || !sv.name[0]
+						|| !SV_GCAutohopLookupNext( sv.name, &hop_to, &hop_lm ))
+						break;
+					Con_Reportf( "Xash3D GameCube: autohop ExecChangeLevel force %s → %s\n",
+						sv.name, hop_to );
+					Q_strncpy( GameState->levelName, hop_to, sizeof( GameState->levelName ));
+					Q_strncpy( GameState->landmarkName, hop_lm, sizeof( GameState->landmarkName ));
+					GameState->loadGame = true;
+					GameState->backgroundMap = false;
+					GameState->newGame = false;
+					Host_SetState( STATE_CHANGELEVEL, false );
+				}
+			}
+#else
 			SV_ExecChangeLevel();
 			Host_SetState( STATE_RUNFRAME, true );
-#if XASH_GAMECUBE
-			/* Retail autohop: c1a0c MAP_READY is emitted inside ExecChangeLevel,
-			 * so COM_ChangeLevel from that marker is a no-op (nextstate!=RUNFRAME).
-			 * Host then hangs in deferred studio/ucmd before HopRider t=8
-			 * (probe 20261109-081627). Nest the UC hop before RUNFRAME. */
-			if( Sys_CheckParm( "-gcautohop" ) && sv.name[0]
-				&& !Q_stricmp( sv.name, "c1a0c" ))
-			{
-				Con_Reportf( "Xash3D GameCube: autohop ExecChangeLevel force c1a0c → c1a1\n" );
-				Q_strncpy( GameState->levelName, "c1a1", sizeof( GameState->levelName ));
-				Q_strncpy( GameState->landmarkName, "c1a0catoc1a1", sizeof( GameState->landmarkName ));
-				GameState->loadGame = true;
-				GameState->backgroundMap = false;
-				GameState->newGame = false;
-				Host_SetState( STATE_CHANGELEVEL, false );
-				SV_ExecChangeLevel();
-				Host_SetState( STATE_RUNFRAME, true );
-			}
 #endif
 			break;
 		case STATE_RUNFRAME:

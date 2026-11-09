@@ -2655,6 +2655,109 @@ static double gc_hop_check_due[2];
 static vec3_t gc_hop_view_angles;
 static qboolean gc_hop_view_pending;
 
+/* Campaign autohop ladder (AM → end). Immediate nest after ExecChangeLevel
+ * uses this; HopRider keeps short dwells only for early AM maps that still
+ * simulate before the post-MAP_READY hang. */
+typedef struct
+{
+	const char *from;
+	const char *to;
+	const char *landmark;
+	float after; /* HopRider dwell; 0 = immediate / nest-only */
+} gc_autohop_t;
+
+static const gc_autohop_t gc_autohop_ladder[] = {
+	{ "c1a0", "c1a0d", "c1a0toc1a0d", 12.0f },
+	{ "c1a0d", "c1a0a", "c1a0dtoa", 10.0f },
+	{ "c1a0a", "c1a0b", "c1a0atob", 10.0f },
+	{ "c1a0b", "c1a0c", "c1a0btoc", 10.0f },
+	{ "c1a0c", "c1a1", "c1a0catoc1a1", 0.0f },
+	{ "c1a1", "c1a1a", "c1a1", 0.0f },
+	{ "c1a1a", "c1a1f", "c1a1atof", 0.0f },
+	{ "c1a1f", "c1a1b", "c1a1b", 0.0f },
+	{ "c1a1b", "c1a1c", "c1a1bc", 0.0f },
+	{ "c1a1c", "c1a2", "a1a2", 0.0f },
+	{ "c1a2", "c1a2a", "one", 0.0f },
+	{ "c1a2a", "c1a2b", "ab", 0.0f },
+	{ "c1a2b", "c1a3", "c1a2_to_c1a3", 0.0f },
+	{ "c1a3", "c1a4", "c1a3toc1a4", 0.0f },
+	{ "c1a4", "c1a4k", "c1a4toc1a4k", 0.0f },
+	{ "c1a4k", "c1a4b", "c1a4k_to_c1a4b", 0.0f },
+	{ "c1a4b", "c1a4i", "c1a4btoi1", 0.0f },
+	{ "c1a4i", "c1a4g", "c1a4itoc1a4g", 0.0f },
+	{ "c1a4g", "c1a4j", "c1a4gtoc2a1", 0.0f },
+	{ "c1a4j", "c2a1", "c1a4-c2a1", 0.0f },
+	{ "c2a1", "c2a2", "c2a1-c2a2", 0.0f },
+	{ "c2a2", "c2a2a", "c2a2c2a2a", 0.0f },
+	{ "c2a2a", "c2a2b1", "c2a2ac2a2b1", 0.0f },
+	{ "c2a2b1", "c2a2c", "c2a2b1c2a2c", 0.0f },
+	{ "c2a2c", "c2a2d", "c2a2cc2a2d", 0.0f },
+	{ "c2a2d", "c2a2e", "c2a2dc2a2e", 0.0f },
+	{ "c2a2e", "c2a2f", "c2a2ec2a2f", 0.0f },
+	{ "c2a2f", "c2a2g", "c2a2fc2a2g", 0.0f },
+	{ "c2a2g", "c2a3", "c2a2/3", 0.0f },
+	{ "c2a3", "c2a3a", "c2a3/a", 0.0f },
+	{ "c2a3a", "c2a3b", "c2a3a/b", 0.0f },
+	{ "c2a3b", "c2a3c", "c2a3b/c", 0.0f },
+	{ "c2a3c", "c2a3d", "c2a3cd", 0.0f },
+	{ "c2a3d", "c2a3e", "c2a3de", 0.0f },
+	{ "c2a3e", "c2a4", "c2a3d4", 0.0f },
+	{ "c2a4", "c2a4a", "lm1", 0.0f },
+	{ "c2a4a", "c2a4b", "lm2", 0.0f },
+	{ "c2a4b", "c2a4c", "lm1", 0.0f },
+	{ "c2a4c", "c2a4d", "lm2", 0.0f },
+	{ "c2a4d", "c2a4e", "lm1", 0.0f },
+	{ "c2a4e", "c2a4g", "c2a4e-c2a4g", 0.0f },
+	{ "c2a4g", "c2a5", "c2a4gc2a5", 0.0f },
+	{ "c2a5", "c2a5w", "c2a5-c2a5w", 0.0f },
+	{ "c2a5w", "c2a5x", "wtoxa", 0.0f },
+	{ "c2a5x", "c2a5a", "c2a5a", 0.0f },
+	{ "c2a5a", "c2a5b", "c2a5b", 0.0f },
+	{ "c2a5b", "c2a5c", "c2a5_c", 0.0f },
+	{ "c2a5c", "c2a5d", "c2a5d", 0.0f },
+	{ "c2a5d", "c2a5e", "c2a5e", 0.0f },
+	{ "c2a5e", "c2a5f", "c2a5e/f", 0.0f },
+	{ "c2a5f", "c2a5g", "c2a5ftog", 0.0f },
+	{ "c2a5g", "c3a1", "c2a5g/c3a1", 0.0f },
+	{ "c3a1", "c3a1a", "a1a1a", 0.0f },
+	{ "c3a1a", "c3a1b", "a1a2", 0.0f },
+	{ "c3a1b", "c3a2e", "c3a1c3a2", 0.0f },
+	{ "c3a2e", "c3a2", "c3a2e", 0.0f },
+	{ "c3a2", "c3a2a", "c3a2f", 0.0f },
+	{ "c3a2a", "c3a2b", "c3a2_ab", 0.0f },
+	{ "c3a2b", "c3a2c", "c3a2_bc", 0.0f },
+	{ "c3a2c", "c3a2d", "c3a2_cd", 0.0f },
+	{ "c3a2d", "c4a1", "c3a2_c4a1", 0.0f },
+	{ "c4a1", "c4a2", "c4a2", 0.0f },
+	{ "c4a2", "c4a2a", "c4a2_0a", 0.0f },
+	{ "c4a2a", "c4a2b", "c4a2_ab", 0.0f },
+	{ "c4a2b", "c4a1a", "c4a1a", 0.0f },
+	{ "c4a1a", "c4a1b", "c4a1b", 0.0f },
+	{ "c4a1b", "c4a1c", "c4a1c", 0.0f },
+	{ "c4a1c", "c4a1d", "c4a1d", 0.0f },
+	{ "c4a1d", "c4a1e", "c4a1e", 0.0f },
+	{ "c4a1e", "c4a1f", "c4a1f", 0.0f },
+	{ "c4a1f", "c4a3", "c4a3", 0.0f },
+	{ "c4a3", "c5a1", "c4a3toc5a1", 0.0f },
+};
+
+qboolean SV_GCAutohopLookupNext( const char *from, const char **to, const char **landmark )
+{
+	size_t hi;
+
+	if( !from || !from[0] || !to || !landmark )
+		return false;
+	for( hi = 0; hi < sizeof( gc_autohop_ladder ) / sizeof( gc_autohop_ladder[0] ); hi++ )
+	{
+		if( Q_stricmp( from, gc_autohop_ladder[hi].from ))
+			continue;
+		*to = gc_autohop_ladder[hi].to;
+		*landmark = gc_autohop_ladder[hi].landmark;
+		return true;
+	}
+	return false;
+}
+
 /* Re-check 3 s and 10 s into the new level: still riding, still moving. */
 void SV_GCHopRiderTick( void )
 {
@@ -2685,20 +2788,11 @@ void SV_GCHopRiderTick( void )
 			Cbuf_AddText( "sv_cheats 1\ngive weapon_9mmhandgun\ngive weapon_crowbar\n" );
 		}
 	}
-	/* Autohop campaign ladder on the server tick — input-path calls can miss
-	 * after MAP_READY when deferred studio/audio stalls the client pad poll
-	 * (c1a0c never forced → c1a1, 20261109-070000). */
+	/* Autohop campaign ladder on the server tick — backup when nest did not
+	 * run (maps with after>0 still dwell here). */
 	if( Sys_CheckParm( "-gcautohop" ) && sv.name[0] )
 	{
 		static struct { char from[16]; qboolean done; } hop;
-		typedef struct { const char *from; const char *to; const char *landmark; float after; } hop_t;
-		static const hop_t ladder[] = {
-			{ "c1a0", "c1a0d", "c1a0toc1a0d", 12.0f },
-			{ "c1a0d", "c1a0a", "c1a0dtoa", 10.0f },
-			{ "c1a0a", "c1a0b", "c1a0atob", 10.0f },
-			{ "c1a0b", "c1a0c", "c1a0btoc", 10.0f },
-			{ "c1a0c", "c1a1", "c1a0catoc1a1", 0.0f },
-		};
 		size_t hi;
 
 		if( Q_stricmp( hop.from, sv.name ))
@@ -2708,16 +2802,17 @@ void SV_GCHopRiderTick( void )
 		}
 		if( !hop.done )
 		{
-			for( hi = 0; hi < sizeof( ladder ) / sizeof( ladder[0] ); hi++ )
+			for( hi = 0; hi < sizeof( gc_autohop_ladder ) / sizeof( gc_autohop_ladder[0] ); hi++ )
 			{
-				if( Q_stricmp( sv.name, ladder[hi].from ))
+				if( Q_stricmp( sv.name, gc_autohop_ladder[hi].from ))
 					continue;
-				if( sv.time <= (double)ladder[hi].after )
+				if( sv.time <= (double)gc_autohop_ladder[hi].after )
 					break;
 				hop.done = true;
 				Con_Reportf( "Xash3D GameCube: autohop force changelevel %s → %s landmark=%s t=%.1f\n",
-					ladder[hi].from, ladder[hi].to, ladder[hi].landmark, sv.time );
-				COM_ChangeLevel( ladder[hi].to, ladder[hi].landmark, false );
+					gc_autohop_ladder[hi].from, gc_autohop_ladder[hi].to,
+					gc_autohop_ladder[hi].landmark, sv.time );
+				COM_ChangeLevel( gc_autohop_ladder[hi].to, gc_autohop_ladder[hi].landmark, false );
 				break;
 			}
 		}
