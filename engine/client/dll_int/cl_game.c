@@ -406,9 +406,19 @@ void SPR_AdjustSize( float *x, float *y, float *w, float *h )
 	{
 		/* CapFaces lean HUD can redraw before GetScreenInfo seeds scrInfo —
 		 * treat HUD coords as already in refState pixels (probe hud15: inf geom). */
-		clgame.scrInfo.iWidth = refState.width > 0 ? refState.width : 320;
-		clgame.scrInfo.iHeight = refState.height > 0 ? refState.height : 240;
+		static int gc_scrinfo_seed_logs;
+		clgame.scrInfo.iWidth = refState.width > 0 ? refState.width : 640;
+		clgame.scrInfo.iHeight = refState.height > 0 ? refState.height : 480;
+		if( gc_scrinfo_seed_logs < 4 )
+		{
+			Con_Reportf( "Xash3D GameCube: SPR_AdjustSize seeded scrInfo %dx%d (ref %dx%d)\n",
+				clgame.scrInfo.iWidth, clgame.scrInfo.iHeight, refState.width, refState.height );
+			gc_scrinfo_seed_logs++;
+		}
 	}
+
+	if( refState.width <= 0 || refState.height <= 0 )
+		return;
 
 	if( refState.width == clgame.scrInfo.iWidth && refState.height == clgame.scrInfo.iHeight )
 		return;

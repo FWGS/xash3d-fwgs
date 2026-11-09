@@ -15564,6 +15564,14 @@ qboolean GC_RenderNewGameWorldFrames( int count )
 				static qboolean capfaces_hud_logged;
 
 				cl.video_prepped = true;
+				/* CapFaces Flipper HUD can run before client GetScreenInfo —
+				 * seed scrInfo so SPR_AdjustSize does not emit inf geometry. */
+				if( clgame.scrInfo.iWidth <= 0 || clgame.scrInfo.iHeight <= 0 )
+				{
+					clgame.scrInfo.iSize = sizeof( clgame.scrInfo );
+					clgame.scrInfo.iWidth = refState.width > 0 ? refState.width : 640;
+					clgame.scrInfo.iHeight = refState.height > 0 ? refState.height : 480;
+				}
 				ref.dllFuncs.R_AllowFog( false );
 				ref.dllFuncs.R_Set2DMode( true );
 				if( trace )
