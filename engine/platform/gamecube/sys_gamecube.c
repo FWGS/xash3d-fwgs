@@ -1019,12 +1019,14 @@ qboolean GCube_GetBasePath( char *buf, size_t buflen )
 	return false;
 }
 
-static char *gc_argv[64];
+static char *gc_argv[128];
 static char gc_smoke_map[MAX_QPATH];
 static char gc_listenserver_map[MAX_QPATH];
 static char gc_dumpeye_arg[96]; /* "x,y,z,pitch,yaw" for CapFaces spawn stills */
 static char gc_connect_addr[64];
 static char gc_net_ip_override[16];
+static char gc_net_mask_override[16];
+static char gc_net_gw_override[16];
 static char gc_phase_test[32];
 static char gc_changelevel_map[MAX_QPATH];
 static char gc_landmark_name[MAX_QPATH];
@@ -1050,6 +1052,7 @@ static qboolean gc_landmark3_configured;
 static qboolean gc_leanpvs_configured;
 static qboolean gc_fullphysics_configured;
 static qboolean gc_worldrender_configured;
+static qboolean gc_worlddl_configured;
 static qboolean gc_tas_configured;
 static qboolean gc_dumpframes_configured;
 static qboolean gc_swissquit_configured;
@@ -1090,6 +1093,7 @@ static qboolean gc_modeltrace_configured;
 static qboolean gc_net_configured;
 static qboolean gc_netfast_configured;
 static qboolean gc_netstatic_configured;
+static qboolean gc_headless_configured;
 static qboolean gc_net_ip_configured;
 
 static void GCube_LoadDiscBootOverrides( void )
@@ -1107,7 +1111,7 @@ static void GCube_LoadDiscBootOverrides( void )
 	gc_connect_configured = false;
 	gc_connect_addr[0] = '\0';
 	gc_net_ip_configured = false;
-	gc_net_ip_override[0] = '\0';
+	gc_net_ip_override[0] = gc_net_mask_override[0] = gc_net_gw_override[0] = '\0';
 	gc_newgame_configured = false;
 	gc_menu_newgame_configured = false;
 	gc_retail_newgame_configured = false;
@@ -1126,6 +1130,7 @@ static void GCube_LoadDiscBootOverrides( void )
 	gc_leanpvs_configured = false;
 	gc_fullphysics_configured = false;
 	gc_worldrender_configured = false;
+	gc_worlddl_configured = false;
 	gc_tas_configured = false;
 	gc_dumpframes_configured = false;
 	gc_swissquit_configured = false;
@@ -1133,6 +1138,7 @@ static void GCube_LoadDiscBootOverrides( void )
 	gc_net_configured = false;
 	gc_netfast_configured = false;
 	gc_netstatic_configured = false;
+	gc_headless_configured = false;
 	gc_profile_configured = false;
 	gc_nolivepvs_configured = false;
 	gc_nonativetex_configured = false;
@@ -1207,46 +1213,32 @@ static void GCube_LoadDiscBootOverrides( void )
 			continue;
 		}
 
-		/* Early BBA / eth2sp1 bring-up (soft-fail if no adapter).
-		 * Optional: netstatic [a.b.c.d] for dual-guest / TapServer peers. */
-		if( !Q_strnicmp( cursor, "netstatic", 9 ))
+		/* Native adapters use DHCP with `net`, or explicit IPv4 settings. */
+		if( !Q_strnicmp( cursor, "netstatic", 9 )
+			&& ( cursor[9] == '\0' || cursor[9] == '\r' || cursor[9] == '\n'
+				|| cursor[9] == ' ' || cursor[9] == '\t' ))
 		{
-			char ch = cursor[9];
-			if( ch == '\0' || ch == '\r' || ch == '\n' || ch == ' ' || ch == '\t' )
+			char extra;
+			int fields = sscanf( cursor + 9, "%15s %15s %15s %c",
+				gc_net_ip_override, gc_net_mask_override, gc_net_gw_override, &extra );
+			gc_net_configured = true;
+			gc_netstatic_configured = true;
+			gc_net_ip_configured = fields >= 1;
+			if( fields == 2 || fields > 3 )
 			{
-				gc_net_configured = true;
-				gc_netstatic_configured = true;
-				if( ch == ' ' || ch == '\t' )
-				{
-					char *ip = cursor + 9;
-					size_t iplen;
-					while( *ip == ' ' || *ip == '\t' )
-						ip++;
-					iplen = strlen( ip );
-					while( iplen > 0 && ( ip[iplen - 1] == '\r' || ip[iplen - 1] == '\n'
-						|| ip[iplen - 1] == ' ' || ip[iplen - 1] == '\t' ))
-					{
-						ip[--iplen] = '\0';
-					}
-					if( iplen > 0 && iplen < sizeof( gc_net_ip_override )
-						&& !strchr( ip, '/' ) && !strchr( ip, ' ' ))
-					{
-						Q_strncpy( gc_net_ip_override, ip, sizeof( gc_net_ip_override ));
-						gc_net_ip_configured = true;
-						SYS_Report( "Xash3D GameCube: disc boot override netstatic %s\n",
-							gc_net_ip_override );
-					}
-					else
-					{
-						SYS_Report( "Xash3D GameCube: disc boot override netstatic (BBA/eth2sp1)\n" );
-					}
-				}
-				else
-				{
-					SYS_Report( "Xash3D GameCube: disc boot override netstatic (BBA/eth2sp1)\n" );
-				}
-				continue;
+				/* Preserve failure instead of silently using lab defaults. */
+				Q_strncpy( gc_net_ip_override, "invalid", sizeof( gc_net_ip_override ));
+				SYS_Report( "GameCube: netstatic needs IP, or IP MASK GATEWAY.\n" );
 			}
+			SYS_Report( "Xash3D GameCube: disc boot override netstatic %s %s %s\n",
+				gc_net_ip_override, gc_net_mask_override, gc_net_gw_override );
+			continue;
+		}
+		if( !Q_strnicmp( cursor, "headless", 8 ) )
+		{
+			/* Optional third Cube used solely as a server. */
+			gc_headless_configured = true;
+			continue;
 		}
 		if( !Q_strnicmp( cursor, "netfast", 7 ))
 		{
@@ -1380,6 +1372,18 @@ static void GCube_LoadDiscBootOverrides( void )
 			{
 				gc_worldrender_configured = true;
 				SYS_Report( "Xash3D GameCube: disc boot override gcworldrender\n" );
+				continue;
+			}
+		}
+
+		/* CapFaces GX display lists (denser DoD maps). */
+		if( !Q_strnicmp( cursor, "gcworlddl", 9 ))
+		{
+			char ch = cursor[9];
+			if( ch == '\0' || ch == '\r' || ch == '\n' || ch == ' ' || ch == '\t' )
+			{
+				gc_worlddl_configured = true;
+				SYS_Report( "Xash3D GameCube: disc boot override gcworlddl\n" );
 				continue;
 			}
 		}
@@ -1920,6 +1924,8 @@ int GCube_GetArgv( int in_argc, char **in_argv, char ***out_argv )
 		gc_argv[fake_argc++] = "-gcfullactors";
 	if( gc_worldrender_configured )
 		gc_argv[fake_argc++] = "-gcworldrender";
+	if( gc_worlddl_configured )
+		gc_argv[fake_argc++] = "-gcworlddl";
 	if( gc_smoke_map_configured )
 	{
 		gc_argv[fake_argc++] = "-gcmap";
@@ -2036,6 +2042,22 @@ int GCube_GetArgv( int in_argc, char **in_argv, char ***out_argv )
 	{
 		gc_argv[fake_argc++] = "-gcnetip";
 		gc_argv[fake_argc++] = gc_net_ip_override;
+	}
+	if( gc_net_mask_override[0] )
+	{
+		gc_argv[fake_argc++] = "-gcnetmask";
+		gc_argv[fake_argc++] = gc_net_mask_override;
+	}
+	if( gc_net_gw_override[0] )
+	{
+		gc_argv[fake_argc++] = "-gcnetgw";
+		gc_argv[fake_argc++] = gc_net_gw_override;
+	}
+	if( gc_headless_configured )
+		gc_argv[fake_argc++] = "-gcheadless";
+	if( ( gc_listenserver_configured || gc_connect_configured ) && !gc_headless_configured )
+	{
+		gc_argv[fake_argc++] = "-gcplayerinput";
 	}
 	if( gc_profile_configured )
 		gc_argv[fake_argc++] = "-gcprofile";

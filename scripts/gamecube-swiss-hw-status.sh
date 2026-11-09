@@ -54,7 +54,7 @@ for name in /run/media/tim/*; do
 		fi
 		echo -n "$b "
 		found=1
-		for f in "$name/xash3d/valve/logs/swiss-evidence.txt" "$name/swiss-evidence.txt"; do
+		for f in "$name/xash3d/dod/logs/swiss-evidence.txt" "$name/xash3d/valve/logs/swiss-evidence.txt" "$name/swiss-evidence.txt"; do
 			[[ -f "$f" ]] && echo -n "[evidence:$f] "
 		done
 	;;

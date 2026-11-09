@@ -28,14 +28,15 @@ qboolean GC_TasTryLoad( void );
 /* True when a script is loaded and ready to drive synthetic pad. */
 qboolean GC_TasActive( void );
 
-/* Advance one host frame while ca_active+SIGNONS; returns held pad mask. */
+/* Poll once per host frame while ca_active+SIGNONS; returns held pad mask.
+ * Sticks and active state stay on that frame until the next poll. */
 unsigned short GC_TasPollButtons( void );
 
 /* Current segment sticks (0 if inactive / complete). */
 void GC_TasGetSticks( signed char *stick_x, signed char *stick_y,
 	signed char *cstick_x, signed char *cstick_y );
 
-/* Script finished (or inactive). */
+/* True after polling the neutral frame following the final script frame. */
 qboolean GC_TasComplete( void );
 
 /* Reset playback cursor (e.g. reconnect before signon). */

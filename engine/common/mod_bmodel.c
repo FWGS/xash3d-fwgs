@@ -3124,6 +3124,21 @@ static void Mod_SetParent( model_t *mod, mnode_t *node, mnode_t *parent )
 			else
 			{
 #if XASH_GAMECUBE
+				/* CapFaces denser maps tip-corrupt node/leaf links; offline cf_
+				 * packs do not need a complete parent walk — skip the dangling child. */
+				if( Sys_CheckParm( "-gcworldrender" ))
+				{
+					static int gc_parent_skip_logged;
+
+					if( gc_parent_skip_logged < 4 )
+					{
+						Con_Reportf(
+							"Xash3D GameCube: CapFaces skip dangling parent child %p (%s)\n",
+							(void *)cur, mod->name );
+						gc_parent_skip_logged++;
+					}
+					continue;
+				}
 				if( !used_static )
 #endif
 				{
@@ -8772,19 +8787,33 @@ static void Mod_LoadLeafs( model_t *mod, dbspmodel_t *bmod )
 		if( out->contents != CONTENTS_EMPTY && out->nummarksurfaces > 0
 			&& out->firstmarksurface )
 		{
-			/* Tip-safe dense maps (c2a3/c2a5): pin-missed dleaf can leave
-			 * garbage nummarksurfaces; unbounded loop hung Dolphin until
-			 * SIGTERM (probes 20261108-115922 / 121023). Clamp to remaining
-			 * marksurface slots and skip bad pointers. */
+			/* Tip-safe dense maps (c2a3/c2a5 / dod_avalanche): pin-missed
+			 * dleaf can leave garbage nummarksurfaces; unbounded loop hung
+			 * Dolphin until SIGTERM (probes 20261108-115922 / 121023).
+			 * Clamp to remaining marksurface slots and skip bad pointers.
+			 * Rate-limit OSReport — avalanche ~5k leaves with per-leaf warns
+			 * stalled LoadLeafs mid-map (fly 20261108-172740). */
 			int marks_left = mod->nummarksurfaces
 				- (int)( out->firstmarksurface - mod->marksurfaces );
 			int nmarks = out->nummarksurfaces;
+			static int gc_leaf_ms_bad_logged;
+			static int gc_leaf_ms_clamp_logged;
+
+			if( i <= 1 )
+			{
+				gc_leaf_ms_bad_logged = 0;
+				gc_leaf_ms_clamp_logged = 0;
+			}
 
 			if( marks_left < 0 || out->firstmarksurface < mod->marksurfaces
 				|| out->firstmarksurface >= mod->marksurfaces + mod->nummarksurfaces )
 			{
-				Con_Reportf( S_WARN "Mod_LoadLeafs: leaf #%i bad marksurface ptr (n=%i) — skip underwater\n",
-					i, nmarks );
+				if( gc_leaf_ms_bad_logged < 8 )
+				{
+					Con_Reportf( S_WARN "Mod_LoadLeafs: leaf #%i bad marksurface ptr (n=%i) — skip underwater\n",
+						i, nmarks );
+					gc_leaf_ms_bad_logged++;
+				}
 				out->nummarksurfaces = 0;
 				out->firstmarksurface = NULL;
 			}
@@ -8792,8 +8821,12 @@ static void Mod_LoadLeafs( model_t *mod, dbspmodel_t *bmod )
 			{
 				if( nmarks > marks_left )
 				{
-					Con_Reportf( S_WARN "Mod_LoadLeafs: leaf #%i clamp marksurfaces %i→%i\n",
-						i, nmarks, marks_left );
+					if( gc_leaf_ms_clamp_logged < 8 )
+					{
+						Con_Reportf( S_WARN "Mod_LoadLeafs: leaf #%i clamp marksurfaces %i→%i\n",
+							i, nmarks, marks_left );
+						gc_leaf_ms_clamp_logged++;
+					}
 					nmarks = marks_left;
 					out->nummarksurfaces = nmarks;
 				}
@@ -8811,7 +8844,21 @@ static void Mod_LoadLeafs( model_t *mod, dbspmodel_t *bmod )
 	}
 
 	if( bmod->isworld && mod->leafs[0].contents != CONTENTS_SOLID )
+	{
+#if XASH_GAMECUBE
+		/* Tip-parked leafs can be wiped under denser DoD CapFaces (avalanche).
+		 * Offline cf_ packs do not need accurate leaf0 — force SOLID and continue. */
+		if( Sys_CheckParm( "-gcworldrender" ))
+		{
+			Con_Reportf(
+				"Xash3D GameCube: CapFaces tolerate leaf0 contents=%d (force SOLID)\n",
+				mod->leafs[0].contents );
+			mod->leafs[0].contents = CONTENTS_SOLID;
+		}
+		else
+#endif
 		Host_Error( "%s: Map %s has leaf 0 is not CONTENTS_SOLID\n", __func__, mod->name );
+	}
 
 	// do some final things for world
 	if( bmod->isworld && Mod_CheckWaterAlphaSupport( mod, bmod ))
@@ -9010,6 +9057,16 @@ static void Mod_LoadClipnodes( model_t *mod, dbspmodel_t *bmod )
 			if( !bmod->clipnodes )
 				Host_Error( "%s: missing clipnodes for newgame %s\n", __func__, mod->name );
 			gc_clipnodes_scratch_block = false;
+#if XASH_DODGC_NETWORK
+			/* Player movement must survive the renderer reusing BSP scratch. */
+			if( bmod->numclipnodes <= GC_STATIC_CLIPNODE_CAPACITY )
+			{
+				owned = gc_static_clipnodes;
+				gc_clipnodes_static_block = true;
+				Con_Reportf( "GameCube DoD: collision nodes pinned bytes=%u\n", (unsigned)clip_sz );
+			}
+			else
+#endif
 			owned = (mclipnode16_t *)malloc( clip_sz );
 			if( !owned )
 			{
@@ -9256,6 +9313,7 @@ static void Mod_LoadVisibility( model_t *mod, dbspmodel_t *bmod )
 		char mapbase[MAX_QPATH];
 		qboolean g341_retain = false;
 
+		mapbase[0] = '\0';
 		if( mod->name && mod->name[0] )
 		{
 			COM_FileBase( mod->name, mapbase, sizeof( mapbase ));
@@ -9274,12 +9332,25 @@ static void Mod_LoadVisibility( model_t *mod, dbspmodel_t *bmod )
 				g341_retain = true;
 		}
 
+		/* DoD CapFaces Flipper (-gcworldrender dod_*): MarkVisible skipped —
+		 * leave vis on disc (external lump). Avalanche alone is ~216 KiB tip
+		 * that stomps denser leaf/marksurface parks. HL1 -gcworldrender that
+		 * still live-walks keeps vis. */
+		const qboolean dod_capfaces_novis =
+			Sys_CheckParm( "-gcworldrender" )
+			&& mapbase[0] && !Q_strnicmp( mapbase, "dod_", 4 );
+
 		if( GC_MapLoadMemoryOpt() && mod->type == mod_brush && bmod->isworld
 		    && !Sys_CheckParm( "-gcfullphysics" )
 		    && !g341_retain
-		    && ( Sys_CheckParm( "-gcnewgame" ) || !Sys_CheckParm( "-gcworldrender" )))
+		    && ( Sys_CheckParm( "-gcnewgame" )
+				|| !Sys_CheckParm( "-gcworldrender" )
+				|| dod_capfaces_novis ))
 		{
-			if( Sys_CheckParm( "-gcnewgame" ))
+			if( dod_capfaces_novis && !Sys_CheckParm( "-gcnewgame" ))
+				Con_Reportf( "Xash3D GameCube: external vis on disc (DoD CapFaces NoPVS) %s\n",
+					Q_memprint( bmod->visdatasize ));
+			else if( Sys_CheckParm( "-gcnewgame" ))
 				Con_Reportf( "Xash3D GameCube: G325 skipping world visdata for lean newgame (%s)\n",
 					Q_memprint( bmod->visdatasize ));
 			else
@@ -10045,6 +10116,8 @@ static void Mod_LoadLighting( model_t *mod, dbspmodel_t *bmod )
 				/* Harness/retail gate still keys the historical disc-bind token. */
 				Con_Reportf( "Xash3D GameCube: G154 disc lightmap bind size=%s (ARAM bake-only)\n",
 					Q_memprint( bmod->lightdatasize ));
+				GCube_AppendSwissEvidence( "G154 disc lightmap bind size=%s (ARAM bake-only)",
+					Q_memprint( bmod->lightdatasize ));
 				/* CapFaces prefetch ran before this bind (lm_real=0). Rebake
 				 * LM tiles now while surfaces + lightofs are still valid. */
 				if( Mod_GCWantFlipperDiscLightmaps() )
@@ -10070,6 +10143,8 @@ static void Mod_LoadLighting( model_t *mod, dbspmodel_t *bmod )
 					mod->surfaces[i].samples = mod->lightdata + ( lightofs / bmod->lightmap_samples );
 			}
 			Con_Reportf( "Xash3D GameCube: G154 disc lightmap bind size=%s (bake-only)\n",
+				Q_memprint( bmod->lightdatasize ));
+			GCube_AppendSwissEvidence( "G154 disc lightmap bind size=%s (bake-only)",
 				Q_memprint( bmod->lightdatasize ));
 			return;
 		}

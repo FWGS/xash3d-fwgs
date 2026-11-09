@@ -76,7 +76,7 @@ qboolean SV_IsStaticPacketEntities( const entity_state_t *ents )
 	return ents == gc_singleplayer_packet_entities;
 }
 
-static qboolean SV_IsStaticListenClients( const sv_client_t *clients )
+qboolean SV_IsStaticListenClients( const sv_client_t *clients )
 {
 	return clients == gc_listen_clients;
 }

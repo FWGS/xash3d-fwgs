@@ -49,7 +49,12 @@ static qboolean Mem_GCMenuIdleSoftFail( void )
 
 #define MEM_SMALL_MAX UINT8_MAX
 #if XASH_GAMECUBE
+#if XASH_DODGC_NETWORK
+/* Leave the general heap available for two HUDs and native Ethernet. */
+#define GC_FS_ARENA_SIZE (128u * 1024u)
+#else
 #define GC_FS_ARENA_SIZE (512u * 1024u)
+#endif
 #define GC_FS_ARENA_MIN (2u * 1024u)
 #endif
 
@@ -896,7 +901,12 @@ void *_Mem_Realloc( poolhandle_t poolptr, void *data, size_t size, qboolean clea
 		if( size == oldsize )
 			return data;
 		#if XASH_GAMECUBE
-		if( Mem_IsArenaBlock( pool, mem ) || GC_BootArenaOwns( mem ))
+		if( Mem_IsArenaBlock( pool, mem ) || GC_BootArenaOwns( mem )
+			|| ( !Q_stricmp( pool->name, "FileSystem Pool" ) && pool->gc_arena
+				&& size >= GC_FS_ARENA_MIN
+				&& ( ( pool->gc_arena_offset + 31u ) & ~(size_t)31u ) <= pool->gc_arena_size
+				&& sizeof( memheader_t ) + size + 1 <= pool->gc_arena_size
+					- ( ( pool->gc_arena_offset + 31u ) & ~(size_t)31u ) ))
 		{
 			void *newdata = _Mem_Alloc( poolptr, size, false, filename, fileline );
 			if( !newdata )

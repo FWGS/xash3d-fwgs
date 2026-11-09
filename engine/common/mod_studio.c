@@ -1346,6 +1346,20 @@ void GC_ReportQualityProfile( const char *stage )
 	Con_Reportf( "Xash3D GameCube: quality profile stage=%s gc_quality=%d name=%s low_memory=%d hud=%s audio=%s lightmaps=%s overlay=%s purpose=%s\n",
 		stage ? stage : "unknown", quality, profile, XASH_LOW_MEMORY ? 1 : 0,
 		hud, audio, lightmaps, overlay, purpose );
+	/* One-shot Swiss FAT row for retail gate (video-init + release profile). */
+	if( quality == 1 && stage && !Q_stricmp( stage, "video-init" ))
+	{
+		static qboolean swiss_quality_logged;
+
+		if( !swiss_quality_logged )
+		{
+			swiss_quality_logged = true;
+			GCube_AppendSwissEvidence(
+				"quality profile stage=%s gc_quality=%d name=%s low_memory=%d hud=%s audio=%s lightmaps=%s overlay=%s purpose=%s",
+				stage, quality, profile, XASH_LOW_MEMORY ? 1 : 0,
+				hud, audio, lightmaps, overlay, purpose );
+		}
+	}
 }
 
 #endif /* XASH_GAMECUBE */
@@ -1863,7 +1877,10 @@ void Mod_GCUploadDeferredStudioSkins( void )
 
 	if( Host_IsDedicated() )
 		return;
-	if( !GC_IsNewGameWorldReady() && !Sys_CheckParm( "-gcnewgame" ))
+	/* Direct -gcnewgame and menu playstart both need post-tip soft skins;
+	 * WorldReady alone can lag the first presents after changelevel. */
+	if( !GC_IsNewGameWorldReady() && !Sys_CheckParm( "-gcnewgame" )
+		&& !Sys_CheckParm( "-gcmenuplaystart" ))
 		return;
 	if( sv.name[0] && Q_stricmp( last_map, sv.name ))
 	{

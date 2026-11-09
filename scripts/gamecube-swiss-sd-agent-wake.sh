@@ -11,6 +11,8 @@ prev="$(lsblk -nb -o NAME,SIZE,TRAN,RM,HOTPLUG,TYPE 2>/dev/null | md5sum | awk '
 evidence_on_mount() {
 	local m="$1" f
 	for f in \
+		"$m/xash3d/dod/logs/swiss-evidence.txt" \
+		"$m/dod/logs/swiss-evidence.txt" \
 		"$m/xash3d/valve/logs/swiss-evidence.txt" \
 		"$m/valve/logs/swiss-evidence.txt" \
 		"$m/swiss-evidence.txt"

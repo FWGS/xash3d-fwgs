@@ -233,6 +233,40 @@ void R_GXBeginDumpAnimFrame( void )
 	r_gx_g221_world_clear_done = false;
 }
 static int r_gx_cap_generation = -1;
+/* CapFaces GX display lists (-gcworlddl): record LM emit once per generation,
+ * CallDispList on later frames. Denser DoD maps spend the tip budget on BSP
+ * parks; Flipper replay avoids re-walking CapFaces CPU emit. */
+#ifndef GC_GX_CAP_DL_BYTES
+#define GC_GX_CAP_DL_BYTES ( 192u * 1024u )
+#endif
+/* Tip listen cannot memalign a CapFaces DL after map arm — keep a BSS fallback
+ * so -gcworlddl still CallDispList (384 faces ≈ ≤96 KiB of GX cmds). */
+#ifndef GC_GX_CAP_DL_BSS_BYTES
+/* Pack hydrate streams from disc (no ~81 KiB FS_LoadFile). CapFaces emit
+ * needs ~66–100 KiB of GX cmds for 384 faces — keep headroom. */
+#define GC_GX_CAP_DL_BSS_BYTES ( 128u * 1024u )
+#endif
+static byte r_gx_cap_dl_bss[GC_GX_CAP_DL_BSS_BYTES] __attribute__(( aligned( 32 )));
+static void *r_gx_cap_dl;
+static u32 r_gx_cap_dl_cap;
+static u32 r_gx_cap_dl_bytes;
+static int r_gx_cap_dl_gen = -1;
+static int r_gx_cap_dl_drawn;
+static qboolean r_gx_cap_dl_recording;
+
+/* Pin CapFaces DL to BSS only — early memalign(192K) at R_Init starved
+ * FS_LoadFile of media/cf_*.gcp (~81 KiB) and forced live EDGE prefetch. */
+qboolean R_GXReserveCapDispList( void )
+{
+	if( r_gx_cap_dl && r_gx_cap_dl_cap > 0 )
+		return true;
+	r_gx_cap_dl = r_gx_cap_dl_bss;
+	r_gx_cap_dl_cap = GC_GX_CAP_DL_BSS_BYTES;
+	gEngfuncs.Con_Reportf(
+		"Xash3D GameCube: CapFaces display list BSS bytes=%u\n",
+		(unsigned)GC_GX_CAP_DL_BSS_BYTES );
+	return true;
+}
 /* G367: CapFaces begin/end once per map (not tr.framecount<=3). Dual-hop
  * denser dests often enter CapFaces after frame 3 and skipped the markers. */
 static char r_gx_capfaces_begin_map[64];
@@ -487,8 +521,11 @@ static void R_GXReserveHudPool( void )
 /* Called at the end of R_Init, while MEM1 still has room. */
 void R_GXReserveHudPoolEarly( void )
 {
-	/* Defer until the first HUD bind. Reserving at R_Init raced the intro
-	 * cinematic's 150 KiB GX surface and produced a black valve.avi. */
+	/* Defer HUD slabs until the first HUD bind. Reserving at R_Init raced the
+	 * intro cinematic's 150 KiB GX surface and produced a black valve.avi.
+	 * CapFaces GX DL can take heap now (or pin BSS) before map tip. */
+	if( gEngfuncs.Sys_CheckParm( "-gcworlddl" ))
+		(void)R_GXReserveCapDispList();
 }
 
 /*
@@ -3434,6 +3471,11 @@ static int R_GXEmitFace( const msurface_t *surf, model_t *world, int slot )
 						g207_logged = true;
 						gEngfuncs.Con_Reportf(
 							"Xash3D GameCube: G219 Flipper LM on EDGE/TEX (boost*3 + TEV*2)\n" );
+						{
+							extern void GCube_AppendSwissEvidence( const char *fmt, ... );
+							GCube_AppendSwissEvidence(
+								"G219 Flipper LM on EDGE/TEX (boost*3 + TEV*2)" );
+						}
 					}
 				}
 			}
@@ -4416,6 +4458,11 @@ static int R_GXDrawNewGameCapFacesImpl( void )
 		r_gx_lm_atlas_checked = false;
 		r_gx_lm_atlas_available = false;
 		r_gx_cap_generation = gen;
+		/* CapFaces rebake invalidates any recorded display list. */
+		r_gx_cap_dl_bytes = 0;
+		r_gx_cap_dl_gen = -1;
+		r_gx_cap_dl_drawn = 0;
+		r_gx_cap_dl_recording = false;
 	}
 
 	RI.currentmodel = world;
@@ -4468,6 +4515,9 @@ static int R_GXDrawNewGameCapFacesImpl( void )
 	R_GXHotService();
 	R_GXSetupWorld3DState();
 
+	draw = GC_GetNewGameDrawSurfs();
+	n = GC_GetNewGameCapFaceCount();
+
 	/* Stamp marksurfaces only when leaf→surface links are still valid.
 	 * After G132 scratch reuse on New Game / menu New Game, MarkLeaves already
 	 * full-stamped surf->visframe; walking dangling firstmarksurface hangs.
@@ -4475,14 +4525,17 @@ static int R_GXDrawNewGameCapFacesImpl( void )
 	 * LM-caps, then frame2 DSI's inside R_GXMarkVisibleSurfaces at
 	 * (*mark)->visframe (PC 801EEDF0 / dod_flash dual IPC 20261107-093749).
 	 * Skip the stamp walk whenever scratch is retained — LM-caps/lean do not
-	 * need it, and live-walk uses MarkLeaves stamps already. */
+	 * need it, and live-walk uses MarkLeaves stamps already.
+	 * Solo -gcworldrender CapFaces: tip-parked leafs/marksurfaces often sit in
+	 * BSP scratch that CapFaces LM/tex reuse; MarkVisibleSurfaces then hangs
+	 * after G285/sky (tip-donner-libogc-draw 20261108-160045). CapFaces-only
+	 * Flipper does not need the stamp. */
 	if( !scratch_retained
+		&& !( n > 0 && gEngfuncs.Sys_CheckParm( "-gcworldrender" ))
 		&& ( !( newgame_probe && GC_UseLowResWorldProbe() )
 			|| surfaces_pinned ))
 		R_GXMarkVisibleSurfaces( world );
 
-	draw = GC_GetNewGameDrawSurfs();
-	n = GC_GetNewGameCapFaceCount();
 	if( log_begin )
 		gEngfuncs.Con_Reportf( "Xash3D GameCube: CapFaces surfs n=%d live=%d\n",
 			n, GC_GetLiveFaceCount() );
@@ -4685,15 +4738,37 @@ static int R_GXDrawNewGameCapFacesImpl( void )
 			int backface_skips = 0;
 			int emit_fails = 0;
 			int cap_drawn = 0;
+			const qboolean want_cap_dl =
+				gEngfuncs.Sys_CheckParm( "-gcworlddl" ) != 0;
+			qboolean used_cap_dl = false;
 			/* G348/G363: leave FRAME room for flat-fill plugs after LM.
 			 * Reserve the actual fill count (capped), not the full FILL budget —
 			 * denser G361 fill_n=4 was starving ~48 LM slots and keeping floor voids. */
 			const int fill_n = GC_GetFillFaceCount();
 			int fill_reserve = 0;
 
+			/* Replay CapFaces GX display list when generation matches. */
+			if( want_cap_dl && r_gx_cap_dl && r_gx_cap_dl_bytes > 0
+				&& r_gx_cap_dl_gen == gen && r_gx_cap_dl_drawn > 0 )
+			{
+				static qboolean dl_call_logged;
+
+				GX_CallDispList( r_gx_cap_dl, r_gx_cap_dl_bytes );
+				cap_drawn = r_gx_cap_dl_drawn;
+				drawn += cap_drawn;
+				used_cap_dl = true;
+				if( !dl_call_logged )
+				{
+					dl_call_logged = true;
+					gEngfuncs.Con_Reportf(
+						"Xash3D GameCube: CapFaces display list call bytes=%u drawn=%d gen=%d\n",
+						(unsigned)r_gx_cap_dl_bytes, cap_drawn, gen );
+				}
+			}
+
 			/* GX-016: denser G36 sample — skip fill reserve so LM-cap slots
 			 * stay within the tight denser face budget (fill resumes after flush). */
-			if( fill_n > 0
+			if( !used_cap_dl && fill_n > 0
 				&& !( GC_IsG36SampleFaceCap() && GC_WantLiveCapOverlap() ))
 			{
 				const int fill_cap = ( GC_GX_FILL_FACE_BUDGET < frame_budget / 4 )
@@ -4702,6 +4777,7 @@ static int R_GXDrawNewGameCapFacesImpl( void )
 
 				fill_reserve = ( fill_n < fill_cap ) ? fill_n : fill_cap;
 			}
+			if( !used_cap_dl )
 			{
 			const int cap_limit = frame_budget - fill_reserve;
 			int menu_plug_slot = -1;
@@ -4733,6 +4809,21 @@ static int R_GXDrawNewGameCapFacesImpl( void )
 				{
 					cap_drawn++;
 					menu_plug_drawn = true;
+				}
+			}
+
+			/* Record CapFaces LM emit into a GX display list (first gen only). */
+			r_gx_cap_dl_recording = false;
+			if( want_cap_dl )
+			{
+				if( !r_gx_cap_dl )
+					R_GXReserveCapDispList();
+				if( r_gx_cap_dl && r_gx_cap_dl_cap > 0 )
+				{
+					memset( r_gx_cap_dl, 0, r_gx_cap_dl_cap );
+					DCInvalidateRange( r_gx_cap_dl, r_gx_cap_dl_cap );
+					GX_BeginDispList( r_gx_cap_dl, r_gx_cap_dl_cap );
+					r_gx_cap_dl_recording = true;
 				}
 			}
 
@@ -4806,6 +4897,35 @@ static int R_GXDrawNewGameCapFacesImpl( void )
 				else
 					cap_drawn += got;
 			}
+			if( r_gx_cap_dl_recording )
+			{
+				u32 dl_sz = GX_EndDispList();
+
+				r_gx_cap_dl_recording = false;
+				if( dl_sz > 0 && cap_drawn > 0 )
+				{
+					extern void GCube_AppendSwissEvidence( const char *fmt, ... );
+
+					r_gx_cap_dl_bytes = dl_sz;
+					r_gx_cap_dl_gen = gen;
+					r_gx_cap_dl_drawn = cap_drawn;
+					DCFlushRange( r_gx_cap_dl, dl_sz );
+					gEngfuncs.Con_Reportf(
+						"Xash3D GameCube: CapFaces display list baked bytes=%u drawn=%d gen=%d\n",
+						(unsigned)dl_sz, cap_drawn, gen );
+					GCube_AppendSwissEvidence( "CapFaces display list bytes=%u drawn=%d",
+						(unsigned)dl_sz, cap_drawn );
+				}
+				else
+				{
+					r_gx_cap_dl_bytes = 0;
+					r_gx_cap_dl_gen = -1;
+					r_gx_cap_dl_drawn = 0;
+					gEngfuncs.Con_Reportf(
+						"Xash3D GameCube: CapFaces display list bake failed sz=%u drawn=%d\n",
+						(unsigned)dl_sz, cap_drawn );
+				}
+			}
 			drawn += cap_drawn;
 			if( menu_playstart || gEngfuncs.Sys_CheckParm( "-gcworldrender" ))
 			{
@@ -4821,11 +4941,15 @@ static int R_GXDrawNewGameCapFacesImpl( void )
 			}
 			(void)backface_skips;
 			(void)emit_fails;
-			} /* cap_limit scope */
+			} /* cap_limit scope (!used_cap_dl) */
 		}
 		/* G222/G225/G231: flat-fill AFTER LM so PASSCLR only wins empty Z.
-		 * GX-016: skip fill emit during denser G36 sample (resume after flush). */
-		if( !( GC_IsG36SampleFaceCap() && GC_WantLiveCapOverlap() ))
+		 * GX-016: skip fill emit during denser G36 sample (resume after flush).
+		 * CapFaces DL replay already covers the near-eye set — skip fill. */
+		if( !( gEngfuncs.Sys_CheckParm( "-gcworlddl" )
+				&& r_gx_cap_dl_bytes > 0
+				&& r_gx_cap_dl_gen == GC_GetNewGameCapGeneration() )
+			&& !( GC_IsG36SampleFaceCap() && GC_WantLiveCapOverlap() ))
 		{
 			static qboolean g222_logged;
 			int fill_n = GC_GetFillFaceCount();
@@ -5434,6 +5558,12 @@ void R_GXStudioEnd( void )
 				gEngfuncs.Con_Reportf(
 					"Xash3D GameCube: G164 studio gouraud shades=%d mask=0x%08x viewmodel=1\n",
 					shades, r_gx_studio_shade_mask );
+				{
+					extern void GCube_AppendSwissEvidence( const char *fmt, ... );
+					GCube_AppendSwissEvidence(
+						"G164 studio gouraud shades=%d mask=0x%08x viewmodel=1",
+						shades, r_gx_studio_shade_mask );
+				}
 			}
 			/* G167: prove compressed depth range (not G155 Z-always overlay). */
 			if( !r_gx_studio_zrange_logged )

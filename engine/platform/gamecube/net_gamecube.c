@@ -9,11 +9,27 @@
 
 #if XASH_GAMECUBE
 
+#if XASH_DODGC_NETWORK && XASH_GAMECUBE_LIBOGC2
+/* libogc2's 1 MiB default kernel workspace cannot fit after this title's
+ * fixed MEM1 arenas under the loader's ArenaHi=0x81700000. Our main and
+ * network thread stacks are static. Reserve 256 KiB for kernel objects;
+ * keep the loader's high-memory reservation intact. */
+void __real___lwp_wkspace_init( unsigned int size );
+void __wrap___lwp_wkspace_init( unsigned int size )
+{
+	(void)size;
+	__real___lwp_wkspace_init( 256u * 1024u );
+}
+#endif
+
 #if defined(XASH_GAMECUBE_HAVE_LIBBBA) && XASH_GAMECUBE_HAVE_LIBBBA
 
+#if !XASH_GAMECUBE_LIBOGC2
 #include <netdb.h>
+#endif
 #include <stdlib.h>
 #include "platform/gamecube/net_gamecube.h"
+#include "platform/gamecube/net_config.h"
 
 #ifndef EAI_FAIL
 #define EAI_FAIL   -1
@@ -34,6 +50,8 @@ const struct in6_addr in6addr_any = { { { 0 } } };
  * getsockname / gethostbyname / deinit — provide GC-side shims. */
 
 static qboolean gc_net_ready;
+static qboolean gc_net_attempted;
+static qboolean gc_net_initialized;
 static char     gc_net_ip[16];
 static char     gc_net_mask[16];
 static char     gc_net_gw[16];
@@ -89,6 +107,7 @@ void net_deinit( void )
 		gc_bound_ports[i].sock = -1;
 }
 
+#if !XASH_GAMECUBE_LIBOGC2
 s32 net_getsockname( s32 s, struct sockaddr *addr, socklen_t *addrlen )
 {
 	struct sockaddr_in *sa;
@@ -115,6 +134,8 @@ s32 net_getsockname( s32 s, struct sockaddr *addr, socklen_t *addrlen )
 	*addrlen = sizeof( *sa );
 	return 0;
 }
+
+#endif /* classic libogc getsockname shim */
 
 struct hostent *net_gethostbyname( const char *addrString )
 {
@@ -147,7 +168,7 @@ s32 GC_SendTo( int s, const void *data, s32 len, u32 flags,
 	const struct sockaddr *to, socklen_t tolen )
 {
 	static int log_left = 16;
-	s32 ret = net_sendto( (s32)s, data, len, flags, (struct sockaddr *)to, tolen );
+	s32 ret = GC_NetResult( net_sendto( (s32)s, data, len, flags, (struct sockaddr *)to, tolen ));
 
 	if( log_left > 0 )
 	{
@@ -171,6 +192,21 @@ s32 GC_SendTo( int s, const void *data, s32 len, u32 flags,
 	return ret;
 }
 
+void GC_NetReportStatus( const char *phase )
+{
+#if XASH_GAMECUBE_LIBOGC2
+	extern u32 __lwp_wkspace_heapsize( void );
+	extern u32 __lwp_wkspace_heapfree( void );
+	char interface_name[4] = "?";
+	if_indextoname( 1, interface_name );
+	Con_Reportf( "GameCube DoD: network phase=%s ip=%s interface=%s kernel_bytes=%u kernel_free=%u\n",
+		phase, GC_NetLocalIP(), interface_name, __lwp_wkspace_heapsize(), __lwp_wkspace_heapfree() );
+	GCube_AppendSwissEvidence( "network phase=%s ip=%s interface=%s kernel_free=%u", phase, GC_NetLocalIP(), interface_name, __lwp_wkspace_heapfree() );
+#else
+	(void)phase;
+#endif
+}
+
 int GC_NetIsReady( void )
 {
 	return gc_net_ready ? 1 : 0;
@@ -188,6 +224,16 @@ int GC_NetBringUp( int max_retries )
 
 	if( gc_net_ready )
 		return 1;
+	if( gc_net_initialized )
+	{
+		gc_net_ready = true;
+		return 1;
+	}
+	/* libbba keeps an internal initialized flag even after failed bring-up.
+	 * Calling if_config again can return success with no usable interface. */
+	if( gc_net_attempted )
+		return 0;
+	gc_net_attempted = true;
 	if( max_retries < 1 )
 		max_retries = 1;
 	for( i = 0; i < GC_NET_PORT_SLOTS; i++ )
@@ -207,22 +253,44 @@ int GC_NetBringUp( int max_retries )
 			Q_strncpy( gc_net_ip, override_ip, sizeof( gc_net_ip ));
 		Q_strncpy( gc_net_mask, "255.255.255.0", sizeof( gc_net_mask ));
 		Q_strncpy( gc_net_gw, "10.0.0.1", sizeof( gc_net_gw ));
+		if( Sys_GetParmFromCmdLine( "-gcnetmask", override_ip ))
+			Q_strncpy( gc_net_mask, override_ip, sizeof( gc_net_mask ));
+		if( Sys_GetParmFromCmdLine( "-gcnetgw", override_ip ))
+			Q_strncpy( gc_net_gw, override_ip, sizeof( gc_net_gw ));
+		if( !GC_NetValidateStatic( gc_net_ip, gc_net_mask, gc_net_gw ))
+		{
+			Con_Reportf( S_ERROR "GameCube: invalid static IP/mask/gateway; network disabled.\n" );
+			return 0;
+		}
 		Con_Reportf( "Xash3D GameCube: net static ip=%s mask=%s gw=%s\n",
 			gc_net_ip, gc_net_mask, gc_net_gw );
+		#if XASH_GAMECUBE_LIBOGC2
+		ret = if_config( gc_net_ip, gc_net_mask, gc_net_gw, false );
+#else
 		ret = if_config( gc_net_ip, gc_net_mask, gc_net_gw, false, max_retries );
+#endif
 	}
 	else
+	{
+#if XASH_GAMECUBE_LIBOGC2
+		ret = if_config( gc_net_ip, gc_net_mask, gc_net_gw, true );
+#else
 		ret = if_config( gc_net_ip, gc_net_mask, gc_net_gw, true, max_retries );
-	if( ret < 0 )
+#endif
+	}
+	if( ret < 0 || !net_gethostip() || net_gethostip() == INADDR_NONE )
 	{
 		Con_Reportf( S_WARN "Xash3D GameCube: net bring-up failed (ret=%d) — offline/loopback only\n",
 			(int)ret );
+		Con_Reportf( "GameCube: check adapter/cable/address settings and reboot to retry.\n" );
 		gc_net_ready = false;
 		return 0;
 	}
+	gc_net_initialized = true;
 	gc_net_ready = true;
 	Con_Reportf( "Xash3D GameCube: net ready ip=%s mask=%s gw=%s (eth2sp1/BBA)\n",
 		gc_net_ip, gc_net_mask, gc_net_gw );
+	GC_NetReportStatus( "ready" );
 	return 1;
 }
 
@@ -232,7 +300,7 @@ void GC_NetShutdown( void )
 		return;
 	net_deinit();
 	gc_net_ready = false;
-	gc_net_ip[0] = gc_net_mask[0] = gc_net_gw[0] = '\0';
+	/* The Cube driver has no teardown; retain interface addresses for reuse. */
 	Con_Reportf( "Xash3D GameCube: net shutdown\n" );
 }
 
@@ -327,6 +395,7 @@ void GC_FreeAddrInfo( struct addrinfo *res )
 
 #else /* !HAVE_LIBBBA — offline Flipper / menu path */
 
+void GC_NetReportStatus( const char *phase ) { (void)phase; }
 int GC_NetIsReady( void ) { return 0; }
 const char *GC_NetLocalIP( void ) { return "0.0.0.0"; }
 int GC_NetBringUp( int max_retries )

@@ -576,6 +576,14 @@ static void SV_ConnectClient( netadr_t from )
 
 	Q_strncpy( protinfo, s, sizeof( protinfo )); // protocol info
 
+#if XASH_DODGC_NETWORK
+	if( Q_strcmp( Info_ValueForKey( protinfo, DODGC_NET_KEY ), DODGC_NET_VERSION ))
+	{
+		SV_RejectConnection( from, "GameCube DoD network v%s required; install the same GameCube DoD build.\n", DODGC_NET_VERSION );
+		return;
+	}
+#endif
+
 	if( !SV_ProcessUserAgent( from, protinfo ))
 		return;
 
@@ -762,6 +770,9 @@ static void SV_ConnectClient( netadr_t from )
 
 	// build protinfo answer
 	protinfo[0] = '\0';
+#if XASH_DODGC_NETWORK
+	Info_SetValueForKey( protinfo, DODGC_NET_KEY, DODGC_NET_VERSION, sizeof( protinfo ));
+#endif
 	Info_SetValueForKeyf( protinfo, "ext", sizeof( protinfo ), "%d", newcl->extensions );
 	Info_SetValueForKey( protinfo, "cheats", sv_cheats.value ? "1" : "0", sizeof( protinfo ));
 	Info_SetValueForKeyf( protinfo, "challenge", sizeof( protinfo ), "%d", challenge );

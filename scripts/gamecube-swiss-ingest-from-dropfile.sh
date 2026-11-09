@@ -44,12 +44,19 @@ mkdir -p "$outdir"
 cp -a "$pick" "$outdir/swiss-evidence.txt"
 log "==> Ingesting Desktop evidence drop $pick → $outdir"
 
-if scripts/gamecube-swiss-hw-complete.sh --log "$outdir/swiss-evidence.txt"; then
+COMPLETE_ARGS=(--log "$outdir/swiss-evidence.txt")
+if [[ "${SWISS_HW_REHEARSAL:-0}" == "1" ]]; then
+	COMPLETE_ARGS+=(--rehearsal)
+	log "NOTE: SWISS_HW_REHEARSAL=1 — docs will not be stamped"
+fi
+if scripts/gamecube-swiss-hw-complete.sh "${COMPLETE_ARGS[@]}"; then
 	mv -f "$pick" "${pick}.done-${stamp}"
 	log "OK ingest complete — moved drop to ${pick}.done-${stamp}"
 	command -v notify-send >/dev/null 2>&1 && \
 		notify-send -u critical "Xash3D GC" "swiss-evidence.txt ingested from Desktop drop" || true
-	echo "AGENT_LOOP_WAKE_swiss_sd {\"prompt\":\"Desktop swiss-evidence drop ingested via hw-complete — verify G38/HW markers and mark goal complete only if PASS.\"}"
+	if [[ "${SWISS_HW_REHEARSAL:-0}" != "1" ]]; then
+		echo "AGENT_LOOP_WAKE_swiss_sd {\"prompt\":\"Desktop swiss-evidence drop ingested via hw-complete — verify G38/HW markers and mark goal complete only if PASS.\"}"
+	fi
 	exit 0
 fi
 

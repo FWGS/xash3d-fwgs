@@ -1,5 +1,66 @@
 # Xash3D GameCube Port Plan
 
+## Controller replay correction — 2026-11-08
+
+The TAS player now keeps buttons and sticks on the same segment throughout
+each host frame, including the last frame. Completion is reported on the next
+neutral poll, after the caller has consumed the final input. Action markers and
+the shipped `gameplay-smoke.tas` use the current controls: R attack, A jump,
+B use. Previously the script pressed Y for jump and A for use, and stick input
+advanced one frame before buttons at every segment boundary.
+
+Verification: `python3 -m unittest discover -s tests -p 'test_gamecube_tas.py' -v`
+compiles the production C player with AddressSanitizer and UBSan. All five tests
+pass, covering mixed button/stick segments, final-frame consumption, physical
+action labels, reset, and the complete shipped smoke trace. The same tests
+reproduced seven assertion failures before the fix. Logs are in
+`.ai/logs/codex-tas-20261108/{before,after}.log`. `scripts/ai-verify.sh` now runs
+this native suite before either its host-only or GameCube build gate.
+
+The broader verifier exposed an existing probe-wrapper size failure (708 lines,
+31,755 bytes against limits of 700 and 30,720). The existing frame-dump config
+block now lives in `probe_write_framedump_config` in the shared helper file;
+the wrapper is 670 lines / 30,152 bytes. Five before/after configuration cases
+produce identical files and output (disabled, normal, changelevel, explicit
+copy override, and XFB override), and `bash -n` plus
+`test_probe_script_under_ai_verify_size_guard` pass. Evidence:
+`.ai/logs/codex-tas-20261108/framedump-equivalence.log`.
+
+The next preflight rejection was a stale timebase spelling check. The installed
+libogc headers define `TB_TIMER_CLOCK` as bus/4000 and `PPC_TIMER_CLOCK` as
+bus/4; the existing platform code correctly uses `TB_TIMER_CLOCK * 1000` for
+seconds. The guard now compiles and executes the production clock function,
+checking initialization, a half-second step across the low 32-bit rollover,
+repeated reads, and 123.75 seconds. `python3 -m unittest discover -s tests
+-p 'test_gamecube_clock.py' -v` passes with UBSan; no platform source edit was
+needed. Evidence: `.ai/logs/codex-tas-20261108/clock.log`.
+
+The operator dry run also scanned every historical log and Dolphin user tree
+when no probe input was supplied. It now uses an explicit empty log and empty
+artifact directory for that case, then retains its existing synthetic packet
+fixture. The host test checks that its final memory report contains only that
+fixture sample. The isolated operator test completes in approximately three
+seconds; this is host pipeline evidence, not physical Swiss evidence.
+
+Final shared-tree preflight: `SKIP_GAMECUBE_BUILD=1 scripts/ai-verify.sh`
+passes all six new native tests and 88 of 94 existing host tests. Six checks
+remain red: hardware boot handoff text, SAVE-022 recovery markers, Swiss soak
+resolution, hybrid stage contents, oneshot evidence wording, and SD boot cfg
+staging. Full output is `.ai/logs/codex-tas-20261108/verify.log`. These are open
+checks; no completion or hardware pass is inferred. The documented Desktop
+Swiss evidence dropfiles were absent during this pass. Active NPC/skin,
+networking, platform and server edits were preserved.
+
+The changed module also compiles with devkitPPC GCC 16.1.0 using the recorded
+HL1 compilation command and a private output object; the command, dependencies,
+and object are preserved in `.ai/logs/codex-tas-20261108/`. Shared Waf outputs
+were not used as compilation targets while Grok works on NPC loading and skins.
+This is native replay and cross-compilation evidence. Next: replay the corrected
+script from a matching DOL/ISO in Dolphin, verify processed attack/jump/use and
+post-action stability, then complete campaign playability and physical Swiss
+hardware validation. Existing map-ready/HUD markers alone do not close those
+gates.
+
 ## Current status
 
 The repository has a Swiss-first Waf target (devkitPPC / libogc2 + libdvm,

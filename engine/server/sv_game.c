@@ -78,7 +78,9 @@ static qboolean SV_IsStaticStaticEntities( const entity_state_t *s )
 /* Tip Server Strings pool dies on denser Office maps (c1a1f SV_AllocString
  * 14-byte Host_Error, hardware 20261104). Deduped bump arena keeps class/
  * target/model names off the tip after reclaim fails. */
-#define GC_STRING_ARENA_SIZE (96 * 1024)
+/* 96 KiB left dod_donner spill short of mleaf (left 195 < 242). 48 KiB still
+ * covers listen CapFaces AllocString traffic (flash tip-flash-excl). */
+#define GC_STRING_ARENA_SIZE (48 * 1024)
 /* Heap block taken once at the first map load (SV_GCEnsureStringArena), not
  * BSS: boot, the startup video and the menu never allocate server strings. */
 static char *gc_string_arena;
@@ -98,9 +100,29 @@ void SV_GCDropSpillStringArena( void )
 
 qboolean SV_GCEnsureStringArena( void )
 {
+	extern size_t Mod_GCWorldArraySpillUsed( void );
+	extern void *Mod_GCWorldArraySpillTryAlloc( size_t bytes, const char *what );
+	extern void Mod_GCWorldArraySpillPinBase( const void *ptr, size_t bytes );
+
 	if( gc_string_arena )
 		return true;
-	/* Retried at every map load until it fits. */
+	/* Prefer spill BASE first — memalign ate 48 Kb tip after ClearRetained
+	 * repark and killed donner pfnInitialize (tip-donner-str48b). Spill pin
+	 * keeps AllocString off tip; do not append after faces (leafs need room). */
+	if( Mod_GCWorldArraySpillUsed() == 0 )
+	{
+		gc_string_arena = (char *)Mod_GCWorldArraySpillTryAlloc( GC_STRING_ARENA_SIZE,
+			"string arena" );
+		if( gc_string_arena )
+		{
+			Mod_GCWorldArraySpillPinBase( gc_string_arena, GC_STRING_ARENA_SIZE );
+			gc_string_arena_used = 0;
+			gc_string_arena_in_spill = true;
+			Con_Reportf( "Xash3D GameCube: server string arena spill %s\n",
+				Q_memprint( GC_STRING_ARENA_SIZE ));
+			return true;
+		}
+	}
 	gc_string_arena = (char *)memalign( 16, GC_STRING_ARENA_SIZE );
 	if( gc_string_arena )
 	{
@@ -108,31 +130,6 @@ qboolean SV_GCEnsureStringArena( void )
 		Con_Reportf( "Xash3D GameCube: server string arena ready %s\n",
 			Q_memprint( GC_STRING_ARENA_SIZE ));
 		return true;
-	}
-	/* Tip MEM1 too thin at boot (listen flash/donner). Park at spill BASE and
-	 * pin so ClearRetained cannot let surfedges stomp it (avalanche Guru).
-	 * Do NOT append after faces reclaim — that ate donner leafs room
-	 * (spill left 195 < mleaf 242, tip-donner-tip128). */
-	{
-		extern size_t Mod_GCWorldArraySpillUsed( void );
-		extern void *Mod_GCWorldArraySpillTryAlloc( size_t bytes, const char *what );
-		extern void Mod_GCWorldArraySpillPinBase( const void *ptr, size_t bytes );
-
-		/* Only claim the base slot (used==pin, typically 0 at boot). */
-		if( Mod_GCWorldArraySpillUsed() == 0 )
-		{
-			gc_string_arena = (char *)Mod_GCWorldArraySpillTryAlloc( GC_STRING_ARENA_SIZE,
-				"string arena" );
-			if( gc_string_arena )
-			{
-				Mod_GCWorldArraySpillPinBase( gc_string_arena, GC_STRING_ARENA_SIZE );
-				gc_string_arena_used = 0;
-				gc_string_arena_in_spill = true;
-				Con_Reportf( "Xash3D GameCube: server string arena spill %s\n",
-					Q_memprint( GC_STRING_ARENA_SIZE ));
-				return true;
-			}
-		}
 	}
 	Con_Reportf( S_WARN "Xash3D GameCube: server string arena unavailable (%s)\n",
 		Q_memprint( GC_STRING_ARENA_SIZE ));
@@ -3771,9 +3768,10 @@ static void *GAME_EXPORT pfnPvAllocEntPrivateData( edict_t *pEdict, long cb )
 			/* Reserve a stable static block for the large CSoundEnt private
 			 * object so sound-event tracking remains available under MEM1 load. */
 			if( !pEdict->pvPrivateData
-				&& ( Sys_CheckParm( "-gcnewgame" ) || Sys_CheckParm( "-gcmenuplaystart" ))
+				&& ( Sys_CheckParm( "-gcnewgame" ) || Sys_CheckParm( "-gcmenuplaystart" )
+					|| Sys_CheckParm( "-gclistenserver" ))
 				&& !gc_soundent_fallback_used
-				&& NUM_FOR_EDICT( pEdict ) != 1
+				&& NUM_FOR_EDICT( pEdict ) > svs.maxclients
 				&& size >= 1800 && size <= sizeof( gc_soundent_private_fallback ))
 			{
 				memset( gc_soundent_private_fallback, 0, sizeof( gc_soundent_private_fallback ));
@@ -6010,6 +6008,12 @@ static qboolean SV_ParseEdict( char **pfile, edict_t *ent, int entity_index )
 		// classname must be first
 		if( !Q_strcmp( keyname, "classname" ))
 		{
+#if XASH_DODGC_NETWORK
+			/* The current game DLL selects DM spawns by classname. Merely
+			 * exporting DoD aliases left both players at info_player_start. */
+			if( !Q_strcmp( value, "info_player_allies" ) || !Q_strcmp( value, "info_player_axis" ))
+				Q_strncpy( value, "info_player_deathmatch", sizeof( value ));
+#endif
 			KeyValueData kvd = {
 				.szClassName = NULL,
 				.szKeyName = keyname,

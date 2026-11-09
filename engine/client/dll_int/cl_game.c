@@ -1868,8 +1868,13 @@ void CL_GCPreloadNewGameHudSprites( void )
 	{
 		g172_logged = true;
 		if( real > 0 )
+		{
 			Con_Reportf( "Xash3D GameCube: lean HUD sprites drawn\n" );
+			GCube_AppendSwissEvidence( "lean HUD sprites drawn" );
+		}
 		Con_Reportf( "Xash3D GameCube: G172 HUD sheets loaded real=%d of %d\n",
+			real, (int)( sizeof( sheets ) / sizeof( sheets[0] )));
+		GCube_AppendSwissEvidence( "G172 HUD sheets loaded real=%d of %d",
 			real, (int)( sizeof( sheets ) / sizeof( sheets[0] )));
 	}
 	if( !g173_logged && hud1_real )
@@ -1961,9 +1966,18 @@ void CL_GCPreloadNewGameHudSpritesLate( void )
 	Con_Reportf( "Xash3D GameCube: G172 HUD sheet late preload ready real=%d\n", real );
 	if( real >= 1 )
 	{
+		static qboolean g172_swiss_late_logged;
+
 		Con_Reportf( "Xash3D GameCube: lean HUD sprites drawn\n" );
 		Con_Reportf( "Xash3D GameCube: G172 HUD sheets loaded real=%d of %d\n",
 			real, (int)( sizeof( sheets ) / sizeof( sheets[0] )));
+		if( !g172_swiss_late_logged )
+		{
+			g172_swiss_late_logged = true;
+			GCube_AppendSwissEvidence( "lean HUD sprites drawn" );
+			GCube_AppendSwissEvidence( "G172 HUD sheets loaded real=%d of %d",
+				real, (int)( sizeof( sheets ) / sizeof( sheets[0] )));
+		}
 	}
 	if( !g173_late_logged && hud1_real )
 	{

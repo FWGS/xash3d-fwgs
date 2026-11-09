@@ -11,6 +11,8 @@ if [[ -z "$LOG" ]]; then
 fi
 if [[ -d "$LOG" ]]; then
 	for cand in \
+		"$LOG/xash3d/dod/logs/swiss-evidence.txt" \
+		"$LOG/dod/logs/swiss-evidence.txt" \
 		"$LOG/xash3d/valve/logs/swiss-evidence.txt" \
 		"$LOG/valve/logs/swiss-evidence.txt" \
 		"$LOG/swiss-evidence.txt"
@@ -42,8 +44,16 @@ check "entity or playable" "entity lump spawn ready|playable present .*nonblack=
 check "playable nonblack" "playable present .*nonblack=1"
 check "controller G45" "G45 controller ready"
 check "audio voice" "audio voice started"
+check "audio nonzero PCM" "audio submitted nonzero PCM"
 check "save probe" "save probe ready"
-check "changelevel continuity" "G68 changelevel ready|changelevel begin|map loaded c0a0a"
-check "dest playable (c0a0a)" "playable present map=c0a0a"
+# HL1 smoke continuity vs DoD CapFaces solo — require the matching route.
+if grep -qE 'linked gamedir=dod|MAP_READY dod_|CapFaces bake done' "$LOG"; then
+	check "DoD CapFaces bake" "CapFaces bake done"
+	check "DoD CapFaces drawn|playable" "CapFaces filter drawn=|CapFaces bake done|playable present"
+	check "DoD map ready" "MAP_READY dod_|map loaded dod_"
+else
+	check "changelevel continuity" "G68 changelevel ready|changelevel begin|map loaded c0a0a"
+	check "dest playable (c0a0a)" "playable present map=c0a0a"
+fi
 echo "== result: pass=$pass fail=$fail =="
 (( fail == 0 ))

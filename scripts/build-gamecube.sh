@@ -142,6 +142,28 @@ if ! grep -q "XASH_GAMEDIR=\"${HLSDK_GAMEDIR}\"" build/c4che/_cache.py 2>/dev/nu
 	grep -n 'XASH_GAMEDIR' build/c4che/_cache.py 2>/dev/null | head -3 >&2 || true
 	exit 1
 fi
+# valve HL1 tip-safe / Swiss smoke must not inherit dod's libbba link.
+if [[ "$HLSDK_GAMEDIR" == "valve" ]] \
+	&& [[ "${XASH_GAMECUBE_LINK_BBA:-0}" != "1" ]] \
+	&& grep -q "XASH_GAMECUBE_HAVE_LIBBBA" build/c4che/_cache.py 2>/dev/null; then
+	echo "error: waf cache still has XASH_GAMECUBE_HAVE_LIBBBA (dod-gc race); re-run with XASH_GAMECUBE_LINK_BBA=0 after dod releases the tree" >&2
+	grep -n 'LIBBBA\|GAMEDIR' build/c4che/_cache.py 2>/dev/null | head -5 >&2 || true
+	exit 1
+fi
+# valve HL1 must not silently link against Desktop dod-gc libogc2 toolchains.
+if [[ "$HLSDK_GAMEDIR" == "valve" ]]; then
+	case "${DEVKITPRO:-}" in
+		*/dod-gc/*|*/Desktop/dod-gc/*)
+			echo "error: DEVKITPRO points at dod-gc ($DEVKITPRO); valve builds require /opt/devkitpro + XASH_GAMECUBE_OGC_STACK=libogc" >&2
+			exit 1
+			;;
+	esac
+	if [[ -f "${XASH_GAMECUBE_STACK_METADATA:-}" ]] \
+		&& grep -q 'dod-gc' "${XASH_GAMECUBE_STACK_METADATA}" 2>/dev/null; then
+		echo "error: OGC stack metadata references dod-gc; use DEVKITPRO=/opt/devkitpro XASH_GAMECUBE_OGC_STACK=libogc" >&2
+		exit 1
+	fi
+fi
 
 # Serial -j1 avoids exFAT .conf_check_/object races on Expansion drives.
 ./waf build -j1
@@ -149,7 +171,7 @@ fi
 # Installation can relink the engine while updating static dependencies.
 # Convert only the final installed build, otherwise the disc freshness gate
 # correctly rejects a DOL made from the earlier ELF.
-./waf install --destdir=OUT
+./waf install -j1 --destdir=OUT
 
 mkdir -p OUT/bin
 cp build/engine/xash OUT/bin/xash
@@ -209,8 +231,14 @@ fi
 			powerpc-eabi-nm OUT/bin/xash 2>/dev/null | grep -E 'GetRefAPI|GC_UseGxWorldDraw|GC_IsCaptureDiagnostics' | head -20 \
 			| sed 's/^/sym /' || true
 	fi
-} | tee OUT/bin/gamecube-handoff.txt
-echo "Handoff metadata: OUT/bin/gamecube-handoff.txt"
+} | tee "OUT/bin/gamecube-handoff-${HLSDK_GAMEDIR}.txt"
+# Keep a stable Swiss/docs pointer for HL1 only — dod must not clobber it.
+if [ "$HLSDK_GAMEDIR" = "valve" ]; then
+	cp -f "OUT/bin/gamecube-handoff-${HLSDK_GAMEDIR}.txt" OUT/bin/gamecube-handoff.txt
+	echo "Handoff metadata: OUT/bin/gamecube-handoff.txt (valve)"
+else
+	echo "Handoff metadata: OUT/bin/gamecube-handoff-${HLSDK_GAMEDIR}.txt (left OUT/bin/gamecube-handoff.txt untouched)"
+fi
 
 echo "GameCube build installed to OUT/"
 

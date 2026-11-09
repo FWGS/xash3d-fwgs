@@ -357,7 +357,12 @@ static void FS_ParseGenericGameInfo( gameinfo_t *GameInfo, const char *buf, cons
 		else if( !Q_stricmp( token, isGameInfo ? "max_edicts" : "edicts" ))
 		{
 			pfile = COM_ParseFile( pfile, token, sizeof( token ));
+#if XASH_DODGC_NETWORK
+			/* Match the fixed GameCube client entity table and server reserve. */
+			GameInfo->max_edicts = bound( MIN_EDICTS, Q_atoi( token ), DEFAULT_MAX_EDICTS );
+#else
 			GameInfo->max_edicts = bound( MIN_EDICTS, Q_atoi( token ), MAX_EDICTS );
+#endif
 		}
 		// valid for both
 		else if( !Q_stricmp( token, "hd_background" ))

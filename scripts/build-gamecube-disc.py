@@ -16,6 +16,11 @@ import zipfile
 from dataclasses import dataclass, field
 from pathlib import Path
 
+# Sibling helpers live under scripts/ (bake_capfaces_pack, etc.).
+_SCRIPTS_DIR = str(Path(__file__).resolve().parent)
+if _SCRIPTS_DIR not in sys.path:
+	sys.path.insert(0, _SCRIPTS_DIR)
+
 # Disc assembly compiles a small apploader and stages several temporary asset
 # trees.  On the development host /tmp may be quota-limited even when the
 # workspace has ample room; prefer a tmpfs unless the caller selected a path.
@@ -2437,6 +2442,16 @@ def create_retail_boot_overlays(
 	overlays.extend(build_sky_cmpr_overlays(source, output))
 	overlays.extend(build_music_overlays(source, output, Path(__file__).resolve().parents[1] / "build" / "gc-music-cache"))
 	overlays.extend(build_world_texture_packs(source, output, Path(__file__).resolve().parents[1] / "build" / "gc-wt-cache"))
+	# Offline CapFaces packs (media/cf_<map>.gcp) — load-time DL for 60 FPS Flipper.
+	from bake_capfaces_pack import build_capfaces_packs  # type: ignore
+
+	overlays.extend(
+		build_capfaces_packs(
+			source,
+			output,
+			Path(__file__).resolve().parents[1] / "build" / "gc-cf-cache",
+		)
+	)
 	for dest_rel, src_wav in intro_vo:
 		if not src_wav.is_file():
 			continue
@@ -2814,6 +2829,20 @@ def stage_smoke_data(
 		Path(__file__).resolve().parents[1] / "build" / "gc-wt-cache",
 		pack_stems,
 	)
+	from bake_capfaces_pack import build_capfaces_packs  # type: ignore
+
+	cf_overlays = build_capfaces_packs(
+		source,
+		output,
+		Path(__file__).resolve().parents[1] / "build" / "gc-cf-cache",
+		pack_stems,
+	)
+	missing_cf = [s for s in pack_stems if not (output / f"media/cf_{s}.gcp").is_file()]
+	if missing_cf:
+		raise FileNotFoundError(
+			"CapFaces pack missing for smoke map(s): " + ", ".join(sorted(missing_cf))
+		)
+	del cf_overlays
 
 	(output / "custom").mkdir(exist_ok=True)
 	(output / "maps").mkdir(exist_ok=True)
@@ -3052,6 +3081,8 @@ def validate_smoke_assets(data_path: Path, smoke_map: str) -> list[str]:
 		"gfx/colormap.lmp",
 		"gfx/conchars",
 		f"maps/{Path(smoke_map).stem}.bsp",
+		# CapFaces offline pack required for Flipper 60 FPS path.
+		f"media/cf_{Path(smoke_map).stem.lower()}.gcp",
 	)
 
 	if not data_path.is_dir():

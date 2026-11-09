@@ -147,45 +147,7 @@ PAL60 = $([[ "${DOLPHIN_VIDEO_MODE:-}" == "pal" ]] && echo True || echo False)
 [Interface]
 ConfirmStop = False
 EOF
-if (( DUMP_FRAMES )); then
-	cat >> "$USER_DIR/Config/Dolphin.ini" <<'EOF'
-[Movie]
-DumpFrames = True
-DumpFramesSilent = True
-EOF
-	# G192: DumpFrames freeze was ImmediateXFB (ViSwap skipped) + VRAM XFB
-	# stitch. CPU soft blits after CopyDisp never reach DumpFrames when
-	# ImmediateXFB is on. Disable both; soft latch relies on ViSwap RAM decode.
-	# G194: PNGCompressionLevel=1 — default zlib-6 was too slow (soft latch never
-	# reached the dump queue); level 0 wrote ~1MB/frame and I/O-bound the same.
-	# SkipDuplicateXFBs helps when XFB cache hits; with DisableCopyToVRAM the
-	# local Dolphin patch always misses (G192), so guest stamps soft latch XFBs
-	# and rate-limits non-latch SetNextFramebuffer to cut early dump spam.
-	# G360: denser changelevel dests skip soft latch — Flipper EFB dumps need
-	# DisableCopyToVRAM=False (OpenGL). Soft-latch source maps keep True (G359).
-	if [[ -n "${DOLPHIN_DUMP_COPY_TO_VRAM:-}" ]]; then
-		DUMP_COPY_TO_VRAM="${DOLPHIN_DUMP_COPY_TO_VRAM}"
-		DUMP_COPY_NOTE="DOLPHIN_DUMP_COPY_TO_VRAM override"
-	elif [[ -n "${DOLPHIN_CHANGELEVEL:-}" ]]; then
-		DUMP_COPY_TO_VRAM=False
-		DUMP_COPY_NOTE="Flipper EFB (changelevel denser dest)"
-	else
-		DUMP_COPY_TO_VRAM=True
-		DUMP_COPY_NOTE="soft-latch XFB RAM decode"
-	fi
-	cat > "$USER_DIR/Config/GFX.ini" <<EOF
-[Settings]
-DumpFramesAsImages = True
-PNGCompressionLevel = 1
-[Hacks]
-XFBToTextureEnable = ${DOLPHIN_DUMP_XFB_TO_TEXTURE:-False}
-# G360: ${DUMP_COPY_NOTE}
-DisableCopyToVRAM = ${DUMP_COPY_TO_VRAM}
-SkipDuplicateXFBs = False
-ImmediateXFBEnable = False
-EOF
-	echo "==> DumpFrames GFX DisableCopyToVRAM=${DUMP_COPY_TO_VRAM} (${DUMP_COPY_NOTE})"
-fi
+probe_write_framedump_config
 # DOLPHIN_DUMP_VIDEO=1: Dolphin encodes the presented frames to one video
 # (Dump/Frames/framedump*.mkv, H.264) instead of a TGA per frame, for
 # long recorded playthroughs.  Needs DOLPHIN_HOST_DUMP=1 (frame dump on).

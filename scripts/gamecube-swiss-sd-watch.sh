@@ -122,6 +122,8 @@ needs_stage() {
 evidence_present() {
 	local m="$1" f
 	for f in \
+		"$m/xash3d/dod/logs/swiss-evidence.txt" \
+		"$m/dod/logs/swiss-evidence.txt" \
 		"$m/xash3d/valve/logs/swiss-evidence.txt" \
 		"$m/valve/logs/swiss-evidence.txt" \
 		"$m/swiss-evidence.txt"

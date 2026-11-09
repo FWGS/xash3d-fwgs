@@ -326,6 +326,18 @@ unsigned short GC_TasPollButtons( void )
 	if( !gc_tas.loaded )
 		return 0;
 
+	/* Keep the previous poll's buttons and sticks on the same segment for
+	 * the whole host frame. Advance only when the next frame polls again;
+	 * the caller reads sticks and completion after polling buttons. */
+	if( !gc_tas.complete && gc_tas.seg_index < gc_tas.seg_count
+		&& gc_tas.seg_frame >= gc_tas.segs[gc_tas.seg_index].frames )
+	{
+		gc_tas.seg_index++;
+		gc_tas.seg_frame = 0;
+		if( gc_tas.seg_index >= gc_tas.seg_count )
+			gc_tas.complete = true;
+	}
+
 	if( gc_tas.complete )
 	{
 		if( !gc_tas.complete_logged )
@@ -348,18 +360,18 @@ unsigned short GC_TasPollButtons( void )
 	{
 		Con_Reportf( "Xash3D GameCube: probe tas frame=%d/%d buttons=%s\n",
 			gc_tas.seg_index + 1, gc_tas.seg_count, GC_TasButtonLabel( seg->buttons ));
-		/* Compat with probe_newgame_progress_ready action triad. */
+		/* Match the live pad bindings: R attack, A jump, B use. */
 		if( ( seg->buttons & PAD_TRIGGER_R ) && !gc_tas.logged_attack )
 		{
 			gc_tas.logged_attack = true;
 			Con_Reportf( "Xash3D GameCube: probe gameplay action attack\n" );
 		}
-		if( ( seg->buttons & PAD_BUTTON_Y ) && !gc_tas.logged_jump )
+		if( ( seg->buttons & PAD_BUTTON_A ) && !gc_tas.logged_jump )
 		{
 			gc_tas.logged_jump = true;
 			Con_Reportf( "Xash3D GameCube: probe gameplay action jump\n" );
 		}
-		if( ( seg->buttons & PAD_BUTTON_A ) && !gc_tas.logged_use )
+		if( ( seg->buttons & PAD_BUTTON_B ) && !gc_tas.logged_use )
 		{
 			gc_tas.logged_use = true;
 			Con_Reportf( "Xash3D GameCube: probe gameplay action use\n" );
@@ -368,13 +380,6 @@ unsigned short GC_TasPollButtons( void )
 
 	buttons = seg->buttons;
 	gc_tas.seg_frame++;
-	if( gc_tas.seg_frame >= seg->frames )
-	{
-		gc_tas.seg_index++;
-		gc_tas.seg_frame = 0;
-		if( gc_tas.seg_index >= gc_tas.seg_count )
-			gc_tas.complete = true;
-	}
 	return buttons;
 }
 

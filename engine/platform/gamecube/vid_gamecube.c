@@ -93,6 +93,10 @@ static u32 xfb_bytes[2];
  * The early splash's XFB used to be dropped here and leaked (~600 KB). */
 static void GC_AllocXFB( int i, GXRModeObj *mode )
 {
+#if XASH_DODGC_NETWORK
+	/* One scanout buffer leaves room for the native Ethernet stack and HUD. */
+	if( i != 0 ) return;
+#endif
 	u32 need = VIDEO_GetFrameBufferSize( mode );
 	void *raw;
 
@@ -124,11 +128,30 @@ static void GC_FlipXFB( void )
 		which_fb = 0;
 }
 static GXRModeObj *rmode = NULL;
+#if XASH_DODGC_NETWORK
+static GXRModeObj gc_network_video_mode;
+static GXRModeObj *GC_NetworkVideoMode( GXRModeObj *preferred )
+{
+	if( !preferred ) return NULL;
+	gc_network_video_mode = *preferred;
+	/* VI scales the 320-pixel XFB to the mode's existing 640-pixel output.
+	 * Preserve its scanline count and television timing (480i/480p/PAL). */
+	gc_network_video_mode.fbWidth = 320;
+	return &gc_network_video_mode;
+}
+#endif
+
 /* A larger FIFO lets Broadway queue the next world/effects batch while
  * Flipper is still consuming the previous one.  This is especially useful
  * for HL1's particle-heavy scenes; the buffer is MEM1-resident and remains
  * well below the GameCube's available low-memory budget. */
+#if XASH_DODGC_NETWORK
+/* Two-player networking needs the other 256 KiB in the general heap.
+ * GX flow control stalls the CPU when this FIFO fills. */
+static uint8_t gx_fifo[256 * 1024] __attribute__((aligned(32)));
+#else
 static uint8_t gx_fifo[512 * 1024] __attribute__((aligned(32)));
+#endif
 static unsigned int gc_present_count;
 
 /* The direct GameCube presentation paths can run before the ref DLL has
@@ -3009,6 +3032,8 @@ static void GC_PackCapLightmapAtlas( void )
 	{
 		gc_g180_logged = true;
 		Con_Reportf( "Xash3D GameCube: G180 lightmap atlas %dx%d faces=%d cols=%d\n",
+			GC_LM_ATLAS_W, GC_LM_ATLAS_H, gc_newgame_cap_face_count, GC_LM_ATLAS_COLS );
+		GCube_AppendSwissEvidence( "G180 lightmap atlas %dx%d faces=%d cols=%d",
 			GC_LM_ATLAS_W, GC_LM_ATLAS_H, gc_newgame_cap_face_count, GC_LM_ATLAS_COLS );
 	}
 }
@@ -7090,6 +7115,9 @@ void GC_EarlyBootSplash( void )
 	GC_FlipperTrace( "Xash3D GameCube: early video splash\n" );
 	VIDEO_Init();
 	rmode = VIDEO_GetPreferredMode( NULL );
+#if XASH_DODGC_NETWORK
+	rmode = GC_NetworkVideoMode( rmode );
+#endif
 	if( !rmode )
 		return;
 
@@ -7167,6 +7195,9 @@ static GXRModeObj *GC_ResolveVideoMode( const char **out_tag )
 			SYS_Report( "Xash3D GameCube: unknown -gcvideo '%s'; using preferred\n", mode );
 	}
 
+#if XASH_DODGC_NETWORK
+	pref = GC_NetworkVideoMode( pref );
+#endif
 	if( out_tag )
 		*out_tag = tag;
 	return pref;
@@ -7282,6 +7313,13 @@ static void GC_InitVideoHardware( void )
 	gc.initialized = true;
 	GC_FlipperTrace( "Xash3D GameCube: renderer initialized gx\n" );
 	SYS_Report( "Xash3D GameCube: retail Flipper policy capture=%d softworld=%d xfb_dual=%d copy_clear=1 safe_area=%d%% soft_fb_max=%dx%d efb_native=1\n",
+		GC_IsCaptureDiagnostics() ? 1 : 0,
+		Sys_CheckParm( "-gcsoftworld" ) ? 1 : 0,
+		( xfb[0] && xfb[1] ) ? 1 : 0,
+		GC_VIDEO_SAFE_AREA_PERCENT,
+		GC_VIDEO_NEWGAME_PROBE_WIDTH, GC_VIDEO_NEWGAME_PROBE_HEIGHT );
+	GCube_AppendSwissEvidence(
+		"retail Flipper policy capture=%d softworld=%d xfb_dual=%d copy_clear=1 safe_area=%d%% soft_fb_max=%dx%d efb_native=1",
 		GC_IsCaptureDiagnostics() ? 1 : 0,
 		Sys_CheckParm( "-gcsoftworld" ) ? 1 : 0,
 		( xfb[0] && xfb[1] ) ? 1 : 0,
@@ -10341,6 +10379,268 @@ void GC_RebakeCapFaceLightmaps( model_t *mod )
 		got, gc_newgame_cap_face_count );
 }
 
+/* Offline CapFaces pack (media/cf_<map>.gcp) — see scripts/bake_capfaces_pack.py */
+#define GC_CF_VERSION 1
+#define GC_CF_FLAG_LM_ATLAS 1
+
+static uint32_t GC_Fnv1a32Name( const char *s )
+{
+	uint32_t h = 2166136261u;
+
+	if( !s )
+		return 0;
+	while( *s )
+	{
+		char c = *s++;
+		if( c >= 'A' && c <= 'Z' )
+			c = (char)( c - 'A' + 'a' );
+		h ^= (uint32_t)(byte)c;
+		h *= 16777619u;
+	}
+	return h;
+}
+
+static uint16_t GC_Be16( const byte *p )
+{
+	return (uint16_t)( ( (uint16_t)p[0] << 8 ) | p[1] );
+}
+
+static uint32_t GC_Be32( const byte *p )
+{
+	return ( (uint32_t)p[0] << 24 ) | ( (uint32_t)p[1] << 16 )
+		| ( (uint32_t)p[2] << 8 ) | (uint32_t)p[3];
+}
+
+static int GC_FindTexnumByHash( model_t *wmodel, uint32_t hash )
+{
+	int i;
+
+	if( !wmodel || !wmodel->textures || hash == 0 )
+		return 0;
+	for( i = 0; i < wmodel->numtextures; i++ )
+	{
+		texture_t *t = wmodel->textures[i];
+
+		if( !t || !t->name[0] )
+			continue;
+		if( GC_Fnv1a32Name( t->name ) != hash )
+			continue;
+		if( GC_CapTextureIsUsable( t ))
+			return t->gl_texturenum;
+	}
+	return 0;
+}
+
+/*
+ * Load media/cf_<map>.gcp into CapFaces BSS + LM atlas. Skips live EDGE bake.
+ * Returns true when faces are ready for Flipper / display-list compile.
+ */
+static qboolean GC_TryLoadCapFacesPack( model_t *mod )
+{
+	char mapbase[64];
+	char path[MAX_SYSPATH];
+	file_t *f = NULL;
+	byte hdr[32];
+	byte rec[128];
+	byte eye[24];
+	fs_offset_t size = 0;
+	uint16_t ver, flags, eye_n, face_n, lm_w, lm_h, order_n;
+	uint32_t atlas_ofs, faces_ofs, order_ofs;
+	int i, resolved = 0;
+
+	if( !mod || gc_newgame_cap_face_count > 0 )
+		return gc_newgame_cap_face_count > 0;
+	if( !mod->name || !mod->name[0] )
+		return false;
+
+	COM_FileBase( mod->name, mapbase, sizeof( mapbase ));
+	Q_snprintf( path, sizeof( path ), "media/cf_%s.gcp", mapbase );
+	/* Stream the pack — tip cannot FS_LoadFile(~81 KiB) after CapFaces DL BSS. */
+	f = FS_Open( path, "rb", false );
+	if( !f )
+		return false;
+	size = FS_FileLength( f );
+	if( size < 32 || FS_Read( f, hdr, 32 ) != 32 )
+	{
+		FS_Close( f );
+		return false;
+	}
+	if( hdr[0] != 'G' || hdr[1] != 'C' || hdr[2] != 'c' || hdr[3] != 'f' )
+	{
+		FS_Close( f );
+		return false;
+	}
+	ver = GC_Be16( hdr + 4 );
+	flags = GC_Be16( hdr + 6 );
+	eye_n = GC_Be16( hdr + 8 );
+	face_n = GC_Be16( hdr + 10 );
+	atlas_ofs = GC_Be32( hdr + 12 );
+	lm_w = GC_Be16( hdr + 16 );
+	lm_h = GC_Be16( hdr + 18 );
+	order_n = GC_Be16( hdr + 20 );
+	faces_ofs = GC_Be32( hdr + 24 );
+	order_ofs = GC_Be32( hdr + 28 );
+	(void)order_n;
+	(void)order_ofs;
+	if( ver != GC_CF_VERSION || face_n == 0 || face_n > GC_MAX_CAP_FACES
+		|| faces_ofs + (uint32_t)face_n * 128u > (uint32_t)size )
+	{
+		Con_Reportf( "Xash3D GameCube: CapFaces pack reject %s ver=%u faces=%u\n",
+			path, ver, face_n );
+		FS_Close( f );
+		return false;
+	}
+
+	gc_newgame_cap_face_count = 0;
+	gc_newgame_cap_tex_faces = 0;
+	gc_newgame_cap_lm_faces = 0;
+	gc_newgame_cap_lm_atlas_ready = false;
+	memset( gc_newgame_draw_surfs, 0, sizeof( gc_newgame_draw_surfs ));
+	memset( gc_newgame_cap_faces, 0, sizeof( gc_newgame_cap_faces ));
+
+	if( FS_Seek( f, (fs_offset_t)faces_ofs, SEEK_SET ) < 0 )
+	{
+		FS_Close( f );
+		return false;
+	}
+	for( i = 0; i < (int)face_n; i++ )
+	{
+		gc_cap_face_t *dst = &gc_newgame_cap_faces[i];
+		msurface_t *draw = &gc_newgame_draw_surfs[i];
+		uint32_t tex_hash, area;
+		uint16_t fflags;
+		int nv, v;
+		float pts[GC_CAP_MAX_VERTS][3];
+		vec3_t e0, e1, nrm;
+
+		if( FS_Read( f, rec, 128 ) != 128 )
+		{
+			FS_Close( f );
+			gc_newgame_cap_face_count = 0;
+			return false;
+		}
+
+		nv = rec[0];
+		if( nv < 3 )
+			nv = 3;
+		if( nv > GC_CAP_MAX_VERTS )
+			nv = GC_CAP_MAX_VERTS;
+		gc_cap_nverts[i] = (byte)nv;
+		gc_cap_bake_src[i] = rec[1];
+		fflags = GC_Be16( rec + 2 );
+		area = GC_Be32( rec + 4 );
+		tex_hash = GC_Be32( rec + 8 );
+		gc_newgame_cap_areas[i] = (int)area;
+		gc_newgame_cap_surf_index[i] = -1 - i;
+
+		for( v = 0; v < GC_CAP_MAX_VERTS; v++ )
+		{
+			const byte *p = rec + 12 + v * 6;
+			int16_t x = (int16_t)GC_Be16( p );
+			int16_t y = (int16_t)GC_Be16( p + 2 );
+			int16_t z = (int16_t)GC_Be16( p + 4 );
+
+			gc_cap_pts_s16[i][v][0] = x;
+			gc_cap_pts_s16[i][v][1] = y;
+			gc_cap_pts_s16[i][v][2] = z;
+			pts[v][0] = (float)x;
+			pts[v][1] = (float)y;
+			pts[v][2] = (float)z;
+		}
+
+		VectorSubtract( pts[1], pts[0], e0 );
+		VectorSubtract( pts[2], pts[0], e1 );
+		CrossProduct( e0, e1, nrm );
+		VectorNormalize( nrm );
+		VectorCopy( nrm, dst->plane.normal );
+		dst->plane.dist = DotProduct( pts[0], nrm );
+		dst->flags = (int)fflags;
+		dst->firstedge = -1 - i;
+		dst->numedges = nv;
+		dst->extents[0] = (short)( (int)sqrtf( (float)area ) );
+		dst->extents[1] = dst->extents[0];
+		if( dst->extents[0] < 16 )
+			dst->extents[0] = dst->extents[1] = 64;
+
+		memset( draw, 0, sizeof( *draw ));
+		draw->plane = &dst->plane;
+		draw->flags = dst->flags;
+		draw->firstedge = dst->firstedge;
+		draw->numedges = nv;
+		draw->extents[0] = dst->extents[0];
+		draw->extents[1] = dst->extents[1];
+		draw->texinfo = &dst->texinfo;
+		draw->lightmaptexturenum = 1;
+
+		{
+			int texnum = GC_FindTexnumByHash( mod, tex_hash );
+
+			gc_cap_texnum[i] = texnum;
+			if( texnum > 0 )
+			{
+				dst->texinfo.texture = &gc_cap_tex_shared;
+				gc_newgame_cap_tex_faces++;
+				resolved++;
+			}
+		}
+		gc_newgame_cap_lm_w[i] = GC_CAP_LM_DIM;
+		gc_newgame_cap_lm_h[i] = GC_CAP_LM_DIM;
+		gc_newgame_cap_lm_real[i] = ( flags & GC_CF_FLAG_LM_ATLAS ) ? 1 : 0;
+		if( gc_newgame_cap_lm_real[i] )
+			gc_newgame_cap_lm_faces++;
+	}
+
+	gc_newgame_cap_face_count = (int)face_n;
+
+	if( ( flags & GC_CF_FLAG_LM_ATLAS ) && atlas_ofs + (uint32_t)lm_w * lm_h * 2u <= (uint32_t)size
+		&& lm_w == GC_LM_ATLAS_W && lm_h == GC_LM_ATLAS_H )
+	{
+		size_t atlas_bytes = (size_t)lm_w * lm_h * 2u;
+
+		if( FS_Seek( f, (fs_offset_t)atlas_ofs, SEEK_SET ) < 0
+			|| FS_Read( f, gc_newgame_cap_lm_atlas_bss, atlas_bytes ) != (fs_offset_t)atlas_bytes )
+		{
+			FS_Close( f );
+			gc_newgame_cap_face_count = 0;
+			return false;
+		}
+		DCFlushRange( gc_newgame_cap_lm_atlas_bss, (u32)atlas_bytes );
+		gc_newgame_cap_lm_atlas = gc_newgame_cap_lm_atlas_bss;
+		gc_newgame_cap_lm_atlas_ready = true;
+	}
+	else
+		GC_PackCapLightmapAtlas();
+
+	if( eye_n > 0 && size >= 32 + 24
+		&& FS_Seek( f, 32, SEEK_SET ) >= 0
+		&& FS_Read( f, eye, 24 ) == 24 )
+	{
+		union { uint32_t u; float f; } o0, o1, o2;
+
+		o0.u = GC_Be32( eye );
+		o1.u = GC_Be32( eye + 4 );
+		o2.u = GC_Be32( eye + 8 );
+		gc_newgame_bake_origin[0] = o0.f;
+		gc_newgame_bake_origin[1] = o1.f;
+		gc_newgame_bake_origin[2] = o2.f;
+		VectorCopy( gc_newgame_bake_origin, gc_newgame_capture_origin );
+	}
+
+	FS_Close( f );
+	gc_newgame_cap_generation++;
+	Con_Reportf( "Xash3D GameCube: CapFaces pack loaded %s faces=%d eyes=%d tex=%d/%d lm=%d\n",
+		path, gc_newgame_cap_face_count, eye_n, resolved, face_n, gc_newgame_cap_lm_faces );
+	GCube_AppendSwissEvidence( "CapFaces pack loaded faces=%d eyes=%d tex=%d",
+		gc_newgame_cap_face_count, eye_n, resolved );
+	if( Sys_CheckParm( "-gcworlddl" ))
+	{
+		extern qboolean R_GXReserveCapDispList( void );
+
+		R_GXReserveCapDispList();
+	}
+	return gc_newgame_cap_face_count > 0;
+}
+
 qboolean GC_PrefetchCapFacesWhileEdgesLive( model_t *mod )
 {
 #if XASH_GAMECUBE
@@ -10348,12 +10648,15 @@ qboolean GC_PrefetchCapFacesWhileEdgesLive( model_t *mod )
 
 	if( !Sys_CheckParm( "-gcworldrender" ) || Sys_CheckParm( "-gcconnect" ))
 		return false;
+	if( gc_newgame_cap_face_count > 0 )
+		return true;
+	/* Prefer offline CapFaces pack — no EDGE tip dependency. */
+	if( GC_TryLoadCapFacesPack( mod ))
+		return true;
 	if( !mod || !mod->surfaces || mod->numsurfaces <= 0 )
 		return false;
 	if( !mod->edges16 || !mod->surfedges )
 		return false;
-	if( gc_newgame_cap_face_count > 0 )
-		return true;
 
 	/* Prefer -gcdumpeye so CapFaces are near-eye for atlas stills (dod_donner
 	 * tip-donner 125836 drew 379 caps but only sky clear — bake used map
@@ -10430,12 +10733,14 @@ qboolean GC_BakeGcmapWorldRenderCapFaces( void )
 	}
 
 	prefetched = ( gc_newgame_cap_face_count > 0 );
+	if( !prefetched && GC_TryLoadCapFacesPack( wmodel ))
+		prefetched = true;
 	if( prefetched )
 	{
 		int	si;
 
-		/* EDGE verts were snapshotted at prefetch. LM tiles should already
-		 * have been rebaked right after G154 ARAM bind; recount only. */
+		/* EDGE verts were snapshotted at prefetch / offline pack. LM tiles
+		 * should already be ready; recount only. */
 		gc_newgame_cap_lm_faces = 0;
 		for( si = 0; si < gc_newgame_cap_face_count; si++ )
 		{
@@ -10444,10 +10749,10 @@ qboolean GC_BakeGcmapWorldRenderCapFaces( void )
 		}
 		if( gc_newgame_cap_lm_faces <= 0 && Mod_GCAramLightmapActive() )
 			GC_RebakeCapFaceLightmaps( wmodel );
-		else
+		else if( !gc_newgame_cap_lm_atlas_ready )
 			GC_PackCapLightmapAtlas();
 		Con_Reportf(
-			"Xash3D GameCube: CapFaces using edges-live prefetch n=%d lm_real=%d\n",
+			"Xash3D GameCube: CapFaces using prefetch/pack n=%d lm_real=%d\n",
 			gc_newgame_cap_face_count, gc_newgame_cap_lm_faces );
 		goto capfaces_arm;
 	}
@@ -10566,6 +10871,11 @@ capfaces_arm:
 	 * (20261107-130315). CapFaces draw still needs ARAM→MEM1. */
 	{
 		extern void R_GXPreallocCmprBounce( void );
+		extern qboolean R_GXReserveCapDispList( void );
+
+		/* CapFaces DL before CMPR bounce — bounce otherwise eats the tip. */
+		if( Sys_CheckParm( "-gcworlddl" ))
+			R_GXReserveCapDispList();
 		R_GXPreallocCmprBounce();
 	}
 	Con_Reportf( "Xash3D GameCube: CapFaces bake done n=%d lm_real=%d tex=%d\n",
@@ -11091,9 +11401,22 @@ static void GC_TryDeferredStudios( void )
 
 	if( !gc_newgame_world_ready )
 		return;
-	/* G297: MDL promote mid-G36 sample window spikes present hitch. */
+	/* G297: MDL promote mid-G36 sample window spikes present hitch.
+	 * G381: still attach hallway soft skins once — FrameBudget used to
+	 * starve Mod_GCTryDeferredStudios for the whole CHANGELEVEL_READY
+	 * window, leaving scientist on defaultTexture. */
 	if( GC_IsFrameBudgetProbeActive() )
+	{
+		static qboolean g381_skins_during_budget;
+
+		if( !g381_skins_during_budget && gc_present_count >= 4
+			&& ( Sys_CheckParm( "-gcnewgame" ) || Sys_CheckParm( "-gcmenuplaystart" )))
+		{
+			g381_skins_during_budget = true;
+			Mod_GCUploadDeferredStudioSkins();
+		}
 		return;
+	}
 	/* Exact present==N slots are permanently missed when G36 spans those
 	 * presents (c4a3 fullphysics 20261105-080844: only G290@24 after arm).
 	 * Use once-per-threshold for both lean and fullphysics -gcnewgame. */
@@ -14497,7 +14820,11 @@ qboolean GC_RenderNewGameWorldFrames( int count )
 		if( !VectorIsNull( cl.simorg ))
 		{
 			VectorCopy( cl.simorg, center );
+			#if XASH_DODGC_NETWORK
+			center[2] += cl.viewheight[2];
+#else
 			center[2] += 48.0f;
+#endif
 		}
 		if( !VectorIsNull( cl.viewangles ))
 			VectorCopy( cl.viewangles, rvp.viewangles );
@@ -14512,7 +14839,11 @@ qboolean GC_RenderNewGameWorldFrames( int count )
 			/* G279: tram ride origin is already eye height — do not +48.
 			 * The real-server menu route has a real player: use its view
 			 * offset like V_CalcRefdef (+48 sat 20 units high in the tram). */
-			if( GC_MenuRunsServer() )
+			if( GC_MenuRunsServer()
+#if XASH_DODGC_NETWORK
+				|| cls.state == ca_active
+#endif
+			)
 				center[2] += player->v.view_ofs[2];
 			else if( !Sys_CheckParm( "-gcnewgame" ))
 				center[2] += 48.0f;
@@ -14552,6 +14883,9 @@ qboolean GC_RenderNewGameWorldFrames( int count )
 		GC_UpdateNewGamePVSForOrigin( center );
 		active = gc_newgame_viewcluster;
 		if( wanted >= 0 && active >= 0 && wanted != active
+#if XASH_DODGC_NETWORK
+			&& cls.state != ca_active
+#endif
 			&& !VectorIsNull( gc_newgame_capture_origin ))
 		{
 			SYS_Report( "Xash3D GameCube: G132 camera snap capture (want=%d active=%d)\n",
@@ -14601,6 +14935,18 @@ qboolean GC_RenderNewGameWorldFrames( int count )
 	 * into the largest wall instead of aiming across the map into empty sky.
 	 * G211: Flipper DumpFrames prefer indoor enclosed walls (less sky bleed).
 	 * Lock indoor cluster once — UpdatePVS(eye) would thrash back to outdoor. */
+#if XASH_DODGC_NETWORK
+	/* Real pad input owns the camera — except CapFaces solo dumps that need
+	 * sticky -gcdumpeye wall-aim. lean-iso listenserver adds -gcplayerinput;
+	 * with XASH_DODGC_NETWORK=1 that cleared dump_look and left spawn facing
+	 * sky (tip-donner-pmskip stills = gradient, 20261108-161256). */
+	if( cls.state == ca_active && Sys_CheckParm( "-gcplayerinput" )
+		&& !( Sys_CheckParm( "-gcworldrender" ) && Sys_CheckParm( "-gcdumpeye" )))
+	{
+		gc_dump_look_into_map = false;
+		gc_g196_flipper_dump_aim_left = 0;
+	}
+#endif
 	if( gc_dump_look_into_map )
 	{
 		vec3_t look;

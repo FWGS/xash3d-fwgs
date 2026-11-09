@@ -124,25 +124,7 @@ scripts/gamecube-goal-ledger-check.py
 
 echo
 echo "== GameCube timebase guard =="
-if python3 - <<'PY'
-from pathlib import Path
-text = Path("engine/platform/gamecube/sys_gamecube.c").read_text(encoding="utf-8")
-start = text.index("double Platform_DoubleTime")
-end_marker = "void *Platform_GetNativeObject"
-if end_marker in text[start:]:
-	end = text.index(end_marker, start)
-else:
-	# The GameCube backend may omit the optional native-object hook.
-	end = text.index("void Platform_MouseMove", start)
-body = text[start:end]
-raise SystemExit(0 if "/ clock" in body and "PPC_TIMER_CLOCK" in body else 1)
-PY
-then
-	echo "timebase guard: Platform_DoubleTime returns seconds"
-else
-	echo "verify: Platform_DoubleTime must divide diff_ticks by PPC_TIMER_CLOCK" >&2
-	exit 1
-fi
+python3 -m unittest discover -s tests -p 'test_gamecube_clock.py' -v
 
 if command -v aider >/dev/null 2>&1; then
 	aider --config .aider.conf.yml --help >/dev/null
@@ -236,6 +218,10 @@ if [[ -n "$BASELINE" ]]; then
 		esac
 	done < <(git diff --name-only "$BASELINE")
 fi
+
+echo
+echo "== native GameCube TAS replay tests =="
+python3 -m unittest discover -s tests -p 'test_gamecube_tas.py' -v
 
 if [[ "${SKIP_GAMECUBE_BUILD:-0}" == "1" ]]; then
 	echo

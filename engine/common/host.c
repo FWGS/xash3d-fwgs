@@ -1512,7 +1512,15 @@ static void Host_InitCommon( int argc, char **argv, const char *progname, qboole
 
 	// NOTE: only once resource without which engine can't continue work
 	if( !FS_FileExists( "gfx/conchars", false ))
+	{
+#if XASH_GAMECUBE
+		/* Tip smoke/listen boots can miss WAD lump FileExists while gfx.wad is
+		 * mounted (lean HUD font covers CONCHARS). Soft-fail — do not brick boot. */
+		Con_Reportf( "Xash3D GameCube: gfx/conchars FileExists miss at init (continuing)\n" );
+#else
 		Sys_Error( "%s: couldn't load gfx.wad\n", __func__ );
+#endif
+	}
 
 	Host_InitDecals ();	// reload decals
 #if XASH_GAMECUBE

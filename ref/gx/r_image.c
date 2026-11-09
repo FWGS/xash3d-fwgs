@@ -27,15 +27,11 @@ static unsigned gc_tiny_pixels_used;
 /* Late native studio skins can arrive after the compact studio arena has
  * become contiguous-full.  Keep a bounded overflow window for base planes;
  * this avoids pushing small skin allocations back through fragmented MEM1.
- * G381: scientistT (31×≤96² ≈ 191 KiB) + barneyT (≈ 152 KiB) = 343 KiB at
- * the 96 cap — the prior 256 KiB window left ~9 scientist skins on
- * defaultTexture.  384 KiB covers that hallway cast; upload still adapts
- * down to 64/48 when the bump is nearly full.  Skins must NOT live in
- * gc_studio_bss — Mod_GCStudioBssTrimLast rewinds that bump and was leaving
- * ptexture indices dangling into recycled slots (*gc_sky_proc). */
-/* 384 KiB stole 128 KiB tip and broke listen CapFaces (flash entities
- * tip-miss / magenta fatal tip-flash-deferstr2). Keep 256; hallway soft
- * skins stay on the adaptive overflow path. */
+ * G381: scientistT+barneyT need ~343 KiB at a flat 96² cap. Keep 256 KiB
+ * (384 KiB BSS tipped changelevel leafs / CapFaces) and adapt each upload
+ * 96→64→48 so both companions fit. Skins must NOT live in gc_studio_bss —
+ * Mod_GCStudioBssTrimLast rewinds that bump and was leaving ptexture indices
+ * dangling into recycled slots (*gc_sky_proc). */
 #define GC_STUDIO_SKIN_OVERFLOW_BYTES (256 * 1024)
 static byte gc_studio_skin_overflow[GC_STUDIO_SKIN_OVERFLOW_BYTES] __attribute__((aligned(32)));
 static size_t gc_studio_skin_overflow_bump;

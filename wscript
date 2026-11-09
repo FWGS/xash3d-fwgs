@@ -623,6 +623,10 @@ def configure(conf):
 
 	if conf.env.DEST_OS == 'gamecube':
 		conf.define('XASH_GAMECUBE', 1)
+		if conf.options.GAMEDIR == 'dod':
+			conf.define('XASH_DODGC_NETWORK', 1)
+			conf.define('DEFAULT_MAX_EDICTS', 460)
+			conf.define('GC_SP_EDICT_CAP', 460)
 		if os.environ.get('XASH_GAMECUBE_ENABLE_GCMAP_PROBES', '').lower() in ('1', 'yes', 'true', 'on'):
 			conf.define('XASH_GAMECUBE_ENABLE_GCMAP_PROBES', 1)
 		# Broadband / eth2sp1: link -lbba and enable GC net headers when requested.

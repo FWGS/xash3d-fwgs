@@ -318,7 +318,8 @@ if [[ "$MOUNT" == "__EVIDENCE_DROP_DONE__" ]]; then
 fi
 # If this remount already carries a complete Swiss run, skip restage and ingest.
 phase1_skip_stage=0
-EV0="$MOUNT/xash3d/valve/logs/swiss-evidence.txt"
+EV0="$MOUNT/xash3d/dod/logs/swiss-evidence.txt"
+EV0_VALVE="$MOUNT/xash3d/valve/logs/swiss-evidence.txt"
 if [[ -f "$EV0" ]] \
 	&& grep -q "FAT preferred volume" "$EV0" \
 	&& grep -qE "FAT volume ready (sd:|carda:|cardb:)/" "$EV0" \
@@ -378,6 +379,8 @@ scan_evidence() {
 	# Prefer the staged mount first (may remount with same path).
 	if [[ -n "${MOUNT:-}" && -d "$MOUNT" ]]; then
 		for cand in \
+			"$MOUNT/xash3d/dod/logs/swiss-evidence.txt" \
+			"$MOUNT/dod/logs/swiss-evidence.txt" \
 			"$MOUNT/xash3d/valve/logs/swiss-evidence.txt" \
 			"$MOUNT/valve/logs/swiss-evidence.txt" \
 			"$MOUNT/swiss-evidence.txt"
@@ -395,6 +398,8 @@ scan_evidence() {
 		is_skipped "$name" && continue
 		is_candidate "$m" || continue
 		for cand in \
+			"$m/xash3d/dod/logs/swiss-evidence.txt" \
+			"$m/dod/logs/swiss-evidence.txt" \
 			"$m/xash3d/valve/logs/swiss-evidence.txt" \
 			"$m/valve/logs/swiss-evidence.txt" \
 			"$m/swiss-evidence.txt"
