@@ -11917,7 +11917,11 @@ qboolean GC_AllowFlipperCapFaces( void )
 	/* Tip-safe campaign hop: CapFaces on c0a0e draw ~300 faces then leave tip
 	 * ~39 Kb — HUD SPR path hangs and -gcchangelevel never queues (probe
 	 * 20261108-104120). Skip CapFaces when a probe changelevel is pending so
-	 * tram→AM continuity can complete (matches historical tip-safe-skip). */
+	 * tram→AM continuity can complete (matches historical tip-safe-skip).
+	 * Do NOT gate -gcautohop/-gcmenuplaystart on tip here: retail tram tip
+	 * is already ≈50 Kb at first CapFaces (c0a0 play start tip=51.94 Kb) and
+	 * still needs LM-caps; outdoor sky / MarkVisible / live-BSP tip stalls
+	 * are handled inside CapFaces (c0a0b 2desert hang 20261109-0248). */
 	if( GC_IsTramIntroMap() && Sys_CheckParm( "-gcchangelevel" )
 		&& GC_MemHeapFreeBytes() < 128u * 1024u )
 		return false;

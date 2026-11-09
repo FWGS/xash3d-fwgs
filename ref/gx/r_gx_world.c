@@ -2951,7 +2951,22 @@ static void R_GXSetupWorld3DState( void )
 	R_GXBuildWorldModelview( mv );
 	GX_LoadPosMtxImm( mv, GX_PNMTX0 );
 
-	if( R_GXSkyVisible( ))
+	/* Tip-safe: outdoor sky draw after tram hops can stall CapFaces forever
+	 * (c0a0b 2desert @ tip≈48 Kb, probe 20261109-0248 — hung after
+	 * "sky faces=1", never reached CapFaces surfs n=). Keep clear colour. */
+	if( GC_MemHeapFreeBytes() < 96u * 1024u )
+	{
+		static qboolean sky_tip_logged;
+
+		if( !sky_tip_logged )
+		{
+			sky_tip_logged = true;
+			gEngfuncs.Con_Reportf(
+				"Xash3D GameCube: sky draw skipped tip-safe tip=%s\n",
+				Q_memprint( GC_MemHeapFreeBytes() ));
+		}
+	}
+	else if( R_GXSkyVisible( ))
 	{
 		R_GXDrawSkyBox();
 		GX_SetZMode( GX_TRUE, GX_LEQUAL, GX_TRUE );
@@ -4636,8 +4651,19 @@ static int R_GXDrawNewGameCapFacesImpl( void )
 		gEngfuncs.Con_Reportf( "Xash3D GameCube: CapFaces begin map=%s f=%d\n",
 			map_name, tr.framecount );
 	}
-	/* Skybox image first — per-map CMPR — then CapFaces world tris. */
-	R_GXPrefetchMapSkybox();
+	/* Skybox image first — per-map CMPR — then CapFaces world tris.
+	 * Tip-safe tram hops: skip CMPR prefetch when tip is already tight so
+	 * CapFaces can emit LM-caps without the outdoor-sky stall path. */
+	{
+		const qboolean tip_tight = GC_MemHeapFreeBytes() < 96u * 1024u;
+
+		if( !tip_tight )
+			R_GXPrefetchMapSkybox();
+		else if( log_begin )
+			gEngfuncs.Con_Reportf(
+				"Xash3D GameCube: CapFaces sky prefetch skipped tip-safe tip=%s\n",
+				Q_memprint( GC_MemHeapFreeBytes() ));
+	}
 	R_GXHotService();
 	R_GXSetupWorld3DState();
 	/* CapFaces lean: PVS + frustum before emit (no live marksurfaces). */
@@ -4658,12 +4684,19 @@ static int R_GXDrawNewGameCapFacesImpl( void )
 	 * Solo -gcworldrender CapFaces: tip-parked leafs/marksurfaces often sit in
 	 * BSP scratch that CapFaces LM/tex reuse; MarkVisibleSurfaces then hangs
 	 * after G285/sky (tip-donner-libogc-draw 20261108-160045). CapFaces-only
-	 * Flipper does not need the stamp. */
+	 * Flipper does not need the stamp.
+	 * Tip-safe campaign: with LM-caps already baked, skip the stamp under
+	 * tight tip (c0a0b hang after sky faces=1 @ tip≈48 Kb). */
 	if( !scratch_retained
 		&& !( n > 0 && gEngfuncs.Sys_CheckParm( "-gcworldrender" ))
+		&& !( n > 0 && GC_MemHeapFreeBytes() < 96u * 1024u )
 		&& ( !( newgame_probe && GC_UseLowResWorldProbe() )
 			|| surfaces_pinned ))
 		R_GXMarkVisibleSurfaces( world );
+	else if( log_begin && n > 0 && GC_MemHeapFreeBytes() < 96u * 1024u )
+		gEngfuncs.Con_Reportf(
+			"Xash3D GameCube: CapFaces MarkVisible skipped tip-safe tip=%s n=%d\n",
+			Q_memprint( GC_MemHeapFreeBytes() ), n );
 
 	if( log_begin )
 		gEngfuncs.Con_Reportf( "Xash3D GameCube: CapFaces surfs n=%d live=%d\n",
@@ -4688,21 +4721,38 @@ static int R_GXDrawNewGameCapFacesImpl( void )
 		 * -gcworldrender CapFaces: surfaces can sit in the high slot (pinned)
 		 * while plane* still dangles into reused scratch — dod_donner tip
 		 * Guru'd in live BSP (DAR=0x9000904C, tip-donner 125333). Prefer the
-		 * EDGE-baked CapFaces path instead. */
-		if( surfaces_pinned && !scratch_retained
-			&& !( n > 0 && gEngfuncs.Sys_CheckParm( "-gcworldrender" )))
+		 * EDGE-baked CapFaces path instead.
+		 * Tip-safe tram hops: live BSP after outdoor sky stalls CapFaces
+		 * (c0a0b @ tip≈48 Kb). Prefer LM-caps when tip is tight — keep the
+		 * skip sticky so later frames do not fall into G213 live-walk. */
 		{
-			drawn = R_GXDrawWorldLiveSurfaces( world, true );
-			if( !g213_logged )
+			const qboolean tip_skip_live =
+				n > 0 && GC_MemHeapFreeBytes() < 96u * 1024u;
+
+			if( tip_skip_live )
 			{
-				g213_logged = true;
-				gEngfuncs.Con_Reportf(
-					"Xash3D GameCube: G283 live BSP Flipper opaque=%d (malloc pin)\n",
-					drawn );
+				if( !g213_logged )
+				{
+					g213_logged = true;
+					gEngfuncs.Con_Reportf(
+						"Xash3D GameCube: G283 live BSP skipped tip-safe (LM-caps) tip=%s n=%d\n",
+						Q_memprint( GC_MemHeapFreeBytes() ), n );
+				}
 			}
-		}
-		/* G298: lean early-pool faces under scratch retain or dangling surfaces. */
-		else if( live_n > 0 )
+			else if( surfaces_pinned && !scratch_retained
+				&& !( n > 0 && gEngfuncs.Sys_CheckParm( "-gcworldrender" )))
+			{
+				drawn = R_GXDrawWorldLiveSurfaces( world, true );
+				if( !g213_logged )
+				{
+					g213_logged = true;
+					gEngfuncs.Con_Reportf(
+						"Xash3D GameCube: G283 live BSP Flipper opaque=%d (malloc pin)\n",
+						drawn );
+				}
+			}
+			/* G298: lean early-pool faces under scratch retain or dangling surfaces. */
+			else if( live_n > 0 )
 		{
 			int li, live_drawn = 0, skipped_cap = 0;
 			int skip_back = 0, skip_noverts = 0, emit_fail = 0;
@@ -4849,6 +4899,7 @@ static int R_GXDrawNewGameCapFacesImpl( void )
 				"Xash3D GameCube: CapFaces-only Flipper (skip live BSP; planes may dangle) n=%d\n",
 				n );
 		}
+		} /* tip_skip_live / G283 / G298 / scratch / G213 chain */
 		/* The menu route retained the complete BSP source and successfully
 		 * emitted its live PVS surfaces.  CapFaces/fill are the degraded
 		 * scratch-reuse fallback; layering them over real geometry creates the
