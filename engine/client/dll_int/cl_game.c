@@ -2034,12 +2034,22 @@ HSPRITE EXPORT pfnSPR_Load( const char *szPicName )
 
 	GC_HUD_CALL( "SPR_Load begin %s", szPicName ? szPicName : "(null)" );
 #if XASH_GAMECUBE
-	/* CapFaces Flipper listen is MEM1-tight; HUD SPR_Load after frame 1
-	 * Gurus (solo 20261107-123341 mid 320_pain.spr). CapFaces already drew. */
+	/* CapFaces Flipper listen is MEM1-tight — block full hud.txt sheet storms
+	 * (solo 20261107-123341 mid 320_pain.spr). Allow the lean quality-0 set
+	 * so DoD CapFaces listen can still show health/ammo/crosshair. */
 	if( Sys_CheckParm( "-gcworldrender" ) && GC_UseGxWorldDraw() )
 	{
-		GC_HUD_CALL( "SPR_Load skip CapFaces %s", szPicName ? szPicName : "(null)" );
-		return 0;
+		const qboolean lean_ok = szPicName && (
+			Q_stristr( szPicName, "gc_320hud2" )
+			|| Q_stristr( szPicName, "crosshairs" )
+			|| Q_stristr( szPicName, "_pain" )
+			|| Q_stristr( szPicName, "_train" ));
+
+		if( !lean_ok )
+		{
+			GC_HUD_CALL( "SPR_Load skip CapFaces %s", szPicName ? szPicName : "(null)" );
+			return 0;
+		}
 	}
 #endif
 	spr = CL_LoadSpriteModel( szPicName, SPR_HUDSPRITE, 0 );

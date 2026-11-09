@@ -1180,6 +1180,18 @@ static void GCube_LoadDiscBootOverrides( void )
 		Q_snprintf( fatcfg, sizeof( fatcfg ),
 			GC_DVD_DEVICE ":/" GC_DATA_PATH "/%s/gamecube.cfg", GC_ACTIVE_GAMEDIR );
 		file = fopen( fatcfg, "r" );
+		if( file )
+			SYS_Report( "Xash3D GameCube: DVD boot cfg %s\n", fatcfg );
+	}
+	/* FST layout from build-gamecube-disc is xash3d/<gamedir-files>, not
+	 * xash3d/<gamedir>/… — Lost Coast CapFaces smoke lands gamecube.cfg there. */
+	if( !file && gc_dvd_mounted )
+	{
+		Q_snprintf( fatcfg, sizeof( fatcfg ),
+			GC_DVD_DEVICE ":/" GC_DATA_PATH "/gamecube.cfg" );
+		file = fopen( fatcfg, "r" );
+		if( file )
+			SYS_Report( "Xash3D GameCube: DVD boot cfg (FST flat) %s\n", fatcfg );
 	}
 	if( !file )
 	{
@@ -1189,12 +1201,20 @@ static void GCube_LoadDiscBootOverrides( void )
 	}
 	if( !file )
 	{
+		Q_snprintf( fatcfg, sizeof( fatcfg ), GC_DATA_PATH "/gamecube.cfg" );
+		file = fopen( fatcfg, "r" );
+	}
+	if( !file )
+	{
 		Q_snprintf( fatcfg, sizeof( fatcfg ), "%s/gamecube.cfg", GC_ACTIVE_GAMEDIR );
 		file = fopen( fatcfg, "r" );
 	}
 	/* No gamecube.cfg map override means retail menu boot, not smoke map load. */
 	if( !file )
+	{
+		SYS_Report( "Xash3D GameCube: no gamecube.cfg found (menu boot)\n" );
 		return;
+	}
 
 	while( fgets( line, sizeof( line ), file ))
 	{

@@ -964,12 +964,19 @@ void SCR_UpdateScreen( void )
 			if( !gc_hud_lean_logged && cls.signon == SIGNONS
 				&& !GC_IsFrameBudgetProbeActive() )
 			{
-				/* CapFaces listen: HUD SPR_Load / lean draw Gurus after sustained
-				 * CapFaces (solo 20261107-123717). Keep Flipper world only. */
+				/* CapFaces listen used to skip HUD entirely (solo 20261107-123717).
+				 * Lean quality-0 sheets are whitelisted in pfnSPR_Load — draw them. */
 				if( Sys_CheckParm( "-gcworldrender" ) && GC_UseGxWorldDraw() )
 				{
+					ref.dllFuncs.R_BeginFrame( false );
+					ref.dllFuncs.R_AllowFog( false );
+					ref.dllFuncs.R_Set2DMode( true );
+					CL_DrawHUD( CL_ACTIVE );
+					Con_Reportf( "Xash3D GameCube: lean HUD on CapFaces Flipper\n" );
+					ref.dllFuncs.R_AllowFog( true );
+					Platform_SetTimer( 0.0f );
+					ref.dllFuncs.R_EndFrame();
 					gc_hud_lean_logged = true;
-					Con_Reportf( "Xash3D GameCube: lean HUD skipped (CapFaces Flipper)\n" );
 				}
 				else
 				{
