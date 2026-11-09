@@ -1767,19 +1767,38 @@ def map_sky_names(source: Path) -> set[str]:
 def build_sky_cmpr_overlays(source: Path, output: Path) -> list[tuple[str, Path]]:
 	"""Skyboxes as 128×128 GX CMPR sides (8 KiB each) in shallow media/.
 
-	The engine draws them as a camera-centred box (r_gx_world.c); the 256²
-	TGAs would need ~768 KiB of MEM1 per sky as RGB565.
+	Per-map lean discs stage media/sky_<name>*.cmp first (or gfx/env TGAs).
+	Flipper draws that sky before CapFaces — prioritize shipping the map's
+	skyname only (map_sky_names), not every DoD sky.
 	"""
-	try:
-		import numpy as np
-		from PIL import Image
-	except ImportError:
-		print("warning: numpy/Pillow missing, skyboxes not converted")
-		return []
-	overlays = []
+	overlays: list[tuple[str, Path]] = []
 	media = output / "media"
 	media.mkdir(parents=True, exist_ok=True)
-	for name in sorted(map_sky_names(source)):
+	src_media = source / "media"
+	names = sorted(map_sky_names(source))
+
+	# Prefer prebuilt CMPR (stage-lean-dod / sky cache) — no Pillow round-trip.
+	for name in names:
+		prebuilt = []
+		for suffix in GC_SKY_SUFFIXES:
+			cand = src_media / f"sky_{name}{suffix}.cmp"
+			if cand.is_file() and cand.stat().st_size > 0:
+				prebuilt.append((suffix, cand))
+		if len(prebuilt) == 6:
+			for suffix, src in prebuilt:
+				rel = f"media/sky_{name}{suffix}.cmp"
+				dest = output / rel
+				if src.resolve() != dest.resolve():
+					dest.write_bytes(src.read_bytes())
+				overlays.append((rel, dest))
+			continue
+
+		try:
+			import numpy as np
+			from PIL import Image
+		except ImportError:
+			print(f"warning: numpy/Pillow missing, cannot encode sky '{name}'")
+			continue
 		sides = []
 		for suffix in GC_SKY_SUFFIXES:
 			for ext in ("tga", "bmp"):
@@ -1788,6 +1807,7 @@ def build_sky_cmpr_overlays(source: Path, output: Path) -> list[tuple[str, Path]
 					sides.append((suffix, src))
 					break
 		if len(sides) != 6:
+			print(f"warning: incomplete skybox '{name}' (need 6 sides, have {len(sides)})")
 			continue
 		for suffix, src in sides:
 			with Image.open(src) as img:
@@ -1796,7 +1816,7 @@ def build_sky_cmpr_overlays(source: Path, output: Path) -> list[tuple[str, Path]
 			rel = f"media/sky_{name}{suffix}.cmp"
 			(output / rel).write_bytes(data)
 			overlays.append((rel, output / rel))
-	print(f"  skyboxes: {len(overlays) // 6} as GX CMPR {GC_SKY_CMPR_SIZE}x{GC_SKY_CMPR_SIZE}")
+	print(f"  skyboxes: {len(overlays) // 6} as GX CMPR {GC_SKY_CMPR_SIZE}x{GC_SKY_CMPR_SIZE} (maps={','.join(names) or 'none'})")
 	return overlays
 
 
