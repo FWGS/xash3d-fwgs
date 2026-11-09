@@ -6019,8 +6019,12 @@ static void Mod_LoadAllTextures( model_t *mod, dbspmodel_t *bmod )
 	Con_Reportf( "Xash3D GameCube: Mod_LoadAllTextures begin n=%d tip=%s\n",
 		mod->numtextures, Q_memprint( GC_MemHeapFreeBytes() ));
 	/* Tip-critical changelevels (c0a0c→c0a0d @ tip≈12–14 KiB): Mem_Calloc of
-	 * texture_t from the tip pool hangs mid-loop. One spill block + pack bind. */
-	if( bmod->isworld && GC_MemHeapFreeBytes() < 48u * 1024u )
+	 * texture_t from the tip pool hangs mid-loop. One spill block + pack bind.
+	 * Lost Coast CapFaces smoke also forces tip-lean — Mod_LoadTexture×320 ate
+	 * MEM1 (tip 150→24 KiB) and Host_Frame stalled before Flipper DumpFrames. */
+	if( bmod->isworld && ( GC_MemHeapFreeBytes() < 192u * 1024u
+		|| Sys_CheckParm( "-gccapfacessmoke" )
+		|| Sys_CheckParm( "-gcworldrender" )) )
 	{
 		int packed = 0, stubbed = 0, failed = 0;
 		const size_t block_bytes = (size_t)mod->numtextures * sizeof( texture_t );

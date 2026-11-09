@@ -10814,18 +10814,25 @@ static void GC_LoadCapFacesSpatialManifest( const char *mapbase )
 		f = FS_Open( path, "rb", true );
 	if( !f )
 		return;
-	while( n < GC_CAP_SPATIAL_MAX && FS_Gets( f, line, sizeof( line )) )
+	/*
+	 * FS_Gets returns the terminator char, or <0 on EOF. Do NOT use it as a
+	 * boolean — EOF (-1) is truthy and spun forever after the last line
+	 * (dolphin-probe-20261109-095416/101442 hung post-sky with spatial.txt).
+	 */
+	while( n < GC_CAP_SPATIAL_MAX )
 	{
 		char file[32];
 		float cx, cy, cz;
 		int faces;
 		char *p = line;
+		int got = FS_Gets( f, line, sizeof( line ));
 
+		if( line[0] == '\0' && got < 0 )
+			break;
 		while( *p == ' ' || *p == '\t' || *p == '\r' )
 			p++;
-		if( !p[0] || p[0] == '#' )
-			continue;
-		if( sscanf( p, "%31s %f %f %f %d", file, &cx, &cy, &cz, &faces ) == 5 )
+		if( p[0] && p[0] != '#'
+			&& sscanf( p, "%31s %f %f %f %d", file, &cx, &cy, &cz, &faces ) == 5 )
 		{
 			Q_strncpy( gc_cap_spatial_file[n], file, sizeof( gc_cap_spatial_file[n] ));
 			gc_cap_spatial_center[n][0] = cx;
@@ -10833,6 +10840,8 @@ static void GC_LoadCapFacesSpatialManifest( const char *mapbase )
 			gc_cap_spatial_center[n][2] = cz;
 			n++;
 		}
+		if( got < 0 )
+			break;
 	}
 	FS_Close( f );
 	gc_cap_spatial_n = n;

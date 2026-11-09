@@ -2794,8 +2794,11 @@ void SV_GCHopRiderTick( void )
 		}
 	}
 	/* Autohop campaign ladder on the server tick — backup when nest did not
-	 * run (maps with after>0 still dwell here). */
-	if( Sys_CheckParm( "-gcautohop" ) && sv.name[0] )
+	 * run (maps with after>0 still dwell here). Never COM_ChangeLevel while
+	 * curstate is CHANGELEVEL (Host_SetNextState asserts; 20261109-102341). */
+	if( Sys_CheckParm( "-gcautohop" ) && sv.name[0]
+		&& GameState->curstate == STATE_RUNFRAME
+		&& GameState->nextstate == STATE_RUNFRAME )
 	{
 		static struct { char from[16]; qboolean done; } hop;
 		size_t hi;

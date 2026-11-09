@@ -249,10 +249,15 @@ void COM_Frame( double time )
 					const char *hop_lm = NULL;
 
 					SV_ExecChangeLevel();
-					Host_SetState( STATE_RUNFRAME, true );
 					if( !Sys_CheckParm( "-gcautohop" ) || !sv.name[0]
 						|| !SV_GCAutohopLookupNext( sv.name, &hop_to, &hop_lm ))
+					{
+						Host_SetState( STATE_RUNFRAME, true );
 						break;
+					}
+					/* Keep nextstate=CHANGELEVEL across the nest so HopRider
+					 * COM_ChangeLevel cannot Host_SetNextState-assert
+					 * (curstate!=RUNFRAME; probe 20261109-102341). */
 					Con_Reportf( "Xash3D GameCube: autohop ExecChangeLevel force %s → %s\n",
 						sv.name, hop_to );
 					Q_strncpy( GameState->levelName, hop_to, sizeof( GameState->levelName ));
@@ -260,7 +265,7 @@ void COM_Frame( double time )
 					GameState->loadGame = true;
 					GameState->backgroundMap = false;
 					GameState->newGame = false;
-					Host_SetState( STATE_CHANGELEVEL, false );
+					Host_SetState( STATE_CHANGELEVEL, true );
 				}
 			}
 #else
