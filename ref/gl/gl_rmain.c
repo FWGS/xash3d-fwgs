@@ -289,14 +289,24 @@ qboolean R_AddEntity( struct cl_entity_s *clent, int type )
 
 /*
 =============
+R_SetClearColor
+=============
+*/
+static void R_SetClearColor( void )
+{
+	if( ENGINE_GET_PARM( PARM_DEV_OVERVIEW ))
+		pglClearColor( 0.0f, 1.0f, 0.0f, 1.0f ); // green background (Valve rules)
+	else pglClearColor( 0.5f, 0.5f, 0.5f, 1.0f );
+}
+
+/*
+=============
 R_Clear
 =============
 */
 static void R_Clear( int bitMask )
 {
-	if( ENGINE_GET_PARM( PARM_DEV_OVERVIEW ))
-		pglClearColor( 0.0f, 1.0f, 0.0f, 1.0f ); // green background (Valve rules)
-	else pglClearColor( 0.5f, 0.5f, 0.5f, 1.0f );
+	R_SetClearColor();
 
 	int bits = GL_DEPTH_BUFFER_BIT;
 
@@ -1128,6 +1138,30 @@ void R_RenderFrame( const ref_viewpass_t *rvp )
 	return;
 }
 
+#if XASH_WIN32
+/*
+===============
+R_NudgePresent
+===============
+*/
+static void R_NudgePresent( void )
+{
+	// Intel's Windows OpenGL driver keeps presenting black frames for a while
+	// after an exclusive fullscreen window is restored from minimize: consuming
+	// a freshly cleared pixel right before the swap makes it present the finished
+	// frame again. The scissor test is off everywhere else in the renderer and
+	// the clear color is the one R_Clear last set, so both are restored to known
+	// values here instead of being queried back from the driver, which would
+	// force it to finish the queued work and stall the frame
+	pglEnable( GL_SCISSOR_TEST );
+	pglScissor( 0, 0, 1, 1 );
+	pglClearColor( 0.0f, 0.0f, 0.0f, 1.0f );
+	pglClear( GL_COLOR_BUFFER_BIT );
+	pglDisable( GL_SCISSOR_TEST );
+	R_SetClearColor();
+}
+#endif // XASH_WIN32
+
 /*
 ===============
 R_EndFrame
@@ -1147,6 +1181,9 @@ void R_EndFrame( void )
 	R_Set2DMode( false );
 #if XASH_PS4
 	GNM_ShimEndFrame();
+#endif
+#if XASH_WIN32
+	R_NudgePresent();
 #endif
 	gEngfuncs.GL_SwapBuffers();
 }

@@ -26,6 +26,14 @@ GNU General Public License for more details.
 #include <vrtld.h>
 #endif // XASH_PSVITA
 
+// SDL got explicit always-on-top windows in 2.0.16; before that SetWindowFullscreen
+// raised a focused fullscreen window by itself, which is the behaviour being restored
+#if SDL_VERSION_ATLEAST( 2, 0, 16 )
+#define VID_SetWindowAlwaysOnTop( w, on ) SDL_SetWindowAlwaysOnTop( ( w ), ( on ))
+#else
+#define VID_SetWindowAlwaysOnTop( w, on )
+#endif
+
 static vidmode_t *vidmodes = NULL;
 static int num_vidmodes = 0;
 static void GL_SetupAttributes( void );
@@ -536,6 +544,13 @@ static rserr_t VID_SetScreenResolution( int width, int height, window_mode_t win
 	const int display_index = VID_GetDisplayIndex( __func__, host.hWnd );
 	int out_width, out_height;
 
+	// needed: leaving and re-entering fullscreen passes the window through a
+	// normal windowed state for a moment, and a decorated frame makes the title
+	// bar flash around the game when it is restored from minimize, so the frame
+	// is kept off in both fullscreen modes
+	if( window_mode != WINDOW_MODE_WINDOWED )
+		SDL_SetWindowBordered( host.hWnd, SDL_FALSE );
+
 	switch( window_mode )
 	{
 	case WINDOW_MODE_BORDERLESS:
@@ -548,6 +563,9 @@ static rserr_t VID_SetScreenResolution( int width, int height, window_mode_t win
 			// no video mode change to begin with
 			return rserr_invalid_fullscreen;
 		}
+
+		// borderless never was always-on-top
+		VID_SetWindowAlwaysOnTop( host.hWnd, SDL_FALSE );
 		break;
 	}
 	case WINDOW_MODE_FULLSCREEN:
@@ -574,6 +592,13 @@ static rserr_t VID_SetScreenResolution( int width, int height, window_mode_t win
 			return appropriate_err;
 		}
 
+		// SDL 2.0.20's WIN_SetWindowFullscreen itself raised a focused exclusive
+		// fullscreen window to HWND_TOPMOST; SDL 2.32 does that only for
+		// SDL_WINDOW_ALWAYS_ON_TOP, so a window restored from minimize may stay
+		// composited underneath another top-level window. Native dialogs are
+		// owned windows and always stay above their owner regardless
+		VID_SetWindowAlwaysOnTop( host.hWnd, SDL_TRUE );
+
 		// SDL_SetWindowDisplayMode is broken in SDL2, it changes the display mode but doesn't change window size
 		SDL_SetWindowSize( host.hWnd, got.w, got.h );
 
@@ -588,6 +613,7 @@ static rserr_t VID_SetScreenResolution( int width, int height, window_mode_t win
 			return rserr_unknown;
 		}
 
+		VID_SetWindowAlwaysOnTop( host.hWnd, SDL_FALSE );
 		SDL_SetWindowResizable( host.hWnd, SDL_TRUE );
 		SDL_SetWindowBordered( host.hWnd, SDL_TRUE );
 
@@ -651,6 +677,10 @@ void VID_RestoreScreenResolution( window_mode_t window_mode )
 		// and window mode are the same
 		SDL_MinimizeWindow( host.hWnd );
 		SDL_SetWindowFullscreen( host.hWnd, 0 );
+
+		// always-on-top belongs to the fullscreen window; a window that is about
+		// to sit in the desktop must not cover dialogs or other applications
+		VID_SetWindowAlwaysOnTop( host.hWnd, SDL_FALSE );
 		break;
 	}
 #endif // !XASH_MOBILE_PLATFORM
