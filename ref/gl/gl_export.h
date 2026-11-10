@@ -299,7 +299,6 @@ typedef float GLmatrix[16];
 
 #define GL_SCISSOR_BOX			0x0C10
 #define GL_SCISSOR_TEST			0x0C11
-#define GL_COLOR_CLEAR_VALUE	0x0C22
 
 #define GL_NEVER				0x0200
 #define GL_LESS				0x0201
