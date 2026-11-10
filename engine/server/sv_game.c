@@ -252,6 +252,13 @@ qboolean SV_GCPrivateOverflowReserved( void )
 	return gc_ent_priv_overflow != NULL;
 }
 
+/* Tip-backed overflow must not pin the multi-MiB map arena (CapFaces listen
+ * tip≈2–10 KiB while arena retained — teamvm12 InitInput cvar OOM at 136 B). */
+qboolean SV_GCPrivateOverflowPinsMapArena( void )
+{
+	return gc_ent_priv_overflow != NULL && !gc_ent_priv_overflow_from_tip;
+}
+
 static qboolean SV_GCPrivateDataIsOverflow( const void *ptr )
 {
 	const uintptr_t p = (uintptr_t)ptr;
@@ -5942,6 +5949,9 @@ static qboolean SV_GCCapFacesOptionalEntity( const char *classname )
 {
 	if( COM_StringEmpty( classname ))
 		return false;
+	/* Tip-safe CapFaces: drop decorative ents early so players / triggers /
+	 * doors keep tip slots on dense maps (caen 621>460). Keeping func_wall /
+	 * cycler (props1) tip-starved caen to a black EFB — leave them skipped. */
 	if( !Q_strcmp( classname, "func_wall" )
 		|| !Q_strcmp( classname, "func_illusionary" )
 		|| !Q_strcmp( classname, "func_wall_toggle" )
@@ -6394,9 +6404,20 @@ static void SV_LoadFromFile( const char *mapname, char *entities )
 				Con_Reportf( "Xash3D GameCube: entity parse begin=%d\n", entity_index );
 			if( !SV_ParseEdict( &entities, ent, entity_index++ ))
 			{
+#if XASH_GAMECUBE
+				/* Tip-starved nest (c1a1c 20261109-112301): truncated entities
+				 * lump — free this edict and stop parsing; keep the map. */
+				Con_Reportf( S_WARN "Xash3D GameCube: %s entity %d parse failed; stop entity load tip=%s\n",
+					__func__, entity_index - 1, Q_memprint( GC_MemHeapFreeBytes() ));
+				if( ent && !ent->free && NUM_FOR_EDICT( ent ) != 0 )
+					SV_FreeEdict( ent );
+				inhibited++;
+				break;
+#else
 				Host_Error( "%s: entity %d failed to parse or initialize; aborting map load instead of silently omitting it\n",
 					__func__, entity_index - 1 );
 				return;
+#endif
 			}
 			if( SV_GCMapEntityDiagVerbose() && entity_index >= 400 )
 				Con_Reportf( "Xash3D GameCube: entity parse end=%d class=%s\n",
@@ -6476,6 +6497,19 @@ static void SV_LoadFromFile( const char *mapname, char *entities )
 			if( SV_GCMapSmokeRoute() && entity_index >= 160 && entity_index <= 220 )
 				Con_Reportf( "Xash3D GameCube: entity spawn call begin=%d class=%s heap_free=%s\n",
 					entity_index - 1, SV_ClassName( ent ), Q_memprint( GC_MemHeapFreeBytes() ));
+			/* pfnSpawn can stall forever on tip MEM1 (c2a2b1 entity 183
+			 * func_breakable tip≈4.7 KiB probe 20261109-120204). Soft-stop
+			 * before the call so nest hops can continue. */
+			if( GC_MemHeapFreeBytes() < ( 8u * 1024u ))
+			{
+				Con_Reportf( S_WARN "Xash3D GameCube: %s tip-starved before spawn entity=%d class=%s tip=%s; stop entity load\n",
+					__func__, entity_index - 1, SV_ClassName( ent ),
+					Q_memprint( GC_MemHeapFreeBytes() ));
+				if( ent && !ent->free && NUM_FOR_EDICT( ent ) != 0 )
+					SV_FreeEdict( ent );
+				inhibited++;
+				break;
+			}
 #endif
 			spawn_result = svgame.dllFuncs.pfnSpawn( ent );
 #if XASH_GAMECUBE

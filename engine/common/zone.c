@@ -497,9 +497,17 @@ void *_Mem_Alloc( poolhandle_t poolptr, size_t size, qboolean clear, const char 
 			Mem_ReportOOM( pool, size );
 #if XASH_GAMECUBE
 		/* FileSystem loads (fonts/sounds/extras) can soft-fail after New Game;
-		 * callers already treat NULL as missing content. Fatals here abort G36. */
+		 * callers already treat NULL as missing content. Fatals here abort G36.
+		 * Critical boot files (delta.lst) must NOT soft-NULL — tip CapFaces
+		 * DOL 6389504 soft-failed the 11 KiB delta load after edict BSS and
+		 * Host_Error'd as "couldn't load file delta.lst" (20261109-214252). */
 		if( pool && !Q_stricmp( pool->name, "FileSystem Pool" ))
 		{
+			const qboolean critical_boot = ( filename
+				&& ( Q_stristr( filename, "delta.lst" )
+					|| Q_stristr( filename, "liblist.gam" )
+					|| Q_stristr( filename, "serverinfo.lst" )));
+
 			/* Decode scratch is a short-lived MEM1 allocation that can sit
 			 * between otherwise reusable blocks.  Drop it before trimming the
 			 * resident mip tiers so the retry gets the allocator's best
@@ -509,12 +517,23 @@ void *_Mem_Alloc( poolhandle_t poolptr, size_t size, qboolean clear, const char 
 			 * before soft-failing a late retail file allocation, then retry the
 			 * exact request without changing payload or ownership semantics. */
 			R_GCTrimTextureMips();
+			Mem_GCReclaimTipForRetry();
 			ptr = _Mem_TryAlloc( poolptr, size, clear, filename, fileline );
 			if( ptr )
 				return ptr;
-			Con_Reportf( "Xash3D GameCube: soft-fail FS alloc size=%s at %s:%i\n",
-				Q_memprint( size ), filename, fileline );
-			return NULL;
+			if( critical_boot )
+			{
+				Con_Reportf( "Xash3D GameCube: critical FS alloc failed size=%s at %s:%i (not soft-null)\n",
+					Q_memprint( size ), filename, fileline );
+				/* Fall through to Sys_Error below with a clear OOM — never
+				 * pretend delta.lst is missing when MEM1 is dry. */
+			}
+			else
+			{
+				Con_Reportf( "Xash3D GameCube: soft-fail FS alloc size=%s at %s:%i\n",
+					Q_memprint( size ), filename, fileline );
+				return NULL;
+			}
 		}
 		/* G121: SoundLib WAV decode must soft-fail under MEM1 so EV_PlaySound
 		 * can fall back instead of Host_Error on a 13 KiB fire sample. */

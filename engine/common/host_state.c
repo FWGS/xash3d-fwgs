@@ -20,6 +20,7 @@ GNU General Public License for more details.
 #include "gamecube/mem_gamecube.h"
 void R_GcFreeMenuImages( void );
 void R_GXReleaseHudPoolForMapLoad( void );
+qboolean SV_GCAutohopLookupNext( const char *from, const char **to, const char **landmark );
 #endif
 
 static jmp_buf g_abortframe;

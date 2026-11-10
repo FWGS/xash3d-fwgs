@@ -968,6 +968,13 @@ void SCR_UpdateScreen( void )
 				 * every Flipper present, not once for the log marker. */
 				if( Sys_CheckParm( "-gcworldrender" ) && GC_UseGxWorldDraw() )
 				{
+					extern int R_GXEfbDumpHoldLeft( void );
+
+					/* Keep densify cove EFB clean for DumpFrames hold. */
+					if( !( R_GXEfbDumpHoldLeft() > 0
+						&& Sys_CheckParm( "-gccapfacessmoke" )
+						&& Sys_CheckParm( "-gcdumpframes" )) )
+					{
 					ref.dllFuncs.R_AllowFog( false );
 					ref.dllFuncs.R_Set2DMode( true );
 					CL_DrawHUD( CL_ACTIVE );
@@ -977,6 +984,7 @@ void SCR_UpdateScreen( void )
 						gc_hud_lean_logged = true;
 					}
 					ref.dllFuncs.R_AllowFog( true );
+					}
 				}
 				else if( !gc_hud_lean_logged )
 				{

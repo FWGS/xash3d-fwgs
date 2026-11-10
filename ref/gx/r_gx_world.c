@@ -84,6 +84,17 @@ extern int GC_GetWaterFaceST( int index, float out_st[][2], int maxverts );
 extern void GC_GetWaterFaceScroll( int index, float *scroll_u, float *scroll_v, u32 *tint );
 extern qboolean GC_WaterTexReady( void );
 extern void *GC_GetWaterTexObj( void );
+extern qboolean GC_SandSpecTexReady( void );
+extern void *GC_GetSandSpecTexObj( void );
+extern qboolean GC_SandNrmTexReady( void );
+extern void *GC_GetSandNrmTexObj( void );
+extern qboolean GC_SandSunTexReady( void );
+extern void *GC_GetSandSunTexObj( void );
+extern int GC_GetPropTriCount( void );
+extern qboolean GC_GetPropTri( int index, float out_xyz[3][3], float out_st[3][2], int *out_tex );
+extern void *GC_GetPropTexObj( int index );
+extern qboolean GC_GetPropTri( int index, float out_xyz[3][3], float out_st[3][2], int *out_tex );
+extern void *GC_GetPropTexObj( int index );
 extern qboolean GC_WaterFacePlane( int index, mplane_t *out, int *out_flags );
 extern qboolean GC_FillFacePlane( int index, mplane_t *out, int *out_flags );
 extern int GC_GetTramFaceCount( void );
@@ -173,8 +184,13 @@ enum
 	GC_GX_FACE_MODE_TEXTURED,
 	GC_GX_FACE_MODE_TEXTURED_LIVE, /* G219: MODULATE muted live skyfill */
 	GC_GX_FACE_MODE_LIT,
-	GC_GX_FACE_MODE_LIT_LIVE	/* live BSP faces x full-res lightmap atlas */
+	GC_GX_FACE_MODE_LIT_LIVE,	/* live BSP faces x full-res lightmap atlas */
+	GC_GX_FACE_MODE_LIT_ENV	/* CapFaces diffuse×LM + sky cubemap specular */
 };
+/* CapFaces bake flag: Source $envmap (sand/rock specular), see bake_lostcoast_map.py */
+#ifndef GC_SURF_ENVMAP
+#define GC_SURF_ENVMAP 0x4000
+#endif
 static int r_gx_face_mode;
 static unsigned r_gx_bound_texnum;
 static u8 r_gx_bound_fmt;
@@ -207,6 +223,10 @@ static int r_gx_lm_atlas_gen = -1;
 static qboolean r_gx_lm_atlas_bound;
 static qboolean r_gx_live_lm_bound;
 static int r_gx_efb_dump_hold; /* G200: keep Flipper EFB for DumpFramesAsImages */
+/* Lost Coast DumpFrames densify: multi-pack EFB is held; skip pack0 redraw. */
+static qboolean r_gx_cap_densify_held;
+/* Arm dump-hold AFTER water so env sheets land in the frozen EFB once. */
+static int r_gx_cap_densify_hold_pending;
 static qboolean r_gx_g221_world_clear_done;
 
 /* Dolphin DumpFramesAsImages samples EFB asynchronously — clearing at the
@@ -314,7 +334,7 @@ static qboolean r_gx_tex_band_logged;
  * G297 cut for headroom; unmasked G36 ~1ms so G302 restores live toward pool size.
  * G348: live 124→192 + frame 248→280 — G347 late DumpFrames still void at 124. */
 #ifndef GC_GX_FRAME_FACE_BUDGET
-#define GC_GX_FRAME_FACE_BUDGET 448	/* CapFaces 384 + fill; was 384 @ 320-cap */
+#define GC_GX_FRAME_FACE_BUDGET 832	/* CapFaces 768 + fill/water reserve */
 #endif
 #ifndef GC_GX_LIVE_FACE_BUDGET
 #define GC_GX_LIVE_FACE_BUDGET 256	/* was 192 — draw more of live PVS pool */
@@ -681,7 +701,9 @@ static void R_GXLoadMtxFromXashMV( Mtx out, const matrix4x4 in )
 static void R_GXBuildWorldProjection( Mtx44 out )
 {
 	f32 zNear = 4.0f;
-	f32 zFar = Q_max( 256.0f, RI.farClip > 1.0f ? RI.farClip : 4096.0f );
+	/* Lost Coast cliffs sit 2–4k from bake-eye; a short farClip clipped the
+	 * densify silhouette to sand+shards (host CapFaces densify filled). */
+	f32 zFar = Q_max( 8192.0f, RI.farClip > 1.0f ? RI.farClip : 8192.0f );
 	f32 fov_y = RI.rvp.fov_y > 1.0f ? RI.rvp.fov_y : 90.0f;
 	f32 fov_x = RI.rvp.fov_x > 1.0f ? RI.rvp.fov_x : 90.0f;
 	f32 yMax = zNear * tanf( fov_y * (f32)M_PI_F / 360.0f );
@@ -1553,8 +1575,8 @@ A cut-out texture needs the alpha test, every other bind turns it back off.
 =============
 */
 #define GC_HOT_LIST_MAX     128
-#define GC_HOT_QUEUE_MAX    32
-#define GC_HOT_FRAME_BYTES  ( 96 * 1024 )	/* a frame's worth of streaming */
+#define GC_HOT_QUEUE_MAX    64		/* CapFaces binds many mats before HotService */
+#define GC_HOT_FRAME_BYTES  ( 96 * 1024 )	/* a frame's worth of streaming (~8×128²) */
 #define GC_HOT_KEEP_FRAMES  90		/* not evicted until this long unused */
 
 static struct
@@ -1893,7 +1915,12 @@ static gc_gx_tex_t *R_GXPackedTexture( image_t *img, unsigned texnum )
 			}
 
 			b = (const byte *)data;
-			if( !cap_pack_diag && data )
+			if( !data )
+			{
+				/* No MEM1 chain and bounce unavailable — fail bind (caller may repair). */
+				return NULL;
+			}
+			if( !cap_pack_diag )
 			{
 				cap_pack_diag = true;
 				gEngfuncs.Con_Reportf(
@@ -1982,7 +2009,10 @@ static gc_gx_tex_t *R_GXBindTexnum( unsigned texnum, qboolean hud_bind )
 		if( menu_bg )
 			return menu_bg;
 	}
-	if( img && img->gc_packed )
+	/* Arena-tail reuse can NULL gc_packed while ARAM + metadata remain —
+	 * still take the packed/bounce path (CapFaces G198 grey otherwise). */
+	if( img && ( img->gc_packed
+		|| ( img->gc_packed_aram && img->gc_packed_bytes && img->width > 0 )) )
 		return R_GXPackedTexture( img, texnum );
 	if( !img || !img->pixels[0] || img->width < 1 || img->height < 1 )
 		return NULL;
@@ -2350,10 +2380,13 @@ static gc_gx_tex_t *R_GXBindTexture( texture_t *mt )
 			bind_fail_logged = true;
 			img = R_GetTexture( (unsigned)mt->gl_texturenum );
 			gEngfuncs.Con_Reportf(
-				"Xash3D GameCube: G198 GX tex bind fail texnum=%d name=%s pixels=%d %dx%d\n",
+				"Xash3D GameCube: G198 GX tex bind fail texnum=%d mt=%s img=%s pixels=%d %dx%d packed=%d aram=0x%x\n",
 				mt->gl_texturenum, mt->name[0] ? mt->name : "?",
+				( img && img->name[0] ) ? img->name : "?",
 				( img && img->pixels[0] ) ? 1 : 0,
-				img ? img->width : 0, img ? img->height : 0 );
+				img ? img->width : 0, img ? img->height : 0,
+				( img && img->gc_packed ) ? 1 : 0,
+				img ? (unsigned)img->gc_packed_aram : 0u );
 		}
 	}
 	return gxt;
@@ -2454,6 +2487,9 @@ static void R_GXOrderFacesByTexBands( const msurface_t *draw, int n, int *order 
 
 static qboolean r_gx_g221_logged;
 static qboolean r_gx_sky_backdrop_logged;
+/* Forward decls — defined with R_GXSkyLoad below. */
+static qboolean r_gx_sky_ready;
+static GXTexObj r_gx_sky_obj[6];
 
 static qboolean R_GXHasSkyboxSide( void )
 {
@@ -2464,7 +2500,8 @@ static qboolean R_GXHasSkyboxSide( void )
 		if( tr.skyboxTextures[i] > 0 )
 			return true;
 	}
-	return false;
+	/* Lost Coast CapFaces: sky CMPR lives in r_gx_sky_obj, not lean texnums. */
+	return r_gx_sky_ready;
 }
 
 static int R_GXPickSkyboxSide( void )
@@ -2495,6 +2532,9 @@ static int R_GXPickSkyboxSide( void )
 		return 1;
 	if( tr.skyboxTextures[0] > 0 )
 		return 0;
+	/* CMPR skybox resident — pick by look even without lean texnums. */
+	if( r_gx_sky_ready )
+		return prefer;
 	return -1;
 }
 
@@ -2510,18 +2550,28 @@ static void R_GXDrawSkyBackdrop( GXRModeObj *rmode )
 {
 	Mtx44 ortho;
 	Mtx ident;
-	gc_gx_tex_t *gxt;
+	gc_gx_tex_t *gxt = NULL;
 	const f32 fb_w = (f32)rmode->fbWidth;
 	const f32 fb_h = (f32)rmode->efbHeight;
 	int side;
-	unsigned texnum;
+	unsigned texnum = 0;
+	qboolean used_cmpr = false;
 
 	side = R_GXPickSkyboxSide();
 	if( side < 0 )
 		return;
-	texnum = (unsigned)tr.skyboxTextures[side];
-	gxt = R_GXBindTexnum( texnum, false );
-	if( !gxt )
+	if( tr.skyboxTextures[side] > 0 )
+	{
+		texnum = (unsigned)tr.skyboxTextures[side];
+		gxt = R_GXBindTexnum( texnum, false );
+	}
+	if( !gxt && r_gx_sky_ready && side >= 0 && side < 6 )
+	{
+		/* CapFaces smoke: bind media/sky_*.cmp directly (no lean texnum). */
+		GX_LoadTexObj( &r_gx_sky_obj[side], GX_TEXMAP0 );
+		used_cmpr = true;
+	}
+	else if( !gxt )
 		return;
 
 	GX_SetZMode( GX_FALSE, GX_ALWAYS, GX_FALSE );
@@ -2568,8 +2618,8 @@ static void R_GXDrawSkyBackdrop( GXRModeObj *rmode )
 	if( !r_gx_sky_backdrop_logged )
 	{
 		r_gx_sky_backdrop_logged = true;
-		gEngfuncs.Con_Reportf( "Xash3D GameCube: G285 Flipper sky backdrop side=%d tex=%u\n",
-			side, texnum );
+		gEngfuncs.Con_Reportf( "Xash3D GameCube: G285 Flipper sky backdrop side=%d tex=%u cmpr=%d\n",
+			side, texnum, used_cmpr ? 1 : 0 );
 	}
 }
 
@@ -2596,6 +2646,10 @@ static void R_GXClearEfbSky( GXRModeObj *rmode )
 		&& gEngfuncs.Sys_CheckParm( "-gcworldrender" )
 		&& !gEngfuncs.Sys_CheckParm( "-gcconnect" ))
 		sky = 0x5A8CD2FFu;
+	/* Lost Coast CapFaces dump: retail overcast ~201,207,193 — not desert blue. */
+	if( gEngfuncs.Sys_CheckParm( "-gccapfacessmoke" )
+		|| gEngfuncs.Sys_CheckParm( "-gcdumpframes" ))
+		sky = 0xC8CEC2FFu;
 
 	copy_clear.r = (u8)(( sky >> 24 ) & 0xff );
 	copy_clear.g = (u8)(( sky >> 16 ) & 0xff );
@@ -2647,6 +2701,38 @@ static void R_GXClearEfbSky( GXRModeObj *rmode )
 	 * must keep flat dark so tunnel-end holes don't flash lean-sky white. */
 	if( !GC_IsTramIntroMap())
 		R_GXDrawSkyBackdrop( rmode );
+
+	/* Lost Coast DumpFrames: soft HDR sun wash (retail blown overcast disc). */
+	if( gEngfuncs.Sys_CheckParm( "-gcdumpframes" )
+		|| gEngfuncs.Sys_CheckParm( "-gccapfacessmoke" ))
+	{
+		const f32 cx = fb_w * 0.52f;
+		const f32 cy = fb_h * 0.22f;
+		const f32 rx = fb_w * 0.28f;
+		const f32 ry = fb_h * 0.18f;
+
+		GX_SetBlendMode( GX_BM_BLEND, GX_BL_SRCALPHA, GX_BL_INVSRCALPHA, GX_LO_NOOP );
+		GX_SetZMode( GX_FALSE, GX_ALWAYS, GX_FALSE );
+		GX_SetNumChans( 1 );
+		GX_SetNumTexGens( 0 );
+		GX_SetNumTevStages( 1 );
+		GX_SetTevOrder( GX_TEVSTAGE0, GX_TEXCOORDNULL, GX_TEXMAP_NULL, GX_COLOR0A0 );
+		GX_SetTevOp( GX_TEVSTAGE0, GX_PASSCLR );
+		GX_ClearVtxDesc();
+		GX_SetVtxDesc( GX_VA_POS, GX_DIRECT );
+		GX_SetVtxDesc( GX_VA_CLR0, GX_DIRECT );
+		GX_Begin( GX_QUADS, GX_VTXFMT0, 4 );
+		GX_Position3f32( cx - rx, cy - ry, -0.4f );
+		GX_Color1u32( 0xF5F2E060u );
+		GX_Position3f32( cx + rx, cy - ry, -0.4f );
+		GX_Color1u32( 0xF5F2E060u );
+		GX_Position3f32( cx + rx, cy + ry, -0.4f );
+		GX_Color1u32( 0xF5F2E028u );
+		GX_Position3f32( cx - rx, cy + ry, -0.4f );
+		GX_Color1u32( 0xF5F2E028u );
+		GX_End();
+		GX_SetBlendMode( GX_BM_NONE, GX_BL_ONE, GX_BL_ZERO, GX_LO_NOOP );
+	}
 }
 
 static void R_GXClearDepthPerspective( GXRModeObj *rmode )
@@ -2697,9 +2783,8 @@ sky survives changelevels. Missing sides keep the solid clear colour.
 #define R_GX_SKY_BYTES	( R_GX_SKY_SIZE * R_GX_SKY_SIZE / 2 )
 void R_GXInvalidateTriApiLayout( void );
 static u8 r_gx_sky_data[6][R_GX_SKY_BYTES] __attribute__(( aligned( 32 )));
-static GXTexObj r_gx_sky_obj[6];
 static char r_gx_sky_name[32];
-static qboolean r_gx_sky_ready;
+/* r_gx_sky_obj / r_gx_sky_ready forward-declared near G285 backdrop. */
 static const model_t *r_gx_sky_world;
 static qboolean r_gx_sky_world_has_sky;
 static char r_gx_sky_world_name[64];
@@ -2957,8 +3042,14 @@ static void R_GXSetupWorld3DState( void )
 
 	/* Tip-safe: outdoor sky draw after tram hops can stall CapFaces forever
 	 * (c0a0b 2desert @ tip≈48 Kb, probe 20261109-0248 — hung after
-	 * "sky faces=1", never reached CapFaces surfs n=). Keep clear colour. */
-	if( GC_MemHeapFreeBytes() < 96u * 1024u )
+	 * "sky faces=1", never reached CapFaces surfs n=). Keep clear colour.
+	 * Lost Coast CapFaces smoke already has sky CMPR resident — allow draw
+	 * down to 24 KiB so DumpFrames get the skybox instead of clear blue. */
+	{
+		const unsigned sky_tip_min =
+			gEngfuncs.Sys_CheckParm( "-gccapfacessmoke" ) ? ( 24u * 1024u ) : ( 96u * 1024u );
+
+	if( GC_MemHeapFreeBytes() < sky_tip_min )
 	{
 		static qboolean sky_tip_logged;
 
@@ -2979,6 +3070,7 @@ static void R_GXSetupWorld3DState( void )
 		GX_SetNumTexGens( 0 );
 		GX_SetTevOrder( GX_TEVSTAGE0, GX_TEXCOORDNULL, GX_TEXMAP_NULL, GX_COLOR0A0 );
 		GX_SetTevOp( GX_TEVSTAGE0, GX_PASSCLR );
+	}
 	}
 
 	/* Optional camera-space marker: -gcmagenta (proved EFB→DumpFrames in G200). */
@@ -3479,12 +3571,27 @@ static int R_GXEmitFace( const msurface_t *surf, model_t *world, int slot )
 	if( slot >= 0 )
 	{
 		extern int GC_GetCapFaceTexnum( int slot );
+		extern int GC_RepairCapFaceTexnum( int slot );
 		int cap_tex = GC_GetCapFaceTexnum( slot );
+		image_t *cap_img = ( cap_tex > 0 ) ? R_GetTexture( (unsigned)cap_tex ) : NULL;
 
+		/* Stale CapFaces texnum → empty image: rebind from WT by stored hash. */
 		if( cap_tex > 0 )
 		{
-			image_t *cap_img = R_GetTexture( (unsigned)cap_tex );
+			const qboolean img_missing = ( cap_img == NULL );
+			const qboolean img_empty = !img_missing && cap_img->width < 1;
+			const qboolean no_pack = !img_missing && !cap_img->gc_packed
+				&& !( cap_img->gc_packed_aram && cap_img->gc_packed_bytes )
+				&& !cap_img->pixels[0];
 
+			if( img_missing || img_empty || no_pack )
+			{
+				cap_tex = GC_RepairCapFaceTexnum( slot );
+				cap_img = ( cap_tex > 0 ) ? R_GetTexture( (unsigned)cap_tex ) : NULL;
+			}
+		}
+		if( cap_tex > 0 )
+		{
 			memset( &cap_slot_tex, 0, sizeof( cap_slot_tex ));
 			cap_slot_tex.gl_texturenum = cap_tex;
 			if( cap_img && cap_img->width > 0 && cap_img->height > 0 )
@@ -3541,10 +3648,47 @@ static int R_GXEmitFace( const msurface_t *surf, model_t *world, int slot )
 				if( live_sample < 1.0f )
 					live_sample = 16.0f;
 			}
-			for( i = 0; i < nverts; i++ )
+			/* CapFaces pack carries durable per-vert ST — prefer it over
+			 * R_GXFaceST (draw-surf texvecs are empty → stripe Flipper UVs).
+			 * Remap each face's ST span to 0..1 so lean CMPR reads as solid
+			 * rock/ground (authored luxel/size spans ±30…200 → REPEAT noise). */
+			if( slot >= 0 )
 			{
-				float ls, lt;
+				extern int GC_GetNewGameCapFaceST( int slot, float out_st[][2], int maxverts );
+				float pack_st[32][2];
+				int st_n = GC_GetNewGameCapFaceST( slot, pack_st, 32 );
 
+				if( st_n == nverts )
+				{
+					float smin = pack_st[0][0], smax = pack_st[0][0];
+					float tmin = pack_st[0][1], tmax = pack_st[0][1];
+					float ds, dt;
+
+					for( i = 1; i < nverts; i++ )
+					{
+						if( pack_st[i][0] < smin ) smin = pack_st[i][0];
+						if( pack_st[i][0] > smax ) smax = pack_st[i][0];
+						if( pack_st[i][1] < tmin ) tmin = pack_st[i][1];
+						if( pack_st[i][1] > tmax ) tmax = pack_st[i][1];
+					}
+					ds = smax - smin;
+					dt = tmax - tmin;
+					if( ds < 1e-3f ) ds = 1.0f;
+					if( dt < 1e-3f ) dt = 1.0f;
+					for( i = 0; i < nverts; i++ )
+					{
+						sts[i][0] = ( pack_st[i][0] - smin ) / ds;
+						sts[i][1] = ( pack_st[i][1] - tmin ) / dt;
+					}
+				}
+				else
+				{
+					for( i = 0; i < nverts; i++ )
+						R_GXFaceST( surf, pts[i], &sts[i][0], &sts[i][1] );
+				}
+			}
+			else for( i = 0; i < nverts; i++ )
+			{
 				if( !surf->texinfo && surf->firstedge < 0 && nverts == 4 )
 				{
 					static const float pad_uv[4][2] = {
@@ -3556,12 +3700,31 @@ static int R_GXEmitFace( const msurface_t *surf, model_t *world, int slot )
 				}
 				else
 					R_GXFaceST( surf, pts[i], &sts[i][0], &sts[i][1] );
-				if( slot >= 0 )
+			}
+			if( slot >= 0 )
+			{
+				extern int GC_GetNewGameCapFaceLMUV( int slot, float out_uv[][2], int maxverts );
+				float pack_lm[32][2];
+				int lm_n = GC_GetNewGameCapFaceLMUV( slot, pack_lm, 32 );
+
+				for( i = 0; i < nverts; i++ )
 				{
-					/* G207: 4-vert TEX/EDGE quads match the downsampled 4×4
-					 * face LM tile — map bake corners 0..1 into the atlas cell
-					 * instead of lmvecs (often mismatch → near-black samples). */
-					if( nverts == 4 )
+					float ls, lt;
+
+					if( lm_n == nverts )
+					{
+						ls = pack_lm[i][0];
+						lt = pack_lm[i][1];
+					}
+					else if( nverts == 3 )
+					{
+						static const float tri_uv[3][2] = {
+							{ 0.0f, 0.0f }, { 1.0f, 0.0f }, { 0.5f, 1.0f }
+						};
+						ls = tri_uv[i][0];
+						lt = tri_uv[i][1];
+					}
+					else if( nverts == 4 )
 					{
 						static const float corner_uv[4][2] = {
 							{ 0.0f, 0.0f }, { 1.0f, 0.0f },
@@ -3571,12 +3734,20 @@ static int R_GXEmitFace( const msurface_t *surf, model_t *world, int slot )
 						lt = corner_uv[i][1];
 					}
 					else
-						R_GXFaceLMST( surf, pts[i], &ls, &lt );
+					{
+						const float t = ( nverts > 1 )
+							? ( (float)i / (float)( nverts - 1 ) ) : 0.0f;
+						ls = ( i & 1 ) ? 1.0f : 0.0f;
+						lt = t;
+					}
 					GC_GetNewGameCapLightmapAtlasUV( slot, ls, lt, &lmst[i][0], &lmst[i][1] );
 				}
-				else if( live_lm )
+			}
+			else if( live_lm )
+			{
+				for( i = 0; i < nverts; i++ )
 				{
-					/* GL lightmap coordinates, in texels of the face's rect. */
+					float ls, lt;
 					const mextrasurf_t *info = surf->info;
 
 					ls = DotProduct( pts[i], info->lmvecs[0] ) + info->lmvecs[0][3] - info->lightmapmins[0];
@@ -3677,10 +3848,166 @@ static int R_GXEmitFace( const msurface_t *surf, model_t *world, int slot )
 
 	if( textured && lit )
 	{
-		const int lit_mode = live_lm ? GC_GX_FACE_MODE_LIT_LIVE : GC_GX_FACE_MODE_LIT;
+		const qboolean want_env = !live_lm && r_gx_sky_ready
+			&& ( surf->flags & GC_SURF_ENVMAP ) != 0
+			&& surf->plane != NULL;
+		const int lit_mode = live_lm ? GC_GX_FACE_MODE_LIT_LIVE
+			: ( want_env ? GC_GX_FACE_MODE_LIT_ENV : GC_GX_FACE_MODE_LIT );
+		int sky_side = want_env ? R_GXPickSkyboxSide() : -1;
+
+		if( want_env && ( sky_side < 0 || sky_side > 5 ))
+			sky_side = 3; /* ft */
 
 		if( r_gx_face_mode != lit_mode )
 		{
+			if( want_env )
+			{
+				const qboolean have_mask = GC_SandSpecTexReady()
+					&& GC_GetSandSpecTexObj() != NULL;
+				const qboolean have_nrm = GC_SandNrmTexReady()
+					&& GC_GetSandNrmTexObj() != NULL;
+				const qboolean have_sun = GC_SandSunTexReady()
+					&& GC_GetSandSunTexObj() != NULL;
+				u8 env_a = surf->styles[3];
+				f32 ind_mtx[2][3];
+
+				if( env_a == 0 )
+					env_a = 140;
+				/* Masked: use bake tint; unmasked: ~0.4× so sand doesn't blow. */
+				if( !have_mask )
+				{
+					env_a = (u8)(( (unsigned)env_a * 2u ) / 5u );
+					if( env_a < 40 )
+						env_a = 40;
+					if( env_a > 90 )
+						env_a = 90;
+				}
+				else if( env_a > 200 )
+					env_a = 200;
+
+				/* Prefer high-contrast sun disc — sky CMPR sides are too flat for glints. */
+				if( have_sun )
+					GX_LoadTexObj( (GXTexObj *)GC_GetSandSunTexObj(), GX_TEXMAP2 );
+				else
+					GX_LoadTexObj( &r_gx_sky_obj[sky_side], GX_TEXMAP2 );
+				if( have_mask )
+					GX_LoadTexObj( (GXTexObj *)GC_GetSandSpecTexObj(), GX_TEXMAP3 );
+				if( have_nrm )
+					GX_LoadTexObj( (GXTexObj *)GC_GetSandNrmTexObj(), GX_TEXMAP4 );
+				/* Stage0 diffuse, Stage1 ×LM, then sky×mask (or sky×A0).
+				 * $bumpmap (TEXMAP4) IndTex-offsets sky ST so highlights follow sand grain. */
+				GX_SetTexCoordGen( GX_TEXCOORD0, GX_TG_MTX2x4, GX_TG_TEX0, GX_IDENTITY );
+				GX_SetTexCoordGen( GX_TEXCOORD1, GX_TG_MTX2x4, GX_TG_TEX1, GX_IDENTITY );
+				GX_SetTexCoordGen( GX_TEXCOORD2, GX_TG_MTX2x4, GX_TG_TEX2, GX_IDENTITY );
+				GX_SetTevOrder( GX_TEVSTAGE0, GX_TEXCOORD0, GX_TEXMAP0, GX_COLORNULL );
+				GX_SetTevOp( GX_TEVSTAGE0, GX_REPLACE );
+				GX_SetTevOrder( GX_TEVSTAGE1, GX_TEXCOORD1, GX_TEXMAP1, GX_COLORNULL );
+				GX_SetTevColorIn( GX_TEVSTAGE1, GX_CC_ZERO, GX_CC_TEXC, GX_CC_CPREV, GX_CC_ZERO );
+				/* SCALE_2 blew CapFaces sand ~1.5× vs retail shore (fg mae~63).
+				 * DumpFrames: SCALE_1 toward retail mid/fg luminance. */
+				GX_SetTevColorOp( GX_TEVSTAGE1, GX_TEV_ADD, GX_TB_ZERO,
+					( gEngfuncs.Sys_CheckParm( "-gccapfacessmoke" )
+						&& gEngfuncs.Sys_CheckParm( "-gcdumpframes" ))
+						? GX_CS_SCALE_1 : GX_CS_SCALE_2,
+					GX_TRUE, GX_TEVPREV );
+				GX_SetTevAlphaIn( GX_TEVSTAGE1, GX_CA_ZERO, GX_CA_ZERO, GX_CA_ZERO, GX_CA_APREV );
+				GX_SetTevAlphaOp( GX_TEVSTAGE1, GX_TEV_ADD, GX_TB_ZERO, GX_CS_SCALE_1, GX_TRUE, GX_TEVPREV );
+				GX_SetTevDirect( GX_TEVSTAGE0 );
+				GX_SetTevDirect( GX_TEVSTAGE1 );
+				if( have_mask )
+				{
+					/* TEXCOORD3 shares diffuse ST (bump + envmapmask UV). */
+					GX_SetNumTexGens( 4 );
+					GX_SetTexCoordGen( GX_TEXCOORD3, GX_TG_MTX2x4, GX_TG_TEX0, GX_IDENTITY );
+					GX_SetNumTevStages( 4 );
+					/* Stage2: REG0 = mask × envmaptint (A0). Mask alone is too hot. */
+					GX_SetTevOrder( GX_TEVSTAGE2, GX_TEXCOORD3, GX_TEXMAP3, GX_COLORNULL );
+					GX_SetTevColorIn( GX_TEVSTAGE2, GX_CC_ZERO, GX_CC_TEXC, GX_CC_A0, GX_CC_ZERO );
+					GX_SetTevColorOp( GX_TEVSTAGE2, GX_TEV_ADD, GX_TB_ZERO, GX_CS_SCALE_1, GX_TRUE, GX_TEVREG0 );
+					GX_SetTevAlphaIn( GX_TEVSTAGE2, GX_CA_ZERO, GX_CA_ZERO, GX_CA_ZERO, GX_CA_APREV );
+					GX_SetTevAlphaOp( GX_TEVSTAGE2, GX_TEV_ADD, GX_TB_ZERO, GX_CS_SCALE_1, GX_TRUE, GX_TEVPREV );
+					GX_SetTevDirect( GX_TEVSTAGE2 );
+					/* Stage3: CPREV + sky × (mask×tint) — bump IndTex warps sky ST. */
+					GX_SetTevOrder( GX_TEVSTAGE3, GX_TEXCOORD2, GX_TEXMAP2, GX_COLORNULL );
+					GX_SetTevColorIn( GX_TEVSTAGE3, GX_CC_ZERO, GX_CC_TEXC, GX_CC_C0, GX_CC_CPREV );
+					GX_SetTevColorOp( GX_TEVSTAGE3, GX_TEV_ADD, GX_TB_ZERO, GX_CS_SCALE_1, GX_TRUE, GX_TEVPREV );
+					GX_SetTevAlphaIn( GX_TEVSTAGE3, GX_CA_ZERO, GX_CA_ZERO, GX_CA_ZERO, GX_CA_APREV );
+					GX_SetTevAlphaOp( GX_TEVSTAGE3, GX_TEV_ADD, GX_TB_ZERO, GX_CS_SCALE_1, GX_TRUE, GX_TEVPREV );
+					if( have_nrm )
+					{
+						/* Flat normal (128,128,*) → 0 offset after ITB_ST (-128).
+						 * scale_exp=-8 ≈ ±0.25 ST — enough grain, still hits sun disc (CLAMP). */
+						ind_mtx[0][0] = 0.5f; ind_mtx[0][1] = 0.0f; ind_mtx[0][2] = 0.0f;
+						ind_mtx[1][0] = 0.0f; ind_mtx[1][1] = 0.5f; ind_mtx[1][2] = 0.0f;
+						GX_SetNumIndStages( 1 );
+						GX_SetIndTexOrder( GX_INDTEXSTAGE0, GX_TEXCOORD3, GX_TEXMAP4 );
+						GX_SetIndTexCoordScale( GX_INDTEXSTAGE0, GX_ITS_1, GX_ITS_1 );
+						GX_SetIndTexMatrix( GX_ITM_0, ind_mtx, -8 );
+						GX_SetTevIndirect( GX_TEVSTAGE3, GX_INDTEXSTAGE0, GX_ITF_8, GX_ITB_ST,
+							GX_ITM_0, GX_ITW_OFF, GX_ITW_OFF, GX_FALSE, GX_FALSE, GX_ITBA_OFF );
+					}
+					else
+					{
+						GX_SetNumIndStages( 0 );
+						GX_SetTevDirect( GX_TEVSTAGE3 );
+					}
+					/* ~0.45× bake tint — wet-sand glints toward retail still. */
+					env_a = (u8)(( (unsigned)env_a * 115u ) / 255u );
+					if( env_a < 64 )
+						env_a = 64;
+					if( env_a > 140 )
+						env_a = 140;
+					/* Bump-driven glints need more sky weight to read on Flipper. */
+					if( have_nrm )
+					{
+						env_a = (u8)(( (unsigned)env_a * 8u ) / 5u );
+						if( env_a > 180 )
+							env_a = 180;
+					}
+					GX_SetTevColor( GX_TEVREG0, (GXColor){ 0, 0, 0, env_a } );
+				}
+				else
+				{
+					GX_SetNumTexGens( 3 );
+					GX_SetNumTevStages( 3 );
+					GX_SetTevOrder( GX_TEVSTAGE2, GX_TEXCOORD2, GX_TEXMAP2, GX_COLORNULL );
+					GX_SetTevColorIn( GX_TEVSTAGE2, GX_CC_ZERO, GX_CC_TEXC, GX_CC_A0, GX_CC_CPREV );
+					GX_SetTevColorOp( GX_TEVSTAGE2, GX_TEV_ADD, GX_TB_ZERO, GX_CS_SCALE_1, GX_TRUE, GX_TEVPREV );
+					GX_SetTevAlphaIn( GX_TEVSTAGE2, GX_CA_ZERO, GX_CA_ZERO, GX_CA_ZERO, GX_CA_APREV );
+					GX_SetTevAlphaOp( GX_TEVSTAGE2, GX_TEV_ADD, GX_TB_ZERO, GX_CS_SCALE_1, GX_TRUE, GX_TEVPREV );
+					if( have_nrm )
+					{
+						/* No mask: still warp sky ST from bump using diffuse UV. */
+						GX_SetNumTexGens( 4 );
+						GX_SetTexCoordGen( GX_TEXCOORD3, GX_TG_MTX2x4, GX_TG_TEX0, GX_IDENTITY );
+						ind_mtx[0][0] = 0.5f; ind_mtx[0][1] = 0.0f; ind_mtx[0][2] = 0.0f;
+						ind_mtx[1][0] = 0.0f; ind_mtx[1][1] = 0.5f; ind_mtx[1][2] = 0.0f;
+						GX_SetNumIndStages( 1 );
+						GX_SetIndTexOrder( GX_INDTEXSTAGE0, GX_TEXCOORD3, GX_TEXMAP4 );
+						GX_SetIndTexCoordScale( GX_INDTEXSTAGE0, GX_ITS_1, GX_ITS_1 );
+						GX_SetIndTexMatrix( GX_ITM_0, ind_mtx, -8 );
+						GX_SetTevIndirect( GX_TEVSTAGE2, GX_INDTEXSTAGE0, GX_ITF_8, GX_ITB_ST,
+							GX_ITM_0, GX_ITW_OFF, GX_ITW_OFF, GX_FALSE, GX_FALSE, GX_ITBA_OFF );
+					}
+					else
+					{
+						GX_SetNumIndStages( 0 );
+						GX_SetTevDirect( GX_TEVSTAGE2 );
+					}
+					GX_SetTevColor( GX_TEVREG0, (GXColor){ 0, 0, 0, env_a } );
+				}
+				GX_ClearVtxDesc();
+				GX_SetVtxDesc( GX_VA_POS, GX_DIRECT );
+				GX_SetVtxDesc( GX_VA_CLR0, GX_DIRECT );
+				GX_SetVtxDesc( GX_VA_TEX0, GX_DIRECT );
+				GX_SetVtxDesc( GX_VA_TEX1, GX_DIRECT );
+				GX_SetVtxDesc( GX_VA_TEX2, GX_DIRECT );
+				GX_SetVtxAttrFmt( GX_VTXFMT0, GX_VA_TEX1, GX_TEX_ST, GX_F32, 0 );
+				GX_SetVtxAttrFmt( GX_VTXFMT0, GX_VA_TEX2, GX_TEX_ST, GX_F32, 0 );
+			}
+			else
+			{
+				GX_SetNumIndStages( 0 );
 			GX_SetNumTexGens( 2 );
 			GX_SetTexCoordGen( GX_TEXCOORD0, GX_TG_MTX2x4, GX_TG_TEX0, GX_IDENTITY );
 			GX_SetTexCoordGen( GX_TEXCOORD1, GX_TG_MTX2x4, GX_TG_TEX1, GX_IDENTITY );
@@ -3689,15 +4016,18 @@ static int R_GXEmitFace( const msurface_t *surf, model_t *world, int slot )
 			GX_SetTevOrder( GX_TEVSTAGE0, GX_TEXCOORD0, GX_TEXMAP0, GX_COLORNULL );
 			GX_SetTevOp( GX_TEVSTAGE0, GX_REPLACE );
 			/* Stage1: * LM with G219 overbright (×2) — G209 ×4 blew DumpFrames white.
-			 * Menu tram: ×1 — ×2 blows light panels to solid white (frame 700). */
+			 * Menu tram: ×1 — ×2 blows light panels to solid white (frame 700).
+			 * CapFaces atlas (slot>=0): bake already carries style brightness;
+			 * ×2 saturates outdoor DoD walls to solid white (caen whiteish≈9%,
+			 * LM tiles with mean>127 → clamp under SCALE_2). */
 			GX_SetTevOrder( GX_TEVSTAGE1, GX_TEXCOORD1, GX_TEXMAP1, GX_COLORNULL );
 			GX_SetTevColorIn( GX_TEVSTAGE1, GX_CC_ZERO, GX_CC_TEXC, GX_CC_CPREV, GX_CC_ZERO );
 			{
 				u32 lm_scale = GX_CS_SCALE_2;
 
 				/* Raw BSP lightmaps: texture x light x 2 (GoldSrc overbright).
-				 * The boosted cap bake on the menu tram stays at x1. */
-				if( r_gx_menu_route && !live_lm )
+				 * CapFaces / menu tram atlas LMs stay at ×1. */
+				if( ( r_gx_menu_route || slot >= 0 ) && !live_lm )
 					lm_scale = GX_CS_SCALE_1;
 				GX_SetTevColorOp( GX_TEVSTAGE1, GX_TEV_ADD, GX_TB_ZERO, lm_scale, GX_TRUE, GX_TEVPREV );
 			}
@@ -3708,12 +4038,62 @@ static int R_GXEmitFace( const msurface_t *surf, model_t *world, int slot )
 			GX_SetVtxDesc( GX_VA_CLR0, GX_DIRECT );
 			GX_SetVtxDesc( GX_VA_TEX0, GX_DIRECT );
 			GX_SetVtxDesc( GX_VA_TEX1, GX_DIRECT );
+			GX_SetVtxDesc( GX_VA_TEX2, GX_NONE );
 			GX_SetVtxAttrFmt( GX_VTXFMT0, GX_VA_TEX1, GX_TEX_ST, GX_F32, 0 );
+			}
 			r_gx_face_mode = lit_mode;
 			r_gx_state_sets++;
 		}
 		else
+		{
 			r_gx_state_reuses++;
+			if( want_env )
+			{
+				const qboolean have_sun = GC_SandSunTexReady()
+					&& GC_GetSandSunTexObj() != NULL;
+
+				if( have_sun )
+					GX_LoadTexObj( (GXTexObj *)GC_GetSandSunTexObj(), GX_TEXMAP2 );
+				else if( sky_side >= 0 && sky_side <= 5 )
+					GX_LoadTexObj( &r_gx_sky_obj[sky_side], GX_TEXMAP2 );
+				{
+					u8 env_a = surf->styles[3];
+					const qboolean have_mask = GC_SandSpecTexReady()
+						&& GC_GetSandSpecTexObj() != NULL;
+					const qboolean have_nrm = GC_SandNrmTexReady()
+						&& GC_GetSandNrmTexObj() != NULL;
+
+					if( env_a == 0 )
+						env_a = 140;
+					if( have_mask )
+					{
+						GX_LoadTexObj( (GXTexObj *)GC_GetSandSpecTexObj(), GX_TEXMAP3 );
+						env_a = (u8)(( (unsigned)env_a * 90u ) / 255u );
+						if( env_a < 48 )
+							env_a = 48;
+						if( env_a > 110 )
+							env_a = 110;
+						if( have_nrm )
+						{
+							env_a = (u8)(( (unsigned)env_a * 7u ) / 4u );
+							if( env_a > 160 )
+								env_a = 160;
+						}
+					}
+					else
+					{
+						env_a = (u8)(( (unsigned)env_a * 2u ) / 5u );
+						if( env_a < 40 )
+							env_a = 40;
+						if( env_a > 90 )
+							env_a = 90;
+					}
+					if( have_nrm )
+						GX_LoadTexObj( (GXTexObj *)GC_GetSandNrmTexObj(), GX_TEXMAP4 );
+					GX_SetTevColor( GX_TEVREG0, (GXColor){ 0, 0, 0, env_a } );
+				}
+			}
+		}
 
 		/* BSP faces are convex and already ordered around their perimeter.
 		 * A triangle fan sends each vertex once instead of repeating p0 and
@@ -3726,6 +4106,40 @@ static int R_GXEmitFace( const msurface_t *surf, model_t *world, int slot )
 			GX_Color1u32( color );
 			GX_TexCoord2f32( sts[i][0], sts[i][1] );
 			GX_TexCoord2f32( lmst[i][0], lmst[i][1] );
+			if( want_env )
+			{
+				vec3_t to_eye, refl;
+				float nd, inv_len, env_s, env_t;
+				const float *eye = RI.rvp.vieworigin;
+				const float *pn = surf->plane->normal;
+				const qboolean have_sun = GC_SandSunTexReady()
+					&& GC_GetSandSunTexObj() != NULL;
+
+				VectorSubtract( eye, pts[i], to_eye );
+				inv_len = VectorLength( to_eye );
+				if( inv_len > 1e-3f )
+				{
+					to_eye[0] /= inv_len;
+					to_eye[1] /= inv_len;
+					to_eye[2] /= inv_len;
+				}
+				nd = DotProduct( to_eye, pn );
+				refl[0] = to_eye[0] - 2.0f * nd * pn[0];
+				refl[1] = to_eye[1] - 2.0f * nd * pn[1];
+				refl[2] = to_eye[2] - 2.0f * nd * pn[2];
+				if( have_sun )
+				{
+					/* Keep the sun disc near texel center; bump IndTex scatters it. */
+					env_s = 0.5f + 0.18f * refl[0];
+					env_t = 0.5f - 0.18f * refl[2];
+				}
+				else
+				{
+					env_s = 0.5f + 0.5f * refl[0];
+					env_t = 0.5f - 0.5f * refl[2];
+				}
+				GX_TexCoord2f32( env_s, env_t );
+			}
 		}
 		GX_End();
 		r_gx_tex_draws++;
@@ -4506,7 +4920,7 @@ static int R_GXDrawNewGameCapFacesImpl( void )
 	model_t *world;
 	int n, i, drawn = 0;
 	int gen;
-	int order[384]; /* matches GC_MAX_CAP_FACES */
+	int order[768]; /* matches GC_MAX_CAP_FACES */
 	const char *map_name = "";
 	qboolean newgame_probe;
 	qboolean menu_playstart;
@@ -4668,6 +5082,9 @@ static int R_GXDrawNewGameCapFacesImpl( void )
 				"Xash3D GameCube: CapFaces sky prefetch skipped tip-safe tip=%s\n",
 				Q_memprint( GC_MemHeapFreeBytes() ));
 	}
+	/* Park streamed CMPR in durable MEM1 so arena-tail stomps cannot undo
+	 * late ARAM→hot upgrades after CapFaces boot. */
+	R_GCEnsureDurableHotWindow( 96u * 1024u );
 	R_GXHotService();
 	R_GXSetupWorld3DState();
 	/* CapFaces lean: PVS + frustum before emit (no live marksurfaces). */
@@ -4908,7 +5325,8 @@ static int R_GXDrawNewGameCapFacesImpl( void )
 		 * emitted its live PVS surfaces.  CapFaces/fill are the degraded
 		 * scratch-reuse fallback; layering them over real geometry creates the
 		 * synthetic tram corridor and must not be used on this path. */
-		if( surfaces_pinned && !scratch_retained && drawn > 0 )
+		if( surfaces_pinned && !scratch_retained && drawn > 0
+			&& !gEngfuncs.Sys_CheckParm( "-gcworldrender" ))
 		{
 			GC_NoteCapFacesDrawn( drawn );
 			/* Same bookkeeping as the common exit below: the HUD pass (and
@@ -4936,7 +5354,9 @@ static int R_GXDrawNewGameCapFacesImpl( void )
 			 * Reserve the actual fill count (capped), not the full FILL budget —
 			 * denser G361 fill_n=4 was starving ~48 LM slots and keeping floor voids. */
 			const int fill_n = GC_GetFillFaceCount();
+			const int water_n_reserve = GC_GetWaterFaceCount();
 			int fill_reserve = 0;
+			int water_reserve = 0;
 
 			/* Replay CapFaces GX display list when generation matches. */
 			if( want_cap_dl && r_gx_cap_dl && r_gx_cap_dl_bytes > 0
@@ -4972,11 +5392,38 @@ static int R_GXDrawNewGameCapFacesImpl( void )
 
 				fill_reserve = ( fill_n < fill_cap ) ? fill_n : fill_cap;
 			}
+			/* Lost Coast: CapFaces EDGE emit counts verts toward frame_budget
+			 * (~521 > 448) and starved G286 water (emit=0/24). Reserve sheets. */
+			if( water_n_reserve > 0 )
+			{
+				water_reserve = water_n_reserve;
+				if( water_reserve > 24 )
+					water_reserve = 24;
+			}
 			if( !used_cap_dl )
 			{
-			const int cap_limit = frame_budget - fill_reserve;
+			const int cap_limit = frame_budget - fill_reserve - water_reserve;
 			int menu_plug_slot = -1;
 			qboolean menu_plug_drawn = false;
+
+			/* After multi-pack densify, freeze EFB completely — pack0/fill/water
+			 * redraw was wiping the cove hold (late DumpFrames → blown sand).
+			 * Do NOT mark efb_ready: world-ready already CopyDisp'd the cove;
+			 * re-present after HUD/2D risk washed XFB (probe 223847 f15+ white).
+			 * G362 then skips soft present while hold remains. */
+			if( r_gx_cap_densify_held && R_GXEfbDumpHoldLeft() > 0 )
+			{
+				static qboolean densify_hold_skip_logged;
+
+				if( !densify_hold_skip_logged )
+				{
+					densify_hold_skip_logged = true;
+					gEngfuncs.Con_Reportf(
+						"Xash3D GameCube: CapFaces densify hold — freeze EFB (no pack0/fill/water redraw)\n" );
+				}
+				r_gx_world_drew = true;
+				return 1;
+			}
 
 			if( n > (int)( sizeof( order ) / sizeof( order[0] )))
 				n = (int)( sizeof( order ) / sizeof( order[0] ));
@@ -5044,6 +5491,8 @@ static int R_GXDrawNewGameCapFacesImpl( void )
 					pvs_skips++;
 					continue;
 				}
+				/* Keep primary frustum — disabling it (dense11) tip-crashed
+				 * flash after densify while caen still left sky-holes. */
 				if( GC_CapFaceBounds( slot, bmins, bmaxs )
 					&& R_GXBoxOutsideFrustum( bmins, bmaxs ))
 				{
@@ -5135,6 +5584,212 @@ static int R_GXDrawNewGameCapFacesImpl( void )
 				}
 			}
 			drawn += cap_drawn;
+			/* Lost Coast DumpFrames: one 768 pack is still ribbon cliffs vs
+			 * full-geo. Sequentially load the next near-eye spatial packs and
+			 * emit into the same EFB (Z keeps nearer tris) without growing BSS. */
+			if( !used_cap_dl
+				&& gEngfuncs.Sys_CheckParm( "-gccapfacessmoke" )
+				&& gEngfuncs.Sys_CheckParm( "-gcdumpframes" ))
+			{
+				extern int GC_CapFacesSpatialPackCount( void );
+				extern int GC_CapFacesLoadSpatialRank( model_t *mod, const float *eye, int rank );
+				extern msurface_t *GC_GetNewGameDrawSurfs( void );
+				extern int GC_GetNewGameCapFaceCount( void );
+				static qboolean densify_done;
+				const int pack_n = GC_CapFacesSpatialPackCount();
+
+				/* Once per boot — reloading packs every frame stalls DumpFrames.
+				 * Keep frustum cull on densify (probe 204010 → cove-p10). Skipping
+				 * densify left pack0-only wash; densify without frustum over-painted. */
+				if( !densify_done && pack_n > 1 )
+				{
+					extern void *GC_GetGxVideoMode( void );
+					extern qboolean GC_CapFaceBounds( int slot, vec3_t mins, vec3_t maxs );
+					const float *eye = RI.rvp.vieworigin;
+					int rank, extra_drawn = 0, frustum_skip = 0, near_skip = 0;
+					const int max_rank = pack_n;
+					GXRModeObj *rmode = (GXRModeObj *)GC_GetGxVideoMode();
+					Mtx44 proj;
+					Mtx mv;
+
+					if( rmode )
+					{
+						GX_SetViewport( 0.0f, 0.0f, (f32)rmode->fbWidth, (f32)rmode->efbHeight, 0.0f, 1.0f );
+						GX_SetScissor( 0, 0, rmode->fbWidth, rmode->efbHeight );
+					}
+					R_GXBuildWorldProjection( proj );
+					GX_LoadProjectionMtx( proj, GX_PERSPECTIVE );
+					R_GXBuildWorldModelview( mv );
+					GX_LoadPosMtxImm( mv, GX_PNMTX0 );
+					GX_SetZMode( GX_TRUE, GX_LEQUAL, GX_TRUE );
+					GX_SetColorUpdate( GX_TRUE );
+					GX_SetCullMode( GX_CULL_BACK );
+					GX_SetBlendMode( GX_BM_NONE, GX_BL_ONE, GX_BL_ZERO, GX_LO_NOOP );
+					r_gx_face_mode = GC_GX_FACE_MODE_NONE;
+					r_gx_bound_texnum = 0;
+					r_gx_bound_fmt = 0;
+					r_gx_cull_none = false;
+
+					/* Rank 0 already emitted as primary — fill shoreline gap
+					 * from rank 1. Strict frustum left a sky void under the
+					 * pier/buildings (mae~42); admit forward midband faces. */
+					{
+						vec3_t forward, right, up;
+						int midgap_admit = 0;
+
+						AngleVectors( RI.rvp.viewangles, forward, right, up );
+					for( rank = 1; rank < max_rank; rank++ )
+					{
+						int en, ei;
+						msurface_t *edraw;
+
+						if( GC_CapFacesLoadSpatialRank( world, eye, rank ) <= 0 )
+							continue;
+						en = GC_GetNewGameCapFaceCount();
+						edraw = GC_GetNewGameDrawSurfs();
+						if( !edraw || en <= 0 )
+							continue;
+						for( ei = 0; ei < en; ei++ )
+						{
+							vec3_t bmins, bmaxs;
+							float cx, cy, cz, dx, dy, dz, dist2, dist, fdot;
+							int got;
+
+							if( !GC_CapFaceBounds( ei, bmins, bmaxs ))
+							{
+								got = R_GXEmitFace( &edraw[ei], world, ei );
+								if( got > 0 )
+									extra_drawn += got;
+								continue;
+							}
+							cx = 0.5f * ( bmins[0] + bmaxs[0] );
+							cy = 0.5f * ( bmins[1] + bmaxs[1] );
+							cz = 0.5f * ( bmins[2] + bmaxs[2] );
+							dx = cx - eye[0]; dy = cy - eye[1]; dz = cz - eye[2];
+							dist2 = dx * dx + dy * dy + dz * dz;
+							/* Skip only the very nearest sand already in pack0. */
+							if( dist2 < ( 160.0f * 160.0f ))
+							{
+								near_skip++;
+								continue;
+							}
+							if( R_GXBoxOutsideFrustum( bmins, bmaxs ))
+							{
+								dist = sqrtf( dist2 );
+								fdot = ( dist > 1.0f )
+									? ( dx * forward[0] + dy * forward[1] + dz * forward[2] ) / dist
+									: 0.0f;
+								/* Shoreline midgap: forward band that frustum
+								 * rejected — closes sky hole under buildings. */
+								/* Wider midgap cone — shore rocks / pier undercroft. */
+								if( !( dist >= 200.0f && dist <= 2200.0f && fdot >= 0.12f )
+									|| midgap_admit >= 3200 )
+								{
+									frustum_skip++;
+									continue;
+								}
+								midgap_admit++;
+							}
+							got = R_GXEmitFace( &edraw[ei], world, ei );
+							if( got > 0 )
+								extra_drawn += got;
+						}
+						GX_Flush();
+					}
+					gEngfuncs.Con_Reportf(
+						"Xash3D GameCube: CapFaces densify midgap_admit=%d\n", midgap_admit );
+					}
+					GX_DrawDone();
+					(void)GC_CapFacesLoadSpatialRank( world, eye, 0 );
+					densify_done = true;
+					r_gx_cap_densify_hold_pending = 240;
+					drawn = drawn + extra_drawn;
+					cap_drawn = cap_drawn + extra_drawn;
+					gEngfuncs.Con_Reportf(
+						"Xash3D GameCube: CapFaces dump densify extra_drawn=%d total=%d packs=%d frustum_skip=%d near_skip=%d (midfar-layer; hold-after-water)\n",
+						extra_drawn, cap_drawn, max_rank, frustum_skip, near_skip );
+				}
+			}
+			/* -gcworldrender listen densify: layer near-eye spatial packs onto
+			 * the primary CapFaces EFB (Z keeps nearer). Primary alone left
+			 * caen sparse (drawn≈206 / sky holes) while flash swapped denser.
+			 * Once + EFB hold — reloading packs every frame stalls the tip.
+			 * Do NOT z-clear here: wipe+redraw left listen EFB black (dense9). */
+			if( !used_cap_dl
+				&& gEngfuncs.Sys_CheckParm( "-gcworldrender" )
+				&& !gEngfuncs.Sys_CheckParm( "-gccapfacessmoke" ))
+			{
+				extern int GC_CapFacesSpatialPackCount( void );
+				extern int GC_CapFacesLoadSpatialRank( model_t *mod, const float *eye, int rank );
+				extern int GC_CapFacesRankSpatialListen( const float *eye, const float *forward, int *out_idx, int max_out );
+				extern msurface_t *GC_GetNewGameDrawSurfs( void );
+				extern int GC_GetNewGameCapFaceCount( void );
+				static qboolean listen_densify_done;
+				const int pack_n = GC_CapFacesSpatialPackCount();
+
+				if( !listen_densify_done && pack_n > 1 )
+				{
+					const float *eye = RI.rvp.vieworigin;
+					vec3_t forward, right, up;
+					int ranked[16];
+					int rn, ri, extra_drawn = 0;
+					int listen_frustum = 0;
+					/* All-geo: 1.5× left caen sky-holes (~1248 drawn). 3×/20
+					 * packs tip-hung flash at BSP texinfo; 2×/14 is tip-safer. */
+					const int densify_budget = frame_budget * 2;
+
+					AngleVectors( RI.rvp.viewangles, forward, right, up );
+					rn = GC_CapFacesRankSpatialListen( eye, forward, ranked, 16 );
+					for( ri = 0; ri < rn && ri < 14; ri++ )
+					{
+						int en, ei, pack_drawn = 0;
+						msurface_t *edraw;
+						const int idx = ranked[ri];
+
+						/* Primary already emitted above. */
+						if( idx == 0 )
+							continue;
+						if( drawn + extra_drawn >= densify_budget )
+							break;
+						if( GC_CapFacesLoadSpatialRank( world, eye, idx ) <= 0 )
+							continue;
+						en = GC_GetNewGameCapFaceCount();
+						edraw = GC_GetNewGameDrawSurfs();
+						if( !edraw || en <= 0 )
+							continue;
+						for( ei = 0; ei < en; ei++ )
+						{
+							msurface_t *esurf = &edraw[ei];
+							int got;
+
+							if( drawn + extra_drawn >= densify_budget )
+								break;
+							got = R_GXEmitFace( esurf, world, ei );
+							if( got > 0 )
+							{
+								extra_drawn += got;
+								pack_drawn += got;
+							}
+							else
+								listen_frustum++;
+						}
+						GX_Flush();
+						gEngfuncs.Con_Reportf(
+							"Xash3D GameCube: CapFaces listen densify pack=%d drawn=%d\n",
+							idx, pack_drawn );
+					}
+					(void)GC_CapFacesLoadSpatialRank( world, eye, 0 );
+					listen_densify_done = true;
+					r_gx_cap_densify_held = true;
+					R_GXHoldEfbForDump( 360 );
+					cap_drawn += extra_drawn;
+					drawn += extra_drawn;
+					gEngfuncs.Con_Reportf(
+						"Xash3D GameCube: CapFaces listen densify extra=%d total=%d frustum_skip=%d packs=%d\n",
+						extra_drawn, cap_drawn, listen_frustum, rn );
+				}
+			}
+			skip_capfaces_pack0_emit: ;
 			if( menu_playstart || gEngfuncs.Sys_CheckParm( "-gcworldrender" ))
 			{
 				static qboolean menu_cap_filter_logged;
@@ -5252,34 +5907,86 @@ static int R_GXDrawNewGameCapFacesImpl( void )
 				(void)fill_fail;
 			}
 		}
-		/* G286: baked water sheets — GX scroll CMPR when water_gx.cmp present. */
+		/* G286: baked water sheets — scroll CMPR + sky cubemap lerp.
+		 * Not Source water; GX TEV stand-in. Skip redraw under densify hold
+		 * (re-blend every frame muddied the cubemap into solid blue). */
 		{
 			static qboolean g286_logged;
 			int water_n = GC_GetWaterFaceCount();
 			int wi, water_drawn = 0;
 			const qboolean water_tex = GC_WaterTexReady() && GC_GetWaterTexObj() != NULL;
+			const qboolean water_env = water_tex && r_gx_sky_ready;
 			float time_sec = gp_cl ? (float)gp_cl->time : 0.0f;
+			const float *eye = RI.rvp.vieworigin;
+			/* Flat water reflections favor the upper hemisphere. */
+			int sky_side = 4; /* up */
+			const qboolean skip_water_hold = r_gx_cap_densify_held
+				&& R_GXEfbDumpHoldLeft() > 0;
 
-			if( water_n > 0 )
+			if( !r_gx_sky_ready || sky_side < 0 )
+				sky_side = R_GXPickSkyboxSide();
+
+			if( water_n > 0 && !skip_water_hold )
 			{
 				GX_SetBlendMode( GX_BM_BLEND, GX_BL_SRCALPHA, GX_BL_INVSRCALPHA, GX_LO_NOOP );
-				GX_SetZMode( GX_TRUE, GX_LEQUAL, GX_FALSE );
+				/* CapFaces dump: ALWAYS fills the pier/horizon sky void; pack0
+				 * + midgap re-emit after water restores dunes/cliffs on top. */
+				if( gEngfuncs.Sys_CheckParm( "-gccapfacessmoke" )
+					&& gEngfuncs.Sys_CheckParm( "-gcdumpframes" ))
+					GX_SetZMode( GX_TRUE, GX_ALWAYS, GX_FALSE );
+				else
+					GX_SetZMode( GX_TRUE, GX_LEQUAL, GX_FALSE );
 				r_gx_face_mode = GC_GX_FACE_MODE_NONE;
 				if( water_tex )
 				{
-					GX_LoadTexObj( (GXTexObj *)GC_GetWaterTexObj(), GX_TEXMAP0 );
-					GX_SetNumTexGens( 1 );
-					GX_SetTexCoordGen( GX_TEXCOORD0, GX_TG_MTX2x4, GX_TG_TEX0, GX_IDENTITY );
-					GX_SetNumTevStages( 1 );
-					GX_SetTevOrder( GX_TEVSTAGE0, GX_TEXCOORD0, GX_TEXMAP0, GX_COLOR0A0 );
-					GX_SetTevOp( GX_TEVSTAGE0, GX_MODULATE );
-					GX_ClearVtxDesc();
-					GX_SetVtxDesc( GX_VA_POS, GX_DIRECT );
-					GX_SetVtxDesc( GX_VA_CLR0, GX_DIRECT );
-					GX_SetVtxDesc( GX_VA_TEX0, GX_DIRECT );
+						GX_LoadTexObj( (GXTexObj *)GC_GetWaterTexObj(), GX_TEXMAP0 );
+					if( water_env )
+					{
+						if( sky_side < 0 || sky_side > 5 )
+							sky_side = 3; /* ft */
+						GX_LoadTexObj( &r_gx_sky_obj[sky_side], GX_TEXMAP1 );
+						GX_SetNumTexGens( 2 );
+						GX_SetTexCoordGen( GX_TEXCOORD0, GX_TG_MTX2x4, GX_TG_TEX0, GX_IDENTITY );
+						GX_SetTexCoordGen( GX_TEXCOORD1, GX_TG_MTX2x4, GX_TG_TEX1, GX_IDENTITY );
+						GX_SetNumTevStages( 2 );
+						/* Stage0: constant olive body (REG1). Water CMPR +
+						 * PASSCLR still read near-white in DumpFrames. */
+						GX_SetTevOrder( GX_TEVSTAGE0, GX_TEXCOORD0, GX_TEXMAP_NULL, GX_COLORNULL );
+						GX_SetTevColorIn( GX_TEVSTAGE0, GX_CC_ZERO, GX_CC_ZERO, GX_CC_ZERO, GX_CC_C1 );
+						GX_SetTevColorOp( GX_TEVSTAGE0, GX_TEV_ADD, GX_TB_ZERO, GX_CS_SCALE_1, GX_TRUE, GX_TEVPREV );
+						GX_SetTevAlphaIn( GX_TEVSTAGE0, GX_CA_ZERO, GX_CA_ZERO, GX_CA_ZERO, GX_CA_A1 );
+						GX_SetTevAlphaOp( GX_TEVSTAGE0, GX_TEV_ADD, GX_TB_ZERO, GX_CS_SCALE_1, GX_TRUE, GX_TEVPREV );
+						/* Stage1: ADD sky cubemap × A0 — sun-path glints. */
+						GX_SetTevOrder( GX_TEVSTAGE1, GX_TEXCOORD1, GX_TEXMAP1, GX_COLORNULL );
+						GX_SetTevColorIn( GX_TEVSTAGE1, GX_CC_ZERO, GX_CC_TEXC, GX_CC_A0, GX_CC_CPREV );
+						GX_SetTevColorOp( GX_TEVSTAGE1, GX_TEV_ADD, GX_TB_ZERO, GX_CS_SCALE_2, GX_TRUE, GX_TEVPREV );
+						GX_SetTevAlphaIn( GX_TEVSTAGE1, GX_CA_ZERO, GX_CA_ZERO, GX_CA_ZERO, GX_CA_APREV );
+						GX_SetTevAlphaOp( GX_TEVSTAGE1, GX_TEV_ADD, GX_TB_ZERO, GX_CS_SCALE_1, GX_TRUE, GX_TEVPREV );
+						/* Retail midband ~60 + HDR sun streak — hotter sky ADD. */
+						GX_SetTevColor( GX_TEVREG0, (GXColor){ 0, 0, 0, 160 } );
+						GX_SetTevColor( GX_TEVREG1, (GXColor){ 36, 48, 40, 230 } );
+						GX_ClearVtxDesc();
+						GX_SetVtxDesc( GX_VA_POS, GX_DIRECT );
+						GX_SetVtxDesc( GX_VA_CLR0, GX_DIRECT );
+						GX_SetVtxDesc( GX_VA_TEX0, GX_DIRECT );
+						GX_SetVtxDesc( GX_VA_TEX1, GX_DIRECT );
+						GX_SetVtxAttrFmt( GX_VTXFMT0, GX_VA_TEX1, GX_TEX_ST, GX_F32, 0 );
+					}
+					else
+					{
+						GX_SetNumTexGens( 1 );
+						GX_SetTexCoordGen( GX_TEXCOORD0, GX_TG_MTX2x4, GX_TG_TEX0, GX_IDENTITY );
+						GX_SetNumTevStages( 1 );
+						GX_SetTevOrder( GX_TEVSTAGE0, GX_TEXCOORD0, GX_TEXMAP0, GX_COLOR0A0 );
+						GX_SetTevOp( GX_TEVSTAGE0, GX_MODULATE );
+						GX_ClearVtxDesc();
+						GX_SetVtxDesc( GX_VA_POS, GX_DIRECT );
+						GX_SetVtxDesc( GX_VA_CLR0, GX_DIRECT );
+						GX_SetVtxDesc( GX_VA_TEX0, GX_DIRECT );
+					}
 				}
 			}
-			for( wi = 0; wi < water_n; wi++ )
+			for( wi = 0; !skip_water_hold && wi < water_n; wi++ )
 			{
 				mplane_t pl;
 				float pts[32][3];
@@ -5288,8 +5995,9 @@ static int R_GXDrawNewGameCapFacesImpl( void )
 				float dot, su, sv;
 				u32 tint;
 
-				if( water_drawn >= 24
-					|| drawn + water_drawn >= frame_budget )
+				/* Water uses its own reserved slots — do not share CapFaces
+				 * vert-counted frame_budget (near-eye Lost Coast hit 521>448). */
+				if( water_drawn >= 24 )
 					break;
 				if( !GC_WaterFacePlane( wi, &pl, NULL ))
 					continue;
@@ -5301,16 +6009,41 @@ static int R_GXDrawNewGameCapFacesImpl( void )
 				if( nv < 3 )
 					continue;
 				GC_GetWaterFaceScroll( wi, &su, &sv, &tint );
-				if( !tint )
-					tint = 0x408C90A8u;
+				/* Lost Coast water body is dark olive/teal. */
+				if( !tint || gEngfuncs.Sys_CheckParm( "-gccapfacessmoke" ))
+					tint = 0x1E4038D0u;
 				if( water_tex && GC_GetWaterFaceST( wi, st, 32 ) == nv )
 				{
 					GX_Begin( GX_TRIANGLEFAN, GX_VTXFMT0, (u16)nv );
 					for( si = 0; si < nv; si++ )
 					{
+						float env_s = st[si][0], env_t = st[si][1];
+
 						GX_Position3f32( pts[si][0], pts[si][1], pts[si][2] );
 						GX_Color1u32( tint );
 						GX_TexCoord2f32( st[si][0] + time_sec * su, st[si][1] + time_sec * sv );
+						if( water_env )
+						{
+							vec3_t to_eye, refl;
+							float nd, inv_len;
+
+							VectorSubtract( eye, pts[si], to_eye );
+							inv_len = VectorLength( to_eye );
+							if( inv_len > 1e-3f )
+							{
+								to_eye[0] /= inv_len;
+								to_eye[1] /= inv_len;
+								to_eye[2] /= inv_len;
+							}
+							nd = DotProduct( to_eye, pl.normal );
+							refl[0] = to_eye[0] - 2.0f * nd * pl.normal[0];
+							refl[1] = to_eye[1] - 2.0f * nd * pl.normal[1];
+							refl[2] = to_eye[2] - 2.0f * nd * pl.normal[2];
+							/* Sphere-map-ish into the active sky face. */
+							env_s = 0.5f + 0.5f * refl[0];
+							env_t = 0.5f - 0.5f * refl[2];
+							GX_TexCoord2f32( env_s, env_t );
+						}
 					}
 					GX_End();
 					water_drawn++;
@@ -5318,19 +6051,402 @@ static int R_GXDrawNewGameCapFacesImpl( void )
 				else if( R_GXEmitFlatFillVerts( pts, nv, tint ) > 0 )
 					water_drawn++;
 			}
-			if( water_n > 0 )
+			if( water_n > 0 && !skip_water_hold )
 			{
 				GX_SetBlendMode( GX_BM_NONE, GX_BL_ONE, GX_BL_ZERO, GX_LO_NOOP );
 				GX_SetZMode( GX_TRUE, GX_LEQUAL, GX_TRUE );
+				GX_SetVtxDesc( GX_VA_TEX1, GX_NONE );
 				r_gx_face_mode = GC_GX_FACE_MODE_NONE;
 				drawn += water_drawn;
 			}
 			if( !g286_logged )
 			{
+				int env_faces = 0;
+				int ci, cn = GC_GetNewGameCapFaceCount();
+				msurface_t *cdraw = GC_GetNewGameDrawSurfs();
 				g286_logged = true;
+				if( cdraw )
+				{
+					for( ci = 0; ci < cn; ci++ )
+					{
+						if( cdraw[ci].flags & GC_SURF_ENVMAP )
+							env_faces++;
+					}
+				}
 				gEngfuncs.Con_Reportf(
-					"Xash3D GameCube: G286 water emit=%d/%d tex=%d\n",
-					water_drawn, water_n, water_tex ? 1 : 0 );
+					"Xash3D GameCube: G286 water emit=%d/%d tex=%d env=%d sand_env=%d sand_spec=%d sand_nrm=%d sand_sun=%d sky=%d a0=72 body=passclr\n",
+					water_drawn, water_n, water_tex ? 1 : 0, water_env ? 1 : 0, env_faces,
+					GC_SandSpecTexReady() ? 1 : 0, GC_SandNrmTexReady() ? 1 : 0,
+					GC_SandSunTexReady() ? 1 : 0, sky_side );
+			}
+			/* Source prop meshes (boats) — baked GCpr tris, tip-safe CMPR. */
+			{
+				static qboolean g_prop_logged;
+				const int prop_n = GC_GetPropTriCount();
+				int pi, prop_drawn = 0;
+				int last_tex = -1;
+				const qboolean skip_prop_hold = ( r_gx_cap_densify_held
+						&& R_GXEfbDumpHoldLeft() > 0 )
+					/* Defer boats until after pack0 re-emit on densify dump. */
+					|| ( r_gx_cap_densify_hold_pending > 0 );
+
+				if( prop_n > 0 && !skip_prop_hold )
+				{
+					/* Densify CapFaces sheets often Z-win Source boats at the
+					 * same shoreline — keep Z test for stacking props, but
+					 * pull verts slightly toward the eye so hulls win sand. */
+					const float *veye = RI.rvp.vieworigin;
+					float vfwd[3];
+					const float prop_z_bias = 6.0f;
+
+					AngleVectors( RI.rvp.viewangles, vfwd, NULL, NULL );
+					GX_SetBlendMode( GX_BM_NONE, GX_BL_ONE, GX_BL_ZERO, GX_LO_NOOP );
+					/* Match densify prop path: ALWAYS + ChanCtrl so hulls read. */
+					GX_SetZMode( GX_TRUE, GX_ALWAYS, GX_FALSE );
+					GX_SetCullMode( GX_CULL_NONE );
+					GX_SetNumChans( 1 );
+					GX_SetChanCtrl( GX_COLOR0A0, GX_DISABLE, GX_SRC_REG, GX_SRC_VTX,
+						0, GX_DF_NONE, GX_AF_NONE );
+					GX_SetNumTexGens( 1 );
+					GX_SetTexCoordGen( GX_TEXCOORD0, GX_TG_MTX2x4, GX_TG_TEX0, GX_IDENTITY );
+					GX_SetNumTevStages( 1 );
+					GX_SetTevOrder( GX_TEVSTAGE0, GX_TEXCOORD0, GX_TEXMAP0, GX_COLOR0A0 );
+					GX_SetTevOp( GX_TEVSTAGE0, GX_MODULATE );
+					GX_SetNumIndStages( 0 );
+					GX_ClearVtxDesc();
+					GX_SetVtxDesc( GX_VA_POS, GX_DIRECT );
+					GX_SetVtxDesc( GX_VA_CLR0, GX_DIRECT );
+					GX_SetVtxDesc( GX_VA_TEX0, GX_DIRECT );
+					GX_SetVtxDesc( GX_VA_TEX1, GX_NONE );
+					GX_SetVtxDesc( GX_VA_TEX2, GX_NONE );
+					GX_SetVtxAttrFmt( GX_VTXFMT0, GX_VA_POS, GX_POS_XYZ, GX_F32, 0 );
+					GX_SetVtxAttrFmt( GX_VTXFMT0, GX_VA_CLR0, GX_CLR_RGBA, GX_RGBA8, 0 );
+					GX_SetVtxAttrFmt( GX_VTXFMT0, GX_VA_TEX0, GX_TEX_ST, GX_F32, 0 );
+					r_gx_face_mode = GC_GX_FACE_MODE_NONE;
+					r_gx_cull_none = true;
+					(void)veye;
+
+					for( pi = 0; pi < prop_n; pi++ )
+					{
+						float xyz[3][3];
+						float st[3][2];
+						int tex = 0;
+						int vi;
+						void *tobj;
+
+						if( !GC_GetPropTri( pi, xyz, st, &tex ))
+							continue;
+						tobj = GC_GetPropTexObj( tex );
+						if( !tobj )
+							tobj = GC_GetPropTexObj( 0 );
+						if( !tobj )
+							continue;
+						if( tex != last_tex )
+						{
+							GX_LoadTexObj( (GXTexObj *)tobj, GX_TEXMAP0 );
+							last_tex = tex;
+						}
+						GX_Begin( GX_TRIANGLES, GX_VTXFMT0, 3 );
+						for( vi = 0; vi < 3; vi++ )
+						{
+							GX_Position3f32(
+								xyz[vi][0] - vfwd[0] * prop_z_bias,
+								xyz[vi][1] - vfwd[1] * prop_z_bias,
+								xyz[vi][2] - vfwd[2] * prop_z_bias );
+							GX_Color1u32( 0xFFFFFFFF );
+							GX_TexCoord2f32( st[vi][0], st[vi][1] );
+						}
+						GX_End();
+						prop_drawn++;
+					}
+					drawn += prop_drawn;
+					if( !g_prop_logged )
+					{
+						g_prop_logged = true;
+						gEngfuncs.Con_Reportf(
+							"Xash3D GameCube: prop meshes emit=%d/%d\n",
+							prop_drawn, prop_n );
+					}
+				}
+			}
+			/* Densify freeze: arm hold only after water painted once.
+			 * Re-emit pack0 + midgap densify AFTER ALWAYS water so dunes and
+			 * pier/cliff bases cover the horizon void. */
+			if( r_gx_cap_densify_hold_pending > 0 )
+			{
+				extern int GC_CapFacesLoadSpatialRank( model_t *mod, const float *eye, int rank );
+				extern int GC_CapFacesSpatialPackCount( void );
+				extern qboolean GC_CapFaceBounds( int slot, vec3_t mins, vec3_t maxs );
+				int ri, rn_pack0, pack0_redraw = 0, midgap_redraw = 0;
+				msurface_t *rdraw;
+				int rorder[768];
+				vec3_t forward, right, up;
+				const float *eye = RI.rvp.vieworigin;
+				int pack_n = GC_CapFacesSpatialPackCount();
+				int rank;
+
+				AngleVectors( RI.rvp.viewangles, forward, right, up );
+				/* CapFaces first — synthetic water slab paints AFTER midgap so
+				 * it fills pier sky slits CapFaces leave, then near pack0
+				 * restores dunes over the slab. */
+				(void)GC_CapFacesLoadSpatialRank( world, eye, 0 );
+				rn_pack0 = GC_GetNewGameCapFaceCount();
+				rdraw = GC_GetNewGameDrawSurfs();
+				GX_SetBlendMode( GX_BM_NONE, GX_BL_ONE, GX_BL_ZERO, GX_LO_NOOP );
+				GX_SetZMode( GX_TRUE, GX_LEQUAL, GX_TRUE );
+				GX_SetCullMode( GX_CULL_BACK );
+				r_gx_cull_none = false;
+				r_gx_face_mode = GC_GX_FACE_MODE_NONE;
+				if( rdraw && rn_pack0 > 0 )
+				{
+					if( rn_pack0 > (int)( sizeof( rorder ) / sizeof( rorder[0] )))
+						rn_pack0 = (int)( sizeof( rorder ) / sizeof( rorder[0] ));
+					R_GXOrderFacesByTexBands( rdraw, rn_pack0, rorder );
+					for( ri = 0; ri < rn_pack0; ri++ )
+					{
+						vec3_t bmins, bmaxs;
+						const int slot = rorder[ri];
+
+						if( GC_CapFaceBounds( slot, bmins, bmaxs )
+							&& R_GXBoxOutsideFrustum( bmins, bmaxs ))
+							continue;
+						if( !GC_CapFaceInPVS( slot ))
+							continue;
+						if( R_GXEmitFace( &rdraw[slot], world, slot ) > 0 )
+							pack0_redraw++;
+					}
+					drawn += pack0_redraw;
+				}
+				/* Midgap densify again over ALWAYS water — closes pier void. */
+				if( pack_n > 12 )
+					pack_n = 12;
+				for( rank = 1; rank < pack_n && midgap_redraw < 1800; rank++ )
+				{
+					int en, ei;
+
+					if( GC_CapFacesLoadSpatialRank( world, eye, rank ) <= 0 )
+						continue;
+					en = GC_GetNewGameCapFaceCount();
+					rdraw = GC_GetNewGameDrawSurfs();
+					if( !rdraw || en <= 0 )
+						continue;
+					for( ei = 0; ei < en && midgap_redraw < 1800; ei++ )
+					{
+						vec3_t bmins, bmaxs;
+						float cx, cy, cz, dx, dy, dz, dist, fdot;
+
+						if( !GC_CapFaceBounds( ei, bmins, bmaxs ))
+							continue;
+						cx = 0.5f * ( bmins[0] + bmaxs[0] );
+						cy = 0.5f * ( bmins[1] + bmaxs[1] );
+						cz = 0.5f * ( bmins[2] + bmaxs[2] );
+						dx = cx - eye[0]; dy = cy - eye[1]; dz = cz - eye[2];
+						dist = sqrtf( dx * dx + dy * dy + dz * dz );
+						if( dist < 280.0f || dist > 1800.0f )
+							continue;
+						fdot = ( dist > 1.0f )
+							? ( dx * forward[0] + dy * forward[1] + dz * forward[2] ) / dist
+							: 0.0f;
+						if( fdot < 0.20f )
+							continue;
+						if( R_GXEmitFace( &rdraw[ei], world, ei ) > 0 )
+							midgap_redraw++;
+					}
+					GX_Flush();
+				}
+				(void)GC_CapFacesLoadSpatialRank( world, eye, 0 );
+				drawn += midgap_redraw;
+				gEngfuncs.Con_Reportf(
+					"Xash3D GameCube: CapFaces re-emit after water pack0=%d midgap=%d\n",
+					pack0_redraw, midgap_redraw );
+				/* Pier sky slit: ALWAYS water slab AFTER CapFaces so holes
+				 * CapFaces leave still get olive water, then near pack0 dunes. */
+				{
+					const float water_z = -56.0f;
+					const float along = 420.0f;
+					const float half_w = 980.0f;
+					const float half_d = 1100.0f;
+					float cx = eye[0] + forward[0] * along;
+					float cy = eye[1] + forward[1] * along;
+					float p[4][3];
+					int qi;
+
+					p[0][0] = cx - right[0] * half_w - forward[0] * half_d;
+					p[0][1] = cy - right[1] * half_w - forward[1] * half_d;
+					p[0][2] = water_z;
+					p[1][0] = cx + right[0] * half_w - forward[0] * half_d;
+					p[1][1] = cy + right[1] * half_w - forward[1] * half_d;
+					p[1][2] = water_z;
+					p[2][0] = cx + right[0] * half_w + forward[0] * half_d;
+					p[2][1] = cy + right[1] * half_w + forward[1] * half_d;
+					p[2][2] = water_z;
+					p[3][0] = cx - right[0] * half_w + forward[0] * half_d;
+					p[3][1] = cy - right[1] * half_w + forward[1] * half_d;
+					p[3][2] = water_z;
+					GX_SetBlendMode( GX_BM_BLEND, GX_BL_SRCALPHA, GX_BL_INVSRCALPHA, GX_LO_NOOP );
+					GX_SetZMode( GX_TRUE, GX_ALWAYS, GX_FALSE );
+					GX_SetCullMode( GX_CULL_NONE );
+					GX_SetNumChans( 1 );
+					GX_SetChanCtrl( GX_COLOR0A0, GX_DISABLE, GX_SRC_REG, GX_SRC_VTX,
+						0, GX_DF_NONE, GX_AF_NONE );
+					GX_SetNumTexGens( 0 );
+					GX_SetNumTevStages( 1 );
+					GX_SetTevOrder( GX_TEVSTAGE0, GX_TEXCOORDNULL, GX_TEXMAP_NULL, GX_COLOR0A0 );
+					GX_SetTevOp( GX_TEVSTAGE0, GX_PASSCLR );
+					GX_SetNumIndStages( 0 );
+					GX_ClearVtxDesc();
+					GX_SetVtxDesc( GX_VA_POS, GX_DIRECT );
+					GX_SetVtxDesc( GX_VA_CLR0, GX_DIRECT );
+					GX_SetVtxDesc( GX_VA_TEX0, GX_NONE );
+					GX_SetVtxAttrFmt( GX_VTXFMT0, GX_VA_POS, GX_POS_XYZ, GX_F32, 0 );
+					GX_SetVtxAttrFmt( GX_VTXFMT0, GX_VA_CLR0, GX_CLR_RGBA, GX_RGBA8, 0 );
+					r_gx_face_mode = GC_GX_FACE_MODE_NONE;
+					r_gx_cull_none = true;
+					GX_Begin( GX_TRIANGLES, GX_VTXFMT0, 6 );
+					{
+						static const int idx[6] = { 0, 1, 2, 0, 2, 3 };
+
+						for( qi = 0; qi < 6; qi++ )
+						{
+							const int vi = idx[qi];
+
+							GX_Position3f32( p[vi][0], p[vi][1], p[vi][2] );
+							/* Mid grey-teal — fills void without washing pier (0x6E washed). */
+							GX_Color1u32( 0x3A4848C8u );
+						}
+					}
+					GX_End();
+					gEngfuncs.Con_Reportf(
+						"Xash3D GameCube: CapFaces synthetic cove water slab z=%.0f (post-midgap)\n",
+						water_z );
+				}
+				/* Near dunes over slab — keep pack0 sand/rocks in foreground. */
+				{
+					int near_redraw = 0;
+
+					(void)GC_CapFacesLoadSpatialRank( world, eye, 0 );
+					rn_pack0 = GC_GetNewGameCapFaceCount();
+					rdraw = GC_GetNewGameDrawSurfs();
+					GX_SetBlendMode( GX_BM_NONE, GX_BL_ONE, GX_BL_ZERO, GX_LO_NOOP );
+					GX_SetZMode( GX_TRUE, GX_LEQUAL, GX_TRUE );
+					GX_SetCullMode( GX_CULL_BACK );
+					r_gx_cull_none = false;
+					r_gx_face_mode = GC_GX_FACE_MODE_NONE;
+					if( rdraw && rn_pack0 > 0 )
+					{
+						if( rn_pack0 > (int)( sizeof( rorder ) / sizeof( rorder[0] )))
+							rn_pack0 = (int)( sizeof( rorder ) / sizeof( rorder[0] ));
+						R_GXOrderFacesByTexBands( rdraw, rn_pack0, rorder );
+						for( ri = 0; ri < rn_pack0; ri++ )
+						{
+							vec3_t bmins, bmaxs;
+							float cx, cy, cz, dx, dy, dz;
+							const int slot = rorder[ri];
+
+							if( !GC_CapFaceBounds( slot, bmins, bmaxs ))
+								continue;
+							cx = 0.5f * ( bmins[0] + bmaxs[0] );
+							cy = 0.5f * ( bmins[1] + bmaxs[1] );
+							cz = 0.5f * ( bmins[2] + bmaxs[2] );
+							dx = cx - eye[0]; dy = cy - eye[1]; dz = cz - eye[2];
+							if( dx * dx + dy * dy + dz * dz > ( 520.0f * 520.0f ))
+								continue;
+							if( !GC_CapFaceInPVS( slot ))
+								continue;
+							if( R_GXEmitFace( &rdraw[slot], world, slot ) > 0 )
+								near_redraw++;
+						}
+						drawn += near_redraw;
+					}
+					gEngfuncs.Con_Reportf(
+						"Xash3D GameCube: CapFaces near-pack0 over slab=%d\n",
+						near_redraw );
+				}
+				/* Boats after pack0 — emit every loaded GCpr tri (complete hulls). */
+				{
+					static qboolean g_prop_logged;
+					const int prop_n = GC_GetPropTriCount();
+					int pi, prop_drawn = 0, last_tex = -1;
+					float vfwd[3];
+					const float prop_z_bias = 28.0f;
+
+					if( prop_n > 0 )
+					{
+						AngleVectors( RI.rvp.viewangles, vfwd, NULL, NULL );
+						GX_SetBlendMode( GX_BM_NONE, GX_BL_ONE, GX_BL_ZERO, GX_LO_NOOP );
+						/* ALWAYS + no Z-write: paint full hulls over densify/water
+						 * without wiping cove Z (ALWAYS+Z_TRUE washed beige). */
+						GX_SetZMode( GX_TRUE, GX_ALWAYS, GX_FALSE );
+						GX_SetCullMode( GX_CULL_NONE );
+						/* ChanCtrl + cull-none required — MODULATE alone left
+						 * emit=N with zero on-screen hulls (probe 230521). */
+						GX_SetNumChans( 1 );
+						GX_SetChanCtrl( GX_COLOR0A0, GX_DISABLE, GX_SRC_REG, GX_SRC_VTX,
+							0, GX_DF_NONE, GX_AF_NONE );
+						GX_SetNumTexGens( 1 );
+						GX_SetTexCoordGen( GX_TEXCOORD0, GX_TG_MTX2x4, GX_TG_TEX0, GX_IDENTITY );
+						GX_SetNumTevStages( 1 );
+						GX_SetTevOrder( GX_TEVSTAGE0, GX_TEXCOORD0, GX_TEXMAP0, GX_COLOR0A0 );
+						GX_SetTevOp( GX_TEVSTAGE0, GX_MODULATE );
+						GX_SetNumIndStages( 0 );
+						GX_ClearVtxDesc();
+						GX_SetVtxDesc( GX_VA_POS, GX_DIRECT );
+						GX_SetVtxDesc( GX_VA_CLR0, GX_DIRECT );
+						GX_SetVtxDesc( GX_VA_TEX0, GX_DIRECT );
+						GX_SetVtxDesc( GX_VA_TEX1, GX_NONE );
+						GX_SetVtxDesc( GX_VA_TEX2, GX_NONE );
+						GX_SetVtxAttrFmt( GX_VTXFMT0, GX_VA_POS, GX_POS_XYZ, GX_F32, 0 );
+						GX_SetVtxAttrFmt( GX_VTXFMT0, GX_VA_CLR0, GX_CLR_RGBA, GX_RGBA8, 0 );
+						GX_SetVtxAttrFmt( GX_VTXFMT0, GX_VA_TEX0, GX_TEX_ST, GX_F32, 0 );
+						r_gx_face_mode = GC_GX_FACE_MODE_NONE;
+						r_gx_cull_none = true;
+						for( pi = 0; pi < prop_n; pi++ )
+						{
+							float xyz[3][3], st[3][2];
+							int tex = 0, vi;
+							void *tobj;
+
+							if( !GC_GetPropTri( pi, xyz, st, &tex ))
+								continue;
+							tobj = GC_GetPropTexObj( tex );
+							if( !tobj )
+								tobj = GC_GetPropTexObj( 0 );
+							if( !tobj )
+								continue;
+							if( tex != last_tex )
+							{
+								GX_LoadTexObj( (GXTexObj *)tobj, GX_TEXMAP0 );
+								last_tex = tex;
+							}
+							GX_Begin( GX_TRIANGLES, GX_VTXFMT0, 3 );
+							for( vi = 0; vi < 3; vi++ )
+							{
+								GX_Position3f32(
+									xyz[vi][0] - vfwd[0] * prop_z_bias,
+									xyz[vi][1] - vfwd[1] * prop_z_bias,
+									xyz[vi][2] - vfwd[2] * prop_z_bias );
+								GX_Color1u32( 0xFFFFFFFF );
+								GX_TexCoord2f32( st[vi][0], st[vi][1] );
+							}
+							GX_End();
+							prop_drawn++;
+						}
+						drawn += prop_drawn;
+						if( !g_prop_logged )
+						{
+							g_prop_logged = true;
+							gEngfuncs.Con_Reportf(
+								"Xash3D GameCube: prop meshes emit=%d/%d (complete pack)\n",
+								prop_drawn, prop_n );
+						}
+					}
+				}
+				R_GXHoldEfbForDump( r_gx_cap_densify_hold_pending );
+				r_gx_cap_densify_hold_pending = 0;
+				r_gx_cap_densify_held = true;
+				gEngfuncs.Con_Reportf(
+					"Xash3D GameCube: CapFaces densify hold armed after water emit=%d pack0=%d\n",
+					water_drawn, pack0_redraw );
 			}
 		}
 		/* G292/G297: tip-safe Flipper world decals — skip during G36 samples. */
@@ -5550,6 +6666,21 @@ static int R_GXDrawNewGameCapFacesImpl( void )
 	}
 	/* G358: always stash drawn for dual-hop denser sample (framecount>3). */
 	GC_NoteCapFacesDrawn( drawn );
+	/* Drain ARAM→hot after CapFaces binds so the next frame paints full
+	 * mip chains instead of bounce/stub. */
+	R_GXHotService();
+	if( r_gx_hot.uploads )
+	{
+		static qboolean hot_stream_logged;
+		if( !hot_stream_logged )
+		{
+			hot_stream_logged = true;
+			gEngfuncs.Con_Reportf(
+				"Xash3D GameCube: CapFaces ARAM hot-stream uploads=%u bytes=%u resident=%d queued=%d deferred=%u window=%u Kb\n",
+				r_gx_hot.uploads, r_gx_hot.bytes, r_gx_hot.count, r_gx_hot.queued,
+				r_gx_hot.deferred, r_gx_hot.size / 1024u );
+		}
+	}
 	return drawn;
 }
 

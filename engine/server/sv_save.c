@@ -2670,7 +2670,9 @@ static const gc_autohop_t gc_autohop_ladder[] = {
 	{ "c1a0", "c1a0d", "c1a0toc1a0d", 12.0f },
 	{ "c1a0d", "c1a0a", "c1a0dtoa", 10.0f },
 	{ "c1a0a", "c1a0b", "c1a0atob", 10.0f },
-	{ "c1a0b", "c1a0c", "c1a0btoc", 10.0f },
+	/* after=0: nest at ExecChangeLevel ready — present-path hangs on c1a0b
+	 * before HopRider t=10 (probe 20261109-145707 tip-safe soft-stop DOL). */
+	{ "c1a0b", "c1a0c", "c1a0btoc", 0.0f },
 	{ "c1a0c", "c1a1", "c1a0catoc1a1", 0.0f },
 	{ "c1a1", "c1a1a", "c1a1", 0.0f },
 	{ "c1a1a", "c1a1f", "c1a1atof", 0.0f },

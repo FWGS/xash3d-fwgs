@@ -20,7 +20,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 GC_CF_MAGIC = b"GCcf"
 GC_CF_VERSION = 1
 GC_CF_FLAG_LM_ATLAS = 1
-GC_MAX_CAP_FACES = 384  # 512 tipped GC MEM1; keep spatial coverage within tip
+GC_MAX_CAP_FACES = 768  # match engine; keep sky CMPR resident with CapFaces
 GC_CAP_MAX_VERTS = 8
 GC_CAP_LM_DIM = 4
 GC_LM_ATLAS_W = 128
@@ -560,8 +560,8 @@ def build_capfaces_packs(
 			print(f"  CapFaces pack {stem}: preserve prebaked {dest.stat().st_size} bytes")
 			overlays.append((rel, dest))
 			continue
-		# cache by bsp sha + bake recipe (spatial coverage bump)
-		digest = hashlib.sha256(bsp.read_bytes() + b"|spatial-v1").hexdigest()[:16]
+		# cache by bsp sha + bake recipe (spatial coverage + 768 face budget)
+		digest = hashlib.sha256(bsp.read_bytes() + b"|spatial-v2-768").hexdigest()[:16]
 		cached = cache / f"{stem}-{digest}.gcp"
 		if cached.is_file():
 			dest.write_bytes(cached.read_bytes())

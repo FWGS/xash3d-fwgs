@@ -332,6 +332,10 @@ probe_wait_flatpak() {
 				continue
 			fi
 			# G68: do not stop until changelevel destination is ready.
+			if [[ -n "${DOLPHIN_INTRO_DONE_MARKER:-}" ]] && ! probe_log_has "$DOLPHIN_INTRO_DONE_MARKER"; then
+				sleep 2
+				continue
+			fi
 			if [[ -n "${G68_DONE_MARKER:-}" ]] && ! probe_log_has "$G68_DONE_MARKER"; then
 				sleep 2
 				continue
@@ -613,6 +617,15 @@ probe_wait_flatpak() {
 				sleep 2
 				continue
 			fi
+			# Campaign INTRO_DONE must win over FRAME_SAMPLE.
+			if [[ -n "${DOLPHIN_INTRO_DONE_MARKER:-}" ]] && ! probe_log_has "$DOLPHIN_INTRO_DONE_MARKER"; then
+				sleep 2
+				continue
+			fi
+			if [[ -n "${G68_DONE_MARKER:-}" ]] && ! probe_log_has "$G68_DONE_MARKER"; then
+				sleep 2
+				continue
+			fi
 			if (( FRAME_SAMPLE_SEC <= 0 || $(date +%s) >= map_ready_at + FRAME_SAMPLE_SEC )); then
 				DOLPHIN_EXIT=0; break
 			fi
@@ -683,6 +696,10 @@ probe_wait_native() {
 				continue
 			fi
 			if [[ -n "${TAS_DONE_MARKER:-}" ]] && ! probe_log_has "$TAS_DONE_MARKER"; then
+				sleep 2
+				continue
+			fi
+			if [[ -n "${DOLPHIN_INTRO_DONE_MARKER:-}" ]] && ! probe_log_has "$DOLPHIN_INTRO_DONE_MARKER"; then
 				sleep 2
 				continue
 			fi
@@ -945,6 +962,17 @@ probe_wait_native() {
 					sleep 2
 					continue
 				fi
+			fi
+			# Campaign INTRO_DONE must win over FRAME_SAMPLE. Prefer the env
+			# marker directly — G68_DONE_MARKER can be cleared by later probe
+			# wiring after the Intro proof echo.
+			if [[ -n "${DOLPHIN_INTRO_DONE_MARKER:-}" ]] && ! probe_log_has "$DOLPHIN_INTRO_DONE_MARKER"; then
+				sleep 2
+				continue
+			fi
+			if [[ -n "${G68_DONE_MARKER:-}" ]] && ! probe_log_has "$G68_DONE_MARKER"; then
+				sleep 2
+				continue
 			fi
 			if (( FRAME_SAMPLE_SEC <= 0 || $(date +%s) >= map_ready_at + FRAME_SAMPLE_SEC )); then
 				DOLPHIN_EXIT=0; break

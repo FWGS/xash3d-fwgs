@@ -3505,6 +3505,23 @@ void R_DrawViewModel( void )
 	R_GatherPlayerLight( view );
 
 #if XASH_GAMECUBE
+	/* CapFaces listen (-gcworldrender): tip-skipped v_colt skins REPLACE as
+	 * solid white and, with broken NDC (ndc_y≈[-295,148]), paint a giant
+	 * screen-space silhouette (~28k pure255) over CapFaces on caen/flash.
+	 * Skip until skins are resident; world geo proof does not need the gun. */
+	if( gEngfuncs.Sys_CheckParm( "-gcworldrender" )
+		&& !gEngfuncs.Sys_CheckParm( "-gcfullphysics" ))
+	{
+		static qboolean cap_vm_skip_logged;
+
+		if( !cap_vm_skip_logged )
+		{
+			cap_vm_skip_logged = true;
+			gEngfuncs.Con_Reportf(
+				"Xash3D GameCube: CapFaces listen skip viewmodel (white-skin overlay)\n" );
+		}
+		return;
+	}
 	/* Lean Flipper often leaves r_drawviewmodel at 0 (V_RenderView pump
 	 * skips the force-on). Landmark mesh is enough to arm the gun pass.
 	 * G376: DumpFrames explicitly forces the cvar off so NPC rest-pose

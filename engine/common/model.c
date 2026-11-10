@@ -65,8 +65,14 @@ static int     gc_deferred_studio_attempts;
  * is ~171 KiB; with v_crowbar (~46 KiB) that already exceeds 184, so hallway
  * soft skins never got a BSS mesh (heap zip OOM → stub SetModel). 384 KiB
  * holds crowbar + scientist + barney (~343 KiB) for deferred T.mdl attach;
- * tip-safe c1a0a→c1a0d must stay CHANGELEVEL_READY after this bump. */
+ * tip-safe c1a0a→c1a0d must stay CHANGELEVEL_READY after this bump. Native
+ * Ethernet multiplayer instead uses the proven 184 KiB boot budget; visual
+ * studios can remain deferred rather than preventing a match from starting. */
+#if XASH_DODGC_NETWORK
+#define GC_STUDIO_BSS_BYTES (184 * 1024)
+#else
 #define GC_STUDIO_BSS_BYTES (384 * 1024)
+#endif
 static byte    gc_studio_bss[GC_STUDIO_BSS_BYTES] __attribute__((aligned( 32 )));
 static size_t  gc_studio_bss_bump;
 static int     gc_studio_bss_owners; /* resident cache.data slices */
@@ -386,6 +392,9 @@ static qboolean Mod_GCStudioNameAllowed( const char *name, qboolean *is_viewmode
 	};
 	static const char *views[] = {
 		"v_crowbar", "v_9mmhandgun", "v_9mmar", "v_shotgun", "v_357",
+		/* DoD CapFaces listen — team loadout viewmodels (lean-injected). */
+		"v_garand", "v_mp40", "v_98k", "v_tommy",
+		"v_colt", "v_luger", "v_amerk", "v_spade",
 		NULL
 	};
 	int i;
@@ -954,6 +963,14 @@ void Mod_GCLoadPreEntityStudios( void )
 	/* c1a1f cast first (proven tip-safe ~0.5 MiB with skins). Heavier
 	 * campaign meshes (gman/houndeye/forklift) promote on SetModel demand
 	 * so pre-entity does not push studio BSS into the crash cliff. */
+#if XASH_DODGC_NETWORK
+	/* DoD CapFaces listen: Allies pistol + weapon stub (BBA=0 tip≈400 KiB). */
+	static const char *promote[] = {
+		"models/v_colt.mdl",
+		"models/w_crowbar.mdl",
+		NULL
+	};
+#else
 	static const char *promote[] = {
 		"models/v_crowbar.mdl",
 		"models/w_crowbar.mdl",
@@ -967,6 +984,7 @@ void Mod_GCLoadPreEntityStudios( void )
 		"models/filecabinet.mdl",
 		NULL
 	};
+#endif
 	int i;
 
 	/* -gcmap / session memopt — same gate as the call site, explicit so a

@@ -631,6 +631,7 @@ void SV_FreeEdicts( void );
 #define GC_ENTITY_OVERFLOW_BYTES (64u * 1024u)
 void SV_GCReservePrivateOverflow( size_t after, size_t bytes );
 qboolean SV_GCPrivateOverflowReserved( void );
+qboolean SV_GCPrivateOverflowPinsMapArena( void );
 #endif
 edict_t *SV_AllocEdict( void );
 void SV_FreeEdict( edict_t *pEdict );
@@ -670,8 +671,6 @@ void GC_LeanLandmarkProbePlantAmmo( void );
 void GC_LeanLandmarkRestore( void );
 void SV_GCReportHopRider( const char *when );
 void SV_GCHopRiderTick( void );
-/* -gcautohop: next campaign hop from current map (immediate ExecChangeLevel nest). */
-qboolean SV_GCAutohopLookupNext( const char *from, const char **to, const char **landmark );
 void GC_LeanLandmarkGrantWeapons( void );
 void GC_LeanLandmarkGrantWeaponsAfterPutInServer( void );
 void GC_LeanEnsureWeaponCombatReady( edict_t *player );

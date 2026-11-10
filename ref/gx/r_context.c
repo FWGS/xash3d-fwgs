@@ -61,25 +61,11 @@ static void Mod_BrushUnloadTextures( model_t *mod )
 	tr.map_unload = true;
 
 #if XASH_GAMECUBE
-	/* Retail tram New Game hops arrive with tip≈20 KiB (probe 231709). Per-tex
-	 * GL_FreeTexture stalls there after "Unloading world". Clear slots only —
-	 * destination Mod_LoadWorld replaces the brush textures. */
-	if( GC_MemHeapFreeBytes() < 48u * 1024u )
-	{
-		gEngfuncs.Con_Reportf( "Xash3D GameCube: lean world tex unload tip=%s\n",
-			Q_memprint( GC_MemHeapFreeBytes() ));
-		for( int i = 0; i < mod->numtextures; i++ )
-		{
-			texture_t *tx = mod->textures[i];
-			if( !tx )
-				continue;
-			tx->gl_texturenum = 0;
-			tx->fb_texturenum = 0;
-		}
-		return;
-	}
+	/* Retail tram New Game hops arrive with tip≈20 KiB (probe 231709). Always
+	 * GL_FreeTexture so image slots clear (packed/lean left named empties and
+	 * hit MAX_TEXTURES at c2a1). Tip-starved path abandons inside
+	 * GL_DeleteTexture (no Mem_Free) so c1a2b→c1a3 Unloading world cannot hang. */
 #endif
-
 	for( int i = 0; i < mod->numtextures; i++ )
 	{
 		texture_t *tx = mod->textures[i];
@@ -88,6 +74,8 @@ static void Mod_BrushUnloadTextures( model_t *mod )
 
 		GL_FreeTexture( tx->gl_texturenum ); // main texture
 		GL_FreeTexture( tx->fb_texturenum ); // luma texture
+		tx->gl_texturenum = 0;
+		tx->fb_texturenum = 0;
 	}
 }
 

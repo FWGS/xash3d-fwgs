@@ -1303,6 +1303,12 @@ static qboolean R_TryInitGameCubeSurfaceCacheSized( int size, qboolean allow_low
 	if( size > GC_SURFACE_CACHE_MAX )
 		size = GC_SURFACE_CACHE_MAX;
 
+	/* Prefer BSS low-res store before any heap surfcache. Boot R_InitCaches
+	 * used to malloc(128–256 KiB) here and leave tip≈5 KiB — menu ImageLib
+	 * then soft-failed before New Game (gc-probe-20261109-222110). */
+	if( allow_lowres_static && R_TryInitLowResSurfaceCache() )
+		return true;
+
 	for( try_size = size; try_size >= 32768; try_size >>= 1 )
 	{
 		int alloc_size = ( try_size + 8191 ) & ~8191;
@@ -1322,9 +1328,6 @@ static qboolean R_TryInitGameCubeSurfaceCacheSized( int size, qboolean allow_low
 		gEngfuncs.Con_Reportf( "Xash3D GameCube: surface cache %s\n", Q_memprint( alloc_size ));
 		return true;
 	}
-
-	if( allow_lowres_static )
-		return R_TryInitLowResSurfaceCache();
 
 	gEngfuncs.Con_Reportf( "Xash3D GameCube: surface cache deferred (%s unavailable)\n",
 		Q_memprint( size ));

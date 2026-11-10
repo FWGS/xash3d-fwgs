@@ -69,14 +69,16 @@ elif [[ "${DOLPHIN_MENU_NEWGAME:-0}" == "1" ]]; then
 	G278_DONE_MARKER="Xash3D GameCube: newgame world render ready"
 	echo "==> Menu New Game will sample ${FRAME_SAMPLE_SEC}s after map loaded"
 	echo "==> Waiting for newgame world render ready before post-CapFaces sample"
-	# Intro15 proof: hold the harness through the tram ladder until c1a0
-	# (default MENU_NEWGAME exits after c0a0 G36/input readiness).
-	if [[ -n "${DOLPHIN_INTRO_DONE_MARKER:-}" ]]; then
-		G68_DONE_MARKER="$DOLPHIN_INTRO_DONE_MARKER"
-		echo "==> Intro proof waiting for: ${G68_DONE_MARKER}"
-	fi
 else
 	SMOKE_MAP="${DOLPHIN_SMOKE_MAP:-c0a0e}"
+fi
+# Hold MENU_NEWGAME/NEWGAME harness past c0a0 readiness when requested
+# (default exits after G36/input). Apply outside the if/elif so a polluted
+# DOLPHIN_NEWGAME=1 cannot skip campaign INTRO_DONE.
+if [[ -n "${DOLPHIN_INTRO_DONE_MARKER:-}" ]]; then
+	G68_DONE_MARKER="$DOLPHIN_INTRO_DONE_MARKER"
+	export G68_DONE_MARKER
+	echo "==> Intro proof waiting for: ${G68_DONE_MARKER}"
 fi
 DOLPHIN_WORLD_RENDER="${DOLPHIN_WORLD_RENDER:-0}"
 GC_FATAL_TEST="${GC_FATAL_TEST:-0}"

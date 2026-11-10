@@ -4354,6 +4354,22 @@ void Host_ClientFrame( void )
 			&& !Sys_CheckParm( "-gclistenserver" )
 			&& cls.state != ca_connecting && cls.state != ca_connected )
 		{
+			/* Lost Coast CapFaces / Flipper DumpFrames need world presents even
+			 * with deferred client progs. SCR_UpdateScreen's ca_active gate
+			 * skips GC_RenderNewGameWorldFrames on -gcmap smoke — call it
+			 * directly when CapFaces world_ready (probe 20261109-110654). */
+			if( Sys_CheckParm( "-gccapfacessmoke" ) || Sys_CheckParm( "-gcworldrender" ))
+			{
+				VID_CheckChanges();
+				if( GC_BootDrawAllowed() )
+				{
+					if( GC_IsNewGameWorldReady() )
+						(void)GC_RenderNewGameWorldFrames( 1 );
+					else
+						SCR_UpdateScreen();
+				}
+				return;
+			}
 			/* Map-load smoke keeps client progs deferred; avoid renderer/texture
 			 * work that allocates from the filesystem pool while BSP data
 			 * still owns most of MEM1. */

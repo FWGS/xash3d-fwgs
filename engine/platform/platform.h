@@ -297,10 +297,21 @@ int GC_GetWaterFaceST( int index, float out_st[][2], int maxverts );
 void GC_GetWaterFaceScroll( int index, float *scroll_u, float *scroll_v, unsigned int *tint );
 qboolean GC_WaterTexReady( void );
 void *GC_GetWaterTexObj( void ); /* GXTexObj* when water_gx.cmp loaded */
+qboolean GC_SandSpecTexReady( void );
+void *GC_GetSandSpecTexObj( void ); /* GXTexObj* when sand_spec.cmp loaded */
+qboolean GC_SandNrmTexReady( void );
+void *GC_GetSandNrmTexObj( void ); /* GXTexObj* when sand_nrm.cmp ($bumpmap) loaded */
+qboolean GC_SandSunTexReady( void );
+void *GC_GetSandSunTexObj( void ); /* GXTexObj* when sand_sun.cmp specular disc loaded */
+int GC_GetPropTriCount( void );
+qboolean GC_GetPropTri( int index, float out_xyz[3][3], float out_st[3][2], int *out_tex );
+void *GC_GetPropTexObj( int index ); /* GXTexObj* for prop_XX.cmp */
 qboolean GC_WaterFacePlane( int index, struct mplane_s *out, int *out_flags );
 struct msurface_s *GC_GetLiveDrawSurfs( void ); /* always NULL — use Fill */
 qboolean GC_FillLiveDrawSurf( int index, struct msurface_s *out, mtexinfo_t *tex_out );
 int GC_GetNewGameCapFaceCount( void );
+int GC_CapFacesSpatialPackCount( void ); /* Lost Coast spatial CapFaces packs on disc */
+int GC_CapFacesLoadSpatialRank( struct model_s *mod, const float *eye, int rank ); /* dump densify */
 int GC_GetNewGameCapGeneration( void ); /* G179: bumps when cap faces/LMs rewrite */
 int GC_GetNewGameCapBakeSrc( int slot ); /* G204/G205: 1=edge, 2=plane, 3=tex, 0=none */
 /* Lean CapFaces visibility: begin with eye PVS, then test each slot. */
@@ -314,6 +325,7 @@ struct msurface_s *GC_GetNewGameDrawSurfs( void );
 const unsigned short *GC_GetNewGameCapLightmap( int slot, int *w, int *h );
 const unsigned short *GC_GetNewGameCapLightmapAtlas( int *w, int *h ); /* G180 */
 void GC_GetNewGameCapLightmapAtlasUV( int slot, float s, float t, float *out_s, float *out_t );
+int GC_GetNewGameCapFaceLMUV( int slot, float out_uv[][2], int maxverts );
 void GC_CaptureNewGamePVS( void ); /* G83: PointInLeaf+FatPVS before scratch reuse */
 void GC_CaptureNewGamePVSFromModel( model_t *wmodel );
 /* G369: free Capture-time FatPVS extras before CSoundEnt; bake CapFaces after spawn. */
@@ -332,6 +344,9 @@ void GC_ArmG94SaveLoad( void );
 void GC_TryG94SaveLoad( void );
 /* G278: stream c0a0 tram VO (tride/*.wav) — too large for SFX budget. */
 void GC_UpdateNewGameIntroAudio( void );
+/* CapFaces Lost Coast: Source soundscape bed + tip-safe oneshots. */
+void GC_CapFacesSoundscapeArm( void );
+void GC_CapFacesSoundscapeFrame( void );
 qboolean GC_MenuRunsServer( void ); /* menu New Game runs the real map logic */
 void GC_LoadingOverlayPulse( void ); /* animate LOADING during a held load */
 void GC_DrawLoadingStatus( const char *message, const char *details );

@@ -1331,6 +1331,13 @@ def stage_gc_loading_assets(source: Path, output: Path) -> bool:
 GC_STUDIO_MODELS = (
 	"models/v_crowbar.mdl",
 	"models/v_9mmhandgun.mdl",
+	# DoD CapFaces team weapons (lean-stripped on inject; real names on disc).
+	"models/v_garand.mdl",
+	"models/v_mp40.mdl",
+	"models/v_98k.mdl",
+	"models/v_tommy.mdl",
+	"models/v_colt.mdl",
+	"models/v_luger.mdl",
 	"models/w_crowbar.mdl",
 	# Small world NPC — gman (~76KB) OOMs libc malloc after crowbars on GC.
 	"models/roach.mdl",
@@ -1669,21 +1676,121 @@ def wt_read_miptex(data: bytes, offset: int = 0):
 	return name, w, h, data[offset + m0:offset + m0 + w * h], data[end + 2:end + 2 + 768]
 
 
-def wt_read_wads(source: Path) -> dict:
-	"""Every miptex (type 0x43) of the game's WADs, first WAD wins."""
-	found = {}
-	for wad in sorted(source.glob("*.wad")):
-		data = wad.read_bytes()
-		if data[:4] not in (b"WAD3", b"WAD2"):
+def wt_wad_search_roots(source: Path) -> list[Path]:
+	"""Dirs that may hold map / Valve WADs CapFaces needs but lean staging omits.
+
+	Lean discs skip foreign `dod_*.wad` and giant `halflife.wad` to keep tip
+	searchpaths small. World-texture bake still needs those miptex so CapFaces
+	hashes resolve to CMPR instead of grey stubs — pull from sibling full trees
+	at bake time only (nothing is staged onto the disc).
+	"""
+	roots: list[Path] = []
+	seen: set[Path] = set()
+
+	def add(path: Path | None) -> None:
+		if path is None:
+			return
+		try:
+			resolved = path.resolve()
+		except OSError:
+			return
+		if not resolved.is_dir() or resolved in seen:
+			return
+		seen.add(resolved)
+		roots.append(resolved)
+
+	add(source)
+	parent = source.parent
+	# …/dod-lean → …/dod + …/valve; smoke lean under /tmp often sits beside copies.
+	for name in (source.name, "dod", "valve"):
+		add(parent / name)
+	for env in ("DODGC_FULL_DOD", "DODGC_WT_WAD_ROOT", "HL_VALVE_DIR"):
+		raw = os.environ.get(env, "").strip()
+		if raw:
+			add(Path(raw))
+	# Dataset fallback used by local ISO builds.
+	add(Path("/mnt/datasets/dodgc-iso-build/dod"))
+	add(Path("/mnt/datasets/dodgc-iso-build/valve"))
+	return roots
+
+
+def wt_bsp_wad_basenames(bsp: Path) -> list[str]:
+	"""Basenames from the BSP worldspawn \"wad\" key (order preserved)."""
+	try:
+		data = bsp.read_bytes()
+		off, length = struct.unpack_from("<ii", data, 4)
+		ents = data[off : off + min(length, 8192)].decode("latin-1", "replace")
+	except (OSError, struct.error):
+		return []
+	m = re.search(r'"wad"\s+"([^"]+)"', ents)
+	if not m:
+		return []
+	names: list[str] = []
+	seen: set[str] = set()
+	for part in m.group(1).split(";"):
+		part = part.strip().replace("\\", "/")
+		if not part:
 			continue
-		count, table = struct.unpack_from("<ii", data, 4)
-		for i in range(count):
-			pos, disk, size, kind, comp, _pad, raw = struct.unpack_from("<iiibbh16s", data, table + i * 32)
-			if kind != 0x43 or comp:
+		name = part.split("/")[-1]
+		key = name.lower()
+		if not key.endswith(".wad") or key in seen:
+			continue
+		seen.add(key)
+		names.append(name)
+	return names
+
+
+def wt_ingest_wad_file(found: dict, wad: Path) -> int:
+	"""Index every miptex (type 0x43) from one WAD; first entry wins. Returns new count."""
+	try:
+		data = wad.read_bytes()
+	except OSError:
+		return 0
+	if data[:4] not in (b"WAD3", b"WAD2"):
+		return 0
+	count, table = struct.unpack_from("<ii", data, 4)
+	added = 0
+	for i in range(count):
+		pos, disk, size, kind, comp, _pad, raw = struct.unpack_from("<iiibbh16s", data, table + i * 32)
+		if kind != 0x43 or comp:
+			continue
+		name = raw.split(b"\0")[0].decode("latin-1").lower()
+		if name not in found:
+			found[name] = (data, pos)
+			added += 1
+	return added
+
+
+def wt_read_wads(source: Path, bsp: Path | None = None) -> dict:
+	"""Every miptex (type 0x43) needed for WT bake, first WAD wins.
+
+	Starts with `source/*.wad` (lean), then loads BSP-referenced WADs from
+	sibling full trees — including oversized `halflife.wad` — so CapFaces
+	hashes that lean staging dropped still land in media/wt_<map>.gct.
+	"""
+	found: dict = {}
+	for wad in sorted(source.glob("*.wad")):
+		wt_ingest_wad_file(found, wad)
+	wanted = {n.lower() for n in (wt_bsp_wad_basenames(bsp) if bsp is not None else [])}
+	# Always consider the common Valve + shared DoD WADs CapFaces hits.
+	wanted.update({"halflife.wad", "hlbasics.wad", "decals.wad"})
+	if bsp is not None:
+		# Sibling map WADs listed on the BSP (dod_jagd.wad, …) even when lean
+		# stripped them from the gamedir.
+		wanted.update({n.lower() for n in wt_bsp_wad_basenames(bsp)})
+	# Also pick up every other dod_*.wad under search roots — cheap index, encode
+	# is still limited to textures the BSP actually names.
+	roots = wt_wad_search_roots(source)
+	loaded: set[str] = {p.name.lower() for p in source.glob("*.wad")}
+	for root in roots:
+		for wad in sorted(root.glob("*.wad")):
+			key = wad.name.lower()
+			if key in loaded:
 				continue
-			name = raw.split(b"\0")[0].decode("latin-1").lower()
-			if name not in found:
-				found[name] = (data, pos)
+			if key not in wanted and not key.startswith("dod_"):
+				continue
+			if wt_ingest_wad_file(found, wad):
+				loaded.add(key)
 	return found
 
 
@@ -1774,31 +1881,76 @@ def build_world_texture_packs(
 		print("warning: numpy/Pillow missing, no world texture packs")
 		return []
 	cache.mkdir(parents=True, exist_ok=True)
-	wads = wt_read_wads(source)
 	overlays = []
 	media = output / "media"
 	media.mkdir(parents=True, exist_ok=True)
 	total = 0
+	missed_total = 0
 	for bsp in sorted((source / "maps").glob("*.bsp")):
 		if map_stems is not None and bsp.stem.lower() not in map_stems:
 			continue
 		rel = f"media/wt_{bsp.stem.lower()}.gct"
 		# Preserve host-prebaked GCWT packs (e.g. Lost Coast Source→GX bake).
 		# Re-deriving from a GoldSrc stub BSP would clobber CMPR world textures.
+		# DoD CapFaces packs need every BSP-named diffuse — regenerate when a
+		# lean prebake is missing textures that sibling WADs can still supply.
 		prebaked = source / rel
-		if prebaked.is_file() and prebaked.stat().st_size >= 32_000 and prebaked.read_bytes()[:4] == GC_WT_MAGIC:
-			dest = output / rel
-			dest.parent.mkdir(parents=True, exist_ok=True)
-			shutil.copy2(prebaked, dest)
-			overlays.append((rel, dest))
-			total += dest.stat().st_size
-			print(f"  world textures: preserve prebaked {rel} ({dest.stat().st_size} bytes)")
-			continue
 		data = bsp.read_bytes()
 		off, _size = struct.unpack_from("<ii", data, 4 + 2 * 8)
 		count = struct.unpack_from("<i", data, off)[0]
+		bsp_names: list[str] = []
+		for o in struct.unpack_from(f"<{count}i", data, off + 4):
+			if o < 0:
+				continue
+			raw = struct.unpack_from("<16s", data, off + o)[0]
+			name = raw.split(b"\0")[0].decode("latin-1").lower()
+			if name and name[:1] not in ("!", "*") and not name.startswith("sky"):
+				bsp_names.append(name)
+		wads = wt_read_wads(source, bsp)
+		if prebaked.is_file() and prebaked.stat().st_size >= 32_000 and prebaked.read_bytes()[:4] == GC_WT_MAGIC:
+			pre = prebaked.read_bytes()
+			pre_count = struct.unpack_from(">I", pre, 4)[0]
+			pre_names = {
+				pre[12 + i * 28 : 12 + i * 28 + 16].split(b"\0", 1)[0].decode("latin-1").lower()
+				for i in range(pre_count)
+			}
+			# Only preserve when every resolvable BSP diffuse is already packed.
+			# A name is "resolvable" if WAD/BSP miptex exists; skip names we
+			# still cannot encode (no false rebuild loop).
+			name_off = {}
+			for o in struct.unpack_from(f"<{count}i", data, off + 4):
+				if o < 0:
+					continue
+				raw = struct.unpack_from("<16s", data, off + o)[0]
+				n = raw.split(b"\0")[0].decode("latin-1").lower()
+				if n and n not in name_off:
+					name_off[n] = o
+			really_missing = []
+			for n in dict.fromkeys(bsp_names):
+				if n in pre_names:
+					continue
+				o = name_off.get(n)
+				if o is None:
+					continue
+				if wt_read_miptex(data, off + o) is not None:
+					really_missing.append(n)
+				elif n in wads and wt_read_miptex(*wads[n]) is not None:
+					really_missing.append(n)
+			if not really_missing:
+				dest = output / rel
+				dest.parent.mkdir(parents=True, exist_ok=True)
+				shutil.copy2(prebaked, dest)
+				overlays.append((rel, dest))
+				total += dest.stat().st_size
+				print(f"  world textures: preserve prebaked {rel} ({dest.stat().st_size} bytes)")
+				continue
+			print(
+				f"  world textures: refresh {rel} — prebake missing {len(really_missing)} "
+				f"({', '.join(really_missing[:6])}{'…' if len(really_missing) > 6 else ''})"
+			)
 		entries, blob = [], bytearray()
 		seen = set()
+		missed: list[str] = []
 		for o in struct.unpack_from(f"<{count}i", data, off + 4):
 			if o < 0:
 				continue
@@ -1811,20 +1963,25 @@ def build_world_texture_packs(
 			if mip is None and name in wads:
 				mip = wt_read_miptex(*wads[name])
 			if mip is None:
+				missed.append(name)
 				continue
 			_, w, h, pixels, palette = mip
 			alpha = name.startswith("{")
 			key = hashlib.md5(bytes((alpha,)) + struct.pack("<II", w, h) + pixels + palette + b"2").hexdigest()
 			item = cache / f"{key}.bin"
 			if item.is_file():
-				tw, th, levels = struct.unpack_from("<HHH", item.read_bytes())
-				body = item.read_bytes()[6:]
+				cached = item.read_bytes()
+				tw, th, levels = struct.unpack_from("<HHH", cached)
+				body = cached[6:]
 			else:
 				tw, th, levels, body = wt_encode(w, h, pixels, palette, alpha)
 				item.write_bytes(struct.pack("<HHH", tw, th, levels) + body)
 			entries.append((name, tw, th, levels, GC_WT_FLAG_ALPHA if alpha else 0, int(key[:4], 16), len(blob)))
 			blob += body
 			blob += bytes(-len(blob) & 31)
+		if missed:
+			missed_total += len(missed)
+			print(f"  world textures: {bsp.stem} still missing {len(missed)}: {', '.join(missed[:8])}")
 		if not entries:
 			continue
 		head = GC_WT_MAGIC + struct.pack(">II", len(entries), len(blob))
@@ -1836,7 +1993,10 @@ def build_world_texture_packs(
 		(output / rel).write_bytes(head + table + pad + bytes(blob))
 		overlays.append((rel, output / rel))
 		total += len(blob)
+		print(f"  world textures: {rel} entries={len(entries)} blob={len(blob)} bytes")
 	print(f"  world textures: {len(overlays)} map packs, CMPR with mipmaps, {total // (1024 * 1024)} MiB")
+	if missed_total:
+		print(f"  world textures: {missed_total} unresolved miptex across maps")
 	return overlays
 
 
@@ -1962,12 +2122,30 @@ def inject_gc_studio_into_bootstrap(archive: "zipfile.ZipFile", data: Path) -> i
 	all_stems = {Path(r).stem.lower() for r in GC_STUDIO_MODELS}
 	# Smoke staging may omit campaign meshes; fall back to retail valve tree.
 	retail = Path(__file__).resolve().parent.parent / "Half-Life" / "valve"
+	# dod-gc content trees (private network-engine often lacks Half-Life/valve).
+	# Only fall back for CapFaces weapon VMs — pulling the full HL1 NPC cast
+	# from content/valve tip-OOMs DoD listen (probe caen-teamvm2 free≈2.6 KiB).
+	dodgc_roots = (
+		Path("/home/tim/Desktop/dod-gc/content/dod"),
+		Path("/home/tim/Desktop/dod-gc/content/valve"),
+	)
+	dod_capfaces_stems = {
+		"v_garand", "v_mp40", "v_98k", "v_tommy", "v_colt", "v_luger",
+		"v_amerk", "v_spade", "v_crowbar", "w_crowbar",
+	}
 	for relative in GC_STUDIO_MODELS:
 		src = data / relative
+		stem = Path(relative).stem.lower()
 		if not src.is_file() and retail.is_dir():
 			alt = retail / relative
 			if alt.is_file():
 				src = alt
+		if not src.is_file() and stem in dod_capfaces_stems:
+			for root in dodgc_roots:
+				alt = root / relative
+				if alt.is_file():
+					src = alt
+					break
 		if not src.is_file():
 			continue
 		arcname = f"gc_studio/{Path(relative).name.lower()}"
@@ -1979,7 +2157,14 @@ def inject_gc_studio_into_bootstrap(archive: "zipfile.ZipFile", data: Path) -> i
 		stem = Path(relative).stem.lower()
 		is_tex_companion = stem.endswith("t") and stem[:-1] in all_stems
 		# Props with their skins inside the model keep them.
-		keep_skins = stem in ("forklift", "loader", "filecabinet", "nihilanth", "baby_headcrab") or stem.startswith("v_")
+		# CapFaces DoD rifles are 300–600 KiB textured; lean-strip those so the
+		# 184 KiB DoD studio BSS can host one team viewmodel after crowbar.
+		dod_capfaces_lean = {
+			"v_garand", "v_mp40", "v_98k", "v_tommy", "v_colt", "v_luger",
+			"v_amerk", "v_spade",
+		}
+		keep_skins = stem in ("forklift", "loader", "filecabinet", "nihilanth", "baby_headcrab") \
+			or (stem.startswith("v_") and stem not in dod_capfaces_lean)
 		payload = None if is_tex_companion or keep_skins else lean_studio_mesh_bytes(src)
 		if payload is None:
 			archive.write(src, arcname, compress_type=zipfile.ZIP_STORED)
@@ -3498,8 +3683,8 @@ def main() -> None:
 		parser.error("--probe-configroundtrip requires --probe-newgame or --smoke-map")
 	if args.probe_saveinterrupt and not (args.probe_configroundtrip or args.probe_newgame or args.smoke_map):
 		parser.error("--probe-saveinterrupt requires --probe-configroundtrip (or New Game/smoke map staging)")
-	if args.world_render and not args.smoke_map:
-		parser.error("--world-render requires --smoke-map")
+	if args.world_render and not (args.smoke_map or args.play):
+		parser.error("--world-render requires --smoke-map or --play")
 	if args.probe_phasetest:
 		phase = args.probe_phasetest.strip().lower()
 		valid = {"early", "engine", "renderer", "sw_fb", "menu", "client", "intro", "map"}
@@ -3714,6 +3899,8 @@ def main() -> None:
 				play_lines.append(
 					f"video {args.probe_video_mode}" if args.probe_video_mode else "video prog"
 				)
+				if args.world_render:
+					play_lines.append("gcworldrender")
 				if args.perf:
 					play_lines.extend(["profile", "gc_perf_enable 1", "gc_perf_draw 1"])
 				if os.environ.get("XASH_GC_PROBE_AUTOHOP") == "1":

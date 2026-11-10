@@ -128,6 +128,30 @@ elif [ "$HLSDK_GAMEDIR" != "valve" ] && [ ! -s "$HLSDK_SERVER_ARCHIVE" ]; then
 	exit 1
 fi
 
+# Waf preserves compiler flags in build/c4che across configure invocations.
+# Switching a shared tree from the classic offline stack to the libogc2/libbba
+# DoD network profile must discard that cache: otherwise the resolver selects
+# libogc2 libraries while stale classic headers/specs remain in CFLAGS.
+GC_WAF_CACHE="build/c4che/_cache.py"
+GC_WANT_LIBOGC2=0
+case "${XASH_GAMECUBE_OGC_STACK:-auto}" in
+	libogc2) GC_WANT_LIBOGC2=1 ;;
+esac
+GC_WANT_BBA=0
+case "${XASH_GAMECUBE_LINK_BBA:-0}" in
+	1|yes|true|on) GC_WANT_BBA=1 ;;
+esac
+if [[ -f "$GC_WAF_CACHE" ]] && {
+	[[ "$GC_WANT_LIBOGC2" == 1 ]] && ! grep -q 'XASH_GAMECUBE_LIBOGC2' "$GC_WAF_CACHE"
+} || {
+	[[ "$GC_WANT_LIBOGC2" == 0 ]] && grep -q 'XASH_GAMECUBE_LIBOGC2' "$GC_WAF_CACHE"
+} || {
+	[[ "$GC_WANT_BBA" == 1 ]] && ! grep -q 'XASH_GAMECUBE_HAVE_LIBBBA' "$GC_WAF_CACHE"
+}; then
+	echo "GameCube build cache profile changed; running waf distclean"
+	./waf distclean
+fi
+
 ./waf configure --gamecube \
 	-T release \
 	--disable-gl --enable-gx \

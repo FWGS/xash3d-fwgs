@@ -851,6 +851,19 @@ float * GAME_EXPORT R_DecalSetupVerts( decal_t *pDecal, msurface_t *surf, int te
 	int       count;
 	float     *v;
 
+#if XASH_GAMECUBE
+	/* Compact network geometry intentionally does not retain the face-info
+	 * and lightmap ownership used by decals. Decals are cosmetic; do not
+	 * dereference an evicted face-info pointer during a live network match. */
+	if( gEngfuncs.Sys_CheckParm( "-gcworldrender" )
+		&& ( gEngfuncs.Sys_CheckParm( "-gclistenserver" )
+			|| gEngfuncs.Sys_CheckParm( "-gcconnect" )))
+	{
+		if( outCount ) *outCount = 0;
+		return NULL;
+	}
+#endif
+
 	if( p )
 	{
 		v = g_DecalClipVerts[0];

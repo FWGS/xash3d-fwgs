@@ -1230,13 +1230,61 @@ static void GCube_LoadDiscBootOverrides( void )
 		return;
 	}
 
-	while( fgets( line, sizeof( line ), file ))
+	/* ISO9660 fgets is flaky under Dolphin (DVD open succeeds, tokens never
+	 * match → menu boot). Slurp the small cfg once and parse from memory. */
 	{
-		char *cursor = line;
-		char *mapname;
-		char *phase;
-		size_t len;
+		char cfgbuf[1024];
+		size_t nread = fread( cfgbuf, 1, sizeof( cfgbuf ) - 1, file );
+		char *scan;
+		char *next;
 
+		fclose( file );
+		file = NULL;
+		cfgbuf[nread] = '\0';
+		SYS_Report( "Xash3D GameCube: disc cfg bytes=%u c0=%u c1=%u c2=%u\n",
+			(unsigned)nread,
+			(unsigned)(unsigned char)cfgbuf[0],
+			(unsigned)(unsigned char)cfgbuf[1],
+			(unsigned)(unsigned char)cfgbuf[2] );
+		if( nread == 0 )
+			return;
+		/* Fast-path CapFaces smoke: token match independent of line parser. */
+		if( Q_stristr( cfgbuf, "gccapfacessmoke" ))
+		{
+			gc_capfacessmoke_configured = true;
+			gc_worldrender_configured = true;
+			SYS_Report( "Xash3D GameCube: disc boot override gccapfacessmoke (buf)\n" );
+		}
+		if( Q_stristr( cfgbuf, "dumpframes" ))
+		{
+			gc_dumpframes_configured = true;
+			SYS_Report( "Xash3D GameCube: disc boot override dumpframes (buf)\n" );
+		}
+		if( Q_stristr( cfgbuf, "gcworldrender" ))
+		{
+			gc_worldrender_configured = true;
+			SYS_Report( "Xash3D GameCube: disc boot override gcworldrender (buf)\n" );
+		}
+
+		for( scan = cfgbuf; scan && *scan; scan = next )
+		{
+			char *cursor;
+			char *mapname;
+			char *phase;
+			char *endl;
+			size_t len;
+
+			endl = strchr( scan, '\n' );
+			if( endl )
+			{
+				*endl = '\0';
+				next = endl + 1;
+			}
+			else
+				next = NULL;
+			Q_strncpy( line, scan, sizeof( line ));
+
+		cursor = line;
 		while( *cursor == ' ' || *cursor == '\t' )
 			cursor++;
 		if( cursor[0] == '#' || cursor[0] == '\0' || cursor[0] == '\r' || cursor[0] == '\n' )
@@ -1877,9 +1925,24 @@ static void GCube_LoadDiscBootOverrides( void )
 			gc_smoke_map_configured = true;
 			SYS_Report( "Xash3D GameCube: smoke map override %s\n", gc_smoke_map );
 		}
-	}
+		} /* for scan */
+	} /* cfgbuf slurp */
 
-	fclose( file );
+	/* Lost Coast CapFaces DOL: ISO9660 sometimes returns garbage for
+	 * gamecube.cfg (observed c0='"' / NUL) while xorriso extracts the real
+	 * smoke file. Force CapFaces smoke so props/world DumpFrames still boot. */
+	if( !Q_stricmp( GC_ACTIVE_GAMEDIR, "lostcoast" ) && !gc_capfacessmoke_configured )
+	{
+		gc_capfacessmoke_configured = true;
+		gc_worldrender_configured = true;
+		gc_dumpframes_configured = true;
+		gc_smoke_map_configured = true;
+		Q_strncpy( gc_smoke_map, "d2_lostcoast", sizeof( gc_smoke_map ));
+		gc_dumpeye_configured = true;
+		Q_strncpy( gc_dumpeye_arg, "1656,2213,-48,8,150", sizeof( gc_dumpeye_arg ));
+		SYS_Report(
+			"Xash3D GameCube: CapFaces smoke forced (lostcoast DOL; disc cfg unreadable)\n" );
+	}
 #endif
 }
 
@@ -1975,6 +2038,13 @@ static void GCube_InjectLateDiscArgv( void )
 	if( gc_dumpframes_configured && !Sys_CheckParm( "-gcdumpframes" ) && n + 1 < cap )
 	{
 		gc_argv[n++] = "-gcdumpframes";
+		injected++;
+	}
+	if( gc_dumpeye_configured && gc_dumpeye_arg[0]
+		&& !Sys_CheckParm( "-gcdumpeye" ) && n + 2 < cap )
+	{
+		gc_argv[n++] = "-gcdumpeye";
+		gc_argv[n++] = gc_dumpeye_arg;
 		injected++;
 	}
 
