@@ -675,13 +675,26 @@ static int gc_newgame_cap_face_count;
 static int gc_newgame_cap_tex_faces; /* faces that kept a live texture* */
 static int gc_newgame_cap_lm_faces; /* faces with real sample bake */
 static int gc_newgame_cap_generation; /* bumps when faces/LMs rewrite */
-/* Spatial CapFaces packs (Lost Coast full-geo): stream nearest 384-face chunk. */
+/* Spatial CapFaces packs (Lost Coast full-geo): stream nearest pack into BSS.
+ * Full set prefetches into ARAM (lazy DVD→ARAM; 30s OK) so densify hydrates
+ * via DMA instead of re-reading the disc each rank. */
 #define GC_CAP_SPATIAL_MAX 96
 static int gc_cap_spatial_n;
 static char gc_cap_spatial_file[GC_CAP_SPATIAL_MAX][32];
 static vec3_t gc_cap_spatial_center[GC_CAP_SPATIAL_MAX];
 static int gc_cap_spatial_active = -1;
 static char gc_cap_spatial_loaded[64];
+typedef struct
+{
+	u32		aram;
+	u32		size;
+	qboolean	ready;
+} gc_cap_aram_pack_t;
+static gc_cap_aram_pack_t gc_cap_aram[GC_CAP_SPATIAL_MAX];
+static u32 gc_cap_aram_pool;
+static u32 gc_cap_aram_pool_bytes;
+static u32 gc_cap_aram_used;
+static int gc_cap_aram_ready_n;
 static qboolean gc_newgame_cap_lm_atlas_ready;
 static qboolean gc_g176_logged;
 static qboolean gc_g180_logged;
@@ -1000,15 +1013,23 @@ static u8 gc_sand_sun_data[GC_SAND_SUN_BYTES] __attribute__(( aligned( 32 )));
 static GXTexObj gc_sand_sun_obj;
 static qboolean gc_sand_sun_ready;
 /* Lost Coast Source props (boats) — media/gp_<map>.gcp + prop_XX.cmp.
- * Tip-safe BSS: two complete LOD0 hulls (768 tris blew MEM1 tip / cfg parse). */
+ * Full pack lives in ARAM; MEM1 holds a tip-scaled hot page (object pop OK).
+ * Detail ceiling is disc/ARAM — not a hardcoded tri reject. */
 #define GC_PROP_MAX_TEX		2
-#define GC_PROP_MAX_TRIS	384
+#define GC_PROP_HOT_TRIS	384	/* MEM1 page size; cold tris DMA from ARAM */
 #define GC_PROP_TEX_SIZE	64
 #define GC_PROP_TEX_BYTES	( GC_PROP_TEX_SIZE * GC_PROP_TEX_SIZE / 2 )
-static s16 gc_prop_xyz[GC_PROP_MAX_TRIS][3][3];
-static u16 gc_prop_st[GC_PROP_MAX_TRIS][3][2];
-static u8 gc_prop_tex_id[GC_PROP_MAX_TRIS];
-static int gc_prop_tri_count;
+#define GC_PROP_TRI_BYTES	32
+#define GC_PROP_ARAM_MAX_TRIS	8192	/* format sanity (u16); not a tip budget */
+static s16 gc_prop_xyz[GC_PROP_HOT_TRIS][3][3];
+static u16 gc_prop_st[GC_PROP_HOT_TRIS][3][2];
+static u8 gc_prop_tex_id[GC_PROP_HOT_TRIS];
+static int gc_prop_hot_tris;		/* hydrated into MEM1 */
+static int gc_prop_tri_count;		/* full ARAM count drawn */
+static u32 gc_prop_aram_base;
+static u32 gc_prop_aram_tris_ofs;
+static u32 gc_prop_aram_bytes;
+static byte gc_prop_tri_stage[GC_PROP_TRI_BYTES] __attribute__(( aligned( 32 )));
 static u8 gc_prop_tex_data[GC_PROP_MAX_TEX][GC_PROP_TEX_BYTES] __attribute__(( aligned( 32 )));
 static GXTexObj gc_prop_tex_obj[GC_PROP_MAX_TEX];
 static int gc_prop_tex_count;
@@ -2405,6 +2426,46 @@ static void GC_TryLoadSandSunTex( void )
 static uint16_t GC_Be16( const byte *p );
 static uint32_t GC_Be32( const byte *p );
 
+static void GC_PropDecodeTriRec( const byte *rec, int ntex,
+	s16 xyz[3][3], u16 st[3][2], u8 *tex_id )
+{
+	int vi;
+
+	*tex_id = rec[0];
+	if( *tex_id >= (u8)ntex && ntex > 0 )
+		*tex_id = (u8)( ntex - 1 );
+	for( vi = 0; vi < 3; vi++ )
+	{
+		const byte *vp = rec + 2 + vi * 10;
+
+		xyz[vi][0] = (s16)GC_Be16( vp + 0 );
+		xyz[vi][1] = (s16)GC_Be16( vp + 2 );
+		xyz[vi][2] = (s16)GC_Be16( vp + 4 );
+		st[vi][0] = GC_Be16( vp + 6 );
+		st[vi][1] = GC_Be16( vp + 8 );
+	}
+}
+
+/* Tip-scaled hot page: leave headroom; detail beyond this DMAs from ARAM. */
+static int GC_PropHotBudget( int total_tris )
+{
+	size_t tip = GC_MemHeapFreeBytes();
+	int hot = GC_PROP_HOT_TRIS;
+
+	/* Keep ≥96 KiB tip after hydrate — CapFaces densify still needs room. */
+	if( tip < 160u * 1024u )
+		hot = 192;
+	else if( tip < 256u * 1024u )
+		hot = 256;
+	else if( tip < 384u * 1024u )
+		hot = 320;
+	if( hot > total_tris )
+		hot = total_tris;
+	if( hot > GC_PROP_HOT_TRIS )
+		hot = GC_PROP_HOT_TRIS;
+	return hot;
+}
+
 static void GC_TryLoadPropPack( model_t *mod )
 {
 	char mapbase[64];
@@ -2414,11 +2475,16 @@ static void GC_TryLoadPropPack( model_t *mod )
 	fs_offset_t size;
 	uint16_t ver, ntex, ntris;
 	uint32_t tris_ofs;
-	int i, t;
+	int i, t, hot;
+	u32 need, cursor;
 
 	gc_prop_ready = false;
 	gc_prop_tri_count = 0;
+	gc_prop_hot_tris = 0;
 	gc_prop_tex_count = 0;
+	gc_prop_aram_base = 0;
+	gc_prop_aram_tris_ofs = 0;
+	gc_prop_aram_bytes = 0;
 	if( !mod || !mod->name || !mod->name[0] )
 		return;
 	COM_FileBase( mod->name, mapbase, sizeof( mapbase ));
@@ -2443,51 +2509,64 @@ static void GC_TryLoadPropPack( model_t *mod )
 	ntex = GC_Be16( hdr + 6 );
 	ntris = GC_Be16( hdr + 8 );
 	tris_ofs = GC_Be32( hdr + 12 );
-	if( ver != 1 || ntris == 0 || ntris > GC_PROP_MAX_TRIS
-		|| ntex > GC_PROP_MAX_TEX
-		|| tris_ofs + (uint32_t)ntris * 32u > (uint32_t)size )
+	if( ver != 1 || ntris == 0 || ntris > GC_PROP_ARAM_MAX_TRIS
+		|| ntex == 0 || ntex > GC_PROP_MAX_TEX
+		|| tris_ofs + (uint32_t)ntris * GC_PROP_TRI_BYTES > (uint32_t)size )
 	{
 		Con_Reportf( "Xash3D GameCube: prop pack reject %s ver=%u tris=%u tex=%u\n",
 			path, ver, ntris, ntex );
 		FS_Close( f );
 		return;
 	}
-	if( FS_Seek( f, (fs_offset_t)tris_ofs, SEEK_SET ) < 0 )
+
+	/* Entire pack → ARAM (lazy; DVD can take a while). MEM1 only hot-pages. */
+	need = ((u32)size + 31u ) & ~31u;
+	gc_prop_aram_base = GC_AramReserve( need );
+	if( !gc_prop_aram_base )
+	{
+		Con_Reportf( "Xash3D GameCube: prop ARAM reserve failed need=%u\n", need );
+		FS_Close( f );
+		return;
+	}
+	gc_prop_aram_bytes = need;
+	gc_prop_aram_tris_ofs = tris_ofs;
+	if( FS_Seek( f, 0, SEEK_SET ) < 0 )
 	{
 		FS_Close( f );
 		return;
 	}
-	if( ntris > GC_PROP_MAX_TRIS )
-		ntris = GC_PROP_MAX_TRIS;
-	if( ntex > GC_PROP_MAX_TEX )
-		ntex = GC_PROP_MAX_TEX;
-	for( i = 0; i < (int)ntris; i++ )
+	cursor = 0;
+	while( cursor < (u32)size )
 	{
-		byte rec[32];
-		int vi;
+		byte chunk[4096] __attribute__(( aligned( 32 )));
+		u32 got = (u32)size - cursor;
+		int nread;
 
-		if( FS_Read( f, rec, 32 ) != 32 )
-		{
-			FS_Close( f );
-			gc_prop_tri_count = 0;
-			return;
-		}
-		gc_prop_tex_id[i] = rec[0];
-		if( gc_prop_tex_id[i] >= (u8)ntex && ntex > 0 )
-			gc_prop_tex_id[i] = (u8)( ntex - 1 );
-		for( vi = 0; vi < 3; vi++ )
-		{
-			const byte *vp = rec + 2 + vi * 10;
-
-			gc_prop_xyz[i][vi][0] = (s16)GC_Be16( vp + 0 );
-			gc_prop_xyz[i][vi][1] = (s16)GC_Be16( vp + 2 );
-			gc_prop_xyz[i][vi][2] = (s16)GC_Be16( vp + 4 );
-			gc_prop_st[i][vi][0] = GC_Be16( vp + 6 );
-			gc_prop_st[i][vi][1] = GC_Be16( vp + 8 );
-		}
+		if( got > sizeof( chunk ))
+			got = (u32)sizeof( chunk );
+		nread = FS_Read( f, chunk, (int)got );
+		if( nread <= 0 )
+			break;
+		GC_AramCopy( gc_prop_aram_base + cursor, chunk, (unsigned int)nread, true );
+		cursor += (u32)nread;
 	}
-	gc_prop_tri_count = (int)ntris;
 	FS_Close( f );
+	if( cursor < (u32)size )
+	{
+		Con_Reportf( "Xash3D GameCube: prop ARAM fill short %u/%u\n", cursor, (u32)size );
+		return;
+	}
+
+	hot = GC_PropHotBudget( (int)ntris );
+	for( i = 0; i < hot; i++ )
+	{
+		GC_AramCopy( gc_prop_aram_base + tris_ofs + (u32)i * GC_PROP_TRI_BYTES,
+			gc_prop_tri_stage, GC_PROP_TRI_BYTES, false );
+		GC_PropDecodeTriRec( gc_prop_tri_stage, (int)ntex,
+			gc_prop_xyz[i], gc_prop_st[i], &gc_prop_tex_id[i] );
+	}
+	gc_prop_hot_tris = hot;
+	gc_prop_tri_count = (int)ntris;
 
 	for( t = 0; t < (int)ntex; t++ )
 	{
@@ -2515,8 +2594,10 @@ static void GC_TryLoadPropPack( model_t *mod )
 		FS_Close( tf );
 	}
 	gc_prop_ready = ( gc_prop_tri_count > 0 && gc_prop_tex_count > 0 );
-	Con_Reportf( "Xash3D GameCube: prop pack %s tris=%d tex=%d ready=%d\n",
-		path, gc_prop_tri_count, gc_prop_tex_count, gc_prop_ready ? 1 : 0 );
+	Con_Reportf( "Xash3D GameCube: prop pack %s tris=%d hot=%d aram=%u tex=%d ready=%d tip=%s\n",
+		path, gc_prop_tri_count, gc_prop_hot_tris, gc_prop_aram_bytes,
+		gc_prop_tex_count, gc_prop_ready ? 1 : 0,
+		Q_memprint( GC_MemHeapFreeBytes() ));
 }
 
 int GC_GetPropTriCount( void )
@@ -2527,19 +2608,43 @@ int GC_GetPropTriCount( void )
 qboolean GC_GetPropTri( int index, float out_xyz[3][3], float out_st[3][2], int *out_tex )
 {
 	int i;
+	s16 xyz[3][3];
+	u16 st[3][2];
+	u8 tex_id;
 
 	if( !gc_prop_ready || index < 0 || index >= gc_prop_tri_count )
 		return false;
+	if( index < gc_prop_hot_tris )
+	{
+		for( i = 0; i < 3; i++ )
+		{
+			out_xyz[i][0] = (float)gc_prop_xyz[index][i][0];
+			out_xyz[i][1] = (float)gc_prop_xyz[index][i][1];
+			out_xyz[i][2] = (float)gc_prop_xyz[index][i][2];
+			out_st[i][0] = (float)gc_prop_st[index][i][0] * ( 1.0f / 256.0f );
+			out_st[i][1] = (float)gc_prop_st[index][i][1] * ( 1.0f / 256.0f );
+		}
+		if( out_tex )
+			*out_tex = (int)gc_prop_tex_id[index];
+		return true;
+	}
+	/* Cold tri — lazy ARAM→stage (pop-in / slow OK; DumpFrames runs once). */
+	if( !gc_prop_aram_base )
+		return false;
+	GC_AramCopy( gc_prop_aram_base + gc_prop_aram_tris_ofs
+			+ (u32)index * GC_PROP_TRI_BYTES,
+		gc_prop_tri_stage, GC_PROP_TRI_BYTES, false );
+	GC_PropDecodeTriRec( gc_prop_tri_stage, gc_prop_tex_count, xyz, st, &tex_id );
 	for( i = 0; i < 3; i++ )
 	{
-		out_xyz[i][0] = (float)gc_prop_xyz[index][i][0];
-		out_xyz[i][1] = (float)gc_prop_xyz[index][i][1];
-		out_xyz[i][2] = (float)gc_prop_xyz[index][i][2];
-		out_st[i][0] = (float)gc_prop_st[index][i][0] * ( 1.0f / 256.0f );
-		out_st[i][1] = (float)gc_prop_st[index][i][1] * ( 1.0f / 256.0f );
+		out_xyz[i][0] = (float)xyz[i][0];
+		out_xyz[i][1] = (float)xyz[i][1];
+		out_xyz[i][2] = (float)xyz[i][2];
+		out_st[i][0] = (float)st[i][0] * ( 1.0f / 256.0f );
+		out_st[i][1] = (float)st[i][1] * ( 1.0f / 256.0f );
 	}
 	if( out_tex )
-		*out_tex = (int)gc_prop_tex_id[index];
+		*out_tex = (int)tex_id;
 	return true;
 }
 
@@ -11420,13 +11525,178 @@ static void GC_LoadCapFacesSpatialManifest( const char *mapbase )
 		Con_Reportf( "Xash3D GameCube: CapFaces spatial packs=%d (%s)\n", n, path );
 }
 
+/* CapFaces pack source: ARAM hit preferred, else DVD. */
+static int gc_cf_src_aram_i = -1;
+static u32 gc_cf_src_pos;
+static u32 gc_cf_src_size;
+static file_t *gc_cf_src_f;
+
+static int GC_CapFacesAramIndexForPath( const char *path )
+{
+	const char *base;
+	int i;
+
+	if( !path || !path[0] || gc_cap_aram_ready_n <= 0 )
+		return -1;
+	base = Q_strrchr( path, '/' );
+	base = base ? base + 1 : path;
+	for( i = 0; i < gc_cap_spatial_n; i++ )
+	{
+		if( gc_cap_aram[i].ready && !Q_stricmp( gc_cap_spatial_file[i], base ))
+			return i;
+	}
+	return -1;
+}
+
+static int GC_CfSrcRead( void *dst, int n )
+{
+	if( n <= 0 )
+		return 0;
+	if( gc_cf_src_aram_i >= 0 )
+	{
+		if( gc_cf_src_pos + (u32)n > gc_cf_src_size )
+			return 0;
+		GC_AramCopy( gc_cap_aram[gc_cf_src_aram_i].aram + gc_cf_src_pos,
+			dst, (unsigned int)n, false );
+		gc_cf_src_pos += (u32)n;
+		return n;
+	}
+	if( !gc_cf_src_f )
+		return 0;
+	return FS_Read( gc_cf_src_f, dst, n );
+}
+
+static qboolean GC_CfSrcSeek( u32 off )
+{
+	if( gc_cf_src_aram_i >= 0 )
+	{
+		if( off > gc_cf_src_size )
+			return false;
+		gc_cf_src_pos = off;
+		return true;
+	}
+	if( !gc_cf_src_f )
+		return false;
+	return FS_Seek( gc_cf_src_f, (fs_offset_t)off, SEEK_SET ) >= 0;
+}
+
+static void GC_CfSrcClose( void )
+{
+	if( gc_cf_src_f )
+	{
+		FS_Close( gc_cf_src_f );
+		gc_cf_src_f = NULL;
+	}
+	gc_cf_src_aram_i = -1;
+	gc_cf_src_pos = 0;
+	gc_cf_src_size = 0;
+}
+
+/*
+ * Prefetch every spatial CapFaces pack into ARAM (DVD→ARAM may take tens of
+ * seconds). Densify then hydrates MEM1 BSS from ARAM — tip stays fixed, detail
+ * scales with disc contents. Object pop / long load is acceptable.
+ */
+static void GC_CapFacesAramPrefetchAll( void )
+{
+	int i;
+	u32 total = 0;
+	byte chunk[4096] __attribute__(( aligned( 32 )));
+
+	gc_cap_aram_ready_n = 0;
+	gc_cap_aram_used = 0;
+	memset( gc_cap_aram, 0, sizeof( gc_cap_aram ));
+	if( gc_cap_spatial_n <= 0 )
+		return;
+
+	for( i = 0; i < gc_cap_spatial_n; i++ )
+	{
+		char path[MAX_SYSPATH];
+		file_t *f;
+		fs_offset_t size;
+
+		Q_snprintf( path, sizeof( path ), "media/%s", gc_cap_spatial_file[i] );
+		f = FS_Open( path, "rb", false );
+		if( !f )
+			f = FS_Open( path, "rb", true );
+		if( !f )
+			continue;
+		size = FS_FileLength( f );
+		FS_Close( f );
+		if( size < 32 || size > 512 * 1024 )
+			continue;
+		total += ((u32)size + 31u ) & ~31u;
+	}
+	if( !total )
+		return;
+	if( !gc_cap_aram_pool || gc_cap_aram_pool_bytes < total )
+	{
+		gc_cap_aram_pool = GC_AramReserve( total );
+		gc_cap_aram_pool_bytes = gc_cap_aram_pool ? total : 0;
+	}
+	if( !gc_cap_aram_pool )
+	{
+		Con_Reportf( "Xash3D GameCube: CapFaces ARAM prefetch reserve failed need=%u\n",
+			total );
+		return;
+	}
+
+	for( i = 0; i < gc_cap_spatial_n; i++ )
+	{
+		char path[MAX_SYSPATH];
+		file_t *f;
+		fs_offset_t size;
+		u32 need, cursor = 0;
+
+		Q_snprintf( path, sizeof( path ), "media/%s", gc_cap_spatial_file[i] );
+		f = FS_Open( path, "rb", false );
+		if( !f )
+			f = FS_Open( path, "rb", true );
+		if( !f )
+			continue;
+		size = FS_FileLength( f );
+		need = ((u32)size + 31u ) & ~31u;
+		if( size < 32 || gc_cap_aram_used + need > gc_cap_aram_pool_bytes )
+		{
+			FS_Close( f );
+			continue;
+		}
+		gc_cap_aram[i].aram = gc_cap_aram_pool + gc_cap_aram_used;
+		gc_cap_aram[i].size = (u32)size;
+		while( cursor < (u32)size )
+		{
+			u32 got = (u32)size - cursor;
+			int nread;
+
+			if( got > sizeof( chunk ))
+				got = (u32)sizeof( chunk );
+			nread = FS_Read( f, chunk, (int)got );
+			if( nread <= 0 )
+				break;
+			GC_AramCopy( gc_cap_aram[i].aram + cursor, chunk, (unsigned int)nread, true );
+			cursor += (u32)nread;
+		}
+		FS_Close( f );
+		if( cursor < (u32)size )
+		{
+			gc_cap_aram[i].aram = 0;
+			gc_cap_aram[i].size = 0;
+			continue;
+		}
+		gc_cap_aram[i].ready = true;
+		gc_cap_aram_used += need;
+		gc_cap_aram_ready_n++;
+	}
+	Con_Reportf( "Xash3D GameCube: CapFaces ARAM prefetch packs=%d/%d bytes=%u\n",
+		gc_cap_aram_ready_n, gc_cap_spatial_n, gc_cap_aram_used );
+}
+
 /*
  * Load a CapFaces .gcp path into BSS + LM atlas. Skips live EDGE bake.
  * force=true reloads even when faces are already resident (spatial swap).
  */
 static qboolean GC_TryLoadCapFacesPackPath( model_t *mod, const char *path, qboolean force )
 {
-	file_t *f = NULL;
 	byte hdr[32];
 	byte rec[128];
 	byte eye[24];
@@ -11435,6 +11705,7 @@ static qboolean GC_TryLoadCapFacesPackPath( model_t *mod, const char *path, qboo
 	uint32_t atlas_ofs, faces_ofs, order_ofs;
 	int i, resolved = 0;
 	int load_n;
+	int aram_i;
 	qboolean truncated;
 
 	if( !mod || !path || !path[0] )
@@ -11442,25 +11713,37 @@ static qboolean GC_TryLoadCapFacesPackPath( model_t *mod, const char *path, qboo
 	if( !force && gc_newgame_cap_face_count > 0 )
 		return true;
 
-	/* Stream the pack — tip cannot FS_LoadFile(~81 KiB) after CapFaces DL BSS. */
-	f = FS_Open( path, "rb", false );
-	if( !f )
-		f = FS_Open( path, "rb", true );
-	if( !f )
+	GC_CfSrcClose();
+	/* Prefer ARAM (prefetched full-detail set); fall back to DVD stream. */
+	aram_i = GC_CapFacesAramIndexForPath( path );
+	if( aram_i >= 0 )
 	{
-		Con_Reportf( "Xash3D GameCube: CapFaces pack open miss %s exists=%d map=%s\n",
-			path, FS_FileExists( path, false ), mod->name ? mod->name : "?" );
-		return false;
+		gc_cf_src_aram_i = aram_i;
+		gc_cf_src_pos = 0;
+		gc_cf_src_size = gc_cap_aram[aram_i].size;
+		size = (fs_offset_t)gc_cf_src_size;
 	}
-	size = FS_FileLength( f );
-	if( size < 32 || FS_Read( f, hdr, 32 ) != 32 )
+	else
 	{
-		FS_Close( f );
+		gc_cf_src_f = FS_Open( path, "rb", false );
+		if( !gc_cf_src_f )
+			gc_cf_src_f = FS_Open( path, "rb", true );
+		if( !gc_cf_src_f )
+		{
+			Con_Reportf( "Xash3D GameCube: CapFaces pack open miss %s exists=%d map=%s\n",
+				path, FS_FileExists( path, false ), mod->name ? mod->name : "?" );
+			return false;
+		}
+		size = FS_FileLength( gc_cf_src_f );
+	}
+	if( size < 32 || GC_CfSrcRead( hdr, 32 ) != 32 )
+	{
+		GC_CfSrcClose();
 		return false;
 	}
 	if( hdr[0] != 'G' || hdr[1] != 'C' || hdr[2] != 'c' || hdr[3] != 'f' )
 	{
-		FS_Close( f );
+		GC_CfSrcClose();
 		return false;
 	}
 	ver = GC_Be16( hdr + 4 );
@@ -11485,7 +11768,7 @@ static qboolean GC_TryLoadCapFacesPackPath( model_t *mod, const char *path, qboo
 	{
 		Con_Reportf( "Xash3D GameCube: CapFaces pack reject %s ver=%u faces=%u\n",
 			path, ver, face_n );
-		FS_Close( f );
+		GC_CfSrcClose();
 		return false;
 	}
 	load_n = face_n > GC_MAX_CAP_FACES ? GC_MAX_CAP_FACES : (int)face_n;
@@ -11498,9 +11781,9 @@ static qboolean GC_TryLoadCapFacesPackPath( model_t *mod, const char *path, qboo
 	memset( gc_newgame_draw_surfs, 0, sizeof( gc_newgame_draw_surfs ));
 	memset( gc_newgame_cap_faces, 0, sizeof( gc_newgame_cap_faces ));
 
-	if( FS_Seek( f, (fs_offset_t)faces_ofs, SEEK_SET ) < 0 )
+	if( !GC_CfSrcSeek( faces_ofs ))
 	{
-		FS_Close( f );
+		GC_CfSrcClose();
 		return false;
 	}
 	for( i = 0; i < load_n; i++ )
@@ -11513,9 +11796,9 @@ static qboolean GC_TryLoadCapFacesPackPath( model_t *mod, const char *path, qboo
 		float pts[GC_CAP_MAX_VERTS][3];
 		vec3_t e0, e1, nrm;
 
-		if( FS_Read( f, rec, 128 ) != 128 )
+		if( GC_CfSrcRead( rec, 128 ) != 128 )
 		{
-			FS_Close( f );
+			GC_CfSrcClose();
 			gc_newgame_cap_face_count = 0;
 			return false;
 		}
@@ -11645,10 +11928,10 @@ static qboolean GC_TryLoadCapFacesPackPath( model_t *mod, const char *path, qboo
 	{
 		size_t atlas_bytes = (size_t)lm_w * lm_h * 2u;
 
-		if( FS_Seek( f, (fs_offset_t)atlas_ofs, SEEK_SET ) < 0
-			|| FS_Read( f, gc_newgame_cap_lm_atlas_bss, atlas_bytes ) != (fs_offset_t)atlas_bytes )
+		if( !GC_CfSrcSeek( atlas_ofs )
+			|| GC_CfSrcRead( gc_newgame_cap_lm_atlas_bss, (int)atlas_bytes ) != (int)atlas_bytes )
 		{
-			FS_Close( f );
+			GC_CfSrcClose();
 			gc_newgame_cap_face_count = 0;
 			return false;
 		}
@@ -11665,8 +11948,8 @@ static qboolean GC_TryLoadCapFacesPackPath( model_t *mod, const char *path, qboo
 				u16 tile[GC_CAP_LM_DIM * GC_CAP_LM_DIM];
 				int src_col, src_row, x, y;
 
-				if( FS_Seek( f, (fs_offset_t)faces_ofs + (fs_offset_t)slot * 128, SEEK_SET ) < 0
-					|| FS_Read( f, rec, 128 ) != 128 )
+				if( !GC_CfSrcSeek( faces_ofs + (u32)slot * 128u )
+					|| GC_CfSrcRead( rec, 128 ) != 128 )
 					break;
 				r = rec;
 				src_col = r[124];
@@ -11705,8 +11988,8 @@ static qboolean GC_TryLoadCapFacesPackPath( model_t *mod, const char *path, qboo
 		GC_PackCapLightmapAtlas();
 
 	if( eye_n > 0 && size >= 32 + 24
-		&& FS_Seek( f, 32, SEEK_SET ) >= 0
-		&& FS_Read( f, eye, 24 ) == 24 )
+		&& GC_CfSrcSeek( 32 )
+		&& GC_CfSrcRead( eye, 24 ) == 24 )
 	{
 		union { uint32_t u; float f; } o0, o1, o2, a0, a1, a2;
 
@@ -11725,12 +12008,13 @@ static qboolean GC_TryLoadCapFacesPackPath( model_t *mod, const char *path, qboo
 		VectorCopy( gc_newgame_bake_origin, gc_newgame_capture_origin );
 	}
 
-	FS_Close( f );
+	GC_CfSrcClose();
 	gc_newgame_cap_generation++;
 	gc_swiss_capfaces_drawn_logged = 0;
 	Q_strncpy( gc_cap_spatial_loaded, path, sizeof( gc_cap_spatial_loaded ));
-	Con_Reportf( "Xash3D GameCube: CapFaces pack loaded %s faces=%d eyes=%d tex=%d/%d lm=%d\n",
-		path, gc_newgame_cap_face_count, eye_n, resolved, load_n, gc_newgame_cap_lm_faces );
+	Con_Reportf( "Xash3D GameCube: CapFaces pack loaded %s faces=%d eyes=%d tex=%d/%d lm=%d aram=%d\n",
+		path, gc_newgame_cap_face_count, eye_n, resolved, load_n, gc_newgame_cap_lm_faces,
+		aram_i >= 0 ? 1 : 0 );
 	GCube_AppendSwissEvidence( "CapFaces pack loaded faces=%d eyes=%d tex=%d",
 		gc_newgame_cap_face_count, eye_n, resolved );
 	GC_AssignCapFaceClusters( mod );
@@ -11759,6 +12043,8 @@ static qboolean GC_TryLoadCapFacesPack( model_t *mod )
 
 	COM_FileBase( mod->name, mapbase, sizeof( mapbase ));
 	GC_LoadCapFacesSpatialManifest( mapbase );
+	/* Full spatial set → ARAM before first BSS hydrate (slow DVD OK). */
+	GC_CapFacesAramPrefetchAll();
 	Q_snprintf( path, sizeof( path ), "media/cf_%s.gcp", mapbase );
 	if( !GC_TryLoadCapFacesPackPath( mod, path, false ))
 		return false;

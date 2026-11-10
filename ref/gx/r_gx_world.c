@@ -5680,10 +5680,10 @@ static int R_GXDrawNewGameCapFacesImpl( void )
 									? ( dx * forward[0] + dy * forward[1] + dz * forward[2] ) / dist
 									: 0.0f;
 								/* Shoreline midgap: forward band that frustum
-								 * rejected — closes sky hole under buildings. */
-								/* Wider midgap cone — shore rocks / pier undercroft. */
-								if( !( dist >= 200.0f && dist <= 2200.0f && fdot >= 0.12f )
-									|| midgap_admit >= 3200 )
+								 * rejected — closes sky hole under buildings.
+								 * No hard admit ceiling — ARAM densify may take
+								 * tens of seconds; pop / long load is OK. */
+								if( !( dist >= 200.0f && dist <= 2200.0f && fdot >= 0.12f ))
 								{
 									frustum_skip++;
 									continue;
