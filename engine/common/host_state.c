@@ -245,11 +245,16 @@ void COM_Frame( double time )
 			/* Retail autohop: denser maps hang in deferred studio/ucmd after
 			 * MAP_READY before HopRider can COM_ChangeLevel (nextstate guard
 			 * also blocks mid-CHANGELEVEL). Nest the next ladder hop(s) here
-			 * before RUNFRAME — chain until the ladder ends or nest cap. */
+			 * before RUNFRAME — chain until the ladder ends or nest cap.
+			 * Soft v16 (035744) hit nest=64 at c4a1b→c4a1c with curstate still
+			 * CHANGELEVEL → outer "state infinity loop!". Campaign needs ~80+
+			 * hops; cap 256 and yield RUNFRAME if the nest still sits on
+			 * CHANGELEVEL after the for-loop. */
 			{
 				int nest;
+				const int nest_cap = 256;
 
-				for( nest = 0; nest < 64; nest++ )
+				for( nest = 0; nest < nest_cap; nest++ )
 				{
 					const char *hop_to = NULL;
 					const char *hop_lm = NULL;
@@ -278,6 +283,13 @@ void COM_Frame( double time )
 					GameState->newGame = false;
 					Host_SetState( STATE_CHANGELEVEL, true );
 				}
+				if( GameState->curstate == STATE_CHANGELEVEL )
+				{
+					Con_Reportf( "Xash3D GameCube: autohop nest yield RUNFRAME after %d hops map=%s tip=%s\n",
+						nest_cap, sv.name[0] ? sv.name : "?",
+						Q_memprint( GC_MemHeapFreeBytes() ));
+					Host_SetState( STATE_RUNFRAME, true );
+				}
 			}
 #else
 			SV_ExecChangeLevel();
@@ -295,6 +307,18 @@ void COM_Frame( double time )
 		if( oldState == STATE_RUNFRAME )
 			break;
 
+#if XASH_GAMECUBE
+		/* Soft campaign nest chains CHANGELEVEL→CHANGELEVEL inside one
+		 * COM_Frame; the stock loopCount>8 trip fired at c4a1b (v16). */
+		if( Sys_CheckParm( "-gcautohop" ) )
+		{
+			if( GameState->curstate == oldState && GameState->curstate != STATE_CHANGELEVEL )
+				Sys_Error( "state infinity loop!\n" );
+			if( ++loopCount > 256 )
+				Sys_Error( "state infinity loop!\n" );
+			continue;
+		}
+#endif
 		if(( GameState->curstate == oldState ) || ( ++loopCount > 8 ))
 			Sys_Error( "state infinity loop!\n" );
 	}

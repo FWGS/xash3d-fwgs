@@ -6370,22 +6370,47 @@ static void Mod_LoadTextures( model_t *mod, dbspmodel_t *bmod )
 	}
 
 #if XASH_GAMECUBE
-	/* Nest hops into Office Complex (c1a2 tip≈6.5 KiB, probe 20261109-113304)
-	 * Host_Error in _Mem_Alloc for the texture pointer table. Stub instead. */
+	/* Soft ladder tip collapses across FreeModel-skip hops (c2a2a→c2a2b1,
+	 * probe 20261110-034513: tip=5.36 KiB, Mem_Calloc 700 B Host_Error). The
+	 * old tip < need+4 KiB stub missed by ~0.7 KiB of header/frag. Prefer the
+	 * world array spill under tip pressure; only stub when spill is dry. */
 	{
 		const size_t tex_ptrs = (size_t)lump->nummiptex * sizeof( texture_t * );
-		if( GC_MemHeapFreeBytes() < tex_ptrs + 4u * 1024u )
+		qboolean placed = false;
+
+		if( bmod->isworld && GC_MemHeapFreeBytes() < 48u * 1024u )
 		{
-			Con_Reportf( "Xash3D GameCube: texture ptr table stub tip-safe n=%d need=%s tip=%s\n",
-				lump->nummiptex, Q_memprint( tex_ptrs ), Q_memprint( GC_MemHeapFreeBytes() ));
-			mod->textures = NULL;
-			mod->numtextures = 0;
-			return;
+			void *spill = Mod_GCWorldArraySpillAlloc( tex_ptrs, "texture-ptrs" );
+
+			if( spill )
+			{
+				memset( spill, 0, tex_ptrs );
+				Mod_GCWorldArraySpillPinBase( spill, tex_ptrs );
+				mod->textures = (texture_t **)spill;
+				mod->numtextures = lump->nummiptex;
+				placed = true;
+				Con_Reportf( "Xash3D GameCube: texture ptr table spill n=%d tip=%s\n",
+					lump->nummiptex, Q_memprint( GC_MemHeapFreeBytes() ));
+			}
+		}
+		if( !placed )
+		{
+			if( GC_MemHeapFreeBytes() < tex_ptrs + 16u * 1024u )
+			{
+				Con_Reportf( "Xash3D GameCube: texture ptr table stub tip-safe n=%d need=%s tip=%s\n",
+					lump->nummiptex, Q_memprint( tex_ptrs ), Q_memprint( GC_MemHeapFreeBytes() ));
+				mod->textures = NULL;
+				mod->numtextures = 0;
+				return;
+			}
+			mod->textures = (texture_t **)Mem_Calloc( mod->mempool, tex_ptrs );
+			mod->numtextures = lump->nummiptex;
 		}
 	}
-#endif
+#else
 	mod->textures = (texture_t **)Mem_Calloc( mod->mempool, lump->nummiptex * sizeof( texture_t * ));
 	mod->numtextures = lump->nummiptex;
+#endif
 
 #if XASH_GAMECUBE
 	if( bmod->isworld )

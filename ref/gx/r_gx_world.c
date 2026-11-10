@@ -4490,6 +4490,7 @@ static int R_GXDrawWorldLiveSurfaces( model_t *world, qboolean opaque_too )
 		if( newgame && surfaces_pinned )
 		{
 			extern qboolean GC_IsG36SampleFaceCap( void );
+			extern int GC_GetNewGameCapFaceCount( void );
 			const int frame_budget = R_GXFrameFaceBudget();
 
 			emit_budget = frame_budget - 16;
@@ -4497,6 +4498,12 @@ static int R_GXDrawWorldLiveSurfaces( model_t *world, qboolean opaque_too )
 				emit_budget = 16;
 			if( !GC_IsG36SampleFaceCap() && emit_budget < 96 )
 				emit_budget = 96;
+			/* Soft tip-starved full-geo: keep Host_Frame moving — Soft spent
+			 * minutes walking full-vis PVS faces after c0a0a connect (032427). */
+			if( GC_GetNewGameCapFaceCount() <= 0
+				&& GC_MemHeapFreeBytes() < 48u * 1024u
+				&& emit_budget > 128 )
+				emit_budget = 128;
 		}
 
 		R_GXBuildFrustum();
@@ -5103,12 +5110,19 @@ static int R_GXDrawNewGameCapFacesImpl( void )
 	 * BSP scratch that CapFaces LM/tex reuse; MarkVisibleSurfaces then hangs
 	 * after G285/sky (tip-donner-libogc-draw 20261108-160045). CapFaces-only
 	 * Flipper does not need the stamp.
-	 * Tip-safe CapFaces-only: skip stamp under tight tip. Full pinned BSP
-	 * (menu live=1) always stamps — PVS unload needs it. */
+	 * Full-geo CapFaces-skip (n==0, pinned): MarkLeaves live PVS already
+	 * stamped surfaces — MarkVisible after sky hung Soft (023940/025508). */
 	{
 		const qboolean full_pinned_bsp = surfaces_pinned && !scratch_retained;
+		const qboolean full_geo_live = full_pinned_bsp && n <= 0;
 
-		if( !scratch_retained
+		if( full_geo_live )
+		{
+			if( log_begin )
+				gEngfuncs.Con_Reportf(
+					"Xash3D GameCube: CapFaces MarkVisible skipped (full geo live PVS)\n" );
+		}
+		else if( !scratch_retained
 			&& !( n > 0 && gEngfuncs.Sys_CheckParm( "-gcworldrender" ))
 			&& !( n > 0 && !full_pinned_bsp && GC_MemHeapFreeBytes() < 96u * 1024u )
 			&& ( !( newgame_probe && GC_UseLowResWorldProbe() )

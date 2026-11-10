@@ -16602,6 +16602,7 @@ qboolean GC_RenderNewGameWorldFrames( int count )
 	vec3_t center;
 	char old_drawviewmodel[16];
 	int i;
+	static char gc_render_map_log[32];
 
 	/* Peer BBA join (-gcconnect) has no local SV — use client world. */
 	if( !ref.initialized || ( !SV_Active() && !Sys_CheckParm( "-gcconnect" )) )
@@ -16626,6 +16627,12 @@ qboolean GC_RenderNewGameWorldFrames( int count )
 	{
 		Con_Reportf( "Xash3D GameCube: G161 world frames unavailable world=null\n" );
 		return false;
+	}
+	if( Q_stricmp( gc_render_map_log, sv.name ))
+	{
+		Q_strncpy( gc_render_map_log, sv.name, sizeof( gc_render_map_log ));
+		Con_Reportf( "Xash3D GameCube: GC_RenderNewGameWorldFrames enter map=%s tip=%s state=%d\n",
+			sv.name[0] ? sv.name : "?", Q_memprint( GC_MemHeapFreeBytes() ), cls.state );
 	}
 	/* Full-physics TAS reaches this bounded renderer without the normal client
 	 * view setup. Bind the already mirrored landmark mesh here, after the
@@ -16723,6 +16730,67 @@ qboolean GC_RenderNewGameWorldFrames( int count )
 				break;
 			}
 		}
+	}
+	/* Full-geo CapFaces-skip: dump-look / lean PVS / CapFaces aim hung Soft
+	 * after c0a0a connect (031111 froze post "GC_Render enter map=c0a0a";
+	 * 031654 entered c0a0a but never logged fast present — Mod_GC pin check
+	 * missed the hop dest). CapFaces count alone gates the short-circuit. */
+	if( Sys_CheckParm( "-gcmenuplaystart" )
+		&& GC_GetNewGameCapFaceCount() <= 0 )
+	{
+		static char fast_map[32];
+		mleaf_t *vl;
+
+		VectorCopy( center, rvp.vieworigin );
+		/* Landmark spawn sometimes lands at X≈0 (c0a0a eye=(0,-875,99) Soft
+		 * hung in MarkLeaves after fast present — 033158). Force mid-volume
+		 * leaf even when PointInLeaf returns a cluster. */
+		vl = Mod_PointInLeaf( center, world->nodes, world );
+		if( !vl || vl == world->leafs || vl->cluster < 0 || !vl->compressed_vis
+			|| fabsf( center[0] ) < 8.0f )
+		{
+			int li, best = -1;
+			float best_vol = 0.0f;
+			vec3_t mid;
+
+			for( li = 1; li < world->numleafs; li++ )
+			{
+				const mleaf_t *leaf = &world->leafs[li];
+				const float *mins = leaf->minmaxs;
+				const float *maxs = leaf->minmaxs + 3;
+				float vol;
+				vec3_t size;
+
+				if( leaf->cluster < 0 || !leaf->compressed_vis )
+					continue;
+				if( leaf->contents == CONTENTS_SOLID )
+					continue;
+				VectorSubtract( maxs, mins, size );
+				vol = size[0] * size[1] * size[2];
+				if( vol < 8192.0f || vol > 5.0e7f || vol <= best_vol )
+					continue;
+				best_vol = vol;
+				best = li;
+				mid[0] = 0.5f * ( mins[0] + maxs[0] );
+				mid[1] = 0.5f * ( mins[1] + maxs[1] );
+				mid[2] = 0.5f * ( mins[2] + maxs[2] );
+			}
+			if( best >= 0 )
+			{
+				VectorCopy( mid, center );
+				VectorCopy( mid, rvp.vieworigin );
+				rvp.viewangles[0] = -6.0f;
+				rvp.viewangles[1] = 180.0f;
+				rvp.viewangles[2] = 0.0f;
+			}
+		}
+		if( Q_stricmp( fast_map, sv.name ))
+		{
+			Q_strncpy( fast_map, sv.name, sizeof( fast_map ));
+			Con_Reportf( "Xash3D GameCube: full geo fast present map=%s eye=(%.0f,%.0f,%.0f)\n",
+				sv.name[0] ? sv.name : "?", center[0], center[1], center[2] );
+		}
+		goto gc_render_present_frames;
 	}
 	/* G279: follow parented ride eye under stream lock (was fixed DumpEye).
 	 * G364: denser dest skips tram −X restream; dump wall-aim restreams after. */
@@ -17282,6 +17350,7 @@ qboolean GC_RenderNewGameWorldFrames( int count )
 		}
 	}
 
+gc_render_present_frames:
 	{
 		static int render_log;
 
@@ -19045,11 +19114,54 @@ void GC_UpdateNewGameIntroAudio( void )
 		return;
 	if( cls.state != ca_active )
 		return;
-	/* Menu route: the maps' own ambient_generics fire the announcer at the
-	 * retail times (streamed by S_GCStreamVoice) and the tram plays its own
-	 * plats/ttrain sounds, so nothing is scheduled here. */
+	/* Menu route: announcer streams via S_GCStreamVoice; tram normally uses
+	 * plats/ttrain* SFX. Full-geo tip≈28–33 KiB leaves those cache=0 (Soft
+	 * 034513) — stream media/ttrain1.wav as audible rumble for the ride. */
 	if( GC_MenuRunsServer( ))
+	{
+		static qboolean menu_tram_rumble_armed;
+		static qboolean menu_tram_rumble_done;
+		sfx_t *loop_sfx;
+		qboolean have_sfx;
+
+		if( Q_stricmp( sv.name, "c0a0" ) && Q_stricmp( sv.name, "c0a0a" )
+			&& Q_stricmp( sv.name, "c0a0b" ) && Q_stricmp( sv.name, "c0a0c" )
+			&& Q_stricmp( sv.name, "c0a0d" ) && Q_stricmp( sv.name, "c0a0e" ))
+		{
+			menu_tram_rumble_armed = false;
+			menu_tram_rumble_done = false;
+			return;
+		}
+		loop_sfx = S_FindName( "plats/ttrain1.wav", NULL );
+		have_sfx = ( loop_sfx && loop_sfx->cache );
+		if( have_sfx || menu_tram_rumble_done )
+			return;
+		if( !menu_tram_rumble_armed )
+		{
+			menu_tram_rumble_armed = true;
+			if( s_musicvolume.value < 0.1f )
+				Cvar_DirectSet( &s_musicvolume, "1.0" );
+			S_GCPrefetchBackgroundTrack( "media/ttrain1.wav" );
+			Con_Reportf( "Xash3D GameCube: menu full geo tram rumble arm tip=%s\n",
+				Q_memprint( GC_MemHeapFreeBytes() ));
+			return;
+		}
+		{
+			qboolean ok = S_GCPlayPrefetchedBackgroundTrackEx( "media/ttrain1.wav", "media/ttrain1.wav" );
+
+			if( !ok )
+			{
+				FS_ClearFindMissCache();
+				S_StartBackgroundTrack( "media/ttrain1.wav", "media/ttrain1.wav", 0, true );
+				ok = S_StreamGetCurrentState( NULL, 0, NULL, 0, NULL );
+			}
+			Con_Reportf( "Xash3D GameCube: menu full geo tram rumble ok=%d tip=%s\n",
+				ok ? 1 : 0, Q_memprint( GC_MemHeapFreeBytes() ));
+			if( ok )
+				menu_tram_rumble_done = true;
+		}
 		return;
+	}
 	/* G320: c0a0 tram VO only — opening media/c0a0_tr_*.wav on reactor
 	 * maps hung the first Host_Frame after Prepare (c3a2 20260809-004108). */
 	if( Q_stricmp( sv.name, "c0a0" ))
