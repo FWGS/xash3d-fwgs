@@ -2703,14 +2703,16 @@ static void R_GXClearEfbSky( GXRModeObj *rmode )
 		R_GXDrawSkyBackdrop( rmode );
 
 	/* Lost Coast DumpFrames: soft HDR sun wash (retail blown overcast disc).
-	 * Flipper stills run ~20 mean darker than retail — stronger, wider wash. */
+	 * Retail target has a hot center-right bloom — bias right and punch core. */
 	if( gEngfuncs.Sys_CheckParm( "-gcdumpframes" )
 		|| gEngfuncs.Sys_CheckParm( "-gccapfacessmoke" ))
 	{
-		const f32 cx = fb_w * 0.48f;
-		const f32 cy = fb_h * 0.18f;
-		const f32 rx = fb_w * 0.42f;
-		const f32 ry = fb_h * 0.26f;
+		const f32 cx = fb_w * 0.58f;
+		const f32 cy = fb_h * 0.16f;
+		const f32 rx = fb_w * 0.46f;
+		const f32 ry = fb_h * 0.30f;
+		const f32 crx = fb_w * 0.18f;
+		const f32 cry = fb_h * 0.12f;
 
 		GX_SetBlendMode( GX_BM_BLEND, GX_BL_SRCALPHA, GX_BL_INVSRCALPHA, GX_LO_NOOP );
 		GX_SetZMode( GX_FALSE, GX_ALWAYS, GX_FALSE );
@@ -2724,13 +2726,24 @@ static void R_GXClearEfbSky( GXRModeObj *rmode )
 		GX_SetVtxDesc( GX_VA_CLR0, GX_DIRECT );
 		GX_Begin( GX_QUADS, GX_VTXFMT0, 4 );
 		GX_Position3f32( cx - rx, cy - ry, -0.4f );
-		GX_Color1u32( 0xFAF6ECB0u );
+		GX_Color1u32( 0xFAF6ECB8u );
 		GX_Position3f32( cx + rx, cy - ry, -0.4f );
-		GX_Color1u32( 0xFAF6ECB0u );
+		GX_Color1u32( 0xFFF8E8C0u );
 		GX_Position3f32( cx + rx, cy + ry, -0.4f );
-		GX_Color1u32( 0xEDE6C850u );
+		GX_Color1u32( 0xEDE6C858u );
 		GX_Position3f32( cx - rx, cy + ry, -0.4f );
-		GX_Color1u32( 0xEDE6C850u );
+		GX_Color1u32( 0xE8E0C048u );
+		GX_End();
+		/* Hot core — retail sun disc blooms harder than the soft wash alone. */
+		GX_Begin( GX_QUADS, GX_VTXFMT0, 4 );
+		GX_Position3f32( cx - crx, cy - cry, -0.35f );
+		GX_Color1u32( 0xFFFFF0D0u );
+		GX_Position3f32( cx + crx, cy - cry, -0.35f );
+		GX_Color1u32( 0xFFFFF0D0u );
+		GX_Position3f32( cx + crx, cy + cry, -0.35f );
+		GX_Color1u32( 0xFFF0C070u );
+		GX_Position3f32( cx - crx, cy + cry, -0.35f );
+		GX_Color1u32( 0xFFF0C070u );
 		GX_End();
 		GX_SetBlendMode( GX_BM_NONE, GX_BL_ONE, GX_BL_ZERO, GX_LO_NOOP );
 	}
@@ -6282,7 +6295,7 @@ static int R_GXDrawNewGameCapFacesImpl( void )
 						cz = 0.5f * ( bmins[2] + bmaxs[2] );
 						dx = cx - eye[0]; dy = cy - eye[1]; dz = cz - eye[2];
 						dist = sqrtf( dx * dx + dy * dy + dz * dz );
-						if( dist < 280.0f || dist > 1800.0f )
+						if( dist < 260.0f || dist > 2200.0f )
 							continue;
 						/* Don't re-bury the cove with mud-level CapFaces. */
 						if( cz < -42.0f )
@@ -6290,7 +6303,9 @@ static int R_GXDrawNewGameCapFacesImpl( void )
 						fdot = ( dist > 1.0f )
 							? ( dx * forward[0] + dy * forward[1] + dz * forward[2] ) / dist
 							: 0.0f;
-						if( fdot < 0.20f )
+						/* Elevated monastery/chimney silhouettes sit off-cone —
+						 * admit wider yaw when the face is above the beach. */
+						if( fdot < (( cz > 40.0f ) ? 0.05f : 0.18f ))
 							continue;
 						if( R_GXEmitFace( &rdraw[ei], world, ei ) > 0 )
 							midgap_redraw++;
@@ -6351,12 +6366,14 @@ static int R_GXDrawNewGameCapFacesImpl( void )
 						near_redraw );
 				}
 				/* Cove water before boats — CapFaces densify buried midband as mud.
-				 * Keep slab mid/far only (along≥480) so near beach stays CapFaces. */
+				 * Keep slab mid/far only (near edge ≈ along-half_d ≥ 520) so the
+				 * beach/gun FOV stays CapFaces sand like retail (half_d=900 dug
+				 * under the eye and washed the lower third). */
 				{
 					const float water_z = -56.0f;
-					const float along = 640.0f;
-					const float half_w = 900.0f;
-					const float half_d = 900.0f;
+					const float along = 980.0f;
+					const float half_w = 780.0f;
+					const float half_d = 420.0f;
 					float wcx = eye[0] + forward[0] * along;
 					float wcy = eye[1] + forward[1] * along;
 					float p[4][3];
@@ -6486,6 +6503,9 @@ static int R_GXDrawNewGameCapFacesImpl( void )
 						}
 					}
 				}
+				/* TODO(vis-viewmodel): R_DrawViewModel hangs after entry log even
+				 * with skins loaded (probe 140400) — isolate GX studio ForceBegin
+				 * before baking the 357 into the densify-hold EFB. */
 				R_GXHoldEfbForDump( r_gx_cap_densify_hold_pending );
 				r_gx_cap_densify_hold_pending = 0;
 				r_gx_cap_densify_held = true;

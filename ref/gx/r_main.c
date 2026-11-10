@@ -892,7 +892,9 @@ static qboolean R_GCTraceFirstEntityFrame( void )
 static void R_DrawEntitiesOnList( void )
 {
 #if XASH_GAMECUBE
-	const qboolean lean_ents = gEngfuncs.Sys_CheckParm( "-gcnewgame" )
+	/* CapFaces smoke also needs the lean viewmodel ForceBegin path. */
+	const qboolean lean_ents = ( gEngfuncs.Sys_CheckParm( "-gcnewgame" )
+			|| gEngfuncs.Sys_CheckParm( "-gccapfacessmoke" ))
 		&& !gEngfuncs.Sys_CheckParm( "-gcfullphysics" );
 	int lean_brushes = 0;
 	int lean_studios = 0;
@@ -1250,8 +1252,9 @@ static void R_DrawEntitiesOnList( void )
 			if( tr.viewent && tr.viewent->model
 				&& tr.viewent->model->type == mod_studio
 				&& tr.viewent->model->cache.data
-				&& !( r_drawviewmodel && r_drawviewmodel->value == 0
-					&& ( R_GXEfbDumpHoldLeft() > 0 || R_GXDumpSkipViewmodelActive())))
+				&& ( gEngfuncs.Sys_CheckParm( "-gccapfacessmoke" )
+					|| !( r_drawviewmodel && r_drawviewmodel->value == 0
+						&& ( R_GXEfbDumpHoldLeft() > 0 || R_GXDumpSkipViewmodelActive()))))
 			{
 				R_DrawViewModel();
 				if( !lean_vm_draw_logged )
@@ -2948,6 +2951,19 @@ qboolean GAME_EXPORT R_Init( void )
 	// see R_ProcessEntData for tr.entities initialization
 	tr.palette = (color24 *)ENGINE_GET_PARM( PARM_GET_PALETTE_PTR );
 	tr.viewent = (cl_entity_t *)ENGINE_GET_PARM( PARM_GET_VIEWENT_PTR );
+#if XASH_GAMECUBE
+	/* CapFaces smoke binds clgame.viewent after the first PARM snapshot —
+	 * refresh so R_DrawViewModel sees models/v_357.mdl. */
+	if( gEngfuncs.Sys_CheckParm( "-gccapfacessmoke" ) && tr.viewent
+		&& ( !tr.viewent->model || tr.viewent->model->type != mod_studio
+			|| !tr.viewent->model->cache.data ))
+	{
+		cl_entity_t *live = (cl_entity_t *)ENGINE_GET_PARM( PARM_GET_VIEWENT_PTR );
+		if( live && live->model && live->model->type == mod_studio
+			&& live->model->cache.data )
+			tr.viewent = live;
+	}
+#endif
 	tr.texgammatable = (byte *)ENGINE_GET_PARM( PARM_GET_TEXGAMMATABLE_PTR );
 	tr.lightgammatable = (uint *)ENGINE_GET_PARM( PARM_GET_LIGHTGAMMATABLE_PTR );
 	tr.screengammatable = (uint *)ENGINE_GET_PARM( PARM_GET_SCREENGAMMATABLE_PTR );

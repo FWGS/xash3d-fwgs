@@ -1870,41 +1870,51 @@ void Mod_GCUploadDeferredStudioSkins( void )
 		"models/islave.mdl",
 		"models/v_crowbar.mdl",
 		"models/v_9mmhandgun.mdl",
+		"models/v_357.mdl",
+		NULL
+	};
+	static const char *paths_lostcoast[] = {
+		"models/v_357.mdl",
 		NULL
 	};
 	static char last_map[64];
 	int i, ready = 0, attempted = 0;
+	const char **use_paths = paths;
 
 	if( Host_IsDedicated() )
 		return;
 	/* Direct -gcnewgame and menu playstart both need post-tip soft skins;
-	 * WorldReady alone can lag the first presents after changelevel. */
+	 * WorldReady alone can lag the first presents after changelevel.
+	 * Lost Coast CapFaces needs the 357 skins before DumpFrames draw. */
 	if( !GC_IsNewGameWorldReady() && !Sys_CheckParm( "-gcnewgame" )
-		&& !Sys_CheckParm( "-gcmenuplaystart" ))
+		&& !Sys_CheckParm( "-gcmenuplaystart" )
+		&& !Sys_CheckParm( "-gccapfacessmoke" ))
 		return;
+	if( Sys_CheckParm( "-gccapfacessmoke" ))
+		use_paths = paths_lostcoast;
 	if( sv.name[0] && Q_stricmp( last_map, sv.name ))
 	{
 		Q_strncpy( last_map, sv.name, sizeof( last_map ));
 	}
 
-	for( i = 0; paths[i]; i++ )
+	for( i = 0; use_paths[i]; i++ )
 	{
-		model_t *mod = Mod_FindName( paths[i], false );
+		model_t *mod = Mod_FindName( use_paths[i], false );
 		qboolean ok;
 
 		if( !mod || !mod->cache.data )
-			Mod_GCPromoteStudioPath( paths[i] );
-		mod = Mod_FindName( paths[i], false );
+			Mod_GCPromoteStudioPath( use_paths[i] );
+		mod = Mod_FindName( use_paths[i], false );
 		if( !mod || !mod->cache.data )
 		{
 			Con_Reportf( S_WARN "Xash3D GameCube: deferred skins skip '%s' (no cache)\n",
-				paths[i] );
+				use_paths[i] );
 			continue;
 		}
 		attempted++;
 		ok = Mod_GCAttachStudioSkins( mod );
 		Con_Reportf( "Xash3D GameCube: deferred skins try '%s' ok=%d n=%d\n",
-			paths[i], ok ? 1 : 0,
+			use_paths[i], ok ? 1 : 0,
 			mod->cache.data ? ((studiohdr_t *)mod->cache.data)->numtextures : -1 );
 		if( ok )
 			ready++;

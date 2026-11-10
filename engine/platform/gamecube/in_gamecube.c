@@ -745,6 +745,11 @@ static u16 GC_ProbeSyntheticHeldButtons( void )
 		return 0;
 	}
 
+	/* Synthetic controller input is useful to automated Dolphin probes, but
+	 * must never navigate the retail menu on a normal boot. */
+	if( !Sys_CheckParm( "-gcmenuauto" ))
+		return 0;
+
 	if( cls.key_dest == key_console )
 	{
 		if( gc_probe_action_logged && host.realtime - gc_probe_action_diag_time >= 1.0 )
@@ -883,7 +888,9 @@ static qboolean GC_AutohopC0a0eWalkAxes( short *forward, short *side, short *yaw
 			stuck_since = (float)sv.time;
 			VectorCopy( cl.simorg, stuck_org );
 		}
-		else if( !forced_cl && ( (float)sv.time - stuck_since ) > 20.0f )
+		/* Soft v17 spent ~20s stuck here before AM; cut stall so Soft Soft
+		 * timeout can cover nest through c5a1 (probe 20261110-075409). */
+		else if( !forced_cl && ( (float)sv.time - stuck_since ) > 6.0f )
 		{
 			forced_cl = true;
 			Con_Reportf( "Xash3D GameCube: autohop c0a0e walk stall → force changelevel c1a0 org=%.0f,%.0f,%.0f\n",

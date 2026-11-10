@@ -16862,22 +16862,30 @@ qboolean GC_RenderNewGameWorldFrames( int count )
 	 * into the largest wall instead of aiming across the map into empty sky.
 	 * G211: Flipper DumpFrames prefer indoor enclosed walls (less sky bleed).
 	 * Lock indoor cluster once — UpdatePVS(eye) would thrash back to outdoor. */
-#if XASH_DODGC_NETWORK
-	/* Real pad input owns the camera for net / free-look only.
-	 * CapFaces solo (-gcworldrender) MUST keep sticky wall-aim — lean-iso
-	 * always injects -gcplayerinput, and clearing dump_look here left spawn
-	 * facing sky (tip-donner 20261108-161256; finish-port 20261109-002036
-	 * drawn≈104 vs sky77 drawn=371 without -gcplayerinput). Pass
-	 * -gcplayercam to force pad camera ownership during CapFaces. */
-	if( cls.state == ca_active && Sys_CheckParm( "-gcplayerinput" )
-		&& ( Sys_CheckParm( "-gcplayercam" )
-			|| ( !Sys_CheckParm( "-gcworldrender" )
-				&& !( Sys_CheckParm( "-gcdumpeye" ) || Sys_CheckParm( "-gcdumpframes" )))))
+	/* Real pad input owns the camera for net / free-look.
+	 * CapFaces DumpFrames keep sticky dump-eye while EFB hold is armed so
+	 * stills stay retail-locked; after hold, -gcplayercam frees the look. */
 	{
-		gc_dump_look_into_map = false;
-		gc_g196_flipper_dump_aim_left = 0;
-	}
+		extern int R_GXEfbDumpHoldLeft( void );
+		const qboolean dump_hold = Sys_CheckParm( "-gcdumpframes" )
+			&& R_GXEfbDumpHoldLeft() > 0;
+
+		if( cls.state == ca_active && Sys_CheckParm( "-gcplayerinput" )
+			&& Sys_CheckParm( "-gcplayercam" ) && !dump_hold )
+		{
+			gc_dump_look_into_map = false;
+			gc_g196_flipper_dump_aim_left = 0;
+		}
+#if XASH_DODGC_NETWORK
+		else if( cls.state == ca_active && Sys_CheckParm( "-gcplayerinput" )
+			&& !Sys_CheckParm( "-gcworldrender" )
+			&& !( Sys_CheckParm( "-gcdumpeye" ) || Sys_CheckParm( "-gcdumpframes" )))
+		{
+			gc_dump_look_into_map = false;
+			gc_g196_flipper_dump_aim_left = 0;
+		}
 #endif
+	}
 	if( gc_dump_look_into_map )
 	{
 		vec3_t look;
@@ -17261,14 +17269,17 @@ qboolean GC_RenderNewGameWorldFrames( int count )
 	/* G149: dump/landmark path may force viewmodel on for DumpFrames evidence.
 	 * CapFaces listen gameplay also needs the first-person weapon mesh. */
 	{
+		/* CapFaces smoke DumpFrames: always want the 357 (cls.state may still
+		 * be connecting while newgame render presents the cove). */
 		const qboolean want_vm = gc_force_draw_viewmodel
+			|| Sys_CheckParm( "-gccapfacessmoke" )
 			|| ( Sys_CheckParm( "-gcworldrender" ) && Sys_CheckParm( "-gcplayerinput" )
 				&& cls.state == ca_active && cls.signon == SIGNONS );
 
 		Cvar_Set( "r_drawviewmodel", want_vm ? "1" : "0" );
 		/* CapFaces listen skips V_SetupViewModel — bind a studio mesh for
-		 * Flipper. DoD uses team loadout VMs (garand/mp40); HL1 falls back
-		 * to crowbar. Spectate hides the gun. */
+		 * Flipper. Lost Coast CapFaces: retail 357; DoD team loadouts;
+		 * else crowbar. Spectate hides the gun. */
 		if( want_vm )
 		{
 			model_t *vm = clgame.viewent.model;
@@ -17282,6 +17293,9 @@ qboolean GC_RenderNewGameWorldFrames( int count )
 			static int capfaces_vm_team_logged = -1;
 			extern qboolean Mod_GCEnsureLandmarkViewModel( const char *model_path );
 
+			/* Lost Coast CapFaces DumpFrames: retail vista holds the 357. */
+			if( !dod && Sys_CheckParm( "-gccapfacessmoke" ))
+				vpath = "models/v_357.mdl";
 			if( dod )
 			{
 				/* BBA=0 tip≈400 KiB (teamvm14) — bind team pistols immediately.
@@ -17301,8 +17315,9 @@ qboolean GC_RenderNewGameWorldFrames( int count )
 			}
 			if( vpath )
 			{
+				/* Lost Coast CapFaces: replace crowbar pin with retail 357. */
 				if( !vm || vm->type != mod_studio || !vm->cache.data
-					|| ( dod && ( !vm->name[0] || !Q_stristr( vm->name, vpath + 7 ) ) ) )
+					|| !vm->name[0] || !Q_stristr( vm->name, vpath + 7 ) )
 				{
 					if( !Mod_GCEnsureLandmarkViewModel( vpath ))
 						vm = Mod_FindName( vpath, false );

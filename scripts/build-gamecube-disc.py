@@ -3684,7 +3684,14 @@ def main() -> None:
 	if args.probe_saveinterrupt and not (args.probe_configroundtrip or args.probe_newgame or args.smoke_map):
 		parser.error("--probe-saveinterrupt requires --probe-configroundtrip (or New Game/smoke map staging)")
 	if args.world_render and not (args.smoke_map or args.play):
-		parser.error("--world-render requires --smoke-map or --play")
+		# Solo-listen packages write their own gamecube.cfg in the caller so
+		# the host command is preserved. Accept world rendering there when that
+		# explicit config opts in, without replacing it with the generic --play
+		# menu config below.
+		cfg = args.data / "gamecube.cfg"
+		configured_world_render = cfg.is_file() and "gcworldrender" in cfg.read_text(encoding="ascii", errors="ignore").split()
+		if not configured_world_render:
+			parser.error("--world-render requires --smoke-map, --play, or gamecube.cfg gcworldrender")
 	if args.probe_phasetest:
 		phase = args.probe_phasetest.strip().lower()
 		valid = {"early", "engine", "renderer", "sw_fb", "menu", "client", "intro", "map"}

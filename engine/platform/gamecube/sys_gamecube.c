@@ -1058,6 +1058,8 @@ static qboolean gc_leanpvs_configured;
 static qboolean gc_fullphysics_configured;
 static qboolean gc_worldrender_configured;
 static qboolean gc_capfacessmoke_configured;
+static qboolean gc_playerinput_configured;
+static qboolean gc_playercam_configured;
 static qboolean gc_worlddl_configured;
 static qboolean gc_tas_configured;
 static qboolean gc_dumpframes_configured;
@@ -1137,6 +1139,8 @@ static void GCube_LoadDiscBootOverrides( void )
 	gc_fullphysics_configured = false;
 	gc_worldrender_configured = false;
 	gc_capfacessmoke_configured = false;
+	gc_playerinput_configured = false;
+	gc_playercam_configured = false;
 	gc_worlddl_configured = false;
 	gc_tas_configured = false;
 	gc_dumpframes_configured = false;
@@ -1223,11 +1227,13 @@ static void GCube_LoadDiscBootOverrides( void )
 		Q_snprintf( fatcfg, sizeof( fatcfg ), "%s/gamecube.cfg", GC_ACTIVE_GAMEDIR );
 		file = fopen( fatcfg, "r" );
 	}
-	/* No gamecube.cfg map override means retail menu boot, not smoke map load. */
+	/* No gamecube.cfg map override means retail menu boot, not smoke map load.
+	 * Lost Coast CapFaces DOL still forces smoke below even when DVD ISO9660
+	 * fails to open gamecube.cfg (Dolphin disc-only probes). */
 	if( !file )
 	{
 		SYS_Report( "Xash3D GameCube: no gamecube.cfg found (menu boot)\n" );
-		return;
+		goto lostcoast_force_smoke;
 	}
 
 	/* ISO9660 fgets is flaky under Dolphin (DVD open succeeds, tokens never
@@ -1469,6 +1475,27 @@ static void GCube_LoadDiscBootOverrides( void )
 				gc_capfacessmoke_configured = true;
 				gc_worldrender_configured = true;
 				SYS_Report( "Xash3D GameCube: disc boot override gccapfacessmoke\n" );
+				continue;
+			}
+		}
+
+		if( !Q_strnicmp( cursor, "gcplayerinput", 13 ))
+		{
+			char ch = cursor[13];
+			if( ch == '\0' || ch == '\r' || ch == '\n' || ch == ' ' || ch == '\t' )
+			{
+				gc_playerinput_configured = true;
+				SYS_Report( "Xash3D GameCube: disc boot override gcplayerinput\n" );
+				continue;
+			}
+		}
+		if( !Q_strnicmp( cursor, "gcplayercam", 11 ))
+		{
+			char ch = cursor[11];
+			if( ch == '\0' || ch == '\r' || ch == '\n' || ch == ' ' || ch == '\t' )
+			{
+				gc_playercam_configured = true;
+				SYS_Report( "Xash3D GameCube: disc boot override gcplayercam\n" );
 				continue;
 			}
 		}
@@ -1928,6 +1955,7 @@ static void GCube_LoadDiscBootOverrides( void )
 		} /* for scan */
 	} /* cfgbuf slurp */
 
+lostcoast_force_smoke:
 	/* Lost Coast CapFaces DOL: ISO9660 sometimes returns garbage for
 	 * gamecube.cfg (observed c0='"' / NUL) while xorriso extracts the real
 	 * smoke file. Force CapFaces smoke so props/world DumpFrames still boot. */
@@ -1944,6 +1972,12 @@ static void GCube_LoadDiscBootOverrides( void )
 		Q_strncpy( gc_dumpeye_arg, "1656,2213,-48,8,150", sizeof( gc_dumpeye_arg ));
 		SYS_Report(
 			"Xash3D GameCube: CapFaces smoke forced (lostcoast DOL; disc cfg unreadable)\n" );
+	}
+	/* Always arm pad look/move for Lost Coast CapFaces (cfg or forced). */
+	if( !Q_stricmp( GC_ACTIVE_GAMEDIR, "lostcoast" ) && gc_capfacessmoke_configured )
+	{
+		gc_playerinput_configured = true;
+		gc_playercam_configured = true;
 	}
 #endif
 }
@@ -2047,6 +2081,16 @@ static void GCube_InjectLateDiscArgv( void )
 	{
 		gc_argv[n++] = "-gcdumpeye";
 		gc_argv[n++] = gc_dumpeye_arg;
+		injected++;
+	}
+	if( gc_playerinput_configured && !Sys_CheckParm( "-gcplayerinput" ) && n + 1 < cap )
+	{
+		gc_argv[n++] = "-gcplayerinput";
+		injected++;
+	}
+	if( gc_playercam_configured && !Sys_CheckParm( "-gcplayercam" ) && n + 1 < cap )
+	{
+		gc_argv[n++] = "-gcplayercam";
 		injected++;
 	}
 
@@ -2196,6 +2240,10 @@ int GCube_GetArgv( int in_argc, char **in_argv, char ***out_argv )
 		gc_argv[fake_argc++] = "-gcdumpframes";
 	if( gc_swissquit_configured )
 		gc_argv[fake_argc++] = "-gcswissquit";
+	if( gc_playerinput_configured )
+		gc_argv[fake_argc++] = "-gcplayerinput";
+	if( gc_playercam_configured )
+		gc_argv[fake_argc++] = "-gcplayercam";
 	if( gc_retail_newgame_configured && !gc_menu_newgame_configured )
 	{
 		gc_argv[fake_argc++] = "-gcmenuplaystart";

@@ -2667,9 +2667,17 @@ typedef struct
 } gc_autohop_t;
 
 static const gc_autohop_t gc_autohop_ladder[] = {
-	{ "c1a0", "c1a0d", "c1a0toc1a0d", 12.0f },
-	{ "c1a0d", "c1a0a", "c1a0dtoa", 10.0f },
-	{ "c1a0a", "c1a0b", "c1a0atob", 10.0f },
+	/* Soft v17 (075409) burned the 900s Soft budget on tram natural hops
+	 * (~40–60s each) + AM dwells and died at c1a0c. Nest tram+early AM. */
+	{ "c0a0", "c0a0a", "c0a0toa", 0.0f },
+	{ "c0a0a", "c0a0b", "c0a0tob", 0.0f },
+	{ "c0a0b", "c0a0c", "c0a0btoc", 0.0f },
+	{ "c0a0c", "c0a0d", "c0a0ctod", 0.0f },
+	{ "c0a0d", "c0a0e", "c0a0dtoe", 0.0f },
+	{ "c0a0e", "c1a0", "c0a0toc1a0", 0.0f },
+	{ "c1a0", "c1a0d", "c1a0toc1a0d", 0.0f },
+	{ "c1a0d", "c1a0a", "c1a0dtoa", 0.0f },
+	{ "c1a0a", "c1a0b", "c1a0atob", 0.0f },
 	/* after=0: nest at ExecChangeLevel ready — present-path hangs on c1a0b
 	 * before HopRider t=10 (probe 20261109-145707 tip-safe soft-stop DOL). */
 	{ "c1a0b", "c1a0c", "c1a0btoc", 0.0f },
@@ -3501,6 +3509,29 @@ static qboolean GC_FindInfoLandmarkOrigin( const char *name, vec3_t out )
 	return false;
 }
 
+static qboolean GC_FindInfoPlayerStartOrigin( vec3_t out )
+{
+	int	i;
+
+	if( !svgame.edicts )
+		return false;
+
+	for( i = 0; i < svgame.numEntities; i++ )
+	{
+		edict_t		*e = &svgame.edicts[i];
+		const char	*cn;
+
+		if( !SV_IsValidEdict( e ))
+			continue;
+		cn = SV_GetString( e->v.classname );
+		if( Q_strcmp( cn, "info_player_start" ))
+			continue;
+		VectorCopy( e->v.origin, out );
+		return true;
+	}
+	return false;
+}
+
 /*
 =============
 GC_LeanLandmarkStash / GC_LeanLandmarkRestore
@@ -3570,17 +3601,44 @@ void GC_LeanLandmarkRestore( void )
 	}
 
 	VectorClear( offset );
-	if( gc_g100_pending.have_landmark
-		&& GC_FindInfoLandmarkOrigin( gc_g100_pending.landmark, new_lm ))
+	if( GC_FindInfoLandmarkOrigin( gc_g100_pending.landmark, new_lm ))
 	{
-		VectorSubtract( new_lm, gc_g100_pending.landmark_origin, offset );
-		VectorAdd( gc_g100_pending.player_origin, offset, pl->v.origin );
+		if( gc_g100_pending.have_landmark )
+		{
+			VectorSubtract( new_lm, gc_g100_pending.landmark_origin, offset );
+			VectorAdd( gc_g100_pending.player_origin, offset, pl->v.origin );
+		}
+		else
+		{
+			/* Source landmark tip-skipped (have_lm=0 Soft Soft Xen hops) —
+			 * place at dest landmark instead of propagating a bad stash origin. */
+			VectorCopy( new_lm, pl->v.origin );
+			Con_Reportf( "Xash3D GameCube: G100 place at dest landmark (source have_lm=0) %s\n",
+				gc_g100_pending.landmark );
+		}
 		gc_g188_restore_valid = true;
 	}
 	else
 	{
 		/* Landmark missing: drop at spawn origin kept from stash as best effort. */
 		VectorCopy( gc_g100_pending.player_origin, pl->v.origin );
+	}
+	/* Soft Soft nest: corrupt stash leaves origin near world zero (c5a1 stuck
+	 * at (0,0,1) probe 20261110-081216). Rescue to dest landmark / start. */
+	if( fabsf( pl->v.origin[0] ) < 8.0f && fabsf( pl->v.origin[1] ) < 8.0f
+		&& fabsf( pl->v.origin[2] ) < 64.0f )
+	{
+		vec3_t	rescue;
+
+		if( GC_FindInfoLandmarkOrigin( gc_g100_pending.landmark, rescue )
+			|| GC_FindInfoPlayerStartOrigin( rescue ))
+		{
+			Con_Reportf( "Xash3D GameCube: G100 origin rescue from=(%.0f,%.0f,%.0f) to=(%.0f,%.0f,%.0f) map=%s\n",
+				pl->v.origin[0], pl->v.origin[1], pl->v.origin[2],
+				rescue[0], rescue[1], rescue[2], sv.name[0] ? sv.name : "?" );
+			VectorCopy( rescue, pl->v.origin );
+			gc_g188_restore_valid = true;
+		}
 	}
 	VectorCopy( gc_g100_pending.player_angles, pl->v.angles );
 	VectorCopy( gc_g100_pending.player_angles, pl->v.v_angle );

@@ -612,7 +612,12 @@ qboolean Mod_GCPromoteStudioPath( const char *path )
 		return false;
 	if( Mod_GCStudioAlreadyResident( mod ))
 	{
-		if( is_view )
+		/* Lost Coast CapFaces already pinned the retail 357 — don't let
+		 * crowbar/handgun deferred promotes steal the viewent pin. */
+		if( is_view && !( Sys_CheckParm( "-gccapfacessmoke" )
+				&& gc_landmark_viewmodel[0]
+				&& Q_stristr( gc_landmark_viewmodel, "v_357" )
+				&& !Q_stristr( path, "v_357" )))
 			Mod_GCPinViewModel( mod );
 		return true;
 	}
@@ -688,7 +693,10 @@ qboolean Mod_GCPromoteStudioPath( const char *path )
 			kept = (size_t)loaded_hdr->length;
 		Mod_GCNoteRealStudioLoaded( path, kept );
 		Mod_GCStudioNameAllowed( path, &is_view );
-		if( is_view )
+		if( is_view && !( Sys_CheckParm( "-gccapfacessmoke" )
+				&& gc_landmark_viewmodel[0]
+				&& Q_stristr( gc_landmark_viewmodel, "v_357" )
+				&& !Q_stristr( path, "v_357" )))
 			Mod_GCPinViewModel( mod );
 		R_GXStudioInvalidateBindings();
 		return true;
@@ -964,13 +972,16 @@ void Mod_GCLoadPreEntityStudios( void )
 	 * campaign meshes (gman/houndeye/forklift) promote on SetModel demand
 	 * so pre-entity does not push studio BSS into the crash cliff. */
 #if XASH_DODGC_NETWORK
-	/* DoD CapFaces listen: Allies pistol + weapon stub (BBA=0 tip≈400 KiB). */
-	static const char *promote[] = {
-		"models/v_colt.mdl",
-		"models/w_crowbar.mdl",
+	/* DoD has no HL1 NPC cast, and these generic pistol meshes are not used by
+	 * its rifleman spawn. Defer all player weapons until the class is selected. */
+	static const char *promote[] = { NULL };
+#else
+	/* Lost Coast CapFaces: retail 357 only — HL1 cast starved BSS (~370 KiB)
+	 * and left v_357 malloc-fail (probe 131844). */
+	static const char *promote_lostcoast[] = {
+		"models/v_357.mdl",
 		NULL
 	};
-#else
 	static const char *promote[] = {
 		"models/v_crowbar.mdl",
 		"models/w_crowbar.mdl",
@@ -986,6 +997,7 @@ void Mod_GCLoadPreEntityStudios( void )
 	};
 #endif
 	int i;
+	const char **list;
 
 	/* -gcmap / session memopt — same gate as the call site, explicit so a
 	 * stale outer check cannot skip the cast. */
@@ -1004,11 +1016,19 @@ void Mod_GCLoadPreEntityStudios( void )
 
 	FS_ClearFindMissCache();
 	Image_GCPurgeDecodeScratch();
-	gc_studio_pre_entity_mesh_only = true;
-	for( i = 0; promote[i]; i++ )
-		Mod_GCPromoteStudioPath( promote[i] );
+#if XASH_DODGC_NETWORK
+	list = promote;
+#else
+	list = Sys_CheckParm( "-gccapfacessmoke" ) ? promote_lostcoast : promote;
+#endif
+	/* Lost Coast CapFaces needs textured 357 — mesh-only hung GX studio draw. */
+	gc_studio_pre_entity_mesh_only = !Sys_CheckParm( "-gccapfacessmoke" );
+	for( i = 0; list[i]; i++ )
+		Mod_GCPromoteStudioPath( list[i] );
 	gc_studio_pre_entity_mesh_only = false;
 	Mod_GCRebindPromotedStudios();
+	if( Sys_CheckParm( "-gccapfacessmoke" ))
+		Mod_GCUploadDeferredStudioSkins();
 	Con_Reportf( "Xash3D GameCube: pre-entity studios npc=%d view=%d budget=%s bump=%s\n",
 		gc_real_studio_npc, gc_real_studio_view, Q_memprint( gc_real_studio_bytes ),
 		Q_memprint( gc_studio_bss_bump ));

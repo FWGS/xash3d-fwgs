@@ -3498,6 +3498,7 @@ void R_DrawViewModel( void )
 		&& view->model->cache.data
 		&& ( GC_UseLowResWorldProbe() || GC_UseGxWorldDraw() )
 		&& ( gEngfuncs.Sys_CheckParm( "-gcnewgame" )
+			|| gEngfuncs.Sys_CheckParm( "-gccapfacessmoke" )
 			|| ( gEngfuncs.Sys_CheckParm( "-gcworldrender" )
 				&& gEngfuncs.Sys_CheckParm( "-gcplayerinput" )));
 #endif
@@ -3505,12 +3506,28 @@ void R_DrawViewModel( void )
 	R_GatherPlayerLight( view );
 
 #if XASH_GAMECUBE
+	if( gEngfuncs.Sys_CheckParm( "-gccapfacessmoke" ))
+	{
+		static qboolean cap_vm_draw_logged;
+
+		if( !cap_vm_draw_logged )
+		{
+			cap_vm_draw_logged = true;
+			gEngfuncs.Con_Reportf(
+				"Xash3D GameCube: CapFaces R_DrawViewModel view=%p model=%s cache=%p lean_vm=%d r_drawvm=%.0f\n",
+				view,
+				( view && view->model && view->model->name[0] ) ? view->model->name : "(null)",
+				( view && view->model ) ? view->model->cache.data : NULL,
+				lean_vm ? 1 : 0,
+				r_drawviewmodel ? r_drawviewmodel->value : -1.0f );
+		}
+	}
 	/* CapFaces listen (-gcworldrender): tip-skipped v_colt skins REPLACE as
-	 * solid white and, with broken NDC (ndc_y≈[-295,148]), paint a giant
-	 * screen-space silhouette (~28k pure255) over CapFaces on caen/flash.
-	 * Skip until skins are resident; world geo proof does not need the gun. */
+	 * solid white and paint a giant silhouette over CapFaces on caen/flash.
+	 * Lost Coast CapFaces smoke binds v_357 for retail parity — draw it. */
 	if( gEngfuncs.Sys_CheckParm( "-gcworldrender" )
-		&& !gEngfuncs.Sys_CheckParm( "-gcfullphysics" ))
+		&& !gEngfuncs.Sys_CheckParm( "-gcfullphysics" )
+		&& !gEngfuncs.Sys_CheckParm( "-gccapfacessmoke" ))
 	{
 		static qboolean cap_vm_skip_logged;
 
@@ -3525,11 +3542,13 @@ void R_DrawViewModel( void )
 	/* Lean Flipper often leaves r_drawviewmodel at 0 (V_RenderView pump
 	 * skips the force-on). Landmark mesh is enough to arm the gun pass.
 	 * G376: DumpFrames explicitly forces the cvar off so NPC rest-pose
-	 * isn't buried under a close-up white v_9mmhandgun / v_crowbar. */
+	 * isn't buried under a close-up white v_9mmhandgun / v_crowbar.
+	 * Lost Coast CapFaces: keep the 357 during DumpFrames hold (retail HUD). */
 	{
 		extern int R_GXEfbDumpHoldLeft( void );
+		const qboolean lostcoast_vm = gEngfuncs.Sys_CheckParm( "-gccapfacessmoke" );
 
-		if( r_drawviewmodel->value == 0
+		if( !lostcoast_vm && r_drawviewmodel->value == 0
 			&& ( R_GXEfbDumpHoldLeft() > 0 || R_GXDumpSkipViewmodelActive()))
 		{
 			static qboolean dump_vm_skip_logged;
@@ -3550,20 +3569,43 @@ void R_DrawViewModel( void )
 		return;
 #endif
 
-	if( ENGINE_GET_PARM( PARM_THIRDPERSON ))
+	if( ENGINE_GET_PARM( PARM_THIRDPERSON )
+		&& !gEngfuncs.Sys_CheckParm( "-gccapfacessmoke" ))
 		return;
 
 	// ignore in thirdperson, camera view or client is died
 #if XASH_GAMECUBE
-	/* G149: New Game landmark Deploy presents before UpdateClientData has
-	 * health/viewentity; still draw when the viewmodel mesh is bound.
-	 * Lean Flipper (GX world) uses the same landmark bind path. */
-	if( !lean_vm )
-#endif
+	/* G149 / Lost Coast CapFaces: draw before local health exists. */
+	if( !lean_vm && !gEngfuncs.Sys_CheckParm( "-gccapfacessmoke" )
+		&& ( ENGINE_GET_PARM( PARM_LOCAL_HEALTH ) <= 0 || !CL_IsViewEntityLocalPlayer()))
+		return;
+#else
 	if( ENGINE_GET_PARM( PARM_LOCAL_HEALTH ) <= 0 || !CL_IsViewEntityLocalPlayer())
 		return;
+#endif
 
-	tr.blend = CL_FxBlend( view ) / 255.0f;
+#if XASH_GAMECUBE
+	/* CapFaces viewent has no client FX state — CL_FxBlend can stall the
+	 * densify-hold present. Force opaque 357. */
+	if( gEngfuncs.Sys_CheckParm( "-gccapfacessmoke" ))
+	{
+		static qboolean cap_vm_fx_logged;
+
+		view->curstate.rendermode = kRenderNormal;
+		view->curstate.renderamt = 255;
+		tr.blend = 1.0f;
+		if( !cap_vm_fx_logged )
+		{
+			cap_vm_fx_logged = true;
+			gEngfuncs.Con_Reportf(
+				"Xash3D GameCube: CapFaces viewmodel opaque forced\n" );
+		}
+	}
+	else
+#endif
+	{
+		tr.blend = CL_FxBlend( view ) / 255.0f;
+	}
 	if( !R_ModelOpaque( view->curstate.rendermode ) && tr.blend <= 0.0f )
 		return; // invisible ?
 
@@ -3573,6 +3615,17 @@ void R_DrawViewModel( void )
 		return;
 
 #if XASH_GAMECUBE
+	if( gEngfuncs.Sys_CheckParm( "-gccapfacessmoke" ))
+	{
+		static qboolean cap_vm_pose_logged;
+		if( !cap_vm_pose_logged )
+		{
+			cap_vm_pose_logged = true;
+			gEngfuncs.Con_Reportf(
+				"Xash3D GameCube: CapFaces viewmodel past gates pose+GX (%s)\n",
+				view->model->name[0] ? view->model->name : "?" );
+		}
+	}
 	/* G157: no client CalcRefdef — pin gun to the current eye every draw.
 	 * G162: HL viewmesh extends below the frustum at raw eye pose
 	 * (ndc mid≈-2); nudge forward+up so a useful band sits in the lower third. */

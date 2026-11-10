@@ -202,6 +202,10 @@ void SV_GCReservePrivateOverflow( size_t after, size_t bytes )
 	if( gc_ent_priv_overflow )
 		return;
 	if( bytes > GC_ENTITY_OVERFLOW_BYTES ) bytes = GC_ENTITY_OVERFLOW_BYTES;
+	/* DoD maps have no HL monster private-data bursts. Keep a smaller overflow
+	 * reserve so their worldspawn and team spawn entities retain MEM1 tip. */
+	if( !Q_strnicmp( sv.name, "dod_", 4 ) && bytes > 8u * 1024u )
+		bytes = 8u * 1024u;
 	bytes &= ~(size_t)31;
 	if( !bytes ) return;
 	gc_ent_priv_overflow_from_tip = false;
@@ -6500,7 +6504,8 @@ static void SV_LoadFromFile( const char *mapname, char *entities )
 			/* pfnSpawn can stall forever on tip MEM1 (c2a2b1 entity 183
 			 * func_breakable tip≈4.7 KiB probe 20261109-120204). Soft-stop
 			 * before the call so nest hops can continue. */
-			if( GC_MemHeapFreeBytes() < ( 8u * 1024u ))
+			if( GC_MemHeapFreeBytes() <
+				( !Q_strnicmp( sv.name, "dod_", 4 ) ? 2u * 1024u : 8u * 1024u ))
 			{
 				Con_Reportf( S_WARN "Xash3D GameCube: %s tip-starved before spawn entity=%d class=%s tip=%s; stop entity load\n",
 					__func__, entity_index - 1, SV_ClassName( ent ),
