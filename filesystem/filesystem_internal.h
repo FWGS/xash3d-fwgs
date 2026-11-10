@@ -174,7 +174,7 @@ void FS_FindFile_f( const char *filename );
 searchpath_t *FS_FindFile( const char *name, int *index, char *fixedname, size_t len, uint32_t flags );
 qboolean FS_FindLibrary( const char *dllname, qboolean directpath, fs_dllinfo_t *dllInfo );
 qboolean FS_FullPathToRelativePath( char *dst, const char *src, size_t size );
-search_t *FS_Search( const char *pattern, int caseinsensitive, int gamedironly ) MALLOC_LIKE( _Mem_Free, 1 ) WARN_UNUSED_RESULT;
+search_t *FS_Search( const char *pattern, int caseinsensitive, int search_flags ) MALLOC_LIKE( _Mem_Free, 1 ) WARN_UNUSED_RESULT;
 qboolean FS_IsArchiveExtensionSupported( const char *ext, uint flags );
 searchpath_t *FS_GetArchiveByName( const char *name, searchpath_t *prev );
 int FS_FindFileInArchive( searchpath_t *sp, const char *path, char *truepath, size_t len );

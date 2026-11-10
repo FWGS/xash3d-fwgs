@@ -383,28 +383,31 @@ void FS_AddGameHierarchy( const char *dir, uint flags )
 	// paths after can only be addon paths
 	SetBits( flags, FS_NOWRITE_PATH | FS_CUSTOM_PATH );
 
+	// mounted folders of basedir and falldir, used to hide their maps from the maps list
+	const uint mounted_flags = is_game_dir ? 0 : FS_MOUNTED_PATH;
+
 	if( FBitSet( mount_flags, FS_MOUNT_HD ))
 	{
 		Q_snprintf( buf, sizeof( buf ), "%s_hd/", dir );
-		FS_AddGameDirectory( buf, flags );
+		FS_AddGameDirectory( buf, flags | mounted_flags );
 	}
 
 	if( FBitSet( mount_flags, FS_MOUNT_ADDON ))
 	{
 		Q_snprintf( buf, sizeof( buf ), "%s_addon/", dir );
-		FS_AddGameDirectory( buf, flags );
+		FS_AddGameDirectory( buf, flags | mounted_flags );
 	}
 
 	if( FBitSet( mount_flags, FS_MOUNT_LV ))
 	{
 		Q_snprintf( buf, sizeof( buf ), "%s_lv/", dir );
-		FS_AddGameDirectory( buf, flags );
+		FS_AddGameDirectory( buf, flags | mounted_flags );
 	}
 
 	if( FBitSet( mount_flags, FS_MOUNT_L10N ))
 	{
 		Q_snprintf( buf, sizeof( buf ), "%s_%s/", dir, fs_language );
-		FS_AddGameDirectory( buf, flags );
+		FS_AddGameDirectory( buf, flags | mounted_flags );
 	}
 
 	if( is_game_dir )
@@ -429,7 +432,8 @@ void FS_Rescan( uint32_t flags, const char *language )
 	// don't let rescan set searchpath flags
 	flags = FBitSet( flags, FS_MOUNT_FLAGS );
 
-	if( FBitSet( flags, FS_MOUNT_L10N ) && !COM_StringEmpty( language ) && Q_isalpha( language ))
+	// english is the default language, there are no localization folders for it
+	if( FBitSet( flags, FS_MOUNT_L10N ) && !COM_StringEmpty( language ) && Q_isalpha( language ) && Q_stricmp( language, "english" ))
 	{
 		Q_strncpy( fs_language, language, sizeof( fs_language ));
 	}
@@ -770,6 +774,7 @@ void FS_Path_f( void )
 		Q_strncat( fl, FBitSet( s->flags, FS_GAMEDIR_PATH )   ? "^4G" : "^7-", sizeof( fl ));
 		Q_strncat( fl, FBitSet( s->flags, FS_CUSTOM_PATH )    ? "^5C" : "^7-", sizeof( fl ));
 		Q_strncat( fl, FBitSet( s->flags, FS_STATIC_PATH )    ? "^6S" : "^7-", sizeof( fl ));
+		Q_strncat( fl, FBitSet( s->flags, FS_MOUNTED_PATH )   ? "^3M" : "^7-", sizeof( fl ));
 		Q_strncat( fl, "^7", sizeof( fl ));
 
 		Con_Printf( "%s\t%s\n", fl, info );
@@ -1012,7 +1017,7 @@ FS_Search
 Allocate and fill a search structure with information on matching filenames.
 ===========
 */
-search_t *FS_Search( const char *pattern, int caseinsensitive, int gamedironly )
+search_t *FS_Search( const char *pattern, int caseinsensitive, int search_flags )
 {
 	search_t *search = NULL;
 	int numfiles, numchars;
@@ -1026,7 +1031,10 @@ search_t *FS_Search( const char *pattern, int caseinsensitive, int gamedironly )
 	// search through the path, one element at a time
 	for( searchpath_t *searchpath = fs_searchpaths; searchpath; searchpath = searchpath->next )
 	{
-		if( gamedironly && !FBitSet( searchpath->flags, FS_GAMEDIRONLY_SEARCH_FLAGS ))
+		if( FBitSet( search_flags, FS_SEARCH_GAMEDIRONLY ) && !FBitSet( searchpath->flags, FS_GAMEDIRONLY_SEARCH_FLAGS ))
+			continue;
+
+		if( FBitSet( search_flags, FS_SEARCH_SKIP_MOUNTED ) && FBitSet( searchpath->flags, FS_MOUNTED_PATH ))
 			continue;
 
 		searchpath->pfnSearch( searchpath, &resultlist, pattern, caseinsensitive );

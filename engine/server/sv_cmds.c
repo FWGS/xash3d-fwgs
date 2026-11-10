@@ -235,7 +235,7 @@ static void SV_Maps_f( void )
 		return;
 	}
 
-	search_t *mapList = FS_Search( va( "maps/*%s*.bsp", argStr ), true, true );
+	search_t *mapList = FS_Search( va( "maps/*%s*.bsp", argStr ), true, FS_SEARCH_GAMEDIRONLY | FS_SEARCH_SKIP_MOUNTED );
 
 	if( !mapList )
 	{
@@ -306,9 +306,11 @@ For development work
 static void SV_NextMap_f( void )
 {
 	char	nextmap[MAX_QPATH];
-	search_t	*t = FS_Search( "maps\\*.bsp", true, con_gamemaps.value ); // only in gamedir
+	// same filtering as the map list, con_mapfilter can be any float
+	int	search_flags = con_gamemaps.value ? FS_SEARCH_GAMEDIRONLY | FS_SEARCH_SKIP_MOUNTED : 0;
+	search_t	*t = FS_Search( "maps\\*.bsp", true, search_flags ); // only in gamedir
 
-	if( !t ) t = FS_Search( "maps/*.bsp", true, con_gamemaps.value ); // only in gamedir
+	if( !t ) t = FS_Search( "maps/*.bsp", true, search_flags ); // only in gamedir
 
 	if( !t )
 	{
