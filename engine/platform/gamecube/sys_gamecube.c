@@ -1939,9 +1939,9 @@ static void GCube_LoadDiscBootOverrides( void )
 		gc_smoke_map_configured = true;
 		Q_strncpy( gc_smoke_map, "d2_lostcoast", sizeof( gc_smoke_map ));
 		gc_dumpeye_configured = true;
-		/* Yaw 150 aimed at left cliffs; retail monastery sits on the right
-		 * (look-cone pack balance R≫L near yaw 110). Pitch +12 lifts horizon. */
-		Q_strncpy( gc_dumpeye_arg, "1656,2213,-48,12,110", sizeof( gc_dumpeye_arg ));
+		/* Yaw 110 showed water but mae~64 (wrong cove wall). Keep retail
+		 * player-start 8/150 — best Flipper mae~39 with look-cone densify. */
+		Q_strncpy( gc_dumpeye_arg, "1656,2213,-48,8,150", sizeof( gc_dumpeye_arg ));
 		SYS_Report(
 			"Xash3D GameCube: CapFaces smoke forced (lostcoast DOL; disc cfg unreadable)\n" );
 	}
