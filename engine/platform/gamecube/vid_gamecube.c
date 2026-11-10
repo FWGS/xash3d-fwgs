@@ -3991,6 +3991,16 @@ static void GC_BakeCapLightmap( const msurface_t *src, int slot )
 	lm = src->samples;
 	if( !lm )
 		lm = Mod_GCHydrateSurfaceLightmap( src );
+	/* Menu CapFaces: style-0 samples are packed into the live GX atlas and
+	 * msurface_t::samples is cleared. Without this fallback every world cap
+	 * got mid-grey LM (LM real=0/768) — flat/unlit vs retail (probe 012448). */
+	if( !lm && GC_BakeTramLightmapFromLiveAtlas( src, dst ))
+	{
+		gc_newgame_cap_lm_w[slot] = GC_CAP_LM_DIM;
+		gc_newgame_cap_lm_h[slot] = GC_CAP_LM_DIM;
+		gc_newgame_cap_lm_real[slot] = 1;
+		return;
+	}
 	gc_lm_bake_samples = lm;
 	for( y = 0; y < dh; y++ )
 	{
@@ -15053,15 +15063,27 @@ void GC_BakeMenuNewGameCapFacesNoPVS( void )
 	if( gc_newgame_cap_face_count > 0 )
 		return;
 
-	Con_Reportf( "Xash3D GameCube: menu CapFaces bake enter tip=%s\n",
-		Q_memprint( GC_MemHeapFreeBytes() ));
-
 	wmodel = sv.models[1];
 	if( !wmodel || !wmodel->surfaces || wmodel->numsurfaces <= 0 )
 	{
 		Con_Reportf( "Xash3D GameCube: menu CapFaces NoPVS skipped (no surfaces)\n" );
 		return;
 	}
+
+	/* Full geo path: retained/pinned BSP already walks live surfaces with
+	 * real textures + lightmap atlas. CapFaces bake burns tip and forced the
+	 * tip-safe LM-caps demotion (probe 012448: live=1 pinned=1 then
+	 * G283 skipped → flat wrong look). Skip CapFaces entirely. */
+	if( Mod_GCWorldSurfacesPinned( wmodel )
+		&& !Mod_GCWorldSurfacesScratchRetained( wmodel ))
+	{
+		Con_Reportf( "Xash3D GameCube: menu full geo — skip CapFaces bake (pinned surfs=%d tip=%s)\n",
+			wmodel->numsurfaces, Q_memprint( GC_MemHeapFreeBytes() ));
+		return;
+	}
+
+	Con_Reportf( "Xash3D GameCube: menu CapFaces bake enter tip=%s\n",
+		Q_memprint( GC_MemHeapFreeBytes() ));
 
 	/* Prefer the live ride/player eye so c0a0a+ CapFaces PVS is not baked at
 	 * the hardcoded tram-stop origin (which has no leaf on later maps). Fall
@@ -17911,13 +17933,48 @@ qboolean GC_PrepareNewGameWorldPresent( void )
 	 * any) temporarily clears this via presents_left. */
 	GC_EnableGxWorldLive();
 	/* Menu CapFaces bake at entity-spawn (before discard). Prepare-time bake
-	 * is a no-op once surfaces are gone — keep only if spawn bake missed. */
+	 * is a no-op once surfaces are gone — keep only if spawn bake missed.
+	 * Full pinned BSP: never CapFaces NoPVS fallback — it refilled 768 caps
+	 * after spawn skip (probe 013946 c0a0a) and demoted the live path. */
 	if( Sys_CheckParm( "-gcmenuplaystart" ) && !GC_HasNewGameCachedVis()
 		&& gc_newgame_cap_face_count <= 0 )
 	{
 		model_t *wm = sv.models[1];
 
-		if( wm && wm->surfaces )
+		if( wm && wm->surfaces
+			&& Mod_GCWorldSurfacesPinned( wm )
+			&& !Mod_GCWorldSurfacesScratchRetained( wm ))
+		{
+			/* Tip is still ~34 KiB here — preload tram loop/start before the
+			 * first live BSP frame drops tip below the WAV FS buffer
+			 * (probe 015131: ttrain soft-fail @ tip=21 KiB after opaque=101). */
+			static const char *const tram_sfx[] = {
+				"plats/ttrain1.wav",
+				"plats/ttrain_start1.wav",
+			};
+			int ti;
+
+			Con_Reportf( "Xash3D GameCube: menu full geo — skip CapFaces prepare-fallback (pinned surfs=%d tip=%s)\n",
+				wm->numsurfaces, Q_memprint( GC_MemHeapFreeBytes() ));
+			Image_GCPurgeDecodeScratch();
+			FS_ClearFindMissCache();
+			for( ti = 0; ti < (int)( sizeof( tram_sfx ) / sizeof( tram_sfx[0] )); ti++ )
+			{
+				sfx_t *sfx;
+				sound_t handle;
+
+				if( GC_MemHeapFreeBytes() < 24u * 1024u )
+					break;
+				handle = S_RegisterSound( tram_sfx[ti] );
+				sfx = ( handle > 0 ) ? S_GetSfxByHandle( handle ) : NULL;
+				if( sfx && !sfx->cache )
+					(void)S_LoadSound( sfx );
+				Con_Reportf( "Xash3D GameCube: menu full geo tram SFX preload %s handle=%d cache=%d tip=%s\n",
+					tram_sfx[ti], (int)handle, ( sfx && sfx->cache ) ? 1 : 0,
+					Q_memprint( GC_MemHeapFreeBytes() ));
+			}
+		}
+		else if( wm && wm->surfaces )
 		{
 			Image_GCPurgeDecodeScratch();
 			Con_Reportf( "Xash3D GameCube: menu CapFaces NoPVS prepare-fallback begin surfs=%d\n",
@@ -18334,6 +18391,18 @@ qboolean GC_PrepareNewGameWorldPresent( void )
 				Con_Reportf( "Xash3D GameCube: G358 CapFaces sample deferred map=%s\n",
 					sv.name );
 		}
+	}
+	else if( Sys_CheckParm( "-gcmenuplaystart" )
+		&& sv.models[1]
+		&& Mod_GCWorldSurfacesPinned( sv.models[1] )
+		&& !Mod_GCWorldSurfacesScratchRetained( sv.models[1] ))
+	{
+		/* Full geo: Prepare Flipper pump hung Soft before CapFaces begin
+		 * (c0a0a changelevel probe 015131; c0a0 cold probe 020442 after
+		 * PointInLeaf cluster=-1). Host_Frame draws live BSP. */
+		Con_Reportf( "Xash3D GameCube: menu full geo — skip Prepare Flipper pump map=%s tip=%s\n",
+			sv.name, Q_memprint( GC_MemHeapFreeBytes() ));
+		Con_Reportf( "Xash3D GameCube: post-G36 world present\n" );
 	}
 	else if( !GC_RenderNewGameWorldFrames( 1 ))
 	{

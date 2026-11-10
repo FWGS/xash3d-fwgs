@@ -90,13 +90,14 @@ static void S_GCSfxCooldown( const sfx_t *sfx, uint32_t tenths )
 
 static qboolean S_GCAllowRuntimeSoundLoad( void )
 {
-	if( !GC_MapLoadMemoryOpt() )
-		return false;
-
 	/* Keep map/bootstrap lean; once the client is active, admit bounded sounds
 	 * from the dedicated SFX pool even when the map-load session is retained.
 	 * The former menu-only heap floor rejected every ambient/NPC sound because
-	 * the retained map arena made free-heap fluctuate below 128 KiB. */
+	 * the retained map arena made free-heap fluctuate below 128 KiB.
+	 * After EndMapLoadMemoryOpt, still admit on the menu route so tram
+	 * plats/ttrain* can retry once CapFaces tip is gone (probe 013946). */
+	if( !GC_MapLoadMemoryOpt() && !GC_MenuRunsServer() )
+		return false;
 	return cls.state == ca_active && !s_registering
 		&& s_gc_sfx_budget_used < GC_SFX_BUDGET;
 }
@@ -517,10 +518,20 @@ wavdata_t *S_LoadSound( sfx_t *sfx )
 	if( GC_MapLoadMemoryOpt() && Q_stricmp( sfx->name, "*default" )
 		&& !S_GCAllowRuntimeSoundLoad() )
 	{
-		if( s_gcmapSoundSkips < 8 )
-			Con_Reportf( "Xash3D GameCube: sound load skipped for map-load memopt %s\n", sfx->name );
-		s_gcmapSoundSkips++;
-		return NULL;
+		/* Full-geo Prepare preloads tram SFX while still under memopt and
+		 * before ca_active — allow plats/ttrain* through (probe 020442
+		 * skipped both with tip≈47 KiB free). */
+		if( Q_strnicmp( sfx->name, "plats/ttrain", 12 )
+			&& Q_strnicmp( sfx->name, "plats/train", 11 ))
+		{
+			if( s_gcmapSoundSkips < 8 )
+				Con_Reportf( "Xash3D GameCube: sound load skipped for map-load memopt %s\n", sfx->name );
+			s_gcmapSoundSkips++;
+			return NULL;
+		}
+		Con_Reportf( "Xash3D GameCube: tram SFX load during memopt %s tip=%s\n",
+			sfx->name, Q_memprint( GC_MemHeapFreeBytes() ));
+		Image_GCPurgeDecodeScratch();
 	}
 	if( GC_MenuRunsServer() && Q_stricmp( sfx->name, "*default" ))
 	{
@@ -620,12 +631,32 @@ wavdata_t *S_LoadSound( sfx_t *sfx )
 			/* Tram loop/start WAVs are required for audible ride; a cooldown
 			 * after tip-starved FS_Load left plats/ttrain* silent for the
 			 * whole map (probe 20261110-005508). Allow immediate retry once
-			 * CapFaces frees tip / memopt ends. */
-			if( Q_strnicmp( sfx->name, "plats/ttrain", 12 )
-				&& Q_strnicmp( sfx->name, "plats/train", 11 ))
-				S_GCSfxCooldown( sfx, GC_SFX_REFUSE_COOLDOWN );
-			Con_Reportf( "Xash3D GameCube: sound fallback skipped for map-load memopt %s\n", sfx->name );
-			return NULL;
+			 * CapFaces frees tip / memopt ends. Full-geo skips CapFaces so tip
+			 * stays higher — one more purge+retry before soft-fail. */
+			if( !Q_strnicmp( sfx->name, "plats/ttrain", 12 )
+				|| !Q_strnicmp( sfx->name, "plats/train", 11 ))
+			{
+				Image_GCPurgeDecodeScratch();
+				S_GCMakeRoomForBudgetedLoad( sfx, 48u * 1024u, GC_SFX_MENU_MAX_FILE_BYTES );
+				FS_ClearFindMissCache();
+				if( sfx->name[0] == '*' )
+					sc = FS_LoadSound( sfx->name + 1, NULL, 0 );
+				else
+					sc = FS_LoadSound( sfx->name, NULL, 0 );
+				if( sc )
+				{
+					Con_Reportf( "Xash3D GameCube: G125 tram SFX ok after tip purge %s\n",
+						sfx->name );
+				}
+			}
+			if( !sc )
+			{
+				if( Q_strnicmp( sfx->name, "plats/ttrain", 12 )
+					&& Q_strnicmp( sfx->name, "plats/train", 11 ))
+					S_GCSfxCooldown( sfx, GC_SFX_REFUSE_COOLDOWN );
+				Con_Reportf( "Xash3D GameCube: sound fallback skipped for map-load memopt %s\n", sfx->name );
+				return NULL;
+			}
 		}
 #endif
 		if( !sc )

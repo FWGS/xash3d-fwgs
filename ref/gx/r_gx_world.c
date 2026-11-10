@@ -2702,14 +2702,15 @@ static void R_GXClearEfbSky( GXRModeObj *rmode )
 	if( !GC_IsTramIntroMap())
 		R_GXDrawSkyBackdrop( rmode );
 
-	/* Lost Coast DumpFrames: soft HDR sun wash (retail blown overcast disc). */
+	/* Lost Coast DumpFrames: soft HDR sun wash (retail blown overcast disc).
+	 * Flipper stills run ~20 mean darker than retail — stronger, wider wash. */
 	if( gEngfuncs.Sys_CheckParm( "-gcdumpframes" )
 		|| gEngfuncs.Sys_CheckParm( "-gccapfacessmoke" ))
 	{
-		const f32 cx = fb_w * 0.52f;
-		const f32 cy = fb_h * 0.22f;
-		const f32 rx = fb_w * 0.28f;
-		const f32 ry = fb_h * 0.18f;
+		const f32 cx = fb_w * 0.48f;
+		const f32 cy = fb_h * 0.18f;
+		const f32 rx = fb_w * 0.42f;
+		const f32 ry = fb_h * 0.26f;
 
 		GX_SetBlendMode( GX_BM_BLEND, GX_BL_SRCALPHA, GX_BL_INVSRCALPHA, GX_LO_NOOP );
 		GX_SetZMode( GX_FALSE, GX_ALWAYS, GX_FALSE );
@@ -2723,13 +2724,13 @@ static void R_GXClearEfbSky( GXRModeObj *rmode )
 		GX_SetVtxDesc( GX_VA_CLR0, GX_DIRECT );
 		GX_Begin( GX_QUADS, GX_VTXFMT0, 4 );
 		GX_Position3f32( cx - rx, cy - ry, -0.4f );
-		GX_Color1u32( 0xF5F2E060u );
+		GX_Color1u32( 0xF8F4E898u );
 		GX_Position3f32( cx + rx, cy - ry, -0.4f );
-		GX_Color1u32( 0xF5F2E060u );
+		GX_Color1u32( 0xF8F4E898u );
 		GX_Position3f32( cx + rx, cy + ry, -0.4f );
-		GX_Color1u32( 0xF5F2E028u );
+		GX_Color1u32( 0xE8E0C038u );
 		GX_Position3f32( cx - rx, cy + ry, -0.4f );
-		GX_Color1u32( 0xF5F2E028u );
+		GX_Color1u32( 0xE8E0C038u );
 		GX_End();
 		GX_SetBlendMode( GX_BM_NONE, GX_BL_ONE, GX_BL_ZERO, GX_LO_NOOP );
 	}
@@ -4026,9 +4027,16 @@ static int R_GXEmitFace( const msurface_t *surf, model_t *world, int slot )
 				u32 lm_scale = GX_CS_SCALE_2;
 
 				/* Raw BSP lightmaps: texture x light x 2 (GoldSrc overbright).
-				 * CapFaces / menu tram atlas LMs stay at ×1. */
+				 * CapFaces / menu tram atlas LMs stay at ×1 — except Lost Coast
+				 * DumpFrames (Flipper mean ~20 darker than retail overcast). */
 				if( ( r_gx_menu_route || slot >= 0 ) && !live_lm )
+				{
 					lm_scale = GX_CS_SCALE_1;
+					if( !r_gx_menu_route
+						&& ( gEngfuncs.Sys_CheckParm( "-gccapfacessmoke" )
+							|| gEngfuncs.Sys_CheckParm( "-gcdumpframes" )))
+						lm_scale = GX_CS_SCALE_2;
+				}
 				GX_SetTevColorOp( GX_TEVSTAGE1, GX_TEV_ADD, GX_TB_ZERO, lm_scale, GX_TRUE, GX_TEVPREV );
 			}
 			GX_SetTevAlphaIn( GX_TEVSTAGE1, GX_CA_ZERO, GX_CA_ZERO, GX_CA_ZERO, GX_CA_APREV );
@@ -5106,18 +5114,23 @@ static int R_GXDrawNewGameCapFacesImpl( void )
 	 * BSP scratch that CapFaces LM/tex reuse; MarkVisibleSurfaces then hangs
 	 * after G285/sky (tip-donner-libogc-draw 20261108-160045). CapFaces-only
 	 * Flipper does not need the stamp.
-	 * Tip-safe campaign: with LM-caps already baked, skip the stamp under
-	 * tight tip (c0a0b hang after sky faces=1 @ tip≈48 Kb). */
-	if( !scratch_retained
-		&& !( n > 0 && gEngfuncs.Sys_CheckParm( "-gcworldrender" ))
-		&& !( n > 0 && GC_MemHeapFreeBytes() < 96u * 1024u )
-		&& ( !( newgame_probe && GC_UseLowResWorldProbe() )
-			|| surfaces_pinned ))
-		R_GXMarkVisibleSurfaces( world );
-	else if( log_begin && n > 0 && GC_MemHeapFreeBytes() < 96u * 1024u )
-		gEngfuncs.Con_Reportf(
-			"Xash3D GameCube: CapFaces MarkVisible skipped tip-safe tip=%s n=%d\n",
-			Q_memprint( GC_MemHeapFreeBytes() ), n );
+	 * Tip-safe CapFaces-only: skip stamp under tight tip. Full pinned BSP
+	 * (menu live=1) always stamps — PVS unload needs it. */
+	{
+		const qboolean full_pinned_bsp = surfaces_pinned && !scratch_retained;
+
+		if( !scratch_retained
+			&& !( n > 0 && gEngfuncs.Sys_CheckParm( "-gcworldrender" ))
+			&& !( n > 0 && !full_pinned_bsp && GC_MemHeapFreeBytes() < 96u * 1024u )
+			&& ( !( newgame_probe && GC_UseLowResWorldProbe() )
+				|| surfaces_pinned ))
+			R_GXMarkVisibleSurfaces( world );
+		else if( log_begin && n > 0 && !full_pinned_bsp
+			&& GC_MemHeapFreeBytes() < 96u * 1024u )
+			gEngfuncs.Con_Reportf(
+				"Xash3D GameCube: CapFaces MarkVisible skipped tip-safe tip=%s n=%d\n",
+				Q_memprint( GC_MemHeapFreeBytes() ), n );
+	}
 
 	if( log_begin )
 		gEngfuncs.Con_Reportf( "Xash3D GameCube: CapFaces surfs n=%d live=%d\n",
@@ -5143,12 +5156,14 @@ static int R_GXDrawNewGameCapFacesImpl( void )
 		 * while plane* still dangles into reused scratch — dod_donner tip
 		 * Guru'd in live BSP (DAR=0x9000904C, tip-donner 125333). Prefer the
 		 * EDGE-baked CapFaces path instead.
-		 * Tip-safe tram hops: live BSP after outdoor sky stalls CapFaces
-		 * (c0a0b @ tip≈48 Kb). Prefer LM-caps when tip is tight — keep the
-		 * skip sticky so later frames do not fall into G213 live-walk. */
+		 * CapFaces tip-skip was demoting full pinned BSP (c0a0 live=1
+		 * pinned=1 nsurf=3682) to LM-caps @ tip≈20 KiB — flat/wrong vs retail.
+		 * Full pinned path always walks live geo + textures. */
 		{
+			const qboolean full_pinned_bsp = surfaces_pinned && !scratch_retained;
 			const qboolean tip_skip_live =
-				n > 0 && GC_MemHeapFreeBytes() < 96u * 1024u;
+				n > 0 && !full_pinned_bsp
+				&& GC_MemHeapFreeBytes() < 96u * 1024u;
 
 			if( tip_skip_live )
 			{
@@ -5160,7 +5175,7 @@ static int R_GXDrawNewGameCapFacesImpl( void )
 						Q_memprint( GC_MemHeapFreeBytes() ), n );
 				}
 			}
-			else if( surfaces_pinned && !scratch_retained
+			else if( full_pinned_bsp
 				&& !( n > 0 && gEngfuncs.Sys_CheckParm( "-gcworldrender" )))
 			{
 				drawn = R_GXDrawWorldLiveSurfaces( world, true );
@@ -5168,8 +5183,8 @@ static int R_GXDrawNewGameCapFacesImpl( void )
 				{
 					g213_logged = true;
 					gEngfuncs.Con_Reportf(
-						"Xash3D GameCube: G283 live BSP Flipper opaque=%d (malloc pin)\n",
-						drawn );
+						"Xash3D GameCube: G283 live BSP Flipper opaque=%d (full geo) tip=%s\n",
+						drawn, Q_memprint( GC_MemHeapFreeBytes() ));
 				}
 			}
 			/* G298: lean early-pool faces under scratch retain or dangling surfaces. */
@@ -5593,24 +5608,28 @@ static int R_GXDrawNewGameCapFacesImpl( void )
 			{
 				extern int GC_CapFacesSpatialPackCount( void );
 				extern int GC_CapFacesLoadSpatialRank( model_t *mod, const float *eye, int rank );
+				extern int GC_CapFacesRankSpatialListen( const float *eye, const float *forward, int *out_idx, int max_out );
 				extern msurface_t *GC_GetNewGameDrawSurfs( void );
 				extern int GC_GetNewGameCapFaceCount( void );
 				static qboolean densify_done;
 				const int pack_n = GC_CapFacesSpatialPackCount();
 
 				/* Once per boot — reloading packs every frame stalls DumpFrames.
-				 * Keep frustum cull on densify (probe 204010 → cove-p10). Skipping
-				 * densify left pack0-only wash; densify without frustum over-painted. */
+				 * Rank by near-eye + look cone (ARAM hydrate is cheap); manifest
+				 * order painted far ocean cliffs into the left third (mae~40). */
 				if( !densify_done && pack_n > 1 )
 				{
 					extern void *GC_GetGxVideoMode( void );
 					extern qboolean GC_CapFaceBounds( int slot, vec3_t mins, vec3_t maxs );
 					const float *eye = RI.rvp.vieworigin;
-					int rank, extra_drawn = 0, frustum_skip = 0, near_skip = 0;
-					const int max_rank = pack_n;
+					int ri, extra_drawn = 0, frustum_skip = 0, near_skip = 0;
+					int ranked[96];
+					int rn;
 					GXRModeObj *rmode = (GXRModeObj *)GC_GetGxVideoMode();
 					Mtx44 proj;
 					Mtx mv;
+					vec3_t forward, right, up;
+					int midgap_admit = 0;
 
 					if( rmode )
 					{
@@ -5630,20 +5649,18 @@ static int R_GXDrawNewGameCapFacesImpl( void )
 					r_gx_bound_fmt = 0;
 					r_gx_cull_none = false;
 
-					/* Rank 0 already emitted as primary — fill shoreline gap
-					 * from rank 1. Strict frustum left a sky void under the
-					 * pier/buildings (mae~42); admit forward midband faces. */
-					{
-						vec3_t forward, right, up;
-						int midgap_admit = 0;
-
-						AngleVectors( RI.rvp.viewangles, forward, right, up );
-					for( rank = 1; rank < max_rank; rank++ )
+					AngleVectors( RI.rvp.viewangles, forward, right, up );
+					rn = GC_CapFacesRankSpatialListen( eye, forward, ranked, pack_n > 96 ? 96 : pack_n );
+					/* Primary already emitted — densify the look-cone set next. */
+					for( ri = 0; ri < rn; ri++ )
 					{
 						int en, ei;
 						msurface_t *edraw;
+						const int idx = ranked[ri];
 
-						if( GC_CapFacesLoadSpatialRank( world, eye, rank ) <= 0 )
+						if( idx == 0 )
+							continue;
+						if( GC_CapFacesLoadSpatialRank( world, eye, idx ) <= 0 )
 							continue;
 						en = GC_GetNewGameCapFaceCount();
 						edraw = GC_GetNewGameDrawSurfs();
@@ -5667,23 +5684,27 @@ static int R_GXDrawNewGameCapFacesImpl( void )
 							cz = 0.5f * ( bmins[2] + bmaxs[2] );
 							dx = cx - eye[0]; dy = cy - eye[1]; dz = cz - eye[2];
 							dist2 = dx * dx + dy * dy + dz * dz;
-							/* Skip only the very nearest sand already in pack0. */
+							dist = sqrtf( dist2 );
+							fdot = ( dist > 1.0f )
+								? ( dx * forward[0] + dy * forward[1] + dz * forward[2] ) / dist
+								: 0.0f;
+							/* Skip underfoot sand already in pack0. */
 							if( dist2 < ( 160.0f * 160.0f ))
 							{
 								near_skip++;
 								continue;
 							}
+							/* Drop strong side/back faces — far cliff packs were
+							 * filling the left third vs retail open cove. */
+							if( dist > 600.0f && fdot < 0.08f )
+							{
+								frustum_skip++;
+								continue;
+							}
 							if( R_GXBoxOutsideFrustum( bmins, bmaxs ))
 							{
-								dist = sqrtf( dist2 );
-								fdot = ( dist > 1.0f )
-									? ( dx * forward[0] + dy * forward[1] + dz * forward[2] ) / dist
-									: 0.0f;
-								/* Shoreline midgap: forward band that frustum
-								 * rejected — closes sky hole under buildings.
-								 * No hard admit ceiling — ARAM densify may take
-								 * tens of seconds; pop / long load is OK. */
-								if( !( dist >= 200.0f && dist <= 2200.0f && fdot >= 0.12f ))
+								/* Shoreline midgap: forward band only. */
+								if( !( dist >= 200.0f && dist <= 1800.0f && fdot >= 0.28f ))
 								{
 									frustum_skip++;
 									continue;
@@ -5697,8 +5718,8 @@ static int R_GXDrawNewGameCapFacesImpl( void )
 						GX_Flush();
 					}
 					gEngfuncs.Con_Reportf(
-						"Xash3D GameCube: CapFaces densify midgap_admit=%d\n", midgap_admit );
-					}
+						"Xash3D GameCube: CapFaces densify midgap_admit=%d ranked=%d\n",
+						midgap_admit, rn );
 					GX_DrawDone();
 					(void)GC_CapFacesLoadSpatialRank( world, eye, 0 );
 					densify_done = true;
@@ -5706,8 +5727,8 @@ static int R_GXDrawNewGameCapFacesImpl( void )
 					drawn = drawn + extra_drawn;
 					cap_drawn = cap_drawn + extra_drawn;
 					gEngfuncs.Con_Reportf(
-						"Xash3D GameCube: CapFaces dump densify extra_drawn=%d total=%d packs=%d frustum_skip=%d near_skip=%d (midfar-layer; hold-after-water)\n",
-						extra_drawn, cap_drawn, max_rank, frustum_skip, near_skip );
+						"Xash3D GameCube: CapFaces dump densify extra_drawn=%d total=%d packs=%d frustum_skip=%d near_skip=%d (look-cone; hold-after-water)\n",
+						extra_drawn, cap_drawn, rn, frustum_skip, near_skip );
 				}
 			}
 			/* -gcworldrender listen densify: layer near-eye spatial packs onto
@@ -5964,7 +5985,8 @@ static int R_GXDrawNewGameCapFacesImpl( void )
 						GX_SetTevAlphaOp( GX_TEVSTAGE1, GX_TEV_ADD, GX_TB_ZERO, GX_CS_SCALE_1, GX_TRUE, GX_TEVPREV );
 						/* Retail midband ~60 + HDR sun streak — hotter sky ADD. */
 						GX_SetTevColor( GX_TEVREG0, (GXColor){ 0, 0, 0, 160 } );
-						GX_SetTevColor( GX_TEVREG1, (GXColor){ 36, 48, 40, 230 } );
+						/* Retail cove water reads cooler/darker than olive mud. */
+						GX_SetTevColor( GX_TEVREG1, (GXColor){ 42, 58, 62, 220 } );
 						GX_ClearVtxDesc();
 						GX_SetVtxDesc( GX_VA_POS, GX_DIRECT );
 						GX_SetVtxDesc( GX_VA_CLR0, GX_DIRECT );
@@ -6176,6 +6198,7 @@ static int R_GXDrawNewGameCapFacesImpl( void )
 			{
 				extern int GC_CapFacesLoadSpatialRank( model_t *mod, const float *eye, int rank );
 				extern int GC_CapFacesSpatialPackCount( void );
+				extern int GC_CapFacesRankSpatialListen( const float *eye, const float *forward, int *out_idx, int max_out );
 				extern qboolean GC_CapFaceBounds( int slot, vec3_t mins, vec3_t maxs );
 				int ri, rn_pack0, pack0_redraw = 0, midgap_redraw = 0;
 				msurface_t *rdraw;
@@ -6183,7 +6206,7 @@ static int R_GXDrawNewGameCapFacesImpl( void )
 				vec3_t forward, right, up;
 				const float *eye = RI.rvp.vieworigin;
 				int pack_n = GC_CapFacesSpatialPackCount();
-				int rank;
+				(void)pack_n;
 
 				AngleVectors( RI.rvp.viewangles, forward, right, up );
 				/* CapFaces first — synthetic water slab paints AFTER midgap so
@@ -6217,13 +6240,21 @@ static int R_GXDrawNewGameCapFacesImpl( void )
 					}
 					drawn += pack0_redraw;
 				}
-				/* Midgap densify again over ALWAYS water — closes pier void. */
-				if( pack_n > 12 )
-					pack_n = 12;
-				for( rank = 1; rank < pack_n && midgap_redraw < 1800; rank++ )
+				/* Midgap densify again over ALWAYS water — look-cone order. */
+				{
+					int ranked2[16];
+					int rn2 = GC_CapFacesRankSpatialListen( eye, forward, ranked2, 16 );
+					int r2;
+
+					if( rn2 > 12 )
+						rn2 = 12;
+				for( r2 = 0; r2 < rn2 && midgap_redraw < 1800; r2++ )
 				{
 					int en, ei;
+					const int rank = ranked2[r2];
 
+					if( rank == 0 )
+						continue;
 					if( GC_CapFacesLoadSpatialRank( world, eye, rank ) <= 0 )
 						continue;
 					en = GC_GetNewGameCapFaceCount();
@@ -6253,6 +6284,7 @@ static int R_GXDrawNewGameCapFacesImpl( void )
 							midgap_redraw++;
 					}
 					GX_Flush();
+				}
 				}
 				(void)GC_CapFacesLoadSpatialRank( world, eye, 0 );
 				drawn += midgap_redraw;
@@ -6311,8 +6343,8 @@ static int R_GXDrawNewGameCapFacesImpl( void )
 							const int vi = idx[qi];
 
 							GX_Position3f32( p[vi][0], p[vi][1], p[vi][2] );
-							/* Mid grey-teal — fills void without washing pier (0x6E washed). */
-							GX_Color1u32( 0x3A4848C8u );
+							/* Cool cove fill — olive 0x3A4848 read as mud vs retail. */
+							GX_Color1u32( 0x2A3A42D0u );
 						}
 					}
 					GX_End();
