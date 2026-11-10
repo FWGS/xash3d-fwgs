@@ -2,7 +2,8 @@
 
 static int Test_CP1251ToUnicode( void )
 {
-	struct {
+	struct
+	{
 		uint32_t cp;
 		uint32_t uc;
 	} test_data[] = {
@@ -16,6 +17,7 @@ static int Test_CP1251ToUnicode( void )
 		{ 0xE0, 0x0430 },
 		{ 0xFF, 0x044F },
 	};
+
 	int i;
 
 	for( i = 0; i < sizeof( test_data ) / sizeof( test_data[0] ); i++ )
@@ -36,7 +38,8 @@ static int Test_CP1251ToUnicode( void )
 
 static int Test_CP1252ToUnicode( void )
 {
-	struct {
+	struct
+	{
 		uint32_t cp;
 		uint32_t uc;
 	} test_data[] = {
@@ -48,6 +51,7 @@ static int Test_CP1252ToUnicode( void )
 		{ 0xE9, 0x00E9 },
 		{ 0xFF, 0x00FF },
 	};
+
 	int i;
 
 	for( i = 0; i < sizeof( test_data ) / sizeof( test_data[0] ); i++ )

@@ -5,8 +5,7 @@
 static int Test_ExtractFilePath( void )
 {
 	char dst[64];
-	const char *strings[] =
-	{
+	const char *strings[] = {
 		"dir/file", "dir",
 		"bark\\meow", "bark",
 		"nopath", "",
@@ -21,10 +20,10 @@ static int Test_ExtractFilePath( void )
 	for( i = 0; i < sizeof( strings ) / sizeof( strings[0] ); i += 2 )
 	{
 		COM_ExtractFilePath( strings[i], dst );
-		if( Q_strcmp( dst, strings[i+1] ))
+		if( Q_strcmp( dst, strings[i + 1] ))
 		{
-			printf( "%s %s %s\n", strings[i], strings[i+1], dst );
-			return (i >> 1) + 1;
+			printf( "%s %s %s\n", strings[i], strings[i + 1], dst );
+			return ( i >> 1 ) + 1;
 		}
 	}
 
@@ -33,7 +32,7 @@ static int Test_ExtractFilePath( void )
 
 int main( void )
 {
-	if( Test_ExtractFilePath( ))
+	if( Test_ExtractFilePath())
 		return EXIT_FAILURE;
 
 	return EXIT_SUCCESS;

@@ -3,7 +3,8 @@
 
 static int Test_Atoi( void )
 {
-	struct {
+	struct
+	{
 		const char *str;
 		int result;
 	} test_data[] = {
@@ -15,8 +16,9 @@ static int Test_Atoi( void )
 		{ "0XA1BA", 0xa1ba },
 		{ "-0XA1BA", -0xa1ba },
 		{ "'a'", (byte)'a' },
-		{ "-'c'", - ((byte)'c') },
+		{ "-'c'", -((byte)'c' ) },
 	};
+
 	int i;
 
 	for( i = 0; i < sizeof( test_data ) / sizeof( test_data[0] ); i++ )
@@ -30,7 +32,8 @@ static int Test_Atoi( void )
 
 static int Test_Atof( void )
 {
-	struct {
+	struct
+	{
 		const char *str;
 		float result;
 	} test_data[] = {
@@ -42,8 +45,9 @@ static int Test_Atof( void )
 		{ "0XA1BA", 0xa1ba },
 		{ "-0XA1BA", -0xa1ba },
 		{ "'a'", (byte)'a' },
-		{ "-'c'", - ((byte)'c') }
+		{ "-'c'", -((byte)'c' ) }
 	};
+
 	int i;
 
 	for( i = 0; i < sizeof( test_data ) / sizeof( test_data[0] ); i++ )
@@ -59,14 +63,16 @@ static int Test_Atof( void )
 
 static int Test_Atov( void )
 {
-	struct {
+	struct
+	{
 		const char *str;
 		int N;
 		float result[3];
 	} test_data[] = {
-		{ "1.0 1.2 3", 3, { 1.0f, 1.2f, 3.0f }},
-		{ "1.234 1.32", 2, { 1.234f, 1.32f }},
+		{ "1.0 1.2 3", 3, { 1.0f, 1.2f, 3.0f } },
+		{ "1.234 1.32", 2, { 1.234f, 1.32f } },
 	};
+
 	int i;
 
 	for( i = 0; i < sizeof( test_data ) / sizeof( test_data[0] ); i++ )

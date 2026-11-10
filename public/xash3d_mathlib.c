@@ -20,46 +20,44 @@ GNU General Public License for more details.
 
 static const uint8_t hull_table[] = { 2, 4, 6, 8, 12, 16, 18, 24, 28, 32, 36, 40, 48, 54, 56, 60, 64, 72, 80, 112, 120, 128, 140, 176 };
 
-const int boxpnt[6][4] =
-{
-{ 0, 4, 6, 2 }, // +X
-{ 0, 1, 5, 4 }, // +Y
-{ 0, 2, 3, 1 }, // +Z
-{ 7, 5, 1, 3 }, // -X
-{ 7, 3, 2, 6 }, // -Y
-{ 7, 6, 4, 5 }, // -Z
+const int boxpnt[6][4] = {
+	{ 0, 4, 6, 2 }, // +X
+	{ 0, 1, 5, 4 }, // +Y
+	{ 0, 2, 3, 1 }, // +Z
+	{ 7, 5, 1, 3 }, // -X
+	{ 7, 3, 2, 6 }, // -Y
+	{ 7, 6, 4, 5 }, // -Z
 };
 
 // pre-quantized table normals from Quake1
-const float m_bytenormals[NUMVERTEXNORMALS][3] =
-{
+const float m_bytenormals[NUMVERTEXNORMALS][3] = {
 #include "anorms.h"
 };
 
 uint16_t FloatToHalf( float v )
 {
 	unsigned int i = FloatAsUint( v );
-	unsigned int e = (i >> 23) & 0x00ff;
+	unsigned int e = ( i >> 23 ) & 0x00ff;
 	unsigned int m = i & 0x007fffff;
 	unsigned short h;
 
 	if( e <= 127 - 15 )
-		h = ((m | 0x00800000) >> (127 - 14 - e)) >> 13;
-	else h = (i >> 13) & 0x3fff;
+		h = (( m | 0x00800000 ) >> ( 127 - 14 - e )) >> 13;
+	else h = ( i >> 13 ) & 0x3fff;
 
-	h |= (i >> 16) & 0xc000;
+	h |= ( i >> 16 ) & 0xc000;
 
 	return h;
 }
 
 float HalfToFloat( uint16_t h )
 {
-	unsigned int	f = (h << 16) & 0x80000000;
-	unsigned int	em = h & 0x7fff;
+	unsigned int f = ( h << 16 ) & 0x80000000;
+	unsigned int em = h & 0x7fff;
 
 	if( em > 0x03ff )
 	{
-		f |= (em << 13) + ((127 - 15) << 23);
+		f |= ( em << 13 ) + (( 127 - 15 ) << 23 );
 	}
 	else
 	{
@@ -67,7 +65,7 @@ float HalfToFloat( uint16_t h )
 
 		if( m != 0 )
 		{
-			unsigned int e = (em >> 10) & 0x1f;
+			unsigned int e = ( em >> 10 ) & 0x1f;
 
 			while(( m & 0x0400 ) == 0 )
 			{
@@ -76,7 +74,7 @@ float HalfToFloat( uint16_t h )
 			}
 
 			m &= 0x3ff;
-			f |= ((e + (127 - 14)) << 23) | (m << 13);
+			f |= (( e + ( 127 - 14 )) << 23 ) | ( m << 13 );
 		}
 	}
 
@@ -157,10 +155,10 @@ float Q_rsqrt( float number )
 		return 0.0f;
 
 	float x = number * 0.5f;
-	int i = FloatAsInt( number );	// evil floating point bit level hacking
-	i = 0x5f3759df - (i >> 1);	// what the fuck?
+	int i = FloatAsInt( number ); // evil floating point bit level hacking
+	i = 0x5f3759df - ( i >> 1 ); // what the fuck?
 	float y = IntAsFloat( i );
-	y = y * (1.5f - (x * y * y));	// first iteration
+	y = y * ( 1.5f - ( x * y * y )); // first iteration
 
 	return y;
 }
@@ -227,7 +225,7 @@ void VectorsAngles( const vec3_t forward, const vec3_t right, const vec3_t up, v
 	float cpitch = cos( pitch );
 	float yaw, roll;
 
-	if( fabs( cpitch ) > EQUAL_EPSILON )	// gimball lock?
+	if( fabs( cpitch ) > EQUAL_EPSILON ) // gimball lock?
 	{
 		cpitch = 1.0f / cpitch;
 		pitch = RAD2DEG( pitch );
@@ -290,8 +288,8 @@ static void QuaternionAlign( const vec4_t p, const vec4_t q, vec4_t qt )
 
 	for( int i = 0; i < 4; i++ )
 	{
-		a += (p[i] - q[i]) * (p[i] - q[i]);
-		b += (p[i] + q[i]) * (p[i] + q[i]);
+		a += ( p[i] - q[i] ) * ( p[i] - q[i] );
+		b += ( p[i] + q[i] ) * ( p[i] + q[i] );
 	}
 
 	if( a > b )
@@ -323,7 +321,7 @@ static void QuaternionSlerpNoAlign( const vec4_t p, const vec4_t q, float t, vec
 		{
 			float omega = acos( cosom );
 			float sinom = sin( omega );
-			sclp = sin( (1.0f - t) * omega) / sinom;
+			sclp = sin(( 1.0f - t ) * omega ) / sinom;
 			sclq = sin( t * omega ) / sinom;
 		}
 		else
@@ -362,7 +360,7 @@ Quaternion sphereical linear interpolation
 */
 void QuaternionSlerp( const vec4_t p, const vec4_t q, float t, vec4_t qt )
 {
-	vec4_t	q2;
+	vec4_t q2;
 
 	// 0.0 returns p, 1.0 return q.
 	// decide if one of the quaternions is backwards
@@ -381,7 +379,7 @@ Returns 1, 2, or 1 + 2
 int BoxOnPlaneSide( const vec3_t emins, const vec3_t emaxs, const mplane_t *p )
 {
 	float dist1, dist2;
-	int   sides = 0;
+	int sides = 0;
 
 	// general case
 	switch( p->signbits )
@@ -467,23 +465,23 @@ void R_StudioCalcBones( int frame, float s, const mstudiobone_t *pbone, const ms
 
 		if( panimvalue->num.valid > j )
 		{
-			v1[i] = UnalignedShort( &( panimvalue[j + 1].value ) );
+			v1[i] = UnalignedShort( &( panimvalue[j + 1].value ));
 
 			if( panimvalue->num.valid > j + 1 )
-				v2[i] = UnalignedShort( &( panimvalue[j + 2].value ) );
+				v2[i] = UnalignedShort( &( panimvalue[j + 2].value ));
 			else if( panimvalue->num.total > j + 1 )
 				v2[i] = v1[i];
 			else
-				v2[i] = UnalignedShort( &( panimvalue[panimvalue->num.valid + 2].value ) );
+				v2[i] = UnalignedShort( &( panimvalue[panimvalue->num.valid + 2].value ));
 		}
 		else
 		{
-			v1[i] = UnalignedShort( &( panimvalue[panimvalue->num.valid].value ) );
+			v1[i] = UnalignedShort( &( panimvalue[panimvalue->num.valid].value ));
 
 			if( panimvalue->num.total > j + 1 )
 				v2[i] = v1[i];
 			else
-				v2[i] = UnalignedShort( &(  panimvalue[panimvalue->num.valid + 2].value ) );
+				v2[i] = UnalignedShort( &( panimvalue[panimvalue->num.valid + 2].value ));
 		}
 
 		v1[i] = pbone->value[i] + v1[i] * pbone->scale[i] + fadj;
