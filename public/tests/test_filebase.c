@@ -5,7 +5,7 @@
 
 static void COM_FileBase_old( const char *in, char *out, size_t size )
 {
-	int	len, start, end;
+	int len, start, end;
 
 	len = Q_strlen( in );
 	if( !len || !size ) return;
@@ -17,7 +17,7 @@ static void COM_FileBase_old( const char *in, char *out, size_t size )
 		end--;
 
 	if( in[end] != '.' )
-		end = len-1; // no '.', copy to end
+		end = len - 1; // no '.', copy to end
 	else end--; // found ',', copy to left of '.'
 
 	// scan backward for '/'

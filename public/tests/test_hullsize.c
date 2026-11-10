@@ -2,7 +2,8 @@
 
 static int Test_RoundUpHullSize( void )
 {
-	struct {
+	struct
+	{
 		vec3_t mins, maxs;
 		vec3_t result_mins, result_maxs;
 	} test_data[] = {
