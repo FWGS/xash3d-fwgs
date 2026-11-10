@@ -2724,13 +2724,13 @@ static void R_GXClearEfbSky( GXRModeObj *rmode )
 		GX_SetVtxDesc( GX_VA_CLR0, GX_DIRECT );
 		GX_Begin( GX_QUADS, GX_VTXFMT0, 4 );
 		GX_Position3f32( cx - rx, cy - ry, -0.4f );
-		GX_Color1u32( 0xF8F4E898u );
+		GX_Color1u32( 0xFAF6ECB0u );
 		GX_Position3f32( cx + rx, cy - ry, -0.4f );
-		GX_Color1u32( 0xF8F4E898u );
+		GX_Color1u32( 0xFAF6ECB0u );
 		GX_Position3f32( cx + rx, cy + ry, -0.4f );
-		GX_Color1u32( 0xE8E0C038u );
+		GX_Color1u32( 0xEDE6C850u );
 		GX_Position3f32( cx - rx, cy + ry, -0.4f );
-		GX_Color1u32( 0xE8E0C038u );
+		GX_Color1u32( 0xEDE6C850u );
 		GX_End();
 		GX_SetBlendMode( GX_BM_NONE, GX_BL_ONE, GX_BL_ZERO, GX_LO_NOOP );
 	}
@@ -3234,27 +3234,14 @@ static qboolean R_GXBindLightmapAtlas( void )
 	int w = 0, h = 0;
 	int gen;
 
-	if( r_gx_lm_atlas_checked )
-	{
-		if( !r_gx_lm_atlas_available )
-			return false;
-		if( !r_gx_lm_atlas_bound )
-		{
-			GX_LoadTexObj( &r_gx_lm_atlas_obj, GX_TEXMAP1 );
-			r_gx_lm_atlas_bound = true;
-			r_gx_live_lm_bound = false;
-			r_gx_lm_loads++;
-		}
-		else
-			r_gx_lm_reuses++;
-		return true;
-	}
-
+	/* Densify pack swaps bump CapFaces generation and rewrite the same BSS
+	 * atlas — always re-check gen so TEXMAP1 tracks the active pack. */
 	atlas = GC_GetNewGameCapLightmapAtlas( &w, &h );
 	r_gx_lm_atlas_checked = true;
 	if( !atlas || w < 4 || h < 4 )
 	{
 		r_gx_lm_atlas_available = false;
+		r_gx_lm_atlas_bound = false;
 		return false;
 	}
 	r_gx_lm_atlas_available = true;
@@ -3265,8 +3252,10 @@ static qboolean R_GXBindLightmapAtlas( void )
 		GX_InitTexObj( &r_gx_lm_atlas_obj, (void *)atlas, (u16)w, (u16)h,
 			GX_TF_RGB565, GX_CLAMP, GX_CLAMP, GX_FALSE );
 		GX_InitTexObjFilterMode( &r_gx_lm_atlas_obj, GX_LINEAR, GX_LINEAR );
+		GX_InvalidateTexAll();
 		r_gx_lm_atlas_valid = true;
 		r_gx_lm_atlas_gen = gen;
+		r_gx_lm_atlas_bound = false;
 		r_gx_lm_inits++;
 	}
 
@@ -5701,6 +5690,12 @@ static int R_GXDrawNewGameCapFacesImpl( void )
 								frustum_skip++;
 								continue;
 							}
+							/* Skip mud-plane CapFaces in the cove water band. */
+							if( cz < -42.0f && dist > 220.0f )
+							{
+								frustum_skip++;
+								continue;
+							}
 							if( R_GXBoxOutsideFrustum( bmins, bmaxs ))
 							{
 								/* Shoreline midgap: forward band only. */
@@ -6275,6 +6270,9 @@ static int R_GXDrawNewGameCapFacesImpl( void )
 						dist = sqrtf( dx * dx + dy * dy + dz * dz );
 						if( dist < 280.0f || dist > 1800.0f )
 							continue;
+						/* Don't re-bury the cove with mud-level CapFaces. */
+						if( cz < -42.0f )
+							continue;
 						fdot = ( dist > 1.0f )
 							? ( dx * forward[0] + dy * forward[1] + dz * forward[2] ) / dist
 							: 0.0f;
@@ -6291,29 +6289,76 @@ static int R_GXDrawNewGameCapFacesImpl( void )
 				gEngfuncs.Con_Reportf(
 					"Xash3D GameCube: CapFaces re-emit after water pack0=%d midgap=%d\n",
 					pack0_redraw, midgap_redraw );
-				/* Pier sky slit: ALWAYS water slab AFTER CapFaces so holes
-				 * CapFaces leave still get olive water, then near pack0 dunes. */
+				/* Near dunes first (above water only) — then cove slab LAST so
+				 * retail midband reads as water, not CapFaces mud. */
+				{
+					int near_redraw = 0;
+
+					(void)GC_CapFacesLoadSpatialRank( world, eye, 0 );
+					rn_pack0 = GC_GetNewGameCapFaceCount();
+					rdraw = GC_GetNewGameDrawSurfs();
+					GX_SetBlendMode( GX_BM_NONE, GX_BL_ONE, GX_BL_ZERO, GX_LO_NOOP );
+					GX_SetZMode( GX_TRUE, GX_LEQUAL, GX_TRUE );
+					GX_SetCullMode( GX_CULL_BACK );
+					r_gx_cull_none = false;
+					r_gx_face_mode = GC_GX_FACE_MODE_NONE;
+					if( rdraw && rn_pack0 > 0 )
+					{
+						if( rn_pack0 > (int)( sizeof( rorder ) / sizeof( rorder[0] )))
+							rn_pack0 = (int)( sizeof( rorder ) / sizeof( rorder[0] ));
+						R_GXOrderFacesByTexBands( rdraw, rn_pack0, rorder );
+						for( ri = 0; ri < rn_pack0; ri++ )
+						{
+							vec3_t bmins, bmaxs;
+							float cx, cy, cz, dx, dy, dz, dist2;
+							const int slot = rorder[ri];
+
+							if( !GC_CapFaceBounds( slot, bmins, bmaxs ))
+								continue;
+							cx = 0.5f * ( bmins[0] + bmaxs[0] );
+							cy = 0.5f * ( bmins[1] + bmaxs[1] );
+							cz = 0.5f * ( bmins[2] + bmaxs[2] );
+							dx = cx - eye[0]; dy = cy - eye[1]; dz = cz - eye[2];
+							dist2 = dx * dx + dy * dy + dz * dz;
+							if( dist2 > ( 420.0f * 420.0f ))
+								continue;
+							/* Keep beach sand; skip faces that sit on the cove plane. */
+							if( cz < -40.0f && dist2 > ( 180.0f * 180.0f ))
+								continue;
+							if( !GC_CapFaceInPVS( slot ))
+								continue;
+							if( R_GXEmitFace( &rdraw[slot], world, slot ) > 0 )
+								near_redraw++;
+						}
+						drawn += near_redraw;
+					}
+					gEngfuncs.Con_Reportf(
+						"Xash3D GameCube: CapFaces near-pack0 dunes=%d\n",
+						near_redraw );
+				}
+				/* Cove water before boats — CapFaces densify buried midband as mud.
+				 * Keep slab mid/far only (along≥480) so near beach stays CapFaces. */
 				{
 					const float water_z = -56.0f;
-					const float along = 420.0f;
-					const float half_w = 980.0f;
-					const float half_d = 1100.0f;
-					float cx = eye[0] + forward[0] * along;
-					float cy = eye[1] + forward[1] * along;
+					const float along = 640.0f;
+					const float half_w = 900.0f;
+					const float half_d = 900.0f;
+					float wcx = eye[0] + forward[0] * along;
+					float wcy = eye[1] + forward[1] * along;
 					float p[4][3];
 					int qi;
 
-					p[0][0] = cx - right[0] * half_w - forward[0] * half_d;
-					p[0][1] = cy - right[1] * half_w - forward[1] * half_d;
+					p[0][0] = wcx - right[0] * half_w - forward[0] * half_d;
+					p[0][1] = wcy - right[1] * half_w - forward[1] * half_d;
 					p[0][2] = water_z;
-					p[1][0] = cx + right[0] * half_w - forward[0] * half_d;
-					p[1][1] = cy + right[1] * half_w - forward[1] * half_d;
+					p[1][0] = wcx + right[0] * half_w - forward[0] * half_d;
+					p[1][1] = wcy + right[1] * half_w - forward[1] * half_d;
 					p[1][2] = water_z;
-					p[2][0] = cx + right[0] * half_w + forward[0] * half_d;
-					p[2][1] = cy + right[1] * half_w + forward[1] * half_d;
+					p[2][0] = wcx + right[0] * half_w + forward[0] * half_d;
+					p[2][1] = wcy + right[1] * half_w + forward[1] * half_d;
 					p[2][2] = water_z;
-					p[3][0] = cx - right[0] * half_w + forward[0] * half_d;
-					p[3][1] = cy - right[1] * half_w + forward[1] * half_d;
+					p[3][0] = wcx - right[0] * half_w + forward[0] * half_d;
+					p[3][1] = wcy - right[1] * half_w + forward[1] * half_d;
 					p[3][2] = water_z;
 					GX_SetBlendMode( GX_BM_BLEND, GX_BL_SRCALPHA, GX_BL_INVSRCALPHA, GX_LO_NOOP );
 					GX_SetZMode( GX_TRUE, GX_ALWAYS, GX_FALSE );
@@ -6343,58 +6388,16 @@ static int R_GXDrawNewGameCapFacesImpl( void )
 							const int vi = idx[qi];
 
 							GX_Position3f32( p[vi][0], p[vi][1], p[vi][2] );
-							/* Cool cove fill — olive 0x3A4848 read as mud vs retail. */
-							GX_Color1u32( 0x2A3A42D0u );
+							/* Dark cool water — lighter alpha so dunes/pier show. */
+							GX_Color1u32( ( vi < 2 ) ? 0x1E2C34B0u : 0x24384088u );
 						}
 					}
 					GX_End();
 					gEngfuncs.Con_Reportf(
-						"Xash3D GameCube: CapFaces synthetic cove water slab z=%.0f (post-midgap)\n",
+						"Xash3D GameCube: CapFaces cove water slab z=%.0f\n",
 						water_z );
 				}
-				/* Near dunes over slab — keep pack0 sand/rocks in foreground. */
-				{
-					int near_redraw = 0;
-
-					(void)GC_CapFacesLoadSpatialRank( world, eye, 0 );
-					rn_pack0 = GC_GetNewGameCapFaceCount();
-					rdraw = GC_GetNewGameDrawSurfs();
-					GX_SetBlendMode( GX_BM_NONE, GX_BL_ONE, GX_BL_ZERO, GX_LO_NOOP );
-					GX_SetZMode( GX_TRUE, GX_LEQUAL, GX_TRUE );
-					GX_SetCullMode( GX_CULL_BACK );
-					r_gx_cull_none = false;
-					r_gx_face_mode = GC_GX_FACE_MODE_NONE;
-					if( rdraw && rn_pack0 > 0 )
-					{
-						if( rn_pack0 > (int)( sizeof( rorder ) / sizeof( rorder[0] )))
-							rn_pack0 = (int)( sizeof( rorder ) / sizeof( rorder[0] ));
-						R_GXOrderFacesByTexBands( rdraw, rn_pack0, rorder );
-						for( ri = 0; ri < rn_pack0; ri++ )
-						{
-							vec3_t bmins, bmaxs;
-							float cx, cy, cz, dx, dy, dz;
-							const int slot = rorder[ri];
-
-							if( !GC_CapFaceBounds( slot, bmins, bmaxs ))
-								continue;
-							cx = 0.5f * ( bmins[0] + bmaxs[0] );
-							cy = 0.5f * ( bmins[1] + bmaxs[1] );
-							cz = 0.5f * ( bmins[2] + bmaxs[2] );
-							dx = cx - eye[0]; dy = cy - eye[1]; dz = cz - eye[2];
-							if( dx * dx + dy * dy + dz * dz > ( 520.0f * 520.0f ))
-								continue;
-							if( !GC_CapFaceInPVS( slot ))
-								continue;
-							if( R_GXEmitFace( &rdraw[slot], world, slot ) > 0 )
-								near_redraw++;
-						}
-						drawn += near_redraw;
-					}
-					gEngfuncs.Con_Reportf(
-						"Xash3D GameCube: CapFaces near-pack0 over slab=%d\n",
-						near_redraw );
-				}
-				/* Boats after pack0 — emit every loaded GCpr tri (complete hulls). */
+				/* Boats after water — ALWAYS over slab so hulls stay visible. */
 				{
 					static qboolean g_prop_logged;
 					const int prop_n = GC_GetPropTriCount();
@@ -6406,12 +6409,8 @@ static int R_GXDrawNewGameCapFacesImpl( void )
 					{
 						AngleVectors( RI.rvp.viewangles, vfwd, NULL, NULL );
 						GX_SetBlendMode( GX_BM_NONE, GX_BL_ONE, GX_BL_ZERO, GX_LO_NOOP );
-						/* ALWAYS + no Z-write: paint full hulls over densify/water
-						 * without wiping cove Z (ALWAYS+Z_TRUE washed beige). */
 						GX_SetZMode( GX_TRUE, GX_ALWAYS, GX_FALSE );
 						GX_SetCullMode( GX_CULL_NONE );
-						/* ChanCtrl + cull-none required — MODULATE alone left
-						 * emit=N with zero on-screen hulls (probe 230521). */
 						GX_SetNumChans( 1 );
 						GX_SetChanCtrl( GX_COLOR0A0, GX_DISABLE, GX_SRC_REG, GX_SRC_VTX,
 							0, GX_DF_NONE, GX_AF_NONE );

@@ -2020,23 +2020,35 @@ static void CL_Reconnect( qboolean setup_netchan )
 	{
 		Con_Reportf( "Xash3D GameCube: local reconnect setup=%d state=%d signon=%d\n",
 			setup_netchan ? 1 : 0, cls.state, cls.signon );
-		/* G158: Flipper presents before fullphysics/spawn can stall Host_Frame. */
+		/* G158: Flipper presents before fullphysics/spawn can stall Host_Frame.
+		 * Full-geo CapFaces-skip: skip those presents — Soft hung on first live
+		 * BSP during reconnect (021123 c0a0a). Signon proceeds without Flipper. */
 		if( GC_IsNewGameG36Done() && GC_IsNewGameWorldReady() )
 		{
-			int i;
-
 			gc_g159_reconnect_active_pending = true;
 			gc_g158_reconnect_seen = true;
 			cls.draw_changelevel = false;
-			Con_Reportf( "Xash3D GameCube: G158 reconnect present begin gx=%d\n",
-				GC_UseGxWorldDraw() ? 1 : 0 );
-			for( i = 0; i < 3; i++ )
+			if( Sys_CheckParm( "-gcmenuplaystart" )
+				&& GC_WorldSurfacesPinned()
+				&& !GC_WorldSurfacesScratchRetained()
+				&& GC_GetNewGameCapFaceCount() <= 0 )
 			{
-				if( !GC_RenderNewGameWorldFrames( 1 ))
-					break;
+				Con_Reportf( "Xash3D GameCube: G158 reconnect present skipped (full geo)\n" );
 			}
-			Con_Reportf( "Xash3D GameCube: G158 live GX present reconnect state=%d signon=%d gx=%d\n",
-				cls.state, cls.signon, GC_UseGxWorldDraw() ? 1 : 0 );
+			else
+			{
+				int i;
+
+				Con_Reportf( "Xash3D GameCube: G158 reconnect present begin gx=%d\n",
+					GC_UseGxWorldDraw() ? 1 : 0 );
+				for( i = 0; i < 3; i++ )
+				{
+					if( !GC_RenderNewGameWorldFrames( 1 ))
+						break;
+				}
+				Con_Reportf( "Xash3D GameCube: G158 live GX present reconnect state=%d signon=%d gx=%d\n",
+					cls.state, cls.signon, GC_UseGxWorldDraw() ? 1 : 0 );
+			}
 		}
 	}
 #endif

@@ -2074,17 +2074,11 @@ static qboolean R_GCMarkLiveBspPVS( void )
 {
 	extern qboolean GC_WorldSurfacesPinned( void );
 	extern qboolean GC_WorldSurfacesScratchRetained( void );
-	extern size_t gc_world_visdatasize;
 	static byte visrow[MAX_MAP_LEAFS / 8];
 	model_t *world = WORLDMODEL;
 	mleaf_t *viewleaf;
 	const byte *in;
-	const byte *vis_base;
-	const byte *vis_end;
 	int row, out, i, leafs = 0, surfs = 0;
-	size_t steps = 0;
-	size_t step_cap;
-	qboolean used_fallback = false;
 
 	if( !gEngfuncs.Sys_CheckParm( "-gcmenuplaystart" )
 		|| gEngfuncs.Sys_CheckParm( "-gcnolivepvs" ))
@@ -2096,95 +2090,24 @@ static qboolean R_GCMarkLiveBspPVS( void )
 		return false;
 
 	viewleaf = gEngfuncs.Mod_PointInLeaf( RI.rvp.vieworigin, world->nodes, world );
-	/* Reconnect / prepare eyes often land outside a vis-bearing leaf
-	 * (cluster<0 or solid). CapFaces bake already mid-volume-falls back;
-	 * do the same here so Soft never RLE-decompresses a stale/sliver row
-	 * (c0a0a G158 hang after "Trying to connect", probe 021123). */
-	if( !viewleaf || viewleaf == world->leafs || viewleaf->cluster < 0
-		|| !viewleaf->compressed_vis || viewleaf->contents == CONTENTS_SOLID )
-	{
-		int best = -1;
-		float best_vol = 0.0f;
-
-		for( i = 1; i < world->numleafs; i++ )
-		{
-			const mleaf_t *leaf = &world->leafs[i];
-			const float *mins = leaf->minmaxs;
-			const float *maxs = leaf->minmaxs + 3;
-			float vol;
-			vec3_t size;
-
-			if( leaf->cluster < 0 || !leaf->compressed_vis )
-				continue;
-			if( leaf->contents == CONTENTS_SOLID )
-				continue;
-			if( gc_world_visdatasize > 0 )
-			{
-				const byte *base = (const byte *)world->visdata;
-				const byte *cv = (const byte *)leaf->compressed_vis;
-
-				if( cv < base || cv >= base + gc_world_visdatasize )
-					continue;
-			}
-			VectorSubtract( maxs, mins, size );
-			vol = size[0] * size[1] * size[2];
-			if( vol < 8192.0f || vol > 5.0e7f )
-				continue;
-			if( vol <= best_vol )
-				continue;
-			best_vol = vol;
-			best = i;
-		}
-		if( best < 0 )
-			return false;
-		viewleaf = &world->leafs[best];
-		used_fallback = true;
-	}
-
-	/* Reject stale compressed_vis before Soft can spin on a bad RLE stream
-	 * (same guard as menu lean tram PVS / GC_DecompressPVS). */
-	vis_base = (const byte *)world->visdata;
-	vis_end = ( gc_world_visdatasize > 0 ) ? vis_base + gc_world_visdatasize : NULL;
-	in = (const byte *)viewleaf->compressed_vis;
-	if( !in || ( vis_end && ( in < vis_base || in >= vis_end )))
-	{
-		gEngfuncs.Con_Reportf( "Xash3D GameCube: live BSP PVS bad compressed_vis cl=%d\n",
-			viewleaf->cluster );
+	if( !viewleaf || !viewleaf->compressed_vis || viewleaf == world->leafs )
 		return false;
-	}
 
-	/* GoldSrc vis rows cover leafs 1..numleafs, zero runs RLE-packed.
-	 * Bound steps + reject c==0 so Soft cannot hang (probe 020442 after
-	 * R_SetupFrame ready; CapFaces path already uses GC_DecompressPVS). */
+	/* GoldSrc vis rows cover leafs 1..numleafs, zero runs RLE-packed. */
 	row = ( world->numleafs + 7 ) >> 3;
 	if( row > (int)sizeof( visrow ))
 		return false;
-	step_cap = (size_t)row * 4u + 8u;
+	in = viewleaf->compressed_vis;
 	for( out = 0; out < row; )
 	{
-		if( ++steps > step_cap || ( vis_end && in >= vis_end ))
-		{
-			gEngfuncs.Con_Reportf( "Xash3D GameCube: live BSP PVS RLE abort cl=%d\n",
-				viewleaf->cluster );
-			return false;
-		}
 		if( *in )
 		{
 			visrow[out++] = *in++;
 			continue;
 		}
-		if( vis_end && in + 1 >= vis_end )
-			return false;
-		i = in[1];
-		if( i <= 0 )
-		{
-			gEngfuncs.Con_Reportf( "Xash3D GameCube: live BSP PVS RLE zero-run cl=%d\n",
-				viewleaf->cluster );
-			return false;
-		}
-		in += 2;
-		while( i-- > 0 && out < row )
+		for( i = in[1]; i > 0 && out < row; i-- )
 			visrow[out++] = 0;
+		in += 2;
 	}
 
 	tr.visframecount++;
@@ -2226,12 +2149,11 @@ static qboolean R_GCMarkLiveBspPVS( void )
 		static int cluster_logs;
 
 		/* One line per view-cluster change, bounded for long rides. */
-		if( viewleaf->cluster != last_cluster && cluster_logs < 48 )
+		if( viewleaf->cluster != last_cluster && cluster_logs < 32 )
 		{
 			cluster_logs++;
-			gEngfuncs.Con_Reportf( "Xash3D GameCube: live BSP PVS cluster=%d leafs=%d/%d surfs=%d/%d%s\n",
-				viewleaf->cluster, leafs, world->numleafs, surfs, world->numsurfaces,
-				used_fallback ? " (mid-leaf)" : "" );
+			gEngfuncs.Con_Reportf( "Xash3D GameCube: live BSP PVS cluster=%d leafs=%d/%d surfs=%d/%d\n",
+				viewleaf->cluster, leafs, world->numleafs, surfs, world->numsurfaces );
 		}
 		last_cluster = viewleaf->cluster;
 	}

@@ -1083,6 +1083,28 @@ void SCR_UpdateScreen( void )
 				cls.draw_changelevel = false;
 			if( cls.disable_screen )
 				cls.disable_screen = 0.0f;
+			/* Full-geo CapFaces-skip: G158 Flipper present hung Soft on the
+			 * first live BSP draw during reconnect (021123 froze after
+			 * "Trying to connect" on c0a0a; prepare Flipper already skipped
+			 * for the same hang). Keep Host_Frame cycling for loopback
+			 * signon — draw only once ca_active. */
+			if( Sys_CheckParm( "-gcmenuplaystart" )
+				&& GC_WorldSurfacesPinned()
+				&& !GC_WorldSurfacesScratchRetained()
+				&& GC_GetNewGameCapFaceCount() <= 0 )
+			{
+				static qboolean g158_fullgeo_skip_logged;
+
+				if( !g158_fullgeo_skip_logged )
+				{
+					g158_fullgeo_skip_logged = true;
+					Con_Reportf(
+						"Xash3D GameCube: G158 skip Flipper present (full geo reconnect) state=%d signon=%d\n",
+						cls.state, cls.signon );
+				}
+				GC_PerfUpdate();
+				return;
+			}
 			if( GC_RenderNewGameWorldFrames( 1 ))
 			{
 				g158_reconnect_presents++;
