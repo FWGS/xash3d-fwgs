@@ -6884,8 +6884,9 @@ qboolean SV_LoadProgs( const char *name )
 	 * tip Mem_Calloc of edicts/baselines cannot OOM under menu-skip boots. */
 	if( GI->max_edicts > 0 && GI->max_edicts <= GC_SP_EDICT_CAP
 		&& ( svs.maxclients <= 1
-			|| ( svs.maxclients <= 4
-				&& ( Sys_CheckParm( "-gclistenserver" ) || GC_MapLoadMemoryOpt() )) ) )
+			|| Sys_CheckParm( "-gclistenserver" )
+			|| Sys_CheckParm( "-gcworldrender" )
+			|| GC_MapLoadMemoryOpt() ) )
 	{
 		memset( gc_singleplayer_edicts, 0, sizeof( edict_t ) * (size_t)GI->max_edicts );
 		memset( gc_singleplayer_baselines, 0, sizeof( entity_state_t ) * (size_t)GI->max_edicts );

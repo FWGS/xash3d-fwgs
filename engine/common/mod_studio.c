@@ -1873,6 +1873,13 @@ void Mod_GCUploadDeferredStudioSkins( void )
 		"models/v_crowbar.mdl",
 		"models/v_9mmhandgun.mdl",
 		"models/v_357.mdl",
+		/* Day of Defeat weapon models are embedded-skin viewmodels.  They
+		 * are promoted mesh-only before Spawn to stay inside MEM1, then their
+		 * source MDLs are reloaded here after MAP_READY for texture upload. */
+		"models/v_colt.mdl",
+		"models/v_luger.mdl",
+		"models/v_garand.mdl",
+		"models/v_mp40.mdl",
 		NULL
 	};
 	static const char *paths_lostcoast[] = {

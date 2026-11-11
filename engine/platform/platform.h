@@ -321,6 +321,7 @@ qboolean GC_CapFaceBounds( int slot, float mins[3], float maxs[3] );
 int GC_CapFacePVSSkipCount( void );
 int GC_CapFacePVSTestCount( void );
 int GC_CapFaceVisAssigned( void ); /* >0 → per-frame PVS/frustum; skip static DL */
+qboolean GC_CapFaceSourcePVSActive( void ); /* Source vis row loaded for CapFaces */
 struct msurface_s *GC_GetNewGameDrawSurfs( void );
 const unsigned short *GC_GetNewGameCapLightmap( int slot, int *w, int *h );
 const unsigned short *GC_GetNewGameCapLightmapAtlas( int *w, int *h ); /* G180 */

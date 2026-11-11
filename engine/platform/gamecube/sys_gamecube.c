@@ -1043,6 +1043,7 @@ static char gc_tas_name[32];
 static qboolean gc_smoke_map_configured;
 static qboolean gc_listenserver_configured;
 static qboolean gc_dumpeye_configured;
+static qboolean gc_vst_configured;
 static qboolean gc_connect_configured;
 static qboolean gc_newgame_configured;
 static qboolean gc_menu_newgame_configured;
@@ -1115,6 +1116,7 @@ static void GCube_LoadDiscBootOverrides( void )
 	gc_listenserver_configured = false;
 	gc_listenserver_map[0] = '\0';
 	gc_dumpeye_configured = false;
+	gc_vst_configured = false;
 	gc_dumpeye_arg[0] = '\0';
 	gc_connect_configured = false;
 	gc_connect_addr[0] = '\0';
@@ -1496,6 +1498,16 @@ static void GCube_LoadDiscBootOverrides( void )
 			{
 				gc_playercam_configured = true;
 				SYS_Report( "Xash3D GameCube: disc boot override gcplayercam\n" );
+				continue;
+			}
+		}
+		if( !Q_strnicmp( cursor, "gcvst", 5 ))
+		{
+			char ch = cursor[5];
+			if( ch == '\0' || ch == '\r' || ch == '\n' || ch == ' ' || ch == '\t' )
+			{
+				gc_vst_configured = true;
+				SYS_Report( "Xash3D GameCube: disc boot override gcvst (Lost Coast stress flythrough)\n" );
 				continue;
 			}
 		}
@@ -1966,18 +1978,24 @@ lostcoast_force_smoke:
 		gc_dumpframes_configured = true;
 		gc_smoke_map_configured = true;
 		Q_strncpy( gc_smoke_map, "d2_lostcoast", sizeof( gc_smoke_map ));
+		/* Retail bake-eye still (info_player_start). Disc cfg may arm -gcvst
+		 * for the stress flythrough; unreadable cfg must not steal the eye. */
+		gc_vst_configured = false;
 		gc_dumpeye_configured = true;
-		/* Yaw 110 showed water but mae~64 (wrong cove wall). Keep retail
-		 * player-start 8/150 — best Flipper mae~39 with look-cone densify. */
-		Q_strncpy( gc_dumpeye_arg, "1656,2213,-48,8,150", sizeof( gc_dumpeye_arg ));
-		SYS_Report(
-			"Xash3D GameCube: CapFaces smoke forced (lostcoast DOL; disc cfg unreadable)\n" );
-	}
-	/* Always arm pad look/move for Lost Coast CapFaces (cfg or forced). */
-	if( !Q_stricmp( GC_ACTIVE_GAMEDIR, "lostcoast" ) && gc_capfacessmoke_configured )
-	{
+		Q_strncpy( gc_dumpeye_arg, "1655.6,2212.7,-48,8,150", sizeof( gc_dumpeye_arg ));
 		gc_playerinput_configured = true;
 		gc_playercam_configured = true;
+		SYS_Report(
+			"Xash3D GameCube: CapFaces+dumpeye forced (lostcoast DOL; disc cfg unreadable)\n" );
+	}
+	/* Always arm CapFaces smoke argv inject for Lost Coast. */
+	if( !Q_stricmp( GC_ACTIVE_GAMEDIR, "lostcoast" ) && gc_capfacessmoke_configured )
+	{
+		if( !gc_vst_configured )
+		{
+			gc_playerinput_configured = true;
+			gc_playercam_configured = true;
+		}
 	}
 #endif
 }
@@ -2076,8 +2094,14 @@ static void GCube_InjectLateDiscArgv( void )
 		gc_argv[n++] = "-gcdumpframes";
 		injected++;
 	}
+	if( gc_vst_configured && !Sys_CheckParm( "-gcvst" ) && n + 1 < cap )
+	{
+		gc_argv[n++] = "-gcvst";
+		injected++;
+	}
 	if( gc_dumpeye_configured && gc_dumpeye_arg[0]
-		&& !Sys_CheckParm( "-gcdumpeye" ) && n + 2 < cap )
+		&& !Sys_CheckParm( "-gcdumpeye" ) && !gc_vst_configured
+		&& n + 2 < cap )
 	{
 		gc_argv[n++] = "-gcdumpeye";
 		gc_argv[n++] = gc_dumpeye_arg;
@@ -2149,7 +2173,7 @@ int GCube_GetArgv( int in_argc, char **in_argv, char ***out_argv )
 		gc_argv[fake_argc++] = "-gcmap";
 		gc_argv[fake_argc++] = gc_smoke_map;
 	}
-	if( gc_dumpeye_configured && gc_dumpeye_arg[0] )
+	if( gc_dumpeye_configured && gc_dumpeye_arg[0] && !gc_vst_configured )
 	{
 		gc_argv[fake_argc++] = "-gcdumpeye";
 		gc_argv[fake_argc++] = gc_dumpeye_arg;
@@ -2238,6 +2262,8 @@ int GCube_GetArgv( int in_argc, char **in_argv, char ***out_argv )
 	}
 	if( gc_dumpframes_configured )
 		gc_argv[fake_argc++] = "-gcdumpframes";
+	if( gc_vst_configured )
+		gc_argv[fake_argc++] = "-gcvst";
 	if( gc_swissquit_configured )
 		gc_argv[fake_argc++] = "-gcswissquit";
 	if( gc_playerinput_configured )
