@@ -582,7 +582,7 @@ int R_GXWorldDLDraw( void )
 				if( (int)b->mat != cur_mat )
 				{
 					const gc_wd_mat_t *m = &gc_wd_mats[b->mat];
-					const int blend = m->tex2_hash != 0;
+					int blend = m->tex2_hash != 0;
 					int ok;
 
 					if( gc_wd_texnum[b->mat] < 0 )
@@ -593,8 +593,13 @@ int R_GXWorldDLDraw( void )
 					{
 						if( gc_wd_texnum2[b->mat] < 0 )
 							gc_wd_texnum2[b->mat] = (s16)GC_WorldTexnumByHash( m->tex2_hash );
+						/* Layer 2 is a streamed stub until HotService promotes it:
+						 * never drop the batch for it — fall back to layer 1. */
 						ok = gc_wd_texnum2[b->mat] > 0 && R_GXWorldDLBindTexPair(
 							(unsigned)gc_wd_texnum[b->mat], (unsigned)gc_wd_texnum2[b->mat] );
+						blend = ok;
+						if( !ok )
+							ok = R_GXWorldDLBind( (unsigned)gc_wd_texnum[b->mat] );
 					}
 					else
 						ok = R_GXWorldDLBind( (unsigned)gc_wd_texnum[b->mat] );
