@@ -4936,6 +4936,26 @@ qboolean R_GXWorldDLBindTex( unsigned texnum )
 	return R_GXBindTexnum( texnum, false ) != NULL;
 }
 
+/* WorldVertexTransition: layer 1 on TEXMAP0, layer 2 on TEXMAP1. Binds go
+ * through the normal GX texture cache; the layer-2 handle is copied out
+ * before layer 1 reloads TEXMAP0. */
+qboolean R_GXWorldDLBindTexPair( unsigned tex1, unsigned tex2 )
+{
+	GXTexObj second;
+	gc_gx_tex_t *t2;
+
+	t2 = R_GXBindTexnum( tex2, false );
+	if( !t2 )
+		return false;
+	second = t2->obj;
+	if( !R_GXBindTexnum( tex1, false ))
+		return false;
+	GX_LoadTexObj( &second, GX_TEXMAP1 );
+	r_gx_bound_texnum = 0; /* TEXMAP0 now holds layer 2's cache slot state */
+	r_gx_bound_fmt = 0;
+	return true;
+}
+
 /* Lost Coast Water (water_ati_cheap001): $normalmap dev/water_normal scrolls and
  * IndTex-warps the sky/env reflection — same bump the Source water shader uses.
  * Map sheets from gw_*.gcw ARE the water plane (z≈-64); no dump-eye slab. */

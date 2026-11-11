@@ -54,6 +54,7 @@ typedef struct
 typedef struct
 {
 	u32	tex_hash;
+	u32	tex2_hash;	/* WorldVertexTransition $basetexture2, 0 = none */
 	u8	tevmat, flags;
 	u16	pad;
 } gc_wd_mat_t;
@@ -83,6 +84,8 @@ extern void Mod_GCWorldArraySpillPinBase( const void *ptr, size_t bytes );
 extern size_t Mod_GCWorldArraySpillUsed( void );
 extern int GC_WorldTexnumByHash( unsigned hash );
 extern qboolean R_GXWorldDLBindTex( unsigned texnum );
+extern qboolean R_GXWorldDLBindTexPair( unsigned tex1, unsigned tex2 );
+extern int GC_WorldTexnumByHash( unsigned hash );
 extern int R_GXTevMatFlags( int id );
 extern void R_GXTevMatAppend( int id, int first_stage, int first_texgen );
 extern void R_GXTevMatEndAlphaTest( void );
@@ -90,6 +93,58 @@ extern void R_GXFogBegin( void );
 extern void R_GXFogEnd( void );
 
 static int gc_wd_state;	/* 0 untried, 1 ready, -1 absent */
+static s16 *gc_wd_texnum2;	/* WVT layer-2 texnum per material */
+
+/* Single layer: stage0 = texture x baked light x2. */
+static qboolean R_GXWorldDLBind( unsigned texnum )
+{
+	return R_GXWorldDLBindTex( texnum );
+}
+
+/* Per-material TEV: one stage normally; WorldVertexTransition adds a lerp
+ * of layer 1 and layer 2 by the vertex alpha (RASA), then the baked light. */
+static void R_GXWorldDLSetupTev( int blend )
+{
+	GX_SetNumIndStages( 0 );
+	if( !blend )
+	{
+		GX_SetNumTexGens( 1 );
+		GX_SetTexCoordGen( GX_TEXCOORD0, GX_TG_MTX2x4, GX_TG_TEX0, GX_IDENTITY );
+		GX_SetNumTevStages( 1 );
+		GX_SetTevDirect( GX_TEVSTAGE0 );
+		GX_SetTevOrder( GX_TEVSTAGE0, GX_TEXCOORD0, GX_TEXMAP0, GX_COLOR0A0 );
+		GX_SetTevColorIn( GX_TEVSTAGE0, GX_CC_ZERO, GX_CC_TEXC, GX_CC_RASC, GX_CC_ZERO );
+		GX_SetTevColorOp( GX_TEVSTAGE0, GX_TEV_ADD, GX_TB_ZERO, GX_CS_SCALE_1, GX_TRUE, GX_TEVPREV ); /* baked light is already display-referred */
+		GX_SetTevAlphaIn( GX_TEVSTAGE0, GX_CA_ZERO, GX_CA_ZERO, GX_CA_ZERO, GX_CA_TEXA );
+		GX_SetTevAlphaOp( GX_TEVSTAGE0, GX_TEV_ADD, GX_TB_ZERO, GX_CS_SCALE_1, GX_TRUE, GX_TEVPREV );
+		return;
+	}
+	GX_SetNumTexGens( 2 );
+	GX_SetTexCoordGen( GX_TEXCOORD0, GX_TG_MTX2x4, GX_TG_TEX0, GX_IDENTITY );
+	GX_SetTexCoordGen( GX_TEXCOORD1, GX_TG_MTX2x4, GX_TG_TEX0, GX_IDENTITY );
+	GX_SetNumTevStages( 3 );
+	/* s0: layer 1 */
+	GX_SetTevDirect( GX_TEVSTAGE0 );
+	GX_SetTevOrder( GX_TEVSTAGE0, GX_TEXCOORD0, GX_TEXMAP0, GX_COLORNULL );
+	GX_SetTevColorIn( GX_TEVSTAGE0, GX_CC_ZERO, GX_CC_ZERO, GX_CC_ZERO, GX_CC_TEXC );
+	GX_SetTevColorOp( GX_TEVSTAGE0, GX_TEV_ADD, GX_TB_ZERO, GX_CS_SCALE_1, GX_TRUE, GX_TEVPREV );
+	GX_SetTevAlphaIn( GX_TEVSTAGE0, GX_CA_ZERO, GX_CA_ZERO, GX_CA_ZERO, GX_CA_ZERO );
+	GX_SetTevAlphaOp( GX_TEVSTAGE0, GX_TEV_ADD, GX_TB_ZERO, GX_CS_SCALE_1, GX_TRUE, GX_TEVPREV );
+	/* s1: lerp(layer1, layer2, vertex alpha) */
+	GX_SetTevDirect( GX_TEVSTAGE1 );
+	GX_SetTevOrder( GX_TEVSTAGE1, GX_TEXCOORD1, GX_TEXMAP1, GX_COLOR0A0 );
+	GX_SetTevColorIn( GX_TEVSTAGE1, GX_CC_ZERO, GX_CC_CPREV, GX_CC_TEXC, GX_CC_RASA );
+	GX_SetTevColorOp( GX_TEVSTAGE1, GX_TEV_ADD, GX_TB_ZERO, GX_CS_SCALE_1, GX_TRUE, GX_TEVPREV );
+	GX_SetTevAlphaIn( GX_TEVSTAGE1, GX_CA_ZERO, GX_CA_ZERO, GX_CA_ZERO, GX_CA_APREV );
+	GX_SetTevAlphaOp( GX_TEVSTAGE1, GX_TEV_ADD, GX_TB_ZERO, GX_CS_SCALE_1, GX_TRUE, GX_TEVPREV );
+	/* s2: × baked light x2 */
+	GX_SetTevDirect( GX_TEVSTAGE2 );
+	GX_SetTevOrder( GX_TEVSTAGE2, GX_TEXCOORDNULL, GX_TEXMAP_NULL, GX_COLOR0A0 );
+	GX_SetTevColorIn( GX_TEVSTAGE2, GX_CC_ZERO, GX_CC_ZERO, GX_CC_RASC, GX_CC_CPREV );
+	GX_SetTevColorOp( GX_TEVSTAGE2, GX_TEV_ADD, GX_TB_ZERO, GX_CS_SCALE_1, GX_TRUE, GX_TEVPREV ); /* baked light is already display-referred */
+	GX_SetTevAlphaIn( GX_TEVSTAGE2, GX_CA_ZERO, GX_CA_ZERO, GX_CA_ZERO, GX_CA_APREV );
+	GX_SetTevAlphaOp( GX_TEVSTAGE2, GX_TEV_ADD, GX_TB_ZERO, GX_CS_SCALE_1, GX_TRUE, GX_TEVPREV );
+}
 static char gc_wd_map[64];
 static gc_wd_header_t gc_wd_hdr;
 static byte *gc_wd_res;		/* file bytes [0, ofs_pvsdir) */
@@ -165,6 +220,7 @@ static void R_GXWorldDLLoad( const char *mapbase )
 	stream_bytes = gc_wd_hdr.file_size - gc_wd_hdr.ofs_pvsdir;
 	tables = gc_wd_hdr.n_chunks * sizeof( gc_wd_slot_t )
 		+ gc_wd_hdr.n_mats * sizeof( s16 )
+		+ gc_wd_hdr.n_mats * sizeof( s16 ) /* layer-2 texnums */
 		+ (( gc_wd_hdr.n_clusters + 7 ) >> 3 ) + 64;
 	gc_wd_res = (byte *)Mod_GCWorldArraySpillTryAlloc( res_bytes, "world DL tree+directory" );
 	tbl = (byte *)Mod_GCWorldArraySpillTryAlloc( tables, "world DL tables" );
@@ -187,14 +243,18 @@ static void R_GXWorldDLLoad( const char *mapbase )
 	gc_wd_dir = (const gc_wd_chunkdir_t *)( gc_wd_res + gc_wd_hdr.ofs_chunkdir );
 	gc_wd_slots = (gc_wd_slot_t *)tbl;
 	gc_wd_texnum = (s16 *)( gc_wd_slots + gc_wd_hdr.n_chunks );
-	gc_wd_pvs = (byte *)( gc_wd_texnum + gc_wd_hdr.n_mats );
+	gc_wd_texnum2 = gc_wd_texnum + gc_wd_hdr.n_mats;
+	gc_wd_pvs = (byte *)( gc_wd_texnum2 + gc_wd_hdr.n_mats );
 	for( i = 0; i < gc_wd_hdr.n_chunks; i++ )
 	{
 		gc_wd_slots[i].cache_ofs = -1;
 		gc_wd_slots[i].used_frame = -1000;
 	}
 	for( i = 0; i < gc_wd_hdr.n_mats; i++ )
+	{
 		gc_wd_texnum[i] = -1;
+		gc_wd_texnum2[i] = -1;
+	}
 
 	/* Chunk cache: everything the spill still has, largest first. */
 	gc_wd_cache = NULL;
@@ -440,7 +500,7 @@ int R_GXWorldDLDraw( void )
 	GX_SetVtxDesc( GX_VA_CLR0, GX_DIRECT );
 	GX_SetVtxDesc( GX_VA_TEX0, GX_DIRECT );
 	GX_SetVtxAttrFmt( GX_VTXFMT6, GX_VA_POS, GX_POS_XYZ, GX_S16, 0 );
-	GX_SetVtxAttrFmt( GX_VTXFMT6, GX_VA_CLR0, GX_CLR_RGB, GX_RGB565, 0 );
+	GX_SetVtxAttrFmt( GX_VTXFMT6, GX_VA_CLR0, GX_CLR_RGBA, GX_RGBA8, 0 );
 	GX_SetVtxAttrFmt( GX_VTXFMT6, GX_VA_TEX0, GX_TEX_ST, GX_S16, GC_WD_ST_FRAC );
 	GX_SetNumIndStages( 0 );
 	GX_SetNumTexGens( 1 );
@@ -450,7 +510,7 @@ int R_GXWorldDLDraw( void )
 	GX_SetTevOrder( GX_TEVSTAGE0, GX_TEXCOORD0, GX_TEXMAP0, GX_COLOR0A0 );
 	/* texture x baked light x2 (Source lightmaps are overbright). */
 	GX_SetTevColorIn( GX_TEVSTAGE0, GX_CC_ZERO, GX_CC_TEXC, GX_CC_RASC, GX_CC_ZERO );
-	GX_SetTevColorOp( GX_TEVSTAGE0, GX_TEV_ADD, GX_TB_ZERO, GX_CS_SCALE_2, GX_TRUE, GX_TEVPREV );
+	GX_SetTevColorOp( GX_TEVSTAGE0, GX_TEV_ADD, GX_TB_ZERO, GX_CS_SCALE_1, GX_TRUE, GX_TEVPREV ); /* baked light is already display-referred */
 	GX_SetTevAlphaIn( GX_TEVSTAGE0, GX_CA_ZERO, GX_CA_ZERO, GX_CA_ZERO, GX_CA_TEXA );
 	GX_SetTevAlphaOp( GX_TEVSTAGE0, GX_TEV_ADD, GX_TB_ZERO, GX_CS_SCALE_1, GX_TRUE, GX_TEVPREV );
 	R_GXFogBegin();
@@ -522,14 +582,28 @@ int R_GXWorldDLDraw( void )
 				if( (int)b->mat != cur_mat )
 				{
 					const gc_wd_mat_t *m = &gc_wd_mats[b->mat];
+					const int blend = m->tex2_hash != 0;
+					int ok;
 
 					if( gc_wd_texnum[b->mat] < 0 )
 						gc_wd_texnum[b->mat] = (s16)GC_WorldTexnumByHash( m->tex_hash );
-					if( gc_wd_texnum[b->mat] <= 0
-						|| !R_GXWorldDLBindTex( (unsigned)gc_wd_texnum[b->mat] ))
+					if( gc_wd_texnum[b->mat] <= 0 )
 						continue;
+					if( blend )
+					{
+						if( gc_wd_texnum2[b->mat] < 0 )
+							gc_wd_texnum2[b->mat] = (s16)GC_WorldTexnumByHash( m->tex2_hash );
+						ok = gc_wd_texnum2[b->mat] > 0 && R_GXWorldDLBindTexPair(
+							(unsigned)gc_wd_texnum[b->mat], (unsigned)gc_wd_texnum2[b->mat] );
+					}
+					else
+						ok = R_GXWorldDLBind( (unsigned)gc_wd_texnum[b->mat] );
+					if( !ok )
+						continue;
+					R_GXWorldDLSetupTev( blend );
 					/* Source material recipe on top (detail / alphatest). */
-					R_GXTevMatAppend( R_GXTevMatFlags( m->tevmat ) ? m->tevmat : 0, 1, 1 );
+					R_GXTevMatAppend( R_GXTevMatFlags( m->tevmat ) ? m->tevmat : 0, blend ? 3 : 1,
+						blend ? 2 : 1 );
 					cur_mat = (int)b->mat;
 				}
 				GX_CallDispList( chunk + b->dl_ofs, b->dl_bytes );
