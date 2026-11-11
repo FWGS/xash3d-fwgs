@@ -66,6 +66,25 @@ qboolean R_TryInitGcmapSurfaceCache( void );
 qboolean R_AllocScreen( void );
 void R_GCRebuildBlendMaps( void );
 
+/*
+ * Pure Flipper never rasterises into the soft Z scratch while GX draws the
+ * world, so post effects borrow it instead of growing BSS (MEM1 is full:
+ * +100 KiB of BSS cost the CapFaces texture hot window).
+ * Layout is fixed so borrowers do not overlap:
+ *   [0, 96K)   EFB bloom copy (r_gx_bloom.c)
+ *   [96K, end) TEV material detail textures (r_gx_tevmat.c)
+ */
+void *R_GcmapBorrowSoftZ( unsigned offset, unsigned bytes )
+{
+	byte *base = (byte *)gc_gcmap_static_zbuffer;
+	byte *end = base + sizeof( gc_gcmap_static_zbuffer );
+	byte *p = (byte *)(( (size_t)base + 31u ) & ~(size_t)31u ) + offset;
+
+	if( p + bytes > end )
+		return NULL;
+	return p;
+}
+
 qboolean R_GcmapOwnsStaticScreenBuffers( void )
 {
 	return d_pzbuffer == gc_gcmap_static_zbuffer || vid.buffer == gc_gcmap_static_viewbuffer;

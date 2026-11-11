@@ -4,7 +4,8 @@ r_gx_bloom.c - Flipper post bloom (Twilight Princess style)
 Cheap, hardware-native glow for the Lost Coast CapFaces path:
 
   1. GX_CopyTex the finished EFB through the copy unit's 2x box filter into
-     a half-res I8 (luma) texture. 320x240 I8 = 75 KiB, BSS only, no heap.
+     a half-res I8 (luma) texture. 320x240 I8 = 75 KiB, borrowed from the idle soft Z
+     scratch: no heap, no new BSS.
   2. Draw one fullscreen quad that samples that texture with 8 offset taps
      (8 texcoords, bilinear), averages them in TEV, subtracts a threshold,
      scales, and multiplies by a warm tint.
@@ -23,20 +24,20 @@ Enabled for -gccapfacessmoke (Lost Coast) or -gcbloom; -gcnobloom disables.
 #include <gccore.h>
 #include <ogc/gx.h>
 #include <string.h>
+#include <math.h>
 
-#define GC_BLOOM_MAX_W 320
-#define GC_BLOOM_MAX_H 304 /* PAL efb 608/2 */
+#define GC_BLOOM_MAX_BYTES ( 96u * 1024u )
 
-/* I8 tiles are 8x4; 32-byte aligned for the copy unit. */
-static u8 gc_bloom_buf[GC_BLOOM_MAX_W * GC_BLOOM_MAX_H] __attribute__(( aligned( 32 )));
+/* The copy lands in the idle soft Z scratch (r_gcmap.c) — no new BSS. */
+extern void *R_GcmapBorrowSoftZ( unsigned offset, unsigned bytes );
 static GXTexObj gc_bloom_tex;
 
 /* Retail Lost Coast HDR: bright sky / sun disc / water glints bloom warm. */
-#define GC_BLOOM_THRESHOLD 168 /* 0..255 luma floor */
+#define GC_BLOOM_THRESHOLD 196 /* 0..255 luma floor */
 #define GC_BLOOM_TINT_R 255
 #define GC_BLOOM_TINT_G 236
 #define GC_BLOOM_TINT_B 196
-#define GC_BLOOM_TINT_A 150    /* overall strength, applied via tint scale */
+#define GC_BLOOM_TINT_A 110    /* overall strength, applied via tint scale */
 
 static int gc_bloom_enabled = -1;
 
@@ -65,6 +66,7 @@ qboolean R_GXBloomApply( void *rmode_ptr )
 	Mtx44 ortho;
 	Mtx ident;
 	u16 efb_w, efb_h, bw, bh;
+	u8 *gc_bloom_buf;
 	f32 fb_w, fb_h, du, dv;
 	GXColor thresh, tint;
 	int i;
@@ -81,7 +83,10 @@ qboolean R_GXBloomApply( void *rmode_ptr )
 	efb_h = rmode->efbHeight & ~7u;
 	bw = efb_w / 2;
 	bh = efb_h / 2;
-	if( bw == 0 || bh == 0 || bw > GC_BLOOM_MAX_W || bh > GC_BLOOM_MAX_H )
+	if( bw == 0 || bh == 0 || (u32)bw * bh > GC_BLOOM_MAX_BYTES )
+		return false;
+	gc_bloom_buf = (u8 *)R_GcmapBorrowSoftZ( 0, (u32)bw * bh );
+	if( !gc_bloom_buf )
 		return false;
 
 	/* 1) EFB -> half-res luma through the copy box filter. */
@@ -207,6 +212,115 @@ qboolean R_GXBloomApply( void *rmode_ptr )
 			bw, bh, GC_BLOOM_THRESHOLD, tint.r, tint.g, tint.b );
 	}
 	return true;
+}
+
+/*
+ * Sun disc (Source env_sun) — a soft radial fan at the sun's projected
+ * position, drawn into the sky before the world. The bloom pass turns it
+ * into the retail HDR glow; without bloom it is still a round soft sun
+ * instead of screen-fixed quads. Expects the caller's 2D sky state:
+ * ortho over the EFB, Z off, POS+CLR0 vertex desc, PASSCLR.
+ *
+ * d2_lostcoast: env_sun angles "0 317 0" pitch -10 → towards the sun is
+ * yaw 137, 10 degrees up; rendercolor 253 236 198.
+ */
+#define GC_SUN_YAW	137.0f
+#define GC_SUN_ELEV	10.0f
+#define GC_SUN_SEGS	20
+
+static void R_GXSunFan( f32 cx, f32 cy, f32 rx, f32 ry, u32 inner, u32 outer )
+{
+	int i;
+
+	GX_Begin( GX_TRIANGLEFAN, GX_VTXFMT0, GC_SUN_SEGS + 2 );
+	GX_Position3f32( cx, cy, -0.40f );
+	GX_Color1u32( inner );
+	for( i = 0; i <= GC_SUN_SEGS; i++ )
+	{
+		const f32 a = (f32)i * ( 2.0f * (f32)M_PI_F / (f32)GC_SUN_SEGS );
+
+		GX_Position3f32( cx + cosf( a ) * rx, cy + sinf( a ) * ry, -0.40f );
+		GX_Color1u32( outer );
+	}
+	GX_End();
+}
+
+qboolean R_GXBloomDrawSun( void *rmode_ptr )
+{
+	GXRModeObj *rmode = (GXRModeObj *)rmode_ptr;
+	vec3_t fwd, right, up, sun;
+	f32 fb_w, fb_h, df, tx, ty, cx, cy, r;
+	const f32 yaw = GC_SUN_YAW * (f32)M_PI_F / 180.0f;
+	const f32 el = GC_SUN_ELEV * (f32)M_PI_F / 180.0f;
+	f32 fov_x = RI.rvp.fov_x > 1.0f ? RI.rvp.fov_x : 90.0f;
+	f32 fov_y = RI.rvp.fov_y > 1.0f ? RI.rvp.fov_y : 90.0f;
+
+	if( !rmode || !R_GXBloomEnabled())
+		return false;
+	fb_w = (f32)rmode->fbWidth;
+	fb_h = (f32)rmode->efbHeight;
+	sun[0] = cosf( el ) * cosf( yaw );
+	sun[1] = cosf( el ) * sinf( yaw );
+	sun[2] = sinf( el );
+	AngleVectors( RI.rvp.viewangles, fwd, right, up );
+	df = DotProduct( sun, fwd );
+	if( df < 0.15f )
+		return true; /* sun behind / far off-axis: nothing to draw */
+	tx = DotProduct( sun, right ) / df / tanf( fov_x * (f32)M_PI_F / 360.0f );
+	ty = DotProduct( sun, up ) / df / tanf( fov_y * (f32)M_PI_F / 360.0f );
+	cx = fb_w * 0.5f * ( 1.0f + tx );
+	cy = fb_h * 0.5f * ( 1.0f - ty );
+	r = fb_h * 0.5f / tanf( fov_y * (f32)M_PI_F / 360.0f ); /* pixels per unit tan */
+
+	/* Self-contained 2D colour state (the sky clear left ortho + identity). */
+	GX_SetZMode( GX_FALSE, GX_ALWAYS, GX_FALSE );
+	GX_SetNumChans( 1 );
+	GX_SetNumTexGens( 0 );
+	GX_SetNumTevStages( 1 );
+	GX_SetTevOrder( GX_TEVSTAGE0, GX_TEXCOORDNULL, GX_TEXMAP_NULL, GX_COLOR0A0 );
+	GX_SetTevOp( GX_TEVSTAGE0, GX_PASSCLR );
+	GX_ClearVtxDesc();
+	GX_SetVtxDesc( GX_VA_POS, GX_DIRECT );
+	GX_SetVtxDesc( GX_VA_CLR0, GX_DIRECT );
+	GX_SetVtxAttrFmt( GX_VTXFMT0, GX_VA_POS, GX_POS_XYZ, GX_F32, 0 );
+	GX_SetVtxAttrFmt( GX_VTXFMT0, GX_VA_CLR0, GX_CLR_RGBA, GX_RGBA8, 0 );
+	GX_SetBlendMode( GX_BM_BLEND, GX_BL_SRCALPHA, GX_BL_ONE, GX_LO_NOOP );
+	GX_SetCullMode( GX_CULL_NONE );
+	/* Wide overcast halo, then the hot disc (env_sun size 8 ≈ 6 degrees). */
+	R_GXSunFan( cx, cy, r * 0.42f, r * 0.42f, 0xFDECC660u, 0xFDECC600u );
+	R_GXSunFan( cx, cy, r * 0.16f, r * 0.16f, 0xFFF6DCB0u, 0xFFF0D000u );
+	R_GXSunFan( cx, cy, r * 0.055f, r * 0.055f, 0xFFFFF8FFu, 0xFFFFF080u );
+	GX_SetBlendMode( GX_BM_NONE, GX_BL_ONE, GX_BL_ZERO, GX_LO_NOOP );
+	return true;
+}
+
+/*
+ * Distance fog (Source env_fog_controller) as Flipper hardware fog.
+ * d2_lostcoast: fogcolor 151 166 181, fogstart 1600, fogend 50000.
+ * Applied to lit world faces only; Begin/End are cheap flag checks.
+ */
+static qboolean gc_fog_on;
+
+void R_GXFogBegin( void )
+{
+	const GXColor fog = { 151, 166, 181, 255 };
+	f32 zfar;
+
+	if( gc_fog_on || !R_GXBloomEnabled())
+		return;
+	zfar = Q_max( 8192.0f, RI.farClip > 1.0f ? RI.farClip : 8192.0f );
+	GX_SetFog( GX_FOG_PERSP_LIN, 1600.0f, 50000.0f, 4.0f, zfar, fog );
+	gc_fog_on = true;
+}
+
+void R_GXFogEnd( void )
+{
+	const GXColor none = { 0, 0, 0, 0 };
+
+	if( !gc_fog_on )
+		return;
+	GX_SetFog( GX_FOG_NONE, 0.0f, 1.0f, 0.1f, 1.0f, none );
+	gc_fog_on = false;
 }
 
 #endif /* XASH_GAMECUBE */

@@ -192,6 +192,14 @@ enum
 #define GC_SURF_ENVMAP 0x4000
 #endif
 static int r_gx_face_mode;
+/* Source→TEV material id bound with the current lit face mode (r_gx_tevmat.c). */
+static int r_gx_face_mat;
+extern int R_GXTevMatFlags( int id );
+extern qboolean R_GXBloomDrawSun( void *rmode );
+extern void R_GXFogBegin( void );
+extern void R_GXFogEnd( void );
+extern void R_GXTevMatAppend( int id, int first_stage, int first_texgen );
+extern void R_GXTevMatEndAlphaTest( void );
 static unsigned r_gx_bound_texnum;
 static u8 r_gx_bound_fmt;
 /* Synthetic safety faces are emitted double-sided, but must not disable
@@ -2705,18 +2713,24 @@ static void R_GXClearEfbSky( GXRModeObj *rmode )
 	/* Lost Coast DumpFrames: soft HDR sun wash (retail blown overcast disc).
 	 * Hard stacked quads read as beige panels (probe 164010 sky mae~45) —
 	 * soft concentric rings with low edge alpha keep sky CMPR visible. */
-	if( gEngfuncs.Sys_CheckParm( "-gcdumpframes" )
-		|| gEngfuncs.Sys_CheckParm( "-gccapfacessmoke" ))
+	/* Bloom on (default for Lost Coast): r_gx_bloom.c draws a round env_sun
+	 * disc at the sun's real projected position and the bloom pass makes the
+	 * glow, so the screen-fixed ring quads below are the -gcnobloom fallback. */
+	if( !R_GXBloomDrawSun( rmode )
+		&& ( gEngfuncs.Sys_CheckParm( "-gcdumpframes" )
+			|| gEngfuncs.Sys_CheckParm( "-gccapfacessmoke" )))
 	{
-		const f32 cx = fb_w * 0.55f;
-		const f32 cy = fb_h * 0.18f;
+		/* Restore hdr2 soft rings (mae~39.3) — compact bloom underexposed
+		 * sky to lum~147 vs retail~183 (probe 171304 mae~42). */
+		const f32 cx = fb_w * 0.58f;
+		const f32 cy = fb_h * 0.16f;
 		int ring;
-		/* Outer→inner: radius frac, corner alpha (ABGR packed as RGBA8 hex). */
+		/* Slightly hotter than hdr2 (sky lum 168→~178 toward retail 183). */
 		static const struct { f32 rx, ry; u32 c[4]; } rings[4] = {
-			{ 0.58f, 0.42f, { 0xF5F0E428u, 0xF8F2E830u, 0xE8E0C018u, 0xE4DCC014u } },
-			{ 0.36f, 0.26f, { 0xFFF8EC58u, 0xFFF8EC60u, 0xF0E8C030u, 0xEDE4BC28u } },
-			{ 0.20f, 0.14f, { 0xFFFFF098u, 0xFFFFF0A0u, 0xFFF0C058u, 0xFFE8B850u } },
-			{ 0.09f, 0.06f, { 0xFFFFF0C8u, 0xFFFFF0D0u, 0xFFF8D880u, 0xFFF0D078u } },
+			{ 0.50f, 0.36f, { 0xF8F2E820u, 0xFAF4EA28u, 0xEDE4C014u, 0xE8E0BC12u } },
+			{ 0.30f, 0.22f, { 0xFFF8EC48u, 0xFFF8EC50u, 0xF0E8C028u, 0xEDE4BC20u } },
+			{ 0.15f, 0.11f, { 0xFFFFF088u, 0xFFFFF090u, 0xFFF0C050u, 0xFFE8B848u } },
+			{ 0.07f, 0.05f, { 0xFFFFF0C0u, 0xFFFFF0C8u, 0xFFF8D878u, 0xFFF0D070u } },
 		};
 
 		GX_SetBlendMode( GX_BM_BLEND, GX_BL_SRCALPHA, GX_BL_INVSRCALPHA, GX_LO_NOOP );
@@ -3849,6 +3863,14 @@ static int R_GXEmitFace( const msurface_t *surf, model_t *world, int slot )
 		GX_SetZMode( GX_TRUE, GX_LEQUAL, GX_FALSE );
 	}
 
+	if( !( textured && lit ))
+	{
+		R_GXTevMatEndAlphaTest();
+		R_GXFogEnd();
+	}
+	else if( slot >= 0 )
+		R_GXFogBegin();
+
 	if( textured && lit )
 	{
 		const qboolean want_env = !live_lm && r_gx_sky_ready
@@ -3857,11 +3879,16 @@ static int R_GXEmitFace( const msurface_t *surf, model_t *world, int slot )
 		const int lit_mode = live_lm ? GC_GX_FACE_MODE_LIT_LIVE
 			: ( want_env ? GC_GX_FACE_MODE_LIT_ENV : GC_GX_FACE_MODE_LIT );
 		int sky_side = want_env ? R_GXPickSkyboxSide() : -1;
+		int tev_mat = 0;
 
 		if( want_env && ( sky_side < 0 || sky_side > 5 ))
 			sky_side = 3; /* ft */
 
-		if( r_gx_face_mode != lit_mode )
+		/* Source material class (bake byte 127) → extra TEV stages. */
+		if( slot >= 0 && !live_lm && R_GXTevMatFlags( surf->styles[1] ))
+			tev_mat = surf->styles[1];
+
+		if( r_gx_face_mode != lit_mode || r_gx_face_mat != tev_mat )
 		{
 			if( want_env )
 			{
@@ -4029,16 +4056,10 @@ static int R_GXEmitFace( const msurface_t *surf, model_t *world, int slot )
 				u32 lm_scale = GX_CS_SCALE_2;
 
 				/* Raw BSP lightmaps: texture x light x 2 (GoldSrc overbright).
-				 * CapFaces / menu tram atlas LMs stay at ×1 — except Lost Coast
-				 * DumpFrames (Flipper mean ~20 darker than retail overcast). */
+				 * CapFaces atlas stays ×1 — DumpFrames SCALE_2 blew midband
+				 * (water_lum~94 vs retail~69, probes 170918/171612). */
 				if( ( r_gx_menu_route || slot >= 0 ) && !live_lm )
-				{
 					lm_scale = GX_CS_SCALE_1;
-					if( !r_gx_menu_route
-						&& ( gEngfuncs.Sys_CheckParm( "-gccapfacessmoke" )
-							|| gEngfuncs.Sys_CheckParm( "-gcdumpframes" )))
-						lm_scale = GX_CS_SCALE_2;
-				}
 				GX_SetTevColorOp( GX_TEVSTAGE1, GX_TEV_ADD, GX_TB_ZERO, lm_scale, GX_TRUE, GX_TEVPREV );
 			}
 			GX_SetTevAlphaIn( GX_TEVSTAGE1, GX_CA_ZERO, GX_CA_ZERO, GX_CA_ZERO, GX_CA_APREV );
@@ -4051,6 +4072,19 @@ static int R_GXEmitFace( const msurface_t *surf, model_t *world, int slot )
 			GX_SetVtxDesc( GX_VA_TEX2, GX_NONE );
 			GX_SetVtxAttrFmt( GX_VTXFMT0, GX_VA_TEX1, GX_TEX_ST, GX_F32, 0 );
 			}
+			if( want_env )
+			{
+				const qboolean env_mask = GC_SandSpecTexReady()
+					&& GC_GetSandSpecTexObj() != NULL;
+				const qboolean env_nrm = GC_SandNrmTexReady()
+					&& GC_GetSandNrmTexObj() != NULL;
+
+				R_GXTevMatAppend( tev_mat, env_mask ? 4 : 3,
+					( env_mask || env_nrm ) ? 4 : 3 );
+			}
+			else
+				R_GXTevMatAppend( tev_mat, 2, 2 );
+			r_gx_face_mat = tev_mat;
 			r_gx_face_mode = lit_mode;
 			r_gx_state_sets++;
 		}
@@ -4931,6 +4965,8 @@ int R_GXDrawNewGameCapFaces( void )
 	GC_ProfMark( "render: before GX world" );
 	drawn = R_GXDrawNewGameCapFacesImpl();
 	GC_ProfMark( "render: GX world faces" );
+	R_GXFogEnd();
+	R_GXTevMatEndAlphaTest();
 	if( drawn > 0 && !frozen && R_GXBloomEnabled())
 	{
 		GXRModeObj *rmode = (GXRModeObj *)GC_GetGxVideoMode();
@@ -5750,7 +5786,7 @@ static int R_GXDrawNewGameCapFacesImpl( void )
 								continue;
 							}
 							/* Skip mud-plane CapFaces in the cove water band. */
-							if( cz < -42.0f && dist > 220.0f )
+							if( cz < -30.0f && dist > 220.0f )
 							{
 								frustum_skip++;
 								continue;
@@ -6038,9 +6074,9 @@ static int R_GXDrawNewGameCapFacesImpl( void )
 						GX_SetTevColorOp( GX_TEVSTAGE1, GX_TEV_ADD, GX_TB_ZERO, GX_CS_SCALE_1, GX_TRUE, GX_TEVPREV );
 						GX_SetTevAlphaIn( GX_TEVSTAGE1, GX_CA_ZERO, GX_CA_ZERO, GX_CA_ZERO, GX_CA_APREV );
 						GX_SetTevAlphaOp( GX_TEVSTAGE1, GX_TEV_ADD, GX_TB_ZERO, GX_CS_SCALE_1, GX_TRUE, GX_TEVPREV );
-						GX_SetTevColor( GX_TEVREG0, (GXColor){ 0, 0, 0, 96 } );
-						/* Retail cove water reads cooler/darker than olive mud. */
-						GX_SetTevColor( GX_TEVREG1, (GXColor){ 26, 38, 44, 230 } );
+						GX_SetTevColor( GX_TEVREG0, (GXColor){ 0, 0, 0, 64 } );
+						/* Retail midband ~69; Flipper still ~94 after first darken. */
+						GX_SetTevColor( GX_TEVREG1, (GXColor){ 18, 28, 34, 240 } );
 						GX_ClearVtxDesc();
 						GX_SetVtxDesc( GX_VA_POS, GX_DIRECT );
 						GX_SetVtxDesc( GX_VA_CLR0, GX_DIRECT );
@@ -6330,7 +6366,8 @@ static int R_GXDrawNewGameCapFacesImpl( void )
 						if( dist < 260.0f || dist > 2200.0f )
 							continue;
 						/* Don't re-bury the cove with mud-level CapFaces. */
-						if( cz < -42.0f )
+						/* Keep midgap off the cove plane so the water slab wins. */
+						if( cz < -30.0f )
 							continue;
 						fdot = ( dist > 1.0f )
 							? ( dx * forward[0] + dy * forward[1] + dz * forward[2] ) / dist
@@ -6387,7 +6424,7 @@ static int R_GXDrawNewGameCapFacesImpl( void )
 							if( dist2 > ( 420.0f * 420.0f ))
 								continue;
 							/* Keep beach sand; skip faces that sit on the cove plane. */
-							if( cz < -40.0f && dist2 > ( 180.0f * 180.0f ))
+							if( cz < -30.0f && dist2 > ( 180.0f * 180.0f ))
 								continue;
 							if( !GC_CapFaceInPVS( slot ))
 								continue;
@@ -6407,6 +6444,7 @@ static int R_GXDrawNewGameCapFacesImpl( void )
 				 * Sky cubemap ADD when resident — retail cove mirrors overcast. */
 				{
 					const float water_z = -56.0f;
+					/* hdr2 geometry (mae~39.3) — closer slab washed beach FOV. */
 					const float along = 980.0f;
 					const float half_w = 780.0f;
 					const float half_d = 420.0f;
@@ -6480,8 +6518,8 @@ static int R_GXDrawNewGameCapFacesImpl( void )
 						GX_SetTevColorOp( GX_TEVSTAGE1, GX_TEV_ADD, GX_TB_ZERO, GX_CS_SCALE_1, GX_TRUE, GX_TEVPREV );
 						GX_SetTevAlphaIn( GX_TEVSTAGE1, GX_CA_ZERO, GX_CA_ZERO, GX_CA_ZERO, GX_CA_APREV );
 						GX_SetTevAlphaOp( GX_TEVSTAGE1, GX_TEV_ADD, GX_TB_ZERO, GX_CS_SCALE_1, GX_TRUE, GX_TEVPREV );
-						GX_SetTevColor( GX_TEVREG0, (GXColor){ 0, 0, 0, 110 } );
-						GX_SetTevColor( GX_TEVREG1, (GXColor){ 28, 40, 46, 210 } );
+						GX_SetTevColor( GX_TEVREG0, (GXColor){ 0, 0, 0, 48 } );
+						GX_SetTevColor( GX_TEVREG1, (GXColor){ 12, 22, 28, 245 } );
 						GX_ClearVtxDesc();
 						GX_SetVtxDesc( GX_VA_POS, GX_DIRECT );
 						GX_SetVtxDesc( GX_VA_CLR0, GX_DIRECT );
@@ -6515,8 +6553,8 @@ static int R_GXDrawNewGameCapFacesImpl( void )
 
 							GX_Position3f32( p[vi][0], p[vi][1], p[vi][2] );
 							/* Near edge denser; far edge softer so cliffs remain.
-							 * Darker body — retail midband ~60 vs Flipper ~96. */
-							GX_Color1u32( ( vi < 2 ) ? 0x162028C0u : 0x1A283088u );
+							 * Darker body — retail midband ~69 vs Flipper ~94. */
+							GX_Color1u32( ( vi < 2 ) ? 0x0C141AE8u : 0x101820B0u );
 							if( slab_sky )
 								GX_TexCoord2f32( st[vi][0], st[vi][1] );
 						}

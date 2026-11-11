@@ -11911,6 +11911,9 @@ static qboolean GC_TryLoadCapFacesPackPath( model_t *mod, const char *path, qboo
 		/* CapFaces byte 126: Source $envmaptint → GX LIT_ENV A0 weight. */
 		draw->styles[0] = draw->styles[1] = draw->styles[2] = 255;
 		draw->styles[3] = rec[126];
+		/* CapFaces byte 127: Source material class id for TEV recipes
+		 * (ref/gx/r_gx_tevmat.c); styles[0]=255 already ends style loops. */
+		draw->styles[1] = rec[127];
 
 		{
 			int texnum = GC_FindTexnumByHash( mod, tex_hash );
