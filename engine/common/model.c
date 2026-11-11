@@ -106,7 +106,8 @@ byte *Mod_GCStudioArenaLoadFile( const char *path, fs_offset_t *length )
 		FS_Close( f );
 		return NULL;
 	}
-	if( GC_PrefetchRead( path, slot, (unsigned int)flen ))
+	if( GC_PrefetchRead( path, slot, (unsigned int)flen )
+		|| GC_AssetCacheRead( path, slot, (unsigned int)flen ))
 	{
 		FS_Close( f );
 		*length = flen;
@@ -117,6 +118,7 @@ byte *Mod_GCStudioArenaLoadFile( const char *path, fs_offset_t *length )
 	FS_Close( f );
 	if( total != flen )
 		return NULL; /* bump hole, rare short read */
+	GC_AssetCacheStore( path, slot, (unsigned int)flen );
 	*length = flen;
 	Con_Reportf( "Xash3D GameCube: studio seqgroup '%s' in arena (%s) bump=%s\n",
 		path, Q_memprint( (size_t)flen ), Q_memprint( gc_studio_bss_bump ));
@@ -153,18 +155,28 @@ static int Mod_GCSeqGroupSlotOf( const void *ptr )
 
 byte *Mod_GCSeqGroupLoad( const char *path, cache_user_t *cu, fs_offset_t *length )
 {
-	file_t *f;
+	file_t *f = NULL;
 	fs_offset_t flen, total = 0, got;
+	unsigned int cached = 0;
 	int i, pick = -1;
 
 	*length = 0;
-	f = FS_Open( path, "rb", false );
-	if( !f )
-		return NULL;
-	flen = FS_FileLength( f );
+	/* Animation slots are recycled least-recently-used, so the same group is
+	 * read many times per map. After the first read it comes from ARAM. */
+	if( GC_AssetCacheLookup( path, &cached ) && cached > 0 && cached <= GC_SEQGROUP_SLOT_SIZE )
+		flen = (fs_offset_t)cached;
+	else
+	{
+		cached = 0;
+		f = FS_Open( path, "rb", false );
+		if( !f )
+			return NULL;
+		flen = FS_FileLength( f );
+	}
 	if( flen <= 0 || flen > GC_SEQGROUP_SLOT_SIZE )
 	{
-		FS_Close( f );
+		if( f )
+			FS_Close( f );
 		return NULL;
 	}
 	for( i = 0; i < GC_SEQGROUP_SLOTS && pick < 0; i++ )
@@ -189,22 +201,36 @@ byte *Mod_GCSeqGroupLoad( const char *path, cache_user_t *cu, fs_offset_t *lengt
 	}
 	if( pick < 0 )
 	{
-		FS_Close( f );
+		if( f )
+			FS_Close( f );
 		return NULL;
 	}
 	if( gc_seqgroup_slot[pick].owner && Mod_GCSeqGroupSlotOf( gc_seqgroup_slot[pick].owner->data ) == pick )
 		gc_seqgroup_slot[pick].owner->data = NULL;
 	gc_seqgroup_slot[pick].owner = NULL;
-	while( total < flen && ( got = FS_Read( f, gc_seqgroup_slot[pick].buf + total, flen - total )) > 0 )
-		total += got;
-	FS_Close( f );
+	if( cached && GC_AssetCacheRead( path, gc_seqgroup_slot[pick].buf, cached ))
+		total = flen;
+	else
+	{
+		if( !f )
+			f = FS_Open( path, "rb", false );
+		if( !f )
+			return NULL;
+		while( total < flen && ( got = FS_Read( f, gc_seqgroup_slot[pick].buf + total, flen - total )) > 0 )
+			total += got;
+		if( total == flen )
+			GC_AssetCacheStore( path, gc_seqgroup_slot[pick].buf, (unsigned int)flen );
+	}
+	if( f )
+		FS_Close( f );
 	if( total != flen )
 		return NULL;
 	gc_seqgroup_slot[pick].owner = cu;
 	gc_seqgroup_slot[pick].used = ++gc_seqgroup_clock;
 	cu->data = gc_seqgroup_slot[pick].buf;
 	*length = flen;
-	Con_Reportf( "Xash3D GameCube: studio seqgroup '%s' in slot %d (%s)\n", path, pick, Q_memprint( (size_t)flen ));
+	Con_Reportf( "Xash3D GameCube: studio seqgroup '%s' in slot %d (%s)%s\n", path, pick,
+		Q_memprint( (size_t)flen ), cached ? " from ARAM" : "" );
 	return gc_seqgroup_slot[pick].buf;
 }
 
@@ -491,6 +517,37 @@ static byte *Mod_GCLoadStudioFile( const char *model_path, fs_offset_t *length, 
 	COM_FileBase( model_path, bare, sizeof( bare ));
 	Q_snprintf( mirror, sizeof( mirror ), "gc_studio/%s.mdl", bare );
 
+	/* A model read once this boot stays in ARAM (raw file bytes, before the
+	 * in-place byte swap), so an arena reset, a team pick or a changelevel
+	 * reloads it by DMA instead of from disc. */
+	{
+		unsigned int cached = 0;
+
+		if( GC_AssetCacheLookup( mirror, &cached ) && cached >= sizeof( studiohdr_t )
+			&& cached <= GC_STUDIO_BSS_BYTES )
+		{
+			if( !Mod_GCAllowRealStudioLoad( model_path, (size_t)cached ))
+			{
+				Con_Reportf( "Xash3D GameCube: deferred studio budget skip '%s' (%s)\n",
+					model_path, Q_memprint( (size_t)cached ));
+				return NULL;
+			}
+			previous_bump = gc_studio_bss_bump;
+			slot = Mod_GCStudioBssAlloc( (size_t)cached );
+			if( slot && GC_AssetCacheRead( mirror, slot, cached ))
+			{
+				*length = (fs_offset_t)cached;
+				if( from_bss )
+					*from_bss = true;
+				Con_Reportf( "Xash3D GameCube: studio '%s' from ARAM (%s) bump=%s\n",
+					model_path, Q_memprint( (size_t)cached ), Q_memprint( gc_studio_bss_bump ));
+				return slot;
+			}
+			if( slot )
+				Mod_GCStudioBssRollbackLast( slot, (size_t)cached, previous_bump );
+		}
+	}
+
 	if( FS_FileExists( mirror, false ))
 	{
 		f = FS_Open( mirror, "rb", false );
@@ -526,6 +583,7 @@ static byte *Mod_GCLoadStudioFile( const char *model_path, fs_offset_t *length, 
 				FS_Close( f );
 				if( total == flen )
 				{
+					GC_AssetCacheStore( mirror, slot, (unsigned int)flen );
 					*length = flen;
 					if( from_bss )
 						*from_bss = true;
@@ -556,6 +614,7 @@ static byte *Mod_GCLoadStudioFile( const char *model_path, fs_offset_t *length, 
 	buf = FS_LoadFileMalloc( mirror, length, false );
 	if( buf && *length >= (fs_offset_t)sizeof( studiohdr_t ))
 	{
+		GC_AssetCacheStore( mirror, buf, (unsigned int)*length );
 		Con_Reportf( "Xash3D GameCube: deferred studio read '%s' via %s (%s)\n",
 			model_path, mirror, Q_memprint( (size_t)*length ));
 		return buf;
@@ -1987,6 +2046,7 @@ void Mod_GCReleaseStudioArena( void )
 	gc_seqgroup_slot[0].buf = Mod_GCStudioBssAlloc( GC_SEQGROUP_SLOT_SIZE );
 	gc_seqgroup_slot[1].buf = Mod_GCStudioBssAlloc( GC_SEQGROUP_SLOT_SIZE );
 	Con_Reportf( "Xash3D GameCube: studio arena released models=%d bytes=%u\n", freed, (uint)before );
+	GC_AramReport( "studio-release" );
 }
 
 void Mod_GcmapMarkPrecacheFreeable( void )

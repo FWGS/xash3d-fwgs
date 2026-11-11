@@ -1045,7 +1045,6 @@ static gc_fill_face_t gc_aram_stage __attribute__(( aligned( 32 )));
  * DMA twice while keeping the cache bounded and deterministic. */
 static int gc_aram_face_cached_slot = -1;
 static gc_fill_face_t gc_aram_face_cached __attribute__(( aligned( 32 )));
-static u32 gc_aram_blocks[8];
 
 /*
  * G212: keep-score for the 320-slot Flipper budget. MEM1 cannot hold all BSP30
@@ -2521,7 +2520,7 @@ static void GC_TryLoadPropPack( model_t *mod )
 
 	/* Entire pack → ARAM (lazy; DVD can take a while). MEM1 only hot-pages. */
 	need = ((u32)size + 31u ) & ~31u;
-	gc_prop_aram_base = GC_AramReserve( need );
+	gc_prop_aram_base = GC_AramReserveTagged( need, "props" );
 	if( !gc_prop_aram_base )
 	{
 		Con_Reportf( "Xash3D GameCube: prop ARAM reserve failed need=%u\n", need );
@@ -5558,9 +5557,7 @@ static qboolean GC_AramFillEnsure( void )
 	if( gc_aram_fill_tried )
 		return false;
 	gc_aram_fill_tried = true;
-	if( !AR_CheckInit())
-		AR_Init( gc_aram_blocks, 8 );
-	gc_aram_fill_base = AR_Alloc( (u32)GC_ARAM_FILL_MAX * (u32)GC_ARAM_FACE_STRIDE );
+	gc_aram_fill_base = GC_AramAllocTagged( (u32)GC_ARAM_FILL_MAX * (u32)GC_ARAM_FACE_STRIDE, true, "fill" );
 	if( !gc_aram_fill_base )
 	{
 		SYS_Report( "Xash3D GameCube: G225 ARAM fail\n" );
@@ -5574,10 +5571,9 @@ static void GC_AramFillRelease( void )
 {
 	if( !gc_aram_fill_base )
 		return;
-	while( AR_GetDMAStatus())
-		;
-	/* G225 owns the most recent ARAM allocation in this subsystem. */
-	AR_Free( NULL );
+	/* Free this block by address. AR_Free( NULL ) popped whichever block was
+	 * on top of the AR stack, which was not always this one. */
+	GC_AramFree( gc_aram_fill_base );
 	gc_aram_fill_base = 0;
 	gc_aram_face_cached_slot = -1;
 }
@@ -11641,7 +11637,10 @@ static void GC_CapFacesAramPrefetchAll( void )
 		return;
 	if( !gc_cap_aram_pool || gc_cap_aram_pool_bytes < total )
 	{
-		gc_cap_aram_pool = GC_AramReserve( total );
+		/* Growing used to leak the smaller pool's block. */
+		if( gc_cap_aram_pool )
+			GC_AramFree( gc_cap_aram_pool );
+		gc_cap_aram_pool = GC_AramReserveTagged( total, "capfaces" );
 		gc_cap_aram_pool_bytes = gc_cap_aram_pool ? total : 0;
 	}
 	if( !gc_cap_aram_pool )
