@@ -13372,6 +13372,15 @@ void GC_GetVideoSafeArea( int *x, int *y, int *w, int *h )
 qboolean GC_UseGxWorldDraw( void )
 {
 #if XASH_GAMECUBE
+	static qboolean rejected_state_logged;
+	if( gc_newgame_world_ready && gc_gx_world_live && !GC_UseGxRenderer()
+		&& !rejected_state_logged )
+	{
+		rejected_state_logged = true;
+		Con_Reportf( "Xash3D GameCube: GX world rejected initialized=%d cpu_dump=%d softworld=%d\n",
+			gc.initialized ? 1 : 0, gc_cpu_dump_presents_left,
+			Sys_CheckParm( "-gcsoftworld" ) ? 1 : 0 );
+	}
 	/* Pure Flipper 3D: live GX whenever the world is prepared (retail + probe). */
 	if( !GC_UseGxRenderer() )
 		return false;
@@ -16637,6 +16646,40 @@ qboolean GC_RenderNewGameWorldFrames( int count )
 		Con_Reportf( "Xash3D GameCube: GC_RenderNewGameWorldFrames enter map=%s tip=%s state=%d\n",
 			sv.name[0] ? sv.name : "?", Q_memprint( GC_MemHeapFreeBytes() ), cls.state );
 	}
+	/* A loading-plaque soft DumpFrames latch can survive into the first local
+	 * gameplay frame. On the full BSP route that forces the software edge
+	 * renderer, which exceeds the GameCube stack. The world EFB now owns the
+	 * frame, so retire only that stale latch before rendering. Changelevel's
+	 * deliberate G191 dump latch is managed separately and stays intact. */
+	if( Sys_CheckParm( "-gcworldrender" ) && gc_cpu_dump_presents_left > 0
+		&& !gc_g192_post_changelevel )
+	{
+		Con_Reportf( "Xash3D GameCube: retire loading dump latch before live world frame count=%d\n",
+			gc_cpu_dump_presents_left );
+		gc_cpu_dump_presents_left = 0;
+	}
+	/* The menu-to-listen-server transition frees renderer video state while it
+	 * tears down the menu client. The deferred local-map path restores the soft
+	 * framebuffer itself, but must also bring Flipper back before the first BSP
+	 * frame or R_EdgeDrawing falls into its stack-heavy software path. */
+	if( !gc.initialized )
+	{
+		Con_Reportf( "Xash3D GameCube: restoring Flipper after local map load\n" );
+		GC_InitVideoHardware();
+	}
+	if( !gc.initialized )
+	{
+		Con_Reportf( "Xash3D GameCube: Flipper unavailable after local map load\n" );
+		return false;
+	}
+	/* DoD's local-map client init is deliberately lean and defers full HUD
+	 * sprite setup. Match that path before the first client Redraw; quality 1
+	 * enters the retail sprite HUD before VidInit has populated its sheets. */
+	if( Sys_CheckParm( "-gcworldrender" ) && gc_quality && gc_quality->value > 0.0f )
+	{
+		Cvar_Set( "gc_quality", "0" );
+		Con_Reportf( "Xash3D GameCube: local world HUD quality set to lean\n" );
+	}
 	/* Full-physics TAS reaches this bounded renderer without the normal client
 	 * view setup. Bind the already mirrored landmark mesh here, after the
 	 * renderer/world guards above, and allow the existing GX viewmodel pass to
@@ -17385,6 +17428,8 @@ gc_render_present_frames:
 		 * before any present; mark each step of the frame to find where. */
 		static int frame_trace;
 		const qboolean trace = frame_trace < 3;
+		const qboolean gx_world_frame = Sys_CheckParm( "-gcworldrender" )
+			&& GC_UseGxWorldDraw();
 
 		if( trace )
 			frame_trace++;
@@ -17483,13 +17528,14 @@ gc_render_present_frames:
 							gc_capfaces_team_picked = true;
 							Con_Reportf( "Xash3D GameCube: team select %s\n",
 								teams[gc_capfaces_team_sel] );
-							/* Mirror choice into userinfo for deathmatch SDK. */
+							/* Tell the game DLL to assign the side and respawn. A local
+							 * setinfo only changes the client label, not server team state. */
 							if( gc_capfaces_team_sel == 0 )
-								Cbuf_AddText( "setinfo team allies\n" );
+								CL_ServerCommand( true, "dod_team allies\n" );
 							else if( gc_capfaces_team_sel == 1 )
-								Cbuf_AddText( "setinfo team axis\n" );
+								CL_ServerCommand( true, "dod_team axis\n" );
 							else
-								Cbuf_AddText( "setinfo team spectator\n" );
+								CL_ServerCommand( true, "menuselect 3\n" );
 							/* Prove fire path once after team pick. */
 							Cbuf_AddText( "+attack;wait;wait;-attack\n" );
 						}
@@ -17552,6 +17598,20 @@ gc_render_present_frames:
 		}
 		ref.dllFuncs.R_EndFrame();
 		GC_WatchdogMark( "newgame frame after R_EndFrame" );
+		/* Pure-GX R_BlitScreen intentionally skips the software swap, but this
+		 * direct local-play renderer owns its frame loop. Present the EFB here
+		 * so the live BSP reaches the visible XFB during menu-driven play. */
+		if( gx_world_frame )
+		{
+			/* A single-XFB build must stay on slot zero. Menu teardown can leave
+			 * the old scanout slot unavailable while Flipper itself remains live. */
+			if( !xfb[0] && rmode )
+				GC_AllocXFB( 0, rmode );
+			if( !xfb[1] )
+				which_fb = 0;
+			GC_MarkGxWorldEfbReady();
+			GC_PresentBuffer();
+		}
 		if( trace )
 			Con_Reportf( "Xash3D GameCube: newgame frame %d after R_EndFrame\n", frame_trace );
 	}

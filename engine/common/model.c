@@ -65,11 +65,11 @@ static int     gc_deferred_studio_attempts;
  * is ~171 KiB; with v_crowbar (~46 KiB) that already exceeds 184, so hallway
  * soft skins never got a BSS mesh (heap zip OOM → stub SetModel). 384 KiB
  * holds crowbar + scientist + barney (~343 KiB) for deferred T.mdl attach;
- * tip-safe c1a0a→c1a0d must stay CHANGELEVEL_READY after this bump. Native
- * Ethernet multiplayer instead uses the proven 184 KiB boot budget; visual
- * studios can remain deferred rather than preventing a match from starting. */
+ * tip-safe c1a0a→c1a0d must stay CHANGELEVEL_READY after this bump. The DoD
+ * listen build also needs room for a team weapon after bootstrap crowbar and
+ * handgun meshes, so reserve the same bounded 384 KiB for the live loadout. */
 #if XASH_DODGC_NETWORK
-#define GC_STUDIO_BSS_BYTES (184 * 1024)
+#define GC_STUDIO_BSS_BYTES (384 * 1024)
 #else
 #define GC_STUDIO_BSS_BYTES (384 * 1024)
 #endif

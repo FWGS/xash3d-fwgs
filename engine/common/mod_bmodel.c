@@ -5404,7 +5404,8 @@ static void Mod_GCWorldPackLoad( const char *modelname, size_t surface_reserve )
 	 * switch. They still need the same ARAM world-pack path; otherwise the
 	 * BSP's embedded textures are decoded into MEM1 and produce misleading
 	 * transition-pressure fallbacks. */
-	if(( !GC_MenuRunsServer() && !Sys_CheckParm( "-gcnewgame" )
+	if(( !GC_MenuRunsServer() && !GC_MapLoadMemoryOpt()
+		&& !Sys_CheckParm( "-gcnewgame" )
 		&& !Sys_CheckParm( "-gcmap" )
 		&& !Sys_CheckParm( "-gccapfacessmoke" ))
 		|| Sys_CheckParm( "-gcnotexpacks" ))
