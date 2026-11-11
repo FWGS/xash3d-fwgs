@@ -29,6 +29,7 @@ byte *Mod_GCStudioBssGrowLast( void *ptr, size_t old_size, size_t new_size );
 #include "swaplib.h"
 #if XASH_GAMECUBE
 static void Mod_GCFixStudioUvDomains( studiohdr_t *phdr );
+static void Mod_GCForceVmChromakeyMasks( studiohdr_t *phdr );
 #endif
 
 typedef int (*STUDIOAPI)( int, sv_blending_interface_t**, server_studio_api_t*,  float (*transform)[3][4], float (*bones)[MAXSTUDIOBONES][3][4] );
@@ -1475,6 +1476,7 @@ void Mod_LoadStudioModel( model_t *mod, void *buffer, size_t buffersize, qboolea
 			size1 + size2 <= SIZE_MAX - (size_t)phdr->length )
 		{
 			// TODO: Mod_StudioLoadTextures will crash if passed a merged studio model!
+			Mod_GCForceVmChromakeyMasks( thdr );
 			ref.dllFuncs.Mod_StudioLoadTextures( mod, thdr );
 			textures_loaded = true;
 
@@ -1534,6 +1536,7 @@ void Mod_LoadStudioModel( model_t *mod, void *buffer, size_t buffersize, qboolea
 				&& src->texturedataindex > (int)sizeof( studiohdr_t )
 				&& (size_t)src->texturedataindex <= buffersize )
 			{
+				Mod_GCForceVmChromakeyMasks( src );
 				ref.dllFuncs.Mod_StudioLoadTextures( mod, src );
 				mesh = (size_t)src->texturedataindex;
 			}
@@ -1566,6 +1569,7 @@ void Mod_LoadStudioModel( model_t *mod, void *buffer, size_t buffersize, qboolea
 							mod->cache.data = slot;
 					}
 					Image_GCPurgeDecodeScratch();
+					Mod_GCForceVmChromakeyMasks( thdr );
 					ref.dllFuncs.Mod_StudioLoadTextures( mod, thdr );
 					textures_loaded = true;
 					if( !mod->cache.data )
@@ -1609,6 +1613,7 @@ void Mod_LoadStudioModel( model_t *mod, void *buffer, size_t buffersize, qboolea
 						Con_Reportf( "Xash3D GameCube: G376 studio T.mdl skins '%s' n=%d kept=%s\n",
 							mod->name, phdr->numtextures, Q_memprint( merged ));
 						Mod_GCFixStudioUvDomains( phdr );
+						Mod_GCForceVmChromakeyMasks( phdr );
 						Mod_GCReleaseStudioTexBuf( tex_buf );
 						tex_buf = NULL;
 						thdr = NULL;
@@ -1835,6 +1840,43 @@ static void Mod_GCFixStudioUvDomains( studiohdr_t *phdr )
 	}
 }
 
+/* Lean T.mdl hands.bmp ships flags=0 (ava-play99-93/96) so chromakey stays
+ * opaque RGB and ghosts the silhouette. Force MASKED on hand skins. */
+static void Mod_GCForceVmChromakeyMasks( studiohdr_t *phdr )
+{
+	mstudiotexture_t *ptexture;
+	int i, n = 0;
+
+	if( !phdr || phdr->numtextures <= 0 || phdr->textureindex <= 0 )
+		return;
+	if( (size_t)phdr->textureindex
+		+ (size_t)phdr->numtextures * sizeof( mstudiotexture_t )
+		> (size_t)phdr->length )
+		return;
+
+	ptexture = (mstudiotexture_t *)((byte *)phdr + phdr->textureindex );
+	for( i = 0; i < phdr->numtextures; i++ )
+	{
+		if( !Q_stristr( ptexture[i].name, "hands" ))
+			continue;
+		if( !FBitSet( ptexture[i].flags, STUDIO_NF_MASKED ))
+		{
+			SetBits( ptexture[i].flags, STUDIO_NF_MASKED );
+			n++;
+		}
+	}
+	if( n > 0 )
+	{
+		static int mask_logs;
+		if( mask_logs < 8 )
+		{
+			mask_logs++;
+			Con_Reportf( "Xash3D GameCube: G378 VM hands MASKED '%s' n=%d\n",
+				phdr->name[0] ? phdr->name : "?", n );
+		}
+	}
+}
+
 static qboolean Mod_GCStudioSkinsBound( const studiohdr_t *phdr )
 {
 	const mstudiotexture_t *t;
@@ -1887,6 +1929,7 @@ qboolean Mod_GCAttachStudioSkins( model_t *mod )
 		 * CapFaces lean+*t merge leaves headers with index=0 and no pixels —
 		 * in-place upload then samples garbage (ava-vm11 zebra gun). */
 		Image_GCPurgeDecodeScratch();
+		Mod_GCForceVmChromakeyMasks( phdr );
 		ref.dllFuncs.Mod_StudioLoadTextures( mod, phdr );
 		if( Mod_GCStudioSkinsBound( phdr ))
 		{
@@ -1919,6 +1962,7 @@ qboolean Mod_GCAttachStudioSkins( model_t *mod )
 				gc_force_studio_skins = false;
 				return false;
 			}
+			Mod_GCForceVmChromakeyMasks( src_hdr );
 			ref.dllFuncs.Mod_StudioLoadTextures( mod, src_hdr );
 			src_tex = (mstudiotexture_t *)((byte *)src_hdr + src_hdr->textureindex );
 			dst_tex = (mstudiotexture_t *)((byte *)phdr + phdr->textureindex );
@@ -1966,6 +2010,7 @@ qboolean Mod_GCAttachStudioSkins( model_t *mod )
 		if( Mod_GCIsStudioBssCache( mod->cache.data ))
 			slot = Mod_GCStudioBssGrowLast( mod->cache.data, mesh, merged );
 		Image_GCPurgeDecodeScratch();
+		Mod_GCForceVmChromakeyMasks( src_hdr );
 		ref.dllFuncs.Mod_StudioLoadTextures( mod, src_hdr );
 		if( !slot )
 			slot = (byte *)calloc( 1, merged );
@@ -1996,12 +2041,16 @@ qboolean Mod_GCAttachStudioSkins( model_t *mod )
 			Con_Reportf( "Xash3D GameCube: deferred T.mdl skins '%s' n=%d kept=%s\n",
 				mod->name, phdr->numtextures, Q_memprint( merged ));
 			Mod_GCFixStudioUvDomains( phdr );
+			Mod_GCForceVmChromakeyMasks( phdr );
 		}
 	}
 	Mod_GCReleaseStudioTexBuf( buf );
 	gc_force_studio_skins = false;
 	if( mod->cache.data )
+	{
 		Mod_GCFixStudioUvDomains( (studiohdr_t *)mod->cache.data );
+		Mod_GCForceVmChromakeyMasks( (studiohdr_t *)mod->cache.data );
+	}
 	return Mod_GCStudioSkinsBound( (studiohdr_t *)mod->cache.data );
 }
 

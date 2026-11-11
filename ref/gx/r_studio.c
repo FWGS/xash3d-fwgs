@@ -1228,6 +1228,22 @@ static void R_StudioSetupBones( cl_entity_t *e )
 					rmax[0] - rmin[0], rmax[1] - rmin[1], rmax[2] - rmin[2],
 					pseqdesc->numframes,
 					e->curstate.animtime, e->angles[PITCH] );
+				/* Clip (54/55) should sit on gun bone 49 — log if detached. */
+				if( m_pStudioHeader->numbones > 55 )
+				{
+					const float gx = g_studio.bonestransform[49][0][3];
+					const float gy = g_studio.bonestransform[49][1][3];
+					const float gz = g_studio.bonestransform[49][2][3];
+					const float cx = g_studio.bonestransform[54][0][3];
+					const float cy = g_studio.bonestransform[54][1][3];
+					const float cz = g_studio.bonestransform[54][2][3];
+					const float dx = cx - gx, dy = cy - gy, dz = cz - gz;
+
+					gEngfuncs.Con_Reportf(
+						"Xash3D GameCube: G379 VM gun bone49=(%.1f,%.1f,%.1f) clip54=(%.1f,%.1f,%.1f) d=%.1f\n",
+						gx, gy, gz, cx, cy, cz,
+						sqrtf( dx * dx + dy * dy + dz * dz ));
+				}
 			}
 		}
 	}
@@ -1615,6 +1631,17 @@ static void R_StudioSetupLighting( alight_t *plight )
 
 	g_studio.ambientlight = plight->ambientlight;
 	g_studio.shadelight = plight->shadelight;
+#if XASH_GAMECUBE
+	/* Viewmodel MODULATE: soft gouraud only. Wide ambient/shade ranges
+	 * (72/96, 128/80) silhouetted the Garand under MODULATE (ava-play99-87/88).
+	 * 176/32 read almost flat (ava-play99-91/92) — open the band a little
+	 * so hands get definition without crushing wood. */
+	if( RI.currententity == tr.viewent )
+	{
+		g_studio.ambientlight = 152.0f;
+		g_studio.shadelight = 56.0f;
+	}
+#endif
 	VectorCopy( plight->plightvec, g_studio.lightvec );
 
 	for( int i = 0; i < m_pStudioHeader->numbones; i++ )
@@ -2425,6 +2452,18 @@ static void R_StudioDrawPoints( void )
 					R_StudioLighting( &lv_tmp, -1, g_nFaceFlags, g_studio.norms[k] );
 				else
 					R_StudioLighting( &lv_tmp, *pnormbone, g_nFaceFlags, (float *)pstudionorms );
+#if XASH_GAMECUBE
+				/* Soft-clamp viewmodel luminance so MODULATE cannot crush
+				 * backfaces into black silhouettes (ava-play99-88). Floor
+				 * eased with ambient 152/56 so hands keep some shape. */
+				if( RI.currententity == tr.viewent )
+				{
+					if( lv_tmp < 0.55f )
+						lv_tmp = 0.55f;
+					else if( lv_tmp > 0.98f )
+						lv_tmp = 0.98f;
+				}
+#endif
 
 				if( FBitSet( g_nFaceFlags, STUDIO_NF_CHROME ))
 					R_StudioSetupChrome( g_studio.chrome[k], *pnormbone, (float *)pstudionorms );
@@ -2910,6 +2949,14 @@ static void R_StudioRenderFinal( void )
 	{
 		for( i = 0; i < m_pStudioHeader->numbodyparts; i++ )
 		{
+#if XASH_GAMECUBE
+			/* Sleeve bodypart is a separate 82-vert paddle that reads as
+			 * prism arms under Flipper (ava-play99-80). Gun mesh0 already
+			 * carries hands.bmp arms — skip the cloth overlay for viewent. */
+			if(( GC_UseGxWorldDraw() || gEngfuncs.Sys_CheckParm( "-gcnewgame" ))
+				&& RI.currententity == tr.viewent && i > 0 )
+				continue;
+#endif
 			R_StudioSetupModel( i, (void **)&m_pBodyPart, (void **)&m_pSubModel );
 
 			GL_StudioSetRenderMode( rendermode );
@@ -3654,9 +3701,9 @@ void R_DrawViewModel( void )
 		return;
 
 #if XASH_GAMECUBE
-	/* G157: CapFaces eye-origin (ava-play99-64 silhouette). Stock ~−24u is
-	 * clipped by VM guFrustum zNear=24 — keep mesh at eye so hands/gun stay
-	 * authored distance (fwd=32 pushed prism arms, 79/80). Idle f=0. */
+	/* G157: idle stock ~−24u behind eye. fwd=32 shrank the rifle so the
+	 * en-bloc clip looked detached (G379 d=7.4u — bones OK). fwd=22 +
+	 * depth≥4 keeps most mesh and restores size. Idle f=0. */
 	if( gEngfuncs.Sys_CheckParm( "-gcnewgame" ) || GC_UseGxWorldDraw() )
 	{
 		vec3_t delta;
@@ -3665,11 +3712,15 @@ void R_DrawViewModel( void )
 
 		VectorCopy( RI.rvp.vieworigin, view->origin );
 		VectorCopy( RI.rvp.viewangles, view->angles );
-		if( !g162_offset_logged )
+		if( RI.vforward[0] != 0.0f || RI.vforward[1] != 0.0f || RI.vforward[2] != 0.0f )
 		{
-			g162_offset_logged = true;
-			gEngfuncs.Con_Reportf(
-				"Xash3D GameCube: G162 viewmodel frame offset forward=0 up=+0 (eye, zNear=24)\n" );
+			VectorMA( view->origin, 22.0f, RI.vforward, view->origin );
+			if( !g162_offset_logged )
+			{
+				g162_offset_logged = true;
+				gEngfuncs.Con_Reportf(
+					"Xash3D GameCube: G162 viewmodel frame offset forward=22 up=+0\n" );
+			}
 		}
 		VectorCopy( view->origin, view->curstate.origin );
 		VectorCopy( view->angles, view->curstate.angles );

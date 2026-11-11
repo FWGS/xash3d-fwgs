@@ -3744,11 +3744,12 @@ static void Mod_MakeHull0( model_t *mod, const dbspmodel_t *bmod )
 #if XASH_GAMECUBE
 		if( gc_hull0_soft && soft_skipped )
 			Con_Reportf( "Xash3D GameCube: hull0 soft-skipped %zu dangling children\n", soft_skipped );
-		/* CapFaces: tip-corrupt edges make an 8k-node hull0 thrash entity
-		 * DropToFloor/LinkEdict (avalanche hung ~edict 11). Collapse to a
-		 * single EMPTY clipnode so traces are O(1); offline packs do not
-		 * need world collision for Flipper present. */
-		if( gc_hull0_soft && out == hull->clipnodes16 + mod->numnodes && mod->numnodes > 0 )
+		/* CapFaces densify: tip-corrupt edges made 8k-node hull0 thrash
+		 * DropToFloor (avalanche ~edict 11). Collapse only when WorldDL is
+		 * absent — playable WorldDL needs real traces for move/shoot
+		 * (ava-play99-102 hull0 EMPTY → move frac=1.0 / world_ok miss). */
+		if( gc_hull0_soft && out == hull->clipnodes16 + mod->numnodes && mod->numnodes > 0
+			&& !Mod_GCWorldDLPackPresent( mod ))
 		{
 			mclipnode16_t *root = hull->clipnodes16;
 			root->planenum = 0;
@@ -3757,6 +3758,11 @@ static void Mod_MakeHull0( model_t *mod, const dbspmodel_t *bmod )
 			hull->firstclipnode = 0;
 			hull->lastclipnode = 0;
 			Con_Reportf( "Xash3D GameCube: CapFaces hull0 collapsed to EMPTY leaf\n" );
+		}
+		else if( gc_hull0_soft && Mod_GCWorldDLPackPresent( mod ))
+		{
+			Con_Reportf( "Xash3D GameCube: WorldDL keep hull0 clipnodes n=%d soft_skip=%zu\n",
+				mod->numnodes, soft_skipped );
 		}
 #endif
 	}
@@ -3978,9 +3984,9 @@ static void Mod_SetupSubmodels( model_t *mod, dbspmodel_t *bmod )
 		mod->hulls[0].lastclipnode = bm->headnode[0]; // need to be real count
 
 #if XASH_GAMECUBE
-		/* CapFaces: hull0 was collapsed to EMPTY leaf; keep first/last at 0
-		 * so DropToFloor/LinkEdict stay O(1) across all submodels. */
-		if( Sys_CheckParm( "-gcworldrender" ))
+		/* CapFaces densify without WorldDL: hull0 was collapsed EMPTY — keep
+		 * first/last at 0. WorldDL playable keeps real clipnode counts. */
+		if( Sys_CheckParm( "-gcworldrender" ) && !Mod_GCWorldDLPackPresent( world ))
 		{
 			mod->hulls[0].firstclipnode = 0;
 			mod->hulls[0].lastclipnode = 0;

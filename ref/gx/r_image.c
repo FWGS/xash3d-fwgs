@@ -726,6 +726,7 @@ static qboolean GL_UploadTextureBody( image_t *tex, rgbdata_t *pic )
 			for( uint i = 0; i < height * width; i++ )
 			{
 				unsigned int r, g, b, major, minor;
+				const unsigned int a8 = data[i * 4 + 3];
 				// seems to look better
 				r = data[i * 4 + 0] * BIT( 5 ) / 256;
 				g = data[i * 4 + 1] * BIT( 6 ) / 256;
@@ -745,13 +746,38 @@ static qboolean GL_UploadTextureBody( image_t *tex, rgbdata_t *pic )
 				}
 				if( doAlpha )
 				{
-					unsigned int alpha = ( data[i * 4 + 3] * 8 / 256 ) << ( 16 - 3 );
+					unsigned int alpha = ( a8 * 8 / 256 ) << ( 16 - 3 );
 					tex->alpha_pixels[i] = ( tex->pixels[j][i] >> 3 ) | alpha;
 				}
-				if( doOneBitAlpha && data[i * 4 + 3] < 128 )
+				if( doOneBitAlpha && a8 < 128 )
 					tex->pixels[j][i] = TRANSPARENT_COLOR;         // 0000 0011 0100 1001;
+				/* VM chromakey punch even when STUDIO_NF_MASKED is clear —
+				 * lean hands.bmp pins flags=0x0 (ava-play99-93). Keep this
+				 * strict: ava-play99-94 salmon thresholds ate flesh
+				 * (center→0x0349) and crashed DecalShoot after flood. */
+				if( vm_rgb565 )
+				{
+					const unsigned r8 = data[i * 4 + 0];
+					const unsigned g8 = data[i * 4 + 1];
+					const unsigned b8 = data[i * 4 + 2];
+					const qboolean hands = ( Q_stristr( tex->name, "hands" ) != NULL );
+
+					/* Magenta / hot pink chromakey leftovers only. */
+					if( r8 > 200 && b8 > 180 && g8 + 40 < r8 && g8 + 40 < b8 )
+						tex->pixels[j][i] = TRANSPARENT_COLOR;
+					else if( r8 < 40 && g8 < 40 && b8 > 200 )
+						tex->pixels[j][i] = TRANSPARENT_COLOR;
+					else if( r8 > 220 && g8 < 40 && b8 > 220 )
+						tex->pixels[j][i] = TRANSPARENT_COLOR;
+					/* Lean hands atlas uses palette index 0 (black) as
+					 * chromakey — not index 255 (ava-play99-98 n255=0). */
+					else if( hands && r8 < 8 && g8 < 8 && b8 < 8 )
+						tex->pixels[j][i] = TRANSPARENT_COLOR;
+				}
 
 			}
+			/* No edge-expand punch: ava-play99-99 ate hand flesh into
+			 * TRANSPARENT (center=0x0349) once black chromakey holes existed. */
 		}
 
 		if( activeMips > 1 && j < ( activeMips - 1 ) )

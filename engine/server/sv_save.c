@@ -3109,14 +3109,28 @@ void GC_LeanEnsureWeaponCombatReady( edict_t *player )
 	byte	*wpriv;
 	int	bit;
 
-	if( !player || !player->pvPrivateData || !Sys_CheckParm( "-gcnewgame" ))
+	if( !player || !player->pvPrivateData )
+		return;
+	if( !Sys_CheckParm( "-gcnewgame" ) && !Sys_CheckParm( "-gcworldrender" ))
 		return;
 
 	if( !gc_lean_glock_granted && !Sys_CheckParm( "-gcfullphysics" ))
 	{
+		/* WorldDL DoD listen: grant 9mmAR (lean Garand/MP40 model) so
+		 * CapFaces +attack is a real PrimaryAttack, not only HUD chrome. */
+		if( Sys_CheckParm( "-gcworldrender" ))
+		{
+			gc_lean_glock_granted = true;
+			if( GC_LeanGiveWeaponsFromBits( player, ( 1 << 4 ) | ( 1 << 2 )) > 0 )
+			{
+				Con_Reportf( "Xash3D GameCube: G120 WorldDL 9mmAR+glock granted\n" );
+				return;
+			}
+			Con_Reportf( S_WARN "Xash3D GameCube: G120 WorldDL weapon grant miss\n" );
+		}
 		/* c3a2: late glock pin+grant hung Host_Frame after SCR 16
 		 * (probe 20260809-012134). Keep crowbar tip-safe on non-tram maps. */
-		if( sv.name[0] && Q_stricmp( sv.name, "c0a0" ))
+		else if( sv.name[0] && Q_stricmp( sv.name, "c0a0" ))
 		{
 			gc_lean_glock_granted = true;
 			Con_Reportf( "Xash3D GameCube: G120 lean glock deferred map=%s\n",
@@ -3269,8 +3283,10 @@ static int GC_LeanGiveWeaponsFromBits( edict_t *touch_player, int weapons )
 	gc_lean_weapon_grant_active = false;
 	touch_player->v.weapons |= weapons;
 
-	/* Prefer glock (bit 2) for deploy when present; else last attached. */
-	if( weapons & ( 1 << 2 ))
+	/* Prefer 9mmAR (bit 4) for WorldDL DoD rifleman, else glock, else crowbar. */
+	if( weapons & ( 1 << 4 ))
+		deploy_bit = 4;
+	else if( weapons & ( 1 << 2 ))
 		deploy_bit = 2;
 	else if( weapons & ( 1 << 1 ))
 		deploy_bit = 1;

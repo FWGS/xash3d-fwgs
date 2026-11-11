@@ -12854,8 +12854,94 @@ static void GC_TryDeferredDecalProof( void )
 #endif
 }
 
-/* CapFaces listen: seed lean shot/blood/scorch after densify HoldLeft clears
- * (called from team-fire arm). Avoids the -gcnewgame present_count gate. */
+/* WorldDL muzzle-mark pulse + sticky GX decals (no live msurface table). */
+static int gc_worlddl_shot_mark_frames;
+static vec3_t gc_worlddl_shot_mark_pos;
+static qboolean gc_worlddl_shot_mark_pos_valid;
+
+#define GC_WD_STICKY_MARKS 16
+static vec3_t gc_wd_sticky_pos[GC_WD_STICKY_MARKS];
+static vec3_t gc_wd_sticky_normal[GC_WD_STICKY_MARKS];
+static int gc_wd_sticky_count;
+static int gc_wd_sticky_cursor;
+
+void GC_WorldDLArmShotMarkAtEx( const float *pos, const float *normal, int frames );
+
+void GC_WorldDLArmShotMark( int frames )
+{
+	if( frames < 1 )
+		frames = 1;
+	if( frames > gc_worlddl_shot_mark_frames )
+		gc_worlddl_shot_mark_frames = frames;
+}
+
+void GC_WorldDLArmShotMarkAt( const float *pos, int frames )
+{
+	GC_WorldDLArmShotMarkAtEx( pos, NULL, frames );
+}
+
+void GC_WorldDLArmShotMarkAtEx( const float *pos, const float *normal, int frames )
+{
+	if( pos )
+	{
+		VectorCopy( pos, gc_worlddl_shot_mark_pos );
+		gc_worlddl_shot_mark_pos_valid = true;
+		{
+			int slot = gc_wd_sticky_cursor % GC_WD_STICKY_MARKS;
+
+			VectorCopy( pos, gc_wd_sticky_pos[slot] );
+			if( normal && !VectorIsNull( normal ))
+				VectorCopy( normal, gc_wd_sticky_normal[slot] );
+			else
+			{
+				gc_wd_sticky_normal[slot][0] = 0.0f;
+				gc_wd_sticky_normal[slot][1] = 0.0f;
+				gc_wd_sticky_normal[slot][2] = 1.0f;
+			}
+			gc_wd_sticky_cursor++;
+			if( gc_wd_sticky_count < GC_WD_STICKY_MARKS )
+				gc_wd_sticky_count++;
+		}
+	}
+	GC_WorldDLArmShotMark( frames );
+}
+
+qboolean GC_WorldDLShotMarkPos( float *out )
+{
+	if( !out || !gc_worlddl_shot_mark_pos_valid )
+		return false;
+	VectorCopy( gc_worlddl_shot_mark_pos, out );
+	return true;
+}
+
+int GC_WorldDLStickyShotMarkCount( void )
+{
+	return gc_wd_sticky_count;
+}
+
+qboolean GC_WorldDLStickyShotMark( int i, float *pos, float *normal )
+{
+	if( i < 0 || i >= gc_wd_sticky_count || !pos )
+		return false;
+	VectorCopy( gc_wd_sticky_pos[i], pos );
+	if( normal )
+		VectorCopy( gc_wd_sticky_normal[i], normal );
+	return true;
+}
+
+int GC_WorldDLShotMarkFramesLeft( void )
+{
+	return gc_worlddl_shot_mark_frames;
+}
+
+void GC_WorldDLShotMarkTick( void )
+{
+	if( gc_worlddl_shot_mark_frames > 0 )
+		gc_worlddl_shot_mark_frames--;
+}
+
+/* CapFaces listen: seed lean shot after densify HoldLeft clears
+ * (called from team-fire arm). WorldDL projects a real CL_DecalShoot. */
 static void GC_CapFacesSeedLeanDecals( const float *org )
 {
 #if XASH_GAMECUBE
@@ -12867,25 +12953,97 @@ static void GC_CapFacesSeedLeanDecals( const float *org )
 	if( seeded || !org )
 		return;
 	VectorCopy( org, pos );
-	dir[0] = 0.0f;
-	dir[1] = 1.0f;
-	dir[2] = -0.25f;
+	/* Live look only — gc_newgame_capture_forward is densify dump (−X) and
+	 * steered the lean ray into empty space (ava-play99-92 hit=1.0). */
+	{
+		vec3_t right, up, angles;
+
+		if( !VectorIsNull( refState.viewangles ))
+			VectorCopy( refState.viewangles, angles );
+		else if( !VectorIsNull( cl.viewangles ))
+			VectorCopy( cl.viewangles, angles );
+		else
+		{
+			angles[0] = 0.0f;
+			angles[1] = 90.0f; /* WorldDL listen yaw (G157 pose) */
+			angles[2] = 0.0f;
+		}
+		AngleVectors( angles, dir, right, up );
+	}
+	if( VectorIsNull( dir ))
+	{
+		dir[0] = 0.0f;
+		dir[1] = 1.0f;
+		dir[2] = -0.25f;
+	}
 	VectorNormalize( dir );
-	VectorMA( pos, 96.0f, dir, end );
-	tr = CL_TraceLine( pos, end, PM_STUDIO_IGNORE );
-	if( tr.fraction < 1.0f )
-		VectorMA( tr.endpos, 1.0f, tr.plane.normal, pos );
-	else
-		VectorCopy( end, pos );
-	/* Tip-safe: ensure lean shot1 TEXMAP only. CapFaces DecalShoot Guru'd
-	 * (no brush msurface pool); tip after densify ≈8 KiB. Particles cover
-	 * muzzle FX (G291); true projected marks still TODO. */
+	/* WorldDL listen often has empty client physents (move frac=1.0) so
+	 * a single long ray misses. Probe look + cardinal axes; on total miss
+	 * seed near-eye — R_DecalShoot still projects onto nearby brushes. */
+	{
+		vec3_t axes[5];
+		const float ranges[3] = { 256.0f, 768.0f, 2048.0f };
+		int ai, ri;
+		qboolean hit = false;
+
+		VectorCopy( dir, axes[0] );
+		VectorSet( axes[1], 1.0f, 0.0f, 0.0f );
+		VectorSet( axes[2], -1.0f, 0.0f, 0.0f );
+		VectorSet( axes[3], 0.0f, 1.0f, 0.0f );
+		VectorSet( axes[4], 0.0f, -1.0f, 0.0f );
+		memset( &tr, 0, sizeof( tr ));
+		tr.fraction = 1.0f;
+		for( ai = 0; ai < 5 && !hit; ai++ )
+		{
+			vec3_t adir;
+
+			VectorCopy( axes[ai], adir );
+			if( VectorIsNull( adir ))
+				continue;
+			VectorNormalize( adir );
+			for( ri = 0; ri < 3 && !hit; ri++ )
+			{
+				VectorMA( org, ranges[ri], adir, end );
+				tr = CL_TraceLine( org, end, PM_STUDIO_IGNORE );
+				if( tr.fraction < 1.0f )
+				{
+					VectorMA( tr.endpos, 1.0f, tr.plane.normal, pos );
+					VectorCopy( adir, dir );
+					hit = true;
+				}
+			}
+		}
+		if( !hit )
+		{
+			VectorMA( org, 96.0f, dir, pos );
+			tr.fraction = 1.0f;
+		}
+	}
 	tex = CL_GCEnsureLeanShotDecal();
-	(void)pos;
-	(void)tr;
-	seeded = ( tex > 0 );
-	Con_Reportf( "Xash3D GameCube: CapFaces lean decal seed tex=%d (ensure-only)\n",
-		tex );
+	if( tex <= 0 )
+	{
+		int id = CL_DecalIndexFromName( "{shot1" );
+		if( id > 0 )
+			tex = CL_DecalIndex( id );
+	}
+	/* WorldDL lean worldmodel nodes/surfaces can be incomplete — R_DecalShoot
+	 * walked a bad surf pointer (ava-play99-94 panic in R_DecalNodeSurfaces).
+	 * Only stamp when the brush model looks intact; always arm the GX mark. */
+	{
+		model_t *wm = cl.worldmodel;
+		qboolean world_ok = ( wm && wm->type == mod_brush && wm->surfaces
+			&& wm->numsurfaces > 0 && wm->nodes && wm->numnodes > 0 );
+
+		if( tex > 0 && world_ok )
+			CL_DecalShoot( tex, 0, 0, pos, 0 );
+		/* Sticky GX mark at traced hit — WorldDL has no live msurfaces. */
+		GC_WorldDLArmShotMarkAtEx( pos,
+			( tr.fraction < 1.0f ) ? tr.plane.normal : NULL, 180 );
+		Con_Reportf( "Xash3D GameCube: CapFaces lean decal shoot tex=%d hit=%.2f dir=(%.2f,%.2f,%.2f) world_ok=%d sticky=%d\n",
+			tex, tr.fraction, dir[0], dir[1], dir[2], world_ok ? 1 : 0,
+			GC_WorldDLStickyShotMarkCount() );
+		seeded = true;
+	}
 #else
 	(void)org;
 #endif
@@ -17114,7 +17272,9 @@ qboolean GC_RenderNewGameWorldFrames( int count )
 					else
 					{
 						char picked[64];
+						char ammo_txt[16];
 						static int live_hud_frames;
+						static int live_ammo = 8;
 
 						live_hud_frames++;
 						if( ( live_hud_frames & 255 ) == 1 )
@@ -17141,13 +17301,15 @@ qboolean GC_RenderNewGameWorldFrames( int count )
 								192, 28, 0, 230 );
 							GC_CapFacesDrawText( 18, hud_y + 3, "HP 100", text_scale,
 								255, 255, 255, 255 );
+							Q_snprintf( ammo_txt, sizeof( ammo_txt ), "AMMO %d", live_ammo );
 							GC_CapFacesDrawText( scr_w - 12 - 6 * 8 * text_scale, hud_y + 3,
-								"AMMO 8", text_scale, 255, 176, 0, 255 );
+								ammo_txt, text_scale, 255, 176, 0, 255 );
 						}
 						if( !gc_team_fire_logged )
 						{
 							extern int R_GXEfbDumpHoldLeft( void );
 							extern qboolean CL_GCSeedFlipperEfxProof( const float *org );
+							extern void GC_LeanEnsureWeaponCombatReady( edict_t *player );
 							const int hold_left = R_GXEfbDumpHoldLeft();
 							/* World DL owns Flipper — don't wait out CapFaces
 							 * densify EFB holds (ava-play99-1 never armed fire). */
@@ -17155,12 +17317,16 @@ qboolean GC_RenderNewGameWorldFrames( int count )
 
 							if( ready )
 							{
+								if( svs.clients && svs.clients[0].edict )
+									GC_LeanEnsureWeaponCombatReady( svs.clients[0].edict );
 								CL_GCSeedFlipperEfxProof( rvp.vieworigin );
 								GC_CapFacesSeedLeanDecals( rvp.vieworigin );
 								Cbuf_AddText( "+attack;wait;wait;-attack\n" );
 								Cbuf_AddText( "+forward;wait;wait;wait;wait;-forward\n" );
-								Con_Reportf( "Xash3D GameCube: CapFaces gameplay fire armed hold=%d world_dl=%d\n",
-									hold_left, gc_world_dl_armed ? 1 : 0 );
+								if( live_ammo > 0 )
+									live_ammo--;
+								Con_Reportf( "Xash3D GameCube: CapFaces gameplay fire armed hold=%d world_dl=%d ammo=%d\n",
+									hold_left, gc_world_dl_armed ? 1 : 0, live_ammo );
 								gc_team_fire_logged = true;
 							}
 						}

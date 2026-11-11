@@ -704,17 +704,13 @@ static void R_GXBuildWorldProjection( Mtx44 out )
 	guFrustum( out, yMax, -yMax, -xMax, xMax, zNear, zFar );
 }
 
-/* Viewmodel: world FOV, near=24 clips idle stock (~−24u at eye origin)
- * in hardware so we can keep CapFaces eye pose without CPU strip holes
- * (ava-play99-75/77) or fwd=32 prism stretch (79/80). */
+/* Viewmodel: near=4 matches CPU depth gate; world FOV (CapFaces authoring). */
 static void R_GXBuildViewmodelProjection( Mtx44 out )
 {
-	const f32 zNear = 24.0f;
+	const f32 zNear = 4.0f;
 	const f32 zFar = Q_max( 256.0f, RI.farClip > 1.0f ? RI.farClip : 4096.0f );
 	const f32 world_x = RI.rvp.fov_x > 1.0f ? RI.rvp.fov_x : 90.0f;
 	const f32 world_y = RI.rvp.fov_y > 1.0f ? RI.rvp.fov_y : ( world_x * 0.75f );
-	/* Match world FOV — CapFaces viewmodels are authored for ~90°. The 65%
-	 * shrink + eye-near offset made the receiver fill the lens (ava-play99-63). */
 	f32 fov_x = world_x;
 	f32 fov_y = world_y;
 	f32 yMax, xMax;
@@ -1502,15 +1498,18 @@ static gc_gx_tex_t *R_GXNativeTexture( image_t *img, unsigned texnum )
 				break;
 			}
 		}
-		/* Viewmodel skins: never RGB5A3+ATE. Flood chromakey into RGB565
-		 * during convert — do not poke raw 0x5A4A into soft pixels (that is
-		 * not soft-encoded and freckled the Garand in ava-play99-16..18). */
+		/* Viewmodel gun skins: flood chromakey into RGB565 (RGB5A3+ATE
+		 * freckled wood in ava-play99-16..18). Hands keep RGB5A3+ATE so
+		 * the silhouette is alpha-tested instead of dilate-ghosted
+		 * (ava-play99-95/96). */
 		{
 			const qboolean vm_skin = R_GXNativeFullRes( img );
+			const qboolean vm_hands = ( vm_skin && img->name[0]
+				&& Q_stristr( img->name, "hands" ) != NULL );
 			static qboolean stamp_logged;
 			unsigned last_r = 12, last_g = 20, last_b = 8; /* warm wood fallback */
 
-			if( masked && vm_skin )
+			if( masked && vm_skin && !vm_hands )
 			{
 				masked = false;
 				if( !stamp_logged )
@@ -1518,6 +1517,17 @@ static gc_gx_tex_t *R_GXNativeTexture( image_t *img, unsigned texnum )
 					stamp_logged = true;
 					gEngfuncs.Con_Reportf(
 						"Xash3D GameCube: VM chromakey flood->RGB565 %s\n",
+						img->name[0] ? img->name : "?" );
+				}
+			}
+			else if( masked && vm_hands )
+			{
+				static qboolean hands_ate_logged;
+				if( !hands_ate_logged )
+				{
+					hands_ate_logged = true;
+					gEngfuncs.Con_Reportf(
+						"Xash3D GameCube: VM hands keep RGB5A3+ATE %s\n",
 						img->name[0] ? img->name : "?" );
 				}
 			}
@@ -1552,10 +1562,9 @@ static gc_gx_tex_t *R_GXNativeTexture( image_t *img, unsigned texnum )
 					gEngfuncs.Con_Reportf( "modeltrace convert %s %dx%d -> %dx%d masked=%d ptr=%p first=%04x %04x\n", img->name, img->width, img->height, w, h, masked, img->pixels[0], img->pixels[0][0], img->pixels[0][1] );
 			}
 
-			/* VM skins are packed as linear RGB565 in GL_UploadTexture
-			 * (r_image.c vm_rgb565) — do NOT SoftToRGB565 again (ava-play99-64
-			 * rainbow). soft==0 is real black wood/cloth — keep it. */
-			if( vm_skin && step_x == 1 && step_y == 1
+			/* Hands RGB5A3: soft pixels are already linear RGB565 from
+			 * r_image.c — convert with 1-bit alpha, never SoftToRGB565. */
+			if( vm_skin && masked && vm_hands && step_x == 1 && step_y == 1
 				&& (size_t)w * (size_t)h <= r_gx_tex_linear_cap )
 			{
 				u16 *linear = r_gx_tex_linear;
@@ -1568,7 +1577,37 @@ static gc_gx_tex_t *R_GXNativeTexture( image_t *img, unsigned texnum )
 
 					if( soft == TRANSPARENT_COLOR )
 					{
-						linear[i] = 0;
+						linear[i] = 0; /* RGB5A3 alpha 0 */
+						continue;
+					}
+					c = (u16)soft;
+					r = c >> 11;
+					g = ( c >> 5 ) & 63;
+					b = c & 31;
+					/* RGB5A3 opaque: 1rrrrrgggggbbbbb */
+					linear[i] = (u16)( 0x8000u | ( r << 10 ) | (( g >> 1 ) << 5 ) | b );
+				}
+				for( y = 0; y < h; y += 4, dst += w * 4 )
+					R_GXSwizzleRGB565( linear + y * w, w, w, 4, dst );
+			}
+			/* VM gun skins: linear RGB565 (r_image.c vm_rgb565). Hands that
+			 * keep MASKED take the RGB5A3 path above — packing them as
+			 * RGB565 then sampling as RGB5A3 went green/magenta (ava-play99-99). */
+			else if( vm_skin && !masked && step_x == 1 && step_y == 1
+				&& (size_t)w * (size_t)h <= r_gx_tex_linear_cap )
+			{
+				u16 *linear = r_gx_tex_linear;
+				int i;
+
+				for( i = 0; i < w * h; i++ )
+				{
+					const pixel_t soft = img->pixels[0][i];
+					unsigned c, r, g, b;
+
+					if( soft == TRANSPARENT_COLOR )
+					{
+						/* Mark hole with sentinel 0x0001 — authored black stays 0. */
+						linear[i] = 1;
 						continue;
 					}
 					c = (u16)soft;
@@ -1583,42 +1622,71 @@ static gc_gx_tex_t *R_GXNativeTexture( image_t *img, unsigned texnum )
 					}
 					linear[i] = (u16)c;
 				}
-				for( i = 0; i < w * h; i++ )
+				/* Dilate chromakey holes until filled. Radius-8 search left
+				 * large Garand wood regions black so only the en-bloc clip
+				 * and hands remained (ava-play99-80/81 floating clip). */
 				{
-					int rad, oy, ox, found = 0;
-					unsigned r = last_r, g = last_g, b = last_b;
-					const int py = i / w;
-					const int px = i % w;
+					int pass, left = 1;
+					const u16 fallback = (u16)(( last_r << 11 ) | ( last_g << 5 ) | last_b );
 
-					/* Only chromakey holes — keep authored black (RGB565 0). */
-					if( img->pixels[0][i] != TRANSPARENT_COLOR )
-						continue;
-					for( rad = 1; rad <= 8 && !found; rad++ )
+					for( pass = 0; pass < 64 && left; pass++ )
 					{
-						for( oy = -rad; oy <= rad && !found; oy++ )
+						left = 0;
+						for( i = 0; i < w * h; i++ )
 						{
-							for( ox = -rad; ox <= rad && !found; ox++ )
-							{
-								const int sy2 = py + oy;
-								const int sx2 = px + ox;
-								u16 c;
+							const int py = i / w;
+							const int px = i % w;
+							int oy, ox, found = 0;
+							unsigned r = last_r, g = last_g, b = last_b;
 
-								if( sy2 < 0 || sx2 < 0 || sy2 >= h || sx2 >= w )
-									continue;
-								if( img->pixels[0][sy2 * w + sx2] == TRANSPARENT_COLOR )
-									continue;
-								c = linear[sy2 * w + sx2];
-								r = c >> 11;
-								g = ( c >> 5 ) & 63;
-								b = c & 31;
-								found = 1;
+							if( linear[i] != 1 )
+								continue;
+							for( oy = -1; oy <= 1 && !found; oy++ )
+							{
+								for( ox = -1; ox <= 1 && !found; ox++ )
+								{
+									const int sy2 = py + oy;
+									const int sx2 = px + ox;
+									u16 c;
+									unsigned nr, ng, nb;
+
+									if(( oy | ox ) == 0 || sy2 < 0 || sx2 < 0
+										|| sy2 >= h || sx2 >= w )
+										continue;
+									c = linear[sy2 * w + sx2];
+									if( c == 1 )
+										continue;
+									nr = c >> 11;
+									ng = ( c >> 5 ) & 63;
+									nb = c & 31;
+									/* Skip magenta/salmon bleed as fill source
+									 * so dilate does not paint hand ghosts. */
+									if( nr >= 22 && nb >= 14
+										&& nr + 2 > ng && nb + 2 >= ( ng >> 1 )
+										&& nr > nb )
+										continue;
+									r = nr;
+									g = ng;
+									b = nb;
+									found = 1;
+								}
 							}
+							if( found )
+							{
+								linear[i] = (u16)(( r << 11 ) | ( g << 5 ) | b );
+								last_r = r;
+								last_g = g;
+								last_b = b;
+							}
+							else
+								left = 1;
 						}
 					}
-					linear[i] = (u16)(( r << 11 ) | ( g << 5 ) | b );
-					last_r = r;
-					last_g = g;
-					last_b = b;
+					for( i = 0; i < w * h; i++ )
+					{
+						if( linear[i] == 1 )
+							linear[i] = fallback ? fallback : (u16)0x5A08; /* warm wood */
+					}
 				}
 				for( y = 0; y < h; y += 4, dst += w * 4 )
 					R_GXSwizzleRGB565( linear + y * w, w, w, 4, dst );
@@ -1690,9 +1758,10 @@ static gc_gx_tex_t *R_GXNativeTexture( image_t *img, unsigned texnum )
 	}
 	fmt = img->gc_gx_native_alpha ? (u8)GX_TF_RGB5A3 : (u8)GX_TF_RGB565;
 	{
-		/* Masked RGB5A3 needs NEAREST under ATE. Opaque 128² VM skins use
-		 * LINEAR — NEAREST on CapFaces wood read as static (ava-play99-43).
-		 * Clamp VMs: REPEAT wrapped atlas padding into sleeves (ava-play99-45). */
+		/* Masked RGB5A3 needs NEAREST under ATE (LINEAR + ATE ghosted hand
+		 * edges in ava-play99-101). Opaque VM gun skins stay LINEAR
+		 * (NEAREST + MODULATE = static wood). Clamp VMs: REPEAT wrapped
+		 * atlas padding into sleeves (ava-play99-45). */
 		const u8 filter = img->gc_gx_native_alpha
 			? (u8)GX_NEAR : (u8)GX_LINEAR;
 		const u8 wrap = R_GXNativeFullRes( img ) ? (u8)GX_CLAMP : (u8)GX_REPEAT;
@@ -1718,8 +1787,11 @@ static gc_gx_tex_t *R_GXNativeTexture( image_t *img, unsigned texnum )
 			r_gx_tex_reuses++;
 		}
 	}
-	/* Viewmodel skins must never inherit packed-world ATE. */
-	R_GXSetTexAlphaTest( img->gc_gx_native_alpha && !R_GXNativeFullRes( img ));
+	/* Packed world cutouts use ATE. VM gun skins are flooded RGB565 (no ATE).
+	 * VM hands keep RGB5A3 and need ATE for a clean silhouette. */
+	R_GXSetTexAlphaTest( img->gc_gx_native_alpha
+		&& ( !R_GXNativeFullRes( img )
+			|| ( img->name[0] && Q_stristr( img->name, "hands" ) != NULL )));
 	return t;
 }
 
@@ -6172,6 +6244,8 @@ static int R_GXDrawNewGameCapFacesImpl( void )
 G155: Flipper studio / viewmodel overlay (TriAPI → EFB)
 ================
 */
+#define R_GX_VM_NEAR 4.0f
+
 static float R_GXStudioEyeDepth( float x, float y, float z )
 {
 	vec3_t delta;
@@ -6182,17 +6256,37 @@ static float R_GXStudioEyeDepth( float x, float y, float z )
 	return DotProduct( r_gx_vm_forward, delta );
 }
 
+/* Push a viewmodel vert onto the near plane along the eye ray so strips
+ * with a behind-near knuckle stay continuous (dropping tris punched
+ * jagged hand holes — ava-play99-95 ghosting). */
+static void R_GXStudioPushVmVert( float *x, float *y, float *z )
+{
+	float d;
+	vec3_t delta;
+
+	delta[0] = *x - r_gx_vm_eye[0];
+	delta[1] = *y - r_gx_vm_eye[1];
+	delta[2] = *z - r_gx_vm_eye[2];
+	d = DotProduct( r_gx_vm_forward, delta );
+	if( d >= R_GX_VM_NEAR || d <= 0.05f )
+		return;
+	{
+		const float s = R_GX_VM_NEAR / d;
+
+		*x = r_gx_vm_eye[0] + delta[0] * s;
+		*y = r_gx_vm_eye[1] + delta[1] * s;
+		*z = r_gx_vm_eye[2] + delta[2] * s;
+	}
+}
+
 static qboolean R_GXStudioVmTriInFront(
 	float x0, float y0, float z0,
 	float x1, float y1, float z1,
 	float x2, float y2, float z2 )
 {
-	/* Depth-only gate. |ndc| reject (ava-play99-77) framed the log but
-	 * punched holes in sleeve strips → jagged prism arms. Push the entity
-	 * forward instead so the whole mesh clears zNear intact. */
-	return R_GXStudioEyeDepth( x0, y0, z0 ) >= 8.0f
-		&& R_GXStudioEyeDepth( x1, y1, z1 ) >= 8.0f
-		&& R_GXStudioEyeDepth( x2, y2, z2 ) >= 8.0f;
+	return R_GXStudioEyeDepth( x0, y0, z0 ) >= R_GX_VM_NEAR
+		&& R_GXStudioEyeDepth( x1, y1, z1 ) >= R_GX_VM_NEAR
+		&& R_GXStudioEyeDepth( x2, y2, z2 ) >= R_GX_VM_NEAR;
 }
 
 static void R_GXStudioNoteNdcVert( float x, float y, float z )
@@ -6208,7 +6302,7 @@ static void R_GXStudioNoteNdcVert( float x, float y, float z )
 	delta[2] = z - r_gx_vm_eye[2];
 	clip_y = DotProduct( r_gx_vm_up, delta );
 	clip_w = DotProduct( r_gx_vm_forward, delta );
-	if( clip_w < 8.0f )
+	if( clip_w < 4.0f )
 		return;
 	ndc_y = clip_y / ( clip_w * r_gx_vm_tan_half_fov_y );
 	if( ndc_y < r_gx_vm_ndc_ymin )
@@ -6240,10 +6334,12 @@ static void R_GXPrepareStudioState( qboolean viewmodel )
 	GX_SetNumTexGens( 1 );
 	GX_SetNumTevStages( 1 );
 	GX_SetTexCoordGen( GX_TEXCOORD0, GX_TG_MTX2x4, GX_TG_TEX0, GX_IDENTITY );
-	/* Viewmodel stays REPLACE — CapFaces lean light is often near-black, so
-	 * MODULATE crushed the Garand to a silhouette (ava-play99-19). */
+	/* Viewmodel: MODULATE for hand/gun gouraud. REPLACE left flesh flat
+	 * salmon (ava-play99-86). CapFaces lean-black crush (ava-play99-19) is
+	 * floored in R_StudioSetupLighting for viewent. World studio stays
+	 * REPLACE until NPC light is similarly gated. */
 	GX_SetTevOrder( GX_TEVSTAGE0, GX_TEXCOORD0, GX_TEXMAP0, GX_COLOR0A0 );
-	GX_SetTevOp( GX_TEVSTAGE0, GX_REPLACE );
+	GX_SetTevOp( GX_TEVSTAGE0, viewmodel ? GX_MODULATE : GX_REPLACE );
 	GX_SetNumChans( 1 );
 	GX_SetChanCtrl( GX_COLOR0A0, GX_DISABLE, GX_SRC_REG, GX_SRC_VTX,
 		GX_LIGHTNULL, GX_DF_NONE, GX_AF_NONE );
@@ -6512,10 +6608,14 @@ void R_GXStudioBindTexnum( unsigned texnum )
 
 		r_gx_studio_bound_tex = texnum;
 		r_gx_studio_pending_tex = texnum;
-		/* Viewmodel: never leave packed/world ATE latched across a skin bind. */
+		/* Viewmodel: gun skins stay opaque RGB565. Hands RGB5A3 need ATE. */
 		if( r_gx_studio_viewmodel )
 		{
-			R_GXSetTexAlphaTest( false );
+			image_t *vim = R_GetTexture( texnum );
+			const qboolean hands_ate = ( vim && vim->gc_gx_native_alpha
+				&& vim->name[0] && Q_stristr( vim->name, "hands" ) != NULL );
+
+			R_GXSetTexAlphaTest( hands_ate );
 			GX_SetBlendMode( GX_BM_NONE, GX_BL_ONE, GX_BL_ZERO, GX_LO_NOOP );
 			GX_SetZMode( GX_TRUE, GX_ALWAYS, GX_FALSE );
 		}
@@ -6667,72 +6767,41 @@ void R_GXStudioEmitTri(
 void R_GXStudioEmitFanC( const gx_tri_vertex_t *verts, int count, qboolean strip )
 {
 	int i;
+	gx_tri_vertex_t local[64];
+	const gx_tri_vertex_t *draw = verts;
 
 	if( !verts || count < 3 || ( !r_gx_studio_active && !r_gx_effects_tri ))
 		return;
-	/* Viewmodel: expand+clip only when a vert is behind near. fwd=32 keeps
-	 * idle Garand clear of depth≥8 — use native strip/fan then so topology
-	 * matches NPC studio draws (ava-play99-79). */
+	/* Viewmodel: push behind-near verts onto zNear and keep the strip —
+	 * per-tri drops left jagged hand holes (ava-play99-95). */
 	if( r_gx_studio_viewmodel )
 	{
-		int need_clip = 0;
-		int emitted = 0;
+		int need_push = 0;
 
+		if( count > 64 )
+			count = 64;
 		for( i = 0; i < count; i++ )
 		{
-			if( R_GXStudioEyeDepth( verts[i].x, verts[i].y, verts[i].z ) < 8.0f )
+			if( R_GXStudioEyeDepth( verts[i].x, verts[i].y, verts[i].z ) < R_GX_VM_NEAR )
 			{
-				need_clip = 1;
+				need_push = 1;
 				break;
 			}
 		}
-		if( need_clip )
+		if( need_push )
 		{
-			R_GXEnsureTriApiLayout();
-			if( r_gx_studio_bound_tex == 0 )
-				R_GXStudioBindTexnum( (unsigned)tr.whiteTexture );
-			for( i = 2; i < count; i++ )
+			for( i = 0; i < count; i++ )
 			{
-				const int i0 = strip ? ( i - 2 ) : 0;
-				const int i1 = strip ? ((( i & 1 ) ? i : ( i - 1 ))) : ( i - 1 );
-				const int i2 = strip ? ((( i & 1 ) ? ( i - 1 ) : i )) : i;
-				const gx_tri_vertex_t *a = &verts[i0];
-				const gx_tri_vertex_t *b = &verts[i1];
-				const gx_tri_vertex_t *c = &verts[i2];
-
-				if( !R_GXStudioVmTriInFront( a->x, a->y, a->z, b->x, b->y, b->z, c->x, c->y, c->z ))
-					continue;
-				R_GXStudioNoteNdcVert( a->x, a->y, a->z );
-				R_GXStudioNoteNdcVert( b->x, b->y, b->z );
-				R_GXStudioNoteNdcVert( c->x, c->y, c->z );
-				R_GXStudioNoteShade( a->c );
-				R_GXStudioNoteShade( b->c );
-				R_GXStudioNoteShade( c->c );
-				GX_Begin( GX_TRIANGLES, GX_VTXFMT0, 3 );
-				GX_Position3f32( a->x, a->y, a->z );
-				GX_Color1u32( a->c );
-				GX_TexCoord2f32( a->u, a->v );
-				GX_TexCoord2f32( 0.0f, 0.0f );
-				GX_Position3f32( b->x, b->y, b->z );
-				GX_Color1u32( b->c );
-				GX_TexCoord2f32( b->u, b->v );
-				GX_TexCoord2f32( 0.0f, 0.0f );
-				GX_Position3f32( c->x, c->y, c->z );
-				GX_Color1u32( c->c );
-				GX_TexCoord2f32( c->u, c->v );
-				GX_TexCoord2f32( 0.0f, 0.0f );
-				GX_End();
-				emitted++;
+				local[i] = verts[i];
+				R_GXStudioPushVmVert( &local[i].x, &local[i].y, &local[i].z );
 			}
-			if( r_gx_studio_active )
-				r_gx_studio_tris += emitted;
-			else if( r_gx_effects_tri )
-				r_gx_effects_tris += emitted;
-			return;
+			draw = local;
 		}
 		for( i = 0; i < count; i++ )
-			R_GXStudioNoteNdcVert( verts[i].x, verts[i].y, verts[i].z );
-		/* fall through to native strip/fan */
+		{
+			R_GXStudioNoteNdcVert( draw[i].x, draw[i].y, draw[i].z );
+			R_GXStudioNoteShade( draw[i].c );
+		}
 	}
 	R_GXEnsureTriApiLayout();
 	if( r_gx_studio_bound_tex == 0 )
@@ -6740,10 +6809,12 @@ void R_GXStudioEmitFanC( const gx_tri_vertex_t *verts, int count, qboolean strip
 	GX_Begin( strip ? GX_TRIANGLESTRIP : GX_TRIANGLEFAN, GX_VTXFMT0, (u16)count );
 	for( i = 0; i < count; i++ )
 	{
-		GX_Position3f32( verts[i].x, verts[i].y, verts[i].z );
-		GX_Color1u32( verts[i].c );
-		GX_TexCoord2f32( verts[i].u, verts[i].v );
+		GX_Position3f32( draw[i].x, draw[i].y, draw[i].z );
+		GX_Color1u32( draw[i].c );
+		GX_TexCoord2f32( draw[i].u, draw[i].v );
 		GX_TexCoord2f32( 0.0f, 0.0f );
+		if( !r_gx_studio_viewmodel )
+			R_GXStudioNoteShade( draw[i].c );
 	}
 	GX_End();
 	if( r_gx_studio_active )

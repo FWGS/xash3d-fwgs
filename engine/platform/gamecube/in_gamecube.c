@@ -499,6 +499,101 @@ static void GC_EnableProbeInputFallback( void )
 	Cvar_SetValue( "gc_menu_probe_auto", Sys_CheckParm( "-gcmenuauto" ) ? 1.0f : 0.0f );
 }
 
+/*
+=============
+GC_ProbeGameplayActionBurst
+
+Hardcoded attack→jump→use for automated probes. Shared by -gcnewgame
+synthetic and WorldDL listen overlay (idle -gcplayerinput pads never fire).
+=============
+*/
+static u16 GC_ProbeGameplayActionBurst( void )
+{
+	if( !gc_probe_action_logged )
+	{
+		gc_probe_action_logged = true;
+		gc_probe_action_stage = 0;
+		gc_probe_action_frame = host.framecount;
+		Con_Reportf( "Xash3D GameCube: probe gameplay input begin\n" );
+	}
+
+	switch( gc_probe_action_stage )
+	{
+	case 0:
+		/* Weapon deployment sets m_flNextAttack during spawn. Give the
+		 * normal client/server frames time to make the first attack legal.
+		 * Non-tram maps reconnect late — keep wait short. */
+		if( host.framecount - gc_probe_action_frame < 4 )
+			return 0;
+		gc_probe_action_frame = host.framecount;
+		Con_Reportf( "Xash3D GameCube: probe gameplay action attack\n" );
+		/* Reactor: real TRIGGER_R is tip-safe again after world-think skip +
+		 * lean DecalGunshot (20260809-013402). Hold across several polls so
+		 * lean FillUsercmd (armed after warm) sees IN_ATTACK — a one-frame
+		 * pulse was missed on c3a2 (probe 20260809-121001). */
+		gc_probe_action_stage = 1;
+		return PAD_TRIGGER_R;
+	case 1:
+		/* Keep TRIGGER_R held until lean phys can consume it. */
+		if( host.framecount - gc_probe_action_frame < 16 )
+			return PAD_TRIGGER_R;
+		gc_probe_action_stage = 2;
+		gc_probe_action_frame = host.framecount;
+		return 0;
+	case 2:
+		/* The direct-map spawn starts slightly above the floor. Allow PMove
+		 * to settle before testing jump, otherwise this records the initial
+		 * falling velocity instead of a jump transition. */
+		if( host.framecount - gc_probe_action_frame < 8 )
+			return 0;
+		gc_probe_action_stage = 3;
+		Con_Reportf( "Xash3D GameCube: probe gameplay action jump\n" );
+		return PAD_BUTTON_A;
+	case 3:
+		gc_probe_action_stage = 4;
+		return 0;
+	case 4:
+		gc_probe_action_stage = 5;
+		Con_Reportf( "Xash3D GameCube: probe gameplay action use\n" );
+		return PAD_BUTTON_B;
+	case 5:
+		gc_probe_action_stage = 6;
+		if( !gc_probe_action_complete_logged )
+		{
+			gc_probe_action_complete_logged = true;
+			Con_Reportf( "Xash3D GameCube: probe gameplay input ready\n" );
+		}
+		return 0;
+	default:
+		return 0;
+	}
+}
+
+/*
+=============
+GC_MaybeOverlayListenProbeActions
+
+WorldDL listen probes pass -gcplayerinput so Dolphin's idle SI pad wins and
+the synthetic attack burst never runs (ava-play99-89). Overlay the burst on
+an idle pad after sign-on; live presses still win.
+=============
+*/
+static u16 GC_MaybeOverlayListenProbeActions( u16 held )
+{
+	const u16 live = (u16)( PAD_TRIGGER_R | PAD_TRIGGER_L | PAD_BUTTON_A
+		| PAD_BUTTON_B | PAD_BUTTON_X | PAD_BUTTON_Y | PAD_TRIGGER_Z );
+
+	if( !Sys_CheckParm( "-gcmap" ))
+		return held;
+	if( !Sys_CheckParm( "-gcworldrender" ) && !Sys_CheckParm( "-gclistenserver" ))
+		return held;
+	if( cls.state != ca_active || cls.signon != SIGNONS )
+		return held;
+	if( held & live )
+		return held;
+	return GC_ProbeGameplayActionBurst();
+}
+
 static u16 GC_ProbeSyntheticHeldButtons( void )
 {
 	static qboolean gc_probe_gate_logged;
@@ -564,64 +659,7 @@ static u16 GC_ProbeSyntheticHeldButtons( void )
 			/* Missing/invalid script: fall through to hardcoded sequence. */
 		}
 
-		if( !gc_probe_action_logged )
-		{
-			gc_probe_action_logged = true;
-			gc_probe_action_stage = 0;
-			gc_probe_action_frame = host.framecount;
-			Con_Reportf( "Xash3D GameCube: probe gameplay input begin\n" );
-		}
-
-		switch( gc_probe_action_stage )
-		{
-		case 0:
-			/* Weapon deployment sets m_flNextAttack during spawn. Give the
-			 * normal client/server frames time to make the first attack legal.
-			 * Non-tram maps reconnect late — keep wait short. */
-			if( host.framecount - gc_probe_action_frame < 4 )
-				return 0;
-			gc_probe_action_frame = host.framecount;
-			Con_Reportf( "Xash3D GameCube: probe gameplay action attack\n" );
-			/* Reactor: real TRIGGER_R is tip-safe again after world-think skip +
-			 * lean DecalGunshot (20260809-013402). Hold across several polls so
-			 * lean FillUsercmd (armed after warm) sees IN_ATTACK — a one-frame
-			 * pulse was missed on c3a2 (probe 20260809-121001). */
-			gc_probe_action_stage = 1;
-			return PAD_TRIGGER_R;
-		case 1:
-			/* Keep TRIGGER_R held until lean phys can consume it. */
-			if( host.framecount - gc_probe_action_frame < 16 )
-				return PAD_TRIGGER_R;
-			gc_probe_action_stage = 2;
-			gc_probe_action_frame = host.framecount;
-			return 0;
-		case 2:
-			/* The direct-map spawn starts slightly above the floor. Allow PMove
-			 * to settle before testing jump, otherwise this records the initial
-			 * falling velocity instead of a jump transition. */
-			if( host.framecount - gc_probe_action_frame < 8 )
-				return 0;
-			gc_probe_action_stage = 3;
-			Con_Reportf( "Xash3D GameCube: probe gameplay action jump\n" );
-			return PAD_BUTTON_A;
-		case 3:
-			gc_probe_action_stage = 4;
-			return 0;
-		case 4:
-			gc_probe_action_stage = 5;
-			Con_Reportf( "Xash3D GameCube: probe gameplay action use\n" );
-			return PAD_BUTTON_B;
-		case 5:
-			gc_probe_action_stage = 6;
-			if( !gc_probe_action_complete_logged )
-			{
-				gc_probe_action_complete_logged = true;
-				Con_Reportf( "Xash3D GameCube: probe gameplay input ready\n" );
-			}
-			return 0;
-		default:
-			return 0;
-		}
+		return GC_ProbeGameplayActionBurst();
 	}
 
 	/* Exercise the actual fallback-menu New Game command.  Wait for the main
@@ -1081,6 +1119,8 @@ void Platform_RunEvents( void )
 	}
 
 	held = gc_pad[port].button;
+	held = GC_MaybeOverlayListenProbeActions( held );
+	gc_pad[port].button = held;
 	GC_UpdateButtons( held );
 
 	if( !gc_input_logged )

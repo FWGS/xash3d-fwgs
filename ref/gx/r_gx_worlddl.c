@@ -634,51 +634,91 @@ int R_GXWorldDLDraw( void )
 	GX_SetZCompLoc( GX_TRUE );
 	GX_SetBlendMode( GX_BM_NONE, GX_BL_ONE, GX_BL_ZERO, GX_LO_NOOP );
 
-	/* GX-native muzzle mark — TriAPI EmitWorldDecals Guru'd under WorldDL. */
-	if( drawn > 0 && org )
+	/* GX-native shot marks — sticky pool (WorldDL has no live msurfaces). */
 	{
-		static qboolean mark_logged;
-		vec3_t mark, right, up, p0, p1, p2, p3;
-		const float s = 6.0f;
+		extern int GC_WorldDLShotMarkFramesLeft( void );
+		extern void GC_WorldDLShotMarkTick( void );
+		extern int GC_WorldDLStickyShotMarkCount( void );
+		extern qboolean GC_WorldDLStickyShotMark( int i, float *pos, float *normal );
+		const int sticky_n = GC_WorldDLStickyShotMarkCount();
+		const int pulse = GC_WorldDLShotMarkFramesLeft();
 
-		VectorCopy( org, mark );
-		VectorMA( mark, 72.0f, RI.cull_vforward, mark );
-		VectorScale( RI.cull_vright, s, right );
-		VectorScale( RI.cull_vup, s, up );
-		VectorSubtract( mark, right, p0 ); VectorAdd( p0, up, p0 );
-		VectorAdd( mark, right, p1 ); VectorAdd( p1, up, p1 );
-		VectorAdd( mark, right, p2 ); VectorSubtract( p2, up, p2 );
-		VectorSubtract( mark, right, p3 ); VectorSubtract( p3, up, p3 );
-
-		GX_SetCullMode( GX_CULL_NONE );
-		GX_SetZMode( GX_TRUE, GX_LEQUAL, GX_FALSE );
-		GX_SetBlendMode( GX_BM_BLEND, GX_BL_SRCALPHA, GX_BL_INVSRCALPHA, GX_LO_NOOP );
-		GX_SetNumChans( 1 );
-		GX_SetChanCtrl( GX_COLOR0A0, GX_DISABLE, GX_SRC_REG, GX_SRC_VTX,
-			GX_LIGHTNULL, GX_DF_NONE, GX_AF_NONE );
-		GX_SetNumTexGens( 0 );
-		GX_SetNumTevStages( 1 );
-		GX_SetTevOrder( GX_TEVSTAGE0, GX_TEXCOORDNULL, GX_TEXMAP_NULL, GX_COLOR0A0 );
-		GX_SetTevOp( GX_TEVSTAGE0, GX_PASSCLR );
-		GX_ClearVtxDesc();
-		GX_SetVtxDesc( GX_VA_POS, GX_DIRECT );
-		GX_SetVtxDesc( GX_VA_CLR0, GX_DIRECT );
-		GX_SetVtxAttrFmt( GX_VTXFMT0, GX_VA_POS, GX_POS_XYZ, GX_F32, 0 );
-		GX_SetVtxAttrFmt( GX_VTXFMT0, GX_VA_CLR0, GX_CLR_RGBA, GX_RGBA8, 0 );
-		GX_Begin( GX_QUADS, GX_VTXFMT0, 4 );
-		GX_Position3f32( p0[0], p0[1], p0[2] ); GX_Color4u8( 28, 22, 16, 200 );
-		GX_Position3f32( p1[0], p1[1], p1[2] ); GX_Color4u8( 28, 22, 16, 200 );
-		GX_Position3f32( p2[0], p2[1], p2[2] ); GX_Color4u8( 28, 22, 16, 200 );
-		GX_Position3f32( p3[0], p3[1], p3[2] ); GX_Color4u8( 28, 22, 16, 200 );
-		GX_End();
-		GX_SetBlendMode( GX_BM_NONE, GX_BL_ONE, GX_BL_ZERO, GX_LO_NOOP );
-		GX_SetNumTexGens( 1 );
-		if( !mark_logged )
+		if( drawn > 0 && org && sticky_n > 0 )
 		{
-			mark_logged = true;
-			gEngfuncs.Con_Reportf(
-				"Xash3D GameCube: world DL GX shot mark at (%.0f,%.0f,%.0f)\n",
-				mark[0], mark[1], mark[2] );
+			static qboolean mark_logged;
+			int mi;
+			vec3_t mark, nrm, right, up, p0, p1, p2, p3;
+			const float s = 6.0f;
+
+			GX_SetCullMode( GX_CULL_NONE );
+			GX_SetZMode( GX_TRUE, GX_LEQUAL, GX_FALSE );
+			GX_SetBlendMode( GX_BM_BLEND, GX_BL_SRCALPHA, GX_BL_INVSRCALPHA, GX_LO_NOOP );
+			GX_SetNumChans( 1 );
+			GX_SetChanCtrl( GX_COLOR0A0, GX_DISABLE, GX_SRC_REG, GX_SRC_VTX,
+				GX_LIGHTNULL, GX_DF_NONE, GX_AF_NONE );
+			GX_SetNumTexGens( 0 );
+			GX_SetNumTevStages( 1 );
+			GX_SetTevOrder( GX_TEVSTAGE0, GX_TEXCOORDNULL, GX_TEXMAP_NULL, GX_COLOR0A0 );
+			GX_SetTevOp( GX_TEVSTAGE0, GX_PASSCLR );
+			GX_ClearVtxDesc();
+			GX_SetVtxDesc( GX_VA_POS, GX_DIRECT );
+			GX_SetVtxDesc( GX_VA_CLR0, GX_DIRECT );
+			GX_SetVtxAttrFmt( GX_VTXFMT0, GX_VA_POS, GX_POS_XYZ, GX_F32, 0 );
+			GX_SetVtxAttrFmt( GX_VTXFMT0, GX_VA_CLR0, GX_CLR_RGBA, GX_RGBA8, 0 );
+
+			for( mi = 0; mi < sticky_n; mi++ )
+			{
+				if( !GC_WorldDLStickyShotMark( mi, mark, nrm ))
+					continue;
+				if( fabsf( nrm[2] ) < 0.9f )
+				{
+					right[0] = nrm[1];
+					right[1] = -nrm[0];
+					right[2] = 0.0f;
+				}
+				else
+				{
+					right[0] = 1.0f;
+					right[1] = 0.0f;
+					right[2] = 0.0f;
+				}
+				VectorNormalize( right );
+				CrossProduct( nrm, right, up );
+				VectorNormalize( up );
+				VectorScale( right, s, right );
+				VectorScale( up, s, up );
+				VectorMA( mark, 0.5f, nrm, mark );
+				VectorSubtract( mark, right, p0 ); VectorAdd( p0, up, p0 );
+				VectorAdd( mark, right, p1 ); VectorAdd( p1, up, p1 );
+				VectorAdd( mark, right, p2 ); VectorSubtract( p2, up, p2 );
+				VectorSubtract( mark, right, p3 ); VectorSubtract( p3, up, p3 );
+				GX_Begin( GX_QUADS, GX_VTXFMT0, 4 );
+				GX_Position3f32( p0[0], p0[1], p0[2] ); GX_Color4u8( 28, 22, 16, 210 );
+				GX_Position3f32( p1[0], p1[1], p1[2] ); GX_Color4u8( 28, 22, 16, 210 );
+				GX_Position3f32( p2[0], p2[1], p2[2] ); GX_Color4u8( 28, 22, 16, 210 );
+				GX_Position3f32( p3[0], p3[1], p3[2] ); GX_Color4u8( 28, 22, 16, 210 );
+				GX_End();
+			}
+			/* Restore Flipper state — leaving LEQUAL/no-ZWrite + PASSCLR
+			 * punched holes through the viewmodel (ava-play99-104). */
+			GX_SetBlendMode( GX_BM_NONE, GX_BL_ONE, GX_BL_ZERO, GX_LO_NOOP );
+			GX_SetZMode( GX_TRUE, GX_LEQUAL, GX_TRUE );
+			GX_SetAlphaCompare( GX_ALWAYS, 0, GX_AOP_AND, GX_ALWAYS, 0 );
+			GX_SetCullMode( GX_CULL_BACK );
+			GX_SetNumTexGens( 1 );
+			GX_SetNumTevStages( 1 );
+			GX_SetTevOrder( GX_TEVSTAGE0, GX_TEXCOORD0, GX_TEXMAP0, GX_COLOR0A0 );
+			GX_SetTevOp( GX_TEVSTAGE0, GX_REPLACE );
+			if( !mark_logged )
+			{
+				mark_logged = true;
+				if( GC_WorldDLStickyShotMark( 0, mark, nrm ))
+					gEngfuncs.Con_Reportf(
+						"Xash3D GameCube: world DL GX shot mark at (%.0f,%.0f,%.0f) sticky=%d\n",
+						mark[0], mark[1], mark[2], sticky_n );
+			}
+			if( pulse > 0 )
+				GC_WorldDLShotMarkTick();
 		}
 	}
 
