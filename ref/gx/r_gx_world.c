@@ -8396,10 +8396,13 @@ int R_GXDrawBrushModel( cl_entity_t *e )
 
 	psurf = &geom->surfaces[mod->firstmodelsurface];
 	{
-	int skip_plane = 0, skip_sky = 0, skip_edges = 0, emit_zero = 0;
+	int skip_plane = 0, skip_sky = 0, skip_edges = 0, emit_zero = 0, skip_frustum = 0;
+	const qboolean unrotated = !e->angles[0] && !e->angles[1] && !e->angles[2];
 
 	int nsort = 0;
-	const int face_cap = gEngfuncs.Sys_CheckParm( "-gcmenuplaystart" ) ? 512 : 256;
+	/* The sort table is the real bound. 256 cut large DoD props (bunkers,
+	 * walls built as one func_wall) down to a few of their faces. */
+	const int face_cap = GC_GX_FACE_SORT_MAX;
 
 	for( i = 0; i < mod->nummodelsurfaces; i++, psurf++ )
 	{
@@ -8428,6 +8431,20 @@ int R_GXDrawBrushModel( cl_entity_t *e )
 			skip_edges++;
 			continue;
 		}
+		/* Large props: drop faces outside the view. Only for unrotated
+		 * entities, whose face bounds are a plain offset of model space. */
+		if( unrotated && psurf->info )
+		{
+			vec3_t fmins, fmaxs;
+
+			VectorAdd( psurf->info->mins, e->origin, fmins );
+			VectorAdd( psurf->info->maxs, e->origin, fmaxs );
+			if( R_GXBoxOutsideFrustum( fmins, fmaxs ))
+			{
+				skip_frustum++;
+				continue;
+			}
+		}
 		/* No CPU backface — cabin walls face inward; angles break modelorg. */
 		if( !R_GXFaceSortPush( &nsort, psurf, i ))
 			break;
@@ -8448,8 +8465,8 @@ int R_GXDrawBrushModel( cl_entity_t *e )
 		if( tram_logs < 3 && !Q_strcmp( mod->name, "*12" ) && ( tr.framecount & 127 ) == 0 )
 		{
 			tram_logs++;
-			gEngfuncs.Con_Reportf( "Xash3D GameCube: tram *12 faces=%d drawn=%d plane=%d sky=%d edges=%d emit0=%d org=%.0f %.0f %.0f ang=%.0f %.0f %.0f eye=%.0f %.0f %.0f\n",
-				mod->nummodelsurfaces, drawn, skip_plane, skip_sky, skip_edges, emit_zero,
+			gEngfuncs.Con_Reportf( "Xash3D GameCube: tram *12 faces=%d drawn=%d plane=%d sky=%d edges=%d emit0=%d frustum=%d org=%.0f %.0f %.0f ang=%.0f %.0f %.0f eye=%.0f %.0f %.0f\n",
+				mod->nummodelsurfaces, drawn, skip_plane, skip_sky, skip_edges, emit_zero, skip_frustum,
 				e->origin[0], e->origin[1], e->origin[2], e->angles[0], e->angles[1], e->angles[2],
 				RI.rvp.vieworigin[0], RI.rvp.vieworigin[1], RI.rvp.vieworigin[2] );
 		}
