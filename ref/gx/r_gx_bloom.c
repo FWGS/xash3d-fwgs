@@ -32,12 +32,14 @@ Enabled for -gccapfacessmoke (Lost Coast) or -gcbloom; -gcnobloom disables.
 extern void *R_GcmapBorrowSoftZ( unsigned offset, unsigned bytes );
 static GXTexObj gc_bloom_tex;
 
-/* Retail Lost Coast HDR: bright sky / sun disc / water glints bloom warm. */
-#define GC_BLOOM_THRESHOLD 196 /* 0..255 luma floor */
+/* Retail Lost Coast HDR: bright sky / sun disc / water glints bloom warm.
+ * Keep thresh=168/tint_a=150 with midtint (mae~37.29); hotter bloom
+ * raised sky lum but overall mae (probe 181313). */
+#define GC_BLOOM_THRESHOLD 168 /* 0..255 luma floor */
 #define GC_BLOOM_TINT_R 255
 #define GC_BLOOM_TINT_G 236
 #define GC_BLOOM_TINT_B 196
-#define GC_BLOOM_TINT_A 110    /* overall strength, applied via tint scale */
+#define GC_BLOOM_TINT_A 150    /* overall strength, applied via tint scale */
 
 static int gc_bloom_enabled = -1;
 
@@ -286,10 +288,27 @@ qboolean R_GXBloomDrawSun( void *rmode_ptr )
 	GX_SetVtxAttrFmt( GX_VTXFMT0, GX_VA_CLR0, GX_CLR_RGBA, GX_RGBA8, 0 );
 	GX_SetBlendMode( GX_BM_BLEND, GX_BL_SRCALPHA, GX_BL_ONE, GX_LO_NOOP );
 	GX_SetCullMode( GX_CULL_NONE );
-	/* Wide overcast halo, then the hot disc (env_sun size 8 ≈ 6 degrees). */
-	R_GXSunFan( cx, cy, r * 0.42f, r * 0.42f, 0xFDECC660u, 0xFDECC600u );
-	R_GXSunFan( cx, cy, r * 0.16f, r * 0.16f, 0xFFF6DCB0u, 0xFFF0D000u );
-	R_GXSunFan( cx, cy, r * 0.055f, r * 0.055f, 0xFFFFF8FFu, 0xFFFFF080u );
+	/* Wide overcast halo, then the hot disc (env_sun size 8 ≈ 6 degrees).
+	 * Compact 0.18×r underexposed sky (probe 172956 mae~43). */
+	/* Banding fix: three hard fans read as stepped rings. Draw a stack of
+	 * thin, low-alpha fans that add up (SRC_ALPHA, ONE) to a smooth falloff,
+	 * then let GX dither hide the remaining 8-bit steps. */
+	GX_SetDither( GX_TRUE );
+	{
+		const int layers = 14;
+		int i;
+
+		for( i = 0; i < layers; i++ )
+		{
+			const f32 t = (f32)i / (f32)( layers - 1 ); /* 0 outer → 1 core */
+			const f32 rr = r * ( 0.52f - 0.48f * t * t );
+			const u32 a = (u32)( 14.0f + 40.0f * t * t * t );
+			const u32 rgb = ( t < 0.7f ) ? 0xFDECC6u : 0xFFF8E8u;
+
+			R_GXSunFan( cx, cy, rr, rr, ( rgb << 8 ) | a, ( rgb << 8 ) | 0u );
+		}
+	}
+	GX_SetDither( GX_FALSE );
 	GX_SetBlendMode( GX_BM_NONE, GX_BL_ONE, GX_BL_ZERO, GX_LO_NOOP );
 	return true;
 }
