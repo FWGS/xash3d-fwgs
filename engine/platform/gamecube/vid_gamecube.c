@@ -12310,7 +12310,7 @@ static void GC_CfSrcClose( void )
  * seconds). Densify then hydrates MEM1 BSS from ARAM — tip stays fixed, detail
  * scales with disc contents. Object pop / long load is acceptable.
  */
-static void GC_CapFacesAramPrefetchAll( void )
+static void GC_CapFacesAramPrefetchAll( const char *mapbase )
 {
 	int i;
 	u32 total = 0;
@@ -12321,6 +12321,24 @@ static void GC_CapFacesAramPrefetchAll( void )
 	memset( gc_cap_aram, 0, sizeof( gc_cap_aram ));
 	if( gc_cap_spatial_n <= 0 )
 		return;
+	/* ARAM budget: when the full-BSP display lists (media/wd_<map>.gcd) are on
+	 * the disc they replace the CapFaces packs entirely, so the ~4.3 MB
+	 * prefetch is dead weight. Skip it and give that space to streaming. */
+	if( !Sys_CheckParm( "-gcnobspdl" ) && mapbase && mapbase[0] )
+	{
+		char wdpath[96];
+		file_t *wd;
+
+		Q_snprintf( wdpath, sizeof( wdpath ), "media/wd_%s.gcd", mapbase );
+		wd = FS_Open( wdpath, "rb", false );
+		if( wd )
+		{
+			FS_Close( wd );
+			Con_Reportf( "Xash3D GameCube: CapFaces ARAM prefetch skipped (world DL %s owns the map)\n",
+				wdpath );
+			return;
+		}
+	}
 
 	for( i = 0; i < gc_cap_spatial_n; i++ )
 	{
@@ -12769,7 +12787,7 @@ static qboolean GC_TryLoadCapFacesPack( model_t *mod )
 	COM_FileBase( mod->name, mapbase, sizeof( mapbase ));
 	GC_LoadCapFacesSpatialManifest( mapbase );
 	/* Full spatial set → ARAM before first BSS hydrate (slow DVD OK). */
-	GC_CapFacesAramPrefetchAll();
+	GC_CapFacesAramPrefetchAll( mapbase );
 	Q_snprintf( path, sizeof( path ), "media/cf_%s.gcp", mapbase );
 	if( !GC_TryLoadCapFacesPackPath( mod, path, false ))
 		return false;
