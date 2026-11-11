@@ -2703,19 +2703,21 @@ static void R_GXClearEfbSky( GXRModeObj *rmode )
 		R_GXDrawSkyBackdrop( rmode );
 
 	/* Lost Coast DumpFrames: soft HDR sun wash (retail blown overcast disc).
-	 * Retail target has a hot center-right bloom — bias right, widen wash,
-	 * and punch a brighter core so Flipper doesn't read flat grey. */
+	 * Hard stacked quads read as beige panels (probe 164010 sky mae~45) —
+	 * soft concentric rings with low edge alpha keep sky CMPR visible. */
 	if( gEngfuncs.Sys_CheckParm( "-gcdumpframes" )
 		|| gEngfuncs.Sys_CheckParm( "-gccapfacessmoke" ))
 	{
-		const f32 cx = fb_w * 0.56f;
-		const f32 cy = fb_h * 0.14f;
-		const f32 rx = fb_w * 0.52f;
-		const f32 ry = fb_h * 0.34f;
-		const f32 crx = fb_w * 0.22f;
-		const f32 cry = fb_h * 0.15f;
-		const f32 hrx = fb_w * 0.10f;
-		const f32 hry = fb_h * 0.07f;
+		const f32 cx = fb_w * 0.55f;
+		const f32 cy = fb_h * 0.18f;
+		int ring;
+		/* Outer→inner: radius frac, corner alpha (ABGR packed as RGBA8 hex). */
+		static const struct { f32 rx, ry; u32 c[4]; } rings[4] = {
+			{ 0.58f, 0.42f, { 0xF5F0E428u, 0xF8F2E830u, 0xE8E0C018u, 0xE4DCC014u } },
+			{ 0.36f, 0.26f, { 0xFFF8EC58u, 0xFFF8EC60u, 0xF0E8C030u, 0xEDE4BC28u } },
+			{ 0.20f, 0.14f, { 0xFFFFF098u, 0xFFFFF0A0u, 0xFFF0C058u, 0xFFE8B850u } },
+			{ 0.09f, 0.06f, { 0xFFFFF0C8u, 0xFFFFF0D0u, 0xFFF8D880u, 0xFFF0D078u } },
+		};
 
 		GX_SetBlendMode( GX_BM_BLEND, GX_BL_SRCALPHA, GX_BL_INVSRCALPHA, GX_LO_NOOP );
 		GX_SetZMode( GX_FALSE, GX_ALWAYS, GX_FALSE );
@@ -2727,38 +2729,22 @@ static void R_GXClearEfbSky( GXRModeObj *rmode )
 		GX_ClearVtxDesc();
 		GX_SetVtxDesc( GX_VA_POS, GX_DIRECT );
 		GX_SetVtxDesc( GX_VA_CLR0, GX_DIRECT );
-		GX_Begin( GX_QUADS, GX_VTXFMT0, 4 );
-		GX_Position3f32( cx - rx, cy - ry, -0.4f );
-		GX_Color1u32( 0xFAF6ECD0u );
-		GX_Position3f32( cx + rx, cy - ry, -0.4f );
-		GX_Color1u32( 0xFFF8E8D8u );
-		GX_Position3f32( cx + rx, cy + ry, -0.4f );
-		GX_Color1u32( 0xEDE6C870u );
-		GX_Position3f32( cx - rx, cy + ry, -0.4f );
-		GX_Color1u32( 0xE8E0C060u );
-		GX_End();
-		/* Hot core — retail sun disc blooms harder than the soft wash alone. */
-		GX_Begin( GX_QUADS, GX_VTXFMT0, 4 );
-		GX_Position3f32( cx - crx, cy - cry, -0.35f );
-		GX_Color1u32( 0xFFFFF0E8u );
-		GX_Position3f32( cx + crx, cy - cry, -0.35f );
-		GX_Color1u32( 0xFFFFF0E8u );
-		GX_Position3f32( cx + crx, cy + cry, -0.35f );
-		GX_Color1u32( 0xFFF4C890u );
-		GX_Position3f32( cx - crx, cy + cry, -0.35f );
-		GX_Color1u32( 0xFFF4C890u );
-		GX_End();
-		/* Inner white disc — matches retail blown center. */
-		GX_Begin( GX_QUADS, GX_VTXFMT0, 4 );
-		GX_Position3f32( cx - hrx, cy - hry, -0.32f );
-		GX_Color1u32( 0xFFFFFFF0u );
-		GX_Position3f32( cx + hrx, cy - hry, -0.32f );
-		GX_Color1u32( 0xFFFFFFF0u );
-		GX_Position3f32( cx + hrx, cy + hry, -0.32f );
-		GX_Color1u32( 0xFFFFF0C0u );
-		GX_Position3f32( cx - hrx, cy + hry, -0.32f );
-		GX_Color1u32( 0xFFFFF0C0u );
-		GX_End();
+		for( ring = 0; ring < 4; ring++ )
+		{
+			const f32 rx = fb_w * rings[ring].rx;
+			const f32 ry = fb_h * rings[ring].ry;
+
+			GX_Begin( GX_QUADS, GX_VTXFMT0, 4 );
+			GX_Position3f32( cx - rx, cy - ry, -0.40f + (f32)ring * 0.02f );
+			GX_Color1u32( rings[ring].c[0] );
+			GX_Position3f32( cx + rx, cy - ry, -0.40f + (f32)ring * 0.02f );
+			GX_Color1u32( rings[ring].c[1] );
+			GX_Position3f32( cx + rx, cy + ry, -0.40f + (f32)ring * 0.02f );
+			GX_Color1u32( rings[ring].c[2] );
+			GX_Position3f32( cx - rx, cy + ry, -0.40f + (f32)ring * 0.02f );
+			GX_Color1u32( rings[ring].c[3] );
+			GX_End();
+		}
 		GX_SetBlendMode( GX_BM_NONE, GX_BL_ONE, GX_BL_ZERO, GX_LO_NOOP );
 	}
 }
@@ -4936,9 +4922,41 @@ int R_GXDrawNewGameCapFaces( void )
 	extern void GC_ProfMark( const char *name );
 	int drawn;
 
+	extern qboolean R_GXBloomEnabled( void );
+	extern qboolean R_GXBloomApply( void *rmode );
+	/* Frozen dump-hold frames keep the old EFB — bloom only fresh redraws
+	 * or the additive pass would stack every present. */
+	const qboolean frozen = r_gx_cap_densify_held && R_GXEfbDumpHoldLeft() > 0;
+
 	GC_ProfMark( "render: before GX world" );
 	drawn = R_GXDrawNewGameCapFacesImpl();
 	GC_ProfMark( "render: GX world faces" );
+	if( drawn > 0 && !frozen && R_GXBloomEnabled())
+	{
+		GXRModeObj *rmode = (GXRModeObj *)GC_GetGxVideoMode();
+
+		if( R_GXBloomApply( rmode ))
+		{
+			Mtx44 proj;
+			Mtx mv;
+
+			/* Restore the world 3D pipe for entities drawn after us. */
+			GX_SetZMode( GX_TRUE, GX_LEQUAL, GX_TRUE );
+			GX_SetCullMode( GX_CULL_BACK );
+			GX_SetChanCtrl( GX_COLOR0A0, GX_DISABLE, GX_SRC_REG, GX_SRC_VTX,
+				GX_LIGHTNULL, GX_DF_NONE, GX_AF_NONE );
+			R_GXBuildWorldProjection( proj );
+			GX_LoadProjectionMtx( proj, GX_PERSPECTIVE );
+			R_GXBuildWorldModelview( mv );
+			GX_LoadPosMtxImm( mv, GX_PNMTX0 );
+			r_gx_face_mode = GC_GX_FACE_MODE_NONE;
+			r_gx_cull_none = false;
+			r_gx_bound_texnum = 0;
+			r_gx_bound_fmt = 0;
+			R_GXInvalidateTriApiLayout();
+			GC_ProfMark( "render: GX bloom" );
+		}
+	}
 	return drawn;
 }
 
@@ -6013,16 +6031,16 @@ static int R_GXDrawNewGameCapFacesImpl( void )
 						GX_SetTevColorOp( GX_TEVSTAGE0, GX_TEV_ADD, GX_TB_ZERO, GX_CS_SCALE_1, GX_TRUE, GX_TEVPREV );
 						GX_SetTevAlphaIn( GX_TEVSTAGE0, GX_CA_ZERO, GX_CA_ZERO, GX_CA_ZERO, GX_CA_A1 );
 						GX_SetTevAlphaOp( GX_TEVSTAGE0, GX_TEV_ADD, GX_TB_ZERO, GX_CS_SCALE_1, GX_TRUE, GX_TEVPREV );
-						/* Stage1: ADD sky cubemap × A0 — sun-path glints. */
+						/* Stage1: ADD sky cubemap × A0 — sun-path glints.
+						 * SCALE_2 + a0=160 washed midband white (water mae~54). */
 						GX_SetTevOrder( GX_TEVSTAGE1, GX_TEXCOORD1, GX_TEXMAP1, GX_COLORNULL );
 						GX_SetTevColorIn( GX_TEVSTAGE1, GX_CC_ZERO, GX_CC_TEXC, GX_CC_A0, GX_CC_CPREV );
-						GX_SetTevColorOp( GX_TEVSTAGE1, GX_TEV_ADD, GX_TB_ZERO, GX_CS_SCALE_2, GX_TRUE, GX_TEVPREV );
+						GX_SetTevColorOp( GX_TEVSTAGE1, GX_TEV_ADD, GX_TB_ZERO, GX_CS_SCALE_1, GX_TRUE, GX_TEVPREV );
 						GX_SetTevAlphaIn( GX_TEVSTAGE1, GX_CA_ZERO, GX_CA_ZERO, GX_CA_ZERO, GX_CA_APREV );
 						GX_SetTevAlphaOp( GX_TEVSTAGE1, GX_TEV_ADD, GX_TB_ZERO, GX_CS_SCALE_1, GX_TRUE, GX_TEVPREV );
-						/* Retail midband ~60 + HDR sun streak — hotter sky ADD. */
-						GX_SetTevColor( GX_TEVREG0, (GXColor){ 0, 0, 0, 160 } );
+						GX_SetTevColor( GX_TEVREG0, (GXColor){ 0, 0, 0, 96 } );
 						/* Retail cove water reads cooler/darker than olive mud. */
-						GX_SetTevColor( GX_TEVREG1, (GXColor){ 42, 58, 62, 220 } );
+						GX_SetTevColor( GX_TEVREG1, (GXColor){ 26, 38, 44, 230 } );
 						GX_ClearVtxDesc();
 						GX_SetVtxDesc( GX_VA_POS, GX_DIRECT );
 						GX_SetVtxDesc( GX_VA_CLR0, GX_DIRECT );
@@ -6320,9 +6338,9 @@ static int R_GXDrawNewGameCapFacesImpl( void )
 						/* Elevated monastery/chimney silhouettes sit off-cone —
 						 * admit wider yaw when the face is above the beach
 						 * (retail St. Olga sits right; chimneys left of sun). */
-						if( fdot < (( cz > 40.0f ) ? -0.08f : 0.18f ))
+						if( fdot < (( cz > 30.0f ) ? -0.22f : 0.18f ))
 							continue;
-						if( cz > 80.0f && dist > 900.0f && fdot < -0.25f )
+						if( cz > 60.0f && dist > 800.0f && fdot < -0.40f )
 							continue;
 						if( R_GXEmitFace( &rdraw[ei], world, ei ) > 0 )
 							midgap_redraw++;
@@ -6458,11 +6476,12 @@ static int R_GXDrawNewGameCapFacesImpl( void )
 						/* Stage1: ADD sky × A0 — overcast mirror / sun streak. */
 						GX_SetTevOrder( GX_TEVSTAGE1, GX_TEXCOORD0, GX_TEXMAP0, GX_COLORNULL );
 						GX_SetTevColorIn( GX_TEVSTAGE1, GX_CC_ZERO, GX_CC_TEXC, GX_CC_A0, GX_CC_CPREV );
-						GX_SetTevColorOp( GX_TEVSTAGE1, GX_TEV_ADD, GX_TB_ZERO, GX_CS_SCALE_2, GX_TRUE, GX_TEVPREV );
+						/* SCALE_1 — SCALE_2 blew midband vs retail (water mae~54). */
+						GX_SetTevColorOp( GX_TEVSTAGE1, GX_TEV_ADD, GX_TB_ZERO, GX_CS_SCALE_1, GX_TRUE, GX_TEVPREV );
 						GX_SetTevAlphaIn( GX_TEVSTAGE1, GX_CA_ZERO, GX_CA_ZERO, GX_CA_ZERO, GX_CA_APREV );
 						GX_SetTevAlphaOp( GX_TEVSTAGE1, GX_TEV_ADD, GX_TB_ZERO, GX_CS_SCALE_1, GX_TRUE, GX_TEVPREV );
-						GX_SetTevColor( GX_TEVREG0, (GXColor){ 0, 0, 0, 176 } );
-						GX_SetTevColor( GX_TEVREG1, (GXColor){ 36, 52, 58, 200 } );
+						GX_SetTevColor( GX_TEVREG0, (GXColor){ 0, 0, 0, 110 } );
+						GX_SetTevColor( GX_TEVREG1, (GXColor){ 28, 40, 46, 210 } );
 						GX_ClearVtxDesc();
 						GX_SetVtxDesc( GX_VA_POS, GX_DIRECT );
 						GX_SetVtxDesc( GX_VA_CLR0, GX_DIRECT );
@@ -6495,8 +6514,9 @@ static int R_GXDrawNewGameCapFacesImpl( void )
 							const int vi = idx[qi];
 
 							GX_Position3f32( p[vi][0], p[vi][1], p[vi][2] );
-							/* Near edge denser; far edge softer so cliffs remain. */
-							GX_Color1u32( ( vi < 2 ) ? 0x1E2C34B0u : 0x24384088u );
+							/* Near edge denser; far edge softer so cliffs remain.
+							 * Darker body — retail midband ~60 vs Flipper ~96. */
+							GX_Color1u32( ( vi < 2 ) ? 0x162028C0u : 0x1A283088u );
 							if( slab_sky )
 								GX_TexCoord2f32( st[vi][0], st[vi][1] );
 						}
