@@ -60,12 +60,17 @@ qboolean GC_AttemptGcmapWorldRender( int count );
 qboolean R_GcmapEnsureSurfaceCache( void );
 qboolean GC_ShouldUseLightPresent( void );
 qboolean GC_IsFrameBudgetProbeActive( void );
+qboolean GC_UseGxWorldDraw( void );
 int GC_NetEnsureReady( void );
 const char *GC_NetLocalIP( void );
 #endif
 
 host_parm_t		host;	// host parms
 static qboolean hosterror_frame_valid;
+#if XASH_GAMECUBE
+/* WorldDL: brief post-fire ReadPackets bursts after ONGROUND freeze (ava-124). */
+int gc_worlddl_move_pulses;
+#endif
 
 static jmp_buf return_from_main_buf;
 
@@ -907,16 +912,69 @@ void Host_Frame( double time )
 			 * (probe 20260813-193443 stopped at sustained frames=8). Keep
 			 * ClientFrame/SCR presents for Flipper DumpFrames; skip lean
 			 * server ticks until -gcfullphysics.
-			 * CapFaces listen (-gcworldrender+-gcplayerinput) hit the same
-			 * Guru after present≈4 mid-ServerFrame (teamvm16: sound loss then
-			 * no SendClientDatagram). Bound to one tick like -gcnewgame. */
-			if( ( Sys_CheckParm( "-gcnewgame" )
-					|| ( Sys_CheckParm( "-gcworldrender" )
-						&& Sys_CheckParm( "-gcplayerinput" )))
+			 * CapFaces densify listen hit the same Guru mid-ServerFrame
+			 * (teamvm16). WorldDL falls with lean ticks until FL_ONGROUND,
+			 * then freezes ServerFrame so ClientFrame can arm fire (ava-121
+			 * studio OOM when ticks continued). */
+			if( Sys_CheckParm( "-gcworldrender" )
+				&& Sys_CheckParm( "-gcplayerinput" )
+				&& GC_UseGxWorldDraw()
+				&& !Sys_CheckParm( "-gcnewgame" )
 				&& !Sys_CheckParm( "-gcfullphysics" ))
 			{
-				/* The direct-map player already has its bounded native physics
-				 * bootstrap. Further full server ticks can re-enter heavy scripted
+				static qboolean gc_worlddl_landed;
+				edict_t *pl = ( svs.clients && svs.clients[0].edict )
+					? svs.clients[0].edict : NULL;
+
+				/* Lean ticks until ONGROUND, then freeze ServerFrame so
+				 * ClientFrame can arm team/fire (ava-122). Brief move
+				 * pulses after fire apply +forward without sustained OOM. */
+				if( !gc_worlddl_landed )
+				{
+					Host_ServerFrame ();
+					GC_ProfMark( "server frame" );
+					if( pl && FBitSet( pl->v.flags, FL_ONGROUND ))
+					{
+						gc_worlddl_landed = true;
+						Con_Reportf( "Xash3D GameCube: WorldDL ServerFrame freeze after ONGROUND\n" );
+					}
+				}
+				else if( gc_worlddl_move_pulses < 0 )
+				{
+					gc_worlddl_move_pulses++;
+					if( gc_worlddl_move_pulses == 0 )
+					{
+						gc_worlddl_move_pulses = 6;
+						Cbuf_AddText( "+forward\n" );
+						Con_Reportf( "Xash3D GameCube: WorldDL move pulse arm n=6\n" );
+					}
+				}
+				else if( gc_worlddl_move_pulses > 0 )
+				{
+					/* ONGROUND + SV_RunCmd hung (ava-126). Clear ground for
+					 * the pulse so PMove does a short airborne step. */
+					if( pl )
+						ClearBits( pl->v.flags, FL_ONGROUND );
+					Con_Reportf( "Xash3D GameCube: WorldDL move pulse tick left=%d\n",
+						gc_worlddl_move_pulses );
+					Host_ServerFrame ();
+					GC_ProfMark( "server frame" );
+					gc_worlddl_move_pulses--;
+					if( gc_worlddl_move_pulses == 0 )
+					{
+						Cbuf_AddText( "-forward\n" );
+						Con_Reportf( "Xash3D GameCube: WorldDL move pulse complete\n" );
+					}
+				}
+			}
+			else if( ( Sys_CheckParm( "-gcnewgame" )
+					|| ( Sys_CheckParm( "-gcworldrender" )
+						&& Sys_CheckParm( "-gcplayerinput" )
+						&& !GC_UseGxWorldDraw() ))
+				&& !Sys_CheckParm( "-gcfullphysics" ))
+			{
+				/* CapFaces densify / HL newgame: one bounded native physics
+				 * bootstrap. Further full server ticks re-enter heavy scripted
 				 * entity work and starve the GX/input frame loop. */
 				if( !gc_direct_map_server_tick )
 				{

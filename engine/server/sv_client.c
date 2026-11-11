@@ -1771,6 +1771,8 @@ static void SV_PutClientInServer( sv_client_t *cl )
 					dropped, ent->v.origin[0], ent->v.origin[1], ent->v.origin[2] );
 			}
 		}
+		/* WorldDL listen DropToFloor/SV_Move-at-put-in hung or corrupted the
+		 * cvar list (ava-106..114). Floor contact needs a different path. */
 		/* G119/G326: put-in rebuilds CBasePlayer. Re-arm the retail starting
 		 * crowbar through the safe post-spawn create/touch path. */
 		if( Sys_CheckParm( "-gcnewgame" ))

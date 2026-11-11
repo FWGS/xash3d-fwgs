@@ -1196,6 +1196,7 @@ void SV_RunCmd( sv_client_t *cl, usercmd_t *ucmd, int random_seed )
 		{
 			static unsigned reported;
 			static unsigned traced[2];
+			static unsigned onground_logged[2];
 			unsigned slot = (unsigned)( cl - svs.clients );
 			if( slot < 2 && clent->v.health > 0 && traced[slot]++ < 3 )
 			{
@@ -1219,6 +1220,15 @@ void SV_RunCmd( sv_client_t *cl, usercmd_t *ucmd, int random_seed )
 					clent->v.origin[0], clent->v.origin[1], clent->v.origin[2],
 					clent->v.origin[0] - gc_network_before[0], clent->v.origin[1] - gc_network_before[1],
 					clent->v.origin[2] - gc_network_before[2], collision.startsolid, collision.allsolid, collision.fraction, collision.ent );
+			}
+			if( slot < 2 && clent->v.health > 0
+				&& FBitSet( clent->v.flags, FL_ONGROUND )
+				&& !onground_logged[slot] )
+			{
+				onground_logged[slot] = 1;
+				Con_Reportf( "GameCube DoD: gameplay ONGROUND slot=%u flags=0x%x origin=(%.1f,%.1f,%.1f)\n",
+					slot, (unsigned)clent->v.flags,
+					clent->v.origin[0], clent->v.origin[1], clent->v.origin[2] );
 			}
 			if( slot < 2 && !( reported & ( 1u << slot ))
 				&& ( ucmd->forwardmove || ucmd->sidemove )

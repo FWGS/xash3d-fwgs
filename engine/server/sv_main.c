@@ -751,6 +751,65 @@ void Host_ServerFrame( void )
 		}
 		return;
 	}
+	/* WorldDL listen: continuous lean ticks so PMove can acquire FL_ONGROUND
+	 * (ava-117). Full Host_ServerFrame after ground hung (same log). Drive
+	 * usercmds via ReadPackets; run SV_Physics only until ONGROUND, then
+	 * player-only so shoot/move keep working without entity-think storms.
+	 * Only after cs_spawned — earlier calls OOM'd netchan (ava-118). */
+	if( Sys_CheckParm( "-gcworldrender" ) && Sys_CheckParm( "-gcplayerinput" )
+		&& GC_UseGxWorldDraw() && !Sys_CheckParm( "-gcnewgame" )
+		&& !Sys_CheckParm( "-gcfullphysics" )
+		&& svs.initialized && svs.clients
+		&& svs.clients[0].state == cs_spawned
+		&& svs.clients[0].edict
+		&& FBitSet( svs.clients[0].edict->v.flags, FL_CLIENT ))
+	{
+		static int gc_worlddl_lean_log;
+		static qboolean gc_worlddl_onground;
+		edict_t *player = svs.clients[0].edict;
+
+		if( sv_fps.value == 0.0f )
+			sv.frametime = host.frametime;
+		svgame.globals->frametime = sv.frametime;
+		svgame.globals->time = sv.time;
+
+		SV_CheckCmdTimes();
+		SV_ReadPackets();
+		/* PMove may land during ReadPackets. SV_Physics after that hung
+		 * (ava-120: gameplay ONGROUND then silence). Skip Physics once down. */
+		if( !gc_worlddl_onground && FBitSet( player->v.flags, FL_ONGROUND ))
+		{
+			gc_worlddl_onground = true;
+			Con_Reportf( "Xash3D GameCube: WorldDL lean physics ONGROUND origin=(%.0f,%.0f,%.0f)\n",
+				player->v.origin[0], player->v.origin[1], player->v.origin[2] );
+		}
+
+		if( !gc_worlddl_onground )
+		{
+			SV_Physics();
+			if( FBitSet( player->v.flags, FL_ONGROUND ))
+			{
+				gc_worlddl_onground = true;
+				Con_Reportf( "Xash3D GameCube: WorldDL lean physics ONGROUND origin=(%.0f,%.0f,%.0f)\n",
+					player->v.origin[0], player->v.origin[1], player->v.origin[2] );
+			}
+			sv.time += sv.frametime;
+			SV_SendClientMessagesBoundedGC();
+		}
+		else
+		{
+			/* After ground: ReadPackets alone keeps shoot/move alive.
+			 * BoundedGC entity spam retried v_colt until OOM (ava-119). */
+			sv.time += sv.frametime;
+		}
+		if( gc_worlddl_lean_log < 8 )
+		{
+			Con_Reportf( "Xash3D GameCube: WorldDL lean ServerFrame n=%d onground=%d time=%.2f\n",
+				gc_worlddl_lean_log, gc_worlddl_onground ? 1 : 0, sv.time );
+			gc_worlddl_lean_log++;
+		}
+		return;
+	}
 	if( gc_fullphysics_trace )
 		Con_Reportf( "Xash3D GameCube: full server frame begin\n" );
 #endif

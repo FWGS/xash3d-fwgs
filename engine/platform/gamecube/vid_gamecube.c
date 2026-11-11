@@ -17325,6 +17325,14 @@ qboolean GC_RenderNewGameWorldFrames( int count )
 								Cbuf_AddText( "+forward;wait;wait;wait;wait;-forward\n" );
 								if( live_ammo > 0 )
 									live_ammo--;
+								/* WorldDL ServerFrame is frozen after ONGROUND;
+								 * negative = delay frames, then ReadPackets pulses
+								 * so +forward lands after weapon-grant settles. */
+								if( gc_world_dl_armed )
+								{
+									extern int gc_worlddl_move_pulses;
+									gc_worlddl_move_pulses = -12;
+								}
 								Con_Reportf( "Xash3D GameCube: CapFaces gameplay fire armed hold=%d world_dl=%d ammo=%d\n",
 									hold_left, gc_world_dl_armed ? 1 : 0, live_ammo );
 								gc_team_fire_logged = true;
