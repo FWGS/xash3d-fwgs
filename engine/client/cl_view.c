@@ -26,7 +26,194 @@ GNU General Public License for more details.
 #endif
 
 #if XASH_GAMECUBE
+#include "studio.h"
+#include "gc_vmanim.h"
+
 static qboolean gc_loading_feedback_logged;
+
+/*
+DoD viewmodels on HL1 weapon code: the weapon, its prediction and its events
+all ask for HL1 sequence indices, so map them by meaning onto the sequence
+the DoD model names that way (gc_vmanim.c). Cached per model; anim indices
+past the table are mapped on every call.
+*/
+#define GC_VMA_CACHE 16
+
+static model_t *gc_vma_model;
+static char gc_vma_name[64];
+static gc_vm_family_t gc_vma_family;
+static short gc_vma_seq[GC_VMA_CACHE];
+
+static gc_vm_family_t V_GCViewAnimBind( model_t *mod )
+{
+	studiohdr_t *hdr;
+	int i;
+
+	// model slots are reused across maps, so the name is part of the key
+	if( mod == gc_vma_model && ( !mod || !Q_strncmp( mod->name, gc_vma_name, sizeof( gc_vma_name ))))
+		return gc_vma_family;
+
+	gc_vma_model = mod;
+	Q_strncpy( gc_vma_name, mod ? mod->name : "", sizeof( gc_vma_name ));
+	gc_vma_family = GC_VMF_NONE;
+	for( i = 0; i < GC_VMA_CACHE; i++ )
+		gc_vma_seq[i] = -1;
+
+	if( !mod || mod->type != mod_studio )
+		return GC_VMF_NONE;
+	gc_vma_family = GC_VMAnimFamily( mod->name );
+	if( gc_vma_family == GC_VMF_NONE )
+		return GC_VMF_NONE;
+
+	hdr = (studiohdr_t *)Mod_StudioExtradata( mod );
+	if( hdr && hdr->numseq > 0 )
+	{
+		const mstudioseqdesc_t *seq = (const mstudioseqdesc_t *)((const byte *)hdr + hdr->seqindex );
+		static const gc_vm_action_t shown[] = { GC_VMA_IDLE, GC_VMA_DRAW, GC_VMA_FIRE, GC_VMA_RELOAD };
+		string line;
+		size_t k;
+
+		line[0] = '\0';
+		for( k = 0; k < sizeof( shown ) / sizeof( shown[0] ); k++ )
+		{
+			gc_vm_intent_t intent = { shown[k], 0, 0 };
+			const int s = GC_VMAnimPick( seq->label, sizeof( *seq ), hdr->numseq, intent );
+
+			Q_strncat( line, va( " %s=%s", GC_VMAnimActionName( shown[k] ),
+				s >= 0 ? seq[s].label : "-" ), sizeof( line ));
+		}
+		Con_Reportf( "Xash3D GameCube: viewmodel anim map %s seqs=%d%s\n",
+			mod->name, hdr->numseq, line );
+	}
+	return gc_vma_family;
+}
+
+static int V_GCViewAnimSequence( model_t *mod, int hl_anim )
+{
+	const gc_vm_family_t family = V_GCViewAnimBind( mod );
+	const mstudioseqdesc_t *seq;
+	studiohdr_t *hdr;
+	gc_vm_intent_t intent;
+	int s;
+
+	if( family == GC_VMF_NONE || hl_anim < 0 )
+		return hl_anim;
+	if( hl_anim < GC_VMA_CACHE && gc_vma_seq[hl_anim] >= 0 )
+		return gc_vma_seq[hl_anim];
+
+	hdr = (studiohdr_t *)Mod_StudioExtradata( mod );
+	if( !hdr || hdr->numseq <= 0 )
+		return hl_anim;
+
+	intent = GC_VMAnimIntent( family, hl_anim );
+	if( intent.action == GC_VMA_KEEP )
+		intent.action = GC_VMA_RELOAD; // only reached when a step arrives first
+	seq = (const mstudioseqdesc_t *)((const byte *)hdr + hdr->seqindex );
+	s = GC_VMAnimPick( seq->label, sizeof( *seq ), hdr->numseq, intent );
+	if( s < 0 || s >= hdr->numseq )
+		s = 0;
+	if( hl_anim < GC_VMA_CACHE )
+		gc_vma_seq[hl_anim] = (short)s;
+	return s;
+}
+
+/*
+The client's V_CalcRefdef poses the viewmodel. A lean client that returns
+early leaves it where it was, so mark it before the call and, if nothing
+moved it, pose it here the way hlsdk's V_CalcNormalRefdef does: predicted
+eye, cl_bob bob along forward and up with a little tilt, then 1 unit down.
+Pitch is stored negated, as the client does; the studio transform undoes it.
+*/
+#define GC_VM_POSE_UNSET -131072.0f
+
+static float V_GCCvarOr( const char *name, float fallback )
+{
+	convar_t *var = Cvar_FindVar( name );
+	return var ? var->value : fallback;
+}
+
+static float V_GCCalcBob( const ref_params_t *pp )
+{
+	static double bobtime;
+	static float bob, lasttime;
+	const float bobcycle = V_GCCvarOr( "cl_bobcycle", 0.8f );
+	const float bobup = V_GCCvarOr( "cl_bobup", 0.5f );
+	float cycle, speed;
+
+	if( pp->onground == -1 || pp->time == lasttime || bobcycle <= 0.0f
+		|| bobup <= 0.0f || bobup >= 1.0f )
+		return bob;
+	lasttime = pp->time;
+
+	bobtime += pp->frametime;
+	cycle = bobtime - (int)( bobtime / bobcycle ) * bobcycle;
+	cycle /= bobcycle;
+	if( cycle < bobup )
+		cycle = M_PI_F * cycle / bobup;
+	else cycle = M_PI_F + M_PI_F * ( cycle - bobup ) / ( 1.0f - bobup );
+
+	speed = sqrtf( pp->simvel[0] * pp->simvel[0] + pp->simvel[1] * pp->simvel[1] );
+	bob = speed * V_GCCvarOr( "cl_bob", 0.01f );
+	bob = bob * 0.3f + bob * 0.7f * sinf( cycle );
+	bob = bound( -7.0f, bob, 4.0f );
+	return bob;
+}
+
+static void V_GCRetailViewModelPose( const ref_params_t *pp )
+{
+	cl_entity_t *view = &clgame.viewent;
+	static qboolean logged;
+	const float bob = V_GCCalcBob( pp );
+	vec3_t forward;
+	int i;
+
+	VectorCopy( pp->cl_viewangles, view->angles );
+	view->angles[YAW] = pp->viewangles[YAW] + pp->crosshairangle[YAW];
+	view->angles[PITCH] = -pp->viewangles[PITCH] + pp->crosshairangle[PITCH] * 0.25f;
+
+	AngleVectors( pp->viewangles, forward, NULL, NULL );
+	VectorAdd( pp->simorg, pp->viewheight, view->origin );
+	for( i = 0; i < 3; i++ )
+		view->origin[i] += bob * 0.4f * forward[i];
+	view->origin[2] += bob;
+
+	view->angles[YAW] -= bob * 0.5f;
+	view->angles[ROLL] -= bob;
+	view->angles[PITCH] -= bob * 0.3f;
+
+	view->origin[2] -= 1.0f;
+	if( pp->viewsize == 110.0f || pp->viewsize == 90.0f )
+		view->origin[2] += 1.0f;
+	else if( pp->viewsize == 100.0f )
+		view->origin[2] += 2.0f;
+	else if( pp->viewsize == 80.0f )
+		view->origin[2] += 0.5f;
+
+	VectorCopy( view->origin, view->curstate.origin );
+	VectorCopy( view->angles, view->curstate.angles );
+	VectorCopy( view->angles, view->latched.prevangles );
+
+	if( !logged )
+	{
+		logged = true;
+		Con_Reportf( "Xash3D GameCube: viewmodel posed by engine (client CalcRefdef left it)\n" );
+	}
+}
+
+/*
+True when the HL1 animation is one step of a longer one (a shotgun shell or
+the closing pump) that the DoD model plays as a single reload: the caller
+leaves the playing sequence and its start time alone.
+*/
+qboolean CL_GCViewAnimKeep( int hl_anim )
+{
+	model_t *mod = CL_ModelHandle( cl.local.viewmodel );
+	const gc_vm_family_t family = V_GCViewAnimBind( mod );
+
+	if( family == GC_VMF_NONE )
+		return false;
+	return GC_VMAnimIntent( family, hl_anim ).action == GC_VMA_KEEP;
+}
 #endif
 
 /*
@@ -130,6 +317,10 @@ static void V_SetupViewModel( void )
 				view->model = vm;
 		}
 	}
+#endif
+
+#if XASH_GAMECUBE
+	view->curstate.sequence = V_GCViewAnimSequence( view->model, cl.local.weaponsequence );
 #endif
 
 	// alias models has another animation methods
@@ -466,7 +657,14 @@ void V_RenderView( void )
 
 	do
 	{
+#if XASH_GAMECUBE
+		clgame.viewent.origin[2] = GC_VM_POSE_UNSET;
+#endif
 		clgame.dllFuncs.pfnCalcRefdef( &rp );
+#if XASH_GAMECUBE
+		if( clgame.viewent.origin[2] == GC_VM_POSE_UNSET )
+			V_GCRetailViewModelPose( &rp );
+#endif
 
 		// client dll may replace viewmodel in pfnCalcRefdef, so set animtime again
 		// V_SetupViewModel did it only for the model known before this call
