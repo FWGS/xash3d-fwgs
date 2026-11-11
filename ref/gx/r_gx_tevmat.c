@@ -32,7 +32,7 @@ File layout (big-endian):
 #include <string.h>
 
 #define GC_TEVMAT_MAX_MATS	96
-#define GC_TEVMAT_MAX_DETAIL	4
+#define GC_TEVMAT_MAX_DETAIL	8
 #define GC_TEVMAT_DETAIL_SIDE	64
 #define GC_TEVMAT_DETAIL_BYTES	( 4096 + 1024 + 256 + 64 )
 
