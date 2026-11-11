@@ -551,24 +551,17 @@ void GC_PrepareMapLoadBuffer( size_t size )
 
 void GC_PrepareMapLoadBufferForMap( const char *mapname )
 {
-	char path[MAX_QPATH];
-	fs_offset_t filesize;
-
 	if( !mapname || !mapname[0] )
 	{
 		GC_PrepareMapLoadBuffer( GC_MAPLOAD_BUFFER_DEFAULT );
 		return;
 	}
 	GC_LoadMapMetadata( mapname );
-
-	Q_snprintf( path, sizeof( path ), "maps/%s.bsp", mapname );
-	filesize = FS_FileSize( path, false );
-	/* Warm the static arena without requiring the full BSP to fit — oversized
-	 * DoD maps compact-load without LUMP_LIGHTING in Mod_LoadModel. */
-	if( filesize > 0 && filesize <= (fs_offset_t)GC_MAPLOAD_BUFFER_DEFAULT )
-		GC_PrepareMapLoadBuffer( (size_t)filesize );
-	else
-		GC_PrepareMapLoadBuffer( GC_MAPLOAD_BUFFER_DEFAULT );
+	/* Do not stat the BSP here: map-load trim can leave MEM1 with only a few
+	 * hundred bytes free, and a failed directory-cache allocation in the ISO
+	 * filesystem otherwise DSI's before Mod_LoadModel can run. The fixed arena
+	 * is also the compact-load capacity for oversized BSPs. */
+	GC_PrepareMapLoadBuffer( GC_MAPLOAD_BUFFER_DEFAULT );
 }
 
 qboolean GC_LoadMapMetadata( const char *mapname )
@@ -594,6 +587,15 @@ qboolean GC_LoadMapMetadata( const char *mapname )
 	gc_bsp_hot_aram = gc_bsp_hot_bytes = 0;
 	if( !mapname || !mapname[0] ) return false;
 	COM_FileBase( mapname, base, sizeof( base ));
+	/* The disc builder only ships .gcmeta files for the c0a0 tram chain.
+	 * Looking up an absent metadata file walks the ISO9660 directory tree and
+	 * duplicates its path; map-load MEM1 can be too tight for that optional
+	 * allocation (DSI in entry_from_path when strdup returns NULL). */
+	if( Q_stricmp( base, "c0a0" ) && Q_stricmp( base, "c0a0a" )
+		&& Q_stricmp( base, "c0a0b" ) && Q_stricmp( base, "c0a0b1" )
+		&& Q_stricmp( base, "c0a0b2" ) && Q_stricmp( base, "c0a0c" )
+		&& Q_stricmp( base, "c0a0d" ) && Q_stricmp( base, "c0a0e" ))
+		return false;
 	Q_snprintf( path, sizeof( path ), "media/%s.gcmeta", base );
 	f = FS_Open( path, "rb", false );
 	if( !f ) return false;
