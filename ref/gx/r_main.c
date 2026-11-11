@@ -1248,13 +1248,17 @@ static void R_DrawEntitiesOnList( void )
 			extern int R_GXEfbDumpHoldLeft( void );
 
 			/* Landmark crowbar is bound on viewent; do not require world NPC
-			 * studios (lean_studios) or tip-safe maps never reach G155/G164. */
+			 * studios (lean_studios) or tip-safe maps never reach G155/G164.
+			 * -gcvst / DumpSkipViewmodel: never draw HL1 v_357 over the stress
+			 * flythrough (gccapfacessmoke used to force-draw and punch through). */
 			if( tr.viewent && tr.viewent->model
 				&& tr.viewent->model->type == mod_studio
 				&& tr.viewent->model->cache.data
+				&& !gEngfuncs.Sys_CheckParm( "-gcvst" )
+				&& !R_GXDumpSkipViewmodelActive()
 				&& ( gEngfuncs.Sys_CheckParm( "-gccapfacessmoke" )
 					|| !( r_drawviewmodel && r_drawviewmodel->value == 0
-						&& ( R_GXEfbDumpHoldLeft() > 0 || R_GXDumpSkipViewmodelActive()))))
+						&& R_GXEfbDumpHoldLeft() > 0 )))
 			{
 				R_DrawViewModel();
 				if( !lean_vm_draw_logged )

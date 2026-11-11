@@ -3385,7 +3385,8 @@ static int R_StudioDrawModel( int flags )
 				VectorSet( g_studio.blightvec[bi], 0.0f, 0.0f, 1.0f );
 			g_nTopColor = 0;
 			g_nBottomColor = 0;
-			R_StudioSetRemapColors( 0, 0 );
+			/* Skip SetRemapColors — hung/stalled ~45s on CapFaces (probe
+			 * 173231 wall gap; 173506 timed out black before RenderModel). */
 			{
 				static qboolean cap_vm_rm_logged;
 				if( !cap_vm_rm_logged )
@@ -3629,8 +3630,10 @@ void R_DrawViewModel( void )
 
 #if XASH_GAMECUBE
 	/* Lost Coast CapFaces: skip FX/health/thirdperson gates — they stalled
-	 * after the entry log (probe 142727) and never reached pose+GX. */
+	 * after the entry log (probe 142727) and never reached pose+GX.
+	 * -gcvst: never take this fast-path (HL1 v_357 over Source stress cam). */
 	if( gEngfuncs.Sys_CheckParm( "-gccapfacessmoke" )
+		&& !gEngfuncs.Sys_CheckParm( "-gcvst" )
 		&& view && view->model && view->model->type == mod_studio
 		&& view->model->cache.data )
 	{
@@ -3648,6 +3651,18 @@ void R_DrawViewModel( void )
 				view->model->name[0] ? view->model->name : "?" );
 		}
 		goto capfaces_vm_pose;
+	}
+	if( gEngfuncs.Sys_CheckParm( "-gcvst" ))
+	{
+		static qboolean vst_vm_skip_logged;
+
+		if( !vst_vm_skip_logged )
+		{
+			vst_vm_skip_logged = true;
+			gEngfuncs.Con_Reportf(
+				"Xash3D GameCube: VST skip viewmodel (no HL1 revolver on stress cam)\n" );
+		}
+		return;
 	}
 	/* CapFaces listen (-gcworldrender): tip-skipped v_colt skins REPLACE as
 	 * solid white and paint a giant silhouette over CapFaces on caen/flash.
@@ -3670,13 +3685,17 @@ void R_DrawViewModel( void )
 	 * skips the force-on). Landmark mesh is enough to arm the gun pass.
 	 * G376: DumpFrames explicitly forces the cvar off so NPC rest-pose
 	 * isn't buried under a close-up white v_9mmhandgun / v_crowbar.
-	 * Lost Coast CapFaces: keep the 357 during DumpFrames hold (retail HUD). */
+	 * Lost Coast CapFaces: keep the 357 during DumpFrames hold (retail HUD)
+	 * unless -gcvst (Source stress cam — no HL1 revolver). */
 	{
 		extern int R_GXEfbDumpHoldLeft( void );
-		const qboolean lostcoast_vm = gEngfuncs.Sys_CheckParm( "-gccapfacessmoke" );
+		const qboolean vst = gEngfuncs.Sys_CheckParm( "-gcvst" );
+		const qboolean lostcoast_vm = gEngfuncs.Sys_CheckParm( "-gccapfacessmoke" )
+			&& !vst;
 
-		if( !lostcoast_vm && r_drawviewmodel->value == 0
-			&& ( R_GXEfbDumpHoldLeft() > 0 || R_GXDumpSkipViewmodelActive()))
+		if( vst || R_GXDumpSkipViewmodelActive()
+			|| ( !lostcoast_vm && r_drawviewmodel->value == 0
+				&& R_GXEfbDumpHoldLeft() > 0 ))
 		{
 			static qboolean dump_vm_skip_logged;
 
@@ -3684,7 +3703,8 @@ void R_DrawViewModel( void )
 			{
 				dump_vm_skip_logged = true;
 				gEngfuncs.Con_Reportf(
-					"Xash3D GameCube: G377 skip viewmodel during DumpFrames\n" );
+					"Xash3D GameCube: G377 skip viewmodel during DumpFrames%s\n",
+					vst ? " (gcvst)" : "" );
 			}
 			return;
 		}
