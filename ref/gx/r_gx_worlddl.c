@@ -38,7 +38,7 @@ material's TEV recipe (r_gx_tevmat.c).
 #define GC_WD_MAX_MATS		384
 #define GC_WD_MAX_CHUNKS	3072
 #define GC_WD_ST_FRAC		9
-#define GC_WD_LOAD_BUDGET	( 256u * 1024u ) /* chunk bytes fetched per frame */
+#define GC_WD_LOAD_BUDGET	( 512u * 1024u ) /* chunk bytes fetched per frame */
 #define GC_WD_MAT_F_WATER	0x01
 
 typedef struct
@@ -107,6 +107,8 @@ static file_t *gc_wd_file;	/* disc fallback when ARAM is unavailable */
 static byte *gc_wd_pvs;		/* decompressed row of gc_wd_pvs_cluster */
 static int gc_wd_pvs_cluster = -2;
 static int gc_wd_frame;
+static int gc_wd_last_waiting;
+static int gc_wd_last_chunks;
 static byte gc_wd_scratch[1024] __attribute__(( aligned( 32 )));
 
 /* Bytes [ofs, ofs+len) of the streamed part of the file → dst (32-aligned). */
@@ -323,9 +325,23 @@ static void R_GXWorldDLLoadPVS( int cluster )
 			gc_wd_pvs[out++] = gc_wd_scratch[in++];
 		else
 		{
-			out += gc_wd_scratch[in + 1];
+			u32 run = gc_wd_scratch[in + 1];
+
+			if( run > visbytes - out )
+				run = visbytes - out;
+			out += run;
 			in += 2;
 		}
+	}
+	/* Empty decompress → treat as full-vis so a bad ARAM window cannot
+	 * black out the ride (host PVS for cl=1937 has 2400+ bits set). */
+	{
+		u32 nz = 0, i;
+
+		for( i = 0; i < visbytes; i++ )
+			nz |= gc_wd_pvs[i];
+		if( !nz )
+			memset( gc_wd_pvs, 0xff, visbytes );
 	}
 }
 
@@ -377,41 +393,9 @@ static byte *R_GXWorldDLResident( u32 i, u32 *budget )
 	return gc_wd_cache + head;
 }
 
-/* Frustum from the view basis: four side planes through the eye. */
-static void R_GXWorldDLFrustum( vec3_t normals[4] )
-{
-	vec3_t fwd, right, up;
-	const float fx = ( RI.rvp.fov_x > 1.0f ? RI.rvp.fov_x : 90.0f ) * (float)M_PI_F / 360.0f;
-	const float fy = ( RI.rvp.fov_y > 1.0f ? RI.rvp.fov_y : 90.0f ) * (float)M_PI_F / 360.0f;
-	const float sx = sinf( fx ), cx = cosf( fx ), sy = sinf( fy ), cy = cosf( fy );
-	int i;
-
-	AngleVectors( RI.rvp.viewangles, fwd, right, up );
-	for( i = 0; i < 3; i++ )
-	{
-		normals[0][i] = fwd[i] * sx + right[i] * cx;	/* left plane, faces right */
-		normals[1][i] = fwd[i] * sx - right[i] * cx;
-		normals[2][i] = fwd[i] * sy + up[i] * cy;
-		normals[3][i] = fwd[i] * sy - up[i] * cy;
-	}
-}
-
-static qboolean R_GXWorldDLBoxVisible( const gc_wd_chunkdir_t *d, vec3_t normals[4], const float *org )
-{
-	int p, a;
-
-	for( p = 0; p < 4; p++ )
-	{
-		float dist = 0.0f;
-
-		/* Farthest box corner along the plane normal, relative to the eye. */
-		for( a = 0; a < 3; a++ )
-			dist += normals[p][a] * (( normals[p][a] >= 0.0f ? (float)d->maxs[a] : (float)d->mins[a] ) - org[a] );
-		if( dist < -8.0f )
-			return false;
-	}
-	return true;
-}
+/* Same frustum as CapFaces densify (FOV+5°, −16u plane slack). */
+extern void R_GXBuildFrustum( void );
+extern qboolean R_GXBoxOutsideFrustum( const vec3_t mins, const vec3_t maxs );
 
 /*
  * Draw the PVS-visible world. The caller has cleared colour/Z and loaded the
@@ -421,21 +405,28 @@ int R_GXWorldDLDraw( void )
 {
 	static qboolean logged;
 	const float *org = RI.rvp.vieworigin;
-	vec3_t normals[4];
 	u32 budget = GC_WD_LOAD_BUDGET;
 	u32 i;
 	int cluster, drawn = 0, chunks = 0, waiting = 0, cur_mat = -1;
+	int pvs_hit = 0, frustum_reject = 0;
+	int pass, use_frustum = 1;
+	const qboolean dump_still = gEngfuncs.Sys_CheckParm( "-gcdumpframes" )
+		&& !gEngfuncs.Sys_CheckParm( "-gcvst" );
+	const u32 frame_budget = dump_still ? ( 2u * 1024u * 1024u ) : GC_WD_LOAD_BUDGET;
 
 	if( gc_wd_state != 1 )
 		return 0;
 	gc_wd_frame++;
+	budget = frame_budget;
 	cluster = R_GXWorldDLEyeCluster( org );
 	/* Eye in solid / outside the tree: keep the last good row. */
 	if( cluster >= 0 && cluster != gc_wd_pvs_cluster )
 		R_GXWorldDLLoadPVS( cluster );
 	else if( gc_wd_pvs_cluster == -2 )
 		R_GXWorldDLLoadPVS( -1 );
-	R_GXWorldDLFrustum( normals );
+	R_GXBuildFrustum();
+	/* Dump-eye: keep CapFaces frustum (+5°). Wider FOV pulled midband land
+	 * through the water slab (mae 47→64). PVS-only floods the 512 KiB cache. */
 
 	/* Pipe: indexed s16 positions, baked RGB565 light, s16 ST. */
 	GX_SetCullMode( GX_CULL_NONE );
@@ -464,62 +455,116 @@ int R_GXWorldDLDraw( void )
 	GX_SetTevAlphaOp( GX_TEVSTAGE0, GX_TEV_ADD, GX_TB_ZERO, GX_CS_SCALE_1, GX_TRUE, GX_TEVPREV );
 	R_GXFogBegin();
 
-	for( i = 0; i < gc_wd_hdr.n_chunks; i++ )
+	/* Pass 0: PVS + frustum. Pass 1 (VST only): PVS-only when frustum ate
+	 * most of the PVS set (monastery park cl=1937). Dump-eye must NOT bypass
+	 * — PVS-only floods the 512 KiB cache (waiting~539) and starves cove geo. */
+	for( pass = 0; pass < 2; pass++ )
 	{
-		const gc_wd_chunkdir_t *d = &gc_wd_dir[i];
-		const gc_wd_batch_t *b;
-		byte *chunk;
-		u32 nb, k;
-
-		if( !( gc_wd_pvs[d->cluster >> 3] & ( 1 << ( d->cluster & 7 ))))
-			continue;
-		if( !R_GXWorldDLBoxVisible( d, normals, org ))
-			continue;
-		chunk = R_GXWorldDLResident( i, &budget );
-		if( !chunk )
+		if( pass == 1 )
 		{
-			waiting++;
-			continue;
+			if( dump_still
+				|| !use_frustum
+				|| pvs_hit <= 0
+				|| frustum_reject < ( pvs_hit * 3 ) / 4
+				|| chunks >= 8 )
+				break;
+			use_frustum = 0;
+			drawn = 0;
+			chunks = 0;
+			waiting = 0;
+			cur_mat = -1;
+			budget = frame_budget;
 		}
-		gc_wd_slots[i].used_frame = gc_wd_frame;
-		nb = *(const u16 *)( chunk + 2 );
-		GX_SetArray( GX_VA_POS, chunk + *(const u32 *)( chunk + 4 ), 6 );
-		b = (const gc_wd_batch_t *)( chunk + 8 );
-		for( k = 0; k < nb; k++, b++ )
+		for( i = 0; i < gc_wd_hdr.n_chunks; i++ )
 		{
-			if( b->mat >= gc_wd_hdr.n_mats )
+			const gc_wd_chunkdir_t *d = &gc_wd_dir[i];
+			const gc_wd_batch_t *b;
+			byte *chunk;
+			u32 nb, k;
+
+			if( !( gc_wd_pvs[d->cluster >> 3] & ( 1 << ( d->cluster & 7 ))))
 				continue;
-			if( (int)b->mat != cur_mat )
+			if( pass == 0 )
+				pvs_hit++;
+			/* Always keep the eye cluster's own chunk — never frustum it away. */
+			if( use_frustum
+				&& !( cluster >= 0 && (int)d->cluster == cluster ))
 			{
-				const gc_wd_mat_t *m = &gc_wd_mats[b->mat];
+				vec3_t bmins, bmaxs;
 
-				if( gc_wd_texnum[b->mat] < 0 )
-					gc_wd_texnum[b->mat] = (s16)GC_WorldTexnumByHash( m->tex_hash );
-				if( gc_wd_texnum[b->mat] <= 0
-					|| !R_GXWorldDLBindTex( (unsigned)gc_wd_texnum[b->mat] ))
+				bmins[0] = (float)d->mins[0];
+				bmins[1] = (float)d->mins[1];
+				bmins[2] = (float)d->mins[2];
+				bmaxs[0] = (float)d->maxs[0];
+				bmaxs[1] = (float)d->maxs[1];
+				bmaxs[2] = (float)d->maxs[2];
+				if( R_GXBoxOutsideFrustum( bmins, bmaxs ))
+				{
+					if( pass == 0 )
+						frustum_reject++;
 					continue;
-				/* Source material recipe on top (detail / alphatest). */
-				R_GXTevMatAppend( R_GXTevMatFlags( m->tevmat ) ? m->tevmat : 0, 1, 1 );
-				cur_mat = (int)b->mat;
+				}
 			}
-			GX_CallDispList( chunk + b->dl_ofs, b->dl_bytes );
-			drawn++;
+			chunk = R_GXWorldDLResident( i, &budget );
+			if( !chunk )
+			{
+				waiting++;
+				continue;
+			}
+			gc_wd_slots[i].used_frame = gc_wd_frame;
+			nb = *(const u16 *)( chunk + 2 );
+			GX_SetArray( GX_VA_POS, chunk + *(const u32 *)( chunk + 4 ), 6 );
+			b = (const gc_wd_batch_t *)( chunk + 8 );
+			for( k = 0; k < nb; k++, b++ )
+			{
+				if( b->mat >= gc_wd_hdr.n_mats )
+					continue;
+				if( (int)b->mat != cur_mat )
+				{
+					const gc_wd_mat_t *m = &gc_wd_mats[b->mat];
+
+					if( gc_wd_texnum[b->mat] < 0 )
+						gc_wd_texnum[b->mat] = (s16)GC_WorldTexnumByHash( m->tex_hash );
+					if( gc_wd_texnum[b->mat] <= 0
+						|| !R_GXWorldDLBindTex( (unsigned)gc_wd_texnum[b->mat] ))
+						continue;
+					/* Source material recipe on top (detail / alphatest). */
+					R_GXTevMatAppend( R_GXTevMatFlags( m->tevmat ) ? m->tevmat : 0, 1, 1 );
+					cur_mat = (int)b->mat;
+				}
+				GX_CallDispList( chunk + b->dl_ofs, b->dl_bytes );
+				drawn++;
+			}
+			chunks++;
 		}
-		chunks++;
 	}
 	R_GXFogEnd();
 	R_GXTevMatEndAlphaTest();
 	GX_SetNumTevStages( 1 );
 	GX_SetNumTexGens( 1 );
 
-	if( !logged || ( gc_wd_frame & 255 ) == 0 )
+	gc_wd_last_waiting = waiting;
+	gc_wd_last_chunks = chunks;
+	if( !logged || ( gc_wd_frame & 255 ) == 0 || ( chunks == 0 && pvs_hit > 0 ))
 	{
 		logged = true;
 		gEngfuncs.Con_Reportf(
-			"Xash3D GameCube: world DL frame=%d cluster=%d chunks=%d batches=%d waiting=%d\n",
-			gc_wd_frame, cluster, chunks, drawn, waiting );
+			"Xash3D GameCube: world DL frame=%d cluster=%d chunks=%d batches=%d waiting=%d pvs=%d frustum_rej=%d%s\n",
+			gc_wd_frame, cluster, chunks, drawn, waiting, pvs_hit, frustum_reject,
+			use_frustum ? "" : " (frustum bypass)" );
 	}
 	return drawn;
+}
+
+/* DumpFrames hold should wait until the visible WorldDL set is resident. */
+int R_GXWorldDLLastWaiting( void )
+{
+	return gc_wd_last_waiting;
+}
+
+int R_GXWorldDLLastChunks( void )
+{
+	return gc_wd_last_chunks;
 }
 
 #endif /* XASH_GAMECUBE */

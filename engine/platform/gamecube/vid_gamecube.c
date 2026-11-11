@@ -660,6 +660,32 @@ static float gc_cap_lm_uv[GC_MAX_CAP_FACES][GC_CAP_MAX_VERTS][2];
 /* Lean CapFaces: cluster of each face centroid (PointInLeaf at pack load).
  * Per-frame PVS uses CHECKVISBIT — no marksurfaces / live msurface table. */
 static short gc_cap_cluster[GC_MAX_CAP_FACES];
+/* Lost Coast VST: Source PVS + on-rails camera (stub BSP has visdata=0).
+ * CapFaces densify; real cull bits come from Source cluster PVS rows. */
+#define GC_VST_MAX_NODES		64
+#define GC_VST_MAX_VISBYTES		512
+typedef struct
+{
+	vec3_t	origin;
+	vec3_t	angles;
+	short	cluster;
+} gc_vst_node_t;
+static qboolean gc_vst_path_ready;
+static int gc_vst_node_count;
+static float gc_vst_speed = 101.0f;
+static gc_vst_node_t gc_vst_nodes[GC_VST_MAX_NODES];
+static double gc_vst_ride_t; /* seconds along path */
+static int gc_vst_eye_cluster = -1;
+static qboolean gc_src_vis_ready;
+static int gc_src_vis_clusters;
+static int gc_src_vis_bytes;
+/* Row offsets stay on disc — tip cannot hold 2860×u32 (~11 KiB) at smoke tip. */
+static byte gc_src_vis_row_comp[1024];
+static int gc_src_vis_row_comp_len;
+static byte gc_src_pvs[GC_VST_MAX_VISBYTES];
+static qboolean gc_src_cls_ready;
+static uint16_t GC_Be16( const byte *p );
+static uint32_t GC_Be32( const byte *p );
 static const byte *gc_cap_frame_vis;
 static int gc_cap_vis_assigned;
 static int gc_cap_pvs_skips;
@@ -975,7 +1001,7 @@ static void GC_BakeTramSlotST( int slot, const msurface_t *src, const gc_tram_fa
 }
 /* G286: tip-safe Flipper water — baked turb verts (no live-pool tip / no draw walk hang).
  * Lost Coast Source water pack (media/gw_<map>.gcw) raises the sheet budget. */
-#define GC_WATER_MAX_FACES 24
+#define GC_WATER_MAX_FACES 24 /* 384 OOMs MEM1 (heap starved); raise with an ARAM face table */
 typedef struct
 {
 	byte		nverts;
@@ -985,6 +1011,8 @@ typedef struct
 	float		scroll_u;
 	float		scroll_v;
 	u32		tint; /* RGBA8888 */
+	float		cheap_start; /* water_ati_cheap001 $cheapwaterstartdistance */
+	float		cheap_end;   /* $cheapwaterenddistance */
 	mplane_t	plane;
 } gc_water_face_t;
 static gc_water_face_t gc_water_faces[GC_WATER_MAX_FACES];
@@ -1336,76 +1364,709 @@ int GC_GetNewGameCapFaceCount( void )
 	return gc_newgame_cap_face_count;
 }
 
-/* Assign CapFace → vis cluster via PointInLeaf (nodes/leafs live).
- * Wall centroids often sit in solid — nudge along ±plane normal into empty. */
-static void GC_AssignCapFaceClusters( model_t *mod )
+
+static void GC_DecompressVisRowUnbounded( byte *out, const byte *in, int in_len, size_t visbytes )
 {
-	int i, assigned = 0;
+	byte *dst = out;
+	const byte *end = in + ( in_len > 0 ? in_len : 0 );
+	size_t steps = 0;
+	const size_t step_cap = visbytes * 4u + 8u;
 
-	gc_cap_vis_assigned = 0;
-	if( !mod || !mod->nodes || !mod->leafs || gc_newgame_cap_face_count <= 0 )
-		return;
-	for( i = 0; i < gc_newgame_cap_face_count; i++ )
+	if( !in || in_len <= 0 )
 	{
-		vec3_t c, nrm;
-		mleaf_t *leaf = NULL;
-		int nv = gc_cap_nverts[i];
-		int v, attempt;
-		const mplane_t *pl = &gc_newgame_cap_faces[i].plane;
-
-		gc_cap_cluster[i] = -1;
-		if( nv < 3 )
-			continue;
-		c[0] = c[1] = c[2] = 0.0f;
-		for( v = 0; v < nv; v++ )
+		memset( out, 0xFF, visbytes );
+		return;
+	}
+	while( dst < out + visbytes )
+	{
+		if( ++steps > step_cap || in >= end )
 		{
-			c[0] += (float)gc_cap_pts_s16[i][v][0];
-			c[1] += (float)gc_cap_pts_s16[i][v][1];
-			c[2] += (float)gc_cap_pts_s16[i][v][2];
+			memset( dst, 0, (size_t)( out + visbytes - dst ));
+			return;
 		}
-		c[0] /= (float)nv;
-		c[1] /= (float)nv;
-		c[2] /= (float)nv;
-		VectorCopy( pl->normal, nrm );
-		for( attempt = 0; attempt < 5 && ( !leaf || leaf->cluster < 0 ); attempt++ )
+		if( *in )
 		{
-			vec3_t p;
-			float push = ( attempt == 0 ) ? 0.0f
-				: ( attempt & 1 ) ? 4.0f * (( attempt + 1 ) / 2 )
-				: -4.0f * ( attempt / 2 );
-
-			VectorMA( c, push, nrm, p );
-			leaf = Mod_PointInLeaf( p, mod->nodes, mod );
+			*dst++ = *in++;
 		}
-		if( leaf && leaf->cluster >= 0 )
+		else
 		{
-			gc_cap_cluster[i] = (short)leaf->cluster;
-			assigned++;
+			size_t c;
+
+			in++;
+			if( in >= end )
+			{
+				memset( dst, 0, (size_t)( out + visbytes - dst ));
+				return;
+			}
+			c = *in++;
+			if( c > (size_t)( out + visbytes - dst ))
+				c = (size_t)( out + visbytes - dst );
+			memset( dst, 0, c );
+			dst += c;
 		}
 	}
-	gc_cap_vis_assigned = assigned;
-	Con_Reportf( "Xash3D GameCube: CapFaces PVS clusters assigned=%d/%d\n",
-		assigned, gc_newgame_cap_face_count );
+}
+
+static qboolean GC_TryLoadSourceVisPack( const char *mapbase )
+{
+	char path[MAX_SYSPATH];
+	byte hdr[16];
+	file_t *f;
+	uint16_t ver, nc, vb;
+	fs_offset_t size;
+
+	gc_src_vis_ready = false;
+	gc_src_vis_clusters = 0;
+	gc_src_vis_bytes = 0;
+	if( !mapbase || !mapbase[0] )
+		return false;
+	Q_snprintf( path, sizeof( path ), "media/vis_%s.gcv", mapbase );
+	f = FS_Open( path, "rb", false );
+	if( !f )
+		f = FS_Open( path, "rb", true );
+	if( !f )
+		return false;
+	size = FS_FileLength( f );
+	/* GCvis\\0 | ver u16 | nc u16 | vb u16 | pad u16 | row_ofs[nc] u32 | rows */
+	if( size < 16 || FS_Read( f, hdr, 16 ) != 16 || memcmp( hdr, "GCvis", 5 ) != 0 )
+	{
+		FS_Close( f );
+		return false;
+	}
+	ver = GC_Be16( hdr + 6 );
+	nc = GC_Be16( hdr + 8 );
+	vb = GC_Be16( hdr + 10 );
+	if( ver != 1 || nc == 0 || vb == 0 || vb > GC_VST_MAX_VISBYTES
+		|| (fs_offset_t)( 16 + (int)nc * 4 ) > size )
+	{
+		Con_Reportf( "Xash3D GameCube: Source vis pack reject %s ver=%u nc=%u vb=%u\n",
+			path, ver, nc, vb );
+		FS_Close( f );
+		return false;
+	}
+	gc_src_vis_clusters = (int)nc;
+	gc_src_vis_bytes = (int)vb;
+	FS_Close( f );
+	gc_src_vis_ready = true;
+	Con_Reportf( "Xash3D GameCube: Source vis pack %s clusters=%d visbytes=%d\n",
+		path, gc_src_vis_clusters, gc_src_vis_bytes );
+	return true;
+}
+
+static qboolean GC_LoadSourceVisRow( int cluster )
+{
+	char path[MAX_SYSPATH];
+	char mapbase[64];
+	byte be[4];
+	file_t *f;
+	uint32_t ofs, next;
+	int len;
+	fs_offset_t size;
+
+	if( !gc_src_vis_ready || cluster < 0 || cluster >= gc_src_vis_clusters )
+		return false;
+	mapbase[0] = '\0';
+	if( cl.worldmodel && cl.worldmodel->name && cl.worldmodel->name[0] )
+		COM_FileBase( cl.worldmodel->name, mapbase, sizeof( mapbase ));
+	else if( sv.name[0] )
+		Q_strncpy( mapbase, sv.name, sizeof( mapbase ));
+	else
+		Q_strncpy( mapbase, "d2_lostcoast", sizeof( mapbase ));
+	Q_snprintf( path, sizeof( path ), "media/vis_%s.gcv", mapbase );
+	f = FS_Open( path, "rb", false );
+	if( !f )
+		f = FS_Open( path, "rb", true );
+	if( !f )
+		return false;
+	size = FS_FileLength( f );
+	if( FS_Seek( f, (fs_offset_t)( 16 + cluster * 4 ), SEEK_SET ) < 0
+		|| FS_Read( f, be, 4 ) != 4 )
+	{
+		FS_Close( f );
+		return false;
+	}
+	ofs = GC_Be32( be );
+	if( cluster + 1 < gc_src_vis_clusters )
+	{
+		if( FS_Read( f, be, 4 ) != 4 )
+		{
+			FS_Close( f );
+			return false;
+		}
+		next = GC_Be32( be );
+	}
+	else
+		next = (uint32_t)size;
+	if( next <= ofs || (fs_offset_t)next > size )
+		next = (uint32_t)size;
+	len = (int)( next - ofs );
+	if( len <= 0 || len > (int)sizeof( gc_src_vis_row_comp ) )
+	{
+		FS_Close( f );
+		return false;
+	}
+	if( FS_Seek( f, (fs_offset_t)ofs, SEEK_SET ) < 0
+		|| FS_Read( f, gc_src_vis_row_comp, len ) != len )
+	{
+		FS_Close( f );
+		return false;
+	}
+	FS_Close( f );
+	gc_src_vis_row_comp_len = len;
+	GC_DecompressVisRowUnbounded( gc_src_pvs, gc_src_vis_row_comp, len,
+		(size_t)gc_src_vis_bytes );
+	return true;
+}
+
+static qboolean GC_TryLoadVstPath( const char *mapbase )
+{
+	char path[MAX_SYSPATH];
+	byte hdr[16];
+	file_t *f;
+	int i, n;
+	union { uint32_t u; float f; } sp;
+	fs_offset_t size;
+
+	gc_vst_path_ready = false;
+	gc_vst_node_count = 0;
+	gc_vst_ride_t = 0.0;
+	gc_vst_eye_cluster = -1;
+	if( !mapbase || !mapbase[0] )
+		return false;
+	Q_snprintf( path, sizeof( path ), "media/vst_%s_path.bin", mapbase );
+	f = FS_Open( path, "rb", false );
+	if( !f )
+		f = FS_Open( path, "rb", true );
+	if( !f )
+		return false;
+	size = FS_FileLength( f );
+	/* GCvst\\0 | ver u16 | count u16 | speed f32 | reserved u32 */
+	if( size < 16 || FS_Read( f, hdr, 16 ) != 16 || memcmp( hdr, "GCvst", 5 ) != 0 )
+	{
+		FS_Close( f );
+		return false;
+	}
+	n = (int)GC_Be16( hdr + 8 );
+	sp.u = GC_Be32( hdr + 10 );
+	gc_vst_speed = sp.f > 1.0f ? sp.f : 101.0f;
+	if( GC_Be16( hdr + 6 ) != 1 || n <= 1 || n > GC_VST_MAX_NODES
+		|| (fs_offset_t)( 16 + n * 28 ) > size )
+	{
+		FS_Close( f );
+		return false;
+	}
+	for( i = 0; i < n; i++ )
+	{
+		byte rec[28];
+		union { uint32_t u; float f; } u0, u1, u2, a0, a1, a2;
+
+		if( FS_Read( f, rec, 28 ) != 28 )
+		{
+			FS_Close( f );
+			gc_vst_node_count = 0;
+			return false;
+		}
+		u0.u = GC_Be32( rec );
+		u1.u = GC_Be32( rec + 4 );
+		u2.u = GC_Be32( rec + 8 );
+		a0.u = GC_Be32( rec + 12 );
+		a1.u = GC_Be32( rec + 16 );
+		a2.u = GC_Be32( rec + 20 );
+		gc_vst_nodes[i].origin[0] = u0.f;
+		gc_vst_nodes[i].origin[1] = u1.f;
+		gc_vst_nodes[i].origin[2] = u2.f;
+		gc_vst_nodes[i].angles[0] = a0.f;
+		gc_vst_nodes[i].angles[1] = a1.f;
+		gc_vst_nodes[i].angles[2] = a2.f;
+		gc_vst_nodes[i].cluster = (short)GC_Be16( rec + 24 );
+	}
+	FS_Close( f );
+	gc_vst_node_count = n;
+	gc_vst_path_ready = true;
+	gc_vst_ride_t = 0.0;
+	/* CapFaces densify only — if no pack is near the beach start (~3800u on
+	 * cove-only bakes), seek to the first path node within 2000u of a pack so
+	 * Flipper isn't void. When VST packs exist near eye0, stay at t=0. */
+	if( gc_cap_spatial_n > 0 && n > 0 )
+	{
+		int ni, si;
+		float start_near = 1.0e30f;
+
+		for( si = 0; si < gc_cap_spatial_n; si++ )
+		{
+			float dx = gc_vst_nodes[0].origin[0] - gc_cap_spatial_center[si][0];
+			float dy = gc_vst_nodes[0].origin[1] - gc_cap_spatial_center[si][1];
+			float dz = gc_vst_nodes[0].origin[2] - gc_cap_spatial_center[si][2];
+			float dist = sqrtf( dx * dx + dy * dy + dz * dz );
+
+			if( dist < start_near )
+				start_near = dist;
+		}
+		if( start_near > 2000.0f )
+		{
+			qboolean found = false;
+
+			for( ni = 1; ni < n && !found; ni++ )
+			{
+				for( si = 0; si < gc_cap_spatial_n; si++ )
+				{
+					float dx = gc_vst_nodes[ni].origin[0] - gc_cap_spatial_center[si][0];
+					float dy = gc_vst_nodes[ni].origin[1] - gc_cap_spatial_center[si][1];
+					float dz = gc_vst_nodes[ni].origin[2] - gc_cap_spatial_center[si][2];
+					float dist = sqrtf( dx * dx + dy * dy + dz * dz );
+
+					if( dist <= 2000.0f )
+					{
+						int k;
+						float best_t = 0.0f;
+
+						for( k = 0; k < ni; k++ )
+						{
+							vec3_t dlt;
+							VectorSubtract( gc_vst_nodes[k + 1].origin, gc_vst_nodes[k].origin, dlt );
+							best_t += VectorLength( dlt );
+						}
+						gc_vst_ride_t = (double)( best_t / ( gc_vst_speed > 1.0f ? gc_vst_speed : 101.0f ));
+						found = true;
+						Con_Reportf( "Xash3D GameCube: VST seek node=%d dist_pack=%.0f t=%.1fs (start_near=%.0f; CapFaces cover)\n",
+							ni, dist, gc_vst_ride_t, start_near );
+						break;
+					}
+				}
+			}
+		}
+		else
+		{
+			Con_Reportf( "Xash3D GameCube: VST start covered by CapFaces (near=%.0f) — ride_t=0\n",
+				start_near );
+		}
+	}
+	Con_Reportf( "Xash3D GameCube: VST path %s nodes=%d speed=%.0f eye0=(%.0f,%.0f,%.0f) cl=%d ride_t0=%.1f\n",
+		path, n, gc_vst_speed,
+		gc_vst_nodes[0].origin[0], gc_vst_nodes[0].origin[1], gc_vst_nodes[0].origin[2],
+		gc_vst_nodes[0].cluster, gc_vst_ride_t );
+	return true;
+}
+
+static qboolean GC_TryLoadCapFaceClustersFromPak( const char *gcp_name, int face_n )
+{
+	char path[MAX_SYSPATH];
+	char mapbase[64];
+	byte hdr[8];
+	byte rec[36];
+	file_t *f;
+	int i, npack, assigned = 0;
+	uint16_t ver, count;
+	fs_offset_t size;
+
+	if( !gcp_name || face_n <= 0 )
+		return false;
+	/* media/cf_<map>_pNN.gcp → mapbase cf stem before _p / .gcp */
+	Q_strncpy( mapbase, gcp_name, sizeof( mapbase ));
+	{
+		char *dot = Q_strrchr( mapbase, '.' );
+		char *p;
+
+		if( dot )
+			*dot = '\0';
+		/* strip _pNN so pak is always cf_<map>_cls.pak */
+		p = Q_strstr( mapbase, "_p" );
+		if( p && p > mapbase )
+		{
+			/* only strip trailing _p## spatial suffix */
+			char *q = p + 2;
+			qboolean digits = false;
+
+			while( *q >= '0' && *q <= '9' )
+			{
+				digits = true;
+				q++;
+			}
+			if( digits && *q == '\0' )
+				*p = '\0';
+		}
+	}
+	Q_snprintf( path, sizeof( path ), "media/%s_cls.pak", mapbase );
+	f = FS_Open( path, "rb", false );
+	if( !f )
+		f = FS_Open( path, "rb", true );
+	if( !f )
+		return false;
+	size = FS_FileLength( f );
+	if( size < 8 || FS_Read( f, hdr, 8 ) != 8 || memcmp( hdr, "GCpk", 4 ) != 0 )
+	{
+		FS_Close( f );
+		return false;
+	}
+	ver = GC_Be16( hdr + 4 );
+	count = GC_Be16( hdr + 6 );
+	if( ver != 1 || count == 0 || (fs_offset_t)( 8 + count * 36 ) > size )
+	{
+		FS_Close( f );
+		return false;
+	}
+	for( npack = 0; npack < (int)count; npack++ )
+	{
+		uint16_t face_count;
+		uint32_t ofs;
+		char ename[29];
+
+		if( FS_Read( f, rec, 36 ) != 36 )
+		{
+			FS_Close( f );
+			return false;
+		}
+		memcpy( ename, rec, 28 );
+		ename[28] = '\0';
+		face_count = GC_Be16( rec + 28 );
+		ofs = GC_Be32( rec + 32 );
+		if( Q_stricmp( ename, gcp_name ))
+			continue;
+		if( (int)face_count < face_n || (fs_offset_t)ofs + face_n * 2 > size )
+		{
+			FS_Close( f );
+			return false;
+		}
+		if( FS_Seek( f, (fs_offset_t)ofs, SEEK_SET ) < 0 )
+		{
+			FS_Close( f );
+			return false;
+		}
+		for( i = 0; i < face_n; i++ )
+		{
+			byte b[2];
+			short cl;
+
+			if( FS_Read( f, b, 2 ) != 2 )
+			{
+				FS_Close( f );
+				return false;
+			}
+			cl = (short)GC_Be16( b );
+			gc_cap_cluster[i] = cl;
+			if( cl >= 0 )
+				assigned++;
+		}
+		FS_Close( f );
+		gc_cap_vis_assigned = assigned;
+		gc_src_cls_ready = assigned > 0;
+		Con_Reportf( "Xash3D GameCube: CapFaces Source clusters pak %s [%s] assigned=%d/%d\n",
+			path, gcp_name, assigned, face_n );
+		return gc_src_cls_ready;
+	}
+	FS_Close( f );
+	return false;
+}
+
+static qboolean GC_TryLoadCapFaceClusterSidecar( const char *gcp_path, int face_n )
+{
+	char path[MAX_SYSPATH];
+	char gcp_name[64];
+	byte hdr[8];
+	file_t *f;
+	int i, n, assigned = 0;
+	size_t len;
+	const char *base;
+
+	gc_src_cls_ready = false;
+	if( !gcp_path || face_n <= 0 )
+		return false;
+	base = Q_strrchr( gcp_path, '/' );
+	Q_strncpy( gcp_name, base ? base + 1 : gcp_path, sizeof( gcp_name ));
+
+	Q_strncpy( path, gcp_path, sizeof( path ));
+	len = Q_strlen( path );
+	if( len >= 5 && !Q_stricmp( path + len - 4, ".gcp" ))
+	{
+		path[len - 3] = 'c';
+		path[len - 2] = 'l';
+		path[len - 1] = 's';
+		f = FS_Open( path, "rb", false );
+		if( !f )
+			f = FS_Open( path, "rb", true );
+		if( f )
+		{
+			if( FS_Read( f, hdr, 8 ) == 8 && !memcmp( hdr, "GCcl", 4 ))
+			{
+				n = (int)GC_Be16( hdr + 6 );
+				if( n >= face_n )
+				{
+					for( i = 0; i < face_n; i++ )
+					{
+						byte b[2];
+						short cl;
+
+						if( FS_Read( f, b, 2 ) != 2 )
+							break;
+						cl = (short)GC_Be16( b );
+						gc_cap_cluster[i] = cl;
+						if( cl >= 0 )
+							assigned++;
+					}
+					if( i == face_n )
+					{
+						FS_Close( f );
+						gc_cap_vis_assigned = assigned;
+						gc_src_cls_ready = assigned > 0;
+						Con_Reportf( "Xash3D GameCube: CapFaces Source clusters %s assigned=%d/%d\n",
+							path, assigned, face_n );
+						return gc_src_cls_ready;
+					}
+				}
+			}
+			FS_Close( f );
+		}
+	}
+	return GC_TryLoadCapFaceClustersFromPak( gcp_name, face_n );
+}
+
+static qboolean GC_VstRideEye( float *eye, float *out_angles )
+{
+	int i;
+	float seg_len, dist, u;
+	vec3_t delta;
+	static qboolean logged;
+	static int last_seg = -1;
+	double dt;
+
+	if( !eye || !out_angles )
+		return false;
+	if( !Sys_CheckParm( "-gcvst" ) || !gc_vst_path_ready || gc_vst_node_count < 2 )
+		return false;
+
+	dt = host.frametime;
+	if( dt <= 0.0 || dt > 0.25 )
+		dt = 1.0 / 60.0;
+	gc_vst_ride_t += dt;
+	dist = (float)( gc_vst_ride_t * (double)gc_vst_speed );
+
+	for( i = 0; i < gc_vst_node_count - 1; i++ )
+	{
+		VectorSubtract( gc_vst_nodes[i + 1].origin, gc_vst_nodes[i].origin, delta );
+		seg_len = VectorLength( delta );
+		if( seg_len < 1.0f )
+			seg_len = 1.0f;
+		if( dist <= seg_len || i == gc_vst_node_count - 2 )
+		{
+			u = dist / seg_len;
+			if( u > 1.0f )
+				u = 1.0f;
+			eye[0] = gc_vst_nodes[i].origin[0] + delta[0] * u;
+			eye[1] = gc_vst_nodes[i].origin[1] + delta[1] * u;
+			eye[2] = gc_vst_nodes[i].origin[2] + delta[2] * u;
+			out_angles[0] = gc_vst_nodes[i].angles[0]
+				+ ( gc_vst_nodes[i + 1].angles[0] - gc_vst_nodes[i].angles[0] ) * u;
+			out_angles[1] = gc_vst_nodes[i].angles[1]
+				+ ( gc_vst_nodes[i + 1].angles[1] - gc_vst_nodes[i].angles[1] ) * u;
+			out_angles[2] = 0.0f;
+			gc_vst_eye_cluster = ( u < 0.5f )
+				? gc_vst_nodes[i].cluster
+				: gc_vst_nodes[i + 1].cluster;
+			VectorCopy( eye, gc_newgame_capture_origin );
+			if( !logged || last_seg != i )
+			{
+				logged = true;
+				last_seg = i;
+				SYS_Report( "Xash3D GameCube: VST ride eye=(%.0f,%.0f,%.0f) pitch=%.0f yaw=%.0f cl=%d seg=%d/%d\n",
+					eye[0], eye[1], eye[2], out_angles[0], out_angles[1],
+					gc_vst_eye_cluster, i, gc_vst_node_count - 1 );
+			}
+			{
+				extern void R_GXBeginDumpAnimFrame( void );
+				extern void R_GXDumpSkipViewmodel( int on );
+				R_GXBeginDumpAnimFrame();
+				R_GXDumpSkipViewmodel( 1 );
+			}
+			return true;
+		}
+		dist -= seg_len;
+	}
+	VectorCopy( gc_vst_nodes[gc_vst_node_count - 1].origin, eye );
+	VectorCopy( gc_vst_nodes[gc_vst_node_count - 1].angles, out_angles );
+	out_angles[2] = 0.0f;
+	gc_vst_eye_cluster = gc_vst_nodes[gc_vst_node_count - 1].cluster;
+	VectorCopy( eye, gc_newgame_capture_origin );
+	return true;
+}
+
+/* Assign CapFace → Source vis cluster.
+ * Lost Coast CapFaces ride Source .cls + vis_*.gcv — never GoldSrc stub
+ * PointInLeaf (wrong index space; poisoned DumpFrames with mae~61 / overdraw). */
+static void GC_AssignCapFaceClusters( model_t *mod )
+{
+	int i;
+	char mapbase[64];
+
+	gc_cap_vis_assigned = 0;
+	if( gc_newgame_cap_face_count <= 0 )
+		return;
+
+	mapbase[0] = '\0';
+	if( mod && mod->name && mod->name[0] )
+		COM_FileBase( mod->name, mapbase, sizeof( mapbase ));
+	else if( sv.name[0] )
+		Q_strncpy( mapbase, sv.name, sizeof( mapbase ));
+	else
+		Q_strncpy( mapbase, "d2_lostcoast", sizeof( mapbase ));
+
+	/* Vis pack before cluster assign — Source PVS must gate CapFaces. */
+	if( !gc_src_vis_ready )
+		GC_TryLoadSourceVisPack( mapbase );
+
+	if( gc_cap_spatial_loaded[0]
+		&& GC_TryLoadCapFaceClusterSidecar( gc_cap_spatial_loaded, gc_newgame_cap_face_count ))
+		return;
+
+	/* No .cls: leave cl=-1 (draw + frustum only). Never stamp stub BSP
+	 * clusters into CapFaces — those IDs are not Source vis bits. */
+	for( i = 0; i < gc_newgame_cap_face_count; i++ )
+		gc_cap_cluster[i] = -1;
+	gc_cap_vis_assigned = 0;
+	if( gc_src_vis_ready )
+		Con_Reportf( "Xash3D GameCube: CapFaces clusters skipped (need .cls for Source PVS; frustum-only)\n" );
+	else
+		Con_Reportf( "Xash3D GameCube: CapFaces clusters skipped (no Source vis/cls; frustum-only)\n" );
+	(void)mod;
+}
+
+/* Resolve Source cluster for CapFaces PVS — never stub GoldSrc bits.
+ * VST ride uses path-node cluster; dump-eye uses baked eye sidecar or the
+ * CapFace .cls cluster whose centroid is nearest the camera (retail
+ * info_player_start → cluster 2123 on d2_lostcoast). */
+static int GC_SourceClusterForEye( const float *eye )
+{
+	char path[MAX_SYSPATH];
+	char mapbase[64];
+	byte hdr[32];
+	file_t *f;
+	int i, best_i, src_cl;
+	float best_d2;
+
+	if( !eye )
+		return -1;
+	if( Sys_CheckParm( "-gcvst" ) && gc_vst_eye_cluster >= 0 )
+		return gc_vst_eye_cluster;
+
+	mapbase[0] = '\0';
+	if( cl.worldmodel && cl.worldmodel->name && cl.worldmodel->name[0] )
+		COM_FileBase( cl.worldmodel->name, mapbase, sizeof( mapbase ));
+	else if( sv.name[0] )
+		Q_strncpy( mapbase, sv.name, sizeof( mapbase ));
+	else
+		Q_strncpy( mapbase, "d2_lostcoast", sizeof( mapbase ));
+
+	/* media/eye_<map>.gce — bake-time PointInLeaf at dumpeye / player start. */
+	Q_snprintf( path, sizeof( path ), "media/eye_%s.gce", mapbase );
+	f = FS_Open( path, "rb", false );
+	if( !f )
+		f = FS_Open( path, "rb", true );
+	if( f )
+	{
+		if( FS_Read( f, hdr, 32 ) == 32 && !memcmp( hdr, "GCeye", 5 )
+			&& GC_Be16( hdr + 6 ) == 1 )
+		{
+			union { uint32_t u; float f; } ox, oy, oz;
+			float dx, dy, dz, d2;
+
+			src_cl = (int)(short)GC_Be16( hdr + 8 );
+			ox.u = GC_Be32( hdr + 12 );
+			oy.u = GC_Be32( hdr + 16 );
+			oz.u = GC_Be32( hdr + 20 );
+			dx = ox.f - eye[0];
+			dy = oy.f - eye[1];
+			dz = oz.f - eye[2];
+			d2 = dx * dx + dy * dy + dz * dz;
+			FS_Close( f );
+			/* Sidecar matches this camera (within ~512u) — use baked cluster. */
+			if( src_cl >= 0 && d2 < ( 512.0f * 512.0f ))
+				return src_cl;
+		}
+		else
+			FS_Close( f );
+	}
+
+	/* CapFace .cls nearest centroid — same Source leaf index space as vis.gcv. */
+	best_i = -1;
+	best_d2 = 1.0e30f;
+	for( i = 0; i < gc_newgame_cap_face_count; i++ )
+	{
+		vec3_t c;
+		float dx, dy, dz, d2;
+		int cl;
+
+		cl = gc_cap_cluster[i];
+		if( cl < 0 )
+			continue;
+		GC_CapFaceCentroid( i, c );
+		dx = c[0] - eye[0];
+		dy = c[1] - eye[1];
+		dz = c[2] - eye[2];
+		d2 = dx * dx + dy * dy + dz * dz;
+		if( d2 < best_d2 )
+		{
+			best_d2 = d2;
+			best_i = i;
+		}
+	}
+	if( best_i >= 0 && best_d2 < ( 2500.0f * 2500.0f ))
+		return (int)gc_cap_cluster[best_i];
+
+	/* Weak fallback: nearest VST path node (can be hundreds of units off). */
+	if( gc_vst_path_ready && gc_vst_node_count > 0 )
+	{
+		int ni, best_n = 0;
+		float nd2, best = 1.0e30f;
+
+		for( ni = 0; ni < gc_vst_node_count; ni++ )
+		{
+			float dx = gc_vst_nodes[ni].origin[0] - eye[0];
+			float dy = gc_vst_nodes[ni].origin[1] - eye[1];
+			float dz = gc_vst_nodes[ni].origin[2] - eye[2];
+
+			nd2 = dx * dx + dy * dy + dz * dz;
+			if( nd2 < best )
+			{
+				best = nd2;
+				best_n = ni;
+			}
+		}
+		return (int)gc_vst_nodes[best_n].cluster;
+	}
+	return -1;
 }
 
 void GC_BeginCapFaceVis( const float *eye )
 {
 	static qboolean vis_logged;
+	static int vis_logged_cl = -999;
+	int src_cl = -1;
 
 	gc_cap_frame_vis = NULL;
 	gc_cap_pvs_skips = 0;
 	gc_cap_pvs_tests = 0;
 	if( !eye || gc_cap_vis_assigned <= 0 )
 		return;
-	/* Mod_GetPVSForPoint decompresses into a shared static — safe for one
-	 * CapFaces pass; do not call FatPVS between Begin and CapFaceInPVS. */
-	gc_cap_frame_vis = Mod_GetPVSForPoint( eye );
+	/* CapFaces .cls + vis_*.gcv are Source cluster indices. Stub GoldSrc
+	 * Mod_GetPVSForPoint bits are incompatible and must never gate CapFaces. */
+	src_cl = GC_SourceClusterForEye( eye );
+	if( gc_src_vis_ready && src_cl >= 0 && GC_LoadSourceVisRow( src_cl ))
+	{
+		gc_cap_frame_vis = gc_src_pvs;
+		if( !vis_logged || vis_logged_cl != src_cl )
+		{
+			vis_logged = true;
+			vis_logged_cl = src_cl;
+			Con_Reportf( "Xash3D GameCube: CapFaces Source PVS active cl=%d assigned=%d eye=(%.0f,%.0f,%.0f)\n",
+				src_cl, gc_cap_vis_assigned, eye[0], eye[1], eye[2] );
+		}
+		return;
+	}
+	/* No Source row — full CapFaces draw (look-cone densify still applies). */
 	if( !vis_logged )
 	{
 		vis_logged = true;
-		Con_Reportf( "Xash3D GameCube: CapFaces frame PVS %s assigned=%d eye=(%.0f,%.0f,%.0f)\n",
-			gc_cap_frame_vis ? "active" : "NULL(full)",
-			gc_cap_vis_assigned, eye[0], eye[1], eye[2] );
+		Con_Reportf( "Xash3D GameCube: CapFaces frame PVS NULL(full) src_cl=%d assigned=%d eye=(%.0f,%.0f,%.0f)\n",
+			src_cl, gc_cap_vis_assigned, eye[0], eye[1], eye[2] );
 	}
 }
 
@@ -1468,6 +2129,12 @@ int GC_CapFacePVSTestCount( void )
 int GC_CapFaceVisAssigned( void )
 {
 	return gc_cap_vis_assigned;
+}
+
+/* True when CapFaces are gated by a live Source PVS row (not stub / full-draw). */
+qboolean GC_CapFaceSourcePVSActive( void )
+{
+	return gc_cap_frame_vis != NULL && gc_cap_vis_assigned > 0 && gc_src_vis_ready;
 }
 
 /* G213: compact live faces and/or full surface pin. */
@@ -2288,6 +2955,23 @@ int GC_GetWaterFaceST( int index, float out_st[][2], int maxverts )
 	return n;
 }
 
+/* Distance fade of the water material (water_ati_cheap001): full reflection
+ * before cheap_start, cheap after cheap_end. */
+void GC_GetWaterFaceFade( int index, float *start, float *end )
+{
+	const gc_water_face_t *src;
+
+	if( index < 0 || index >= gc_water_face_count )
+	{
+		if( start ) *start = 500.0f;
+		if( end ) *end = 1000.0f;
+		return;
+	}
+	src = &gc_water_faces[index];
+	if( start ) *start = src->cheap_start;
+	if( end ) *end = src->cheap_end;
+}
+
 void GC_GetWaterFaceScroll( int index, float *scroll_u, float *scroll_v, u32 *tint )
 {
 	const gc_water_face_t *src;
@@ -2760,6 +3444,18 @@ static qboolean GC_TryLoadWaterPack( model_t *mod )
 		dst->plane.dist = u2f.f;
 		dst->tint = ( (u32)rec[112] << 24 ) | ( (u32)rec[113] << 16 )
 			| ( (u32)rec[114] << 8 ) | (u32)rec[115];
+		/* Real material extension (bake_lostcoast_water.py): fog colour
+		 * replaces the generic tint; cheap-reflection fade distances. */
+		if( rec[116] | rec[117] | rec[118] )
+			dst->tint = ( (u32)rec[116] << 24 ) | ( (u32)rec[117] << 16 )
+				| ( (u32)rec[118] << 8 ) | 0xD0u;
+		dst->cheap_start = (float)GC_Be16( rec + 124 ) * 4.0f;
+		dst->cheap_end = (float)GC_Be16( rec + 126 ) * 4.0f;
+		if( dst->cheap_end <= dst->cheap_start )
+		{
+			dst->cheap_start = 500.0f;
+			dst->cheap_end = 1000.0f;
+		}
 	}
 	gc_water_face_count = (int)face_n;
 	FS_Close( f );
@@ -11455,6 +12151,13 @@ static int GC_FindTexnumByHash( model_t *wmodel, uint32_t hash )
 	return 0;
 }
 
+/* World display lists (ref/gx/r_gx_worlddl.c) resolve materials by the same
+ * FNV name hash the CapFaces packs use. */
+int GC_WorldTexnumByHash( unsigned hash )
+{
+	return GC_FindTexnumByHash( cl.worldmodel, (uint32_t)hash );
+}
+
 /* Emit-time repair when CapFaces gl_texturenum points at an emptied image. */
 int GC_RepairCapFaceTexnum( int slot )
 {
@@ -12030,7 +12733,16 @@ static qboolean GC_TryLoadCapFacesPackPath( model_t *mod, const char *path, qboo
 		aram_i >= 0 ? 1 : 0 );
 	GCube_AppendSwissEvidence( "CapFaces pack loaded faces=%d eyes=%d tex=%d",
 		gc_newgame_cap_face_count, eye_n, resolved );
+	/* AssignCapFaceClusters loads Source vis first, then .cls — never stub. */
 	GC_AssignCapFaceClusters( mod );
+	{
+		char mapbase[64];
+
+		COM_FileBase( mod->name, mapbase, sizeof( mapbase ));
+		/* Load VST once — spatial CapFaces swaps must not reset ride_t. */
+		if( !gc_vst_path_ready )
+			GC_TryLoadVstPath( mapbase );
+	}
 	if( Sys_CheckParm( "-gcworlddl" ))
 	{
 		extern qboolean R_GXReserveCapDispList( void );
@@ -12237,8 +12949,8 @@ int GC_CapFacesLoadSpatialRank( model_t *mod, const float *eye, int rank )
 	int idx;
 
 	(void)eye;
-	/* Manifest order is primary + vista packs first (bake keeps them ahead of
-	 * spatial cells). Densify by index — near-score ranking pulled wrong cells. */
+	/* Callers pass a pack index (from RankSpatialListen or manifest order).
+	 * Dump densify already near-eye ranks; do not re-rank here. */
 	if( !mod || rank < 0 || rank >= gc_cap_spatial_n )
 		return 0;
 	idx = rank;
@@ -12569,6 +13281,7 @@ capfaces_arm:
 		gc_newgame_cap_face_count, gc_newgame_cap_lm_faces, gc_newgame_cap_tex_faces );
 	GCube_AppendSwissEvidence( "CapFaces bake done n=%d lm_real=%d tex=%d",
 		gc_newgame_cap_face_count, gc_newgame_cap_lm_faces, gc_newgame_cap_tex_faces );
+	/* Source vis + .cls before any CapFaces draw — same as pack path. */
 	GC_AssignCapFaceClusters( wmodel );
 	if( gc_newgame_cap_face_count <= 0 )
 	{
@@ -16905,13 +17618,25 @@ qboolean GC_RenderNewGameWorldFrames( int count )
 
 			gc_g196_flipper_dump_aim_left = 8; /* stay armed; sticky path below */
 			gc_dump_look_into_map = true;
+			/* VST stress flythrough owns the camera when armed. */
+			if( GC_VstRideEye( center, rvp.viewangles ))
+			{
+				local_look = true;
+				look_len = 192.0f;
+				cl.local.scr_fov = 75.0f;
+				rvp.fov_x = 75.0f;
+				rvp.fov_y = rvp.fov_x * 0.75f;
+				if( gc_cap_spatial_n > 1 && cl.worldmodel )
+					GC_CapFacesMaybeSwapSpatial( cl.worldmodel, center );
+			}
 			/*
 			 * Lost Coast CapFaces smoke: wall-aim walked to y≈3448 while the
 			 * primary pack sits near y≈2777 → frustum culled 384/384 (probe
 			 * 20261109-110902). Prefer the offline bake eye so CapFaces fill
-			 * DumpFrames; -gcdumpeye still wins.
+			 * DumpFrames; -gcdumpeye still wins. -gcvst skips this still path.
 			 */
-			if( Sys_CheckParm( "-gccapfacessmoke" )
+			else if( Sys_CheckParm( "-gccapfacessmoke" )
+				&& !Sys_CheckParm( "-gcvst" )
 				&& !Sys_CheckParm( "-gcdumpeye" )
 				&& !VectorIsNull( gc_newgame_bake_origin ))
 			{
@@ -16948,8 +17673,9 @@ qboolean GC_RenderNewGameWorldFrames( int count )
 				}
 			}
 			/* Spawn atlas: -gcdumpeye overrides sticky wall-aim when present. */
-			else if( GC_DumpEyeFromParm( center, rvp.viewangles )
-				|| GC_DumpEyeInFrontOfBestWall( center, rvp.viewangles ))
+			else if( !Sys_CheckParm( "-gcvst" )
+				&& ( GC_DumpEyeFromParm( center, rvp.viewangles )
+				|| GC_DumpEyeInFrontOfBestWall( center, rvp.viewangles )))
 			{
 				local_look = true;
 				look_len = 192.0f;
@@ -17273,11 +17999,13 @@ qboolean GC_RenderNewGameWorldFrames( int count )
 	 * CapFaces listen gameplay also needs the first-person weapon mesh. */
 	{
 		/* CapFaces smoke DumpFrames: always want the 357 (cls.state may still
-		 * be connecting while newgame render presents the cove). */
-		const qboolean want_vm = gc_force_draw_viewmodel
-			|| Sys_CheckParm( "-gccapfacessmoke" )
-			|| ( Sys_CheckParm( "-gcworldrender" ) && Sys_CheckParm( "-gcplayerinput" )
-				&& cls.state == ca_active && cls.signon == SIGNONS );
+		 * be connecting while newgame render presents the cove).
+		 * -gcvst stress flythrough: never HL1 v_357 over the Source path. */
+		const qboolean want_vm = !Sys_CheckParm( "-gcvst" )
+			&& ( gc_force_draw_viewmodel
+				|| Sys_CheckParm( "-gccapfacessmoke" )
+				|| ( Sys_CheckParm( "-gcworldrender" ) && Sys_CheckParm( "-gcplayerinput" )
+					&& cls.state == ca_active && cls.signon == SIGNONS ));
 
 		Cvar_Set( "r_drawviewmodel", want_vm ? "1" : "0" );
 		/* CapFaces listen skips V_SetupViewModel — bind a studio mesh for
@@ -17580,16 +18308,73 @@ gc_render_present_frames:
 			/* Lost Coast CapFaces DumpFrames: keep Flipper EFB (sky+CapFaces).
 			 * Soft RGB565 latch overwrote CapFaces with an empty soft buffer;
 			 * G362 hold then no-op'd presents (no ViSwap → empty Dump/Frames).
-			 * Re-arm efb_ready each pump so CopyDisp+ViSwap re-samples held EFB. */
-			if( ( Sys_CheckParm( "-gccapfacessmoke" ) || Sys_CheckParm( "-gcworldrender" ))
+			 * Re-arm efb_ready each pump so CopyDisp+ViSwap re-samples held EFB.
+			 * -gcvst: do not freeze EFB — keep riding the stress cam so DumpFrames
+			 * sample the live CapFaces+PVS path instead of a still + HL1 revolver.
+			 * WorldDL: arm hold on a later SCR tick once waiting==0 — frame-0
+			 * cache miss latched a water-only still. */
+			if( Sys_CheckParm( "-gcvst" )
 				&& ( Sys_CheckParm( "-gcdumpframes" ) || Sys_CheckParm( "-gcdump" )) )
 			{
-				int dump_i;
-				extern void R_GXHoldEfbForDump( int frames );
+				Con_Reportf( "Xash3D GameCube: VST DumpFrames skip EFB hold (live ride)\n" );
+			}
+			else if( !Sys_CheckParm( "-gcvst" )
+				&& ( Sys_CheckParm( "-gccapfacessmoke" ) || Sys_CheckParm( "-gcworldrender" ))
+				&& ( Sys_CheckParm( "-gcdumpframes" ) || Sys_CheckParm( "-gcdump" )) )
+			{
+				extern qboolean R_GXWorldDLActive( void );
+				extern int R_GXWorldDLLastWaiting( void );
+				extern int R_GXWorldDLLastChunks( void );
 
+				/* CapFaces: arm immediately. WorldDL: fall through to the
+				 * sustained-frame warm path below. */
+				if( !R_GXWorldDLActive())
+				{
+					int dump_i;
+					extern void R_GXHoldEfbForDump( int frames );
+
+					gc_cpu_dump_presents_left = 0;
+					R_GXHoldEfbForDump( 12 );
+					Con_Reportf( "Xash3D GameCube: CapFaces Flipper DumpFrames hold armed\n" );
+					for( dump_i = 0; dump_i < 12; dump_i++ )
+					{
+						gc_gx_world_efb_ready = true;
+						GC_PresentBuffer();
+					}
+				}
+				else
+				{
+					Con_Reportf(
+						"Xash3D GameCube: WorldDL dump hold deferred waiting=%d chunks=%d\n",
+						R_GXWorldDLLastWaiting(), R_GXWorldDLLastChunks() );
+				}
+			}
+		}
+		/* WorldDL dump-eye: arm hold once the visible chunk set is resident. */
+		if( !Sys_CheckParm( "-gcvst" )
+			&& ( Sys_CheckParm( "-gccapfacessmoke" ) || Sys_CheckParm( "-gcworldrender" ))
+			&& ( Sys_CheckParm( "-gcdumpframes" ) || Sys_CheckParm( "-gcdump" )) )
+		{
+			static qboolean wd_dump_hold_armed;
+			extern qboolean R_GXWorldDLActive( void );
+			extern int R_GXWorldDLLastWaiting( void );
+			extern int R_GXWorldDLLastChunks( void );
+			extern void R_GXHoldEfbForDump( int frames );
+
+			if( !wd_dump_hold_armed && R_GXWorldDLActive()
+				&& (( R_GXWorldDLLastWaiting() <= 0
+						&& R_GXWorldDLLastChunks() > 64 )
+					|| scr_frames >= 12 ))
+			{
+				int dump_i;
+
+				wd_dump_hold_armed = true;
 				gc_cpu_dump_presents_left = 0;
 				R_GXHoldEfbForDump( 12 );
-				Con_Reportf( "Xash3D GameCube: CapFaces Flipper DumpFrames hold armed\n" );
+				Con_Reportf(
+					"Xash3D GameCube: WorldDL Flipper DumpFrames hold armed waiting=%d chunks=%d scr=%u\n",
+					R_GXWorldDLLastWaiting(), R_GXWorldDLLastChunks(),
+					scr_frames );
 				for( dump_i = 0; dump_i < 12; dump_i++ )
 				{
 					gc_gx_world_efb_ready = true;
