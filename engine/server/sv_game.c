@@ -6880,12 +6880,13 @@ qboolean SV_LoadProgs( const char *name )
 	gc_using_static_edicts = false;
 	/* SP BSS when max_edicts fits the cap (valve gameinfo is typically
 	 * 900–1200). Avoid tip Mem_Calloc of ~707 KiB (HW 20261106 map=NONE). */
-	/* Solo listen (−gclistenserver, maxclients≤4) reuses the SP BSS pool so
-	 * tip Mem_Calloc of edicts/baselines cannot OOM under menu-skip boots. */
+	/* Menu and listen-server map loads may use the BSS pool whenever the
+	 * edict table fits, including the retail default of 16 clients. */
 	if( GI->max_edicts > 0 && GI->max_edicts <= GC_SP_EDICT_CAP
 		&& ( svs.maxclients <= 1
-			|| ( svs.maxclients <= 4
-				&& ( Sys_CheckParm( "-gclistenserver" ) || GC_MapLoadMemoryOpt() )) ) )
+			|| Sys_CheckParm( "-gclistenserver" )
+			|| Sys_CheckParm( "-gcworldrender" )
+			|| GC_MapLoadMemoryOpt() ) )
 	{
 		memset( gc_singleplayer_edicts, 0, sizeof( edict_t ) * (size_t)GI->max_edicts );
 		memset( gc_singleplayer_baselines, 0, sizeof( entity_state_t ) * (size_t)GI->max_edicts );
