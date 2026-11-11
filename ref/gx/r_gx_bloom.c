@@ -35,11 +35,11 @@ static GXTexObj gc_bloom_tex;
 /* Retail Lost Coast HDR: bright sky / sun disc / water glints bloom warm.
  * Keep thresh=168/tint_a=150 with midtint (mae~37.29); hotter bloom
  * raised sky lum but overall mae (probe 181313). */
-#define GC_BLOOM_THRESHOLD 168 /* 0..255 luma floor */
+#define GC_BLOOM_THRESHOLD 232 /* 0..255 luma floor */
 #define GC_BLOOM_TINT_R 255
 #define GC_BLOOM_TINT_G 236
 #define GC_BLOOM_TINT_B 196
-#define GC_BLOOM_TINT_A 150    /* overall strength, applied via tint scale */
+#define GC_BLOOM_TINT_A 120    /* overall strength, applied via tint scale */
 
 static int gc_bloom_enabled = -1;
 
