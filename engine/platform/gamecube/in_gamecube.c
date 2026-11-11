@@ -1337,4 +1337,33 @@ qboolean GC_FillNewGameMoveUsercmd( usercmd_t *cmd, const float *cur_angles )
 	return true;
 }
 
+/*
+================
+GC_WorldDLGetWalkAxes
+
+Main-stick walk axes for WorldDL post-land origin nudge (SV_RunCmd hangs
+while ONGROUND). forward/side in [-1,1]; returns true if outside deadzone.
+================
+*/
+qboolean GAME_EXPORT GC_WorldDLGetWalkAxes( float *forward, float *side )
+{
+	const int	port = GC_PAD_PREFERRED;
+	float		sx, sy;
+
+	if( forward )
+		*forward = 0.0f;
+	if( side )
+		*side = 0.0f;
+	if( port < 0 || port >= PAD_CHANMAX )
+		return false;
+
+	sx = (float)GC_ApplyStickDeadzone( gc_pad[port].stickX ) / GC_STICK_RANGE;
+	sy = (float)GC_ApplyStickDeadzone( -gc_pad[port].stickY ) / GC_STICK_RANGE;
+	if( forward )
+		*forward = sy;
+	if( side )
+		*side = sx;
+	return ( sx != 0.0f || sy != 0.0f );
+}
+
 #endif /* XASH_GAMECUBE && XASH_INPUT == INPUT_GAMECUBE */

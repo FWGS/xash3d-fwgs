@@ -751,23 +751,15 @@ void Host_ServerFrame( void )
 		}
 		return;
 	}
-	/* WorldDL listen: continuous lean ticks so PMove can acquire FL_ONGROUND
-	 * (ava-117). Full Host_ServerFrame after ground hung (same log). Drive
-	 * usercmds via ReadPackets; run SV_Physics only until ONGROUND, then
-	 * player-only so shoot/move keep working without entity-think storms.
-	 * Only after cs_spawned — earlier calls OOM'd netchan (ava-118). */
+	/* WorldDL DoD listen: real HL1 player move (ReadPackets → SV_RunCmd →
+	 * PM_Move). Bound entity think/snapshots for MEM1 — do not invent walk. */
 	if( Sys_CheckParm( "-gcworldrender" ) && Sys_CheckParm( "-gcplayerinput" )
 		&& GC_UseGxWorldDraw() && !Sys_CheckParm( "-gcnewgame" )
 		&& !Sys_CheckParm( "-gcfullphysics" )
 		&& svs.initialized && svs.clients
-		&& svs.clients[0].state == cs_spawned
-		&& svs.clients[0].edict
-		&& FBitSet( svs.clients[0].edict->v.flags, FL_CLIENT ))
+		&& svs.clients[0].state >= cs_connected )
 	{
-		static int gc_worlddl_lean_log;
-		static qboolean gc_worlddl_onground;
-		extern qboolean gc_worlddl_server_onground; /* host.c freeze gate */
-		edict_t *player = svs.clients[0].edict;
+		static int gc_worlddl_sf_log;
 
 		if( sv_fps.value == 0.0f )
 			sv.frametime = host.frametime;
@@ -775,45 +767,23 @@ void Host_ServerFrame( void )
 		svgame.globals->time = sv.time;
 
 		SV_CheckCmdTimes();
-		/* One SV_RunCmd per tick — ReadPackets multi-cmd land hung after
-		 * player-movement (ava-131/135). No Swiss FAT I/O on this path. */
-		if( !gc_worlddl_onground )
+		SV_ReadPackets(); /* authentic HL1MP usercmd → PM_Move */
+		SV_UpdateMovevars( false );
+		/* Skip full SV_Physics entity storm (DoD scripted ents OOM MEM1).
+		 * Player motion already ran inside ReadPackets/SV_RunCmd. */
+		sv.time += sv.frametime;
+		if( svs.clients[0].state == cs_spawned )
+			SV_SendClientMessagesBoundedGC();
+		if( gc_worlddl_sf_log < 12 )
 		{
-			static int	gc_worlddl_fall_ticks;
-			usercmd_t	fall;
-
-			memset( &fall, 0, sizeof( fall ));
-			fall.msec = 50;
-			VectorCopy( player->v.v_angle, fall.viewangles );
-			/* First tick only: kick off gravity. Longer forced-airborne
-			 * kept ServerFrame alive until v_colt OOM (ava-136). */
-			if( gc_worlddl_fall_ticks == 0 )
-				ClearBits( player->v.flags, FL_ONGROUND );
-			if( gc_worlddl_fall_ticks == 2 )
-				fall.forwardmove = 200.0f;
-			SV_RunCmd( &svs.clients[0], &fall, (int)host.framecount );
-			gc_worlddl_fall_ticks++;
-			if( gc_worlddl_fall_ticks >= 2
-				&& FBitSet( player->v.flags, FL_ONGROUND ))
-			{
-				gc_worlddl_onground = true;
-				gc_worlddl_server_onground = true;
-				Con_Reportf( "Xash3D GameCube: WorldDL lean physics ONGROUND origin=(%.0f,%.0f,%.0f) ticks=%d\n",
-					player->v.origin[0], player->v.origin[1], player->v.origin[2],
-					gc_worlddl_fall_ticks );
-			}
-			sv.time += sv.frametime;
-			/* No BoundedGC during fall — entity/VM spam OOMs lean heap. */
-		}
-		else
-		{
-			sv.time += sv.frametime;
-		}
-		if( gc_worlddl_lean_log < 8 )
-		{
-			Con_Reportf( "Xash3D GameCube: WorldDL lean ServerFrame n=%d onground=%d time=%.2f\n",
-				gc_worlddl_lean_log, gc_worlddl_onground ? 1 : 0, sv.time );
-			gc_worlddl_lean_log++;
+			edict_t *pl = svs.clients[0].edict;
+			Con_Reportf( "Xash3D GameCube: WorldDL HL1 ServerFrame n=%d state=%d onground=%d origin=(%.0f,%.0f,%.0f)\n",
+				gc_worlddl_sf_log, (int)svs.clients[0].state,
+				( pl && FBitSet( pl->v.flags, FL_ONGROUND )) ? 1 : 0,
+				pl ? pl->v.origin[0] : 0.0f,
+				pl ? pl->v.origin[1] : 0.0f,
+				pl ? pl->v.origin[2] : 0.0f );
+			gc_worlddl_sf_log++;
 		}
 		return;
 	}
@@ -862,7 +832,6 @@ void Host_ServerFrame( void )
 		Con_Reportf( "Xash3D GameCube: full server game frame ready\n" );
 #endif
 
-	// send messages back to the clients that had packets read this frame
 	SV_SendClientMessages ();
 #if XASH_GAMECUBE
 	if( gc_fullphysics_trace )

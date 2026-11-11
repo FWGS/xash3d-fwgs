@@ -68,12 +68,6 @@ const char *GC_NetLocalIP( void );
 host_parm_t		host;	// host parms
 static qboolean hosterror_frame_valid;
 #if XASH_GAMECUBE
-/* WorldDL: sparse post-land SV_RunCmd steps after ONGROUND freeze (ava-131). */
-int gc_worlddl_move_pulses;
-static int gc_worlddl_step_cd;
-/* Set by sv_main lean path after gated fall ticks — host must not freeze on
- * early spawn-ledge FL_ONGROUND (ava-135). */
-qboolean gc_worlddl_server_onground;
 #endif
 
 static jmp_buf return_from_main_buf;
@@ -912,70 +906,30 @@ void Host_Frame( double time )
 					sv.name[0] ? sv.name : "?", cls.state, cls.signon,
 					gc_post_prep_crumbs );
 			}
-			/* Menu New Game: Host_ServerFrame after CapFaces hung the guest
-			 * (probe 20260813-193443 stopped at sustained frames=8). Keep
-			 * ClientFrame/SCR presents for Flipper DumpFrames; skip lean
-			 * server ticks until -gcfullphysics.
-			 * CapFaces densify listen hit the same Guru mid-ServerFrame
-			 * (teamvm16). WorldDL falls with lean ticks until FL_ONGROUND,
-			 * then freezes ServerFrame so ClientFrame can arm fire (ava-121
-			 * studio OOM when ticks continued). */
+			/* WorldDL DoD listen: same HL1 Host_ServerFrame every tick
+			 * (pad → usercmd → SV_RunCmd → PM_Move). CapFaces densify /
+			 * menu-newgame still bound to one bootstrap tick. */
 			if( Sys_CheckParm( "-gcworldrender" )
 				&& Sys_CheckParm( "-gcplayerinput" )
 				&& GC_UseGxWorldDraw()
 				&& !Sys_CheckParm( "-gcnewgame" )
 				&& !Sys_CheckParm( "-gcfullphysics" ))
 			{
-				static qboolean gc_worlddl_landed;
-				edict_t *pl = ( svs.clients && svs.clients[0].edict )
-					? svs.clients[0].edict : NULL;
+				static int gc_worlddl_sf_log;
 
-				/* Lean ticks until ONGROUND, then freeze full ServerFrame so
-				 * ClientFrame can arm team/fire (ava-122). Post-land
-				 * ReadPackets hung (ava-126); steer while falling, then
-				 * rare SV_RunCmd-only steps for stick input. */
-				if( !gc_worlddl_landed )
+				Host_ServerFrame ();
+				GC_ProfMark( "server frame" );
+				if( gc_worlddl_sf_log < 8 )
 				{
-					/* Fall steer lives in sv_main lean SV_RunCmd (no Cbuf
-					 * +forward through ReadPackets — ava-131 hang). */
-					Host_ServerFrame ();
-					GC_ProfMark( "server frame" );
-					if( gc_worlddl_server_onground && pl
-						&& FBitSet( pl->v.flags, FL_ONGROUND ))
-					{
-						gc_worlddl_landed = true;
-						gc_worlddl_move_pulses = 4;
-						gc_worlddl_step_cd = 45;
-						Con_Reportf( "Xash3D GameCube: WorldDL ServerFrame freeze after ONGROUND (step pulses=%d)\n",
-							gc_worlddl_move_pulses );
-					}
-				}
-				else if( gc_worlddl_move_pulses > 0 && pl
-					&& svs.clients && svs.clients[0].state == cs_spawned )
-				{
-					if( gc_worlddl_step_cd > 0 )
-						gc_worlddl_step_cd--;
-					else
-					{
-						usercmd_t	step;
-
-						float	ox = pl->v.origin[0], oy = pl->v.origin[1], oz = pl->v.origin[2];
-
-						memset( &step, 0, sizeof( step ));
-						step.msec = 32;
-						step.forwardmove = 200.0f;
-						VectorCopy( pl->v.v_angle, step.viewangles );
-						/* Stay ONGROUND — ClearBits+RunCmd never logged step. */
-						SV_RunCmd( &svs.clients[0], &step, (int)host.framecount );
-						gc_worlddl_move_pulses--;
-						gc_worlddl_step_cd = 30;
-						Con_Reportf( "Xash3D GameCube: WorldDL grounded step remaining=%d origin=(%.0f,%.0f,%.0f) delta=(%.1f,%.1f,%.1f) flags=0x%x\n",
-							gc_worlddl_move_pulses,
-							pl->v.origin[0], pl->v.origin[1], pl->v.origin[2],
-							pl->v.origin[0] - ox, pl->v.origin[1] - oy,
-							pl->v.origin[2] - oz,
-							(unsigned)pl->v.flags );
-					}
+					edict_t *pl = ( svs.clients && svs.clients[0].edict )
+						? svs.clients[0].edict : NULL;
+					Con_Reportf( "Xash3D GameCube: WorldDL HL1 ServerFrame n=%d onground=%d origin=(%.0f,%.0f,%.0f)\n",
+						gc_worlddl_sf_log,
+						( pl && FBitSet( pl->v.flags, FL_ONGROUND )) ? 1 : 0,
+						pl ? pl->v.origin[0] : 0.0f,
+						pl ? pl->v.origin[1] : 0.0f,
+						pl ? pl->v.origin[2] : 0.0f );
+					gc_worlddl_sf_log++;
 				}
 			}
 			else if( ( Sys_CheckParm( "-gcnewgame" )
