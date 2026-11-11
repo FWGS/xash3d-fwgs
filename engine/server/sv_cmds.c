@@ -43,6 +43,8 @@ static void SV_GameCubePlayStart_f( void )
 
 	if( !COM_StringEmpty( sv_gc_playstart_map_override ))
 		map = sv_gc_playstart_map_override;
+	else if( Cmd_Argc() > 1 && !COM_StringEmpty( Cmd_Argv( 1 )))
+		map = Cmd_Argv( 1 );
 	else
 		map = ( GI && !COM_StringEmpty( GI->startmap )) ? GI->startmap : "c0a0";
 

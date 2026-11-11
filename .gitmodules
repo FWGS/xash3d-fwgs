@@ -73,3 +73,6 @@
 	path = 3rdparty/opengnm-psbc/Vulkan-Headers
 	url = https://github.com/KhronosGroup/Vulkan-Headers
 	update = none
+[submodule "3rdparty/vgui_support"]
+	path = 3rdparty/vgui_support
+	url = https://github.com/FWGS/vgui_support

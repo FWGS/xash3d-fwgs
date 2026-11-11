@@ -1736,7 +1736,9 @@ static qboolean Mod_GCStudioSkinsBound( const studiohdr_t *phdr )
 	if( (size_t)phdr->textureindex + sizeof( mstudiotexture_t ) > (size_t)phdr->length )
 		return false;
 	t = (const mstudiotexture_t *)((const byte *)phdr + phdr->textureindex );
-	return t[0].index != 0;
+	/* Raw MDL texel offsets are large (e.g. 72852); GL texnums are small.
+	 * Treating any nonzero as bound left CapFaces v_357 white (probe 154921). */
+	return t[0].index > 0 && t[0].index < 8192;
 }
 
 /* Post-MAP_READY: upload skins skipped at gc_quality=0 during spawn. */

@@ -1462,7 +1462,11 @@ static char *SV_ReadEntityScript( const char *filename, int *flags )
 		 * changelevel. Validation is brief and the GX world does not use the
 		 * soft surface cache, so borrow its store (the transition save takes
 		 * it next anyway). */
-		if( GC_MenuRunsServer())
+		/* A local listen server launched from Create Game does not boot with
+		 * -gcmenuplaystart, but GC_BeginMapLoadMemoryOpt has still released the
+		 * renderer's low-res surface cache for exactly this map-load allocation.
+		 * Let the entity lump borrow that 128 KiB BSS store on this route too. */
+		if( GC_MenuRunsServer() || GC_MapLoadMemoryOpt() )
 		{
 			extern byte *R_GCBorrowSurfaceCacheStore( size_t *size );
 			size_t store_size = 0;
@@ -6880,7 +6884,8 @@ qboolean SV_LoadProgs( const char *name )
 	 * tip Mem_Calloc of edicts/baselines cannot OOM under menu-skip boots. */
 	if( GI->max_edicts > 0 && GI->max_edicts <= GC_SP_EDICT_CAP
 		&& ( svs.maxclients <= 1
-			|| ( svs.maxclients <= 4 && Sys_CheckParm( "-gclistenserver" )) ) )
+			|| ( svs.maxclients <= 4
+				&& ( Sys_CheckParm( "-gclistenserver" ) || GC_MapLoadMemoryOpt() )) ) )
 	{
 		memset( gc_singleplayer_edicts, 0, sizeof( edict_t ) * (size_t)GI->max_edicts );
 		memset( gc_singleplayer_baselines, 0, sizeof( entity_state_t ) * (size_t)GI->max_edicts );

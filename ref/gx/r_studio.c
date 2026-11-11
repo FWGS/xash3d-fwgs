@@ -1762,6 +1762,17 @@ static void R_StudioSetupSkin( studiohdr_t *ptexturehdr, int index )
 	if( ptexturehdr->numtextures <= 0 || ptexturehdr->textureindex <= 0
 		|| index < 0 || index >= ptexturehdr->numtextures )
 	{
+		if( gEngfuncs.Sys_CheckParm( "-gccapfacessmoke" ))
+		{
+			static qboolean cap_skin_miss_logged;
+			if( !cap_skin_miss_logged )
+			{
+				cap_skin_miss_logged = true;
+				gEngfuncs.Con_Reportf(
+					"Xash3D GameCube: CapFaces viewmodel skin miss ntex=%d idx=%d\n",
+					ptexturehdr->numtextures, index );
+			}
+		}
 		GL_Bind( XASH_TEXTURE0, tr.whiteTexture );
 		R_GXStudioBindTexnum( (unsigned)tr.whiteTexture );
 		return;
@@ -1785,9 +1796,42 @@ static void R_StudioSetupSkin( studiohdr_t *ptexturehdr, int index )
 	else if( !ptexture[index].index
 		|| (unsigned)ptexture[index].index >= (unsigned)MAX_TEXTURES )
 	{
-		/* Mesh-only / tip-skipped skins leave raw MDL offsets in .index. */
-		GL_Bind( XASH_TEXTURE0, tr.whiteTexture );
-		R_GXStudioBindTexnum( (unsigned)tr.whiteTexture );
+		/* Mesh-only / tip-skipped skins leave raw MDL offsets in .index.
+		 * CapFaces v_357: try model->textures[i]->gl_texturenum fallback. */
+		int gltex = 0;
+
+		if( RI.currentmodel && RI.currentmodel->textures
+			&& index < RI.currentmodel->numtextures
+			&& RI.currentmodel->textures[index]
+			&& RI.currentmodel->textures[index]->gl_texturenum > 0 )
+			gltex = RI.currentmodel->textures[index]->gl_texturenum;
+		if( gltex > 0 )
+		{
+			static qboolean cap_skin_fb_logged;
+			GL_Bind( XASH_TEXTURE0, gltex );
+			R_GXStudioBindTexnum( (unsigned)gltex );
+			if( !cap_skin_fb_logged && gEngfuncs.Sys_CheckParm( "-gccapfacessmoke" ))
+			{
+				cap_skin_fb_logged = true;
+				gEngfuncs.Con_Reportf(
+					"Xash3D GameCube: CapFaces viewmodel skin via mod.textures[%d]=%d\n",
+					index, gltex );
+			}
+		}
+		else
+		{
+			static qboolean cap_skin_white_logged;
+			if( !cap_skin_white_logged && gEngfuncs.Sys_CheckParm( "-gccapfacessmoke" ))
+			{
+				cap_skin_white_logged = true;
+				gEngfuncs.Con_Reportf(
+					"Xash3D GameCube: CapFaces viewmodel skin white index=%d raw=%d nmod=%d\n",
+					index, ptexture[index].index,
+					RI.currentmodel ? RI.currentmodel->numtextures : -1 );
+			}
+			GL_Bind( XASH_TEXTURE0, tr.whiteTexture );
+			R_GXStudioBindTexnum( (unsigned)tr.whiteTexture );
+		}
 	}
 #endif
 	else
@@ -3230,6 +3274,21 @@ static int R_StudioDrawModel( int flags )
 	R_StudioSetHeader((studiohdr_t *)gEngfuncs.Mod_Extradata( mod_studio, RI.currentmodel ));
 
 	R_StudioSetUpTransform( RI.currententity );
+#if XASH_GAMECUBE
+	if( gEngfuncs.Sys_CheckParm( "-gccapfacessmoke" )
+		&& RI.currententity == tr.viewent )
+	{
+		static qboolean cap_vm_xf_logged;
+		if( !cap_vm_xf_logged )
+		{
+			cap_vm_xf_logged = true;
+			gEngfuncs.Con_Reportf(
+				"Xash3D GameCube: CapFaces viewmodel transform hdr=%p bodyparts=%d\n",
+				m_pStudioHeader,
+				m_pStudioHeader ? m_pStudioHeader->numbodyparts : -1 );
+		}
+	}
+#endif
 
 	if( flags & STUDIO_RENDER )
 	{
@@ -3238,11 +3297,13 @@ static int R_StudioDrawModel( int flags )
 		{
 #if XASH_GAMECUBE
 			/* Lean mesh-only hdr bb is often 0,0,0 — seq box can still cull
-			 * the synthetic EmitBrush crowbar. Keep drawing. */
-			if( !( gEngfuncs.Sys_CheckParm( "-gcnewgame" )
-				&& !gEngfuncs.Sys_CheckParm( "-gcfullphysics" )
-				&& m_pStudioHeader
-				&& m_pStudioHeader->numtextures <= 0 ))
+			 * the synthetic EmitBrush crowbar. Keep drawing.
+			 * CapFaces viewmodel: never bbox-cull the 357 (probe 150912). */
+			if( !( gEngfuncs.Sys_CheckParm( "-gccapfacessmoke" )
+				|| ( gEngfuncs.Sys_CheckParm( "-gcnewgame" )
+					&& !gEngfuncs.Sys_CheckParm( "-gcfullphysics" )
+					&& m_pStudioHeader
+					&& m_pStudioHeader->numtextures <= 0 )))
 #endif
 			return 0;
 		}
@@ -3258,7 +3319,26 @@ static int R_StudioDrawModel( int flags )
 		R_StudioMergeBones( RI.currententity, RI.currentmodel );
 	else
 		R_StudioSetupBones( RI.currententity );
+#if XASH_GAMECUBE
+	if( gEngfuncs.Sys_CheckParm( "-gccapfacessmoke" )
+		&& RI.currententity == tr.viewent )
+	{
+		static qboolean cap_vm_bones_logged;
+		if( !cap_vm_bones_logged )
+		{
+			cap_vm_bones_logged = true;
+			gEngfuncs.Con_Reportf(
+				"Xash3D GameCube: CapFaces viewmodel bones ok numbones=%d\n",
+				m_pStudioHeader ? m_pStudioHeader->numbones : -1 );
+		}
+	}
+#endif
 
+#if XASH_GAMECUBE
+	/* CapFaces 357: SaveBones hung after bones ok (probe 151924) — skip cache. */
+	if( !( gEngfuncs.Sys_CheckParm( "-gccapfacessmoke" )
+		&& RI.currententity == tr.viewent ))
+#endif
 	R_StudioSaveBones();
 
 	if( flags & STUDIO_EVENTS )
@@ -3279,6 +3359,46 @@ static int R_StudioDrawModel( int flags )
 	if( flags & STUDIO_RENDER )
 	{
 		lighting.plightvec = dir;
+#if XASH_GAMECUBE
+		/* CapFaces DumpFrames: skip dlight + EntityLight (hung probes). */
+		if( gEngfuncs.Sys_CheckParm( "-gccapfacessmoke" ))
+		{
+			static qboolean cap_vm_lit_logged;
+			int bi;
+
+			/* Skip SetupLighting too — hung with numbones=66 (probe 152943). */
+			if( !cap_vm_lit_logged )
+			{
+				cap_vm_lit_logged = true;
+				gEngfuncs.Con_Reportf(
+					"Xash3D GameCube: CapFaces viewmodel fullbright (skip SetupLighting)\n" );
+			}
+			lighting.ambientlight = 255;
+			lighting.shadelight = 0;
+			lighting.color[0] = lighting.color[1] = lighting.color[2] = 1.0f;
+			dir[0] = 0.0f; dir[1] = 0.0f; dir[2] = 1.0f;
+			g_studio.ambientlight = 255;
+			g_studio.shadelight = 0;
+			VectorSet( g_studio.lightvec, 0.0f, 0.0f, 1.0f );
+			VectorSet( g_studio.lightcolor, 1.0f, 1.0f, 1.0f );
+			for( bi = 0; bi < MAXSTUDIOBONES && bi < 128; bi++ )
+				VectorSet( g_studio.blightvec[bi], 0.0f, 0.0f, 1.0f );
+			g_nTopColor = 0;
+			g_nBottomColor = 0;
+			R_StudioSetRemapColors( 0, 0 );
+			{
+				static qboolean cap_vm_rm_logged;
+				if( !cap_vm_rm_logged )
+				{
+					cap_vm_rm_logged = true;
+					gEngfuncs.Con_Reportf(
+						"Xash3D GameCube: CapFaces viewmodel R_StudioRenderModel\n" );
+				}
+			}
+			R_StudioRenderModel();
+			return 1;
+		}
+#endif
 		R_EntityDynamicLight( RI.currententity, &lighting, FBitSet( RI.rvp.flags, RF_DRAW_WORLD ), g_studio.time, g_studio.lightspot, g_studio.lightvec );
 
 		R_StudioEntityLight( &lighting );
@@ -3306,10 +3426,12 @@ R_StudioDrawModelInternal
 static void R_StudioDrawModelInternal( cl_entity_t *e, int flags )
 {
 #if XASH_GAMECUBE
-	/* Lean New Game: client StudioDrawModel + STUDIO_EVENTS hung Flipper on
-	 * the first world studio (probes 171034/171424). Engine path, render-only. */
-	if( gEngfuncs.Sys_CheckParm( "-gcnewgame" )
-		&& !gEngfuncs.Sys_CheckParm( "-gcfullphysics" ))
+	/* Lean New Game + Lost Coast CapFaces: client StudioDrawModel +
+	 * STUDIO_EVENTS hung Flipper (New Game probes 171034/171424; CapFaces
+	 * viewmodel after G157 in probe 150312). Engine path, render-only. */
+	if( ( gEngfuncs.Sys_CheckParm( "-gcnewgame" )
+			&& !gEngfuncs.Sys_CheckParm( "-gcfullphysics" ))
+		|| gEngfuncs.Sys_CheckParm( "-gccapfacessmoke" ))
 	{
 		flags &= STUDIO_RENDER;
 		if( !flags || !e )
@@ -3506,21 +3628,26 @@ void R_DrawViewModel( void )
 	R_GatherPlayerLight( view );
 
 #if XASH_GAMECUBE
-	if( gEngfuncs.Sys_CheckParm( "-gccapfacessmoke" ))
+	/* Lost Coast CapFaces: skip FX/health/thirdperson gates — they stalled
+	 * after the entry log (probe 142727) and never reached pose+GX. */
+	if( gEngfuncs.Sys_CheckParm( "-gccapfacessmoke" )
+		&& view && view->model && view->model->type == mod_studio
+		&& view->model->cache.data )
 	{
-		static qboolean cap_vm_draw_logged;
+		static qboolean cap_vm_fast_logged;
 
-		if( !cap_vm_draw_logged )
+		view->curstate.rendermode = kRenderNormal;
+		view->curstate.renderamt = 255;
+		tr.blend = 1.0f;
+		RI.currententity = view;
+		if( !cap_vm_fast_logged )
 		{
-			cap_vm_draw_logged = true;
+			cap_vm_fast_logged = true;
 			gEngfuncs.Con_Reportf(
-				"Xash3D GameCube: CapFaces R_DrawViewModel view=%p model=%s cache=%p lean_vm=%d r_drawvm=%.0f\n",
-				view,
-				( view && view->model && view->model->name[0] ) ? view->model->name : "(null)",
-				( view && view->model ) ? view->model->cache.data : NULL,
-				lean_vm ? 1 : 0,
-				r_drawviewmodel ? r_drawviewmodel->value : -1.0f );
+				"Xash3D GameCube: CapFaces viewmodel fast-path %s\n",
+				view->model->name[0] ? view->model->name : "?" );
 		}
+		goto capfaces_vm_pose;
 	}
 	/* CapFaces listen (-gcworldrender): tip-skipped v_colt skins REPLACE as
 	 * solid white and paint a giant silhouette over CapFaces on caen/flash.
@@ -3615,21 +3742,12 @@ void R_DrawViewModel( void )
 		return;
 
 #if XASH_GAMECUBE
-	if( gEngfuncs.Sys_CheckParm( "-gccapfacessmoke" ))
-	{
-		static qboolean cap_vm_pose_logged;
-		if( !cap_vm_pose_logged )
-		{
-			cap_vm_pose_logged = true;
-			gEngfuncs.Con_Reportf(
-				"Xash3D GameCube: CapFaces viewmodel past gates pose+GX (%s)\n",
-				view->model->name[0] ? view->model->name : "?" );
-		}
-	}
+capfaces_vm_pose:
 	/* G157: no client CalcRefdef — pin gun to the current eye every draw.
 	 * G162: HL viewmesh extends below the frustum at raw eye pose
 	 * (ndc mid≈-2); nudge forward+up so a useful band sits in the lower third. */
-	if( gEngfuncs.Sys_CheckParm( "-gcnewgame" ) || GC_UseGxWorldDraw() )
+	if( gEngfuncs.Sys_CheckParm( "-gcnewgame" ) || GC_UseGxWorldDraw()
+		|| gEngfuncs.Sys_CheckParm( "-gccapfacessmoke" ))
 	{
 		vec3_t delta;
 		static qboolean g157_pose_logged;
@@ -3640,13 +3758,27 @@ void R_DrawViewModel( void )
 		if( RI.vforward[0] != 0.0f || RI.vforward[1] != 0.0f || RI.vforward[2] != 0.0f
 			|| RI.vup[0] != 0.0f || RI.vup[1] != 0.0f || RI.vup[2] != 0.0f )
 		{
-			VectorMA( view->origin, 5.0f, RI.vforward, view->origin );
-			VectorMA( view->origin, 12.0f, RI.vup, view->origin );
+			/* CapFaces retail still: gun sits lower-right, not mid-frame.
+			 * forward=5/up=12 filled half the FOV (probe 160323). */
+			const float fwd = gEngfuncs.Sys_CheckParm( "-gccapfacessmoke" ) ? 10.0f : 5.0f;
+			const float up = gEngfuncs.Sys_CheckParm( "-gccapfacessmoke" ) ? 2.0f : 12.0f;
+
+			VectorMA( view->origin, fwd, RI.vforward, view->origin );
+			VectorMA( view->origin, up, RI.vup, view->origin );
+			if( gEngfuncs.Sys_CheckParm( "-gccapfacessmoke" ))
+			{
+				/* Pull toward lower-right like HL2 357 (right + down a hair). */
+				if( RI.vright[0] != 0.0f || RI.vright[1] != 0.0f || RI.vright[2] != 0.0f )
+					VectorMA( view->origin, 3.0f, RI.vright, view->origin );
+				if( view->curstate.scale <= 0.0f || view->curstate.scale > 0.85f )
+					view->curstate.scale = 0.72f;
+			}
 			if( !g162_offset_logged )
 			{
 				g162_offset_logged = true;
 				gEngfuncs.Con_Reportf(
-					"Xash3D GameCube: G162 viewmodel frame offset forward=5 up=12\n" );
+					"Xash3D GameCube: G162 viewmodel frame offset forward=%.0f up=%.0f scale=%.2f\n",
+					fwd, up, view->curstate.scale > 0.0f ? view->curstate.scale : 1.0f );
 			}
 		}
 		VectorCopy( view->origin, view->curstate.origin );
@@ -3683,14 +3815,23 @@ void R_DrawViewModel( void )
 
 #if XASH_GAMECUBE
 	/* G155: Flipper viewmodel into EFB when GX world live is armed.
-	 * Lean uses ForceBegin — plain Begin flapped off after world studio End. */
-	if( GC_UseGxWorldDraw() && RI.currententity->model->type == mod_studio )
+	 * Lean uses ForceBegin — plain Begin flapped off after world studio End.
+	 * CapFaces: ForceBegin+StudioDraw hung after G157 (probe 150312) mid
+	 * densify world pass — use ForceBegin always, log around StudioDraw. */
+	if( ( GC_UseGxWorldDraw() || gEngfuncs.Sys_CheckParm( "-gccapfacessmoke" ))
+		&& RI.currententity->model->type == mod_studio )
 	{
-		if( lean_vm )
-			R_GXStudioForceBegin( true );
-		else
-			R_GXStudioBegin( true );
+		static qboolean cap_vm_begin_logged;
+
+		R_GXStudioForceBegin( true );
 		gx_studio = true;
+		if( !cap_vm_begin_logged && gEngfuncs.Sys_CheckParm( "-gccapfacessmoke" ))
+		{
+			cap_vm_begin_logged = true;
+			gEngfuncs.Con_Reportf(
+				"Xash3D GameCube: CapFaces viewmodel ForceBegin ok lean=%d\n",
+				lean_vm ? 1 : 0 );
+		}
 	}
 #endif
 
@@ -3700,8 +3841,33 @@ void R_DrawViewModel( void )
 		//	R_DrawAliasModel( RI.currententity );
 		break;
 	case mod_studio:
+#if XASH_GAMECUBE
+		if( gEngfuncs.Sys_CheckParm( "-gccapfacessmoke" ))
+		{
+			static qboolean cap_vm_draw_enter_logged;
+			if( !cap_vm_draw_enter_logged )
+			{
+				cap_vm_draw_enter_logged = true;
+				gEngfuncs.Con_Reportf(
+					"Xash3D GameCube: CapFaces viewmodel StudioDraw enter\n" );
+			}
+		}
+#endif
 		R_StudioSetupTimings();
 		R_StudioDrawModelInternal( RI.currententity, STUDIO_RENDER );
+#if XASH_GAMECUBE
+		if( gEngfuncs.Sys_CheckParm( "-gccapfacessmoke" ))
+		{
+			static qboolean cap_vm_draw_done_logged;
+			if( !cap_vm_draw_done_logged )
+			{
+				cap_vm_draw_done_logged = true;
+				gEngfuncs.Con_Reportf(
+					"Xash3D GameCube: CapFaces viewmodel StudioDraw done tris=%d\n",
+					R_GXStudioLastTriCount());
+			}
+		}
+#endif
 		break;
 	}
 
@@ -3721,6 +3887,17 @@ void R_DrawViewModel( void )
 					"Xash3D GameCube: G156 GX viewmodel emitted 0 tris (%s)\n",
 					RI.currententity->model->name[0]
 						? RI.currententity->model->name : "?" );
+			}
+		}
+		else if( gEngfuncs.Sys_CheckParm( "-gccapfacessmoke" ))
+		{
+			static qboolean cap_vm_end_logged;
+			if( !cap_vm_end_logged )
+			{
+				cap_vm_end_logged = true;
+				gEngfuncs.Con_Reportf(
+					"Xash3D GameCube: CapFaces viewmodel GX end tris=%d\n",
+					vm_tris );
 			}
 		}
 	}
@@ -3862,9 +4039,11 @@ void GAME_EXPORT Mod_StudioLoadTextures( model_t *mod, void *data )
 #if XASH_GAMECUBE
 	/* Bounded low-memory mode: skip studio texture loading under -gcmap to preserve
 	 * MEM1 headroom for BSP parse peak. New Game allowlisted studios are deferred
-	 * past that cliff and upload lean skins here. */
+	 * past that cliff and upload lean skins here.
+	 * Lost Coast CapFaces needs v_357 skins during DumpFrames (-gcmap is set). */
 	if( gEngfuncs.Sys_CheckParm( "-gcmap" )
-		&& !gEngfuncs.Sys_CheckParm( "-gcnewgame" ))
+		&& !gEngfuncs.Sys_CheckParm( "-gcnewgame" )
+		&& !gEngfuncs.Sys_CheckParm( "-gccapfacessmoke" ))
 		return;
 #endif
 
