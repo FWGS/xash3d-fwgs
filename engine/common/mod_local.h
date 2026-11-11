@@ -174,6 +174,7 @@ void Mod_GCRebindPromotedStudios( void ); /* G371: rebind sv.models after promot
 void Mod_GCPromoteLeanNpcStudios( void ); /* G375: force NPC promote before DumpFrames */
 /* G105: promote one allowlisted viewmodel after landmark Deploy (or no-op if live). */
 qboolean Mod_GCEnsureLandmarkViewModel( const char *model_path );
+qboolean Mod_GCCapFacesClaimTeamViewModel( const char *model_path );
 const char *Mod_GCLandmarkViewModelPath( void );
 void Mod_ReleaseBrushSourceBuffer( void *buf );
 void Mod_GameCubeFreeMallocSurfaces( model_t *mod );

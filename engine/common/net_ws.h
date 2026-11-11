@@ -16,6 +16,14 @@ GNU General Public License for more details.
 #ifndef NET_WS_H
 #define NET_WS_H
 
+/* Bump when GameCube DoD game code or wire behavior becomes incompatible.
+ * This is a compatibility marker, not hardware authentication. */
+#define DODGC_NET_KEY "gc_dod"
+#define DODGC_NET_VERSION "1"
+#if XASH_GAMECUBE
+void GC_NetReportStatus( const char *phase );
+#endif
+
 typedef enum
 {
 	NS_CLIENT,

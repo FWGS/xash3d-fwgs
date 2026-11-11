@@ -1017,6 +1017,9 @@ void SV_RunCmd( sv_client_t *cl, usercmd_t *ucmd, int random_seed )
 	edict_t	*clent;
 	double	frametime;
 	usercmd_t cmd;
+#if XASH_DODGC_NETWORK
+	vec3_t gc_network_before;
+#endif
 #if XASH_GAMECUBE
 	static int gc_fullphysics_cmd_log;
 	static qboolean gc_native_move_logged;
@@ -1158,8 +1161,13 @@ void SV_RunCmd( sv_client_t *cl, usercmd_t *ucmd, int random_seed )
 #if XASH_GAMECUBE
 	/* CapFaces remaps world clipnodes; PM_CatagorizePosition → PlayerTrace →
 	 * RecursiveHullCheck DSI after spawn (solo listen 20261107-123152). Keep
-	 * viewangles from the usercmd; skip hull walks until clipnodes are durable. */
-	if( Sys_CheckParm( "-gcworldrender" ) && GC_UseGxWorldDraw() )
+	 * viewangles from the usercmd; skip hull walks until clipnodes are durable.
+	 * Must apply even when XASH_DODGC_NETWORK=1 — tip-donner-markskip drew
+	 * CapFaces then Guru'd on frame 3 without this skip (DAR junk, 20261108). */
+	/* Network sessions must simulate movement; retain the offline capture
+	 * workaround only for routes that do not host or join a match. */
+	if( Sys_CheckParm( "-gcworldrender" ) && GC_UseGxWorldDraw()
+		&& !Sys_CheckParm( "-gclistenserver" ) && !Sys_CheckParm( "-gcconnect" ))
 	{
 		static qboolean gc_pm_skip_logged;
 
@@ -1175,10 +1183,55 @@ void SV_RunCmd( sv_client_t *cl, usercmd_t *ucmd, int random_seed )
 	else
 #endif
 	{
+#if XASH_DODGC_NETWORK
+		VectorCopy( clent->v.origin, gc_network_before );
+#endif
 		svgame.dllFuncs.pfnPM_Move( svgame.pmove, true );
 
 		// copy results back to client
 		SV_FinishPMove( svgame.pmove, cl );
+#if XASH_DODGC_NETWORK
+		/* One bounded breadcrumb per seat proves actual movement is processed
+		 * by the authoritative server, beyond connection/signon alone. */
+		{
+			static unsigned reported;
+			static unsigned traced[2];
+			unsigned slot = (unsigned)( cl - svs.clients );
+			if( slot < 2 && clent->v.health > 0 && traced[slot]++ < 3 )
+			{
+				if( traced[slot] == 1 )
+				{
+					hull_t *h = &sv.worldmodel->hulls[1];
+					int node = h->firstclipnode;
+					for( int step = 0; step < 48 && node >= 0 && node <= h->lastclipnode; step++ )
+					{
+						mclipnode16_t *n = &h->clipnodes16[node];
+						mplane_t *p = &h->planes[n->planenum];
+						float d = DotProduct( clent->v.origin, p->normal ) - p->dist;
+						Con_Reportf( "DoD hull path node=%d plane=%d normal=(%.4f,%.4f,%.4f) dist=%.4f type=%u children=%d/%d d=%.4f\n", node, n->planenum, p->normal[0], p->normal[1], p->normal[2], p->dist, p->type, n->children[0], n->children[1], d );
+						node = n->children[d < 0];
+					}
+				}
+				pmtrace_t collision = svgame.pmove->PM_PlayerTrace( svgame.pmove->origin, svgame.pmove->origin, 0, -1 );
+				Con_Reportf( "GameCube DoD: move trace slot=%u cmd=(%.1f,%.1f) msec=%u type=%d dead=%d hp=%.0f flags=%x maxspeed=%.1f origin=(%.1f,%.1f,%.1f) delta=(%.2f,%.2f,%.2f) solid=%d/%d fraction=%.2f ent=%d\n",
+					slot, ucmd->forwardmove, ucmd->sidemove, ucmd->msec, clent->v.movetype,
+					svgame.pmove->dead, clent->v.health, (unsigned)clent->v.flags, svgame.pmove->maxspeed,
+					clent->v.origin[0], clent->v.origin[1], clent->v.origin[2],
+					clent->v.origin[0] - gc_network_before[0], clent->v.origin[1] - gc_network_before[1],
+					clent->v.origin[2] - gc_network_before[2], collision.startsolid, collision.allsolid, collision.fraction, collision.ent );
+			}
+			if( slot < 2 && !( reported & ( 1u << slot ))
+				&& ( ucmd->forwardmove || ucmd->sidemove )
+				&& ( fabs( clent->v.origin[0] - gc_network_before[0] ) > 0.01f
+					|| fabs( clent->v.origin[1] - gc_network_before[1] ) > 0.01f ))
+			{
+				reported |= 1u << slot;
+				Con_Reportf( "GameCube DoD: player movement slot=%u velocity=(%.1f,%.1f,%.1f)\n",
+					slot, clent->v.velocity[0], clent->v.velocity[1], clent->v.velocity[2] );
+				GCube_AppendSwissEvidence( "GameCube DoD: player movement slot=%u", slot );
+			}
+		}
+#endif
 	}
 #if XASH_GAMECUBE
 	if( Sys_CheckParm( "-gcnewgame" ) && Sys_CheckParm( "-gcfullphysics" )

@@ -5,13 +5,13 @@
 #   sticks  — signed -128..127 (PADStatus stick space)
 #
 # Mirrors the hardcoded -gcnewgame attack → jump → use sequence in
-# GC_ProbeSyntheticHeldButtons (warmup, R hold, settle, Y, release, A).
+# GC_ProbeSyntheticHeldButtons (warmup, R hold, settle, A, release, B).
 
 # Keep a usercmd alive while the direct-map client settles before attack.
 4 - 0 64 0 0
 16 R 0 0 0 0
 8 - 0 0 0 0
-1 Y 0 0 0 0
-1 - 0 0 0 0
 1 A 0 0 0 0
+1 - 0 0 0 0
+1 B 0 0 0 0
 1 - 0 0 0 0

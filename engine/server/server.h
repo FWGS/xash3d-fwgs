@@ -631,6 +631,7 @@ void SV_FreeEdicts( void );
 #define GC_ENTITY_OVERFLOW_BYTES (64u * 1024u)
 void SV_GCReservePrivateOverflow( size_t after, size_t bytes );
 qboolean SV_GCPrivateOverflowReserved( void );
+qboolean SV_GCPrivateOverflowPinsMapArena( void );
 #endif
 edict_t *SV_AllocEdict( void );
 void SV_FreeEdict( edict_t *pEdict );
@@ -663,6 +664,7 @@ void SV_StartSound( edict_t *ent, int chan, const char *sample, float vol, float
 #if XASH_GAMECUBE
 qboolean SV_IsStaticClientFrames( const client_frame_t *frames );
 qboolean SV_IsStaticPacketEntities( const entity_state_t *ents );
+qboolean SV_IsStaticListenClients( const sv_client_t *clients );
 qboolean SV_GCPrimeDirectMapPlayer( void );
 edict_t *SV_GCFindIntroTrain( void );
 void GC_LeanLandmarkProbePlantAmmo( void );

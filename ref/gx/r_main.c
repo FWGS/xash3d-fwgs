@@ -892,12 +892,15 @@ static qboolean R_GCTraceFirstEntityFrame( void )
 static void R_DrawEntitiesOnList( void )
 {
 #if XASH_GAMECUBE
-	const qboolean lean_ents = gEngfuncs.Sys_CheckParm( "-gcnewgame" )
-		&& !gEngfuncs.Sys_CheckParm( "-gcfullphysics" );
+	/* CapFaces listen draws the full entity list with frustum cull; -gcnewgame
+	 * still caps early frames. Full-physics lifts all lean limits. */
+	const qboolean lean_ents = !gEngfuncs.Sys_CheckParm( "-gcfullphysics" )
+		&& ( gEngfuncs.Sys_CheckParm( "-gcnewgame" )
+			|| gEngfuncs.Sys_CheckParm( "-gcworldrender" ));
 	int lean_brushes = 0;
 	int lean_studios = 0;
-	const int lean_max_brushes = 6;
-	const int lean_max_studios = 1;
+	const int lean_max_brushes = gEngfuncs.Sys_CheckParm( "-gcworldrender" ) ? 48 : 6;
+	const int lean_max_studios = gEngfuncs.Sys_CheckParm( "-gcworldrender" ) ? 24 : 1;
 
 	if( GC_UseGxWorldDraw() && gEngfuncs.Sys_CheckParm( "-gcnewgame" ))
 	{
@@ -1023,12 +1026,17 @@ static void R_DrawEntitiesOnList( void )
 #if XASH_GAMECUBE
 		/* G320: lean solid EFX only when a world studio already drew this
 		 * frame — ungated solid+trans every frame regressed NEWGAME_READY
-		 * (20260808-224954). Tip-safe proof beam is additive (trans). */
+		 * (20260808-224954). CapFaces listen skips the studio gate but still
+		 * honors densify hold (mid-hold EFX tip-crashed). Keep log strings
+		 * tip-neutral — extra DOL bytes starved caen CapFaces BSP. */
 		if( lean_ents )
 		{
 			extern int R_GXEfbDumpHoldLeft( void );
 
-			if( lean_studios > 0 && R_GXEfbDumpHoldLeft() <= 0 )
+			if( R_GXEfbDumpHoldLeft() <= 0
+				&& ( lean_studios > 0
+					|| ( gEngfuncs.Sys_CheckParm( "-gcworldrender" )
+						&& !gEngfuncs.Sys_CheckParm( "-gcnewgame" ))))
 			{
 				static qboolean lean_solid_efx_logged;
 
@@ -1263,12 +1271,14 @@ static void R_DrawEntitiesOnList( void )
 							? tr.viewent->model->name : "?" );
 				}
 			}
-			/* One tip-safe G320 pass after SCR is live; perpetual lean EFX
-			 * stalls the present pump. Studios still gate viewmodel above.
-			 * G368: skip during Flipper EFB dump hold — dual-hop DumpFrames
-			 * hung in CL_DrawBeams mid-present (20260811-224709). */
-			if( ( tr.framecount == 16 || lean_studios > 0 )
-				&& R_GXEfbDumpHoldLeft() <= 0 )
+			/* CapFaces listen: every-frame particles after densify hold ends.
+			 * Mid-hold EFX tip-crashed; -gcnewgame keeps the studio/frame-16
+			 * gate. Tip-neutral logs only. */
+			if( R_GXEfbDumpHoldLeft() <= 0
+				&& ( lean_studios > 0
+					|| tr.framecount == 16
+					|| ( gEngfuncs.Sys_CheckParm( "-gcworldrender" )
+						&& !gEngfuncs.Sys_CheckParm( "-gcnewgame" ))))
 			{
 				R_AllowFog( false );
 				gEngfuncs.CL_DrawEFX( tr.frametime, true );
@@ -1779,6 +1789,15 @@ R_EdgeDrawing
 #if XASH_GAMECUBE
 static void R_EdgeDrawingGcmapProbe( void )
 {
+	static qboolean probe_gate_logged;
+
+	if( !probe_gate_logged )
+	{
+		probe_gate_logged = true;
+		gEngfuncs.Con_Reportf(
+			"Xash3D GameCube: R_EdgeDrawingGcmapProbe flags=0x%x use_gx=%d\n",
+			(unsigned)RI.rvp.flags, GC_UseGxWorldDraw() ? 1 : 0 );
+	}
 	if( !FBitSet( RI.rvp.flags, RF_DRAW_WORLD ))
 		return;
 
@@ -2044,13 +2063,15 @@ static void R_EdgeDrawingStack( void )
 static void R_EdgeDrawing( void )
 {
 #if XASH_GAMECUBE
-	/* Keep large stack tables out of this frame: they live only in R_EdgeDrawingStack. */
-	if( gEngfuncs.Sys_CheckParm( "-gcmap" ) && !GC_UseLowResWorldProbe() )
+	/* Keep large stack tables out of this frame: they live only in R_EdgeDrawingStack.
+	 * World DL / -gcworldrender share the low-res Flipper probe path. */
+	if( gEngfuncs.Sys_CheckParm( "-gcmap" ) && !GC_UseLowResWorldProbe()
+		&& !GC_UseGxWorldDraw() )
 	{
 		gEngfuncs.Con_Reportf( "Xash3D GameCube: R_EdgeDrawing skipping world pass (gcmap smoke)\n" );
 		return;
 	}
-	if( GC_UseLowResWorldProbe() )
+	if( GC_UseLowResWorldProbe() || GC_UseGxWorldDraw() )
 	{
 		R_EdgeDrawingGcmapProbe();
 		return;
@@ -2574,9 +2595,12 @@ void GAME_EXPORT R_RenderFrame( const ref_viewpass_t *rvp )
 		/* Lean EmitBrush already cleared+filled the list; do not wipe it.
 		 * Fullphysics gcmap also uses EmitBrush (bootstrap maxEntities=2) —
 		 * clearing here left G315 solid=0 after studios=4 (c4a3 20261105-082716).
-		 * Menu New Game brush movers (c0a0 tram *12) land in edge_entities. */
+		 * Menu New Game brush movers (c0a0 tram *12) land in edge_entities.
+		 * CapFaces listen (-gcworldrender -gcmap) uses the same EmitBrush fill
+		 * for env_model/mapmodels — preserve that list too. */
 		if( !( ( gEngfuncs.Sys_CheckParm( "-gcnewgame" )
-				|| gEngfuncs.Sys_CheckParm( "-gcmenuplaystart" ))
+				|| gEngfuncs.Sys_CheckParm( "-gcmenuplaystart" )
+				|| gEngfuncs.Sys_CheckParm( "-gcworldrender" ))
 			&& GC_UseGxWorldDraw()
 			&& tr.draw_list
 			&& ( tr.draw_list->num_solid_entities > 0

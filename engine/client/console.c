@@ -912,9 +912,14 @@ static void Con_GameCubeEnsureMenuFont( void )
 	/* MainUI's bitmap font draws through this function even when the console
 	 * itself has not been opened. The retail boot deliberately defers console
 	 * initialization, so bind the already available lean atlas on first menu
-	 * text rather than silently drawing with a NULL font. */
-	if( !con.curFont && cls.key_dest == key_menu &&
-		CL_GCLoadLeanHudFont( &con.chars[0], con_fontscale.value, &con_fontrender ))
+	 * text rather than silently drawing with a NULL font.
+	 * CapFaces listen team UI also paints via Con_DrawString while key_dest
+	 * is key_game — do not gate the lean atlas on the menu key dest. Map-load
+	 * texture trim can zero con.chars via CL_FreeFont while leaving curFont
+	 * dangling at an invalid slot; reload whenever the bound font is dead. */
+	if( con.curFont && con.curFont->valid )
+		return;
+	if( CL_GCLoadLeanHudFont( &con.chars[0], con_fontscale.value, &con_fontrender ))
 	{
 		con.curFont = &con.chars[0];
 		Con_Reportf( "Xash3D GameCube: menu console font ready\n" );

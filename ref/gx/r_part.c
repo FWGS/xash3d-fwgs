@@ -178,6 +178,10 @@ void GAME_EXPORT CL_DrawParticles( double frametime, particle_t *cl_active_parti
 		gEngfuncs.CL_ThinkParticle( frametime, p );
 	}
 	TriEnd();
+#if XASH_GAMECUBE
+	/* Latch Flipper EFX tris so G291 logs / blit path sees particle emit. */
+	R_GXEffectsTriEnd();
+#endif
 	}
 	// pglDepthMask( GL_TRUE );
 }

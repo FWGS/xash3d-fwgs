@@ -851,6 +851,19 @@ float * GAME_EXPORT R_DecalSetupVerts( decal_t *pDecal, msurface_t *surf, int te
 	int       count;
 	float     *v;
 
+#if XASH_GAMECUBE
+	/* GameCube's compact network world snapshot deliberately drops the
+	 * face-info/lightmap ownership the decal path assumes. Decals are visual
+	 * only, so skip them rather than following an evicted face-info pointer. */
+	if( gEngfuncs.Sys_CheckParm( "-gcworldrender" )
+		&& ( gEngfuncs.Sys_CheckParm( "-gclistenserver" )
+			|| gEngfuncs.Sys_CheckParm( "-gcconnect" )))
+	{
+		if( outCount ) *outCount = 0;
+		return NULL;
+	}
+#endif
+
 	if( p )
 	{
 		v = g_DecalClipVerts[0];

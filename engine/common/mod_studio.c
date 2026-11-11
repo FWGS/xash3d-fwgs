@@ -27,6 +27,9 @@ byte *Mod_GCStudioBssGrowLast( void *ptr, size_t old_size, size_t new_size );
 #include "library.h"
 #include "ref_common.h"
 #include "swaplib.h"
+#if XASH_GAMECUBE
+static void Mod_GCFixStudioUvDomains( studiohdr_t *phdr );
+#endif
 
 typedef int (*STUDIOAPI)( int, sv_blending_interface_t**, server_studio_api_t*,  float (*transform)[3][4], float (*bones)[MAXSTUDIOBONES][3][4] );
 
@@ -1015,7 +1018,12 @@ G381: tip CapFaces leaves heap unable to malloc ~127 KiB scientistt.mdl.
 Fall back to a dedicated BSS scratch so Flipper skins still upload.
 =============
 */
-#define GC_STUDIO_TEX_SCRATCH_BYTES (132 * 1024)
+/* 96 KiB: DoD *t companions stay under ~64 KiB. Reclaim tip so FULL BSP can
+ * malloc-rescue planes/verts out of the map arena for nodes+leafs. */
+/* 96 KiB tip-safe floor. Garand/tommy/mp40 @128² fit (~88 KiB); 98k falls
+ * back to 64² companion at pack time. 128 KiB scratch starved tip and
+ * tip-crashed after VM attach on heavy clusters (ava-play99-48..51). */
+#define GC_STUDIO_TEX_SCRATCH_BYTES (96 * 1024)
 static byte     gc_studio_tex_scratch[GC_STUDIO_TEX_SCRATCH_BYTES] __attribute__((aligned( 32 )));
 static qboolean gc_studio_tex_scratch_busy;
 
@@ -1573,6 +1581,8 @@ void Mod_LoadStudioModel( model_t *mod, void *buffer, size_t buffersize, qboolea
 					if( mod->cache.data )
 					{
 						byte *in, *out;
+						mstudiotexture_t *dst_tex;
+						int ti;
 
 						if( mod->cache.data != buffer )
 							memcpy( mod->cache.data, buffer, mesh );
@@ -1587,8 +1597,18 @@ void Mod_LoadStudioModel( model_t *mod, void *buffer, size_t buffersize, qboolea
 						out = (byte *)phdr + phdr->textureindex;
 						memcpy( out, in, size1 + size2 );
 						phdr->length = (int)merged;
+						/* -gcmap skips Mod_StudioLoadTextures during CapFaces
+						 * bake — zero .index so deferred attach does not treat
+						 * companion file offsets as live GX texnums. */
+						if( Sys_CheckParm( "-gcmap" ) && !Sys_CheckParm( "-gcnewgame" ))
+						{
+							dst_tex = (mstudiotexture_t *)out;
+							for( ti = 0; ti < phdr->numtextures; ti++ )
+								dst_tex[ti].index = 0;
+						}
 						Con_Reportf( "Xash3D GameCube: G376 studio T.mdl skins '%s' n=%d kept=%s\n",
 							mod->name, phdr->numtextures, Q_memprint( merged ));
+						Mod_GCFixStudioUvDomains( phdr );
 						Mod_GCReleaseStudioTexBuf( tex_buf );
 						tex_buf = NULL;
 						thdr = NULL;
@@ -1631,8 +1651,24 @@ void Mod_LoadStudioModel( model_t *mod, void *buffer, size_t buffersize, qboolea
 				Con_Reportf( "Xash3D GameCube: studio skins loaded '%s' n=%d kept=%s\n",
 					mod->name, phdr->numtextures, Q_memprint( mesh ));
 			else if( src->numtextures > 0 )
+			{
+				/* Clear file-offset indices so deferred upload does not treat
+				 * unloaded embedded skins as already GX-bound. */
+				if( phdr->textureindex > 0
+					&& (size_t)phdr->textureindex
+						+ (size_t)phdr->numtextures * sizeof( mstudiotexture_t )
+						<= (size_t)phdr->length )
+				{
+					mstudiotexture_t *tex = (mstudiotexture_t *)((byte *)phdr
+						+ phdr->textureindex );
+					int ti;
+
+					for( ti = 0; ti < phdr->numtextures; ti++ )
+						tex[ti].index = 0;
+				}
 				Con_Reportf( "Xash3D GameCube: studio skin upload skipped '%s' n=%d kept=%s\n",
 					mod->name, phdr->numtextures, Q_memprint( mesh ));
+			}
 			else
 				Con_Reportf( "Xash3D GameCube: lean studio cache '%s' %s\n",
 					mod->name, Q_memprint( mesh ));
@@ -1713,20 +1749,119 @@ extern void Image_GCPurgeDecodeScratch( void );
 extern void R_GXStudioInvalidateBindings( void );
 qboolean Mod_GCPromoteStudioPath( const char *path );
 
+static qboolean gc_force_studio_skins;
+
+qboolean Mod_GCForceStudioSkinUploadActive( void )
+{
+	return gc_force_studio_skins;
+}
+
+/*
+ * Lean *t companions often advertise 64/128 skins while the mesh UV cmds
+ * still span the retail texel domain (0..255 / 0..511). Draw uses
+ * u = cmd / ptexture.width — a shrunk header doubles UVs and CLAMP turns
+ * the Garand into stretched prism skins (ava-play99-79). Grow width/height
+ * to cover the mesh UV domain; GL residency stays at the decoded size.
+ */
+static void Mod_GCFixStudioUvDomains( studiohdr_t *phdr )
+{
+	mstudiotexture_t *ptexture;
+	short *pskinref;
+	mstudiobodyparts_t *pbodypart;
+	int i, j, k, need_log = 0;
+
+	if( !phdr || phdr->numtextures <= 0 || phdr->textureindex <= 0
+		|| phdr->numskinref <= 0 || phdr->skinindex <= 0
+		|| phdr->numbodyparts <= 0 || phdr->bodypartindex <= 0 )
+		return;
+
+	ptexture = (mstudiotexture_t *)((byte *)phdr + phdr->textureindex );
+	pskinref = (short *)((byte *)phdr + phdr->skinindex );
+	pbodypart = (mstudiobodyparts_t *)((byte *)phdr + phdr->bodypartindex );
+
+	for( i = 0; i < phdr->numbodyparts; i++ )
+	{
+		mstudiomodel_t *pmodel = (mstudiomodel_t *)((byte *)phdr + pbodypart[i].modelindex );
+
+		for( j = 0; j < pbodypart[i].nummodels; j++, pmodel++ )
+		{
+			mstudiomesh_t *pmesh = (mstudiomesh_t *)((byte *)phdr + pmodel->meshindex );
+
+			for( k = 0; k < pmodel->nummesh; k++, pmesh++ )
+			{
+				short *cmd = (short *)((byte *)phdr + pmesh->triindex );
+				int tex, max_s = 0, max_t = 0;
+				int n;
+
+				if( pmesh->skinref < 0 || pmesh->skinref >= phdr->numskinref )
+					continue;
+				tex = pskinref[pmesh->skinref];
+				if( tex < 0 || tex >= phdr->numtextures )
+					continue;
+
+				while(( n = *cmd++ ))
+				{
+					int absn = n < 0 ? -n : n;
+					for( ; absn > 0; absn--, cmd += 4 )
+					{
+						if( cmd[2] > max_s ) max_s = cmd[2];
+						if( cmd[3] > max_t ) max_t = cmd[3];
+					}
+				}
+
+				if( max_s >= ptexture[tex].width )
+				{
+					need_log = 1;
+					ptexture[tex].width = max_s + 1;
+				}
+				if( max_t >= ptexture[tex].height )
+				{
+					need_log = 1;
+					ptexture[tex].height = max_t + 1;
+				}
+			}
+		}
+	}
+
+	if( need_log )
+	{
+		static int uv_fix_logs;
+		if( uv_fix_logs < 8 )
+		{
+			uv_fix_logs++;
+			Con_Reportf( "Xash3D GameCube: G378 studio UV domain fix '%s' ntex=%d\n",
+				phdr->name[0] ? phdr->name : "?", phdr->numtextures );
+		}
+	}
+}
+
 static qboolean Mod_GCStudioSkinsBound( const studiohdr_t *phdr )
 {
 	const mstudiotexture_t *t;
+	int i;
 
 	if( !phdr || phdr->numtextures <= 0 || phdr->textureindex <= 0 )
 		return false;
 	if( (size_t)phdr->textureindex + sizeof( mstudiotexture_t ) > (size_t)phdr->length )
 		return false;
 	t = (const mstudiotexture_t *)((const byte *)phdr + phdr->textureindex );
-	return t[0].index != 0;
+	/* Embedded MDLs store file offsets in index until Mod_StudioLoadTextures
+	 * replaces them with GL/GX texnums. Offsets for full DoD VMs are >>4K;
+	 * live texnums stay in 1..4095. CapFaces *t companions are ~26 KiB so
+	 * raw offsets can also land in 1..4095 — Mod_StudioLoadTextures must
+	 * actually run (-gclistenserver) to replace them with real skins. */
+	for( i = 0; i < phdr->numtextures; i++ )
+	{
+		const int idx = t[i].index;
+
+		if( idx <= 0 || idx >= 4096 )
+			return false;
+	}
+	return true;
 }
 
 /* Post-MAP_READY: upload skins skipped at gc_quality=0 during spawn. */
-static qboolean Mod_GCAttachStudioSkins( model_t *mod )
+qboolean Mod_GCAttachStudioSkins( model_t *mod )
 {
 	studiohdr_t *phdr;
 	void *buf = NULL;
@@ -1741,39 +1876,47 @@ static qboolean Mod_GCAttachStudioSkins( model_t *mod )
 		return true;
 
 	Image_GCPurgeDecodeScratch();
+	gc_force_studio_skins = true;
 
-	if( phdr->numtextures > 0 && phdr->textureindex > 0 )
+	if( phdr->numtextures > 0 && phdr->textureindex > 0
+		&& phdr->texturedataindex > (int)sizeof( studiohdr_t )
+		&& phdr->texturedataindex < phdr->length )
 	{
 		/* Quality-0 spawn often keeps the full MDL resident but skips GX upload.
-		 * Try in-place first; fall back to a scratch reload if pixels were cut. */
+		 * Try in-place first only when pixel blobs still live in cache.
+		 * CapFaces lean+*t merge leaves headers with index=0 and no pixels —
+		 * in-place upload then samples garbage (ava-vm11 zebra gun). */
 		Image_GCPurgeDecodeScratch();
 		ref.dllFuncs.Mod_StudioLoadTextures( mod, phdr );
 		if( Mod_GCStudioSkinsBound( phdr ))
 		{
+			gc_force_studio_skins = false;
 			Con_Reportf( "Xash3D GameCube: deferred resident skins '%s' n=%d\n",
 				mod->name, phdr->numtextures );
 			return true;
 		}
 		{
-			char bare[64];
-			char mirror[MAX_QPATH];
 			mstudiotexture_t *src_tex, *dst_tex;
 
-			COM_FileBase( mod->name, bare, sizeof( bare ));
-			Q_snprintf( mirror, sizeof( mirror ), "gc_studio/%s.mdl", bare );
-			buf = Mod_GCLoadFileToStudioTexScratch( mirror, &buf_len );
+			/* CapFaces rifles keep lean mesh in gc_studio/<stem>.mdl (n=0
+			 * pixels). Reloading that mirror wiped live texnums (ava-vm6
+			 * GX bind fail px=0). Prefer the downsampled *t companion. */
+			buf = Mod_GCLoadStudioTexFile( mod->name, &buf_len );
 			if( !buf )
 				buf = Mod_GCLoadFileToStudioTexScratch( mod->name, &buf_len );
 			if( !buf )
 			{
+				gc_force_studio_skins = false;
 				Con_Reportf( S_WARN "Xash3D GameCube: deferred embedded skins miss '%s' n=%d len=%d tdi=%d\n",
 					mod->name, phdr->numtextures, phdr->length, phdr->texturedataindex );
 				return false;
 			}
 			src_hdr = R_StudioLoadHeader( mod, buf, (size_t)buf_len );
-			if( !src_hdr || src_hdr->numtextures <= 0 )
+			if( !src_hdr || src_hdr->numtextures <= 0
+				|| src_hdr->texturedataindex <= (int)sizeof( studiohdr_t ))
 			{
 				Mod_GCReleaseStudioTexBuf( buf );
+				gc_force_studio_skins = false;
 				return false;
 			}
 			ref.dllFuncs.Mod_StudioLoadTextures( mod, src_hdr );
@@ -1782,19 +1925,34 @@ static qboolean Mod_GCAttachStudioSkins( model_t *mod )
 			for( i = 0; i < phdr->numtextures && i < src_hdr->numtextures; i++ )
 				dst_tex[i].index = src_tex[i].index;
 			Mod_GCReleaseStudioTexBuf( buf );
+			gc_force_studio_skins = false;
 			Con_Reportf( "Xash3D GameCube: deferred embedded skins '%s' n=%d\n",
 				mod->name, phdr->numtextures );
 			return Mod_GCStudioSkinsBound( phdr );
 		}
 	}
 
-	/* Separate *t.mdl atlas (controller, islave, …). */
+	/* Separate *t.mdl atlas (controller, islave, …). CapFaces viewmodels
+	 * often ship mesh-only under gc_studio/ with textures still in the full
+	 * models/*.mdl on disc (no *T.mdl companion) — fall back to that. */
 	buf = Mod_GCLoadStudioTexFile( mod->name, &buf_len );
 	src_hdr = R_StudioLoadHeader( mod, buf, (size_t)buf_len );
 	if( !src_hdr || src_hdr->numtextures <= 0 )
 	{
 		if( buf )
+		{
 			Mod_GCReleaseStudioTexBuf( buf );
+			buf = NULL;
+		}
+		buf = Mod_GCLoadFileToStudioTexScratch( mod->name, &buf_len );
+		src_hdr = R_StudioLoadHeader( mod, buf, (size_t)buf_len );
+	}
+	if( !src_hdr || src_hdr->numtextures <= 0 )
+	{
+		if( buf )
+			Mod_GCReleaseStudioTexBuf( buf );
+		Con_Reportf( S_WARN "Xash3D GameCube: deferred skins miss '%s' (no T.mdl / full MDL tex)\n",
+			mod->name );
 		return false;
 	}
 	{
@@ -1837,14 +1995,31 @@ static qboolean Mod_GCAttachStudioSkins( model_t *mod )
 				dst_tex[i].index = src_tex[i].index;
 			Con_Reportf( "Xash3D GameCube: deferred T.mdl skins '%s' n=%d kept=%s\n",
 				mod->name, phdr->numtextures, Q_memprint( merged ));
+			Mod_GCFixStudioUvDomains( phdr );
 		}
 	}
 	Mod_GCReleaseStudioTexBuf( buf );
+	gc_force_studio_skins = false;
+	if( mod->cache.data )
+		Mod_GCFixStudioUvDomains( (studiohdr_t *)mod->cache.data );
 	return Mod_GCStudioSkinsBound( (studiohdr_t *)mod->cache.data );
 }
 
 void Mod_GCUploadDeferredStudioSkins( void )
 {
+#if XASH_DODGC_NETWORK
+	/* CapFaces: skin only the landmark team rifle after claim. Early present≈24
+	 * deferred used to also hit a precached mp40 and tip-OOM before Allies pick. */
+	static const char *paths_storage[2];
+	const char **paths;
+	const char *landmark = Mod_GCLandmarkViewModelPath();
+
+	if( !landmark || !landmark[0] )
+		return;
+	paths_storage[0] = landmark;
+	paths_storage[1] = NULL;
+	paths = paths_storage;
+#else
 	static const char *paths[] = {
 		/* Hallway cast first (G381): scientistT+barneyT soft skins were the
 		 * 22/31 defaultTexture case — attach after tip recovers so the 384 KiB
@@ -1856,14 +2031,25 @@ void Mod_GCUploadDeferredStudioSkins( void )
 		"models/islave.mdl",
 		"models/v_crowbar.mdl",
 		"models/v_9mmhandgun.mdl",
+		"models/v_colt.mdl",
+		"models/v_luger.mdl",
+		"models/v_garand.mdl",
+		"models/v_mp40.mdl",
 		NULL
 	};
+#endif
 	static char last_map[64];
 	int i, ready = 0, attempted = 0;
 
 	if( Host_IsDedicated() )
 		return;
-	if( !GC_IsNewGameWorldReady() && !Sys_CheckParm( "-gcnewgame" ))
+	/* Direct -gcnewgame and menu playstart both need post-tip soft skins;
+	 * WorldReady alone can lag the first presents after changelevel.
+	 * CapFaces listen (-gcworldrender+-gcplayerinput) needs the same for
+	 * team viewmodels once Flipper is past present≈4. */
+	if( !GC_IsNewGameWorldReady() && !Sys_CheckParm( "-gcnewgame" )
+		&& !Sys_CheckParm( "-gcmenuplaystart" )
+		&& !( Sys_CheckParm( "-gcworldrender" ) && Sys_CheckParm( "-gcplayerinput" )))
 		return;
 	if( sv.name[0] && Q_stricmp( last_map, sv.name ))
 	{
@@ -1875,6 +2061,15 @@ void Mod_GCUploadDeferredStudioSkins( void )
 		model_t *mod = Mod_FindName( paths[i], false );
 		qboolean ok;
 
+#if XASH_DODGC_NETWORK
+		/* CapFaces: never promote the other team's rifle just to skin it. */
+		if( !mod || !mod->cache.data )
+		{
+			Con_Reportf( S_WARN "Xash3D GameCube: deferred skins skip '%s' (no cache)\n",
+				paths[i] );
+			continue;
+		}
+#else
 		if( !mod || !mod->cache.data )
 			Mod_GCPromoteStudioPath( paths[i] );
 		mod = Mod_FindName( paths[i], false );
@@ -1884,6 +2079,7 @@ void Mod_GCUploadDeferredStudioSkins( void )
 				paths[i] );
 			continue;
 		}
+#endif
 		attempted++;
 		ok = Mod_GCAttachStudioSkins( mod );
 		Con_Reportf( "Xash3D GameCube: deferred skins try '%s' ok=%d n=%d\n",

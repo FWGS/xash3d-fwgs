@@ -120,7 +120,11 @@ typedef struct
 	 * surface-slot refresh (floor 1.50 + need 2.05) still opens (probe 121655
 	 * died at cap=3.56). Restoring 1280 with listen BSS still present OOMs
 	 * entities at tip-flash-fix4 (unclaimed≈768). */
-	byte         mapload_pad[1152 * 1024];
+	/* +64 KiB: avalanche FULL live surfaces+planes+leafs+nodes need the
+	 * extra hole under the 2.47 MiB surface high-slot (ava-fullbsp15).
+	 * Do NOT grow further — +320 KiB starved MEM1 unclaimed and corrupted
+	 * the cvar list at renderer init (ava-fullbsp24). Leafs use static BSS. */
+	byte         mapload_pad[1216 * 1024];
 #endif
 	pixel_t      color;
 	qboolean     is2d;
@@ -473,6 +477,7 @@ void R_GXBeginDumpAnimFrame( void );
 void R_GXDumpSkipViewmodel( int on );
 int R_GXDumpSkipViewmodelActive( void );
 int R_GXEfbDumpHoldLeft( void );
+void R_GXEfbDumpHoldClear( void );
 void R_GXStudioTexCoord( float u, float v );
 int GC_GetNewGameCapFaceVerts( int slot, float out[][3], int maxverts );
 #endif

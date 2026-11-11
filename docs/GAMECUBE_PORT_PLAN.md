@@ -1,5 +1,32 @@
 # Xash3D GameCube Port Plan
 
+## Controller replay correction — 2026-11-08
+
+The TAS player now keeps buttons and sticks on the same segment throughout
+each host frame, including the last frame. Completion is reported on the next
+neutral poll, after the caller has consumed the final input. Action markers and
+the shipped `gameplay-smoke.tas` use the current controls: R attack, A jump,
+B use. Previously the script pressed Y for jump and A for use, and stick input
+advanced one frame before buttons at every segment boundary.
+
+Verification: `python3 -m unittest discover -s tests -p 'test_gamecube_tas.py' -v`
+compiles the production C player with AddressSanitizer and UBSan. All five tests
+pass, covering mixed button/stick segments, final-frame consumption, physical
+action labels, reset, and the complete shipped smoke trace. The same tests
+reproduced seven assertion failures before the fix. Logs are in
+`.ai/logs/codex-tas-20261108/{before,after}.log`. `scripts/ai-verify.sh` now runs
+this native suite before either its host-only or GameCube build gate.
+
+The changed module also compiles with devkitPPC GCC 16.1.0 using the recorded
+HL1 compilation command and a private output object; the command, dependencies,
+and object are preserved in `.ai/logs/codex-tas-20261108/`. Shared Waf outputs
+were not used as compilation targets while Grok works on NPC loading and skins.
+This is native replay and cross-compilation evidence. Next: replay the corrected
+script from a matching DOL/ISO in Dolphin, verify processed attack/jump/use and
+post-action stability, then complete campaign playability and physical Swiss
+hardware validation. Existing map-ready/HUD markers alone do not close those
+gates.
+
 ## Current status
 
 The repository has a Swiss-first Waf target (devkitPPC / libogc2 + libdvm,

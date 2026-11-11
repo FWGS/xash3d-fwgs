@@ -237,6 +237,10 @@ if [[ -n "$BASELINE" ]]; then
 	done < <(git diff --name-only "$BASELINE")
 fi
 
+echo
+echo "== native GameCube TAS replay tests =="
+python3 -m unittest discover -s tests -p 'test_gamecube_tas.py' -v
+
 if [[ "${SKIP_GAMECUBE_BUILD:-0}" == "1" ]]; then
 	echo
 	echo "== host unit tests (GameCube harness-only) =="

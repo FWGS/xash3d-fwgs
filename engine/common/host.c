@@ -488,21 +488,50 @@ static void Host_InitDecals( void )
 	memset( host.draw_decals, 0, sizeof( host.draw_decals ));
 
 #if XASH_GAMECUBE
-	/* G302: New Game / gcmap use embedded lean `{` kinds — skip enumerating
-	 * 222 decals.wad MIPs (name table + FS search pressure under tip). */
+	/* G302: New Game / gcmap skip enumerating 222 decals.wad MIPs (tip).
+	 * DoD FULL (-gcworldrender) still needs the avalanche infodecal set —
+	 * lean-4 left every {scorch}/{crack}/{break} as "Can't find" (ava-fullbsp26). */
 	if( Sys_CheckParm( "-gcnewgame" ) || Sys_CheckParm( "-gcmap" ))
 	{
 		static const char *lean[] = {
 			"{shot1", "{smscorch1", "{blood1", "{break1"
 		};
+#if XASH_DODGC_NETWORK
+		static const char *full_dod[] = {
+			"{shot1", "{shot2", "{shot3", "{shot4", "{shot5",
+			"{smscorch1", "{smscorch2", "{smscorch3",
+			"{scorch1", "{scorch2", "{scorch3",
+			"{blood1", "{blood2", "{blood3", "{blood4", "{blood5", "{blood6",
+			"{break1", "{break2", "{break3",
+			"{crack1", "{crack2", "{crack3", "{crack4",
+			"{oil1", "{oil2",
+			"{K_slime1d",
+			"{bigshot1", "{bigshot2", "{bigshot3", "{bigshot4", "{bigshot5",
+			"{hand1", "{hand2", "{hand3",
+		};
+#endif
+		const char **table = lean;
+		int n = (int)( sizeof( lean ) / sizeof( lean[0] ));
 		int i;
 
-		for( i = 0; i < (int)( sizeof( lean ) / sizeof( lean[0] )); i++ )
+#if XASH_DODGC_NETWORK
+		if( Sys_CheckParm( "-gcworldrender" ))
 		{
-			if( !Host_RegisterDecal( lean[i], &num_decals ))
+			table = full_dod;
+			n = (int)( sizeof( full_dod ) / sizeof( full_dod[0] ));
+		}
+#endif
+		for( i = 0; i < n; i++ )
+		{
+			if( !Host_RegisterDecal( table[i], &num_decals ))
 				break;
 		}
-		Con_Reportf( "Xash3D GameCube: G302 lean Host_InitDecals: %i (skip wad enum)\n",
+		Con_Reportf( "Xash3D GameCube: G302 %s Host_InitDecals: %i (skip wad enum)\n",
+#if XASH_DODGC_NETWORK
+			Sys_CheckParm( "-gcworldrender" ) ? "FULL" : "lean",
+#else
+			"lean",
+#endif
 			num_decals );
 		return;
 	}
@@ -877,8 +906,14 @@ void Host_Frame( double time )
 			/* Menu New Game: Host_ServerFrame after CapFaces hung the guest
 			 * (probe 20260813-193443 stopped at sustained frames=8). Keep
 			 * ClientFrame/SCR presents for Flipper DumpFrames; skip lean
-			 * server ticks until -gcfullphysics. */
-			if( Sys_CheckParm( "-gcnewgame" ) && !Sys_CheckParm( "-gcfullphysics" ))
+			 * server ticks until -gcfullphysics.
+			 * CapFaces listen (-gcworldrender+-gcplayerinput) hit the same
+			 * Guru after present≈4 mid-ServerFrame (teamvm16: sound loss then
+			 * no SendClientDatagram). Bound to one tick like -gcnewgame. */
+			if( ( Sys_CheckParm( "-gcnewgame" )
+					|| ( Sys_CheckParm( "-gcworldrender" )
+						&& Sys_CheckParm( "-gcplayerinput" )))
+				&& !Sys_CheckParm( "-gcfullphysics" ))
 			{
 				/* The direct-map player already has its bounded native physics
 				 * bootstrap. Further full server ticks can re-enter heavy scripted
@@ -1508,11 +1543,18 @@ static void Host_InitCommon( int argc, char **argv, const char *progname, qboole
 	Host_CheckGameLibraries();
 	Cvar_PostFSInit();
 
-	Image_CheckPaletteQ1 ();
-
 	// NOTE: only once resource without which engine can't continue work
+	#if XASH_GAMECUBE
+	/* Check conchars before Image_CheckPaletteQ1. tex21/22 resolved
+	 * palette via net=/dod/gfx/palette.lmp then FindFile never reached
+	 * the mounted gfx.wad for conchars (miss=0, no WAD lookup log). */
+	FS_ClearFindMissCache();
+	FS_ClearFindHitCache();
+	#endif
 	if( !FS_FileExists( "gfx/conchars", false ))
 		Sys_Error( "%s: couldn't load gfx.wad\n", __func__ );
+
+	Image_CheckPaletteQ1 ();
 
 	Host_InitDecals ();	// reload decals
 #if XASH_GAMECUBE

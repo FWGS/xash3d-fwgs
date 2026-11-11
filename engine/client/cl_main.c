@@ -468,6 +468,11 @@ static void CL_CheckClientState( void )
 	if(( cls.state == ca_connected || cls.state == ca_validate ) && ( cls.signon == SIGNONS ))
 	{
 		cls.state = ca_active;
+#if XASH_DODGC_NETWORK
+		Con_Reportf( "GameCube DoD: gameplay active server=%s signon=%d\n", cls.servername, cls.signon );
+		GC_NetReportStatus( "gameplay" );
+		GCube_AppendSwissEvidence( "GameCube DoD: gameplay active signon=%d", cls.signon );
+#endif
 #if XASH_GAMECUBE
 		if( Sys_CheckParm( "-gcmenuplaystart" ))
 		{
@@ -1473,6 +1478,10 @@ static void CL_SendConnectPacket( connprotocol_t proto, int challenge )
 	netadr_t adr = { 0 };
 
 	protinfo[0] = 0;
+#if XASH_DODGC_NETWORK
+	Info_SetValueForKey( protinfo, DODGC_NET_KEY, DODGC_NET_VERSION, sizeof( protinfo ));
+#endif
+
 
 	if( !NET_StringToAdr( cls.servername, &adr ))
 	{
@@ -1617,13 +1626,8 @@ static void CL_CheckForResend( void )
 	if( cls.state == ca_disconnected && SV_Active( ))
 	{
 #if XASH_GAMECUBE
-		/* BBA/eth2sp1 listen host: local auto-join with maxplayers=2 hangs
-		 * after ucmd->begin (probe 20261106-234030) before SignonReply 2, so
-		 * the host never services peer getchallenge. Skip local seat — keep
-		 * both slots for remote join. Offline solo listen (no -net) still
-		 * auto-connects. */
-		if( Sys_CheckParm( "-gclistenserver" )
-			&& ( Sys_CheckParm( "-net" ) || Sys_CheckParm( "-netstatic" )))
+		/* Optional server-only Cube leaves both seats for remote players. */
+		if( Sys_CheckParm( "-gclistenserver" ) && Sys_CheckParm( "-gcheadless" ))
 		{
 			static qboolean gc_listen_skip_logged;
 
@@ -2862,6 +2866,15 @@ static void CL_ClientConnect( connprotocol_t proto, const char *c, netadr_t from
 		return;
 	}
 
+#if XASH_DODGC_NETWORK
+	if( proto != PROTO_CURRENT || Q_strcmp( Info_ValueForKey( Cmd_Argv( 1 ), DODGC_NET_KEY ), DODGC_NET_VERSION ))
+	{
+		Con_Printf( S_ERROR "This server requires a different game/build. Use a GameCube DoD network v%s host.\n", DODGC_NET_VERSION );
+		CL_Disconnect_f();
+		return;
+	}
+#endif
+
 	if( proto == PROTO_GOLDSRC )
 	{
 		if( Q_strcmp( c, S2C_GOLDSRC_CONNECTION ))
@@ -2949,7 +2962,7 @@ static void CL_ClientConnect( connprotocol_t proto, const char *c, netadr_t from
 	 * after S2C_CONNECTION starved serverdata (probe 20261106-235508).
 	 * Minimal screen init already skips gameui for -gcconnect; still force
 	 * key_game so the next ClientFrame can EnsureClientReady → serverdata. */
-	if( Sys_CheckParm( "-gcconnect" ))
+	if( Sys_CheckParm( "-gcconnect" ) || Sys_CheckParm( "-gclistenserver" ))
 	{
 		UI_SetActiveMenu( false );
 		Key_SetKeyDest( key_game );
@@ -4325,11 +4338,14 @@ void Host_ClientFrame( void )
 		 * arm (otherwise Host_Frame stalls at ready=0).
 		 * Peer join (-gcconnect) and solo listen (-gclistenserver) also stage
 		 * -gcmap for MEM1; do not starve connect / local present behind smoke.
+		 * -gcworldrender (CapFaces or world DL) must present Flipper — never
+		 * take the smoke early-return (ava-worlddl11 hung black with no client).
 		 * Fragbufs must use Netchan_FreeFragbuf — Mem_Free on emergency BSS
 		 * slots was the listen-client Mem_FreeBlockBig fatal. */
 		if( Sys_CheckParm( "-gcmap" ) && !Sys_CheckParm( "-gcmenuplaystart" )
 			&& !Sys_CheckParm( "-gcconnect" )
 			&& !Sys_CheckParm( "-gclistenserver" )
+			&& !Sys_CheckParm( "-gcworldrender" )
 			&& cls.state != ca_connecting && cls.state != ca_connected )
 		{
 			/* Map-load smoke keeps client progs deferred; avoid renderer/texture
@@ -4339,11 +4355,8 @@ void Host_ClientFrame( void )
 				host.renderinfo_changed = false;
 			return;
 		}
-		/* Net listen host skips local auto-connect — loading HUD here softlocks
-		 * under MEM1 after packet-entity BSS (dual IPC 20261107-003037 hung in
-		 * CHud::Init and never answered getchallenge). Keep SV alive only. */
-		if( Sys_CheckParm( "-gclistenserver" )
-			&& ( Sys_CheckParm( "-net" ) || Sys_CheckParm( "-netstatic" ))
+		/* An explicitly headless server does not load a local HUD. */
+		if( Sys_CheckParm( "-gclistenserver" ) && Sys_CheckParm( "-gcheadless" )
 			&& !CL_GameCubeClientProgsReady() )
 		{
 			static int gc_listen_headless_log;
@@ -4357,11 +4370,13 @@ void Host_ClientFrame( void )
 				SCR_UpdateScreen();
 			return;
 		}
-		/* -gcmap + (-gcmenuplaystart | offline solo listenserver): load client
-		 * so local play can present. Peer accept also needs progs for serverdata. */
+		/* -gcmap + (-gcmenuplaystart | -gcworldrender | offline solo listenserver):
+		 * load client so local play can present. Peer accept also needs progs
+		 * for serverdata. World DL / CapFaces Flipper needs HUD + R_RenderScene. */
 		if( (( Sys_CheckParm( "-gcmenuplaystart" )
+				|| Sys_CheckParm( "-gcworldrender" )
 				|| ( Sys_CheckParm( "-gclistenserver" )
-					&& !Sys_CheckParm( "-net" ) && !Sys_CheckParm( "-netstatic" ) ))
+					&& !Sys_CheckParm( "-gcheadless" ) ))
 				&& Sys_CheckParm( "-gcmap" ))
 			|| ( Sys_CheckParm( "-gcconnect" ) && cls.state >= ca_connected ))
 		{

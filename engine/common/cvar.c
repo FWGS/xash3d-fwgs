@@ -78,8 +78,27 @@ convar_t *Cvar_FindVar( const char *var_name )
 #if XASH_GAMECUBE
 	if( !var )
 	{
+		static qboolean bad_chain_logged;
+		uintptr_t node;
+		unsigned walked = 0;
+
 		for( var = cvar_vars; var; var = var->next )
 		{
+			node = (uintptr_t)var;
+			/* Keep a bad cvar link from turning a normal menu lookup into a
+			 * DSI. Static cvars and GC heap objects reside in MEM1 or MEM2. */
+			if((( node < 0x80000000u || node >= 0x81800000u )
+					&& ( node < 0x90000000u || node >= 0x94000000u ))
+				|| ( node & 3u ) || ++walked > 8192 )
+			{
+				if( !bad_chain_logged )
+				{
+					bad_chain_logged = true;
+					Con_Reportf( S_ERROR "Xash3D GameCube: corrupt cvar list lookup='%s' node=%p walked=%u\n",
+						var_name, (void *)var, walked );
+				}
+				break;
+			}
 			if( !Q_stricmp( var->name, var_name ))
 				break;
 		}

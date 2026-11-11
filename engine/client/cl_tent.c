@@ -3125,11 +3125,12 @@ int CL_GCEnsureLeanDecalForName( const char *name )
 	if( !Q_strnicmp( n, "blood", 5 ) || !Q_strnicmp( n, "yblood", 6 )
 		|| !Q_strnicmp( n, "bigblood", 8 ) || !Q_strnicmp( n, "bloodhand", 9 ))
 		return CL_GCEnsureLeanDecalKind( GC_LEAN_DECAL_BLOOD );
-	if( !Q_strnicmp( n, "scorch", 6 ) || !Q_strnicmp( n, "smscorch", 8 ))
+	if( !Q_strnicmp( n, "scorch", 6 ) || !Q_strnicmp( n, "smscorch", 8 )
+		|| !Q_strnicmp( n, "oil", 3 ) || !Q_strnicmp( n, "K_slime", 7 ))
 		return CL_GCEnsureLeanDecalKind( GC_LEAN_DECAL_SCORCH );
 	if( !Q_strnicmp( n, "break", 5 ) || !Q_strnicmp( n, "crack", 5 ))
 		return CL_GCEnsureLeanDecalKind( GC_LEAN_DECAL_BREAK );
-	/* shot / bigshot / gaussshot / default tip-safe fallback */
+	/* shot / bigshot / gaussshot / hand / default tip-safe fallback */
 	return CL_GCEnsureLeanDecalKind( GC_LEAN_DECAL_SHOT );
 }
 #endif

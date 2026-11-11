@@ -17,6 +17,7 @@ void *R_GCBorrowMapLoadStaticArena( size_t size, size_t *capacity );
 qboolean R_GCReleaseMapLoadStaticArena( void *ptr );
 qboolean SV_Active( void );
 qboolean SV_GCPrivateOverflowReserved( void );
+qboolean SV_GCPrivateOverflowPinsMapArena( void );
 void GCube_AppendSwissEvidence( const char *fmt, ... );
 
 static char gc_mem_map[MAX_QPATH] = "(none)";
@@ -699,7 +700,7 @@ void *GC_BorrowMapLoadBuffer( size_t size )
 	if( size == 0 )
 		return NULL;
 	/* Entity private objects may still point into this map's arena. */
-	if( SV_GCPrivateOverflowReserved() )
+	if( SV_GCPrivateOverflowPinsMapArena() )
 		return NULL;
 
 	if( gc_mapload_buf && gc_mapload_buf_in_use )
@@ -816,7 +817,7 @@ void *GC_MapLoadBufferTailAlloc( size_t after_offset, size_t need )
 	/* A live entity overflow reservation pins this map's arena after the BSP
 	 * staging borrow ends. Its high-water mark also protects all earlier tail
 	 * allocations, so remaining tail space is still safe for world arrays. */
-	if( !gc_mapload_buf || ( !gc_mapload_buf_in_use && !SV_GCPrivateOverflowReserved() ) || need == 0 )
+	if( !gc_mapload_buf || ( !gc_mapload_buf_in_use && !SV_GCPrivateOverflowPinsMapArena() ) || need == 0 )
 		return NULL;
 
 	base = (uintptr_t)gc_mapload_buf;
@@ -852,7 +853,7 @@ void *GC_MapLoadBufferTailAlloc( size_t after_offset, size_t need )
 
 void GC_DiscardMapLoadBuffer( void )
 {
-	if( SV_GCPrivateOverflowReserved() )
+	if( SV_GCPrivateOverflowPinsMapArena() )
 	{
 		Con_Reportf( "Xash3D GameCube: retaining map arena for entity private data\n" );
 		return;

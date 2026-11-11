@@ -1420,9 +1420,12 @@ void CL_GameCubeLeanEmitBrushEntities( void )
 	const float max_dist = 8000.0f;
 	/* G371: denser AM NPC near dump/landmark eye. Xen bake eye→Nihilanth is
 	 * ~450u; keep headroom for companions. */
-	const float studio_max_dist = Sys_CheckParm( "-gcfullphysics" ) ? 4800.0f : 1600.0f;
+	const float studio_max_dist = ( Sys_CheckParm( "-gcfullphysics" )
+		|| Sys_CheckParm( "-gcworldrender" )) ? 4800.0f : 1600.0f;
 
-	if( !Sys_CheckParm( "-gcnewgame" ))
+	/* CapFaces listen (-gcworldrender) also lacks a filled Flipper entity
+	 * list (solid=0) — env_model / mapmodels need the same lean emit path. */
+	if( !Sys_CheckParm( "-gcnewgame" ) && !Sys_CheckParm( "-gcworldrender" ))
 		return;
 	/* Fullphysics direct-map still uses bootstrap tables (maxEntities=2) so
 	 * CL_EmitEntities never fills the Flipper list (c4a3 20261105-082525:
@@ -1521,11 +1524,10 @@ void CL_GameCubeLeanEmitBrushEntities( void )
 			added++;
 	}
 
-	/* Already-resident world studios (w_* weapons + allowlisted NPCs).
-	 * No Mod_ForName — G371 promotes scientist/barney after present≥24.
-	 * Fullphysics DumpFrames need studios on the first CapFaces present
-	 * (c4a3 bake-eye dump had studios=0 while present<16). */
-	if( ( GC_GetNewGamePresentCount() >= 16
+	/* Already-resident world studios (w_* weapons + allowlisted NPCs +
+	 * CapFaces mapmodels). No Mod_ForName — G371 promotes after present≥24.
+	 * CapFaces listen admits studios once densify has presented (≥2). */
+	if( ( GC_GetNewGamePresentCount() >= ( Sys_CheckParm( "-gcworldrender" ) ? 2u : 16u )
 			|| ( Sys_CheckParm( "-gcfullphysics" )
 				&& ( Sys_CheckParm( "-gcdumpframes" ) || Sys_CheckParm( "-gcdump" ))))
 		&& studio_budget > 0 )
@@ -1558,9 +1560,20 @@ void CL_GameCubeLeanEmitBrushEntities( void )
 				scan_studio_skip++;
 				continue;
 			}
-			/* Weapons + lean NPCs + Xen bosses. Skip v_* / player. */
+			/* Weapons + lean NPCs + Xen bosses + CapFaces mapmodels.
+			 * Skip v_* / player. */
 			allow = false;
 			if( Q_stristr( mod->name, "w_" ) && !Q_stristr( mod->name, "v_" ))
+				allow = true;
+			else if( Q_stristr( mod->name, "mapmodels/" )
+				|| Q_stristr( mod->name, "hk_satchel" )
+				|| Q_stristr( mod->name, "sandbags" )
+				|| Q_stristr( mod->name, "by_rubble" )
+				|| Q_stristr( mod->name, "horse_statue" )
+				|| Q_stristr( mod->name, "by_canopy" )
+				|| Q_stristr( mod->name, "arc_xer_tree" )
+				|| Q_stristr( mod->name, "furniture" )
+				|| Q_stristr( mod->name, "bulb" ))
 				allow = true;
 			else if( Q_stristr( mod->name, "scientist" )
 				|| Q_stristr( mod->name, "barney" )

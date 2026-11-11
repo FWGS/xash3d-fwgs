@@ -289,7 +289,13 @@ static wfile_t *W_Open( const char *filename, int *error, uint flags )
 
 	// copy wad name
 	wad->filetime = FS_SysFileTime( filename );
-	wad->mempool = Mem_AllocPool( filename );
+	{
+		/* Pool name[64] — keep basename only so long gcdisc paths cannot
+		 * confuse later diagnostics / adjacent heap state. */
+		string poolname;
+		Q_snprintf( poolname, sizeof( poolname ), "wad:%s", COM_FileWithoutPath( filename ));
+		wad->mempool = Mem_AllocPool( poolname );
+	}
 
 	if( FS_Read( wad->handle, &header, sizeof( dwadinfo_t )) != sizeof( dwadinfo_t ))
 	{
@@ -442,9 +448,23 @@ static int FS_FindFile_WAD( searchpath_t *search, const char *path, char *fixedn
 		anywadname = false;
 	}
 
+#if XASH_GAMECUBE
+	/* gfx/conchars must match CONCHARS inside gfx.wad regardless of whether
+	 * the path prefix filters other wads first. */
+	if( !Q_stricmp( path, "gfx/conchars" ))
+		anywadname = true;
+#endif
+
 	// make wadname from wad fullpath
 	COM_FileBase( search->filename, shortname, sizeof( shortname ));
 	COM_DefaultExtension( shortname, ".wad", sizeof( shortname ));
+
+#if XASH_GAMECUBE
+	if( !Q_stricmp( path, "gfx/conchars" ))
+		Con_Reportf( "Xash3D GameCube: conchars WAD probe file=%s short=%s type=%d lumps=%d any=%d\n",
+			search->filename, shortname, (int)type,
+			search->wad ? search->wad->numlumps : -1, anywadname ? 1 : 0 );
+#endif
 
 	// quick reject by wadname
 	if( !anywadname && Q_stricmp( wadname, shortname ))
@@ -455,6 +475,12 @@ static int FS_FindFile_WAD( searchpath_t *search, const char *path, char *fixedn
 	COM_FileBase( path, shortname, sizeof( shortname ));
 
 	lump = W_FindLump( search->wad, shortname, type );
+	#if XASH_GAMECUBE
+	if( !Q_stricmp( path, "gfx/conchars" ))
+		Con_Reportf( "Xash3D GameCube: conchars WAD lookup wad=%s key=%s type=%d lumps=%d hit=%d\n",
+			shortname, COM_FileWithoutPath( search->filename ), (int)type,
+			search->wad ? search->wad->numlumps : -1, lump ? 1 : 0 );
+	#endif
 
 	if( lump )
 	{
@@ -645,8 +671,13 @@ searchpath_t *FS_AddWad_Fullpath( const char *wadfile, int flags )
 	/* A texture may be probed before WAD mounting completes.  Do not let the
 	 * early negative result hide a valid lump once this archive is attached. */
 	FS_ClearFindMissCache();
-	#endif
-
+	/* tex21+: gfx.wad searchpath->filename was observed as gcdisc:/xash3d
+	 * by the time Host_Init looked up conchars. Re-copy after setup. */
+	Q_strncpy( search->filename, wadfile, sizeof( search->filename ));
+	Con_Reportf( "Adding WAD: %s (%i files) stored=%s sp=%p\n",
+		wadfile, wad->numlumps, search->filename, (void *)search );
+	#else
 	Con_Reportf( "Adding WAD: %s (%i files)\n", wadfile, wad->numlumps );
+	#endif
 	return search;
 }

@@ -201,6 +201,15 @@ qboolean Image_LoadMDL( const char *name, const byte *buffer, fs_offset_t filesi
 
 	image.width = pin->width;
 	image.height = pin->height;
+	{
+		static int mdl_dim_logs;
+		if( mdl_dim_logs < 8 )
+		{
+			mdl_dim_logs++;
+			Con_Reportf( "Xash3D GameCube: Image_LoadMDL %s pin=%dx%d flags=0x%x\n",
+				name ? name : "?", pin->width, pin->height, pin->flags );
+		}
+	}
 	size_t pixels = image.width * image.height;
 	byte *fin = (byte *)g_mdltexdata;
 	ASSERT(fin);

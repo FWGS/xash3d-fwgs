@@ -111,9 +111,17 @@ enum
 	ZIP_LOAD_CORRUPTED
 };
 
+#if XASH_GAMECUBE
+/* CapFaces spat / bootstrap pk3 paths are short (≤40). MAX_SYSPATH=1024 made
+ * the CDF table ~80 KiB and tip-OOM'd spat mounts after dense BSPs. */
+#define ZIP_NAME_MAX 64
+#else
+#define ZIP_NAME_MAX MAX_SYSPATH
+#endif
+
 typedef struct zipfile_s
 {
-	char		name[MAX_SYSPATH];
+	char		name[ZIP_NAME_MAX];
 	fs_offset_t	offset; // offset of local file header
 	fs_offset_t	size; //original file size
 	fs_offset_t	compressed_size; // compressed file size
@@ -291,9 +299,37 @@ static zip_t *FS_LoadZip( const char *zipfile, int *error )
 	// Move to CDF start
 	FS_Seek( zip->handle, header_eocd.central_directory_offset, SEEK_SET );
 
-	// Calc count of files in archive
-	zip = (zip_t *)Mem_Realloc( fs_mempool, zip, sizeof( *zip ) + sizeof( *info ) * header_eocd.total_central_directory_record );
-	info = zip->files;
+	/* Grow the zip index. On GameCube the tiny stub is tip/Q_malloc while the
+	 * CDF table wants the FS arena (≥2 KiB). Realloc of the stub through a
+	 * fragmented tip Sys_Error'd CapFaces spat mounts (kraftstoff/saints).
+	 * Free the stub and allocate the full table so it lands in the arena;
+	 * soft-NULL keeps the prior open handle out of a fatal. */
+	{
+		const size_t zip_bytes = sizeof( *zip )
+			+ sizeof( *info ) * header_eocd.total_central_directory_record;
+		file_t *zh = zip->handle;
+#if XASH_GAMECUBE
+		zip_t *grown;
+
+		zip->handle = NULL;
+		Mem_Free( zip );
+		grown = (zip_t *)Mem_Calloc( fs_mempool, zip_bytes );
+		if( !grown )
+		{
+			Con_Reportf( S_ERROR "FS_LoadZIPFile: can't alloc %zu bytes, no free memory\n",
+				zip_bytes );
+			if( error )
+				*error = ZIP_LOAD_COULDNT_OPEN;
+			FS_Close( zh );
+			return NULL;
+		}
+		zip = grown;
+		zip->handle = zh;
+#else
+		zip = (zip_t *)Mem_Realloc( fs_mempool, zip, zip_bytes );
+#endif
+		info = zip->files;
+	}
 
 	for( int i = 0; i < header_eocd.total_central_directory_record; i++ )
 	{

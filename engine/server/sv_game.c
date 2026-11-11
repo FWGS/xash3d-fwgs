@@ -78,7 +78,9 @@ static qboolean SV_IsStaticStaticEntities( const entity_state_t *s )
 /* Tip Server Strings pool dies on denser Office maps (c1a1f SV_AllocString
  * 14-byte Host_Error, hardware 20261104). Deduped bump arena keeps class/
  * target/model names off the tip after reclaim fails. */
-#define GC_STRING_ARENA_SIZE (96 * 1024)
+/* 96 KiB left dod_donner spill short of mleaf (left 195 < 242). 48 KiB still
+ * covers listen CapFaces AllocString traffic (flash tip-flash-excl). */
+#define GC_STRING_ARENA_SIZE (48 * 1024)
 /* Heap block taken once at the first map load (SV_GCEnsureStringArena), not
  * BSS: boot, the startup video and the menu never allocate server strings. */
 static char *gc_string_arena;
@@ -98,9 +100,29 @@ void SV_GCDropSpillStringArena( void )
 
 qboolean SV_GCEnsureStringArena( void )
 {
+	extern size_t Mod_GCWorldArraySpillUsed( void );
+	extern void *Mod_GCWorldArraySpillTryAlloc( size_t bytes, const char *what );
+	extern void Mod_GCWorldArraySpillPinBase( const void *ptr, size_t bytes );
+
 	if( gc_string_arena )
 		return true;
-	/* Retried at every map load until it fits. */
+	/* Prefer spill BASE first — memalign ate 48 Kb tip after ClearRetained
+	 * repark and killed donner pfnInitialize (tip-donner-str48b). Spill pin
+	 * keeps AllocString off tip; do not append after faces (leafs need room). */
+	if( Mod_GCWorldArraySpillUsed() == 0 )
+	{
+		gc_string_arena = (char *)Mod_GCWorldArraySpillTryAlloc( GC_STRING_ARENA_SIZE,
+			"string arena" );
+		if( gc_string_arena )
+		{
+			Mod_GCWorldArraySpillPinBase( gc_string_arena, GC_STRING_ARENA_SIZE );
+			gc_string_arena_used = 0;
+			gc_string_arena_in_spill = true;
+			Con_Reportf( "Xash3D GameCube: server string arena spill %s\n",
+				Q_memprint( GC_STRING_ARENA_SIZE ));
+			return true;
+		}
+	}
 	gc_string_arena = (char *)memalign( 16, GC_STRING_ARENA_SIZE );
 	if( gc_string_arena )
 	{
@@ -108,31 +130,6 @@ qboolean SV_GCEnsureStringArena( void )
 		Con_Reportf( "Xash3D GameCube: server string arena ready %s\n",
 			Q_memprint( GC_STRING_ARENA_SIZE ));
 		return true;
-	}
-	/* Tip MEM1 too thin at boot (listen flash/donner). Park at spill BASE and
-	 * pin so ClearRetained cannot let surfedges stomp it (avalanche Guru).
-	 * Do NOT append after faces reclaim — that ate donner leafs room
-	 * (spill left 195 < mleaf 242, tip-donner-tip128). */
-	{
-		extern size_t Mod_GCWorldArraySpillUsed( void );
-		extern void *Mod_GCWorldArraySpillTryAlloc( size_t bytes, const char *what );
-		extern void Mod_GCWorldArraySpillPinBase( const void *ptr, size_t bytes );
-
-		/* Only claim the base slot (used==pin, typically 0 at boot). */
-		if( Mod_GCWorldArraySpillUsed() == 0 )
-		{
-			gc_string_arena = (char *)Mod_GCWorldArraySpillTryAlloc( GC_STRING_ARENA_SIZE,
-				"string arena" );
-			if( gc_string_arena )
-			{
-				Mod_GCWorldArraySpillPinBase( gc_string_arena, GC_STRING_ARENA_SIZE );
-				gc_string_arena_used = 0;
-				gc_string_arena_in_spill = true;
-				Con_Reportf( "Xash3D GameCube: server string arena spill %s\n",
-					Q_memprint( GC_STRING_ARENA_SIZE ));
-				return true;
-			}
-		}
 	}
 	Con_Reportf( S_WARN "Xash3D GameCube: server string arena unavailable (%s)\n",
 		Q_memprint( GC_STRING_ARENA_SIZE ));
@@ -205,6 +202,10 @@ void SV_GCReservePrivateOverflow( size_t after, size_t bytes )
 	if( gc_ent_priv_overflow )
 		return;
 	if( bytes > GC_ENTITY_OVERFLOW_BYTES ) bytes = GC_ENTITY_OVERFLOW_BYTES;
+	/* DoD maps have no HL monster private-data bursts. Keep a smaller overflow
+	 * reserve so their worldspawn and team spawn entities retain MEM1 tip. */
+	if( !Q_strnicmp( sv.name, "dod_", 4 ) && bytes > 8u * 1024u )
+		bytes = 8u * 1024u;
 	bytes &= ~(size_t)31;
 	if( !bytes ) return;
 	gc_ent_priv_overflow_from_tip = false;
@@ -253,6 +254,13 @@ void SV_GCReservePrivateOverflow( size_t after, size_t bytes )
 qboolean SV_GCPrivateOverflowReserved( void )
 {
 	return gc_ent_priv_overflow != NULL;
+}
+
+/* Tip-backed overflow must not pin the multi-MiB map arena (CapFaces listen
+ * tip≈2–10 KiB while arena retained — teamvm12 InitInput cvar OOM at 136 B). */
+qboolean SV_GCPrivateOverflowPinsMapArena( void )
+{
+	return gc_ent_priv_overflow != NULL && !gc_ent_priv_overflow_from_tip;
 }
 
 static qboolean SV_GCPrivateDataIsOverflow( const void *ptr )
@@ -1722,6 +1730,17 @@ edict_t *GAME_EXPORT SV_AllocEdict( void )
 
 	if( i >= GI->max_edicts )
 	{
+#if XASH_GAMECUBE
+		/* CapFaces Flipper: tip edict BSS stays at 460. Dense DoD maps
+		 * (caen ~621 ents) soft-skip decorative classes instead of FATAL —
+		 * pack owns world draw; remaining slots keep players/triggers. */
+		if( Sys_CheckParm( "-gcworldrender" ))
+		{
+			Con_Reportf( "Xash3D GameCube: CapFaces edict tip (%d) — soft-skip further spawns\n",
+				GI->max_edicts );
+			return NULL;
+		}
+#endif
 		Host_Error( "%s: no free edicts (max is %d)\n", __func__, GI->max_edicts );
 		return NULL;
 	}
@@ -1816,11 +1835,26 @@ static edict_t* SV_AllocPrivateData( edict_t *ent, string_t className, qboolean 
 #if XASH_GAMECUBE
 	/* Tip MEM1: brush furniture / pickups can miss a private block without
 	 * ending the whole map. Boss/combat NPCs still abort after reclaim. */
-	if( ( GC_MapLoadMemoryOpt() || Sys_CheckParm( "-gcmap" ) || Sys_CheckParm( "-gcnewgame" ))
+	if( ( GC_MapLoadMemoryOpt() || Sys_CheckParm( "-gcmap" ) || Sys_CheckParm( "-gcnewgame" )
+			|| Sys_CheckParm( "-gcworldrender" ))
 		&& !ent->pvPrivateData )
 	{
 		const char *cn = pszClassName ? pszClassName : "";
-		const qboolean skippable = !Q_strnicmp( cn, "func_", 5 )
+		/* Keep visible props/models when tip still has room — full-map CapFaces
+		 * listen wants env_model / misc_prop / doors in the draw list. */
+		const qboolean keep_visible_prop =
+			!Q_stricmp( cn, "env_model" )
+			|| !Q_stricmp( cn, "misc_prop" )
+			|| !Q_stricmp( cn, "dod_object" )
+			|| !Q_strnicmp( cn, "prop_", 5 )
+			|| !Q_strnicmp( cn, "func_door", 9 )
+			|| !Q_strnicmp( cn, "func_button", 11 )
+			|| !Q_strnicmp( cn, "func_rotating", 13 )
+			|| !Q_strnicmp( cn, "func_train", 10 )
+			|| !Q_strnicmp( cn, "func_tracktrain", 15 );
+		const qboolean tip_ok = GC_MemHeapFreeBytes() >= ( 24u * 1024u );
+		const qboolean skippable = !keep_visible_prop
+			&& ( !Q_strnicmp( cn, "func_", 5 )
 			|| !Q_strnicmp( cn, "env_", 4 )
 			|| !Q_strnicmp( cn, "light", 5 )
 			|| !Q_strnicmp( cn, "info_", 5 )
@@ -1840,9 +1874,9 @@ static edict_t* SV_AllocPrivateData( edict_t *ent, string_t className, qboolean 
 			|| !Q_strnicmp( cn, "gibshooter", 10 )
 			|| !Q_strnicmp( cn, "spark_shower", 12 )
 			|| !Q_stricmp( cn, "monster_hevsuit_dead" )
-			|| !Q_stricmp( cn, "monster_generic" );
+			|| !Q_stricmp( cn, "monster_generic" ));
 
-		if( skippable )
+		if( skippable || ( keep_visible_prop && !tip_ok ))
 		{
 			Con_Reportf( S_WARN "Xash3D GameCube: private-data miss %s — skipping entity\n", cn );
 			SV_FreeEdict( ent );
@@ -2908,6 +2942,17 @@ static void GAME_EXPORT pfnTraceLine( const float *v1, const float *v2, int fNoM
 	trace_t	trace;
 
 #if XASH_GAMECUBE
+	/* CapFaces: hull0/planes may still sit in BSP scratch. UpdateStatusBar →
+	 * SV_Move → PM_RecursiveHullCheck Guru'd after drawn=365 (014249/015156). */
+	if( Sys_CheckParm( "-gcworldrender" ))
+	{
+		memset( &trace, 0, sizeof( trace ));
+		trace.fraction = 1.0f;
+		VectorCopy( v2, trace.endpos );
+		trace.ent = svgame.edicts;
+		SV_ConvertTrace( ptr, &trace );
+		return;
+	}
 	/* Lean: point-sized ClipMove/SV_Move hung (G120). Hull world-only clip
 	 * matches working FillUsercmd aim; entity ClipToLinks still deferred. */
 	if( Sys_CheckParm( "-gcnewgame" ) && !Sys_CheckParm( "-gcfullphysics" ))
@@ -3771,9 +3816,10 @@ static void *GAME_EXPORT pfnPvAllocEntPrivateData( edict_t *pEdict, long cb )
 			/* Reserve a stable static block for the large CSoundEnt private
 			 * object so sound-event tracking remains available under MEM1 load. */
 			if( !pEdict->pvPrivateData
-				&& ( Sys_CheckParm( "-gcnewgame" ) || Sys_CheckParm( "-gcmenuplaystart" ))
+				&& ( Sys_CheckParm( "-gcnewgame" ) || Sys_CheckParm( "-gcmenuplaystart" )
+					|| Sys_CheckParm( "-gclistenserver" ))
 				&& !gc_soundent_fallback_used
-				&& NUM_FOR_EDICT( pEdict ) != 1
+				&& NUM_FOR_EDICT( pEdict ) > svs.maxclients
 				&& size >= 1800 && size <= sizeof( gc_soundent_private_fallback ))
 			{
 				memset( gc_soundent_private_fallback, 0, sizeof( gc_soundent_private_fallback ));
@@ -5916,6 +5962,67 @@ static qboolean SV_GCMapEntityDiagVerbose( void )
 	return SV_GCMapSmokeRoute();
 }
 
+/* CapFaces progressive spawn: decorative ents are optional when Flipper draws
+ * from cf_*.gcp. Soft-skip them so dense maps fit the 460 tip edict BSS. */
+static qboolean SV_GCCapFacesOptionalEntity( const char *classname )
+{
+	if( COM_StringEmpty( classname ))
+		return false;
+	/* Tip-safe CapFaces: drop decorative ents early so players / triggers /
+	 * doors keep tip slots on dense maps (caen 621>460). Keeping func_wall /
+	 * cycler (props1) tip-starved caen to a black EFB — leave them skipped.
+	 * (20261110-032103 capped-32 allow also blacked caen; bake walls into
+	 * CapFaces spatial or defer post-densify instead.) */
+	if( !Q_strcmp( classname, "func_wall" )
+		|| !Q_strcmp( classname, "func_illusionary" )
+		|| !Q_strcmp( classname, "func_wall_toggle" )
+		|| !Q_strcmp( classname, "ambient_generic" )
+		|| !Q_strcmp( classname, "infodecal" )
+		|| !Q_strcmp( classname, "env_sprite" )
+		|| !Q_strcmp( classname, "env_glow" )
+		|| !Q_strcmp( classname, "env_shooter" )
+		|| !Q_strcmp( classname, "env_explosion" )
+		|| !Q_strcmp( classname, "env_shake" )
+		|| !Q_strcmp( classname, "env_fade" )
+		|| !Q_strcmp( classname, "env_message" )
+		|| !Q_strcmp( classname, "env_beam" )
+		|| !Q_strcmp( classname, "env_laser" )
+		|| !Q_strcmp( classname, "env_bubbles" )
+		|| !Q_strcmp( classname, "light" )
+		|| !Q_strcmp( classname, "light_spot" )
+		|| !Q_strcmp( classname, "light_environment" )
+		|| !Q_strcmp( classname, "info_null" )
+		|| !Q_strcmp( classname, "info_target" )
+		|| !Q_strcmp( classname, "info_landmark" )
+		|| !Q_strcmp( classname, "multi_manager" )
+		|| !Q_strcmp( classname, "trigger_auto" )
+		|| !Q_strcmp( classname, "trigger_relay" )
+		|| !Q_strcmp( classname, "trigger_changetarget" )
+		|| !Q_strnicmp( classname, "cycler", 6 ))
+		return true;
+	return false;
+}
+
+/* Consume one `{ ... }` entity block without allocating an edict. */
+static qboolean SV_GCSkipBraceEntity( char **pfile )
+{
+	char token[2048];
+	int depth = 1;
+
+	if( !pfile || !*pfile )
+		return false;
+	while( depth > 0 )
+	{
+		if(( *pfile = COM_ParseFile( *pfile, token, sizeof( token ))) == NULL )
+			return false;
+		if( token[0] == '{' )
+			depth++;
+		else if( token[0] == '}' )
+			depth--;
+	}
+	return true;
+}
+
 /* G433: Replace policy-based entity inhibition with measured budgeting
  * Check if entity should be inhibited based on memory budget.
  * Returns true if entity should be inhibited. */
@@ -5979,17 +6086,44 @@ static qboolean SV_ParseEdict( char **pfile, edict_t *ent, int entity_index )
 
 		// parse key
 		if(( *pfile = COM_ParseFile( *pfile, keyname, sizeof( keyname ))) == NULL )
+		{
+#if XASH_GAMECUBE
+			/* Tip-starved nest hops can truncate the entities lump (c1a1c
+			 * after UC chain, tip≈12 KiB, probe 20261109-104922). Skip the
+			 * rest of this edict instead of Host_Error'ing the campaign. */
+			Con_Reportf( S_WARN "Xash3D GameCube: %s EOF without closing brace; skip edict tip=%s\n",
+				__func__, Q_memprint( GC_MemHeapFreeBytes() ));
+			return false;
+#else
 			Host_Error( "%s: EOF without closing brace\n", __func__ );
+#endif
+		}
 
 		if( keyname[0] == '}' )
 			break; // end of desc
 
 		// parse value
 		if(( *pfile = COM_ParseFile( *pfile, value, sizeof( value ))) == NULL )
+		{
+#if XASH_GAMECUBE
+			Con_Reportf( S_WARN "Xash3D GameCube: %s EOF without closing brace; skip edict tip=%s\n",
+				__func__, Q_memprint( GC_MemHeapFreeBytes() ));
+			return false;
+#else
 			Host_Error( "%s: EOF without closing brace\n", __func__ );
+#endif
+		}
 
 		if( value[0] == '}' )
+		{
+#if XASH_GAMECUBE
+			Con_Reportf( S_WARN "Xash3D GameCube: %s closing brace without data; skip edict\n",
+				__func__ );
+			return false;
+#else
 			Host_Error( "%s: closing brace without data\n", __func__ );
+#endif
+		}
 
 #if XASH_GAMECUBE
 		if( SV_GCMapEntityDiagVerbose() && entity_index >= 700 && ( numpairs & 3 ) == 0 )
@@ -6010,6 +6144,12 @@ static qboolean SV_ParseEdict( char **pfile, edict_t *ent, int entity_index )
 		// classname must be first
 		if( !Q_strcmp( keyname, "classname" ))
 		{
+#if XASH_DODGC_NETWORK
+			/* The current game DLL selects DM spawns by classname. Merely
+			 * exporting DoD aliases left both players at info_player_start. */
+			if( !Q_strcmp( value, "info_player_allies" ) || !Q_strcmp( value, "info_player_axis" ))
+				Q_strncpy( value, "info_player_deathmatch", sizeof( value ));
+#endif
 			KeyValueData kvd = {
 				.szClassName = NULL,
 				.szKeyName = keyname,
@@ -6232,6 +6372,9 @@ static void SV_LoadFromFile( const char *mapname, char *entities )
 	{
 		int inhibited = 0;
 		int entity_index = 0;
+#if XASH_GAMECUBE
+		int gc_cf_opt_skip = 0;
+#endif
 
 		// parse ents
 		while(( entities = COM_ParseFile( entities, token, sizeof( token ))) != NULL )
@@ -6255,6 +6398,15 @@ static void SV_LoadFromFile( const char *mapname, char *entities )
 			}
 			else ent = SV_AllocEdict();
 #if XASH_GAMECUBE
+			/* CapFaces tip: no free edict — skip remaining brace blocks. */
+			if( !ent )
+			{
+				if( !SV_GCSkipBraceEntity( &entities ))
+					Host_Error( "%s: CapFaces edict tip mid-entity\n", __func__ );
+				inhibited++;
+				entity_index++;
+				continue;
+			}
 			if( SV_GCMapEntityDiagVerbose() && entity_index >= 400 )
 				Con_Reportf( "Xash3D GameCube: entity alloc end=%d edict=%d\n",
 					entity_index, NUM_FOR_EDICT( ent ));
@@ -6273,9 +6425,20 @@ static void SV_LoadFromFile( const char *mapname, char *entities )
 				Con_Reportf( "Xash3D GameCube: entity parse begin=%d\n", entity_index );
 			if( !SV_ParseEdict( &entities, ent, entity_index++ ))
 			{
+#if XASH_GAMECUBE
+				/* Tip-starved nest (c1a1c 20261109-112301): truncated entities
+				 * lump — free this edict and stop parsing; keep the map. */
+				Con_Reportf( S_WARN "Xash3D GameCube: %s entity %d parse failed; stop entity load tip=%s\n",
+					__func__, entity_index - 1, Q_memprint( GC_MemHeapFreeBytes() ));
+				if( ent && !ent->free && NUM_FOR_EDICT( ent ) != 0 )
+					SV_FreeEdict( ent );
+				inhibited++;
+				break;
+#else
 				Host_Error( "%s: entity %d failed to parse or initialize; aborting map load instead of silently omitting it\n",
 					__func__, entity_index - 1 );
 				return;
+#endif
 			}
 			if( SV_GCMapEntityDiagVerbose() && entity_index >= 400 )
 				Con_Reportf( "Xash3D GameCube: entity parse end=%d class=%s\n",
@@ -6330,6 +6493,21 @@ static void SV_LoadFromFile( const char *mapname, char *entities )
 			}
 
 #if XASH_GAMECUBE
+			/* Progressive CapFaces: drop decorative ents early so players /
+			 * triggers / doors keep tip slots on dense maps (caen 621>460). */
+			if( Sys_CheckParm( "-gcworldrender" )
+				&& SV_GCCapFacesOptionalEntity( SV_ClassName( ent )))
+			{
+				if( gc_cf_opt_skip < 12 )
+				{
+					Con_Reportf( "Xash3D GameCube: CapFaces soft-skip optional entity=%d class=%s\n",
+						entity_index - 1, SV_ClassName( ent ));
+				}
+				gc_cf_opt_skip++;
+				SV_FreeEdict( ent );
+				inhibited++;
+				continue;
+			}
 			if( SV_GCMapEntityDiagVerbose() && entity_index >= 64 && entity_index <= 90 )
 				Con_Reportf( "Xash3D GameCube: entity spawn call begin=%d class=%s\n",
 					entity_index - 1, SV_ClassName( ent ));
@@ -6340,6 +6518,23 @@ static void SV_LoadFromFile( const char *mapname, char *entities )
 			if( SV_GCMapSmokeRoute() && entity_index >= 160 && entity_index <= 220 )
 				Con_Reportf( "Xash3D GameCube: entity spawn call begin=%d class=%s heap_free=%s\n",
 					entity_index - 1, SV_ClassName( ent ), Q_memprint( GC_MemHeapFreeBytes() ));
+			/* pfnSpawn can stall forever on tip MEM1 (c2a2b1 entity 183
+			 * func_breakable tip≈4.7 KiB probe 20261109-120204). Soft-stop
+			 * before the call so nest hops can continue.
+			 * Always allow worldspawn (entity 0) — kraftstoff/escape tip≈7 KiB
+			 * after CapFaces spat mount was aborting the whole map before
+			 * densify could run. */
+			if( entity_index > 1 && GC_MemHeapFreeBytes() <
+				( !Q_strnicmp( sv.name, "dod_", 4 ) ? 2u * 1024u : 8u * 1024u ))
+			{
+				Con_Reportf( S_WARN "Xash3D GameCube: %s tip-starved before spawn entity=%d class=%s tip=%s; stop entity load\n",
+					__func__, entity_index - 1, SV_ClassName( ent ),
+					Q_memprint( GC_MemHeapFreeBytes() ));
+				if( ent && !ent->free && NUM_FOR_EDICT( ent ) != 0 )
+					SV_FreeEdict( ent );
+				inhibited++;
+				break;
+			}
 #endif
 			spawn_result = svgame.dllFuncs.pfnSpawn( ent );
 #if XASH_GAMECUBE
@@ -6701,11 +6896,14 @@ qboolean SV_LoadProgs( const char *name )
 	gc_using_static_edicts = false;
 	/* SP BSS when max_edicts fits the cap (valve gameinfo is typically
 	 * 900–1200). Avoid tip Mem_Calloc of ~707 KiB (HW 20261106 map=NONE). */
-	/* Solo listen (−gclistenserver, maxclients≤4) reuses the SP BSS pool so
-	 * tip Mem_Calloc of edicts/baselines cannot OOM under menu-skip boots. */
+	/* Local listen (maxclients≤4) reuses the SP BSS pool. Retail Create Game
+	 * enters through the menu and gc_playstart rather than -gclistenserver;
+	 * -gcworldrender identifies that interactive GameCube route. */
 	if( GI->max_edicts > 0 && GI->max_edicts <= GC_SP_EDICT_CAP
 		&& ( svs.maxclients <= 1
-			|| ( svs.maxclients <= 4 && Sys_CheckParm( "-gclistenserver" )) ) )
+			|| Sys_CheckParm( "-gclistenserver" )
+			|| Sys_CheckParm( "-gcworldrender" )
+			|| GC_MapLoadMemoryOpt() ) )
 	{
 		memset( gc_singleplayer_edicts, 0, sizeof( edict_t ) * (size_t)GI->max_edicts );
 		memset( gc_singleplayer_baselines, 0, sizeof( entity_state_t ) * (size_t)GI->max_edicts );

@@ -1212,7 +1212,10 @@ static void SV_FreeClients( void )
 		// free server static data
 		if( svs.clients )
 		{
-			Z_Free( svs.clients );
+#if XASH_GAMECUBE
+			if( !SV_IsStaticListenClients( svs.clients ))
+#endif
+				Z_Free( svs.clients );
 			svs.clients = NULL;
 		}
 

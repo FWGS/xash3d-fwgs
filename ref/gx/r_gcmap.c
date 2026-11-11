@@ -283,7 +283,10 @@ void R_GcmapRestoreAfterMapLoad( void )
 		 * blend tables over it made c0a0a solid around the transferred
 		 * player. GX draws this route; the tables stay dirty until the
 		 * world releases the arena. */
-		if( gEngfuncs.Sys_CheckParm( "-gcmenuplaystart" ) && GC_WorldSurfacesPinned() )
+		if( gc_static_map_arena_in_use
+			|| (( gEngfuncs.Sys_CheckParm( "-gcmenuplaystart" )
+				|| gEngfuncs.Sys_CheckParm( "-gclistenserver" )
+				|| gEngfuncs.Sys_CheckParm( "-gcconnect" )) && GC_WorldSurfacesPinned() ))
 			gEngfuncs.Con_Reportf( "Xash3D GameCube: renderer lookup tables left to the live BSP arena\n" );
 		else
 		{

@@ -27,16 +27,13 @@ static unsigned gc_tiny_pixels_used;
 /* Late native studio skins can arrive after the compact studio arena has
  * become contiguous-full.  Keep a bounded overflow window for base planes;
  * this avoids pushing small skin allocations back through fragmented MEM1.
- * G381: scientistT (31×≤96² ≈ 191 KiB) + barneyT (≈ 152 KiB) = 343 KiB at
- * the 96 cap — the prior 256 KiB window left ~9 scientist skins on
- * defaultTexture.  384 KiB covers that hallway cast; upload still adapts
- * down to 64/48 when the bump is nearly full.  Skins must NOT live in
- * gc_studio_bss — Mod_GCStudioBssTrimLast rewinds that bump and was leaving
- * ptexture indices dangling into recycled slots (*gc_sky_proc). */
-/* 384 KiB stole 128 KiB tip and broke listen CapFaces (flash entities
- * tip-miss / magenta fatal tip-flash-deferstr2). Keep 256; hallway soft
- * skins stay on the adaptive overflow path. */
-#define GC_STUDIO_SKIN_OVERFLOW_BYTES (256 * 1024)
+ * G381: scientistT+barneyT need ~343 KiB at a flat 96² cap. Keep 256 KiB
+ * (384 KiB BSS tipped changelevel leafs / CapFaces) and adapt each upload
+ * 96→64→48 so both companions fit. Skins must NOT live in gc_studio_bss —
+ * Mod_GCStudioBssTrimLast rewinds that bump and was leaving ptexture indices
+ * dangling into recycled slots (*gc_sky_proc). */
+/* Crowbar+Garand at 96² ≈ 240 KiB; 256 KiB left no headroom for T.mdl. */
+#define GC_STUDIO_SKIN_OVERFLOW_BYTES (384 * 1024)
 static byte gc_studio_skin_overflow[GC_STUDIO_SKIN_OVERFLOW_BYTES] __attribute__((aligned(32)));
 static size_t gc_studio_skin_overflow_bump;
 static unsigned gc_studio_skin_overflow_live;
@@ -524,32 +521,57 @@ static qboolean GL_UploadTextureBody( image_t *tex, rgbdata_t *pic )
 		tex->width = resampleWidth;
 		tex->height = resampleHeight;
 	}
-	/* Native studio skins have no soft-renderer consumer after upload.  Keep
-	 * every retail texture entry, but bound decoded residency so the complete
-	 * tram cast fits beside the compact MDLs in the fixed studio arena.
-	 * Prefer 96²; when the overflow bump cannot hold this plane, step down
-	 * so later scientist/barney skins stay off defaultTexture (G381). */
-	if( r_gc_studio_skins_in_arena && !FBitSet( tex->flags, TF_FONT ))
+	/* Viewmodel skins decode at 96² (Image_GCMaxLoadDimension); keep that
+	 * and skip the NPC overflow stepper that would crush them to 48. */
 	{
-		int cap = 96;
-		size_t off = ( gc_studio_skin_overflow_bump + 31u ) & ~(size_t)31u;
-		size_t rem = ( off < sizeof( gc_studio_skin_overflow ))
-			? ( sizeof( gc_studio_skin_overflow ) - off ) : 0;
+		const qboolean vm_skin = ( tex->name[0] == '#'
+			&& Q_stristr( tex->name, "models/v_" ) != NULL );
 
-		while( cap >= 48 )
+		if( vm_skin )
 		{
-			uint cw = (uint)Q_min( resampleWidth, cap );
-			uint ch = (uint)Q_min( resampleHeight, cap );
-			size_t need = (size_t)cw * (size_t)ch * sizeof( pixel_t ) + 31u;
-
-			if( rem == 0 || need <= rem )
-				break;
-			cap -= 16;
+			/* Keep MDL's power-of-two decode (128²). Do not crush to 64. */
+			resampleWidth = Q_min( (int)pic->width, 128 );
+			resampleHeight = Q_min( (int)pic->height, 128 );
+			tex->width = resampleWidth;
+			tex->height = resampleHeight;
+			{
+				static qboolean vm_dim_logged;
+				if( !vm_dim_logged )
+				{
+					vm_dim_logged = true;
+					gEngfuncs.Con_Reportf(
+						"Xash3D GameCube: VM upload dim %s pic=%dx%d -> %dx%d\n",
+						tex->name, pic->width, pic->height, resampleWidth, resampleHeight );
+				}
+			}
 		}
-		resampleWidth = Q_min( resampleWidth, cap );
-		resampleHeight = Q_min( resampleHeight, cap );
-		tex->width = resampleWidth;
-		tex->height = resampleHeight;
+		/* Native studio skins have no soft-renderer consumer after upload.  Keep
+		 * every retail texture entry, but bound decoded residency so the complete
+		 * tram cast fits beside the compact MDLs in the fixed studio arena.
+		 * Prefer 96²; when the overflow bump cannot hold this plane, step down
+		 * so later scientist/barney skins stay off defaultTexture (G381). */
+		else if( r_gc_studio_skins_in_arena && !FBitSet( tex->flags, TF_FONT ))
+		{
+			int cap = 96;
+			size_t off = ( gc_studio_skin_overflow_bump + 31u ) & ~(size_t)31u;
+			size_t rem = ( off < sizeof( gc_studio_skin_overflow ))
+				? ( sizeof( gc_studio_skin_overflow ) - off ) : 0;
+
+			while( cap >= 48 )
+			{
+				uint cw = (uint)Q_min( resampleWidth, cap );
+				uint ch = (uint)Q_min( resampleHeight, cap );
+				size_t need = (size_t)cw * (size_t)ch * sizeof( pixel_t ) + 31u;
+
+				if( rem == 0 || need <= rem )
+					break;
+				cap -= 16;
+			}
+			resampleWidth = Q_min( resampleWidth, cap );
+			resampleHeight = Q_min( resampleHeight, cap );
+			tex->width = resampleWidth;
+			tex->height = resampleHeight;
+		}
 	}
 #endif
 
@@ -695,6 +717,11 @@ static qboolean GL_UploadTextureBody( image_t *tex, rgbdata_t *pic )
 		{
 			qboolean doAlpha = ( j == 0 && tex->alpha_pixels );
 			qboolean doOneBitAlpha = ( j == 0 && !sw_noalphabrushes.value && FBitSet( pic->flags, IMAGE_ONEBIT_ALPHA ));
+			/* Viewmodel skins never soft-render; Soft major|minor → SoftToRGB565
+			 * freckles wood/cloth (ava-play99-31). Store linear RGB565 so
+			 * R_GXNativeTexture can swizzle without a second decode. */
+			const qboolean vm_rgb565 = ( tex->name[0] == '#'
+				&& Q_stristr( tex->name, "models/v_" ) != NULL );
 
 			for( uint i = 0; i < height * width; i++ )
 			{
@@ -704,13 +731,18 @@ static qboolean GL_UploadTextureBody( image_t *tex, rgbdata_t *pic )
 				g = data[i * 4 + 1] * BIT( 6 ) / 256;
 				b = data[i * 4 + 2] * BIT( 5 ) / 256;
 
-				// 565 to 332
-				major = ((( r >> 2 ) & MASK( 3 )) << 5 ) | (((( g >> 3 ) & MASK( 3 )) << 2 )) | ((( b >> 3 ) & MASK( 2 )));
+				if( vm_rgb565 )
+					tex->pixels[j][i] = (pixel_t)(( r << 11 ) | ( g << 5 ) | b );
+				else
+				{
+					// 565 to 332
+					major = ((( r >> 2 ) & MASK( 3 )) << 5 ) | (((( g >> 3 ) & MASK( 3 )) << 2 )) | ((( b >> 3 ) & MASK( 2 )));
 
-				// save minor GBRGBRGB
-				minor = MOVE_BIT( r, 1, 5 ) | MOVE_BIT( r, 0, 2 ) | MOVE_BIT( g, 2, 7 ) | MOVE_BIT( g, 1, 4 ) | MOVE_BIT( g, 0, 1 ) | MOVE_BIT( b, 2, 6 ) | MOVE_BIT( b, 1, 3 ) | MOVE_BIT( b, 0, 0 );
+					// save minor GBRGBRGB
+					minor = MOVE_BIT( r, 1, 5 ) | MOVE_BIT( r, 0, 2 ) | MOVE_BIT( g, 2, 7 ) | MOVE_BIT( g, 1, 4 ) | MOVE_BIT( g, 0, 1 ) | MOVE_BIT( b, 2, 6 ) | MOVE_BIT( b, 1, 3 ) | MOVE_BIT( b, 0, 0 );
 
-				tex->pixels[j][i] = major << 8 | ( minor & 0xFF );
+					tex->pixels[j][i] = major << 8 | ( minor & 0xFF );
+				}
 				if( doAlpha )
 				{
 					unsigned int alpha = ( data[i * 4 + 3] * 8 / 256 ) << ( 16 - 3 );
@@ -1013,7 +1045,40 @@ int GAME_EXPORT GL_LoadTexture( const char *name, const byte *buf, size_t size, 
 
 	// see if already loaded
 	if(( tex = GL_TextureForName( name )))
-		return( tex - r_images );
+	{
+#if XASH_GAMECUBE
+		/* Stale v_* skins can sit in a reclaimed temppool as all-zero soft
+		 * pixels (ava-play99-28). Hands/BMPs often have a black border — do
+		 * not judge emptiness from the first 64 texels alone. */
+		if( name[0] == '#' && Q_stristr( name, "models/v_" ) != NULL
+			&& tex->pixels[0] && tex->width > 0 && tex->height > 0
+			&& !tex->gc_gx_native )
+		{
+			const int n = tex->width * tex->height;
+			int i, nonzero = 0;
+
+			for( i = 0; i < n; i += 17 )
+			{
+				if( tex->pixels[0][i] != 0 )
+				{
+					nonzero = 1;
+					break;
+				}
+			}
+			if( !nonzero && n > 0 && tex->pixels[0][n / 2] != 0 )
+				nonzero = 1;
+			if( !nonzero )
+			{
+				gEngfuncs.Con_Reportf(
+					"Xash3D GameCube: reload empty VM soft skin %s\n", name );
+				GL_DeleteTexture( tex );
+				tex = NULL;
+			}
+		}
+		if( tex )
+#endif
+			return( tex - r_images );
+	}
 
 	if( FBitSet( flags, TF_NOFLIP_TGA ))
 		SetBits( picFlags, IL_DONTFLIP_TGA );

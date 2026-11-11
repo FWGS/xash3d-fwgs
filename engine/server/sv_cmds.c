@@ -39,12 +39,16 @@ static char sv_gc_playstart_map_override[64];
 
 static void SV_GameCubePlayStart_f( void )
 {
+	char map_name[MAX_QPATH];
 	const char *map;
 
 	if( !COM_StringEmpty( sv_gc_playstart_map_override ))
 		map = sv_gc_playstart_map_override;
 	else
 		map = ( GI && !COM_StringEmpty( GI->startmap )) ? GI->startmap : "c0a0";
+	/* SpawnServer and map-load trimming can rewrite Cmd_Argv() storage. */
+	Q_strncpy( map_name, map, sizeof( map_name ));
+	map = map_name;
 
 	Con_Reportf( "Xash3D GameCube: play start begin %s\n", map );
 	/* Lean path before any texture/BSP work — retail menu boots quality=1 and

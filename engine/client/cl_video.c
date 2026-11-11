@@ -482,8 +482,8 @@ void SCR_StopCinematic( void )
 	Image_GCPurgeDecodeScratch();
 	Con_Reportf( "Xash3D GameCube: activating menu after cinematic\n" );
 	GC_MemHeapMark( "menu_handoff" );
-	Con_Reportf( "Xash3D GameCube: mem after cinematic purge (menu handoff)\n" );
-	Mem_PrintStats();
+	/* GC_MemHeapMark records usage without walking every pool. Mem_PrintStats
+	 * runs Mem_Check and can stop menu handoff on unrelated tiny-pool sentinels. */
 #endif
 	UI_SetActiveMenu( true );
 }

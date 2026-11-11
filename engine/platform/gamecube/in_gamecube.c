@@ -709,6 +709,11 @@ static u16 GC_ProbeSyntheticHeldButtons( void )
 		return 0;
 	}
 
+	/* Synthetic controller input is useful to automated Dolphin probes, but
+	 * must never navigate the retail menu on a normal boot. */
+	if( !Sys_CheckParm( "-gcmenuauto" ))
+		return 0;
+
 	if( cls.key_dest == key_console )
 	{
 		if( gc_probe_action_logged && host.realtime - gc_probe_action_diag_time >= 1.0 )

@@ -149,7 +149,7 @@ fi
 # Installation can relink the engine while updating static dependencies.
 # Convert only the final installed build, otherwise the disc freshness gate
 # correctly rejects a DOL made from the earlier ELF.
-./waf install --destdir=OUT
+./waf install -j1 --destdir=OUT
 
 mkdir -p OUT/bin
 cp build/engine/xash OUT/bin/xash
