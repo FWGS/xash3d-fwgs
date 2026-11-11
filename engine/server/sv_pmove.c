@@ -1238,7 +1238,8 @@ void SV_RunCmd( sv_client_t *cl, usercmd_t *ucmd, int random_seed )
 				reported |= 1u << slot;
 				Con_Reportf( "GameCube DoD: player movement slot=%u velocity=(%.1f,%.1f,%.1f)\n",
 					slot, clent->v.velocity[0], clent->v.velocity[1], clent->v.velocity[2] );
-				GCube_AppendSwissEvidence( "GameCube DoD: player movement slot=%u", slot );
+				/* Skip Swiss FAT evidence here — fsync mid-PMove hung after
+				 * grounded movement (ava-131/135); OSReport is enough. */
 			}
 		}
 #endif

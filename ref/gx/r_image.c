@@ -770,8 +770,12 @@ static qboolean GL_UploadTextureBody( image_t *tex, rgbdata_t *pic )
 					else if( r8 > 220 && g8 < 40 && b8 > 220 )
 						tex->pixels[j][i] = TRANSPARENT_COLOR;
 					/* Lean hands atlas uses palette index 0 (black) as
-					 * chromakey — not index 255 (ava-play99-98 n255=0). */
-					else if( hands && r8 < 8 && g8 < 8 && b8 < 8 )
+					 * chromakey — not index 255 (ava-play99-98 n255=0).
+					 * Slightly wider than <8 to catch fringe texels that
+					 * stayed opaque dark (ava-129 hands halo). Keep below
+					 * flesh pinks (ava-play99-94 salmon ate center). */
+					else if( hands && r8 < 14 && g8 < 14 && b8 < 14
+						&& ( r8 + g8 + b8 ) < 28 )
 						tex->pixels[j][i] = TRANSPARENT_COLOR;
 				}
 

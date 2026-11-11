@@ -1575,15 +1575,18 @@ static gc_gx_tex_t *R_GXNativeTexture( image_t *img, unsigned texnum )
 					const pixel_t soft = img->pixels[0][i];
 					unsigned c, r, g, b;
 
-					if( soft == TRANSPARENT_COLOR )
-					{
-						linear[i] = 0; /* RGB5A3 alpha 0 */
-						continue;
-					}
 					c = (u16)soft;
 					r = c >> 11;
 					g = ( c >> 5 ) & 63;
 					b = c & 31;
+					/* Punch TRANSPARENT_COLOR and residual near-black so ATE
+					 * drops the silhouette fringe (ava-129). */
+					if( soft == TRANSPARENT_COLOR
+						|| ( r <= 1 && ( g >> 1 ) <= 1 && b <= 1 ))
+					{
+						linear[i] = 0; /* RGB5A3 alpha 0 */
+						continue;
+					}
 					/* RGB5A3 opaque: 1rrrrrgggggbbbbb */
 					linear[i] = (u16)( 0x8000u | ( r << 10 ) | (( g >> 1 ) << 5 ) | b );
 				}

@@ -766,6 +766,7 @@ void Host_ServerFrame( void )
 	{
 		static int gc_worlddl_lean_log;
 		static qboolean gc_worlddl_onground;
+		extern qboolean gc_worlddl_server_onground; /* host.c freeze gate */
 		edict_t *player = svs.clients[0].edict;
 
 		if( sv_fps.value == 0.0f )
@@ -774,32 +775,38 @@ void Host_ServerFrame( void )
 		svgame.globals->time = sv.time;
 
 		SV_CheckCmdTimes();
-		SV_ReadPackets();
-		/* PMove may land during ReadPackets. SV_Physics after that hung
-		 * (ava-120: gameplay ONGROUND then silence). Skip Physics once down. */
-		if( !gc_worlddl_onground && FBitSet( player->v.flags, FL_ONGROUND ))
-		{
-			gc_worlddl_onground = true;
-			Con_Reportf( "Xash3D GameCube: WorldDL lean physics ONGROUND origin=(%.0f,%.0f,%.0f)\n",
-				player->v.origin[0], player->v.origin[1], player->v.origin[2] );
-		}
-
+		/* One SV_RunCmd per tick — ReadPackets multi-cmd land hung after
+		 * player-movement (ava-131/135). No Swiss FAT I/O on this path. */
 		if( !gc_worlddl_onground )
 		{
-			SV_Physics();
-			if( FBitSet( player->v.flags, FL_ONGROUND ))
+			static int	gc_worlddl_fall_ticks;
+			usercmd_t	fall;
+
+			memset( &fall, 0, sizeof( fall ));
+			fall.msec = 50;
+			VectorCopy( player->v.v_angle, fall.viewangles );
+			/* First tick only: kick off gravity. Longer forced-airborne
+			 * kept ServerFrame alive until v_colt OOM (ava-136). */
+			if( gc_worlddl_fall_ticks == 0 )
+				ClearBits( player->v.flags, FL_ONGROUND );
+			if( gc_worlddl_fall_ticks == 2 )
+				fall.forwardmove = 200.0f;
+			SV_RunCmd( &svs.clients[0], &fall, (int)host.framecount );
+			gc_worlddl_fall_ticks++;
+			if( gc_worlddl_fall_ticks >= 2
+				&& FBitSet( player->v.flags, FL_ONGROUND ))
 			{
 				gc_worlddl_onground = true;
-				Con_Reportf( "Xash3D GameCube: WorldDL lean physics ONGROUND origin=(%.0f,%.0f,%.0f)\n",
-					player->v.origin[0], player->v.origin[1], player->v.origin[2] );
+				gc_worlddl_server_onground = true;
+				Con_Reportf( "Xash3D GameCube: WorldDL lean physics ONGROUND origin=(%.0f,%.0f,%.0f) ticks=%d\n",
+					player->v.origin[0], player->v.origin[1], player->v.origin[2],
+					gc_worlddl_fall_ticks );
 			}
 			sv.time += sv.frametime;
-			SV_SendClientMessagesBoundedGC();
+			/* No BoundedGC during fall — entity/VM spam OOMs lean heap. */
 		}
 		else
 		{
-			/* After ground: ReadPackets alone keeps shoot/move alive.
-			 * BoundedGC entity spam retried v_colt until OOM (ava-119). */
 			sv.time += sv.frametime;
 		}
 		if( gc_worlddl_lean_log < 8 )
