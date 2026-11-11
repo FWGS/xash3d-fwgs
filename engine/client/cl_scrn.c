@@ -1508,6 +1508,18 @@ void SCR_Init( void )
 	Cmd_AddCommand( "sizedown", SCR_SizeDown_f, "screen size down to 10 points" );
 
 #if XASH_GAMECUBE
+	/* Discover and cache the retail intro playlist before loading mainui. The
+	 * menu leaves only a few KiB of MEM1 free, too little for the ISO9660 path
+	 * lookup used by SCR_HaveStartupVids. SCR_VidInit and Host_Main reuse this
+	 * cached result after the menu is resident. */
+	if( GC_GetVisualQuality() != 0 && !Sys_CheckParm( "-gcmap" )
+		&& !Sys_CheckParm( "-gclistenserver" ) && !Sys_CheckParm( "-gcconnect" ))
+	{
+		const qboolean have_startup_vids = SCR_HaveStartupVids();
+		Con_Reportf( "Xash3D GameCube: startup vid preflight ready (count=%u)\n",
+			have_startup_vids ? 1u : 0u );
+	}
+
 	/* Peer join (-gcconnect) must skip retail gameui like listenserver: with
 	 * gameui resident, MEM1 sits at ~18 KiB into the main loop and the first
 	 * redraw after S2C_CONNECTION burns the rest on menu tiles before deferred

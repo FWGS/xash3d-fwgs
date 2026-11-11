@@ -3906,6 +3906,11 @@ def main() -> None:
 				play_lines.append(
 					f"video {args.probe_video_mode}" if args.probe_video_mode else "video prog"
 				)
+				# Interactive play must poll the actual SI pad.  Dolphin's isolated
+				# profile has no writable GameCube storage, which otherwise selects
+				# the synthetic neutral fallback and makes controller/pipe input
+				# unable to navigate MainUI.
+				play_lines.append("gcplayerinput")
 				if args.world_render:
 					play_lines.append("gcworldrender")
 				if args.perf:

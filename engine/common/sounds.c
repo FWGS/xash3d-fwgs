@@ -13,6 +13,7 @@ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 */
 #include "common.h"
+#include "gamecube/mem_gamecube.h"
 
 enum soundlst_type_e
 {
@@ -328,7 +329,23 @@ static const char default_sounds_lst[] =
 static void SoundList_Reload_f( void )
 {
 	qboolean load_internal = false;
-	char *pfile = FS_LoadFile( "scripts/sounds.lst", NULL, false );
+	char *pfile = NULL;
+
+#if XASH_GAMECUBE
+	/* sounds.lst is optional; probing an absent path allocates a temporary
+	 * ISO9660 directory path. After renderer/menu setup MEM1 can be exhausted,
+	 * so use the built-in list instead of risking a DSI in the filesystem. */
+	if( GC_MemHeapFreeBytes() >= 4096 )
+#endif
+		pfile = FS_LoadFile( "scripts/sounds.lst", NULL, false );
+
+#if XASH_GAMECUBE
+	else
+	{
+		Con_Printf( "Xash3D GameCube: soundlist using internal fallback (low MEM1)\n" );
+		load_internal = true;
+	}
+#endif
 
 	if( pfile )
 	{
