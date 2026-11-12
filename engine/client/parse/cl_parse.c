@@ -409,6 +409,14 @@ void GAME_EXPORT CL_WeaponAnim( int iAnim, int body )
 {
 	cl_entity_t *view = &clgame.viewent;
 
+#if XASH_GAMECUBE
+	// DoD box magazines play one reload for HL's shell-by-shell steps
+	if( CL_GCViewAnimKeep( iAnim ))
+	{
+		view->curstate.body = body;
+		return;
+	}
+#endif
 	cl.local.weaponstarttime = 0.0f;
 	cl.local.weaponsequence = iAnim;
 	view->curstate.framerate = 1.0f;

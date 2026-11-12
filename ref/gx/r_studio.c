@@ -535,6 +535,22 @@ void GAME_EXPORT R_StudioLerpMovement( cl_entity_t *e, double time, vec3_t origi
 		VectorCopy( e->curstate.angles, angles );
 }
 
+#if XASH_GAMECUBE
+/*
+====================
+R_GXViewModelPinned
+
+G157 pins the gun to the eye on routes with no V_CalcRefdef: HL New Game's
+bounded view and the Lost Coast CapFaces still. Everywhere else the client
+(or cl_view.c, when the client leaves it) poses it the retail GoldSrc way.
+====================
+*/
+static qboolean R_GXViewModelPinned( void )
+{
+	return gEngfuncs.Sys_CheckParm( "-gcnewgame" ) || gEngfuncs.Sys_CheckParm( "-gccapfacessmoke" );
+}
+#endif
+
 /*
 ====================
 StudioSetUpTransform
@@ -554,9 +570,11 @@ static void R_StudioSetUpTransform( cl_entity_t *e )
 
 	if( !FBitSet( gp_host->features, ENGINE_COMPENSATE_QUAKE_BUG ))
 	{
-		/* Viewmodels keep engine pitch — flipping CapFaces rifles aimed them
-		 * end-on (pillar smear). World studios still get the Quake fix. */
-		if( e != tr.viewent )
+#if XASH_GAMECUBE
+		/* G157: pinned viewmodels use engine viewangles as-is (no client
+		 * CalcRefdef). A retail pose carries the client's negated pitch. */
+		if( e != tr.viewent || !R_GXViewModelPinned( ))
+#endif
 			angles[PITCH] = -angles[PITCH]; // stupid quake bug
 	}
 
@@ -3701,10 +3719,38 @@ void R_DrawViewModel( void )
 		return;
 
 #if XASH_GAMECUBE
-	/* G157: idle stock ~−24u behind eye. fwd=32 shrank the rifle so the
-	 * en-bloc clip looked detached (G379 d=7.4u — bones OK). fwd=22 +
-	 * depth≥4 keeps most mesh and restores size. Idle f=0. */
-	if( gEngfuncs.Sys_CheckParm( "-gcnewgame" ) || GC_UseGxWorldDraw() )
+capfaces_vm_pose:
+	/* G157: no client CalcRefdef — pin gun to the current eye every draw.
+	 * G162: HL viewmesh extends below the frustum at raw eye pose
+	 * (ndc mid≈-2); nudge forward+up so a useful band sits in the lower third. */
+	if( !R_GXViewModelPinned( ) && GC_UseGxWorldDraw( ))
+	{
+		/* Retail: V_CalcRefdef's eye + bob + tilt, -1 z, no frame offset.
+		 * cl_view.c fills it in the same way when the client skips it. */
+		static qboolean retail_pose_logged;
+
+		VectorCopy( view->origin, view->curstate.origin );
+		VectorCopy( view->angles, view->curstate.angles );
+		if( view->curstate.animtime <= 0.0f )
+		{
+			view->curstate.animtime = (float)gp_cl->time;
+			view->curstate.framerate = 1.0f;
+		}
+		if( !retail_pose_logged )
+		{
+			vec3_t delta;
+
+			retail_pose_logged = true;
+			VectorSubtract( view->origin, RI.rvp.vieworigin, delta );
+			gEngfuncs.Con_Reportf(
+				"Xash3D GameCube: viewmodel retail pose %s offset fwd=%.1f right=%.1f up=%.1f seq=%d\n",
+				view->model && view->model->name[0] ? view->model->name : "?",
+				DotProduct( delta, RI.vforward ), DotProduct( delta, RI.vright ),
+				DotProduct( delta, RI.vup ), view->curstate.sequence );
+		}
+	}
+	else if( gEngfuncs.Sys_CheckParm( "-gcnewgame" ) || GC_UseGxWorldDraw()
+		|| gEngfuncs.Sys_CheckParm( "-gccapfacessmoke" ))
 	{
 		vec3_t delta;
 		static qboolean g157_pose_logged;
