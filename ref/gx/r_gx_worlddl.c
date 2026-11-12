@@ -534,7 +534,7 @@ int R_GXWorldDLDraw( void )
 	vec3_t normals[4];
 	u32 budget;
 	u32 i;
-	int cluster, drawn = 0, chunks = 0, waiting = 0, cur_mat = -1;
+	int cluster, drawn = 0, chunks = 0, waiting = 0, cur_mat = -1, bind_miss = 0;
 
 	if( gc_wd_state != 1 )
 		return 0;
@@ -666,6 +666,7 @@ int R_GXWorldDLDraw( void )
 							gc_wd_texnum[b->mat] = (s16)again;
 						else
 						{
+							bind_miss++;
 							if( miss_logged < 8 )
 							{
 								miss_logged++;
@@ -688,8 +689,8 @@ int R_GXWorldDLDraw( void )
 		}
 		if( !logged || ( gc_wd_frame & 255 ) == 0 )
 			gEngfuncs.Con_Reportf(
-				"Xash3D GameCube: world DL pvs=%d frustum_drop=%d cull=%d\n",
-				pvs_hits, frustum_drop, frustum_cull ? 1 : 0 );
+				"Xash3D GameCube: world DL pvs=%d frustum_drop=%d cull=%d drawn_chunks=%d waiting=%d batches=%d bind_miss=%d\n",
+				pvs_hits, frustum_drop, frustum_cull ? 1 : 0, chunks, waiting, drawn, bind_miss );
 	}
 	R_GXFogEnd();
 	R_GXTevMatEndAlphaTest();
