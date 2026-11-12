@@ -469,6 +469,19 @@ static int R_GXWorldDLChunkCmp( const void *pa, const void *pb )
 	return ( da > db ) - ( da < db );
 }
 
+/*
+ * PVS test for an entity box. The world DL now streams its BSP nodes and planes
+ * from ARAM instead of keeping them resident, so walking the tree per entity
+ * would cost a DMA per node. Until a resident node copy exists every entity
+ * counts as visible here; brush entities are still frustum culled by the caller.
+ */
+qboolean R_GXWorldDLEntityBoxVisible( const vec3_t mins, const vec3_t maxs )
+{
+	(void)mins;
+	(void)maxs;
+	return true;
+}
+
 static byte *R_GXWorldDLResident( u32 i, u32 *budget )
 {
 	const u32 bytes = gc_wd_chunk_bytes[i];
@@ -925,7 +938,7 @@ int R_GXWorldDLDraw( void )
 	vec3_t normals[4];
 	u32 budget;
 	u32 i;
-	int cluster, drawn = 0, chunks = 0, waiting = 0, cur_mat = -1;
+	int cluster, drawn = 0, chunks = 0, waiting = 0, cur_mat = -1, bind_miss = 0;
 
 	if( gc_wd_state != 1 )
 		return 0;
@@ -1118,6 +1131,7 @@ int R_GXWorldDLDraw( void )
 							gc_wd_texnum[b->mat] = (s16)again;
 						else
 						{
+							bind_miss++;
 							if( miss_logged < 8 )
 							{
 								miss_logged++;
@@ -1254,8 +1268,8 @@ int R_GXWorldDLDraw( void )
 	{
 		logged = true;
 		gEngfuncs.Con_Reportf(
-			"Xash3D GameCube: world DL frame=%d cluster=%d chunks=%d batches=%d waiting=%d\n",
-			gc_wd_frame, cluster, chunks, drawn, waiting );
+			"Xash3D GameCube: world DL frame=%d cluster=%d chunks=%d batches=%d waiting=%d bind_miss=%d\n",
+			gc_wd_frame, cluster, chunks, drawn, waiting, bind_miss );
 	}
 	return drawn;
 }

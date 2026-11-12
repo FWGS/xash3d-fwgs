@@ -1107,6 +1107,9 @@ void CL_DecayLights( void );
 dlight_t *CL_GetDynamicLight( int number );
 dlight_t *CL_GetEntityLight( int number );
 void CL_WeaponAnim( int iAnim, int body );
+#if XASH_GAMECUBE
+qboolean CL_GCViewAnimKeep( int hl_anim );
+#endif
 void CL_ClearEffects( void );
 void CL_ClearEfrags( void );
 void CL_TestLights( void );

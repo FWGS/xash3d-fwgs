@@ -7,6 +7,7 @@ Copyright (C) 2026 xash3d-gc contributors
 
 #if XASH_GAMECUBE
 #include "mem_gamecube.h"
+#include "aram_core.h"
 #include <stdlib.h>
 #include <malloc.h>
 #include <ogc/system.h>
@@ -551,24 +552,17 @@ void GC_PrepareMapLoadBuffer( size_t size )
 
 void GC_PrepareMapLoadBufferForMap( const char *mapname )
 {
-	char path[MAX_QPATH];
-	fs_offset_t filesize;
-
 	if( !mapname || !mapname[0] )
 	{
 		GC_PrepareMapLoadBuffer( GC_MAPLOAD_BUFFER_DEFAULT );
 		return;
 	}
 	GC_LoadMapMetadata( mapname );
-
-	Q_snprintf( path, sizeof( path ), "maps/%s.bsp", mapname );
-	filesize = FS_FileSize( path, false );
-	/* Warm the static arena without requiring the full BSP to fit — oversized
-	 * DoD maps compact-load without LUMP_LIGHTING in Mod_LoadModel. */
-	if( filesize > 0 && filesize <= (fs_offset_t)GC_MAPLOAD_BUFFER_DEFAULT )
-		GC_PrepareMapLoadBuffer( (size_t)filesize );
-	else
-		GC_PrepareMapLoadBuffer( GC_MAPLOAD_BUFFER_DEFAULT );
+	/* Do not stat the BSP here: map-load trim can leave MEM1 with only a few
+	 * hundred bytes free, and a failed directory-cache allocation in the ISO
+	 * filesystem otherwise DSI's before Mod_LoadModel can run. The fixed arena
+	 * is also the compact-load capacity for oversized BSPs. */
+	GC_PrepareMapLoadBuffer( GC_MAPLOAD_BUFFER_DEFAULT );
 }
 
 qboolean GC_LoadMapMetadata( const char *mapname )
@@ -594,6 +588,15 @@ qboolean GC_LoadMapMetadata( const char *mapname )
 	gc_bsp_hot_aram = gc_bsp_hot_bytes = 0;
 	if( !mapname || !mapname[0] ) return false;
 	COM_FileBase( mapname, base, sizeof( base ));
+	/* The disc builder only ships .gcmeta files for the c0a0 tram chain.
+	 * Looking up an absent metadata file walks the ISO9660 directory tree and
+	 * duplicates its path; map-load MEM1 can be too tight for that optional
+	 * allocation (DSI in entry_from_path when strdup returns NULL). */
+	if( Q_stricmp( base, "c0a0" ) && Q_stricmp( base, "c0a0a" )
+		&& Q_stricmp( base, "c0a0b" ) && Q_stricmp( base, "c0a0b1" )
+		&& Q_stricmp( base, "c0a0b2" ) && Q_stricmp( base, "c0a0c" )
+		&& Q_stricmp( base, "c0a0d" ) && Q_stricmp( base, "c0a0e" ))
+		return false;
 	Q_snprintf( path, sizeof( path ), "media/%s.gcmeta", base );
 	f = FS_Open( path, "rb", false );
 	if( !f ) return false;
@@ -931,7 +934,12 @@ save bank) never need a MEM1 copy of a whole file.
 */
 #define GC_ARAM_BOUNCE 4096
 static u8 gc_aram_bounce[GC_ARAM_BOUNCE] __attribute__(( aligned( 32 )));
-static u32 gc_aram_reserve_blocks[8];
+/* libogc's AR stack is only used once, to hand the whole pool to the
+ * allocator in aram_core.c; every engine owner allocates from that. */
+static u32 gc_aram_reserve_blocks[4];
+static gc_aram_heap_t gc_aram_heap;
+static gc_aram_cache_t gc_aram_cache;
+static qboolean gc_aram_manager_tried;
 static u32 gc_aram_audio_base;
 static u32 gc_aram_audio_capacity;
 static u32 gc_aram_video_base;
@@ -1022,15 +1030,102 @@ qboolean GC_MapHotLumpReadPointer( const void *source, void *dst, size_t size )
 	return false;
 }
 
-unsigned int GC_AramReserve( unsigned int size )
+static void GC_AramCacheMove( uint32_t aram, void *buf, uint32_t len, int write )
+{
+	GC_AramCopy( aram, buf, len, write ? true : false );
+}
+
+/* Take every byte of ARAM above whatever the AR stack already holds (the DSP
+ * reserves the first 16 KiB) and manage it here. */
+static qboolean GC_AramManagerInit( void )
+{
+	u32 base, top, pool;
+
+	if( gc_aram_heap.count )
+		return true;
+	if( gc_aram_manager_tried )
+		return false;
+	gc_aram_manager_tried = true;
+	if( !AR_CheckInit( ))
+		AR_Init( gc_aram_reserve_blocks, sizeof( gc_aram_reserve_blocks ) / sizeof( gc_aram_reserve_blocks[0] ));
+	top = AR_GetSize( );
+	/* AR_Alloc returns the current stack pointer; probe it without keeping
+	 * the block, then claim everything above it in one block. */
+	base = AR_Alloc( GC_ARAM_ALIGN );
+	AR_Free( NULL );
+	base = ( base + GC_ARAM_ALIGN - 1u ) & ~( GC_ARAM_ALIGN - 1u );
+	if( !top || base >= top )
+	{
+		Con_Reportf( S_ERROR "Xash3D GameCube: ARAM manager has no pool base=0x%08x top=0x%08x\n", base, top );
+		return false;
+	}
+	pool = AR_Alloc( top - base );
+	GC_AramHeapInit( &gc_aram_heap, pool, top - base );
+	/* The asset cache only borrows free stream space: session owners evict it
+	 * on demand (GC_AramAllocTagged), so its budget is a ceiling, not a claim. */
+	GC_AramCacheInit( &gc_aram_cache, &gc_aram_heap, GC_AramCacheMove, GC_ARAM_ASSET_CACHE_BYTES );
+	Con_Reportf( "Xash3D GameCube: ARAM manager pool %s at 0x%08x (cache ceiling %s)\n",
+		Q_memprint( top - base ), pool, Q_memprint( GC_ARAM_ASSET_CACHE_BYTES ));
+	return gc_aram_heap.count > 0;
+}
+
+unsigned int GC_AramAllocTagged( unsigned int size, qboolean stream, const char *tag )
 {
 	u32 base;
 
-	if( !AR_CheckInit( ))
-		AR_Init( gc_aram_reserve_blocks, 8 );
-	base = AR_Alloc(( size + 31u ) & ~31u );
-	Con_Reportf( "Xash3D GameCube: ARAM reserve %s at 0x%08x\n", Q_memprint( size ), base );
+	if( !size || !GC_AramManagerInit( ))
+		return 0;
+	for( ;; )
+	{
+		base = GC_AramHeapAlloc( &gc_aram_heap, size, stream ? GC_ARAM_STREAM : GC_ARAM_SESSION, tag );
+		if( base )
+			break;
+		/* Cached assets are always re-readable from disc: give their space to
+		 * an owner that cannot be. */
+		if( !GC_AramCacheEvictLRU( &gc_aram_cache ))
+			break;
+	}
+	if( base )
+		Con_Reportf( "Xash3D GameCube: ARAM %s %s %s at 0x%08x free=%s\n",
+			stream ? "stream" : "reserve", tag ? tag : "?", Q_memprint( size ), base,
+			Q_memprint( GC_AramHeapFreeBytes( &gc_aram_heap )));
+	else
+		Con_Reportf( S_WARN "Xash3D GameCube: ARAM %s refused %s need=%s free=%s largest=%s\n",
+			tag ? tag : "?", stream ? "stream" : "reserve", Q_memprint( size ),
+			Q_memprint( GC_AramHeapFreeBytes( &gc_aram_heap )),
+			Q_memprint( GC_AramHeapLargestFree( &gc_aram_heap )));
 	return base;
+}
+
+qboolean GC_AramFree( unsigned int base )
+{
+	u32 size;
+
+	if( !base || !gc_aram_heap.count )
+		return false;
+	if( base == gc_aram_audio_base || base == gc_aram_map_base || base == gc_aram_video_base )
+	{
+		Con_Reportf( S_WARN "Xash3D GameCube: ARAM free of owned window 0x%08x refused\n", base );
+		return false;
+	}
+	/* A DMA may still be reading or writing the range. */
+	while( AR_GetDMAStatus( ))
+		;
+	size = GC_AramHeapBlockSize( &gc_aram_heap, base );
+	if( !GC_AramHeapFree( &gc_aram_heap, base ))
+		return false;
+	Con_Reportf( "Xash3D GameCube: ARAM free %s at 0x%08x\n", Q_memprint( size ), base );
+	return true;
+}
+
+unsigned int GC_AramReserveTagged( unsigned int size, const char *tag )
+{
+	return GC_AramAllocTagged( size, false, tag );
+}
+
+unsigned int GC_AramReserve( unsigned int size )
+{
+	return GC_AramAllocTagged( size, false, "legacy" );
 }
 
 unsigned int GC_AramAudioReserve( unsigned int size )
@@ -1042,17 +1137,10 @@ unsigned int GC_AramAudioReserve( unsigned int size )
 	aligned = ( size + 31u ) & ~31u;
 	if( !aligned )
 		return 0;
-	/* Host-frame reservation can precede the first map allocator request. Keep
-	 * ARAM initialization local to this ownership boundary so callers do not
-	 * depend on incidental ordering in texture or BSP streaming. */
-	if( !AR_CheckInit( ))
-		AR_Init( gc_aram_reserve_blocks, 8 );
-	gc_aram_audio_base = AR_Alloc( aligned );
+	gc_aram_audio_base = GC_AramAllocTagged( aligned, false, "audio" );
 	if( !gc_aram_audio_base )
 		return 0;
 	gc_aram_audio_capacity = aligned;
-	Con_Reportf( "Xash3D GameCube: ARAM audio reserve %s at 0x%08x\n",
-		Q_memprint( aligned ), gc_aram_audio_base );
 	return gc_aram_audio_base;
 }
 
@@ -1072,23 +1160,21 @@ unsigned int GC_AramVideoReserve( unsigned int size )
 	if( !aligned ) return 0;
 	if( gc_aram_video_base )
 		return gc_aram_video_capacity >= aligned ? gc_aram_video_base : 0;
-	gc_aram_video_base = GC_AramReserve( aligned );
+	gc_aram_video_base = GC_AramAllocTagged( aligned, true, "video" );
 	if( gc_aram_video_base ) gc_aram_video_capacity = aligned;
 	return gc_aram_video_base;
 }
 
 void GC_AramVideoRelease( void )
 {
-	u32 released = 0;
-	if( !gc_aram_video_base ) return;
-	/* The boot video is the final ARAM owner before menu startup.  Release its
-	 * top-of-stack block so menu/map streaming receives the full window. */
-	while( AR_GetDMAStatus( ))
-		;
-	AR_Free( &released );
-	Con_Reportf( "Xash3D GameCube: ARAM video release %s\n", Q_memprint( released ));
+	u32 base = gc_aram_video_base;
+
+	if( !base ) return;
+	/* The video window is a stream block now: it can be returned whatever was
+	 * allocated after it, instead of having to be the AR stack's top block. */
 	gc_aram_video_base = 0;
 	gc_aram_video_capacity = 0;
+	GC_AramFree( base );
 }
 
 unsigned int GC_AramMapReserve( unsigned int size )
@@ -1103,7 +1189,7 @@ unsigned int GC_AramMapReserve( unsigned int size )
 			Q_memprint( aligned ), Q_memprint( gc_aram_map_capacity ));
 		return 0;
 	}
-	gc_aram_map_base = GC_AramReserve( aligned );
+	gc_aram_map_base = GC_AramAllocTagged( aligned, false, "mapwindow" );
 	if( gc_aram_map_base ) gc_aram_map_capacity = aligned;
 	return gc_aram_map_base;
 }
@@ -1111,12 +1197,84 @@ unsigned int GC_AramMapReserve( unsigned int size )
 void GC_AramMapReset( void )
 {
 	/* Ownership is retained; callers can overwrite the window for the next
-	 * map without asking AR_Alloc for another block. */
+	 * map without asking for another block. */
 }
 
 unsigned int GC_AramMapCapacity( void )
 {
 	return gc_aram_map_capacity;
+}
+
+unsigned int GC_AramMapBase( void )
+{
+	return gc_aram_map_base;
+}
+
+/*
+==============================================================================
+
+ARAM asset cache: whole files (studio models, sequence groups) kept in free
+stream space so a reload after an arena reset, a team pick or a changelevel
+is a DMA instead of a disc read.
+
+==============================================================================
+*/
+gc_aram_cache_t *GC_AramAssetCacheGet( void )
+{
+	return GC_AramManagerInit() ? &gc_aram_cache : NULL;
+}
+
+qboolean GC_AssetCacheLookup( const char *path, unsigned int *size )
+{
+	int index;
+
+	if( size )
+		*size = 0;
+	if( !path || !GC_AramManagerInit( ))
+		return false;
+	index = GC_AramCacheFind( &gc_aram_cache, path );
+	if( index < 0 )
+		return false;
+	if( size )
+		*size = GC_AramCacheSize( &gc_aram_cache, index );
+	return true;
+}
+
+qboolean GC_AssetCacheRead( const char *path, void *dst, unsigned int size )
+{
+	int index;
+
+	if( !path || !dst || !size || !GC_AramManagerInit( ))
+		return false;
+	index = GC_AramCacheFind( &gc_aram_cache, path );
+	if( index < 0 || GC_AramCacheSize( &gc_aram_cache, index ) != size )
+		return false;
+	return GC_AramCacheRead( &gc_aram_cache, index, 0, dst, size ) ? true : false;
+}
+
+qboolean GC_AssetCacheStore( const char *path, const void *data, unsigned int size )
+{
+	if( !path || !data || !size || !GC_AramManagerInit( ))
+		return false;
+	if( GC_AramCacheStore( &gc_aram_cache, path, data, size ) < 0 )
+	{
+		Con_Reportf( "Xash3D GameCube: asset cache refused '%s' (%s)\n", path, Q_memprint( size ));
+		return false;
+	}
+	return true;
+}
+
+void GC_AramReport( const char *stage )
+{
+	if( !gc_aram_heap.count )
+		return;
+	Con_Reportf( "Xash3D GameCube: ARAM %s session=%s stream=%s free=%s largest=%s peak=%s refused=%u"
+		" cache=%s/%s hits=%u misses=%u stores=%u evictions=%u\n",
+		stage ? stage : "-", Q_memprint( gc_aram_heap.session_bytes ),
+		Q_memprint( gc_aram_heap.stream_bytes ), Q_memprint( GC_AramHeapFreeBytes( &gc_aram_heap )),
+		Q_memprint( GC_AramHeapLargestFree( &gc_aram_heap )), Q_memprint( gc_aram_heap.peak_bytes ),
+		gc_aram_heap.failures, Q_memprint( gc_aram_cache.bytes ), Q_memprint( gc_aram_cache.budget ),
+		gc_aram_cache.hits, gc_aram_cache.misses, gc_aram_cache.stores, gc_aram_cache.evictions );
 }
 
 /* Whole 32-byte aligned blocks, straight to or from the buffer. */
@@ -1206,7 +1364,7 @@ void GC_PrefetchMenuIdle( void )
 			if( reserve > GC_PREFETCH_MAX_BYTES ) reserve = GC_PREFETCH_MAX_BYTES;
 			if( !gc_prefetch_aram )
 			{
-				gc_prefetch_aram = GC_AramReserve( reserve );
+				gc_prefetch_aram = GC_AramReserveTagged( reserve, "prefetch" );
 				if( gc_prefetch_aram ) gc_prefetch_capacity = reserve;
 			}
 			if( !gc_prefetch_aram ) { gc_prefetch_manifest_ready = true; return; }

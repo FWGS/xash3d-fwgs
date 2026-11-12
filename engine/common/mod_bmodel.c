@@ -473,8 +473,16 @@ static qboolean Mod_GCEnsureSurfLightofs( int need )
 		want = GC_SURF_LIGHTOFS_ARAM_MIN;
 	if( !gc_surf_lightofs_aram || want > gc_surf_lightofs_aram_cap )
 	{
-		unsigned int aram = GC_AramReserve( want );
+		unsigned int aram;
 
+		/* Growing used to leak the smaller table's block. */
+		if( gc_surf_lightofs_aram )
+		{
+			GC_AramFree( gc_surf_lightofs_aram );
+			gc_surf_lightofs_aram = 0;
+			gc_surf_lightofs_aram_cap = 0;
+		}
+		aram = GC_AramReserveTagged( want, "lightofs" );
 		if( !aram )
 			return false;
 		gc_surf_lightofs_aram = aram;
@@ -5657,7 +5665,8 @@ static void Mod_GCWorldPackLoad( const char *modelname, size_t surface_reserve )
 	 * BSP's embedded textures are decoded into MEM1 and produce misleading
 	 * transition-pressure fallbacks. WorldDL listen (-gcworldrender) also
 	 * binds every batch through this pack — without it batches stay 0. */
-	if(( !GC_MenuRunsServer() && !Sys_CheckParm( "-gcnewgame" )
+	if(( !GC_MenuRunsServer() && !GC_MapLoadMemoryOpt()
+		&& !Sys_CheckParm( "-gcnewgame" )
 		&& !Sys_CheckParm( "-gcmap" )
 		&& !Sys_CheckParm( "-gcworldrender" )
 		&& !Sys_CheckParm( "-gccapfacessmoke" ))
@@ -5679,7 +5688,7 @@ static void Mod_GCWorldPackLoad( const char *modelname, size_t surface_reserve )
 	start = Sys_DoubleTime( );
 	size = FS_FileLength( f );
 	if( !gc_wt_store_base )
-		gc_wt_store_base = GC_AramReserve( GC_WT_ARAM_BYTES );
+		gc_wt_store_base = GC_AramReserveTagged( GC_WT_ARAM_BYTES, "wtstore" );
 	if( !gc_wt_store_base )
 	{
 		Con_Reportf( S_ERROR "Xash3D GameCube: world texture pack %s needs %u bytes of ARAM\n",
@@ -8803,9 +8812,21 @@ static qboolean Mod_GCReloadStdBspLump( model_t *mod, dbspmodel_t *bmod, int lum
 		}
 		else
 		{
-			aram = GC_AramMapReserve( need );
-			if( !aram )
-				aram = GC_AramReserve( need );
+			/* Own block: the map window also holds the staged HOT lumps
+			 * (GC_StageMapHotLumps), and sharing its base let a lightmap
+			 * reload overwrite them. Return the outgrown pool first. */
+			if( gc_lm_aram_pool )
+			{
+				if( gc_lm_aram_base == gc_lm_aram_pool )
+				{
+					gc_lm_aram_base = 0;
+					gc_lm_aram_bytes = 0;
+				}
+				GC_AramFree( gc_lm_aram_pool );
+				gc_lm_aram_pool = 0;
+				gc_lm_aram_pool_cap = 0;
+			}
+			aram = GC_AramReserveTagged( need, "lightmap" );
 			if( aram )
 			{
 				gc_lm_aram_pool = aram;
@@ -10660,7 +10681,7 @@ static void Mod_GCKeepLightStyles( model_t *mod, dbspmodel_t *bmod )
 	if( !faces )
 		return;
 	if( !gc_menu_ls_aram )
-		gc_menu_ls_aram = GC_AramReserve( GC_MENU_LS_ARAM_BYTES );
+		gc_menu_ls_aram = GC_AramReserveTagged( GC_MENU_LS_ARAM_BYTES, "lstyles" );
 	free( gc_menu_ls_faces );
 	gc_menu_ls_faces = samples <= GC_MENU_LS_ARAM_BYTES ? (gc_ls_face_t *)malloc( faces * sizeof( gc_ls_face_t )) : NULL;
 	if( !gc_menu_ls_faces )

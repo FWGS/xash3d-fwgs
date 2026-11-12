@@ -1940,6 +1940,7 @@ int EXPORT Host_Main( int argc, char **argv, const char *progname, int bChangeGa
 					GC_SetLoadingProgress( 1.0f );
 					GC_DrawLoadingStatus( "MAP READY", gcmap );
 					Con_Reportf( "Xash3D GameCube: direct map ready\n" );
+					GC_AramReport( "map-ready" );
 					/* G68: with -gcnewgame, finish client bring-up on this map
 					 * (do not gc_playstart → c0a0). Enables G92 changelevel path. */
 					if( Sys_CheckParm( "-gcnewgame" ))

@@ -312,7 +312,7 @@ static void S_GCSoundStorePut( const sfx_t *sfx, wavdata_t *sc )
 	if( S_GCSoundStored( sfx ) || bytes > GC_SND_ARAM_BYTES )
 		return;
 	if( !s_gc_snd_base )
-		s_gc_snd_base = GC_AramReserve( GC_SND_ARAM_BYTES );
+		s_gc_snd_base = GC_AramReserveTagged( GC_SND_ARAM_BYTES, "sfx" );
 	if( s_gc_snd_head + bytes > GC_SND_ARAM_BYTES )
 		s_gc_snd_head = 0;
 	for( i = 0; i < GC_SND_ARAM_ENTRIES; i++ )
@@ -461,6 +461,27 @@ static wavdata_t *S_CreateDefaultSound( void )
 
 	wavdata_t *sc = Mem_Calloc( sndpool, sizeof( wavdata_t ) + size );
 
+#if XASH_GAMECUBE
+	if( !sc && tinyFallback )
+	{
+		/* Under the retail menu memory ceiling even a 512-sample silent
+		 * fallback may not fit. Keep a much smaller silence block instead of
+		 * dereferencing a failed pool allocation. */
+		samples = 64;
+		size = samples * width * channels;
+		sc = Mem_Calloc( sndpool, sizeof( wavdata_t ) + size );
+		if( sc )
+			Con_Reportf( "Xash3D GameCube: default sound fallback reduced samples=%u bytes=%u\n",
+				samples, (uint)size );
+	}
+#endif
+
+	if( !sc )
+	{
+		Con_Reportf( "Xash3D: default sound allocation failed\n" );
+		return NULL;
+	}
+
 	sc->width = width;
 	sc->channels = channels;
 	sc->rate = SOUND_DMA_SPEED;
@@ -504,6 +525,20 @@ wavdata_t *S_LoadSound( sfx_t *sfx )
 		return NULL;
 
 #if XASH_GAMECUBE
+	/* Optional menu/gameplay sounds can trigger filesystem path allocations.
+	 * Once MEM1 is nearly full, the bundled ISO9660 layer cannot safely probe
+	 * those paths; let the mixer drop the sound instead of entering it. */
+	if( GC_MemHeapFreeBytes() < 4096 && Q_stricmp( sfx->name, "*default" ))
+	{
+		static qboolean logged_lowmem_sound_skip;
+		if( !logged_lowmem_sound_skip )
+		{
+			logged_lowmem_sound_skip = true;
+			Con_Reportf( "Xash3D GameCube: optional sound loads skipped below 4 KiB MEM1\n" );
+		}
+		return NULL;
+	}
+
 	/* Announcer lines are streamed (S_GCStreamVoice), never cached. */
 	if( GC_MenuRunsServer() && !Q_strnicmp( sfx->name, "tride/", 6 ))
 		return NULL;
@@ -603,6 +638,9 @@ wavdata_t *S_LoadSound( sfx_t *sfx )
 		if( !sc )
 			sc = S_CreateDefaultSound();
 	}
+
+	if( !sc )
+		return NULL;
 
 	if( sc->rate < SOUND_11k ) // some bad sounds
 		Sound_Process( &sc, SOUND_11k, sc->width, sc->channels, SOUND_RESAMPLE );

@@ -520,6 +520,8 @@ typedef struct image_s
 	byte           gc_packed_queued;
 	qboolean       gc_gx_native;                            // pixels[0] now holds GX tiled RGB565 (or RGB5A3), not soft pixels
 	byte           gc_gx_native_alpha;                      // native texels are RGB5A3 with 1-bit alpha (masked skins)
+	short          gc_skin_handle;                          // skin_stream handle + 1, 0: no streamed full-resolution skin
+	unsigned       gc_skin_gen;                             // r_gx_skins.c generation the handle belongs to
 #endif
 
 	uint           hashValue;
@@ -528,6 +530,13 @@ typedef struct image_s
 
 #if XASH_GAMECUBE
 void R_GCFreeMip( image_t *tex, uint level );
+/* r_gx_skins.c: ARAM-streamed full-resolution studio skins */
+void R_GXSkinAttachVM( unsigned texnum, const byte *src, int w, int h, qboolean flag_masked );
+const void *R_GXSkinGet( image_t *img, int *w, int *h, qboolean *alpha, qboolean *promoted );
+void R_GXSkinBeginFrame( void );
+void R_GXSkinReport( const char *stage );
+void R_GXSkinRelease( image_t *img );
+void R_GXSkinReset( void );
 #endif
 
 //

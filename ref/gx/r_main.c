@@ -76,6 +76,18 @@ CVAR_DEFINE_AUTO( sw_mipcap, "0", FCVAR_GLCONFIG, "nothing" );
 CVAR_DEFINE_AUTO( sw_surfcacheoverride, "0", 0, "" );
 #endif
 static CVAR_DEFINE_AUTO( sw_waterwarp, "1", FCVAR_GLCONFIG, "nothing" );
+/* Entity draw caps (0 = built-in default). Raise on hardware/Dolphin to find
+ * how many models/props/sprites a map can render before MEM1 or frame time
+ * gives out; replaces recompiling for each experiment. */
+static CVAR_DEFINE_AUTO( gc_max_studios, "0", FCVAR_ARCHIVE, "GameCube: max studio models per pass (0 = default)" );
+static CVAR_DEFINE_AUTO( gc_max_sprites, "0", FCVAR_ARCHIVE, "GameCube: max sprites per low-res pass (0 = default)" );
+static CVAR_DEFINE_AUTO( gc_max_brush_ents, "0", FCVAR_ARCHIVE, "GameCube: max brush entities per frame (0 = default)" );
+
+static unsigned GC_EntCap( const convar_t *cv, unsigned def )
+{
+	return cv->value >= 1.0f ? (unsigned)cv->value : def;
+}
+
 static CVAR_DEFINE_AUTO( sw_notransbrushes, "0", FCVAR_GLCONFIG, "do not apply transparency to water/glasses (faster)" );
 CVAR_DEFINE_AUTO( sw_noalphabrushes, "0", FCVAR_GLCONFIG, "do not draw brush holes (faster)" );
 CVAR_DEFINE_AUTO( r_traceglow, "0", FCVAR_GLCONFIG, "cull flares behind models" );
@@ -647,8 +659,8 @@ static void R_DrawStudioEntitiesLowRes( void )
 	unsigned drawn = 0;
 	unsigned sprites = 0;
 	unsigned brushes = 0;
-	const unsigned max_studio = 4;
-	const unsigned max_sprites = 2;
+	const unsigned max_studio = GC_EntCap( &gc_max_studios, 4 );
+	const unsigned max_sprites = GC_EntCap( &gc_max_sprites, 2 );
 	/* Cap 3 outside silent G36 windows (budget still skips after one draw). */
 	const unsigned max_brushes = 3;
 	qboolean drew_view = false;
@@ -889,6 +901,9 @@ static qboolean R_GCTraceFirstEntityFrame( void )
 #define R_GC_ENTITY_TRACE( ... ) ((void)0)
 #endif
 
+#if XASH_GAMECUBE
+static qboolean R_GXBrushEntityVisible( cl_entity_t *e );
+#endif
 static void R_DrawEntitiesOnList( void )
 {
 #if XASH_GAMECUBE
@@ -900,7 +915,7 @@ static void R_DrawEntitiesOnList( void )
 	int lean_brushes = 0;
 	int lean_studios = 0;
 	const int lean_max_brushes = gEngfuncs.Sys_CheckParm( "-gcworldrender" ) ? 48 : 6;
-	const int lean_max_studios = gEngfuncs.Sys_CheckParm( "-gcworldrender" ) ? 24 : 1;
+	const int lean_max_studios = (int)GC_EntCap( &gc_max_studios, gEngfuncs.Sys_CheckParm( "-gcworldrender" ) ? 24 : 1 );
 
 	if( GC_UseGxWorldDraw() && gEngfuncs.Sys_CheckParm( "-gcnewgame" ))
 	{
@@ -971,6 +986,8 @@ static void R_DrawEntitiesOnList( void )
 					break;
 				lean_brushes++;
 			}
+			if( GC_UseGxWorldDraw() && !R_GXBrushEntityVisible( RI.currententity ))
+				break;
 #endif
 			R_DrawBrushModel( RI.currententity );
 			break;
@@ -1127,10 +1144,19 @@ static void R_DrawEntitiesOnList( void )
 				switch( RI.currentmodel->type )
 				{
 				case mod_brush:
-					if( GC_IsLowMemoryMode() && GC_UseGxWorldDraw() )
-						break; /* tip-safe: skip translucent brushes on Flipper Q0 */
+				{
+					extern qboolean R_GXWorldDLActive( void );
+
+					/* tip-safe: skip translucent brushes on Flipper Q0, except
+					 * when the world display lists own the map: then CapFaces'
+					 * MEM1 is free, and these are fences, foliage and glass. */
+					if( GC_IsLowMemoryMode() && GC_UseGxWorldDraw() && !R_GXWorldDLActive())
+						break;
+					if( GC_UseGxWorldDraw() && !R_GXBrushEntityVisible( RI.currententity ))
+						break;
 					R_DrawBrushModel( RI.currententity );
 					break;
+				}
 				case mod_alias:
 					// R_DrawAliasModel( RI.currententity );
 					break;
@@ -1787,6 +1813,52 @@ R_EdgeDrawing
 ================
 */
 #if XASH_GAMECUBE
+/* Visible brush entities drawn per frame after culling. */
+#define GC_GX_BRUSH_ENTS_MAX 96
+static qboolean r_gx_last_cull_was_pvs;
+
+/*
+=============
+R_GXBrushEntityVisible
+
+Frustum, then PVS (world display-list tree), for one brush entity. The
+server only sends entities in the player's fat PVS, which still includes
+everything behind the camera and rooms the eye cannot see from its leaf.
+=============
+*/
+static qboolean R_GXBrushEntityVisible( cl_entity_t *e )
+{
+	extern qboolean R_GXBoxOutsideFrustum( const vec3_t mins, const vec3_t maxs );
+	extern qboolean R_GXWorldDLEntityBoxVisible( const vec3_t mins, const vec3_t maxs );
+	vec3_t mins, maxs;
+
+	r_gx_last_cull_was_pvs = false;
+	if( !e || !e->model )
+		return false;
+	if( e->angles[0] || e->angles[1] || e->angles[2] )
+		RotatedBBox( e->model->mins, e->model->maxs, e->angles, mins, maxs );
+	else
+	{
+		VectorCopy( e->model->mins, mins );
+		VectorCopy( e->model->maxs, maxs );
+	}
+	VectorAdd( mins, e->origin, mins );
+	VectorAdd( maxs, e->origin, maxs );
+	/* The camera inside the entity (a tram cabin, a doorway) always draws it. */
+	if( RI.rvp.vieworigin[0] >= mins[0] && RI.rvp.vieworigin[0] <= maxs[0]
+		&& RI.rvp.vieworigin[1] >= mins[1] && RI.rvp.vieworigin[1] <= maxs[1]
+		&& RI.rvp.vieworigin[2] >= mins[2] && RI.rvp.vieworigin[2] <= maxs[2] )
+		return true;
+	if( R_GXBoxOutsideFrustum( mins, maxs ))
+		return false;
+	if( !R_GXWorldDLEntityBoxVisible( mins, maxs ))
+	{
+		r_gx_last_cull_was_pvs = true;
+		return false;
+	}
+	return true;
+}
+
 static void R_EdgeDrawingGcmapProbe( void )
 {
 	static qboolean probe_gate_logged;
@@ -1865,10 +1937,10 @@ static void R_EdgeDrawingGcmapProbe( void )
 		/* G235: opaque brush movers were skipped by this early return —
 		 * soft path called R_DrawBEntitiesOnList; Flipper never did. */
 		bn = (int)tr.draw_list->num_edge_entities;
-		/* Menu New Game sends the real packet list (doors, walls, trucks and
-		 * the intro tram *12); 8 dropped the tram behind the station movers. */
-		if( bn > ( gEngfuncs.Sys_CheckParm( "-gcmenuplaystart" ) ? 32 : 8 ))
-			bn = gEngfuncs.Sys_CheckParm( "-gcmenuplaystart" ) ? 32 : 8;
+		/* Every brush entity the client sends is considered (DoD maps carry
+		 * dozens of func_wall / func_breakable props; the old cap of 8 left
+		 * most of them out). The cost is bounded by culling below and by a
+		 * per-frame cap on the ones that survive it. */
 		{
 			static int edge_list_logs;
 
@@ -1892,15 +1964,38 @@ static void R_EdgeDrawingGcmapProbe( void )
 					tr.draw_list->num_edge_entities, names );
 			}
 		}
-		for( bi = 0; bi < bn; bi++ )
 		{
-			cl_entity_t *be = tr.draw_list->edge_entities[bi];
+			extern void R_GXBuildFrustum( void );
+			int drawn_ents = 0, cull_frustum = 0, cull_pvs = 0, over_cap = 0;
 
-			if( !be || !be->model || be->model->type != mod_brush )
-				continue;
-			if( be->model->nummodelsurfaces <= 0 )
-				continue;
-			bdrawn += R_GXDrawBrushModel( be );
+			R_GXBuildFrustum();
+			for( bi = 0; bi < bn; bi++ )
+			{
+				cl_entity_t *be = tr.draw_list->edge_entities[bi];
+
+				if( !be || !be->model || be->model->type != mod_brush )
+					continue;
+				if( be->model->nummodelsurfaces <= 0 )
+					continue;
+				if( !R_GXBrushEntityVisible( be ))
+				{
+					if( r_gx_last_cull_was_pvs )
+						cull_pvs++;
+					else
+						cull_frustum++;
+					continue;
+				}
+				if( drawn_ents >= (int)GC_EntCap( &gc_max_brush_ents, GC_GX_BRUSH_ENTS_MAX ))
+				{
+					over_cap++;
+					continue;
+				}
+				bdrawn += R_GXDrawBrushModel( be );
+				drawn_ents++;
+			}
+			if(( tr.framecount & 255 ) == 1 || ( over_cap > 0 && ( tr.framecount & 63 ) == 1 ))
+				gEngfuncs.Con_Reportf( "Xash3D GameCube: brush ents list=%d drawn=%d frustum=%d pvs=%d over_cap=%d faces=%d\n",
+					bn, drawn_ents, cull_frustum, cull_pvs, over_cap, bdrawn );
 		}
 		GC_WatchdogMark( "GX world: brush models" );
 		/* G277: EmitEntities skipped on New Game Flipper path — draw tram. */
@@ -2551,6 +2646,9 @@ R_BeginFrame
 */
 void GAME_EXPORT R_BeginFrame( qboolean clearScene )
 {
+#if XASH_GAMECUBE
+	R_GXSkinBeginFrame();
+#endif
 	R_Set2DMode( true );
 
 	// draw buffer stuff
@@ -2887,6 +2985,9 @@ qboolean GAME_EXPORT R_Init( void )
 	gEngfuncs.Cvar_RegisterVariable( &sw_surfcacheoverride );
 	gEngfuncs.Cvar_RegisterVariable( &sw_waterwarp );
 	gEngfuncs.Cvar_RegisterVariable( &sw_notransbrushes );
+	gEngfuncs.Cvar_RegisterVariable( &gc_max_studios );
+	gEngfuncs.Cvar_RegisterVariable( &gc_max_sprites );
+	gEngfuncs.Cvar_RegisterVariable( &gc_max_brush_ents );
 	gEngfuncs.Cvar_RegisterVariable( &sw_noalphabrushes );
 	gEngfuncs.Cvar_RegisterVariable( &r_traceglow );
 #ifndef DISABLE_TEXFILTER

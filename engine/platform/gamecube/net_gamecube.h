@@ -266,5 +266,8 @@ const char *GC_NetLocalIP( void );
 int GC_NetBringUp( int max_retries );
 void GC_NetShutdown( void );
 int GC_NetEnsureReady( void );
+void GC_NetRegisterCvars( void );
+/* UDP DNS A-record lookup (libbba has no resolver). ip_be is network order. */
+int GC_DnsResolve( const char *name, u32 *ip_be );
 
 #endif /* NET_GAMECUBE_H */

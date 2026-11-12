@@ -35,22 +35,73 @@ unclaimed, of which the texture pool is 640 KB.
 | Sound | 256 KB cache, 128 KB heap floor | Stage 3 |
 | Lightmaps | 800 KB atlas in BSP scratch | Stays: the GPU samples it every frame. Style samples are already in ARAM |
 
+## ARAM manager
+
+`engine/platform/gamecube/aram_core.c` owns ARAM. On first use,
+`GC_AramManagerInit` (in `mem_gamecube.c`) takes everything above the AR stack
+(the DSP keeps the first 16 KiB) with one `AR_Alloc` and hands out ranges itself.
+No engine code calls `AR_Alloc`, `AR_Init` or `AR_Free` directly any more.
+
+Why: libogc's AR allocator is a stack with no bounds checks. Each `AR_Alloc` pushes
+a length onto the caller's array, and `AR_Free` pops whatever is on top. The engine
+had up to 14 owners and an 8-entry array, so a ninth reservation wrote past the
+array. Requests past 16 MiB returned addresses beyond the end of ARAM instead of
+failing. G225's `AR_Free( NULL )` and the boot video release both popped whichever
+block was on top, which was not always theirs.
+
+Two classes of block:
+
+- **Session** (`GC_AramReserveTagged`): lives for the boot. Carved from the bottom
+  of the pool.
+- **Stream** (`GC_AramAllocTagged( size, true, tag )`): can be freed with
+  `GC_AramFree`. Carved from the top, so freeing one never strands a session region.
+
+Either kind of request first evicts cached assets (below) before it is refused. A
+refusal logs `ARAM <tag> refused need= free= largest=` and returns 0. Every caller
+already handles 0.
+
+`GC_AramReport` logs at map ready and at studio-arena release:
+`ARAM <stage> session= stream= free= largest= peak= refused= cache=used/ceiling hits= misses= stores= evictions=`.
+
 ## ARAM layout
 
-16 MiB in all, split with `GC_AramReserve`. `AR_Init` now gets 8 blocks; it had
-4, and a fifth reservation would have overrun the array.
+16 MiB in all. Owners and their tags:
 
-| Region | Size | Contents |
-|---|---|---|
-| Audio use | Reserved by the sound path | Unchanged |
-| Transition saves | 4 MB | The changelevel save bank |
-| Light styles | 1 MB | Per-style lightmap samples |
-| Sentences | ~52 KB | `sentences.txt` |
-| Texture store | 6 MB | CMPR chains by name and content tag |
-| Free | ~5 MB | Models, sound banks and next-map prefetch, from stages 2-5 |
+| Tag | Class | Size | Contents |
+|---|---|---|---|
+| `audio` | session | 1 MB | Audio/DSP window |
+| `saves` | session | 4 MB | Changelevel save bank (transition mode only) |
+| `wtstore` | session | 6 MB | World texture store, CMPR chains by name and tag |
+| `sfx` | session | 2 MB | Sound store |
+| `lstyles` | session | 1 MB | Per-style lightmap samples |
+| `prefetch` | session | up to 2 MB | Menu-idle first-map prefetch |
+| `mapwindow` | session | 1 MB or more | Staged HOT BSP lumps |
+| `lightmap` | session | the lump | Spilled `LUMP_LIGHTING`. Had shared the map window's base with the HOT lumps |
+| `lightofs`, `capfaces`, `props`, `vox` | session | small | Side tables. Growing one now frees the old block instead of leaking it |
+| `video` | stream | the clip | Boot cinematic prefetch, freed at the menu |
+| `fill` | stream | 8 KB | G225 fill-face overflow |
+| `cache` | stream | up to 4 MB | Asset cache, evicted first |
 
-All unique world textures from c0a0 to c1a0 come to about 2.8 MB, so 6 MB holds the
-whole intro and first chapter.
+The session sizes add up to more than 16 MiB when every owner is active. Before the
+manager, the last owners got addresses past the end of ARAM. Now they are refused
+and logged. Which ones are refused depends on the route, so read the `refused`
+lines in a playtest log before you trust a route that uses saves, the prefetch and
+the texture store together.
+
+## Asset cache
+
+`GC_AssetCacheLookup/Read/Store` keep whole files in free stream space by name,
+least recently used first out, with pins. Today the cache holds:
+
+- Studio meshes (`gc_studio/<name>.mdl`), stored as raw file bytes before the
+  in-place byte swap. `Mod_GCLoadStudioFile` reads from ARAM before disc, so an
+  arena reset, a team pick or a changelevel reloads a model by DMA.
+- Sequence groups. The four `gc_seqgroup_slot` buffers are recycled least recently
+  used, so the same animation file was read from disc many times per map. After the
+  first read it comes from ARAM.
+
+The cache costs about 4 KB of MEM1 BSS for its tables. The cache is a ceiling, not a
+reservation: any session or stream owner that needs the space evicts it.
 
 ## Stage 1: textures (implemented)
 
@@ -99,6 +150,9 @@ The queue is first come, first served. To add:
 - **Next map:** see stage 5.
 
 ## Stage 2: models
+
+Done so far: the ARAM asset cache above, so studio files are read from disc once
+per boot.
 
 `Mod_GCStudioBssAlloc` is a bump arena released per map (`Mod_GCReleaseStudioArena`)
 and models are admitted by name in `Mod_GCStudioNameAllowed`, because allowing all
@@ -178,3 +232,22 @@ every 64 frames:
 - Real DMA and disc speeds: the size of the streaming budget per frame, and every
   hold length.
 - Whether `GX_InvalidateTexAll` on streaming frames shows up on Flipper.
+
+## Stage 2b: studio skins (policy core)
+
+`skin_stream.[ch]` (platform independent, host-tested) holds the policy for
+streaming high-resolution studio skins:
+
+- Each skin's full pixels go into the ARAM asset cache (pinned while registered);
+  MEM1 keeps only its low mip.
+- A bounded MEM1 window holds the full-resolution skins drawn recently.
+- `GC_SkinStreamGet` returns full pixels when resident, otherwise the low mip
+  while promoting from ARAM, at most `frame_budget` bytes per frame.
+- Eviction is LRU and never touches a skin requested in the current frame, so a
+  returned pointer is valid until the next `GC_SkinStreamBeginFrame`.
+
+Not wired yet: `R_GCAllocStudioSkinOverflow` in `ref/gx/r_image.c` still caps skins
+by the 384 KiB overflow window (96/64/48 px). Wiring means registering each skin
+at upload (low mip into the existing overflow, full into ARAM), asking
+`GC_SkinStreamGet` per draw in `R_StudioDrawPoints`, and re-pointing the GX texture
+object on a size change. That needs a ceres build and a Dolphin run to verify.

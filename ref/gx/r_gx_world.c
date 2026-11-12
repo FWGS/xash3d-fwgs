@@ -1436,6 +1436,7 @@ binds only load the texture object. The soft renderer does not draw these on thi
 =============
 */
 static gc_gx_tex_t r_gx_tex_native;
+static const void *r_gx_native_bound_pixels;
 static unsigned r_gx_tex_native_conversions;
 static int r_gx_tex_native_route = -1;
 extern qboolean GC_MenuRunsServer( void );
@@ -1470,6 +1471,8 @@ static gc_gx_tex_t *R_GXNativeTexture( image_t *img, unsigned texnum )
 	const int cap = R_GXNativeFullRes( img ) ? 1024 : GC_GX_TEX_MAX_DIM;
 	int step_x = 1, step_y = 1, w, h;
 	u8 fmt;
+	pixel_t *tex_pixels;
+	qboolean tex_alpha;
 
 	/* Larger sides are box filtered down: without mipmaps they shimmer. */
 	while( img->width / step_x > cap )
@@ -1759,19 +1762,41 @@ static gc_gx_tex_t *R_GXNativeTexture( image_t *img, unsigned texnum )
 		r_gx_tex_native_conversions++;
 		r_gx_bound_texnum = 0;
 	}
-	fmt = img->gc_gx_native_alpha ? (u8)GX_TF_RGB5A3 : (u8)GX_TF_RGB565;
+	/* A viewmodel skin with a full-resolution copy in ARAM draws that while it
+	 * is resident in the MEM1 window, the low mip (pixels[0]) until then. */
+	tex_pixels = img->pixels[0];
+	tex_alpha = img->gc_gx_native_alpha ? true : false;
+	if( img->gc_skin_handle )
+	{
+		int sw = 0, sh = 0;
+		qboolean salpha = false, promoted = false;
+		const void *sp = R_GXSkinGet( img, &sw, &sh, &salpha, &promoted );
+
+		if( sp )
+		{
+			tex_pixels = (pixel_t *)sp;
+			tex_alpha = salpha;
+			w = sw;
+			h = sh;
+		}
+		if( promoted )
+			r_gx_bound_texnum = 0;
+	}
+	fmt = tex_alpha ? (u8)GX_TF_RGB5A3 : (u8)GX_TF_RGB565;
 	{
 		/* Masked RGB5A3 needs NEAREST under ATE (LINEAR + ATE ghosted hand
 		 * edges in ava-play99-101). Opaque VM gun skins stay LINEAR
 		 * (NEAREST + MODULATE = static wood). Clamp VMs: REPEAT wrapped
 		 * atlas padding into sleeves (ava-play99-45). */
-		const u8 filter = img->gc_gx_native_alpha
+		const u8 filter = tex_alpha
 			? (u8)GX_NEAR : (u8)GX_LINEAR;
 		const u8 wrap = R_GXNativeFullRes( img ) ? (u8)GX_CLAMP : (u8)GX_REPEAT;
 
-		if( r_gx_bound_texnum != texnum || r_gx_bound_fmt != fmt )
+		if( r_gx_bound_texnum != texnum || r_gx_bound_fmt != fmt
+			|| r_gx_native_bound_pixels != tex_pixels || t->w != w || t->h != h )
 		{
-			GX_InitTexObj( &t->obj, img->pixels[0], (u16)w, (u16)h, fmt, wrap, wrap, GX_FALSE );
+			r_gx_native_bound_pixels = tex_pixels;
+			GX_InitTexObj( &t->obj, tex_pixels, (u16)w, (u16)h, fmt, wrap, wrap, GX_FALSE );
 			GX_InitTexObjFilterMode( &t->obj, filter, filter );
 			t->texnum = texnum;
 			t->w = w;
@@ -1792,7 +1817,7 @@ static gc_gx_tex_t *R_GXNativeTexture( image_t *img, unsigned texnum )
 	}
 	/* Packed world cutouts use ATE. VM gun skins are flooded RGB565 (no ATE).
 	 * VM hands keep RGB5A3 and need ATE for a clean silhouette. */
-	R_GXSetTexAlphaTest( img->gc_gx_native_alpha
+	R_GXSetTexAlphaTest( tex_alpha
 		&& ( !R_GXNativeFullRes( img )
 			|| ( img->name[0] && Q_stristr( img->name, "hands" ) != NULL )));
 	return t;
@@ -4421,7 +4446,7 @@ static vec3_t r_gx_frustum_n[4];
 static float r_gx_frustum_d[4];
 static qboolean r_gx_frustum_ok;
 
-static void R_GXBuildFrustum( void )
+void R_GXBuildFrustum( void )
 {
 	const float hx = DEG2RAD( Q_min( 89.0f, RI.rvp.fov_x * 0.5f + 5.0f ));
 	const float hy = DEG2RAD( Q_min( 89.0f, RI.rvp.fov_y * 0.5f + 5.0f ));
@@ -4442,7 +4467,7 @@ static void R_GXBuildFrustum( void )
 		r_gx_frustum_d[i] = DotProduct( RI.cullorigin, r_gx_frustum_n[i] ) - 16.0f;
 }
 
-static qboolean R_GXBoxOutsideFrustum( const vec3_t mins, const vec3_t maxs )
+qboolean R_GXBoxOutsideFrustum( const vec3_t mins, const vec3_t maxs )
 {
 	int i;
 
@@ -8015,10 +8040,13 @@ int R_GXDrawBrushModel( cl_entity_t *e )
 
 	psurf = &geom->surfaces[mod->firstmodelsurface];
 	{
-	int skip_plane = 0, skip_sky = 0, skip_edges = 0, emit_zero = 0;
+	int skip_plane = 0, skip_sky = 0, skip_edges = 0, emit_zero = 0, skip_frustum = 0;
+	const qboolean unrotated = !e->angles[0] && !e->angles[1] && !e->angles[2];
 
 	int nsort = 0;
-	const int face_cap = gEngfuncs.Sys_CheckParm( "-gcmenuplaystart" ) ? 512 : 256;
+	/* The sort table is the real bound. 256 cut large DoD props (bunkers,
+	 * walls built as one func_wall) down to a few of their faces. */
+	const int face_cap = GC_GX_FACE_SORT_MAX;
 
 	for( i = 0; i < mod->nummodelsurfaces; i++, psurf++ )
 	{
@@ -8047,6 +8075,20 @@ int R_GXDrawBrushModel( cl_entity_t *e )
 			skip_edges++;
 			continue;
 		}
+		/* Large props: drop faces outside the view. Only for unrotated
+		 * entities, whose face bounds are a plain offset of model space. */
+		if( unrotated && psurf->info )
+		{
+			vec3_t fmins, fmaxs;
+
+			VectorAdd( psurf->info->mins, e->origin, fmins );
+			VectorAdd( psurf->info->maxs, e->origin, fmaxs );
+			if( R_GXBoxOutsideFrustum( fmins, fmaxs ))
+			{
+				skip_frustum++;
+				continue;
+			}
+		}
 		/* No CPU backface — cabin walls face inward; angles break modelorg. */
 		if( !R_GXFaceSortPush( &nsort, psurf, i ))
 			break;
@@ -8067,8 +8109,8 @@ int R_GXDrawBrushModel( cl_entity_t *e )
 		if( tram_logs < 3 && !Q_strcmp( mod->name, "*12" ) && ( tr.framecount & 127 ) == 0 )
 		{
 			tram_logs++;
-			gEngfuncs.Con_Reportf( "Xash3D GameCube: tram *12 faces=%d drawn=%d plane=%d sky=%d edges=%d emit0=%d org=%.0f %.0f %.0f ang=%.0f %.0f %.0f eye=%.0f %.0f %.0f\n",
-				mod->nummodelsurfaces, drawn, skip_plane, skip_sky, skip_edges, emit_zero,
+			gEngfuncs.Con_Reportf( "Xash3D GameCube: tram *12 faces=%d drawn=%d plane=%d sky=%d edges=%d emit0=%d frustum=%d org=%.0f %.0f %.0f ang=%.0f %.0f %.0f eye=%.0f %.0f %.0f\n",
+				mod->nummodelsurfaces, drawn, skip_plane, skip_sky, skip_edges, emit_zero, skip_frustum,
 				e->origin[0], e->origin[1], e->origin[2], e->angles[0], e->angles[1], e->angles[2],
 				RI.rvp.vieworigin[0], RI.rvp.vieworigin[1], RI.rvp.vieworigin[2] );
 		}

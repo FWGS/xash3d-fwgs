@@ -21,7 +21,7 @@ probes use a 12KB static bank (no late MEM1 malloc); G94 save/load still mallocs
 #include "common/com_strings.h"
 
 extern int Sys_CheckParm( const char *parm );
-extern unsigned int GC_AramReserve( unsigned int size );
+extern unsigned int GC_AramReserveTagged( unsigned int size, const char *tag );
 extern void GC_AramCopy( unsigned int aram, void *buf, unsigned int len, qboolean write );
 
 #define GC_PROBE_SAVE_FD      (-9001)
@@ -81,7 +81,7 @@ static qboolean GC_ProbeSaveEnsureBlob( void )
 		return true;
 	if( GC_ProbeSaveTransitionMode( ))
 	{
-		gc_probe_save_aram = GC_AramReserve( GC_TRANSITION_ARAM_CAP );
+		gc_probe_save_aram = GC_AramReserveTagged( GC_TRANSITION_ARAM_CAP, "saves" );
 		if( !gc_probe_save_aram )
 		{
 			Con_Reportf( S_ERROR "Xash3D GameCube: transition save bank ARAM reserve failed\n" );
