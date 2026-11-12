@@ -76,7 +76,7 @@ static const gc_button_map_t gc_buttons[] =
 	{ PAD_BUTTON_UP,    K_DPAD_UP,      "D-Up",  "previous weapon" },
 	{ PAD_BUTTON_DOWN,  K_DPAD_DOWN,    "D-Down","next weapon" },
 	{ PAD_BUTTON_LEFT,  K_DPAD_LEFT,    "D-Left","previous weapon" },
-	{ PAD_BUTTON_RIGHT, K_DPAD_RIGHT,   "D-Right","next weapon" },
+	{ PAD_BUTTON_RIGHT, K_DPAD_RIGHT,   "D-Right","scoreboard (dod_score)" },
 };
 
 static u16 prev_buttons;
@@ -117,7 +117,7 @@ static const gc_default_bind_t gc_default_binds[] =
 	{ K_DPAD_UP, "invprev" },
 	{ K_DPAD_DOWN, "invnext" },
 	{ K_DPAD_LEFT, "lastinv" },
-	{ K_DPAD_RIGHT, "invnext" },
+	{ K_DPAD_RIGHT, "dod_score" },
 	{ K_L1_BUTTON, "+attack2" },
 	{ K_R1_BUTTON, "+attack" },
 	{ K_Z_BUTTON, "+duck" },
