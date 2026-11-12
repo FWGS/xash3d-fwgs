@@ -30,6 +30,8 @@ static const gc_vm_model_t gc_vm_models[] =
 	{ "v_scoped98k",	GC_VMF_CROSSBOW },
 	{ "v_bazooka",		GC_VMF_RPG },
 	{ "v_panzerschreck",	GC_VMF_RPG },
+	{ "v_colt",		GC_VMF_GLOCK },
+	{ "v_luger",		GC_VMF_GLOCK },
 	{ "v_amerk",		GC_VMF_CROWBAR },
 	{ "v_spade",		GC_VMF_CROWBAR },
 };
@@ -152,6 +154,18 @@ gc_vm_intent_t GC_VMAnimIntent( gc_vm_family_t family, int hl_anim )
 		case 2: return GC_VMIntent( GC_VMA_HOLSTER, 0, 0 );
 		case 3: case 4: case 5: case 6: case 7: case 8:	// ATTACK1HIT .. ATTACK3HIT
 			return GC_VMIntent( GC_VMA_FIRE, ( hl_anim - 3 ) / 2, 0 );
+		}
+		break;
+	case GC_VMF_GLOCK:
+		// glock_e: IDLE1-3, SHOOT, SHOOT_EMPTY, RELOAD, RELOAD_NOT_EMPTY, DRAW, HOLSTER
+		switch( hl_anim )
+		{
+		case 0: case 1: case 2: return GC_VMIntent( GC_VMA_IDLE, 0, 0 );
+		case 3: return GC_VMIntent( GC_VMA_FIRE, 0, 0 );
+		case 4: return GC_VMIntent( GC_VMA_FIRE, 0, 1 );
+		case 5: case 6: return GC_VMIntent( GC_VMA_RELOAD, 0, hl_anim == 5 );
+		case 7: return GC_VMIntent( GC_VMA_DRAW, 0, 0 );
+		case 8: return GC_VMIntent( GC_VMA_HOLSTER, 0, 0 );
 		}
 		break;
 	default:
