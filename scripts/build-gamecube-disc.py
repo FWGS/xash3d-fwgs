@@ -1360,7 +1360,7 @@ GC_STUDIO_MODELS = (
 	"models/v_colt.mdl",
 	"models/v_luger.mdl",
 	"models/w_crowbar.mdl",
-	# DoD CapFaces map props (env_model / dod_object) — lean-stripped.
+	# DoD CapFaces map props (env_model / dod_object).
 	# Tip: skip forts/kingtiger; caen unique order saturates 6 slots before bulb.
 	"models/mapmodels/hk_satchel.mdl",
 	"models/mapmodels/horse_statue.mdl",
@@ -1370,6 +1370,11 @@ GC_STUDIO_MODELS = (
 	"models/mapmodels/arc_xer_tree2.mdl",
 	"models/mapmodels/furniture.mdl",
 	"models/mapmodels/bulb.mdl",
+	# dod_avalanche env_models — full-skin props (ava-prop-1).
+	"models/mapmodels/sherman.mdl",
+	"models/mapmodels/jagd.mdl",
+	"models/mapmodels/by_banister.mdl",
+	"models/mapmodels/flags.mdl",
 	# Small world NPC — gman (~76KB) OOMs libc malloc after crowbars on GC.
 	"models/roach.mdl",
 	# G315/G371: deferred GX entity pass promotes these NPC meshes.
@@ -2270,9 +2275,10 @@ def inject_gc_studio_into_bootstrap(archive: "zipfile.ZipFile", data: Path) -> i
 	dod_capfaces_stems = {
 		"v_garand", "v_mp40", "v_98k", "v_tommy", "v_colt", "v_luger",
 		"v_amerk", "v_spade", "v_crowbar", "w_crowbar",
-		# CapFaces map props (env_model) — pull from Expansion1 dod tree.
+		# CapFaces map props (env_model) — pull from Expansion1 / content/dod.
 		"sandbags", "bulb", "hk_satchel", "furniture", "by_rubble_set",
 		"arc_xer_tree2", "horse_statue", "by_canopy",
+		"sherman", "jagd", "by_banister", "flags",
 	}
 	for relative in GC_STUDIO_MODELS:
 		src = data / relative
@@ -2304,10 +2310,16 @@ def inject_gc_studio_into_bootstrap(archive: "zipfile.ZipFile", data: Path) -> i
 		dod_capfaces_lean = {
 			"v_garand", "v_mp40", "v_98k", "v_tommy", "v_colt", "v_luger",
 			"v_amerk", "v_spade",
-			"sandbags", "bulb", "hk_satchel", "furniture", "by_rubble_set",
+			# Other CapFaces map props stay lean-stripped for tip maps.
+			"bulb", "hk_satchel", "furniture", "by_rubble_set",
 			"arc_xer_tree2", "horse_statue", "by_canopy",
 		}
+		# Avalanche props keep embedded skins (full fidelity).
+		dod_full_prop_skins = {
+			"sandbags", "sherman", "jagd", "by_banister", "flags",
+		}
 		keep_skins = stem in ("forklift", "loader", "filecabinet", "nihilanth", "baby_headcrab") \
+			or stem in dod_full_prop_skins \
 			or (stem.startswith("v_") and stem not in dod_capfaces_lean)
 		payload = None if is_tex_companion or keep_skins else lean_studio_mesh_bytes(src)
 		if payload is None:

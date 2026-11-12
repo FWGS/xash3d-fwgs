@@ -12706,13 +12706,21 @@ static void GC_TryDeferredStudios( void )
 	{
 		/* CapFaces listen: skip crowbar G105 promote (teamvm14 wedged), but
 		 * still upload resident team-VM skins once Flipper is past present≈4
-		 * (tex19 kept full v_colt in BSS with GX upload skipped → white). */
+		 * (tex19 kept full v_colt in BSS with GX upload skipped → white).
+		 * Full-skin map props (sherman/jagd/…) promote after present≥6 when
+		 * WorldDL tip has room (ava-prop-1 BSS bump OOMd boot). */
 		static qboolean capfaces_skins_attempted;
+		static qboolean capfaces_mapmodels_attempted;
 
 		if( !capfaces_skins_attempted && gc_present_count >= 4 )
 		{
 			capfaces_skins_attempted = true;
 			Mod_GCUploadDeferredStudioSkins();
+		}
+		if( !capfaces_mapmodels_attempted && gc_present_count >= 6 )
+		{
+			capfaces_mapmodels_attempted = true;
+			Mod_GCPromoteMapModels();
 		}
 		return;
 	}

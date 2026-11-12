@@ -170,6 +170,7 @@ qboolean Mod_GCPromoteStudioPath( const char *path ); /* allowlisted MDL → stu
 qboolean Mod_GCStudioPreEntityMeshOnly( void ); /* true during pre-entity mesh promote */
 qboolean Mod_GCStudioPreEntityMeshOnly( void ); /* true during pre-entity mesh promote */
 void Mod_GCTryDeferredStudios( void ); /* G287: post-present MDL promote */
+void Mod_GCPromoteMapModels( void ); /* WorldDL: full-skin mapmodels after MAP_READY */
 void Mod_GCRebindPromotedStudios( void ); /* G371: rebind sv.models after promote */
 void Mod_GCPromoteLeanNpcStudios( void ); /* G375: force NPC promote before DumpFrames */
 /* G105: promote one allowlisted viewmodel after landmark Deploy (or no-op if live). */

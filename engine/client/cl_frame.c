@@ -1409,7 +1409,9 @@ void CL_GameCubeLeanEmitBrushEntities( void )
 {
 	static int log_n;
 	static cl_entity_t lean_brush_ents[6];
-	static cl_entity_t lean_studio_ents[4]; /* G371: NPC + weapon world studios */
+	/* WorldDL listen: emit every nearby map prop (avalanche has ~dozen
+	 * env_model instances across 5 unique MDLs). Was 4 — only sandbags. */
+	static cl_entity_t lean_studio_ents[24];
 	edict_t *player;
 	vec3_t view_org;
 	int e, added = 0, studios = 0;
@@ -1419,9 +1421,9 @@ void CL_GameCubeLeanEmitBrushEntities( void )
 	const int studio_budget = (int)( sizeof( lean_studio_ents ) / sizeof( lean_studio_ents[0] ));
 	const float max_dist = 8000.0f;
 	/* G371: denser AM NPC near dump/landmark eye. Xen bake eye→Nihilanth is
-	 * ~450u; keep headroom for companions. */
+	 * ~450u; keep headroom for companions. WorldDL props: whole-map radius. */
 	const float studio_max_dist = ( Sys_CheckParm( "-gcfullphysics" )
-		|| Sys_CheckParm( "-gcworldrender" )) ? 4800.0f : 1600.0f;
+		|| Sys_CheckParm( "-gcworldrender" )) ? 12000.0f : 1600.0f;
 
 	/* CapFaces listen (-gcworldrender) also lacks a filled Flipper entity
 	 * list (solid=0) — env_model / mapmodels need the same lean emit path. */
@@ -1533,8 +1535,8 @@ void CL_GameCubeLeanEmitBrushEntities( void )
 		&& studio_budget > 0 )
 	{
 		int studio_slots = 0;
-		int picks[4];
-		float pick_dists[4];
+		int picks[24];
+		float pick_dists[24];
 		int n_picks = 0;
 		int slot;
 

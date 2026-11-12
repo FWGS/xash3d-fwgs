@@ -45,11 +45,11 @@ static qboolean Mod_GCIsNewGameRoute( void )
  * Stubbing left GetEyePosition null and stalled denser maps during spawn —
  * the GameCube can hold the early-campaign cast without that compromise. */
 /* 1 MiB studio BSS — fill it. Lean meshes + *t skins keep HL1 looking right. */
-#define GC_REAL_STUDIO_MAX_NPC    20
+#define GC_REAL_STUDIO_MAX_NPC    24
 #define GC_REAL_STUDIO_MAX_VIEW   5
-#define GC_REAL_STUDIO_MAX_BYTES  ( 1000 * 1024 )
+#define GC_REAL_STUDIO_MAX_BYTES  ( 1536 * 1024 )
 #define GC_REAL_STUDIO_MAX_NPC_MENU   16
-#define GC_REAL_STUDIO_MAX_BYTES_MENU ( 1000 * 1024 )
+#define GC_REAL_STUDIO_MAX_BYTES_MENU ( 1536 * 1024 )
 
 static int    gc_real_studio_npc;
 static int    gc_real_studio_view;
@@ -70,6 +70,8 @@ static int     gc_deferred_studio_attempts;
  * stay deferred. tex21 bumped to 384 for full v_colt skins and Host_Init
  * failed gfx.wad (unclaimed 1.32→1.12 Mb) — keep 184 on network. */
 #if XASH_DODGC_NETWORK
+	/* Keep 184 KiB — 768 KiB BSS starved Host_Init (ava-prop-1 heap_free=104).
+	 * Full-skin map props promote from heap after WorldDL MAP_READY. */
 #define GC_STUDIO_BSS_BYTES (184 * 1024)
 #else
 #define GC_STUDIO_BSS_BYTES (384 * 1024)
@@ -392,6 +394,8 @@ static qboolean Mod_GCStudioNameAllowed( const char *name, qboolean *is_viewmode
 		/* CapFaces DoD map props (env_model / dod_object) — lean gc_studio. */
 		"hk_satchel", "horse_statue", "by_rubble_set", "sandbags",
 		"by_canopy", "arc_xer_tree2", "furniture", "bulb",
+		/* dod_avalanche env_models — full-fidelity props (ava-prop-1). */
+		"sherman", "jagd", "by_banister", "flags",
 		NULL
 	};
 	static const char *views[] = {
@@ -871,6 +875,46 @@ void Mod_GCPromoteLeanNpcStudios( void )
 	Con_Reportf( "Xash3D GameCube: G375 dump NPC studios try npc=%d view=%d budget=%s\n",
 		gc_real_studio_npc, gc_real_studio_view, Q_memprint( gc_real_studio_bytes ));
 	Mod_GCRebindPromotedStudios();
+}
+
+/*
+=============
+Mod_GCPromoteMapModels
+
+WorldDL listen: promote every allowlisted models/mapmodels/*.mdl from the
+server precache after MAP_READY — full-skin props are too big for the 184 KiB
+boot BSS (sherman≈294 KiB) and must use post-world heap (ava-prop-1).
+=============
+*/
+void Mod_GCPromoteMapModels( void )
+{
+	int i;
+	int tried = 0;
+	int ok = 0;
+
+	if( !SV_Active() )
+		return;
+	if( !Sys_CheckParm( "-gcworldrender" ))
+		return;
+
+	FS_ClearFindMissCache();
+	Image_GCPurgeDecodeScratch();
+	for( i = 1; i < MAX_MODELS && sv.model_precache[i][0]; i++ )
+	{
+		const char *name = sv.model_precache[i];
+		qboolean is_view = false;
+
+		if( !name || !Q_stristr( name, "mapmodels/" ) || !Q_stristr( name, ".mdl" ))
+			continue;
+		if( !Mod_GCStudioNameAllowed( name, &is_view ))
+			continue;
+		tried++;
+		if( Mod_GCPromoteStudioPath( name ))
+			ok++;
+	}
+	Mod_GCRebindPromotedStudios();
+	Con_Reportf( "Xash3D GameCube: mapmodel studios promote ok=%d/%d budget=%s tip=%s\n",
+		ok, tried, Q_memprint( gc_real_studio_bytes ), Q_memprint( GC_MemHeapFreeBytes() ));
 }
 
 /*
