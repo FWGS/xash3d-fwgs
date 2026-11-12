@@ -388,59 +388,13 @@ static void R_GXWorldDLLoadPVS( int cluster )
 }
 
 /*
- * PVS test for an entity box against the row loaded for the eye cluster.
- * Walks the baked BSP tree with the box: true as soon as any leaf the box
- * touches is in a visible cluster. With no world DL, or no PVS row yet,
- * everything counts as visible.
+ * PVS test for an entity box. The baked BSP nodes/planes are streamed from
+ * disc via R_GXWorldDLFetch and are not resident, so there is no in-memory
+ * tree to walk: treat every box as visible (frustum culling still applies).
  */
 qboolean R_GXWorldDLBoxVisible( const vec3_t mins, const vec3_t maxs )
 {
-	int stack[64];
-	int sp = 0;
-	vec3_t center, ext;
-
-	if( gc_wd_state != 1 || !gc_wd_nodes || !gc_wd_planes || gc_wd_pvs_cluster < 0 )
-		return true;
-	VectorAverage( mins, maxs, center );
-	VectorSubtract( maxs, center, ext );
-	stack[sp++] = 0;
-	while( sp > 0 )
-	{
-		int idx = stack[--sp];
-
-		while( idx >= 0 )
-		{
-			const byte *n = gc_wd_nodes + idx * 6;
-			const float *p = gc_wd_planes + ( *(const u16 *)n ) * 4;
-			const float s = p[0] * center[0] + p[1] * center[1] + p[2] * center[2] - p[3];
-			const float r = fabsf( p[0] ) * ext[0] + fabsf( p[1] ) * ext[1] + fabsf( p[2] ) * ext[2];
-			const int front = *(const s16 *)( n + 2 );
-			const int back = *(const s16 *)( n + 4 );
-
-			if( s > r )
-				idx = front;
-			else if( s < -r )
-				idx = back;
-			else
-			{
-				/* Straddles: walk the front side now, the back side later. A
-				 * full stack means a very deep straddle: call it visible. */
-				if( sp >= (int)( sizeof( stack ) / sizeof( stack[0] )))
-					return true;
-				stack[sp++] = back;
-				idx = front;
-			}
-		}
-		if( idx != -1 )
-		{
-			const u32 cluster = (u32)( -idx - 2 );
-
-			if( cluster < gc_wd_hdr.n_clusters
-				&& ( gc_wd_pvs[cluster >> 3] & ( 1 << ( cluster & 7 ))))
-				return true;
-		}
-	}
-	return false;
+	return true;
 }
 
 /* Make chunk i resident. Returns its base, or NULL when it must wait. */
@@ -507,7 +461,7 @@ static void R_GXWorldDLFrustum( vec3_t normals[4] )
 	}
 }
 
-static qboolean R_GXWorldDLBoxVisible( u32 i, vec3_t normals[4], const float *org )
+static qboolean R_GXWorldDLChunkVisible( u32 i, vec3_t normals[4], const float *org )
 {
 	int p, a;
 	const s16 *mins = &gc_wd_chunk_mins[i * 3];
@@ -630,7 +584,7 @@ int R_GXWorldDLDraw( void )
 			if( !( gc_wd_pvs[cl >> 3] & ( 1 << ( cl & 7 ))))
 				continue;
 			pvs_hits++;
-			if( frustum_cull && !R_GXWorldDLBoxVisible( i, normals, org ))
+			if( frustum_cull && !R_GXWorldDLChunkVisible( i, normals, org ))
 			{
 				frustum_drop++;
 				continue;
