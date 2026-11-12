@@ -76,6 +76,18 @@ CVAR_DEFINE_AUTO( sw_mipcap, "0", FCVAR_GLCONFIG, "nothing" );
 CVAR_DEFINE_AUTO( sw_surfcacheoverride, "0", 0, "" );
 #endif
 static CVAR_DEFINE_AUTO( sw_waterwarp, "1", FCVAR_GLCONFIG, "nothing" );
+/* Entity draw caps (0 = built-in default). Raise on hardware/Dolphin to find
+ * how many models/props/sprites a map can render before MEM1 or frame time
+ * gives out; replaces recompiling for each experiment. */
+static CVAR_DEFINE_AUTO( gc_max_studios, "0", FCVAR_ARCHIVE, "GameCube: max studio models per pass (0 = default)" );
+static CVAR_DEFINE_AUTO( gc_max_sprites, "0", FCVAR_ARCHIVE, "GameCube: max sprites per low-res pass (0 = default)" );
+static CVAR_DEFINE_AUTO( gc_max_brush_ents, "0", FCVAR_ARCHIVE, "GameCube: max brush entities per frame (0 = default)" );
+
+static unsigned GC_EntCap( const convar_t *cv, unsigned def )
+{
+	return cv->value >= 1.0f ? (unsigned)cv->value : def;
+}
+
 static CVAR_DEFINE_AUTO( sw_notransbrushes, "0", FCVAR_GLCONFIG, "do not apply transparency to water/glasses (faster)" );
 CVAR_DEFINE_AUTO( sw_noalphabrushes, "0", FCVAR_GLCONFIG, "do not draw brush holes (faster)" );
 CVAR_DEFINE_AUTO( r_traceglow, "0", FCVAR_GLCONFIG, "cull flares behind models" );
@@ -647,8 +659,8 @@ static void R_DrawStudioEntitiesLowRes( void )
 	unsigned drawn = 0;
 	unsigned sprites = 0;
 	unsigned brushes = 0;
-	const unsigned max_studio = 4;
-	const unsigned max_sprites = 2;
+	const unsigned max_studio = GC_EntCap( &gc_max_studios, 4 );
+	const unsigned max_sprites = GC_EntCap( &gc_max_sprites, 2 );
 	/* Cap 3 outside silent G36 windows (budget still skips after one draw). */
 	const unsigned max_brushes = 3;
 	qboolean drew_view = false;
@@ -903,7 +915,7 @@ static void R_DrawEntitiesOnList( void )
 	int lean_brushes = 0;
 	int lean_studios = 0;
 	const int lean_max_brushes = gEngfuncs.Sys_CheckParm( "-gcworldrender" ) ? 48 : 6;
-	const int lean_max_studios = gEngfuncs.Sys_CheckParm( "-gcworldrender" ) ? 24 : 1;
+	const int lean_max_studios = (int)GC_EntCap( &gc_max_studios, gEngfuncs.Sys_CheckParm( "-gcworldrender" ) ? 24 : 1 );
 
 	if( GC_UseGxWorldDraw() && gEngfuncs.Sys_CheckParm( "-gcnewgame" ))
 	{
@@ -1817,7 +1829,7 @@ everything behind the camera and rooms the eye cannot see from its leaf.
 static qboolean R_GXBrushEntityVisible( cl_entity_t *e )
 {
 	extern qboolean R_GXBoxOutsideFrustum( const vec3_t mins, const vec3_t maxs );
-	extern qboolean R_GXWorldDLBoxVisible( const vec3_t mins, const vec3_t maxs );
+	extern qboolean R_GXWorldDLEntityBoxVisible( const vec3_t mins, const vec3_t maxs );
 	vec3_t mins, maxs;
 
 	r_gx_last_cull_was_pvs = false;
@@ -1839,7 +1851,7 @@ static qboolean R_GXBrushEntityVisible( cl_entity_t *e )
 		return true;
 	if( R_GXBoxOutsideFrustum( mins, maxs ))
 		return false;
-	if( !R_GXWorldDLBoxVisible( mins, maxs ))
+	if( !R_GXWorldDLEntityBoxVisible( mins, maxs ))
 	{
 		r_gx_last_cull_was_pvs = true;
 		return false;
@@ -1973,7 +1985,7 @@ static void R_EdgeDrawingGcmapProbe( void )
 						cull_frustum++;
 					continue;
 				}
-				if( drawn_ents >= GC_GX_BRUSH_ENTS_MAX )
+				if( drawn_ents >= (int)GC_EntCap( &gc_max_brush_ents, GC_GX_BRUSH_ENTS_MAX ))
 				{
 					over_cap++;
 					continue;
@@ -2626,6 +2638,9 @@ R_BeginFrame
 */
 void GAME_EXPORT R_BeginFrame( qboolean clearScene )
 {
+#if XASH_GAMECUBE
+	R_GXSkinBeginFrame();
+#endif
 	R_Set2DMode( true );
 
 	// draw buffer stuff
@@ -2962,6 +2977,9 @@ qboolean GAME_EXPORT R_Init( void )
 	gEngfuncs.Cvar_RegisterVariable( &sw_surfcacheoverride );
 	gEngfuncs.Cvar_RegisterVariable( &sw_waterwarp );
 	gEngfuncs.Cvar_RegisterVariable( &sw_notransbrushes );
+	gEngfuncs.Cvar_RegisterVariable( &gc_max_studios );
+	gEngfuncs.Cvar_RegisterVariable( &gc_max_sprites );
+	gEngfuncs.Cvar_RegisterVariable( &gc_max_brush_ents );
 	gEngfuncs.Cvar_RegisterVariable( &sw_noalphabrushes );
 	gEngfuncs.Cvar_RegisterVariable( &r_traceglow );
 #ifndef DISABLE_TEXFILTER

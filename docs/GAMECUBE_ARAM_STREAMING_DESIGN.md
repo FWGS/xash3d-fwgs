@@ -232,3 +232,22 @@ every 64 frames:
 - Real DMA and disc speeds: the size of the streaming budget per frame, and every
   hold length.
 - Whether `GX_InvalidateTexAll` on streaming frames shows up on Flipper.
+
+## Stage 2b: studio skins (policy core)
+
+`skin_stream.[ch]` (platform independent, host-tested) holds the policy for
+streaming high-resolution studio skins:
+
+- Each skin's full pixels go into the ARAM asset cache (pinned while registered);
+  MEM1 keeps only its low mip.
+- A bounded MEM1 window holds the full-resolution skins drawn recently.
+- `GC_SkinStreamGet` returns full pixels when resident, otherwise the low mip
+  while promoting from ARAM, at most `frame_budget` bytes per frame.
+- Eviction is LRU and never touches a skin requested in the current frame, so a
+  returned pointer is valid until the next `GC_SkinStreamBeginFrame`.
+
+Not wired yet: `R_GCAllocStudioSkinOverflow` in `ref/gx/r_image.c` still caps skins
+by the 384 KiB overflow window (96/64/48 px). Wiring means registering each skin
+at upload (low mip into the existing overflow, full into ARAM), asking
+`GC_SkinStreamGet` per draw in `R_StudioDrawPoints`, and re-pointing the GX texture
+object on a size change. That needs a ceres build and a Dolphin run to verify.

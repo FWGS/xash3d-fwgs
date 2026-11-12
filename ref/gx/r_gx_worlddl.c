@@ -388,16 +388,18 @@ static void R_GXWorldDLLoadPVS( int cluster )
 }
 
 /*
- * PVS test for an entity box. The baked BSP nodes/planes are streamed from
- * disc via R_GXWorldDLFetch and are not resident, so there is no in-memory
- * tree to walk: treat every box as visible (frustum culling still applies).
+ * PVS test for an entity box. The world DL now streams its BSP nodes and planes
+ * from ARAM instead of keeping them resident, so walking the tree per entity
+ * would cost a DMA per node. Until a resident node copy exists every entity
+ * counts as visible here; brush entities are still frustum culled by the caller.
  */
-qboolean R_GXWorldDLBoxVisible( const vec3_t mins, const vec3_t maxs )
+qboolean R_GXWorldDLEntityBoxVisible( const vec3_t mins, const vec3_t maxs )
 {
+	(void)mins;
+	(void)maxs;
 	return true;
 }
 
-/* Make chunk i resident. Returns its base, or NULL when it must wait. */
 static byte *R_GXWorldDLResident( u32 i, u32 *budget )
 {
 	const u32 bytes = gc_wd_chunk_bytes[i];
@@ -461,7 +463,7 @@ static void R_GXWorldDLFrustum( vec3_t normals[4] )
 	}
 }
 
-static qboolean R_GXWorldDLChunkVisible( u32 i, vec3_t normals[4], const float *org )
+static qboolean R_GXWorldDLBoxVisible( u32 i, vec3_t normals[4], const float *org )
 {
 	int p, a;
 	const s16 *mins = &gc_wd_chunk_mins[i * 3];
@@ -488,7 +490,7 @@ int R_GXWorldDLDraw( void )
 	vec3_t normals[4];
 	u32 budget;
 	u32 i;
-	int cluster, drawn = 0, chunks = 0, waiting = 0, cur_mat = -1;
+	int cluster, drawn = 0, chunks = 0, waiting = 0, cur_mat = -1, bind_miss = 0;
 
 	if( gc_wd_state != 1 )
 		return 0;
@@ -584,7 +586,7 @@ int R_GXWorldDLDraw( void )
 			if( !( gc_wd_pvs[cl >> 3] & ( 1 << ( cl & 7 ))))
 				continue;
 			pvs_hits++;
-			if( frustum_cull && !R_GXWorldDLChunkVisible( i, normals, org ))
+			if( frustum_cull && !R_GXWorldDLBoxVisible( i, normals, org ))
 			{
 				frustum_drop++;
 				continue;
@@ -620,6 +622,7 @@ int R_GXWorldDLDraw( void )
 							gc_wd_texnum[b->mat] = (s16)again;
 						else
 						{
+							bind_miss++;
 							if( miss_logged < 8 )
 							{
 								miss_logged++;
@@ -746,8 +749,8 @@ int R_GXWorldDLDraw( void )
 	{
 		logged = true;
 		gEngfuncs.Con_Reportf(
-			"Xash3D GameCube: world DL frame=%d cluster=%d chunks=%d batches=%d waiting=%d\n",
-			gc_wd_frame, cluster, chunks, drawn, waiting );
+			"Xash3D GameCube: world DL frame=%d cluster=%d chunks=%d batches=%d waiting=%d bind_miss=%d\n",
+			gc_wd_frame, cluster, chunks, drawn, waiting, bind_miss );
 	}
 	return drawn;
 }

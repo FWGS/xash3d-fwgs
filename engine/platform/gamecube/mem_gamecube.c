@@ -1219,6 +1219,11 @@ is a DMA instead of a disc read.
 
 ==============================================================================
 */
+gc_aram_cache_t *GC_AramAssetCacheGet( void )
+{
+	return GC_AramManagerInit() ? &gc_aram_cache : NULL;
+}
+
 qboolean GC_AssetCacheLookup( const char *path, unsigned int *size )
 {
 	int index;
