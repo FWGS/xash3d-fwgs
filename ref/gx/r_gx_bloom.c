@@ -32,14 +32,16 @@ Enabled for -gccapfacessmoke (Lost Coast) or -gcbloom; -gcnobloom disables.
 extern void *R_GcmapBorrowSoftZ( unsigned offset, unsigned bytes );
 static GXTexObj gc_bloom_tex;
 
-/* Bright surfaces across the frame, not only the sun disc. 232 left
- * everything but the sky under the floor. 64 lets the water, hulls
- * and walls feed the glow; pixels under that stay dark. */
-#define GC_BLOOM_THRESHOLD 64 /* 0..255 luma floor */
+/* The overcast sky sits at luma ~200. A floor of 64 added ~+48 to every
+ * sky pixel and washed all outdoor frames to white (run bloom-all2), which
+ * is the largest gap to retail; 232 left only the sun core. Floor 200 at
+ * full tint keeps the cloud structure and still lets the sun, glints and
+ * sunlit walls glow. Do not lower it without checking the sky in a ride. */
+#define GC_BLOOM_THRESHOLD 200 /* 0..255 luma floor */
 #define GC_BLOOM_TINT_R 255
 #define GC_BLOOM_TINT_G 236
 #define GC_BLOOM_TINT_B 196
-#define GC_BLOOM_TINT_A 120    /* overall strength, applied via tint scale */
+#define GC_BLOOM_TINT_A 255    /* overall strength, applied via tint scale */
 
 static int gc_bloom_enabled = -1;
 
