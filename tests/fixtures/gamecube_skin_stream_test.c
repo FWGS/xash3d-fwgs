@@ -131,6 +131,58 @@ static void test_reset_frees_aram( void )
 	assert( reg( 0, "a" ) >= 0 );
 }
 
+/* RGB565 tiles: 2 bytes per texel. 64x64 = 8 KiB. */
+static void test_bytes_per_texel( void )
+{
+	uint16_t w, h;
+	int is_full, a;
+	const uint8_t *p;
+
+	setup( 32 * 1024 );
+	a = GC_SkinStreamRegisterBpp( &ss, "tiled", 64, 64, full[0], 16, 16, low[0], 2 );
+	assert( a >= 0 );
+	GC_SkinStreamBeginFrame( &ss );
+	p = GC_SkinStreamGet( &ss, a, &w, &h, &is_full );
+	assert( is_full && w == 64 && h == 64 );
+	assert( p[0] == 0x10 && p[8191] == 0x10 );     /* all 8192 bytes copied */
+	assert( ss.window + ss.skins[a].win_off == p );
+	/* 128x128x2 = 32 KiB needs 32 KiB budget, then fits the 40 KiB window once. */
+	assert( GC_SkinStreamRegisterBpp( &ss, "big", 128, 128, full[1], 32, 32, low[1], 2 ) >= 0 );
+	assert( GC_SkinStreamRegisterBpp( &ss, "bad", 8, 8, full[1], 4, 4, low[1], 0 ) < 0 );
+	assert( GC_SkinStreamRegisterBpp( &ss, "bad", 8, 8, full[1], 4, 4, low[1], 5 ) < 0 );
+	assert( GC_SkinStreamValidate( &ss ));
+}
+
+static void test_unregister( void )
+{
+	uint16_t w, h;
+	int is_full, a, b;
+	uint32_t before;
+
+	setup( 64 * 1024 );
+	before = GC_AramHeapFreeBytes( &heap );
+	a = reg( 0, "a" );
+	b = reg( 1, "b" );
+	GC_SkinStreamBeginFrame( &ss );
+	(void)GC_SkinStreamGet( &ss, a, &w, &h, &is_full );
+	(void)GC_SkinStreamGet( &ss, b, &w, &h, &is_full );
+	assert( ss.promotions == 2 );
+	GC_SkinStreamUnregister( &ss, a );
+	assert( GC_SkinStreamGet( &ss, a, NULL, NULL, NULL ) == NULL );
+	assert( ss.evictions == 0 && GC_SkinStreamValidate( &ss ));
+	/* b is untouched and still resident. */
+	assert( GC_SkinStreamGet( &ss, b, &w, &h, &is_full ) != NULL && is_full && ss.promotions == 2 );
+	/* The freed window extent and handle are reusable. */
+	assert( reg( 2, "c" ) == a );
+	GC_SkinStreamUnregister( &ss, a );
+	GC_SkinStreamUnregister( &ss, b );
+	GC_SkinStreamUnregister( &ss, b );             /* idempotent */
+	GC_SkinStreamUnregister( &ss, -1 );
+	GC_SkinStreamUnregister( &ss, GC_SKIN_MAX );
+	assert( GC_AramHeapFreeBytes( &heap ) == before );
+	assert( GC_SkinStreamValidate( &ss ));
+}
+
 static void test_rejects_bad_input( void )
 {
 	setup( 1024 );
@@ -148,6 +200,8 @@ int main( void )
 	test_budget_serves_low_mip();
 	test_lru_eviction_keeps_current_frame();
 	test_reset_frees_aram();
+	test_bytes_per_texel();
+	test_unregister();
 	test_rejects_bad_input();
 	puts( "skin stream ok" );
 	return 0;

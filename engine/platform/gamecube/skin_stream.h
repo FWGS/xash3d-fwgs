@@ -31,6 +31,7 @@ typedef struct
 	int      aram_index;         /* asset in the ARAM cache */
 	int32_t  win_off;            /* offset in the window, -1 if not resident */
 	uint32_t last_frame;
+	uint8_t  bpp;                /* bytes per texel of full and low */
 	uint8_t  used;
 } gc_skin_t;
 
@@ -62,6 +63,14 @@ void GC_SkinStreamInit( gc_skin_stream_t *s, gc_aram_cache_t *cache,
 int  GC_SkinStreamRegister( gc_skin_stream_t *s, const char *name,
 	uint16_t w, uint16_t h, const void *full_pixels,
 	uint16_t low_w, uint16_t low_h, const void *low_pixels );
+/* Same, for formats wider than a byte per texel (RGB565 tiles are 2). The low
+ * mip must use the same format; w, h and the returned sizes are in texels. */
+int  GC_SkinStreamRegisterBpp( gc_skin_stream_t *s, const char *name,
+	uint16_t w, uint16_t h, const void *full_pixels,
+	uint16_t low_w, uint16_t low_h, const void *low_pixels, unsigned bpp );
+/* Release one skin (its texture was freed): unpins and drops the ARAM asset
+ * and gives back its window extent. The handle may be reused afterwards. */
+void GC_SkinStreamUnregister( gc_skin_stream_t *s, int handle );
 /* Start a frame: resets the promotion budget and releases last frame's pins. */
 void GC_SkinStreamBeginFrame( gc_skin_stream_t *s );
 /* Pixels to draw this frame. Never NULL for a valid handle. w and h receive the

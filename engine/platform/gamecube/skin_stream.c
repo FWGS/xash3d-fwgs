@@ -132,11 +132,19 @@ int GC_SkinStreamRegister( gc_skin_stream_t *s, const char *name,
 	uint16_t w, uint16_t h, const void *full_pixels,
 	uint16_t low_w, uint16_t low_h, const void *low_pixels )
 {
+	return GC_SkinStreamRegisterBpp( s, name, w, h, full_pixels, low_w, low_h, low_pixels, 1 );
+}
+
+int GC_SkinStreamRegisterBpp( gc_skin_stream_t *s, const char *name,
+	uint16_t w, uint16_t h, const void *full_pixels,
+	uint16_t low_w, uint16_t low_h, const void *low_pixels, unsigned bpp )
+{
 	char key[GC_ARAM_NAME_LEN];
 	gc_skin_t *k = NULL;
 	int i, idx = -1;
 
-	if( !name || !name[0] || !full_pixels || !low_pixels || !w || !h || !low_w || !low_h )
+	if( !name || !name[0] || !full_pixels || !low_pixels || !w || !h || !low_w || !low_h
+		|| bpp < 1 || bpp > 4 )
 		return -1;
 	for( i = 0; i < GC_SKIN_MAX; i++ )
 	{
@@ -150,7 +158,8 @@ int GC_SkinStreamRegister( gc_skin_stream_t *s, const char *name,
 	k = &s->skins[idx];
 	memset( k, 0, sizeof( *k ));
 	strncpy( k->name, name, sizeof( k->name ) - 1 );
-	k->full_bytes = (uint32_t)w * h;
+	k->full_bytes = (uint32_t)w * h * bpp;
+	k->bpp = (uint8_t)bpp;
 	if( SS_Align( k->full_bytes ) > s->window_bytes )
 		return -1;
 	strncpy( key, name, sizeof( key ) - 1 );
@@ -171,6 +180,24 @@ int GC_SkinStreamRegister( gc_skin_stream_t *s, const char *name,
 	k->win_off = -1;
 	k->used = 1;
 	return idx;
+}
+
+void GC_SkinStreamUnregister( gc_skin_stream_t *s, int handle )
+{
+	gc_skin_t *k;
+
+	if( handle < 0 || handle >= GC_SKIN_MAX || !s->skins[handle].used )
+		return;
+	k = &s->skins[handle];
+	if( k->win_off >= 0 )
+	{
+		SS_Evict( s, handle );
+		s->evictions--;   /* a release is not an eviction */
+	}
+	GC_AramCacheUnpin( s->cache, k->aram_index );
+	GC_AramCacheEvict( s->cache, k->name );
+	memset( k, 0, sizeof( *k ));
+	k->win_off = -1;
 }
 
 void GC_SkinStreamBeginFrame( gc_skin_stream_t *s )

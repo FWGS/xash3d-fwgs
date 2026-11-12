@@ -1436,6 +1436,7 @@ binds only load the texture object. The soft renderer does not draw these on thi
 =============
 */
 static gc_gx_tex_t r_gx_tex_native;
+static const void *r_gx_native_bound_pixels;
 static unsigned r_gx_tex_native_conversions;
 static int r_gx_tex_native_route = -1;
 extern qboolean GC_MenuRunsServer( void );
@@ -1470,6 +1471,8 @@ static gc_gx_tex_t *R_GXNativeTexture( image_t *img, unsigned texnum )
 	const int cap = R_GXNativeFullRes( img ) ? 1024 : GC_GX_TEX_MAX_DIM;
 	int step_x = 1, step_y = 1, w, h;
 	u8 fmt;
+	pixel_t *tex_pixels;
+	qboolean tex_alpha;
 
 	/* Larger sides are box filtered down: without mipmaps they shimmer. */
 	while( img->width / step_x > cap )
@@ -1759,19 +1762,41 @@ static gc_gx_tex_t *R_GXNativeTexture( image_t *img, unsigned texnum )
 		r_gx_tex_native_conversions++;
 		r_gx_bound_texnum = 0;
 	}
-	fmt = img->gc_gx_native_alpha ? (u8)GX_TF_RGB5A3 : (u8)GX_TF_RGB565;
+	/* A viewmodel skin with a full-resolution copy in ARAM draws that while it
+	 * is resident in the MEM1 window, the low mip (pixels[0]) until then. */
+	tex_pixels = img->pixels[0];
+	tex_alpha = img->gc_gx_native_alpha ? true : false;
+	if( img->gc_skin_handle )
+	{
+		int sw = 0, sh = 0;
+		qboolean salpha = false, promoted = false;
+		const void *sp = R_GXSkinGet( img, &sw, &sh, &salpha, &promoted );
+
+		if( sp )
+		{
+			tex_pixels = (pixel_t *)sp;
+			tex_alpha = salpha;
+			w = sw;
+			h = sh;
+		}
+		if( promoted )
+			r_gx_bound_texnum = 0;
+	}
+	fmt = tex_alpha ? (u8)GX_TF_RGB5A3 : (u8)GX_TF_RGB565;
 	{
 		/* Masked RGB5A3 needs NEAREST under ATE (LINEAR + ATE ghosted hand
 		 * edges in ava-play99-101). Opaque VM gun skins stay LINEAR
 		 * (NEAREST + MODULATE = static wood). Clamp VMs: REPEAT wrapped
 		 * atlas padding into sleeves (ava-play99-45). */
-		const u8 filter = img->gc_gx_native_alpha
+		const u8 filter = tex_alpha
 			? (u8)GX_NEAR : (u8)GX_LINEAR;
 		const u8 wrap = R_GXNativeFullRes( img ) ? (u8)GX_CLAMP : (u8)GX_REPEAT;
 
-		if( r_gx_bound_texnum != texnum || r_gx_bound_fmt != fmt )
+		if( r_gx_bound_texnum != texnum || r_gx_bound_fmt != fmt
+			|| r_gx_native_bound_pixels != tex_pixels || t->w != w || t->h != h )
 		{
-			GX_InitTexObj( &t->obj, img->pixels[0], (u16)w, (u16)h, fmt, wrap, wrap, GX_FALSE );
+			r_gx_native_bound_pixels = tex_pixels;
+			GX_InitTexObj( &t->obj, tex_pixels, (u16)w, (u16)h, fmt, wrap, wrap, GX_FALSE );
 			GX_InitTexObjFilterMode( &t->obj, filter, filter );
 			t->texnum = texnum;
 			t->w = w;
@@ -1792,7 +1817,7 @@ static gc_gx_tex_t *R_GXNativeTexture( image_t *img, unsigned texnum )
 	}
 	/* Packed world cutouts use ATE. VM gun skins are flooded RGB565 (no ATE).
 	 * VM hands keep RGB5A3 and need ATE for a clean silhouette. */
-	R_GXSetTexAlphaTest( img->gc_gx_native_alpha
+	R_GXSetTexAlphaTest( tex_alpha
 		&& ( !R_GXNativeFullRes( img )
 			|| ( img->name[0] && Q_stristr( img->name, "hands" ) != NULL )));
 	return t;
