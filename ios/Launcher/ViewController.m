@@ -44,8 +44,7 @@ GNU General Public License for more details.
 		return;
 	}
 	
-	if (!self.games)
-		self.games = [NSMutableArray arrayWithCapacity:dirList.count];
+	NSMutableArray *list = [NSMutableArray arrayWithCapacity:dirList.count];
 
 	for (NSURL *url in dirList)
 	{
@@ -62,35 +61,37 @@ GNU General Public License for more details.
 		if(!isdir.boolValue)
 			continue;
 		
-		NSString *gameinfoDir = [url.path stringByAppendingPathComponent:@"gameinfo.txt"];
-		NSString *liblistDir = [url.path stringByAppendingPathComponent:@"liblist.gam"];
-		Game *game;
-		
 		bool skip = NO;
 		for (Game *game in self.games)
 		{
 			if ([game.URL isEqual:url])
 			{
 				skip = YES;
+				[list addObject:game];
 				break;
 			}
 		}
 		
 		if (skip) continue;
-		
+
+		NSString *gameinfoDir = [url.path stringByAppendingPathComponent:@"gameinfo.txt"];
+		NSString *liblistDir = [url.path stringByAppendingPathComponent:@"liblist.gam"];
+		Game *game;
+				
 		if ([NSFileManager.defaultManager fileExistsAtPath:gameinfoDir])
 		{
 			game = [[Game alloc] initWithURL:url gameInfoPath:gameinfoDir];
-			[self.games addObject:game];
+			[list addObject:game];
 		}
 		else if ([NSFileManager.defaultManager fileExistsAtPath:liblistDir])
 		{
 			game = [[Game alloc] initWithURL:url gameInfoPath:liblistDir];
-			[self.games addObject:game];
+			[list addObject:game];
 		}
 		else continue;
 	}
-	
+
+	self.games = list.copy;
 	[self.gamesView reloadData];
 }
 
@@ -146,6 +147,21 @@ GNU General Public License for more details.
 }
 
 - (NSInteger)collectionView:(nonnull UICollectionView *)collectionView numberOfItemsInSection:(NSInteger)section {
+	//TODO: alternative for older versions
+	if (@available(iOS 17.0, *)) {
+		if (self.games.count == 0)
+		{
+			UIContentUnavailableConfiguration *config = [UIContentUnavailableConfiguration emptyConfiguration];
+			config.text = @"No games found";
+			config.secondaryText = @"Add game folders using the files app to get started";
+			self.contentUnavailableConfiguration = config;
+		}
+		else
+		{
+			self.contentUnavailableConfiguration = nil;
+		}
+	}
+	
 	return self.games.count;
 }
 

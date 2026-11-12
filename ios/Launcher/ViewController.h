@@ -18,7 +18,7 @@ GNU General Public License for more details.
 @interface GamesViewController : UIViewController <UICollectionViewDataSource, UICollectionViewDelegateFlowLayout>
 
 @property(nonatomic) UICollectionView *gamesView;
-@property(nonatomic) NSMutableArray *games;
+@property(nonatomic) NSArray *games;
 
 -(void)updateGameDirs;
 

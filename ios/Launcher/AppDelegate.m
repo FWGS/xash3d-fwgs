@@ -35,7 +35,7 @@ NSString *libraryDirectory;
 	//freopen([logsdir fileSystemRepresentation], "a+", stdout);
 	NSLog(@"Max framerate: %ld", (long)UIScreen.mainScreen.maximumFramesPerSecond);
 	
-	[NSFileManager.defaultManager createDirectoryAtPath:[documentsDirctory.path stringByAppendingPathComponent:@"Dummy folder"] withIntermediateDirectories:YES attributes:nil error:nil];
+	[NSFileManager.defaultManager createFileAtPath:[documentsDirctory.path stringByAppendingPathComponent:@"Add game folders here"] contents:nil attributes:nil];
 	
 	libraryDirectory = NSSearchPathForDirectoriesInDomains(NSLibraryDirectory, NSUserDomainMask, YES)[0];
 	
