@@ -40,6 +40,17 @@ static void Sound_Reset( void )
 extern byte *Mod_GCSoundScratch( fs_offset_t size );
 extern qboolean Mod_GCIsSoundScratch( const void *ptr );
 
+/* CapFaces WorldDL holds studio *t skins in the shared tex scratch AND the
+ * filesystem pool is often tip-empty (FS_LoadZIPFile OOM). Tip-safe combat
+ * WAVs still need a place to land — keep a dedicated 20 KiB file buffer. */
+static byte s_gc_sfx_filebuf[20u * 1024u];
+static qboolean s_gc_sfx_filebuf_busy;
+
+static qboolean SND_IsTempFileBuf( const void *ptr )
+{
+	return ptr == (const void *)s_gc_sfx_filebuf || Mod_GCIsSoundScratch( ptr );
+}
+
 static byte *SND_LOADFILE( const char *path, fs_offset_t *size )
 {
 	file_t *f;
@@ -69,12 +80,30 @@ static byte *SND_LOADFILE( const char *path, fs_offset_t *size )
 		return NULL;
 	*size = FS_FileLength( f );
 	buf = Mod_GCSoundScratch( *size );
-	if( !buf || FS_Read( f, buf, *size ) != *size )
-		buf = NULL;
+	if( !buf && !s_gc_sfx_filebuf_busy && *size <= (fs_offset_t)sizeof( s_gc_sfx_filebuf ))
+	{
+		buf = s_gc_sfx_filebuf;
+		s_gc_sfx_filebuf_busy = true;
+	}
+	if( buf )
+	{
+		if( FS_Read( f, buf, *size ) != *size )
+		{
+			if( buf == s_gc_sfx_filebuf )
+				s_gc_sfx_filebuf_busy = false;
+			buf = NULL;
+		}
+		FS_Close( f );
+		return buf;
+	}
 	FS_Close( f );
-	return buf;
+	/* Last resort: fragmented heap may still service a tiny FS_LoadFile. */
+	return FS_LoadFile( path, size, false );
 }
-#define SND_FREEFILE( f ) do { if( !Mod_GCIsSoundScratch( f )) Mem_Free( f ); } while( 0 )
+#define SND_FREEFILE( f ) do { \
+	if( (f) == s_gc_sfx_filebuf ) s_gc_sfx_filebuf_busy = false; \
+	else if( !Mod_GCIsSoundScratch( f )) Mem_Free( f ); \
+} while( 0 )
 #else
 #define SND_LOADFILE( path, size ) FS_LoadFile( path, size, false )
 #define SND_FREEFILE( f ) Mem_Free( f )
@@ -226,7 +255,9 @@ wavdata_t *FS_LoadSound( const char *filename, const byte *buffer, size_t size )
 #if XASH_GAMECUBE
 				if( success && sound.gc_inplace_file )
 				{
-					wavdata_t *pack = Mod_GCIsSoundScratch( f ) ? NULL : SoundPackInPlaceFile( f, filesize );
+					/* Scratch/static filebufs must SoundPack()-copy; inplace
+					 * would alias a non-heap buffer into the sfx cache. */
+					wavdata_t *pack = SND_IsTempFileBuf( f ) ? NULL : SoundPackInPlaceFile( f, filesize );
 					if( pack )
 						return pack;
 					pack = SoundPack();
@@ -250,7 +281,7 @@ wavdata_t *FS_LoadSound( const char *filename, const byte *buffer, size_t size )
 #if XASH_GAMECUBE
 				if( success && sound.gc_inplace_file )
 				{
-					wavdata_t *pack = Mod_GCIsSoundScratch( f ) ? NULL : SoundPackInPlaceFile( f, filesize );
+					wavdata_t *pack = SND_IsTempFileBuf( f ) ? NULL : SoundPackInPlaceFile( f, filesize );
 					if( pack )
 						return pack;
 					pack = SoundPack();
@@ -267,6 +298,47 @@ wavdata_t *FS_LoadSound( const char *filename, const byte *buffer, size_t size )
 				return SoundPack();
 		}
 	}
+
+#if XASH_GAMECUBE
+	/* G278: libogc ISO9660 often misses deep sound/weapons|player|buttons.
+	 * CapFaces combat clips are also mirrored to shallow media/sfx_<base>.wav. */
+	if( filename[0] != '#' )
+	{
+		const char *slash = Q_strrchr( loadname, '/' );
+		const char *base = slash ? slash + 1 : loadname;
+
+		for( const loadwavfmt_t *format = sound.loadformats; format && format->ext; format++ )
+		{
+			if( anyformat || !Q_stricmp( ext, format->ext ))
+			{
+				qboolean success = false;
+				fs_offset_t filesize = 0;
+				string path;
+
+				Q_snprintf( path, sizeof( path ), "media/sfx_%s.%s", base, format->ext );
+				byte *f = SND_LOADFILE( path, &filesize );
+				if( f && filesize > 0 )
+				{
+					success = format->loadfunc( path, f, filesize );
+					if( success && sound.gc_inplace_file )
+					{
+						wavdata_t *pack = SND_IsTempFileBuf( f ) ? NULL : SoundPackInPlaceFile( f, filesize );
+						if( pack )
+							return pack;
+						pack = SoundPack();
+						SND_FREEFILE( f );
+						if( pack )
+							return pack;
+						return NULL;
+					}
+					SND_FREEFILE( f );
+				}
+				if( success )
+					return SoundPack();
+			}
+		}
+	}
+#endif
 
 load_internal:
 	for( const loadwavfmt_t *format = sound.loadformats; format && format->ext; format++ )

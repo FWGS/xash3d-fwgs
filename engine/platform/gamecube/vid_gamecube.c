@@ -151,7 +151,11 @@ static GXRModeObj *GC_NetworkVideoMode( GXRModeObj *preferred )
  * GX flow control stalls the CPU when this FIFO fills. */
 static uint8_t gx_fifo[256 * 1024] __attribute__((aligned(32)));
 #else
-static uint8_t gx_fifo[512 * 1024] __attribute__((aligned(32)));
+/* 128 KiB. The other 384 KiB of the old 512 KiB FIFO is the world lightmap
+ * cache in r_gx_worlddl.c (192 full 32×32 pages). MEM1 stays the same size.
+ * Flow control stalls Broadway if this fills; the lightmaps no longer
+ * need a mid-frame GPU flush to free a slot. */
+static uint8_t gx_fifo[128 * 1024] __attribute__((aligned(32)));
 #endif
 static unsigned int gc_present_count;
 
@@ -1001,7 +1005,9 @@ static void GC_BakeTramSlotST( int slot, const msurface_t *src, const gc_tram_fa
 }
 /* G286: tip-safe Flipper water — baked turb verts (no live-pool tip / no draw walk hang).
  * Lost Coast Source water pack (media/gw_<map>.gcw) raises the sheet budget. */
-#define GC_WATER_MAX_FACES 24 /* 384 OOMs MEM1 (heap starved); raise with an ARAM face table */
+#define GC_WATER_MAX_FACES 24 /* live surfbit fallback; the map pack lives in ARAM */
+#define GC_WATER_ARAM_MAX 512
+#define GC_WATER_STAGE_N 8
 typedef struct
 {
 	byte		nverts;
@@ -1017,11 +1023,20 @@ typedef struct
 } gc_water_face_t;
 static gc_water_face_t gc_water_faces[GC_WATER_MAX_FACES];
 static int gc_water_face_count;
+static u32 gc_water_aram;
+static int gc_water_stage_base = -1;
+static gc_water_face_t gc_water_stage;
+static byte gc_water_stage_raw[GC_WATER_STAGE_N * 128] __attribute__(( aligned( 32 )));
+static float gc_water_scroll2_u = -0.05f;
+static float gc_water_scroll2_v = 0.05f;
 static qboolean gc_g286_water_logged;
-/* GX scroll water CMPR (media/water_gx.cmp) — 64×64. */
-#define GC_WATER_TEX_SIZE	64
-#define GC_WATER_TEX_BYTES	( GC_WATER_TEX_SIZE * GC_WATER_TEX_SIZE / 2 )
-static u8 gc_water_tex_data[GC_WATER_TEX_BYTES] __attribute__(( aligned( 32 )));
+/* Lost Coast dev/water_normal as IA8. CMPR crushed the bump, so the
+ * indirect warp had nothing smooth to read. 128² IA8 is 32 KB. */
+#define GC_WATER_IA8_SIZE	128
+#define GC_WATER_IA8_BYTES	( GC_WATER_IA8_SIZE * GC_WATER_IA8_SIZE * 2 )
+#define GC_WATER_CMPR_SIZE	64
+#define GC_WATER_CMPR_BYTES	( GC_WATER_CMPR_SIZE * GC_WATER_CMPR_SIZE / 2 )
+static u8 gc_water_tex_data[GC_WATER_IA8_BYTES] __attribute__(( aligned( 32 )));
 static GXTexObj gc_water_tex_obj;
 static qboolean gc_water_tex_ready;
 /* Lost Coast sand $bumpmap + $normalmapalphaenvmapmask — 64² CMPR = 2 KiB each.
@@ -1043,12 +1058,14 @@ static qboolean gc_sand_sun_ready;
 /* Lost Coast Source props (boats) — media/gp_<map>.gcp + prop_XX.cmp.
  * Full pack lives in ARAM; MEM1 holds a tip-scaled hot page (object pop OK).
  * Detail ceiling is disc/ARAM — not a hardcoded tri reject. */
-#define GC_PROP_MAX_TEX		2
+#define GC_PROP_MAX_TEX		1	/* gcp header field; 0 means materials are in the pt_ pack */
 #define GC_PROP_HOT_TRIS	384	/* MEM1 page size; cold tris DMA from ARAM */
-#define GC_PROP_TEX_SIZE	64
-#define GC_PROP_TEX_BYTES	( GC_PROP_TEX_SIZE * GC_PROP_TEX_SIZE / 2 )
+#define GC_PROP_MAX_MAT		96	/* one CMPR chain each; MEM1 holds only the 8×8 */
 #define GC_PROP_TRI_BYTES	32
-#define GC_PROP_ARAM_MAX_TRIS	8192	/* format sanity (u16); not a tip budget */
+#define GC_PROP_INST_BYTES	16
+#define GC_PROP_MAX_INST	512
+#define GC_PROP_STAGE_N		32
+#define GC_PROP_ARAM_MAX_TRIS	65535	/* format sanity (u16); not a tip budget */
 static s16 gc_prop_xyz[GC_PROP_HOT_TRIS][3][3];
 static u16 gc_prop_st[GC_PROP_HOT_TRIS][3][2];
 static u8 gc_prop_tex_id[GC_PROP_HOT_TRIS];
@@ -1057,10 +1074,30 @@ static int gc_prop_tri_count;		/* full ARAM count drawn */
 static u32 gc_prop_aram_base;
 static u32 gc_prop_aram_tris_ofs;
 static u32 gc_prop_aram_bytes;
-static byte gc_prop_tri_stage[GC_PROP_TRI_BYTES] __attribute__(( aligned( 32 )));
-static u8 gc_prop_tex_data[GC_PROP_MAX_TEX][GC_PROP_TEX_BYTES] __attribute__(( aligned( 32 )));
-static GXTexObj gc_prop_tex_obj[GC_PROP_MAX_TEX];
-static int gc_prop_tex_count;
+static byte gc_prop_tri_stage[GC_PROP_STAGE_N * GC_PROP_TRI_BYTES] __attribute__(( aligned( 32 )));
+static int gc_prop_stage_base = -1;
+typedef struct
+{
+	u16	first, count;
+	s16	mins[3], maxs[3];
+} gc_prop_inst_t;
+static gc_prop_inst_t gc_prop_inst[GC_PROP_MAX_INST];
+static int gc_prop_inst_count;
+static byte gc_prop_inst_raw[GC_PROP_MAX_INST * GC_PROP_INST_BYTES] __attribute__(( aligned( 32 )));
+/* Per-material 8×8. The rest of the chain stays in ARAM until HotService. */
+typedef struct { byte pix[32]; } gc_prop_stub_t;
+static gc_prop_stub_t gc_prop_stub[GC_PROP_MAX_MAT] __attribute__(( aligned( 32 )));
+static int gc_prop_mat_tex[GC_PROP_MAX_MAT];
+static int gc_prop_mat_count;
+typedef struct
+{
+	char		name[16];
+	uint16_t	w, h;
+	uint8_t		levels;
+	uint32_t	aram;
+	uint32_t	bytes;
+} gc_prop_matinfo_t;
+static gc_prop_matinfo_t gc_prop_matinfo[GC_PROP_MAX_MAT];
 static qboolean gc_prop_ready;
 /* G225: ARAM page + aligned MEM1 DMA stage. */
 static u32 gc_aram_fill_base;
@@ -2903,6 +2940,79 @@ void GC_GetTramModelOrigin( float out[3] )
 	VectorCopy( gc_tram_model_origin, out );
 }
 
+static void GC_WaterDecodeRec( const byte *rec, gc_water_face_t *dst )
+{
+	int v, nv;
+	union { uint32_t u; float f; } u2f;
+
+	nv = rec[0];
+	if( nv < 3 ) nv = 3;
+	if( nv > GC_CAP_MAX_VERTS ) nv = GC_CAP_MAX_VERTS;
+	dst->nverts = (byte)nv;
+	dst->flags = rec[1];
+	u2f.u = GC_Be32( rec + 8 );
+	dst->scroll_u = u2f.f;
+	u2f.u = GC_Be32( rec + 12 );
+	dst->scroll_v = u2f.f;
+	for( v = 0; v < GC_CAP_MAX_VERTS; v++ )
+	{
+		dst->pts_s16[v][0] = (int16_t)GC_Be16( rec + 16 + v * 6 );
+		dst->pts_s16[v][1] = (int16_t)GC_Be16( rec + 16 + v * 6 + 2 );
+		dst->pts_s16[v][2] = (int16_t)GC_Be16( rec + 16 + v * 6 + 4 );
+		dst->st[v][0] = (float)(int16_t)GC_Be16( rec + 64 + v * 4 ) * ( 1.0f / 64.0f );
+		dst->st[v][1] = (float)(int16_t)GC_Be16( rec + 64 + v * 4 + 2 ) * ( 1.0f / 64.0f );
+	}
+	u2f.u = GC_Be32( rec + 96 );
+	dst->plane.normal[0] = u2f.f;
+	u2f.u = GC_Be32( rec + 100 );
+	dst->plane.normal[1] = u2f.f;
+	u2f.u = GC_Be32( rec + 104 );
+	dst->plane.normal[2] = u2f.f;
+	u2f.u = GC_Be32( rec + 108 );
+	dst->plane.dist = u2f.f;
+	dst->tint = ( (u32)rec[112] << 24 ) | ( (u32)rec[113] << 16 )
+		| ( (u32)rec[114] << 8 ) | (u32)rec[115];
+	if( rec[116] | rec[117] | rec[118] )
+		dst->tint = ( (u32)rec[116] << 24 ) | ( (u32)rec[117] << 16 )
+			| ( (u32)rec[118] << 8 ) | 0xD0u;
+	dst->cheap_start = (float)GC_Be16( rec + 124 ) * 4.0f;
+	dst->cheap_end = (float)GC_Be16( rec + 126 ) * 4.0f;
+	if( dst->cheap_end <= dst->cheap_start )
+	{
+		dst->cheap_start = 500.0f;
+		dst->cheap_end = 1000.0f;
+	}
+}
+
+/* Pack faces stay in ARAM (one 8-face DMA). The 24-slot array is only the
+ * live surfbit fallback, which is what used to OOM at a few hundred faces. */
+static gc_water_face_t *GC_WaterFacePtr( int index )
+{
+	int base, n;
+	u32 bytes, have;
+
+	if( index < 0 || index >= gc_water_face_count )
+		return NULL;
+	if( !gc_water_aram )
+		return &gc_water_faces[index];
+	base = index & ~( GC_WATER_STAGE_N - 1 );
+	if( gc_water_stage_base != base )
+	{
+		n = gc_water_face_count - base;
+		if( n > GC_WATER_STAGE_N )
+			n = GC_WATER_STAGE_N;
+		bytes = (u32)n * 128u;
+		have = ( (u32)gc_water_face_count * 128u + 31u ) & ~31u;
+		if( (u32)base * 128u + bytes > have )
+			bytes = have - (u32)base * 128u;
+		GC_AramCopy( gc_water_aram + (u32)base * 128u, gc_water_stage_raw,
+			( bytes + 31u ) & ~31u, false );
+		gc_water_stage_base = base;
+	}
+	GC_WaterDecodeRec( gc_water_stage_raw + ( index - base ) * 128, &gc_water_stage );
+	return &gc_water_stage;
+}
+
 int GC_GetWaterFaceCount( void )
 {
 	return gc_water_face_count;
@@ -2915,7 +3025,9 @@ int GC_GetWaterFaceVerts( int index, float out[][3], int maxverts )
 
 	if( !out || maxverts < 3 || index < 0 || index >= gc_water_face_count )
 		return 0;
-	src = &gc_water_faces[index];
+	src = GC_WaterFacePtr( index );
+	if( !src )
+		return 0;
 	n = (int)src->nverts;
 	if( n < 3 )
 		return 0;
@@ -2939,7 +3051,9 @@ int GC_GetWaterFaceST( int index, float out_st[][2], int maxverts )
 
 	if( !out_st || maxverts < 3 || index < 0 || index >= gc_water_face_count )
 		return 0;
-	src = &gc_water_faces[index];
+	src = GC_WaterFacePtr( index );
+	if( !src )
+		return 0;
 	n = (int)src->nverts;
 	if( n < 3 )
 		return 0;
@@ -2967,7 +3081,13 @@ void GC_GetWaterFaceFade( int index, float *start, float *end )
 		if( end ) *end = 1000.0f;
 		return;
 	}
-	src = &gc_water_faces[index];
+	src = GC_WaterFacePtr( index );
+	if( !src )
+	{
+		if( start ) *start = 500.0f;
+		if( end ) *end = 1000.0f;
+		return;
+	}
 	if( start ) *start = src->cheap_start;
 	if( end ) *end = src->cheap_end;
 }
@@ -2983,10 +3103,23 @@ void GC_GetWaterFaceScroll( int index, float *scroll_u, float *scroll_v, u32 *ti
 		if( tint ) *tint = 0x408C90A8u;
 		return;
 	}
-	src = &gc_water_faces[index];
+	src = GC_WaterFacePtr( index );
+	if( !src )
+	{
+		if( scroll_u ) *scroll_u = 0.04f;
+		if( scroll_v ) *scroll_v = 0.02f;
+		if( tint ) *tint = 0x408C90A8u;
+		return;
+	}
 	if( scroll_u ) *scroll_u = src->scroll_u;
 	if( scroll_v ) *scroll_v = src->scroll_v;
 	if( tint ) *tint = src->tint ? src->tint : 0x408C90A8u;
+}
+
+void GC_GetWaterScroll2( float *scroll_u, float *scroll_v )
+{
+	if( scroll_u ) *scroll_u = gc_water_scroll2_u;
+	if( scroll_v ) *scroll_v = gc_water_scroll2_v;
 }
 
 qboolean GC_WaterTexReady( void )
@@ -3115,9 +3248,17 @@ static void GC_PropDecodeTriRec( const byte *rec, int ntex,
 {
 	int vi;
 
-	*tex_id = rec[0];
-	if( *tex_id >= (u8)ntex && ntex > 0 )
-		*tex_id = (u8)( ntex - 1 );
+	/* Bit 7 is the additive blend. The chain index is the low 7 bits.
+	 * Comparing the raw byte to ntex turned every stained-glass shaft
+	 * into the last material and cleared the blend. */
+	{
+		const u8 blend = (u8)( rec[0] & 0x80 );
+		u8 idx = (u8)( rec[0] & 0x7f );
+
+		if( ntex > 1 && idx >= (u8)ntex )
+			idx = (u8)( ntex - 1 );
+		*tex_id = (u8)( idx | blend );
+	}
 	for( vi = 0; vi < 3; vi++ )
 	{
 		const byte *vp = rec + 2 + vi * 10;
@@ -3150,6 +3291,175 @@ static int GC_PropHotBudget( int total_tris )
 	return hot;
 }
 
+static uint32_t GC_PropCmprChainBytes( uint32_t w, uint32_t h, int levels )
+{
+	uint32_t n = 0;
+	int i;
+
+	if( levels < 1 )
+		levels = 1;
+	for( i = 0; i < levels; i++ )
+	{
+		uint32_t mw = w >> i;
+		uint32_t mh = h >> i;
+
+		if( !mw )
+			mw = 1;
+		if( !mh )
+			mh = 1;
+		n += (( mw + 7u ) / 8u ) * (( mh + 7u ) / 8u ) * 32u;
+		/* Match the baker: stop once either side has reached the 8-wide mip. */
+		if( mw <= 8u || mh <= 8u )
+			break;
+	}
+	return n;
+}
+
+/* Disc → ARAM once. MEM1 keeps the 8×8 tail. HotService climbs, then unloads. */
+static void GC_TryLoadPropTextures( const char *mapbase )
+{
+	char path[MAX_SYSPATH];
+	file_t *f;
+	byte hdr[12];
+	byte raw[GC_PROP_MAX_MAT * 28];
+	uint32_t count, data_bytes, table_end, blob_ofs, aram, cursor;
+	unsigned i;
+	extern int R_GCPackedTexture( const char *name, int width, int height, int levels,
+		qboolean alpha, void *data, unsigned aram_addr, unsigned bytes, unsigned low_shift );
+
+	memset( gc_prop_mat_tex, 0, sizeof( gc_prop_mat_tex ));
+	memset( gc_prop_matinfo, 0, sizeof( gc_prop_matinfo ));
+	gc_prop_mat_count = 0;
+	if( !mapbase || !mapbase[0] )
+		return;
+	Q_snprintf( path, sizeof( path ), "media/pt_%s.gct", mapbase );
+	f = FS_Open( path, "rb", false );
+	if( !f )
+		f = FS_Open( path, "rb", true );
+	if( !f )
+	{
+		Con_Reportf( "Xash3D GameCube: prop tex missing %s\n", path );
+		return;
+	}
+	if( FS_Read( f, hdr, 12 ) != 12
+		|| hdr[0] != 'G' || hdr[1] != 'C' || hdr[2] != 'W' || hdr[3] != 'T' )
+	{
+		Con_Reportf( "Xash3D GameCube: prop tex reject %s\n", path );
+		FS_Close( f );
+		return;
+	}
+	count = GC_Be32( hdr + 4 );
+	data_bytes = GC_Be32( hdr + 8 );
+	if( count == 0 || count > GC_PROP_MAX_MAT || data_bytes == 0
+		|| data_bytes > ( 4u * 1024u * 1024u ))
+	{
+		Con_Reportf( "Xash3D GameCube: prop tex reject %s count=%u bytes=%u\n",
+			path, count, data_bytes );
+		FS_Close( f );
+		return;
+	}
+	if( FS_Read( f, raw, (int)( count * 28u )) != (int)( count * 28u ))
+	{
+		FS_Close( f );
+		return;
+	}
+	table_end = 12u + count * 28u;
+	blob_ofs = ( table_end + 31u ) & ~31u;
+	aram = GC_AramReserve(( data_bytes + 31u ) & ~31u );
+	if( !aram )
+	{
+		Con_Reportf( "Xash3D GameCube: prop tex ARAM reserve failed %u\n", data_bytes );
+		FS_Close( f );
+		return;
+	}
+	if( FS_Seek( f, (fs_offset_t)blob_ofs, SEEK_SET ) < 0 )
+	{
+		FS_Close( f );
+		return;
+	}
+	cursor = 0;
+	while( cursor < data_bytes )
+	{
+		byte chunk[4096] __attribute__(( aligned( 32 )));
+		uint32_t got = data_bytes - cursor;
+		int nread;
+
+		if( got > sizeof( chunk ))
+			got = (uint32_t)sizeof( chunk );
+		nread = FS_Read( f, chunk, (int)got );
+		if( nread <= 0 )
+			break;
+		GC_AramCopy( aram + cursor, chunk, (unsigned int)nread, true );
+		cursor += (uint32_t)nread;
+	}
+	FS_Close( f );
+	if( cursor < data_bytes )
+	{
+		Con_Reportf( "Xash3D GameCube: prop tex short %u/%u\n", cursor, data_bytes );
+		return;
+	}
+	for( i = 0; i < count; i++ )
+	{
+		const byte *p = raw + i * 28u;
+		char name[17];
+		uint16_t w, h;
+		byte levels;
+		uint32_t offset, span, chain;
+		unsigned low_shift;
+
+		memcpy( name, p, 16 );
+		name[16] = '\0';
+		if( !name[0] )
+			Q_snprintf( name, sizeof( name ), "pm%u", i );
+		w = (uint16_t)GC_Be16( p + 16 );
+		h = (uint16_t)GC_Be16( p + 18 );
+		levels = p[20];
+		offset = GC_Be32( p + 24 );
+		if( i + 1u < count )
+			span = GC_Be32( raw + ( i + 1u ) * 28u + 24u ) - offset;
+		else
+			span = data_bytes - offset;
+		chain = GC_PropCmprChainBytes( w, h, levels );
+		if( chain < 32u || chain > span || offset + chain > data_bytes
+			|| w < 8 || h < 8 || levels < 1 )
+			continue;
+		{
+			uint32_t mw = w, mh = h;
+			int li;
+
+			for( li = 0; li < (int)levels && ( mw > 8u || mh > 8u ); li++ )
+			{
+				if( mw <= 8u || mh <= 8u )
+					break;
+				mw = (uint32_t)w >> ( li + 1 );
+				mh = (uint32_t)h >> ( li + 1 );
+				if( !mw )
+					mw = 1;
+				if( !mh )
+					mh = 1;
+			}
+			/* Resident page is one CMPR 8×8. A rectangular tail is not that. */
+			if( mw != 8u || mh != 8u )
+				continue;
+		}
+		GC_AramCopy( aram + offset + chain - 32u, gc_prop_stub[i].pix, 32u, false );
+		DCFlushRange( gc_prop_stub[i].pix, 32 );
+		low_shift = (unsigned)(( levels - 1 ) | 0x40 );
+		gc_prop_mat_tex[i] = R_GCPackedTexture( name, (int)w, (int)h, (int)levels, false,
+			gc_prop_stub[i].pix, aram + offset, chain, low_shift );
+		Q_strncpy( gc_prop_matinfo[i].name, name, sizeof( gc_prop_matinfo[i].name ));
+		gc_prop_matinfo[i].w = w;
+		gc_prop_matinfo[i].h = h;
+		gc_prop_matinfo[i].levels = levels;
+		gc_prop_matinfo[i].aram = aram + offset;
+		gc_prop_matinfo[i].bytes = chain;
+		(void)low_shift;
+	}
+	gc_prop_mat_count = (int)count;
+	Con_Reportf( "Xash3D GameCube: prop tex %s mats=%d chains=%u Kb aram=%u\n",
+		path, gc_prop_mat_count, ( data_bytes + 1023u ) / 1024u, aram );
+}
+
 static void GC_TryLoadPropPack( model_t *mod )
 {
 	char mapbase[64];
@@ -3157,15 +3467,17 @@ static void GC_TryLoadPropPack( model_t *mod )
 	file_t *f;
 	byte hdr[32];
 	fs_offset_t size;
-	uint16_t ver, ntex, ntris;
-	uint32_t tris_ofs;
-	int i, t, hot;
+	uint16_t ver, ntex, ntris, ninst;
+	uint32_t tris_ofs, inst_ofs;
+	int i, hot;
 	u32 need, cursor;
 
 	gc_prop_ready = false;
 	gc_prop_tri_count = 0;
 	gc_prop_hot_tris = 0;
-	gc_prop_tex_count = 0;
+	gc_prop_mat_count = 0;
+	gc_prop_inst_count = 0;
+	gc_prop_stage_base = -1;
 	gc_prop_aram_base = 0;
 	gc_prop_aram_tris_ofs = 0;
 	gc_prop_aram_bytes = 0;
@@ -3191,10 +3503,14 @@ static void GC_TryLoadPropPack( model_t *mod )
 	}
 	ver = GC_Be16( hdr + 4 );
 	ntex = GC_Be16( hdr + 6 );
-	ntris = GC_Be16( hdr + 8 );
-	tris_ofs = GC_Be32( hdr + 12 );
-	if( ver != 1 || ntris == 0 || ntris > GC_PROP_ARAM_MAX_TRIS
-		|| ntex == 0 || ntex > GC_PROP_MAX_TEX
+	ninst = GC_Be16( hdr + 8 );
+	ntris = GC_Be16( hdr + 10 );
+	inst_ofs = GC_Be32( hdr + 12 );
+	tris_ofs = GC_Be32( hdr + 16 );
+	if( ver != 2 || ntris == 0 || ntris > GC_PROP_ARAM_MAX_TRIS
+		|| ninst == 0 || ninst > GC_PROP_MAX_INST
+		|| ntex > GC_PROP_MAX_TEX
+		|| inst_ofs + (uint32_t)ninst * GC_PROP_INST_BYTES > tris_ofs
 		|| tris_ofs + (uint32_t)ntris * GC_PROP_TRI_BYTES > (uint32_t)size )
 	{
 		Con_Reportf( "Xash3D GameCube: prop pack reject %s ver=%u tris=%u tex=%u\n",
@@ -3241,6 +3557,28 @@ static void GC_TryLoadPropPack( model_t *mod )
 		return;
 	}
 
+	{
+		u32 nbytes = (u32)ninst * GC_PROP_INST_BYTES;
+		int ii;
+
+		GC_AramCopy( gc_prop_aram_base + inst_ofs, gc_prop_inst_raw,
+			( nbytes + 31u ) & ~31u, false );
+		for( ii = 0; ii < (int)ninst; ii++ )
+		{
+			const byte *p = gc_prop_inst_raw + ii * GC_PROP_INST_BYTES;
+			int a;
+
+			gc_prop_inst[ii].first = GC_Be16( p + 0 );
+			gc_prop_inst[ii].count = GC_Be16( p + 2 );
+			for( a = 0; a < 3; a++ )
+			{
+				gc_prop_inst[ii].mins[a] = (s16)GC_Be16( p + 4 + a * 2 );
+				gc_prop_inst[ii].maxs[a] = (s16)GC_Be16( p + 10 + a * 2 );
+			}
+		}
+		gc_prop_inst_count = (int)ninst;
+	}
+
 	hot = GC_PropHotBudget( (int)ntris );
 	for( i = 0; i < hot; i++ )
 	{
@@ -3252,35 +3590,11 @@ static void GC_TryLoadPropPack( model_t *mod )
 	gc_prop_hot_tris = hot;
 	gc_prop_tri_count = (int)ntris;
 
-	for( t = 0; t < (int)ntex; t++ )
-	{
-		char tpath[MAX_SYSPATH];
-		file_t *tf;
-
-		Q_snprintf( tpath, sizeof( tpath ), "media/prop_%02d.cmp", t );
-		tf = FS_Open( tpath, "rb", false );
-		if( !tf )
-			tf = FS_Open( tpath, "rb", true );
-		if( !tf )
-			continue;
-		if( FS_FileLength( tf ) == GC_PROP_TEX_BYTES
-			&& FS_Read( tf, gc_prop_tex_data[t], GC_PROP_TEX_BYTES ) == GC_PROP_TEX_BYTES )
-		{
-			DCFlushRange( gc_prop_tex_data[t], GC_PROP_TEX_BYTES );
-			GX_InitTexObj( &gc_prop_tex_obj[t], gc_prop_tex_data[t],
-				GC_PROP_TEX_SIZE, GC_PROP_TEX_SIZE, GX_TF_CMPR,
-				GX_REPEAT, GX_REPEAT, GX_FALSE );
-			GX_InitTexObjLOD( &gc_prop_tex_obj[t], GX_LINEAR, GX_LINEAR,
-				0.0f, 0.0f, 0.0f, GX_FALSE, GX_FALSE, GX_ANISO_1 );
-			if( t + 1 > gc_prop_tex_count )
-				gc_prop_tex_count = t + 1;
-		}
-		FS_Close( tf );
-	}
-	gc_prop_ready = ( gc_prop_tri_count > 0 && gc_prop_tex_count > 0 );
-	Con_Reportf( "Xash3D GameCube: prop pack %s tris=%d hot=%d aram=%u tex=%d ready=%d tip=%s\n",
-		path, gc_prop_tri_count, gc_prop_hot_tris, gc_prop_aram_bytes,
-		gc_prop_tex_count, gc_prop_ready ? 1 : 0,
+	GC_TryLoadPropTextures( mapbase );
+	gc_prop_ready = gc_prop_tri_count > 0;
+	Con_Reportf( "Xash3D GameCube: prop pack %s tris=%d inst=%d hot=%d aram=%u mats=%d ready=%d tip=%s\n",
+		path, gc_prop_tri_count, gc_prop_inst_count, gc_prop_hot_tris, gc_prop_aram_bytes,
+		gc_prop_mat_count, gc_prop_ready ? 1 : 0,
 		Q_memprint( GC_MemHeapFreeBytes() ));
 }
 
@@ -3312,13 +3626,27 @@ qboolean GC_GetPropTri( int index, float out_xyz[3][3], float out_st[3][2], int 
 			*out_tex = (int)gc_prop_tex_id[index];
 		return true;
 	}
-	/* Cold tri — lazy ARAM→stage (pop-in / slow OK; DumpFrames runs once). */
+	/* Cold tris — one ARAM DMA covers 32 records. */
 	if( !gc_prop_aram_base )
 		return false;
-	GC_AramCopy( gc_prop_aram_base + gc_prop_aram_tris_ofs
-			+ (u32)index * GC_PROP_TRI_BYTES,
-		gc_prop_tri_stage, GC_PROP_TRI_BYTES, false );
-	GC_PropDecodeTriRec( gc_prop_tri_stage, gc_prop_tex_count, xyz, st, &tex_id );
+	{
+		int base = index & ~( GC_PROP_STAGE_N - 1 );
+		int n, slot;
+
+		if( gc_prop_stage_base != base )
+		{
+			n = gc_prop_tri_count - base;
+			if( n > GC_PROP_STAGE_N )
+				n = GC_PROP_STAGE_N;
+			GC_AramCopy( gc_prop_aram_base + gc_prop_aram_tris_ofs
+					+ (u32)base * GC_PROP_TRI_BYTES,
+				gc_prop_tri_stage, (u32)n * GC_PROP_TRI_BYTES, false );
+			gc_prop_stage_base = base;
+		}
+		slot = index - base;
+		GC_PropDecodeTriRec( gc_prop_tri_stage + slot * GC_PROP_TRI_BYTES,
+			gc_prop_mat_count, xyz, st, &tex_id );
+	}
 	for( i = 0; i < 3; i++ )
 	{
 		out_xyz[i][0] = (float)xyz[i][0];
@@ -3334,18 +3662,77 @@ qboolean GC_GetPropTri( int index, float out_xyz[3][3], float out_st[3][2], int 
 
 void *GC_GetPropTexObj( int index )
 {
-	if( !gc_prop_ready || index < 0 || index >= gc_prop_tex_count )
-		return NULL;
-	return (void *)&gc_prop_tex_obj[index];
+	(void)index;
+	return NULL;
+}
+
+int GC_PropMatTexnum( int index )
+{
+	if( index < 0 || index >= gc_prop_mat_count )
+		return 0;
+	return gc_prop_mat_tex[index];
+}
+
+/* Image slots get cleared during map load. The 8×8 and the ARAM chain stay. */
+void GC_PropTexturesTouch( void )
+{
+	int i;
+	extern int R_GCPackedTexture( const char *name, int width, int height, int levels,
+		qboolean alpha, void *data, unsigned aram_addr, unsigned bytes, unsigned low_shift );
+
+	for( i = 0; i < gc_prop_mat_count; i++ )
+	{
+		gc_prop_matinfo_t *m = &gc_prop_matinfo[i];
+		unsigned low_shift;
+
+		if( !m->w || !m->name[0] )
+			continue;
+		low_shift = (unsigned)(( m->levels - 1 ) | 0x40 );
+		gc_prop_mat_tex[i] = R_GCPackedTexture( m->name, (int)m->w, (int)m->h,
+			(int)m->levels, false, gc_prop_stub[i].pix, m->aram, m->bytes, low_shift );
+	}
+}
+
+int GC_GetPropInstanceCount( void )
+{
+	return gc_prop_ready ? gc_prop_inst_count : 0;
+}
+
+qboolean GC_GetPropInstance( int index, int *first, int *count, vec3_t mins, vec3_t maxs )
+{
+	const gc_prop_inst_t *in;
+	int a;
+
+	if( !gc_prop_ready || index < 0 || index >= gc_prop_inst_count )
+		return false;
+	in = &gc_prop_inst[index];
+	if( first )
+		*first = (int)in->first;
+	if( count )
+		*count = (int)in->count;
+	if( mins && maxs )
+	{
+		for( a = 0; a < 3; a++ )
+		{
+			mins[a] = (float)in->mins[a];
+			maxs[a] = (float)in->maxs[a];
+		}
+	}
+	return in->count > 0;
 }
 
 qboolean GC_WaterFacePlane( int index, mplane_t *out, int *out_flags )
 {
+	const gc_water_face_t *src;
+
 	if( !out || index < 0 || index >= gc_water_face_count )
 		return false;
-	*out = gc_water_faces[index].plane;
+	src = GC_WaterFacePtr( index );
+	if( !src )
+		return false;
+	*out = src->plane;
 	if( out_flags )
-		*out_flags = (int)gc_water_faces[index].flags;
+		*out_flags = (int)src->flags;
 	return true;
 }
 
@@ -3363,10 +3750,12 @@ static qboolean GC_TryLoadWaterPack( model_t *mod )
 	fs_offset_t size;
 	uint16_t ver, face_n;
 	uint32_t faces_ofs;
-	int i, v;
+	int i;
 	union { uint32_t u; float f; } u2f;
 
 	gc_water_face_count = 0;
+	gc_water_aram = 0;
+	gc_water_stage_base = -1;
 	gc_water_tex_ready = false;
 	gc_g286_water_logged = false;
 	memset( gc_water_faces, 0, sizeof( gc_water_faces ));
@@ -3393,7 +3782,16 @@ static qboolean GC_TryLoadWaterPack( model_t *mod )
 	ver = GC_Be16( hdr + 4 );
 	face_n = GC_Be16( hdr + 6 );
 	faces_ofs = GC_Be32( hdr + 8 );
-	if( ver != 1 || face_n == 0 || face_n > GC_WATER_MAX_FACES
+	u2f.u = GC_Be32( hdr + 16 );
+	gc_water_scroll2_u = u2f.f;
+	u2f.u = GC_Be32( hdr + 20 );
+	gc_water_scroll2_v = u2f.f;
+	if( gc_water_scroll2_u == 0.0f && gc_water_scroll2_v == 0.0f )
+	{
+		gc_water_scroll2_u = -0.05f;
+		gc_water_scroll2_v = 0.05f;
+	}
+	if( ver != 1 || face_n == 0 || face_n > GC_WATER_ARAM_MAX
 		|| faces_ofs + (uint32_t)face_n * 128u > (uint32_t)size )
 	{
 		Con_Reportf( "Xash3D GameCube: water pack reject %s ver=%u faces=%u\n",
@@ -3406,71 +3804,41 @@ static qboolean GC_TryLoadWaterPack( model_t *mod )
 		FS_Close( f );
 		return false;
 	}
+	gc_water_aram = GC_AramReserve( ( (u32)face_n * 128u + 31u ) & ~31u );
+	if( !gc_water_aram && face_n > GC_WATER_MAX_FACES )
+	{
+		Con_Reportf( "Xash3D GameCube: water pack ARAM miss faces=%u\n", face_n );
+		FS_Close( f );
+		return false;
+	}
 	for( i = 0; i < (int)face_n; i++ )
 	{
-		gc_water_face_t *dst = &gc_water_faces[i];
-		int nv;
-
 		if( FS_Read( f, rec, 128 ) != 128 )
 		{
 			FS_Close( f );
 			gc_water_face_count = 0;
+			gc_water_aram = 0;
 			return false;
 		}
-		nv = rec[0];
-		if( nv < 3 ) nv = 3;
-		if( nv > GC_CAP_MAX_VERTS ) nv = GC_CAP_MAX_VERTS;
-		dst->nverts = (byte)nv;
-		dst->flags = rec[1];
-		u2f.u = GC_Be32( rec + 8 );
-		dst->scroll_u = u2f.f;
-		u2f.u = GC_Be32( rec + 12 );
-		dst->scroll_v = u2f.f;
-		for( v = 0; v < GC_CAP_MAX_VERTS; v++ )
-		{
-			dst->pts_s16[v][0] = (int16_t)GC_Be16( rec + 16 + v * 6 );
-			dst->pts_s16[v][1] = (int16_t)GC_Be16( rec + 16 + v * 6 + 2 );
-			dst->pts_s16[v][2] = (int16_t)GC_Be16( rec + 16 + v * 6 + 4 );
-			dst->st[v][0] = (float)(int16_t)GC_Be16( rec + 64 + v * 4 ) * ( 1.0f / 64.0f );
-			dst->st[v][1] = (float)(int16_t)GC_Be16( rec + 64 + v * 4 + 2 ) * ( 1.0f / 64.0f );
-		}
-		u2f.u = GC_Be32( rec + 96 );
-		dst->plane.normal[0] = u2f.f;
-		u2f.u = GC_Be32( rec + 100 );
-		dst->plane.normal[1] = u2f.f;
-		u2f.u = GC_Be32( rec + 104 );
-		dst->plane.normal[2] = u2f.f;
-		u2f.u = GC_Be32( rec + 108 );
-		dst->plane.dist = u2f.f;
-		dst->tint = ( (u32)rec[112] << 24 ) | ( (u32)rec[113] << 16 )
-			| ( (u32)rec[114] << 8 ) | (u32)rec[115];
-		/* Real material extension (bake_lostcoast_water.py): fog colour
-		 * replaces the generic tint; cheap-reflection fade distances. */
-		if( rec[116] | rec[117] | rec[118] )
-			dst->tint = ( (u32)rec[116] << 24 ) | ( (u32)rec[117] << 16 )
-				| ( (u32)rec[118] << 8 ) | 0xD0u;
-		dst->cheap_start = (float)GC_Be16( rec + 124 ) * 4.0f;
-		dst->cheap_end = (float)GC_Be16( rec + 126 ) * 4.0f;
-		if( dst->cheap_end <= dst->cheap_start )
-		{
-			dst->cheap_start = 500.0f;
-			dst->cheap_end = 1000.0f;
-		}
+		if( gc_water_aram )
+			GC_AramCopy( gc_water_aram + (u32)i * 128u, rec, 128, true );
+		else
+			GC_WaterDecodeRec( rec, &gc_water_faces[i] );
 	}
 	gc_water_face_count = (int)face_n;
 	FS_Close( f );
 
-	/* Scroll CMPR */
+	/* $normalmap first (IA8). The old CMPR file is only a fallback. */
 	{
-		file_t *tf = FS_Open( "media/water_gx.cmp", "rb", false );
+		file_t *tf = FS_Open( "media/water_gx.ia8", "rb", false );
 		if( !tf )
-			tf = FS_Open( "media/water_gx.cmp", "rb", true );
-		if( tf && FS_FileLength( tf ) == GC_WATER_TEX_BYTES
-			&& FS_Read( tf, gc_water_tex_data, GC_WATER_TEX_BYTES ) == GC_WATER_TEX_BYTES )
+			tf = FS_Open( "media/water_gx.ia8", "rb", true );
+		if( tf && FS_FileLength( tf ) == GC_WATER_IA8_BYTES
+			&& FS_Read( tf, gc_water_tex_data, GC_WATER_IA8_BYTES ) == GC_WATER_IA8_BYTES )
 		{
-			DCFlushRange( gc_water_tex_data, sizeof( gc_water_tex_data ));
+			DCFlushRange( gc_water_tex_data, GC_WATER_IA8_BYTES );
 			GX_InitTexObj( &gc_water_tex_obj, gc_water_tex_data,
-				GC_WATER_TEX_SIZE, GC_WATER_TEX_SIZE, GX_TF_CMPR,
+				GC_WATER_IA8_SIZE, GC_WATER_IA8_SIZE, GX_TF_IA8,
 				GX_REPEAT, GX_REPEAT, GX_FALSE );
 			GX_InitTexObjLOD( &gc_water_tex_obj, GX_LINEAR, GX_LINEAR,
 				0.0f, 0.0f, 0.0f, GX_FALSE, GX_FALSE, GX_ANISO_1 );
@@ -3478,14 +3846,33 @@ static qboolean GC_TryLoadWaterPack( model_t *mod )
 		}
 		if( tf )
 			FS_Close( tf );
+		if( !gc_water_tex_ready )
+		{
+			tf = FS_Open( "media/water_gx.cmp", "rb", false );
+			if( !tf )
+				tf = FS_Open( "media/water_gx.cmp", "rb", true );
+			if( tf && FS_FileLength( tf ) == GC_WATER_CMPR_BYTES
+				&& FS_Read( tf, gc_water_tex_data, GC_WATER_CMPR_BYTES ) == GC_WATER_CMPR_BYTES )
+			{
+				DCFlushRange( gc_water_tex_data, GC_WATER_CMPR_BYTES );
+				GX_InitTexObj( &gc_water_tex_obj, gc_water_tex_data,
+					GC_WATER_CMPR_SIZE, GC_WATER_CMPR_SIZE, GX_TF_CMPR,
+					GX_REPEAT, GX_REPEAT, GX_FALSE );
+				GX_InitTexObjLOD( &gc_water_tex_obj, GX_LINEAR, GX_LINEAR,
+					0.0f, 0.0f, 0.0f, GX_FALSE, GX_FALSE, GX_ANISO_1 );
+				gc_water_tex_ready = true;
+			}
+			if( tf )
+				FS_Close( tf );
+		}
 	}
 	/* Tip-safe sand $bumpmap + envmapmask + sun disc for CapFaces LIT_ENV. */
 	GC_TryLoadSandSpecTex();
 	GC_TryLoadSandNrmTex();
 	GC_TryLoadSandSunTex();
 	GC_TryLoadPropPack( mod );
-	Con_Reportf( "Xash3D GameCube: water pack loaded %s faces=%d tex=%d sand_spec=%d sand_nrm=%d sand_sun=%d props=%d\n",
-		path, gc_water_face_count, gc_water_tex_ready ? 1 : 0,
+	Con_Reportf( "Xash3D GameCube: water pack loaded %s faces=%d aram=%u tex=%d sand_spec=%d sand_nrm=%d sand_sun=%d props=%d\n",
+		path, gc_water_face_count, gc_water_aram, gc_water_tex_ready ? 1 : 0,
 		gc_sand_spec_ready ? 1 : 0, gc_sand_nrm_ready ? 1 : 0, gc_sand_sun_ready ? 1 : 0,
 		gc_prop_tri_count );
 	return gc_water_face_count > 0;
@@ -5240,6 +5627,9 @@ static void GC_CaptureWaterFacesFromSurfbits( model_t *wmodel, const byte *surfb
 	int scores[GC_WATER_MAX_FACES];
 	int pvs_hits = 0;
 
+	/* The map pack already holds every water face in ARAM. */
+	if( gc_water_aram )
+		return;
 	gc_water_face_count = 0;
 	gc_g286_water_logged = false;
 	memset( gc_water_faces, 0, sizeof( gc_water_faces ));
@@ -12936,8 +13326,16 @@ static void GC_CapFacesMaybeSwapSpatial( model_t *mod, const vec3_t eye )
 	int ranked[GC_CAP_SPATIAL_MAX];
 	int n, best, best_near;
 	char best_path[MAX_SYSPATH];
+	extern qboolean R_GXWorldDLActive( void );
 
 	if( !mod || gc_cap_spatial_n <= 1 || !eye )
+		return;
+	/* Ranking every spatial pack opens each file and walks its faces.
+	 * On the world-DL ride that was the frame: 100% speed, no dumps,
+	 * presents sat at ~2.1s (frametime-100-20261111-030241). Dump-eye
+	 * stills still draw CapFaces, so they keep the swap. */
+	if( R_GXWorldDLActive()
+		&& !( Sys_CheckParm( "-gcdumpframes" ) && !Sys_CheckParm( "-gcvst" )))
 		return;
 	n = GC_CapFacesRankSpatial( eye, NULL, ranked, 1 );
 	if( n < 1 )

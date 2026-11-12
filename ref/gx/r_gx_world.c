@@ -1610,8 +1610,9 @@ A cut-out texture needs the alpha test, every other bind turns it back off.
 =============
 */
 #define GC_HOT_LIST_MAX     128
-#define GC_HOT_QUEUE_MAX    64		/* CapFaces binds many mats before HotService */
-#define GC_HOT_FRAME_BYTES  ( 96 * 1024 )	/* a frame's worth of streaming (~8×128²) */
+#define GC_HOT_QUEUE_MAX    96		/* one view of world mats plus the props in it */
+#define GC_HOT_FRAME_BYTES  ( 96 * 1024 )	/* a frame's worth of streaming */
+#define GC_HOT_MAT_BYTES    ( 12 * 1024 )	/* nearest page: a 128² chain */
 #define GC_HOT_KEEP_FRAMES  90		/* not evicted until this long unused */
 
 static struct
@@ -1621,12 +1622,45 @@ static struct
 	image_t  *list[GC_HOT_LIST_MAX];
 	int      count;
 	image_t  *queue[GC_HOT_QUEUE_MAX];
+	byte     weight[GC_HOT_QUEUE_MAX];	/* binds this frame; the busy surface wins the slot */
 	int      queued;
 	unsigned uploads, bytes, evictions, deferred;
 } r_gx_hot;
 
+/* Set by the draw before a bind. Near chunks outrank a far wall that
+ * happens to have more batches, so the cliff in frame gets the slot. */
+static int r_gx_hot_bias = 1;
+
+void R_GXHotSetBias( int bias )
+{
+	if( bias < 1 )
+		bias = 1;
+	if( bias > 64 )
+		bias = 64;
+	r_gx_hot_bias = bias;
+}
+
+/* Page size follows how close the surface is. The full chain stays in
+ * ARAM. MEM1 only holds the mip the screen can tell apart, so a far prop
+ * costs a few hundred bytes and the cliff in front still gets 128². */
+static unsigned R_GXHotBudget( int weight )
+{
+	if( weight >= 32 )
+		return 12u * 1024u;
+	if( weight >= 16 )
+		return 3u * 1024u;
+	if( weight >= 4 )
+		return 1024u;
+	return 256u;
+}
+
 /* Durable hot window — survives map-load arena reuse that stomps arena-tail
- * pack low-mips (CapFaces CMPR noise: diag hdr absent from GCT). */
+ * pack low-mips. Heap memalign of 96 Kb fails once the map is in, and the
+ * fail then repeats every frame, so materials never leave the 8×8. This
+ * store is BSS: it is resident for the whole boot. 80 Kb is the largest
+ * block that still leaves the server enough MEM1 to start. */
+#define GC_HOT_DURABLE_BYTES ( 80u * 1024u )
+static byte r_gx_hot_store[GC_HOT_DURABLE_BYTES] __attribute__(( aligned( 32 )));
 static byte *r_gx_durable_hot;
 static unsigned r_gx_durable_hot_size;
 static qboolean r_gx_hot_is_durable;
@@ -1647,55 +1681,23 @@ qboolean R_GCHotWindowIsDurable( void )
 
 void R_GCEnsureDurableHotWindow( unsigned prefer_bytes )
 {
-	unsigned want = prefer_bytes ? prefer_bytes : ( 48u * 1024u );
-	unsigned try_sz;
-
-	if( want < 32u * 1024u )
-		want = 32u * 1024u;
-	if( want > 96u * 1024u )
-		want = 96u * 1024u;
-	want = ( want + 31u ) & ~31u;
-
-	if( r_gx_durable_hot && r_gx_durable_hot_size >= want )
+	(void)prefer_bytes;
+	if( !r_gx_durable_hot )
 	{
-		/* Same window as last frame. Resetting here dropped the queue
-		 * before HotService could copy anything out of ARAM. */
-		if( r_gx_hot.base != r_gx_durable_hot || r_gx_hot.size != r_gx_durable_hot_size )
-			R_GCHotWindow( r_gx_durable_hot, r_gx_durable_hot_size );
+		r_gx_durable_hot = r_gx_hot_store;
+		r_gx_durable_hot_size = sizeof( r_gx_hot_store );
+		R_GCHotWindow( r_gx_durable_hot, r_gx_durable_hot_size );
+		gEngfuncs.Con_Reportf( "Xash3D GameCube: durable CMPR hot window %u Kb static\n",
+			r_gx_durable_hot_size / 1024u );
 		return;
 	}
-	/* Allocate the larger window first. Freeing the one we have and then
-	 * failing the grow left every material stuck on its 8×8. */
-	for( try_sz = want; try_sz >= 32u * 1024u; try_sz = ( try_sz > 48u * 1024u ) ? ( try_sz - 16u * 1024u ) : 0 )
-	{
-		byte *neu;
-
-		if( r_gx_durable_hot && try_sz <= r_gx_durable_hot_size )
-			break;
-		neu = (byte *)memalign( 32, try_sz );
-		if( neu )
-		{
-			if( r_gx_durable_hot )
-				free( r_gx_durable_hot );
-			r_gx_durable_hot = neu;
-			r_gx_durable_hot_size = try_sz;
-			R_GCHotWindow( r_gx_durable_hot, try_sz );
-			gEngfuncs.Con_Reportf( "Xash3D GameCube: durable CMPR hot window %u Kb\n",
-				try_sz / 1024u );
-			return;
-		}
-		if( try_sz <= 32u * 1024u )
-			break;
-	}
-	if( r_gx_durable_hot )
-	{
-		if( r_gx_hot.base != r_gx_durable_hot || r_gx_hot.size != r_gx_durable_hot_size )
-			R_GCHotWindow( r_gx_durable_hot, r_gx_durable_hot_size );
-		return;
-	}
-	gEngfuncs.Con_Reportf( "Xash3D GameCube: durable CMPR hot window alloc failed (want %u Kb)\n",
-		want / 1024u );
+	/* Same window as last frame. Resetting here dropped the queue
+	 * before HotService could copy anything out of ARAM. */
+	if( r_gx_hot.base != r_gx_durable_hot || r_gx_hot.size != r_gx_durable_hot_size )
+		R_GCHotWindow( r_gx_durable_hot, r_gx_durable_hot_size );
 }
+
+static void R_GXHotDrop( image_t *img );
 
 /* For a moment during a map load: the whole window, emptied. What was resident
  * falls back to its low mips and is streamed in again on its next bind. */
@@ -1706,11 +1708,96 @@ void *R_GCHotBorrow( unsigned bytes )
 	if( bytes > r_gx_hot.size )
 		return NULL;
 	for( i = 0; i < r_gx_hot.count; i++ )
-		r_gx_hot.list[i]->gc_packed_hot = NULL;
+		R_GXHotDrop( r_gx_hot.list[i] );
 	r_gx_hot.count = 0;
 	r_gx_hot.head = 0;
 	r_gx_bound_texnum = 0;
 	return r_gx_hot.base;
+}
+
+/* Bytes of the chain that actually sit in the hot window. A 256² chain
+ * keeps its top mips in ARAM and parks the 128² tail here, so seven
+ * materials fit instead of one. The skipped-mip count lives in bits 3–5
+ * of gc_packed_low_shift; bits 0–2 and 0x40 stay the 8×8 stub. */
+static unsigned R_GXCmprLevelBytes( int w, int h )
+{
+	unsigned mw = (unsigned)Q_max( 1, w );
+	unsigned mh = (unsigned)Q_max( 1, h );
+
+	return (( mw + 7u ) / 8u ) * (( mh + 7u ) / 8u ) * 32u;
+}
+
+static unsigned R_GXHotResident( const image_t *img, unsigned budget, unsigned *skip_out, unsigned *shift_out )
+{
+	unsigned skip = 0, remain = img->gc_packed_bytes;
+	unsigned shift = 0;
+	int mi;
+
+	if( !budget )
+		budget = 256u;
+	if( !remain )
+	{
+		if( skip_out ) *skip_out = 0;
+		if( shift_out ) *shift_out = 0;
+		return 0;
+	}
+	for( mi = 0; mi < (int)img->gc_packed_levels && remain > budget; mi++ )
+	{
+		unsigned level = R_GXCmprLevelBytes( img->width >> mi, img->height >> mi );
+
+		if( level >= remain )
+			break;
+		skip += level;
+		remain -= level;
+		shift++;
+	}
+	if( skip_out ) *skip_out = skip;
+	if( shift_out ) *shift_out = shift;
+	return remain;
+}
+
+static unsigned R_GXHotSpan( const image_t *img )
+{
+	unsigned shift, remain, mi;
+
+	if( !img || !img->gc_packed_hot )
+		return 0;
+	shift = ( img->gc_packed_low_shift >> 3 ) & 7u;
+	remain = img->gc_packed_bytes;
+	for( mi = 0; mi < shift && remain; mi++ )
+	{
+		unsigned level = R_GXCmprLevelBytes( img->width >> mi, img->height >> mi );
+
+		if( level >= remain )
+			break;
+		remain -= level;
+	}
+	return remain;
+}
+
+static void R_GXHotDrop( image_t *img )
+{
+	if( !img )
+		return;
+	img->gc_packed_hot = NULL;
+	img->gc_packed_low_shift &= (byte)0x47;
+}
+
+static void R_GXHotUnlist( image_t *img )
+{
+	int i;
+
+	if( !img )
+		return;
+	for( i = 0; i < r_gx_hot.count; i++ )
+	{
+		if( r_gx_hot.list[i] != img )
+			continue;
+		R_GXHotDrop( img );
+		r_gx_hot.list[i] = r_gx_hot.list[--r_gx_hot.count];
+		return;
+	}
+	R_GXHotDrop( img );
 }
 
 /* Room for bytes at the ring's head, evicting what has been idle long enough;
@@ -1734,11 +1821,15 @@ static byte *R_GXHotAlloc( unsigned bytes )
 		{
 			const image_t *img = r_gx_hot.list[i];
 			const byte *a = (const byte *)img->gc_packed_hot;
+			unsigned span;
 
-			if( a < end && a + img->gc_packed_bytes > start
+			if( !a )
+				continue;
+			span = R_GXHotSpan( img );
+			if( a < end && a + span > start
 				&& r_gx_hot.frame - img->gc_packed_used < GC_HOT_KEEP_FRAMES )
 			{
-				r_gx_hot.head = ( a + img->gc_packed_bytes ) - r_gx_hot.base;
+				r_gx_hot.head = (unsigned)(( a + span ) - r_gx_hot.base );
 				busy = true;
 				break;
 			}
@@ -1750,9 +1841,9 @@ static byte *R_GXHotAlloc( unsigned bytes )
 			image_t *img = r_gx_hot.list[i];
 			const byte *a = (const byte *)img->gc_packed_hot;
 
-			if( a < end && a + img->gc_packed_bytes > start )
+			if( a && a < end && a + R_GXHotSpan( img ) > start )
 			{
-				img->gc_packed_hot = NULL;
+				R_GXHotDrop( img );
 				r_gx_hot.list[i] = r_gx_hot.list[--r_gx_hot.count];
 				r_gx_hot.evictions++;
 			}
@@ -1773,23 +1864,58 @@ static void R_GXHotService( void )
 	int i, kept = 0;
 
 	r_gx_hot.frame++;
+	/* The material on the most batches is the cliff or the sand in frame.
+	 * Upload that before a prop that was bound once. */
+	for( i = 1; i < r_gx_hot.queued; i++ )
+	{
+		image_t *img = r_gx_hot.queue[i];
+		byte w = r_gx_hot.weight[i];
+		int j = i;
+
+		while( j > 0 && r_gx_hot.weight[j - 1] < w )
+		{
+			r_gx_hot.queue[j] = r_gx_hot.queue[j - 1];
+			r_gx_hot.weight[j] = r_gx_hot.weight[j - 1];
+			j--;
+		}
+		r_gx_hot.queue[j] = img;
+		r_gx_hot.weight[j] = w;
+	}
 	for( i = 0; i < r_gx_hot.queued; i++ )
 	{
 		image_t *img = r_gx_hot.queue[i];
 		byte *dst = NULL;
+		unsigned skip = 0, shift = 0, take;
 
 		if( !img->gc_packed )
 		{
 			img->gc_packed_queued = false;
 			continue;
 		}
+		take = R_GXHotResident( img, R_GXHotBudget( r_gx_hot.weight[i] ), &skip, &shift );
+		if( !take )
+		{
+			img->gc_packed_queued = false;
+			continue;
+		}
+		/* Already resident at this size or better. A closer look queues
+		 * again and replaces the page with the larger mip. */
+		if( img->gc_packed_hot )
+		{
+			if( R_GXHotSpan( img ) + 64u >= take )
+			{
+				img->gc_packed_queued = false;
+				continue;
+			}
+			R_GXHotUnlist( img );
+		}
 		if( spent < GC_HOT_FRAME_BYTES && r_gx_hot.count < GC_HOT_LIST_MAX )
-			dst = R_GXHotAlloc( img->gc_packed_bytes );
+			dst = R_GXHotAlloc( take );
 		/* The 8×8 is already on screen. A material the camera just bound
 		 * has to enter the window even when every resident is still inside
 		 * the keep interval — drop the oldest one that this frame did not
 		 * just upload. */
-		if( !dst && img->gc_packed_bytes <= r_gx_hot.size
+		if( !dst && take <= r_gx_hot.size
 			&& spent < GC_HOT_FRAME_BYTES && r_gx_hot.count < GC_HOT_LIST_MAX )
 		{
 			int kicks;
@@ -1813,20 +1939,22 @@ static void R_GXHotService( void )
 				}
 				if( oldest < 0 )
 					break;
-				r_gx_hot.list[oldest]->gc_packed_hot = NULL;
+				R_GXHotDrop( r_gx_hot.list[oldest] );
 				r_gx_hot.list[oldest] = r_gx_hot.list[--r_gx_hot.count];
 				r_gx_hot.evictions++;
-				dst = R_GXHotAlloc( img->gc_packed_bytes );
+				dst = R_GXHotAlloc( take );
 			}
 		}
 		if( !dst )
 		{
+			r_gx_hot.weight[kept] = r_gx_hot.weight[i];
 			r_gx_hot.queue[kept++] = img;
 			r_gx_hot.deferred++;
 			continue;
 		}
-		GC_AramTransfer( img->gc_packed_aram, dst, img->gc_packed_bytes, false );
+		GC_AramTransfer( img->gc_packed_aram + skip, dst, take, false );
 		img->gc_packed_hot = dst;
+		img->gc_packed_low_shift = (byte)( ( img->gc_packed_low_shift & 0x47 ) | ( ( shift & 7u ) << 3 ) );
 		img->gc_packed_used = r_gx_hot.frame;
 		img->gc_packed_queued = false;
 		if( img->name[0] == '#' && img->name[4] == 'p'
@@ -1838,24 +1966,24 @@ static void R_GXHotService( void )
 			{
 				prop_hot_logged++;
 				gEngfuncs.Con_Reportf( "Xash3D GameCube: prop mip hot %s %u bytes\n",
-					img->name, (unsigned)img->gc_packed_bytes );
+					img->name, take );
 			}
 		}
 		else
 		{
 			static int world_hot_logged;
 
-			if( world_hot_logged < 1 )
+			if( world_hot_logged < 6 )
 			{
 				world_hot_logged++;
 				gEngfuncs.Con_Reportf( "Xash3D GameCube: mip hot %s %u bytes\n",
-					img->name, (unsigned)img->gc_packed_bytes );
+					img->name, take );
 			}
 		}
 		r_gx_hot.list[r_gx_hot.count++] = img;
 		r_gx_hot.uploads++;
-		r_gx_hot.bytes += img->gc_packed_bytes;
-		spent += img->gc_packed_bytes;
+		r_gx_hot.bytes += take;
+		spent += take;
 	}
 	r_gx_hot.queued = kept;
 	/* A chain can land where another one was: drop the texture cache's copy. */
@@ -1938,32 +2066,53 @@ static gc_gx_tex_t *R_GXPackedTexture( image_t *img, unsigned texnum )
 	extern void GC_AramTransfer( unsigned int aram, void *buf, unsigned int len, qboolean write );
 
 	img->gc_packed_used = r_gx_hot.frame;
-	if( img->gc_packed_bytes && !img->gc_packed_hot && !img->gc_packed_queued )
+	/* Not resident, or resident at a mip the camera has now outgrown. */
+	if( img->gc_packed_bytes && ( !img->gc_packed_hot
+		|| R_GXHotSpan( img ) * 2u < R_GXHotBudget( r_gx_hot_bias )) )
 	{
-		/* World binds fill the queue before the prop overlay. A prop the
-		 * camera is on has to jump the line or it stays on the 8×8. */
-		const qboolean prop = ( img->name[0] == '#' && img->name[4] == 'p'
-			&& img->name[5] >= '0' && img->name[5] <= '9' );
+		int slot = -1;
+		int qi;
 
-		if( r_gx_hot.queued >= GC_HOT_QUEUE_MAX && prop )
+		for( qi = 0; qi < r_gx_hot.queued; qi++ )
 		{
-			image_t *drop = r_gx_hot.queue[--r_gx_hot.queued];
-
-			if( drop )
-				drop->gc_packed_queued = false;
-		}
-		if( r_gx_hot.queued < GC_HOT_QUEUE_MAX )
-		{
-			if( prop && r_gx_hot.queued > 0 )
+			if( r_gx_hot.queue[qi] == img )
 			{
-				memmove( &r_gx_hot.queue[1], &r_gx_hot.queue[0],
-					(size_t)r_gx_hot.queued * sizeof( r_gx_hot.queue[0] ));
-				r_gx_hot.queue[0] = img;
+				slot = qi;
+				break;
+			}
+		}
+		if( slot >= 0 )
+		{
+			if( r_gx_hot.weight[slot] < (byte)r_gx_hot_bias )
+				r_gx_hot.weight[slot] = (byte)r_gx_hot_bias;
+		}
+		else
+		{
+			/* A surface bound on many batches has to be able to enter after
+			 * the queue filled with one-off materials. */
+			if( r_gx_hot.queued >= GC_HOT_QUEUE_MAX )
+			{
+				int low = 0;
+
+				for( qi = 1; qi < r_gx_hot.queued; qi++ )
+				{
+					if( r_gx_hot.weight[qi] < r_gx_hot.weight[low] )
+						low = qi;
+				}
+				if( r_gx_hot.weight[low] < r_gx_hot_bias && r_gx_hot.queue[low] )
+				{
+					r_gx_hot.queue[low]->gc_packed_queued = false;
+					r_gx_hot.queue[low] = img;
+					r_gx_hot.weight[low] = (byte)r_gx_hot_bias;
+					img->gc_packed_queued = true;
+				}
 			}
 			else
-				r_gx_hot.queue[r_gx_hot.queued] = img;
-			r_gx_hot.queued++;
-			img->gc_packed_queued = true;
+			{
+				r_gx_hot.weight[r_gx_hot.queued] = (byte)r_gx_hot_bias;
+				r_gx_hot.queue[r_gx_hot.queued++] = img;
+				img->gc_packed_queued = true;
+			}
 		}
 	}
 	{
@@ -1973,7 +2122,9 @@ static gc_gx_tex_t *R_GXPackedTexture( image_t *img, unsigned texnum )
 		{
 			const qboolean low = img->gc_packed_bytes && !img->gc_packed_hot;
 			const qboolean is_stub = ( img->gc_packed_low_shift & 0x40 ) != 0;
-			unsigned shift = low ? ( img->gc_packed_low_shift & 0x3fu ) : 0;
+			unsigned shift = img->gc_packed_hot
+				? ( ( img->gc_packed_low_shift >> 3 ) & 7u )
+				: ( low ? ( img->gc_packed_low_shift & 0x3fu ) : 0 );
 			int levels = img->gc_packed_levels - (int)shift;
 			int w = Q_max( 1, img->width >> shift ), h = Q_max( 1, img->height >> shift );
 			void *data = img->gc_packed_hot ? img->gc_packed_hot : img->gc_packed;
@@ -5143,26 +5294,36 @@ static qboolean R_GXWaterPlaneTevSetup( int *sky_side_inout )
 		GX_SetTexCoordGen( GX_TEXCOORD0, GX_TG_MTX2x4, GX_TG_TEX0, GX_TEXMTX0 );
 		GX_SetTexCoordGen( GX_TEXCOORD1, GX_TG_MTX2x4, GX_TG_TEX1, GX_IDENTITY );
 		GX_SetTexCoordGen( GX_TEXCOORD2, GX_TG_MTX2x4, GX_TG_TEX0, GX_TEXMTX1 );
-		GX_SetNumTevStages( 3 );
-		/* Half the sky, warped by $scroll1. */
-		GX_SetTevOrder( GX_TEVSTAGE0, GX_TEXCOORD1, GX_TEXMAP1, GX_COLOR0A0 );
-		GX_SetTevColorIn( GX_TEVSTAGE0, GX_CC_ZERO, GX_CC_TEXC, GX_CC_HALF, GX_CC_ZERO );
+		GX_SetNumTevStages( 4 );
+		/* Crest. The trough is $fogcolor in TEVREG1, set below. The normal
+		 * only moves a few levels around 128, so the bake stretches it and
+		 * this lerp turns that into a light and dark band. */
+		GX_SetTevColor( GX_TEVREG0, (GXColor){ 96, 158, 132, 255 } );
+		GX_SetTevOrder( GX_TEVSTAGE0, GX_TEXCOORD0, GX_TEXMAP0, GX_COLORNULL );
+		GX_SetTevColorIn( GX_TEVSTAGE0, GX_CC_C1, GX_CC_C0, GX_CC_TEXC, GX_CC_ZERO );
 		GX_SetTevColorOp( GX_TEVSTAGE0, GX_TEV_ADD, GX_TB_ZERO, GX_CS_SCALE_1, GX_TRUE, GX_TEVPREV );
 		GX_SetTevAlphaIn( GX_TEVSTAGE0, GX_CA_ZERO, GX_CA_ZERO, GX_CA_ZERO, GX_CA_RASA );
 		GX_SetTevAlphaOp( GX_TEVSTAGE0, GX_TEV_ADD, GX_TB_ZERO, GX_CS_SCALE_1, GX_TRUE, GX_TEVPREV );
-		/* The other half, warped by $scroll2. */
-		GX_SetTevOrder( GX_TEVSTAGE1, GX_TEXCOORD1, GX_TEXMAP1, GX_COLOR0A0 );
-		GX_SetTevColorIn( GX_TEVSTAGE1, GX_CC_ZERO, GX_CC_TEXC, GX_CC_HALF, GX_CC_CPREV );
-		GX_SetTevColorOp( GX_TEVSTAGE1, GX_TEV_ADD, GX_TB_ZERO, GX_CS_SCALE_1, GX_TRUE, GX_TEVPREV );
-		GX_SetTevAlphaIn( GX_TEVSTAGE1, GX_CA_ZERO, GX_CA_ZERO, GX_CA_ZERO, GX_CA_RASA );
+		GX_SetTevDirect( GX_TEVSTAGE0 );
+		/* $scroll2, same lerp, kept aside so the two phases can be averaged. */
+		GX_SetTevDirect( GX_TEVSTAGE1 );
+		GX_SetTevOrder( GX_TEVSTAGE1, GX_TEXCOORD2, GX_TEXMAP0, GX_COLORNULL );
+		GX_SetTevColorIn( GX_TEVSTAGE1, GX_CC_C1, GX_CC_C0, GX_CC_TEXC, GX_CC_ZERO );
+		GX_SetTevColorOp( GX_TEVSTAGE1, GX_TEV_ADD, GX_TB_ZERO, GX_CS_SCALE_1, GX_TRUE, GX_TEVREG2 );
+		GX_SetTevAlphaIn( GX_TEVSTAGE1, GX_CA_ZERO, GX_CA_ZERO, GX_CA_ZERO, GX_CA_APREV );
 		GX_SetTevAlphaOp( GX_TEVSTAGE1, GX_TEV_ADD, GX_TB_ZERO, GX_CS_SCALE_1, GX_TRUE, GX_TEVPREV );
-		/* lerp($fogcolor, reflection, fresnel). */
-		GX_SetTevOrder( GX_TEVSTAGE2, GX_TEXCOORDNULL, GX_TEXMAP_NULL, GX_COLOR0A0 );
-		GX_SetTevColorIn( GX_TEVSTAGE2, GX_CC_C1, GX_CC_CPREV, GX_CC_RASA, GX_CC_ZERO );
-		GX_SetTevColorOp( GX_TEVSTAGE2, GX_TEV_ADD, GX_TB_ZERO, GX_CS_SCALE_1, GX_TRUE, GX_TEVPREV );
-		GX_SetTevAlphaIn( GX_TEVSTAGE2, GX_CA_ZERO, GX_CA_ZERO, GX_CA_ZERO, GX_CA_RASA );
-		GX_SetTevAlphaOp( GX_TEVSTAGE2, GX_TEV_ADD, GX_TB_ZERO, GX_CS_SCALE_1, GX_TRUE, GX_TEVPREV );
 		GX_SetTevDirect( GX_TEVSTAGE2 );
+		GX_SetTevOrder( GX_TEVSTAGE2, GX_TEXCOORDNULL, GX_TEXMAP_NULL, GX_COLORNULL );
+		GX_SetTevColorIn( GX_TEVSTAGE2, GX_CC_CPREV, GX_CC_C2, GX_CC_HALF, GX_CC_ZERO );
+		GX_SetTevColorOp( GX_TEVSTAGE2, GX_TEV_ADD, GX_TB_ZERO, GX_CS_SCALE_1, GX_TRUE, GX_TEVPREV );
+		GX_SetTevAlphaIn( GX_TEVSTAGE2, GX_CA_ZERO, GX_CA_ZERO, GX_CA_ZERO, GX_CA_APREV );
+		GX_SetTevAlphaOp( GX_TEVSTAGE2, GX_TEV_ADD, GX_TB_ZERO, GX_CS_SCALE_1, GX_TRUE, GX_TEVPREV );
+		/* A little warped sky. Fresnel stays under a half. */
+		GX_SetTevOrder( GX_TEVSTAGE3, GX_TEXCOORD1, GX_TEXMAP1, GX_COLOR0A0 );
+		GX_SetTevColorIn( GX_TEVSTAGE3, GX_CC_CPREV, GX_CC_TEXC, GX_CC_RASA, GX_CC_ZERO );
+		GX_SetTevColorOp( GX_TEVSTAGE3, GX_TEV_ADD, GX_TB_ZERO, GX_CS_SCALE_1, GX_TRUE, GX_TEVPREV );
+		GX_SetTevAlphaIn( GX_TEVSTAGE3, GX_CA_ZERO, GX_CA_ZERO, GX_CA_ZERO, GX_CA_APREV );
+		GX_SetTevAlphaOp( GX_TEVSTAGE3, GX_TEV_ADD, GX_TB_ZERO, GX_CS_SCALE_1, GX_TRUE, GX_TEVPREV );
 		/* 128,128 in the IA8 is zero offset. */
 		ind0[0][0] = 0.65f; ind0[0][1] = 0.0f; ind0[0][2] = 0.0f;
 		ind0[1][0] = 0.0f; ind0[1][1] = 0.65f; ind0[1][2] = 0.0f;
@@ -5173,12 +5334,12 @@ static qboolean R_GXWaterPlaneTevSetup( int *sky_side_inout )
 		GX_SetIndTexOrder( GX_INDTEXSTAGE1, GX_TEXCOORD2, GX_TEXMAP0 );
 		GX_SetIndTexCoordScale( GX_INDTEXSTAGE0, GX_ITS_1, GX_ITS_1 );
 		GX_SetIndTexCoordScale( GX_INDTEXSTAGE1, GX_ITS_1, GX_ITS_1 );
-		GX_SetIndTexMatrix( GX_ITM_0, ind0, -5 );
-		GX_SetIndTexMatrix( GX_ITM_1, ind1, -5 );
-		GX_SetTevIndirect( GX_TEVSTAGE0, GX_INDTEXSTAGE0, GX_ITF_8, GX_ITB_ST,
+		/* -3 is four times the old -5 step. The -5 warp was under a texel
+		 * on the IA8 normal, so the sheet read as flat fog. */
+		GX_SetIndTexMatrix( GX_ITM_0, ind0, -2 );
+		GX_SetIndTexMatrix( GX_ITM_1, ind1, -2 );
+		GX_SetTevIndirect( GX_TEVSTAGE3, GX_INDTEXSTAGE0, GX_ITF_8, GX_ITB_ST,
 			GX_ITM_0, GX_ITW_OFF, GX_ITW_OFF, GX_FALSE, GX_FALSE, GX_ITBA_OFF );
-		GX_SetTevIndirect( GX_TEVSTAGE1, GX_INDTEXSTAGE1, GX_ITF_8, GX_ITB_ST,
-			GX_ITM_1, GX_ITW_OFF, GX_ITW_OFF, GX_FALSE, GX_FALSE, GX_ITBA_OFF );
 		if( !( fog & 0xFFFFFF00u ))
 			fog = 0x142A25FFu;
 		GX_SetTevColor( GX_TEVREG1, (GXColor){
@@ -5223,10 +5384,11 @@ static int R_GXEmitWaterPlaneSheets( qboolean always_z, int max_faces, float min
 	if( water_n <= 0 || max_faces <= 0 )
 		return 0;
 	AngleVectors( RI.rvp.viewangles, forward, NULL, NULL );
-	if( !r_gx_sky_ready )
-		sky_side = R_GXPickSkyboxSide();
-	else
-		sky_side = 4; /* flat water favors upper hemisphere */
+	/* The up face is almost one colour, so warping it looks like flat fog.
+	 * The side the camera faces has the sun and the horizon. */
+	sky_side = R_GXPickSkyboxSide();
+	if( sky_side < 0 )
+		sky_side = 4;
 
 	GX_SetBlendMode( GX_BM_BLEND, GX_BL_SRCALPHA, GX_BL_INVSRCALPHA, GX_LO_NOOP );
 	/* ALWAYS only for densify mid/far void fill — dump-wide ALWAYS painted a
@@ -5306,8 +5468,10 @@ static int R_GXEmitWaterPlaneSheets( qboolean always_z, int max_faces, float min
 			fdot = along / dist;
 			if( fdot < 0.12f )
 				continue;
-			/* Prefer dump-eye mid band (~0.1–1.5k along); far ocean wastes budget. */
+			/* The sheet under the camera has to win, or the shore is a hole. */
 			score = ( 1600.0f - fabsf( along - 700.0f )) * fdot;
+			if( along < 500.0f )
+				score += 2000.0f;
 			if( score < 0.0f )
 				score = along * fdot * 0.25f;
 			rank_idx[rank_n] = wi;
@@ -5379,12 +5543,12 @@ static int R_GXEmitWaterPlaneSheets( qboolean always_z, int max_faces, float min
 					dist_k = (float)( col & 0xff ) / (float)0xD0;
 					if( dist_k > 1.0f )
 						dist_k = 1.0f;
-					if( dump_still )
-						col = ( col & 0xFFFFFF00u )
-							| (u32)( ( 0.06f + 0.10f * fres * dist_k ) * 255.0f );
-					else
-						col = ( col & 0xFFFFFF00u )
-							| (u32)( ( 0.12f + 0.88f * fres * dist_k ) * 255.0f );
+					/* The reflected sky is nearly one colour, so a high fresnel
+					 * replaces the scrolling normal with a flat sheet. Keep
+					 * the body in the colour and let fresnel lift the sky. */
+					col = ( col & 0xFFFFFF00u )
+						| (u32)( ( 0.18f + 0.22f * fres * dist_k ) * 255.0f );
+					(void)dump_still;
 					refl[0] = to_eye[0] - 2.0f * nd * pl.normal[0];
 					refl[1] = to_eye[1] - 2.0f * nd * pl.normal[1];
 					refl[2] = to_eye[2] - 2.0f * nd * pl.normal[2];
@@ -5410,6 +5574,7 @@ static int R_GXEmitWaterPlaneSheets( qboolean always_z, int max_faces, float min
 	GX_SetTevDirect( GX_TEVSTAGE0 );
 	GX_SetTevDirect( GX_TEVSTAGE1 );
 	GX_SetTevDirect( GX_TEVSTAGE2 );
+	GX_SetTevDirect( GX_TEVSTAGE3 );
 	GX_SetVtxDesc( GX_VA_TEX1, GX_NONE );
 	r_gx_face_mode = GC_GX_FACE_MODE_NONE;
 	return water_drawn;
@@ -5421,7 +5586,7 @@ static int R_GXWorldDLWaterOverlay( void )
 {
 	static qboolean logged;
 	int water_n = GC_GetWaterFaceCount();
-	int water_drawn = 0, prop_drawn = 0;
+	int water_drawn = 0, prop_drawn = 0, prop_inst = 0, prop_n = 0;
 	const float *eye = RI.rvp.vieworigin;
 	vec3_t forward;
 	int sky_side = 4;
@@ -5436,7 +5601,7 @@ static int R_GXWorldDLWaterOverlay( void )
 		sky_side = R_GXPickSkyboxSide();
 
 	if( water_n > 0 )
-		water_drawn = R_GXEmitWaterPlaneSheets( false, 48, 0.0f );
+		water_drawn = R_GXEmitWaterPlaneSheets( false, 256, 0.0f );
 
 	/* CapFaces near+midgap before cove slab — CapFaces densify order that
 	 * kept beach fg (WorldDL alone left fg mae~54 vs CapFaces ~32). */
@@ -5531,13 +5696,14 @@ static int R_GXWorldDLWaterOverlay( void )
 			sky_side );
 	}
 
-	/* Props after water. Each instance is culled; far ones stay in ARAM. */
+	/* Props after water. Frustum decides; distance only picks the mip page. */
 	{
-		const int prop_n = GC_GetPropInstanceCount();
-		int ii, last_tex = -1;
+		int ii, pass, last_tex = -1;
+		byte mat_bias[96];
+
+		prop_n = GC_GetPropInstanceCount();
 		const float prop_z_bias = 2.0f;
 		const float *eye = RI.rvp.vieworigin;
-		const float prop_reach = 2800.0f * 2800.0f;
 
 		if( prop_n > 0 )
 		{
@@ -5564,47 +5730,111 @@ static int R_GXWorldDLWaterOverlay( void )
 			GX_SetVtxAttrFmt( GX_VTXFMT0, GX_VA_TEX0, GX_TEX_ST, GX_F32, 0 );
 			r_gx_face_mode = GC_GX_FACE_MODE_NONE;
 			r_gx_cull_none = true;
+			memset( mat_bias, 0, sizeof( mat_bias ));
+			/* Pass 0 is the solid props. Pass 1 is $additive (stained-glass
+			 * shafts): ONE+ONE, so the black of the cone adds nothing and
+			 * the lifted pink/yellow/green core glows over the room. */
+			for( pass = 0; pass < 2; pass++ )
+			{
+			last_tex = -1;
+			if( pass == 1 )
+			{
+				GX_SetBlendMode( GX_BM_BLEND, GX_BL_ONE, GX_BL_ONE, GX_LO_NOOP );
+				GX_SetZMode( GX_TRUE, GX_LEQUAL, GX_FALSE );
+			}
 			for( ii = 0; ii < prop_n; ii++ )
 			{
-				int first = 0, count = 0, pi;
+				int first = 0, count = 0, pi, bias;
 				vec3_t pmins, pmaxs;
-				float dx, dy, dz;
+				float dx, dy, dz, pd;
 
 				if( !GC_GetPropInstance( ii, &first, &count, pmins, pmaxs ))
 					continue;
 				dx = eye[0] < pmins[0] ? pmins[0] - eye[0] : ( eye[0] > pmaxs[0] ? eye[0] - pmaxs[0] : 0.0f );
 				dy = eye[1] < pmins[1] ? pmins[1] - eye[1] : ( eye[1] > pmaxs[1] ? eye[1] - pmaxs[1] : 0.0f );
 				dz = eye[2] < pmins[2] ? pmins[2] - eye[2] : ( eye[2] > pmaxs[2] ? eye[2] - pmaxs[2] : 0.0f );
-				if( dx * dx + dy * dy + dz * dz > prop_reach )
-					continue;
 				if( R_GXBoxOutsideFrustum( pmins, pmaxs ))
 					continue;
-				for( pi = first; pi < first + count; pi++ )
+				if( pass == 0 )
+					prop_inst++;
+				pd = dx * dx + dy * dy + dz * dz;
+				bias = 1;
+				if( pd < 500.0f * 500.0f )
+					bias = 48;
+				else if( pd < 1200.0f * 1200.0f )
+					bias = 16;
+				else if( pd < 2500.0f * 2500.0f )
+					bias = 4;
+				/* The shaft is one material. A black 8×8 stub adds nothing,
+				 * so the additive pass always asks for the real page. */
+				if( pass == 1 && bias < 48 )
+					bias = 48;
+				for( pi = first; pi < first + count; )
 				{
 					float xyz[3][3], pst[3][2];
-					int tex = 0, vi;
+					int tex = 0, run, pj, vi;
 
 					if( !GC_GetPropTri( pi, xyz, pst, &tex ))
+					{
+						pi++;
 						continue;
-					if( tex != last_tex )
-					{
-						if( !R_GXBindPropMat( tex ))
-							continue;
-						last_tex = tex;
 					}
-					GX_Begin( GX_TRIANGLES, GX_VTXFMT0, 3 );
-					for( vi = 0; vi < 3; vi++ )
+					run = 1;
+					for( pj = pi + 1; pj < first + count && run < 1024; pj++ )
 					{
-						GX_Position3f32(
-							xyz[vi][0] - forward[0] * prop_z_bias,
-							xyz[vi][1] - forward[1] * prop_z_bias,
-							xyz[vi][2] - forward[2] * prop_z_bias );
-						GX_Color1u32( 0xFFFFFFFFu );
-						GX_TexCoord2f32( pst[vi][0], pst[vi][1] );
+						float xyz2[3][3], pst2[3][2];
+						int tex2 = 0;
+
+						if( !GC_GetPropTri( pj, xyz2, pst2, &tex2 ) || tex2 != tex )
+							break;
+						run++;
+					}
+					/* Bit 7 is the additive blend. The chain index is the rest. */
+					if( (( tex & 0x80 ) != 0 ) != ( pass == 1 ))
+					{
+						pi += run;
+						continue;
+					}
+					tex &= 0x7f;
+					if( tex >= 96 )
+					{
+						pi += run;
+						continue;
+					}
+					/* Far copy first must not pin the page. A closer
+					 * instance of the same material raises the weight. */
+					if( tex != last_tex || bias > (int)mat_bias[tex] )
+					{
+						R_GXHotSetBias( bias );
+						if( !R_GXBindPropMat( tex ))
+						{
+							pi += run;
+							continue;
+						}
+						last_tex = tex;
+						if( bias > (int)mat_bias[tex] )
+							mat_bias[tex] = (byte)bias;
+					}
+					GX_Begin( GX_TRIANGLES, GX_VTXFMT0, (u16)( run * 3 ));
+					for( pj = pi; pj < pi + run; pj++ )
+					{
+						if( pj != pi )
+							GC_GetPropTri( pj, xyz, pst, &tex );
+						for( vi = 0; vi < 3; vi++ )
+						{
+							GX_Position3f32(
+								xyz[vi][0] - forward[0] * prop_z_bias,
+								xyz[vi][1] - forward[1] * prop_z_bias,
+								xyz[vi][2] - forward[2] * prop_z_bias );
+							GX_Color1u32( 0xFFFFFFFFu );
+							GX_TexCoord2f32( pst[vi][0], pst[vi][1] );
+						}
 					}
 					GX_End();
-					prop_drawn++;
+					prop_drawn += run;
+					pi += run;
 				}
+			}
 			}
 		}
 	}
@@ -5616,8 +5846,8 @@ static int R_GXWorldDLWaterOverlay( void )
 	{
 		logged = true;
 		gEngfuncs.Con_Reportf(
-			"Xash3D GameCube: WorldDL water overlay emit=%d props=%d sky=%d dump=%d\n",
-			water_drawn, prop_drawn, sky_side, dump_still ? 1 : 0 );
+			"Xash3D GameCube: WorldDL water overlay emit=%d props=%d inst=%d/%d sky=%d dump=%d\n",
+			water_drawn, prop_drawn, prop_inst, prop_n, sky_side, dump_still ? 1 : 0 );
 	}
 	return water_drawn + prop_drawn;
 }
@@ -7048,7 +7278,7 @@ static int R_GXDrawNewGameCapFacesImpl( void )
 			if( water_n > 0 && !skip_water_hold )
 			{
 				/* Cap sheet budget — gw pack can be hundreds of ARAM faces. */
-				water_drawn = R_GXEmitWaterPlaneSheets( false, 48, 0.0f );
+				water_drawn = R_GXEmitWaterPlaneSheets( false, 256, 0.0f );
 				drawn += water_drawn;
 			}
 			if( !g286_logged )

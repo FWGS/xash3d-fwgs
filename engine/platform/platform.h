@@ -305,7 +305,9 @@ qboolean GC_SandSunTexReady( void );
 void *GC_GetSandSunTexObj( void ); /* GXTexObj* when sand_sun.cmp specular disc loaded */
 int GC_GetPropTriCount( void );
 qboolean GC_GetPropTri( int index, float out_xyz[3][3], float out_st[3][2], int *out_tex );
-void *GC_GetPropTexObj( int index ); /* GXTexObj* for prop_XX.cmp */
+void *GC_GetPropTexObj( int index ); /* unused; prop materials bind by texnum */
+int GC_PropMatTexnum( int index ); /* gl texnum of a streamed prop material */
+void GC_PropTexturesTouch( void ); /* re-stamp stubs after the image table resets */
 qboolean GC_WaterFacePlane( int index, struct mplane_s *out, int *out_flags );
 struct msurface_s *GC_GetLiveDrawSurfs( void ); /* always NULL — use Fill */
 qboolean GC_FillLiveDrawSurf( int index, struct msurface_s *out, mtexinfo_t *tex_out );

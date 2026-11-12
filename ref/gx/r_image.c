@@ -1126,6 +1126,11 @@ int R_GCPackedTexture( const char *name, int width, int height, int levels, qboo
 		tex = GL_AllocTexture( full, TF_NOMIPMAP );
 	if( !tex )
 		return 0;
+	/* Re-stamping the same ARAM chain must not drop a mip that already climbed. */
+	if( tex->gc_packed == data && tex->gc_packed_aram == aram
+		&& tex->gc_packed_bytes == bytes && tex->width == width && tex->height == height
+		&& tex->gc_packed_levels == (byte)levels )
+		return tex - r_images;
 	tex->width = tex->srcWidth = width;
 	tex->height = tex->srcHeight = height;
 	tex->gc_packed = data;
@@ -1146,7 +1151,10 @@ void R_GCPackedRelease( void )
 
 	for( i = 0; i < r_numImages; i++ )
 	{
-		r_images[i].gc_packed = NULL;
+		/* 0x40 stubs live in static tables (world tails, prop 8×8s).
+		 * The pool going away must not drop those pointers. */
+		if( ( r_images[i].gc_packed_low_shift & 0x40 ) == 0 )
+			r_images[i].gc_packed = NULL;
 		r_images[i].gc_packed_hot = NULL;
 		r_images[i].gc_packed_queued = false;
 	}

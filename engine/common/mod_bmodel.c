@@ -5121,12 +5121,16 @@ static struct
 #define GC_WT_TAIL_GUARD_BYTES ( 96 * 1024 )
 #define GC_WT_SPLIT_DIM  64
 #define GC_WT_MIN_HOT_BYTES ( 32 * 1024 )
-/* Sentinel e->offset: bind shared 8×8 CMPR stub until ARAM hot-window stream. */
+/* Sentinel e->offset: MEM1 holds this material's 8×8 until the hot window climbs. */
 #define GC_WT_STUB_OFFSET 0xffffffffu
+#define GC_WT_TAIL_MAX 384
 static byte *gc_wt_pool;
 static size_t gc_wt_pool_bytes;
 static qboolean gc_wt_pool_mapload_tail;
 static byte gc_wt_cmpr_stub[32] __attribute__(( aligned( 32 )));
+/* One real 8×8 per streamed material. Shared grey is only the fallback. */
+static byte gc_wt_tail[GC_WT_TAIL_MAX][32] __attribute__(( aligned( 32 )));
+static byte *gc_wt_tail_ptr[GC_WT_MAX_TEXTURES];
 /* One valid 8×8 CMPR tile (flat mid-grey) — never bind an uninitialized stub. */
 static void Mod_GCWorldPackInitStub( void )
 {
@@ -5149,6 +5153,74 @@ static void Mod_GCWorldPackInitStub( void )
 	}
 	DCFlushRange( gc_wt_cmpr_stub, sizeof( gc_wt_cmpr_stub ));
 	ready = true;
+}
+
+static uint32_t Mod_GCCmprChainBytes( uint32_t w, uint32_t h, int levels )
+{
+	uint32_t n = 0;
+	int i;
+
+	if( levels < 1 )
+		levels = 1;
+	for( i = 0; i < levels; i++ )
+	{
+		uint32_t mw = w >> i;
+		uint32_t mh = h >> i;
+
+		if( !mw )
+			mw = 1;
+		if( !mh )
+			mh = 1;
+		n += (( mw + 7u ) / 8u ) * (( mh + 7u ) / 8u ) * 32u;
+		/* Match the baker: stop once either side has reached the 8-wide mip. */
+		if( mw <= 8u || mh <= 8u )
+			break;
+	}
+	return n;
+}
+
+/* Copy the chain's last 8×8 into MEM1. HotService brings the larger mips later. */
+static void Mod_GCWorldPackKeepSmallest( unsigned index, uint32_t aram, uint32_t stored,
+	uint16_t w, uint16_t h, int levels )
+{
+	uint32_t chain;
+
+	if( index >= GC_WT_TAIL_MAX || index >= GC_WT_MAX_TEXTURES || !aram )
+		return;
+	chain = Mod_GCCmprChainBytes( w, h, levels );
+	/* The resident page is one 8×8. A rectangular tail is not that. */
+	if( chain < 32u || chain > stored || w < 8 || h < 8 )
+		return;
+	{
+		uint32_t mw = w, mh = h;
+		int i;
+
+		for( i = 0; i < levels && ( mw > 8u || mh > 8u ); i++ )
+		{
+			if( mw <= 8u || mh <= 8u )
+				break;
+			mw = w >> ( i + 1 );
+			mh = h >> ( i + 1 );
+			if( !mw )
+				mw = 1;
+			if( !mh )
+				mh = 1;
+		}
+		if( mw != 8u || mh != 8u )
+			return;
+	}
+	GC_AramCopy( aram + chain - 32u, gc_wt_tail[index], 32u, false );
+	DCFlushRange( gc_wt_tail[index], 32 );
+	gc_wt_tail_ptr[index] = gc_wt_tail[index];
+}
+
+static void *Mod_GCWorldPackTexData( unsigned index, const gc_wt_entry_t *e )
+{
+	if( index < GC_WT_MAX_TEXTURES && gc_wt_tail_ptr[index] )
+		return gc_wt_tail_ptr[index];
+	if( e->offset == GC_WT_STUB_OFFSET )
+		return gc_wt_cmpr_stub;
+	return gc_wt.data + e->offset;
 }
 
 /*
@@ -5391,6 +5463,7 @@ static void Mod_GCWorldPackLoad( const char *modelname, size_t surface_reserve )
 	{
 		R_GCPackedRelease( );
 		memset( &gc_wt, 0, sizeof( gc_wt ));
+		memset( gc_wt_tail_ptr, 0, sizeof( gc_wt_tail_ptr ));
 	}
 	/* A map-load-tail pool belongs to the previous world's arena; reacquire it
 	 * for this BSP after the old packed textures have been released. */
@@ -5684,8 +5757,9 @@ static void Mod_GCWorldPackLoad( const char *modelname, size_t surface_reserve )
 			e->flags |= 2;
 			gc_wt.aram[i] = gc_wt_store_base + s->aram;
 			gc_wt.bytes[i] = bytes;
-			/* Bit 0x40: MEM1 is the shared 8×8 stub — bind must bounce from
-			 * ARAM (or clamp to 8×8), never InitTexObj stub as WxH. */
+			/* Bit 0x40: MEM1 is this material's 8×8. HotService climbs. */
+			Mod_GCWorldPackKeepSmallest( (unsigned)i, gc_wt.aram[i], bytes,
+				e->width, e->height, e->levels );
 			gc_wt.low_shift[i] = 0x40u;
 			stream_only_count++;
 			continue;
@@ -5727,6 +5801,8 @@ static void Mod_GCWorldPackLoad( const char *modelname, size_t surface_reserve )
 				e->flags |= 2;
 				gc_wt.aram[i] = gc_wt_store_base + s->aram;
 				gc_wt.bytes[i] = bytes;
+				Mod_GCWorldPackKeepSmallest( (unsigned)i, gc_wt.aram[i], bytes,
+					e->width, e->height, e->levels );
 				gc_wt.low_shift[i] = 0x40u;
 				continue;
 			}
@@ -5779,7 +5855,7 @@ static void Mod_GCWorldPackLoad( const char *modelname, size_t surface_reserve )
 		stem, (unsigned)gc_wt.count, (unsigned)total_textures, (unsigned)pool_bytes,
 		(unsigned)low, (unsigned)( pool_bytes - first - low ), split_dim );
 	if( stream_only_count )
-		Con_Reportf( "Xash3D GameCube: texture ARAM-stream stubs=%u (hi-res CMPR lazy via HotService)\n",
+		Con_Reportf( "Xash3D GameCube: texture ARAM-stream stubs=%u (8×8 resident, hi-res via HotService)\n",
 			stream_only_count );
 }
 
@@ -5794,9 +5870,7 @@ static int Mod_GCWorldPackTexture( const char *name )
 
 		if( !Q_strnicmp( e->name, name, sizeof( e->name )))
 		{
-			void *data = ( e->offset == GC_WT_STUB_OFFSET )
-				? (void *)gc_wt_cmpr_stub
-				: (void *)( gc_wt.data + e->offset );
+			void *data = Mod_GCWorldPackTexData( (unsigned)i, e );
 			return R_GCPackedTexture( e->name, e->width, e->height, e->levels, e->flags & 1,
 				data, gc_wt.aram[i], gc_wt.bytes[i], gc_wt.low_shift[i] );
 		}
@@ -5815,9 +5889,7 @@ static int Mod_GCWorldPackTexture( const char *name )
 			if( e->name[0] == '-' && e->name[1] >= '0' && e->name[1] <= '9' &&
 				!Q_strnicmp( e->name + 2, name + 2, sizeof( e->name ) - 2 ))
 			{
-				void *data = ( e->offset == GC_WT_STUB_OFFSET )
-					? (void *)gc_wt_cmpr_stub
-					: (void *)( gc_wt.data + e->offset );
+				void *data = Mod_GCWorldPackTexData( (unsigned)i, e );
 				return R_GCPackedTexture( e->name, e->width, e->height, e->levels, e->flags & 1,
 					data, gc_wt.aram[i], gc_wt.bytes[i], gc_wt.low_shift[i] );
 			}
@@ -9718,6 +9790,7 @@ static void Mod_LoadClipnodes( model_t *mod, dbspmodel_t *bmod )
 							gc_wt_pool_bytes = 0;
 						}
 						memset( &gc_wt, 0, sizeof( gc_wt ));
+						memset( gc_wt_tail_ptr, 0, sizeof( gc_wt_tail_ptr ));
 						pack_reclaimed = true;
 						Image_GCPurgeDecodeScratch();
 						promoted = (mclipnode16_t *)malloc( clip_sz );

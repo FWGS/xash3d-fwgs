@@ -6,7 +6,7 @@ Cheap, hardware-native glow for the Lost Coast CapFaces path:
   1. GX_CopyTex the finished EFB through the copy unit's 2x box filter into
      a half-res I8 (luma) texture. 320x240 I8 = 75 KiB, borrowed from the idle soft Z
      scratch: no heap, no new BSS.
-  2. Draw one fullscreen quad that samples that texture with 8 offset taps
+  2. Draw one fullscreen quad that samples that texture with offset taps.
      (8 texcoords, bilinear), averages them in TEV, subtracts a threshold,
      scales, and multiplies by a warm tint.
   3. Additive blend (ONE, ONE) back onto the EFB, Z off.
@@ -32,10 +32,10 @@ Enabled for -gccapfacessmoke (Lost Coast) or -gcbloom; -gcnobloom disables.
 extern void *R_GcmapBorrowSoftZ( unsigned offset, unsigned bytes );
 static GXTexObj gc_bloom_tex;
 
-/* Retail Lost Coast HDR: bright sky / sun disc / water glints bloom warm.
- * Keep thresh=168/tint_a=150 with midtint (mae~37.29); hotter bloom
- * raised sky lum but overall mae (probe 181313). */
-#define GC_BLOOM_THRESHOLD 232 /* 0..255 luma floor */
+/* Bright surfaces across the frame, not only the sun disc. 232 left
+ * everything but the sky under the floor. 64 lets the water, hulls
+ * and walls feed the glow; pixels under that stay dark. */
+#define GC_BLOOM_THRESHOLD 64 /* 0..255 luma floor */
 #define GC_BLOOM_TINT_R 255
 #define GC_BLOOM_TINT_G 236
 #define GC_BLOOM_TINT_B 196
@@ -70,12 +70,16 @@ qboolean R_GXBloomApply( void *rmode_ptr )
 	u16 efb_w, efb_h, bw, bh;
 	u8 *gc_bloom_buf;
 	f32 fb_w, fb_h, du, dv;
-	GXColor thresh, tint;
+	GXColor thresh, tint, zero;
 	int i;
-	/* Tap ring in half-res texels: 4 axis taps near, 4 diagonals farther. */
-	static const f32 taps[8][2] = {
-		{  1.5f,  0.0f }, { -1.5f,  0.0f }, {  0.0f,  1.5f }, {  0.0f, -1.5f },
-		{  3.5f,  3.5f }, { -3.5f,  3.5f }, {  3.5f, -3.5f }, { -3.5f, -3.5f },
+	/* Close ring keeps a hull or a window above the floor. The far pair
+	 * spreads that glow onto the water and the walls. Threshold is per
+	 * tap: averaging first was washing small brights out against the
+	 * dark water, so only the sun disc survived. */
+#define GC_BLOOM_TAPS 6
+	static const f32 taps[GC_BLOOM_TAPS][2] = {
+		{  3.0f,  0.0f }, { -3.0f,  0.0f }, {  0.0f,  3.0f }, {  0.0f, -3.0f },
+		{ 14.0f, 10.0f }, { -14.0f, -10.0f },
 	};
 
 	if( !rmode || !R_GXBloomEnabled())
@@ -121,49 +125,55 @@ qboolean R_GXBloomApply( void *rmode_ptr )
 	GX_SetAlphaCompare( GX_ALWAYS, 0, GX_AOP_AND, GX_ALWAYS, 0 );
 	GX_SetBlendMode( GX_BM_BLEND, GX_BL_ONE, GX_BL_ONE, GX_LO_NOOP );
 	GX_SetNumChans( 0 );
-	GX_SetNumTexGens( 8 );
-	for( i = 0; i < 8; i++ )
+	GX_SetNumTexGens( GC_BLOOM_TAPS );
+	for( i = 0; i < GC_BLOOM_TAPS; i++ )
 		GX_SetTexCoordGen( GX_TEXCOORD0 + i, GX_TG_MTX2x4, GX_TG_TEX0 + i, GX_IDENTITY );
 
-	/* TEV: s0..s7 accumulate tap/8, s8 subtract threshold (x4), s9 tint. */
+	/* Each tap: clamp(tex - threshold), then add tap/8 into reg2.
+	 * Last stage is reg2 * tint * 4, added onto the frame. */
 	thresh.r = thresh.g = thresh.b = GC_BLOOM_THRESHOLD;
 	thresh.a = 0;
 	tint.r = (u8)(( GC_BLOOM_TINT_R * GC_BLOOM_TINT_A ) / 255 );
 	tint.g = (u8)(( GC_BLOOM_TINT_G * GC_BLOOM_TINT_A ) / 255 );
 	tint.b = (u8)(( GC_BLOOM_TINT_B * GC_BLOOM_TINT_A ) / 255 );
 	tint.a = 255;
+	zero.r = zero.g = zero.b = zero.a = 0;
 	GX_SetTevColor( GX_TEVREG0, thresh );
 	GX_SetTevColor( GX_TEVREG1, tint );
-	GX_SetNumTevStages( 10 );
-	for( i = 0; i < 8; i++ )
+	GX_SetTevColor( GX_TEVREG2, zero );
+	GX_SetNumTevStages( GC_BLOOM_TAPS * 2 + 1 );
+	for( i = 0; i < GC_BLOOM_TAPS; i++ )
 	{
-		const u8 st = (u8)( GX_TEVSTAGE0 + i );
+		const u8 sub = (u8)( GX_TEVSTAGE0 + i * 2 );
+		const u8 acc = (u8)( sub + 1 );
 
-		GX_SetTevOrder( st, GX_TEXCOORD0 + i, GX_TEXMAP0, GX_COLORNULL );
-		GX_SetTevKColorSel( st, GX_TEV_KCSEL_1_8 );
-		GX_SetTevColorIn( st, GX_CC_ZERO, GX_CC_TEXC, GX_CC_KONST,
-			i == 0 ? GX_CC_ZERO : GX_CC_CPREV );
-		GX_SetTevColorOp( st, GX_TEV_ADD, GX_TB_ZERO, GX_CS_SCALE_1, GX_TRUE, GX_TEVPREV );
-		GX_SetTevAlphaIn( st, GX_CA_ZERO, GX_CA_ZERO, GX_CA_ZERO, GX_CA_ZERO );
-		GX_SetTevAlphaOp( st, GX_TEV_ADD, GX_TB_ZERO, GX_CS_SCALE_1, GX_TRUE, GX_TEVPREV );
+		GX_SetTevOrder( sub, GX_TEXCOORD0 + i, GX_TEXMAP0, GX_COLORNULL );
+		GX_SetTevColorIn( sub, GX_CC_C0, GX_CC_ZERO, GX_CC_ZERO, GX_CC_TEXC );
+		GX_SetTevColorOp( sub, GX_TEV_SUB, GX_TB_ZERO, GX_CS_SCALE_1, GX_TRUE, GX_TEVPREV );
+		GX_SetTevAlphaIn( sub, GX_CA_ZERO, GX_CA_ZERO, GX_CA_ZERO, GX_CA_ZERO );
+		GX_SetTevAlphaOp( sub, GX_TEV_ADD, GX_TB_ZERO, GX_CS_SCALE_1, GX_TRUE, GX_TEVPREV );
+
+		GX_SetTevOrder( acc, GX_TEXCOORDNULL, GX_TEXMAP_NULL, GX_COLORNULL );
+		GX_SetTevKColorSel( acc, GX_TEV_KCSEL_1_8 );
+		GX_SetTevColorIn( acc, GX_CC_ZERO, GX_CC_CPREV, GX_CC_KONST, GX_CC_C2 );
+		GX_SetTevColorOp( acc, GX_TEV_ADD, GX_TB_ZERO, GX_CS_SCALE_1, GX_TRUE, GX_TEVREG2 );
+		GX_SetTevAlphaIn( acc, GX_CA_ZERO, GX_CA_ZERO, GX_CA_ZERO, GX_CA_ZERO );
+		GX_SetTevAlphaOp( acc, GX_TEV_ADD, GX_TB_ZERO, GX_CS_SCALE_1, GX_TRUE, GX_TEVPREV );
 	}
-	/* s8: out = clamp(4 * (avg - threshold)) — the bright pass. */
-	GX_SetTevOrder( GX_TEVSTAGE8, GX_TEXCOORDNULL, GX_TEXMAP_NULL, GX_COLORNULL );
-	GX_SetTevColorIn( GX_TEVSTAGE8, GX_CC_C0, GX_CC_ZERO, GX_CC_ZERO, GX_CC_CPREV );
-	GX_SetTevColorOp( GX_TEVSTAGE8, GX_TEV_SUB, GX_TB_ZERO, GX_CS_SCALE_4, GX_TRUE, GX_TEVPREV );
-	GX_SetTevAlphaIn( GX_TEVSTAGE8, GX_CA_ZERO, GX_CA_ZERO, GX_CA_ZERO, GX_CA_ZERO );
-	GX_SetTevAlphaOp( GX_TEVSTAGE8, GX_TEV_ADD, GX_TB_ZERO, GX_CS_SCALE_1, GX_TRUE, GX_TEVPREV );
-	/* s9: out = bright * tint. */
-	GX_SetTevOrder( GX_TEVSTAGE9, GX_TEXCOORDNULL, GX_TEXMAP_NULL, GX_COLORNULL );
-	GX_SetTevColorIn( GX_TEVSTAGE9, GX_CC_ZERO, GX_CC_CPREV, GX_CC_C1, GX_CC_ZERO );
-	GX_SetTevColorOp( GX_TEVSTAGE9, GX_TEV_ADD, GX_TB_ZERO, GX_CS_SCALE_1, GX_TRUE, GX_TEVPREV );
-	GX_SetTevAlphaIn( GX_TEVSTAGE9, GX_CA_ZERO, GX_CA_ZERO, GX_CA_ZERO, GX_CA_ZERO );
-	GX_SetTevAlphaOp( GX_TEVSTAGE9, GX_TEV_ADD, GX_TB_ZERO, GX_CS_SCALE_1, GX_TRUE, GX_TEVPREV );
+	{
+		const u8 fin = (u8)( GX_TEVSTAGE0 + GC_BLOOM_TAPS * 2 );
 
-	/* Vertex stream: POS + TEX0..7 direct (VTXFMT7 is unused elsewhere). */
+		GX_SetTevOrder( fin, GX_TEXCOORDNULL, GX_TEXMAP_NULL, GX_COLORNULL );
+		GX_SetTevColorIn( fin, GX_CC_ZERO, GX_CC_C2, GX_CC_C1, GX_CC_ZERO );
+		GX_SetTevColorOp( fin, GX_TEV_ADD, GX_TB_ZERO, GX_CS_SCALE_4, GX_TRUE, GX_TEVPREV );
+		GX_SetTevAlphaIn( fin, GX_CA_ZERO, GX_CA_ZERO, GX_CA_ZERO, GX_CA_ZERO );
+		GX_SetTevAlphaOp( fin, GX_TEV_ADD, GX_TB_ZERO, GX_CS_SCALE_1, GX_TRUE, GX_TEVPREV );
+	}
+
+	/* Vertex stream: POS + one texcoord per tap (VTXFMT7 is unused elsewhere). */
 	GX_ClearVtxDesc();
 	GX_SetVtxDesc( GX_VA_POS, GX_DIRECT );
-	for( i = 0; i < 8; i++ )
+	for( i = 0; i < GC_BLOOM_TAPS; i++ )
 	{
 		GX_SetVtxDesc( GX_VA_TEX0 + i, GX_DIRECT );
 		GX_SetVtxAttrFmt( GX_VTXFMT7, GX_VA_TEX0 + i, GX_TEX_ST, GX_F32, 0 );
@@ -187,7 +197,7 @@ qboolean R_GXBloomApply( void *rmode_ptr )
 		for( c = 0; c < 4; c++ )
 		{
 			GX_Position3f32( corner[c][0] * fb_w, corner[c][1] * fb_h, 0.0f );
-			for( t = 0; t < 8; t++ )
+			for( t = 0; t < GC_BLOOM_TAPS; t++ )
 				GX_TexCoord2f32( corner[c][2] + taps[t][0] * du,
 					corner[c][3] + taps[t][1] * dv );
 		}
@@ -202,7 +212,7 @@ qboolean R_GXBloomApply( void *rmode_ptr )
 	GX_SetTexCoordGen( GX_TEXCOORD0, GX_TG_MTX2x4, GX_TG_TEX0, GX_IDENTITY );
 	GX_SetTevOrder( GX_TEVSTAGE0, GX_TEXCOORD0, GX_TEXMAP0, GX_COLOR0A0 );
 	GX_SetTevOp( GX_TEVSTAGE0, GX_PASSCLR );
-	for( i = 0; i < 8; i++ )
+	for( i = 0; i < GC_BLOOM_TAPS * 2 + 1; i++ )
 		GX_SetTevKColorSel( (u8)( GX_TEVSTAGE0 + i ), GX_TEV_KCSEL_1 );
 	GX_ClearVtxDesc();
 
@@ -210,8 +220,8 @@ qboolean R_GXBloomApply( void *rmode_ptr )
 	{
 		logged = true;
 		gEngfuncs.Con_Reportf(
-			"Xash3D GameCube: GX bloom pass %ux%u I8 taps=8 thresh=%d tint=%d,%d,%d\n",
-			bw, bh, GC_BLOOM_THRESHOLD, tint.r, tint.g, tint.b );
+			"Xash3D GameCube: GX bloom pass %ux%u I8 taps=%d thresh=%d tint=%d,%d,%d\n",
+			bw, bh, GC_BLOOM_TAPS, GC_BLOOM_THRESHOLD, tint.r, tint.g, tint.b );
 	}
 	return true;
 }
