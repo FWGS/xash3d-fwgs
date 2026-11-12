@@ -17043,6 +17043,9 @@ qboolean GC_RenderNewGameWorldFrames( int count )
 					static qboolean gc_team_ui_logged;
 					static qboolean gc_class_ui_logged;
 					static qboolean gc_team_fire_logged;
+					static int gc_team_fire_followups;
+					static double gc_team_fire_next;
+					static char gc_team_fire_sfx[64];
 					static int gc_team_ui_frames;
 					static int gc_class_ui_frames;
 					static u16 gc_team_prev_buttons;
@@ -17352,14 +17355,10 @@ qboolean GC_RenderNewGameWorldFrames( int count )
 
 							if( ready )
 							{
-								if( svs.clients && svs.clients[0].edict )
-									GC_LeanEnsureWeaponCombatReady( svs.clients[0].edict );
-								CL_GCSeedFlipperEfxProof( rvp.vieworigin );
-								GC_CapFacesSeedLeanDecals( rvp.vieworigin );
-								/* CapFaces listen: tip-safe combat clips live in
-								 * shallow media/sfx_* (G278). Cache preload may
-								 * still soft-fail tip OOM — also stream one shot
-								 * so ASND peak is nonzero and the user hears fire. */
+								/* Load tip combat SFX BEFORE weapon grant /
+								 * footsteps — those SV_StartSounds burn the
+								 * two G278 file_t slots and make garand Open
+								 * miss (ava-sfx-follow). */
 								{
 									/* One tip-safe clip only: load+play before any
 									 * other RegisterSound so G124 LRU cannot
@@ -17372,6 +17371,7 @@ qboolean GC_RenderNewGameWorldFrames( int count )
 									int si;
 
 									FS_ClearFindMissCache();
+									gc_team_fire_sfx[0] = '\0';
 									for( si = 0; si < (int)( sizeof( try_sfx ) / sizeof( try_sfx[0] )); si++ )
 									{
 										const int handle = S_RegisterSound( try_sfx[si] );
@@ -17382,10 +17382,19 @@ qboolean GC_RenderNewGameWorldFrames( int count )
 										if( sfx && sfx->cache )
 										{
 											S_StartLocalSound( try_sfx[si], 1.0f, true );
+											Q_strncpy( gc_team_fire_sfx, try_sfx[si], sizeof( gc_team_fire_sfx ));
+											/* Semi follow-ups reuse the cached
+											 * clip — no second RegisterSound. */
+											gc_team_fire_followups = 2;
+											gc_team_fire_next = host.realtime + 0.45;
 											break;
 										}
 									}
 								}
+								if( svs.clients && svs.clients[0].edict )
+									GC_LeanEnsureWeaponCombatReady( svs.clients[0].edict );
+								CL_GCSeedFlipperEfxProof( rvp.vieworigin );
+								GC_CapFacesSeedLeanDecals( rvp.vieworigin );
 								Cbuf_AddText( "+attack;wait;wait;-attack\n" );
 								Cbuf_AddText( "+forward;wait;wait;wait;wait;-forward\n" );
 								if( live_ammo > 0 )
@@ -17394,6 +17403,18 @@ qboolean GC_RenderNewGameWorldFrames( int count )
 									hold_left, gc_world_dl_armed ? 1 : 0, live_ammo );
 								gc_team_fire_logged = true;
 							}
+						}
+						else if( gc_team_fire_followups > 0 && gc_team_fire_sfx[0]
+							&& host.realtime >= gc_team_fire_next )
+						{
+							S_StartLocalSound( gc_team_fire_sfx, 1.0f, true );
+							Cbuf_AddText( "+attack;wait;wait;-attack\n" );
+							if( live_ammo > 0 )
+								live_ammo--;
+							gc_team_fire_followups--;
+							gc_team_fire_next = host.realtime + 0.45;
+							Con_Reportf( "Xash3D GameCube: CapFaces SFX follow-up %s left=%d ammo=%d\n",
+								gc_team_fire_sfx, gc_team_fire_followups, live_ammo );
 						}
 					}
 				}
