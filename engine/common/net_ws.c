@@ -40,9 +40,22 @@ GNU General Public License for more details.
 static const uint8_t k_ipv6Bytes_LinkLocalAllNodes[16] =
 { 0xff, 0x02, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01 };
 
+// GameCube: 2 sockets * MAX_LOOPBACK * NET_MAX_MESSAGE (32 KiB) is ~264 KiB of
+// static BSS that MEM1 cannot spare once the network stack is linked. Allocate
+// each queued loopback packet at its real size instead, and free it when read.
+#if XASH_GAMECUBE
+#define NET_LOOPBACK_DYNAMIC 1
+#else
+#define NET_LOOPBACK_DYNAMIC 0
+#endif
+
 typedef struct
 {
+#if NET_LOOPBACK_DYNAMIC
+	byte		*data;
+#else
 	byte		data[NET_MAX_MESSAGE];
+#endif
 	int		datalen;
 } net_loopmsg_t;
 
@@ -990,8 +1003,17 @@ static qboolean NET_GetLoopPacket( netsrc_t sock, netadr_t *from, byte *data, si
 	int i = loop->get & MASK_LOOPBACK;
 	loop->get++;
 
+#if NET_LOOPBACK_DYNAMIC
+	if( !loop->msgs[i].data )
+		return false;
+#endif
 	memcpy( data, loop->msgs[i].data, loop->msgs[i].datalen );
 	*length = loop->msgs[i].datalen;
+#if NET_LOOPBACK_DYNAMIC
+	Mem_Free( loop->msgs[i].data );
+	loop->msgs[i].data = NULL;
+	loop->msgs[i].datalen = 0;
+#endif
 
 	memset( from, 0, sizeof( *from ));
 	NET_NetadrSetType( from, NA_LOOPBACK );
@@ -1011,6 +1033,23 @@ static void NET_SendLoopPacket( netsrc_t sock, size_t length, const void *data, 
 	int i = loop->send & MASK_LOOPBACK;
 	loop->send++;
 
+#if NET_LOOPBACK_DYNAMIC
+	// an unread slot is overwritten when the ring wraps, as before
+	if( loop->msgs[i].data )
+	{
+		Mem_Free( loop->msgs[i].data );
+		loop->msgs[i].data = NULL;
+	}
+
+	if( length > NET_MAX_MESSAGE )
+	{
+		Con_Reportf( S_WARN "%s: dropping oversized loopback packet (%zu)\n", __func__, length );
+		loop->msgs[i].datalen = 0;
+		return;
+	}
+
+	loop->msgs[i].data = (byte *)Z_Malloc( length );
+#endif
 	memcpy( loop->msgs[i].data, data, length );
 	loop->msgs[i].datalen = length;
 }
@@ -1022,6 +1061,18 @@ NET_ClearLoopback
 */
 static void NET_ClearLoopback( void )
 {
+#if NET_LOOPBACK_DYNAMIC
+	for( int sock = 0; sock < NS_COUNT; sock++ )
+	{
+		for( int i = 0; i < MAX_LOOPBACK; i++ )
+		{
+			if( net.loopbacks[sock].msgs[i].data )
+				Mem_Free( net.loopbacks[sock].msgs[i].data );
+			net.loopbacks[sock].msgs[i].data = NULL;
+			net.loopbacks[sock].msgs[i].datalen = 0;
+		}
+	}
+#endif
 	net.loopbacks[0].send = net.loopbacks[0].get = 0;
 	net.loopbacks[1].send = net.loopbacks[1].get = 0;
 }
@@ -2161,6 +2212,7 @@ void NET_Shutdown( void )
 	NET_ClearLagData( true, true );
 
 	NET_Config( false, false );
+	NET_ClearLoopback();
 
 	NET_DeleteCriticalSections();
 
