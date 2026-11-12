@@ -17361,40 +17361,17 @@ qboolean GC_RenderNewGameWorldFrames( int count )
 								 * still soft-fail tip OOM — also stream one shot
 								 * so ASND peak is nonzero and the user hears fire. */
 								{
-									static const char *const sfx[] = {
-										"weapons/garand_shoot.wav",
-										"weapons/kar_shoot.wav",
-										"weapons/pl_gun3.wav",
-										"weapons/mp40_shoot.wav",
-										"player/pl_step1.wav",
-										"player/pl_step2.wav",
-										"player/pl_step3.wav",
-										"player/pl_step4.wav",
-										"buttons/button10.wav",
-									};
-									extern qboolean S_GCVoiceStart( const char *path );
-									int si;
+									/* One tip-safe clip only: load+play before any
+									 * other RegisterSound so G124 LRU cannot
+									 * evict it (streamfix: decoded then
+									 * immediately reclaimed → peak=0). */
+									int handle;
 
 									FS_ClearFindMissCache();
-									for( si = 0; si < (int)( sizeof( sfx ) / sizeof( sfx[0] )); si++ )
-									{
-										int handle = S_RegisterSound( sfx[si] );
-
-										Con_Reportf( "Xash3D GameCube: CapFaces SFX preload %s handle=%d\n",
-											sfx[si], handle );
-									}
-									/* button10 is the tip-safe clip that reliably
-									 * decodes on CapFaces (weapons/* often open
-									 * with a stale hybrid FST length). Play it so
-									 * ASND peak goes nonzero; also try garand. */
+									handle = S_RegisterSound( "buttons/button10.wav" );
+									Con_Reportf( "Xash3D GameCube: CapFaces SFX preload buttons/button10.wav handle=%d\n",
+										handle );
 									S_StartLocalSound( "buttons/button10.wav", 1.0f, true );
-									S_StartLocalSound( "weapons/garand_shoot.wav", 1.0f, true );
-									{
-										const qboolean ok = S_GCVoiceStart( "media/sfx_garand_shoot.wav" );
-
-										Con_Reportf( "Xash3D GameCube: CapFaces SFX stream media/sfx_garand_shoot.wav ok=%d\n",
-											ok ? 1 : 0 );
-									}
 								}
 								Cbuf_AddText( "+attack;wait;wait;-attack\n" );
 								Cbuf_AddText( "+forward;wait;wait;wait;wait;-forward\n" );

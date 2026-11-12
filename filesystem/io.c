@@ -98,14 +98,22 @@ file_t *FS_OpenReadFile( const char *filename, const char *mode, qboolean gamedi
 
 		if( media_vo || media_sfx || sound_sfx )
 		{
-			static const char *const gamedirs[] = { "dod", "valve" };
+			/* One gamedir only — probing dod+valve burned DVD stream
+			 * slots (No stream resources) and silenced CapFaces SFX. */
+			const char *gamedir = ( GI && GI->gamefolder[0] ) ? GI->gamefolder : "dod";
 			file_t *direct;
-			int gi;
 
-			for( gi = 0; gi < (int)( sizeof( gamedirs ) / sizeof( gamedirs[0] )); gi++ )
+			Q_snprintf( netpath, sizeof( netpath ), "gcdisc:/xash3d/%s/%s",
+				gamedir, filename );
+			direct = FS_SysOpen( netpath, mode );
+			if( direct )
 			{
-				Q_snprintf( netpath, sizeof( netpath ), "gcdisc:/xash3d/%s/%s",
-					gamedirs[gi], filename );
+				Con_Reportf( "Xash3D GameCube: G278 direct disc open %s\n", netpath );
+				return direct;
+			}
+			if( media_vo && Q_stricmp( gamedir, "valve" ))
+			{
+				Q_snprintf( netpath, sizeof( netpath ), "gcdisc:/xash3d/valve/%s", filename );
 				direct = FS_SysOpen( netpath, mode );
 				if( direct )
 				{
