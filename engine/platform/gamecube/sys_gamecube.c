@@ -1038,6 +1038,7 @@ static char gc_tas_name[32];
 static qboolean gc_smoke_map_configured;
 static qboolean gc_listenserver_configured;
 static qboolean gc_dumpeye_configured;
+static qboolean gc_vst_configured;
 static qboolean gc_connect_configured;
 static qboolean gc_newgame_configured;
 static qboolean gc_menu_newgame_configured;
@@ -1107,6 +1108,7 @@ static void GCube_LoadDiscBootOverrides( void )
 	gc_listenserver_map[0] = '\0';
 	gc_dumpeye_configured = false;
 	gc_dumpeye_arg[0] = '\0';
+	gc_vst_configured = false;
 	gc_connect_configured = false;
 	gc_connect_addr[0] = '\0';
 	gc_net_ip_configured = false;
@@ -1723,6 +1725,19 @@ static void GCube_LoadDiscBootOverrides( void )
 			continue;
 		}
 
+		/* On-rails VST. Wins over dumpeye: the camera rides the path. */
+		if( !Q_strnicmp( cursor, "gcvst", 5 ))
+		{
+			char ch = cursor[5];
+
+			if( ch == '\0' || ch == '\r' || ch == '\n' || ch == ' ' || ch == '\t' )
+			{
+				gc_vst_configured = true;
+				SYS_Report( "Xash3D GameCube: disc boot override gcvst\n" );
+				continue;
+			}
+		}
+
 		/* CapFaces spawn stills: dumpeye x y z [pitch] [yaw] → -gcdumpeye csv */
 		if( !Q_strnicmp( cursor, "dumpeye", 7 ) && ( cursor[7] == ' ' || cursor[7] == '\t' ))
 		{
@@ -1915,7 +1930,9 @@ int GCube_GetArgv( int in_argc, char **in_argv, char ***out_argv )
 		gc_argv[fake_argc++] = "-gcmap";
 		gc_argv[fake_argc++] = gc_smoke_map;
 	}
-	if( gc_dumpeye_configured && gc_dumpeye_arg[0] )
+	if( gc_vst_configured )
+		gc_argv[fake_argc++] = "-gcvst";
+	else if( gc_dumpeye_configured && gc_dumpeye_arg[0] )
 	{
 		gc_argv[fake_argc++] = "-gcdumpeye";
 		gc_argv[fake_argc++] = gc_dumpeye_arg;
