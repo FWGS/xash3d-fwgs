@@ -36,6 +36,13 @@ static CVAR_DEFINE( gc_net_status, "gc_net_status", "not started", FCVAR_READ_ON
 
 void GC_NetRegisterCvars( void )
 {
+	static qboolean registered;
+
+	/* Bring-up can run (-net) before NET_Init, so registration must be
+	 * idempotent: whichever path runs first wins. */
+	if( registered )
+		return;
+	registered = true;
 	Cvar_RegisterVariable( &gc_net_dhcp );
 	Cvar_RegisterVariable( &gc_net_ip_cvar );
 	Cvar_RegisterVariable( &gc_net_mask_cvar );
@@ -45,6 +52,14 @@ void GC_NetRegisterCvars( void )
 }
 
 #if defined(XASH_GAMECUBE_HAVE_LIBBBA) && XASH_GAMECUBE_HAVE_LIBBBA
+
+/* gc_net_status is FCVAR_READ_ONLY (display only): Cvar_DirectSet refuses
+ * those, so force it through Cvar_FullSet. */
+static void GC_NetSetStatus( const char *text )
+{
+	GC_NetRegisterCvars();
+	Cvar_FullSet( gc_net_status.name, text, FCVAR_READ_ONLY );
+}
 
 #if !XASH_GAMECUBE_LIBOGC2
 #include <netdb.h>
@@ -377,7 +392,7 @@ int GC_NetBringUp( int max_retries )
 		if( !GC_NetValidateStatic( gc_net_ip, gc_net_mask, gc_net_gw ))
 		{
 			Con_Reportf( S_ERROR "GameCube: invalid static IP/mask/gateway; network disabled.\n" );
-			Cvar_DirectSet( &gc_net_status, "invalid static IP/mask/gateway" );
+			GC_NetSetStatus( "invalid static IP/mask/gateway" );
 			return 0;
 		}
 		Con_Reportf( "Xash3D GameCube: net static ip=%s mask=%s gw=%s\n",
@@ -402,7 +417,7 @@ int GC_NetBringUp( int max_retries )
 			(int)ret );
 		Con_Reportf( "GameCube: check adapter/cable/address settings and reboot to retry.\n" );
 		gc_net_ready = false;
-		Cvar_DirectSet( &gc_net_status, "no link (check adapter/cable; reboot to retry)" );
+		GC_NetSetStatus( "no link (check adapter/cable; reboot to retry)" );
 		return 0;
 	}
 	gc_net_initialized = true;
@@ -410,7 +425,7 @@ int GC_NetBringUp( int max_retries )
 	{
 		string status;
 		Q_snprintf( status, sizeof( status ), "connected %s", gc_net_ip );
-		Cvar_DirectSet( &gc_net_status, status );
+		GC_NetSetStatus( status );
 	}
 	Con_Reportf( "Xash3D GameCube: net ready ip=%s mask=%s gw=%s (eth2sp1/BBA)\n",
 		gc_net_ip, gc_net_mask, gc_net_gw );
