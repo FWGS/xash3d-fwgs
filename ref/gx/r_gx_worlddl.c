@@ -11,8 +11,9 @@ Memory (MEM1 is full, so nothing here is new BSS beyond small tables):
   - PVS rows + display-list chunks (~1.8 MiB): ARAM, uploaded once at load
     (falls back to reading the disc file on demand when ARAM has no room)
   - chunk cache: the rest of the world array spill, FIFO ring. A chunk drawn
-    in the current or previous frame is never evicted — the GP may still be
-    reading its display list.
+    earlier this frame stays put (the sky pass already queued it). Last
+    frame's chunks are free once GX_DrawDone has retired that frame, so a
+    new eye can replace the coast with the ground under the camera.
 
 Per frame: eye → cluster (BSP walk) → PVS row (re-read only when the cluster
 changes) → frustum test per chunk box → GX_CallDispList per material batch.
@@ -20,9 +21,10 @@ changes) → frustum test per chunk box → GX_CallDispList per material batch.
 Vertex format GX_VTXFMT6 (file version 2), GX attribute order:
 POS index16 → s16 xyz, NRM s16 xyz (frac 14), CLR0 RGBA8 (baked light +
 blend alpha), TEX0 s16 ST (frac 9), TEX1 s16 lightmap ST (frac 8).
-TEV: texture x vertex light, or x a near-camera lightmap page. Materials
-with an envmap get a second additive specular pass. Then the material's
-TEV recipe (r_gx_tevmat.c).
+TEV: texture x vertex light, or x the chunk's cached lightmap page. A page
+is copied out of ARAM the first time it is drawn and kept at full
+32×32. Materials with an envmap get a second additive specular pass. Then
+the material's TEV recipe (r_gx_tevmat.c).
 
 -gcnobspdl disables the path (CapFaces fallback).
 */
@@ -41,10 +43,9 @@ TEV recipe (r_gx_tevmat.c).
 #define GC_WD_MAX_MATS		384
 #define GC_WD_MAX_CHUNKS	3072
 #define GC_WD_ST_FRAC		9
-#define GC_WD_LOAD_BUDGET	( 512u * 1024u ) /* chunk bytes fetched per frame */
+#define GC_WD_LOAD_BUDGET	( 768u * 1024u ) /* chunk bytes fetched per frame */
 #define GC_WD_MAT_F_WATER	0x01
 #define GC_WD_MAT_F_ENVMAP	0x04
-#define GC_WD_LM_NEAR		( 1200.0f * 1200.0f )
 
 typedef struct
 {
@@ -89,6 +90,7 @@ extern void Mod_GCWorldArraySpillPinBase( const void *ptr, size_t bytes );
 extern size_t Mod_GCWorldArraySpillUsed( void );
 extern int GC_WorldTexnumByHash( unsigned hash );
 extern qboolean R_GXWorldDLBindTex( unsigned texnum );
+extern void R_GXHotSetBias( int bias );
 extern qboolean R_GXWorldDLBindTexPair( unsigned tex1, unsigned tex2 );
 extern int GC_WorldTexnumByHash( unsigned hash );
 extern int R_GXTevMatFlags( int id );
@@ -131,10 +133,10 @@ static void R_GXWorldDLBindVtx( void )
 	GX_SetVtxDesc( GX_VA_TEX0, GX_DIRECT );
 	GX_SetVtxDesc( GX_VA_TEX1, GX_DIRECT );
 	GX_SetVtxAttrFmt( GX_VTXFMT6, GX_VA_POS, GX_POS_XYZ, GX_S16, 0 );
-	GX_SetVtxAttrFmt( GX_VTXFMT6, GX_VA_NRM, GX_NRM_XYZ, GX_S16, 14 );
+	GX_SetVtxAttrFmt( GX_VTXFMT6, GX_VA_NRM, GX_NRM_XYZ, GX_S8, 6 ); /* 3 bytes: cache is scarce */
 	GX_SetVtxAttrFmt( GX_VTXFMT6, GX_VA_CLR0, GX_CLR_RGBA, GX_RGBA8, 0 );
 	GX_SetVtxAttrFmt( GX_VTXFMT6, GX_VA_TEX0, GX_TEX_ST, GX_S16, GC_WD_ST_FRAC );
-	GX_SetVtxAttrFmt( GX_VTXFMT6, GX_VA_TEX1, GX_TEX_ST, GX_S16, 8 );
+	GX_SetVtxAttrFmt( GX_VTXFMT6, GX_VA_TEX1, GX_TEX_ST, GX_U8, 8 );
 }
 
 static void R_GXWorldDLLightMul( int stage, int lightmap, int texcoord )
@@ -158,7 +160,7 @@ static void R_GXWorldDLLightMul( int stage, int lightmap, int texcoord )
 /* One stage normally. WorldVertexTransition lerps layer 2 (scaled down —
  * the old stage added the blend alpha as a colour, which is the white
  * sand patches) by vertex alpha, then multiplies by baked light or by
- * the chunk's near-camera lightmap page. Returns the first free stage. */
+ * the chunk's lightmap page. Returns the first free stage. */
 static int R_GXWorldDLSetupTev( int blend, int lightmap )
 {
 	GX_SetNumIndStages( 0 );
@@ -232,6 +234,32 @@ static gc_wd_slot_t *gc_wd_slots;
 static s16 *gc_wd_texnum;	/* per material: -1 unresolved, 0 missing */
 static byte *gc_wd_cache;
 static u32 gc_wd_cache_size, gc_wd_cache_head;
+/* Lightmap pages stay in MEM1 at full 32×32 RGB565. The disc file is
+ * copied to ARAM once at load; a page is copied here the first time it
+ * is drawn and kept until a different page needs the slot. 192 pages is
+ * a whole view (the ride peaks around 150). 512×2 KiB for every page on
+ * the map is 1 MiB, which does not fit beside the chunk cache. */
+#define GC_WD_LM_SLOTS		192
+#define GC_WD_LM_PAGE_BYTES	2048u
+static byte gc_wd_lm_store[GC_WD_LM_SLOTS * GC_WD_LM_PAGE_BYTES] __attribute__(( aligned( 32 )));
+static u32 gc_wd_lm_stream;	/* file offset of page 0 */
+static s32 gc_wd_lm_slot_page[GC_WD_LM_SLOTS];
+static s32 gc_wd_lm_slot_frame[GC_WD_LM_SLOTS];
+static int gc_wd_lm_miss;	/* pages copied from ARAM this frame */
+/* Optional second cache segment: the idle AVI frame buffer (150 KiB). The
+ * cache is one virtual range [0, gc_wd_cache_size); offsets at or above
+ * gc_wd_seg1_start live in the second buffer. A chunk never straddles. */
+extern void *GC_AviStaticFrameBorrow( unsigned *bytes, unsigned *generation );
+static byte *gc_wd_seg1;
+static u32 gc_wd_seg1_start;
+static unsigned gc_wd_seg1_gen;
+
+static byte *R_GXWorldDLCachePtr( u32 ofs )
+{
+	if( gc_wd_seg1 && ofs >= gc_wd_seg1_start )
+		return gc_wd_seg1 + ( ofs - gc_wd_seg1_start );
+	return gc_wd_cache + ofs;
+}
 static u32 gc_wd_aram;		/* ARAM base of file bytes [ofs_pvsdir, end) */
 static file_t *gc_wd_file;	/* disc fallback when ARAM is unavailable */
 static byte *gc_wd_pvs;		/* decompressed row of gc_wd_pvs_cluster */
@@ -394,6 +422,33 @@ static void R_GXWorldDLLoad( const char *mapbase )
 	else
 		gc_wd_file = f; /* disc streaming fallback */
 
+	/* Pages live in their own cache. The chunk cache stays whole. */
+	if( gc_wd_hdr.n_chunks > 0 )
+	{
+		const gc_wd_chunkdir_t *last = &gc_wd_dir[gc_wd_hdr.n_chunks - 1];
+
+		gc_wd_lm_stream = gc_wd_hdr.ofs_chunks + last->ofs + (( last->bytes + 31u ) & ~31u );
+		for( i = 0; i < GC_WD_LM_SLOTS; i++ )
+		{
+			gc_wd_lm_slot_page[i] = -1;
+			gc_wd_lm_slot_frame[i] = -1000;
+		}
+	}
+	/* Second segment: the idle AVI frame buffer, appended to the virtual range. */
+	gc_wd_seg1 = NULL;
+	if( !gEngfuncs.Sys_CheckParm( "-gcwdsmallcache" ))
+	{
+		unsigned seg_bytes = 0;
+		byte *seg = (byte *)GC_AviStaticFrameBorrow( &seg_bytes, &gc_wd_seg1_gen );
+
+		seg_bytes &= ~31u;
+		if( seg && !( (size_t)seg & 31u ) && seg_bytes >= gc_wd_hdr.max_chunk )
+		{
+			gc_wd_seg1 = seg;
+			gc_wd_seg1_start = gc_wd_cache_size;
+			gc_wd_cache_size += seg_bytes;
+		}
+	}
 	gc_wd_pvs_cluster = -2;
 	gc_wd_state = 1;
 	gEngfuncs.Con_Reportf(
@@ -496,52 +551,128 @@ static void R_GXWorldDLLoadPVS( int cluster )
 	}
 }
 
-/* Make chunk i resident. Returns its base, or NULL when it must wait. */
+/*
+ * One copy of each page, full 32×32. A hit returns the cached bytes and
+ * does not touch ARAM. A miss copies the page once into a slot the GPU
+ * is done with (the frame starts with DrawDone). Slots already used this
+ * frame are left alone, so nothing is streamed again until the view
+ * actually needs a different page.
+ */
+
+static byte *R_GXWorldDLLmPage( u32 page )
+{
+	int i, victim = -1;
+	s32 oldest = 0x7fffffff;
+
+	for( i = 0; i < GC_WD_LM_SLOTS; i++ )
+	{
+		if( gc_wd_lm_slot_page[i] == (s32)page )
+		{
+			gc_wd_lm_slot_frame[i] = gc_wd_frame;
+			return gc_wd_lm_store + (u32)i * GC_WD_LM_PAGE_BYTES;
+		}
+		if( gc_wd_lm_slot_frame[i] < gc_wd_frame && gc_wd_lm_slot_frame[i] < oldest )
+		{
+			oldest = gc_wd_lm_slot_frame[i];
+			victim = i;
+		}
+	}
+	if( victim < 0 )
+		return NULL;
+	if( !R_GXWorldDLFetch( gc_wd_lm_stream + page * GC_WD_LM_PAGE_BYTES,
+		gc_wd_lm_store + (u32)victim * GC_WD_LM_PAGE_BYTES, GC_WD_LM_PAGE_BYTES ))
+		return NULL;
+	/* Only a replaced slot can have stale texels. The first fill of a
+	 * slot has never been sampled. */
+	if( gc_wd_lm_slot_page[victim] >= 0 )
+		GX_InvalidateTexAll();
+	gc_wd_lm_slot_page[victim] = (s32)page;
+	gc_wd_lm_slot_frame[victim] = gc_wd_frame;
+	gc_wd_lm_miss++;
+	return gc_wd_lm_store + (u32)victim * GC_WD_LM_PAGE_BYTES;
+}
+
+/* Place a chunk so it does not straddle the spill/AVI seam. */
+static u32 R_GXWorldDLPlace( u32 head, u32 bytes )
+{
+	if( head + bytes > gc_wd_cache_size )
+		head = 0;
+	if( gc_wd_seg1 && head < gc_wd_seg1_start && head + bytes > gc_wd_seg1_start )
+	{
+		head = gc_wd_seg1_start;
+		if( head + bytes > gc_wd_cache_size )
+			head = 0;
+	}
+	return head;
+}
+
+/* Make chunk i resident. Returns its base, or NULL when it must wait.
+ * Chunks already drawn this frame (including the sky pass) are pinned.
+ * Everything older can be replaced: Draw() has retired the previous GP
+ * frame, and refusing that replacement is what left the monastery floor
+ * in the waiting set while the coast stayed resident. */
 static byte *R_GXWorldDLResident( u32 i, u32 *budget )
 {
 	const gc_wd_chunkdir_t *d = &gc_wd_dir[i];
 	const u32 bytes = ( d->bytes + 31u ) & ~31u;
-	u32 head, k;
+	u32 head, k, spins;
 
 	if( gc_wd_slots[i].cache_ofs >= 0 )
-		return gc_wd_cache + gc_wd_slots[i].cache_ofs;
-	if( bytes > *budget || bytes > gc_wd_cache_size )
+		return R_GXWorldDLCachePtr( (u32)gc_wd_slots[i].cache_ofs );
+	if( bytes == 0 || bytes > *budget || bytes > gc_wd_cache_size )
 		return NULL;
 	head = gc_wd_cache_head;
-	if( head + bytes > gc_wd_cache_size )
-		head = 0;
-	/* Evict what the new chunk overlaps — unless the GP may still read it. */
-	for( k = 0; k < gc_wd_hdr.n_chunks; k++ )
+	for( spins = 0; spins < 8; spins++ )
 	{
-		const s32 o = gc_wd_slots[k].cache_ofs;
-		u32 kb;
+		u32 block = 0;
+		int pinned = 0;
 
-		if( o < 0 )
-			continue;
-		kb = ( gc_wd_dir[k].bytes + 31u ) & ~31u;
-		if( (u32)o + kb <= head || (u32)o >= head + bytes )
-			continue;
-		if( gc_wd_slots[k].used_frame >= gc_wd_frame - 1 )
+		head = R_GXWorldDLPlace( head, bytes );
+		if( gc_wd_seg1 && head < gc_wd_seg1_start && head + bytes > gc_wd_seg1_start )
 			return NULL;
-	}
-	for( k = 0; k < gc_wd_hdr.n_chunks; k++ )
-	{
-		const s32 o = gc_wd_slots[k].cache_ofs;
-		u32 kb;
+		for( k = 0; k < gc_wd_hdr.n_chunks; k++ )
+		{
+			const s32 o = gc_wd_slots[k].cache_ofs;
+			u32 kb;
 
-		if( o < 0 )
+			if( o < 0 || gc_wd_slots[k].used_frame < gc_wd_frame )
+				continue;
+			kb = ( gc_wd_dir[k].bytes + 31u ) & ~31u;
+			if( (u32)o + kb <= head || (u32)o >= head + bytes )
+				continue;
+			pinned = 1;
+			if( (u32)o + kb > block )
+				block = (u32)o + kb;
+		}
+		if( pinned )
+		{
+			/* Step past this frame's lists and try the next gap. */
+			head = block > head ? block : head + 32u;
+			if( head >= gc_wd_cache_size )
+				head = 0;
 			continue;
-		kb = ( gc_wd_dir[k].bytes + 31u ) & ~31u;
-		if( (u32)o + kb <= head || (u32)o >= head + bytes )
-			continue;
-		gc_wd_slots[k].cache_ofs = -1;
+		}
+		for( k = 0; k < gc_wd_hdr.n_chunks; k++ )
+		{
+			const s32 o = gc_wd_slots[k].cache_ofs;
+			u32 kb;
+
+			if( o < 0 )
+				continue;
+			kb = ( gc_wd_dir[k].bytes + 31u ) & ~31u;
+			if( (u32)o + kb <= head || (u32)o >= head + bytes )
+				continue;
+			gc_wd_slots[k].cache_ofs = -1;
+		}
+		if( !R_GXWorldDLFetch( gc_wd_hdr.ofs_chunks + d->ofs, R_GXWorldDLCachePtr( head ), bytes ))
+			return NULL;
+		gc_wd_slots[i].cache_ofs = (s32)head;
+		gc_wd_cache_head = head + bytes;
+		*budget -= bytes;
+		return R_GXWorldDLCachePtr( head );
 	}
-	if( !R_GXWorldDLFetch( gc_wd_hdr.ofs_chunks + d->ofs, gc_wd_cache + head, bytes ))
-		return NULL;
-	gc_wd_slots[i].cache_ofs = (s32)head;
-	gc_wd_cache_head = head + bytes;
-	*budget -= bytes;
-	return gc_wd_cache + head;
+	gc_wd_cache_head = head;
+	return NULL;
 }
 
 /* Same frustum as CapFaces densify (FOV+5°, −16u plane slack). */
@@ -600,7 +731,7 @@ static int R_GXWorldDLSpecular( void )
 		ofs = gc_wd_slots[i].cache_ofs;
 		if( ofs < 0 || gc_wd_slots[i].used_frame != gc_wd_frame )
 			continue;
-		chunk = gc_wd_cache + ofs;
+		chunk = R_GXWorldDLCachePtr( (u32)ofs );
 		nb = *(const u16 *)( chunk + 2 );
 		GX_SetArray( GX_VA_POS, chunk + *(const u32 *)( chunk + 4 ), 6 );
 		b = (const gc_wd_batch_t *)( chunk + 16 );
@@ -634,13 +765,58 @@ static int R_GXWorldDLSpecular( void )
 	return drawn;
 }
 
+/* Chunk indices ordered near to far (counting sort over distance bands from
+ * the eye to each chunk box). */
+#define GC_WD_BANDS	12
+static u16 gc_wd_order[GC_WD_MAX_CHUNKS];
+
+static int R_GXWorldDLBand( const gc_wd_chunkdir_t *d, const float *org )
+{
+	static const float edge[GC_WD_BANDS - 1] = {
+		256.0f, 512.0f, 768.0f, 1024.0f, 1536.0f, 2048.0f, 3072.0f, 4096.0f,
+		6144.0f, 8192.0f, 12288.0f
+	};
+	float d2 = 0.0f;
+	int a, b;
+
+	for( a = 0; a < 3; a++ )
+	{
+		float v = 0.0f;
+
+		if( org[a] < (float)d->mins[a] )
+			v = (float)d->mins[a] - org[a];
+		else if( org[a] > (float)d->maxs[a] )
+			v = org[a] - (float)d->maxs[a];
+		d2 += v * v;
+	}
+	for( b = 0; b < GC_WD_BANDS - 1; b++ )
+		if( d2 < edge[b] * edge[b] )
+			return b;
+	return GC_WD_BANDS - 1;
+}
+
+static void R_GXWorldDLSortByDistance( const float *org )
+{
+	u32 count[GC_WD_BANDS + 1];
+	u32 i;
+	int b;
+
+	memset( count, 0, sizeof( count ));
+	for( i = 0; i < gc_wd_hdr.n_chunks; i++ )
+		count[R_GXWorldDLBand( &gc_wd_dir[i], org ) + 1]++;
+	for( b = 0; b < GC_WD_BANDS; b++ )
+		count[b + 1] += count[b];
+	for( i = 0; i < gc_wd_hdr.n_chunks; i++ )
+		gc_wd_order[count[R_GXWorldDLBand( &gc_wd_dir[i], org )]++] = (u16)i;
+}
+
 int R_GXWorldDLDraw( void )
 {
 	static qboolean logged;
 	const float *org = RI.rvp.vieworigin;
 	u32 budget = GC_WD_LOAD_BUDGET;
-	u32 i;
-	int cluster, drawn = 0, chunks = 0, waiting = 0, cur_mat = -1, near_lm = 0;
+	u32 oi;
+	int cluster, drawn = 0, chunks = 0, waiting = 0, cur_mat = -1, use_lm = 0;
 	int pvs_hit = 0, frustum_reject = 0;
 	int pass, use_frustum = 1;
 	const qboolean dump_still = gEngfuncs.Sys_CheckParm( "-gcdumpframes" )
@@ -649,7 +825,26 @@ int R_GXWorldDLDraw( void )
 
 	if( gc_wd_state != 1 )
 		return 0;
+	/* Retire the previous frame before any cache line is reused. */
+	GX_DrawDone();
 	gc_wd_frame++;
+	gc_wd_lm_miss = 0;
+	/* A movie claimed the borrowed AVI buffer: everything cached there is gone. */
+	if( gc_wd_seg1 )
+	{
+		unsigned gen = 0;
+
+		(void)GC_AviStaticFrameBorrow( NULL, &gen );
+		if( gen != gc_wd_seg1_gen )
+		{
+			u32 k;
+
+			gc_wd_seg1_gen = gen;
+			for( k = 0; k < gc_wd_hdr.n_chunks; k++ )
+				if( gc_wd_slots[k].cache_ofs >= (s32)gc_wd_seg1_start )
+					gc_wd_slots[k].cache_ofs = -1;
+		}
+	}
 	budget = frame_budget;
 	cluster = R_GXWorldDLEyeCluster( org );
 	/* Eye in solid / outside the tree: keep the last good row. */
@@ -657,6 +852,7 @@ int R_GXWorldDLDraw( void )
 		R_GXWorldDLLoadPVS( cluster );
 	else if( gc_wd_pvs_cluster == -2 )
 		R_GXWorldDLLoadPVS( -1 );
+	R_GXWorldDLSortByDistance( org );
 	R_GXBuildFrustum();
 	/* Dump-eye: keep CapFaces frustum (+5°). Wider FOV pulled midband land
 	 * through the water slab (mae 47→64). PVS-only floods the 512 KiB cache. */
@@ -689,10 +885,14 @@ int R_GXWorldDLDraw( void )
 			chunks = 0;
 			waiting = 0;
 			cur_mat = -1;
+			use_lm = 0;
 			budget = frame_budget;
 		}
-		for( i = 0; i < gc_wd_hdr.n_chunks; i++ )
+		for( oi = 0; oi < gc_wd_hdr.n_chunks; oi++ )
 		{
+			/* Nearest chunks first: when the cache cannot hold the whole
+			 * visible set, what is left waiting is the far distance. */
+			const u32 i = gc_wd_order[oi];
 			const gc_wd_chunkdir_t *d = &gc_wd_dir[i];
 			const gc_wd_batch_t *b;
 			byte *chunk;
@@ -731,27 +931,39 @@ int R_GXWorldDLDraw( void )
 			nb = *(const u16 *)( chunk + 2 );
 			{
 				const u32 lm_ofs = *(const u32 *)( chunk + 8 );
-				float cx, cy, cz, dx, dy, dz;
 				static GXTexObj lm_obj;
 
-				near_lm = 0;
+				use_lm = 0;
 				if( lm_ofs )
 				{
-					cx = 0.5f * ( (float)d->mins[0] + (float)d->maxs[0] );
-					cy = 0.5f * ( (float)d->mins[1] + (float)d->maxs[1] );
-					cz = 0.5f * ( (float)d->mins[2] + (float)d->maxs[2] );
-					dx = cx - org[0];
-					dy = cy - org[1];
-					dz = cz - org[2];
-					if( dx * dx + dy * dy + dz * dz < GC_WD_LM_NEAR )
+					/* lm_ofs is page index + 1 in the separate page stream. */
+					byte *page = R_GXWorldDLLmPage( lm_ofs - 1u );
+
+					if( page )
 					{
-						near_lm = 1;
-						GX_InitTexObj( &lm_obj, chunk + lm_ofs, 32, 32,
+						use_lm = 1;
+						GX_InitTexObj( &lm_obj, page, 32, 32,
 							GX_TF_RGB565, GX_CLAMP, GX_CLAMP, GX_FALSE );
 						GX_InitTexObjFilterMode( &lm_obj, GX_LINEAR, GX_LINEAR );
 						GX_LoadTexObj( &lm_obj, GX_TEXMAP2 );
 					}
 				}
+			}
+			{
+				float cx = 0.5f * ( (float)d->mins[0] + (float)d->maxs[0] );
+				float cy = 0.5f * ( (float)d->mins[1] + (float)d->maxs[1] );
+				float cz = 0.5f * ( (float)d->mins[2] + (float)d->maxs[2] );
+				float dx = cx - org[0], dy = cy - org[1], dz = cz - org[2];
+				float d2 = dx * dx + dy * dy + dz * dz;
+				int bias = 1;
+
+				if( d2 < 600.0f * 600.0f )
+					bias = 48;
+				else if( d2 < 1200.0f * 1200.0f )
+					bias = 16;
+				else if( d2 < 2000.0f * 2000.0f )
+					bias = 4;
+				R_GXHotSetBias( bias );
 			}
 			GX_SetArray( GX_VA_POS, chunk + *(const u32 *)( chunk + 4 ), 6 );
 			b = (const gc_wd_batch_t *)( chunk + 16 );
@@ -761,7 +973,7 @@ int R_GXWorldDLDraw( void )
 
 				if( b->mat >= gc_wd_hdr.n_mats )
 					continue;
-				key = (int)b->mat | ( near_lm ? 0x4000 : 0 );
+				key = (int)b->mat | ( use_lm ? 0x4000 : 0 );
 				if( key != cur_mat )
 				{
 					const gc_wd_mat_t *m = &gc_wd_mats[b->mat];
@@ -789,10 +1001,10 @@ int R_GXWorldDLDraw( void )
 						ok = R_GXWorldDLBind( (unsigned)gc_wd_texnum[b->mat] );
 					if( !ok )
 						continue;
-					first = R_GXWorldDLSetupTev( blend, near_lm );
+					first = R_GXWorldDLSetupTev( blend, use_lm );
 					/* Source material recipe on top (detail / alphatest). */
 					R_GXTevMatAppend( R_GXTevMatFlags( m->tevmat ) ? m->tevmat : 0, first,
-						blend ? ( near_lm ? 3 : 2 ) : ( near_lm ? 2 : 1 ) );
+						blend ? ( use_lm ? 3 : 2 ) : ( use_lm ? 2 : 1 ) );
 					cur_mat = key;
 				}
 				GX_CallDispList( chunk + b->dl_ofs, b->dl_bytes );
@@ -828,9 +1040,9 @@ int R_GXWorldDLDraw( void )
 	{
 		logged = true;
 		gEngfuncs.Con_Reportf(
-			"Xash3D GameCube: world DL frame=%d cluster=%d chunks=%d batches=%d waiting=%d pvs=%d frustum_rej=%d%s\n",
+			"Xash3D GameCube: world DL frame=%d cluster=%d chunks=%d batches=%d waiting=%d pvs=%d frustum_rej=%d lm_miss=%d%s\n",
 			gc_wd_frame, cluster, chunks, drawn, waiting, pvs_hit, frustum_reject,
-			use_frustum ? "" : " (frustum bypass)" );
+			gc_wd_lm_miss, use_frustum ? "" : " (frustum bypass)" );
 	}
 	return drawn;
 }
