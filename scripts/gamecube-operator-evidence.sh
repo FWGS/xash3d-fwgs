@@ -90,30 +90,6 @@ if [[ "$DRY_RUN" != "1" && "$SKIP_BUILD" == "0" ]]; then
 	scripts/build-gamecube.sh
 fi
 
-# Copy probe/gameplay trees without disc images — full cp -a of dolphin-probe
-# dirs (often 400MB+ ISO) hangs for minutes on exFAT Expansion and races oneshot.
-copy_probe_logs() {
-	local src="$1" dest="$2"
-	mkdir -p "$dest"
-	# Prefer rsync exclude; fall back to find+cp of small files.
-	if command -v rsync >/dev/null 2>&1; then
-		rsync -a --exclude='*.iso' --exclude='*.img' --exclude='*.gcm' \
-			--exclude='*.dol' --exclude='MemoryCard*' --exclude='Cache/' \
-			"$src"/ "$dest"/
-	else
-		(
-			cd "$src" || exit 1
-			find . -type f \
-				! -name '*.iso' ! -name '*.img' ! -name '*.gcm' ! -name '*.dol' \
-				! -path './Cache/*' ! -path './MemoryCard*' \
-				-print0 | while IFS= read -r -d '' f; do
-				mkdir -p "$dest/$(dirname "$f")"
-				cp -a "$f" "$dest/$f"
-			done
-		)
-	fi
-}
-
 if [[ -n "$REUSE_PROBE" ]]; then
 	echo "== reuse G508/probe logs =="
 	probe_src="$REUSE_PROBE"
@@ -122,7 +98,7 @@ if [[ -n "$REUSE_PROBE" ]]; then
 		echo "FAIL: --reuse-probe dir missing: $probe_src" >&2
 		exit 2
 	fi
-	copy_probe_logs "$probe_src" "$OUT_DIR/probe-logs"
+	cp -a "$probe_src" "$OUT_DIR/probe-logs"
 fi
 
 if [[ "$DRY_RUN" != "1" && "$SKIP_PROBE" == "0" ]]; then
@@ -134,7 +110,7 @@ if [[ "$DRY_RUN" != "1" && "$SKIP_PROBE" == "0" ]]; then
 		probe_dir="$(grep -E '^Logs: ' "$OUT_DIR/probe-console.log" | tail -1 | sed 's/^Logs: //')" || true
 		if [[ -n "${probe_dir:-}" && -d "$ROOT/$probe_dir" ]]; then
 			rm -rf "$OUT_DIR/probe-logs"
-			copy_probe_logs "$ROOT/$probe_dir" "$OUT_DIR/probe-logs" || true
+			cp -a "$ROOT/$probe_dir" "$OUT_DIR/probe-logs" || true
 		fi
 	fi
 fi
@@ -147,7 +123,7 @@ if [[ -n "$REUSE_GAMEPLAY" ]]; then
 		echo "FAIL: --reuse-gameplay dir missing: $extra_src" >&2
 		exit 2
 	fi
-	copy_probe_logs "$extra_src" "$OUT_DIR/gameplay-logs"
+	cp -a "$extra_src" "$OUT_DIR/gameplay-logs"
 fi
 
 echo "== G509 soak =="
@@ -171,7 +147,6 @@ fi
 
 echo "== memory evidence =="
 MEM_LOGS=()
-MEMORY_REPO="$ROOT"
 for dir in "$OUT_DIR/probe-logs" "$OUT_DIR/gameplay-logs"; do
 	if [[ -d "$dir" ]]; then
 		while IFS= read -r -d '' log; do
@@ -179,17 +154,9 @@ for dir in "$OUT_DIR/probe-logs" "$OUT_DIR/gameplay-logs"; do
 		done < <(find "$dir" -type f -name '*.log' -print0 2>/dev/null || true)
 	fi
 done
-if [[ "$DRY_RUN" == "1" && ${#MEM_LOGS[@]} == 0 ]]; then
-	# No runtime input was supplied. Keep the dry run independent of old
-	# probes and their potentially large Dolphin user-directory trees.
-	: > "$OUT_DIR/memory-input.log"
-	MEM_LOGS+=(--log "$OUT_DIR/memory-input.log")
-	MEMORY_REPO="$OUT_DIR/memory-fixture"
-	mkdir -p "$MEMORY_REPO"
-fi
 if ((${#MEM_LOGS[@]})); then
 	python3 scripts/gamecube-memory-evidence.py \
-		--repo "$MEMORY_REPO" \
+		--repo "$ROOT" \
 		--output "$OUT_DIR/memory.json" \
 		--markdown "$OUT_DIR/memory.md" \
 		"${MEM_LOGS[@]}"
@@ -207,9 +174,9 @@ GAMEPLAY="$OUT_DIR/gameplay.log"
 if [[ -d "$OUT_DIR/probe-logs" || -d "$OUT_DIR/gameplay-logs" ]]; then
 	: >"$RUNTIME"
 	: >"$GAMEPLAY"
-	for dir in "$OUT_DIR/probe-logs" "$OUT_DIR/gameplay-logs" "$OUT_DIR/swiss-probe-logs"; do
+	for dir in "$OUT_DIR/probe-logs" "$OUT_DIR/gameplay-logs"; do
 		[[ -d "$dir" ]] || continue
-		for name in stderr.log stdout.log dolphin-user/Logs/dolphin.log swiss-evidence-raw.txt; do
+		for name in stderr.log stdout.log dolphin-user/Logs/dolphin.log; do
 			if [[ -f "$dir/$name" ]]; then
 				cat "$dir/$name" >>"$RUNTIME"
 				printf '\n' >>"$RUNTIME"

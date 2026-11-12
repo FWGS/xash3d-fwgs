@@ -738,11 +738,6 @@ static qboolean R_LoadProgs( const char *name )
 	Con_Reportf( "Xash3D GameCube: REF_GX static GetRefAPI retail Flipper policy=on soft=%d capture=%d\n",
 		Sys_CheckParm( "-gcsoftworld" ) ? 1 : 0,
 		GC_IsCaptureDiagnostics() ? 1 : 0 );
-	/* Swiss FAT: retail Flipper policy without USB Gecko / Dolphin merge. */
-	GCube_AppendSwissEvidence(
-		"REF_GX static GetRefAPI retail Flipper policy=on soft=%d capture=%d",
-		Sys_CheckParm( "-gcsoftworld" ) ? 1 : 0,
-		GC_IsCaptureDiagnostics() ? 1 : 0 );
 #endif
 
 	if( !ref.dllFuncs.R_Init( ))

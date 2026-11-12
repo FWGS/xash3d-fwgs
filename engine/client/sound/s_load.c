@@ -19,7 +19,6 @@ GNU General Public License for more details.
 #if XASH_GAMECUBE
 #include "gamecube/mem_gamecube.h"
 #include "filesystem.h"
-void Image_GCPurgeDecodeScratch( void );
 #endif
 
 // during registration it is possible to have more sounds
@@ -55,11 +54,11 @@ static qboolean s_registering = false;
  * reloading from disc on every step. ~300-470 KiB of heap stays free there. */
 #define GC_SFX_MENU_BUDGET_BYTES	(320u * 1024u)
 #define GC_SFX_MENU_MAX_FILE_BYTES	(48u * 1024u)
-/* c0a0 reaches the active world with only ~20–40 KiB of free heap. A 16 KiB
- * floor refused sparks/ambient after decode (probe 20261110-001909 tip≈12–21
- * KiB). Keep an 8 KiB reserve so small ambient one-shots still admit while
- * the byte budget and per-file cap bound total usage. */
-#define GC_SFX_MENU_HEAP_FLOOR	(8u * 1024u)
+/* c0a0 reaches the active world with only ~40 KiB of free heap. A 128 KiB
+ * floor silently refused even 2–3 KiB footsteps and NPC one-shots. Keep a
+ * real 16 KiB reserve for transient server/client work while admitting small
+ * gameplay sounds; the byte budget and per-file cap still bound total usage. */
+#define GC_SFX_MENU_HEAP_FLOOR	(16u * 1024u)
 #define GC_SFX_BUDGET		( GC_MenuRunsServer() ? GC_SFX_MENU_BUDGET_BYTES : GC_SFX_BUDGET_BYTES )
 #define GC_SFX_MAX_FILE		( GC_MenuRunsServer() ? GC_SFX_MENU_MAX_FILE_BYTES : GC_SFX_MAX_FILE_BYTES )
 /* G124: gentle reclaim for small footsteps; hard retry drops one fire WAV. */
@@ -92,14 +91,13 @@ static void S_GCSfxCooldown( const sfx_t *sfx, uint32_t tenths )
 
 static qboolean S_GCAllowRuntimeSoundLoad( void )
 {
+	if( !GC_MapLoadMemoryOpt() )
+		return false;
+
 	/* Keep map/bootstrap lean; once the client is active, admit bounded sounds
 	 * from the dedicated SFX pool even when the map-load session is retained.
 	 * The former menu-only heap floor rejected every ambient/NPC sound because
-	 * the retained map arena made free-heap fluctuate below 128 KiB.
-	 * After EndMapLoadMemoryOpt, still admit on the menu route so tram
-	 * plats/ttrain* can retry once CapFaces tip is gone (probe 013946). */
-	if( !GC_MapLoadMemoryOpt() && !GC_MenuRunsServer() )
-		return false;
+	 * the retained map arena made free-heap fluctuate below 128 KiB. */
 	return cls.state == ca_active && !s_registering
 		&& s_gc_sfx_budget_used < GC_SFX_BUDGET;
 }
@@ -206,20 +204,12 @@ static size_t S_GCMakeRoomForBudgetedLoad( const sfx_t *keep, size_t want, size_
 	if( want == 0 )
 		want = GC_SFX_LOAD_HEADROOM_SOFT;
 	/* Menu route: evict only when the budget is actually short, not before
-	 * every load (two footsteps evicted each other on every step).
-	 * Exception: when tip cannot hold the FS file buffer (tram ttrain needs
-	 * ~40 KiB at tip≈16 KiB), still reclaim even if the byte budget has room
-	 * — otherwise plats/ttrain* soft-fail for the whole map. */
+	 * every load (two footsteps evicted each other on every step). */
 	if( GC_MenuRunsServer( ))
 	{
-		const size_t tip = GC_MemHeapFreeBytes();
-
-		if( s_gc_sfx_budget_used + want <= GC_SFX_BUDGET && tip >= want + GC_SFX_MENU_HEAP_FLOOR )
+		if( s_gc_sfx_budget_used + want <= GC_SFX_BUDGET )
 			return 0;
-		if( s_gc_sfx_budget_used + want > GC_SFX_BUDGET )
-			want = s_gc_sfx_budget_used + want - GC_SFX_BUDGET;
-		else if( tip < want + GC_SFX_MENU_HEAP_FLOOR )
-			want = ( want + GC_SFX_MENU_HEAP_FLOOR ) - tip;
+		want = s_gc_sfx_budget_used + want - GC_SFX_BUDGET;
 	}
 
 	while( freed < want )
@@ -520,20 +510,10 @@ wavdata_t *S_LoadSound( sfx_t *sfx )
 	if( GC_MapLoadMemoryOpt() && Q_stricmp( sfx->name, "*default" )
 		&& !S_GCAllowRuntimeSoundLoad() )
 	{
-		/* Full-geo Prepare preloads tram SFX while still under memopt and
-		 * before ca_active — allow plats/ttrain* through (probe 020442
-		 * skipped both with tip≈47 KiB free). */
-		if( Q_strnicmp( sfx->name, "plats/ttrain", 12 )
-			&& Q_strnicmp( sfx->name, "plats/train", 11 ))
-		{
-			if( s_gcmapSoundSkips < 8 )
-				Con_Reportf( "Xash3D GameCube: sound load skipped for map-load memopt %s\n", sfx->name );
-			s_gcmapSoundSkips++;
-			return NULL;
-		}
-		Con_Reportf( "Xash3D GameCube: tram SFX load during memopt %s tip=%s\n",
-			sfx->name, Q_memprint( GC_MemHeapFreeBytes() ));
-		Image_GCPurgeDecodeScratch();
+		if( s_gcmapSoundSkips < 8 )
+			Con_Reportf( "Xash3D GameCube: sound load skipped for map-load memopt %s\n", sfx->name );
+		s_gcmapSoundSkips++;
+		return NULL;
 	}
 	if( GC_MenuRunsServer() && Q_stricmp( sfx->name, "*default" ))
 	{
@@ -567,27 +547,12 @@ wavdata_t *S_LoadSound( sfx_t *sfx )
 		else
 		{
 			/* G125: weapon fire needs a ~13 KiB FS file buffer — reclaim every
-			 * small budgeted SFX (preloaded steps) before the first attempt.
-			 * Tram plats/ttrain* are 14–41 KiB and were soft-failing FS_Load
-			 * under tip≈20 KiB (probe 20261110-001909 silent tram). */
+			 * small budgeted SFX (preloaded steps) before the first attempt. */
 			size_t want = GC_SFX_LOAD_HEADROOM_SOFT;
 			if( !Q_strnicmp( sfx->name, "weapons/", 8 ))
 				want = 16u * 1024u;
-			else if( !Q_strnicmp( sfx->name, "plats/ttrain", 12 )
-				|| !Q_strnicmp( sfx->name, "plats/train", 11 ))
 			{
-				want = 48u * 1024u;
-				Image_GCPurgeDecodeScratch();
-			}
-			{
-				/* Tram loops may need to evict larger one-shots than footsteps. */
-				size_t max_victim = 8u * 1024u;
-				size_t reclaimed;
-
-				if( !Q_strnicmp( sfx->name, "plats/ttrain", 12 )
-					|| !Q_strnicmp( sfx->name, "plats/train", 11 ))
-					max_victim = GC_SFX_MENU_MAX_FILE_BYTES;
-				reclaimed = S_GCMakeRoomForBudgetedLoad( sfx, want, max_victim );
+				size_t reclaimed = S_GCMakeRoomForBudgetedLoad( sfx, want, 8u * 1024u );
 				if( reclaimed )
 					Con_Reportf( "Xash3D GameCube: G125 LRU reclaimed=%u before %s\n",
 						(uint)reclaimed, sfx->name );
@@ -630,35 +595,9 @@ wavdata_t *S_LoadSound( sfx_t *sfx )
 		}
 		if( !sc && GC_MapLoadMemoryOpt() && Q_stricmp( sfx->name, "*default" ))
 		{
-			/* Tram loop/start WAVs are required for audible ride; a cooldown
-			 * after tip-starved FS_Load left plats/ttrain* silent for the
-			 * whole map (probe 20261110-005508). Allow immediate retry once
-			 * CapFaces frees tip / memopt ends. Full-geo skips CapFaces so tip
-			 * stays higher — one more purge+retry before soft-fail. */
-			if( !Q_strnicmp( sfx->name, "plats/ttrain", 12 )
-				|| !Q_strnicmp( sfx->name, "plats/train", 11 ))
-			{
-				Image_GCPurgeDecodeScratch();
-				S_GCMakeRoomForBudgetedLoad( sfx, 48u * 1024u, GC_SFX_MENU_MAX_FILE_BYTES );
-				FS_ClearFindMissCache();
-				if( sfx->name[0] == '*' )
-					sc = FS_LoadSound( sfx->name + 1, NULL, 0 );
-				else
-					sc = FS_LoadSound( sfx->name, NULL, 0 );
-				if( sc )
-				{
-					Con_Reportf( "Xash3D GameCube: G125 tram SFX ok after tip purge %s\n",
-						sfx->name );
-				}
-			}
-			if( !sc )
-			{
-				if( Q_strnicmp( sfx->name, "plats/ttrain", 12 )
-					&& Q_strnicmp( sfx->name, "plats/train", 11 ))
-					S_GCSfxCooldown( sfx, GC_SFX_REFUSE_COOLDOWN );
-				Con_Reportf( "Xash3D GameCube: sound fallback skipped for map-load memopt %s\n", sfx->name );
-				return NULL;
-			}
+			S_GCSfxCooldown( sfx, GC_SFX_REFUSE_COOLDOWN );
+			Con_Reportf( "Xash3D GameCube: sound fallback skipped for map-load memopt %s\n", sfx->name );
+			return NULL;
 		}
 #endif
 		if( !sc )

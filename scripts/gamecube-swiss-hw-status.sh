@@ -37,6 +37,10 @@ for name in /run/media/tim/*; do
 	fi
 	fstype="$(findmnt -no FSTYPE "$name" 2>/dev/null || true)"
 	case "$fstype" in vfat|msdos|fat|fat32)
+		# Skip EFI System Partitions (fixed-disk ESP, not Swiss SD).
+		if [[ -d "$name/EFI" || -d "$name/efi" ]]; then
+			continue
+		fi
 		src="$(findmnt -n -o SOURCE --target "$name" 2>/dev/null || true)"
 		if [[ -n "$src" && -b "$src" ]]; then
 			disk="$(lsblk -no PKNAME "$src" 2>/dev/null || true)"
@@ -48,17 +52,9 @@ for name in /run/media/tim/*; do
 				continue
 			fi
 		fi
-		# Skip small host ESP only; Swiss multi-boot cards may carry EFI/.
-		if [[ -d "$name/EFI" || -d "$name/efi" ]]; then
-			sz="$(findmnt -nb -o SIZE "$name" 2>/dev/null || echo 0)"
-			if [[ ! -d "$name/apps" && ! -d "$name/xash3d" && ! -f "$name/boot.dol" ]] \
-				&& [[ -n "$sz" ]] && (( sz < 2 * 1024 * 1024 * 1024 )); then
-				continue
-			fi
-		fi
 		echo -n "$b "
 		found=1
-		for f in "$name/xash3d/dod/logs/swiss-evidence.txt" "$name/xash3d/valve/logs/swiss-evidence.txt" "$name/swiss-evidence.txt"; do
+		for f in "$name/xash3d/valve/logs/swiss-evidence.txt" "$name/swiss-evidence.txt"; do
 			[[ -f "$f" ]] && echo -n "[evidence:$f] "
 		done
 	;;

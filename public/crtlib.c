@@ -45,6 +45,7 @@ char *GAME_EXPORT Q_memfgets( byte *data, int data_len, int *data_offset, char *
 	return dst;
 }
 
+
 void Q_strnlwr( const char *in, char *out, size_t size_out )
 {
 	size_t len = Q_strncpy( out, in, size_out );
@@ -63,9 +64,9 @@ int Q_atoi_hex( int sign, const char *str )
 	while( 1 )
 	{
 		int c = *str++;
-		if( c >= '0' && c <= '9' ) val = ( val << 4 ) + c - '0';
-		else if( c >= 'a' && c <= 'f' ) val = ( val << 4 ) + c - 'a' + 10;
-		else if( c >= 'A' && c <= 'F' ) val = ( val << 4 ) + c - 'A' + 10;
+		if( c >= '0' && c <= '9' ) val = (val<<4) + c - '0';
+		else if( c >= 'a' && c <= 'f' ) val = (val<<4) + c - 'a' + 10;
+		else if( c >= 'A' && c <= 'F' ) val = (val<<4) + c - 'A' + 10;
 		else return val * sign;
 	}
 }
@@ -213,7 +214,7 @@ static qboolean Q_starcmp( const char *pattern, const char *text )
 
 	if( c == '\0' ) return true;
 
-	for( char c1 = (( c == '\\' ) ? *p : c );; )
+	for( char c1 = (( c == '\\' ) ? *p : c ); ; )
 	{
 		if( Q_tolower( *t ) == c1 && Q_stricmpext( p - 1, t ))
 			return true;
@@ -223,8 +224,8 @@ static qboolean Q_starcmp( const char *pattern, const char *text )
 
 qboolean Q_strnicmpext( const char *pattern, const char *text, size_t minimumlength )
 {
-	size_t i = 0;
-	char c;
+	size_t  i = 0;
+	char	c;
 
 	while(( c = *pattern++ ) != '\0' )
 	{
@@ -252,7 +253,7 @@ qboolean Q_strnicmpext( const char *pattern, const char *text, size_t minimumlen
 
 qboolean Q_stricmpext( const char *pattern, const char *text )
 {
-	return Q_strnicmpext( pattern, text, ~((size_t)0 ));
+	return Q_strnicmpext( pattern, text, ~((size_t)0) );
 }
 
 int Q_strcmp_constant_time( const char *s1, const char *s2 )
@@ -485,8 +486,8 @@ char *Q_pretifymem( float value, int digitsafterdecimal )
 	char *dot = Q_strchr( i, '.' );
 	if( !dot ) dot = Q_strchr( i, ' ' );
 
-	int pos = dot - i; // compute position of dot
-	pos -= 3;  // don't put a comma if it's <= 3 long
+	int pos = dot - i;	// compute position of dot
+	pos -= 3;		// don't put a comma if it's <= 3 long
 
 	while( *i )
 	{
@@ -498,8 +499,8 @@ char *Q_pretifymem( float value, int digitsafterdecimal )
 			if( o != out ) *o++ = ',';
 		}
 
-		pos--;  // count down comma position
-		*o++ = *i++; // copy rest of data as normal
+		pos--;		// count down comma position
+		*o++ = *i++;	// copy rest of data as normal
 	}
 	*o = 0; // terminate
 
@@ -595,7 +596,7 @@ void COM_ExtractFilePath( const char *path, char *dest )
 	const char *src = path + Q_strlen( path ) - 1;
 
 	// back up until a \ or the start
-	while( src > path && !( *( src - 1 ) == '\\' || *( src - 1 ) == '/' ))
+	while( src > path && !(*(src - 1) == '\\' || *(src - 1) == '/' ))
 		src--;
 
 	if( src > path )
@@ -711,10 +712,10 @@ int COM_CheckNastyPath( const char *path )
 #endif
 
 	// all: don't allow going to parent directory (../ or /../)
-	if( Q_strstr( path, ".." )) return 2; // attempt to go outside the game directory
+	if( Q_strstr( path, "..")) return 2; // attempt to go outside the game directory
 
 	// Windows and UNIXes: don't allow absolute paths
-	if( path[0] == '/' ) return 2; // attempt to go outside the game directory
+	if( path[0] == '/') return 2; // attempt to go outside the game directory
 
 #if 0
 	// all: forbid trailing slash on gamedir
@@ -722,7 +723,7 @@ int COM_CheckNastyPath( const char *path )
 #endif
 
 	// all: forbid leading dot on any filename for any reason
-	if( Q_strstr( path, "/." )) return 2; // attempt to go outside the game directory
+	if( Q_strstr(path, "/.")) return 2; // attempt to go outside the game directory
 
 	// after all these checks we're pretty sure it's a / separated filename
 	// and won't do much if any harm
@@ -768,7 +769,7 @@ text parser
 */
 char *COM_ParseFileSafe( char *data, char *token, const int size, unsigned int flags, int *plen, qboolean *quoted )
 {
-	int c, len = 0;
+	int	c, len = 0;
 	qboolean overflow = false;
 
 	if( quoted )
@@ -786,7 +787,7 @@ char *COM_ParseFileSafe( char *data, char *token, const int size, unsigned int f
 		return NULL;
 // skip whitespace
 skipwhite:
-	while(( c = ((byte)*data )) <= ' ' )
+	while(( c = ((byte)*data)) <= ' ' )
 	{
 		if( FBitSet( flags, PFILE_NEWLINE_AS_TOKEN ) && c == '\n' )
 			break;
@@ -794,7 +795,7 @@ skipwhite:
 		if( c == 0 )
 		{
 			if( plen ) *plen = overflow ? -1 : len;
-			return NULL; // end of file;
+			return NULL;	// end of file;
 		}
 		data++;
 	}
@@ -887,7 +888,7 @@ skipwhite:
 		else overflow = true;
 
 		data++;
-		c = ((byte)*data );
+		c = ((byte)*data);
 
 		if( COM_IsSingleChar( flags, c ))
 			break;
@@ -936,10 +937,10 @@ int matchpattern_with_separator( const char *in, const char *pattern, qboolean c
 			pattern++;
 			while( *in )
 			{
-				if( Q_strchr( separators, *in ))
+				if( Q_strchr(separators, *in ))
 					break;
 				// see if pattern matches at this offset
-				if( matchpattern_with_separator( in, pattern, caseinsensitive, separators, wildcard_least_one ))
+				if( matchpattern_with_separator(in, pattern, caseinsensitive, separators, wildcard_least_one ))
 					return 1;
 				// nope, advance to next offset
 				in++;

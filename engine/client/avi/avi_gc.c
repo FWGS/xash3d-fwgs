@@ -111,21 +111,6 @@ static fs_offset_t AVI_GCReadRaw( movie_state_t *Avi, fs_offset_t offset, void *
 	return FS_Read( Avi->file, dst, bytes );
 }
 
-/* The static frame is idle whenever no movie is open. The world display-list
- * cache (ref/gx/r_gx_worlddl.c) borrows it as a second cache segment; the
- * generation changes each time a movie claims the buffer so the borrower
- * knows its contents were overwritten. */
-static unsigned gc_avi_static_generation;
-
-void *GC_AviStaticFrameBorrow( unsigned *bytes, unsigned *generation )
-{
-	if( bytes )
-		*bytes = GC_AVI_STATIC_FRAME_MAX_BYTES;
-	if( generation )
-		*generation = gc_avi_static_generation;
-	return gc_avi_static_frame;
-}
-
 static qboolean AVI_UsesStaticFrameBuffer( const movie_state_t *Avi )
 {
 	return Avi && Avi->frame == gc_avi_static_frame;
@@ -237,7 +222,6 @@ static qboolean AVI_OpenGCVID( movie_state_t *Avi, const char *filename, qboolea
 	{
 		memset( gc_avi_static_frame, 0, Avi->frame_size );
 		Avi->frame = gc_avi_static_frame;
-		gc_avi_static_generation++;
 	}
 	else
 #endif

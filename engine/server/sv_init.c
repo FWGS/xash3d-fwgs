@@ -1536,13 +1536,8 @@ qboolean SV_SpawnServer( const char *mapname, const char *startspot, qboolean ba
 	/* Reclaim world reserves *before* FreeModel texture unload — tip≈37 KiB
 	 * with the 128 KiB entities reserve still held hung Mod_FreeModel
 	 * ("Unloading world", probe 174651). Entity string is unused during
-	 * texture teardown.
-	 *
-	 * Probe hops pass -gcchangelevel. Natural tram/menu New Game hops do not,
-	 * and SV_ChangeLevel clears sv.worldmodel before SV_SpawnServer — gating
-	 * on sv.worldmodel skipped tip reclaim and hung in Mod_BrushUnloadTextures
-	 * (probe 20261108-230327: Unloading world, no pre-purge). Always release
-	 * reserves before purge on GameCube; empty first-boot is a no-op. */
+	 * texture teardown. */
+	if( Sys_CheckParm( "-gcchangelevel" ))
 	{
 		extern void Mod_GCReleaseWorldReservesForChangelevel( void );
 		extern qboolean Mod_GCEnsureStaticReserves( void );
@@ -1563,6 +1558,11 @@ qboolean SV_SpawnServer( const char *mapname, const char *startspot, qboolean ba
 		SV_GCEnsureStringArena();
 		Con_Reportf( "Xash3D GameCube: pre-spawn world reserves retaken free=%s\n",
 			Q_memprint( GC_MemHeapFreeBytes() ));
+	}
+	else
+	{
+		Mod_PurgeForMapLoad();
+		Con_Reportf( "Xash3D GameCube: pre-spawn old world purged\n" );
 	}
 	/* Changelevel enters through SV_InitGame rather than the host gcmap
 	 * bootstrap path.  Reserve the destination-sized contiguous BSP buffer

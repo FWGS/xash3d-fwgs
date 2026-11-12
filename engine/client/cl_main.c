@@ -477,18 +477,9 @@ static void CL_CheckClientState( void )
 		if( Sys_CheckParm( "-gcmenuplaystart" ))
 		{
 			extern void R_GXArmBeginTrace( int count );
-			static qboolean gc_menu_step_armed;
 
 			R_GXArmBeginTrace( 400 );
-			/* Arm STEP breadcrumbs once per boot — re-arming on every
-			 * changelevel ca_active left frames stuck >0 when ClientFrame
-			 * early-returned, flooding OSReport and starving the c0a0e walk
-			 * (probe 20261109-0436: 50k+ STEP pm_move lines). */
-			if( !gc_menu_step_armed )
-			{
-				gc_menu_step_frames = 3;
-				gc_menu_step_armed = true;
-			}
+			gc_menu_step_frames = 3;
 		}
 #endif
 		cls.changelevel = false;		// changelevel is done
@@ -2020,35 +2011,23 @@ static void CL_Reconnect( qboolean setup_netchan )
 	{
 		Con_Reportf( "Xash3D GameCube: local reconnect setup=%d state=%d signon=%d\n",
 			setup_netchan ? 1 : 0, cls.state, cls.signon );
-		/* G158: Flipper presents before fullphysics/spawn can stall Host_Frame.
-		 * Full-geo CapFaces-skip: skip those presents — Soft hung on first live
-		 * BSP during reconnect (021123 c0a0a). Signon proceeds without Flipper. */
+		/* G158: Flipper presents before fullphysics/spawn can stall Host_Frame. */
 		if( GC_IsNewGameG36Done() && GC_IsNewGameWorldReady() )
 		{
+			int i;
+
 			gc_g159_reconnect_active_pending = true;
 			gc_g158_reconnect_seen = true;
 			cls.draw_changelevel = false;
-			if( Sys_CheckParm( "-gcmenuplaystart" )
-				&& GC_WorldSurfacesPinned()
-				&& !GC_WorldSurfacesScratchRetained()
-				&& GC_GetNewGameCapFaceCount() <= 0 )
+			Con_Reportf( "Xash3D GameCube: G158 reconnect present begin gx=%d\n",
+				GC_UseGxWorldDraw() ? 1 : 0 );
+			for( i = 0; i < 3; i++ )
 			{
-				Con_Reportf( "Xash3D GameCube: G158 reconnect present skipped (full geo)\n" );
+				if( !GC_RenderNewGameWorldFrames( 1 ))
+					break;
 			}
-			else
-			{
-				int i;
-
-				Con_Reportf( "Xash3D GameCube: G158 reconnect present begin gx=%d\n",
-					GC_UseGxWorldDraw() ? 1 : 0 );
-				for( i = 0; i < 3; i++ )
-				{
-					if( !GC_RenderNewGameWorldFrames( 1 ))
-						break;
-				}
-				Con_Reportf( "Xash3D GameCube: G158 live GX present reconnect state=%d signon=%d gx=%d\n",
-					cls.state, cls.signon, GC_UseGxWorldDraw() ? 1 : 0 );
-			}
+			Con_Reportf( "Xash3D GameCube: G158 live GX present reconnect state=%d signon=%d gx=%d\n",
+				cls.state, cls.signon, GC_UseGxWorldDraw() ? 1 : 0 );
 		}
 	}
 #endif
@@ -4369,22 +4348,6 @@ void Host_ClientFrame( void )
 			&& !Sys_CheckParm( "-gcworldrender" )
 			&& cls.state != ca_connecting && cls.state != ca_connected )
 		{
-			/* Lost Coast CapFaces / Flipper DumpFrames need world presents even
-			 * with deferred client progs. SCR_UpdateScreen's ca_active gate
-			 * skips GC_RenderNewGameWorldFrames on -gcmap smoke — call it
-			 * directly when CapFaces world_ready (probe 20261109-110654). */
-			if( Sys_CheckParm( "-gccapfacessmoke" ) || Sys_CheckParm( "-gcworldrender" ))
-			{
-				VID_CheckChanges();
-				if( GC_BootDrawAllowed() )
-				{
-					if( GC_IsNewGameWorldReady() )
-						(void)GC_RenderNewGameWorldFrames( 1 );
-					else
-						SCR_UpdateScreen();
-				}
-				return;
-			}
 			/* Map-load smoke keeps client progs deferred; avoid renderer/texture
 			 * work that allocates from the filesystem pool while BSP data
 			 * still owns most of MEM1. */

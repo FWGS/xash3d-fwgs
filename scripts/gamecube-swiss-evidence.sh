@@ -36,8 +36,7 @@ Expected markers for PASS (OSReport or SD file):
   FAT shutdown (return to Swiss loader via exit stub)
 
 On hardware with FAT, the DOL also writes:
-  <vol>/xash3d/<gamedir>/logs/swiss-evidence.txt
-  (dod → xash3d/dod/logs/; valve → xash3d/valve/logs/)
+  <vol>/xash3d/valve/logs/swiss-evidence.txt
 Copy that file off the SD, or pass the SD mount as --log.
 
 Env overrides:
@@ -95,8 +94,6 @@ fi
 # Resolve SD mount / layout dirs to the on-card swiss-evidence.txt when present.
 if [[ -d "$HW_LOG" ]]; then
 	for cand in \
-		"$HW_LOG/xash3d/dod/logs/swiss-evidence.txt" \
-		"$HW_LOG/dod/logs/swiss-evidence.txt" \
 		"$HW_LOG/xash3d/valve/logs/swiss-evidence.txt" \
 		"$HW_LOG/valve/logs/swiss-evidence.txt" \
 		"$HW_LOG/swiss-evidence.txt"
@@ -109,7 +106,7 @@ if [[ -d "$HW_LOG" ]]; then
 	done
 fi
 
-stamp="$(date -u +%Y%m%d-%H%M%S)-$$"
+stamp="$(date -u +%Y%m%d-%H%M%S)"
 OUT_DIR="${OUT_DIR:-$ROOT/.ai/logs/operator-evidence-swiss-$stamp}"
 PROBE_DIR="$OUT_DIR/swiss-probe-logs"
 mkdir -p "$PROBE_DIR/dolphin-user/Logs"
@@ -126,9 +123,7 @@ if [[ -d "$HW_LOG" ]]; then
 		cat "$HW_LOG"/*.log "$HW_LOG"/*.txt 2>/dev/null >"$SWISS_BODY" || true
 	fi
 else
-	# Avoid "File exists" races when two ingests share a pre-created OUT_DIR.
-	cp -f --remove-destination "$HW_LOG" "$SWISS_BODY" 2>/dev/null || \
-		{ rm -f "$SWISS_BODY"; cp -f "$HW_LOG" "$SWISS_BODY"; }
+	cp -f "$HW_LOG" "$SWISS_BODY"
 fi
 
 if [[ ! -s "$SWISS_BODY" ]]; then
@@ -209,10 +204,7 @@ resolve_gameplay_dir() {
 	fi
 	# Prefer recent Dolphin changelevel/newgame probes (continuity + audio markers)
 	# over missing historical operator-evidence trees.
-	# Prefer recent tip-safe / G94 / soft-skin probes (have retail + audio markers).
 	for cand in \
-		"$root/.ai/logs/dolphin-probe-20261108-161751" \
-		"$root/.ai/logs/dolphin-probe-20261108-155550" \
 		"$root/.ai/logs/dolphin-probe-20261108-053515" \
 		"$root/.ai/logs/dolphin-probe-20261108-053126" \
 		"$root/.ai/logs/dolphin-probe-20261108-052624" \
@@ -221,18 +213,17 @@ resolve_gameplay_dir() {
 		"$root/.ai/logs/audio-compliance-20260828-073502" \
 		"$root/.ai/logs/rc-check-20260827-192331/audio-compliance"
 	do
-		if [[ -d "$cand" ]] && { [[ -f "$cand/stderr.log" ]] || [[ -f "$cand/dolphin-user/Logs/dolphin.log" ]]; }; then
+		if [[ -d "$cand" ]] && { [[ -f "$cand/stderr.log" ]] || [[ -f "$cand/dolphin-user/Logs/dolphin.log" ]] || [[ -d "$cand" ]]; }; then
 			printf '%s\n' "$cand"
 			return 0
 		fi
 	done
-	# Newest-first among dated probes (avoid lexicographic first-hit on huge trees).
-	while IFS= read -r cand; do
-		[[ -z "$cand" ]] && continue
+	for cand in "$root"/.ai/logs/dolphin-probe-202611*; do
+		[[ -d "$cand" ]] || continue
 		[[ -f "$cand/stderr.log" || -f "$cand/dolphin-user/Logs/dolphin.log" ]] || continue
 		printf '%s\n' "$cand"
 		return 0
-	done < <(find "$root/.ai/logs" -maxdepth 1 -type d -name 'dolphin-probe-202611*' -printf '%T@ %p\n' 2>/dev/null | sort -nr | awk '{print $2}')
+	done
 	return 1
 }
 

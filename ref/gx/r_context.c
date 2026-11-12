@@ -14,9 +14,6 @@ GNU General Public License for more details.
 */
 
 #include "r_local.h"
-#if XASH_GAMECUBE
-#include "../../engine/platform/gamecube/mem_gamecube.h"
-#endif
 
 gl_globals_t  tr;
 ref_speeds_t  r_stats;
@@ -60,12 +57,6 @@ static void Mod_BrushUnloadTextures( model_t *mod )
 	gEngfuncs.Con_Printf( "Unloading world\n" );
 	tr.map_unload = true;
 
-#if XASH_GAMECUBE
-	/* Retail tram New Game hops arrive with tip≈20 KiB (probe 231709). Always
-	 * GL_FreeTexture so image slots clear (packed/lean left named empties and
-	 * hit MAX_TEXTURES at c2a1). Tip-starved path abandons inside
-	 * GL_DeleteTexture (no Mem_Free) so c1a2b→c1a3 Unloading world cannot hang. */
-#endif
 	for( int i = 0; i < mod->numtextures; i++ )
 	{
 		texture_t *tx = mod->textures[i];
@@ -74,8 +65,6 @@ static void Mod_BrushUnloadTextures( model_t *mod )
 
 		GL_FreeTexture( tx->gl_texturenum ); // main texture
 		GL_FreeTexture( tx->fb_texturenum ); // luma texture
-		tx->gl_texturenum = 0;
-		tx->fb_texturenum = 0;
 	}
 }
 

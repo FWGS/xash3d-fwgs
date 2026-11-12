@@ -51,6 +51,11 @@ mount_is_swiss_candidate() {
 	local fstype size_bytes max_bytes src tran rm hotplug disk size_gib
 
 	[[ -d "$m" && -w "$m" ]] || return 1
+	# Never stage onto EFI System Partitions (e.g. Extra drive's sda2).
+	if [[ -d "$m/EFI" || -d "$m/efi" ]]; then
+		echo "udev-sd-watch: refusing EFI volume $m" >&2
+		return 1
+	fi
 	src="$(findmnt -n -o SOURCE --target "$m" 2>/dev/null || true)"
 	case "$src" in
 		/dev/loop*|loop\[*\]|*"["loop*) return 1 ;;
@@ -64,16 +69,6 @@ mount_is_swiss_candidate() {
 		hotplug="$(lsblk -dn -o HOTPLUG "/dev/$disk" 2>/dev/null || true)"
 		if [[ "$tran" != "usb" && "$rm" != "1" && "$hotplug" != "1" ]]; then
 			echo "udev-sd-watch: refusing non-removable $m (tran=$tran rm=$rm)" >&2
-			return 1
-		fi
-	fi
-	# Host ESP (small FAT+EFI) only — multi-boot Swiss cards may also have EFI/.
-	if [[ -d "$m/EFI" || -d "$m/efi" ]]; then
-		size_bytes="$(findmnt -nb -o SIZE "$m" 2>/dev/null || echo 0)"
-		if [[ -d "$m/apps" || -d "$m/xash3d" || -f "$m/boot.dol" ]]; then
-			:
-		elif [[ -n "$size_bytes" ]] && (( size_bytes < 2 * 1024 * 1024 * 1024 )); then
-			echo "udev-sd-watch: refusing EFI volume $m" >&2
 			return 1
 		fi
 	fi
@@ -127,8 +122,6 @@ needs_stage() {
 evidence_present() {
 	local m="$1" f
 	for f in \
-		"$m/xash3d/dod/logs/swiss-evidence.txt" \
-		"$m/dod/logs/swiss-evidence.txt" \
 		"$m/xash3d/valve/logs/swiss-evidence.txt" \
 		"$m/valve/logs/swiss-evidence.txt" \
 		"$m/swiss-evidence.txt"

@@ -949,17 +949,7 @@ static image_t *GL_AllocTexture( const char *name, texFlags_t flags )
 	if( i == r_numImages )
 	{
 		if( r_numImages == MAX_TEXTURES )
-		{
-#if XASH_GAMECUBE
-			/* Nested campaign hops fill the 1024-slot table before Power Up
-			 * (c1a4j→c2a1 probe 20261109-114154). Soft-fail; caller skips. */
-			gEngfuncs.Con_Reportf( "Xash3D GameCube: %s MAX_TEXTURES; skip '%s'\n",
-				__func__, name );
-			return NULL;
-#else
 			gEngfuncs.Host_Error( "%s: MAX_TEXTURES limit exceeds\n", __func__ );
-#endif
-		}
 		r_numImages++;
 	}
 
@@ -988,11 +978,16 @@ static void GL_DeleteTexture( image_t *tex )
 {
 	ASSERT( tex != NULL );
 
-	/* Empty slot — nothing to do. Named slots with no soft pixels (GC packed
-	 * world / lean unload) must still clear so MAX_TEXTURES can reuse them
-	 * across nested campaign hops (c1a4j→c2a1 Host_Error probe 114154). */
-	if( !tex->name[0] )
+	// already freed?
+	if( !tex->pixels[0] )
 		return;
+
+	// debug
+	if( !tex->name[0] )
+	{
+		gEngfuncs.Con_Printf( S_ERROR "%s: trying to free unnamed texture\n", __func__ );
+		return;
+	}
 
 	// remove from hash table
 	image_t **prev = &r_imagesHashTable[tex->hashValue];
@@ -1010,46 +1005,6 @@ static void GL_DeleteTexture( image_t *tex )
 		}
 		prev = &cur->nextHash;
 	}
-
-#if XASH_GAMECUBE
-	/* tip≈11.7 KiB c1a2b→c1a3 hung inside Mem_Free while Unloading world
-	 * (probe 20261109-232743, ~33 min Software wall). Clear the slot and
-	 * release tiny/studio bookkeeping without heap free so the nest can
-	 * continue; orphaned tip pixels wait for a later reclaim hop. */
-	if( GC_MemHeapFreeBytes() < ( 16u * 1024u ))
-	{
-		static int gc_tex_abandon_logged;
-
-		if( gc_tex_abandon_logged < 8 )
-		{
-			gc_tex_abandon_logged++;
-			gEngfuncs.Con_Reportf(
-				"Xash3D GameCube: tip-starved texture abandon name=%s tip=%u KiB\n",
-				tex->name[0] ? tex->name : "?",
-				(unsigned)( GC_MemHeapFreeBytes() / 1024u ));
-		}
-		if( tex->gc_pixels_base )
-		{
-			for( unsigned i = 0; i < ARRAYSIZE( gc_tiny_pixels ); i++ )
-			{
-				if( tex->gc_pixels_base == gc_tiny_pixels[i] )
-				{
-					gc_tiny_pixels_used &= ~(1u << i);
-					break;
-				}
-			}
-			if( R_GCIsStudioSkinOverflow( tex->gc_pixels_base ))
-			{
-				if( gc_studio_skin_overflow_live > 0 )
-					gc_studio_skin_overflow_live--;
-				if( gc_studio_skin_overflow_live == 0 )
-					gc_studio_skin_overflow_bump = 0;
-			}
-		}
-		memset( tex, 0, sizeof( *tex ));
-		return;
-	}
-#endif
 
 	// release source
 	if( tex->original )
@@ -1185,11 +1140,6 @@ int GAME_EXPORT GL_LoadTexture( const char *name, const byte *buf, size_t size, 
 
 	// allocate the new one
 	tex = GL_AllocTexture( name, flags );
-	if( !tex )
-	{
-		gEngfuncs.FS_FreeImage( pic );
-		return 0;
-	}
 	if( !GL_ProcessImage( tex, pic ) || !GL_UploadTexture( tex, pic ))
 	{
 		GL_DeleteTexture( tex );
@@ -1223,13 +1173,6 @@ int R_GCPackedTexture( const char *name, int width, int height, int levels, qboo
 	Q_snprintf( full, sizeof( full ), "#wt/%s", name );
 	if(( tex = GL_TextureForName( full )) == NULL )
 		tex = GL_AllocTexture( full, TF_NOMIPMAP );
-	if( !tex )
-		return 0;
-	/* Re-stamping the same ARAM chain must not drop a mip that already climbed. */
-	if( tex->gc_packed == data && tex->gc_packed_aram == aram
-		&& tex->gc_packed_bytes == bytes && tex->width == width && tex->height == height
-		&& tex->gc_packed_levels == (byte)levels )
-		return tex - r_images;
 	tex->width = tex->srcWidth = width;
 	tex->height = tex->srcHeight = height;
 	tex->gc_packed = data;
@@ -1250,10 +1193,7 @@ void R_GCPackedRelease( void )
 
 	for( i = 0; i < r_numImages; i++ )
 	{
-		/* 0x40 stubs live in static tables (world tails, prop 8×8s).
-		 * The pool going away must not drop those pointers. */
-		if( ( r_images[i].gc_packed_low_shift & 0x40 ) == 0 )
-			r_images[i].gc_packed = NULL;
+		r_images[i].gc_packed = NULL;
 		r_images[i].gc_packed_hot = NULL;
 		r_images[i].gc_packed_queued = false;
 	}
@@ -1306,8 +1246,6 @@ int GAME_EXPORT GL_LoadTextureFromBuffer( const char *name, rgbdata_t *pic, texF
 	{
 		// allocate the new one
 		tex = GL_AllocTexture( name, flags );
-		if( !tex )
-			return 0;
 	}
 
 	if( !GL_ProcessImage( tex, pic ) || !GL_UploadTexture( tex, pic ))

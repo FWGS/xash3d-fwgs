@@ -270,7 +270,6 @@ qboolean GC_GXFenceWait( unsigned short token );
 void GC_BeginTransitionHold( void );
 void GC_EnableGxWorldLive( void );
 qboolean GC_AllowFlipperCapFaces( void );
-qboolean GC_CapFacesLeanSurfaces( void ); /* lean map load: pack owns Flipper */
 void *GC_GetGxVideoMode( void );
 int GC_GetNewGameViewCluster( void ); /* G83: load/prepare-time PointInLeaf cluster, or -1 */
 qboolean GC_HasNewGameCachedVis( void ); /* G83: prepare-time FatPVS + parent mark ready */
@@ -292,44 +291,18 @@ int GC_GetLiveFaceBakeSrc( int index ); /* G219: 1=edge 2=plane 3=tex 0=none */
 int GC_GetFillFaceCount( void ); /* G222/G225: MEM1 + ARAM flat-fill beyond 320+192 */
 int GC_GetFillFaceVerts( int index, float out[][3], int maxverts );
 qboolean GC_FillFacePlane( int index, struct mplane_s *out, int *out_flags );
-int GC_GetWaterFaceCount( void ); /* G286: baked SURF_DRAWTURB / Source gw_*.gcw sheets */
+int GC_GetWaterFaceCount( void ); /* G286: baked SURF_DRAWTURB Flipper sheets */
 int GC_GetWaterFaceVerts( int index, float out[][3], int maxverts );
-int GC_GetWaterFaceST( int index, float out_st[][2], int maxverts );
-void GC_GetWaterFaceScroll( int index, float *scroll_u, float *scroll_v, unsigned int *tint );
-qboolean GC_WaterTexReady( void );
-void *GC_GetWaterTexObj( void ); /* GXTexObj* when water_gx.cmp loaded */
-qboolean GC_SandSpecTexReady( void );
-void *GC_GetSandSpecTexObj( void ); /* GXTexObj* when sand_spec.cmp loaded */
-qboolean GC_SandNrmTexReady( void );
-void *GC_GetSandNrmTexObj( void ); /* GXTexObj* when sand_nrm.cmp ($bumpmap) loaded */
-qboolean GC_SandSunTexReady( void );
-void *GC_GetSandSunTexObj( void ); /* GXTexObj* when sand_sun.cmp specular disc loaded */
-int GC_GetPropTriCount( void );
-qboolean GC_GetPropTri( int index, float out_xyz[3][3], float out_st[3][2], int *out_tex );
-void *GC_GetPropTexObj( int index ); /* unused; prop materials bind by texnum */
-int GC_PropMatTexnum( int index ); /* gl texnum of a streamed prop material */
-void GC_PropTexturesTouch( void ); /* re-stamp stubs after the image table resets */
 qboolean GC_WaterFacePlane( int index, struct mplane_s *out, int *out_flags );
 struct msurface_s *GC_GetLiveDrawSurfs( void ); /* always NULL — use Fill */
 qboolean GC_FillLiveDrawSurf( int index, struct msurface_s *out, mtexinfo_t *tex_out );
 int GC_GetNewGameCapFaceCount( void );
-int GC_CapFacesSpatialPackCount( void ); /* Lost Coast spatial CapFaces packs on disc */
-int GC_CapFacesLoadSpatialRank( struct model_s *mod, const float *eye, int rank ); /* dump densify */
 int GC_GetNewGameCapGeneration( void ); /* G179: bumps when cap faces/LMs rewrite */
 int GC_GetNewGameCapBakeSrc( int slot ); /* G204/G205: 1=edge, 2=plane, 3=tex, 0=none */
-/* Lean CapFaces visibility: begin with eye PVS, then test each slot. */
-void GC_BeginCapFaceVis( const float *eye );
-qboolean GC_CapFaceInPVS( int slot );
-qboolean GC_CapFaceBounds( int slot, float mins[3], float maxs[3] );
-int GC_CapFacePVSSkipCount( void );
-int GC_CapFacePVSTestCount( void );
-int GC_CapFaceVisAssigned( void ); /* >0 → per-frame PVS/frustum; skip static DL */
-qboolean GC_CapFaceSourcePVSActive( void ); /* Source vis row loaded for CapFaces */
 struct msurface_s *GC_GetNewGameDrawSurfs( void );
 const unsigned short *GC_GetNewGameCapLightmap( int slot, int *w, int *h );
 const unsigned short *GC_GetNewGameCapLightmapAtlas( int *w, int *h ); /* G180 */
 void GC_GetNewGameCapLightmapAtlasUV( int slot, float s, float t, float *out_s, float *out_t );
-int GC_GetNewGameCapFaceLMUV( int slot, float out_uv[][2], int maxverts );
 void GC_CaptureNewGamePVS( void ); /* G83: PointInLeaf+FatPVS before scratch reuse */
 void GC_CaptureNewGamePVSFromModel( model_t *wmodel );
 /* G369: free Capture-time FatPVS extras before CSoundEnt; bake CapFaces after spawn. */
@@ -348,14 +321,9 @@ void GC_ArmG94SaveLoad( void );
 void GC_TryG94SaveLoad( void );
 /* G278: stream c0a0 tram VO (tride/*.wav) — too large for SFX budget. */
 void GC_UpdateNewGameIntroAudio( void );
-/* CapFaces Lost Coast: Source soundscape bed + tip-safe oneshots. */
-void GC_CapFacesSoundscapeArm( void );
-void GC_CapFacesSoundscapeFrame( void );
 qboolean GC_MenuRunsServer( void ); /* menu New Game runs the real map logic */
 void GC_LoadingOverlayPulse( void ); /* animate LOADING during a held load */
 void GC_DrawLoadingStatus( const char *message, const char *details );
-/* CapFaces Lost Coast: soft-present retail console/background01 title plaque. */
-void GC_PresentRetailTitlePlate( const char *details );
 void GC_SetLoadingProgress( float progress );
 float GC_GetLoadingProgress( void );
 /* G92: free PVS/screens sticky flags so changelevel can re-capture. */

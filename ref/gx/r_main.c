@@ -1254,17 +1254,12 @@ static void R_DrawEntitiesOnList( void )
 			extern int R_GXEfbDumpHoldLeft( void );
 
 			/* Landmark crowbar is bound on viewent; do not require world NPC
-			 * studios (lean_studios) or tip-safe maps never reach G155/G164.
-			 * -gcvst / DumpSkipViewmodel: never draw HL1 v_357 over the stress
-			 * flythrough (gccapfacessmoke used to force-draw and punch through). */
+			 * studios (lean_studios) or tip-safe maps never reach G155/G164. */
 			if( tr.viewent && tr.viewent->model
 				&& tr.viewent->model->type == mod_studio
 				&& tr.viewent->model->cache.data
-				&& !gEngfuncs.Sys_CheckParm( "-gcvst" )
-				&& !R_GXDumpSkipViewmodelActive()
-				&& ( gEngfuncs.Sys_CheckParm( "-gccapfacessmoke" )
-					|| !( r_drawviewmodel && r_drawviewmodel->value == 0
-						&& R_GXEfbDumpHoldLeft() > 0 )))
+				&& !( r_drawviewmodel && r_drawviewmodel->value == 0
+					&& ( R_GXEfbDumpHoldLeft() > 0 || R_GXDumpSkipViewmodelActive())))
 			{
 				R_DrawViewModel();
 				if( !lean_vm_draw_logged )
@@ -2115,63 +2110,25 @@ static qboolean R_GCMarkLiveBspPVS( void )
 		|| !world->visdata || world->numleafs <= 0 )
 		return false;
 
-	/* Tip-starved Soft hangs in live PVS marksurface walks (033947 froze
-	 * after R_MarkLeaves begin tip=21 Kb). Fall through to full-vis with
-	 * surface-stamp skipped below so Host_Frame can advance. */
-	if( GC_MemHeapFreeBytes() < 28u * 1024u )
-	{
-		static qboolean tip_skip_logged;
-
-		if( !tip_skip_logged )
-		{
-			tip_skip_logged = true;
-			gEngfuncs.Con_Reportf(
-				"Xash3D GameCube: live BSP PVS skipped tip-starved tip=%u Kb\n",
-				(unsigned)( GC_MemHeapFreeBytes() / 1024u ));
-		}
-		return false;
-	}
-
 	viewleaf = gEngfuncs.Mod_PointInLeaf( RI.rvp.vieworigin, world->nodes, world );
 	if( !viewleaf || !viewleaf->compressed_vis || viewleaf == world->leafs )
 		return false;
 
-	/* GoldSrc vis rows cover leafs 1..numleafs, zero runs RLE-packed.
-	 * Tip-starved Soft can leave compressed_vis with a 0,0 run that spins
-	 * forever here (025508 hung after dlights; 021123 same eye succeeded
-	 * at tip≈33 KiB). Bound steps + reject c==0 — fail → full-vis fallback. */
+	/* GoldSrc vis rows cover leafs 1..numleafs, zero runs RLE-packed. */
 	row = ( world->numleafs + 7 ) >> 3;
 	if( row > (int)sizeof( visrow ))
 		return false;
 	in = viewleaf->compressed_vis;
+	for( out = 0; out < row; )
 	{
-		size_t steps = 0;
-		const size_t step_cap = (size_t)row * 4u + 8u;
-
-		for( out = 0; out < row; )
+		if( *in )
 		{
-			if( ++steps > step_cap )
-			{
-				gEngfuncs.Con_Reportf( "Xash3D GameCube: live BSP PVS RLE abort cl=%d\n",
-					viewleaf->cluster );
-				return false;
-			}
-			if( *in )
-			{
-				visrow[out++] = *in++;
-				continue;
-			}
-			i = in[1];
-			if( i <= 0 )
-			{
-				gEngfuncs.Con_Reportf( "Xash3D GameCube: live BSP PVS RLE zero-run cl=%d\n",
-					viewleaf->cluster );
-				return false;
-			}
-			in += 2;
-			while( i-- > 0 && out < row )
-				visrow[out++] = 0;
+			visrow[out++] = *in++;
+			continue;
 		}
+		for( i = in[1]; i > 0 && out < row; i-- )
+			visrow[out++] = 0;
+		in += 2;
 	}
 
 	tr.visframecount++;
@@ -2233,11 +2190,6 @@ R_MarkLeaves
 static void R_MarkLeaves( void )
 {
 #if XASH_GAMECUBE
-	if( tr.framecount <= 1
-		&& ( gEngfuncs.Sys_CheckParm( "-gcnewgame" )
-			|| gEngfuncs.Sys_CheckParm( "-gcmenuplaystart" )))
-		gEngfuncs.Con_Reportf( "Xash3D GameCube: R_MarkLeaves begin tip=%u Kb\n",
-			(unsigned)( GC_MemHeapFreeBytes() / 1024u ));
 	if( GC_IsLowMemoryMode() && !GC_UseLowResWorldProbe() )
 	{
 		tr.visframecount++;
@@ -2324,18 +2276,15 @@ static void R_MarkLeaves( void )
 			for( i = 0; i < WORLDMODEL->numnodes; i++ )
 				WORLDMODEL->nodes[i].visframe = tr.visframecount;
 		}
-		/* Pure Flipper: surfaces need visframe too (no soft RecursiveWorldNode).
-		 * Tip-starved Soft: skip surface stamp — live walk emits 0 faces and
-		 * returns; Host_Frame can still autohop (033947 tip=21 hang). */
-		if( WORLDMODEL && WORLDMODEL->surfaces
-			&& GC_MemHeapFreeBytes() >= 28u * 1024u )
+		/* Pure Flipper: surfaces need visframe too (no soft RecursiveWorldNode). */
+		if( WORLDMODEL && WORLDMODEL->surfaces )
 		{
 			for( i = 0; i < WORLDMODEL->numsurfaces; i++ )
 				WORLDMODEL->surfaces[i].visframe = tr.framecount;
 		}
 		if( tr.framecount <= 1 )
-			gEngfuncs.Con_Reportf( "Xash3D GameCube: full-vis leaf mark fallback (low-res newgame) cluster=%d tip=%u Kb\n",
-				r_viewcluster, (unsigned)( GC_MemHeapFreeBytes() / 1024u ));
+			gEngfuncs.Con_Reportf( "Xash3D GameCube: full-vis leaf mark fallback (low-res newgame) cluster=%d\n",
+				r_viewcluster );
 		return;
 	}
 #endif
@@ -2977,19 +2926,6 @@ qboolean GAME_EXPORT R_Init( void )
 	// see R_ProcessEntData for tr.entities initialization
 	tr.palette = (color24 *)ENGINE_GET_PARM( PARM_GET_PALETTE_PTR );
 	tr.viewent = (cl_entity_t *)ENGINE_GET_PARM( PARM_GET_VIEWENT_PTR );
-#if XASH_GAMECUBE
-	/* CapFaces smoke binds clgame.viewent after the first PARM snapshot —
-	 * refresh so R_DrawViewModel sees models/v_357.mdl. */
-	if( gEngfuncs.Sys_CheckParm( "-gccapfacessmoke" ) && tr.viewent
-		&& ( !tr.viewent->model || tr.viewent->model->type != mod_studio
-			|| !tr.viewent->model->cache.data ))
-	{
-		cl_entity_t *live = (cl_entity_t *)ENGINE_GET_PARM( PARM_GET_VIEWENT_PTR );
-		if( live && live->model && live->model->type == mod_studio
-			&& live->model->cache.data )
-			tr.viewent = live;
-	}
-#endif
 	tr.texgammatable = (byte *)ENGINE_GET_PARM( PARM_GET_TEXGAMMATABLE_PTR );
 	tr.lightgammatable = (uint *)ENGINE_GET_PARM( PARM_GET_LIGHTGAMMATABLE_PTR );
 	tr.screengammatable = (uint *)ENGINE_GET_PARM( PARM_GET_SCREENGAMMATABLE_PTR );

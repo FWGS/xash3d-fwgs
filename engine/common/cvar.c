@@ -475,16 +475,10 @@ convar_t *Cvar_Get( const char *name, const char *value, uint32_t flags, const c
 
 	// allocate a new cvar
 	var = Mem_Malloc( cvar_pool, sizeof( *var ));
-	/* GameCube tip: Console Variables soft-NULL under CapFaces MEM1 pressure
-	 * (InitInput sensitivity cvars). Callers treat NULL as "skip optional". */
-	if( !var )
-		return NULL;
 	var->name = copystringpool( cvar_pool, name );
 	var->string = copystringpool( cvar_pool, value );
 	var->def_string = copystringpool( cvar_pool, value );
 	var->desc = copystringpool( cvar_pool, var_desc );
-	if( !var->name || !var->string || !var->def_string )
-		return NULL;
 	var->value = Q_atof( var->string );
 	var->flags = flags|FCVAR_ALLOCATED;
 

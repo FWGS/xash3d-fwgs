@@ -316,8 +316,6 @@ static qboolean GCube_RealAudioInit( void )
 	snd.backend_name = "GameCube (ASND 48kHz)";
 	Con_Reportf( "Xash3D GameCube: audio backend ready (%d samples, %d Hz, voice deferred)\n",
 		samplecount, SOUND_DMA_SPEED );
-	GCube_AppendSwissEvidence( "audio backend ready (%d samples, %d Hz, voice deferred)",
-		samplecount, SOUND_DMA_SPEED );
 	return true;
 }
 
@@ -446,10 +444,6 @@ void SNDDMA_Submit( void )
 		{
 			Con_Reportf(
 				"Xash3D GameCube: audio submitted nonzero PCM chunks=%u peak=%d\n",
-				gc_audio_nonzero_chunks, gc_audio_max_peak );
-			/* Swiss SD: same retail marker on FAT (no USB Gecko / Dolphin merge). */
-			GCube_AppendSwissEvidence(
-				"audio submitted nonzero PCM chunks=%u peak=%d",
 				gc_audio_nonzero_chunks, gc_audio_max_peak );
 			gc_audio_reported_nonzero = true;
 		}

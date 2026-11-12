@@ -23,7 +23,6 @@ GNU General Public License for more details.
 #if XASH_GAMECUBE
 #include <stdlib.h>
 #include "mod_local.h"
-#include "gamecube/mem_gamecube.h"
 #endif
 
 /*
@@ -1873,16 +1872,6 @@ static SAVERESTOREDATA *SaveGameState( int changelevel )
 		return NULL;
 
 #if XASH_GAMECUBE
-	/* Autohop campaign: tip≈13 KiB cannot hold a 113 KiB transition save
-	 * (hung after G94 entity table on c1a0d→c1a0a, 20261109-063710). Skip
-	 * the save; changelevel still loads the dest map with landmark. */
-	if( changelevel && Sys_CheckParm( "-gcautohop" )
-		&& GC_MemHeapFreeBytes() < 64u * 1024u )
-	{
-		Con_Reportf( "Xash3D GameCube: transition save skipped tip-safe tip=%s need=64 Kb\n",
-			Q_memprint( GC_MemHeapFreeBytes() ));
-		return NULL;
-	}
 	/* Transition save: the largest contiguous block MEM1 has right now. */
 	if( GC_MenuRunsServer( ))
 	{
@@ -2655,124 +2644,6 @@ static double gc_hop_check_due[2];
 static vec3_t gc_hop_view_angles;
 static qboolean gc_hop_view_pending;
 
-/* Campaign autohop ladder (AM → end). Immediate nest after ExecChangeLevel
- * uses this; HopRider keeps short dwells only for early AM maps that still
- * simulate before the post-MAP_READY hang. */
-typedef struct
-{
-	const char *from;
-	const char *to;
-	const char *landmark;
-	float after; /* HopRider dwell; 0 = immediate / nest-only */
-} gc_autohop_t;
-
-static const gc_autohop_t gc_autohop_ladder[] = {
-	/* Soft v17 (075409) burned the 900s Soft budget on tram natural hops
-	 * (~40–60s each) + AM dwells and died at c1a0c. Nest tram+early AM. */
-	{ "c0a0", "c0a0a", "c0a0toa", 0.0f },
-	{ "c0a0a", "c0a0b", "c0a0tob", 0.0f },
-	{ "c0a0b", "c0a0c", "c0a0btoc", 0.0f },
-	{ "c0a0c", "c0a0d", "c0a0ctod", 0.0f },
-	{ "c0a0d", "c0a0e", "c0a0dtoe", 0.0f },
-	{ "c0a0e", "c1a0", "c0a0toc1a0", 0.0f },
-	{ "c1a0", "c1a0d", "c1a0toc1a0d", 0.0f },
-	{ "c1a0d", "c1a0a", "c1a0dtoa", 0.0f },
-	{ "c1a0a", "c1a0b", "c1a0atob", 0.0f },
-	/* after=0: nest at ExecChangeLevel ready — present-path hangs on c1a0b
-	 * before HopRider t=10 (probe 20261109-145707 tip-safe soft-stop DOL). */
-	{ "c1a0b", "c1a0c", "c1a0btoc", 0.0f },
-	{ "c1a0c", "c1a1", "c1a0catoc1a1", 0.0f },
-	{ "c1a1", "c1a1a", "c1a1", 0.0f },
-	{ "c1a1a", "c1a1f", "c1a1atof", 0.0f },
-	{ "c1a1f", "c1a1b", "c1a1b", 0.0f },
-	{ "c1a1b", "c1a1c", "c1a1bc", 0.0f },
-	{ "c1a1c", "c1a2", "a1a2", 0.0f },
-	{ "c1a2", "c1a2a", "one", 0.0f },
-	{ "c1a2a", "c1a2b", "ab", 0.0f },
-	{ "c1a2b", "c1a3", "c1a2_to_c1a3", 0.0f },
-	{ "c1a3", "c1a4", "c1a3toc1a4", 0.0f },
-	{ "c1a4", "c1a4k", "c1a4toc1a4k", 0.0f },
-	{ "c1a4k", "c1a4b", "c1a4k_to_c1a4b", 0.0f },
-	{ "c1a4b", "c1a4i", "c1a4btoi1", 0.0f },
-	{ "c1a4i", "c1a4g", "c1a4itoc1a4g", 0.0f },
-	{ "c1a4g", "c1a4j", "c1a4gtoc2a1", 0.0f },
-	{ "c1a4j", "c2a1", "c1a4-c2a1", 0.0f },
-	{ "c2a1", "c2a2", "c2a1-c2a2", 0.0f },
-	{ "c2a2", "c2a2a", "c2a2c2a2a", 0.0f },
-	{ "c2a2a", "c2a2b1", "c2a2ac2a2b1", 0.0f },
-	{ "c2a2b1", "c2a2c", "c2a2b1c2a2c", 0.0f },
-	{ "c2a2c", "c2a2d", "c2a2cc2a2d", 0.0f },
-	{ "c2a2d", "c2a2e", "c2a2dc2a2e", 0.0f },
-	{ "c2a2e", "c2a2f", "c2a2ec2a2f", 0.0f },
-	{ "c2a2f", "c2a2g", "c2a2fc2a2g", 0.0f },
-	{ "c2a2g", "c2a3", "c2a2/3", 0.0f },
-	{ "c2a3", "c2a3a", "c2a3/a", 0.0f },
-	{ "c2a3a", "c2a3b", "c2a3a/b", 0.0f },
-	{ "c2a3b", "c2a3c", "c2a3b/c", 0.0f },
-	{ "c2a3c", "c2a3d", "c2a3cd", 0.0f },
-	{ "c2a3d", "c2a3e", "c2a3de", 0.0f },
-	{ "c2a3e", "c2a4", "c2a3d4", 0.0f },
-	{ "c2a4", "c2a4a", "lm1", 0.0f },
-	{ "c2a4a", "c2a4b", "lm2", 0.0f },
-	{ "c2a4b", "c2a4c", "lm1", 0.0f },
-	{ "c2a4c", "c2a4d", "lm2", 0.0f },
-	{ "c2a4d", "c2a4e", "lm1", 0.0f },
-	{ "c2a4e", "c2a4g", "c2a4e-c2a4g", 0.0f },
-	{ "c2a4g", "c2a5", "c2a4gc2a5", 0.0f },
-	{ "c2a5", "c2a5w", "c2a5-c2a5w", 0.0f },
-	{ "c2a5w", "c2a5x", "wtoxa", 0.0f },
-	{ "c2a5x", "c2a5a", "c2a5a", 0.0f },
-	{ "c2a5a", "c2a5b", "c2a5b", 0.0f },
-	{ "c2a5b", "c2a5c", "c2a5_c", 0.0f },
-	{ "c2a5c", "c2a5d", "c2a5d", 0.0f },
-	{ "c2a5d", "c2a5e", "c2a5e", 0.0f },
-	{ "c2a5e", "c2a5f", "c2a5e/f", 0.0f },
-	{ "c2a5f", "c2a5g", "c2a5ftog", 0.0f },
-	{ "c2a5g", "c3a1", "c2a5g/c3a1", 0.0f },
-	{ "c3a1", "c3a1a", "a1a1a", 0.0f },
-	{ "c3a1a", "c3a1b", "a1a2", 0.0f },
-	{ "c3a1b", "c3a2e", "c3a1c3a2", 0.0f },
-	{ "c3a2e", "c3a2", "c3a2e", 0.0f },
-	{ "c3a2", "c3a2a", "c3a2f", 0.0f },
-	{ "c3a2a", "c3a2b", "c3a2_ab", 0.0f },
-	{ "c3a2b", "c3a2c", "c3a2_bc", 0.0f },
-	{ "c3a2c", "c3a2d", "c3a2_cd", 0.0f },
-	{ "c3a2d", "c4a1", "c3a2_c4a1", 0.0f },
-	{ "c4a1", "c4a2", "c4a2", 0.0f },
-	{ "c4a2", "c4a2a", "c4a2_0a", 0.0f },
-	{ "c4a2a", "c4a2b", "c4a2_ab", 0.0f },
-	{ "c4a2b", "c4a1a", "c4a1a", 0.0f },
-	{ "c4a1a", "c4a1b", "c4a1b", 0.0f },
-	{ "c4a1b", "c4a1c", "c4a1c", 0.0f },
-	{ "c4a1c", "c4a1d", "c4a1d", 0.0f },
-	{ "c4a1d", "c4a1e", "c4a1e", 0.0f },
-	{ "c4a1e", "c4a1f", "c4a1f", 0.0f },
-	{ "c4a1f", "c4a3", "c4a3", 0.0f },
-	{ "c4a3", "c5a1", "c4a3toc5a1", 0.0f },
-};
-
-qboolean SV_GCAutohopLookupNext( const char *from, const char **to, const char **landmark )
-{
-	size_t hi;
-
-	if( !from || !from[0] || !to || !landmark )
-		return false;
-	for( hi = 0; hi < sizeof( gc_autohop_ladder ) / sizeof( gc_autohop_ladder[0] ); hi++ )
-	{
-		if( Q_stricmp( from, gc_autohop_ladder[hi].from ))
-			continue;
-		/* Nest only after==0 entries. after>0 AM hops need HopRider dwell +
-		 * RUNFRAME between maps — nesting c1a0→…→c1a0c hung inside
-		 * ExecChangeLevel soft-present (probe 20261109-085349). */
-		if( gc_autohop_ladder[hi].after > 0.0f )
-			return false;
-		*to = gc_autohop_ladder[hi].to;
-		*landmark = gc_autohop_ladder[hi].landmark;
-		return true;
-	}
-	return false;
-}
-
 /* Re-check 3 s and 10 s into the new level: still riding, still moving. */
 void SV_GCHopRiderTick( void )
 {
@@ -2801,38 +2672,6 @@ void SV_GCHopRiderTick( void )
 		{
 			given = true;
 			Cbuf_AddText( "sv_cheats 1\ngive weapon_9mmhandgun\ngive weapon_crowbar\n" );
-		}
-	}
-	/* Autohop campaign ladder on the server tick — backup when nest did not
-	 * run (maps with after>0 still dwell here). Never COM_ChangeLevel while
-	 * curstate is CHANGELEVEL (Host_SetNextState asserts; 20261109-102341). */
-	if( Sys_CheckParm( "-gcautohop" ) && sv.name[0]
-		&& GameState->curstate == STATE_RUNFRAME
-		&& GameState->nextstate == STATE_RUNFRAME )
-	{
-		static struct { char from[16]; qboolean done; } hop;
-		size_t hi;
-
-		if( Q_stricmp( hop.from, sv.name ))
-		{
-			Q_strncpy( hop.from, sv.name, sizeof( hop.from ));
-			hop.done = false;
-		}
-		if( !hop.done )
-		{
-			for( hi = 0; hi < sizeof( gc_autohop_ladder ) / sizeof( gc_autohop_ladder[0] ); hi++ )
-			{
-				if( Q_stricmp( sv.name, gc_autohop_ladder[hi].from ))
-					continue;
-				if( sv.time <= (double)gc_autohop_ladder[hi].after )
-					break;
-				hop.done = true;
-				Con_Reportf( "Xash3D GameCube: autohop force changelevel %s → %s landmark=%s t=%.1f\n",
-					gc_autohop_ladder[hi].from, gc_autohop_ladder[hi].to,
-					gc_autohop_ladder[hi].landmark, sv.time );
-				COM_ChangeLevel( gc_autohop_ladder[hi].to, gc_autohop_ladder[hi].landmark, false );
-				break;
-			}
 		}
 	}
 	for( i = 0; i < 2; i++ )
@@ -3525,29 +3364,6 @@ static qboolean GC_FindInfoLandmarkOrigin( const char *name, vec3_t out )
 	return false;
 }
 
-static qboolean GC_FindInfoPlayerStartOrigin( vec3_t out )
-{
-	int	i;
-
-	if( !svgame.edicts )
-		return false;
-
-	for( i = 0; i < svgame.numEntities; i++ )
-	{
-		edict_t		*e = &svgame.edicts[i];
-		const char	*cn;
-
-		if( !SV_IsValidEdict( e ))
-			continue;
-		cn = SV_GetString( e->v.classname );
-		if( Q_strcmp( cn, "info_player_start" ))
-			continue;
-		VectorCopy( e->v.origin, out );
-		return true;
-	}
-	return false;
-}
-
 /*
 =============
 GC_LeanLandmarkStash / GC_LeanLandmarkRestore
@@ -3617,44 +3433,17 @@ void GC_LeanLandmarkRestore( void )
 	}
 
 	VectorClear( offset );
-	if( GC_FindInfoLandmarkOrigin( gc_g100_pending.landmark, new_lm ))
+	if( gc_g100_pending.have_landmark
+		&& GC_FindInfoLandmarkOrigin( gc_g100_pending.landmark, new_lm ))
 	{
-		if( gc_g100_pending.have_landmark )
-		{
-			VectorSubtract( new_lm, gc_g100_pending.landmark_origin, offset );
-			VectorAdd( gc_g100_pending.player_origin, offset, pl->v.origin );
-		}
-		else
-		{
-			/* Source landmark tip-skipped (have_lm=0 Soft Soft Xen hops) —
-			 * place at dest landmark instead of propagating a bad stash origin. */
-			VectorCopy( new_lm, pl->v.origin );
-			Con_Reportf( "Xash3D GameCube: G100 place at dest landmark (source have_lm=0) %s\n",
-				gc_g100_pending.landmark );
-		}
+		VectorSubtract( new_lm, gc_g100_pending.landmark_origin, offset );
+		VectorAdd( gc_g100_pending.player_origin, offset, pl->v.origin );
 		gc_g188_restore_valid = true;
 	}
 	else
 	{
 		/* Landmark missing: drop at spawn origin kept from stash as best effort. */
 		VectorCopy( gc_g100_pending.player_origin, pl->v.origin );
-	}
-	/* Soft Soft nest: corrupt stash leaves origin near world zero (c5a1 stuck
-	 * at (0,0,1) probe 20261110-081216). Rescue to dest landmark / start. */
-	if( fabsf( pl->v.origin[0] ) < 8.0f && fabsf( pl->v.origin[1] ) < 8.0f
-		&& fabsf( pl->v.origin[2] ) < 64.0f )
-	{
-		vec3_t	rescue;
-
-		if( GC_FindInfoLandmarkOrigin( gc_g100_pending.landmark, rescue )
-			|| GC_FindInfoPlayerStartOrigin( rescue ))
-		{
-			Con_Reportf( "Xash3D GameCube: G100 origin rescue from=(%.0f,%.0f,%.0f) to=(%.0f,%.0f,%.0f) map=%s\n",
-				pl->v.origin[0], pl->v.origin[1], pl->v.origin[2],
-				rescue[0], rescue[1], rescue[2], sv.name[0] ? sv.name : "?" );
-			VectorCopy( rescue, pl->v.origin );
-			gc_g188_restore_valid = true;
-		}
 	}
 	VectorCopy( gc_g100_pending.player_angles, pl->v.angles );
 	VectorCopy( gc_g100_pending.player_angles, pl->v.v_angle );

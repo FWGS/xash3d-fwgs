@@ -641,14 +641,12 @@ void V_PostRender( void )
 	if( cls.state == ca_active && ( Sys_CheckParm( "-gcmap" ) || Sys_CheckParm( "-gcnewgame" )
 		|| GC_ShouldUseLightPresent() ))
 	{
-		/* Smoke/G36 light presents: no HUD. New Game / DoD CapFaces listen
-		 * after signon: draw lean HLSDK HUD (health/ammo/cross) so gameplay
-		 * is not world-only. Skip silent G36 sample windows. */
-		if( !GC_ShouldUseLightPresent()
+		/* Smoke/G36 light presents: no HUD. New Game after world present:
+		 * draw lean HLSDK HUD into RGB565, except during silent G36 sample
+		 * windows where OSReport/HUD cost pushed present over budget. */
+		if( Sys_CheckParm( "-gcnewgame" ) && !GC_ShouldUseLightPresent()
 			&& !GC_IsFrameBudgetProbeActive()
-			&& cls.signon == SIGNONS && cls.scrshot_action != scrshot_mapshot
-			&& ( Sys_CheckParm( "-gcnewgame" ) || Sys_CheckParm( "-gcmap" )
-				|| Sys_CheckParm( "-gcworldrender" )))
+			&& cls.signon == SIGNONS && cls.scrshot_action != scrshot_mapshot )
 			CL_DrawHUD( CL_ACTIVE );
 		ref.dllFuncs.R_AllowFog( true );
 		Platform_SetTimer( 0.0f );

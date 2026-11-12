@@ -128,30 +128,6 @@ elif [ "$HLSDK_GAMEDIR" != "valve" ] && [ ! -s "$HLSDK_SERVER_ARCHIVE" ]; then
 	exit 1
 fi
 
-# Waf preserves compiler flags in build/c4che across configure invocations.
-# Switching a shared tree from the classic offline stack to the libogc2/libbba
-# DoD network profile must discard that cache: otherwise the resolver selects
-# libogc2 libraries while stale classic headers/specs remain in CFLAGS.
-GC_WAF_CACHE="build/c4che/_cache.py"
-GC_WANT_LIBOGC2=0
-case "${XASH_GAMECUBE_OGC_STACK:-auto}" in
-	libogc2) GC_WANT_LIBOGC2=1 ;;
-esac
-GC_WANT_BBA=0
-case "${XASH_GAMECUBE_LINK_BBA:-0}" in
-	1|yes|true|on) GC_WANT_BBA=1 ;;
-esac
-if [[ -f "$GC_WAF_CACHE" ]] && {
-	[[ "$GC_WANT_LIBOGC2" == 1 ]] && ! grep -q 'XASH_GAMECUBE_LIBOGC2' "$GC_WAF_CACHE"
-} || {
-	[[ "$GC_WANT_LIBOGC2" == 0 ]] && grep -q 'XASH_GAMECUBE_LIBOGC2' "$GC_WAF_CACHE"
-} || {
-	[[ "$GC_WANT_BBA" == 1 ]] && ! grep -q 'XASH_GAMECUBE_HAVE_LIBBBA' "$GC_WAF_CACHE"
-}; then
-	echo "GameCube build cache profile changed; running waf distclean"
-	./waf distclean
-fi
-
 ./waf configure --gamecube \
 	-T release \
 	--disable-gl --enable-gx \
@@ -165,28 +141,6 @@ if ! grep -q "XASH_GAMEDIR=\"${HLSDK_GAMEDIR}\"" build/c4che/_cache.py 2>/dev/nu
 	echo "error: waf cache gamedir mismatch after configure (want ${HLSDK_GAMEDIR})" >&2
 	grep -n 'XASH_GAMEDIR' build/c4che/_cache.py 2>/dev/null | head -3 >&2 || true
 	exit 1
-fi
-# valve HL1 tip-safe / Swiss smoke must not inherit dod's libbba link.
-if [[ "$HLSDK_GAMEDIR" == "valve" ]] \
-	&& [[ "${XASH_GAMECUBE_LINK_BBA:-0}" != "1" ]] \
-	&& grep -q "XASH_GAMECUBE_HAVE_LIBBBA" build/c4che/_cache.py 2>/dev/null; then
-	echo "error: waf cache still has XASH_GAMECUBE_HAVE_LIBBBA (dod-gc race); re-run with XASH_GAMECUBE_LINK_BBA=0 after dod releases the tree" >&2
-	grep -n 'LIBBBA\|GAMEDIR' build/c4che/_cache.py 2>/dev/null | head -5 >&2 || true
-	exit 1
-fi
-# valve HL1 must not silently link against Desktop dod-gc libogc2 toolchains.
-if [[ "$HLSDK_GAMEDIR" == "valve" ]]; then
-	case "${DEVKITPRO:-}" in
-		*/dod-gc/*|*/Desktop/dod-gc/*)
-			echo "error: DEVKITPRO points at dod-gc ($DEVKITPRO); valve builds require /opt/devkitpro + XASH_GAMECUBE_OGC_STACK=libogc" >&2
-			exit 1
-			;;
-	esac
-	if [[ -f "${XASH_GAMECUBE_STACK_METADATA:-}" ]] \
-		&& grep -q 'dod-gc' "${XASH_GAMECUBE_STACK_METADATA}" 2>/dev/null; then
-		echo "error: OGC stack metadata references dod-gc; use DEVKITPRO=/opt/devkitpro XASH_GAMECUBE_OGC_STACK=libogc" >&2
-		exit 1
-	fi
 fi
 
 # Serial -j1 avoids exFAT .conf_check_/object races on Expansion drives.
@@ -255,14 +209,8 @@ fi
 			powerpc-eabi-nm OUT/bin/xash 2>/dev/null | grep -E 'GetRefAPI|GC_UseGxWorldDraw|GC_IsCaptureDiagnostics' | head -20 \
 			| sed 's/^/sym /' || true
 	fi
-} | tee "OUT/bin/gamecube-handoff-${HLSDK_GAMEDIR}.txt"
-# Keep a stable Swiss/docs pointer for HL1 only — dod must not clobber it.
-if [ "$HLSDK_GAMEDIR" = "valve" ]; then
-	cp -f "OUT/bin/gamecube-handoff-${HLSDK_GAMEDIR}.txt" OUT/bin/gamecube-handoff.txt
-	echo "Handoff metadata: OUT/bin/gamecube-handoff.txt (valve)"
-else
-	echo "Handoff metadata: OUT/bin/gamecube-handoff-${HLSDK_GAMEDIR}.txt (left OUT/bin/gamecube-handoff.txt untouched)"
-fi
+} | tee OUT/bin/gamecube-handoff.txt
+echo "Handoff metadata: OUT/bin/gamecube-handoff.txt"
 
 echo "GameCube build installed to OUT/"
 

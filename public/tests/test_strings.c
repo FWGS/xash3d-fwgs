@@ -147,10 +147,11 @@ static int Test_StripControlChars( void )
 
 static int Test_memgets( qboolean include_null_terminator )
 {
-	char data[] = "First line\n"
-				  "Second line\n"
-				  "Third line with long text\n"
-				  "Last line without newline";
+	char data[] =
+		"First line\n"
+		"Second line\n"
+		"Third line with long text\n"
+		"Last line without newline";
 	int data_len = sizeof( data ) - ( include_null_terminator ? 1 : 0 );
 	string buffer;
 	int data_offset = 0;

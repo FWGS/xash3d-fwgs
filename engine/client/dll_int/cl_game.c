@@ -402,24 +402,6 @@ draw hudsprite routine
 */
 void SPR_AdjustSize( float *x, float *y, float *w, float *h )
 {
-	if( clgame.scrInfo.iWidth <= 0 || clgame.scrInfo.iHeight <= 0 )
-	{
-		/* CapFaces lean HUD can redraw before GetScreenInfo seeds scrInfo —
-		 * treat HUD coords as already in refState pixels (probe hud15: inf geom). */
-		static int gc_scrinfo_seed_logs;
-		clgame.scrInfo.iWidth = refState.width > 0 ? refState.width : 640;
-		clgame.scrInfo.iHeight = refState.height > 0 ? refState.height : 480;
-		if( gc_scrinfo_seed_logs < 4 )
-		{
-			Con_Reportf( "Xash3D GameCube: SPR_AdjustSize seeded scrInfo %dx%d (ref %dx%d)\n",
-				clgame.scrInfo.iWidth, clgame.scrInfo.iHeight, refState.width, refState.height );
-			gc_scrinfo_seed_logs++;
-		}
-	}
-
-	if( refState.width <= 0 || refState.height <= 0 )
-		return;
-
 	if( refState.width == clgame.scrInfo.iWidth && refState.height == clgame.scrInfo.iHeight )
 		return;
 
@@ -526,21 +508,6 @@ static void SPR_DrawGeneric( int frame, float x, float y, float width, float hei
 
 	// scale for screen sizes
 	SPR_AdjustSize( &x, &y, &width, &height );
-#if XASH_GAMECUBE
-	/* CapFaces: SPR_Set tints were modulating punched RGB5A3 glyphs to black. */
-	if( Sys_CheckParm( "-gcworldrender" ) && GC_UseGxWorldDraw() )
-	{
-		static int gc_hud_spr_geom_logs;
-		if( gc_hud_spr_geom_logs < 6 )
-		{
-			Con_Reportf( "Xash3D GameCube: CapFaces SPR geom xy=%.0f,%.0f wh=%.0f,%.0f tex=%d\n",
-				x, y, width, height, texnum );
-			gc_hud_spr_geom_logs++;
-		}
-		ref.dllFuncs.Color4ub( 255, 255, 255, 255 );
-	}
-	else
-#endif
 	ref.dllFuncs.Color4ub( clgame.ds.spriteColor[0], clgame.ds.spriteColor[1], clgame.ds.spriteColor[2], clgame.ds.spriteColor[3] );
 	ref.dllFuncs.R_DrawStretchPic( x, y, width, height, s1, t1, s2, t2, texnum );
 }
@@ -1906,13 +1873,8 @@ void CL_GCPreloadNewGameHudSprites( void )
 	{
 		g172_logged = true;
 		if( real > 0 )
-		{
 			Con_Reportf( "Xash3D GameCube: lean HUD sprites drawn\n" );
-			GCube_AppendSwissEvidence( "lean HUD sprites drawn" );
-		}
 		Con_Reportf( "Xash3D GameCube: G172 HUD sheets loaded real=%d of %d\n",
-			real, (int)( sizeof( sheets ) / sizeof( sheets[0] )));
-		GCube_AppendSwissEvidence( "G172 HUD sheets loaded real=%d of %d",
 			real, (int)( sizeof( sheets ) / sizeof( sheets[0] )));
 	}
 	if( !g173_logged && hud1_real )
@@ -2004,18 +1966,9 @@ void CL_GCPreloadNewGameHudSpritesLate( void )
 	Con_Reportf( "Xash3D GameCube: G172 HUD sheet late preload ready real=%d\n", real );
 	if( real >= 1 )
 	{
-		static qboolean g172_swiss_late_logged;
-
 		Con_Reportf( "Xash3D GameCube: lean HUD sprites drawn\n" );
 		Con_Reportf( "Xash3D GameCube: G172 HUD sheets loaded real=%d of %d\n",
 			real, (int)( sizeof( sheets ) / sizeof( sheets[0] )));
-		if( !g172_swiss_late_logged )
-		{
-			g172_swiss_late_logged = true;
-			GCube_AppendSwissEvidence( "lean HUD sprites drawn" );
-			GCube_AppendSwissEvidence( "G172 HUD sheets loaded real=%d of %d",
-				real, (int)( sizeof( sheets ) / sizeof( sheets[0] )));
-		}
 	}
 	if( !g173_late_logged && hud1_real )
 	{
@@ -2072,23 +2025,12 @@ HSPRITE EXPORT pfnSPR_Load( const char *szPicName )
 
 	GC_HUD_CALL( "SPR_Load begin %s", szPicName ? szPicName : "(null)" );
 #if XASH_GAMECUBE
-	/* CapFaces Flipper listen is MEM1-tight — block full hud.txt sheet storms
-	 * (solo 20261107-123341 mid 320_pain.spr). Allow the lean quality-0 set
-	 * so DoD CapFaces listen can still show health/ammo/crosshair. */
+	/* CapFaces Flipper listen is MEM1-tight; HUD SPR_Load after frame 1
+	 * Gurus (solo 20261107-123341 mid 320_pain.spr). CapFaces already drew. */
 	if( Sys_CheckParm( "-gcworldrender" ) && GC_UseGxWorldDraw() )
 	{
-		const qboolean lean_ok = szPicName && (
-			Q_stristr( szPicName, "320hud1" )
-			|| Q_stristr( szPicName, "320hud2" )
-			|| Q_stristr( szPicName, "crosshairs" )
-			|| Q_stristr( szPicName, "_pain" )
-			|| Q_stristr( szPicName, "_train" ));
-
-		if( !lean_ok )
-		{
-			GC_HUD_CALL( "SPR_Load skip CapFaces %s", szPicName ? szPicName : "(null)" );
-			return 0;
-		}
+		GC_HUD_CALL( "SPR_Load skip CapFaces %s", szPicName ? szPicName : "(null)" );
+		return 0;
 	}
 #endif
 	spr = CL_LoadSpriteModel( szPicName, SPR_HUDSPRITE, 0 );
@@ -2252,13 +2194,6 @@ static void GAME_EXPORT pfnSPR_DrawAdditive( int frame, int x, int y, const wrec
 {
 	GC_HUD_CALL( "SPR_DrawAdditive frame=%d x=%d y=%d", frame, x, y );
 #if 1 // REFTODO
-#if XASH_GAMECUBE
-	/* CapFaces Flipper: RGB5A3 HUD uploads keep near-black opaque, so
-	 * TransAdd washes digits into the world. Punch black via TransAlpha. */
-	if( Sys_CheckParm( "-gcworldrender" ) && GC_UseGxWorldDraw() )
-		ref.dllFuncs.GL_SetRenderMode( kRenderTransAlpha );
-	else
-#endif
 	ref.dllFuncs.GL_SetRenderMode( kRenderTransAdd );
 #else
 	pglEnable( GL_BLEND );

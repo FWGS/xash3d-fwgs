@@ -435,10 +435,6 @@ static void GC_HandleConnectionChange( int port, u32 type, qboolean connected )
  * when Dolphin reports a connected (idle) controller in port 1. */
 static qboolean GC_ProbeRouteForcesSynthetic( void )
 {
-	/* -gctas owns the pad for automated look/move proofs even when lean-iso
-	 * also injects -gcplayerinput (pad probe 20261109-014719 never armed TAS). */
-	if( Sys_CheckParm( "-gctas" ))
-		return true;
 	/* -gcplayerinput: the menu route on real hardware, with a player. */
 	if( Sys_CheckParm( "-gcplayerinput" ))
 		return false;
@@ -448,8 +444,6 @@ static qboolean GC_ProbeRouteForcesSynthetic( void )
 
 qboolean GC_ShouldUseProbeInputFallback( void )
 {
-	if( Sys_CheckParm( "-gctas" ))
-		return true;
 	if( Sys_CheckParm( "-gcplayerinput" ))
 		return false;
 	/* Automated Dolphin probes do not receive real SI pad packets. */
@@ -611,36 +605,6 @@ static u16 GC_ProbeSyntheticHeldButtons( void )
 
 	if( !gc_probe_synthetic )
 		return 0;
-
-	/* DoD CapFaces listen / gcmap pad proofs: run -gctas without requiring
-	 * -gcnewgame (lean listen argv is -gclistenserver/-gcmap only). */
-	if( Sys_CheckParm( "-gctas" )
-		&& ( Sys_CheckParm( "-gclistenserver" ) || Sys_CheckParm( "-gcmap" )
-			|| Sys_CheckParm( "-gcworldrender" ))
-		&& !Sys_CheckParm( "-gcnewgame" ))
-	{
-		if( !SV_Active() || cls.state != ca_active || cls.signon != SIGNONS )
-		{
-			GC_TasResetPlayback();
-			GC_UpdateButtons( 0 );
-			return 0;
-		}
-		if( GC_TasTryLoad() || GC_TasComplete() )
-		{
-			unsigned short tas_held;
-
-			if( !gc_probe_action_logged )
-			{
-				gc_probe_action_logged = true;
-				Con_Reportf( "Xash3D GameCube: probe gameplay input begin\n" );
-			}
-			tas_held = GC_TasPollButtons();
-			if( GC_TasComplete() && !gc_probe_action_complete_logged )
-				gc_probe_action_complete_logged = true;
-			return tas_held;
-		}
-		return 0;
-	}
 
 	if( Sys_CheckParm( "-gcnewgame" ))
 	{
@@ -892,10 +856,7 @@ static u16 GC_ProbeSyntheticHeldButtons( void )
 
 /* Walk out of the tram on c0a0e into the c1a0 trigger. Shared by real-pad
  * and synthetic probe paths — synthetic used to return before this ran
- * (probe 20261105-060454 stuck at org≈-1073,-490).
- * Tip-safe CapFaces retail (20261109-0436): walk began then froze at
- * org≈-1177,-697 with onground=0 for 10+ min. If the sim origin stalls,
- * force the Barney changelevel so the campaign can continue. */
+ * (probe 20261105-060454 stuck at org≈-1073,-490). */
 static qboolean GC_AutohopC0a0eWalkAxes( short *forward, short *side, short *yaw )
 {
 	static const float route[][2] = {
@@ -903,45 +864,12 @@ static qboolean GC_AutohopC0a0eWalkAxes( short *forward, short *side, short *yaw
 	};
 	static int leg;
 	static qboolean logged;
-	static qboolean forced_cl;
-	static float stuck_since;
-	static vec3_t stuck_org;
-	float dx, dy, dist2;
+	float dx, dy;
 
 	if( Q_stricmp( sv.name, "c0a0e" ) || sv.time <= 28.0 || !Sys_CheckParm( "-gcautohop" ))
 		return false;
 	if( cls.state != ca_active || cls.signon != SIGNONS )
 		return false;
-
-	if( !logged )
-	{
-		logged = true;
-		stuck_since = (float)sv.time;
-		VectorCopy( cl.simorg, stuck_org );
-		Con_Reportf( "Xash3D GameCube: autohop c0a0e walk begin org=%.0f,%.0f,%.0f\n",
-			cl.simorg[0], cl.simorg[1], cl.simorg[2] );
-	}
-	else
-	{
-		dx = cl.simorg[0] - stuck_org[0];
-		dy = cl.simorg[1] - stuck_org[1];
-		dist2 = dx * dx + dy * dy;
-		if( dist2 > 24.0f * 24.0f )
-		{
-			stuck_since = (float)sv.time;
-			VectorCopy( cl.simorg, stuck_org );
-		}
-		/* Soft v17 spent ~20s stuck here before AM; cut stall so Soft Soft
-		 * timeout can cover nest through c5a1 (probe 20261110-075409). */
-		else if( !forced_cl && ( (float)sv.time - stuck_since ) > 6.0f )
-		{
-			forced_cl = true;
-			Con_Reportf( "Xash3D GameCube: autohop c0a0e walk stall → force changelevel c1a0 org=%.0f,%.0f,%.0f\n",
-				cl.simorg[0], cl.simorg[1], cl.simorg[2] );
-			COM_ChangeLevel( "c1a0", "c0a0toc1a0", false );
-			return false;
-		}
-	}
 
 	dx = route[leg][0] - cl.simorg[0];
 	dy = route[leg][1] - cl.simorg[1];
@@ -955,6 +883,12 @@ static qboolean GC_AutohopC0a0eWalkAxes( short *forward, short *side, short *yaw
 	*yaw = 0;
 	gc_pad[GC_PAD_PREFERRED].stickX = 0;
 	gc_pad[GC_PAD_PREFERRED].stickY = 127;
+	if( !logged )
+	{
+		logged = true;
+		Con_Reportf( "Xash3D GameCube: autohop c0a0e walk begin org=%.0f,%.0f,%.0f\n",
+			cl.simorg[0], cl.simorg[1], cl.simorg[2] );
+	}
 	return true;
 }
 
@@ -965,8 +899,6 @@ static void GC_UpdateProbeSyntheticAxes( void )
 	short yaw = 0;
 	short pitch = 0;
 	signed char stick_x = 0, stick_y = 0, cstick_x = 0, cstick_y = 0;
-
-	/* Campaign force-ladder lives in SV_GCHopRiderTick (server tick). */
 
 	if( GC_AutohopC0a0eWalkAxes( &forward, &side, &yaw ))
 	{
@@ -1180,7 +1112,7 @@ void Platform_RunEvents( void )
 		return;
 
 	/* Probe: walk out of the tram at c0a0e (also runs on synthetic path via
-	 * GC_UpdateProbeSyntheticAxes). Campaign ladder: SV_GCHopRiderTick. */
+	 * GC_UpdateProbeSyntheticAxes). */
 	{
 		short fwd = 0, side = 0, yaw = 0;
 
@@ -1260,11 +1192,8 @@ int Platform_JoyInit( void )
 		"Retail menu UI readiness marker for synthetic GameCube probes" );
 	Cvar_Get( "gc_menu_probe_auto", "0", 0,
 		"Retail menu probe auto-opens Options once mainui reports ready" );
-	Cvar_Get( "gc_menuplaystart", "0", 0,
-		"1 when -gcmenuplaystart: lean menu art so New Game fits MEM1 tip" );
 	Cvar_SetValue( "gc_menu_ready", 0.0f );
 	Cvar_SetValue( "gc_menu_probe_auto", 0.0f );
-	Cvar_SetValue( "gc_menuplaystart", Sys_CheckParm( "-gcmenuplaystart" ) ? 1.0f : 0.0f );
 	gc_bindings_applied = false;
 	gc_probe_action_stage = 0;
 	gc_probe_action_time = 0.0;

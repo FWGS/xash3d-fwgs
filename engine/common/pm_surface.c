@@ -133,10 +133,6 @@ loc0:
 	if( surf != NULL )
 		return surf;
 
-	/* CapFaces lean: no live msurface table — skip facet walks (hulls OK). */
-	if( !mod->surfaces || mod->numsurfaces <= 0 )
-		return PM_RecursiveSurfCheck( mod, node_child( node, !side, mod ), mid, p2 );
-
 	// walk through real faces
 	int numsurfaces = node_numsurfaces( node, mod );
 	int firstsurface = node_firstsurface( node, mod );
@@ -195,9 +191,6 @@ msurface_t *PM_TraceSurface( physent_t *pe, vec3_t start, vec3_t end )
 	model_t *bmodel = pe->model;
 
 	if( !bmodel || bmodel->type != mod_brush )
-		return NULL;
-	/* CapFaces lean omits the live msurface table. */
-	if( !bmodel->surfaces || bmodel->numsurfaces <= 0 )
 		return NULL;
 
 	hull_t *hull = &pe->model->hulls[0];
@@ -274,10 +267,6 @@ loc0:
 		trace->contents = r;
 		return r;
 	}
-
-	/* CapFaces lean: no live surfaces — continue through the other child. */
-	if( !mod->surfaces || mod->numsurfaces <= 0 )
-		return PM_TestLine_r( mod, node_child( node, !side, mod ), midf, p2f, mid, stop, trace );
 
 	// walk through real faces
 	int numsurfaces = node_numsurfaces( node, mod );

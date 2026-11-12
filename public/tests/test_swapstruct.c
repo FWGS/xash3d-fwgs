@@ -9,33 +9,33 @@ typedef struct
 
 typedef struct
 {
-	uint8_t a;
+	uint8_t  a;
 	uint16_t b;
 	uint32_t c;
-	inner_t inner;
+	inner_t  inner;
 } outer_t;
 
 swap_struct_begin( inner_def )
 	swap_struct_field( inner_t, x )
-		swap_struct_field( inner_t, y )
-			swap_struct_end();
+	swap_struct_field( inner_t, y )
+swap_struct_end();
 
 swap_struct_begin( outer_def )
 	swap_struct_field( outer_t, b )
-		swap_struct_field( outer_t, c )
-			swap_struct_child( outer_t, inner, inner_def )
-				swap_struct_end();
+	swap_struct_field( outer_t, c )
+	swap_struct_child( outer_t, inner, inner_def )
+swap_struct_end();
 
 typedef struct
 {
 	uint32_t version;
-	inner_t items[4];
+	inner_t  items[4];
 } array_outer_t;
 
 swap_struct_begin( array_outer_def )
 	swap_struct_field( array_outer_t, version )
-		swap_struct_array_child( array_outer_t, items, inner_def, 4 )
-			swap_struct_end();
+	swap_struct_array_child( array_outer_t, items, inner_def, 4 )
+swap_struct_end();
 
 typedef struct
 {
@@ -45,8 +45,8 @@ typedef struct
 
 swap_struct_begin( int_array_def )
 	swap_struct_field( int_array_t, tag )
-		swap_struct_array( int_array_t, values, 3 )
-			swap_struct_end();
+	swap_struct_array( int_array_t, values, 3 )
+swap_struct_end();
 
 static int Test_SwapField( void )
 {
@@ -74,7 +74,8 @@ static int Test_SwapField( void )
 
 static int Test_SwapChild( void )
 {
-	outer_t data = {
+	outer_t data =
+	{
 		.a = 0xAA,
 		.b = 0x0102,
 		.c = 0x01020304,
@@ -122,9 +123,11 @@ static int Test_SwapChild( void )
 
 static int Test_SwapArrayChild( void )
 {
-	array_outer_t data = {
+	array_outer_t data =
+	{
 		.version = 0x01020304,
-		.items = {
+		.items =
+		{
 			{ .x = 0x0102, .y = 0x0304 },
 			{ .x = 0x0506, .y = 0x0708 },
 			{ .x = 0x090A, .y = 0x0B0C },
@@ -166,7 +169,8 @@ static int Test_SwapArrayChild( void )
 
 static int Test_SwapArray( void )
 {
-	int_array_t data = {
+	int_array_t data =
+	{
 		.tag = 0x0102,
 		.values = { 0x01020304, 0x05060708, 0x090A0B0C },
 	};

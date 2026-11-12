@@ -33,7 +33,7 @@ int Q_buildnum_iso( const char *date )
 		d += mond[i];
 
 	y -= 1900;
-	int b = d + (int)(( y - 1 ) * 365.25f );
+	int b = d + (int)((y - 1) * 365.25f );
 
 	if((( y % 4 ) == 0 ) && m > 1 )
 		b += 1;

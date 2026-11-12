@@ -3,21 +3,22 @@
 
 static int Test_FileExtension( void )
 {
-	static const char *strings[][2] = {
-		{ "test.txt", "txt" },
-		{ "path/to/file.wad", "wad" },
-		{ "noext", "" },
-		{ "dir/", "" },
-		{ "dir.pk3dir/", "" },
-		{ "https.proto://is_this_an_url?", "" },
-		{ "inside.wad/AAATRIGGER", "" },
-		{ "c:/games/gamedir/liblist.cum", "cum" },
-		{ "", "" },
-		{ "trailingdot.", "" },
-		{ ".hidden", "hidden" },
-		{ "multi.dot.ext", "ext" },
-		{ "../relative/path", "" },
-		{ "../relative/file.bsp", "bsp" },
+	static const char *strings[][2] =
+	{
+	{ "test.txt", "txt" },
+	{ "path/to/file.wad", "wad" },
+	{ "noext", "" },
+	{ "dir/", "" },
+	{ "dir.pk3dir/", "" },
+	{ "https.proto://is_this_an_url?", "" },
+	{ "inside.wad/AAATRIGGER", "" },
+	{ "c:/games/gamedir/liblist.cum", "cum" },
+	{ "", "" },
+	{ "trailingdot.", "" },
+	{ ".hidden", "hidden" },
+	{ "multi.dot.ext", "ext" },
+	{ "../relative/path", "" },
+	{ "../relative/file.bsp", "bsp" },
 	};
 
 	for( int i = 0; i < ARRAYSIZE( strings ); i++ )
@@ -33,20 +34,21 @@ static int Test_FileExtension( void )
 
 static int Test_StripExtension( void )
 {
-	static const char *strings[][2] = {
-		{ "test.txt", "test" },
-		{ "path/to/file.wad", "path/to/file" },
-		{ "noext", "noext" },
-		{ "dir/", "dir/" },
-		{ "dir.pk3dir/", "dir.pk3dir/" },
-		{ "inside.wad/AAATRIGGER", "inside.wad/AAATRIGGER" },
-		{ "https.proto://is_this_an_url?", "https.proto://is_this_an_url?" },
-		{ "c:/games/gamedir/liblist.cum", "c:/games/gamedir/liblist" },
-		{ "multi.dot.ext", "multi.dot" },
-		{ "trailingdot.", "trailingdot." },
-		{ ".hidden", "" },
-		{ "", "" },
-		{ "..", ".." },
+	static const char *strings[][2] =
+	{
+	{ "test.txt", "test" },
+	{ "path/to/file.wad", "path/to/file" },
+	{ "noext", "noext" },
+	{ "dir/", "dir/" },
+	{ "dir.pk3dir/", "dir.pk3dir/" },
+	{ "inside.wad/AAATRIGGER", "inside.wad/AAATRIGGER" },
+	{ "https.proto://is_this_an_url?", "https.proto://is_this_an_url?" },
+	{ "c:/games/gamedir/liblist.cum", "c:/games/gamedir/liblist" },
+	{ "multi.dot.ext", "multi.dot" },
+	{ "trailingdot.", "trailingdot." },
+	{ ".hidden", "" },
+	{ "", "" },
+	{ "..", ".." },
 	};
 
 	for( int i = 0; i < ARRAYSIZE( strings ); i++ )
@@ -65,17 +67,18 @@ static int Test_StripExtension( void )
 
 static int Test_DefaultExtension( void )
 {
-	static const char *strings[][3] = {
-		{ "file", ".bsp", "file.bsp" },
-		{ "path/to/file", ".wad", "path/to/file.wad" },
-		{ "file.txt", ".bsp", "file.txt" },
-		{ "path/to/file.bsp", ".wad", "path/to/file.bsp" },
-		{ "c:/games/gamedir/liblist.cum", ".bsp", "c:/games/gamedir/liblist.cum" },
-		{ "dir/", ".bsp", "dir/.bsp" },
-		{ "dir.pk3dir/", ".bsp", "dir.pk3dir/.bsp" },
-		{ "inside.wad/AAATRIGGER", ".bsp", "inside.wad/AAATRIGGER.bsp" },
-		{ "trailingdot.", ".bsp", "trailingdot..bsp" },
-		{ "", ".bsp", ".bsp" },
+	static const char *strings[][3] =
+	{
+	{ "file", ".bsp", "file.bsp" },
+	{ "path/to/file", ".wad", "path/to/file.wad" },
+	{ "file.txt", ".bsp", "file.txt" },
+	{ "path/to/file.bsp", ".wad", "path/to/file.bsp" },
+	{ "c:/games/gamedir/liblist.cum", ".bsp", "c:/games/gamedir/liblist.cum" },
+	{ "dir/", ".bsp", "dir/.bsp" },
+	{ "dir.pk3dir/", ".bsp", "dir.pk3dir/.bsp" },
+	{ "inside.wad/AAATRIGGER", ".bsp", "inside.wad/AAATRIGGER.bsp" },
+	{ "trailingdot.", ".bsp", "trailingdot..bsp" },
+	{ "", ".bsp", ".bsp" },
 	};
 
 	for( int i = 0; i < ARRAYSIZE( strings ); i++ )

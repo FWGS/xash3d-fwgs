@@ -5,7 +5,8 @@
 #include <stdio.h>
 #include "crclib.h"
 
-static const uint64_t vectors[64] = {
+static const uint64_t vectors[64] =
+{
 	0x726fdb47dd0e0e31ULL,
 	0x74f839c593dc67fdULL,
 	0x0d6c8009d9a94f5aULL,

@@ -69,16 +69,14 @@ elif [[ "${DOLPHIN_MENU_NEWGAME:-0}" == "1" ]]; then
 	G278_DONE_MARKER="Xash3D GameCube: newgame world render ready"
 	echo "==> Menu New Game will sample ${FRAME_SAMPLE_SEC}s after map loaded"
 	echo "==> Waiting for newgame world render ready before post-CapFaces sample"
+	# Intro15 proof: hold the harness through the tram ladder until c1a0
+	# (default MENU_NEWGAME exits after c0a0 G36/input readiness).
+	if [[ -n "${DOLPHIN_INTRO_DONE_MARKER:-}" ]]; then
+		G68_DONE_MARKER="$DOLPHIN_INTRO_DONE_MARKER"
+		echo "==> Intro proof waiting for: ${G68_DONE_MARKER}"
+	fi
 else
 	SMOKE_MAP="${DOLPHIN_SMOKE_MAP:-c0a0e}"
-fi
-# Hold MENU_NEWGAME/NEWGAME harness past c0a0 readiness when requested
-# (default exits after G36/input). Apply outside the if/elif so a polluted
-# DOLPHIN_NEWGAME=1 cannot skip campaign INTRO_DONE.
-if [[ -n "${DOLPHIN_INTRO_DONE_MARKER:-}" ]]; then
-	G68_DONE_MARKER="$DOLPHIN_INTRO_DONE_MARKER"
-	export G68_DONE_MARKER
-	echo "==> Intro proof waiting for: ${G68_DONE_MARKER}"
 fi
 DOLPHIN_WORLD_RENDER="${DOLPHIN_WORLD_RENDER:-0}"
 GC_FATAL_TEST="${GC_FATAL_TEST:-0}"
@@ -650,21 +648,19 @@ for guest_log in "$LOG_DIR"/dolphin-user/Logs/*.log; do
 done
 GUEST_FOUND=0 READY_FOUND=0 MAP_FOUND=0 INPUT_FOUND=0
 PLAY_READY_FOUND=0 FRAME_ARMED_FOUND=0 NEWGAME_PROGRESS_FOUND=0
-# Under set -e, `grep && flag=1` aborts the script when the marker is
-# absent (grep status 1). Use if/then and -a for NULs in OSREPORT streams.
-if grep -aqsFa "$GUEST_MARKER" "${LOG_FILES[@]}"; then GUEST_FOUND=1; fi
-if grep -aqsFa "$READY_MARKER" "${LOG_FILES[@]}"; then READY_FOUND=1; fi
-if grep -aqsFa "$INPUT_MARKER" "${LOG_FILES[@]}"; then INPUT_FOUND=1; fi
-if grep -aqsFa "$PLAY_READY_MARKER" "${LOG_FILES[@]}"; then PLAY_READY_FOUND=1; fi
-if grep -aqsFa "$FRAME_ARMED_MARKER" "${LOG_FILES[@]}"; then FRAME_ARMED_FOUND=1; fi
+grep -aqsF "$GUEST_MARKER" "${LOG_FILES[@]}" && GUEST_FOUND=1
+grep -aqsF "$READY_MARKER" "${LOG_FILES[@]}" && READY_FOUND=1
+grep -aqsF "$INPUT_MARKER" "${LOG_FILES[@]}" && INPUT_FOUND=1
+grep -aqsF "$PLAY_READY_MARKER" "${LOG_FILES[@]}" && PLAY_READY_FOUND=1
+grep -aqsF "$FRAME_ARMED_MARKER" "${LOG_FILES[@]}" && FRAME_ARMED_FOUND=1
 if probe_newgame_progress_ready; then
 	NEWGAME_PROGRESS_FOUND=1
 fi
 if [[ -n "$SMOKE_MAP" ]]; then
-	if grep -aqsFa "$MAP_MARKER" "${LOG_FILES[@]}"; then MAP_FOUND=1; fi
+	grep -aqsF "$MAP_MARKER" "${LOG_FILES[@]}" && MAP_FOUND=1
 fi
 if (( ! GUEST_FOUND )); then
-	if grep -aqsEa 'Could not load the Qt platform plugin|could not connect to display|xcb-cursor' \
+	if grep -aqE 'Could not load the Qt platform plugin|could not connect to display|xcb-cursor' \
 		"${LOG_FILES[@]}" 2>/dev/null; then
 		echo "HOST_FAILURE: Dolphin Qt display backend unavailable; set DISPLAY or use a working Dolphin headless build"
 	elif [[ ! -s "$LOG_DIR/dolphin-user/Logs/dolphin.log" ]]; then

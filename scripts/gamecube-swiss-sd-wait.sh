@@ -76,6 +76,11 @@ is_candidate_mount() {
 		/run/media/*|/media/*) ;;
 		*) return 1 ;;
 	esac
+	# Refuse EFI System Partitions (Extra/sata ESP looked like a Swiss FAT card).
+	if [[ -d "$m/EFI" || -d "$m/efi" ]]; then
+		echo "FAIL: refusing EFI volume $m" >&2
+		return 1
+	fi
 	# Refuse loop-backed mounts (e.g. udisksctl loop-setup of *.img).
 	src="$(findmnt -n -o SOURCE --target "$m" 2>/dev/null || true)"
 	case "$src" in
@@ -90,18 +95,6 @@ is_candidate_mount() {
 		hotplug="$(lsblk -dn -o HOTPLUG "/dev/$disk" 2>/dev/null || true)"
 		if [[ "$tran" != "usb" && "$rm" != "1" && "$hotplug" != "1" ]]; then
 			echo "FAIL: refusing non-removable $m (tran=$tran rm=$rm)" >&2
-			return 1
-		fi
-	fi
-	# Refuse host EFI System Partitions (Extra/sata ESP). Multi-boot Swiss
-	# cards may also carry EFI/ — accept SD-sized volumes or Swiss layouts.
-	if [[ -d "$m/EFI" || -d "$m/efi" ]]; then
-		local size_bytes
-		size_bytes="$(findmnt -nb -o SIZE "$m" 2>/dev/null || echo 0)"
-		if [[ -d "$m/apps" || -d "$m/xash3d" || -f "$m/boot.dol" ]]; then
-			:
-		elif [[ -n "$size_bytes" ]] && (( size_bytes < 2 * 1024 * 1024 * 1024 )); then
-			echo "FAIL: refusing EFI volume $m" >&2
 			return 1
 		fi
 	fi

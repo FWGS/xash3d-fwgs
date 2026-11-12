@@ -44,8 +44,6 @@ static void SV_GameCubePlayStart_f( void )
 
 	if( !COM_StringEmpty( sv_gc_playstart_map_override ))
 		map = sv_gc_playstart_map_override;
-	else if( Cmd_Argc() > 1 && !COM_StringEmpty( Cmd_Argv( 1 )))
-		map = Cmd_Argv( 1 );
 	else
 		map = ( GI && !COM_StringEmpty( GI->startmap )) ? GI->startmap : "c0a0";
 	/* SpawnServer and map-load trimming can rewrite Cmd_Argv() storage. */
@@ -129,28 +127,21 @@ static void SV_GameCubePlayStart_f( void )
 		}
 		/* Lean through ensure; restore standard quality when tip allows
 		 * (menu New Game fidelity — avoid permanent quality=0 demotion).
-		 * Full geo (pinned BSP, no CapFaces) frees tip for textures —
-		 * prefer quality=1 whenever the live world path is active. */
+		 * Match post-MAP_READY 40 KiB threshold (FAF c3a1 tip≈48). */
 		R_GcFreeMenuImages();
 		R_GXReleaseHudPoolForMapLoad();
 		Image_GCPurgeDecodeScratch();
+		if( GC_MemHeapFreeBytes() >= 40u * 1024u )
 		{
-			model_t *wm = sv.models[1];
-			const qboolean full_geo = wm && Mod_GCWorldSurfacesPinned( wm )
-				&& !Mod_GCWorldSurfacesScratchRetained( wm );
-
-			if( full_geo || GC_MemHeapFreeBytes() >= 40u * 1024u )
-			{
-				Cvar_Set( "gc_quality", "1" );
-				Con_Reportf( "Xash3D GameCube: play start quality=1 tip=%s full_geo=%d\n",
-					Q_memprint( GC_MemHeapFreeBytes() ), full_geo ? 1 : 0 );
-			}
-			else
-			{
-				Cvar_Set( "gc_quality", "0" );
-				Con_Reportf( "Xash3D GameCube: play start keep quality=0 tip=%s\n",
-					Q_memprint( GC_MemHeapFreeBytes() ));
-			}
+			Cvar_Set( "gc_quality", "1" );
+			Con_Reportf( "Xash3D GameCube: play start quality=1 tip=%s\n",
+				Q_memprint( GC_MemHeapFreeBytes() ));
+		}
+		else
+		{
+			Cvar_Set( "gc_quality", "0" );
+			Con_Reportf( "Xash3D GameCube: play start keep quality=0 tip=%s\n",
+				Q_memprint( GC_MemHeapFreeBytes() ));
 		}
 		if( Sys_CheckParm( "-gcmap" ) && !Sys_CheckParm( "-gcnewgame" ))
 			GC_ArmPostMapFrameBudgetSamples();

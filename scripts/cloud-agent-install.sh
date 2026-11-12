@@ -93,13 +93,13 @@ for sm in "${GC_SUBMODULES[@]}"; do
 	populate "$sm"
 done
 
-# mainui: master lacks __GAMECUBE__ and #errors out. The GameCube-aware menu
-# lives on 'gamecube-port'. If the recorded gitlink is missing or the worktree
-# is not GameCube-aware, reconcile to that branch tip.
+# mainui: the superproject may pin a commit that no longer exists upstream.
+# The GameCube-aware menu lives on the 'gamecube-probe-sync' branch, whose
+# build.h recognises __GAMECUBE__ (master does not and #errors out).
 if [ ! -f "3rdparty/mainui/sdk_includes/public/build.h" ] || \
 	! grep -q "__GAMECUBE__" 3rdparty/mainui/sdk_includes/public/build.h 2>/dev/null; then
-	log "Reconciling mainui to GameCube-aware gamecube-port tip"
-	git -C 3rdparty/mainui fetch --depth 1 origin gamecube-port
+	log "Reconciling mainui to GameCube-aware revision"
+	git -C 3rdparty/mainui fetch --depth 1 origin gamecube-probe-sync
 	git -C 3rdparty/mainui checkout -f FETCH_HEAD
 fi
 # mainui's nested miniutl submodule

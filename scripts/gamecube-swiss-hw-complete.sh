@@ -11,11 +11,10 @@ ROUTE="sd"
 DRY=0
 OUT_DIR=""
 BOOT_ONLY=0
-REHEARSAL=0
 
 usage() {
 	cat <<'EOF'
-Usage: scripts/gamecube-swiss-hw-complete.sh --log FILE|DIR [--route sd|carda|cardb] [--dry-run] [--boot-only] [--rehearsal]
+Usage: scripts/gamecube-swiss-hw-complete.sh --log FILE|DIR [--route sd|carda|cardb] [--dry-run] [--boot-only]
 
 After a real Swiss run (boot → play → quit), remount the SD and run:
 
@@ -29,8 +28,6 @@ This will:
   4. Update .ai/tasks/gc-port-current.md NEXT pointer
 
 Refuses to mark complete unless FAT/Swiss markers parse as PASS.
-Use --rehearsal (or SWISS_HW_REHEARSAL=1) to exercise ingest without stamping
-docs — for synth/Desktop dropfile path tests only.
 EOF
 }
 
@@ -40,16 +37,12 @@ while (( $# > 0 )); do
 		--route) ROUTE="$2"; shift ;;
 		--dry-run) DRY=1 ;;
 		--boot-only) BOOT_ONLY=1 ;;
-		--rehearsal) REHEARSAL=1 ;;
 		--output) OUT_DIR="$2"; shift ;;
 		-h|--help) usage; exit 0 ;;
 		*) echo "Unknown: $1" >&2; usage >&2; exit 2 ;;
 	esac
 	shift
 done
-if [[ "${SWISS_HW_REHEARSAL:-0}" == "1" ]]; then
-	REHEARSAL=1
-fi
 
 if [[ -z "$LOG" ]]; then
 	usage >&2
@@ -72,8 +65,6 @@ if (( DRY )); then
 	RESOLVED="$LOG"
 	if [[ -d "$LOG" ]]; then
 		for cand in \
-			"$LOG/xash3d/dod/logs/swiss-evidence.txt" \
-			"$LOG/dod/logs/swiss-evidence.txt" \
 			"$LOG/xash3d/valve/logs/swiss-evidence.txt" \
 			"$LOG/valve/logs/swiss-evidence.txt" \
 			"$LOG/swiss-evidence.txt"
@@ -159,11 +150,6 @@ else:
 	print("Swiss markers OK (FAT + return-to-loader; boot-only)")
 PY
 rm -f "$PARSE_JSON_FILE"
-
-if (( REHEARSAL )); then
-	echo "REHEARSAL: ingest PASS at $EVIDENCE_OUT (docs not stamped; not physical Swiss)"
-	exit 0
-fi
 
 DOL_HASH="$(sha256sum OUT/bin/boot.dol 2>/dev/null | awk '{print $1}' || echo missing)"
 STAMP="$(date -u +%Y-%m-%d)"

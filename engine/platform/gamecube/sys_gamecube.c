@@ -91,7 +91,6 @@ static bool GCube_DVDReadSectors( sec_t sector, sec_t count, void *buffer );
 static qboolean GCube_MountDisc( void );
 static void GCube_EnsureFatMounted( void );
 static void GCube_LoadDiscBootOverrides( void );
-static void GCube_InjectLateDiscArgv( void );
 static qboolean GCube_FatHasGameData( void );
 /* Declared later; used when logging multi-game detection onto FAT. */
 void GCube_AppendSwissEvidence( const char *fmt, ... );
@@ -932,10 +931,6 @@ void GCube_Init( void )
 		Con_Reportf( "GameCube data directory: %s\n", xashdir );
 		GC_MemWatch( "platform chdir" );
 		GCube_LoadDiscBootOverrides();
-		/* GetArgv often runs before nested ISO9660 fopen works, so disc
-		 * overrides land here. Inject missing -gc* flags into host.argv
-		 * (aliases gc_argv) before Host_Init's -gcmap / CapFaces path. */
-		GCube_InjectLateDiscArgv();
 		GC_MemWatch( "platform boot overrides" );
 	}
 	else if( xashdir[0] )
@@ -1043,7 +1038,6 @@ static char gc_tas_name[32];
 static qboolean gc_smoke_map_configured;
 static qboolean gc_listenserver_configured;
 static qboolean gc_dumpeye_configured;
-static qboolean gc_vst_configured;
 static qboolean gc_connect_configured;
 static qboolean gc_newgame_configured;
 static qboolean gc_menu_newgame_configured;
@@ -1058,10 +1052,6 @@ static qboolean gc_landmark3_configured;
 static qboolean gc_leanpvs_configured;
 static qboolean gc_fullphysics_configured;
 static qboolean gc_worldrender_configured;
-static qboolean gc_capfacessmoke_configured;
-static qboolean gc_playerinput_configured;
-static qboolean gc_playercam_configured;
-static qboolean gc_worlddl_configured;
 static qboolean gc_tas_configured;
 static qboolean gc_dumpframes_configured;
 static qboolean gc_swissquit_configured;
@@ -1116,7 +1106,6 @@ static void GCube_LoadDiscBootOverrides( void )
 	gc_listenserver_configured = false;
 	gc_listenserver_map[0] = '\0';
 	gc_dumpeye_configured = false;
-	gc_vst_configured = false;
 	gc_dumpeye_arg[0] = '\0';
 	gc_connect_configured = false;
 	gc_connect_addr[0] = '\0';
@@ -1140,10 +1129,6 @@ static void GCube_LoadDiscBootOverrides( void )
 	gc_leanpvs_configured = false;
 	gc_fullphysics_configured = false;
 	gc_worldrender_configured = false;
-	gc_capfacessmoke_configured = false;
-	gc_playerinput_configured = false;
-	gc_playercam_configured = false;
-	gc_worlddl_configured = false;
 	gc_tas_configured = false;
 	gc_dumpframes_configured = false;
 	gc_swissquit_configured = false;
@@ -1186,32 +1171,11 @@ static void GCube_LoadDiscBootOverrides( void )
 		if( file )
 			SYS_Report( "Xash3D GameCube: FAT boot cfg %s\n", fatcfg );
 	}
-	/* libiso9660 can mount before nested fopen works; warm with the same
-	 * HasActiveGameAssets probe Platform_Init uses, then open gamecube.cfg.
-	 * Without this, GetArgv builds a menu argv and CapFaces smoke never runs. */
-	if( !file && gc_dvd_mounted )
-	{
-		char warm[MAX_SYSPATH];
-		Q_snprintf( warm, sizeof( warm ), GC_DVD_DEVICE ":/" GC_DATA_PATH );
-		(void)GCube_HasActiveGameAssets( warm );
-	}
 	if( !file && gc_dvd_mounted )
 	{
 		Q_snprintf( fatcfg, sizeof( fatcfg ),
 			GC_DVD_DEVICE ":/" GC_DATA_PATH "/%s/gamecube.cfg", GC_ACTIVE_GAMEDIR );
 		file = fopen( fatcfg, "r" );
-		if( file )
-			SYS_Report( "Xash3D GameCube: DVD boot cfg %s\n", fatcfg );
-	}
-	/* FST layout from build-gamecube-disc is xash3d/<gamedir-files>, not
-	 * xash3d/<gamedir>/… — Lost Coast CapFaces smoke lands gamecube.cfg there. */
-	if( !file && gc_dvd_mounted )
-	{
-		Q_snprintf( fatcfg, sizeof( fatcfg ),
-			GC_DVD_DEVICE ":/" GC_DATA_PATH "/gamecube.cfg" );
-		file = fopen( fatcfg, "r" );
-		if( file )
-			SYS_Report( "Xash3D GameCube: DVD boot cfg (FST flat) %s\n", fatcfg );
 	}
 	if( !file )
 	{
@@ -1221,78 +1185,20 @@ static void GCube_LoadDiscBootOverrides( void )
 	}
 	if( !file )
 	{
-		Q_snprintf( fatcfg, sizeof( fatcfg ), GC_DATA_PATH "/gamecube.cfg" );
-		file = fopen( fatcfg, "r" );
-	}
-	if( !file )
-	{
 		Q_snprintf( fatcfg, sizeof( fatcfg ), "%s/gamecube.cfg", GC_ACTIVE_GAMEDIR );
 		file = fopen( fatcfg, "r" );
 	}
-	/* No gamecube.cfg map override means retail menu boot, not smoke map load.
-	 * Lost Coast CapFaces DOL still forces smoke below even when DVD ISO9660
-	 * fails to open gamecube.cfg (Dolphin disc-only probes). */
+	/* No gamecube.cfg map override means retail menu boot, not smoke map load. */
 	if( !file )
+		return;
+
+	while( fgets( line, sizeof( line ), file ))
 	{
-		SYS_Report( "Xash3D GameCube: no gamecube.cfg found (menu boot)\n" );
-		goto lostcoast_force_smoke;
-	}
+		char *cursor = line;
+		char *mapname;
+		char *phase;
+		size_t len;
 
-	/* ISO9660 fgets is flaky under Dolphin (DVD open succeeds, tokens never
-	 * match → menu boot). Slurp the small cfg once and parse from memory. */
-	{
-		char cfgbuf[1024];
-		size_t nread = fread( cfgbuf, 1, sizeof( cfgbuf ) - 1, file );
-		char *scan;
-		char *next;
-
-		fclose( file );
-		file = NULL;
-		cfgbuf[nread] = '\0';
-		SYS_Report( "Xash3D GameCube: disc cfg bytes=%u c0=%u c1=%u c2=%u\n",
-			(unsigned)nread,
-			(unsigned)(unsigned char)cfgbuf[0],
-			(unsigned)(unsigned char)cfgbuf[1],
-			(unsigned)(unsigned char)cfgbuf[2] );
-		if( nread == 0 )
-			return;
-		/* Fast-path CapFaces smoke: token match independent of line parser. */
-		if( Q_stristr( cfgbuf, "gccapfacessmoke" ))
-		{
-			gc_capfacessmoke_configured = true;
-			gc_worldrender_configured = true;
-			SYS_Report( "Xash3D GameCube: disc boot override gccapfacessmoke (buf)\n" );
-		}
-		if( Q_stristr( cfgbuf, "dumpframes" ))
-		{
-			gc_dumpframes_configured = true;
-			SYS_Report( "Xash3D GameCube: disc boot override dumpframes (buf)\n" );
-		}
-		if( Q_stristr( cfgbuf, "gcworldrender" ))
-		{
-			gc_worldrender_configured = true;
-			SYS_Report( "Xash3D GameCube: disc boot override gcworldrender (buf)\n" );
-		}
-
-		for( scan = cfgbuf; scan && *scan; scan = next )
-		{
-			char *cursor;
-			char *mapname;
-			char *phase;
-			char *endl;
-			size_t len;
-
-			endl = strchr( scan, '\n' );
-			if( endl )
-			{
-				*endl = '\0';
-				next = endl + 1;
-			}
-			else
-				next = NULL;
-			Q_strncpy( line, scan, sizeof( line ));
-
-		cursor = line;
 		while( *cursor == ' ' || *cursor == '\t' )
 			cursor++;
 		if( cursor[0] == '#' || cursor[0] == '\0' || cursor[0] == '\r' || cursor[0] == '\n' )
@@ -1464,62 +1370,6 @@ static void GCube_LoadDiscBootOverrides( void )
 			{
 				gc_worldrender_configured = true;
 				SYS_Report( "Xash3D GameCube: disc boot override gcworldrender\n" );
-				continue;
-			}
-		}
-
-		/* Lost Coast CapFaces smoke: Source→GX packs, stub BSP loader hook. */
-		if( !Q_strnicmp( cursor, "gccapfacessmoke", 15 ))
-		{
-			char ch = cursor[15];
-			if( ch == '\0' || ch == '\r' || ch == '\n' || ch == ' ' || ch == '\t' )
-			{
-				gc_capfacessmoke_configured = true;
-				gc_worldrender_configured = true;
-				SYS_Report( "Xash3D GameCube: disc boot override gccapfacessmoke\n" );
-				continue;
-			}
-		}
-
-		if( !Q_strnicmp( cursor, "gcplayerinput", 13 ))
-		{
-			char ch = cursor[13];
-			if( ch == '\0' || ch == '\r' || ch == '\n' || ch == ' ' || ch == '\t' )
-			{
-				gc_playerinput_configured = true;
-				SYS_Report( "Xash3D GameCube: disc boot override gcplayerinput\n" );
-				continue;
-			}
-		}
-		if( !Q_strnicmp( cursor, "gcplayercam", 11 ))
-		{
-			char ch = cursor[11];
-			if( ch == '\0' || ch == '\r' || ch == '\n' || ch == ' ' || ch == '\t' )
-			{
-				gc_playercam_configured = true;
-				SYS_Report( "Xash3D GameCube: disc boot override gcplayercam\n" );
-				continue;
-			}
-		}
-		if( !Q_strnicmp( cursor, "gcvst", 5 ))
-		{
-			char ch = cursor[5];
-			if( ch == '\0' || ch == '\r' || ch == '\n' || ch == ' ' || ch == '\t' )
-			{
-				gc_vst_configured = true;
-				SYS_Report( "Xash3D GameCube: disc boot override gcvst (Lost Coast stress flythrough)\n" );
-				continue;
-			}
-		}
-
-		/* CapFaces GX display lists (denser DoD maps). */
-		if( !Q_strnicmp( cursor, "gcworlddl", 9 ))
-		{
-			char ch = cursor[9];
-			if( ch == '\0' || ch == '\r' || ch == '\n' || ch == ' ' || ch == '\t' )
-			{
-				gc_worlddl_configured = true;
-				SYS_Report( "Xash3D GameCube: disc boot override gcworlddl\n" );
 				continue;
 			}
 		}
@@ -1964,39 +1814,9 @@ static void GCube_LoadDiscBootOverrides( void )
 			gc_smoke_map_configured = true;
 			SYS_Report( "Xash3D GameCube: smoke map override %s\n", gc_smoke_map );
 		}
-		} /* for scan */
-	} /* cfgbuf slurp */
+	}
 
-lostcoast_force_smoke:
-	/* Lost Coast CapFaces DOL: ISO9660 sometimes returns garbage for
-	 * gamecube.cfg (observed c0='"' / NUL) while xorriso extracts the real
-	 * smoke file. Force CapFaces smoke so props/world DumpFrames still boot. */
-	if( !Q_stricmp( GC_ACTIVE_GAMEDIR, "lostcoast" ) && !gc_capfacessmoke_configured )
-	{
-		gc_capfacessmoke_configured = true;
-		gc_worldrender_configured = true;
-		gc_dumpframes_configured = true;
-		gc_smoke_map_configured = true;
-		Q_strncpy( gc_smoke_map, "d2_lostcoast", sizeof( gc_smoke_map ));
-		/* Retail bake-eye still (info_player_start). Disc cfg may arm -gcvst
-		 * for the stress flythrough; unreadable cfg must not steal the eye. */
-		gc_vst_configured = false;
-		gc_dumpeye_configured = true;
-		Q_strncpy( gc_dumpeye_arg, "1655.6,2212.7,-48,8,150", sizeof( gc_dumpeye_arg ));
-		gc_playerinput_configured = true;
-		gc_playercam_configured = true;
-		SYS_Report(
-			"Xash3D GameCube: CapFaces+dumpeye forced (lostcoast DOL; disc cfg unreadable)\n" );
-	}
-	/* Always arm CapFaces smoke argv inject for Lost Coast. */
-	if( !Q_stricmp( GC_ACTIVE_GAMEDIR, "lostcoast" ) && gc_capfacessmoke_configured )
-	{
-		if( !gc_vst_configured )
-		{
-			gc_playerinput_configured = true;
-			gc_playercam_configured = true;
-		}
-	}
+	fclose( file );
 #endif
 }
 
@@ -2052,80 +1872,6 @@ void GCube_PollSwissQuit( void )
 #endif
 }
 
-/*
- * GetArgv may miss gamecube.cfg when ISO9660 nested fopen is not ready yet.
- * Platform_Init reloads cfg after GetBasePath; append any missing -gc* tokens
- * onto host.argv (which aliases gc_argv) before Host_Init consumes -gcmap.
- */
-static void GCube_InjectLateDiscArgv( void )
-{
-	int n;
-	int cap = (int)( sizeof( gc_argv ) / sizeof( gc_argv[0] ));
-	int injected = 0;
-
-	if( !host.argv || host.argc < 1 )
-		return;
-	/* Only patch when host.argv is our static builder table. */
-	if( host.argv != (const char **)gc_argv && host.argv != (char **)gc_argv )
-		return;
-
-	n = host.argc;
-	if( n < 0 || n >= cap - 1 )
-		return;
-
-	if( gc_capfacessmoke_configured && !Sys_CheckParm( "-gccapfacessmoke" ) && n + 1 < cap )
-	{
-		gc_argv[n++] = "-gccapfacessmoke";
-		injected++;
-	}
-	if( gc_worldrender_configured && !Sys_CheckParm( "-gcworldrender" ) && n + 1 < cap )
-	{
-		gc_argv[n++] = "-gcworldrender";
-		injected++;
-	}
-	if( gc_smoke_map_configured && gc_smoke_map[0] && !Sys_CheckParm( "-gcmap" ) && n + 2 < cap )
-	{
-		gc_argv[n++] = "-gcmap";
-		gc_argv[n++] = gc_smoke_map;
-		injected++;
-	}
-	if( gc_dumpframes_configured && !Sys_CheckParm( "-gcdumpframes" ) && n + 1 < cap )
-	{
-		gc_argv[n++] = "-gcdumpframes";
-		injected++;
-	}
-	if( gc_vst_configured && !Sys_CheckParm( "-gcvst" ) && n + 1 < cap )
-	{
-		gc_argv[n++] = "-gcvst";
-		injected++;
-	}
-	if( gc_dumpeye_configured && gc_dumpeye_arg[0]
-		&& !Sys_CheckParm( "-gcdumpeye" ) && !gc_vst_configured
-		&& n + 2 < cap )
-	{
-		gc_argv[n++] = "-gcdumpeye";
-		gc_argv[n++] = gc_dumpeye_arg;
-		injected++;
-	}
-	if( gc_playerinput_configured && !Sys_CheckParm( "-gcplayerinput" ) && n + 1 < cap )
-	{
-		gc_argv[n++] = "-gcplayerinput";
-		injected++;
-	}
-	if( gc_playercam_configured && !Sys_CheckParm( "-gcplayercam" ) && n + 1 < cap )
-	{
-		gc_argv[n++] = "-gcplayercam";
-		injected++;
-	}
-
-	if( !injected )
-		return;
-
-	gc_argv[n] = NULL;
-	host.argc = n;
-	SYS_Report( "Xash3D GameCube: late disc argv inject argc=%d (+%d)\n", n, injected );
-}
-
 int GCube_GetArgv( int in_argc, char **in_argv, char ***out_argv )
 {
 	int fake_argc = 0;
@@ -2164,16 +1910,12 @@ int GCube_GetArgv( int in_argc, char **in_argv, char ***out_argv )
 		gc_argv[fake_argc++] = "-gcfullactors";
 	if( gc_worldrender_configured )
 		gc_argv[fake_argc++] = "-gcworldrender";
-	if( gc_capfacessmoke_configured )
-		gc_argv[fake_argc++] = "-gccapfacessmoke";
-	if( gc_worlddl_configured )
-		gc_argv[fake_argc++] = "-gcworlddl";
 	if( gc_smoke_map_configured )
 	{
 		gc_argv[fake_argc++] = "-gcmap";
 		gc_argv[fake_argc++] = gc_smoke_map;
 	}
-	if( gc_dumpeye_configured && gc_dumpeye_arg[0] && !gc_vst_configured )
+	if( gc_dumpeye_configured && gc_dumpeye_arg[0] )
 	{
 		gc_argv[fake_argc++] = "-gcdumpeye";
 		gc_argv[fake_argc++] = gc_dumpeye_arg;
@@ -2262,14 +2004,8 @@ int GCube_GetArgv( int in_argc, char **in_argv, char ***out_argv )
 	}
 	if( gc_dumpframes_configured )
 		gc_argv[fake_argc++] = "-gcdumpframes";
-	if( gc_vst_configured )
-		gc_argv[fake_argc++] = "-gcvst";
 	if( gc_swissquit_configured )
 		gc_argv[fake_argc++] = "-gcswissquit";
-	if( gc_playerinput_configured )
-		gc_argv[fake_argc++] = "-gcplayerinput";
-	if( gc_playercam_configured )
-		gc_argv[fake_argc++] = "-gcplayercam";
 	if( gc_retail_newgame_configured && !gc_menu_newgame_configured )
 	{
 		gc_argv[fake_argc++] = "-gcmenuplaystart";

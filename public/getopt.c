@@ -37,105 +37,95 @@
 #include <string.h>
 
 
-int opterr = 1,  /* if error message should be printed */
-	optind = 1,  /* index into parent argv vector */
-	optopt,   /* character checked for validity */
-	optreset;  /* reset getopt */
-char *optarg;  /* argument associated with option */
+int	opterr = 1,		/* if error message should be printed */
+	optind = 1,		/* index into parent argv vector */
+	optopt,			/* character checked for validity */
+	optreset;		/* reset getopt */
+char	*optarg;		/* argument associated with option */
 
-#define BADCH	(int)'?'
-#define BADARG	(int)':'
+#define	BADCH	(int)'?'
+#define	BADARG	(int)':'
 static char EMSG[] = "";
-
 /*
  * getopt --
  *	Parse argc/argv argument vector.
  */
-int getopt( int nargc, char *const nargv[], const char *ostr )
+int
+getopt(int nargc, char * const nargv[], const char *ostr)
 {
-	static char *place = EMSG;  /* option letter processing */
-	char *oli;    /* option letter list index */
+	static char *place = EMSG;		/* option letter processing */
+	char *oli;				/* option letter list index */
 
-	if( optreset || *place == 0 )
-	{  /* update scanning pointer */
+	if (optreset || *place == 0) {		/* update scanning pointer */
 		optreset = 0;
 		place = nargv[optind];
-		if( optind >= nargc || *place++ != '-' )
-		{
+		if (optind >= nargc || *place++ != '-') {
 			/* Argument is absent or is not an option */
 			place = EMSG;
-			return ( -1 );
+			return (-1);
 		}
 		optopt = *place++;
-		if( optopt == '-' && *place == 0 )
-		{
+		if (optopt == '-' && *place == 0) {
 			/* "--" => end of options */
 			++optind;
 			place = EMSG;
-			return ( -1 );
+			return (-1);
 		}
-		if( optopt == 0 )
-		{
+		if (optopt == 0) {
 			/* Solitary '-', treat as a '-' option
 			   if the program (eg su) is looking for it. */
 			place = EMSG;
-			if( strchr( ostr, '-' ) == NULL )
-				return ( -1 );
+			if (strchr(ostr, '-') == NULL)
+				return (-1);
 			optopt = '-';
 		}
-	}
-	else
+	} else
 		optopt = *place++;
 
 	/* See if option letter is one the caller wanted... */
-	if( optopt == ':' || ( oli = strchr( ostr, optopt )) == NULL )
-	{
-		if( *place == 0 )
+	if (optopt == ':' || (oli = strchr(ostr, optopt)) == NULL) {
+		if (*place == 0)
 			++optind;
-		if( opterr && *ostr != ':' )
-			(void)fprintf( stderr,
-				"%s: illegal option -- %c\n", nargv[0],
-				optopt );
-		return ( BADCH );
+		if (opterr && *ostr != ':')
+			(void)fprintf(stderr,
+			    "%s: illegal option -- %c\n", nargv[0],
+			    optopt);
+		return (BADCH);
 	}
 
 	/* Does this option need an argument? */
-	if( oli[1] != ':' )
-	{
+	if (oli[1] != ':') {
 		/* don't need argument */
 		optarg = NULL;
-		if( *place == 0 )
+		if (*place == 0)
 			++optind;
-	}
-	else
-	{
+	} else {
 		/* Option-argument is either the rest of this argument or the
 		   entire next argument. */
-		if( *place )
+		if (*place)
 			optarg = place;
-		else if( oli[2] == ':' )
+		else if (oli[2] == ':')
 			/*
 			 * GNU Extension, for optional arguments if the rest of
 			 * the argument is empty, we return NULL
 			 */
 			optarg = NULL;
-		else if( nargc > ++optind )
+		else if (nargc > ++optind)
 			optarg = nargv[optind];
-		else
-		{
+		else {
 			/* option-argument absent */
 			place = EMSG;
-			if( *ostr == ':' )
-				return ( BADARG );
-			if( opterr )
-				(void)fprintf( stderr,
-					"%s: option requires an argument -- %c\n",
-					nargv[0], optopt );
-			return ( BADCH );
+			if (*ostr == ':')
+				return (BADARG);
+			if (opterr)
+				(void)fprintf(stderr,
+				    "%s: option requires an argument -- %c\n",
+				    nargv[0], optopt);
+			return (BADCH);
 		}
 		place = EMSG;
 		++optind;
 	}
-	return ( optopt );   /* return option letter */
+	return (optopt);			/* return option letter */
 }
 #endif // XASH_WIN32

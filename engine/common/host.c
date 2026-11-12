@@ -49,7 +49,6 @@ void R_GcmapTrimForMapLoad( void );
 void GC_RestoreVideoMemoryAfterMapLoad( void );
 void GC_TrimVideoMemoryForMapLoad( void );
 void GC_DrawLoadingStatus( const char *message, const char *details );
-void GC_PresentRetailTitlePlate( const char *details );
 void GC_SetLoadingProgress( float progress );
 void GC_TrimClientSubsystemsForMapLoad( void );
 void R_GcFreeMenuImages( void );
@@ -776,12 +775,7 @@ void Host_Frame( double time )
 		extern int gc_menu_step_frames;
 
 		if( gc_menu_step_frames > 0 )
-		{
 			SYS_Report( "Xash3D GameCube: STEP host frame time=%.4f\n", time );
-			/* Guarantee countdown even if Host_ClientFrame returns early
-			 * (fallback menu / deferred progs) so STEP cannot stick on. */
-			gc_menu_step_frames--;
-		}
 	}
 #endif
 
@@ -898,7 +892,6 @@ void Host_Frame( double time )
 	 * if ClientFrame stalls in deferred studios (probe 20260807-034206). */
 	if( ( cls.state == ca_active || cls.signon == SIGNONS )
 		&& ( Sys_CheckParm( "-gcnewgame" ) || Sys_CheckParm( "-gcmenuplaystart" )
-			|| Sys_CheckParm( "-gccapfacessmoke" )
 			|| GC_MapLoadMemoryOpt() )
 		&& !Sys_CheckParm( "-gcfullphysics" ))
 	{
@@ -1011,18 +1004,6 @@ void Host_Frame( double time )
 					&& GC_IsFrameBudgetProbeActive() ))
 					Host_ServerFrame ();
 			}
-		}
-		else if( Sys_CheckParm( "-gccapfacessmoke" ) && !Sys_CheckParm( "-gcfullphysics" ))
-		{
-			/* CapFaces smoke: never re-enter heavy ServerFrame — it hung after
-			 * GHOST frame=2 (lostcoast-gc tip≈26 KiB) before SCR CapFaces. */
-			if( host.framecount < 32 )
-				Con_Reportf( "Xash3D GameCube: CapFaces smoke ClientFrame begin frame=%u tip=%s\n",
-					host.framecount, Q_memprint( GC_MemHeapFreeBytes() ));
-			Host_ClientFrame ();
-			if( host.framecount < 32 )
-				Con_Reportf( "Xash3D GameCube: CapFaces smoke ClientFrame end frame=%u\n",
-					host.framecount );
 		}
 		else
 		{
@@ -1586,15 +1567,7 @@ static void Host_InitCommon( int argc, char **argv, const char *progname, qboole
 	FS_ClearFindHitCache();
 	#endif
 	if( !FS_FileExists( "gfx/conchars", false ))
-	{
-#if XASH_GAMECUBE
-		/* Tip smoke/listen boots can miss WAD lump FileExists while gfx.wad is
-		 * mounted (lean HUD font covers CONCHARS). Soft-fail — do not brick boot. */
-		Con_Reportf( "Xash3D GameCube: gfx/conchars FileExists miss at init (continuing)\n" );
-#else
 		Sys_Error( "%s: couldn't load gfx.wad\n", __func__ );
-#endif
-	}
 
 	Image_CheckPaletteQ1 ();
 
@@ -2033,14 +2006,6 @@ int EXPORT Host_Main( int argc, char **argv, const char *progname, int bChangeGa
 							GCube_AppendSwissEvidence( "entity lump spawn ready" );
 							GCube_AppendSwissEvidence( "map loaded %s", sv.name );
 							GCube_AppendSwissEvidence( "MAP_READY %s", sv.name );
-							/* c1a0c stalls after MAP_READY in deferred studio/ucmd
-							 * before SV_GCHopRiderTick reaches t=8 (20261109-074003).
-							 * Force Unforeseen Consequences hop immediately. */
-							if( Sys_CheckParm( "-gcautohop" ) && !Q_stricmp( sv.name, "c1a0c" ))
-							{
-								Con_Reportf( "Xash3D GameCube: autohop MAP_READY force changelevel c1a0c → c1a1\n" );
-								COM_ChangeLevel( "c1a1", "c1a0catoc1a1", false );
-							}
 						}
 						/* Promote ca_active before the first heavy fullphysics
 						 * ServerFrame can starve ClientFrame SCR CapFaces. */
@@ -2186,10 +2151,6 @@ int EXPORT Host_Main( int argc, char **argv, const char *progname, int bChangeGa
 
 			Con_Reportf( "Xash3D GameCube: gcmap smoke frames ready\n" );
 			GC_MemSample( "frame render" );
-			/* Lost Coast CapFaces: after the coast map is resident, soft-present
-			 * the retail console/background01 title plate for DumpFrames. */
-			if( Sys_CheckParm( "-gccapfacessmoke" ))
-				GC_PresentRetailTitlePlate( sv.name[0] ? sv.name : "d2_lostcoast" );
 			/* G320: lean New Game Prepare before first ServerFrame. Budget
 			 * samples often never flush on non-c0a0 (g36_done stays false),
 			 * so Host_Frame skipped Prepare and ServerFrame hung

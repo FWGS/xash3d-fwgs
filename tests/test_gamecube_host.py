@@ -1478,10 +1478,6 @@ probe_collect_exit_status "$child"
 			self.assertTrue((out / "experiment" / "manifest.json").is_file())
 			self.assertTrue((out / "soak" / "report.json").is_file())
 			self.assertTrue((out / "memory.json").is_file())
-			memory = json.loads((out / "memory.json").read_text(encoding="utf-8"))
-			self.assertEqual(memory["runtime"]["samples"], [
-				{"stage": "mem1", "hwm_bytes": 5 * 1024 * 1024, "map": "(none)"},
-			])
 			self.assertTrue((out / "packet" / "validation.json").is_file())
 			self.assertIn(result.returncode, (0, 1), result.stderr + result.stdout)
 

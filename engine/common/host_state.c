@@ -14,14 +14,7 @@ GNU General Public License for more details.
 */
 
 #include "common.h"
-#include "server.h"
 #include "platform/platform.h"
-#if XASH_GAMECUBE
-#include "gamecube/mem_gamecube.h"
-void R_GcFreeMenuImages( void );
-void R_GXReleaseHudPoolForMapLoad( void );
-qboolean SV_GCAutohopLookupNext( const char *from, const char **to, const char **landmark );
-#endif
 
 static jmp_buf g_abortframe;
 static qboolean g_abortframe_active;
@@ -241,60 +234,8 @@ void COM_Frame( double time )
 			Host_SetState( STATE_RUNFRAME, true );
 			break;
 		case STATE_CHANGELEVEL:
-#if XASH_GAMECUBE
-			/* Retail autohop: denser maps hang in deferred studio/ucmd after
-			 * MAP_READY before HopRider can COM_ChangeLevel (nextstate guard
-			 * also blocks mid-CHANGELEVEL). Nest the next ladder hop(s) here
-			 * before RUNFRAME — chain until the ladder ends or nest cap.
-			 * Soft v16 (035744) hit nest=64 at c4a1b→c4a1c with curstate still
-			 * CHANGELEVEL → outer "state infinity loop!". Campaign needs ~80+
-			 * hops; cap 256 and yield RUNFRAME if the nest still sits on
-			 * CHANGELEVEL after the for-loop. */
-			{
-				int nest;
-				const int nest_cap = 256;
-
-				for( nest = 0; nest < nest_cap; nest++ )
-				{
-					const char *hop_to = NULL;
-					const char *hop_lm = NULL;
-
-					SV_ExecChangeLevel();
-					if( !Sys_CheckParm( "-gcautohop" ) || !sv.name[0]
-						|| !SV_GCAutohopLookupNext( sv.name, &hop_to, &hop_lm ))
-					{
-						Host_SetState( STATE_RUNFRAME, true );
-						break;
-					}
-					/* Keep nextstate=CHANGELEVEL across the nest so HopRider
-					 * COM_ChangeLevel cannot Host_SetNextState-assert
-					 * (curstate!=RUNFRAME; probe 20261109-102341). */
-					Con_Reportf( "Xash3D GameCube: autohop ExecChangeLevel force %s → %s tip=%s\n",
-						sv.name, hop_to, Q_memprint( GC_MemHeapFreeBytes() ));
-					/* Reclaim Flipper/HUD scratch between nest hops so denser
-					 * UC maps (c1a1c tip≈12 KiB) can parse entities. */
-					R_GcFreeMenuImages();
-					R_GXReleaseHudPoolForMapLoad();
-					Image_GCPurgeDecodeScratch();
-					Q_strncpy( GameState->levelName, hop_to, sizeof( GameState->levelName ));
-					Q_strncpy( GameState->landmarkName, hop_lm, sizeof( GameState->landmarkName ));
-					GameState->loadGame = true;
-					GameState->backgroundMap = false;
-					GameState->newGame = false;
-					Host_SetState( STATE_CHANGELEVEL, true );
-				}
-				if( GameState->curstate == STATE_CHANGELEVEL )
-				{
-					Con_Reportf( "Xash3D GameCube: autohop nest yield RUNFRAME after %d hops map=%s tip=%s\n",
-						nest_cap, sv.name[0] ? sv.name : "?",
-						Q_memprint( GC_MemHeapFreeBytes() ));
-					Host_SetState( STATE_RUNFRAME, true );
-				}
-			}
-#else
 			SV_ExecChangeLevel();
 			Host_SetState( STATE_RUNFRAME, true );
-#endif
 			break;
 		case STATE_RUNFRAME:
 			Host_RunFrame( time );
@@ -307,18 +248,6 @@ void COM_Frame( double time )
 		if( oldState == STATE_RUNFRAME )
 			break;
 
-#if XASH_GAMECUBE
-		/* Soft campaign nest chains CHANGELEVEL→CHANGELEVEL inside one
-		 * COM_Frame; the stock loopCount>8 trip fired at c4a1b (v16). */
-		if( Sys_CheckParm( "-gcautohop" ) )
-		{
-			if( GameState->curstate == oldState && GameState->curstate != STATE_CHANGELEVEL )
-				Sys_Error( "state infinity loop!\n" );
-			if( ++loopCount > 256 )
-				Sys_Error( "state infinity loop!\n" );
-			continue;
-		}
-#endif
 		if(( GameState->curstate == oldState ) || ( ++loopCount > 8 ))
 			Sys_Error( "state infinity loop!\n" );
 	}

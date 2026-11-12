@@ -1462,11 +1462,7 @@ static char *SV_ReadEntityScript( const char *filename, int *flags )
 		 * changelevel. Validation is brief and the GX world does not use the
 		 * soft surface cache, so borrow its store (the transition save takes
 		 * it next anyway). */
-		/* A local listen server launched from Create Game does not boot with
-		 * -gcmenuplaystart, but GC_BeginMapLoadMemoryOpt has still released the
-		 * renderer's low-res surface cache for exactly this map-load allocation.
-		 * Let the entity lump borrow that 128 KiB BSS store on this route too. */
-		if( GC_MenuRunsServer() || GC_MapLoadMemoryOpt() )
+		if( GC_MenuRunsServer())
 		{
 			extern byte *R_GCBorrowSurfaceCacheStore( size_t *size );
 			size_t store_size = 0;

@@ -961,32 +961,17 @@ void SCR_UpdateScreen( void )
 					"Xash3D GameCube: G159 ca_active presents=%u gx=%d\n",
 					g159_ca_active_presents, GC_UseGxWorldDraw() ? 1 : 0 );
 			}
-			if( cls.signon == SIGNONS && !GC_IsFrameBudgetProbeActive() )
+			if( !gc_hud_lean_logged && cls.signon == SIGNONS
+				&& !GC_IsFrameBudgetProbeActive() )
 			{
-				/* CapFaces listen used to skip HUD entirely (solo 20261107-123717).
-				 * Lean quality-0 sheets are whitelisted in pfnSPR_Load — draw them
-				 * every Flipper present, not once for the log marker. */
+				/* CapFaces listen: HUD SPR_Load / lean draw Gurus after sustained
+				 * CapFaces (solo 20261107-123717). Keep Flipper world only. */
 				if( Sys_CheckParm( "-gcworldrender" ) && GC_UseGxWorldDraw() )
 				{
-					extern int R_GXEfbDumpHoldLeft( void );
-
-					/* Keep densify cove EFB clean for DumpFrames hold. */
-					if( !( R_GXEfbDumpHoldLeft() > 0
-						&& Sys_CheckParm( "-gccapfacessmoke" )
-						&& Sys_CheckParm( "-gcdumpframes" )) )
-					{
-					ref.dllFuncs.R_AllowFog( false );
-					ref.dllFuncs.R_Set2DMode( true );
-					CL_DrawHUD( CL_ACTIVE );
-					if( !gc_hud_lean_logged )
-					{
-						Con_Reportf( "Xash3D GameCube: lean HUD on CapFaces Flipper\n" );
-						gc_hud_lean_logged = true;
-					}
-					ref.dllFuncs.R_AllowFog( true );
-					}
+					gc_hud_lean_logged = true;
+					Con_Reportf( "Xash3D GameCube: lean HUD skipped (CapFaces Flipper)\n" );
 				}
-				else if( !gc_hud_lean_logged )
+				else
 				{
 				ref.dllFuncs.R_BeginFrame( false );
 				ref.dllFuncs.R_AllowFog( false );
@@ -1083,28 +1068,6 @@ void SCR_UpdateScreen( void )
 				cls.draw_changelevel = false;
 			if( cls.disable_screen )
 				cls.disable_screen = 0.0f;
-			/* Full-geo CapFaces-skip: G158 Flipper present hung Soft on the
-			 * first live BSP draw during reconnect (021123 froze after
-			 * "Trying to connect" on c0a0a; prepare Flipper already skipped
-			 * for the same hang). Keep Host_Frame cycling for loopback
-			 * signon — draw only once ca_active. */
-			if( Sys_CheckParm( "-gcmenuplaystart" )
-				&& GC_WorldSurfacesPinned()
-				&& !GC_WorldSurfacesScratchRetained()
-				&& GC_GetNewGameCapFaceCount() <= 0 )
-			{
-				static qboolean g158_fullgeo_skip_logged;
-
-				if( !g158_fullgeo_skip_logged )
-				{
-					g158_fullgeo_skip_logged = true;
-					Con_Reportf(
-						"Xash3D GameCube: G158 skip Flipper present (full geo reconnect) state=%d signon=%d\n",
-						cls.state, cls.signon );
-				}
-				GC_PerfUpdate();
-				return;
-			}
 			if( GC_RenderNewGameWorldFrames( 1 ))
 			{
 				g158_reconnect_presents++;
