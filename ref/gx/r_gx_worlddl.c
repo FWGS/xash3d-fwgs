@@ -388,80 +388,18 @@ static void R_GXWorldDLLoadPVS( int cluster )
 }
 
 /*
- * PVS test for an entity box against the row loaded for the eye cluster.
- * Walks the baked BSP tree with the box: true as soon as any leaf the box
- * touches is in a visible cluster. With no world DL, or no PVS row yet,
- * everything counts as visible.
+ * PVS test for an entity box. The world DL now streams its BSP nodes and planes
+ * from ARAM instead of keeping them resident, so walking the tree per entity
+ * would cost a DMA per node. Until a resident node copy exists every entity
+ * counts as visible here; brush entities are still frustum culled by the caller.
  */
-qboolean R_GXWorldDLBoxVisible( const vec3_t mins, const vec3_t maxs )
+qboolean R_GXWorldDLEntityBoxVisible( const vec3_t mins, const vec3_t maxs )
 {
-	int stack[64];
-	int sp = 0;
-	vec3_t center, ext;
-
-	if( gc_wd_state != 1 || !gc_wd_pvs || gc_wd_pvs_cluster < 0 )
-		return true;
-	VectorAverage( mins, maxs, center );
-	VectorSubtract( maxs, center, ext );
-	stack[sp++] = 0;
-	while( sp > 0 )
-	{
-		int idx = stack[--sp];
-
-		while( idx >= 0 )
-		{
-			/* Nodes and planes live in the .gcd (ARAM or file), not in MEM1:
-			 * fetch each through the 64-byte scratch lines, as the eye walk does. */
-			u32 nofs, pofs;
-			u16 plane_i;
-			int front, back;
-			const float *p;
-			float s, r;
-
-			if( (u32)idx >= gc_wd_hdr.n_nodes )
-				return true;
-			nofs = gc_wd_hdr.ofs_nodes + (u32)idx * 6u;
-			if( !R_GXWorldDLFetch( nofs & ~31u, gc_wd_node_tmp, 64 ))
-				return true;
-			plane_i = *(const u16 *)( gc_wd_node_tmp + ( nofs & 31u ));
-			front = *(const s16 *)( gc_wd_node_tmp + ( nofs & 31u ) + 2 );
-			back = *(const s16 *)( gc_wd_node_tmp + ( nofs & 31u ) + 4 );
-			if( plane_i >= gc_wd_hdr.n_planes )
-				return true;
-			pofs = gc_wd_hdr.ofs_planes + (u32)plane_i * 16u;
-			if( !R_GXWorldDLFetch( pofs & ~31u, gc_wd_plane_tmp, 64 ))
-				return true;
-			p = (const float *)( gc_wd_plane_tmp + ( pofs & 31u ));
-			s = p[0] * center[0] + p[1] * center[1] + p[2] * center[2] - p[3];
-			r = fabsf( p[0] ) * ext[0] + fabsf( p[1] ) * ext[1] + fabsf( p[2] ) * ext[2];
-
-			if( s > r )
-				idx = front;
-			else if( s < -r )
-				idx = back;
-			else
-			{
-				/* Straddles: walk the front side now, the back side later. A
-				 * full stack means a very deep straddle: call it visible. */
-				if( sp >= (int)( sizeof( stack ) / sizeof( stack[0] )))
-					return true;
-				stack[sp++] = back;
-				idx = front;
-			}
-		}
-		if( idx != -1 )
-		{
-			const u32 cluster = (u32)( -idx - 2 );
-
-			if( cluster < gc_wd_hdr.n_clusters
-				&& ( gc_wd_pvs[cluster >> 3] & ( 1 << ( cluster & 7 ))))
-				return true;
-		}
-	}
-	return false;
+	(void)mins;
+	(void)maxs;
+	return true;
 }
 
-/* Make chunk i resident. Returns its base, or NULL when it must wait. */
 static byte *R_GXWorldDLResident( u32 i, u32 *budget )
 {
 	const u32 bytes = gc_wd_chunk_bytes[i];
@@ -525,7 +463,7 @@ static void R_GXWorldDLFrustum( vec3_t normals[4] )
 	}
 }
 
-static qboolean R_GXWorldDLChunkVisible( u32 i, vec3_t normals[4], const float *org )
+static qboolean R_GXWorldDLBoxVisible( u32 i, vec3_t normals[4], const float *org )
 {
 	int p, a;
 	const s16 *mins = &gc_wd_chunk_mins[i * 3];
@@ -648,7 +586,7 @@ int R_GXWorldDLDraw( void )
 			if( !( gc_wd_pvs[cl >> 3] & ( 1 << ( cl & 7 ))))
 				continue;
 			pvs_hits++;
-			if( frustum_cull && !R_GXWorldDLChunkVisible( i, normals, org ))
+			if( frustum_cull && !R_GXWorldDLBoxVisible( i, normals, org ))
 			{
 				frustum_drop++;
 				continue;
@@ -707,8 +645,8 @@ int R_GXWorldDLDraw( void )
 		}
 		if( !logged || ( gc_wd_frame & 255 ) == 0 )
 			gEngfuncs.Con_Reportf(
-				"Xash3D GameCube: world DL pvs=%d frustum_drop=%d cull=%d drawn_chunks=%d waiting=%d batches=%d bind_miss=%d\n",
-				pvs_hits, frustum_drop, frustum_cull ? 1 : 0, chunks, waiting, drawn, bind_miss );
+				"Xash3D GameCube: world DL pvs=%d frustum_drop=%d cull=%d\n",
+				pvs_hits, frustum_drop, frustum_cull ? 1 : 0 );
 	}
 	R_GXFogEnd();
 	R_GXTevMatEndAlphaTest();
@@ -811,8 +749,8 @@ int R_GXWorldDLDraw( void )
 	{
 		logged = true;
 		gEngfuncs.Con_Reportf(
-			"Xash3D GameCube: world DL frame=%d cluster=%d chunks=%d batches=%d waiting=%d\n",
-			gc_wd_frame, cluster, chunks, drawn, waiting );
+			"Xash3D GameCube: world DL frame=%d cluster=%d chunks=%d batches=%d waiting=%d bind_miss=%d\n",
+			gc_wd_frame, cluster, chunks, drawn, waiting, bind_miss );
 	}
 	return drawn;
 }

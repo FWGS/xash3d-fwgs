@@ -1829,7 +1829,7 @@ everything behind the camera and rooms the eye cannot see from its leaf.
 static qboolean R_GXBrushEntityVisible( cl_entity_t *e )
 {
 	extern qboolean R_GXBoxOutsideFrustum( const vec3_t mins, const vec3_t maxs );
-	extern qboolean R_GXWorldDLBoxVisible( const vec3_t mins, const vec3_t maxs );
+	extern qboolean R_GXWorldDLEntityBoxVisible( const vec3_t mins, const vec3_t maxs );
 	vec3_t mins, maxs;
 
 	r_gx_last_cull_was_pvs = false;
@@ -1851,7 +1851,7 @@ static qboolean R_GXBrushEntityVisible( cl_entity_t *e )
 		return true;
 	if( R_GXBoxOutsideFrustum( mins, maxs ))
 		return false;
-	if( !R_GXWorldDLBoxVisible( mins, maxs ))
+	if( !R_GXWorldDLEntityBoxVisible( mins, maxs ))
 	{
 		r_gx_last_cull_was_pvs = true;
 		return false;
