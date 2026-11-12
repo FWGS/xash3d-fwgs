@@ -20,18 +20,23 @@ GNU General Public License for more details.
 
 @implementation GamesViewController
 
+- (id)init {
+	self = [super init];
+	[self updateGameDirs];
+	
+	return self;
+}
+
 - (void)viewDidLoad {
 	[super viewDidLoad];
-	[self getGameDirs];
 	[self uiInit];
 	[self constraintsInit];
 }
 
-- (void)getGameDirs {
+-(void)updateGameDirs {
 	NSError *error;
 	NSArray<NSURL*> *dirList = [NSFileManager.defaultManager contentsOfDirectoryAtURL:documentsDirctory includingPropertiesForKeys:@[NSURLIsDirectoryKey] options:NSDirectoryEnumerationSkipsHiddenFiles
 		error:&error];
-	self.games = [[NSMutableArray alloc] initWithCapacity:dirList.count];
 	
 	if (error)
 	{
@@ -39,6 +44,9 @@ GNU General Public License for more details.
 		return;
 	}
 	
+	if (!self.games)
+		self.games = [NSMutableArray arrayWithCapacity:dirList.count];
+
 	for (NSURL *url in dirList)
 	{
 		NSError *resourceError = nil;
@@ -51,12 +59,24 @@ GNU General Public License for more details.
 			continue;
 		}
 		
-		if(![isdir boolValue])
+		if(!isdir.boolValue)
 			continue;
 		
 		NSString *gameinfoDir = [url.path stringByAppendingPathComponent:@"gameinfo.txt"];
 		NSString *liblistDir = [url.path stringByAppendingPathComponent:@"liblist.gam"];
 		Game *game;
+		
+		bool skip = NO;
+		for (Game *game in self.games)
+		{
+			if ([game.URL isEqual:url])
+			{
+				skip = YES;
+				break;
+			}
+		}
+		
+		if (skip) continue;
 		
 		if ([NSFileManager.defaultManager fileExistsAtPath:gameinfoDir])
 		{
@@ -68,9 +88,10 @@ GNU General Public License for more details.
 			game = [[Game alloc] initWithURL:url gameInfoPath:liblistDir];
 			[self.games addObject:game];
 		}
-		else
-			continue;
+		else continue;
 	}
+	
+	[self.gamesView reloadData];
 }
 
 - (void)uiInit {

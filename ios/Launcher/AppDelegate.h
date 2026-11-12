@@ -15,13 +15,14 @@ GNU General Public License for more details.
 
 #import <UIKit/UIKit.h>
 #import "Game.h"
+#import "ViewController.h"
 
 @interface AppDelegate : UIResponder <UIApplicationDelegate>
 
 @property (strong, nonatomic) UIWindow *window;
 @property (nonatomic) UINavigationController *settingsNavController;
 @property (nonatomic) UINavigationController *gamesNavController;
-@property (strong, nonatomic) UIViewController * gamesController;
+@property (strong, nonatomic) GamesViewController * gamesController;
 @property (nonatomic) UIViewController *settingsController;
 @property (nonatomic) UITabBarController *tabNavController;
 

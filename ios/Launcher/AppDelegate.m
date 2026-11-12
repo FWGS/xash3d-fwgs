@@ -14,10 +14,8 @@ GNU General Public License for more details.
 */
 
 #import "AppDelegate.h"
-#import "ViewController.h"
 #import "SettingsView.h"
 #import "dlfcn.h"
-#import "Globals.h"
 #import "Alert.h"
 #import "Downloader.h"
 #import <AppTrackingTransparency/AppTrackingTransparency.h>
@@ -67,6 +65,10 @@ NSString *libraryDirectory;
 	}
 	[LibDownloader fetchManifest];
 	return YES;
+}
+
+- (void)applicationDidBecomeActive:(UIApplication *)application {
+	[self.gamesController updateGameDirs];
 }
 
 int (*Host_main)(int, char **, const char *, int, const char*);
