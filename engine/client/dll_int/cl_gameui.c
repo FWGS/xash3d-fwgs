@@ -78,6 +78,17 @@ static const gc_menu_item_t gc_menu_items[] =
 	{ "Options", "", "menu_options" },
 };
 
+/* In-game pause page (Start during a match). Page 1 is the difficulty list. */
+#define GC_MENU_PAGE_PAUSE 2
+static const char *const gc_pause_items[] = { "Resume", "Options", "Leave match" };
+
+static int UI_GCMenuItemCount( void )
+{
+	if( gc_menu_page == GC_MENU_PAGE_PAUSE )
+		return ARRAYSIZE( gc_pause_items );
+	return gc_menu_page ? 3 : (int)ARRAYSIZE( gc_menu_items );
+}
+
 static qboolean UI_GCFallbackMenuCommandsSafe( void )
 {
 	return host.status == HOST_FRAME;
@@ -349,7 +360,24 @@ static void UI_GCDrawFallbackMenu( void )
 	int row_h = ( 35 * refState.height ) / 480;
 	int scale = Q_max( 1, ( refState.height + 239 ) / 480 );
 	int char_h = 8 * scale;
-	qboolean difficulty_menu = gc_menu_page != 0;
+	qboolean difficulty_menu = gc_menu_page == 1;
+
+	if( gc_menu_page == GC_MENU_PAGE_PAUSE )
+	{
+		/* Dim the live frame and list the pause options; no menu art so the
+		 * match stays visible behind it and no textures are loaded. */
+		ref.dllFuncs.FillRGBA( kRenderTransTexture, 0, 0, refState.width, refState.height, 0, 0, 0, 140 );
+		UI_GCDrawMenuPanel( base_x - 16 * scale, base_y - 2 * row_h - 8 * scale,
+			( 200 * refState.width ) / 640, 5 * row_h + 16 * scale, true );
+		UI_GCDrawMenuString( base_x, base_y - row_h, "PAUSED", 255, 214, 48, true );
+		for( int i = 0; i < (int)ARRAYSIZE( gc_pause_items ); i++ )
+		{
+			qboolean selected = ( i == gc_menu_selection );
+			UI_GCDrawMenuString( base_x, base_y + i * row_h, gc_pause_items[i],
+				255, selected ? 244 : 184, selected ? 72 : 0, true );
+		}
+		return;
+	}
 
 	UI_GCLoadFallbackMenuTextures();
 	if( !difficulty_menu && gc_menu_composite[0] > 0 && gc_menu_composite[1] > 0
@@ -473,6 +501,34 @@ static void UI_GCActivateFallbackMenuItem( void )
 	if( !UI_GCFallbackMenuCommandsSafe() )
 	{
 		Con_Reportf( "Xash3D GameCube: fallback menu command blocked until full client boot is available\n" );
+		return;
+	}
+
+	if( gc_menu_page == GC_MENU_PAGE_PAUSE )
+	{
+		const int choice = gc_menu_selection;
+
+		gc_menu_page = 0;
+		gc_menu_selection = 0;
+		if( choice == 1 )
+		{
+			/* Options opens over the match; Back returns to game. */
+			Cbuf_AddText( "menu_options\n" );
+			Cbuf_Execute();
+		}
+		else if( choice == 2 )
+		{
+			Con_Reportf( "Xash3D GameCube: pause menu leave match\n" );
+			Cbuf_AddText( "disconnect\n" );
+			Cbuf_Execute();
+			gc_menu_visible = true;
+			Key_SetKeyDest( key_menu );
+		}
+		else
+		{
+			gc_menu_visible = false;
+			Key_SetKeyDest( key_game );
+		}
 		return;
 	}
 
@@ -618,24 +674,36 @@ void UI_KeyEvent( int key, qboolean down )
 		{
 		case K_UPARROW:
 		case K_DPAD_UP:
-			gc_menu_selection = ( gc_menu_selection +
-				( gc_menu_page ? 3 : ARRAYSIZE( gc_menu_items )) - 1 ) %
-				( gc_menu_page ? 3 : ARRAYSIZE( gc_menu_items ));
+			gc_menu_selection = ( gc_menu_selection + UI_GCMenuItemCount() - 1 ) %
+				UI_GCMenuItemCount();
 			break;
 		case K_DOWNARROW:
 		case K_DPAD_DOWN:
-			gc_menu_selection = ( gc_menu_selection + 1 ) %
-				( gc_menu_page ? 3 : ARRAYSIZE( gc_menu_items ));
+			gc_menu_selection = ( gc_menu_selection + 1 ) % UI_GCMenuItemCount();
 			break;
 		case K_ENTER:
 		case K_KP_ENTER:
 		case K_A_BUTTON:
-		case K_START_BUTTON:
 			UI_GCActivateFallbackMenuItem();
+			break;
+		case K_START_BUTTON:
+			if( gc_menu_page == GC_MENU_PAGE_PAUSE )
+			{
+				/* Start toggles the pause menu closed again. */
+				gc_menu_page = 0;
+				UI_SetActiveMenu( false );
+			}
+			else
+				UI_GCActivateFallbackMenuItem();
 			break;
 		case K_ESCAPE:
 		case K_BACK_BUTTON:
-			if( cls.state == ca_active )
+			if( gc_menu_page == GC_MENU_PAGE_PAUSE )
+			{
+				gc_menu_page = 0;
+				UI_SetActiveMenu( false );
+			}
+			else if( cls.state == ca_active )
 				UI_SetActiveMenu( false );
 			else if( gc_menu_page )
 			{
@@ -665,6 +733,14 @@ void UI_SetActiveMenu( qboolean fActive )
 	if( !gameui.hInstance )
 	{
 #if XASH_GAMECUBE
+		if( fActive && cls.state == ca_active && gc_menu_page == 0 )
+		{
+			/* Opening the menu mid-match shows the pause page. */
+			gc_menu_page = GC_MENU_PAGE_PAUSE;
+			gc_menu_selection = 0;
+		}
+		else if( !fActive && gc_menu_page == GC_MENU_PAGE_PAUSE )
+			gc_menu_page = 0;
 		gc_menu_visible = fActive;
 		Key_SetKeyDest( fActive ? key_menu : key_game );
 #else
