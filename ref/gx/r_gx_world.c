@@ -4421,7 +4421,7 @@ static vec3_t r_gx_frustum_n[4];
 static float r_gx_frustum_d[4];
 static qboolean r_gx_frustum_ok;
 
-static void R_GXBuildFrustum( void )
+void R_GXBuildFrustum( void )
 {
 	const float hx = DEG2RAD( Q_min( 89.0f, RI.rvp.fov_x * 0.5f + 5.0f ));
 	const float hy = DEG2RAD( Q_min( 89.0f, RI.rvp.fov_y * 0.5f + 5.0f ));
@@ -4442,7 +4442,7 @@ static void R_GXBuildFrustum( void )
 		r_gx_frustum_d[i] = DotProduct( RI.cullorigin, r_gx_frustum_n[i] ) - 16.0f;
 }
 
-static qboolean R_GXBoxOutsideFrustum( const vec3_t mins, const vec3_t maxs )
+qboolean R_GXBoxOutsideFrustum( const vec3_t mins, const vec3_t maxs )
 {
 	int i;
 
