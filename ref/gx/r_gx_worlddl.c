@@ -399,7 +399,7 @@ qboolean R_GXWorldDLBoxVisible( const vec3_t mins, const vec3_t maxs )
 	int sp = 0;
 	vec3_t center, ext;
 
-	if( gc_wd_state != 1 || !gc_wd_nodes || !gc_wd_planes || gc_wd_pvs_cluster < 0 )
+	if( gc_wd_state != 1 || !gc_wd_pvs || gc_wd_pvs_cluster < 0 )
 		return true;
 	VectorAverage( mins, maxs, center );
 	VectorSubtract( maxs, center, ext );
@@ -410,12 +410,30 @@ qboolean R_GXWorldDLBoxVisible( const vec3_t mins, const vec3_t maxs )
 
 		while( idx >= 0 )
 		{
-			const byte *n = gc_wd_nodes + idx * 6;
-			const float *p = gc_wd_planes + ( *(const u16 *)n ) * 4;
-			const float s = p[0] * center[0] + p[1] * center[1] + p[2] * center[2] - p[3];
-			const float r = fabsf( p[0] ) * ext[0] + fabsf( p[1] ) * ext[1] + fabsf( p[2] ) * ext[2];
-			const int front = *(const s16 *)( n + 2 );
-			const int back = *(const s16 *)( n + 4 );
+			/* Nodes and planes live in the .gcd (ARAM or file), not in MEM1:
+			 * fetch each through the 64-byte scratch lines, as the eye walk does. */
+			u32 nofs, pofs;
+			u16 plane_i;
+			int front, back;
+			const float *p;
+			float s, r;
+
+			if( (u32)idx >= gc_wd_hdr.n_nodes )
+				return true;
+			nofs = gc_wd_hdr.ofs_nodes + (u32)idx * 6u;
+			if( !R_GXWorldDLFetch( nofs & ~31u, gc_wd_node_tmp, 64 ))
+				return true;
+			plane_i = *(const u16 *)( gc_wd_node_tmp + ( nofs & 31u ));
+			front = *(const s16 *)( gc_wd_node_tmp + ( nofs & 31u ) + 2 );
+			back = *(const s16 *)( gc_wd_node_tmp + ( nofs & 31u ) + 4 );
+			if( plane_i >= gc_wd_hdr.n_planes )
+				return true;
+			pofs = gc_wd_hdr.ofs_planes + (u32)plane_i * 16u;
+			if( !R_GXWorldDLFetch( pofs & ~31u, gc_wd_plane_tmp, 64 ))
+				return true;
+			p = (const float *)( gc_wd_plane_tmp + ( pofs & 31u ));
+			s = p[0] * center[0] + p[1] * center[1] + p[2] * center[2] - p[3];
+			r = fabsf( p[0] ) * ext[0] + fabsf( p[1] ) * ext[1] + fabsf( p[2] ) * ext[2];
 
 			if( s > r )
 				idx = front;
@@ -507,7 +525,7 @@ static void R_GXWorldDLFrustum( vec3_t normals[4] )
 	}
 }
 
-static qboolean R_GXWorldDLBoxVisible( u32 i, vec3_t normals[4], const float *org )
+static qboolean R_GXWorldDLChunkVisible( u32 i, vec3_t normals[4], const float *org )
 {
 	int p, a;
 	const s16 *mins = &gc_wd_chunk_mins[i * 3];
@@ -630,7 +648,7 @@ int R_GXWorldDLDraw( void )
 			if( !( gc_wd_pvs[cl >> 3] & ( 1 << ( cl & 7 ))))
 				continue;
 			pvs_hits++;
-			if( frustum_cull && !R_GXWorldDLBoxVisible( i, normals, org ))
+			if( frustum_cull && !R_GXWorldDLChunkVisible( i, normals, org ))
 			{
 				frustum_drop++;
 				continue;

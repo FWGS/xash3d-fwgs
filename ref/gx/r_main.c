@@ -83,7 +83,7 @@ static CVAR_DEFINE_AUTO( gc_max_studios, "0", FCVAR_ARCHIVE, "GameCube: max stud
 static CVAR_DEFINE_AUTO( gc_max_sprites, "0", FCVAR_ARCHIVE, "GameCube: max sprites per low-res pass (0 = default)" );
 static CVAR_DEFINE_AUTO( gc_max_brush_ents, "0", FCVAR_ARCHIVE, "GameCube: max brush entities per frame (0 = default)" );
 
-static unsigned GC_EntCap( const cvar_t *cv, unsigned def )
+static unsigned GC_EntCap( const convar_t *cv, unsigned def )
 {
 	return cv->value >= 1.0f ? (unsigned)cv->value : def;
 }
