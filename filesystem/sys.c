@@ -460,17 +460,28 @@ file_t *FS_SysOpen( const char *filepath, const char *mode )
 	file = (file_t *)Mem_Calloc( fs_mempool, sizeof( *file ));
 #if XASH_GAMECUBE
 	/* G278: post-G36 FileSystem pool is often exhausted (~2 KiB file_t soft-fails).
-	 * Intro VO streams need an open fd; try libc, then a single static slot. */
-	if( !file && Sys_CheckParm( "-gcnewgame" ))
+	 * Intro VO + CapFaces tip-safe SFX need an open fd; try libc, then static slots.
+	 * Listen/WorldDL boots use -gcmap (not -gcnewgame) — same tip starvation. */
+	if( !file && ( Sys_CheckParm( "-gcnewgame" )
+		|| Sys_CheckParm( "-gcmap" )
+		|| Sys_CheckParm( "-gclistenserver" )))
 	{
+		const qboolean tip_sfx =
+			( Q_stristr( filepath, "/media/sfx_" ) != NULL )
+			|| ( Q_stristr( filepath, "/sound/weapons/" ) != NULL )
+			|| ( Q_stristr( filepath, "/sound/player/pl_step" ) != NULL )
+			|| ( Q_stristr( filepath, "/sound/buttons/button10" ) != NULL )
+			|| ( Q_stristr( filepath, "/sound/common/wpn_" ) != NULL );
+		const qboolean intro_vo = Q_stristr( filepath, "/media/" )
+			&& ( Q_stristr( filepath, "c0a0_tr_" ) || Q_stristr( filepath, "ttrain1" ));
+
 		file = (file_t *)calloc( 1, sizeof( *file ));
 		if( file )
 		{
 			SetBits( file->flags, FILE_SYS_MALLOC );
 			Con_Reportf( "Xash3D GameCube: G278 FS_SysOpen malloc fallback path=%s\n", filepath );
 		}
-		else if( Q_stristr( filepath, "/media/" )
-			&& ( Q_stristr( filepath, "c0a0_tr_" ) || Q_stristr( filepath, "ttrain1" )))
+		else if( intro_vo || tip_sfx )
 		{
 			int i;
 			for( i = 0; i < 2; i++ )
@@ -483,7 +494,6 @@ file_t *FS_SysOpen( const char *filepath, const char *mode )
 				g_gc_intro_file_busy = true;
 				SetBits( file->flags, FILE_SYS_MALLOC );
 				SetBits( file->flags, FILE_GC_INTRO_STATIC );
-				/* Stash slot index in handle unused high... use ptr in ungetc? Keep simple: tag via comparing pointer on close. */
 				Con_Reportf( "Xash3D GameCube: G278 FS_SysOpen static slot=%d path=%s\n", i, filepath );
 				break;
 			}

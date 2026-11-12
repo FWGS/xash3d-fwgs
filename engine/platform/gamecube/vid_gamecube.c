@@ -17356,9 +17356,10 @@ qboolean GC_RenderNewGameWorldFrames( int count )
 									GC_LeanEnsureWeaponCombatReady( svs.clients[0].edict );
 								CL_GCSeedFlipperEfxProof( rvp.vieworigin );
 								GC_CapFacesSeedLeanDecals( rvp.vieworigin );
-								/* CapFaces listen ISOs historically omitted
-								 * sound/weapons — preload tip-safe clips so
-								 * +attack/footsteps can paint nonzero PCM. */
+								/* CapFaces listen: tip-safe combat clips live in
+								 * shallow media/sfx_* (G278). Cache preload may
+								 * still soft-fail tip OOM — also stream one shot
+								 * so ASND peak is nonzero and the user hears fire. */
 								{
 									static const char *const sfx[] = {
 										"weapons/garand_shoot.wav",
@@ -17371,6 +17372,7 @@ qboolean GC_RenderNewGameWorldFrames( int count )
 										"player/pl_step4.wav",
 										"buttons/button10.wav",
 									};
+									extern qboolean S_GCVoiceStart( const char *path );
 									int si;
 
 									FS_ClearFindMissCache();
@@ -17381,7 +17383,18 @@ qboolean GC_RenderNewGameWorldFrames( int count )
 										Con_Reportf( "Xash3D GameCube: CapFaces SFX preload %s handle=%d\n",
 											sfx[si], handle );
 									}
+									/* button10 is the tip-safe clip that reliably
+									 * decodes on CapFaces (weapons/* often open
+									 * with a stale hybrid FST length). Play it so
+									 * ASND peak goes nonzero; also try garand. */
+									S_StartLocalSound( "buttons/button10.wav", 1.0f, true );
 									S_StartLocalSound( "weapons/garand_shoot.wav", 1.0f, true );
+									{
+										const qboolean ok = S_GCVoiceStart( "media/sfx_garand_shoot.wav" );
+
+										Con_Reportf( "Xash3D GameCube: CapFaces SFX stream media/sfx_garand_shoot.wav ok=%d\n",
+											ok ? 1 : 0 );
+									}
 								}
 								Cbuf_AddText( "+attack;wait;wait;-attack\n" );
 								Cbuf_AddText( "+forward;wait;wait;wait;wait;-forward\n" );

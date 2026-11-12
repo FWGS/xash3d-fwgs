@@ -82,19 +82,37 @@ file_t *FS_OpenReadFile( const char *filename, const char *mode, qboolean gamedi
 
 #if XASH_GAMECUBE
 	/* G278: prefer absolute disc open for intro VO — libogc ISO9660
-	 * find/readdir is flaky for media/ siblings after world load. */
-	if( mode && mode[0] == 'r'
-		&& !Q_strnicmp( filename, "media/", 6 )
-		&& ( Q_stristr( filename, "c0a0_tr_" ) || Q_stristr( filename, "ttrain1" )))
+	 * find/readdir is flaky for media/ siblings after world load.
+	 * CapFaces combat SFX hit the same class after WorldDL (sound/* and
+	 * media/sfx_* both miss via FindFile → every S_StartLocalSound silent). */
+	if( mode && mode[0] == 'r' )
 	{
-		file_t *direct;
+		const qboolean media_vo = !Q_strnicmp( filename, "media/", 6 )
+			&& ( Q_stristr( filename, "c0a0_tr_" ) || Q_stristr( filename, "ttrain1" ));
+		const qboolean media_sfx = !Q_strnicmp( filename, "media/sfx_", 10 );
+		const qboolean sound_sfx = !Q_strnicmp( filename, "sound/", 6 )
+			&& ( Q_stristr( filename, "weapons/" )
+				|| Q_stristr( filename, "player/pl_step" )
+				|| Q_stristr( filename, "buttons/button10" )
+				|| Q_stristr( filename, "common/wpn_" ));
 
-		Q_snprintf( netpath, sizeof( netpath ), "gcdisc:/xash3d/valve/%s", filename );
-		direct = FS_SysOpen( netpath, mode );
-		if( direct )
+		if( media_vo || media_sfx || sound_sfx )
 		{
-			Con_Reportf( "Xash3D GameCube: G278 direct disc open %s\n", netpath );
-			return direct;
+			static const char *const gamedirs[] = { "dod", "valve" };
+			file_t *direct;
+			int gi;
+
+			for( gi = 0; gi < (int)( sizeof( gamedirs ) / sizeof( gamedirs[0] )); gi++ )
+			{
+				Q_snprintf( netpath, sizeof( netpath ), "gcdisc:/xash3d/%s/%s",
+					gamedirs[gi], filename );
+				direct = FS_SysOpen( netpath, mode );
+				if( direct )
+				{
+					Con_Reportf( "Xash3D GameCube: G278 direct disc open %s\n", netpath );
+					return direct;
+				}
+			}
 		}
 	}
 #endif
