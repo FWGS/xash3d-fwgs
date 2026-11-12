@@ -17363,15 +17363,28 @@ qboolean GC_RenderNewGameWorldFrames( int count )
 								{
 									/* One tip-safe clip only: load+play before any
 									 * other RegisterSound so G124 LRU cannot
-									 * evict it (streamfix: decoded then
-									 * immediately reclaimed → peak=0). */
-									int handle;
+									 * evict it. Prefer garand via G278+filebuf;
+									 * button10 remains the known-good fallback. */
+									static const char *const try_sfx[] = {
+										"weapons/garand_shoot.wav",
+										"buttons/button10.wav",
+									};
+									int si;
 
 									FS_ClearFindMissCache();
-									handle = S_RegisterSound( "buttons/button10.wav" );
-									Con_Reportf( "Xash3D GameCube: CapFaces SFX preload buttons/button10.wav handle=%d\n",
-										handle );
-									S_StartLocalSound( "buttons/button10.wav", 1.0f, true );
+									for( si = 0; si < (int)( sizeof( try_sfx ) / sizeof( try_sfx[0] )); si++ )
+									{
+										const int handle = S_RegisterSound( try_sfx[si] );
+										sfx_t *sfx = ( handle > 0 ) ? S_GetSfxByHandle( handle ) : NULL;
+
+										Con_Reportf( "Xash3D GameCube: CapFaces SFX preload %s handle=%d cache=%d\n",
+											try_sfx[si], handle, ( sfx && sfx->cache ) ? 1 : 0 );
+										if( sfx && sfx->cache )
+										{
+											S_StartLocalSound( try_sfx[si], 1.0f, true );
+											break;
+										}
+									}
 								}
 								Cbuf_AddText( "+attack;wait;wait;-attack\n" );
 								Cbuf_AddText( "+forward;wait;wait;wait;wait;-forward\n" );

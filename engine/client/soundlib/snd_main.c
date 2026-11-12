@@ -73,11 +73,20 @@ static byte *SND_LOADFILE( const char *path, fs_offset_t *size )
 		}
 	}
 
-	if( !GC_MenuRunsServer( ))
+	/* Menu New Game AND CapFaces listen (-gcmap/-gclistenserver) are tip-
+	 * starved — do not FS_LoadFile-malloc the WAV. Open into scratch/filebuf. */
+	if( !GC_MenuRunsServer()
+		&& !Sys_CheckParm( "-gcmap" )
+		&& !Sys_CheckParm( "-gclistenserver" ))
 		return FS_LoadFile( path, size, false );
 	f = FS_Open( path, "rb", false );
 	if( !f )
-		return NULL;
+	{
+		/* G278 SysOpen ENOENT is silent — still try FS_LoadFile so media/sfx_*
+		 * can land via searchpath when the absolute gcdisc open misses. */
+		Con_Reportf( "Xash3D GameCube: SFX FS_Open miss %s → FS_LoadFile\n", path );
+		return FS_LoadFile( path, size, false );
+	}
 	*size = FS_FileLength( f );
 	buf = Mod_GCSoundScratch( *size );
 	if( !buf && !s_gc_sfx_filebuf_busy && *size <= (fs_offset_t)sizeof( s_gc_sfx_filebuf ))
@@ -93,6 +102,11 @@ static byte *SND_LOADFILE( const char *path, fs_offset_t *size )
 		{
 			/* Hybrid FST can Open a weapons/* name at a stale offset — reject
 			 * non-RIFF so the media/sfx_* fallback can take over. */
+			Con_Reportf( "Xash3D GameCube: SFX RIFF reject %s size=%d head=%02x%02x%02x%02x filebuf=%d\n",
+				path, (int)*size,
+				(uint)( buf ? buf[0] : 0 ), (uint)( buf ? buf[1] : 0 ),
+				(uint)( buf ? buf[2] : 0 ), (uint)( buf ? buf[3] : 0 ),
+				buf == s_gc_sfx_filebuf ? 1 : 0 );
 			if( buf == s_gc_sfx_filebuf )
 				s_gc_sfx_filebuf_busy = false;
 			buf = NULL;
@@ -104,6 +118,8 @@ static byte *SND_LOADFILE( const char *path, fs_offset_t *size )
 		return NULL;
 	}
 	FS_Close( f );
+	Con_Reportf( "Xash3D GameCube: SFX open ok but no scratch/filebuf %s size=%d → FS_LoadFile\n",
+		path, (int)*size );
 	/* Last resort: fragmented heap may still service a tiny FS_LoadFile. */
 	return FS_LoadFile( path, size, false );
 }
@@ -336,8 +352,9 @@ wavdata_t *FS_LoadSound( const char *filename, const byte *buffer, size_t size )
 	}
 
 #if XASH_GAMECUBE
-	/* G278: libogc ISO9660 often misses deep sound/weapons|player|buttons.
-	 * CapFaces combat clips are also mirrored to shallow media/sfx_<base>.wav. */
+	/* G278: CapFaces combat clips mirrored to shallow media/sfx_<base>.wav.
+	 * Try after sound/ so a failed media Open cannot burn DVD/file_t slots
+	 * before the known-good sound/buttons|weapons G278 path. */
 	if( filename[0] != '#' )
 	{
 		const char *slash = Q_strrchr( loadname, '/' );
@@ -360,17 +377,26 @@ wavdata_t *FS_LoadSound( const char *filename, const byte *buffer, size_t size )
 					{
 						wavdata_t *pack = SND_IsTempFileBuf( f ) ? NULL : SoundPackInPlaceFile( f, filesize );
 						if( pack )
+						{
+							Con_Reportf( "Xash3D GameCube: SFX media hit %s\n", path );
 							return pack;
+						}
 						pack = SoundPack();
 						SND_FREEFILE( f );
 						if( pack )
+						{
+							Con_Reportf( "Xash3D GameCube: SFX media hit %s\n", path );
 							return pack;
+						}
 						return NULL;
 					}
 					SND_FREEFILE( f );
 				}
 				if( success )
+				{
+					Con_Reportf( "Xash3D GameCube: SFX media hit %s\n", path );
 					return SoundPack();
+				}
 			}
 		}
 	}
