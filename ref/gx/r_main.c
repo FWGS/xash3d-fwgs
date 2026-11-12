@@ -2573,6 +2573,14 @@ void GAME_EXPORT R_RenderScene( void )
 		/* Lean DrawEntities: brushes + studio + viewmodel + EFX + solid/trans
 		 * client tris (gated after world studio). */
 		R_DrawEntitiesOnList();
+		/* Bloom after the world is in the EFB. The kernel is a few texels
+		 * wide so bright edges glow without a second copy of the mesh. */
+		{
+			extern qboolean R_GXBloomApply( void *rmode_ptr );
+			extern void *GC_GetGxVideoMode( void );
+
+			R_GXBloomApply( GC_GetGxVideoMode());
+		}
 		return;
 	}
 	/* Software / low-res probe fallback — not retail Flipper. */

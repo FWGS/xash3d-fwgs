@@ -3381,6 +3381,14 @@ static int R_StudioDrawModel( int flags )
 			return 0;
 		}
 
+#if XASH_GAMECUBE
+		/* Rest-pose map props: ARAM-resident GX display lists (media/sd_*.gsd).
+		 * Same tris/skins as CPU path — skips bone skin + FIFO rebuild. */
+		if( GC_UseGxWorldDraw()
+			&& R_GXStudioDLTryDraw( RI.currententity, RI.currentmodel ))
+			return 1;
+#endif
+
 		r_stats.c_studio_models_drawn++;
 		g_studio.framecount++; // render data cache cookie
 

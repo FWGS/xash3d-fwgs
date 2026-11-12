@@ -90,6 +90,150 @@ static void *GC_VideoAlloc( size_t bytes, const char *tag )
 static void *xfb[2] = { NULL, NULL };
 static u32 xfb_bytes[2];
 
+/* On-rails camera. media/vst_<map>_path.bin is big-endian, native on the Cube.
+ * Time zero is the first frame the world is up, so the ride starts at node 0
+ * instead of a frozen dumpeye. */
+#define GC_VST_MAX_NODES 40
+
+typedef struct
+{
+	float	o[3];
+	float	pitch, yaw, roll;
+	float	dist;
+} gc_vst_node_t;
+
+static gc_vst_node_t gc_vst_nodes[GC_VST_MAX_NODES];
+static int gc_vst_count;
+static float gc_vst_speed = 101.0f;
+static float gc_vst_t0 = -1.0f;
+static int gc_vst_logged_seg = -1;
+static qboolean gc_vst_ready;
+static qboolean gc_vst_failed;
+
+static float GC_VstLerpAng( float a, float b, float t )
+{
+	float d = b - a;
+
+	while( d > 180.0f )
+		d -= 360.0f;
+	while( d < -180.0f )
+		d += 360.0f;
+	return a + d * t;
+}
+
+static qboolean GC_VstLoad( void )
+{
+	char mapbase[64], path[96];
+	byte buf[16 + GC_VST_MAX_NODES * 28];
+	file_t *f;
+	int size, count, i;
+	float speed;
+
+	if( gc_vst_ready )
+		return gc_vst_count > 1;
+	if( gc_vst_failed )
+		return false;
+	gc_vst_failed = true;
+	if( cl.worldmodel && cl.worldmodel->name[0] )
+		COM_FileBase( cl.worldmodel->name, mapbase, sizeof( mapbase ));
+	else
+		Q_strncpy( mapbase, "d2_lostcoast", sizeof( mapbase ));
+	Q_snprintf( path, sizeof( path ), "media/vst_%s_path.bin", mapbase );
+	f = FS_Open( path, "rb", false );
+	if( !f )
+		f = FS_Open( path, "rb", true );
+	if( !f )
+	{
+		Con_Reportf( "Xash3D GameCube: VST path missing %s\n", path );
+		return false;
+	}
+	size = FS_Read( f, buf, sizeof( buf ));
+	FS_Close( f );
+	if( size < 16 || memcmp( buf, "GCvst", 5 ) != 0 )
+	{
+		Con_Reportf( "Xash3D GameCube: VST path reject %s\n", path );
+		return false;
+	}
+	count = ( buf[8] << 8 ) | buf[9];
+	memcpy( &speed, buf + 10, 4 );
+	if( count < 2 || count > GC_VST_MAX_NODES || speed < 1.0f
+		|| 16 + count * 28 > size )
+	{
+		Con_Reportf( "Xash3D GameCube: VST path bad count=%d speed=%.1f\n", count, speed );
+		return false;
+	}
+	gc_vst_speed = speed;
+	gc_vst_count = count;
+	for( i = 0; i < count; i++ )
+	{
+		const byte *p = buf + 16 + i * 28;
+		gc_vst_node_t *n = &gc_vst_nodes[i];
+
+		memcpy( n->o, p, 12 );
+		memcpy( &n->pitch, p + 12, 4 );
+		memcpy( &n->yaw, p + 16, 4 );
+		memcpy( &n->roll, p + 20, 4 );
+		n->dist = 0.0f;
+		if( i > 0 )
+		{
+			float dx = n->o[0] - gc_vst_nodes[i - 1].o[0];
+			float dy = n->o[1] - gc_vst_nodes[i - 1].o[1];
+			float dz = n->o[2] - gc_vst_nodes[i - 1].o[2];
+
+			n->dist = sqrtf( dx * dx + dy * dy + dz * dz );
+		}
+	}
+	gc_vst_ready = true;
+	gc_vst_failed = false;
+	Con_Reportf( "Xash3D GameCube: VST ride nodes=%d speed=%.0f\n", count, speed );
+	return true;
+}
+
+static qboolean GC_VstRideEye( vec3_t eye, vec3_t angles )
+{
+	float t, acc, seg_t, frac;
+	int i;
+
+	if( !GC_VstLoad())
+		return false;
+	if( gc_vst_t0 < 0.0f )
+		gc_vst_t0 = (float)cl.time;
+	t = (float)cl.time - gc_vst_t0;
+	if( t < 0.0f )
+		t = 0.0f;
+	acc = 0.0f;
+	for( i = 1; i < gc_vst_count; i++ )
+	{
+		seg_t = gc_vst_nodes[i].dist / gc_vst_speed;
+
+		if( seg_t < 0.05f )
+			seg_t = 0.05f;
+		if( acc + seg_t >= t || i == gc_vst_count - 1 )
+		{
+			frac = ( seg_t > 0.0f ) ? ( t - acc ) / seg_t : 1.0f;
+			if( frac < 0.0f )
+				frac = 0.0f;
+			if( frac > 1.0f )
+				frac = 1.0f;
+			eye[0] = gc_vst_nodes[i - 1].o[0] + ( gc_vst_nodes[i].o[0] - gc_vst_nodes[i - 1].o[0] ) * frac;
+			eye[1] = gc_vst_nodes[i - 1].o[1] + ( gc_vst_nodes[i].o[1] - gc_vst_nodes[i - 1].o[1] ) * frac;
+			eye[2] = gc_vst_nodes[i - 1].o[2] + ( gc_vst_nodes[i].o[2] - gc_vst_nodes[i - 1].o[2] ) * frac;
+			angles[0] = GC_VstLerpAng( gc_vst_nodes[i - 1].pitch, gc_vst_nodes[i].pitch, frac );
+			angles[1] = GC_VstLerpAng( gc_vst_nodes[i - 1].yaw, gc_vst_nodes[i].yaw, frac );
+			angles[2] = GC_VstLerpAng( gc_vst_nodes[i - 1].roll, gc_vst_nodes[i].roll, frac );
+			if( gc_vst_logged_seg != i )
+			{
+				gc_vst_logged_seg = i;
+				Con_Reportf( "Xash3D GameCube: VST ride seg=%d t=%.1f eye=(%.0f,%.0f,%.0f) yaw=%.0f\n",
+					i, t, eye[0], eye[1], eye[2], angles[1] );
+			}
+			return true;
+		}
+		acc += seg_t;
+	}
+	return false;
+}
+
 /* Allocate XFB i for mode, reusing the current one when it is big enough.
  * The early splash's XFB used to be dropped here and leaked (~600 KB). */
 static void GC_AllocXFB( int i, GXRModeObj *mode )
@@ -2306,7 +2450,7 @@ static qboolean GC_TryLoadWaterPack( model_t *mod )
 	ver = GC_Be16( hdr + 4 );
 	face_n = GC_Be16( hdr + 6 );
 	faces_ofs = GC_Be32( hdr + 8 );
-	if( ver != 1 || face_n == 0 || face_n > GC_WATER_MAX_FACES
+	if( ver != 1 || face_n == 0 || face_n > 2048
 		|| faces_ofs + (uint32_t)face_n * 128u > (uint32_t)size )
 	{
 		Con_Reportf( "Xash3D GameCube: water pack reject %s ver=%u faces=%u\n",
@@ -2319,46 +2463,98 @@ static qboolean GC_TryLoadWaterPack( model_t *mod )
 		FS_Close( f );
 		return false;
 	}
-	for( i = 0; i < (int)face_n; i++ )
 	{
-		gc_water_face_t *dst = &gc_water_faces[i];
-		int nv;
+		float scores[GC_WATER_MAX_FACES];
+		/* Over the harbor sheet. The bank eye kept sheets that the sand covers. */
+		const float eye_x = 1100.0f, eye_y = 2300.0f;
+		int kept = 0;
 
-		if( FS_Read( f, rec, 128 ) != 128 )
+		for( i = 0; i < GC_WATER_MAX_FACES; i++ )
+			scores[i] = 1.0e20f;
+		for( i = 0; i < (int)face_n; i++ )
 		{
-			FS_Close( f );
-			gc_water_face_count = 0;
-			return false;
+			gc_water_face_t trial;
+			float cx, cy, cz, d2;
+			int nv, slot, x0, x1, y0, y1, area;
+
+			if( FS_Read( f, rec, 128 ) != 128 )
+			{
+				FS_Close( f );
+				gc_water_face_count = 0;
+				return false;
+			}
+			nv = rec[0];
+			if( nv < 3 ) nv = 3;
+			if( nv > GC_CAP_MAX_VERTS ) nv = GC_CAP_MAX_VERTS;
+			memset( &trial, 0, sizeof( trial ));
+			trial.nverts = (byte)nv;
+			trial.flags = rec[1];
+			u2f.u = GC_Be32( rec + 8 );
+			trial.scroll_u = u2f.f;
+			u2f.u = GC_Be32( rec + 12 );
+			trial.scroll_v = u2f.f;
+			cx = cy = cz = 0.0f;
+			x0 = y0 = 32767;
+			x1 = y1 = -32768;
+			for( v = 0; v < GC_CAP_MAX_VERTS; v++ )
+			{
+				trial.pts_s16[v][0] = (int16_t)GC_Be16( rec + 16 + v * 6 );
+				trial.pts_s16[v][1] = (int16_t)GC_Be16( rec + 16 + v * 6 + 2 );
+				trial.pts_s16[v][2] = (int16_t)GC_Be16( rec + 16 + v * 6 + 4 );
+				trial.st[v][0] = (float)(int16_t)GC_Be16( rec + 64 + v * 4 ) * ( 1.0f / 64.0f );
+				trial.st[v][1] = (float)(int16_t)GC_Be16( rec + 64 + v * 4 + 2 ) * ( 1.0f / 64.0f );
+				if( v < nv )
+				{
+					int px = trial.pts_s16[v][0];
+					int py = trial.pts_s16[v][1];
+
+					cx += (float)px;
+					cy += (float)py;
+					cz += (float)trial.pts_s16[v][2];
+					if( px < x0 ) x0 = px;
+					if( px > x1 ) x1 = px;
+					if( py < y0 ) y0 = py;
+					if( py > y1 ) y1 = py;
+				}
+			}
+			cx /= (float)nv;
+			cy /= (float)nv;
+			cz /= (float)nv;
+			/* The 3D sky water sits thousands of units below the coast.
+			 * Tiny faces under the sand were filling the 24 slots and hiding
+			 * the harbor sheet. */
+			area = ( x1 - x0 ) * ( y1 - y0 );
+			if( cz < -400.0f || area < 200000 )
+				continue;
+			u2f.u = GC_Be32( rec + 96 );
+			trial.plane.normal[0] = u2f.f;
+			u2f.u = GC_Be32( rec + 100 );
+			trial.plane.normal[1] = u2f.f;
+			u2f.u = GC_Be32( rec + 104 );
+			trial.plane.normal[2] = u2f.f;
+			u2f.u = GC_Be32( rec + 108 );
+			trial.plane.dist = u2f.f;
+			trial.tint = ( (u32)rec[112] << 24 ) | ( (u32)rec[113] << 16 )
+				| ( (u32)rec[114] << 8 ) | (u32)rec[115];
+			d2 = ( cx - eye_x ) * ( cx - eye_x ) + ( cy - eye_y ) * ( cy - eye_y );
+			slot = kept;
+			if( slot < GC_WATER_MAX_FACES )
+				kept++;
+			else if( d2 >= scores[GC_WATER_MAX_FACES - 1] )
+				continue;
+			else
+				slot = GC_WATER_MAX_FACES - 1;
+			while( slot > 0 && d2 < scores[slot - 1] )
+			{
+				gc_water_faces[slot] = gc_water_faces[slot - 1];
+				scores[slot] = scores[slot - 1];
+				slot--;
+			}
+			gc_water_faces[slot] = trial;
+			scores[slot] = d2;
 		}
-		nv = rec[0];
-		if( nv < 3 ) nv = 3;
-		if( nv > GC_CAP_MAX_VERTS ) nv = GC_CAP_MAX_VERTS;
-		dst->nverts = (byte)nv;
-		dst->flags = rec[1];
-		u2f.u = GC_Be32( rec + 8 );
-		dst->scroll_u = u2f.f;
-		u2f.u = GC_Be32( rec + 12 );
-		dst->scroll_v = u2f.f;
-		for( v = 0; v < GC_CAP_MAX_VERTS; v++ )
-		{
-			dst->pts_s16[v][0] = (int16_t)GC_Be16( rec + 16 + v * 6 );
-			dst->pts_s16[v][1] = (int16_t)GC_Be16( rec + 16 + v * 6 + 2 );
-			dst->pts_s16[v][2] = (int16_t)GC_Be16( rec + 16 + v * 6 + 4 );
-			dst->st[v][0] = (float)(int16_t)GC_Be16( rec + 64 + v * 4 ) * ( 1.0f / 64.0f );
-			dst->st[v][1] = (float)(int16_t)GC_Be16( rec + 64 + v * 4 + 2 ) * ( 1.0f / 64.0f );
-		}
-		u2f.u = GC_Be32( rec + 96 );
-		dst->plane.normal[0] = u2f.f;
-		u2f.u = GC_Be32( rec + 100 );
-		dst->plane.normal[1] = u2f.f;
-		u2f.u = GC_Be32( rec + 104 );
-		dst->plane.normal[2] = u2f.f;
-		u2f.u = GC_Be32( rec + 108 );
-		dst->plane.dist = u2f.f;
-		dst->tint = ( (u32)rec[112] << 24 ) | ( (u32)rec[113] << 16 )
-			| ( (u32)rec[114] << 8 ) | (u32)rec[115];
+		gc_water_face_count = kept;
 	}
-	gc_water_face_count = (int)face_n;
 	FS_Close( f );
 
 	/* Scroll CMPR */
@@ -11836,6 +12032,7 @@ qboolean GC_PrefetchCapFacesWhileEdgesLive( model_t *mod )
 			FS_Close( wd );
 			gc_world_dl_armed = true;
 			R_GXPrefetchMapSkybox();
+			(void)GC_TryLoadWaterPack( mod );
 			Con_Reportf( "Xash3D GameCube: CapFaces densify skipped — world DL %s\n", wdpath );
 			return true; /* pretend success so EDGE CapFaces bake is not entered */
 		}
@@ -16513,7 +16710,15 @@ qboolean GC_RenderNewGameWorldFrames( int count )
 		/* WorldDL listen: CapFaces bake is skipped, so the CapFaces sticky
 		 * block below never runs. Honour -gcdumpeye so Flipper stills can
 		 * show outdoor sky cube + map props (ava-prop-7 was nose-in-wall). */
-		if( Sys_CheckParm( "-gcworldrender" ) && gc_newgame_cap_face_count <= 0
+		if( Sys_CheckParm( "-gcvst" ) && GC_UseGxWorldDraw()
+			&& GC_VstRideEye( center, rvp.viewangles ))
+		{
+			local_look = true;
+			look_len = 256.0f;
+			gc_g196_flipper_dump_aim_left = 8;
+			gc_dump_look_into_map = true;
+		}
+		else if( Sys_CheckParm( "-gcworldrender" ) && gc_newgame_cap_face_count <= 0
 			&& GC_UseGxWorldDraw() && GC_DumpEyeFromParm( center, rvp.viewangles ))
 		{
 			static qboolean gc_wd_dumpeye_logged;
