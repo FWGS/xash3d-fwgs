@@ -491,7 +491,10 @@ static byte *R_GXWorldDLResident( u32 i, u32 *budget )
 		kb = gc_wd_chunk_bytes[k];
 		if( (u32)o + kb <= head || (u32)o >= head + bytes )
 			continue;
-		if( gc_wd_slots[k].used_frame >= gc_wd_frame - 1 )
+		/* DrawDone at the start of the frame retired last frame's lists.
+		 * Locking those too left the cache full of the shore, so the tall
+		 * brushes never got a slot and the towers stayed the prop slivers. */
+		if( gc_wd_slots[k].used_frame == gc_wd_frame )
 			return NULL;
 	}
 	for( k = 0; k < gc_wd_hdr.n_chunks; k++ )
@@ -548,6 +551,27 @@ static qboolean R_GXWorldDLBoxVisible( u32 i, vec3_t normals[4], const float *or
 			return false;
 	}
 	return true;
+}
+
+/* A brush tall enough to be a tower or a cliff, and not the ground under
+ * the camera. These are the baked surfaces. The prop pass only has the
+ * detail mesh, which reads as slivers until the brush is in the cache. */
+static qboolean R_GXWorldDLIsTower( u32 i )
+{
+	const float hz = (float)gc_wd_chunk_maxs[i * 3 + 2]
+		- (float)gc_wd_chunk_mins[i * 3 + 2];
+	const float cz = ( (float)gc_wd_chunk_mins[i * 3 + 2]
+		+ (float)gc_wd_chunk_maxs[i * 3 + 2] ) * 0.5f;
+	float dx, dy, dz;
+
+	if( hz <= 800.0f || cz <= 0.0f || !gc_wd_sort_org )
+		return false;
+	dx = ( (float)gc_wd_chunk_mins[i * 3 + 0] + (float)gc_wd_chunk_maxs[i * 3 + 0] ) * 0.5f
+		- gc_wd_sort_org[0];
+	dy = ( (float)gc_wd_chunk_mins[i * 3 + 1] + (float)gc_wd_chunk_maxs[i * 3 + 1] ) * 0.5f
+		- gc_wd_sort_org[1];
+	dz = cz - gc_wd_sort_org[2];
+	return ( dx * dx + dy * dy + dz * dz ) > ( 800.0f * 800.0f );
 }
 
 /* Lost Coast sky_camera is at (0, 0, -5108) with scale 16. The tower row
@@ -783,7 +807,15 @@ static void R_GXWorldDLClearDepth( void )
 
 static void R_GXWorldDLRestoreHarbor( Mtx mv, Mtx44 proj, const float *org )
 {
-	R_GXWorldDLLoadView( mv, proj, org, 4.0f, RI.farClip > 1.0f ? RI.farClip : 4096.0f );
+	/* zmax*1.73 stops near 7 km. The refinery brushes sit past that and were
+	 * clipped to nothing, leaving the prop detail as the only tower. */
+	{
+		f32 zfar = RI.farClip > 1.0f ? RI.farClip : 4096.0f;
+
+		if( zfar < 16384.0f )
+			zfar = 16384.0f;
+		R_GXWorldDLLoadView( mv, proj, org, 4.0f, zfar );
+	}
 	GX_LoadProjectionMtx( proj, GX_PERSPECTIVE );
 	GX_LoadPosMtxImm( mv, GX_PNMTX0 );
 	GX_SetZMode( GX_TRUE, GX_LEQUAL, GX_TRUE );
@@ -1002,10 +1034,12 @@ int R_GXWorldDLDraw( void )
 	{
 		/* Chunks outside the camera go. -gcworlddlfull draws the whole PVS. */
 		const qboolean frustum_cull = !gEngfuncs.Sys_CheckParm( "-gcworlddlfull" );
-		int pvs_hits = 0, frustum_drop = 0;
+		int pvs_hits = 0, frustum_drop = 0, tower_chunks = 0;
 		static u16 order[GC_WD_MAX_CHUNKS];
 		int norder = 0;
-		int oi;
+		int oi, pass;
+		u32 tower_budget = 224u * 1024u;
+		u32 tower_grant, shore_budget;
 
 		for( i = 0; i < gc_wd_hdr.n_chunks; i++ )
 		{
@@ -1026,6 +1060,21 @@ int R_GXWorldDLDraw( void )
 		 * filled it with whatever chunk id came first and left the shore out. */
 		gc_wd_sort_org = org;
 		qsort( order, (size_t)norder, sizeof( order[0] ), R_GXWorldDLChunkCmp );
+		/* Towers first, capped, so the shore keeps the rest of the budget.
+		 * The cache used to stay full of last frame's beach and the tall
+		 * brushes never loaded. */
+		if( tower_budget > budget )
+			tower_budget = budget;
+		tower_grant = tower_budget;
+		shore_budget = budget - tower_grant;
+
+		for( pass = 0; pass < 2; pass++ )
+		{
+		u32 *bud;
+
+		if( pass == 1 )
+			shore_budget = budget - ( tower_grant - tower_budget );
+		bud = ( pass == 0 ) ? &tower_budget : &shore_budget;
 
 		for( oi = 0; oi < norder; oi++ )
 		{
@@ -1034,7 +1083,9 @@ int R_GXWorldDLDraw( void )
 			u32 nb, k;
 
 			i = order[oi];
-			chunk = R_GXWorldDLResident( i, &budget );
+			if( R_GXWorldDLIsTower( i ) != ( pass == 0 ))
+				continue;
+			chunk = R_GXWorldDLResident( i, bud );
 			if( !chunk )
 			{
 				waiting++;
@@ -1093,11 +1144,14 @@ int R_GXWorldDLDraw( void )
 				drawn++;
 			}
 			chunks++;
+			if( pass == 0 )
+				tower_chunks++;
+		}
 		}
 		if( !logged || ( gc_wd_frame & 255 ) == 0 )
 			gEngfuncs.Con_Reportf(
-				"Xash3D GameCube: world DL pvs=%d frustum_drop=%d cull=%d\n",
-				pvs_hits, frustum_drop, frustum_cull ? 1 : 0 );
+				"Xash3D GameCube: world DL pvs=%d frustum_drop=%d cull=%d towers=%d\n",
+				pvs_hits, frustum_drop, frustum_cull ? 1 : 0, tower_chunks );
 	}
 	R_GXFogEnd();
 	R_GXTevMatEndAlphaTest();
