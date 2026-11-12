@@ -293,7 +293,17 @@ def write_bootstrap_pk3(
 			# old 2 MiB cap left them FST-only; when directory find flaps to
 			# pk3-only (c0a0e→c1a0 20260810-195734/195827) Host_Error misses
 			# the map. Allow BSPs up to 4 MiB in the bootstrap archive.
+			# Spatial *cells* (cf_*_sXX.gcp) are small and must ride bootstrap
+			# when ISO9660 misses the parent *_spatial.pk3 (escape). Keep the
+			# fat parent pk3 out of bootstrap — it tip-starves escape textures.
+			name_l = child.name.lower()
 			size_cap = 4 * 1024 * 1024 if suffix == ".bsp" else 2 * 1024 * 1024
+			if name_l.endswith("_spatial.pk3"):
+				continue
+			# World DL packs stay loose on the ISO — inflateInit2 OOMs on 1+ MiB
+			# .gcd entries when the bootstrap pk3 is the only search hit.
+			if name_l.startswith("wd_") and name_l.endswith(".gcd"):
+				continue
 			if (
 				child.is_file()
 				and suffix not in BOOTSTRAP_EXCLUDED_EXTENSIONS
@@ -334,9 +344,16 @@ def write_bootstrap_pk3(
 			if not path.is_file():
 				continue
 			name = path.name.lower()
-			if not (name.startswith("sky_") and name.endswith(".cmp")) and not (
-				name.startswith("cf_") and name.endswith(".gcp")
-			):
+			# Tip-safe bootstrap: primary cf_<map>.gcp + skies only.
+			# Spatial cells stay as loose ISO media/ (ship unpacks the pk3);
+			# injecting 60+ cells tip-starved escape before densify.
+			is_sky = name.startswith("sky_") and name.endswith(".cmp")
+			is_primary_cf = (
+				name.startswith("cf_")
+				and name.endswith(".gcp")
+				and "_s" not in name[3:-4]
+			)
+			if not is_sky and not is_primary_cf:
 				continue
 			if path.stat().st_size <= 0 or path.stat().st_size > 2 * 1024 * 1024:
 				continue
@@ -428,7 +445,11 @@ def build_iso9660(
 			src
 			for rel, src in overlays
 			if isinstance(rel, str)
-			and (rel.startswith("media/cf_") or rel.startswith("media/sky_"))
+			and (
+				rel.startswith("media/cf_")
+				or rel.startswith("media/sky_")
+				or rel.endswith("_spatial.pk3")
+			)
 		]
 		write_bootstrap_pk3(
 			data, bootstrap, bootstrap_recursive, extra_media=boot_media
@@ -1339,6 +1360,21 @@ GC_STUDIO_MODELS = (
 	"models/v_colt.mdl",
 	"models/v_luger.mdl",
 	"models/w_crowbar.mdl",
+	# DoD CapFaces map props (env_model / dod_object).
+	# Tip: skip forts/kingtiger; caen unique order saturates 6 slots before bulb.
+	"models/mapmodels/hk_satchel.mdl",
+	"models/mapmodels/horse_statue.mdl",
+	"models/mapmodels/by_rubble_set.mdl",
+	"models/mapmodels/sandbags.mdl",
+	"models/mapmodels/by_canopy.mdl",
+	"models/mapmodels/arc_xer_tree2.mdl",
+	"models/mapmodels/furniture.mdl",
+	"models/mapmodels/bulb.mdl",
+	# dod_avalanche env_models — full-skin props (ava-prop-1).
+	"models/mapmodels/sherman.mdl",
+	"models/mapmodels/jagd.mdl",
+	"models/mapmodels/by_banister.mdl",
+	"models/mapmodels/flags.mdl",
 	# Small world NPC — gman (~76KB) OOMs libc malloc after crowbars on GC.
 	"models/roach.mdl",
 	# G315/G371: deferred GX entity pass promotes these NPC meshes.
@@ -1537,15 +1573,28 @@ def inject_gc_sky_into_bootstrap(archive: "zipfile.ZipFile", data: Path) -> int:
 				continue
 			archive.write(cmp, arcname, compress_type=zipfile.ZIP_STORED)
 			staged += 1
-		# CapFaces packs: same ISO9660 long-name miss as skies (charlie
-		# exists=0 on FST while 7z still lists the file). Keep ≤2 MiB.
+		# CapFaces primary packs only in bootstrap (ISO9660 long-name miss).
+		# Spatial cells ship as cf_<map>_spatial.pk3 at gamedir root.
 		for gcp in sorted(media.glob("cf_*.gcp")):
+			name = gcp.name.lower()
+			if "_s" in name[3:-4]:
+				continue
 			if gcp.stat().st_size <= 0 or gcp.stat().st_size > 2 * 1024 * 1024:
 				continue
-			arcname = f"media/{gcp.name}".lower()
+			arcname = f"media/{name}"
 			if arcname in archive.NameToInfo:
 				continue
 			archive.write(gcp, arcname, compress_type=zipfile.ZIP_STORED)
+			staged += 1
+		# World DL packs: must be ZIP_STORED (DEFLATE → inflateInit2 OOM under
+		# tip). Keep under 4 MiB; chunked STORED reader handles DVD short-reads.
+		for wd in sorted(media.glob("wd_*.gcd")):
+			if wd.stat().st_size <= 0 or wd.stat().st_size > 4 * 1024 * 1024:
+				continue
+			arcname = f"media/{wd.name.lower()}"
+			if arcname in archive.NameToInfo:
+				continue
+			archive.write(wd, arcname, compress_type=zipfile.ZIP_STORED)
 			staged += 1
 	return staged
 
@@ -2116,6 +2165,99 @@ def lean_studio_mesh_bytes(src: Path) -> bytes | None:
 	return bytes(out)
 
 
+def lean_studio_tex_companion_bytes(src: Path, max_edge: int = 64) -> bytes | None:
+	"""Build a tip-safe *t.mdl skin atlas from an embedded-texture studio MDL.
+
+	CapFaces DoD rifles are 300–600 KiB fully textured — too big for the 184 KiB
+	studio BSS and the ~400 KiB tip heap after densify. Mesh stays lean; this
+	companion downsamples indexed skins so gc_studio/<stem>t.mdl fits the
+	132 KiB studio tex scratch and Mod_GCAttachStudioSkins can upload.
+	"""
+	try:
+		raw = src.read_bytes()
+	except OSError:
+		return None
+	if len(raw) < 244 or raw[:4] not in (b"IDST", b"IDSQ"):
+		return None
+	numtextures = struct.unpack_from("<i", raw, 180)[0]
+	textureindex = struct.unpack_from("<i", raw, 184)[0]
+	numskinref = struct.unpack_from("<i", raw, 192)[0]
+	numskinfamilies = struct.unpack_from("<i", raw, 196)[0]
+	skinindex = struct.unpack_from("<i", raw, 200)[0]
+	if numtextures <= 0 or textureindex <= 0 or textureindex + numtextures * 80 > len(raw):
+		return None
+
+	# mstudiotexture_t is 80 bytes; pixels are width*height + 768 RGB palette.
+	tex_hdrs: list[tuple[bytes, int, int, int, bytes, bytes]] = []
+	for i in range(numtextures):
+		off = textureindex + i * 80
+		name = raw[off : off + 64]
+		flags, width, height, index = struct.unpack_from("<iiii", raw, off + 64)
+		if width <= 0 or height <= 0 or index < 0 or index + width * height + 768 > len(raw):
+			return None
+		pixels = raw[index : index + width * height]
+		palette = raw[index + width * height : index + width * height + 768]
+		tex_hdrs.append((name, flags, width, height, pixels, palette))
+
+	skin_bytes = b""
+	if numskinref > 0 and numskinfamilies > 0 and skinindex > 0:
+		skin_size = numskinref * numskinfamilies * 2
+		if skinindex + skin_size <= len(raw):
+			skin_bytes = raw[skinindex : skinindex + skin_size]
+		else:
+			numskinref = 0
+			numskinfamilies = 0
+	else:
+		numskinref = 0
+		numskinfamilies = 0
+
+	# Header + texture structs + skinrefs, then tightly packed downsampled blobs.
+	hdr_size = 244  # sizeof(studiohdr_t) on GoldSrc
+	tex_table = hdr_size
+	skin_table = tex_table + numtextures * 80
+	pix_cursor = skin_table + len(skin_bytes)
+	out = bytearray(pix_cursor)
+	out[0:4] = b"IDST"
+	struct.pack_into("<i", out, 4, 10)  # STUDIO_VERSION
+	out[8:72] = raw[8:72]  # model name
+
+	for i, (name, flags, width, height, pixels, palette) in enumerate(tex_hdrs):
+		nw, nh = width, height
+		while nw > max_edge or nh > max_edge:
+			nw = max(1, nw // 2)
+			nh = max(1, nh // 2)
+		if nw == width and nh == height:
+			new_pixels = pixels
+		else:
+			new_pixels = bytearray(nw * nh)
+			for y in range(nh):
+				sy = min(height - 1, (y * height) // nh)
+				for x in range(nw):
+					sx = min(width - 1, (x * width) // nw)
+					new_pixels[y * nw + x] = pixels[sy * width + sx]
+			new_pixels = bytes(new_pixels)
+		blob = new_pixels + palette
+		off = tex_table + i * 80
+		out[off : off + 64] = name
+		# Drop chrome/additive; keep MASKED (0x40) so VM chromakey still floods.
+		keep_flags = flags & 0x40
+		struct.pack_into("<iiii", out, off + 64, keep_flags, nw, nh, pix_cursor)
+		out.extend(blob)
+		pix_cursor += len(blob)
+
+	if skin_bytes:
+		out[skin_table : skin_table + len(skin_bytes)] = skin_bytes
+
+	struct.pack_into("<i", out, 72, len(out))  # length
+	struct.pack_into("<i", out, 180, numtextures)
+	struct.pack_into("<i", out, 184, tex_table)  # textureindex
+	struct.pack_into("<i", out, 188, skin_table + len(skin_bytes))  # texturedataindex
+	struct.pack_into("<i", out, 192, numskinref)
+	struct.pack_into("<i", out, 196, numskinfamilies)
+	struct.pack_into("<i", out, 200, skin_table if skin_bytes else 0)
+	return bytes(out)
+
+
 def inject_gc_studio_into_bootstrap(archive: "zipfile.ZipFile", data: Path) -> int:
 	"""Add allowlisted MDLs into an existing bootstrap ZIP under gc_studio/."""
 	staged = 0
@@ -2128,10 +2270,15 @@ def inject_gc_studio_into_bootstrap(archive: "zipfile.ZipFile", data: Path) -> i
 	dodgc_roots = (
 		Path("/home/tim/Desktop/dod-gc/content/dod"),
 		Path("/home/tim/Desktop/dod-gc/content/valve"),
+		Path("/run/media/tim/Expansion1/xash3d-gc/Half-Life/dod"),
 	)
 	dod_capfaces_stems = {
 		"v_garand", "v_mp40", "v_98k", "v_tommy", "v_colt", "v_luger",
 		"v_amerk", "v_spade", "v_crowbar", "w_crowbar",
+		# CapFaces map props (env_model) — pull from Expansion1 / content/dod.
+		"sandbags", "bulb", "hk_satchel", "furniture", "by_rubble_set",
+		"arc_xer_tree2", "horse_statue", "by_canopy",
+		"sherman", "jagd", "by_banister", "flags",
 	}
 	for relative in GC_STUDIO_MODELS:
 		src = data / relative
@@ -2157,14 +2304,28 @@ def inject_gc_studio_into_bootstrap(archive: "zipfile.ZipFile", data: Path) -> i
 		stem = Path(relative).stem.lower()
 		is_tex_companion = stem.endswith("t") and stem[:-1] in all_stems
 		# Props with their skins inside the model keep them.
-		# CapFaces DoD rifles are 300–600 KiB textured; lean-strip those so the
-		# 184 KiB DoD studio BSS can host one team viewmodel after crowbar.
+		# CapFaces DoD rifles/pistols are 300–600 KiB textured; lean-strip so the
+		# 184 KiB DoD studio BSS can host one team viewmodel. Skins ride a
+		# downsampled gc_studio/<stem>t.mdl companion (see below).
 		dod_capfaces_lean = {
 			"v_garand", "v_mp40", "v_98k", "v_tommy", "v_colt", "v_luger",
 			"v_amerk", "v_spade",
+			# Other CapFaces map props stay lean-stripped for tip maps.
+			"bulb", "hk_satchel", "furniture", "by_rubble_set",
+			"arc_xer_tree2", "horse_statue", "by_canopy",
+			# Avalanche env_models: full-skin MDLs (sherman≈294 KiB) miss the
+			# 184–288 KiB DoD studio BSS and tip≈6 KiB heap (ava-prop-2
+			# promote ok=0/4). Lean mesh + *t atlas = full fidelity in BSS.
+			"sandbags", "sherman", "jagd", "by_banister", "flags",
 		}
+		dod_full_prop_skins = set()  # avalanche props moved to lean+*t
 		keep_skins = stem in ("forklift", "loader", "filecabinet", "nihilanth", "baby_headcrab") \
+			or stem in dod_full_prop_skins \
 			or (stem.startswith("v_") and stem not in dod_capfaces_lean)
+		# Replace stale full-skin avalanche props already in the bootstrap.
+		if arcname in archive.NameToInfo and stem in dod_capfaces_lean:
+			del archive.NameToInfo[arcname]
+			archive.filelist = [zi for zi in archive.filelist if zi.filename != arcname]
 		payload = None if is_tex_companion or keep_skins else lean_studio_mesh_bytes(src)
 		if payload is None:
 			archive.write(src, arcname, compress_type=zipfile.ZIP_STORED)
@@ -2176,6 +2337,29 @@ def inject_gc_studio_into_bootstrap(archive: "zipfile.ZipFile", data: Path) -> i
 				f"  lean studio {Path(relative).name}: {src.stat().st_size} → {len(payload)} bytes"
 			)
 		staged += 1
+		# CapFaces rifle/pistol + Avalanche prop skin atlas — mesh is lean;
+		# Flipper uploads from gc_studio/<stem>t.mdl after promote.
+		if stem in dod_capfaces_lean:
+			tex_arc = f"gc_studio/{stem}t.mdl"
+			if tex_arc in archive.NameToInfo:
+				del archive.NameToInfo[tex_arc]
+				archive.filelist = [zi for zi in archive.filelist if zi.filename != tex_arc]
+			# Prefer 128² for rifles; Avalanche props stay ≤64² so Flipper
+			# Image_LoadMDL fits tip≈34 KiB at entity spawn (ava-prop-4
+			# banister 128² OOM → 2x2 fallback).
+			prop_tex64 = {
+				"sandbags", "sherman", "jagd", "by_banister", "flags",
+			}
+			edge = 64 if stem in prop_tex64 else 128
+			tex_payload = lean_studio_tex_companion_bytes(src, max_edge=edge)
+			if tex_payload and len(tex_payload) > 96 * 1024:
+				tex_payload = lean_studio_tex_companion_bytes(src, max_edge=64)
+			if tex_payload:
+				archive.writestr(tex_arc, tex_payload, compress_type=zipfile.ZIP_STORED)
+				print(
+					f"  lean studio tex {stem}t.mdl: {src.stat().st_size} → {len(tex_payload)} bytes"
+				)
+				staged += 1
 	return staged
 
 
@@ -3150,6 +3334,27 @@ def stage_smoke_data(
 		)
 	del cf_overlays
 
+	# Full BSP PVS cluster display lists (preferred world path over CapFaces).
+	media_out = output / "media"
+	media_out.mkdir(parents=True, exist_ok=True)
+	for stem in sorted(pack_stems):
+		name = f"wd_{stem}.gcd"
+		dest = media_out / name
+		src = None
+		repo_root = Path(__file__).resolve().parents[3]  # .../dod-gc
+		for cand in (
+			source / "media" / name,
+			repo_root / "content" / "dod" / "media" / name,
+		):
+			if cand.is_file():
+				src = cand
+				break
+		if src is None:
+			print(f"  world DL: no {name} (CapFaces/live BSP fallback)")
+			continue
+		shutil.copy2(src, dest)
+		print(f"  world DL: staged {name} ({dest.stat().st_size} bytes)")
+
 	(output / "custom").mkdir(exist_ok=True)
 	(output / "maps").mkdir(exist_ok=True)
 	return output
@@ -3683,15 +3888,16 @@ def main() -> None:
 		parser.error("--probe-configroundtrip requires --probe-newgame or --smoke-map")
 	if args.probe_saveinterrupt and not (args.probe_configroundtrip or args.probe_newgame or args.smoke_map):
 		parser.error("--probe-saveinterrupt requires --probe-configroundtrip (or New Game/smoke map staging)")
-	if args.world_render and not (args.smoke_map or args.play):
-		# Solo-listen packages write their own gamecube.cfg in the caller so
-		# the host command is preserved. Accept world rendering there when that
-		# explicit config opts in, without replacing it with the generic --play
-		# menu config below.
-		cfg = args.data / "gamecube.cfg"
-		configured_world_render = cfg.is_file() and "gcworldrender" in cfg.read_text(encoding="ascii", errors="ignore").split()
-		if not configured_world_render:
-			parser.error("--world-render requires --smoke-map, --play, or gamecube.cfg gcworldrender")
+	listen_boot = False
+	if args.data:
+		boot_cfg = Path(args.data) / "gamecube.cfg"
+		if boot_cfg.is_file():
+			listen_boot = any(
+				line.strip().lower().startswith(("listenserver ", "connect "))
+				for line in boot_cfg.read_text(encoding="ascii", errors="ignore").splitlines()
+			)
+	if args.world_render and not (args.smoke_map or args.play or listen_boot):
+		parser.error("--world-render requires --smoke-map, --play, or a listen/connect boot config")
 	if args.probe_phasetest:
 		phase = args.probe_phasetest.strip().lower()
 		valid = {"early", "engine", "renderer", "sw_fb", "menu", "client", "intro", "map"}

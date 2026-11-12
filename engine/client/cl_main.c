@@ -4359,11 +4359,14 @@ void Host_ClientFrame( void )
 		 * arm (otherwise Host_Frame stalls at ready=0).
 		 * Peer join (-gcconnect) and solo listen (-gclistenserver) also stage
 		 * -gcmap for MEM1; do not starve connect / local present behind smoke.
+		 * -gcworldrender (CapFaces or world DL) must present Flipper — never
+		 * take the smoke early-return (ava-worlddl11 hung black with no client).
 		 * Fragbufs must use Netchan_FreeFragbuf — Mem_Free on emergency BSS
 		 * slots was the listen-client Mem_FreeBlockBig fatal. */
 		if( Sys_CheckParm( "-gcmap" ) && !Sys_CheckParm( "-gcmenuplaystart" )
 			&& !Sys_CheckParm( "-gcconnect" )
 			&& !Sys_CheckParm( "-gclistenserver" )
+			&& !Sys_CheckParm( "-gcworldrender" )
 			&& cls.state != ca_connecting && cls.state != ca_connected )
 		{
 			/* Lost Coast CapFaces / Flipper DumpFrames need world presents even
@@ -4404,9 +4407,11 @@ void Host_ClientFrame( void )
 				SCR_UpdateScreen();
 			return;
 		}
-		/* -gcmap + (-gcmenuplaystart | offline solo listenserver): load client
-		 * so local play can present. Peer accept also needs progs for serverdata. */
+		/* -gcmap + (-gcmenuplaystart | -gcworldrender | offline solo listenserver):
+		 * load client so local play can present. Peer accept also needs progs
+		 * for serverdata. World DL / CapFaces Flipper needs HUD + R_RenderScene. */
 		if( (( Sys_CheckParm( "-gcmenuplaystart" )
+				|| Sys_CheckParm( "-gcworldrender" )
 				|| ( Sys_CheckParm( "-gclistenserver" )
 					&& !Sys_CheckParm( "-gcheadless" ) ))
 				&& Sys_CheckParm( "-gcmap" ))

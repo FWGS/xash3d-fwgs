@@ -12,6 +12,7 @@ import json
 import math
 import struct
 import sys
+import zipfile
 from pathlib import Path
 
 # Allow `from bake_capfaces_pack import ...` when imported by build-gamecube-disc.py
@@ -287,6 +288,13 @@ def bake_map(
 		name = bsp["tex_names"][mip] if 0 <= mip < len(bsp["tex_names"]) else ""
 		if not name or name.startswith("sky") or name.startswith("!") or name.startswith("*"):
 			continue
+		# Tool / editor-only brushes — CapFaces drew these as solid slabs
+		# (aaatrigger×16 on caen primary; pure-white screen blobs).
+		if name.lower() in (
+			"aaatrigger", "clip", "hint", "skip", "origin", "null",
+			"bevel", "trigger", "lab_crnr",
+		):
+			continue
 		if texinfo["flags"] & (SURF_SKY | SURF_WARP | SURF_TRANS):
 			continue
 		pts = face_verts(bsp, face)
@@ -438,10 +446,25 @@ def bake_map(
 	# remap order indices after possible early break
 	order = [i for i in order if i < len(faces_out)]
 
-	# Build binary — 32-byte header:
-	# 0 magic4, 4 ver u16, 6 flags u16, 8 eye u16, 10 face u16,
-	# 12 lm_atlas_ofs u32, 16 lm_w u16, 18 lm_h u16, 20 order_count u16, 22 pad u16,
-	# 24 faces_ofs u32, 28 order_ofs u32
+	buf = _pack_capfaces_bytes(faces_out, order, eyes, atlas)
+	out_path.parent.mkdir(parents=True, exist_ok=True)
+	out_path.write_bytes(buf)
+	return {
+		"map": stem,
+		"eyes": len(eyes),
+		"faces": len(faces_out),
+		"bytes": len(buf),
+		"path": str(out_path),
+	}
+
+
+def _pack_capfaces_bytes(
+	faces_out: list[dict],
+	order: list[int],
+	eyes: list[dict],
+	atlas: bytearray,
+) -> bytes:
+	"""Serialize CapFaces records + LM atlas into a .gcp blob."""
 	eye_blob = bytearray()
 	for e in eyes:
 		o, a = e["origin"], e["angles"]
@@ -467,7 +490,6 @@ def bake_map(
 	struct.pack_into(">I", buf, 12, atlas_ofs)
 	struct.pack_into(">HHHH", buf, 16, GC_LM_ATLAS_W, GC_LM_ATLAS_H, len(order), 0)
 	struct.pack_into(">II", buf, 24, faces_ofs, order_ofs)
-
 	buf[eyes_ofs : eyes_ofs + eyes_bytes] = eye_blob
 
 	for i, f in enumerate(faces_out):
@@ -486,7 +508,6 @@ def bake_map(
 				f["pts"][v * 3 + 1],
 				f["pts"][v * 3 + 2],
 			)
-		# st halfs at off+60, lm at off+92
 		for v in range(GC_CAP_MAX_VERTS):
 			struct.pack_into(">e", buf, off + 60 + v * 4, float(f["st"][v * 2]))
 			struct.pack_into(">e", buf, off + 60 + v * 4 + 2, float(f["st"][v * 2 + 1]))
@@ -499,18 +520,271 @@ def bake_map(
 
 	for i, idx in enumerate(order):
 		struct.pack_into(">H", buf, order_ofs + i * 2, idx)
-
 	buf[atlas_ofs : atlas_ofs + atlas_bytes] = atlas
+	return bytes(buf)
 
-	out_path.parent.mkdir(parents=True, exist_ok=True)
-	out_path.write_bytes(buf)
-	return {
-		"map": stem,
-		"eyes": len(eyes),
-		"faces": len(faces_out),
-		"bytes": len(buf),
-		"path": str(out_path),
-	}
+
+# Network CapFaces BSS is 384 — spatial cells must fit that tip-safe window.
+GC_SPATIAL_CELL_FACES = 384
+GC_SPATIAL_CELL_SIZE = 1024.0
+# All-geo: amin=64 raised white voids (~14%); dense8-era 384 matched 0.07%.
+# Keep score0 + spill; area floor matches pre-allgeo tip-safe packs.
+GC_SPATIAL_AREA_MIN = 384.0
+# Network tip-safe BSS: GC_CAP_SPATIAL_MAX=64 including primary as slot 0.
+# 96× larger tables Guru'd Mod_LoadSurfaces — keep 63 spill/world cells.
+GC_SPATIAL_MAX_CELLS = 63
+
+
+def bake_map_spatial(
+	bsp_path: Path,
+	spawns: dict | None,
+	media_dir: Path,
+	cache: Path,
+) -> dict:
+	"""Emit per-cell CapFaces packs + spatial.txt for tip-safe full-map paging.
+
+	Runtime keeps one 384-face BSS window and swaps/layers near-eye cells;
+	frustum/PVS cull drops off-screen faces. Includes backfaces (not just
+	spawn-facing) and spills overflow >384 into extra cells at the same
+	center so densify can cover ~all solid world brushes tip-safely.
+	Primary cf_<map>.gcp stays boot pack.
+	"""
+	bsp = load_bsp(bsp_path)
+	stem = bsp_path.stem.lower()
+	eyes = pick_eyes(spawns, stem)
+	if not eyes:
+		xs = [v[0] for v in bsp["verts"]]
+		ys = [v[1] for v in bsp["verts"]]
+		zs = [v[2] for v in bsp["verts"]]
+		eyes = [
+			{
+				"origin": [(min(xs) + max(xs)) * 0.5, (min(ys) + max(ys)) * 0.5, (min(zs) + max(zs)) * 0.5 + 64],
+				"angles": [0.0, 0.0, 0.0],
+			}
+		]
+
+	SURF_SKY = 4
+	SURF_WARP = 8
+	SURF_TRANS = 16
+	cands = []
+	for fi, face in enumerate(bsp["faces"]):
+		if face["numedges"] < 3:
+			continue
+		ti = face["texinfo"]
+		if ti < 0 or ti >= len(bsp["texinfos"]):
+			continue
+		texinfo = bsp["texinfos"][ti]
+		mip = texinfo["miptex"]
+		name = bsp["tex_names"][mip] if 0 <= mip < len(bsp["tex_names"]) else ""
+		if not name or name.startswith("sky") or name.startswith("!") or name.startswith("*"):
+			continue
+		# Tool / editor-only brushes — CapFaces drew these as solid slabs
+		# (aaatrigger×16 on caen primary; pure-white screen blobs).
+		if name.lower() in (
+			"aaatrigger", "clip", "hint", "skip", "origin", "null",
+			"bevel", "trigger", "lab_crnr",
+		):
+			continue
+		if texinfo["flags"] & (SURF_SKY | SURF_WARP | SURF_TRANS):
+			continue
+		pts = face_verts(bsp, face)
+		if len(pts) < 3:
+			continue
+		area = extents_area(pts, texinfo)
+		if area < GC_SPATIAL_AREA_MIN:
+			continue
+		pl = bsp["planes"][face["planenum"] % len(bsp["planes"])]
+		n, dist, _ = pl
+		if face["side"]:
+			n = (-n[0], -n[1], -n[2])
+			dist = -dist
+		score = 0.0
+		cx = sum(p[0] for p in pts) / len(pts)
+		cy = sum(p[1] for p in pts) / len(pts)
+		cz = sum(p[2] for p in pts) / len(pts)
+		for eye in eyes:
+			fs = facing_score(n, dist, eye["origin"])
+			if fs > 0:
+				dx = cx - eye["origin"][0]
+				dy = cy - eye["origin"][1]
+				dz = cz - eye["origin"][2]
+				d2 = dx * dx + dy * dy + dz * dz
+				score += area * fs / (1.0 + d2 * 0.00001)
+		# score<=0 backfaces looked like solid white REPLACE slabs under densify
+		# (~14% pure255). Keep spawn-facing only; spill+shard0 still widens rooms.
+		if score <= 0:
+			continue
+		cands.append((score, area, fi, name, texinfo, n, dist, pts, cx, cy, cz))
+
+	if not cands:
+		return {"cells": 0, "faces": 0, "overlays": []}
+
+	cell = GC_SPATIAL_CELL_SIZE
+	buckets: dict[tuple[int, int, int], list] = {}
+	for c in cands:
+		key = (int(c[8] // cell), int(c[9] // cell), int(c[10] // cell))
+		buckets.setdefault(key, []).append(c)
+
+	# Rank: every room's shard0 first (spawn coverage), densest rooms first
+	# within a shard, then densest overflow spills into leftover tip slots.
+	# Densest-only under the 63-cap dropped sparse near-spawn cells → white
+	# voids at the hold camera (~14% pure255) despite higher face totals.
+	chunks: list[tuple[int, int, tuple[int, int, int], list]] = []
+	for key, bucket in buckets.items():
+		bucket.sort(key=lambda x: -x[0])
+		for shard, i in enumerate(range(0, len(bucket), GC_SPATIAL_CELL_FACES)):
+			picked = bucket[i : i + GC_SPATIAL_CELL_FACES]
+			chunks.append((shard, -len(picked), key, picked))
+	chunks.sort()
+
+	media_dir.mkdir(parents=True, exist_ok=True)
+	cache.mkdir(parents=True, exist_ok=True)
+	manifest_lines = [
+		f"# CapFaces spatial all-geo {stem} (cell={int(cell)}u max={GC_SPATIAL_CELL_FACES} amin={int(GC_SPATIAL_AREA_MIN)} shard0+spill{GC_SPATIAL_MAX_CELLS})",
+		f"cf_{stem}.gcp {eyes[0]['origin'][0]:.1f} {eyes[0]['origin'][1]:.1f} {eyes[0]['origin'][2]:.1f} 0",
+	]
+	overlays: list[tuple[str, Path]] = []
+	total_faces = 0
+	cell_i = 0
+	for _shard, _neg_len, key, picked in chunks:
+		if cell_i >= GC_SPATIAL_MAX_CELLS:
+			break
+		atlas = bytearray(GC_LM_ATLAS_W * GC_LM_ATLAS_H * 2)
+		for i in range(0, len(atlas), 2):
+			atlas[i], atlas[i + 1] = 0x18, 0xC3
+		faces_out = []
+		order_keys = []
+		for slot, (score, area, fi, name, texinfo, n, dist, pts, _cx, _cy, _cz) in enumerate(picked):
+			face = bsp["faces"][fi]
+			dpts = decimate_ring(pts, GC_CAP_MAX_VERTS)
+			bake_src = BAKE_EDGE if len(pts) <= GC_CAP_MAX_VERTS else BAKE_TEX
+			v0, v1 = texinfo["vecs"]
+			ss = [p[0] * v0[0] + p[1] * v0[1] + p[2] * v0[2] + v0[3] for p in pts]
+			tt = [p[0] * v1[0] + p[1] * v1[1] + p[2] * v1[2] + v1[3] for p in pts]
+			lm_w = max(1, int(math.ceil((max(ss) - min(ss)) / 16)) + 1)
+			lm_h = max(1, int(math.ceil((max(tt) - min(tt)) / 16)) + 1)
+			lm_w = min(lm_w, 17)
+			lm_h = min(lm_h, 17)
+			col = slot % GC_LM_ATLAS_COLS
+			row = slot // GC_LM_ATLAS_COLS
+			if row >= GC_LM_ATLAS_ROWS:
+				break
+			tile = sample_lm_rgb565(bsp["lighting"], face["lightofs"], face["styles"], lm_w, lm_h)
+			for ty in range(GC_CAP_LM_DIM):
+				for tx in range(GC_CAP_LM_DIM):
+					src = (ty * GC_CAP_LM_DIM + tx) * 2
+					dx = col * GC_CAP_LM_DIM + tx
+					dy = row * GC_CAP_LM_DIM + ty
+					dst = (dy * GC_LM_ATLAS_W + dx) * 2
+					atlas[dst : dst + 2] = tile[src : src + 2]
+			nv = len(dpts)
+			pts_s16 = []
+			st = []
+			lm_uv = []
+			for i in range(GC_CAP_MAX_VERTS):
+				if i < nv:
+					p = dpts[i]
+					pts_s16.extend([
+						int(max(-32767, min(32767, round(p[0])))),
+						int(max(-32767, min(32767, round(p[1])))),
+						int(max(-32767, min(32767, round(p[2])))),
+					])
+					s, t = tex_st(texinfo, p, 64, 64)
+					st.extend([s, t])
+					s_lux = p[0] * v0[0] + p[1] * v0[1] + p[2] * v0[2] + v0[3]
+					t_lux = p[0] * v1[0] + p[1] * v1[1] + p[2] * v1[2] + v1[3]
+					ls = (s_lux - min(ss)) / 16.0
+					lt = (t_lux - min(tt)) / 16.0
+					ls = max(0.0, min(float(lm_w - 1), ls)) / max(1, lm_w - 1) if lm_w > 1 else 0.5
+					lt = max(0.0, min(float(lm_h - 1), lt)) / max(1, lm_h - 1) if lm_h > 1 else 0.5
+					u = (col * GC_CAP_LM_DIM + 0.5 + ls * (GC_CAP_LM_DIM - 1)) / GC_LM_ATLAS_W
+					v = (row * GC_CAP_LM_DIM + 0.5 + lt * (GC_CAP_LM_DIM - 1)) / GC_LM_ATLAS_H
+					lm_uv.extend([u, v])
+				else:
+					pts_s16.extend([0, 0, 0])
+					st.extend([0.0, 0.0])
+					lm_uv.extend([0.0, 0.0])
+			tex_hash = fnv1a32(name)
+			faces_out.append({
+				"nverts": nv,
+				"bake_src": bake_src,
+				"flags": 0,
+				"area": int(area),
+				"tex_hash": tex_hash,
+				"pts": pts_s16,
+				"st": st,
+				"lm_uv": lm_uv,
+				"lm_col": col,
+				"lm_row": row,
+			})
+			order_keys.append((tex_hash, -int(area), slot))
+		if not faces_out:
+			continue
+		order_keys.sort()
+		order = [s for _, _, s in order_keys if s < len(faces_out)]
+		fname = f"cf_{stem}_s{cell_i:02d}.gcp"
+		digest = hashlib.sha256(
+			bsp_path.read_bytes()
+			+ f"|spatial-cell-v3-allgeo|{key}|{cell_i}|{len(faces_out)}".encode()
+		).hexdigest()[:16]
+		cached = cache / f"{stem}-s{cell_i:02d}-{digest}.gcp"
+		dest = media_dir / fname
+		if cached.is_file():
+			dest.write_bytes(cached.read_bytes())
+		else:
+			blob = _pack_capfaces_bytes(faces_out, order, eyes, atlas)
+			cached.write_bytes(blob)
+			dest.write_bytes(blob)
+		cx = (key[0] + 0.5) * cell
+		cy = (key[1] + 0.5) * cell
+		cz = (key[2] + 0.5) * cell
+		manifest_lines.append(f"{fname} {cx:.1f} {cy:.1f} {cz:.1f} {len(faces_out)}")
+		overlays.append((f"media/{fname}", dest))
+		total_faces += len(faces_out)
+		cell_i += 1
+
+	manifest = media_dir / f"cf_{stem}_spatial.txt"
+	manifest.write_text("\n".join(manifest_lines) + "\n")
+	overlays.append((f"media/cf_{stem}_spatial.txt", manifest))
+	return {"cells": cell_i, "faces": total_faces, "overlays": overlays}
+
+
+def _pack_spatial_cells_pk3(
+	stem: str,
+	output: Path,
+	media: Path,
+	cell_names: list[str],
+	manifest: Path,
+) -> tuple[str, Path] | None:
+	"""Bundle spatial cells + manifest into one media/ pk3.
+
+	Loose media/cf_*_sNN.gcp grafts balloon the DVD FST and break ISO9660
+	FindFile for delta.lst. Keep the archive under media/ so boot-time
+	FS_AddGameDirectory does not auto-mount it (that also broke delta.lst);
+	CapFaces mounts it lazily after Host_Init.
+	"""
+	if not cell_names or not manifest.is_file():
+		return None
+	pk3_rel = f"media/cf_{stem}_spatial.pk3"
+	pk3_path = output / pk3_rel
+	pk3_path.parent.mkdir(parents=True, exist_ok=True)
+	with zipfile.ZipFile(pk3_path, "w", compression=zipfile.ZIP_STORED) as zf:
+		zf.write(manifest, f"media/{manifest.name}")
+		for fname in cell_names:
+			cell = media / fname
+			if cell.is_file():
+				zf.write(cell, f"media/{fname}")
+	# Drop loose cells from the data tree so ISO grafts cannot reintroduce them.
+	for fname in cell_names:
+		try:
+			(media / fname).unlink()
+		except FileNotFoundError:
+			pass
+	try:
+		manifest.unlink()
+	except FileNotFoundError:
+		pass
+	return (pk3_rel, pk3_path)
 
 
 def build_capfaces_packs(
@@ -520,7 +794,7 @@ def build_capfaces_packs(
 	map_stems: set[str] | None = None,
 	spawns_path: Path | None = None,
 ) -> list[tuple[str, Path]]:
-	"""Write media/cf_<map>.gcp for each BSP (or filtered stems)."""
+	"""Write media/cf_<map>.gcp (+ one spatial pk3) for each BSP."""
 	cache.mkdir(parents=True, exist_ok=True)
 	spawns = None
 	if spawns_path and spawns_path.is_file():
@@ -559,19 +833,67 @@ def build_capfaces_packs(
 			dest.write_bytes(prebaked.read_bytes())
 			print(f"  CapFaces pack {stem}: preserve prebaked {dest.stat().st_size} bytes")
 			overlays.append((rel, dest))
-			continue
-		# cache by bsp sha + bake recipe (spatial coverage + 768 face budget)
-		digest = hashlib.sha256(bsp.read_bytes() + b"|spatial-v2-768").hexdigest()[:16]
-		cached = cache / f"{stem}-{digest}.gcp"
-		if cached.is_file():
-			dest.write_bytes(cached.read_bytes())
 		else:
-			info = bake_map(bsp, spawns, cached)
-			dest.write_bytes(cached.read_bytes())
-			print(f"  CapFaces pack {stem}: faces={info['faces']} eyes={info['eyes']} {info['bytes']} bytes")
-		overlays.append((rel, dest))
+			# cache by bsp sha + bake recipe (spatial coverage + 768 face budget)
+			# v3: exclude editor/tool textures (aaatrigger/clip/hint/…) from CapFaces
+			digest = hashlib.sha256(bsp.read_bytes() + b"|spatial-v3-notool-768").hexdigest()[:16]
+			cached = cache / f"{stem}-{digest}.gcp"
+			if cached.is_file():
+				dest.write_bytes(cached.read_bytes())
+			else:
+				info = bake_map(bsp, spawns, cached)
+				dest.write_bytes(cached.read_bytes())
+				print(f"  CapFaces pack {stem}: faces={info['faces']} eyes={info['eyes']} {info['bytes']} bytes")
+			overlays.append((rel, dest))
+		# Tip-safe full-map coverage: page 384-face cells at runtime via frustum.
+		src_spatial = source / "media" / f"cf_{stem}_spatial.txt"
+		cell_names: list[str] = []
+		dest_man = media / f"cf_{stem}_spatial.txt"
+		if src_spatial.is_file():
+			# Preserve host-baked spatial cells (caen/flash full-map paging).
+			import shutil
+
+			for line in src_spatial.read_text().splitlines():
+				line = line.strip()
+				if not line or line.startswith("#"):
+					continue
+				parts = line.split()
+				if not parts:
+					continue
+				fname = parts[0]
+				# Manifest line 0 is the primary cf_<map>.gcp — never pack/delete it.
+				if not (fname.startswith(f"cf_{stem}_s") and fname.endswith(".gcp")):
+					continue
+				src_cell = source / "media" / fname
+				if not src_cell.is_file():
+					continue
+				(media / fname).write_bytes(src_cell.read_bytes())
+				cell_names.append(fname)
+			shutil.copy2(src_spatial, dest_man)
+			print(f"  CapFaces spatial {stem}: preserve {len(cell_names)} cells → pk3")
+		else:
+			try:
+				spat = bake_map_spatial(bsp, spawns, media, cache)
+				for rel_s, _path_s in spat.get("overlays") or []:
+					# overlays are media/<file>; collect cell names + keep manifest path
+					name = Path(rel_s).name
+					if name.endswith("_spatial.txt"):
+						continue
+					if name.startswith(f"cf_{stem}_s") and name.endswith(".gcp"):
+						cell_names.append(name)
+				if spat.get("cells", 0) > 0:
+					print(
+						f"  CapFaces spatial {stem}: cells={spat['cells']} "
+						f"faces≈{spat.get('faces', 0)} → pk3"
+					)
+			except Exception as exc:  # noqa: BLE001 — keep primary pack even if spatial fails
+				print(f"  CapFaces spatial {stem}: skip ({exc})")
+		packed = _pack_spatial_cells_pk3(stem, output, media, cell_names, dest_man)
+		if packed:
+			overlays.append(packed)
+			print(f"  CapFaces spatial {stem}: {packed[0]} ({packed[1].stat().st_size} bytes)")
 	if overlays:
-		print(f"  CapFaces packs: {len(overlays)} maps")
+		print(f"  CapFaces packs: {len(overlays)} files")
 	return overlays
 
 

@@ -1771,6 +1771,8 @@ static void SV_PutClientInServer( sv_client_t *cl )
 					dropped, ent->v.origin[0], ent->v.origin[1], ent->v.origin[2] );
 			}
 		}
+		/* WorldDL listen DropToFloor/SV_Move-at-put-in hung or corrupted the
+		 * cvar list (ava-106..114). Floor contact needs a different path. */
 		/* G119/G326: put-in rebuilds CBasePlayer. Re-arm the retail starting
 		 * crowbar through the safe post-spawn create/touch path. */
 		if( Sys_CheckParm( "-gcnewgame" ))
@@ -3806,6 +3808,17 @@ static void SV_ParseClientMove( sv_client_t *cl, sizebuf_t *msg )
 
 	SV_EstablishTimeBase( cl, cmds, net_drop, numbackup, numcmds );
 
+#if XASH_GAMECUBE
+	/* WorldDL lean: one authentic HL1 RunCmd/PM_Move per message. Draining
+	 * drop backlog + multi-cmd after land hung mid-packet (ava-hl1move-11). */
+	if( Sys_CheckParm( "-gcworldrender" ) && Sys_CheckParm( "-gcplayerinput" )
+		&& !Sys_CheckParm( "-gcfullphysics" ) && numcmds > 0 )
+	{
+		SV_RunCmd( cl, &cmds[0], cl->netchan.incoming_sequence );
+	}
+	else
+#endif
+	{
 	if( net_drop < 24 )
 	{
 		while( net_drop > numbackup )
@@ -3825,6 +3838,7 @@ static void SV_ParseClientMove( sv_client_t *cl, sizebuf_t *msg )
 	for( i = numcmds - 1; i >= 0; i-- )
 	{
 		SV_RunCmd( cl, &cmds[i], cl->netchan.incoming_sequence - i );
+	}
 	}
 
 	// was player kicked? stop here

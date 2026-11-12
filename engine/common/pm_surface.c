@@ -140,13 +140,21 @@ loc0:
 	// walk through real faces
 	int numsurfaces = node_numsurfaces( node, mod );
 	int firstsurface = node_firstsurface( node, mod );
+	/* WorldDL nodes can report OOB face ranges — surf->info DSI at low DAR
+	 * during grounded PM_Move footsteps (ava-hl1move-12..14). */
+	if( firstsurface < 0 || numsurfaces <= 0
+		|| !mod->surfaces
+		|| ( firstsurface + numsurfaces ) > mod->numsurfaces )
+		return PM_RecursiveSurfCheck( mod, node_child( node, side^1, mod ), mid, p2 );
 	for( int i = 0; i < numsurfaces; i++ )
 	{
 		msurface_t	*surf = &mod->surfaces[firstsurface + i];
 		mextrasurf_t	*info = surf->info;
-		mfacebevel_t	*fb = info->bevel;
+		mfacebevel_t	*fb;
 		vec3_t		delta;
 
+		if( !info ) continue;
+		fb = info->bevel;
 		if( !fb ) continue;	// ???
 
 		VectorSubtract( mid, fb->origin, delta );

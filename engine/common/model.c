@@ -34,6 +34,7 @@ poolhandle_t      com_studiocache;		// cache for submodels
 void FS_ClearFindMissCache( void );
 qboolean GC_IsNewGameWorldReady( void );
 void R_GXStudioInvalidateBindings( void );
+qboolean R_GXWorldDLActive( void );
 unsigned GC_GetNewGamePresentCount( void );
 
 static qboolean Mod_GCIsNewGameRoute( void )
@@ -41,15 +42,24 @@ static qboolean Mod_GCIsNewGameRoute( void )
 	return Sys_CheckParm( "-gcnewgame" ) || Sys_CheckParm( "-gcmenuplaystart" );
 }
 
+/* Map props share world-array spill with WorldDL's chunk cache. Loading them
+ * during entity spawn (before WorldDL Active) left cache at 128 KiB and blacked
+ * outdoor Flipper (ava-prop-6 vs prop-2's 448 KiB). Active() loads WorldDL on
+ * first call so the cache slice is claimed before the first prop TryAlloc. */
+static qboolean Mod_GCMapModelSpillAfterWorldDL( void )
+{
+	return R_GXWorldDLActive();
+}
+
 /* Real MDLs live in the 1 MiB studio BSS arena (lean meshes + viewweapons).
  * Stubbing left GetEyePosition null and stalled denser maps during spawn —
  * the GameCube can hold the early-campaign cast without that compromise. */
 /* 1 MiB studio BSS — fill it. Lean meshes + *t skins keep HL1 looking right. */
-#define GC_REAL_STUDIO_MAX_NPC    20
+#define GC_REAL_STUDIO_MAX_NPC    24
 #define GC_REAL_STUDIO_MAX_VIEW   5
-#define GC_REAL_STUDIO_MAX_BYTES  ( 1000 * 1024 )
+#define GC_REAL_STUDIO_MAX_BYTES  ( 1536 * 1024 )
 #define GC_REAL_STUDIO_MAX_NPC_MENU   16
-#define GC_REAL_STUDIO_MAX_BYTES_MENU ( 1000 * 1024 )
+#define GC_REAL_STUDIO_MAX_BYTES_MENU ( 1536 * 1024 )
 
 static int    gc_real_studio_npc;
 static int    gc_real_studio_view;
@@ -66,9 +76,13 @@ static int     gc_deferred_studio_attempts;
  * soft skins never got a BSS mesh (heap zip OOM → stub SetModel). 384 KiB
  * holds crowbar + scientist + barney (~343 KiB) for deferred T.mdl attach;
  * tip-safe c1a0a→c1a0d must stay CHANGELEVEL_READY after this bump. Native
- * Ethernet multiplayer instead uses the proven 184 KiB boot budget; visual
- * studios can remain deferred rather than preventing a match from starting. */
+ * Ethernet multiplayer uses the proven 184 KiB boot budget; visual studios
+ * stay deferred. tex21 bumped to 384 for full v_colt skins and Host_Init
+ * failed gfx.wad (unclaimed 1.32→1.12 Mb) — keep 184 on network. */
 #if XASH_DODGC_NETWORK
+	/* Keep 184 KiB — 768 KiB BSS starved Host_Init (ava-prop-1 heap_free=104).
+	 * Avalanche lean mapmodels (~249 KiB) promote into world-array spill after
+	 * WorldDL shrinks its chunk cache (see Mod_GCPromoteMapModels). */
 #define GC_STUDIO_BSS_BYTES (184 * 1024)
 #else
 #define GC_STUDIO_BSS_BYTES (384 * 1024)
@@ -388,6 +402,11 @@ static qboolean Mod_GCStudioNameAllowed( const char *name, qboolean *is_viewmode
 		"nihilanth", "big_mom", "baby_headcrab", "controller",
 		/* Tiny lean world-weapon stub for Flipper studio draw admit. */
 		"w_crowbar",
+		/* CapFaces DoD map props (env_model / dod_object) — lean gc_studio. */
+		"hk_satchel", "horse_statue", "by_rubble_set", "sandbags",
+		"by_canopy", "arc_xer_tree2", "furniture", "bulb",
+		/* dod_avalanche env_models — full-fidelity props (ava-prop-1). */
+		"sherman", "jagd", "by_banister", "flags",
 		NULL
 	};
 	static const char *views[] = {
@@ -510,7 +529,44 @@ static byte *Mod_GCLoadStudioFile( const char *model_path, fs_offset_t *length, 
 			}
 			slot = NULL;
 			previous_bump = gc_studio_bss_bump;
-			if( flen >= (fs_offset_t)sizeof( studiohdr_t )
+			/* Mapmodels prefer world-array spill so the 184 KiB studio BSS
+			 * stays free for the team viewmodel (ava-prop-2 tip≈6 KiB).
+			 * Only after WorldDL owns its chunk-cache slice. */
+			if( Q_stristr( model_path, "mapmodels/" )
+				&& flen >= (fs_offset_t)sizeof( studiohdr_t )
+				&& Mod_GCMapModelSpillAfterWorldDL())
+			{
+				extern void *Mod_GCWorldArraySpillTryAlloc( size_t bytes, const char *what );
+				extern void Mod_GCWorldArraySpillPinBase( const void *ptr, size_t bytes );
+
+				slot = (byte *)Mod_GCWorldArraySpillTryAlloc( (size_t)flen, "mapmodel-studio" );
+				if( slot )
+				{
+					total = 0;
+					while( total < flen )
+					{
+						got = FS_Read( f, slot + total, flen - total );
+						if( got <= 0 )
+							break;
+						total += got;
+					}
+					FS_Close( f );
+					if( total == flen )
+					{
+						Mod_GCWorldArraySpillPinBase( slot, (size_t)flen );
+						*length = flen;
+						if( from_bss )
+							*from_bss = true;
+						Con_Reportf( "Xash3D GameCube: mapmodel spill read '%s' via %s (%s)\n",
+							model_path, mirror, Q_memprint( (size_t)flen ));
+						return slot;
+					}
+					Con_Reportf( "Xash3D GameCube: mapmodel spill short '%s' read=%li want=%li\n",
+						mirror, (long)total, (long)flen );
+					slot = NULL;
+				}
+			}
+			if( !slot && flen >= (fs_offset_t)sizeof( studiohdr_t )
 				&& flen <= (fs_offset_t)GC_STUDIO_BSS_BYTES )
 				slot = Mod_GCStudioBssAlloc( (size_t)flen );
 			if( slot )
@@ -546,6 +602,55 @@ static byte *Mod_GCLoadStudioFile( const char *model_path, fs_offset_t *length, 
 				if( flen > (fs_offset_t)GC_STUDIO_BSS_BYTES )
 					Con_Reportf( "Xash3D GameCube: G289 studio too large for BSS '%s' (%s)\n",
 						mirror, Q_memprint( (size_t)flen ));
+				/* Map props: WorldDL listen leaves spill headroom (chunk cache
+				 * capped at 192 KiB). Stream lean mesh there — tip heap is dead.
+				 * Gate on WorldDL Active so props cannot starve the cache. */
+				if( Q_stristr( model_path, "mapmodels/" )
+					&& flen >= (fs_offset_t)sizeof( studiohdr_t )
+					&& Mod_GCAllowRealStudioLoad( model_path, (size_t)flen )
+					&& Mod_GCMapModelSpillAfterWorldDL())
+				{
+					extern void *Mod_GCWorldArraySpillTryAlloc( size_t bytes, const char *what );
+					extern void Mod_GCWorldArraySpillPinBase( const void *ptr, size_t bytes );
+
+					f = FS_Open( mirror, "rb", false );
+					if( !f )
+						f = FS_Open( mirror, "rb", true );
+					if( f )
+					{
+						slot = (byte *)Mod_GCWorldArraySpillTryAlloc( (size_t)flen, "mapmodel-studio" );
+						if( slot )
+						{
+							total = 0;
+							while( total < flen )
+							{
+								got = FS_Read( f, slot + total, flen - total );
+								if( got <= 0 )
+									break;
+								total += got;
+							}
+							FS_Close( f );
+							if( total == flen )
+							{
+								Mod_GCWorldArraySpillPinBase( slot, (size_t)flen );
+								*length = flen;
+								if( from_bss )
+									*from_bss = true; /* don't free — spill-backed */
+								Con_Reportf( "Xash3D GameCube: mapmodel spill read '%s' via %s (%s)\n",
+									model_path, mirror, Q_memprint( (size_t)flen ));
+								return slot;
+							}
+							Con_Reportf( "Xash3D GameCube: mapmodel spill short '%s' read=%li want=%li\n",
+								mirror, (long)total, (long)flen );
+						}
+						else
+						{
+							FS_Close( f );
+							Con_Reportf( "Xash3D GameCube: mapmodel spill alloc miss '%s' (%s)\n",
+								mirror, Q_memprint( (size_t)flen ));
+						}
+					}
+				}
 			}
 		}
 	}
@@ -702,6 +807,9 @@ qboolean Mod_GCPromoteStudioPath( const char *path )
 		return true;
 	}
 
+	/* Failed promote with spill buffer — rewind so the next env_model can retry. */
+	if( from_bss && Mod_GCIsWorldArraySpillCache( buf ))
+		Mod_GCWorldArraySpillRewind( buf, (size_t)length );
 	Con_Reportf( S_WARN "Xash3D GameCube: deferred studio promote failed '%s'\n", path );
 	return false;
 }
@@ -729,6 +837,76 @@ qboolean Mod_GCEnsureLandmarkViewModel( const char *model_path )
 	ok = Mod_GCPromoteStudioPath( model_path );
 	if( ok )
 		Q_strncpy( gc_landmark_viewmodel, model_path, sizeof( gc_landmark_viewmodel ));
+	return ok;
+}
+
+/*
+=============
+Mod_GCCapFacesClaimTeamViewModel
+
+CapFaces DoD listen keeps lean pistols/crowbar in the 184 KiB studio BSS, so
+the Allies/Axis rifle (~110 KiB lean) cannot promote after team pick. Abandon
+BSS-resident studios, rewind the bump, then promote exactly one team VM so
+Mod_GCAttachStudioSkins can merge the downsampled gc_studio/*t.mdl atlas.
+=============
+*/
+qboolean Mod_GCCapFacesClaimTeamViewModel( const char *model_path )
+{
+	model_t *mod;
+	int i, abandoned = 0;
+	qboolean ok;
+
+	if( !model_path || !model_path[0] )
+		return false;
+
+	mod = Mod_FindName( model_path, false );
+	if( !( Mod_GCStudioAlreadyResident( mod ) && Mod_GCIsStudioBssCache( mod->cache.data ) ) )
+	{
+		gc_pinned_viewmodel_count = 0;
+		memset( gc_pinned_viewmodels, 0, sizeof( gc_pinned_viewmodels ));
+		for( i = 1, mod = &mod_known[1]; i < mod_numknown; i++, mod++ )
+		{
+			if( mod->type != mod_studio || !mod->cache.data )
+				continue;
+			if( !Mod_GCIsStudioBssCache( mod->cache.data ))
+				continue;
+			Con_Reportf( "Xash3D GameCube: CapFaces studio abandon '%s'\n",
+				mod->name[0] ? mod->name : "?" );
+			mod->submodels = NULL;
+			mod->cache.data = NULL;
+			if( mod->mempool )
+				Mem_FreePool( &mod->mempool );
+			abandoned++;
+		}
+		gc_real_studio_npc = 0;
+		gc_real_studio_view = 0;
+		gc_real_studio_bytes = 0;
+		gc_studio_bss_owners = 0;
+		gc_studio_bss_bump = 0;
+		gc_landmark_viewmodel[0] = '\0';
+		Con_Reportf( "Xash3D GameCube: CapFaces studio BSS reclaim abandoned=%d for '%s'\n",
+			abandoned, model_path );
+
+		FS_ClearFindMissCache();
+		Image_GCPurgeDecodeScratch();
+		ok = Mod_GCEnsureLandmarkViewModel( model_path );
+		if( !ok )
+			return false;
+	}
+	else
+	{
+		Mod_GCPinViewModel( mod );
+		Q_strncpy( gc_landmark_viewmodel, model_path, sizeof( gc_landmark_viewmodel ));
+	}
+
+	/* Skin only the claimed rifle — UploadDeferred also tried mp40 and tip-OOMd. */
+	{
+		extern qboolean Mod_GCAttachStudioSkins( model_t *mod );
+
+		mod = Mod_FindName( model_path, false );
+		if( mod && mod->cache.data )
+			ok = Mod_GCAttachStudioSkins( mod );
+	}
 	return ok;
 }
 
@@ -805,6 +983,58 @@ void Mod_GCPromoteLeanNpcStudios( void )
 	Con_Reportf( "Xash3D GameCube: G375 dump NPC studios try npc=%d view=%d budget=%s\n",
 		gc_real_studio_npc, gc_real_studio_view, Q_memprint( gc_real_studio_bytes ));
 	Mod_GCRebindPromotedStudios();
+}
+
+/*
+=============
+Mod_GCPromoteMapModels
+
+WorldDL listen: promote every allowlisted models/mapmodels/*.mdl from the
+server precache after MAP_READY — full-skin props are too big for the 184 KiB
+boot BSS (sherman≈294 KiB) and must use post-world heap (ava-prop-1).
+=============
+*/
+void Mod_GCPromoteMapModels( void )
+{
+	int i;
+	int tried = 0;
+	int ok = 0;
+
+	if( !SV_Active() )
+		return;
+	if( !Sys_CheckParm( "-gcworldrender" ))
+		return;
+
+	/* Tip≈6 KiB — heap promote is dead. Lean meshes load into world-array
+	 * spill (WorldDL chunk cache capped at 192 KiB on listen). Viewmodels
+	 * stay in the 184 KiB studio BSS. */
+	FS_ClearFindMissCache();
+	Image_GCPurgeDecodeScratch();
+	for( i = 1; i < MAX_MODELS && sv.model_precache[i][0]; i++ )
+	{
+		const char *name = sv.model_precache[i];
+		qboolean is_view = false;
+		model_t *mod;
+
+		if( !name || !Q_stristr( name, "mapmodels/" ) || !Q_stristr( name, ".mdl" ))
+			continue;
+		if( !Mod_GCStudioNameAllowed( name, &is_view ))
+			continue;
+		tried++;
+		if( !Mod_GCPromoteStudioPath( name ))
+			continue;
+		ok++;
+		{
+			extern qboolean Mod_GCAttachStudioSkins( model_t *m );
+
+			mod = Mod_FindName( name, false );
+			if( mod && mod->cache.data )
+				Mod_GCAttachStudioSkins( mod );
+		}
+	}
+	Mod_GCRebindPromotedStudios();
+	Con_Reportf( "Xash3D GameCube: mapmodel studios promote ok=%d/%d budget=%s tip=%s\n",
+		ok, tried, Q_memprint( gc_real_studio_bytes ), Q_memprint( GC_MemHeapFreeBytes() ));
 }
 
 /*
@@ -972,16 +1202,11 @@ void Mod_GCLoadPreEntityStudios( void )
 	 * campaign meshes (gman/houndeye/forklift) promote on SetModel demand
 	 * so pre-entity does not push studio BSS into the crash cliff. */
 #if XASH_DODGC_NETWORK
-	/* DoD has no HL1 NPC cast, and these generic pistol meshes are not used by
-	 * its rifleman spawn. Defer all player weapons until the class is selected. */
+	/* DoD CapFaces listen: keep the 184 KiB studio BSS empty until team pick
+	 * claims one lean rifle (Mod_GCCapFacesClaimTeamViewModel). Preloading
+	 * colt/crowbar left no room for garand/mp40. */
 	static const char *promote[] = { NULL };
 #else
-	/* Lost Coast CapFaces: retail 357 only — HL1 cast starved BSS (~370 KiB)
-	 * and left v_357 malloc-fail (probe 131844). */
-	static const char *promote_lostcoast[] = {
-		"models/v_357.mdl",
-		NULL
-	};
 	static const char *promote[] = {
 		"models/v_crowbar.mdl",
 		"models/w_crowbar.mdl",
@@ -1521,6 +1746,7 @@ static model_t *Mod_LoadModel( model_t *mod, qboolean crash )
 			dheader_t hdr;
 			int light_ofs = 0, light_len = 0;
 			size_t compact_need = (size_t)filesize;
+			size_t light_align_pad = 0;
 			qboolean prefer_compact = false;
 
 			if( f && FS_Read( f, &hdr, sizeof( hdr )) == (fs_offset_t)sizeof( hdr ))
@@ -1534,10 +1760,16 @@ static model_t *Mod_LoadModel( model_t *mod, qboolean crash )
 				}
 			}
 
+			/* Post-lighting lumps keep disc alignment. Stripping a lighting
+			 * blob whose length is not 4-byte aligned shifts every later lump
+			 * (textures/ents/vis) onto a misaligned address. On BE GameCube
+			 * that makes dmiptexlump_t.nummiptex read as 0 → empty textures →
+			 * Mod_LoadTexInfo null-deref (dod_flash ship 20261110-083723). */
 			if( light_len > 0 && light_ofs > 0
 				&& (size_t)light_ofs + (size_t)light_len <= (size_t)filesize )
 			{
-				compact_need = (size_t)filesize - (size_t)light_len;
+				light_align_pad = (size_t)light_len & 3u;
+				compact_need = (size_t)filesize - (size_t)light_len + light_align_pad;
 				prefer_compact = compact_need < (size_t)filesize;
 			}
 
@@ -1559,6 +1791,16 @@ static model_t *Mod_LoadModel( model_t *mod, qboolean crash )
 					if( light_len > 0 && pos >= light_ofs
 						&& pos < (fs_offset_t)( light_ofs + light_len ))
 					{
+						if( light_align_pad )
+						{
+							if( out + light_align_pad > compact_need )
+							{
+								ok = false;
+								break;
+							}
+							memset( buf + out, 0, light_align_pad );
+							out += light_align_pad;
+						}
 						pos = (fs_offset_t)( light_ofs + light_len );
 						FS_Seek( f, pos, SEEK_SET );
 						continue;
@@ -1590,6 +1832,7 @@ static model_t *Mod_LoadModel( model_t *mod, qboolean crash )
 				if( ok && out == compact_need && out >= sizeof( dheader_t ))
 				{
 					dheader_t *dh = (dheader_t *)buf;
+					const int shrink = light_len - (int)light_align_pad;
 
 					dh->lumps[LUMP_LIGHTING].fileofs = 0;
 					dh->lumps[LUMP_LIGHTING].filelen = 0;
@@ -1601,11 +1844,12 @@ static model_t *Mod_LoadModel( model_t *mod, qboolean crash )
 						if( i == LUMP_LIGHTING || len <= 0 )
 							continue;
 						if( ofs > light_ofs )
-							dh->lumps[i].fileofs = LittleLong( ofs - light_len );
+							dh->lumps[i].fileofs = LittleLong( ofs - shrink );
 					}
 					length = (fs_offset_t)out;
-					Con_Reportf( "Xash3D GameCube: map load compact (no lighting) %s → %s (G154 disc LM)\n",
-						Q_memprint( (size_t)filesize ), Q_memprint( out ));
+					Con_Reportf( "Xash3D GameCube: map load compact (no lighting) %s → %s (G154 disc LM)%s\n",
+						Q_memprint( (size_t)filesize ), Q_memprint( out ),
+						light_align_pad ? " +align" : "" );
 				}
 				else
 				{

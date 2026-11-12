@@ -345,6 +345,13 @@ int Image_GCMaxLoadDimension( const char *name )
 	if( name && Q_stristr( name, "gfx/env" ))
 		return Q_min( max_dim, 16 );
 
+	/* Viewmodel skins are fullscreen heroes — quality 0's 64² decode made
+	 * Soft/RGB565 wood look like stipple (ava-play99-24..34). CapFaces
+	 * companions are now 128² (ava-play99-43); keep PoT so we don't force
+	 * a non-power resample (96) that collapses back toward muddy tiles. */
+	if( name && name[0] == '#' && Q_stristr( name, "models/v_" ))
+		return 128;
+
 	if( name && name[0] == '#' && Q_strstr( name, "_stb_font" ))
 		return Q_min( max_dim, 128 );
 
@@ -1201,7 +1208,15 @@ byte *Image_ResampleInternal( const void *indata, int inwidth, int inheight, int
 	case PF_INDEXED_24:
 	case PF_INDEXED_32:
 		#if XASH_GAMECUBE
-		if(( Sys_CheckParm( "-gcmap" ) || Sys_CheckParm( "-gcnewgame" )) && !image.tempbuffer )
+		/* Transient slab is fixed-size; never reuse a smaller prior alloc for a
+		 * larger out (crowbar 64² then garand 128² stomped / under-wrote). */
+		if( Image_GCIsTransient( image.tempbuffer ))
+		{
+			Image_GCPurgeDecodeScratch();
+			image.tempbuffer = NULL;
+		}
+		if(( Sys_CheckParm( "-gcmap" ) || Sys_CheckParm( "-gcnewgame" )
+			|| Sys_CheckParm( "-gcworldrender" )) && !image.tempbuffer )
 			image.tempbuffer = (byte *)Image_GCAllocTransient( outwidth * outheight );
 		else
 		#endif
@@ -1360,8 +1375,15 @@ qboolean Image_AddIndexedImageToPack( const byte *in, int width, int height )
 	qboolean	expand_to_rgba = true;
 
 #if XASH_GAMECUBE
-	if( !Image_CheckFlag( IL_KEEP_8BIT ) && !FBitSet( image.flags, IMAGE_HAS_LUMA|IMAGE_QUAKESKY ))
+	/* Always size-clamp MDL skins (even IL_KEEP_8BIT from masked TF_KEEP_SOURCE).
+	 * Skipping the clamp left 256² packs that then failed/fallback-decoded as
+	 * 64² (ava-play99-39 VM upload dim pic=64x64). */
+	if( image.mdl_decode
+		|| ( !Image_CheckFlag( IL_KEEP_8BIT )
+			&& !FBitSet( image.flags, IMAGE_HAS_LUMA|IMAGE_QUAKESKY )))
 	{
+		/* Power-of-two halving only: 256→128→64. Use 128 for MDL so
+		 * viewmodels don't fall to the quality-0 64² floor (ava-play99-40). */
 		const int max_size = image.mdl_decode ? 128 : Image_GCMaxLoadDimension( NULL );
 		if( scaled_width > max_size || scaled_height > max_size )
 		{
@@ -1376,6 +1398,11 @@ qboolean Image_AddIndexedImageToPack( const byte *in, int width, int height )
 			{
 				image.width = scaled_width;
 				image.height = scaled_height;
+			}
+			else if( image.mdl_decode )
+			{
+				Con_Reportf( "Xash3D GameCube: MDL resample failed %dx%d -> %dx%d\n",
+					width, height, scaled_width, scaled_height );
 			}
 		}
 	}

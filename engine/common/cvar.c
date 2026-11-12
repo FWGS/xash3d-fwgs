@@ -85,9 +85,8 @@ convar_t *Cvar_FindVar( const char *var_name )
 		for( var = cvar_vars; var; var = var->next )
 		{
 			node = (uintptr_t)var;
-			/* A corrupt cvar tail previously turned a routine menu/client
-			 * lookup into a DSI.  Static cvars and the GC heap live in MEM1 or
-			 * MEM2; stop at an invalid link and retain the useful boot trace. */
+			/* Keep a bad cvar link from turning a normal menu lookup into a
+			 * DSI. Static cvars and GC heap objects reside in MEM1 or MEM2. */
 			if((( node < 0x80000000u || node >= 0x81800000u )
 					&& ( node < 0x90000000u || node >= 0x94000000u ))
 				|| ( node & 3u ) || ++walked > 8192 )

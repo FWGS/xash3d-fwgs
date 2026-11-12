@@ -48,8 +48,7 @@ static void SV_GameCubePlayStart_f( void )
 		map = Cmd_Argv( 1 );
 	else
 		map = ( GI && !COM_StringEmpty( GI->startmap )) ? GI->startmap : "c0a0";
-	/* SpawnServer and map-load trimming can rewrite the command buffer that
-	 * backs Cmd_Argv(). Own the map name before entering that destructive path. */
+	/* SpawnServer and map-load trimming can rewrite Cmd_Argv() storage. */
 	Q_strncpy( map_name, map, sizeof( map_name ));
 	map = map_name;
 

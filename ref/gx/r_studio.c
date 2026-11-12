@@ -554,10 +554,9 @@ static void R_StudioSetUpTransform( cl_entity_t *e )
 
 	if( !FBitSet( gp_host->features, ENGINE_COMPENSATE_QUAKE_BUG ))
 	{
-#if XASH_GAMECUBE
-		/* G157: viewmodels use engine viewangles as-is (client CalcRefdef absent). */
+		/* Viewmodels keep engine pitch — flipping CapFaces rifles aimed them
+		 * end-on (pillar smear). World studios still get the Quake fix. */
 		if( e != tr.viewent )
-#endif
 			angles[PITCH] = -angles[PITCH]; // stupid quake bug
 	}
 
@@ -986,6 +985,18 @@ static void R_StudioSetupBones( cl_entity_t *e )
 	static vec3_t    pos4[MAXSTUDIOBONES];
 	static vec4_t    q4[MAXSTUDIOBONES];
 	int i;
+#if XASH_GAMECUBE
+	{
+		static int setup_logs;
+		if( setup_logs < 4 && e && e == tr.viewent && e->model && e->model->name[0] )
+		{
+			setup_logs++;
+			gEngfuncs.Con_Reportf(
+				"Xash3D GameCube: G162 SetupBones %s viewent=1 seq=%d\n",
+				e->model->name, e->curstate.sequence );
+		}
+	}
+#endif
 
 	if( e->curstate.sequence >= m_pStudioHeader->numseq )
 		e->curstate.sequence = 0;
@@ -1158,21 +1169,82 @@ static void R_StudioSetupBones( cl_entity_t *e )
 		}
 	}
 #if XASH_GAMECUBE
-	/* G377: keep rest-pose only as an explode fallback. Group-0 CalcRotations
-	 * is the live pose (idle/walk). Bone AABB >220u means anim values went
-	 * off-range — restore bind pose for that frame. */
-	if( R_GXLeanNpcAnimActive( e ) && R_GXStudioBonePoseExploded())
+	/* G377: rest-pose fallback when lean anim is empty/exploded.
+	 * Listen WorldDL uses -gclistenserver (not -gcnewgame), and lean
+	 * v_garand idle has numframes=0 — CalcRotations then smears the arms
+	 * into screen-filling wings (ava-play99-65). */
 	{
-		static qboolean explode_logged;
-
-		R_GXStudioRestPoseFallback( pbones );
-		if( !explode_logged )
+		const qboolean is_view =
+			( e == tr.viewent )
+			|| ( e && e->model && e->model->name[0]
+				&& ( Q_stristr( e->model->name, "/v_" )
+					|| Q_stristr( e->model->name, "v_garand" )
+					|| Q_stristr( e->model->name, "v_mp40" )));
+		const qboolean empty_seq = ( pseqdesc->numframes <= 0 );
+		const qboolean exploded = R_GXStudioBonePoseExploded();
+		if(( R_GXLeanNpcAnimActive( e ) && exploded )
+			|| ( is_view && ( empty_seq || exploded )))
 		{
-			explode_logged = true;
-			gEngfuncs.Con_Reportf(
-				"Xash3D GameCube: G377 lean studio anim explode fallback %s seq=%d f=%.2f org=(%.0f,%.0f,%.0f)\n",
-				e->model->name, e->curstate.sequence, f,
-				e->origin[0], e->origin[1], e->origin[2] );
+			static qboolean explode_logged;
+
+			R_GXStudioRestPoseFallback( pbones );
+			if( !explode_logged )
+			{
+				explode_logged = true;
+				gEngfuncs.Con_Reportf(
+					"Xash3D GameCube: G377 lean studio anim explode fallback %s seq=%d f=%.2f frames=%d org=(%.0f,%.0f,%.0f)\n",
+					e->model && e->model->name[0] ? e->model->name : "?",
+					e->curstate.sequence, f, pseqdesc->numframes,
+					e->origin[0], e->origin[1], e->origin[2] );
+			}
+		}
+		if( is_view && m_pStudioHeader && m_pStudioHeader->numbones > 0 )
+		{
+			static qboolean vm_bone_logged;
+			float rmin[3], rmax[3];
+			int bi;
+
+			if( !vm_bone_logged )
+			{
+				vm_bone_logged = true;
+				rmin[0] = rmin[1] = rmin[2] = 1e9f;
+				rmax[0] = rmax[1] = rmax[2] = -1e9f;
+				for( bi = 0; bi < m_pStudioHeader->numbones; bi++ )
+				{
+					const float x = g_studio.bonestransform[bi][0][3];
+					const float y = g_studio.bonestransform[bi][1][3];
+					const float z = g_studio.bonestransform[bi][2][3];
+
+					if( x < rmin[0] ) rmin[0] = x;
+					if( y < rmin[1] ) rmin[1] = y;
+					if( z < rmin[2] ) rmin[2] = z;
+					if( x > rmax[0] ) rmax[0] = x;
+					if( y > rmax[1] ) rmax[1] = y;
+					if( z > rmax[2] ) rmax[2] = z;
+				}
+				gEngfuncs.Con_Reportf(
+					"Xash3D GameCube: G162 viewmodel bones seq=%d f=%.2f span=(%.1f,%.1f,%.1f) frames=%d animtime=%.2f pitch=%.1f\n",
+					e->curstate.sequence, f,
+					rmax[0] - rmin[0], rmax[1] - rmin[1], rmax[2] - rmin[2],
+					pseqdesc->numframes,
+					e->curstate.animtime, e->angles[PITCH] );
+				/* Clip (54/55) should sit on gun bone 49 — log if detached. */
+				if( m_pStudioHeader->numbones > 55 )
+				{
+					const float gx = g_studio.bonestransform[49][0][3];
+					const float gy = g_studio.bonestransform[49][1][3];
+					const float gz = g_studio.bonestransform[49][2][3];
+					const float cx = g_studio.bonestransform[54][0][3];
+					const float cy = g_studio.bonestransform[54][1][3];
+					const float cz = g_studio.bonestransform[54][2][3];
+					const float dx = cx - gx, dy = cy - gy, dz = cz - gz;
+
+					gEngfuncs.Con_Reportf(
+						"Xash3D GameCube: G379 VM gun bone49=(%.1f,%.1f,%.1f) clip54=(%.1f,%.1f,%.1f) d=%.1f\n",
+						gx, gy, gz, cx, cy, cz,
+						sqrtf( dx * dx + dy * dy + dz * dz ));
+				}
+			}
 		}
 	}
 #endif
@@ -1559,6 +1631,17 @@ static void R_StudioSetupLighting( alight_t *plight )
 
 	g_studio.ambientlight = plight->ambientlight;
 	g_studio.shadelight = plight->shadelight;
+#if XASH_GAMECUBE
+	/* Viewmodel MODULATE: soft gouraud only. Wide ambient/shade ranges
+	 * (72/96, 128/80) silhouetted the Garand under MODULATE (ava-play99-87/88).
+	 * 176/32 read almost flat (ava-play99-91/92) — open the band a little
+	 * so hands get definition without crushing wood. */
+	if( RI.currententity == tr.viewent )
+	{
+		g_studio.ambientlight = 152.0f;
+		g_studio.shadelight = 56.0f;
+	}
+#endif
 	VectorCopy( plight->plightvec, g_studio.lightvec );
 
 	for( int i = 0; i < m_pStudioHeader->numbones; i++ )
@@ -2326,7 +2409,9 @@ static void R_StudioDrawPoints( void )
 				R_LightStrength( pvertbone[i], pstudioverts[i], g_studio.lightpos[i] );
 		}
 #if XASH_GAMECUBE
-		if( gEngfuncs.Sys_CheckParm( "-gcnewgame" ) && m_pSubModel->numverts > 0 )
+		if(( gEngfuncs.Sys_CheckParm( "-gcnewgame" ) || GC_UseGxWorldDraw())
+			&& m_pSubModel->numverts > 0
+			&& RI.currententity == tr.viewent )
 		{
 			static qboolean bbox_logged;
 			float mn[3], mx[3];
@@ -2345,15 +2430,26 @@ static void R_StudioDrawPoints( void )
 			}
 			if( !bbox_logged )
 			{
+				vec3_t eye_fwd, delta;
+				float dmin = 1e9f, dmax = -1e9f;
+
 				bbox_logged = true;
+				AngleVectors( RI.rvp.viewangles, eye_fwd, NULL, NULL );
+				for( i = 0; i < m_pSubModel->numverts; i++ )
+				{
+					float d;
+
+					VectorSubtract( g_studio.verts[i], RI.rvp.vieworigin, delta );
+					d = DotProduct( eye_fwd, delta );
+					if( d < dmin ) dmin = d;
+					if( d > dmax ) dmax = d;
+				}
 				gEngfuncs.Con_Reportf(
-					"Xash3D GameCube: G376 studio verts %s n=%d raw0=(%.1f,%.1f,%.1f) bone0=%d xf0=(%.0f,%.0f,%.0f) bbox=(%.0f,%.0f,%.0f)-(%.0f,%.0f,%.0f) ent=(%.0f,%.0f,%.0f)\n",
+					"Xash3D GameCube: G376 VM verts %s n=%d bone0=%d bbox=(%.0f,%.0f,%.0f)-(%.0f,%.0f,%.0f) depth=[%.1f,%.1f] ent=(%.0f,%.0f,%.0f)\n",
 					( RI.currentmodel && RI.currentmodel->name[0] ) ? RI.currentmodel->name : "?",
-					m_pSubModel->numverts,
-					pstudioverts[0][0], pstudioverts[0][1], pstudioverts[0][2],
-					b0,
-					g_studio.verts[0][0], g_studio.verts[0][1], g_studio.verts[0][2],
+					m_pSubModel->numverts, b0,
 					mn[0], mn[1], mn[2], mx[0], mx[1], mx[2],
+					dmin, dmax,
 					RI.currententity->origin[0], RI.currententity->origin[1], RI.currententity->origin[2] );
 			}
 		}
@@ -2400,6 +2496,18 @@ static void R_StudioDrawPoints( void )
 					R_StudioLighting( &lv_tmp, -1, g_nFaceFlags, g_studio.norms[k] );
 				else
 					R_StudioLighting( &lv_tmp, *pnormbone, g_nFaceFlags, (float *)pstudionorms );
+#if XASH_GAMECUBE
+				/* Soft-clamp viewmodel luminance so MODULATE cannot crush
+				 * backfaces into black silhouettes (ava-play99-88). Floor
+				 * eased with ambient 152/56 so hands keep some shape. */
+				if( RI.currententity == tr.viewent )
+				{
+					if( lv_tmp < 0.55f )
+						lv_tmp = 0.55f;
+					else if( lv_tmp > 0.98f )
+						lv_tmp = 0.98f;
+				}
+#endif
 
 				if( FBitSet( g_nFaceFlags, STUDIO_NF_CHROME ))
 					R_StudioSetupChrome( g_studio.chrome[k], *pnormbone, (float *)pstudionorms );
@@ -2885,6 +2993,14 @@ static void R_StudioRenderFinal( void )
 	{
 		for( i = 0; i < m_pStudioHeader->numbodyparts; i++ )
 		{
+#if XASH_GAMECUBE
+			/* Sleeve bodypart is a separate 82-vert paddle that reads as
+			 * prism arms under Flipper (ava-play99-80). Gun mesh0 already
+			 * carries hands.bmp arms — skip the cloth overlay for viewent. */
+			if(( GC_UseGxWorldDraw() || gEngfuncs.Sys_CheckParm( "-gcnewgame" ))
+				&& RI.currententity == tr.viewent && i > 0 )
+				continue;
+#endif
 			R_StudioSetupModel( i, (void **)&m_pBodyPart, (void **)&m_pSubModel );
 
 			GL_StudioSetRenderMode( rendermode );
@@ -3427,12 +3543,13 @@ R_StudioDrawModelInternal
 static void R_StudioDrawModelInternal( cl_entity_t *e, int flags )
 {
 #if XASH_GAMECUBE
-	/* Lean New Game + Lost Coast CapFaces: client StudioDrawModel +
-	 * STUDIO_EVENTS hung Flipper (New Game probes 171034/171424; CapFaces
-	 * viewmodel after G157 in probe 150312). Engine path, render-only. */
-	if( ( gEngfuncs.Sys_CheckParm( "-gcnewgame" )
-			&& !gEngfuncs.Sys_CheckParm( "-gcfullphysics" ))
-		|| gEngfuncs.Sys_CheckParm( "-gccapfacessmoke" ))
+	/* Lean New Game: client StudioDrawModel + STUDIO_EVENTS hung Flipper on
+	 * the first world studio (probes 171034/171424). Engine path, render-only.
+	 * Listen WorldDL (-gclistenserver / GC_UseGxWorldDraw) must use the same
+	 * path — client StudioDrawModel skipped R_StudioSetupBones and left the
+	 * CapFaces Garand as screen wings (ava-play99-65..68). */
+	if(( gEngfuncs.Sys_CheckParm( "-gcnewgame" ) || GC_UseGxWorldDraw())
+		&& !gEngfuncs.Sys_CheckParm( "-gcfullphysics" ))
 	{
 		flags &= STUDIO_RENDER;
 		if( !flags || !e )
@@ -3614,72 +3731,45 @@ void R_DrawViewModel( void )
 	cl_entity_t *view = tr.viewent;
 #if XASH_GAMECUBE
 	qboolean gx_studio = false;
-	/* CapFaces listen (-gcworldrender+-gcplayerinput) has no -gcnewgame but
-	 * still binds crowbar on viewent for Flipper HUD/gameplay probes. */
-	const qboolean lean_vm = !gEngfuncs.Sys_CheckParm( "-gcfullphysics" )
+	extern qboolean GC_CapFacesWantViewmodel( void );
+	const qboolean lean_vm = (( gEngfuncs.Sys_CheckParm( "-gcnewgame" )
+			|| GC_CapFacesWantViewmodel())
+		&& !gEngfuncs.Sys_CheckParm( "-gcfullphysics" )
 		&& view && view->model && view->model->type == mod_studio
 		&& view->model->cache.data
-		&& ( GC_UseLowResWorldProbe() || GC_UseGxWorldDraw() )
-		&& ( gEngfuncs.Sys_CheckParm( "-gcnewgame" )
-			|| gEngfuncs.Sys_CheckParm( "-gccapfacessmoke" )
-			|| ( gEngfuncs.Sys_CheckParm( "-gcworldrender" )
-				&& gEngfuncs.Sys_CheckParm( "-gcplayerinput" )));
+		&& ( GC_UseLowResWorldProbe() || GC_UseGxWorldDraw() ));
 #endif
 
 	R_GatherPlayerLight( view );
 
 #if XASH_GAMECUBE
-	/* Lost Coast CapFaces: skip FX/health/thirdperson gates — they stalled
-	 * after the entry log (probe 142727) and never reached pose+GX.
-	 * -gcvst: never take this fast-path (HL1 v_357 over Source stress cam). */
-	if( gEngfuncs.Sys_CheckParm( "-gccapfacessmoke" )
-		&& !gEngfuncs.Sys_CheckParm( "-gcvst" )
-		&& view && view->model && view->model->type == mod_studio
-		&& view->model->cache.data )
-	{
-		static qboolean cap_vm_fast_logged;
-
-		view->curstate.rendermode = kRenderNormal;
-		view->curstate.renderamt = 255;
-		tr.blend = 1.0f;
-		RI.currententity = view;
-		if( !cap_vm_fast_logged )
-		{
-			cap_vm_fast_logged = true;
-			gEngfuncs.Con_Reportf(
-				"Xash3D GameCube: CapFaces viewmodel fast-path %s\n",
-				view->model->name[0] ? view->model->name : "?" );
-		}
-		goto capfaces_vm_pose;
-	}
-	if( gEngfuncs.Sys_CheckParm( "-gcvst" ))
-	{
-		static qboolean vst_vm_skip_logged;
-
-		if( !vst_vm_skip_logged )
-		{
-			vst_vm_skip_logged = true;
-			gEngfuncs.Con_Reportf(
-				"Xash3D GameCube: VST skip viewmodel (no HL1 revolver on stress cam)\n" );
-		}
-		return;
-	}
 	/* CapFaces listen (-gcworldrender): tip-skipped v_colt skins REPLACE as
-	 * solid white and paint a giant silhouette over CapFaces on caen/flash.
-	 * Lost Coast CapFaces smoke binds v_357 for retail parity — draw it. */
+	 * solid white and, with broken NDC (ndc_y≈[-295,148]), paint a giant
+	 * screen-space silhouette (~28k pure255) over CapFaces on caen/flash.
+	 * Skip until team pick arms a resident DoD VM (garand/mp40). */
 	if( gEngfuncs.Sys_CheckParm( "-gcworldrender" )
-		&& !gEngfuncs.Sys_CheckParm( "-gcfullphysics" )
-		&& !gEngfuncs.Sys_CheckParm( "-gccapfacessmoke" ))
+		&& !gEngfuncs.Sys_CheckParm( "-gcfullphysics" ))
 	{
+		extern qboolean GC_CapFacesWantViewmodel( void );
 		static qboolean cap_vm_skip_logged;
+		static qboolean cap_vm_allow_logged;
 
-		if( !cap_vm_skip_logged )
+		if( !GC_CapFacesWantViewmodel())
 		{
-			cap_vm_skip_logged = true;
-			gEngfuncs.Con_Reportf(
-				"Xash3D GameCube: CapFaces listen skip viewmodel (white-skin overlay)\n" );
+			if( !cap_vm_skip_logged )
+			{
+				cap_vm_skip_logged = true;
+				gEngfuncs.Con_Reportf(
+					"Xash3D GameCube: CapFaces listen skip viewmodel (white-skin overlay)\n" );
+			}
+			return;
 		}
-		return;
+		if( !cap_vm_allow_logged )
+		{
+			cap_vm_allow_logged = true;
+			gEngfuncs.Con_Reportf(
+				"Xash3D GameCube: CapFaces listen draw viewmodel after team pick\n" );
+		}
 	}
 	/* Lean Flipper often leaves r_drawviewmodel at 0 (V_RenderView pump
 	 * skips the force-on). Landmark mesh is enough to arm the gun pass.
@@ -3762,12 +3852,10 @@ void R_DrawViewModel( void )
 		return;
 
 #if XASH_GAMECUBE
-capfaces_vm_pose:
-	/* G157: no client CalcRefdef — pin gun to the current eye every draw.
-	 * G162: HL viewmesh extends below the frustum at raw eye pose
-	 * (ndc mid≈-2); nudge forward+up so a useful band sits in the lower third. */
-	if( gEngfuncs.Sys_CheckParm( "-gcnewgame" ) || GC_UseGxWorldDraw()
-		|| gEngfuncs.Sys_CheckParm( "-gccapfacessmoke" ))
+	/* G157: idle stock ~−24u behind eye. fwd=32 shrank the rifle so the
+	 * en-bloc clip looked detached (G379 d=7.4u — bones OK). fwd=22 +
+	 * depth≥4 keeps most mesh and restores size. Idle f=0. */
+	if( gEngfuncs.Sys_CheckParm( "-gcnewgame" ) || GC_UseGxWorldDraw() )
 	{
 		vec3_t delta;
 		static qboolean g157_pose_logged;
@@ -3775,39 +3863,22 @@ capfaces_vm_pose:
 
 		VectorCopy( RI.rvp.vieworigin, view->origin );
 		VectorCopy( RI.rvp.viewangles, view->angles );
-		if( RI.vforward[0] != 0.0f || RI.vforward[1] != 0.0f || RI.vforward[2] != 0.0f
-			|| RI.vup[0] != 0.0f || RI.vup[1] != 0.0f || RI.vup[2] != 0.0f )
+		if( RI.vforward[0] != 0.0f || RI.vforward[1] != 0.0f || RI.vforward[2] != 0.0f )
 		{
-			/* CapFaces retail still: gun sits lower-right, not mid-frame.
-			 * forward=5/up=12 filled half the FOV (probe 160323). */
-			const float fwd = gEngfuncs.Sys_CheckParm( "-gccapfacessmoke" ) ? 10.0f : 5.0f;
-			const float up = gEngfuncs.Sys_CheckParm( "-gccapfacessmoke" ) ? 2.0f : 12.0f;
-
-			VectorMA( view->origin, fwd, RI.vforward, view->origin );
-			VectorMA( view->origin, up, RI.vup, view->origin );
-			if( gEngfuncs.Sys_CheckParm( "-gccapfacessmoke" ))
-			{
-				/* Pull toward lower-right like HL2 357 (right + down a hair). */
-				if( RI.vright[0] != 0.0f || RI.vright[1] != 0.0f || RI.vright[2] != 0.0f )
-					VectorMA( view->origin, 3.0f, RI.vright, view->origin );
-				if( view->curstate.scale <= 0.0f || view->curstate.scale > 0.85f )
-					view->curstate.scale = 0.72f;
-			}
+			VectorMA( view->origin, 22.0f, RI.vforward, view->origin );
 			if( !g162_offset_logged )
 			{
 				g162_offset_logged = true;
 				gEngfuncs.Con_Reportf(
-					"Xash3D GameCube: G162 viewmodel frame offset forward=%.0f up=%.0f scale=%.2f\n",
-					fwd, up, view->curstate.scale > 0.0f ? view->curstate.scale : 1.0f );
+					"Xash3D GameCube: G162 viewmodel frame offset forward=22 up=+0\n" );
 			}
 		}
 		VectorCopy( view->origin, view->curstate.origin );
 		VectorCopy( view->angles, view->curstate.angles );
-		if( view->curstate.animtime <= 0.0f )
-		{
-			view->curstate.animtime = (float)gp_cl->time;
-			view->curstate.framerate = 1.0f;
-		}
+		view->curstate.sequence = 0;
+		view->curstate.framerate = 1.0f;
+		/* Hold idle at frame 0 — EstimateFrame uses (time-animtime)*fps. */
+		view->curstate.animtime = (float)gp_cl->time;
 		VectorSubtract( view->origin, RI.rvp.vieworigin, delta );
 		if( !g157_pose_logged )
 		{
@@ -4027,8 +4098,13 @@ static void R_StudioLoadTexture( model_t *mod, studiohdr_t *phdr, mstudiotexture
 		/* The direct new-game route has the same fixed studio lifetime as the
 		 * menu server route.  Keep its decoded base planes beside the compact
 		 * MDLs instead of competing with the client heap during map load. */
+		/* Viewmodel skins must live in the persistent overflow BSS — temppool
+		 * reclaim left hands.mdl soft pixels as 0x0000 and the Garand latticed
+		 * (ava-play99-28). WorldDL listen is not -gcnewgame, so pin v_* always. */
 		r_gc_studio_skins_in_arena = GC_MenuRunsServer()
-			|| gEngfuncs.Sys_CheckParm( "-gcnewgame" );
+			|| gEngfuncs.Sys_CheckParm( "-gcnewgame" )
+			|| gEngfuncs.Sys_CheckParm( "-gcworldrender" )
+			|| ( Q_stristr( mdlname, "v_" ) != NULL );
 		ptexture->index = GL_LoadTexture( texname, (byte *)ptexture, size, flags );
 		r_gc_studio_skins_in_arena = false;
 	}
@@ -4058,13 +4134,16 @@ void GAME_EXPORT Mod_StudioLoadTextures( model_t *mod, void *data )
 
 #if XASH_GAMECUBE
 	/* Bounded low-memory mode: skip studio texture loading under -gcmap to preserve
-	 * MEM1 headroom for BSP parse peak. New Game allowlisted studios are deferred
-	 * past that cliff and upload lean skins here.
-	 * Lost Coast CapFaces needs v_357 skins during DumpFrames (-gcmap is set). */
-	if( gEngfuncs.Sys_CheckParm( "-gcmap" )
-		&& !gEngfuncs.Sys_CheckParm( "-gcnewgame" )
-		&& !gEngfuncs.Sys_CheckParm( "-gccapfacessmoke" ))
-		return;
+	 * MEM1 headroom for BSP parse peak / CapFaces bake (ava-vm8 early upload
+	 * → bake tex=0 grey world). Deferred attach sets gc_force_studio_skins. */
+	{
+		extern qboolean Mod_GCForceStudioSkinUploadActive( void );
+
+		if( gEngfuncs.Sys_CheckParm( "-gcmap" )
+			&& !gEngfuncs.Sys_CheckParm( "-gcnewgame" )
+			&& !Mod_GCForceStudioSkinUploadActive())
+			return;
+	}
 #endif
 
 	if( !phdr )

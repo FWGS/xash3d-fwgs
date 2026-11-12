@@ -413,9 +413,92 @@ static int FS_FindFile_DIR( searchpath_t *search, const char *path, char *fixedn
 
 	if( FS_SysFileExists( netpath ))
 	{
+#if XASH_GAMECUBE
+		/* Hybrid GC FST lists names whose disc offsets are stale (flash ISO
+		 * rebuilds). FindFile then blocks ZIP/ISO9660: delta.lst fatal, or
+		 * maps/*.bsp exists=1 size=-1 Host_Error. Open-only probes still
+		 * accept FST garbage that Opens at a wrong offset — content-validate
+		 * boot-critical paths. Full-dir probes starve CapFaces map load. */
+		{
+			const char *ext = Q_strrchr( path, '.' );
+			const qboolean probe_bsp =
+				ext && !Q_stricmp( ext, ".bsp" )
+				&& ( !Q_strnicmp( path, "maps/", 5 )
+					|| Q_strchr( path, '/' ) == NULL );
+			const qboolean probe_delta = !Q_stricmp( path, "delta.lst" );
+			const qboolean probe_pk3 =
+				ext && !Q_stricmp( ext, ".pk3" )
+				&& ( !Q_strnicmp( path, "media/", 6 )
+					|| Q_stristr( path, "_spatial.pk3" ) != NULL
+					|| !Q_stricmp( path, "cf_spat.pk3" ));
+			/* WorldDL + world CMPR packs: FST disc_offset is synthetic on
+			 * hybrid discs (ava-play99-7: media/wt_*.gct Open NULL / garbage
+			 * while ISO9660 extract is GCWT). Defer like BSP/pk3. */
+			const qboolean probe_world_media =
+				ext && !Q_strnicmp( path, "media/", 6 )
+				&& ( !Q_stricmp( ext, ".gct" ) || !Q_stricmp( ext, ".gcd" ));
+
+			if( probe_bsp || probe_delta || probe_pk3 || probe_world_media )
+			{
+				file_t *probe;
+				byte head[8];
+				fs_size_t n;
+				fs_offset_t flen;
+				qboolean ok = false;
+
+				/* Hybrid FST can Open+read a plausible BSP header while
+				 * later LoadFile still sees size=-1 (avalanche tipws). Skip
+				 * DIR entirely for maps/*.bsp so ISO9660/ZIP owns the hit.
+				 * Same for CapFaces spatial pk3 — FST offsets are synthetic
+				 * on hybrid discs; ISO9660/bootstrap must own the open.
+				 * delta.lst: content probe can false-pass (reads "// …") then
+				 * Open/Load from DIR returns NULL (ava-vm5 Host_Error) —
+				 * always defer to bootstrap ZIP. */
+				if( probe_bsp || probe_pk3 || probe_delta || probe_world_media )
+					return -1;
+
+				probe = FS_SysOpen( netpath, "rb" );
+				if( !probe )
+					return -1;
+				flen = FS_FileLength( probe );
+				n = FS_Read( probe, head, sizeof( head ));
+				FS_Close( probe );
+				if( n < 4 )
+					return -1;
+
+				if( probe_delta )
+				{
+					ok = flen > 64
+						&& ( head[0] == '/' || head[0] == '#'
+						|| ( head[0] >= 'A' && head[0] <= 'Z' )
+						|| ( head[0] >= 'a' && head[0] <= 'z' )
+						|| ( head[0] >= '0' && head[0] <= '9' ));
+				}
+				else /* pk3 / zip */
+				{
+					ok = flen > 64
+						&& head[0] == 'P' && head[1] == 'K'
+						&& ( ( head[2] == 0x03 && head[3] == 0x04 )
+							|| ( head[2] == 0x05 && head[3] == 0x06 )
+							|| ( head[2] == 0x01 && head[3] == 0x02 ));
+				}
+
+				if( !ok )
+					return -1;
+			}
+		}
+#endif
 		// return fixed case file name only local for that searchpath
 		if( fixedname )
-			Q_strncpy( fixedname, netpath + Q_strlen( search->filename ), len );
+		{
+			const char *rel = netpath + Q_strlen( search->filename );
+
+			/* Guard against missing trailing slash on search->filename so
+			 * relative paths never start with '/' (tex21/22: net=/dod/...). */
+			while( rel[0] == '/' || rel[0] == '\\' )
+				rel++;
+			Q_strncpy( fixedname, rel, len );
+		}
 		return 0;
 	}
 

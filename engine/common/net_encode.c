@@ -886,8 +886,28 @@ static void Delta_ParseTable( char **delta_script, delta_info_t *dt, const char 
 static void Delta_InitFields( void )
 {
 	string encodeDll, encodeFunc, token;
+	qboolean delta_sys_malloc = false;
 
 	byte *afile = FS_LoadFile( DELTA_PATH, NULL, false );
+#if XASH_GAMECUBE
+	/* CapFaces spatial / tip flaps: FindFile can resolve delta.lst via a DIR
+	 * path whose CustomAlloc then fails (net=dod/delta.lst), while the same
+	 * bytes sit in gamecube-bootstrap.pk3. Retry sys-malloc + valve fallback. */
+	if( !afile )
+	{
+		afile = FS_LoadFileMalloc( DELTA_PATH, NULL, false );
+		delta_sys_malloc = ( afile != NULL );
+	}
+	if( !afile )
+	{
+		afile = FS_LoadFile( "valve/delta.lst", NULL, false );
+		if( !afile )
+		{
+			afile = FS_LoadFileMalloc( "valve/delta.lst", NULL, false );
+			delta_sys_malloc = ( afile != NULL );
+		}
+	}
+#endif
 	if( !afile ) Sys_Error( "%s: couldn't load file %s\n", __func__, DELTA_PATH );
 
 	char *pfile = (char *)afile;
@@ -918,6 +938,11 @@ static void Delta_InitFields( void )
 		Delta_ParseTable( &pfile, dt, encodeDll, encodeFunc );
 	}
 
+#if XASH_GAMECUBE
+	if( delta_sys_malloc )
+		free( afile );
+	else
+#endif
 	Mem_Free( afile );
 }
 

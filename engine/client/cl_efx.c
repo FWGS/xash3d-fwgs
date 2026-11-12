@@ -2233,6 +2233,7 @@ static void CL_FreeDeadBeams( void )
 
 #if XASH_GAMECUBE
 qboolean CL_GCTrySeedLeanBeamProof( void );
+qboolean CL_GCSeedFlipperEfxProof( const float *org );
 #endif
 
 void CL_DrawEFX( float time, qboolean fTrans )
@@ -2283,6 +2284,26 @@ void CL_DrawEFX( float time, qboolean fTrans )
 		GC_WatchdogMark( "EFX free dead particles" );
 		GC_EFX_TRACE( "free dead particles" );
 		R_FreeDeadParticles( &cl_active_particles );
+#if XASH_GAMECUBE
+		/* CapFaces: if combat fire left the pool empty, seed tip-safe statics
+		 * so Flipper TriAPI still emits G291 EFX tris (HoldLeft already 0).
+		 * Seed returns beam-armed (gcnewgame-only); treat particles as done. */
+		if( Sys_CheckParm( "-gcworldrender" ) && !Sys_CheckParm( "-gcnewgame" )
+			&& !cl_active_particles )
+		{
+			static qboolean capfaces_pool_seeded;
+			extern int R_GXEfbDumpHoldLeft( void );
+
+			if( !capfaces_pool_seeded && R_GXEfbDumpHoldLeft() <= 0 )
+			{
+				vec3_t org;
+
+				VectorCopy( cl.simorg, org );
+				(void)CL_GCSeedFlipperEfxProof( org );
+				capfaces_pool_seeded = true;
+			}
+		}
+#endif
 		GC_WatchdogMark( "EFX draw particles" );
 		GC_EFX_TRACE( cl_active_particles ? "draw particles" : "no particles" );
 		if( cl_draw_particles.value )
@@ -2322,6 +2343,13 @@ qboolean CL_GCSeedFlipperEfxProof( const float *org )
 
 	if( !org )
 		return gc_beam_seeded;
+
+	/* CapFaces fire can land after the first 3s seed dies. Allow a reseed
+	 * whenever the active particle list is empty so Flipper TriAPI still
+	 * emits during +attack (listen densify HoldLeft already cleared). */
+	if( gc_particles_seeded && !cl_active_particles
+		&& Sys_CheckParm( "-gcworldrender" ) && !Sys_CheckParm( "-gcnewgame" ))
+		gc_particles_seeded = false;
 
 	if( !gc_particles_seeded )
 	{
@@ -2388,7 +2416,9 @@ qboolean CL_GCSeedFlipperEfxProof( const float *org )
 		p->org[0] += (float)( i - 1 ) * 4.0f;
 		p->color = 52;
 		p->type = pt_static;
-		p->die = cl.time + 3.0f;
+		/* CapFaces densify + team UI can take >3s before fire; keep seeds
+		 * alive long enough for the armed +attack present. */
+		p->die = cl.time + ( Sys_CheckParm( "-gcworldrender" ) ? 45.0f : 3.0f );
 		n++;
 	}
 	Con_Reportf( "Xash3D GameCube: G291 tip-safe particle seed n=%d\n", n );

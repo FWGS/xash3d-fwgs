@@ -1839,11 +1839,26 @@ static edict_t* SV_AllocPrivateData( edict_t *ent, string_t className, qboolean 
 #if XASH_GAMECUBE
 	/* Tip MEM1: brush furniture / pickups can miss a private block without
 	 * ending the whole map. Boss/combat NPCs still abort after reclaim. */
-	if( ( GC_MapLoadMemoryOpt() || Sys_CheckParm( "-gcmap" ) || Sys_CheckParm( "-gcnewgame" ))
+	if( ( GC_MapLoadMemoryOpt() || Sys_CheckParm( "-gcmap" ) || Sys_CheckParm( "-gcnewgame" )
+			|| Sys_CheckParm( "-gcworldrender" ))
 		&& !ent->pvPrivateData )
 	{
 		const char *cn = pszClassName ? pszClassName : "";
-		const qboolean skippable = !Q_strnicmp( cn, "func_", 5 )
+		/* Keep visible props/models when tip still has room — full-map CapFaces
+		 * listen wants env_model / misc_prop / doors in the draw list. */
+		const qboolean keep_visible_prop =
+			!Q_stricmp( cn, "env_model" )
+			|| !Q_stricmp( cn, "misc_prop" )
+			|| !Q_stricmp( cn, "dod_object" )
+			|| !Q_strnicmp( cn, "prop_", 5 )
+			|| !Q_strnicmp( cn, "func_door", 9 )
+			|| !Q_strnicmp( cn, "func_button", 11 )
+			|| !Q_strnicmp( cn, "func_rotating", 13 )
+			|| !Q_strnicmp( cn, "func_train", 10 )
+			|| !Q_strnicmp( cn, "func_tracktrain", 15 );
+		const qboolean tip_ok = GC_MemHeapFreeBytes() >= ( 24u * 1024u );
+		const qboolean skippable = !keep_visible_prop
+			&& ( !Q_strnicmp( cn, "func_", 5 )
 			|| !Q_strnicmp( cn, "env_", 4 )
 			|| !Q_strnicmp( cn, "light", 5 )
 			|| !Q_strnicmp( cn, "info_", 5 )
@@ -1863,9 +1878,9 @@ static edict_t* SV_AllocPrivateData( edict_t *ent, string_t className, qboolean 
 			|| !Q_strnicmp( cn, "gibshooter", 10 )
 			|| !Q_strnicmp( cn, "spark_shower", 12 )
 			|| !Q_stricmp( cn, "monster_hevsuit_dead" )
-			|| !Q_stricmp( cn, "monster_generic" );
+			|| !Q_stricmp( cn, "monster_generic" ));
 
-		if( skippable )
+		if( skippable || ( keep_visible_prop && !tip_ok ))
 		{
 			Con_Reportf( S_WARN "Xash3D GameCube: private-data miss %s — skipping entity\n", cn );
 			SV_FreeEdict( ent );
@@ -5959,7 +5974,9 @@ static qboolean SV_GCCapFacesOptionalEntity( const char *classname )
 		return false;
 	/* Tip-safe CapFaces: drop decorative ents early so players / triggers /
 	 * doors keep tip slots on dense maps (caen 621>460). Keeping func_wall /
-	 * cycler (props1) tip-starved caen to a black EFB — leave them skipped. */
+	 * cycler (props1) tip-starved caen to a black EFB — leave them skipped.
+	 * (20261110-032103 capped-32 allow also blacked caen; bake walls into
+	 * CapFaces spatial or defer post-densify instead.) */
 	if( !Q_strcmp( classname, "func_wall" )
 		|| !Q_strcmp( classname, "func_illusionary" )
 		|| !Q_strcmp( classname, "func_wall_toggle" )
@@ -6507,8 +6524,11 @@ static void SV_LoadFromFile( const char *mapname, char *entities )
 					entity_index - 1, SV_ClassName( ent ), Q_memprint( GC_MemHeapFreeBytes() ));
 			/* pfnSpawn can stall forever on tip MEM1 (c2a2b1 entity 183
 			 * func_breakable tip≈4.7 KiB probe 20261109-120204). Soft-stop
-			 * before the call so nest hops can continue. */
-			if( GC_MemHeapFreeBytes() <
+			 * before the call so nest hops can continue.
+			 * Always allow worldspawn (entity 0) — kraftstoff/escape tip≈7 KiB
+			 * after CapFaces spat mount was aborting the whole map before
+			 * densify could run. */
+			if( entity_index > 1 && GC_MemHeapFreeBytes() <
 				( !Q_strnicmp( sv.name, "dod_", 4 ) ? 2u * 1024u : 8u * 1024u ))
 			{
 				Con_Reportf( S_WARN "Xash3D GameCube: %s tip-starved before spawn entity=%d class=%s tip=%s; stop entity load\n",
@@ -6880,8 +6900,9 @@ qboolean SV_LoadProgs( const char *name )
 	gc_using_static_edicts = false;
 	/* SP BSS when max_edicts fits the cap (valve gameinfo is typically
 	 * 900–1200). Avoid tip Mem_Calloc of ~707 KiB (HW 20261106 map=NONE). */
-	/* Solo listen (−gclistenserver, maxclients≤4) reuses the SP BSS pool so
-	 * tip Mem_Calloc of edicts/baselines cannot OOM under menu-skip boots. */
+	/* Local listen (maxclients≤4) reuses the SP BSS pool. Retail Create Game
+	 * enters through the menu and gc_playstart rather than -gclistenserver;
+	 * -gcworldrender identifies that interactive GameCube route. */
 	if( GI->max_edicts > 0 && GI->max_edicts <= GC_SP_EDICT_CAP
 		&& ( svs.maxclients <= 1
 			|| Sys_CheckParm( "-gclistenserver" )

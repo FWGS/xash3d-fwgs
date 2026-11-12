@@ -329,9 +329,8 @@ qboolean Sound_LoadWAV( const char *name, const byte *buffer, fs_offset_t filesi
 	// Load the data
 	sound.size = sound.samples * sound.width * sound.channels;
 #if XASH_GAMECUBE
-	/* G121: align with GC_SFX_MAX_FILE_BYTES (16 KiB) so stock pl_gun3 loads.
-	 * The menu route's limit is GC_SFX_MENU_MAX_FILE_BYTES in s_load.c. */
-	if( GC_MapLoadMemoryOpt() && sound.size > (( GC_MenuRunsServer() ? 48u : 16u ) * 1024u ))
+	/* Align with GC_SFX_MAX_FILE_BYTES (20 KiB CapFaces / 48 KiB menu). */
+	if( GC_MapLoadMemoryOpt() && sound.size > (( GC_MenuRunsServer() ? 48u : 20u ) * 1024u ))
 	{
 		Con_Reportf( "Xash3D GameCube: WAV skipped for map-load memopt %s size=%u\n",
 			name, (uint)sound.size );

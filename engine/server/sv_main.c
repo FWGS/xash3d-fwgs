@@ -751,6 +751,45 @@ void Host_ServerFrame( void )
 		}
 		return;
 	}
+	/* WorldDL DoD listen once spawned: real HL1 player move via ReadPackets
+	 * → SV_RunCmd → PM_Move. Bound entity thinks for MEM1. Before spawn,
+	 * fall through to the normal connect/spawn ServerFrame below. */
+	if( Sys_CheckParm( "-gcworldrender" ) && Sys_CheckParm( "-gcplayerinput" )
+		&& GC_UseGxWorldDraw() && !Sys_CheckParm( "-gcnewgame" )
+		&& !Sys_CheckParm( "-gcfullphysics" )
+		&& svs.initialized && svs.clients
+		&& svs.clients[0].state == cs_spawned
+		&& svs.clients[0].edict
+		&& FBitSet( svs.clients[0].edict->v.flags, FL_CLIENT ))
+	{
+		static int gc_worlddl_sf_log;
+		edict_t *pl = svs.clients[0].edict;
+
+		if( sv_fps.value == 0.0f )
+			sv.frametime = host.frametime;
+		svgame.globals->frametime = sv.frametime;
+		svgame.globals->time = sv.time;
+
+		SV_CheckCmdTimes();
+		SV_ReadPackets(); /* authentic HL1MP usercmd → PM_Move */
+		SV_UpdateMovevars( false );
+		/* Player motion ran in ReadPackets. Skip DoD entity-think storm. */
+		sv.time += sv.frametime;
+		SV_SendClientMessagesBoundedGC();
+		/* Sparse crumbs only — dense OSReport after Flipper present hangs EXI. */
+		if( gc_worlddl_sf_log < 8
+			|| ( gc_worlddl_sf_log < 96 && ( gc_worlddl_sf_log & 7 ) == 0 ))
+		{
+			Con_Reportf( "Xash3D GameCube: WorldDL HL1 ServerFrame n=%d onground=%d origin=(%.0f,%.0f,%.0f) vel=(%.0f,%.0f,%.0f)\n",
+				gc_worlddl_sf_log,
+				FBitSet( pl->v.flags, FL_ONGROUND ) ? 1 : 0,
+				pl->v.origin[0], pl->v.origin[1], pl->v.origin[2],
+				pl->v.velocity[0], pl->v.velocity[1], pl->v.velocity[2] );
+		}
+		if( gc_worlddl_sf_log < 96 )
+			gc_worlddl_sf_log++;
+		return;
+	}
 	if( gc_fullphysics_trace )
 		Con_Reportf( "Xash3D GameCube: full server frame begin\n" );
 #endif
@@ -796,7 +835,6 @@ void Host_ServerFrame( void )
 		Con_Reportf( "Xash3D GameCube: full server game frame ready\n" );
 #endif
 
-	// send messages back to the clients that had packets read this frame
 	SV_SendClientMessages ();
 #if XASH_GAMECUBE
 	if( gc_fullphysics_trace )

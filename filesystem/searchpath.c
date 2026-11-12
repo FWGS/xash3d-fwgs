@@ -1028,6 +1028,9 @@ searchpath_t *FS_FindFile( const char *name, int *index, char *fixedname, size_t
 	searchpath_t *search;
 
 #if XASH_GAMECUBE
+	if( !Q_stricmp( name, "gfx/conchars" ))
+		Con_Reportf( "Xash3D GameCube: conchars FindFile enter miss=%d paths=%p\n",
+			FS_FindMissCached( name ) ? 1 : 0, (void *)fs_searchpaths );
 	if( FS_FindMissCached( name ))
 	{
 		if( index )
@@ -1051,16 +1054,20 @@ searchpath_t *FS_FindFile( const char *name, int *index, char *fixedname, size_t
 		/* A prior successful lookup is not a failure result. The cache stores
 		 * names only, not the searchpath/index needed to load the file, so keep
 		 * searching instead of turning FileExists into a later load failure. */
+		if( !Q_stricmp( name, "gfx/conchars" ))
+			Con_Reportf( "Xash3D GameCube: conchars try type=%d file=%s flags=0x%x\n",
+				search->type, search->filename, search->flags );
 #endif
 
 		pack_ind = search->pfnFindFile( search, name, fixedname, len );
 		if( pack_ind >= 0 )
 		{
 #if XASH_GAMECUBE
-			if( !Q_strncmp( name, "maps/", 5 ) || !Q_strncmp( name, "models/", 7 ))
+			if( !Q_strncmp( name, "maps/", 5 ) || !Q_strncmp( name, "models/", 7 )
+				|| !Q_stricmp( name, "gfx/conchars" ))
 				Con_Reportf( "Xash3D GameCube: find found '%s' as '%s' in %s index=%d\n",
 					name, fixedname ? fixedname : "", search->filename, pack_ind );
-					FS_AddToHitCache( name );
+			FS_AddToHitCache( name );
 #endif
 			if( index )
 				*index = pack_ind;

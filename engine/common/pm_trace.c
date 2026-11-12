@@ -946,6 +946,16 @@ const char *PM_TraceTexture( playermove_t *pmove, int ground, float *vstart, flo
 	if( ground < 0 || ground >= pmove->numphysent )
 		return NULL; // bad ground
 
+#if XASH_GAMECUBE
+	/* WorldDL lean: keep HL1 PM_Move, but skip face texture walks — BSP face
+	 * extrasurf/indices are incomplete and DSI in PM_RecursiveSurfCheck while
+	 * ONGROUND (ava-hl1move-12..14). CatagorizeTextureType already defaults
+	 * to CHAR_TEX_CONCRETE when TraceTexture returns NULL. */
+	if( Sys_CheckParm( "-gcworldrender" ) && Sys_CheckParm( "-gcplayerinput" )
+		&& !Sys_CheckParm( "-gcfullphysics" ))
+		return NULL;
+#endif
+
 	msurface_t *surf = PM_TraceSurface( &pmove->physents[ground], vstart, vend );
 
 	if( !surf || !surf->texinfo || !surf->texinfo->texture )

@@ -660,8 +660,16 @@ static void R_DecalNodeSurfaces( model_t *model, mnode_t *node, decalinfo_t *dec
 	// iterate over all surfaces in the node
 	int firstsurface = node_firstsurface( node, model );
 	int numsurfaces  = node_numsurfaces( node, model );
+	msurface_t *surf;
 
-	msurface_t *surf = model->surfaces + firstsurface;
+	if( !model || !model->surfaces || numsurfaces <= 0 )
+		return;
+	if( firstsurface < 0 || firstsurface >= model->numsurfaces )
+		return;
+	if( firstsurface + numsurfaces > model->numsurfaces )
+		numsurfaces = model->numsurfaces - firstsurface;
+
+	surf = model->surfaces + firstsurface;
 
 	for( int i = 0; i < numsurfaces; i++, surf++ )
 	{
@@ -681,6 +689,8 @@ static void R_DecalNodeSurfaces( model_t *model, mnode_t *node, decalinfo_t *dec
 // -----------------------------------------------------------------------------
 static void R_DecalNode( model_t *model, mnode_t *node, decalinfo_t *decalinfo )
 {
+	if( !model || !node || !decalinfo )
+		return;
 	if( node->contents < 0 )
 	{
 		// hit a leaf
@@ -688,6 +698,8 @@ static void R_DecalNode( model_t *model, mnode_t *node, decalinfo_t *decalinfo )
 	}
 
 	mplane_t *splitplane = node->plane;
+	if( !splitplane )
+		return;
 	float    dist = DotProduct( decalinfo->m_Position, splitplane->normal ) - splitplane->dist;
 
 	if( dist > decalinfo->m_Size )
@@ -852,9 +864,9 @@ float * GAME_EXPORT R_DecalSetupVerts( decal_t *pDecal, msurface_t *surf, int te
 	float     *v;
 
 #if XASH_GAMECUBE
-	/* Compact network geometry intentionally does not retain the face-info
-	 * and lightmap ownership used by decals. Decals are cosmetic; do not
-	 * dereference an evicted face-info pointer during a live network match. */
+	/* GameCube's compact network world snapshot deliberately drops the
+	 * face-info/lightmap ownership the decal path assumes. Decals are visual
+	 * only, so skip them rather than following an evicted face-info pointer. */
 	if( gEngfuncs.Sys_CheckParm( "-gcworldrender" )
 		&& ( gEngfuncs.Sys_CheckParm( "-gclistenserver" )
 			|| gEngfuncs.Sys_CheckParm( "-gcconnect" )))

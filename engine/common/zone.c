@@ -50,8 +50,10 @@ static qboolean Mem_GCMenuIdleSoftFail( void )
 #define MEM_SMALL_MAX UINT8_MAX
 #if XASH_GAMECUBE
 #if XASH_DODGC_NETWORK
-/* Leave the general heap available for two HUDs and native Ethernet. */
-#define GC_FS_ARENA_SIZE (128u * 1024u)
+/* Bootstrap + CapFaces spat ZIP indexes. Was 128 KiB — dense-map spat mounts
+ * spilled to a fragmented tip and Sys_Error'd (kraftstoff/saints). 192 leaves
+ * room for both indexes after ZIP_NAME_MAX shrink without starving HUDs. */
+#define GC_FS_ARENA_SIZE (192u * 1024u)
 #else
 #define GC_FS_ARENA_SIZE (512u * 1024u)
 #endif
@@ -964,9 +966,25 @@ void *_Mem_Realloc( poolhandle_t poolptr, void *data, size_t size, qboolean clea
 					Q_memprint( size ), filename, fileline );
 				return NULL;
 			}
+			/* CapFaces spat ZIP index grow (zip.c) must soft-NULL like FS
+			 * alloc — tip fragmentation after dense BSPs Sys_Error'd maps
+			 * that otherwise had tip free (kraftstoff/saints/sturm/switch). */
+			if( pool && !Q_stricmp( pool->name, "FileSystem Pool" ))
+			{
+				Image_GCPurgeDecodeScratch();
+				R_GCTrimTextureMips();
+				Mem_GCReclaimTipForRetry();
+				mem = Q_realloc( (void *)oldmem, sizeof( memheader_t ) + size + sizeof( byte ));
+				if( mem == NULL )
+				{
+					Con_Reportf( "Xash3D GameCube: soft-fail FS realloc size=%s at %s:%i\n",
+						Q_memprint( size ), filename, fileline );
+					return NULL;
+				}
+			}
 			/* titles.txt grow is often already a big header (~12 KiB). Soft-NULL
 			 * keeps the prior block; titles.c truncates (same as small path). */
-			if( pool && !Q_stricmp( pool->name, "Client Edicts Zone" )
+			else if( pool && !Q_stricmp( pool->name, "Client Edicts Zone" )
 				&& filename && Q_stristr( filename, "titles.c" ))
 			{
 				Mem_GCReclaimTipForRetry();

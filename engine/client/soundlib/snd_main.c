@@ -87,14 +87,21 @@ static byte *SND_LOADFILE( const char *path, fs_offset_t *size )
 	}
 	if( buf )
 	{
-		if( FS_Read( f, buf, *size ) != *size )
+		if( FS_Read( f, buf, *size ) != *size
+			|| *size < 12
+			|| memcmp( buf, "RIFF", 4 ) != 0 )
 		{
+			/* Hybrid FST can Open a weapons/* name at a stale offset — reject
+			 * non-RIFF so the media/sfx_* fallback can take over. */
 			if( buf == s_gc_sfx_filebuf )
 				s_gc_sfx_filebuf_busy = false;
 			buf = NULL;
 		}
 		FS_Close( f );
-		return buf;
+		if( buf )
+			return buf;
+		/* Fall through to FS_LoadFile / caller media fallback. */
+		return NULL;
 	}
 	FS_Close( f );
 	/* Last resort: fragmented heap may still service a tiny FS_LoadFile. */
@@ -109,10 +116,39 @@ static byte *SND_LOADFILE( const char *path, fs_offset_t *size )
 #define SND_FREEFILE( f ) Mem_Free( f )
 #endif
 
+#if XASH_GAMECUBE
+/* Tip CapFaces: soundpool TryMalloc often fails while libc still has ~12 KiB. */
+#define GC_SFX_PACK_SLOTS 4
+#define GC_SFX_PACK_BYTES ( sizeof( wavdata_t ) + ( 12u * 1024u ))
+static byte s_gc_sfx_pack_slots[GC_SFX_PACK_SLOTS][GC_SFX_PACK_BYTES];
+static qboolean s_gc_sfx_pack_busy[GC_SFX_PACK_SLOTS];
+
+static wavdata_t *SoundPackAlloc( size_t bytes )
+{
+	wavdata_t *pack = Mem_TryMalloc( host.soundpool, bytes );
+	int i;
+
+	if( pack )
+		return pack;
+	if( bytes > GC_SFX_PACK_BYTES )
+		return NULL;
+	for( i = 0; i < GC_SFX_PACK_SLOTS; i++ )
+	{
+		if( s_gc_sfx_pack_busy[i] )
+			continue;
+		memset( s_gc_sfx_pack_slots[i], 0, bytes );
+		s_gc_sfx_pack_busy[i] = true;
+		Con_Reportf( "Xash3D GameCube: SoundPack static slot=%d bytes=%u\n", i, (uint)bytes );
+		return (wavdata_t *)s_gc_sfx_pack_slots[i];
+	}
+	return NULL;
+}
+#endif
+
 static MALLOC_LIKE( FS_FreeSound, 1 ) wavdata_t *SoundPack( void )
 {
 #if XASH_GAMECUBE
-	wavdata_t *pack = Mem_TryMalloc( host.soundpool, sizeof( *pack ) + sound.size );
+	wavdata_t *pack = SoundPackAlloc( sizeof( *pack ) + sound.size );
 
 	if( !pack )
 		return NULL;
@@ -369,6 +405,19 @@ free WAV buffer
 void FS_FreeSound( wavdata_t *pack )
 {
 	if( !pack ) return;
+#if XASH_GAMECUBE
+	{
+		int i;
+		for( i = 0; i < GC_SFX_PACK_SLOTS; i++ )
+		{
+			if( pack == (wavdata_t *)s_gc_sfx_pack_slots[i] )
+			{
+				s_gc_sfx_pack_busy[i] = false;
+				return;
+			}
+		}
+	}
+#endif
 	Mem_Free( pack );
 }
 

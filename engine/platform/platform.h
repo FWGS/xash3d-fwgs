@@ -259,6 +259,7 @@ const unsigned short *GC_GetTramLightmapAtlas( int *w, int *h );
 void GC_GetTramLightmapUV( int face, float s, float t, float *out_s, float *out_t );
 /* G151: Flipper GX world draw (live); soft spans remain for DumpFrames. */
 qboolean GC_UseGxWorldDraw( void );
+qboolean GC_WorldDLGetWalkAxes( float *forward, float *side );
 qboolean GC_UseGxRenderer( void );
 void GC_WatchdogMark( const char *stage );
 void GC_ProfMark( const char *name );

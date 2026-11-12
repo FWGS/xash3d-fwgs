@@ -1410,6 +1410,16 @@ static void Cmd_Exec_f( void )
 		host.config_executed = true;
 
 #if XASH_GAMECUBE
+	/* Solo listen + World DL: tip is ~5 KiB at worldspawn (ava-worlddl16–19).
+	 * FS_LoadFile(game.cfg) hung the DVD path while CapFaces listen (slightly
+	 * more tip) survived. Skip the 57-byte multiplayer stub — defaults are fine. */
+	if( !Q_stricmp( "game.cfg", cfgpath )
+		&& Sys_CheckParm( "-gcworldrender" )
+		&& Sys_CheckParm( "-gclistenserver" ))
+	{
+		Con_Reportf( "Xash3D GameCube: skip game.cfg disc exec (worldrender listen tip)\n" );
+		return;
+	}
 	/* G320: disc FS_LoadFile(spserver.cfg) hung after MAP_READY on lean
 	 * reactor maps (c3a2/c3a2d — 20260809-002911) while c0a0 survived.
 	 * Menu New Game (-gcmenuplaystart) hits the same DVD hang after play
