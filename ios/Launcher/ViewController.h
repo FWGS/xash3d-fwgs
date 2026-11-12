@@ -20,5 +20,7 @@ GNU General Public License for more details.
 @property(nonatomic) UICollectionView *gamesView;
 @property(nonatomic) NSMutableArray *games;
 
+-(void)updateGameDirs;
+
 @end
 
