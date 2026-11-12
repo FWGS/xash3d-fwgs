@@ -30,6 +30,7 @@ void __wrap___lwp_wkspace_init( unsigned int size )
 #include <stdlib.h>
 #include "platform/gamecube/net_gamecube.h"
 #include "platform/gamecube/net_config.h"
+#include "platform/gamecube/net_dns.h"
 
 #ifndef EAI_FAIL
 #define EAI_FAIL   -1
@@ -137,6 +138,94 @@ s32 net_getsockname( s32 s, struct sockaddr *addr, socklen_t *addrlen )
 
 #endif /* classic libogc getsockname shim */
 
+/* ---- DNS resolver (internet play: master servers, hostname connect) ---- */
+#define GC_DNS_CACHE 8
+#define GC_DNS_TIMEOUT_MS 1500
+
+static struct { char name[96]; u32 ip; } gc_dns_cache[GC_DNS_CACHE];
+static int gc_dns_cache_next;
+
+static int GC_DnsQueryServer( u32 server_be, const char *name, u16 id, u32 *ip_be )
+{
+	uint8_t pkt[GC_DNS_MAX_PACKET];
+	struct sockaddr_in sa;
+	struct timeval tv;
+	fd_set rfds;
+	size_t qlen;
+	int s, got = 0;
+	uint8_t ip4[4];
+
+	qlen = GC_DnsBuildQuery( pkt, sizeof( pkt ), id, name );
+	if( !qlen ) return 0;
+	s = net_socket( AF_INET, SOCK_DGRAM, IPPROTO_UDP );
+	if( s < 0 ) return 0;
+	memset( &sa, 0, sizeof( sa ));
+	sa.sin_len = sizeof( sa );
+	sa.sin_family = AF_INET;
+	sa.sin_port = htons( 53 );
+	sa.sin_addr.s_addr = server_be;
+	if( net_sendto( s, pkt, qlen, 0, (struct sockaddr *)&sa, sizeof( sa )) >= 0 )
+	{
+		FD_ZERO( &rfds );
+		FD_SET( s, &rfds );
+		tv.tv_sec = GC_DNS_TIMEOUT_MS / 1000;
+		tv.tv_usec = ( GC_DNS_TIMEOUT_MS % 1000 ) * 1000;
+		if( net_select( s + 1, &rfds, NULL, NULL, &tv ) > 0 )
+		{
+			s32 n = net_recv( s, pkt, sizeof( pkt ), 0 );
+			if( n > 0 && GC_DnsParseResponse( pkt, (size_t)n, id, ip4 ))
+			{
+				memcpy( ip_be, ip4, 4 );
+				got = 1;
+			}
+		}
+	}
+	net_close( s );
+	return got;
+}
+
+int GC_DnsResolve( const char *name, u32 *ip_be )
+{
+	static u16 next_id = 0x4421;
+	u32 servers[4];
+	int i, nservers = 0;
+	string override_ip;
+
+	if( !name || !ip_be || !gc_net_ready )
+		return 0;
+	for( i = 0; i < GC_DNS_CACHE; i++ )
+	{
+		if( gc_dns_cache[i].name[0] && !Q_stricmp( gc_dns_cache[i].name, name ))
+		{
+			*ip_be = gc_dns_cache[i].ip;
+			return 1;
+		}
+	}
+	/* Priority: -gcdns override, DHCP gateway (most routers proxy DNS), public fallbacks. */
+	if( Sys_GetParmFromCmdLine( "-gcdns", override_ip ) && override_ip[0] )
+	{
+		u32 v;
+		if( GC_NetParseIPv4( override_ip, &v )) servers[nservers++] = htonl( v );
+	}
+	if( gc_net_gw[0] && inet_addr( gc_net_gw ) != INADDR_NONE )
+		servers[nservers++] = inet_addr( gc_net_gw );
+	servers[nservers++] = inet_addr( "1.1.1.1" );
+	servers[nservers++] = inet_addr( "8.8.8.8" );
+	for( i = 0; i < nservers; i++ )
+	{
+		if( GC_DnsQueryServer( servers[i], name, next_id++, ip_be ))
+		{
+			Q_strncpy( gc_dns_cache[gc_dns_cache_next].name, name, sizeof( gc_dns_cache[0].name ));
+			gc_dns_cache[gc_dns_cache_next].ip = *ip_be;
+			gc_dns_cache_next = ( gc_dns_cache_next + 1 ) % GC_DNS_CACHE;
+			Con_Reportf( "Xash3D GameCube: dns %s resolved\n", name );
+			return 1;
+		}
+	}
+	Con_Reportf( S_WARN "Xash3D GameCube: dns lookup failed for %s\n", name );
+	return 0;
+}
+
 struct hostent *net_gethostbyname( const char *addrString )
 {
 	static struct hostent he;
@@ -150,7 +239,11 @@ struct hostent *net_gethostbyname( const char *addrString )
 		return NULL;
 	ip = inet_addr( addrString );
 	if( ip == INADDR_NONE || ip == (u32)-1 )
-		return NULL; /* no DNS in cube libbba */
+	{
+		/* libbba has no resolver; do a UDP DNS lookup ourselves. */
+		if( !GC_DnsResolve( addrString, &ip ))
+			return NULL;
+	}
 	Q_strncpy( name_buf, addrString, sizeof( name_buf ));
 	addr.s_addr = ip;
 	alias_list[0] = NULL;
