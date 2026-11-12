@@ -1360,20 +1360,6 @@ void GC_ReportQualityProfile( const char *stage )
 	Con_Reportf( "Xash3D GameCube: quality profile stage=%s gc_quality=%d name=%s low_memory=%d hud=%s audio=%s lightmaps=%s overlay=%s purpose=%s\n",
 		stage ? stage : "unknown", quality, profile, XASH_LOW_MEMORY ? 1 : 0,
 		hud, audio, lightmaps, overlay, purpose );
-	/* One-shot Swiss FAT row for retail gate (video-init + release profile). */
-	if( quality == 1 && stage && !Q_stricmp( stage, "video-init" ))
-	{
-		static qboolean swiss_quality_logged;
-
-		if( !swiss_quality_logged )
-		{
-			swiss_quality_logged = true;
-			GCube_AppendSwissEvidence(
-				"quality profile stage=%s gc_quality=%d name=%s low_memory=%d hud=%s audio=%s lightmaps=%s overlay=%s purpose=%s",
-				stage, quality, profile, XASH_LOW_MEMORY ? 1 : 0,
-				hud, audio, lightmaps, overlay, purpose );
-		}
-	}
 }
 
 #endif /* XASH_GAMECUBE */
@@ -2172,7 +2158,6 @@ void Mod_GCUploadDeferredStudioSkins( void )
 #endif
 	static char last_map[64];
 	int i, ready = 0, attempted = 0;
-	const char **use_paths = paths;
 
 	if( Host_IsDedicated() )
 		return;
@@ -2184,16 +2169,14 @@ void Mod_GCUploadDeferredStudioSkins( void )
 		&& !Sys_CheckParm( "-gcmenuplaystart" )
 		&& !( Sys_CheckParm( "-gcworldrender" ) && Sys_CheckParm( "-gcplayerinput" )))
 		return;
-	if( Sys_CheckParm( "-gccapfacessmoke" ))
-		use_paths = paths_lostcoast;
 	if( sv.name[0] && Q_stricmp( last_map, sv.name ))
 	{
 		Q_strncpy( last_map, sv.name, sizeof( last_map ));
 	}
 
-	for( i = 0; use_paths[i]; i++ )
+	for( i = 0; paths[i]; i++ )
 	{
-		model_t *mod = Mod_FindName( use_paths[i], false );
+		model_t *mod = Mod_FindName( paths[i], false );
 		qboolean ok;
 
 #if XASH_DODGC_NETWORK
@@ -2206,19 +2189,19 @@ void Mod_GCUploadDeferredStudioSkins( void )
 		}
 #else
 		if( !mod || !mod->cache.data )
-			Mod_GCPromoteStudioPath( use_paths[i] );
-		mod = Mod_FindName( use_paths[i], false );
+			Mod_GCPromoteStudioPath( paths[i] );
+		mod = Mod_FindName( paths[i], false );
 		if( !mod || !mod->cache.data )
 		{
 			Con_Reportf( S_WARN "Xash3D GameCube: deferred skins skip '%s' (no cache)\n",
-				use_paths[i] );
+				paths[i] );
 			continue;
 		}
 #endif
 		attempted++;
 		ok = Mod_GCAttachStudioSkins( mod );
 		Con_Reportf( "Xash3D GameCube: deferred skins try '%s' ok=%d n=%d\n",
-			use_paths[i], ok ? 1 : 0,
+			paths[i], ok ? 1 : 0,
 			mod->cache.data ? ((studiohdr_t *)mod->cache.data)->numtextures : -1 );
 		if( ok )
 			ready++;

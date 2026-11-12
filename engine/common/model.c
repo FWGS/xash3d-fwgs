@@ -717,12 +717,7 @@ qboolean Mod_GCPromoteStudioPath( const char *path )
 		return false;
 	if( Mod_GCStudioAlreadyResident( mod ))
 	{
-		/* Lost Coast CapFaces already pinned the retail 357 — don't let
-		 * crowbar/handgun deferred promotes steal the viewent pin. */
-		if( is_view && !( Sys_CheckParm( "-gccapfacessmoke" )
-				&& gc_landmark_viewmodel[0]
-				&& Q_stristr( gc_landmark_viewmodel, "v_357" )
-				&& !Q_stristr( path, "v_357" )))
+		if( is_view )
 			Mod_GCPinViewModel( mod );
 		return true;
 	}
@@ -798,10 +793,7 @@ qboolean Mod_GCPromoteStudioPath( const char *path )
 			kept = (size_t)loaded_hdr->length;
 		Mod_GCNoteRealStudioLoaded( path, kept );
 		Mod_GCStudioNameAllowed( path, &is_view );
-		if( is_view && !( Sys_CheckParm( "-gccapfacessmoke" )
-				&& gc_landmark_viewmodel[0]
-				&& Q_stristr( gc_landmark_viewmodel, "v_357" )
-				&& !Q_stristr( path, "v_357" )))
+		if( is_view )
 			Mod_GCPinViewModel( mod );
 		R_GXStudioInvalidateBindings();
 		return true;
@@ -1222,7 +1214,6 @@ void Mod_GCLoadPreEntityStudios( void )
 	};
 #endif
 	int i;
-	const char **list;
 
 	/* -gcmap / session memopt — same gate as the call site, explicit so a
 	 * stale outer check cannot skip the cast. */
@@ -1241,19 +1232,11 @@ void Mod_GCLoadPreEntityStudios( void )
 
 	FS_ClearFindMissCache();
 	Image_GCPurgeDecodeScratch();
-#if XASH_DODGC_NETWORK
-	list = promote;
-#else
-	list = Sys_CheckParm( "-gccapfacessmoke" ) ? promote_lostcoast : promote;
-#endif
-	/* Lost Coast CapFaces needs textured 357 — mesh-only hung GX studio draw. */
-	gc_studio_pre_entity_mesh_only = !Sys_CheckParm( "-gccapfacessmoke" );
-	for( i = 0; list[i]; i++ )
-		Mod_GCPromoteStudioPath( list[i] );
+	gc_studio_pre_entity_mesh_only = true;
+	for( i = 0; promote[i]; i++ )
+		Mod_GCPromoteStudioPath( promote[i] );
 	gc_studio_pre_entity_mesh_only = false;
 	Mod_GCRebindPromotedStudios();
-	if( Sys_CheckParm( "-gccapfacessmoke" ))
-		Mod_GCUploadDeferredStudioSkins();
 	Con_Reportf( "Xash3D GameCube: pre-entity studios npc=%d view=%d budget=%s bump=%s\n",
 		gc_real_studio_npc, gc_real_studio_view, Q_memprint( gc_real_studio_bytes ),
 		Q_memprint( gc_studio_bss_bump ));

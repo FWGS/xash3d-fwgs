@@ -979,12 +979,6 @@ typedef struct
 } gc_water_face_t;
 static gc_water_face_t gc_water_faces[GC_WATER_MAX_FACES];
 static int gc_water_face_count;
-static u32 gc_water_aram;
-static int gc_water_stage_base = -1;
-static gc_water_face_t gc_water_stage;
-static byte gc_water_stage_raw[GC_WATER_STAGE_N * 128] __attribute__(( aligned( 32 )));
-static float gc_water_scroll2_u = -0.05f;
-static float gc_water_scroll2_v = 0.05f;
 static qboolean gc_g286_water_logged;
 /* GX scroll water CMPR (media/water_gx.cmp) — 64×64. */
 #define GC_WATER_TEX_SIZE	64
@@ -1470,24 +1464,10 @@ int GC_GetLiveFaceCount( void )
 
 /* G358/G367: CapFaces begin/end log once per map; always stash drawn= for samples. */
 static int gc_last_capfaces_drawn;
-static int gc_swiss_capfaces_drawn_logged;
 
 void GC_NoteCapFacesDrawn( int drawn )
 {
 	gc_last_capfaces_drawn = drawn;
-	/* Swiss SD: one CapFaces drawn= peak per map so ingest pass_markers can
-	 * prove Flipper fill without USB Gecko (and without FAT spam). */
-	if( drawn > gc_swiss_capfaces_drawn_logged
-		&& GCube_HasWritableStorage() )
-	{
-		/* First positive draw, or a clearly higher peak (≥32 more faces). */
-		if( gc_swiss_capfaces_drawn_logged <= 0 || drawn >= gc_swiss_capfaces_drawn_logged + 32 )
-		{
-			gc_swiss_capfaces_drawn_logged = drawn;
-			GCube_AppendSwissEvidence( "CapFaces drawn=%d map=%s",
-				drawn, clgame.mapname[0] ? clgame.mapname : "?" );
-		}
-	}
 }
 
 int GC_LastCapFacesDrawn( void )
@@ -2194,79 +2174,6 @@ void GC_GetTramModelOrigin( float out[3] )
 	VectorCopy( gc_tram_model_origin, out );
 }
 
-static void GC_WaterDecodeRec( const byte *rec, gc_water_face_t *dst )
-{
-	int v, nv;
-	union { uint32_t u; float f; } u2f;
-
-	nv = rec[0];
-	if( nv < 3 ) nv = 3;
-	if( nv > GC_CAP_MAX_VERTS ) nv = GC_CAP_MAX_VERTS;
-	dst->nverts = (byte)nv;
-	dst->flags = rec[1];
-	u2f.u = GC_Be32( rec + 8 );
-	dst->scroll_u = u2f.f;
-	u2f.u = GC_Be32( rec + 12 );
-	dst->scroll_v = u2f.f;
-	for( v = 0; v < GC_CAP_MAX_VERTS; v++ )
-	{
-		dst->pts_s16[v][0] = (int16_t)GC_Be16( rec + 16 + v * 6 );
-		dst->pts_s16[v][1] = (int16_t)GC_Be16( rec + 16 + v * 6 + 2 );
-		dst->pts_s16[v][2] = (int16_t)GC_Be16( rec + 16 + v * 6 + 4 );
-		dst->st[v][0] = (float)(int16_t)GC_Be16( rec + 64 + v * 4 ) * ( 1.0f / 64.0f );
-		dst->st[v][1] = (float)(int16_t)GC_Be16( rec + 64 + v * 4 + 2 ) * ( 1.0f / 64.0f );
-	}
-	u2f.u = GC_Be32( rec + 96 );
-	dst->plane.normal[0] = u2f.f;
-	u2f.u = GC_Be32( rec + 100 );
-	dst->plane.normal[1] = u2f.f;
-	u2f.u = GC_Be32( rec + 104 );
-	dst->plane.normal[2] = u2f.f;
-	u2f.u = GC_Be32( rec + 108 );
-	dst->plane.dist = u2f.f;
-	dst->tint = ( (u32)rec[112] << 24 ) | ( (u32)rec[113] << 16 )
-		| ( (u32)rec[114] << 8 ) | (u32)rec[115];
-	if( rec[116] | rec[117] | rec[118] )
-		dst->tint = ( (u32)rec[116] << 24 ) | ( (u32)rec[117] << 16 )
-			| ( (u32)rec[118] << 8 ) | 0xD0u;
-	dst->cheap_start = (float)GC_Be16( rec + 124 ) * 4.0f;
-	dst->cheap_end = (float)GC_Be16( rec + 126 ) * 4.0f;
-	if( dst->cheap_end <= dst->cheap_start )
-	{
-		dst->cheap_start = 500.0f;
-		dst->cheap_end = 1000.0f;
-	}
-}
-
-/* Pack faces stay in ARAM (one 8-face DMA). The 24-slot array is only the
- * live surfbit fallback, which is what used to OOM at a few hundred faces. */
-static gc_water_face_t *GC_WaterFacePtr( int index )
-{
-	int base, n;
-	u32 bytes, have;
-
-	if( index < 0 || index >= gc_water_face_count )
-		return NULL;
-	if( !gc_water_aram )
-		return &gc_water_faces[index];
-	base = index & ~( GC_WATER_STAGE_N - 1 );
-	if( gc_water_stage_base != base )
-	{
-		n = gc_water_face_count - base;
-		if( n > GC_WATER_STAGE_N )
-			n = GC_WATER_STAGE_N;
-		bytes = (u32)n * 128u;
-		have = ( (u32)gc_water_face_count * 128u + 31u ) & ~31u;
-		if( (u32)base * 128u + bytes > have )
-			bytes = have - (u32)base * 128u;
-		GC_AramCopy( gc_water_aram + (u32)base * 128u, gc_water_stage_raw,
-			( bytes + 31u ) & ~31u, false );
-		gc_water_stage_base = base;
-	}
-	GC_WaterDecodeRec( gc_water_stage_raw + ( index - base ) * 128, &gc_water_stage );
-	return &gc_water_stage;
-}
-
 int GC_GetWaterFaceCount( void )
 {
 	return gc_water_face_count;
@@ -2279,9 +2186,7 @@ int GC_GetWaterFaceVerts( int index, float out[][3], int maxverts )
 
 	if( !out || maxverts < 3 || index < 0 || index >= gc_water_face_count )
 		return 0;
-	src = GC_WaterFacePtr( index );
-	if( !src )
-		return 0;
+	src = &gc_water_faces[index];
 	n = (int)src->nverts;
 	if( n < 3 )
 		return 0;
@@ -2350,16 +2255,11 @@ void *GC_GetWaterTexObj( void )
 
 qboolean GC_WaterFacePlane( int index, mplane_t *out, int *out_flags )
 {
-	const gc_water_face_t *src;
-
 	if( !out || index < 0 || index >= gc_water_face_count )
 		return false;
-	src = GC_WaterFacePtr( index );
-	if( !src )
-		return false;
-	*out = src->plane;
+	*out = gc_water_faces[index].plane;
 	if( out_flags )
-		*out_flags = (int)src->flags;
+		*out_flags = (int)gc_water_faces[index].flags;
 	return true;
 }
 
@@ -3682,16 +3582,6 @@ static void GC_BakeCapLightmap( const msurface_t *src, int slot )
 	lm = src->samples;
 	if( !lm )
 		lm = Mod_GCHydrateSurfaceLightmap( src );
-	/* Menu CapFaces: style-0 samples are packed into the live GX atlas and
-	 * msurface_t::samples is cleared. Without this fallback every world cap
-	 * got mid-grey LM (LM real=0/768) — flat/unlit vs retail (probe 012448). */
-	if( !lm && GC_BakeTramLightmapFromLiveAtlas( src, dst ))
-	{
-		gc_newgame_cap_lm_w[slot] = GC_CAP_LM_DIM;
-		gc_newgame_cap_lm_h[slot] = GC_CAP_LM_DIM;
-		gc_newgame_cap_lm_real[slot] = 1;
-		return;
-	}
 	gc_lm_bake_samples = lm;
 	for( y = 0; y < dh; y++ )
 	{
@@ -4235,9 +4125,6 @@ static void GC_CaptureWaterFacesFromSurfbits( model_t *wmodel, const byte *surfb
 	int scores[GC_WATER_MAX_FACES];
 	int pvs_hits = 0;
 
-	/* The map pack already holds every water face in ARAM. */
-	if( gc_water_aram )
-		return;
 	gc_water_face_count = 0;
 	gc_g286_water_logged = false;
 	memset( gc_water_faces, 0, sizeof( gc_water_faces ));
@@ -7916,12 +7803,9 @@ static void GC_InitVideoHardware( void )
 }
 
 #if XASH_GAMECUBE
-/* Linear→tiled staging for GX_TF_RGB565 (4×4). Flipper TexObj sizes must be
- * powers of two: NPOT 320×240 soft-present wrapped the loading plaque into
- * four identical columns. Stage a 256×256 POT atlas (≤ prior 320×240 BSS) and
- * either fit content with UVs or fall back to CPU YUYV for oversized frames. */
-#define GC_GX_TILE_MAX_W 256
-#define GC_GX_TILE_MAX_H 256
+/* Linear→tiled staging for GX_TF_RGB565 (4×4). Sized for New Game / probe presents. */
+#define GC_GX_TILE_MAX_W 320
+#define GC_GX_TILE_MAX_H 240
 static u16 gc_tiled_rgb565[GC_GX_TILE_MAX_W * GC_GX_TILE_MAX_H] __attribute__((aligned( 32 )));
 /* Post-map MEM1 cannot calloc a present FB; keep a BSS New Game probe buffer
  * so G36 never falls back to a 640×480 CPU blit on real hardware. */
@@ -7944,8 +7828,6 @@ static void GC_InitPresentTexture( void )
 
 static int gc_tiled_tex_w;
 static int gc_tiled_tex_h;
-static int gc_tiled_content_w;
-static int gc_tiled_content_h;
 static void *gc_tiled_tex_ptr;
 static qboolean gc_gx_present_pipe_ready;
 /* G151: live New Game draws world tris into EFB; DumpFrames stay on soft. */
@@ -8008,127 +7890,62 @@ static void GC_G193ReleaseSoftSnap( void )
 	gc_g193_snap_w = gc_g193_snap_h = gc_g193_snap_stride = 0;
 }
 
-static int GC_TexPow2( int v )
-{
-	int p = 4; /* GX_TF_RGB565 tiles are 4×4 */
-
-	if( v < 1 )
-		return 4;
-	while( p < v )
-		p <<= 1;
-	return p;
-}
-
-/* Fit a soft-present size into the POT atlas (may nearest-downsample). */
-static void GC_FitPresentSize( int width, int height, int *fit_w, int *fit_h )
-{
-	int w = width;
-	int h = height;
-
-	if( w < 1 )
-		w = 1;
-	if( h < 1 )
-		h = 1;
-	if( w > GC_GX_TILE_MAX_W || h > GC_GX_TILE_MAX_H )
-	{
-		/* Keep aspect; 320×240 → 256×192 inside a 256×256 POT atlas. */
-		if( w * GC_GX_TILE_MAX_H > h * GC_GX_TILE_MAX_W )
-		{
-			h = ( h * GC_GX_TILE_MAX_W + w / 2 ) / w;
-			w = GC_GX_TILE_MAX_W;
-		}
-		else
-		{
-			w = ( w * GC_GX_TILE_MAX_H + h / 2 ) / h;
-			h = GC_GX_TILE_MAX_H;
-		}
-		if( h < 1 )
-			h = 1;
-		if( w < 1 )
-			w = 1;
-	}
-	*fit_w = w;
-	*fit_h = h;
-}
-
 static void GC_InitPresentTextureTiled( void *tiled, int width, int height )
 {
-	int fit_w, fit_h, pot_w, pot_h;
-
 	if( !tiled || width <= 0 || height <= 0 )
 	{
 		gc_present_tex_ready = false;
 		gc_tiled_tex_ptr = NULL;
 		gc_tiled_tex_w = 0;
 		gc_tiled_tex_h = 0;
-		gc_tiled_content_w = 0;
-		gc_tiled_content_h = 0;
 		return;
 	}
 
-	GC_FitPresentSize( width, height, &fit_w, &fit_h );
-	pot_w = GC_TexPow2( fit_w );
-	pot_h = GC_TexPow2( fit_h );
-	if( pot_w > GC_GX_TILE_MAX_W || pot_h > GC_GX_TILE_MAX_H )
-	{
-		gc_present_tex_ready = false;
-		return;
-	}
-
-	/* Same staging buffer + POT size: keep the TexObj; DCFlush + Invalidate refresh. */
+	/* Same staging buffer + size: keep the TexObj; DCFlush + Invalidate refresh data. */
 	if( gc_present_tex_ready && tiled == gc_tiled_tex_ptr
-		&& pot_w == gc_tiled_tex_w && pot_h == gc_tiled_tex_h
-		&& fit_w == gc_tiled_content_w && fit_h == gc_tiled_content_h )
+		&& width == gc_tiled_tex_w && height == gc_tiled_tex_h )
 		return;
 
-	/* Flipper TexObj width/height must be powers of two. NPOT 320×240 made the
-	 * boot loading plaque repeat as four identical vertical columns. */
-	GX_InitTexObj( &gc_present_tex, tiled, (u16)pot_w, (u16)pot_h,
+	GX_InitTexObj( &gc_present_tex, tiled, (u16)width, (u16)height,
 		GX_TF_RGB565, GX_CLAMP, GX_CLAMP, GX_FALSE );
 	GX_InitTexObjFilterMode( &gc_present_tex, GX_NEAR, GX_NEAR );
 	gc_tiled_tex_ptr = tiled;
-	gc_tiled_tex_w = pot_w;
-	gc_tiled_tex_h = pot_h;
-	gc_tiled_content_w = fit_w;
-	gc_tiled_content_h = fit_h;
+	gc_tiled_tex_w = width;
+	gc_tiled_tex_h = height;
 	gc_present_tex_ready = true;
 }
 
 static void GC_SwizzleRGB565ToTiled( const unsigned short *src, int src_stride,
 	int width, int height, unsigned short *dst )
 {
-	int tile_x, tile_y, y, x;
-	int fit_w, fit_h, pot_w, pot_h;
+	int tile_x, tile_y, y;
 	unsigned short *out = dst;
 
-	GC_FitPresentSize( width, height, &fit_w, &fit_h );
-	pot_w = GC_TexPow2( fit_w );
-	pot_h = GC_TexPow2( fit_h );
-
-	/* GX_TF_RGB565 stores 4×4 tiles contiguously across the POT atlas. Pixels
-	 * outside the content rect are cleared so CLAMP UVs never sample garbage.
-	 * Oversized sources are nearest-sampled into the fitted content rect. */
-	for( tile_y = 0; tile_y < pot_h; tile_y += 4 )
+	/* GX_TF_RGB565 stores 4×4 tiles contiguously.
+	 * Copy each tile row as two u32 loads when naturally aligned. */
+	for( tile_y = 0; tile_y < height; tile_y += 4 )
 	{
-		for( tile_x = 0; tile_x < pot_w; tile_x += 4 )
+		for( tile_x = 0; tile_x < width; tile_x += 4 )
 		{
 			for( y = 0; y < 4; y++ )
 			{
-				const int dy = tile_y + y;
-
-				for( x = 0; x < 4; x++ )
+				const unsigned short *row = src + ( tile_y + y ) * src_stride + tile_x;
+#if defined( __GNUC__ )
+				if( (((unsigned long)row) & 3 ) == 0 && (((unsigned long)out) & 3 ) == 0 )
 				{
-					const int dx = tile_x + x;
+					const unsigned int *r32 = (const unsigned int *)(const void *)row;
+					unsigned int *o32 = (unsigned int *)(void *)out;
 
-					if( src && dx < fit_w && dy < fit_h )
-					{
-						const int sx = ( width == fit_w ) ? dx : ( dx * width ) / fit_w;
-						const int sy = ( height == fit_h ) ? dy : ( dy * height ) / fit_h;
-
-						out[x] = src[sy * src_stride + sx];
-					}
-					else
-						out[x] = 0;
+					o32[0] = r32[0];
+					o32[1] = r32[1];
+				}
+				else
+#endif
+				{
+					out[0] = row[0];
+					out[1] = row[1];
+					out[2] = row[2];
+					out[3] = row[3];
 				}
 				out += 4;
 			}
@@ -8148,21 +7965,16 @@ static void GC_ScrubLiveWorldSpeckles( unsigned short *dst, int width, int heigh
 
 static qboolean GC_CanPresentViaGX( int width, int height )
 {
-	int fit_w, fit_h, pot_w, pot_h;
-
 	if( !gc.initialized || !rmode || !xfb[which_fb] )
 		return false;
 	if( width <= 0 || height <= 0 )
 		return false;
 	if(( width & 3 ) || ( height & 3 ))
 		return false;
-	/* Oversized soft buffers are nearest-fit into the POT atlas. */
-	GC_FitPresentSize( width, height, &fit_w, &fit_h );
-	pot_w = GC_TexPow2( fit_w );
-	pot_h = GC_TexPow2( fit_h );
-	if( pot_w > GC_GX_TILE_MAX_W || pot_h > GC_GX_TILE_MAX_H )
+	if( width > GC_GX_TILE_MAX_W || height > GC_GX_TILE_MAX_H )
 		return false;
-	/* Prefer native GX (tiled RGB565 → EFB → XFB). Avoids CPU YUYV upscale. */
+	/* Prefer native GX (tiled RGB565 → EFB → XFB) for any buffer that fits
+	 * the tile staging area. Avoids CPU YUYV upscale on GameCube. */
 	return true;
 }
 
@@ -8241,28 +8053,20 @@ static void GC_PresentBufferViaGX( void )
 	GX_InvalidateTexAll();
 	GX_LoadTexObj( &gc_present_tex, GX_TEXMAP0 );
 
-	{
-		/* Sample only the content rect inside the POT atlas. */
-		const f32 u1 = ( gc_tiled_tex_w > 0 )
-			? ((f32)gc_tiled_content_w / (f32)gc_tiled_tex_w ) : 1.0f;
-		const f32 v1 = ( gc_tiled_tex_h > 0 )
-			? ((f32)gc_tiled_content_h / (f32)gc_tiled_tex_h ) : 1.0f;
-
-		GX_Begin( GX_QUADS, GX_VTXFMT0, 4 );
-		GX_Position3f32( 0.0f, 0.0f, 0.0f );
-		GX_Color1u32( 0xFFFFFFFF );
-		GX_TexCoord2f32( 0.0f, 0.0f );
-		GX_Position3f32( fb_w, 0.0f, 0.0f );
-		GX_Color1u32( 0xFFFFFFFF );
-		GX_TexCoord2f32( u1, 0.0f );
-		GX_Position3f32( fb_w, fb_h, 0.0f );
-		GX_Color1u32( 0xFFFFFFFF );
-		GX_TexCoord2f32( u1, v1 );
-		GX_Position3f32( 0.0f, fb_h, 0.0f );
-		GX_Color1u32( 0xFFFFFFFF );
-		GX_TexCoord2f32( 0.0f, v1 );
-		GX_End();
-	}
+	GX_Begin( GX_QUADS, GX_VTXFMT0, 4 );
+	GX_Position3f32( 0.0f, 0.0f, 0.0f );
+	GX_Color1u32( 0xFFFFFFFF );
+	GX_TexCoord2f32( 0.0f, 0.0f );
+	GX_Position3f32( fb_w, 0.0f, 0.0f );
+	GX_Color1u32( 0xFFFFFFFF );
+	GX_TexCoord2f32( 1.0f, 0.0f );
+	GX_Position3f32( fb_w, fb_h, 0.0f );
+	GX_Color1u32( 0xFFFFFFFF );
+	GX_TexCoord2f32( 1.0f, 1.0f );
+	GX_Position3f32( 0.0f, fb_h, 0.0f );
+	GX_Color1u32( 0xFFFFFFFF );
+	GX_TexCoord2f32( 0.0f, 1.0f );
+	GX_End();
 
 	GC_GXDrawDoneTimed( "soft present" );
 	/* G191: keep soft RGB565 on EFB during dump latch — Dolphin DumpFramesAsImages
@@ -8287,8 +8091,6 @@ static void GC_ShutdownVideoHardware( void )
 	gc_tiled_tex_ptr = NULL;
 	gc_tiled_tex_w = 0;
 	gc_tiled_tex_h = 0;
-	gc_tiled_content_w = 0;
-	gc_tiled_content_h = 0;
 
 	GX_AbortFrame();
 	/* Leave the last XFB visible (fatal breadcrumb / last frame). Blacking
@@ -8988,9 +8790,8 @@ static void GC_PresentBuffer( void )
 				&& ( Sys_CheckParm( "-gcdumpframes" ) || Sys_CheckParm( "-gcdump" ));
 
 			GC_SwizzleRGB565ToTiled( src, gc.stride, src_w, src_h, gc_tiled_rgb565 );
+			DCFlushRange( gc_tiled_rgb565, (u32)((size_t)src_w * (size_t)src_h * sizeof( u16 )));
 			GC_InitPresentTextureTiled( gc_tiled_rgb565, src_w, src_h );
-			DCFlushRange( gc_tiled_rgb565,
-				(u32)((size_t)gc_tiled_tex_w * (size_t)gc_tiled_tex_h * sizeof( u16 )));
 			GC_PresentBufferViaGX();
 			/* G192: with XFB→RAM (probe GFX), CPU YUYV ensures DumpFrames see the
 			 * scrubbed soft buffer even if the tiled EFB quad is muted. */
@@ -9133,11 +8934,8 @@ static void GC_PresentBuffer( void )
 			Q_strncpy( gc_swiss_playable_map, clgame.mapname, sizeof( gc_swiss_playable_map ));
 			GCube_AppendSwissEvidence( "playable present map=%s frame=%u nonblack=1",
 				clgame.mapname, gc_present_count );
-			if( GC_LastCapFacesDrawn() > 0 )
-				GCube_AppendSwissEvidence( "CapFaces drawn=%d map=%s",
-					GC_LastCapFacesDrawn(), clgame.mapname );
-			Con_Reportf( "Xash3D GameCube: playable present map=%s frame=%u drawn=%d\n",
-				clgame.mapname, gc_present_count, GC_LastCapFacesDrawn() );
+			Con_Reportf( "Xash3D GameCube: playable present map=%s frame=%u\n",
+				clgame.mapname, gc_present_count );
 			if( Sys_CheckParm( "-gcswissquit" ) && !waiting_changelevel )
 			{
 				/* G66: prove FAT save/ on the final map before loader return. */
@@ -10872,14 +10670,14 @@ void GC_DrawLoadingStatus( const char *message, const char *details )
 #if XASH_GAMECUBE
 	size_t xfb_size;
 
-	/* Host_Init: lean -gcmap smoke ISOs may omit loading.tga — never block
-	 * those probes on GC_LoadLoadingBackground. -gcnewgame / retail still
-	 * present the plaque (POT soft-present); skipping all capture-diagnostic
-	 * presents left New Game boots on a black XFB and hid the 320×240 NPOT
-	 * four-column Flipper wrap from DumpFrames. */
+	/* Host_Init: Dolphin capture routes skip init presents (probe timeout).
+	 * Real hardware/Swiss retail boots show the loading plaque via early XFB
+	 * once CL_Init has created rmode/xfb — otherwise black for minutes.
+	 * Lean -gcmap smoke ISOs may omit loading.tga; never block boot probing
+	 * that asset (c0a0e hung in GC_LoadLoadingBackground under Dolphin). */
 	if( host.status == HOST_INIT )
 	{
-		if( Sys_CheckParm( "-gcmap" ) && !Sys_CheckParm( "-gcnewgame" ))
+		if( Sys_CheckParm( "-gcmap" ) || GC_IsCaptureDiagnostics() )
 		{
 			Con_Reportf( "Xash3D GameCube: loading status %s (%s) init-skip-present\n",
 				message ? message : "?", details ? details : "" );
@@ -10923,9 +10721,8 @@ void GC_DrawLoadingStatus( const char *message, const char *details )
 		if( GC_CanPresentViaGX( gc.width, gc.height ))
 		{
 			GC_SwizzleRGB565ToTiled( gc.buffer, gc.stride, gc.width, gc.height, gc_tiled_rgb565 );
+			DCFlushRange( gc_tiled_rgb565, (u32)((size_t)gc.width * (size_t)gc.height * sizeof( u16 )));
 			GC_InitPresentTextureTiled( gc_tiled_rgb565, gc.width, gc.height );
-			DCFlushRange( gc_tiled_rgb565,
-				(u32)((size_t)gc_tiled_tex_w * (size_t)gc_tiled_tex_h * sizeof( u16 )));
 			GC_PresentBufferViaGX();
 			VIDEO_SetNextFramebuffer( xfb[which_fb] );
 			VIDEO_Flush();
@@ -12565,9 +12362,8 @@ void GC_DrawFatalBreadcrumb( const char *message, const char *details )
 	if( GC_CanPresentViaGX( panel_w, panel_h ))
 	{
 		GC_SwizzleRGB565ToTiled( panel, panel_w, panel_w, panel_h, gc_tiled_rgb565 );
+		DCFlushRange( gc_tiled_rgb565, (u32)((size_t)panel_w * (size_t)panel_h * sizeof( u16 )));
 		GC_InitPresentTextureTiled( gc_tiled_rgb565, panel_w, panel_h );
-		DCFlushRange( gc_tiled_rgb565,
-			(u32)((size_t)gc_tiled_tex_w * (size_t)gc_tiled_tex_h * sizeof( u16 )));
 		GC_PresentBufferViaGX();
 	}
 
@@ -13781,15 +13577,9 @@ qboolean GC_ApplyNewGameCachedVis( int visframe )
 
 #if XASH_GAMECUBE
 /* Local RLE decompress — Mod_DecompressPVS is static in mod_bmodel.c. */
-/* Retained world vis blob size (set by Mod_LoadVisibility). */
-size_t gc_world_visdatasize;
-
 static void GC_DecompressPVS( byte *out, const byte *in, size_t visbytes )
 {
 	byte *dst = out;
-	const byte *vis_end = NULL;
-	size_t steps = 0;
-	const size_t step_cap = visbytes * 4u + 8u;
 
 	if( !in )
 	{
@@ -13797,47 +13587,15 @@ static void GC_DecompressPVS( byte *out, const byte *in, size_t visbytes )
 		return;
 	}
 
-	/* Bound RLE reads to the retained world vis blob. A changelevel eye that
-	 * landed in a sliver leaf with a stale compressed_vis made Soft spin in
-	 * this loop (c0a0a probe 20261110-010938 hung after "decompress cl=667"). */
-	{
-		model_t *wm = ( SV_Active() && sv.models[1] ) ? sv.models[1] : cl.worldmodel;
-
-		if( wm && wm->visdata && gc_world_visdatasize > 0 )
-		{
-			const byte *base = (const byte *)wm->visdata;
-
-			if( in >= base && in < base + gc_world_visdatasize )
-				vis_end = base + gc_world_visdatasize;
-		}
-	}
-
 	while( dst < out + visbytes )
 	{
-		if( ++steps > step_cap )
-		{
-			memset( dst, 0, (size_t)( out + visbytes - dst ));
-			return;
-		}
-		if( vis_end && in >= vis_end )
-		{
-			memset( dst, 0, (size_t)( out + visbytes - dst ));
-			return;
-		}
 		if( *in )
 		{
 			*dst++ = *in++;
 		}
 		else
 		{
-			size_t c;
-
-			if( vis_end && in + 1 >= vis_end )
-			{
-				memset( dst, 0, (size_t)( out + visbytes - dst ));
-				return;
-			}
-			c = in[1];
+			size_t c = in[1];
 
 			if( c == 0 )
 			{
@@ -14697,25 +14455,8 @@ static qboolean GC_BakeMenuTramLeanSurfbits( model_t *wmodel, const float *eye,
 		return false;
 	}
 
-	Con_Reportf( "Xash3D GameCube: menu lean tram PVS decompress cl=%d li=%d marks=%p\n",
-		cluster, li, (void *)wmodel->marksurfaces );
-	/* Reject stale compressed_vis before Soft can spin on a bad RLE stream. */
-	if( wmodel->visdata && gc_world_visdatasize > 0 )
-	{
-		const byte *base = (const byte *)wmodel->visdata;
-		const byte *cv = (const byte *)wmodel->leafs[li].compressed_vis;
-
-		if( !cv || cv < base || cv >= base + gc_world_visdatasize )
-		{
-			Con_Reportf( "Xash3D GameCube: menu lean tram PVS bad compressed_vis cl=%d\n",
-				cluster );
-			return false;
-		}
-	}
 	GC_DecompressPVS( vis, wmodel->leafs[li].compressed_vis, (size_t)visbytes );
-	Con_Reportf( "Xash3D GameCube: menu lean tram PVS decompressed cl=%d\n", cluster );
 	GC_BuildSurfbitsForVisRow( wmodel, vis, out_bits );
-	Con_Reportf( "Xash3D GameCube: menu lean tram PVS surfbits ready cl=%d\n", cluster );
 
 	stamped = 0;
 	for( b = 0; b < wmodel->numsurfaces; b++ )
@@ -15048,89 +14789,10 @@ void GC_BakeMenuNewGameCapFacesNoPVS( void )
 		return;
 	}
 
-	/* Full geo path: retained/pinned BSP already walks live surfaces with
-	 * real textures + lightmap atlas. CapFaces bake burns tip and forced the
-	 * tip-safe LM-caps demotion (probe 012448: live=1 pinned=1 then
-	 * G283 skipped → flat wrong look). Skip CapFaces entirely. */
-	if( Mod_GCWorldSurfacesPinned( wmodel )
-		&& !Mod_GCWorldSurfacesScratchRetained( wmodel ))
-	{
-		Con_Reportf( "Xash3D GameCube: menu full geo — skip CapFaces bake (pinned surfs=%d tip=%s)\n",
-			wmodel->numsurfaces, Q_memprint( GC_MemHeapFreeBytes() ));
-		return;
-	}
-
-	Con_Reportf( "Xash3D GameCube: menu CapFaces bake enter tip=%s\n",
-		Q_memprint( GC_MemHeapFreeBytes() ));
-
-	/* Prefer the live ride/player eye so c0a0a+ CapFaces PVS is not baked at
-	 * the hardcoded tram-stop origin (which has no leaf on later maps). Fall
-	 * back to tram-start only when the player edict is not ready yet.
+	/* Rank toward tram-start eye — null origin picked map-wide slabs.
 	 * Lean tram PVS must run BEFORE decode-scratch purge — marksurfaces
 	 * are required to stamp surfbits (NoPVS walks surfaces only). */
-	if( !GC_NewGameRideEye( eye, angles ))
-		(void)GC_DumpEyeAtTramStart( eye, angles );
-	/* Changelevel CapFaces often bake before edict 1 has an origin; the
-	 * tram-stop / prior-map ride eye has no leaf on c0a0a+. Prefer a
-	 * mid-sized vis-bearing leaf AABB center — NOT the global smallest
-	 * (sliver leaves hang Soft in PVS decompress, probe 20261110-010938). */
-	if( GC_SelectClusterFromLeafAabbs( wmodel, eye ) < 0 )
-	{
-		int i;
-		int best = -1;
-		float best_vol = 0.0f;
-		vec3_t center;
-
-		for( i = 1; i < wmodel->numleafs; i++ )
-		{
-			const mleaf_t *leaf = &wmodel->leafs[i];
-			const float *mins = leaf->minmaxs;
-			const float *maxs = leaf->minmaxs + 3;
-			float vol;
-			vec3_t size;
-
-			if( leaf->cluster < 0 || !leaf->compressed_vis )
-				continue;
-			if( leaf->contents == CONTENTS_SOLID )
-				continue;
-			/* compressed_vis must land inside retained world visdata. */
-			if( wmodel->visdata && gc_world_visdatasize > 0 )
-			{
-				const byte *base = (const byte *)wmodel->visdata;
-				const byte *cv = (const byte *)leaf->compressed_vis;
-
-				if( cv < base || cv >= base + gc_world_visdatasize )
-					continue;
-			}
-			VectorSubtract( maxs, mins, size );
-			vol = size[0] * size[1] * size[2];
-			/* Skip portal slivers and huge outdoor voids. */
-			if( vol < 8192.0f || vol > 5.0e7f )
-				continue;
-			if( vol <= best_vol )
-				continue;
-			best_vol = vol;
-			best = i;
-			center[0] = 0.5f * ( mins[0] + maxs[0] );
-			center[1] = 0.5f * ( mins[1] + maxs[1] );
-			center[2] = 0.5f * ( mins[2] + maxs[2] );
-		}
-		if( best >= 0 )
-		{
-			vec3_t right, up;
-
-			VectorCopy( center, eye );
-			angles[0] = -6.0f;
-			angles[1] = 180.0f;
-			angles[2] = 0.0f;
-			VectorCopy( eye, gc_newgame_capture_origin );
-			AngleVectors( angles, gc_newgame_capture_forward, right, up );
-			Con_Reportf( "Xash3D GameCube: menu CapFaces bake eye fallback leaf=%d cluster=%d vol=%.0f\n",
-				best, wmodel->leafs[best].cluster, best_vol );
-		}
-	}
-	Con_Reportf( "Xash3D GameCube: menu CapFaces bake eye=(%.0f,%.0f,%.0f) marks=%p nmark=%d\n",
-		eye[0], eye[1], eye[2], (void *)wmodel->marksurfaces, wmodel->nummarksurfaces );
+	(void)GC_DumpEyeAtTramStart( eye, angles );
 
 	if( gc_newgame_surfbytes <= 0 )
 		gc_newgame_surfbytes = ( wmodel->numsurfaces + 7 ) / 8;
@@ -16588,7 +16250,6 @@ qboolean GC_RenderNewGameWorldFrames( int count )
 	vec3_t center;
 	char old_drawviewmodel[16];
 	int i;
-	static char gc_render_map_log[32];
 
 	/* Peer BBA join (-gcconnect) has no local SV — use client world. */
 	if( !ref.initialized || ( !SV_Active() && !Sys_CheckParm( "-gcconnect" )) )
@@ -16613,12 +16274,6 @@ qboolean GC_RenderNewGameWorldFrames( int count )
 	{
 		Con_Reportf( "Xash3D GameCube: G161 world frames unavailable world=null\n" );
 		return false;
-	}
-	if( Q_stricmp( gc_render_map_log, sv.name ))
-	{
-		Q_strncpy( gc_render_map_log, sv.name, sizeof( gc_render_map_log ));
-		Con_Reportf( "Xash3D GameCube: GC_RenderNewGameWorldFrames enter map=%s tip=%s state=%d\n",
-			sv.name[0] ? sv.name : "?", Q_memprint( GC_MemHeapFreeBytes() ), cls.state );
 	}
 	/* Full-physics TAS reaches this bounded renderer without the normal client
 	 * view setup. Bind the already mirrored landmark mesh here, after the
@@ -16716,67 +16371,6 @@ qboolean GC_RenderNewGameWorldFrames( int count )
 				break;
 			}
 		}
-	}
-	/* Full-geo CapFaces-skip: dump-look / lean PVS / CapFaces aim hung Soft
-	 * after c0a0a connect (031111 froze post "GC_Render enter map=c0a0a";
-	 * 031654 entered c0a0a but never logged fast present — Mod_GC pin check
-	 * missed the hop dest). CapFaces count alone gates the short-circuit. */
-	if( Sys_CheckParm( "-gcmenuplaystart" )
-		&& GC_GetNewGameCapFaceCount() <= 0 )
-	{
-		static char fast_map[32];
-		mleaf_t *vl;
-
-		VectorCopy( center, rvp.vieworigin );
-		/* Landmark spawn sometimes lands at X≈0 (c0a0a eye=(0,-875,99) Soft
-		 * hung in MarkLeaves after fast present — 033158). Force mid-volume
-		 * leaf even when PointInLeaf returns a cluster. */
-		vl = Mod_PointInLeaf( center, world->nodes, world );
-		if( !vl || vl == world->leafs || vl->cluster < 0 || !vl->compressed_vis
-			|| fabsf( center[0] ) < 8.0f )
-		{
-			int li, best = -1;
-			float best_vol = 0.0f;
-			vec3_t mid;
-
-			for( li = 1; li < world->numleafs; li++ )
-			{
-				const mleaf_t *leaf = &world->leafs[li];
-				const float *mins = leaf->minmaxs;
-				const float *maxs = leaf->minmaxs + 3;
-				float vol;
-				vec3_t size;
-
-				if( leaf->cluster < 0 || !leaf->compressed_vis )
-					continue;
-				if( leaf->contents == CONTENTS_SOLID )
-					continue;
-				VectorSubtract( maxs, mins, size );
-				vol = size[0] * size[1] * size[2];
-				if( vol < 8192.0f || vol > 5.0e7f || vol <= best_vol )
-					continue;
-				best_vol = vol;
-				best = li;
-				mid[0] = 0.5f * ( mins[0] + maxs[0] );
-				mid[1] = 0.5f * ( mins[1] + maxs[1] );
-				mid[2] = 0.5f * ( mins[2] + maxs[2] );
-			}
-			if( best >= 0 )
-			{
-				VectorCopy( mid, center );
-				VectorCopy( mid, rvp.vieworigin );
-				rvp.viewangles[0] = -6.0f;
-				rvp.viewangles[1] = 180.0f;
-				rvp.viewangles[2] = 0.0f;
-			}
-		}
-		if( Q_stricmp( fast_map, sv.name ))
-		{
-			Q_strncpy( fast_map, sv.name, sizeof( fast_map ));
-			Con_Reportf( "Xash3D GameCube: full geo fast present map=%s eye=(%.0f,%.0f,%.0f)\n",
-				sv.name[0] ? sv.name : "?", center[0], center[1], center[2] );
-		}
-		goto gc_render_present_frames;
 	}
 	/* G279: follow parented ride eye under stream lock (was fixed DumpEye).
 	 * G364: denser dest skips tram −X restream; dump wall-aim restreams after. */
@@ -17356,96 +16950,6 @@ qboolean GC_RenderNewGameWorldFrames( int count )
 		}
 	}
 
-		Cvar_Set( "r_drawviewmodel", want_vm ? "1" : "0" );
-		/* CapFaces listen skips V_SetupViewModel — bind a studio mesh for
-		 * Flipper. Lost Coast CapFaces: retail 357; DoD team loadouts;
-		 * else crowbar. Spectate hides the gun. */
-		if( want_vm )
-		{
-			model_t *vm = clgame.viewent.model;
-			const char *vpath = "models/v_crowbar.mdl";
-#if XASH_DODGC_NETWORK
-			const qboolean dod = true;
-#else
-			const qboolean dod = false;
-#endif
-			static qboolean capfaces_vm_bound_logged;
-			static int capfaces_vm_team_logged = -1;
-			extern qboolean Mod_GCEnsureLandmarkViewModel( const char *model_path );
-
-			/* Lost Coast CapFaces DumpFrames: retail vista holds the 357. */
-			if( !dod && Sys_CheckParm( "-gccapfacessmoke" ))
-				vpath = "models/v_357.mdl";
-			if( dod )
-			{
-				/* BBA=0 tip≈400 KiB (teamvm14) — bind team pistols immediately.
-				 * Rifles wait for present≥16 after team pick. */
-				if( gc_capfaces_team_picked && gc_capfaces_team_sel == 2 )
-					vpath = NULL; /* spectate */
-				else if( gc_capfaces_team_picked && gc_capfaces_team_sel == 1
-					&& gc_present_count >= 16 )
-					vpath = "models/v_mp40.mdl";
-				else if( gc_capfaces_team_picked && gc_capfaces_team_sel == 0
-					&& gc_present_count >= 16 )
-					vpath = "models/v_garand.mdl";
-				else if( gc_capfaces_team_picked && gc_capfaces_team_sel == 1 )
-					vpath = "models/v_luger.mdl";
-				else
-					vpath = "models/v_colt.mdl";
-			}
-			if( vpath )
-			{
-				/* Lost Coast CapFaces: replace crowbar pin with retail 357. */
-				if( !vm || vm->type != mod_studio || !vm->cache.data
-					|| !vm->name[0] || !Q_stristr( vm->name, vpath + 7 ) )
-				{
-					if( !Mod_GCEnsureLandmarkViewModel( vpath ))
-						vm = Mod_FindName( vpath, false );
-					else
-						vm = Mod_FindName( vpath, false );
-					if( ( !vm || vm->type != mod_studio || !vm->cache.data ) && dod )
-					{
-						/* Tip miss: try the lighter pistol, then crowbar. */
-						const char *fallback = ( gc_capfaces_team_sel == 1 )
-							? "models/v_luger.mdl" : "models/v_colt.mdl";
-						if( Mod_GCEnsureLandmarkViewModel( fallback ))
-							vm = Mod_FindName( fallback, false );
-						if( !vm || vm->type != mod_studio || !vm->cache.data )
-							vm = Mod_FindName( "models/v_crowbar.mdl", false );
-					}
-				}
-			}
-			else
-				vm = NULL;
-			if( vm && vm->type == mod_studio && vm->cache.data )
-			{
-				clgame.viewent.model = vm;
-				clgame.viewent.index = cl.playernum + 1;
-				clgame.viewent.curstate.number = cl.playernum + 1;
-				clgame.viewent.curstate.modelindex = 0;
-				clgame.viewent.curstate.sequence = 0;
-				clgame.viewent.curstate.framerate = 1.0f;
-				clgame.viewent.curstate.animtime = (float)cl.time;
-				clgame.viewent.curstate.rendermode = kRenderNormal;
-				VectorCopy( rvp.vieworigin, clgame.viewent.origin );
-				VectorCopy( rvp.viewangles, clgame.viewent.angles );
-				VectorCopy( clgame.viewent.origin, clgame.viewent.curstate.origin );
-				VectorCopy( clgame.viewent.angles, clgame.viewent.curstate.angles );
-				gc_force_draw_viewmodel = true;
-				if( !capfaces_vm_bound_logged
-					|| capfaces_vm_team_logged != gc_capfaces_team_sel )
-				{
-					Con_Reportf( "Xash3D GameCube: CapFaces viewmodel bound %s team=%d\n",
-						vm->name[0] ? vm->name : ( vpath ? vpath : "none" ),
-						gc_capfaces_team_picked ? gc_capfaces_team_sel : -1 );
-					capfaces_vm_bound_logged = true;
-					capfaces_vm_team_logged = gc_capfaces_team_sel;
-				}
-			}
-		}
-	}
-
-gc_render_present_frames:
 	{
 		static int render_log;
 
@@ -17914,7 +17418,6 @@ gc_render_present_frames:
 				ref.dllFuncs.R_AllowFog( true );
 				cl.video_prepped = saved_prepped;
 			}
-			} /* skip_hud scope */
 		}
 		ref.dllFuncs.R_EndFrame();
 		GC_WatchdogMark( "newgame frame after R_EndFrame" );
@@ -17964,40 +17467,6 @@ gc_render_present_frames:
 				Con_Reportf( "Xash3D GameCube: CapFaces DumpFrames hold skipped (playerinput)\n" );
 			}
 		}
-		/* WorldDL dump-eye: arm hold once the visible chunk set is resident. */
-		if( !Sys_CheckParm( "-gcvst" )
-			&& ( Sys_CheckParm( "-gccapfacessmoke" ) || Sys_CheckParm( "-gcworldrender" ))
-			&& ( Sys_CheckParm( "-gcdumpframes" ) || Sys_CheckParm( "-gcdump" )) )
-		{
-			static qboolean wd_dump_hold_armed;
-			extern qboolean R_GXWorldDLActive( void );
-			extern int R_GXWorldDLLastWaiting( void );
-			extern int R_GXWorldDLLastChunks( void );
-			extern void R_GXHoldEfbForDump( int frames );
-
-			if( !wd_dump_hold_armed && R_GXWorldDLActive()
-				&& (( R_GXWorldDLLastWaiting() <= 0
-						&& R_GXWorldDLLastChunks() > 64 )
-					|| scr_frames >= 12 ))
-			{
-				int dump_i;
-
-				wd_dump_hold_armed = true;
-				gc_cpu_dump_presents_left = 0;
-				R_GXHoldEfbForDump( 12 );
-				Con_Reportf(
-					"Xash3D GameCube: WorldDL Flipper DumpFrames hold armed waiting=%d chunks=%d scr=%u\n",
-					R_GXWorldDLLastWaiting(), R_GXWorldDLLastChunks(),
-					scr_frames );
-				for( dump_i = 0; dump_i < 12; dump_i++ )
-				{
-					gc_gx_world_efb_ready = true;
-					GC_PresentBuffer();
-				}
-			}
-		}
-		if( Sys_CheckParm( "-gccapfacessmoke" ))
-			GC_CapFacesSoundscapeFrame();
 		if( sustained_frames == 8 || sustained_frames == 16
 			|| ( sustained_frames > 0 && ( sustained_frames % 32 ) == 0 ))
 		{
@@ -18420,48 +17889,13 @@ qboolean GC_PrepareNewGameWorldPresent( void )
 	 * any) temporarily clears this via presents_left. */
 	GC_EnableGxWorldLive();
 	/* Menu CapFaces bake at entity-spawn (before discard). Prepare-time bake
-	 * is a no-op once surfaces are gone — keep only if spawn bake missed.
-	 * Full pinned BSP: never CapFaces NoPVS fallback — it refilled 768 caps
-	 * after spawn skip (probe 013946 c0a0a) and demoted the live path. */
+	 * is a no-op once surfaces are gone — keep only if spawn bake missed. */
 	if( Sys_CheckParm( "-gcmenuplaystart" ) && !GC_HasNewGameCachedVis()
 		&& gc_newgame_cap_face_count <= 0 )
 	{
 		model_t *wm = sv.models[1];
 
-		if( wm && wm->surfaces
-			&& Mod_GCWorldSurfacesPinned( wm )
-			&& !Mod_GCWorldSurfacesScratchRetained( wm ))
-		{
-			/* Tip is still ~34 KiB here — preload tram loop/start before the
-			 * first live BSP frame drops tip below the WAV FS buffer
-			 * (probe 015131: ttrain soft-fail @ tip=21 KiB after opaque=101). */
-			static const char *const tram_sfx[] = {
-				"plats/ttrain1.wav",
-				"plats/ttrain_start1.wav",
-			};
-			int ti;
-
-			Con_Reportf( "Xash3D GameCube: menu full geo — skip CapFaces prepare-fallback (pinned surfs=%d tip=%s)\n",
-				wm->numsurfaces, Q_memprint( GC_MemHeapFreeBytes() ));
-			Image_GCPurgeDecodeScratch();
-			FS_ClearFindMissCache();
-			for( ti = 0; ti < (int)( sizeof( tram_sfx ) / sizeof( tram_sfx[0] )); ti++ )
-			{
-				sfx_t *sfx;
-				sound_t handle;
-
-				if( GC_MemHeapFreeBytes() < 24u * 1024u )
-					break;
-				handle = S_RegisterSound( tram_sfx[ti] );
-				sfx = ( handle > 0 ) ? S_GetSfxByHandle( handle ) : NULL;
-				if( sfx && !sfx->cache )
-					(void)S_LoadSound( sfx );
-				Con_Reportf( "Xash3D GameCube: menu full geo tram SFX preload %s handle=%d cache=%d tip=%s\n",
-					tram_sfx[ti], (int)handle, ( sfx && sfx->cache ) ? 1 : 0,
-					Q_memprint( GC_MemHeapFreeBytes() ));
-			}
-		}
-		else if( wm && wm->surfaces )
+		if( wm && wm->surfaces )
 		{
 			Image_GCPurgeDecodeScratch();
 			Con_Reportf( "Xash3D GameCube: menu CapFaces NoPVS prepare-fallback begin surfs=%d\n",
@@ -18878,18 +18312,6 @@ qboolean GC_PrepareNewGameWorldPresent( void )
 				Con_Reportf( "Xash3D GameCube: G358 CapFaces sample deferred map=%s\n",
 					sv.name );
 		}
-	}
-	else if( Sys_CheckParm( "-gcmenuplaystart" )
-		&& sv.models[1]
-		&& Mod_GCWorldSurfacesPinned( sv.models[1] )
-		&& !Mod_GCWorldSurfacesScratchRetained( sv.models[1] ))
-	{
-		/* Full geo: Prepare Flipper pump hung Soft before CapFaces begin
-		 * (c0a0a changelevel probe 015131; c0a0 cold probe 020442 after
-		 * PointInLeaf cluster=-1). Host_Frame draws live BSP. */
-		Con_Reportf( "Xash3D GameCube: menu full geo — skip Prepare Flipper pump map=%s tip=%s\n",
-			sv.name, Q_memprint( GC_MemHeapFreeBytes() ));
-		Con_Reportf( "Xash3D GameCube: post-G36 world present\n" );
 	}
 	else if( !GC_RenderNewGameWorldFrames( 1 ))
 	{
@@ -19532,54 +18954,11 @@ void GC_UpdateNewGameIntroAudio( void )
 		return;
 	if( cls.state != ca_active )
 		return;
-	/* Menu route: announcer streams via S_GCStreamVoice; tram normally uses
-	 * plats/ttrain* SFX. Full-geo tip≈28–33 KiB leaves those cache=0 (Soft
-	 * 034513) — stream media/ttrain1.wav as audible rumble for the ride. */
+	/* Menu route: the maps' own ambient_generics fire the announcer at the
+	 * retail times (streamed by S_GCStreamVoice) and the tram plays its own
+	 * plats/ttrain sounds, so nothing is scheduled here. */
 	if( GC_MenuRunsServer( ))
-	{
-		static qboolean menu_tram_rumble_armed;
-		static qboolean menu_tram_rumble_done;
-		sfx_t *loop_sfx;
-		qboolean have_sfx;
-
-		if( Q_stricmp( sv.name, "c0a0" ) && Q_stricmp( sv.name, "c0a0a" )
-			&& Q_stricmp( sv.name, "c0a0b" ) && Q_stricmp( sv.name, "c0a0c" )
-			&& Q_stricmp( sv.name, "c0a0d" ) && Q_stricmp( sv.name, "c0a0e" ))
-		{
-			menu_tram_rumble_armed = false;
-			menu_tram_rumble_done = false;
-			return;
-		}
-		loop_sfx = S_FindName( "plats/ttrain1.wav", NULL );
-		have_sfx = ( loop_sfx && loop_sfx->cache );
-		if( have_sfx || menu_tram_rumble_done )
-			return;
-		if( !menu_tram_rumble_armed )
-		{
-			menu_tram_rumble_armed = true;
-			if( s_musicvolume.value < 0.1f )
-				Cvar_DirectSet( &s_musicvolume, "1.0" );
-			S_GCPrefetchBackgroundTrack( "media/ttrain1.wav" );
-			Con_Reportf( "Xash3D GameCube: menu full geo tram rumble arm tip=%s\n",
-				Q_memprint( GC_MemHeapFreeBytes() ));
-			return;
-		}
-		{
-			qboolean ok = S_GCPlayPrefetchedBackgroundTrackEx( "media/ttrain1.wav", "media/ttrain1.wav" );
-
-			if( !ok )
-			{
-				FS_ClearFindMissCache();
-				S_StartBackgroundTrack( "media/ttrain1.wav", "media/ttrain1.wav", 0, true );
-				ok = S_StreamGetCurrentState( NULL, 0, NULL, 0, NULL );
-			}
-			Con_Reportf( "Xash3D GameCube: menu full geo tram rumble ok=%d tip=%s\n",
-				ok ? 1 : 0, Q_memprint( GC_MemHeapFreeBytes() ));
-			if( ok )
-				menu_tram_rumble_done = true;
-		}
 		return;
-	}
 	/* G320: c0a0 tram VO only — opening media/c0a0_tr_*.wav on reactor
 	 * maps hung the first Host_Frame after Prepare (c3a2 20260809-004108). */
 	if( Q_stricmp( sv.name, "c0a0" ))
