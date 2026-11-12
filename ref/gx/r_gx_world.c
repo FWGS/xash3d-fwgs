@@ -4912,6 +4912,601 @@ qboolean R_GXWorldDLBindTex( unsigned texnum )
 	return R_GXBindTexnum( texnum, false ) != NULL;
 }
 
+/* Harbor props (media/gp_d2_lostcoast.gcp). The mesh lives in ARAM.
+ * A frame draws the instances nearest the eye, flat-shaded, so the
+ * boats read as one surface under the tight bloom. */
+#define GC_PROP_MAGIC		0x47437072u
+#define GC_PROP_MAX_INST	512
+#define GC_PROP_DRAW_TRIS	6000
+#define GC_PROP_REACH2		( 4000.0f * 4000.0f )
+#define GC_PROP_TEX_SLOTS	16
+#define GC_PROP_TEX_BYTES	2048u
+#define GC_WT_MAGIC		0x47435754u
+
+typedef struct
+{
+	u16	first, count;
+	s16	mins[3], maxs[3];
+} gc_prop_inst_t;
+
+static unsigned gc_prop_aram;
+static int gc_prop_state;	/* 0 untried, 1 ready, -1 absent */
+static u16 gc_prop_ninst;
+static u32 gc_prop_ntris, gc_prop_tris_ofs;
+static gc_prop_inst_t gc_prop_inst[GC_PROP_MAX_INST];
+static byte gc_prop_bounce[16 * 1024] __attribute__(( aligned( 32 )));
+static unsigned gc_prop_tex_aram;
+static u16 gc_prop_nmat;
+static u16 gc_prop_mat_w[96], gc_prop_mat_h[96];
+static u32 gc_prop_mat_ofs[96];
+static byte gc_prop_texmem[GC_PROP_TEX_SLOTS * GC_PROP_TEX_BYTES] __attribute__(( aligned( 32 )));
+static s16 gc_prop_slot_mat[GC_PROP_TEX_SLOTS];
+static GXTexObj gc_prop_slot_obj[GC_PROP_TEX_SLOTS];
+static int gc_prop_tex_cursor;
+static byte gc_prop_grey[32] __attribute__(( aligned( 32 ))) = {
+	0x84, 0x10, 0x84, 0x10, 0, 0, 0, 0,
+	0x84, 0x10, 0x84, 0x10, 0, 0, 0, 0,
+	0x84, 0x10, 0x84, 0x10, 0, 0, 0, 0,
+	0x84, 0x10, 0x84, 0x10, 0, 0, 0, 0
+};
+static GXTexObj gc_prop_grey_obj;
+static qboolean gc_prop_grey_ready;
+
+static void R_GXPropLoad( void );
+static void R_GXPropLoadTex( void );
+
+static float R_GXPropD2( const float *org, const s16 mins[3], const s16 maxs[3] )
+{
+	float d = 0.0f;
+	int a;
+
+	for( a = 0; a < 3; a++ )
+	{
+		const float c = org[a];
+		const float mn = (float)mins[a];
+		const float mx = (float)maxs[a];
+		const float t = c < mn ? mn : ( c > mx ? mx : c );
+		const float e = c - t;
+
+		d += e * e;
+	}
+	return d;
+}
+
+static void R_GXPropLoad( void )
+{
+	file_t *f;
+	u32 hdr[8];
+	u32 size, off;
+
+	gc_prop_state = -1;
+	f = gEngfuncs.fsapi->Open( "media/gp_d2_lostcoast.gcp", "rb", false );
+	if( !f )
+	{
+		gEngfuncs.Con_Reportf( "Xash3D GameCube: prop pack missing\n" );
+		return;
+	}
+	if( gEngfuncs.fsapi->Read( f, hdr, 32 ) != 32
+		|| hdr[0] != GC_PROP_MAGIC || ( hdr[1] >> 16 ) != 2 )
+	{
+		gEngfuncs.Con_Reportf( "Xash3D GameCube: prop pack reject\n" );
+		gEngfuncs.fsapi->Close( f );
+		return;
+	}
+	gc_prop_ninst = (u16)( hdr[2] >> 16 );
+	gc_prop_ntris = hdr[2] & 0xffffu;
+	gc_prop_tris_ofs = hdr[4];
+	if( gc_prop_ninst == 0 || gc_prop_ninst > GC_PROP_MAX_INST || gc_prop_ntris == 0 )
+	{
+		gEngfuncs.fsapi->Close( f );
+		return;
+	}
+	size = gc_prop_tris_ofs + gc_prop_ntris * 32u;
+	if( size < gc_prop_tris_ofs || ( size & 31u ))
+	{
+		gEngfuncs.fsapi->Close( f );
+		return;
+	}
+	gc_prop_aram = GC_AramReserve( size );
+	if( !gc_prop_aram )
+	{
+		gEngfuncs.Con_Reportf( "Xash3D GameCube: prop pack no ARAM (%u Kb)\n", size / 1024u );
+		gEngfuncs.fsapi->Close( f );
+		return;
+	}
+	gEngfuncs.fsapi->Seek( f, 0, SEEK_SET );
+	for( off = 0; off < size; off += sizeof( gc_prop_bounce ))
+	{
+		u32 n = size - off;
+
+		if( n > sizeof( gc_prop_bounce ))
+			n = sizeof( gc_prop_bounce );
+		if( gEngfuncs.fsapi->Read( f, gc_prop_bounce, n ) != (fs_offset_t)n )
+		{
+			gEngfuncs.fsapi->Close( f );
+			gc_prop_aram = 0;
+			return;
+		}
+		GC_AramTransfer( gc_prop_aram + off, gc_prop_bounce, n, true );
+	}
+	gEngfuncs.fsapi->Close( f );
+	{
+		u32 bytes = ( gc_prop_ninst * sizeof( gc_prop_inst_t ) + 31u ) & ~31u;
+
+		GC_AramTransfer( gc_prop_aram + 32u, gc_prop_inst, bytes, false );
+	}
+	gc_prop_state = 1;
+	gEngfuncs.Con_Reportf( "Xash3D GameCube: prop pack inst=%u tris=%u aram=%u Kb\n",
+		gc_prop_ninst, gc_prop_ntris, size / 1024u );
+	R_GXPropLoadTex();
+}
+
+static u32 R_GXPropCmprBytes( u16 w, u16 h )
+{
+	return (( w + 7u ) / 8u ) * (( h + 7u ) / 8u ) * 32u;
+}
+
+/* pt_d2_lostcoast.gct: one CMPR chain per prop material. The whole file
+ * stays in ARAM. A drawn material copies its 64×64 mip into a slot. */
+static void R_GXPropLoadTex( void )
+{
+	file_t *f;
+	u32 hdr[3];
+	u32 size, off, data_ofs, i;
+	int s;
+
+	f = gEngfuncs.fsapi->Open( "media/pt_d2_lostcoast.gct", "rb", false );
+	if( !f )
+		return;
+	if( gEngfuncs.fsapi->Read( f, hdr, 12 ) != 12 || hdr[0] != GC_WT_MAGIC
+		|| hdr[1] == 0 || hdr[1] > 96 )
+	{
+		gEngfuncs.fsapi->Close( f );
+		return;
+	}
+	gc_prop_nmat = (u16)hdr[1];
+	if( gEngfuncs.fsapi->Read( f, gc_prop_bounce, gc_prop_nmat * 28u ) != (fs_offset_t)( gc_prop_nmat * 28u ))
+	{
+		gEngfuncs.fsapi->Close( f );
+		gc_prop_nmat = 0;
+		return;
+	}
+	data_ofs = ( 12u + gc_prop_nmat * 28u + 31u ) & ~31u;
+	for( i = 0; i < gc_prop_nmat; i++ )
+	{
+		const u8 *e = gc_prop_bounce + i * 28u;
+
+		gc_prop_mat_w[i] = (u16)(( e[16] << 8 ) | e[17] );
+		gc_prop_mat_h[i] = (u16)(( e[18] << 8 ) | e[19] );
+		gc_prop_mat_ofs[i] = data_ofs + ((u32)e[24] << 24 | (u32)e[25] << 16 | (u32)e[26] << 8 | e[27] );
+	}
+	gEngfuncs.fsapi->Seek( f, 0, SEEK_END );
+	size = (u32)gEngfuncs.fsapi->Tell( f );
+	size = ( size + 31u ) & ~31u;
+	gc_prop_tex_aram = GC_AramReserve( size );
+	if( !gc_prop_tex_aram )
+	{
+		gEngfuncs.Con_Reportf( "Xash3D GameCube: prop tex no ARAM (%u Kb)\n", size / 1024u );
+		gEngfuncs.fsapi->Close( f );
+		return;
+	}
+	gEngfuncs.fsapi->Seek( f, 0, SEEK_SET );
+	for( off = 0; off < size; off += sizeof( gc_prop_bounce ))
+	{
+		u32 n = size - off;
+		fs_offset_t got;
+
+		if( n > sizeof( gc_prop_bounce ))
+			n = sizeof( gc_prop_bounce );
+		memset( gc_prop_bounce, 0, n );
+		got = gEngfuncs.fsapi->Read( f, gc_prop_bounce, n );
+		if( got <= 0 )
+			break;
+		GC_AramTransfer( gc_prop_tex_aram + off, gc_prop_bounce, n, true );
+	}
+	gEngfuncs.fsapi->Close( f );
+	for( s = 0; s < GC_PROP_TEX_SLOTS; s++ )
+		gc_prop_slot_mat[s] = -1;
+	gEngfuncs.Con_Reportf( "Xash3D GameCube: prop tex mats=%u aram=%u Kb\n",
+		gc_prop_nmat, size / 1024u );
+}
+
+static int R_GXPropBind( u8 mat )
+{
+	int s;
+	u16 w, h;
+	u32 skip, bytes;
+	byte *dst;
+
+	if( !gc_prop_grey_ready )
+	{
+		GX_InitTexObj( &gc_prop_grey_obj, gc_prop_grey, 8, 8, GX_TF_CMPR,
+			GX_REPEAT, GX_REPEAT, GX_FALSE );
+		gc_prop_grey_ready = true;
+	}
+	if( !gc_prop_tex_aram || mat >= gc_prop_nmat )
+	{
+		GX_LoadTexObj( &gc_prop_grey_obj, GX_TEXMAP0 );
+		return 0;
+	}
+	for( s = 0; s < GC_PROP_TEX_SLOTS; s++ )
+	{
+		if( gc_prop_slot_mat[s] == (s16)mat )
+		{
+			GX_LoadTexObj( &gc_prop_slot_obj[s], GX_TEXMAP0 );
+			return 1;
+		}
+	}
+	w = gc_prop_mat_w[mat];
+	h = gc_prop_mat_h[mat];
+	skip = 0;
+	while( w > 1 && h > 1 && R_GXPropCmprBytes( w, h ) > GC_PROP_TEX_BYTES )
+	{
+		skip += R_GXPropCmprBytes( w, h );
+		w = (u16)( w >> 1 );
+		h = (u16)( h >> 1 );
+	}
+	bytes = R_GXPropCmprBytes( w, h );
+	if( bytes == 0 || bytes > GC_PROP_TEX_BYTES )
+	{
+		GX_LoadTexObj( &gc_prop_grey_obj, GX_TEXMAP0 );
+		return 0;
+	}
+	s = gc_prop_tex_cursor % GC_PROP_TEX_SLOTS;
+	gc_prop_tex_cursor++;
+	dst = gc_prop_texmem + (u32)s * GC_PROP_TEX_BYTES;
+	GC_AramTransfer( gc_prop_tex_aram + gc_prop_mat_ofs[mat] + skip, dst,
+		( bytes + 31u ) & ~31u, false );
+	GX_InitTexObj( &gc_prop_slot_obj[s], dst, w, h, GX_TF_CMPR,
+		GX_REPEAT, GX_REPEAT, GX_FALSE );
+	GX_InitTexObjFilterMode( &gc_prop_slot_obj[s], GX_LINEAR, GX_LINEAR );
+	gc_prop_slot_mat[s] = (s16)mat;
+	GX_LoadTexObj( &gc_prop_slot_obj[s], GX_TEXMAP0 );
+	return 1;
+}
+
+/* The baked triangles, one material run at a time. The box stand-ins are
+ * gone: the mesh is the mesh. */
+static int R_GXPropEmitReal( const gc_prop_inst_t *in )
+{
+	u32 left = in->count;
+	u32 tri = in->first;
+	int drawn = 0;
+
+	while( left )
+	{
+		u32 n = left;
+		u32 start = 0;
+
+		if( n > sizeof( gc_prop_bounce ) / 32u )
+			n = sizeof( gc_prop_bounce ) / 32u;
+		GC_AramTransfer( gc_prop_aram + gc_prop_tris_ofs + tri * 32u,
+			gc_prop_bounce, n * 32u, false );
+		while( start < n )
+		{
+			const u8 mat = (u8)( gc_prop_bounce[start * 32u] & 0x7f );
+			u32 end = start + 1;
+			u32 b, v;
+
+			while( end < n && ( gc_prop_bounce[end * 32u] & 0x7f ) == mat )
+				end++;
+			R_GXPropBind( mat );
+			GX_Begin( GX_TRIANGLES, GX_VTXFMT0, (u16)(( end - start ) * 3u ));
+			for( b = start; b < end; b++ )
+			{
+				const u8 *rec = gc_prop_bounce + b * 32u;
+				const s16 *p = (const s16 *)( rec + 2 );
+				const u16 *uv = (const u16 *)p;
+
+				for( v = 0; v < 3; v++, p += 5, uv += 5 )
+				{
+					GX_Position3s16( p[0], p[1], p[2] );
+					GX_Color1u32( 0xFFFFFFFFu );
+					GX_TexCoord2u16( uv[3], uv[4] );
+				}
+			}
+			GX_End();
+			start = end;
+		}
+		tri += n;
+		left -= n;
+		drawn += (int)n;
+	}
+	return drawn;
+}
+
+static qboolean R_GXPropOutside( const gc_prop_inst_t *in )
+{
+	vec3_t mins, maxs;
+
+	mins[0] = in->mins[0]; mins[1] = in->mins[1]; mins[2] = in->mins[2];
+	maxs[0] = in->maxs[0]; maxs[1] = in->maxs[1]; maxs[2] = in->maxs[2];
+	return R_GXBoxOutsideFrustum( mins, maxs );
+}
+
+/* Props past the world far plane. Real triangles, and only the ones inside
+ * the view. Depth is on so a mesh hides its own far side, then the clear
+ * below drops that depth so the boats stay one hull. */
+void R_GXPropDrawHorizon( const float *org )
+{
+	vec3_t forward, right, up;
+	Mtx mv;
+	Mtx44 proj;
+	f32 fov_y, fov_x, y_max, x_max;
+	int i, ninst = 0, drawn = 0;
+
+	if( gc_prop_state == 0 )
+		R_GXPropLoad();
+	if( gc_prop_state != 1 || !org )
+		return;
+	AngleVectors( RI.rvp.viewangles, forward, right, up );
+	fov_y = RI.rvp.fov_y > 1.0f ? RI.rvp.fov_y : 90.0f;
+	fov_x = RI.rvp.fov_x > 1.0f ? RI.rvp.fov_x : 90.0f;
+	mv[0][0] = right[0];
+	mv[0][1] = right[1];
+	mv[0][2] = right[2];
+	mv[0][3] = -( right[0] * org[0] + right[1] * org[1] + right[2] * org[2] );
+	mv[1][0] = up[0];
+	mv[1][1] = up[1];
+	mv[1][2] = up[2];
+	mv[1][3] = -( up[0] * org[0] + up[1] * org[1] + up[2] * org[2] );
+	mv[2][0] = -forward[0];
+	mv[2][1] = -forward[1];
+	mv[2][2] = -forward[2];
+	mv[2][3] = forward[0] * org[0] + forward[1] * org[1] + forward[2] * org[2];
+	y_max = 4.0f * tanf( fov_y * 3.14159265f / 360.0f );
+	x_max = 4.0f * tanf( fov_x * 3.14159265f / 360.0f );
+	guFrustum( proj, y_max, -y_max, -x_max, x_max, 4.0f, 20000.0f );
+	GX_LoadProjectionMtx( proj, GX_PERSPECTIVE );
+	GX_LoadPosMtxImm( mv, GX_PNMTX0 );
+	GX_SetCullMode( GX_CULL_NONE );
+	GX_SetZMode( GX_TRUE, GX_LEQUAL, GX_TRUE );
+	GX_SetBlendMode( GX_BM_NONE, GX_BL_ONE, GX_BL_ZERO, GX_LO_NOOP );
+	GX_SetNumChans( 1 );
+	GX_SetChanCtrl( GX_COLOR0A0, GX_DISABLE, GX_SRC_REG, GX_SRC_VTX,
+		GX_LIGHTNULL, GX_DF_NONE, GX_AF_NONE );
+	GX_SetNumTexGens( 1 );
+	GX_SetTexCoordGen( GX_TEXCOORD0, GX_TG_MTX2x4, GX_TG_TEX0, GX_IDENTITY );
+	GX_SetNumTevStages( 1 );
+	GX_SetTevOrder( GX_TEVSTAGE0, GX_TEXCOORD0, GX_TEXMAP0, GX_COLOR0A0 );
+	GX_SetTevOp( GX_TEVSTAGE0, GX_MODULATE );
+	GX_SetTevAlphaIn( GX_TEVSTAGE0, GX_CA_ZERO, GX_CA_ZERO, GX_CA_ZERO, GX_CA_RASA );
+	GX_SetTevAlphaOp( GX_TEVSTAGE0, GX_TEV_ADD, GX_TB_ZERO, GX_CS_SCALE_1, GX_TRUE, GX_TEVPREV );
+	GX_ClearVtxDesc();
+	GX_SetVtxDesc( GX_VA_POS, GX_DIRECT );
+	GX_SetVtxDesc( GX_VA_CLR0, GX_DIRECT );
+	GX_SetVtxDesc( GX_VA_TEX0, GX_DIRECT );
+	GX_SetVtxAttrFmt( GX_VTXFMT0, GX_VA_POS, GX_POS_XYZ, GX_S16, 0 );
+	GX_SetVtxAttrFmt( GX_VTXFMT0, GX_VA_CLR0, GX_CLR_RGBA, GX_RGBA8, 0 );
+	GX_SetVtxAttrFmt( GX_VTXFMT0, GX_VA_TEX0, GX_TEX_ST, GX_U16, 8 );
+	R_GXBuildFrustum();
+	for( i = 0; i < (int)gc_prop_ninst; i++ )
+	{
+		const gc_prop_inst_t *in = &gc_prop_inst[i];
+		vec3_t mins, maxs;
+
+		if( in->count == 0 )
+			continue;
+		/* The near pass draws anything inside the reach. */
+		if( R_GXPropD2( org, in->mins, in->maxs ) <= GC_PROP_REACH2 )
+			continue;
+		mins[0] = in->mins[0]; mins[1] = in->mins[1]; mins[2] = in->mins[2];
+		maxs[0] = in->maxs[0]; maxs[1] = in->maxs[1]; maxs[2] = in->maxs[2];
+		if( R_GXBoxOutsideFrustum( mins, maxs ))
+			continue;
+		drawn += R_GXPropEmitReal( in );
+		ninst++;
+	}
+	if( drawn > 0 )
+	{
+		static qboolean logged;
+
+		if( !logged )
+		{
+			logged = true;
+			gEngfuncs.Con_Reportf( "Xash3D GameCube: prop horizon tris=%d inst=%d\n", drawn, ninst );
+		}
+	}
+}
+
+
+static void R_GXPropDraw( const float *org )
+{
+	int i, drawn = 0, near = 0;
+
+	if( gc_prop_state == 0 )
+		R_GXPropLoad();
+	if( gc_prop_state != 1 || !org )
+		return;
+	R_GXBuildFrustum();
+	GX_SetCullMode( GX_CULL_NONE );
+	GX_SetZMode( GX_TRUE, GX_LEQUAL, GX_TRUE );
+	GX_SetBlendMode( GX_BM_NONE, GX_BL_ONE, GX_BL_ZERO, GX_LO_NOOP );
+	GX_SetNumChans( 1 );
+	GX_SetChanCtrl( GX_COLOR0A0, GX_DISABLE, GX_SRC_REG, GX_SRC_VTX,
+		GX_LIGHTNULL, GX_DF_NONE, GX_AF_NONE );
+	GX_SetNumTexGens( 1 );
+	GX_SetTexCoordGen( GX_TEXCOORD0, GX_TG_MTX2x4, GX_TG_TEX0, GX_IDENTITY );
+	GX_SetNumTevStages( 1 );
+	GX_SetTevOrder( GX_TEVSTAGE0, GX_TEXCOORD0, GX_TEXMAP0, GX_COLOR0A0 );
+	GX_SetTevOp( GX_TEVSTAGE0, GX_MODULATE );
+	/* CMPR punch-through was cutting the hull into ribs. The vertex alpha is opaque. */
+	GX_SetTevAlphaIn( GX_TEVSTAGE0, GX_CA_ZERO, GX_CA_ZERO, GX_CA_ZERO, GX_CA_RASA );
+	GX_SetTevAlphaOp( GX_TEVSTAGE0, GX_TEV_ADD, GX_TB_ZERO, GX_CS_SCALE_1, GX_TRUE, GX_TEVPREV );
+	GX_ClearVtxDesc();
+	GX_SetVtxDesc( GX_VA_POS, GX_DIRECT );
+	GX_SetVtxDesc( GX_VA_CLR0, GX_DIRECT );
+	GX_SetVtxDesc( GX_VA_TEX0, GX_DIRECT );
+	GX_SetVtxAttrFmt( GX_VTXFMT0, GX_VA_POS, GX_POS_XYZ, GX_S16, 0 );
+	GX_SetVtxAttrFmt( GX_VTXFMT0, GX_VA_CLR0, GX_CLR_RGBA, GX_RGBA8, 0 );
+	GX_SetVtxAttrFmt( GX_VTXFMT0, GX_VA_TEX0, GX_TEX_ST, GX_U16, 8 );
+	for( i = 0; i < (int)gc_prop_ninst; i++ )
+	{
+		const gc_prop_inst_t *in = &gc_prop_inst[i];
+
+		if( in->count == 0 )
+			continue;
+		if( R_GXPropD2( org, in->mins, in->maxs ) > GC_PROP_REACH2 )
+			continue;
+		if( R_GXPropOutside( in ))
+			continue;
+		drawn += R_GXPropEmitReal( in );
+		near++;
+	}
+	if( drawn > 0 )
+	{
+		static qboolean logged;
+
+		if( !logged )
+		{
+			logged = true;
+			gEngfuncs.Con_Reportf( "Xash3D GameCube: prop draw tris=%d near=%d\n", drawn, near );
+		}
+	}
+}
+
+static void R_GXDrawPackedWater( void )
+{
+	int water_n = GC_GetWaterFaceCount();
+	int wi, water_drawn = 0;
+	const qboolean water_tex = GC_WaterTexReady() && GC_GetWaterTexObj() != NULL;
+	float time_sec = gp_cl ? (float)gp_cl->time : 0.0f;
+
+	if( water_n <= 0 )
+		return;
+	GX_SetCullMode( GX_CULL_NONE );
+	/* Opaque teal first, then a grazing sheen. Depth stays unwritten so the
+	 * boats drawn after this remain one hull. */
+	GX_SetBlendMode( GX_BM_NONE, GX_BL_ONE, GX_BL_ZERO, GX_LO_NOOP );
+	GX_SetZMode( GX_TRUE, GX_LEQUAL, GX_FALSE );
+	GX_SetNumChans( 1 );
+	GX_SetChanCtrl( GX_COLOR0A0, GX_DISABLE, GX_SRC_REG, GX_SRC_VTX,
+		GX_LIGHTNULL, GX_DF_NONE, GX_AF_NONE );
+	GX_SetNumTexGens( 0 );
+	GX_SetNumTevStages( 1 );
+	GX_SetTevOrder( GX_TEVSTAGE0, GX_TEXCOORDNULL, GX_TEXMAP_NULL, GX_COLOR0A0 );
+	GX_SetTevOp( GX_TEVSTAGE0, GX_PASSCLR );
+	GX_ClearVtxDesc();
+	GX_SetVtxDesc( GX_VA_POS, GX_DIRECT );
+	GX_SetVtxDesc( GX_VA_CLR0, GX_DIRECT );
+	GX_SetVtxAttrFmt( GX_VTXFMT0, GX_VA_POS, GX_POS_XYZ, GX_F32, 0 );
+	GX_SetVtxAttrFmt( GX_VTXFMT0, GX_VA_CLR0, GX_CLR_RGBA, GX_RGBA8, 0 );
+	for( wi = 0; wi < water_n; wi++ )
+	{
+		mplane_t pl;
+		float pts[32][3];
+		int nv, si;
+		float dot;
+		u32 tint;
+
+		if( !GC_WaterFacePlane( wi, &pl, NULL ))
+			continue;
+		dot = DotProduct( tr.modelorg, pl.normal ) - pl.dist;
+		if( fabsf( dot ) < 0.01f )
+			continue;
+		nv = GC_GetWaterFaceVerts( wi, pts, 32 );
+		if( nv < 3 )
+			continue;
+		GC_GetWaterFaceScroll( wi, NULL, NULL, &tint );
+		/* Cheap-water body. The reflection is a second pass so this stays
+		 * one opaque sheet and does not cut the boats. */
+		if( !tint )
+			tint = 0x4C909CFFu;
+		GX_Begin( GX_TRIANGLEFAN, GX_VTXFMT0, (u16)nv );
+		for( si = 0; si < nv; si++ )
+		{
+			GX_Position3f32( pts[si][0], pts[si][1], pts[si][2] );
+			GX_Color1u32( tint );
+		}
+		GX_End();
+		water_drawn++;
+	}
+	/* Grazing reflection. The normal map scrolls as a sheen on top of the
+	 * teal. It is not the water colour (that CMPR reads as a checker). */
+	if( water_tex && water_drawn > 0 )
+	{
+		vec3_t forward, right, up;
+
+		AngleVectors( RI.rvp.viewangles, forward, right, up );
+		(void)right;
+		(void)up;
+		GX_LoadTexObj( (GXTexObj *)GC_GetWaterTexObj(), GX_TEXMAP0 );
+		GX_SetBlendMode( GX_BM_BLEND, GX_BL_ONE, GX_BL_ONE, GX_LO_NOOP );
+		GX_SetZMode( GX_TRUE, GX_LEQUAL, GX_FALSE );
+		GX_SetNumTexGens( 1 );
+		GX_SetTexCoordGen( GX_TEXCOORD0, GX_TG_MTX2x4, GX_TG_TEX0, GX_IDENTITY );
+		GX_SetNumTevStages( 1 );
+		GX_SetTevOrder( GX_TEVSTAGE0, GX_TEXCOORD0, GX_TEXMAP0, GX_COLORNULL );
+		/* The water CMPR is a normal map. Its green and blue read as cyan and
+		 * magenta if they are added as colour. Use the red channel as a mask
+		 * and let the constant supply the sky colour. */
+		GX_SetTevSwapModeTable( GX_TEV_SWAP1, GX_CH_RED, GX_CH_RED, GX_CH_RED, GX_CH_ALPHA );
+		GX_SetTevSwapMode( GX_TEVSTAGE0, GX_TEV_SWAP0, GX_TEV_SWAP1 );
+		GX_SetTevKColorSel( GX_TEVSTAGE0, GX_TEV_KCSEL_K0 );
+		GX_SetTevColorIn( GX_TEVSTAGE0, GX_CC_ZERO, GX_CC_TEXC, GX_CC_KONST, GX_CC_ZERO );
+		GX_SetTevColorOp( GX_TEVSTAGE0, GX_TEV_ADD, GX_TB_ZERO, GX_CS_SCALE_1, GX_TRUE, GX_TEVPREV );
+		GX_SetTevAlphaIn( GX_TEVSTAGE0, GX_CA_ZERO, GX_CA_ZERO, GX_CA_ZERO, GX_CA_TEXA );
+		GX_SetTevAlphaOp( GX_TEVSTAGE0, GX_TEV_ADD, GX_TB_ZERO, GX_CS_SCALE_1, GX_TRUE, GX_TEVPREV );
+		GX_SetVtxDesc( GX_VA_TEX0, GX_DIRECT );
+		GX_SetVtxAttrFmt( GX_VTXFMT0, GX_VA_TEX0, GX_TEX_ST, GX_F32, 0 );
+		for( wi = 0; wi < water_n; wi++ )
+		{
+			mplane_t pl;
+			float pts[32][3];
+			float st[32][2];
+			int nv, si;
+			float dot, su, sv, nd, fres, ou, ov;
+			GXColor sheen;
+
+			if( !GC_WaterFacePlane( wi, &pl, NULL ))
+				continue;
+			dot = DotProduct( tr.modelorg, pl.normal ) - pl.dist;
+			if( fabsf( dot ) < 0.01f )
+				continue;
+			nv = GC_GetWaterFaceVerts( wi, pts, 32 );
+			if( nv < 3 || GC_GetWaterFaceST( wi, st, 32 ) != nv )
+				continue;
+			nd = fabsf( DotProduct( forward, pl.normal ));
+			if( nd > 1.0f )
+				nd = 1.0f;
+			fres = ( 1.0f - nd ) * ( 1.0f - nd );
+			if( fres < 0.04f )
+				continue;
+			sheen.r = (u8)( 36.0f * fres );
+			sheen.g = (u8)( 48.0f * fres );
+			sheen.b = (u8)( 64.0f * fres );
+			sheen.a = 255;
+			GX_SetTevKColor( GX_KCOLOR0, sheen );
+			GC_GetWaterFaceScroll( wi, &su, &sv, NULL );
+			ou = time_sec * su;
+			ov = time_sec * sv;
+			ou = ou - (float)(int)ou;
+			ov = ov - (float)(int)ov;
+			GX_Begin( GX_TRIANGLEFAN, GX_VTXFMT0, (u16)nv );
+			for( si = 0; si < nv; si++ )
+			{
+				GX_Position3f32( pts[si][0], pts[si][1], pts[si][2] );
+				GX_Color1u32( 0xFFFFFFFFu );
+				GX_TexCoord2f32( st[si][0] * 0.12f + ou, st[si][1] * 0.12f + ov );
+			}
+			GX_End();
+		}
+		GX_SetTevSwapMode( GX_TEVSTAGE0, GX_TEV_SWAP0, GX_TEV_SWAP0 );
+	}
+	GX_SetBlendMode( GX_BM_NONE, GX_BL_ONE, GX_BL_ZERO, GX_LO_NOOP );
+	GX_SetZMode( GX_TRUE, GX_LEQUAL, GX_TRUE );
+	{
+		static qboolean logged;
+
+		if( !logged )
+		{
+			logged = true;
+			gEngfuncs.Con_Reportf( "Xash3D GameCube: harbor water emit=%d/%d tex=%d sheen=%d\n",
+				water_drawn, water_n, water_tex ? 1 : 0, water_tex ? 1 : 0 );
+		}
+	}
+}
+
 static int R_GXDrawWorldDLFrame( void )
 {
 	int drawn;
@@ -4925,6 +5520,8 @@ static int R_GXDrawWorldDLFrame( void )
 	r_gx_bound_texnum = 0;
 	r_gx_bound_fmt = 0;
 	drawn = R_GXWorldDLDraw();
+	R_GXDrawPackedWater();
+	R_GXPropDraw( RI.rvp.vieworigin );
 	r_gx_face_mode = GC_GX_FACE_MODE_NONE;
 	r_gx_cull_none = true;
 	R_GXInvalidateTriApiLayout();
@@ -6688,6 +7285,9 @@ void R_GXStudioInvalidateBindings( void )
 {
 	r_gx_studio_bound_tex = 0;
 	r_gx_studio_pending_tex = 0;
+	/* Studio prop DLs (r_gx_studiodl.c) switch to VTXFMT6 indexed; force
+	 * PrepareStudioState before the next CPU strip emit. */
+	r_gx_studio_layout = false;
 }
 
 void R_GXStudioTexCoord( float u, float v )

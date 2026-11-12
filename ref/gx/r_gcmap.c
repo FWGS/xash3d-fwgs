@@ -25,6 +25,20 @@ static qboolean gc_boot_pad_pinned;
 static short gc_gcmap_static_zbuffer[GC_GCMAP_STATIC_MAX_W * GC_GCMAP_STATIC_MAX_H];
 static pixel_t gc_gcmap_static_viewbuffer[GC_GCMAP_STATIC_MAX_W * GC_GCMAP_STATIC_MAX_H];
 
+/* Idle soft Z. The bloom pass copies a half-res luma image into the front
+ * of it (75 KiB of 150 KiB) and samples that as a GX texture. */
+void *R_GcmapBorrowSoftZ( unsigned offset, unsigned bytes )
+{
+	byte *base = (byte *)gc_gcmap_static_zbuffer;
+	uintptr_t aligned = ( (uintptr_t)base + 31u ) & ~(uintptr_t)31u;
+	unsigned skip = (unsigned)( aligned - (uintptr_t)base );
+	unsigned total = (unsigned)sizeof( gc_gcmap_static_zbuffer );
+
+	if( skip >= total || offset > total - skip || bytes > total - skip - offset )
+		return NULL;
+	return (void *)( aligned + offset );
+}
+
 /* DVD and ARAM DMA require absolute 32-byte alignment. The first renderer
  * table is a struct member and need not itself start on a cache-line boundary. */
 static byte *R_GcmapStaticArenaBase( void )

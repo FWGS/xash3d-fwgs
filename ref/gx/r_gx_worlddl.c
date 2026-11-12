@@ -15,15 +15,19 @@ chunkdir / PVS rows are fetched from ARAM on demand.
 
 #include "r_local.h"
 
+void R_GXPropDrawHorizon( const float *org );
+
 #if XASH_GAMECUBE
 
 #include <gccore.h>
 #include <ogc/gx.h>
 #include <string.h>
 #include <math.h>
+#include <stdlib.h>
 #include "../../engine/platform/gamecube/mem_gamecube.h"
 
 #define GC_WD_MAGIC		0x47437764u /* 'GCwd' */
+#define GC_WD_MAT_ENVMAP	0x04
 #define GC_WD_MAX_MATS		512
 #define GC_WD_MAX_CHUNKS	6144
 #define GC_WD_ST_FRAC		9
@@ -45,6 +49,7 @@ typedef struct
 typedef struct
 {
 	u32	tex_hash;
+	u32	hash2;		/* version 2 only; 0 on version 1 */
 	u8	tevmat, flags;
 	u16	pad;
 } gc_wd_mat_t;
@@ -155,7 +160,8 @@ static void R_GXWorldDLLoad( const char *mapbase )
 		return;
 	}
 	if( gEngfuncs.fsapi->Read( f, &gc_wd_hdr, sizeof( gc_wd_hdr )) != sizeof( gc_wd_hdr )
-		|| gc_wd_hdr.magic != GC_WD_MAGIC || gc_wd_hdr.version != 1
+		|| gc_wd_hdr.magic != GC_WD_MAGIC
+		|| ( gc_wd_hdr.version != 1 && gc_wd_hdr.version != 2 )
 		|| gc_wd_hdr.n_mats > GC_WD_MAX_MATS || gc_wd_hdr.n_chunks > GC_WD_MAX_CHUNKS )
 	{
 		gEngfuncs.Con_Reportf( "Xash3D GameCube: world DL pack reject %s\n", path );
@@ -201,9 +207,27 @@ static void R_GXWorldDLLoad( const char *mapbase )
 	for( i = 0; i < gc_wd_hdr.n_mats; i++ )
 		gc_wd_texnum[i] = -1;
 
-	/* Material table + chunkdir compact mirror from the open file (pre-ARAM). */
+	/* Material table + chunkdir compact mirror from the open file (pre-ARAM).
+	 * Version 1 records are 8 bytes. Version 2 (Lost Coast) records are
+	 * hash, hash2, tev, flags, pad — 12 bytes. */
 	gEngfuncs.fsapi->Seek( f, (fs_offset_t)gc_wd_hdr.ofs_mats, SEEK_SET );
-	gEngfuncs.fsapi->Read( f, gc_wd_mats_local, gc_wd_hdr.n_mats * sizeof( gc_wd_mat_t ));
+	if( gc_wd_hdr.version == 2 )
+		gEngfuncs.fsapi->Read( f, gc_wd_mats_local, gc_wd_hdr.n_mats * sizeof( gc_wd_mat_t ));
+	else
+	{
+		for( i = 0; i < gc_wd_hdr.n_mats; i++ )
+		{
+			u8 rec[8];
+
+			if( gEngfuncs.fsapi->Read( f, rec, 8 ) != 8 )
+				break;
+			gc_wd_mats_local[i].tex_hash = *(u32 *)rec;
+			gc_wd_mats_local[i].hash2 = 0;
+			gc_wd_mats_local[i].tevmat = rec[4];
+			gc_wd_mats_local[i].flags = rec[5];
+			gc_wd_mats_local[i].pad = *(u16 *)( rec + 6 );
+		}
+	}
 	gEngfuncs.fsapi->Seek( f, (fs_offset_t)gc_wd_hdr.ofs_chunkdir, SEEK_SET );
 	for( i = 0; i < gc_wd_hdr.n_chunks; i++ )
 	{
@@ -283,8 +307,8 @@ static void R_GXWorldDLLoad( const char *mapbase )
 	gc_wd_pvs_cluster = -2;
 	gc_wd_state = 1;
 	gEngfuncs.Con_Reportf(
-		"Xash3D GameCube: world DL %s clusters=%u chunks=%u mats=%u cache=%u Kb file=%u Kb (%s)\n",
-		path, gc_wd_hdr.n_clusters, gc_wd_hdr.n_chunks, gc_wd_hdr.n_mats,
+		"Xash3D GameCube: world DL %s v%u clusters=%u chunks=%u mats=%u cache=%u Kb file=%u Kb (%s)\n",
+		path, gc_wd_hdr.version, gc_wd_hdr.n_clusters, gc_wd_hdr.n_chunks, gc_wd_hdr.n_mats,
 		gc_wd_cache_size / 1024u, gc_wd_hdr.file_size / 1024u,
 		gc_wd_aram ? "ARAM" : "disc" );
 }
@@ -387,6 +411,64 @@ static void R_GXWorldDLLoadPVS( int cluster )
 	}
 }
 
+static const float *gc_wd_sort_org;
+
+static float R_GXWorldDLChunkD2( u32 i )
+{
+	float d = 0.0f;
+	int a;
+
+	for( a = 0; a < 3; a++ )
+	{
+		const float c = gc_wd_sort_org[a];
+		const float mn = (float)gc_wd_chunk_mins[i * 3 + a];
+		const float mx = (float)gc_wd_chunk_maxs[i * 3 + a];
+		const float t = c < mn ? mn : ( c > mx ? mx : c );
+		const float e = c - t;
+
+		d += e * e;
+	}
+	/* Nearby ground stays first. Chunks whose center is behind the eye
+	 * would otherwise fill the cache with the bank we are standing past
+	 * and leave the harbor shore out. */
+	if( d > ( 400.0f * 400.0f ))
+	{
+		const float cx = ( (float)gc_wd_chunk_mins[i * 3 + 0] + (float)gc_wd_chunk_maxs[i * 3 + 0] ) * 0.5f;
+		const float cy = ( (float)gc_wd_chunk_mins[i * 3 + 1] + (float)gc_wd_chunk_maxs[i * 3 + 1] ) * 0.5f;
+		const float fwd = ( cx - gc_wd_sort_org[0] ) * RI.cull_vforward[0]
+			+ ( cy - gc_wd_sort_org[1] ) * RI.cull_vforward[1];
+
+		if( fwd < 0.0f )
+			d += 10000000000.0f;
+		else
+		{
+			const float hz = (float)gc_wd_chunk_maxs[i * 3 + 2]
+				- (float)gc_wd_chunk_mins[i * 3 + 2];
+			const float cz = ( (float)gc_wd_chunk_mins[i * 3 + 2]
+				+ (float)gc_wd_chunk_maxs[i * 3 + 2] ) * 0.5f;
+
+			/* Only the real towers: a few chunks taller than 800.
+			 * Pulling every tall rock filled the cache and hid the shore. */
+			if( hz > 800.0f && cz > 0.0f && d > ( 800.0f * 800.0f ))
+			{
+				const float dist = sqrtf( d );
+				const float pulled = dist - 1000.0f;
+
+				d = pulled > 1.0f ? pulled * pulled : 1.0f;
+			}
+		}
+	}
+	return d;
+}
+
+static int R_GXWorldDLChunkCmp( const void *pa, const void *pb )
+{
+	const float da = R_GXWorldDLChunkD2( *(const u16 *)pa );
+	const float db = R_GXWorldDLChunkD2( *(const u16 *)pb );
+
+	return ( da > db ) - ( da < db );
+}
+
 static byte *R_GXWorldDLResident( u32 i, u32 *budget )
 {
 	const u32 bytes = gc_wd_chunk_bytes[i];
@@ -468,6 +550,340 @@ static qboolean R_GXWorldDLBoxVisible( u32 i, vec3_t normals[4], const float *or
 	return true;
 }
 
+/* Lost Coast sky_camera is at (0, 0, -5108) with scale 16. The tower row
+ * lives in that volume. Drawing it here, scaled onto the horizon, is the
+ * distant land. The sky cube above stays the existing pass.
+ * One bounce is not enough: the GP reads the position array when it
+ * reaches the display list, and the next ARAM fetch overwrites it first.
+ * That tore the distant chunks into a sheet over the sky. Four slots,
+ * retired with DrawDone before a slot is reused. */
+#define GC_WD_SKY_RING	4
+static byte gc_wd_sky_ring[GC_WD_SKY_RING][4096] __attribute__(( aligned( 32 )));
+static int gc_wd_sky_ring_i;
+static int gc_wd_sky_ring_n;
+
+static byte *R_GXWorldDLSkySlot( void )
+{
+	byte *slot;
+
+	if( gc_wd_sky_ring_n >= GC_WD_SKY_RING )
+	{
+		GX_DrawDone();
+		gc_wd_sky_ring_n = 0;
+	}
+	slot = gc_wd_sky_ring[gc_wd_sky_ring_i & ( GC_WD_SKY_RING - 1 )];
+	gc_wd_sky_ring_i++;
+	gc_wd_sky_ring_n++;
+	return slot;
+}
+
+static void R_GXWorldDLLoadView( Mtx mv, Mtx44 proj, const float *org, f32 z_near, f32 z_far )
+{
+	vec3_t forward, right, up;
+	f32 fov_y = RI.rvp.fov_y > 1.0f ? RI.rvp.fov_y : 90.0f;
+	f32 fov_x = RI.rvp.fov_x > 1.0f ? RI.rvp.fov_x : 90.0f;
+	f32 y_max, x_max;
+
+	AngleVectors( RI.rvp.viewangles, forward, right, up );
+	mv[0][0] = right[0];
+	mv[0][1] = right[1];
+	mv[0][2] = right[2];
+	mv[0][3] = -DotProduct( right, org );
+	mv[1][0] = up[0];
+	mv[1][1] = up[1];
+	mv[1][2] = up[2];
+	mv[1][3] = -DotProduct( up, org );
+	mv[2][0] = -forward[0];
+	mv[2][1] = -forward[1];
+	mv[2][2] = -forward[2];
+	mv[2][3] = DotProduct( forward, org );
+	y_max = z_near * tanf( fov_y * 3.14159265f / 360.0f );
+	x_max = z_near * tanf( fov_x * 3.14159265f / 360.0f );
+	guFrustum( proj, y_max, -y_max, -x_max, x_max, z_near, z_far );
+}
+
+/* Lost Coast env_sun, same direction as the sky disc. View space, for the
+ * specular light. The normal matrix is the view rotation: the bake stores
+ * world-space normals. */
+static void R_GXWorldDLSpecLight( void )
+{
+	vec3_t forward, right, up, world, sun;
+	Mtx nrm;
+	GXLightObj lit;
+	const float yaw = 137.0f * 3.14159265f / 180.0f;
+	const float el = 10.0f * 3.14159265f / 180.0f;
+	float len;
+	GXColor sun_col = { 253, 236, 198, 255 };
+
+	world[0] = cosf( el ) * cosf( yaw );
+	world[1] = cosf( el ) * sinf( yaw );
+	world[2] = sinf( el );
+	AngleVectors( RI.rvp.viewangles, forward, right, up );
+	sun[0] = DotProduct( right, world );
+	sun[1] = DotProduct( up, world );
+	sun[2] = -DotProduct( forward, world );
+	len = sqrtf( sun[0] * sun[0] + sun[1] * sun[1] + sun[2] * sun[2] );
+	if( len > 0.001f )
+	{
+		sun[0] /= len;
+		sun[1] /= len;
+		sun[2] /= len;
+	}
+	/* Parallel sun. A specular lobe against a 10-degree sun is black on flat
+	 * sand (the whole beach shares one half-angle). Diffuse N·L uses the
+	 * baked normals, so slopes facing the sun pick up the warm light. */
+	memset( &lit, 0, sizeof( lit ));
+	GX_InitLightPos( &lit, sun[0] * 1000000.0f, sun[1] * 1000000.0f, sun[2] * 1000000.0f );
+	GX_InitLightColor( &lit, sun_col );
+	GX_InitLightAttn( &lit, 1.0f, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f );
+	GX_LoadLightObj( &lit, GX_LIGHT0 );
+	nrm[0][0] = right[0]; nrm[0][1] = right[1]; nrm[0][2] = right[2]; nrm[0][3] = 0.0f;
+	nrm[1][0] = up[0];    nrm[1][1] = up[1];    nrm[1][2] = up[2];    nrm[1][3] = 0.0f;
+	nrm[2][0] = -forward[0]; nrm[2][1] = -forward[1]; nrm[2][2] = -forward[2]; nrm[2][3] = 0.0f;
+	GX_LoadNrmMtxImm( nrm, GX_PNMTX0 );
+}
+
+static void R_GXWorldDLSpecOn( u16 strength )
+{
+	GXColor mat;
+	u16 s = strength ? strength : 96;
+
+	if( s > 160 )
+		s = 160;
+	/* Flat sand meets the sun at about N·L 0.17. This scale leaves that a
+	 * warm lift and lets slopes go brighter without a white copy of the grain. */
+	mat.r = (u8)( s * 220 / 160 );
+	mat.g = (u8)( s * 190 / 160 );
+	mat.b = (u8)( s * 140 / 160 );
+	mat.a = 255;
+	{
+		static qboolean logged;
+
+		if( !logged )
+		{
+			logged = true;
+			gEngfuncs.Con_Reportf( "Xash3D GameCube: world DL specular strength=%u\n",
+				(unsigned)strength );
+		}
+	}
+	R_GXWorldDLSpecLight();
+	GX_SetBlendMode( GX_BM_BLEND, GX_BL_ONE, GX_BL_ONE, GX_LO_NOOP );
+	GX_SetZMode( GX_TRUE, GX_LEQUAL, GX_FALSE );
+	GX_SetChanCtrl( GX_COLOR0A0, GX_ENABLE, GX_SRC_REG, GX_SRC_REG,
+		GX_LIGHT0, GX_DF_CLAMP, GX_AF_NONE );
+	{
+		GXColor black = { 0, 0, 0, 255 };
+
+		GX_SetChanAmbColor( GX_COLOR0A0, black );
+	}
+	GX_SetChanMatColor( GX_COLOR0A0, mat );
+	GX_SetNumTexGens( 0 );
+	GX_SetNumTevStages( 1 );
+	GX_SetTevOrder( GX_TEVSTAGE0, GX_TEXCOORDNULL, GX_TEXMAP_NULL, GX_COLOR0A0 );
+	GX_SetTevOp( GX_TEVSTAGE0, GX_PASSCLR );
+}
+
+static void R_GXWorldDLSpecOff( void )
+{
+	GX_SetBlendMode( GX_BM_NONE, GX_BL_ONE, GX_BL_ZERO, GX_LO_NOOP );
+	GX_SetZMode( GX_TRUE, GX_LEQUAL, GX_TRUE );
+	GX_SetChanCtrl( GX_COLOR0A0, GX_DISABLE, GX_SRC_REG, GX_SRC_VTX,
+		GX_LIGHTNULL, GX_DF_NONE, GX_AF_NONE );
+	GX_SetNumTexGens( gc_wd_hdr.version == 2 ? 2 : 1 );
+	GX_SetNumTevStages( 1 );
+	GX_SetTevOrder( GX_TEVSTAGE0, GX_TEXCOORD0, GX_TEXMAP0, GX_COLOR0A0 );
+	GX_SetTevColorIn( GX_TEVSTAGE0, GX_CC_ZERO, GX_CC_TEXC, GX_CC_RASC, GX_CC_ZERO );
+	GX_SetTevColorOp( GX_TEVSTAGE0, GX_TEV_ADD, GX_TB_ZERO,
+		gc_wd_hdr.version == 2 ? GX_CS_SCALE_1 : GX_CS_SCALE_2, GX_TRUE, GX_TEVPREV );
+	GX_SetTevAlphaIn( GX_TEVSTAGE0, GX_CA_ZERO, GX_CA_ZERO, GX_CA_ZERO, GX_CA_TEXA );
+	GX_SetTevAlphaOp( GX_TEVSTAGE0, GX_TEV_ADD, GX_TB_ZERO, GX_CS_SCALE_1, GX_TRUE, GX_TEVPREV );
+}
+
+static void R_GXWorldDLEmitChunk( byte *chunk, int *cur_mat )
+{
+	const gc_wd_batch_t *b;
+	u32 nb, k;
+	int spec = 0;
+
+	nb = *(const u16 *)( chunk + 2 );
+	GX_SetArray( GX_VA_POS, chunk + *(const u32 *)( chunk + 4 ), 6 );
+	b = (const gc_wd_batch_t *)( chunk + 16 );
+	for( k = 0; k < nb; k++, b++ )
+	{
+		const gc_wd_mat_t *m;
+		int env;
+
+		if( b->mat >= gc_wd_hdr.n_mats )
+			continue;
+		m = &gc_wd_mats[b->mat];
+		if( (int)b->mat != *cur_mat )
+		{
+			if( gc_wd_texnum[b->mat] < 0 )
+				gc_wd_texnum[b->mat] = (s16)GC_WorldTexnumByHash( m->tex_hash );
+			if( gc_wd_texnum[b->mat] <= 0 )
+				continue;
+			if( spec )
+			{
+				R_GXWorldDLSpecOff();
+				spec = 0;
+			}
+			if( !R_GXWorldDLBindTex( (unsigned)gc_wd_texnum[b->mat] ))
+				continue;
+			*cur_mat = (int)b->mat;
+		}
+		env = gc_wd_hdr.version == 2 && ( m->flags & GC_WD_MAT_ENVMAP );
+		GX_CallDispList( chunk + b->dl_ofs, b->dl_bytes );
+		if( env )
+		{
+			R_GXWorldDLSpecOn( m->pad );
+			spec = 1;
+			GX_CallDispList( chunk + b->dl_ofs, b->dl_bytes );
+			R_GXWorldDLSpecOff();
+			spec = 0;
+		}
+	}
+	if( spec )
+		R_GXWorldDLSpecOff();
+}
+
+static void R_GXWorldDLClearDepth( void )
+{
+	GXRModeObj *rmode = (GXRModeObj *)GC_GetGxVideoMode();
+	Mtx44 ortho;
+	Mtx ident;
+	f32 fb_w, fb_h;
+
+	if( !rmode )
+		return;
+	fb_w = (f32)rmode->fbWidth;
+	fb_h = (f32)rmode->efbHeight;
+	GX_SetColorUpdate( GX_FALSE );
+	GX_SetZMode( GX_TRUE, GX_ALWAYS, GX_TRUE );
+	GX_SetCullMode( GX_CULL_NONE );
+	GX_SetNumChans( 0 );
+	GX_SetNumTexGens( 0 );
+	GX_SetNumTevStages( 1 );
+	GX_SetTevOrder( GX_TEVSTAGE0, GX_TEXCOORDNULL, GX_TEXMAP_NULL, GX_COLORNULL );
+	GX_SetTevOp( GX_TEVSTAGE0, GX_PASSCLR );
+	GX_ClearVtxDesc();
+	GX_SetVtxDesc( GX_VA_POS, GX_DIRECT );
+	GX_SetVtxAttrFmt( GX_VTXFMT0, GX_VA_POS, GX_POS_XYZ, GX_F32, 0 );
+	guOrtho( ortho, 0.0f, fb_h, 0.0f, fb_w, 0.0f, 1.0f );
+	GX_LoadProjectionMtx( ortho, GX_ORTHOGRAPHIC );
+	guMtxIdentity( ident );
+	GX_LoadPosMtxImm( ident, GX_PNMTX0 );
+	GX_Begin( GX_QUADS, GX_VTXFMT0, 4 );
+	GX_Position3f32( 0.0f, 0.0f, -1.0f );
+	GX_Position3f32( fb_w, 0.0f, -1.0f );
+	GX_Position3f32( fb_w, fb_h, -1.0f );
+	GX_Position3f32( 0.0f, fb_h, -1.0f );
+	GX_End();
+	GX_SetColorUpdate( GX_TRUE );
+}
+
+static void R_GXWorldDLRestoreHarbor( Mtx mv, Mtx44 proj, const float *org )
+{
+	R_GXWorldDLLoadView( mv, proj, org, 4.0f, RI.farClip > 1.0f ? RI.farClip : 4096.0f );
+	GX_LoadProjectionMtx( proj, GX_PERSPECTIVE );
+	GX_LoadPosMtxImm( mv, GX_PNMTX0 );
+	GX_SetZMode( GX_TRUE, GX_LEQUAL, GX_TRUE );
+	GX_SetCullMode( GX_CULL_NONE );
+	GX_SetNumChans( 1 );
+	GX_SetChanCtrl( GX_COLOR0A0, GX_DISABLE, GX_SRC_REG, GX_SRC_VTX,
+		GX_LIGHTNULL, GX_DF_NONE, GX_AF_NONE );
+	GX_ClearVtxDesc();
+	GX_SetVtxDesc( GX_VA_POS, GX_INDEX16 );
+	GX_SetVtxAttrFmt( GX_VTXFMT6, GX_VA_POS, GX_POS_XYZ, GX_S16, 0 );
+	GX_SetVtxDesc( GX_VA_NRM, GX_DIRECT );
+	GX_SetVtxDesc( GX_VA_CLR0, GX_DIRECT );
+	GX_SetVtxDesc( GX_VA_TEX0, GX_DIRECT );
+	GX_SetVtxDesc( GX_VA_TEX1, GX_DIRECT );
+	GX_SetVtxAttrFmt( GX_VTXFMT6, GX_VA_NRM, GX_NRM_XYZ, GX_S8, 6 );
+	GX_SetVtxAttrFmt( GX_VTXFMT6, GX_VA_CLR0, GX_CLR_RGBA, GX_RGBA8, 0 );
+	GX_SetVtxAttrFmt( GX_VTXFMT6, GX_VA_TEX0, GX_TEX_ST, GX_S16, GC_WD_ST_FRAC );
+	GX_SetVtxAttrFmt( GX_VTXFMT6, GX_VA_TEX1, GX_TEX_ST, GX_U8, 8 );
+	GX_SetNumTexGens( 2 );
+	GX_SetTexCoordGen( GX_TEXCOORD0, GX_TG_MTX2x4, GX_TG_TEX0, GX_IDENTITY );
+	GX_SetTexCoordGen( GX_TEXCOORD1, GX_TG_MTX2x4, GX_TG_TEX1, GX_IDENTITY );
+	GX_SetNumTevStages( 1 );
+	GX_SetTevDirect( GX_TEVSTAGE0 );
+	GX_SetTevOrder( GX_TEVSTAGE0, GX_TEXCOORD0, GX_TEXMAP0, GX_COLOR0A0 );
+	GX_SetTevColorIn( GX_TEVSTAGE0, GX_CC_ZERO, GX_CC_TEXC, GX_CC_RASC, GX_CC_ZERO );
+	GX_SetTevColorOp( GX_TEVSTAGE0, GX_TEV_ADD, GX_TB_ZERO, GX_CS_SCALE_1, GX_TRUE, GX_TEVPREV );
+	GX_SetTevAlphaIn( GX_TEVSTAGE0, GX_CA_ZERO, GX_CA_ZERO, GX_CA_ZERO, GX_CA_TEXA );
+	GX_SetTevAlphaOp( GX_TEVSTAGE0, GX_TEV_ADD, GX_TB_ZERO, GX_CS_SCALE_1, GX_TRUE, GX_TEVPREV );
+}
+
+static void R_GXWorldDLDrawSkyline( void )
+{
+	Mtx mv, trans, scale, placed, sky;
+	Mtx44 proj;
+	int i, n = 0, cur_mat = -1;
+	const float *org = RI.rvp.vieworigin;
+
+	if( !gc_wd_aram || gc_wd_hdr.version != 2 )
+		return;
+	/* The frame-start DrawDone retired last frame's slots. */
+	gc_wd_sky_ring_n = 0;
+	/* Scale the sky volume out to the horizon. Viewing it from inside
+	 * the volume stretches the near ground across the sky. The distant
+	 * wall chunks are wide dark quads, not the ridge, so they stay out. */
+	cur_mat = -1;
+	R_GXWorldDLLoadView( mv, proj, org, 4.0f, 131072.0f );
+	guMtxTrans( trans, 0.0f, 0.0f, 5108.0f );
+	guMtxScale( scale, 16.0f, 16.0f, 16.0f );
+	guMtxConcat( scale, trans, placed );
+	guMtxConcat( mv, placed, sky );
+	GX_LoadProjectionMtx( proj, GX_PERSPECTIVE );
+	GX_LoadPosMtxImm( sky, GX_PNMTX0 );
+	GX_SetZMode( GX_TRUE, GX_LEQUAL, GX_TRUE );
+	for( i = 0; i < (int)gc_wd_hdr.n_chunks; i++ )
+	{
+		const float cz = ( (float)gc_wd_chunk_mins[i * 3 + 2]
+			+ (float)gc_wd_chunk_maxs[i * 3 + 2] ) * 0.5f;
+		const float hz = (float)gc_wd_chunk_maxs[i * 3 + 2]
+			- (float)gc_wd_chunk_mins[i * 3 + 2];
+		const float cx = ( (float)gc_wd_chunk_mins[i * 3 + 0]
+			+ (float)gc_wd_chunk_maxs[i * 3 + 0] ) * 0.5f;
+		const float cy = ( (float)gc_wd_chunk_mins[i * 3 + 1]
+			+ (float)gc_wd_chunk_maxs[i * 3 + 1] ) * 0.5f;
+		const u32 bytes = gc_wd_chunk_bytes[i];
+
+		if( cz > -4000.0f || hz < 80.0f )
+			continue;
+		if( cx * cx + cy * cy < ( 500.0f * 500.0f ))
+			continue;
+		if( bytes == 0 || bytes > 4096 )
+			continue;
+		{
+			byte *slot = R_GXWorldDLSkySlot();
+
+			if( !R_GXWorldDLFetch( gc_wd_hdr.ofs_chunks + gc_wd_chunk_ofs[i], slot, bytes ))
+				continue;
+			R_GXWorldDLEmitChunk( slot, &cur_mat );
+		}
+		n++;
+	}
+	/* Distant spires and the far cliff. Depth stays off; the clear below
+	 * drops it so the boats stay one surface. */
+	R_GXWorldDLLoadView( mv, proj, org, 4.0f, 20000.0f );
+	GX_LoadProjectionMtx( proj, GX_PERSPECTIVE );
+	GX_LoadPosMtxImm( mv, GX_PNMTX0 );
+	R_GXPropDrawHorizon( org );
+	/* Hill depth must not hide the boats or the cliff. */
+	R_GXWorldDLClearDepth();
+	R_GXWorldDLRestoreHarbor( mv, proj, org );
+	{
+		static qboolean logged;
+
+		if( !logged )
+		{
+			logged = true;
+			gEngfuncs.Con_Reportf( "Xash3D GameCube: world DL skyline chunks=%d\n", n );
+		}
+	}
+}
+
 int R_GXWorldDLDraw( void )
 {
 	static qboolean logged;
@@ -481,6 +897,10 @@ int R_GXWorldDLDraw( void )
 
 	if( gc_wd_state != 1 )
 		return 0;
+	/* Retire last frame's display lists before this frame fills the FIFO.
+	 * Without it the second present waits forever on the GP. */
+	if( gc_wd_frame > 0 )
+		GX_DrawDone();
 	gc_wd_frame++;
 	/* First ~90 frames: pull a denser visible set so CapFaces listen does not
 	 * open on a starved alley; after warmup keep 512 KiB/frame lazy stream. */
@@ -534,14 +954,32 @@ int R_GXWorldDLDraw( void )
 		GX_LIGHTNULL, GX_DF_NONE, GX_AF_NONE );
 	GX_ClearVtxDesc();
 	GX_SetVtxDesc( GX_VA_POS, GX_INDEX16 );
-	GX_SetVtxDesc( GX_VA_CLR0, GX_DIRECT );
-	GX_SetVtxDesc( GX_VA_TEX0, GX_DIRECT );
 	GX_SetVtxAttrFmt( GX_VTXFMT6, GX_VA_POS, GX_POS_XYZ, GX_S16, 0 );
-	GX_SetVtxAttrFmt( GX_VTXFMT6, GX_VA_CLR0, GX_CLR_RGB, GX_RGB565, 0 );
-	GX_SetVtxAttrFmt( GX_VTXFMT6, GX_VA_TEX0, GX_TEX_ST, GX_S16, GC_WD_ST_FRAC );
+	if( gc_wd_hdr.version == 2 )
+	{
+		/* Lost Coast bake: POS index, NRM s8 frac 6, CLR0 RGBA8,
+		 * TEX0 s16 frac 9, TEX1 lightmap u8 frac 8. 15 bytes. */
+		GX_SetVtxDesc( GX_VA_NRM, GX_DIRECT );
+		GX_SetVtxDesc( GX_VA_CLR0, GX_DIRECT );
+		GX_SetVtxDesc( GX_VA_TEX0, GX_DIRECT );
+		GX_SetVtxDesc( GX_VA_TEX1, GX_DIRECT );
+		GX_SetVtxAttrFmt( GX_VTXFMT6, GX_VA_NRM, GX_NRM_XYZ, GX_S8, 6 );
+		GX_SetVtxAttrFmt( GX_VTXFMT6, GX_VA_CLR0, GX_CLR_RGBA, GX_RGBA8, 0 );
+		GX_SetVtxAttrFmt( GX_VTXFMT6, GX_VA_TEX0, GX_TEX_ST, GX_S16, GC_WD_ST_FRAC );
+		GX_SetVtxAttrFmt( GX_VTXFMT6, GX_VA_TEX1, GX_TEX_ST, GX_U8, 8 );
+	}
+	else
+	{
+		GX_SetVtxDesc( GX_VA_CLR0, GX_DIRECT );
+		GX_SetVtxDesc( GX_VA_TEX0, GX_DIRECT );
+		GX_SetVtxAttrFmt( GX_VTXFMT6, GX_VA_CLR0, GX_CLR_RGB, GX_RGB565, 0 );
+		GX_SetVtxAttrFmt( GX_VTXFMT6, GX_VA_TEX0, GX_TEX_ST, GX_S16, GC_WD_ST_FRAC );
+	}
 	GX_SetNumIndStages( 0 );
-	GX_SetNumTexGens( 1 );
+	GX_SetNumTexGens( gc_wd_hdr.version == 2 ? 2 : 1 );
 	GX_SetTexCoordGen( GX_TEXCOORD0, GX_TG_MTX2x4, GX_TG_TEX0, GX_IDENTITY );
+	if( gc_wd_hdr.version == 2 )
+		GX_SetTexCoordGen( GX_TEXCOORD1, GX_TG_MTX2x4, GX_TG_TEX1, GX_IDENTITY );
 	GX_SetNumTevStages( 1 );
 	GX_SetTevDirect( GX_TEVSTAGE0 );
 	GX_SetTevOrder( GX_TEVSTAGE0, GX_TEXCOORD0, GX_TEXMAP0, GX_COLOR0A0 );
@@ -549,25 +987,28 @@ int R_GXWorldDLDraw( void )
 	 * white (ava-play99-61); earlier SCALE_2 crush was under a 16 KiB stub
 	 * pool. Keep RASC*TEXC; frustum remains opt-in for speed. */
 	GX_SetTevColorIn( GX_TEVSTAGE0, GX_CC_ZERO, GX_CC_TEXC, GX_CC_RASC, GX_CC_ZERO );
-	GX_SetTevColorOp( GX_TEVSTAGE0, GX_TEV_ADD, GX_TB_ZERO, GX_CS_SCALE_2, GX_TRUE, GX_TEVPREV );
+	/* Version 2 vertex colour is already display-referred RGBA8.
+	 * SCALE_2 is for the version 1 RGB565 bake. */
+	GX_SetTevColorOp( GX_TEVSTAGE0, GX_TEV_ADD, GX_TB_ZERO,
+		gc_wd_hdr.version == 2 ? GX_CS_SCALE_1 : GX_CS_SCALE_2, GX_TRUE, GX_TEVPREV );
 	GX_SetTevAlphaIn( GX_TEVSTAGE0, GX_CA_ZERO, GX_CA_ZERO, GX_CA_ZERO, GX_CA_TEXA );
 	GX_SetTevAlphaOp( GX_TEVSTAGE0, GX_TEV_ADD, GX_TB_ZERO, GX_CS_SCALE_1, GX_TRUE, GX_TEVPREV );
 	R_GXFogBegin();
+	R_GXWorldDLDrawSkyline();
 
 	/* Full world first: draw every PVS-visible chunk. Frustum cull is a later
 	 * speed knob (ava-play99-60 sat at 20 chunks with waiting=0 while the
 	 * alley still looked starved). Lazy-load still gates on budget/cache. */
 	{
-		/* Opt-in speed: -gcworlddlfrustum. Default = full PVS (lazy budget). */
-		const qboolean frustum_cull = gEngfuncs.Sys_CheckParm( "-gcworlddlfrustum" )
-			&& !gEngfuncs.Sys_CheckParm( "-gcworlddlfull" );
+		/* Chunks outside the camera go. -gcworlddlfull draws the whole PVS. */
+		const qboolean frustum_cull = !gEngfuncs.Sys_CheckParm( "-gcworlddlfull" );
 		int pvs_hits = 0, frustum_drop = 0;
+		static u16 order[GC_WD_MAX_CHUNKS];
+		int norder = 0;
+		int oi;
 
 		for( i = 0; i < gc_wd_hdr.n_chunks; i++ )
 		{
-			const gc_wd_batch_t *b;
-			byte *chunk;
-			u32 nb, k;
 			const u16 cl = gc_wd_chunk_cluster[i];
 
 			if( !( gc_wd_pvs[cl >> 3] & ( 1 << ( cl & 7 ))))
@@ -578,6 +1019,21 @@ int R_GXWorldDLDraw( void )
 				frustum_drop++;
 				continue;
 			}
+			if( norder < GC_WD_MAX_CHUNKS )
+				order[norder++] = (u16)i;
+		}
+		/* Spend the cache on the ground in front of the camera. Index order
+		 * filled it with whatever chunk id came first and left the shore out. */
+		gc_wd_sort_org = org;
+		qsort( order, (size_t)norder, sizeof( order[0] ), R_GXWorldDLChunkCmp );
+
+		for( oi = 0; oi < norder; oi++ )
+		{
+			const gc_wd_batch_t *b;
+			byte *chunk;
+			u32 nb, k;
+
+			i = order[oi];
 			chunk = R_GXWorldDLResident( i, &budget );
 			if( !chunk )
 			{
@@ -587,15 +1043,17 @@ int R_GXWorldDLDraw( void )
 			gc_wd_slots[i].used_frame = gc_wd_frame;
 			nb = *(const u16 *)( chunk + 2 );
 			GX_SetArray( GX_VA_POS, chunk + *(const u32 *)( chunk + 4 ), 6 );
-			b = (const gc_wd_batch_t *)( chunk + 8 );
+			/* Version 2 header is 16 bytes: npos, nbatches, pos_ofs, lm_ofs. */
+			b = (const gc_wd_batch_t *)( chunk + ( gc_wd_hdr.version == 2 ? 16 : 8 ));
 			for( k = 0; k < nb; k++, b++ )
 			{
+				const gc_wd_mat_t *m;
+
 				if( b->mat >= gc_wd_hdr.n_mats )
 					continue;
+				m = &gc_wd_mats[b->mat];
 				if( (int)b->mat != cur_mat )
 				{
-					const gc_wd_mat_t *m = &gc_wd_mats[b->mat];
-
 					if( gc_wd_texnum[b->mat] < 0 )
 						gc_wd_texnum[b->mat] = (s16)GC_WorldTexnumByHash( m->tex_hash );
 					/* Do not permanently cache a failed bind — tip-lean may stub
@@ -625,6 +1083,13 @@ int R_GXWorldDLDraw( void )
 					cur_mat = (int)b->mat;
 				}
 				GX_CallDispList( chunk + b->dl_ofs, b->dl_bytes );
+				if( gc_wd_hdr.version == 2 && ( m->flags & GC_WD_MAT_ENVMAP ))
+				{
+					R_GXWorldDLSpecOn( m->pad );
+					GX_CallDispList( chunk + b->dl_ofs, b->dl_bytes );
+					R_GXWorldDLSpecOff();
+					R_GXTevMatAppend( R_GXTevMatFlags( m->tevmat ) ? m->tevmat : 0, 1, 1 );
+				}
 				drawn++;
 			}
 			chunks++;
