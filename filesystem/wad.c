@@ -29,6 +29,12 @@ GNU General Public License for more details.
 #include "crtlib.h"
 #include "common/com_strings.h"
 #include "wadfile.h"
+#if XASH_GAMECUBE
+#include "wad_dir_gc.h"
+extern unsigned int GC_AramAllocTagged( unsigned int size, qboolean stream, const char *tag );
+extern qboolean GC_AramFree( unsigned int base );
+extern void GC_AramCopy( unsigned int aram, void *buf, unsigned int len, qboolean write );
+#endif
 
 /*
 ========================================================================
@@ -57,6 +63,11 @@ struct wfile_s
 	file_t		*handle;
 	dlumpinfo_t	*lumps;
 	time_t		filetime;
+#if XASH_GAMECUBE
+	// lump table lives in ARAM (see wad_dir_gc.h); lumps is NULL when set
+	gc_waddir_t	*gcdir;
+	unsigned int	gc_aram;
+#endif
 };
 
 // WAD errors
@@ -84,6 +95,127 @@ static const wadtype_t wad_types[] =
 { "mip", TYP_MIPTEX  }, // hl/q1 mip
 { "txt", TYP_SCRIPT  }, // scripts
 };
+
+#if XASH_GAMECUBE
+typedef char w_gc_entry_size_check[sizeof( gc_waddir_entry_t ) == sizeof( dlumpinfo_t ) ? 1 : -1];
+
+static void W_GCAramMove( uint32_t aram, void *buf, uint32_t len, int write )
+{
+	GC_AramCopy( aram, buf, len, write ? true : false );
+}
+
+/*
+===========
+W_GCLumpAt
+
+Copy lump i (file order) out of whichever table the wad uses.
+===========
+*/
+static qboolean W_GCLumpAt( const wfile_t *wad, int i, dlumpinfo_t *out )
+{
+	if( i < 0 || i >= wad->numlumps )
+		return false;
+	if( wad->gcdir )
+	{
+		gc_waddir_entry_t e;
+
+		if( !GC_WadDirGet( wad->gcdir, (uint32_t)i, &e ))
+			return false;
+		memcpy( out, &e, sizeof( *out ));
+		return true;
+	}
+	*out = wad->lumps[i];
+	return true;
+}
+
+/*
+===========
+W_GCOpenAramDir
+
+Read the lump allocation table in small chunks and keep it in ARAM, with a
+sorted 16-bit index in MEM1. Needs 2 bytes per lump resident instead of 64
+while loading. Returns false (with the file position undefined) if anything
+is unavailable, and the caller falls back to the MEM1 table.
+===========
+*/
+#define W_GC_CHUNK 64
+static qboolean W_GCOpenAramDir( wfile_t *wad, int lumpcount, const char *filename )
+{
+	byte *dirmem = NULL, *scratchmem = NULL, *chunkmem = NULL;
+	gc_waddir_entry_t *chunk;
+	uint16_t *order = NULL;
+	gc_waddir_t *dir;
+	uint32_t aram;
+	int i, done = 0;
+
+	if( lumpcount <= 0 || lumpcount > 65535 )
+		return false;
+	aram = GC_AramAllocTagged( GC_WadDirAramBytes( lumpcount ), true, "waddir" );
+	if( !aram )
+		return false;
+	// the cache inside gc_waddir_t needs 32-byte alignment for ARAM DMA
+	dirmem = (byte *)Mem_Calloc( wad->mempool, sizeof( gc_waddir_t ) + 32 );
+	order = (uint16_t *)Mem_Malloc( wad->mempool, lumpcount * sizeof( uint16_t ));
+	scratchmem = (byte *)Mem_Malloc( wad->mempool, GC_WadDirScratchBytes( lumpcount ) + 8 );
+	chunkmem = (byte *)Mem_Malloc( wad->mempool, W_GC_CHUNK * sizeof( dlumpinfo_t ) + 32 );
+	if( !dirmem || !order || !scratchmem || !chunkmem )
+		goto fail;
+	dir = (gc_waddir_t *)((uintptr_t)( dirmem + 31 ) & ~(uintptr_t)31 );
+	chunk = (gc_waddir_entry_t *)((uintptr_t)( chunkmem + 31 ) & ~(uintptr_t)31 );
+	if( !GC_WadDirInit( dir, W_GCAramMove, aram, lumpcount, order,
+		(void *)((uintptr_t)( scratchmem + 7 ) & ~(uintptr_t)7 )))
+		goto fail;
+
+	while( done < lumpcount )
+	{
+		const int n = Q_min( lumpcount - done, W_GC_CHUNK );
+
+		if( FS_Read( wad->handle, chunk, n * sizeof( dlumpinfo_t )) != n * sizeof( dlumpinfo_t ))
+		{
+			Con_Reportf( S_ERROR "%s: %s has corrupted lump allocation table\n", __func__, filename );
+			goto fail;
+		}
+		for( i = 0; i < n; i++ )
+		{
+			char name[16];
+			int k;
+
+			chunk[i].filepos = LittleLong( chunk[i].filepos );
+			chunk[i].disksize = LittleLong( chunk[i].disksize );
+			chunk[i].size = LittleLong( chunk[i].size );
+
+			// same cleanup W_Open applies to the MEM1 table
+			Q_strnlwr( chunk[i].name, name, sizeof( chunk[i].name ));
+			k = Q_strlen( Q_strrchr( name, '*' ));
+			if( k ) name[Q_strlen( name ) - k] = '!';
+			if( chunk[i].type == 68 && !Q_stricmp( chunk[i].name, "conchars" ))
+				chunk[i].type = TYP_GFXPIC;
+			memcpy( chunk[i].name, name, sizeof( chunk[i].name ));
+		}
+		if( !GC_WadDirAppend( dir, chunk, n ))
+			goto fail;
+		done += n;
+	}
+	if( !GC_WadDirSeal( dir ))
+		goto fail;
+
+	Mem_Free( chunkmem );
+	Mem_Free( scratchmem );
+	wad->gcdir = dir;
+	wad->gc_aram = aram;
+	wad->numlumps = lumpcount;
+	// dirmem and order stay in the wad pool until it closes
+	return true;
+
+fail:
+	if( chunkmem ) Mem_Free( chunkmem );
+	if( scratchmem ) Mem_Free( scratchmem );
+	if( order ) Mem_Free( order );
+	if( dirmem ) Mem_Free( dirmem );
+	GC_AramFree( aram );
+	return false;
+}
+#endif
 
 /*
 ===========
@@ -228,6 +360,10 @@ finalize wad or just close
 */
 static void FS_CloseWAD( wfile_t *wad )
 {
+#if XASH_GAMECUBE
+	if( wad->gc_aram )
+		GC_AramFree( wad->gc_aram );
+#endif
 	Mem_FreePool( &wad->mempool );
 	if( wad->handle != NULL )
 		FS_Close( wad->handle );
@@ -342,6 +478,19 @@ static wfile_t *W_Open( const char *filename, int *error, uint flags )
 		FS_CloseWAD( wad );
 		return NULL;
 	}
+
+#if XASH_GAMECUBE
+	if( W_GCOpenAramDir( wad, lumpcount, filename ))
+		return wad;
+	// ARAM table unavailable: read the whole table into MEM1 as before
+	if( FS_Seek( wad->handle, wad->infotableofs, SEEK_SET ) == -1 )
+	{
+		Con_Reportf( S_ERROR "%s: %s can't find lump allocation table\n", __func__, filename );
+		if( error ) *error = WAD_LOAD_BAD_FOLDERS;
+		FS_CloseWAD( wad );
+		return NULL;
+	}
+#endif
 
 	lat_size = lumpcount * sizeof( dlumpinfo_t );
 
@@ -474,6 +623,19 @@ static int FS_FindFile_WAD( searchpath_t *search, const char *path, char *fixedn
 	// because we using original wad names[16];
 	COM_FileBase( path, shortname, sizeof( shortname ));
 
+#if XASH_GAMECUBE
+	if( search->wad->gcdir )
+	{
+		gc_waddir_entry_t e;
+		int idx = GC_WadDirFind( search->wad->gcdir, shortname, type, &e );
+
+		if( idx < 0 )
+			return -1;
+		if( fixedname )
+			Q_strncpy( fixedname, e.name, len );
+		return idx;
+	}
+#endif
 	lump = W_FindLump( search->wad, shortname, type );
 	#if XASH_GAMECUBE
 	if( !Q_stricmp( path, "gfx/conchars" ))
@@ -535,12 +697,20 @@ static void FS_Search_WAD( searchpath_t *search, stringlist_t *list, const char 
 
 	for( int i = 0; i < search->wad->numlumps; i++ )
 	{
+		dlumpinfo_t li;
+
+#if XASH_GAMECUBE
+		if( !W_GCLumpAt( search->wad, i, &li ))
+			break;
+#else
+		li = search->wad->lumps[i];
+#endif
 		// if type not matching, we already have no chance ...
-		if( type != TYP_ANY && search->wad->lumps[i].type != type )
+		if( type != TYP_ANY && li.type != type )
 			continue;
 
 		// build the lumpname with image suffix (if present)
-		Q_strncpy( temp, search->wad->lumps[i].name, sizeof( temp ));
+		Q_strncpy( temp, li.name, sizeof( temp ));
 
 		while( temp[0] )
 		{
@@ -560,7 +730,7 @@ static void FS_Search_WAD( searchpath_t *search, stringlist_t *list, const char 
 				{
 					// build path: wadname/lumpname.ext
 					Q_snprintf( temp2, sizeof( temp2 ), "%s/%s", wadfolder, temp );
-					Q_snprintf( buf, sizeof( buf ), ".%s", W_ExtFromType( search->wad->lumps[i].type ));
+					Q_snprintf( buf, sizeof( buf ), ".%s", W_ExtFromType( li.type ));
 					COM_DefaultExtension( temp2, buf, sizeof( temp2 ));
 					stringlistappend( list, temp2 );
 				}
@@ -594,7 +764,8 @@ reading lump into temp buffer
 static byte *W_ReadLump( searchpath_t *search, const char *path, int pack_ind, fs_offset_t *lumpsizeptr, void *( *pfnAlloc )( size_t ), void ( *pfnFree )( void * ))
 {
 	const wfile_t *wad = search->wad;
-	const dlumpinfo_t *lump = &wad->lumps[pack_ind];
+	dlumpinfo_t lumpcopy;
+	const dlumpinfo_t *lump = &lumpcopy;
 	size_t oldpos, size;
 	byte *buf;
 
@@ -602,7 +773,13 @@ static byte *W_ReadLump( searchpath_t *search, const char *path, int pack_ind, f
 	if( lumpsizeptr ) *lumpsizeptr = 0;
 
 	// no wads loaded
-	if( !wad || !lump ) return NULL;
+	if( !wad ) return NULL;
+#if XASH_GAMECUBE
+	if( !W_GCLumpAt( wad, pack_ind, &lumpcopy ))
+		return NULL;
+#else
+	lumpcopy = wad->lumps[pack_ind];
+#endif
 
 	oldpos = FS_Tell( wad->handle ); // don't forget restore original position
 
