@@ -16853,10 +16853,10 @@ qboolean GC_RenderNewGameWorldFrames( int count )
 					vpath = "models/v_mp40.mdl";
 				else if( gc_capfaces_team_picked && gc_capfaces_team_sel == 0 )
 					vpath = "models/v_garand.mdl";
-				else if( gc_capfaces_team_picked && gc_capfaces_team_sel == 1 )
-					vpath = "models/v_luger.mdl";
 				else
-					vpath = "models/v_colt.mdl";
+					/* Pre-team: garand is BSS-pinned on ava. v_colt OOM-retried
+					 * every CapFaces present and stalled after land (hl1move-4). */
+					vpath = "models/v_garand.mdl";
 			}
 			if( vpath )
 			{
@@ -16869,13 +16869,8 @@ qboolean GC_RenderNewGameWorldFrames( int count )
 						vm = Mod_FindName( vpath, false );
 					if( ( !vm || vm->type != mod_studio || !vm->cache.data ) && dod )
 					{
-						/* Tip miss: try the lighter pistol, then crowbar. */
-						const char *fallback = ( gc_capfaces_team_sel == 1 )
-							? "models/v_luger.mdl" : "models/v_colt.mdl";
-						if( Mod_GCEnsureLandmarkViewModel( fallback ))
-							vm = Mod_FindName( fallback, false );
-						if( !vm || vm->type != mod_studio || !vm->cache.data )
-							vm = Mod_FindName( "models/v_crowbar.mdl", false );
+						/* Tip miss: crowbar only — no pistol zip under MEM1. */
+						vm = Mod_FindName( "models/v_crowbar.mdl", false );
 					}
 				}
 			}
@@ -17368,8 +17363,11 @@ qboolean GC_RenderNewGameWorldFrames( int count )
 			 * Soft RGB565 latch overwrote CapFaces with an empty soft buffer;
 			 * G362 hold then no-op'd presents (no ViSwap → empty Dump/Frames).
 			 * Re-arm efb_ready each pump so CopyDisp+ViSwap re-samples held EFB. */
+			/* DumpFrames stills only — not during -gcplayerinput play (the
+			 * 12-present hold stalled Host_Frame after land, hl1move-5). */
 			if( ( Sys_CheckParm( "-gccapfacessmoke" ) || Sys_CheckParm( "-gcworldrender" ))
-				&& ( Sys_CheckParm( "-gcdumpframes" ) || Sys_CheckParm( "-gcdump" )) )
+				&& ( Sys_CheckParm( "-gcdumpframes" ) || Sys_CheckParm( "-gcdump" ))
+				&& !Sys_CheckParm( "-gcplayerinput" ))
 			{
 				int dump_i;
 				extern void R_GXHoldEfbForDump( int frames );
@@ -17382,6 +17380,11 @@ qboolean GC_RenderNewGameWorldFrames( int count )
 					gc_gx_world_efb_ready = true;
 					GC_PresentBuffer();
 				}
+			}
+			else if( Sys_CheckParm( "-gcplayerinput" )
+				&& ( Sys_CheckParm( "-gcdumpframes" ) || Sys_CheckParm( "-gcdump" )) )
+			{
+				Con_Reportf( "Xash3D GameCube: CapFaces DumpFrames hold skipped (playerinput)\n" );
 			}
 		}
 		if( sustained_frames == 8 || sustained_frames == 16

@@ -915,22 +915,8 @@ void Host_Frame( double time )
 				&& !Sys_CheckParm( "-gcnewgame" )
 				&& !Sys_CheckParm( "-gcfullphysics" ))
 			{
-				static int gc_worlddl_sf_log;
-
 				Host_ServerFrame ();
 				GC_ProfMark( "server frame" );
-				if( gc_worlddl_sf_log < 8 )
-				{
-					edict_t *pl = ( svs.clients && svs.clients[0].edict )
-						? svs.clients[0].edict : NULL;
-					Con_Reportf( "Xash3D GameCube: WorldDL HL1 ServerFrame n=%d onground=%d origin=(%.0f,%.0f,%.0f)\n",
-						gc_worlddl_sf_log,
-						( pl && FBitSet( pl->v.flags, FL_ONGROUND )) ? 1 : 0,
-						pl ? pl->v.origin[0] : 0.0f,
-						pl ? pl->v.origin[1] : 0.0f,
-						pl ? pl->v.origin[2] : 0.0f );
-					gc_worlddl_sf_log++;
-				}
 			}
 			else if( ( Sys_CheckParm( "-gcnewgame" )
 					|| ( Sys_CheckParm( "-gcworldrender" )
@@ -962,9 +948,15 @@ void Host_Frame( double time )
 				Con_Reportf( "Xash3D GameCube: G320 menu ServerFrame skipped lean\n" );
 			}
 			Host_ClientFrame ();
-			if( gc_post_prep_crumbs == 0 )
-				Con_Reportf( "Xash3D GameCube: G320 post-prepare ClientFrame ok\n" );
-			if( gc_post_prep_crumbs < 2 )
+			/* Cap OSReport after land — EXI flood after Flipper present hangs
+			 * the next Con_Reportf (ava-hl1move-7 silence after continue). */
+			if( gc_post_prep_crumbs < 4 )
+			{
+				Con_Reportf( "Xash3D GameCube: G320 post-prepare ClientFrame ok step=%d\n",
+					gc_post_prep_crumbs );
+				gc_post_prep_crumbs++;
+			}
+			else if( gc_post_prep_crumbs < 64 )
 				gc_post_prep_crumbs++;
 		}
 		else

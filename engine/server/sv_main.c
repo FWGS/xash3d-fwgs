@@ -751,15 +751,19 @@ void Host_ServerFrame( void )
 		}
 		return;
 	}
-	/* WorldDL DoD listen: real HL1 player move (ReadPackets → SV_RunCmd →
-	 * PM_Move). Bound entity think/snapshots for MEM1 — do not invent walk. */
+	/* WorldDL DoD listen once spawned: real HL1 player move via ReadPackets
+	 * → SV_RunCmd → PM_Move. Bound entity thinks for MEM1. Before spawn,
+	 * fall through to the normal connect/spawn ServerFrame below. */
 	if( Sys_CheckParm( "-gcworldrender" ) && Sys_CheckParm( "-gcplayerinput" )
 		&& GC_UseGxWorldDraw() && !Sys_CheckParm( "-gcnewgame" )
 		&& !Sys_CheckParm( "-gcfullphysics" )
 		&& svs.initialized && svs.clients
-		&& svs.clients[0].state >= cs_connected )
+		&& svs.clients[0].state == cs_spawned
+		&& svs.clients[0].edict
+		&& FBitSet( svs.clients[0].edict->v.flags, FL_CLIENT ))
 	{
 		static int gc_worlddl_sf_log;
+		edict_t *pl = svs.clients[0].edict;
 
 		if( sv_fps.value == 0.0f )
 			sv.frametime = host.frametime;
@@ -769,22 +773,21 @@ void Host_ServerFrame( void )
 		SV_CheckCmdTimes();
 		SV_ReadPackets(); /* authentic HL1MP usercmd → PM_Move */
 		SV_UpdateMovevars( false );
-		/* Skip full SV_Physics entity storm (DoD scripted ents OOM MEM1).
-		 * Player motion already ran inside ReadPackets/SV_RunCmd. */
+		/* Player motion ran in ReadPackets. Skip DoD entity-think storm. */
 		sv.time += sv.frametime;
-		if( svs.clients[0].state == cs_spawned )
-			SV_SendClientMessagesBoundedGC();
-		if( gc_worlddl_sf_log < 12 )
+		SV_SendClientMessagesBoundedGC();
+		/* Sparse crumbs only — dense OSReport after Flipper present hangs EXI. */
+		if( gc_worlddl_sf_log < 8
+			|| ( gc_worlddl_sf_log < 96 && ( gc_worlddl_sf_log & 7 ) == 0 ))
 		{
-			edict_t *pl = svs.clients[0].edict;
-			Con_Reportf( "Xash3D GameCube: WorldDL HL1 ServerFrame n=%d state=%d onground=%d origin=(%.0f,%.0f,%.0f)\n",
-				gc_worlddl_sf_log, (int)svs.clients[0].state,
-				( pl && FBitSet( pl->v.flags, FL_ONGROUND )) ? 1 : 0,
-				pl ? pl->v.origin[0] : 0.0f,
-				pl ? pl->v.origin[1] : 0.0f,
-				pl ? pl->v.origin[2] : 0.0f );
-			gc_worlddl_sf_log++;
+			Con_Reportf( "Xash3D GameCube: WorldDL HL1 ServerFrame n=%d onground=%d origin=(%.0f,%.0f,%.0f) vel=(%.0f,%.0f,%.0f)\n",
+				gc_worlddl_sf_log,
+				FBitSet( pl->v.flags, FL_ONGROUND ) ? 1 : 0,
+				pl->v.origin[0], pl->v.origin[1], pl->v.origin[2],
+				pl->v.velocity[0], pl->v.velocity[1], pl->v.velocity[2] );
 		}
+		if( gc_worlddl_sf_log < 96 )
+			gc_worlddl_sf_log++;
 		return;
 	}
 	if( gc_fullphysics_trace )

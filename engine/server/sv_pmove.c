@@ -1191,36 +1191,12 @@ void SV_RunCmd( sv_client_t *cl, usercmd_t *ucmd, int random_seed )
 		// copy results back to client
 		SV_FinishPMove( svgame.pmove, cl );
 #if XASH_DODGC_NETWORK
-		/* One bounded breadcrumb per seat proves actual movement is processed
-		 * by the authoritative server, beyond connection/signon alone. */
+		/* Sparse OSReport only — hull-path + PM_PlayerTrace after land hung
+		 * Host_Frame (ava-hl1move-10/11). Movement proof is velocity delta. */
 		{
 			static unsigned reported;
-			static unsigned traced[2];
 			static unsigned onground_logged[2];
 			unsigned slot = (unsigned)( cl - svs.clients );
-			if( slot < 2 && clent->v.health > 0 && traced[slot]++ < 3 )
-			{
-				if( traced[slot] == 1 )
-				{
-					hull_t *h = &sv.worldmodel->hulls[1];
-					int node = h->firstclipnode;
-					for( int step = 0; step < 48 && node >= 0 && node <= h->lastclipnode; step++ )
-					{
-						mclipnode16_t *n = &h->clipnodes16[node];
-						mplane_t *p = &h->planes[n->planenum];
-						float d = DotProduct( clent->v.origin, p->normal ) - p->dist;
-						Con_Reportf( "DoD hull path node=%d plane=%d normal=(%.4f,%.4f,%.4f) dist=%.4f type=%u children=%d/%d d=%.4f\n", node, n->planenum, p->normal[0], p->normal[1], p->normal[2], p->dist, p->type, n->children[0], n->children[1], d );
-						node = n->children[d < 0];
-					}
-				}
-				pmtrace_t collision = svgame.pmove->PM_PlayerTrace( svgame.pmove->origin, svgame.pmove->origin, 0, -1 );
-				Con_Reportf( "GameCube DoD: move trace slot=%u cmd=(%.1f,%.1f) msec=%u type=%d dead=%d hp=%.0f flags=%x maxspeed=%.1f origin=(%.1f,%.1f,%.1f) delta=(%.2f,%.2f,%.2f) solid=%d/%d fraction=%.2f ent=%d\n",
-					slot, ucmd->forwardmove, ucmd->sidemove, ucmd->msec, clent->v.movetype,
-					svgame.pmove->dead, clent->v.health, (unsigned)clent->v.flags, svgame.pmove->maxspeed,
-					clent->v.origin[0], clent->v.origin[1], clent->v.origin[2],
-					clent->v.origin[0] - gc_network_before[0], clent->v.origin[1] - gc_network_before[1],
-					clent->v.origin[2] - gc_network_before[2], collision.startsolid, collision.allsolid, collision.fraction, collision.ent );
-			}
 			if( slot < 2 && clent->v.health > 0
 				&& FBitSet( clent->v.flags, FL_ONGROUND )
 				&& !onground_logged[slot] )
@@ -1238,8 +1214,6 @@ void SV_RunCmd( sv_client_t *cl, usercmd_t *ucmd, int random_seed )
 				reported |= 1u << slot;
 				Con_Reportf( "GameCube DoD: player movement slot=%u velocity=(%.1f,%.1f,%.1f)\n",
 					slot, clent->v.velocity[0], clent->v.velocity[1], clent->v.velocity[2] );
-				/* Skip Swiss FAT evidence here — fsync mid-PMove hung after
-				 * grounded movement (ava-131/135); OSReport is enough. */
 			}
 		}
 #endif
@@ -1280,6 +1254,17 @@ void SV_RunCmd( sv_client_t *cl, usercmd_t *ucmd, int random_seed )
 			clent->v.v_angle[YAW] );
 #endif
 
+#if XASH_GAMECUBE
+	/* WorldDL lean listen: keep HL1 PM_Move, but skip trigger-touch storms
+	 * (MEM1 / hang after land — ava-hl1move-6). Relink for PVS only. */
+	if( Sys_CheckParm( "-gcworldrender" ) && Sys_CheckParm( "-gcplayerinput" )
+		&& GC_UseGxWorldDraw() && !Sys_CheckParm( "-gcfullphysics" )
+		&& clent->v.solid != SOLID_NOT )
+	{
+		SV_LinkEdict( clent, false );
+	}
+	else
+#endif
 	if( clent->v.solid != SOLID_NOT && !sv.playersonly )
 	{
 		if( svgame.physFuncs.PM_PlayerTouch != NULL )
@@ -1315,6 +1300,8 @@ void SV_RunCmd( sv_client_t *cl, usercmd_t *ucmd, int random_seed )
 	svgame.globals->frametime = frametime;
 
 	// run post-think
+	/* TraceTexture skip fixed grounded PM_Move (ava-hl1move-15). Re-enable
+	 * HL1 PostThink/CmdEnd for ItemPostFrame fire — still no trigger-touch. */
 	svgame.dllFuncs.pfnPlayerPostThink( clent );
 	svgame.dllFuncs.pfnCmdEnd( clent );
 

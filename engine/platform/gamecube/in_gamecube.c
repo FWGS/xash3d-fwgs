@@ -591,6 +591,11 @@ static u16 GC_MaybeOverlayListenProbeActions( u16 held )
 		return held;
 	if( held & live )
 		return held;
+	/* WorldDL listen: defer attack/jump burst until grounded walk is stable
+	 * (ava-hl1move-12 Guru right after "probe gameplay action attack"). */
+	if( Sys_CheckParm( "-gcworldrender" ) && Sys_CheckParm( "-gcplayerinput" )
+		&& host.framecount < 48 )
+		return held;
 	return GC_ProbeGameplayActionBurst();
 }
 
@@ -1121,6 +1126,27 @@ void Platform_RunEvents( void )
 	held = gc_pad[port].button;
 	held = GC_MaybeOverlayListenProbeActions( held );
 	gc_pad[port].button = held;
+	/* Idle Dolphin pad never walks — inject main-stick forward through the
+	 * real HL1 usercmd path after listen sign-on (same as c0a0e autohop). */
+	if( Sys_CheckParm( "-gcworldrender" ) && Sys_CheckParm( "-gcmap" )
+		&& cls.state == ca_active && cls.signon == SIGNONS
+		&& GC_ApplyStickDeadzone( gc_pad[port].stickX ) == 0
+		&& GC_ApplyStickDeadzone( gc_pad[port].stickY ) == 0 )
+	{
+		static int gc_listen_walk_frames;
+		static qboolean gc_listen_walk_logged;
+
+		if( gc_listen_walk_frames < 120 )
+		{
+			gc_pad[port].stickY = 127; /* → JOY_AXIS_FWD via -stickY */
+			gc_listen_walk_frames++;
+			if( !gc_listen_walk_logged )
+			{
+				gc_listen_walk_logged = true;
+				Con_Reportf( "Xash3D GameCube: WorldDL listen probe walk inject begin\n" );
+			}
+		}
+	}
 	GC_UpdateButtons( held );
 
 	if( !gc_input_logged )
