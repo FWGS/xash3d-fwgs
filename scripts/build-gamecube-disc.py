@@ -289,6 +289,12 @@ def write_bootstrap_pk3(
 		children = data.rglob("*") if recursive else data.iterdir()
 		for child in sorted(children):
 			suffix = child.suffix.lower()
+			# Keep the startup playlist as a loose ISO file. Retail boot overlays
+			# replace it per build (Valve intro enabled or intentionally skipped),
+			# while the bootstrap archive is mounted with higher search priority.
+			# Copying an older empty playlist here silently masks the overlay.
+			if child.relative_to(data).as_posix().lower() == "media/startupvids.txt":
+				continue
 			# G346: smoke changelevel dests like c1a0.bsp are ~2.5 MiB. The
 			# old 2 MiB cap left them FST-only; when directory find flaps to
 			# pk3-only (c0a0e→c1a0 20260810-195734/195827) Host_Error misses

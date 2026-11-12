@@ -133,6 +133,7 @@ static int SCR_LoadStartupVidList( void )
 	byte *afile;
 	char *pfile;
 	string token;
+	fs_offset_t playlist_size = 0;
 	int c = 0;
 	const qboolean have_playlist = FS_FileExists( DEFAULT_VIDEOLIST_PATH, false );
 
@@ -146,13 +147,19 @@ static int SCR_LoadStartupVidList( void )
 		have_playlist ? 1u : 0u );
 #endif
 
-	afile = FS_LoadFile( DEFAULT_VIDEOLIST_PATH, NULL, false );
+	afile = FS_LoadFile( DEFAULT_VIDEOLIST_PATH, &playlist_size, false );
+#if XASH_GAMECUBE
+	Con_Reportf( "Xash3D GameCube: startup playlist load ptr=%p bytes=%li first=%02x\n",
+		afile, (long)playlist_size, afile ? (unsigned int)afile[0] : 0u );
+#endif
 	if( afile )
 	{
 		pfile = (char *)afile;
 
 		while(( pfile = COM_ParseFile( pfile, token, sizeof( token ))) != NULL )
 		{
+			Con_Reportf( "Xash3D GameCube: startup playlist token '%s' ext '%s'\n",
+				token, COM_FileExtension( token ));
 			if( Q_stricmp( COM_FileExtension( token ), "avi" ))
 				continue;
 #if XASH_GAMECUBE

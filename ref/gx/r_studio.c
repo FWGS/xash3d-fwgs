@@ -3381,6 +3381,14 @@ static int R_StudioDrawModel( int flags )
 			return 0;
 		}
 
+#if XASH_GAMECUBE
+		/* Rest-pose map props: ARAM-resident GX display lists (media/sd_*.gsd).
+		 * Same tris/skins as CPU path — skips bone skin + FIFO rebuild. */
+		if( GC_UseGxWorldDraw()
+			&& R_GXStudioDLTryDraw( RI.currententity, RI.currentmodel ))
+			return 1;
+#endif
+
 		r_stats.c_studio_models_drawn++;
 		g_studio.framecount++; // render data cache cookie
 
@@ -3869,6 +3877,9 @@ static void R_StudioLoadTexture( model_t *mod, studiohdr_t *phdr, mstudiotexture
 	int       flags = 0;
 	char      texname[128], name[128], mdlname[128];
 	texture_t *tx = NULL;
+#if XASH_GAMECUBE
+	const byte *gc_skin_src = NULL;
+#endif
 
 	if( ptexture->flags & STUDIO_NF_NORMALMAP )
 		flags |= ( TF_NORMALMAP );
@@ -3934,6 +3945,9 @@ static void R_StudioLoadTexture( model_t *mod, studiohdr_t *phdr, mstudiotexture
 	// NOTE: replace index with pointer to start of imagebuffer, ImageLib expected it
 	// ptexture->index = (int)((byte *)phdr) + ptexture->index;
 	gEngfuncs.Image_SetMDLPointer((byte *)phdr + ptexture->index );
+#if XASH_GAMECUBE
+	gc_skin_src = (const byte *)phdr + ptexture->index;
+#endif
 	size = sizeof( mstudiotexture_t ) + ptexture->width * ptexture->height + 768;
 
 	if( FBitSet( gp_host->features, ENGINE_LOAD_DELUXEDATA ) && FBitSet( ptexture->flags, STUDIO_NF_MASKED ))
@@ -3957,6 +3971,12 @@ static void R_StudioLoadTexture( model_t *mod, studiohdr_t *phdr, mstudiotexture
 			|| ( Q_stristr( mdlname, "v_" ) != NULL );
 		ptexture->index = GL_LoadTexture( texname, (byte *)ptexture, size, flags );
 		r_gc_studio_skins_in_arena = false;
+		/* Viewmodel skins larger than the 128x128 decode: keep the source
+		 * resolution in ARAM and stream it in (r_gx_skins.c). */
+		if( ptexture->index && gc_skin_src && mdlname[0] == 'm'
+			&& Q_stristr( mdlname, "models/v_" ) != NULL )
+			R_GXSkinAttachVM( (unsigned)ptexture->index, gc_skin_src, ptexture->width,
+				ptexture->height, FBitSet( ptexture->flags, STUDIO_NF_MASKED ));
 	}
 #else
 	ptexture->index = GL_LoadTexture( texname, (byte *)ptexture, size, flags );

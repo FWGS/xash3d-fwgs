@@ -6,6 +6,8 @@ Copyright (C) 2026 xash3d-gc contributors
 
 #if XASH_GAMECUBE
 
+#include "aram_core.h"
+
 /* GameCube memory budget: 24 MB main RAM */
 #define GC_MEMORY_BUDGET_BYTES (24u * 1024u * 1024u)
 
@@ -88,6 +90,9 @@ unsigned int GC_AramReserveTagged( unsigned int size, const char *tag );
 unsigned int GC_AramReserve( unsigned int size );
 unsigned int GC_AramMapBase( void );
 void GC_AramReport( const char *stage );
+/* The asset cache itself (studio skin streaming pins entries in it). NULL when
+ * the ARAM manager is unavailable. */
+gc_aram_cache_t *GC_AramAssetCacheGet( void );
 /* Whole-file asset cache in free ARAM (models, sequence groups). */
 qboolean GC_AssetCacheLookup( const char *path, unsigned int *size );
 qboolean GC_AssetCacheRead( const char *path, void *dst, unsigned int size );

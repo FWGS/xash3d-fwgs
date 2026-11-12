@@ -22,7 +22,44 @@ void __wrap___lwp_wkspace_init( unsigned int size )
 }
 #endif
 
+
+/* In-game network configuration. Archived cvars so any menu (mainui Game
+ * options, console, config.cfg) can set them. They are read when the link is
+ * first brought up (first multiplayer use); libogc2 cannot re-init after a
+ * failed bring-up, so changing them later needs a reboot. */
+static CVAR_DEFINE( gc_net_dhcp, "gc_net_dhcp", "1", FCVAR_ARCHIVE, "GameCube network: 1 = DHCP, 0 = static address" );
+static CVAR_DEFINE( gc_net_ip_cvar, "gc_net_ip", "10.0.0.2", FCVAR_ARCHIVE, "GameCube network: static IP address" );
+static CVAR_DEFINE( gc_net_mask_cvar, "gc_net_mask", "255.255.255.0", FCVAR_ARCHIVE, "GameCube network: static subnet mask" );
+static CVAR_DEFINE( gc_net_gw_cvar, "gc_net_gw", "10.0.0.1", FCVAR_ARCHIVE, "GameCube network: static gateway" );
+static CVAR_DEFINE( gc_net_dns, "gc_net_dns", "", FCVAR_ARCHIVE, "GameCube network: DNS server (empty = gateway, then 1.1.1.1 / 8.8.8.8)" );
+static CVAR_DEFINE( gc_net_status, "gc_net_status", "not started", FCVAR_READ_ONLY, "GameCube network: link state / address" );
+
+void GC_NetRegisterCvars( void )
+{
+	static qboolean registered;
+
+	/* Bring-up can run (-net) before NET_Init, so registration must be
+	 * idempotent: whichever path runs first wins. */
+	if( registered )
+		return;
+	registered = true;
+	Cvar_RegisterVariable( &gc_net_dhcp );
+	Cvar_RegisterVariable( &gc_net_ip_cvar );
+	Cvar_RegisterVariable( &gc_net_mask_cvar );
+	Cvar_RegisterVariable( &gc_net_gw_cvar );
+	Cvar_RegisterVariable( &gc_net_dns );
+	Cvar_RegisterVariable( &gc_net_status );
+}
+
 #if defined(XASH_GAMECUBE_HAVE_LIBBBA) && XASH_GAMECUBE_HAVE_LIBBBA
+
+/* gc_net_status is FCVAR_READ_ONLY (display only): Cvar_DirectSet refuses
+ * those, so force it through Cvar_FullSet. */
+static void GC_NetSetStatus( const char *text )
+{
+	GC_NetRegisterCvars();
+	Cvar_FullSet( gc_net_status.name, text, FCVAR_READ_ONLY );
+}
 
 #if !XASH_GAMECUBE_LIBOGC2
 #include <netdb.h>
@@ -30,6 +67,7 @@ void __wrap___lwp_wkspace_init( unsigned int size )
 #include <stdlib.h>
 #include "platform/gamecube/net_gamecube.h"
 #include "platform/gamecube/net_config.h"
+#include "platform/gamecube/net_dns.h"
 
 #ifndef EAI_FAIL
 #define EAI_FAIL   -1
@@ -137,6 +175,96 @@ s32 net_getsockname( s32 s, struct sockaddr *addr, socklen_t *addrlen )
 
 #endif /* classic libogc getsockname shim */
 
+/* ---- DNS resolver (internet play: master servers, hostname connect) ---- */
+#define GC_DNS_CACHE 8
+#define GC_DNS_TIMEOUT_MS 1500
+
+static struct { char name[96]; u32 ip; } gc_dns_cache[GC_DNS_CACHE];
+static int gc_dns_cache_next;
+
+static int GC_DnsQueryServer( u32 server_be, const char *name, u16 id, u32 *ip_be )
+{
+	uint8_t pkt[GC_DNS_MAX_PACKET];
+	struct sockaddr_in sa;
+	struct timeval tv;
+	fd_set rfds;
+	size_t qlen;
+	int s, got = 0;
+	uint8_t ip4[4];
+
+	qlen = GC_DnsBuildQuery( pkt, sizeof( pkt ), id, name );
+	if( !qlen ) return 0;
+	s = net_socket( AF_INET, SOCK_DGRAM, IPPROTO_UDP );
+	if( s < 0 ) return 0;
+	memset( &sa, 0, sizeof( sa ));
+	sa.sin_len = sizeof( sa );
+	sa.sin_family = AF_INET;
+	sa.sin_port = htons( 53 );
+	sa.sin_addr.s_addr = server_be;
+	if( net_sendto( s, pkt, qlen, 0, (struct sockaddr *)&sa, sizeof( sa )) >= 0 )
+	{
+		FD_ZERO( &rfds );
+		FD_SET( s, &rfds );
+		tv.tv_sec = GC_DNS_TIMEOUT_MS / 1000;
+		tv.tv_usec = ( GC_DNS_TIMEOUT_MS % 1000 ) * 1000;
+		if( net_select( s + 1, &rfds, NULL, NULL, &tv ) > 0 )
+		{
+			s32 n = net_recv( s, pkt, sizeof( pkt ), 0 );
+			if( n > 0 && GC_DnsParseResponse( pkt, (size_t)n, id, ip4 ))
+			{
+				memcpy( ip_be, ip4, 4 );
+				got = 1;
+			}
+		}
+	}
+	net_close( s );
+	return got;
+}
+
+int GC_DnsResolve( const char *name, u32 *ip_be )
+{
+	static u16 next_id = 0x4421;
+	u32 servers[4];
+	int i, nservers = 0;
+	string override_ip;
+
+	if( !name || !ip_be || !gc_net_ready )
+		return 0;
+	for( i = 0; i < GC_DNS_CACHE; i++ )
+	{
+		if( gc_dns_cache[i].name[0] && !Q_stricmp( gc_dns_cache[i].name, name ))
+		{
+			*ip_be = gc_dns_cache[i].ip;
+			return 1;
+		}
+	}
+	/* Priority: -gcdns override, DHCP gateway (most routers proxy DNS), public fallbacks. */
+	if( !Sys_GetParmFromCmdLine( "-gcdns", override_ip ) || !override_ip[0] )
+		Q_strncpy( override_ip, gc_net_dns.string, sizeof( override_ip ));
+	if( override_ip[0] )
+	{
+		u32 v;
+		if( GC_NetParseIPv4( override_ip, &v )) servers[nservers++] = htonl( v );
+	}
+	if( gc_net_gw[0] && inet_addr( gc_net_gw ) != INADDR_NONE )
+		servers[nservers++] = inet_addr( gc_net_gw );
+	servers[nservers++] = inet_addr( "1.1.1.1" );
+	servers[nservers++] = inet_addr( "8.8.8.8" );
+	for( i = 0; i < nservers; i++ )
+	{
+		if( GC_DnsQueryServer( servers[i], name, next_id++, ip_be ))
+		{
+			Q_strncpy( gc_dns_cache[gc_dns_cache_next].name, name, sizeof( gc_dns_cache[0].name ));
+			gc_dns_cache[gc_dns_cache_next].ip = *ip_be;
+			gc_dns_cache_next = ( gc_dns_cache_next + 1 ) % GC_DNS_CACHE;
+			Con_Reportf( "Xash3D GameCube: dns %s resolved\n", name );
+			return 1;
+		}
+	}
+	Con_Reportf( S_WARN "Xash3D GameCube: dns lookup failed for %s\n", name );
+	return 0;
+}
+
 struct hostent *net_gethostbyname( const char *addrString )
 {
 	static struct hostent he;
@@ -150,7 +278,11 @@ struct hostent *net_gethostbyname( const char *addrString )
 		return NULL;
 	ip = inet_addr( addrString );
 	if( ip == INADDR_NONE || ip == (u32)-1 )
-		return NULL; /* no DNS in cube libbba */
+	{
+		/* libbba has no resolver; do a UDP DNS lookup ourselves. */
+		if( !GC_DnsResolve( addrString, &ip ))
+			return NULL;
+	}
 	Q_strncpy( name_buf, addrString, sizeof( name_buf ));
 	addr.s_addr = ip;
 	alias_list[0] = NULL;
@@ -243,16 +375,16 @@ int GC_NetBringUp( int max_retries )
 		max_retries );
 	/* if_config() owns net_init internally. Calling net_init() first hangs
 	 * Dolphin BuiltIn BBA (guest never returns from EXI bring-up). */
-	if( Sys_CheckParm( "-netstatic" ))
+	if( Sys_CheckParm( "-netstatic" ) || !gc_net_dhcp.value )
 	{
 		string override_ip;
 
 		/* Dolphin BuiltIn / TapServer / lab static: 10.0.0.0/24 (default .2). */
-		Q_strncpy( gc_net_ip, "10.0.0.2", sizeof( gc_net_ip ));
+		Q_strncpy( gc_net_ip, gc_net_ip_cvar.string[0] ? gc_net_ip_cvar.string : "10.0.0.2", sizeof( gc_net_ip ));
 		if( Sys_GetParmFromCmdLine( "-gcnetip", override_ip ) && override_ip[0] )
 			Q_strncpy( gc_net_ip, override_ip, sizeof( gc_net_ip ));
-		Q_strncpy( gc_net_mask, "255.255.255.0", sizeof( gc_net_mask ));
-		Q_strncpy( gc_net_gw, "10.0.0.1", sizeof( gc_net_gw ));
+		Q_strncpy( gc_net_mask, gc_net_mask_cvar.string[0] ? gc_net_mask_cvar.string : "255.255.255.0", sizeof( gc_net_mask ));
+		Q_strncpy( gc_net_gw, gc_net_gw_cvar.string[0] ? gc_net_gw_cvar.string : "10.0.0.1", sizeof( gc_net_gw ));
 		if( Sys_GetParmFromCmdLine( "-gcnetmask", override_ip ))
 			Q_strncpy( gc_net_mask, override_ip, sizeof( gc_net_mask ));
 		if( Sys_GetParmFromCmdLine( "-gcnetgw", override_ip ))
@@ -260,6 +392,7 @@ int GC_NetBringUp( int max_retries )
 		if( !GC_NetValidateStatic( gc_net_ip, gc_net_mask, gc_net_gw ))
 		{
 			Con_Reportf( S_ERROR "GameCube: invalid static IP/mask/gateway; network disabled.\n" );
+			GC_NetSetStatus( "invalid static IP/mask/gateway" );
 			return 0;
 		}
 		Con_Reportf( "Xash3D GameCube: net static ip=%s mask=%s gw=%s\n",
@@ -284,10 +417,16 @@ int GC_NetBringUp( int max_retries )
 			(int)ret );
 		Con_Reportf( "GameCube: check adapter/cable/address settings and reboot to retry.\n" );
 		gc_net_ready = false;
+		GC_NetSetStatus( "no link (check adapter/cable; reboot to retry)" );
 		return 0;
 	}
 	gc_net_initialized = true;
 	gc_net_ready = true;
+	{
+		string status;
+		Q_snprintf( status, sizeof( status ), "connected %s", gc_net_ip );
+		GC_NetSetStatus( status );
+	}
 	Con_Reportf( "Xash3D GameCube: net ready ip=%s mask=%s gw=%s (eth2sp1/BBA)\n",
 		gc_net_ip, gc_net_mask, gc_net_gw );
 	GC_NetReportStatus( "ready" );

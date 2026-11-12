@@ -470,6 +470,9 @@ typedef struct gx_tri_vertex_s
 } gx_tri_vertex_t;
 void R_GXStudioEmitFanC( const gx_tri_vertex_t *verts, int count, qboolean strip );
 void R_GXStudioEmitTrianglesC( const gx_tri_vertex_t *verts, int count );
+/* Static mapmodel display lists (media/sd_<map>.gsd). */
+qboolean R_GXStudioDLActive( void );
+qboolean R_GXStudioDLTryDraw( cl_entity_t *e, model_t *mod );
 int R_GXDrawBrushModel( cl_entity_t *e );
 int R_GXDrawTramBaked( const float *origin, const float *angles );
 void R_GXHoldEfbForDump( int frames );
@@ -517,6 +520,8 @@ typedef struct image_s
 	byte           gc_packed_queued;
 	qboolean       gc_gx_native;                            // pixels[0] now holds GX tiled RGB565 (or RGB5A3), not soft pixels
 	byte           gc_gx_native_alpha;                      // native texels are RGB5A3 with 1-bit alpha (masked skins)
+	short          gc_skin_handle;                          // skin_stream handle + 1, 0: no streamed full-resolution skin
+	unsigned       gc_skin_gen;                             // r_gx_skins.c generation the handle belongs to
 #endif
 
 	uint           hashValue;
@@ -525,6 +530,13 @@ typedef struct image_s
 
 #if XASH_GAMECUBE
 void R_GCFreeMip( image_t *tex, uint level );
+/* r_gx_skins.c: ARAM-streamed full-resolution studio skins */
+void R_GXSkinAttachVM( unsigned texnum, const byte *src, int w, int h, qboolean flag_masked );
+const void *R_GXSkinGet( image_t *img, int *w, int *h, qboolean *alpha, qboolean *promoted );
+void R_GXSkinBeginFrame( void );
+void R_GXSkinReport( const char *stage );
+void R_GXSkinRelease( image_t *img );
+void R_GXSkinReset( void );
 #endif
 
 //
