@@ -49,6 +49,7 @@ int main( void )
 	CHECK( GC_VMAnimFamily( "models/v_scoped98k.mdl" ) == GC_VMF_CROSSBOW );
 	CHECK( GC_VMAnimFamily( "models/v_panzerschreck.mdl" ) == GC_VMF_RPG );
 	CHECK( GC_VMAnimFamily( "models/v_spade.mdl" ) == GC_VMF_CROWBAR );
+	CHECK( GC_VMAnimFamily( "models/v_amerk.mdl" ) == GC_VMF_CROWBAR );
 	CHECK( GC_VMAnimFamily( "models/v_9mmAR.mdl" ) == GC_VMF_NONE );
 	CHECK( GC_VMAnimFamily( "models/v_98k_x.mdl" ) == GC_VMF_NONE );
 	CHECK( GC_VMAnimFamily( NULL ) == GC_VMF_NONE );

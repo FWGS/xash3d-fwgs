@@ -30,6 +30,7 @@ static const gc_vm_model_t gc_vm_models[] =
 	{ "v_scoped98k",	GC_VMF_CROSSBOW },
 	{ "v_bazooka",		GC_VMF_RPG },
 	{ "v_panzerschreck",	GC_VMF_RPG },
+	{ "v_amerk",		GC_VMF_CROWBAR },
 	{ "v_spade",		GC_VMF_CROWBAR },
 };
 
