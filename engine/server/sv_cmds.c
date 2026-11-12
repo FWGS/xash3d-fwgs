@@ -82,7 +82,7 @@ static void SV_GameCubePlayStart_f( void )
 		 * Keep its map-load arena alive through client bring-up: discarding it
 		 * turns the world surface/edge pointers into the CapFaces-only fallback.
 		 * Other memory-constrained map routes retain the original discard policy. */
-		if( Sys_CheckParm( "-gcmenuplaystart" ))
+		if( Sys_CheckParm( "-gcmenuplaystart" ) || Sys_CheckParm( "-gcworldrender" ))
 			Con_Reportf( "Xash3D GameCube: play start retain map buffer for live BSP %s\n", map );
 		else
 		{

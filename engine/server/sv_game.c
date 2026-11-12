@@ -6899,9 +6899,8 @@ qboolean SV_LoadProgs( const char *name )
 	gc_using_static_edicts = false;
 	/* SP BSS when max_edicts fits the cap (valve gameinfo is typically
 	 * 900–1200). Avoid tip Mem_Calloc of ~707 KiB (HW 20261106 map=NONE). */
-	/* Local listen (maxclients≤4) reuses the SP BSS pool. Retail Create Game
-	 * enters through the menu and gc_playstart rather than -gclistenserver;
-	 * -gcworldrender identifies that interactive GameCube route. */
+	/* Menu and listen-server map loads may use the BSS pool whenever the
+	 * edict table fits, including the retail default of 16 clients. */
 	if( GI->max_edicts > 0 && GI->max_edicts <= GC_SP_EDICT_CAP
 		&& ( svs.maxclients <= 1
 			|| Sys_CheckParm( "-gclistenserver" )

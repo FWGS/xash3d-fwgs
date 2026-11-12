@@ -5657,7 +5657,8 @@ static void Mod_GCWorldPackLoad( const char *modelname, size_t surface_reserve )
 	 * BSP's embedded textures are decoded into MEM1 and produce misleading
 	 * transition-pressure fallbacks. WorldDL listen (-gcworldrender) also
 	 * binds every batch through this pack — without it batches stay 0. */
-	if(( !GC_MenuRunsServer() && !Sys_CheckParm( "-gcnewgame" )
+	if(( !GC_MenuRunsServer() && !GC_MapLoadMemoryOpt()
+		&& !Sys_CheckParm( "-gcnewgame" )
 		&& !Sys_CheckParm( "-gcmap" )
 		&& !Sys_CheckParm( "-gcworldrender" )
 		&& !Sys_CheckParm( "-gccapfacessmoke" ))
