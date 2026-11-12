@@ -22,7 +22,44 @@ void __wrap___lwp_wkspace_init( unsigned int size )
 }
 #endif
 
+
+/* In-game network configuration. Archived cvars so any menu (mainui Game
+ * options, console, config.cfg) can set them. They are read when the link is
+ * first brought up (first multiplayer use); libogc2 cannot re-init after a
+ * failed bring-up, so changing them later needs a reboot. */
+static CVAR_DEFINE( gc_net_dhcp, "gc_net_dhcp", "1", FCVAR_ARCHIVE, "GameCube network: 1 = DHCP, 0 = static address" );
+static CVAR_DEFINE( gc_net_ip_cvar, "gc_net_ip", "10.0.0.2", FCVAR_ARCHIVE, "GameCube network: static IP address" );
+static CVAR_DEFINE( gc_net_mask_cvar, "gc_net_mask", "255.255.255.0", FCVAR_ARCHIVE, "GameCube network: static subnet mask" );
+static CVAR_DEFINE( gc_net_gw_cvar, "gc_net_gw", "10.0.0.1", FCVAR_ARCHIVE, "GameCube network: static gateway" );
+static CVAR_DEFINE( gc_net_dns, "gc_net_dns", "", FCVAR_ARCHIVE, "GameCube network: DNS server (empty = gateway, then 1.1.1.1 / 8.8.8.8)" );
+static CVAR_DEFINE( gc_net_status, "gc_net_status", "not started", FCVAR_READ_ONLY, "GameCube network: link state / address" );
+
+void GC_NetRegisterCvars( void )
+{
+	static qboolean registered;
+
+	/* Bring-up can run (-net) before NET_Init, so registration must be
+	 * idempotent: whichever path runs first wins. */
+	if( registered )
+		return;
+	registered = true;
+	Cvar_RegisterVariable( &gc_net_dhcp );
+	Cvar_RegisterVariable( &gc_net_ip_cvar );
+	Cvar_RegisterVariable( &gc_net_mask_cvar );
+	Cvar_RegisterVariable( &gc_net_gw_cvar );
+	Cvar_RegisterVariable( &gc_net_dns );
+	Cvar_RegisterVariable( &gc_net_status );
+}
+
 #if defined(XASH_GAMECUBE_HAVE_LIBBBA) && XASH_GAMECUBE_HAVE_LIBBBA
+
+/* gc_net_status is FCVAR_READ_ONLY (display only): Cvar_DirectSet refuses
+ * those, so force it through Cvar_FullSet. */
+static void GC_NetSetStatus( const char *text )
+{
+	GC_NetRegisterCvars();
+	Cvar_FullSet( gc_net_status.name, text, FCVAR_READ_ONLY );
+}
 
 #if !XASH_GAMECUBE_LIBOGC2
 #include <netdb.h>
@@ -202,7 +239,9 @@ int GC_DnsResolve( const char *name, u32 *ip_be )
 		}
 	}
 	/* Priority: -gcdns override, DHCP gateway (most routers proxy DNS), public fallbacks. */
-	if( Sys_GetParmFromCmdLine( "-gcdns", override_ip ) && override_ip[0] )
+	if( !Sys_GetParmFromCmdLine( "-gcdns", override_ip ) || !override_ip[0] )
+		Q_strncpy( override_ip, gc_net_dns.string, sizeof( override_ip ));
+	if( override_ip[0] )
 	{
 		u32 v;
 		if( GC_NetParseIPv4( override_ip, &v )) servers[nservers++] = htonl( v );
@@ -336,16 +375,16 @@ int GC_NetBringUp( int max_retries )
 		max_retries );
 	/* if_config() owns net_init internally. Calling net_init() first hangs
 	 * Dolphin BuiltIn BBA (guest never returns from EXI bring-up). */
-	if( Sys_CheckParm( "-netstatic" ))
+	if( Sys_CheckParm( "-netstatic" ) || !gc_net_dhcp.value )
 	{
 		string override_ip;
 
 		/* Dolphin BuiltIn / TapServer / lab static: 10.0.0.0/24 (default .2). */
-		Q_strncpy( gc_net_ip, "10.0.0.2", sizeof( gc_net_ip ));
+		Q_strncpy( gc_net_ip, gc_net_ip_cvar.string[0] ? gc_net_ip_cvar.string : "10.0.0.2", sizeof( gc_net_ip ));
 		if( Sys_GetParmFromCmdLine( "-gcnetip", override_ip ) && override_ip[0] )
 			Q_strncpy( gc_net_ip, override_ip, sizeof( gc_net_ip ));
-		Q_strncpy( gc_net_mask, "255.255.255.0", sizeof( gc_net_mask ));
-		Q_strncpy( gc_net_gw, "10.0.0.1", sizeof( gc_net_gw ));
+		Q_strncpy( gc_net_mask, gc_net_mask_cvar.string[0] ? gc_net_mask_cvar.string : "255.255.255.0", sizeof( gc_net_mask ));
+		Q_strncpy( gc_net_gw, gc_net_gw_cvar.string[0] ? gc_net_gw_cvar.string : "10.0.0.1", sizeof( gc_net_gw ));
 		if( Sys_GetParmFromCmdLine( "-gcnetmask", override_ip ))
 			Q_strncpy( gc_net_mask, override_ip, sizeof( gc_net_mask ));
 		if( Sys_GetParmFromCmdLine( "-gcnetgw", override_ip ))
@@ -353,6 +392,7 @@ int GC_NetBringUp( int max_retries )
 		if( !GC_NetValidateStatic( gc_net_ip, gc_net_mask, gc_net_gw ))
 		{
 			Con_Reportf( S_ERROR "GameCube: invalid static IP/mask/gateway; network disabled.\n" );
+			GC_NetSetStatus( "invalid static IP/mask/gateway" );
 			return 0;
 		}
 		Con_Reportf( "Xash3D GameCube: net static ip=%s mask=%s gw=%s\n",
@@ -377,10 +417,16 @@ int GC_NetBringUp( int max_retries )
 			(int)ret );
 		Con_Reportf( "GameCube: check adapter/cable/address settings and reboot to retry.\n" );
 		gc_net_ready = false;
+		GC_NetSetStatus( "no link (check adapter/cable; reboot to retry)" );
 		return 0;
 	}
 	gc_net_initialized = true;
 	gc_net_ready = true;
+	{
+		string status;
+		Q_snprintf( status, sizeof( status ), "connected %s", gc_net_ip );
+		GC_NetSetStatus( status );
+	}
 	Con_Reportf( "Xash3D GameCube: net ready ip=%s mask=%s gw=%s (eth2sp1/BBA)\n",
 		gc_net_ip, gc_net_mask, gc_net_gw );
 	GC_NetReportStatus( "ready" );

@@ -2061,6 +2061,12 @@ void NET_Init( void )
 	if( net.initialized ) return;
 
 	Cvar_RegisterVariable( &net_address );
+#if XASH_GAMECUBE
+	{
+		extern void GC_NetRegisterCvars( void );
+		GC_NetRegisterCvars();
+	}
+#endif
 	Cvar_RegisterVariable( &net_ipname );
 	Cvar_RegisterVariable( &net_iphostport );
 	Cvar_RegisterVariable( &net_hostport );

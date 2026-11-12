@@ -20,3 +20,12 @@ forward the server UDP port (default 27015) to the console's IP.
 Host unit tests (`python3 -m unittest tests.test_gamecube_net_dns`) cover DNS query
 building and response parsing. The target build and a real BBA / eth2sp1 / Dolphin
 BuiltIn-BBA run have not been done yet; they need devkitPro on Tim's machine.
+
+## In-game configuration
+
+Options > Network (mainui `menus/Network.cpp`) edits archived cvars: `gc_net_dhcp` (1),
+`gc_net_ip`, `gc_net_mask`, `gc_net_gw`, `gc_net_dns`; `gc_net_status` is read-only and shows the
+link state. They are read when the network first comes up (first multiplayer use). libogc2
+cannot re-init after a failed bring-up, so a reboot is needed to retry. `-netstatic`, `-gcnetip`,
+`-gcnetmask`, `-gcnetgw` and `-gcdns` on the command line still override the cvars. The mainui
+submodule pointer must be bumped to a commit containing the Network page.
