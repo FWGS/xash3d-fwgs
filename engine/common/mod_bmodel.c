@@ -950,9 +950,71 @@ void *Mod_GCWorldArraySpillTryAlloc( size_t bytes, const char *what )
 	return Mod_GCWorldArraySpillAlloc( bytes, what );
 }
 
+/* Grow a tip spill slice in place (mesh → merged *t). A second TryAlloc after
+ * the mesh leaves the mesh non-tail so Rewind cannot free it — props then
+ * double-count (~354 KiB) and starve WorldDL's chunk cache (ava-prop-6). */
+void *Mod_GCWorldArraySpillTryGrow( const void *ptr, size_t old_bytes, size_t new_bytes, const char *what )
+{
+	size_t old_aligned = ALIGN( old_bytes, 32 );
+	size_t new_aligned = ALIGN( new_bytes, 32 );
+	const byte *p = (const byte *)ptr;
+	size_t off;
+	size_t cap;
+
+	if( !p || new_aligned < old_aligned )
+		return NULL;
+	if( p < gc_world_array_spill
+		|| p >= gc_world_array_spill + GC_WORLD_ARRAY_SPILL_USABLE )
+		return NULL;
+	off = (size_t)( p - gc_world_array_spill );
+	if( off + old_aligned != gc_world_array_spill_used )
+		return NULL; /* not the tip */
+	cap = Mod_GCWorldArraySpillCap();
+	if( off + new_aligned > cap )
+		return NULL;
+	gc_world_array_spill_used = off + new_aligned;
+	if( gc_world_array_spill_pin < gc_world_array_spill_used )
+		gc_world_array_spill_pin = gc_world_array_spill_used;
+	Con_Reportf( "Xash3D GameCube: world %s spill grow %s→%s (used %s)\n",
+		what ? what : "?", Q_memprint( old_bytes ), Q_memprint( new_bytes ),
+		Q_memprint( gc_world_array_spill_used ));
+	return (void *)p;
+}
+
 size_t Mod_GCWorldArraySpillUsed( void )
 {
 	return gc_world_array_spill_used;
+}
+
+qboolean Mod_GCIsWorldArraySpillCache( const void *ptr )
+{
+	const byte *p = (const byte *)ptr;
+
+	return p >= gc_world_array_spill
+		&& p < gc_world_array_spill + GC_WORLD_ARRAY_SPILL_BYTES;
+}
+
+/* Undo the last spill alloc when studio promote fails mid-read (ava-prop-3
+ * sandbags leaked ~40 KiB per failed SetModel until spill starved), or when
+ * a mesh-only slice is replaced by a merged *t spill block. */
+void Mod_GCWorldArraySpillRewind( const void *ptr, size_t bytes )
+{
+	size_t aligned = ALIGN( bytes, 32 );
+	const byte *p = (const byte *)ptr;
+	size_t off;
+
+	if( !p || p < gc_world_array_spill
+		|| p >= gc_world_array_spill + GC_WORLD_ARRAY_SPILL_BYTES )
+		return;
+	off = (size_t)( p - gc_world_array_spill );
+	if( off + aligned != gc_world_array_spill_used )
+		return; /* not the tail — leave pinned earlier slices alone */
+	/* Allow rewind of a just-pinned tail (mesh → merged *t replace). */
+	if( gc_world_array_spill_pin > off + aligned )
+		return;
+	if( gc_world_array_spill_pin > off )
+		gc_world_array_spill_pin = off;
+	gc_world_array_spill_used = off;
 }
 
 /* Pin through a spill allocation so ClearRetained cannot rewind over it. */

@@ -11824,9 +11824,9 @@ qboolean GC_PrefetchCapFacesWhileEdgesLive( model_t *mod )
 	if( ( !Sys_CheckParm( "-gcworldrender" ) && !Sys_CheckParm( "-gccapfacessmoke" ) )
 		|| Sys_CheckParm( "-gcconnect" ))
 		return false;
-	/* Per-map skybox image first — CapFaces pack second. */
+	/* Worldspawn skyname first; CMPR cube after disc media is proven openable
+	 * (mid-CapFaces sky Open was missing sky_avart.cmp while wd_*.gcd worked). */
 	GC_ApplyWorldspawnSkynameEarly( mod );
-	R_GXPrefetchMapSkybox();
 	/* Full PVS cluster DLs own the world pass — skip CapFaces densify entirely. */
 	if( mod && mod->name && mod->name[0] )
 	{
@@ -11839,10 +11839,12 @@ qboolean GC_PrefetchCapFacesWhileEdgesLive( model_t *mod )
 		{
 			FS_Close( wd );
 			gc_world_dl_armed = true;
+			R_GXPrefetchMapSkybox();
 			Con_Reportf( "Xash3D GameCube: CapFaces densify skipped — world DL %s\n", wdpath );
 			return true; /* pretend success so EDGE CapFaces bake is not entered */
 		}
 	}
+	R_GXPrefetchMapSkybox();
 	if( gc_newgame_cap_face_count > 0 )
 		return true;
 	/* Prefer offline CapFaces pack — no EDGE tip dependency. */
@@ -11949,12 +11951,19 @@ qboolean GC_BakeGcmapWorldRenderCapFaces( void )
 			/* Arm Flipper world draw so r_gx_worlddl runs (no CapFaces needed). */
 			gc_newgame_world_ready = true;
 			GC_EnableGxWorldLive();
+			/* No CapFaces bake → sticky wall-aim never armed; pad walk then
+			 * faces a corridor wall (ava-prop-7). Keep dump-look so -gcdumpeye
+			 * can park the Flipper eye outdoors for sky+prop stills. */
+			gc_g196_flipper_dump_aim_left = 96;
+			gc_dump_look_into_map = true;
 			{
 				extern void R_GXPreallocCmprBounce( void );
 
 				R_GXPreallocCmprBounce();
 			}
 			Con_Reportf( "Xash3D GameCube: G151 GX world live (world DL)\n" );
+			Con_Reportf( "Xash3D GameCube: WorldDL dump-look armed n=%d\n",
+				gc_g196_flipper_dump_aim_left );
 			return true;
 		}
 	}
@@ -12493,12 +12502,15 @@ static void GC_TryDeferredLeanSky( void )
 	if( gc_present_count != 4 && gc_present_count != 16 && gc_present_count != 32 )
 		return;
 #if XASH_DODGC_NETWORK
-	/* CapFaces listen: teamvm4/6 hung on the frame after G285+colt. Skip lean
-	 * sky entirely — outdoor EFB clear already covers; textures come from WT. */
+	/* CapFaces listen: skip lean BMP decode (teamvm hung after G285+colt), but
+	 * always prefetch the real 6-face CMPR cube — solid clear/backdrop is not OK. */
 	if( Sys_CheckParm( "-gcworldrender" ) && Sys_CheckParm( "-gcplayerinput" ))
 	{
+		extern void R_GXPrefetchMapSkybox( void );
+
 		gc_lean_sky_attempts = 3;
-		Con_Reportf( "Xash3D GameCube: G285 CapFaces listen sky skipped present=%u\n",
+		R_GXPrefetchMapSkybox();
+		Con_Reportf( "Xash3D GameCube: G285 CapFaces listen sky CMPR prefetch present=%u\n",
 			gc_present_count );
 		return;
 	}
@@ -16452,10 +16464,30 @@ qboolean GC_RenderNewGameWorldFrames( int count )
 		float look_len;
 		qboolean local_look = false;
 
+		/* WorldDL listen: CapFaces bake is skipped, so the CapFaces sticky
+		 * block below never runs. Honour -gcdumpeye so Flipper stills can
+		 * show outdoor sky cube + map props (ava-prop-7 was nose-in-wall). */
+		if( Sys_CheckParm( "-gcworldrender" ) && gc_newgame_cap_face_count <= 0
+			&& GC_UseGxWorldDraw() && GC_DumpEyeFromParm( center, rvp.viewangles ))
+		{
+			static qboolean gc_wd_dumpeye_logged;
+
+			local_look = true;
+			look_len = 256.0f;
+			gc_g196_flipper_dump_aim_left = 8;
+			gc_dump_look_into_map = true;
+			if( !gc_wd_dumpeye_logged )
+			{
+				gc_wd_dumpeye_logged = true;
+				SYS_Report( "Xash3D GameCube: WorldDL dumpeye aim eye=(%.0f,%.0f,%.0f) pitch=%.0f yaw=%.0f\n",
+					center[0], center[1], center[2],
+					rvp.viewangles[0], rvp.viewangles[1] );
+			}
+		}
 		/* -gcworldrender solo: keep aiming at CapFaces (durable pts_s16) for the
 		 * whole session — timed G196 expiry left spawn facing sky so probe
 		 * stills were gradients (20261107-124339). */
-		if( Sys_CheckParm( "-gcworldrender" ) && gc_newgame_cap_face_count > 0
+		else if( Sys_CheckParm( "-gcworldrender" ) && gc_newgame_cap_face_count > 0
 			&& GC_UseGxWorldDraw() )
 		{
 			static qboolean gc_cap_aim_logged;
@@ -17324,6 +17356,33 @@ qboolean GC_RenderNewGameWorldFrames( int count )
 									GC_LeanEnsureWeaponCombatReady( svs.clients[0].edict );
 								CL_GCSeedFlipperEfxProof( rvp.vieworigin );
 								GC_CapFacesSeedLeanDecals( rvp.vieworigin );
+								/* CapFaces listen ISOs historically omitted
+								 * sound/weapons — preload tip-safe clips so
+								 * +attack/footsteps can paint nonzero PCM. */
+								{
+									static const char *const sfx[] = {
+										"weapons/garand_shoot.wav",
+										"weapons/kar_shoot.wav",
+										"weapons/pl_gun3.wav",
+										"weapons/mp40_shoot.wav",
+										"player/pl_step1.wav",
+										"player/pl_step2.wav",
+										"player/pl_step3.wav",
+										"player/pl_step4.wav",
+										"buttons/button10.wav",
+									};
+									int si;
+
+									FS_ClearFindMissCache();
+									for( si = 0; si < (int)( sizeof( sfx ) / sizeof( sfx[0] )); si++ )
+									{
+										int handle = S_RegisterSound( sfx[si] );
+
+										Con_Reportf( "Xash3D GameCube: CapFaces SFX preload %s handle=%d\n",
+											sfx[si], handle );
+									}
+									S_StartLocalSound( "weapons/garand_shoot.wav", 1.0f, true );
+								}
 								Cbuf_AddText( "+attack;wait;wait;-attack\n" );
 								Cbuf_AddText( "+forward;wait;wait;wait;wait;-forward\n" );
 								if( live_ammo > 0 )
@@ -17409,8 +17468,9 @@ qboolean GC_RenderNewGameWorldFrames( int count )
 		}
 		if( gc_g196_flipper_dump_aim_left > 0 && gc_gx_world_live
 			&& gc_cpu_dump_presents_left <= 0
-			/* Sticky CapFaces aim for solo -gcworldrender — do not expire. */
-			&& !( Sys_CheckParm( "-gcworldrender" ) && gc_newgame_cap_face_count > 0 ))
+			/* Sticky CapFaces / WorldDL -gcdumpeye aim — do not expire. */
+			&& !( Sys_CheckParm( "-gcworldrender" )
+				&& ( gc_newgame_cap_face_count > 0 || Sys_CheckParm( "-gcdumpeye" )) ))
 		{
 			gc_g196_flipper_dump_aim_left -= count;
 			if( gc_g196_flipper_dump_aim_left <= 0 )

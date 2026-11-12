@@ -2945,9 +2945,9 @@ static void R_GXClearEfbSky( GXRModeObj *rmode )
 	GX_Color1u32( sky );
 	GX_End();
 
-	/* Textured backdrop for outdoor clear only. Tram indoor (G285 dark clear)
-	 * must keep flat dark so tunnel-end holes don't flash lean-sky white. */
-	if( !GC_IsTramIntroMap())
+	/* Single-side Flipper backdrop is a tip-era cheat. When the real 6-face
+	 * CMPR cube is resident, skip it — R_GXDrawSkyBox draws the cube. */
+	if( !GC_IsTramIntroMap() && !r_gx_sky_ready )
 		R_GXDrawSkyBackdrop( rmode );
 }
 
@@ -3039,6 +3039,7 @@ static void R_GXSkyLoad( void )
 	char from_ents[32];
 	char lower[32];
 	int i;
+	extern void FS_ClearFindMissCache( void );
 
 	/* Prefer worldspawn over the default desert cvar until KeyValue syncs movevars. */
 	if( WORLDMODEL && WORLDMODEL->entities
@@ -3049,7 +3050,9 @@ static void R_GXSkyLoad( void )
 
 	if( r_gx_sky_name[0] && !Q_stricmp( name, r_gx_sky_name ) && r_gx_sky_ready )
 		return;
-	Q_strncpy( r_gx_sky_name, name, sizeof( r_gx_sky_name ));
+	/* Early CapFaces prefetch can miss before the disc pack settles; find-miss
+	 * then poisoned later opens. Clear and only commit the name on full success. */
+	FS_ClearFindMissCache();
 	Q_strnlwr( name, lower, sizeof( lower ));
 	r_gx_sky_ready = true;
 	for( i = 0; i < 6 && r_gx_sky_ready; i++ )
@@ -3061,7 +3064,11 @@ static void R_GXSkyLoad( void )
 		/* Tip-safe: read straight into BSS — LoadFileMalloc OOMs mid-sky on
 		 * lean maps (charlie: rt+bk OK, lf malloc miss → pack also starved). */
 		Q_snprintf( path, sizeof( path ), "media/sky_%s%s.cmp", lower, suffix[i] );
+		/* Disc media can miss under gamedir-wide search mid-CapFaces; retry
+		 * gamedir-only like water_gx.cmp. */
 		f = gEngfuncs.fsapi->Open( path, "rb", false );
+		if( !f )
+			f = gEngfuncs.fsapi->Open( path, "rb", true );
 		if( f )
 		{
 			len = gEngfuncs.fsapi->FileLength( f );
@@ -3080,6 +3087,7 @@ static void R_GXSkyLoad( void )
 	}
 	if( !r_gx_sky_ready )
 		return;
+	Q_strncpy( r_gx_sky_name, name, sizeof( r_gx_sky_name ));
 	DCFlushRange( r_gx_sky_data, sizeof( r_gx_sky_data ));
 	GX_InvalidateTexAll();
 	for( i = 0; i < 6; i++ )
@@ -3188,6 +3196,16 @@ static void R_GXDrawSkyBox( void )
 	r_gx_bound_texnum = 0;
 	r_gx_bound_fmt = 0;
 	R_GXInvalidateTriApiLayout();
+	{
+		static qboolean sky_cube_logged;
+
+		if( !sky_cube_logged )
+		{
+			sky_cube_logged = true;
+			gEngfuncs.Con_Reportf( "Xash3D GameCube: sky cube drawn name=%s\n",
+				r_gx_sky_name[0] ? r_gx_sky_name : "?" );
+		}
+	}
 }
 
 static void R_GXSetupWorld3DState( void )
@@ -3261,37 +3279,25 @@ static void R_GXSetupWorld3DState( void )
 	R_GXBuildWorldModelview( mv );
 	GX_LoadPosMtxImm( mv, GX_PNMTX0 );
 
-	/* Tip-safe: outdoor sky draw after tram hops can stall CapFaces forever
-	 * (c0a0b 2desert @ tip≈48 Kb, probe 20261109-0248 — hung after
-	 * "sky faces=1", never reached CapFaces surfs n=). Keep clear colour.
-	 * Lost Coast CapFaces smoke already has sky CMPR resident — allow draw
-	 * down to 24 KiB so DumpFrames get the skybox instead of clear blue. */
-	{
-		const unsigned sky_tip_min =
-			gEngfuncs.Sys_CheckParm( "-gccapfacessmoke" ) ? ( 24u * 1024u ) : ( 96u * 1024u );
-
-	if( GC_MemHeapFreeBytes() < sky_tip_min )
-	{
-		static qboolean sky_tip_logged;
-
-		if( !sky_tip_logged )
-		{
-			sky_tip_logged = true;
-			gEngfuncs.Con_Reportf(
-				"Xash3D GameCube: sky draw skipped tip-safe tip=%s\n",
-				Q_memprint( GC_MemHeapFreeBytes() ));
-		}
-	}
-	else if( R_GXSkyVisible( ))
+	/* Real 6-face cube is mandatory outdoors. CMPR sides live in BSS (48 KiB)
+	 * so draw never needs tip — tip-gating left WorldDL on solid clear + the
+	 * single-side Flipper backdrop forever (ava-prop-2 tip≈26 Kb). */
+	if( R_GXSkyVisible( ))
 	{
 		R_GXDrawSkyBox();
+		/* Full restore after NumChans(0)+REPLACE — incomplete state left
+		 * CapFaces/WorldDL draws inert on some probes (pair with spill fix). */
 		GX_SetZMode( GX_TRUE, GX_LEQUAL, GX_TRUE );
 		GX_SetCullMode( GX_CULL_BACK );
+		GX_SetColorUpdate( GX_TRUE );
+		GX_SetBlendMode( GX_BM_NONE, GX_BL_ONE, GX_BL_ZERO, GX_LO_NOOP );
 		GX_SetNumChans( 1 );
+		GX_SetChanCtrl( GX_COLOR0A0, GX_DISABLE, GX_SRC_REG, GX_SRC_VTX,
+			GX_LIGHTNULL, GX_DF_NONE, GX_AF_NONE );
 		GX_SetNumTexGens( 0 );
+		GX_SetNumTevStages( 1 );
 		GX_SetTevOrder( GX_TEVSTAGE0, GX_TEXCOORDNULL, GX_TEXMAP_NULL, GX_COLOR0A0 );
 		GX_SetTevOp( GX_TEVSTAGE0, GX_PASSCLR );
-	}
 	}
 
 	/* Optional camera-space marker: -gcmagenta (proved EFB→DumpFrames in G200). */

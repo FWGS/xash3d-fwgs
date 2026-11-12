@@ -18,6 +18,11 @@ GNU General Public License for more details.
 #include "gamecube/mem_gamecube.h"
 qboolean GC_IsNewGameWorldReady( void );
 qboolean Mod_GCIsStudioBssCache( const void *ptr );
+qboolean Mod_GCIsWorldArraySpillCache( const void *ptr );
+void *Mod_GCWorldArraySpillTryAlloc( size_t bytes, const char *what );
+void *Mod_GCWorldArraySpillTryGrow( const void *ptr, size_t old_bytes, size_t new_bytes, const char *what );
+void Mod_GCWorldArraySpillPinBase( const void *ptr, size_t bytes );
+void Mod_GCWorldArraySpillRewind( const void *ptr, size_t bytes );
 void Mod_GCStudioBssTrimLast( void *ptr, size_t kept );
 byte *Mod_GCStudioBssGrowLast( void *ptr, size_t old_size, size_t new_size );
 #endif
@@ -1582,6 +1587,41 @@ void Mod_LoadStudioModel( model_t *mod, void *buffer, size_t buffersize, qboolea
 							mod->cache.data = calloc( 1, merged );
 						}
 					}
+					/* Spill-backed map props: tip calloc is dead — grow the
+					 * mesh tip in place for *t headers. A second TryAlloc
+					 * left the mesh non-tail so Rewind leaked ~mesh bytes
+					 * per prop and starved WorldDL (ava-prop-6). */
+					if( !mod->cache.data && Mod_GCIsWorldArraySpillCache( buffer )
+						&& mesh <= buffersize )
+					{
+						byte *merged_slot = (byte *)Mod_GCWorldArraySpillTryGrow(
+							buffer, buffersize, merged, "mapmodel-tmerge" );
+
+						if( !merged_slot )
+							merged_slot = (byte *)Mod_GCWorldArraySpillTryAlloc(
+								merged, "mapmodel-tmerge" );
+
+						if( merged_slot )
+						{
+							if( merged_slot != buffer )
+							{
+								memcpy( merged_slot, buffer, mesh );
+								Mod_GCWorldArraySpillRewind( buffer, buffersize );
+							}
+							Mod_GCWorldArraySpillPinBase( merged_slot, merged );
+							mod->cache.data = merged_slot;
+						}
+						else
+						{
+							mod->cache.data = buffer;
+							Con_Reportf( "Xash3D GameCube: G376 spill mesh-only '%s' (%s)\n",
+								mod->name, Q_memprint( mesh ));
+							Mod_GCReleaseStudioTexBuf( tex_buf );
+							tex_buf = NULL;
+							thdr = NULL;
+							goto gc_mesh_only_done;
+						}
+					}
 					if( mod->cache.data )
 					{
 						byte *in, *out;
@@ -1601,10 +1641,12 @@ void Mod_LoadStudioModel( model_t *mod, void *buffer, size_t buffersize, qboolea
 						out = (byte *)phdr + phdr->textureindex;
 						memcpy( out, in, size1 + size2 );
 						phdr->length = (int)merged;
-						/* -gcmap skips Mod_StudioLoadTextures during CapFaces
-						 * bake — zero .index so deferred attach does not treat
-						 * companion file offsets as live GX texnums. */
-						if( Sys_CheckParm( "-gcmap" ) && !Sys_CheckParm( "-gcnewgame" ))
+						/* -gcmap CapFaces bake skips Mod_StudioLoadTextures —
+						 * zero .index so deferred attach does not treat file
+						 * offsets as live GX texnums. WorldDL listen already
+						 * uploaded above — keep those texnums (ava-prop-4). */
+						if( Sys_CheckParm( "-gcmap" ) && !Sys_CheckParm( "-gcnewgame" )
+							&& !Sys_CheckParm( "-gcworldrender" ))
 						{
 							dst_tex = (mstudiotexture_t *)out;
 							for( ti = 0; ti < phdr->numtextures; ti++ )
@@ -1633,12 +1675,17 @@ void Mod_LoadStudioModel( model_t *mod, void *buffer, size_t buffersize, qboolea
 			mod->cache.data = calloc( 1, mesh );
 			if( !mod->cache.data )
 			{
-				/* G287/G289: reuse tip-safe BSS bump slice as the resident cache. */
+				/* G287/G289: reuse tip-safe BSS bump slice as the resident cache.
+				 * Map props also land in world-array spill (ava-prop-3). */
 				extern qboolean Mod_GCIsStudioBssCache( const void *ptr );
-				if( Mod_GCIsStudioBssCache( buffer ) && mesh <= buffersize )
+				extern qboolean Mod_GCIsWorldArraySpillCache( const void *ptr );
+				if(( Mod_GCIsStudioBssCache( buffer )
+						|| Mod_GCIsWorldArraySpillCache( buffer ))
+					&& mesh <= buffersize )
 				{
 					mod->cache.data = buffer;
-					Con_Reportf( "Xash3D GameCube: G289 studio BSS-resident '%s' (%s)\n",
+					Con_Reportf( "Xash3D GameCube: G289 studio %s-resident '%s' (%s)\n",
+						Mod_GCIsStudioBssCache( buffer ) ? "BSS" : "spill",
 						mod->name, Q_memprint( mesh ));
 				}
 				else
@@ -1920,60 +1967,65 @@ qboolean Mod_GCAttachStudioSkins( model_t *mod )
 	Image_GCPurgeDecodeScratch();
 	gc_force_studio_skins = true;
 
+	/* Headers already merged (G376 spill *t) — only need live GX texnums.
+	 * Do not require texturedataindex: lean+*t leaves pixels in the companion,
+	 * and a stale tdi skipped this path → full remesh OOM (ava-prop-5). */
 	if( phdr->numtextures > 0 && phdr->textureindex > 0
-		&& phdr->texturedataindex > (int)sizeof( studiohdr_t )
-		&& phdr->texturedataindex < phdr->length )
+		&& (size_t)phdr->textureindex
+			+ (size_t)phdr->numtextures * sizeof( mstudiotexture_t )
+			<= (size_t)phdr->length )
 	{
+		mstudiotexture_t *src_tex, *dst_tex;
+		qboolean have_pixels = phdr->texturedataindex > (int)sizeof( studiohdr_t )
+			&& phdr->texturedataindex < phdr->length;
+
 		/* Quality-0 spawn often keeps the full MDL resident but skips GX upload.
 		 * Try in-place first only when pixel blobs still live in cache.
 		 * CapFaces lean+*t merge leaves headers with index=0 and no pixels —
 		 * in-place upload then samples garbage (ava-vm11 zebra gun). */
-		Image_GCPurgeDecodeScratch();
-		Mod_GCForceVmChromakeyMasks( phdr );
-		ref.dllFuncs.Mod_StudioLoadTextures( mod, phdr );
-		if( Mod_GCStudioSkinsBound( phdr ))
+		if( have_pixels )
+		{
+			Image_GCPurgeDecodeScratch();
+			Mod_GCForceVmChromakeyMasks( phdr );
+			ref.dllFuncs.Mod_StudioLoadTextures( mod, phdr );
+			if( Mod_GCStudioSkinsBound( phdr ))
+			{
+				gc_force_studio_skins = false;
+				Con_Reportf( "Xash3D GameCube: deferred resident skins '%s' n=%d\n",
+					mod->name, phdr->numtextures );
+				return true;
+			}
+		}
+		/* CapFaces rifles / Avalanche props: headers in cache, pixels in *t. */
+		buf = Mod_GCLoadStudioTexFile( mod->name, &buf_len );
+		if( !buf )
+			buf = Mod_GCLoadFileToStudioTexScratch( mod->name, &buf_len );
+		if( !buf )
 		{
 			gc_force_studio_skins = false;
-			Con_Reportf( "Xash3D GameCube: deferred resident skins '%s' n=%d\n",
-				mod->name, phdr->numtextures );
-			return true;
+			Con_Reportf( S_WARN "Xash3D GameCube: deferred embedded skins miss '%s' n=%d len=%d tdi=%d\n",
+				mod->name, phdr->numtextures, phdr->length, phdr->texturedataindex );
+			return false;
 		}
+		src_hdr = R_StudioLoadHeader( mod, buf, (size_t)buf_len );
+		if( !src_hdr || src_hdr->numtextures <= 0
+			|| src_hdr->texturedataindex <= (int)sizeof( studiohdr_t ))
 		{
-			mstudiotexture_t *src_tex, *dst_tex;
-
-			/* CapFaces rifles keep lean mesh in gc_studio/<stem>.mdl (n=0
-			 * pixels). Reloading that mirror wiped live texnums (ava-vm6
-			 * GX bind fail px=0). Prefer the downsampled *t companion. */
-			buf = Mod_GCLoadStudioTexFile( mod->name, &buf_len );
-			if( !buf )
-				buf = Mod_GCLoadFileToStudioTexScratch( mod->name, &buf_len );
-			if( !buf )
-			{
-				gc_force_studio_skins = false;
-				Con_Reportf( S_WARN "Xash3D GameCube: deferred embedded skins miss '%s' n=%d len=%d tdi=%d\n",
-					mod->name, phdr->numtextures, phdr->length, phdr->texturedataindex );
-				return false;
-			}
-			src_hdr = R_StudioLoadHeader( mod, buf, (size_t)buf_len );
-			if( !src_hdr || src_hdr->numtextures <= 0
-				|| src_hdr->texturedataindex <= (int)sizeof( studiohdr_t ))
-			{
-				Mod_GCReleaseStudioTexBuf( buf );
-				gc_force_studio_skins = false;
-				return false;
-			}
-			Mod_GCForceVmChromakeyMasks( src_hdr );
-			ref.dllFuncs.Mod_StudioLoadTextures( mod, src_hdr );
-			src_tex = (mstudiotexture_t *)((byte *)src_hdr + src_hdr->textureindex );
-			dst_tex = (mstudiotexture_t *)((byte *)phdr + phdr->textureindex );
-			for( i = 0; i < phdr->numtextures && i < src_hdr->numtextures; i++ )
-				dst_tex[i].index = src_tex[i].index;
 			Mod_GCReleaseStudioTexBuf( buf );
 			gc_force_studio_skins = false;
-			Con_Reportf( "Xash3D GameCube: deferred embedded skins '%s' n=%d\n",
-				mod->name, phdr->numtextures );
-			return Mod_GCStudioSkinsBound( phdr );
+			return false;
 		}
+		Mod_GCForceVmChromakeyMasks( src_hdr );
+		ref.dllFuncs.Mod_StudioLoadTextures( mod, src_hdr );
+		src_tex = (mstudiotexture_t *)((byte *)src_hdr + src_hdr->textureindex );
+		dst_tex = (mstudiotexture_t *)((byte *)phdr + phdr->textureindex );
+		for( i = 0; i < phdr->numtextures && i < src_hdr->numtextures; i++ )
+			dst_tex[i].index = src_tex[i].index;
+		Mod_GCReleaseStudioTexBuf( buf );
+		gc_force_studio_skins = false;
+		Con_Reportf( "Xash3D GameCube: deferred header skins '%s' n=%d\n",
+			mod->name, phdr->numtextures );
+		return Mod_GCStudioSkinsBound( phdr );
 	}
 
 	/* Separate *t.mdl atlas (controller, islave, …). CapFaces viewmodels
@@ -2012,6 +2064,22 @@ qboolean Mod_GCAttachStudioSkins( model_t *mod )
 		Image_GCPurgeDecodeScratch();
 		Mod_GCForceVmChromakeyMasks( src_hdr );
 		ref.dllFuncs.Mod_StudioLoadTextures( mod, src_hdr );
+		if( !slot && Mod_GCIsWorldArraySpillCache( mod->cache.data ))
+		{
+			slot = (byte *)Mod_GCWorldArraySpillTryGrow(
+				mod->cache.data, mesh, merged, "mapmodel-tmerge" );
+			if( !slot )
+			{
+				slot = (byte *)Mod_GCWorldArraySpillTryAlloc( merged, "mapmodel-tmerge" );
+				if( slot )
+				{
+					memcpy( slot, mod->cache.data, mesh );
+					Mod_GCWorldArraySpillRewind( mod->cache.data, mesh );
+				}
+			}
+			if( slot )
+				Mod_GCWorldArraySpillPinBase( slot, merged );
+		}
 		if( !slot )
 			slot = (byte *)calloc( 1, merged );
 		if( !slot )
@@ -2021,7 +2089,8 @@ qboolean Mod_GCAttachStudioSkins( model_t *mod )
 		{
 			byte *in, *out;
 
-			if( slot != (byte *)mod->cache.data )
+			if( slot != (byte *)mod->cache.data
+				&& !Mod_GCIsWorldArraySpillCache( slot ))
 				memcpy( slot, mod->cache.data, mesh );
 			mod->cache.data = slot;
 			phdr = (studiohdr_t *)slot;

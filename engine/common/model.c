@@ -34,11 +34,21 @@ poolhandle_t      com_studiocache;		// cache for submodels
 void FS_ClearFindMissCache( void );
 qboolean GC_IsNewGameWorldReady( void );
 void R_GXStudioInvalidateBindings( void );
+qboolean R_GXWorldDLActive( void );
 unsigned GC_GetNewGamePresentCount( void );
 
 static qboolean Mod_GCIsNewGameRoute( void )
 {
 	return Sys_CheckParm( "-gcnewgame" ) || Sys_CheckParm( "-gcmenuplaystart" );
+}
+
+/* Map props share world-array spill with WorldDL's chunk cache. Loading them
+ * during entity spawn (before WorldDL Active) left cache at 128 KiB and blacked
+ * outdoor Flipper (ava-prop-6 vs prop-2's 448 KiB). Active() loads WorldDL on
+ * first call so the cache slice is claimed before the first prop TryAlloc. */
+static qboolean Mod_GCMapModelSpillAfterWorldDL( void )
+{
+	return R_GXWorldDLActive();
 }
 
 /* Real MDLs live in the 1 MiB studio BSS arena (lean meshes + viewweapons).
@@ -71,7 +81,8 @@ static int     gc_deferred_studio_attempts;
  * failed gfx.wad (unclaimed 1.32→1.12 Mb) — keep 184 on network. */
 #if XASH_DODGC_NETWORK
 	/* Keep 184 KiB — 768 KiB BSS starved Host_Init (ava-prop-1 heap_free=104).
-	 * Full-skin map props promote from heap after WorldDL MAP_READY. */
+	 * Avalanche lean mapmodels (~249 KiB) promote into world-array spill after
+	 * WorldDL shrinks its chunk cache (see Mod_GCPromoteMapModels). */
 #define GC_STUDIO_BSS_BYTES (184 * 1024)
 #else
 #define GC_STUDIO_BSS_BYTES (384 * 1024)
@@ -518,7 +529,44 @@ static byte *Mod_GCLoadStudioFile( const char *model_path, fs_offset_t *length, 
 			}
 			slot = NULL;
 			previous_bump = gc_studio_bss_bump;
-			if( flen >= (fs_offset_t)sizeof( studiohdr_t )
+			/* Mapmodels prefer world-array spill so the 184 KiB studio BSS
+			 * stays free for the team viewmodel (ava-prop-2 tip≈6 KiB).
+			 * Only after WorldDL owns its chunk-cache slice. */
+			if( Q_stristr( model_path, "mapmodels/" )
+				&& flen >= (fs_offset_t)sizeof( studiohdr_t )
+				&& Mod_GCMapModelSpillAfterWorldDL())
+			{
+				extern void *Mod_GCWorldArraySpillTryAlloc( size_t bytes, const char *what );
+				extern void Mod_GCWorldArraySpillPinBase( const void *ptr, size_t bytes );
+
+				slot = (byte *)Mod_GCWorldArraySpillTryAlloc( (size_t)flen, "mapmodel-studio" );
+				if( slot )
+				{
+					total = 0;
+					while( total < flen )
+					{
+						got = FS_Read( f, slot + total, flen - total );
+						if( got <= 0 )
+							break;
+						total += got;
+					}
+					FS_Close( f );
+					if( total == flen )
+					{
+						Mod_GCWorldArraySpillPinBase( slot, (size_t)flen );
+						*length = flen;
+						if( from_bss )
+							*from_bss = true;
+						Con_Reportf( "Xash3D GameCube: mapmodel spill read '%s' via %s (%s)\n",
+							model_path, mirror, Q_memprint( (size_t)flen ));
+						return slot;
+					}
+					Con_Reportf( "Xash3D GameCube: mapmodel spill short '%s' read=%li want=%li\n",
+						mirror, (long)total, (long)flen );
+					slot = NULL;
+				}
+			}
+			if( !slot && flen >= (fs_offset_t)sizeof( studiohdr_t )
 				&& flen <= (fs_offset_t)GC_STUDIO_BSS_BYTES )
 				slot = Mod_GCStudioBssAlloc( (size_t)flen );
 			if( slot )
@@ -554,6 +602,55 @@ static byte *Mod_GCLoadStudioFile( const char *model_path, fs_offset_t *length, 
 				if( flen > (fs_offset_t)GC_STUDIO_BSS_BYTES )
 					Con_Reportf( "Xash3D GameCube: G289 studio too large for BSS '%s' (%s)\n",
 						mirror, Q_memprint( (size_t)flen ));
+				/* Map props: WorldDL listen leaves spill headroom (chunk cache
+				 * capped at 192 KiB). Stream lean mesh there — tip heap is dead.
+				 * Gate on WorldDL Active so props cannot starve the cache. */
+				if( Q_stristr( model_path, "mapmodels/" )
+					&& flen >= (fs_offset_t)sizeof( studiohdr_t )
+					&& Mod_GCAllowRealStudioLoad( model_path, (size_t)flen )
+					&& Mod_GCMapModelSpillAfterWorldDL())
+				{
+					extern void *Mod_GCWorldArraySpillTryAlloc( size_t bytes, const char *what );
+					extern void Mod_GCWorldArraySpillPinBase( const void *ptr, size_t bytes );
+
+					f = FS_Open( mirror, "rb", false );
+					if( !f )
+						f = FS_Open( mirror, "rb", true );
+					if( f )
+					{
+						slot = (byte *)Mod_GCWorldArraySpillTryAlloc( (size_t)flen, "mapmodel-studio" );
+						if( slot )
+						{
+							total = 0;
+							while( total < flen )
+							{
+								got = FS_Read( f, slot + total, flen - total );
+								if( got <= 0 )
+									break;
+								total += got;
+							}
+							FS_Close( f );
+							if( total == flen )
+							{
+								Mod_GCWorldArraySpillPinBase( slot, (size_t)flen );
+								*length = flen;
+								if( from_bss )
+									*from_bss = true; /* don't free — spill-backed */
+								Con_Reportf( "Xash3D GameCube: mapmodel spill read '%s' via %s (%s)\n",
+									model_path, mirror, Q_memprint( (size_t)flen ));
+								return slot;
+							}
+							Con_Reportf( "Xash3D GameCube: mapmodel spill short '%s' read=%li want=%li\n",
+								mirror, (long)total, (long)flen );
+						}
+						else
+						{
+							FS_Close( f );
+							Con_Reportf( "Xash3D GameCube: mapmodel spill alloc miss '%s' (%s)\n",
+								mirror, Q_memprint( (size_t)flen ));
+						}
+					}
+				}
 			}
 		}
 	}
@@ -702,6 +799,9 @@ qboolean Mod_GCPromoteStudioPath( const char *path )
 		return true;
 	}
 
+	/* Failed promote with spill buffer — rewind so the next env_model can retry. */
+	if( from_bss && Mod_GCIsWorldArraySpillCache( buf ))
+		Mod_GCWorldArraySpillRewind( buf, (size_t)length );
 	Con_Reportf( S_WARN "Xash3D GameCube: deferred studio promote failed '%s'\n", path );
 	return false;
 }
@@ -897,20 +997,32 @@ void Mod_GCPromoteMapModels( void )
 	if( !Sys_CheckParm( "-gcworldrender" ))
 		return;
 
+	/* Tip≈6 KiB — heap promote is dead. Lean meshes load into world-array
+	 * spill (WorldDL chunk cache capped at 192 KiB on listen). Viewmodels
+	 * stay in the 184 KiB studio BSS. */
 	FS_ClearFindMissCache();
 	Image_GCPurgeDecodeScratch();
 	for( i = 1; i < MAX_MODELS && sv.model_precache[i][0]; i++ )
 	{
 		const char *name = sv.model_precache[i];
 		qboolean is_view = false;
+		model_t *mod;
 
 		if( !name || !Q_stristr( name, "mapmodels/" ) || !Q_stristr( name, ".mdl" ))
 			continue;
 		if( !Mod_GCStudioNameAllowed( name, &is_view ))
 			continue;
 		tried++;
-		if( Mod_GCPromoteStudioPath( name ))
-			ok++;
+		if( !Mod_GCPromoteStudioPath( name ))
+			continue;
+		ok++;
+		{
+			extern qboolean Mod_GCAttachStudioSkins( model_t *m );
+
+			mod = Mod_FindName( name, false );
+			if( mod && mod->cache.data )
+				Mod_GCAttachStudioSkins( mod );
+		}
 	}
 	Mod_GCRebindPromotedStudios();
 	Con_Reportf( "Xash3D GameCube: mapmodel studios promote ok=%d/%d budget=%s tip=%s\n",

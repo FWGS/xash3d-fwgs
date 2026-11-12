@@ -223,13 +223,22 @@ static void R_GXWorldDLLoad( const char *mapbase )
 	}
 
 	/* Prefer a larger ring so PVS-visible chunks stay resident while the eye
-	 * turns — still lazy (spill), never omit faces for a densify cheat. */
+	 * turns — still lazy (spill), never omit faces for a densify cheat.
+	 * CapFaces listen map props (lean sherman/jagd/…) need ~256 KiB of the
+	 * same spill after WorldDL; leave headroom (ava-prop-2 tip≈6 KiB heap). */
 	gc_wd_cache = NULL;
-	for( try_sz = 512u * 1024u; try_sz >= 96u * 1024u; try_sz -= 64u * 1024u )
 	{
-		gc_wd_cache = (byte *)Mod_GCWorldArraySpillTryAlloc( try_sz, "world DL chunk cache" );
-		if( gc_wd_cache )
-			break;
+		const unsigned cache_hi =
+			( gEngfuncs.Sys_CheckParm( "-gcworldrender" )
+				&& gEngfuncs.Sys_CheckParm( "-gcplayerinput" ))
+			? ( 192u * 1024u ) : ( 512u * 1024u );
+
+		for( try_sz = cache_hi; try_sz >= 96u * 1024u; try_sz -= 32u * 1024u )
+		{
+			gc_wd_cache = (byte *)Mod_GCWorldArraySpillTryAlloc( try_sz, "world DL chunk cache" );
+			if( gc_wd_cache )
+				break;
+		}
 	}
 	if( !gc_wd_cache || try_sz < gc_wd_hdr.max_chunk * 2u )
 	{

@@ -43,10 +43,12 @@ static qboolean s_registering = false;
 #if XASH_GAMECUBE
 /* G118: under MapLoadMemoryOpt, allow small gameplay WAVs until this budget fills.
  * G121: per-file hard cap raised to 16 KiB (pl_gun3); Sound_LoadWAV matches. */
-#define GC_SFX_BUDGET_BYTES		(48u * 1024u)
-/* G121: stock glock fire is pl_gun3.wav (~13 KiB PCM @ 22 kHz); keep under
- * the session budget while allowing one fire WAV through EV_PlaySound. */
-#define GC_SFX_MAX_FILE_BYTES	(16u * 1024u)
+/* CapFaces listen stages tip-safe 11 kHz combat clips (~10 KiB each). Keep
+ * several weapons + footsteps resident (ava listen was peak=0 with empty disc). */
+#define GC_SFX_BUDGET_BYTES		(128u * 1024u)
+/* G121: stock glock fire is pl_gun3.wav (~13 KiB PCM @ 22 kHz); lean DoD
+ * shoots are truncated to ≤14 KiB so they clear the memopt WAV gate. */
+#define GC_SFX_MAX_FILE_BYTES	(20u * 1024u)
 /* Menu New Game runs the real map with its NPCs and tram: their sounds
  * (tram start/loop/brake ~90 KiB, footsteps, doors) thrashed the lean budget,
  * reloading from disc on every step. ~300-470 KiB of heap stays free there. */

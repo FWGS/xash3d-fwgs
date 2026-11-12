@@ -2313,14 +2313,19 @@ def inject_gc_studio_into_bootstrap(archive: "zipfile.ZipFile", data: Path) -> i
 			# Other CapFaces map props stay lean-stripped for tip maps.
 			"bulb", "hk_satchel", "furniture", "by_rubble_set",
 			"arc_xer_tree2", "horse_statue", "by_canopy",
-		}
-		# Avalanche props keep embedded skins (full fidelity).
-		dod_full_prop_skins = {
+			# Avalanche env_models: full-skin MDLs (sherman≈294 KiB) miss the
+			# 184–288 KiB DoD studio BSS and tip≈6 KiB heap (ava-prop-2
+			# promote ok=0/4). Lean mesh + *t atlas = full fidelity in BSS.
 			"sandbags", "sherman", "jagd", "by_banister", "flags",
 		}
+		dod_full_prop_skins = set()  # avalanche props moved to lean+*t
 		keep_skins = stem in ("forklift", "loader", "filecabinet", "nihilanth", "baby_headcrab") \
 			or stem in dod_full_prop_skins \
 			or (stem.startswith("v_") and stem not in dod_capfaces_lean)
+		# Replace stale full-skin avalanche props already in the bootstrap.
+		if arcname in archive.NameToInfo and stem in dod_capfaces_lean:
+			del archive.NameToInfo[arcname]
+			archive.filelist = [zi for zi in archive.filelist if zi.filename != arcname]
 		payload = None if is_tex_companion or keep_skins else lean_studio_mesh_bytes(src)
 		if payload is None:
 			archive.write(src, arcname, compress_type=zipfile.ZIP_STORED)
@@ -2332,22 +2337,29 @@ def inject_gc_studio_into_bootstrap(archive: "zipfile.ZipFile", data: Path) -> i
 				f"  lean studio {Path(relative).name}: {src.stat().st_size} → {len(payload)} bytes"
 			)
 		staged += 1
-		# CapFaces rifle/pistol skin atlas — mesh is lean; Flipper uploads from
-		# this companion after team pick (Mod_GCLoadStudioTexFile gc_studio/*t).
-		if stem in dod_capfaces_lean and stem.startswith("v_"):
+		# CapFaces rifle/pistol + Avalanche prop skin atlas — mesh is lean;
+		# Flipper uploads from gc_studio/<stem>t.mdl after promote.
+		if stem in dod_capfaces_lean:
 			tex_arc = f"gc_studio/{stem}t.mdl"
-			if tex_arc not in archive.NameToInfo:
-				# Prefer 128² (ava-play99-43+) but stay inside the 96 KiB
-				# studio tex scratch — 98k @128² tip-crashes (ava-play99-48+).
-				tex_payload = lean_studio_tex_companion_bytes(src, max_edge=128)
-				if tex_payload and len(tex_payload) > 96 * 1024:
-					tex_payload = lean_studio_tex_companion_bytes(src, max_edge=64)
-				if tex_payload:
-					archive.writestr(tex_arc, tex_payload, compress_type=zipfile.ZIP_STORED)
-					print(
-						f"  lean studio tex {stem}t.mdl: {src.stat().st_size} → {len(tex_payload)} bytes"
-					)
-					staged += 1
+			if tex_arc in archive.NameToInfo:
+				del archive.NameToInfo[tex_arc]
+				archive.filelist = [zi for zi in archive.filelist if zi.filename != tex_arc]
+			# Prefer 128² for rifles; Avalanche props stay ≤64² so Flipper
+			# Image_LoadMDL fits tip≈34 KiB at entity spawn (ava-prop-4
+			# banister 128² OOM → 2x2 fallback).
+			prop_tex64 = {
+				"sandbags", "sherman", "jagd", "by_banister", "flags",
+			}
+			edge = 64 if stem in prop_tex64 else 128
+			tex_payload = lean_studio_tex_companion_bytes(src, max_edge=edge)
+			if tex_payload and len(tex_payload) > 96 * 1024:
+				tex_payload = lean_studio_tex_companion_bytes(src, max_edge=64)
+			if tex_payload:
+				archive.writestr(tex_arc, tex_payload, compress_type=zipfile.ZIP_STORED)
+				print(
+					f"  lean studio tex {stem}t.mdl: {src.stat().st_size} → {len(tex_payload)} bytes"
+				)
+				staged += 1
 	return staged
 
 
