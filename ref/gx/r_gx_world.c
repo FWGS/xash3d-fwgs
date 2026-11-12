@@ -175,22 +175,9 @@ enum
 	GC_GX_FACE_MODE_TEXTURED,
 	GC_GX_FACE_MODE_TEXTURED_LIVE, /* G219: MODULATE muted live skyfill */
 	GC_GX_FACE_MODE_LIT,
-	GC_GX_FACE_MODE_LIT_LIVE,	/* live BSP faces x full-res lightmap atlas */
-	GC_GX_FACE_MODE_LIT_ENV	/* CapFaces diffuse×LM + sky cubemap specular */
+	GC_GX_FACE_MODE_LIT_LIVE	/* live BSP faces x full-res lightmap atlas */
 };
-/* CapFaces bake flag: Source $envmap (sand/rock specular), see bake_lostcoast_map.py */
-#ifndef GC_SURF_ENVMAP
-#define GC_SURF_ENVMAP 0x4000
-#endif
 static int r_gx_face_mode;
-/* Source→TEV material id bound with the current lit face mode (r_gx_tevmat.c). */
-static int r_gx_face_mat;
-extern int R_GXTevMatFlags( int id );
-extern qboolean R_GXBloomDrawSun( void *rmode );
-extern void R_GXFogBegin( void );
-extern void R_GXFogEnd( void );
-extern void R_GXTevMatAppend( int id, int first_stage, int first_texgen );
-extern void R_GXTevMatEndAlphaTest( void );
 static unsigned r_gx_bound_texnum;
 static u8 r_gx_bound_fmt;
 /* Synthetic safety faces are emitted double-sided, but must not disable
@@ -706,16 +693,8 @@ static void R_GXLoadMtxFromXashMV( Mtx out, const matrix4x4 in )
  */
 static void R_GXBuildWorldProjection( Mtx44 out )
 {
-	extern qboolean R_GXWorldDLActive( void );
 	f32 zNear = 4.0f;
-	/* WorldDL: full BSP (stacks ~10–16k). CapFaces densify stays at 8k —
-	 * 16k dump zFar didn't move sky mae and can darken midsky vs CapFaces-36.21. */
-	f32 zFar;
-
-	if( R_GXWorldDLActive())
-		zFar = Q_max( 24576.0f, RI.farClip > 1.0f ? RI.farClip : 24576.0f );
-	else
-		zFar = Q_max( 8192.0f, RI.farClip > 1.0f ? RI.farClip : 8192.0f );
+	f32 zFar = Q_max( 256.0f, RI.farClip > 1.0f ? RI.farClip : 4096.0f );
 	f32 fov_y = RI.rvp.fov_y > 1.0f ? RI.rvp.fov_y : 90.0f;
 	f32 fov_x = RI.rvp.fov_x > 1.0f ? RI.rvp.fov_x : 90.0f;
 	f32 yMax = zNear * tanf( fov_y * (f32)M_PI_F / 360.0f );
@@ -775,16 +754,6 @@ static void R_GXBuildWorldModelview( Mtx out )
 	out[2][1] = -forward[1];
 	out[2][2] = -forward[2];
 	out[2][3] = DotProduct( forward, org );
-}
-
-/* World-DL specular uses the same view basis. The 3x3 is a rotation, so it
- * is its own inverse-transpose and is a valid normal matrix. */
-void R_GXLoadWorldNormalMtx( void )
-{
-	Mtx mv;
-
-	R_GXBuildWorldModelview( mv );
-	GX_LoadNrmMtxImm( mv, GX_PNMTX0 );
 }
 
 static u32 R_GXFaceColor( const msurface_t *surf )
@@ -1841,9 +1810,8 @@ A cut-out texture needs the alpha test, every other bind turns it back off.
 =============
 */
 #define GC_HOT_LIST_MAX     128
-#define GC_HOT_QUEUE_MAX    96		/* one view of world mats plus the props in it */
+#define GC_HOT_QUEUE_MAX    32
 #define GC_HOT_FRAME_BYTES  ( 96 * 1024 )	/* a frame's worth of streaming */
-#define GC_HOT_MAT_BYTES    ( 12 * 1024 )	/* nearest page: a 128² chain */
 #define GC_HOT_KEEP_FRAMES  90		/* not evicted until this long unused */
 
 static struct
@@ -1853,45 +1821,12 @@ static struct
 	image_t  *list[GC_HOT_LIST_MAX];
 	int      count;
 	image_t  *queue[GC_HOT_QUEUE_MAX];
-	byte     weight[GC_HOT_QUEUE_MAX];	/* binds this frame; the busy surface wins the slot */
 	int      queued;
 	unsigned uploads, bytes, evictions, deferred;
 } r_gx_hot;
 
-/* Set by the draw before a bind. Near chunks outrank a far wall that
- * happens to have more batches, so the cliff in frame gets the slot. */
-static int r_gx_hot_bias = 1;
-
-void R_GXHotSetBias( int bias )
-{
-	if( bias < 1 )
-		bias = 1;
-	if( bias > 64 )
-		bias = 64;
-	r_gx_hot_bias = bias;
-}
-
-/* Page size follows how close the surface is. The full chain stays in
- * ARAM. MEM1 only holds the mip the screen can tell apart, so a far prop
- * costs a few hundred bytes and the cliff in front still gets 128². */
-static unsigned R_GXHotBudget( int weight )
-{
-	if( weight >= 32 )
-		return 12u * 1024u;
-	if( weight >= 16 )
-		return 3u * 1024u;
-	if( weight >= 4 )
-		return 1024u;
-	return 256u;
-}
-
 /* Durable hot window — survives map-load arena reuse that stomps arena-tail
- * pack low-mips. Heap memalign of 96 Kb fails once the map is in, and the
- * fail then repeats every frame, so materials never leave the 8×8. This
- * store is BSS: it is resident for the whole boot. 80 Kb is the largest
- * block that still leaves the server enough MEM1 to start. */
-#define GC_HOT_DURABLE_BYTES ( 80u * 1024u )
-static byte r_gx_hot_store[GC_HOT_DURABLE_BYTES] __attribute__(( aligned( 32 )));
+ * pack low-mips (CapFaces CMPR noise: diag hdr absent from GCT). */
 static byte *r_gx_durable_hot;
 static unsigned r_gx_durable_hot_size;
 static qboolean r_gx_hot_is_durable;
@@ -1924,11 +1859,7 @@ void R_GCEnsureDurableHotWindow( unsigned prefer_bytes )
 
 	if( r_gx_durable_hot && r_gx_durable_hot_size >= want )
 	{
-		r_gx_durable_hot = r_gx_hot_store;
-		r_gx_durable_hot_size = sizeof( r_gx_hot_store );
 		R_GCHotWindow( r_gx_durable_hot, r_gx_durable_hot_size );
-		gEngfuncs.Con_Reportf( "Xash3D GameCube: durable CMPR hot window %u Kb static\n",
-			r_gx_durable_hot_size / 1024u );
 		return;
 	}
 	/* Tip is gone after WorldDL+studios — don't memalign-spam every frame. */
@@ -1959,8 +1890,6 @@ void R_GCEnsureDurableHotWindow( unsigned prefer_bytes )
 		want / 1024u );
 }
 
-static void R_GXHotDrop( image_t *img );
-
 /* For a moment during a map load: the whole window, emptied. What was resident
  * falls back to its low mips and is streamed in again on its next bind. */
 void *R_GCHotBorrow( unsigned bytes )
@@ -1970,96 +1899,11 @@ void *R_GCHotBorrow( unsigned bytes )
 	if( bytes > r_gx_hot.size )
 		return NULL;
 	for( i = 0; i < r_gx_hot.count; i++ )
-		R_GXHotDrop( r_gx_hot.list[i] );
+		r_gx_hot.list[i]->gc_packed_hot = NULL;
 	r_gx_hot.count = 0;
 	r_gx_hot.head = 0;
 	r_gx_bound_texnum = 0;
 	return r_gx_hot.base;
-}
-
-/* Bytes of the chain that actually sit in the hot window. A 256² chain
- * keeps its top mips in ARAM and parks the 128² tail here, so seven
- * materials fit instead of one. The skipped-mip count lives in bits 3–5
- * of gc_packed_low_shift; bits 0–2 and 0x40 stay the 8×8 stub. */
-static unsigned R_GXCmprLevelBytes( int w, int h )
-{
-	unsigned mw = (unsigned)Q_max( 1, w );
-	unsigned mh = (unsigned)Q_max( 1, h );
-
-	return (( mw + 7u ) / 8u ) * (( mh + 7u ) / 8u ) * 32u;
-}
-
-static unsigned R_GXHotResident( const image_t *img, unsigned budget, unsigned *skip_out, unsigned *shift_out )
-{
-	unsigned skip = 0, remain = img->gc_packed_bytes;
-	unsigned shift = 0;
-	int mi;
-
-	if( !budget )
-		budget = 256u;
-	if( !remain )
-	{
-		if( skip_out ) *skip_out = 0;
-		if( shift_out ) *shift_out = 0;
-		return 0;
-	}
-	for( mi = 0; mi < (int)img->gc_packed_levels && remain > budget; mi++ )
-	{
-		unsigned level = R_GXCmprLevelBytes( img->width >> mi, img->height >> mi );
-
-		if( level >= remain )
-			break;
-		skip += level;
-		remain -= level;
-		shift++;
-	}
-	if( skip_out ) *skip_out = skip;
-	if( shift_out ) *shift_out = shift;
-	return remain;
-}
-
-static unsigned R_GXHotSpan( const image_t *img )
-{
-	unsigned shift, remain, mi;
-
-	if( !img || !img->gc_packed_hot )
-		return 0;
-	shift = ( img->gc_packed_low_shift >> 3 ) & 7u;
-	remain = img->gc_packed_bytes;
-	for( mi = 0; mi < shift && remain; mi++ )
-	{
-		unsigned level = R_GXCmprLevelBytes( img->width >> mi, img->height >> mi );
-
-		if( level >= remain )
-			break;
-		remain -= level;
-	}
-	return remain;
-}
-
-static void R_GXHotDrop( image_t *img )
-{
-	if( !img )
-		return;
-	img->gc_packed_hot = NULL;
-	img->gc_packed_low_shift &= (byte)0x47;
-}
-
-static void R_GXHotUnlist( image_t *img )
-{
-	int i;
-
-	if( !img )
-		return;
-	for( i = 0; i < r_gx_hot.count; i++ )
-	{
-		if( r_gx_hot.list[i] != img )
-			continue;
-		R_GXHotDrop( img );
-		r_gx_hot.list[i] = r_gx_hot.list[--r_gx_hot.count];
-		return;
-	}
-	R_GXHotDrop( img );
 }
 
 /* Room for bytes at the ring's head, evicting what has been idle long enough;
@@ -2083,15 +1927,11 @@ static byte *R_GXHotAlloc( unsigned bytes )
 		{
 			const image_t *img = r_gx_hot.list[i];
 			const byte *a = (const byte *)img->gc_packed_hot;
-			unsigned span;
 
-			if( !a )
-				continue;
-			span = R_GXHotSpan( img );
-			if( a < end && a + span > start
+			if( a < end && a + img->gc_packed_bytes > start
 				&& r_gx_hot.frame - img->gc_packed_used < GC_HOT_KEEP_FRAMES )
 			{
-				r_gx_hot.head = (unsigned)(( a + span ) - r_gx_hot.base );
+				r_gx_hot.head = ( a + img->gc_packed_bytes ) - r_gx_hot.base;
 				busy = true;
 				break;
 			}
@@ -2103,9 +1943,9 @@ static byte *R_GXHotAlloc( unsigned bytes )
 			image_t *img = r_gx_hot.list[i];
 			const byte *a = (const byte *)img->gc_packed_hot;
 
-			if( a && a < end && a + R_GXHotSpan( img ) > start )
+			if( a < end && a + img->gc_packed_bytes > start )
 			{
-				R_GXHotDrop( img );
+				img->gc_packed_hot = NULL;
 				r_gx_hot.list[i] = r_gx_hot.list[--r_gx_hot.count];
 				r_gx_hot.evictions++;
 			}
@@ -2126,126 +1966,28 @@ static void R_GXHotService( void )
 	int i, kept = 0;
 
 	r_gx_hot.frame++;
-	/* The material on the most batches is the cliff or the sand in frame.
-	 * Upload that before a prop that was bound once. */
-	for( i = 1; i < r_gx_hot.queued; i++ )
-	{
-		image_t *img = r_gx_hot.queue[i];
-		byte w = r_gx_hot.weight[i];
-		int j = i;
-
-		while( j > 0 && r_gx_hot.weight[j - 1] < w )
-		{
-			r_gx_hot.queue[j] = r_gx_hot.queue[j - 1];
-			r_gx_hot.weight[j] = r_gx_hot.weight[j - 1];
-			j--;
-		}
-		r_gx_hot.queue[j] = img;
-		r_gx_hot.weight[j] = w;
-	}
 	for( i = 0; i < r_gx_hot.queued; i++ )
 	{
 		image_t *img = r_gx_hot.queue[i];
 		byte *dst = NULL;
-		unsigned skip = 0, shift = 0, take;
 
 		if( !img->gc_packed )
-		{
-			img->gc_packed_queued = false;
 			continue;
-		}
-		take = R_GXHotResident( img, R_GXHotBudget( r_gx_hot.weight[i] ), &skip, &shift );
-		if( !take )
-		{
-			img->gc_packed_queued = false;
-			continue;
-		}
-		/* Already resident at this size or better. A closer look queues
-		 * again and replaces the page with the larger mip. */
-		if( img->gc_packed_hot )
-		{
-			if( R_GXHotSpan( img ) + 64u >= take )
-			{
-				img->gc_packed_queued = false;
-				continue;
-			}
-			R_GXHotUnlist( img );
-		}
 		if( spent < GC_HOT_FRAME_BYTES && r_gx_hot.count < GC_HOT_LIST_MAX )
-			dst = R_GXHotAlloc( take );
-		/* The 8×8 is already on screen. A material the camera just bound
-		 * has to enter the window even when every resident is still inside
-		 * the keep interval — drop the oldest one that this frame did not
-		 * just upload. */
-		if( !dst && take <= r_gx_hot.size
-			&& spent < GC_HOT_FRAME_BYTES && r_gx_hot.count < GC_HOT_LIST_MAX )
-		{
-			int kicks;
-
-			for( kicks = 0; kicks < 8 && !dst && r_gx_hot.count > 0; kicks++ )
-			{
-				int j, oldest = -1;
-				unsigned oldest_used = ~0u;
-
-				for( j = 0; j < r_gx_hot.count; j++ )
-				{
-					image_t *res = r_gx_hot.list[j];
-
-					if( !res || res->gc_packed_used >= r_gx_hot.frame )
-						continue;
-					if( res->gc_packed_used < oldest_used )
-					{
-						oldest_used = res->gc_packed_used;
-						oldest = j;
-					}
-				}
-				if( oldest < 0 )
-					break;
-				R_GXHotDrop( r_gx_hot.list[oldest] );
-				r_gx_hot.list[oldest] = r_gx_hot.list[--r_gx_hot.count];
-				r_gx_hot.evictions++;
-				dst = R_GXHotAlloc( take );
-			}
-		}
+			dst = R_GXHotAlloc( img->gc_packed_bytes );
 		if( !dst )
 		{
-			r_gx_hot.weight[kept] = r_gx_hot.weight[i];
 			r_gx_hot.queue[kept++] = img;
 			r_gx_hot.deferred++;
 			continue;
 		}
-		GC_AramTransfer( img->gc_packed_aram + skip, dst, take, false );
+		GC_AramTransfer( img->gc_packed_aram, dst, img->gc_packed_bytes, false );
 		img->gc_packed_hot = dst;
-		img->gc_packed_low_shift = (byte)( ( img->gc_packed_low_shift & 0x47 ) | ( ( shift & 7u ) << 3 ) );
-		img->gc_packed_used = r_gx_hot.frame;
 		img->gc_packed_queued = false;
-		if( img->name[0] == '#' && img->name[4] == 'p'
-			&& img->name[5] >= '0' && img->name[5] <= '9' )
-		{
-			static int prop_hot_logged;
-
-			if( prop_hot_logged < 3 )
-			{
-				prop_hot_logged++;
-				gEngfuncs.Con_Reportf( "Xash3D GameCube: prop mip hot %s %u bytes\n",
-					img->name, take );
-			}
-		}
-		else
-		{
-			static int world_hot_logged;
-
-			if( world_hot_logged < 6 )
-			{
-				world_hot_logged++;
-				gEngfuncs.Con_Reportf( "Xash3D GameCube: mip hot %s %u bytes\n",
-					img->name, take );
-			}
-		}
 		r_gx_hot.list[r_gx_hot.count++] = img;
 		r_gx_hot.uploads++;
-		r_gx_hot.bytes += take;
-		spent += take;
+		r_gx_hot.bytes += img->gc_packed_bytes;
+		spent += img->gc_packed_bytes;
 	}
 	r_gx_hot.queued = kept;
 	/* A chain can land where another one was: drop the texture cache's copy. */
@@ -2334,9 +2076,8 @@ static gc_gx_tex_t *R_GXPackedTexture( image_t *img, unsigned texnum )
 	extern void GC_AramTransfer( unsigned int aram, void *buf, unsigned int len, qboolean write );
 
 	img->gc_packed_used = r_gx_hot.frame;
-	/* Not resident, or resident at a mip the camera has now outgrown. */
-	if( img->gc_packed_bytes && ( !img->gc_packed_hot
-		|| R_GXHotSpan( img ) * 2u < R_GXHotBudget( r_gx_hot_bias )) )
+	if( img->gc_packed_bytes && !img->gc_packed_hot && !img->gc_packed_queued
+		&& r_gx_hot.queued < GC_HOT_QUEUE_MAX )
 	{
 		img->gc_packed_queued = true;
 		r_gx_hot.queue[r_gx_hot.queued++] = img;
@@ -2466,20 +2207,6 @@ static gc_gx_tex_t *R_GXPackedTexture( image_t *img, unsigned texnum )
 	}
 	R_GXSetTexAlphaTest( img->gc_packed_alpha ? true : false );
 	return t;
-}
-
-static gc_gx_tex_t *R_GXBindTexnum( unsigned texnum, qboolean hud_bind );
-
-/* Prop materials are packed CMPR chains. The 8×8 is resident; HotService climbs. */
-static qboolean R_GXBindPropMat( int mat )
-{
-	int texnum = GC_PropMatTexnum( mat );
-
-	if( texnum <= 0 )
-		texnum = tr.whiteTexture;
-	if( texnum <= 0 )
-		return false;
-	return R_GXBindTexnum( (unsigned)texnum, false ) != NULL;
 }
 
 static int r_gx_prof_hud_uploads_logged;
@@ -3171,11 +2898,6 @@ static void R_GXClearEfbSky( GXRModeObj *rmode )
 		&& gEngfuncs.Sys_CheckParm( "-gcworldrender" )
 		&& !gEngfuncs.Sys_CheckParm( "-gcconnect" ))
 		sky = 0x5A8CD2FFu;
-	/* Lost Coast CapFaces dump: retail overcast ~201,207,193 (=C9CFC1).
-	 * D4D8CE + wash pushed skylum~190; sit closer to retail before rings. */
-	if( gEngfuncs.Sys_CheckParm( "-gccapfacessmoke" )
-		|| gEngfuncs.Sys_CheckParm( "-gcdumpframes" ))
-		sky = 0xCDD2C6FFu;
 
 	copy_clear.r = (u8)(( sky >> 24 ) & 0xff );
 	copy_clear.g = (u8)(( sky >> 16 ) & 0xff );
@@ -3227,11 +2949,6 @@ static void R_GXClearEfbSky( GXRModeObj *rmode )
 	 * CMPR cube is resident, skip it — R_GXDrawSkyBox draws the cube. */
 	if( !GC_IsTramIntroMap() && !r_gx_sky_ready )
 		R_GXDrawSkyBackdrop( rmode );
-
-	/* Camera-relative sun disc only (env_sun yaw/elev × view). No fixed
-	 * screen-space HDR rings — those assumed dump-eye composition and
-	 * slid off the sun when the camera moved. */
-	(void)R_GXBloomDrawSun( rmode );
 }
 
 static void R_GXClearDepthPerspective( GXRModeObj *rmode )
@@ -3582,7 +3299,6 @@ static void R_GXSetupWorld3DState( void )
 		GX_SetTevOrder( GX_TEVSTAGE0, GX_TEXCOORDNULL, GX_TEXMAP_NULL, GX_COLOR0A0 );
 		GX_SetTevOp( GX_TEVSTAGE0, GX_PASSCLR );
 	}
-	}
 
 	/* Optional camera-space marker: -gcmagenta (proved EFB→DumpFrames in G200). */
 	if( gEngfuncs.Sys_CheckParm( "-gcmagenta" ))
@@ -3744,14 +3460,27 @@ static qboolean R_GXBindLightmapAtlas( void )
 	int w = 0, h = 0;
 	int gen;
 
-	/* Densify pack swaps bump CapFaces generation and rewrite the same BSS
-	 * atlas — always re-check gen so TEXMAP1 tracks the active pack. */
+	if( r_gx_lm_atlas_checked )
+	{
+		if( !r_gx_lm_atlas_available )
+			return false;
+		if( !r_gx_lm_atlas_bound )
+		{
+			GX_LoadTexObj( &r_gx_lm_atlas_obj, GX_TEXMAP1 );
+			r_gx_lm_atlas_bound = true;
+			r_gx_live_lm_bound = false;
+			r_gx_lm_loads++;
+		}
+		else
+			r_gx_lm_reuses++;
+		return true;
+	}
+
 	atlas = GC_GetNewGameCapLightmapAtlas( &w, &h );
 	r_gx_lm_atlas_checked = true;
 	if( !atlas || w < 4 || h < 4 )
 	{
 		r_gx_lm_atlas_available = false;
-		r_gx_lm_atlas_bound = false;
 		return false;
 	}
 	r_gx_lm_atlas_available = true;
@@ -3762,10 +3491,8 @@ static qboolean R_GXBindLightmapAtlas( void )
 		GX_InitTexObj( &r_gx_lm_atlas_obj, (void *)atlas, (u16)w, (u16)h,
 			GX_TF_RGB565, GX_CLAMP, GX_CLAMP, GX_FALSE );
 		GX_InitTexObjFilterMode( &r_gx_lm_atlas_obj, GX_LINEAR, GX_LINEAR );
-		GX_InvalidateTexAll();
 		r_gx_lm_atlas_valid = true;
 		r_gx_lm_atlas_gen = gen;
-		r_gx_lm_atlas_bound = false;
 		r_gx_lm_inits++;
 	}
 
@@ -4360,181 +4087,12 @@ static int R_GXEmitFace( const msurface_t *surf, model_t *world, int slot )
 		GX_SetZMode( GX_TRUE, GX_LEQUAL, GX_FALSE );
 	}
 
-	if( !( textured && lit ))
-	{
-		R_GXTevMatEndAlphaTest();
-		R_GXFogEnd();
-	}
-	else if( slot >= 0 )
-		R_GXFogBegin();
-
 	if( textured && lit )
 	{
-		const qboolean want_env = !live_lm && r_gx_sky_ready
-			&& ( surf->flags & GC_SURF_ENVMAP ) != 0
-			&& surf->plane != NULL;
-		const int lit_mode = live_lm ? GC_GX_FACE_MODE_LIT_LIVE
-			: ( want_env ? GC_GX_FACE_MODE_LIT_ENV : GC_GX_FACE_MODE_LIT );
-		int sky_side = want_env ? R_GXPickSkyboxSide() : -1;
-		int tev_mat = 0;
+		const int lit_mode = live_lm ? GC_GX_FACE_MODE_LIT_LIVE : GC_GX_FACE_MODE_LIT;
 
-		if( want_env && ( sky_side < 0 || sky_side > 5 ))
-			sky_side = 3; /* ft */
-
-		/* Source material class (bake byte 127) → extra TEV stages. */
-		if( slot >= 0 && !live_lm && R_GXTevMatFlags( surf->styles[1] ))
-			tev_mat = surf->styles[1];
-
-		if( r_gx_face_mode != lit_mode || r_gx_face_mat != tev_mat )
+		if( r_gx_face_mode != lit_mode )
 		{
-			if( want_env )
-			{
-				const qboolean have_mask = GC_SandSpecTexReady()
-					&& GC_GetSandSpecTexObj() != NULL;
-				const qboolean have_nrm = GC_SandNrmTexReady()
-					&& GC_GetSandNrmTexObj() != NULL;
-				const qboolean have_sun = GC_SandSunTexReady()
-					&& GC_GetSandSunTexObj() != NULL;
-				u8 env_a = surf->styles[3];
-				f32 ind_mtx[2][3];
-
-				if( env_a == 0 )
-					env_a = 140;
-				/* Masked: use bake tint; unmasked: ~0.4× so sand doesn't blow. */
-				if( !have_mask )
-				{
-					env_a = (u8)(( (unsigned)env_a * 2u ) / 5u );
-					if( env_a < 40 )
-						env_a = 40;
-					if( env_a > 90 )
-						env_a = 90;
-				}
-				else if( env_a > 200 )
-					env_a = 200;
-
-				/* Prefer high-contrast sun disc — sky CMPR sides are too flat for glints. */
-				if( have_sun )
-					GX_LoadTexObj( (GXTexObj *)GC_GetSandSunTexObj(), GX_TEXMAP2 );
-				else
-					GX_LoadTexObj( &r_gx_sky_obj[sky_side], GX_TEXMAP2 );
-				if( have_mask )
-					GX_LoadTexObj( (GXTexObj *)GC_GetSandSpecTexObj(), GX_TEXMAP3 );
-				if( have_nrm )
-					GX_LoadTexObj( (GXTexObj *)GC_GetSandNrmTexObj(), GX_TEXMAP4 );
-				/* Stage0 diffuse, Stage1 ×LM, then sky×mask (or sky×A0).
-				 * $bumpmap (TEXMAP4) IndTex-offsets sky ST so highlights follow sand grain. */
-				GX_SetTexCoordGen( GX_TEXCOORD0, GX_TG_MTX2x4, GX_TG_TEX0, GX_IDENTITY );
-				GX_SetTexCoordGen( GX_TEXCOORD1, GX_TG_MTX2x4, GX_TG_TEX1, GX_IDENTITY );
-				GX_SetTexCoordGen( GX_TEXCOORD2, GX_TG_MTX2x4, GX_TG_TEX2, GX_IDENTITY );
-				GX_SetTevOrder( GX_TEVSTAGE0, GX_TEXCOORD0, GX_TEXMAP0, GX_COLORNULL );
-				GX_SetTevOp( GX_TEVSTAGE0, GX_REPLACE );
-				GX_SetTevOrder( GX_TEVSTAGE1, GX_TEXCOORD1, GX_TEXMAP1, GX_COLORNULL );
-				GX_SetTevColorIn( GX_TEVSTAGE1, GX_CC_ZERO, GX_CC_TEXC, GX_CC_CPREV, GX_CC_ZERO );
-				/* SCALE_2 blew CapFaces sand ~1.5× vs retail shore (fg mae~63).
-				 * DumpFrames: SCALE_1 toward retail mid/fg luminance. */
-				GX_SetTevColorOp( GX_TEVSTAGE1, GX_TEV_ADD, GX_TB_ZERO,
-					( gEngfuncs.Sys_CheckParm( "-gccapfacessmoke" )
-						&& gEngfuncs.Sys_CheckParm( "-gcdumpframes" ))
-						? GX_CS_SCALE_1 : GX_CS_SCALE_2,
-					GX_TRUE, GX_TEVPREV );
-				GX_SetTevAlphaIn( GX_TEVSTAGE1, GX_CA_ZERO, GX_CA_ZERO, GX_CA_ZERO, GX_CA_APREV );
-				GX_SetTevAlphaOp( GX_TEVSTAGE1, GX_TEV_ADD, GX_TB_ZERO, GX_CS_SCALE_1, GX_TRUE, GX_TEVPREV );
-				GX_SetTevDirect( GX_TEVSTAGE0 );
-				GX_SetTevDirect( GX_TEVSTAGE1 );
-				if( have_mask )
-				{
-					/* TEXCOORD3 shares diffuse ST (bump + envmapmask UV). */
-					GX_SetNumTexGens( 4 );
-					GX_SetTexCoordGen( GX_TEXCOORD3, GX_TG_MTX2x4, GX_TG_TEX0, GX_IDENTITY );
-					GX_SetNumTevStages( 4 );
-					/* Stage2: REG0 = mask × envmaptint (A0). Mask alone is too hot. */
-					GX_SetTevOrder( GX_TEVSTAGE2, GX_TEXCOORD3, GX_TEXMAP3, GX_COLORNULL );
-					GX_SetTevColorIn( GX_TEVSTAGE2, GX_CC_ZERO, GX_CC_TEXC, GX_CC_A0, GX_CC_ZERO );
-					GX_SetTevColorOp( GX_TEVSTAGE2, GX_TEV_ADD, GX_TB_ZERO, GX_CS_SCALE_1, GX_TRUE, GX_TEVREG0 );
-					GX_SetTevAlphaIn( GX_TEVSTAGE2, GX_CA_ZERO, GX_CA_ZERO, GX_CA_ZERO, GX_CA_APREV );
-					GX_SetTevAlphaOp( GX_TEVSTAGE2, GX_TEV_ADD, GX_TB_ZERO, GX_CS_SCALE_1, GX_TRUE, GX_TEVPREV );
-					GX_SetTevDirect( GX_TEVSTAGE2 );
-					/* Stage3: CPREV + sky × (mask×tint) — bump IndTex warps sky ST. */
-					GX_SetTevOrder( GX_TEVSTAGE3, GX_TEXCOORD2, GX_TEXMAP2, GX_COLORNULL );
-					GX_SetTevColorIn( GX_TEVSTAGE3, GX_CC_ZERO, GX_CC_TEXC, GX_CC_C0, GX_CC_CPREV );
-					GX_SetTevColorOp( GX_TEVSTAGE3, GX_TEV_ADD, GX_TB_ZERO, GX_CS_SCALE_1, GX_TRUE, GX_TEVPREV );
-					GX_SetTevAlphaIn( GX_TEVSTAGE3, GX_CA_ZERO, GX_CA_ZERO, GX_CA_ZERO, GX_CA_APREV );
-					GX_SetTevAlphaOp( GX_TEVSTAGE3, GX_TEV_ADD, GX_TB_ZERO, GX_CS_SCALE_1, GX_TRUE, GX_TEVPREV );
-					if( have_nrm )
-					{
-						/* Flat normal (128,128,*) → 0 offset after ITB_ST (-128).
-						 * scale_exp=-8 ≈ ±0.25 ST — enough grain, still hits sun disc (CLAMP). */
-						ind_mtx[0][0] = 0.5f; ind_mtx[0][1] = 0.0f; ind_mtx[0][2] = 0.0f;
-						ind_mtx[1][0] = 0.0f; ind_mtx[1][1] = 0.5f; ind_mtx[1][2] = 0.0f;
-						GX_SetNumIndStages( 1 );
-						GX_SetIndTexOrder( GX_INDTEXSTAGE0, GX_TEXCOORD3, GX_TEXMAP4 );
-						GX_SetIndTexCoordScale( GX_INDTEXSTAGE0, GX_ITS_1, GX_ITS_1 );
-						GX_SetIndTexMatrix( GX_ITM_0, ind_mtx, -8 );
-						GX_SetTevIndirect( GX_TEVSTAGE3, GX_INDTEXSTAGE0, GX_ITF_8, GX_ITB_ST,
-							GX_ITM_0, GX_ITW_OFF, GX_ITW_OFF, GX_FALSE, GX_FALSE, GX_ITBA_OFF );
-					}
-					else
-					{
-						GX_SetNumIndStages( 0 );
-						GX_SetTevDirect( GX_TEVSTAGE3 );
-					}
-					/* ~0.45× bake tint — wet-sand glints toward retail still. */
-					env_a = (u8)(( (unsigned)env_a * 115u ) / 255u );
-					if( env_a < 64 )
-						env_a = 64;
-					if( env_a > 140 )
-						env_a = 140;
-					/* Bump-driven glints need more sky weight to read on Flipper. */
-					if( have_nrm )
-					{
-						env_a = (u8)(( (unsigned)env_a * 8u ) / 5u );
-						if( env_a > 180 )
-							env_a = 180;
-					}
-					GX_SetTevColor( GX_TEVREG0, (GXColor){ 0, 0, 0, env_a } );
-				}
-				else
-				{
-					GX_SetNumTexGens( 3 );
-					GX_SetNumTevStages( 3 );
-					GX_SetTevOrder( GX_TEVSTAGE2, GX_TEXCOORD2, GX_TEXMAP2, GX_COLORNULL );
-					GX_SetTevColorIn( GX_TEVSTAGE2, GX_CC_ZERO, GX_CC_TEXC, GX_CC_A0, GX_CC_CPREV );
-					GX_SetTevColorOp( GX_TEVSTAGE2, GX_TEV_ADD, GX_TB_ZERO, GX_CS_SCALE_1, GX_TRUE, GX_TEVPREV );
-					GX_SetTevAlphaIn( GX_TEVSTAGE2, GX_CA_ZERO, GX_CA_ZERO, GX_CA_ZERO, GX_CA_APREV );
-					GX_SetTevAlphaOp( GX_TEVSTAGE2, GX_TEV_ADD, GX_TB_ZERO, GX_CS_SCALE_1, GX_TRUE, GX_TEVPREV );
-					if( have_nrm )
-					{
-						/* No mask: still warp sky ST from bump using diffuse UV. */
-						GX_SetNumTexGens( 4 );
-						GX_SetTexCoordGen( GX_TEXCOORD3, GX_TG_MTX2x4, GX_TG_TEX0, GX_IDENTITY );
-						ind_mtx[0][0] = 0.5f; ind_mtx[0][1] = 0.0f; ind_mtx[0][2] = 0.0f;
-						ind_mtx[1][0] = 0.0f; ind_mtx[1][1] = 0.5f; ind_mtx[1][2] = 0.0f;
-						GX_SetNumIndStages( 1 );
-						GX_SetIndTexOrder( GX_INDTEXSTAGE0, GX_TEXCOORD3, GX_TEXMAP4 );
-						GX_SetIndTexCoordScale( GX_INDTEXSTAGE0, GX_ITS_1, GX_ITS_1 );
-						GX_SetIndTexMatrix( GX_ITM_0, ind_mtx, -8 );
-						GX_SetTevIndirect( GX_TEVSTAGE2, GX_INDTEXSTAGE0, GX_ITF_8, GX_ITB_ST,
-							GX_ITM_0, GX_ITW_OFF, GX_ITW_OFF, GX_FALSE, GX_FALSE, GX_ITBA_OFF );
-					}
-					else
-					{
-						GX_SetNumIndStages( 0 );
-						GX_SetTevDirect( GX_TEVSTAGE2 );
-					}
-					GX_SetTevColor( GX_TEVREG0, (GXColor){ 0, 0, 0, env_a } );
-				}
-				GX_ClearVtxDesc();
-				GX_SetVtxDesc( GX_VA_POS, GX_DIRECT );
-				GX_SetVtxDesc( GX_VA_CLR0, GX_DIRECT );
-				GX_SetVtxDesc( GX_VA_TEX0, GX_DIRECT );
-				GX_SetVtxDesc( GX_VA_TEX1, GX_DIRECT );
-				GX_SetVtxDesc( GX_VA_TEX2, GX_DIRECT );
-				GX_SetVtxAttrFmt( GX_VTXFMT0, GX_VA_TEX1, GX_TEX_ST, GX_F32, 0 );
-				GX_SetVtxAttrFmt( GX_VTXFMT0, GX_VA_TEX2, GX_TEX_ST, GX_F32, 0 );
-			}
-			else
-			{
-				GX_SetNumIndStages( 0 );
 			GX_SetNumTexGens( 2 );
 			GX_SetTexCoordGen( GX_TEXCOORD0, GX_TG_MTX2x4, GX_TG_TEX0, GX_IDENTITY );
 			GX_SetTexCoordGen( GX_TEXCOORD1, GX_TG_MTX2x4, GX_TG_TEX1, GX_IDENTITY );
@@ -4565,75 +4123,12 @@ static int R_GXEmitFace( const msurface_t *surf, model_t *world, int slot )
 			GX_SetVtxDesc( GX_VA_CLR0, GX_DIRECT );
 			GX_SetVtxDesc( GX_VA_TEX0, GX_DIRECT );
 			GX_SetVtxDesc( GX_VA_TEX1, GX_DIRECT );
-			GX_SetVtxDesc( GX_VA_TEX2, GX_NONE );
 			GX_SetVtxAttrFmt( GX_VTXFMT0, GX_VA_TEX1, GX_TEX_ST, GX_F32, 0 );
-			}
-			if( want_env )
-			{
-				const qboolean env_mask = GC_SandSpecTexReady()
-					&& GC_GetSandSpecTexObj() != NULL;
-				const qboolean env_nrm = GC_SandNrmTexReady()
-					&& GC_GetSandNrmTexObj() != NULL;
-
-				R_GXTevMatAppend( tev_mat, env_mask ? 4 : 3,
-					( env_mask || env_nrm ) ? 4 : 3 );
-			}
-			else
-				R_GXTevMatAppend( tev_mat, 2, 2 );
-			r_gx_face_mat = tev_mat;
 			r_gx_face_mode = lit_mode;
 			r_gx_state_sets++;
 		}
 		else
-		{
 			r_gx_state_reuses++;
-			if( want_env )
-			{
-				const qboolean have_sun = GC_SandSunTexReady()
-					&& GC_GetSandSunTexObj() != NULL;
-
-				if( have_sun )
-					GX_LoadTexObj( (GXTexObj *)GC_GetSandSunTexObj(), GX_TEXMAP2 );
-				else if( sky_side >= 0 && sky_side <= 5 )
-					GX_LoadTexObj( &r_gx_sky_obj[sky_side], GX_TEXMAP2 );
-				{
-					u8 env_a = surf->styles[3];
-					const qboolean have_mask = GC_SandSpecTexReady()
-						&& GC_GetSandSpecTexObj() != NULL;
-					const qboolean have_nrm = GC_SandNrmTexReady()
-						&& GC_GetSandNrmTexObj() != NULL;
-
-					if( env_a == 0 )
-						env_a = 140;
-					if( have_mask )
-					{
-						GX_LoadTexObj( (GXTexObj *)GC_GetSandSpecTexObj(), GX_TEXMAP3 );
-						env_a = (u8)(( (unsigned)env_a * 90u ) / 255u );
-						if( env_a < 48 )
-							env_a = 48;
-						if( env_a > 110 )
-							env_a = 110;
-						if( have_nrm )
-						{
-							env_a = (u8)(( (unsigned)env_a * 7u ) / 4u );
-							if( env_a > 160 )
-								env_a = 160;
-						}
-					}
-					else
-					{
-						env_a = (u8)(( (unsigned)env_a * 2u ) / 5u );
-						if( env_a < 40 )
-							env_a = 40;
-						if( env_a > 90 )
-							env_a = 90;
-					}
-					if( have_nrm )
-						GX_LoadTexObj( (GXTexObj *)GC_GetSandNrmTexObj(), GX_TEXMAP4 );
-					GX_SetTevColor( GX_TEVREG0, (GXColor){ 0, 0, 0, env_a } );
-				}
-			}
-		}
 
 		/* BSP faces are convex and already ordered around their perimeter.
 		 * A triangle fan sends each vertex once instead of repeating p0 and
@@ -4646,40 +4141,6 @@ static int R_GXEmitFace( const msurface_t *surf, model_t *world, int slot )
 			GX_Color1u32( color );
 			GX_TexCoord2f32( sts[i][0], sts[i][1] );
 			GX_TexCoord2f32( lmst[i][0], lmst[i][1] );
-			if( want_env )
-			{
-				vec3_t to_eye, refl;
-				float nd, inv_len, env_s, env_t;
-				const float *eye = RI.rvp.vieworigin;
-				const float *pn = surf->plane->normal;
-				const qboolean have_sun = GC_SandSunTexReady()
-					&& GC_GetSandSunTexObj() != NULL;
-
-				VectorSubtract( eye, pts[i], to_eye );
-				inv_len = VectorLength( to_eye );
-				if( inv_len > 1e-3f )
-				{
-					to_eye[0] /= inv_len;
-					to_eye[1] /= inv_len;
-					to_eye[2] /= inv_len;
-				}
-				nd = DotProduct( to_eye, pn );
-				refl[0] = to_eye[0] - 2.0f * nd * pn[0];
-				refl[1] = to_eye[1] - 2.0f * nd * pn[1];
-				refl[2] = to_eye[2] - 2.0f * nd * pn[2];
-				if( have_sun )
-				{
-					/* Keep the sun disc near texel center; bump IndTex scatters it. */
-					env_s = 0.5f + 0.18f * refl[0];
-					env_t = 0.5f - 0.18f * refl[2];
-				}
-				else
-				{
-					env_s = 0.5f + 0.5f * refl[0];
-					env_t = 0.5f - 0.5f * refl[2];
-				}
-				GX_TexCoord2f32( env_s, env_t );
-			}
 		}
 		GX_End();
 		r_gx_tex_draws++;
@@ -4960,7 +4421,7 @@ static vec3_t r_gx_frustum_n[4];
 static float r_gx_frustum_d[4];
 static qboolean r_gx_frustum_ok;
 
-void R_GXBuildFrustum( void )
+static void R_GXBuildFrustum( void )
 {
 	const float hx = DEG2RAD( Q_min( 89.0f, RI.rvp.fov_x * 0.5f + 5.0f ));
 	const float hy = DEG2RAD( Q_min( 89.0f, RI.rvp.fov_y * 0.5f + 5.0f ));
@@ -4981,7 +4442,7 @@ void R_GXBuildFrustum( void )
 		r_gx_frustum_d[i] = DotProduct( RI.cullorigin, r_gx_frustum_n[i] ) - 16.0f;
 }
 
-qboolean R_GXBoxOutsideFrustum( const vec3_t mins, const vec3_t maxs )
+static qboolean R_GXBoxOutsideFrustum( const vec3_t mins, const vec3_t maxs )
 {
 	int i;
 
@@ -5033,7 +4494,6 @@ static int R_GXDrawWorldLiveSurfaces( model_t *world, qboolean opaque_too )
 		if( newgame && surfaces_pinned )
 		{
 			extern qboolean GC_IsG36SampleFaceCap( void );
-			extern int GC_GetNewGameCapFaceCount( void );
 			const int frame_budget = R_GXFrameFaceBudget();
 
 			emit_budget = frame_budget - 16;
@@ -5041,12 +4501,6 @@ static int R_GXDrawWorldLiveSurfaces( model_t *world, qboolean opaque_too )
 				emit_budget = 16;
 			if( !GC_IsG36SampleFaceCap() && emit_budget < 96 )
 				emit_budget = 96;
-			/* Soft tip-starved full-geo: keep Host_Frame moving — Soft spent
-			 * minutes walking full-vis PVS faces after c0a0a connect (032427). */
-			if( GC_GetNewGameCapFaceCount() <= 0
-				&& GC_MemHeapFreeBytes() < 48u * 1024u
-				&& emit_budget > 128 )
-				emit_budget = 128;
 		}
 
 		R_GXBuildFrustum();
@@ -5487,12 +4941,6 @@ int R_GXDrawNewGameCapFaces( void )
 	int drawn;
 	static qboolean logged_route;
 
-	extern qboolean R_GXBloomEnabled( void );
-	extern qboolean R_GXBloomApply( void *rmode );
-	/* Frozen dump-hold frames keep the old EFB — bloom only fresh redraws
-	 * or the additive pass would stack every present. */
-	const qboolean frozen = r_gx_cap_densify_held && R_GXEfbDumpHoldLeft() > 0;
-
 	GC_ProfMark( "render: before GX world" );
 	/* Prefer full PVS cluster DLs over CapFaces lean densify / live emit. */
 	if( GC_UseGxWorldDraw() && WORLDMODEL && R_GXWorldDLActive())
@@ -5515,230 +4963,6 @@ int R_GXDrawNewGameCapFaces( void )
 		drawn = R_GXDrawNewGameCapFacesImpl();
 	}
 	GC_ProfMark( "render: GX world faces" );
-	R_GXFogEnd();
-	R_GXTevMatEndAlphaTest();
-	/* Read after CapFacesImpl — densify sets grade_once at end of water. */
-	{
-	const qboolean grade_once = r_gx_cap_densify_grade_once;
-	if( drawn > 0 && ( !frozen || grade_once ))
-	{
-		GXRModeObj *rmode = (GXRModeObj *)GC_GetGxVideoMode();
-		qboolean bloomed = false;
-
-		/* Skip a second bloom when densify already held — only paint grade. */
-		if( !frozen && R_GXBloomEnabled() && rmode )
-			bloomed = R_GXBloomApply( rmode );
-
-		/* Dump still grade — CapFaces cove still. Skip on VST ride.
-		 * Densify arms hold inside CapFacesImpl; grade_once still paints
-		 * skywash into the frozen DumpFrame. */
-		if( rmode
-			&& !gEngfuncs.Sys_CheckParm( "-gcvst" )
-			&& gEngfuncs.Sys_CheckParm( "-gccapfacessmoke" )
-			&& gEngfuncs.Sys_CheckParm( "-gcdumpframes" ))
-		{
-			const int hold_after = r_gx_cap_densify_hold_pending;
-			const f32 fb_w = (f32)rmode->fbWidth;
-			const f32 fb_h = (f32)rmode->efbHeight;
-			/* Sky grade only (water = map plane + water_normal). Horizon gap is
-			 * LEFT chimneys (hz L 46 vs retail 139) not full-width; R already OK.
-			 * No grade-frame sun (bled mid). Fade haze to 0 at mid-third edge. */
-			const f32 sy1 = fb_h * 0.26f;
-			const f32 sy2 = fb_h * (1.0f / 3.0f);
-			const f32 sx_l = fb_w * 0.48f;
-			const f32 sx_c = fb_w * 0.72f;
-
-			GX_SetBlendMode( GX_BM_BLEND, GX_BL_SRCALPHA, GX_BL_INVSRCALPHA, GX_LO_NOOP );
-			GX_SetZMode( GX_FALSE, GX_ALWAYS, GX_FALSE );
-			GX_SetNumChans( 1 );
-			GX_SetNumTexGens( 0 );
-			GX_SetNumTevStages( 1 );
-			GX_SetTevOrder( GX_TEVSTAGE0, GX_TEXCOORDNULL, GX_TEXMAP_NULL, GX_COLOR0A0 );
-			GX_SetTevOp( GX_TEVSTAGE0, GX_PASSCLR );
-			GX_ClearVtxDesc();
-			GX_SetVtxDesc( GX_VA_POS, GX_DIRECT );
-			GX_SetVtxDesc( GX_VA_CLR0, GX_DIRECT );
-			GX_SetVtxAttrFmt( GX_VTXFMT0, GX_VA_POS, GX_POS_XYZ, GX_F32, 0 );
-			GX_SetVtxAttrFmt( GX_VTXFMT0, GX_VA_CLR0, GX_CLR_RGBA, GX_RGBA8, 0 );
-			/* Upper sky warm wash — restore 040355 (sky 44.51 mid 37.15);
-			 * 040915 harder lift collapsed mid into a flat blue slab (mae 58). */
-			GX_Begin( GX_QUADS, GX_VTXFMT0, 4 );
-			GX_Position3f32( 0.0f, 0.0f, -0.25f );
-			GX_Color1u32( 0xFFF8EC38u );
-			GX_Position3f32( fb_w, 0.0f, -0.25f );
-			GX_Color1u32( 0xFFF8EC3Eu );
-			GX_Position3f32( fb_w, sy1, -0.25f );
-			GX_Color1u32( 0xF0E8C01Au );
-			GX_Position3f32( 0.0f, sy1, -0.25f );
-			GX_Color1u32( 0xEDE4BC16u );
-			GX_End();
-			/* Left chimney lift — retail hz L≈139 vs Flipper≈46. */
-			GX_Begin( GX_QUADS, GX_VTXFMT0, 4 );
-			GX_Position3f32( 0.0f, sy1, -0.24f );
-			GX_Color1u32( 0xE8F4FF58u );
-			GX_Position3f32( sx_l, sy1, -0.24f );
-			GX_Color1u32( 0xE0F0F828u );
-			GX_Position3f32( sx_l, sy2, -0.24f );
-			GX_Color1u32( 0xC8E4F000u );
-			GX_Position3f32( 0.0f, sy2, -0.24f );
-			GX_Color1u32( 0xC8E4F000u );
-			GX_End();
-			/* Soft center horizon lift under the sun (retail hz C≈194 vs ≈127). */
-			GX_Begin( GX_QUADS, GX_VTXFMT0, 4 );
-			GX_Position3f32( sx_l * 0.7f, sy1, -0.23f );
-			GX_Color1u32( 0xFFF8EC20u );
-			GX_Position3f32( sx_c, sy1, -0.23f );
-			GX_Color1u32( 0xFFF8EC28u );
-			GX_Position3f32( sx_c, sy2, -0.23f );
-			GX_Color1u32( 0xF0E8C000u );
-			GX_Position3f32( sx_l * 0.7f, sy2, -0.23f );
-			GX_Color1u32( 0xF0E8C000u );
-			GX_End();
-			GX_SetBlendMode( GX_BM_NONE, GX_BL_ONE, GX_BL_ZERO, GX_LO_NOOP );
-
-			/* Freeze EFB after skywash so DumpFrames latch graded still. */
-			if( grade_once && hold_after > 0 )
-			{
-				R_GXHoldEfbForDump( hold_after );
-				r_gx_cap_densify_hold_pending = 0;
-				r_gx_cap_densify_held = true;
-				r_gx_cap_densify_grade_once = false;
-				GC_MarkGxWorldEfbReady();
-				gEngfuncs.Con_Reportf(
-					"Xash3D GameCube: CapFaces densify hold armed after grade\n" );
-			}
-			else
-				r_gx_cap_densify_grade_once = false;
-		}
-
-		/* Industrial stacks past densify zFar — disabled: flat silhouettes
-		 * painted opaque bars into blown sky (sky mae 42→46; cap=255→new=35
-		 * at chimney pixels). Revisit as soft/additive once densify zFar
-		 * reaches the stacks. */
-		if( 0 && rmode
-			&& r_gx_far_elev_pack_bits != 0
-			&& gEngfuncs.Sys_CheckParm( "-gccapfacessmoke" )
-			&& gEngfuncs.Sys_CheckParm( "-gcdumpframes" )
-			&& !gEngfuncs.Sys_CheckParm( "-gcvst" ))
-		{
-			extern int GC_CapFacesLoadSpatialRank( model_t *mod, const float *eye, int rank );
-			extern int GC_GetNewGameCapFaceCount( void );
-			extern int GC_GetNewGameCapFaceVerts( int slot, float out[][3], int maxverts );
-			extern qboolean GC_CapFaceInPVS( int slot );
-			extern qboolean GC_CapFaceBounds( int slot, vec3_t mins, vec3_t maxs );
-			model_t *world = WORLDMODEL;
-			const float *eye = RI.rvp.vieworigin;
-			Mtx44 proj;
-			Mtx mv;
-			int ri, shafts = 0;
-			/* Industrial stack packs only (manifest p34/p35). */
-			const int stack_ranks[] = { 35, 34 };
-			vec3_t forward, right, up;
-
-			if( world && eye )
-			{
-				f32 zNear = 4.0f;
-				f32 zFar = 24576.0f;
-				f32 fov_y = RI.rvp.fov_y > 1.0f ? RI.rvp.fov_y : 90.0f;
-				f32 fov_x = RI.rvp.fov_x > 1.0f ? RI.rvp.fov_x : 90.0f;
-				f32 yMax = zNear * tanf( fov_y * (f32)M_PI_F / 360.0f );
-				f32 xMax = zNear * tanf( fov_x * (f32)M_PI_F / 360.0f );
-
-				AngleVectors( RI.rvp.viewangles, forward, right, up );
-				guFrustum( proj, yMax, -yMax, -xMax, xMax, zNear, zFar );
-				GX_LoadProjectionMtx( proj, GX_PERSPECTIVE );
-				R_GXBuildWorldModelview( mv );
-				GX_LoadPosMtxImm( mv, GX_PNMTX0 );
-				GX_SetBlendMode( GX_BM_NONE, GX_BL_ONE, GX_BL_ZERO, GX_LO_NOOP );
-				GX_SetCullMode( GX_CULL_NONE );
-				r_gx_flat_z_write = false;
-				r_gx_flat_z_ignore = true;
-				r_gx_face_mode = GC_GX_FACE_MODE_NONE;
-				for( ri = 0; ri < (int)( sizeof( stack_ranks ) / sizeof( stack_ranks[0] ))
-					&& shafts < 6; ri++ )
-				{
-					const int rank = stack_ranks[ri];
-					int en, ei;
-
-					if( !( r_gx_far_elev_pack_bits & ( (uint64_t)1 << rank )))
-						continue;
-					if( GC_CapFacesLoadSpatialRank( world, eye, rank ) <= 0 )
-						continue;
-					en = GC_GetNewGameCapFaceCount();
-					for( ei = 0; ei < en && shafts < 6; ei++ )
-					{
-						vec3_t bmins, bmaxs;
-						float cx, cy, cz, dx, dy, dz, dist, fdot;
-						float xspan, yspan, zspan, aspect;
-						float pts[32][3];
-						int nv;
-
-						if( !GC_CapFaceInPVS( ei ))
-							continue;
-						if( !GC_CapFaceBounds( ei, bmins, bmaxs ))
-							continue;
-						cx = 0.5f * ( bmins[0] + bmaxs[0] );
-						cy = 0.5f * ( bmins[1] + bmaxs[1] );
-						cz = 0.5f * ( bmins[2] + bmaxs[2] );
-						dx = cx - eye[0]; dy = cy - eye[1]; dz = cz - eye[2];
-						dist = sqrtf( dx * dx + dy * dy + dz * dz );
-						xspan = bmaxs[0] - bmins[0];
-						yspan = bmaxs[1] - bmins[1];
-						zspan = bmaxs[2] - bmins[2];
-						aspect = zspan / Q_max( 1.0f, Q_max( xspan, yspan ));
-						/* Tall thin towers across the cove (p34/p35). */
-						if( dist < 10000.0f || dist > 15000.0f || cz <= 200.0f
-							|| zspan < 500.0f || aspect < 1.25f
-							|| xspan > 850.0f || yspan > 850.0f )
-							continue;
-						fdot = ( dist > 1.0f )
-							? ( dx * forward[0] + dy * forward[1] + dz * forward[2] ) / dist
-							: 0.0f;
-						if( fdot < 0.90f )
-							continue;
-						nv = GC_GetNewGameCapFaceVerts( ei, pts, 32 );
-						if( nv < 3 )
-							continue;
-						if( R_GXEmitFlatFillVerts( pts, nv, 0x1E262CFFu ) > 0 )
-							shafts++;
-					}
-					GX_Flush();
-				}
-				r_gx_flat_z_ignore = false;
-				(void)GC_CapFacesLoadSpatialRank( world, eye, 0 );
-				GX_DrawDone();
-				gEngfuncs.Con_Reportf(
-					"Xash3D GameCube: CapFaces smokestack shafts=%d (CapFaces sil)\n",
-					shafts );
-			}
-		}
-
-		if( bloomed || ( rmode
-			&& gEngfuncs.Sys_CheckParm( "-gccapfacessmoke" )
-			&& gEngfuncs.Sys_CheckParm( "-gcdumpframes" )))
-		{
-			Mtx44 proj;
-			Mtx mv;
-
-			/* Restore the world 3D pipe for entities drawn after us. */
-			GX_SetZMode( GX_TRUE, GX_LEQUAL, GX_TRUE );
-			GX_SetCullMode( GX_CULL_BACK );
-			GX_SetChanCtrl( GX_COLOR0A0, GX_DISABLE, GX_SRC_REG, GX_SRC_VTX,
-				GX_LIGHTNULL, GX_DF_NONE, GX_AF_NONE );
-			R_GXBuildWorldProjection( proj );
-			GX_LoadProjectionMtx( proj, GX_PERSPECTIVE );
-			R_GXBuildWorldModelview( mv );
-			GX_LoadPosMtxImm( mv, GX_PNMTX0 );
-			r_gx_face_mode = GC_GX_FACE_MODE_NONE;
-			r_gx_cull_none = false;
-			r_gx_bound_texnum = 0;
-			r_gx_bound_fmt = 0;
-			R_GXInvalidateTriApiLayout();
-			if( bloomed )
-				GC_ProfMark( "render: GX bloom" );
-		}
-	}
-	} /* grade_once scope */
 	return drawn;
 }
 
@@ -6791,24 +6015,14 @@ static int R_GXDrawNewGameCapFacesImpl( void )
 			}
 			if( water_n > 0 )
 			{
-				/* Cap sheet budget — gw pack can be hundreds of ARAM faces. */
-				water_drawn = R_GXEmitWaterPlaneSheets( false, 256, 0.0f );
+				GX_SetBlendMode( GX_BM_NONE, GX_BL_ONE, GX_BL_ZERO, GX_LO_NOOP );
+				GX_SetZMode( GX_TRUE, GX_LEQUAL, GX_TRUE );
+				r_gx_face_mode = GC_GX_FACE_MODE_NONE;
 				drawn += water_drawn;
 			}
 			if( !g286_logged )
 			{
-				int env_faces = 0;
-				int ci, cn = GC_GetNewGameCapFaceCount();
-				msurface_t *cdraw = GC_GetNewGameDrawSurfs();
 				g286_logged = true;
-				if( cdraw )
-				{
-					for( ci = 0; ci < cn; ci++ )
-					{
-						if( cdraw[ci].flags & GC_SURF_ENVMAP )
-							env_faces++;
-					}
-				}
 				gEngfuncs.Con_Reportf(
 					"Xash3D GameCube: G286 water emit=%d/%d tex=%d\n",
 					water_drawn, water_n, water_tex ? 1 : 0 );
@@ -7031,21 +6245,6 @@ static int R_GXDrawNewGameCapFacesImpl( void )
 	}
 	/* G358: always stash drawn for dual-hop denser sample (framecount>3). */
 	GC_NoteCapFacesDrawn( drawn );
-	/* Drain ARAM→hot after CapFaces binds so the next frame paints full
-	 * mip chains instead of bounce/stub. */
-	R_GXHotService();
-	if( r_gx_hot.uploads )
-	{
-		static qboolean hot_stream_logged;
-		if( !hot_stream_logged )
-		{
-			hot_stream_logged = true;
-			gEngfuncs.Con_Reportf(
-				"Xash3D GameCube: CapFaces ARAM hot-stream uploads=%u bytes=%u resident=%d queued=%d deferred=%u window=%u Kb\n",
-				r_gx_hot.uploads, r_gx_hot.bytes, r_gx_hot.count, r_gx_hot.queued,
-				r_gx_hot.deferred, r_gx_hot.size / 1024u );
-		}
-	}
 	return drawn;
 }
 
@@ -7305,8 +6504,7 @@ void R_GXStudioForceBegin( qboolean viewmodel )
 	r_gx_studio_bound_tex = 0;
 	r_gx_studio_color = 0xFFFFFFFFu;
 	r_gx_studio_shade_mask = 0;
-	/* CapFaces smoke also needs studio TEV — UseGxWorldDraw alone missed it. */
-	if( GC_UseGxWorldDraw() || gEngfuncs.Sys_CheckParm( "-gccapfacessmoke" ))
+	if( GC_UseGxWorldDraw() )
 		R_GXPrepareStudioState( viewmodel );
 }
 
