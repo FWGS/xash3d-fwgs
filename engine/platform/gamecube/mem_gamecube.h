@@ -78,7 +78,20 @@ void *GC_MapLoadBufferTailAlloc( size_t after_offset, size_t need );
 size_t GC_MapLoadBufferTailHighwater( void );
 /* Only lowers the mark (spilled/abandoned tail residents). Never raises it. */
 void GC_MapLoadBufferLowerTailHighwater( size_t highwater );
+/* ARAM manager (aram_core.c). Session blocks last the boot and come from the
+ * bottom of the pool; stream blocks can be freed and come from the top. Both
+ * evict cached assets before refusing. Returns 0 on failure. */
+#define GC_ARAM_ASSET_CACHE_BYTES ( 4u * 1024u * 1024u )
+unsigned int GC_AramAllocTagged( unsigned int size, qboolean stream, const char *tag );
+qboolean GC_AramFree( unsigned int base );
+unsigned int GC_AramReserveTagged( unsigned int size, const char *tag );
 unsigned int GC_AramReserve( unsigned int size );
+unsigned int GC_AramMapBase( void );
+void GC_AramReport( const char *stage );
+/* Whole-file asset cache in free ARAM (models, sequence groups). */
+qboolean GC_AssetCacheLookup( const char *path, unsigned int *size );
+qboolean GC_AssetCacheRead( const char *path, void *dst, unsigned int size );
+qboolean GC_AssetCacheStore( const char *path, const void *data, unsigned int size );
 /* Session-owned audio/DSP budget; established before map streaming. */
 unsigned int GC_AramAudioReserve( unsigned int size );
 unsigned int GC_AramAudioBase( void );
@@ -199,6 +212,13 @@ static inline qboolean GC_PrefetchRead( const char *path, void *buffer, unsigned
 { (void)path; (void)buffer; (void)size; return false; }
 static inline qboolean GC_PrefetchContains( const char *path, unsigned int size )
 { (void)path; (void)size; return false; }
+static inline qboolean GC_AssetCacheLookup( const char *path, unsigned int *size )
+{ (void)path; if( size ) *size = 0; return false; }
+static inline qboolean GC_AssetCacheRead( const char *path, void *dst, unsigned int size )
+{ (void)path; (void)dst; (void)size; return false; }
+static inline qboolean GC_AssetCacheStore( const char *path, const void *data, unsigned int size )
+{ (void)path; (void)data; (void)size; return false; }
+static inline void GC_AramReport( const char *stage ) { (void)stage; }
 
 /* Map-load memory pressure measurement (stubs) */
 static inline void GC_MapLoadPressureBegin( void ) { }

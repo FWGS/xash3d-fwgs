@@ -333,7 +333,7 @@ static void GC_VoxInit( const char *path )
 			gc_vox_count = n;
 		}
 	}
-	gc_vox_aram = GC_AramReserve( (unsigned int)size + GC_VOX_LINE_MAX );
+	gc_vox_aram = GC_AramReserveTagged( (unsigned int)size + GC_VOX_LINE_MAX, "vox" );
 	GC_AramCopy( gc_vox_aram, buf, (unsigned int)size, true );
 	Mem_Free( buf );
 	Con_Reportf( "Xash3D GameCube: %d sentences in ARAM (%s)\n", gc_vox_count, Q_memprint( size ));

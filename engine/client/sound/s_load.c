@@ -312,7 +312,7 @@ static void S_GCSoundStorePut( const sfx_t *sfx, wavdata_t *sc )
 	if( S_GCSoundStored( sfx ) || bytes > GC_SND_ARAM_BYTES )
 		return;
 	if( !s_gc_snd_base )
-		s_gc_snd_base = GC_AramReserve( GC_SND_ARAM_BYTES );
+		s_gc_snd_base = GC_AramReserveTagged( GC_SND_ARAM_BYTES, "sfx" );
 	if( s_gc_snd_head + bytes > GC_SND_ARAM_BYTES )
 		s_gc_snd_head = 0;
 	for( i = 0; i < GC_SND_ARAM_ENTRIES; i++ )
