@@ -84,6 +84,7 @@ extern int GC_GetWaterFaceCount( void );
 extern int GC_GetWaterFaceVerts( int index, float out[][3], int maxverts );
 extern int GC_GetWaterFaceST( int index, float out_st[][2], int maxverts );
 extern void GC_GetWaterFaceScroll( int index, float *scroll_u, float *scroll_v, u32 *tint );
+extern void GC_GetWaterScroll2( float *u, float *v );
 extern qboolean GC_WaterTexReady( void );
 extern void *GC_GetWaterTexObj( void );
 extern qboolean GC_WaterFacePlane( int index, mplane_t *out, int *out_flags );
@@ -5190,6 +5191,44 @@ static int R_GXPropBind( u8 mat )
 	return 1;
 }
 
+/* Lost Coast sun, same direction as the world specular pass. Flat N·L so
+ * each triangle is one lit surface. The bake has positions, not normals. */
+static u32 R_GXPropFaceColor( const s16 *p )
+{
+	const float el = 10.0f * 3.14159265f / 180.0f;
+	const float yaw = 137.0f * 3.14159265f / 180.0f;
+	const float sx = cosf( el ) * cosf( yaw );
+	const float sy = cosf( el ) * sinf( yaw );
+	const float sz = sinf( el );
+	float e1x, e1y, e1z, e2x, e2y, e2z, nx, ny, nz, len, nd;
+	int r, g, b;
+
+	e1x = (float)( p[5] - p[0] );
+	e1y = (float)( p[6] - p[1] );
+	e1z = (float)( p[7] - p[2] );
+	e2x = (float)( p[10] - p[0] );
+	e2y = (float)( p[11] - p[1] );
+	e2z = (float)( p[12] - p[2] );
+	nx = e1y * e2z - e1z * e2y;
+	ny = e1z * e2x - e1x * e2z;
+	nz = e1x * e2y - e1y * e2x;
+	len = sqrtf( nx * nx + ny * ny + nz * nz );
+	if( len < 1.0f )
+		return 0xFFFFFFFFu;
+	nd = ( nx * sx + ny * sy + nz * sz ) / len;
+	if( nd < 0.0f )
+		nd = 0.0f;
+	/* Fill stays near white so the texture is not crushed. The sun only
+	 * lifts the facing side, the same way the world specular pass does. */
+	r = 186 + (int)( nd * 69.0f );
+	g = 178 + (int)( nd * 62.0f );
+	b = 160 + (int)( nd * 50.0f );
+	if( r > 255 ) r = 255;
+	if( g > 255 ) g = 255;
+	if( b > 255 ) b = 255;
+	return ( (u32)r << 24 ) | ( (u32)g << 16 ) | ( (u32)b << 8 ) | 255u;
+}
+
 /* The baked triangles, one material run at a time. The box stand-ins are
  * gone: the mesh is the mesh. */
 static int R_GXPropEmitReal( const gc_prop_inst_t *in )
@@ -5222,11 +5261,12 @@ static int R_GXPropEmitReal( const gc_prop_inst_t *in )
 				const u8 *rec = gc_prop_bounce + b * 32u;
 				const s16 *p = (const s16 *)( rec + 2 );
 				const u16 *uv = (const u16 *)p;
+				const u32 col = R_GXPropFaceColor( p );
 
 				for( v = 0; v < 3; v++, p += 5, uv += 5 )
 				{
 					GX_Position3s16( p[0], p[1], p[2] );
-					GX_Color1u32( 0xFFFFFFFFu );
+					GX_Color1u32( col );
 					GX_TexCoord2u16( uv[3], uv[4] );
 				}
 			}
@@ -5249,43 +5289,21 @@ static qboolean R_GXPropOutside( const gc_prop_inst_t *in )
 	return R_GXBoxOutsideFrustum( mins, maxs );
 }
 
-/* Props past the world far plane. Real triangles, and only the ones inside
- * the view. Depth is on so a mesh hides its own far side, then the clear
- * below drops that depth so the boats stay one hull. */
+/* Props past the near reach. Called after the world, in the world's view,
+ * so a nearer cliff hides the mesh behind it and the mesh hides its own
+ * far side. Both windings stay: the tower sheets are visible from either side. */
 void R_GXPropDrawHorizon( const float *org )
 {
-	vec3_t forward, right, up;
-	Mtx mv;
-	Mtx44 proj;
-	f32 fov_y, fov_x, y_max, x_max;
 	int i, ninst = 0, drawn = 0;
 
 	if( gc_prop_state == 0 )
 		R_GXPropLoad();
 	if( gc_prop_state != 1 || !org )
 		return;
-	AngleVectors( RI.rvp.viewangles, forward, right, up );
-	fov_y = RI.rvp.fov_y > 1.0f ? RI.rvp.fov_y : 90.0f;
-	fov_x = RI.rvp.fov_x > 1.0f ? RI.rvp.fov_x : 90.0f;
-	mv[0][0] = right[0];
-	mv[0][1] = right[1];
-	mv[0][2] = right[2];
-	mv[0][3] = -( right[0] * org[0] + right[1] * org[1] + right[2] * org[2] );
-	mv[1][0] = up[0];
-	mv[1][1] = up[1];
-	mv[1][2] = up[2];
-	mv[1][3] = -( up[0] * org[0] + up[1] * org[1] + up[2] * org[2] );
-	mv[2][0] = -forward[0];
-	mv[2][1] = -forward[1];
-	mv[2][2] = -forward[2];
-	mv[2][3] = forward[0] * org[0] + forward[1] * org[1] + forward[2] * org[2];
-	y_max = 4.0f * tanf( fov_y * 3.14159265f / 360.0f );
-	x_max = 4.0f * tanf( fov_x * 3.14159265f / 360.0f );
-	guFrustum( proj, y_max, -y_max, -x_max, x_max, 4.0f, 20000.0f );
-	GX_LoadProjectionMtx( proj, GX_PERSPECTIVE );
-	GX_LoadPosMtxImm( mv, GX_PNMTX0 );
 	GX_SetCullMode( GX_CULL_NONE );
 	GX_SetZMode( GX_TRUE, GX_LEQUAL, GX_TRUE );
+	GX_SetZCompLoc( GX_TRUE );
+	GX_SetAlphaCompare( GX_ALWAYS, 0, GX_AOP_AND, GX_ALWAYS, 0 );
 	GX_SetBlendMode( GX_BM_NONE, GX_BL_ONE, GX_BL_ZERO, GX_LO_NOOP );
 	GX_SetNumChans( 1 );
 	GX_SetChanCtrl( GX_COLOR0A0, GX_DISABLE, GX_SRC_REG, GX_SRC_VTX,
@@ -5346,6 +5364,8 @@ static void R_GXPropDraw( const float *org )
 	R_GXBuildFrustum();
 	GX_SetCullMode( GX_CULL_NONE );
 	GX_SetZMode( GX_TRUE, GX_LEQUAL, GX_TRUE );
+	GX_SetZCompLoc( GX_TRUE );
+	GX_SetAlphaCompare( GX_ALWAYS, 0, GX_AOP_AND, GX_ALWAYS, 0 );
 	GX_SetBlendMode( GX_BM_NONE, GX_BL_ONE, GX_BL_ZERO, GX_LO_NOOP );
 	GX_SetNumChans( 1 );
 	GX_SetChanCtrl( GX_COLOR0A0, GX_DISABLE, GX_SRC_REG, GX_SRC_VTX,
@@ -5396,9 +5416,13 @@ static void R_GXDrawPackedWater( void )
 	int wi, water_drawn = 0;
 	const qboolean water_tex = GC_WaterTexReady() && GC_GetWaterTexObj() != NULL;
 	float time_sec = gp_cl ? (float)gp_cl->time : 0.0f;
+	float scroll2_u = 0.0f, scroll2_v = 0.0f;
+
+	GC_GetWaterScroll2( &scroll2_u, &scroll2_v );
 
 	if( water_n <= 0 )
 		return;
+	R_GXBuildFrustum();
 	GX_SetCullMode( GX_CULL_NONE );
 	/* Opaque teal first, then a grazing sheen. Depth stays unwritten so the
 	 * boats drawn after this remain one hull. */
@@ -5432,6 +5456,28 @@ static void R_GXDrawPackedWater( void )
 		nv = GC_GetWaterFaceVerts( wi, pts, 32 );
 		if( nv < 3 )
 			continue;
+		{
+			vec3_t wmin, wmax;
+			int ax, vi;
+
+			for( ax = 0; ax < 3; ax++ )
+			{
+				wmin[ax] = pts[0][ax];
+				wmax[ax] = pts[0][ax];
+			}
+			for( vi = 1; vi < nv; vi++ )
+			{
+				for( ax = 0; ax < 3; ax++ )
+				{
+					if( pts[vi][ax] < wmin[ax] )
+						wmin[ax] = pts[vi][ax];
+					if( pts[vi][ax] > wmax[ax] )
+						wmax[ax] = pts[vi][ax];
+				}
+			}
+			if( R_GXBoxOutsideFrustum( wmin, wmax ))
+				continue;
+		}
 		GC_GetWaterFaceScroll( wi, NULL, NULL, &tint );
 		/* Cheap-water body. The reflection is a second pass so this stays
 		 * one opaque sheet and does not cut the boats. */
@@ -5491,6 +5537,28 @@ static void R_GXDrawPackedWater( void )
 			nv = GC_GetWaterFaceVerts( wi, pts, 32 );
 			if( nv < 3 || GC_GetWaterFaceST( wi, st, 32 ) != nv )
 				continue;
+			{
+				vec3_t wmin, wmax;
+				int ax, vi;
+
+				for( ax = 0; ax < 3; ax++ )
+				{
+					wmin[ax] = pts[0][ax];
+					wmax[ax] = pts[0][ax];
+				}
+				for( vi = 1; vi < nv; vi++ )
+				{
+					for( ax = 0; ax < 3; ax++ )
+					{
+						if( pts[vi][ax] < wmin[ax] )
+							wmin[ax] = pts[vi][ax];
+						if( pts[vi][ax] > wmax[ax] )
+							wmax[ax] = pts[vi][ax];
+					}
+				}
+				if( R_GXBoxOutsideFrustum( wmin, wmax ))
+					continue;
+			}
 			nd = fabsf( DotProduct( forward, pl.normal ));
 			if( nd > 1.0f )
 				nd = 1.0f;
@@ -5515,6 +5583,35 @@ static void R_GXDrawPackedWater( void )
 				GX_TexCoord2f32( st[si][0] * 0.12f + ou, st[si][1] * 0.12f + ov );
 			}
 			GX_End();
+			/* Second normal layer. Retail water scrolls two maps in
+			 * opposite directions; this one is half as bright. */
+			if( scroll2_u != 0.0f || scroll2_v != 0.0f )
+			{
+				GXColor sheen2;
+				float ou2, ov2;
+
+				sheen2.r = (u8)( sheen.r >> 1 );
+				sheen2.g = (u8)( sheen.g >> 1 );
+				sheen2.b = (u8)( sheen.b >> 1 );
+				sheen2.a = 255;
+				GX_SetTevKColor( GX_KCOLOR0, sheen2 );
+				ou2 = time_sec * scroll2_u;
+				ov2 = time_sec * scroll2_v;
+				ou2 = ou2 - (float)(int)ou2;
+				ov2 = ov2 - (float)(int)ov2;
+				if( ou2 < 0.0f )
+					ou2 += 1.0f;
+				if( ov2 < 0.0f )
+					ov2 += 1.0f;
+				GX_Begin( GX_TRIANGLEFAN, GX_VTXFMT0, (u16)nv );
+				for( si = 0; si < nv; si++ )
+				{
+					GX_Position3f32( pts[si][0], pts[si][1], pts[si][2] );
+					GX_Color1u32( 0xFFFFFFFFu );
+					GX_TexCoord2f32( st[si][0] * 0.12f + ou2, st[si][1] * 0.12f + ov2 );
+				}
+				GX_End();
+			}
 		}
 		GX_SetTevSwapMode( GX_TEVSTAGE0, GX_TEV_SWAP0, GX_TEV_SWAP0 );
 	}
@@ -5545,6 +5642,9 @@ static int R_GXDrawWorldDLFrame( void )
 	r_gx_bound_texnum = 0;
 	r_gx_bound_fmt = 0;
 	drawn = R_GXWorldDLDraw();
+	/* Same view and depth as the world. The nearer of the cliff and the
+	 * prop is the one that stays. */
+	R_GXPropDrawHorizon( RI.rvp.vieworigin );
 	R_GXDrawPackedWater();
 	R_GXPropDraw( RI.rvp.vieworigin );
 	r_gx_face_mode = GC_GX_FACE_MODE_NONE;

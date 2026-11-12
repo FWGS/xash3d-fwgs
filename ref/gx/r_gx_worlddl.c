@@ -79,8 +79,94 @@ extern size_t Mod_GCWorldArraySpillUsed( void );
 extern int GC_WorldTexnumByHash( unsigned hash );
 extern qboolean R_GXWorldDLBindTex( unsigned texnum );
 
-static int R_GXTevMatFlags( int id ) { (void)id; return 0; }
-static void R_GXTevMatAppend( int id, int a, int b ) { (void)id; (void)a; (void)b; }
+/* Bump relief and detail live in media/tevmat.gcm (I8 mod2x tiles). The
+ * sand specular mask is the normal-map alpha from sandfloor007c. */
+#define GC_TEV_MAX		96
+#define GC_TEV_DETAIL		5440
+static u8 gc_tev_rec[GC_TEV_MAX][8];
+static u8 gc_tev_nmat, gc_tev_ndet;
+static s8 gc_tev_bound = -1;
+/* Detail tiles stay in MEM1. The map ARAM window is the world pack; a
+ * second reserve returns that same base and would wipe the BSP tree. */
+static u8 gc_tev_store[8 * GC_TEV_DETAIL] __attribute__(( aligned( 32 )));
+static GXTexObj gc_tev_obj;
+static u8 gc_spec_mask[2048] __attribute__(( aligned( 32 )));
+static GXTexObj gc_spec_obj;
+static qboolean gc_spec_ready;
+static byte *gc_wd_force;
+static u32 gc_wd_force_size;
+static int gc_wd_tev_gens = 1;
+
+static void R_GXTevBindDetail( u8 idx )
+{
+	if( idx >= gc_tev_ndet )
+		return;
+	if( gc_tev_bound != (s8)idx )
+	{
+		GX_InitTexObj( &gc_tev_obj, gc_tev_store + (u32)idx * GC_TEV_DETAIL,
+			64, 64, GX_TF_I8, GX_REPEAT, GX_REPEAT, GX_TRUE );
+		GX_InitTexObjLOD( &gc_tev_obj, GX_LIN_MIP_LIN, GX_LINEAR,
+			0.0f, 3.0f, 0.0f, GX_FALSE, GX_TRUE, GX_ANISO_1 );
+		gc_tev_bound = (s8)idx;
+	}
+	GX_LoadTexObj( &gc_tev_obj, GX_TEXMAP1 );
+}
+
+static int R_GXTevMatFlags( int id )
+{
+	if( id < 1 || id > (int)gc_tev_nmat )
+		return 0;
+	return gc_tev_rec[id - 1][0];
+}
+
+/* id 0 restores the stock diffuse stage. A detail id adds the sun-lit
+ * bump relief (or authored detail) as mod2x, which is the retail normal
+ * map baked against the Lost Coast sun. */
+static void R_GXTevMatAppend( int id, int a, int b )
+{
+	u8 flags, didx, aref;
+	u16 scale_fp;
+	float scale;
+	Mtx tm;
+
+	(void)a;
+	(void)b;
+	GX_SetNumTexGens( gc_wd_tev_gens );
+	GX_SetTexCoordGen( GX_TEXCOORD0, GX_TG_MTX2x4, GX_TG_TEX0, GX_IDENTITY );
+	if( gc_wd_tev_gens > 1 )
+		GX_SetTexCoordGen( GX_TEXCOORD1, GX_TG_MTX2x4, GX_TG_TEX1, GX_IDENTITY );
+	GX_SetNumTevStages( 1 );
+	GX_SetAlphaCompare( GX_ALWAYS, 0, GX_AOP_AND, GX_ALWAYS, 0 );
+	GX_SetZCompLoc( GX_TRUE );
+	if( id < 1 || id > (int)gc_tev_nmat )
+		return;
+	flags = gc_tev_rec[id - 1][0];
+	didx = gc_tev_rec[id - 1][1];
+	scale_fp = (u16)( ( gc_tev_rec[id - 1][2] << 8 ) | gc_tev_rec[id - 1][3] );
+	aref = gc_tev_rec[id - 1][4];
+	if( ( flags & 0x01 ) && scale_fp && didx < gc_tev_ndet )
+	{
+		scale = (float)scale_fp / 256.0f;
+		R_GXTevBindDetail( didx );
+		tm[0][0] = scale; tm[0][1] = 0.0f; tm[0][2] = 0.0f; tm[0][3] = 0.0f;
+		tm[1][0] = 0.0f; tm[1][1] = scale; tm[1][2] = 0.0f; tm[1][3] = 0.0f;
+		tm[2][0] = 0.0f; tm[2][1] = 0.0f; tm[2][2] = 1.0f; tm[2][3] = 0.0f;
+		GX_LoadTexMtxImm( tm, GX_TEXMTX0, GX_MTX2x4 );
+		GX_SetNumTexGens( 3 );
+		GX_SetTexCoordGen( GX_TEXCOORD2, GX_TG_MTX2x4, GX_TG_TEX0, GX_TEXMTX0 );
+		GX_SetNumTevStages( 2 );
+		GX_SetTevOrder( GX_TEVSTAGE1, GX_TEXCOORD2, GX_TEXMAP1, GX_COLORNULL );
+		GX_SetTevColorIn( GX_TEVSTAGE1, GX_CC_ZERO, GX_CC_CPREV, GX_CC_TEXC, GX_CC_ZERO );
+		GX_SetTevColorOp( GX_TEVSTAGE1, GX_TEV_ADD, GX_TB_ZERO, GX_CS_SCALE_2, GX_TRUE, GX_TEVPREV );
+		GX_SetTevAlphaIn( GX_TEVSTAGE1, GX_CA_ZERO, GX_CA_ZERO, GX_CA_ZERO, GX_CA_APREV );
+		GX_SetTevAlphaOp( GX_TEVSTAGE1, GX_TEV_ADD, GX_TB_ZERO, GX_CS_SCALE_1, GX_TRUE, GX_TEVPREV );
+	}
+	if( flags & 0x02 )
+	{
+		GX_SetAlphaCompare( GX_GEQUAL, aref ? aref : 128, GX_AOP_AND, GX_ALWAYS, 0 );
+		GX_SetZCompLoc( GX_FALSE );
+	}
+}
 static void R_GXTevMatEndAlphaTest( void ) {}
 static void R_GXFogBegin( void ) {}
 static void R_GXFogEnd( void ) {}
@@ -137,6 +223,64 @@ static void R_GXWorldDLUnload( void )
 	gc_wd_pvs = NULL;
 	gc_wd_aram = 0;
 	gc_wd_pvs_cluster = -2;
+}
+
+static void R_GXMatPackLoad( void )
+{
+	file_t *f;
+	byte hdr[8];
+	u32 bytes, nmat;
+	static qboolean logged;
+
+	gc_tev_nmat = 0;
+	gc_tev_ndet = 0;
+	gc_tev_bound = -1;
+	gc_spec_ready = false;
+	f = gEngfuncs.fsapi->Open( "media/tevmat.gcm", "rb", false );
+	if( f && gEngfuncs.fsapi->Read( f, hdr, 8 ) == 8
+		&& hdr[0] == 'G' && hdr[1] == 'C' && hdr[2] == 'm' && hdr[3] == 't'
+		&& hdr[4] == 0 && hdr[5] == 1 )
+	{
+		nmat = hdr[6];
+		gc_tev_ndet = hdr[7];
+		if( nmat > 0 && nmat <= GC_TEV_MAX && gc_tev_ndet > 0 && gc_tev_ndet <= 8
+			&& gEngfuncs.fsapi->Read( f, gc_tev_rec, nmat * 8u ) == (fs_offset_t)( nmat * 8u ))
+		{
+			u32 ofs = ( 8u + nmat * 8u + 31u ) & ~31u;
+
+			bytes = (u32)gc_tev_ndet * GC_TEV_DETAIL;
+			gEngfuncs.fsapi->Seek( f, (fs_offset_t)ofs, SEEK_SET );
+			if( gEngfuncs.fsapi->Read( f, gc_tev_store, bytes ) == (fs_offset_t)bytes )
+			{
+				DCFlushRange( gc_tev_store, bytes );
+				gc_tev_nmat = (u8)nmat;
+			}
+			else
+				gc_tev_ndet = 0;
+		}
+		gEngfuncs.fsapi->Close( f );
+	}
+	else if( f )
+		gEngfuncs.fsapi->Close( f );
+	f = gEngfuncs.fsapi->Open( "media/sand_spec.cmp", "rb", false );
+	if( f && gEngfuncs.fsapi->Read( f, gc_spec_mask, sizeof( gc_spec_mask )) == (fs_offset_t)sizeof( gc_spec_mask ))
+	{
+		DCFlushRange( gc_spec_mask, sizeof( gc_spec_mask ));
+		GX_InitTexObj( &gc_spec_obj, gc_spec_mask, 64, 64, GX_TF_CMPR,
+			GX_REPEAT, GX_REPEAT, GX_FALSE );
+		GX_InitTexObjFilterMode( &gc_spec_obj, GX_LINEAR, GX_LINEAR );
+		gc_spec_ready = true;
+		gEngfuncs.fsapi->Close( f );
+	}
+	else if( f )
+		gEngfuncs.fsapi->Close( f );
+	if( !logged )
+	{
+		logged = true;
+		gEngfuncs.Con_Reportf(
+			"Xash3D GameCube: tevmat mats=%u details=%u spec=%d\n",
+			(unsigned)gc_tev_nmat, (unsigned)gc_tev_ndet, gc_spec_ready ? 1 : 0 );
+	}
 }
 
 static void R_GXWorldDLLoad( const char *mapbase )
@@ -304,7 +448,23 @@ static void R_GXWorldDLLoad( const char *mapbase )
 	else
 		gc_wd_file = f;
 
+	gc_wd_tev_gens = gc_wd_hdr.version == 2 ? 2 : 1;
 	gc_wd_pvs_cluster = -2;
+	/* The tail of the chunk cache is the overflow bounce. A frustum chunk
+	 * that does not fit the shore budget still draws from here. */
+	{
+		u32 tail = ( gc_wd_hdr.max_chunk + 31u ) & ~31u;
+
+		gc_wd_force = NULL;
+		gc_wd_force_size = 0;
+		if( tail >= 4096u && gc_wd_cache_size > tail + 96u * 1024u )
+		{
+			gc_wd_cache_size -= tail;
+			gc_wd_force = gc_wd_cache + gc_wd_cache_size;
+			gc_wd_force_size = tail;
+		}
+	}
+	R_GXMatPackLoad();
 	gc_wd_state = 1;
 	gEngfuncs.Con_Reportf(
 		"Xash3D GameCube: world DL %s v%u clusters=%u chunks=%u mats=%u cache=%u Kb file=%u Kb (%s)\n",
@@ -530,6 +690,20 @@ static byte *R_GXWorldDLResident( u32 i, u32 *budget )
 	return gc_wd_cache + head;
 }
 
+/* Cache miss. The chunk is inside the frustum, so draw it from the tail
+ * bounce instead of skipping it. Caller retires the GP before reuse. */
+static byte *R_GXWorldDLForce( u32 i )
+{
+	const u32 bytes = gc_wd_chunk_bytes[i];
+
+	if( !gc_wd_force || bytes == 0 || bytes > gc_wd_force_size )
+		return NULL;
+	GX_DrawDone();
+	if( !R_GXWorldDLFetch( gc_wd_hdr.ofs_chunks + gc_wd_chunk_ofs[i], gc_wd_force, bytes ))
+		return NULL;
+	return gc_wd_force;
+}
+
 static void R_GXWorldDLFrustum( vec3_t normals[4] )
 {
 	vec3_t fwd, right, up;
@@ -714,10 +888,23 @@ static void R_GXWorldDLSpecOn( u16 strength )
 		GX_SetChanAmbColor( GX_COLOR0A0, black );
 	}
 	GX_SetChanMatColor( GX_COLOR0A0, mat );
-	GX_SetNumTexGens( 0 );
+	GX_SetNumTexGens( 1 );
+	GX_SetTexCoordGen( GX_TEXCOORD0, GX_TG_MTX2x4, GX_TG_TEX0, GX_IDENTITY );
 	GX_SetNumTevStages( 1 );
 	GX_SetTevOrder( GX_TEVSTAGE0, GX_TEXCOORDNULL, GX_TEXMAP_NULL, GX_COLOR0A0 );
 	GX_SetTevOp( GX_TEVSTAGE0, GX_PASSCLR );
+	/* Sand's specular is the normal-map alpha, not a tight phong lobe.
+	 * The sun still lights the vertex normal; the mask punches the wet glints. */
+	if( gc_spec_ready && s >= 130 )
+	{
+		GX_LoadTexObj( &gc_spec_obj, GX_TEXMAP2 );
+		GX_SetNumTevStages( 2 );
+		GX_SetTevOrder( GX_TEVSTAGE1, GX_TEXCOORD0, GX_TEXMAP2, GX_COLOR0A0 );
+		GX_SetTevColorIn( GX_TEVSTAGE1, GX_CC_CPREV, GX_CC_TEXC, GX_CC_RASC, GX_CC_ZERO );
+		GX_SetTevColorOp( GX_TEVSTAGE1, GX_TEV_ADD, GX_TB_ZERO, GX_CS_SCALE_1, GX_TRUE, GX_TEVPREV );
+		GX_SetTevAlphaIn( GX_TEVSTAGE1, GX_CA_ZERO, GX_CA_ZERO, GX_CA_ZERO, GX_CA_APREV );
+		GX_SetTevAlphaOp( GX_TEVSTAGE1, GX_TEV_ADD, GX_TB_ZERO, GX_CS_SCALE_1, GX_TRUE, GX_TEVPREV );
+	}
 }
 
 static void R_GXWorldDLSpecOff( void )
@@ -909,13 +1096,8 @@ static void R_GXWorldDLDrawSkyline( void )
 		}
 		n++;
 	}
-	/* Distant spires and the far cliff. Depth stays off; the clear below
-	 * drops it so the boats stay one surface. */
-	R_GXWorldDLLoadView( mv, proj, org, 4.0f, 20000.0f );
-	GX_LoadProjectionMtx( proj, GX_PERSPECTIVE );
-	GX_LoadPosMtxImm( mv, GX_PNMTX0 );
-	R_GXPropDrawHorizon( org );
-	/* Hill depth must not hide the boats or the cliff. */
+	/* Hill depth must not hide the boats or the cliff. Far props are drawn
+	 * after the world, in this same view, so the nearer surface wins. */
 	R_GXWorldDLClearDepth();
 	R_GXWorldDLRestoreHarbor( mv, proj, org );
 	{
@@ -1047,7 +1229,7 @@ int R_GXWorldDLDraw( void )
 	{
 		/* Chunks outside the camera go. -gcworlddlfull draws the whole PVS. */
 		const qboolean frustum_cull = !gEngfuncs.Sys_CheckParm( "-gcworlddlfull" );
-		int pvs_hits = 0, frustum_drop = 0, tower_chunks = 0;
+		int pvs_hits = 0, frustum_drop = 0, tower_chunks = 0, forced_n = 0;
 		static u16 order[GC_WD_MAX_CHUNKS];
 		int norder = 0;
 		int oi, pass;
@@ -1094,6 +1276,7 @@ int R_GXWorldDLDraw( void )
 			const gc_wd_batch_t *b;
 			byte *chunk;
 			u32 nb, k;
+			qboolean forced = false;
 
 			i = order[oi];
 			if( R_GXWorldDLIsTower( i ) != ( pass == 0 ))
@@ -1101,10 +1284,16 @@ int R_GXWorldDLDraw( void )
 			chunk = R_GXWorldDLResident( i, bud );
 			if( !chunk )
 			{
+				chunk = R_GXWorldDLForce( i );
+				forced = chunk != NULL;
+			}
+			if( !chunk )
+			{
 				waiting++;
 				continue;
 			}
-			gc_wd_slots[i].used_frame = gc_wd_frame;
+			if( !forced )
+				gc_wd_slots[i].used_frame = gc_wd_frame;
 			nb = *(const u16 *)( chunk + 2 );
 			GX_SetArray( GX_VA_POS, chunk + *(const u32 *)( chunk + 4 ), 6 );
 			/* Version 2 header is 16 bytes: npos, nbatches, pos_ofs, lm_ofs. */
@@ -1160,12 +1349,17 @@ int R_GXWorldDLDraw( void )
 			chunks++;
 			if( pass == 0 )
 				tower_chunks++;
+			if( forced )
+			{
+				forced_n++;
+				GX_DrawDone();
+			}
 		}
 		}
 		if( !logged || ( gc_wd_frame & 255 ) == 0 )
 			gEngfuncs.Con_Reportf(
-				"Xash3D GameCube: world DL pvs=%d frustum_drop=%d cull=%d towers=%d\n",
-				pvs_hits, frustum_drop, frustum_cull ? 1 : 0, tower_chunks );
+				"Xash3D GameCube: world DL pvs=%d frustum_drop=%d cull=%d towers=%d forced=%d\n",
+				pvs_hits, frustum_drop, frustum_cull ? 1 : 0, tower_chunks, forced_n );
 	}
 	R_GXFogEnd();
 	R_GXTevMatEndAlphaTest();

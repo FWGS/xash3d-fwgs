@@ -1109,7 +1109,7 @@ static void GC_BakeTramSlotST( int slot, const msurface_t *src, const gc_tram_fa
 }
 /* G286: tip-safe Flipper water — baked turb verts (no live-pool tip / no draw walk hang).
  * Lost Coast Source water pack (media/gw_<map>.gcw) raises the sheet budget. */
-#define GC_WATER_MAX_FACES 24
+#define GC_WATER_MAX_FACES 96
 typedef struct
 {
 	byte		nverts;
@@ -1123,6 +1123,29 @@ typedef struct
 } gc_water_face_t;
 static gc_water_face_t gc_water_faces[GC_WATER_MAX_FACES];
 static int gc_water_face_count;
+/* The full coast pack is 494 records. The fat face struct would be ~80 KB
+ * if every sheet stayed in MEM1, so the records sit in ARAM and one 128-byte
+ * stage is decoded per draw. The frustum drops the rest. */
+#define GC_WATER_RAW_MAX 512
+static byte gc_water_stage[128] __attribute__(( aligned( 32 )));
+static int gc_water_stage_i = -1;
+static u32 gc_water_aram;
+static int gc_water_raw_count;
+static float gc_water_scroll2_u, gc_water_scroll2_v;
+static uint16_t GC_Be16( const byte *p );
+static uint32_t GC_Be32( const byte *p );
+
+static const byte *GC_WaterRec( int index )
+{
+	if( !gc_water_aram || index < 0 || index >= gc_water_raw_count )
+		return NULL;
+	if( gc_water_stage_i != index )
+	{
+		GC_AramTransfer( gc_water_aram + (u32)index * 128u, gc_water_stage, 128, false );
+		gc_water_stage_i = index;
+	}
+	return gc_water_stage;
+}
 static qboolean gc_g286_water_logged;
 /* GX scroll water CMPR (media/water_gx.cmp) — 64×64. */
 #define GC_WATER_TEX_SIZE	64
@@ -2319,14 +2342,48 @@ void GC_GetTramModelOrigin( float out[3] )
 
 int GC_GetWaterFaceCount( void )
 {
+	if( gc_water_raw_count > 0 )
+		return gc_water_raw_count;
 	return gc_water_face_count;
+}
+
+void GC_GetWaterScroll2( float *u, float *v )
+{
+	if( u ) *u = gc_water_scroll2_u;
+	if( v ) *v = gc_water_scroll2_v;
 }
 
 int GC_GetWaterFaceVerts( int index, float out[][3], int maxverts )
 {
 	const gc_water_face_t *src;
-	int n, i;
+	const byte *rec;
+	int n, i, zsum;
 
+	rec = GC_WaterRec( index );
+	if( rec )
+	{
+		if( !out || maxverts < 3 )
+			return 0;
+		n = rec[0];
+		if( n < 3 )
+			return 0;
+		if( n > GC_CAP_MAX_VERTS )
+			n = GC_CAP_MAX_VERTS;
+		if( n > maxverts )
+			n = maxverts;
+		zsum = 0;
+		for( i = 0; i < n; i++ )
+		{
+			out[i][0] = (float)(int16_t)GC_Be16( rec + 16 + i * 6 );
+			out[i][1] = (float)(int16_t)GC_Be16( rec + 16 + i * 6 + 2 );
+			out[i][2] = (float)(int16_t)GC_Be16( rec + 16 + i * 6 + 4 );
+			zsum += (int)out[i][2];
+		}
+		/* Sky-volume water sits thousands of units under the coast. */
+		if( zsum < -400 * n )
+			return 0;
+		return n;
+	}
 	if( !out || maxverts < 3 || index < 0 || index >= gc_water_face_count )
 		return 0;
 	src = &gc_water_faces[index];
@@ -2349,8 +2406,28 @@ int GC_GetWaterFaceVerts( int index, float out[][3], int maxverts )
 int GC_GetWaterFaceST( int index, float out_st[][2], int maxverts )
 {
 	const gc_water_face_t *src;
+	const byte *rec;
 	int n, i;
 
+	rec = GC_WaterRec( index );
+	if( rec )
+	{
+		if( !out_st || maxverts < 3 )
+			return 0;
+		n = rec[0];
+		if( n < 3 )
+			return 0;
+		if( n > GC_CAP_MAX_VERTS )
+			n = GC_CAP_MAX_VERTS;
+		if( n > maxverts )
+			n = maxverts;
+		for( i = 0; i < n; i++ )
+		{
+			out_st[i][0] = (float)(int16_t)GC_Be16( rec + 64 + i * 4 ) * ( 1.0f / 64.0f );
+			out_st[i][1] = (float)(int16_t)GC_Be16( rec + 64 + i * 4 + 2 ) * ( 1.0f / 64.0f );
+		}
+		return n;
+	}
 	if( !out_st || maxverts < 3 || index < 0 || index >= gc_water_face_count )
 		return 0;
 	src = &gc_water_faces[index];
@@ -2372,7 +2449,21 @@ int GC_GetWaterFaceST( int index, float out_st[][2], int maxverts )
 void GC_GetWaterFaceScroll( int index, float *scroll_u, float *scroll_v, u32 *tint )
 {
 	const gc_water_face_t *src;
+	const byte *rec;
+	union { uint32_t u; float f; } u2f;
 
+	rec = GC_WaterRec( index );
+	if( rec )
+	{
+		u2f.u = GC_Be32( rec + 8 );
+		if( scroll_u ) *scroll_u = u2f.f;
+		u2f.u = GC_Be32( rec + 12 );
+		if( scroll_v ) *scroll_v = u2f.f;
+		if( tint )
+			*tint = ( (u32)rec[112] << 24 ) | ( (u32)rec[113] << 16 )
+				| ( (u32)rec[114] << 8 ) | (u32)rec[115];
+		return;
+	}
 	if( index < 0 || index >= gc_water_face_count )
 	{
 		if( scroll_u ) *scroll_u = 0.04f;
@@ -2398,6 +2489,27 @@ void *GC_GetWaterTexObj( void )
 
 qboolean GC_WaterFacePlane( int index, mplane_t *out, int *out_flags )
 {
+	const byte *rec;
+	union { uint32_t u; float f; } u2f;
+
+	rec = GC_WaterRec( index );
+	if( rec )
+	{
+		if( !out )
+			return false;
+		memset( out, 0, sizeof( *out ));
+		u2f.u = GC_Be32( rec + 96 );
+		out->normal[0] = u2f.f;
+		u2f.u = GC_Be32( rec + 100 );
+		out->normal[1] = u2f.f;
+		u2f.u = GC_Be32( rec + 104 );
+		out->normal[2] = u2f.f;
+		u2f.u = GC_Be32( rec + 108 );
+		out->dist = u2f.f;
+		if( out_flags )
+			*out_flags = (int)rec[1];
+		return true;
+	}
 	if( !out || index < 0 || index >= gc_water_face_count )
 		return false;
 	*out = gc_water_faces[index].plane;
@@ -2424,6 +2536,15 @@ static qboolean GC_TryLoadWaterPack( model_t *mod )
 	union { uint32_t u; float f; } u2f;
 
 	gc_water_face_count = 0;
+	gc_water_raw_count = 0;
+	gc_water_stage_i = -1;
+	gc_water_scroll2_u = 0.0f;
+	gc_water_scroll2_v = 0.0f;
+	if( gc_water_aram )
+	{
+		GC_AramFree( gc_water_aram );
+		gc_water_aram = 0;
+	}
 	gc_water_tex_ready = false;
 	gc_g286_water_logged = false;
 	memset( gc_water_faces, 0, sizeof( gc_water_faces ));
@@ -2463,6 +2584,49 @@ static qboolean GC_TryLoadWaterPack( model_t *mod )
 		FS_Close( f );
 		return false;
 	}
+	/* Every coast sheet. The draw frustum throws out the ones off camera.
+	 * ARAM holds the records; a miss falls back to the nearest 96. */
+	gc_water_aram = GC_AramAllocTagged( GC_WATER_RAW_MAX * 128u, false, "water" );
+	if( gc_water_aram )
+	{
+		int kept = 0;
+		union { uint32_t u; float f; } sc;
+
+		sc.u = GC_Be32( hdr + 16 );
+		gc_water_scroll2_u = sc.f;
+		sc.u = GC_Be32( hdr + 20 );
+		gc_water_scroll2_v = sc.f;
+		for( i = 0; i < (int)face_n && kept < GC_WATER_RAW_MAX; i++ )
+		{
+			int nv, v, zsum;
+
+			if( FS_Read( f, gc_water_stage, 128 ) != 128 )
+			{
+				FS_Close( f );
+				GC_AramFree( gc_water_aram );
+				gc_water_aram = 0;
+				gc_water_raw_count = 0;
+				return false;
+			}
+			nv = gc_water_stage[0];
+			if( nv < 3 )
+				nv = 3;
+			if( nv > GC_CAP_MAX_VERTS )
+				nv = GC_CAP_MAX_VERTS;
+			zsum = 0;
+			for( v = 0; v < nv; v++ )
+				zsum += (int)(int16_t)GC_Be16( gc_water_stage + 16 + v * 6 + 4 );
+			if( zsum < -400 * nv )
+				continue;
+			DCFlushRange( gc_water_stage, 128 );
+			GC_AramTransfer( gc_water_aram + (u32)kept * 128u, gc_water_stage, 128, true );
+			kept++;
+		}
+		gc_water_stage_i = -1;
+		gc_water_raw_count = kept;
+		gc_water_face_count = kept;
+	}
+	else
 	{
 		float scores[GC_WATER_MAX_FACES];
 		/* Over the harbor sheet. The bank eye kept sheets that the sand covers. */
@@ -2576,8 +2740,9 @@ static qboolean GC_TryLoadWaterPack( model_t *mod )
 		if( tf )
 			FS_Close( tf );
 	}
-	Con_Reportf( "Xash3D GameCube: water pack loaded %s faces=%d tex=%d\n",
-		path, gc_water_face_count, gc_water_tex_ready ? 1 : 0 );
+	Con_Reportf( "Xash3D GameCube: water pack loaded %s faces=%d tex=%d aram=%d scroll2=%.3f,%.3f\n",
+		path, GC_GetWaterFaceCount(), gc_water_tex_ready ? 1 : 0,
+		gc_water_aram ? 1 : 0, gc_water_scroll2_u, gc_water_scroll2_v );
 	return gc_water_face_count > 0;
 }
 
@@ -4321,6 +4486,8 @@ static void GC_CaptureWaterFacesFromSurfbits( model_t *wmodel, const byte *surfb
 	int pvs_hits = 0;
 
 	gc_water_face_count = 0;
+	gc_water_raw_count = 0;
+	gc_water_stage_i = -1;
 	gc_g286_water_logged = false;
 	memset( gc_water_faces, 0, sizeof( gc_water_faces ));
 	memset( scores, 0, sizeof( scores ));
