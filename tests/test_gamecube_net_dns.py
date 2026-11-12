@@ -52,5 +52,11 @@ class DnsTests(unittest.TestCase):
         s = (HDR / "net_gamecube.c").read_text()
         self.assertIn("GC_DnsResolve( addrString", s)
 
+    def test_ingame_config_cvars(self):
+        s = (HDR / "net_gamecube.c").read_text()
+        for name in ("gc_net_dhcp", "gc_net_ip", "gc_net_mask", "gc_net_gw", "gc_net_dns", "gc_net_status"):
+            self.assertIn('"%s"' % name, s)
+        self.assertIn("GC_NetRegisterCvars", (ROOT / "engine/common/net_ws.c").read_text())
+
 if __name__ == "__main__":
     unittest.main()
