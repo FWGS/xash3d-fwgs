@@ -1006,6 +1006,9 @@ static void GL_DeleteTexture( image_t *tex )
 		prev = &cur->nextHash;
 	}
 
+#if XASH_GAMECUBE
+	R_GXSkinRelease( tex );
+#endif
 	// release source
 	if( tex->original )
 		gEngfuncs.FS_FreeImage( tex->original );
@@ -1683,6 +1686,9 @@ void R_ShutdownImages( void )
 	for( i = 0, tex = r_images; i < r_numImages; i++, tex++ )
 		GL_DeleteTexture( tex );
 
+#if XASH_GAMECUBE
+	R_GXSkinReset();
+#endif
 	memset( tr.lightmapTextures, 0, sizeof( tr.lightmapTextures ));
 	memset( r_imagesHashTable, 0, sizeof( r_imagesHashTable ));
 	memset( r_images, 0, sizeof( r_images ));

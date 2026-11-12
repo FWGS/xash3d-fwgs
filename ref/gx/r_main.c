@@ -2638,6 +2638,9 @@ R_BeginFrame
 */
 void GAME_EXPORT R_BeginFrame( qboolean clearScene )
 {
+#if XASH_GAMECUBE
+	R_GXSkinBeginFrame();
+#endif
 	R_Set2DMode( true );
 
 	// draw buffer stuff
