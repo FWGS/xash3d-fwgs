@@ -27,6 +27,7 @@ import signal
 import subprocess
 import sys
 import time
+from pathlib import Path
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 OUT_DIR = os.path.join(ROOT, ".ai", "playtests")
@@ -58,7 +59,25 @@ def sink_destroy(mods):
 		sh("pactl", "unload-module", m)
 
 
-def find_render_window(timeout):
+def window_owned_by(win, userdir):
+	"""True when the window's process was started with this Dolphin profile
+	(-u userdir).  Several checkouts run Dolphin probes on one desktop; the
+	first "GameCube" window is often someone else's game."""
+	if not userdir:
+		return True
+	out = sh("xprop", "-id", win, "_NET_WM_PID").stdout
+	m = re.search(r"=\s*(\d+)", out)
+	if not m:
+		return False
+	try:
+		cmdline = Path(f"/proc/{m.group(1)}/cmdline").read_bytes().split(b"\0")
+	except OSError:
+		return False
+	want = os.path.realpath(userdir).encode()
+	return any(os.path.realpath(a.decode(errors="replace")).encode() == want for a in cmdline if a)
+
+
+def find_render_window(timeout, userdir=None):
 	"""The Dolphin render window (titled GameCube), not the 800x600 main one."""
 	deadline = time.time() + timeout
 	while time.time() < deadline:
@@ -68,7 +87,8 @@ def find_render_window(timeout):
 				continue
 			m = re.search(r"(\d+)x(\d+)\+", line)
 			if m and int(m.group(1)) >= 300 and int(m.group(2)) >= 200:
-				return line.split()[0]
+				if window_owned_by(line.split()[0], userdir):
+					return line.split()[0]
 		time.sleep(0.5)
 	return None
 
@@ -116,7 +136,7 @@ def record(args):
 	if free_gb < MIN_FREE_GB:
 		print(f"playtest-record: only {free_gb:.1f} GB free (< {MIN_FREE_GB}), not recording", file=sys.stderr)
 		return 0
-	win = find_render_window(args.window_timeout)
+	win = find_render_window(args.window_timeout, args.userdir)
 	if not win or not alive(args.pid):
 		print("playtest-record: no Dolphin render window, not recording", file=sys.stderr)
 		return 0
@@ -124,7 +144,7 @@ def record(args):
 	# Window IDs can vanish between discovery and ffmpeg open (short boots,
 	# render-window recreate). Re-check, and re-find once if needed.
 	if not window_exists(win):
-		win = find_render_window(min(args.window_timeout, 30))
+		win = find_render_window(min(args.window_timeout, 30), args.userdir)
 		if not win or not alive(args.pid):
 			print("playtest-record: render window gone before capture, not recording", file=sys.stderr)
 			return 0
@@ -260,6 +280,7 @@ def main():
 	r.add_argument("--route", default="play")
 	r.add_argument("--disc", default="")
 	r.add_argument("--logdir", default="")
+	r.add_argument("--userdir", default="", help="Dolphin -u profile: record only that instance's window")
 	r.add_argument("--fps", type=int, default=30)
 	r.add_argument("--window-timeout", type=float, default=180)
 	r.add_argument("--json-out", help="write the sidecar path here when done")

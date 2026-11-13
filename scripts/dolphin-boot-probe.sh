@@ -617,12 +617,17 @@ PLAYTEST_REC_PID=
 PLAYTEST_SINK_MODS=
 if [[ "${DOLPHIN_RECORD:-1}" == "1" ]] && command -v pactl >/dev/null 2>&1 \
 	&& command -v ffmpeg >/dev/null 2>&1 && [[ -n "${DISPLAY:-}" ]]; then
+	# x11grab only sees X11 windows: run this Dolphin under XWayland like
+	# play-dolphin.sh, or on a Wayland session it is invisible to the
+	# recorder (which then used to grab another checkout's Dolphin).
+	export EGL_PLATFORM=x11 QT_QPA_PLATFORM=xcb
+	unset WAYLAND_DISPLAY
 	PLAYTEST_SINK="xashrec$$"
 	if PLAYTEST_SINK_MODS="$(python3 scripts/playtest-record.py sink create "$PLAYTEST_SINK" --loopback)"; then
 		export PULSE_SINK="$PLAYTEST_SINK"
 		PLAYTEST_ROUTE="${DOLPHIN_PLAYTEST_ROUTE:-$([[ "${DOLPHIN_MENU_NEWGAME:-0}" == "1" ]] && echo menu-newgame || echo probe)}"
 		python3 scripts/playtest-record.py record --pid 0 --sink "$PLAYTEST_SINK" \
-			--route "$PLAYTEST_ROUTE" --disc "$ISO_PATH" --logdir "$LOG_DIR" \
+			--route "$PLAYTEST_ROUTE" --disc "$ISO_PATH" --logdir "$LOG_DIR" --userdir "$USER_DIR" \
 			--json-out "$LOG_DIR/playtest.txt" > "$LOG_DIR/playtest-record.log" 2>&1 &
 		PLAYTEST_REC_PID=$!
 	fi
