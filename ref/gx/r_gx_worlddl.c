@@ -281,6 +281,10 @@ static gc_wd_mat_t gc_wd_mats_local[GC_WD_MAX_MATS];
 static const gc_wd_mat_t *gc_wd_mats = gc_wd_mats_local;
 static gc_wd_slot_t *gc_wd_slots;
 static s16 *gc_wd_texnum;
+/* $basetexture2 texnum per material: 0 unresolved, -1 missing. */
+#define GC_WD_BLEND_MATS 512
+static s16 gc_wd_texnum2[GC_WD_BLEND_MATS];
+static int blend_draws;
 static u32 *gc_wd_chunk_bytes;	/* aligned size per chunk — avoids O(n²) ARAM dir fetches */
 static u16 *gc_wd_chunk_cluster;
 static s16 *gc_wd_chunk_mins;	/* n_chunks * 3 */
@@ -476,6 +480,7 @@ static void R_GXWorldDLLoad( const char *mapbase )
 		gc_wd_slots[i].cache_ofs = -1;
 		gc_wd_slots[i].used_frame = -1000;
 	}
+	memset( gc_wd_texnum2, 0, sizeof( gc_wd_texnum2 ));
 	for( i = 0; i < gc_wd_hdr.n_mats; i++ )
 		gc_wd_texnum[i] = -1;
 
@@ -1576,6 +1581,37 @@ int R_GXWorldDLDraw( void )
 					cur_mat = (int)b->mat;
 				}
 				GX_CallDispList( chunk + b->dl_ofs, b->dl_bytes );
+				/* WorldVertexTransition (Lost Coast sand): layer 2 over layer 1,
+				 * weighted by the displacement vertex alpha. Same lit recipe,
+				 * drawn again with $basetexture2 and alpha blending, so it
+				 * costs one extra call on blend batches only. */
+				if( gc_wd_hdr.version == 2 && m->hash2 && b->mat < GC_WD_BLEND_MATS )
+				{
+					if( gc_wd_texnum2[b->mat] == 0 )
+					{
+						int t2 = GC_WorldTexnumByHash( m->hash2 );
+
+						gc_wd_texnum2[b->mat] = (s16)( t2 > 0 ? t2 : -1 );
+					}
+					if( gc_wd_texnum2[b->mat] > 0
+						&& R_GXWorldDLBindTex( (unsigned)gc_wd_texnum2[b->mat] ))
+					{
+						R_GXTevMatAppend( R_GXTevMatFlags( m->tevmat ) ? m->tevmat : 0, 1, 1 );
+						/* Coverage = vertex alpha, carried through the later stages. */
+						GX_SetTevOrder( GX_TEVSTAGE0, GX_TEXCOORD0, GX_TEXMAP0, GX_COLOR0A0 );
+						GX_SetTevAlphaIn( GX_TEVSTAGE0, GX_CA_ZERO, GX_CA_ZERO, GX_CA_ZERO, GX_CA_RASA );
+						GX_SetAlphaCompare( GX_ALWAYS, 0, GX_AOP_AND, GX_ALWAYS, 0 );
+						GX_SetBlendMode( GX_BM_BLEND, GX_BL_SRCALPHA, GX_BL_INVSRCALPHA, GX_LO_NOOP );
+						GX_SetZMode( GX_TRUE, GX_LEQUAL, GX_FALSE );
+						GX_CallDispList( chunk + b->dl_ofs, b->dl_bytes );
+						GX_SetBlendMode( GX_BM_NONE, GX_BL_ONE, GX_BL_ZERO, GX_LO_NOOP );
+						GX_SetZMode( GX_TRUE, GX_LEQUAL, GX_TRUE );
+						blend_draws++;
+					}
+					/* Back to layer 1 for the spec pass and the next batch. */
+					if( R_GXWorldDLBindTex( (unsigned)gc_wd_texnum[b->mat] ))
+						R_GXTevMatAppend( R_GXTevMatFlags( m->tevmat ) ? m->tevmat : 0, 1, 1 );
+				}
 				/* Spec fill only on wet sand (IndTex) and harbor towers.
 				 * Detail/normal mats on cliffs used to SpecOn too and blew
 				 * the shore into a white sheet (cliff bright_frac 0.45 vs
