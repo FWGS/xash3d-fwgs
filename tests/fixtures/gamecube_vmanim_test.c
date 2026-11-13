@@ -50,6 +50,10 @@ int main( void )
 	CHECK( GC_VMAnimFamily( "models/v_panzerschreck.mdl" ) == GC_VMF_RPG );
 	CHECK( GC_VMAnimFamily( "models/v_spade.mdl" ) == GC_VMF_CROWBAR );
 	CHECK( GC_VMAnimFamily( "models/v_amerk.mdl" ) == GC_VMF_CROWBAR );
+	CHECK( GC_VMAnimFamily( "models/v_colt.mdl" ) == GC_VMF_GLOCK );
+	CHECK( GC_VMAnimFamily( "models/v_luger.mdl" ) == GC_VMF_GLOCK );
+	CHECK( GC_VMAnimIntent( GC_VMF_GLOCK, 3 ).action == GC_VMA_FIRE );
+	CHECK( GC_VMAnimIntent( GC_VMF_GLOCK, 7 ).action == GC_VMA_DRAW );
 	CHECK( GC_VMAnimFamily( "models/v_9mmAR.mdl" ) == GC_VMF_NONE );
 	CHECK( GC_VMAnimFamily( "models/v_98k_x.mdl" ) == GC_VMF_NONE );
 	CHECK( GC_VMAnimFamily( NULL ) == GC_VMF_NONE );

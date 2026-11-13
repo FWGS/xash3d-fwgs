@@ -33,7 +33,8 @@ typedef enum
 	GC_VMF_SHOTGUN,		// BAR-class guns on CShotgun
 	GC_VMF_CROSSBOW,	// sniper rifles on CCrossbow
 	GC_VMF_RPG,		// rocket launchers on CRpg
-	GC_VMF_CROWBAR		// spade on CCrowbar
+	GC_VMF_CROWBAR,		// spade on CCrowbar
+	GC_VMF_GLOCK		// Colt/Luger on CGlock
 } gc_vm_family_t;
 
 typedef struct
