@@ -490,6 +490,8 @@ static qboolean Mod_GCStudioNameAllowed( const char *name, qboolean *is_viewmode
 		"nihilanth", "big_mom", "baby_headcrab", "controller",
 		/* Tiny lean world-weapon stub for Flipper studio draw admit. */
 		"w_crowbar",
+		/* Thrown grenade bodies: tiny lean meshes, no skin atlas. */
+		"w_grenade", "w_stick", "w_bazooka_rocket",
 		/* CapFaces DoD map props (env_model / dod_object) — lean gc_studio. */
 		"hk_satchel", "horse_statue", "by_rubble_set", "sandbags",
 		"by_canopy", "arc_xer_tree2", "furniture", "bulb",
@@ -502,6 +504,11 @@ static qboolean Mod_GCStudioNameAllowed( const char *name, qboolean *is_viewmode
 		/* DoD CapFaces listen — team loadout viewmodels (lean-injected). */
 		"v_garand", "v_mp40", "v_98k", "v_tommy",
 		"v_colt", "v_luger", "v_amerk", "v_spade",
+		/* Mk2 grenade and stick grenade (CHandGrenade viewmodels). */
+		"v_grenade", "v_stick",
+		/* The rest of the table-driven DoD gun set (dod_weapon.cpp). */
+		"v_bren", "v_mp44", "v_spring", "v_scoped98k", "v_30cal", "v_mg42",
+		"v_bazooka", "v_panzerschreck",
 		NULL
 	};
 	int i;

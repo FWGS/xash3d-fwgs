@@ -38,20 +38,53 @@ int main( void )
 	};
 	static const seq_t spade[] = { { "idle" }, { "slash1" }, { "slash2" }, { "draw" } };
 	static const seq_t odd[] = { { "ref" }, { "spin" } };
+	static const seq_t grenade[] = {
+		{ "idle" }, { "draw" }, { "pinpull" }, { "holster" }, { "throw" },
+		{ "exploding_idle" }, { "exploding_draw" }, { "exploding_pinpull" }, { "exploding_throw" },
+	};
+	const int ng = (int)( sizeof( grenade ) / sizeof( grenade[0] ));
+	/* real sequence names of the DoD gun viewmodels (dumped from the MDLs) */
+	static const seq_t garand[] = {
+		{ "idle" }, { "shoot1" }, { "shoot2" }, { "shoot3" }, { "shoot_empty" }, { "reload" },
+		{ "draw" }, { "empty_idle" }, { "draw_empty" }, { "smash" }, { "smash_empty" },
+	};
+	static const seq_t k98[] = { { "idle" }, { "shoot" }, { "reload" }, { "draw" }, { "stabslash" }, { "stab" } };
+	static const seq_t colt[] = {
+		{ "idle" }, { "shoot1" }, { "shoot2" }, { "reload" }, { "reload_noshoot" }, { "draw" },
+		{ "shoot_empty" }, { "empty_idle" },
+	};
+	static const seq_t luger[] = {
+		{ "idle" }, { "idle" }, { "idle" }, { "shoot" }, { "shoot_empty" }, { "reload_empty" },
+		{ "reload" }, { "draw" }, { "empty_idle" },
+	};
+	static const seq_t bazooka[] = {
+		{ "idle" }, { "draw" }, { "aimed" }, { "launch" }, { "down_to_up" }, { "up_to_down" },
+		{ "reload_aimed" }, { "reload_idle" },
+	};
+	static const seq_t mg42[] = {
+		{ "upidle" }, { "upidle8" }, { "upidleempty" }, { "downidle" }, { "downidle8" }, { "downidleempty" },
+		{ "downtoup" }, { "uptodown" }, { "upshoot" }, { "downshoot" }, { "downshoot8" }, { "reload" },
+	};
+	const int ngarand = (int)( sizeof( garand ) / sizeof( garand[0] ));
+	const int nk98 = (int)( sizeof( k98 ) / sizeof( k98[0] ));
+	const int ncolt = (int)( sizeof( colt ) / sizeof( colt[0] ));
+	const int nluger = (int)( sizeof( luger ) / sizeof( luger[0] ));
+	const int nbazooka = (int)( sizeof( bazooka ) / sizeof( bazooka[0] ));
+	const int nmg42 = (int)( sizeof( mg42 ) / sizeof( mg42[0] ));
 	const int nr = (int)( sizeof( rifle ) / sizeof( rifle[0] ));
 	const int nm = (int)( sizeof( mg ) / sizeof( mg[0] ));
 	const int ns = (int)( sizeof( spade ) / sizeof( spade[0] ));
 	int a;
 
-	CHECK( GC_VMAnimFamily( "models/v_garand.mdl" ) == GC_VMF_MP5 );
-	CHECK( GC_VMAnimFamily( "MODELS\\V_MG42.MDL" ) == GC_VMF_MP5 );
-	CHECK( GC_VMAnimFamily( "models/v_bren.mdl" ) == GC_VMF_SHOTGUN );
-	CHECK( GC_VMAnimFamily( "models/v_scoped98k.mdl" ) == GC_VMF_CROSSBOW );
-	CHECK( GC_VMAnimFamily( "models/v_panzerschreck.mdl" ) == GC_VMF_RPG );
+	CHECK( GC_VMAnimFamily( "models/v_garand.mdl" ) == GC_VMF_DODGUN );
+	CHECK( GC_VMAnimFamily( "MODELS\\V_MG42.MDL" ) == GC_VMF_DODGUN );
+	CHECK( GC_VMAnimFamily( "models/v_bren.mdl" ) == GC_VMF_DODGUN );
+	CHECK( GC_VMAnimFamily( "models/v_scoped98k.mdl" ) == GC_VMF_DODGUN );
+	CHECK( GC_VMAnimFamily( "models/v_panzerschreck.mdl" ) == GC_VMF_DODGUN );
 	CHECK( GC_VMAnimFamily( "models/v_spade.mdl" ) == GC_VMF_CROWBAR );
 	CHECK( GC_VMAnimFamily( "models/v_amerk.mdl" ) == GC_VMF_CROWBAR );
-	CHECK( GC_VMAnimFamily( "models/v_colt.mdl" ) == GC_VMF_GLOCK );
-	CHECK( GC_VMAnimFamily( "models/v_luger.mdl" ) == GC_VMF_GLOCK );
+	CHECK( GC_VMAnimFamily( "models/v_colt.mdl" ) == GC_VMF_DODGUN );
+	CHECK( GC_VMAnimFamily( "models/v_luger.mdl" ) == GC_VMF_DODGUN );
 	CHECK( GC_VMAnimIntent( GC_VMF_GLOCK, 3 ).action == GC_VMA_FIRE );
 	CHECK( GC_VMAnimIntent( GC_VMF_GLOCK, 7 ).action == GC_VMA_DRAW );
 	CHECK( GC_VMAnimFamily( "models/v_9mmAR.mdl" ) == GC_VMF_NONE );
@@ -96,12 +129,47 @@ int main( void )
 	CHECK( !strcmp( pick_name( spade, ns, GC_VMF_CROWBAR, 5 ), "slash2" ));
 	CHECK( !strcmp( pick_name( spade, ns, GC_VMF_CROWBAR, 1 ), "draw" ));
 
+	/* grenades: HL handgrenade_e onto the DoD names, plain beats exploding_ */
+	CHECK( GC_VMAnimFamily( "models/v_grenade.mdl" ) == GC_VMF_GRENADE );
+	CHECK( GC_VMAnimFamily( "models/v_stick.mdl" ) == GC_VMF_GRENADE );
+	CHECK( !strcmp( pick_name( grenade, ng, GC_VMF_GRENADE, 0 ), "idle" ));
+	CHECK( !strcmp( pick_name( grenade, ng, GC_VMF_GRENADE, 1 ), "idle" ));
+	CHECK( !strcmp( pick_name( grenade, ng, GC_VMF_GRENADE, 2 ), "pinpull" ));
+	CHECK( !strcmp( pick_name( grenade, ng, GC_VMF_GRENADE, 3 ), "throw" ));
+	CHECK( !strcmp( pick_name( grenade, ng, GC_VMF_GRENADE, 5 ), "throw" ));
+	CHECK( !strcmp( pick_name( grenade, ng, GC_VMF_GRENADE, 6 ), "holster" ));
+	CHECK( !strcmp( pick_name( grenade, ng, GC_VMF_GRENADE, 7 ), "draw" ));
+
+	/* the table-driven DoD gun: dodweapon_anim_e onto each model's own names */
+	CHECK( !strcmp( pick_name( garand, ngarand, GC_VMF_DODGUN, 0 ), "idle" ));
+	CHECK( !strcmp( pick_name( garand, ngarand, GC_VMF_DODGUN, 7 ), "empty_idle" ));
+	CHECK( !strcmp( pick_name( garand, ngarand, GC_VMF_DODGUN, 1 ), "shoot1" ));
+	CHECK( !strcmp( pick_name( garand, ngarand, GC_VMF_DODGUN, 2 ), "shoot2" ));
+	CHECK( !strcmp( pick_name( garand, ngarand, GC_VMF_DODGUN, 3 ), "shoot3" ));
+	CHECK( !strcmp( pick_name( garand, ngarand, GC_VMF_DODGUN, 8 ), "shoot_empty" ));
+	CHECK( !strcmp( pick_name( garand, ngarand, GC_VMF_DODGUN, 4 ), "reload" ));
+	CHECK( !strcmp( pick_name( garand, ngarand, GC_VMF_DODGUN, 5 ), "draw" ));
+	CHECK( !strcmp( pick_name( k98, nk98, GC_VMF_DODGUN, 1 ), "shoot" ));	/* not the bayonet stab */
+	CHECK( !strcmp( pick_name( k98, nk98, GC_VMF_DODGUN, 3 ), "shoot" ));
+	CHECK( !strcmp( pick_name( colt, ncolt, GC_VMF_DODGUN, 4 ), "reload" ));	/* not reload_noshoot */
+	CHECK( !strcmp( pick_name( colt, ncolt, GC_VMF_DODGUN, 8 ), "shoot_empty" ));
+	CHECK( !strcmp( pick_name( luger, nluger, GC_VMF_DODGUN, 4 ), "reload" ));	/* not reload_empty */
+	CHECK( !strcmp( pick_name( luger, nluger, GC_VMF_DODGUN, 1 ), "shoot" ));
+	CHECK( !strcmp( pick_name( bazooka, nbazooka, GC_VMF_DODGUN, 1 ), "launch" ));
+	CHECK( !strcmp( pick_name( bazooka, nbazooka, GC_VMF_DODGUN, 4 ), "reload_idle" ));	/* carried, not aimed */
+	CHECK( !strcmp( pick_name( bazooka, nbazooka, GC_VMF_DODGUN, 0 ), "idle" ));
+	CHECK( !strcmp( pick_name( mg42, nmg42, GC_VMF_DODGUN, 0 ), "downidle" ));	/* bipod folded wins */
+	CHECK( !strcmp( pick_name( mg42, nmg42, GC_VMF_DODGUN, 7 ), "downidleempty" ));
+	CHECK( !strncmp( pick_name( mg42, nmg42, GC_VMF_DODGUN, 1 ), "downshoot", 9 ));
+	CHECK( !strcmp( pick_name( mg42, nmg42, GC_VMF_DODGUN, 4 ), "reload" ));
+	CHECK( GC_VMAnimIntent( GC_VMF_DODGUN, 6 ).action == GC_VMA_HOLSTER );
+
 	/* every index of every family stays in range, even on a model with no names */
 	for( a = -1; a < 40; a++ )
 	{
 		gc_vm_family_t f;
 
-		for( f = GC_VMF_MP5; f <= GC_VMF_CROWBAR; f++ )
+		for( f = GC_VMF_MP5; f <= GC_VMF_DODGUN; f++ )
 		{
 			const gc_vm_intent_t intent = GC_VMAnimIntent( f, a );
 			const int s1 = GC_VMAnimPick( rifle[0].label, sizeof( seq_t ), nr, intent );
