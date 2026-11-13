@@ -85,7 +85,13 @@ static int     gc_deferred_studio_attempts;
 	 * WorldDL shrinks its chunk cache (see Mod_GCPromoteMapModels). */
 #define GC_STUDIO_BSS_BYTES (184 * 1024)
 #else
-#define GC_STUDIO_BSS_BYTES (384 * 1024)
+/* HL1 intro set on c0a0: crowbar 46 + scientist 175 + barney 129 KiB plus
+ * props (~22 KiB) and the two 66 KiB animation slots placed at each reset
+ * (~503 KiB).  At 384 KiB barney.mdl never fit, so both c0a0 Barneys had
+ * no model: no draw, no animation, no scripted sequence (DispatchAnimEvents
+ * "Gibbed monster is thinking!" every frame).  The arena was 1 MiB until
+ * the Nov 7 networking merge. */
+#define GC_STUDIO_BSS_BYTES (512 * 1024)
 #endif
 static byte    gc_studio_bss[GC_STUDIO_BSS_BYTES] __attribute__((aligned( 32 )));
 static size_t  gc_studio_bss_bump;
