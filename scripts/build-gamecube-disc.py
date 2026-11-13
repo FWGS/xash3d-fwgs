@@ -1246,6 +1246,8 @@ def stage_gc_loading_assets(source: Path, output: Path) -> bool:
 
 	menu_dir = output / "resource" / "gc_menu"
 	menu_dir.mkdir(parents=True, exist_ok=True)
+	# Changelevel / New Game "LOADING..." plaque (retail gfx.wad art).
+	build_loading_spans(source, output)
 
 	# Lost Coast CapFaces title: keep console/background01 loading+intro plates.
 	src_note = menu_dir / "SOURCE.txt"
@@ -1904,6 +1906,109 @@ def wt_encode(w: int, h: int, pixels: bytes, palette: bytes, alpha: bool) -> tup
 		fcol = np.where(cover[..., None] > 0, sumc / np.maximum(cover[..., None], 1e-6), 0)
 		fcov = cover / 4
 	return tw, th, count, bytes(levels)
+
+
+def _wad_lump(wad: Path, name: str) -> bytes | None:
+	"""Raw lump bytes from a WAD3 file, or None."""
+	try:
+		data = wad.read_bytes()
+	except OSError:
+		return None
+	if data[:4] != b"WAD3":
+		return None
+	count, offset = struct.unpack_from("<ii", data, 4)
+	for i in range(count):
+		filepos, disksize, size, ltype, comp = struct.unpack_from("<iiibb", data, offset + i * 32)
+		lname = data[offset + i * 32 + 16: offset + i * 32 + 32].split(b"\0")[0].decode("latin1")
+		if lname.upper() == name.upper():
+			return data[filepos: filepos + disksize]
+	return None
+
+
+def build_loading_spans(source: Path, output: Path) -> list[tuple[str, Path]]:
+	"""media/gc_loading.spn: the changelevel / New Game loading plaque as
+	coloured horizontal spans the engine draws with plain Flipper quads over
+	the held frame (vid_gamecube.c GC_LoadingOverlayDraw).
+
+	The art is retail: gfx.wad lump LAMBDA is GoldSrc's own "LOADING..."
+	plaque (orange letters, black outline, index 255 transparent), drawn at
+	the centre of the screen.  Here at 2x for a TV, on a tight dark plate
+	(the overlay replaces a rectangle of the held frame), with a thin amber
+	progress line the engine fills through the load stages.
+
+	Big-endian, compact (MEM1 is that tight): 'GCLS', u8 w/16, h, ncolors,
+	0, u16 bar_x, bar_y, bar_w, bar_h, u32 bar_track, bar_fill, u16 nspans,
+	u16 0, ncolors x u32 rgba, then nspans x (u8 x, y, len, colour index).
+	"""
+	lump = _wad_lump(source / "gfx.wad", "LAMBDA")
+	if not lump or len(lump) < 8:
+		return []
+	lw, lh = struct.unpack_from("<II", lump, 0)
+	pixels = lump[8: 8 + lw * lh]
+	pal_off = 8 + lw * lh + 2
+	palette = lump[pal_off: pal_off + 768]
+	if len(pixels) < lw * lh or len(palette) < 768:
+		return []
+	opaque = [i for i, v in enumerate(pixels) if v != 255]
+	if not opaque:
+		return []
+	x0 = min(i % lw for i in opaque); x1 = max(i % lw for i in opaque)
+	y0 = min(i // lw for i in opaque); y1 = max(i // lw for i in opaque)
+	tw, th = x1 - x0 + 1, y1 - y0 + 1
+
+	scale = 2
+	pad_x, pad_top, bar_gap, bar_h, pad_bottom = 16, 10, 6, 3, 9
+	W = ( tw * scale + 2 * pad_x + 15 ) & ~15	# XFB copies are 16-pixel aligned
+	H = pad_top + th * scale + bar_gap + bar_h + pad_bottom
+	plate = (10, 9, 8)
+	edge = (70, 50, 14)
+	rows = [[plate] * W for _ in range(H)]
+	for x in range(W):
+		rows[0][x] = rows[H - 1][x] = edge
+	for y in range(H):
+		rows[y][0] = rows[y][W - 1] = edge
+	ox = ( W - tw * scale ) // 2
+	for y in range(th):
+		for x in range(tw):
+			v = pixels[( y0 + y ) * lw + x0 + x]
+			if v == 255:
+				continue
+			c = tuple(palette[3 * v: 3 * v + 3])
+			for sy in range(scale):
+				for sx in range(scale):
+					rows[pad_top + y * scale + sy][ox + x * scale + sx] = c
+	bar_x, bar_y = ox, pad_top + th * scale + bar_gap
+	bar_w = tw * scale
+
+	def rgba(c):
+		return (c[0] << 24) | (c[1] << 16) | (c[2] << 8) | 0xFF
+
+	spans = []
+	for y, row in enumerate(rows):
+		x = 0
+		while x < W:
+			run = 1
+			while x + run < W and row[x + run] == row[x]:
+				run += 1
+			spans.append((x, y, run, rgba(row[x])))
+			x += run
+	colours = sorted({c for _, _, _, c in spans})
+	if W > 255 * 16 or W > 255 or H > 255 or len(colours) > 255:
+		return []
+	cindex = {c: i for i, c in enumerate(colours)}
+	out = output / "media" / "gc_loading.spn"
+	out.parent.mkdir(parents=True, exist_ok=True)
+	blob = bytearray(b"GCLS")
+	blob += struct.pack(">BBBBHHHHIIHH", W // 16, H, len(colours), 0, bar_x, bar_y, bar_w, bar_h,
+		rgba((40, 32, 20)), rgba((255, 160, 0)), len(spans), 0)
+	for c in colours:
+		blob += struct.pack(">I", c)
+	for x, y, run, c in spans:
+		blob += struct.pack(">BBBB", x, y, run, cindex[c])
+	out.write_bytes(bytes(blob))
+	print(f"  loading plaque: retail LAMBDA {tw}x{th} at {scale}x, {W}x{H}, "
+		f"{len(spans)} spans, {len(blob)} bytes")
+	return [("media/gc_loading.spn", out)]
 
 
 def build_music_overlays(source: Path, output: Path, cache: Path) -> list[tuple[str, Path]]:
@@ -3442,6 +3547,8 @@ def stage_smoke_data(
 		shutil.copy2(src, dest)
 		print(f"  world DL: staged {name} ({dest.stat().st_size} bytes)")
 
+	# Changelevel / New Game loading plaque (retail gfx.wad art, ~3 KiB).
+	build_loading_spans(source, output)
 	(output / "custom").mkdir(exist_ok=True)
 	(output / "maps").mkdir(exist_ok=True)
 	return output

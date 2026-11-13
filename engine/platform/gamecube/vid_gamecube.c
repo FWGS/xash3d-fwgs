@@ -502,16 +502,86 @@ static int GC_LoadingGlyphQuads( const char *text, int x, int y, qboolean emit )
 	return n;
 }
 
+/* Retail loading plaque baked at disc build (build-gamecube-disc.py
+ * build_loading_spans): gfx.wad LAMBDA "LOADING..." at 2x on a dark plate,
+ * as coloured spans, plus a progress line.  Loaded once; without the file
+ * the old text box is drawn. */
+#define GC_LOADING_SPN_MAX	( 4 * 1024 )	/* MEM1: every KiB counts at c0a0 */
+static byte gc_loading_spn[GC_LOADING_SPN_MAX] __attribute__((aligned( 32 )));
+static int gc_loading_spn_state;	/* 0 untried, 1 ready, -1 missing */
+static u16 gc_spn_w, gc_spn_h, gc_spn_bar_x, gc_spn_bar_y, gc_spn_bar_w, gc_spn_bar_h, gc_spn_count, gc_spn_ncolors;
+static u32 gc_spn_track, gc_spn_fill;
+static float gc_loading_stage;		/* fraction reached by load stages */
+static float gc_loading_progress;	/* drawn fraction, creeps toward the next stage */
+
+static u16 GC_SpnU16( const byte *p ) { return (u16)(( p[0] << 8 ) | p[1] ); }
+static u32 GC_SpnU32( const byte *p ) { return ((u32)p[0] << 24 ) | ((u32)p[1] << 16 ) | ((u32)p[2] << 8 ) | p[3]; }
+
+static qboolean GC_LoadingSpansReady( void )
+{
+	file_t *f;
+	fs_offset_t len, got;
+
+	if( gc_loading_spn_state )
+		return gc_loading_spn_state > 0;
+	gc_loading_spn_state = -1;
+	f = FS_Open( "media/gc_loading.spn", "rb", false );
+	if( !f )
+		return false;
+	len = FS_FileLength( f );
+	got = ( len > 32 && len <= GC_LOADING_SPN_MAX ) ? FS_Read( f, gc_loading_spn, len ) : 0;
+	FS_Close( f );
+	if( got != len || memcmp( gc_loading_spn, "GCLS", 4 ))
+		return false;
+	/* 'GCLS', u8 w/16, h, ncolors, 0, u16 bar x/y/w/h, u32 track, fill,
+	 * u16 nspans, 0, ncolors x u32, nspans x (u8 x, y, len, colour). */
+	gc_spn_w = (u16)gc_loading_spn[4] * 16;
+	gc_spn_h = gc_loading_spn[5];
+	gc_spn_ncolors = gc_loading_spn[6];
+	gc_spn_bar_x = GC_SpnU16( gc_loading_spn + 8 );
+	gc_spn_bar_y = GC_SpnU16( gc_loading_spn + 10 );
+	gc_spn_bar_w = GC_SpnU16( gc_loading_spn + 12 );
+	gc_spn_bar_h = GC_SpnU16( gc_loading_spn + 14 );
+	gc_spn_track = GC_SpnU32( gc_loading_spn + 16 );
+	gc_spn_fill = GC_SpnU32( gc_loading_spn + 20 );
+	gc_spn_count = GC_SpnU16( gc_loading_spn + 24 );
+	if( !gc_spn_w || !gc_spn_h || !gc_spn_ncolors
+		|| 28 + (fs_offset_t)gc_spn_ncolors * 4 + (fs_offset_t)gc_spn_count * 4 > len )
+		return false;
+	gc_loading_spn_state = 1;
+	Con_Reportf( "Xash3D GameCube: loading plaque %ux%u spans=%u\n", gc_spn_w, gc_spn_h, gc_spn_count );
+	return true;
+}
+
+/* Load stages set a floor; pulses between them creep toward the next. */
+void GC_LoadingSetStage( float fraction )
+{
+	if( fraction > gc_loading_stage )
+		gc_loading_stage = fraction;
+	if( gc_loading_progress < gc_loading_stage )
+		gc_loading_progress = gc_loading_stage;
+}
+
+static void GC_LoadingCreep( void )
+{
+	const float cap = Q_min( gc_loading_stage + 0.2f, 0.97f );
+
+	if( gc_loading_progress < cap )
+		gc_loading_progress += ( cap - gc_loading_progress ) * 0.12f;
+}
+
 static void GC_LoadingOverlayDraw( void )
 {
 	const int cell = 6 * GC_LOADING_SCALE;
 	const u16 efb_h = rmode->efbHeight, xfb_h = rmode->xfbHeight, fb_w = rmode->fbWidth;
+	const qboolean plaque = GC_LoadingSpansReady() && gc_spn_w <= fb_w && gc_spn_h <= efb_h;
 	/* XFB lines are 32-byte aligned: x and width in 16-pixel steps. */
-	const u16 w = (u16)(((((int)sizeof( GC_LOADING_TEXT ) - 1 + GC_LOADING_DOTS ) * cell
+	const u16 w = plaque ? gc_spn_w : (u16)(((((int)sizeof( GC_LOADING_TEXT ) - 1 + GC_LOADING_DOTS ) * cell
 		+ 8 * GC_LOADING_SCALE ) + 15 ) & ~15 );
-	const u16 h = 15 * GC_LOADING_SCALE;
+	const u16 h = plaque ? gc_spn_h : 15 * GC_LOADING_SCALE;
 	const u16 x = (u16)((( fb_w - w ) / 2 ) & ~15 );
-	const u16 y = (u16)( efb_h - h - efb_h / 8 );
+	/* Retail draws the plaque at the centre of the screen. */
+	const u16 y = plaque ? (u16)(( efb_h - h ) / 2 ) : (u16)( efb_h - h - efb_h / 8 );
 	const int tx = x + 4 * GC_LOADING_SCALE, ty = y + 4 * GC_LOADING_SCALE;
 	char text[sizeof( GC_LOADING_TEXT ) + GC_LOADING_DOTS];
 	u32 dots = gc_loading_phase % ( GC_LOADING_DOTS + 1 ), i, lines;
@@ -522,7 +592,7 @@ static void GC_LoadingOverlayDraw( void )
 	Q_strncpy( text, GC_LOADING_TEXT, sizeof( text ));
 	for( i = 0; i < dots; i++ )
 		Q_strncat( text, ".", sizeof( text ));
-	quads = 1 + GC_LoadingGlyphQuads( text, tx, ty, false );
+	quads = plaque ? gc_spn_count + 2 : 1 + GC_LoadingGlyphQuads( text, tx, ty, false );
 
 	GX_SetViewport( 0.0f, 0.0f, fb_w, efb_h, 0.0f, 1.0f );
 	GX_SetScissor( 0, 0, fb_w, efb_h );
@@ -555,8 +625,28 @@ static void GC_LoadingOverlayDraw( void )
 	GX_InvVtxCache();
 
 	GX_Begin( GX_QUADS, GX_VTXFMT0, (u16)( quads * 4 ));
-	GC_LoadingQuad( x, y, w, h, 0x181818FF );
-	GC_LoadingGlyphQuads( text, tx, ty, true );
+	if( plaque )
+	{
+		const byte *colors = gc_loading_spn + 28;
+		const byte *sp = colors + gc_spn_ncolors * 4;
+		const float fill = Q_max( 0.0f, Q_min( gc_loading_progress, 1.0f ));
+		const f32 fw = (f32)gc_spn_bar_w * fill;
+		u32 i;
+
+		for( i = 0; i < gc_spn_count; i++, sp += 4 )
+		{
+			const u32 ci = sp[3] < gc_spn_ncolors ? sp[3] : 0;
+
+			GC_LoadingQuad( x + sp[0], y + sp[1], sp[2], 1, GC_SpnU32( colors + ci * 4 ));
+		}
+		GC_LoadingQuad( x + gc_spn_bar_x, y + gc_spn_bar_y, gc_spn_bar_w, gc_spn_bar_h, gc_spn_track );
+		GC_LoadingQuad( x + gc_spn_bar_x, y + gc_spn_bar_y, fw, gc_spn_bar_h, gc_spn_fill );
+	}
+	else
+	{
+		GC_LoadingQuad( x, y, w, h, 0x181818FF );
+		GC_LoadingGlyphQuads( text, tx, ty, true );
+	}
 	GX_End();
 
 	GX_SetDispCopySrc( x, y, w, h );
@@ -584,6 +674,7 @@ static void GC_LoadingOverlayBegin( void )
 		return;
 	gc_loading_fb = fb;
 	gc_loading_phase = 0;
+	gc_loading_stage = gc_loading_progress = 0.0f;
 	/* Menu New Game has no previous gameplay frame to preserve. Cover the
 	 * transition in black while the server, BSP and first Flipper frame settle;
 	 * changelevels retain the retail behavior of holding the prior frame.
@@ -615,6 +706,7 @@ void GC_LoadingOverlayPulse( void )
 	if( !gc_loading_fb || !GC_TransitionHoldActive() || Sys_FloatTime() < gc_loading_next )
 		return;
 	gc_loading_phase++;
+	GC_LoadingCreep();
 	GC_LoadingOverlayDraw();
 	gc_loading_next = Sys_FloatTime() + GC_LOADING_PULSE_SEC;
 }
@@ -11066,6 +11158,18 @@ void GC_DrawLoadingStatus( const char *message, const char *details )
 		GC_BeginTransitionHold();
 	if( GC_TransitionHoldActive())
 	{
+		static const struct { const char *msg; float frac; } stages[] = {
+			{ "NEW GAME", 0.05f }, { "PREPARING MAP", 0.1f }, { "LOADING BSP", 0.25f },
+			{ "SPAWNING WORLD", 0.55f }, { "SPAWNING ENTITIES", 0.65f },
+			{ "MAP LOADED", 0.9f }, { "MAP READY", 1.0f },
+		};
+		int si;
+
+		for( si = 0; message && si < (int)ARRAYSIZE( stages ); si++ )
+		{
+			if( !Q_stricmp( message, stages[si].msg ))
+				GC_LoadingSetStage( stages[si].frac );
+		}
 		GC_LoadingOverlayPulse();
 		return;
 	}
