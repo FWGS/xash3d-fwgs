@@ -2123,6 +2123,26 @@ qboolean Mod_GCAttachStudioSkins( model_t *mod )
 	return Mod_GCStudioSkinsBound( (studiohdr_t *)mod->cache.data );
 }
 
+#if !XASH_DODGC_NETWORK
+/* True when the running map precached this model.  Uses the server's
+ * precache list: a model skipped at spawn (deferred studio read=0) is still
+ * precached and must be promoted here, while models the map never uses
+ * must not be loaded at all. */
+static qboolean Mod_GCMapPrecachedModel( const char *path )
+{
+	int i;
+
+	if( !SV_Active( ))
+		return true;
+	for( i = 1; i < MAX_MODELS; i++ )
+	{
+		if( sv.model_precache[i][0] && !Q_stricmp( sv.model_precache[i], path ))
+			return true;
+	}
+	return false;
+}
+#endif
+
 void Mod_GCUploadDeferredStudioSkins( void )
 {
 #if XASH_DODGC_NETWORK
@@ -2176,8 +2196,18 @@ void Mod_GCUploadDeferredStudioSkins( void )
 
 	for( i = 0; paths[i]; i++ )
 	{
-		model_t *mod = Mod_FindName( paths[i], false );
+		model_t *mod;
 		qboolean ok;
+
+#if !XASH_DODGC_NETWORK
+		if( !Mod_GCMapPrecachedModel( paths[i] ))
+		{
+			Con_Reportf( "Xash3D GameCube: deferred skins skip '%s' (not precached here)\n",
+				paths[i] );
+			continue;
+		}
+#endif
+		mod = Mod_FindName( paths[i], false );
 
 #if XASH_DODGC_NETWORK
 		/* CapFaces: never promote the other team's rifle just to skin it. */
@@ -2188,6 +2218,9 @@ void Mod_GCUploadDeferredStudioSkins( void )
 			continue;
 		}
 #else
+		/* Only models this map registered (precached).  Promoting the whole
+		 * list loaded controller/islave and the DoD viewmodels on c0a0 and
+		 * spent MEM1 on 33 skins the map never draws (checked above). */
 		if( !mod || !mod->cache.data )
 			Mod_GCPromoteStudioPath( paths[i] );
 		mod = Mod_FindName( paths[i], false );
