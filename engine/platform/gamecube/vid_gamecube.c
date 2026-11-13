@@ -2600,6 +2600,32 @@ qboolean GC_GetWaterFaceFog( int index, byte rgb[3], u8 *reflect_x100 )
 	return true;
 }
 
+/* VMT $fogstart/$fogend and $cheapwater*distance from .gcw bytes 120–127. */
+qboolean GC_GetWaterFaceFogRange( int index, float *fog_start, float *fog_end,
+	float *cheap_start, float *cheap_end )
+{
+	const byte *rec = GC_WaterRec( index );
+	uint16_t fs, fe, cs, ce;
+
+	if( !rec )
+	{
+		if( fog_start ) *fog_start = 1.0f;
+		if( fog_end ) *fog_end = 100.0f;
+		if( cheap_start ) *cheap_start = 500.0f;
+		if( cheap_end ) *cheap_end = 1000.0f;
+		return false;
+	}
+	fs = GC_Be16( rec + 120 );
+	fe = GC_Be16( rec + 122 );
+	cs = GC_Be16( rec + 124 );
+	ce = GC_Be16( rec + 126 );
+	if( fog_start ) *fog_start = fs ? (float)fs : 1.0f;
+	if( fog_end ) *fog_end = fe ? (float)fe : 100.0f;
+	if( cheap_start ) *cheap_start = cs ? (float)cs * 4.0f : 500.0f;
+	if( cheap_end ) *cheap_end = ce ? (float)ce * 4.0f : 1000.0f;
+	return true;
+}
+
 qboolean GC_WaterTexReady( void )
 {
 	return gc_water_tex_ready;
