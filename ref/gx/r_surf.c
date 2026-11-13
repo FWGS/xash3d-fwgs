@@ -1178,7 +1178,11 @@ void R_InitCaches( void )
 #endif
 
 #if XASH_GAMECUBE
-	if( gEngfuncs.Sys_CheckParm( "-gcmap" ))
+	/* Menu New Game route: the menu draws through GX only, and play start
+	 * allocates the cache lazily (R_GcmapPrepareWorldRender).  Taking 256 KiB
+	 * here at boot left ~22 KiB of MEM1 at the menu and the guest hung
+	 * loading valve_english.txt before New Game. */
+	if( gEngfuncs.Sys_CheckParm( "-gcmap" ) || gEngfuncs.Sys_CheckParm( "-gcmenuplaystart" ))
 	{
 		if( sc_base )
 		{
@@ -1186,7 +1190,8 @@ void R_InitCaches( void )
 			free( sc_base );
 			sc_base = sc_rover = NULL;
 		}
-		R_TryInitGcmapSurfaceCache();
+		if( gEngfuncs.Sys_CheckParm( "-gcmap" ))
+			R_TryInitGcmapSurfaceCache();
 		return;
 	}
 #endif
@@ -1241,7 +1246,7 @@ qboolean R_TryInitGcmapSurfaceCache( void )
 	if( sc_base )
 		return true;
 
-	if( !gEngfuncs.Sys_CheckParm( "-gcmap" ))
+	if( !gEngfuncs.Sys_CheckParm( "-gcmap" ) && !gEngfuncs.Sys_CheckParm( "-gcmenuplaystart" ))
 		return false;
 
 	size = GC_SURFACE_CACHE_DEFAULT;

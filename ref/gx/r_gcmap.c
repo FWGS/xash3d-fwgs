@@ -334,7 +334,7 @@ void R_GcmapMarkMapLoadComplete( void )
 
 qboolean R_GcmapEnsureSurfaceCache( void )
 {
-	if( !gEngfuncs.Sys_CheckParm( "-gcmap" ))
+	if( !gEngfuncs.Sys_CheckParm( "-gcmap" ) && !gEngfuncs.Sys_CheckParm( "-gcmenuplaystart" ))
 		return false;
 
 	return R_TryInitGcmapSurfaceCache();
