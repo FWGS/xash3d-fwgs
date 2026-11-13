@@ -83,7 +83,9 @@ def find_render_window(timeout, userdir=None):
 	while time.time() < deadline:
 		tree = sh("xwininfo", "-root", "-tree").stdout
 		for line in tree.splitlines():
-			if '("dolphin-emu" "GameCube")' not in line or ")  800x600" in line:
+			# The probe runs Dolphin as xash-gc-dolphin (pkill-safe copy), and
+			# Qt names the window class after the binary.
+			if not re.search(r'\("(?:dolphin-emu|xash-gc-dolphin)" "GameCube"\)', line) or ")  800x600" in line:
 				continue
 			m = re.search(r"(\d+)x(\d+)\+", line)
 			if m and int(m.group(1)) >= 300 and int(m.group(2)) >= 200:
