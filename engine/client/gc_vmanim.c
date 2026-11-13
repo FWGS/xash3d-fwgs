@@ -18,22 +18,25 @@ typedef struct
 // the viewmodels dod_game.c hands to each HL1 weapon class
 static const gc_vm_model_t gc_vm_models[] =
 {
-	{ "v_garand",		GC_VMF_MP5 },
-	{ "v_98k",		GC_VMF_MP5 },
-	{ "v_tommy",		GC_VMF_MP5 },
-	{ "v_mp40",		GC_VMF_MP5 },
-	{ "v_30cal",		GC_VMF_MP5 },
-	{ "v_mg42",		GC_VMF_MP5 },
-	{ "v_bren",		GC_VMF_SHOTGUN },
-	{ "v_mp44",		GC_VMF_SHOTGUN },
-	{ "v_spring",		GC_VMF_CROSSBOW },
-	{ "v_scoped98k",	GC_VMF_CROSSBOW },
-	{ "v_bazooka",		GC_VMF_RPG },
-	{ "v_panzerschreck",	GC_VMF_RPG },
-	{ "v_colt",		GC_VMF_GLOCK },
-	{ "v_luger",		GC_VMF_GLOCK },
+	// DoD guns: the table-driven CDodWeapon (dod_weapon.cpp)
+	{ "v_garand",		GC_VMF_DODGUN },
+	{ "v_98k",		GC_VMF_DODGUN },
+	{ "v_tommy",		GC_VMF_DODGUN },
+	{ "v_mp40",		GC_VMF_DODGUN },
+	{ "v_30cal",		GC_VMF_DODGUN },
+	{ "v_mg42",		GC_VMF_DODGUN },
+	{ "v_bren",		GC_VMF_DODGUN },
+	{ "v_mp44",		GC_VMF_DODGUN },
+	{ "v_spring",		GC_VMF_DODGUN },
+	{ "v_scoped98k",	GC_VMF_DODGUN },
+	{ "v_bazooka",		GC_VMF_DODGUN },
+	{ "v_panzerschreck",	GC_VMF_DODGUN },
+	{ "v_colt",		GC_VMF_DODGUN },
+	{ "v_luger",		GC_VMF_DODGUN },
 	{ "v_amerk",		GC_VMF_CROWBAR },
 	{ "v_spade",		GC_VMF_CROWBAR },
+	{ "v_grenade",		GC_VMF_GRENADE },
+	{ "v_stick",		GC_VMF_GRENADE },
 };
 
 static char GC_VMLower( char c )
@@ -168,6 +171,30 @@ gc_vm_intent_t GC_VMAnimIntent( gc_vm_family_t family, int hl_anim )
 		case 8: return GC_VMIntent( GC_VMA_HOLSTER, 0, 0 );
 		}
 		break;
+	case GC_VMF_DODGUN:
+		// dodweapon_anim_e: IDLE, FIRE1-3, RELOAD, DRAW, HOLSTER, IDLE_EMPTY, FIRE_EMPTY
+		switch( hl_anim )
+		{
+		case 0: return GC_VMIntent( GC_VMA_IDLE, 0, 0 );
+		case 1: case 2: case 3: return GC_VMIntent( GC_VMA_FIRE, hl_anim - 1, 0 );
+		case 4: return GC_VMIntent( GC_VMA_RELOAD, 0, 0 );
+		case 5: return GC_VMIntent( GC_VMA_DRAW, 0, 0 );
+		case 6: return GC_VMIntent( GC_VMA_HOLSTER, 0, 0 );
+		case 7: return GC_VMIntent( GC_VMA_IDLE, 0, 1 );
+		case 8: return GC_VMIntent( GC_VMA_FIRE, 0, 1 );
+		}
+		break;
+	case GC_VMF_GRENADE:
+		// handgrenade_e: IDLE, FIDGET, PINPULL, THROW1-3 (toss/medium/hard), HOLSTER, DRAW
+		switch( hl_anim )
+		{
+		case 0: case 1: return GC_VMIntent( GC_VMA_IDLE, 0, 0 );
+		case 2: return GC_VMIntent( GC_VMA_PRIME, 0, 0 );
+		case 3: case 4: case 5: return GC_VMIntent( GC_VMA_THROW, 0, 0 );
+		case 6: return GC_VMIntent( GC_VMA_HOLSTER, 0, 0 );
+		case 7: return GC_VMIntent( GC_VMA_DRAW, 0, 0 );
+		}
+		break;
 	default:
 		return GC_VMIntent( GC_VMA_NONE, 0, 0 );
 	}
@@ -175,10 +202,12 @@ gc_vm_intent_t GC_VMAnimIntent( gc_vm_family_t family, int hl_anim )
 }
 
 static const char *const gc_vm_words_idle[] = { "idle", NULL };
-static const char *const gc_vm_words_fire[] = { "shoot", "fire", "attack", "slash", "stab", "swing", NULL };
+static const char *const gc_vm_words_fire[] = { "shoot", "fire", "launch", "attack", "slash", "stab", "swing", NULL };
 static const char *const gc_vm_words_reload[] = { "reload", NULL };
 static const char *const gc_vm_words_draw[] = { "draw", "deploy", NULL };
 static const char *const gc_vm_words_holster[] = { "holster", NULL };
+static const char *const gc_vm_words_prime[] = { "pinpull", NULL };
+static const char *const gc_vm_words_throw[] = { "throw", NULL };
 
 static const char *const *GC_VMWords( gc_vm_action_t action )
 {
@@ -189,6 +218,8 @@ static const char *const *GC_VMWords( gc_vm_action_t action )
 	case GC_VMA_RELOAD: return gc_vm_words_reload;
 	case GC_VMA_DRAW: return gc_vm_words_draw;
 	case GC_VMA_HOLSTER: return gc_vm_words_holster;
+	case GC_VMA_PRIME: return gc_vm_words_prime;
+	case GC_VMA_THROW: return gc_vm_words_throw;
 	default: return NULL;
 	}
 }
@@ -236,6 +267,13 @@ static int GC_VMScore( const char *label, gc_vm_intent_t intent )
 		score += intent.empty ? 50 : -50;
 	if( GC_VMStartsUp( label ) || GC_VMHas( label, "deployed" ))
 		score -= 40;
+	// grenade "exploding_*" sequences are the primed-in-hand variants; the
+	// plain sequence wins unless it is missing
+	if( GC_VMHas( label, "exploding" ))
+		score -= 60;
+	// rocket launchers have reload_aimed and reload_idle: the carried one wins
+	if( GC_VMHas( label, "aimed" ))
+		score -= 20;
 	return score;
 }
 
@@ -297,6 +335,8 @@ const char *GC_VMAnimActionName( gc_vm_action_t action )
 	case GC_VMA_RELOAD: return "reload";
 	case GC_VMA_DRAW: return "draw";
 	case GC_VMA_HOLSTER: return "holster";
+	case GC_VMA_PRIME: return "prime";
+	case GC_VMA_THROW: return "throw";
 	case GC_VMA_KEEP: return "keep";
 	default: return "none";
 	}
