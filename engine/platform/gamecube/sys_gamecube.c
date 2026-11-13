@@ -91,6 +91,7 @@ static bool GCube_DVDReadSectors( sec_t sector, sec_t count, void *buffer );
 static qboolean GCube_MountDisc( void );
 static void GCube_EnsureFatMounted( void );
 static void GCube_LoadDiscBootOverrides( void );
+static void GCube_ReinjectMissingBootArgv( void );
 static qboolean GCube_FatHasGameData( void );
 /* Declared later; used when logging multi-game detection onto FAT. */
 void GCube_AppendSwissEvidence( const char *fmt, ... );
@@ -931,6 +932,9 @@ void GCube_Init( void )
 		Con_Reportf( "GameCube data directory: %s\n", xashdir );
 		GC_MemWatch( "platform chdir" );
 		GCube_LoadDiscBootOverrides();
+		/* GetArgv runs before chdir, so disc-relative gamecube.cfg can miss
+		 * and bake a menu-only argv. After the data root is live, reinject. */
+		GCube_ReinjectMissingBootArgv();
 		GC_MemWatch( "platform boot overrides" );
 	}
 	else if( xashdir[0] )
@@ -1053,6 +1057,7 @@ static qboolean gc_landmark3_configured;
 static qboolean gc_leanpvs_configured;
 static qboolean gc_fullphysics_configured;
 static qboolean gc_worldrender_configured;
+static qboolean gc_capfaces_smoke_configured;
 static qboolean gc_tas_configured;
 static qboolean gc_dumpframes_configured;
 static qboolean gc_swissquit_configured;
@@ -1131,6 +1136,7 @@ static void GCube_LoadDiscBootOverrides( void )
 	gc_leanpvs_configured = false;
 	gc_fullphysics_configured = false;
 	gc_worldrender_configured = false;
+	gc_capfaces_smoke_configured = false;
 	gc_tas_configured = false;
 	gc_dumpframes_configured = false;
 	gc_swissquit_configured = false;
@@ -1372,6 +1378,18 @@ static void GCube_LoadDiscBootOverrides( void )
 			{
 				gc_worldrender_configured = true;
 				SYS_Report( "Xash3D GameCube: disc boot override gcworldrender\n" );
+				continue;
+			}
+		}
+
+		/* CapFaces Lost Coast smoke + soundscape gate (bare cfg token). */
+		if( !Q_strnicmp( cursor, "gccapfacessmoke", 15 ))
+		{
+			char ch = cursor[15];
+			if( ch == '\0' || ch == '\r' || ch == '\n' || ch == ' ' || ch == '\t' )
+			{
+				gc_capfaces_smoke_configured = true;
+				SYS_Report( "Xash3D GameCube: disc boot override gccapfacessmoke\n" );
 				continue;
 			}
 		}
@@ -1887,6 +1905,44 @@ void GCube_PollSwissQuit( void )
 #endif
 }
 
+/* Platform_Init reloads gamecube.cfg after chdir. If GetArgv baked a
+ * menu-only argv (disc-relative cfg missed), append the route flags so
+ * Sys_CheckParm / smoke boot see -gcmap/-gcvst before FS_Init. */
+static void GCube_ReinjectMissingBootArgv( void )
+{
+	int n = host.argc;
+	const int cap = (int)( sizeof( gc_argv ) / sizeof( gc_argv[0] ));
+
+	if( !host.argv || (char **)host.argv != gc_argv )
+		return;
+
+	if( gc_worldrender_configured && !Sys_CheckParm( "-gcworldrender" ) && n + 1 < cap )
+		gc_argv[n++] = "-gcworldrender";
+	if( gc_capfaces_smoke_configured && !Sys_CheckParm( "-gccapfacessmoke" ) && n + 1 < cap )
+		gc_argv[n++] = "-gccapfacessmoke";
+	if( gc_smoke_map_configured && !Sys_CheckParm( "-gcmap" ) && n + 2 < cap )
+	{
+		gc_argv[n++] = "-gcmap";
+		gc_argv[n++] = gc_smoke_map;
+	}
+	if( gc_vst_configured && !Sys_CheckParm( "-gcvst" ) && n + 1 < cap )
+		gc_argv[n++] = "-gcvst";
+	else if( !gc_vst_configured && gc_dumpeye_configured && gc_dumpeye_arg[0]
+		&& !Sys_CheckParm( "-gcdumpeye" ) && n + 2 < cap )
+	{
+		gc_argv[n++] = "-gcdumpeye";
+		gc_argv[n++] = gc_dumpeye_arg;
+	}
+	if( gc_dumpframes_configured && !Sys_CheckParm( "-gcdumpframes" ) && n + 1 < cap )
+		gc_argv[n++] = "-gcdumpframes";
+
+	if( n != host.argc )
+	{
+		host.argc = n;
+		SYS_Report( "Xash3D GameCube: reinjected disc boot argv argc=%d (post-chdir cfg)\n", n );
+	}
+}
+
 int GCube_GetArgv( int in_argc, char **in_argv, char ***out_argv )
 {
 	int fake_argc = 0;
@@ -1925,6 +1981,8 @@ int GCube_GetArgv( int in_argc, char **in_argv, char ***out_argv )
 		gc_argv[fake_argc++] = "-gcfullactors";
 	if( gc_worldrender_configured )
 		gc_argv[fake_argc++] = "-gcworldrender";
+	if( gc_capfaces_smoke_configured )
+		gc_argv[fake_argc++] = "-gccapfacessmoke";
 	if( gc_smoke_map_configured )
 	{
 		gc_argv[fake_argc++] = "-gcmap";
