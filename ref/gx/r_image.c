@@ -32,46 +32,42 @@ static unsigned gc_tiny_pixels_used;
  * 96→64→48 so both companions fit. Skins must NOT live in gc_studio_bss —
  * Mod_GCStudioBssTrimLast rewinds that bump and was leaving ptexture indices
  * dangling into recycled slots (*gc_sky_proc). */
-/* Crowbar+Garand at 96² ≈ 240 KiB; 256 KiB left no headroom for T.mdl. */
-#define GC_STUDIO_SKIN_OVERFLOW_BYTES (384 * 1024)
-static byte gc_studio_skin_overflow[GC_STUDIO_SKIN_OVERFLOW_BYTES] __attribute__((aligned(32)));
-static size_t gc_studio_skin_overflow_bump;
-static unsigned gc_studio_skin_overflow_live;
+/* The skin window now lives at the top of the engine's shared studio region
+ * (engine/common/model.c GC_STUDIO_BSS_BYTES): model files fill it from the
+ * bottom, skins from the top, so each gets what the other leaves. */
+byte *Mod_GCStudioSkinAlloc( size_t bytes );
+void Mod_GCStudioSkinFree( void );
+qboolean Mod_GCIsStudioSkin( const void *ptr );
+size_t Mod_GCStudioSkinUsed( void );
+size_t Mod_GCStudioSkinRemaining( void );
 extern qboolean r_gc_studio_skins_in_arena;
 
 size_t R_GCStudioSkinOverflowUsed( void )
 {
-	return gc_studio_skin_overflow_bump;
+	return Mod_GCStudioSkinUsed();
 }
 
 size_t R_GCStudioSkinOverflowCapacity( void )
 {
-	return sizeof( gc_studio_skin_overflow );
+	return Mod_GCStudioSkinUsed() + Mod_GCStudioSkinRemaining();
 }
 
 static pixel_t *R_GCAllocStudioSkinOverflow( image_t *tex, size_t bytes )
 {
-	size_t off, end;
 	byte *base;
 
 	if( !r_gc_studio_skins_in_arena || bytes == 0 )
 		return NULL;
-	off = ( gc_studio_skin_overflow_bump + 31u ) & ~(size_t)31u;
-	end = off + bytes + 31u;
-	if( end > sizeof( gc_studio_skin_overflow ))
+	base = Mod_GCStudioSkinAlloc( bytes );	/* 32-byte aligned */
+	if( !base )
 		return NULL;
-	base = gc_studio_skin_overflow + off;
-	gc_studio_skin_overflow_bump = end;
-	gc_studio_skin_overflow_live++;
 	tex->gc_pixels_base = base;
-	return (pixel_t *)(((uintptr_t)base + 31u) & ~(uintptr_t)31u);
+	return (pixel_t *)base;
 }
 
 static qboolean R_GCIsStudioSkinOverflow( const void *ptr )
 {
-	const byte *p = (const byte *)ptr;
-	return p >= gc_studio_skin_overflow
-		&& p < gc_studio_skin_overflow + sizeof( gc_studio_skin_overflow );
+	return Mod_GCIsStudioSkin( ptr );
 }
 
 /* Mip 0 is 32-byte aligned inside a slightly larger block so the GX path can
@@ -117,10 +113,7 @@ void R_GCFreeMip( image_t *tex, uint level )
 		}
 		if( R_GCIsStudioSkinOverflow( tex->gc_pixels_base ))
 		{
-			if( gc_studio_skin_overflow_live > 0 )
-				gc_studio_skin_overflow_live--;
-			if( gc_studio_skin_overflow_live == 0 )
-				gc_studio_skin_overflow_bump = 0;
+			Mod_GCStudioSkinFree();
 			tex->gc_pixels_base = NULL;
 			return;
 		}
@@ -553,9 +546,7 @@ static qboolean GL_UploadTextureBody( image_t *tex, rgbdata_t *pic )
 		else if( r_gc_studio_skins_in_arena && !FBitSet( tex->flags, TF_FONT ))
 		{
 			int cap = 96;
-			size_t off = ( gc_studio_skin_overflow_bump + 31u ) & ~(size_t)31u;
-			size_t rem = ( off < sizeof( gc_studio_skin_overflow ))
-				? ( sizeof( gc_studio_skin_overflow ) - off ) : 0;
+			size_t rem = Mod_GCStudioSkinRemaining();
 
 			while( cap >= 48 )
 			{

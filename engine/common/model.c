@@ -79,11 +79,17 @@ static int     gc_deferred_studio_attempts;
  * Ethernet multiplayer uses the proven 184 KiB boot budget; visual studios
  * stay deferred. tex21 bumped to 384 for full v_colt skins and Host_Init
  * failed gfx.wad (unclaimed 1.32→1.12 Mb) — keep 184 on network. */
+/* One studio region shared by model files (bump up from the bottom) and
+ * native studio skins (from the top, ref/gx R_GCAllocStudioSkinOverflow).
+ * Each side may use whatever the other leaves, so the split follows the
+ * map: c0a0's cast is model-heavy, skin-heavy maps get bigger skins.  The
+ * total is the old fixed model arena plus the old 384 KiB skin overflow. */
+#define GC_STUDIO_SKIN_SHARE_BYTES (384 * 1024)
 #if XASH_DODGC_NETWORK
 	/* Keep 184 KiB — 768 KiB BSS starved Host_Init (ava-prop-1 heap_free=104).
 	 * Avalanche lean mapmodels (~249 KiB) promote into world-array spill after
 	 * WorldDL shrinks its chunk cache (see Mod_GCPromoteMapModels). */
-#define GC_STUDIO_BSS_BYTES (184 * 1024)
+#define GC_STUDIO_MODEL_SHARE_BYTES (184 * 1024)
 #else
 /* HL1 intro set on c0a0: crowbar 46 + scientist 175 + barney 129 KiB plus
  * props (~22 KiB) and the two 66 KiB animation slots placed at each reset
@@ -91,10 +97,15 @@ static int     gc_deferred_studio_attempts;
  * no model: no draw, no animation, no scripted sequence (DispatchAnimEvents
  * "Gibbed monster is thinking!" every frame).  The arena was 1 MiB until
  * the Nov 7 networking merge. */
-#define GC_STUDIO_BSS_BYTES (512 * 1024)
+#define GC_STUDIO_MODEL_SHARE_BYTES (512 * 1024)
 #endif
+#define GC_STUDIO_BSS_BYTES ( GC_STUDIO_MODEL_SHARE_BYTES + GC_STUDIO_SKIN_SHARE_BYTES )
 static byte    gc_studio_bss[GC_STUDIO_BSS_BYTES] __attribute__((aligned( 32 )));
 static size_t  gc_studio_bss_bump;
+static size_t  gc_studio_skin_top;	/* bytes skins hold at the top */
+static unsigned gc_studio_skin_live;
+/* Model files may grow up to the lowest skin. */
+#define GC_STUDIO_MODEL_LIMIT ( GC_STUDIO_BSS_BYTES - gc_studio_skin_top )
 static int     gc_studio_bss_owners; /* resident cache.data slices */
 /* Pre-entity promote: mesh only — G376 skin uploads tip MEM1 and crash
  * mid-spawn (c1a1f ~entity 96). Skins re-promote after MAP_READY. */
@@ -268,17 +279,62 @@ qboolean Mod_GCIsStudioBssCache( const void *ptr )
 
 	if( !ptr )
 		return false;
-	return ( p >= gc_studio_bss && p < gc_studio_bss + GC_STUDIO_BSS_BYTES );
+	return ( p >= gc_studio_bss && p < gc_studio_bss + GC_STUDIO_MODEL_LIMIT );
+}
+
+/* Studio skins from the top of the shared region (see GC_STUDIO_BSS_BYTES).
+ * Freed as a group: the window rewinds when the last skin goes. */
+byte *Mod_GCStudioSkinAlloc( size_t bytes )
+{
+	const size_t need = ( bytes + 31u ) & ~(size_t)31u;
+	const size_t floor = ( gc_studio_bss_bump + 31u ) & ~(size_t)31u;
+
+	if( bytes == 0 || floor > GC_STUDIO_BSS_BYTES
+		|| need > GC_STUDIO_BSS_BYTES - floor - gc_studio_skin_top )
+		return NULL;
+	gc_studio_skin_top += need;
+	gc_studio_skin_live++;
+	return gc_studio_bss + GC_STUDIO_BSS_BYTES - gc_studio_skin_top;
+}
+
+void Mod_GCStudioSkinFree( void )
+{
+	if( gc_studio_skin_live > 0 )
+		gc_studio_skin_live--;
+	if( gc_studio_skin_live == 0 )
+		gc_studio_skin_top = 0;
+}
+
+qboolean Mod_GCIsStudioSkin( const void *ptr )
+{
+	const byte *p = (const byte *)ptr;
+
+	return gc_studio_skin_top && p >= gc_studio_bss + GC_STUDIO_BSS_BYTES - gc_studio_skin_top
+		&& p < gc_studio_bss + GC_STUDIO_BSS_BYTES;
+}
+
+size_t Mod_GCStudioSkinUsed( void )
+{
+	return gc_studio_skin_top;
+}
+
+size_t Mod_GCStudioSkinRemaining( void )
+{
+	const size_t floor = ( gc_studio_bss_bump + 31u ) & ~(size_t)31u;
+
+	if( floor + gc_studio_skin_top >= GC_STUDIO_BSS_BYTES )
+		return 0;
+	return GC_STUDIO_BSS_BYTES - floor - gc_studio_skin_top;
 }
 
 byte *Mod_GCStudioBssAlloc( size_t size )
 {
 	size_t align_off;
 
-	if( size == 0 || size > GC_STUDIO_BSS_BYTES )
+	if( size == 0 || size > GC_STUDIO_MODEL_LIMIT )
 		return NULL;
 	align_off = ( gc_studio_bss_bump + 31u ) & ~31u;
-	if( align_off + size > GC_STUDIO_BSS_BYTES )
+	if( align_off + size > GC_STUDIO_MODEL_LIMIT )
 		return NULL;
 	gc_studio_bss_bump = align_off + size;
 	gc_studio_bss_owners++;
@@ -316,13 +372,13 @@ byte *Mod_GCStudioBssGrowLast( void *ptr, size_t old_size, size_t new_size )
 	size_t off;
 	size_t old_end;
 
-	if( !ptr || old_size == 0 || new_size < old_size || new_size > GC_STUDIO_BSS_BYTES )
+	if( !ptr || old_size == 0 || new_size < old_size || new_size > GC_STUDIO_MODEL_LIMIT )
 		return NULL;
 	if( !Mod_GCIsStudioBssCache( ptr ))
 		return NULL;
 	off = (size_t)( p - gc_studio_bss );
 	old_end = off + old_size;
-	if( off + new_size > GC_STUDIO_BSS_BYTES )
+	if( off + new_size > GC_STUDIO_MODEL_LIMIT )
 		return NULL;
 	/* Deferred T.mdl headers: lean load reserved a pad so bump > old_end and
 	 * later companions (scientist) sit above that pad. Fit in-place. */
@@ -549,7 +605,7 @@ static byte *Mod_GCLoadStudioFile( const char *model_path, fs_offset_t *length, 
 		unsigned int cached = 0;
 
 		if( GC_AssetCacheLookup( mirror, &cached ) && cached >= sizeof( studiohdr_t )
-			&& cached <= GC_STUDIO_BSS_BYTES )
+			&& cached <= GC_STUDIO_MODEL_LIMIT )
 		{
 			if( !Mod_GCAllowRealStudioLoad( model_path, (size_t)cached ))
 			{
@@ -630,7 +686,7 @@ static byte *Mod_GCLoadStudioFile( const char *model_path, fs_offset_t *length, 
 				}
 			}
 			if( !slot && flen >= (fs_offset_t)sizeof( studiohdr_t )
-				&& flen <= (fs_offset_t)GC_STUDIO_BSS_BYTES )
+				&& flen <= (fs_offset_t)GC_STUDIO_MODEL_LIMIT )
 				slot = Mod_GCStudioBssAlloc( (size_t)flen );
 			if( slot )
 			{
@@ -663,7 +719,7 @@ static byte *Mod_GCLoadStudioFile( const char *model_path, fs_offset_t *length, 
 			else
 			{
 				FS_Close( f );
-				if( flen > (fs_offset_t)GC_STUDIO_BSS_BYTES )
+				if( flen > (fs_offset_t)GC_STUDIO_MODEL_LIMIT )
 					Con_Reportf( "Xash3D GameCube: G289 studio too large for BSS '%s' (%s)\n",
 						mirror, Q_memprint( (size_t)flen ));
 				/* Map props: WorldDL listen leaves spill headroom (chunk cache
@@ -1096,6 +1152,61 @@ void Mod_GCPromoteMapModels( void )
 
 /*
 =============
+Mod_GCMapNeedsStudio
+
+Whether the running map can use this model, from its own entity lump: the
+path itself (monster_generic / furniture / cycler "model" keys) or a class
+that uses it.  The fixed preload lists loaded the zombie and headcrab on
+every map, so on c0a0 they took the arena before the forklift the map
+actually scripts.  Carried weapons still load on demand at SetModel.
+=============
+*/
+static qboolean Mod_GCMapNeedsStudio( const char *path )
+{
+	static const struct { const char *model; const char *classes[4]; } uses[] = {
+		{ "models/scientist.mdl", { "monster_scientist", "monster_sitting_scientist", NULL } },
+		{ "models/barney.mdl", { "monster_barney", NULL } },
+		{ "models/headcrab.mdl", { "monster_headcrab", NULL } },
+		{ "models/zombie.mdl", { "monster_zombie", NULL } },
+		{ "models/roach.mdl", { "monster_cockroach", NULL } },
+		/* Weapon viewmodels are not judged here: the player carries them
+		 * across maps whose entity lumps never mention them. */
+	};
+	const char *ents = sv.worldmodel ? sv.worldmodel->entities : NULL;
+	int i, j;
+
+	if( !ents || !ents[0] )
+		return true;	/* nothing to judge by: keep the old behaviour */
+	if( Q_stristr( ents, path ))
+		return true;
+	for( i = 0; i < (int)ARRAYSIZE( uses ); i++ )
+	{
+		if( Q_stricmp( path, uses[i].model ))
+			continue;
+		for( j = 0; uses[i].classes[j]; j++ )
+		{
+			char quoted[64];
+
+			Q_snprintf( quoted, sizeof( quoted ), "\"%s\"", uses[i].classes[j] );
+			if( Q_stristr( ents, quoted ))
+				return true;
+		}
+		return false;
+	}
+	return true;	/* unknown model: keep the old behaviour */
+}
+
+static void Mod_GCPromoteIfMapNeeds( const char *path )
+{
+	if( Mod_GCMapNeedsStudio( path ))
+		Mod_GCPromoteStudioPath( path );
+	else
+		Con_Reportf( "Xash3D GameCube: studio preload skip '%s' (not used on %s)\n",
+			path, sv.name[0] ? sv.name : "?" );
+}
+
+/*
+=============
 Mod_GCTryDeferredStudios
 
 Attempt to load deferred studios after map prep when memory is available.
@@ -1164,7 +1275,7 @@ void Mod_GCTryDeferredStudios( void )
 		/* G371: post-present NPC meshes — denser AM scientists/barneys. */
 		promote = promote_lean_npc;
 		for( i = 0; promote[i]; i++ )
-			Mod_GCPromoteStudioPath( promote[i] );
+			Mod_GCPromoteIfMapNeeds( promote[i] );
 		Con_Reportf( "Xash3D GameCube: G371 deferred NPC studios try npc=%d view=%d budget=%s presents=%u\n",
 			gc_real_studio_npc, gc_real_studio_view, Q_memprint( gc_real_studio_bytes ),
 			presents );
@@ -1176,7 +1287,7 @@ void Mod_GCTryDeferredStudios( void )
 	promote = ( Mod_GCIsNewGameRoute() && !Sys_CheckParm( "-gcfullphysics" ))
 		? promote_lean : promote_full;
 	for( i = 0; promote[i]; i++ )
-		Mod_GCPromoteStudioPath( promote[i] );
+		Mod_GCPromoteIfMapNeeds( promote[i] );
 
 	Con_Reportf( "Xash3D GameCube: deferred studios try npc=%d view=%d budget=%s\n",
 		gc_real_studio_npc, gc_real_studio_view, Q_memprint( gc_real_studio_bytes ));
@@ -1209,7 +1320,7 @@ void Mod_GCLoadStartupStudios( void )
 	Image_GCPurgeDecodeScratch();
 
 	for( i = 0; promote[i]; i++ )
-		Mod_GCPromoteStudioPath( promote[i] );
+		Mod_GCPromoteIfMapNeeds( promote[i] );
 
 	Con_Reportf( "Xash3D GameCube: startup studios loaded npc=%d view=%d budget=%s\n",
 		gc_real_studio_npc, gc_real_studio_view, Q_memprint( gc_real_studio_bytes ));
@@ -1237,7 +1348,7 @@ void Mod_GCLoadNewGameStudios( void )
 	Image_GCPurgeDecodeScratch();
 
 	for( i = 0; promote[i]; i++ )
-		Mod_GCPromoteStudioPath( promote[i] );
+		Mod_GCPromoteIfMapNeeds( promote[i] );
 
 	Con_Reportf( "Xash3D GameCube: deferred studio done npc=%d view=%d budget=%s\n",
 		gc_real_studio_npc, gc_real_studio_view, Q_memprint( gc_real_studio_bytes ));
@@ -1299,7 +1410,7 @@ void Mod_GCLoadPreEntityStudios( void )
 	Image_GCPurgeDecodeScratch();
 	gc_studio_pre_entity_mesh_only = true;
 	for( i = 0; promote[i]; i++ )
-		Mod_GCPromoteStudioPath( promote[i] );
+		Mod_GCPromoteIfMapNeeds( promote[i] );
 	gc_studio_pre_entity_mesh_only = false;
 	Mod_GCRebindPromotedStudios();
 	Con_Reportf( "Xash3D GameCube: pre-entity studios npc=%d view=%d budget=%s bump=%s\n",
