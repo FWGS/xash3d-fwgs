@@ -132,6 +132,7 @@ extern imglib_t image;
 #if XASH_GAMECUBE
 void *Image_GCAllocMdlDecode( size_t bytes );
 qboolean Image_GCIsMdlDecode( const void *ptr );
+void Image_GCReleaseMdlDecode( void );
 void *Image_GCAllocTransient( size_t bytes );
 qboolean Image_GCIsTransient( const void *ptr );
 void Image_GCReleaseTransient( void );

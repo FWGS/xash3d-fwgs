@@ -1454,13 +1454,20 @@ static void Mod_LoadMapSprite( model_t *mod, const void *buffer, size_t size, qb
 #if XASH_GAMECUBE
 /* G290: tip-safe lean HUD file stage — libc malloc fails ~5 KiB under cliff. */
 #define GC_HUD_SPR_BSS_BYTES (8 * 1024)
+void *Image_GCAllocMdlDecode( size_t bytes );
+qboolean Image_GCIsMdlDecode( const void *ptr );
+void Image_GCReleaseMdlDecode( void );
 static byte gc_hud_spr_bss[GC_HUD_SPR_BSS_BYTES] __attribute__((aligned( 32 )));
 static qboolean gc_hud_spr_bss_busy;
+
+static qboolean gc_hud_spr_staged_in_decode;
+static void CL_GCReleaseHudSpriteBss( byte *buf );
 
 static byte *CL_GCLoadHudSpriteBss( const char *path, fs_offset_t *sizeptr )
 {
 	file_t *f;
 	fs_offset_t flen, total, got;
+	byte *dst;
 
 	if( sizeptr )
 		*sizeptr = 0;
@@ -1470,7 +1477,24 @@ static byte *CL_GCLoadHudSpriteBss( const char *path, fs_offset_t *sizeptr )
 	if( !f )
 		return NULL;
 	flen = FS_FileLength( f );
-	if( flen < 44 || flen > (fs_offset_t)GC_HUD_SPR_BSS_BYTES )
+	if( flen < 44 )
+	{
+		FS_Close( f );
+		return NULL;
+	}
+	if( flen <= (fs_offset_t)GC_HUD_SPR_BSS_BYTES )
+		dst = gc_hud_spr_bss;
+	else
+	{
+		/* Larger sheets (gc_320hud1 65 KiB, gc_320hud2, gc_320_train) stage
+		 * in the 128 KiB model-skin decode buffer: idle during HUD prepare
+		 * (sprite frames never take the mdl decode path), and the file is
+		 * released as soon as Mod_LoadSpriteModel has built its frames.
+		 * On c0a0 the heap could not hold them and 3 of 5 sheets failed. */
+		dst = (byte *)Image_GCAllocMdlDecode( (size_t)flen );
+		gc_hud_spr_staged_in_decode = dst != NULL;
+	}
+	if( !dst )
 	{
 		FS_Close( f );
 		return NULL;
@@ -1478,26 +1502,35 @@ static byte *CL_GCLoadHudSpriteBss( const char *path, fs_offset_t *sizeptr )
 	total = 0;
 	while( total < flen )
 	{
-		got = FS_Read( f, gc_hud_spr_bss + total, flen - total );
+		got = FS_Read( f, dst + total, flen - total );
 		if( got <= 0 )
 			break;
 		total += got;
 	}
 	FS_Close( f );
 	if( total != flen )
+	{
+		CL_GCReleaseHudSpriteBss( dst );
 		return NULL;
-	gc_hud_spr_bss_busy = true;
+	}
+	if( dst == gc_hud_spr_bss )
+		gc_hud_spr_bss_busy = true;
 	if( sizeptr )
 		*sizeptr = flen;
-	Con_Reportf( "Xash3D GameCube: G290 HUD sprite BSS read %s size=%s\n",
-		path, Q_memprint( (size_t)flen ));
-	return gc_hud_spr_bss;
+	Con_Reportf( "Xash3D GameCube: G290 HUD sprite %s read %s size=%s\n",
+		dst == gc_hud_spr_bss ? "BSS" : "decode-buffer", path, Q_memprint( (size_t)flen ));
+	return dst;
 }
 
 static void CL_GCReleaseHudSpriteBss( byte *buf )
 {
 	if( buf == gc_hud_spr_bss )
 		gc_hud_spr_bss_busy = false;
+	else if( gc_hud_spr_staged_in_decode && Image_GCIsMdlDecode( buf ))
+	{
+		gc_hud_spr_staged_in_decode = false;
+		Image_GCReleaseMdlDecode();
+	}
 }
 #endif
 
@@ -1670,7 +1703,7 @@ static qboolean CL_LoadHudSprite( const char *szSpriteName, model_t *m_pSprite, 
 				ref.dllFuncs.Mod_ProcessRenderData( m_pSprite, true, buf, size );
 			}
 
-			if( buf == gc_hud_spr_bss )
+			if( buf == gc_hud_spr_bss || Image_GCIsMdlDecode( buf ))
 				CL_GCReleaseHudSpriteBss( buf );
 			else if( used_sys )
 				free( buf );

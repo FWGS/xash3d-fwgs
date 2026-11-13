@@ -48,6 +48,11 @@ qboolean Image_GCIsMdlDecode( const void *ptr )
 	return ptr == gc_mdl_decode_rgba;
 }
 
+void Image_GCReleaseMdlDecode( void )
+{
+	gc_mdl_decode_busy = false;
+}
+
 void *Image_GCAllocTransient( size_t bytes )
 {
 	if( gc_transient_busy || bytes > sizeof( gc_transient )) return NULL;
