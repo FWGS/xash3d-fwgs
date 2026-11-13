@@ -205,6 +205,8 @@ void Mod_GCReleaseTempNewGameLightmaps( model_t *mod );
 #endif
 qboolean Mod_GCIsStudioBssCache( const void *ptr );
 byte *Mod_GCStudioBssAlloc( size_t size );
+byte *Mod_GCStudioArenaStage( size_t size, size_t *previous_bump );
+void Mod_GCStudioArenaUnstage( byte *slot, size_t size, size_t previous_bump );
 byte *Mod_GCStudioArenaLoadFile( const char *path, fs_offset_t *length );
 byte *Mod_GCSeqGroupLoad( const char *path, cache_user_t *cu, fs_offset_t *length );
 byte *Mod_GCStudioBssGrowLast( void *ptr, size_t old_size, size_t new_size );

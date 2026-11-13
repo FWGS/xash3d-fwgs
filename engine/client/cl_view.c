@@ -300,6 +300,34 @@ static void V_SetupViewModel( void )
 	view->curstate.rendermode = kRenderNormal;
 
 #if XASH_GAMECUBE
+	/* The held weapon's viewmodel loads when it is first needed: preloads
+	 * only cover weapons the map places, so a carried or newly picked-up
+	 * weapon is promoted here (once per viewmodel change). */
+	{
+		static int gc_vm_tried_index = -1;
+
+		if( view->model && view->model->name[0] && Q_stristr( view->model->name, ".mdl" )
+			&& ( view->model->type != mod_studio || !view->model->cache.data )
+			&& cl.local.viewmodel != gc_vm_tried_index )
+		{
+			char vpath[MAX_QPATH];
+
+			gc_vm_tried_index = cl.local.viewmodel;
+			Q_strncpy( vpath, view->model->name, sizeof( vpath ));
+			if( Mod_GCEnsureLandmarkViewModel( vpath ))
+			{
+				view->model = Mod_FindName( vpath, false );
+				Con_Reportf( "Xash3D GameCube: viewmodel loaded on demand %s\n", vpath );
+			}
+			else
+				Con_Reportf( S_WARN "Xash3D GameCube: viewmodel on demand failed %s\n", vpath );
+		}
+		else if( view->model && view->model->type == mod_studio && view->model->cache.data )
+			gc_vm_tried_index = -1;
+	}
+#endif
+
+#if XASH_GAMECUBE
 	/* Prefer landmark Deploy viewmodel (glock after hop); else crowbar. */
 	if( Sys_CheckParm( "-gcnewgame" ))
 	{

@@ -84,7 +84,9 @@ static int     gc_deferred_studio_attempts;
  * Each side may use whatever the other leaves, so the split follows the
  * map: c0a0's cast is model-heavy, skin-heavy maps get bigger skins.  The
  * total is the old fixed model arena plus the old 384 KiB skin overflow. */
-#define GC_STUDIO_SKIN_SHARE_BYTES (384 * 1024)
+/* 384 KiB skin overflow + 80 KiB moved from the *T.mdl file scratch
+ * (mod_studio.c), which now stages large companions in this region. */
+#define GC_STUDIO_SKIN_SHARE_BYTES ( 464 * 1024 )
 #if XASH_DODGC_NETWORK
 	/* Keep 184 KiB — 768 KiB BSS starved Host_Init (ava-prop-1 heap_free=104).
 	 * Avalanche lean mapmodels (~249 KiB) promote into world-array spill after
@@ -360,6 +362,19 @@ static void Mod_GCStudioBssRollbackLast( byte *slot, size_t size, size_t previou
 	}
 }
 
+/* Stage a transient file (a *T.mdl skin companion) at the bottom of the
+ * shared studio region; unstage rewinds it if nothing was placed after it. */
+byte *Mod_GCStudioArenaStage( size_t size, size_t *previous_bump )
+{
+	*previous_bump = gc_studio_bss_bump;
+	return Mod_GCStudioBssAlloc( size );
+}
+
+void Mod_GCStudioArenaUnstage( byte *slot, size_t size, size_t previous_bump )
+{
+	Mod_GCStudioBssRollbackLast( slot, size, previous_bump );
+}
+
 /*
  * G381: grow the last BSS studio slice in place (mesh → mesh+T.mdl headers).
  * Tip CapFaces leaves heap empty; scientist mesh already occupies the bump so
@@ -472,6 +487,8 @@ static qboolean Mod_GCStudioAlreadyResident( model_t *mod )
 	hdr = (studiohdr_t *)mod->cache.data;
 	return ( hdr->numbodyparts > 0 ) ? true : false;
 }
+
+static qboolean Mod_GCMapNeedsStudio( const char *path );
 
 static qboolean Mod_GCStudioNameAllowed( const char *name, qboolean *is_viewmodel )
 {
@@ -1176,8 +1193,13 @@ static qboolean Mod_GCMapNeedsStudio( const char *path )
 		{ "models/headcrab.mdl", { "monster_headcrab", NULL } },
 		{ "models/zombie.mdl", { "monster_zombie", NULL } },
 		{ "models/roach.mdl", { "monster_cockroach", NULL } },
-		/* Weapon viewmodels are not judged here: the player carries them
-		 * across maps whose entity lumps never mention them. */
+		/* Weapon viewmodels preload only where the map places the weapon;
+		 * carried ones load on demand when held (V_SetupViewModel). */
+		{ "models/v_crowbar.mdl", { "weapon_crowbar", NULL } },
+		{ "models/v_9mmhandgun.mdl", { "weapon_9mmhandgun", "weapon_glock", NULL } },
+		{ "models/v_9mmar.mdl", { "weapon_9mmAR", "weapon_mp5", NULL } },
+		{ "models/v_shotgun.mdl", { "weapon_shotgun", NULL } },
+		{ "models/v_357.mdl", { "weapon_357", "weapon_python", NULL } },
 	};
 	const char *ents = sv.worldmodel ? sv.worldmodel->entities : NULL;
 	int i, j;
@@ -1262,7 +1284,10 @@ void Mod_GCTryDeferredStudios( void )
 	 * weapon and is included in the compact gc_studio allowlist.
 	 * Lean -gcnewgame (probe 20260807-023917) previously skipped this under
 	 * a -gcfullphysics-only gate and only loaded v_9mmhandgun — G506 WEAK. */
-	if( Mod_GCIsNewGameRoute() )
+	/* Direct -gcnewgame probes only: on the menu (retail) route the player
+	 * has no weapon on the tram, and the held weapon's viewmodel loads on
+	 * demand (V_SetupViewModel). */
+	if( Mod_GCIsNewGameRoute() && Sys_CheckParm( "-gcnewgame" ))
 	{
 		if( Mod_GCEnsureLandmarkViewModel( "models/v_crowbar.mdl" ))
 			Con_Reportf( "Xash3D GameCube: G105 landmark viewmodel ready models/v_crowbar.mdl\n" );
@@ -1883,8 +1908,11 @@ static model_t *Mod_LoadModel( model_t *mod, qboolean crash )
 			 * memopt route — not only the retail menu server. */
 			qboolean is_view = false;
 
+			/* World precache registers every weapon; a viewmodel the map does
+			 * not place stays deferred and loads when held (V_SetupViewModel). */
 			if( !Q_stricmp( ext, "mdl" )
 				&& Mod_GCStudioNameAllowed( tempname, &is_view )
+				&& !( is_view && !Mod_GCMapNeedsStudio( tempname ))
 				&& Mod_GCPromoteStudioPath( tempname ))
 				return mod;
 			mod->needload = NL_NEEDS_LOADED;

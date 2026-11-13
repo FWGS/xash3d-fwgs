@@ -1029,16 +1029,20 @@ Fall back to a dedicated BSS scratch so Flipper skins still upload.
 /* 96 KiB tip-safe floor. Garand/tommy/mp40 @128² fit (~88 KiB); 98k falls
  * back to 64² companion at pack time. 128 KiB scratch starved tip and
  * tip-crashed after VM attach on heavy clusters (ava-play99-48..51). */
-#define GC_STUDIO_TEX_SCRATCH_BYTES (96 * 1024)
+/* Small *T.mdl companions only: larger ones stage in the shared studio
+ * region (Mod_GCStudioArenaStage), which got the other 80 KiB. */
+#define GC_STUDIO_TEX_SCRATCH_BYTES (16 * 1024)
 static byte     gc_studio_tex_scratch[GC_STUDIO_TEX_SCRATCH_BYTES] __attribute__((aligned( 32 )));
 static qboolean gc_studio_tex_scratch_busy;
 
 /* A file too big for it (gmanT.mdl, 144 KiB) borrows the texture hot window. */
 static void *gc_studio_tex_borrowed;
+static byte *gc_studio_tex_staged;	/* *T.mdl staged in the studio region */
+static size_t gc_studio_tex_staged_size, gc_studio_tex_staged_prev;
 
 static qboolean Mod_GCIsStudioTexScratch( const void *ptr )
 {
-	return ptr == (void *)gc_studio_tex_scratch || ( ptr && ptr == gc_studio_tex_borrowed );
+	return ptr == (void *)gc_studio_tex_scratch || ( ptr && ( ptr == gc_studio_tex_borrowed || ptr == gc_studio_tex_staged ));
 }
 
 byte *Mod_GCSoundScratch( fs_offset_t size )
@@ -1057,8 +1061,11 @@ static void Mod_GCReleaseStudioTexBuf( void *ptr )
 		return;
 	if( Mod_GCIsStudioTexScratch( ptr ))
 	{
+		if( ptr == gc_studio_tex_staged )
+			Mod_GCStudioArenaUnstage( gc_studio_tex_staged, gc_studio_tex_staged_size, gc_studio_tex_staged_prev );
 		gc_studio_tex_scratch_busy = false;
 		gc_studio_tex_borrowed = NULL;
+		gc_studio_tex_staged = NULL;
 		return;
 	}
 	Mem_Free( ptr );
@@ -1078,7 +1085,14 @@ static void *Mod_GCLoadFileToStudioTexScratch( const char *path, fs_offset_t *si
 		return NULL;
 	sz = FS_FileLength( f );
 	if( sz > (fs_offset_t)GC_STUDIO_TEX_SCRATCH_BYTES )
-		dst = gc_studio_tex_borrowed = R_GCHotBorrow( (unsigned)sz );
+	{
+		/* Larger companions (scientistT 173 KiB, barneyT) stage in the free
+		 * middle of the shared studio region; skins land at its top. */
+		dst = gc_studio_tex_staged = Mod_GCStudioArenaStage( (size_t)sz, &gc_studio_tex_staged_prev );
+		gc_studio_tex_staged_size = (size_t)sz;
+		if( !dst )
+			dst = gc_studio_tex_borrowed = R_GCHotBorrow( (unsigned)sz );
+	}
 	if( sz < (fs_offset_t)sizeof( studiohdr_t ) || !dst )
 	{
 		FS_Close( f );
@@ -1087,6 +1101,10 @@ static void *Mod_GCLoadFileToStudioTexScratch( const char *path, fs_offset_t *si
 	if( FS_Read( f, dst, (size_t)sz ) != sz )
 	{
 		FS_Close( f );
+		if( dst == gc_studio_tex_staged )
+			Mod_GCStudioArenaUnstage( gc_studio_tex_staged, gc_studio_tex_staged_size, gc_studio_tex_staged_prev );
+		gc_studio_tex_staged = NULL;
+		gc_studio_tex_borrowed = NULL;
 		return NULL;
 	}
 	FS_Close( f );
@@ -2220,7 +2238,14 @@ void Mod_GCUploadDeferredStudioSkins( void )
 #else
 		/* Only models this map registered (precached).  Promoting the whole
 		 * list loaded controller/islave and the DoD viewmodels on c0a0 and
-		 * spent MEM1 on 33 skins the map never draws (checked above). */
+		 * spent MEM1 on 33 skins the map never draws (checked above).
+		 * Viewmodels are skinned only once resident: world precache lists
+		 * every weapon, and a weapon loads when the player holds it. */
+		if(( !mod || !mod->cache.data ) && !Q_strnicmp( paths[i], "models/v_", 9 ))
+		{
+			Con_Reportf( "Xash3D GameCube: deferred skins skip '%s' (viewmodel not held)\n", paths[i] );
+			continue;
+		}
 		if( !mod || !mod->cache.data )
 			Mod_GCPromoteStudioPath( paths[i] );
 		mod = Mod_FindName( paths[i], false );
