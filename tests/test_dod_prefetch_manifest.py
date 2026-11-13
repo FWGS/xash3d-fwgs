@@ -40,6 +40,42 @@ class DodPrefetchManifestTests(unittest.TestCase):
             text = builder.build_c0a0_prefetch_manifest(source, output).read_text()
             self.assertNotIn("320_train", text, "the HL1 c0a0 name scan is skipped for DoD data")
 
+    def test_dod_manifest_is_ranked_and_capped(self):
+        builder = load_disc_builder()
+        with tempfile.TemporaryDirectory() as src_dir, tempfile.TemporaryDirectory() as out_dir:
+            source, output = Path(src_dir), Path(out_dir)
+            (source / "models").mkdir()
+            (source / "models/v_garand.mdl").write_bytes(b"x")
+            weapons = source / "sound/weapons"
+            weapons.mkdir(parents=True)
+            for index in range(40):
+                (weapons / f"gun{index:02d}_shoot.wav").write_bytes(b"x" * 10)
+            for name in ("explode3.wav", "grenthrow.wav", "colt_reload_clipin.wav", "knife_hit1.wav"):
+                (weapons / name).write_bytes(b"x" * 10)
+            lines = builder.build_c0a0_prefetch_manifest(source, output).read_text().splitlines()[1:]
+            self.assertEqual(len(lines), builder.GC_PREFETCH_MAX_ENTRIES)
+            self.assertTrue(lines[0].startswith("sound/weapons/explode3.wav"))
+            self.assertTrue(lines[1].startswith("sound/weapons/grenthrow.wav"))
+            self.assertTrue(lines[2].startswith("sound/weapons/gun00_shoot.wav"), "shots rank before reloads")
+            self.assertNotIn("knife_hit1", "".join(lines), "lowest rank is dropped by the cap")
+
+    def test_dod_manifest_skips_oversized_files(self):
+        builder = load_disc_builder()
+        with tempfile.TemporaryDirectory() as src_dir, tempfile.TemporaryDirectory() as out_dir:
+            source, output = Path(src_dir), Path(out_dir)
+            (source / "models").mkdir()
+            (source / "models/v_garand.mdl").write_bytes(b"x")
+            weapons = source / "sound/weapons"
+            weapons.mkdir(parents=True)
+            (weapons / "explode3.wav").write_bytes(b"x" * builder.GC_PREFETCH_DOD_MAX_FILE)
+            (weapons / "explode4.wav").write_bytes(b"x" * (builder.GC_PREFETCH_DOD_MAX_FILE + 1))
+            (weapons / "grenthrow.wav").write_bytes(b"x" * 5)
+            lines = builder.build_c0a0_prefetch_manifest(source, output).read_text().splitlines()[1:]
+            names = [line.split()[0] for line in lines]
+            self.assertIn("sound/weapons/explode3.wav", names)
+            self.assertNotIn("sound/weapons/explode4.wav", names, "a file over the per-file cap is skipped")
+            self.assertIn("sound/weapons/grenthrow.wav", names, "later entries that still fit are kept")
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -37,7 +37,8 @@ typedef enum
 	GC_VMF_RPG,		// rocket launchers on CRpg
 	GC_VMF_CROWBAR,		// spade on CCrowbar
 	GC_VMF_GLOCK,		// Colt/Luger on CGlock
-	GC_VMF_GRENADE		// Mk2 grenade and stick grenade on CHandGrenade
+	GC_VMF_GRENADE,		// Mk2 grenade and stick grenade on CHandGrenade
+	GC_VMF_DODGUN		// every DoD gun on the table-driven CDodWeapon (dodweapon_anim_e)
 } gc_vm_family_t;
 
 typedef struct
