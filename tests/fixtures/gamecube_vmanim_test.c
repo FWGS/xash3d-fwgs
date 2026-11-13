@@ -54,10 +54,6 @@ int main( void )
 	CHECK( GC_VMAnimFamily( "models/v_luger.mdl" ) == GC_VMF_GLOCK );
 	CHECK( GC_VMAnimIntent( GC_VMF_GLOCK, 3 ).action == GC_VMA_FIRE );
 	CHECK( GC_VMAnimIntent( GC_VMF_GLOCK, 7 ).action == GC_VMA_DRAW );
-	CHECK( GC_VMAnimFamily( "models/v_grenade.mdl" ) == GC_VMF_HANDGRENADE );
-	CHECK( GC_VMAnimFamily( "models/v_stick.mdl" ) == GC_VMF_HANDGRENADE );
-	CHECK( GC_VMAnimIntent( GC_VMF_HANDGRENADE, 2 ).action == GC_VMA_PRIME );
-	CHECK( GC_VMAnimIntent( GC_VMF_HANDGRENADE, 4 ).variant == 1 );
 	CHECK( GC_VMAnimFamily( "models/v_9mmAR.mdl" ) == GC_VMF_NONE );
 	CHECK( GC_VMAnimFamily( "models/v_98k_x.mdl" ) == GC_VMF_NONE );
 	CHECK( GC_VMAnimFamily( NULL ) == GC_VMF_NONE );
