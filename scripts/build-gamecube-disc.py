@@ -1370,6 +1370,16 @@ GC_STUDIO_MODELS = (
 	"models/v_stick.mdl",
 	"models/w_grenade.mdl",
 	"models/w_stick.mdl",
+	# The rest of the table-driven DoD gun set; rocket body is mesh-only.
+	"models/v_bren.mdl",
+	"models/v_mp44.mdl",
+	"models/v_spring.mdl",
+	"models/v_scoped98k.mdl",
+	"models/v_30cal.mdl",
+	"models/v_mg42.mdl",
+	"models/v_bazooka.mdl",
+	"models/v_panzerschreck.mdl",
+	"models/w_bazooka_rocket.mdl",
 	"models/w_crowbar.mdl",
 	# DoD CapFaces map props (env_model / dod_object).
 	# Tip: skip forts/kingtiger; caen unique order saturates 6 slots before bulb.
@@ -2287,6 +2297,8 @@ def inject_gc_studio_into_bootstrap(archive: "zipfile.ZipFile", data: Path) -> i
 		"v_garand", "v_mp40", "v_98k", "v_tommy", "v_colt", "v_luger",
 		"v_amerk", "v_spade", "v_crowbar", "w_crowbar",
 		"v_grenade", "v_stick", "w_grenade", "w_stick",
+		"v_bren", "v_mp44", "v_spring", "v_scoped98k", "v_30cal", "v_mg42",
+		"v_bazooka", "v_panzerschreck", "w_bazooka_rocket",
 		# CapFaces map props (env_model) — pull from Expansion1 / content/dod.
 		"sandbags", "bulb", "hk_satchel", "furniture", "by_rubble_set",
 		"arc_xer_tree2", "horse_statue", "by_canopy",
@@ -2322,6 +2334,8 @@ def inject_gc_studio_into_bootstrap(archive: "zipfile.ZipFile", data: Path) -> i
 		dod_capfaces_lean = {
 			"v_garand", "v_mp40", "v_98k", "v_tommy", "v_colt", "v_luger",
 			"v_amerk", "v_spade", "v_grenade", "v_stick",
+			"v_bren", "v_mp44", "v_spring", "v_scoped98k", "v_30cal", "v_mg42",
+			"v_bazooka", "v_panzerschreck",
 			# Other CapFaces map props stay lean-stripped for tip maps.
 			"bulb", "hk_satchel", "furniture", "by_rubble_set",
 			"arc_xer_tree2", "horse_statue", "by_canopy",
@@ -2837,6 +2851,14 @@ def build_logo_gcvid_companion(source: Path, output: Path) -> Path | None:
 	return output_movie
 
 
+# Mirror of GC_PREFETCH_MAX_ENTRIES / GC_PREFETCH_MAX_BYTES in mem_gamecube.c.
+GC_PREFETCH_MAX_ENTRIES = 32
+GC_PREFETCH_MAX_BYTES = 2 * 1024 * 1024
+# DoD manifests skip big files: every combat clip is cut to ~16 KiB, so anything
+# larger is a stray full-length sound that would only burn a prefetch slot.
+GC_PREFETCH_DOD_MAX_FILE = 64 * 1024
+
+
 def build_c0a0_prefetch_manifest(source: Path, output: Path) -> Path:
 	"""Emit a deterministic first-map read-ahead manifest.
 
@@ -2855,34 +2877,53 @@ def build_c0a0_prefetch_manifest(source: Path, output: Path) -> Path:
 		"sound/tride/c0a0_tr_time.wav",
 		"sound/plats/ttrain1.wav",
 	)
-	# Day of Defeat combat read-ahead: grenade audio is what a match hits
-	# first and every sound is loaded on demand otherwise. Only files the
-	# staging step actually put on the disc are listed; models are cached in
-	# ARAM by the engine the first time they load, so they are not listed here.
+	# Day of Defeat combat read-ahead: whatever weapon audio the staging step
+	# put on the disc, most important first (explosions, grenade handling,
+	# gunshots, reloads). Sounds are otherwise loaded on demand from disc in the
+	# middle of a fight. Models are cached in ARAM by the engine the first time
+	# they load, so they are not listed. Half-Life data keeps its manifest.
 	is_dod_source = (source / "models" / "v_garand.mdl").is_file() or any(
 		(source / "maps").glob("dod_*.bsp")
 	)
-	# Never change the Half-Life 1 manifest: only a DoD data tree gets these.
-	priority += () if not is_dod_source else (
-		"sound/weapons/explode3.wav",
-		"sound/weapons/explode4.wav",
-		"sound/weapons/explode5.wav",
-		"sound/weapons/grenpinpull.wav",
-		"sound/weapons/grenthrow.wav",
-		"sound/weapons/grenade_hit1.wav",
-		"sound/weapons/grenade_hit2.wav",
-		"sound/weapons/grenade_hit3.wav",
-		"sound/weapons/debris1.wav",
-		"sound/weapons/debris2.wav",
-		"sound/weapons/debris3.wav",
-	)
+	if is_dod_source:
+		weapon_sounds = source / "sound" / "weapons"
+		names = sorted(
+			item.name for item in weapon_sounds.iterdir()
+			if item.is_file() and item.suffix.lower() == ".wav"
+		) if weapon_sounds.is_dir() else []
+
+		def dod_rank(name: str) -> int:
+			lowered = name.lower()
+			if lowered.startswith("explode"):
+				return 0
+			if lowered in ("grenpinpull.wav", "grenthrow.wav"):
+				return 1
+			if lowered.endswith("_shoot.wav"):
+				return 2
+			if "reload" in lowered or lowered.startswith("bazooka"):
+				return 3
+			return 4
+
+		priority += tuple(
+			f"sound/weapons/{name}" for name in sorted(names, key=lambda n: (dod_rank(n), n.lower()))
+		)
 	entries: list[str] = []
 	seen: set[str] = set()
+	reserved = 0
 	for relative in priority:
 		path = source / relative
-		if path.is_file():
+		# DoD only (HL1's manifest stays as it was): the runtime reads at most 32
+		# entries and reserves at most 2 MiB of ARAM, so keep the ranked head.
+		size = path.stat().st_size if path.is_file() else 0
+		within_budget = not is_dod_source or (
+			len(entries) < GC_PREFETCH_MAX_ENTRIES
+			and size <= GC_PREFETCH_DOD_MAX_FILE
+			and reserved + size <= GC_PREFETCH_MAX_BYTES
+		)
+		if path.is_file() and within_budget:
 			entries.append(f"{relative} {path.stat().st_size}\n")
 			seen.add(relative)
+			reserved += path.stat().st_size
 	# Include nearby first-map assets in lexical order after the critical set.
 	for root_name in (() if is_dod_source else ("models", "sprites", "sound")):
 		root = source / root_name
