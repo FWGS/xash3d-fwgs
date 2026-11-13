@@ -16,6 +16,14 @@ import zipfile
 from dataclasses import dataclass, field
 from pathlib import Path
 
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+try:
+	import pil_compat  # Pillow resize fallback (see pil_compat.py)
+
+	pil_compat.install()
+except ImportError:
+	pass
+
 # Sibling helpers live under scripts/ (bake_capfaces_pack, etc.).
 _SCRIPTS_DIR = str(Path(__file__).resolve().parent)
 if _SCRIPTS_DIR not in sys.path:
