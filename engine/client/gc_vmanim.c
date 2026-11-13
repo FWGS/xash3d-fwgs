@@ -30,6 +30,8 @@ static const gc_vm_model_t gc_vm_models[] =
 	{ "v_scoped98k",	GC_VMF_CROSSBOW },
 	{ "v_bazooka",		GC_VMF_RPG },
 	{ "v_panzerschreck",	GC_VMF_RPG },
+	{ "v_grenade",		GC_VMF_HANDGRENADE },
+	{ "v_stick",		GC_VMF_HANDGRENADE },
 	{ "v_colt",		GC_VMF_GLOCK },
 	{ "v_luger",		GC_VMF_GLOCK },
 	{ "v_amerk",		GC_VMF_CROWBAR },
@@ -168,6 +170,17 @@ gc_vm_intent_t GC_VMAnimIntent( gc_vm_family_t family, int hl_anim )
 		case 8: return GC_VMIntent( GC_VMA_HOLSTER, 0, 0 );
 		}
 		break;
+	case GC_VMF_HANDGRENADE:
+		// handgrenade_e: IDLE, FIDGET, PINPULL, THROW1-3, HOLSTER, DRAW
+		switch( hl_anim )
+		{
+		case 0: case 1: return GC_VMIntent( GC_VMA_IDLE, 0, 0 );
+		case 2: return GC_VMIntent( GC_VMA_PRIME, 0, 0 );
+		case 3: case 4: case 5: return GC_VMIntent( GC_VMA_FIRE, hl_anim - 3, 0 );
+		case 6: return GC_VMIntent( GC_VMA_HOLSTER, 0, 0 );
+		case 7: return GC_VMIntent( GC_VMA_DRAW, 0, 0 );
+		}
+		break;
 	default:
 		return GC_VMIntent( GC_VMA_NONE, 0, 0 );
 	}
@@ -175,10 +188,11 @@ gc_vm_intent_t GC_VMAnimIntent( gc_vm_family_t family, int hl_anim )
 }
 
 static const char *const gc_vm_words_idle[] = { "idle", NULL };
-static const char *const gc_vm_words_fire[] = { "shoot", "fire", "attack", "slash", "stab", "swing", NULL };
+static const char *const gc_vm_words_fire[] = { "shoot", "fire", "attack", "slash", "stab", "swing", "throw", NULL };
 static const char *const gc_vm_words_reload[] = { "reload", NULL };
 static const char *const gc_vm_words_draw[] = { "draw", "deploy", NULL };
 static const char *const gc_vm_words_holster[] = { "holster", NULL };
+static const char *const gc_vm_words_prime[] = { "pin", "pull", "prime", NULL };
 
 static const char *const *GC_VMWords( gc_vm_action_t action )
 {
@@ -189,6 +203,7 @@ static const char *const *GC_VMWords( gc_vm_action_t action )
 	case GC_VMA_RELOAD: return gc_vm_words_reload;
 	case GC_VMA_DRAW: return gc_vm_words_draw;
 	case GC_VMA_HOLSTER: return gc_vm_words_holster;
+	case GC_VMA_PRIME: return gc_vm_words_prime;
 	default: return NULL;
 	}
 }
@@ -298,6 +313,7 @@ const char *GC_VMAnimActionName( gc_vm_action_t action )
 	case GC_VMA_DRAW: return "draw";
 	case GC_VMA_HOLSTER: return "holster";
 	case GC_VMA_KEEP: return "keep";
+	case GC_VMA_PRIME: return "prime";
 	default: return "none";
 	}
 }
