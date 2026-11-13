@@ -23,6 +23,8 @@ typedef enum
 	GC_VMA_RELOAD,
 	GC_VMA_DRAW,
 	GC_VMA_HOLSTER,
+	GC_VMA_PRIME,	// grenade pin pulled
+	GC_VMA_THROW,
 	GC_VMA_KEEP		// a step of a longer animation already playing
 } gc_vm_action_t;
 
@@ -34,7 +36,8 @@ typedef enum
 	GC_VMF_CROSSBOW,	// sniper rifles on CCrossbow
 	GC_VMF_RPG,		// rocket launchers on CRpg
 	GC_VMF_CROWBAR,		// spade on CCrowbar
-	GC_VMF_GLOCK		// Colt/Luger on CGlock
+	GC_VMF_GLOCK,		// Colt/Luger on CGlock
+	GC_VMF_GRENADE		// Mk2 grenade and stick grenade on CHandGrenade
 } gc_vm_family_t;
 
 typedef struct

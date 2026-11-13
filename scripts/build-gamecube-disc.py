@@ -1365,6 +1365,11 @@ GC_STUDIO_MODELS = (
 	"models/v_tommy.mdl",
 	"models/v_colt.mdl",
 	"models/v_luger.mdl",
+	# DoD hand grenades: viewmodels lean-stripped, thrown bodies mesh-only.
+	"models/v_grenade.mdl",
+	"models/v_stick.mdl",
+	"models/w_grenade.mdl",
+	"models/w_stick.mdl",
 	"models/w_crowbar.mdl",
 	# DoD CapFaces map props (env_model / dod_object).
 	# Tip: skip forts/kingtiger; caen unique order saturates 6 slots before bulb.
@@ -2281,6 +2286,7 @@ def inject_gc_studio_into_bootstrap(archive: "zipfile.ZipFile", data: Path) -> i
 	dod_capfaces_stems = {
 		"v_garand", "v_mp40", "v_98k", "v_tommy", "v_colt", "v_luger",
 		"v_amerk", "v_spade", "v_crowbar", "w_crowbar",
+		"v_grenade", "v_stick", "w_grenade", "w_stick",
 		# CapFaces map props (env_model) — pull from Expansion1 / content/dod.
 		"sandbags", "bulb", "hk_satchel", "furniture", "by_rubble_set",
 		"arc_xer_tree2", "horse_statue", "by_canopy",
@@ -2315,7 +2321,7 @@ def inject_gc_studio_into_bootstrap(archive: "zipfile.ZipFile", data: Path) -> i
 		# downsampled gc_studio/<stem>t.mdl companion (see below).
 		dod_capfaces_lean = {
 			"v_garand", "v_mp40", "v_98k", "v_tommy", "v_colt", "v_luger",
-			"v_amerk", "v_spade",
+			"v_amerk", "v_spade", "v_grenade", "v_stick",
 			# Other CapFaces map props stay lean-stripped for tip maps.
 			"bulb", "hk_satchel", "furniture", "by_rubble_set",
 			"arc_xer_tree2", "horse_statue", "by_canopy",
@@ -2849,6 +2855,27 @@ def build_c0a0_prefetch_manifest(source: Path, output: Path) -> Path:
 		"sound/tride/c0a0_tr_time.wav",
 		"sound/plats/ttrain1.wav",
 	)
+	# Day of Defeat combat read-ahead: grenade audio is what a match hits
+	# first and every sound is loaded on demand otherwise. Only files the
+	# staging step actually put on the disc are listed; models are cached in
+	# ARAM by the engine the first time they load, so they are not listed here.
+	is_dod_source = (source / "models" / "v_garand.mdl").is_file() or any(
+		(source / "maps").glob("dod_*.bsp")
+	)
+	# Never change the Half-Life 1 manifest: only a DoD data tree gets these.
+	priority += () if not is_dod_source else (
+		"sound/weapons/explode3.wav",
+		"sound/weapons/explode4.wav",
+		"sound/weapons/explode5.wav",
+		"sound/weapons/grenpinpull.wav",
+		"sound/weapons/grenthrow.wav",
+		"sound/weapons/grenade_hit1.wav",
+		"sound/weapons/grenade_hit2.wav",
+		"sound/weapons/grenade_hit3.wav",
+		"sound/weapons/debris1.wav",
+		"sound/weapons/debris2.wav",
+		"sound/weapons/debris3.wav",
+	)
 	entries: list[str] = []
 	seen: set[str] = set()
 	for relative in priority:
@@ -2857,7 +2884,7 @@ def build_c0a0_prefetch_manifest(source: Path, output: Path) -> Path:
 			entries.append(f"{relative} {path.stat().st_size}\n")
 			seen.add(relative)
 	# Include nearby first-map assets in lexical order after the critical set.
-	for root_name in ("models", "sprites", "sound"):
+	for root_name in (() if is_dod_source else ("models", "sprites", "sound")):
 		root = source / root_name
 		if not root.is_dir():
 			continue
@@ -3299,6 +3326,11 @@ def stage_smoke_data(
 	resources = smoke_map_resources(map_source)
 	for resource in sorted(resources):
 		copy_if_present(source, output, resource)
+	# Day of Defeat lean discs: ARAM read-ahead for the grenade audio that was
+	# actually staged above. Sizes come from the staged copies so the runtime
+	# size check matches; Half-Life smoke discs get no manifest.
+	if any((output / "maps").glob("dod_*.bsp")):
+		build_c0a0_prefetch_manifest(output, output)
 
 	if changelevel:
 		dest_stem = Path(changelevel).stem

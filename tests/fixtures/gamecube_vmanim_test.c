@@ -38,6 +38,11 @@ int main( void )
 	};
 	static const seq_t spade[] = { { "idle" }, { "slash1" }, { "slash2" }, { "draw" } };
 	static const seq_t odd[] = { { "ref" }, { "spin" } };
+	static const seq_t grenade[] = {
+		{ "idle" }, { "draw" }, { "pinpull" }, { "holster" }, { "throw" },
+		{ "exploding_idle" }, { "exploding_draw" }, { "exploding_pinpull" }, { "exploding_throw" },
+	};
+	const int ng = (int)( sizeof( grenade ) / sizeof( grenade[0] ));
 	const int nr = (int)( sizeof( rifle ) / sizeof( rifle[0] ));
 	const int nm = (int)( sizeof( mg ) / sizeof( mg[0] ));
 	const int ns = (int)( sizeof( spade ) / sizeof( spade[0] ));
@@ -96,12 +101,23 @@ int main( void )
 	CHECK( !strcmp( pick_name( spade, ns, GC_VMF_CROWBAR, 5 ), "slash2" ));
 	CHECK( !strcmp( pick_name( spade, ns, GC_VMF_CROWBAR, 1 ), "draw" ));
 
+	/* grenades: HL handgrenade_e onto the DoD names, plain beats exploding_ */
+	CHECK( GC_VMAnimFamily( "models/v_grenade.mdl" ) == GC_VMF_GRENADE );
+	CHECK( GC_VMAnimFamily( "models/v_stick.mdl" ) == GC_VMF_GRENADE );
+	CHECK( !strcmp( pick_name( grenade, ng, GC_VMF_GRENADE, 0 ), "idle" ));
+	CHECK( !strcmp( pick_name( grenade, ng, GC_VMF_GRENADE, 1 ), "idle" ));
+	CHECK( !strcmp( pick_name( grenade, ng, GC_VMF_GRENADE, 2 ), "pinpull" ));
+	CHECK( !strcmp( pick_name( grenade, ng, GC_VMF_GRENADE, 3 ), "throw" ));
+	CHECK( !strcmp( pick_name( grenade, ng, GC_VMF_GRENADE, 5 ), "throw" ));
+	CHECK( !strcmp( pick_name( grenade, ng, GC_VMF_GRENADE, 6 ), "holster" ));
+	CHECK( !strcmp( pick_name( grenade, ng, GC_VMF_GRENADE, 7 ), "draw" ));
+
 	/* every index of every family stays in range, even on a model with no names */
 	for( a = -1; a < 40; a++ )
 	{
 		gc_vm_family_t f;
 
-		for( f = GC_VMF_MP5; f <= GC_VMF_CROWBAR; f++ )
+		for( f = GC_VMF_MP5; f <= GC_VMF_GRENADE; f++ )
 		{
 			const gc_vm_intent_t intent = GC_VMAnimIntent( f, a );
 			const int s1 = GC_VMAnimPick( rifle[0].label, sizeof( seq_t ), nr, intent );
