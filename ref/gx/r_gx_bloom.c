@@ -37,11 +37,11 @@ static GXTexObj gc_bloom_tex;
 /* Floor sits under the sky and pale hulls, above sand and water.
  * A floor of 112 let the sunlit ground through and the add clipped it white.
  * Scale stays 1 so the halo does not reprint the mesh. */
-#define GC_BLOOM_THRESHOLD 176 /* 0..255 luma floor */
+#define GC_BLOOM_THRESHOLD 188 /* 0..255 luma floor — keep glow, kill shift */
 #define GC_BLOOM_TINT_R 255
 #define GC_BLOOM_TINT_G 236
 #define GC_BLOOM_TINT_B 196
-#define GC_BLOOM_TINT_A 120    /* overall strength, applied via tint scale */
+#define GC_BLOOM_TINT_A 120    /* lift tower/sky glow; taps stay tight */
 
 static int gc_bloom_enabled = -1;
 
@@ -76,11 +76,11 @@ qboolean R_GXBloomApply( void *rmode_ptr )
 	f32 fb_w, fb_h, du, dv;
 	GXColor thresh, tint, zero;
 	int i;
-	/* Half-res texels. 2.5 texels is about 5 screen pixels: a halo,
-	 * not a shifted copy of the mesh. */
+	/* Half-res texels. Keep the halo inside ~3 screen pixels so bright
+	 * towers glow without a shifted second hull. */
 	static const f32 taps[GC_BLOOM_TAPS][2] = {
-		{  1.5f,  0.0f }, { -1.5f,  0.0f }, {  0.0f,  1.5f }, {  0.0f, -1.5f },
-		{  2.5f,  2.5f }, { -2.5f, -2.5f },
+		{  1.0f,  0.0f }, { -1.0f,  0.0f }, {  0.0f,  1.0f }, {  0.0f, -1.0f },
+		{  1.5f,  1.5f }, { -1.5f, -1.5f },
 	};
 
 	if( !rmode || !R_GXBloomEnabled())
@@ -321,21 +321,34 @@ qboolean R_GXBloomDrawSun( void *rmode_ptr )
 
 /*
  * Distance fog (Source env_fog_controller) as Flipper hardware fog.
- * d2_lostcoast: fogcolor 151 166 181, fogstart 1600, fogend 50000.
- * Applied to lit world faces only; Begin/End are cheap flag checks.
+ * d2_lostcoast / sky_camera: fogcolor 151 166 181, fogstart 1600, fogend 50000.
+ * Independent of bloom — WorldDL used to stub these and kill map fog.
  */
 static qboolean gc_fog_on;
 
 void R_GXFogBegin( void )
 {
 	const GXColor fog = { 151, 166, 181, 255 };
+	f32 znear = 4.0f;
 	f32 zfar;
+	static qboolean logged;
 
-	if( gc_fog_on || !R_GXBloomEnabled())
+	if( gc_fog_on )
 		return;
-	zfar = Q_max( 8192.0f, RI.farClip > 1.0f ? RI.farClip : 8192.0f );
-	GX_SetFog( GX_FOG_PERSP_LIN, 1600.0f, 50000.0f, 4.0f, zfar, fog );
+	/* nearZ/farZ MUST match guFrustum from R_GXBuildWorldProjection.
+	 * fogstart/fogend stay at map values (1600/50000) even when zfar is
+	 * shorter — density just never reaches 1.0 inside the frustum. */
+	zfar = Q_max( 256.0f, RI.farClip > 1.0f ? RI.farClip : 4096.0f );
+	/* near/far match R_GXBuildWorldProjection; fogstart/end stay map values. */
+	GX_SetFog( GX_FOG_PERSP_LIN, 1600.0f, 50000.0f, znear, zfar, fog );
 	gc_fog_on = true;
+	if( !logged )
+	{
+		logged = true;
+		gEngfuncs.Con_Reportf(
+			"Xash3D GameCube: fog env_fog_controller color=151,166,181 start=1600 end=50000 zfar=%.0f\n",
+			zfar );
+	}
 }
 
 void R_GXFogEnd( void )

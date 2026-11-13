@@ -295,7 +295,9 @@ static GXRModeObj *GC_NetworkVideoMode( GXRModeObj *preferred )
  * GX flow control stalls the CPU when this FIFO fills. */
 static uint8_t gx_fifo[256 * 1024] __attribute__((aligned(32)));
 #else
-static uint8_t gx_fifo[512 * 1024] __attribute__((aligned(32)));
+/* 128 KiB. The other 384 KiB of the old 512 KiB FIFO is the world lightmap
+ * cache in r_gx_worlddl.c (192 full 32×32 pages). MEM1 stays the same size. */
+static uint8_t gx_fifo[128 * 1024] __attribute__((aligned(32)));
 #endif
 static unsigned int gc_present_count;
 
@@ -2475,6 +2477,35 @@ void GC_GetWaterFaceScroll( int index, float *scroll_u, float *scroll_v, u32 *ti
 	if( scroll_u ) *scroll_u = src->scroll_u;
 	if( scroll_v ) *scroll_v = src->scroll_v;
 	if( tint ) *tint = src->tint ? src->tint : 0x408C90A8u;
+}
+
+/* VMT $fogcolor / $reflect from the .gcw extension (bytes 116–119).
+ * Body shading uses fogcolor — the packed teal tint is only a fallback. */
+qboolean GC_GetWaterFaceFog( int index, byte rgb[3], u8 *reflect_x100 )
+{
+	const byte *rec = GC_WaterRec( index );
+
+	if( !rec )
+	{
+		if( rgb )
+		{
+			rgb[0] = 20;
+			rgb[1] = 42;
+			rgb[2] = 37;
+		}
+		if( reflect_x100 )
+			*reflect_x100 = 150;
+		return false;
+	}
+	if( rgb )
+	{
+		rgb[0] = rec[116];
+		rgb[1] = rec[117];
+		rgb[2] = rec[118];
+	}
+	if( reflect_x100 )
+		*reflect_x100 = rec[119] ? rec[119] : 150;
+	return true;
 }
 
 qboolean GC_WaterTexReady( void )
@@ -17914,6 +17945,7 @@ qboolean GC_RenderNewGameWorldFrames( int count )
 				Con_Reportf( "Xash3D GameCube: CapFaces DumpFrames hold skipped (playerinput)\n" );
 			}
 		}
+		GC_CapFacesSoundscapeFrame();
 		if( sustained_frames == 8 || sustained_frames == 16
 			|| ( sustained_frames > 0 && ( sustained_frames % 32 ) == 0 ))
 		{

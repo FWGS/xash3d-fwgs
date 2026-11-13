@@ -84,6 +84,7 @@ extern int GC_GetWaterFaceCount( void );
 extern int GC_GetWaterFaceVerts( int index, float out[][3], int maxverts );
 extern int GC_GetWaterFaceST( int index, float out_st[][2], int maxverts );
 extern void GC_GetWaterFaceScroll( int index, float *scroll_u, float *scroll_v, u32 *tint );
+extern qboolean GC_GetWaterFaceFog( int index, byte rgb[3], u8 *reflect_x100 );
 extern void GC_GetWaterScroll2( float *u, float *v );
 extern qboolean GC_WaterTexReady( void );
 extern void *GC_GetWaterTexObj( void );
@@ -550,6 +551,8 @@ static void R_GXReserveHudPool( void )
 	r_gx_hud_pool_ready = true;
 }
 
+void R_GCEnsureDurableHotWindow( unsigned prefer_bytes );
+
 /* Called at the end of R_Init, while MEM1 still has room. */
 void R_GXReserveHudPoolEarly( void )
 {
@@ -558,6 +561,13 @@ void R_GXReserveHudPoolEarly( void )
 	 * CapFaces GX DL can take heap now (or pin BSS) before map tip. */
 	if( gEngfuncs.Sys_CheckParm( "-gcworlddl" ))
 		(void)R_GXReserveCapDispList();
+	/* Harbor WorldDL needs the CMPR hot window before map spawn eats the tip
+	 * (LM BSS + studio + FS leave <35 KiB; late 96 KiB alloc then fails and
+	 * boats/towers stay on low mips / missing binds). */
+	if( gEngfuncs.Sys_CheckParm( "-gcworldrender" )
+		|| gEngfuncs.Sys_CheckParm( "-gccapfacessmoke" )
+		|| gEngfuncs.Sys_CheckParm( "-gcvst" ))
+		R_GCEnsureDurableHotWindow( 96u * 1024u );
 }
 
 /*
@@ -2910,7 +2920,6 @@ static void R_GXClearEfbSky( GXRModeObj *rmode )
 	/* G221/G285: use the desert clear only when a real skybox side exists.
 	 * A map hole/void is fog-black; blue here made missing geometry look like
 	 * an untextured outdoor sky and was especially visible through tram gaps.
-	 * Textured backdrop draws when lean sides are resident.
 	 * G348: tram tunnel (c0a0*) uses dark concrete — sky blue void fought retail.
 	 * Solo CapFaces (-gcworldrender, no skybox resident): outdoor sky clear so
 	 * dod_flash voids read as sky, not black letterbox (20261107-133054). */
@@ -2920,6 +2929,8 @@ static void R_GXClearEfbSky( GXRModeObj *rmode )
 
 	if( GC_IsTramIntroMap())
 		sky = 0x2A2E32FFu;
+	else if( WORLDMODEL && Q_stristr( WORLDMODEL->name, "lostcoast" ))
+		sky = 0x97A6B5FFu; /* env_fog_controller fogcolor 151 166 181 */
 	else if( !R_GXHasSkyboxSide()
 		&& gEngfuncs.Sys_CheckParm( "-gcworldrender" )
 		&& !gEngfuncs.Sys_CheckParm( "-gcconnect" ))
@@ -4932,6 +4943,7 @@ static int R_GXDrawNewGameCapFacesImpl( void );
  * eye → cluster → PVS → GX_CallDispList per material batch. */
 extern qboolean R_GXWorldDLActive( void );
 extern int R_GXWorldDLDraw( void );
+extern qboolean R_GXWorldDLSampleLight( const float *org, byte rgb[3] );
 
 qboolean R_GXWorldDLBindTex( unsigned texnum )
 {
@@ -4959,6 +4971,8 @@ static unsigned gc_prop_aram;
 static int gc_prop_state;	/* 0 untried, 1 ready, -1 absent */
 static u16 gc_prop_ninst;
 static u32 gc_prop_ntris, gc_prop_tris_ofs;
+static u16 gc_prop_flight_first, gc_prop_flight_count;
+static u16 gc_prop_walk_first, gc_prop_walk_count;
 static gc_prop_inst_t gc_prop_inst[GC_PROP_MAX_INST];
 static byte gc_prop_bounce[16 * 1024] __attribute__(( aligned( 32 )));
 static unsigned gc_prop_tex_aram;
@@ -4999,6 +5013,42 @@ static float R_GXPropD2( const float *org, const s16 mins[3], const s16 maxs[3] 
 	return d;
 }
 
+/* Tall thin prop AABBs are WorldDL industrial stacks. Drawing them again
+ * stamps a second bloom hull. Keep this as tight as WorldDL IsTower so
+ * boats/wrecks (wide or short) still draw here as one surface. */
+static qboolean R_GXPropIsTowerish( const gc_prop_inst_t *in )
+{
+	const float hx = (float)in->maxs[0] - (float)in->mins[0];
+	const float hy = (float)in->maxs[1] - (float)in->mins[1];
+	const float hz = (float)in->maxs[2] - (float)in->mins[2];
+	const float horiz = hx > hy ? hx : hy;
+
+	if( hz <= 480.0f )
+		return false;
+	return horiz <= 280.0f && horiz < hz * 0.40f;
+}
+
+/* Wide static plates that duplicate WorldDL cliffs/shore — drawing them
+ * z-fights the baked world into jagged white/black tears. Boats stay
+ * (smaller AABB). Flat dock/pier slabs also fight the shore mesh. */
+static qboolean R_GXPropIsWorldPlate( const gc_prop_inst_t *in )
+{
+	const float hx = (float)in->maxs[0] - (float)in->mins[0];
+	const float hy = (float)in->maxs[1] - (float)in->mins[1];
+	const float hz = (float)in->maxs[2] - (float)in->mins[2];
+	const float horiz = hx > hy ? hx : hy;
+
+	/* Flat pier/dock runs: wide and short, overlap WorldDL shore. */
+	if( horiz >= 350.0f && hz <= 100.0f && horiz > hz * 3.5f )
+		return true;
+	if( horiz < 500.0f || hz < 150.0f )
+		return false;
+	/* Long thin wrecks: keep. Square-ish cliff plates: drop. */
+	if( horiz > hz * 2.5f && ( hx < 200.0f || hy < 200.0f ))
+		return false;
+	return true;
+}
+
 static void R_GXPropLoad( void )
 {
 	file_t *f;
@@ -5022,6 +5072,23 @@ static void R_GXPropLoad( void )
 	gc_prop_ninst = (u16)( hdr[2] >> 16 );
 	gc_prop_ntris = hdr[2] & 0xffffu;
 	gc_prop_tris_ofs = hdr[4];
+	gc_prop_flight_first = (u16)( hdr[5] >> 16 );
+	gc_prop_flight_count = (u16)( hdr[5] & 0xffffu );
+	if( gc_prop_flight_count
+		&& (u32)gc_prop_flight_first + (u32)gc_prop_flight_count > gc_prop_ntris )
+	{
+		gc_prop_flight_first = 0;
+		gc_prop_flight_count = 0;
+	}
+	/* hdr[6]: CapFaces fisherman walk template (retail lead path). */
+	gc_prop_walk_first = (u16)( hdr[6] >> 16 );
+	gc_prop_walk_count = (u16)( hdr[6] & 0xffffu );
+	if( gc_prop_walk_count
+		&& (u32)gc_prop_walk_first + (u32)gc_prop_walk_count > gc_prop_ntris )
+	{
+		gc_prop_walk_first = 0;
+		gc_prop_walk_count = 0;
+	}
 	if( gc_prop_ninst == 0 || gc_prop_ninst > GC_PROP_MAX_INST || gc_prop_ntris == 0 )
 	{
 		gEngfuncs.fsapi->Close( f );
@@ -5062,8 +5129,10 @@ static void R_GXPropLoad( void )
 		GC_AramTransfer( gc_prop_aram + 32u, gc_prop_inst, bytes, false );
 	}
 	gc_prop_state = 1;
-	gEngfuncs.Con_Reportf( "Xash3D GameCube: prop pack inst=%u tris=%u aram=%u Kb\n",
-		gc_prop_ninst, gc_prop_ntris, size / 1024u );
+	gEngfuncs.Con_Reportf(
+		"Xash3D GameCube: prop pack inst=%u tris=%u aram=%u Kb flight=%u walk=%u\n",
+		gc_prop_ninst, gc_prop_ntris, size / 1024u, gc_prop_flight_count,
+		gc_prop_walk_count );
 	R_GXPropLoadTex();
 }
 
@@ -5191,51 +5260,52 @@ static int R_GXPropBind( u8 mat )
 	return 1;
 }
 
-/* Lost Coast sun, same direction as the world specular pass. Flat N·L so
- * each triangle is one lit surface. The bake has positions, not normals. */
-static u32 R_GXPropFaceColor( const s16 *p )
-{
-	const float el = 10.0f * 3.14159265f / 180.0f;
-	const float yaw = 137.0f * 3.14159265f / 180.0f;
-	const float sx = cosf( el ) * cosf( yaw );
-	const float sy = cosf( el ) * sinf( yaw );
-	const float sz = sinf( el );
-	float e1x, e1y, e1z, e2x, e2y, e2z, nx, ny, nz, len, nd;
-	int r, g, b;
+/* Prop lighting from the streamed WorldDL lightmap page under the
+ * instance (same 192-slot RGB565 cache as world draw). No N·L bake. */
+static u32 gc_prop_lit = 0xB8B298FFu;
 
-	e1x = (float)( p[5] - p[0] );
-	e1y = (float)( p[6] - p[1] );
-	e1z = (float)( p[7] - p[2] );
-	e2x = (float)( p[10] - p[0] );
-	e2y = (float)( p[11] - p[1] );
-	e2z = (float)( p[12] - p[2] );
-	nx = e1y * e2z - e1z * e2y;
-	ny = e1z * e2x - e1x * e2z;
-	nz = e1x * e2y - e1y * e2x;
-	len = sqrtf( nx * nx + ny * ny + nz * nz );
-	if( len < 1.0f )
-		return 0xFFFFFFFFu;
-	nd = ( nx * sx + ny * sy + nz * sz ) / len;
-	if( nd < 0.0f )
-		nd = 0.0f;
-	/* Fill stays near white so the texture is not crushed. The sun only
-	 * lifts the facing side, the same way the world specular pass does. */
-	r = 186 + (int)( nd * 69.0f );
-	g = 178 + (int)( nd * 62.0f );
-	b = 160 + (int)( nd * 50.0f );
-	if( r > 255 ) r = 255;
-	if( g > 255 ) g = 255;
-	if( b > 255 ) b = 255;
-	return ( (u32)r << 24 ) | ( (u32)g << 16 ) | ( (u32)b << 8 ) | 255u;
+static void R_GXPropSetLitAt( const float *org )
+{
+	byte rgb[3];
+	int r, g, b;
+	/* Harbor daytime ambient — matches the pre-SampleLight hull look. */
+	const int ar = 0xB8, ag = 0xB2, ab = 0x98;
+
+	/* Source LM scales ambient (128 = identity). Floor above mid-grey so
+	 * MODULATE hulls stay readable under dark waterline luxels. */
+	if( org && R_GXWorldDLSampleLight( org, rgb ))
+	{
+		int lr = rgb[0], lg = rgb[1], lb = rgb[2];
+
+		if( lr < 160 ) lr = 160;
+		if( lg < 160 ) lg = 160;
+		if( lb < 160 ) lb = 160;
+		r = ( ar * lr ) / 128;
+		g = ( ag * lg ) / 128;
+		b = ( ab * lb ) / 128;
+		if( r > 255 ) r = 255;
+		if( g > 255 ) g = 255;
+		if( b > 255 ) b = 255;
+		gc_prop_lit = ( (u32)r << 24 ) | ( (u32)g << 16 ) | ( (u32)b << 8 ) | 255u;
+	}
+	else
+		gc_prop_lit = 0xB8B298FFu;
 }
 
 /* The baked triangles, one material run at a time. The box stand-ins are
- * gone: the mesh is the mesh. */
-static int R_GXPropEmitReal( const gc_prop_inst_t *in )
+ * gone: the mesh is the mesh. ox/oy/oz shift a local-space template into
+ * world (canister flight / fisherman walk); pass zeros for ordinary instances.
+ * yaw_rad rotates around Z before the translate (Source yaw: 0 = +X). */
+static int R_GXPropEmitRangeYaw( u32 first, u32 count, int ox, int oy, int oz,
+	float yaw_rad )
 {
-	u32 left = in->count;
-	u32 tri = in->first;
+	u32 left = count;
+	u32 tri = first;
 	int drawn = 0;
+	const float cs = cosf( yaw_rad );
+	const float sn = sinf( yaw_rad );
+	const qboolean spin = ( yaw_rad != 0.0f );
+	const u32 col = gc_prop_lit;
 
 	while( left )
 	{
@@ -5261,11 +5331,32 @@ static int R_GXPropEmitReal( const gc_prop_inst_t *in )
 				const u8 *rec = gc_prop_bounce + b * 32u;
 				const s16 *p = (const s16 *)( rec + 2 );
 				const u16 *uv = (const u16 *)p;
-				const u32 col = R_GXPropFaceColor( p );
 
 				for( v = 0; v < 3; v++, p += 5, uv += 5 )
 				{
-					GX_Position3s16( p[0], p[1], p[2] );
+					int x, y, z;
+					float lx = (float)p[0];
+					float ly = (float)p[1];
+
+					if( spin )
+					{
+						x = (int)( lx * cs - ly * sn ) + ox;
+						y = (int)( lx * sn + ly * cs ) + oy;
+					}
+					else
+					{
+						x = (int)lx + ox;
+						y = (int)ly + oy;
+					}
+					z = (int)p[2] + oz;
+
+					if( x < -32767 ) x = -32767;
+					else if( x > 32767 ) x = 32767;
+					if( y < -32767 ) y = -32767;
+					else if( y > 32767 ) y = 32767;
+					if( z < -32767 ) z = -32767;
+					else if( z > 32767 ) z = 32767;
+					GX_Position3s16( (s16)x, (s16)y, (s16)z );
 					GX_Color1u32( col );
 					GX_TexCoord2u16( uv[3], uv[4] );
 				}
@@ -5278,6 +5369,193 @@ static int R_GXPropEmitReal( const gc_prop_inst_t *in )
 		drawn += (int)n;
 	}
 	return drawn;
+}
+
+static int R_GXPropEmitRange( u32 first, u32 count, int ox, int oy, int oz )
+{
+	return R_GXPropEmitRangeYaw( first, count, ox, oy, oz, 0.0f );
+}
+
+static int R_GXPropEmitReal( const gc_prop_inst_t *in )
+{
+	float mid[3];
+
+	mid[0] = 0.5f * ( (float)in->mins[0] + (float)in->maxs[0] );
+	mid[1] = 0.5f * ( (float)in->mins[1] + (float)in->maxs[1] );
+	mid[2] = (float)in->mins[2] + 8.0f; /* sample near the feet */
+	R_GXPropSetLitAt( mid );
+	return R_GXPropEmitRange( in->first, in->count, 0, 0, 0 );
+}
+
+/* CapFaces: Lost Coast fisherman walks the retail lead-to-gate path
+ * (ss_Fisherman_Intro → mark_fisherman_gateLead* → OpenGate → SitDown).
+ * No Source AI/VCD on tip — real fisherman.mdl slides along lead marks. */
+static void R_GXFishermanWalkDraw( const float *org )
+{
+	/* Retail scripted_sequence / lead marks. First point is open beach so
+	 * he is not buried in the intro cliff solid. */
+	static const float path[][3] = {
+		{ 1510.0f, 2248.0f, -38.0f },     /* open beach near intro */
+		{ 1458.36f, 2271.21f, -40.3f },   /* ss_Fisherman_Intro */
+		{ 1212.63f, 2234.45f, -52.41f },  /* mark_fisherman_gateLead01 */
+		{ 900.0f, 2800.0f, -20.0f },      /* climb toward monastery gate */
+		{ 643.0f, 2764.0f, -24.0f },      /* npc_fisherman spawn */
+		{ 823.0f, 3699.0f, 28.37f },      /* mark_fisherman_gateLead02 */
+		{ 817.58f, 3772.0f, 16.0f },      /* ss_Fisherman_OpenGate */
+		{ 695.58f, 3744.0f, 16.0f },      /* ss_Fisherman_SitDown */
+	};
+	enum { NPATH = (int)( sizeof( path ) / sizeof( path[0] )) };
+	/* DumpFrames starts late after map load — hold so still eyes catch him. */
+	static const float hold_at_intro = 20.0f;
+	static const float hold_at_sit = 4.0f;
+	static const float walk_ups = 80.0f;
+	float seg_len[NPATH];
+	float total = 0.0f;
+	float walk_span, loop, t, along, yaw, d2;
+	float pos[3], dirx, diry, len;
+	int i, ox, oy, oz;
+	static qboolean logged;
+
+	if( gc_prop_state != 1 || !gc_prop_walk_count || !org )
+		return;
+	d2 = ( org[0] - 1100.0f ) * ( org[0] - 1100.0f )
+		+ ( org[1] - 2800.0f ) * ( org[1] - 2800.0f );
+	if( d2 > ( 4200.0f * 4200.0f ))
+		return;
+
+	for( i = 0; i < NPATH - 1; i++ )
+	{
+		dirx = path[i + 1][0] - path[i][0];
+		diry = path[i + 1][1] - path[i][1];
+		seg_len[i] = sqrtf( dirx * dirx + diry * diry
+			+ ( path[i + 1][2] - path[i][2] ) * ( path[i + 1][2] - path[i][2] ));
+		if( seg_len[i] < 1.0f )
+			seg_len[i] = 1.0f;
+		total += seg_len[i];
+	}
+	seg_len[NPATH - 1] = 0.0f;
+	walk_span = total / walk_ups;
+	{
+		static u32 walk_frames;
+
+		walk_frames++;
+		t = (float)walk_frames * ( 1.0f / 60.0f );
+	}
+	loop = hold_at_intro + walk_span + hold_at_sit;
+	t = (float)fmod( (double)t, (double)loop );
+	if( t < 0.0f )
+		t = 0.0f;
+
+	if( t < hold_at_intro )
+	{
+		/* Face the player start (yaw ~200). Mannequin faces +X. */
+		pos[0] = path[0][0];
+		pos[1] = path[0][1];
+		pos[2] = path[0][2];
+		yaw = 200.0f * ( 3.14159265f / 180.0f );
+	}
+	else if( t >= hold_at_intro + walk_span )
+	{
+		pos[0] = path[NPATH - 1][0];
+		pos[1] = path[NPATH - 1][1];
+		pos[2] = path[NPATH - 1][2];
+		yaw = 180.0f * ( 3.14159265f / 180.0f );
+	}
+	else
+	{
+		along = ( t - hold_at_intro ) * walk_ups;
+		for( i = 0; i < NPATH - 1; i++ )
+		{
+			if( along <= seg_len[i] )
+				break;
+			along -= seg_len[i];
+		}
+		if( i >= NPATH - 1 )
+			i = NPATH - 2;
+		{
+			float u = along / seg_len[i];
+
+			if( u < 0.0f ) u = 0.0f;
+			else if( u > 1.0f ) u = 1.0f;
+			pos[0] = path[i][0] + ( path[i + 1][0] - path[i][0] ) * u;
+			pos[1] = path[i][1] + ( path[i + 1][1] - path[i][1] ) * u;
+			pos[2] = path[i][2] + ( path[i + 1][2] - path[i][2] ) * u;
+			dirx = path[i + 1][0] - path[i][0];
+			diry = path[i + 1][1] - path[i][1];
+			len = sqrtf( dirx * dirx + diry * diry );
+			if( len < 1.0f )
+			{
+				dirx = 1.0f;
+				diry = 0.0f;
+				len = 1.0f;
+			}
+			yaw = atan2f( diry / len, dirx / len );
+		}
+	}
+
+	ox = (int)( pos[0] + ( pos[0] >= 0.0f ? 0.5f : -0.5f ));
+	oy = (int)( pos[1] + ( pos[1] >= 0.0f ? 0.5f : -0.5f ));
+	oz = (int)( pos[2] + ( pos[2] >= 0.0f ? 0.5f : -0.5f ));
+	R_GXPropSetLitAt( pos );
+	GX_SetCullMode( GX_CULL_NONE );
+	GX_SetZMode( GX_TRUE, GX_LEQUAL, GX_TRUE );
+	GX_SetBlendMode( GX_BM_NONE, GX_BL_ONE, GX_BL_ZERO, GX_LO_NOOP );
+	R_GXPropEmitRangeYaw( gc_prop_walk_first, gc_prop_walk_count, ox, oy, oz, yaw );
+	if( !logged )
+	{
+		logged = true;
+		gEngfuncs.Con_Reportf(
+			"Xash3D GameCube: fisherman walk tris=%u path=%d at %d %d %d\n",
+			gc_prop_walk_count, NPATH, ox, oy, oz );
+	}
+}
+
+/* CapFaces demo: headcrab canister arcs from the monastery gun into the
+ * church courtyard, looping so DumpFrames / still eyes catch mid-flight. */
+static void R_GXCanisterFlightDraw( const float *org )
+{
+	/* target_gun → church courtyard (expl_gun near ambient_music). */
+	static const float launch[3] = { 1106.0f, 3352.0f, 3523.0f };
+	static const float impact[3] = { 1408.0f, 3776.0f, 2680.0f };
+	float t, omt, pos[3], peak_z, d2;
+	int ox, oy, oz;
+	static qboolean logged;
+
+	if( gc_prop_state != 1 || !gc_prop_flight_count || !org )
+		return;
+	/* Only when the eye can see the monastery flight corridor. */
+	d2 = ( org[0] - impact[0] ) * ( org[0] - impact[0] )
+		+ ( org[1] - impact[1] ) * ( org[1] - impact[1] )
+		+ ( org[2] - impact[2] ) * ( org[2] - impact[2] );
+	if( d2 > ( 3500.0f * 3500.0f ))
+		return;
+	{
+		float sec = gp_cl ? (float)gp_cl->time : 0.0f;
+		static u32 flight_frames;
+
+		flight_frames++;
+		/* Prefer client time; DumpFrames still advances a phase if time stalls. */
+		t = (float)fmod( (double)sec + (double)flight_frames * ( 1.0 / 60.0 ), 5.0 );
+	}
+	if( t < 0.0f )
+		t = 0.0f;
+	t *= 0.2f; /* 0..1 over 5 seconds */
+	omt = 1.0f - t;
+	peak_z = ( launch[2] > impact[2] ? launch[2] : impact[2] ) + 900.0f;
+	pos[0] = omt * launch[0] + t * impact[0];
+	pos[1] = omt * launch[1] + t * impact[1];
+	pos[2] = omt * omt * launch[2] + 2.0f * omt * t * peak_z + t * t * impact[2];
+	ox = (int)( pos[0] + ( pos[0] >= 0.0f ? 0.5f : -0.5f ));
+	oy = (int)( pos[1] + ( pos[1] >= 0.0f ? 0.5f : -0.5f ));
+	oz = (int)( pos[2] + ( pos[2] >= 0.0f ? 0.5f : -0.5f ));
+	R_GXPropSetLitAt( pos );
+	R_GXPropEmitRange( gc_prop_flight_first, gc_prop_flight_count, ox, oy, oz );
+	if( !logged )
+	{
+		logged = true;
+		gEngfuncs.Con_Reportf(
+			"Xash3D GameCube: canister flight tris=%u\n", gc_prop_flight_count );
+	}
 }
 
 static qboolean R_GXPropOutside( const gc_prop_inst_t *in )
@@ -5294,7 +5572,11 @@ static qboolean R_GXPropOutside( const gc_prop_inst_t *in )
  * far side. Both windings stay: the tower sheets are visible from either side. */
 void R_GXPropDrawHorizon( const float *org )
 {
-	int i, ninst = 0, drawn = 0;
+	static u16 order[GC_PROP_MAX_INST];
+	static float key[GC_PROP_MAX_INST];
+	int i, n = 0, ninst = 0, drawn = 0, a, b;
+	u16 tmp;
+	float ftmp;
 
 	if( gc_prop_state == 0 )
 		R_GXPropLoad();
@@ -5333,11 +5615,35 @@ void R_GXPropDrawHorizon( const float *org )
 		/* The near pass draws anything inside the reach. */
 		if( R_GXPropD2( org, in->mins, in->maxs ) <= GC_PROP_REACH2 )
 			continue;
+		if( R_GXWorldDLActive() && ( R_GXPropIsTowerish( in )
+			|| R_GXPropIsWorldPlate( in )))
+			continue;
 		mins[0] = in->mins[0]; mins[1] = in->mins[1]; mins[2] = in->mins[2];
 		maxs[0] = in->maxs[0]; maxs[1] = in->maxs[1]; maxs[2] = in->maxs[2];
 		if( R_GXBoxOutsideFrustum( mins, maxs ))
 			continue;
-		drawn += R_GXPropEmitReal( in );
+		order[n] = (u16)i;
+		key[n] = R_GXPropD2( org, in->mins, in->maxs );
+		n++;
+	}
+	/* Far first so a nearer sheet of the same tower hides the one behind it. */
+	for( a = 1; a < n; a++ )
+	{
+		tmp = order[a];
+		ftmp = key[a];
+		b = a - 1;
+		while( b >= 0 && key[b] < ftmp )
+		{
+			order[b + 1] = order[b];
+			key[b + 1] = key[b];
+			b--;
+		}
+		order[b + 1] = tmp;
+		key[b + 1] = ftmp;
+	}
+	for( i = 0; i < n; i++ )
+	{
+		drawn += R_GXPropEmitReal( &gc_prop_inst[order[i]] );
 		ninst++;
 	}
 	if( drawn > 0 )
@@ -5393,6 +5699,9 @@ static void R_GXPropDraw( const float *org )
 			continue;
 		if( R_GXPropD2( org, in->mins, in->maxs ) > GC_PROP_REACH2 )
 			continue;
+		if( R_GXWorldDLActive() && ( R_GXPropIsTowerish( in )
+			|| R_GXPropIsWorldPlate( in )))
+			continue;
 		if( R_GXPropOutside( in ))
 			continue;
 		drawn += R_GXPropEmitReal( in );
@@ -5410,6 +5719,45 @@ static void R_GXPropDraw( const float *org )
 	}
 }
 
+/* Retail water_ati_cheap001: body from VMT $fogcolor, distance haze toward
+ * env_fog_controller. Flipper fog is not re-armed here (VAT hang). */
+static u32 R_GXWaterBodyTint( int wi, const float *pt )
+{
+	byte fog_rgb[3];
+	u8 reflect_x100 = 150;
+	float dx, dy, dz, dist, t;
+	int r, g, b, a;
+	const float *eye = RI.rvp.vieworigin;
+	/* env_fog_controller on d2_lostcoast */
+	const int er = 151, eg = 166, eb = 181;
+
+	(void)reflect_x100;
+	GC_GetWaterFaceFog( wi, fog_rgb, &reflect_x100 );
+	/* Lift $fogcolor slightly so near sheets read as deep harbor green, not ink. */
+	r = (int)fog_rgb[0] + ( (int)fog_rgb[0] >> 1 ) + 10;
+	g = (int)fog_rgb[1] + ( (int)fog_rgb[1] >> 1 ) + 10;
+	b = (int)fog_rgb[2] + ( (int)fog_rgb[2] >> 1 ) + 10;
+	if( r > 255 ) r = 255;
+	if( g > 255 ) g = 255;
+	if( b > 255 ) b = 255;
+	a = 255;
+	if( pt && eye )
+	{
+		dx = pt[0] - eye[0];
+		dy = pt[1] - eye[1];
+		dz = pt[2] - eye[2];
+		dist = sqrtf( dx * dx + dy * dy + dz * dz );
+		/* Match map fogstart/fogend feel inside the near harbor (1600..~8000). */
+		t = ( dist - 900.0f ) / 5000.0f;
+		if( t < 0.0f ) t = 0.0f;
+		else if( t > 1.0f ) t = 1.0f;
+		r = (int)( (float)r + ( (float)er - (float)r ) * t );
+		g = (int)( (float)g + ( (float)eg - (float)g ) * t );
+		b = (int)( (float)b + ( (float)eb - (float)b ) * t );
+	}
+	return ( (u32)r << 24 ) | ( (u32)g << 16 ) | ( (u32)b << 8 ) | (u32)a;
+}
+
 static void R_GXDrawPackedWater( void )
 {
 	int water_n = GC_GetWaterFaceCount();
@@ -5424,8 +5772,9 @@ static void R_GXDrawPackedWater( void )
 		return;
 	R_GXBuildFrustum();
 	GX_SetCullMode( GX_CULL_NONE );
-	/* Opaque teal first, then a grazing sheen. Depth stays unwritten so the
-	 * boats drawn after this remain one hull. */
+	/* Opaque body from VMT $fogcolor, then a soft grazing sheen. Depth is
+	 * tested but not written — props already stamped hull Z, so water fills
+	 * around boats instead of fighting WorldDL under them. */
 	GX_SetBlendMode( GX_BM_NONE, GX_BL_ONE, GX_BL_ZERO, GX_LO_NOOP );
 	GX_SetZMode( GX_TRUE, GX_LEQUAL, GX_FALSE );
 	GX_SetNumChans( 1 );
@@ -5446,7 +5795,6 @@ static void R_GXDrawPackedWater( void )
 		float pts[32][3];
 		int nv, si;
 		float dot;
-		u32 tint;
 
 		if( !GC_WaterFacePlane( wi, &pl, NULL ))
 			continue;
@@ -5478,22 +5826,17 @@ static void R_GXDrawPackedWater( void )
 			if( R_GXBoxOutsideFrustum( wmin, wmax ))
 				continue;
 		}
-		GC_GetWaterFaceScroll( wi, NULL, NULL, &tint );
-		/* Cheap-water body. The reflection is a second pass so this stays
-		 * one opaque sheet and does not cut the boats. */
-		if( !tint )
-			tint = 0x4C909CFFu;
 		GX_Begin( GX_TRIANGLEFAN, GX_VTXFMT0, (u16)nv );
 		for( si = 0; si < nv; si++ )
 		{
 			GX_Position3f32( pts[si][0], pts[si][1], pts[si][2] );
-			GX_Color1u32( tint );
+			GX_Color1u32( R_GXWaterBodyTint( wi, pts[si] ));
 		}
 		GX_End();
 		water_drawn++;
 	}
-	/* Grazing reflection. The normal map scrolls as a sheen on top of the
-	 * teal. It is not the water colour (that CMPR reads as a checker). */
+	/* Grazing sky reflection. Normal-map red is a mask; never modulate the
+	 * CMPR as albedo (that reads as cyan/magenta tiles). */
 	if( water_tex && water_drawn > 0 )
 	{
 		vec3_t forward, right, up;
@@ -5502,21 +5845,20 @@ static void R_GXDrawPackedWater( void )
 		(void)right;
 		(void)up;
 		GX_LoadTexObj( (GXTexObj *)GC_GetWaterTexObj(), GX_TEXMAP0 );
-		GX_SetBlendMode( GX_BM_BLEND, GX_BL_ONE, GX_BL_ONE, GX_LO_NOOP );
+		/* Soft add — full ONE+ONE was washing the harbor into cyan glow. */
+		GX_SetBlendMode( GX_BM_BLEND, GX_BL_SRCALPHA, GX_BL_ONE, GX_LO_NOOP );
 		GX_SetZMode( GX_TRUE, GX_LEQUAL, GX_FALSE );
 		GX_SetNumTexGens( 1 );
 		GX_SetTexCoordGen( GX_TEXCOORD0, GX_TG_MTX2x4, GX_TG_TEX0, GX_IDENTITY );
 		GX_SetNumTevStages( 1 );
 		GX_SetTevOrder( GX_TEVSTAGE0, GX_TEXCOORD0, GX_TEXMAP0, GX_COLORNULL );
-		/* The water CMPR is a normal map. Its green and blue read as cyan and
-		 * magenta if they are added as colour. Use the red channel as a mask
-		 * and let the constant supply the sky colour. */
-		GX_SetTevSwapModeTable( GX_TEV_SWAP1, GX_CH_RED, GX_CH_RED, GX_CH_RED, GX_CH_ALPHA );
+		GX_SetTevSwapModeTable( GX_TEV_SWAP1, GX_CH_RED, GX_CH_RED, GX_CH_RED, GX_CH_RED );
 		GX_SetTevSwapMode( GX_TEVSTAGE0, GX_TEV_SWAP0, GX_TEV_SWAP1 );
 		GX_SetTevKColorSel( GX_TEVSTAGE0, GX_TEV_KCSEL_K0 );
+		GX_SetTevKAlphaSel( GX_TEVSTAGE0, GX_TEV_KASEL_K0_A );
 		GX_SetTevColorIn( GX_TEVSTAGE0, GX_CC_ZERO, GX_CC_TEXC, GX_CC_KONST, GX_CC_ZERO );
 		GX_SetTevColorOp( GX_TEVSTAGE0, GX_TEV_ADD, GX_TB_ZERO, GX_CS_SCALE_1, GX_TRUE, GX_TEVPREV );
-		GX_SetTevAlphaIn( GX_TEVSTAGE0, GX_CA_ZERO, GX_CA_ZERO, GX_CA_ZERO, GX_CA_TEXA );
+		GX_SetTevAlphaIn( GX_TEVSTAGE0, GX_CA_ZERO, GX_CA_TEXA, GX_CA_KONST, GX_CA_ZERO );
 		GX_SetTevAlphaOp( GX_TEVSTAGE0, GX_TEV_ADD, GX_TB_ZERO, GX_CS_SCALE_1, GX_TRUE, GX_TEVPREV );
 		GX_SetVtxDesc( GX_VA_TEX0, GX_DIRECT );
 		GX_SetVtxAttrFmt( GX_VTXFMT0, GX_VA_TEX0, GX_TEX_ST, GX_F32, 0 );
@@ -5526,7 +5868,8 @@ static void R_GXDrawPackedWater( void )
 			float pts[32][3];
 			float st[32][2];
 			int nv, si;
-			float dot, su, sv, nd, fres, ou, ov;
+			float dot, su, sv, nd, fres, ou, ov, refl;
+			u8 reflect_x100 = 150;
 			GXColor sheen;
 
 			if( !GC_WaterFacePlane( wi, &pl, NULL ))
@@ -5563,28 +5906,36 @@ static void R_GXDrawPackedWater( void )
 			if( nd > 1.0f )
 				nd = 1.0f;
 			fres = ( 1.0f - nd ) * ( 1.0f - nd );
-			if( fres < 0.04f )
+			if( fres < 0.06f )
 				continue;
-			sheen.r = (u8)( 36.0f * fres );
-			sheen.g = (u8)( 48.0f * fres );
-			sheen.b = (u8)( 64.0f * fres );
-			sheen.a = 255;
+			GC_GetWaterFaceFog( wi, NULL, &reflect_x100 );
+			refl = (float)reflect_x100 * ( 1.0f / 100.0f );
+			if( refl < 0.2f )
+				refl = 0.2f;
+			else if( refl > 2.0f )
+				refl = 2.0f;
+			/* Sky/fog tint for the sheen — not bright cyan. */
+			sheen.r = (u8)( 151.0f * fres * refl * 0.35f );
+			sheen.g = (u8)( 166.0f * fres * refl * 0.35f );
+			sheen.b = (u8)( 181.0f * fres * refl * 0.35f );
+			sheen.a = (u8)( 140.0f * fres );
 			GX_SetTevKColor( GX_KCOLOR0, sheen );
 			GC_GetWaterFaceScroll( wi, &su, &sv, NULL );
 			ou = time_sec * su;
 			ov = time_sec * sv;
 			ou = ou - (float)(int)ou;
 			ov = ov - (float)(int)ov;
+			/* Retail water_ati_cheap001 "$scale" "[1 1]" — use baked ST as-is.
+			 * The old 0.08 stretch made ~1600 wu/tile ripples (too large). */
 			GX_Begin( GX_TRIANGLEFAN, GX_VTXFMT0, (u16)nv );
 			for( si = 0; si < nv; si++ )
 			{
 				GX_Position3f32( pts[si][0], pts[si][1], pts[si][2] );
 				GX_Color1u32( 0xFFFFFFFFu );
-				GX_TexCoord2f32( st[si][0] * 0.12f + ou, st[si][1] * 0.12f + ov );
+				GX_TexCoord2f32( st[si][0] + ou, st[si][1] + ov );
 			}
 			GX_End();
-			/* Second normal layer. Retail water scrolls two maps in
-			 * opposite directions; this one is half as bright. */
+			/* Second normal layer. Retail scrolls two maps; keep it quieter. */
 			if( scroll2_u != 0.0f || scroll2_v != 0.0f )
 			{
 				GXColor sheen2;
@@ -5593,7 +5944,7 @@ static void R_GXDrawPackedWater( void )
 				sheen2.r = (u8)( sheen.r >> 1 );
 				sheen2.g = (u8)( sheen.g >> 1 );
 				sheen2.b = (u8)( sheen.b >> 1 );
-				sheen2.a = 255;
+				sheen2.a = (u8)( sheen.a >> 1 );
 				GX_SetTevKColor( GX_KCOLOR0, sheen2 );
 				ou2 = time_sec * scroll2_u;
 				ov2 = time_sec * scroll2_v;
@@ -5608,7 +5959,7 @@ static void R_GXDrawPackedWater( void )
 				{
 					GX_Position3f32( pts[si][0], pts[si][1], pts[si][2] );
 					GX_Color1u32( 0xFFFFFFFFu );
-					GX_TexCoord2f32( st[si][0] * 0.12f + ou2, st[si][1] * 0.12f + ov2 );
+					GX_TexCoord2f32( st[si][0] + ou2, st[si][1] + ov2 );
 				}
 				GX_End();
 			}
@@ -5623,7 +5974,7 @@ static void R_GXDrawPackedWater( void )
 		if( !logged )
 		{
 			logged = true;
-			gEngfuncs.Con_Reportf( "Xash3D GameCube: harbor water emit=%d/%d tex=%d sheen=%d\n",
+			gEngfuncs.Con_Reportf( "Xash3D GameCube: harbor water emit=%d/%d tex=%d sheen=%d fogcolor\n",
 				water_drawn, water_n, water_tex ? 1 : 0, water_tex ? 1 : 0 );
 		}
 	}
@@ -5642,11 +5993,17 @@ static int R_GXDrawWorldDLFrame( void )
 	r_gx_bound_texnum = 0;
 	r_gx_bound_fmt = 0;
 	drawn = R_GXWorldDLDraw();
-	/* Same view and depth as the world. The nearer of the cliff and the
-	 * prop is the one that stays. */
+	/* Map fog stays on WorldDL only — re-arming Flipper fog across the
+	 * prop VAT change hangs Dolphin's GP after the first frame. */
+	/* Props first (with coplanar bias) so hulls win WorldDL shore Z, then
+	 * water tests against that depth and fills around the boats. */
+	GX_SetCoPlanar( GX_ENABLE );
 	R_GXPropDrawHorizon( RI.rvp.vieworigin );
-	R_GXDrawPackedWater();
 	R_GXPropDraw( RI.rvp.vieworigin );
+	R_GXFishermanWalkDraw( RI.rvp.vieworigin );
+	R_GXCanisterFlightDraw( RI.rvp.vieworigin );
+	GX_SetCoPlanar( GX_DISABLE );
+	R_GXDrawPackedWater();
 	r_gx_face_mode = GC_GX_FACE_MODE_NONE;
 	r_gx_cull_none = true;
 	R_GXInvalidateTriApiLayout();
