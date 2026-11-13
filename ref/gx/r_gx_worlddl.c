@@ -28,6 +28,7 @@ void R_GXPropDrawHorizon( const float *org );
 
 #define GC_WD_MAGIC		0x47437764u /* 'GCwd' */
 #define GC_WD_MAT_ENVMAP	0x04
+#define GC_WD_MAT_BASEALPHA	0x08	/* $basealphaenvmapmask — no sand IndTex */
 #define GC_WD_MAX_MATS		512
 #define GC_WD_MAX_CHUNKS	6144
 #define GC_WD_ST_FRAC		9
@@ -88,13 +89,19 @@ extern qboolean R_GXWorldDLBindTex( unsigned texnum );
  * punches the wet glints (retail $normalmapalphaenvmapmask). */
 #define GC_TEV_MAX		96
 #define GC_TEV_DETAIL		5440
+#define GC_TEV_ENVMASK		2048
+#define GC_TEV_MAX_ENVMASK	8
+#define GC_TEV_F_ENVMASK	0x04
 static u8 gc_tev_rec[GC_TEV_MAX][8];
-static u8 gc_tev_nmat, gc_tev_ndet;
+static u8 gc_tev_nmat, gc_tev_ndet, gc_tev_nmask;
 static s8 gc_tev_bound = -1;
 /* Detail tiles stay in MEM1. The map ARAM window is the world pack; a
  * second reserve returns that same base and would wipe the BSP tree. */
 static u8 gc_tev_store[8 * GC_TEV_DETAIL] __attribute__(( aligned( 32 )));
 static GXTexObj gc_tev_obj;
+static u8 gc_tev_envmask[GC_TEV_MAX_ENVMASK * GC_TEV_ENVMASK] __attribute__(( aligned( 32 )));
+static GXTexObj gc_tev_envmask_obj;
+static s8 gc_tev_envmask_bound = -1;
 static u8 gc_spec_mask[2048] __attribute__(( aligned( 32 )));
 static GXTexObj gc_spec_obj;
 static u8 gc_nrm_tex[2048] __attribute__(( aligned( 32 )));
@@ -137,11 +144,37 @@ static void R_GXTevBindDetail( u8 idx )
 	GX_LoadTexObj( &gc_tev_obj, GX_TEXMAP1 );
 }
 
+static void R_GXTevBindEnvMask( u8 idx )
+{
+	if( idx >= gc_tev_nmask )
+		return;
+	if( gc_tev_envmask_bound != (s8)idx )
+	{
+		GX_InitTexObj( &gc_tev_envmask_obj,
+			gc_tev_envmask + (u32)idx * GC_TEV_ENVMASK,
+			64, 64, GX_TF_I4, GX_REPEAT, GX_REPEAT, GX_FALSE );
+		GX_InitTexObjFilterMode( &gc_tev_envmask_obj, GX_LINEAR, GX_LINEAR );
+		gc_tev_envmask_bound = (s8)idx;
+	}
+	GX_LoadTexObj( &gc_tev_envmask_obj, GX_TEXMAP5 );
+}
+
 static int R_GXTevMatFlags( int id )
 {
 	if( id < 1 || id > (int)gc_tev_nmat )
 		return 0;
 	return gc_tev_rec[id - 1][0];
+}
+
+static int R_GXTevMatEnvMask( int id )
+{
+	if( id < 1 || id > (int)gc_tev_nmat )
+		return -1;
+	if( !( gc_tev_rec[id - 1][0] & GC_TEV_F_ENVMASK ))
+		return -1;
+	if( gc_tev_rec[id - 1][5] >= gc_tev_nmask )
+		return -1;
+	return gc_tev_rec[id - 1][5];
 }
 
 /*
@@ -339,7 +372,9 @@ static void R_GXMatPackLoad( void )
 
 	gc_tev_nmat = 0;
 	gc_tev_ndet = 0;
+	gc_tev_nmask = 0;
 	gc_tev_bound = -1;
+	gc_tev_envmask_bound = -1;
 	gc_spec_ready = false;
 	gc_nrm_ready = false;
 	gc_sun_ready = false;
@@ -350,17 +385,33 @@ static void R_GXMatPackLoad( void )
 	{
 		nmat = hdr[6];
 		gc_tev_ndet = hdr[7];
-		if( nmat > 0 && nmat <= GC_TEV_MAX && gc_tev_ndet > 0 && gc_tev_ndet <= 8
+		if( nmat > 0 && nmat <= GC_TEV_MAX && gc_tev_ndet <= 8
 			&& gEngfuncs.fsapi->Read( f, gc_tev_rec, nmat * 8u ) == (fs_offset_t)( nmat * 8u ))
 		{
 			u32 ofs = ( 8u + nmat * 8u + 31u ) & ~31u;
+			byte trail[8];
 
 			bytes = (u32)gc_tev_ndet * GC_TEV_DETAIL;
 			gEngfuncs.fsapi->Seek( f, (fs_offset_t)ofs, SEEK_SET );
-			if( gEngfuncs.fsapi->Read( f, gc_tev_store, bytes ) == (fs_offset_t)bytes )
+			if( gc_tev_ndet == 0 || gEngfuncs.fsapi->Read( f, gc_tev_store, bytes ) == (fs_offset_t)bytes )
 			{
-				DCFlushRange( gc_tev_store, bytes );
+				if( gc_tev_ndet )
+					DCFlushRange( gc_tev_store, bytes );
 				gc_tev_nmat = (u8)nmat;
+				/* Optional GCem trailer: $basealphaenvmapmask I4 tiles. */
+				if( gEngfuncs.fsapi->Read( f, trail, 8 ) == 8
+					&& trail[0] == 'G' && trail[1] == 'C'
+					&& trail[2] == 'e' && trail[3] == 'm'
+					&& trail[4] > 0 && trail[4] <= GC_TEV_MAX_ENVMASK )
+				{
+					u32 mbytes = (u32)trail[4] * GC_TEV_ENVMASK;
+
+					if( gEngfuncs.fsapi->Read( f, gc_tev_envmask, mbytes ) == (fs_offset_t)mbytes )
+					{
+						DCFlushRange( gc_tev_envmask, mbytes );
+						gc_tev_nmask = trail[4];
+					}
+				}
 			}
 			else
 				gc_tev_ndet = 0;
@@ -409,8 +460,8 @@ static void R_GXMatPackLoad( void )
 	{
 		logged = true;
 		gEngfuncs.Con_Reportf(
-			"Xash3D GameCube: tevmat mats=%u details=%u spec=%d nrm=%d sun=%d\n",
-			(unsigned)gc_tev_nmat, (unsigned)gc_tev_ndet,
+			"Xash3D GameCube: tevmat mats=%u details=%u envmasks=%u spec=%d nrm=%d sun=%d\n",
+			(unsigned)gc_tev_nmat, (unsigned)gc_tev_ndet, (unsigned)gc_tev_nmask,
 			gc_spec_ready ? 1 : 0, gc_nrm_ready ? 1 : 0, gc_sun_ready ? 1 : 0 );
 	}
 }
@@ -1020,12 +1071,14 @@ static void R_GXWorldDLSpecLight( void )
 	GX_LoadNrmMtxImm( nrm, GX_PNMTX0 );
 }
 
-/* indtex: wet-sand IndTex path. Towers/detail use N·L fill only — sand_nrm
- * on industrial brushes made the skyline read as dark slivers. */
-static void R_GXWorldDLSpecOn( u16 strength, int indtex )
+/* indtex: wet-sand IndTex path. tev_id with F_ENVMASK uses the baked
+ * $basealphaenvmapmask I4 (metal / plaster / frescos). Towers use N·L
+ * fill only — sand_nrm on industrial brushes made the skyline dark. */
+static void R_GXWorldDLSpecOn( u16 strength, int indtex, int tev_id )
 {
 	GXColor mat;
 	u16 s = strength ? strength : 96;
+	int env_mask = R_GXTevMatEnvMask( tev_id );
 
 	if( s > 200 )
 		s = 200;
@@ -1041,8 +1094,9 @@ static void R_GXWorldDLSpecOn( u16 strength, int indtex )
 		if( !logged )
 		{
 			logged = true;
-			gEngfuncs.Con_Reportf( "Xash3D GameCube: world DL specular strength=%u indtex=%d\n",
-				(unsigned)strength, indtex );
+			gEngfuncs.Con_Reportf(
+				"Xash3D GameCube: world DL specular strength=%u indtex=%d envmask=%d\n",
+				(unsigned)strength, indtex, env_mask );
 		}
 	}
 	R_GXWorldDLSpecLight();
@@ -1056,9 +1110,31 @@ static void R_GXWorldDLSpecOn( u16 strength, int indtex )
 		GX_SetChanAmbColor( GX_COLOR0A0, black );
 	}
 	GX_SetChanMatColor( GX_COLOR0A0, mat );
+	/* $basealphaenvmapmask: sun disc × tint × I4 base-alpha mask (no IndTex). */
+	if( env_mask >= 0 && gc_sun_ready )
+	{
+		GX_SetNumIndStages( 0 );
+		GX_SetNumTexGens( 1 );
+		GX_SetTexCoordGen( GX_TEXCOORD0, GX_TG_MTX2x4, GX_TG_TEX0, GX_IDENTITY );
+		GX_LoadTexObj( &gc_sun_obj, GX_TEXMAP4 );
+		R_GXTevBindEnvMask( (u8)env_mask );
+		GX_SetNumTevStages( 2 );
+		GX_SetTevDirect( GX_TEVSTAGE0 );
+		GX_SetTevOrder( GX_TEVSTAGE0, GX_TEXCOORD0, GX_TEXMAP4, GX_COLOR0A0 );
+		GX_SetTevColorIn( GX_TEVSTAGE0, GX_CC_ZERO, GX_CC_TEXC, GX_CC_RASC, GX_CC_ZERO );
+		GX_SetTevColorOp( GX_TEVSTAGE0, GX_TEV_ADD, GX_TB_ZERO, GX_CS_SCALE_2, GX_TRUE, GX_TEVPREV );
+		GX_SetTevAlphaIn( GX_TEVSTAGE0, GX_CA_ZERO, GX_CA_ZERO, GX_CA_ZERO, GX_CA_RASA );
+		GX_SetTevAlphaOp( GX_TEVSTAGE0, GX_TEV_ADD, GX_TB_ZERO, GX_CS_SCALE_1, GX_TRUE, GX_TEVPREV );
+		GX_SetTevDirect( GX_TEVSTAGE1 );
+		GX_SetTevOrder( GX_TEVSTAGE1, GX_TEXCOORD0, GX_TEXMAP5, GX_COLORNULL );
+		GX_SetTevColorIn( GX_TEVSTAGE1, GX_CC_ZERO, GX_CC_CPREV, GX_CC_TEXC, GX_CC_ZERO );
+		GX_SetTevColorOp( GX_TEVSTAGE1, GX_TEV_ADD, GX_TB_ZERO, GX_CS_SCALE_2, GX_TRUE, GX_TEVPREV );
+		GX_SetTevAlphaIn( GX_TEVSTAGE1, GX_CA_ZERO, GX_CA_ZERO, GX_CA_ZERO, GX_CA_APREV );
+		GX_SetTevAlphaOp( GX_TEVSTAGE1, GX_TEV_ADD, GX_TB_ZERO, GX_CS_SCALE_1, GX_TRUE, GX_TEVPREV );
+	}
 	/* Retail wet sand: sun disc looked up through the normal map, then
 	 * gated by the normal-map alpha. N·L keeps the broad warm lift. */
-	if( indtex && gc_nrm_ready && gc_sun_ready && gc_spec_ready && s >= 96 )
+	else if( indtex && env_mask < 0 && gc_nrm_ready && gc_sun_ready && gc_spec_ready && s >= 96 )
 	{
 		f32 imtx[2][3];
 		Mtx tm;
@@ -1176,7 +1252,10 @@ static void R_GXWorldDLEmitChunk( byte *chunk, int *cur_mat )
 		GX_CallDispList( chunk + b->dl_ofs, b->dl_bytes );
 		if( env )
 		{
-			R_GXWorldDLSpecOn( m->pad, 1 );
+			const int sand_ind = !( m->flags & GC_WD_MAT_BASEALPHA )
+				&& R_GXTevMatEnvMask( m->tevmat ) < 0;
+
+			R_GXWorldDLSpecOn( m->pad, sand_ind, m->tevmat );
 			spec = 1;
 			GX_CallDispList( chunk + b->dl_ofs, b->dl_bytes );
 			R_GXWorldDLSpecOff();
@@ -1316,7 +1395,7 @@ static void R_GXWorldDLDrawSkyline( void )
 			{
 				/* Stronger fill so horizon stacks read as one glowing
 				 * surface (frame_256 tower p90 ~255 vs ~229 without). */
-				R_GXWorldDLSpecOn( 220, 0 );
+				R_GXWorldDLSpecOn( 220, 0, 0 );
 				R_GXWorldDLEmitChunk( slot, &cur_mat );
 				R_GXWorldDLSpecOff();
 				cur_mat = -1;
@@ -1621,10 +1700,15 @@ int R_GXWorldDLDraw( void )
 						|| R_GXWorldDLIsTower( i ) ))
 				{
 					const int env = ( m->flags & GC_WD_MAT_ENVMAP ) != 0;
+					const int env_mask = R_GXTevMatEnvMask( m->tevmat );
 					/* Towers: warm lift for glow, short of a white sheet. */
 					u16 spec_s = env ? m->pad : 140;
+					/* IndTex only for wet-sand ($normalmapalpha). Base-alpha
+					 * mats use the I4 mask path (or plain N·L if no slot). */
+					const int sand_ind = env && !( m->flags & GC_WD_MAT_BASEALPHA )
+						&& env_mask < 0;
 
-					R_GXWorldDLSpecOn( spec_s, env );
+					R_GXWorldDLSpecOn( spec_s, sand_ind, m->tevmat );
 					GX_CallDispList( chunk + b->dl_ofs, b->dl_bytes );
 					R_GXWorldDLSpecOff();
 					R_GXTevMatAppend( R_GXTevMatFlags( m->tevmat ) ? m->tevmat : 0, 1, 1 );
