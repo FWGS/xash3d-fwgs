@@ -59,6 +59,7 @@ static void GC_NetSetStatus( const char *text )
 {
 	GC_NetRegisterCvars();
 	Cvar_FullSet( gc_net_status.name, text, FCVAR_READ_ONLY );
+	Con_Reportf( "Xash3D GameCube: gc_net_status = \"%s\"\n", gc_net_status.string );
 }
 
 #if !XASH_GAMECUBE_LIBOGC2
@@ -366,6 +367,11 @@ int GC_NetBringUp( int max_retries )
 	if( gc_net_attempted )
 		return 0;
 	gc_net_attempted = true;
+	/* Early (-net / disc cfg "net") bring-up runs before NET_Init, so the
+	 * gc_net_* cvars are still unregistered here and gc_net_dhcp.value reads
+	 * 0. Without this the static branch below always won and DHCP was never
+	 * attempted. Registration is idempotent. */
+	GC_NetRegisterCvars();
 	if( max_retries < 1 )
 		max_retries = 1;
 	for( i = 0; i < GC_NET_PORT_SLOTS; i++ )
