@@ -3744,6 +3744,30 @@ static void GAME_EXPORT pfnAlertMessage( ALERT_TYPE type, char *szFmt, ... )
 	Q_vsnprintf( buffer, sizeof( buffer ), szFmt, args );
 	va_end( args );
 
+#if XASH_GAMECUBE
+	/* Per-frame game alerts (e.g. "Gibbed monster is thinking!" from every
+	 * monster whose model is missing) each go through OSReport, which in
+	 * Dolphin is slow enough to drop the ride to ~17% speed.  Print a line
+	 * twice, then count repeats and report the count when it changes. */
+	{
+		static char last[128];
+		static unsigned repeats;
+
+		if( !Q_strncmp( buffer, last, sizeof( last ) - 1 ))
+		{
+			if( ++repeats >= 2 )
+				return;
+		}
+		else
+		{
+			if( repeats >= 2 )
+				Con_DPrintf( "(previous alert repeated %u more times)\n", repeats - 1 );
+			Q_strncpy( last, buffer, sizeof( last ));
+			repeats = 0;
+		}
+	}
+#endif
+
 	// check message for pass
 	switch( type )
 	{
