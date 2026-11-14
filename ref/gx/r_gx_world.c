@@ -5820,11 +5820,11 @@ static void R_GXDrawPackedWater( void )
 	R_GXBuildFrustum();
 	GX_SetCullMode( GX_CULL_NONE );
 	/* Source-style transparent fogcolor body + grazing sheen.
-	 * Nearest-first + Z-write so overlapping sheets do not stack alpha to opaque
-	 * (155 fans used to composite into a solid teal wall). WorldDL sands show
-	 * through the winning sheet; props already stamped hull Z. */
+	 * Nearest-first + Z-write with LESS (not LEQUAL): overlapping sheets do
+	 * not stack alpha, and coplanar WorldDL rock/sand at the waterline is
+	 * not eaten by the sheet. Props draw after this pass (see frame order). */
 	GX_SetBlendMode( GX_BM_BLEND, GX_BL_SRCALPHA, GX_BL_INVSRCALPHA, GX_LO_NOOP );
-	GX_SetZMode( GX_TRUE, GX_LEQUAL, GX_TRUE );
+	GX_SetZMode( GX_TRUE, GX_LESS, GX_TRUE );
 	GX_SetNumChans( 1 );
 	GX_SetChanCtrl( GX_COLOR0A0, GX_DISABLE, GX_SRC_REG, GX_SRC_VTX,
 		GX_LIGHTNULL, GX_DF_NONE, GX_AF_NONE );
@@ -6078,80 +6078,6 @@ static void R_GXDrawPackedWater( void )
 		}
 		GX_SetTevSwapMode( GX_TEVSTAGE0, GX_TEV_SWAP0, GX_TEV_SWAP0 );
 	}
-	/* Underwater volume fog: camera-facing fogcolor veil at ~$fogend so the
-	 * view fills like Source without re-arming Flipper HW fog. */
-	{
-		int under_wi = -1;
-		float best_abs = 1e30f;
-		mplane_t upl;
-		byte fog_rgb[3];
-		float fog_start = 1.0f, fog_end = 100.0f;
-		vec3_t forward, right, up, center;
-		float half, eye_dot;
-		u32 veil;
-
-		for( wi = 0; wi < water_n; wi++ )
-		{
-			if( !GC_WaterFacePlane( wi, &upl, NULL ))
-				continue;
-			eye_dot = DotProduct( tr.modelorg, upl.normal ) - upl.dist;
-			if( eye_dot >= 0.0f )
-				continue;
-			if( -eye_dot < best_abs )
-			{
-				best_abs = -eye_dot;
-				under_wi = wi;
-			}
-		}
-		if( under_wi >= 0 )
-		{
-			GC_GetWaterFaceFog( under_wi, fog_rgb, NULL );
-			GC_GetWaterFaceFogRange( under_wi, &fog_start, &fog_end, NULL, NULL );
-			if( fog_end < 8.0f )
-				fog_end = 8.0f;
-			AngleVectors( RI.rvp.viewangles, forward, right, up );
-			center[0] = tr.modelorg[0] + forward[0] * ( fog_end * 0.55f );
-			center[1] = tr.modelorg[1] + forward[1] * ( fog_end * 0.55f );
-			center[2] = tr.modelorg[2] + forward[2] * ( fog_end * 0.55f );
-			half = fog_end * 1.25f;
-			/* Dense but not ink — leave a little SpecOn sand through. */
-			veil = ( (u32)fog_rgb[0] << 24 ) | ( (u32)fog_rgb[1] << 16 )
-				| ( (u32)fog_rgb[2] << 8 ) | 200u;
-			GX_SetBlendMode( GX_BM_BLEND, GX_BL_SRCALPHA, GX_BL_INVSRCALPHA, GX_LO_NOOP );
-			GX_SetZMode( GX_FALSE, GX_ALWAYS, GX_FALSE );
-			GX_SetNumTexGens( 0 );
-			GX_SetNumTevStages( 1 );
-			GX_SetTevOrder( GX_TEVSTAGE0, GX_TEXCOORDNULL, GX_TEXMAP_NULL, GX_COLOR0A0 );
-			GX_SetTevOp( GX_TEVSTAGE0, GX_PASSCLR );
-			GX_ClearVtxDesc();
-			GX_SetVtxDesc( GX_VA_POS, GX_DIRECT );
-			GX_SetVtxDesc( GX_VA_CLR0, GX_DIRECT );
-			GX_SetVtxAttrFmt( GX_VTXFMT0, GX_VA_POS, GX_POS_XYZ, GX_F32, 0 );
-			GX_SetVtxAttrFmt( GX_VTXFMT0, GX_VA_CLR0, GX_CLR_RGBA, GX_RGBA8, 0 );
-			GX_Begin( GX_QUADS, GX_VTXFMT0, 4 );
-			GX_Position3f32(
-				center[0] + ( -right[0] - up[0] ) * half,
-				center[1] + ( -right[1] - up[1] ) * half,
-				center[2] + ( -right[2] - up[2] ) * half );
-			GX_Color1u32( veil );
-			GX_Position3f32(
-				center[0] + ( right[0] - up[0] ) * half,
-				center[1] + ( right[1] - up[1] ) * half,
-				center[2] + ( right[2] - up[2] ) * half );
-			GX_Color1u32( veil );
-			GX_Position3f32(
-				center[0] + ( right[0] + up[0] ) * half,
-				center[1] + ( right[1] + up[1] ) * half,
-				center[2] + ( right[2] + up[2] ) * half );
-			GX_Color1u32( veil );
-			GX_Position3f32(
-				center[0] + ( -right[0] + up[0] ) * half,
-				center[1] + ( -right[1] + up[1] ) * half,
-				center[2] + ( -right[2] + up[2] ) * half );
-			GX_Color1u32( veil );
-			GX_End();
-		}
-	}
 	GX_SetBlendMode( GX_BM_NONE, GX_BL_ONE, GX_BL_ZERO, GX_LO_NOOP );
 	GX_SetZMode( GX_TRUE, GX_LEQUAL, GX_TRUE );
 	{
@@ -6164,6 +6090,88 @@ static void R_GXDrawPackedWater( void )
 				water_drawn, water_n, water_tex ? 1 : 0, water_tex ? 1 : 0 );
 		}
 	}
+}
+
+/* Underwater volume fog after props so the veil is not punched by hulls. */
+static void R_GXDrawUnderwaterFog( void )
+{
+	int water_n = GC_GetWaterFaceCount();
+	int wi, under_wi = -1;
+	float best_abs = 1e30f;
+	mplane_t upl;
+	byte fog_rgb[3];
+	float fog_start = 1.0f, fog_end = 100.0f;
+	vec3_t forward, right, up, center;
+	float half, eye_dot;
+	u32 veil;
+
+	if( water_n <= 0 )
+		return;
+	for( wi = 0; wi < water_n; wi++ )
+	{
+		if( !GC_WaterFacePlane( wi, &upl, NULL ))
+			continue;
+		eye_dot = DotProduct( tr.modelorg, upl.normal ) - upl.dist;
+		if( eye_dot >= 0.0f )
+			continue;
+		if( -eye_dot < best_abs )
+		{
+			best_abs = -eye_dot;
+			under_wi = wi;
+		}
+	}
+	if( under_wi < 0 )
+		return;
+	GC_GetWaterFaceFog( under_wi, fog_rgb, NULL );
+	GC_GetWaterFaceFogRange( under_wi, &fog_start, &fog_end, NULL, NULL );
+	if( fog_end < 8.0f )
+		fog_end = 8.0f;
+	AngleVectors( RI.rvp.viewangles, forward, right, up );
+	center[0] = tr.modelorg[0] + forward[0] * ( fog_end * 0.55f );
+	center[1] = tr.modelorg[1] + forward[1] * ( fog_end * 0.55f );
+	center[2] = tr.modelorg[2] + forward[2] * ( fog_end * 0.55f );
+	half = fog_end * 1.25f;
+	veil = ( (u32)fog_rgb[0] << 24 ) | ( (u32)fog_rgb[1] << 16 )
+		| ( (u32)fog_rgb[2] << 8 ) | 200u;
+	GX_SetBlendMode( GX_BM_BLEND, GX_BL_SRCALPHA, GX_BL_INVSRCALPHA, GX_LO_NOOP );
+	GX_SetZMode( GX_FALSE, GX_ALWAYS, GX_FALSE );
+	GX_SetCullMode( GX_CULL_NONE );
+	GX_SetNumChans( 1 );
+	GX_SetChanCtrl( GX_COLOR0A0, GX_DISABLE, GX_SRC_REG, GX_SRC_VTX,
+		GX_LIGHTNULL, GX_DF_NONE, GX_AF_NONE );
+	GX_SetNumTexGens( 0 );
+	GX_SetNumTevStages( 1 );
+	GX_SetTevOrder( GX_TEVSTAGE0, GX_TEXCOORDNULL, GX_TEXMAP_NULL, GX_COLOR0A0 );
+	GX_SetTevOp( GX_TEVSTAGE0, GX_PASSCLR );
+	GX_ClearVtxDesc();
+	GX_SetVtxDesc( GX_VA_POS, GX_DIRECT );
+	GX_SetVtxDesc( GX_VA_CLR0, GX_DIRECT );
+	GX_SetVtxAttrFmt( GX_VTXFMT0, GX_VA_POS, GX_POS_XYZ, GX_F32, 0 );
+	GX_SetVtxAttrFmt( GX_VTXFMT0, GX_VA_CLR0, GX_CLR_RGBA, GX_RGBA8, 0 );
+	GX_Begin( GX_QUADS, GX_VTXFMT0, 4 );
+	GX_Position3f32(
+		center[0] + ( -right[0] - up[0] ) * half,
+		center[1] + ( -right[1] - up[1] ) * half,
+		center[2] + ( -right[2] - up[2] ) * half );
+	GX_Color1u32( veil );
+	GX_Position3f32(
+		center[0] + ( right[0] - up[0] ) * half,
+		center[1] + ( right[1] - up[1] ) * half,
+		center[2] + ( right[2] - up[2] ) * half );
+	GX_Color1u32( veil );
+	GX_Position3f32(
+		center[0] + ( right[0] + up[0] ) * half,
+		center[1] + ( right[1] + up[1] ) * half,
+		center[2] + ( right[2] + up[2] ) * half );
+	GX_Color1u32( veil );
+	GX_Position3f32(
+		center[0] + ( -right[0] + up[0] ) * half,
+		center[1] + ( -right[1] + up[1] ) * half,
+		center[2] + ( -right[2] + up[2] ) * half );
+	GX_Color1u32( veil );
+	GX_End();
+	GX_SetBlendMode( GX_BM_NONE, GX_BL_ONE, GX_BL_ZERO, GX_LO_NOOP );
+	GX_SetZMode( GX_TRUE, GX_LEQUAL, GX_TRUE );
 }
 
 static int R_GXDrawWorldDLFrame( void )
@@ -6181,15 +6189,19 @@ static int R_GXDrawWorldDLFrame( void )
 	drawn = R_GXWorldDLDraw();
 	/* Map fog stays on WorldDL only — re-arming Flipper fog across the
 	 * prop VAT change hangs Dolphin's GP after the first frame. */
-	/* Props first (with coplanar bias) so hulls win WorldDL shore Z, then
-	 * water tests against that depth and fills around the boats. */
+	/* Transparent water Z-writes with LESS (not LEQUAL) so coplanar WorldDL
+	 * rock/sand at the waterline keeps its depth; nearest sheet still wins
+	 * against later water fans (no alpha stack). Props draw AFTER that stamp
+	 * with CoPlanar so hulls / fisherman win shore + water (LCG-5). Underwater
+	 * fog veil is last so it still covers props when submerged. */
+	R_GXDrawPackedWater();
 	GX_SetCoPlanar( GX_ENABLE );
 	R_GXPropDrawHorizon( RI.rvp.vieworigin );
 	R_GXPropDraw( RI.rvp.vieworigin );
 	R_GXFishermanWalkDraw( RI.rvp.vieworigin );
 	R_GXCanisterFlightDraw( RI.rvp.vieworigin );
 	GX_SetCoPlanar( GX_DISABLE );
-	R_GXDrawPackedWater();
+	R_GXDrawUnderwaterFog();
 	r_gx_face_mode = GC_GX_FACE_MODE_NONE;
 	r_gx_cull_none = true;
 	R_GXInvalidateTriApiLayout();
