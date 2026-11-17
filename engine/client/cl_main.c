@@ -1907,7 +1907,7 @@ static void CL_QueryServer_f( void )
 	}
 
 	if( adr.port == 0 )
-		adr.port = PORT_SERVER;
+		adr.port = MSG_BigShort( PORT_SERVER );
 
 	if( !CL_StringToProtocol( Cmd_Argv( 2 ), &proto ))
 		return;
