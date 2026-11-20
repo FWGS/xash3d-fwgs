@@ -1,0 +1,173 @@
+/*
+ViewController.m - View Controller for the games tab
+Copyright (C) 2026 Xash3D FWGS contributors
+
+This program is free software: you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation, either version 3 of the License, or
+(at your option) any later version.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
+*/
+
+#import "ViewController.h"
+#import "Alert.h"
+#import "Game.h"
+#import "Globals.h"
+
+@implementation GamesViewController
+
+- (id)init {
+	self = [super init];
+	[self updateGameDirs];
+	
+	return self;
+}
+
+- (void)viewDidLoad {
+	[super viewDidLoad];
+	[self uiInit];
+	[self constraintsInit];
+}
+
+-(void)updateGameDirs {
+	NSError *error;
+	NSArray<NSURL*> *dirList = [NSFileManager.defaultManager contentsOfDirectoryAtURL:documentsDirctory includingPropertiesForKeys:@[NSURLIsDirectoryKey] options:NSDirectoryEnumerationSkipsHiddenFiles
+		error:&error];
+	
+	if (error)
+	{
+		NSLog(@"Failed to enumerate directories: %@", error.localizedDescription);
+		return;
+	}
+	
+	NSMutableArray *list = [NSMutableArray arrayWithCapacity:dirList.count];
+
+	for (NSURL *url in dirList)
+	{
+		NSError *resourceError = nil;
+		NSNumber *isdir;
+		[url getResourceValue:&isdir forKey:NSURLIsDirectoryKey error:&resourceError];
+		
+		if (resourceError)
+		{
+			NSLog(@"Error while checking URL: %@", resourceError.localizedDescription);
+			continue;
+		}
+		
+		if(!isdir.boolValue)
+			continue;
+		
+		bool skip = NO;
+		for (Game *game in self.games)
+		{
+			if ([game.URL isEqual:url])
+			{
+				skip = YES;
+				[list addObject:game];
+				break;
+			}
+		}
+		
+		if (skip) continue;
+
+		NSString *gameinfoDir = [url.path stringByAppendingPathComponent:@"gameinfo.txt"];
+		NSString *liblistDir = [url.path stringByAppendingPathComponent:@"liblist.gam"];
+		Game *game;
+				
+		if ([NSFileManager.defaultManager fileExistsAtPath:gameinfoDir])
+		{
+			game = [[Game alloc] initWithURL:url gameInfoPath:gameinfoDir];
+			[list addObject:game];
+		}
+		else if ([NSFileManager.defaultManager fileExistsAtPath:liblistDir])
+		{
+			game = [[Game alloc] initWithURL:url gameInfoPath:liblistDir];
+			[list addObject:game];
+		}
+		else continue;
+	}
+
+	self.games = list.copy;
+	[self.gamesView reloadData];
+}
+
+- (void)uiInit {
+	UICollectionViewFlowLayout *layoutFlow = [[UICollectionViewFlowLayout alloc] init];
+	layoutFlow.scrollDirection = UICollectionViewScrollDirectionVertical;
+	layoutFlow.minimumLineSpacing = 20;
+	layoutFlow.minimumInteritemSpacing = 0;
+	layoutFlow.estimatedItemSize = CGSizeZero;
+	
+	self.gamesView = [[UICollectionView alloc] initWithFrame:CGRectZero collectionViewLayout:layoutFlow];
+	self.gamesView.delegate = self;
+	self.gamesView.dataSource = self;
+	self.gamesView.backgroundColor = [UIColor clearColor];
+	self.gamesView.translatesAutoresizingMaskIntoConstraints = NO;
+	self.gamesView.pagingEnabled = NO;
+	self.gamesView.showsVerticalScrollIndicator = YES;
+	[self.gamesView registerClass:[UICollectionViewCell class] forCellWithReuseIdentifier:@"GameCell"];
+	
+	[self.view addSubview:self.gamesView];
+}
+
+- (void)constraintsInit {
+	[NSLayoutConstraint activateConstraints:@[
+		[self.gamesView.topAnchor constraintEqualToAnchor:self.view.safeAreaLayoutGuide.topAnchor],
+			[self.gamesView.leadingAnchor constraintEqualToAnchor:self.view.readableContentGuide.leadingAnchor],
+			[self.gamesView.trailingAnchor constraintEqualToAnchor:self.view.readableContentGuide.trailingAnchor],
+		[self.gamesView.bottomAnchor constraintEqualToAnchor:self.view.bottomAnchor],
+	]];
+}
+
+- (nonnull __kindof UICollectionViewCell *)collectionView:(nonnull UICollectionView *)collectionView cellForItemAtIndexPath:(nonnull NSIndexPath *)indexPath {
+	UICollectionViewCell *cell = [collectionView dequeueReusableCellWithReuseIdentifier:@"GameCell" forIndexPath:indexPath];
+	
+	Game *game = [self.games objectAtIndex:indexPath.item];
+	UIImageView *view = [game getViewForThumbnail];
+	UIToolbar *toolbar = [game getViewForToolbar];
+	[cell.contentView addSubview:view];
+	[cell.contentView addSubview:toolbar];
+	
+	[NSLayoutConstraint activateConstraints:@[
+		[view.topAnchor constraintEqualToAnchor:cell.topAnchor],
+		[view.leadingAnchor constraintEqualToAnchor:cell.leadingAnchor],
+		[view.trailingAnchor constraintEqualToAnchor:cell.trailingAnchor],
+		[view.bottomAnchor constraintEqualToAnchor:cell.bottomAnchor],
+		
+		[toolbar.leadingAnchor constraintEqualToAnchor:cell.leadingAnchor],
+		[toolbar.trailingAnchor constraintEqualToAnchor:cell.trailingAnchor],
+		[toolbar.bottomAnchor constraintEqualToAnchor:cell.bottomAnchor constant:-12],
+	]];
+	
+	return cell;
+}
+
+- (NSInteger)collectionView:(nonnull UICollectionView *)collectionView numberOfItemsInSection:(NSInteger)section {
+	//TODO: alternative for older versions
+	if (@available(iOS 17.0, *)) {
+		if (self.games.count == 0)
+		{
+			UIContentUnavailableConfiguration *config = [UIContentUnavailableConfiguration emptyConfiguration];
+			config.text = @"No games found";
+			config.secondaryText = @"Add game folders using the files app to get started";
+			self.contentUnavailableConfiguration = config;
+		}
+		else
+		{
+			self.contentUnavailableConfiguration = nil;
+		}
+	}
+	
+	return self.games.count;
+}
+
+- (CGSize)collectionView:(UICollectionView *)collectionView layout:(UICollectionViewLayout*)collectionViewLayout sizeForItemAtIndexPath:(NSIndexPath *)indexPath {
+	
+	return CGSizeMake(BACKGROUND_WIDTH / 2, BACKGROUND_HEIGHT / 3);
+}
+
+@end
