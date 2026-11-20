@@ -168,7 +168,7 @@ static inline uint16_t MSG_BigShort( const uint16_t x )
 
 static inline qboolean MSG_Overflow( sizebuf_t *sb, int nBits )
 {
-	if( sb->iCurBit + nBits > sb->nDataBits )
+	if( sb->iCurBit < 0 || sb->iCurBit + nBits > sb->nDataBits )
 		sb->bOverflow = true;
 	return sb->bOverflow;
 }

@@ -48,6 +48,7 @@ void Test_RunChallenge( void );
 void Test_RunGamma( void );
 void Test_RunDelta( void );
 void Test_RunBuffer( void );
+void Test_RunNetchan( void );
 void Test_RunMunge( void );
 void Test_RunModBmodel( void );
 void Test_RunTitles( void );
@@ -70,6 +71,7 @@ void Test_RunWindowInsets( void );
 	Test_RunQueryRateLimit(); \
 	Test_RunChallenge(); \
 	Test_RunBuffer(); \
+	Test_RunNetchan(); \
 	Test_RunDelta(); \
 	Test_RunMunge(); \
 	Test_RunModBmodel(); \

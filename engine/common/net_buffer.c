@@ -834,11 +834,17 @@ char *MSG_ReadStringLine( sizebuf_t *sb )
 
 void MSG_ExciseBits( sizebuf_t *sb, int startbit, int bitstoremove )
 {
-	int	endbit = startbit + bitstoremove;
-	int	remaining_to_end = sb->nDataBits - endbit;
-	sizebuf_t	temp;
+	if( startbit < 0 || bitstoremove < 0 || startbit > sb->nDataBits - bitstoremove )
+	{
+		sb->bOverflow = true;
+		return;
+	}
 
-	MSG_StartWriting( &temp, sb->pData, MSG_GetMaxBytes( sb ), startbit, -1 );
+	int endbit = startbit + bitstoremove;
+	int remaining_to_end = sb->nDataBits - endbit;
+	sizebuf_t temp;
+
+	MSG_StartWriting( &temp, sb->pData, 0, startbit, sb->nDataBits );
 	MSG_SeekToBit( sb, endbit, SEEK_SET );
 
 	for( int i = 0; i < remaining_to_end; i++ )
@@ -993,6 +999,57 @@ static void Test_Buffer_ExciseBits( void )
 
 	MSG_SeekToBit( &sb, 7 << 3, SEEK_SET );
 	TASSERT_EQi( MSG_ReadUBitLong( &sb, 4 ), 0xa );
+
+	// buffer isn't byte-aligned, the last bits must survive
+	memcpy( testdata, g_testbuf, BitByte( g_testbuf_bits ));
+
+	MSG_StartWriting( &sb, testdata, 0, 0, g_testbuf_bits );
+	MSG_ExciseBits( &sb, 8, 3 );
+
+	TASSERT_EQi( MSG_CheckOverflow( &sb ), false );
+	TASSERT_EQi( MSG_GetMaxBits( &sb ), g_testbuf_bits - 3 );
+
+	MSG_SeekToBit( &sb, ( g_testbuf_bits & ~7 ) - 3, SEEK_SET );
+	TASSERT_EQi( MSG_ReadUBitLong( &sb, 4 ), 0xa );
+
+	// out of range excisions must leave the buffer intact
+	memcpy( testdata, g_testbuf, BitByte( g_testbuf_bits ));
+
+	MSG_StartWriting( &sb, testdata, 0, 0, g_testbuf_bits );
+	MSG_ExciseBits( &sb, -8, 16 );
+
+	TASSERT_EQi( MSG_CheckOverflow( &sb ), true );
+	TASSERT_EQi( MSG_GetMaxBits( &sb ), g_testbuf_bits );
+
+	MSG_StartWriting( &sb, testdata, 0, 0, g_testbuf_bits );
+	MSG_ExciseBits( &sb, 80, 16 );
+
+	TASSERT_EQi( MSG_CheckOverflow( &sb ), true );
+	TASSERT_EQi( MSG_GetMaxBits( &sb ), g_testbuf_bits );
+	TASSERT( !memcmp( testdata, g_testbuf, BitByte( g_testbuf_bits )));
+}
+
+static void Test_Buffer_NegativeBit( void )
+{
+	// guard dword to detect writes before the buffer
+	uint32_t storage[2] = { 0x11223344, 0x55667788 };
+	byte *data = (byte *)&storage[1];
+	sizebuf_t sb;
+
+	MSG_StartReading( &sb, data, sizeof( storage[1] ), -8, -1 );
+	TASSERT_EQi( MSG_ReadByte( &sb ), 0 );
+	TASSERT_EQi( sb.bOverflow, true );
+
+	MSG_StartWriting( &sb, data, sizeof( storage[1] ), -8, -1 );
+	MSG_WriteByte( &sb, 0xff );
+	TASSERT_EQi( sb.bOverflow, true );
+
+	MSG_StartWriting( &sb, data, sizeof( storage[1] ), -1, -1 );
+	MSG_WriteOneBit( &sb, 1 );
+	TASSERT_EQi( sb.bOverflow, true );
+
+	TASSERT_EQi( storage[0], 0x11223344 );
+	TASSERT_EQi( storage[1], 0x55667788 );
 }
 
 static void Test_Buffer_BitAngle( void )
@@ -1042,6 +1099,7 @@ void Test_RunBuffer( void )
 	TRUN( Test_Buffer_Write( ));
 	TRUN( Test_Buffer_Read( ));
 	TRUN( Test_Buffer_ExciseBits( ));
+	TRUN( Test_Buffer_NegativeBit( ));
 	TRUN( Test_Buffer_BitAngle( ));
 }
 

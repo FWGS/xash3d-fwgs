@@ -1372,6 +1372,7 @@ static qboolean Netchan_Validate( netchan_t *chan, sizebuf_t *sb, qboolean *frag
 {
 	int bits_read = MSG_GetNumBitsRead( sb );
 	int bits_total = MSG_GetMaxBits( sb );
+	int frag_end = 0;
 
 	for( int i = 0; i < MAX_STREAMS; i++ )
 	{
@@ -1393,8 +1394,16 @@ static qboolean Netchan_Validate( netchan_t *chan, sizebuf_t *sb, qboolean *frag
 		if( frag_length[i] < 0 || frag_length[i] > ( FRAGMENT_MAX_SIZE << 3 ))
 			return false;
 
+		// fragments are excised in stream order, shifting later offsets back
+		// by the removed length, so a fragment that starts before the previous
+		// one ends can be shifted before the start of the message
+		if( frag_offset[i] < frag_end )
+			return false;
+
 		if( bits_read + frag_offset[i] + frag_length[i] > bits_total )
 			return false;
+
+		frag_end = frag_offset[i] + frag_length[i];
 	}
 
 	return true;
@@ -2028,3 +2037,39 @@ qboolean Netchan_Process( netchan_t *chan, sizebuf_t *msg )
 
 	return true;
 }
+
+#if XASH_ENGINE_TESTS
+#include "tests.h"
+
+static void Test_Netchan_Validate( void )
+{
+	struct
+	{
+		qboolean frag_message[MAX_STREAMS];
+		int frag_offset[MAX_STREAMS];
+		int frag_length[MAX_STREAMS];
+		qboolean result;
+	} test_data[] =
+	{
+		{ { true, true }, { 0, 800 }, { 800, 800 }, true },     // stream 1 right after stream 0, like the sender does
+		{ { false, true }, { 0, 0 }, { 0, 800 }, true },        // stream 1 alone
+		{ { true, true }, { 800, 0 }, { 800, 800 }, false },    // stream 1 before stream 0, shifted before the message
+		{ { true, true }, { 1600, 800 }, { 800, 800 }, false }, // stream 1 before stream 0, shifted within the message
+		{ { true, true }, { 0, 792 }, { 800, 800 }, false },    // overlapping streams
+		{ { true, false }, { 7200, 0 }, { 1600, 0 }, false },   // past the end of the message
+	};
+	uint fragid[MAX_STREAMS] = { MAKE_FRAGID( 1, 1 ), MAKE_FRAGID( 1, 1 ) };
+	sizebuf_t sb;
+
+	for( int i = 0; i < ARRAYSIZE( test_data ); i++ )
+	{
+		MSG_StartReading( &sb, NULL, 0, 64, 64 + 8192 );
+		TASSERT_EQi( Netchan_Validate( NULL, &sb, test_data[i].frag_message, fragid, test_data[i].frag_offset, test_data[i].frag_length ), test_data[i].result );
+	}
+}
+
+void Test_RunNetchan( void )
+{
+	TRUN( Test_Netchan_Validate( ));
+}
+#endif // XASH_ENGINE_TESTS
