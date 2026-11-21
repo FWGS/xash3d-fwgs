@@ -45,7 +45,7 @@ echo "Starting Platform SDK container..."
 
 docker import --platform linux/386 "$IMAGES_DIR/$CHROOT" sailfish-sdk || die
 # the container stays up for the following steps, they run in it with docker exec
-docker run -d --name sailfish --platform linux/386 -v "$PWD:$PWD" -v "$IMAGES_DIR:$IMAGES_DIR" -w "$PWD" sailfish-sdk sleep infinity || die
+docker run -d --name sailfish --platform linux/386 --security-opt seccomp=unconfined -v "$PWD:$PWD" -v "$IMAGES_DIR:$IMAGES_DIR" -w "$PWD" sailfish-sdk sleep infinity || die
 
 # SDK tools refuse to run as root, set up the user like sdk-chroot does
 docker exec sailfish useradd -m -u "$(id -u)" -s /bin/bash mersdk || die
