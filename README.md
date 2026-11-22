@@ -107,7 +107,7 @@ This repository contains our fork of HLSDK and restored source code for Half-Lif
 #### iOS/iPadOS
 * Install Xcode from the appstore.
 
-* Clone the SDL2 repo `$ git clone --recursive https://github.com/libsdl-org/SDL.git -b SDL2` and compile the iOS framework by navigating to SDL/Xcode/SDL and opening the Xcode project.
+* Clone the SDL3 repo `$ git clone https://github.com/libsdl-org/SDL.git` and build `SDL3.xcframework` with `$ xcodebuild -target SDL3.xcframework -configuration Release` in `SDL/Xcode/SDL`.
 
 * Clone this repository: `$ git clone --recursive https://github.com/FWGS/xash3d-fwgs`.
 * Check out nanogl, it isn't checked out by default: `$ git submodule update --init --checkout 3rdparty/nanogl`.
@@ -136,8 +136,8 @@ To build you should clone [SDL](https://github.com/libsdl-org/SDL) from `SDL2` b
 
 #### iOS/iPadOS (MacOS only)
 0) (optional) Examine which build options are available: `./waf --help`.
-1) Copy your compiled SDL2.framework to the repository's root directory
-2) Add your game dylibs to `build/ios/libs/(gamedir)/(dlls/cl_dlls)` if desired (You can also run `scripts/ios/buildhlsdk.sh` instead to automatically create an ipa with hlsdk dylibs)
+1) Copy your compiled SDL3.xcframework to the repository's root directory
+2) Add your game dylibs to `build/ios/libs/(gamedir)/(dlls/cl_dlls)` if desired (`scripts/ios/buildhlsdk.sh` builds hlsdk and puts its dylibs there)
 3) Open the xcode project in `ios` and build it, an ipa file will be created at build/xash3d.ipa if successful
 
 ### Running tests

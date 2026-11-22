@@ -16,7 +16,6 @@ cmake --build build --config Debug
 cmake --install build --prefix $LIBSDIR
 
 cd ../../
-./createipa.sh
 
 if [ -d mod-build ]; then
     rm -rf mod-build/
