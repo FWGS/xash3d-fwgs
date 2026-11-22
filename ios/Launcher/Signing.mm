@@ -16,6 +16,7 @@ GNU General Public License for more details.
 #import <Foundation/Foundation.h>
 #import "Signing.h"
 #import "common.h"
+#import "archive.h"
 #import "macho.h"
 
 @implementation Signer
@@ -71,5 +72,9 @@ GNU General Public License for more details.
 }
 
 
+
++ (BOOL)extractZipAtPath:(NSString *)zipPath toPath:(NSString *)outputPath {
+	return Zip::Extract(zipPath.fileSystemRepresentation, outputPath.fileSystemRepresentation);
+}
 
 @end

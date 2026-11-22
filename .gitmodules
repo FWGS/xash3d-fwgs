@@ -77,7 +77,3 @@
 	path = 3rdparty/openssl
 	update = none
 	url = https://github.com/openssl/openssl
-[submodule "3rdparty/SSZipArchive"]
-	path = 3rdparty/SSZipArchive
-	update = none
-	url = https://github.com/karmarama/SSZipArchive

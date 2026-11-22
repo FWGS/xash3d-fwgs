@@ -17,5 +17,6 @@ GNU General Public License for more details.
 
 + (BOOL)signAtURL:(nonnull NSURL*)machoURL withCertificate:(nonnull NSData*)certData withProvision:(nullable NSData*)provisionData password:(nullable NSString*)password;
 + (BOOL)signAtPath:(nonnull NSString*)machoPath withCertificate:(nonnull NSData*)certData withProvision:(nullable NSData*)provisionData password:(nullable NSString*)password;
++ (BOOL)extractZipAtPath:(nonnull NSString*)zipPath toPath:(nonnull NSString*)outputPath;
 
 @end

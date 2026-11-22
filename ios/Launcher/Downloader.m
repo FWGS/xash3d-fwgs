@@ -15,7 +15,7 @@ GNU General Public License for more details.
 
 #import "Downloader.h"
 #import <CommonCrypto/CommonCrypto.h>
-#import <ZipArchive/ZipArchive.h>
+#import "Signing.h"
 #import "Globals.h"
 #import "Alert.h"
 
@@ -157,7 +157,7 @@ loadfromdisk:
 			if (directoryerror)
 				NSLog(@"Failed to create directory %@, error: %@", libsdest, directoryerror.localizedDescription);
 			
-			if (![SSZipArchive unzipFileAtPath:libszip toDestination:libsdest.path])
+			if (![Signer extractZipAtPath:libszip toPath:libsdest.path])
 			{
 				errormessage = @"Failed to unzip game libs";
 				return;
@@ -187,7 +187,7 @@ loadfromdisk:
 		if (directoryerror)
 			NSLog(@"Failed to create directory %@, error: %@", libsdest, directoryerror.localizedDescription);
 		
-		if (![SSZipArchive unzipFileAtPath:libszip toDestination:libsdest.path])
+		if (![Signer extractZipAtPath:libszip toPath:libsdest.path])
 		{
 			[Alert displayErrorAlertWithMessage:@"Failed to unzip game libs"];
 			return NO;

@@ -40,19 +40,7 @@
 		886E087A30927DC200E67107 /* openssl.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 886E084230927DC200E67107 /* openssl.cpp */; };
 		886E087B30927DC200E67107 /* signing.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 886E084430927DC200E67107 /* signing.cpp */; };
 		888810FE306DA9040029FADB /* OpenGLES.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 888810FD306DA9040029FADB /* OpenGLES.framework */; };
-		88C65891305B196700986226 /* ZipArchive.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 88C65875305B195800986226 /* ZipArchive.framework */; };
-		88C65892305B196700986226 /* ZipArchive.framework in Embed Frameworks */ = {isa = PBXBuildFile; fileRef = 88C65875305B195800986226 /* ZipArchive.framework */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
 /* End PBXBuildFile section */
-
-/* Begin PBXContainerItemProxy section */
-		88C65874305B195800986226 /* PBXContainerItemProxy */ = {
-			isa = PBXContainerItemProxy;
-			containerPortal = 88C6586A305B195700986226 /* ZipArchive.xcodeproj */;
-			proxyType = 2;
-			remoteGlobalIDString = B423AE1A1C0DF76A0004A2F1;
-			remoteInfo = "ZipArchive-iOS";
-		};
-/* End PBXContainerItemProxy section */
 
 /* Begin PBXCopyFilesBuildPhase section */
 		883FA468304F4CC800B215C1 /* Embed Frameworks */ = {
@@ -61,7 +49,6 @@
 			dstPath = "";
 			dstSubfolderSpec = 10;
 			files = (
-				88C65892305B196700986226 /* ZipArchive.framework in Embed Frameworks */,
 			);
 			name = "Embed Frameworks";
 			runOnlyForDeploymentPostprocessing = 0;
@@ -314,7 +301,6 @@
 		886E085A30927DC200E67107 /* README.zh-CN.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = "README.zh-CN.md"; sourceTree = "<group>"; };
 		888810FD306DA9040029FADB /* OpenGLES.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = OpenGLES.framework; path = System/Library/Frameworks/OpenGLES.framework; sourceTree = SDKROOT; };
 		88997EE22FFEDE9100D500F1 /* Launcher.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Launcher.app; sourceTree = BUILT_PRODUCTS_DIR; };
-		88C6586A305B195700986226 /* ZipArchive.xcodeproj */ = {isa = PBXFileReference; lastKnownFileType = "wrapper.pb-project"; path = ZipArchive.xcodeproj; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
@@ -357,7 +343,6 @@
 			buildActionMask = 2147483647;
 			files = (
 				888810FE306DA9040029FADB /* OpenGLES.framework in Frameworks */,
-				88C65891305B196700986226 /* ZipArchive.framework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -851,28 +836,10 @@
 				8844E26A308C041C0008611A /* libcrypto.a */,
 				8844E26B308C041C0008611A /* libssl.a */,
 				888810FD306DA9040029FADB /* OpenGLES.framework */,
-				88C6586B305B195700986226 /* SSZipArchive-master */,
 				883FA41D304F4C7000B215C1 /* libz.tbd */,
 				883FA41C304F4C6300B215C1 /* libiconv.tbd */,
 			);
 			name = Frameworks;
-			sourceTree = "<group>";
-		};
-		88C6586B305B195700986226 /* SSZipArchive-master */ = {
-			isa = PBXGroup;
-			children = (
-				88C6586A305B195700986226 /* ZipArchive.xcodeproj */,
-			);
-			name = "SSZipArchive-master";
-			path = ../3rdparty/SSZipArchive;
-			sourceTree = SOURCE_ROOT;
-		};
-		88C6586E305B195700986226 /* Products */ = {
-			isa = PBXGroup;
-			children = (
-				88C65875305B195800986226 /* ZipArchive.framework */,
-			);
-			name = Products;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -927,28 +894,12 @@
 			preferredProjectObjectVersion = 77;
 			productRefGroup = 88997EE32FFEDE9100D500F1 /* Products */;
 			projectDirPath = "";
-			projectReferences = (
-				{
-					ProductGroup = 88C6586E305B195700986226 /* Products */;
-					ProjectRef = 88C6586A305B195700986226 /* ZipArchive.xcodeproj */;
-				},
-			);
 			projectRoot = "";
 			targets = (
 				88997EE12FFEDE9100D500F1 /* Launcher */,
 			);
 		};
 /* End PBXProject section */
-
-/* Begin PBXReferenceProxy section */
-		88C65875305B195800986226 /* ZipArchive.framework */ = {
-			isa = PBXReferenceProxy;
-			fileType = wrapper.framework;
-			path = ZipArchive.framework;
-			remoteRef = 88C65874305B195800986226 /* PBXContainerItemProxy */;
-			sourceTree = BUILT_PRODUCTS_DIR;
-		};
-/* End PBXReferenceProxy section */
 
 /* Begin PBXResourcesBuildPhase section */
 		88997EE02FFEDE9100D500F1 /* Resources */ = {

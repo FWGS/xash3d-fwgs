@@ -3,7 +3,7 @@
 cd "$GITHUB_WORKSPACE" || exit 1
 
 # not checked out by default, iOS builds ref_gles1
-git submodule update --init --checkout 3rdparty/zsign 3rdparty/openssl 3rdparty/SSZipArchive 3rdparty/nanogl
+git submodule update --init --checkout 3rdparty/zsign 3rdparty/openssl 3rdparty/nanogl
 
 SDL_VERSION=3.4.18
 git clone https://github.com/libsdl-org/SDL -b "release-$SDL_VERSION"

@@ -112,7 +112,7 @@ This repository contains our fork of HLSDK and restored source code for Half-Lif
 * Clone this repository: `$ git clone --recursive https://github.com/FWGS/xash3d-fwgs`.
 * Check out nanogl, it isn't checked out by default: `$ git submodule update --init --checkout 3rdparty/nanogl`.
 
-* Checkout iOS dependencies: `$ git submodule update --init --checkout 3rdparty/zsign 3rdparty/SSZipArchive 3rdparty/openssl`
+* Checkout iOS dependencies: `$ git submodule update --init --checkout 3rdparty/zsign 3rdparty/openssl`
 
 ### Building
 #### Windows (Visual Studio)
