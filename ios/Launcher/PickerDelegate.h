@@ -19,7 +19,6 @@ GNU General Public License for more details.
 
 @property NSURL * __strong *url;
 
-
 - (instancetype)initWithURL:(NSURL * __strong *)urlref;
 
 @end

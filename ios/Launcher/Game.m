@@ -22,6 +22,7 @@ GNU General Public License for more details.
 #import "Downloader.h"
 #import "Globals.h"
 #import "Alert.h"
+#import "SceneDelegate.h"
 
 Signer *signer;
 
@@ -244,10 +245,7 @@ loadwithoutlayout:
 	for (NSString *lib in self.libList)
 	{
 		const char *cPath;
-		if (self.bundled)
-			cPath = [[NSBundle.mainBundle.bundlePath stringByAppendingPathComponent:self.gameDir] stringByAppendingPathComponent:lib].UTF8String;
-		else
-			cPath = [self.URL.path stringByAppendingPathComponent:lib].UTF8String;
+		cPath = [self.URL.path stringByAppendingPathComponent:lib].UTF8String;
 		
 		void *tempHandle = dlopen(cPath, RTLD_LAZY);
 		if (!tempHandle)
@@ -273,7 +271,11 @@ UIWindow *alertWindow;
 	if (![self isLoadable] && [LibDownloader checkSupportedForGame:self])
 	{
 		UIViewController *vc = [[UIViewController alloc] init];
-		alertWindow = [[UIWindow alloc] initWithFrame:UIScreen.mainScreen.bounds];
+		if (@available(iOS 13, *)) {
+			alertWindow = [[UIWindow alloc] initWithWindowScene:UIApplication.sharedApplication.keyWindow.windowScene];
+		} else {
+			alertWindow = [[UIWindow alloc] initWithFrame:UIScreen.mainScreen.bounds];
+		}
 		alertWindow.windowLevel = UIWindowLevelAlert + 1.0f;
 		alertWindow.rootViewController = vc;
 		[alertWindow makeKeyAndVisible];
@@ -281,12 +283,39 @@ UIWindow *alertWindow;
 		NSString *message = [NSString stringWithFormat:@"Game libraries are available for \"%@\", do you want to download them?\nNote that the game may not function properly if the libraries are missing", self.gameDir];
 		UIAlertController *alert = [UIAlertController alertControllerWithTitle:nil message:message preferredStyle:UIAlertControllerStyleAlert];
 		UIAlertAction *downloadAction = [UIAlertAction actionWithTitle:@"Yes" style:UIAlertActionStyleDefault handler:^(UIAlertAction *action){
-			[LibDownloader fetchLibsForGame:self];
-			[(AppDelegate*)UIApplication.sharedApplication.delegate performSelector:@selector(runEngine:) withObject:self afterDelay:0.0];
+			if ([LibDownloader fetchLibsForGame:self]) {
+				NSURL *libsURL = [NSURL fileURLWithPath:[libraryDirectory stringByAppendingFormat:@"/%@-ios-arm64/%@", self.gameDir, self.gameDir]];
+				
+				for (NSString *path in [NSFileManager.defaultManager enumeratorAtPath:libsURL.path])
+				{
+					if (![path.pathExtension isEqualToString:@"dylib"])
+					{
+						continue;
+					}
+					
+					if ([NSFileManager.defaultManager fileExistsAtPath:[self.URL.path stringByAppendingPathComponent:path]])
+						[NSFileManager.defaultManager removeItemAtPath:[self.URL.path stringByAppendingPathComponent:path] error:nil];
+					
+					NSError *copyerror;
+					
+					if (copyerror)
+						NSLog(@"Failed to copy lib due to error: %@", copyerror.localizedDescription);
+				}
+			}
+			
+			if (@available(iOS 13, *)) {
+				[(SceneDelegate*)UIApplication.sharedApplication.keyWindow.windowScene.delegate performSelector:@selector(runEngine:) withObject:self afterDelay:0.0];
+			} else {
+				[(AppDelegate*)UIApplication.sharedApplication.delegate performSelector:@selector(runEngine:) withObject:self afterDelay:0.0];
+			}
 			alertWindow = nil;
 		}];
 		UIAlertAction *dismissAction = [UIAlertAction actionWithTitle:@"No" style:UIAlertActionStyleDefault handler:^(UIAlertAction *action) {
-			[(AppDelegate*)UIApplication.sharedApplication.delegate performSelector:@selector(runEngine:) withObject:self afterDelay:0.0];
+			if (@available(iOS 13, *)) {
+				[(SceneDelegate*)UIApplication.sharedApplication.keyWindow.windowScene.delegate performSelector:@selector(runEngine:) withObject:self afterDelay:0.0];
+			} else {
+				[(AppDelegate*)UIApplication.sharedApplication.delegate performSelector:@selector(runEngine:) withObject:self afterDelay:0.0];
+			}
 			alertWindow = nil;
 		}];
 		
@@ -475,8 +504,13 @@ UIWindow *alertWindow;
 }
 
 -(void)displaySettings {
-	AppDelegate * __weak delegate = (AppDelegate *)UIApplication.sharedApplication.delegate;
-	[delegate.gamesNavController pushViewController:self.settingsView animated:YES];
+	if (@available(iOS 13, *)) {
+		SceneDelegate * __weak delegate = (SceneDelegate*)UIApplication.sharedApplication.keyWindow.windowScene.delegate;
+		[delegate.gamesNavController pushViewController:self.settingsView animated:YES];
+	} else {
+		AppDelegate * __weak delegate = (AppDelegate *)UIApplication.sharedApplication.delegate;
+		[delegate.gamesNavController pushViewController:self.settingsView animated:YES];
+	}
 }
 
 @end

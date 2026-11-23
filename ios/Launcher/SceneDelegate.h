@@ -1,5 +1,5 @@
 /*
-SceneDelegate.h - Delegate for managing app window lifecycle (currently unused)
+SceneDelegate.h - Delegate for managing app window lifecycle
 Copyright (C) 2026 Xash3D FWGS contributors
 
 This program is free software: you can redistribute it and/or modify
@@ -14,14 +14,19 @@ GNU General Public License for more details.
 */
 
 #import <UIKit/UIKit.h>
+#import "Game.h"
+#import "ViewController.h"
 
 @interface SceneDelegate : UIResponder <UIWindowSceneDelegate>
 
 @property (strong, nonatomic) UIWindow * window;
-@property (strong, nonatomic) UIViewController * gamesController;
+@property (strong, nonatomic) GamesViewController * gamesController;
 @property (nonatomic) UIViewController *settingsController;
 @property (nonatomic) UINavigationController *settingsNavController;
-@property (nonatomic) UITabBarController *navController;
+@property (nonatomic) UITabBarController *tabNavController;
+@property (nonatomic) UINavigationController *gamesNavController;
+
+- (void)runEngine:(__weak Game *)game;
 
 @end
 
