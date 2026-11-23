@@ -234,6 +234,10 @@ loadwithoutlayout:
 
 - (BOOL)isLoadable {
 	BOOL retVal = YES;
+	
+	if ([NSBundle.mainBundle pathForResource:self.gameDir ofType:nil])
+		return YES; //assume it's loadable if it's bundled with the app
+	
 	if (!self.libList)
 		[self initUnsupportedLibList];
 	
@@ -401,47 +405,12 @@ UIWindow *alertWindow;
 }
 
 - (BOOL)signGame {
-	/*if (!signer)
-	{
-		NSString *certPath = [NSUserDefaults.standardUserDefaults objectForKey:@"P12 PATH"];
-		if (!certPath)
-		{
-			[Alert displayErrorAlertWithMessage:@"Select a P12 certificate before running a game!"];
-			return NO;
-		}
-		
-		NSURL *certURL = [NSURL fileURLWithPath:certPath isDirectory:NO relativeToURL:documentsDirctory];
-		NSURL *provisionURL;
-		NSString *provisionPath = [NSUserDefaults.standardUserDefaults objectForKey:@"PROVISION PATH"];
-		
-		if (provisionPath)
-		{
-			provisionURL = [NSURL fileURLWithPath:provisionPath relativeToURL:documentsDirctory];
-		}
-		
-		NSString *password = [NSUserDefaults.standardUserDefaults objectForKey:@"P12 PASSWORD"];
-		
-		if (!certURL)
-		{
-			[Alert displayErrorAlertWithMessage:@"Please select a certificate before trying to run a game"];
-			return NO;
-		}
-		
-		if (!provisionURL)
-			NSLog(@"User did not specify a provision file");
-		
-		signer = [[Signer alloc] initWithCert:certURL withProvision:provisionURL password:password];
-		
-		if (!signer)
-		{
-			NSLog(@"Failed to create signer!");
-			return NO;
-		}
-	}*/
-	
 	//todo: store certificate data directly in user preferences
 	NSString *certPath = [NSUserDefaults.standardUserDefaults objectForKey:@"P12 PATH"];
 	NSString *provisionPath = [NSUserDefaults.standardUserDefaults objectForKey:@"PROVISION PATH"];
+	
+	if ([NSBundle.mainBundle pathForResource:self.gameDir ofType:nil])
+		return YES; //uneeded if the libraries are bundled with the app
 
 	if (!certPath)
 	{
