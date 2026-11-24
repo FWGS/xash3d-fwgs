@@ -142,6 +142,7 @@ static void HPAK_CreatePak( const char *filename, resource_t *pResource, byte *p
 	if( memcmp( md5, pResource->rgucMD5_hash, 16 ))
 	{
 		Con_DPrintf( S_ERROR "%s: bad checksum for %s. Ignored\n", __func__, pakname );
+		FS_Close( fout );
 		return;
 	}
 

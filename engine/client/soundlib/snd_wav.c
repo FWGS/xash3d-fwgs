@@ -275,7 +275,18 @@ qboolean Sound_LoadWAV( const char *name, const byte *buffer, fs_offset_t filesi
 	}
 
 	iff_dataPtr += 4;
-	int samples = GetLittleLong() / sound.width;
+	int dataSize = GetLittleLong();
+	ptrdiff_t dataAvailable = iff_end - iff_dataPtr;
+
+	// FindNextChunk clamps the chunk length, but the raw size stored in the
+	// chunk header is not clamped. Reject truncated data chunks before copying.
+	if( dataSize < 0 || dataAvailable < 0 || (ptrdiff_t)dataSize > dataAvailable )
+	{
+		Con_DPrintf( S_ERROR "%s: %s has a truncated data chunk\n", __func__, name );
+		return false;
+	}
+
+	int samples = dataSize / sound.width;
 
 	if( sound.samples )
 	{
