@@ -983,6 +983,13 @@ static void Host_CheckGameLibraries( void )
 	if( COM_StringEmpty( details ))
 		return;
 
+#if XASH_AMD64 && ( XASH_WIN32 || ( XASH_LINUX && !XASH_ANDROID ) || XASH_OSX )
+	char i386_hint[64];
+	Q_snprintf( i386_hint, sizeof( i386_hint ), "\nOr install 32-bit (%s-i386) engine.", Q_buildos( ));
+#else
+	const char i386_hint[] = "";
+#endif
+
 	Sys_Warn( "Xash3D: missing game library\n"
 		"\n"
 		"Required : %s-%s\n"
@@ -991,7 +998,7 @@ static void Host_CheckGameLibraries( void )
 		"Found %s libraries for these operating systems:\n"
 		"%s"
 		"\n"
-		"Install \"%s\" game build for %s-%s.",
+		"Install \"%s\" game build for %s-%s.%s",
 		Q_buildos(), Q_buildarch(),
 		missing,
 #if XASH_AMD64
@@ -1000,7 +1007,8 @@ static void Host_CheckGameLibraries( void )
 		"32-bit x86",
 #endif
 		details,
-		GI->gamefolder, Q_buildos(), Q_buildarch() );
+		GI->gamefolder, Q_buildos(), Q_buildarch(),
+		i386_hint );
 #endif // XASH_INTERNAL_GAMELIBS
 }
 
