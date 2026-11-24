@@ -664,6 +664,8 @@ int pfnIsInGame( void );
 #define SV_CopyString( s ) _copystring( svgame.stringspool, s, __FILE__, __LINE__ )
 #define freestring( s ) if( s != NULL ) { Mem_Free( s ); s = NULL; }
 char *_copystring( poolhandle_t mempool, const char *s, const char *filename, int fileline );
+int COM_GetGameAppID( void );
+void COM_GetGameDirForLegacy( char *out, size_t size );
 
 // CS:CS engfuncs (stubs)
 void *pfnSequenceGet( const char *fileName, const char *entryName );

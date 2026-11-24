@@ -2662,7 +2662,7 @@ static const char *pfnGetGameDirectory( void )
 {
 	static char	szGetGameDir[MAX_SYSPATH];
 
-	Q_strncpy( szGetGameDir, GI->gamefolder, sizeof( szGetGameDir ));
+	COM_GetGameDirForLegacy( szGetGameDir, sizeof( szGetGameDir ));
 	return szGetGameDir;
 }
 
@@ -3129,7 +3129,7 @@ pfnGetAppID
 */
 static int GAME_EXPORT pfnGetAppID( void )
 {
-	return 70; // Half-Life AppID
+	return COM_GetGameAppID();
 }
 
 /*

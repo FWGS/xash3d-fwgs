@@ -4653,26 +4653,7 @@ static int GAME_EXPORT pfnGetTimesTutorMessageShown( int mid )
 
 static void GAME_EXPORT pfnGetGameDir( char *out )
 {
-	char rootdir[MAX_SYSPATH];
-
-	if( !out )
-		return;
-
-	if( !FBitSet( host.bugcomp, BUGCOMP_GET_GAME_DIR_FULL_PATH ))
-	{
-		Q_strncpy( out, GI->gamefolder, 256 );
-	}
-	else
-	{
-		// in GoldSrc pre-1.1.1.1, it's a full path to game directory, limited by 256 characters
-		// however the full path might easily overflow that limitation
-		// here we check if it would overflow and just return game folder in that case
-		if( !g_fsapi.GetRootDirectory( rootdir, sizeof( rootdir ))
-			|| Q_snprintf( out, 256, "%s/%s", rootdir, GI->gamefolder ) < 0 )
-		{
-			Q_strncpy( out, GI->gamefolder, 256 );
-		}
-	}
+	COM_GetGameDirForLegacy( out, 256 );
 }
 
 static cvar_t* GAME_EXPORT SV_CvarGetPointer( const char *szVarName )
