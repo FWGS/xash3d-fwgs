@@ -3211,19 +3211,37 @@ use -str64dup to disable deduplication, -str64alloc to set array size
 string_t GAME_EXPORT SV_AllocString( const char *szValue )
 {
 	uint len = SV_ProcessString( NULL, szValue );
-	char *processed_string = Mem_Calloc( svgame.stringspool, len );
+#if XASH_64BIT
+	char stackbuf[256];
+#endif
+	qboolean from_stack = false;
+	char *processed_string;
 	char *dupe_string = NULL;
 	qboolean found_dupe = false;
 
 	(void)dupe_string;
 	(void)found_dupe;
 
+	// short strings are copied into the 64-bit string array anyway,
+	// so there is no reason to allocate a temporary for them
+#if XASH_64BIT
+	if( len <= sizeof( stackbuf ))
+	{
+		processed_string = stackbuf;
+		from_stack = true;
+	}
+	else
+#endif
+	{
+		processed_string = Mem_Calloc( svgame.stringspool, len );
+	}
+
 	SV_ProcessString( processed_string, szValue );
 
 	if( svgame.physFuncs.pfnAllocString != NULL )
 	{
 		string_t i = svgame.physFuncs.pfnAllocString( processed_string );
-		Mem_Free( processed_string );
+		if( !from_stack ) Mem_Free( processed_string );
 		return i;
 	}
 
@@ -3265,7 +3283,7 @@ string_t GAME_EXPORT SV_AllocString( const char *szValue )
 	if( dupe_string - str64.pstringarray > str64.maxalloc )
 		str64.maxalloc = dupe_string - str64.pstringarray;
 
-	Mem_Free( processed_string );
+	if( !from_stack ) Mem_Free( processed_string );
 
 	return dupe_string - svgame.globals->pStringBase;
 #else // !XASH_64BIT
