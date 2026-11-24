@@ -4938,20 +4938,22 @@ static qboolean SV_ParseEdict( char **pfile, edict_t *ent )
 		for( len = Q_strlen( keyname ); len > 0 && keyname[len - 1] == ' '; len-- )
 			keyname[len - 1] = '\0';
 
-		// create keyvalue strings
-		pkvd[numpairs].szClassName = (char*)""; // unknown at this moment
-		pkvd[numpairs].szKeyName = copystring( keyname );
-		pkvd[numpairs].szValue = copystring( value );
-		pkvd[numpairs].fHandled = false;
-		numpairs++;
-
-		if( numpairs > ARRAYSIZE( pkvd ))
+		// check before writing: numpairs may already be equal to ARRAYSIZE( pkvd ),
+		// and the old post-increment check allowed a write past the end of the array
+		if( numpairs == ARRAYSIZE( pkvd ))
 		{
 			if( classname )
 				Con_Printf( S_ERROR "%s: too many keyvalue pairs for %s!\n", __func__, classname );
 			else Con_Printf( S_ERROR "%s: too many keyvalue pairs!\n", __func__ );
 			break;
 		}
+
+		// create keyvalue strings
+		pkvd[numpairs].szClassName = (char*)""; // unknown at this moment
+		pkvd[numpairs].szKeyName = copystring( keyname );
+		pkvd[numpairs].szValue = copystring( value );
+		pkvd[numpairs].fHandled = false;
+		numpairs++;
 	}
 
 	if( classname == NULL )
