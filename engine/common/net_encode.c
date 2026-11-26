@@ -498,8 +498,6 @@ static delta_info_t *Delta_FindStructByDelta( const delta_t *pFields )
 
 static void Delta_CustomEncode( delta_info_t *dt, const void *from, const void *to )
 {
-	Assert( dt != NULL );
-
 	// set all fields is active by default
 	for( int i = 0; i < dt->numFields; i++ )
 		dt->pFields[i].bInactive = false;
@@ -587,16 +585,11 @@ static qboolean Delta_AddField( delta_info_t *dt, const char *pName, int flags, 
 
 static void Delta_WriteTableField( sizebuf_t *msg, int tableIndex, const delta_t *pField )
 {
-	Assert( pField != NULL );
-
 	if( COM_StringEmptyOrNULL( pField->name ))
 		return;// not initialized ?
 
 	delta_info_t *dt = Delta_FindStructByIndex( tableIndex );
-	Assert( dt && dt->bInitialized );
-
 	int nameIndex = Delta_IndexForFieldInfo( dt->pInfo, pField->name, dt->maxFields );
-	Assert( nameIndex >= 0 && nameIndex < dt->maxFields );
 
 	MSG_BeginServerCmd( msg, svc_deltatable );
 	MSG_WriteUBitLong( msg, tableIndex, 4 ); // assume we support 16 network tables
@@ -900,8 +893,6 @@ void Delta_Init( void )
 
 	delta_info_t *dt = Delta_FindStructByIndex( DT_MOVEVARS_T );
 
-	Assert( dt != NULL );
-
 	if( dt->bInitialized )
 		return;	// "movevars_t" already specified by user
 
@@ -1094,10 +1085,6 @@ static qboolean Delta_CompareField( delta_t *pField, const void *from, const voi
 	float	val_a, val_b;
 	int	fromF, toF;
 
-	Assert( pField != NULL );
-	Assert( from != NULL );
-	Assert( to != NULL );
-
 	if( pField->bInactive )
 		return true;
 
@@ -1226,12 +1213,9 @@ int Delta_TestBaseline( const entity_state_t *from, const entity_state_t *to, qb
 		dt = Delta_FindStructByIndex( DT_ENTITY_STATE_PLAYER_T );
 	else dt = Delta_FindStructByIndex( DT_ENTITY_STATE_T );
 
-	Assert( dt && dt->bInitialized );
-
 	countBits++; // entityType flag
 
 	delta_t *pField = dt->pFields;
-	Assert( pField != NULL );
 
 	// activate fields and call custom encode func
 	Delta_CustomEncode( dt, from, to );
@@ -1398,10 +1382,6 @@ static void Delta_CopyField( delta_t *pField, const void *from, void *to, double
 	else if( FBitSet( pField->flags, DT_STRING ))
 	{
 		Q_strncpy( to_field, from_field, pField->size );
-	}
-	else
-	{
-		Assert( 0 );
 	}
 }
 
@@ -1585,10 +1565,7 @@ MSG_WriteDeltaUsercmd
 void MSG_WriteDeltaUsercmd( sizebuf_t *msg, const usercmd_t *from, const usercmd_t *to )
 {
 	delta_info_t *dt = Delta_FindStructByIndex( DT_USERCMD_T );
-	Assert( dt && dt->bInitialized );
-
 	delta_t *pField = dt->pFields;
-	Assert( pField != NULL );
 
 	// activate fields and call custom encode func
 	Delta_CustomEncode( dt, from, to );
@@ -1608,10 +1585,7 @@ MSG_ReadDeltaUsercmd
 void MSG_ReadDeltaUsercmd( sizebuf_t *msg, const usercmd_t *from, usercmd_t *to )
 {
 	delta_info_t *dt = Delta_FindStructByIndex( DT_USERCMD_T );
-	Assert( dt && dt->bInitialized );
-
 	delta_t *pField = dt->pFields;
-	Assert( pField != NULL );
 
 	*to = *from;
 
@@ -1639,10 +1613,7 @@ MSG_WriteDeltaEvent
 void MSG_WriteDeltaEvent( sizebuf_t *msg, const event_args_t *from, const event_args_t *to )
 {
 	delta_info_t *dt = Delta_FindStructByIndex( DT_EVENT_T );
-	Assert( dt && dt->bInitialized );
-
 	delta_t *pField = dt->pFields;
-	Assert( pField != NULL );
 
 	// activate fields and call custom encode func
 	Delta_CustomEncode( dt, from, to );
@@ -1662,10 +1633,7 @@ MSG_ReadDeltaEvent
 void MSG_ReadDeltaEvent( sizebuf_t *msg, const event_args_t *from, event_args_t *to )
 {
 	delta_info_t *dt = Delta_FindStructByIndex( DT_EVENT_T );
-	Assert( dt && dt->bInitialized );
-
 	delta_t *pField = dt->pFields;
-	Assert( pField != NULL );
 
 	*to = *from;
 
@@ -1688,10 +1656,7 @@ qboolean MSG_WriteDeltaMovevars( sizebuf_t *msg, const movevars_t *from, const m
 	int numChanges = 0;
 
 	delta_info_t *dt = Delta_FindStructByIndex( DT_MOVEVARS_T );
-	Assert( dt && dt->bInitialized );
-
 	delta_t *pField = dt->pFields;
-	Assert( pField != NULL );
 
 	int startBit = msg->iCurBit;
 
@@ -1719,10 +1684,7 @@ qboolean MSG_WriteDeltaMovevars( sizebuf_t *msg, const movevars_t *from, const m
 void MSG_ReadDeltaMovevars( sizebuf_t *msg, const movevars_t *from, movevars_t *to )
 {
 	delta_info_t *dt = Delta_FindStructByIndex( DT_MOVEVARS_T );
-	Assert( dt && dt->bInitialized );
-
 	delta_t *pField = dt->pFields;
-	Assert( pField != NULL );
 
 	*to = *from;
 
@@ -1753,10 +1715,7 @@ void MSG_WriteClientData( sizebuf_t *msg, const clientdata_t *from, const client
 	int numChanges = 0;
 
 	delta_info_t *dt = Delta_FindStructByIndex( DT_CLIENTDATA_T );
-	Assert( dt && dt->bInitialized );
-
 	delta_t *pField = dt->pFields;
-	Assert( pField != NULL );
 
 	int startBit = msg->iCurBit;
 
@@ -1789,10 +1748,7 @@ void MSG_ReadClientData( sizebuf_t *msg, const clientdata_t *from, clientdata_t 
 {
 #if !XASH_DEDICATED
 	delta_info_t *dt = Delta_FindStructByIndex( DT_CLIENTDATA_T );
-	Assert( dt && dt->bInitialized );
-
 	delta_t *pField = dt->pFields;
-	Assert( pField != NULL );
 
 	qboolean noChanges = !MSG_ReadOneBit( msg );
 
@@ -1826,10 +1782,7 @@ void MSG_WriteWeaponData( sizebuf_t *msg, const weapon_data_t *from, const weapo
 	int numChanges = 0;
 
 	delta_info_t *dt = Delta_FindStructByIndex( DT_WEAPONDATA_T );
-	Assert( dt && dt->bInitialized );
-
 	delta_t *pField = dt->pFields;
-	Assert( pField != NULL );
 
 	// activate fields and call custom encode func
 	Delta_CustomEncode( dt, from, to );
@@ -1860,10 +1813,7 @@ Read the clientdata
 void MSG_ReadWeaponData( sizebuf_t *msg, const weapon_data_t *from, weapon_data_t *to, double timebase )
 {
 	delta_info_t *dt = Delta_FindStructByIndex( DT_WEAPONDATA_T );
-	Assert( dt && dt->bInitialized );
-
 	delta_t *pField = dt->pFields;
-	Assert( pField != NULL );
 
 	// process fields
 	for( int i = 0; i < dt->numFields; i++, pField++ )
@@ -1951,10 +1901,7 @@ void MSG_WriteDeltaEntity( const entity_state_t *from, const entity_state_t *to,
 		dt = Delta_FindStructByIndex( DT_ENTITY_STATE_T );
 	}
 
-	Assert( dt && dt->bInitialized );
-
 	delta_t *pField = dt->pFields;
-	Assert( pField != NULL );
 
 	if( delta_type == DELTA_STATIC )
 	{
@@ -2076,7 +2023,6 @@ qboolean MSG_ReadDeltaEntity( sizebuf_t *msg, const entity_state_t *from, entity
 	}
 
 	delta_t *pField = dt->pFields;
-	Assert( pField != NULL );
 
 	// process fields
 	for( int i = 0; i < dt->numFields; i++, pField++ )

@@ -973,8 +973,6 @@ clear edict for reuse
 */
 void SV_InitEdict( edict_t *pEdict )
 {
-	Assert( pEdict != NULL );
-
 	SV_FreePrivateData( pEdict );
 	memset( &pEdict->v, 0, sizeof( entvars_t ));
 	pEdict->v.pContainingEntity = pEdict;
@@ -994,7 +992,6 @@ unlink edict from world and free it
 */
 void SV_FreeEdict( edict_t *pEdict )
 {
-	Assert( pEdict != NULL );
 	if( pEdict->free ) return;
 
 	// unlink from world
@@ -1517,7 +1514,6 @@ static edict_t *GAME_EXPORT SV_FindEntityByString( edict_t *pStartEdict, const c
 			}
 			break;
 		default:
-			ASSERT( 0 );
 			break;
 		}
 	}
@@ -5065,8 +5061,6 @@ static void SV_LoadFromFile( const char *mapname, char *entities )
 	char	token[2048];
 	qboolean	create_world = true;
 	edict_t	*ent;
-
-	Assert( entities != NULL );
 
 	// user dll can override spawn entities function (Xash3D extension)
 	if( !svgame.physFuncs.SV_LoadEntities || !svgame.physFuncs.SV_LoadEntities( mapname, entities ))

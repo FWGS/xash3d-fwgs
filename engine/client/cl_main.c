@@ -840,9 +840,6 @@ void CL_WriteUsercmd( connprotocol_t proto, sizebuf_t *msg, int from, int to )
 	const usercmd_t	*f;
 	usercmd_t *t;
 
-	Assert( from == -1 || ( from >= 0 && from < MULTIPLAYER_BACKUP ));
-	Assert( to >= 0 && to < MULTIPLAYER_BACKUP );
-
 	f = from == -1 ? &nullcmd : &cl.commands[from].cmd;
 	t = &cl.commands[to].cmd;
 

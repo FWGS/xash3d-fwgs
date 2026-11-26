@@ -842,8 +842,6 @@ sv_client_t *SV_ClientById( int id )
 	sv_client_t *cl;
 	int i;
 
-	ASSERT( id >= 0 );
-
 	for( i = 0, cl = svs.clients; cl && i < svgame.globals->maxClients; i++, cl++ )
 	{
 		if( !cl->state )
@@ -3693,8 +3691,6 @@ void SV_ExecuteClientMessage( sv_client_t *cl, sizebuf_t *msg )
 	qboolean		move_issued = false;
 	client_frame_t	*frame;
 	int		c;
-
-	ASSERT( cl->frames != NULL );
 
 	// calc ping time
 	frame = &cl->frames[cl->netchan.incoming_acknowledged & SV_UPDATE_MASK];

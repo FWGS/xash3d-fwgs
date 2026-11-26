@@ -244,8 +244,6 @@ void S_StreamBackgroundTrack( void )
 
 	rawchan_t *ch = S_FindRawChannel( S_RAW_SOUND_BACKGROUNDTRACK, true );
 
-	Assert( ch != NULL );
-
 	// see how many samples should be copied into the raw buffer
 	if( ch->s_rawend < snd.soundtime )
 		ch->s_rawend = snd.soundtime;

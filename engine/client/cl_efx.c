@@ -596,8 +596,6 @@ Check for expired beams
 */
 static qboolean CL_BeamAttemptToDie( BEAM *pBeam )
 {
-	Assert( pBeam != NULL );
-
 	// premanent beams never die automatically
 	if( FBitSet( pBeam->flags, FBEAM_FOREVER ))
 		return false;

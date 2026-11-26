@@ -479,8 +479,6 @@ static void Con_AddLine( const char *line, int length, qboolean newline )
 	Con_FixTimes();
 	length++;	// reserve space for term
 
-	ASSERT( length < CON_TEXTSIZE );
-
 	while( !( putpos = Con_BytesLeft( length )) || con.lines_count >= con.maxlines )
 		Con_DeleteLine();
 

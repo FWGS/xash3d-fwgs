@@ -245,7 +245,6 @@ Writes the demo command header and time-delta
 */
 static void CL_WriteDemoCmdHeader( byte cmd, file_t *file )
 {
-	Assert( cmd >= 1 && cmd <= dem_lastcmd );
 	if( !file ) return;
 
 	// command
@@ -316,8 +315,6 @@ so that we can play the demo correctly.
 */
 static void CL_WriteDemoSequence( file_t *file )
 {
-	Assert( file != NULL );
-
 	FS_Write( file, &cls.netchan.incoming_sequence, sizeof( int ));
 	FS_Write( file, &cls.netchan.incoming_acknowledged, sizeof( int ));
 	FS_Write( file, &cls.netchan.incoming_reliable_acknowledged, sizeof( int ));
@@ -784,9 +781,6 @@ static qboolean CL_DemoMoveToNextSection( void )
 static qboolean CL_ReadRawNetworkData( byte *buffer, size_t *length )
 {
 	int	msglen = 0;
-
-	Assert( buffer != NULL );
-	Assert( length != NULL );
 
 	*length = 0; // assume we fail
 	FS_Read( cls.demofile, &msglen, sizeof( int ));

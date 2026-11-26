@@ -25,8 +25,6 @@ static void SV_GetTrueOrigin( sv_client_t *cl, int edictnum, vec3_t origin );
 
 void SV_ClipPMoveToEntity( physent_t *pe, const vec3_t start, vec3_t mins, vec3_t maxs, const vec3_t end, pmtrace_t *tr )
 {
-	Assert( tr != NULL );
-
 	if( svgame.physFuncs.ClipPMoveToEntity != NULL )
 	{
 		// do custom sweep test
@@ -195,7 +193,6 @@ static void SV_AddLinksToPmove( areanode_t *node, const vec3_t pmove_mins, const
 	physent_t	*pe;
 
 	pl = SV_EdictNum( svgame.pmove->player_index + 1 );
-	Assert( SV_IsValidEdict( pl ));
 
 	// touch linked edicts
 	for( l = node->solid_edicts.next; l != &node->solid_edicts; l = next )

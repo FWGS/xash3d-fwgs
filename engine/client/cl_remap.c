@@ -82,8 +82,6 @@ static byte *CL_CreateRawTextureFromPixels( texture_t *tx, size_t *size, int top
 	static mstudiotexture_t	pin;
 	byte			*pal;
 
-	Assert( size != NULL );
-
 	*size = sizeof( pin ) + (tx->width * tx->height) + 768;
 
 	// fill header
@@ -211,10 +209,8 @@ static void CL_UpdateStudioTexture( model_t *model, mstudiotexture_t *ptexture, 
 		return;
 	}
 
-	index = GL_UpdateTextureInternal( origtexname, pic, 0 );
+	GL_UpdateTextureInternal( origtexname, pic, 0 );
 	FS_FreeImage( pic );
-
-	Assert( index == ptexture->index );
 }
 
 /*
@@ -265,8 +261,6 @@ Release remap info per entity
 */
 static void CL_FreeRemapInfo( remap_info_t *info )
 {
-	Assert( info != NULL );
-
 	if( info->ptexture != NULL )
 	{
 		// studio model: release all colormap texture copies

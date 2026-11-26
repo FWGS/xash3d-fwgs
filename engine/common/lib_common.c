@@ -238,7 +238,6 @@ void COM_GetCommonLibraryPath( ECommonLibraryType eLibType, char *out, size_t si
 		else COM_GenerateServerLibraryPath( NULL, out, size );
 		break;
 	default:
-		ASSERT( 0 );
 		out[0] = 0;
 		break;
 	}
@@ -380,7 +379,6 @@ char **COM_ConvertToLocalPlatform( EFunctionMangleType to, const char *from, siz
 		postfix[2] = "EP11CBaseEntityS1_8USE_TYPEf";
 		break;
 	default:
-		ASSERT( 0 );
 		return NULL;
 	}
 

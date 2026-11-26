@@ -265,7 +265,6 @@ qboolean Image_LoadPNG( const char *name, const byte *buffer, fs_offset_t filesi
 		break;
 	default:
 		pixel_size = 0; // make compiler happy
-		ASSERT( false );
 		break;
 	}
 

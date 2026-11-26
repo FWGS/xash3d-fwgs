@@ -68,8 +68,6 @@ static void SV_AddEntitiesToPacket( edict_t *pViewEnt, edict_t *pClient, client_
 
 	cl = SV_ClientFromEdict( pClient, true );
 
-	ASSERT( cl != NULL );
-
 	// portals can't change hostflags
 	if( from_client )
 	{

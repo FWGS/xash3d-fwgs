@@ -544,9 +544,6 @@ static void hull_windings_r( hull_t *hull, int nodenum, hullnode_t *polys, hull_
 
 	list_for_each_entry_safe( w, next, polys, chain )
 	{
-		// PARANIOA - PAIR CHECK
-		ASSERT( !w->pair || w->pair->pair == w );
-
 		list_del( &w->chain );
 		winding_split( w, plane, &front, &back );
 		if( front ) list_add( &front->chain, &frontlist );
@@ -608,8 +605,6 @@ static void hull_windings_r( hull_t *hull, int nodenum, hullnode_t *polys, hull_
 		list_add( &w->chain, &frontlist );
 		list_add( &tmp->chain, &backlist );
 
-		// PARANIOA - PAIR CHECK
-		ASSERT( !w->pair || w->pair->pair == w );
 		model->num_polys += 2;
 	}
 	else

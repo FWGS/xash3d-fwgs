@@ -195,8 +195,6 @@ void Netchan_ReportFlow( netchan_t *chan )
 	if( CL_IsPlaybackDemo( ))
 		return;
 
-	Assert( chan != NULL );
-
 	Q_strncpy( incoming, Q_pretifymem((float)chan->flow[FLOW_INCOMING].totalbytes, 3 ), sizeof( incoming ));
 	Q_strncpy( outgoing, Q_pretifymem((float)chan->flow[FLOW_OUTGOING].totalbytes, 3 ), sizeof( outgoing ));
 

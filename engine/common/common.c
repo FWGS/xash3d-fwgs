@@ -368,7 +368,6 @@ static byte *LZSS_CompressNoAlloc( lzss_state_t *state, byte *pInput, int input_
 	if( input_length != 0 )
 	{
 		// unexpected failure
-		Assert( 0 );
 		state->hash_table = NULL;
 		state->hash_node = NULL;
 		return NULL;
@@ -475,10 +474,8 @@ uint LZSS_Decompress( const byte *pInput, byte *pOutput, size_t input_len, size_
 	}
 
 	if( totalBytes != actualSize )
-	{
-		Assert( 0 );
 		return 0;
-	}
+
 	return totalBytes;
 }
 

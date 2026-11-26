@@ -161,8 +161,6 @@ hull_t *PM_HullForBsp( physent_t *pe, playermove_t *pmove, float *offset )
 		break;
 	}
 
-	Assert( hull != NULL );
-
 	// calculate an offset value to center the origin
 	VectorSubtract( hull->clip_mins, host.player_mins[pmove->usehull], offset );
 	VectorAdd( offset, pe->origin, offset );

@@ -40,7 +40,6 @@ static void Host_SetState( host_state_t newState, qboolean clearNext )
 
 static void Host_SetNextState( host_state_t nextState )
 {
-	ASSERT( GameState->curstate == STATE_RUNFRAME );
 	GameState->nextstate = nextState;
 }
 

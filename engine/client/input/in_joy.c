@@ -279,8 +279,7 @@ static int Joy_GetHatValueForAxis( const engineAxis_t engineAxis )
 		positive = JOY_HAT_DOWN;
 		break;
 	default:
-		ASSERT( false ); // only fwd/side axes can emit key events
-		return 0;
+		return 0; // only fwd/side axes can emit key events
 	}
 
 	// similar code in Joy_ProcessTrigger

@@ -84,8 +84,6 @@ static int PM_SampleMiptex( const msurface_t *surf, const vec3_t point )
 		int x = fix_coord( ds, mt->width );
 		int y = fix_coord( dt, mt->height );
 
-		ASSERT( x >= 0 && y >= 0 );
-
 		if( data[(mt->width * y) + x] == 255 )
 			return CONTENTS_EMPTY;
 		return CONTENTS_SOLID;

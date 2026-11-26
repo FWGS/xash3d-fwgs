@@ -326,8 +326,6 @@ Tell the engine parts about cvar changing
 */
 static void Cvar_Changed( convar_t *var )
 {
-	Assert( var != NULL );
-
 	// tell about changes
 	SetBits( var->flags, FCVAR_CHANGED );
 

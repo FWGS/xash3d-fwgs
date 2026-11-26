@@ -1001,8 +1001,6 @@ void CL_ClearWorld( void )
 
 void CL_InitEdicts( int maxclients )
 {
-	Assert( clgame.entities == NULL );
-
 	if( !clgame.mempool ) return; // Host_Error without client
 #if XASH_LOW_MEMORY != 2
 	CL_UPDATE_BACKUP = ( maxclients <= 1 ) ? SINGLEPLAYER_BACKUP : MULTIPLAYER_BACKUP;
@@ -1202,8 +1200,6 @@ upload sprite frames
 static qboolean CL_LoadHudSprite( const char *szSpriteName, model_t *m_pSprite, uint type, uint texFlags )
 {
 	qboolean	loaded;
-
-	Assert( m_pSprite != NULL );
 
 	Q_strncpy( m_pSprite->name, szSpriteName, sizeof( m_pSprite->name ));
 
