@@ -25,7 +25,9 @@ int R_FatPVS( const vec3_t org, float radius, byte *visbuffer, qboolean merge, q
 
 lightstyle_t *CL_GetLightStyle( int number )
 {
-	Assert( number >= 0 && number < MAX_LIGHTSTYLES );
+	if( number < 0 || number >= MAX_LIGHTSTYLES )
+		return &cl.lightstyles[0]; // do not let DLL to corrupt memory, can't return NULL here
+
 	return &cl.lightstyles[number];
 }
 

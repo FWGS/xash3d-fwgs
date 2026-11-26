@@ -2443,6 +2443,57 @@ static void CL_ClearDlights( void )
 	memset( cl_elights, 0, sizeof( cl_elights ));
 }
 
+static dlight_t *CL_InitLight( dlight_t *dl, int key )
+{
+	memset( dl, 0, sizeof( *dl ));
+	dl->key = key;
+	return dl;
+}
+
+static dlight_t *CL_AllocLight( dlight_t *lights, size_t max_lights, int key )
+{
+	if( key )
+	{
+		for( size_t i = 0; i < max_lights; i++ )
+		{
+			if( lights[i].key == key )
+				return CL_InitLight( &lights[i], key );
+		}
+	}
+
+	for( size_t i = 0; i < max_lights; i++ )
+	{
+		if( lights[i].key == 0 && lights[i].die < cl.time )
+			return CL_InitLight( &lights[i], key );
+	}
+
+	return CL_InitLight( &lights[0], key );
+}
+
+static void CL_DecayLightsArray( dlight_t *lights, size_t max_lights )
+{
+	const float time = cl.time;
+	const float dt = cl.time - cl.oldtime;
+
+	for( size_t i = 0; i < max_lights; i++ )
+	{
+		dlight_t *dl = &lights[i];
+
+		if( !dl->radius )
+			continue;
+
+		if( dl->die < time )
+		{
+			memset( dl, 0, sizeof( *dl ));
+			continue;
+		}
+
+		dl->radius -= dt * dl->decay;
+		if( dl->radius <= 0 )
+			memset( dl, 0, sizeof( *dl ));
+	}
+}
+
 /*
 ===============
 CL_AllocDlight
@@ -2451,41 +2502,7 @@ CL_AllocDlight
 */
 dlight_t *CL_AllocDlight( int key )
 {
-	dlight_t	*dl;
-	int	i;
-
-	// first look for an exact key match
-	if( key )
-	{
-		for( i = 0, dl = cl_dlights; i < MAX_DLIGHTS; i++, dl++ )
-		{
-			if( dl->key == key )
-			{
-				// reuse this light
-				memset( dl, 0, sizeof( *dl ));
-				dl->key = key;
-				return dl;
-			}
-		}
-	}
-
-	// then look for anything else
-	for( i = 0, dl = cl_dlights; i < MAX_DLIGHTS; i++, dl++ )
-	{
-		if( dl->die < cl.time && dl->key == 0 )
-		{
-			memset( dl, 0, sizeof( *dl ));
-			dl->key = key;
-			return dl;
-		}
-	}
-
-	// otherwise grab first dlight
-	dl = &cl_dlights[0];
-	memset( dl, 0, sizeof( *dl ));
-	dl->key = key;
-
-	return dl;
+	return CL_AllocLight( cl_dlights, MAX_DLIGHTS, key );
 }
 
 /*
@@ -2496,41 +2513,7 @@ CL_AllocElight
 */
 dlight_t *CL_AllocElight( int key )
 {
-	dlight_t	*dl;
-	int	i;
-
-	// first look for an exact key match
-	if( key )
-	{
-		for( i = 0, dl = cl_elights; i < MAX_ELIGHTS; i++, dl++ )
-		{
-			if( dl->key == key )
-			{
-				// reuse this light
-				memset( dl, 0, sizeof( *dl ));
-				dl->key = key;
-				return dl;
-			}
-		}
-	}
-
-	// then look for anything else
-	for( i = 0, dl = cl_elights; i < MAX_ELIGHTS; i++, dl++ )
-	{
-		if( dl->die < cl.time && dl->key == 0 )
-		{
-			memset( dl, 0, sizeof( *dl ));
-			dl->key = key;
-			return dl;
-		}
-	}
-
-	// otherwise grab first dlight
-	dl = &cl_elights[0];
-	memset( dl, 0, sizeof( *dl ));
-	dl->key = key;
-
-	return dl;
+	return CL_AllocLight( cl_elights, MAX_ELIGHTS, key );
 }
 
 /*
@@ -2541,55 +2524,23 @@ CL_DecayLights
 */
 void CL_DecayLights( void )
 {
-	const float time = cl.time;
-	const float dt = cl.time - cl.oldtime;
-
-	for( int i = 0; i < MAX_DLIGHTS; i++ )
-	{
-		dlight_t *dl = &cl_dlights[i];
-
-		if( !dl->radius )
-			continue;
-
-		if( dl->die < time )
-		{
-			memset( dl, 0, sizeof( *dl ));
-			continue;
-		}
-
-		dl->radius -= dt * dl->decay;
-		if( dl->radius <= 0 )
-			memset( dl, 0, sizeof( *dl ));
-	}
-
-	for( int i = 0; i < MAX_ELIGHTS; i++ )
-	{
-		dlight_t *dl = &cl_elights[i];
-
-		if( !dl->radius )
-			continue;
-
-		if( dl->die < time )
-		{
-			memset( dl, 0, sizeof( *dl ));
-			continue;
-		}
-
-		dl->radius -= dt * dl->decay;
-		if( dl->radius <= 0 )
-			memset( dl, 0, sizeof( *dl ));
-	}
+	CL_DecayLightsArray( cl_dlights, MAX_DLIGHTS );
+	CL_DecayLightsArray( cl_elights, MAX_ELIGHTS );
 }
 
 dlight_t *CL_GetDynamicLight( int number )
 {
-	Assert( number >= 0 && number < MAX_DLIGHTS );
+	if( number < 0 || number >= MAX_DLIGHTS )
+		return &cl_dlights[0]; // do not let DLL to corrupt memory, can't return NULL here
+
 	return &cl_dlights[number];
 }
 
 dlight_t *CL_GetEntityLight( int number )
 {
-	Assert( number >= 0 && number < MAX_ELIGHTS );
+	if( number < 0 || number >= MAX_ELIGHTS )
+		return &cl_elights[0]; // do not let DLL to corrupt memory, can't return NULL here
+
 	return &cl_elights[number];
 }
 
