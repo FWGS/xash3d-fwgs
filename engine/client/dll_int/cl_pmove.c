@@ -323,7 +323,7 @@ static void CL_CopyEntityToPhysEnt( physent_t *pe, entity_state_t *state, qboole
 	}
 	else
 	{
-		Q_strncpy( pe->name, "entity %i", state->number );
+		Q_snprintf( pe->name, sizeof( pe->name ), "entity %i", state->number );
 	}
 
 	pe->model = pe->studiomodel = NULL;
