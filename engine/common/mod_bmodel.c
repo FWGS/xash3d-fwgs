@@ -1116,7 +1116,8 @@ Mod_PointInLeaf
 */
 mleaf_t *Mod_PointInLeaf( const vec3_t p, mnode_t *node, model_t *mod )
 {
-	Assert( node != NULL );
+	if( !node )
+		return NULL;
 
 	while( 1 )
 	{
@@ -1139,7 +1140,8 @@ NOTE: can return NULL
 */
 byte *Mod_GetPVSForPoint( const vec3_t p )
 {
-	ASSERT( worldmodel != NULL );
+	if( !worldmodel )
+		return NULL;
 
 	mleaf_t	*leaf = Mod_PointInLeaf( p, worldmodel->nodes, worldmodel );
 
@@ -1203,13 +1205,11 @@ within radius pixels of the given point.
 */
 int Mod_FatPVS( const vec3_t org, float radius, byte *visbuffer, int visbytes, qboolean merge, qboolean fullvis, qboolean phs )
 {
-	ASSERT( worldmodel != NULL );
-
-	mleaf_t	*leaf = Mod_PointInLeaf( org, worldmodel->nodes, worldmodel );
+	mleaf_t *leaf = worldmodel ? Mod_PointInLeaf( org, worldmodel->nodes, worldmodel ) : NULL;
 	int	bytes = Q_min( world.visbytes, visbytes );
 
 	// enable full visibility for some reasons
-	if( fullvis || !worldmodel->visdata || !leaf || leaf->cluster < 0 )
+	if( fullvis || !leaf || leaf->cluster < 0 || !worldmodel->visdata )
 	{
 		memset( visbuffer, 0xFF, bytes );
 		return bytes;

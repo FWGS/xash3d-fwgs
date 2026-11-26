@@ -2923,7 +2923,11 @@ pfnPvAllocEntPrivateData
 */
 static void *GAME_EXPORT pfnPvAllocEntPrivateData( edict_t *pEdict, long cb )
 {
-	Assert( pEdict != NULL );
+	if( !pEdict )
+	{
+		Con_Printf( S_ERROR "%s: NULL entity\n", __func__ );
+		return NULL;
+	}
 
 	SV_FreePrivateData( pEdict );
 

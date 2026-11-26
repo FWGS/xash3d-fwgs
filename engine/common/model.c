@@ -584,16 +584,25 @@ void GAME_EXPORT Mod_LoadCacheFile( const char *filename, cache_user_t *cu )
 	char	modname[MAX_QPATH];
 	fs_offset_t	size;
 
-	Assert( cu != NULL );
-
-	if( COM_StringEmptyOrNULL( filename ))
+	if( !cu || COM_StringEmptyOrNULL( filename ))
 		return;
+
+	if( cu->data )
+	{
+		Host_Error( "%s: already allocated\n", __func__ );
+		return;
+	}
 
 	Q_strncpy( modname, filename, sizeof( modname ));
 	COM_FixSlashes( modname );
 
 	byte *buf = FS_LoadFile( modname, &size, false );
-	if( !buf || !size ) Host_Error( "LoadCacheFile: ^1can't load %s^7\n", filename );
+	if( !buf || !size )
+	{
+		Host_Error( "%s: ^1can't load %s^7\n", __func__, filename );
+		return;
+	}
+
 	cu->data = Mem_Malloc( com_studiocache, size );
 	memcpy( cu->data, buf, size );
 	Mem_Free( buf );

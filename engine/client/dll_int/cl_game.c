@@ -3347,7 +3347,8 @@ static void GAME_EXPORT NetAPI_Status( net_status_t *status )
 	qboolean	connected = false;
 	int	packet_loss = 0;
 
-	Assert( status != NULL );
+	if( !status )
+		return;
 
 	if( cls.state > ca_disconnected && cls.state != ca_cinematic )
 		connected = true;

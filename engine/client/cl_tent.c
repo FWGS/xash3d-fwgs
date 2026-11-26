@@ -270,7 +270,8 @@ static void CL_TempEntPlaySound( TEMPENTITY *pTemp, float damp )
 	const char	*soundname = NULL;
 	qboolean	isshellcasing = false;
 
-	Assert( pTemp != NULL );
+	if( !pTemp )
+		return;
 
 	float fvol = 0.8f;
 
@@ -353,9 +354,7 @@ static int CL_TempEntAddEntity( cl_entity_t *pEntity )
 {
 	vec3_t mins, maxs;
 
-	Assert( pEntity != NULL );
-
-	if( !pEntity->model )
+	if( !pEntity || !pEntity->model )
 		return 0;
 
 	VectorAdd( pEntity->origin, pEntity->model->mins, mins );

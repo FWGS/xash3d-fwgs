@@ -136,13 +136,13 @@ int GAME_EXPORT PM_HullPointContents( hull_t *hull, int num, const vec3_t p )
 ==================
 PM_HullForBsp
 
-assume physent is valid
+returns NULL for a physent without a model
 ==================
 */
 hull_t *PM_HullForBsp( physent_t *pe, playermove_t *pmove, float *offset )
 {
-	Assert( pe != NULL );
-	Assert( pe->model != NULL );
+	if( !pe || !pe->model )
+		return NULL;
 
 	hull_t *hull;
 	switch( pmove->usehull )
@@ -739,6 +739,12 @@ float PM_TraceModel( playermove_t *pmove, physent_t *pe, float *start, float *en
 	hull_t *hull = PM_HullForBsp( pe, pmove, offset );
 
 	pmove->usehull = old_usehull;
+
+	if( !hull )
+	{
+		trace->allsolid = false;
+		return trace->fraction;
+	}
 
 	qboolean rotated;
 	if( pe->solid == SOLID_BSP && !VectorIsNull( pe->angles ))

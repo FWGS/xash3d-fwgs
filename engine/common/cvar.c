@@ -499,7 +499,11 @@ void Cvar_RegisterVariable( convar_t *var )
 	cmd_t *cmd;
 	cmdalias_t *alias;
 
-	ASSERT( var != NULL );
+	if( !var )
+	{
+		Con_Printf( S_ERROR "%s: NULL cvar\n", __func__ );
+		return;
+	}
 
 	// first check to see if it has allready been defined
 	BaseCmd_FindAll( var->name, &cmd, &alias, &dup );
