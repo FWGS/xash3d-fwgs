@@ -211,7 +211,7 @@ class Game(val ctx: Context, val basedir: File, val gameInfoFile: File, previous
 					val tokens = it.split("\\s+".toRegex(), limit = 2)
 					if (tokens.size >= 2) {
 						val k = tokens[0]
-						val v = tokens[1].trim('"')
+						val v = tokens[1].trim().removeSurrounding("\"")
 
 						if (k == "title" || k == "game") title = v
 						if (k == "icon") iconName = v
