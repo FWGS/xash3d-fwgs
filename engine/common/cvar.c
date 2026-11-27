@@ -387,7 +387,11 @@ convar_t *Cvar_Get( const char *name, const char *value, uint32_t flags, const c
 	cmd_t *cmd;
 	cmdalias_t *alias;
 
-	ASSERT( name && *name );
+	if( COM_StringEmptyOrNULL( name ))
+	{
+		Con_Printf( S_ERROR "can't register variable with an empty name\n" );
+		return NULL;
+	}
 
 	BaseCmd_FindAll( name, &cmd, &alias, &var );
 
@@ -1354,5 +1358,11 @@ void Test_RunCvar( void )
 	TASSERT( test_unprivileged->value != 0.0f );
 	TASSERT( hud_filtered->value      == 0.0f );
 	TASSERT( filtered2->value         == 0.0f );
+
+	TASSERT( Cvar_Get( "", "0", 0, "empty name" ) == NULL );
+	TASSERT( Cvar_Get( NULL, "0", 0, "no name" ) == NULL );
+	Cbuf_AddText( "set \"\" 1\n" );
+	Cbuf_Execute();
+	TASSERT( Cvar_FindVar( "" ) == NULL );
 }
 #endif

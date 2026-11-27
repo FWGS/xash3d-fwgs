@@ -42,7 +42,7 @@ const char *COM_ResourceTypeFromIndex( int type )
 {
 	switch( type )
 	{
-	case t_sound: return "decal";
+	case t_sound: return "sound";
 	case t_skin: return "skin";
 	case t_model: return "model";
 	case t_decal: return "decal";
@@ -51,6 +51,29 @@ const char *COM_ResourceTypeFromIndex( int type )
 	case t_world: return "map";
 	}
 	return "?";
+}
+
+/*
+=============
+COM_ResourceTypeSupported
+
+types that are valid in a resource received from the network
+=============
+*/
+qboolean COM_ResourceTypeSupported( int type )
+{
+	switch( type )
+	{
+	case t_sound:
+	case t_skin:
+	case t_model:
+	case t_decal:
+	case t_generic:
+	case t_eventscript:
+		return true;
+	default:
+		return false;
+	}
 }
 
 static inline void HPAK_ResourceToCompat( dresource_t *dest, resource_t *src )

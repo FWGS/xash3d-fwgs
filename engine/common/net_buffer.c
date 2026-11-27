@@ -309,7 +309,8 @@ void MSG_WriteUBitLong( sizebuf_t *sb, uint curData, int numbits )
 	int	iCurBit = sb->iCurBit;
 	uint	iDWord = iCurBit >> 5;	// Mask in a dword.
 
-	Assert( numbits >= 1 && numbits <= 32 );
+	if( numbits < 1 || numbits > 32 )
+		return;
 
 	// bounds checking..
 	if( MSG_Overflow( sb, numbits ))
@@ -351,8 +352,8 @@ sign bit comes first
 */
 void MSG_WriteSBitLong( sizebuf_t *sb, int data, int numbits )
 {
-	// do we have a valid # of bits to encode with?
-	Assert( numbits >= 1 && numbits <= 32 );
+	if( numbits < 1 || numbits > 32 )
+		return;
 
 	if( sb->iAlternateSign )
 	{
@@ -570,6 +571,9 @@ int MSG_ReadOneBit( sizebuf_t *sb )
 
 uint MSG_ReadUBitLong( sizebuf_t *sb, int numbits )
 {
+	if( numbits < 1 || numbits > 32 )
+		return 0;
+
 	if( numbits == 8 )
 	{
 		int leftBits = MSG_GetNumBitsLeft( sb );
@@ -583,8 +587,6 @@ uint MSG_ReadUBitLong( sizebuf_t *sb, int numbits )
 		sb->iCurBit = sb->nDataBits;
 		return 0;
 	}
-
-	Assert( numbits > 0 && numbits <= 32 );
 
 	// Read the current dword.
 	int idword1 = sb->iCurBit >> 5;
@@ -670,6 +672,9 @@ float MSG_ReadBitAngle( sizebuf_t *sb, int numbits )
 int MSG_ReadSBitLong( sizebuf_t *sb, int numbits )
 {
 	int r;
+
+	if( numbits < 1 || numbits > 32 )
+		return 0;
 
 	if( sb->iAlternateSign )
 	{
@@ -1093,6 +1098,46 @@ static void Test_Buffer_BitAngle( void )
 		TASSERT_EQi( MSG_ReadUBitLong( &sb, test_data[i].numbits ), test_data[i].result );
 }
 
+static void Test_Buffer_BadBitCount( void )
+{
+	const int bad[] = { -1, 0, 33 };
+	uint32_t storage[2];
+	sizebuf_t sb;
+
+	for( int i = 0; i < ARRAYSIZE( bad ); i++ )
+	{
+		storage[0] = storage[1] = 0xffffffff;
+
+		MSG_StartWriting( &sb, storage, sizeof( storage ), 5, -1 );
+		MSG_WriteUBitLong( &sb, 0, bad[i] );
+		MSG_WriteSBitLong( &sb, -1, bad[i] );
+		TASSERT_EQi( sb.iCurBit, 5 );
+		TASSERT_EQi( sb.bOverflow, false );
+		TASSERT_EQi( storage[0], 0xffffffff );
+		TASSERT_EQi( storage[1], 0xffffffff );
+
+		MSG_StartReading( &sb, storage, sizeof( storage ), 32, -1 );
+		TASSERT_EQi( MSG_ReadUBitLong( &sb, bad[i] ), 0 );
+		TASSERT_EQi( MSG_ReadSBitLong( &sb, bad[i] ), 0 );
+		TASSERT_EQi( sb.iCurBit, 32 );
+		TASSERT_EQi( sb.bOverflow, false );
+	}
+
+	// a signed 1-bit value is only a sign bit
+	storage[0] = storage[1] = 0;
+	MSG_StartWriting( &sb, storage, sizeof( storage ), 31, -1 );
+	MSG_WriteSBitLong( &sb, -1, 1 );
+	MSG_WriteSBitLong( &sb, 0, 1 );
+	TASSERT_EQi( sb.iCurBit, 33 );
+	TASSERT_EQi( storage[0], LittleLong( 0x80000000 ));
+	TASSERT_EQi( storage[1], 0 );
+
+	MSG_SeekToBit( &sb, 31, SEEK_SET );
+	TASSERT_EQi( MSG_ReadSBitLong( &sb, 1 ), -1 );
+	TASSERT_EQi( MSG_ReadSBitLong( &sb, 1 ), 0 );
+	TASSERT_EQi( sb.iCurBit, 33 );
+}
+
 void Test_RunBuffer( void )
 {
 	TRUN( Test_Buffer_BitByte( ));
@@ -1101,6 +1146,7 @@ void Test_RunBuffer( void )
 	TRUN( Test_Buffer_ExciseBits( ));
 	TRUN( Test_Buffer_NegativeBit( ));
 	TRUN( Test_Buffer_BitAngle( ));
+	TRUN( Test_Buffer_BadBitCount( ));
 }
 
 #endif // XASH_ENGINE_TESTS

@@ -701,7 +701,10 @@ void Test_RunImagelib( void )
 		// test saving
 		qboolean ret = FS_SaveImage( name, &rgb );
 		Con_Printf( "Checking if we can save images in '%s' format...\n", extensions[i] );
-		ASSERT(ret == true);
+		TASSERT( ret == true )
+
+		if( !ret )
+			continue;
 
 		// test reading
 		Con_Printf( "Checking if we can read images in '%s' format...\n", extensions[i] );

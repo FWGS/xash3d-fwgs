@@ -501,13 +501,19 @@ model_t *Mod_LoadWorld( const char *name, qboolean preload )
 	// free sequence files on studiomodels
 	Mod_PurgeStudioCache();
 
+	model_t *pworld = Mod_FindName( name, false );
+
+	// FIXME: probably shouldn't be handled as an error
+	if( pworld != mod_known )
+	{
+		Host_Error( "%s: %s is already loaded as a regular model\n", __func__, name );
+		return NULL;
+	}
+
 	// load the newmap
 	world.loading = true;
-	model_t *pworld = Mod_FindName( name, false );
 	if( preload ) Mod_LoadModel( pworld, true );
 	world.loading = false;
-
-	ASSERT( pworld == mod_known );
 
 	return pworld;
 }

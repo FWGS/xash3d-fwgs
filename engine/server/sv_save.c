@@ -816,10 +816,13 @@ static void BuildHashTable( SAVERESTOREDATA *pSaveData, file_t *pFile )
 	// Parse the symbol table
 	if( pSaveData->tokenSize > 0 )
 	{
+		char *pszEnd = pszTokenList + pSaveData->tokenSize;
+
 		FS_Read( pFile, pszTokenList, pSaveData->tokenSize );
+		pszEnd[-1] = '\0';
 
 		// make sure the token strings pointed to by the pToken hashtable.
-		for( int i = 0; i < pSaveData->tokenCount; i++ )
+		for( int i = 0; i < pSaveData->tokenCount && pszTokenList < pszEnd; i++ )
 		{
 			pSaveData->pTokens[i] = *pszTokenList ? pszTokenList : NULL;
 			while( *pszTokenList++ );	// Find next token (after next null)
@@ -829,6 +832,20 @@ static void BuildHashTable( SAVERESTOREDATA *pSaveData, file_t *pFile )
 	// rebase the data pointer
 	pSaveData->pBaseData = pszTokenList;	// pszTokenList now points after token data
 	pSaveData->pCurrentData = pSaveData->pBaseData;
+}
+
+/*
+=============
+SaveSizesValid
+
+=============
+*/
+static qboolean SaveSizesValid( file_t *pFile, int size, int tokenCount, int tokenSize )
+{
+	if( size < 0 || tokenSize < 0 || tokenCount < 1 || tokenCount > SAVE_HASHSTRINGS )
+		return false;
+
+	return (int64_t)size + tokenSize <= FS_FileLength( pFile );
 }
 
 /*
@@ -868,7 +885,11 @@ static int GetClientDataSize( const char *level )
 	FS_Read( pFile, &size, sizeof( int ));
 	FS_Read( pFile, &tokenCount, sizeof( int ));
 	FS_Read( pFile, &tokenSize, sizeof( int ));
+	qboolean valid = SaveSizesValid( pFile, size, tokenCount, tokenSize );
 	FS_Close( pFile );
+
+	if( !valid )
+		return 0;
 
 	return ( size + tokenSize );
 }
@@ -917,6 +938,13 @@ static SAVERESTOREDATA *LoadSaveData( const char *level )
 	FS_Read( pFile, &tableCount, sizeof( int ));	// entities count to right initialize entity table
 	FS_Read( pFile, &tokenCount, sizeof( int ));	// num hash tokens to prepare token table
 	FS_Read( pFile, &tokenSize, sizeof( int ));	// total size of hash tokens
+
+	if( tableCount < 0 || tableCount > size || !SaveSizesValid( pFile, size, tokenCount, tokenSize ))
+	{
+		Con_Printf( S_ERROR "%s: %s is corrupted\n", __func__, name );
+		FS_Close( pFile );
+		return NULL;
+	}
 
 	// determine highest size of seve-restore buffer
 	// because it's used twice: for HL1 and HL2 restore
@@ -1312,8 +1340,12 @@ static void LoadClientState( SAVERESTOREDATA *pSaveData, const char *level, qboo
 	FS_Read( pFile, &tokenCount, sizeof( int ));
 	FS_Read( pFile, &tokenSize, sizeof( int ));
 
-	// sanity check
-	ASSERT( pSaveData->bufferSize >= ( size + tokenSize ));
+	if( !SaveSizesValid( pFile, size, tokenCount, tokenSize ) || tokenCount > pSaveData->tokenCount || (int64_t)size + tokenSize > pSaveData->bufferSize )
+	{
+		Con_Printf( S_ERROR "%s: %s is corrupted\n", __func__, name );
+		FS_Close( pFile );
+		return;
+	}
 
 	// clearing the restore buffer to reuse
 	SaveClear( pSaveData );
@@ -1775,21 +1807,18 @@ static int SaveReadHeader( file_t *pFile, GAME_HEADER *pHeader )
 
 	FS_Read( pFile, &id, sizeof( id ));
 	if( id != SAVEGAME_HEADER )
-	{
-		FS_Close( pFile );
 		return 0;
-	}
 
 	FS_Read( pFile, &version, sizeof( version ));
 	if( version != SAVEGAME_VERSION )
-	{
-		FS_Close( pFile );
 		return 0;
-	}
 
 	FS_Read( pFile, &size, sizeof( int ));
 	FS_Read( pFile, &tokenCount, sizeof( int ));
 	FS_Read( pFile, &tokenSize, sizeof( int ));
+
+	if( !SaveSizesValid( pFile, size, tokenCount, tokenSize ))
+		return 0;
 
 	pSaveData = SaveInit( size + tokenSize, tokenCount );
 	pSaveData->tokenCount = tokenCount;

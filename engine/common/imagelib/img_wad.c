@@ -196,14 +196,18 @@ Image_LoadMDL
 qboolean Image_LoadMDL( const char *name, const byte *buffer, fs_offset_t filesize )
 {
 	mstudiotexture_t *pin = (mstudiotexture_t *)buffer;
+	byte *fin = (byte *)g_mdltexdata;
+
+	g_mdltexdata = NULL;
+
+	if( !fin )
+		return false;
+
 	int flags = pin->flags;
 
 	image.width = pin->width;
 	image.height = pin->height;
 	size_t pixels = image.width * image.height;
-	byte *fin = (byte *)g_mdltexdata;
-	ASSERT(fin);
-	g_mdltexdata = NULL;
 
 	if( !Image_ValidSize( name ))
 		return false;

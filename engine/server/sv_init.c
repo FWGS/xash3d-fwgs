@@ -1034,6 +1034,10 @@ qboolean SV_SpawnServer( const char *mapname, const char *startspot, qboolean ba
 	Q_snprintf( sv.model_precache[WORLD_INDEX], sizeof( sv.model_precache[0] ), "maps/%s.bsp", sv.name );
 	SetBits( sv.model_precache_flags[WORLD_INDEX], RES_FATALIFMISSING );
 	sv.worldmodel = sv.models[WORLD_INDEX] = Mod_LoadWorld( sv.model_precache[WORLD_INDEX], true );
+
+	if( !sv.worldmodel )
+		return false;
+
 	CRC32_MapFile( &sv.worldmapCRC, sv.model_precache[WORLD_INDEX], svs.maxclients > 1 );
 
 	if( FBitSet( host.features, ENGINE_QUAKE_COMPATIBLE ) && FS_FileExists( "progs.dat", false ))

@@ -3506,8 +3506,9 @@ static void SV_ParseResourceList( sv_client_t *cl, sizebuf_t *msg )
 		if( FBitSet( resource->ucFlags, RES_CUSTOM ))
 			MSG_ReadBytes( msg, resource->rgucMD5_hash, sizeof( resource->rgucMD5_hash ), 16 );
 
-		if( resource->type > t_world || resource->nDownloadSize > 1024 * 1024 * 1024 )
+		if( !COM_ResourceTypeSupported( resource->type ) || resource->nDownloadSize > 1024 * 1024 * 1024 )
 		{
+			Mem_Free( resource );
 			SV_ClearResourceList( &cl->resourcesneeded );
 			SV_ClearResourceList( &cl->resourcesonhand );
 			return;

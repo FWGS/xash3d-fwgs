@@ -36,6 +36,7 @@ GNU General Public License for more details.
 #define DT_STRING		BIT( 7 )	// A null terminated string, sent as 8 byte chars
 #define DT_SIGNED		BIT( 8 )	// sign modificator
 #define DT_SIGNED_GS	BIT( 31 ) // GoldSrc-specific sign modificator
+#define DT_NUMERIC ( DT_BYTE|DT_SHORT|DT_FLOAT|DT_INTEGER|DT_ANGLE|DT_TIMEWINDOW_8|DT_TIMEWINDOW_BIG ) // sent with the field's bit count
 
 // helper macroses
 #define UCMD_DEF_( name, x )	#name, offsetof( usercmd_t, x ), sizeof( ((usercmd_t *)0)->x )
@@ -538,6 +539,21 @@ static qboolean Delta_AddField( delta_info_t *dt, const char *pName, int flags, 
 	delta_t *pField;
 	int i;
 
+	if( FBitSet( flags, DT_NUMERIC ))
+	{
+		if( bits < 1 || bits > 32 )
+		{
+			Con_Printf( S_ERROR "%s: %s->%s has invalid bit count %d, ignored\n", __func__, dt->pName, pName, bits );
+			return false;
+		}
+
+		if( mul == 0.0f )
+		{
+			Con_Printf( S_WARN "%s: %s->%s has zero multiplier, using 1.0\n", __func__, dt->pName, pName );
+			mul = 1.0f;
+		}
+	}
+
 	// check for coexisting field
 	for( i = 0, pField = dt->pFields; i < dt->numFields && pField; i++, pField++ )
 	{
@@ -798,26 +814,19 @@ static void Delta_ParseTable( char **delta_script, delta_info_t *dt, const char 
 {
 	string token;
 
-	// allocate the delta-structures
-	if( !dt->pFields ) dt->pFields = (delta_t *)Z_Calloc( dt->maxFields * sizeof( delta_t ));
-
-	delta_t *pField = dt->pFields;
 	dt->numFields = 0;
 
 	// assume we have handled '{'
 	while(( *delta_script = COM_ParseFile( *delta_script, token, sizeof( token ))) != NULL )
 	{
-		Assert( dt->numFields <= dt->maxFields );
+		qboolean bPost = !Q_strcmp( token, "DEFINE_DELTA_POST" );
 
-		if( !Q_strcmp( token, "DEFINE_DELTA" ))
+		if( bPost || !Q_strcmp( token, "DEFINE_DELTA" ))
 		{
-			if( Delta_ParseField( delta_script, dt, &pField[dt->numFields], false ))
-				dt->numFields++;
-		}
-		else if( !Q_strcmp( token, "DEFINE_DELTA_POST" ))
-		{
-			if( Delta_ParseField( delta_script, dt, &pField[dt->numFields], true ))
-				dt->numFields++;
+			delta_t field;
+
+			if( Delta_ParseField( delta_script, dt, &field, bPost ))
+				Delta_AddField( dt, field.name, field.flags, field.bits, field.multiplier, field.post_multiplier );
 		}
 		else if( token[0] == '}' )
 		{
@@ -835,12 +844,6 @@ static void Delta_ParseTable( char **delta_script, delta_info_t *dt, const char 
 		dt->customEncode = CUSTOM_SERVER_ENCODE;
 	else if( !Q_stricmp( encodeDll, "clientdll" ))
 		dt->customEncode = CUSTOM_CLIENT_ENCODE;
-
-	// adjust to fit memory size
-	if( dt->numFields < dt->maxFields )
-	{
-		dt->pFields = Z_Realloc( dt->pFields, dt->numFields * sizeof( delta_t ));
-	}
 
 	dt->bInitialized = true; // table is ok
 }
@@ -1400,8 +1403,6 @@ static void Delta_ReadField_( sizebuf_t *msg, delta_t *pField, void *to, double 
 	uint		iValue;
 	const char	*pStr;
 	char		*pOut;
-
-	Assert( pField->multiplier != 0.0f );
 
 	if( pField->flags & DT_BYTE )
 	{
@@ -2065,7 +2066,12 @@ void Delta_ParseTableField_GS( sizebuf_t *msg )
 			ClearBits( to.fieldType, DT_SIGNED_GS );
 			SetBits( to.fieldType, DT_SIGNED );
 		}
-		Delta_AddField( dt, to.fieldName, to.fieldType, to.significant_bits, to.premultiply, to.postmultiply );
+
+		if( !Delta_AddField( dt, to.fieldName, to.fieldType, to.significant_bits, to.premultiply, to.postmultiply ))
+		{
+			Host_Error( "%s: can't add %s->%s, the server has sent broken delta tables description\n", __func__, dt->pName, to.fieldName );
+			break;
+		}
 	}
 
 	MSG_EndBitWriting( msg );
@@ -2290,5 +2296,46 @@ void Test_RunDelta( void )
 	Con_Printf( "to.dt_byte_signed   = %i\n", to.dt_byte_signed );
 	Con_Printf( "from.dt_byte_unsigned = %i\n", from.dt_byte_unsigned );
 	Con_Printf( "to.dt_byte_unsigned   = %i\n", to.dt_byte_unsigned );
+
+	// invalid fields must not get into the table
+	int idx = Delta_FindField( dt->pFields, "dt_integer_unsigned" );
+	int numFields = dt->numFields;
+
+	TASSERT( !Delta_AddField( dt, "dt_integer_unsigned", DT_INTEGER, 0, 1.0f, 1.0f ));
+	TASSERT( !Delta_AddField( dt, "dt_integer_unsigned", DT_INTEGER, 33, 1.0f, 1.0f ));
+	TASSERT_EQi( dt->pFields[idx].bits, 24 );
+	TASSERT( Delta_AddField( dt, "dt_integer_unsigned", DT_INTEGER, 16, 0.0f, 1.0f ));
+	TASSERT_EQi( dt->pFields[idx].bits, 16 );
+	TASSERT( dt->pFields[idx].multiplier == 1.0f );
+	TASSERT( Delta_AddField( dt, "dt_string", DT_STRING, 0, 0.0f, 1.0f ));
+	TASSERT_EQi( dt->numFields, numFields );
+
+	// more definitions than the struct has fields
+	char script[4096] = "";
+
+	for( int i = 0; i < dt->maxFields * 3; i++ )
+		Q_snprintf( script + Q_strlen( script ), sizeof( script ) - Q_strlen( script ), "DEFINE_DELTA( %s, DT_INTEGER, %d, 1.0 ),\n", test_fields[i % dt->maxFields].name, 1 + i % 32 );
+	Q_strncat( script, "}\n", sizeof( script ));
+
+	// section is parsed twice, like a struct defined twice in delta.lst
+	for( int i = 0; i < 2; i++ )
+	{
+		char *pscript = script;
+
+		Delta_ParseTable( &pscript, dt, "none", "null" );
+		TASSERT_EQi( dt->numFields, dt->maxFields );
+		TASSERT_EQi( dt->pFields[0].bits, 1 + ( dt->maxFields * 2 ) % 32 );
+	}
+
+	char script2[] = "DEFINE_DELTA( dt_angle, DT_ANGLE, 16, 1.0 ), DEFINE_DELTA( dt_byte_unsigned, DT_BYTE, 40, 1.0 ), DEFINE_DELTA_POST( dt_float_signed, DT_FLOAT | DT_SIGNED, 16, 0.0, 2.0 ), DEFINE_DELTA( dt_angle, DT_ANGLE, 12, 1.0 ) }";
+	char *pscript2 = script2;
+
+	Delta_ParseTable( &pscript2, dt, "none", "null" );
+	TASSERT_EQi( dt->numFields, 2 );
+	TASSERT_STR( dt->pFields[0].name, "dt_angle" );
+	TASSERT_EQi( dt->pFields[0].bits, 12 );
+	TASSERT_STR( dt->pFields[1].name, "dt_float_signed" );
+	TASSERT( dt->pFields[1].multiplier == 1.0f );
+	TASSERT( dt->pFields[1].post_multiplier == 2.0f );
 }
 #endif // XASH_ENGINE_TESTS

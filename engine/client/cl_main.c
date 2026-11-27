@@ -3467,6 +3467,10 @@ qboolean CL_PrecacheResources( void )
 			continue;
 
 		cl.models[pRes->nIndex] = Mod_LoadWorld( pRes->szFileName, true );
+
+		if( !cl.models[pRes->nIndex] )
+			return false;
+
 		SetBits( pRes->ucFlags, RES_PRECACHED );
 		cl.nummodels = 1;
 		break;

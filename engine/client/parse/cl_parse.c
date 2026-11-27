@@ -459,8 +459,7 @@ void CL_BatchResourceRequest( qboolean initialize )
 				break;
 			CL_MoveToOnHandList( p );
 			break;
-		case t_world:
-			ASSERT( 0 );
+		default:
 			break;
 		}
 	}
@@ -511,8 +510,7 @@ int CL_EstimateNeededResources( void )
 				nTotalSize += p->nDownloadSize;
 			}
 			break;
-		case t_world:
-			ASSERT( 0 );
+		default:
 			break;
 		}
 	}
@@ -590,6 +588,18 @@ static void CL_RemoveCustomization( int nPlayerNum, customization_t *pRemove )
 	}
 }
 
+static qboolean CL_CheckResourceType( resource_t *pResource )
+{
+	int type = pResource->type;
+
+	if( COM_ResourceTypeSupported( type ))
+		return true;
+
+	Mem_Free( pResource );
+	Host_Error( "unsupported resource type %d\n", type );
+	return false;
+}
+
 /*
 ==================
 CL_ParseCustomization
@@ -614,6 +624,9 @@ static void CL_ParseCustomization( sizebuf_t *msg )
 	if( FBitSet( pRes->ucFlags, RES_CUSTOM ))
 		MSG_ReadBytes( msg, pRes->rgucMD5_hash, sizeof( pRes->rgucMD5_hash ), 16 );
 	pRes->playernum = i;
+
+	if( !CL_CheckResourceType( pRes ))
+		return;
 
 	if( !cl_allow_download.value )
 	{
@@ -1431,6 +1444,9 @@ void CL_ParseResource( sizebuf_t *msg )
 	if( MSG_ReadOneBit( msg ))
 		MSG_ReadBytes( msg, pResource->rguc_reserved, sizeof( pResource->rguc_reserved ), sizeof( pResource->rguc_reserved ));
 
+	if( !CL_CheckResourceType( pResource ))
+		return;
+
 	if( pResource->type == t_sound && pResource->nIndex >= MAX_SOUNDS )
 	{
 		Mem_Free( pResource );
@@ -1685,7 +1701,12 @@ void CL_RegisterResources( sizebuf_t *msg, connprotocol_t proto )
 
 	if( cl.worldmodel && cl.maxclients > 0 )
 	{
-		ASSERT( clgame.entities != NULL );
+		if( !clgame.entities )
+		{
+			Host_Error( "%s: client entities are not initialized\n", __func__ );
+			return;
+		}
+
 		clgame.entities->model = cl.worldmodel;
 
 		if( !cl.video_prepped && !cl.audio_prepped )
@@ -1845,6 +1866,9 @@ void CL_ParseResourceList( sizebuf_t *msg, connprotocol_t proto )
 
 		if( MSG_ReadOneBit( msg ))
 			MSG_ReadBytes( msg, pResource->rguc_reserved, sizeof( pResource->rguc_reserved ), sizeof( pResource->rguc_reserved ));
+
+		if( !CL_CheckResourceType( pResource ))
+			return;
 
 		CL_AddToResourceList( pResource, &cl.resourcesneeded );
 	}
