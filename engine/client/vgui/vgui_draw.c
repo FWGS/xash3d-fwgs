@@ -259,7 +259,8 @@ static void GAME_EXPORT *VGUI_EngineMalloc( size_t size )
 
 static qboolean GAME_EXPORT VGUI_IsInGame( void )
 {
-	return cls.state == ca_active && cls.key_dest == key_game;
+	// VGUI is drawn under the chat like in GoldSrc
+	return cls.state == ca_active && ( cls.key_dest == key_game || cls.key_dest == key_message );
 }
 
 static void GAME_EXPORT VGUI_GetMousePos( int *_x, int *_y )
