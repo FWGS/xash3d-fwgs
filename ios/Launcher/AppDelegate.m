@@ -39,24 +39,26 @@ NSString *libraryDirectory;
 	
 	libraryDirectory = NSSearchPathForDirectoriesInDomains(NSLibraryDirectory, NSUserDomainMask, YES)[0];
 	
-	self.window = [[UIWindow alloc] initWithFrame:UIScreen.mainScreen.bounds];
-	self.gamesController = [[GamesViewController alloc] init];
-	self.settingsController = [[SettingsViewController alloc] init];
-	self.gamesNavController = [[UINavigationController alloc] initWithRootViewController:self.gamesController];
-	self.settingsNavController = [[UINavigationController alloc] initWithRootViewController:self.settingsController];
+	if (!@available(iOS 13, *)) {
+		self.window = [[UIWindow alloc] initWithFrame:UIScreen.mainScreen.bounds];
+		self.gamesController = [[GamesViewController alloc] init];
+		self.settingsController = [[SettingsViewController alloc] init];
+		self.gamesNavController = [[UINavigationController alloc] initWithRootViewController:self.gamesController];
+		self.settingsNavController = [[UINavigationController alloc] initWithRootViewController:self.settingsController];
+			
+		self.gamesController.tabBarItem = [[UITabBarItem alloc] initWithTitle:@"Games" image:[UIImage imageNamed:@"gamecontroller.fill"] tag:0];
 		
-	self.gamesController.tabBarItem = [[UITabBarItem alloc] initWithTitle:@"Games" image:[UIImage imageNamed:@"gamecontroller.fill"] tag:0];
-	
-	self.settingsController.tabBarItem = [[UITabBarItem alloc] initWithTitle:@"Settings" image:[UIImage imageNamed:@"gear"] tag:1];
-	
-	self.tabNavController = [[UITabBarController alloc] init];
-	if (@available(iOS 18.0, *)) {
-		self.tabNavController.traitOverrides.horizontalSizeClass = UIUserInterfaceSizeClassCompact;
+		self.settingsController.tabBarItem = [[UITabBarItem alloc] initWithTitle:@"Settings" image:[UIImage imageNamed:@"gear"] tag:1];
+		
+		self.tabNavController = [[UITabBarController alloc] init];
+		if (@available(iOS 18.0, *)) {
+			self.tabNavController.traitOverrides.horizontalSizeClass = UIUserInterfaceSizeClassCompact;
+		}
+		[self.tabNavController setViewControllers:@[self.gamesNavController, self.settingsNavController] animated:YES];
+		
+		self.window.rootViewController = self.tabNavController;
+		[self.window makeKeyAndVisible];
 	}
-	[self.tabNavController setViewControllers:@[self.gamesNavController, self.settingsNavController] animated:YES];
-	
-	self.window.rootViewController = self.tabNavController;
-	[self.window makeKeyAndVisible];
 	
 	if (@available(iOS 14, *))
 	{
@@ -130,7 +132,6 @@ int (*Host_main)(int, char **, const char *, int, const char*);
 }
 
 
-#if 0
 #pragma mark - UISceneSession lifecycle
 
 
@@ -147,5 +148,4 @@ int (*Host_main)(int, char **, const char *, int, const char*);
 	// Use this method to release any resources that were specific to the discarded scenes, as they will not return.
 }
 
-#endif
 @end

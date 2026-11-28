@@ -34,7 +34,12 @@ BOOL showingAlert = NO;
 	}
 	
 	UIViewController *vc = [[UIViewController alloc] init];
-	UIWindow *alertWindow = [[UIWindow alloc] initWithFrame:UIScreen.mainScreen.bounds];
+	UIWindow *alertWindow;
+	if (@available(iOS 13, *)) {
+		alertWindow = [[UIWindow alloc] initWithWindowScene:UIApplication.sharedApplication.keyWindow.windowScene];
+	} else {
+		alertWindow = [[UIWindow alloc] initWithFrame:UIScreen.mainScreen.bounds];
+	}
 	alertWindow.windowLevel = UIWindowLevelAlert + 1.0f;
 	alertWindow.rootViewController = vc;
 	[alertWindow makeKeyAndVisible];
@@ -52,7 +57,7 @@ BOOL showingAlert = NO;
 	showingAlert = YES;
 }
 
-+(void)displayNextAlert {
++ (void)displayNextAlert {
 	NSString *message;
 	
 	if (alertQueue.count <= 0)
