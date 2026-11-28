@@ -3211,19 +3211,37 @@ use -str64dup to disable deduplication, -str64alloc to set array size
 string_t GAME_EXPORT SV_AllocString( const char *szValue )
 {
 	uint len = SV_ProcessString( NULL, szValue );
-	char *processed_string = Mem_Calloc( svgame.stringspool, len );
+#if XASH_64BIT
+	char stackbuf[256];
+#endif
+	qboolean from_stack = false;
+	char *processed_string;
 	char *dupe_string = NULL;
 	qboolean found_dupe = false;
 
 	(void)dupe_string;
 	(void)found_dupe;
 
+	// short strings are copied into the 64-bit string array anyway,
+	// so there is no reason to allocate a temporary for them
+#if XASH_64BIT
+	if( len <= sizeof( stackbuf ))
+	{
+		processed_string = stackbuf;
+		from_stack = true;
+	}
+	else
+#endif
+	{
+		processed_string = Mem_Calloc( svgame.stringspool, len );
+	}
+
 	SV_ProcessString( processed_string, szValue );
 
 	if( svgame.physFuncs.pfnAllocString != NULL )
 	{
 		string_t i = svgame.physFuncs.pfnAllocString( processed_string );
-		Mem_Free( processed_string );
+		if( !from_stack ) Mem_Free( processed_string );
 		return i;
 	}
 
@@ -3265,7 +3283,7 @@ string_t GAME_EXPORT SV_AllocString( const char *szValue )
 	if( dupe_string - str64.pstringarray > str64.maxalloc )
 		str64.maxalloc = dupe_string - str64.pstringarray;
 
-	Mem_Free( processed_string );
+	if( !from_stack ) Mem_Free( processed_string );
 
 	return dupe_string - svgame.globals->pStringBase;
 #else // !XASH_64BIT
@@ -4653,26 +4671,7 @@ static int GAME_EXPORT pfnGetTimesTutorMessageShown( int mid )
 
 static void GAME_EXPORT pfnGetGameDir( char *out )
 {
-	char rootdir[MAX_SYSPATH];
-
-	if( !out )
-		return;
-
-	if( !FBitSet( host.bugcomp, BUGCOMP_GET_GAME_DIR_FULL_PATH ))
-	{
-		Q_strncpy( out, GI->gamefolder, 256 );
-	}
-	else
-	{
-		// in GoldSrc pre-1.1.1.1, it's a full path to game directory, limited by 256 characters
-		// however the full path might easily overflow that limitation
-		// here we check if it would overflow and just return game folder in that case
-		if( !g_fsapi.GetRootDirectory( rootdir, sizeof( rootdir ))
-			|| Q_snprintf( out, 256, "%s/%s", rootdir, GI->gamefolder ) < 0 )
-		{
-			Q_strncpy( out, GI->gamefolder, 256 );
-		}
-	}
+	COM_GetGameDirForLegacy( out, 256 );
 }
 
 static cvar_t* GAME_EXPORT SV_CvarGetPointer( const char *szVarName )
@@ -4938,20 +4937,22 @@ static qboolean SV_ParseEdict( char **pfile, edict_t *ent )
 		for( len = Q_strlen( keyname ); len > 0 && keyname[len - 1] == ' '; len-- )
 			keyname[len - 1] = '\0';
 
-		// create keyvalue strings
-		pkvd[numpairs].szClassName = (char*)""; // unknown at this moment
-		pkvd[numpairs].szKeyName = copystring( keyname );
-		pkvd[numpairs].szValue = copystring( value );
-		pkvd[numpairs].fHandled = false;
-		numpairs++;
-
-		if( numpairs > ARRAYSIZE( pkvd ))
+		// check before writing: numpairs may already be equal to ARRAYSIZE( pkvd ),
+		// and the old post-increment check allowed a write past the end of the array
+		if( numpairs == ARRAYSIZE( pkvd ))
 		{
 			if( classname )
 				Con_Printf( S_ERROR "%s: too many keyvalue pairs for %s!\n", __func__, classname );
 			else Con_Printf( S_ERROR "%s: too many keyvalue pairs!\n", __func__ );
 			break;
 		}
+
+		// create keyvalue strings
+		pkvd[numpairs].szClassName = (char*)""; // unknown at this moment
+		pkvd[numpairs].szKeyName = copystring( keyname );
+		pkvd[numpairs].szValue = copystring( value );
+		pkvd[numpairs].fHandled = false;
+		numpairs++;
 	}
 
 	if( classname == NULL )

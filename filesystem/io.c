@@ -37,6 +37,12 @@ GNU General Public License for more details.
 #include "filesystem_internal.h"
 #include "common/com_strings.h"
 
+// MSVC did not provide va_copy for a long time, and a plain assignment
+// is a valid copy of its char*-based va_list
+#ifndef va_copy
+#define va_copy( dst, src )	((dst) = (src))
+#endif
+
 #define FILE_COPY_SIZE		(1024 * 1024)
 
 static void FS_Purge( file_t *file )
@@ -129,11 +135,10 @@ int FS_Close( file_t *file )
 
 	FS_BackupFileName( file, NULL, 0 );
 
+	int close_result = 0;
+
 	if( file->handle >= 0 )
-	{
-		if( close( file->handle ))
-			return EOF;
-	}
+		close_result = close( file->handle );
 
 	if( file->ztk )
 	{
@@ -142,7 +147,7 @@ int FS_Close( file_t *file )
 	}
 
 	Mem_Free( file );
-	return 0;
+	return close_result ? EOF : 0;
 }
 
 /*
@@ -423,8 +428,14 @@ int FS_VPrintf( file_t *file, const char *format, va_list ap )
 
 	while( 1 )
 	{
+		va_list ap2;
+
 		tempbuff = (char *)Mem_Malloc( fs_mempool, buff_size );
-		len = Q_vsnprintf( tempbuff, buff_size, format, ap );
+
+		// Q_vsnprintf consumes its va_list, so a fresh copy is needed on every retry
+		va_copy( ap2, ap );
+		len = Q_vsnprintf( tempbuff, buff_size, format, ap2 );
+		va_end( ap2 );
 
 		if( len >= 0 && len < buff_size )
 			break;

@@ -825,6 +825,73 @@ char *_copystring( poolhandle_t mempool, const char *s, const char *filename, in
 }
 
 /*
+=====================
+COM_GetGameAppID
+
+maps the current game directory to a GoldSrc AppID.
+Shared by the server status line and the client pfnGetAppID export.
+=====================
+*/
+int COM_GetGameAppID( void )
+{
+	static const struct
+	{
+		int appid;
+		const char *gamedir;
+	} map[] =
+	{
+		{ 10,  "cstrike" },
+		{ 20,  "tfc" },
+		{ 30,  "dod" },
+		{ 40,  "dmc" },
+		{ 50,  "gearbox" },
+		{ 60,  "ricochet" },
+		{ 70,  "valve" },
+		{ 80,  "czero" },
+		{ 100, "czeror" },
+		{ 130, "bshift" },
+		{ 150, "cstrike_beta" },
+	};
+	const char *gamedir = GI ? GI->gamefolder : "valve";
+
+	for( int i = 0; i < ARRAYSIZE( map ); i++ )
+	{
+		if( !Q_stricmp( map[i].gamedir, gamedir ))
+			return map[i].appid;
+	}
+
+	return 70;
+}
+
+/*
+=====================
+COM_GetGameDirForLegacy
+
+GetGameDir implementation shared by the server, client and menu libraries.
+The 'get_game_dir_full' bugcomp flag has to affect all of them.
+=====================
+*/
+void COM_GetGameDirForLegacy( char *out, size_t size )
+{
+	char rootdir[MAX_SYSPATH];
+
+	if( !out || !size )
+		return;
+
+	if( !FBitSet( host.bugcomp, BUGCOMP_GET_GAME_DIR_FULL_PATH ))
+	{
+		Q_strncpy( out, GI->gamefolder, size );
+		return;
+	}
+
+	// in GoldSrc pre-1.1.1.1 it's a full path limited by 256 characters,
+	// but the full path might not fit, so fall back to the game folder
+	if( !g_fsapi.GetRootDirectory( rootdir, sizeof( rootdir ))
+		|| Q_snprintf( out, size, "%s/%s", rootdir, GI->gamefolder ) < 0 )
+		Q_strncpy( out, GI->gamefolder, size );
+}
+
+/*
 ======================
 
 COMMON EXPORT STUBS

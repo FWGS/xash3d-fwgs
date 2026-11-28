@@ -1332,26 +1332,24 @@ Mod_FindModelOrigin
 routine to detect bmodels with origin-brush
 =================
 */
-static void Mod_FindModelOrigin( const char *entities, const char *modelname, vec3_t origin )
+static void Mod_ParseSubmodelOrigins( const char *entities, int numsubmodels, vec3_t *origins, qboolean *found )
 {
-	if( !entities || COM_StringEmptyOrNULL( modelname ))
-		return;
-
-	if( !origin || !VectorIsNull( origin ))
-		return;
-
 	char	*pfile = (char *)entities;
 	string	keyname;
 	char	token[2048];
-	qboolean	model_found;
-	qboolean	origin_found;
+	vec3_t	origin;
 
+	if( !entities || numsubmodels <= 1 || !origins || !found )
+		return;
+
+	// parse the entity string once instead of re-parsing it for every submodel
 	while(( pfile = COM_ParseFile( pfile, token, sizeof( token ))) != NULL )
 	{
+		int modelnum = -1;
+
 		if( token[0] != '{' )
 			Host_Error( "%s: found %s when expecting {\n", __func__, token );
 
-		model_found = origin_found = false;
 		VectorClear( origin );
 
 		while( 1 )
@@ -1370,17 +1368,28 @@ static void Mod_FindModelOrigin( const char *entities, const char *modelname, ve
 			if( token[0] == '}' )
 				Host_Error( "%s: closing brace without data\n", __func__ );
 
-			if( !Q_stricmp( keyname, "model" ) && !Q_stricmp( modelname, token ))
-				model_found = true;
+			if( !Q_stricmp( keyname, "model" ) && token[0] == '*' )
+			{
+				char temp[16];
+				int num = Q_atoi( token + 1 );
 
-			if( !Q_stricmp( keyname, "origin" ))
+				// keep the exact "*N" matching of the old per-submodel parser
+				Q_snprintf( temp, sizeof( temp ), "*%i", num );
+				if( !Q_stricmp( temp, token ))
+					modelnum = num;
+			}
+			else if( !Q_stricmp( keyname, "origin" ))
 			{
 				Q_atov( origin, token, 3 );
-				origin_found = true;
 			}
 		}
 
-		if( model_found ) break;
+		// first entity using a submodel wins, just like the old parser
+		if( modelnum > 0 && modelnum < numsubmodels && !found[modelnum] )
+		{
+			VectorCopy( origin, origins[modelnum] );
+			found[modelnum] = true;
+		}
 	}
 }
 
@@ -2146,8 +2155,20 @@ static void Mod_SetupSubmodels( model_t *mod, dbspmodel_t *bmod )
 	const qboolean qbsp2 = FBitSet( mod->flags, MODEL_QBSP2 ) ? true : false;
 	const char *name = mod->name;
 	model_t *world = mod; // submodels might want to share hulls
+	vec3_t *submodel_origins = NULL;
+	qboolean *submodel_origin_found = NULL;
 
 	mod->numframes = 2;	// regular and alternate animation
+
+	// collect origins of all origin-brush submodels in a single pass
+	if( mod->numsubmodels > 1 && world->entities )
+	{
+		submodel_origins = Mem_Calloc( mod->mempool, mod->numsubmodels * sizeof( vec3_t ));
+		submodel_origin_found = Mem_Calloc( mod->mempool, mod->numsubmodels * sizeof( qboolean ));
+
+		if( submodel_origins && submodel_origin_found )
+			Mod_ParseSubmodelOrigins( world->entities, mod->numsubmodels, submodel_origins, submodel_origin_found );
+	}
 
 	// set up the submodels
 	for( int i = 0; i < mod->numsubmodels; i++ )
@@ -2184,10 +2205,8 @@ static void Mod_SetupSubmodels( model_t *mod, dbspmodel_t *bmod )
 
 		if( i != 0 )
 		{
-			char temp[MAX_VA_STRING];
-
-			Q_snprintf( temp, sizeof( temp ), "*%i", i );
-			Mod_FindModelOrigin( world->entities, temp, bm->origin );
+			if( submodel_origin_found && submodel_origin_found[i] && VectorIsNull( bm->origin ))
+				VectorCopy( submodel_origins[i], bm->origin );
 
 			// mark models that have origin brushes
 			if( !VectorIsNull( bm->origin ))
@@ -2227,6 +2246,9 @@ static void Mod_SetupSubmodels( model_t *mod, dbspmodel_t *bmod )
 			mod = submod;
 		}
 	}
+
+	if( submodel_origins ) Mem_Free( submodel_origins );
+	if( submodel_origin_found ) Mem_Free( submodel_origin_found );
 
 	if( bmod->clipnodes_out != NULL )
 		Mem_Free( bmod->clipnodes_out );

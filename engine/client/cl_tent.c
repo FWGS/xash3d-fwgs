@@ -2454,6 +2454,18 @@ dlight_t *CL_AllocDlight( int key )
 	dlight_t	*dl;
 	int	i;
 
+	// lights with the same key are recreated every frame, so try the
+	// slot used by the previous allocation before scanning the whole array
+	static int last_key, last_slot;
+
+	if( key && last_key == key && cl_dlights[last_slot].key == key )
+	{
+		dl = &cl_dlights[last_slot];
+		memset( dl, 0, sizeof( *dl ));
+		dl->key = key;
+		return dl;
+	}
+
 	// first look for an exact key match
 	if( key )
 	{
@@ -2464,6 +2476,8 @@ dlight_t *CL_AllocDlight( int key )
 				// reuse this light
 				memset( dl, 0, sizeof( *dl ));
 				dl->key = key;
+				last_key = key;
+				last_slot = i;
 				return dl;
 			}
 		}
@@ -2476,6 +2490,8 @@ dlight_t *CL_AllocDlight( int key )
 		{
 			memset( dl, 0, sizeof( *dl ));
 			dl->key = key;
+			last_key = key;
+			last_slot = i;
 			return dl;
 		}
 	}
@@ -2484,6 +2500,8 @@ dlight_t *CL_AllocDlight( int key )
 	dl = &cl_dlights[0];
 	memset( dl, 0, sizeof( *dl ));
 	dl->key = key;
+	last_key = key;
+	last_slot = 0;
 
 	return dl;
 }

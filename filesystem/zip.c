@@ -507,6 +507,7 @@ static byte *FS_LoadZIPFile( searchpath_t *search, const char *path, int pack_in
 		if( c != file->size )
 		{
 			Con_Reportf( S_ERROR "%s: %s size doesn't match\n", __func__, file->name );
+			pfnFree( decompressed_buffer );
 			return NULL;
 		}
 
@@ -538,6 +539,8 @@ static byte *FS_LoadZIPFile( searchpath_t *search, const char *path, int pack_in
 		if( c != file->compressed_size )
 		{
 			Con_Reportf( S_ERROR "%s: %s compressed size doesn't match\n", __func__, file->name );
+			Mem_Free( compressed_buffer );
+			pfnFree( decompressed_buffer );
 			return NULL;
 		}
 
@@ -558,7 +561,7 @@ static byte *FS_LoadZIPFile( searchpath_t *search, const char *path, int pack_in
 		{
 			Con_Printf( S_ERROR "%s: inflateInit2 failed\n", __func__ );
 			Mem_Free( compressed_buffer );
-			Mem_Free( decompressed_buffer );
+			pfnFree( decompressed_buffer );
 			return NULL;
 		}
 

@@ -225,7 +225,19 @@ static file_t *FS_OpenFile_AndroidAssets( searchpath_t *search, const char *file
 	file_t *file = Mem_Calloc( fs_mempool, sizeof( *file ));
 	AAsset *assets = AAssetManager_open( search->assets->asset_manager, filename, AASSET_MODE_RANDOM );
 
+	if( !assets )
+	{
+		Mem_Free( file );
+		return NULL;
+	}
+
 	file->handle = AAsset_openFileDescriptor( assets, &file->offset, &file->real_length );
+	if( file->handle < 0 )
+	{
+		AAsset_close( assets );
+		Mem_Free( file );
+		return NULL;
+	}
 
 	file->position = 0;
 	file->ungetc = EOF;

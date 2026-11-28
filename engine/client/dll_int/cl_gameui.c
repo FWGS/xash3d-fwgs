@@ -1138,10 +1138,7 @@ static void GAME_EXPORT pfnSetCursor( void *hCursor )
 
 static void GAME_EXPORT pfnGetGameDir( char *out )
 {
-	if( !out )
-		return;
-
-	Q_strncpy( out, GI->gamefolder, sizeof( GI->gamefolder ));
+	COM_GetGameDirForLegacy( out, sizeof( GI->gamefolder ));
 }
 
 // engine callbacks

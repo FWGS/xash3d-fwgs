@@ -631,33 +631,7 @@ used by the status/stat version line
 */
 static int SV_GetGameAppID( void )
 {
-	static const struct
-	{
-		int appid;
-		const char *gamedir;
-	} map[] =
-	{
-		{ 10,  "cstrike" },
-		{ 20,  "tfc" },
-		{ 30,  "dod" },
-		{ 40,  "dmc" },
-		{ 50,  "gearbox" },
-		{ 60,  "ricochet" },
-		{ 70,  "valve" },
-		{ 80,  "czero" },
-		{ 100, "czeror" },
-		{ 130, "bshift" },
-		{ 150, "cstrike_beta" },
-	};
-	const char *gamedir = GI ? GI->gamefolder : "valve";
-
-	for( int i = 0; i < ARRAYSIZE( map ); i++ )
-	{
-		if( !Q_stricmp( map[i].gamedir, gamedir ))
-			return map[i].appid;
-	}
-
-	return 70;
+	return COM_GetGameAppID();
 }
 
 /*
